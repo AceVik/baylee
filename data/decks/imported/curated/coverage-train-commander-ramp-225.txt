@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WU #20266226]
-1 Abandoned Campground
-1 Adarkar Wastes
-1 Anodet Lurker
-1 Armageddon Clock
-1 Astral Cornucopia
-1 Astrolabe
-1 Bastion Mastodon
-1 Bladed Sentinel
-1 Borne Upon a Wind
-1 Calciform Pools
-1 Cloudcrest Lake
-1 Commander's Sphere
-1 Cumber Stone
-1 Deserted Beach
-1 Diabolic Machine
-1 Diversion Unit
-1 Escaped Experiment
-1 Exocomp
-1 Expedition Map
-1 Eye of Malcator
-1 Filigree Sages
-1 Fortified Beachhead
-1 Glacial Floodplain
-1 Gleaming Bastion
-1 Glint Hawk Idol
-1 Hallowed Fountain
-1 Hedron Archive
-1 Hedron Crawler
-1 Iron Star
-15 Island
-1 Jhovall Queen
-1 Journeyer's Kite
-1 Juju Bubble
-1 Land Cap
-1 Leonin Abunas
-1 Magma Mine
-1 Mana Cylix
-1 Manakin
-1 Marble Chalice
-1 Mindless Automaton
-1 Mishra's War Machine
-1 Murmuring Volume
-1 Myr Matrix
-1 Mystic Gate
-1 Network Terminal
-1 Nimbus Maze
-1 Pentavus
-1 Phyrexian Walker
-1 Pierce Strider
-11 Plains
-1 Prophet of the Peak
-1 Razorfield Thresher
-1 Runed Servitor
-1 Salvaged Manaworker
-1 Scepter of Dominance
-1 Scorpion Sentinel
+[deck:commander ramp BR #20266226]
+1 Ashiok's Reaper
+1 Ashnod's Altar
+1 Bake into a Pie
+1 Barad-dûr
+1 Blistergrub
+1 Boots of Speed
+1 Breeding Pit
+1 Contract Killing
+1 Corpsehatch
+1 Crypt of Agadeem
+1 Cyclops of Eternal Fury
+1 Dance with Devils
+1 Den of the Bugbear
+1 Dormant Volcano
+1 Drainpipe Vermin
+1 Fiery Mantle
+1 Flamekin Village
+1 Flurry of Horns
+1 Friendly Teddy
+1 Funeral March
+1 Ghitu Encampment
+1 Gild
+1 Goblin Assault
+1 Goblin Scouts
+1 Hidden Necropolis
+1 Hoard Robber
+1 Hurler Cyclops
+1 Immolation
+1 Imposing Visage
+1 Insidious Bookworms
+1 Jackhammer
+1 Kavaron, Memorial World
+1 Kiki-Jiki, Mirror Breaker
+1 Kuro, Pitlord
+1 Leechridden Swamp
+1 Lightning Javelin
+1 Magnifying Glass
+1 Mahadi, Emporium Master
+1 Minas Morgul, Dark Fortress
+15 Mountain
+1 Myr Moonvessel
+1 Myr Retriever
+1 Myr Sire
+1 Nim Deathmantle
+1 Oni of Wild Places
+1 Orcish Mechanics
+1 Past in Flames
+1 Penregon Strongbull
+1 Phyrexian Altar
+1 Piggy Bank
+1 Piranha Marsh
+1 Pitchburn Devils
+1 Raptor Hatchling
+1 Ray of Ruin
+1 Reflexes
+1 Sandstone Needle
+1 Scream Puff
 1 Serpent Generator
-1 Skycloud Expanse
-1 Soliton
-1 Spawning Pit
-1 Study
-1 Su-Chi
-1 Temporal Manipulation
-1 Thalakos Lowlands
-1 Time Warp
-1 Triskelavus
-1 Triskelion
-1 Tundra
-1 Unbender Tine
-1 Unstable Obelisk
-1 Urza's Chalice
-1 Vedalken Outlander
-1 Watchful Automaton
-1 Wizard Replica
-1 World Map
+1 Sifter of Skulls
+1 Sire of Insanity
+1 Skullclamp
+1 Soulcage Fiend
+1 Splatter Goblin
+1 Super Speed
+1 Susur Secundi, Void Altar
+11 Swamp
+1 Thallid Soothsayer
+1 Thriving Bluff
+1 Thriving Moor
+1 Tomb Fortress
+1 Vault Robber
+1 Venomcrawler
+1 Violet Pall
+1 Wretched Doll
+1 Zombify
 
 [commander]
-Jedit Ojanen
+Lady Orca

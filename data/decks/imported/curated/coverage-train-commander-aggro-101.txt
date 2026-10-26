@@ -1,84 +1,84 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro BRG #20266102]
-1 Accelerate
-1 Acid Web Spider
-1 Ambush Gigapede
-1 Attercop
-1 Baxter Building
-1 Blacklance Paragon
-1 Blister Beetle
-1 Blood-Toll Harpy
-1 Brand
-1 Burglar Rat
-1 Burning Inquiry
-1 Canopy Baloth
-1 Corrupt Court Official
-1 Crawling Barrens
-1 Crucible of the Spirit Dragon
-1 Dagger Caster
-1 Drekavac
-1 Duskwatch Hunter
-1 Earsplitting Rats
-1 Elderfang Disciple
-1 Expedite
-1 Eyeblight Assassin
-4 Forest
-1 Geyser Glider
-1 Godtracker of Jund
-1 Gond Gate
-1 Gravebind
-1 Graveshifter
-1 Grixis Panorama
-1 Haven of the Spirit Dragon
-1 Haze of Pollen
-1 Hecteyes
-1 Herd Gnarr
-1 Hyrax Tower Scout
-1 Impolite Entrance
-1 Invasive Species
-1 Jadecraft Artisan
-1 Kraul Whipcracker
-1 Lava Zombie
-1 Locust Spray
-1 Lotus Vale
-1 Mercenary Knight
-1 Miasmic Mummy
-10 Mountain
-1 Nezumi Informant
-1 Nighthaze
-1 Ogre Arsonist
-1 Ogre Gatecrasher
-1 Ominous Cemetery
-1 Planetary Patrol
-1 Raking Claws
-1 Rank and File
-1 Ravenous Baboons
-1 Romantic Rendezvous
-1 Sanctum of Ugin
-1 Sanity Gnawers
-1 Scampering Surveyor
-1 Serpent Assassin
-1 Serpent Warrior
-1 Shaman of the Pack
-1 Silt Crawler
-1 Snapping Gnarlid
-1 Spiderwig Boggart
-1 Spire Mangler
-1 Spire of Industry
-1 Spitfire Lagac
-1 Study Hall
-10 Swamp
-1 Swarmyard
-1 Territorial Boar
-1 Tunneling Geopede
-1 Viashino Bladescout
-1 Vicious Clown
-1 Voracious Vampire
-1 Vulshok War Boar
-1 War Room
-1 Yellowjacket, Heartless Marauder
-1 Zhalfirin Void
+[deck:commander aggro WRG #20266102]
+1 Atog
+1 Auratog
+1 Battlefield Forge
+1 Bloodcrusher of Khorne
+1 Blue Scarab
+1 Brood Weaver
+1 Burrowing
+1 Carapace
+1 Consecrate Land
+1 Contested Cliffs
+1 Cragcrown Pathway
+1 Cyclops of Eternal Fury
+1 Dryad's Favor
+1 Dwalin, Weaponmaster
+1 Eager Trufflesnout
+1 Eladamri, Lord of Leaves
+1 Elesh Norn, Mother of Machines
+1 Envoy of Okinec Ahau
+1 Ferocious Pup
+1 Fierce Witchstalker
+1 Fire-Lit Thicket
+1 Flowstone Surge
+1 Foratog
+12 Forest
+1 Fungal Reaches
+1 Galvanic Arc
+1 Glimmer Bairn
+1 Goblin Oriflamme
+1 Goldmeadow Lookout
+1 Guard Duty
+1 Hana Kami
+1 Hushwood Verge
+1 Improvised Armor
+1 Iroas's Blessing
+1 King of the Pride
+1 Kithkin Mourncaller
+1 Kozilek's Predator
+1 Lithatog
+1 Mass Hysteria
+1 Megatog
+1 Mogg Hollows
+1 Mongrel Pack
+7 Mountain
+1 Myr Moonvessel
+1 Myr Sire
+1 Orcish Mechanics
+5 Plains
+1 Plundering Pirate
+1 Ragavan, Nimble Pilferer
+1 Ravenous Intruder
+1 Revered Unicorn
+1 Rugged Prairie
+1 Rukh Egg
+1 Savannah
+1 Scion Summoner
+1 Sheltering Boughs
+1 Smaug the Magnificent
+1 Smoldering Efreet
+1 Spore Crawler
+1 Starved Rusalka
+1 Sun Clasp
+1 Sunbillow Verge
+1 Sunhome, Fortress of the Legion
+1 Supply Caravan
+1 Survey the Wreckage
+1 Sylvan Anthem
+1 Tattoo Ward
+1 Thaumatog
+1 The Brute
+1 Thornspire Verge
+1 Tibalt's Rager
+1 Tireless Provisioner
+1 Training Compound
+1 Tranquil Garden
+1 Twin-Silk Spider
+1 Undergrowth Leopard
+1 Valorous Steed
+1 Vault Robber
 
 [commander]
-Xira Arien
+Jetmir, Nexus of Revels

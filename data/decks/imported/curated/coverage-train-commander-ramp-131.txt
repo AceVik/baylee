@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WG #20266132]
-1 Absolute Law
-1 Alloy Myr
-1 Back to Nature
-1 Barbtooth Wurm
-1 Birnin Zana Plaza
-1 Blue Ward
-1 Branchloft Pathway
-1 Brushland
-1 Canopy Gorger
-1 Circle of Protection: Blue
+[deck:commander ramp WU #20266132]
+1 Affa Guard Hound
+1 Allied Reinforcements
+1 Arena
+1 Armor of Faith
+1 Austere Command
+1 Azorius First-Wing
+1 Basilisk Gate
+1 Blinkmoth Nexus
+1 Blizzard Elemental
+1 Captivating Unicorn
+1 Catastrophe
+1 Cleanfall
 1 Cleansing Nova
-1 Conifer Wurm
-1 Cowl Prowler
-1 Crackdown
-1 Craw Wurm
-1 Creeping Corrosion
-1 Dryad of the Ilysian Grove
-1 Endless Wurm
-1 Essence Filter
+1 Cloud Djinn
+1 Contempt
+1 Crisis of Conscience
+1 Day of Judgment
+1 Djinn of the Lamp
+1 Drownyard Amalgam
+1 Ephemeron
+1 Erosion
+1 Faceless Haven
+1 Fanatical Devotion
 1 Final Showdown
-1 Flora Colossus
-1 Fungus Elemental
-1 Gale Force
-1 Galewind Moose
-1 Gavony Township
-1 Glyph of Reincarnation
-1 Grove of the Guardian
-1 Horizon Canopy
-1 Johtull Wurm
-1 Jolrael's Favor
-1 Kjeldoran Frostbeast
-1 Living Plane
-1 Lush Portico
-1 Oakheart Dryads
+1 Fledgling Griffin
+1 Fomori Vault
+1 Fortified Area
+1 Glacial Chasm
+1 Glorious Anthem
+1 Goliath Sphinx
+1 Harbor Guardian
+1 Haunted Fengraf
+1 Havengul Skaab
+1 Homarid Explorer
+1 Hostile Desert
+1 Invisibility
+1 Irregular Cohort
+1 Levitation
+1 Mighty Mutanimals
+1 Naga Oracle
+1 Nimbus Wings
+1 Ominous Cemetery
+1 Ondu Inversion
+1 Phyrexia's Core
+1 Pin to the Earth
 1 Planar Cleansing
-1 Planar Collapse
-1 Plated Slagwurm
-1 Presence of Gond
-1 Primordial Wurm
-1 Quilled Slagwurm
-1 Rain of Blades
+1 Plaza of Harmony
 1 Ravages of War
 1 Remove Enchantments
-1 Riftstone Portal
-1 Roaring Slagwurm
-1 Root Cage
-1 Safeguard
-1 Saltcrusted Steppe
-1 Sandstorm
-1 Savannah
-1 Scaled Wurm
-1 Serene Heart
-1 Siegehorn Ceratops
-16 Snow-Covered Forest
-10 Snow-Covered Plains
+1 Riptide Crab
+1 Rite of Replication
+1 Rumbling Sentry
+1 Senate Griffin
+1 Shimmer
+1 Sky Tether
+13 Snow-Covered Island
+13 Snow-Covered Plains
+1 Soulherder
+1 Sparring Mummy
+1 Spawning Bed
 1 Squall Drifter
-1 Still Life
-1 Sungrass Prairie
-1 Thicket Crasher
-1 Three Tree Mascot
-1 Tranquil Domain
-1 Tranquil Garden
-1 Treefolk Mystic
-1 Tropical Storm
-1 Unlikely Alliance
-1 Vec Townships
-1 Veldt
-1 Venomous Breath
-1 Vitu-Ghazi, the City-Tree
-1 Vorstclaw
-1 Walk-In Closet
-1 Whiptail Wurm
-1 Whirlwind
+1 Sunscorched Desert
+1 Teferi, Time Raveler
+1 Terra Eternal
+1 Teyo's Lightshield
+1 Triclopean Sight
+1 Urborg, Tomb of Yawgmoth
+1 Valkyrior Skyrider
+1 Venerable Lammasu
+1 Vesuva
+1 Viscerid Armor
+1 Waxen Shapethief
 1 Winds of Rath
-1 Wooded Bastion
+1 Wizened Cenn
+1 Wooded Foothills
 
 [commander]
-Trostani, Three Whispers
+Tobias Andrion

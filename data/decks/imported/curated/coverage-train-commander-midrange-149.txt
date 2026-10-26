@@ -1,72 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange G #20266150]
-1 Alloy Animist
-1 Argothian Elder
-1 Avengers Tower
-1 Bassara Tower Archer
-1 Bird Admirer
-1 Blessed Respite
-1 Camouflage
-1 Civic Gardener
-1 Dawn's Light Archer
-1 Dragon Sniper
-1 Elder Druid
-1 Elvish Bard
-1 Elvish Pathcutter
-1 Elvish Piper
-1 Elvish Ranger
-1 Entangling Vines
-1 Fang Guardian
-1 Feral Invocation
-1 Forbidden Lore
-1 Giltgrove Stalker
-1 Grixis Panorama
-1 Grizzled Outrider
-1 Harrier Naga
-1 Humble Budoka
-1 Initiate's Companion
-1 Interplanar Beacon
-1 Isolated Watchtower
-1 Jukai Messenger
-1 Juniper Order Druid
-1 Ley Druid
-1 Llanowar Druid
-1 Malamet Brawler
-1 Meng Huo's Horde
-1 Might Weaver
-1 Moss Viper
-1 Mountain Stronghold
-1 Nacatl Savage
-1 Norwood Archers
-1 Order of the Sacred Bell
-1 Panther Warriors
-1 Pheres-Band Centaurs
-1 Pradesh Gypsies
-1 Quirion Druid
-1 Rime Tender
-1 Roots
-1 Rushwood Herbalist
-1 Serpent Skin
-1 Silhana Ledgewalker
-34 Snow-Covered Forest
-1 Spire Tracer
-1 Spire of Industry
-1 Steel Leaf Champion
-1 Swordwise Centaur
-1 Tajuru Snarecaster
-1 Taoist Hermit
-1 Tel-Jilad Archers
-1 Tel-Jilad Chosen
-1 Tel-Jilad Exile
-1 Tel-Jilad Outrider
-1 The Fabulous Frog-Man
-1 Tiger Claws
-1 Tireless Hauler
-1 Treetop Rangers
-1 Treetop Warden
-1 Wirewood Symbiote
-1 Woodland Druid
+[deck:commander midrange B #20266150]
+1 Accursed Horde
+1 Arisen Gorgon
+1 Ark of Blight
+1 Ashnod's Transmogrant
+1 Bleed Dry
+1 Bog Raiders
+1 Brink of Madness
+1 Bronze Horse
+1 Cabal Pit
+1 Cadaverous Knight
+1 Carnophage
+1 Carrion Howler
+1 Carrion Screecher
+1 Cursed Totem
+1 Defense Grid
+1 Desert of the Glorified
+1 Disruptor Pistol
+1 Dreg Reaver
+1 Dross Crocodile
+1 Dross Prowler
+1 Flatten
+1 Frankenstein's Monster
+1 Ghosts of the Damned
+1 Gluttonous Zombie
+1 Gutter Skulk
+1 Havengul Laboratory
+1 Headless Horseman
+1 Hornet Harasser
+1 Hunted Ghoul
+1 Hyalopterous Lemure
+1 Legions of Lim-Dûl
+1 Lim-Dûl's Cohort
+1 Marsh Gas
+1 Mass of Ghouls
+1 Melancholy
+1 Moonglove Extract
+1 Mycosynth Lattice
+1 Nausea
+1 Noxious Field
+1 Null Rod
+1 Ostracize
+1 Pacification Array
+1 Phyrexian Boon
+1 Phyrexian Tower
+1 Rabid Rats
+1 Rakalite
+1 Rocket Launcher
+1 Rotting Fensnake
+1 Rotting Legion
+1 Rotting Regisaur
+1 Scorpion's Sting
+1 Severed Legion
+1 Smokespew Invoker
+1 Sphere of Resistance
+1 Spymaster's Vault
+34 Swamp
+1 Tar Snare
+1 Throne of the God-Pharaoh
+1 Two-Headed Zombie
+1 Unhallowed Phalanx
+1 Urborg
+1 Viscid Lemures
+1 Wandering Tombshell
+1 Whipstitched Zombie
+1 Zombie Master
+1 Zombie Trailblazer
 
 [commander]
-Thrun, the Last Troll
+Yargle, Glutton of Urborg

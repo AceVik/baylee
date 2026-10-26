@@ -1,0 +1,87 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266101]
+1 Abstruse Interference
+1 Always Watching
+1 Angelic Shield
+1 Aquatic Incursion
+1 Arvad the Cursed
+1 Avacyn's Memorial
+1 Aven Archer
+1 Aysen Highway
+1 Blasted Landscape
+1 Bloodstained Mire
+1 Breeding Pit
+1 Carrion
+1 Cartouche of Knowledge
+1 Cathedral of Serra
+1 Clachan Festival
+1 Contract Killing
+1 Cruel Celebrant
+1 Dark Depths
+1 Dark Favor
+1 Diregraf Captain
+1 Drana's Emissary
+1 Dread Drone
+1 Dread of Night
+1 Exotic Orchard
+1 Faerie Formation
+1 Geist Snatch
+1 Glaring Fleshraker
+1 Glimmerburst
+1 Gods' Eye, Gate to the Reikai
+1 Griffin Canyon
+1 Hoard Robber
+1 Hornswoggle
+1 Icatian Town
+1 Ice Floe
+1 Illness in the Ranks
+1 Illuminated Wings
+1 Illumination
+1 Inventors' Fair
+4 Island
+1 Island of Wak-Wak
+1 Join the Ranks
+1 Knight Watch
+1 Knightfisher
+1 Krovikan Fetish
+1 Launch
+1 Mass Production
+1 Miren, the Moaning Well
+1 Moonlit Wake
+1 Moroii
+1 Nesting Grounds
+1 Northampton Farm
+1 Palace Familiar
+1 Pegasus Refuge
+1 Pestered Wellguard
+1 Pirate's Prize
+10 Plains
+1 Preening Champion
+1 Pulse Tracker
+1 Queen's Commission
+1 Release the Dogs
+1 Renegade's Getaway
+1 Riveteers Overlook
+1 Sandstorm Verge
+1 Scrying Sheets
+1 Security Detail
+1 Serra's Blessing
+1 Sheltered Valley
+1 Sleeper's Robe
+1 Smothering Tithe
+1 Stab Wound
+1 Stardew Valley
+7 Swamp
+1 Take Up Arms
+1 Teferi's Care
+1 The Gold Saucer
+1 Thoughtseize
+1 Tocasia's Dig Site
+1 Trenchpost
+1 True Conviction
+1 Unholy Citadel
+1 Vicious Conquistador
+
+[commander]
+Alela, Artful Provocateur

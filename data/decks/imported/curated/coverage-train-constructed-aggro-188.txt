@@ -1,29 +1,30 @@
 # baylee synergistic coverage constructed aggro
 # licence: AGPL-3.0-only
 [deck:constructed aggro WUG #20266189]
-1 Amphin Cutthroat
-2 Ant-Man, Reformed Rogue
-1 Aysen Abbey
-2 Captain's Defense
-2 Contradict
-2 Cunning Breezedancer
-2 Dawnhart Geist
-2 Dawntreader Elk
-2 Dazzling Lights
-2 Fleeting Distraction
-2 Force Void
-2 Forest
-2 Guardian of Solitude
-10 Island
-2 Merrow Reejerey
-2 Plains
-2 Seaside Citadel
-2 Simic Ragworm
-2 Solarium Sentry
-2 Stand Firm
-2 Thalakos Drifters
-2 Thistledown Duo
-3 Tranquil Landscape
-3 Treva's Ruins
-2 Umara Entangler
-2 Wishcoin Crab
+2 Air Nomad Legacy
+2 Anaconda
+2 Ancient Spider
+2 Archers of Qarsi
+2 Azorius Locket
+3 Bucolic Ranch
+2 Cartouche of Solidarity
+1 Crystal Grotto
+2 Dwarven Castle Guard
+2 Fanatic of Rhonas
+2 Fists of Ironwood
+10 Forest
+3 Glimmervoid
+1 Interplanar Beacon
+1 Island
+2 Jewel-Eyed Cobra
+2 Martyr of Dusk
+1 Master Trinketeer
+3 Plains
+2 Seshiro the Anointed
+2 Spreading Algae
+1 Turtle Lair
+2 Twin-Silk Spider
+2 Village Elder
+2 Watcher in the Web
+2 Welcome to . . .
+2 Zodiac Ox

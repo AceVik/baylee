@@ -4,9 +4,8 @@
 1 Akroma's Memorial
 1 Aladdin's Lamp
 1 Altar of the Brood
-1 Archway Commons
+1 Arch of Orazca
 1 Automatic Librarian
-1 Bad River
 1 Blister Beetle
 1 Bog Smugglers
 1 Bronze Horse
@@ -17,7 +16,6 @@
 1 Cackling Fiend
 1 Carnophage
 1 Catacomb Dragon
-1 Cathedral of War
 1 Chardalyn Dragon
 1 Death Wind
 1 Duskmantle Operative
@@ -33,11 +31,13 @@
 1 Lazotep Behemoth
 1 Leonin Bladetrap
 1 Liliana's Specter
+1 Maestros Theater
 1 Mass of Ghouls
 1 Melancholy
-1 Mirrorpool
+1 Muraganda Raceway
 1 Mycosynth Lattice
 1 Nimble Pilferer
+1 Ominous Cemetery
 1 One with Nothing
 1 Opposition Agent
 1 Orc Sureshot
@@ -45,26 +45,26 @@
 1 Pilgrim of the Fires
 1 Plasmancer
 1 Predator, Flagship
+1 Promising Vein
 1 Prophet of the Peak
-1 Public Thoroughfare
 1 Rain of Filth
 1 Rank and File
 1 Rathi Trapper
 1 Ring of Immortals
 1 Rustspore Ram
+1 Secluded Starforge
+1 Sequestered Stash
 1 Signpost Scarecrow
 1 Soulshriek
 1 Spined Fluke
 35 Swamp
 1 Teeka's Dragon
 1 The Fallen
-1 Thran Portal
 1 Time Vault
 1 Touch of Darkness
 1 Vanquisher's Axe
 1 Watcher of the Wayside
 1 Wei Infantry
-1 Wintermoon Mesa
 1 Worldslayer
 
 [commander]

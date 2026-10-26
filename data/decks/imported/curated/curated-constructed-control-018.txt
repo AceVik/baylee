@@ -2,20 +2,20 @@
 # licence: AGPL-3.0-only
 [deck:constructed control WR #20261041]
 2 Aether Sting
-1 Battlefield Forge
 4 Flame Jet
+1 Guildmages' Forum
+2 Hall of Oracles
+1 Henge of Ramos
+3 Maelstrom of the Spirit Dragon
 11 Mountain
 3 Mox Ruby
 5 Plains
-1 Plateau
 2 Pyrostatic Pillar
 3 Ramosian Commander
 3 Rockslide Sorcerer
 3 Sarkhan's Unsealing
 2 Shredded Sails
 4 Spellshock
-3 Sunbaked Canyon
-3 Sunhome, Fortress of the Legion
-2 Sunscorched Divide
+3 Throne of Makindi
 4 Weaver of Lightning
 4 Winter Sky

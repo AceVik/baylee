@@ -2,11 +2,11 @@
 # licence: AGPL-3.0-only
 [deck:constructed control WG #20261089]
 4 Bargain
-1 Brushland
 5 Forest
-1 Grove of the Guardian
 3 Healing Hands
 4 Loran of the Third Path
+1 Mana Confluence
+3 Mech Hangar
 3 Migrating Ketradon
 4 Mox Emerald
 4 Norn's Wellspring
@@ -14,8 +14,8 @@
 3 Pawpatch Formation
 11 Plains
 3 Radiant's Dragoons
-2 Riftstone Portal
-1 Savannah
+2 School of the Unseen
+2 Sliver Hive
+1 Spire of Industry
 2 Sungrass Egg
-2 Vec Townships
-3 Vitu-Ghazi, the City-Tree
+1 Undiscovered Paradise

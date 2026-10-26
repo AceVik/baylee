@@ -5,6 +5,7 @@
 1 Aegis of the Heavens
 1 Amonkhet Raceway
 1 Blitzball Shot
+1 Bonders' Enclave
 1 Bramble Creeper
 1 Brushwagg
 1 Cenn's Heir
@@ -12,13 +13,13 @@
 1 City of Shadows
 1 Cliffrunner Behemoth
 1 Darkthicket Wolf
+1 Detection Tower
 1 Devotee of Strength
 1 Dire Wolf Prowler
 1 Dire Wolves
 1 Druid of the Spade
 1 Eldrazi Temple
 1 Ember Weaver
-1 Eye of Ugin
 1 Flutterfox
 15 Forest
 1 Gaea's Liege
@@ -29,6 +30,7 @@
 1 Graceful Cat
 1 Great Defender
 1 Griffin Canyon
+1 HELIOS One
 1 Hedge Troll
 1 Indestructible Aura
 1 Interjection
@@ -50,7 +52,6 @@
 1 Rally
 1 Regal Bunnicorn
 1 Scarwood Hag
-1 Scorched Ruins
 1 Shape the Sands
 1 Silk Net
 1 Skycoach Waypoint
@@ -58,14 +59,13 @@
 1 Spitting Slug
 1 Staggering Size
 1 Steady Aim
-1 Study Hall
 1 Subdue
 1 Summit Apes
-1 Surveillance Room
 1 Sylvan Paradise
+1 The Great Mound
 1 The Monumental Facade
-1 Three Tree City
 1 Timbermaw Larva
+1 Urza's Power Plant
 1 Vintara Snapper
 1 Vivien's Crocodile
 1 Wall of Faith

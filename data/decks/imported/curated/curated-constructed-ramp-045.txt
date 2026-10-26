@@ -5,17 +5,17 @@
 3 Champion of the Parish
 4 Cold Snap
 2 Festering Wound
+1 Haven of the Spirit Dragon
+2 Jasmine Dragon Tea Shop
 3 Krovikan Plague
+3 Mirrodin's Core
 3 Nightshade Harvester
 2 Ob Nixilis, the Fallen
 3 Orcish Bowmasters
-3 Orzhova, the Church of Deals
 8 Plains
+1 Plaza of Heroes
 4 Royal Decree
 4 Shauku, Endbringer
-1 Silent Clearing
-1 Starlit Sanctum
 3 Sterling Supplier
 7 Swamp
 4 Vampiric Tutor
-2 Vault of the Archangel

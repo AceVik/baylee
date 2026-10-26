@@ -1,74 +1,74 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro R #20266277]
-1 Aladdin
-1 Ali Baba
-1 Ambush Party
-1 Avalanche
-1 Balduvian Barbarians
-1 Balduvian Trading Post
-1 Barbarian Horde
-1 Barbarian Outcast
-1 Berserkers of Blood Ridge
-1 Black Widow, Natasha Romanoff
-1 Blood Knight
-1 Bloodlust Inciter
-1 Bloodshed Fever
-1 Bloodthorn Taunter
-1 Capital Guard
-1 Cave People
-1 Crimson Mage
-1 Crookshank Kobolds
-1 Defender of Chaos
-1 Defense Force Aggressor
-1 Demolish
-1 Desert Nomads
-1 Deserter's Disciple
-1 Emblem of the Warmind
-1 Fallaji Chaindancer
-1 Fearless Halberdier
-1 Fire Nation Soldier
-1 Fire-Rim Form
-1 Flameborn Hellion
-1 Flowstone Channeler
-1 Flowstone Embrace
-1 Flowstone Infusion
-1 Frontline Rebel
-1 Gnat Alley Creeper
-1 Goblin Balloon Brigade
-1 Goblin Burrows
-1 Goblin Mountaineer
-1 Goblin Patrol
-1 Goblin Piker
-1 Goblins of the Flarg
-1 Halberdier
-1 Hammerheim
-1 Happy Hogan, Dauntless Driver
-1 Hellion Crucible
-1 Hidden Hideout
-1 Hyperion Blacksmith
-1 Independent Troops
-1 Lightning Talons
-1 Magus of the Moon
-1 Mana Clash
-1 Maniacal Rage
-32 Mountain
-1 Rage Weaver
-1 Ramunap Ruins
-1 Renegade Troops
-1 Searing Spear Askari
-1 Smaug's Fury
-1 Sneaking Guide
-1 Soldier of Fortune
-1 Spiteful Motives
-1 Stingmoggie
-1 Sunder from Within
-1 Suq'Ata Lancer
-1 Trailblazing Historian
-1 Valley Dasher
-1 Vulshok Refugee
-1 Warship Scout
-1 Whip Sergeant
+[deck:commander aggro G #20266277]
+1 Alloy Animist
+1 Ambush Viper
+1 Anaconda
+1 Animate Land
+1 Ankle Biter
+1 Archers of Qarsi
+1 Argothian Elder
+1 Bassara Tower Archer
+1 Bird Admirer
+1 Camouflage
+1 Channel
+1 Chorus of Might
+1 Civic Gardener
+1 Death-Hood Cobra
+1 Devotee of Strength
+1 Dragon Sniper
+1 Dune Diviner
+1 Elder Druid
+1 Feiyi Snake
+1 Gaea's Liege
+1 Grasslands
+1 Guildless Commons
+1 Heroic Intervention
+1 Horrid Vigor
+1 Humble Budoka
+1 Indicate
+1 Joven's Ferrets
+1 Jukai Messenger
+1 Juniper Order Druid
+1 Kithkin Daggerdare
+1 Ley Druid
+1 Lifelace
+1 Marsh Boa
+1 Mending Touch
+1 Meng Huo's Horde
+1 Might Weaver
+1 Mire Boa
+1 Moss Viper
+1 Mountain Valley
+1 Nafs Asp
+1 Noose Constrictor
+1 Norwood Archers
+1 Order of the Sacred Bell
+1 Pradesh Gypsies
+1 Ramunap Excavator
+1 Realms Uncharted
+1 Regenerate
+1 Rime Tender
+1 Root Snare
+1 Rushwood Herbalist
+1 Scarwood Hag
+32 Snow-Covered Forest
+1 Spire Tracer
+1 Spore Cloud
+1 Sporecrown Thallid
+1 Summer Bloom
+1 Taoist Hermit
+1 Tel-Jilad Archers
+1 Thawing Glaciers
+1 Thelonite Monk
+1 Tireless Hauler
+1 Trailblazer
+1 Uncharted Haven
+1 Vitalize
+1 Willow Priestess
+1 Wintermoon Mesa
+1 Woodland Druid
+1 Woodland Patrol
 
 [commander]
-The Whizzer, Classic Speedster
+The Fabulous Frog-Man

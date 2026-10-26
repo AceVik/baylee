@@ -1,0 +1,80 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange UBR #20266169]
+1 Abstergo Entertainment
+1 Akki Drillmaster
+1 Alesha's Legacy
+1 Backdraft
+1 Balshan Collaborator
+1 Baron, Airship Kingdom
+1 Bladestitched Skaab
+1 Blazing Specter
+1 Blistering Dieflyn
+1 Castle Doom
+1 Cavern of Souls
+1 Chaoslace
+1 Coastal Peak
+1 Deathgaze Cockatrice
+1 Disorient
+1 Drowned
+1 Dusk Imp
+1 Enslaved Scout
+1 Fade Away
+1 Fill with Fright
+1 Flowstone Infusion
+1 Goblin Bully
+1 Goblin Cavaliers
+1 Goblin Hero
+1 Goblin Lackey
+1 Goblin Mountaineer
+1 Goblin Smuggler
+1 Hulking Bugbear
+5 Island
+1 Kederekt Creeper
+1 Lazotep Behemoth
+1 Library
+1 Marsh Goblins
+1 Metathran Zombie
+1 Mind Shatter
+1 Nameless Race
+1 Nightveil Predator
+1 Nimble Birdsticker
+1 Nuclear Fallout
+1 Prismari Campus
+1 Rapturous Moment
+1 Red Cliffs Armada
+1 Restless Spire
+1 Riot Piker
+1 Roofstalker Wight
+1 Scorched Geyser
+1 Secluded Courtyard
+1 Sewn-Eye Drake
+1 Sheoldred's Edict
+1 Shivan Zombie
+1 Silverbluff Bridge
+1 Skirk Shaman
+1 Slavering Nulls
+1 Snarling Warg
+1 Sneaking Guide
+1 Stenchskipper
+1 Stream Hopper
+1 Stromkirk Captain
+20 Swamp
+1 TCRI Building
+1 Tattered Drake
+1 Thalakos Sentry
+1 Three Tragedies
+1 Thundering Falls
+1 Torch Drake
+1 Torpor Dust
+1 Training Center
+1 Trench Wurm
+1 Urborg Drake
+1 Vodalian Zombie
+1 Volatile Fjord
+1 Volcano Imp
+1 Waking Nightmare
+1 Wasp Lancer
+1 Water Elemental
+1 Word of Command
+1 Zombie Outlander

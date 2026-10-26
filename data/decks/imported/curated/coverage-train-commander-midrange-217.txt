@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266218]
+1 Ancestral Recall
+1 Arborback Stomper
+1 Aven of Enduring Hope
+1 Battleflight Eagle
+1 Baxter Building
+1 Cavern of Souls
+1 Celebrity Fencer
+1 Corrupted Crossroads
+1 Courier Griffin
+1 Donatello, Way with Machines
+1 Dragonborn Looter
+1 Dragoon's Wyvern
+1 East Wind Avatar
+1 Elf Replica
+1 Faerie Mastermind
+1 Fearless Fledgling
+4 Forest
+1 Friendly Ghost
+1 Gilded Drake
+1 Great Hall of the Biblioplex
+1 Griffin Protector
+1 Guildmages' Forum
+1 Haven of the Spirit Dragon
+1 Hithlain Knots
+1 Holdout Settlement
+1 Hope Charm
+13 Island
+1 Judge's Familiar
+1 Kingfisher
+1 Knightfisher
+1 Ledger Shredder
+1 Lotus Guardian
+1 Lotusguard Disciple
+1 Messenger Falcons
+1 Mindscour Dragon
+1 Mist Raven
+1 Mox Jasper
+1 Nebelgast Herald
+1 Network Terminal
+1 Niblis of the Mist
+1 Palace Familiar
+1 Pestermite
+1 Pillar of the Paruns
+8 Plains
+1 Preening Champion
+1 Rampaging Hippo
+1 Rescuer Chwinga
+1 River Hoopoe
+1 Runewing
+1 Sanctum Gargoyle
+1 Senate Griffin
+1 Shadow Rift
+1 Shimmering Grotto
+1 Soldier of the Grey Host
+1 Soratami Cloudskater
+1 Soulknife Spy
+1 Spire Owl
+1 Spire of Industry
+1 Steel Leaf Paladin
+1 Strix Lookout
+1 Study Hall
+1 Sure-Footed Infiltrator
+1 Surveillance Room
+1 Sylvok Replica
+1 Tendo Ice Bridge
+1 Teyo's Lightshield
+1 Tigereye Cameo
+1 Toucan-Puffin
+1 Tranquil Landscape
+1 Tymora's Invoker
+1 Uktabi Faerie
+1 Umara Raptor
+1 Underdome
+1 Unstable Obelisk
+1 Watcher in the Mist
+1 Welkin Guide
+1 Xindi Surveyors
+
+[commander]
+Rubinia Soulsinger

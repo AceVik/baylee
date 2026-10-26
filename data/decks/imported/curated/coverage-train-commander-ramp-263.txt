@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp B #20266264]
+1 Adventurer's Inn
+1 Arch of Orazca
+1 Asphodel Wanderer
+1 Banshee
+1 Blood Bairn
+1 Bog Imp
+1 Bottle of Suleiman
+1 Burrog Banemaker
+1 Carrionette
+1 Clinging Darkness
+1 Coat with Venom
+1 Contested War Zone
+1 Dakmor Bat
+1 Dakmor Plague
+1 Davriel's Shadowfugue
+1 Defile
+1 Epic Downfall
+1 Evil Eye of Orms-by-Gore
+1 Evil Presence
+1 Eyes of the Beholder
+1 Famine
+1 Fear
+1 Feebleness
+1 Fetid Imp
+1 Fodder Cannon
+1 Forbidden Ritual
+1 Frostwalk Bastion
+1 Gilded Pinions
+1 Goblin Lyre
+1 Grave Pact
+1 Hagra Sharpshooter
+1 Hell Swarm
+1 Hellfire
+1 Iron Maiden
+1 Juzám Djinn
+1 Kezzerdrix
+1 Library of Alexandria
+1 Lumengrid Gargoyle
+1 Mad Auntie
+1 Mark of the Vampire
+1 Marrow Bats
+1 Maze of Ith
+1 Mental Agony
+1 Misers' Cage
+1 Moonglove Extract
+1 Noxious Toad
+1 Paragon of Open Graves
+1 Phyrexian Boon
+1 Pit Imp
+1 Prickly Boggart
+1 Pull Under
+1 Restless Dead
+1 Retributive Wand
+1 Rocket Launcher
+1 Skeletal Snake
+1 Spitting Sliver
+35 Swamp
+1 Throatseeker
+1 Thrull Champion
+1 Tinybones, the Pickpocket
+1 Tomb of the Spirit Dragon
+1 Torment
+1 Twisted Experiment
+1 Unerring Sling
+1 Vampire Aristocrat
+
+[commander]
+Grandmother Sengir

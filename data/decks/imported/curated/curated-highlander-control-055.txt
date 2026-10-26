@@ -10,31 +10,32 @@
 1 Auspicious Ancestor
 1 Aven Battle Priest
 1 Battlewise Valor
+1 Baxter Building
 1 Blessed Spirits
 1 Blessed Wine
-1 Blighted Steppe
+1 Bucolic Ranch
 1 Bygone Bishop
+1 Cascading Cataracts
 1 Cathar's Companion
 1 Clear
 1 Cold Snap
+1 Conduit Pylons
 1 Contemplation
 1 Dragon Bell Monk
 1 Dragon's Presence
 1 Drogskol Cavalry
-1 Eiganjo, Seat of the Empire
 1 Elgaud Inquisitor
 1 Elite Archers
 1 Elspeth, Storm Slayer
 1 Erode
-1 Flagstones of Trokair
+1 Great Hall of the Citadel
 1 Guarded Heir
-1 Hall of Heliod's Generosity
+1 Henge of Ramos
 1 Honor
 1 Horizon Seed
 1 Idyllic Tutor
 1 Jeskai Student
 1 Kami of Tattered Shoji
-1 Karakas
 1 Kjeldoran Home Guard
 1 Knight-Captain of Eos
 1 Knightly Valor
@@ -45,7 +46,6 @@
 1 Mesa Enchantress
 1 Monastery Mentor
 1 Mox Pearl
-1 Nomad Stadium
 1 Odric's Outrider
 1 Ojer Taq, Deepest Foundation
 1 Opal Archangel

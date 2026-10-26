@@ -5,22 +5,23 @@
 2 Amphin Pathmage
 2 Cephalid Scout
 2 Confirm Suspicions
+3 Deserted Beach
 2 Emeria's Call
 2 Exultant Cultist
-4 Gloomlake Verge
+4 Glacial Floodplain
 2 Humble the Brute
 6 Island
 2 Merfolk Coralsmith
 2 Merrow Grimeblotter
+2 North Pole Gates
 2 Obsessive Stitcher
-9 Plains
+1 Plains
 2 Princess Lucrezia
 2 Rootwater Diver
 2 Secure the Wastes
 2 Shifting Sliver
 2 Stonybrook Schoolmaster
+8 Swamp
 2 Thalakos Seer
-3 Underground Sea
 2 Vodalian Hexcatcher
 2 Wanderbrine Rootcutters
-2 Waterveil Cavern

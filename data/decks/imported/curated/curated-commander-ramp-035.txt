@@ -7,6 +7,7 @@
 1 Bitterblossom
 1 Blightspeaker
 1 Bog Glider
+1 Bucolic Ranch
 1 Cabal Archon
 1 Cabal Patriarch
 1 Callous Inspector
@@ -14,6 +15,7 @@
 1 Claws of Gix
 1 Common Crook
 1 Corpsehatch
+1 Corrupted Crossroads
 1 Criminal Enterprise
 1 Dai Li Censor
 1 Dark Prophecy
@@ -25,7 +27,7 @@
 1 Greedy Freebooter
 1 Harvester of Souls
 1 Hopeless Nightmare
-1 Ifnir Deadlands
+1 Interplanar Beacon
 1 Liliana the Repentant
 1 Liliana's Mastery
 1 Live or Die
@@ -45,25 +47,23 @@
 1 Quest for the Gravelord
 1 Razaketh, the Foulblooded
 1 Rotlung Reanimator
+1 Rumble Arena
 1 Sarcomancy
 1 Sengir Autocrat
 1 Shadow-Rite Priest
 1 Shauku, Endbringer
-1 Shizo, Death's Storehouse
 1 Skeletal Vampire
+1 Spire of Industry
 1 Strands of Night
 1 Strongarm Thug
+1 Surveillance Room
 35 Swamp
 1 Sweettooth Witch
-1 Takenuma, Abandoned Mire
 1 Tempting Witch
-1 Tomb of Urami
+1 Thran Quarry
 1 Toxin Analysis
-1 Urborg
-1 Vault of Whispers
 1 Village Cannibals
 1 Virtue of Persistence
-1 Volrath's Stronghold
 1 Yawgmoth, Thran Physician
 1 Zulaport Cutthroat
 

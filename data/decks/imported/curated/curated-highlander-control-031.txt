@@ -4,17 +4,20 @@
 1 Arnyn, Deathbloom Botanist
 1 Audacity
 1 Bastion of Remembrance
-1 Bayou
 1 Bishop of the Bloodstained
 1 Bitterbloom Bearer
 1 Blood Artist
 1 Body Snatcher
 1 Carrier Thrall
+1 Castle Doom
 1 Caustic Hound
+1 Cavern of Souls
 1 Cirith Ungol Patrol
+1 City of Brass
 1 Claws of Gix
 1 Criminal Enterprise
-1 Darkbore Pathway
+1 Crucible of the Spirit Dragon
+1 Daily Bugle Building
 1 Decomposition
 1 Dire Fleet Hoarder
 1 Dusk Legion Zealot
@@ -22,23 +25,26 @@
 1 Falkenrath Noble
 7 Forest
 1 Fortitude
-1 Foul Orchard
 1 Gilded Goose
-1 Grim Backwoods
 1 Grist, the Hunger Tide
+1 Haven of the Spirit Dragon
+1 Holdout Settlement
 1 Infernal Idol
 1 Kalastria Healer
 1 Kalastria Highborn
 1 Kheru Bloodsucker
+1 Lazotep Quarry
 1 Lead Pipe
 1 Llanowar Wastes
+1 Lotus Vale
 1 Malakir Soothsayer
+1 Mana Confluence
 1 Mantle of the Wolf
 1 Marsh Flitter
 1 Massacre Wurm
 1 Master of Dark Rites
 1 Midnight Entourage
-1 Necroblossom Snarl
+1 Mirrodin's Core
 1 Necrogen Scudder
 1 Nocturnal Feeder
 1 Nurturing Peatland
@@ -48,21 +54,17 @@
 1 Pelakka Wurm
 1 Phyrexian Gargantua
 1 Phyrexian Rager
-1 Pine Barrens
+1 Pillar of the Paruns
 1 Rabid Bloodsucker
 1 Rathi Fiend
 1 Skeletal Vampire
 1 Sleeper Agent
 1 Sling-Gang Lieutenant
 1 Sneering Shadewriter
-1 Strangled Cemetery
 1 Svogthos, the Restless Tomb
 20 Swamp
-1 Tainted Wood
 1 The Meathook Massacre
 1 Toxic Abomination
-1 Turbulent Fen
-1 Twilight Mire
 1 Vampire Neonate
 1 Vampire Sovereign
 1 Vampire Spawn
@@ -70,9 +72,7 @@
 1 Vault Plunderer
 1 Vermin Gorger
 1 Vindictive Vampire
-1 Viridescent Bog
-1 Wastewood Verge
+1 White Lotus Hideout
 1 Witch's Cauldron
-1 Witherbloom Campus
 1 Wolfwillow Haven
 1 Yawgmoth, Thran Physician

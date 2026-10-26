@@ -3,8 +3,6 @@
 [deck:commander midrange UBR #20266018]
 1 Aku Djinn
 1 Amok
-1 Badlands
-1 Baron, Airship Kingdom
 1 Benthic Djinn
 1 Blessing of Leeches
 1 Blight Keeper
@@ -12,11 +10,13 @@
 1 Boar-q-pine
 1 Burning Earth
 1 Cackling Imp
-1 Choked Estuary
+1 Castle Sengir
+1 Coastal Peak
 1 Consult the Star Charts
 1 Contaminated Ground
+1 Crosis's Catacombs
+1 Crypt of the Eternals
 1 Dakmor Plague
-1 Dark Fortress
 1 Davriel's Shadowfugue
 1 Dry Spell
 1 Dystopia
@@ -28,12 +28,13 @@
 1 Faerie Mastermind
 1 Festering Evil
 1 Fire Tempest
+1 Frostboil Snarl
 1 Goblin Lore
 1 Illvoi Galeblade
 1 Imprison
-10 Island
+7 Island
 1 Juzám Djinn
-1 Lantern-Lit Graveyard
+1 Library
 1 Lightning Reaver
 1 Locke Cole
 1 Lotus Blossom
@@ -41,43 +42,41 @@
 1 Mental Agony
 1 Mental Discipline
 1 Mirran Spy
-1 Molten Slagheap
 1 Moroii
-2 Mountain
 1 Nim Abomination
+1 Oscorp Industries
 1 Pillar Tombs of Aku
-1 Port of Karfell
+1 Prismari Campus
 1 Raking Claws
 1 Razorfin Hunter
-1 Razortrap Gorge
 1 Ready to Rumble
 1 Reckless Assault
-1 Reef Roads
 1 Rogue Skycaptain
 1 Romantic Rendezvous
 1 Scaldkin
 1 Screams of the Damned
 1 Screeching Soulbreaker
+1 Seething Landscape
 1 Serendib Djinn
 1 Serendib Efreet
-1 Soured Springs
-1 Spectacle Summit
+1 Silverbluff Bridge
 1 Spiteflame Witch
 1 Spiteful Bully
 1 Stark Industries
 1 Storm of Saruman
-1 Stormcarved Coast
 1 Stormcloud Djinn
-13 Swamp
-1 Temple of Epiphany
-1 Temple of Malice
+18 Swamp
+1 Thundering Falls
+1 Training Center
 1 Tunneling Geopede
 1 Urza's Chalice
 1 Vampire Envoy
 1 Vault Skirge
 1 Vedalken Blademaster
 1 Victorious Destruction
+1 Volatile Fjord
 1 Voodoo Doll
+1 Xander's Lounge
 
 [commander]
 Kess, Dissident Mage

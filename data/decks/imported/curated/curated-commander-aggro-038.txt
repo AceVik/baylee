@@ -7,10 +7,9 @@
 1 Argothian Enchantress
 1 Battlewand Oak
 1 Beast Whisperer
-1 Blighted Woodland
 1 Bog Gnarr
-1 Boseiju, Who Endures
 1 Bristly Bill, Spine Sower
+1 Cave of Temptation
 1 Charge Through
 1 Confront the Unknown
 1 Dauntless Survivor
@@ -45,16 +44,17 @@
 1 Managorger Hydra
 1 Mold Adder
 1 Mox Emerald
-1 Oakhollow Village
 1 Okina, Temple to the Grandfathers
 1 Oran-Rief Survivalist
 1 Predatory Hunger
 1 Quirion Dryad
 1 Rishkar, Peema Renegade
 1 Sazh's Chocobo
+1 School of the Unseen
 1 Shield Sphere
 1 Skybeast Tracker
 1 Soilshaper
+1 Study Hall
 1 Sunshower Druid
 1 Take Down
 1 Tel-Jilad Justice

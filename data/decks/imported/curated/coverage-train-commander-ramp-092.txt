@@ -1,81 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp WRG #20266093]
-1 Alpine Meadow
-1 Angelic Gift
-1 Beastcaller Savant
-1 Beetleback Chief
-1 Bloom Tender
-1 Boros Garrison
-1 Botanical Plaza
-1 Brightstone Ritual
-1 Canopy Tactician
-1 Centaur Glade
-1 Circle of Dreams Druid
-1 Command the Storm
-1 Conservatory
-1 Deathbloom Gardener
-1 Devoted Druid
-1 Dimension X
-1 Dragon Roost
+1 Abandoned Air Temple
+1 Acid Web Spider
+1 Adagia, Windswept Bastion
+1 Ambush Krotiq
+1 Attercop
+1 Avatar Enthusiasts
+1 Ba Sing Se
+1 Cartographer
+1 Celebrity Fencer
+1 Chosen by Heliod
+1 Dawnhart Disciple
+1 Den of the Bugbear
 1 Druid of the Anima
+1 Duergar Hedge-Mage
 1 Dundoolin Weaver
-1 Elesh Norn, Grand Cenobite
-1 Elesh Norn, Mother of Machines
-1 Elvish Spirit Guide
-1 Emmara, Soul of the Accord
-1 Etched Cornfield
+1 EPF Point Squad
+1 Eager Glyphmage
+1 Emeria, the Sky Ruin
+1 Enlightened Ascetic
 1 Faeburrow Elder
-1 Fastbond
-1 Feather of Flight
-11 Forest
-1 Furycalm Snarl
-1 Fyndhorn Elder
-1 Gaea's Touch
-1 Geosurge
-1 Gift of Granite
-1 Gimli, Counter of Kills
-1 Glittering Massif
-1 Gnathosaur
-1 Goblin Gang Leader
+1 Fallaji Vanguard
+1 Femeref Enchantress
+1 Fleetfoot Panther
+7 Forest
+1 Gingerbread Cabin
 1 Great Forest Druid
-1 Groundskeeper
-1 Imposing Vantasaur
-1 Iron Hills
+1 Helpful Hunter
+1 Herald of the Fair
+1 Honey Mammoth
+1 Huntmaster of the Fells
+1 Ishgard, the Holy See
+1 Jungle Basin
 1 Jungle Weaver
-1 Knotvine Mystic
-1 Lance
-1 Lifespring Druid
-1 Loamdragger Giant
-1 Marhault Elsdragon
+1 Kazandu Nectarpot
+1 Leonin Snarecaster
+1 Madblind Mountain
 1 Metamorphosis
-15 Mountain
-1 Mythic Proportions
-1 Primal Frenzy
-1 Pyretic Ritual
-1 Radha, Heir to Keld
-1 Restless Prairie
-1 Restless Ridgeline
-1 Ripchain Razorkin
-1 Rofellos, Llanowar Emissary
-1 Rustvale Bridge
-1 Security Detail
-1 Sheltering Boughs
-1 Sidequest: Catch a Fish
-1 Silhana Starfletcher
-1 Skyway Sniper
-1 Slice in Twain
-1 Spirit Mirror
-1 Suburban Sanctuary
+1 Minas Tirith
+1 Monumental Henge
+8 Mountain
+1 Oran-Rief, the Vastwood
+1 Overgrowth
+1 Paladin of the Bloodstained
+1 Patagia Tiger
+11 Plains
+1 Prideful Parent
+1 Prowling Felidar
+1 Qasali Slingers
+1 Quarry Beetle
+1 Ravenous Lindwurm
+1 Rhox Meditant
+1 Rhox Oracle
+1 Rocky Roads
+1 Rogue Elephant
+1 Roving Harper
+1 Rushwood Grove
+1 Sanctum Gargoyle
+1 Scouring Sands
+1 Scythe Leopard
+1 Scythe Tiger
+1 Setessan Skirmisher
+1 Setessan Training
+1 Spider-Man, Hometown Hero
+1 Steel Leaf Paladin
+1 Steppe Lynx
+1 Striped Bears
 1 Sunastian Falconer
-1 Sunpetal Grove
-1 Sunrise Sovereign
-1 Survey the Wreckage
-1 Temple of Triumph
-1 Three Tree Rootweaver
-1 Tireless Provisioner
-1 Windurst, Federation Center
-1 Wirewood Elf
+1 Territorial Scythecat
+1 The Autonomous Furnace
+1 Thopter Architect
+1 Théoden, King of Rohan
+1 Vernal Bloom
+1 Vithian Renegades
+1 Werefox Bodyguard
+1 Wild Roads
+1 Zhalfirin Lancer
 
 [commander]
 Johan

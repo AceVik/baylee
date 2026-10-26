@@ -4,20 +4,20 @@
 1 Attrition
 1 Ayula's Influence
 1 Battlegrowth
-1 Bayou
 1 Blighted Bat
 1 Bloodline Necromancer
 1 Bog-Strider Ash
 1 Brotherhood Patriarch
+1 Bucolic Ranch
 1 Cabal Stronghold
 1 Coercion
 1 Colossodon Yearling
+1 Corrupted Crossroads
 1 Cunning Lethemancer
 1 Cutthroat Contender
 1 Dark Betrayal
 1 Darkbore Pathway
 1 Darkheart Sliver
-1 Darkmoss Bridge
 1 Dauthi Slayer
 1 Deathgazer
 1 Deception
@@ -28,7 +28,7 @@
 1 Eumidian Hatchery
 1 Felhide Petrifier
 1 Fiend Artisan
-11 Forest
+12 Forest
 1 Freyalise Supplicant
 1 Gateway Shade
 1 Ghoul's Feast
@@ -36,7 +36,9 @@
 1 Greater Good
 1 Grim Backwoods
 1 Headless Rider
+1 Henge of Ramos
 1 Kujar Seedsculptor
+1 Lake of the Dead
 1 Lash of the Whip
 1 Lifesmith
 1 Manor Skeleton
@@ -47,9 +49,9 @@
 1 Minotaur Abomination
 1 Natural Selection
 1 Nature's Ruin
-1 Nurturing Peatland
 1 Open the Gates
-1 Overgrown Tomb
+1 Painted Bluffs
+1 Pillar of the Paruns
 1 Purraj of Urborg
 1 Putrefy
 1 Rampart Crawler
@@ -63,16 +65,14 @@
 1 Spined Karok
 1 Stalker Hag
 1 Stronghold Rats
-1 Svogthos, the Restless Tomb
-13 Swamp
+12 Swamp
 1 Sylvan Hierophant
-1 Tainted Wood
 1 The Wretched
 1 Tough Cookie
-1 Twilight Mire
 1 Vastwood Fortification
-1 Viridescent Bog
+1 Villainous Hideout
 1 Viscera Seer
+1 Voldaren Estate
 1 Wake of Vultures
 1 Walking Dead
 1 Wastewood Verge

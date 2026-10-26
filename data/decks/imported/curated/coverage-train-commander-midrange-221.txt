@@ -1,83 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange WUG #20266222]
-1 Adarkar Wastes
-1 Almost Perfect
-1 Aviary Mechanic
-1 Ayesha Tanaka
-1 Aysen Abbey
-1 Bag End Banquet
-1 Barkchannel Pathway
-1 Burrog Befuddler
-1 Cloudcrest Lake
-1 Court Street Denizen
-1 Cursecatcher
-1 Deputy of Acquittals
-1 Dispersal Technician
-1 Disruptive Student
-1 Drannith Magistrate
-1 Dromoka Monument
-1 Emry, Lurker of the Loch
-1 Energy Refractor
-1 Erratic Visionary
-1 Ertai, Wizard Adept
-1 Fallowsage
-1 Favored of Iroas
-1 Festival of the Guildpact
-2 Forest
-1 Fountain Watch
-1 Furtive Analyst
-1 Future Flight
-1 Gavony Township
-1 Head of the Homestead
-1 Heal
-1 Herald of the Fair
-1 Horizon Canopy
-1 Hyrax Tower Scout
-1 Improvised Armor
-1 Inkfathom Divers
-1 Intrepid Provisioner
-1 Irregular Cohort
-1 Irrigation Ditch
-14 Island
-1 Jungleborn Pioneer
-1 Kitesail Corsair
-1 Magus of the Bazaar
-1 Malevolent Hermit
-1 Marshal of Zhalfir
-1 Meloku the Clouded Mirror
-1 Merfolk Seer
-1 Nimble Thopterist
-1 Order of the Sacred Torch
-1 Padeem, Consul of Innovation
-1 Paladin of the Bloodstained
-9 Plains
-1 Prahv, Spires of Order
-1 Red Scarab
-1 Rootwater Diver
-1 Sage's Row Denizen
-1 Sea Gate Loremaster
-1 Seafloor Oracle
-1 Seaside Citadel
-1 Setessan Starbreaker
-1 Somnomancer
-1 Soothsayer Adept
-1 Spara's Headquarters
-1 Stronghold Machinist
-1 Summit Sentinel
-1 Supply Caravan
-1 Temple Garden
-1 Thalakos Seer
-1 Thopter Architect
-1 Tooth of Ramos
-1 Tranquil Landscape
+1 Armed Response
+1 Aven Archer
+1 Bee Sting
+1 Bog Gnarr
+1 Borne Upon a Wind
+1 Bucolic Ranch
+1 Call to Heel
+1 Cascading Cataracts
+1 Cathar's Companion
+1 Cave of Temptation
+1 Cavern of Souls
+1 City of Brass
+1 Collision Course
+1 Conduit Pylons
+1 Dive Bomber
+1 Femeref Archers
+1 Fend Off
+1 Fire and Brimstone
+14 Forest
+1 Formation
+1 Glissa's Scorn
+1 Great Hall of the Biblioplex
+1 Guildmages' Forum
+1 Gumato
+1 Hail Storm
+1 Harpoon Sniper
+1 Haze of Pollen
+1 Hornet Sting
+1 Hydroblast
+1 Iguana Parrot
+1 Infested Roothold
+1 Iron Star
+11 Island
+1 Isolation Cell
+1 Jackalope Herd
+1 Juju Bubble
+1 Leaf Arrow
+1 Lull
+1 Mirran Spy
+1 Mistral Singer
+1 Nettletooth Djinn
+1 Pierce the Sky
+1 Poison the Blade
+1 Pressure Point
+1 Psionic Entity
+1 Questing Beast
+1 Reality Anchor
+1 Rootwater Hunter
+1 Safehold Duo
+1 Satyr Enchanter
+1 Secret Base
+1 Serendib Djinn
+1 Serendib Efreet
+1 Shorecrasher Mimic
+1 Skyway Sniper
+1 Soldier Replica
+1 Spire of Industry
+1 Squall Line
+1 Startling Development
+1 Stinging Barrier
+1 Study Hall
+1 Take Down
+1 Talon Gates of Madara
+1 Tangletrap
+1 Throne of Makindi
+1 Thundering Tanadon
+1 Thunderous Snapper
 1 Treva's Ruins
-1 Tropical Island
-1 Twin-Silk Spider
-1 Urban Retreat
-1 Vodalian Mage
-1 Yavimaya's Embrace
-1 Zhalfirin Lancer
+1 Unyaro Bee Sting
+1 Unyaro Bees
+1 Vedalken Blademaster
+1 Viridian Scout
+1 Volcanic Eruption
+1 Voldaren Estate
+1 Voyage's End
+1 Wooden Sphere
 
 [commander]
-Angus Mackenzie
+Ragnar

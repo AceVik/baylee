@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266084]
+1 Aether Hub
+1 Allied Teamwork
+1 Angelic Gift
+1 Battering Sliver
+1 Battle Sliver
+1 Belligerent Sliver
+1 Blade Sliver
+1 Blur Sliver
+1 Bonescythe Sliver
+1 Bonesplitter Sliver
+1 Bucolic Ranch
+1 Cascading Cataracts
+1 Cleaving Sliver
+1 Cloudshredder Sliver
+1 Crystalline Sliver
+1 Daily Bugle Building
+1 Eclipsed Realms
+1 Elderfang Venom
+2 Forest
+1 Fortifying Provisions
+1 Foul Play
+1 Frog Tongue
+1 Fury Sliver
+1 Galerider Sliver
+1 Gallifrey Council Chamber
+1 Gemhide Sliver
+1 Gift of Granite
+1 Gild
+1 Goblin Shrine
+1 Groundshaker Sliver
+1 Haven of the Spirit Dragon
+1 Heart Sliver
+1 Horned Sliver
+5 Island
+1 Kykar, Wind's Fury
+1 Lance
+1 Lancer Sliver
+1 Lazotep Quarry
+1 Mech Hangar
+1 Megantic Sliver
+1 Might Sliver
+1 Military Discipline
+1 Mirrex
+1 Mobilization
+9 Mountain
+1 Nykthos, Shrine to Nyx
+9 Plains
+1 Plated Sliver
+1 Plaza of Heroes
+1 Predatory Sliver
+1 Reflex Sliver
+1 Ritual of Steel
+1 Robotics Mastery
+1 Scourgemark
+1 Secret Base
+1 Sentinel Sliver
+1 Shadow Sliver
+1 Shimmering Grotto
+1 Sinew Sliver
+1 Sliver Hivelord
+1 Spinneret Sliver
+1 Spirit Away
+1 Spirit Mirror
+1 Spitting Sliver
+1 Squire's Devotion
+1 Steelform Sliver
+1 Stratus Walk
+1 Striking Sliver
+1 Summoner's Bane
+1 Synchronous Sliver
+1 Syphon Sliver
+1 Talon Sliver
+1 Tendo Ice Bridge
+1 Two-Headed Sliver
+1 Unforgiving Aim
+1 Venom Sliver
+1 Warleader's Call
+1 Watcher Sliver
+
+[commander]
+Sliver Queen

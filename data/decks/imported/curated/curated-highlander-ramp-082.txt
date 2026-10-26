@@ -4,14 +4,14 @@
 1 Axebane Guardian
 1 Baloth Woodcrasher
 1 Bequeathal
-1 Blighted Woodland
 1 Bloom Tender
 1 Boreal Druid
 1 Canopy Tactician
-1 Centaur Garden
 1 Centaur Nurturer
 1 Circle of Dreams Druid
 1 Citanul Hierophants
+1 Conduit Pylons
+1 Crucible of the Spirit Dragon
 1 Disciple of Freyalise
 1 Drover of the Mighty
 1 Drumhunter
@@ -21,6 +21,7 @@
 1 Elvish Regrower
 1 Elvish Skysweeper
 1 Fanatic of Rhonas
+1 Forbidden Orchard
 1 Frog Tongue
 1 Fyndhorn Elves
 1 Galadhrim Guide
@@ -31,9 +32,8 @@
 1 Guardian of Cloverdell
 1 Gumato
 1 Harabaz Druid
-1 Hashep Oasis
 1 Heart Warden
-1 Heart of Yavimaya
+1 Henge of Ramos
 1 Howling Giant
 1 Humble Naturalist
 1 Hundroog
@@ -61,9 +61,9 @@
 1 Swampbenders
 1 Thriss, Nantuko Primus
 1 Thundering Spineback
-1 Tree of Tales
 1 Turn to Dust
 1 Turntimber Ranger
+1 Turtle Lair
+1 Unclaimed Territory
 1 Viridian Acolyte
 1 Wild Growth
-1 Yavimaya Hollow

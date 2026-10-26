@@ -6,11 +6,12 @@
 1 Akki Drillmaster
 1 Anaba Ancestor
 1 Backdraft
-1 Big Apple, 3 a.m.
+1 Blast Zone
+1 Blasted Landscape
 1 Boggart Sprite-Chaser
-1 Boseiju, Who Shelters All
 1 Caterwauling Boggart
 1 Chaoslace
+1 Clive's Hideaway
 1 Crazed Goblin
 1 Crookshank Kobolds
 1 Cursed Totem
@@ -22,11 +23,11 @@
 1 False Orders
 1 Falter
 1 Feint
-1 Field of the Dead
 1 Flashfires
 1 Flowstone Infusion
+1 Forgotten Monument
+1 Foundry of the Consuls
 1 Furnace Spirit
-1 Gateway Plaza
 1 Goblin Bird-Grabber
 1 Goblin Bully
 1 Goblin Cadets
@@ -39,7 +40,7 @@
 1 Goblin Striker
 1 Goblin Tomb Raider
 1 Goblins of the Flarg
-1 Grand Coliseum
+1 Hostile Desert
 1 Joven's Tools
 1 Lathnu Sailback
 1 Lavastep Raider
@@ -56,7 +57,6 @@
 1 Rage Weaver
 1 Raging Redcap
 1 Rampaging Classmate
-1 Shimmerdrift Vale
 1 Sigiled Skink
 1 Skirk Outrider
 1 Skirk Shaman

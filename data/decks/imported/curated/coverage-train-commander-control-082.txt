@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control G #20266083]
+1 Arcane Spyglass
+1 Arcum's Astrolabe
+1 Armageddon Clock
+1 Astral Cornucopia
+1 Astrolabe
+1 Automatic Librarian
+1 Bag End Banquet
+1 Barrels of Blasting Jelly
+1 Boseiju, Who Endures
+1 Caltrops
+1 Candy Trail
+1 Cathodion
+1 Centaur Garden
+1 Commander's Sphere
+1 Diabolic Machine
+1 Dreamstone Hedron
+1 Dryad Arbor
+1 Empowered Autogenerator
+1 Energy Refractor
+1 Explosive Apparatus
+1 Geistcatcher's Rig
+1 Gemstone Array
+1 Gilded Lotus
+1 Golden Egg
+1 Golden Guardian
+1 Grapeshot Catapult
+1 Heart of Yavimaya
+1 Hedron Archive
+1 Hedron Crawler
+1 Hierophant's Chalice
+1 Instant Ramen
+1 Jinxed Idol
+1 Juju Bubble
+1 Lotus Blossom
+1 Magistrate's Scepter
+1 Magma Mine
+1 Memorial to Unity
+1 Mindless Automaton
+1 Mishra's War Machine
+1 Monoskelion
+1 Mox Diamond
+1 Murmuring Volume
+1 Network Terminal
+1 Okina, Temple to the Grandfathers
+1 Otherworld Atlas
+1 Phyrexian Altar
+1 Pierce Strider
+1 Prophetic Prism
+1 Razormane Masticore
+1 Ring of Renewal
+1 Ruby Medallion
+1 Serum Tank
+1 Skyshroud Poacher
+35 Snow-Covered Forest
+1 Spawning Pit
+1 Stone Calendar
+1 Team Transmitter
+1 The One Ring
+1 Thran Portal
+1 Trading Post
+1 Treasure Map
+1 Ventifact Bottle
+1 Verdant Automaton
+1 Voodoo Doll
+1 Yavimaya Hollow
+
+[commander]
+Prowler, Misguided Mentor

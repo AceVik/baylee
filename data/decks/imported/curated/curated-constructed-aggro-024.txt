@@ -3,20 +3,20 @@
 [deck:constructed aggro WU #20261047]
 4 Backup Agent
 4 Brinebarrow Intruder
+2 Brotherhood Headquarters
+1 Cave of Temptation
 4 Champion of the Parish
-1 Cloudcrest Lake
 4 Hada Freeblade
-1 Hengegate Pathway
+1 Heap Gate
+1 Hidden Grotto
 1 Island
 4 Jeong Jeong's Deserters
 4 Kazandu Blademaster
 2 Kindly Customer
 2 Loran of the Third Path
-2 Moorland Haunt
 1 Mox Sapphire
 1 Mystic Gate
-1 Nimbus Maze
+3 Nimbus Maze
 4 Ondu Greathorn
 13 Plains
 4 Tidus, Blitzball Star
-3 Tundra

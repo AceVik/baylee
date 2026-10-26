@@ -1,28 +1,29 @@
 # baylee synergistic coverage constructed aggro
 # licence: AGPL-3.0-only
-[deck:constructed aggro BRG #20266177]
-1 Aeronaut's Wings
-2 Angrath's Ambusher
-2 Archdemon of Paliano
-2 Black Carriage
-2 Brawler's Plate
+[deck:constructed aggro WUR #20266177]
+2 Bouncing Beebles
 2 Champion's Helm
-1 Darigaaz's Caldera
-2 Ebony Treefolk
-2 Firescreamer
-2 Koskun Keep
-2 Mossfire Egg
+2 Cobbled Wings
+2 Dromosaur
+2 Elvenking's Harper
+2 Flame Blitz
+1 Gemstone Mine
+1 Hall of Oracles
+2 Hammerhead Shark
+2 Homarid Warrior
+9 Island
+2 Kavu Glider
+2 Kithkin Rabble
 5 Mountain
-2 Nameless Race
 2 Nest Robber
-2 Orcish Healer
-2 Pestilence Rats
-2 Rabid Rats
-2 Rakshasa Deathdealer
-2 Ritual of the Machine
-2 Rushwood Dryad
-9 Swamp
-3 Twisted Landscape
-2 Vicious Kavu
-2 Wall of Tombstones
-3 Ziatora's Proving Ground
+2 Ogre's Cleaver
+2 Old Man of the Sea
+2 Parapet Watchers
+3 Planar Nexus
+2 Quarum Trench Gnomes
+2 Raka Disciple
+3 Secluded Courtyard
+1 Sliver Hive
+2 Talisman of Conviction
+2 Thalakos Deceiver
+1 Wall of Faith

@@ -8,10 +8,11 @@
 1 Arena of the Ancients
 1 Assault Strobe
 1 Balduvian Barbarians
-1 Balduvian Trading Post
 1 Barbarian Horde
 1 Basilisk Collar
+1 Bazaar of Baghdad
 1 Black Widow, Natasha Romanoff
+1 Blinkmoth Well
 1 Blood Knight
 1 Bloodthorn Taunter
 1 Bubble Matrix
@@ -29,13 +30,12 @@
 1 Glasses of Urza
 1 Gorgon's Head
 1 Halberdier
-1 Hanweir Battlements
 1 Horn of Deafening
 1 Hyperion Blacksmith
 1 Independent Troops
+1 Inventors' Fair
 1 Jabari's Banner
 1 Jandor's Saddlebags
-1 Kher Keep
 1 Lead Golem
 1 Manifold Key
 1 Marauder's Axe
@@ -44,25 +44,25 @@
 35 Mountain
 1 Mountain Goat
 1 Orcish Spy
-1 Ramunap Ruins
+1 Phyrexia's Core
 1 Renegade Troops
 1 Roc Hunter
 1 Rubblebelt Recluse
 1 Saberclaw Golem
+1 Sanctum of Ugin
 1 Sculpting Steel
+1 Secret Tunnel
 1 Shield of the Ages
-1 Shinka, the Bloodsoaked Keep
-1 Shivan Gorge
 1 Short Sword
 1 Skateboard
 1 Skyshaper
-1 Sokenzan, Crucible of Defiance
 1 Song-Mad Treachery
 1 Tavern Ruffian
 1 Teferi's Sentinel
 1 Torch Gauntlet
 1 Tower of Coireall
 1 Trailblazing Historian
+1 Trenchpost
 1 Warship Scout
 1 Whip Sergeant
 1 Winter Moon

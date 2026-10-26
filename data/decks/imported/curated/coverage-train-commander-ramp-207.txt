@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UBG #20266208]
-1 Baloth Woodcrasher
-1 Barkchannel Pathway
-1 Bayou
-1 Blood Pet
-1 Blood Vassal
-1 Boon of the Wish-Giver
-1 Breeding Pool
-1 Brilliant Plan
-1 Bubbling Muck
-1 Cabal Ritual
-1 Charge Through
-1 Clearwater Pathway
-1 Consult the Star Charts
-1 Curiosity
-1 Darkbore Pathway
-1 Delighted Halfling
-1 Dig Through Time
-1 Dimir Keyrune
-1 Dire Undercurrents
-1 Enter the Enigma
-1 Eternity Snare
-1 Foreboding Landscape
-3 Forest
-1 Frog Butler
-1 Fungal Shambler
-1 Golgari Keyrune
-1 Goobbue Gardener
-1 Gravebind
-1 Gumato
-1 Gyre Engineer
-1 Hidden Lair
-1 Howling Banshee
-1 Icewind Elemental
-15 Island
-1 Jungle Barrier
-1 Kavu Lair
-1 Keeper of Tresserhorn
-1 Lay Claim
-1 Leyline Prowler
-1 Lingering Mirage
-1 Llanowar Wastes
-1 Lull
-1 Mightstone's Animation
-1 Nephalia Drownyard
-1 Nimble Innovator
-1 Novijen, Heart of Progress
-1 Opal Lake Gatekeepers
-1 Opulent Palace
-1 Overflowing Insight
-1 Overgrown Tomb
-1 Poison Dart Frog
-1 Poison the Blade
-1 Poisonbelly Ogre
-1 Pym Particles
-1 Reach Through Mists
-1 Rhox Oracle
-1 Sea Gate Restoration
-1 Simic Keyrune
-1 Skull of Ramos
-1 Slipstream Eel
-1 Soul Read
-1 Startling Development
-1 Striped Riverwinder
-8 Swamp
-1 Sylvan Caryatid
-1 Tainted Isle
-1 Tangled Florahedron
-1 Tidings
-1 Time Spiral
-1 Tishana's Tidebinder
-1 Trade Routes
-1 Tropical Island
-1 Vampiric Spirit
-1 Wave-Wing Elemental
-1 Willowrush Verge
-1 Zagoth Triome
+[deck:commander ramp WBR #20266208]
+1 Akki Avalanchers
+1 Ancestral Vengeance
+1 Assault Intercessor
+1 Aven Brigadier
+1 Avengers Tower
+1 Avenging Angel
+1 Bloodflow Connoisseur
+1 Boggart Cursecrafter
+1 Cave of Temptation
+1 Conduit Pylons
+1 Crypt Angel
+1 Dauthi Ghoul
+1 Devouring Swarm
+1 Dragon Roost
+1 Ebon Praetor
+1 Elderfang Ritualist
+1 Facevaulter
+1 Fallen Angel
+1 Gallifrey Council Chamber
+1 Gimli, Counter of Kills
+1 Goblin Bomb
+1 Goblin Chirurgeon
+1 Goblin Rabblemaster
+1 Goblin Soothsayer
+1 Guardian Kirin
+1 Haven of the Spirit Dragon
+1 Havengul Vampire
+1 Hidden Grotto
+1 Hobblefiend
+1 Hungry Ghoul
+1 Icatian Town
+1 Klingon Strike Force
+1 Lawless Broker
+1 Lotus Vale
+1 Mire Shade
+1 Mogg Raider
+4 Mountain
+1 Mtenda Griffin
+1 Munitions Enthusiast
+1 Nesting Dovehawk
+1 Orcish Vandal
+1 Osai Vultures
+1 Painted Bluffs
+1 Phyrexian Broodlings
+8 Plains
+1 Planar Nexus
+1 Ravenous Harpy
+1 Razaketh, the Foulblooded
+1 Return to Battle
+1 Rukh Egg
+1 Rumble Arena
+1 Sardian Avenger
+1 Scavenger Drake
+1 Screeching Buzzard
+1 Sengir Bats
+1 Shattered Landscape
+1 She-Hulk, Jennifer Walters
+1 Shimmering Grotto
+1 Skeletal Kathari
+1 Soulcatcher
+1 Spectral Procession
+1 Spinal Centipede
+1 Spire of Industry
+1 Stir the Grave
+14 Swamp
+1 Swamp Mosquito
+1 Swarm of Bloodflies
+1 Syndicate Trafficker
+1 Takklemaggot
+1 Three Tree City
+1 Throne of Makindi
+1 Tourach's Gate
+1 Vampire Warlord
+1 Vessel of Ephemera
+1 White Lotus Hideout
+1 Windbrisk Raptor
 
 [commander]
-Muldrotha, the Gravetide
+Oros, the Avenger

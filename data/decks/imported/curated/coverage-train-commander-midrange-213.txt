@@ -1,83 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
 [deck:commander midrange BRG #20266214]
+1 Abyssal Gatekeeper
+1 Akki Raider
 1 All Hallow's Eve
+1 Ally Encampment
 1 Artisan's Sorrow
 1 Ashen Powder
-1 Barrier of Bones
-1 Battle Hymn
-1 Blightstep Pathway
-1 Bloodstone Cameo
-1 Burrowing Razormaw
-1 Catacomb Sifter
-1 Charnelhoard Wurm
+1 Baldur's Gate
+1 Bereavement
+1 Bogardan Firefiend
+1 Captivating Cave
+1 Careless Celebrant
 1 Chime of Night
-1 Codex Shredder
-1 Cosmic Horror
+1 Corrupted Crossroads
+1 Crucible of the Spirit Dragon
 1 Darigaaz's Caldera
-1 Darkbore Pathway
 1 Deadly Visit
 1 Death's Duet
+1 Diamond Kaleidoscope
 1 Doomed Necromancer
-1 Dowsing Shaman
-1 Elven Cache
+1 Dragon's Herald
+1 Dross Harvester
+1 Dying Wail
+1 Eat to Extinction
+1 Elvish Doomsayer
 1 Entreat the Dead
-1 Fangren Marauder
-1 Festerleech
-7 Forest
-1 Geothermal Crevice
+1 Exiled Boggart
+1 Footlight Fiend
 1 Get the Point
 1 Glacial Crevasses
-1 Gnathosaur
-1 Goblin Clearcutter
-1 Graveshifter
-1 Hana Kami
+1 Glimmervoid
+1 Goblin Masons
+1 Grasping Longneck
+1 He's Dead, Jim
 1 Hell's Caretaker
-1 Horrifying Revelation
-1 Jaya's Firenado
-1 Koskun Keep
-1 Lava Tubes
-1 Lightning Javelin
-1 Llanowar Wastes
-1 Lost Legion
-1 Lothlórien Lookout
-1 Macetail Hystrodon
-2 Mountain
+1 Hellkite Overlord
+1 Holdout Settlement
+1 Horror of Horrors
+1 Koma's Faithful
+1 Krark-Clan Grunt
+1 Lampad of Death's Vigil
+1 Last Laugh
+1 Magma Vein
+1 Megatog
+1 Mirrex
+4 Mountain
 1 Necromantic Thirst
 1 Nether Shadow
-1 Nim Deathmantle
-1 Nurturing Peatland
-1 Orcish Mechanics
-1 Orcish Spy
-1 Past in Flames
+1 Nocturnal Feeder
+1 Orcish Bloodpainter
+1 Oxidda Daredevil
+1 Painted Bluffs
 1 Pharika's Mender
-1 Quarry Beetle
-1 Ray of Ruin
+1 Pillar of the Paruns
+1 Plague Spitter
+1 Plagued Rusalka
 1 Reaper of the Wilds
-1 Reincarnation
+1 Rhys the Exiled
 1 Rise Again
-1 Rix Maadi, Dungeon Palace
-1 Rubble Reading
-1 Savage Lands
-1 Scarblade Scout
-1 Screaming Phantom
-1 Shadow Stinger
-1 Shattered Wings
-1 Shower of Arrows
-1 Sigiled Skink
-1 Sinister Starfish
+1 Sleeper's Guile
+1 Slobad, Goblin Tinkerer
 1 Smoldering Efreet
-1 Sonic Screwdriver
-16 Swamp
-1 Taiga
-1 Tainted Peak
-1 Twilight Mire
-1 Twisted Landscape
-1 Twists and Turns
-1 Wildwood Rebirth
-1 Wretched Doll
-1 Ziatora's Proving Ground
-1 Zombify
+1 Sultai Flayer
+21 Swamp
+1 Tar Pitcher
+1 Tarpan
+1 Tel-Jilad Lifebreather
+1 Tendo Ice Bridge
+1 Tsabo Tavoc
+1 Unclaimed Territory
+1 Undercity Dire Rat
+1 Unknown Shores
+1 Visara the Dreadful
+1 Voldaren Estate
+1 Warteye Witch
+1 Wort, Boggart Auntie
+1 Wriggling Grub
 
 [commander]
 Adun Oakenshield

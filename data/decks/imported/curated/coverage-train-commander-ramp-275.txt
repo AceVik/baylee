@@ -1,71 +1,71 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp W #20266276]
-1 Adamant Will
-1 Aerial Maneuver
-1 Alley Evasion
-1 Allied Reinforcements
-1 Altar's Light
-1 Angelic Voices
-1 Ardent Militia
-1 Asha's Favor
-1 Cactus Preserve
-1 Cho-Arrim Alchemist
-1 Clergy of the Holy Nimbus
-1 Crumbling Vestige
-1 Day of Destiny
-1 Defender of Law
-1 Dub
-1 Femeref Healer
-1 Fresh Volunteers
-1 Gateway Plaza
-1 Glorious Anthem
-1 Great Defender
-1 Icatian Phalanx
-1 Icatian Skirmishers
-1 Interjection
-1 Iona's Blessing
-1 Ivory Charm
-1 Knight of New Benalia
-1 Knight of Valor
-1 Makindi Stampede
-1 Marked by Honor
-1 Martyrs of Korlis
-1 Master Healer
-1 Militant Monk
-1 Moat
-1 Mortal's Ardor
-1 Mountain Valley
-1 Paladin en-Vec
+[deck:commander ramp R #20266276]
+1 Adarkar Sentinel
+1 Adventuring Gear
+1 Amaranthine Wall
+1 Amulet of Kroog
+1 Baton of Morale
+1 Bone Saw
+1 Celestial Sword
+1 Clockwork Gnomes
+1 Consulate Skygate
+1 Copper Gnomes
+1 Coral Helm
+1 Crenellated Wall
+1 Darksteel Brute
+1 Dowsing Device
+1 Ersatz Gnomes
+1 Feldon's Cane
+1 Field of the Dead
+1 Flood Plain
+1 Forethought Amulet
+1 Fyndhorn Bow
+1 Gauntlets of Chaos
+1 Helm of Chatzuk
+1 Hoof Skulkin
+1 Hotfoot Gnome
+1 Jabari's Banner
+1 Jawbone Skulkin
+1 Jousting Dummy
+1 Leonin Bladetrap
+1 Lion Heart
+1 Living Wall
+1 Locthwain Gargoyle
+1 Manifold Key
+1 Meekstone
+1 Mirrorpool
+1 Mobile Fort
+1 Molten-Tail Masticore
+35 Mountain
+1 Necropolis
+1 Night Market
+1 One-Clown Band
+1 Pacification Array
+1 Patchwork Gnomes
 1 Path of Ancestry
-1 Piety
-35 Plains
-1 Power Depot
-1 Queen's Commission
-1 Repentant Blacksmith
-1 Righteous Avengers
-1 Sacred Knight
-1 Sanctum Custodian
-1 Seize the Initiative
-1 Serra's Boon
-1 Shield Bearer
-1 Shield Wall
-1 Shu Elite Infantry
-1 Shu Foot Soldiers
-1 Siegecraft
-1 Silver Knight
-1 Skillful Lunge
-1 Skyline Scout
-1 Swift Justice
-1 Terra Eternal
-1 Thawing Glaciers
-1 Thraben Valiant
-1 Trokin High Guard
-1 Venerable Lammasu
-1 Veteran Bodyguard
-1 Veteran Cavalier
-1 Warning
-1 You're Ambushed on the Road
+1 Ragged Playmate
+1 Reinforced Bulwark
+1 Relic Barrier
+1 Saberclaw Golem
+1 Scarecrow
+1 Shell Skulkin
+1 Shield of the Ages
+1 Shuko
+1 Skyshaper
+1 Soldevi Golem
+1 Stuffed Bear
+1 Sunken Citadel
+1 Suspicious Bookcase
+1 Tarnation Vista
+1 Ticking Gnomes
+1 Towering Viewpoint
+1 Urza's Avenger
+1 Wall of Shields
+1 Wall of Spears
+1 Watchwing Scarecrow
+1 Wicker Witch
+1 Witches' Eye
 
 [commander]
-Hawkeye, Clint Barton
+Quicksilver, Pietro Maximoff

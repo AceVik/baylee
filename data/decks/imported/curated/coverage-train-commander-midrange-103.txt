@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange UBG #20266104]
-1 Access Tunnel
-1 Ancestral Reminiscence
-1 Baldur's Gate
-1 Blightsoil Druid
-1 Boon of the Wish-Giver
-1 Castle Doom
-1 Cathedral of Serra
-1 City of Shadows
-1 Commander's Insight
-1 Conclave Naturalists
-1 Demolition Field
-1 Donatello, Turtle Techie
-1 Dragonborn Looter
-1 Drop of Honey
-1 Eclipsed Realms
-1 Enhanced Awareness
-1 Esper Panorama
-1 Faerie Mastermind
-1 Fallowsage
-1 Forest
-1 Gyre Engineer
-23 Island
-1 Kavu Lair
-1 Krovikan Fetish
-1 Learn from the Past
-1 Library Larcenist
-1 Lingering Mirage
-1 Looter il-Kor
-1 Lore Broker
-1 Mage's Guile
-1 Majestic Metamorphosis
-1 Maze of Shadows
-1 Mind Ravel
-1 Mindculling
-1 Mortal Wound
-1 Mystic Snake
-1 Neurok Commando
-1 Phyrexia's Core
-1 Planar Nexus
-1 Poisonbelly Ogre
-1 Prismatic Vista
-1 Prying Eyes
-1 Pulse Tracker
-1 Rabid Bloodsucker
-1 Rain of Revelation
-1 Rebuild
-1 Reconnaissance Mission
-1 Scorched Ruins
-1 Sea Gate Loremaster
-1 Sea Gate Restoration
-1 Seafloor Oracle
-1 Shadowmage Infiltrator
-1 Silundi Vision
-1 Silvergill Peddler
-1 Soothsayer Adept
-1 Soratami Cloudskater
-1 Soulknife Spy
-1 Stealer of Secrets
-1 Sudden Strength
-1 Suit Up
-1 Sure-Footed Infiltrator
-1 Swamp
-1 Teferi's Protege
-1 Third Path Savant
-1 Tidings
-1 Touch of Brilliance
-1 Touch of Invisibility
-1 Tymora's Invoker
-1 Tyrite Sanctum
-1 Urborg Elf
-1 Vapor Snag
-1 Vedalken Heretic
-1 Vernal Bloom
-1 Vision Skeins
-1 Voldaren Estate
-1 Weaver of Currents
-1 Without Weakness
+[deck:commander midrange BRG #20266104]
+1 Abyssal Gatekeeper
+1 Abyssal Hunter
+1 Altac Bloodseeker
+1 Appendage Amalgam
+1 Badlands
+1 Bereavement
+1 Blazemire Verge
+1 Blood Crypt
+1 Bogardan Phoenix
+1 Briar Shield
+1 Brood Butcher
+1 Brood of Cockroaches
+1 Contaminated Ground
+1 Corrupted Harvester
+1 Cosmic Horror
+1 Creakwood Liege
+1 Dark Fortress
+1 Elven Cache
+1 Fastbond
+1 Fiery Mantle
+1 Fire Tempest
+1 Footlight Fiend
+8 Forest
+1 Glacial Crevasses
+1 Grasping Longneck
+1 Grave Pact
+1 Graven Cairns
+1 Heat of Battle
+1 Hell's Caretaker
+1 Horror of Horrors
+1 Impact Tremors
+1 Jaya's Firenado
+1 Lava Tubes
+1 Lich
+1 Lightning Javelin
+1 Long Feng, Grand Secretariat
+1 Mindslicer
+1 Mortuary
+1 Mossfire Valley
+5 Mountain
+1 Nurturing Peatland
+1 Ojer Axonil, Deepest Might
+1 Ojer Kaslem, Deepest Growth
+1 Omen of the Forge
+1 Past in Flames
+1 Penregon Strongbull
+1 Pitchburn Devils
+1 Plague Spitter
+1 Poison-Tip Archer
+1 Power Surge
+1 Primal Frenzy
+1 Raiding Party
+1 Reincarnation
+1 Rix Maadi, Dungeon Palace
+1 Scald
+1 Scream Puff
+1 Seismic Assault
+1 Seizures
+1 Shadowblood Ridge
+1 Shauku's Minion
+1 Shivan Phoenix
+1 Skarrg, the Rage Pits
+1 Sleeper's Guile
+1 Slimefoot, the Stowaway
+1 Soulcage Fiend
+1 Splatter Goblin
+1 Stensia Bloodhall
+1 Stronghold Assassin
+12 Swamp
+1 Taiga
+1 Tor Wauki
+1 Twilight Mire
+1 Twists and Turns
+1 Underworld Dreams
+1 Urborg Stalker
+1 Warp Artifact
+1 Wastewood Verge
 
 [commander]
-Leovold, Emissary of Trest
+Adun Oakenshield

@@ -1,81 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WU #20266112]
-1 Altar of Dementia
-1 Ancient Ziggurat
-1 Ashnod's Altar
-1 Astral Cornucopia
-1 Attentive Sunscribe
-1 Bloodstained Mire
-1 Bottle of Suleiman
+[deck:commander ramp WUB #20266112]
+1 Aardvark Sloth
+1 Ajani's Mantra
+1 Angel's Mercy
+1 Banehound
+1 Bishop's Soldier
+1 Blood Glutton
+1 Brad Boimler, Eager Ensign
 1 Braidwood Sextant
-1 Candy Trail
-1 Capture of Jingzhou
-1 Cloudreader Sphinx
-1 Cobalt Golem
-1 Codex Shredder
-1 Conduit Pylons
-1 Corrupted Crossroads
-1 Darksteel Sentinel
-1 Elven Passage
-1 Enatu Golem
-1 Eye of Malcator
-1 Fodder Cannon
-1 Forge of Heroes
-1 Frostwalk Bastion
-1 Golden Guardian
-1 Grinding Station
-1 Harnessed Snubhorn
-1 Hexplate Golem
-1 Iceberg Cancrix
-1 Iron Suitcase
-1 Jhovall Queen
-1 Jinxed Idol
-1 Journeyer's Kite
-1 Limestone Golem
-1 Lotus Petal
+1 Brightblade Stoat
+1 Champion of Arashin
+1 Chaplain's Blessing
+1 Charity Extractor
+1 Convalescence
+1 Desperate Lunge
+1 Divine Offering
+1 Foot Headquarters
+1 Forlorn Flats
+1 Fortified Beachhead
+1 Grave Robbers
+2 Island
+1 Ivory Cup
+1 Judge of Currents
+1 Knight of Meadowgrain
+1 Lake-town
+1 Lich's Caress
+1 Lifeblood
+1 Lifetap
+1 Lonely Arroyo
 1 Marble Chalice
-1 Mech Hangar
-1 Mishra's War Machine
-1 Mnemonic Wall
-1 Mutavault
-1 Nim Deathmantle
-1 Obsianus Golem
-1 Pilgrim of the Fires
-1 Pillar of the Paruns
-1 Prismite
-1 Prophet of the Peak
-1 Refurbish
-1 Renegade Map
-1 Rotcrown Ghoul
-1 Rumbling Sentry
-1 Rune-Sealed Wall
-1 Scalding Tarn
-1 Scepter of Dominance
-1 Scorpion Sentinel
-1 Seer's Lantern
-1 Sensei's Divining Top
-1 Sentinel of the Eternal Watch
-1 Shield-Wall Sentinel
-1 Shriekhorn
-11 Snow-Covered Island
-15 Snow-Covered Plains
-1 Sonic Screwdriver
-1 Sword of Hearth and Home
-1 Temporal Manipulation
-1 Tendo Ice Bridge
-1 Thaumatic Compass
-1 The Rack
-1 Time Warp
-1 Treasure Map
-1 Unstable Obelisk
-1 Urza's Cave
-1 Verdant Catacombs
-1 Vesuva
-1 Vibrant Cityscape
-1 Wakandan Drone Flock
-1 Watcher of the Wayside
-1 Zetalpa, Primal Dawn
+1 Markov Patrician
+1 Maw of the Mire
+1 Meticulous Archive
+1 Mistvault Bridge
+1 Mournful Zombie
+1 Neglected Manor
+1 Nip Gwyllion
+1 Noxious Grasp
+1 Orim's Prayer
+1 Orzhov Guildmage
+1 Peace of Mind
+14 Plains
+1 Poison Arrow
+1 Prideful Feastling
+1 Restless Reef
+1 Reverse Polarity
+1 Righteous Cause
+1 Sanctimony
+1 Scrounger of Souls
+1 Secret Passage
+1 Sephiroth's Intervention
+1 Sharlayan, Nation of Scholars
+1 Snowfield Sinkhole
+1 Songbird, Sonic Screamer
+1 Soothing Balm
+1 Soul Shepherd
+1 Soured Springs
+1 Sphinx of the Steel Wind
+1 Spiritual Sanctuary
+1 Staff of Domination
+1 Steadfast Paladin
+10 Swamp
+1 Syphon Fuel
+1 Take Heart
+1 Temple of Deceit
+1 Thirsting Shade
+1 Tidy Conclusion
+1 Trained Caracal
+1 Triumphant Surge
+1 Urza's Chalice
+1 Vizkopa Vampire
+1 Vona, Butcher of Magan
+1 Wanderwine Hub
+1 Waterfront District
+1 Whitesun's Passage
+1 Wooden Sphere
+1 Zulaport Chainmage
 
 [commander]
-Jedit Ojanen
+Lady Evangela

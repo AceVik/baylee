@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
 [deck:commander aggro WG #20266249]
-1 Adept Watershaper
-1 Aerial Modification
-1 Akroma's Devoted
-1 Always Watching
-1 Anthem of Champions
-1 Armor of Faith
-1 Auratog
-1 Black Scarab
-1 Branchloft Pathway
-1 Brown Ouphe
-1 Brushland
-1 Carapace
-1 Castle Raptors
-1 Cessation
-1 Collective Blessing
-1 Collector Ouphe
-1 Conclave Cavalier
-1 Conviction
-1 Devoted Hero
-1 Dwynen, Gilt-Leaf Daen
-1 Eladamri, Lord of Leaves
+1 Aesthir Glider
+1 Algae Gharial
+1 Angelic Wall
+1 Arcbound Ravager
+1 Behemoth Sledge
+1 Blood Servitor
+1 Brass Secretary
+1 Chronomaton
+1 Crazed Armodon
+1 Desecration Plague
+1 Destroy Evil
+1 Dispatch
+1 Dowsing Dagger
 1 Elvish Champion
 1 Elvish Hexhunter
-1 Elvish Lookout
-1 Fang of Shigeki
-8 Forest
+1 Erase
+1 Excavated Wall
+15 Forest
+1 Garruk's Companion
 1 Gathering Place
-1 Gavony Township
-1 Goldmeadow Lookout
-1 Grove of the Guardian
-1 Hero's Resolve
-1 Holy Armor
-1 Honor of the Pure
-1 Horizon Canopy
-1 Hushwood Verge
-1 Indomitable Will
-1 Intangible Virtue
-1 Invasion of Belenon
-1 Jihad
-1 King of the Pride
-1 Kinsbaile Cavalier
-1 Knighthood
-1 Kor Scythemaster
-1 Lush Portico
-1 Mantle of Webs
-1 Nimbus Wings
-1 Nova Cleric
-1 Odric's Outrider
-1 Phantom General
-1 Pheres-Band Warchief
-16 Plains
-1 Privileged Position
-1 Regal Imperiosaur
-1 Rhox Pikemaster
-1 Savannah
-1 Scattershot Archer
-1 Serra's Blessing
+1 Glare of Heresy
+1 Gleaming Barrier
+1 Glimmervoid
+1 Gobbling Ooze
+1 Green Scarab
+1 Highland Game
+1 Hungry Spriggan
+1 Lumberknot
+1 Maelstrom of the Spirit Dragon
+1 Marble Gargoyle
+1 Memnite
+1 Molder Beast
+1 Moopsy
+1 Myr Scrapling
+1 Narnam Cobra
+1 Not on My Watch
+1 Panharmonicon
+1 Perilous Myr
+1 Phyrexian War Beast
+9 Plains
+1 Ranger's Longbow
+1 Ravenous Baloth
+1 Riftstone Portal
+1 Sabertooth Nishoba
+1 Saltcrusted Steppe
+1 Salvaged Manaworker
+1 Sarkhan's Resolve
+1 Serrated Biskelion
+1 Shifting Wall
+1 Shimmering Barrier
+1 Shoot Down
+1 Siegehorn Ceratops
+1 Skyscythe Engulfer
+1 Slayer's Plate
+1 Sledding Otter-Penguin
 1 Sliversmith
-1 Soltari Lancer
-1 Spiritual Asylum
-1 Sporecrown Thallid
-1 Squirrel Sovereign
-1 Stonybrook Schoolmaster
-1 Sun Clasp
+1 Spinning Wheel
+1 Spore Swarm
+1 Springjack Pasture
+1 Storm Seeker
 1 Sungrass Prairie
+1 Tajuru Pathwarden
 1 Tangle Asp
-1 Thaumatog
-1 Thicket Crasher
-1 Timber Protector
-1 Troubled Healer
+1 Tarnished Citadel
+1 Tendo Ice Bridge
+1 Thermal Navigator
+1 Throne of Makindi
+1 Uktabi Wildcats
 1 Vec Townships
-1 Veldt
+1 Verdant Automaton
+1 Villainous Hideout
 1 Vitu-Ghazi, the City-Tree
+1 Wall of Swords
+1 Wall of Tanglecord
 1 Warded Battlements
-1 Wild Nacatl
-1 Wizened Cenn
-1 Wooded Bastion
+1 Well-Worn Spatula
+1 White Lotus Hideout
 
 [commander]
-Emmara, Soul of the Accord
+Trostani, Three Whispers

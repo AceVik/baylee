@@ -3,9 +3,9 @@
 [deck:commander aggro B #20261109]
 1 Al Bhed Salvagers
 1 Arnyn, Deathbloom Botanist
+1 Baxter Building
 1 Bishop of the Bloodstained
 1 Blight Keeper
-1 Blighted Fen
 1 Blood Artist
 1 Bloodhunter Bat
 1 Bloodrite Invoker
@@ -13,6 +13,7 @@
 1 Callous Inspector
 1 Claws of Gix
 1 Corrupted Roots
+1 Crucible of the Spirit Dragon
 1 Death Cultist
 1 Death Watch
 1 Deathcurse Ogre
@@ -43,14 +44,13 @@
 1 Sanguine Syphoner
 1 Scourge of the Undercity
 1 Serrated Scorpion
-1 Shizo, Death's Storehouse
 1 Skymarch Bloodletter
 1 Sling-Gang Lieutenant
 1 Spirit of Malevolence
 1 Swallowing Plague
 32 Swamp
 1 Symbiote Spawn
-1 Takenuma, Abandoned Mire
+1 Tarnished Citadel
 1 The Meathook Massacre
 1 Tomb of Urami
 1 Touch of Death

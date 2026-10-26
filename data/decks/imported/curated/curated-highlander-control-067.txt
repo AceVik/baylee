@@ -2,20 +2,22 @@
 # licence: AGPL-3.0-only
 [deck:highlander control W #20261090]
 1 Academy Rector
+1 Ancient Ziggurat
 1 Armed Response
 1 Aura Blast
 1 Auspicious Ancestor
 1 Battlewise Valor
+1 Baxter Building
 1 Blessed Wine
-1 Blighted Steppe
 1 Call the Gatewatch
 1 Captain of the Watch
 1 Captain's Defense
 1 Clear
 1 Contemplation
 1 Coordinated Maneuver
-1 Daru Encampment
+1 Crystal Grotto
 1 Dragon's Presence
+1 Eclipsed Realms
 1 Eiganjo Castle
 1 Elite Archers
 1 Festival of the Guildpact
@@ -29,15 +31,14 @@
 1 Jeskai Student
 1 Joust Through
 1 Kami of Tattered Shoji
-1 Karakas
 1 Kor Firewalker
-1 Kor Haven
 1 Kree Commandos
 1 Lotus-Eye Mystics
-1 Lupinflower Village
+1 Maelstrom of the Spirit Dragon
 1 Mana Crypt
 1 Mesa Enchantress
 1 Meteorite
+1 Nykthos, Shrine to Nyx
 1 Opal Archangel
 1 Opal Caryatid
 1 Opal Champion
@@ -54,7 +55,6 @@
 1 Royal Decree
 1 Sandblast
 1 Seeker of the Way
-1 Shefet Dunes
 1 Sigil of the Empty Throne
 1 Slash of Talons
 1 Sphinx-Bone Wand

@@ -1,79 +1,79 @@
 # baylee synergistic coverage highlander control
 # licence: AGPL-3.0-only
-[deck:highlander control WUR #20266175]
-1 Barbed Battlegear
-1 Blind Phantasm
-1 Bonebreaker Giant
-1 Bubbling Beebles
+[deck:highlander control WRG #20266175]
+1 Abstergo Entertainment
+1 Ally Encampment
+1 Anaba Bodyguard
+1 Argothian Pixies
+1 Beacon Behemoth
+1 Boros Recruit
+1 Breakneck Berserker
+1 Cabaretti Initiate
+1 Canyon Wildcat
+1 Capital City
+1 Cave of Temptation
+1 Cavern of Souls
 1 Changeling Sentinel
-1 Clever Impersonator
-1 Cloak of the Bat
-1 Crucible of Worlds
-1 Cyclopean Snare
-1 Darksteel Plate
+1 City of Brass
+1 Crucible of the Spirit Dragon
+1 Crystal Grotto
 1 Deer-Dog
-1 Deflection
-1 Desolate Lighthouse
-1 Elvenking's Harper
-1 Ensouled Scimitar
-1 Fleetfeather Sandals
-1 Galvanic Key
-1 Gauntlets of Chaos
-1 Glasspool Mimic
-1 Glorifier of Dusk
-1 Goldhound
-1 Hallowed Fountain
-1 Imi Statue
+1 Falkenrath Reaver
+1 Feral Krushok
+1 Feral Maaka
+1 Flowstone Charger
+1 Flowstone Hellion
+10 Forest
+1 Furnace Strider
+1 Gallifrey Council Chamber
+1 Glissa's Courier
+1 Goblin Berserker
+1 Goblin Bird-Grabber
+1 Gray Ogre
+1 Great Hall of the Biblioplex
+1 Great-Horn Krushok
+1 Guma
+1 Heart Wolf
+1 Hollowhenge Beast
+1 Hurloon Minotaur
 1 Impostor of the Sixth Pride
-11 Island
-1 Kavu Glider
-1 Land Cap
-1 Lightning Hounds
-1 Mightstone
-1 Mirror Image
-1 Mishra's Groundbreaker
-1 Mnemonic Nexus
-1 Moon-Eating Dog
-1 Moorland Haunt
-1 Morphling
-13 Mountain
-1 Mystic Compass
-1 Mystic Gate
-1 Mystic Monastery
-1 Mystical Tutor
-1 No-Dachi
-1 Noggle Bandit
-1 Perilous Landscape
-1 Phantasmal Forces
-1 Phantasmal Image
-3 Plains
-1 Power Armor
-1 Prahv, Spires of Order
-1 Primal Clay
-1 Quicksilver Amulet
-1 Raugrin Triome
-1 Riverpyre Verge
-1 Scrapyard Mongrel
-1 Sentinel
-1 Short Bow
-1 Slimy Kavu
-1 Starfleet Crew
-1 Sterling Hound
-1 Stunt Double
-1 Sunbaked Canyon
-1 Sunhome, Fortress of the Legion
-1 Sunscorched Divide
-1 Tenza, Godo's Maul
-1 Thalakos Lowlands
-1 Thraben Purebloods
-1 Towering Thunderfist
-1 Trip Noose
-1 True-Faith Censer
-1 Tundra
-1 Two-Headed Cerberus
-1 Volcanic Island
-1 Vulshok Morningstar
-1 War Horn
-1 War-Spike Changeling
-1 Watchdog
-1 Zodiac Dog
+1 Karoo Meerkat
+1 Kessig Wolf
+1 King Cheetah
+1 Lotus Vale
+1 Loxodon Gatekeeper
+1 Marisi's Twinclaws
+1 Minotaur Warrior
+1 Mist Leopard
+1 Mizzix's Mastery
+12 Mountain
+1 Noble Panther
+1 Painted Bluffs
+1 Panther Warriors
+1 Pearled Unicorn
+5 Plains
+1 Planar Nexus
+1 Raging Cougar
+1 Raging Redcap
+1 Rakeclaw Gargantuan
+1 Ravenous Bloodseeker
+1 Regal Unicorn
+1 Rith's Grove
+1 Rubblebelt Recluse
+1 Russet Wolves
+1 Sabretooth Tiger
+1 Scion of the Wild
+1 Scragnoth
+1 Sedge Scorpion
+1 Surveillance Room
+1 Swab Goblin
+1 Telim'Tor's Edict
+1 Tendo Ice Bridge
+1 Towering Indrik
+1 Turn to Dust
+1 Victual Sliver
+1 Wall of Brambles
+1 Wall of Ice
+1 Wall of Razors
+1 Wild Jhovall
+1 Woodland Changeling

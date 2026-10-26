@@ -17,8 +17,11 @@
 1 Empowered Autogenerator
 1 Energy Refractor
 1 Failed Conversion
+1 Forbidden Orchard
+1 Gallifrey Council Chamber
 1 Giant's Boulder
 1 Golden Egg
+1 Heap Gate
 1 Hedron Archive
 1 Hedron Crawler
 1 Infernal Idol
@@ -37,6 +40,8 @@
 1 Paradise Mantle
 1 Pentavus
 1 Phyrexian Tower
+1 Planar Nexus
+1 Plaza of Heroes
 1 Prizefighter Construct
 1 Prophetic Prism
 1 Razorfield Thresher
@@ -53,18 +58,13 @@
 1 Staff of Nin
 1 Strands of Night
 1 Su-Chi
-1 Takenuma, Abandoned Mire
 1 Tarrian's Journal
 1 Terrarion
 1 Tetravus
-1 The Black Gate
 1 The Hive
-1 Tomb of Urami
 1 Triskelavus
 1 Triskelion
 1 Unholy Grotto
-1 Urborg
-1 Volrath's Stronghold
 1 Voltaic Servant
 
 [commander]

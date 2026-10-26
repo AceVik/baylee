@@ -8,21 +8,21 @@
 2 Cavern Crawler
 1 Colossapede
 2 Flesh Burrower
-3 Forest
+1 Forest
 2 Grizzled Leotau
 2 Ironclaw Buzzardiers
 2 Ivy Dancer
-4 Jetmir's Garden
-4 Jungle Shrine
 2 Kraul Stinger
-10 Mountain
+7 Mountain
 2 Neverwinter Dryad
-1 Plains
+4 Pinecrest Ridge
+6 Plains
 2 Raging Minotaur
 2 Rakeclaw Gargantuan
 2 Safehold Elite
+1 Sheltered Thicket
 2 Starstorm
-1 Tinder Farm
+4 Training Compound
 2 Twinscroll Shaman
 2 Vug Lizard
 2 Windseeker Centaur

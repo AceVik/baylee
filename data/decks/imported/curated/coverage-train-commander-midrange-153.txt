@@ -1,72 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange R #20266154]
-1 Accorder's Shield
-1 Anodet Lurker
-1 Arc Runner
-1 Bant Panorama
-1 Barreling Attack
-1 Canyon Wildcat
-1 Clickslither
-1 Crucible of the Spirit Dragon
-1 Dragon Engine
-1 Dwarven Grunt
-1 Elven Passage
-1 Excavator
-1 Feral Maaka
-1 Furnace Brood
-1 Goblin Cannon
-1 Gorgon's Head
-1 Guardian Automaton
-1 Guma
-1 Haunted Guardian
-1 Helm of the Host
-1 Illusionary Mask
-1 Iron Lance
-1 Jangling Automaton
-1 Jhoira's Toolbox
-1 Jousting Dummy
-1 Kiln Walker
-1 Library of Leng
-1 Magnetic Mine
-1 Mantis Engine
-1 Marauder's Axe
-1 Maskwood Nexus
-1 Metrognome
-34 Mountain
-1 Ogre's Cleaver
-1 Painted Bluffs
-1 Prismatic Vista
-1 Quaketusk Boar
-1 Raging Bull
-1 Raging Cougar
-1 Regathan Firecat
-1 Sabretooth Tiger
-1 Sandals of Abdallah
-1 Scoria Cat
-1 Scoria Elemental
-1 Scrapheap
-1 Shadowspear
-1 Skateboard
-1 Skycoach Waypoint
-1 Sliver Construct
-1 Stone Spirit
-1 Stonework Puma
-1 Sunstone
-1 Sword of the Chosen
-1 Thermal Navigator
-1 Thran Lens
-1 Torch Gauntlet
-1 Unnatural Speed
-1 Voltaic Servant
-1 Wand of the Elements
-1 War Barge
-1 Whalebone Glider
-1 Wild Jhovall
-1 Winter Moon
-1 Wirecat
-1 Witches' Eye
-1 Worldslayer
+[deck:commander midrange G #20266154]
+1 Argothian Treefolk
+1 Barkhide Troll
+1 Bassara Tower Archer
+1 Bird Admirer
+1 Blanchwood Treefolk
+1 Camouflage
+1 Castle Garenbrig
+1 Channel
+1 Chocobo Camp
+1 Conifer Strider
+1 Crossbow Ambush
+1 Dawnstrider
+1 Devotee of Strength
+1 Dungrove Elder
+1 Ember Weaver
+1 Eureka
+34 Forest
+1 Giant Badger
+1 Gloomwidow
+1 Gnottvold Recluse
+1 Grappler Spider
+1 Heartwood Treefolk
+1 Heroic Intervention
+1 Hitchclaw Recluse
+1 Horrid Vigor
+1 Humble Budoka
+1 Ivy Dancer
+1 Kessig Recluse
+1 Lifelace
+1 Llanowar Behemoth
+1 Llanowar Vanguard
+1 Magnigoth Sentry
+1 Mammoth Spider
+1 Memorial to Unity
+1 Meng Huo's Horde
+1 Might Weaver
+1 Mirkwood Spider
+1 Moss Monster
+1 Realms Uncharted
+1 Reclaim
+1 Regenerate
+1 Rib Cage Spider
+1 Rime Dryad
+1 Root Snare
+1 Root Spider
+1 Rowan Treefolk
+1 Rushwood Herbalist
+1 Sapseep Forest
+1 Scarwood Treefolk
+1 Skyshroud Troll
+1 Sporecap Spider
+1 Squirrel Sovereign
+1 Swift Spinner
+1 Talarian Hook Spider
+1 Taoist Hermit
+1 Terrain Elemental
+1 The Fabulous Frog-Man
+1 Thriving Grove
+1 Trailblazer
+1 Turntimber Grove
+1 Unseen Walker
+1 Vine Mare
+1 Willow Dryad
+1 Woodland Druid
+1 Woodland Patrol
+1 Yavimaya Scion
 
 [commander]
-Quicksilver, Pietro Maximoff
+Thrun, the Last Troll

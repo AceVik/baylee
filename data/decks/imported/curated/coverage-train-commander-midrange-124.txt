@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BR #20266125]
-1 Arena of Glory
-1 Black Dragon Gate
-1 Blanket of Night
-1 Blight
-1 Blood Mist
-1 Boldwyr Aggressor
-1 Borderland Marauder
-1 Brink of Madness
-1 Captain's Tutelage
-1 Caterwauling Boggart
-1 Caverns of Despair
-1 Chaosphere
-1 Cinder Wall
-1 Cori Mountain Monastery
-1 Crimson Kobolds
-1 Crucible of Fire
-1 Crypt of Agadeem
-1 Dauthi Embrace
-1 Death Pits of Rath
-1 Den of the Bugbear
-1 Dralnu's Crusade
-1 Dwarven Hold
-1 Feast of the Unicorn
-1 Ferocity of the Wilds
-1 Fervor
-1 Fire Nation's Conquest
-1 Flameborn Viron
-1 Fury Sliver
-1 Gate to Phyrexia
-1 Giant Spectacle
-1 Gloom
-1 Goblin Chieftain
-1 Goblin King
-1 Goblin Kites
-1 Goblin Sappers
-1 Goblin War Drums
-1 Goblin War Paint
-1 Hidden Volcano
-1 Intimidation
-1 Kobold Overlord
-1 Kobold Taskmaster
-1 Lavastep Raider
-1 Mad Auntie
-1 Madblind Mountain
-1 Madcap Skills
-1 Minotaur Aggressor
-1 Monstrous Carabid
-8 Mountain
-1 Night of Souls' Betrayal
-1 No Mercy
-1 Nyxborn Brute
-1 Orcish Captain
-1 Oubliette
-1 Paragon of Open Graves
-1 Power Boost
-1 Pride of the Perfect
-1 Rising of the Day
-1 Ruinous Gremlin
-1 Season of the Witch
-1 Smoldering Spires
-1 Spinerock Knoll
-1 Spymaster's Vault
-1 Stronghold Taskmaster
-17 Swamp
-1 Tahngarth's Rage
-1 The Abyss
-1 The Autonomous Furnace
-1 The Dross Pits
-1 Thrull Champion
-1 Tomb Fortress
-1 Tuktuk Rubblefort
-1 Valakut, the Molten Pinnacle
-1 Vance's Blasting Cannons
-1 Virulent Plague
-1 Volcanic Strength
-1 Wall of Corpses
+[deck:commander midrange RG #20266125]
+1 Aftershock
+1 Alloy Myr
+1 Ash Barrens
+1 Bear Trap
+1 Bird Maiden
+1 Blood Frenzy
+1 Bot Bashing Time
+1 Bramblesnap
+1 Cabaretti Courtyard
+1 Chimeric Egg
+1 Cinder Cloud
+1 Cockatrice
+1 Command the Storm
+1 Crash and Burn
+1 Crimson Manticore
+1 Crystal Rod
+1 Deadshot
+1 Demolition Field
+1 Diamond Valley
+1 Excavation Mole
+1 Fearful Villager
+1 Feed the Flames
+1 Firestorm Phoenix
+1 Flame Lash
+1 Flamecast Wheel
+1 Flowstone Salamander
+1 Force of Savagery
+11 Forest
+1 Frostwalk Bastion
+1 Galewind Moose
+1 Hematite Talisman
+1 Hotfoot Gnome
+1 Hungry Megasloth
+1 Ifh-Bíff Efreet
+1 Inferno
+1 Iron Bully
+1 Iron Star
+1 Jund Panorama
+1 Kookus
+1 Levitating Statue
+1 Library of Alexandria
+1 Machine Man, Model X-51
+1 Malachite Talisman
+1 Manabarbs
+1 Maze of Ith
+1 Maze of Shadows
+14 Mountain
+1 Mountain Stronghold
+1 Muraganda Raceway
+1 One-Clown Band
+1 Onyx Talisman
+1 Paupers' Cage
+1 Pyroblast
+1 Reduce to Ashes
+1 Rumbling Slum
+1 Sarkhan's Resolve
+1 Sawback Manticore
+1 Sawtooth Ogre
+1 Scryb Ranger
+1 Secret Tunnel
+1 Sequestered Stash
+1 Shivan Devastator
+1 Shopkeeper's Bane
+1 Silvos, Rogue Elemental
+1 Skycoach Waypoint
+1 Spitting Hydra
+1 Springjaw Trap
+1 Stormbind
+1 Sudden Impact
+1 Uktabi Faerie
+1 Unerring Sling
+1 Unfriendly Fire
+1 Vial of Dragonfire
+1 Volatile Fault
+1 Weldfast Monitor
+1 Willow Faerie
 
 [commander]
-Mahadi, Emporium Master
+Tuknir Deathlock

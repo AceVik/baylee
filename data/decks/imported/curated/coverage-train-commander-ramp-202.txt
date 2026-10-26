@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp WRG #20266203]
-1 Akki Rockspeaker
-1 An-Havva Township
-1 Angel of Flight Alabaster
 1 Angel of the God-Pharaoh
+1 Archaeological Dig
 1 Ashen Firebeast
-1 Atalan Jackal
-1 Avacyn, Angel of Hope
-1 Carven Caryatid
+1 Bogardan Rager
+1 Catalyst Elemental
+1 Centaur Glade
 1 Chosen by Heliod
-1 Cocoon
-1 Crater Hellion
-1 Desolation of Smaug
-1 Dragon Tyrant
+1 Dawntreader Elk
+1 Deadapult
+1 Defense of the Heart
+1 Dragon Mantle
+1 Eladamri's Vineyard
 1 Emeria Angel
 1 Excavation Mole
-1 Fasting
+1 Feather of Flight
 1 Fecundity
-1 Fungal Bloom
-1 Gavony Township
-1 Go Forth
+1 Flamekin Gildweaver
+10 Forest
+1 Fury
 1 Granitic Titan
+1 Great Hall of the Citadel
+1 Greensleeves, Maro-Sorcerer
+1 Griffin Dreamfinder
 1 Groundchuck & Dirtbag
-1 Grove of the Burnwillows
-1 Grove of the Guardian
-1 Hellkite Igniter
-1 Hushwood Verge
-1 Inheritance
-1 Into the North
-1 Jetmir's Garden
-1 Jungle Shrine
+1 Guildmages' Forum
+1 Haven of the Spirit Dragon
+1 Henge of Ramos
+1 Hundroog
+1 Improvised Armor
+1 Interplanar Beacon
 1 Karmic Guide
-1 Keen-Eyed Raven
+1 Kavu Lair
 1 Lava Serpent
+1 Lazotep Quarry
+1 Living Lightning
+1 Macetail Hystrodon
 1 Mirri's Guile
 1 Morselhoarder
+5 Mountain
 1 Natural Order
 1 Nature's Lore
-1 Nesting Dovehawk
-1 Neverwinter Dryad
-1 Omen of the Sun
-1 Pileated Provisioner
+1 Need for Speed
+1 Nykthos, Shrine to Nyx
+1 Omen of the Forge
 1 Pillardrop Rescuer
-1 Plateau
-1 Rampaging Hippo
-1 Requiem Angel
+11 Plains
+1 Rapacious Dragon
 1 Reya Dawnbringer
-1 Ridge Rannet
-1 Rith's Grove
-1 Rock Basilisk
+1 Ritual of Steel
+1 Rumble Arena
 1 Rune of Protection: Artifacts
-1 Sacred Foundry
+1 Rune of Protection: Green
+1 Rune of Protection: White
+1 School of the Unseen
+1 Secret Base
 1 Seismic Spike
-1 Shared Roots
+1 Sheltering Boughs
 1 Sheltering Landscape
+1 Shivan Hellkite
 1 Shore Lurker
-1 Silent Sentinel
-1 Skarrg, the Rage Pits
-15 Snow-Covered Forest
-4 Snow-Covered Mountain
-7 Snow-Covered Plains
-1 Soulcatcher
+1 Sky Tether
 1 Subjugator Angel
-1 Sunbaked Canyon
-1 Sunbillow Verge
-1 Supply-Line Cranes
 1 Sylvan Anthem
-1 Tinder Farm
-1 Tranquil Path
+1 Talon Gates of Madara
+1 Tangled Florahedron
+1 Thunder Dragon
+1 Tinder Wall
 1 Transdimensional Bovine
-1 Tribute to the World Tree
-1 Veldt
-1 Violent Impact
+1 Turtle Lair
+1 Twists and Turns
+1 Undiscovered Paradise
+1 Villainous Hideout
 1 Voice of the Provinces
-1 War Dance
-1 Wrenn and Realmbreaker
-1 Youthful Valkyrie
+1 Winged Shepherd
+1 Winter's Night
+1 Yoked Plowbeast
 
 [commander]
 Palladia-Mors

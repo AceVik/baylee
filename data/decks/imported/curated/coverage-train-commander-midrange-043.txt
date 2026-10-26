@@ -7,7 +7,6 @@
 1 Arcum's Whistle
 1 Argothian Pixies
 1 Argothian Swine
-1 Blinkmoth Well
 1 Bramblesnap
 1 Charging Badger
 1 Child of Gaea
@@ -17,12 +16,13 @@
 1 Cryptic Caves
 1 Despotic Scepter
 1 Dowsing Dagger
+1 Dragon-Cursed Halls
+1 Endless Sands
 1 Entangling Vines
 1 Faerie Noble
 1 Feral Invocation
 1 Flailing Drake
 1 Force of Savagery
-1 Gemstone Caverns
 1 Gilt-Leaf's Embrace
 1 Gorn Captain
 1 Hawkeater Moth
@@ -54,7 +54,6 @@
 1 Squirrel Sovereign
 1 Stamina
 1 Stampeding Serow
-1 Swarmyard
 1 Tajuru Pathwarden
 1 Tangle Mantis
 1 Thicket Crasher
@@ -62,10 +61,11 @@
 1 Trollhide
 1 Trolls of Tel-Jilad
 1 Unnatural Predation
-1 Unstable Frontier
 1 Vulpine Goliath
+1 Warped Landscape
 1 Warriors of Wakanda
 1 Willow Faerie
+1 Witch's Clinic
 1 Yavimaya Gnats
 
 [commander]

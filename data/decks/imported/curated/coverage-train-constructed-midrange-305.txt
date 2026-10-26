@@ -1,30 +1,28 @@
 # baylee synergistic coverage constructed midrange
 # licence: AGPL-3.0-only
 [deck:constructed midrange BRG #20266306]
-2 Blistering Dieflyn
-2 Colossapede
-2 Daggerback Basilisk
-3 Darigaaz's Caldera
-2 Deadly Insect
-2 Dwarven Nomad
-2 Fledgling Imp
-6 Forest
-1 Geothermal Crevice
-2 Giant Cockroach
-2 Giant Scorpion
-2 Golgari Longlegs
-2 Gore Swine
-2 Greater Basilisk
-1 Koskun Keep
-2 Mountain
-2 Nettle Swine
-2 Perilous Shadow
-2 Raging Bull
-2 Riot Devils
-2 Savage Lands
-2 Stonefare Crocodile
-7 Swamp
-1 Twisted Landscape
-2 Volcano Imp
-2 Wild Ox
-1 Ziatora's Proving Ground
+2 Acidic Sliver
+1 Ally Encampment
+2 Alpha Kavu
+2 Bog Tatters
+3 Brotherhood Headquarters
+2 Crowd of Cinders
+2 Crypt Ripper
+2 Deathbellow Raider
+2 Dirtwater Wraith
+2 Drift of the Dead
+2 Ebony Treefolk
+2 Firescreamer
+2 Forerunner of Slaughter
+1 Forest
+2 Ghostly Changeling
+2 Henge of Ramos
+2 Hooded Kavu
+4 Mountain
+2 Raging Kavu
+2 Sedge Troll
+2 Serpentine Kavu
+2 Skeletal Changeling
+3 Springjack Pasture
+10 Swamp
+2 Vicious Kavu

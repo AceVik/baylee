@@ -1,86 +1,86 @@
 # baylee synergistic coverage highlander midrange
 # licence: AGPL-3.0-only
-[deck:highlander midrange UBR #20266304]
-1 Amphin Cutthroat
-1 Anaba Bodyguard
-1 Black Poplar Shaman
-1 Blood Crypt
-1 Breathstealer
-1 Castle Sengir
-1 Cat Burglar
-1 Crosis's Catacombs
-1 Crumbling Necropolis
-1 Crypt of the Eternals
-1 Cryptic Spires circles=UB
-1 Daring Thunder-Thief
-1 Dauthi Marauder
-1 Dauthi Mindripper
-1 Dauthi Trapper
-1 Deathcult Rogue
-1 Desolate Lighthouse
-1 Dreadship Reef
-1 Earth Elemental
-1 Emeritus of Woe
+[deck:highlander midrange WRG #20266304]
+1 Abstergo Entertainment
+1 Akki Drillmaster
+1 Ancient Spider
+1 Arc Runner
+1 Argothian Treefolk
+1 Baxter Building
+1 Blanchwood Treefolk
+1 Blossom Dryad
+1 Bronzebeak Moa
+1 Brotherhood Headquarters
+1 Capital City
+1 Chained Brute
+1 Daily Bugle Building
+1 Dungrove Elder
+1 Elvish Bard
+1 Elvish Pathcutter
+1 Elvish Ranger
 1 Endless One
-1 Evil Eye of Orms-by-Gore
-1 Felhide Minotaur
-1 Fiery Islet
-1 Frostburn Weird
-1 Fugue
-1 Glen Elendra Liege
-1 Goblin Berserker
+1 Enslaved Scout
+1 Forbidden Orchard
+12 Forest
+1 Giant Badger
+1 Gloomwidow
+1 Gnottvold Recluse
+1 Goblin Cavaliers
 1 Goblin Hero
-1 Goblin Smuggler
-1 Graven Cairns
-1 Gray Ogre
-1 Hag of Dark Duress
-1 Hag of Twisted Visions
-1 Hammerhead Shark
-1 Hooded Kavu
-1 Horned Turtle
-1 Hurloon Minotaur
-1 Incurable Ogre
-5 Island
-1 Labyrinth Minotaur
-1 Lantern-Lit Graveyard
-1 Mindstab Thrull
-1 Mirror Image
-1 Mnemonic Nexus
-1 Moonglove Winnower
-7 Mountain
-1 Nimble Birdsticker
-1 Nivix, Aerie of the Firemind
-1 Nocturnal Raid
-1 Noggle Bandit
-1 Oggyar Battle-Seer
-1 Ogre Berserker
-1 Ogre Errant
-1 Ogre Jailbreaker
-1 Oscorp Industries
-1 Raging Minotaur
-1 Raiding Nightstalker
-1 Reverberation
-1 River Delta
-1 Scoria Elemental
-1 Seething Landscape
-1 Shadowcloak Vampire
-1 Shivan Reef
-1 Sootwalkers
+1 Great Hall of the Citadel
+1 Haven of the Spirit Dragon
+1 Heap Gate
+1 Heartwood Treefolk
+1 Hitchclaw Recluse
+1 Indomitable Ancients
+1 Ironroot Treefolk
+1 Kessig Recluse
+1 Kird Chieftain
+1 Kitsune Riftwalker
+1 Lagac Lizard
+1 Lazotep Quarry
+1 Leaping Lizard
+1 Lotus Vale
+1 Magnigoth Sentry
+1 Mammoth Spider
+1 Mirrodin's Core
+3 Mountain
+1 Needlepeak Spider
+1 Orazca Raptor
+1 Pearled Unicorn
+1 Pillarfield Ox
+5 Plains
+1 Planar Nexus
+1 Plated Rootwalla
+1 Plated Wurm
+1 Rabid Wombat
+1 Raging Bull
+1 Raging Redcap
+1 Raven's Run Dragoon
+1 Reckless Pangolin
+1 Regal Unicorn
+1 Riot Devils
+1 Rith's Grove
+1 Rowan Treefolk
+1 Scarwood Treefolk
+1 Secluded Courtyard
+1 Sentinel Spider
+1 Shivan Raptor
+1 Sliver Hive
 1 Spatial Contortion
-1 Sulfur Vent
-8 Swamp
-1 Talruum Piper
-1 Tidepool Turtle
-1 Underground Sea
-1 Unnerve
-1 Venomous Changeling
-1 Vicious Kavu
-1 Volcanic Island
-1 Walking Sponge
-1 Wanderbrine Rootcutters
-1 Water Elemental
-1 Whimwader
-1 Whiptongue Frog
-1 Witch's Familiar
-1 Xander's Lounge
-1 Ydwen Efreet
+1 Sporecap Spider
+1 Steam Spitter
+1 Survivors' Encampment
+1 Swift Spinner
+1 Tendo Ice Bridge
+1 Territorial Hammerskull
+1 Thran Quarry
+1 Unclaimed Territory
+1 Viashino Grappler
+1 Wary Okapi
+1 Watcher in the Web
+1 Wild Ox
+1 Willow Satyr
+1 Yavimaya Ancients
+1 Yavimaya Barbarian
+1 Yavimaya Scion

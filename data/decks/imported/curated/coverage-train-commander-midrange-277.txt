@@ -1,72 +1,72 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange B #20266278]
-1 Accursed Horde
-1 Arisen Gorgon
-1 Aspect of Lamprey
-1 Black Oak of Odunos
-1 Blighted Fen
-1 Boon of Emrakul
-1 Cabal Coffers
-1 Carrion Howler
-1 Catacomb Crocodile
-1 Darkness
-1 Deathlace
-1 Deepwood Ghoul
-1 Dreg Reaver
-1 Dross Crocodile
-1 Dross Prowler
-1 Drudge Reavers
-1 Feast of the Unicorn
-1 Give In to Violence
-1 Gluttonous Zombie
-1 Gutter Skulk
-1 Headless Horseman
-1 Hollow Dogs
-1 Hostile Hostel
-1 Hunger of the Nim
-1 Irradiate
-1 Lazotep Behemoth
-1 Lim-Dûl's High Guard
-1 Mass of Ghouls
-1 Mind Knives
-1 Mind Shatter
-1 Muck Rats
-1 Murk Dwellers
-1 Nausea
-1 Noxious Field
-1 Nuclear Fallout
-1 One with Nothing
-1 Ostracize
-1 Pestilence Rats
-1 Phyrexian Monitor
-1 Plague Rats
-1 Restless Bones
-1 Restless Dead
-1 Rotting Legion
-1 Rotting Regisaur
-1 Sanguine Guard
-1 Severed Legion
-1 Skeletal Crocodile
-1 Skeletal Snake
-1 Smokespew Invoker
-1 Specter's Wail
-1 Strands of Undeath
-1 Stromgald Crusader
-34 Swamp
-1 Tar Snare
-1 Tomb of Urami
-1 Undead Minotaur
-1 Underworld Connections
-1 Unhallowed Phalanx
-1 Urborg
-1 Volrath's Stronghold
-1 Wandering Tombshell
-1 Weight of the Underworld
-1 Whipstitched Zombie
-1 Wit's End
-1 Zodiac Snake
-1 Zombie Trailblazer
+[deck:commander midrange W #20266278]
+1 Aardvark Sloth
+1 Abzan Runemark
+1 Adept Watershaper
+1 Aerial Modification
+1 Alabaster Potion
+1 Angel's Mercy
+1 Angelic Voices
+1 Auratog
+1 Balm of Restoration
+1 Big Apple, 3 a.m.
+1 Braidwood Cup
+1 Builder's Blessing
+1 Call the Cavalry
+1 Caravan Hurda
+1 Caribou Range
+1 Champion of Arashin
+1 Conviction
+1 Cooperation
+1 Desperate Lunge
+1 Dromad Purebred
+1 Dungeon Descent
+1 Elixir of Vitality
+1 Filigree Crawler
+1 Goldmeadow Dodger
+1 Guardian Automaton
+1 Hidden Hideout
+1 Imperial Ceratops
+1 Isamaru, Hound of Konda
+1 Jhovall Queen
+1 Kithkin Billyrider
+1 Kithkin Healer
+1 Knight of Meadowgrain
+1 Lifeblood
+1 Mageta's Boon
+1 Maze's End
+1 Mesa Unicorn
+1 Mistmeadow Skulk
+1 Moat
+1 Narrow Escape
+1 Order of the Golden Cricket
+1 Pariah
+1 Patrol Hound
+34 Plains
+1 Recuperate
+1 Resplendent Mentor
+1 Reverse Polarity
+1 Rocky Tar Pit
+1 Scrapheap
+1 Selfless Savior
+1 Serra's Boon
+1 Shackles
+1 Shimmerdrift Vale
+1 Sickbay Orderly
+1 Skullmead Cauldron
+1 Snow Hound
+1 Soldevi Steam Beast
+1 Spectral Guardian
+1 Spirit Mantle
+1 Stone Haven Pilgrim
+1 Tanglebloom
+1 Thraben Purebloods
+1 Tower of Eons
+1 Warclamp Mastiff
+1 Watchdog
+1 You're Ambushed on the Road
+1 Zarichi Tiger
 
 [commander]
-Kalakscion, Hunger Tyrant
+Worf, Chief Tactical Officer

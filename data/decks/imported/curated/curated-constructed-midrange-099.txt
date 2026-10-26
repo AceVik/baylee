@@ -2,21 +2,21 @@
 # licence: AGPL-3.0-only
 [deck:constructed midrange BG #20261122]
 4 Ambition's Cost
+2 Archaeological Dig
 4 Audacious Thief
 4 Damnable Pact
-2 Darkbore Pathway
 4 Elves of Deep Shadow
 3 Eviscerator
-2 Grim Backwoods
+1 Grim Backwoods
 2 Harrowing Journey
+1 Henge of Ramos
 3 Infernal Contract
 3 Mai, Scornful Striker
 3 Mana Crypt
 2 Metalspinner's Puzzleknot
-2 Overgrown Tomb
+2 Mirrex
 2 Skeleton Archer
-1 Svogthos, the Restless Tomb
+2 Svogthos, the Restless Tomb
 15 Swamp
-1 Tainted Wood
+1 Three Tree City
 2 Toxic Abomination
-1 Twilight Mire

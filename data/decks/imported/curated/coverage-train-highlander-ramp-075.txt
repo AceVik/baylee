@@ -6,8 +6,8 @@
 1 Amphin Cutthroat
 1 Amrou Scout
 1 Barrenton Cragtreads
-1 Boreal Shelf
-1 Coastal Tower
+1 Botanical Sanctum
+1 Breeding Pool
 1 Compelling Argument
 1 Crop Rotation
 1 Crystacean
@@ -19,62 +19,62 @@
 1 Embodiment of Spring
 1 Eye of Ramos
 1 Fascination
-11 Forest
+1 Flooded Grove
+4 Forest
 1 Fortress Crab
 1 Giant Mantis
 1 Gitaxian Probe
-1 Graypelt Refuge
 1 Groundchuck & Dirtbag
-1 Halimar Depths
-1 Hall of Storm Giants
 1 Hand of Justice
-1 Hidden Cataract
-10 Island
+11 Island
 1 Labyrinth Minotaur
 1 Lifespark Spellbomb
+1 Littjara Mirrorlake
+1 Lush Oasis
 1 Marjhan
-1 Memorial to Genius
+1 Meditation Pools
 1 Merchant Scroll
-1 Mistrise Village
 1 Moss Diamond
 1 Mungha Wurm
 1 Oashra Cultivator
 1 Omnibian
 1 Open the Armory
-5 Plains
+11 Plains
+1 Port Town
 1 Prairie Stream
 1 Primoc Escapee
 1 Prosperity
 1 Pym Particles
-1 Reef Roads
-1 Saltcrusted Steppe
+1 Quandrix Campus
+1 Razortide Bridge
+1 Rejuvenating Springs
 1 Salvage Scuttler
-1 Sand Silos
 1 Sandbar Crocodile
 1 Selesnya Cluestone
 1 Selesnya Keyrune
 1 Shadow Rift
-1 Shelldock Isle
 1 Simic Cluestone
-1 Simic Guildgate
 1 Simic Ragworm
 1 Skybridge Towers
 1 Snapping Voidcraw
+1 Sodden Verdure
 1 Species Gorger
 1 Sphinx of Magosi
 1 Storm Spirit
 1 Sylvan Scrying
+1 Tangled Islet
 1 Temporal Mastery
 1 Thought Scour
 1 Tigereye Cameo
 1 Tooth of Ramos
 1 Tranquil Path
 1 Trapmaker's Snare
+1 Turbulent Wilderness
 1 Turtle-Seals
 1 Veiled Apparition
 1 Wall of Vapor
 1 Wall of Wonder
-1 Wanderwine Hub
 1 Wave Elemental
+1 Willowrush Verge
 1 Wishcoin Crab
 1 Yoked Plowbeast

@@ -1,70 +1,70 @@
 # baylee synergistic coverage commander control
 # licence: AGPL-3.0-only
-[deck:commander control W #20266155]
-1 Adamant Will
-1 Aerial Maneuver
-1 Aerial Modification
-1 Ageless Guardian
-1 Allied Reinforcements
-1 Amrou Seekers
-1 Amulet of Unmaking
-1 Beaming Defiance
-1 Brokers Hideout
-1 Call the Cavalry
-1 Captain's Call
-1 Conversion
-1 Cooperation
-1 Damping Field
-1 Dub
-1 Escape Tunnel
-1 Faceless Haven
-1 Gallows Warden
-1 Goldmeadow Dodger
-1 Goldmeadow Lookout
-1 Great Defender
-1 Great Hall of the Citadel
-1 Great Wall
-1 Green Ward
-1 Hope and Glory
-1 Humility
-1 Indomitable Ancients
-1 Ivory Charm
-1 Join the Ranks
-1 Kinsbaile Cavalier
-1 Knight Watch
-1 Light of Day
-1 Loxodon Mender
-1 Might of the Ancestors
-1 Noble Steeds
-1 Opal Avenger
-1 Order of the Golden Cricket
-1 Piety
-36 Plains
-1 Planar Nexus
-1 Rally
-1 Red Ward
-1 Release the Dogs
-1 Resplendent Mentor
-1 Rhox Pikemaster
-1 Ring of Immortals
-1 Rule of Law
-1 Serra Aviary
-1 Shield Wall
-1 Skillful Lunge
-1 Soltari Lancer
-1 Spirit Mantle
-1 Staunch Shieldmate
-1 Sun Clasp
-1 Take Up Arms
-1 The Mycosynth Gardens
-1 Trenching Steed
-1 Veteran Cavalier
-1 Warded Battlements
-1 Warning
-1 Worship
-1 Zealous Strike
-1 Zhalfirin Knight
-1 Zoetic Cavern
+[deck:commander control R #20266155]
+1 Aladdin
+1 Ali from Cairo
+1 Ambush Party
+1 Balduvian Barbarians
+1 Barbarian Horde
+1 Barreling Attack
+1 Bedlam
+1 Berserkers of Blood Ridge
+1 Blood Knight
+1 Buccaneer's Bravado
+1 Cave People
+1 Chaos Terminator Lord
+1 Cori Mountain Monastery
+1 Crazed Goblin
+1 Crookshank Kobolds
+1 Defender of Chaos
+1 Defiant Khenra
+1 Destructive Urge
+1 Dwarven Song
+1 Dwarven Warriors
+1 Fallaji Chaindancer
+1 Fervent Strike
+1 Fighting Chance
+1 Fire Nation Palace
+1 Fire Nation Soldier
+1 Fists of the Anvil
+1 Flameborn Hellion
+1 Ghitu War Cry
+1 Goblin Assailant
+1 Goblin Brigand
+1 Goblin Chariot
+1 Halberdier
+1 Hyperion Blacksmith
+1 Lindblum, Industrial Regency
+1 Magus of the Moon
+1 Memorial to War
+1 Mines of Moria
+36 Mountain
+1 Ogre Sentry
+1 Orgg
+1 Pedal to the Metal
+1 Precise Strike
+1 Rage Weaver
+1 Reckless Brute
+1 Renegade Troops
+1 Rig for War
+1 Rise to the Challenge
+1 Rocky Roads
+1 Searing Spear Askari
+1 Shatterskull Giant
+1 Sigiled Skink
+1 Soldier of Fortune
+1 Song-Mad Treachery
+1 Spiteful Motives
+1 Tavern Ruffian
+1 The Autonomous Furnace
+1 Thunder Strike
+1 Tin Street Market
+1 Trained Orgg
+1 Tyrox, Saurid Tyrant
+1 Viashino Spearhunter
+1 Viashino Warrior
+1 Vulshok Refugee
+1 Whirling Strike
 
 [commander]
-Worf, Chief Tactical Officer
+The Whizzer, Classic Speedster

@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BG #20266305]
-1 Aegis of the Meek
-1 Amber Prison
-1 Apes of Rath
-1 Archdemon of Paliano
-1 Barbed Battlegear
-1 Barbed-Back Wurm
-1 Bayou
-1 Bubble Matrix
+[deck:commander midrange WR #20266305]
+1 Abundant Countryside
+1 Aether Hub
+1 Amrou Seekers
+1 Assembly-Worker
+1 Barl's Cage
+1 Battle Hurda
+1 Baxter Building
+1 Bloodrock Cyclops
+1 Bonebreaker Giant
+1 Brawler's Plate
+1 Cavern Crawler
 1 Champion's Helm
-1 Chilling Apparition
-1 Chitinous Cloak
-1 Crowd of Cinders
-1 Darba
-1 Darkbore Pathway
-1 Darksteel Plate
-1 Disease Carriers
-1 Ebony Treefolk
-1 Emerald Oryx
-1 Fen Stalker
-1 Fireshrieker
-1 Forcefield
-12 Forest
-1 Foul Familiar
-1 Foul Orchard
-1 Ghosts of the Damned
-1 Giant Badger
+1 Chariot of Victory
+1 Chimeric Staff
+1 Clockwork Steed
+1 Conqueror's Galleon
+1 Conservator
+1 Crystal Ball
+1 Dovin's Automaton
+1 Ensouled Scimitar
+1 Erratic Portal
+1 Ethereal Champion
+1 Flowstone Giant
+1 Flowstone Hellion
+1 Flowstone Wall
+1 Forbidden Orchard
+1 Furnace Strider
 1 Golgothian Sylex
-1 Gorilla Chieftain
-1 Gorilla Pack
-1 Grim Backwoods
-1 Haunted Cloak
-1 Hissing Quagmire
-1 Land Leeches
-1 Large Bear
-1 Llanowar Wastes
-1 Mindwarper
-1 Mirkwood
-1 Mole Worms
-1 Moonglove Changeling
-1 Mugato
-1 Nemesis Mask
-1 Nurturing Peatland
-1 Overgrown Tomb
-1 Python
-1 Radjan Spirit
-1 Renegade Demon
-1 Rotted Hystrix
-1 Screeching Harpy
-1 Shield of Kaldra
-1 Shimian Night Stalker
-1 Silverback Ape
-1 Skyshroud Troll
-1 Slimy Dualleech
-1 Snarling Warg
-1 Spectral Sliver
-1 Squelching Leeches
-1 Svogthos, the Restless Tomb
-13 Swamp
-1 Sword of Vengeance
-1 Tainted Wood
-1 Tenza, Godo's Maul
-1 Thornhide Wolves
-1 Thornling
+1 Gray Ogre
+1 Great Hall of the Biblioplex
+1 Great Hall of the Citadel
+1 Great-Horn Krushok
+1 Highland Giant
+1 Highspire Mantis
+1 Hillcomber Giant
+1 Hollowhead Sliver
+1 Horn of Deafening
+1 Jade Monolith
+1 Juggernaut
+1 Kavu Recluse
+1 Kormus Bell
+1 Lithophage
+1 Living Armor
+1 Lowland Giant
+1 Marble Titan
+1 Mech Hangar
+19 Mountain
+1 North Star
+1 Nova Pentacle
+1 Nykthos, Shrine to Nyx
+1 Obsidian Giant
+1 Ogre Berserker
+1 One-Eyed Scarecrow
+1 Pentagram of the Ages
+6 Plains
+1 Power Armor
+1 Puppet Strings
+1 Rusted Slasher
+1 Sacred Foundry
+1 Secret Base
+1 Skyraker Giant
+1 Slimy Kavu
+1 Staff of Zegon
+1 Strider Harness
+1 Study Hall
+1 Talon Gates of Madara
+1 Tawnos's Wand
+1 Tendo Ice Bridge
 1 Thran Weaponry
-1 Trestle Troll
-1 Tumble Magnet
-1 Twilight Mire
-1 Underground Mortuary
-1 Viridescent Bog
-1 Viscid Lemures
-1 Warlord's Axe
-1 Wary Okapi
-1 Wastewood Verge
-1 Willow Satyr
-1 Wolverine Pack
-1 Xenic Poltergeist
+1 Throne of Makindi
+1 Umbilicus
+1 Wall of Granite
+1 Whetstone
+1 White Lotus Hideout
+1 Windseeker Centaur
+1 Ydwen Efreet
 
 [commander]
-Grist, the Hunger Tide
+Dwalin, Weaponmaster

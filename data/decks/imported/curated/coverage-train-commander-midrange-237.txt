@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WB #20266238]
-1 Angel of Light
-1 Angelic Curator
-1 Angelic Overseer
-1 Angelic Protector
-1 Angelsong
-1 Bleachbone Verge
-1 Bloodied Ghost
-1 Caves of Koilos
-1 Chapel Geist
-1 Desolate Mire
-1 Eidolon of Astral Winds
-1 Emancipation Angel
-1 Fetid Heath
-1 Friendly Ghost
-1 Geist of the Moors
-1 Ghostly Sentinel
-1 Godless Shrine
-1 Great Hall of Starnheim
-1 Guan Yu's 1,000-Li March
-1 Herald of Serra
-1 Isolated Chapel
-1 Kabuto Moth
-1 Kami of Ancient Law
-1 Keening Apparition
-1 Keening Banshee
-1 Kitesail Scout
-1 Kor Skyfisher
-1 Lantern Kami
-1 Lightfoot Technique
-1 Lightning Blow
-1 Malach of the Dawn
-1 Mass Calcify
-1 Melesse Spirit
-1 Mischievous Poltergeist
-1 Moaning Spirit
-1 Niblis of the Mist
-1 Niblis of the Urn
-1 Orzhov Basilica
-1 Orzhova, the Church of Deals
-18 Plains
-1 Pressure Point
-1 Pteron Ghost
-1 Radiant, Archangel
-1 Remove Enchantments
-1 Restless Fortress
-1 Restoration Angel
-1 Ritual of Steel
-1 Scoured Barrens
-1 Scrubland
-1 Searchlight Geist
-1 Serra Advocate
-1 Shepherd of the Lost
-1 Shinewend
-1 Skulking Ghost
-1 Soldier of the Grey Host
-1 Spire Mangler
-1 Starlit Angel
-1 Starlit Sanctum
-1 Sustainer of the Realm
-1 Suture Spirit
-7 Swamp
-1 Tainted Field
-1 Their Name Is Death
-1 Thraben Watcher
-1 Thunder Spirit
-1 Tormented Angel
-1 Unquestioned Authority
-1 Vault of the Archangel
-1 Voice of Duty
-1 Voice of Grace
-1 Voice of Law
-1 Voice of Reason
-1 Voice of Truth
-1 Voiceless Spirit
-1 Wall of Resistance
-1 Will-o'-the-Wisp
+[deck:commander midrange WG #20266238]
+1 Abundant Countryside
+1 Adanto Vanguard
+1 Always Watching
+1 Ancient Ziggurat
+1 Archon of Justice
+1 Avacyn, Angel of Hope
+1 Brave the Sands
+1 Brood Weaver
+1 Captain's Call
+1 Cessation
+1 City of Brass
+1 Clachan Festival
+1 Collective Blessing
+1 Conclave Cavalier
+1 Corrupted Crossroads
+1 Dub
+1 Eager Trufflesnout
+1 Eclipsed Realms
+1 Eladamri, Lord of Leaves
+6 Forest
+1 Frantic Strength
+1 Gallifrey Council Chamber
+1 Giant Caterpillar
+1 Gift of Granite
+1 Glaring Aegis
+1 Glimmer Bairn
+1 Glittermonger
+1 Glorious Anthem
+1 Goldmeadow Lookout
+1 Great Hall of the Citadel
+1 Guildmages' Forum
+1 Head of the Homestead
+1 Henge of Ramos
+1 Hero's Resolve
+1 Holdout Settlement
+1 Holy Armor
+1 Honor of the Pure
+1 Invasion of Belenon
+1 Irregular Cohort
+1 Jihad
+1 Join the Ranks
+1 Knight Watch
+1 Lunarch Mantle
+1 Military Discipline
+1 Mongrel Pack
+1 Oathsworn Giant
+1 Overgrown Armasaur
+1 Paladin of the Bloodstained
+1 Patrol Signaler
+1 Pegasus Refuge
+19 Plains
+1 Release the Dogs
+1 Revered Unicorn
+1 Rot Shambler
+1 Ruins Recluse
+1 Rumble Arena
+1 Sacred Mesa
+1 Secluded Courtyard
+1 Secret Base
+1 Security Blockade
+1 Selesnya Evangel
+1 Serra's Blessing
+1 Smothering Tithe
+1 Spike Breeder
+1 Spire of Industry
+1 Spitting Spider
+1 Stonybrook Schoolmaster
+1 Supply Caravan
+1 Survivors' Encampment
+1 Take Up Arms
+1 Terra Eternal
+1 Thelonite Druid
+1 Tranquil Grove
+1 Troubled Healer
+1 Valorous Steed
+1 Wizened Cenn
 
 [commander]
-Selenia, Dark Angel
+Emiel the Blessed

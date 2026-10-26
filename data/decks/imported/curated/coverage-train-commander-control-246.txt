@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WG #20266247]
+1 Absolute Grace
+1 Absolute Law
+1 Ally Encampment
+1 Ancient Ziggurat
+1 Animate Wall
+1 Aura Shards
+1 Baldur's Gate
+1 Barbed Foliage
+1 Brambleweft Behemoth
+1 Broken Fall
+1 Brotherhood Headquarters
+1 Call of the Wild
+1 Capital City
+1 Cavern of Souls
+1 Circle of Protection: Artifacts
+1 Circle of Protection: Blue
+1 Circle of Protection: Green
+1 Circle of Protection: Red
+1 Circle of Protection: Shadow
+1 Circle of Protection: White
+1 City of Brass
+1 Crackdown
+1 Damping Field
+1 Deadfall
+1 Dense Canopy
+1 Dictate of Heliod
+1 Downdraft
+1 Dryad of the Ilysian Grove
+1 Elven Fortress
+1 Ephara's Radiance
+1 Fang of Shigeki
+1 Forbidden Orchard
+12 Forest
+1 Gale Force
+1 Galewind Moose
+1 Glare of Subdual
+1 Glyph of Reincarnation
+1 Greater Realm of Preservation
+1 Hall of Oracles
+1 Haven of the Spirit Dragon
+1 High Ground
+1 Humility
+1 Hypochondria
+1 Island Sanctuary
+1 Kismet
+1 Kjeldoran Frostbeast
+1 Kudzu
+1 Light of Day
+1 Living Lands
+1 Living Plane
+1 Lucent Liminid
+1 Mana Confluence
+1 Might of the Ancestors
+1 Molting Skin
+1 Noble Steeds
+1 Opal Avenger
+15 Plains
+1 Privileged Position
+1 Rain of Blades
+1 Reconnaissance
+1 Righteous Aura
+1 Rule of Law
+1 Safeguard
+1 Saltcrusted Steppe
+1 Seeker
+1 Serenity
+1 Spire of Industry
+1 Still Life
+1 Study Hall
+1 Talon Gates of Madara
+1 Tarnished Citadel
+1 Vagrant Plowbeasts
+1 Walk-In Closet
+1 Worship
+
+[commander]
+Kei Takahashi

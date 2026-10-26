@@ -26,7 +26,6 @@
 1 Goblin Wizard
 1 Greater Forgeling
 1 Greatsword
-1 Hall of Tagsin
 1 Heavy Mattock
 1 Hovermyr
 1 Hyena Pack
@@ -39,6 +38,7 @@
 1 Looming Spires
 1 Mage il-Vec
 1 Magnetic Mountain
+1 Mariposa Military Base
 34 Mountain
 1 Narstad Scrapper
 1 Ogre Resister
@@ -57,9 +57,9 @@
 1 Storm-Kiln Artist
 1 Talruum Minotaur
 1 The Chase Is On
-1 The Seedcore
 1 Thran Forge
 1 Torch Courier
+1 Treasure Vault
 1 Vessel of Volatility
 1 Viashino Heretic
 1 Volcanic Submersion

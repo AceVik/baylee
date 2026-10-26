@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266145]
+1 Abzan Runemark
+1 Ageless Guardian
+1 Alaborn Musketeer
+1 Alaborn Trooper
+1 Angry Mob
+1 Archon of Emeria
+1 Argivian Blacksmith
+1 Aven Trooper
+1 Benalish Infantry
+1 Bladed Ambassador
+1 Blighted Steppe
+1 Builder's Blessing
+1 Burden of Guilt
+1 Burrenton Shield-Bearers
+1 Call the Cavalry
+1 Captain's Call
+1 Castle Raptors
+1 Cloud Crusader
+1 Conviction
+1 Cooperation
+1 Dragonstalker
+1 Dub
+1 Earth Kingdom Protectors
+1 Eiganjo, Seat of the Empire
+1 Equinox
+1 Erode
+1 Fleet-Footed Monk
+1 Foot Soldiers
+1 Frostbridge Guard
+1 Haazda Shield Mate
+1 Head of Security
+1 Icatian Skirmishers
+1 Jihad
+1 Kjeldoran Skycaptain
+1 Knight Errant
+1 Knighthood
+1 Kor Haven
+1 Kyoshi Warrior Guard
+1 Loxodon Convert
+1 Loxodon Line Breaker
+1 Loxodon Mender
+1 Lunarch Mantle
+1 Mageta's Boon
+1 Moat
+1 Nightguard Patrol
+1 Nomad Stadium
+1 Phantom General
+34 Plains
+1 Righteous Avengers
+1 Seasoned Marshal
+1 Serra Aviary
+1 Serra's Boon
+1 Serra's Sanctum
+1 Shefet Dunes
+1 Shu Elite Infantry
+1 Silver Knight
+1 Skyswirl Harrier
+1 Soltari Emissary
+1 Soltari Lancer
+1 Spirit Mantle
+1 Standing Troops
+1 Steeple Roc
+1 Stonehorn Chanter
+1 Swift Reconfiguration
+1 Veteran Cavalier
+1 Vigilance
+
+[commander]
+Commander Eesha

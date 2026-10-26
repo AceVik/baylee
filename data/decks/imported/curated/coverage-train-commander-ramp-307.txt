@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UB #20266308]
+[deck:commander ramp RG #20266308]
 1 Acidic Dagger
-1 Adaptive Shimmerer
-1 Anvilwrought Raptor
-1 Barl's Cage
-1 Canal Monitor
-1 Catacomb Slug
-1 Charcoal Diamond
-1 Clearwater Pathway
-1 Darkwater Catacombs
-1 Dimir Cluestone
-1 Dimir Signet
-1 Dovin's Automaton
-1 Dragonloft Idol
-1 Dreadship Reef
-1 Erratic Portal
-1 Flying Carpet
-1 Giant Crab
-1 Gloomlake Verge
-1 Havoc Sower
-1 Hidden Lair
-1 Homarid Shaman
-1 Horror of the Dim
-1 Imperial Seal
-1 Infernal Idol
-14 Island
-1 Jade Monolith
-1 Juggernaut
-1 Loch Korrigan
-1 Merrow Grimeblotter
-1 Metalspinner's Puzzleknot
-1 Millennial Gargoyle
-1 Mirrorhall Mimic
-1 Mistford River Turtle
-1 Narwhal
-1 Necrogen Spellbomb
-1 Needlebug
-1 North Star
-1 Phyrexian Defiler
-1 Phyrexian Fleshgorger
-1 Phyrexian Gargantua
-1 Power Matrix
-1 Prowling Nightstalker
-1 River Delta
-1 River of Tears
-1 Rootwater Depths
-1 Rotting Fensnake
-1 Segovian Leviathan
-1 Sentinel
-1 Sinister Hideout
-1 Slinking Serpent
-1 Snare Thopter
-1 Soldevi Simulacrum
-1 Sunken Ruins
-12 Swamp
-1 Tainted Isle
-1 Talisman of Dominance
-1 Telethopter
-1 Temple of Deceit
-1 Thalakos Drifters
-1 Thought Monitor
-1 Tithebearer Giant
+1 Aether Hub
+1 Alchor's Tomb
+1 Amber Prison
+1 Anaba Bodyguard
+1 Apes of Rath
+1 Brazen Scourge
+1 Broodhunter Wurm
+1 Bull Hippo
+1 Capital City
+1 Cascading Cataracts
+1 Cavern of Souls
+1 Citanul Centaurs
+1 City of Brass
+1 Conifer Strider
+1 Cragcrown Pathway
+1 Cursed Rack
+1 Cyclops of One-Eyed Pass
+1 Daggerback Basilisk
+1 Earth Elemental
+1 Eclipsed Realms
+1 Emerald Oryx
+1 Enraged Ceratok
+13 Forest
+1 Furnace Brood
+1 Gibbering Hyenas
+1 Goblin Berserker
+1 Golden Bear
+1 Gore Swine
+1 Hall of Oracles
+1 Haven of the Spirit Dragon
+1 Hornet Cobra
+1 Jungle Troll
+1 Krosan Constrictor
+1 Lazotep Quarry
+1 Life Chisel
+1 Lotus Vale
+1 Maw of Kozilek
+1 Mijae Djinn
+13 Mountain
+1 Mountain Yeti
+1 Mungha Wurm
+1 Nema Siltlurker
+1 Nettle Swine
+1 Ordinary Bear
+1 Outland Boar
+1 Radjan Spirit
+1 Raging Minotaur
+1 Raging Poltergeist
+1 Rampart Smasher
+1 Reflecting Mirror
+1 River Bear
+1 Rubbleback Rhino
+1 School of the Unseen
+1 Scoria Elemental
+1 Scoria Wurm
+1 Shield of Kaldra
+1 Skyshroud Troll
+1 Spire of Industry
+1 Stone Spirit
+1 Streetbreaker Wurm
+1 Summit Prowler
+1 Talruum Piper
+1 Terror of the Fairgrounds
+1 Thornspire Verge
+1 Tor Giant
+1 Tower of Champions
 1 Tower of Murmurs
-1 Turtle-Seals
-1 Ukud Cobra
-1 Umbilicus
-1 Underground River
-1 Underground Sea
-1 Vampire Champion
-1 Waterveil Cavern
-1 Watery Grave
-1 Wirecat
-1 Wishclaw Talisman
-1 Witching Well
-1 Wormhole Serpent
-1 Zodiac Pig
+1 Turtle Lair
+1 Underdome
+1 War-Spike Changeling
+1 Wild Ceratok
+1 Winding Wurm
+1 Zodiac Horse
+1 Zodiac Ox
 
 [commander]
-Ramses Overdark
+Stangg

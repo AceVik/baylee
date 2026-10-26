@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WU #20266224]
-1 Abandoned Campground
-1 Adarkar Wastes
-1 Akroma, Angel of Wrath
-1 Angel of Retribution
-1 Archangel
-1 Archon of Justice
-1 Ashnod's Altar
-1 Avenging Angel
-1 Calciform Pools
-1 Caribou Range
-1 Clachan Festival
-1 Cold Case Cracker
-1 Contingency Plan
-1 Crib Swap
-1 Deathless Angel
-1 Errand of Duty
-1 Fearless Fledgling
-1 Flight
-1 Gleaming Bastion
-1 Guardian Kirin
-1 Hallowed Fountain
-1 Hand of Justice
-1 Harnessed Snubhorn
-1 Harrier Griffin
-1 Hengegate Pathway
-1 Herald of the Sun
-1 Illvoi Galeblade
-9 Island
-1 Knight Watch
-1 Land Cap
-1 Loran's Escape
-1 Lotus Blossom
-1 Lyra Dawnbringer
-1 Merfolk Coralsmith
-1 Messenger Drake
-1 Mindeye Drake
-1 Moorland Haunt
-1 Mtenda Griffin
-1 Myr Moonvessel
-1 Mystic Gate
-1 Mystic Might
-1 Nimbus Maze
-1 Phyrexian Altar
-17 Plains
-1 Prahv, Spires of Order
-1 Prairie Stream
-1 Prismatic Circle
-1 Revered Unicorn
-1 Security Blockade
-1 Security Detail
-1 Segovian Angel
-1 Sejiri Refuge
-1 Senate Griffin
-1 Seraph of the Suns
-1 Shriekgeist
-1 Sky Tether
-1 Skycloud Expanse
-1 Skyline Predator
-1 Smothering Tithe
-1 Spellkeeper Weird
-1 Sunblade Angel
-1 Sustaining Spirit
-1 Take Up the Shield
-1 Thalakos Lowlands
-1 Tidal Influence
-1 Tundra
-1 Ventifact Bottle
-1 Viscerid Drone
-1 Voyage's End
-1 Warrior Angel
-1 Watcher in the Mist
-1 Windrider Patrol
-1 Winged Shepherd
-1 Zeriam, Golden Wind
-1 Zetalpa, Primal Dawn
+[deck:commander ramp BR #20266224]
+1 Ancient Runes
+1 Arena of Glory
+1 Artifact Possession
+1 Ben-Ben, Akki Hermit
+1 Bhaal's Invoker
+1 Black Dragon Gate
+1 Blazing Effigy
+1 Bloodshot Trainee
+1 Bojuka Bog
+1 Bottomless Vault
+1 Breath of Malfegor
+1 Brothers of Fire
+1 Bulwark
+1 Castle Locthwain
+1 Cinder Cloud
+1 Cinder Storm
+1 Cliffgate
+1 Command the Storm
+1 Curse Artifact
+1 Dwarven Mine
+1 Earthbind
+1 Ebon Stronghold
+1 Engulfing Eruption
+1 Eternal Flame
+1 Everglades
+1 Fire Tempest
+1 Flame Elemental
+1 Flamekin Spitfire
+1 Galvanic Arc
+1 Ghitu Fire-Eater
+1 Goblin Artillery
+1 Goblin Tinkerer
+1 Hasran Ogress
+1 Hive of the Eye Tyrant
+1 Impact Tremors
+1 Inferno
+1 Insolence
+1 Jackal Pup
+1 Megrim
+1 Mind Whip
+1 Mogg Bombers
+1 Mogg Maniac
+1 Molten Vortex
+21 Mountain
+1 Ogre Shaman
+1 Orcish Cannoneers
+1 Parch
+1 Power Surge
+1 Pyroclastic Elemental
+1 Realm of Koh
+1 Retromancer
+1 Scorching Spear
+1 Seal of Fire
+1 Searing Wind
+1 Seizures
+1 Shatterskull Smashing
+1 Shauku's Minion
+1 Slingshot Goblin
+1 Smoldering Spires
+1 Sparksmith
+1 Spear Spewer
+1 Spikefield Hazard
+1 Spiteflame Witch
+1 Suplex
+5 Swamp
+1 Teetering Peaks
+1 The Dross Pits
+1 Thundering Rebuke
+1 Unfriendly Fire
+1 Valakut Invoker
+1 Valakut, the Molten Pinnacle
+1 War-Torch Goblin
+1 Where Ancients Tread
+1 Whiptail Moloch
+1 Witch's Cottage
 
 [commander]
-Absolute Virtue
+Barktooth Warbeard

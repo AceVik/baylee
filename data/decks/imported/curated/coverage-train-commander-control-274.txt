@@ -1,70 +1,70 @@
 # baylee synergistic coverage commander control
 # licence: AGPL-3.0-only
-[deck:commander control U #20266275]
-1 Binding Grasp
-1 Blockade Runner
-1 Capture Sphere
-1 Coma Veil
-1 Command Bridge
-1 Coral Commando
-1 Coral Merfolk
-1 Coralhelm Guide
-1 Deeptread Merrow
-1 Disappear
-1 Dream Fighter
-1 Dungeon Descent
-1 Errant Minion
-1 Grand Coliseum
-1 Guildless Commons
-1 Headwater Sentries
-1 Homarid Explorer
-1 Homarid Warrior
-1 Illusory Wrappings
-36 Island
-1 Jhessian Lookout
-1 Keen Glidemaster
-1 Lord of Atlantis
-1 Manta Riders
-1 Master of the Pearl Trident
-1 Merfolk Raiders
-1 Merfolk Seastalkers
-1 Merfolk Sovereign
-1 Merrow Wavebreakers
-1 Mind Bend
-1 Mirrorpool
-1 Misdirection
-1 Persuasion
-1 Rain of Revelation
-1 Ransack
-1 Red Cliffs Armada
-1 Reduce in Stature
-1 Rescue
-1 Rishadan Dockhand
-1 River Darter
-1 River Merfolk
-1 Rootwater Commando
-1 Seasinger
-1 Secret Identity
-1 Sejiri Merfolk
-1 Shoreline Raider
-1 Sink into Stupor
-1 Sleep Paralysis
-1 Starting Town
-1 Straw Soldiers
-1 Streambed Aquitects
-1 Svyelunite Priest
-1 Sworn Guardian
-1 Thalakos Scout
-1 Thalakos Sentry
-1 Threads of Disloyalty
-1 Tidal Warrior
-1 Tractor Beam
-1 Transguild Promenade
-1 Treachery
-1 Triton Shorethief
-1 Vodalian Knights
-1 Vodalian Soldiers
-1 Word of Undoing
+[deck:commander control B #20266275]
+1 Armor of Shadows
+1 Arrogant Vampire
+1 Bad River
+1 Bartizan Bats
+1 Bleed Dry
+1 Boseiju, Who Shelters All
+1 Breach
+1 Brutal Nightstalker
+1 Clutch of Undeath
+1 Dark Deed
+1 Dark Remedy
+1 Death Wind
+1 Dementia Bat
+1 Earsplitting Rats
+1 Elephant-Rat
+1 Fatal Fumes
+1 Feral Shadow
+1 Flatten
+1 Funeral Charm
+1 Give In to Violence
+1 Grimclaw Bats
+1 Grotesque Mutation
+1 Gurmag Swiftwing
+1 Hall of the Bandit Lord
+1 Hatred
+1 Irradiate
+1 Keening Banshee
+1 Lash of Thorns
+1 Last Gasp
+1 Mark of the Oni
+1 Markov Patrician
+1 Midnight Assassin
+1 Mirage Mesa
+1 Mischievous Poltergeist
+1 Moaning Spirit
+1 Nocturnal Raid
+1 Orc Sureshot
+1 Overkill
+1 Pit of Offerings
+1 Ritual of Soot
+1 Ruins of Oran-Rief
+1 Rush of Vitality
+1 Scorpion's Sting
+1 Screaming Phantom
+1 Searchlight Geist
+1 Sewers of Estark
+1 Sick and Tired
+1 Skulking Ghost
+1 Skyshroud Vampire
+1 Soul Channeling
+1 Soulshriek
+1 Stab
+1 Stench of Decay
+1 Strands of Undeath
+1 Strangling Spores
+36 Swamp
+1 Tar Snare
+1 Throttle
+1 Underworld Connections
+1 Untaidake, the Cloud Keeper
+1 Vampire Envoy
+1 Vampire Hexmage
+1 Vampire Revenant
+1 Wring Flesh
 
 [commander]
-Sakashima of a Thousand Faces
+Kalakscion, Hunger Tyrant

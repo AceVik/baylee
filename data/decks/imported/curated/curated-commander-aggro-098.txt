@@ -9,10 +9,10 @@
 1 Big Bertha
 1 Bog Gnarr
 1 Bond Beetle
-1 Boseiju, Who Endures
 1 Briarknit Kami
-1 Centaur Garden
+1 Castle Doom
 1 Charge Through
+1 City of Brass
 1 Deeproot Champion
 1 Deeproot Elite
 1 Elvish Farmer
@@ -22,7 +22,6 @@
 1 Generous Visitor
 1 Gilded Goose
 1 Glissa's Scorn
-1 Heart of Yavimaya
 1 Hidden Ancients
 1 Hidden Gibbons
 1 Hidden Spider
@@ -41,16 +40,18 @@
 1 Lys Alana Bowmaster
 1 Machine Man, Model X-51
 1 Managorger Hydra
+1 Mirrex
 1 Mold Adder
 1 Nasty Little Rabbit
-1 Okina, Temple to the Grandfathers
 1 Orbweaver Kumo
 1 Origin of Metalbending
 1 Poison the Blade
 1 Predatory Hunger
 1 Provoke
 1 Quirion Dryad
+1 School of the Unseen
 1 Shield Sphere
+1 Shimmering Grotto
 1 Shredding Winds
 1 Skybeast Tracker
 1 Skyway Sniper
@@ -62,13 +63,12 @@
 1 Tangletrap
 1 Territorial Scythecat
 1 Thorn Thallid
+1 Three Tree City
 1 Titania's Chosen
-1 Tree of Tales
 1 Unyaro Bees
 1 Viridian Scout
 1 Walking Ballista
 1 Winter Blast
-1 Wirewood Lodge
 
 [commander]
 Medusa, Inhuman Queen

@@ -2,19 +2,19 @@
 # licence: AGPL-3.0-only
 [deck:commander aggro U #20266053]
 1 Air Marshal
-1 Arid Archway
 1 Balduvian Conjurer
 1 Balduvian Shaman
-1 Base Camp
 1 Blockade Runner
 1 Boulderborn Dragon
 1 Buoyancy
+1 Cabaretti Courtyard
 1 Chase Inspiration
 1 Coral Commando
 1 Coralhelm Guide
 1 Crafty Pathmage
 1 Cunning
 1 Deeptread Merrow
+1 Desert
 1 Dragonstorm Forecaster
 1 Drifter il-Dal
 1 Fishliver Oil
@@ -23,23 +23,23 @@
 1 Grayscaled Gharial
 1 Headwater Sentries
 1 Homarid Warrior
+1 Horizon of Progress
 1 Invisibility
 32 Island
 1 Jeskai Runemark
 1 Jump
 1 Keen Glidemaster
 1 Lumengrid Warden
-1 Maze's End
 1 Merfolk Raiders
 1 Merfolk Seastalkers
 1 Mists of Littjara
-1 Mountain Valley
-1 Oboro, Palace in the Clouds
 1 Old Man of the Sea
+1 Opal Palace
 1 Piracy Charm
 1 Riptide
 1 River Darter
 1 River Merfolk
+1 Riveteers Overlook
 1 Rootwater Commando
 1 Seasinger
 1 Second Wind
@@ -56,10 +56,10 @@
 1 Talas Merchant
 1 Temporal Adept
 1 Thalakos Deceiver
+1 The Tabernacle at Pendrell Vale
 1 Tightening Coils
 1 Tolarian Entrancer
 1 Tolarian Scholar
-1 Trenzalore Clocktower
 1 Trickster Mage
 1 Vodalian Illusionist
 1 Vodalian Knights

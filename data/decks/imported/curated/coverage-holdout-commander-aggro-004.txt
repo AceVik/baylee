@@ -51,7 +51,6 @@
 1 Phalanx Vanguard
 32 Plains
 1 Precinct Captain
-1 Rainbow Vale
 1 Ranger-Captain of Eos
 1 Resupply
 1 Revitalize
@@ -64,6 +63,7 @@
 1 Steadfast Sentry
 1 Sunspire Gatekeepers
 1 Throne of Bone
+1 Valgavoth's Lair
 1 Veteran Swordsmith
 1 Volunteer Militia
 1 Wanderer's Intervention

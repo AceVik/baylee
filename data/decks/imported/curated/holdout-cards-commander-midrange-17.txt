@@ -1,13 +1,16 @@
 # baylee unseen-card holdout commander seed=90000027
 # licence: AGPL-3.0-only
 [deck:commander midrange RG #90000027]
+1 Abundant Countryside
 1 Arctic Wolves
 1 Blisterstick Shaman
 1 Bolt of Keranos
 1 Brand
+1 Bucolic Ranch
+1 Cascading Cataracts
 1 Centaur Nurturer
 1 Citanul Druid
-1 Commercial District
+1 City of Brass
 1 Contested Cliffs
 1 Cyclone
 1 Deadshot Minotaur
@@ -15,19 +18,17 @@
 1 Explosive Impact
 1 Fire Ambush
 1 Fire Imp
-1 Fire-Lit Thicket
 1 Firefist Adept
 6 Forest
 1 Fungal Reaches
 1 Ghitu Slinger
 1 Gladewalker Ritualist
 1 Goblin Bomb
-1 Grove of the Burnwillows
-1 Gruul Guildgate
+1 Heap Gate
+1 Henge of Ramos
 1 Inferno
 1 Jade Guardian
 1 Jaya's Firenado
-1 Karplusan Forest
 1 Kessig Wolf Run
 1 Kujar Seedsculptor
 1 Lava Hounds
@@ -35,7 +36,6 @@
 1 Mana Crypt
 1 Massive Raid
 1 Mogg Bombers
-1 Mossfire Valley
 19 Mountain
 1 Onslaught
 1 Orcish Cannonade
@@ -50,20 +50,20 @@
 1 Scorching Spear
 1 Scorchmark
 1 Searing Wind
-1 Shivan Oasis
-1 Skarrg, the Rage Pits
+1 Secret Base
+1 Sliver Hive
 1 Spellshock
+1 Springjack Pasture
 1 Starstorm
-1 Stomping Ground
 1 Storm Caller
 1 Strangle
+1 Surveillance Room
 1 Tajuru Archer
 1 Talisman of Impulse
 1 Tanglespan Lookout
 1 Tarfire
 1 The Vision and Scarlet Witch
-1 Thornspire Verge
-1 Timberline Ridge
+1 Throne of Makindi
 1 Tinder Wall
 1 Training Compound
 1 Trumpeting Carnosaur

@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange UB #20266237]
-1 Agatha's Soul Cauldron
-1 Aquatic Incursion
-1 Armor Thrull
-1 Barrin's Codex
-1 Battleground Geist
-1 Bloodflow Connoisseur
-1 Chimeric Egg
-1 Clearwater Pathway
-1 Consumptive Goo
-1 Crypt Cobra
-1 Darkwater Catacombs
-1 Dread Wight
-1 Dreadship Reef
-1 Expanded Anatomy
-1 Flow of Maggots
-1 Forget
-1 Gloomlake Verge
-1 Greater Werewolf
-1 Grindclock
-1 Guild Thief
-1 Guul Draz Mucklord
-1 Harbinger of Night
-1 Hematite Talisman
-1 Hidden Lair
-1 Homarid
-1 Hydroblast
-13 Island
-1 Khabál Ghoul
-1 Lawless Broker
-1 Lesser Werewolf
-1 Levitating Statue
-1 Life Matrix
-1 Lux Cannon
-1 Mental Misstep
-1 Mind Spring
-1 Mire Shade
-1 Miscast
-1 Nephalia Drownyard
-1 Phyrexian Battleflies
-1 Pit Scorpion
-1 Pull Under
-1 Ravine Raider
-1 Refocus
-1 Restless Reef
-1 Rite of Replication
-1 River Delta
-1 River of Tears
-1 Rootwater Depths
-1 Scavenging Ghoul
-1 Serendib Efreet
-1 Serum Raker
-1 Slayer's Plate
-1 Slith Bloodletter
-1 Soratami Savant
-1 Souldrinker
-1 Soured Springs
-1 Spiketail Drake
-1 Spiketail Hatchling
-1 Spinal Centipede
-1 Spindrift Drake
-1 Spinning Wheel
-1 Sunken Ruins
-1 Surge Node
-12 Swamp
-1 Tainted Isle
-1 Thopter Squadron
-1 Time Bomb
-1 Titan Forge
-1 Tolarian Winds
-1 U.S.S. Enterprise-D, Galaxy-Class
-1 Updraft
-1 Vapor Snag
-1 Vedalken Infuser
-1 Vision Skeins
-1 Waterveil Cavern
-1 Watery Grave
+[deck:commander midrange RG #20266237]
+1 Active Volcano
+1 Antagonize
+1 Bayou Dragonfly
+1 Berserk
+1 Bird Maiden
+1 Blood Frenzy
+1 Bot Bashing Time
+1 Brute Force
+1 Centaur Archer
+1 Centaur Veteran
+1 Charging Badger
+1 Corrupted Crossroads
+1 Crimson Manticore
+1 Deadshot
+1 Defiant Elf
+1 Deranged Whelp
+1 Dogpile
+1 Earth Tremor
+1 Eclipsed Realms
+1 Emerald Dragonfly
+1 Epic Proportions
+1 Fearful Villager
+1 Fiery Intervention
+14 Forest
+1 Gerrard's Irregulars
+1 Gift of Strength
+1 Goblin Rock Sled
+1 Goblin Sky Raider
+1 Goblin Trailblazer
+1 Goliath Beetle
+1 Gorn Captain
+1 Harvesttide Infiltrator
+1 Heap Gate
+1 Ifh-Bíff Efreet
+1 Impetuous Sunchaser
+1 Intrepid Provisioner
+1 Kessig Wolf Run
+1 Killer Bees
+1 Legolas's Quick Reflexes
+1 Monsoon
+11 Mountain
+1 Plaza of Heroes
+1 Primal Order
+1 Ready to Rumble
+1 Reduce to Ashes
+1 Resuscitate
+1 Rootbreaker Wurm
+1 Rumble Arena
+1 Scryb Sprites
+1 Secret Base
+1 Shard Phoenix
+1 Spidery Grasp
+1 Spire of Industry
+1 Stature, Young Avenger
+1 Steady Aim
+1 Stomping Ground
+1 Stormbind
+1 Surveillance Room
+1 Sylvan Paradise
+1 Talon Gates of Madara
+1 Tattermunge Duo
+1 Three Tree City
+1 Throne of Makindi
+1 Touch of Vitae
+1 Turtle Lair
+1 Unknown Shores
+1 Utvara Scalper
+1 Venomous Dragonfly
+1 Warriors of Wakanda
+1 Wildwood Patrol
+1 Windreaper Falcon
+1 Wirewood Pride
+1 Wolfsbane, Highland Hero
+1 Wrecking Crew
+1 Yavimaya Gnats
+1 Zhao, the Seething Flame
 
 [commander]
-Skeleton Ship
+Tuknir Deathlock

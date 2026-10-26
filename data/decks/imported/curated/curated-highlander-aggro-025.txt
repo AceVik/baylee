@@ -10,6 +10,7 @@
 1 Carrier Thrall
 1 Carrion Feeder
 1 Champion of the Perished
+1 City of Brass
 1 Claws of Gix
 1 Common Crook
 1 Criminal Enterprise
@@ -28,16 +29,17 @@
 1 Hostile Hostel
 1 Hungry Ghoul
 1 Infectious Host
+1 Jasmine Dragon Tea Shop
 1 Kalastria Highborn
 1 Kheru Bloodsucker
 1 Lead Pipe
 1 Locthwain Lancer
+1 Mana Confluence
 1 Marionette Apprentice
 1 Master of Dark Rites
 1 Midnight Reaper
 1 Minotaur, Roxxon CEO
 1 Mintstrosity
-1 Mudflat Village
 1 Ogre Slumlord
 1 Pawn of Ulamog
 1 Quest for the Gravelord
@@ -46,7 +48,6 @@
 1 Sarcomancy
 1 Serrated Scorpion
 1 Shambling Goblin
-1 Shizo, Death's Storehouse
 1 Skirk Ridge Exhumer
 32 Snow-Covered Swamp
 1 Soldevi Adnate
@@ -55,16 +56,15 @@
 1 Tattered Mummy
 1 Thanos, Death's Consort
 1 The Meathook Massacre
-1 Tomb of Urami
 1 Tourach's Gate
 1 Undead Augur
 1 Undercity Dire Rat
+1 Underdome
 1 Vampiric Rites
-1 Vault of Whispers
 1 Vengeful Bloodwitch
 1 Vengeful Dead
 1 Vermin Gorger
-1 Volrath's Stronghold
+1 Villainous Hideout
 1 Warren Soultrader
 1 Witch's Cauldron
 1 Yahenni, Undying Partisan

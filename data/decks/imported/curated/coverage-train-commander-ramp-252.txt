@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp W #20266253]
+1 Aladdin's Lamp
+1 Alloy Myr
+1 Anodet Lurker
+1 Arcane Encyclopedia
+1 Arcane Signet
+1 Automatic Librarian
+1 Bear Trap
+1 Black Vise
+1 Book of Rass
+1 Brass Man
+1 Chardalyn Dragon
+1 Conch Horn
+1 Cradle of the Accursed
+1 Darksteel Relic
+1 Diabolic Machine
+1 Didgeridoo
+1 Dragon Engine
+1 Explosive Apparatus
+1 Flamecast Wheel
+1 Font of Mythos
+1 Fountain of Ichor
+1 Glacial Chasm
+1 Grapeshot Catapult
+1 Hair-Strung Koto
+1 Haunted Guardian
+1 Hedron Crawler
+1 Hedron Rover
+1 Hedron Scrabbler
+1 Hopping Automaton
+1 Jet Medallion
+1 Kiln Walker
+1 Kozilek's Channeler
+1 Manhole Cover
+1 Masterwork of Ingenuity
+1 Mishra's Foundry
+1 Mishra's Helix
+1 Monoskelion
+1 Muraganda Raceway
+1 Mycosynth Lattice
+1 Night Market Guard
+1 Palladium Myr
+1 Patriar's Seal
+1 Peace Strider
+35 Plains
+1 Polluted Delta
+1 Prizefighter Construct
+1 Razorfield Thresher
+1 Ring of Ma'rûf
+1 Ring of Renewal
+1 Ruby Medallion
+1 Runesword
+1 Sanitation Automaton
+1 Sapphire Medallion
+1 Scarab of the Unseen
+1 Scrap Compactor
+1 Sliver Construct
+1 Spare Supplies
+1 Spellbook
+1 The Gold Saucer
+1 Thran War Machine
+1 Triangle of War
+1 Ur-Golem's Eye
+1 Urza's Tower
+1 Voltaic Servant
+1 Warden of Geometries
+
+[commander]
+Elesh Norn, Grand Cenobite

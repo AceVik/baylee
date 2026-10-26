@@ -1,74 +1,84 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro G #20266281]
-1 Ambush Viper
-1 Anaconda
-1 Ankle Biter
-1 Archers of Qarsi
-1 Bassara Tower Archer
-1 Bird Admirer
-1 Bitterbow Sharpshooters
-1 Blossom Dryad
-1 Bounding Wolf
-1 Bristlepack Sentry
-1 Broodwarden
-1 Brushstrider
-1 Camouflage
-1 Centaur Garden
-1 Civic Gardener
-1 Conifer Strider
-1 Dawnstrider
-1 Death-Hood Cobra
-1 Dragon Sniper
-1 Elvish Pathcutter
-1 Feiyi Snake
-1 Folk of the Pines
-32 Forest
-1 Hashep Oasis
-1 Heroic Intervention
-1 Hornet Cobra
-1 Horrid Vigor
-1 Humble Budoka
-1 Hungry Mist
-1 Indicate
-1 Ivy Dancer
-1 Ivy Elemental
-1 Jolrael's Centaur
-1 Juniper Order Druid
-1 Karoo Meerkat
-1 Krakilin
-1 Krosan Constrictor
-1 Marsh Boa
-1 Mending Touch
-1 Might Weaver
-1 Mire Boa
-1 Moss Monster
-1 Moss Viper
-1 Nafs Asp
-1 Oakhollow Village
-1 Okina, Temple to the Grandfathers
-1 Order of the Sacred Bell
-1 Pestilent Wolf
-1 Pradesh Gypsies
-1 Ramunap Excavator
-1 Rime Dryad
-1 Rushwood Dryad
-1 Rushwood Herbalist
-1 Sacred Wolf
-1 Sedge Scorpion
-1 Spore Frog
-1 Taoist Hermit
-1 Terrain Elemental
-1 Trained Jackal
-1 Tree Monkey
-1 Tree of Tales
-1 Unseen Walker
-1 Vine Mare
-1 Willow Dryad
-1 Wirewood Lodge
-1 Woodland Patrol
-1 Young Wolf
-1 Zodiac Rabbit
+[deck:commander aggro WUBRG #20266281]
+1 Abundant Countryside
+1 Ana Disciple
+1 Archaeological Dig
+1 Armorer Guildmage
+1 Bane Alley Blackguard
+1 Baxter Building
+1 Beetleform Mage
+1 Bonds of Quicksilver
+1 Boros Guildmage
+1 Charmed Sleep
+1 Chief of the Edge
+1 Chief of the Scale
+1 Containment Protocol
+1 Conversion
+1 Curse of Chains
+1 Daily Bugle Building
+1 Dauntless River Marshal
+1 Deft Duelist
+1 Dega Disciple
+1 Disciple of the Old Ways
+1 Dragonsoul Knight
+1 Elemental Augury
+1 Elite Arrester
+1 Enchanted Evening
+1 Esper Battlemage
+1 Fallen Askari
+1 Fireborn Knight
+1 Firehoof Cavalry
+1 Foxfire Oak
+1 Fulminator Mage
+1 Fusion Elemental
+1 Hand of Silumgar
+1 Heap Gate
+1 High Priest of Penance
+1 Keldon Mantle
+1 Kjeldoran Pride
+1 Krovikan Elementalist
+1 Krovikan Scoundrel
+1 Lazotep Quarry
+1 Mantis Rider
+1 Marshal of Zhalfir
+1 Martyrs' Tomb
+1 Minister of Impediments
+1 Morgue Toad
+10 Mountain
+1 Naya Battlemage
+1 Onyx Mage
+1 Paragon of the Amesha
+1 Pardic Collaborator
+1 Path of Mettle
+12 Plains
+1 Profane Procession
+1 Rakdos Ringleader
+1 Rakdos Shred-Freak
+1 Rakdos Trumpeter
+1 Relentless Hunter
+1 Righteous War
+1 Rumble Arena
+1 Secluded Courtyard
+1 Shaper Guildmage
+1 Shimmering Grotto
+1 Spiritual Asylum
+1 Springjack Pasture
+1 Stormcaller of Keranos
+1 Suleiman's Legacy
+1 Sultai Ascendancy
+2 Swamp
+1 Thran Quarry
+1 Threads of Disloyalty
+1 Three Tree City
+1 Trench Wurm
+1 Unknown Shores
+1 Utter End
+1 Valeron Outlander
+1 Veteran Cathar
+1 Voldaren Estate
+1 Votary of the Conclave
+1 Yotian Tactician
 
 [commander]
-The Fabulous Frog-Man
+General Tazri

@@ -1,81 +1,80 @@
 # baylee synergistic coverage highlander midrange
 # licence: AGPL-3.0-only
-[deck:highlander midrange WUB #20266166]
-1 Adarkar Sentinel
-1 Adarkar Wastes
-1 Alpha Myr
-1 Amulet of Kroog
-1 Ancestral Statue
-1 Ancient Spring
-1 Arcane Sanctum
-1 Arena of the Ancients
-1 Ashnod's Battle Gear
-1 Basilisk Collar
-1 Bladed Bracers
-1 Bronze Sable
-1 Bubble Matrix
-1 Calciform Pools
-1 Chimeric Idol
-1 Chimeric Sphere
-1 Clay Statue
-1 Clockwork Gnomes
-1 Coiled Tinviper
-1 Colossus Hammer
-1 Contaminated Landscape
-1 Copper Gnomes
-1 Crystal Golem
-1 Custodian of the Trove
-1 Darksteel Myr
-1 Darkwater Catacombs
-1 Draconian Cylix
-1 Dreadship Reef
-1 Dromar's Cavern
-1 Echo Circlet
-1 Endoskeleton
-1 Ersatz Gnomes
-1 Forgotten Sentinel
-1 Fyndhorn Bow
-1 Gleaming Bastion
-1 Guardians of Meletis
-1 Hallowed Fountain
-1 Hidden Lair
-1 Hivestone
-1 Hoof Skulkin
-17 Island
-1 Jabari's Banner
-1 Karn, Silver Golem
-1 Lead Golem
-1 Liquimetal Coating
-1 Myr Landshaper
-1 Needlebug
-1 Nemesis Mask
-1 Nephalia Drownyard
-1 Omega Myr
-1 One-Eyed Scarecrow
-1 Patagia Golem
-5 Plains
-1 Prahv, Spires of Order
-1 Prowler's Helm
-1 Raffine's Tower
-1 Relic Barrier
-1 Ring of Gix
-1 Ring of Ma'rûf
-1 Runed Arch
-1 Rusted Sentinel
-1 Scarecrow
-1 Scornful Aether-Lich
-1 Shell Skulkin
-1 Short Sword
-1 Shuko
-1 Soldevi Golem
-3 Swamp
-1 Tawnos's Weaponry
-1 Tezzeret's Strider
-1 Touchstone
-1 Tower of Coireall
-1 Tumble Magnet
-1 Venser's Sliver
-1 War Chariot
-1 Watchwing Scarecrow
-1 Wicker Witch
-1 Wizards' School
+[deck:highlander midrange WUG #20266166]
+1 Abundant Countryside
+1 Ancient Carp
+1 Animate Artifact
+1 Ankle Biter
+1 Annex
+1 Boa Constrictor
+1 Capital City
+1 Capture Sphere
+1 Cascading Cataracts
+1 Cloud Manta
+1 Coastal Hornclaw
+1 Conduit Pylons
+1 Coral Eel
+1 Dandân
+1 Death-Hood Cobra
+1 Devouring Deep
+1 Eel-Hounds
+1 Errant Minion
+1 Faithful Watchdog
+1 Feiyi Snake
+11 Forest
+1 Frog-Squirrels
+1 Grappling Sundew
+1 Hazerider Drake
+1 Henge of Ramos
+1 Hidden Grotto
+1 Hippo-Cows
+1 Hornet Cobra
+1 Iron Giant
+14 Island
+1 Krosan Constrictor
+1 Leafdrake Roost
+1 Leering Gargoyle
+1 Living Airship
+1 Long-Finned Skywhale
+1 Mana Confluence
+1 Manta Ray
+1 Marsh Boa
+1 Merseine
+1 Mind Bend
+1 Mire Boa
+1 Misdirection
+1 Moat Piranhas
+1 Mordenkainen's Polymorph
+1 Moss Viper
+1 Naga Eternal
+1 Oko, Thief of Crowns
+1 Painted Bluffs
+1 Paralyzing Grasp
+1 Political Trickery
+1 Ramunap Excavator
+1 Rumble Arena
+1 Rune-Cervin Rider
+1 Safehold Elite
+1 School of Piranha
+1 Sinking Feeling
+1 Sleep Paralysis
+1 Spectral Shield
+1 Spore Frog
+1 Sporecrown Thallid
+1 Steeple Creeper
+1 Sterling Grove
+1 Stoic Angel
+1 Survival of the Fittest
+1 Talon Gates of Madara
+1 Tempest Drake
+1 The Mycosynth Gardens
+1 Tractor Beam
+1 Treva's Ruins
+1 Uktabi Efreet
+1 Undiscovered Paradise
+1 Venomthrope
+1 Villainous Hideout
+1 Wall of Denial
+1 Wall of Vines
+1 White Lotus Hideout
+1 Winged Coatl

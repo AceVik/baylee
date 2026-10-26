@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp G #20266257]
+1 Amonkhet Raceway
+1 Ashaya, Soul of the Wild
+1 Barbtooth Wurm
+1 Blitzball Shot
+1 Bramble Creeper
+1 Bramblesnap
+1 Canopy Dragon
+1 Child of Gaea
+1 Clive's Hideaway
+1 Copper Host Crusher
+1 Cowl Prowler
+1 Creeperhulk
+1 Despotic Scepter
+1 Echoing Deeps
+1 Esper Panorama
+1 Essence Filter
+1 Flora Colossus
+1 Force of Savagery
+35 Forest
+1 Gaea's Avenger
+1 Gaea's Might
+1 Gemstone Caverns
+1 Get a Leg Up
+1 Ghastbark Twins
+1 Guardian of the Great Conduit
+1 Havenwood Wurm
+1 Honor-Worn Shaku
+1 Hungry Mist
+1 Ivy Elemental
+1 Jumbo Cactuar
+1 Llanowar Behemoth
+1 Mana Prism
+1 Manalith
+1 Mobilized District
+1 Mortal's Resolve
+1 Moss Monster
+1 Muscle Burst
+1 Mutagenic Growth
+1 Ornamental Courage
+1 Overprotect
+1 Planar Bridge
+1 Powerstone Shard
+1 Predator's Strike
+1 Primal Bellow
+1 Pygmy Razorback
+1 Quilled Slagwurm
+1 Sea Gate Wreckage
+1 Shape the Sands
+1 Smuggler's Copter
+1 Sol Grail
+1 Stampeding Rhino
+1 Standing Stones
+1 Strength in Numbers
+1 Supply Drop
+1 Terrain Elemental
+1 Thicket Crasher
+1 Thornling
+1 Tormod's Crypt
+1 Tread Upon
+1 Treefolk Mystic
+1 Tsunami
+1 Untamed Might
+1 Vine Mare
+1 Whirlwind
+1 Wood Elemental
+
+[commander]
+Silvos, Rogue Elemental

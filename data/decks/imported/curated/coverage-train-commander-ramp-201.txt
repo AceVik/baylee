@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp UBR #20266202]
-1 Abduction
-1 Abyssal Horror
-1 Anurid Murkdiver
-1 Apprentice Necromancer
-1 Artificer's Intuition
-1 Blood Celebrant
-1 Bog Initiate
-1 Boggart Birth Rite
-1 Boris Devilboon
-1 Castle Sengir
-1 Cateran Brute
-1 Cateran Kidnappers
-1 Cateran Slaver
-1 Cephalid Scout
-1 Champion of the Perished
-1 Crosis's Catacombs
-1 Crumbling Necropolis
-1 Crypt of the Eternals
-1 Dauthi Ghoul
-1 Deathbringer Thoctar
-1 Diregraf Captain
-1 Drowner of Hope
-1 Drownyard Amalgam
-1 Drunau Corpse Trawler
-1 Ertai Resurrected
-1 Fable of the Mirror-Breaker
-1 False Demise
-1 Fiery Islet
-1 Forsaken Drifters
-1 Gloomlake Verge
-1 Gristle Grinner
-1 Hatching Plans
-1 Hulk, Always Angry
-1 Hungry Ghoul
-1 Iceberg
-14 Island
-1 Laboratory Brute
-1 Lantern-Lit Graveyard
+1 Baldur's Gate
+1 Black Waltz No. 3
+1 Blaze
+1 Boar-q-pine
+1 Boltwave
+1 Breath of Fire
+1 Capital City
+1 Cascading Cataracts
+1 Chaos Charm
+1 Choking Sands
+1 Conduit Pylons
+1 Elder Spawn
+1 Explosive Impact
+1 Explosive Shot
+1 Fanged Flames
+1 Fiery Finish
+1 Fire Ambush
+1 Flame-Blessed Bolt
+1 Gallifrey Council Chamber
+1 Great Hall of the Biblioplex
+1 Haven of the Spirit Dragon
+1 Heap Gate
+1 Holdout Settlement
+5 Island
+1 Jeskai Windscout
+1 Kazarov, Sengir Pureblood
+1 Kazuul's Fury
+1 Kindled Heroism
+1 Kookus
+1 Kulrath Mystic
+1 Lazotep Quarry
+1 Lightning Reaver
+1 Lim-Dûl's Paladin
 1 Lord of Tresserhorn
-1 Lord of the Undead
-1 Mindscour Dragon
+1 Magmatic Force
+1 Mana Confluence
+1 Mech Hangar
+1 Mind Bomb
+1 Minion of Tevesh Szat
+1 Mob Justice
 1 Moggcatcher
-4 Mountain
-1 Necromancer's Assistant
-1 Need for Speed
-1 Nephalia Drownyard
-1 Nucklavee
-1 Obsessive Stitcher
-1 Oscorp Industries
-1 Puppet Master
-1 Ramses Overdark
-1 Rathi Intimidator
-1 Returned Reveler
-1 Riverpyre Verge
-1 Rotcrown Ghoul
-1 Screeching Skaab
-1 Seething Landscape
-1 Sibsig Host
-1 Slash, Reptile Rampager
-1 Sluggishness
-1 Sphinx Mindbreaker
-1 Sphinx's Herald
-1 Stensia Bloodhall
-1 Sulfur Vent
-1 Sunken Ruins
-8 Swamp
-1 The Unspeakable
-1 Tsabo Tavoc
-1 Underground River
-1 Vessel of Paramnesia
-1 Wailing Ghoul
-1 Warren Soultrader
-1 Wizard Class
-1 Woebearer
-1 Wretched Throng
-1 Xander's Lounge
+14 Mountain
+1 Nightfire Giant
+1 Nightscape Master
+1 Obliterating Bolt
+1 Ozai's Cruelty
+1 Panicked Altisaur
+1 Pestilence Demon
+1 Price of Progress
+1 Primordial Ooze
+1 Ragefire
+1 Reckless Air Strike
+1 Reveka, Wizard Savant
+1 Roast
+1 Rockslide Ambush
+1 Rumble Arena
+1 Scorching Shot
+1 Scorchmark
+1 Sear
+1 Secluded Courtyard
+1 Sip of Hemlock
+1 Sol'kanar the Swamp King
+1 Stormchaser Mage
+1 Strafe
+7 Swamp
+1 Tarfire
+1 Taurean Mauler
+1 Tempest Angler
+1 Throne of Makindi
+1 Tibor and Lumia
+1 Tor Wauki
+1 Turtle Lair
+1 Umara Mystic
+1 Void Helix
+1 Volcanic Hammer
+1 Withering Torment
 
 [commander]
 Nicol Bolas

@@ -2,7 +2,6 @@
 # licence: AGPL-3.0-only
 [deck:commander control WG #20266039]
 1 Abzan Runemark
-1 Ally Encampment
 1 Almost Perfect
 1 Arcane Lighthouse
 1 Arid Mesa
@@ -19,7 +18,9 @@
 1 Crazed Armodon
 1 Devil Dinosaur
 1 Drannith Ruins
+1 Drownyard Temple
 1 Dub
+1 Elephant Graveyard
 1 Emerald Dragonfly
 1 Excavation Mole
 1 Farewell
@@ -29,16 +30,15 @@
 1 Fruition
 1 Galewind Moose
 1 Game-Trail Changeling
+1 Grasping Dunes
 1 Greater Realm of Preservation
 1 Grounded
-1 Guildmages' Forum
-1 HELIOS One
 1 Healing Leaves
 1 Hungry Megasloth
 1 Kazandu Nectarpot
 1 Lifegift
 1 Loxodon Battle Priest
-1 Mana Confluence
+1 Mishra's Foundry
 1 Mistmeadow Skulk
 1 Moat
 1 Nasty Little Rabbit
@@ -47,14 +47,13 @@
 1 Ondu Inversion
 1 Opal Avenger
 10 Plains
-1 Plaza of Heroes
 1 Prismatic Ward
+1 Radiant Fountain
 1 Ravenous Daggertooth
 1 Respite
 1 Return to the Earth
 1 Rust
-1 School of the Unseen
-1 Secluded Starforge
+1 Scalding Tarn
 1 Shopkeeper's Bane
 1 Siegecraft
 1 Siegehorn Ceratops
@@ -74,6 +73,7 @@
 1 Wild Elephant
 1 Winding Canyons
 1 Wolfsbane, Highland Hero
+1 Wooded Foothills
 1 Yavimaya, Cradle of Growth
 
 [commander]

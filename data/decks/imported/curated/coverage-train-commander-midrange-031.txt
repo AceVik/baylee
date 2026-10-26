@@ -6,13 +6,8 @@
 1 Aegis Automaton
 1 Anodet Lurker
 1 Archon of Justice
-1 Arctic Flats
-1 Arctic Treeline
 1 Auratog
-1 Basilisk Gate
-1 Baxter Building
 1 Behemoth Sledge
-1 Birnin Zana Plaza
 1 Birthing Boughs
 1 Bladed Sentinel
 1 Blood Servitor
@@ -22,10 +17,10 @@
 1 Clockwork Drawbridge
 1 Enatu Golem
 1 Envoy of Okinec Ahau
-1 Etched Cornfield
-8 Forest
+9 Forest
 1 Fragmentize
 1 Friendly Teddy
+1 Gavony Township
 1 Gilded Pinions
 1 Gleaming Barrier
 1 Glint Hawk Idol
@@ -33,46 +28,51 @@
 1 Goldmeadow Lookout
 1 Goldvein Pick
 1 Graypelt Refuge
-1 Great Hall of the Citadel
 1 Green Scarab
 1 Guardian Kirin
 1 Hedron Crawler
+1 Horizon Canopy
+1 Hushwood Verge
 1 Hymn of Rebirth
 1 Irregular Cohort
 1 Join the Ranks
+1 Kyoshi Village
 1 Lawbringer
 1 Leonin Abunas
 1 Lightbringer
+1 Lush Portico
 1 Maskwood Nexus
 1 Meteor Sword
 1 Military Discipline
-1 Mountain Stronghold
 1 Mycoid Shepherd
 1 Nuisance Engine
-1 Pillar of the Paruns
-17 Plains
-1 Radiant Grove
+16 Plains
 1 Razorfield Thresher
-1 Restless Prairie
+1 Riftstone Portal
+1 Saltcrusted Steppe
 1 Scrap Trawler
 1 Selesnya Keyrune
 1 Serpent Generator
 1 Shimmering Barrier
 1 Slayer's Plate
 1 Sliversmith
-1 Soulstone Sanctuary
 1 Spectral Guardian
+1 Stirring Wildwood
 1 Su-Chi
+1 Suburban Sanctuary
 1 Sundial, Dawn Tyrant
+1 Sungrass Prairie
 1 Tattoo Ward
-1 Temple of Plenty
 1 Thaumatog
 1 Thermal Navigator
+1 Thornglint Bridge
 1 Thousand Moons Smithy
 1 Tireless Provisioner
 1 Titanium Golem
+1 Tranquil Garden
 1 Trenching Steed
 1 Uktabi Faerie
+1 Veldt
 1 Venomous Dragonfly
 1 Wall of Tanglecord
 1 Wand of the Elements

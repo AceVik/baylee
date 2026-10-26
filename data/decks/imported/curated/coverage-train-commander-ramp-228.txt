@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp UB #20266229]
-1 Alloy Myr
-1 Ashiok's Reaper
-1 Ashiok, Dream Render
-1 Augmenting Automaton
-1 Bog Naughty
-1 Carnage Altar
-1 Cathodion
-1 Coastal Hornclaw
-1 Cobalt Golem
-1 Collector's Vault
-1 Daily Bugle Newspaper
-1 Darkwater Catacombs
-1 Dingus Egg
-1 Dowsing Dagger
-1 Drainpipe Vermin
-1 Dreadship Reef
-1 Dross Ripper
-1 Dukhara Peafowl
-1 Enatu Golem
-1 Flayed One
-1 Floodgate
-1 Friendly Teddy
-1 Gilded Lotus
-1 Gleaming Barrier
-1 Goldvein Pick
-1 Hexplate Golem
-1 Hidden Lair
-11 Island
-1 Jinxed Idol
-1 Krark-Clan Ironworks
-1 Lotus Petal
-1 Mana Geode
-1 Mana Matrix
-1 Monoist Sentry
-1 Morphic Pool
-1 Mox Diamond
-1 Myr Retriever
-1 Myr Sire
-1 Nephalia Drownyard
-1 Perilous Myr
-1 Pewter Golem
-1 Phyrexian Hulk
-1 Phyrexian Metamorph
-1 Phyrexian Vault
-1 Planar Gate
-1 River Delta
-1 River of Tears
-1 Rootwater Depths
-1 Rune-Sealed Wall
-1 Scepter of Fugue
-1 Scrap Trawler
-1 Sensei's Divining Top
-1 Skeletal Kathari
-1 Springleaf Drum
-1 Stone Calendar
-1 Sunken Hollow
-1 Sunken Ruins
-1 Surgical Metamorph
-15 Swamp
-1 Sylvok Lifestaff
-1 Tablet of Epityr
-1 Tainted Isle
-1 The Walls of Ba Sing Se
-1 Tidehollow Strix
-1 Treasure Map
-1 Underground River
-1 Underground Sea
-1 Vectis Agents
-1 Vectis Silencers
-1 Vodalian War Machine
-1 Voodoo Doll
-1 Waterfront District
-1 Waterveil Cavern
-1 Watery Grave
-1 Workhorse
+[deck:commander ramp RG #20266229]
+1 Alpha Tyrranax
+1 Avengers Tower
+1 Barkhide Mauler
+1 Captivating Cave
+1 Cavern Thoctar
+1 Collector Ouphe
+1 Cragcrown Pathway
+1 Drop of Honey
+1 Earthshaking Si
+1 Elemental Bond
+1 Enormous Baloth
+1 Exploration
+1 Fertile Thicket
+1 Flowstone Mauler
+1 Forbidden Orchard
+1 Forgeborn Oreads
+1 Frog Butler
+1 Gang of Elk
+1 Garruk's Uprising
+1 Gemrazer
+1 Geyser Glider
+1 Giant Warthog
+1 Goblin Replica
+1 Golden Hind
+1 Goobbue Gardener
+1 Gruul Keyrune
+1 Gruul Nodorog
+1 Herd Gnarr
+1 Icecave Crasher
+1 Instill Energy
+1 Kalonian Behemoth
+1 Krosan Groundshaker
+1 Manor Gate
+1 Mech Hangar
+1 Mirrodin's Core
+1 Mortal Wound
+1 Mosswort Bridge
+1 Nature's Chosen
+1 Nightshade Dryad
+1 Nylea's Forerunner
+1 Oakheart Dryads
+1 Ohran Frostfang
+1 Oread of Mountain's Blaze
+1 Overgrowth
+1 Oxidda Scrapmelter
+1 Plated Crusher
+1 Poison Dart Frog
+1 Prophetic Ravings
+1 Revelation
+1 Ridge Rannet
+1 Rushwood Grove
+1 Sanctum Weaver
+1 Saruli Caretaker
+1 Secret Base
+1 Shaleskin Bruiser
+14 Snow-Covered Forest
+12 Snow-Covered Mountain
+1 Spearbreaker Behemoth
+1 Spinal Villain
+1 Study Hall
+1 Sudden Strength
+1 Sylvan Caryatid
+1 Tangle Hulk
+1 Tenement Crasher
+1 Territorial Baloth
+1 The Hunter Maze
+1 The Shire
+1 Troll-Horn Cameo
+1 Tusked Colossodon
+1 Utopia Tree
+1 Vernal Bloom
+1 Villainous Hideout
+1 Vivify
+1 Vulshok War Boar
+1 Wild Roads
 
 [commander]
-Ur-Drago
+Jerrard of the Closed Fist

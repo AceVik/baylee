@@ -1,9 +1,10 @@
 # baylee curated highlander aggro seed=20261096
 # licence: AGPL-3.0-only
 [deck:highlander aggro B #20261096]
+1 Ancient Ziggurat
 1 Apprentice Necromancer
 1 Ashen Ghoul
-1 Cabal Coffers
+1 Baldur's Gate
 1 Carnival of Souls
 1 Carrion Feeder
 1 Champion of the Perished
@@ -14,6 +15,7 @@
 1 Desiccated Naga
 1 Discordant Piper
 1 Dream Beavers
+1 Eclipsed Realms
 1 Facevaulter
 1 Festering Goblin
 1 Festerleech
@@ -25,9 +27,9 @@
 1 Gristle Grinner
 1 Gutless Ghoul
 1 Hopeless Nightmare
-1 Hostile Hostel
 1 Hungry Ghoul
 1 Infectious Host
+1 Jasmine Dragon Tea Shop
 1 Knucklebone Witch
 1 Krovikan Plague
 1 Lead Pipe
@@ -36,7 +38,6 @@
 1 Miasmic Mummy
 1 Midnight Reaper
 1 Mire Triton
-1 Mudflat Village
 1 Murderous Rider
 1 Necromancer's Assistant
 1 Ob Nixilis, the Fallen
@@ -52,21 +53,20 @@
 1 Sedraxis Alchemist
 1 Sepulcher Ghoul
 1 Shambling Goblin
-1 Shizo, Death's Storehouse
 1 Skirk Ridge Exhumer
 32 Snow-Covered Swamp
 1 Stitcher's Supplier
 1 Tattered Mummy
-1 The Black Gate
 1 Tortured Existence
 1 Toxic Abomination
 1 Undead Augur
+1 Underdome
 1 Unearth
-1 Unholy Grotto
 1 Vampiric Rites
 1 Vengeful Dead
 1 Wailing Ghoul
 1 Warren Soultrader
 1 Weirding Shaman
+1 White Lotus Hideout
 1 Wretched Anurid
 1 Wriggling Grub

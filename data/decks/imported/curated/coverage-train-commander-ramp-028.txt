@@ -7,14 +7,13 @@
 1 Asphyxiate
 1 Barbtooth Wurm
 1 Bilbo's Deadly Slice
-1 Blooming Marsh
 1 Burgeoning
 1 Carrion Beetles
 1 Caustic Caterpillar
 1 Cowl Prowler
 1 Crumble
 1 Daring Demolition
-1 Darkmoss Bridge
+1 Darkbore Pathway
 1 Dauthi Cutthroat
 1 Deathmark
 1 Defenestrate
@@ -26,54 +25,55 @@
 1 Eater of the Dead
 1 Eliminate
 1 Epic Downfall
+1 Evendo, Waking Haven
 1 Exploration
 1 Fatal Blow
 1 Fell
-1 Festering Gulch
 1 Festering Thicket
 1 Final Death
 1 Floral Spuzzem
 1 Foggy Bottom Swamp
-13 Forest
-1 Haunted Mire
+10 Forest
+1 Gohn, Town of Ruin
 1 Hero's Demise
-1 Illegitimate Business
+1 Hidden Nursery
 1 Infernal Medusa
-1 Jasmine Dragon Tea Shop
+1 Kishla Village
 1 Kudzu
-1 Lounge
 1 Nature's Revolt
+1 Necroblossom Snarl
 1 Nettling Imp
 1 No Mercy
 1 Norritt
-1 Prismatic Vista
+1 Nurturing Peatland
 1 Quilled Slagwurm
 1 Rats of Rath
 1 Reclaiming Vines
-1 Restless Cottage
 1 Roaring Slagwurm
 1 Root Maze
 1 Roots of Life
 1 Scarblade Elite
-1 Skemfar Elderhall
-1 Springjack Pasture
 1 Steelbane Hydra
 1 Storm Front
 1 Stream of Acid
-1 Subterranean Cavern
-13 Swamp
+16 Swamp
+1 Tainted Wood
 1 The Abyss
 1 Thicket Basilisk
 1 Thoughtleech
+1 Turntimber Grove
+1 Twilight Mire
 1 Undergrowth Leopard
-1 Undergrowth Stadium
 1 Unliving Psychopath
 1 Venom
+1 Viridescent Bog
 1 Volrath's Gardens
 1 Voracious Varmint
 1 Wall of Corpses
 1 Wallop
 1 Wasteland Scorpion
+1 Wastewood Verge
+1 Wild Roads
 1 Wing Snare
 1 Woodland Chasm
 

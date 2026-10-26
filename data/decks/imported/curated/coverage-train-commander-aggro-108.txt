@@ -1,89 +1,84 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro WUG #20266109]
-1 Abstergo Entertainment
-1 Adherent of Hope
-1 Adventurer's Inn
-1 Ant-Man, Scott Lang
-1 Armed Response
-1 Bee Sting
-1 Big Bertha
-1 Blast Zone
-1 Cloud Djinn
-1 Cloud Pirates
-1 Coordinated Maneuver
-1 Cryptic Caves
-1 D'Avenant Archer
-1 D'Avenant Healer
-1 Earthshaking Si
-1 Echoing Deeps
-1 Eldrazi Temple
-1 Elite Javelineer
-1 Elspeth's Smite
-1 Faceless Haven
-1 Farrel's Zealot
-1 Fire and Brimstone
-1 Floodhound
-1 Flying Men
-11 Forest
-1 Gideon's Reproach
-1 Glaring Fleshraker
-1 Glissa's Scorn
-1 Harpoon Sniper
-1 Heavy Ballista
-1 High Market
-1 Horizon of Progress
-1 Ichneumon Druid
-1 Illvoi Galeblade
-1 Inspired Insurgent
-2 Island
-1 Lightning-Core Excavator
-1 Loran's Escape
-1 Mawcor
-1 Mystic Archaeologist
-1 Nettletooth Djinn
-1 Obscura Storefront
-1 Odric's Outrider
-1 Outflank
-6 Plains
-1 Psionic Entity
-1 Purple-Crystal Crab
-1 Questing Beast
-1 Rath's Edge
-1 Razorgrass Ambush
-1 Reveka, Wizard Savant
-1 Revered Unicorn
-1 Rootrider Faun
-1 Ruins Recluse
-1 Samite Archer
-1 Serendib Djinn
-1 Serendib Efreet
-1 Skycoach Waypoint
-1 Spawning Bed
-1 Sphinx's Herald
-1 Squall Line
-1 Storm Seeker
-1 Straw Golem
-1 Tangletrap
-1 Thelon's Chant
-1 Thran Quarry
-1 Three Tree City
-1 Time Elemental
+[deck:commander aggro UBR #20266109]
+1 Archivist
+1 Axiom Engraver
+1 Barbarian Riftcutter
+1 Basal Thrull
+1 Blaster Mage
+1 Boggart Loggers
+1 Cascade Bluffs
+1 Commander's Insight
+1 Dagger Caster
+1 Desolate Lighthouse
+1 Dragonborn Looter
+1 Drossforge Bridge
+1 Electric Eel
+1 Faerie Mastermind
+1 Fallowsage
+1 Fiery Islet
+1 Furtive Analyst
+1 Gloomlake Verge
+1 Goblin Digging Team
+1 Goblin Picker
+1 Gorilla War Cry
+1 Grey Havens Navigator
+1 Hearth Charm
+1 Human Frailty
+14 Island
+1 Joven
+1 Kami of the Crescent Moon
+1 Library Larcenist
+1 Looter il-Kor
+1 Luxury Suite
+1 Magus of the Wheel
+1 Mirkwood Meditator
+2 Mountain
+1 Nine-Tail White Fox
+1 Nivix, Aerie of the Firemind
+1 Noggle Bridgebreaker
+1 Noggle Ransacker
+1 Notorious Assassin
+1 Orcish Spy
+1 Psychic Purge
+1 Pyretic Ritual
+1 Rakdos Guildgate
+1 Ramirez DePietro
+1 Raze
+1 Refocus
+1 Riverglide Pathway
+1 Riverpyre Verge
+1 Romantic Rendezvous
+1 Scarblade Elite
+1 Sea Gate Loremaster
+1 Seafloor Oracle
+1 Seismic Mage
+1 Selhoff Entomber
+1 Shore Keeper
+1 Silundi Vision
+1 Silvergill Peddler
+1 Sinister Hideout
+1 Soratami Cloudskater
+1 Soulknife Spy
+1 Spectacle Summit
+1 Starke of Rath
+1 Startling Development
+1 Stealer of Secrets
+1 Steam Vents
+1 Stock Up
+1 Suit Up
+1 Sure-Footed Infiltrator
+8 Swamp
+1 Teferi's Protege
 1 Tolarian Winds
-1 Tomb of the Spirit Dragon
-1 Tracker
-1 Trenchpost
-1 Unyaro Bee Sting
-1 Unyaro Bees
-1 Urza's Chalice
-1 Urza's Factory
-1 Verdant Automaton
-1 Volunteer Reserves
-1 Warped Landscape
-1 Witch Hunter
-1 Wooden Sphere
-1 Xenobotanist
-1 Zuran Spellcaster
+1 Tony Stark
+1 Touch of Brilliance
+1 Tunnel
+1 Tymora's Invoker
+1 Vision Skeins
+1 Volcanic Island
+1 Whiptail Moloch
+1 Without Weakness
 
 [commander]
-Angus Mackenzie
+Gwendlyn Di Corci

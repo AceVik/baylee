@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WRG #20266211]
+1 Adherent of Hope
+1 Aeronaut Admiral
+1 Akroma's Devoted
+1 Anointed Chorister
+1 Ant-Man, Scott Lang
+1 Avengers Tower
+1 Beloved Princess
+1 Blade Historian
+1 Blessed Orator
+1 Bounty Agent
+1 Brad Boimler, Eager Ensign
+1 Bucolic Ranch
+1 Cavern of Souls
+1 Crib Swap
+1 Daring Mechanic
+1 Devils' Playground
+1 Devout Harpist
+1 Devout Witness
+1 Disciple of Grace
+1 Disciple of Law
+1 Druid Lyrist
+1 Exorcist
+1 Field Marshal
+1 Forbidden Orchard
+1 Gemstone Mine
+1 Gideon's Avenger
+1 Granger Guildmage
+1 Haazda Exonerator
+1 Hanweir Garrison
+1 Herald of Dromoka
+1 Holdout Settlement
+1 Inspired Insurgent
+1 Inspiring Veteran
+1 Jacques le Vert
+1 Juniper Order Advocate
+1 Kargan Warleader
+1 King Suleiman
+1 Knight Exemplar
+1 Kongming, "Sleeping Dragon"
+1 Livonya Silone
+1 Lovisa Coldeyes
+1 Magus of the Wheel
+1 Mana Confluence
+1 Meng Huo, Barbarian King
+1 Miracle Worker
+1 Mirrodin's Core
+8 Mountain
+1 Nova Cleric
+1 Paragon of Eternal Wilds
+1 Paragon of New Dawns
+1 Pillar of the Paruns
+16 Plains
+1 Planar Nexus
+1 Priest of Iroas
+1 Rogue Skycaptain
+1 Saryth, the Viper's Fang
+1 Scavenger Folk
+1 Seismic Mage
+1 Sisters of the Flame
+1 Soraya the Falconer
+1 Soul Shepherd
+1 Stalwart Shield-Bearers
+1 Starry-Eyed Skyrider
+1 Swiftblade Vindicator
+1 Thran Quarry
+1 Tonic Peddler
+1 Trade Caravan
+1 Unchained Berserker
+1 Underdome
+1 Undiscovered Paradise
+1 Unknown Shores
+1 Veteran Armorer
+1 Veteran Armorsmith
+1 Volunteer Reserves
+1 Weapons Trainer
+1 White Lotus Reinforcements
+1 Wylie Duke, Atiin Hero
+
+[commander]
+Samut, Voice of Dissent

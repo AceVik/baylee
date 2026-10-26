@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp RG #20266114]
-1 Archway Commons
-1 Barbarian Lunatic
-1 Bloodshot Trainee
-1 Breath of Fire
-1 Cactus Preserve
-1 Cathedral of War
-1 Centaur Archer
-1 Cinder Cloud
-1 Command Bridge
-1 Concentrated Fire
-1 Consuming Bonfire
-1 Cunning Sparkmage
-1 Deadeye Duelist
-1 Delete
-1 Dungeon Descent
-1 Earthlore
-1 End the Festivities
-1 Exploration
-1 Fault Line
-1 Field of the Dead
-1 Fiery Intervention
-1 Fire Tempest
-1 Flowstone Blade
-1 Flowstone Salamander
-6 Forest
-1 Forsaken Crossroads
-1 Frostling
-1 Goblin Artillery
-1 Goblin Medics
-1 Goblin Snowman
-1 Grasslands
-1 Heat of Battle
-1 Impact Tremors
-1 Inferno
-1 Insolence
-1 Iroas's Blessing
-1 Jeska, Warrior Adept
-1 Kookus
-1 Land's Edge
-1 Livonya Silone
-1 Magmasaur
-1 Manabarbs
-1 Mirrorpool
-1 Mob Justice
-1 Mogg Maniac
-20 Mountain
-1 Myriad Landscape
-1 Nature's Wrath
-1 Night Market
-1 Opportunist
-1 Parch
-1 Pit of Offerings
-1 Primal Order
-1 Rain of Embers
-1 Ravenous Giant
-1 Ready to Rumble
-1 Reckless Embermage
-1 Reduce to Ashes
-1 Rumbling Slum
-1 Runebound Wolf
-1 Sawback Manticore
-1 Scald
-1 Slingshot Goblin
-1 Spawning Grounds
-1 Spireside Infiltrator
-1 Spitting Hydra
-1 Starting Town
-1 Stormbind
-1 Suplex
-1 Thran Portal
-1 Transguild Promenade
-1 Viashino Fangtail
-1 Vigilante Justice
-1 Whiptail Moloch
-1 Wintermoon Mesa
+[deck:commander ramp WU #20266114]
+1 Adventurer's Inn
+1 Aegis Automaton
+1 Anodet Lurker
+1 Archon of Justice
+1 Attentive Sunscribe
+1 Avacyn's Collar
+1 Avengers Hangar
+1 Bastion Mastodon
+1 Bladed Sentinel
+1 Blood Servitor
+1 Brass Secretary
+1 Chrome Prowler
+1 Clockwork Drawbridge
+1 Cloudheath Drake
+1 Command Beacon
+1 Cumber Stone
+1 Daily Bugle Newspaper
+1 Deserted Beach
+1 Eldrazi Temple
+1 Elesh Norn, Grand Cenobite
+1 Escaped Experiment
+1 Exocomp
+1 Expedition Map
+1 Halls of Mist
+1 Hanna's Custody
+1 Hedron Scrabbler
+1 Inkwell Leviathan
+12 Island
+1 Ivory Guardians
+1 Jhovall Queen
+1 Journeyer's Kite
+1 Leonin Abunas
+1 Mana Cylix
+1 Manakin
+1 Messenger Drake
+1 Misty Rainforest
+1 Padeem, Consul of Innovation
+1 Pentavus
+1 Phyrexian Metamorph
+1 Phyrexian Walker
+14 Plains
+1 Prophet of the Peak
+1 Razorfield Thresher
+1 Retrofitter Foundry
+1 Rune-Sealed Wall
+1 Runed Servitor
+1 Salvaged Manaworker
+1 Scalding Tarn
+1 Scrap Trawler
+1 Serpent Generator
+1 Shire Terrace
+1 Skybridge Towers
+1 Soliton
+1 Sorrow's Path
+1 Sparring Construct
+1 Spined Thopter
+1 Study
+1 Su-Chi
+1 Sundial, Dawn Tyrant
+1 Surgical Metamorph
+1 Swooping Lookout
+1 Sword of Hearth and Home
+1 Sword of the Ages
+1 Terrain Generator
+1 Thaumatic Compass
+1 Triskelavus
+1 Unbender Tine
+1 Underdark Rift
+1 Unstable Obelisk
+1 Vedalken Outlander
+1 Watchful Automaton
+1 Watermarket
+1 Workhorse
+1 Worldslayer
+1 Zoetic Cavern
 
 [commander]
-Jerrard of the Closed Fist
+Jedit Ojanen

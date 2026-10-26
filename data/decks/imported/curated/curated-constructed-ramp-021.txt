@@ -1,9 +1,8 @@
 # baylee curated constructed ramp seed=20261044
 # licence: AGPL-3.0-only
 [deck:constructed ramp R #20261044]
-2 Balduvian Trading Post
 4 Birgi, God of Storytelling
-2 Fogwell's Gym
+2 Capital City
 4 Magma Giant
 4 Mek'leth Berserker
 2 Molten Nursery
@@ -13,4 +12,5 @@
 4 Screamer-Killer
 4 Shredded Sails
 4 Spark Spray
+2 Study Hall
 4 Winter Sky

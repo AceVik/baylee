@@ -4,9 +4,9 @@
 1 Aerial Engineer
 1 Alert Heedbonder
 1 Anthroplasm
+1 Archaeological Dig
 1 Ashiok's Skulker
 1 Aven Fleetwing
-1 Aysen Abbey
 1 Balamb Garden, SeeD Academy
 1 Battlefield Raptor
 1 Battlegrowth
@@ -26,6 +26,7 @@
 1 Essence Flare
 1 Floodfarm Verge
 11 Forest
+1 Forsaken City
 1 Freyalise Supplicant
 1 Frightful Delusion
 1 Generous Stray
@@ -70,7 +71,6 @@
 1 Tough Cookie
 1 Toxic Scorpion
 1 Tranquil Expanse
-1 Treva's Ruins
 1 Trusty Packbeast
 1 University Campus
 1 Uthros, Titanic Godcore

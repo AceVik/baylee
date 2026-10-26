@@ -2,19 +2,19 @@
 # licence: AGPL-3.0-only
 [deck:constructed aggro WU #20261107]
 4 Aven Cloudchaser
-3 Cloudcrest Lake
+3 Cascading Cataracts
 3 Cogwork Wrestler
 2 Harrier Strix
-12 Island
+11 Island
 4 Mox Opal
-3 Nimbus Maze
 2 Owl Familiar
-2 Plains
+3 Plains
 4 Raven Familiar
 3 Serenity
 2 Silver Raven
 4 Skycloud Egg
 4 Soaring Show-Off
 3 Spire Owl
+3 Study Hall
 3 Tundra
 2 Wan Shi Tong, Librarian

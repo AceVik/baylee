@@ -1,15 +1,14 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
 [deck:commander aggro U #20266058]
-1 Academy Ruins
 1 Advanced Hoverguard
-1 Archway of Innovation
+1 Arid Archway
 1 Aura Thief
+1 Bad River
 1 Beyeen Veil
 1 Bigfin Bouncer
 1 Bounce Off
 1 Breezekeeper
-1 Cephalid Coliseum
 1 Cephalid Inkshrouder
 1 Chain Stasis
 1 Coral Eel
@@ -23,6 +22,7 @@
 1 Enchantment Alteration
 1 Esperzoa
 1 Faerie Swarm
+1 Field of the Dead
 1 Fighting Drake
 1 Fleeting Image
 1 Glacial Wall
@@ -36,7 +36,6 @@
 32 Island
 1 Jhessian Lookout
 1 Krovikan Mist
-1 Lilypad Village
 1 Manta Ray
 1 Mind Bend
 1 Paralyzing Grasp
@@ -51,19 +50,20 @@
 1 School of Piranha
 1 Sea Kings' Blessing
 1 Seer of the Last Tomorrow
-1 Soaring Seacliff
 1 Spark Double
 1 Starlight Snare
 1 Starlit Mantle
 1 Steam Frigate
 1 Straw Soldiers
 1 Sunder
+1 Sunken Citadel
 1 Thalakos Mistfolk
 1 Thalakos Sentry
 1 Thoughtlace
 1 Thunder Wall
-1 Tolarian Academy
+1 Uncharted Haven
 1 Unstable Shapeshifter
+1 Volatile Fault
 1 Walking Dream
 1 Wetland Sambar
 1 Word of Undoing

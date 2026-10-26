@@ -25,10 +25,11 @@
 1 Floodfarm Verge
 1 Flusterstorm
 1 Font of Vigor
-7 Forest
+8 Forest
 1 Fountain of Renewal
 1 Generous Stray
 1 Golem Foundry
+1 Hall of Tagsin
 1 Holy Cow
 4 Island
 1 Jinxed Ring
@@ -51,18 +52,18 @@
 1 Natural State
 1 Nutrient Block
 1 Omni-Cheese Pizza
-1 Pendelhaven
-13 Plains
+12 Plains
 1 Plumecreed Escort
+1 Rainbow Vale
 1 Redrock Sentinel
 1 Restless Anchorage
 1 Resupply
 1 Revitalize
 1 Sandbar Merfolk
+1 Scene of the Crime
 1 Seaside Haven
 1 Selesnya Locket
 1 Slayer of the Wicked
-1 Slippery Karst
 1 Soldevi Machinist
 1 Soulmender
 1 Spectral Reserves
@@ -75,7 +76,6 @@
 1 Tranquil Expanse
 1 Trusty Packbeast
 1 University Campus
-1 Uthros, Titanic Godcore
 1 Volunteer Militia
 1 Watchful Giant
 1 Zhalfirin Shapecraft

@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp U #20266255]
+1 Altar of Dementia
+1 Altar of the Brood
+1 Bloodstained Mire
+1 Brain Freeze
+1 Bribery
+1 Bronze Horse
+1 Cathedral of Serra
+1 Celestial Prism
+1 Cloud Djinn
+1 Coastal Bulwark
+1 Coastal Hornclaw
+1 Cold-Water Snapper
+1 Crawling Barrens
+1 Crystal Chimes
+1 Darksteel Pendant
+1 Dingus Staff
+1 Dreamwinder
+1 Ebony Rhino
+1 Enatu Golem
+1 Excavator
+1 Floodgate
+1 Force Spike
+1 Ghoulcaller's Bell
+1 Gold-Forged Sentinel
+1 Goliath Sphinx
+1 Graaz, Unstoppable Juggernaut
+1 Grinding Station
+1 Herbal Poultice
+1 Iron Suitcase
+35 Island
+1 Island Fish Jasconius
+1 Jinxed Idol
+1 Kukemssa Serpent
+1 Mental Misstep
+1 Millstone
+1 Mutavault
+1 Nesting Grounds
+1 Opal Palace
+1 Phyrexian Lens
+1 Phyrexian Vault
+1 Prophet of the Peak
+1 Ransack
+1 Razormane Masticore
+1 Reef Pirates
+1 Relic of Legends
+1 Ring of Three Wishes
+1 Ring of the Lucii
+1 Rogue's Gloves
+1 Sanctum of Ugin
+1 Sea Serpent
+1 Seer of the Last Tomorrow
+1 Shriekhorn
+1 Sigiled Starfish
+1 Skull of Orm
+1 Sonic Screwdriver
+1 Spellkeeper Weird
+1 The Rack
+1 Thing from the Deep
+1 Thought Vessel
+1 Tidepool Turtle
+1 Time Vault
+1 Vizzerdrix
+1 Vodalian War Machine
+1 Wand of the Elements
+1 Worn Powerstone
+
+[commander]
+Aboshan, Cephalid Emperor

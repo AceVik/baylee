@@ -1,81 +1,81 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp RG #20266231]
-1 Akki War Paint
-1 Anaba Shaman
-1 Briar Shield
-1 Brood Weaver
-1 Catalyst Elemental
-1 Charging Strifeknight
-1 Colossification
-1 Concordant Crossroads
-1 Contested Cliffs
-1 Cragcrown Pathway
-1 Dance with Devils
-1 Epic Proportions
+[deck:commander ramp BR #20266231]
+1 Akroma's Memorial
+1 Archaeological Dig
+1 Army Ants
+1 Battering Sliver
+1 Baxter Building
+1 Belligerent Guest
+1 Bloodthrone Vampire
+1 Bog Naughty
+1 Boris Devilboon
+1 Capital City
+1 Carnage Altar
+1 Cathodion
+1 Cave of Temptation
+1 Cinder Marsh
+1 Clickslither
+1 Collector's Vault
+1 Conduit Pylons
+1 Crystal Slipper
+1 Culling Dais
+1 Cursed Flesh
+1 Daily Bugle Newspaper
+1 Dark Fortress
+1 Deadbridge Shaman
+1 Eclipsed Realms
+1 Experimental Armor
+1 Fault Riders
 1 Fire Snake
-1 Fire-Lit Thicket
-1 Flurry of Horns
-17 Forest
-1 Fungal Reaches
-1 Fury Sliver
-1 Garruk's Uprising
-1 Giant Caterpillar
-1 Goblin Assault
-1 Goblin Scouts
+1 Glimmerlight
+1 Goblin Gardener
 1 Goblin Wizardry
-1 Gorilla Shaman
-1 Groundshaker Sliver
-1 Grove of the Burnwillows
-1 Hornet Sting
-1 Imposing Visage
-1 Infested Roothold
-1 Karplusan Forest
-1 Kessig Wolf Run
-1 Kithkin Mourncaller
-1 Madcap Skills
-1 Manaweft Sliver
-1 Maraxus of Keld
-1 Marker Beetles
-1 Megantic Sliver
+1 Grim Bounty
+1 Guul Draz Mucklord
+1 Hag of Death's Legion
+1 Hard-Won Jitte
+1 Hornet Harasser
+1 Hurloon Shaman
+1 Kavu Monarch
+1 Kobold Drill Sergeant
+1 Kobold Overlord
+1 Kobold Taskmaster
+1 Kobolds of Kher Keep
+1 Krark-Clan Ironworks
+1 Lotus Vale
+1 Mass Hysteria
 1 Messenger's Speed
-1 Mogg Hollows
-1 Mossfire Valley
-9 Mountain
-1 Mythic Proportions
-1 Overgrown Battlement
-1 Pinecrest Ridge
-1 Primal Frenzy
-1 Prodigious Growth
-1 Provoke
-1 Ragavan, Nimble Pilferer
-1 Rage Reflection
-1 Ral's Reinforcements
-1 Romantic Rendezvous
-1 Rootrider Faun
-1 Rukh Egg
-1 Sachi, Daughter of Seshiro
-1 Satyr Hedonist
-1 Skarrg, the Rage Pits
-1 Spire Garden
-1 Spore Crawler
-1 Spore Swarm
-1 Sudden Breakthrough
-1 Sunastian Falconer
-1 Taiga
-1 Tattermunge Duo
-1 Tel-Jilad Lifebreather
-1 Thornspire Verge
-1 Timberline Ridge
-1 Titan's Strength
-1 Training Compound
-1 Trolls of Tel-Jilad
-1 Unforgiving Aim
-1 Vampires' Vengeance
-1 Wall of Mulch
-1 Whiteout
-1 Wild Celebrants
-1 Xenobotanist
+17 Mountain
+1 Myr Matrix
+1 Prying Blade
+1 Rabbit Battery
+1 Rix Maadi, Dungeon Palace
+1 Rockslide Elemental
+1 Runed Servitor
+1 Scrap Trawler
+1 Scrapyard Steelbreaker
+1 Secret Base
+1 Skittering Invasion
+1 Sparring Construct
+1 Spirit of the Night
+1 Stalking Bloodsucker
+1 Stensia Bloodhall
+1 Study Hall
+1 Su-Chi
+1 Survey the Wreckage
+9 Swamp
+1 Sword of the Ages
+1 Sword of the Meek
+1 Sylvok Lifestaff
+1 Tablet of Epityr
+1 Tahngarth's Rage
+1 Tainted Peak
+1 Thopter Squadron
+1 Trading Post
+1 Urborg Panther
+1 Voldaren Estate
+1 White Lotus Hideout
 
 [commander]
-Jerrard of the Closed Fist
+Rohgahh of Kher Keep

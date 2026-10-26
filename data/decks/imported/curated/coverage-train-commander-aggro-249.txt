@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro WR #20266250]
-1 Automatic Librarian
-1 Axgard Armory
-1 Battlefield Forge
-1 Bear Trap
-1 Black Vise
-1 Book of Rass
-1 Brass Man
-1 Brass Secretary
-1 Bullwhip
-1 Chronomaton
-1 Clay Statue
-1 Consulate Skygate
-1 Custodian of the Trove
-1 Excavated Wall
-1 Explosive Apparatus
-1 Forgotten Sentinel
-1 Furycalm Snarl
-1 Goblin Cannon
-1 Grapeshot Catapult
-1 Haunted Guardian
-1 Hematite Golem
-1 Hopping Automaton
-1 Iron Bully
-1 Jangling Automaton
-1 Jawbone Skulkin
-1 Kiln Walker
-1 Lightning-Core Excavator
-1 Limestone Golem
-1 Locthwain Gargoyle
-1 Lorehold Campus
-1 Misers' Cage
-1 Monoskelion
-16 Mountain
-1 Necrogen Censer
-1 Night Market Guard
-1 Patagia Golem
-1 Phyrexian Lens
-8 Plains
-1 Plateau
-1 Prismite
-1 Ragged Playmate
-1 Rugged Prairie
-1 Rusted Sentinel
-1 Saberclaw Golem
-1 Sacred Foundry
-1 Sanitation Automaton
-1 Scalding Cauldron
-1 Scalding Tongs
-1 Scrap Compactor
-1 Shifting Wall
-1 Silent Dart
-1 Slayers' Stronghold
-1 Sliver Construct
-1 Snow Fortress
-1 Spare Supplies
-1 Straw Golem
-1 Sun-Blessed Peak
-1 Sunbaked Canyon
-1 Sunbillow Verge
-1 Sunhome, Fortress of the Legion
-1 Sunscorched Divide
-1 Suspicious Bookcase
-1 Telim'Tor's Darts
-1 Tezzeret's Strider
-1 The Rack
-1 Three Tree Mascot
-1 Throne of the God-Pharaoh
-1 Thumbscrews
-1 Ticking Gnomes
-1 Titanium Golem
-1 Towering Viewpoint
-1 Universal Automaton
-1 Voltaic Servant
-1 Wall of Junk
-1 Weldfast Monitor
-1 Wheel of Torture
-1 Wind-Scarred Crag
+[deck:commander aggro WG #20266250]
+1 Arbor Elf
+1 Archaeological Dig
+1 Armored Wolf-Rider
+1 Avengers Tower
+1 Capital City
+1 Catastrophe
+1 Cavern of Souls
+1 City of Brass
+1 Cleanfall
+1 Cleanse
+1 Crisis of Conscience
+1 Crucible of the Spirit Dragon
+1 Cylian Elf
+1 Dawn's Light Archer
+1 Devkarin Dissident
+1 Devoted Hero
+1 Drove of Elves
+1 Druid of the Spade
+1 Dwynen, Gilt-Leaf Daen
+1 Eclipsed Realms
+1 Elvish Berserker
+1 Elvish Healer
+1 Elvish Herder
+1 Elvish Hunter
+1 Elvish Lookout
+1 Elvish Scout
+1 Final Showdown
+1 Gladecover Scout
+1 Greenhilt Trainee
+1 Greenside Watcher
+1 Greenwood Sentinel
+1 Holdout Settlement
+1 Iridescent Blademaster
+1 Kaysa
+1 Keen-Eyed Archers
+1 Kraul Warrior
+1 Llanowar Druid
+1 Llanowar Knight
+1 Lothlórien Lookout
+1 Mirkwood Channeler
+1 Mirkwood Pathmaker
+1 Mirrex
+1 Nantuko Mentor
+1 Norwood Ranger
+1 Quirion Druid
+1 Safehold Elite
+1 Safehold Sentry
+1 Saltcrusted Steppe
+1 Sandstorm
+1 Scattershot Archer
+1 Sculptor of Winter
+1 Seeker of Skybreak
+1 Serene Heart
+1 Silhana Ledgewalker
+1 Skyshroud Archer
+1 Skyshroud Ranger
+1 Sliver Hive
+17 Snow-Covered Forest
+7 Snow-Covered Plains
+1 Steel Leaf Champion
+1 Stonewood Invoker
+1 Tajuru Snarecaster
+1 Tel-Jilad Chosen
+1 Tendo Ice Bridge
+1 Treetop Rangers
+1 Treetop Scout
+1 Treetop Warden
+1 Unknown Shores
+1 Villainous Hideout
+1 Viridian Lorebearers
+1 Warren-Scourge Elf
+1 Weatherseed Elf
+1 Wild Nacatl
+1 Wildheart Invoker
+1 Willow Elf
+1 Wilt-Leaf Cavaliers
+1 Winds of Rath
 
 [commander]
-Thorin Oakenshield
+Kudo, King Among Bears

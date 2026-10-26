@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WUB #20266188]
-1 Abu Ja'far
-1 Aether Channeler
-1 Air Nomad Legacy
-1 Allied Teamwork
-1 An Offer You Can't Refuse
-1 Ancient Spring
-1 Angel's Herald
-1 Arcane Sanctum
-1 Azorius Skyguard
-1 Baron Sengir
-1 Brine Shaman
-1 Catacomb Slug
-1 Cateran Persuader
-1 Cloudcrest Lake
-1 Cogworker's Puzzleknot
-1 Contaminated Landscape
-1 Darkwater Catacombs
-1 Delney, Streetwise Lookout
-1 Demon's Herald
-1 Dromar's Cavern
-1 Emeria's Call
-1 Exultant Cultist
-1 Field of Souls
-1 Fungal Infection
-1 Gleaming Bastion
-1 Glimmerburst
-1 Grisly Ritual
-1 Hard Evidence
+[deck:commander ramp UBR #20266188]
+1 Amphin Pathmage
+1 Archaeological Dig
+1 Axelrod Gunnarson
+1 Baxter Building
+1 Bitterblossom
+1 Black Widow, Deadly Hunter
+1 Blood Rites
+1 Bloodshot Cyclops
+1 Capital City
+1 Cat-Gator
+1 Crypt of the Eternals
+1 Daily Bugle Building
+1 Dark Privilege
+1 Deathbringer Thoctar
+1 Dimir Locket
+1 Dragon Mage
+1 Dragon Moose
+1 Fable of the Mirror-Breaker
+1 Failed Conversion
+1 Firestorm Hellkite
+1 Frostburn Weird
+1 Garna, the Bloodflame
+1 Goblin Bombardment
+1 Hall of Oracles
 1 Haunt the Network
-1 Hidden Lair
-1 Homarid Spawning Bed
-1 Icatian Crier
-1 Icatian Town
-1 Imperial Oath
-6 Island
-1 Judge Magister Gabranth
-1 Knight of Doves
-1 Kyoshi Warriors
-1 Land Cap
-1 Lossarnach Captain
-1 Luminarch Ascension
-1 Mass Production
+1 Hibernation Sliver
+1 Iceberg
+1 Intruding Soulrager
+11 Island
+1 Izzet Cluestone
+1 Izzet Locket
+1 Jorubai Murk Lurker
+1 Liliana's Mastery
+1 Mana Confluence
+1 Mech Hangar
 1 Merrow Grimeblotter
-1 Mystic Gate
-1 Ophiomancer
-1 Ostiary Thrull
-1 Phyrexian Monitor
-9 Plains
-1 Pretending Poxbearers
+1 Mindwarper
+1 Mirrodin's Core
+1 Mischievous Sneakling
+9 Mountain
+1 Mystical Tutor
+1 Nether Horror
+1 Noggle Bandit
+1 Nucklavee
+1 Nykthos, Shrine to Nyx
+1 Odylic Wraith
+1 Omen of the Dead
+1 Pillar of the Paruns
 1 Princess Lucrezia
-1 Prosperous Pirates
-1 Raffine's Tower
 1 Rise of Eagles
 1 Riven Turnbull
 1 Robotics Mastery
-1 Rootwater Depths
-1 Rufus Shinra
-1 Sage of Lat-Nam
-1 Sailor of Means
-1 Shelob's Ambush
-1 Skirsdag Flayer
-1 Skycloud Expanse
-11 Swamp
-1 Take Up Arms
-1 Tegwyll, Duke of Splendor
-1 Thopter Foundry
-1 Toxin Analysis
-1 Treasure Dredger
-1 Tunnel Surveyor
-1 Underground River
-1 Unfathomable Truths
-1 Violet Pall
-1 Watery Grave
-1 Whisper Squad
-1 Wing Splicer
-1 Wizards' School
+1 Ryusei, the Falling Star
+1 Sacrifice
+1 Sandbar Crocodile
+1 Secret Base
+1 Seething Landscape
+1 Shore Snapper
+1 Sicken
+1 Slinking Serpent
+1 Songs of the Damned
+1 Springjack Pasture
+6 Swamp
+1 Talisman of Creativity
+1 Tarnished Citadel
+1 Terror of the Fairgrounds
+1 Thalakos Drifters
+1 The Unspeakable
+1 Time Sieve
+1 Underdome
+1 Utvara Hellkite
+1 Viashino Skeleton
+1 Wanderbrine Rootcutters
+1 War-Spike Changeling
+1 Wizard Class
+1 Woodlot Crawler
 
 [commander]
-Inquisitor Greyfax
+Gwendlyn Di Corci

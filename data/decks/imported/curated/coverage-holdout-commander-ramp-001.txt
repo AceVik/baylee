@@ -20,8 +20,7 @@
 1 Fanatical Strength
 1 Farrel's Mantle
 1 Felidar Cub
-14 Forest
-1 Forsaken City
+13 Forest
 1 Glade Gnarr
 1 Growing Rites of Itlimoc
 1 Hall of Tagsin
@@ -41,7 +40,8 @@
 1 Naturalize
 1 Orochi Sustainer
 1 Oversoul of Dusk
-12 Plains
+1 Pendelhaven
+13 Plains
 1 Purify
 1 Quirion Ranger
 1 Rainbow Vale
@@ -61,9 +61,9 @@
 1 Skyhunter Skirmisher
 1 Skyshroud Elite
 1 Skyshroud Troopers
+1 Slippery Karst
 1 Spirit of the Labyrinth
 1 Tajuru Blightblade
-1 The Seedcore
 1 Thran Turbine
 1 Tranquil Expanse
 1 Treasure Vault

@@ -1,29 +1,30 @@
 # baylee synergistic coverage constructed midrange
 # licence: AGPL-3.0-only
 [deck:constructed midrange WUBRG #20266162]
-2 Beetleform Mage
+2 Ally Encampment
+1 Baldur's Gate
+2 Basilica Bell-Haunt
+2 Blaze of Glory
+2 Bloodfire Mentor
 2 Bloodsoaked Insight
-2 Chase Inspiration
-2 Crimson Muckwader
-2 Crystal Quarry
-2 Dauntless River Marshal
-2 Dragonsoul Knight
-2 Dreadwing
-2 Fireborn Knight
-2 Garrison Sergeant
-2 Harbor Bandit
-2 Homarid Warrior
-7 Mountain
-2 Nearby Planet
-2 Nuclear Fallout
-2 Paragon of the Amesha
-2 Pardic Collaborator
-6 Plains
-2 Relentless Hunter
-1 Shattered Landscape
-2 Swamp
-3 The World Tree
-1 Tournament Grounds
-2 Utter End
-2 Varchild's Crusader
-2 Viashino Slaughtermaster
+2 Bounding Krasis
+2 False Orders
+2 Falter
+2 Fulminator Mage
+2 Fusion Elemental
+2 Imperious Inkmage
+5 Island
+4 Mountain
+2 Mystic Snake
+2 Omnath, Locus of Creation
+2 Orc Sureshot
+2 Plains
+2 Rakdos Ragemutt
+2 Risen Reef
+2 Riverfall Mimic
+2 Secret Base
+3 Survivors' Encampment
+4 Swamp
+2 Telekinesis
+1 Tendo Ice Bridge
+2 Void Grafter

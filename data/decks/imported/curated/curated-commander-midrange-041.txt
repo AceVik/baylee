@@ -1,14 +1,16 @@
 # baylee curated commander midrange seed=20261064
 # licence: AGPL-3.0-only
 [deck:commander midrange G #20261064]
+1 Aether Hub
+1 Ancient Ziggurat
 1 Attended Socialite
+1 Baldur's Gate
 1 Beast-Kin Ranger
 1 Briarbridge Tracker
 1 Bristly Bill, Spine Sower
-1 Centaur Garden
+1 Cavern of Souls
 1 Centaur's Herald
 1 Disciple of Freyalise
-1 Dryad Arbor
 1 Elderleaf Mentor
 1 Elturgard Ranger
 1 Elvish Clancaller
@@ -26,7 +28,6 @@
 1 Greenseeker
 1 Greensleeves, Maro-Sorcerer
 1 Guardian of Cloverdell
-1 Hashep Oasis
 1 Heart Warden
 1 Howling Giant
 1 Imperious Perfect
@@ -44,11 +45,10 @@
 1 Mossbeard Ancient
 1 Multani's Acolyte
 1 Nissa, Resurgent Animist
-1 Oakhollow Village
-1 Okina, Temple to the Grandfathers
 1 Orochi Hatchery
 1 Owlbear
 1 Pawpatch Formation
+1 Planar Nexus
 1 Professor of Zoomancy
 1 Quirion Sentinel
 1 Reclamation Sage
@@ -56,8 +56,8 @@
 1 Soul of the Harvest
 1 Sunshower Druid
 1 Titania, Protector of Argoth
-1 Tree of Tales
 1 Turntimber Ranger
+1 Turtle Lair
 1 Valley Mightcaller
 1 Viridian Shaman
 1 Wild Wanderer

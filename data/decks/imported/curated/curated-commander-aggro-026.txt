@@ -4,7 +4,6 @@
 1 Aether Sting
 1 Akoum Boulderfoot
 1 Ben-Ben, Akki Hermit
-1 Blighted Gorge
 1 Bloodfire Colossus
 1 Bloodfire Expert
 1 Burning Prophet
@@ -23,18 +22,17 @@
 1 Fire Urchin
 1 Firespitter Whelp
 1 Flame Slash
+1 Forbidden Orchard
 1 Forge Devil
 1 Ghitu Fire-Eater
-1 Goblin Burrows
 1 Goblin Grenade
 1 Guttersnipe
+1 Hall of Oracles
+1 Haven of the Spirit Dragon
 1 Havoc
 1 Heat Ray
-1 Hellion Crucible
 1 Ishi-Ishi, Akki Crackshot
 1 Jaya's Greeting
-1 Junktown
-1 Keldon Necropolis
 1 Kiln Fiend
 1 Kozilek's Sentinel
 1 Kris Mage
@@ -55,16 +53,18 @@
 1 Rockslide Sorcerer
 1 Sanguinary Mage
 1 Sawblade Scamp
+1 School of the Unseen
 1 Scorching Spear
 1 Shower of Sparks
 1 Sizzle
-1 Sokenzan, Crucible of Defiance
+1 Sliver Hive
 1 Soul of Magma
 1 Spark Jolt
 1 Spark Spray
 1 Storm Caller
 1 Taurean Mauler
 1 Vertigo
+1 Villainous Hideout
 1 Walking Ballista
 1 Weaver of Lightning
 1 Winter Sky

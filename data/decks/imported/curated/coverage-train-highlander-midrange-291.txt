@@ -1,80 +1,80 @@
 # baylee synergistic coverage highlander midrange
 # licence: AGPL-3.0-only
-[deck:highlander midrange WUG #20266292]
-1 Animate Artifact
-1 Annex
-1 Armored Wolf-Rider
-1 Assault Zeppelid
-1 Aysen Abbey
-1 Blade of the Sixth Pride
-1 Breeding Pool
-1 Brokers Initiate
-1 Castaway's Despair
-1 Cat-Owl
-1 Cliff Threader
-1 Cloaked Siren
-1 Cloudheath Drake
-1 Curse of Chains
-1 Deepchannel Duelist
-1 Elvenking's Harper
-1 Elvish Healer
-1 Esper Cormorants
-1 Faerie Swarm
-1 Galina's Knight
-1 Gavony Township
-1 Ghost Warden
-1 Gleaming Bastion
-1 Goldmeadow Dodger
-1 Graceful Cat
-1 Grizzled Leotau
-1 Guardian Lions
-1 Hazerider Drake
-1 Hushwood Verge
-1 Irrigation Ditch
-13 Island
-1 Jeskai Runemark
-1 Keen-Eyed Archers
-1 Land Cap
-1 Leafdrake Roost
-1 Living Airship
-1 Llanowar Knight
-1 Maned Serval
-1 Marsh Threader
-1 Merseine
-1 Mtenda Lion
-1 Mystic Restraints
-1 Ocular Halo
-1 Parapet Watchers
-12 Plains
-1 Plumeveil
-1 Prahv, Spires of Order
-1 Rune-Cervin Rider
-1 Safehold Elite
-1 Saheeli's Silverwing
-1 Sea Spirit
-1 Seaside Citadel
-1 Seedpod Squire
-1 Sejiri Shelter
-1 Selesnya Sagittars
-1 Silver Drake
-1 Slippery Bogle
-1 Spara's Headquarters
-1 Spectral Shield
-1 Stoic Angel
-1 Strength of the Harvest
-1 Sungrass Prairie
-1 Telekinesis
-1 Tempest Drake
-1 Thunderclap Wyvern
-1 Tower Drake
-1 Tranquil Landscape
-1 Treva's Ruins
-1 Tundra Wolves
-1 Unflinching Courage
-1 Urban Retreat
-1 Venomthrope
-1 Wall of Vines
-1 Wellspring
-1 Winged Coatl
-1 Yavimaya Coast
-1 Zodiac Rooster
+[deck:highlander midrange BRG #20266292]
+1 Abstergo Entertainment
+1 Abundant Countryside
+1 Aisling Leprechaun
+1 Alpine Grizzly
+1 Archaeological Dig
+1 Ashcoat Bear
+1 Balduvian Bears
+1 Barreling Attack
+1 Baxter Building
+1 Bear Cub
+1 Blazing Specter
+1 Crimson Muckwader
+1 Deathgaze Cockatrice
+1 Deity of Scars
+1 Demon's Grasp
+1 Discordant Spirit
+1 Dread Shade
+1 Duskwatch Hunter
+1 Erstwhile Trooper
+1 Expanded Anatomy
+1 Flinthoof Boar
+10 Forest
+1 Forest Bear
+1 Fugue
+1 Gift of the Deity
+1 Grizzly Ghoul
+1 Grollub
+1 Hoar Shade
+1 Holdout Settlement
+1 Igneous Cur
+1 Koskun Keep
+1 Krakilin
+1 Large Bear
+1 Lazotep Quarry
+1 Looming Shade
+1 Mech Hangar
+1 Mirrex
+1 Moldering Karok
+1 Muck Rats
+1 Nameless Race
+1 Nezumi Bladeblesser
+1 Offer Immortality
+1 Pale Bears
+1 Perilous Shadow
+1 Pestilence Rats
+1 Plague Rats
+1 Planar Nexus
+1 Putrid Leech
+1 Rabid Rats
+1 Rakdos Ragemutt
+1 Ritual of the Machine
+1 Riveteers Initiate
+1 Rubblebelt Boar
+1 Sanity Gnawers
+1 Scarland Thrinax
+1 Scion of the Wild
+1 Screeching Harpy
+1 Sheoldred's Edict
+1 Specter's Wail
+1 Squirrel Sovereign
+1 Squirrelanoids
+1 Stenchskipper
+1 Survivors' Encampment
+15 Swamp
+1 Tattered Apparition
+1 Tendo Ice Bridge
+1 The Mycosynth Gardens
+1 Transmutation
+1 Tree Monkey
+1 Undercity Shade
+1 Underdome
+1 Vampire Hounds
+1 Veiled Shade
+1 Waking Nightmare
+1 Weight of the Underworld
+1 Whispering Shade
+1 White Lotus Hideout

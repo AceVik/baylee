@@ -6,40 +6,39 @@
 1 Anthem of Champions
 1 Avacyn, Angel of Hope
 1 Ayesha Tanaka
-1 Botanical Plaza
+1 Aysen Abbey
 1 Brave the Sands
-1 Bretagard Stronghold
 1 Briar Shield
 1 Brown Ouphe
+1 Castle Ardenvale
 1 Castle Raptors
 1 Collector Ouphe
 1 Cradle of Safety
 1 Daring Apprentice
+1 Desert of the Indomitable
 1 Diplomatic Immunity
 1 Disdainful Stroke
 1 Drannith Magistrate
 1 Fae Flight
 1 Faeburrow Elder
 1 Flood
-1 Fortified Village
+2 Forest
 1 Gaea's Anthem
 1 Gift of Granite
 1 Hanna's Custody
-8 Island
+1 Irrigation Ditch
+6 Island
 1 Ivory Guardians
 1 Jihad
-1 Kitchen
 1 Knighthood
 1 Kongming, "Sleeping Dragon"
 1 Kor Scythemaster
-1 Kyoshi Village
 1 Levitation
-1 Littjara Mirrorlake
-1 Lumbering Falls
-1 Lush Portico
 1 Mageta's Boon
 1 Mantle of Webs
+1 Memorial to Unity
 1 Meng Huo, Barbarian King
+1 Mystic Sanctuary
 1 Nimbus Wings
 1 Noble Hierarch
 1 Nylea's Forerunner
@@ -51,32 +50,34 @@
 1 Pegasus Refuge
 17 Plains
 1 Primal Rage
-1 Quandrix Campus
+1 Remote Farm
 1 Revolutionary Rebuff
 1 Riptide Crab
 1 Robe of Mirrors
 1 Saryth, the Viper's Fang
 1 Scampering Surveyor
+1 Seaside Citadel
 1 Security Detail
 1 Serra Aviary
 1 Serra's Blessing
 1 Sky Tether
 1 Soraya the Falconer
 1 Soulsworn Jury
+1 Spara's Headquarters
 1 Steely Resolve
-1 Stirring Wildwood
 1 Stonybrook Schoolmaster
-1 Suburban Sanctuary
-1 Sunpetal Grove
 1 Supply Caravan
-1 Tanglepool Bridge
 1 Terra Eternal
+1 The Hunter Maze
+1 Thriving Grove
 1 Torsten Von Ursus
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Urban Retreat
 1 Valorous Steed
-1 Vineglimmer Snarl
 1 Vodalian Mage
 1 White Lotus Reinforcements
-1 Windurst, Federation Center
+1 Zanarkand, Ancient Metropolis
 
 [commander]
 Ragnar

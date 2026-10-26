@@ -1,83 +1,83 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange BRG #20266182]
-1 Acidic Sliver
-1 Amber Prison
-1 Anointed Deacon
-1 Barbed-Back Wurm
-1 Barl's Cage
-1 Blightstep Pathway
-1 Blood Crypt
-1 Breathstealer
-1 Brutal Nightstalker
-1 Caustic Crawler
-1 Chimeric Staff
-1 Conqueror's Galleon
-1 Conservator
-1 Coral Helm
-1 Crypt Ripper
-1 Darigaaz's Caldera
-1 Deathbellow Raider
-1 Dirtwater Wraith
-1 Easy Prey
-1 Felhide Minotaur
-1 Fen Stalker
-5 Forest
-1 Fungal Reaches
-1 Geothermal Crevice
-1 Giant Cockroach
-1 Golgari Longlegs
-1 Golgothian Sylex
-1 Gruul Cluestone
-1 Hag of Dark Duress
-1 Hedron Rover
-1 Hoar Shade
-1 Hopping Automaton
-1 Horn of Deafening
-1 Horrible Hordes
-1 Jade Monolith
-1 Jade Statue
-1 Koskun Keep
-1 Kraul Whipcracker
-1 Lava Tubes
-1 Lithophage
-1 Llanowar Wastes
-1 Mana Leech
-1 Mole Worms
-1 Moriok Reaver
-4 Mountain
-1 Necrogen Spellbomb
-1 North Star
-1 Nurturing Peatland
-1 Pentagram of the Ages
-1 Perilous Shadow
-1 Phyrexian Gremlins
-1 Plasmancer
-1 Prowling Nightstalker
-1 Raiding Nightstalker
-1 Rix Maadi, Dungeon Palace
-1 Savage Lands
-1 Shadowblood Egg
-1 Shimian Night Stalker
-1 Skull Collector
-1 Skycrash
-1 Slimy Dualleech
-1 Stensia Bloodhall
-1 Svogthos, the Restless Tomb
-16 Swamp
-1 Talisman of Indulgence
-1 Talisman of Resilience
-1 Tar Pit Warrior
-1 Tawnos's Coffin
-1 Tower of Champions
-1 Trespasser il-Vec
-1 Twisted Landscape
-1 Undercity Shade
-1 Wall of Putrid Flesh
-1 Wall of Shadows
-1 Whispering Shade
-1 Ziatora's Proving Ground
-1 Zof Shade
+[deck:commander midrange WURG #20266182]
+1 Aang and Katara
+1 Abstergo Entertainment
+1 Abu Ja'far
+1 Aether Channeler
+1 Ancestors' Aid
+1 Angel's Herald
+1 Avatar Enthusiasts
+1 Bountiful Landscape
+1 Brazen Freebooter
+1 Butterbur, Bree Innkeeper
+1 Captain Storm, Cosmium Raider
+1 Cave of Temptation
+1 Cavern of Souls
+1 Conduit Pylons
+1 Doubling Season
+1 Dragonback Assault
+1 Dragonmaster Outcast
+1 Eclipsed Realms
+1 Fable of Wolf and Owl
+1 Femeref Enchantress
+1 Firefist Adept
+1 Flamewright
+7 Forest
+1 From Beyond
+1 Frontier Bivouac
+1 Gallant Citizen
+1 Gemstone Mine
+1 Hard Evidence
+1 Haunted Library
+1 Homarid Spawning Bed
+1 Hornswoggle
+1 Huntmaster of the Fells
+1 Icatian Crier
+7 Island
+1 Izzet Chronarch
+1 Katara, the Fearless
+1 Ketria Triome
+1 Knight of Doves
+1 Kykar, Wind's Fury
+1 Kyoshi Warriors
+1 Loran, Disciple of History
+1 Lossarnach Captain
+1 Maelstrom of the Spirit Dragon
+1 Nykthos, Shrine to Nyx
+1 Odric's Outrider
+1 Oran-Rief Survivalist
+1 Pia, Determined Rebuilder
+11 Plains
+1 Priest of Urabrask
+1 Prosperous Pirates
+1 Reckless Ransacking
+1 Renegade Rallier
+1 Rising Populace
+1 Sage of Lat-Nam
+1 Sailor of Means
+1 Scoria Wurm
+1 Secure the Wastes
+1 Sell-Sword Brute
+1 Servo Exhibition
+1 Sliver Hive
+1 Sokka's Sword Training
+1 Sokka, Tenacious Tactician
+1 Sprout
+1 Stark Industries Executive
+1 Stoic Builder
+1 Storm God's Oracle
+1 Streetbreaker Wurm
+1 Syphon Essence
+1 Throne of Makindi
+1 Treetop Freedom Fighters
+1 Trostani's Summoner
+1 Tunnel Surveyor
+1 Turtle Lair
+1 Unknown Shores
+1 Vitality Charm
+1 Wing Splicer
+1 Yotian Dissident
 
 [commander]
-Xira Arien
+Aragorn, the Uniter

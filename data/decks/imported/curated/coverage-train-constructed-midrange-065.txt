@@ -6,23 +6,23 @@
 2 Crystal Golem
 2 Glass Golem
 2 Iron Lance
-4 Ishgard, the Holy See
-4 Island
+7 Island
 2 Jade Statue
 2 Kry Shield
 2 Medicine Bag
-1 Memorial to Folly
 2 Millennial Gargoyle
-2 Moonring Island
 2 Patagia Golem
-4 Plains
+6 Plains
+1 Restless Fortress
 2 Runed Arch
+2 Salt Flats
 2 Sanctuary Raptor
-2 Skyline Cascade
+2 Shambling Vent
 2 Spirit Shield
 2 Stonework Puma
-7 Swamp
+2 Swamp
 2 Thran Lens
 2 Tower Gargoyle
 2 Ultron, Machine Overlord
+4 Undercity Sewers
 2 Urza's Engine

@@ -1,30 +1,30 @@
 # baylee synergistic coverage constructed aggro
 # licence: AGPL-3.0-only
-[deck:constructed aggro UBR #20266297]
-2 Black Carriage
-2 Blazing Specter
-2 Bloodcrazed Paladin
-2 Breezekeeper
-3 Castle Sengir
-1 Crosis's Catacombs
-1 Crumbling Necropolis
-3 Crypt of the Eternals
+[deck:constructed aggro WUB #20266297]
+2 Anointed Deacon
+2 Charging Bandits
 2 Dauthi Mercenary
-2 Island
-2 Jagwasp Swarm
-2 Kederekt Creeper
-2 Mijae Djinn
-5 Mountain
-2 Nantuko Shade
-2 Old Man of the Sea
+2 Duskmantle Operative
+2 Foot Elite
+2 Galina's Knight
+2 Glen Elendra Liege
+2 Gorgon's Head
+3 Hall of Oracles
+1 Island
+1 Lurking Nightstalker
+2 Maelstrom of the Spirit Dragon
+2 Neurok Hoversail
 2 Order of the Ebon Hand
-2 Riptide Turtle
-1 Seething Landscape
-2 Servant of Volrath
-2 Squirming Mass
-2 Squirrelanoids
+6 Plains
+2 Resolute Rider
+2 Scarred Vinebreeder
+1 Secluded Courtyard
+2 Soltari Crusader
+2 Soltari Monk
+2 Split-Tail Miko
+2 Springjack Pasture
+2 Stillmoon Cavalier
 7 Swamp
-1 Three Tragedies
-2 Vaporous Djinn
-2 Veiled Shade
-2 Woodlot Crawler
+2 Thistledown Liege
+1 Underdome
+2 Wandering Mage

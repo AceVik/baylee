@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander midrange
 # licence: AGPL-3.0-only
-[deck:commander midrange WG #20266123]
-1 Abandoned Outpost
-1 Absolute Grace
-1 Abzan Runemark
-1 Archweaver
-1 Argoth, Sanctum of Nature
-1 Aura Shards
-1 Blor the Impervious
-1 Blue Scarab
-1 Bootleggers' Stash
-1 Candlelight Vigil
-1 Carapace
-1 Castle Ardenvale
-1 Castle Garenbrig
-1 Cleansing Ray
-1 Conviction
-1 Crystal Chimes
-1 Cylian Elf
-1 Dauntless Aven
-1 Devkarin Dissident
-1 Elf Replica
-1 Elvish Hexhunter
-1 Elvish Hunter
-1 Elvish Scrapper
-1 Epic Proportions
-1 Fertile Thicket
-14 Forest
-1 Gaelicat
-1 Gift of Strands
-1 Gilded Lotus
-1 Glorious Anthem
-1 Greenhilt Trainee
-1 Hidden Nursery
-1 Hungry Spriggan
-1 Hymn of Rebirth
-1 Island Sanctuary
-1 Karoo
-1 Kaysa
-1 King of the Pride
-1 Krark-Clan Ironworks
-1 Lair of the Hydra
-1 Loam Lion
-1 Lothlórien Lookout
-1 Lunarch Mantle
-1 Mirkwood Pathmaker
-1 Mistveil Plains
-1 New Benalia
-1 Ondu Inversion
-1 Oran-Rief, the Vastwood
-1 Pheres-Band Warchief
-11 Plains
-1 Privileged Position
-1 Rune-Cervin Rider
-1 Rustic Clachan
-1 Sabertooth Nishoba
-1 Sapphire Medallion
-1 Savaen Elves
-1 Scattershot Archer
-1 Sejiri Steppe
-1 Shifting Woodland
-1 Silken Strength
-1 Simian Brawler
-1 Skull of Orm
-1 Skyhunter Prowler
-1 Spidersilk Armor
-1 Stoneskin
-1 Sword of the Meek
-1 Sylvok Replica
-1 Tajuru Pathwarden
-1 Timberland Ruins
-1 Titania's Song
-1 Tributary Vaulter
-1 Undergrowth Leopard
-1 Viridian Lorebearers
-1 Viridian Zealot
-1 Wild Nacatl
-1 Wildheart Invoker
+[deck:commander midrange WB #20266123]
+1 Abomination
+1 Asphyxiate
+1 Assassin's Strike
+1 Ballroom
+1 Bilbo's Deadly Slice
+1 Carrion Beetles
+1 Cast Down
+1 Collar the Culprit
+1 Cruel Cut
+1 Cursed Minotaur
+1 Daraja Griffin
+1 Dauthi Cutthroat
+1 Dauthi Jackal
+1 Deathmark
+1 Defenestrate
+1 Demystify
+1 Desecrated Earth
+1 Destroy Evil
+1 Dread Specter
+1 Eastern Paladin
+1 Eater of the Dead
+1 Eclipsed Steppe
+1 Eliminate
+1 Fatal Blow
+1 Fell
+1 Fell the Profane
+1 Finishing Blow
+1 Fisk Tower
+1 Forsaken Sanctuary
+1 Forum of Amity
+1 Fragmentize
+1 Hero's Demise
+1 Immolating Glare
+1 Infernal Medusa
+1 Insomnia, Crown City
+1 Keening Apparition
+1 Lawbringer
+1 Lieutenant Kirtar
+1 Lightbringer
+1 Lurching Rotbeast
+1 Misty Palms Oasis
+1 Moment of Valor
+1 Necrite
+1 Nettling Imp
+1 Nezumi Shadow-Watcher
+1 Norritt
+1 Oblivion Strike
+1 Orzhov Guildgate
+1 Peace and Quiet
+1 Phyrexian Battleflies
+1 Phyrexian Pegasus
+8 Plains
+1 Power Word Kill
+1 Primaris Eliminator
+1 Quiet Purity
+1 Rats of Rath
+1 Reave Soul
+1 Restless Fortress
+1 Ronom Unicorn
+1 Salt Flats
+1 Shadowy Backstreet
+1 Shambling Vent
+1 Shattered Sanctum
+1 Shinewend
+1 Silverquill Campus
+1 Sinkhole
+1 Smite
+1 Stream of Acid
+17 Swamp
+1 Swift Response
+1 Turbulent Moor
+1 Unliving Psychopath
+1 Vengeance
+1 Wall of Corpses
+1 Wasteland Scorpion
+1 Western Paladin
 
 [commander]
-Bast, Panther Goddess
+Selenia, Dark Angel

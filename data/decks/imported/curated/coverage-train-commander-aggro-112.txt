@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUG #20266113]
+1 Abandoned Campground
+1 Abbey Matron
+1 Abzan Kin-Guard
+1 Aeronaut Tinkerer
+1 An-Havva Constable
+1 Auriok Bladewarden
+1 Auriok Transfixer
+1 Aysen Crusader
+1 Beetleform Mage
+1 Berserk
+1 Botanical Sanctum
+1 Boulderborn Dragon
+1 Brotherhood Spy
+1 Capashen Knight
+1 Capashen Templar
+1 Charging Paladin
+1 Cloudreach Cavalry
+1 Coastal Tower
+1 Corrosive Gale
+1 Death Speakers
+1 Dogged Hunter
+1 Dragonstorm Forecaster
+1 Dromoka Dunecaster
+1 Elder of Laurels
+1 Elite Arrester
+1 Etched Cornfield
+1 Femeref Knight
+1 Folk of An-Havva
+7 Forest
+1 Gavony Trapper
+1 Glintwing Invoker
+1 Grassland Crusader
+1 Graypelt Refuge
+1 Griffin Rider
+1 Hardened Escort
+1 Honor Guard
+1 Icatian Lieutenant
+1 Icatian Priest
+1 Imperial Lancer
+1 Irrigated Farmland
+1 Kjeldoran Knight
+1 Kjeldoran Outrider
+1 Knight of the Skyward Eye
+1 Knotvine Paladin
+1 Kyoshi Village
+1 Lionheart Maverick
+1 Littjara Mirrorlake
+1 Metallurgeon
+1 Northern Paladin
+1 Order of Leitbur
+1 People of the Woods
+17 Plains
+1 Preacher
+1 Pterodon Knight
+1 Quandrix Campus
+1 Rashka the Slayer
+1 Reality Anchor
+1 Renegade Map
+1 Restless Prairie
+1 Restless Vinestalk
+1 Saryth, the Viper's Fang
+1 Scarwood Bandits
+1 Searing Light
+1 Sejiri Merfolk
+1 Serra Inquisitors
+1 Shield Mate
+1 Slumbering Waterways
+1 Sodden Verdure
+1 Songstitcher
+1 Spirit Weaver
+1 Steadfast Cathar
+1 Stirring Wildwood
+1 Sudden Strength
+1 Tolarian Entrancer
+1 Topan Ascetic
+1 Undead Slayer
+1 White Shield Crusader
+
+[commander]
+Ragnar

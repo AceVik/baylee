@@ -1,84 +1,84 @@
 # baylee synergistic coverage commander aggro
 # licence: AGPL-3.0-only
-[deck:commander aggro BRG #20266185]
-1 Anaconda
-1 Bitterbloom Bearer
-1 Bitterblossom
-1 Black Poplar Shaman
-1 Bog Tatters
-1 Carrion Wall
-1 Cat Burglar
-1 Cemetery Gate
-1 Cinderhaze Wretch
-1 Consuming Ferocity
-1 Contaminated Ground
-1 Crackling Club
-1 Cudgel Troll
-1 Darigaaz's Caldera
-1 Dark Fortress
-1 Dark Heart of the Wood
-1 Dark Privilege
-1 Dauthi Marauder
-1 Dauthi Mindripper
-1 Dauthi Trapper
-1 Deathknell Berserker
-1 Deathrite Shaman
-1 Elves of Deep Shadow
-1 Fastbond
-1 Fauna Shaman
-1 Fire-Lit Thicket
-1 Flowstone Giant
-9 Forest
-1 Geothermal Crevice
-1 Gloom Pangolin
-1 Goblin Bomb
-1 Grim Backwoods
-1 Headstone
-1 Heartwood Treefolk
-1 Highland Giant
-1 Hooded Kavu
-1 Keen Sense
-1 Koskun Keep
-1 Lowland Giant
-1 Mogg Hollows
-1 Molten Vortex
-1 Moonglove Changeling
-1 Moonglove Extractor
-9 Mountain
-1 Mountain Titan
-1 Night Soil
-1 Obsidian Giant
-1 Odylic Wraith
-1 Omen of the Dead
-1 Onslaught
-1 Pitiless Gorgon
-1 Python
-1 Rag Man
-1 Raging Poltergeist
-1 Rampart Smasher
-1 Restless Bones
-1 Rix Maadi, Dungeon Palace
-1 Rowan Treefolk
-1 Savage Lands
-1 Scarwood Treefolk
-1 Shadow Rider
-1 Skarrg, the Rage Pits
-1 Skyraker Giant
-1 Spiteflame Witch
-1 Spreading Algae
-1 Stormfist Crusader
-6 Swamp
-1 The Meathook Massacre
-1 Tor Giant
-1 Training Compound
-1 Trestle Troll
-1 Twilight Mire
-1 Twisted Landscape
-1 Wardscale Crocodile
-1 Weed-Pruner Poplar
-1 Weirding Shaman
-1 Witch's Familiar
-1 Ziatora's Proving Ground
+[deck:commander aggro WUG #20266185]
+1 Aesi, Tyrant of Gyre Strait
+1 Angelic Renewal
+1 Aquus Steed
+1 Avengers Tower
+1 Aysen Abbey
+1 Badgermole Cub
+1 Baldur's Gate
+1 Bequeathal
+1 Blinking Spirit
+1 Bull Hippo
+1 Capashen Standard
+1 Cascading Cataracts
+1 Cloistered Telepath
+1 Crystacean
+1 Dance of Many
+1 Devout Lightcaster
+1 Drowned Rusalka
+1 Dundoolin Weaver
+1 Fate Foretold
+1 Force Void
+1 Fortress Crab
+1 Giant Crab
+1 Glimmervoid
+1 Great Hall of the Citadel
+1 Hatching Plans
+1 Haven of the Spirit Dragon
+1 Heap Gate
+1 Hedron Crab
+1 Henge of Ramos
+1 Humongulus
+1 Iceberg Cancrix
+1 Inheritance
+1 Jaddi Offshoot
+1 Jungleborn Pioneer
+1 Legion's Landing
+1 Looming Altisaur
+1 Mana Confluence
+1 Merfolk Observer
+1 Most Wanted
+1 Nest Invader
+1 Omen of the Sun
+1 Omnibian
+1 Oraxid
+1 Paleoloth
+1 Pillarfield Ox
+1 Pond Prophet
+1 Portcullis Vine
+1 Puppet Master
+1 Purple-Crystal Crab
+1 Radjan Spirit
+1 Ray of Erasure
+1 Ruin Crab
+1 Secret Base
+1 Segovian Leviathan
+1 Serum Visionary
+1 Shimmering Grotto
+1 Silver Raven
+1 Skyclave Apparition
+1 Snapping Voidcraw
+7 Snow-Covered Forest
+11 Snow-Covered Island
+6 Snow-Covered Plains
+1 Species Gorger
+1 Spell Snip
+1 Tarnished Citadel
+1 Tishana's Tidebinder
+1 Underdome
+1 Uro, Titan of Nature's Wrath
+1 Viridian Harvest
+1 Viscerid Drone
+1 Vodalian Hexcatcher
+1 Wall of Mulch
+1 Wall of Omens
+1 Wall of Wonder
+1 Werefox Bodyguard
+1 Wishcoin Crab
+1 Wistful Selkie
+1 Zodiac Horse
 
 [commander]
-Bartel Runeaxe
+Phelddagrif

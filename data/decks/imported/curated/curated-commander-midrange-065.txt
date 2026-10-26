@@ -24,17 +24,14 @@
 1 Hierophant's Chalice
 1 Icewind Elemental
 1 Insight Engine
-1 Ipnu Rivulet
 34 Island
 1 Jace, the Mind Sculptor
-1 Lilypad Village
 1 Lotus Petal
 1 Mechan Navigator
 1 Memory Deluge
 1 Mental Note
 1 Merchant of Secrets
 1 Mightstone's Animation
-1 Minamo, School at Water's Edge
 1 Mox Opal
 1 Muse Drake
 1 Nimble Innovator
@@ -44,14 +41,15 @@
 1 Padeem, Consul of Innovation
 1 Parasitic Strix
 1 Parcel Myr
+1 Plaza of Heroes
 1 Prophetic Prism
 1 Quicksilver Fisher
 1 Raven Familiar
 1 Ray of Erasure
-1 Riptide Laboratory
 1 S.H.I.E.L.D. Deployment Drone
 1 Sarcomite Myr
 1 Scepter of Insight
+1 Secluded Courtyard
 1 Serum Visions
 1 Shield-Wall Sentinel
 1 Silver Raven
@@ -59,6 +57,8 @@
 1 Soaring Show-Off
 1 Soldevi Excavations
 1 Solemn Simulacrum
+1 Springjack Pasture
+1 Surveillance Room
 1 Terrarion
 1 The Everflowing Well
 1 Three Steps Ahead

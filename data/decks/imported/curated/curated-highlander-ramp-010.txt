@@ -2,15 +2,16 @@
 # licence: AGPL-3.0-only
 [deck:highlander ramp WG #20261033]
 1 Aang's Defense
+1 Aether Hub
 1 Arasta of the Endless Web
+1 Avengers Tower
 1 Beast Whisperer
 1 Blessed Spirits
 1 Blessed Wine
-1 Branchloft Pathway
 1 Briarknit Kami
-1 Brushland
 1 Bygone Bishop
 1 Captain of the Watch
+1 Cavern of Souls
 1 Dawnhart Geist
 1 Defiant Strike
 1 Disciple of Freyalise
@@ -22,28 +23,31 @@
 1 Evolution Charm
 15 Forest
 1 Gallant Strike
-1 Gathering Place
-1 Gavony Township
+1 Gemstone Mine
 1 Generous Visitor
 1 Gilded Goose
+1 Glimmervoid
 1 Go Forth
-1 Grove of the Guardian
+1 Great Hall of the Biblioplex
 1 Growth Spasm
 1 Guarded Heir
 1 Guardian of Cloverdell
+1 Hall of Oracles
 1 Honor
-1 Horizon Canopy
 1 Horizon Seed
 1 Howling Giant
-1 Hushwood Verge
+1 Interplanar Beacon
 1 Kami of Tattered Shoji
 1 Kami of the Hunt
+1 Lazotep Quarry
 1 Leaf-Crowned Visionary
 1 Lightshield Parry
 1 Lys Alana Huntmaster
+1 Mana Confluence
 1 Many Partings
 1 Martyr's Cry
 1 Maul Splicer
+1 Mech Hangar
 1 Mox Pearl
 1 Nylea's Intervention
 1 Opal Archangel
@@ -55,25 +59,21 @@
 1 Primeval Bounty
 1 Primordial Sage
 1 Provoke
-1 Riftstone Portal
-1 Saltcrusted Steppe
 1 Satyr Enchanter
 1 Savannah
 1 Sigil of the Empty Throne
 1 Skybeast Tracker
 1 Snake Pit
 1 Sphinx-Bone Wand
+1 Springjack Pasture
 1 Sungrass Prairie
 1 Sunscorch Regent
 1 Sythis, Harvest's Hand
 1 Tangleroot
 1 Temple Garden
-1 Tranquil Garden
 1 Trostani's Summoner
-1 Veldt
 1 Verduran Enchantress
 1 Vitality Charm
-1 Vitu-Ghazi, the City-Tree
 1 Wilt
 1 Wooded Bastion
 1 Wurmweaver Coil

@@ -2,9 +2,9 @@
 # licence: AGPL-3.0-only
 [deck:commander aggro WR #20266041]
 1 Abraded Bluffs
+1 Alpine Meadow
 1 Anarchy
 1 Ancient Amphitheater
-1 Arch of Orazca
 1 Aviary Mechanic
 1 Bird Maiden
 1 Blazing Volley
@@ -14,11 +14,8 @@
 1 Capital Guard
 1 Checkpoint Officer
 1 Cinder Giant
-1 Clive's Hideaway
-1 Dark Depths
-1 Demolition Field
-1 Deserted Temple
 1 Devoted Hero
+1 Dimension X
 1 Dwarven Berserker
 1 Dwarven Bloodboiler
 1 Dwarven Catapult
@@ -39,17 +36,17 @@
 1 Frontline War-Rager
 1 Furious Strength
 1 Gavony Trapper
-1 Glacial Chasm
 1 Glittering Massif
 1 Granulate
+1 Hall
 1 Happy Hogan, Dauntless Driver
 1 Harvesttide Infiltrator
 1 Heroism
-1 Homeward Path
 1 Hurly-Burly
 1 Impetuous Sunchaser
 1 Inspiring Vantage
 1 Inventor's Apprentice
+1 Iron Hills
 1 Kinsbaile Balloonist
 1 Lava Storm
 1 Liberated Dwarf
@@ -60,10 +57,12 @@
 21 Mountain
 1 Mountain Bandit
 1 Path of Mettle
-1 Phyrexia's Core
 3 Plains
-1 Planar Nexus
+1 Radiant Summit
+1 Raucous Carnival
+1 Restless Bivouac
 1 Rhox Pikemaster
+1 Rustvale Bridge
 1 Seismic Shudder
 1 Shard Phoenix
 1 Shatterstorm
@@ -75,6 +74,7 @@
 1 Storm's Wrath
 1 Suleiman's Legacy
 1 Tremor
+1 Turbulent Steppe
 1 Weapons Trainer
 1 Wrecking Crew
 1 Zhao, the Seething Flame

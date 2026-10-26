@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBR #20266212]
+1 Abundant Countryside
+1 Archivist
+1 Aven Fogbringer
+1 Axiom Engraver
+1 Azure Mage
+1 Baldur's Gate
+1 Basal Thrull
+1 Bone to Ash
+1 Brilliant Plan
+1 Burning Inquiry
+1 Burning-Yard Trainer
+1 Castle Sengir
+1 Control of the Court
+1 Corrupted Crossroads
+1 Courier's Capsule
+1 Cursecatcher
+1 Daring Apprentice
+1 Dimir Keyrune
+1 Disruptive Student
+1 Drake-Skull Cameo
+1 Enter the Enigma
+1 Erratic Visionary
+1 Ertai, Wizard Adept
+1 Exclusion Mage
+1 Geist of Saint Thalia
+1 Gravebind
+1 Great Hall of the Biblioplex
+1 Hall of Oracles
+1 Historian of Zhalfir
+1 Implement of Examination
+1 Initiates of the Ebon Hand
+1 Inspiration
+21 Island
+1 Lumengrid Sentinel
+1 Magus of the Bazaar
+1 Malevolent Hermit
+1 Mech Hangar
+1 Meticulous Artisan
+1 Mindculling
+1 Mystic Archaeologist
+1 Necrologia
+1 Overflowing Insight
+1 Patron Wizard
+1 Prosperity
+1 Pym Particles
+1 Reach Through Mists
+1 Romantic Rendezvous
+1 Scatter Arc
+1 Scepter of Insight
+1 Sea Gate Loremaster
+1 Seafloor Oracle
+1 Shimmering Grotto
+1 Sibilant Spirit
+1 Silumgar Monument
+1 Slip Through Space
+1 Sliver Hive
+1 Soothsayer Adept
+1 Soratami Savant
+1 Soul Read
+1 Stern Proctor
+1 Stromgald Cabal
+1 Survivors' Encampment
+4 Swamp
+1 Teferi's Protege
+1 Thran Quarry
+1 Three Tree City
+1 Thrull Wizard
+1 Tidings
+1 Time Spiral
+1 Tolarian Winds
+1 Treasure Cruise
+1 Turtle Lair
+1 Underdome
+1 Vodalian Mage
+1 Voidwielder
+1 White Lotus Hideout
+
+[commander]
+Kess, Dissident Mage

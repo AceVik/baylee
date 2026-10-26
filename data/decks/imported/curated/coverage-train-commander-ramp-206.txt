@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
-[deck:commander ramp WBR #20266207]
-1 Akki Avalanchers
-1 Akki Raider
+[deck:commander ramp WRG #20266207]
+1 Abundant Countryside
+1 Angel of Flight Alabaster
 1 Argivian Find
-1 Assault Intercessor
-1 Badlands
-1 Beetleback Chief
+1 Aura Fracture
+1 Auriok Salvagers
+1 Avengers Tower
+1 Betrothed of Fire
+1 Bishop of Rebirth
 1 Bogardan Phoenix
-1 Boggart Cursecrafter
-1 Brood of Cockroaches
-1 Cadaver Imp
-1 Cinder Marsh
-1 Dark Fortress
-1 Devils' Playground
-1 Diamond Kaleidoscope
-1 Dori, Bearer of Friends
-1 Dragon Roost
-1 Elder Auntie
-1 Elvish Doomsayer
-1 Exiled Boggart
-1 Facevaulter
-1 Falkenrath Celebrants
-1 Fiery Mantle
-1 Gimli, Counter of Kills
-1 Goblin Chirurgeon
-1 Goblin Gardener
-1 Goblin Masons
-1 Goblin Soothsayer
-1 Griffin Dreamfinder
-1 Harmonious Archon
-1 Hornet Harasser
-1 Hurler Cyclops
-1 Kazarov, Sengir Pureblood
-1 Kiki-Jiki, Mirror Breaker
-1 Krark-Clan Grunt
-1 Krark-Clan Stoker
-1 Lava Tubes
-1 Living Lightning
+1 Breath of Life
+1 Burrowing Razormaw
+1 Cartographer
+1 Cascading Cataracts
+1 Charming Prince
+1 Compassionate Healer
+1 Conduit Pylons
+1 Cryptolith Rite
+1 Daring Escape
+1 Decomposition
+1 Dowsing Shaman
+1 Eclipsed Realms
+1 Elven Cache
+1 Elven Palisade
+1 Fanatical Devotion
+1 Fangren Marauder
+9 Forest
+1 Gaea's Touch
+1 Gnathosaur
+1 Goblin Clearcutter
+1 Hall of Oracles
+1 Hana Kami
+1 Hand of Justice
+1 Harnessed Snubhorn
+1 Heroism
+1 Hidden Grotto
+1 Hymn of Rebirth
+1 Imperial Oath
+1 Interplanar Beacon
+1 Jasmine Dragon Tea Shop
+1 Jaya's Firenado
+1 Loran's Escape
+1 Luminous Angel
 1 Luminous Broodmoth
-1 Megatog
-1 Mogg Raider
-1 Molten Slagheap
-1 Mount Doom
-13 Mountain
-1 Nomad Outpost
+1 Miraculous Recovery
+7 Mountain
+1 Nissa, Vital Force
 1 Ojer Axonil, Deepest Might
-1 Orcish Bloodpainter
-1 Oxidda Daredevil
-6 Plains
-1 Plateau
-1 Razaketh, the Foulblooded
-1 Redcap Thief
-1 Return to Battle
-1 Rugged Prairie
-1 Savai Triome
-1 Scrubland
-1 Seething Pathblazer
-1 Shadowblood Ridge
-1 Shattered Landscape
-1 Shivan Harvest
+1 Ojer Kaslem, Deepest Growth
+1 Onslaught
+1 Order of Whiteclay
+1 Painted Bluffs
+1 Pillar of the Paruns
+10 Plains
+1 Raiding Party
+1 Ramosian Revivalist
+1 Refurbish
+1 Reincarnation
+1 Rubble Reading
+1 Rumble Arena
+1 Samite Herbalist
+1 School of the Unseen
+1 Shattered Wings
+1 Sheltering Light
 1 Shivan Phoenix
-1 Sleeper's Guile
-1 Slobad, Goblin Tinkerer
-1 Sunhome, Fortress of the Legion
-7 Swamp
-1 Swarm of Bloodflies
-1 Syndicate Trafficker
-1 Tainted Field
-1 Tar Pitcher
-1 Terrarion
-1 Tourach's Gate
-1 Tournament Grounds
-1 Tuktuk Grunts
-1 Vampire Warlord
-1 Vessel of Ephemera
-1 Warteye Witch
-1 Wort, Boggart Auntie
+1 Shower of Arrows
+1 Silent Sentinel
+1 Skywhaler's Shot
+1 Starfighter Pilot
+1 Starved Rusalka
+1 Survivors' Encampment
+1 Sustenance
+1 Tendo Ice Bridge
+1 Visions
+1 Voldaren Estate
+1 Whiteout
+1 Wildwood Rebirth
 
 [commander]
-Oros, the Avenger
+Johan

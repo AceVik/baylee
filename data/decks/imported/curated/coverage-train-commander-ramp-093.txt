@@ -1,82 +1,82 @@
 # baylee synergistic coverage commander ramp
 # licence: AGPL-3.0-only
 [deck:commander ramp WBR #20266094]
-1 Akroma, Angel of Wrath
-1 Amok
-1 Angel of Retribution
-1 Archangel
-1 Arguel's Blood Fast
+1 Accelerate
+1 Ambush Gigapede
 1 Armistice
-1 Astrolabe
 1 Avaricious Dragon
-1 Basal Thrull
 1 Battle Hymn
-1 Battlefield Promotion
-1 Billiard Room
-1 Blight Keeper
-1 Blood Pet
-1 Blood Vassal
-1 Brimstone Dragon
-1 Burnt Offering
-1 Cabal Ritual
-1 Canyon Slough
-1 Catalyst Elemental
-1 Celestial Force
-1 Certain Death
-1 Chosen by Heliod
+1 Binding Mummy
+1 Blood-Toll Harpy
+1 Boltwing Marauder
+1 Brand
+1 Burning Inquiry
+1 Cliffgate
+1 Control of the Court
 1 Corpse Knight
-1 Crypt Angel
-1 Deathless Angel
-1 Dragon's Desire
-1 Drossforge Bridge
-1 Dystopia
-1 Earthbind
-1 Emeria Angel
-1 Fisk Tower
-1 Foreboding Ruins
-1 Fíli and Kíli, Joyous
-1 Glidedive Duo
-1 Grasping Shadows
+1 Dakmor Salvage
+1 Dangerous Wager
+1 Dragon Mantle
+1 Dwarven Hold
+1 Expedite
+1 Fire Imp
+1 Fountain of Cho
+1 Goblin Lore
 1 Grasping Thrull
-1 Heap Gate
-1 Herald of the Sun
-1 Isolated Chapel
-1 Juju Bubble
-1 Kozilek's Translator
+1 Gravebind
+1 Graveshifter
+1 Greed
+1 Hagra Diabolist
+1 Hidden Necropolis
+1 Impolite Entrance
+1 Imposing Vantasaur
+1 Lava Zombie
 1 Lifecreed Duo
-1 Lyra Dawnbringer
-1 Misty Palms Oasis
+1 Lightning Blow
+1 Lindblum, Industrial Regency
+1 Locust Spray
+1 Mana Geyser
+1 Memorial to War
+1 Mercadian Bazaar
+1 Miasmic Mummy
+1 Mold Demon
 1 Momo, Rambunctious Rascal
-1 Moonglove Extractor
 8 Mountain
-1 Orzhov Basilica
-1 Orzhov Guildgate
+1 Mummy Paramount
+1 Nighthaze
+1 Nomad Outpost
+1 Onslaught
+1 Oppression
 1 Orzhov Keyrune
-13 Plains
-1 Rakdos Carnarium
-1 Rhox Meditant
-1 Rune of Protection: Artifacts
-1 Sacrifice
-1 Sanctum Gargoyle
-1 Seraph of the Suns
-1 Shambling Vent
-1 Shattered Angel
-1 She-Hulk, Jennifer Walters
-1 Shrine of the Forsaken Gods
-1 Silverquill Campus
-1 Simulacrum
-1 Snowfield Sinkhole
-1 Soul Shred
-1 Spirit Shackle
-1 Springjack Pasture
-1 Sunblade Angel
-5 Swamp
+1 Panic
+4 Plains
+1 Putrefaction
+1 Rakdos Keyrune
+1 Raking Claws
+1 Rank and File
+1 Rathi Dragon
+1 Sandstone Needle
+1 Savai Triome
+1 Shattered Landscape
+1 Shield-Wall Sentinel
+1 Sibsig Host
+1 Skull of Ramos
+1 Stun
+1 Sugar Rush
+1 Susur Secundi, Void Altar
+14 Swamp
 1 Thoughtrender Lamia
-1 Torch Song
-1 Warrior Angel
+1 Thriving Heath
+1 Thrór's Map
+1 Thundermaw Hellkite
+1 Toucan-Puffin
+1 Tournament Grounds
+1 Ubul Sar Gatekeepers
+1 Valakut, the Molten Pinnacle
 1 Wayward Servant
-1 Werefox Bodyguard
 1 Winds of Change
+1 Witty Roastmaster
+1 Zof Consumption
 
 [commander]
 Oros, the Avenger

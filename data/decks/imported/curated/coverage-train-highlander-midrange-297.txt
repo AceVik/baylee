@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUR #20266298]
+1 Abstergo Entertainment
+1 Alabaster Wall
+1 Anaba Spirit Crafter
+1 Archaeological Dig
+1 Arctic Foxes
+1 Blistering Barrier
+1 Bouncing Beebles
+1 Bubbling Beebles
+1 Capture Sphere
+1 Cascading Cataracts
+1 Char-Rumbler
+1 City of Brass
+1 Conduit Pylons
+1 Deer-Dog
+1 Devilthorn Fox
+1 Fleetfeather Sandals
+1 Fortified Rampart
+1 Gallifrey Council Chamber
+1 Glacial Wall
+1 Glaciers
+1 Gorgon Flail
+1 Grizzled Wolverine
+1 Guildmages' Forum
+1 Heart Wolf
+1 Hidden Grotto
+1 Hurloon Minotaur
+1 Hurr Jackal
+10 Island
+1 Kavu Glider
+1 Merseine
+1 Mirrex
+1 Moon-Eating Dog
+12 Mountain
+1 Mystic Compass
+1 Ocular Halo
+1 Oggyar Battle-Seer
+1 Ogre's Cleaver
+1 Old Man of the Sea
+1 Orcish Squatters
+1 Orcish Veteran
+1 Orthodoxy Enforcer
+1 Parapet Watchers
+1 Phantatog
+3 Plains
+1 Quarum Trench Gnomes
+1 Raging Gorilla
+1 Raging Spirit
+1 Raka Disciple
+1 Revelsong Horn
+1 Riot Gear
+1 Rumble Arena
+1 School of the Unseen
+1 Scoria Cat
+1 Scrapyard Mongrel
+1 Serpent of the Endless Sea
+1 Shadowspear
+1 Sharpened Pitchfork
+1 Snake Basket
+1 Springjack Pasture
+1 Starfleet Crew
+1 Steal Artifact
+1 Stream Hopper
+1 Suppression Ray
+1 Thalakos Deceiver
+1 Thran Quarry
+1 Tractor Beam
+1 True-Faith Censer
+1 Two-Headed Cerberus
+1 Undiscovered Paradise
+1 Valor Singer
+1 Villainous Hideout
+1 Wall of Light
+1 Wall of Stone
+1 Wall of Water
+1 War Horn
+1 Warmonger's Chariot
+1 Warship Flight Crew
+1 Zodiac Dog

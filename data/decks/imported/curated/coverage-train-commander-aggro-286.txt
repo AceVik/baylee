@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro BRG #20266287]
+1 Avengers Tower
+1 Backdraft
+1 Battle Brawler
+1 Baxter Building
+1 Brotherhood Headquarters
+1 Canyon Minotaur
+1 Capital City
+1 Cascading Cataracts
+1 Castle Doom
+1 Chaos Terminator Lord
+1 Darkness
+1 Deathlace
+1 Eclipsed Realms
+1 False Orders
+1 Feint
+4 Forest
+1 Frost Ogre
+1 Ghazbán Ogre
+1 Giant Trap Door Spider
+1 Gilacorn
+1 Glimmervoid
+1 Goblin Cadets
+1 Goblin Deathraiders
+1 Goblin Lackey
+1 Goblin Outlander
+1 Goblin Smuggler
+1 Gravel-Hide Goblin
+1 Henge of Ramos
+1 Highborn Vampire
+1 Hulking Bugbear
+1 Hunger of the Nim
+1 Iron-Shield Elf
+1 Khenra Charioteer
+1 Koskun Keep
+1 Kraul Raider
+1 Lash of Malice
+1 Madrush Cyclops
+1 Marsh Gas
+1 Marsh Goblins
+1 Mirkwood Spider
+1 Moriok Reaver
+10 Mountain
+1 Mudbrawler Raiders
+1 Nath's Buffoon
+1 Nimble Birdsticker
+1 Nuclear Fallout
+1 Nykthos, Shrine to Nyx
+1 Ogre Warrior
+1 One with Nothing
+1 Ostracize
+1 Pestilent Kathari
+1 Prakhata Club Security
+1 Primal Visitation
+1 Rain of Filth
+1 Rhox Brute
+1 Riot Piker
+1 Rip-Clan Crasher
+1 Rock Basilisk
+1 Rubble Slinger
+1 Rubblebelt Recluse
+1 Rubblebelt Runner
+1 Scarwood Goblins
+1 Shatterskull Giant
+1 Skirk Shaman
+1 Skull Collector
+1 Slavering Nulls
+1 Spike Jester
+10 Swamp
+1 Tar Pit Warrior
+1 Tattermunge Maniac
+1 Tendrils of Despair
+1 Ticked Off
+1 Turtle Lair
+1 Unnatural Speed
+1 Viashino Slaughtermaster
+1 Villainous Hideout
+1 White Lotus Hideout
+1 Word of Binding
+
+[commander]
+Bartel Runeaxe
