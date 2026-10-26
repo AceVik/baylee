@@ -75,6 +75,7 @@ pub(super) fn select_single_choice(
                 } else if let PlayerAction::CastSpell { card } = act {
                     if !is_spell_worth_casting_now(view, *card)
                         || !is_x_spell_ready_from_castable(view, *card, pool_total)
+                        || should_hold_spell_for_better_main_phase_creature(view, legal, *card)
                     {
                         trial[i] = f32::NEG_INFINITY;
                     }
@@ -216,6 +217,14 @@ pub(super) fn select_single_choice(
                                 o.controller != actor && super::choices::is_urgent_enchantment(o)
                             })
                     });
+                    let max_ben_tier = cands
+                        .candidates
+                        .iter()
+                        .filter_map(|cand| cand_obj(cand).and_then(|oid| view.object(oid)))
+                        .filter(|o| o.controller == actor && o.types.contains(TypeSet::CREATURE))
+                        .map(|o| super::choices::beneficial_creature_target_tier(actor, o))
+                        .max()
+                        .unwrap_or(0);
                     let mut trial = masked_logits.clone();
                     for (i, cand) in cands.candidates.iter().enumerate() {
                         let Some(ref act) = cand.action else {
@@ -306,6 +315,14 @@ pub(super) fn select_single_choice(
                             TargetIntent::Beneficial => {
                                 if is_hostile_target_action(view, actor, act) {
                                     trial[i] = f32::NEG_INFINITY;
+                                } else if max_ben_tier > 0
+                                    && let Some(o) = cand_obj(cand).and_then(|oid| view.object(oid))
+                                    && o.controller == actor
+                                    && o.types.contains(TypeSet::CREATURE)
+                                    && super::choices::beneficial_creature_target_tier(actor, o) + 2
+                                        < max_ben_tier
+                                {
+                                    trial[i] = f32::NEG_INFINITY;
                                 }
                             }
                             TargetIntent::Neutral => {}
@@ -362,6 +379,7 @@ pub(super) fn select_single_choice(
                 && (legal.castable.iter().any(|&id| {
                     is_spell_worth_casting_now(view, id)
                         && is_x_spell_ready_from_castable(view, id, pool_total)
+                        && !should_hold_spell_for_better_main_phase_creature(view, legal, id)
                 }) || legal.abilities.iter().any(|&(src, ab_idx)| {
                     is_paid_ability_ready_from_legal(view, src, ab_idx, pool_total)
                 }));
@@ -906,6 +924,260 @@ fn has_entered_this_turn_mana_ability(view: &PlayerView, legal: &LegalActions) -
         }
     }
     false
+}
+
+fn creature_card_board_score(view: &PlayerView, id: ObjectId) -> i32 {
+    let Some(ci) = lookup_card_identity(view, id) else {
+        return 0;
+    };
+    let Some(def) = baylee_cards::by_index(ci.index) else {
+        return 0;
+    };
+    let Some(face) = def.faces.get(usize::from(ci.face)) else {
+        return 0;
+    };
+    if !face.types.contains(TypeSet::CREATURE) {
+        return 0;
+    }
+    let p = i32::from(face.power.unwrap_or(0)).max(0);
+    let t = i32::from(face.toughness.unwrap_or(0)).max(0);
+    let mut bonus = 0_i32;
+    for ab in def.abilities_for_face(usize::from(ci.face)) {
+        if let AbilityDef::Triggered {
+            trigger, effects, ..
+        } = ab
+        {
+            let has_downside = effects.iter().any(|e| {
+                matches!(
+                    e,
+                    Effect::LoseLife {
+                        target: PlayerRel::You,
+                        ..
+                    } | Effect::DealDamage {
+                        target: TargetSpec::Player(PlayerRel::You),
+                        ..
+                    }
+                )
+            });
+            if has_downside {
+                bonus -= 2;
+            } else if matches!(
+                *trigger,
+                Trigger::ETB
+                    | Trigger::StepBegin {
+                        step: StepKind::CombatBegin | StepKind::Upkeep,
+                        whose: PlayerRel::You
+                    }
+            ) {
+                bonus += 3;
+            }
+        }
+    }
+    (p + t + bonus).max(1)
+}
+
+fn is_removal_or_board_affecting_noncreature(view: &PlayerView, id: ObjectId) -> bool {
+    let Some(ci) = lookup_card_identity(view, id) else {
+        return true;
+    };
+    let Some(def) = baylee_cards::by_index(ci.index) else {
+        return true;
+    };
+    def.abilities_for_face(usize::from(ci.face))
+        .iter()
+        .any(|ab| match ab {
+            AbilityDef::Spell { effects, .. }
+            | AbilityDef::Triggered {
+                trigger: Trigger::ETB,
+                effects,
+                ..
+            } => effects.iter().any(|e| {
+                matches!(
+                    e,
+                    Effect::Destroy { .. }
+                        | Effect::DestroyAll { .. }
+                        | Effect::Exile { .. }
+                        | Effect::ExileAll { .. }
+                        | Effect::DealDamage { .. }
+                        | Effect::CreateToken { .. }
+                        | Effect::Fight { .. }
+                        | Effect::PumpTarget { .. }
+                )
+            }),
+            _ => false,
+        })
+}
+
+fn creature_has_immediate_or_engine_ability(view: &PlayerView, id: ObjectId) -> bool {
+    let Some(ci) = lookup_card_identity(view, id) else {
+        return false;
+    };
+    let Some(def) = baylee_cards::by_index(ci.index) else {
+        return false;
+    };
+    let Some(face) = def.faces.get(usize::from(ci.face)) else {
+        return false;
+    };
+    if (face.keywords.bits()
+        & (baylee_cards_dsl::KeywordSet::HASTE.bits()
+            | baylee_cards_dsl::KeywordSet::FLYING.bits()))
+        != 0
+    {
+        return true;
+    }
+    def.abilities_for_face(usize::from(ci.face))
+        .iter()
+        .any(|ab| {
+            matches!(
+                ab,
+                AbilityDef::Triggered {
+                    trigger: Trigger::ETB
+                        | Trigger::EntersBattlefield(_)
+                        | Trigger::SpellCast(_)
+                        | Trigger::StepBegin {
+                            whose: PlayerRel::You,
+                            ..
+                        },
+                    ..
+                }
+            )
+        })
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "Compares main-phase creature curve and empty-board noncreature priority"
+)]
+fn should_hold_spell_for_better_main_phase_creature(
+    view: &PlayerView,
+    legal: &LegalActions,
+    card: ObjectId,
+) -> bool {
+    let actor = view.decision_player.unwrap_or(view.seat);
+    if view.active != actor
+        || !matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
+        || !view.stack.is_empty()
+        || view.owed.is_some()
+    {
+        return false;
+    }
+    let Some((cost_low, tax_low)) = lookup_spell_cost(view, card) else {
+        return false;
+    };
+    let cmc_low = cost_low.with_x(0).cmc().saturating_add(tax_low);
+    let pool_total = view
+        .seat(actor)
+        .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
+    let total_reachable = pool_total.saturating_add(untapped_mana_production(view, actor));
+    let score_low = creature_card_board_score(view, card);
+    let is_low_creature = score_low > 0;
+
+    let my_creatures = view
+        .battlefield_of(actor)
+        .filter(|o| {
+            o.types.contains(TypeSet::CREATURE) && !o.status.contains(ObjectStatus::PHASED_OUT)
+        })
+        .count();
+    let opp_creatures = view
+        .battlefield
+        .iter()
+        .filter(|o| {
+            o.controller != actor
+                && o.types.contains(TypeSet::CREATURE)
+                && !o.status.contains(ObjectStatus::PHASED_OUT)
+        })
+        .count();
+
+    if !is_low_creature
+        && my_creatures == 0
+        && opp_creatures > 0
+        && !is_removal_or_board_affecting_noncreature(view, card)
+    {
+        let blocks_creature = legal
+            .castable
+            .iter()
+            .chain(legal.payable.iter())
+            .copied()
+            .any(|other| {
+                other != card
+                    && creature_card_board_score(view, other) > 0
+                    && is_spell_worth_casting_now(view, other)
+                    && lookup_spell_cost(view, other).is_some_and(|(c_hi, t_hi)| {
+                        let cmc_hi = c_hi.with_x(0).cmc().saturating_add(t_hi);
+                        cmc_hi <= total_reachable
+                            && cmc_low + cmc_hi > total_reachable
+                            && spell_colors_reachable_inner_opts(
+                                view,
+                                actor,
+                                Some(legal),
+                                Some(other),
+                                None,
+                                &c_hi,
+                                false,
+                            )
+                    })
+            });
+        if blocks_creature {
+            return true;
+        }
+    }
+
+    if !is_low_creature || creature_has_immediate_or_engine_ability(view, card) {
+        return false;
+    }
+
+    let can_double_spell = legal
+        .castable
+        .iter()
+        .chain(legal.payable.iter())
+        .copied()
+        .any(|other| {
+            other != card
+                && is_spell_worth_casting_now(view, other)
+                && lookup_spell_cost(view, other).is_some_and(|(c2, t2)| {
+                    let cmc2 = c2.with_x(0).cmc().saturating_add(t2);
+                    cmc2 > 0 && cmc_low + cmc2 <= total_reachable
+                })
+        });
+    if can_double_spell {
+        return false;
+    }
+
+    legal
+        .payable
+        .iter()
+        .chain(legal.castable.iter())
+        .copied()
+        .any(|other| {
+            if other == card
+                || !is_spell_worth_casting_now(view, other)
+                || !creature_has_immediate_or_engine_ability(view, other)
+            {
+                return false;
+            }
+            let score_hi = creature_card_board_score(view, other);
+            if score_hi < score_low + 2 {
+                return false;
+            }
+            let Some((cost_hi, tax_hi)) = lookup_spell_cost(view, other) else {
+                return false;
+            };
+            let cmc_hi = cost_hi.with_x(0).cmc().saturating_add(tax_hi);
+            let better = (cmc_hi == cmc_low + 1)
+                || (cmc_hi == cmc_low && legal.castable.contains(&other));
+            better
+                && cmc_hi <= total_reachable
+                && cmc_low + cmc_hi > total_reachable
+                && spell_colors_reachable_inner_opts(
+                    view,
+                    actor,
+                    Some(legal),
+                    Some(other),
+                    None,
+                    &cost_hi,
+                    false,
+                )
+        })
 }
 
 fn is_waiting_for_main_phase_trigger_with_floating_mana(
@@ -3572,7 +3844,10 @@ fn unmet_color_deficit(view: &PlayerView, legal: &LegalActions) -> [u32; 6] {
     } else {
         let mut any_payable_accum = false;
         for &id in &legal.payable {
-            if legal.castable.contains(&id) || !is_spell_worth_casting_now(view, id) {
+            if legal.castable.contains(&id)
+                || !is_spell_worth_casting_now(view, id)
+                || should_hold_spell_for_better_main_phase_creature(view, legal, id)
+            {
                 continue;
             }
             if let Some((cost, tax)) = lookup_spell_cost(view, id)
@@ -3593,7 +3868,10 @@ fn unmet_color_deficit(view: &PlayerView, legal: &LegalActions) -> [u32; 6] {
         }
         if !any_payable_accum {
             for &id in &legal.payable {
-                if legal.castable.contains(&id) || !is_spell_worth_casting_now(view, id) {
+                if legal.castable.contains(&id)
+                    || !is_spell_worth_casting_now(view, id)
+                    || should_hold_spell_for_better_main_phase_creature(view, legal, id)
+                {
                     continue;
                 }
                 if let Some((cost, tax)) = lookup_spell_cost(view, id)

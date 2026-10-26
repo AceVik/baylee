@@ -504,55 +504,80 @@ pub(super) fn adjust_subset_logits(
                     .take(guaranteed_unblocked_count)
                     .sum();
                 if unblockable_dmg < def_life && guaranteed_unblocked_dmg < def_life {
-                    let mut opp_crackback_powers: Vec<i32> = view
-                        .battlefield_of(def_pid)
-                        .filter(|b| {
-                            b.types.contains(TypeSet::CREATURE)
-                                && !b.status.contains(ObjectStatus::PHASED_OUT)
-                                && !has_kw(b, KeywordSet::DEFENDER)
-                                && b.power.unwrap_or(0) > 0
-                        })
-                        .map(|b| i32::from(b.power.unwrap_or(0)))
-                        .collect();
-                    opp_crackback_powers.sort_unstable_by(|a, b| b.cmp(a));
-                    let already_holding = view
+                    let my_untapped_blockers: Vec<&PublicObject> = view
                         .battlefield_of(actor)
                         .filter(|o| {
                             o.types.contains(TypeSet::CREATURE)
                                 && !o.status.contains(ObjectStatus::TAPPED)
                                 && !o.status.contains(ObjectStatus::PHASED_OUT)
                                 && !has_kw(o, KeywordSet::CANT_BLOCK)
-                                && (!pos_attacker_ids.contains(&o.id)
-                                    || has_kw(o, KeywordSet::VIGILANCE))
                         })
-                        .count();
-                    let chump_self_dmg: i32 = if opp_crackback_powers.is_empty() {
+                        .collect();
+                    let mut opp_blockable_crackback_objs: Vec<&PublicObject> = Vec::new();
+                    let mut opp_unblockable_crackback = 0_i32;
+                    for b in view.battlefield_of(def_pid).filter(|b| {
+                        b.types.contains(TypeSet::CREATURE)
+                            && !b.status.contains(ObjectStatus::PHASED_OUT)
+                            && !has_kw(b, KeywordSet::DEFENDER)
+                            && b.power.unwrap_or(0) > 0
+                    }) {
+                        let min_b = if has_kw(b, KeywordSet::MENACE) { 2 } else { 1 };
+                        let can_blk_cnt = my_untapped_blockers
+                            .iter()
+                            .filter(|&&o| can_legally_block(b, o))
+                            .count();
+                        if can_blk_cnt >= min_b {
+                            opp_blockable_crackback_objs.push(b);
+                        } else {
+                            opp_unblockable_crackback += i32::from(b.power.unwrap_or(0));
+                        }
+                    }
+                    let mut opp_crackback_powers: Vec<i32> = opp_blockable_crackback_objs
+                        .iter()
+                        .map(|b| i32::from(b.power.unwrap_or(0)))
+                        .collect();
+                    opp_crackback_powers.sort_unstable_by(|a, b| b.cmp(a));
+                    let already_holding_objs: Vec<&PublicObject> = my_untapped_blockers
+                        .iter()
+                        .copied()
+                        .filter(|o| {
+                            (!pos_attacker_ids.contains(&o.id) || has_kw(o, KeywordSet::VIGILANCE))
+                                && dies_self_damage_amount(o) < my_life
+                                && opp_blockable_crackback_objs
+                                    .iter()
+                                    .any(|b| can_legally_block(b, o))
+                        })
+                        .collect();
+                    let already_holding = already_holding_objs.len();
+                    let mut held_self_dmg: i32 = if opp_crackback_powers.is_empty() {
                         0
                     } else {
-                        view.battlefield_of(actor)
-                            .filter(|o| {
-                                o.types.contains(TypeSet::CREATURE)
-                                    && !o.status.contains(ObjectStatus::TAPPED)
-                                    && !o.status.contains(ObjectStatus::PHASED_OUT)
-                                    && !has_kw(o, KeywordSet::CANT_BLOCK)
-                            })
+                        already_holding_objs
+                            .iter()
+                            .copied()
                             .map(dies_self_damage_amount)
                             .sum()
                     };
-                    let rem_crackback: i32 = opp_crackback_powers
-                        .iter()
-                        .skip(already_holding)
-                        .sum::<i32>()
-                        + chump_self_dmg;
-                    if rem_crackback >= my_life {
-                        let mut hold_candidates: Vec<(ObjectId, i32, i32)> = pos_attacker_ids
+                    let rem_crackback: i32 = opp_unblockable_crackback
+                        + opp_crackback_powers
+                            .iter()
+                            .skip(already_holding)
+                            .sum::<i32>()
+                        + held_self_dmg;
+                    if opp_unblockable_crackback < my_life && rem_crackback >= my_life {
+                        let mut hold_candidates: Vec<(ObjectId, i32, i32, i32)> = pos_attacker_ids
                             .iter()
                             .copied()
                             .filter(|id| !required.contains(id))
                             .filter_map(|id| {
                                 let o = view.object(id)?;
+                                let self_dmg = dies_self_damage_amount(o);
                                 if has_kw(o, KeywordSet::VIGILANCE)
                                     || has_kw(o, KeywordSet::CANT_BLOCK)
+                                    || self_dmg >= my_life
+                                    || !opp_blockable_crackback_objs
+                                        .iter()
+                                        .any(|b| can_legally_block(b, o))
                                 {
                                     return None;
                                 }
@@ -560,19 +585,27 @@ pub(super) fn adjust_subset_logits(
                                     id,
                                     i32::from(o.power.unwrap_or(0)),
                                     i32::from(o.toughness.unwrap_or(1)),
+                                    self_dmg,
                                 ))
                             })
                             .collect();
-                        hold_candidates.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| b.2.cmp(&a.2)));
+                        hold_candidates
+                            .sort_by(|a, b| a.1.cmp(&b.1).then_with(|| b.2.cmp(&a.2)));
                         let mut cur_skip = already_holding;
-                        for (cid, _, _) in hold_candidates {
+                        for (cid, _, _, self_dmg) in hold_candidates {
+                            let blocked_p = opp_crackback_powers.get(cur_skip).copied().unwrap_or(0);
+                            if blocked_p <= self_dmg {
+                                continue;
+                            }
                             hold_back_for_crackback.insert(cid);
                             cur_skip += 1;
-                            let next_rem: i32 = opp_crackback_powers
-                                .iter()
-                                .skip(cur_skip)
-                                .sum::<i32>()
-                                + chump_self_dmg;
+                            held_self_dmg += self_dmg;
+                            let next_rem: i32 = opp_unblockable_crackback
+                                + opp_crackback_powers
+                                    .iter()
+                                    .skip(cur_skip)
+                                    .sum::<i32>()
+                                + held_self_dmg;
                             if next_rem < my_life {
                                 break;
                             }
@@ -782,7 +815,11 @@ pub(super) fn adjust_subset_logits(
                             if is_hostile {
                                 out[i] -= 15.0;
                             } else if is_friendly {
-                                out[i] += 2.0;
+                                let tier = cand
+                                    .object_id
+                                    .and_then(|oid| view.object(oid))
+                                    .map_or(0, |o| beneficial_creature_target_tier(actor, o));
+                                out[i] += 2.0 + (tier as f32) * 0.5;
                             }
                         }
                         TargetIntent::Neutral => {}
@@ -846,6 +883,55 @@ fn is_single_target_concentrated_source(
         }
     }
     false
+}
+
+pub(super) fn beneficial_creature_target_tier(actor: PlayerId, o: &PublicObject) -> i32 {
+    if o.controller != actor || !o.types.contains(TypeSet::CREATURE) {
+        return 0;
+    }
+    let p = i32::from(o.power.unwrap_or(0)).max(0);
+    let t = (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage)).max(1);
+    let kw = o.keywords;
+    let has_evasion_or_combat_kw = has_kw(o, KeywordSet::FLYING)
+        || has_kw(o, KeywordSet::MENACE)
+        || has_kw(o, KeywordSet::TRAMPLE)
+        || has_kw(o, KeywordSet::LIFELINK)
+        || has_kw(o, KeywordSet::DOUBLE_STRIKE)
+        || has_kw(o, KeywordSet::FIRST_STRIKE)
+        || has_kw(o, KeywordSet::VIGILANCE);
+    let can_attack_now = !o.status.contains(ObjectStatus::TAPPED)
+        && !o.summoning_sick
+        && (kw & KeywordSet::DEFENDER.bits()) == 0;
+    let is_step_begin_engine =
+        super::tactics::abilities_of_battlefield_object(o).is_some_and(|abs| {
+            abs.iter().any(|ab| {
+                matches!(
+                    ab,
+                    AbilityDef::Triggered {
+                        trigger: Trigger::StepBegin {
+                            step: StepKind::CombatBegin | StepKind::Upkeep,
+                            whose: PlayerRel::You
+                        },
+                        ..
+                    }
+                )
+            })
+        });
+    let death_payoff = self_creature_death_payoff(o);
+    let mut tier = (p + t).min(8);
+    if is_step_begin_engine && p <= 3 && t <= 3 {
+        tier += 6;
+    }
+    if has_evasion_or_combat_kw {
+        tier += 5;
+    }
+    if can_attack_now {
+        tier += 2;
+    }
+    if death_payoff > 0 && !has_evasion_or_combat_kw {
+        tier -= 4;
+    }
+    tier
 }
 
 fn has_kw(obj: &PublicObject, kw: KeywordSet) -> bool {
@@ -1053,11 +1139,30 @@ fn is_suicide_attack_into_blockers(
                 && i32::from(b.power.unwrap_or(0)).max(0) == 1
                 && (i32::from(b.toughness.unwrap_or(1)) - i32::from(b.damage)).max(1) == 1
         });
-        let double_one_one_trade = total_pos_attackers == 1
+        let double_one_one_trade = (total_pos_attackers == 1
+            || total_pos_attackers < legal_blockers.len())
             && att_rem_tough == 2
             && small_one_power_blks >= 2
             && any_small_token;
-        if trades_down || double_one_one_trade {
+        let gang_surviving_trade_down = total_pos_attackers < legal_blockers.len()
+            && (0..legal_blockers.len()).any(|i| {
+                let b1 = legal_blockers[i];
+                let b1_p = i32::from(b1.power.unwrap_or(0)).max(0);
+                let b1_rem = (i32::from(b1.toughness.unwrap_or(1)) - i32::from(b1.damage)).max(1);
+                b1_p + b1_rem < att_power + att_rem_tough
+                    && ((i + 1)..legal_blockers.len()).any(|j| {
+                        let b2 = legal_blockers[j];
+                        let b2_p = i32::from(b2.power.unwrap_or(0)).max(0);
+                        let b2_rem =
+                            (i32::from(b2.toughness.unwrap_or(1)) - i32::from(b2.damage)).max(1);
+                        b2_p + b2_rem < att_power + att_rem_tough
+                            && b1_p + b2_p >= att_rem_tough
+                            && b1_rem + b2_rem > att_power
+                            && (b1_rem.min(b2_rem) + b1_p.min(b2_p) + 2
+                                <= att_power + att_rem_tough)
+                    })
+            });
+        if trades_down || double_one_one_trade || gang_surviving_trade_down {
             return true;
         }
     }
@@ -1377,9 +1482,34 @@ pub(super) fn adjust_pair_logits(
     let has_wasted_zero_power_block = raw_atk_blks
         .iter()
         .any(|(&atk_id, blks)| !blks.is_empty() && atk_stats(atk_id).0 <= 0);
-    let lethal_unblocked = (raw_unblocked_dmg >= my_life
-        || (raw_unblocked_dmg >= 3 && my_life <= 10 && blockers.len() >= 6 && raw_used_blks == 0))
-        && (raw_used_blks < blockers.len() || has_wasted_zero_power_block)
+    let has_smaller_block_than_unblocked = raw_atk_blks.iter().any(|(&atk_id, blks)| {
+        if blks.is_empty() {
+            return false;
+        }
+        let ap = atk_stats(atk_id).0;
+        attackers.iter().any(|&other_atk| {
+            raw_atk_blks.get(&other_atk).is_none_or(Vec::is_empty)
+                && attacks_me(other_atk)
+                && atk_stats(other_atk).0 > ap
+                && atk_min_blockers(other_atk) <= blockers.len()
+                && blks.iter().any(|&b_id| {
+                    (0..n).any(|i| {
+                        cands.pairs[i][0] >= 0
+                            && cands.pairs[i][1] >= 0
+                            && cands.pair_objects[i] == (b_id, other_atk)
+                    })
+                })
+        })
+    });
+    let need_survival_blocks = raw_unblocked_dmg >= my_life
+        || (raw_unblocked_dmg > 0 && my_life - raw_unblocked_dmg <= 3)
+        || (raw_unblocked_dmg >= 6 && my_life - raw_unblocked_dmg <= 7)
+        || (raw_unblocked_dmg >= 2 && my_life <= 10 && blockers.len() >= 4 && raw_used_blks == 0);
+    let lethal_unblocked = need_survival_blocks
+        && (raw_used_blks < blockers.len()
+            || has_wasted_zero_power_block
+            || has_smaller_block_than_unblocked
+            || has_non_menace_multiblock)
         && unblocked_atks_exist;
 
     if (!attackers.iter().any(|&a| attacks_me(a))
@@ -1397,9 +1527,39 @@ pub(super) fn adjust_pair_logits(
             }
             let (blk_id, atk_id) = cands.pair_objects[i];
             let assigned = raw_atk_blks.get(&atk_id).map_or(&[][..], Vec::as_slice);
-            if assigned.len() < atk_min_blockers(atk_id)
-                || (assigned.len() >= atk_max_blockers(atk_id) && !assigned.contains(&blk_id))
+            if assigned.contains(&blk_id)
+                && assigned.len() >= atk_min_blockers(atk_id)
+                && assigned.len() <= atk_max_blockers(atk_id)
             {
+                let (ap, at, a_dt, a_fs, _, _, a_ind) = atk_stats(atk_id);
+                let (bp, bt, b_dt, b_fs, b_ind) = blk_stats(blk_id);
+                let kills = !a_ind && (bp >= at || b_dt);
+                let survives = b_ind || (kills && b_fs && !a_fs) || (!a_dt && bt > ap);
+                let atk_has_active_engine = view
+                    .object(atk_id)
+                    .and_then(super::tactics::abilities_of_battlefield_object)
+                    .is_some_and(|abs| {
+                        abs.iter().any(|ab| {
+                            matches!(
+                                ab,
+                                AbilityDef::Activated { .. }
+                                    | AbilityDef::ActivatedConditional { .. }
+                                    | AbilityDef::Triggered {
+                                        trigger: Trigger::StepBegin { .. } | Trigger::SpellCast(_),
+                                        ..
+                                    }
+                            )
+                        })
+                    });
+                let trades_favorably = kills
+                    && !(a_fs && !b_fs && ap >= bt)
+                    && (ap > bp || (atk_has_active_engine && bt == 1 && ap >= 1));
+                if raw_logits[i] > 0.0 || need_survival_blocks || survives || trades_favorably {
+                    *out_l = (*out_l).max(0.5);
+                } else {
+                    *out_l = -20.0;
+                }
+            } else {
                 *out_l = -20.0;
             }
         }
@@ -1431,6 +1591,62 @@ pub(super) fn adjust_pair_logits(
         }
     }
 
+    let total_atk_dmg: i32 = unblockable_atk_dmg
+        + sorted_atks
+            .iter()
+            .filter(|&&a| attacks_me(a))
+            .map(|&a| atk_stats(a).0)
+            .sum::<i32>();
+    let can_pair = |b_id: ObjectId, a_id: ObjectId| -> bool {
+        (0..n).any(|i| {
+            cands.pairs[i][0] >= 0
+                && cands.pairs[i][1] >= 0
+                && cands.pair_objects[i] == (b_id, a_id)
+        })
+    };
+    let leaves_lethal_unblocked = |atk_id: ObjectId,
+                                   k_blks: usize,
+                                   cand_blks: &[ObjectId],
+                                   used_blks: &BTreeSet<ObjectId>,
+                                   blocked_atks: &BTreeSet<ObjectId>|
+     -> bool {
+        let ap = atk_stats(atk_id).0;
+        let rem_blks_after = blockers.len().saturating_sub(used_blks.len() + k_blks);
+        let mut other_powers: Vec<i32> = sorted_atks
+            .iter()
+            .copied()
+            .filter(|&other| {
+                other != atk_id && !blocked_atks.contains(&other) && attacks_me(other)
+            })
+            .map(|other| atk_stats(other).0)
+            .collect();
+        other_powers.sort_unstable_by(|a, b| b.cmp(a));
+        let unavoidable_dmg: i32 =
+            unblockable_atk_dmg + other_powers.iter().skip(rem_blks_after).sum::<i32>();
+        if unavoidable_dmg < my_life
+            && !(total_atk_dmg >= my_life && unavoidable_dmg + 2 >= my_life)
+        {
+            return false;
+        }
+        let larger_blockable_count = sorted_atks
+            .iter()
+            .copied()
+            .filter(|&other| {
+                other != atk_id
+                    && !blocked_atks.contains(&other)
+                    && attacks_me(other)
+                    && atk_stats(other).0 > ap
+                    && atk_min_blockers(other) <= blockers.len().saturating_sub(used_blks.len())
+                    && cand_blks.iter().any(|&b_id| can_pair(b_id, other))
+            })
+            .count();
+        if k_blks == 1 {
+            larger_blockable_count > rem_blks_after
+        } else {
+            larger_blockable_count > rem_blks_after || other_powers.len() > rem_blks_after
+        }
+    };
+
     // Pass 1: Free kills (`blk` kills `atk` solo and survives)
     for &atk_id in &sorted_atks {
         if blocked_atks.contains(&atk_id) || atk_max_blockers(atk_id) == 0 {
@@ -1447,7 +1663,10 @@ pub(super) fn adjust_pair_logits(
                     return false;
                 }
                 let (blk_id, a_id) = cands.pair_objects[i];
-                if a_id != atk_id || used_blks.contains(&blk_id) {
+                if a_id != atk_id
+                    || used_blks.contains(&blk_id)
+                    || leaves_lethal_unblocked(atk_id, 1, &[blk_id], &used_blks, &blocked_atks)
+                {
                     return false;
                 }
                 let (bp, bt, b_dt, b_fs, b_ind) = blk_stats(blk_id);
@@ -1488,7 +1707,10 @@ pub(super) fn adjust_pair_logits(
                     return false;
                 }
                 let (blk_id, a_id) = cands.pair_objects[i];
-                if a_id != atk_id || used_blks.contains(&blk_id) {
+                if a_id != atk_id
+                    || used_blks.contains(&blk_id)
+                    || leaves_lethal_unblocked(atk_id, 1, &[blk_id], &used_blks, &blocked_atks)
+                {
                     return false;
                 }
                 let (_bp, bt, _b_dt, _b_fs, b_ind) = blk_stats(blk_id);
@@ -1519,7 +1741,10 @@ pub(super) fn adjust_pair_logits(
                     return false;
                 }
                 let (blk_id, a_id) = cands.pair_objects[i];
-                if a_id != atk_id || used_blks.contains(&blk_id) {
+                if a_id != atk_id
+                    || used_blks.contains(&blk_id)
+                    || leaves_lethal_unblocked(atk_id, 1, &[blk_id], &used_blks, &blocked_atks)
+                {
                     return false;
                 }
                 let (bp, bt, b_dt, b_fs, _b_ind) = blk_stats(blk_id);
@@ -1596,7 +1821,13 @@ pub(super) fn adjust_pair_logits(
                 break;
             }
         }
-        if sum_bp >= at && gang.len() >= min_b && gang.len() <= max_b && ap >= 2 {
+        let gang_blks: Vec<ObjectId> = gang.iter().map(|&idx| cands.pair_objects[idx].0).collect();
+        if sum_bp >= at
+            && gang.len() >= min_b
+            && gang.len() <= max_b
+            && ap >= 2
+            && !leaves_lethal_unblocked(atk_id, gang.len(), &gang_blks, &used_blks, &blocked_atks)
+        {
             for p_idx in gang {
                 let (blk_id, _) = cands.pair_objects[p_idx];
                 used_blks.insert(blk_id);
