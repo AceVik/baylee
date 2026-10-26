@@ -73,6 +73,7 @@ mod martyr_s_cause;
 mod megrim;
 mod mental_discipline;
 mod mesmeric_trance;
+mod mind_slash;
 mod mobilization;
 mod moonlit_wake;
 mod mudslide;

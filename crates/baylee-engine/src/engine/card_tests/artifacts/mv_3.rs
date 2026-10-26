@@ -37,6 +37,7 @@ mod elkin_bottle;
 mod ensnaring_bridge;
 mod eye_of_ramos;
 mod floodwater_dam;
+mod flowstone_armor;
 mod forcefield;
 mod general_s_regalia;
 mod goblin_lyre;

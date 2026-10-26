@@ -55,6 +55,7 @@ mod khalni_ambush;
 mod krosan_grip;
 mod mana_short;
 mod mangara_s_blessing;
+mod mogg_salvage;
 mod morale;
 mod mystic_denial;
 mod natural_affinity;

@@ -12602,13 +12602,18 @@ pub static ORACLE: &[&[&str]] = &[
     &["Sacrifice a creature: Regenerate target creature."],
     // Flame Rift
     &["Flame Rift deals 4 damage to each player."],
-    &[],
-    &[],
+    // Flint Golem
+    &["Whenever this creature becomes blocked, defending player mills three cards."],
+    // Flowstone Armor
+    &[
+        "You may choose not to untap this artifact during your untap step.\n{3}, {T}: Target creature gets +1/-1 for as long as this artifact remains tapped.",
+    ],
     // Flowstone Crusher
     &["{R}: This creature gets +1/-1 until end of turn."],
     // Flowstone Overseer
     &["{R}{R}: Target creature gets +1/-1 until end of turn."],
-    &[],
+    // Flowstone Slide
+    &["All creatures get +X/-X until end of turn."],
     // Flowstone Strike
     &["Target creature gets +1/-1 and gains haste until end of turn."],
     // Flowstone Surge
@@ -12617,42 +12622,106 @@ pub static ORACLE: &[&[&str]] = &[
     &["{1}: This creature gets +1/-1 and gains flying until end of turn."],
     // Flowstone Wall
     &["Defender (This creature can't attack.)\n{R}: This creature gets +1/-1 until end of turn."],
-    &[],
-    &[],
+    // Fog Patch
+    &[
+        "Cast this spell only during the declare blockers step.\nAttacking creatures become blocked. (This spell works on creatures that can't be blocked.)",
+    ],
+    // Harvest Mage
+    &[
+        "{G}, {T}, Discard a card: Until end of turn, if you tap a land for mana, it produces one mana of a color of your choice instead of any other type and amount.",
+    ],
     // Infiltrate
     &["Target creature can't be blocked this turn."],
-    &[],
-    &[],
+    // Jolting Merfolk
+    &[
+        "Fading 4 (This creature enters with four fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nRemove a fade counter from this creature: Tap target creature.",
+    ],
+    // Kill Switch
+    &[
+        "{2}, {T}: Tap all other artifacts. They don't untap during their controllers' untap steps for as long as this artifact remains tapped.",
+    ],
     // Kor Haven
     &[
         "{T}: Add {C}.\n{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Laccolith Grunt
+    &[
+        "Whenever this creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Laccolith Rig
+    &[
+        "Enchant creature\nWhenever enchanted creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, the first creature assigns no combat damage this turn.",
+    ],
+    // Laccolith Titan
+    &[
+        "Whenever this creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Laccolith Warrior
+    &[
+        "Whenever this creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Laccolith Whelp
+    &[
+        "Whenever this creature becomes blocked, you may have it deal damage equal to its power to target creature. If you do, this creature assigns no combat damage this turn.",
+    ],
+    // Lashknife
+    &[
+        "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nEnchant creature\nEnchanted creature has first strike.",
+    ],
     // Lawbringer
     &["{T}, Sacrifice this creature: Exile target red creature."],
     // Lightbringer
     &["{T}, Sacrifice this creature: Exile target black creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Lin Sivvi, Defiant Hero
+    &[
+        "{X}, {T}: Search your library for a Rebel permanent card with mana value X or less, put it onto the battlefield, then shuffle.\n{3}: Put target Rebel card from your graveyard on the bottom of your library.",
+    ],
+    // Mana Cache
+    &[
+        "At the beginning of each player's end step, put a charge counter on this enchantment for each untapped land that player controls.\nRemove a charge counter from this enchantment: Add {C}. Any player may activate this ability but only during their turn before the end step.",
+    ],
+    // Massacre
+    &[
+        "If an opponent controls a Plains and you control a Swamp, you may cast this spell without paying its mana cost.\nAll creatures get -2/-2 until end of turn.",
+    ],
+    // Mind Slash
+    &[
+        "{B}, Sacrifice a creature: Target opponent reveals their hand. You choose a card from it. That player discards that card. Activate only as a sorcery.",
+    ],
+    // Mind Swords
+    &[
+        "If you control a Swamp, you may sacrifice a creature rather than pay this spell's mana cost.\nEach player exiles two cards from their hand.",
+    ],
+    // Mogg Alarm
+    &[
+        "You may sacrifice two Mountains rather than pay this spell's mana cost.\nCreate two 1/1 red Goblin creature tokens.",
+    ],
+    // Mogg Salvage
+    &[
+        "If an opponent controls an Island and you control a Mountain, you may cast this spell without paying its mana cost.\nDestroy target artifact.",
+    ],
+    // Mogg Toady
+    &[
+        "This creature can't attack unless you control more creatures than defending player.\nThis creature can't block unless you control more creatures than attacking player.",
+    ],
     // Moggcatcher
     &[
         "{3}, {T}: Search your library for a Goblin permanent card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mossdog
+    &[
+        "Whenever this creature becomes the target of a spell or ability an opponent controls, put a +1/+1 counter on this creature.",
+    ],
+    // Murderous Betrayal
+    &[
+        "{B}{B}, Pay half your life, rounded up: Destroy target nonblack creature. It can't be regenerated.",
+    ],
+    // Nesting Wurm
+    &[
+        "Trample\nWhen this creature enters, you may search your library for up to three cards named Nesting Wurm, reveal them, put them into your hand, then shuffle.",
+    ],
+    // Netter en-Dal
+    &["{W}, {T}, Discard a card: Target creature can't attack this turn."],
     &[],
     &[],
     &[],

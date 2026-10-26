@@ -64,6 +64,7 @@ mod mist_dragon;
 mod moss_kami;
 mod muldrotha_the_gravetide;
 mod needleshot_gourna;
+mod nesting_wurm;
 mod nightmare;
 mod oathsworn_giant;
 mod ojer_taq_deepest_foundation;

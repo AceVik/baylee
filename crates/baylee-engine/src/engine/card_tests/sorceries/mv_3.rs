@@ -47,6 +47,7 @@ mod kodama_s_reach;
 mod last_caress;
 mod maelstrom_pulse;
 mod mind_ravel;
+mod mogg_alarm;
 mod pelakka_predation;
 mod phyrexian_tribute;
 mod pillage;

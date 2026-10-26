@@ -51,6 +51,7 @@ mod insubordination;
 mod inviolability;
 mod invisibility;
 mod kjeldoran_pride;
+mod lashknife;
 mod launch;
 mod lightning_reflexes;
 mod mageta_s_boon;

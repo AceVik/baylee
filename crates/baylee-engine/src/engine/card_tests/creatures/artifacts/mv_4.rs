@@ -126,6 +126,7 @@ mod esper_cormorants;
 mod extruder;
 mod filigree_crawler;
 mod filigree_sages;
+mod flint_golem;
 mod forgotten_sentinel;
 mod gilded_sentinel;
 mod golden_guardian;

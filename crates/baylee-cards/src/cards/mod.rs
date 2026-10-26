@@ -6635,6 +6635,8 @@ pub mod flight_deck_coordinator;
 pub mod flight_of_fancy;
 #[path = "instants/mv_2/fling.rs"]
 pub mod fling;
+#[path = "creatures/artifacts/mv_4/flint_golem.rs"]
+pub mod flint_golem;
 #[path = "creatures/mv_2/flinthoof_boar.rs"]
 pub mod flinthoof_boar;
 #[path = "enchantments/mv_1/flood.rs"]
@@ -6667,6 +6669,8 @@ pub mod flora_colossus;
 pub mod floral_spuzzem;
 #[path = "creatures/mv_3/flow_of_maggots.rs"]
 pub mod flow_of_maggots;
+#[path = "artifacts/mv_3/flowstone_armor.rs"]
+pub mod flowstone_armor;
 #[path = "enchantments/auras/mv_1/flowstone_blade.rs"]
 pub mod flowstone_blade;
 #[path = "creatures/mv_3/flowstone_channeler.rs"]
@@ -6697,6 +6701,8 @@ pub mod flowstone_salamander;
 pub mod flowstone_sculpture;
 #[path = "creatures/mv_3/flowstone_shambler.rs"]
 pub mod flowstone_shambler;
+#[path = "sorceries/mv_4/flowstone_slide.rs"]
+pub mod flowstone_slide;
 #[path = "instants/mv_2/flowstone_strike.rs"]
 pub mod flowstone_strike;
 #[path = "enchantments/mv_2/flowstone_surge.rs"]
@@ -6731,6 +6737,8 @@ pub mod fog_bank;
 pub mod fog_elemental;
 #[path = "creatures/mv_2/fog_of_gnats.rs"]
 pub mod fog_of_gnats;
+#[path = "instants/mv_2/fog_patch.rs"]
+pub mod fog_patch;
 #[path = "lands/utility/foggy_bottom_swamp.rs"]
 pub mod foggy_bottom_swamp;
 #[path = "lands/pain/fogwell_s_gym.rs"]
@@ -8349,6 +8357,8 @@ pub mod harrow;
 pub mod harrowing_journey;
 #[path = "instants/mv_3/harsh_sustenance.rs"]
 pub mod harsh_sustenance;
+#[path = "creatures/mv_1/harvest_mage.rs"]
+pub mod harvest_mage;
 #[path = "creatures/mv_2/harvest_wurm.rs"]
 pub mod harvest_wurm;
 #[path = "creatures/mv_6/harvester_of_souls.rs"]
@@ -9665,6 +9675,8 @@ pub mod jolrael_s_centaur;
 pub mod jolrael_s_favor;
 #[path = "instants/mv_3/jolt.rs"]
 pub mod jolt;
+#[path = "creatures/mv_4/jolting_merfolk.rs"]
+pub mod jolting_merfolk;
 #[path = "creatures/mv_4/joraga_visionary.rs"]
 pub mod joraga_visionary;
 #[path = "creatures/mv_3/jorubai_murk_lurker.rs"]
@@ -9959,6 +9971,8 @@ pub mod kheru_bloodsucker;
 pub mod kiki_jiki_mirror_breaker;
 #[path = "instants/mv_3/kill_shot.rs"]
 pub mod kill_shot;
+#[path = "artifacts/mv_3/kill_switch.rs"]
+pub mod kill_switch;
 #[path = "creatures/mv_3/killer_bees.rs"]
 pub mod killer_bees;
 #[path = "creatures/mv_5/killer_whale.rs"]
@@ -10299,6 +10313,16 @@ pub mod laboratory_brute;
 pub mod labyrinth_minotaur;
 #[path = "lands/utility/labyrinth_of_skophos.rs"]
 pub mod labyrinth_of_skophos;
+#[path = "creatures/mv_3/laccolith_grunt.rs"]
+pub mod laccolith_grunt;
+#[path = "enchantments/auras/mv_1/laccolith_rig.rs"]
+pub mod laccolith_rig;
+#[path = "creatures/mv_7/laccolith_titan.rs"]
+pub mod laccolith_titan;
+#[path = "creatures/mv_4/laccolith_warrior.rs"]
+pub mod laccolith_warrior;
+#[path = "creatures/mv_1/laccolith_whelp.rs"]
+pub mod laccolith_whelp;
 #[path = "instants/mv_3/lace_with_moonglove.rs"]
 pub mod lace_with_moonglove;
 #[path = "creatures/mv_7/lady_caleria.rs"]
@@ -10361,6 +10385,8 @@ pub mod lash_of_malice;
 pub mod lash_of_the_whip;
 #[path = "instants/mv_1/lash_of_thorns.rs"]
 pub mod lash_of_thorns;
+#[path = "enchantments/auras/mv_2/lashknife.rs"]
+pub mod lashknife;
 #[path = "instants/mv_2/last_breath.rs"]
 pub mod last_breath;
 #[path = "sorceries/mv_3/last_caress.rs"]
@@ -10653,6 +10679,8 @@ pub mod lim_dul_s_vault;
 pub mod limestone_golem;
 #[path = "enchantments/mv_1/limited_resources.rs"]
 pub mod limited_resources;
+#[path = "creatures/mv_3/lin_sivvi_defiant_hero.rs"]
+pub mod lin_sivvi_defiant_hero;
 #[path = "lands/towns/lindblum_industrial_regency.rs"]
 pub mod lindblum_industrial_regency;
 #[path = "creatures/mv_3/linden_the_steadfast_queen.rs"]
@@ -11119,6 +11147,8 @@ pub mod mammoth_spider;
 pub mod man_o_war;
 #[path = "enchantments/mv_3/mana_breach.rs"]
 pub mod mana_breach;
+#[path = "enchantments/mv_3/mana_cache.rs"]
+pub mod mana_cache;
 #[path = "enchantments/auras/mv_1/mana_chains.rs"]
 pub mod mana_chains;
 #[path = "sorceries/mv_1/mana_clash.rs"]
@@ -11331,6 +11361,8 @@ pub mod mass_hysteria;
 pub mod mass_of_ghouls;
 #[path = "sorceries/mv_6/mass_production.rs"]
 pub mod mass_production;
+#[path = "sorceries/mv_4/massacre.rs"]
+pub mod massacre;
 #[path = "creatures/mv_6/massacre_wurm.rs"]
 pub mod massacre_wurm;
 #[path = "instants/mv_1/massive_might.rs"]
@@ -11679,10 +11711,14 @@ pub mod mind_rot;
 pub mod mind_sculpt;
 #[path = "sorceries/mv_2/mind_shatter.rs"]
 pub mod mind_shatter;
+#[path = "enchantments/mv_3/mind_slash.rs"]
+pub mod mind_slash;
 #[path = "sorceries/mv_2/mind_spring.rs"]
 pub mod mind_spring;
 #[path = "artifacts/mv_2/mind_stone.rs"]
 pub mod mind_stone;
+#[path = "sorceries/mv_2/mind_swords.rs"]
+pub mod mind_swords;
 #[path = "sorceries/mv_1/mind_twist.rs"]
 pub mod mind_twist;
 #[path = "sorceries/mv_4/mind_warp.rs"]
@@ -11897,6 +11933,8 @@ pub mod mobilization;
 pub mod mobilized_district;
 #[path = "creatures/mv_4/mockingbird_bobbi_morse.rs"]
 pub mod mockingbird_bobbi_morse;
+#[path = "sorceries/mv_3/mogg_alarm.rs"]
+pub mod mogg_alarm;
 #[path = "creatures/mv_3/mogg_assassin.rs"]
 pub mod mogg_assassin;
 #[path = "creatures/mv_4/mogg_bombers.rs"]
@@ -11917,10 +11955,14 @@ pub mod mogg_infestation;
 pub mod mogg_maniac;
 #[path = "creatures/mv_1/mogg_raider.rs"]
 pub mod mogg_raider;
+#[path = "instants/mv_3/mogg_salvage.rs"]
+pub mod mogg_salvage;
 #[path = "creatures/mv_1/mogg_sentry.rs"]
 pub mod mogg_sentry;
 #[path = "creatures/mv_2/mogg_squad.rs"]
 pub mod mogg_squad;
+#[path = "creatures/mv_2/mogg_toady.rs"]
+pub mod mogg_toady;
 #[path = "creatures/mv_4/moggcatcher.rs"]
 pub mod moggcatcher;
 #[path = "creatures/mv_1/mold_adder.rs"]
@@ -12091,6 +12133,8 @@ pub mod moss_viper;
 pub mod mossbeard_ancient;
 #[path = "creatures/mv_3/mosscoat_goriak.rs"]
 pub mod mosscoat_goriak;
+#[path = "creatures/mv_1/mossdog.rs"]
+pub mod mossdog;
 #[path = "artifacts/mv_1/mossfire_egg.rs"]
 pub mod mossfire_egg;
 #[path = "lands/filter/mossfire_valley.rs"]
@@ -12203,6 +12247,8 @@ pub mod murasa_pyromancer;
 pub mod murasa_ranger;
 #[path = "instants/mv_3/murder.rs"]
 pub mod murder;
+#[path = "enchantments/mv_3/murderous_betrayal.rs"]
+pub mod murderous_betrayal;
 #[path = "creatures/mv_3/murderous_rider.rs"]
 pub mod murderous_rider;
 #[path = "creatures/mv_4/murk_dwellers.rs"]
@@ -12481,6 +12527,8 @@ pub mod nest_robber;
 pub mod nesting_dovehawk;
 #[path = "lands/utility/nesting_grounds.rs"]
 pub mod nesting_grounds;
+#[path = "creatures/mv_6/nesting_wurm.rs"]
+pub mod nesting_wurm;
 #[path = "creatures/mv_4/nether_horror.rs"]
 pub mod nether_horror;
 #[path = "creatures/mv_2/nether_shadow.rs"]
@@ -12489,6 +12537,8 @@ pub mod nether_shadow;
 pub mod nether_spirit;
 #[path = "enchantments/mv_4/nether_void.rs"]
 pub mod nether_void;
+#[path = "creatures/mv_1/netter_en_dal.rs"]
+pub mod netter_en_dal;
 #[path = "creatures/mv_4/nettle_swine.rs"]
 pub mod nettle_swine;
 #[path = "artifacts/equipment/mv_3/nettlecyst.rs"]
