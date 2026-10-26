@@ -5607,7 +5607,7 @@ measurement, table/hook validation and the rules gate pass (20,872 tests,
 17 skipped). The corrected modifier population passes all 13 effects tests.
 Full `cargo dev gate` also passes: 23,109 workspace tests (8 slow), 25 skipped,
 plus 4 API tests; both gates exit 0. Feature gate was not run, and neither
-push nor land was performed. The remaining 286 Partial cards remain separate
+push nor land was performed. At that checkpoint, 286 Partial cards remained separate
 work; four returns to generator ownership do not enlarge this eight-card batch.
 
 - **Mutate the rule to test the assertion.** A no-op supertype application
@@ -5653,3 +5653,20 @@ work; four returns to generator ownership do not enlarge this eight-card batch.
   Add each new modifier to the enum-vs-list check and reconcile the locking
   classification by behavior: supertype edits lock their sets; regeneration
   prohibition changes a rule. Preserve membership checks alongside exact totals.
+
+## 2026-10-26 — Bounded Ice Age closeout
+
+Eighteen existing Partial definitions are now Implemented against `origin/main`;
+70 Ice Age rule cards remain open. Count 373 Oracle IDs separately from the
+383 printings, and preserve the user's narrowed scope rather than claim a
+whole-set completion. Rules gate: **21,050 passed, 17 skipped, exit 0**.
+Full desktop gate: **23,301 passed, 25 skipped; four API tests passed; exit 0**.
+Formatting, Clippy, tests, cache, validation and API checks all passed.
+Feature gate: **Passed, exit 0**. Client: 2,290 passed, including 39 devctl
+checks. Gateway devtable Clippy/tests, dev-dylink, test-support, train without
+play, fuzz, mutate, verification-hooks-shipped and crypto-bigint-scope all passed.
+
+Completed instruction-draw history is not by itself a future rule input for
+loop detection. Active loot must still hash its normalized eligible hand
+positions; snapshot identity retains the complete ledger. Direct zone-mutation
+fixtures must settle characteristics before measuring a no-new-events boundary.
