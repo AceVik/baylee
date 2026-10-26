@@ -120,6 +120,31 @@ pub(super) fn select_single_choice(
             ) {
                 let intent = classify_active_target_intent(view, actor, active_source);
                 if intent != TargetIntent::Neutral {
+                    let fixed_dmg = super::choices::active_source_fixed_damage(view, active_source);
+                    let any_lethal_creature_kill = fixed_dmg.is_some_and(|dmg| {
+                        cands.candidates.iter().any(|cand| {
+                            cand.object_id
+                                .and_then(|oid| view.object(oid))
+                                .is_some_and(|o| {
+                                    o.controller != actor
+                                        && o.types.contains(TypeSet::CREATURE)
+                                        && (o.keywords
+                                            & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE.bits())
+                                            == 0
+                                        && (i32::from(o.toughness.unwrap_or(1))
+                                            - i32::from(o.damage))
+                                        .max(1)
+                                            <= dmg
+                                })
+                        })
+                    });
+                    let any_urgent_ench = cands.candidates.iter().any(|cand| {
+                        cand.object_id
+                            .and_then(|oid| view.object(oid))
+                            .is_some_and(|o| {
+                                o.controller != actor && super::choices::is_urgent_enchantment(o)
+                            })
+                    });
                     let mut trial = masked_logits.clone();
                     for (i, cand) in cands.candidates.iter().enumerate() {
                         let Some(ref act) = cand.action else {
@@ -129,6 +154,42 @@ pub(super) fn select_single_choice(
                             TargetIntent::Hostile => {
                                 if is_friendly_target_action(view, actor, act) {
                                     trial[i] = f32::NEG_INFINITY;
+                                } else if any_urgent_ench {
+                                    let is_urgent = cand
+                                        .object_id
+                                        .and_then(|oid| view.object(oid))
+                                        .is_some_and(|o| {
+                                            o.controller != actor
+                                                && super::choices::is_urgent_enchantment(o)
+                                        });
+                                    if !is_urgent {
+                                        trial[i] = f32::NEG_INFINITY;
+                                    }
+                                } else if let Some(dmg) = fixed_dmg
+                                    && any_lethal_creature_kill
+                                {
+                                    let is_lethal_target = cand
+                                        .object_id
+                                        .and_then(|oid| view.object(oid))
+                                        .is_some_and(|o| {
+                                            o.controller != actor
+                                                && o.types.contains(TypeSet::CREATURE)
+                                                && (o.keywords
+                                                    & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE
+                                                        .bits())
+                                                    == 0
+                                                && (i32::from(o.toughness.unwrap_or(1))
+                                                    - i32::from(o.damage))
+                                                .max(1)
+                                                    <= dmg
+                                        })
+                                        || cand.player_id.is_some_and(|pid| {
+                                            pid != actor
+                                                && view.seat(pid).map_or(20, |s| s.life) <= dmg
+                                        });
+                                    if !is_lethal_target {
+                                        trial[i] = f32::NEG_INFINITY;
+                                    }
                                 }
                             }
                             TargetIntent::Beneficial => {
@@ -200,14 +261,18 @@ pub(super) fn select_single_choice(
                     || view.active != actor
                     || !matches!(view.phase, Phase::FirstMain | Phase::SecondMain));
             let main_phase_proactive = view.owed.is_none()
-                && view.active == actor
                 && view.stack.is_empty()
                 && p_pass < 0.90
-                && ((matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
+                && ((view.active == actor
+                    && matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
                     && (play_land_first
                         || has_proactive_main_phase_play(view, legal)
                         || has_proactive_draw_ability_play(view, legal)))
-                    || (view.phase == Phase::Combat
+                    || (view.active != actor
+                        && view.phase == Phase::Ending
+                        && has_proactive_draw_ability_play(view, legal))
+                    || (view.active == actor
+                        && view.phase == Phase::Combat
                         && view.step == Step::DeclareAttackers
                         && has_proactive_combat_ability_play(view, legal)));
 
@@ -661,7 +726,9 @@ fn has_reachable_mana_sink(view: &PlayerView, legal: &LegalActions) -> bool {
     false
 }
 
-fn abilities_of_battlefield_object(obj: &PublicObject) -> Option<&'static [AbilityDef]> {
+pub(super) fn abilities_of_battlefield_object(
+    obj: &PublicObject,
+) -> Option<&'static [AbilityDef]> {
     if let Some(rf) = obj.rules.or_else(|| {
         obj.card.map(|c| RulesFace {
             card: c.index,
@@ -917,12 +984,24 @@ fn has_proactive_draw_ability_play(view: &PlayerView, legal: &LegalActions) -> b
         .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
     let total_reachable = pool_total.saturating_add(untapped_mana_production(view, actor));
 
-    let allow_draw_ab = (view.phase == Phase::SecondMain
-        || view.hand.is_empty()
-        || (view.phase == Phase::FirstMain
-            && !should_play_land_first(view, legal)
-            && !has_proactive_main_phase_play(view, legal)))
-        && view.hand.len() <= 5;
+    let lands_in_hand = view
+        .hand
+        .iter()
+        .filter(|h| is_true_land_card(view, h.id))
+        .count();
+    let max_hand_for_draw = if lands_in_hand == 0 && !view.hand.is_empty() {
+        6
+    } else {
+        5
+    };
+    let allow_draw_ab = ((view.active == actor
+        && (view.phase == Phase::SecondMain
+            || view.hand.is_empty()
+            || (view.phase == Phase::FirstMain
+                && !should_play_land_first(view, legal)
+                && !has_proactive_main_phase_play(view, legal))))
+        || (view.active != actor && view.phase == Phase::Ending))
+        && view.hand.len() <= max_hand_for_draw;
     if allow_draw_ab {
         for obj in view.battlefield_of(actor) {
             if obj.status.contains(ObjectStatus::PHASED_OUT) {
@@ -1181,6 +1260,75 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
             }
         }
     }
+    let spell_cmc = lookup_spell_cost(view, id).map_or(0, |(c, _)| c.with_x(0).cmc());
+    if let Some(face) = face_opt {
+        for perm in &view.battlefield {
+            if perm.status.contains(ObjectStatus::PHASED_OUT) {
+                continue;
+            }
+            let Some(p_abs) = abilities_of_battlefield_object(perm) else {
+                continue;
+            };
+            for pab in p_abs {
+                if let AbilityDef::Triggered {
+                    trigger: Trigger::SpellCast(filter),
+                    effects,
+                    ..
+                } = pab
+                    && spell_matches_cast_filter(
+                        actor,
+                        perm.controller,
+                        face.types,
+                        spell_cmc,
+                        filter,
+                    )
+                {
+                    if perm.controller == actor {
+                        mandatory_draws = mandatory_draws.saturating_add(count_self_draws(effects));
+                    } else {
+                        let opp_forced: u32 = effects
+                            .iter()
+                            .filter_map(|e| match e {
+                                Effect::DrawCardsFor {
+                                    who:
+                                        PlayerRel::EventPlayer
+                                        | PlayerRel::Opponent
+                                        | PlayerRel::EachPlayer,
+                                    amount: Amount::Fixed(n),
+                                } => Some(*n),
+                                Effect::DrawCardsFor {
+                                    who:
+                                        PlayerRel::EventPlayer
+                                        | PlayerRel::Opponent
+                                        | PlayerRel::EachPlayer,
+                                    ..
+                                } => Some(1),
+                                _ => None,
+                            })
+                            .sum();
+                        mandatory_draws = mandatory_draws.saturating_add(opp_forced);
+                        if opp_forced >= 4 && (my_lib <= 40 || view.hand.len() >= 7) {
+                            let destroys_ench = abilities.iter().any(|ab| match ab {
+                                AbilityDef::Spell { effects: se, .. } => se.iter().any(|e| {
+                                    matches!(
+                                        e,
+                                        Effect::Destroy { .. } | Effect::Exile { .. }
+                                    )
+                                }),
+                                AbilityDef::ModalSpell { modes, .. } => modes
+                                    .iter()
+                                    .any(super::choices::mode_destroys_enchantment),
+                                _ => false,
+                            });
+                            if !destroys_ench {
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     if mandatory_draws > 0 && my_lib <= mandatory_draws.saturating_add(3) {
         return false;
     }
@@ -1202,16 +1350,33 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
     }
 
     // Check battlefield SpellCast punisher triggers (e.g. Eidolon of the Great Revel, Spellshock, Mai)
-    let spell_cmc = lookup_spell_cost(view, id).map_or(0, |(c, _)| c.with_x(0).cmc());
+    let mut existing_cast_self_loss = 0_i32;
     if let Some(face) = face_opt {
         let cast_self_loss = cast_trigger_self_damage(view, actor, face.types, spell_cmc);
+        existing_cast_self_loss = cast_self_loss;
         if cast_self_loss > 0 && my_life <= cast_self_loss {
             return false;
         }
+        if cast_self_loss > 0 && my_life - cast_self_loss <= 4 && !is_creature_spell {
+            let is_urgent_removal = abilities.iter().any(|ab| match ab {
+                AbilityDef::Spell { effects, .. } => effects.iter().any(|e| {
+                    matches!(
+                        e,
+                        Effect::Destroy { .. }
+                            | Effect::Exile { .. }
+                            | Effect::CounterTargetSpell
+                    )
+                }),
+                _ => false,
+            });
+            if !is_urgent_removal {
+                return false;
+            }
+        }
     }
 
-    // Do not deploy symmetric SpellCast punishers when our life is already low
-    if my_life <= 8
+    // Do not deploy symmetric SpellCast punishers when our life is already low or one is already active
+    if (my_life <= 8 || existing_cast_self_loss >= 2)
         && abilities.iter().any(|ab| {
             matches!(
                 ab,
@@ -1858,7 +2023,23 @@ fn is_mana_ability_usable_now(
                     .saturating_add(untapped_mana_production(view, actor))
                     .saturating_sub(filter_cmc);
                 let deficit = unmet_color_deficit(view, legal);
-                if !deficit[..5].contains(&1) {
+                let mut free_supply = [0_u32; 5];
+                for other in view.battlefield_of(actor) {
+                    if other.id == source
+                        || other.status.contains(ObjectStatus::TAPPED)
+                        || other.status.contains(ObjectStatus::PHASED_OUT)
+                    {
+                        continue;
+                    }
+                    let sc = non_sac_source_colors(view, other.id);
+                    for c in 0..5 {
+                        if sc[c] {
+                            free_supply[c] += 1;
+                        }
+                    }
+                }
+                let needs_filter = (0..5).any(|c| deficit[c] > free_supply[c]);
+                if !needs_filter {
                     return false;
                 }
                 if view.owed.is_none() {
@@ -1868,7 +2049,7 @@ fn is_mana_ability_usable_now(
                             && lookup_spell_cost(view, id).is_some_and(|(sc, tax)| {
                                 sc.with_x(0).cmc().saturating_add(tax) <= total_reachable
                                     && (0..5).any(|c| {
-                                        deficit[c] == 1
+                                        deficit[c] > free_supply[c]
                                             && super::choices::count_color_pips(&sc, c) > 0
                                     })
                             })
@@ -1954,6 +2135,38 @@ fn is_activated_ability_worth_activating_now(
         } => (cost, *effects, targets.as_ref().map(|r| &r.spec)),
         _ => return true,
     };
+    let is_counter_ab = effects.iter().any(|e| {
+        matches!(
+            e,
+            Effect::CounterTargetSpell
+                | Effect::CounterTargetAbility
+                | Effect::CounterTargetSpellOrAbility
+        )
+    });
+    if !is_counter_ab
+        && !view.stack.is_empty()
+        && view.stack.iter().any(|item| item.controller == actor)
+    {
+        return false;
+    }
+    let is_rummage_sac = cost.parts.contains(&CostPart::SacrificeSelf)
+        && cost
+            .parts
+            .iter()
+            .any(|p| matches!(p, CostPart::Discard(_)));
+    if is_rummage_sac {
+        if view.hand.is_empty() {
+            return false;
+        }
+        if view.active == actor && view.phase == Phase::FirstMain {
+            let pool_total = view
+                .seat(actor)
+                .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
+            if pool_total < cost.mana.with_x(0).cmc() {
+                return false;
+            }
+        }
+    }
     for eff in effects {
         let filter_opt = match eff {
             Effect::LookAtTopMayTake { filter, .. }
@@ -2964,7 +3177,7 @@ fn unmet_color_deficit(view: &PlayerView, legal: &LegalActions) -> [u32; 6] {
     deficit
 }
 
-fn spell_colors_reachable(
+pub(super) fn spell_colors_reachable(
     view: &PlayerView,
     actor: PlayerId,
     spell_id: ObjectId,

@@ -4,7 +4,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use baylee_cards_dsl::{
-    AbilityDef, Amount, CostPart, Effect, KeywordSet, ManaSource, PlayerRel, TargetSpec, counters,
+    AbilityDef, Amount, CostPart, Effect, Filter, KeywordSet, ManaSource, PlayerRel, TargetSpec,
+    Trigger, counters,
 };
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::{AbilityRef, Defender, ObjectId, PlayerId, SubtypeId};
@@ -98,14 +99,31 @@ pub(super) fn mask_non_priority_single_choice(
                 });
                 if let Some(modes) = modal_modes {
                     let mut trial = masked_logits.to_vec();
+                    let urgent_opp_ench = opp_has_urgent_enchantment(view, actor);
+                    let mut any_ench_removal = false;
                     for (i, c) in cands.candidates.iter().enumerate() {
                         if let Some(PlayerAction::ChooseMode(opt_idx)) = c.action
                             && let Some(opt) = options.get(opt_idx)
                             && let baylee_engine::choice::CastModeKind::Mode(m_idx) = opt.kind
                             && let Some(mode) = modes.get(m_idx)
-                            && !is_modal_mode_worth_casting(view, actor, mode)
                         {
-                            trial[i] = f32::NEG_INFINITY;
+                            if !is_modal_mode_worth_casting(view, actor, mode) {
+                                trial[i] = f32::NEG_INFINITY;
+                            } else if urgent_opp_ench && mode_destroys_enchantment(mode) {
+                                any_ench_removal = true;
+                            }
+                        }
+                    }
+                    if urgent_opp_ench && any_ench_removal {
+                        for (i, c) in cands.candidates.iter().enumerate() {
+                            if let Some(PlayerAction::ChooseMode(opt_idx)) = c.action
+                                && let Some(opt) = options.get(opt_idx)
+                                && let baylee_engine::choice::CastModeKind::Mode(m_idx) = opt.kind
+                                && let Some(mode) = modes.get(m_idx)
+                                && !mode_destroys_enchantment(mode)
+                            {
+                                trial[i] = f32::NEG_INFINITY;
+                            }
                         }
                     }
                     if trial.iter().any(|l| l.is_finite()) {
@@ -164,12 +182,53 @@ pub(super) fn mask_non_priority_single_choice(
                 YesNoPrompt::PayMana { cost } => Some(cost.with_x(0).cmc()),
                 _ => None,
             };
+            let decline_shock = if let YesNoPrompt::PayLifeOrEnterTapped { amount } = prompt {
+                let my_life = view.seat(actor).map_or(20, |s| s.life);
+                let amt = i32::from(*amount);
+                let opp_power: i32 = view
+                    .battlefield
+                    .iter()
+                    .filter(|o| {
+                        o.controller != actor
+                            && o.types.contains(TypeSet::CREATURE)
+                            && !o.status.contains(ObjectStatus::PHASED_OUT)
+                    })
+                    .map(|o| i32::from(o.power.unwrap_or(0)).max(0))
+                    .sum();
+                let pool_total = view
+                    .seat(actor)
+                    .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
+                let avail_now = pool_total.saturating_add(untapped_mana_production(view, actor));
+                let needs_one_more_mana = view.hand.iter().any(|h| {
+                    !is_true_land_card(view, h.id)
+                        && lookup_spell_cost(view, h.id).is_some_and(|(c, t)| {
+                            let req = c.with_x(0).cmc().saturating_add(t);
+                            req == avail_now || req == avail_now.saturating_add(1)
+                        })
+                });
+                my_life <= amt + 5 || my_life - amt <= opp_power || !needs_one_more_mana
+            } else {
+                false
+            };
             let decline_draw = should_decline_yes_no_for_library(view, actor, *source);
             let decline_tax = req_mana.is_some_and(|req| !should_pay_tax(view, actor, *source, req));
-            if decline_draw || decline_tax {
+            let force_pay_tax = matches!(prompt, YesNoPrompt::PayTax { .. })
+                && !decline_draw
+                && !decline_tax;
+            if decline_draw || decline_tax || decline_shock {
                 let mut trial = masked_logits.to_vec();
                 for (i, c) in cands.candidates.iter().enumerate() {
                     if matches!(c.action, Some(PlayerAction::YesNo(true))) {
+                        trial[i] = f32::NEG_INFINITY;
+                    }
+                }
+                if trial.iter().any(|l| l.is_finite()) {
+                    masked_logits.copy_from_slice(&trial);
+                }
+            } else if force_pay_tax {
+                let mut trial = masked_logits.to_vec();
+                for (i, c) in cands.candidates.iter().enumerate() {
+                    if matches!(c.action, Some(PlayerAction::YesNo(false))) {
                         trial[i] = f32::NEG_INFINITY;
                     }
                 }
@@ -228,23 +287,28 @@ pub(super) fn mask_non_priority_single_choice(
                         masked_logits.copy_from_slice(&trial);
                     }
                 }
-            } else if matches!(prompt, ChoicePrompt::CostSacrifice)
-                && let Some((src_id, Some(_))) = active_source
-            {
-                let mut trial = masked_logits.to_vec();
-                let mut found_self = false;
-                for (i, c) in cands.candidates.iter().enumerate() {
-                    if let Some(PlayerAction::ChooseObjects { objects }) = &c.action
-                        && objects.len() == 1
-                        && objects[0] == src_id
-                    {
-                        found_self = true;
-                    } else {
-                        trial[i] = f32::NEG_INFINITY;
+            } else if matches!(prompt, ChoicePrompt::CostSacrifice) {
+                let src_id = active_source.map(|s| s.0);
+                let tiers: Vec<i32> = cands
+                    .candidates
+                    .iter()
+                    .map(|c| match &c.action {
+                        Some(PlayerAction::ChooseObjects { objects }) if objects.len() == 1 => {
+                            sacrifice_card_tier(view, actor, objects[0], src_id)
+                        }
+                        _ => 0,
+                    })
+                    .collect();
+                if let Some(max_tier) = tiers.iter().copied().max() {
+                    let mut trial = masked_logits.to_vec();
+                    for (i, &t) in tiers.iter().enumerate() {
+                        if t < max_tier {
+                            trial[i] = f32::NEG_INFINITY;
+                        }
                     }
-                }
-                if found_self && trial.iter().any(|l| l.is_finite()) {
-                    masked_logits.copy_from_slice(&trial);
+                    if trial.iter().any(|l| l.is_finite()) {
+                        masked_logits.copy_from_slice(&trial);
+                    }
                 }
             }
         }
@@ -444,6 +508,7 @@ pub(super) fn adjust_subset_logits(
                     out[i] = out[i].max(4.0);
                     continue;
                 }
+                let death_payoff = friendly_creature_death_payoff(view, actor, att_obj);
                 let go_wide_alpha = !is_fragile_engine
                     && ((guaranteed_unblocked_count > 0 && guaranteed_unblocked_dmg >= def_life)
                         || (non_engine_powers.len() >= 8
@@ -453,6 +518,10 @@ pub(super) fn adjust_subset_logits(
                             && non_engine_powers.len() > total_def_blockers
                             && guaranteed_unblocked_dmg >= 2)
                         || (has_vigilance && non_engine_powers.len() >= total_def_blockers + 4)
+                        || (total_def_blockers <= 1
+                            && non_engine_powers.len() >= 3
+                            && guaranteed_unblocked_dmg >= 2
+                            && (death_payoff >= 1 || my_life >= 12))
                         || (is_unblockable
                             && (has_vigilance
                                 || total_pos_attackers >= total_def_blockers + 2
@@ -494,21 +563,44 @@ pub(super) fn adjust_subset_logits(
                         out[i] += (tier as f32) * 10.0 + bonus;
                     }
                 }
+            } else if matches!(prompt, ChoicePrompt::CostSacrifice) {
+                let src_id = active_source.map(|s| s.0);
+                for (i, cand) in cands.candidates[..n].iter().enumerate() {
+                    if let Some(oid) = cand.object_id {
+                        let tier = sacrifice_card_tier(view, actor, oid, src_id);
+                        out[i] += (tier as f32) * 10.0;
+                    }
+                }
             }
         }
         Pending::ChooseTargets { min, .. } => {
             let intent = classify_active_target_intent(view, actor, active_source);
+            let fixed_dmg = active_source_fixed_damage(view, active_source);
+            let any_lethal_creature_kill = fixed_dmg.is_some_and(|dmg| {
+                cands.candidates[..n].iter().any(|cand| {
+                    cand.object_id
+                        .and_then(|oid| view.object(oid))
+                        .is_some_and(|o| {
+                            o.controller != actor
+                                && o.types.contains(TypeSet::CREATURE)
+                                && !has_kw(o, KeywordSet::INDESTRUCTIBLE)
+                                && (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage))
+                                    .max(1)
+                                    <= dmg
+                        })
+                })
+            });
+            let any_urgent_ench_target = cands.candidates[..n].iter().any(|cand| {
+                cand.object_id
+                    .and_then(|oid| view.object(oid))
+                    .is_some_and(|o| o.controller != actor && is_urgent_enchantment(o))
+            });
             if intent != TargetIntent::Neutral {
                 for (i, cand) in cands.candidates[..n].iter().enumerate() {
-                    let is_friendly = cand
-                        .object_id
-                        .and_then(|oid| view.object(oid))
-                        .is_some_and(|o| o.controller == actor)
+                    let obj_opt = cand.object_id.and_then(|oid| view.object(oid));
+                    let is_friendly = obj_opt.is_some_and(|o| o.controller == actor)
                         || cand.player_id == Some(actor);
-                    let is_hostile = cand
-                        .object_id
-                        .and_then(|oid| view.object(oid))
-                        .is_some_and(|o| o.controller != actor)
+                    let is_hostile = obj_opt.is_some_and(|o| o.controller != actor)
                         || cand.player_id.is_some_and(|p| p != actor);
                     match intent {
                         TargetIntent::Hostile => {
@@ -516,6 +608,25 @@ pub(super) fn adjust_subset_logits(
                                 out[i] -= 15.0;
                             } else if is_hostile {
                                 out[i] += 2.0;
+                                if let Some(o) = obj_opt {
+                                    if any_urgent_ench_target && is_urgent_enchantment(o) {
+                                        out[i] += 10.0;
+                                    }
+                                    if let Some(dmg) = fixed_dmg
+                                        && any_lethal_creature_kill
+                                        && o.types.contains(TypeSet::CREATURE)
+                                        && !has_kw(o, KeywordSet::INDESTRUCTIBLE)
+                                    {
+                                        let rem_t = (i32::from(o.toughness.unwrap_or(1))
+                                            - i32::from(o.damage))
+                                        .max(1);
+                                        if rem_t <= dmg {
+                                            out[i] += 8.0
+                                                + (i32::from(o.power.unwrap_or(0)).max(0) as f32)
+                                                    * 0.5;
+                                        }
+                                    }
+                                }
                             }
                         }
                         TargetIntent::Beneficial => {
@@ -592,6 +703,10 @@ fn has_kw(obj: &PublicObject, kw: KeywordSet) -> bool {
     (obj.keywords & kw.bits()) != 0
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "Evaluates surviving blockers, go-wide thresholds, death triggers, and trading-down prevention"
+)]
 fn is_suicide_attack_into_blockers(
     view: &PlayerView,
     att_obj: &PublicObject,
@@ -618,6 +733,11 @@ fn is_suicide_attack_into_blockers(
         .collect();
 
     if legal_blockers.is_empty() {
+        return false;
+    }
+
+    let death_payoff = friendly_creature_death_payoff(view, att_obj.controller, att_obj);
+    if att_power <= 2 && death_payoff >= 2 && total_pos_attackers >= legal_blockers.len() {
         return false;
     }
 
@@ -651,8 +771,12 @@ fn is_suicide_attack_into_blockers(
                     bp >= att_rem_tough || (has_kw(b, KeywordSet::DEATHTOUCH) && bp > 0)
                 })
                 .count();
-            let single_free_eater = min_blockers == 1 && free_eaters >= 1;
-            let gang_free_eat = {
+            let allow_go_wide_into_single_blocker = legal_blockers.len() == 1
+                && total_pos_attackers >= 3
+                && (death_payoff >= 1 || att_power <= 2);
+            let single_free_eater =
+                min_blockers == 1 && free_eaters >= 1 && !allow_go_wide_into_single_blocker;
+            let gang_free_eat = !allow_go_wide_into_single_blocker && {
                 let sum_p: i32 = surviving
                     .iter()
                     .map(|b| i32::from(b.power.unwrap_or(0)).max(0))
@@ -685,6 +809,30 @@ fn is_suicide_attack_into_blockers(
                     }
                 }
             }
+        }
+    }
+
+    // 1b. Avoid trading down a higher-stat fragile attacker (e.g. 3/2 or 4/2) into a smaller blocker (e.g. 2/1)
+    let def_life = view.seat(def_pid).map_or(20, |s| s.life);
+    if !att_deathtouch
+        && !has_kw(att_obj, KeywordSet::FIRST_STRIKE)
+        && !has_kw(att_obj, KeywordSet::DOUBLE_STRIKE)
+        && !has_kw(att_obj, KeywordSet::TRAMPLE)
+        && !has_kw(att_obj, KeywordSet::MENACE)
+        && att_power >= 3
+        && att_rem_tough <= 2
+        && death_payoff == 0
+        && total_pos_attackers <= legal_blockers.len()
+        && def_life > att_power
+    {
+        let trades_down = legal_blockers.iter().any(|b| {
+            let bp = i32::from(b.power.unwrap_or(0)).max(0);
+            let b_rem = (i32::from(b.toughness.unwrap_or(1)) - i32::from(b.damage)).max(1);
+            let b_kills = bp >= att_rem_tough || (has_kw(b, KeywordSet::DEATHTOUCH) && bp > 0);
+            b_kills && bp < att_power && b_rem <= att_rem_tough && bp + b_rem + 2 <= att_power + att_rem_tough
+        });
+        if trades_down {
+            return true;
         }
     }
 
@@ -1095,7 +1243,9 @@ pub(super) fn adjust_pair_logits(
         if ap <= 0 {
             continue;
         }
-        let need_lethal_chump = rem_unblocked_dmg >= my_life || my_life - rem_unblocked_dmg <= 3;
+        let need_lethal_chump = rem_unblocked_dmg >= my_life
+            || my_life - rem_unblocked_dmg <= 3
+            || (rem_unblocked_dmg >= 6 && my_life - rem_unblocked_dmg <= 7 && ap >= 3);
         if a_mn {
             if !need_lethal_chump {
                 continue;
@@ -1140,7 +1290,16 @@ pub(super) fn adjust_pair_logits(
                 if a_id != atk_id || used_blks.contains(&blk_id) {
                     return false;
                 }
-                need_lethal_chump || (raw_logits[i] > 0.0 && ap >= 3 && my_life <= 10)
+                let (bp, bt, ..) = blk_stats(blk_id);
+                let value_death_block = ap >= 3
+                    && bp <= 1
+                    && bt <= 1
+                    && view
+                        .object(blk_id)
+                        .is_some_and(|bo| friendly_creature_death_payoff(view, actor, bo) >= 2);
+                need_lethal_chump
+                    || value_death_block
+                    || (raw_logits[i] > 0.0 && ap >= 3 && my_life <= 10)
             })
             .min_by(|&i, &j| {
                 let (b_i, _) = cands.pair_objects[i];
@@ -1612,6 +1771,8 @@ fn should_pay_tax(
                         | Effect::CounterTargetAbility
                         | Effect::CounterTargetSpellOrAbility
                         | Effect::SacrificeSelf
+                        | Effect::DrawCards { .. }
+                        | Effect::DrawCardsFor { .. }
                         | Effect::DealDamage {
                             target: TargetSpec::Player(PlayerRel::You),
                             ..
@@ -1760,6 +1921,22 @@ fn discard_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> (i32,
 
     let cmc = lookup_spell_cost(view, oid).map_or(2, |(c, t)| c.with_x(0).cmc().saturating_add(t));
     let cmc_bonus = (cmc.min(12) as f32) * 0.1;
+    let is_off_color = lookup_spell_cost(view, oid).is_some_and(|(cost, _)| {
+        !super::tactics::spell_colors_reachable(view, actor, oid, &cost)
+            && (0..5).any(|c| {
+                count_color_pips(&cost, c) > 0
+                    && !view.hand.iter().any(|h| {
+                        is_true_land_card(view, h.id)
+                            && super::tactics::non_sac_source_colors(view, h.id)[c]
+                    })
+            })
+    });
+    if is_off_color && cmc >= my_mana + 2 {
+        return (5, cmc_bonus);
+    }
+    if is_off_color && cmc >= 4 {
+        return (4, cmc_bonus + 0.5);
+    }
     if cmc >= my_mana + 3 {
         return (4, cmc_bonus);
     }
@@ -1767,6 +1944,202 @@ fn discard_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> (i32,
         return (3, cmc_bonus);
     }
     (1, cmc_bonus)
+}
+
+fn friendly_creature_death_payoff(
+    view: &PlayerView,
+    controller: PlayerId,
+    obj: &PublicObject,
+) -> i32 {
+    let mut score = 0_i32;
+    if let Some(abs) = super::tactics::abilities_of_battlefield_object(obj) {
+        for ab in abs {
+            if let AbilityDef::Triggered {
+                trigger: Trigger::Dies(Filter::This),
+                effects,
+                ..
+            } = ab
+                && effects.iter().any(|e| {
+                    matches!(
+                        e,
+                        Effect::DrawCards { .. }
+                            | Effect::DealDamage { .. }
+                            | Effect::LoseLife { .. }
+                            | Effect::GainLife { .. }
+                            | Effect::CreateToken { .. }
+                    )
+                })
+            {
+                score += 2;
+            }
+        }
+    }
+    for perm in view.battlefield_of(controller) {
+        if perm.id == obj.id || perm.status.contains(ObjectStatus::PHASED_OUT) {
+            continue;
+        }
+        let Some(abs) = super::tactics::abilities_of_battlefield_object(perm) else {
+            continue;
+        };
+        for ab in abs {
+            if let AbilityDef::Triggered {
+                trigger: Trigger::Dies(filter),
+                effects,
+                ..
+            } = ab
+                && !matches!(*filter, Filter::This)
+                && effects.iter().any(|e| {
+                    matches!(
+                        e,
+                        Effect::DrawCards { .. }
+                            | Effect::DealDamage { .. }
+                            | Effect::LoseLife { .. }
+                            | Effect::GainLife { .. }
+                            | Effect::CreateToken { .. }
+                    )
+                })
+            {
+                score += 1;
+            }
+        }
+    }
+    score
+}
+
+fn sacrifice_card_tier(
+    view: &PlayerView,
+    actor: PlayerId,
+    oid: ObjectId,
+    src_id: Option<ObjectId>,
+) -> i32 {
+    let Some(obj) = view.object(oid) else {
+        return 2;
+    };
+    if src_id == Some(oid) && obj.types.contains(TypeSet::CREATURE) {
+        return 0;
+    }
+    let pt =
+        i32::from(obj.power.unwrap_or(0)).max(0) + i32::from(obj.toughness.unwrap_or(0)).max(0);
+    if pt <= 3 && friendly_creature_death_payoff(view, actor, obj) >= 2 {
+        return 5;
+    }
+    if obj.token.is_some() && pt <= 3 {
+        return 4;
+    }
+    if let Some(abs) = super::tactics::abilities_of_battlefield_object(obj) {
+        let is_engine = abs.iter().any(|ab| match ab {
+            AbilityDef::Activated {
+                cost, mana_ability, ..
+            }
+            | AbilityDef::ActivatedConditional {
+                cost, mana_ability, ..
+            } => !*mana_ability && !cost.parts.contains(&CostPart::SacrificeSelf),
+            AbilityDef::Triggered { trigger, .. } => {
+                !matches!(*trigger, Trigger::ETB | Trigger::Dies(Filter::This))
+            }
+            _ => false,
+        });
+        if is_engine {
+            return 1;
+        }
+    }
+    if pt <= 3 {
+        return 3;
+    }
+    2
+}
+
+pub(super) fn is_urgent_enchantment(obj: &PublicObject) -> bool {
+    if !obj.types.contains(TypeSet::ENCHANTMENT) || obj.status.contains(ObjectStatus::PHASED_OUT) {
+        return false;
+    }
+    let Some(abs) = super::tactics::abilities_of_battlefield_object(obj) else {
+        return false;
+    };
+    abs.iter().any(|ab| {
+        matches!(
+            ab,
+            AbilityDef::Triggered {
+                trigger: Trigger::SpellCast(_),
+                ..
+            } | AbilityDef::Static(_)
+        )
+    })
+}
+
+fn opp_has_urgent_enchantment(view: &PlayerView, actor: PlayerId) -> bool {
+    view.battlefield
+        .iter()
+        .any(|o| o.controller != actor && is_urgent_enchantment(o))
+}
+
+pub(super) fn mode_destroys_enchantment(mode: &baylee_cards_dsl::SpellMode) -> bool {
+    let Some(ref t) = mode.targets else {
+        return false;
+    };
+    let TargetSpec::Object(ref filter) = t.spec else {
+        return false;
+    };
+    let matches_ench = match filter {
+        Filter::HasType(ts) => ts.contains(TypeSet::ENCHANTMENT),
+        Filter::And(list) | Filter::Or(list) => list
+            .iter()
+            .any(|f| matches!(f, Filter::HasType(ts) if ts.contains(TypeSet::ENCHANTMENT))),
+        _ => false,
+    };
+    matches_ench
+        && mode
+            .effects
+            .iter()
+            .any(|e| matches!(e, Effect::Destroy { .. } | Effect::Exile { .. }))
+}
+
+pub(super) fn active_source_fixed_damage(
+    view: &PlayerView,
+    active_source: Option<(ObjectId, Option<u32>)>,
+) -> Option<i32> {
+    let (oid, ab_idx) = active_source?;
+    let abilities = if let Some(obj) = view.object(oid) {
+        super::tactics::abilities_of_battlefield_object(obj)?
+    } else {
+        let ci = lookup_card_identity(view, oid)?;
+        let def = baylee_cards::by_index(ci.index)?;
+        def.abilities_for_face(usize::from(ci.face))
+    };
+    let check_effects = |effects: &[Effect]| -> Option<i32> {
+        for eff in effects {
+            if let Effect::DealDamage {
+                amount: Amount::Fixed(dmg),
+                ..
+            } = eff
+            {
+                return i32::try_from(*dmg).ok();
+            }
+        }
+        None
+    };
+    if let Some(idx) = ab_idx.and_then(|i| usize::try_from(i).ok())
+        && let Some(ab) = abilities.get(idx)
+    {
+        return match ab {
+            AbilityDef::Spell { effects, .. }
+            | AbilityDef::Activated { effects, .. }
+            | AbilityDef::ActivatedConditional { effects, .. }
+            | AbilityDef::Triggered { effects, .. } => check_effects(effects),
+            _ => None,
+        };
+    }
+    for ab in abilities {
+        if let AbilityDef::Spell { effects, .. }
+        | AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. }
+        | AbilityDef::Triggered { effects, .. } = ab
+            && let Some(d) = check_effects(effects)
+        {
+            return Some(d);
+        }
+    }
+    None
 }
 
 fn is_creature_card(view: &PlayerView, oid: ObjectId) -> bool {
