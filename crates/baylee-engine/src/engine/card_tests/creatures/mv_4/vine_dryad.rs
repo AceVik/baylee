@@ -63,14 +63,20 @@ fn vine_dryad_pitches_a_green_card_and_has_flash_and_forestwalk() {
     pass_until(&mut engine, |e| {
         e.state().turn.active == p0 && matches!(e.pending(), Pending::ChooseAttackers { .. })
     });
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(dryad, Defender::Player(p1))],
-            },
-        )
-        .unwrap();
+    let bears = on_battlefield(&engine, p1, index::GRIZZLY_BEARS).expect("defender's Bears");
+    let blocks = attack_and_collect_blocks(&mut engine, dryad, p1);
+    assert!(!blocks.iter().any(|option| option.blocker == bears));
+    assert!(
+        engine
+            .apply(
+                p1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(bears, dryad)],
+                }
+            )
+            .is_err(),
+        "the defending player's Forest makes the Dryad unblockable"
+    );
     pass_until(&mut engine, |e| e.state().turn.step == Step::End);
 
     assert_eq!(

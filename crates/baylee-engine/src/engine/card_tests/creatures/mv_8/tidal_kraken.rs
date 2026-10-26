@@ -24,17 +24,20 @@ fn tidal_kraken_cannot_be_blocked() {
 
     let kraken = on_battlefield(&engine, p0, tidal_kraken()).expect("Tidal Kraken");
 
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    engine
-        .apply(
-            p0,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(kraken, Defender::Player(p1))],
-            },
-        )
-        .unwrap();
+    let bears = on_battlefield(&engine, p1, index::GRIZZLY_BEARS).expect("Grizzly Bears");
+    let blocks = attack_and_collect_blocks(&mut engine, kraken, p1);
+    assert!(!blocks.iter().any(|option| option.blocker == bears));
+    assert!(
+        engine
+            .apply(
+                p1,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(bears, kraken)],
+                }
+            )
+            .is_err(),
+        "Tidal Kraken refuses an otherwise available blocker"
+    );
     pass_until(&mut engine, |e| e.state().turn.step == Step::End);
 
     assert_eq!(

@@ -87,17 +87,19 @@ fn rishadan_brigand_taxes_opponents_three_on_etb_and_blocks_only_flyers() {
     assert!(keywords(&engine, brigand).contains(KeywordSet::FLYING));
 
     assert!(walk_to_own_main(&mut engine, p1));
-    pass_until(&mut engine, |e| {
-        matches!(e.pending(), Pending::ChooseAttackers { .. })
-    });
-    engine
-        .apply(
-            p1,
-            PlayerAction::DeclareAttackers {
-                attackers: vec![(bear, Defender::Player(p0))],
-            },
-        )
-        .unwrap();
+    let blockers = attack_and_collect_blocks(&mut engine, bear, p0);
+    assert!(!blockers.iter().any(|option| option.blocker == brigand));
+    assert!(
+        engine
+            .apply(
+                p0,
+                PlayerAction::DeclareBlockers {
+                    blockers: vec![(brigand, bear)],
+                }
+            )
+            .is_err(),
+        "flying does not let the Brigand block a nonflying attacker"
+    );
     assert!(walk_to_own_main(&mut engine, p0));
     assert_eq!(
         engine.state().players[0].life,
