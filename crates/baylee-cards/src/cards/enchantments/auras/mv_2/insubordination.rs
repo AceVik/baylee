@@ -38,7 +38,7 @@ card!(
                 condition: DID_NOT_ATTACK_THIS_TURN,
                 then: &[Effect::DealDamage {
                     amount: Amount::Fixed(2),
-                    target: TargetSpec::Player(PlayerRel::ControllerOfAttached),
+                    target: TargetSpec::Player(PlayerRel::EventPlayer),
                 }],
                 otherwise: &[],
             }],

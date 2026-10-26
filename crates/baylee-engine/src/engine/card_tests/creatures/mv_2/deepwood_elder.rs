@@ -2,18 +2,21 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 use baylee_core::generated::subtypes;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
+
+fn subject_card() -> CardIndex {
+    card_index("ffb62e4a-802d-4f1e-b92e-ec0919baafd5")
+}
 
 /// Deepwood Elder — {G}{G} 2/2 Creature — Dryad Spellshaper:
 /// "{X}{G}{G}, {T}, Discard a card: X target lands become Forests until end of turn."
 #[test]
 fn deepwood_elder_turns_x_target_lands_into_forests_until_end_of_turn() {
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[index::DEEPWOOD_ELDER, mountain()])
+        .battlefield(0, &[subject_card(), mountain()])
         .battlefield(1, &[island()])
         .hand(0, &[forest()])
         .start();
@@ -29,7 +32,7 @@ fn deepwood_elder_turns_x_target_lands_into_forests_until_end_of_turn() {
         .add(ManaColor::Green, 4);
     engine.refresh_offer();
 
-    activate(&mut engine, P0, index::DEEPWOOD_ELDER, 0);
+    activate(&mut engine, P0, subject_card(), 0);
     for _ in 0..5 {
         match engine.pending().clone() {
             Pending::ChooseNumber { .. } => {

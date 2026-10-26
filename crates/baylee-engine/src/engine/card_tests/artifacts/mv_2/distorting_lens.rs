@@ -8,18 +8,22 @@ use baylee_core::generated::index;
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 
+fn subject_card() -> CardIndex {
+    card_index("9c9579c5-7edf-41ca-8595-713ca9245576")
+}
+
 /// Distorting Lens — {2} Artifact:
 /// "{T}: Target permanent becomes the color of your choice until end of turn."
 #[test]
 fn distorting_lens_changes_target_permanent_color_until_end_of_turn() {
     let mut engine = Duel::new(SEED, forest())
         .battlefield(0, &[forest(), forest(), index::GRIZZLY_BEARS])
-        .hand(0, &[index::DISTORTING_LENS])
+        .hand(0, &[subject_card()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
 
-    cast_from_hand(&mut engine, P0, index::DISTORTING_LENS);
+    cast_from_hand(&mut engine, P0, subject_card());
     pass_until(&mut engine, stack_is_empty);
 
     let bears = on_battlefield(&engine, P0, index::GRIZZLY_BEARS).unwrap();
@@ -33,7 +37,7 @@ fn distorting_lens_changes_target_permanent_color_until_end_of_turn() {
         ColorSet::of(Color::Green)
     );
 
-    activate(&mut engine, P0, index::DISTORTING_LENS, 0);
+    activate(&mut engine, P0, subject_card(), 0);
     aim_at(&mut engine, P0, bears);
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseCastMode { .. })

@@ -2,6 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+use crate::engine::card_tests::legends_kit as lk;
+use baylee_core::generated::index;
 
 // oracle_id = "0d3e843e-eeb4-421e-b55d-ceb21f51a080"
 fn insubordination() -> CardIndex {
@@ -70,5 +72,49 @@ fn insubordination_damages_enchanted_creatures_controller_unless_it_attacked() {
         engine.state().players[1].life,
         18,
         "Insubordination dealt 0 damage when the enchanted creature attacked this turn"
+    );
+}
+
+#[test]
+fn insubordination_damages_the_triggering_player_after_enchanted_creature_changes_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = lk::game(
+        SEED,
+        &[],
+        &[index::GRIZZLY_BEARS],
+        &[insubordination(), index::RAY_OF_COMMAND],
+        &[],
+    );
+    let bear = lk::obj(&engine, p1, index::GRIZZLY_BEARS);
+    lk::float(&mut engine, p0, &[(ManaColor::Black, 2)]);
+    lk::cast_at(&mut engine, p0, insubordination(), &[bear], &[]);
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && e.state().turn.step == Step::End && !stack_is_empty(e)
+    });
+    assert_eq!(lk::life(&engine, p0), 20);
+    assert_eq!(lk::life(&engine, p1), 20);
+
+    // The ability says "that player": changing the host's controller in response
+    // cannot move the damage away from the player whose end step triggered it.
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    lk::float(
+        &mut engine,
+        p0,
+        &[(ManaColor::Colorless, 3), (ManaColor::Blue, 1)],
+    );
+    lk::cast_at(&mut engine, p0, index::RAY_OF_COMMAND, &[bear], &[]);
+    assert_eq!(engine.state().object(bear).unwrap().controller, p0);
+    assert_eq!(
+        lk::life(&engine, p1),
+        18,
+        "the triggering player still takes 2 damage"
+    );
+    assert_eq!(
+        lk::life(&engine, p0),
+        20,
+        "the new controller is not that player"
     );
 }

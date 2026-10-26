@@ -2,17 +2,20 @@
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
-use baylee_core::generated::index;
 
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
+
+fn subject_card() -> CardIndex {
+    card_index("01805d0d-3a72-4d26-9475-3e68c278b7fe")
+}
 
 /// Cinder Elemental — {3}{R} 2/2 Creature — Elemental:
 /// "{X}{R}, {T}, Sacrifice this creature: It deals X damage to any target."
 #[test]
 fn cinder_elemental_sacrifices_to_deal_x_damage_to_any_target() {
     let mut engine = Duel::new(SEED, mountain())
-        .battlefield(0, &[index::CINDER_ELEMENTAL])
+        .battlefield(0, &[subject_card()])
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, P0);
@@ -22,7 +25,7 @@ fn cinder_elemental_sacrifices_to_deal_x_damage_to_any_target() {
         .add(ManaColor::Red, 5);
     engine.refresh_offer();
 
-    activate(&mut engine, P0, index::CINDER_ELEMENTAL, 0);
+    activate(&mut engine, P0, subject_card(), 0);
     for _ in 0..4 {
         match engine.pending().clone() {
             Pending::ChooseNumber { .. } => {
@@ -44,7 +47,7 @@ fn cinder_elemental_sacrifices_to_deal_x_damage_to_any_target() {
     }
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(on_battlefield(&engine, P0, index::CINDER_ELEMENTAL).is_none());
-    assert!(in_graveyard(&engine, P0, index::CINDER_ELEMENTAL).is_some());
+    assert!(on_battlefield(&engine, P0, subject_card()).is_none());
+    assert!(in_graveyard(&engine, P0, subject_card()).is_some());
     assert_eq!(engine.state().players[1].life, 16);
 }
