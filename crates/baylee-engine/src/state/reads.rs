@@ -102,6 +102,7 @@ fn pt_count_reads_combat(count: baylee_cards_dsl::PtCount) -> bool {
         | PtCount::InAllGraveyards(_)
         | PtCount::ChosenPlayerControls(_)
         | PtCount::ExiledWithThis
+        | PtCount::CountersOnThis(_)
         | PtCount::EntrySacrifices
         | PtCount::ChosenNumber
         | PtCount::Fixed(_) => false,

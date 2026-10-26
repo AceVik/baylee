@@ -271,6 +271,9 @@ impl Tx<'_> {
         let toughness = self.pump_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let keywords = match p.take("KW") {
             None => "KeywordSet::EMPTY".to_string(),
+            Some(kw) if kw.trim() == "HIDDEN CARDNAME can't attack or block." => {
+                "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)".to_string()
+            }
             Some(kw) => {
                 let each: Option<Vec<&str>> =
                     kw.split('&').map(|k| keyword_const(k.trim())).collect();
@@ -366,6 +369,9 @@ impl Tx<'_> {
         let toughness = self.pump_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let keywords = match p.take("KW") {
             None => "KeywordSet::EMPTY".to_string(),
+            Some(kw) if kw.trim() == "HIDDEN CARDNAME can't attack or block." => {
+                "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)".to_string()
+            }
             Some(kw) => {
                 let each: Option<Vec<&str>> =
                     kw.split('&').map(|k| keyword_const(k.trim())).collect();
@@ -577,21 +583,17 @@ impl Tx<'_> {
             // ability is "return CARDNAME to its owner's hand" (Darting
             // Merfolk).
             None => {
-                !targets_here
-                    && !p.has("Hidden")
-                    && (target != "TargetSpec::AnyPlayer"
-                        || (!self.on_a_spell
-                            && origin == "Battlefield"
-                            && (destination == "Hand"
-                                || (destination == "Library"
-                                    && p.peek("LibraryPosition") == Some("0")))
-                            && !p.has("ChangeType")))
+                self.defaults_to_self_zone_change(p, &origin, &destination, target, targets_here)
             }
             Some("Self") => true,
-            Some(other) => {
-                self.note(format!("`ChangeZone` of `Defined$ {other}`"));
-                return None;
+            Some("ExiledWith")
+                if origin == "Exile"
+                    && destination == "Battlefield"
+                    && target == "TargetSpec::AnyPlayer" =>
+            {
+                return Some(vec!["Effect::ReturnLinkedToBattlefield".to_string()]);
             }
+            Some(other) => return self.deny(format!("`ChangeZone` of `Defined$ {other}`")),
         };
         // "Return a land you control to its owner's hand": no target, no
         // `Defined$`, and a player picking one of their own permanents while
@@ -605,8 +607,7 @@ impl Tx<'_> {
         }
         // Without a target this would move nothing at all.
         if !itself && target == "TargetSpec::AnyPlayer" {
-            self.note("`ChangeZone` with neither a target nor `Defined$`".to_string());
-            return None;
+            return self.deny("`ChangeZone` with neither a target nor `Defined$`".to_string());
         }
         Some(match (origin.as_str(), destination.as_str(), itself) {
             ("Battlefield" | "Graveyard", "Hand", true) => {
@@ -624,7 +625,18 @@ impl Tx<'_> {
             {
                 vec!["Effect::ShuffleTargetsIntoOwnersLibraries".to_string()]
             }
-            ("Battlefield", "Exile", false) => vec![format!("Effect::exile({target})")],
+            ("Battlefield", "Exile", false) => {
+                let verb = if self
+                    .svars
+                    .values()
+                    .any(|s| s.contains("Defined$ ExiledWith"))
+                {
+                    "exile_linked"
+                } else {
+                    "exile"
+                };
+                vec![format!("Effect::{verb}({target})")]
+            }
             ("Battlefield" | "Stack", "Exile", true) => vec!["Effect::ExileSource".to_string()],
             // "Return target card from your graveyard to your hand"
             // (Regrowth): the target is a `CardInGraveyard`, which the chain
@@ -643,8 +655,7 @@ impl Tx<'_> {
                         "Effect::PutOnBottomOfLibraryFromGraveyard {{ target: {target} }}"
                     )],
                     Some(other) => {
-                        self.note(format!("`ChangeZone` with `LibraryPosition$ {other}`"));
-                        return None;
+                        return self.deny(format!("`ChangeZone` with `LibraryPosition$ {other}`"));
                     }
                 }
             }
@@ -659,19 +670,33 @@ impl Tx<'_> {
                 if let Some(gain) = p.take("GainControl")
                     && gain != "True"
                 {
-                    self.note(format!("`ChangeZone` with `GainControl$ {gain}`"));
-                    return None;
+                    return self.deny(format!("`ChangeZone` with `GainControl$ {gain}`"));
                 }
                 vec![format!(
                     "Effect::GraveyardToBattlefield {{ target: {target}, owner_control: false, \
                      counters: None }}"
                 )]
             }
-            _ => {
-                self.note(format!("`ChangeZone` {origin} to {destination}"));
-                return None;
-            }
+            _ => return self.deny(format!("`ChangeZone` {origin} to {destination}")),
         })
+    }
+
+    fn defaults_to_self_zone_change(
+        &self,
+        p: &Params,
+        origin: &str,
+        destination: &str,
+        target: &str,
+        targets_here: bool,
+    ) -> bool {
+        !targets_here
+            && !p.has("Hidden")
+            && (target != "TargetSpec::AnyPlayer"
+                || (!self.on_a_spell
+                    && origin == "Battlefield"
+                    && (destination == "Hand"
+                        || (destination == "Library" && p.peek("LibraryPosition") == Some("0")))
+                    && !p.has("ChangeType")))
     }
 
     /// `Origin$ Battlefield` with a chooser rather than a target: the bounce

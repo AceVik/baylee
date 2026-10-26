@@ -46,6 +46,12 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     if svars.get(raw).map(|def| def.trim()) == Some("Count$ValidHand Card.YouOwn") {
         return Some("Amount::HandSize(PlayerRel::You)".to_string());
     }
+    if svars.get(raw).map(|def| def.trim()) == Some("TriggeredPlayer$CardsInHand/NMinus.3") {
+        return Some(
+            "Amount::Difference { left: &Amount::Fixed(3), right: &Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::HandActivePlayer } }"
+                .to_string(),
+        );
+    }
     if svars.get(raw).map(|def| def.trim()) == Some("Exiled$CardManaCost/Plus.1") {
         return Some("Amount::Plus { base: &Amount::SacrificedManaValue, offset: 1 }".to_string());
     }

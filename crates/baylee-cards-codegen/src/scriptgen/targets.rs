@@ -296,7 +296,7 @@ impl Tx<'_> {
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
                     "ActivePlayerCtrl" => "Filter::ControlledByActivePlayer".to_string(),
                     "YouOwn" => "Filter::OwnedByYou".to_string(),
-                    "Other" => "Filter::Another".to_string(),
+                    "Other" | "StrictlyOther" => "Filter::Another".to_string(),
                     "Self" => "Filter::This".to_string(),
                     "attacking" => "Filter::Attacking".to_string(),
                     "attackingYou" => "Filter::AttackingYou".to_string(),

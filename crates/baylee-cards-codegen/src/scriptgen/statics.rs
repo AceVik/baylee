@@ -398,6 +398,16 @@ impl Tx<'_> {
         let Some(count) = self.svars.get(&power).cloned() else {
             return self.deny(format!("`{power}` names no SVar"));
         };
+        if let Some(counter) = count.trim().strip_prefix("Count$CardCounters.") {
+            let Some(kind) = super::counter_kind(counter) else {
+                return self.deny(format!("counter `{counter}`"));
+            };
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
+                 count: PtCount::CountersOnThis({kind}), toughness_plus: 0 }})"
+            ));
+            return Some(());
+        }
         let Some(valid) = count.strip_prefix("Count$Valid ") else {
             return self.deny(format!("count `{count}`"));
         };

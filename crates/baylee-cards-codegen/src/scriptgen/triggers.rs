@@ -230,37 +230,7 @@ impl Tx<'_> {
         match mode {
             "AttackerBlockedByCreature" => self.block_trigger(p),
             "AttackerBlocked" => self.attacker_blocked_trigger(p),
-            "ChangesZone" => {
-                let origin = p.take("Origin");
-                let dest = p.take("Destination");
-                let valid = p.take("ValidCard");
-                let (Some(origin), Some(dest), Some(valid)) = (origin, dest, valid) else {
-                    return self
-                        .deny("a `ChangesZone` trigger missing one of its three keys".to_string());
-                };
-                let filter = if valid == "Card.Self" {
-                    "&Filter::This".to_string()
-                } else {
-                    let expr = self.filter_expr(&valid)?;
-                    format!("&{}", self.body.filter_static("TRIGGER", &expr))
-                };
-                match (origin.as_str(), dest.as_str()) {
-                    // `Trigger::ETB` is the same bytes as the variant with
-                    // `&Filter::This` in it, and is what the DSL carries the
-                    // constant for: ninety-nine of the pool's hundred and ten
-                    // enter-triggers point at the source, so the long form is
-                    // the rare one and deserves to look rare.
-                    ("Any", "Battlefield") if filter == "&Filter::This" => {
-                        Some("Trigger::ETB".to_string())
-                    }
-                    ("Any", "Battlefield") => Some(format!("Trigger::EntersBattlefield({filter})")),
-                    ("Battlefield", "Graveyard") => Some(format!("Trigger::Dies({filter})")),
-                    ("Graveyard", "Battlefield") if filter == "&Filter::This" => {
-                        Some("Trigger::EnteredThisFrom(ZoneRef::Graveyard)".to_string())
-                    }
-                    _ => self.deny(format!("trigger on a move from {origin} to {dest}")),
-                }
-            }
+            "ChangesZone" => self.changes_zone_trigger(p),
             "Phase" => {
                 let Some(phase) = p.take("Phase") else {
                     return self.deny("a `Phase` trigger with no `Phase$`".to_string());
@@ -339,6 +309,44 @@ impl Tx<'_> {
                 "Trigger::TargetedByOpponent { filter: &Filter::This, you: false }".to_string(),
             ),
             Some(other) => self.deny(format!("`BecomesTarget` with `ValidSource$ {other}`")),
+        }
+    }
+
+    fn changes_zone_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let origin = p.take("Origin");
+        let dest = p.take("Destination");
+        let valid = p.take("ValidCard");
+        let (Some(origin), Some(dest), Some(valid)) = (origin, dest, valid) else {
+            return self.deny("a `ChangesZone` trigger missing one of its three keys".to_string());
+        };
+        let filter = if valid == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&valid)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        match (origin.as_str(), dest.as_str()) {
+            // `Trigger::ETB` is the same bytes as the variant with
+            // `&Filter::This` in it, and is what the DSL carries the
+            // constant for: ninety-nine of the pool's hundred and ten
+            // enter-triggers point at the source, so the long form is
+            // the rare one and deserves to look rare.
+            ("Any", "Battlefield") if filter == "&Filter::This" => Some("Trigger::ETB".to_string()),
+            ("Any", "Battlefield") => Some(format!("Trigger::EntersBattlefield({filter})")),
+            ("Battlefield", "Graveyard") => Some(format!("Trigger::Dies({filter})")),
+            ("Graveyard", "Battlefield") if filter == "&Filter::This" => {
+                Some("Trigger::EnteredThisFrom(ZoneRef::Graveyard)".to_string())
+            }
+            ("Battlefield", "Any")
+                if filter == "&Filter::This"
+                    && self
+                        .svars
+                        .values()
+                        .any(|s| s.contains("Defined$ ExiledWith")) =>
+            {
+                Some("Trigger::LeavesBattlefield(&Filter::This)".to_string())
+            }
+            _ => self.deny(format!("trigger on a move from {origin} to {dest}")),
         }
     }
 

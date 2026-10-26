@@ -1757,3 +1757,52 @@ fn laccoliths_flowstone_armor_lin_sivvi_and_mossdog_transcode() {
         ]
     );
 }
+
+#[test]
+fn off_balance_parallax_wave_rackling_and_rusting_golem_transcode() {
+    let off_balance =
+        read("A:SP$ Pump | ValidTgts$ Creature | KW$ HIDDEN CARDNAME can't attack or block.");
+    assert_eq!(
+        off_balance.abilities,
+        [
+            "spell!(&[Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK), duration: Duration::UntilEndOfTurn }], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ]
+    );
+
+    let wave = read(
+        "K:Fading:5\n\
+         A:AB$ ChangeZone | Cost$ SubCounter<1/FADE> | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ TrigReturn\n\
+         SVar:TrigReturn:DB$ ChangeZone | Defined$ ExiledWith | Origin$ Exile | Destination$ Battlefield",
+    );
+    assert!(
+        wave.abilities[1].contains("Effect::exile_linked(TargetSpec::Object(&Filter::CREATURE))")
+            && wave.abilities[2].contains("Trigger::LeavesBattlefield(&Filter::This)")
+            && wave.abilities[2].contains("Effect::ReturnLinkedToBattlefield"),
+        "{:?}",
+        wave.abilities
+    );
+
+    let rackling = read(
+        "T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player.Opponent | TriggerZones$ Battlefield | Execute$ TrigDamage\n\
+         SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ X\n\
+         SVar:X:TriggeredPlayer$CardsInHand/NMinus.3",
+    );
+    assert!(
+        rackling.abilities[0].contains("Amount::Difference")
+            && rackling.abilities[0].contains("ZoneSel::HandActivePlayer"),
+        "{:?}",
+        rackling.abilities
+    );
+
+    let golem = read(
+        "K:Fading:5\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+         SVar:X:Count$CardCounters.FADE",
+    );
+    assert!(
+        golem.abilities[1].contains("PtCount::CountersOnThis(counters::FADE)"),
+        "{:?}",
+        golem.abilities
+    );
+}
