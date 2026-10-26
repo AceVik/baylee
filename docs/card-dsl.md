@@ -3846,6 +3846,7 @@ is 0.
 | `DamageDealt` | damage the resolving source dealt (after prevention) | Syphon Soul |
 | `DamageDealtToYou` | the part of it dealt to the controller | Mishra's War Machine |
 | `Died(&Filter)` | permanents put into a graveyard from the battlefield that matched the filter as they left | Hellfire |
+| `Destroyed(&Filter)` | matching permanents successfully destroyed by this resolution, including destruction moved to exile by a replacement; regeneration and indestructible do not count | Multani's Decree |
 | `ReturnedToHand(&Filter)` | permanents returned from the battlefield to a hand, matched as they left (`Filter::Another` excludes the source) | Arid Archway |
 | `Discarded` | cards discarded | Recall |
 | `Milled(&Filter)` | cards milled (CR 701.17a) that match the filter in the graveyard | Grist, the Hunger Tide |
@@ -3871,6 +3872,11 @@ Effect::IfCondition {
 
 `Condition::AmountAtLeast` inside `Effect::IfCondition` reads the amount
 through the resolution, so every resolution-only amount works there.
+`Destroyed` matches the permanent's characteristics before destruction. It
+differs from `Died`: a destination replacement can preserve a successful
+destruction without putting the permanent into a graveyard. Count the receipts
+in one `GainLife` instruction when the card says "gain 2 life for each";
+running one gain per destroyed permanent creates extra life-gain events.
 
 `Amount::ThisWay` counts every player's part. `Amount::ThisWayBy { what, who }`
 counts only the part of the players `who` names (whose cards, whose
