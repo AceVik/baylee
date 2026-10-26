@@ -461,6 +461,15 @@ impl Tx<'_> {
         Some(format!("TargetSpec::StackOrBattlefield(&{name})"))
     }
 
+    /// "Target activated ability [from a <valid> source]":
+    /// `TargetSpec::AbilityOnStack` over `Filter::ActivatedAbilityFrom`.
+    pub(super) fn activated_ability_target(&mut self, valid: &str) -> Option<String> {
+        let source = self.filter_expr(valid)?;
+        let expr = format!("Filter::ActivatedAbilityFrom(&{source})");
+        let name = self.body.filter_static("TARGET", &expr);
+        Some(format!("TargetSpec::AbilityOnStack(&{name})"))
+    }
+
     /// "Target creature card in your graveyard": a `CardInGraveyard` spec,
     /// whose player is whose graveyard. In a graveyard the reference's
     /// `YouCtrl` means "yours" (a card there is controlled by nobody, and

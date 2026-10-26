@@ -198,7 +198,13 @@ impl Tx<'_> {
             // so. The battlefield alone is what every target already
             // is.
             match p.take("TgtZone").as_deref() {
-                None | Some("Battlefield") => self.target_spec(valid, api),
+                None | Some("Battlefield") => {
+                    if api == "Counter" && p.peek("TargetType") == Some("Activated") {
+                        self.activated_ability_target(valid)
+                    } else {
+                        self.target_spec(valid, api)
+                    }
+                }
                 Some("Stack,Battlefield" | "Battlefield,Stack") => {
                     self.spell_or_permanent_target(valid)
                 }
@@ -947,12 +953,31 @@ impl Tx<'_> {
                 }
                 vec!["Effect::TakeExtraTurn".to_string()]
             }
-            "Counter" => {
-                if p.take("TargetType").as_deref() != Some("Spell") {
+            "Protection" => {
+                if p.take("Gains").as_deref() != Some("Choice")
+                    || p.take("Choices").as_deref() != Some("AnyColor")
+                {
                     return None;
                 }
-                vec!["Effect::CounterTargetSpell".to_string()]
+                match (p.take("Defined").as_deref(), target) {
+                    (None | Some("Targeted"), Some(_)) => {}
+                    (None | Some("Self"), None) if !self.on_a_spell => {}
+                    _ => return None,
+                }
+                let duration = match p.take("Duration").as_deref() {
+                    None => "Duration::UntilEndOfTurn",
+                    Some("Permanent") => "Duration::Indefinitely",
+                    Some(_) => return None,
+                };
+                vec![format!(
+                    "Effect::ProtectionFromChosenColor {{ duration: {duration} }}"
+                )]
             }
+            "Counter" => match p.take("TargetType").as_deref() {
+                Some("Spell") => vec!["Effect::CounterTargetSpell".to_string()],
+                Some("Activated") => vec!["Effect::CounterTargetAbility".to_string()],
+                _ => return None,
+            },
             _ => return None,
         })
     }

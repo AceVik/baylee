@@ -166,20 +166,29 @@ impl Tx<'_> {
         // the colours it had, which is `AddColor` (CR 105.3).
         if let Some(raw) = p.take("Colors") {
             let overwrite = p.take("OverwriteColors").as_deref() == Some("True");
-            let colors: Option<Vec<&str>> = raw.split(',').map(|c| color_const(c.trim())).collect();
-            let Some(colors) = colors else {
-                self.note(format!("`Animate` into colours `{raw}`"));
-                return None;
-            };
-            let which = if overwrite { "SetColor" } else { "AddColor" };
-            out.push(Self::animate_expr_for(
-                filter,
-                &format!(
-                    "Modifier::{which}(ColorSet::from_slice(&[{}]))",
-                    colors.join(", ")
-                ),
-                duration,
-            ));
+            if raw.trim() == "Colorless" && overwrite {
+                out.push(Self::animate_expr_for(
+                    filter,
+                    "Modifier::SetColor(ColorSet::EMPTY)",
+                    duration,
+                ));
+            } else {
+                let colors: Option<Vec<&str>> =
+                    raw.split(',').map(|c| color_const(c.trim())).collect();
+                let Some(colors) = colors else {
+                    self.note(format!("`Animate` into colours `{raw}`"));
+                    return None;
+                };
+                let which = if overwrite { "SetColor" } else { "AddColor" };
+                out.push(Self::animate_expr_for(
+                    filter,
+                    &format!(
+                        "Modifier::{which}(ColorSet::from_slice(&[{}]))",
+                        colors.join(", ")
+                    ),
+                    duration,
+                ));
+            }
         }
         // Layer 6: keywords it gains.
         if let Some(raw) = p.take("Keywords") {

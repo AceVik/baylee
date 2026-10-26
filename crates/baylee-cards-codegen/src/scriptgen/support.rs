@@ -127,6 +127,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Sacrifice",
     "Pump",
     "PumpAll",
+    "Protection",
     "Phases",
     "ChangeZone",
     "ChangeZoneAll",

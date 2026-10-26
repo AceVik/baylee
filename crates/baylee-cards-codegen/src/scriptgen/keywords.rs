@@ -420,6 +420,21 @@ impl Tx<'_> {
         if event == "BeginPhase" {
             return self.skip_untap_steps(&mut p);
         }
+        if event == "Counter" {
+            p.drop_prose();
+            if p.take("ValidCard").as_deref() == Some("Card.Self")
+                && p.take("ValidSA").as_deref() == Some("Spell")
+                && p.take("Layer").as_deref() == Some("CantHappen")
+                && p.exhausted()
+            {
+                self.body
+                    .keywords
+                    .push("KeywordSet::UNCOUNTERABLE".to_string());
+                return Some(());
+            }
+            self.note("replacement `R: Event$ Counter` this rule cannot read".to_string());
+            return None;
+        }
         if event != "Moved" {
             self.note(format!("replacement `R: Event$ {event}`"));
             return None;

@@ -1886,3 +1886,62 @@ fn sacrifice_effect_accepts_change_num_one() {
     );
     assert!(refusal_reason(&two, &cats(), None).is_some());
 }
+
+#[test]
+fn invasion_batch_one_reader_patterns() {
+    let leech = "Name:Alabaster Leech\nManaCost:W\nTypes:Creature Leech\nPT:1/3\n\
+        S:Mode$ RaiseCost | ValidCard$ Card.White | Activator$ You | Type$ Spell | Cost$ W";
+    let body = read(leech);
+    assert_eq!(
+        body.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::HasColor(ColorSet::from_slice(&[Color::White])), \
+             Filter::ControlledByYou]), Modifier::SpellsCostMoreMana(mana!(\"{W}\")))"
+        ]
+    );
+
+    let kavu = "Name:Ancient Kavu\nManaCost:3 R\nTypes:Creature Kavu\nPT:3/3\n\
+        A:AB$ Animate | Cost$ 2 | Defined$ Self | Colors$ Colorless | OverwriteColors$ True";
+    let body = read(kavu);
+    assert_eq!(
+        body.abilities,
+        [
+            "activated!(cost!(\"{2}\"), &[Effect::continuous(&Filter::This, \
+             Modifier::SetColor(ColorSet::EMPTY), Duration::UntilEndOfTurn)])"
+        ]
+    );
+
+    let guardian = "Name:Armored Guardian\nManaCost:3 W U\nTypes:Creature Cat Soldier\nPT:2/5\n\
+        A:AB$ Protection | Cost$ 1 W W | ValidTgts$ Creature.YouCtrl | Gains$ Choice | Choices$ AnyColor";
+    let body = read(guardian);
+    assert_eq!(
+        body.abilities,
+        [
+            "activated!(cost!(\"{1}{W}{W}\"), &[Effect::ProtectionFromChosenColor { \
+             duration: Duration::UntilEndOfTurn }], target = Some(TargetSpec::Object(&Filter::YOUR_CREATURE)))"
+        ]
+    );
+
+    let bind = "Name:Bind\nManaCost:1 G\nTypes:Instant\n\
+        A:SP$ Counter | ValidTgts$ Card | TargetType$ Activated | SubAbility$ DBDraw\n\
+        SVar:DBDraw:DB$ Draw";
+    let body = read(bind);
+    assert_eq!(
+        body.abilities,
+        ["spell!(&[Effect::CounterTargetAbility, Effect::draw(1)], \
+             targets = Some(TargetReq::one(TargetSpec::AbilityOnStack(&TARGET1))))"]
+    );
+    assert!(
+        body.statics
+            .contains("static TARGET1: Filter = Filter::ActivatedAbilityFrom(&Filter::Any);")
+    );
+
+    let mongoose = "Name:Blurred Mongoose\nManaCost:1 G\nTypes:Creature Mongoose\nPT:2/1\n\
+        R:Event$ Counter | ValidCard$ Card.Self | ValidSA$ Spell | Layer$ CantHappen\n\
+        K:Shroud";
+    let body = read(mongoose);
+    assert_eq!(
+        body.keywords,
+        ["KeywordSet::SHROUD", "KeywordSet::UNCOUNTERABLE"]
+    );
+}
