@@ -3,6 +3,19 @@
 use super::{Chain, Params, Tx, animation::supertype_const, card_type_const, keyword_const};
 
 impl Tx<'_> {
+    pub(super) fn is_ai_only_static(&self, spec: &str) -> bool {
+        let Some((mode, mut p)) = Params::parse(spec) else {
+            return false;
+        };
+        p.drop_prose();
+        mode == "Continuous"
+            && p.take("Affected").is_some()
+            && p.take("AddSVar")
+                .and_then(|s| self.svars.get(&s))
+                .is_some_and(|v| v.trim() == "SVar:AITapDown:True")
+            && p.exhausted()
+    }
+
     /// `R:Event$ BeginPhase | Phase$ Untap | Skip$ True` — "players skip
     /// their untap steps" (Stasis) — as `Modifier::SkipUntapStep` for every
     /// player.

@@ -94,7 +94,7 @@ impl Tx<'_> {
             None => None,
         };
 
-        let Some(mut effects) = (if chain.second_target.is_some() {
+        let Some(effects) = (if chain.second_target.is_some() {
             self.pump_effect(&mut p, target.as_deref().expect("second target"), true)
         } else {
             self.effect_of(
@@ -115,12 +115,7 @@ impl Tx<'_> {
             }
             return None;
         };
-        if !p.exhausted() {
-            if let Some(key) = p.first_key() {
-                self.note(format!("unclaimed parameter `{api}.{key}`"));
-            }
-            return None;
-        }
+        let mut effects = self.wrap_line_condition(&api, &mut p, effects)?;
         if prevent_damaged_regeneration {
             effects.push("Effect::DamagedThisWayCantBeRegenerated".to_string());
         }
@@ -140,6 +135,42 @@ impl Tx<'_> {
             }
             None => Some(()),
         }
+    }
+
+    fn wrap_line_condition(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        effects: Vec<String>,
+    ) -> Option<Vec<String>> {
+        if p.exhausted() {
+            return Some(effects);
+        }
+        if !p.has("ConditionPresent") {
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `{api}.{key}`"));
+            }
+            return None;
+        }
+        p.claim_label("ConditionDescription", "ConditionPresent");
+        if let Some(cmp) = p.take("ConditionCompare") {
+            if p.has("PresentCompare") {
+                return self.deny("both `ConditionCompare$` and `PresentCompare$`".to_string());
+            }
+            p.entries.push(("PresentCompare".to_string(), cmp));
+        }
+        let valid = p.take("ConditionPresent").expect("checked above");
+        let cond = self.present_clause(p, &valid)?;
+        if !p.exhausted() {
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `{api}.{key}`"));
+            }
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[] }}",
+            effects.join(", ")
+        )])
     }
 
     /// Register a fresh target declaration without merging independent instances.
@@ -312,6 +343,11 @@ impl Tx<'_> {
                 if self.trigger_mode.as_deref() == Some("SpellCast") =>
             {
                 self.player_rel(Some(who))?
+            }
+            Some("TriggeredTargetController")
+                if self.trigger_mode.as_deref() == Some("DamageDone") =>
+            {
+                self.player_rel(Some("TriggeredTargetController"))?
             }
             other => {
                 return self.deny(format!(
@@ -742,7 +778,7 @@ impl Tx<'_> {
             // rule does not claim, and those refuse.
             "Fog" => vec!["Effect::PreventAllCombatDamageThisTurn".to_string()],
             "DamageAll" => {
-                if target.is_some() {
+                if targets_here {
                     return None;
                 }
                 let n = amount(&p.take("NumDmg")?, self.svars, self.has_x)?;

@@ -632,6 +632,11 @@ impl Tx<'_> {
             ("Battlefield" | "Graveyard", "Hand", true) => {
                 vec!["Effect::bounce(TargetSpec::ThisObject)".to_string()]
             }
+            ("Graveyard", "Battlefield", true) => vec![
+                "Effect::ReturnSourceFromGraveyard { face: None, tapped: false, \
+                 owner_control: false, counters: None }"
+                    .to_string(),
+            ],
             ("Battlefield", "Hand", false) => vec![format!("Effect::bounce({target})")],
             ("Battlefield", "Library", true)
                 if p.take("LibraryPosition").as_deref() == Some("0") =>
@@ -712,9 +717,11 @@ impl Tx<'_> {
             && !p.has("Hidden")
             && (target != "TargetSpec::AnyPlayer"
                 || (!self.on_a_spell
-                    && origin == "Battlefield"
-                    && (destination == "Hand"
-                        || (destination == "Library" && p.peek("LibraryPosition") == Some("0")))
+                    && ((origin == "Battlefield"
+                        && (destination == "Hand"
+                            || (destination == "Library"
+                                && p.peek("LibraryPosition") == Some("0"))))
+                        || (origin == "Graveyard" && destination == "Battlefield"))
                     && !p.has("ChangeType")))
     }
 

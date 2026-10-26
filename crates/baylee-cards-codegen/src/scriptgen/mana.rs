@@ -461,7 +461,7 @@ impl Tx<'_> {
                 };
                 parts.push(format!("RemoveCounterSelf {{ kind: {kind}, n: {n} }}"));
             } else if let Some((kind, body)) = object_cost(token) {
-                parts.push(self.object_cost_part(kind, body, token)?);
+                parts.extend(self.object_cost_part(kind, body, token)?);
             } else if let Some(n) = token
                 .strip_prefix("PayLife<")
                 .and_then(|t| t.strip_suffix('>'))
@@ -530,12 +530,18 @@ impl Tx<'_> {
         kind: &str,
         body: &str,
         token: &str,
-    ) -> Option<String> {
+    ) -> Option<Vec<String>> {
         let mut fields = body.splitn(3, '/');
         let (Some(n), Some(spec)) = (fields.next(), fields.next()) else {
             return self.deny(format!("cost `{token}`"));
         };
-        if n != "1" {
+        let sac_x = kind == "Sac"
+            && n == "X"
+            && self.has_x
+            && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+            && !self.oracle.to_ascii_lowercase().contains("x is ");
+        let sac_two = kind == "Sac" && n == "2" && spec != "CARDNAME";
+        if n != "1" && !sac_x && !sac_two {
             return self.deny(format!("a cost naming `{n}` objects"));
         }
         let (variant, controlled) = match kind {
@@ -551,12 +557,12 @@ impl Tx<'_> {
             // no question. `Sac<1/CARDNAME>` never reaches here (it is
             // matched one branch up), so this is the return's own case.
             return Some(match variant {
-                "ReturnToHand" => "ReturnSelfToHand".to_string(),
+                "ReturnToHand" => vec!["ReturnSelfToHand".to_string()],
                 _ => return self.deny(format!("cost `{token}` naming itself")),
             });
         }
         if variant == "Discard" && spec == "Random" {
-            return Some("DiscardRandom".to_string());
+            return Some(vec!["DiscardRandom".to_string()]);
         }
         let spec = if controlled {
             // Appended per alternative, because a valid-string's commas are
@@ -579,6 +585,12 @@ impl Tx<'_> {
         };
         let expr = self.filter_expr(&spec)?;
         let name = self.body.filter_static("COST", &expr);
-        Some(format!("{variant}(&{name})"))
+        Some(if sac_x {
+            vec![format!("SacrificeX(&{name})")]
+        } else if sac_two {
+            vec![format!("{variant}(&{name})"); 2]
+        } else {
+            vec![format!("{variant}(&{name})")]
+        })
     }
 }

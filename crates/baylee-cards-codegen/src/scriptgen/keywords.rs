@@ -371,6 +371,7 @@ impl Tx<'_> {
         match kind {
             'A' => self.activated_or_spell(spec),
             'T' => self.triggered(spec),
+            'S' if self.is_ai_only_static(spec) => Some(()),
             'S' => self.static_ability(spec),
             'R' => self.replacement(spec),
             other => self.deny(format!("rules line kind `{other}:`")),

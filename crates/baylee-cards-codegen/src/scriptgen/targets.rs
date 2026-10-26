@@ -293,6 +293,7 @@ impl Tx<'_> {
                         "Filter::AttachedToBySource".to_string()
                     }
                     "YouCtrl" => "Filter::ControlledByYou".to_string(),
+                    "YouDontCtrl" => "Filter::Not(&Filter::ControlledByYou)".to_string(),
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
                     "ActivePlayerCtrl" => "Filter::ControlledByActivePlayer".to_string(),
                     "YouOwn" => "Filter::OwnedByYou".to_string(),
@@ -570,6 +571,9 @@ impl Tx<'_> {
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.
             "TriggeredTarget" if trigger == Some("DamageDone") => "PlayerRel::DamagedPlayer",
+            "TriggeredTargetController" if trigger == Some("DamageDone") => {
+                "PlayerRel::ControllerOfEvent"
+            }
             "TriggeredDefendingPlayer"
                 if matches!(trigger, Some("Attacks" | "AttackerBlocked")) =>
             {

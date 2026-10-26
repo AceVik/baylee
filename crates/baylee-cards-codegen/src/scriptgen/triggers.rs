@@ -130,6 +130,9 @@ impl Tx<'_> {
         let filter = filter_of(self, &source)?;
         match (target.as_deref(), combat) {
             (Some("Player"), true) => Some(format!("Trigger::DealsCombatDamageToPlayer({filter})")),
+            (Some("Creature"), true) => {
+                Some(format!("Trigger::DealsCombatDamageToCreature({filter})"))
+            }
             (Some("Opponent" | "Player.Opponent"), true) => {
                 Some(format!("Trigger::DealsCombatDamageToOpponent({filter})"))
             }
