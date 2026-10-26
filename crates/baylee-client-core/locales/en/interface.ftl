@@ -7916,10 +7916,10 @@ HelpMaster = Every sound, the music included
 RowMusic = Music
 
 # Audio: the music's theme.
-RowMusicTheme = Music theme
+RowMusicTheme = Music theme during games
 
 # Audio: fifteen complete original suites and automatic rotation.
-HelpMusicTheme = Fifteen original suites: five in Bb Dorian and ten contrasting styles. Rotating picks a different suite each game. Transitions flow into the next musical pulse
+HelpMusicTheme = Fifteen original suites for your games. Rotating chooses a different suite each game. Login and lobby share Baylee’s remembrance: Brahms, Schumann and Schubert.
 
 # Audio: suite one.
 MusicThemeEmber = Ember Path
@@ -8382,3 +8382,12 @@ PickerSetSearch = Set · search code or name
 SeatEliminated = You are out of the game · The table plays on
 CardViewText = Card view: Text
 CardViewArt = Card view: Art
+
+# Baylee's local memorial and photo album.
+MemorialOpen = Open Baylee’s memories
+MemorialInvitation = Baylee · Forever loved
+MemorialDedication = This world is dedicated to a little cat who was loved so very much. Rest peacefully in the sunshine, Baylee. · 26 October 2026
+MemorialStory = Baylee was a small, gentle companion. She loved watching the garden birds and pigeons. Here she rests on her cloud, surrounded by sunlight, blossoms and the little visitors she loved.
+MemorialDraft = A first remembrance. More of her story will find a home here.
+MemorialPrevious = Previous
+MemorialNext = Next

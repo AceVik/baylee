@@ -1,22 +1,8 @@
-//! The front door's scene (#295): a world at first light seen through the
-//! moonlit sanctuary, the panel standing in it, which choosing a gateway
-//! walks through, followed by an accelerating flight on successful login.
-//!
-//! Original generated sanctuary artwork, a painted Baylee mascot and a
-//! Blender-authored lantern are layered with real-time light, water and mist.
-//! Asset provenance and prompts live in `art/baylee/README.md`.
-//!
-//! This file schedules what the shader draws. A frame of the scene is a
-//! [`Stage`]: the hour, the haze, the glow on the rim, and the two frames of
-//! a passage. [`passage`] gives the stage at any point of walking through, from
-//! the gateway's side (0) to the far side (1), so the front door's motion
-//! only has to say how far it has come; [`waiting`] gives the stage of a
-//! wait, which is the passage held open. Where the scene stands (the panel it
-//! frames, how far the pointer leans it) is read off the screen each frame.
-//!
-//! Under `reduce_motion` nothing moves: no time, no pointer, no passage. The
-//! hour still turns, as a quarter-second change of colour, so arriving on the
-//! far side is still something seen.
+//! Baylee's sunlit world: a distant garden city under a wide cloud horizon.
+//! The approved sleeping portrait is an independent interactive UI material
+//! (`lobby::memorial`); this surface supplies atmosphere, reading contrast and
+//! the existing login passage. Provenance: `art/baylee/README.md`.
+//! All ambient movement stops under reduced motion or low ambient quality.
 
 use bevy::asset::embedded_asset;
 use bevy::prelude::*;
@@ -227,18 +213,6 @@ pub struct VistaMaterial {
     #[texture(1)]
     #[sampler(2)]
     pub sanctuary: Handle<Image>,
-    /// Baylee's transparent portrait, a separate foreground plane.
-    #[texture(3)]
-    #[sampler(4)]
-    pub guardian: Handle<Image>,
-    /// Original Blender lantern render, with its own foreground parallax.
-    #[texture(5)]
-    #[sampler(6)]
-    pub lantern: Handle<Image>,
-    /// Near stone arch and foliage, independent of the distant world.
-    #[texture(7)]
-    #[sampler(8)]
-    pub frame: Handle<Image>,
 }
 
 impl UiMaterial for VistaMaterial {
@@ -308,7 +282,7 @@ pub struct VistaPlugin;
 /// Keep the front door's art resident, including while a restored session
 /// skips its form. The arrival curtain waits for these handles before it lifts.
 #[derive(Resource)]
-pub(crate) struct VistaArt([Handle<Image>; 5]);
+pub(crate) struct VistaArt([Handle<Image>; 3]);
 
 impl VistaArt {
     pub(crate) fn ready(&self, assets: &AssetServer) -> Result<bool, ()> {
@@ -338,14 +312,13 @@ impl Plugin for VistaPlugin {
         }
         let assets = app.world().resource::<AssetServer>();
         let art = VistaArt([
-            assets.load("scenes/sanctuary-world.png"),
-            assets.load("scenes/baylee-guardian.png"),
-            assets.load("scenes/wayfinder-lantern.png"),
+            assets.load("scenes/baylees-world.png"),
+            assets.load("scenes/baylee-cloud.png"),
             assets.load("brand/baylee-logo.png"),
-            assets.load("scenes/sanctuary-frame.png"),
         ]);
         app.insert_resource(art);
         embedded_asset!(app, "shaders/vista.wesl");
+        embedded_asset!(app, "shaders/memorial.wesl");
         app.add_plugins(UiMaterialPlugin::<VistaMaterial>::default());
     }
 }
@@ -368,10 +341,7 @@ pub fn surface(
 ) -> Entity {
     let handle = materials.add(VistaMaterial {
         params: VistaParams::default(),
-        sanctuary: assets.map_or_else(Handle::default, |a| a.load("scenes/sanctuary-world.png")),
-        guardian: assets.map_or_else(Handle::default, |a| a.load("scenes/baylee-guardian.png")),
-        lantern: assets.map_or_else(Handle::default, |a| a.load("scenes/wayfinder-lantern.png")),
-        frame: assets.map_or_else(Handle::default, |a| a.load("scenes/sanctuary-frame.png")),
+        sanctuary: assets.map_or_else(Handle::default, |a| a.load("scenes/baylees-world.png")),
     });
     commands
         .spawn((

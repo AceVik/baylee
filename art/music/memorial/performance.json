@@ -1,0 +1,32 @@
+{
+  "rate": 48000,
+  "seconds": 668.2357575470937,
+  "notes": 4506,
+  "sha256": "d320c77488d31d6967214010f1428a47e74a296a1456f11587ddbab796757896",
+  "works": [
+    {
+      "work": "brahms-wiegenlied",
+      "start_seconds": 0.65,
+      "duration_seconds": 97.38150613333326,
+      "notes": 454,
+      "tempo_scale": 1.12,
+      "midi_sha256": "5bae006fd8deafd07d213dd3270e698254394f946c1c459952ccbdc10d5f00bc"
+    },
+    {
+      "work": "schumann-mondnacht",
+      "start_seconds": 103.53150613333327,
+      "duration_seconds": 210.59639511041868,
+      "notes": 1217,
+      "tempo_scale": 1.0,
+      "midi_sha256": "437ba4074020be84990c944291a57bfbc3a7a632ed21f2eae55c4fa21eb545e1"
+    },
+    {
+      "work": "schubert-baches-wiegenlied",
+      "start_seconds": 319.6279012437519,
+      "duration_seconds": 343.10785630334175,
+      "notes": 2835,
+      "tempo_scale": 1.04,
+      "midi_sha256": "0836b6eddcd7b6470b5a9b2308255a0139f6bc9a301d074e1f383b5c468f586e"
+    }
+  ]
+}

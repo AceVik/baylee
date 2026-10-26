@@ -68,8 +68,9 @@ struct UiVertexOutput {
 };
 struct Globals { time: f32 };
 ";
-    let prelude = format!("{prelude}{}", include_str!("shaders/noise.wesl"));
-    crate::cardmat::tests::check_wgsl(include_str!("shaders/vista.wesl"), &prelude);
+    let prelude = format!("{prelude}{}", include_str!("../shaders/noise.wesl"));
+    crate::cardmat::tests::check_wgsl(include_str!("../shaders/vista.wesl"), &prelude);
+    crate::cardmat::tests::check_wgsl(include_str!("../shaders/memorial.wesl"), &prelude);
 }
 
 /// The lobby's world (Baylee's fireflies are drawn from its clock,
@@ -103,9 +104,6 @@ fn lobby_world(
         .add(VistaMaterial {
             params: VistaParams::default(),
             sanctuary: Handle::default(),
-            guardian: Handle::default(),
-            lantern: Handle::default(),
-            frame: Handle::default(),
         });
     app.world_mut().spawn((
         Vista::Interior,

@@ -1321,3 +1321,24 @@ were reread: “Tell the Community it’s unofficial.” Existing notices and cr
 remain. The [Scryfall API/image terms](https://scryfall.com/docs/api) returned
 HTTP 403 during this check; this change introduces no new image or API usage,
 and the existing licensing decisions above remain applicable.
+
+### Baylee memorial · 26 October 2026
+
+The owner explicitly requested public-domain repertoire and a memorial album
+using his five supplied cat photographs. The new menu performance uses three
+complete CC0 OpenScore editions, identified and pinned in `art/music/memorial/`,
+with the existing CC0 sample bank and original synthesis. This is the documented
+exception to the project's original-only tune rule; duel compositions are unchanged.
+The underlying Brahms, Schumann and Schubert works are public domain, and the
+modern digital editions independently carry CC0. The source licences and MIDI
+exports are retained. No borrowed performance recording is used.
+
+[OpenScore Lieder](https://github.com/OpenScore/Lieder), checked 26.10.2026:
+“These scores are released under Creative Commons Zero (CC0).” The
+[Wizards Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy),
+rechecked the same day: “Please respect other people’s IP.” and “Don’t use
+Wizards’ Video or Music in your Fan Content.” The new images derive from the
+owner's authorized references and original image-generation calls. No Wizards
+artwork/audio, third-party game art or new Scryfall request is introduced.
+Photograph derivatives omit location and capture metadata. Existing fan-content
+and source notices remain visible and unchanged.

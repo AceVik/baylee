@@ -28,6 +28,7 @@ pub(crate) const PLAY: TabOrder = TabOrder {
         "sort",
         "tables",
         "pager",
+        "baylee",
     ],
     modal: false,
 };
@@ -36,7 +37,7 @@ pub(crate) const PLAY: TabOrder = TabOrder {
 pub(crate) const DECKS: TabOrder = TabOrder {
     name: "decks",
     stops: &[
-        "tabs", "search", "formats", "sort", "new", "import", "tiles",
+        "tabs", "search", "formats", "sort", "new", "import", "tiles", "baylee",
     ],
     modal: false,
 };
@@ -55,6 +56,7 @@ pub(crate) const ROOM: TabOrder = TabOrder {
         "seats",
         "board",
         "counter",
+        "baylee",
     ],
     modal: false,
 };

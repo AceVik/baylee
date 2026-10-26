@@ -264,9 +264,11 @@ mod tests {
                 }
                 at += len;
             }
-            // 16, 32, 64 (32@2x), 128, 256, 512, 1024 and the @2x twins.
+            // The native Rust art tool writes PNG-backed icp4/icp5 entries
+            // for 16/32 px; iconutil formerly wrote ARGB ic04/ic05 entries.
+            // All ten point-size / Retina representations must still be present.
             for kind in [
-                "ic04", "ic05", "ic11", "ic12", "ic07", "ic13", "ic08", "ic14", "ic09", "ic10",
+                "icp4", "icp5", "ic11", "ic12", "ic07", "ic13", "ic08", "ic14", "ic09", "ic10",
             ] {
                 assert!(kinds.iter().any(|k| k == kind), "baylee.icns lacks {kind}");
             }

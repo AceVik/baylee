@@ -4,7 +4,7 @@
 use super::*;
 
 /// The lockup's width over its height (the trimmed master, 1928 × 809).
-pub const LOGO_ASPECT: f32 = 1928.0 / 809.0;
+pub const LOGO_ASPECT: f32 = 1942.0 / 809.0;
 
 /// How much of the header's height the logo stands in.
 pub const LOGO_SHARE: f32 = 0.80;

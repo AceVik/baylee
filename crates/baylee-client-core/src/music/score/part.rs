@@ -5,10 +5,10 @@ use crate::music::{Scene, ScoreRequest};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Movement {
-    /// The title's broad statement, with every instrument group.
+    /// Baylee's public-domain chamber remembrance, shared with the lobby.
     #[default]
     Title,
-    /// A small, relaxed Dorian tavern ensemble.
+    /// Continue the same remembrance without restarting after sign-in.
     Lobby,
     /// Plucked melody and bowed accompaniment at the table.
     Standard,

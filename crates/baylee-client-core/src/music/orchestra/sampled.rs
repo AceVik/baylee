@@ -220,6 +220,11 @@ fn clips() -> &'static [Option<Clip>] {
                 }
             }
         }
+        for note in crate::music::score::memorial::events() {
+            if !note.instrument.synthetic() {
+                used[key(note.instrument, note.pitch)] = true;
+            }
+        }
         let instruments = [
             Instrument::Harp,
             Instrument::Zither,

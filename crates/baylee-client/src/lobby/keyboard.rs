@@ -51,6 +51,17 @@ pub(super) fn keyboard(
         keys.clear();
         return;
     }
+    if state.memorial.open {
+        keys.clear();
+        if codes.just_pressed(KeyCode::Escape) {
+            state.memorial.open = false;
+        } else if codes.just_pressed(KeyCode::ArrowRight) {
+            state.memorial.turn(true);
+        } else if codes.just_pressed(KeyCode::ArrowLeft) {
+            state.memorial.turn(false);
+        }
+        return;
+    }
     // The About sheet: Esc closes it, and nothing under it takes a key.
     if state.about_open {
         keys.clear();

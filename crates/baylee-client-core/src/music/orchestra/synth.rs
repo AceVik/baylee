@@ -21,7 +21,7 @@ struct Bank {
     steps: [f64; 128],
 }
 fn wave(partials: &[f32; 12]) -> Box<[f32]> {
-    // Highest score pitch is 88 (1319 Hz): even partial 12 stays below 16 kHz.
+    // Highest memorial pitch is 90 (1480 Hz): partial 12 stays below 18 kHz.
     // Sum rather than naive saw/pulse discontinuities, which alias when pitched up.
     let scale = 0.70 / partials.iter().map(|v| v.abs()).sum::<f32>();
     (0..=SIZE)

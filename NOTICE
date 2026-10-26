@@ -123,3 +123,14 @@ credential-provider dependency inventory.
 baylee source code is licensed under the GNU Affero General Public License
 v3.0 only (see LICENSE). The project is free and non-commercial; no feature
 will ever be placed behind payment.
+
+Baylee memorial (26 October 2026): the login/lobby performs Brahms's Wiegenlied
+Op.49 No.4, Schumann's Mondnacht Op.39 No.5, and Schubert's Des Baches Wiegenlied
+D.795 No.20. These public-domain works use CC0 OpenScore Lieder digital editions
+at revision 38c5db510224d9facdc4b08d741fc788cfb58ea8, with source files, hashes
+and CC0 legal text in art/music/memorial/. The performance is newly synthesized
+by this program using its existing CC0 instrument bank and original synthesis.
+No third-party performance recording is distributed.
+The memorial photographs were supplied and authorized for this album by
+Baylee's owner. Generated memorial scenery and both Baylee logos use those
+references; see art/baylee/README.md for provenance.

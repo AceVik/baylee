@@ -12,6 +12,8 @@ use super::*;
 /// are defined and handled beside the screen that draws them.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Press {
+    /// Baylee's local photograph album.
+    Memorial(super::memorial::MemorialPress),
     /// The front door.
     Front(FrontPress),
     /// The signed-in hub.
@@ -151,6 +153,7 @@ impl SharedPress {
 /// focused control (`focusing`), a shell key (`shortcuts`).
 pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
     match press {
+        Press::Memorial(press) => press.handle(cx),
         Press::Front(press) => press.handle(cx),
         Press::Hub(press) => press.handle(cx),
         Press::Library(press) => press.handle(cx),

@@ -78,6 +78,7 @@ pub(crate) fn modal_by(state: &LobbyState, screen: Context) -> Vec<&'static str>
         ("confirmation", state.confirmation.is_some()),
         ("terms", state.terms.up()),
         ("about", state.about_open),
+        ("memorial", state.memorial.open),
         (
             "profile_sheet",
             state.settings_open() && state.settings_view.profile_sheet,

@@ -86,6 +86,7 @@ impl Plugin for LobbyPlugin {
         // Closing the application only disconnects. Explicit table actions
         // alone may depart; dropping the World must leave the seat resumable.
         crate::vista::install(app);
+        app.add_plugins(memorial::CloudPlugin);
         // The same orchestra continues through the lobby and every table.
         crate::music::install(app);
         // The report form stands over the lobby and every table (#309).
@@ -332,6 +333,7 @@ impl Plugin for LobbyPlugin {
                         .before(bevy::ui::UiSystems::PostLayout),
                     crate::buildui::sample_hand::reveal.after(bevy::ui::UiSystems::Layout),
                     focusing::follow_focus,
+                    memorial::return_focus.after(focusing::follow_focus),
                 )
                     .run_if(in_state(DuelPhase::Closed)),
             )
@@ -526,6 +528,7 @@ pub struct LobbyState {
     pub(crate) terms_subject: front::terms::Subject,
     /// The About sheet is up (the front door's text row, WP1).
     pub(crate) about_open: bool,
+    pub(crate) memorial: client_core::memorial::Album,
     /// Caps Lock looks on: a letter arrived upper case with Shift up (the
     /// platform tells the key, not the lock). Shown under a password.
     pub(crate) caps_lock: bool,
@@ -820,6 +823,7 @@ impl LobbyState {
             terms_stale: None,
             terms_subject: front::terms::Subject::Gateway,
             about_open: false,
+            memorial: client_core::memorial::Album::default(),
             caps_lock: false,
             settings_view: SettingsView::default(),
             menu: None,
@@ -1144,6 +1148,7 @@ pub(crate) mod scrollbars;
 pub(crate) mod button_style;
 
 mod localization;
+pub(crate) mod memorial;
 mod menus;
 pub(crate) mod orders;
 mod parts;

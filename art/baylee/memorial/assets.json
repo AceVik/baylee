@@ -1,0 +1,47 @@
+[
+  {
+    "asset": "scenes/baylee-cloud.png",
+    "sha256": "1c76c23d31ef8f447d3e403ecef6df92326f64f8d6d67c1a5912cfbb7eec316e",
+    "generation": "14f793cb-0c5d-429f-afc9-045313fcc7e1"
+  },
+  {
+    "asset": "scenes/baylees-world.png",
+    "sha256": "1d43c67ee33b9f69d3e0cd8426849b4a727d77bc95847bcacc99b4252f3f3609",
+    "generation": "e4cbe302-ea7e-4d01-9750-f0e5ba7ab150"
+  },
+  {
+    "asset": "brand/baylee-logo.png",
+    "sha256": "f099699401206d2c8fbef87d59d8708bbfeca88c2c570857d8a2fce915610588",
+    "generation": "af097781-c49d-42f3-9e70-ca75f43d7e0f"
+  },
+  {
+    "asset": "brand/baylee-icon.png",
+    "sha256": "4ccd85a3f33e4b40c3f0295350c837247d52ac29c716cde10d7478e43a091d82",
+    "generation": "66a3d3f2-8ba9-4c5f-81fa-d382f5dfe483"
+  },
+  {
+    "asset": "memorial/baylee-1.jpg",
+    "source": "PXL_20260212_084326728.jpg",
+    "sha256": "62278b5512360e811c934b06c6646a3294ed1a47c46853d2fd1c909f9cdd883c"
+  },
+  {
+    "asset": "memorial/baylee-2.jpg",
+    "source": "PXL_20260127_075332867.jpg",
+    "sha256": "bd6e232c1cfe418fc0cf5517239455a74a6c36f6851666f88d47574e6b7b605d"
+  },
+  {
+    "asset": "memorial/baylee-3.jpg",
+    "source": "PXL_20260113_125944795.jpg",
+    "sha256": "d65cc5ffa47f635ac4d48059e3a96951ba256e9ba8aceb54848c9e9c377082e6"
+  },
+  {
+    "asset": "memorial/baylee-4.jpg",
+    "source": "PXL_20260131_092837183.jpg",
+    "sha256": "b51b52984fec17a364a97c98286e4c44d2ba77c5b03907f8f9bd8d7135a486d0"
+  },
+  {
+    "asset": "memorial/baylee-5.jpg",
+    "source": "PXL_20260212_084306146.jpg",
+    "sha256": "3e967c9185694136468c05c3f2094d9305b0540160216b2f2db7376a6ea3b885"
+  }
+]

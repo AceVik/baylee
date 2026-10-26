@@ -82,6 +82,7 @@ pub mod lostbanner;
 pub mod manapip;
 pub mod manaplan;
 pub mod manapool;
+pub mod memorial;
 pub mod music;
 pub mod paystage;
 pub mod peekchips;

@@ -4269,69 +4269,35 @@ duel taking the screen still drops it on the frame it does (`teardown`).
 
 ### The front door stands in a scene
 
-The gateway and sign-in forms now stand in **Baylee's sanctuary**: a moonlit
-conservatory garden seen through an open limestone arch. The previous geode's
-inward crystal teeth are gone. `vista.rs` schedules reusable full-screen
-`UiMaterial` surfaces; `shaders/vista.wesl` composites an original generated matte
-painting split into distant world and transparent near architecture, a
-hand-painted portrait of petite Baylee in her red body and an original
-Blender lantern.
-The photographic references remain outside the repository. Sources, exact
-generation prompts and the editable lantern live in `art/baylee/`.
+The existing gateway/sign-in forms stand above a sunlit garden city, river,
+bridges and mountains: a first glimpse of the future **Baylees World**. This is
+background artwork, not a playable world. The approved portrait of petite,
+curled-up Baylee sleeps on a separate cloud with garden birds, pigeons and flowers.
+Both wordmark and icon include her. Asset provenance, exact generation calls
+and photo mapping are in `art/baylee/README.md`.
 
-The image is fitted with cover coordinates, preserving architectural proportions
-on portrait and ultrawide displays. This is a **hybrid scene**, not a fully
-modelled landscape: painted architecture sits behind shader-rendered spatial
-water and cloud volumes. Water rays intersect a horizontal world surface with
-two height refinements; four travelling waves provide analytic surface normals,
-Fresnel reflection, moving moon highlights and shoreline-masked refraction.
-Cloud rays cross six slices (three at mobile quality) of a continuous 3D density
-field. Wind advects that volume, which shades and occludes the moon's disc and
-halo. Narrow cascades carry falling streaks and mist.
+`vista.rs` retains two full-screen `UiMaterial` surfaces for front/interior.
+`shaders/vista.wesl` fits the world with cover coordinates and supplies subtle
+pointer parallax, slow cloud haze, warm sun rays and a dark mask following the
+form. The lobby uses the same world at slightly quieter exposure. The existing
+forms, lobby panels, legal footer, QR and authentication logic remain unchanged.
+The existing passage timings remain; a feathered light aperture reveals the
+lobby after accepted authentication. Rejected credentials and offline entry
+never start that flight. Reduced motion uses the existing short colour change.
 
-Pointer parallax grows toward the foreground; Baylee and the lantern have
-separate depths and contact shadows. Virtual time drives all of these effects,
-lantern flicker, two firefly layers and Baylee's subtle breathing. The shader
-never samples card artwork. Narrow screens omit foreground props when they
-cannot stand clear of the form; Baylee remains in the logo.
+`lobby::memorial` draws the approved cloud as an accessible button. Its independent
+material adds tiny breathing/cloud motion, warm contour light, engraved botanical
+arcs and a sun ornament at the pointer. Hover and keyboard focus share feedback.
+Click/Enter opens a local five-photo album with a draft remembrance, previous/next,
+numbered photos and Escape/close. The modal traps input and returns focus to its
+opener. The supplied photographs preserve their aspect ratios; shipping copies
+are resized and stripped of location/capture metadata. No album request uses a network.
 
-`Vista::Interior` keeps the same garden behind both the lobby and deckbuilder,
-including beneath the authenticated arrival flight. It uses quieter pointer
-motion, fewer visible motes, a slightly closer view and a 32% reading-light
-reduction. Lobby/editor panels keep their gold tooling while their material
-opacity grades from 96% to 92%; the fallback fill is removed only after that
-material exists. Thus translucent panels do not accidentally stack over a second
-opaque background. Front-door panels retain their original density.
-
-The form keeps its opaque dark surface, keyboard controls, guest/account flows
-and accessible settings. The logo uses the new transparent brand artwork, above
-the existing localized welcome line. The source and fan-content notice occupy a non-shrinking footer over a soft blue mist gradient with
-12.5 px text, three sentence-aligned notice lines and equal left/right margins.
-The QR occupies the right margin without shifting the text off the screen
-centre. Only the form body scrolls, keeping these notices visible at
-every viewport. Long source URLs wrap by character when needed.
-
-**Choosing a gateway is walking through it.** The existing one-second passage
-(0.8 s back) gently advances into the garden as the panels exchange places.
-The account carousel retains its own 0.48 s timing. **Successful authentication**
-starts the existing 1.65 s flight only after account or guest acceptance: the
-camera accelerates, foreground props pass away, light streaks converge, and a
-feathered aperture reveals the actual lobby beneath. Rejected credentials,
-offline entry and restored sessions do not start that flight. Input remains
-blocked until it completes; sign-out or reduced motion cancels it.
-
-The same scene holds behind longer waits. `VistaArt` retains all five login
-images, and the startup curtain waits for their load state as well as the fonts
-before collecting resident GPU assets. A missing image reports the existing
-asset failure rather than revealing an incomplete login.
-
-`reduce_motion` zeros the virtual clock and pointer; even Baylee, the lamp and
-water stay still. The only reduced-motion passage is a short colour change.
-The public material uses four textures and samplers, no offscreen buffers,
-particle entities, per-frame allocation or imported scene meshes. Water and
-cloud geometry are evaluated analytically inside the material. The GLB is an editable
-source export; the client consumes its transparent render. Mobile GPU performance
-has not been measured for this replacement; older geode timings do not apply.
+`VistaArt` keeps the world, cloud and title logo resident for the startup curtain.
+A missing image uses the existing asset failure path. Ambient low quality and
+`reduce_motion` freeze the sky, cloud and breathing; focus feedback remains static.
+No offscreen buffer, per-frame entity spawning or card-art sampling is involved.
+The city is a generated raster with shader layers, not geometrically modelled.
 
 ### The front door's faces, on the kit (WP1)
 
@@ -7361,6 +7327,28 @@ the name could not tell a burst from a tap — which is precisely the thing the
 counted cues exist to do.
 
 ### One orchestra follows the player
+
+The login, lobby and deckbuilder now share an eleven-minute instrumental
+remembrance dedicated to Baylee. It replaces their former theme arrangements:
+Brahms **Wiegenlied, Op.49 No.4**, Schumann **Mondnacht, Op.39 No.5**, and Schubert
+**Des Baches Wiegenlied, D.795 No.20**. The complete OpenScore editions are CC0;
+source scores, MIDI exports, hashes, preparation script and performance manifest
+live in `art/music/memorial/`. The project renders a new performance with its
+CC0 harp/violin/cello samples and modelled piano/flute, native stereo 48 kHz.
+Source pitches, rests, dynamics and tempo changes are preserved; restrained
+phrasing, timbre choices and spacing are documented in the preparation script.
+No third-party performance recording is used.
+
+`music::score::memorial` reads fixed-size compiled events without render-time
+allocation. Login → lobby and theme-setting changes preserve the exact waveform
+and held notes. During a duel the remembrance pauses while the selected original
+suite plays; returning resumes its place. The existing mute, volume, background
+silence and sample-bank controls apply. The memorial observes scene requests at
+most every 50 ms, including rests. Position counters use four-second observation
+windows here; the game suites retain their musical bar counters.
+
+The following fifteen original suites remain the **duel** music. Their earlier
+title/lobby arrangements remain authoring material but are no longer played there.
 
 Fifteen original suites (10 October 2026) are available. The first five remain
 unchanged, centred on **B♭ Dorian**

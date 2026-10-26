@@ -262,7 +262,10 @@ pub(super) fn ui(
     roots: LobbyRoots<'_, '_>,
     // Only the printing picker draws a remote image, and a headless test has
     // no asset server {2014} nor should it reach the CDN to build a tree.
-    assets: Option<Res<AssetServer>>,
+    (assets, cloud): (
+        Option<Res<AssetServer>>,
+        Option<Res<super::memorial::CloudArt>>,
+    ),
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     prefs: Res<crate::prefs::Prefs>,
@@ -464,6 +467,12 @@ pub(super) fn ui(
             // camera's clear colour is the same `BACKDROP`, which is what the
             // surface is drawn over — a solid fill here would hide it.
             BackgroundColor(Color::NONE),
+            // Blank space is transparent to the cloud beneath this root.
+            // Panel/control nodes still own their own hit regions.
+            Pickable {
+                should_block_lower: false,
+                ..default()
+            },
         ))
         .id();
 
@@ -579,6 +588,17 @@ pub(super) fn ui(
             &scrolled_to,
         );
         commands.entity(root).add_child(dialog);
+    }
+    super::memorial::draw(
+        &mut commands,
+        root,
+        &state,
+        kit,
+        assets.as_deref(),
+        cloud.as_deref(),
+    );
+    if state.memorial.open {
+        *builder_drawn = None;
     }
     super::confirm::draw(&mut commands, root, &state, &fonts, metrics);
     if state.confirmation.is_some() {

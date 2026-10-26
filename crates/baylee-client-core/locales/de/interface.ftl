@@ -2608,8 +2608,8 @@ HelpHoldStill = Karten springen statt zu gleiten, überall; jede Regel bleibt
 HelpSky = Das Licht hinter dem Tisch: folgt deiner Uhr oder bleibt bei Tag oder Nacht
 HelpMaster = Jeder Klang, die Musik eingeschlossen
 RowMusic = Musik
-RowMusicTheme = Musik-Thema
-HelpMusicTheme = Fünfzehn eigene Suiten: fünf in B-Dorisch und zehn in ganz unterschiedlichen Stilen. Wechselnd wählt pro Spiel eine andere. Übergänge fließen in den nächsten musikalischen Puls
+RowMusicTheme = Musikthema in Partien
+HelpMusicTheme = Fünfzehn eigene Suiten für deine Partien. Wechselnd wählt für jede Partie eine andere Suite. Login und Lobby teilen Baylees Erinnerung: Brahms, Schumann und Schubert.
 MusicThemeEmber = Glutpfad
 MusicThemeGlass = Mondglas
 MusicThemeThorn = Dornenkrone
@@ -2771,3 +2771,12 @@ PickerSetSearch = Set · Kürzel oder Name suchen
 SeatEliminated = Du bist ausgeschieden · Der Tisch spielt weiter
 CardViewText = Kartenansicht: Text
 CardViewArt = Kartenansicht: Bild
+
+# Baylees lokaler Erinnerungsort und Fotoalbum.
+MemorialOpen = Baylees Erinnerungen öffnen
+MemorialInvitation = Baylee · Für immer geliebt
+MemorialDedication = Diese Welt ist einer kleinen Katze gewidmet, die unendlich geliebt wurde. Schlaf friedlich im Sonnenschein, Baylee. · 26. Oktober 2026
+MemorialStory = Baylee war eine kleine, zierliche Gefährtin. Sie liebte es, die Gartenvögel und Tauben zu beobachten. Hier ruht sie auf ihrer Wolke, umgeben von Sonnenlicht, Blüten und den kleinen Besuchern, die sie so gern mochte.
+MemorialDraft = Eine erste Erinnerung. Hier wird nach und nach mehr von ihrer Geschichte ein Zuhause finden.
+MemorialPrevious = Zurück
+MemorialNext = Weiter

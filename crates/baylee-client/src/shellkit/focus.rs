@@ -55,6 +55,7 @@ pub const TABLES: &[&TabOrder] = &[
     &crate::lobby::front::keys::GUEST,
     &crate::lobby::front::keys::TERMS,
     &crate::lobby::front::keys::ABOUT,
+    &crate::lobby::memorial::ALBUM_ORDER,
     &crate::settingsui::keys::SETTINGS,
     &crate::settingsui::keys::PROFILE_SHEET,
     // The lobby's screens and sheets (WP2, WP3; `lobby::orders`).
