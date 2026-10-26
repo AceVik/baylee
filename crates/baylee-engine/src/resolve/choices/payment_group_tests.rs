@@ -50,11 +50,11 @@ fn resolving(effects: Vec<Effect>) -> (GameState, Resolution) {
     (state, res)
 }
 
-fn payer(flow: Flow) -> PlayerId {
+fn payer(flow: &Flow) -> PlayerId {
     let Flow::Wait(Pending::YesNo { player, .. }) = flow else {
         panic!("payment prompt expected")
     };
-    player
+    *player
 }
 
 #[test]
@@ -72,9 +72,9 @@ fn group_payments_use_apnap_and_restore_event_after_the_last_decline() {
     ]);
     res.subject.set_event_player(Some(PlayerId::new(0)));
     let before = [state.players[0].life, state.players[1].life];
-    assert_eq!(payer(run(&mut state, &mut res)), PlayerId::new(1));
+    assert_eq!(payer(&run(&mut state, &mut res)), PlayerId::new(1));
     assert_eq!(
-        payer(resume_tax_choice(&mut state, &mut res, false)),
+        payer(&resume_tax_choice(&mut state, &mut res, false)),
         PlayerId::new(0)
     );
     assert!(matches!(
@@ -104,7 +104,7 @@ fn nested_group_payments_suspend_without_consuming_the_outer_queue() {
     let before = [state.players[0].life, state.players[1].life];
     let mut flow = run(&mut state, &mut res);
     for expected in [1, 1, 0, 0, 1, 0] {
-        assert_eq!(payer(flow), PlayerId::new(expected));
+        assert_eq!(payer(&flow), PlayerId::new(expected));
         flow = resume_tax_choice(&mut state, &mut res, false);
     }
     assert!(matches!(flow, Flow::Complete));
@@ -131,7 +131,7 @@ fn nested_single_player_payment_keeps_the_outer_payer_context() {
     let before = [state.players[0].life, state.players[1].life];
     let mut flow = run(&mut state, &mut res);
     for expected in [1, 0, 0, 0] {
-        assert_eq!(payer(flow), PlayerId::new(expected));
+        assert_eq!(payer(&flow), PlayerId::new(expected));
         flow = resume_tax_choice(&mut state, &mut res, false);
     }
     assert!(matches!(flow, Flow::Complete));
@@ -150,7 +150,7 @@ fn a_paid_last_group_member_also_restores_the_original_event_player() {
         effect: &LOSS,
     }]);
     res.subject.set_event_player(Some(PlayerId::new(0)));
-    assert_eq!(payer(run(&mut state, &mut res)), PlayerId::new(1));
+    assert_eq!(payer(&run(&mut state, &mut res)), PlayerId::new(1));
     assert!(matches!(
         resume_tax_choice(&mut state, &mut res, true),
         Flow::Complete
