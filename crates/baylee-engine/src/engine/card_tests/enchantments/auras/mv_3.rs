@@ -4,7 +4,9 @@
 use super::*;
 
 mod aggression;
+mod ancestral_mask;
 mod anti_magic_aura;
+mod arrest;
 mod bestial_fury;
 mod blanchwood_armor;
 mod cessation;

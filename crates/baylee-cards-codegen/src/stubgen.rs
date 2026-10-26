@@ -469,7 +469,10 @@ fn color_indicator_expr(card_name: &str, f: &FaceData) -> Result<String, Codegen
 }
 
 fn commander_rule(faces: &[FaceData]) -> &'static str {
-    let type_line = faces.first().map_or("", |f| f.type_line.as_str());
+    let front = faces.first();
+    let type_line = front.map_or("", |f| f.type_line.as_str());
+    let front_oracle = front.map_or("", |f| f.oracle_text.as_str());
+    let has_pt = front.is_some_and(|f| f.power.is_some() && f.toughness.is_some());
     let oracle = faces
         .iter()
         .map(|f| f.oracle_text.as_str())
@@ -477,7 +480,13 @@ fn commander_rule(faces: &[FaceData]) -> &'static str {
         .join("\n");
     if oracle.contains("can be your commander") {
         "CommanderRule::ExplicitlyAllowed"
-    } else if type_line.contains("Legendary") && type_line.contains("Creature") {
+    } else if type_line.contains("Legendary")
+        && (type_line.contains("Creature")
+            || front_oracle.contains(
+                "isn't on the battlefield, it's a 1/1 Insect creature in addition to its other types",
+            )
+            || ((type_line.contains("Vehicle") || type_line.contains("Spacecraft")) && has_pt))
+    {
         "CommanderRule::Legendary"
     } else {
         "CommanderRule::NotEligible"

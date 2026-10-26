@@ -1238,3 +1238,73 @@ fn cant_attack_after_last_own_turn_reads_only_the_exact_source_history_predicate
         );
     }
 }
+
+#[test]
+fn combat_damage_to_creature_conditional_subability_and_graveyard_sacrifice_costs() {
+    let charmer = read(
+        "Name:X\nTypes:Creature\nPT:2/2\n\
+         T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Creature | \
+         CombatDamage$ True | TriggerZones$ Battlefield | Execute$ L\n\
+         SVar:L:DB$ LoseLife | Defined$ TriggeredTargetController | LifeAmount$ 2 | \
+         UnlessCost$ 2 | UnlessPayer$ TriggeredTargetController\n",
+    );
+    assert!(
+        charmer.abilities[0].contains("Trigger::DealsCombatDamageToCreature(&Filter::This)")
+            && charmer.abilities[0].contains("PlayerRel::ControllerOfEvent"),
+        "{:?}",
+        charmer.abilities
+    );
+
+    let calming = read(
+        "Name:X\nTypes:Sorcery\n\
+         A:SP$ DestroyAll | ValidCards$ Enchantment.YouDontCtrl | SubAbility$ Own\n\
+         SVar:Own:DB$ DestroyAll | ValidCards$ Enchantment.YouCtrl | \
+         ConditionPresent$ Land.untapped+YouCtrl | ConditionCompare$ GE1 | \
+         ConditionDescription$ if you control an untapped land\n",
+    );
+    assert!(
+        calming.abilities[0].contains("Effect::IfCondition")
+            && calming.abilities[0].contains("Filter::Not(&Filter::ControlledByYou)"),
+        "{:?} / {}",
+        calming.abilities,
+        calming.statics
+    );
+
+    let puppets = read(
+        "Name:X\nTypes:Creature\nPT:3/3\n\
+         A:AB$ ChangeZone | Cost$ Sac<2/Land> | Origin$ Graveyard | Destination$ Battlefield | \
+         ActivationZone$ Graveyard | PlayerTurn$ True | ActivationPhases$ Upkeep | \
+         IsPresent$ Mountain.YouCtrl\n",
+    );
+    assert!(
+        puppets.abilities[0]
+            .contains("Sacrifice(&Filter::YOUR_LAND), Sacrifice(&Filter::YOUR_LAND)")
+            && puppets.abilities[0].contains("zone = ActivationZone::Graveyard")
+            && puppets.abilities[0].contains("Condition::All(&[")
+            && puppets.abilities[0].contains("Effect::ReturnSourceFromGraveyard"),
+        "{:?}",
+        puppets.abilities
+    );
+
+    let angel = read(
+        "Name:X\nTypes:Artifact Creature\nPT:2/2\n\
+         A:AB$ PutCounter | Cost$ T Sac<X/Land> | Defined$ Self | CounterType$ P1P1 | \
+         CounterNum$ X\nSVar:X:Count$xPaid\n",
+    );
+    assert!(
+        angel.abilities[0].contains("SacrificeX(&Filter::YOUR_LAND)")
+            && angel.abilities[0].contains("amount: Amount::X"),
+        "{:?}",
+        angel.abilities
+    );
+
+    let citadel = read(
+        "Name:X\nTypes:Enchantment\n\
+         T:Mode$ Phase | Phase$ End of Turn | TriggerZones$ Battlefield | Execute$ D\n\
+         SVar:D:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ X\n\
+         SVar:X:Count$Valid Land.untapped+ActivePlayerCtrl\n\
+         S:Mode$ Continuous | Affected$ Land | AddSVar$ AITap\n\
+         SVar:AITap:SVar:AITapDown:True\n",
+    );
+    assert_eq!(citadel.abilities.len(), 1);
+}

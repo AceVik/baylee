@@ -17,6 +17,7 @@ mod rage_reflection;
 mod rite_of_the_dragoncaller;
 mod ritual_of_subdual;
 mod storm_of_saruman;
+mod territorial_dispute;
 mod true_conviction;
 
 /// Declares `attackers` for `seat` against `at` and stops once the

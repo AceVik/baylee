@@ -34,6 +34,16 @@ impl Tx<'_> {
             chain.effects.extend(effects);
             return Some(());
         }
+        if api == "ChooseColor" {
+            let effects = self.choose_color_animate(p, sub.as_deref(), chain)?;
+            chain.effects.extend(effects);
+            return Some(());
+        }
+        if api == "RepeatEach" {
+            let effects = self.repeat_each_effect(p, sub.as_deref(), chain)?;
+            chain.effects.extend(effects);
+            return Some(());
+        }
         // The remembered objects are the damage recipients, not this line's
         // original targets. Read their entire lifetime and consumer together;
         // accepting the flag alone would silently drop a rules clause.
@@ -43,24 +53,7 @@ impl Tx<'_> {
             &mut sub,
             chain.effects.is_empty(),
         )?;
-        // The requirement and the effect name the target differently when it
-        // is a player: the wizard resolves `AnyPlayer`/`AnyOpponent` into the
-        // spell's chosen player, and the effect then reads it back as
-        // `PlayerRel::Chosen`. Handing the *requirement* to the effect
-        // instead is how a burn spell ends up dealing damage to nothing at
-        // all: `DealDamage` looks for an object target and finds none.
-        let target: Option<String> = match chain
-            .second_target
-            .as_ref()
-            .or(chain.target.as_ref())
-            .map(String::as_str)
-        {
-            Some("TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent") => {
-                Some("TargetSpec::Player(PlayerRel::Chosen)".to_string())
-            }
-            Some(other) => Some(other.to_string()),
-            None => None,
-        };
+        let target = Self::effect_target(chain);
         // Whether an absent `Defined$` on this line means a chosen player:
         // only where this line declared the player target itself.
         let targets_a_player =
@@ -84,7 +77,7 @@ impl Tx<'_> {
             None => None,
         };
 
-        let Some(mut effects) = (if chain.second_target.is_some() {
+        let Some(effects) = (if chain.second_target.is_some() {
             self.pump_effect(&mut p, target.as_deref().expect("second target"), true)
         } else {
             self.effect_of(
@@ -105,12 +98,7 @@ impl Tx<'_> {
             }
             return None;
         };
-        if !p.exhausted() {
-            if let Some(key) = p.first_key() {
-                self.note(format!("unclaimed parameter `{api}.{key}`"));
-            }
-            return None;
-        }
+        let mut effects = self.wrap_line_condition(&api, &mut p, effects)?;
         if prevent_damaged_regeneration {
             effects.push("Effect::DamagedThisWayCantBeRegenerated".to_string());
         }
@@ -132,6 +120,63 @@ impl Tx<'_> {
         }
     }
 
+    // The requirement and the effect name the target differently when it
+    // is a player: the wizard resolves `AnyPlayer`/`AnyOpponent` into the
+    // spell's chosen player, and the effect then reads it back as
+    // `PlayerRel::Chosen`. Handing the *requirement* to the effect
+    // instead is how a burn spell ends up dealing damage to nothing at
+    // all: `DealDamage` looks for an object target and finds none.
+    fn effect_target(chain: &Chain) -> Option<String> {
+        match chain
+            .second_target
+            .as_ref()
+            .or(chain.target.as_ref())
+            .map(String::as_str)
+        {
+            Some("TargetSpec::AnyPlayer" | "TargetSpec::AnyOpponent") => {
+                Some("TargetSpec::Player(PlayerRel::Chosen)".to_string())
+            }
+            Some(other) => Some(other.to_string()),
+            None => None,
+        }
+    }
+
+    fn wrap_line_condition(
+        &mut self,
+        api: &str,
+        p: &mut Params,
+        effects: Vec<String>,
+    ) -> Option<Vec<String>> {
+        if p.exhausted() {
+            return Some(effects);
+        }
+        if !p.has("ConditionPresent") {
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `{api}.{key}`"));
+            }
+            return None;
+        }
+        p.claim_label("ConditionDescription", "ConditionPresent");
+        if let Some(cmp) = p.take("ConditionCompare") {
+            if p.has("PresentCompare") {
+                return self.deny("both `ConditionCompare$` and `PresentCompare$`".to_string());
+            }
+            p.entries.push(("PresentCompare".to_string(), cmp));
+        }
+        let valid = p.take("ConditionPresent").expect("checked above");
+        let cond = self.present_clause(p, &valid)?;
+        if !p.exhausted() {
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `{api}.{key}`"));
+            }
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[] }}",
+            effects.join(", ")
+        )])
+    }
+
     /// Register a fresh target declaration without merging independent instances.
     fn chain_target(
         &mut self,
@@ -145,7 +190,8 @@ impl Tx<'_> {
         // different zones), so the zone the line moves *from* decides
         // the spec before the valid-string is read.
         let spec = if api == "ChangeZone" && p.peek("Origin") == Some("Graveyard") {
-            self.graveyard_target(valid)
+            let defined_ctrl = p.take("TargetsWithDefinedController");
+            self.graveyard_target(valid, defined_ctrl.as_deref())
         } else {
             // "Target spell or permanent" (the Laces): the stack is a
             // zone a target may be chosen in only where the line says
@@ -285,6 +331,8 @@ impl Tx<'_> {
         let targets_a_controlled_object = target.is_some_and(|t| {
             t.starts_with("TargetSpec::Spell(") || t.starts_with("TargetSpec::Object(")
         });
+        let targets_a_player = target
+            .is_some_and(|t| t == "TargetSpec::AnyPlayer" || t.starts_with("TargetSpec::Player("));
         let payer = match payer.as_deref() {
             Some("You") => "PlayerRel::You",
             // Paralyze's "that player may pay {4}": the enchanted
@@ -293,6 +341,7 @@ impl Tx<'_> {
             None | Some("TargetedController") if targets_a_controlled_object => {
                 "PlayerRel::ControllerOfTarget"
             }
+            Some("Targeted") if targets_a_player => "PlayerRel::Chosen",
             // Rhystic Study's "unless that player pays {1}": the player the
             // cast trigger's event is about, as `Defined$` reads the same
             // words (`Tx::player_rel`). Anywhere but a cast trigger they
@@ -301,6 +350,11 @@ impl Tx<'_> {
                 if self.trigger_mode.as_deref() == Some("SpellCast") =>
             {
                 self.player_rel(Some(who))?
+            }
+            Some("TriggeredTargetController")
+                if self.trigger_mode.as_deref() == Some("DamageDone") =>
+            {
+                self.player_rel(Some("TriggeredTargetController"))?
             }
             other => {
                 return self.deny(format!(
@@ -333,9 +387,9 @@ impl Tx<'_> {
     pub(super) fn unless_price(&mut self, raw: &str) -> Option<Price> {
         // "Unless its controller pays {X}" (Power Sink): the X announced
         // for the source, and only where the card says that is what X is.
-        if raw == "X" {
+        if matches!(raw, "X" | "Y" | "Z") {
             let Some(x) = amount(raw, self.svars, self.has_x) else {
-                return self.deny("an unless-cost of `X`".to_string());
+                return self.deny(format!("an unless-cost of `{raw}`"));
             };
             return Some(Price::Generic(x));
         }
@@ -461,23 +515,28 @@ impl Tx<'_> {
             // The same two readings as `GainLife`: Braingeyser's "target
             // player draws X cards".
             "Draw" => {
-                let n = amount(
-                    p.take("NumCards").as_deref().unwrap_or("1"),
-                    self.svars,
-                    self.has_x,
-                )?;
-                match (
+                let n = self.amount_or_count(p.take("NumCards").as_deref().unwrap_or("1"))?;
+                let may = match p.take("OptionalDecider").as_deref() {
+                    None => false,
+                    Some("You") => true,
+                    Some(_) => return None,
+                };
+                let draw = match (
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?,
                     n.strip_prefix("Amount::Fixed(")
                         .and_then(|r| r.strip_suffix(')')),
                 ) {
-                    ("PlayerRel::You", Some(fixed)) => vec![format!("Effect::draw({fixed})")],
-                    ("PlayerRel::You", None) => {
-                        vec![format!("Effect::DrawCards {{ amount: {n} }}")]
+                    ("PlayerRel::You", Some(fixed)) => format!("Effect::draw({fixed})"),
+                    ("PlayerRel::You", None) => format!("Effect::DrawCards {{ amount: {n} }}"),
+                    (who, _) if !may => {
+                        format!("Effect::DrawCardsFor {{ amount: {n}, who: {who} }}")
                     }
-                    (who, _) => vec![format!(
-                        "Effect::DrawCardsFor {{ amount: {n}, who: {who} }}"
-                    )],
+                    _ => return None,
+                };
+                if may {
+                    vec![format!("Effect::MayDo {{ effects: &[{draw}] }}")]
+                } else {
+                    vec![draw]
                 }
             }
             // "Target player discards a card": the discarding player
@@ -493,6 +552,7 @@ impl Tx<'_> {
             }
             "Discard" if p.peek("Mode") == Some("TgtChoose") => {
                 p.take("Mode");
+                p.take("IsCurse");
                 let n = p
                     .take("NumCards")
                     .as_deref()
@@ -504,6 +564,20 @@ impl Tx<'_> {
                 vec![format!(
                     "Effect::DiscardForPlayers {{ who: {who}, count: {n} }}"
                 )]
+            }
+            "Discard" if p.peek("Mode") == Some("RevealYouChoose") => {
+                p.take("Mode");
+                if !targets_a_player
+                    || p.take("Defined").is_some()
+                    || !matches!(p.take("NumCards").as_deref(), None | Some("1"))
+                {
+                    return None;
+                }
+                let filter = match p.take("DiscardValid").as_deref() {
+                    None | Some("Card") => "Filter::Any".to_string(),
+                    Some(valid) => self.filter_expr(valid)?,
+                };
+                vec![format!("Effect::RevealHandDiscard {{ filter: &{filter} }}")]
             }
             "Discard" => {
                 // Refuse other modes instead of turning a chosen discard
@@ -622,6 +696,21 @@ impl Tx<'_> {
                     vec![format!("Effect::{verb}({aimed})")]
                 }
             }
+            "SacrificeAll" => {
+                if target.is_some() {
+                    return None;
+                }
+                let valid = p.take("ValidCards")?;
+                let filter = self.filter_expr(&valid)?;
+                if !self.on_a_spell
+                    && (filter.contains("Filter::CmcAtMostX")
+                        || filter.contains("Filter::CmcExactlyX"))
+                {
+                    return None;
+                }
+                let name = self.body.filter_static("SWEEP", &filter);
+                vec![format!("Effect::SacrificeAll {{ filter: &{name} }}")]
+            }
             // "Destroy all lands", "destroy all creatures. They can't be
             // regenerated": every permanent the valid-string names, none of
             // them a target (so an ability that also targets is refused
@@ -631,13 +720,37 @@ impl Tx<'_> {
                 if target.is_some() {
                     return None;
                 }
-                let filter = self.filter_expr(&p.take("ValidCards")?)?;
-                let verb = match p.take("NoRegen").as_deref() {
-                    None => "destroy_all",
-                    Some("True") => "destroy_all_no_regen",
-                    Some(_) => return None,
-                };
-                vec![format!("Effect::{verb}(&{filter})")]
+                let valid = p.take("ValidCards")?;
+                let no_regen = p.take("NoRegen");
+                if let Some(filter) = self.filter_expr(&valid) {
+                    // `Filter::CmcAtMostX` and `Filter::CmcExactlyX` read
+                    // `this.x_value`, which is the announced X on a spell on
+                    // the stack (`SP$`) and 0 on a permanent activating `AB$`.
+                    if !self.on_a_spell
+                        && (filter.contains("Filter::CmcAtMostX")
+                            || filter.contains("Filter::CmcExactlyX"))
+                    {
+                        return None;
+                    }
+                    let verb = match no_regen.as_deref() {
+                        None => "destroy_all",
+                        Some("True") => "destroy_all_no_regen",
+                        Some(_) => return None,
+                    };
+                    vec![format!("Effect::{verb}(&{filter})")]
+                } else if no_regen.is_none() {
+                    let stripped: Option<Vec<&str>> = valid
+                        .split(',')
+                        .map(|alt| alt.trim().strip_suffix(".cmcEQX"))
+                        .collect();
+                    let filter = self.filter_expr(&stripped?.join(","))?;
+                    let value = amount("X", self.svars, self.has_x)?;
+                    vec![format!(
+                        "Effect::DestroyAllWithManaValue {{ filter: &{filter}, value: {value} }}"
+                    )]
+                } else {
+                    return None;
+                }
             }
             // "X damage to each creature without flying and each player"
             // (Earthquake): `DealDamageEach` for the permanents and a
@@ -654,6 +767,9 @@ impl Tx<'_> {
             "PreventDamage" => {
                 let n = amount(&p.take("Amount")?, self.svars, self.has_x)?;
                 let to = match (p.take("Defined").as_deref(), target) {
+                    (Some("Self"), None) if !self.on_a_spell => {
+                        "TargetSpec::ThisObject".to_string()
+                    }
                     (Some(who), None) => {
                         format!("TargetSpec::Player({})", self.player_rel(Some(who))?)
                     }
@@ -669,7 +785,7 @@ impl Tx<'_> {
             // rule does not claim, and those refuse.
             "Fog" => vec!["Effect::PreventAllCombatDamageThisTurn".to_string()],
             "DamageAll" => {
-                if target.is_some() {
+                if targets_here {
                     return None;
                 }
                 let n = amount(&p.take("NumDmg")?, self.svars, self.has_x)?;
@@ -732,12 +848,16 @@ impl Tx<'_> {
             }
             "AnimateAll"
                 if target.is_none()
-                    && p.take("ValidCards").as_deref() == Some("Creature.OppCtrl")
-                    && p.take("RemoveKeywords").as_deref() == Some("Hexproof & Shroud")
-                    && p.take("CantHaveKeyword").as_deref() == Some("Hexproof & Shroud") =>
+                    && p.peek("ValidCards") == Some("Creature.OppCtrl")
+                    && p.peek("RemoveKeywords") == Some("Hexproof & Shroud")
+                    && p.peek("CantHaveKeyword") == Some("Hexproof & Shroud") =>
             {
+                p.take("ValidCards");
+                p.take("RemoveKeywords");
+                p.take("CantHaveKeyword");
                 vec!["Effect::continuous(&Filter::OPPONENT_CREATURE, Modifier::CantHaveKeywords(KeywordSet::HEXPROOF.union(KeywordSet::SHROUD)), Duration::UntilEndOfTurn)".to_string()]
             }
+            "AnimateAll" => self.animate_all_effect(p, target)?,
             "Pump" if p.peek("KW") == Some("Protection from everything") => {
                 self.everything_protection(p)?
             }
@@ -745,6 +865,7 @@ impl Tx<'_> {
             "Pump" => self.pump_effect(p, aimed, false)?,
             "PumpAll" => self.pump_all_effect(p, target)?,
             "Effect" => self.static_effect(p, target)?,
+            "GainControl" => self.gain_control_effect(p, target, targets_here, targets_a_player)?,
             "ChangeZone" => self.change_zone(p, target, targets_here)?,
             "ChangeZoneAll" => self.shuffle_into_library(p, target, targets_a_player)?,
             // "Look at the top three cards of target player's library and
@@ -769,7 +890,7 @@ impl Tx<'_> {
                 }
                 effects
             }
-            "Sacrifice" => self.sacrifice_effect(p)?,
+            "Sacrifice" => self.sacrifice_effect(p, target, targets_a_player)?,
             // "Tap enchanted creature" (Paralyze): the host, and not a
             // target.
             // "Tap all lands target player controls" (Mana Short): the
@@ -819,7 +940,7 @@ impl Tx<'_> {
             // reference script away from being.
             "Untap" => match (p.take("Defined").as_deref(), target) {
                 (None, Some(_)) => vec!["Effect::UntapTarget".to_string()],
-                (None, None) => vec!["Effect::UntapSelf".to_string()],
+                (None | Some("Self"), None) => vec!["Effect::UntapSelf".to_string()],
                 // "Untap enchanted creature" (Instill Energy).
                 (Some("Enchanted" | "Equipped"), None) => {
                     vec!["Effect::UntapAll { filter: &Filter::AttachedToBySource }".to_string()]

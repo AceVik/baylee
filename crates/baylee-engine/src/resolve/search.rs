@@ -106,6 +106,24 @@ pub(super) fn basic_land(
     )
 }
 
+fn search_matches(
+    state: &GameState,
+    res: &Resolution,
+    searcher: PlayerId,
+    filter: &baylee_cards_dsl::Filter,
+    bound: Option<(baylee_cards_dsl::ManaValueCmp, u32)>,
+    id: ObjectId,
+) -> bool {
+    state.object(id).is_some_and(|o| {
+        let ctx = res.rule_context();
+        let matched = res.x.map_or_else(
+            || eval::matches_with_context(filter, state, o, searcher, ctx),
+            |x| eval::matches_for_x(filter, state, o, searcher, ctx, Some(x)),
+        );
+        matched && within(o, bound)
+    })
+}
+
 fn inspected_cards(state: &GameState, library: PlayerId, searcher: PlayerId) -> Vec<ObjectId> {
     let library_cards = state.zones.list(ZoneLocation::Library(library));
     let limit = state
@@ -182,12 +200,7 @@ pub(super) fn begin_search(
         .iter()
         .rev()
         .copied()
-        .filter(|id| {
-            state.object(*id).is_some_and(|o| {
-                eval::matches_with_context(filter, state, o, searcher, res.rule_context())
-                    && within(o, bound)
-            })
-        })
+        .filter(|&id| search_matches(state, res, searcher, filter, bound, id))
         .collect();
     if distinct_names {
         let mut seen: Vec<baylee_core::ids::NameRef> = Vec::new();

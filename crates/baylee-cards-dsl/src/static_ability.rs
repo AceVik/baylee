@@ -1018,6 +1018,9 @@ pub enum PtCount {
     /// with it" (Unlicensed Hearse), the cards in exile that
     /// `Effect::ExileTargetsWithSource` put there for this object.
     ExiledWithThis,
+    /// Counters of the named kind on this object (Rusting Golem: "the number
+    /// of fade counters on it").
+    CountersOnThis(crate::CounterKind),
 }
 
 impl Modifier {

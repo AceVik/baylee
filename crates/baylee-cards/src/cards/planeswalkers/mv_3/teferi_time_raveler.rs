@@ -21,7 +21,6 @@ card!(
         loyalty = Some(4),
     )],
     color_identity = ColorSet::from_slice(&[Color::White, Color::Blue]),
-    commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[
         static_ability!(Filter::Any, Modifier::OpponentsCastAsSorcery),

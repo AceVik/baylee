@@ -166,6 +166,7 @@ const PROSE_KEYS: &[&str] = &[
     // Basalt Monolith prints it beside `AILogic`, not to move a number.
     "AIManaPref",
     "AICurse",
+    "AITgts",
     "PrecostDesc",
     "CostDesc",
     "References",

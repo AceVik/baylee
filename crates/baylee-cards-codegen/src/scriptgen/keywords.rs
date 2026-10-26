@@ -34,6 +34,12 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Cumulative upkeep:") {
             return self.cumulative_upkeep(rest);
         }
+        if let Some(rest) = line.strip_prefix("Echo:") {
+            return self.echo(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Fading:") {
+            return self.fading(rest);
+        }
         if let Some(bit) = keyword_const(line) {
             if bit == "KeywordSet::PROWESS" && self.body.keywords.iter().any(|k| k == bit) {
                 let expr = self.filter_expr("Card.nonCreature+YouCtrl")?;
@@ -206,6 +212,63 @@ impl Tx<'_> {
         self.deny(format!("cumulative upkeep `{raw}`"))
     }
 
+    /// `K:Echo:<cost>` (CR 702.30a): "At the beginning of your upkeep, if this
+    /// permanent came under your control since the beginning of your last
+    /// upkeep, sacrifice it unless you pay its echo cost."
+    pub(super) fn echo(&mut self, rest: &str) -> Option<()> {
+        let mut fields = rest.split(':');
+        let raw = fields.next()?.trim();
+        let _prose = fields.next();
+        if fields.next().is_some() {
+            return self.deny(format!("echo `{rest}`"));
+        }
+        let tokens: Vec<String> = super::cost_parts(raw);
+        if !tokens.is_empty()
+            && tokens.iter().all(|t| {
+                t.chars().all(|c| c.is_ascii_digit())
+                    || matches!(t.as_str(), "W" | "U" | "B" | "R" | "G" | "C")
+            })
+        {
+            let (mana, parts) = self.cost_pieces(raw)?;
+            if parts.is_empty() && !mana.is_empty() {
+                self.body
+                    .abilities
+                    .push(format!("AbilityDef::Echo {{ cost: mana!(\"{mana}\") }}"));
+                return Some(());
+            }
+        }
+        self.deny(format!("echo `{raw}`"))
+    }
+
+    /// `K:Fading:<n>` (CR 702.32a): "This permanent enters with N fade counters
+    /// on it" and "At the beginning of your upkeep, remove a fade counter from
+    /// this permanent. If you can't, sacrifice the permanent."
+    pub(super) fn fading(&mut self, rest: &str) -> Option<()> {
+        let mut fields = rest.split(':');
+        let raw = fields.next()?.trim();
+        let _prose = fields.next();
+        if fields.next().is_some() {
+            return self.deny(format!("fading `{rest}`"));
+        }
+        let Ok(n) = raw.parse::<i32>() else {
+            return self.deny(format!("fading `{raw}`"));
+        };
+        if n < 0 {
+            return self.deny(format!("fading `{raw}`"));
+        }
+        self.body.enter_modifiers.push(format!(
+            "EnterModifier::WithCounters {{ kind: counters::FADE, amount: Amount::Fixed({n}) }}"
+        ));
+        self.body.abilities.push(
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, \
+             &[Effect::IfCondition { condition: Condition::CountersOnSelf(counters::FADE, 1), \
+             then: &[Effect::RemoveCounterSelf { kind: counters::FADE, n: 1 }], \
+             otherwise: &[Effect::SacrificeSelf] }])"
+                .to_string(),
+        );
+        Some(())
+    }
+
     /// `K:Equip:<cost>` as the activated ability the keyword is.
     ///
     /// Equip prints one thing and the rules supply the rest (CR 702.6a):
@@ -308,6 +371,7 @@ impl Tx<'_> {
         match kind {
             'A' => self.activated_or_spell(spec),
             'T' => self.triggered(spec),
+            'S' if self.is_ai_only_static(spec) => Some(()),
             'S' => self.static_ability(spec),
             'R' => self.replacement(spec),
             other => self.deny(format!("rules line kind `{other}:`")),
@@ -333,6 +397,19 @@ impl Tx<'_> {
         }
         if event == "DamageDone" && p.peek("ValidSource") == Some("Creature.blockedBySource") {
             return self.wall_blocked_damage_prevention(p);
+        }
+        if event == "DamageDone" && p.peek("ValidSource") == Some("Creature.EnchantedBy") {
+            return self.enchanted_source_damage_prevention(p);
+        }
+        if event == "DamageDone" && p.peek("ValidTarget") == Some("Creature.EnchantedBy") {
+            return self.enchanted_target_damage_prevention(p);
+        }
+        if event == "DamageDone"
+            && p.peek("IsCombat") == Some("True")
+            && (p.peek("ValidTarget") == Some("Creature.YouCtrl")
+                || p.peek("ValidSource") == Some("Creature.YouCtrl"))
+        {
+            return self.combat_damage_your_creatures_prevention(p);
         }
         if event == "DamageDone" {
             return self.spell_damage_prevention(p);

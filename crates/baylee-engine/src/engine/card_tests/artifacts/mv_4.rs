@@ -69,6 +69,7 @@ mod nevinyrral_s_disk;
 mod nova_pentacle;
 mod null_brooch;
 mod otherworld_atlas;
+mod panacea;
 mod panharmonicon;
 mod pentagram_of_the_ages;
 mod power_armor;

@@ -333,7 +333,52 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // the evaluator cannot price: one readable row is lost, not an activation.
     // The other six cards add no activated/loyalty rows. The regression below
     // pins those exact members rather than widening a reader budget.
-    assert_eq!((read, of), (2782, 3492), "activated/loyalty reader census");
+    // Urza's Destiny (`uds`) Batch 2 adds 1 non-mana activated ability on
+    // Goblin Festival (0 of 1 read by the evaluator).
+    // Urza's Destiny (`uds`) Batch 3 adds 3 non-mana activated abilities on
+    // Plague Dogs, Powder Keg, and Rapid Decay (2 of 3 read by the evaluator).
+    // Urza's Destiny (`uds`) Batch 4 adds 2 non-mana activated abilities on
+    // Thran Foundry and Yavimaya Elder (1 of 2 read by the evaluator).
+    // Mercadian Masques (`mmq`) Batch 1 adds 3 non-mana activated abilities on
+    // Aerial Caravan, Ballista Squad, and Cackling Witch (2 of 3 read by the evaluator).
+    // Mercadian Masques (`mmq`) Batch 2 adds 6 non-mana activated abilities on
+    // Cinder Elemental, Corrupt Official, Darting Merfolk, Deepwood Elder,
+    // Deepwood Legate, and Distorting Lens (4 of 6 read by the evaluator).
+    // Mercadian Masques (`mmq`) Batch 3 adds 8 non-mana activated abilities on
+    // Flailing Manticore (2), Flailing Ogre (2), Flailing Soldier (2),
+    // General's Regalia, and Haunted Crossroads (6 of 8 read by the evaluator).
+    // Mercadian Masques (`mmq`) Batch 4 adds 1 non-mana activated ability on
+    // Panacea (0 of 1 read by the evaluator).
+    // Mercadian Masques (`mmq`) Batch 5 adds 4 non-mana activated abilities on
+    // Kyren Negotiations, Rappelling Scouts, Revered Elder, and promoted pool
+    // cards (2 of 4 read by the evaluator).
+    // Mercadian Masques (`mmq`) Batch 6 adds 4 non-mana activated abilities on
+    // Rishadan Pawnshop, Sailmonger, Scandalmonger, and Silent Assassin (2 of 4
+    // read by the evaluator).
+    // Mercadian Masques (`mmq`) Batch 7 adds 4 non-mana activated abilities on
+    // Overtaker, Squallmonger, Toymaker, and Wall of Distortion (0 of 4 read by
+    // the evaluator).
+    // Mercadian Masques (`mmq`) Batch 8 adds 1 non-mana activated ability on
+    // Warmonger (0 of 1 read by the evaluator).
+    // Nemesis (`nem`) Batch 1 adds 6 non-mana activated abilities on Ancient
+    // Hydra, Avenger en-Dal, Belbe's Armor, Bola Warrior, Defender en-Vec, and
+    // Defiant Vanguard (4 of 6 read by the evaluator).
+    // Nemesis (`nem`) Batch 2 adds 6 non-mana activated abilities on Flowstone
+    // Armor, Jolting Merfolk, Lin Sivvi, Defiant Hero (2), Mind Slash, and
+    // Netter en-Dal (3 of 6 read by the evaluator).
+    // Nemesis (`nem`) Batch 3 adds 7 non-mana activated abilities on Parallax
+    // Tide, Parallax Wave, Phyrexian Prowler, Rejuvenation Chamber, Rhox,
+    // Rootwater Thief, and Saproling Cluster (5 of 7 read by the evaluator).
+    // Nemesis (`nem`) Batch 4 adds 4 non-mana activated abilities on Sliptide
+    // Serpent, Stampede Driver, Stronghold Biologist, and Woodripper (4 of 4
+    // read by the evaluator).
+    // Prophecy (`pcy`) Batch 1 adds 6 non-mana activated abilities on Avatar of
+    // Fury, Avatar of Woe, Coffin Puppets, Copper-Leaf Angel, Endbringer's
+    // Revel, and Excavation (5 of 6 read by the evaluator).
+    // Prophecy (`pcy`) Batch 2 adds 4 non-mana activated abilities on Greel,
+    // Mind Raker, Keldon Arsonist, Latulla, Keldon Overseer, and Mageta the
+    // Lion (2 of 4 read by the evaluator).
+    assert_eq!((read, of), (2824, 3562), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -256,6 +256,30 @@ impl Tx<'_> {
     /// The definition is passed in rather than the `SVar` name so that the
     /// caller decides what an *undefined* name is called as well.
     pub(super) fn count_expr(&mut self, def: &str) -> Option<String> {
+        if def.trim() == "TriggerCount$DamageAmount"
+            && matches!(
+                self.trigger_mode.as_deref(),
+                Some("DamageDone" | "DamageDoneOnce" | "DamageDealtOnce")
+            )
+        {
+            return Some("Amount::EventAmount".to_string());
+        }
+        if def.trim() == "Targeted$CardToughness" {
+            return Some("Amount::TargetToughness".to_string());
+        }
+        if def.trim() == "Count$CardPower" && !self.on_a_spell {
+            return Some("Amount::SourcePower".to_string());
+        }
+        if let Some(valid) = def.trim().strip_prefix("Count$ValidGraveyard ")
+            && !valid.contains("Ctrl")
+            && !valid.contains("Own")
+        {
+            let expr = self.filter_expr(valid)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardAll }}"
+            ));
+        }
         let valid = def.trim().strip_prefix("Count$Valid ")?;
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNT", &expr);
@@ -391,6 +415,8 @@ impl Tx<'_> {
                 parts.push("UntapSelf".to_string());
             } else if token.starts_with("Sac<1/CARDNAME") {
                 parts.push("SacrificeSelf".to_string());
+            } else if token == "Exile<1/CARDNAME>" || token.starts_with("Exile<1/CARDNAME/") {
+                parts.push("ExileSelf".to_string());
             } else if let Some((n, kind)) = token
                 .strip_prefix("AddCounter<")
                 .and_then(|t| t.strip_suffix('>'))
@@ -435,7 +461,7 @@ impl Tx<'_> {
                 };
                 parts.push(format!("RemoveCounterSelf {{ kind: {kind}, n: {n} }}"));
             } else if let Some((kind, body)) = object_cost(token) {
-                parts.push(self.object_cost_part(kind, body, token)?);
+                parts.extend(self.object_cost_part(kind, body, token)?);
             } else if let Some(n) = token
                 .strip_prefix("PayLife<")
                 .and_then(|t| t.strip_suffix('>'))
@@ -444,6 +470,10 @@ impl Tx<'_> {
                 parts.push(format!("PayLife({n})"));
             } else if token.chars().all(|c| c.is_ascii_digit())
                 || matches!(token, "W" | "U" | "B" | "R" | "G" | "C")
+                || (token == "X"
+                    && self.has_x
+                    && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+                    && !self.oracle.to_ascii_lowercase().contains("x is "))
             {
                 mana.push('{');
                 mana.push_str(token);
@@ -500,12 +530,18 @@ impl Tx<'_> {
         kind: &str,
         body: &str,
         token: &str,
-    ) -> Option<String> {
+    ) -> Option<Vec<String>> {
         let mut fields = body.splitn(3, '/');
         let (Some(n), Some(spec)) = (fields.next(), fields.next()) else {
             return self.deny(format!("cost `{token}`"));
         };
-        if n != "1" {
+        let sac_x = kind == "Sac"
+            && n == "X"
+            && self.has_x
+            && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+            && !self.oracle.to_ascii_lowercase().contains("x is ");
+        let two_parts = matches!(kind, "Sac" | "Discard") && n == "2" && spec != "CARDNAME";
+        if n != "1" && !sac_x && !two_parts {
             return self.deny(format!("a cost naming `{n}` objects"));
         }
         let (variant, controlled) = match kind {
@@ -513,6 +549,7 @@ impl Tx<'_> {
             "Discard" => ("Discard", false),
             "tapXType" => ("TapOther", true),
             "ExileFromGrave" => ("ExileFromGraveyard", false),
+            "Exile" => ("ExilePermanent", true),
             _ => ("ReturnToHand", true),
         };
         if spec == "CARDNAME" {
@@ -520,12 +557,16 @@ impl Tx<'_> {
             // no question. `Sac<1/CARDNAME>` never reaches here (it is
             // matched one branch up), so this is the return's own case.
             return Some(match variant {
-                "ReturnToHand" => "ReturnSelfToHand".to_string(),
+                "ReturnToHand" => vec!["ReturnSelfToHand".to_string()],
                 _ => return self.deny(format!("cost `{token}` naming itself")),
             });
         }
         if variant == "Discard" && spec == "Random" {
-            return Some("DiscardRandom".to_string());
+            return Some(if two_parts {
+                vec!["DiscardRandom".to_string(); 2]
+            } else {
+                vec!["DiscardRandom".to_string()]
+            });
         }
         let spec = if controlled {
             // Appended per alternative, because a valid-string's commas are
@@ -548,6 +589,12 @@ impl Tx<'_> {
         };
         let expr = self.filter_expr(&spec)?;
         let name = self.body.filter_static("COST", &expr);
-        Some(format!("{variant}(&{name})"))
+        Some(if sac_x {
+            vec![format!("SacrificeX(&{name})")]
+        } else if two_parts {
+            vec![format!("{variant}(&{name})"); 2]
+        } else {
+            vec![format!("{variant}(&{name})")]
+        })
     }
 }

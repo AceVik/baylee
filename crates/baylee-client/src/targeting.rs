@@ -265,6 +265,20 @@ fn count<'a>(
     Some(found)
 }
 
+fn is_blocked(view: &PlayerView, object: baylee_core::ids::ObjectId) -> bool {
+    matches!(
+        view.step,
+        baylee_view::Step::DeclareBlockers
+            | baylee_view::Step::CombatDamageFirst
+            | baylee_view::Step::CombatDamage
+            | baylee_view::Step::CombatEnd
+    ) && view
+        .combat
+        .attackers
+        .iter()
+        .any(|attacker| attacker.creature == object && attacker.blocked)
+}
+
 fn is_unblocked(view: &PlayerView, object: baylee_core::ids::ObjectId) -> bool {
     matches!(
         view.step,
@@ -401,6 +415,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
             .blockers
             .iter()
             .any(|blocker| blocker.blocker == object.id),
+        Filter::Blocked => is_blocked(view, object.id),
         Filter::Unblocked => is_unblocked(view, object.id),
         // The view names what every public object is attached to.
         Filter::IsAttached => object.attached_to.is_some(),
