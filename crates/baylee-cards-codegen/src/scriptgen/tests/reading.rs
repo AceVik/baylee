@@ -1656,3 +1656,57 @@ fn chosen_color_protection_prevent_all_damage_draw_count_and_choose_color_animat
         ]
     );
 }
+
+#[test]
+fn fading_graveyard_name_count_sacrifice_all_and_dominate_transcode() {
+    let hydra = read(
+        "K:Fading:5\n\
+         A:AB$ DealDamage | Cost$ 1 SubCounter<1/FADE> | ValidTgts$ Any | NumDmg$ 1",
+    );
+    assert_eq!(
+        hydra.enter_modifiers,
+        ["EnterModifier::WithCounters { kind: counters::FADE, amount: Amount::Fixed(5) }"]
+    );
+    assert_eq!(
+        hydra.abilities,
+        [
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, &[Effect::IfCondition { condition: Condition::CountersOnSelf(counters::FADE, 1), then: &[Effect::RemoveCounterSelf { kind: counters::FADE, n: 1 }], otherwise: &[Effect::SacrificeSelf] }])",
+            "activated!(cost!(\"{1}\", RemoveCounterSelf { kind: counters::FADE, n: 1 }), &[Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::AnyTarget }], target = Some(TargetSpec::AnyTarget))"
+        ]
+    );
+
+    let ak = read(
+        "A:SP$ Draw | Defined$ You | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:X:Count$ValidGraveyard Card.namedAccumulated Knowledge",
+    );
+    assert!(
+        ak.abilities[0].contains("ZoneSel::GraveyardAll")
+            && ak
+                .statics
+                .contains("Filter::Named(\"Accumulated Knowledge\")"),
+        "{:?} / {}",
+        ak.abilities,
+        ak.statics
+    );
+
+    let offering = read(
+        "T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigSacAll\n\
+         SVar:TrigSacAll:DB$ SacrificeAll | ValidCards$ Creature.YouCtrl",
+    );
+    assert_eq!(
+        offering.abilities,
+        ["triggered!(Trigger::ETB, &[Effect::SacrificeAll { filter: &Filter::YOUR_CREATURE }])"]
+    );
+
+    let dominate = read(
+        "A:SP$ GainControl | ValidTgts$ Creature.cmcLEX | SVar:X:Count$xPaid\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        dominate.abilities[0].contains("Modifier::GainControl")
+            && dominate.abilities[0].contains("Duration::Indefinitely"),
+        "{:?}",
+        dominate.abilities
+    );
+}

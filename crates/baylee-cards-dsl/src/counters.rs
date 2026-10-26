@@ -243,6 +243,9 @@ pub const SOOT: CounterKind = CounterKind::Custom(65);
 /// Arrow counters (Archery Training).
 pub const ARROW: CounterKind = CounterKind::Custom(66);
 
+/// Fade counters (Fading N, CR 702.32a).
+pub const FADE: CounterKind = CounterKind::Custom(67);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -315,6 +318,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("petal", PETAL),
     ("soot", SOOT),
     ("arrow", ARROW),
+    ("fade", FADE),
 ];
 
 #[cfg(test)]

@@ -653,6 +653,21 @@ impl Tx<'_> {
                     vec![format!("Effect::{verb}({aimed})")]
                 }
             }
+            "SacrificeAll" => {
+                if target.is_some() {
+                    return None;
+                }
+                let valid = p.take("ValidCards")?;
+                let filter = self.filter_expr(&valid)?;
+                if !self.on_a_spell
+                    && (filter.contains("Filter::CmcAtMostX")
+                        || filter.contains("Filter::CmcExactlyX"))
+                {
+                    return None;
+                }
+                let name = self.body.filter_static("SWEEP", &filter);
+                vec![format!("Effect::SacrificeAll {{ filter: &{name} }}")]
+            }
             // "Destroy all lands", "destroy all creatures. They can't be
             // regenerated": every permanent the valid-string names, none of
             // them a target (so an ability that also targets is refused

@@ -490,6 +490,9 @@ impl Tx<'_> {
         if target.is_none() || targets_a_player {
             return None;
         }
+        if p.peek("SVar:X:Count") == Some("xPaid") {
+            p.take("SVar:X:Count");
+        }
         match p.take("Defined").as_deref() {
             None => {}
             Some("Targeted") if !targets_here => {}
@@ -502,7 +505,7 @@ impl Tx<'_> {
         let duration = match p.take("LoseControl").as_deref() {
             Some("EOT") => "Duration::UntilEndOfTurn",
             Some("LeavesPlay") if !self.on_a_spell => "Duration::WhileYouControlSource",
-            None => "Duration::Permanent",
+            None => "Duration::Indefinitely",
             Some(_) => return None,
         };
         let untap = match p.take("Untap").as_deref() {

@@ -103,6 +103,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "ManaReflected",
     "Destroy",
     "DestroyAll",
+    "SacrificeAll",
     "DelayedTrigger",
     "DamageAll",
     "DamageResolve",

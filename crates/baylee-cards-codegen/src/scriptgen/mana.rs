@@ -267,6 +267,16 @@ impl Tx<'_> {
         if def.trim() == "Targeted$CardToughness" {
             return Some("Amount::TargetToughness".to_string());
         }
+        if let Some(valid) = def.trim().strip_prefix("Count$ValidGraveyard ")
+            && !valid.contains("Ctrl")
+            && !valid.contains("Own")
+        {
+            let expr = self.filter_expr(valid)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardAll }}"
+            ));
+        }
         let valid = def.trim().strip_prefix("Count$Valid ")?;
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNT", &expr);
