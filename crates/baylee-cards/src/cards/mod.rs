@@ -20851,6 +20851,8 @@ pub mod urborg_panther;
 pub mod urborg_phantom;
 #[path = "creatures/mv_4/urborg_shambler.rs"]
 pub mod urborg_shambler;
+#[path = "creatures/mv_1/urborg_skeleton.rs"]
+pub mod urborg_skeleton;
 #[path = "creatures/mv_4/urborg_stalker.rs"]
 pub mod urborg_stalker;
 #[path = "lands/urborg_tomb_of_yawgmoth.rs"]
@@ -20883,6 +20885,8 @@ pub mod urza_s_chalice;
 pub mod urza_s_engine;
 #[path = "lands/utility/urza_s_factory.rs"]
 pub mod urza_s_factory;
+#[path = "artifacts/mv_4/urza_s_filter.rs"]
+pub mod urza_s_filter;
 #[path = "sorceries/mv_4/urza_s_guilt.rs"]
 pub mod urza_s_guilt;
 #[path = "artifacts/mv_3/urza_s_incubator.rs"]
@@ -20893,6 +20897,8 @@ pub mod urza_s_mine;
 pub mod urza_s_miter;
 #[path = "lands/urza_s_power_plant.rs"]
 pub mod urza_s_power_plant;
+#[path = "instants/mv_3/urza_s_rage.rs"]
+pub mod urza_s_rage;
 #[path = "lands/enchantments/urza_s_saga.rs"]
 pub mod urza_s_saga;
 #[path = "lands/towers/urza_s_tower.rs"]
@@ -21129,8 +21135,12 @@ pub mod verdant_field;
 pub mod verdant_force;
 #[path = "sorceries/mv_2/verdant_touch.rs"]
 pub mod verdant_touch;
+#[path = "creatures/mv_6/verdeloth_the_ancient.rs"]
+pub mod verdeloth_the_ancient;
 #[path = "instants/mv_3/verdigris.rs"]
 pub mod verdigris;
+#[path = "creatures/mv_3/verduran_emissary.rs"]
+pub mod verduran_emissary;
 #[path = "creatures/mv_3/verduran_enchantress.rs"]
 pub mod verduran_enchantress;
 #[path = "creatures/mv_5/vermiculos.rs"]
@@ -21261,6 +21271,10 @@ pub mod vigilant_drake;
 pub mod vigilant_martyr;
 #[path = "enchantments/mv_4/vigilante_justice.rs"]
 pub mod vigilante_justice;
+#[path = "instants/mv_1/vigorous_charge.rs"]
+pub mod vigorous_charge;
+#[path = "enchantments/mv_3/vile_consumption.rs"]
+pub mod vile_consumption;
 #[path = "creatures/mv_4/vile_deacon.rs"]
 pub mod vile_deacon;
 #[path = "enchantments/mv_4/vile_requiem.rs"]
@@ -21375,6 +21389,8 @@ pub mod vizzerdrix;
 pub mod vodalian_arcanist;
 #[path = "creatures/mv_2/vodalian_hexcatcher.rs"]
 pub mod vodalian_hexcatcher;
+#[path = "creatures/mv_2/vodalian_hypnotist.rs"]
+pub mod vodalian_hypnotist;
 #[path = "creatures/mv_3/vodalian_illusionist.rs"]
 pub mod vodalian_illusionist;
 #[path = "creatures/mv_3/vodalian_knights.rs"]
@@ -21383,6 +21399,8 @@ pub mod vodalian_knights;
 pub mod vodalian_mage;
 #[path = "creatures/mv_2/vodalian_merchant.rs"]
 pub mod vodalian_merchant;
+#[path = "creatures/mv_4/vodalian_serpent.rs"]
+pub mod vodalian_serpent;
 #[path = "creatures/mv_2/vodalian_soldiers.rs"]
 pub mod vodalian_soldiers;
 #[path = "creatures/mv_3/vodalian_war_machine.rs"]
@@ -21405,6 +21423,8 @@ pub mod voice_of_the_provinces;
 pub mod voice_of_truth;
 #[path = "creatures/mv_3/voiceless_spirit.rs"]
 pub mod voiceless_spirit;
+#[path = "sorceries/mv_5/void.rs"]
+pub mod void;
 #[path = "creatures/mv_3/void_grafter.rs"]
 pub mod void_grafter;
 #[path = "instants/mv_6/void_helix.rs"]
@@ -21473,6 +21493,8 @@ pub mod volunteer_reserves;
 pub mod vona_butcher_of_magan;
 #[path = "artifacts/mv_6/voodoo_doll.rs"]
 pub mod voodoo_doll;
+#[path = "creatures/mv_4/voracious_cobra.rs"]
+pub mod voracious_cobra;
 #[path = "creatures/mv_5/voracious_greatshark.rs"]
 pub mod voracious_greatshark;
 #[path = "creatures/mv_3/voracious_vampire.rs"]
@@ -21673,6 +21695,8 @@ pub mod wandering_fumarole;
 pub mod wandering_mage;
 #[path = "creatures/mv_1/wandering_ones.rs"]
 pub mod wandering_ones;
+#[path = "sorceries/mv_3/wandering_stream.rs"]
+pub mod wandering_stream;
 #[path = "creatures/mv_4/wandering_tombshell.rs"]
 pub mod wandering_tombshell;
 #[path = "creatures/mv_2/wandering_wolf.rs"]
@@ -21769,6 +21793,8 @@ pub mod warthog;
 pub mod wartime_protestors;
 #[path = "creatures/mv_3/wary_okapi.rs"]
 pub mod wary_okapi;
+#[path = "sorceries/mv_4/wash_out.rs"]
+pub mod wash_out;
 #[path = "creatures/mv_3/wasp_lancer.rs"]
 pub mod wasp_lancer;
 #[path = "lands/utility/wasteland.rs"]
@@ -21835,10 +21861,14 @@ pub mod wave_of_reckoning;
 pub mod wave_of_terror;
 #[path = "creatures/mv_6/wave_wing_elemental.rs"]
 pub mod wave_wing_elemental;
+#[path = "instants/mv_1/wax.rs"]
+pub mod wax;
 #[path = "creatures/mv_4/waxen_shapethief.rs"]
 pub mod waxen_shapethief;
 #[path = "artifacts/mv_1/wayfarer_s_bauble.rs"]
 pub mod wayfarer_s_bauble;
+#[path = "creatures/mv_6/wayfaring_giant.rs"]
+pub mod wayfaring_giant;
 #[path = "instants/mv_3/waylay.rs"]
 pub mod waylay;
 #[path = "creatures/mv_5/wayward_giant.rs"]
@@ -21905,6 +21935,8 @@ pub mod welkin_guide;
 pub mod welkin_hawk;
 #[path = "creatures/mv_2/welkin_tern.rs"]
 pub mod welkin_tern;
+#[path = "enchantments/mv_3/well_laid_plans.rs"]
+pub mod well_laid_plans;
 #[path = "artifacts/mv_6/well_of_discovery.rs"]
 pub mod well_of_discovery;
 #[path = "artifacts/mv_3/well_of_knowledge.rs"]
@@ -21941,6 +21973,8 @@ pub mod whim_of_volrath;
 pub mod whimwader;
 #[path = "creatures/mv_3/whip_sergeant.rs"]
 pub mod whip_sergeant;
+#[path = "enchantments/auras/mv_1/whip_silk.rs"]
+pub mod whip_silk;
 #[path = "creatures/mv_3/whip_vine.rs"]
 pub mod whip_vine;
 #[path = "sorceries/mv_2/whipflare.rs"]
@@ -22159,6 +22193,8 @@ pub mod winged_sliver;
 pub mod wings_of_aesthir;
 #[path = "enchantments/auras/mv_2/wings_of_hope.rs"]
 pub mod wings_of_hope;
+#[path = "instants/mv_2/winnow.rs"]
+pub mod winnow;
 #[path = "sorceries/mv_1/winter_blast.rs"]
 pub mod winter_blast;
 #[path = "artifacts/mv_2/winter_moon.rs"]
@@ -22335,6 +22371,8 @@ pub mod workhorse;
 pub mod world_map;
 #[path = "creatures/mv_4/world_shaper.rs"]
 pub mod world_shaper;
+#[path = "instants/mv_2/worldly_counsel.rs"]
+pub mod worldly_counsel;
 #[path = "instants/mv_1/worldly_tutor.rs"]
 pub mod worldly_tutor;
 #[path = "artifacts/equipment/mv_5/worldslayer.rs"]
@@ -22439,6 +22477,8 @@ pub mod yavimaya_gnats;
 pub mod yavimaya_granger;
 #[path = "lands/utility/yavimaya_hollow.rs"]
 pub mod yavimaya_hollow;
+#[path = "creatures/mv_4/yavimaya_kavu.rs"]
+pub mod yavimaya_kavu;
 #[path = "enchantments/auras/mv_8/yavimaya_s_embrace.rs"]
 pub mod yavimaya_s_embrace;
 #[path = "creatures/mv_3/yavimaya_sapherd.rs"]
@@ -22449,6 +22489,8 @@ pub mod yavimaya_scion;
 pub mod yavimaya_wurm;
 #[path = "creatures/mv_6/yawgmoth_demon.rs"]
 pub mod yawgmoth_demon;
+#[path = "enchantments/mv_5/yawgmoth_s_agenda.rs"]
+pub mod yawgmoth_s_agenda;
 #[path = "enchantments/mv_6/yawgmoth_s_bargain.rs"]
 pub mod yawgmoth_s_bargain;
 #[path = "enchantments/mv_2/yawgmoth_s_edict.rs"]
@@ -22497,6 +22539,8 @@ pub mod youthful_valkyrie;
 pub mod zagoth_crystal;
 #[path = "lands/triome/zagoth_triome.rs"]
 pub mod zagoth_triome;
+#[path = "creatures/mv_6/zanam_djinn.rs"]
+pub mod zanam_djinn;
 #[path = "lands/towns/zanarkand_ancient_metropolis.rs"]
 pub mod zanarkand_ancient_metropolis;
 #[path = "instants/mv_3/zap.rs"]

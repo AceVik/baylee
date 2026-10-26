@@ -77,6 +77,7 @@ mod veteran_s_voice;
 mod vigilance;
 mod weakness;
 mod web;
+mod whip_silk;
 mod white_scarab;
 mod white_ward;
 mod wild_growth;

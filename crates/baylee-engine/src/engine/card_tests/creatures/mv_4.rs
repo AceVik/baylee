@@ -352,6 +352,7 @@ mod vile_deacon;
 mod vine_dryad;
 mod viridian_lorebearers;
 mod volcano_imp;
+mod voracious_cobra;
 mod vulshok_berserker;
 mod vulshok_war_boar;
 mod walking_dream;

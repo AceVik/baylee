@@ -305,6 +305,7 @@ mod veteran_cavalier;
 mod viashino_sandscout;
 mod vine_trellis;
 mod viridian_zealot;
+mod vodalian_hypnotist;
 mod voice_of_resurgence;
 mod volunteer_reserves;
 mod voyaging_satyr;
