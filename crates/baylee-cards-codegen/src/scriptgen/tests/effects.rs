@@ -1945,3 +1945,89 @@ fn invasion_batch_one_reader_patterns() {
         ["KeywordSet::SHROUD", "KeywordSet::UNCOUNTERABLE"]
     );
 }
+
+#[test]
+fn invasion_batch_two_reader_patterns() {
+    let shade = "Name:Cinder Shade\nManaCost:1 B R\nTypes:Creature Shade\nPT:1/1\n\
+        A:AB$ DealDamage | Cost$ R Sac<1/CARDNAME> | ValidTgts$ Creature | NumDmg$ X\n\
+        SVar:X:Sacrificed$CardPower";
+    let body = read(shade);
+    assert_eq!(
+        body.abilities,
+        [
+            "activated!(cost!(\"{R}\", SacrificeSelf), &[Effect::DealDamage { amount: Amount::SourcePower, \
+             target: TargetSpec::Object(&Filter::CREATURE) }], target = Some(TargetSpec::Object(&Filter::CREATURE)))"
+        ]
+    );
+
+    let tears = "Name:Defiling Tears\nManaCost:2 B\nTypes:Instant\n\
+        A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ -1 | SubAbility$ DBAnimate\n\
+        SVar:DBAnimate:DB$ Animate | Colors$ Black | OverwriteColors$ True | Abilities$ ABRegenerate | Defined$ Targeted\n\
+        SVar:ABRegenerate:AB$ Regenerate | Cost$ B";
+    let body = read(tears);
+    assert_eq!(
+        body.abilities,
+        [
+            "spell!(&[Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::NegXFixed(1), \
+             keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }, \
+             Effect::continuous(&Filter::This, Modifier::SetColor(ColorSet::from_slice(&[Color::Black])), Duration::UntilEndOfTurn), \
+             Effect::continuous(&Filter::This, Modifier::GrantActivated { cost: cost!(\"{B}\"), effects: &[Effect::regenerate(TargetSpec::ThisObject)], mana_ability: false }, Duration::UntilEndOfTurn)], \
+             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ]
+    );
+
+    let sisay = "Name:Captain Sisay\nManaCost:2 G W\nTypes:Legendary Creature Human Soldier\nPT:2/2\n\
+        A:AB$ ChangeZone | Cost$ T | Origin$ Library | Destination$ Hand | ChangeType$ Legendary | ChangeNum$ 1";
+    assert_eq!(
+        read(sisay).abilities,
+        [
+            "activated!(Cost::TAP, &[Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::HAND], optional: false }])"
+        ]
+    );
+
+    let cremate = "Name:Cremate\nManaCost:B\nTypes:Instant\n\
+        A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ValidTgts$ Card | SubAbility$ DBDraw\n\
+        SVar:DBDraw:DB$ Draw";
+    assert_eq!(
+        read(cremate).abilities,
+        [
+            "spell!(&[Effect::exile(TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::EachPlayer)), Effect::draw(1)], \
+             targets = Some(TargetReq::one(TargetSpec::CardInGraveyard(&Filter::Any, PlayerRel::EachPlayer))))"
+        ]
+    );
+
+    let acolyte = "Name:Crimson Acolyte\nManaCost:1 W\nTypes:Creature Human Cleric\nPT:1/1\n\
+        K:Protection from red\n\
+        A:AB$ Protection | Cost$ W | ValidTgts$ Creature | Gains$ red";
+    assert_eq!(
+        read(acolyte).abilities,
+        [
+            "static_ability!(Filter::This, Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[Color::Red]))))",
+            "activated!(cost!(\"{W}\"), &[Effect::continuous(&Filter::This, Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[Color::Red]))), Duration::UntilEndOfTurn)], \
+             target = Some(TargetSpec::Object(&Filter::CREATURE)))"
+        ]
+    );
+
+    let knight = "Name:Crusading Knight\nManaCost:2 W W\nTypes:Creature Human Knight\nPT:2/2\n\
+        K:Protection from black\n\
+        S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
+        SVar:X:Count$Valid Forest.OppCtrl";
+    assert_eq!(
+        read(knight).abilities,
+        [
+            "static_ability!(Filter::This, Modifier::ProtectionFrom(&Filter::HasColor(ColorSet::from_slice(&[Color::Black]))))",
+            "static_ability!(Filter::This, Modifier::ModifyPTByCount(PtCount::OnBattlefield(&COUNTED1)))"
+        ]
+    );
+
+    let wake = "Name:Distorting Wake\nManaCost:X U U U\nTypes:Sorcery\n\
+        A:SP$ ChangeZone | Origin$ Battlefield | Destination$ Hand | TargetMin$ X | TargetMax$ X | ValidTgts$ Permanent.nonLand\n\
+        SVar:X:Count$xPaid";
+    assert_eq!(
+        read(wake).abilities,
+        [
+            "spell!(&[Effect::bounce(TargetSpec::Object(&Filter::NONLAND))], \
+             targets = Some(TargetReq::x_targets(TargetSpec::Object(&Filter::NONLAND))))"
+        ]
+    );
+}

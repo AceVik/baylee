@@ -722,6 +722,9 @@ impl Tx<'_> {
                 };
                 vec![format!("Effect::{verb}({target})")]
             }
+            ("Graveyard", "Exile", false) if target.starts_with("TargetSpec::CardInGraveyard") => {
+                vec![format!("Effect::exile({target})")]
+            }
             ("Battlefield" | "Stack", "Exile", true) => vec!["Effect::ExileSource".to_string()],
             // "Return target card from your graveyard to your hand"
             // (Regrowth): the target is a `CardInGraveyard`, which the chain

@@ -631,7 +631,8 @@ impl Tx<'_> {
                     return None;
                 }
                 let yours = valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
-                if !yours && (valid.contains("Ctrl") || valid.contains("Own")) {
+                let opp = valid.split(['.', '+']).any(|atom| atom == "OppCtrl");
+                if !yours && !opp && (valid.contains("Ctrl") || valid.contains("Own")) {
                     self.note("static ability with a computed P/T".to_string());
                     return None;
                 }

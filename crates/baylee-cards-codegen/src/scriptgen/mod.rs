@@ -262,6 +262,7 @@ impl Params {
 struct Chain {
     effects: Vec<String>,
     target: Option<String>,
+    target_is_x: bool,
     second_target: Option<String>,
     could_add_mana: bool,
     moves_library: bool,
@@ -353,6 +354,8 @@ struct Tx<'a> {
     /// Whether the chain being read is a delayed trigger's `Execute$`, where
     /// `Defined$ DelayTriggerRememberedLKI` is the object it remembers.
     in_delayed: bool,
+    /// Whether the activated ability being read sacrifices `CARDNAME` in its cost.
+    cost_sacrifices_self: bool,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -511,6 +514,7 @@ pub fn transcode(
         block_line: None,
         block_half: None,
         in_delayed: false,
+        cost_sacrifices_self: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };

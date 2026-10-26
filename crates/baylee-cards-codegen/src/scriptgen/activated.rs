@@ -172,7 +172,13 @@ impl Tx<'_> {
             .filter(|part| !restrictions.iter().any(|key| part.starts_with(key)))
             .filter(|part| !claimed.iter().any(|key| part.starts_with(key)))
             .collect();
-        self.chain(&stripped.join(" | "), &mut chain)?;
+        self.cost_sacrifices_self = is_activated
+            && cost
+                .as_deref()
+                .is_some_and(|c| c.split_whitespace().any(|t| t == "Sac<1/CARDNAME>"));
+        let chain_ok = self.chain(&stripped.join(" | "), &mut chain);
+        self.cost_sacrifices_self = false;
+        chain_ok?;
         if chain.effects.is_empty() {
             return self.deny("an ability that reads as no effect at all".to_string());
         }
@@ -207,6 +213,7 @@ impl Tx<'_> {
                 &condition,
                 &effects,
                 chain.target.as_deref(),
+                chain.target_is_x,
                 &second_targets,
             )
         }
@@ -306,6 +313,7 @@ impl Tx<'_> {
         condition: &str,
         effects: &str,
         target: Option<&str>,
+        target_is_x: bool,
         second_targets: &str,
     ) -> Option<()> {
         if limit.is_some() {
@@ -323,8 +331,9 @@ impl Tx<'_> {
         if let Some(raw) = cost {
             self.spell_mana_cost(raw)?;
         }
+        let req_fn = if target_is_x { "x_targets" } else { "one" };
         let targets = target
-            .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
+            .map(|t| format!(", targets = Some(TargetReq::{req_fn}({t}))"))
             .unwrap_or_default();
         self.body
             .abilities

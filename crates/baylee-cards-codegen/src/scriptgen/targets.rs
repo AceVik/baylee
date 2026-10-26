@@ -255,6 +255,11 @@ impl Tx<'_> {
             "Planeswalker" => clauses.push("Filter::PLANESWALKER".to_string()),
             "Instant" => clauses.push("Filter::HasType(TypeSet::INSTANT)".to_string()),
             "Sorcery" => clauses.push("Filter::HasType(TypeSet::SORCERY)".to_string()),
+            "Basic" => clauses.push("Filter::HasSupertype(SupertypeSet::BASIC)".to_string()),
+            "Legendary" => {
+                clauses.push("Filter::HasSupertype(SupertypeSet::LEGENDARY)".to_string());
+            }
+            "Snow" => clauses.push("Filter::HasSupertype(SupertypeSet::SNOW)".to_string()),
             _ => {
                 let Some(path) = self.cats.const_path(base) else {
                     self.note(format!("filter base `{base}`"));

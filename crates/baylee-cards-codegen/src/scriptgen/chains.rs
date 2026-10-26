@@ -236,6 +236,19 @@ impl Tx<'_> {
             }
             chain.second_target = Some(spec);
         } else {
+            if self.on_a_spell
+                && self.has_x
+                && api == "ChangeZone"
+                && p.peek("Origin") == Some("Battlefield")
+                && p.peek("Destination") == Some("Hand")
+                && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
+                && min == max
+                && self.svars.get(min.trim()).map(|s| s.trim()) == Some("Count$xPaid")
+            {
+                p.take("TargetMin");
+                p.take("TargetMax");
+                chain.target_is_x = true;
+            }
             chain.target = Some(spec);
         }
         Some(())
@@ -954,11 +967,6 @@ impl Tx<'_> {
                 vec!["Effect::TakeExtraTurn".to_string()]
             }
             "Protection" => {
-                if p.take("Gains").as_deref() != Some("Choice")
-                    || p.take("Choices").as_deref() != Some("AnyColor")
-                {
-                    return None;
-                }
                 match (p.take("Defined").as_deref(), target) {
                     (None | Some("Targeted"), Some(_)) => {}
                     (None | Some("Self"), None) if !self.on_a_spell => {}
@@ -969,9 +977,24 @@ impl Tx<'_> {
                     Some("Permanent") => "Duration::Indefinitely",
                     Some(_) => return None,
                 };
-                vec![format!(
-                    "Effect::ProtectionFromChosenColor {{ duration: {duration} }}"
-                )]
+                match p.take("Gains").as_deref() {
+                    Some("Choice") => {
+                        if p.take("Choices").as_deref() != Some("AnyColor") {
+                            return None;
+                        }
+                        vec![format!(
+                            "Effect::ProtectionFromChosenColor {{ duration: {duration} }}"
+                        )]
+                    }
+                    Some(gains) => {
+                        let from =
+                            self.protection_filter(&format!("Protection from {}", gains.trim()))?;
+                        vec![format!(
+                            "Effect::continuous(&Filter::This, Modifier::ProtectionFrom(&{from}), {duration})"
+                        )]
+                    }
+                    None => return None,
+                }
             }
             "Counter" => match p.take("TargetType").as_deref() {
                 Some("Spell") => vec!["Effect::CounterTargetSpell".to_string()],

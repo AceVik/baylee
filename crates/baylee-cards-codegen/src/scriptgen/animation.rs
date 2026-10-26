@@ -56,7 +56,7 @@ impl Tx<'_> {
     ) -> Option<Vec<String>> {
         let source_only = match (p.take("Defined").as_deref(), target) {
             (Some("Self"), None) => true,
-            (None, Some(_)) => false,
+            (None | Some("Targeted"), Some(_)) => false,
             _ => {
                 self.note("`Animate` of something other than the source".to_string());
                 return None;
@@ -204,6 +204,45 @@ impl Tx<'_> {
                 &format!("Modifier::AddKeyword({joined})"),
                 duration,
             ));
+        }
+        if let Some(raw) = p.take("Abilities") {
+            for name in raw.split(',').map(str::trim) {
+                let Some(line) = self.svars.get(name).cloned() else {
+                    return self.deny(format!("`Abilities$ {name}` naming no `SVar`"));
+                };
+                if !line.trim_start().starts_with("AB$") {
+                    return self.deny("a granted ability that is not an activated one".to_string());
+                }
+                let Some((_, mut probe)) = Params::parse(&line) else {
+                    return self.deny("a granted ability with no `$` in it".to_string());
+                };
+                let Some(cost) = probe.take("Cost") else {
+                    return self.deny("a granted ability with no `Cost$`".to_string());
+                };
+                let cost = self.cost_expr(&cost)?;
+                let stripped: Vec<&str> = line
+                    .split(" | ")
+                    .filter(|part| !part.starts_with("Cost$"))
+                    .collect();
+                let mut chain = super::Chain::default();
+                self.chain(&stripped.join(" | "), &mut chain)?;
+                if chain.target.is_some() {
+                    return self.deny("a granted ability with a target".to_string());
+                }
+                if chain.effects.is_empty() {
+                    return self
+                        .deny("a granted ability that reads as no effect at all".to_string());
+                }
+                let mana = chain.could_add_mana && !chain.moves_library;
+                out.push(Self::animate_expr_for(
+                    filter,
+                    &format!(
+                        "Modifier::GrantActivated {{ cost: {cost}, effects: &[{}], mana_ability: {mana} }}",
+                        chain.effects.join(", ")
+                    ),
+                    duration,
+                ));
+            }
         }
         Some(())
     }

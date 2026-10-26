@@ -103,6 +103,7 @@ fn filter(valid: &str) -> String {
         block_line: None,
         block_half: None,
         in_delayed: false,
+        cost_sacrifices_self: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
