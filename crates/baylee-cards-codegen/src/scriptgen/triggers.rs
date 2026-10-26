@@ -298,6 +298,7 @@ impl Tx<'_> {
                 Some(format!("Trigger::BecomesTapped(&{filter})"))
             }
             "LandPlayed" => self.land_played_trigger(p),
+            "Drawn" => self.drawn_trigger(p, zones.is_some()),
             other => self.deny(format!("trigger mode `{other}`")),
         }
     }
@@ -340,16 +341,25 @@ impl Tx<'_> {
             ("Graveyard", "Battlefield") if filter == "&Filter::This" => {
                 Some("Trigger::EnteredThisFrom(ZoneRef::Graveyard)".to_string())
             }
-            ("Battlefield", "Any")
-                if filter == "&Filter::This"
-                    && self
-                        .svars
-                        .values()
-                        .any(|s| s.contains("Defined$ ExiledWith")) =>
-            {
+            ("Battlefield", "Any") if filter == "&Filter::This" => {
                 Some("Trigger::LeavesBattlefield(&Filter::This)".to_string())
             }
             _ => self.deny(format!("trigger on a move from {origin} to {dest}")),
+        }
+    }
+
+    fn drawn_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
+        if !zoned {
+            return self.deny("a `Drawn` trigger with no `TriggerZones$`".to_string());
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `Drawn` trigger with no `ValidCard$`".to_string());
+        };
+        match valid.as_str() {
+            "Card" => Some("Trigger::Draws(PlayerRel::EachPlayer)".to_string()),
+            "Card.YouCtrl" => Some("Trigger::Draws(PlayerRel::You)".to_string()),
+            "Card.OppCtrl" => Some("Trigger::Draws(PlayerRel::Opponent)".to_string()),
+            other => self.deny(format!("`Drawn` on `{other}`")),
         }
     }
 

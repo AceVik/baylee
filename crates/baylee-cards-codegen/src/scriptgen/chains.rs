@@ -312,6 +312,9 @@ impl Tx<'_> {
             {
                 self.player_rel(Some(who))?
             }
+            Some("TriggeredCardController") if self.trigger_mode.as_deref() == Some("Drawn") => {
+                self.player_rel(Some("TriggeredCardController"))?
+            }
             Some("TriggeredTargetController")
                 if self.trigger_mode.as_deref() == Some("DamageDone") =>
             {

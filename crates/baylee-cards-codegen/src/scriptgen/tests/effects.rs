@@ -2183,3 +2183,51 @@ fn planeshift_batch_one_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn planeshift_batch_two_reader_patterns() {
+    let hobble = "Name:Hobble\nManaCost:2 W\nTypes:Enchantment Aura\n\
+        K:Enchant:Creature\n\
+        T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw\n\
+        SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\n\
+        S:Mode$ CantAttack | ValidCard$ Creature.EnchantedBy\n\
+        S:Mode$ CantBlock | ValidCard$ Creature.EnchantedBy+Black";
+    assert_eq!(
+        read(hobble).abilities,
+        [
+            "spell!(&[Effect::AttachSelf { target: TargetSpec::Object(&Filter::CREATURE) }], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))",
+            "triggered!(Trigger::ETB, &[Effect::draw(1)])",
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]), Modifier::AddKeyword(KeywordSet::CANT_ATTACK))",
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource, Filter::HasColor(ColorSet::from_slice(&[Color::Black]))]), Modifier::AddKeyword(KeywordSet::CANT_BLOCK))",
+        ]
+    );
+
+    let mogg_jailer = "Name:Mogg Jailer\nManaCost:1 R\nTypes:Creature Goblin\nPT:2/2\n\
+        S:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ !controlsCreature.untapped+powerLE2";
+    assert_eq!(
+        read(mogg_jailer).abilities,
+        [
+            "static_ability!(Filter::This, Modifier::CantAttackIfDefenderControls(&DEFENDER_CONTROLS1))"
+        ]
+    );
+
+    let bloodstock = "Name:Phyrexian Bloodstock\nManaCost:4 B\nTypes:Creature Phyrexian Zombie\nPT:3/3\n\
+        T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ TrigDestroy\n\
+        SVar:TrigDestroy:DB$ Destroy | ValidTgts$ Creature.White | NoRegen$ True";
+    assert_eq!(
+        read(bloodstock).abilities,
+        [
+            "triggered!(Trigger::LeavesBattlefield(&Filter::This), &[Effect::destroy_no_regen(TargetSpec::Object(&TARGET1))], targets = Some(TargetReq::one(TargetSpec::Object(&TARGET1))))"
+        ]
+    );
+
+    let tyranny = "Name:Phyrexian Tyranny\nManaCost:U B R\nTypes:Enchantment\n\
+        T:Mode$ Drawn | ValidCard$ Card | TriggerZones$ Battlefield | Execute$ TrigLose\n\
+        SVar:TrigLose:DB$ LoseLife | Defined$ TriggeredCardController | LifeAmount$ 2 | UnlessCost$ 2 | UnlessPayer$ TriggeredCardController";
+    assert_eq!(
+        read(tyranny).abilities,
+        [
+            "triggered!(Trigger::Draws(PlayerRel::EachPlayer), &[Effect::PlayerMayPayOr { player: PlayerRel::EventPlayer, mana: Amount::Fixed(2), effect: &Effect::LoseLife { amount: Amount::Fixed(2), target: PlayerRel::EventPlayer } }])"
+        ]
+    );
+}

@@ -598,6 +598,7 @@ impl Tx<'_> {
             "TriggeredCardController" if trigger == Some("SpellCast") => {
                 "PlayerRel::ControllerOfEvent"
             }
+            "TriggeredCardController" if trigger == Some("Drawn") => "PlayerRel::EventPlayer",
             // The player a damage trigger's damage was dealt to: the
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.

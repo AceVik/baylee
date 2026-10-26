@@ -653,10 +653,28 @@ impl Tx<'_> {
             ));
             return Some(());
         }
+        if !p.has("UnlessDefender") && valid != "Card.Self" {
+            let condition = self.condition(&mut p)?;
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `CantAttack.{key}`"));
+                return None;
+            }
+            let attackers = self.filter_expr(&valid)?;
+            self.body.abilities.push(format!(
+                "static_ability!({attackers}, Modifier::AddKeyword(KeywordSet::CANT_ATTACK){condition})"
+            ));
+            return Some(());
+        }
         let Some(unless) = p.take("UnlessDefender") else {
             return self.deny("`CantAttack` with no `UnlessDefender$`".to_string());
         };
-        let Some(wanted) = unless.strip_prefix("controls") else {
+        let (modifier, wanted) = if let Some(wanted) = unless.strip_prefix("controls") {
+            ("CantAttackUnlessDefenderControls", wanted)
+        } else if let Some(wanted) = unless.strip_prefix("!controls")
+            && wanted.starts_with("Creature")
+        {
+            ("CantAttackIfDefenderControls", wanted)
+        } else {
             return self.deny(format!("`UnlessDefender$ {unless}`"));
         };
         let condition = self.condition(&mut p)?;
@@ -668,7 +686,7 @@ impl Tx<'_> {
         let wanted = self.filter_expr(wanted)?;
         let name = self.body.filter_static("DEFENDER_CONTROLS", &wanted);
         self.body.abilities.push(format!(
-            "static_ability!({attackers}, Modifier::CantAttackUnlessDefenderControls(&{name}){condition})"
+            "static_ability!({attackers}, Modifier::{modifier}(&{name}){condition})"
         ));
         Some(())
     }
