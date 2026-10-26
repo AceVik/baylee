@@ -48,6 +48,7 @@ mod ritual_of_the_machine;
 mod shatterstorm;
 mod sowing_salt;
 mod splinter;
+mod spontaneous_generation;
 mod sunder_from_within;
 mod taste_of_paradise;
 mod titania_s_boon;

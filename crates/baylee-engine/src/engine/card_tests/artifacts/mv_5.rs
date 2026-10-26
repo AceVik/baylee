@@ -22,6 +22,7 @@ mod meteorite;
 mod mishra_s_helix;
 mod myr_matrix;
 mod predator_flagship;
+mod puffer_extract;
 mod ring_of_immortals;
 mod ring_of_renewal;
 mod ring_of_three_wishes;

@@ -9,7 +9,7 @@ card!(
     index = index::PUFFER_EXTRACT,
     oracle_id = "4f427de6-b551-4699-b78a-44ff668198d8",
     scryfall_id = "83093cdf-0b12-419c-a748-21acf166e195",
-    coverage = Coverage::Generated,
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Puffer Extract",
         mana_cost = mana!("{5}"),

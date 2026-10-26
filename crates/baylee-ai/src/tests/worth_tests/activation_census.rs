@@ -352,7 +352,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Mercadian Masques (`mmq`) Batch 5 adds 4 non-mana activated abilities on
     // Kyren Negotiations, Rappelling Scouts, Revered Elder, and promoted pool
     // cards (2 of 4 read by the evaluator).
-    assert_eq!((read, of), (2799, 3520), "activated/loyalty reader census");
+    // Mercadian Masques (`mmq`) Batch 6 adds 4 non-mana activated abilities on
+    // Rishadan Pawnshop, Sailmonger, Scandalmonger, and Silent Assassin (2 of 4
+    // read by the evaluator).
+    assert_eq!((read, of), (2801, 3524), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

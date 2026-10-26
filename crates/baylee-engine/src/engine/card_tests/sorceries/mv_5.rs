@@ -23,6 +23,7 @@ mod mana_geyser;
 mod natural_spring;
 mod overrun;
 mod reign_of_terror;
+mod sever_soul;
 mod song_mad_treachery;
 mod soul_feast;
 mod spring_of_eternal_peace;

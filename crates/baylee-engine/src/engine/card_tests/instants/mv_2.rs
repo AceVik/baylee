@@ -113,6 +113,7 @@ mod repopulate;
 mod resuscitate;
 mod reverse_polarity;
 mod revitalize;
+mod rouse;
 mod sacred_boon;
 mod searing_spear;
 mod sejiri_shelter;

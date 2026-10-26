@@ -156,6 +156,7 @@ mod shu_soldier_farmers;
 mod shyft;
 mod siege_gang_commander;
 mod silver_wyvern;
+mod silverglade_elemental;
 mod skeleton_ship;
 mod skirge_familiar;
 mod sliver_queen;

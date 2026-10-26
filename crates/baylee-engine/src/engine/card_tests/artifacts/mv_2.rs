@@ -64,6 +64,7 @@ mod pearl_medallion;
 mod phyrexian_splicer;
 mod powder_keg;
 mod relic_barrier;
+mod rishadan_pawnshop;
 mod ruby_medallion;
 mod sapphire_medallion;
 mod scalding_tongs;

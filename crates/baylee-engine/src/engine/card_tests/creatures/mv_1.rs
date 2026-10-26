@@ -141,6 +141,7 @@ mod rogue_elephant;
 mod rootwater_mystic;
 mod royal_herbalist;
 mod sacred_guide;
+mod sacred_prey;
 mod sandbar_merfolk;
 mod savaen_elves;
 mod savannah_lions;

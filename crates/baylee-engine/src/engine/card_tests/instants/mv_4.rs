@@ -30,6 +30,7 @@ mod rewind;
 mod scour;
 mod sewers_of_estark;
 mod slaughter;
+mod snuff_out;
 mod solidarity;
 mod storm_seeker;
 mod sudden_impact;

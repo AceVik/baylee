@@ -12183,15 +12183,22 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this creature enters, each opponent sacrifices a permanent of their choice unless they pay {2}.",
     ],
-    &[],
+    // Rishadan Pawnshop
+    &["{2}, {T}: Shuffle target nontoken permanent you control into its owner's library."],
     // Rishadan Port
     &["{T}: Add {C}.\n{1}, {T}: Tap target land."],
-    &[],
+    // Robber Fly
+    &[
+        "Flying\nWhenever this creature becomes blocked, defending player discards all the cards in their hand, then draws that many cards.",
+    ],
     // Rock Badger
     &[
         "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)",
     ],
-    &[],
+    // Rouse
+    &[
+        "If you control a Swamp, you may pay 2 life rather than pay this spell's mana cost.\nTarget creature gets +2/+0 until end of turn.",
+    ],
     // Rushwood Dryad
     &["Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)"],
     // Rushwood Elemental
@@ -12202,68 +12209,116 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Rushwood Herbalist
     &["{G}, {T}, Discard a card: Regenerate target creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Rushwood Legate
+    &[
+        "If an opponent controls an Island and you control a Forest, you may cast this spell without paying its mana cost.",
+    ],
+    // Saber Ants
+    &[
+        "Whenever this creature is dealt damage, you may create that many 1/1 green Insect creature tokens.",
+    ],
+    // Sacred Prey
+    &["Whenever this creature becomes blocked, you gain 1 life."],
+    // Sailmonger
+    &["{2}: Target creature gains flying until end of turn. Any player may activate this ability."],
+    // Sand Squid
+    &[
+        "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)\nYou may choose not to untap this creature during your untap step.\n{T}: Tap target creature. That creature doesn't untap during its controller's untap step for as long as this creature remains tapped.",
+    ],
     // Sandstone Needle
     &[
         "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {R}{R}. If there are no depletion counters on this land, sacrifice it.",
     ],
-    &[],
-    &[],
+    // Saprazzan Bailiff
+    &[
+        "When this creature enters, exile all artifact and enchantment cards from all graveyards.\nWhen this creature leaves the battlefield, return all artifact and enchantment cards from all graveyards to their owners' hands.",
+    ],
+    // Saprazzan Breaker
+    &[
+        "{U}: Mill a card. If a land card was milled this way, this creature can't be blocked this turn.",
+    ],
     // Saprazzan Cove
     &[
         "This land enters tapped.\n{T}: Put a storage counter on this land.\n{T}, Remove any number of storage counters from this land: Add {U} for each storage counter removed this way.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Saprazzan Heir
+    &["Whenever this creature becomes blocked, you may draw three cards."],
+    // Saprazzan Legate
+    &[
+        "If an opponent controls a Mountain and you control an Island, you may cast this spell without paying its mana cost.\nFlying",
+    ],
+    // Saprazzan Outrigger
+    &[
+        "When this creature attacks or blocks, put it on top of its owner's library at end of combat.",
+    ],
+    // Saprazzan Raider
+    &["When this creature becomes blocked, return it to its owner's hand."],
     // Saprazzan Skerry
     &[
         "This land enters tapped with two depletion counters on it.\n{T}, Remove a depletion counter from this land: Add {U}{U}. If there are no depletion counters on this land, sacrifice it.",
     ],
-    &[],
+    // Scandalmonger
+    &[
+        "{2}: Target player discards a card. Any player may activate this ability but only as a sorcery.",
+    ],
     // Security Detail
     &[
         "{W}{W}: Create a 1/1 white Soldier creature token. Activate only if you control no creatures and only once each turn.",
     ],
     // Seismic Mage
     &["{2}{R}, {T}, Discard a card: Destroy target land."],
-    &[],
+    // Sever Soul
+    &[
+        "Destroy target nonblack creature. It can't be regenerated. You gain life equal to its toughness.",
+    ],
     // Shock Troops
     &["Sacrifice this creature: It deals 2 damage to any target."],
-    &[],
-    &[],
-    &[],
+    // Shoving Match
+    &["Until end of turn, all creatures gain \"{T}: Tap target creature.\""],
+    // Silent Assassin
+    &["{3}{B}: Destroy target blocking creature at end of combat."],
+    // Silverglade Elemental
+    &[
+        "When this creature enters, you may search your library for a Forest card, put that card onto the battlefield, then shuffle.",
+    ],
     // Silverglade Pathfinder
     &[
         "{1}{G}, {T}, Discard a card: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
     ],
     // Sizzle
     &["Sizzle deals 3 damage to each opponent."],
-    &[],
+    // Skulking Fugitive
+    &["When this creature becomes the target of a spell or ability, sacrifice it."],
     // Skull of Ramos
     &["{T}: Add {B}.\nSacrifice this artifact: Add {B}."],
     // Snake Pit
     &[
         "Whenever an opponent casts a blue or black spell, you may create a 1/1 green Snake creature token.",
     ],
-    &[],
-    &[],
+    // Snorting Gahr
+    &["Whenever this creature becomes blocked, it gets +2/+2 until end of turn."],
+    // Snuff Out
+    &[
+        "If you control a Swamp, you may pay 4 life rather than pay this spell's mana cost.\nDestroy target nonblack creature. It can't be regenerated.",
+    ],
     // Soothing Balm
     &["Target player gains 5 life."],
-    &[],
+    // Soothsaying
+    &[
+        "{3}{U}{U}: Shuffle your library.\n{X}: Look at the top X cards of your library, then put them back in any order.",
+    ],
     // Soul Channeling
     &["Enchant creature\nPay 2 life: Regenerate enchanted creature."],
     // Specter's Wail
     &["Target player discards a card at random."],
     // Spidersilk Armor
     &["Creatures you control get +0/+1 and have reach. (They can block creatures with flying.)"],
-    &[],
-    &[],
+    // Spiritual Focus
+    &[
+        "Whenever a spell or ability an opponent controls causes you to discard a card, you gain 2 life and you may draw a card.",
+    ],
+    // Spontaneous Generation
+    &["Create a 1/1 green Saproling creature token for each card in your hand."],
     &[],
     &[],
     &[],
