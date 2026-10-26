@@ -78,6 +78,7 @@ fn multanis_decree_counts_destroyed_enchantments_exiled_instead_of_dying() {
         &[multani_s_decree()],
         &[],
     );
+    let journal_from = e.state().journal.entries().len();
     lk::float(&mut e, lk::P0, &[(ManaColor::Green, 4)]);
     cast_with_floating(&mut e, lk::P0, multani_s_decree());
     lk::settle(&mut e);
@@ -102,4 +103,15 @@ fn multanis_decree_counts_destroyed_enchantments_exiled_instead_of_dying() {
         24,
         "both successful destructions grant life, including the card exiled instead"
     );
+    let gains = e.state().journal.entries()[journal_from..]
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.event,
+                crate::event::GameEvent::LifeChanged { player, old, new, .. }
+                    if player == lk::P0 && new > old
+            )
+        })
+        .count();
+    assert_eq!(gains, 1, "Decree gains the total life in one event");
 }

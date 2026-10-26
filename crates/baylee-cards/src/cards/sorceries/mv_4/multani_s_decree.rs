@@ -16,11 +16,13 @@ card!(
         mana_cost = mana!("{3}{G}"),
         types = TypeSet::SORCERY,
     ),],
-    abilities = &[spell!(&[Effect::DestroyAllThenForEachDestroyed {
-        filter: &Filter::ENCHANTMENT,
-        no_regen: false,
-        effects: &[Effect::GainLife {
-            amount: Amount::Fixed(2),
-        }],
-    }])],
+    abilities = &[spell!(&[
+        Effect::destroy_all(&Filter::ENCHANTMENT),
+        Effect::GainLife {
+            amount: Amount::Times {
+                base: &Amount::ThisWay(ThisWay::Destroyed(&Filter::ENCHANTMENT)),
+                factor: 2,
+            },
+        },
+    ])],
 );
