@@ -5798,3 +5798,30 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
   - Moved `abilities = &[...]` from `face!(...)` to card level (`card!(...)`) on 11 single-faced cards from `uds` Batch 3 (`Quash`, `Rapid Decay`, `Rayne, Academy Chancellor`, `Reckless Abandon`, `Repercussion`, `Replenish`, `Scour`, `Sigil of Sleep`, `Sowing Salt`, `Splinter`, `Telepathic Spies`) so `def.abilities`, `generated_lines.rs`, and `activation_census` see all 12 abilities.
   - Added missing `// NOT SUPPORTED:` header comments to all hand-owned `Coverage::Partial` card files in the branch diff.
   - Note on targeting prompts in card tests: spells with `TargetSpec::AnyPlayer` prompt `Pending::ChoosePlayer` (answered with `PlayerAction::ChoosePlayer(pid)`), whereas activated abilities with `TargetSpec::AnyPlayer` prompt `Pending::ChooseTargets` (answered with `PlayerAction::ChooseTargets { objects: vec![], players: vec![pid] }`).
+
+## 2026-10-26 — Reviewed `agy/uds-2` integration
+
+- Distinguish successful destruction from entering a graveyard. Decree counts
+  destruction receipts across replaced destinations, then gains the total life
+  once; repeating a gain instruction changes the number of life-gain events.
+- A counted sacrifice chooses its whole batch before moving any permanent.
+  A departing dies-trigger source must observe simultaneous creature deaths.
+- Preserve nested payment context, APNAP ordering and exact source incarnations.
+  Canonical tests need literal subject identity and observable gameplay,
+  including legal and refused combat choices.
+- Integration evidence: the test-module creation race and two test compile
+  errors were corrected; focused 35/35 passed. All eight deliberate mutations
+  were detected, all sources restored exactly, and restored 35/35 passed.
+  All 54 pending source reviews are closed. Rules: **21,355 passed, 17 skipped**;
+  full: **23,606 passed, 25 skipped**, plus four API tests; features: **passed**,
+  including 2,290 client tests (39 devctl). All gates exited 0. Both final gates
+  ran on `2dca3227cc796b87db78ec74d112019c4e7cefe7`.
+- Preserve infrastructure failures separately from source regressions. The
+  initial feature gate lost its shared PostgreSQL container; five isolated
+  social-report tests failed at DB connection. Restarting that container restored
+  the unchanged binary to 5/5; the complete feature rerun then passed. No source
+  or concurrency change was needed.
+- Table generation twice and its check changed no files; the 399-card Write/Stop
+  hook cleared its debt. Registry validation changed from 10,693 cards /
+  10,352 finished / 341 stubs to **11,083 / 10,600 / 483**, with 0 untested.
+  These totals and this merge do not claim set completion.
