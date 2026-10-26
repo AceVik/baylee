@@ -9,9 +9,9 @@ use baylee_cards_dsl::Filter;
 use baylee_core::types::TypeSet;
 
 mod attached_shield;
+pub(super) mod batch57;
 #[cfg(test)]
 mod damage_pair_tests;
-pub(super) mod batch57;
 pub(super) mod ice_combat;
 
 /// Executes one life/damage effect.
