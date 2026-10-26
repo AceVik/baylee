@@ -1710,3 +1710,50 @@ fn fading_graveyard_name_count_sacrifice_all_and_dominate_transcode() {
         dominate.abilities
     );
 }
+
+#[test]
+fn laccoliths_flowstone_armor_lin_sivvi_and_mossdog_transcode() {
+    let laccolith = read(
+        "T:Mode$ AttackerBlocked | ValidCard$ Card.Self | Execute$ TrigDamage | OptionalDecider$ You\n\
+         SVar:TrigDamage:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ X | SubAbility$ DBNoCombatDamage\n\
+         SVar:DBNoCombatDamage:DB$ Effect | StaticAbilities$ SNoCombatDamage | Duration$ UntilHostLeavesPlayOrEOT\n\
+         SVar:SNoCombatDamage:Mode$ AssignNoCombatDamage | ValidCard$ Card.EffectSource\n\
+         SVar:X:Count$CardPower",
+    );
+    assert_eq!(
+        laccolith.abilities,
+        [
+            "triggered!(Trigger::BecomesBlocked, &[Effect::MayDo { effects: &[Effect::DealDamage { amount: Amount::SourcePower, target: TargetSpec::Object(&Filter::CREATURE) }, Effect::ModifySource { modifier: Modifier::AssignsNoCombatDamage, duration: Duration::UntilEndOfTurn }] }], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ]
+    );
+
+    let armor = read(
+        "A:AB$ Pump | Cost$ 3 T | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ -1 | Duration$ UntilUntaps",
+    );
+    assert_eq!(
+        armor.abilities,
+        [
+            "activated!(cost!(\"{3}\", TapSelf), &[Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::NegXFixed(1), keywords: KeywordSet::EMPTY, duration: Duration::WhileSourceTapped { control: false, power_limited: false } }], target = Some(TargetSpec::Object(&Filter::CREATURE)))"
+        ]
+    );
+
+    let sivvi = read(
+        "A:AB$ ChangeZone | Cost$ 3 | ValidTgts$ Card.YouCtrl | Origin$ Graveyard | Destination$ Library | LibraryPosition$ -1",
+    );
+    assert!(
+        sivvi.abilities[0].contains("Effect::PutOnBottomOfLibraryFromGraveyard"),
+        "{:?}",
+        sivvi.abilities
+    );
+
+    let mossdog = read(
+        "T:Mode$ BecomesTarget | ValidTarget$ Card.Self | ValidSource$ SpellAbility.OppCtrl | Execute$ TrigPutCounter\n\
+         SVar:TrigPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert_eq!(
+        mossdog.abilities,
+        [
+            "triggered!(Trigger::TargetedByOpponent { filter: &Filter::This, you: false }, &[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }])"
+        ]
+    );
+}

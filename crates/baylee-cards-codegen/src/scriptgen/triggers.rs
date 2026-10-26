@@ -305,12 +305,7 @@ impl Tx<'_> {
             }
             "Attacks" => self.attacks_trigger(p),
             "Blocks" => self.blocks_trigger(p),
-            "BecomesTarget" => {
-                if p.take("ValidTarget").as_deref() != Some("Card.Self") {
-                    return self.deny("a `BecomesTarget` trigger not on `Card.Self`".to_string());
-                }
-                Some("Trigger::BecomesTarget".to_string())
-            }
+            "BecomesTarget" => self.becomes_target_trigger(p),
             "SpellCast" => self.spell_cast_trigger(p, zones.is_some()),
             "TapsForMana" => self.taps_for_mana_trigger(p),
             "DamageDone" => self.damage_trigger(p, false),
@@ -331,6 +326,19 @@ impl Tx<'_> {
             }
             "LandPlayed" => self.land_played_trigger(p),
             other => self.deny(format!("trigger mode `{other}`")),
+        }
+    }
+
+    fn becomes_target_trigger(&mut self, p: &mut Params) -> Option<String> {
+        if p.take("ValidTarget").as_deref() != Some("Card.Self") {
+            return self.deny("a `BecomesTarget` trigger not on `Card.Self`".to_string());
+        }
+        match p.take("ValidSource").as_deref() {
+            None => Some("Trigger::BecomesTarget".to_string()),
+            Some("SpellAbility.OppCtrl") => Some(
+                "Trigger::TargetedByOpponent { filter: &Filter::This, you: false }".to_string(),
+            ),
+            Some(other) => self.deny(format!("`BecomesTarget` with `ValidSource$ {other}`")),
         }
     }
 

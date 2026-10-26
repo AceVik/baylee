@@ -129,8 +129,39 @@ impl Tx<'_> {
             "CantChangeLife" => self.life_total_lock(p),
             "CantBlockBy" => self.unblockable_effect(p, target),
             "CantRegenerate" => self.cant_regenerate_effect(p, target),
+            "AssignNoCombatDamage" => self.assign_no_combat_damage_effect(p),
             _ => None,
         }
+    }
+
+    /// "Assigns no combat damage this turn" (Laccolith Whelp, Laccolith Grunt,
+    /// Laccolith Warrior, Laccolith Titan): an `Effect` whose one static is
+    /// `Mode$ AssignNoCombatDamage | ValidCard$ Card.EffectSource`.
+    fn assign_no_combat_damage_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if self.on_a_spell {
+            return None;
+        }
+        let statics = p.take("StaticAbilities")?;
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "AssignNoCombatDamage"
+            || st.take("ValidCard").as_deref() != Some("Card.EffectSource")
+            || !st.exhausted()
+        {
+            return None;
+        }
+        if !matches!(
+            p.take("Duration").as_deref(),
+            None | Some("UntilHostLeavesPlayOrEOT" | "UntilEndOfCombat")
+        ) {
+            return None;
+        }
+        Some(vec![
+            "Effect::ModifySource { modifier: Modifier::AssignsNoCombatDamage, \
+             duration: Duration::UntilEndOfTurn }"
+                .to_string(),
+        ])
     }
 
     /// "Destroy target blocking creature at end of combat" (Silent Assassin):

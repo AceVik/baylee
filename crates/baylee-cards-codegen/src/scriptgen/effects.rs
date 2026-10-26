@@ -283,9 +283,13 @@ impl Tx<'_> {
         // Every duration but the default is a lifetime the DSL spells
         // differently; none of them is "until end of turn" with a longer
         // name.
-        if p.take("Duration").is_some() {
-            return None;
-        }
+        let duration = match p.take("Duration").as_deref() {
+            None => "Duration::UntilEndOfTurn",
+            Some("UntilUntaps") if !self.on_a_spell => {
+                "Duration::WhileSourceTapped { control: false, power_limited: false }"
+            }
+            Some(_) => return None,
+        };
         // Purely an AI targeting hint (don't curse your own team); it moves
         // no rule, so reading it changes nothing.
         p.take("IsCurse");
@@ -324,7 +328,7 @@ impl Tx<'_> {
             return Some(vec![format!(
                 "Effect::PumpFilter {{ filter: &{whom}, controlled_by: None, \
                  power: {power}, toughness: {toughness}, keywords: {keywords}, \
-                 duration: Duration::UntilEndOfTurn }}"
+                 duration: {duration} }}"
             )]);
         }
         Some(match defined.as_deref() {
@@ -340,7 +344,7 @@ impl Tx<'_> {
                 };
                 vec![format!(
                     "Effect::{kind} power: {power}, toughness: {toughness}, \
-                     keywords: {keywords}, duration: Duration::UntilEndOfTurn }}"
+                     keywords: {keywords}, duration: {duration} }}"
                 )]
             }
             Some(_) => return None,
@@ -631,7 +635,18 @@ impl Tx<'_> {
             ("Graveyard", "Library", false)
                 if target.starts_with("TargetSpec::CardInGraveyard") =>
             {
-                vec![format!("Effect::GraveyardToTop {{ target: {target} }}")]
+                match p.take("LibraryPosition").as_deref() {
+                    None | Some("0") => {
+                        vec![format!("Effect::GraveyardToTop {{ target: {target} }}")]
+                    }
+                    Some("-1") => vec![format!(
+                        "Effect::PutOnBottomOfLibraryFromGraveyard {{ target: {target} }}"
+                    )],
+                    Some(other) => {
+                        self.note(format!("`ChangeZone` with `LibraryPosition$ {other}`"));
+                        return None;
+                    }
+                }
             }
             // "Return target creature card from your graveyard to the
             // battlefield" (Resurrection): it enters under the control of

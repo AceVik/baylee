@@ -267,6 +267,9 @@ impl Tx<'_> {
         if def.trim() == "Targeted$CardToughness" {
             return Some("Amount::TargetToughness".to_string());
         }
+        if def.trim() == "Count$CardPower" && !self.on_a_spell {
+            return Some("Amount::SourcePower".to_string());
+        }
         if let Some(valid) = def.trim().strip_prefix("Count$ValidGraveyard ")
             && !valid.contains("Ctrl")
             && !valid.contains("Own")

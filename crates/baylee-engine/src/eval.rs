@@ -797,7 +797,7 @@ pub fn matches_for_some_x(
 
 /// Match an activation's own X without overwriting the permanent's cast X.
 /// `None` is the pre-announcement probe: some X may satisfy each X atom.
-fn matches_for_x(
+pub(crate) fn matches_for_x(
     filter: &Filter,
     state: &GameState,
     obj: &GameObject,
