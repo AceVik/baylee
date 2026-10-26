@@ -16,6 +16,7 @@ mod archangel_avacyn;
 mod arctic_wolves;
 mod ardent_militia;
 mod argothian_treefolk;
+mod armored_guardian;
 mod arrogant_vampire;
 mod ashaya_soul_of_the_wild;
 mod aven_flock;

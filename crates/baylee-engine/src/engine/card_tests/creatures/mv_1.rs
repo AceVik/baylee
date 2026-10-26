@@ -7,6 +7,7 @@ mod abu_ja_far;
 mod acolyte_of_xathrid;
 mod agent_of_stromgald;
 mod akki_avalanchers;
+mod alabaster_leech;
 mod ali_baba;
 mod ana_disciple;
 mod armorer_guildmage;

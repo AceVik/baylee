@@ -16,6 +16,7 @@ mod altered_ego;
 mod anaba_bodyguard;
 mod anaba_shaman;
 mod anaba_spirit_crafter;
+mod ancient_kavu;
 mod ancient_spider;
 mod angelfire_crusader;
 mod angelic_protector;

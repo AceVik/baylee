@@ -384,7 +384,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Prophecy (`pcy`) Batch 4 adds 6 non-mana activated abilities on Squirrel
     // Wrangler (2), Stormwatch Eagle, Task Mage Assembly, Vintara Elephant, and
     // Zerapa Minotaur (4 of 6 read by the evaluator).
-    assert_eq!((read, of), (2831, 3573), "activated/loyalty reader census");
+    // Invasion (`inv`) Batch 1 adds 4 non-mana activated abilities on Ancient
+    // Kavu, Andradite Leech, and Armored Guardian (2) (3 of 4 read by the
+    // evaluator).
+    assert_eq!((read, of), (2834, 3577), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

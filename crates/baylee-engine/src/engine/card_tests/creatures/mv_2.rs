@@ -36,6 +36,7 @@ mod blazing_effigy;
 mod blighted_shaman;
 mod blood_artist;
 mod bloom_tender;
+mod blurred_mongoose;
 mod bog_imp;
 mod bog_initiate;
 mod bola_warrior;

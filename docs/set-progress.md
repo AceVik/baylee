@@ -754,6 +754,8 @@ no-engine-change contract:
   - Batch 2 (`Flameshot` to `Mercenary Informer`, 25 cards): **7 Implemented, 2 Partial, 16 Unimplemented (held back/stubs)** (`7 Implemented` machine-owned via `scriptgen`, `2 Partial` hand-owned, and `16 Unimplemented` stubs).
   - Batch 3 (`Mine Bearer` to `Shrouded Serpent`, 25 cards): **10 Implemented, 0 Partial, 15 Unimplemented (held back/stubs)** (`10 Implemented` machine-owned via `scriptgen` and `15 Unimplemented` stubs).
   - Batch 4 (`Snag` to `Zerapa Minotaur`, 22 cards): **11 Implemented, 0 Partial, 11 Unimplemented (held back/stubs)** (`11 Implemented` machine-owned via `scriptgen` and `11 Unimplemented` stubs).
+- **Invasion (`inv`)** — in progress:
+  - Batch 1 (`Addle` to `Breath of Darigaaz`, 25 cards): **9 Implemented, 0 Partial, 16 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen` and `16 Unimplemented` stubs).
 
 ## PR #394 review snapshot (2026-10-23)
 

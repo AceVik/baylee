@@ -13416,17 +13416,34 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flash\nHaste"],
     // Absorb
     &["Counter target spell. You gain 3 life."],
-    &[],
-    &[],
+    // Addle
+    &[
+        "Choose a color. Target player reveals their hand and you choose a card of that color from it. That player discards that card.",
+    ],
+    // Aether Rift
+    &[
+        "At the beginning of your upkeep, discard a card at random. If you discard a creature card this way, return it from your graveyard to the battlefield unless any player pays 5 life.",
+    ],
     // Aggressive Urge
     &["Target creature gets +1/+1 until end of turn.\nDraw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Agonizing Demise
+    &[
+        "Kicker {1}{R} (You may pay an additional {1}{R} as you cast this spell.)\nDestroy target nonblack creature. It can't be regenerated. If this spell was kicked, Agonizing Demise deals damage equal to that creature's power to the creature's controller.",
+    ],
+    // Alabaster Leech
+    &["White spells you cast cost {W} more to cast."],
+    // Alloy Golem
+    &[
+        "As this creature enters, choose a color.\nThis creature is the chosen color. (It's still an artifact.)",
+    ],
+    // Ancient Kavu
+    &["{2}: This creature becomes colorless until end of turn."],
     // Ancient Spring
     &["This land enters tapped.\n{T}: Add {U}.\n{T}, Sacrifice this land: Add {W}{B}."],
-    &[],
+    // Andradite Leech
+    &[
+        "Black spells you cast cost {B} more to cast.\n{B}: This creature gets +1/+1 until end of turn.",
+    ],
     // Angelic Shield
     &[
         "Creatures you control get +0/+1.\nSacrifice this enchantment: Return target creature to its owner's hand.",
@@ -13435,38 +13452,89 @@ pub static ORACLE: &[&[&str]] = &[
     &["Destroy target nonblack creature. It can't be regenerated.\nDraw a card."],
     // Archaeological Dig
     &["{T}: Add {C}.\n{T}, Sacrifice this land: Add one mana of any color."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ardent Soldier
+    &[
+        "Kicker {2} (You may pay an additional {2} as you cast this spell.)\nVigilance\nIf this creature was kicked, it enters with a +1/+1 counter on it.",
+    ],
+    // Armadillo Cloak
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+2 and has trample.\nWhenever enchanted creature deals damage, you gain that much life.",
+    ],
+    // Armored Guardian
+    &[
+        "{1}{W}{W}: Target creature you control gains protection from the color of your choice until end of turn.\n{1}{U}{U}: This creature gains shroud until end of turn. (It can't be the target of spells or abilities.)",
+    ],
+    // Artifact Mutation
+    &[
+        "Destroy target artifact. It can't be regenerated. Create X 1/1 green Saproling creature tokens, where X is that artifact's mana value.",
+    ],
+    // Assault
+    &[
+        "Assault deals 2 damage to any target.",
+        "Create a 3/3 green Elephant creature token.",
+    ],
+    // Atalya, Samite Master
+    &[
+        "{X}, {T}: Choose one —\n• Prevent the next X damage that would be dealt to target creature this turn. Spend only white mana on X.\n• You gain X life. Spend only white mana on X.",
+    ],
+    // Aura Mutation
+    &[
+        "Destroy target enchantment. Create X 1/1 green Saproling creature tokens, where X is that enchantment's mana value.",
+    ],
     // Aura Shards
     &["Whenever a creature you control enters, you may destroy target artifact or enchantment."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Backlash
+    &[
+        "Tap target untapped creature. That creature deals damage equal to its power to its controller.",
+    ],
+    // Barrin's Spite
+    &[
+        "Choose two target creatures controlled by the same player. Their controller chooses and sacrifices one of them. Return the other to its owner's hand.",
+    ],
+    // Barrin's Unmaking
+    &[
+        "Return target permanent to its owner's hand if that permanent shares a color with the most common color among all permanents or a color tied for most common.",
+    ],
+    // Benalish Emissary
+    &[
+        "Kicker {1}{G} (You may pay an additional {1}{G} as you cast this spell.)\nWhen this creature enters, if it was kicked, destroy target land.",
+    ],
     // Benalish Heralds
     &["{3}{U}, {T}: Draw a card."],
-    &[],
+    // Benalish Lancer
+    &[
+        "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it and with first strike.",
+    ],
     // Benalish Trapper
     &["{W}, {T}: Tap target creature."],
-    &[],
-    &[],
+    // Bend or Break
+    &[
+        "Each player separates all nontoken lands they control into two piles. For each player, one of their piles is chosen by one of their opponents of their choice. Destroy all lands in the chosen piles. Tap all lands in the other piles.",
+    ],
+    // Bind
+    &["Counter target activated ability. (Mana abilities can't be targeted.)\nDraw a card."],
     // Blazing Specter
     &[
         "Flying, haste\nWhenever this creature deals combat damage to a player, that player discards a card.",
     ],
-    &[],
+    // Blind Seer
+    &["{1}{U}: Target spell or permanent becomes the color of your choice until end of turn."],
     // Bloodstone Cameo
     &["{T}: Add {B} or {R}."],
-    &[],
+    // Blurred Mongoose
+    &[
+        "This spell can't be countered.\nShroud (This creature can't be the target of spells or abilities.)",
+    ],
     // Bog Initiate
     &["{1}: Add {B}."],
-    &[],
-    &[],
+    // Breaking Wave
+    &[
+        "You may cast this spell as though it had flash if you pay {2} more to cast it. (You may cast it any time you could cast an instant.)\nSimultaneously untap all tapped creatures and tap all untapped creatures.",
+    ],
+    // Breath of Darigaaz
+    &[
+        "Kicker {2} (You may pay an additional {2} as you cast this spell.)\nBreath of Darigaaz deals 1 damage to each creature without flying and each player. If this spell was kicked, it deals 4 damage to each creature without flying and each player instead.",
+    ],
     &[],
     &[],
     // Capashen Unicorn
