@@ -1324,20 +1324,36 @@ and the existing licensing decisions above remain applicable.
 
 ### Baylee memorial · 26 October 2026
 
-The owner explicitly requested public-domain repertoire and a memorial album
-using his five supplied cat photographs. The new menu performance uses three
-complete CC0 OpenScore editions, identified and pinned in `art/music/memorial/`,
-with the existing CC0 sample bank and original synthesis. This is the documented
-exception to the project's original-only tune rule; duel compositions are unchanged.
-The underlying Brahms, Schumann and Schubert works are public domain, and the
-modern digital editions independently carry CC0. The source licences and MIDI
-exports are retained. No borrowed performance recording is used.
+The owner explicitly requested freely usable repertoire and a memorial album
+using his five supplied cat photographs. The revised menu performance uses
+complete **public-domain Mutopia editions** of Debussy's *Clair de lune*
+(Keith OHara, after E. Fromont 1905) and Satie's *Gymnopédie No. 1* (Evin
+Robertson). Edition pages and source hashes are in `art/music/memorial/`.
+The [Debussy edition](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1778),
+[Satie edition](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=37), and
+[Mutopia terms](https://www.mutopiaproject.org/legal.html) identify these
+particular editions as public domain; checked 26.10.2026. This is the owner's
+documented exception to the original-only tune rule. The earlier OpenScore
+Lieder arrangement and its source files have been removed. No Yiruma melody
+or recording is used; the reference described the desired mood.
 
-[OpenScore Lieder](https://github.com/OpenScore/Lieder), checked 26.10.2026:
-“These scores are released under Creative Commons Zero (CC0).” The
-[Wizards Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy),
-rechecked the same day: “Please respect other people’s IP.” and “Don’t use
-Wizards’ Video or Music in your Fan Content.” The new images derive from the
+New grand-piano samples are **Osiris Piano**, Versilian Studios/Karoryfer,
+[Yamaha C2, CC0](https://shop.karoryfer.com/pages/free-osiris-piano). The
+[publisher's sample policy](https://shop.karoryfer.com/pages/free-samples)
+confirms CC0; checked 26.10.2026. Files are pinned to
+`sfzinstruments/Osiris_Piano@18c6afccb60cff458edbf7c394571783e074e1e9`.
+Full stereo solo-violin/cello recordings use the existing approved
+`sgossner/VSCO-2-CE@440300901dfe9275fd84e0b7763af1f8443ae62e` CC0 collection;
+its [publisher page](https://versilian-studios.com/vsco-community/) was rechecked.
+Both unmodified legal texts are shipped in `assets/chamber/`; recording credits
+remain in NOTICE. The preparation manifest pins every original hash, output
+hash, source rate and velocity layer. Python soxr (LGPL-2.1-or-later) is an
+offline authoring dependency only; no soxr code or binary is shipped in Baylee.
+The runtime newly performs notes from the scores; it does not copy a finished
+performance. All game compositions and their sample-bank licences are unchanged.
+
+The [Wizards Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy)
+was rechecked the same day. Existing fan-content notices remain. The new images derive from the
 owner's authorized references and original image-generation calls. No Wizards
 artwork/audio, third-party game art or new Scryfall request is introduced.
 Photograph derivatives omit location and capture metadata. Existing fan-content

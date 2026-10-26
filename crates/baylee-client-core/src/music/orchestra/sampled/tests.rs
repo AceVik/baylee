@@ -16,15 +16,6 @@ fn studio_cache_is_bounded_and_covers_every_composed_pitch() {
     eprintln!("studio cached {count} pitched clips / {bytes} bytes");
     assert!((50..350).contains(&count));
     assert!(bytes < 110_000_000);
-    for note in crate::music::score::memorial::events() {
-        if !note.instrument.synthetic() {
-            assert!(
-                (LOW..=88).contains(&note.pitch),
-                "never clamp a memorial pitch"
-            );
-            assert!(clips()[key(note.instrument, note.pitch)].is_some());
-        }
-    }
     for theme in Theme::ALL {
         for movement in Movement::ALL {
             for bar in 0..33 {

@@ -7919,7 +7919,7 @@ RowMusic = Music
 RowMusicTheme = Music theme during games
 
 # Audio: fifteen complete original suites and automatic rotation.
-HelpMusicTheme = Fifteen original suites for your games. Rotating chooses a different suite each game. Login and lobby share Baylee’s remembrance: Brahms, Schumann and Schubert.
+HelpMusicTheme = Fifteen original suites for your games. Rotating chooses a different suite each game. Login and lobby share Baylee’s remembrance: Clair de lune and Gymnopédie No. 1, with grand piano, violin and cello.
 
 # Audio: suite one.
 MusicThemeEmber = Ember Path
@@ -8000,7 +8000,7 @@ MusicThemeStar = Starfall
 RowMusicSamples = Instrument sound
 
 # Source and playback rates of the banks.
-HelpMusicSamples = Both banks use CC0 recordings made at 44.1 kHz. Studio prepares a high-quality 48 kHz bank; the alternative plays the original bank. Our synthesizers always run at 48 kHz
+HelpMusicSamples = For game music, Studio prepares the CC0 recordings for 48 kHz; Original uses the 44.1 kHz bank. Baylee’s remembrance always uses its stereo piano and strings at 48 kHz.
 
 # Prepared 48-kHz sound.
 MusicSamplesStudio = Studio

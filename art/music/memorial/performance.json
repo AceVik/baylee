@@ -1,32 +1,32 @@
 {
   "rate": 48000,
-  "seconds": 668.2357575470937,
-  "notes": 4506,
-  "sha256": "d320c77488d31d6967214010f1428a47e74a296a1456f11587ddbab796757896",
+  "seconds": 511.1744305829941,
+  "notes": 2053,
+  "sha256": "168ed52eef92393d0d7223333b5a52ce4bf0ec8437326a7d4777d3e700b6cb8e",
   "works": [
     {
-      "work": "brahms-wiegenlied",
+      "work": "clair-de-lune",
       "start_seconds": 0.65,
-      "duration_seconds": 97.38150613333326,
-      "notes": 454,
-      "tempo_scale": 1.12,
-      "midi_sha256": "5bae006fd8deafd07d213dd3270e698254394f946c1c459952ccbdc10d5f00bc"
+      "duration_seconds": 295.795119697007,
+      "source_notes_performed": 1468,
+      "arranged_notes": 1491,
+      "written_beats": 322.5,
+      "piano_velocity_range": [
+        29,
+        103
+      ]
     },
     {
-      "work": "schumann-mondnacht",
-      "start_seconds": 103.53150613333327,
-      "duration_seconds": 210.59639511041868,
-      "notes": 1217,
-      "tempo_scale": 1.0,
-      "midi_sha256": "437ba4074020be84990c944291a57bfbc3a7a632ed21f2eae55c4fa21eb545e1"
-    },
-    {
-      "work": "schubert-baches-wiegenlied",
-      "start_seconds": 319.6279012437519,
-      "duration_seconds": 343.10785630334175,
-      "notes": 2835,
-      "tempo_scale": 1.04,
-      "midi_sha256": "0836b6eddcd7b6470b5a9b2308255a0139f6bc9a301d074e1f383b5c468f586e"
+      "work": "gymnopedie-1",
+      "start_seconds": 303.445119697007,
+      "duration_seconds": 200.7293108859871,
+      "source_notes_performed": 455,
+      "arranged_notes": 562,
+      "written_beats": 234.0,
+      "piano_velocity_range": [
+        29,
+        78
+      ]
     }
   ]
 }

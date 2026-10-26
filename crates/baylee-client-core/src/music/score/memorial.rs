@@ -1,10 +1,10 @@
-//! An eleven-minute instrumental remembrance, from three complete CC0 editions.
+//! A flowing grand-piano remembrance from two public-domain piano editions.
 //! The source tempo maps, pitches, durations and dynamics are prepared off-line;
 //! playback reads bounded records directly, without parsing or allocating.
-use super::{Movement, arrangement::Instrument};
+use super::Movement;
 use crate::music::{
-    RATE, SampleSet,
-    orchestra::{Orchestra, Touch},
+    RATE,
+    orchestra::{Orchestra, chamber::Note},
 };
 
 const DATA: &[u8] = include_bytes!("memorial/performance.bin");
@@ -21,8 +21,21 @@ pub(in crate::music) struct Event {
     length: u32,
     gain: f32,
     pan: f32,
-    pub instrument: Instrument,
+    pub instrument: u8,
+    pub velocity: u8,
     pub pitch: u8,
+}
+impl Event {
+    pub(in crate::music) fn note(self) -> Note {
+        Note {
+            instrument: self.instrument,
+            pitch: self.pitch,
+            frames: self.length,
+            velocity: self.velocity,
+            gain: self.gain,
+            pan: self.pan,
+        }
+    }
 }
 fn number(at: usize) -> u32 {
     u32::from_le_bytes(
@@ -44,18 +57,13 @@ fn event(index: usize) -> Event {
         length: number(at + 4),
         gain: f32::from_bits(number(at + 8)),
         pan: f32::from_bits(number(at + 12)),
-        instrument: match DATA[at + 16] {
-            0 => Instrument::Harp,
-            3 => Instrument::Violin,
-            5 => Instrument::Cello,
-            11 => Instrument::Piano,
-            13 => Instrument::Flute,
-            _ => unreachable!("validated memorial instrumentation"),
-        },
+        instrument: DATA[at + 16],
+        velocity: DATA[at + 18],
         pitch: DATA[at + 17],
     }
 }
-/// All prepared events, also used to warm the recorded-instrument pitch cache.
+/// All prepared events; the chamber bank covers every pitch and velocity layer.
+#[cfg(test)]
 pub(in crate::music) fn events() -> impl Iterator<Item = Event> {
     (0..count()).map(event)
 }
@@ -68,21 +76,13 @@ pub(super) struct Performance {
 impl Performance {
     /// Start precisely due notes. Bound the next observation to 50 ms so scene
     /// changes still respond during a long rest. The reverberation never resets.
-    pub(super) fn play(&mut self, orchestra: &mut Orchestra, samples: SampleSet) -> u32 {
+    pub(super) fn play(&mut self, orchestra: &mut Orchestra) -> u32 {
         while self.cursor < count() {
             let note = event(self.cursor);
             if note.frame > self.frame {
                 break;
             }
-            let touch = Touch::at(note.pan).attack(0.035).release(0.32);
-            orchestra.note_with_samples(
-                note.instrument,
-                note.pitch,
-                note.length as f32 / RATE as f32,
-                note.gain,
-                touch,
-                samples,
-            );
+            orchestra.chamber_note(note.note());
             self.cursor += 1;
         }
         let next = if self.cursor < count() {
@@ -109,25 +109,26 @@ mod tests {
     use super::*;
     #[test]
     fn complete_editions_fit_the_runtime_and_finish_before_the_loop() {
-        assert_eq!(&DATA[..4], b"BAY1");
+        assert_eq!(&DATA[..4], b"BAY2");
         assert_eq!(DATA.len(), HEADER + count() * RECORD);
-        assert_eq!(count(), 4506); // Every note of all three exported editions.
+        assert_eq!(count(), 2053); // Full piano parts, written repeats and our strings.
         let mut previous = 0;
         let mut ends = Vec::new();
         let mut polyphony = 0;
         for note in events() {
             assert!(note.frame >= previous);
             assert!(note.length > 0 && note.frame + note.length + RATE < end());
-            assert!((28..=90).contains(&note.pitch));
-            assert!(note.gain.is_finite() && note.gain > 0.0 && note.gain < 0.65);
+            assert!((27..=97).contains(&note.pitch));
+            assert!(note.gain.is_finite() && note.gain > 0.0 && note.gain <= 0.9);
             assert!(note.pan.abs() <= 1.0);
             ends.retain(|&end| end > note.frame);
-            ends.push(note.frame + note.length + RATE / 2);
+            ends.push(note.frame + note.length + RATE);
             polyphony = polyphony.max(ends.len());
             previous = note.frame;
         }
         assert!(polyphony < 64, "including release tails: {polyphony}");
-        assert!(end() > RATE * 660);
+        assert!(end() > RATE * 500);
+        assert!(end() < RATE * 520);
     }
     #[test]
     fn a_loop_restarts_at_the_first_note_after_a_full_release() {

@@ -1,5 +1,6 @@
-//! Fifteen original suites: five in B♭ Dorian and ten independent styles.
-//! CC0 acoustic recordings, with studio 48-kHz or original 44.1-kHz banks.
+//! A piano remembrance for login/lobby and fifteen original suites for games.
+//! The remembrance uses a stereo CC0 grand piano, violin and cello at 48 kHz.
+//! Game recordings offer studio 48-kHz or original 44.1-kHz banks.
 //! One persistent orchestra admits scene changes on the next eighth-note pulse;
 //! releases and room tails bridge the change, and tempo moves continuously.
 //! Recorded source rate is 44.1 kHz in both banks; studio preparation resamples

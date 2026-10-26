@@ -7328,24 +7328,35 @@ counted cues exist to do.
 
 ### One orchestra follows the player
 
-The login, lobby and deckbuilder now share an eleven-minute instrumental
-remembrance dedicated to Baylee. It replaces their former theme arrangements:
-Brahms **Wiegenlied, Op.49 No.4**, Schumann **Mondnacht, Op.39 No.5**, and Schubert
-**Des Baches Wiegenlied, D.795 No.20**. The complete OpenScore editions are CC0;
-source scores, MIDI exports, hashes, preparation script and performance manifest
-live in `art/music/memorial/`. The project renders a new performance with its
-CC0 harp/violin/cello samples and modelled piano/flute, native stereo 48 kHz.
-Source pitches, rests, dynamics and tempo changes are preserved; restrained
-phrasing, timbre choices and spacing are documented in the preparation script.
-No third-party performance recording is used.
+The login, lobby and deckbuilder share an eight-and-a-half-minute piano
+remembrance dedicated to Baylee: Debussy's **Clair de lune** and Satie's
+**Gymnopédie No. 1**. The complete Mutopia editions are public domain; source
+scores, MIDI, hashes, preparation scripts and manifests live in
+`art/music/memorial/`. This replaces the earlier three-Lieder arrangement.
+Every written piano note is retained, including Satie's repeat. A prepared
+performance map supplies rubato, melody/accompaniment balance, dynamic arcs and
+bounded half-pedal. Violin and cello enter in selected sustained phrases.
+
+The grand piano is Osiris Piano: real stereo Yamaha C2 recordings with two
+velocity layers, soft pedal and sustain, from its low-noise Mic A set. Solo
+violin and cello use full stereo VSCO 2 CE recordings. Both libraries are CC0.
+The piano source is 48 kHz/16 bit; the strings are 44.1 kHz. Offline VHQ libsoxr
+preparation tunes the required pitches at 48 kHz, retaining stereo, source
+levels and long natural decays. The manifest records all source and prepared
+hashes. Four lossless packed chunks embed 157 clips (about 127 MiB packed,
+175 MiB decoded); they are decompressed once before the audio callback.
 
 `music::score::memorial` reads fixed-size compiled events without render-time
-allocation. Login → lobby and theme-setting changes preserve the exact waveform
-and held notes. During a duel the remembrance pauses while the selected original
-suite plays; returning resumes its place. The existing mute, volume, background
-silence and sample-bank controls apply. The memorial observes scene requests at
-most every 50 ms, including rests. Position counters use four-second observation
-windows here; the game suites retain their musical bar counters.
+allocation. `music::orchestra::chamber` mixes recorded velocity layers and
+shapes key release and bow phrases in a fixed 64-voice pool, using the same
+continuous room as the other music. Login → lobby and theme-setting changes
+preserve the exact waveform and held notes. During a duel the remembrance
+pauses while the selected original suite plays; returning resumes its place.
+Mute, volume and background silence still apply. The sample-bank setting
+selects the **game** recordings; the remembrance always uses its stereo bank.
+Scene requests are observed at most every 50 ms, including rests. Position
+counters use four-second observation windows here; game suites retain their
+musical bar counters. No third-party performance recording is used.
 
 The following fifteen original suites remain the **duel** music. Their earlier
 title/lobby arrangements remain authoring material but are no longer played there.

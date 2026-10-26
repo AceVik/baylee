@@ -86,9 +86,17 @@ fn render(
     }
     out.flush()?;
     let rms_db = 20.0 * (power / f64::from(frames * 2)).sqrt().log10();
+    let source_rates: &[u32] = if script
+        .iter()
+        .any(|(_, movement)| matches!(movement, Movement::Title | Movement::Lobby))
+    {
+        &[44_100, 48_000]
+    } else {
+        &[44_100]
+    };
     eprintln!("{filename}: peak={peak:.3}, rms={rms_db:.1} dBFS, max-step={jump:.3}");
     Ok(
-        serde_json::json!({"file":filename,"samples":samples,"recorded_source_rate":44100,"synthesis_rate":48000,"rate":RATE,"bits":24,"seconds":seconds,
+        serde_json::json!({"file":filename,"samples":samples,"recorded_source_rates":source_rates,"synthesis_rate":48000,"rate":RATE,"bits":24,"seconds":seconds,
         "render_seconds":started.elapsed().as_secs_f64(),"peak":peak,"rms_db":rms_db,"max_step":jump,"transitions":changes,"last_position":tune.position()}),
     )
 }

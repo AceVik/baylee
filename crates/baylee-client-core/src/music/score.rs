@@ -164,10 +164,7 @@ impl Tune {
         }
         self.admit();
         if memorial::contains(self.position.movement) {
-            self.until_tick += f64::from(
-                self.memorial
-                    .play(&mut self.orchestra, self.position.samples),
-            );
+            self.until_tick += f64::from(self.memorial.play(&mut self.orchestra));
             return;
         }
         let notes = arrangement::notes(

@@ -1,5 +1,10 @@
 # Fifteen suites: five Dorian originals plus ten contrasting styles
 
+Login and lobby now use the dedicated [piano remembrance](memorial/README.md):
+public-domain Debussy/Satie with stereo CC0 grand piano, violin and cello.
+The suite and bank descriptions below apply to game music; the earlier title
+and lobby arrangements remain historical authoring material.
+
 Five independently composed two-bar title themes, each developed into eight
 movements. See `score/manuscript.rs` and the table in `docs/client.md` for
 motifs, phrase structure, instrumentation and faster tempos. The revised score
