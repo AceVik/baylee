@@ -640,6 +640,19 @@ impl Tx<'_> {
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("`CantAttack` naming no creature".to_string());
         };
+        if p.peek("Target") == Some("You") && !p.has("UnlessDefender") {
+            p.take("Target");
+            let condition = self.condition(&mut p)?;
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `CantAttack.{key}`"));
+                return None;
+            }
+            let attackers = self.filter_expr(&valid)?;
+            self.body.abilities.push(format!(
+                "static_ability!({attackers}, Modifier::CantAttackYou{condition})"
+            ));
+            return Some(());
+        }
         let Some(unless) = p.take("UnlessDefender") else {
             return self.deny("`CantAttack` with no `UnlessDefender$`".to_string());
         };

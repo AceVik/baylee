@@ -996,11 +996,16 @@ impl Tx<'_> {
                     None => return None,
                 }
             }
-            "Counter" => match p.take("TargetType").as_deref() {
-                Some("Spell") => vec!["Effect::CounterTargetSpell".to_string()],
-                Some("Activated") => vec!["Effect::CounterTargetAbility".to_string()],
-                _ => return None,
-            },
+            "Counter" => {
+                if p.take("Destination").is_some_and(|d| d != "Graveyard") {
+                    return None;
+                }
+                match p.take("TargetType").as_deref() {
+                    Some("Spell") => vec!["Effect::CounterTargetSpell".to_string()],
+                    Some("Activated") => vec!["Effect::CounterTargetAbility".to_string()],
+                    _ => return None,
+                }
+            }
             _ => return None,
         })
     }

@@ -2135,3 +2135,29 @@ fn invasion_batch_six_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn invasion_batch_seven_reader_patterns() {
+    let moat = "Name:Teferi's Moat\nManaCost:3 W U\nTypes:Enchantment\n\
+        K:ETBReplacement:Other:ChooseColor\n\
+        SVar:ChooseColor:DB$ ChooseColor | Defined$ You\n\
+        S:Mode$ CantAttack | ValidCard$ Creature.withoutFlying+ChosenColor | Target$ You";
+    let moat_body = read(moat);
+    assert_eq!(moat_body.enter_modifiers, ["EnterModifier::ChooseColor"]);
+    assert_eq!(
+        moat_body.abilities,
+        [
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::HasKeyword(KeywordSet::FLYING)), Filter::OfSourceChosenColor]), Modifier::CantAttackYou)"
+        ]
+    );
+
+    let undermine = "Name:Undermine\nManaCost:U U B\nTypes:Instant\n\
+        A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | SubAbility$ DBDrain | Destination$ Graveyard\n\
+        SVar:DBDrain:DB$ LoseLife | Defined$ TargetedController | LifeAmount$ 3";
+    assert_eq!(
+        read(undermine).abilities,
+        [
+            "spell!(&[Effect::CounterTargetSpell, Effect::LoseLife { amount: Amount::Fixed(3), target: PlayerRel::ControllerOfTarget }], targets = Some(TargetReq::one(TargetSpec::Spell(&Filter::Any))))"
+        ]
+    );
+}
