@@ -103,3 +103,75 @@ fn mageta_the_lion_prevents_regeneration_on_other_creatures() {
     assert!(on_battlefield(&engine, p1, index::DRUDGE_SKELETONS).is_none());
     assert!(in_graveyard(&engine, p1, index::DRUDGE_SKELETONS).is_some());
 }
+
+#[test]
+fn mageta_the_lion_old_ability_destroys_its_blinked_new_incarnation() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let blink = card_index("0fd57894-b917-41c8-a394-360d1d31b236");
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(
+            0,
+            &[
+                mageta_the_lion(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+                plains(),
+            ],
+        )
+        .hand(0, &[plains(), forest(), blink])
+        .battlefield(1, &[grizzly_bears()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let mageta = on_battlefield(&engine, p0, mageta_the_lion()).unwrap();
+    let original_version = engine.state().object(mageta).unwrap().version;
+    let discards = [
+        in_hand(&engine, p0, plains()).unwrap(),
+        in_hand(&engine, p0, forest()).unwrap(),
+    ];
+    tap_all_mana(&mut engine, p0);
+    activate(&mut engine, p0, mageta_the_lion(), 0);
+    for card in discards {
+        engine
+            .apply(
+                p0,
+                PlayerAction::ChooseObjects {
+                    objects: vec![card],
+                },
+            )
+            .unwrap();
+    }
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p0),
+    );
+    cast_with_floating(&mut engine, p0, blink);
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![mageta],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        e.state()
+            .object(mageta)
+            .is_some_and(|object| object.version != original_version)
+    });
+    assert_eq!(
+        engine.state().object(mageta).unwrap().zone,
+        Zone::Battlefield
+    );
+    assert!(
+        !stack_is_empty(&engine),
+        "Mageta's original ability still waits"
+    );
+
+    pass_until(&mut engine, stack_is_empty);
+    assert!(in_graveyard(&engine, p0, mageta_the_lion()).is_some());
+    assert!(in_graveyard(&engine, p1, grizzly_bears()).is_some());
+}
