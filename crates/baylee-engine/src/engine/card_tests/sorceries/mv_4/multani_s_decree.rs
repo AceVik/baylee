@@ -92,7 +92,7 @@ fn multanis_decree_counts_destroyed_enchantments_exiled_instead_of_dying() {
             .any(|id| {
                 e.state()
                     .object(*id)
-                    .is_some_and(|object| object.card == Some(fastbond()))
+                    .is_some_and(|object| object.card.is_some_and(|card| card.index == fastbond()))
             })
     );
     assert!(in_graveyard(&e, lk::P1, mirri_s_guile()).is_some());
