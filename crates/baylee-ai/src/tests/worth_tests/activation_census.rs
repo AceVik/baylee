@@ -399,7 +399,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Crow (0 of 1 read by the evaluator).
     // Invasion (`inv`) Batch 6 adds 3 non-mana activated abilities on
     // Smoldering Tar and Stormscape Master (2) (2 of 3 read by the evaluator).
-    assert_eq!((read, of), (2842, 3593), "activated/loyalty reader census");
+    // Invasion (`inv`) Batch 7 adds 7 non-mana activated abilities on
+    // Sunscape Master (2), Thornscape Master (2), Thunderscape Master (2),
+    // and Tidal Visionary (1) (5 of 7 read by the evaluator).
+    assert_eq!((read, of), (2847, 3600), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

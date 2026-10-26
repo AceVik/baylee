@@ -18861,6 +18861,8 @@ pub mod suffocation;
 pub mod sugar_rush;
 #[path = "instants/mv_3/suit_up.rs"]
 pub mod suit_up;
+#[path = "creatures/mv_6/sulam_djinn.rs"]
+pub mod sulam_djinn;
 #[path = "enchantments/mv_2/suleiman_s_legacy.rs"]
 pub mod suleiman_s_legacy;
 #[path = "lands/check/sulfur_falls.rs"]
@@ -18963,6 +18965,10 @@ pub mod sunmane_pegasus;
 pub mod sunpetal_grove;
 #[path = "creatures/mv_6/sunrise_sovereign.rs"]
 pub mod sunrise_sovereign;
+#[path = "creatures/mv_1/sunscape_apprentice.rs"]
+pub mod sunscape_apprentice;
+#[path = "creatures/mv_4/sunscape_master.rs"]
+pub mod sunscape_master;
 #[path = "creatures/mv_5/sunscorch_regent.rs"]
 pub mod sunscorch_regent;
 #[path = "lands/deserts/sunscorched_desert.rs"]
@@ -19083,6 +19089,8 @@ pub mod swarmyard;
 pub mod swashbuckling;
 #[path = "instants/mv_3/swat.rs"]
 pub mod swat;
+#[path = "instants/mv_2/sway_of_illusion.rs"]
+pub mod sway_of_illusion;
 #[path = "creatures/mv_3/sweettooth_witch.rs"]
 pub mod sweettooth_witch;
 #[path = "sorceries/mv_3/sweltering_suns.rs"]
@@ -19267,6 +19275,8 @@ pub mod tamiyo_inquisitive_student;
 pub mod tamiyo_s_epiphany;
 #[path = "instants/mv_1/tamiyo_s_safekeeping.rs"]
 pub mod tamiyo_s_safekeeping;
+#[path = "instants/mv_2/tangle.rs"]
+pub mod tangle;
 #[path = "creatures/mv_2/tangle_asp.rs"]
 pub mod tangle_asp;
 #[path = "creatures/artifacts/mv_5/tangle_hulk.rs"]
@@ -19369,6 +19379,8 @@ pub mod tectonic_break;
 pub mod tectonic_edge;
 #[path = "sorceries/mv_1/tectonic_hazard.rs"]
 pub mod tectonic_hazard;
+#[path = "enchantments/mv_3/tectonic_instability.rs"]
+pub mod tectonic_instability;
 #[path = "creatures/artifacts/mv_9/teeka_s_dragon.rs"]
 pub mod teeka_s_dragon;
 #[path = "lands/utility/teetering_peaks.rs"]
@@ -19387,6 +19399,8 @@ pub mod teferi_s_honor_guard;
 pub mod teferi_s_imp;
 #[path = "lands/tapland/teferi_s_isle.rs"]
 pub mod teferi_s_isle;
+#[path = "enchantments/mv_5/teferi_s_moat.rs"]
+pub mod teferi_s_moat;
 #[path = "instants/mv_3/teferi_s_protection.rs"]
 pub mod teferi_s_protection;
 #[path = "creatures/mv_3/teferi_s_protege.rs"]
@@ -19395,6 +19409,8 @@ pub mod teferi_s_protege;
 pub mod teferi_s_puzzle_box;
 #[path = "enchantments/mv_3/teferi_s_realm.rs"]
 pub mod teferi_s_realm;
+#[path = "instants/mv_2/teferi_s_response.rs"]
+pub mod teferi_s_response;
 #[path = "creatures/artifacts/mv_5/teferi_s_sentinel.rs"]
 pub mod teferi_s_sentinel;
 #[path = "enchantments/mv_2/teferi_s_veil.rs"]
@@ -19477,6 +19493,8 @@ pub mod temple_of_triumph;
 pub mod temporal_adept;
 #[path = "artifacts/mv_2/temporal_aperture.rs"]
 pub mod temporal_aperture;
+#[path = "enchantments/mv_5/temporal_distortion.rs"]
+pub mod temporal_distortion;
 #[path = "sorceries/mv_5/temporal_manipulation.rs"]
 pub mod temporal_manipulation;
 #[path = "sorceries/mv_7/temporal_mastery.rs"]
@@ -19711,6 +19729,8 @@ pub mod they_went_this_way;
 pub mod thicket_basilisk;
 #[path = "creatures/mv_4/thicket_crasher.rs"]
 pub mod thicket_crasher;
+#[path = "creatures/mv_5/thicket_elemental.rs"]
+pub mod thicket_elemental;
 #[path = "creatures/mv_6/thief_of_blood.rs"]
 pub mod thief_of_blood;
 #[path = "sorceries/mv_7/thieves_auction.rs"]
@@ -19765,6 +19785,8 @@ pub mod thornhide_wolves;
 pub mod thornling;
 #[path = "creatures/mv_1/thornscape_apprentice.rs"]
 pub mod thornscape_apprentice;
+#[path = "creatures/mv_4/thornscape_master.rs"]
+pub mod thornscape_master;
 #[path = "lands/restricted/thornspire_verge.rs"]
 pub mod thornspire_verge;
 #[path = "creatures/mv_6/thorntooth_witch.rs"]
@@ -19937,6 +19959,8 @@ pub mod thundermaw_hellkite;
 pub mod thunderous_snapper;
 #[path = "creatures/mv_1/thunderscape_apprentice.rs"]
 pub mod thunderscape_apprentice;
+#[path = "creatures/mv_4/thunderscape_master.rs"]
+pub mod thunderscape_master;
 #[path = "instants/mv_4/thwart.rs"]
 pub mod thwart;
 #[path = "creatures/mv_2/tibalt_s_rager.rs"]
@@ -19959,6 +19983,8 @@ pub mod tidal_force;
 pub mod tidal_influence;
 #[path = "creatures/mv_8/tidal_kraken.rs"]
 pub mod tidal_kraken;
+#[path = "creatures/mv_1/tidal_visionary.rs"]
+pub mod tidal_visionary;
 #[path = "creatures/mv_1/tidal_warrior.rs"]
 pub mod tidal_warrior;
 #[path = "instants/mv_3/tidal_wave.rs"]
@@ -20091,6 +20117,8 @@ pub mod tolaria_west;
 pub mod tolarian_academy;
 #[path = "creatures/mv_3/tolarian_drake.rs"]
 pub mod tolarian_drake;
+#[path = "creatures/mv_3/tolarian_emissary.rs"]
+pub mod tolarian_emissary;
 #[path = "creatures/mv_2/tolarian_entrancer.rs"]
 pub mod tolarian_entrancer;
 #[path = "creatures/mv_3/tolarian_scholar.rs"]
@@ -20297,6 +20325,8 @@ pub mod trapmaker_s_snare;
 pub mod traumatic_critique;
 #[path = "artifacts/mv_1/traveler_s_amulet.rs"]
 pub mod traveler_s_amulet;
+#[path = "enchantments/auras/mv_3/traveler_s_cloak.rs"]
+pub mod traveler_s_cloak;
 #[path = "creatures/mv_2/traveling_philosopher.rs"]
 pub mod traveling_philosopher;
 #[path = "enchantments/auras/mv_2/treacherous_link.rs"]
@@ -20367,10 +20397,14 @@ pub mod treva_s_attendant;
 pub mod treva_s_charm;
 #[path = "lands/lairs/treva_s_ruins.rs"]
 pub mod treva_s_ruins;
+#[path = "creatures/mv_6/treva_the_renewer.rs"]
+pub mod treva_the_renewer;
 #[path = "artifacts/mv_1/triangle_of_war.rs"]
 pub mod triangle_of_war;
 #[path = "artifacts/mv_4/triassic_egg.rs"]
 pub mod triassic_egg;
+#[path = "sorceries/mv_2/tribal_flames.rs"]
+pub mod tribal_flames;
 #[path = "creatures/artifacts/mv_6/tribal_golem.rs"]
 pub mod tribal_golem;
 #[path = "creatures/mv_3/tributary_vaulter.rs"]
@@ -20443,6 +20477,12 @@ pub mod trusted_pegasus;
 pub mod trusty_machete;
 #[path = "creatures/mv_3/trusty_packbeast.rs"]
 pub mod trusty_packbeast;
+#[path = "creatures/mv_4/tsabo_s_assassin.rs"]
+pub mod tsabo_s_assassin;
+#[path = "instants/mv_6/tsabo_s_decree.rs"]
+pub mod tsabo_s_decree;
+#[path = "artifacts/mv_2/tsabo_s_web.rs"]
+pub mod tsabo_s_web;
 #[path = "creatures/mv_7/tsabo_tavoc.rs"]
 pub mod tsabo_tavoc;
 #[path = "sorceries/mv_4/tsunami.rs"]
@@ -20481,6 +20521,8 @@ pub mod turbulent_springs;
 pub mod turbulent_steppe;
 #[path = "lands/tapland/turbulent_wilderness.rs"]
 pub mod turbulent_wilderness;
+#[path = "instants/mv_3/turf_wound.rs"]
+pub mod turf_wound;
 #[path = "instants/mv_1/turn_to_dust.rs"]
 pub mod turn_to_dust;
 #[path = "instants/mv_4/turnabout.rs"]
@@ -20509,6 +20551,8 @@ pub mod twiddle;
 pub mod twilight_mire;
 #[path = "creatures/mv_1/twilight_panther.rs"]
 pub mod twilight_panther;
+#[path = "sorceries/mv_6/twilight_s_call.rs"]
+pub mod twilight_s_call;
 #[path = "creatures/mv_3/twin_silk_spider.rs"]
 pub mod twin_silk_spider;
 #[path = "enchantments/auras/mv_3/twinblade_blessing.rs"]
@@ -20659,6 +20703,8 @@ pub mod undergrowth;
 pub mod undergrowth_leopard;
 #[path = "lands/crowd/undergrowth_stadium.rs"]
 pub mod undergrowth_stadium;
+#[path = "instants/mv_3/undermine.rs"]
+pub mod undermine;
 #[path = "creatures/mv_6/undersea_invader.rs"]
 pub mod undersea_invader;
 #[path = "creatures/mv_2/undertaker.rs"]
@@ -20795,10 +20841,14 @@ pub mod urborg;
 pub mod urborg_drake;
 #[path = "creatures/mv_2/urborg_elf.rs"]
 pub mod urborg_elf;
+#[path = "creatures/mv_3/urborg_emissary.rs"]
+pub mod urborg_emissary;
 #[path = "instants/mv_2/urborg_justice.rs"]
 pub mod urborg_justice;
 #[path = "creatures/mv_3/urborg_panther.rs"]
 pub mod urborg_panther;
+#[path = "creatures/mv_3/urborg_phantom.rs"]
+pub mod urborg_phantom;
 #[path = "creatures/mv_4/urborg_shambler.rs"]
 pub mod urborg_shambler;
 #[path = "creatures/mv_4/urborg_stalker.rs"]

@@ -96,6 +96,7 @@ mod teferi_s_protection;
 mod thunderclap;
 mod touch_of_vitae;
 mod trumpet_blast;
+mod undermine;
 mod valakut_awakening;
 mod verdigris;
 mod void_rend;

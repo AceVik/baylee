@@ -148,6 +148,7 @@ mod safeguard;
 mod screams_of_the_damned;
 mod sigil_of_the_empty_throne;
 mod subversion;
+mod teferi_s_moat;
 mod tornado;
 mod where_ancients_tread;
 mod worms_of_the_earth;

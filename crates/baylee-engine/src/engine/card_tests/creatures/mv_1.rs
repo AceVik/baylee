@@ -176,6 +176,7 @@ mod taunting_elf;
 mod thallid;
 mod thornscape_apprentice;
 mod thunderscape_apprentice;
+mod tidal_visionary;
 mod timber_wolves;
 mod tinder_wall;
 mod tireless_tribe;
