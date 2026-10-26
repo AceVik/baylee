@@ -169,6 +169,54 @@ impl Tx<'_> {
         self.create_tokens(CLUE_TOKEN_SCRIPT, p.take("Num").as_deref())
     }
 
+    /// `RepeatEach` over opponents where each opponent sacrifices a matching
+    /// permanent unless they pay a generic mana cost (Rishadan Cutpurse,
+    /// Rishadan Footpad, Rishadan Brigand).
+    pub(super) fn repeat_each_effect(
+        &mut self,
+        mut p: Params,
+        sub: Option<&str>,
+        chain: &super::Chain,
+    ) -> Option<Vec<String>> {
+        if sub.is_some() || chain.target.is_some() || chain.second_target.is_some() {
+            return None;
+        }
+        if p.take("RepeatPlayers").as_deref() != Some("Player.Opponent") {
+            return None;
+        }
+        let repeat_sub = p.take("RepeatSubAbility")?;
+        if !p.exhausted() {
+            return None;
+        }
+        let body = self.svars.get(repeat_sub.trim())?.clone();
+        let (sub_api, mut sp) = Params::parse(&body)?;
+        sp.drop_prose();
+        if sub_api != "Sacrifice"
+            || sp.take("Defined").as_deref() != Some("Remembered")
+            || sp.take("UnlessPayer").as_deref() != Some("Remembered")
+        {
+            return None;
+        }
+        let sac_valid = sp.take("SacValid")?;
+        let cost = sp.take("UnlessCost")?;
+        if !sp.exhausted() {
+            return None;
+        }
+        let filter = if sac_valid == "Permanent" {
+            "&Filter::Any".to_string()
+        } else {
+            let expr = self.filter_expr(&sac_valid)?;
+            format!("&{}", self.body.filter_static("SAC", &expr))
+        };
+        let super::Price::Generic(mana) = self.unless_price(cost.trim())? else {
+            return None;
+        };
+        Some(vec![format!(
+            "Effect::PlayerMayPayOr {{ player: PlayerRel::EachOpponent, mana: {mana}, \
+             effect: &Effect::SacrificeFilter {{ who: PlayerRel::EventPlayer, filter: {filter} }} }}"
+        )])
+    }
+
     /// One side of a pump, refused by what its value resolves *through*.
     ///
     /// The same rule as the token amount's: the letter is what 356 scripts

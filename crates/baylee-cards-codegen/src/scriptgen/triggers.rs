@@ -107,7 +107,7 @@ impl Tx<'_> {
             let Some(target) = target else {
                 return self.deny("a `DamageDoneOnce` trigger with no `ValidTarget$`".to_string());
             };
-            if source.is_some() || combat {
+            if source.is_some() {
                 return self.deny("a `DamageDoneOnce` trigger naming its source".to_string());
             }
             if target
@@ -117,7 +117,12 @@ impl Tx<'_> {
                 return self.deny(format!("damage dealt to `{target}` at once"));
             }
             let filter = filter_of(self, &target)?;
-            return Some(format!("Trigger::DealtDamage({filter})"));
+            let kind = if combat {
+                "DealtCombatDamage"
+            } else {
+                "DealtDamage"
+            };
+            return Some(format!("Trigger::{kind}({filter})"));
         }
         let Some(source) = source else {
             return self.deny("a `DamageDone` trigger with no `ValidSource$`".to_string());
@@ -137,6 +142,35 @@ impl Tx<'_> {
                 if combat { " in combat" } else { "" }
             )),
         }
+    }
+
+    /// `T:Mode$ DamageDealtOnce` — "whenever a creature you control deals
+    /// combat damage" (Noble Purpose) or "whenever [this] deals damage"
+    /// (El-Hajjâj): once per damage event or combat-damage step per source.
+    pub(super) fn damage_dealt_once_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let combat = match p.take("CombatDamage").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`CombatDamage$ {other}`")),
+        };
+        if let Some(target) = p.take("ValidTarget") {
+            return self.deny(format!("`DamageDealtOnce` naming `ValidTarget$ {target}`"));
+        }
+        let Some(source) = p.take("ValidSource") else {
+            return self.deny("a `DamageDealtOnce` trigger with no `ValidSource$`".to_string());
+        };
+        let filter = if source == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&source)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        let kind = if combat {
+            "DealsCombatDamage"
+        } else {
+            "DealsDamage"
+        };
+        Some(format!("Trigger::{kind}({filter})"))
     }
 
     /// `T:Mode$ TapsForMana` — "whenever a Mountain is tapped for mana"
@@ -274,6 +308,7 @@ impl Tx<'_> {
             "TapsForMana" => self.taps_for_mana_trigger(p),
             "DamageDone" => self.damage_trigger(p, false),
             "DamageDoneOnce" => self.damage_trigger(p, true),
+            "DamageDealtOnce" => self.damage_dealt_once_trigger(p),
             // "Whenever [a permanent] becomes tapped": the source (City of
             // Brass), or any permanent the filter matches (Lifetap).
             "Taps" => {

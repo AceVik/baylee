@@ -1578,3 +1578,73 @@ fn jeweled_torque_karns_touch_cant_block_liability_muzzle_and_pangosaur_shapes_r
         body.abilities[0]
     );
 }
+
+#[test]
+fn inviolability_natural_affinity_noble_purpose_pious_warrior_revered_elder_and_rishadan_pirate_shapes_read()
+ {
+    let inviolability = "Name:Inviolability\nManaCost:1 W\nTypes:Enchantment Aura\n\
+        K:Enchant:Creature\n\
+        R:Event$ DamageDone | ActiveZones$ Battlefield | Prevent$ True | ValidTarget$ Creature.EnchantedBy";
+    let body = read(inviolability);
+    assert!(
+        body.abilities[1].contains("Modifier::PreventDamageFrom(&Filter::Any)"),
+        "{}",
+        body.abilities[1]
+    );
+
+    let natural_affinity = "Name:Natural Affinity\nManaCost:2 G\nTypes:Instant\n\
+        A:SP$ AnimateAll | ValidCards$ Land | Types$ Creature | Power$ 2 | Toughness$ 2";
+    let body = read(natural_affinity);
+    assert!(
+        body.abilities[0].contains("Modifier::AddType(TypeSet::CREATURE)")
+            && body.abilities[0].contains("Modifier::SetPT(2, 2)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let noble_purpose = "Name:Noble Purpose\nManaCost:3 W W\nTypes:Enchantment\n\
+        T:Mode$ DamageDealtOnce | CombatDamage$ True | ValidSource$ Creature.YouCtrl | TriggerZones$ Battlefield | Execute$ TrigGain\n\
+        SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+        SVar:X:TriggerCount$DamageAmount";
+    let body = read(noble_purpose);
+    assert!(
+        body.abilities[0].contains("Trigger::DealsCombatDamage(&Filter::YOUR_CREATURE)")
+            && body.abilities[0].contains("Effect::GainLife { amount: Amount::EventAmount }"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let pious_warrior = "Name:Pious Warrior\nManaCost:3 W\nTypes:Creature Human Rebel Warrior\nPT:2/3\n\
+        T:Mode$ DamageDoneOnce | CombatDamage$ True | ValidTarget$ Card.Self | Execute$ TrigGain\n\
+        SVar:TrigGain:DB$ GainLife | Defined$ You | LifeAmount$ X\n\
+        SVar:X:TriggerCount$DamageAmount";
+    let body = read(pious_warrior);
+    assert!(
+        body.abilities[0].contains("Trigger::DealtCombatDamage(&Filter::This)")
+            && body.abilities[0].contains("Effect::GainLife { amount: Amount::EventAmount }"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let revered_elder = "Name:Revered Elder\nManaCost:2 W\nTypes:Creature Human Cleric\nPT:1/2\n\
+        A:AB$ PreventDamage | Cost$ 1 | Defined$ Self | Amount$ 1";
+    let body = read(revered_elder);
+    assert!(
+        body.abilities[0].contains("TargetSpec::ThisObject")
+            && body.abilities[0].contains("Amount::Fixed(1)"),
+        "{}",
+        body.abilities[0]
+    );
+
+    let cutpurse = "Name:Rishadan Cutpurse\nManaCost:2 U\nTypes:Creature Human Pirate\nPT:1/1\n\
+        T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigSac\n\
+        SVar:TrigSac:DB$ RepeatEach | RepeatPlayers$ Player.Opponent | RepeatSubAbility$ DBSac\n\
+        SVar:DBSac:DB$ Sacrifice | Defined$ Remembered | SacValid$ Permanent | UnlessCost$ 1 | UnlessPayer$ Remembered";
+    let body = read(cutpurse);
+    assert!(
+        body.abilities[0].contains("PlayerRel::EachOpponent")
+            && body.abilities[0].contains("PlayerRel::EventPlayer"),
+        "{}",
+        body.abilities[0]
+    );
+}

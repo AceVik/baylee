@@ -39,6 +39,11 @@ impl Tx<'_> {
             chain.effects.extend(effects);
             return Some(());
         }
+        if api == "RepeatEach" {
+            let effects = self.repeat_each_effect(p, sub.as_deref(), chain)?;
+            chain.effects.extend(effects);
+            return Some(());
+        }
         // The remembered objects are the damage recipients, not this line's
         // original targets. Read their entire lifetime and consumer together;
         // accepting the flag alone would silently drop a rules clause.
@@ -680,6 +685,9 @@ impl Tx<'_> {
             "PreventDamage" => {
                 let n = amount(&p.take("Amount")?, self.svars, self.has_x)?;
                 let to = match (p.take("Defined").as_deref(), target) {
+                    (Some("Self"), None) if !self.on_a_spell => {
+                        "TargetSpec::ThisObject".to_string()
+                    }
                     (Some(who), None) => {
                         format!("TargetSpec::Player({})", self.player_rel(Some(who))?)
                     }
@@ -758,12 +766,16 @@ impl Tx<'_> {
             }
             "AnimateAll"
                 if target.is_none()
-                    && p.take("ValidCards").as_deref() == Some("Creature.OppCtrl")
-                    && p.take("RemoveKeywords").as_deref() == Some("Hexproof & Shroud")
-                    && p.take("CantHaveKeyword").as_deref() == Some("Hexproof & Shroud") =>
+                    && p.peek("ValidCards") == Some("Creature.OppCtrl")
+                    && p.peek("RemoveKeywords") == Some("Hexproof & Shroud")
+                    && p.peek("CantHaveKeyword") == Some("Hexproof & Shroud") =>
             {
+                p.take("ValidCards");
+                p.take("RemoveKeywords");
+                p.take("CantHaveKeyword");
                 vec!["Effect::continuous(&Filter::OPPONENT_CREATURE, Modifier::CantHaveKeywords(KeywordSet::HEXPROOF.union(KeywordSet::SHROUD)), Duration::UntilEndOfTurn)".to_string()]
             }
+            "AnimateAll" => self.animate_all_effect(p, target)?,
             "Pump" if p.peek("KW") == Some("Protection from everything") => {
                 self.everything_protection(p)?
             }

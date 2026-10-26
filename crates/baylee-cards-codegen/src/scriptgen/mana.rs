@@ -256,6 +256,14 @@ impl Tx<'_> {
     /// The definition is passed in rather than the `SVar` name so that the
     /// caller decides what an *undefined* name is called as well.
     pub(super) fn count_expr(&mut self, def: &str) -> Option<String> {
+        if def.trim() == "TriggerCount$DamageAmount"
+            && matches!(
+                self.trigger_mode.as_deref(),
+                Some("DamageDone" | "DamageDoneOnce" | "DamageDealtOnce")
+            )
+        {
+            return Some("Amount::EventAmount".to_string());
+        }
         let valid = def.trim().strip_prefix("Count$Valid ")?;
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNT", &expr);

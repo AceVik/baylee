@@ -320,13 +320,25 @@ pub(super) fn exec_choice(
             })
         }
         Effect::PlayerMayPayOr {
-            player,
+            player: rel,
             mana,
             effect,
         } => {
             // `players_of`, not `eval::players`: ward names the *caster*
             // (`ControllerOfTarget`), which the state alone cannot answer.
-            let player = players_of(player, state, you, res).first().copied()?;
+            let mut remaining = res.subject.pay_players_remaining.take().unwrap_or_else(|| {
+                let mut seats = players_of(rel, state, you, res);
+                seats.reverse();
+                seats
+            });
+            let player = remaining.pop()?;
+            if matches!(rel, PlayerRel::EachOpponent | PlayerRel::EachPlayer) {
+                res.subject.set_event_player(Some(player));
+            }
+            if !remaining.is_empty() {
+                res.subject.pay_players_remaining = Some(remaining);
+                res.effects.insert(res.pc + 1, op);
+            }
             // Evaluated here rather than written into the card, because
             // Esper Sentinel's tax is its own power and a creature's power
             // is not known until the ability resolves. `u16` is what the

@@ -33,6 +33,22 @@ impl Tx<'_> {
     /// for the one basic land type named; a second land type, or none, is
     /// refused. `Duration$ UntilHostLeavesPlay` is "until [this] leaves the
     /// battlefield", `Duration::WhileSourceOnBattlefield`.
+    /// `AnimateAll`: "All lands become 2/2 creatures until end of turn.
+    /// They're still lands." (Natural Affinity).
+    pub(super) fn animate_all_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if target.is_some() || p.take("Defined").is_some() {
+            return None;
+        }
+        let valid = p.take("ValidCards")?;
+        let expr = self.filter_expr(&valid)?;
+        let filter = format!("&{}", self.body.filter_static("ANIMATE_ALL", &expr));
+        self.animate_for_filter(p, &filter, false, false)
+    }
+
     pub(super) fn animate_effect(
         &mut self,
         p: &mut Params,
@@ -46,6 +62,16 @@ impl Tx<'_> {
                 return None;
             }
         };
+        self.animate_for_filter(p, "&Filter::This", target.is_some(), source_only)
+    }
+
+    fn animate_for_filter(
+        &mut self,
+        p: &mut Params,
+        filter: &str,
+        has_target: bool,
+        source_only: bool,
+    ) -> Option<Vec<String>> {
         let duration = match p.take("Duration").as_deref() {
             None => "Duration::UntilEndOfTurn",
             Some("Permanent") => "Duration::Indefinitely",
@@ -68,9 +94,10 @@ impl Tx<'_> {
         };
         let mut out = Vec::new();
         let types = p.take("Types").unwrap_or_default();
-        self.animate_types(
+        self.animate_types_for(
             &types,
             (replace_creature_types, set_land_type),
+            filter,
             duration,
             &mut out,
         )?;
@@ -80,34 +107,36 @@ impl Tx<'_> {
                 let Some(supertype) = supertype_const(word) else {
                     return self.deny(format!("`Animate` removing type `{word}`"));
                 };
-                out.push(Self::animate_expr(
+                out.push(Self::animate_expr_for(
+                    filter,
                     &format!("Modifier::RemoveSupertype({supertype})"),
                     duration,
                 ));
             }
         }
         out.extend(self.animate_regeneration_grant(p, source_only, duration)?);
-        self.animate_colors_and_keywords(p, duration, &mut out)?;
+        self.animate_colors_and_keywords(p, filter, duration, &mut out)?;
         // Layer 7b: the printed P/T it takes on. Both halves or neither —
         // `SetPT` sets both, and half a set would invent the other.
         match (p.take("Power"), p.take("Toughness")) {
             (Some(power), Some(toughness))
                 if power == "X"
                     && toughness == "X"
-                    && target.is_some()
+                    && has_target
                     && self
                         .svars
                         .get("X")
                         .is_some_and(|s| s.trim() == "Targeted$CardManaCost") =>
             {
                 out.push(format!(
-                    "Effect::SetPTFilter {{ filter: &Filter::This, power: Amount::TargetCmc, toughness: Amount::TargetCmc, duration: {duration} }}"
+                    "Effect::SetPTFilter {{ filter: {filter}, power: Amount::TargetCmc, toughness: Amount::TargetCmc, duration: {duration} }}"
                 ));
             }
             (Some(power), Some(toughness)) => {
                 let power: i16 = power.parse().ok()?;
                 let toughness: i16 = toughness.parse().ok()?;
-                out.push(Self::animate_expr(
+                out.push(Self::animate_expr_for(
+                    filter,
                     &format!("Modifier::SetPT({power}, {toughness})"),
                     duration,
                 ));
@@ -129,6 +158,7 @@ impl Tx<'_> {
     fn animate_colors_and_keywords(
         &mut self,
         p: &mut Params,
+        filter: &str,
         duration: &str,
         out: &mut Vec<String>,
     ) -> Option<()> {
@@ -142,7 +172,8 @@ impl Tx<'_> {
                 return None;
             };
             let which = if overwrite { "SetColor" } else { "AddColor" };
-            out.push(Self::animate_expr(
+            out.push(Self::animate_expr_for(
+                filter,
                 &format!(
                     "Modifier::{which}(ColorSet::from_slice(&[{}]))",
                     colors.join(", ")
@@ -159,7 +190,8 @@ impl Tx<'_> {
             };
             let joined =
                 each.join(".union(") + &")".repeat(raw.split('&').count().saturating_sub(1));
-            out.push(Self::animate_expr(
+            out.push(Self::animate_expr_for(
+                filter,
                 &format!("Modifier::AddKeyword({joined})"),
                 duration,
             ));
@@ -175,6 +207,17 @@ impl Tx<'_> {
         &mut self,
         types: &str,
         remove: (bool, bool),
+        duration: &str,
+        out: &mut Vec<String>,
+    ) -> Option<()> {
+        self.animate_types_for(types, remove, "&Filter::This", duration, out)
+    }
+
+    fn animate_types_for(
+        &mut self,
+        types: &str,
+        remove: (bool, bool),
+        filter: &str,
         duration: &str,
         out: &mut Vec<String>,
     ) -> Option<()> {
@@ -217,7 +260,7 @@ impl Tx<'_> {
                     format!("Modifier::AddSubtype({path})")
                 }
             };
-            out.push(Self::animate_expr(&modifier, duration));
+            out.push(Self::animate_expr_for(filter, &modifier, duration));
         }
         if replace_creature_types && !replaced {
             return self.deny("`RemoveCreatureTypes$` naming no creature type".to_string());
@@ -234,7 +277,11 @@ impl Tx<'_> {
     /// derives it from the modifier the way CR 613.1 does, so the emitter
     /// cannot name a layer that disagrees with what it is applying.
     pub(super) fn animate_expr(modifier: &str, duration: &str) -> String {
-        format!("Effect::continuous(&Filter::This, {modifier}, {duration})")
+        Self::animate_expr_for("&Filter::This", modifier, duration)
+    }
+
+    pub(super) fn animate_expr_for(filter: &str, modifier: &str, duration: &str) -> String {
+        format!("Effect::continuous({filter}, {modifier}, {duration})")
     }
 }
 

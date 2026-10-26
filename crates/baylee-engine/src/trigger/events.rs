@@ -28,7 +28,11 @@ pub(super) fn event_damage_of(
             source: Some(source),
             is_combat: true,
             ..
-        } if matches!(trigger, Trigger::DealsDamage(_)) => {
+        } if matches!(
+            trigger,
+            Trigger::DealsDamage(_) | Trigger::DealsCombatDamage(_)
+        ) =>
+        {
             Some(combat_damage_by_in_batch(batch, *source))
         }
         GameEvent::DamageDealt { amount, .. } if matches!(trigger, Trigger::DealsDamage(_)) => {
@@ -40,7 +44,7 @@ pub(super) fn event_damage_of(
             ..
         } if matches!(
             trigger,
-            Trigger::PlayerDealtDamage(_) | Trigger::DealtDamage(_)
+            Trigger::PlayerDealtDamage(_) | Trigger::DealtDamage(_) | Trigger::DealtCombatDamage(_)
         ) =>
         {
             Some(combat_damage_in_batch(batch, *target))
@@ -120,7 +124,9 @@ pub(super) fn event_object_for(
             },
         ) => Some(*blocker),
         (
-            Trigger::DealsCombatDamageToCreature(_) | Trigger::DealtDamage(_),
+            Trigger::DealsCombatDamageToCreature(_)
+            | Trigger::DealtDamage(_)
+            | Trigger::DealtCombatDamage(_),
             GameEvent::DamageDealt {
                 target: crate::event::DamageTarget::Object(recipient),
                 ..

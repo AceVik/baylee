@@ -603,6 +603,12 @@ pub enum Trigger {
     /// Damage that was prevented was not dealt, and triggers nothing
     /// (CR 603.2g).
     DealtDamage(&'static Filter),
+    /// A permanent matching the filter is dealt combat damage (Pious Warrior:
+    /// "whenever this creature is dealt combat damage, you gain that much
+    /// life"). Fires once for a step's combat damage to that permanent
+    /// (CR 510.2, 603.2c), with `Amount::EventAmount` carrying the step's
+    /// total combat damage dealt to it.
+    DealtCombatDamage(&'static Filter),
     /// A player the relation names is dealt damage (Living Artifact and
     /// Lich: "whenever you're dealt damage"). The player's sibling of
     /// [`Self::DealtDamage`], one event the same way: all combat damage in

@@ -1958,7 +1958,12 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::ProtectionFromChosenColor { duration } => {
-            let target = res.targets.first().copied().filter(|t| {
+            let candidate = if res.targeted {
+                res.targets.first().copied()
+            } else {
+                subjects::source(state, res).map(|s| s.object)
+            };
+            let target = candidate.filter(|t| {
                 state
                     .object(*t)
                     .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)

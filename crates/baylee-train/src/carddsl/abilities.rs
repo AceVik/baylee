@@ -340,6 +340,7 @@ fn encode_trigger_into(trigger: &Trigger, dst: &mut [f32]) {
         | Trigger::DealsDamageToOpponent(_)
         | Trigger::DealsDamageToPlayer { .. }
         | Trigger::DealtDamage(_)
+        | Trigger::DealtCombatDamage(_)
         | Trigger::PlayerDealtDamage(_) => {
             dst[5] = 0.7;
         }
