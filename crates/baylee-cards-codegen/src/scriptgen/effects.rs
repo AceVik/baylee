@@ -32,6 +32,7 @@ impl Tx<'_> {
         {
             return self.deny(format!("a sacrifice with `ChangeNum$ {num}`"));
         }
+        p.claim_label("SacMessage", "SacValid");
         let Some(sac_valid) = p.take("SacValid") else {
             if p.take("Defined").is_some() {
                 return self.deny("a sacrifice naming `Defined`".to_string());

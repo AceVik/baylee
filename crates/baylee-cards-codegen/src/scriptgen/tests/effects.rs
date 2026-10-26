@@ -2161,3 +2161,25 @@ fn invasion_batch_seven_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn planeshift_batch_one_reader_patterns() {
+    let destructive_flow = "Name:Destructive Flow\nManaCost:B R G\nTypes:Enchantment\n\
+        T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | TriggerZones$ Battlefield | Execute$ TrigSac\n\
+        SVar:TrigSac:DB$ Sacrifice | SacValid$ Land.nonBasic | Defined$ TriggeredPlayer | SacMessage$ nonbasic land";
+    assert_eq!(
+        read(destructive_flow).abilities,
+        [
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::EachPlayer }, &[Effect::SacrificeFilter { who: PlayerRel::ActivePlayer, filter: &Filter::NONBASIC_LAND }])"
+        ]
+    );
+
+    let ertai = "Name:Ertai, the Corrupted\nManaCost:2 W U B\nTypes:Legendary Creature Phyrexian Human Wizard\nPT:3/4\n\
+        A:AB$ Counter | Cost$ U T Sac<1/Creature;Enchantment/creature or enchantment> | TargetType$ Spell | TgtPrompt$ Select target spell | ValidTgts$ Card";
+    assert_eq!(
+        read(ertai).abilities,
+        [
+            "activated!(cost!(\"{U}\", TapSelf, Sacrifice(&COST1)), &[Effect::CounterTargetSpell], target = Some(TargetSpec::Spell(&Filter::Any)))"
+        ]
+    );
+}

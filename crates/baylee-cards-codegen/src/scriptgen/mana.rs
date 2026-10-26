@@ -575,7 +575,7 @@ impl Tx<'_> {
             // Appended per alternative, because a valid-string's commas are
             // `Or` and a clause glued to the end would narrow only the last
             // branch.
-            spec.split(',')
+            spec.split([',', ';'])
                 .map(|alt| {
                     if alt.contains("YouCtrl") {
                         alt.to_string()
@@ -588,7 +588,7 @@ impl Tx<'_> {
                 .collect::<Vec<_>>()
                 .join(",")
         } else {
-            spec.to_string()
+            spec.replace(';', ",")
         };
         let expr = self.filter_expr(&spec)?;
         let name = self.body.filter_static("COST", &expr);
