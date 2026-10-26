@@ -758,6 +758,7 @@ no-engine-change contract:
   - Batch 1 (`Addle` to `Breath of Darigaaz`, 25 cards): **9 Implemented, 0 Partial, 16 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen` and `16 Unimplemented` stubs).
   - Batch 2 (`Callous Giant` to `Dredge`, 25 cards): **9 Implemented, 0 Partial, 16 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen` and `16 Unimplemented` stubs).
   - Batch 3 (`Dromar, the Banisher` to `Kavu Chameleon`, 25 cards): **7 Implemented, 0 Partial, 18 Unimplemented (held back/stubs)** (`7 Implemented` machine-owned via `scriptgen` and `18 Unimplemented` stubs).
+  - Batch 4 (`Kavu Runner` to `Phyrexian Reaper`, 25 cards): **6 Implemented, 0 Partial, 19 Unimplemented (held back/stubs)** (`6 Implemented` machine-owned via `scriptgen` and `19 Unimplemented` stubs).
 
 ## PR #394 review snapshot (2026-10-23)
 

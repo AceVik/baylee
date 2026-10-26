@@ -62,6 +62,7 @@ mod lifeforce;
 mod lifetap;
 mod lilting_refrain;
 mod luminarch_ascension;
+mod meteor_storm;
 mod night_soil;
 mod opal_gargoyle;
 mod parapet;

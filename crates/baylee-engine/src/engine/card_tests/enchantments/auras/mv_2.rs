@@ -56,6 +56,7 @@ mod launch;
 mod lightning_reflexes;
 mod mageta_s_boon;
 mod maniacal_rage;
+mod mourning;
 mod muzzle;
 mod mystic_veil;
 mod pacifism;

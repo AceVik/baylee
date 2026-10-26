@@ -393,7 +393,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Invasion (`inv`) Batch 3 adds 4 non-mana activated abilities on Empress
     // Galina, Firebrand Ranger, Hunting Kavu, and Kavu Chameleon (1 of 4 read
     // by the evaluator).
-    assert_eq!((read, of), (2838, 3586), "activated/loyalty reader census");
+    // Invasion (`inv`) Batch 4 adds 3 non-mana activated abilities on Meteor
+    // Storm, Mourning, and Obsidian Acolyte (2 of 3 read by the evaluator).
+    assert_eq!((read, of), (2840, 3589), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -13783,37 +13783,64 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Kavu creatures have trample.\nWhenever another Kavu enters, put a +1/+1 counter on this creature.",
     ],
-    &[],
-    &[],
-    &[],
+    // Kavu Runner
+    &["This creature has haste as long as no opponent controls a white or blue creature."],
+    // Kavu Scout
+    &["Domain — This creature gets +1/+0 for each basic land type among lands you control."],
+    // Kavu Titan
+    &[
+        "Kicker {2}{G} (You may pay an additional {2}{G} as you cast this spell.)\nIf this creature was kicked, it enters with three +1/+1 counters on it and with trample.",
+    ],
     // Keldon Necropolis
     &[
         "{T}: Add {C}.\n{4}{R}, {T}, Sacrifice a creature: Keldon Necropolis deals 2 damage to any target.",
     ],
-    &[],
-    &[],
+    // Liberate
+    &[
+        "Exile target creature you control. Return that card to the battlefield under its owner's control at the beginning of the next end step.",
+    ],
+    // Lightning Dart
+    &[
+        "Lightning Dart deals 1 damage to target creature. If that creature is white or blue, Lightning Dart deals 4 damage to it instead.",
+    ],
     // Llanowar Cavalry
     &["{W}: This creature gains vigilance until end of turn."],
-    &[],
+    // Llanowar Elite
+    &[
+        "Kicker {8} (You may pay an additional {8} as you cast this spell.)\nTrample\nIf this creature was kicked, it enters with five +1/+1 counters on it.",
+    ],
     // Llanowar Knight
     &["Protection from black"],
     // Llanowar Vanguard
     &["{T}: This creature gets +0/+4 until end of turn."],
-    &[],
+    // Loafing Giant
+    &[
+        "Whenever this creature attacks or blocks, mill a card. If a land card was milled this way, prevent all combat damage this creature would deal this turn.",
+    ],
     // Lotus Guardian
     &["Flying\n{T}: Add one mana of any color."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mages' Contest
+    &[
+        "You and target spell's controller bid life. You start the bidding with a bid of 1. In turn order, each player may top the high bid. The bidding ends if the high bid stands. The high bidder loses life equal to the high bid. If you win the bidding, counter that spell.",
+    ],
+    // Mana Maze
+    &["Players can't cast spells that share a color with the spell most recently cast this turn."],
+    // Manipulate Fate
+    &["Search your library for three cards, exile them, then shuffle.\nDraw a card."],
+    // Marauding Knight
+    &["Protection from white\nThis creature gets +1/+1 for each Plains your opponents control."],
+    // Metathran Aerostat
+    &[
+        "Flying\n{X}{U}: You may put a creature card with mana value X from your hand onto the battlefield. If you do, return this creature to its owner's hand.",
+    ],
     // Metathran Transport
     &[
         "Flying\nThis creature can't be blocked by blue creatures.\n{U}: Target creature becomes blue until end of turn.",
     ],
     // Metathran Zombie
     &["{B}: Regenerate this creature."],
-    &[],
+    // Meteor Storm
+    &["{2}{R}{G}, Discard two cards at random: This enchantment deals 4 damage to any target."],
     // Might Weaver
     &[
         "{2}: Target red or white creature gains trample until end of turn. (It can deal excess combat damage to the player or planeswalker it's attacking.)",
@@ -13822,8 +13849,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nMolimo's power and toughness are each equal to the number of lands you control.",
     ],
-    &[],
-    &[],
+    // Mourning
+    &[
+        "Enchant creature\nEnchanted creature gets -2/-0.\n{B}: Return this Aura to its owner's hand.",
+    ],
+    // Nightscape Apprentice
+    &[
+        "{U}, {T}: Put target creature you control on top of its owner's library.\n{R}, {T}: Target creature gains first strike until end of turn.",
+    ],
     // Nightscape Master
     &[
         "{U}{U}, {T}: Return target creature to its owner's hand.\n{R}{R}, {T}: This creature deals 2 damage to target creature.",
@@ -13832,28 +13865,54 @@ pub static ORACLE: &[&[&str]] = &[
     &["{1}: This creature gains first strike until end of turn."],
     // Nomadic Elf
     &["{1}{G}: Add one mana of any color."],
-    &[],
-    &[],
+    // Obliterate
+    &[
+        "This spell can't be countered.\nDestroy all artifacts, creatures, and lands. They can't be regenerated.",
+    ],
+    // Obsidian Acolyte
+    &["Protection from black\n{W}: Target creature gains protection from black until end of turn."],
     // Opt
     &[
         "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ordered Migration
+    &[
+        "Domain — Create a 1/1 blue Bird creature token with flying for each basic land type among lands you control.",
+    ],
+    // Orim's Touch
+    &[
+        "Kicker {1} (You may pay an additional {1} as you cast this spell.)\nPrevent the next 2 damage that would be dealt to any target this turn. If this spell was kicked, prevent the next 4 damage that would be dealt to that permanent or player this turn instead.",
+    ],
+    // Overabundance
+    &[
+        "Whenever a player taps a land for mana, that player adds one mana of any type that land produced, and this enchantment deals 1 damage to the player.",
+    ],
+    // Overload
+    &[
+        "Kicker {2} (You may pay an additional {2} as you cast this spell.)\nDestroy target artifact if its mana value is 2 or less. If this spell was kicked, destroy that artifact if its mana value is 5 or less instead.",
+    ],
+    // Pain
+    &["Target player discards a card.", "Destroy target land."],
     // Phyrexian Altar
     &["Sacrifice a creature: Add one mana of any color."],
     // Phyrexian Battleflies
     &[
         "Flying\n{B}: This creature gets +1/+0 until end of turn. Activate no more than twice each turn.",
     ],
-    &[],
-    &[],
+    // Phyrexian Delver
+    &[
+        "When this creature enters, return target creature card from your graveyard to the battlefield. You lose life equal to that card's mana value.",
+    ],
+    // Phyrexian Infiltrator
+    &[
+        "{2}{U}{U}: Exchange control of this creature and target creature. (This effect lasts indefinitely.)",
+    ],
     // Phyrexian Lens
     &["{T}, Pay 1 life: Add one mana of any color."],
-    &[],
+    // Phyrexian Reaper
+    &[
+        "Whenever this creature becomes blocked by a green creature, destroy that creature. It can't be regenerated.",
+    ],
     &[],
     &[],
     // Plague Spitter

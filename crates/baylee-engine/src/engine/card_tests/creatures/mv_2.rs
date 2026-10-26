@@ -195,6 +195,7 @@ mod nomadic_elf;
 mod novice_occultist;
 mod nurturing_licid;
 mod oboro_breezecaller;
+mod obsidian_acolyte;
 mod ondu_cleric;
 mod oracle_en_vec;
 mod orcish_bowmasters;

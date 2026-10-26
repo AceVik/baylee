@@ -193,6 +193,7 @@ mod lim_dul_s_paladin;
 mod lord_of_tresserhorn;
 mod lost_order_of_jarkeld;
 mod luminous_broodmoth;
+mod marauding_knight;
 mod marsh_viper;
 mod marton_stromgald;
 mod mind_maggots;

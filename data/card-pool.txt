@@ -11096,3 +11096,28 @@ Jade Leech
 Kangee, Aerie Keeper
 Kavu Aggressor
 Kavu Chameleon
+Kavu Runner
+Kavu Scout
+Kavu Titan
+Liberate
+Lightning Dart
+Llanowar Elite
+Loafing Giant
+Mages' Contest
+Mana Maze
+Manipulate Fate
+Marauding Knight
+Metathran Aerostat
+Meteor Storm
+Mourning
+Nightscape Apprentice
+Obliterate
+Obsidian Acolyte
+Ordered Migration
+Orim's Touch
+Overabundance
+Overload
+Pain // Suffering
+Phyrexian Delver
+Phyrexian Infiltrator
+Phyrexian Reaper

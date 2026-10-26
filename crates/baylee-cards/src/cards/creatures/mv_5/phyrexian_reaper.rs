@@ -1,0 +1,24 @@
+//! Phyrexian Reaper — {4}{B} — Creature — Phyrexian Zombie
+//! Oracle: Whenever this creature becomes blocked by a green creature, destroy that creature. It can't be regenerated.
+//! Set: INV #117 — Invasion | Scryfall ID: ccdd498b-1081-43fe-8193-518337a5a3ea | Oracle ID: 245c3681-fc47-47fe-b6e5-34c96315c135
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+card!(
+    index = index::PHYREXIAN_REAPER,
+    oracle_id = "245c3681-fc47-47fe-b6e5-34c96315c135",
+    scryfall_id = "ccdd498b-1081-43fe-8193-518337a5a3ea",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    faces = &[face!(
+        name = "Phyrexian Reaper",
+        mana_cost = mana!("{4}{B}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[subtypes::creature::PHYREXIAN, subtypes::creature::ZOMBIE],
+        power = Some(3),
+        toughness = Some(3),
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.
