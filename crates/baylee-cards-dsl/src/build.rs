@@ -658,6 +658,9 @@ macro_rules! __f_adjectives {
     ([$($acc:expr),*] blocking $($rest:tt)+) => {
         $crate::__f_adjectives!([$($acc,)* $crate::Filter::Blocking] $($rest)+)
     };
+    ([$($acc:expr),*] blocked $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::Blocked] $($rest)+)
+    };
     ([$($acc:expr),*] unblocked $($rest:tt)+) => {
         $crate::__f_adjectives!([$($acc,)* $crate::Filter::Unblocked] $($rest)+)
     };

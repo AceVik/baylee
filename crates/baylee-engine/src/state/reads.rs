@@ -28,6 +28,7 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::Untapped
         | Filter::Attacking
         | Filter::Blocking
+        | Filter::Blocked
         | Filter::BlockingSource
         | Filter::BlockedBySource
         | Filter::BlockingReference

@@ -243,6 +243,19 @@ pub fn matches_projected_with_context(
                     .is_some_and(|band| state.combat.band_of(obj.id) == Some(band))
         }
         Filter::Blocking => state.combat.blockers.iter().any(|b| b.blocker == obj.id),
+        Filter::Blocked => {
+            state.object(obj.id).is_some_and(|current| {
+                current.version == obj.version && current.zone == Zone::Battlefield
+            }) && state.combat.is_attacking(obj.id)
+                && state.combat.is_blocked(obj.id)
+                && matches!(
+                    state.turn.step,
+                    crate::turn::Step::DeclareBlockers
+                        | crate::turn::Step::CombatDamageFirst
+                        | crate::turn::Step::CombatDamage
+                        | crate::turn::Step::CombatEnd
+                )
+        }
         // Blocked or unblocked is settled as blockers are declared (CR
         // 509.1h), which is the declare-blockers step's first act; from
         // there to the end of combat an attacker is one or the other.

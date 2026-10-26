@@ -1782,4 +1782,13 @@ fn overtaker_squee_statecraft_and_territorial_dispute_shapes_read() {
         "{:?}",
         body.abilities
     );
+
+    let warpath = "Name:Warpath\nManaCost:3 R\nTypes:Instant\n\
+        A:SP$ DamageAll | NumDmg$ 3 | ValidCards$ Creature.blocked,Creature.blocking";
+    let body = read(warpath);
+    assert!(
+        body.statics.contains("Filter::Blocked") && body.statics.contains("Filter::Blocking"),
+        "{}",
+        body.statics
+    );
 }

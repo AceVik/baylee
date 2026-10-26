@@ -301,6 +301,7 @@ impl Tx<'_> {
                     "attacking" => "Filter::Attacking".to_string(),
                     "attackingYou" => "Filter::AttackingYou".to_string(),
                     "blocking" => "Filter::Blocking".to_string(),
+                    "blocked" => "Filter::Blocked".to_string(),
                     "unblocked" => "Filter::Unblocked".to_string(),
                     "tapped" => "Filter::Tapped".to_string(),
                     "untapped" => "Filter::Untapped".to_string(),
