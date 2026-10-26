@@ -20,9 +20,10 @@ play, fuzz, mutate, verification-hooks-shipped and crypto-bigint-scope all passe
 
 Verification retained the failures as well as their corrections. An earlier
 rules run exposed three engine history/fixture failures; these were corrected
-and the 18 focused engine checks passed. A seat-rate timeout under the loaded
-suite passed both focused gateway checks on rerun. The subsequent complete
-rules gate above is green.
+and the 18 focused engine checks passed. The flood fixture was changed from
+authenticated game envelopes to transport Pong frames, preventing per-frame
+database authorization from pacing away the flood; its assertions were unchanged.
+Both focused gateway checks and the subsequent complete rules gate passed.
 
 The previous full desktop run had 23,299 passing tests, one failure and 25
 skipped. Its sole failure was an idle disconnected lobby writing UI nodes.
