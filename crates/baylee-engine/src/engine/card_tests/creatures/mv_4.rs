@@ -307,6 +307,7 @@ mod stalking_tiger;
 mod steelshaper_apprentice;
 mod stinging_barrier;
 mod stone_giant;
+mod stormscape_master;
 mod stormwatch_eagle;
 mod striped_bears;
 mod stromgald_spy;

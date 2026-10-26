@@ -191,6 +191,7 @@ mod security_detail;
 mod serra_aviary;
 mod serra_s_liturgy;
 mod shimmer;
+mod smoldering_tar;
 mod smothering_tithe;
 mod snake_pit;
 mod spirit_mirror;

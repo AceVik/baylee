@@ -14035,8 +14035,12 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "You may cast this spell as though it had flash if you pay {2} more to cast it. (You may cast it any time you could cast an instant.)\nDestroy all creatures. They can't be regenerated.",
     ],
-    &[],
-    &[],
+    // Ruby Leech
+    &["First strike\nRed spells you cast cost {R} more to cast."],
+    // Ruham Djinn
+    &[
+        "First strike\nThis creature gets -2/-2 as long as white is the most common color among all permanents or is tied for most common.",
+    ],
     // Sabertooth Nishoba
     &["Trample, protection from blue and from red"],
     // Salt Marsh
@@ -14045,23 +14049,50 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Prevent the next 1 damage that would be dealt to any target this turn.\n{T}: This creature deals 1 damage to any target.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Samite Ministration
+    &[
+        "Prevent all damage that would be dealt to you this turn by a source of your choice. Whenever damage from a black or red source is prevented this way this turn, you gain that much life.",
+    ],
+    // Sapphire Leech
+    &["Flying\nBlue spells you cast cost {U} more to cast."],
+    // Saproling Infestation
+    &["Whenever a player kicks a spell, you create a 1/1 green Saproling creature token."],
+    // Saproling Symbiosis
+    &[
+        "You may cast this spell as though it had flash if you pay {2} more to cast it. (You may cast it any time you could cast an instant.)\nCreate a 1/1 green Saproling creature token for each creature you control.",
+    ],
+    // Savage Offensive
+    &[
+        "Kicker {G} (You may pay an additional {G} as you cast this spell.)\nCreatures you control gain first strike until end of turn. If this spell was kicked, they get +1/+1 until end of turn.",
+    ],
+    // Scarred Puma
+    &["This creature can't attack unless a black or green creature also attacks."],
     // Scavenged Weaponry
     &["Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature gets +1/+1."],
-    &[],
-    &[],
-    &[],
+    // Scorching Lava
+    &[
+        "Kicker {R} (You may pay an additional {R} as you cast this spell.)\nScorching Lava deals 2 damage to any target. If this spell was kicked, that creature can't be regenerated this turn and if it would die this turn, exile it instead.",
+    ],
+    // Scouting Trek
+    &[
+        "Search your library for any number of basic land cards, reveal those cards, then shuffle and put them on top.",
+    ],
+    // Searing Rays
+    &[
+        "Choose a color. Searing Rays deals damage to each player equal to the number of creatures of that color that player controls.",
+    ],
     // Seashell Cameo
     &["{T}: Add {W} or {U}."],
-    &[],
+    // Seer's Vision
+    &[
+        "Your opponents play with their hands revealed.\nSacrifice this enchantment: Look at target player's hand and choose a card from it. That player discards that card. Activate only as a sorcery.",
+    ],
     // Serpentine Kavu
     &["{R}: This creature gains haste until end of turn."],
-    &[],
+    // Shivan Emissary
+    &[
+        "Kicker {1}{B} (You may pay an additional {1}{B} as you cast this spell.)\nWhen this creature enters, if it was kicked, destroy target nonblack creature. It can't be regenerated.",
+    ],
     // Shivan Harvest
     &["{1}{R}, Sacrifice a creature: Destroy target nonbasic land."],
     // Shivan Oasis
@@ -14070,8 +14101,12 @@ pub static ORACLE: &[&[&str]] = &[
     &["Protection from white"],
     // Shoreline Raider
     &["Protection from Kavu"],
-    &[],
-    &[],
+    // Skittish Kavu
+    &["This creature gets +1/+1 as long as no opponent controls a white or blue creature."],
+    // Skizzik
+    &[
+        "Kicker {R} (You may pay an additional {R} as you cast this spell.)\nTrample, haste\nAt the beginning of the end step, if this creature wasn't kicked, sacrifice it.",
+    ],
     // Sky Weaver
     &[
         "{2}: Target white or black creature gains flying until end of turn. (It can't be blocked except by creatures with flying or reach.)",
@@ -14084,26 +14119,58 @@ pub static ORACLE: &[&[&str]] = &[
     &["{T}: Target land becomes a Swamp until end of turn."],
     // Slinking Serpent
     &["Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)"],
-    &[],
-    &[],
-    &[],
+    // Smoldering Tar
+    &[
+        "At the beginning of your upkeep, target player loses 1 life.\nSacrifice this enchantment: It deals 4 damage to target creature. Activate only as a sorcery.",
+    ],
+    // Sparring Golem
+    &[
+        "Whenever this creature becomes blocked, it gets +1/+1 until end of turn for each creature blocking it.",
+    ],
+    // Spinal Embrace
+    &[
+        "Cast this spell only during combat.\nUntap target creature you don't control and gain control of it. It gains haste until end of turn. At the beginning of the next end step, sacrifice it. If you do, you gain life equal to its toughness.",
+    ],
     // Spirit Weaver
     &["{2}: Target green or blue creature gets +0/+1 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Spirit of Resistance
+    &[
+        "As long as you control a permanent of each color, prevent all damage that would be dealt to you.",
+    ],
+    // Spite
+    &[
+        "Counter target noncreature spell.",
+        "Destroy target nonblack creature. It can't be regenerated.",
+    ],
+    // Spreading Plague
+    &[
+        "Whenever a creature enters, destroy all other creatures that share a color with it. They can't be regenerated.",
+    ],
     // Stalking Assassin
     &["{3}{U}, {T}: Tap target creature.\n{3}{B}, {T}: Destroy target tapped creature."],
-    &[],
-    &[],
+    // Stand
+    &[
+        "Prevent the next 2 damage that would be dealt to target creature this turn.",
+        "Return target permanent to its owner's hand.",
+    ],
+    // Stand or Fall
+    &[
+        "At the beginning of combat on your turn, for each defending player, separate all creatures that player controls into two piles and that player chooses one. Only creatures in the chosen piles can block this turn.",
+    ],
     // Sterling Grove
     &[
         "Other enchantments you control have shroud. (They can't be the targets of spells or abilities.)\n{1}, Sacrifice this enchantment: Search your library for an enchantment card, reveal it, then shuffle and put that card on top.",
     ],
     // Stormscape Apprentice
     &["{W}, {T}: Tap target creature.\n{B}, {T}: Target player loses 1 life."],
-    &[],
-    &[],
+    // Stormscape Master
+    &[
+        "{W}{W}, {T}: Target creature gains protection from the color of your choice until end of turn.\n{B}{B}, {T}: Target player loses 2 life and you gain 2 life.",
+    ],
+    // Strength of Unity
+    &[
+        "Enchant creature\nDomain — Enchanted creature gets +1/+1 for each basic land type among lands you control.",
+    ],
     &[],
     // Sulfur Vent
     &["This land enters tapped.\n{T}: Add {B}.\n{T}, Sacrifice this land: Add {U}{R}."],

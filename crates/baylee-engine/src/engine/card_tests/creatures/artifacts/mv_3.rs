@@ -331,6 +331,7 @@ mod serrated_biskelion;
 mod skyscanner;
 mod sliver_construct;
 mod soldier_replica;
+mod sparring_golem;
 mod spined_thopter;
 mod steel_golem;
 mod sterling_hound;
