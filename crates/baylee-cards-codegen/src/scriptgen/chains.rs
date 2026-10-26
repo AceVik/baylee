@@ -897,7 +897,7 @@ impl Tx<'_> {
             // reference script away from being.
             "Untap" => match (p.take("Defined").as_deref(), target) {
                 (None, Some(_)) => vec!["Effect::UntapTarget".to_string()],
-                (None, None) => vec!["Effect::UntapSelf".to_string()],
+                (None | Some("Self"), None) => vec!["Effect::UntapSelf".to_string()],
                 // "Untap enchanted creature" (Instill Energy).
                 (Some("Enchanted" | "Equipped"), None) => {
                     vec!["Effect::UntapAll { filter: &Filter::AttachedToBySource }".to_string()]

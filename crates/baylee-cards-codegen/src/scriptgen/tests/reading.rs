@@ -1806,3 +1806,65 @@ fn off_balance_parallax_wave_rackling_and_rusting_golem_transcode() {
         golem.abilities
     );
 }
+
+#[test]
+fn silkenfist_skyshroud_claim_stronghold_biologist_discipline_viseling_and_wandering_eye_transcode()
+{
+    let silkenfist = read(
+        "T:Mode$ AttackerBlocked | ValidCard$ Card.Self | Execute$ TrigUntap\n\
+         SVar:TrigUntap:DB$ Untap | Defined$ Self",
+    );
+    assert_eq!(
+        silkenfist.abilities,
+        ["triggered!(Trigger::BecomesBlocked, &[Effect::UntapSelf])"]
+    );
+
+    let claim = read(
+        "A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Forest | ChangeNum$ 2\n\
+         Oracle:Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.",
+    );
+    assert!(
+        claim.abilities[0].contains("optional: true"),
+        "{:?}",
+        claim.abilities
+    );
+
+    let biologist =
+        read("A:AB$ Counter | Cost$ U U T Discard<1/Card> | TargetType$ Spell | ValidTgts$ Card.Creature");
+    assert!(
+        biologist.abilities[0].contains("TargetSpec::Spell(&Filter::CREATURE)"),
+        "{:?}",
+        biologist.abilities
+    );
+
+    let discipline = read(
+        "A:SP$ RepeatEach | RepeatPlayers$ Player | RepeatSubAbility$ DBLoseLife\n\
+         SVar:DBLoseLife:DB$ LoseLife | Defined$ Player.IsRemembered | LifeAmount$ X\n\
+         SVar:X:Count$Valid Creature.RememberedPlayerCtrl",
+    );
+    assert_eq!(
+        discipline.abilities,
+        [
+            "spell!(&[Effect::LoseLife { amount: Amount::ControlledCount { who: PlayerRel::Recipient, filter: &Filter::CREATURE }, target: PlayerRel::EachPlayer }])"
+        ]
+    );
+
+    let viseling = read(
+        "T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player.Opponent | TriggerZones$ Battlefield | Execute$ TrigDamage\n\
+         SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ X\n\
+         SVar:X:TriggeredPlayer$CardsInHand/Minus.4",
+    );
+    assert!(
+        viseling.abilities[0].contains("Amount::Difference { left: &Amount::CountOf")
+            && viseling.abilities[0].contains("right: &Amount::Fixed(4)"),
+        "{:?}",
+        viseling.abilities
+    );
+
+    let eye =
+        read("S:Mode$ Continuous | AffectedZone$ Hand | MayLookAt$ Player | Description$ Players play with their hands revealed.");
+    assert_eq!(
+        eye.abilities,
+        ["static_ability!(Filter::Any, Modifier::RevealAllHands)"]
+    );
+}

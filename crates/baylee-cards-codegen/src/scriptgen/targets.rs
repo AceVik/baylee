@@ -316,6 +316,7 @@ impl Tx<'_> {
                     // creature" a second spelling that only `filter_hash`
                     // can tell from the first.
                     "nonLand" => "Filter::NONLAND".to_string(),
+                    "Creature" => "Filter::CREATURE".to_string(),
                     "nonCreature" => "Filter::NONCREATURE".to_string(),
                     // Supertypes read like subtypes in a script filter but are
                     // a different set on the card (CR 205.4).

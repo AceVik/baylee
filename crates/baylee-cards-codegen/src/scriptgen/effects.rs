@@ -181,9 +181,11 @@ impl Tx<'_> {
         if sub.is_some() || chain.target.is_some() || chain.second_target.is_some() {
             return None;
         }
-        if p.take("RepeatPlayers").as_deref() != Some("Player.Opponent") {
-            return None;
-        }
+        let players = match p.take("RepeatPlayers").as_deref() {
+            Some("Player") => "PlayerRel::EachPlayer",
+            Some("Player.Opponent") => "PlayerRel::EachOpponent",
+            _ => return None,
+        };
         let repeat_sub = p.take("RepeatSubAbility")?;
         if !p.exhausted() {
             return None;
@@ -191,7 +193,24 @@ impl Tx<'_> {
         let body = self.svars.get(repeat_sub.trim())?.clone();
         let (sub_api, mut sp) = Params::parse(&body)?;
         sp.drop_prose();
-        if sub_api != "Sacrifice"
+        if sub_api == "LoseLife" && sp.take("Defined").as_deref() == Some("Player.IsRemembered") {
+            let amount_var = sp.take("LifeAmount")?;
+            if !sp.exhausted() {
+                return None;
+            }
+            let count = self.svars.get(amount_var.trim())?.trim();
+            let valid = count
+                .strip_prefix("Count$Valid ")?
+                .strip_suffix(".RememberedPlayerCtrl")?;
+            let expr = self.filter_expr(valid)?;
+            let filter = self.body.filter_static("COUNT", &expr);
+            return Some(vec![format!(
+                "Effect::LoseLife {{ amount: Amount::ControlledCount {{ who: PlayerRel::Recipient, \
+                 filter: &{filter} }}, target: {players} }}"
+            )]);
+        }
+        if players != "PlayerRel::EachOpponent"
+            || sub_api != "Sacrifice"
             || sp.take("Defined").as_deref() != Some("Remembered")
             || sp.take("UnlessPayer").as_deref() != Some("Remembered")
         {
@@ -864,6 +883,13 @@ impl Tx<'_> {
         // would be an inference rather than a reading, and it would have
         // written Blighted Woodland — "up to two" — as a card that must
         // find both.
+        let optional = optional
+            || (count > 1
+                && !mandatory
+                && self
+                    .oracle
+                    .to_ascii_lowercase()
+                    .contains("search your library for up to "));
         if count > 1 && !optional && !mandatory {
             self.note(
                 "`ChangeZone` finding several cards without saying whether that is a maximum"
