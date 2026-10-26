@@ -136,13 +136,17 @@ impl Tx<'_> {
             return self.deny("`ChooseColor` followed by something other than `Animate`".into());
         }
         animate.drop_prose();
-        let Some(valid) = animate.take("ValidTgts") else {
+        let subject = if let Some(valid) = animate.take("ValidTgts") {
+            if chain.target.is_some() {
+                return self.deny("`ChooseColor` `Animate` with a second target".to_string());
+            }
+            chain.target = Some(self.target_spec(&valid, "Animate")?);
+            "ColorSubject::Target"
+        } else if animate.take("Defined").as_deref() == Some("Self") {
+            "ColorSubject::Source"
+        } else {
             return self.deny("`ChooseColor` `Animate` with no `ValidTgts$`".to_string());
         };
-        if chain.target.is_some() {
-            return self.deny("`ChooseColor` `Animate` with a second target".to_string());
-        }
-        chain.target = Some(self.target_spec(&valid, "Animate")?);
         if animate.take("Colors").as_deref() != Some("ChosenColor")
             || animate.take("OverwriteColors").as_deref() != Some("True")
         {
@@ -157,7 +161,7 @@ impl Tx<'_> {
             return self.deny(format!("unclaimed parameter `Animate.{key}`"));
         }
         Some(vec![format!(
-            "Effect::ChooseColors {{ subject: ColorSubject::Target, max: 1, duration: {duration} }}"
+            "Effect::ChooseColors {{ subject: {subject}, max: 1, duration: {duration} }}"
         )])
     }
 

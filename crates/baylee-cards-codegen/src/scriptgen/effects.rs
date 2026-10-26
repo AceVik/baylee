@@ -638,7 +638,7 @@ impl Tx<'_> {
         // (CR 115.2 needs a visible object), so `Effect::SearchLibrary`
         // *finds* rather than moves, and carries the shuffle with it.
         if origin == "Library" {
-            return self.search_library(p, &destination, target);
+            return self.search_library(p, &destination, targets_here);
         }
         let target = target.unwrap_or("TargetSpec::AnyPlayer");
         let itself = match p.take("Defined").as_deref() {
@@ -672,6 +672,19 @@ impl Tx<'_> {
             && p.has("Hidden")
         {
             return self.return_chosen(p, &destination);
+        }
+        // "You may put a basic land card from your hand onto the battlefield"
+        // (Firebrand Ranger, Skyshroud Ranger): no target, no `Defined$`, and
+        // the controller optionally puts one matching card from their hand
+        // onto the battlefield.
+        if !itself
+            && target == "TargetSpec::AnyPlayer"
+            && origin == "Hand"
+            && destination == "Battlefield"
+            && p.has("ChangeType")
+            && p.has("Optional")
+        {
+            return self.put_from_hand_onto_battlefield(p);
         }
         // Without a target this would move nothing at all.
         if !itself && target == "TargetSpec::AnyPlayer" {
@@ -720,7 +733,17 @@ impl Tx<'_> {
                 } else {
                     "exile"
                 };
-                vec![format!("Effect::{verb}({target})")]
+                match p.take("ThisDefinedAndTgts").as_deref() {
+                    None => vec![format!("Effect::{verb}({target})")],
+                    Some("Self") if verb == "exile" => vec![
+                        "Effect::ExileSource".to_string(),
+                        format!("Effect::{verb}({target})"),
+                    ],
+                    Some(other) => {
+                        return self
+                            .deny(format!("`ChangeZone` with `ThisDefinedAndTgts$ {other}`"));
+                    }
+                }
             }
             ("Graveyard", "Exile", false) if target.starts_with("TargetSpec::CardInGraveyard") => {
                 vec![format!("Effect::exile({target})")]
@@ -855,6 +878,43 @@ impl Tx<'_> {
         )])
     }
 
+    /// `Origin$ Hand` to `Destination$ Battlefield` with an explicit `Optional$`:
+    /// "you may put a [matching] card from your hand onto the battlefield"
+    /// (Firebrand Ranger, Skyshroud Ranger).
+    pub(super) fn put_from_hand_onto_battlefield(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        let tapped = match p.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                self.note(format!("`ChangeZone` found `Tapped$ {other}`"));
+                return None;
+            }
+        };
+        let optional = match p.take("Optional").as_deref() {
+            Some("You" | "True") => true,
+            Some("False") => false,
+            Some(other) => {
+                self.note(format!("`ChangeZone` found `Optional$ {other}`"));
+                return None;
+            }
+            None => {
+                self.note("`ChangeZone` from hand without `Optional$`".to_string());
+                return None;
+            }
+        };
+        let count = plain_number(p.take("ChangeNum").as_deref().unwrap_or("1"), self.svars)?;
+        if count != 1 {
+            self.note(format!("`ChangeZone` putting {count} cards from hand"));
+            return None;
+        }
+        let filter = self.filter_expr_in_zone(&p.take("ChangeType")?, true)?;
+        let name = self.body.filter_static("PUT_FROM_HAND", &filter);
+        Some(vec![format!(
+            "Effect::PutFromHandOntoBattlefield {{ tapped: {tapped}, filter: &{name}, \
+             mana_value: None, optional: {optional} }}"
+        )])
+    }
+
     /// `Origin$ Library`: the fetchland sentence — "search your library for
     /// an Island or Swamp card, put it onto the battlefield, then shuffle".
     ///
@@ -866,9 +926,9 @@ impl Tx<'_> {
         &mut self,
         p: &mut Params,
         destination: &str,
-        target: Option<&str>,
+        targets_here: bool,
     ) -> Option<Vec<String>> {
-        if target.is_some() {
+        if targets_here {
             self.note("`ChangeZone` searching a library *and* targeting".to_string());
             return None;
         }

@@ -2031,3 +2031,46 @@ fn invasion_batch_two_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn invasion_batch_three_reader_patterns() {
+    let ranger = "Name:Firebrand Ranger\nManaCost:1 R\nTypes:Creature Human Soldier\nPT:2/1\n\
+        A:AB$ ChangeZone | Cost$ G T | Origin$ Hand | Destination$ Battlefield | ChangeType$ Land.Basic | Optional$ You";
+    assert_eq!(
+        read(ranger).abilities,
+        [
+            "activated!(cost!(\"{G}\", TapSelf), &[Effect::PutFromHandOntoBattlefield { tapped: false, filter: &PUT_FROM_HAND1, mana_value: None, optional: true }])"
+        ]
+    );
+
+    let tilling = "Name:Frenzied Tilling\nManaCost:3 R G\nTypes:Sorcery\n\
+        A:SP$ Destroy | ValidTgts$ Land | SubAbility$ DBSearch\n\
+        SVar:DBSearch:DB$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Land.Basic | Tapped$ True";
+    assert_eq!(
+        read(tilling).abilities,
+        [
+            "spell!(&[Effect::destroy(TargetSpec::Object(&Filter::LAND)), Effect::SearchLibrary { filter: &SEARCH1, finds: &[Find::BATTLEFIELD_TAPPED], optional: false }], \
+             targets = Some(TargetReq::one(TargetSpec::Object(&Filter::LAND))))"
+        ]
+    );
+
+    let kavu = "Name:Hunting Kavu\nManaCost:1 R G\nTypes:Creature\nPT:2/3\n\
+        A:AB$ ChangeZone | Cost$ 1 R G T | ValidTgts$ Creature.withoutFlying+attackingYou | ThisDefinedAndTgts$ Self | Origin$ Battlefield | Destination$ Exile";
+    assert_eq!(
+        read(kavu).abilities,
+        [
+            "activated!(cost!(\"{1}{R}{G}\", TapSelf), &[Effect::ExileSource, Effect::exile(TargetSpec::Object(&TARGET1))], \
+             target = Some(TargetSpec::Object(&TARGET1)))"
+        ]
+    );
+
+    let chameleon = "Name:Kavu Chameleon\nManaCost:3 G G\nTypes:Creature\nPT:4/4\n\
+        A:AB$ ChooseColor | Cost$ G | Defined$ You | SubAbility$ Animate\n\
+        SVar:Animate:DB$ Animate | Defined$ Self | Colors$ ChosenColor | OverwriteColors$ True";
+    assert_eq!(
+        read(chameleon).abilities,
+        [
+            "activated!(cost!(\"{G}\"), &[Effect::ChooseColors { subject: ColorSubject::Source, max: 1, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+}
