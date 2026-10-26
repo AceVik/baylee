@@ -1,7 +1,7 @@
 deck	set	type	released	name	cards	playable
 10E/arcanis-s-guile	10E	Theme Deck	2007-07-13	Arcanis's Guile	40	no
 10E/black-deck-a	10E	Sample Deck	2008-05-02	Black Deck A	30	no
-10E/black-deck-b	10E	Sample Deck	2008-05-02	Black Deck B	30	no
+10E/black-deck-b	10E	Sample Deck	2008-05-02	Black Deck B	30	yes
 10E/blue-deck-a	10E	Sample Deck	2008-05-02	Blue Deck A	30	no
 10E/blue-deck-b	10E	Sample Deck	2008-05-02	Blue Deck B	30	no
 10E/cho-manno-s-resolve	10E	Theme Deck	2007-07-13	Cho-Manno's Resolve	40	no
@@ -45,7 +45,7 @@ deck	set	type	released	name	cards	playable
 8ED/sky-slam	8ED	Theme Deck	2003-07-28	Sky Slam	40	no
 8ED/speed-scorch	8ED	Theme Deck	2003-07-28	Speed Scorch	40	no
 9ED/army-of-justice	9ED	Theme Deck	2005-07-29	Army of Justice	40	no
-9ED/custom-creatures	9ED	Theme Deck	2005-07-29	Custom Creatures	40	no
+9ED/custom-creatures	9ED	Theme Deck	2005-07-29	Custom Creatures	40	yes
 9ED/dead-again	9ED	Theme Deck	2005-07-29	Dead Again	40	no
 9ED/gold-deck	9ED	Starter Deck	2005-08-09	Gold Deck	33	no
 9ED/lofty-heights	9ED	Theme Deck	2005-07-29	Lofty Heights	40	no

@@ -12850,22 +12850,48 @@ pub static ORACLE: &[&[&str]] = &[
     &["Sacrifice this enchantment: Target creature gets +3/+3 until end of turn."],
     // Shrieking Mogg
     &["Haste\nWhen this creature enters, tap all other creatures."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Silkenfist Fighter
+    &["Whenever this creature becomes blocked, untap it."],
+    // Silkenfist Order
+    &["Whenever this creature becomes blocked, untap it."],
+    // Sivvi's Ruse
+    &[
+        "If an opponent controls a Mountain and you control a Plains, you may cast this spell without paying its mana cost.\nPrevent all damage that would be dealt this turn to creatures you control.",
+    ],
+    // Sivvi's Valor
+    &[
+        "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nAll damage that would be dealt to target creature this turn is dealt to you instead.",
+    ],
+    // Skyshroud Behemoth
+    &[
+        "Fading 2 (This creature enters with two fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nThis creature enters tapped.",
+    ],
+    // Skyshroud Claim
+    &[
+        "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.",
+    ],
+    // Skyshroud Cutter
+    &[
+        "If you control a Forest, rather than pay this spell's mana cost, you may have each other player gain 5 life.",
+    ],
     // Skyshroud Poacher
     &[
         "{3}, {T}: Search your library for an Elf permanent card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Skyshroud Ridgeback
+    &[
+        "Fading 2 (This creature enters with two fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)",
+    ],
+    // Skyshroud Sentinel
+    &[
+        "When this creature enters, you may search your library for up to three cards named Skyshroud Sentinel, reveal them, put them into your hand, then shuffle.",
+    ],
+    // Sliptide Serpent
+    &["{3}{U}: Return this creature to its owner's hand."],
+    // Sneaky Homunculus
+    &["This creature can't block or be blocked by creatures with power 2 or greater."],
+    // Spineless Thug
+    &["This creature can't block."],
     // Spiritual Asylum
     &[
         "Creatures and lands you control have shroud. (They can't be the targets of spells or abilities.)\nWhen a creature you control attacks, sacrifice this enchantment.",
@@ -12874,33 +12900,66 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "At the beginning of your upkeep, this creature deals 3 damage to target creature you control.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Stampede Driver
+    &[
+        "{1}{G}, {T}, Discard a card: Creatures you control get +1/+1 and gain trample until end of turn.",
+    ],
+    // Stronghold Biologist
+    &["{U}{U}, {T}, Discard a card: Counter target creature spell."],
+    // Stronghold Discipline
+    &["Each player loses 1 life for each creature they control."],
+    // Stronghold Gambit
+    &[
+        "Each player chooses a card in their hand. Then each player reveals their chosen card. The owner of each creature card revealed this way with the lowest mana value puts it onto the battlefield.",
+    ],
     // Stronghold Machinist
     &["{U}{U}, {T}, Discard a card: Counter target noncreature spell."],
     // Stronghold Zeppelin
     &["Flying\nThis creature can block only creatures with flying."],
-    &[],
-    &[],
+    // Submerge
+    &[
+        "If an opponent controls a Forest and you control an Island, you may cast this spell without paying its mana cost.\nPut target creature on top of its owner's library.",
+    ],
+    // Tangle Wire
+    &[
+        "Fading 4 (This artifact enters with four fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\nAt the beginning of each player's upkeep, that player taps an untapped artifact, creature, or land they control for each fade counter on this artifact.",
+    ],
     // Terrain Generator
     &[
         "{T}: Add {C}.\n{2}, {T}: You may put a basic land card from your hand onto the battlefield tapped.",
     ],
-    &[],
-    &[],
+    // Topple
+    &[
+        "Exile target creature with the greatest power among creatures on the battlefield. (If two or more creatures are tied for greatest power, target any one of them.)",
+    ],
+    // Treetop Bracers
+    &[
+        "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nEnchanted creature gets +1/+1 and can't be blocked except by creatures with flying.",
+    ],
     // Trickster Mage
     &["{U}, {T}, Discard a card: You may tap or untap target artifact, creature, or land."],
     // Vicious Hunger
     &["Vicious Hunger deals 2 damage to target creature and you gain 2 life."],
-    &[],
+    // Viseling
+    &[
+        "At the beginning of each opponent's upkeep, this creature deals X damage to that player, where X is the number of cards in their hand minus 4.",
+    ],
     // Voice of Truth
     &["Flying, protection from white"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Volrath the Fallen
+    &[
+        "{1}{B}, Discard a creature card: Volrath gets +X/+X until end of turn, where X is the discarded card's mana value.",
+    ],
+    // Wandering Eye
+    &["Flying\nPlayers play with their hands revealed."],
+    // Wild Mammoth
+    &[
+        "At the beginning of your upkeep, if a player controls more creatures than each other player, the player who controls the most creatures gains control of this creature.",
+    ],
+    // Woodripper
+    &[
+        "Fading 3 (This creature enters with three fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\n{1}, Remove a fade counter from this creature: Destroy target artifact.",
+    ],
     // Phyrexian Rager
     &["When this creature enters, you draw a card and you lose 1 life."],
     &[],

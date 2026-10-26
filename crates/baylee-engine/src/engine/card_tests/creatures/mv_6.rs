@@ -85,6 +85,7 @@ mod shivan_dragon;
 mod shivan_phoenix;
 mod sibilant_spirit;
 mod sire_of_the_storm;
+mod sliptide_serpent;
 mod stangg;
 mod storm_elemental;
 mod storm_spirit;

@@ -75,6 +75,7 @@ mod spectral_cloak;
 mod sun_clasp;
 mod teferi_s_curse;
 mod torment;
+mod treetop_bracers;
 mod twisted_experiment;
 mod viscerid_armor;
 mod ward_of_lights;

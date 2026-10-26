@@ -177,6 +177,7 @@ mod thran_war_machine;
 mod tin_wing_chimera;
 mod tower_gargoyle;
 mod venomcrawler;
+mod viseling;
 mod wakandan_drone_flock;
 mod walking_wall;
 mod watchwing_scarecrow;

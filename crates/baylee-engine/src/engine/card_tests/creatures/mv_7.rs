@@ -463,6 +463,7 @@ mod shauku_endbringer;
 mod shivan_hellkite;
 mod silent_sentinel;
 mod simic_sky_swallower;
+mod skyshroud_behemoth;
 mod slipstream_eel;
 mod spearbreaker_behemoth;
 mod sphinx_mindbreaker;

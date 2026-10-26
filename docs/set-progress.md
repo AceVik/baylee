@@ -744,10 +744,11 @@ no-engine-change contract:
   - Batch 6 (`Rampart Crawler` to `Two-Headed Dragon`, 25 cards): **15 Implemented, 3 Partial, 7 Unimplemented (held back/stubs)**.
   - Batch 7 (`Ogre Taskmaster` to `Wall of Distortion`, 25 cards): **19 Implemented, 2 Partial, 4 Unimplemented (held back/stubs)**.
   - Batch 8 (`War Cadence` to `Wishmonger`, 11 cards): **5 Implemented, 2 Partial, 4 Unimplemented (held back/stubs)**.
-- **Nemesis (`nem`)** — in progress:
+- **Nemesis (`nem`)** — completed across 4 batches (**55 Implemented, 13 Partial, 32 Unimplemented (held back/stubs)** across the 100 newly added cards, every implemented/partial card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Accumulated Knowledge` to `Eye of Yawgmoth`, 25 cards): **15 Implemented, 4 Partial, 6 Unimplemented (held back/stubs)** (`11 Implemented` machine-owned via `scriptgen`, `4 Implemented` + `4 Partial` hand-owned, and `6 Unimplemented` stubs).
   - Batch 2 (`Flint Golem` to `Netter en-Dal`, 25 cards): **13 Implemented, 4 Partial, 8 Unimplemented (held back/stubs)** (`12 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `4 Partial` hand-owned, and `8 Unimplemented` stubs).
   - Batch 3 (`Noble Stand` to `Shrieking Mogg`, 25 cards): **11 Implemented, 4 Partial, 10 Unimplemented (held back/stubs)** (`11 Implemented` machine-owned via `scriptgen`, `4 Partial` hand-owned, and `10 Unimplemented` stubs).
+  - Batch 4 (`Silkenfist Fighter` to `Woodripper`, 25 cards): **16 Implemented, 1 Partial, 8 Unimplemented (held back/stubs)** (`16 Implemented` machine-owned via `scriptgen`, `1 Partial` hand-owned, and `8 Unimplemented` stubs).
 
 ## PR #394 review snapshot (2026-10-23)
 

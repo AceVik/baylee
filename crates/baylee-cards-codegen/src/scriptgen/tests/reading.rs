@@ -1829,8 +1829,9 @@ fn silkenfist_skyshroud_claim_stronghold_biologist_discipline_viseling_and_wande
         claim.abilities
     );
 
-    let biologist =
-        read("A:AB$ Counter | Cost$ U U T Discard<1/Card> | TargetType$ Spell | ValidTgts$ Card.Creature");
+    let biologist = read(
+        "A:AB$ Counter | Cost$ U U T Discard<1/Card> | TargetType$ Spell | ValidTgts$ Card.Creature",
+    );
     assert!(
         biologist.abilities[0].contains("TargetSpec::Spell(&Filter::CREATURE)"),
         "{:?}",
@@ -1861,8 +1862,9 @@ fn silkenfist_skyshroud_claim_stronghold_biologist_discipline_viseling_and_wande
         viseling.abilities
     );
 
-    let eye =
-        read("S:Mode$ Continuous | AffectedZone$ Hand | MayLookAt$ Player | Description$ Players play with their hands revealed.");
+    let eye = read(
+        "S:Mode$ Continuous | AffectedZone$ Hand | MayLookAt$ Player | Description$ Players play with their hands revealed.",
+    );
     assert_eq!(
         eye.abilities,
         ["static_ability!(Filter::Any, Modifier::RevealAllHands)"]

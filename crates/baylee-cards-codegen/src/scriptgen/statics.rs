@@ -180,16 +180,7 @@ impl Tx<'_> {
             && p.peek("MayLookAt") == Some("Player")
             && p.peek("Affected").is_none()
         {
-            p.take("AffectedZone");
-            p.take("MayLookAt");
-            let condition = self.condition(&mut p)?;
-            if let Some(key) = p.first_key() {
-                return self.deny(format!("unclaimed parameter `Continuous.{key}`"));
-            }
-            self.body.abilities.push(format!(
-                "static_ability!(Filter::Any, Modifier::RevealAllHands{condition})"
-            ));
-            return Some(());
+            return self.reveal_all_hands(p);
         }
         // Likewise `AffectedZone`: reaching past the battlefield is said by
         // a `Filter::InZone` in the filter, and a filter that has no zone
@@ -258,6 +249,19 @@ impl Tx<'_> {
             return None;
         }
         self.body.abilities.extend(out);
+        Some(())
+    }
+
+    fn reveal_all_hands(&mut self, mut p: Params) -> Option<()> {
+        p.take("AffectedZone");
+        p.take("MayLookAt");
+        let condition = self.condition(&mut p)?;
+        if let Some(key) = p.first_key() {
+            return self.deny(format!("unclaimed parameter `Continuous.{key}`"));
+        }
+        self.body.abilities.push(format!(
+            "static_ability!(Filter::Any, Modifier::RevealAllHands{condition})"
+        ));
         Some(())
     }
 

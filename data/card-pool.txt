@@ -10897,3 +10897,28 @@ Rusting Golem
 Saproling Burst
 Saproling Cluster
 Shrieking Mogg
+Silkenfist Fighter
+Silkenfist Order
+Sivvi's Ruse
+Sivvi's Valor
+Skyshroud Behemoth
+Skyshroud Claim
+Skyshroud Cutter
+Skyshroud Ridgeback
+Skyshroud Sentinel
+Sliptide Serpent
+Sneaky Homunculus
+Spineless Thug
+Stampede Driver
+Stronghold Biologist
+Stronghold Discipline
+Stronghold Gambit
+Submerge
+Tangle Wire
+Topple
+Treetop Bracers
+Viseling
+Volrath the Fallen
+Wandering Eye
+Wild Mammoth
+Woodripper

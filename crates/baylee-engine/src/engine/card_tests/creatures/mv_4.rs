@@ -279,6 +279,7 @@ mod sidar_jabari;
 mod silver_erne;
 mod singing_tree;
 mod skyhunter_patrol;
+mod skyshroud_cutter;
 mod skyshroud_poacher;
 mod skyshroud_troopers;
 mod slinking_skirge;
