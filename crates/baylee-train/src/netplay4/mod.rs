@@ -749,17 +749,40 @@ impl NetPlayer4 {
                 lp
             }
             HeadKind4::ScalarValue => {
-                let pred = if matches!(
-                    pending,
+                let pred = match pending {
                     Pending::ChooseNumber {
-                        reason: baylee_engine::choice::NumberPrompt::X
+                        reason:
+                            baylee_engine::choice::NumberPrompt::X
                             | baylee_engine::choice::NumberPrompt::ManaPayment { .. },
                         ..
+                    } => 1.0,
+                    Pending::ChooseNumber {
+                        min,
+                        max,
+                        reason:
+                            baylee_engine::choice::NumberPrompt::CombatDamage {
+                                recipient,
+                                index,
+                                of,
+                                left,
+                                ..
+                            },
+                        ..
+                    } if *index + 1 < *of && *max > *min => {
+                        let rem_t = view.object(*recipient).map_or(*max, |o| {
+                            u32::try_from(
+                                (i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage)).max(1),
+                            )
+                            .unwrap_or(1)
+                        });
+                        let assign = if rem_t <= *left {
+                            rem_t.clamp(*min, *max)
+                        } else {
+                            *min
+                        };
+                        normalize_scalar_choice(assign, *min, *max)
                     }
-                ) {
-                    1.0
-                } else {
-                    scalar_pred.clamp(0.0, 1.0)
+                    _ => scalar_pred.clamp(0.0, 1.0),
                 };
                 let chosen_int =
                     denormalize_scalar_choice(pred, cands.min_choices, cands.max_choices);

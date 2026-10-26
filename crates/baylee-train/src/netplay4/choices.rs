@@ -736,8 +736,14 @@ fn is_suicide_attack_into_blockers(
         return false;
     }
 
+    let self_death_payoff = self_creature_death_payoff(att_obj);
     let death_payoff = friendly_creature_death_payoff(view, att_obj.controller, att_obj);
-    if att_power <= 2 && death_payoff >= 2 && total_pos_attackers >= legal_blockers.len() {
+    if att_power <= 2
+        && self_death_payoff >= 2
+        && total_pos_attackers >= legal_blockers.len()
+        && legal_blockers.len() <= 2
+        && !has_kw(att_obj, KeywordSet::FLYING)
+    {
         return false;
     }
 
@@ -771,9 +777,8 @@ fn is_suicide_attack_into_blockers(
                     bp >= att_rem_tough || (has_kw(b, KeywordSet::DEATHTOUCH) && bp > 0)
                 })
                 .count();
-            let allow_go_wide_into_single_blocker = legal_blockers.len() == 1
-                && total_pos_attackers >= 3
-                && (death_payoff >= 1 || att_power <= 2);
+            let allow_go_wide_into_single_blocker =
+                legal_blockers.len() == 1 && total_pos_attackers >= 3 && death_payoff >= 1;
             let single_free_eater =
                 min_blockers == 1 && free_eaters >= 1 && !allow_go_wide_into_single_blocker;
             let gang_free_eat = !allow_go_wide_into_single_blocker && {
@@ -808,6 +813,27 @@ fn is_suicide_attack_into_blockers(
                         }
                     }
                 }
+                if !has_kw(att_obj, KeywordSet::TRAMPLE) && !allow_go_wide_into_single_blocker {
+                    let surv_power: i32 = surviving
+                        .iter()
+                        .map(|b| i32::from(b.power.unwrap_or(0)).max(0))
+                        .sum();
+                    let expendable_token_power: i32 = legal_blockers
+                        .iter()
+                        .filter(|b| {
+                            b.token.is_some()
+                                && !surviving.iter().any(|s| s.id == b.id)
+                                && i32::from(b.power.unwrap_or(0)).max(0)
+                                    + (i32::from(b.toughness.unwrap_or(1)) - i32::from(b.damage))
+                                        .max(1)
+                                    <= 2
+                        })
+                        .map(|b| i32::from(b.power.unwrap_or(0)).max(0))
+                        .sum();
+                    if surv_power + expendable_token_power >= att_rem_tough {
+                        return true;
+                    }
+                }
             }
         }
     }
@@ -829,7 +855,10 @@ fn is_suicide_attack_into_blockers(
             let bp = i32::from(b.power.unwrap_or(0)).max(0);
             let b_rem = (i32::from(b.toughness.unwrap_or(1)) - i32::from(b.damage)).max(1);
             let b_kills = bp >= att_rem_tough || (has_kw(b, KeywordSet::DEATHTOUCH) && bp > 0);
-            b_kills && bp < att_power && b_rem <= att_rem_tough && bp + b_rem + 2 <= att_power + att_rem_tough
+            b_kills
+                && bp < att_power
+                && ((b_rem <= att_rem_tough && bp + b_rem + 2 <= att_power + att_rem_tough)
+                    || (att_rem_tough == 1 && legal_blockers.len() >= 2))
         });
         if trades_down {
             return true;
@@ -1946,11 +1975,21 @@ fn discard_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> (i32,
     (1, cmc_bonus)
 }
 
-fn friendly_creature_death_payoff(
-    view: &PlayerView,
-    controller: PlayerId,
-    obj: &PublicObject,
-) -> i32 {
+fn is_positive_death_effect(eff: &Effect, require_creature_token: bool) -> bool {
+    match eff {
+        Effect::DrawCards { .. } | Effect::GainLife { .. } => true,
+        Effect::DealDamage { target, .. } => {
+            !matches!(target, TargetSpec::Player(PlayerRel::You))
+        }
+        Effect::LoseLife { target, .. } => !matches!(target, PlayerRel::You),
+        Effect::CreateToken { token, .. } => {
+            !require_creature_token || token.types.contains(TypeSet::CREATURE)
+        }
+        _ => false,
+    }
+}
+
+fn self_creature_death_payoff(obj: &PublicObject) -> i32 {
     let mut score = 0_i32;
     if let Some(abs) = super::tactics::abilities_of_battlefield_object(obj) {
         for ab in abs {
@@ -1959,21 +1998,21 @@ fn friendly_creature_death_payoff(
                 effects,
                 ..
             } = ab
-                && effects.iter().any(|e| {
-                    matches!(
-                        e,
-                        Effect::DrawCards { .. }
-                            | Effect::DealDamage { .. }
-                            | Effect::LoseLife { .. }
-                            | Effect::GainLife { .. }
-                            | Effect::CreateToken { .. }
-                    )
-                })
+                && effects.iter().any(|e| is_positive_death_effect(e, true))
             {
                 score += 2;
             }
         }
     }
+    score
+}
+
+fn friendly_creature_death_payoff(
+    view: &PlayerView,
+    controller: PlayerId,
+    obj: &PublicObject,
+) -> i32 {
+    let mut score = self_creature_death_payoff(obj);
     for perm in view.battlefield_of(controller) {
         if perm.id == obj.id || perm.status.contains(ObjectStatus::PHASED_OUT) {
             continue;
@@ -1988,16 +2027,7 @@ fn friendly_creature_death_payoff(
                 ..
             } = ab
                 && !matches!(*filter, Filter::This)
-                && effects.iter().any(|e| {
-                    matches!(
-                        e,
-                        Effect::DrawCards { .. }
-                            | Effect::DealDamage { .. }
-                            | Effect::LoseLife { .. }
-                            | Effect::GainLife { .. }
-                            | Effect::CreateToken { .. }
-                    )
-                })
+                && effects.iter().any(|e| is_positive_death_effect(e, false))
             {
                 score += 1;
             }
@@ -2094,18 +2124,14 @@ pub(super) fn mode_destroys_enchantment(mode: &baylee_cards_dsl::SpellMode) -> b
             .any(|e| matches!(e, Effect::Destroy { .. } | Effect::Exile { .. }))
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "Resolves fixed-damage amount across active_source, stack abilities, graveyard death triggers, and battlefield triggers"
+)]
 pub(super) fn active_source_fixed_damage(
     view: &PlayerView,
     active_source: Option<(ObjectId, Option<u32>)>,
 ) -> Option<i32> {
-    let (oid, ab_idx) = active_source?;
-    let abilities = if let Some(obj) = view.object(oid) {
-        super::tactics::abilities_of_battlefield_object(obj)?
-    } else {
-        let ci = lookup_card_identity(view, oid)?;
-        let def = baylee_cards::by_index(ci.index)?;
-        def.abilities_for_face(usize::from(ci.face))
-    };
     let check_effects = |effects: &[Effect]| -> Option<i32> {
         for eff in effects {
             if let Effect::DealDamage {
@@ -2118,25 +2144,121 @@ pub(super) fn active_source_fixed_damage(
         }
         None
     };
-    if let Some(idx) = ab_idx.and_then(|i| usize::try_from(i).ok())
-        && let Some(ab) = abilities.get(idx)
-    {
-        return match ab {
-            AbilityDef::Spell { effects, .. }
+    let check_abilities = |abilities: &[AbilityDef], ab_idx: Option<u32>| -> Option<i32> {
+        if let Some(idx) = ab_idx.and_then(|i| usize::try_from(i).ok())
+            && let Some(ab) = abilities.get(idx)
+        {
+            return match ab {
+                AbilityDef::Spell { effects, .. }
+                | AbilityDef::Activated { effects, .. }
+                | AbilityDef::ActivatedConditional { effects, .. }
+                | AbilityDef::Triggered { effects, .. } => check_effects(effects),
+                _ => None,
+            };
+        }
+        for ab in abilities {
+            if let AbilityDef::Spell { effects, .. }
             | AbilityDef::Activated { effects, .. }
             | AbilityDef::ActivatedConditional { effects, .. }
-            | AbilityDef::Triggered { effects, .. } => check_effects(effects),
-            _ => None,
-        };
-    }
-    for ab in abilities {
-        if let AbilityDef::Spell { effects, .. }
-        | AbilityDef::Activated { effects, .. }
-        | AbilityDef::ActivatedConditional { effects, .. }
-        | AbilityDef::Triggered { effects, .. } = ab
-            && let Some(d) = check_effects(effects)
+            | AbilityDef::Triggered { effects, .. } = ab
+                && let Some(d) = check_effects(effects)
+            {
+                return Some(d);
+            }
+        }
+        None
+    };
+
+    if let Some((oid, ab_idx)) = active_source {
+        if let Some(obj) = view.object(oid)
+            && let Some(abs) = super::tactics::abilities_of_battlefield_object(obj)
+            && let Some(d) = check_abilities(abs, ab_idx)
         {
             return Some(d);
+        }
+        if let Some(ci) = lookup_card_identity(view, oid)
+            && let Some(def) = baylee_cards::by_index(ci.index)
+            && let Some(d) = check_abilities(def.abilities_for_face(usize::from(ci.face)), ab_idx)
+        {
+            return Some(d);
+        }
+    }
+
+    if let Some(top) = view.top_of_stack() {
+        if let Some(baylee_view::StackItem::Ability {
+            source,
+            ability,
+            rules,
+            token,
+            ..
+        }) = top.stack_item
+        {
+            let ab_idx = ability.map(|a| a.index);
+            if let Some(rf) = rules
+                && let Some(def) = baylee_cards::by_index(rf.card)
+                && let Some(d) =
+                    check_abilities(def.abilities_for_face(usize::from(rf.face)), ab_idx)
+            {
+                return Some(d);
+            }
+            if let Some(ta) = token
+                && let Some(tdef) = baylee_cards::tokens::by_token_id(ta.token)
+                && let Some(d) = check_abilities(tdef.abilities, Some(ta.index))
+            {
+                return Some(d);
+            }
+            if let Some(ci) = lookup_card_identity(view, source)
+                && let Some(def) = baylee_cards::by_index(ci.index)
+                && let Some(d) =
+                    check_abilities(def.abilities_for_face(usize::from(ci.face)), ab_idx)
+            {
+                return Some(d);
+            }
+        }
+        if let Some(abs) = super::tactics::abilities_of_battlefield_object(top)
+            && let Some(d) = check_abilities(abs, None)
+        {
+            return Some(d);
+        }
+    }
+
+    let actor = view.decision_player.unwrap_or(view.seat);
+    if let Some(gy) = view.graveyards.get(usize::from(actor.get())) {
+        for obj in gy.iter().rev() {
+            let Some(abs) = super::tactics::abilities_of_battlefield_object(obj) else {
+                continue;
+            };
+            for ab in abs {
+                if let AbilityDef::Triggered {
+                    trigger: Trigger::Dies(_) | Trigger::LeavesBattlefield(_),
+                    effects,
+                    targets: Some(_),
+                    ..
+                } = ab
+                    && let Some(d) = check_effects(effects)
+                {
+                    return Some(d);
+                }
+            }
+        }
+    }
+
+    let mut bf_objs: Vec<&PublicObject> = view.battlefield_of(actor).collect();
+    bf_objs.sort_by_key(|o| std::cmp::Reverse(o.id));
+    for obj in bf_objs {
+        let Some(abs) = super::tactics::abilities_of_battlefield_object(obj) else {
+            continue;
+        };
+        for ab in abs {
+            if let AbilityDef::Triggered {
+                effects,
+                targets: Some(_),
+                ..
+            } = ab
+                && let Some(d) = check_effects(effects)
+            {
+                return Some(d);
+            }
         }
     }
     None

@@ -1065,6 +1065,22 @@ fn single_object_mana_production(obj: &PublicObject) -> u32 {
                     targets.is_some(),
                 )
             {
+                let counter_unmet = cost.parts.iter().any(|p| match p {
+                    baylee_cards_dsl::CostPart::RemoveCounterSelf { n, .. } => {
+                        obj.counters.iter().map(|c| c.count).sum::<u16>() < *n
+                    }
+                    baylee_cards_dsl::CostPart::RemoveCounterSelfX { .. } => {
+                        obj.counters.iter().map(|c| c.count).sum::<u16>() < 1
+                    }
+                    baylee_cards_dsl::CostPart::TapOther(_)
+                    | baylee_cards_dsl::CostPart::TapX(_)
+                    | baylee_cards_dsl::CostPart::Sacrifice(_)
+                    | baylee_cards_dsl::CostPart::SacrificeX(_) => true,
+                    _ => false,
+                });
+                if counter_unmet {
+                    continue;
+                }
                 let amt = mana_effects_amount(effects).saturating_sub(cost.mana.cmc());
                 prod = prod.max(amt);
             }
@@ -1105,7 +1121,15 @@ pub fn untapped_mana_production(view: &PlayerView, actor: PlayerId) -> u32 {
 fn mana_effects_amount(effects: &[baylee_cards_dsl::Effect]) -> u32 {
     let mut sum = 0_u32;
     for eff in effects {
-        if let baylee_cards_dsl::Effect::AddMana { amount, .. } = eff {
+        if let baylee_cards_dsl::Effect::AddMana {
+            amount,
+            restriction,
+            ..
+        } = eff
+        {
+            if restriction.is_some_and(|r| r.restricts) {
+                continue;
+            }
             let n = match amount {
                 baylee_cards_dsl::Amount::Fixed(v) => (*v).max(1),
                 _ => 1,
@@ -1113,7 +1137,7 @@ fn mana_effects_amount(effects: &[baylee_cards_dsl::Effect]) -> u32 {
             sum = sum.saturating_add(n.max(1));
         }
     }
-    sum.max(1)
+    sum
 }
 
 fn prioritize_object_options(view: &PlayerView, objs: &[ObjectId], cap: usize) -> Vec<ObjectId> {

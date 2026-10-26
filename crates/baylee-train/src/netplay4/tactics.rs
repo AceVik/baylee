@@ -138,6 +138,52 @@ pub(super) fn select_single_choice(
                                 })
                         })
                     });
+                    let any_damaged_opp_creature = fixed_dmg.is_some_and(|_| {
+                        !any_lethal_creature_kill
+                            && cands.candidates.iter().any(|cand| {
+                                cand.object_id
+                                    .and_then(|oid| view.object(oid))
+                                    .is_some_and(|o| {
+                                        o.controller != actor
+                                            && o.types.contains(TypeSet::CREATURE)
+                                            && o.damage > 0
+                                            && (o.keywords
+                                                & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE
+                                                    .bits())
+                                                == 0
+                                    })
+                            })
+                    });
+                    let can_follow_up_ping = view.stack.len() >= 2
+                        || matches!(
+                            view.step,
+                            Step::CombatBegin | Step::DeclareAttackers | Step::DeclareBlockers
+                        )
+                        || pool_total.saturating_add(untapped_mana_production(view, actor)) >= 4;
+                    let any_two_hit_opp_creature = fixed_dmg.is_some_and(|dmg| {
+                        !any_lethal_creature_kill
+                            && can_follow_up_ping
+                            && cands.candidates.iter().any(|cand| {
+                                cand.object_id
+                                    .and_then(|oid| view.object(oid))
+                                    .is_some_and(|o| {
+                                        o.controller != actor
+                                            && o.types.contains(TypeSet::CREATURE)
+                                            && (o.keywords
+                                                & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE
+                                                    .bits())
+                                                == 0
+                                            && (i32::from(o.toughness.unwrap_or(1))
+                                                - i32::from(o.damage))
+                                            .max(1)
+                                                <= dmg * 2
+                                    })
+                            })
+                    });
+                    let any_opp_player_target = cands
+                        .candidates
+                        .iter()
+                        .any(|cand| cand.player_id.is_some_and(|pid| pid != actor));
                     let any_urgent_ench = cands.candidates.iter().any(|cand| {
                         cand.object_id
                             .and_then(|oid| view.object(oid))
@@ -165,29 +211,69 @@ pub(super) fn select_single_choice(
                                     if !is_urgent {
                                         trial[i] = f32::NEG_INFINITY;
                                     }
-                                } else if let Some(dmg) = fixed_dmg
-                                    && any_lethal_creature_kill
-                                {
-                                    let is_lethal_target = cand
-                                        .object_id
-                                        .and_then(|oid| view.object(oid))
-                                        .is_some_and(|o| {
-                                            o.controller != actor
-                                                && o.types.contains(TypeSet::CREATURE)
-                                                && (o.keywords
-                                                    & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE
-                                                        .bits())
-                                                    == 0
-                                                && (i32::from(o.toughness.unwrap_or(1))
-                                                    - i32::from(o.damage))
-                                                .max(1)
-                                                    <= dmg
-                                        })
-                                        || cand.player_id.is_some_and(|pid| {
-                                            pid != actor
-                                                && view.seat(pid).map_or(20, |s| s.life) <= dmg
-                                        });
-                                    if !is_lethal_target {
+                                } else if let Some(dmg) = fixed_dmg {
+                                    if any_lethal_creature_kill {
+                                        let is_lethal_target = cand
+                                            .object_id
+                                            .and_then(|oid| view.object(oid))
+                                            .is_some_and(|o| {
+                                                o.controller != actor
+                                                    && o.types.contains(TypeSet::CREATURE)
+                                                    && (o.keywords
+                                                        & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE
+                                                            .bits())
+                                                        == 0
+                                                    && (i32::from(o.toughness.unwrap_or(1))
+                                                        - i32::from(o.damage))
+                                                    .max(1)
+                                                        <= dmg
+                                            })
+                                            || cand.player_id.is_some_and(|pid| {
+                                                pid != actor
+                                                    && view.seat(pid).map_or(20, |s| s.life) <= dmg
+                                            });
+                                        if !is_lethal_target {
+                                            trial[i] = f32::NEG_INFINITY;
+                                        }
+                                    } else if any_damaged_opp_creature {
+                                        let is_damaged_creature = cand
+                                            .object_id
+                                            .and_then(|oid| view.object(oid))
+                                            .is_some_and(|o| {
+                                                o.controller != actor
+                                                    && o.types.contains(TypeSet::CREATURE)
+                                                    && o.damage > 0
+                                                    && (o.keywords
+                                                        & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE
+                                                            .bits())
+                                                        == 0
+                                            });
+                                        if !is_damaged_creature {
+                                            trial[i] = f32::NEG_INFINITY;
+                                        }
+                                    } else if any_two_hit_opp_creature {
+                                        let is_two_hit_creature = cand
+                                            .object_id
+                                            .and_then(|oid| view.object(oid))
+                                            .is_some_and(|o| {
+                                                o.controller != actor
+                                                    && o.types.contains(TypeSet::CREATURE)
+                                                    && (o.keywords
+                                                        & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE
+                                                            .bits())
+                                                        == 0
+                                                    && (i32::from(o.toughness.unwrap_or(1))
+                                                        - i32::from(o.damage))
+                                                    .max(1)
+                                                        <= dmg * 2
+                                            });
+                                        if !is_two_hit_creature {
+                                            trial[i] = f32::NEG_INFINITY;
+                                        }
+                                    } else if !can_follow_up_ping
+                                        && any_opp_player_target
+                                        && cand.player_id.is_none_or(|pid| pid == actor)
+                                    {
                                         trial[i] = f32::NEG_INFINITY;
                                     }
                                 }
@@ -260,21 +346,24 @@ pub(super) fn select_single_choice(
                 && (view.stack.is_empty()
                     || view.active != actor
                     || !matches!(view.phase, Phase::FirstMain | Phase::SecondMain));
+            let draw_ab_ready = ((view.active == actor
+                && matches!(view.phase, Phase::FirstMain | Phase::SecondMain))
+                || (view.active != actor && view.phase == Phase::Ending))
+                && has_proactive_draw_ability_play(view, legal);
             let main_phase_proactive = view.owed.is_none()
                 && view.stack.is_empty()
-                && p_pass < 0.90
-                && ((view.active == actor
-                    && matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
-                    && (play_land_first
-                        || has_proactive_main_phase_play(view, legal)
-                        || has_proactive_draw_ability_play(view, legal)))
-                    || (view.active != actor
-                        && view.phase == Phase::Ending
-                        && has_proactive_draw_ability_play(view, legal))
-                    || (view.active == actor
-                        && view.phase == Phase::Combat
-                        && view.step == Step::DeclareAttackers
-                        && has_proactive_combat_ability_play(view, legal)));
+                && (draw_ab_ready
+                    || (p_pass < 0.90
+                        && ((view.active == actor
+                            && matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
+                            && (play_land_first
+                                || has_proactive_main_phase_play(view, legal)
+                                || ((view.phase == Phase::SecondMain || view.hand.is_empty())
+                                    && has_sink)))
+                            || (view.active == actor
+                                && view.phase == Phase::Combat
+                                && view.step == Step::DeclareAttackers
+                                && has_proactive_combat_ability_play(view, legal)))));
 
             if p_pass < 0.50
                 || owed_unmet
@@ -990,7 +1079,7 @@ fn has_proactive_draw_ability_play(view: &PlayerView, legal: &LegalActions) -> b
         .filter(|h| is_true_land_card(view, h.id))
         .count();
     let max_hand_for_draw = if lands_in_hand == 0 && !view.hand.is_empty() {
-        6
+        7
     } else {
         5
     };
@@ -2158,7 +2247,7 @@ fn is_activated_ability_worth_activating_now(
         if view.hand.is_empty() {
             return false;
         }
-        if view.active == actor && view.phase == Phase::FirstMain {
+        if view.active == actor && view.phase == Phase::FirstMain && view.hand.len() >= 4 {
             let pool_total = view
                 .seat(actor)
                 .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(0));
@@ -2519,6 +2608,27 @@ pub(super) fn classify_active_target_intent(
             }
         }
     }
+    if let Some(gy) = view.graveyards.get(usize::from(actor.get())) {
+        for obj in gy.iter().rev() {
+            let Some(abs) = abilities_of_battlefield_object(obj) else {
+                continue;
+            };
+            for ab in abs {
+                if let AbilityDef::Triggered {
+                    trigger: Trigger::Dies(_) | Trigger::LeavesBattlefield(_),
+                    effects,
+                    targets: Some(_),
+                    ..
+                } = ab
+                {
+                    let intent = classify_effects_intent(view, actor, effects);
+                    if intent != TargetIntent::Neutral {
+                        return intent;
+                    }
+                }
+            }
+        }
+    }
     let mut bf_objs: Vec<&PublicObject> = view.battlefield_of(actor).collect();
     bf_objs.sort_by_key(|o| std::cmp::Reverse(o.id));
     for obj in bf_objs {
@@ -2714,6 +2824,13 @@ pub(super) fn lookup_card_identity(view: &PlayerView, id: ObjectId) -> Option<Ca
     for sh in view.controlled_hands.iter().chain(view.shared_hands.iter()) {
         if let Some(h) = sh.cards.iter().find(|h| h.id == id) {
             return Some(h.card);
+        }
+    }
+    for gy in &view.graveyards {
+        if let Some(obj) = gy.iter().find(|o| o.id == id)
+            && let Some(ci) = obj.card
+        {
+            return Some(ci);
         }
     }
     view.object(id).and_then(|o| o.card)
