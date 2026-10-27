@@ -302,6 +302,7 @@ impl Tx<'_> {
                     "EnchantedBy" | "EquippedBy" | "AttachedBy" => {
                         "Filter::AttachedToBySource".to_string()
                     }
+                    "Attached" => "Filter::AttachedToSource".to_string(),
                     "YouCtrl" => "Filter::ControlledByYou".to_string(),
                     "YouDontCtrl" => "Filter::Not(&Filter::ControlledByYou)".to_string(),
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
@@ -334,6 +335,7 @@ impl Tx<'_> {
                     // creature" a second spelling that only `filter_hash`
                     // can tell from the first.
                     "nonLand" => "Filter::NONLAND".to_string(),
+                    "Artifact" => "Filter::ARTIFACT".to_string(),
                     "Creature" => "Filter::CREATURE".to_string(),
                     "nonCreature" => "Filter::NONCREATURE".to_string(),
                     // Supertypes read like subtypes in a script filter but are

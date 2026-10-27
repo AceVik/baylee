@@ -825,6 +825,17 @@ impl Tx<'_> {
                 && var_p == var_t
                 && var_p.trim().parse::<i16>().is_err()
                 && let Some(count) = self.svars.get(var_p.trim()).cloned()
+                && count.trim() == "Count$ValidHand Card.YouOwn"
+            {
+                out.push(Self::static_expr(
+                    filter,
+                    "Modifier::ModifyPTByAmount { power: Amount::HandSize(PlayerRel::You), \
+                     toughness: Amount::HandSize(PlayerRel::You) }",
+                ));
+            } else if let (Some(var_p), Some(var_t)) = (add_p.as_deref(), add_t.as_deref())
+                && var_p == var_t
+                && var_p.trim().parse::<i16>().is_err()
+                && let Some(count) = self.svars.get(var_p.trim()).cloned()
                 && let Some(raw_valid) = count.strip_prefix("Count$Valid ")
             {
                 let (valid, times) = match raw_valid.split_once("/Times.") {
@@ -837,7 +848,7 @@ impl Tx<'_> {
                         if !(1..=4).contains(&n) {
                             self.note("static ability with a computed P/T".to_string());
                             return None;
-                        }
+                        };
                         (v, n)
                     }
                 };
@@ -863,6 +874,63 @@ impl Tx<'_> {
                         &format!("Modifier::ModifyPTByCount(PtCount::{kind}(&{name}))"),
                     ));
                 }
+            } else if let Some((var, power_half)) = match (add_p.as_deref(), add_t.as_deref()) {
+                (Some(vp), None | Some("0" | "+0")) if vp.trim().parse::<i16>().is_err() => {
+                    Some((vp.trim(), true))
+                }
+                (None | Some("0" | "+0"), Some(vt)) if vt.trim().parse::<i16>().is_err() => {
+                    Some((vt.trim(), false))
+                }
+                _ => None,
+            } && let Some(count) = self.svars.get(var).cloned()
+                && let Some(raw_valid) = count.strip_prefix("Count$Valid ")
+            {
+                let (valid, times) = match raw_valid.split_once("/Times.") {
+                    None => (raw_valid, 1_i16),
+                    Some((v, n)) => {
+                        let Ok(n) = n.trim().parse::<i16>() else {
+                            self.note("static ability with a computed P/T".to_string());
+                            return None;
+                        };
+                        if !(1..=4).contains(&n) {
+                            self.note("static ability with a computed P/T".to_string());
+                            return None;
+                        }
+                        (v, n)
+                    }
+                };
+                if valid.contains('/') {
+                    self.note("static ability with a computed P/T".to_string());
+                    return None;
+                }
+                let yours = valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
+                let attached = valid.split(['.', '+']).any(|atom| atom == "Attached");
+                if (!yours && !attached)
+                    || (attached && (valid.contains("Ctrl") || valid.contains("Own")))
+                {
+                    self.note("static ability with a computed P/T".to_string());
+                    return None;
+                }
+                let valid_without_you = valid
+                    .split(',')
+                    .map(|alt| {
+                        alt.split('.')
+                            .filter(|atom| atom.trim() != "YouCtrl")
+                            .collect::<Vec<_>>()
+                            .join(".")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let Some(counted_filter) = self.filter_expr(&valid_without_you) else {
+                    self.note("static ability with a computed P/T".to_string());
+                    return None;
+                };
+                let name = self.body.filter_static("COUNTED", &counted_filter);
+                let (p, t) = if power_half { (times, 0) } else { (0, times) };
+                out.push(Self::static_expr(
+                    filter,
+                    &format!("Modifier::ModifyPTPerCount {{ filter: &{name}, p: {p}, t: {t} }}"),
+                ));
             } else {
                 // An anthem that names only one half still moves the other by
                 // zero, which is what the printed "+1/+0" says.

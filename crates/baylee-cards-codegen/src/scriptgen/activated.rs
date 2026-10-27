@@ -597,7 +597,7 @@ impl Tx<'_> {
                 alt.split(['.', '+']).any(|a| {
                     matches!(
                         a.trim(),
-                        "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy"
+                        "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy" | "Attached"
                     )
                 })
             }) {

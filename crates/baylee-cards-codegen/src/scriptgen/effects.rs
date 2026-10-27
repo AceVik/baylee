@@ -22,11 +22,12 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
-        for key in ["Amount", "Optional", "RememberSacrificed"] {
+        for key in ["Optional", "RememberSacrificed"] {
             if p.take(key).is_some() {
                 return self.deny(format!("a sacrifice naming `{key}`"));
             }
         }
+        let raw_amount = p.take("Amount");
         if let Some(num) = p.take("ChangeNum")
             && num.trim() != "1"
         {
@@ -34,6 +35,9 @@ impl Tx<'_> {
         }
         p.claim_label("SacMessage", "SacValid");
         let Some(sac_valid) = p.take("SacValid") else {
+            if raw_amount.is_some() {
+                return self.deny("a sacrifice naming `Amount`".to_string());
+            }
             if p.take("Defined").is_some() {
                 return self.deny("a sacrifice naming `Defined`".to_string());
             }
@@ -46,9 +50,18 @@ impl Tx<'_> {
             let expr = self.filter_expr(&sac_valid)?;
             format!("&{}", self.body.filter_static("SAC", &expr))
         };
-        Some(vec![format!(
-            "Effect::SacrificeFilter {{ who: {who}, filter: {filter} }}"
-        )])
+        match raw_amount.as_deref().map(str::trim) {
+            None | Some("1") => Some(vec![format!(
+                "Effect::SacrificeFilter {{ who: {who}, filter: {filter} }}"
+            )]),
+            Some(raw) => {
+                let amount = self.amount_or_count(raw)?;
+                Some(vec![format!(
+                    "Effect::SacrificeAmountForPlayers {{ who: {who}, filter: {filter}, amount: \
+                     {amount} }}"
+                )])
+            }
+        }
     }
 
     /// `Token`: "create a 1/1 white Soldier creature token".
@@ -878,6 +891,11 @@ impl Tx<'_> {
             // (Regrowth): the target is a `CardInGraveyard`, which the chain
             // read off `Origin$` before it read the valid-string.
             ("Graveyard", "Hand", false) if target.starts_with("TargetSpec::CardInGraveyard") => {
+                if let Some(num) = p.take("ChangeNum")
+                    && num != "1"
+                {
+                    return self.deny(format!("`ChangeZone` with `ChangeNum$ {num}`"));
+                }
                 vec![format!("Effect::GraveyardToHand {{ target: {target} }}")]
             }
             ("Graveyard", "Library", false)
