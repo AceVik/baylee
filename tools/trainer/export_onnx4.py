@@ -1,4 +1,4 @@
-"""Exports a Playernet v4 checkpoint (`net.pt`) to ONNX (`model.onnx`) and
+"""Exports a versioned Playernet v4/v5 checkpoint (`net.pt`) to ONNX (`model.onnx`) and
 verifies PyTorch vs ONNX Runtime parity across held-out steps and varying
 entity/edge/candidate lengths.
 
@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 from pathlib import Path
@@ -21,6 +22,41 @@ import torch
 
 import dataset4 as D4
 import model4 as M
+
+
+def load_export_checkpoint(checkpoint_path: Path):
+    """Construct only the architecture explicitly declared by the checkpoint.
+
+    V5 keeps the E7 input ABI, but its learned relational layers are not a V4
+    state-dict extension that can be silently ignored by an older exporter.
+    """
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    version = checkpoint.get("model_version")
+    if version == M.MODEL_VERSION:
+        module = M
+        config_type, model_type = M.Config4, M.PlayerNet4
+    elif version == 5:
+        import model5 as module
+        config_type, model_type = module.Config5, module.PlayerNet5
+        if checkpoint.get("architecture") != module.ARCHITECTURE:
+            raise ValueError("V5 checkpoint architecture is missing or incompatible")
+    else:
+        raise ValueError(f"Unsupported checkpoint model_version: {version}")
+    for key, expected in (("trajectory_version", module.TRAJECTORY_VERSION),
+                          ("encoder_version", module.ENCODER_VERSION),
+                          ("sampling_version", module.SAMPLING_VERSION)):
+        if checkpoint.get(key) != expected:
+            raise ValueError(f"Checkpoint {key} is incompatible with this exporter")
+    for key in ("INPUT_NAMES", "OUTPUT_NAMES", "ENTITY_FEAT_WIDTH", "SEAT_FEAT_WIDTH",
+                "GLOBAL_FEAT_WIDTH", "CAND_FEAT_WIDTH", "CARD_DSL_WIDTH", "RECURRENT_SLOTS"):
+        if getattr(module, key) != getattr(M, key):
+            raise ValueError(f"Checkpoint architecture does not use the shared E7 tensor ABI: {key}")
+    config = config_type(**checkpoint["config"])
+    net = model_type(config).eval()
+    net.attach_structure(checkpoint["structure"])
+    net.load_state_dict(checkpoint["state_dict"], strict=True)
+    net.rules.eval()
+    return checkpoint, net, module
 
 
 def make_dummy_inputs(
@@ -82,7 +118,6 @@ def export_v4_onnx(
     fixed_depth: bool = False,
 ) -> None:
     net = net.cpu().eval()
-    net.cfg.default_thinking_steps = thinking_steps
     from model4.structure import RuleEncoder
     if isinstance(net.rules, RuleEncoder):
         net.rules = net.rules.freeze()
@@ -113,24 +148,30 @@ def export_v4_onnx(
         "scalar_pred": {0: "B"},
         "value": {0: "B"},
     }
+    previous_depth = getattr(net, "export_thinking_steps", None)
     if fixed_depth:
         net.export_thinking_steps = thinking_steps
-    torch.onnx.export(
-        net,
-        dummy,
-        str(onnx_path),
-        input_names=list(M.INPUT_NAMES),
-        output_names=list(M.OUTPUT_NAMES),
-        dynamic_axes=dynamic_axes,
-        opset_version=18,
-        dynamo=False,
-    )
-    if fixed_depth:
-        del net.export_thinking_steps
+    try:
+        torch.onnx.export(
+            net,
+            dummy,
+            str(onnx_path),
+            input_names=list(M.INPUT_NAMES),
+            output_names=list(M.OUTPUT_NAMES),
+            dynamic_axes=dynamic_axes,
+            opset_version=18,
+            dynamo=False,
+        )
+    finally:
+        if fixed_depth:
+            if previous_depth is None:
+                del net.export_thinking_steps
+            else:
+                net.export_thinking_steps = previous_depth
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Export bounded-depth Playernet v4 graphs")
+    ap = argparse.ArgumentParser(description="Export bounded-depth Playernet v4/v5 graphs")
     ap.add_argument("--model", required=True)
     ap.add_argument("--data", default="")
     ap.add_argument("--entities", type=int, default=192)
@@ -139,15 +180,11 @@ def main() -> None:
     args = ap.parse_args()
     torch.set_num_threads(1)
     model_dir = Path(args.model).expanduser()
-    ckpt = torch.load(model_dir / "net.pt", map_location="cpu", weights_only=False)
-    if (ckpt.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt.get("model_version") != M.MODEL_VERSION
-            or ckpt.get("encoder_version") != M.ENCODER_VERSION):
-        raise ValueError("Checkpoint uses the old recurrent memory contract")
-    cfg = M.Config4(**ckpt["config"])
-    net = M.PlayerNet4(cfg).eval()
-    net.attach_structure(ckpt["structure"])
-    net.load_state_dict(ckpt["state_dict"], strict=True)
-    net.rules.eval()
+    checkpoint_path = model_dir / "net.pt"
+    with checkpoint_path.open("rb") as source:
+        source_checkpoint_sha256 = hashlib.file_digest(source, "sha256").hexdigest()
+    ckpt, net, model_module = load_export_checkpoint(checkpoint_path)
+    cfg = net.cfg
     structure_sha256 = net.rules.digest
     net.rules = net.rules.freeze()
     (model_dir / "card_structure.json").write_text(json.dumps(ckpt["structure"]))
@@ -214,19 +251,25 @@ def main() -> None:
                 break
     if worst_diff > 1e-3:
         raise ValueError(f"ONNX parity failed: {worst_diff:.3g}")
+    with checkpoint_path.open("rb") as source:
+        if hashlib.file_digest(source, "sha256").hexdigest() != source_checkpoint_sha256:
+            raise ValueError("Source checkpoint changed during export")
     shutil.copyfile(model_dir / f"model.k{args.thinking_steps}.onnx", model_dir / "model.onnx")
     meta = {
-        "encoder_version": M.ENCODER_VERSION, "model_version": M.MODEL_VERSION,
+        "encoder_version": model_module.ENCODER_VERSION, "model_version": model_module.MODEL_VERSION,
         "trajectory_version": M.TRAJECTORY_VERSION,
         "sampling_version": M.SAMPLING_VERSION,
         "structure_version": 1, "structure_sha256": structure_sha256,
+        "source_checkpoint_sha256": source_checkpoint_sha256,
         "d_model": cfg.d_model, "n_layers": cfg.n_layers, "n_heads": cfg.n_heads,
         "thinking_steps": args.thinking_steps, "config": cfg.to_dict(),
         "graphs": {str(k): f"model.k{k}.onnx" for k in sessions},
         "parity_max_abs_diff": worst_diff, "checked_frames": checked,
     }
+    if model_module.MODEL_VERSION == 5:
+        meta["architecture"] = model_module.ARCHITECTURE
     (model_dir / "model.onnx.json").write_text(json.dumps(meta, indent=2))
-    print(f"[export4] verified {checked} frames, max error={worst_diff:.3g}; exported K=0,1,2,4,8")
+    print(f"[export model_version={model_module.MODEL_VERSION}] verified {checked} frames, max error={worst_diff:.3g}; exported K=0,1,2,4,8")
 
 
 if __name__ == "__main__":
