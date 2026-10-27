@@ -1,10 +1,14 @@
 # The trained AI (`BayleeKI`)
 
-**Current v4 work (24 October 2026):** implementation through `88bc2b07f` is on
+**Current work (27 October 2026):** BayleeAI v5 adds an explicit relational
+architecture (`model_version = 5`); archived v4 remains a separate loadable
+model family. The matched BC pilot below is research, with no playing-strength
+claim or automatic promotion. Historical v4 implementation through
+`88bc2b07f` is on
 `main`; subsequent corrections are on `c42/trained-ai`. The
 [latest review and run results](history/trained-ai-v4-review-2026-10-24.md) and
 [takeover and training log](history/trained-ai-v4-codex-run-2026-10-22.md)
-records the repaired observation clock, contract versions, measured model size,
+record the repaired observation clock, contract versions, measured model size,
 checks and remaining limitations. v4 uses structural card features and
 persistent seat memory; the older pipeline below describes v1–v3.
 The [structured encoder implementation](history/trained-ai-v4-structured-encoder-2026-10-23.md)
@@ -96,40 +100,93 @@ Greedy neural moves have no behavior probabilities and are not PPO data.
 Staging does not mean replay validation, conversion or optimization has run.
 
 The [live information audit](history/trained-ai-v4-live-information-audit-2026-10-25.md)
-documents the encoder-6 omissions and the **Encoder 7 / Loss v3** implementation
-that resolves them:
-- **Encoder 7 (`ENCODER_VERSION7 = 7`, `128` entity / `64` seat / `80` global / `48` candidate features):**
-  `features7::state::encode_state7` and `features7::actions::encode_candidates7_grouped`
-  expose `legal.payable` cast-before-payment choices, `InventoryLedger7`
-  remaining own-library and own-sideboard card groups (`DeckInventory = 12`,
-  `SideboardInventory = 13`) with exact copy counts and draw probabilities,
-  public commander designations (`CommanderDesignation = 10`), stack/graveyard
-  position channels and `EDGE_ORDERED_NEXT` order chains, 24 projected keywords,
-  projected subtypes and `word_changes`, separated counter channels, `prepared_spell`
-  (`role: 6`) structural references, dynamic mana production/spending matrices
-  and exact per-symbol owed payment channels, and paired linear+`log1p` scaling
-  beyond legacy numeric caps.
-- **Lossless permanent grouping (`PermanentGroup7`):** identical battlefield
-  permanents (matching all authorized characteristics, status, counters,
-  attachments, combat assignments, and target references) share a grouped entity
-  token with explicit multiplicity (`entity_group_members`) and deduplicated
-  candidate actions (`group_object_ids`).
-- **Backward-compatible runtime dispatch and warm-start (`upgrade_state_dict_to_v7`):**
-  `NetPlayer4` inspects the loaded model's `(entity_width, global_width)` at
-  startup and dispatches `(96, 64)` models to archived `encode_state4` /
-  `encode_candidates4` and `(128, 80)` models to `encode_state7` /
-  `encode_candidates7_grouped`. `PlayerNet4` adds a zero-initialized
-  candidate-menu context residual (`cand_ctx_proj`) over the masked mean and max
-  of legal candidates, and `upgrade_state_dict_to_v7` zero-pads Encoder 6
-  checkpoints into Encoder 7.
-- **Calibrated training objective (`LOSS_VERSION = 3`):** removes the 15x
-  anti-pass bias (`step_loss_weight = 1.0` in `convert4` and `1.0` pass weight
-  in `training4/loss.py` and `device_loss.py`) and removes the uncalibrated
-  `pos_weight = 2.0` on `SubsetPick` and `PairPick` BCE losses.
-- **Zero-allocation observation hashing:** `SeatKnowledge4` computes
-  `board_observation_hash` and `view_only_state_hash` directly via streaming
-  `Fnv1aWriter` and `ObservableView` without per-step heap allocations, and
-  `convert4` reuses the active seat's `PlayerView` via `Cow::Borrowed`.
+records the encoder-6 omissions and successive Encoder 7 implementation claims.
+Those dated milestones are history, not evidence that every proposed field is
+connected end to end. The current Encoder 7 contract has 128 entity, 64 seat,
+80 global and 48 candidate features. It includes public commander designations,
+ordered-zone features, projected characteristics, mana/payment features,
+registered-deck inventory bookkeeping and lossless permanent grouping with
+explicit multiplicity (`entity_feat[122]`). The v4 runtime dispatches archived
+encoder-6 and Encoder 7 models separately; `upgrade_state_dict_to_v7` zero-pads
+older input projections and initializes the candidate-context residual.
+
+**Known Encoder 7 gaps remain:** inventory bookkeeping and aggregate counts do
+not emit all unseen own-library/sideboard cards as graph entities; payable-cast
+candidate coverage is incomplete. Inventory uncertainty and some payment and
+public rule relationships still need audited end-to-end contracts. Existing
+features do not establish complete rules understanding. The v5 pilot reuses this
+same Encoder 7 ABI and therefore inherits these gaps. New semantic edge kinds
+such as legal-target, legal-block or tutor-match relationships require a
+separately versioned, view-only encoder change; they are not silently supplied
+by the new model.
+
+**Current objective (`LOSS_VERSION = 4`):** categorical cross-entropy and ordinary
+Bernoulli BCE use symmetric class treatment and unit policy-head coefficients.
+Earlier loss versions retained asymmetric behavior that their “calibrated” label
+overstated. Explicit per-step/outcome weights still apply: this is weighted
+imitation, not a guarantee of calibrated action probabilities or critic win
+probabilities. Changing the loss version requires fresh `--init`, not resuming
+an incompatible optimizer/objective. Re-evaluate source and candidate with the
+same current validator before comparing their losses.
+
+**Raw versus tactical provenance:** `PolicyMode4::Raw` uses unmodified neural
+outputs and the sampling-version-2 constraints (`raw_neural_sampler2_v1`).
+`Tactical`, the default, includes deterministic playtest heuristics and records
+successful non-forced answers as House demonstrations
+(`tactical_house_demonstrations_v1`), without neural behavior probabilities.
+Raw mode records stochastic neural probabilities only at finite temperature
+above 0.35 and for supported nonscalar heads; temperature zero is greedy and
+has no PPO behavior probability. Forced and fallback answers remain distinct.
+Evaluation/collection records must preserve the mode and executable/model
+identity. Historical tactical improvements and mislabeled tactical PPO samples
+do not establish raw-policy learning or valid on-policy PPO data.
+
+### BayleeAI v5 relational pilot
+
+`model5.Config5` / `PlayerNet5` identify the new major family with
+`model_version = 5`, `model_family = "v5"` and architecture
+`baylee_ai_v5_relational_v1`. A small identity hook leaves archived `PlayerNet4`
+behavior unchanged. V5 adds two shared-weight message-passing rounds with a
+160-wide bottleneck after the existing typed-edge block and before the
+transformer. Messages depend nonlinearly on source, destination, relation and
+direction; gated updates receive directed log-degree counts and public grouped
+multiplicity. A zero-initialized output projection gives an exact v4 warmstart.
+`relational_steps=0` bypasses the new processing. This is graph relational
+processing over existing public entities, not new physical coordinates or
+additional engine knowledge.
+
+The module preserves initialization RNG for matched experiments, supports
+activation checkpointing, and leaves the once-per-view recurrent observation
+contract unchanged. CPU tests cover exact transfer, permutation/masking/count
+behavior, two-hop dependence, learning after the first output update and
+checkpointed gradients. ONNX parity covers actual nonzero relational weights,
+all exported K budgets and variable/empty/duplicate-edge cases. Additional GPU
+memory and throughput costs must be measured, not inferred from the design.
+`train5.py` selects v5 explicitly; checkpoint/export loaders require its
+architecture identity. Explicit v4-to-v5 initialization transfers the backbone
+with a fresh optimizer. V5 critic-calibration and PPO training loaders remain
+unsupported until explicitly extended and tested.
+
+The matched pilot lives at
+`/home/ace/baylee-data/v4/experiments/v5-relational-20261027`. Its admission audit
+contains 185 complete training games (639,954 frames) and 19 complete held-out
+validation games (164,055 frames), with no overlapping source records. Both
+arms start from the same 75.37M-parameter clean 12-layer, width-640 stage-a BC
+checkpoint (`net.pt` SHA-256
+`9ec9035f9689683cdb16099c3c430a4b68934bd28b2fbe469f0e3a2ab88240e0`).
+They use 1,000 full-model updates, loss 4, seed 31437, K2, batch 8, unroll 32,
+learning rate 1e-5 and combined held-out checkpoint selection. The control's
+frozen Python revision is `df838e9952f36a4e56e4a6be9a99c281ce0a5b11`;
+V5 implementation is `753535908` with separately versioned export/loader
+support. At this documentation update the control completed and the controller
+was waiting for the frozen v5 runtime. The experiment's status and source
+manifests, rather than this dated sentence, govern subsequent progress.
+
+Next steps are the matched v5 arm, identically configured paired raw-policy
+matches against the source/control and house baselines, and independent
+confirmation. Validation selection is not an independent test. Engine-derived
+public combat/target/stack auxiliary supervision is a future separately audited
+objective. No result here establishes stronger play or human-level ability.
 
 The eight-round Sharp experiment is complete with **no confirmed playing
 improvement** on its new-seed confirmation. A completed nonpositive mean
