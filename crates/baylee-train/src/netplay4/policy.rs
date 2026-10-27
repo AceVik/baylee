@@ -306,8 +306,11 @@ impl PolicySampler4<'_> {
 
         let mut action = decode_action4(cands, view, pending, &target)
             .context("decode_action4 returned None")?;
-        if self.mode == PolicyMode4::Tactical
-            && view.owed.is_some()
+        // The policy selects an equivalence group, not a particular copy.
+        // A still-unpaid TapSelf activation reserves one member even though
+        // its mana actions remain grouped. Resolve that group deterministically
+        // using our own announced intent in BOTH modes; the index/LP is unchanged.
+        if view.owed.is_some()
             && cands.head == HeadKind4::SingleChoice
             && let Some(tap_src) =
                 tactics::active_source_requires_tap_self(view, self.active_source)
@@ -379,5 +382,7 @@ pub(super) fn sample_categorical(logits: &[f32], tau: f32, rng: &mut Rng) -> (us
     (chosen, lp)
 }
 
+#[cfg(test)]
+mod payment_tests;
 #[cfg(test)]
 mod tests;
