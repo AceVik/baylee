@@ -85,6 +85,7 @@ pub(crate) struct DamageWork {
     paid: Option<(u32, ShieldOrigin, PlayerId)>,
     recipient_lock: Option<recipient_lock::RecipientLock>,
     life_gains: Vec<(PlayerId, u32)>,
+    consumed_shields: Vec<u64>,
     counter_removals: Vec<(ObjectId, u32, CounterKind, u32)>,
     result_plans: Option<Vec<crate::replacement::counter_order::CounterPlacementPlan>>,
     result_question: Option<usize>,
@@ -173,6 +174,7 @@ impl DamageWork {
             paid: None,
             recipient_lock: None,
             life_gains: Vec::new(),
+            consumed_shields: Vec::new(),
             counter_removals: Vec::new(),
             result_plans: None,
             result_question: None,
@@ -687,15 +689,31 @@ impl DamageWork {
                 ShieldKind::RedirectSource { next: false, .. } | ShieldKind::RedirectCombat { .. }
             )
         {
-            state.shields.remove(i);
+            if state.shields[i].protects == crate::prevention::Shielded::Everything
+                && matches!(state.shields[i].kind, ShieldKind::NextFrom { .. })
+            {
+                if !self.consumed_shields.contains(&id) {
+                    self.consumed_shields.push(id);
+                }
+            } else {
+                state.shields.remove(i);
+            }
         }
         if let DamageEffectKind::PreventFromSource {
             gain_life: true, ..
         } = candidate.option.kind
             && prevented > 0
         {
-            self.life_gains
-                .push((candidate.option.controller, prevented));
+            if let Some((_, total)) = self
+                .life_gains
+                .iter_mut()
+                .find(|(p, _)| *p == candidate.option.controller)
+            {
+                *total = total.saturating_add(prevented);
+            } else {
+                self.life_gains
+                    .push((candidate.option.controller, prevented));
+            }
         }
     }
 

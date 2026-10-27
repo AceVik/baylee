@@ -1451,6 +1451,7 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::EachPlayerMayPutFromHandOntoBattlefieldRepeatUntilNone { .. }
         | Effect::PlayerMayMillOr { .. }
         | Effect::RaidingParty
+        | Effect::ChoosePhaseToSkipThisTurn
         | Effect::ChooseOne { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }

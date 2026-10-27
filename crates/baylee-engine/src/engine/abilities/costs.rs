@@ -69,13 +69,35 @@ impl<L: CardLookup> Engine<L> {
             && let Some(object) = self.state.object(source)
         {
             for effect in self.state.effects.iter() {
-                if let baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum } =
-                    effect.modifier
-                    && crate::effects::applies_to(&self.state, effect, object)
-                {
-                    // A minimum limits this reduction, never increases a free cost.
-                    let reduction = amount.min(mana.cmc().saturating_sub(minimum));
-                    mana = mana.with_less_generic(reduction);
+                match effect.modifier {
+                    baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum }
+                        if crate::effects::applies_to(&self.state, effect, object) =>
+                    {
+                        // A minimum limits this reduction, never increases a free cost.
+                        let reduction = amount.min(mana.cmc().saturating_sub(minimum));
+                        mana = mana.with_less_generic(reduction);
+                    }
+                    baylee_cards_dsl::Modifier::EquipCostsLess(amount)
+                        if crate::effects::applies_to(&self.state, effect, object)
+                            && object
+                                .characteristics()
+                                .subtypes
+                                .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT)
+                            && object.abilities(&self.lookup).iter().any(|a| {
+                                matches!(
+                                    a,
+                                    AbilityDef::Activated {
+                                        cost: c,
+                                        effects,
+                                        ..
+                                    } if c.parts == cost.parts
+                                        && effects.iter().any(|e| matches!(e, baylee_cards_dsl::Effect::AttachSelf { .. }))
+                                )
+                            }) =>
+                    {
+                        mana = mana.with_less_generic(amount);
+                    }
+                    _ => {}
                 }
             }
         }
@@ -281,6 +303,19 @@ impl<L: CardLookup> Engine<L> {
                 }
                 CostPart::PayLife(n) => {
                     if !self.state.can_pay_life(player, i32::from(*n)) {
+                        return false;
+                    }
+                }
+                CostPart::ExileTopOfLibrary(_) => {
+                    let needed: usize = cost
+                        .parts
+                        .iter()
+                        .filter_map(|p| match p {
+                            CostPart::ExileTopOfLibrary(n) => Some(usize::from(*n)),
+                            _ => None,
+                        })
+                        .sum();
+                    if self.state.zones.list(ZoneLocation::Library(player)).len() < needed {
                         return false;
                     }
                 }
@@ -744,6 +779,29 @@ impl<L: CardLookup> Engine<L> {
                 }
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
+                }
+                CostPart::ExileTopOfLibrary(n) => {
+                    let count = usize::from(*n);
+                    if self.state.zones.list(ZoneLocation::Library(player)).len() < count {
+                        return Err(EngineError::IllegalAction(
+                            "not enough cards in library to exile",
+                        ));
+                    }
+                    for _ in 0..count {
+                        let card = *self
+                            .state
+                            .zones
+                            .list(ZoneLocation::Library(player))
+                            .last()
+                            .expect("library count checked");
+                        let owner = self.state.object(card).map_or(player, |o| o.owner);
+                        self.state.move_object(
+                            card,
+                            ZoneLocation::Exile(owner),
+                            ZonePosition::Top,
+                            Cause::Cost,
+                        )?;
+                    }
                 }
                 CostPart::ExileSelf => {
                     let owner = self.state.object(source).map_or(player, |o| o.owner);

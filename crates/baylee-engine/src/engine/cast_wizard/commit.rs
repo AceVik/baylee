@@ -142,6 +142,7 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::PutCounterOnOther { .. }
                     | CostPart::ExileFromSingleGraveyard { .. }
                     | CostPart::PayAttachedManaCost
+                    | CostPart::ExileTopOfLibrary(_)
                     | CostPart::PayLifeX => {}
                 }
             }
@@ -173,7 +174,7 @@ impl<L: CardLookup> Engine<L> {
         let mut sacrificed_lki = None;
         let mut sacrificed_object = None;
         let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
-        for part in face.mandatory_additional_costs {
+        for part in super::wizard_mandatory_parts(face, wizard.option) {
             graveyard_batch.before_part(&mut self.state, part);
             if !paid_as_a_mandatory_additional_cost(part) {
                 continue;
@@ -262,6 +263,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::PutCounterOnOther { .. }
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost
+                | CostPart::ExileTopOfLibrary(_)
                 | CostPart::ExileFromHand(_) => {}
             }
         }

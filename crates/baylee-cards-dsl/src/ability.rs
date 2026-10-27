@@ -539,6 +539,10 @@ pub enum Trigger {
     /// The source becomes the target of a spell or ability (ward,
     /// Phantasmal Image).
     BecomesTarget,
+    /// Enchanted permanent becomes the target of a spell or ability; the
+    /// controller of that spell or ability is recorded as `EventPlayer`
+    /// (Fractured Loyalty).
+    EnchantedBecomesTarget,
     /// This permanent becomes a target of an opponent's spell or ability.
     /// Its implicit resolution subject is that stack object (ward).
     Ward,

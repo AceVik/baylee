@@ -353,7 +353,7 @@ pub fn cost_fits(cost: &baylee_cards_dsl::Cost, line: &str) -> bool {
     // A keyword ability prints its cost with no colon after it — "Cycling
     // {B}" is a whole line — so a line without one is read as all cost.
     let head = line.split_once(':').map_or(line.as_str(), |(head, _)| head);
-    let mut printed = braced(head);
+    let printed = braced(head);
     let taps = printed.iter().any(|s| s == "T");
     let untaps = printed.iter().any(|s| s == "Q");
     if taps != cost.parts.contains(&CostPart::TapSelf) {
@@ -368,16 +368,18 @@ pub fn cost_fits(cost: &baylee_cards_dsl::Cost, line: &str) -> bool {
         return false;
     }
     // Energy symbols belong to nonmana payments, not the mana cost.
-    printed.retain(|s| s != "T" && s != "Q" && s != "E");
     let mut want = braced(&cost.mana.to_string());
-    // `{0}` and no mana at all are the same cost written two ways, and
-    // equip is where they meet: Lightning Greaves prints "Equip {0}" and
-    // compiles to `ManaCost::ZERO`, which renders as nothing.
-    printed.retain(|s| s != "0");
     want.retain(|s| s != "0");
-    printed.sort();
     want.sort();
-    printed == want
+    for alt_head in head.split(" or ") {
+        let mut alt_printed = braced(alt_head);
+        alt_printed.retain(|s| s != "T" && s != "Q" && s != "E" && s != "0");
+        alt_printed.sort();
+        if alt_printed == want {
+            return true;
+        }
+    }
+    false
 }
 
 /// Does what a mana ability *makes* fit the body of a printed line?
@@ -523,7 +525,9 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         | T::InstantCastAfterFirst { .. }
         | T::NthSpellCast { .. }
         | T::FirstNoncreatureSpellCast(_) => &["cast"],
-        T::BecomesTarget | T::TargetedByOpponent { .. } => &["becomes the target"],
+        T::BecomesTarget | T::EnchantedBecomesTarget | T::TargetedByOpponent { .. } => {
+            &["becomes the target"]
+        }
         T::TurnedFaceUp => &["turned face up"],
         T::TransformsIntoThis => &["transforms into"],
         T::Mutates => &["mutates"],

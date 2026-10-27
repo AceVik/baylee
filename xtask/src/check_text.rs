@@ -843,7 +843,9 @@ pub(crate) fn check_scope_matches_the_text(
         || built.contains("AttackWithoutTappingWhileSourceUntappedThisCombat")
         // These scope the attack restriction/trigger to you and planeswalkers you control.
         || built.contains("AttackTaxLife")
-        || built.contains("WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn");
+        || built.contains("WheneverCreatureAttacksYouOrYourPlaneswalkerUntilYourNextTurn")
+        // This cumulative coin-flip effect untaps only lands its controller controls.
+        || built.contains("FlipCoinsUntilLossOrStopCumulative");
     let filters_theirs = compares_controllers
         || built.contains("ControlledByOpponent")
         || built.contains("OpponentControlCountAtMost(")

@@ -1153,6 +1153,16 @@ impl Effect {
             | Effect::SwapBlockers
             | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. }
             | Effect::RaidingParty
+            | Effect::PreventNextDamageFromTarget { .. }
+            | Effect::TargetPlayersCreaturesDontUntapNextUntap
+            | Effect::AddManaAmountFor { .. }
+            | Effect::ExchangeControlOfEventAndTarget
+            | Effect::UnattachAllEquipmentFromTarget
+            | Effect::ChoosePhaseToSkipThisTurn
+            | Effect::FlipCoinsUntilLossOrStopCumulative
+            | Effect::AttachedGainControlBy { .. }
+            | Effect::RevealTopPlayerMayPutOntoBattlefield { .. }
+            | Effect::RevealUntilLandDealDamage { .. }
             | Effect::SacrificeSelf
             | Effect::Hideaway(_)
             | Effect::ExileTopFaceDownLinked

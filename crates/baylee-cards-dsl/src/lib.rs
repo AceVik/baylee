@@ -448,6 +448,8 @@ pub struct FaceDef {
     pub morph: Option<ManaCost>,
     /// Mutate cost to cast this creature spell merging with a non-Human creature you own (CR 702.140).
     pub mutate: Option<ManaCost>,
+    /// Entwine cost to choose all modes of this modal spell (CR 702.42).
+    pub entwine: Option<crate::cost::Cost>,
 }
 
 impl FaceDef {
@@ -501,6 +503,7 @@ impl FaceDef {
         behold_or_pay: None,
         morph: None,
         mutate: None,
+        entwine: None,
     };
 }
 

@@ -152,6 +152,32 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             );
             None
         }
+        Effect::PreventNextDamageFromTarget { gain_life } => {
+            let id = *res.targets.first()?;
+            let reference = state.source_identity(id)?;
+            let source = crate::prevention::ChosenSource::new_with_context(
+                state,
+                reference,
+                &Filter::Any,
+                you,
+                res.rule_context(),
+            )?;
+            let origin = origin(state, res);
+            state.shields.push_from(
+                Shield {
+                    protects: Shielded::Everything,
+                    kind: ShieldKind::NextFrom {
+                        source,
+                        all_but: 0,
+                        gain_life,
+                        combat_only: false,
+                    },
+                    controller: you,
+                },
+                Some(origin),
+            );
+            None
+        }
         // The source is chosen as this resolves (CR 609.7a), and the choice
         // is an instruction, so `min: 1`; with no source to choose there is
         // no shield and no question (CR 609.3).

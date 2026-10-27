@@ -960,6 +960,18 @@ pub(super) fn exec_choice(
                 eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default();
             advance_raiding_party(state, res, remaining, Vec::new())
         }
+        Effect::ChoosePhaseToSkipThisTurn => {
+            let player = players_of(PlayerRel::EventPlayer, state, you, res)
+                .first()
+                .copied()?;
+            res.awaiting = Some(AwaitingOp::ChoosePhaseToSkipThisTurn);
+            Some(Pending::ChooseNumber {
+                player,
+                min: 0,
+                max: 2,
+                reason: crate::choice::NumberPrompt::Choice,
+            })
+        }
         _ => unreachable!("not a choice op"),
     }
 }

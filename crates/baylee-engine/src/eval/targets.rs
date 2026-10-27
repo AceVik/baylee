@@ -524,7 +524,9 @@ fn stack_target_options_impl(
         source: this,
         text: live_context(state, obj.id).text,
         resolved_name: None,
-        reference: reference.map(|reference| reference.object),
+        reference: reference
+            .map(|reference| reference.object)
+            .or(obj.event_object),
     };
     let mut objects = target_pair::stack_options(state, obj, spec, context, reference, retargeting)
         .unwrap_or_else(|| target_options_with_x(spec, state, you, context, Some(obj.x_value)));

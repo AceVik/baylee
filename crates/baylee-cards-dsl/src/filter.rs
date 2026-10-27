@@ -193,6 +193,8 @@ pub enum Filter {
     HasCumulativeUpkeep,
     /// Has an Aura attached to it. Equipment alone does not count.
     Enchanted,
+    /// Has an Equipment attached to it (CR 301.5c). Auras alone do not count.
+    Equipped,
     /// Is blocking the source creature.
     BlockingSource,
     /// Is blocked by the source creature.
@@ -376,6 +378,24 @@ pub enum Filter {
     /// Was tapped this turn to pay an activation cost of the source permanent
     /// (Vodalian War Machine: "each Merfolk tapped this turn to pay its cost").
     TappedToPayForSourceThisTurn,
+    /// Mana value equals the number of counters of this kind on the source
+    /// permanent (Chalice of the Void: "a spell with mana value equal to the
+    /// number of charge counters on this artifact").
+    CmcEqualsCountersOnSource(crate::CounterKind),
+    /// Not controlled by the reference object's controller (Confusion in the
+    /// Ranks: "target [type] its controller doesn't control").
+    NotControlledByReferenceController,
+    /// Has the lowest mana value or is tied for the lowest mana value among
+    /// permanents on the battlefield matching the inner filter (Culling Scales:
+    /// "target nonland permanent with the lowest mana value").
+    LowestManaValueOnBattlefield(&'static Filter),
+    /// Has the same name as a card in exile linked to the source permanent
+    /// (Extraplanar Lens: "a land with the same name as the exiled card").
+    SameNameAsLinkedExile,
+    /// Mana value equals the amount of unspent mana in `you`'s mana pool
+    /// (Glissa Sunseeker: "if its mana value is equal to the amount of mana in
+    /// your mana pool").
+    CmcEqualsYourUnspentMana,
 }
 
 /// Zone references for filters (engine zones, DSL view).

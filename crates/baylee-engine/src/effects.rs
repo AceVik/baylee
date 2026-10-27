@@ -153,6 +153,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::SetPower(_)
         | Modifier::SetToughness(_)
         | Modifier::SetPTToCount(_)
+        | Modifier::CopyLastExiledCreaturePTAndSubtypes
         | Modifier::SwitchPT => true,
         // Neither: a shield that prevents damage, and the rules a player
         // plays under. Teferi's `SorceriesHaveFlash` is the clearest of
@@ -170,6 +171,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ReplaceTappedMana { .. }
         | Modifier::AbilitiesCostMore(_)
             | Modifier::AbilitiesCostLess { .. }
+            | Modifier::EquipCostsLess(_)
+            | Modifier::CantActivateNonMana
             | Modifier::RegenerateInsteadOfDestroy
                     | Modifier::CantBeRegenerated
         | Modifier::LegendRuleOff
@@ -633,7 +636,9 @@ impl EffectTable {
                 fx.modifier,
                 Modifier::AbilitiesCostMore(_)
                     | Modifier::AbilitiesCostLess { .. }
+                    | Modifier::EquipCostsLess(_)
                     | Modifier::CantActivate
+                    | Modifier::CantActivateNonMana
                     | Modifier::CantActivateArtifacts
                     | Modifier::ChosenNameCantActivate
             ),

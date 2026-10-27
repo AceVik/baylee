@@ -1968,6 +1968,7 @@ impl HeuristicAgent {
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost => 20,
+                CostPart::ExileTopOfLibrary(n) => i64::from(*n) * 5,
                 CostPart::TapOther(filter) => own(filter, &|o| {
                     o.id != origin.id && !o.status.contains(ObjectStatus::TAPPED)
                 })

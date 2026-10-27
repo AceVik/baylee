@@ -90,6 +90,11 @@ impl DamageWork {
     }
 
     pub(super) fn commit_additional(&mut self, state: &mut GameState) {
+        for id in self.consumed_shields.drain(..) {
+            if let Some(i) = state.shields.position(id) {
+                state.shields.remove(i);
+            }
+        }
         for (player, amount) in self.life_gains.drain(..) {
             state.change_life(
                 player,

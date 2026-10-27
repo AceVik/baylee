@@ -542,7 +542,10 @@ express at all yet.
   matching permanent as an activation cost),
   `PayAttachedManaCost` ( Merseine's "Pay enchanted creature's mana cost":
   adds the attached permanent's printed mana cost to the activation's mana
-  cost).
+  cost),
+  `ExileTopOfLibrary(n)` (Arc-Slogger's "Exile the top ten cards of your
+  library": exiles the top `n` cards of the payer's library; requires at least
+  `n` cards in library).
 
   `CostPart::ExertSelf` exerts the source as an activation cost. It does not
   tap the permanent, require it to be untapped, or impose summoning sickness;
@@ -4587,3 +4590,49 @@ for opposite life gain and loss between the controller and `opponent`. The
 winner may repeat with the stake multiplied by `multiplier`; the contest
 remains one resolving instruction, including any replacement decisions
 between life changes.
+
+`FaceDef::entwine` (`entwine = Some(cost)` in `face!(…)`) adds an entwine
+cost (CR 702.42) to a modal spell with `ModeCount::ONE`, allowing the caster
+to choose all modes by paying the additional mana and/or non-mana cost parts.
+`Modifier::EquipCostsLess(n)` reduces generic mana in equip costs of matching
+Equipment by `n` (minimum `{0}`). `Modifier::CantActivateNonMana` prevents
+activating non-mana activated abilities of matching permanents.
+`Modifier::CopyLastExiledCreaturePTAndSubtypes` copies the power, toughness,
+and creature subtypes of the last creature card exiled with the source in
+layers 4 and 7b while retaining `Shapeshifter`.
+
+`Trigger::EnchantedBecomesTarget` fires when the permanent enchanted by the
+source Aura becomes the target of a spell or ability, recording that spell or
+ability's controller as `EventPlayer`. `Filter::CmcEqualsCountersOnSource(k)`
+matches objects whose mana value equals the number of `k` counters on the
+source; `Filter::LowestManaValueOnBattlefield(f)` matches battlefield
+permanents satisfying `f` with the minimum mana value among all such
+permanents; `Filter::SameNameAsLinkedExile` matches objects sharing a name
+with a card exiled with the source; `Filter::CmcEqualsYourUnspentMana`
+matches objects whose mana value equals the controller's unspent mana pool
+total.
+
+`Effect::PreventNextDamageFromTarget { gain_life }` prevents all damage the
+first target creature would deal the next time it would deal damage this
+turn, optionally gaining life equal to the damage prevented.
+`Effect::TargetPlayersCreaturesDontUntapNextUntap` prevents creatures the
+target player controls from untapping during that player's next untap step.
+`Effect::AddManaAmountFor { who, color, amount }` adds `amount` of `color`
+mana for each matching player. `Effect::ExchangeControlOfEventAndTarget`
+exchanges control of the triggering event permanent and the first target
+permanent. `Effect::UnattachAllEquipmentFromTarget` unattaches all Equipment
+from the first target creature. `Effect::ChoosePhaseToSkipThisTurn` asks the
+event player to choose draw step, main phase, or combat phase and skips each
+instance of the chosen step or phase this turn.
+`Effect::FlipCoinsUntilLossOrStopCumulative` flips coins until a loss (no
+effect) or the controller stops, applying cumulative 1/2/3-win effects.
+`Effect::AttachedGainControlBy { new_controller }` grants indefinite control
+of the enchanted permanent to `new_controller`.
+`Effect::RevealTopPlayerMayPutOntoBattlefield { player, filter }` reveals the
+named player's top library card and lets that player put it onto the
+battlefield if it matches `filter`.
+`Effect::RevealUntilLandDealDamage { target }` reveals cards from the top of
+the controller's library until a land card is revealed, deals damage equal to
+the number of nonland cards revealed (doubled if the land is a Mountain) to
+`target`, and puts the revealed cards on the bottom of the library in any
+order.

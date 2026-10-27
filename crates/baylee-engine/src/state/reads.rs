@@ -52,12 +52,14 @@ pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool 
         | Filter::BlockedByReference
         | Filter::BlockedByReferenceThisTurn
         | Filter::BlockedReferenceThisTurn
+        | Filter::NotControlledByReferenceController
         | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::SharesTypeWithReference(_) => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_reference),
         Filter::Not(f)
         | Filter::AttachedTo(f)
         | Filter::BlockedThisTurnBy(f)
+        | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
         | Filter::ControllerControls(f) => filter_reads_reference(f),
         _ => false,
