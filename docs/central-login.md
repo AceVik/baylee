@@ -25,7 +25,7 @@ current dependency chain contains 0.5.5 through `elliptic-curve` 0.13.8,
 bigint 0.5, so changing the lockfile to 0.7.6 is not a compatible upgrade.
 
 The specific Central revision
-`45ad9d9d64d64e59a0fbc607587cccbff7dd52ce` contains the same `central-crypto`
+`3ae5035207f7046910c01e1cd07abcdf29f75ae0` contains the same `central-crypto`
 source tree reviewed independently by two models on 24.10.2026. The 28.10.2026 pin adds the memorial website and a
 fail-closed source/graph guard for Central's matching advisory exception;
 `git diff` confirms the entire crypto crate is unchanged. Argon High
