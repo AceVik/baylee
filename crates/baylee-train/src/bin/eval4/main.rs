@@ -31,7 +31,9 @@ use baylee_train::features4::{
     CoverageMatrix4, SourceKind4, StepProvenance4, side_utility, view_only_state_hash,
 };
 use baylee_train::housedeck::HouseDeck;
-use baylee_train::netplay4::{NetPlayer4, PolicyMode4, valid_raw_temperature};
+use baylee_train::netplay4::{
+    ModelIdentity, NetPlayer4, PolicyMode4, inspect_model_identity, valid_raw_temperature,
+};
 use baylee_train::selfplay::table_for;
 use baylee_train::working::{Working, repo_root};
 use clap::Parser;
@@ -61,6 +63,11 @@ fn main() -> anyhow::Result<()> {
         PolicyMode4::Raw
     } else {
         PolicyMode4::Tactical
+    };
+    let model_identity = if args.legacy_v3 {
+        None
+    } else {
+        Some(inspect_model_identity(&args.model)?)
     };
     if args.legacy_v3
         && (args.record_out.is_some() || args.temperature != 0.0 || args.thinking_steps != 1)
@@ -173,6 +180,11 @@ fn main() -> anyhow::Result<()> {
                 "policy_mode": policy_mode,
                 "policy_contract": policy_mode.contract(),
                 "policy_provenance_version": 1,
+                "model_family": model_identity.as_ref().map(|identity|identity.model_family),
+                "model_identity": model_identity,
+                "evaluator_build": baylee_build::short(),
+                "evaluator_revision": baylee_build::COMMIT,
+                "evaluator_dirty": baylee_build::DIRTY,
                 "record_version": baylee_gamehost::record::RECORD_VERSION,
                 "training_data": true,
                 "decks": deck_json,
@@ -223,9 +235,17 @@ fn main() -> anyhow::Result<()> {
         let fair = args.fair_scouting;
         let no_base = args.no_baseline;
         let legacy = args.legacy_v3;
+        let expected_identity = model_identity.clone();
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
-            let mut net = load_player(&model_path, legacy, k_steps, temp, policy_mode)?;
+            let mut net = load_player(
+                &model_path,
+                legacy,
+                k_steps,
+                temp,
+                policy_mode,
+                expected_identity.as_ref(),
+            )?;
 
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
             let mut shard_file = match &rec_out {
@@ -498,7 +518,15 @@ fn main() -> anyhow::Result<()> {
         json!(!args.legacy_v3 && policy_mode == PolicyMode4::Tactical);
     summary["deal_details"] = json!(st.deal_details);
     summary["coverage_matrix"] = json!(st.coverage.counts);
-    summary["model_family"] = json!(if args.legacy_v3 { "v3-expert" } else { "v4" });
+    summary["model_family"] = json!(
+        model_identity
+            .as_ref()
+            .map_or("v3-expert", |identity| identity.model_family)
+    );
+    summary["model_identity"] = json!(model_identity);
+    summary["evaluator_build"] = json!(baylee_build::short());
+    summary["evaluator_revision"] = json!(baylee_build::COMMIT);
+    summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
 
     if let Some(parent) = args.out.parent() {

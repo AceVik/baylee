@@ -10,7 +10,6 @@
 //! - Explicit [`CoverageMatrix4`] and [`StepProvenance4`] tracking.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
@@ -21,7 +20,6 @@ use baylee_view::PlayerView;
 use ort::session::Session;
 use ort::session::builder::GraphOptimizationLevel;
 use ort::value::Tensor;
-use serde_json::Value;
 
 use crate::carddsl::CARD_DSL_WIDTH;
 use crate::deckgen::Rng;
@@ -38,7 +36,9 @@ mod choices;
 mod fallback;
 #[cfg(test)]
 mod fallback_tests;
+mod identity;
 mod live_init;
+pub use identity::{ModelIdentity, inspect_model_identity};
 mod policy;
 use policy::sample_categorical;
 pub use policy::{PolicyMode4, valid_raw_temperature};
@@ -87,6 +87,7 @@ pub struct NetPlayer4 {
     model_dir: PathBuf,
     rule_roots: Option<BTreeMap<String, u32>>,
     encoder_version: u32,
+    model_identity: ModelIdentity,
     d_model: usize,
     thinking_steps: u8,
     temperature: f32,
@@ -142,36 +143,15 @@ fn load_session(path: &Path) -> anyhow::Result<Session> {
 }
 
 impl NetPlayer4 {
-    /// Loads a Playernet v4 ONNX checkpoint directory (containing `model.onnx`
-    /// and `meta.json`) or a direct `.onnx` file path.
+    /// Loads a supported V4/V5 ONNX directory (`model.onnx` and
+    /// `model.onnx.json`) or a graph with companion metadata.
     ///
     /// # Errors
     /// When the ONNX model or metadata cannot be loaded.
     pub fn load(path: &Path) -> anyhow::Result<Self> {
-        let (onnx_path, meta_path) = if path.is_dir() {
-            (path.join("model.onnx"), path.join("model.onnx.json"))
-        } else {
-            let onnx_json = path.with_extension("onnx.json");
-            let meta_p = if onnx_json.exists() {
-                onnx_json
-            } else {
-                path.with_file_name("meta.json")
-            };
-            (path.to_path_buf(), meta_p)
-        };
-        let meta: Value = serde_json::from_slice(&fs::read(&meta_path)?)?;
-        let encoder_version = meta["encoder_version"]
-            .as_u64()
-            .context("missing encoder_version")? as u32;
-        let legacy = encoder_version == 5 && meta["model_version"] == 2;
-        let structured =
-            (encoder_version == 6 || encoder_version == 7) && meta["model_version"] == 3;
-        anyhow::ensure!(
-            (legacy || structured)
-                && meta["trajectory_version"] == 2
-                && meta["sampling_version"] == 2,
-            "incompatible v4 model contracts; re-export repaired model"
-        );
+        let (onnx_path, meta, model_identity) = identity::read_model(path)?;
+        let encoder_version = model_identity.encoder_version;
+        let structured = matches!(model_identity.model_version, 3 | 5);
         let d_model = meta["d_model"].as_u64().context("missing d_model")? as usize;
         let thinking_steps = meta["thinking_steps"]
             .as_u64()
@@ -188,11 +168,16 @@ impl NetPlayer4 {
             None
         };
 
+        anyhow::ensure!(
+            identity::read_model(path)?.2 == model_identity,
+            "model files changed while opening the ONNX session"
+        );
         Ok(Self {
             sessions: BTreeMap::from([(thinking_steps, session)]),
             model_dir: onnx_path.parent().context("model parent")?.to_path_buf(),
             rule_roots,
             encoder_version,
+            model_identity,
             d_model,
             thinking_steps,
             temperature: 0.0,
@@ -205,6 +190,12 @@ impl NetPlayer4 {
             last_announced_source: BTreeMap::new(),
             coverage: CoverageMatrix4::default(),
         })
+    }
+
+    /// Exact model family, architecture and graph/metadata content hashes.
+    #[must_use]
+    pub const fn model_identity(&self) -> &ModelIdentity {
+        &self.model_identity
     }
 
     /// Returns `true` when this player uses the Encoder 7 state/candidate contract.
@@ -622,7 +613,9 @@ impl NetPlayer4 {
         };
         if !self.sessions.contains_key(&depth) {
             let path = self.model_dir.join(format!("model.k{depth}.onnx"));
+            identity::verify_depth_graph(&path, depth, &self.model_identity)?;
             let session = load_session(&path)?;
+            identity::verify_depth_graph(&path, depth, &self.model_identity)?;
             self.sessions.insert(depth, session);
         }
         let outputs = self

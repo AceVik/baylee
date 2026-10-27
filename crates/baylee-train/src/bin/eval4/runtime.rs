@@ -105,14 +105,18 @@ fn load_player(
     depth: u8,
     temperature: f32,
     policy_mode: PolicyMode4,
+    expected_identity: Option<&ModelIdentity>,
 ) -> anyhow::Result<Box<dyn EvaluationPlayer>> {
     if !legacy {
-        return Ok(Box::new(
-            NetPlayer4::load(path)?
-                .with_thinking_steps(depth)
-                .with_temperature(temperature)
-                .with_policy_mode(policy_mode),
-        ));
+        let player = NetPlayer4::load(path)?
+            .with_thinking_steps(depth)
+            .with_temperature(temperature)
+            .with_policy_mode(policy_mode);
+        anyhow::ensure!(
+            expected_identity == Some(player.model_identity()),
+            "worker model identity differs from evaluation/run metadata"
+        );
+        return Ok(Box::new(player));
     }
     let model = if path.is_dir() {
         path.join("net.onnx")
