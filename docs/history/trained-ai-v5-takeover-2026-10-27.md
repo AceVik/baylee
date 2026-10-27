@@ -537,3 +537,49 @@ payloads under different paths remain unknown. This is not a held-out-family
 test. A matched loss5 legacy arm is included alongside the unchanged loss4
 reference so implementation-version effects can be separated from the
 outcome-weight and unroll-normalizer changes.
+
+### Queued objective comparison
+
+The next controller is now running as PID 471736 in
+`/home/ace/baylee-data/v5/experiments/objective-ablation-20261027`. It waits for
+the exact post-review predecessor to finish; no competing GPU training was
+started. Its frozen trainer revision is
+`b587590a475a00e6a9fc6bc37f32f0264b028b8a`, with 151 Python files and the same
+evaluation binary as the completed broad comparison. The input seal
+`4278156e2fcf047f7c2c82d9e773e885365f65f3d01366c57bf8fc53d91d1fd1`
+covers 1,484 files (22.59 GiB of logical input sizes). CPU preparation verified
+the copied source, loaded the model and parsed all four actual training commands.
+
+All four arms start from broad v5's selected step 2,500 with fresh optimizers
+and package 0001: unchanged loss4, loss5 with legacy settings, loss5 without
+outcome weighting, and loss5 with full-unroll per-head normalization. Each
+receives exactly 1,500 updates, B8/U32/K2 and seed 31441. Initial/final validation
+is identical; asynchronous checkpoints remain enabled. These are partial
+training windows, not complete epochs. New performance variants remain off.
+
+The primary comparison uses each fixed final checkpoint, independently of
+which snapshot the existing policy score selects. Common diagnostics cover all
+769,611 validation frames. Raw Sharp matches repeat the same 64 duel and 32
+Commander cases for source and all four final models, with comparisons against
+the source, loss4 reference and loss5 legacy bridge. This remains reused
+development evidence; no automatic promotion follows.
+
+Seven controller tests pass, covering duplicate locks, predecessor failure,
+corrupt seals, changed produced artifacts, incomplete update/validation counts,
+invalid diagnostics and loaded-model/evaluation identities. An independent
+review also checked the actual CLI and checkpoint/export schemas. Produced
+model and export hashes are pinned once and checked across consumers. The
+controller uses process-local digest receipts throughout, avoiding repeated
+full reads while preserving fixed expected hashes. The independent
+`baylee-v5-objective-watch.timer` is active for completion/failure delivery to
+this session. Estimated duration after GPU acquisition is about 3–4 hours;
+compilation and data shapes can change it.
+
+The first two full post-review diagnostics already explain why aggregate
+accuracy is insufficient. Source-to-selected v5 pass-label agreement rose
+98.29% to 98.51%, while active-label agreement fell 59.64% to 58.81%. Subset
+free-entry BCE worsened from 0.3271 to 0.4109 while mean per-decision BCE improved
+from 0.6118 to 0.5408. These distinct reductions emphasize different decisions;
+both must be retained. They do not establish a causal explanation or certify
+decoded-action legality. The selected control diagnostic and bounded GPU
+performance screen remain in progress at this entry.
