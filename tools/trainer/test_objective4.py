@@ -34,6 +34,42 @@ class ObjectiveTests(unittest.TestCase):
             for a, b in zip(*observed):
                 torch.testing.assert_close(a, b)
 
+    def test_policy_loss_is_symmetric_under_candidate_relabeling_and_binary_complement(self):
+        # Two distinct rows are required: a normalized row weight cancels for B=1.
+        for optimized in (False, True):
+            for head in (0, 1, 2):
+                results = []
+                for flip in (False, True):
+                    batch = batch_fixture(b=2, u=1)
+                    batch["step_valid"].fill_(True)
+                    batch["is_decision"].fill_(True)
+                    batch["head"].fill_(head)
+                    batch["loss_weight"].fill_(1)
+                    batch["outcome"].fill_(.5)
+                    prefix = "pair" if head == 2 else "cand"
+                    batch[prefix + "_mask"].fill_(True)
+                    batch[prefix + "_free_mask"].fill_(1)
+                    batch[prefix + "_target_mask"].zero_()
+                    batch[prefix + "_target_mask"][0].fill_(1)
+                    batch["single_idx"][:, 0] = torch.tensor([0, 1])
+                    width = batch[prefix + "_mask"].shape[-1]
+                    raw = torch.arange(2 * width, dtype=torch.float32).reshape(2, width) / 3
+                    if flip:
+                        if head == 0:
+                            raw = raw.flip(-1)
+                            batch["single_idx"] = width - 1 - batch["single_idx"]
+                        else:
+                            raw = -raw
+                            batch[prefix + "_target_mask"] = 1 - batch[prefix + "_target_mask"]
+                    cand = raw if head != 2 else torch.zeros(2, batch["cand_mask"].shape[-1])
+                    pair = raw if head == 2 else torch.zeros(2, batch["pair_mask"].shape[-1])
+                    args = [cand, pair, torch.zeros(2), batch["outcome"][:, 0],
+                            batch["aux_target"][:, 0], batch, 0]
+                    loss, _ = (compute_device_loss(*args, plan_batch(batch, 0)[0]) if optimized
+                               else compute_step_loss(*args))
+                    results.append(loss)
+                torch.testing.assert_close(*results)
+
     def test_choice_metrics_include_optional_pass_and_exclude_forced_nonpass(self):
         logits = torch.tensor([[2., 0.], [2., -1e9], [0., 3.]])
         mask = torch.tensor([[True, True], [True, False], [True, True]])

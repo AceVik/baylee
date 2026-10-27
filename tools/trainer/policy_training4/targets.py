@@ -46,7 +46,7 @@ def _raw_choice(step):
             if not isinstance(mask, list) or len(mask) != size or any(
                     not isinstance(x, (int, float)) or not np.isfinite(x) or x not in (0, 1) for x in mask):
                 raise ValueError('Malformed stochastic neural ' + name)
-        return any(target['free_mask'])
+        return temperature > 0.35 and any(target['free_mask'])
     if head == 3:
         raise ValueError('Scalar action falsely claims stochastic behavior probability')
     raise ValueError('Unknown stochastic neural action head')
@@ -76,7 +76,7 @@ def _bst4_choice(blob: bytes) -> bool:
         fm = blob[len(blob) - n_fm :]
         if any(b not in (0, 1) for b in mm) or any(b not in (0, 1) for b in fm):
             raise ValueError('Malformed stochastic neural mask values')
-        return any(fm)
+        return temperature > 0.35 and any(fm)
     if head == 3:
         raise ValueError('Scalar action falsely claims stochastic behavior probability')
     raise ValueError('Unknown stochastic neural action head')
@@ -136,15 +136,20 @@ def _learner_histories(dataset):
 
 
 @torch.no_grad()
-def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, tolerance=.002):
+def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, tolerance=.001):
     """Audit all genuine learner choices before exposing normalized advantages.
 
     Original segment IDs remain stable. Sparse disk arrays bound resident cache
     memory; their TemporaryDirectory is retained by the dataset for its lifetime.
     Teacher-only trajectories are removed from the in-memory sampler list only.
     """
+    if not np.isfinite(tolerance) or not 0 < tolerance <= .002:
+        raise ValueError('Behavior audit tolerance must be finite and at most 0.002')
     if hasattr(dataset, 'ppo_cache'):
         raise ValueError('Refusing to reuse a dataset with existing policy targets')
+    # Parity alone cannot prove archived tactical actions followed the sampled policy.
+    if dataset.meta.get('policy_provenance_version') != 1:
+        raise ValueError('PPO requires certified raw-policy provenance version 1; archived data remains BC-only')
     if dataset.meta.get('sampling_version') != M.SAMPLING_VERSION:
         raise ValueError('Incompatible recorded sampling contract')
     if any(p.dtype != torch.float32 for p in net.parameters()):

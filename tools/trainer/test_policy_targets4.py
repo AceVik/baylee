@@ -17,7 +17,7 @@ from policy_training4.targets import actor_mask, prepare_policy_targets, _learne
 class Dataset(TinyDataset):
     def __init__(self, mismatch=False, forced=False):
         super().__init__(16)
-        self.meta={'sampling_version':M.SAMPLING_VERSION}
+        self.meta={'sampling_version':M.SAMPLING_VERSION, 'policy_provenance_version':1}
         index=np.zeros(6,dtype=[('game','u4'),('seat','u4'),('cursor','u8'),('flags','u4')])
         index['game']=[10]*3+[11]*3;index['cursor']=[0,1,2]*2;index['flags']=[0,0,3,0,0,2]
         self.store=SimpleNamespace(index=index,read=lambda row:{'is_decision':row==2,'head':0,
@@ -61,6 +61,30 @@ class Targets(unittest.TestCase):
         self.assertEqual(float(d.ppo_cache['advantages'][1,0]),0)
         self.assertFalse(d.ppo_cache['actor_mask'][0].any())
         d._policy_targets_directory.cleanup()
+    def test_archived_uncertified_data_is_rejected_before_forward(self):
+        d = Dataset()
+        d.meta.pop('policy_provenance_version')
+        net = Frozen()
+        with self.assertRaisesRegex(ValueError, 'certified raw-policy'):
+            prepare_policy_targets(net, d, 'cpu')
+        self.assertFalse(net.calls)
+        self.assertFalse(hasattr(d, 'ppo_cache'))
+
+    def test_behavior_audit_cannot_be_disabled_by_large_tolerance(self):
+        for tolerance in (20., float("nan"), 0.):
+            with self.assertRaisesRegex(ValueError, "tolerance"):
+                prepare_policy_targets(Frozen(), Dataset(), 'cpu', tolerance=tolerance)
+
+    def test_small_but_material_behavior_mismatch_rejected(self):
+        original = Dataset.__getitem__
+        class SlightMismatch(Dataset):
+            def __getitem__(self, idx):
+                row = original(self, idx)
+                row['behavior_logprob'] += .01
+                return row
+        with self.assertRaisesRegex(ValueError, 'probability mismatch'):
+            prepare_policy_targets(Frozen(), SlightMismatch(), 'cpu', board_chunk=0)
+
     def test_mismatch_fails_before_targets_are_published(self):
         d=Dataset(mismatch=True)
         with self.assertRaisesRegex(ValueError,'probability mismatch'):
@@ -117,6 +141,18 @@ class Targets(unittest.TestCase):
         for mask in ([0], [0,2], [0,float('nan')]):
             st={**base,'head':1,'target':{'multi_mask':[0,1],'free_mask':mask}}
             with self.assertRaisesRegex(ValueError,'free_mask'):_raw_choice(st)
+
+    def test_low_temperature_heuristic_rows_are_not_learner_histories(self):
+        from policy_training4.targets import _raw_choice
+        base = Dataset().store.read(2)
+        for head in (1, 2):
+            for temperature in (.2, .35, .6):
+                step = {**base, 'head': head, 'pairs': [[], []],
+                        'target': {'multi_mask': [1, 0], 'free_mask': [1, 1]},
+                        'provenance': {**base['provenance'], 'temperature': temperature}}
+                self.assertEqual(_raw_choice(step), temperature > .35)
+            step['provenance']['source'] = 'House'
+            self.assertFalse(_raw_choice(step))
 
     def test_actor_masks_respect_structural_choices_and_free_masks(self):
         b={k:torch.ones(1,5,dtype=torch.bool) for k in ['step_valid','is_decision','has_logprob']}

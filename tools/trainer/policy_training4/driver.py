@@ -43,7 +43,7 @@ def main():
     if dataset.structure.digest != net.rules.digest:
         raise ValueError("Rollout and model use different public rule catalogs")
     from .targets import prepare_policy_targets
-    audit = prepare_policy_targets(net, dataset, device, batch_size=args.batch_size, board_chunk=args.board_chunk, tolerance=20.0)
+    audit = prepare_policy_targets(net, dataset, device, batch_size=args.batch_size, board_chunk=args.board_chunk)
     parameters = select_policy_parameters(net)
     optimizer = torch.optim.AdamW(parameters, lr=args.lr, weight_decay=0)
     # All shared modules are frozen; catalog representations can be reused safely.

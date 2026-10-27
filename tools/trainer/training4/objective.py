@@ -2,7 +2,10 @@
 import torch
 import torch.nn.functional as F
 
-LOSS_VERSION = 3
+# v4: symmetric categorical CE and ordinary Bernoulli BCE, unit head weights.
+# Existing explicit per-step/outcome weights remain; this is weighted imitation,
+# not a guarantee of calibrated deployment probabilities.
+LOSS_VERSION = 4
 
 
 def selection_score(metrics, selection):
