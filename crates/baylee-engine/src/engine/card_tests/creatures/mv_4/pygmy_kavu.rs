@@ -11,14 +11,19 @@ fn pygmy_kavu_draws_a_card_for_each_black_creature_opponents_control() {
     let kavu = card_index("17407b73-0dbe-4a71-84ec-3aaca9651f5b");
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, forest())
-        .battlefield(0, &[forest(), forest(), forest(), forest(), index::DRUDGE_SKELETONS])
+        .battlefield(
+            0,
+            &[
+                forest(),
+                forest(),
+                forest(),
+                forest(),
+                index::DRUDGE_SKELETONS,
+            ],
+        )
         .battlefield(
             1,
-            &[
-                index::DRUDGE_SKELETONS,
-                index::BOG_WRAITH,
-                grizzly_bears(),
-            ],
+            &[index::DRUDGE_SKELETONS, index::BOG_WRAITH, grizzly_bears()],
         )
         .hand(0, &[kavu])
         .start();

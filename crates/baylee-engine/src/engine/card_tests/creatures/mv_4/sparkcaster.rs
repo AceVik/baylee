@@ -13,13 +13,7 @@ fn sparkcaster_returns_red_or_green_creature_you_control_and_deals_one_damage_to
     let mut engine = Duel::new(SEED, forest())
         .battlefield(
             0,
-            &[
-                grizzly_bears(),
-                mountain(),
-                mountain(),
-                forest(),
-                forest(),
-            ],
+            &[grizzly_bears(), mountain(), mountain(), forest(), forest()],
         )
         .hand(0, &[sparkcaster])
         .start();
@@ -56,7 +50,12 @@ fn sparkcaster_returns_red_or_green_creature_you_control_and_deals_one_damage_to
                     options[0]
                 };
                 engine
-                    .apply(player, PlayerAction::ChooseObjects { objects: vec![pick] })
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![pick],
+                        },
+                    )
                     .unwrap();
             }
             Pending::Priority { player, .. } => {

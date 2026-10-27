@@ -48,7 +48,12 @@ fn razing_snidd_returns_black_or_red_creature_and_makes_each_player_sacrifice_a_
                     options[0]
                 };
                 engine
-                    .apply(player, PlayerAction::ChooseObjects { objects: vec![pick] })
+                    .apply(
+                        player,
+                        PlayerAction::ChooseObjects {
+                            objects: vec![pick],
+                        },
+                    )
                     .unwrap();
             }
             Pending::Priority { player, .. } => {

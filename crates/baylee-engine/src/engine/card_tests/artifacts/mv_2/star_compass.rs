@@ -41,6 +41,13 @@ fn star_compass_produces_only_colors_of_basic_lands_you_control() {
         panic!("expected a color choice, got {:?}", engine.pending());
     };
     assert_eq!(options, vec![ManaColor::Blue, ManaColor::Red]);
-    engine.apply(p0, PlayerAction::ChooseColor(ManaColor::Blue)).unwrap();
-    assert_eq!(engine.state().players[0].mana_pool.available(ManaColor::Blue), 1);
+    engine
+        .apply(p0, PlayerAction::ChooseColor(ManaColor::Blue))
+        .unwrap();
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Blue),
+        1
+    );
 }

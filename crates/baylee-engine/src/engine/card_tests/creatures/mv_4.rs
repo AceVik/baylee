@@ -353,6 +353,7 @@ mod viashino_weaponsmith;
 mod vile_deacon;
 mod vine_dryad;
 mod viridian_lorebearers;
+mod voice_of_all;
 mod volcano_imp;
 mod voracious_cobra;
 mod vulshok_berserker;

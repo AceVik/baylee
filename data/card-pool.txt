@@ -11299,3 +11299,18 @@ Sparkcaster
 Star Compass
 Stormscape Battlemage
 Stormscape Familiar
+
+# Planeshift (pls) — batch 4
+Stratadon
+Sunken Hope
+Sunscape Battlemage
+Sunscape Familiar
+Surprise Deployment
+Tahngarth, Talruum Hero
+Thornscape Battlemage
+Thornscape Familiar
+Thunderscape Battlemage
+Thunderscape Familiar
+Voice of All
+Warped Devotion
+Waterspout Elemental

@@ -14817,22 +14817,48 @@ pub static ORACLE: &[&[&str]] = &[
     &["Flying\nWhite spells and black spells you cast cost {1} less to cast."],
     // Strafe
     &["Strafe deals 3 damage to target nonred creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Stratadon
+    &[
+        "Domain — This spell costs {1} less to cast for each basic land type among lands you control.\nTrample",
+    ],
+    // Sunken Hope
+    &[
+        "At the beginning of each player's upkeep, that player returns a creature they control to its owner's hand.",
+    ],
+    // Sunscape Battlemage
+    &[
+        "Kicker {1}{G} and/or {2}{U} (You may pay an additional {1}{G} and/or {2}{U} as you cast this spell.)\nWhen this creature enters, if it was kicked with its {1}{G} kicker, destroy target creature with flying.\nWhen this creature enters, if it was kicked with its {2}{U} kicker, draw two cards.",
+    ],
+    // Sunscape Familiar
+    &[
+        "Defender (This creature can't attack.)\nGreen spells and blue spells you cast cost {1} less to cast.",
+    ],
+    // Surprise Deployment
+    &[
+        "Cast this spell only during combat.\nYou may put a nonwhite creature card from your hand onto the battlefield. At the beginning of the next end step, return that creature to your hand. (Return it only if it's on the battlefield.)",
+    ],
+    // Tahngarth, Talruum Hero
+    &[
+        "Vigilance\n{1}{R}, {T}: Tahngarth deals damage equal to its power to target creature. That creature deals damage equal to its power to Tahngarth.",
+    ],
     // Terminal Moraine
     &[
         "{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
     ],
     // Terminate
     &["Destroy target creature. It can't be regenerated."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Thornscape Battlemage
+    &[
+        "Kicker {R} and/or {W} (You may pay an additional {R} and/or {W} as you cast this spell.)\nWhen this creature enters, if it was kicked with its {R} kicker, it deals 2 damage to any target.\nWhen this creature enters, if it was kicked with its {W} kicker, destroy target artifact.",
+    ],
+    // Thornscape Familiar
+    &["Red spells and white spells you cast cost {1} less to cast."],
+    // Thunderscape Battlemage
+    &[
+        "Kicker {1}{B} and/or {G} (You may pay an additional {1}{B} and/or {G} as you cast this spell.)\nWhen this creature enters, if it was kicked with its {1}{B} kicker, target player discards two cards.\nWhen this creature enters, if it was kicked with its {G} kicker, destroy target enchantment.",
+    ],
+    // Thunderscape Familiar
+    &["First strike\nBlack spells and green spells you cast cost {1} less to cast."],
     // Treva's Charm
     &[
         "Choose one —\n• Destroy target enchantment.\n• Exile target attacking creature.\n• Draw a card, then discard a card.",
@@ -14843,11 +14869,18 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Urza's Guilt
     &["Each player draws two cards, then discards three cards, then loses 4 life."],
-    &[],
+    // Voice of All
+    &[
+        "Flying\nAs this creature enters, choose a color.\nThis creature has protection from the chosen color.",
+    ],
     // Volcano Imp
     &["Flying\n{1}{R}: This creature gains first strike until end of turn."],
-    &[],
-    &[],
+    // Warped Devotion
+    &["Whenever a permanent is returned to a player's hand, that player discards a card."],
+    // Waterspout Elemental
+    &[
+        "Kicker {U} (You may pay an additional {U} as you cast this spell.)\nFlying\nWhen this creature enters, if it was kicked, return all other creatures to their owners' hands and you skip your next turn.",
+    ],
     // Fungal Shambler
     &[
         "Trample\nWhenever this creature deals damage to an opponent, you draw a card and that opponent discards a card.",

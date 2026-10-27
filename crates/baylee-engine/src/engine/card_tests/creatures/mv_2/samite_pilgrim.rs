@@ -12,7 +12,10 @@ fn samite_pilgrim_prevents_damage_equal_to_basic_land_types_you_control() {
     let pilgrim = card_index("542c5eaf-8b03-4406-a794-30c56b61d637");
     let p0 = PlayerId::new(0);
     let mut engine = Duel::new(SEED, plains())
-        .battlefield(0, &[pilgrim, grizzly_bears(), plains(), island(), mountain()])
+        .battlefield(
+            0,
+            &[pilgrim, grizzly_bears(), plains(), island(), mountain()],
+        )
         .hand(0, &[index::LIGHTNING_BOLT])
         .start();
     keep_mulligans(&mut engine);

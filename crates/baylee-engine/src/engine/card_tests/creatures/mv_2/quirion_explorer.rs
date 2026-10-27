@@ -24,5 +24,10 @@ fn quirion_explorer_adds_mana_of_color_opponent_land_could_produce() {
     engine
         .apply(p0, PlayerAction::ChooseColor(ManaColor::Black))
         .unwrap();
-    assert_eq!(engine.state().players[0].mana_pool.available(ManaColor::Black), 1);
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Black),
+        1
+    );
 }

@@ -4248,6 +4248,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::gnarled_mass::CARD,
     ),
     (
+        "1820b6e9-83fd-40b9-953e-ba1a8ae69614",
+        &crate::cards::sunken_hope::CARD,
+    ),
+    (
         "18290c4b-cff6-4ee5-a487-fe0d5706d3de",
         &crate::cards::urban_retreat::CARD,
     ),
@@ -5958,6 +5962,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "22c044ad-77d7-4c93-953d-e2daa9686ff7",
         &crate::cards::kiora_s_follower::CARD,
+    ),
+    (
+        "22c49415-e8d2-4b4c-b021-57ee54670f86",
+        &crate::cards::warped_devotion::CARD,
     ),
     (
         "22c5187b-e3db-4221-a173-e3b83a581fca",
@@ -10400,6 +10408,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::jolting_merfolk::CARD,
     ),
     (
+        "3b78b672-7773-44c6-9a21-f89c058966ff",
+        &crate::cards::stratadon::CARD,
+    ),
+    (
         "3b7e7a11-bf59-413d-8796-640d17c2c1c6",
         &crate::cards::nephalia_academy::CARD,
     ),
@@ -11144,6 +11156,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::wild_might::CARD,
     ),
     (
+        "3f92c684-f2fd-4fe5-bfb5-e27061d2c45b",
+        &crate::cards::thornscape_familiar::CARD,
+    ),
+    (
         "3f96dfd3-975a-4595-95c1-d2f04a86cb37",
         &crate::cards::obelisk_of_bant::CARD,
     ),
@@ -11358,6 +11374,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "40eee955-bec6-455a-addf-68cdb84c76b9",
         &crate::cards::arcane_flight::CARD,
+    ),
+    (
+        "40f6ea6f-71e1-46bd-8d9a-ccb5f437892c",
+        &crate::cards::thunderscape_familiar::CARD,
     ),
     (
         "40fbcf4b-d79e-4e6b-bcec-1d1544b3c4a2",
@@ -17112,6 +17132,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::howlpack_resurgence::CARD,
     ),
     (
+        "615603bb-3899-4419-9444-e4b64c94a438",
+        &crate::cards::sunscape_familiar::CARD,
+    ),
+    (
         "6156bd59-d623-4612-8e86-b5228d5de750",
         &crate::cards::howling_banshee::CARD,
     ),
@@ -17174,6 +17198,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "619ef7e1-33cd-4470-a1d4-83c5f1f5c31e",
         &crate::cards::forget::CARD,
+    ),
+    (
+        "61a1748c-e772-4338-9edd-720cd5d2fc12",
+        &crate::cards::surprise_deployment::CARD,
     ),
     (
         "61aa0e56-e8d9-4223-895f-e54cdc5a3f0f",
@@ -25020,6 +25048,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::keen_sense::CARD,
     ),
     (
+        "8d4d6806-cb01-49e3-91cc-fb0e7f7a8684",
+        &crate::cards::thornscape_battlemage::CARD,
+    ),
+    (
         "8d4dcab0-86e5-4ff8-a90f-78a062664e16",
         &crate::cards::sapseep_forest::CARD,
     ),
@@ -27442,6 +27474,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "9a9877b5-9f75-4c83-b11b-f006aecb075b",
         &crate::cards::bog_serpent::CARD,
+    ),
+    (
+        "9aa66e7d-d5e3-4c48-9c68-b61ff2af0b1a",
+        &crate::cards::thunderscape_battlemage::CARD,
     ),
     (
         "9aaa0a28-e342-48bd-8f59-0cd289491f98",
@@ -31304,6 +31340,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::sailmonger::CARD,
     ),
     (
+        "b1631e9c-a993-4d44-b009-b2624d79560c",
+        &crate::cards::voice_of_all::CARD,
+    ),
+    (
         "b166b670-febc-4821-855e-f8d465644c03",
         &crate::cards::worn_powerstone::CARD,
     ),
@@ -34764,6 +34804,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::arid_mesa::CARD,
     ),
     (
+        "c5b4131e-13aa-4a22-b8f5-e5f9d366cb4f",
+        &crate::cards::tahngarth_talruum_hero::CARD,
+    ),
+    (
         "c5b4bc25-0f32-4e1d-b6fe-f122140f2207",
         &crate::cards::viridian_scout::CARD,
     ),
@@ -35462,6 +35506,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
     (
         "c8fbcef0-2cbf-4a59-8322-374dd9153ebf",
         &crate::cards::sleeping_potion::CARD,
+    ),
+    (
+        "c8fd2232-e499-4889-a2ca-e486ea87d02b",
+        &crate::cards::sunscape_battlemage::CARD,
     ),
     (
         "c8ff464f-0059-4055-a2f2-556fe6db8fbf",
@@ -44124,6 +44172,10 @@ pub static ALL: &[(&str, &CardDef)] = &[
         &crate::cards::tek::CARD,
     ),
     (
+        "f86b8c03-9f1e-4d42-ac45-907c46e9e1c0",
+        &crate::cards::waterspout_elemental::CARD,
+    ),
+    (
         "f86bcdde-8b1f-4efa-a01d-39e09dc826d0",
         &crate::cards::angelic_renewal::CARD,
     ),
@@ -50543,25 +50595,25 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
     Some(&crate::cards::stormscape_battlemage::CARD),
     Some(&crate::cards::stormscape_familiar::CARD),
     Some(&crate::cards::strafe::CARD),
-    None,
-    None,
-    None,
-    None,
-    None,
-    None,
+    Some(&crate::cards::stratadon::CARD),
+    Some(&crate::cards::sunken_hope::CARD),
+    Some(&crate::cards::sunscape_battlemage::CARD),
+    Some(&crate::cards::sunscape_familiar::CARD),
+    Some(&crate::cards::surprise_deployment::CARD),
+    Some(&crate::cards::tahngarth_talruum_hero::CARD),
     Some(&crate::cards::terminal_moraine::CARD),
     Some(&crate::cards::terminate::CARD),
-    None,
-    None,
-    None,
-    None,
+    Some(&crate::cards::thornscape_battlemage::CARD),
+    Some(&crate::cards::thornscape_familiar::CARD),
+    Some(&crate::cards::thunderscape_battlemage::CARD),
+    Some(&crate::cards::thunderscape_familiar::CARD),
     Some(&crate::cards::treva_s_charm::CARD),
     Some(&crate::cards::treva_s_ruins::CARD),
     Some(&crate::cards::urza_s_guilt::CARD),
-    None,
+    Some(&crate::cards::voice_of_all::CARD),
     Some(&crate::cards::volcano_imp::CARD),
-    None,
-    None,
+    Some(&crate::cards::warped_devotion::CARD),
+    Some(&crate::cards::waterspout_elemental::CARD),
     Some(&crate::cards::fungal_shambler::CARD),
     None,
     Some(&crate::cards::ana_disciple::CARD),
@@ -79317,7 +79369,7 @@ pub static BY_INDEX: &[Option<&CardDef>] = &[
 ];
 
 /// FNV-1a hash over the registry content.
-pub const POOL_HASH: u64 = 0x3e820862b343b12f;
+pub const POOL_HASH: u64 = 0xeb05efc143224a90;
 
 pub fn by_oracle_id(oracle_id: &str) -> Option<&'static CardDef> {
     ALL.binary_search_by(|(id, _)| (*id).cmp(oracle_id))

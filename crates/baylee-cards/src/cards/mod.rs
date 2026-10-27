@@ -18875,6 +18875,8 @@ pub mod strangled_cemetery;
 pub mod strangleroot_geist;
 #[path = "instants/mv_4/strangling_spores.rs"]
 pub mod strangling_spores;
+#[path = "creatures/artifacts/mv_10/stratadon.rs"]
+pub mod stratadon;
 #[path = "creatures/mv_5/stratozeppelid.rs"]
 pub mod stratozeppelid;
 #[path = "enchantments/auras/mv_2/stratus_walk.rs"]
@@ -19101,6 +19103,8 @@ pub mod sunken_city;
 pub mod sunken_field;
 #[path = "lands/battle/sunken_hollow.rs"]
 pub mod sunken_hollow;
+#[path = "enchantments/mv_5/sunken_hope.rs"]
+pub mod sunken_hope;
 #[path = "lands/caves/sunken_palace.rs"]
 pub mod sunken_palace;
 #[path = "lands/filter/sunken_ruins.rs"]
@@ -19117,6 +19121,10 @@ pub mod sunpetal_grove;
 pub mod sunrise_sovereign;
 #[path = "creatures/mv_1/sunscape_apprentice.rs"]
 pub mod sunscape_apprentice;
+#[path = "creatures/mv_3/sunscape_battlemage.rs"]
+pub mod sunscape_battlemage;
+#[path = "creatures/mv_2/sunscape_familiar.rs"]
+pub mod sunscape_familiar;
 #[path = "creatures/mv_4/sunscape_master.rs"]
 pub mod sunscape_master;
 #[path = "creatures/mv_5/sunscorch_regent.rs"]
@@ -19185,6 +19193,8 @@ pub mod surge_of_strength;
 pub mod surgespanner;
 #[path = "creatures/artifacts/mv_4/surgical_metamorph.rs"]
 pub mod surgical_metamorph;
+#[path = "instants/mv_4/surprise_deployment.rs"]
+pub mod surprise_deployment;
 #[path = "creatures/mv_5/surrakar_banisher.rs"]
 pub mod surrakar_banisher;
 #[path = "lands/utility/surtland_frostpyre.rs"]
@@ -19329,6 +19339,8 @@ pub mod sythis_harvest_s_hand;
 pub mod tablet_of_epityr;
 #[path = "enchantments/auras/mv_1/tahngarth_s_rage.rs"]
 pub mod tahngarth_s_rage;
+#[path = "creatures/mv_5/tahngarth_talruum_hero.rs"]
+pub mod tahngarth_talruum_hero;
 #[path = "lands/dual/taiga.rs"]
 pub mod taiga;
 #[path = "sorceries/mv_2/taigam_s_scheming.rs"]
@@ -19935,6 +19947,10 @@ pub mod thornhide_wolves;
 pub mod thornling;
 #[path = "creatures/mv_1/thornscape_apprentice.rs"]
 pub mod thornscape_apprentice;
+#[path = "creatures/mv_3/thornscape_battlemage.rs"]
+pub mod thornscape_battlemage;
+#[path = "creatures/mv_2/thornscape_familiar.rs"]
+pub mod thornscape_familiar;
 #[path = "creatures/mv_4/thornscape_master.rs"]
 pub mod thornscape_master;
 #[path = "lands/restricted/thornspire_verge.rs"]
@@ -20109,6 +20125,10 @@ pub mod thundermaw_hellkite;
 pub mod thunderous_snapper;
 #[path = "creatures/mv_1/thunderscape_apprentice.rs"]
 pub mod thunderscape_apprentice;
+#[path = "creatures/mv_3/thunderscape_battlemage.rs"]
+pub mod thunderscape_battlemage;
+#[path = "creatures/mv_2/thunderscape_familiar.rs"]
+pub mod thunderscape_familiar;
 #[path = "creatures/mv_4/thunderscape_master.rs"]
 pub mod thunderscape_master;
 #[path = "instants/mv_4/thwart.rs"]
@@ -21557,6 +21577,8 @@ pub mod vodalian_soldiers;
 pub mod vodalian_war_machine;
 #[path = "creatures/mv_2/vodalian_zombie.rs"]
 pub mod vodalian_zombie;
+#[path = "creatures/mv_4/voice_of_all.rs"]
+pub mod voice_of_all;
 #[path = "creatures/mv_4/voice_of_duty.rs"]
 pub mod voice_of_duty;
 #[path = "creatures/mv_4/voice_of_grace.rs"]
@@ -21915,6 +21937,8 @@ pub mod warp_artifact;
 pub mod warpath;
 #[path = "creatures/mv_3/warpath_ghoul.rs"]
 pub mod warpath_ghoul;
+#[path = "enchantments/mv_3/warped_devotion.rs"]
+pub mod warped_devotion;
 #[path = "lands/fetch/warped_landscape.rs"]
 pub mod warped_landscape;
 #[path = "creatures/mv_4/warping_wurm.rs"]
@@ -21999,6 +22023,8 @@ pub mod waterlogged_teachings;
 pub mod watermarket;
 #[path = "creatures/mv_4/waterspout_djinn.rs"]
 pub mod waterspout_djinn;
+#[path = "creatures/mv_5/waterspout_elemental.rs"]
+pub mod waterspout_elemental;
 #[path = "lands/no_untap/waterveil_cavern.rs"]
 pub mod waterveil_cavern;
 #[path = "lands/shock/watery_grave.rs"]
