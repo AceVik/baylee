@@ -17,7 +17,7 @@ from policy_training4.targets import actor_mask, prepare_policy_targets, _learne
 class Dataset(TinyDataset):
     def __init__(self, mismatch=False, forced=False):
         super().__init__(16)
-        self.meta={'sampling_version':M.SAMPLING_VERSION, 'policy_provenance_version':1}
+        self.meta={'sampling_version':M.SAMPLING_VERSION, 'policy_provenance_version':2}
         index=np.zeros(6,dtype=[('game','u4'),('seat','u4'),('cursor','u8'),('flags','u4')])
         index['game']=[10]*3+[11]*3;index['cursor']=[0,1,2]*2;index['flags']=[0,0,3,0,0,2]
         self.store=SimpleNamespace(index=index,read=lambda row:{'is_decision':row==2,'head':0,
@@ -61,14 +61,19 @@ class Targets(unittest.TestCase):
         self.assertEqual(float(d.ppo_cache['advantages'][1,0]),0)
         self.assertFalse(d.ppo_cache['actor_mask'][0].any())
         d._policy_targets_directory.cleanup()
-    def test_archived_uncertified_data_is_rejected_before_forward(self):
-        d = Dataset()
-        d.meta.pop('policy_provenance_version')
-        net = Frozen()
-        with self.assertRaisesRegex(ValueError, 'certified raw-policy'):
-            prepare_policy_targets(net, d, 'cpu')
-        self.assertFalse(net.calls)
-        self.assertFalse(hasattr(d, 'ppo_cache'))
+    def test_archived_uncertified_or_v1_data_is_rejected_before_forward(self):
+        for version in (None, 1):
+            d = Dataset()
+            if version is None:
+                d.meta.pop('policy_provenance_version')
+            else:
+                d.meta['policy_provenance_version'] = version
+            net = Frozen()
+            with self.subTest(version=version), self.assertRaisesRegex(ValueError, 'provenance version 2'):
+                prepare_policy_targets(net, d, 'cpu')
+            self.assertFalse(net.calls)
+            self.assertFalse(hasattr(d, 'ppo_cache'))
+            self.assertEqual(len(d.trajectories), 2)
 
     def test_behavior_audit_cannot_be_disabled_by_large_tolerance(self):
         for tolerance in (20., float("nan"), 0.):

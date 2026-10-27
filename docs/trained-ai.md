@@ -291,6 +291,10 @@ experiment, not a policy update or automatic promotion. See the
 stochastic probabilities in FP32 before fitting. House-only histories are
 excluded from this audit; every observation of a learner history remains.
 Raw conditional masks and provenance must be valid, not loader-invented defaults.
+PPO admission requires `policy_provenance_version = 2`, certifying the exact
+sampled-choice-to-action decoding gate. Version 1 predates that gate and is
+rejected for PPO even if numerical probability parity passes; it remains
+available for supervised imitation.
 Terminal Monte Carlo outcomes (`gamma=lambda=1`) supply returns. The fixed critic
 is a state baseline, not a judge assigning labels to individual moves.
 

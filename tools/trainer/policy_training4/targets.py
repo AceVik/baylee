@@ -147,9 +147,10 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
         raise ValueError('Behavior audit tolerance must be finite and at most 0.002')
     if hasattr(dataset, 'ppo_cache'):
         raise ValueError('Refusing to reuse a dataset with existing policy targets')
-    # Parity alone cannot prove archived tactical actions followed the sampled policy.
-    if dataset.meta.get('policy_provenance_version') != 1:
-        raise ValueError('PPO requires certified raw-policy provenance version 1; archived data remains BC-only')
+    # Version 2 certifies exact sample-to-action decoding; version 1 predates
+    # that gate. Numerical LP parity alone cannot certify the executed action.
+    if dataset.meta.get('policy_provenance_version') != 2:
+        raise ValueError('PPO requires certified raw-policy provenance version 2; archived data remains BC-only')
     if dataset.meta.get('sampling_version') != M.SAMPLING_VERSION:
         raise ValueError('Incompatible recorded sampling contract')
     if any(p.dtype != torch.float32 for p in net.parameters()):
