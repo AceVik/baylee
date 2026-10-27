@@ -26,6 +26,7 @@ mod dark_prophecy;
 mod deadapult;
 mod dense_foliage;
 mod destructive_flow;
+mod divine_sacrament;
 mod downdraft;
 mod dralnu_s_crusade;
 mod dystopia;

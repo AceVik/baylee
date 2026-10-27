@@ -49,6 +49,7 @@ mod deadly_insect;
 mod deepwood_tantiv;
 mod deranged_hermit;
 mod dread_wight;
+mod dwarven_strike_force;
 mod earth_elemental;
 mod eater_of_the_dead;
 mod electryte;

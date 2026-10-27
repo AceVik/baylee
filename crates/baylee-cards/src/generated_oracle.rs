@@ -15613,23 +15613,50 @@ pub static ORACLE: &[&[&str]] = &[
     &["Exile up to three target cards from a single graveyard."],
     // Dedicated Martyr
     &["{W}, Sacrifice this creature: You gain 3 life."],
-    &[],
-    &[],
+    // Deep Reconnaissance
+    &[
+        "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nFlashback {4}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Delaying Shield
+    &[
+        "If damage would be dealt to you, put that many delay counters on this enchantment instead.\nAt the beginning of your upkeep, remove all delay counters from this enchantment. For each delay counter removed this way, you lose 1 life unless you pay {1}{W}.",
+    ],
     // Deluge
     &["Tap all creatures without flying."],
-    &[],
+    // Dematerialize
+    &[
+        "Return target permanent to its owner's hand.\nFlashback {5}{U}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     // Demolish
     &["Destroy target artifact or land."],
-    &[],
+    // Demoralize
+    &[
+        "All creatures gain menace until end of turn. (They can't be blocked except by two or more creatures.)\nThreshold — If there are seven or more cards in your graveyard, creatures can't block this turn.",
+    ],
     // Deserted Temple
     &["{T}: Add {C}.\n{1}, {T}: Untap target land."],
-    &[],
+    // Devoted Caretaker
+    &[
+        "{W}, {T}: Target permanent you control gains protection from instant spells and from sorcery spells until end of turn.",
+    ],
     // Diabolic Tutor
     &["Search your library for a card, put that card into your hand, then shuffle."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Diligent Farmhand
+    &[
+        "{1}{G}, Sacrifice this creature: Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nIf this card is in a graveyard, effects from spells named Muscle Burst count it as a card named Muscle Burst.",
+    ],
+    // Dirty Wererat
+    &[
+        "{B}, Discard a card: Regenerate this creature.\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and can't block.",
+    ],
+    // Divert
+    &[
+        "Change the target of target spell with a single target unless that spell's controller pays {2}.",
+    ],
+    // Divine Sacrament
+    &[
+        "White creatures get +1/+1.\nThreshold — White creatures get an additional +1/+1 as long as there are seven or more cards in your graveyard.",
+    ],
     // Dogged Hunter
     &["{T}: Destroy target creature token."],
     // Dreamwinder
@@ -15638,34 +15665,70 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Druid Lyrist
     &["{G}, {T}, Sacrifice this creature: Destroy target enchantment."],
-    &[],
+    // Druid's Call
+    &[
+        "Enchant creature\nWhenever enchanted creature is dealt damage, its controller creates that many 1/1 green Squirrel creature tokens.",
+    ],
     // Dusk Imp
     &["Flying"],
     // Dwarven Grunt
     &[
         "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dwarven Recruiter
+    &[
+        "When this creature enters, search your library for any number of Dwarf cards, reveal them, then shuffle and put those cards on top in any order.",
+    ],
+    // Dwarven Shrine
+    &[
+        "Whenever a player casts a spell, this enchantment deals X damage to that player, where X is twice the number of cards in all graveyards with the same name as that spell.",
+    ],
+    // Dwarven Strike Force
+    &["Discard a card at random: This creature gains first strike and haste until end of turn."],
+    // Earnest Fellowship
+    &["Each creature has protection from each of its colors."],
+    // Earth Rift
+    &[
+        "Destroy target land.\nFlashback {5}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Elephant Ambush
+    &[
+        "Create a 3/3 green Elephant creature token.\nFlashback {6}{G}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Ember Beast
+    &["This creature can't attack or block alone."],
+    // Embolden
+    &[
+        "Prevent the next 4 damage that would be dealt this turn to any number of targets, divided as you choose.\nFlashback {1}{W} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Engulfing Flames
+    &[
+        "Engulfing Flames deals 1 damage to target creature. It can't be regenerated this turn.\nFlashback {3}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Entomb
+    &["Search your library for a card, put that card into your graveyard, then shuffle."],
+    // Epicenter
+    &[
+        "Target player sacrifices a land of their choice.\nThreshold — Each player sacrifices all lands they control instead if there are seven or more cards in your graveyard.",
+    ],
+    // Escape Artist
+    &[
+        "This creature can't be blocked.\n{U}, Discard a card: Return this creature to its owner's hand.",
+    ],
     // Execute
     &["Destroy target white creature. It can't be regenerated.\nDraw a card."],
-    &[],
+    // Extract
+    &["Search target player's library for a card and exile it. Then that player shuffles."],
     // Face of Fear
     &[
         "{2}{B}, Discard a card: This creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
     ],
-    &[],
-    &[],
+    // Famished Ghoul
+    &["{1}{B}, Sacrifice this creature: Exile up to two target cards from a single graveyard."],
+    // Fervent Denial
+    &[
+        "Counter target spell.\nFlashback {5}{U}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     &[],
     &[],
     &[],

@@ -94,6 +94,7 @@ mod deepwood_legate;
 mod defender_en_vec;
 mod derelor;
 mod desert_drake;
+mod dirty_wererat;
 mod discordant_spirit;
 mod disease_carriers;
 mod dragon_whelp;

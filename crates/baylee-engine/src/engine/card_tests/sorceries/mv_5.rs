@@ -13,6 +13,7 @@ mod demon_s_grasp;
 mod devastate;
 mod dosan_s_oldest_chant;
 mod dregs_of_sorrow;
+mod epicenter;
 mod essence_drain;
 mod extortion;
 mod frenzied_tilling;
