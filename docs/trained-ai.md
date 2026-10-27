@@ -105,7 +105,7 @@ Those dated milestones are history, not evidence that every proposed field is
 connected end to end. The current Encoder 7 contract has 128 entity, 64 seat,
 80 global and 48 candidate features. It includes public commander designations,
 ordered-zone features, projected characteristics, mana/payment features,
-registered-deck inventory bookkeeping and lossless permanent grouping with
+registered-deck inventory bookkeeping and permanent grouping with
 explicit multiplicity (`entity_feat[122]`). The v4 runtime dispatches archived
 encoder-6 and Encoder 7 models separately; `upgrade_state_dict_to_v7` zero-pads
 older input projections and initializes the candidate-context residual.
@@ -145,8 +145,9 @@ do not establish raw-policy learning or valid on-policy PPO data.
 
 `model5.Config5` / `PlayerNet5` identify the new major family with
 `model_version = 5`, `model_family = "v5"` and architecture
-`baylee_ai_v5_relational_v1`. A small identity hook leaves archived `PlayerNet4`
-behavior unchanged. V5 adds two shared-weight message-passing rounds with a
+`baylee_ai_v5_relational_v1` or `baylee_ai_v5_relational_v2`. A small identity
+hook leaves archived `PlayerNet4` behavior unchanged. V5 adds two shared-weight
+message-passing rounds with a
 160-wide bottleneck after the existing typed-edge block and before the
 transformer. Messages depend nonlinearly on source, destination, relation and
 direction; gated updates receive directed log-degree counts and public grouped
@@ -154,6 +155,21 @@ multiplicity. A zero-initialized output projection gives an exact v4 warmstart.
 `relational_steps=0` bypasses the new processing. This is graph relational
 processing over existing public entities, not new physical coordinates or
 additional engine knowledge.
+
+New `train5.py` runs default to relational revision 2. Revision 1 remains
+loadable: a missing `Config5.relational_revision` means revision 1, never an
+implicit upgrade. Revision 2 adds input normalization, source-multiplicity
+weighted message means accumulated in FP32, separate group and source-card
+counts for each directed relation, and accumulated residual deltas. Synthetic
+fanout tests exposed saturation in revision 1's unnormalized sums; they do not
+establish a playing-strength gain for revision 2. The zero-output warmstart,
+public-information boundary and observation clock remain unchanged.
+
+Optional `--relational-lr`, `--relational-output-lr` and
+`--relational-warmup-steps` configure only the new parameters. Shared backbone
+and critic rates retain their existing semantics. Checkpoints record group
+membership, rates and warmup; resume rejects a changed schedule. Leaving these
+options disabled preserves the old optimizer layout.
 
 The module preserves initialization RNG for matched experiments, supports
 activation checkpointing, and leaves the once-per-view recurrent observation
@@ -178,13 +194,20 @@ They use 1,000 full-model updates, loss 4, seed 31437, K2, batch 8, unroll 32,
 learning rate 1e-5 and combined held-out checkpoint selection. The control's
 frozen Python revision is `df838e9952f36a4e56e4a6be9a99c281ce0a5b11`;
 V5 implementation is `753535908` with separately versioned export/loader
-support. At this documentation update the control completed and the controller
-was waiting for the frozen v5 runtime. The experiment's status and source
-manifests, rather than this dated sentence, govern subsequent progress.
+support. Both arms completed. Active-choice validation accuracy was 59.36%
+for control and 59.25% for v5 revision 1, versus 57.96% initially; this is a
+small supervised feasibility result, not a playing-strength verdict. Game
+evaluation stopped before any deals: the current compiled catalog has 47 new
+rule tags, so these old-catalog exports cannot be evaluated by that engine.
+Failed startup artifacts and original checkpoints are retained.
 
-Next steps are the matched v5 arm, identically configured paired raw-policy
-matches against the source/control and house baselines, and independent
-confirmation. Validation selection is not an independent test. Engine-derived
+The [v5 takeover and training plan](history/trained-ai-v5-takeover-2026-10-27.md)
+records the three-model review, revised architecture and fresh-data follow-up.
+New rule tags require explicit initialization followed by training; a catalog
+refresh with donor-initialized symbols is not a lossless model migration.
+Raw-policy and tactical match comparisons remain separate, with pinned engine,
+catalog, model, deck files, seeds and execution provider. Validation selection
+is not an independent test. Engine-derived
 public combat/target/stack auxiliary supervision is a future separately audited
 objective. No result here establishes stronger play or human-level ability.
 
