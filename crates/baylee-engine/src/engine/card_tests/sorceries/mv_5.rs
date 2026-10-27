@@ -24,6 +24,7 @@ mod implode;
 mod lava_flow;
 mod makindi_stampede;
 mod mana_geyser;
+mod mind_sludge;
 mod natural_spring;
 mod overrun;
 mod planar_despair;

@@ -80,6 +80,7 @@ mod mesmeric_trance;
 mod mind_slash;
 mod mobilization;
 mod moonlit_wake;
+mod mortiphobia;
 mod mudslide;
 mod narcissism;
 mod necrogen_mists;

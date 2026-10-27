@@ -194,6 +194,7 @@ mod monk_realist;
 mod moon_sprite;
 mod multani_s_acolyte;
 mod muscle_sliver;
+mod mystic_familiar;
 mod mystic_visionary;
 mod nantuko_shade;
 mod nether_shadow;

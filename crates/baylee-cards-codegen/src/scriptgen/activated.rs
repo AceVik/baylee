@@ -522,7 +522,7 @@ impl Tx<'_> {
             let expr = self.filter_expr_in_zone(valid, true)?;
             let name = self.body.filter_static("CHECK", &expr);
             return Some(format!(
-                "Condition::AmountAtLeast(Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Graveyard(PlayerRel::You) }}, {n})"
+                "Condition::AmountAtLeast(Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}, {n})"
             ));
         }
         if let Some(who) = p.take("PresentPlayer") {

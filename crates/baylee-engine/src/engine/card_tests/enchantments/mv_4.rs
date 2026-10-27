@@ -164,6 +164,7 @@ mod living_plane;
 mod manabarbs;
 mod martyrs_tomb;
 mod monsoon;
+mod mortal_combat;
 mod mortuary;
 mod mystic_decree;
 mod natural_emergence;
