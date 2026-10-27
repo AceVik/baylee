@@ -237,7 +237,9 @@ jobs:
         if: matrix.partition == 1
         shell: bash
         run: |
-          sudo timeout 300 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
+          # The bounded install includes dpkg triggers: run 40556109917 spent
+          # 295 s downloading and was killed during man-db after unpacking.
+          sudo timeout --kill-after=15s 600 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
             -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
           cargo dev keyring-linux
 

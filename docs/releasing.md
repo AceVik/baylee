@@ -45,8 +45,11 @@ Pre-release names follow SemVer §11, and the updater compares by it
 alphanumeric one, and alphanumeric ones compare as text. So after
 `0.1.0-beta.8a` and `0.1.0-beta.8b`, a `0.1.0-beta.9` would be older than both
 and never offered to those installs, and lettered names break at ten
-(`10a` sorts below `9a`). The release after `0.1.0-beta.8b` therefore raises
-the patch: `0.1.1-beta.1`, and pre-releases stay plain numbers from then on.
+(`10a` sorts below `9a`). The owner requested `beta.9a` on 28.10.2026, so
+this release raises the patch and is `0.1.1-beta.9a`. It sorts above every `0.1.0` prerelease and
+Central's previous `0.1.0` service package. To switch back to numeric
+prereleases afterwards, raise the patch again (for example `0.1.2-beta.1`);
+`0.1.1-beta.10` would sort below this alphanumeric prerelease.
 
 ## Cutting one
 

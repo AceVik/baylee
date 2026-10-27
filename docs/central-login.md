@@ -25,8 +25,12 @@ current dependency chain contains 0.5.5 through `elliptic-curve` 0.13.8,
 bigint 0.5, so changing the lockfile to 0.7.6 is not a compatible upgrade.
 
 The specific Central revision
-`efc6731164add14094c11725a01b1f01facdaf9e` was reviewed independently by two
-models on 24.10.2026. Its private, fixed `central-crypto::opaque::Suite`
+`45ad9d9d64d64e59a0fbc607587cccbff7dd52ce` contains the same `central-crypto`
+source tree reviewed independently by two models on 24.10.2026. The 28.10.2026 pin adds the memorial website and a
+fail-closed source/graph guard for Central's matching advisory exception;
+`git diff` confirms the entire crypto crate is unchanged. Argon High
+reviewed the reached Ristretto/hash-expansion sources again without a
+confirmed finding. Its private, fixed `central-crypto::opaque::Suite`
 selects Ristretto255 for OPRF and Triple-DH, with SHA-512. Both upstream
 Ristretto implementations use `curve25519-dalek` points and scalars for the
 secret arithmetic, including reduction and inversion. The reached

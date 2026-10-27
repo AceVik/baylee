@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "xtask"]
 
 [workspace.package]
-version = "0.1.0-beta.8b"
+version = "0.1.1-beta.9a"
 edition = "2024"
 # Central's reviewed native authentication SDK requires Rust 1.99.
 # CI reads this version rather than repeating a lower renderer-only floor.
@@ -28,8 +28,8 @@ fluent-bundle = "0.16"
 fluent-syntax = "0.12"
 unic-langid = "0.9"
 baylee-account = { path = "crates/baylee-account" }
-central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "efc6731164add14094c11725a01b1f01facdaf9e" }
-central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "efc6731164add14094c11725a01b1f01facdaf9e" }
+central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "45ad9d9d64d64e59a0fbc607587cccbff7dd52ce" }
+central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "45ad9d9d64d64e59a0fbc607587cccbff7dd52ce" }
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
 baylee-deckio = { path = "crates/baylee-deckio" }
