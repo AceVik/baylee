@@ -40,8 +40,9 @@ from .checkpoint_async import AsyncCheckpointWriter
 from .objective import LOSS_VERSION, selection_score, check_resume_objective
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="Train Playernet v4 via stateful TBPTT distillation")
+def main(default_architecture="v4") -> None:
+    global M
+    ap = argparse.ArgumentParser(description="Train BayleeAI v4/v5 via stateful TBPTT distillation")
     ap.add_argument("--data", required=True, help="Dataset directory produced by convert4")
     ap.add_argument("--validation-data", default="", help="Separate immutable validation dataset; reuses its cache while training packages change")
     ap.add_argument("--out", required=True, help="Output checkpoint directory")
@@ -88,7 +89,15 @@ def main() -> None:
     ap.add_argument("--decision-chunk", type=int, default=1, help="Group independent readouts after causal memory updates; requires grouped boards and dropout=0")
     ap.add_argument("--gpu-prefetch", type=int, choices=range(4), default=0, help="Future CUDA input batches on a separate copy stream (0=off, 1=double buffer)")
     ap.add_argument("--freeze-trunk", action="store_true", help="Freeze board encoder, transformer trunk, recurrent memory, and critic; train only action/policy heads")
+    ap.add_argument("--architecture", choices=("v4", "v5"), default=default_architecture)
+    ap.add_argument("--relational-steps", type=int, choices=range(5), default=2)
     args = ap.parse_args()
+    if args.architecture == "v5":
+        import model5 as M
+    else:
+        import model4 as M
+    identity = ({"architecture": M.ARCHITECTURE, "model_family": "v5"}
+                if args.architecture == "v5" else {})
     if sum(bool(v) for v in (args.init, args.init_state, args.resume)) > 1:
         ap.error("Choose one of --init, --init-state or --resume")
     if args.batch_size < 1 or args.validation_batch_size < 0:
@@ -162,7 +171,8 @@ def main() -> None:
         pin_memory=(device.type == "cuda"),
     )
 
-    cfg = M.Config4(
+    config_class = M.Config5 if args.architecture == "v5" else M.Config4
+    cfg = config_class(
         d_model=args.d_model,
         n_layers=args.layers,
         n_heads=args.heads,
@@ -171,7 +181,10 @@ def main() -> None:
         dropout=args.dropout,
         activation_checkpointing=args.activation_checkpointing,
     )
-    net = M.PlayerNet4(cfg)
+    if args.architecture == "v5":
+        cfg.relational_steps = args.relational_steps
+    # Extra architecture initialization must not perturb training RNG in paired runs.
+    net = M.PlayerNet5(cfg) if args.architecture == "v5" else M.PlayerNet4(cfg)
     net.attach_structure(train_ds.structure.data)
     net = net.to(device)
     net.saved_activation_layers = args.saved_activation_layers
@@ -183,13 +196,20 @@ def main() -> None:
         init_p = Path(args.init).expanduser()
         init_pt = init_p / "net.pt" if init_p.is_dir() else init_p
         ckpt_init = torch.load(init_pt, map_location="cpu", weights_only=False)
-        if (ckpt_init.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt_init.get("model_version") != M.MODEL_VERSION
+        if (ckpt_init.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt_init.get("model_version") not in ((3, 5) if args.architecture == "v5" else (3,))
                 or ckpt_init.get("encoder_version") not in (6, M.ENCODER_VERSION)):
             raise ValueError("Initial checkpoint uses an incompatible memory contract")
         from model4.structure import structure_digest
         if structure_digest(ckpt_init["structure"]) != train_ds.structure.digest:
             raise ValueError("Initial checkpoint uses a different public rules catalog")
-        upgraded = M.upgrade_state_dict_to_v7(ckpt_init["state_dict"], net)
+        if args.architecture == "v5" and ckpt_init["model_version"] == 3:
+            upgraded = M.warmstart_from_v4(ckpt_init["state_dict"], net)
+        else:
+            if args.architecture == "v5" and (ckpt_init.get("architecture") != M.ARCHITECTURE
+                    or ckpt_init["config"] != cfg.to_dict()):
+                raise ValueError("V5 initialization architecture/config differs")
+            upgraded = (dict(ckpt_init["state_dict"]) if args.architecture == "v5"
+                        else M.upgrade_state_dict_to_v7(ckpt_init["state_dict"], net))
         net.load_state_dict(upgraded, strict=True)
         print(f"[train4] loaded initial weights from {init_pt}")
     if args.freeze_trunk:
@@ -214,6 +234,8 @@ def main() -> None:
         fused=True if args.fused_optimizer and device.type == "cuda" else None,
     )
     package_parent = None
+    if args.init_state and args.architecture == "v5":
+        raise ValueError("V5 package continuation requires explicit verified support; use --init or --resume")
     if args.init_state:
         from .package_state import load_package_state
         package_parent = load_package_state(args.init_state, net, opt, device)
@@ -236,6 +258,8 @@ def main() -> None:
     resume_epoch, resume_batch, resume_h = 1, 0, None
     if args.resume:
         saved = torch.load(Path(args.resume).expanduser(), map_location="cpu", weights_only=False)
+        if saved.get("model_version") != M.MODEL_VERSION or any(saved.get(k) != v for k, v in identity.items()):
+            raise ValueError("Resume model architecture differs")
         check_resume_objective(saved, args.checkpoint_selection)
         if (saved.get("training_sampler_version", 1) != D4.StatefulBatchSampler4.VERSION
                 or saved.get("sampler_seed") != args.seed):
@@ -270,7 +294,7 @@ def main() -> None:
     checkpoint_writer = AsyncCheckpointWriter(device, enabled=args.async_checkpoint)
 
     def save_last(epoch, next_batch, hidden):
-        checkpoint_writer.save({"config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": net.state_dict(),
+        checkpoint_writer.save({**identity, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": net.state_dict(),
                      "optimizer": opt.state_dict(), "rng": rng_state(),
                      "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION, "sampling_version": M.SAMPLING_VERSION,
                      "step_num": step_num, "epoch": epoch, "next_batch": next_batch,
@@ -307,7 +331,7 @@ def main() -> None:
             best_score, best_step = score, step_num
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
             best_val_metrics = dict(metrics)
-            atomic_save({"config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
+            atomic_save({**identity, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
                          "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
                          "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
                          "sampling_version": M.SAMPLING_VERSION, "step_num": best_step,
@@ -466,6 +490,7 @@ def main() -> None:
     final_state = best_state if best_state is not None else net.state_dict()
     final_metrics = best_val_metrics if best_val_metrics else val_metrics
     ckpt = {
+        **identity,
         "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
         "config": cfg.__dict__,
@@ -480,6 +505,7 @@ def main() -> None:
     }
     atomic_save(ckpt, out_dir / "net.pt")
     meta_out = {
+        **identity,
         "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,

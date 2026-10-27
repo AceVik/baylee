@@ -204,6 +204,7 @@ class PlayerNet4(nn.Module):
         e_pad = ~entity_mask
         pad_mask = torch.cat([g_pad, s_pad, e_pad], dim=1)  # [B, 9 + E]
 
+        tokens = self.relational_tokens(tokens, edge_index, edge_type, edge_mask, ~pad_mask, entity_feat)
         x = tokens
         # Execution-only memory/compute tradeoff: retaining the last N layers'
         # activations avoids recomputing them on backward. Default remains full
@@ -217,6 +218,10 @@ class PlayerNet4(nn.Module):
                 x = layer(x, src_key_padding_mask=pad_mask)
         board = self.trunk_norm(x)
         return board, pad_mask
+
+    def relational_tokens(self, tokens, edge_index, edge_type, edge_mask, present, entity_feat):
+        """Identity extension point; archived v4 weights and operations are unchanged."""
+        return tokens
 
     def observe_memory(self, board, h_in, thinking_steps):
         """Consume K=0 observations; decision scratchpads never alter memory."""
