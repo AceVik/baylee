@@ -130,6 +130,7 @@ mod silhouette;
 mod simoon;
 mod simulacrum;
 mod sirocco;
+mod skyshroud_blessing;
 mod snap;
 mod soothing_balm;
 mod soul_rend;

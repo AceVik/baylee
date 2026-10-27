@@ -14693,19 +14693,42 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{3}{R}: Target opponent reveals a card at random from their hand. This enchantment deals damage equal to that card's mana value to that player. Activate only as a sorcery.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Planeswalker's Mirth
+    &[
+        "{3}{W}: Target opponent reveals a card at random from their hand. You gain life equal to that card's mana value.",
+    ],
+    // Planeswalker's Mischief
+    &[
+        "{3}{U}: Target opponent reveals a card at random from their hand. If it's an instant or sorcery card, exile it. You may cast it without paying its mana cost for as long as it remains exiled. At the beginning of the next end step, if you haven't cast it, return it to its owner's hand. Activate only as a sorcery.",
+    ],
+    // Planeswalker's Scorn
+    &[
+        "{3}{B}: Target opponent reveals a card at random from their hand. Target creature gets -X/-X until end of turn, where X is the revealed card's mana value. Activate only as a sorcery.",
+    ],
+    // Pollen Remedy
+    &[
+        "Kicker—Sacrifice a land. (You may sacrifice a land in addition to any other costs as you cast this spell.)\nPrevent the next 3 damage that would be dealt this turn to any number of targets, divided as you choose. If this spell was kicked, prevent the next 6 damage this way instead.",
+    ],
+    // Primal Growth
+    &[
+        "Kicker—Sacrifice a creature. (You may sacrifice a creature in addition to any other costs as you cast this spell.)\nSearch your library for a basic land card, put that card onto the battlefield, then shuffle. If this spell was kicked, instead search your library for up to two basic land cards, put them onto the battlefield, then shuffle.",
+    ],
+    // Pygmy Kavu
+    &["When this creature enters, draw a card for each black creature your opponents control."],
     // Quirion Dryad
     &[
         "Whenever you cast a spell that's white, blue, black, or red, put a +1/+1 counter on this creature.",
     ],
-    &[],
-    &[],
-    &[],
+    // Quirion Explorer
+    &["{T}: Add one mana of any color that a land an opponent controls could produce."],
+    // Radiant Kavu
+    &[
+        "{R}{G}{W}: Prevent all combat damage blue creatures and black creatures would deal this turn.",
+    ],
+    // Razing Snidd
+    &[
+        "When this creature enters, return a black or red creature you control to its owner's hand.\nWhen this creature enters, each player sacrifices a land of their choice.",
+    ],
     // Rith's Charm
     &[
         "Choose one —\n• Destroy target nonbasic land.\n• Create three 1/1 green Saproling creature tokens.\n• Prevent all damage a source of your choice would deal this turn.",
@@ -14714,13 +14737,30 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this land enters, sacrifice it unless you return a non-Lair land you control to its owner's hand.\n{T}: Add {R}, {G}, or {W}.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Root Greevil
+    &[
+        "{2}{G}, {T}, Sacrifice this creature: Destroy all enchantments of the color of your choice.",
+    ],
+    // Rushing River
+    &[
+        "Kicker—Sacrifice a land. (You may sacrifice a land in addition to any other costs as you cast this spell.)\nReturn target nonland permanent to its owner's hand. If this spell was kicked, return another target nonland permanent to its owner's hand.",
+    ],
+    // Samite Elder
+    &[
+        "{T}: Choose target permanent you control. Creatures you control gain protection from each of that permanent's colors until end of turn.",
+    ],
+    // Samite Pilgrim
+    &[
+        "Domain — {T}: Prevent the next X damage that would be dealt to target creature this turn, where X is the number of basic land types among lands you control.",
+    ],
+    // Sawtooth Loon
+    &[
+        "Flying\nWhen this creature enters, return a white or blue creature you control to its owner's hand.\nWhen this creature enters, draw two cards, then put two cards from your hand on the bottom of your library.",
+    ],
+    // Sea Snidd
+    &["{T}: Target land becomes the basic land type of your choice until end of turn."],
+    // Shifting Sky
+    &["As this enchantment enters, choose a color.\nAll nonland permanents are the chosen color."],
     // Shivan Wurm
     &[
         "Trample\nWhen this creature enters, return a red or green creature you control to its owner's hand.",
@@ -14729,19 +14769,38 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Target creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
     ],
-    &[],
+    // Singe
+    &["Singe deals 1 damage to target creature. That creature becomes black until end of turn."],
     // Sinister Strength
     &["Enchant creature\nEnchanted creature gets +3/+1 and is black."],
-    &[],
-    &[],
-    &[],
+    // Sisay's Ingenuity
+    &[
+        "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature has \"{2}{U}: Target creature becomes the color of your choice until end of turn.\"",
+    ],
+    // Skyship Weatherlight
+    &[
+        "When Skyship Weatherlight enters, search your library for any number of artifact and/or creature cards, exile them, then shuffle.\n{4}, {T}: Choose a card at random that was exiled with Skyship Weatherlight. Put that card into its owner's hand.",
+    ],
+    // Skyshroud Blessing
+    &[
+        "All lands gain shroud until end of turn. (They can't be the targets of spells or abilities.)\nDraw a card.",
+    ],
     // Slay
     &["Destroy target green creature. It can't be regenerated.\nDraw a card."],
-    &[],
+    // Sleeping Potion
+    &[
+        "Enchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature doesn't untap during its controller's untap step.\nWhen enchanted creature becomes the target of a spell or ability, sacrifice this Aura.",
+    ],
     // Slingshot Goblin
     &["{R}, {T}: This creature deals 2 damage to target blue creature."],
-    &[],
-    &[],
+    // Sparkcaster
+    &[
+        "When this creature enters, return a red or green creature you control to its owner's hand.\nWhen this creature enters, it deals 1 damage to target player or planeswalker.",
+    ],
+    // Star Compass
+    &[
+        "This artifact enters tapped.\n{T}: Add one mana of any color that a basic land you control could produce.",
+    ],
     // Steel Leaf Paladin
     &[
         "First strike\nWhen this creature enters, return a green or white creature you control to its owner's hand.",
@@ -14750,8 +14809,12 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{R}: This creature gets +1/+0 until end of turn.\n{W}: This creature gets +0/+1 until end of turn.",
     ],
-    &[],
-    &[],
+    // Stormscape Battlemage
+    &[
+        "Kicker {W} and/or {2}{B} (You may pay an additional {W} and/or {2}{B} as you cast this spell.)\nWhen this creature enters, if it was kicked with its {W} kicker, you gain 3 life.\nWhen this creature enters, if it was kicked with its {2}{B} kicker, destroy target nonblack creature. That creature can't be regenerated.",
+    ],
+    // Stormscape Familiar
+    &["Flying\nWhite spells and black spells you cast cost {1} less to cast."],
     // Strafe
     &["Strafe deals 3 damage to target nonred creature."],
     &[],

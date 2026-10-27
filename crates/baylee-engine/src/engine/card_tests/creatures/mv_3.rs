@@ -289,6 +289,7 @@ mod quagmire_druid;
 mod quagmire_lamprey;
 mod quicksilver_wall;
 mod radiant_essence;
+mod radiant_kavu;
 mod rageblood_shaman;
 mod raging_cougar;
 mod raging_gorilla;

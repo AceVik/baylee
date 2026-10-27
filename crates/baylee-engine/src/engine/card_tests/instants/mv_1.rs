@@ -134,6 +134,7 @@ mod shower_of_sparks;
 mod shrink;
 mod silence;
 mod silk_net;
+mod singe;
 mod siren_s_call;
 mod sleight_of_mind;
 mod smite;

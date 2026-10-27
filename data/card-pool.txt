@@ -11272,3 +11272,30 @@ Phyrexian Tyranny
 Planar Overlay
 Planeswalker's Favor
 Planeswalker's Fury
+
+# Planeshift (pls) — batch 3
+Planeswalker's Mirth
+Planeswalker's Mischief
+Planeswalker's Scorn
+Pollen Remedy
+Primal Growth
+Pygmy Kavu
+Quirion Explorer
+Radiant Kavu
+Razing Snidd
+Root Greevil
+Rushing River
+Samite Elder
+Samite Pilgrim
+Sawtooth Loon
+Sea Snidd
+Shifting Sky
+Singe
+Sisay's Ingenuity
+Skyship Weatherlight
+Skyshroud Blessing
+Sleeping Potion
+Sparkcaster
+Star Compass
+Stormscape Battlemage
+Stormscape Familiar

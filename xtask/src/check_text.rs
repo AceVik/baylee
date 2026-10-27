@@ -750,8 +750,13 @@ pub(crate) const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
         "Horizon of Progress",
         "ManaSource::LandColor with mine=true scopes the same mana rule as Reflecting Pool",
     ),
+    (
+        "Star Compass",
+        "ManaSource::FromLands with mine=true scopes the same owned-land mana rule",
+    ),
     ("Exotic Orchard", "the same rule, read across the table"),
     ("Fellwar Stone", "the same rule, read across the table"),
+    ("Quirion Explorer", "the same rule, read across the table"),
     (
         "Opposition Agent",
         "\"you control your opponents\" is the verb, not the zone",
