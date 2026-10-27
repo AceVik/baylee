@@ -135,6 +135,7 @@ impl Tx<'_> {
         let activator = probe.take("Activator");
         let activation_zone = probe.take("ActivationZone");
         let graveyard_zone = is_activated && activation_zone.as_deref() == Some("Graveyard");
+        let battlefield_zone = is_activated && activation_zone.as_deref() == Some("Battlefield");
         let sorcery_speed = is_activated && probe.take("SorcerySpeed").as_deref() == Some("True");
         // And so does the clause, which on an `A:` line is a restriction on
         // activating rather than CR 603.4's intervening `if`: the reference
@@ -167,7 +168,9 @@ impl Tx<'_> {
             .split(" | ")
             .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
             .filter(|part| !(any_player && part.starts_with("Activator$")))
-            .filter(|part| !(graveyard_zone && part.starts_with("ActivationZone$")))
+            .filter(|part| {
+                !((graveyard_zone || battlefield_zone) && part.starts_with("ActivationZone$"))
+            })
             .filter(|part| !(sorcery_speed && part.starts_with("SorcerySpeed$")))
             .filter(|part| !restrictions.iter().any(|key| part.starts_with(key)))
             .filter(|part| !claimed.iter().any(|key| part.starts_with(key)))
@@ -176,8 +179,14 @@ impl Tx<'_> {
             && cost
                 .as_deref()
                 .is_some_and(|c| c.split_whitespace().any(|t| t == "Sac<1/CARDNAME>"));
+        self.cost_sacrifices_other = is_activated
+            && cost.as_deref().is_some_and(|c| {
+                c.split_whitespace()
+                    .any(|t| t.starts_with("Sac<1/") && !t.starts_with("Sac<1/CARDNAME"))
+            });
         let chain_ok = self.chain(&stripped.join(" | "), &mut chain);
         self.cost_sacrifices_self = false;
+        self.cost_sacrifices_other = false;
         chain_ok?;
         if chain.effects.is_empty() {
             return self.deny("an ability that reads as no effect at all".to_string());
@@ -214,6 +223,7 @@ impl Tx<'_> {
                 &effects,
                 chain.target.as_deref(),
                 chain.target_is_x,
+                chain.target_up_to,
                 &second_targets,
             )
         }
@@ -306,6 +316,7 @@ impl Tx<'_> {
     // one of those is already here: `XMin1` is "X can't be 0" and
     // not mana at all (Ertai's Meddling and four others, none of
     // them in this pool yet, all five reachable by a batch).
+    #[allow(clippy::too_many_arguments)]
     fn push_spell_ability(
         &mut self,
         cost: Option<&str>,
@@ -314,6 +325,7 @@ impl Tx<'_> {
         effects: &str,
         target: Option<&str>,
         target_is_x: bool,
+        target_up_to: Option<u8>,
         second_targets: &str,
     ) -> Option<()> {
         if limit.is_some() {
@@ -331,9 +343,19 @@ impl Tx<'_> {
         if let Some(raw) = cost {
             self.spell_mana_cost(raw)?;
         }
-        let req_fn = if target_is_x { "x_targets" } else { "one" };
         let targets = target
-            .map(|t| format!(", targets = Some(TargetReq::{req_fn}({t}))"))
+            .map(|t| {
+                if let Some(max) = target_up_to {
+                    if max == 1 {
+                        format!(", targets = Some(TargetReq::up_to_one({t}))")
+                    } else {
+                        format!(", targets = Some(TargetReq::up_to({t}, {max}))")
+                    }
+                } else {
+                    let req_fn = if target_is_x { "x_targets" } else { "one" };
+                    format!(", targets = Some(TargetReq::{req_fn}({t}))")
+                }
+            })
             .unwrap_or_default();
         self.body
             .abilities

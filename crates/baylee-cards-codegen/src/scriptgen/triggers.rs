@@ -708,7 +708,10 @@ impl Tx<'_> {
             None => (body, None),
         };
         let mut chain = Chain::default();
-        self.chain(&body, &mut chain)?;
+        self.trigger_is_self = trigger == "Trigger::ETB" || trigger.contains("&Filter::This");
+        let chain_ok = self.chain(&body, &mut chain);
+        self.trigger_is_self = false;
+        chain_ok?;
         if chain.effects.is_empty() {
             return self.deny("a trigger that reads as no effect at all".to_string());
         }

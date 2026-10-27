@@ -201,6 +201,17 @@ impl Tx<'_> {
                 None | Some("Battlefield") => {
                     if api == "Counter" && p.peek("TargetType") == Some("Activated") {
                         self.activated_ability_target(valid)
+                    } else if chain.target.is_some()
+                        && chain.target_unique
+                        && p.peek("TargetUnique") == Some("True")
+                        && api != "Counter"
+                    {
+                        p.take("TargetUnique");
+                        let expr = self.filter_expr(valid)?;
+                        let another =
+                            format!("Filter::And(&[{expr}, Filter::Not(&Filter::Reference)])");
+                        let name = self.body.filter_static("TARGET", &another);
+                        Some(format!("TargetSpec::Object(&{name})"))
                     } else {
                         self.target_spec(valid, api)
                     }
@@ -236,6 +247,17 @@ impl Tx<'_> {
             }
             chain.second_target = Some(spec);
         } else {
+            if p.peek("TargetUnique") == Some("True")
+                && p.peek("SubAbility")
+                    .and_then(|sub| self.svars.get(sub.trim()))
+                    .and_then(|body| Params::parse(body))
+                    .is_some_and(|(_, child)| {
+                        child.has("ValidTgts") && child.peek("TargetUnique") == Some("True")
+                    })
+            {
+                p.take("TargetUnique");
+                chain.target_unique = true;
+            }
             if self.on_a_spell
                 && self.has_x
                 && api == "ChangeZone"
@@ -248,6 +270,19 @@ impl Tx<'_> {
                 p.take("TargetMin");
                 p.take("TargetMax");
                 chain.target_is_x = true;
+            } else if self.on_a_spell
+                && api == "ChangeZone"
+                && p.peek("Origin") == Some("Graveyard")
+                && p.peek("Destination") == Some("Hand")
+                && p.peek("TargetMin") == Some("0")
+                && let Some(max) = p
+                    .peek("TargetMax")
+                    .and_then(|s| s.trim().parse::<u8>().ok())
+                && max > 0
+            {
+                p.take("TargetMin");
+                p.take("TargetMax");
+                chain.target_up_to = Some(max);
             }
             chain.target = Some(spec);
         }
@@ -480,6 +515,13 @@ impl Tx<'_> {
                 }
                 let to = match p.take("Defined").as_deref() {
                     None => aimed.to_string(),
+                    Some(
+                        "TriggeredAttackerLKICopy"
+                        | "TriggeredBlockerLKICopy"
+                        | "TriggeredAttackerLKICopy,TriggeredBlockerLKICopy",
+                    ) if matches!(self.trigger_mode.as_deref(), Some("Attacks" | "Blocks")) => {
+                        "TargetSpec::EventObject".to_string()
+                    }
                     // "Deals 1 damage to that player" and every other
                     // player the line names without targeting one.
                     Some(who) => format!("TargetSpec::Player({})", self.player_rel(Some(who))?),
@@ -799,7 +841,7 @@ impl Tx<'_> {
                 if targets_here {
                     return None;
                 }
-                let n = amount(&p.take("NumDmg")?, self.svars, self.has_x)?;
+                let n = self.amount_or_count(&p.take("NumDmg")?)?;
                 // The printed words for the two keys below ("each creature
                 // and each player"), which say nothing those keys do not.
                 p.take("ValidDescription");

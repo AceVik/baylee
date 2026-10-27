@@ -176,19 +176,29 @@ impl Tx<'_> {
         r.drop_prose();
         if event != "DamageDone"
             || r.take("Prevent").as_deref() != Some("True")
-            || r.take("IsCombat").as_deref() != Some("True")
             || !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
         {
             return None;
         }
-        let valid = r.take("ValidSource")?;
+        let is_combat = match r.take("IsCombat").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let (valid, modifier) = match (r.take("ValidSource"), r.take("ValidTarget"), is_combat) {
+            (Some(src), None, true) => (src, "Modifier::PreventDamageFromIt"),
+            (Some(src), None, false) => (src, "Modifier::PreventAllDamageFromIt"),
+            (None, Some(tgt), true) => (tgt, "Modifier::PreventDamageToIt"),
+            (None, Some(tgt), false) => (tgt, "Modifier::PreventDamageFrom(&Filter::Any)"),
+            _ => return None,
+        };
         if !r.exhausted() {
             return None;
         }
         let filter = self.filter_expr(&valid)?;
         let filter_static = self.body.filter_static("EFFECT", &filter);
         Some(vec![format!(
-            "Effect::continuous(&{filter_static}, Modifier::PreventDamageFromIt, Duration::UntilEndOfTurn)"
+            "Effect::continuous(&{filter_static}, {modifier}, Duration::UntilEndOfTurn)"
         )])
     }
 

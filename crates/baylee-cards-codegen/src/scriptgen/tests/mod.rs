@@ -104,6 +104,8 @@ fn filter(valid: &str) -> String {
         block_half: None,
         in_delayed: false,
         cost_sacrifices_self: false,
+        cost_sacrifices_other: false,
+        trigger_is_self: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };

@@ -323,6 +323,8 @@ fn a_cost_is_not_split_inside_its_own_brackets() {
         block_half: None,
         in_delayed: false,
         cost_sacrifices_self: false,
+        cost_sacrifices_other: false,
+        trigger_is_self: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };

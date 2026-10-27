@@ -264,6 +264,7 @@ impl Tx<'_> {
                 clauses.push("Filter::HasSupertype(SupertypeSet::LEGENDARY)".to_string());
             }
             "Snow" => clauses.push("Filter::HasSupertype(SupertypeSet::SNOW)".to_string()),
+            "Enchanted" => clauses.push("Filter::AttachedToBySource".to_string()),
             _ => {
                 let Some(path) = self.cats.const_path(base) else {
                     self.note(format!("filter base `{base}`"));
@@ -312,6 +313,7 @@ impl Tx<'_> {
                     "attackingYou" => "Filter::AttackingYou".to_string(),
                     "blocking" => "Filter::Blocking".to_string(),
                     "blockingSource" => "Filter::BlockingSource".to_string(),
+                    "blockedBySource" => "Filter::BlockedBySource".to_string(),
                     "blockingTriggeredAttacker"
                         if self.trigger_mode.as_deref() == Some("AttackerBlocked") =>
                     {

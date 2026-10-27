@@ -263,6 +263,8 @@ struct Chain {
     effects: Vec<String>,
     target: Option<String>,
     target_is_x: bool,
+    target_up_to: Option<u8>,
+    target_unique: bool,
     second_target: Option<String>,
     could_add_mana: bool,
     moves_library: bool,
@@ -356,6 +358,10 @@ struct Tx<'a> {
     in_delayed: bool,
     /// Whether the activated ability being read sacrifices `CARDNAME` in its cost.
     cost_sacrifices_self: bool,
+    /// Whether the activated ability being read sacrifices another object in its cost.
+    cost_sacrifices_other: bool,
+    /// Whether the triggered ability being read triggers on `Card.Self`.
+    trigger_is_self: bool,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -515,6 +521,8 @@ pub fn transcode(
         block_half: None,
         in_delayed: false,
         cost_sacrifices_self: false,
+        cost_sacrifices_other: false,
+        trigger_is_self: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };

@@ -273,6 +273,9 @@ impl Tx<'_> {
         {
             return Some("Amount::SourcePower".to_string());
         }
+        if def.trim() == "Sacrificed$CardPower" && self.cost_sacrifices_other && !self.on_a_spell {
+            return Some("Amount::SacrificedPower".to_string());
+        }
         if let Some(valid) = def.trim().strip_prefix("Count$ValidGraveyard ")
             && !valid.contains("Ctrl")
             && !valid.contains("Own")

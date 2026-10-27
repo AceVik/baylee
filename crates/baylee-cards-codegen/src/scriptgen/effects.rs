@@ -79,6 +79,7 @@ impl Tx<'_> {
         // where this line targets a player, and as you where it does not.
         let owner = match p.take("TokenOwner").as_deref() {
             Some("You") => "PlayerRel::You",
+            Some("TriggeredCardController") if self.trigger_is_self => "PlayerRel::You",
             None => self.player_rel_of(None, targets_a_player)?,
             Some(who) => return self.deny(format!("token owner `{who}`")),
         };
@@ -313,6 +314,12 @@ impl Tx<'_> {
             Some(kw) if kw.trim() == "HIDDEN CARDNAME can't attack or block." => {
                 "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)".to_string()
             }
+            Some(kw)
+                if kw.trim() == "HIDDEN CARDNAME can't block."
+                    && p.peek("Defined") == Some("Enchanted") =>
+            {
+                "KeywordSet::CANT_BLOCK".to_string()
+            }
             Some(kw) => {
                 let each: Option<Vec<&str>> =
                     kw.split('&').map(|k| keyword_const(k.trim())).collect();
@@ -393,6 +400,20 @@ impl Tx<'_> {
         })
     }
 
+    pub(super) fn pump_all_side(&mut self, raw: &str) -> Option<String> {
+        let trimmed = raw.trim();
+        let var = trimmed.trim_start_matches(['+', '-']);
+        if self.svars.get(var).map(|d| d.trim()) == Some("Count$Domain") {
+            let inner = "Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)";
+            return Some(if trimmed.starts_with('-') {
+                format!("Amount::Negated(&{inner})")
+            } else {
+                inner.to_string()
+            });
+        }
+        self.pump_side(raw)
+    }
+
     /// `PumpAll`: `ValidCards$ Creature.blocking | NumAtt$ +1 | NumDef$ +1`,
     /// pumping every permanent on the battlefield that matches `ValidCards$`.
     pub(super) fn pump_all_effect(
@@ -404,12 +425,18 @@ impl Tx<'_> {
             return None;
         }
         let valid = p.take("ValidCards")?;
-        let power = self.pump_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
-        let toughness = self.pump_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
+        let power = self.pump_all_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
+        let toughness = self.pump_all_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let keywords = match p.take("KW") {
             None => "KeywordSet::EMPTY".to_string(),
             Some(kw) if kw.trim() == "HIDDEN CARDNAME can't attack or block." => {
                 "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)".to_string()
+            }
+            Some(kw)
+                if kw.trim() == "HIDDEN CARDNAME can't block."
+                    && p.peek("Defined") == Some("Enchanted") =>
+            {
+                "KeywordSet::CANT_BLOCK".to_string()
             }
             Some(kw) => {
                 let each: Option<Vec<&str>> =

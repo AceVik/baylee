@@ -2287,3 +2287,60 @@ fn planeshift_batch_three_and_four_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn apocalypse_reader_patterns() {
+    let divine_light = "Name:Divine Light\nManaCost:W\nTypes:Sorcery\n\
+        A:SP$ Effect | ReplacementEffects$ RPrevent\n\
+        SVar:RPrevent:Event$ DamageDone | Prevent$ True | ActiveZones$ Command | ValidTarget$ Creature.YouCtrl";
+    assert_eq!(
+        read(divine_light).abilities,
+        [
+            "spell!(&[Effect::continuous(&Filter::YOUR_CREATURE, Modifier::PreventDamageFrom(&Filter::Any), Duration::UntilEndOfTurn)])"
+        ]
+    );
+
+    let consume_strength = "Name:Consume Strength\nManaCost:1 B G\nTypes:Instant\n\
+        A:SP$ Pump | ValidTgts$ Creature | TargetUnique$ True | NumAtt$ +2 | NumDef$ +2 | SubAbility$ DBPumpNeg\n\
+        SVar:DBPumpNeg:DB$ Pump | ValidTgts$ Creature | TargetUnique$ True | NumAtt$ -2 | NumDef$ -2 | IsCurse$ True";
+    let body = read(consume_strength);
+    assert!(
+        body.statics
+            .contains("Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::Reference)])"),
+        "{}",
+        body.statics
+    );
+    assert!(
+        body.abilities[0].contains("second_targets = Some(TargetReq::one("),
+        "{}",
+        body.abilities[0]
+    );
+
+    let bloodfire_infusion = "Name:Bloodfire Infusion\nManaCost:2 R\nTypes:Enchantment Aura\n\
+        K:Enchant:Creature.YouCtrl\n\
+        A:AB$ DamageAll | Cost$ R Sac<1/Enchanted> | ValidCards$ Creature | NumDmg$ X | ActivationZone$ Battlefield\n\
+        SVar:X:Sacrificed$CardPower";
+    assert!(read(bloodfire_infusion).abilities[1].contains(
+        "Effect::DealDamageEach { amount: Amount::SacrificedPower, filter: &Filter::CREATURE }"
+    ),);
+
+    let planar_despair = "Name:Planar Despair\nManaCost:3 B B\nTypes:Sorcery\n\
+        A:SP$ PumpAll | ValidCards$ Creature | NumAtt$ -X | NumDef$ -X | IsCurse$ True\n\
+        SVar:X:Count$Domain";
+    assert_eq!(
+        read(planar_despair).abilities,
+        [
+            "spell!(&[Effect::PumpFilter { filter: &Filter::CREATURE, controlled_by: None, power: Amount::Negated(&Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)), toughness: Amount::Negated(&Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)), keywords: KeywordSet::EMPTY, duration: Duration::UntilEndOfTurn }])"
+        ]
+    );
+
+    let urborg_uprising = "Name:Urborg Uprising\nManaCost:4 B\nTypes:Sorcery\n\
+        A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Hand | TargetMin$ 0 | TargetMax$ 2 | ValidTgts$ Creature.YouCtrl | SubAbility$ DBDraw\n\
+        SVar:DBDraw:DB$ Draw | NumCards$ 1";
+    assert_eq!(
+        read(urborg_uprising).abilities,
+        [
+            "spell!(&[Effect::GraveyardToHand { target: TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You) }, Effect::draw(1)], targets = Some(TargetReq::up_to(TargetSpec::CardInGraveyard(&Filter::CREATURE, PlayerRel::You), 2)))"
+        ]
+    );
+}
