@@ -114,6 +114,7 @@ mod pestilence_demon;
 mod piru_the_volatile;
 mod razaketh_the_foulblooded;
 mod scaled_wurm;
+mod silver_seraph;
 mod skeletal_wurm;
 mod tidal_force;
 mod tidal_kraken;

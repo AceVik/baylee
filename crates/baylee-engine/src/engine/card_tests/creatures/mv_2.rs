@@ -197,6 +197,7 @@ mod muscle_sliver;
 mod mystic_familiar;
 mod mystic_visionary;
 mod nantuko_shade;
+mod nantuko_tracer;
 mod nether_shadow;
 mod nightscape_familiar;
 mod nomadic_elf;

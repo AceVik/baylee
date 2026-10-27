@@ -120,6 +120,7 @@ mod loxodon_mystic;
 mod mageta_the_lion;
 mod magmasaur;
 mod martyrs_of_korlis;
+mod masked_gorgon;
 mod mawcor;
 mod meloku_the_clouded_mirror;
 mod metamorphic_wurm;

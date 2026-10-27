@@ -109,6 +109,7 @@ mod provoke;
 mod raise_the_alarm;
 mod rally;
 mod rapid_decay;
+mod ray_of_revelation;
 mod razorgrass_ambush;
 mod reality_anchor;
 mod reality_ripple;

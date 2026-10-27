@@ -17154,45 +17154,126 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Lightning Surge deals 4 damage to any target.\nThreshold — If there are seven or more cards in your graveyard, instead Lightning Surge deals 6 damage to that permanent or player and the damage can't be prevented.\nFlashback {5}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
     ],
-    &[],
-    &[],
-    &[],
+    // Living Wish
+    &[
+        "You may reveal a creature or land card you own from outside the game and put it into your hand. Exile Living Wish.",
+    ],
+    // Lost in Thought
+    &[
+        "Enchant creature\nEnchanted creature can't attack or block, and its activated abilities can't be activated. Its controller may exile three cards from their graveyard for that player to ignore this effect until end of turn.",
+    ],
+    // Masked Gorgon
+    &[
+        "Green creatures and white creatures have protection from Gorgons.\nThreshold — This creature has protection from green and from white as long as there are seven or more cards in your graveyard.",
+    ],
     // Mental Note
     &["Mill two cards.\nDraw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mirari's Wake
+    &[
+        "Creatures you control get +1/+1.\nWhenever you tap a land for mana, add one mana of any type that land produced.",
+    ],
+    // Mirror Wall
+    &[
+        "Defender (This creature can't attack.)\n{W}: This creature can attack this turn as though it didn't have defender.",
+    ],
+    // Mist of Stagnation
+    &[
+        "Permanents don't untap during their controllers' untap steps.\nAt the beginning of each player's upkeep, that player chooses a permanent for each card in their graveyard, then untaps those permanents.",
+    ],
+    // Morality Shift
+    &["Exchange your graveyard and library. Then shuffle your library."],
     // Nantuko Monastery
     &[
         "{T}: Add {C}.\nThreshold — {G}{W}: This land becomes a 4/4 green and white Insect Monk creature with first strike until end of turn. It's still a land. Activate only if there are seven or more cards in your graveyard.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Nantuko Tracer
+    &[
+        "When this creature enters, you may put target card from a graveyard on the bottom of its owner's library.",
+    ],
+    // Nomad Mythmaker
+    &[
+        "{W}, {T}: Put target Aura card from a graveyard onto the battlefield under your control attached to a creature you control.",
+    ],
+    // Nullmage Advocate
+    &[
+        "{T}: Return two target cards from an opponent's graveyard to their hand. Destroy target artifact or enchantment.",
+    ],
+    // Phantom Centaur
+    &[
+        "Protection from black\nThis creature enters with three +1/+1 counters on it.\nIf damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from this creature.",
+    ],
+    // Phantom Flock
+    &[
+        "Flying\nThis creature enters with three +1/+1 counters on it.\nIf damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from this creature.",
+    ],
+    // Phantom Nantuko
+    &[
+        "Trample\nThis creature enters with two +1/+1 counters on it.\nIf damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from this creature.\n{T}: Put a +1/+1 counter on this creature.",
+    ],
+    // Phantom Nishoba
+    &[
+        "Trample\nThis creature enters with seven +1/+1 counters on it.\nWhenever this creature deals damage, you gain that much life.\nIf damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from this creature.",
+    ],
+    // Phantom Nomad
+    &[
+        "This creature enters with two +1/+1 counters on it.\nIf damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from this creature.",
+    ],
+    // Phantom Tiger
+    &[
+        "This creature enters with two +1/+1 counters on it.\nIf damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from this creature.",
+    ],
+    // Planar Chaos
+    &[
+        "At the beginning of your upkeep, flip a coin. If you lose the flip, sacrifice this enchantment.\nWhenever a player casts a spell, that player flips a coin. If they lose the flip, counter that spell.",
+    ],
+    // Prismatic Strands
+    &[
+        "Prevent all damage that sources of the color of your choice would deal this turn.\nFlashback—Tap an untapped white creature you control. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Pulsemage Advocate
+    &[
+        "{T}: Return three target cards from an opponent's graveyard to their hand. Return target creature card from your graveyard to the battlefield.",
+    ],
+    // Quiet Speculation
+    &[
+        "Search target player's library for up to three cards with flashback and put them into that player's graveyard. Then the player shuffles.",
+    ],
+    // Rats' Feast
+    &["Exile X target cards from a single graveyard."],
+    // Ray of Revelation
+    &[
+        "Destroy target enchantment.\nFlashback {G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     // Riftstone Portal
     &[
         "{T}: Add {C}.\nAs long as this card is in your graveyard, lands you control have \"{T}: Add {G} or {W}.\"",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Scalpelexis
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhenever this creature deals combat damage to a player, that player exiles the top four cards of their library. If two or more of those cards have the same name, repeat this process.",
+    ],
+    // Seedtime
+    &[
+        "Cast this spell only during your turn.\nTake an extra turn after this one if an opponent cast a blue spell this turn.",
+    ],
+    // Selfless Exorcist
+    &[
+        "{T}: Exile target creature card from a graveyard. That card deals damage equal to its power to this creature.",
+    ],
+    // Serene Sunset
+    &["Prevent all combat damage X target creatures would deal this turn."],
+    // Shaman's Trance
+    &[
+        "Other players can't play lands or cast spells from their graveyards this turn. You may play lands and cast spells from other players' graveyards this turn as though those cards were in your graveyard.",
+    ],
+    // Shieldmage Advocate
+    &[
+        "{T}: Return target card from an opponent's graveyard to their hand. Prevent all damage that would be dealt to any target this turn by a source of your choice.",
+    ],
+    // Silver Seraph
+    &[
+        "Flying\nThreshold — Other creatures you control get +2/+2 as long as there are seven or more cards in your graveyard.",
+    ],
     &[],
     &[],
     &[],
