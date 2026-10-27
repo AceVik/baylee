@@ -33,10 +33,13 @@ cannot acquire a label for its subsequent fallback.
 
 Teacher targets are BC-only House advice, with no teacher behavior probability
 and no PPO certification. Executed behavior provenance is retained separately.
-Current convert4 does NOT consume these labels. A future converter must verify
-all run/record/input/view/menu/encoder/catalog bindings, replay original inputs
-and hashes, and reject unknown schemas or mismatches before producing separate
-BC targets. This milestone is NOT end-to-end DAgger training support.
+`convert4 --shadow-bc --include-passive-obs` explicitly consumes these labels
+into a NEW BC-only dataset. It verifies all bindings, replays original inputs
+and hashes, and re-runs the teacher on the reconstructed view before producing
+separate BC targets. See `convert4/shadow_bc/README.md` for the admission and
+binary companion provenance contract. Ordinary conversion and PPO data stay
+unchanged. CPU fixture coverage does not replace a production ONNX rollout
+audit, downstream packaging/admission checks or a controlled DAgger experiment.
 
 CPU fixture tests use a deterministic mock policy, not an ONNX model: shadow
 off/on produces byte-identical completed engine records and rollout provenance,

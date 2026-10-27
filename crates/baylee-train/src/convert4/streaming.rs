@@ -145,17 +145,44 @@ pub fn stream_game4(
     game_id: u32,
     include_passive_obs: bool,
     sidecar: Option<&[RolloutStepSidecar4]>,
+    emit: impl FnMut(Step4) -> Result<(), String>,
+) -> Result<StreamedGame4, String> {
+    stream_inner(record, game_id, include_passive_obs, sidecar, None, emit)
+}
+
+/// Convert a separate BC-only dataset with strictly verified shadow advice.
+/// Original inputs and all passive observations remain unchanged.
+///
+/// # Errors
+/// Any replay, label, identity or output failure; incomplete advice is never accepted.
+pub fn stream_game4_shadow_bc(
+    record: &[u8],
+    game_id: u32,
+    sidecar: &[RolloutStepSidecar4],
+    labels: &mut super::shadow_bc::ShadowBc4,
+    emit: impl FnMut(Step4) -> Result<(), String>,
+) -> Result<StreamedGame4, String> {
+    stream_inner(record, game_id, true, Some(sidecar), Some(labels), emit)
+}
+
+fn stream_inner(
+    record: &[u8],
+    game_id: u32,
+    include_passive_obs: bool,
+    sidecar: Option<&[RolloutStepSidecar4]>,
+    shadow: Option<&mut super::shadow_bc::ShadowBc4>,
     mut emit: impl FnMut(Step4) -> Result<(), String>,
 ) -> Result<StreamedGame4, String> {
     let targets = terminal_targets(record)?;
     let mut pending: [Option<(Step4, i32)>; MAX_SEATS] = std::array::from_fn(|_| None);
     let mut steps = 0;
     let mut peak_buffered_frames = 0;
-    let replay = super::replay::replay_frames(
+    let replay = super::replay::replay_frames_shadow(
         record,
         game_id,
         include_passive_obs,
         sidecar,
+        shadow,
         |step, life| {
             let seat = step.seat as usize;
             if let Some((mut previous, previous_life)) = pending[seat].take() {

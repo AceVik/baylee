@@ -97,6 +97,9 @@ pub struct Step4 {
     pub aux: AuxTargets4,
     /// Action provenance (`Net | House | Forced | Search`, `temperature`, `K`, `behavior_logprob`).
     pub provenance: StepProvenance4,
+    /// Separate verified BC advice; absent from ordinary conversion byte output.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shadow_label: Option<shadow_bc::ShadowLabelProvenance4>,
 }
 
 /// Summary returned by [`extract_game4`].
@@ -172,9 +175,10 @@ pub fn extract_game4_with_sidecar(
 }
 
 mod replay;
+pub mod shadow_bc;
 mod streaming;
 use streaming::{ReplaySummary, Targets};
-pub use streaming::{StreamedGame4, stream_game4};
+pub use streaming::{StreamedGame4, stream_game4, stream_game4_shadow_bc};
 
 #[cfg(test)]
 mod tests;

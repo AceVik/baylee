@@ -23,7 +23,10 @@ impl Directory {
         std::fs::create_dir(&path).unwrap();
         let run = json!({"policy_mode":"raw", "policy_provenance_version":2,
             "sampling_version":2, "policy_contract":"raw_neural_sampler2_v1",
-            "model_identity":{"encoder_version":7,"source_checkpoint_sha256":"a".repeat(64)},
+            "model_identity":{"encoder_version":7,"model_version":5,"source_checkpoint_sha256":"a".repeat(64),
+                "model_family":"v5","architecture":"baylee_ai_v5_relational_v2",
+                "onnx_sha256":"c".repeat(64),"metadata_sha256":"d".repeat(64)},
+            "shadow_teacher": super::metadata("sharp"),
             "shadow_structure_sha256":"b".repeat(64)});
         std::fs::write(path.join("run.json"), serde_json::to_vec(&run).unwrap()).unwrap();
         Self(path)
@@ -87,15 +90,26 @@ impl EvaluationPlayer for FixturePolicy {
         let action = HeuristicAgent::new(AIProfile::STEADY)
             .with_teams(teams.to_vec())
             .act(view, pending);
+        let (_, menu) = self.policy_encoding(view, pending, teams).unwrap();
+        let forced = match menu.head {
+            baylee_train::features4::HeadKind4::SingleChoice => menu.candidates.len() <= 1,
+            baylee_train::features4::HeadKind4::SubsetPick => menu.candidates.is_empty(),
+            baylee_train::features4::HeadKind4::PairPick => menu.pairs.is_empty(),
+            baylee_train::features4::HeadKind4::ScalarValue => menu.min_choices >= menu.max_choices,
+        };
         Ok(Some(Answer4 {
             action,
             value: 0.5,
             target: TeacherTarget4::default(),
             provenance: StepProvenance4 {
-                source: SourceKind4::Net,
+                source: if forced {
+                    SourceKind4::Forced
+                } else {
+                    SourceKind4::Net
+                },
                 temperature: 1.,
-                has_logprob: true,
-                behavior_logprob: -0.125,
+                has_logprob: !forced,
+                behavior_logprob: if forced { 0.0 } else { -0.125 },
                 thinking_steps: 2,
             },
         }))
@@ -140,8 +154,8 @@ fn shadow_preserves_executed_record_and_binds_only_bc_labels() {
         "teacher query must not affect engine inputs/hashes"
     );
     assert_eq!(
-        serde_json::to_value(a.9).unwrap(),
-        serde_json::to_value(b.9).unwrap(),
+        serde_json::to_value(&a.9).unwrap(),
+        serde_json::to_value(&b.9).unwrap(),
         "behavior LP must stay unchanged"
     );
     assert_eq!(
@@ -170,6 +184,7 @@ fn shadow_preserves_executed_record_and_binds_only_bc_labels() {
         && v["executed_provenance"]["behavior_logprob"] == -0.125));
     assert_eq!(rows.last().unwrap()["record_sha256"], sha(&b.7));
     assert_eq!(rows.last().unwrap()["ppo_certification"], false);
+    verify_bc_conversion(&dir, &b.7, &b.9);
 }
 
 #[test]
@@ -259,4 +274,99 @@ fn non_neural_and_unmappable_labels_are_excluded_and_old_runs_refused() {
     run["policy_provenance_version"] = json!(1);
     std::fs::write(dir.0.join("run.json"), serde_json::to_vec(&run).unwrap()).unwrap();
     assert!(ShadowGame::new(&dir.0, "historic", 0, "sharp", 99).is_err());
+}
+
+fn verify_bc_conversion(
+    dir: &Directory,
+    record: &[u8],
+    behavior: &[baylee_train::convert4::RolloutStepSidecar4],
+) {
+    use baylee_train::convert4::{shadow_bc::ShadowBc4, stream_game4, stream_game4_shadow_bc};
+    let run = std::fs::read(dir.0.join("run.json")).unwrap();
+    let sidecar = std::fs::read(dir.0.join("shadow/eval4-00000.jsonl")).unwrap();
+    let mut labels =
+        ShadowBc4::load(&run, &sidecar, record, "eval4-00000", &"b".repeat(64)).unwrap();
+    let mut original = Vec::new();
+    let mut bc = Vec::new();
+    stream_game4(record, 1, true, Some(behavior), |step| {
+        original.push(step);
+        Ok(())
+    })
+    .unwrap();
+    stream_game4_shadow_bc(record, 1, behavior, &mut labels, |step| {
+        bc.push(step);
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(original.len(), bc.len(), "every K0/decision frame retained");
+    let mut advice = 0;
+    for (old, new) in original.iter().zip(&bc) {
+        assert_eq!(
+            (old.seat, old.step_cursor, old.turn, old.is_decision),
+            (new.seat, new.step_cursor, new.turn, new.is_decision)
+        );
+        assert_eq!(
+            serde_json::to_value(&old.state).unwrap(),
+            serde_json::to_value(&new.state).unwrap()
+        );
+        assert_eq!(old.outcome, new.outcome);
+        assert_eq!(old.aux, new.aux);
+        assert_eq!(old.provenance.thinking_steps, new.provenance.thinking_steps);
+        assert!(!new.provenance.has_logprob);
+        if new.shadow_label.is_some() {
+            advice += 1;
+            assert_eq!(new.provenance.source, SourceKind4::House);
+            assert_eq!(new.loss_weight, 1.0);
+        } else {
+            assert_eq!(new.loss_weight, 0.0);
+        }
+    }
+    assert!(advice > 0);
+    let mut rows: Vec<Value> = sidecar
+        .split(|b| *b == b'\n')
+        .filter(|l| !l.is_empty())
+        .map(|l| serde_json::from_slice(l).unwrap())
+        .collect();
+    let index = rows.iter().position(|v| v["kind"] == "label").unwrap();
+    let encode = |rows: &Vec<Value>| {
+        rows.iter()
+            .map(|v| serde_json::to_string(v).unwrap() + "\n")
+            .collect::<String>()
+            .into_bytes()
+    };
+    let original_rows = rows.clone();
+    rows[index]["candidates_sha256"] = json!("f".repeat(64));
+    let mut bad =
+        ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &"b".repeat(64)).unwrap();
+    assert!(stream_game4_shadow_bc(record, 1, behavior, &mut bad, |_| Ok(())).is_err());
+    rows = original_rows.clone();
+    rows[index]["teacher_target"]["scalar_norm"] = json!(1.0);
+    let mut bad =
+        ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &"b".repeat(64)).unwrap();
+    assert!(
+        stream_game4_shadow_bc(record, 1, behavior, &mut bad, |_| Ok(())).is_err(),
+        "stored raw targets must never override reconstructed teacher action"
+    );
+    let mut changed_record = record.to_vec();
+    changed_record.push(b'\n');
+    assert!(
+        ShadowBc4::load(
+            &run,
+            &sidecar,
+            &changed_record,
+            "eval4-00000",
+            &"b".repeat(64)
+        )
+        .is_err()
+    );
+    rows = original_rows.clone();
+    rows.insert(index, rows[index].clone());
+    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &"b".repeat(64)).is_err());
+    rows = original_rows.clone();
+    rows.remove(index);
+    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &"b".repeat(64)).is_err());
+    rows = original_rows;
+    rows.pop();
+    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &"b".repeat(64)).is_err());
+    assert!(ShadowBc4::load(&run, &sidecar, record, "wrong-source-game", &"b".repeat(64)).is_err());
 }

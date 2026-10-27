@@ -20,6 +20,25 @@ pub(super) fn replay_frames(
     game_id: u32,
     include_passive_obs: bool,
     sidecar: Option<&[RolloutStepSidecar4]>,
+    emit: impl FnMut(Step4, i32) -> Result<(), String>,
+) -> Result<ReplaySummary, String> {
+    replay_frames_shadow(record, game_id, include_passive_obs, sidecar, None, emit)
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "Audited chronological observation and decision replay"
+)]
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "Existing normalized auxiliary values"
+)]
+pub(super) fn replay_frames_shadow(
+    record: &[u8],
+    game_id: u32,
+    include_passive_obs: bool,
+    sidecar: Option<&[RolloutStepSidecar4]>,
+    mut shadow: Option<&mut super::shadow_bc::ShadowBc4>,
     mut emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<ReplaySummary, String> {
     let mut lines = record
@@ -72,6 +91,7 @@ pub(super) fn replay_frames(
                 seat: seat_u8,
                 by,
                 action,
+                n: input_n,
                 ..
             } => {
                 let seat = PlayerId::new(seat_u8);
@@ -81,6 +101,9 @@ pub(super) fn replay_frames(
                 }
                 let cur_sidecar = if matches!(by, Source::Seat) {
                     let entry = sidecar.and_then(|sc| sc.get(input_idx));
+                    if shadow.is_some() && entry.is_none() {
+                        return Err("Missing original neural behavior provenance".into());
+                    }
                     input_idx += 1;
                     entry
                 } else {
@@ -142,6 +165,7 @@ pub(super) fn replay_frames(
                                         source: SourceKind4::Forced,
                                         ..StepProvenance4::default()
                                     },
+                                    shadow_label: None,
                                 },
                                 cur_life,
                             )?;
@@ -165,13 +189,19 @@ pub(super) fn replay_frames(
                 };
 
                 if is_forced {
+                    if shadow
+                        .as_ref()
+                        .is_some_and(|labels| labels.has_label(input_n))
+                    {
+                        return Err("Shadow label attached to a forced decision".into());
+                    }
                     coverage.record(p_kind, SourceKind4::Forced);
                 } else if let Some(mut target) = encode_teacher_action4(&cands, &pending, &action) {
                     let default_src = match by {
                         Source::Seat => SourceKind4::Net,
                         _ => SourceKind4::House,
                     };
-                    let prov = if let Some(sc_entry) = cur_sidecar {
+                    let mut prov = if let Some(sc_entry) = cur_sidecar {
                         if !sc_entry.free_mask.is_empty()
                             && sc_entry.free_mask.len() == target.multi_mask.len()
                         {
@@ -190,6 +220,32 @@ pub(super) fn replay_frames(
                             has_logprob: false,
                         }
                     };
+                    let mut policy_weight = step_loss_weight;
+                    let mut shadow_label = None;
+                    if let Some(labels) = shadow.as_deref_mut() {
+                        let original_provenance = prov;
+                        policy_weight = 0.0;
+                        prov.has_logprob = false;
+                        prov.behavior_logprob = 0.0;
+                        if let Some((advice, identity)) = labels.target(
+                            input_n,
+                            session.decision_seq(),
+                            seat_u8,
+                            &action,
+                            &original_provenance,
+                            &view,
+                            &pending,
+                            &state,
+                            &cands,
+                            &teams,
+                        )? {
+                            target = advice;
+                            policy_weight = 1.0;
+                            prov.source = SourceKind4::House;
+                            prov.temperature = 0.0;
+                            shadow_label = Some(identity);
+                        }
+                    }
                     coverage.record(p_kind, prov.source);
                     let s_idx = seat_u8 as usize;
                     let sc = seat_cursors[s_idx];
@@ -202,7 +258,7 @@ pub(super) fn replay_frames(
                             step_cursor: sc,
                             turn: view.turn.min(u32::from(u16::MAX)) as u16,
                             is_decision: true,
-                            loss_weight: step_loss_weight,
+                            loss_weight: policy_weight,
                             is_terminal: false,
                             cand_rule_refs: cands
                                 .candidates
@@ -239,6 +295,7 @@ pub(super) fn replay_frames(
                             outcome: 0.0,
                             aux: AuxTargets4::default(),
                             provenance: prov,
+                            shadow_label,
                         },
                         cur_life,
                     )?;
@@ -265,6 +322,13 @@ pub(super) fn replay_frames(
                 final_turn = turn.unwrap_or(final_turn);
             }
         }
+    }
+
+    if let Some(labels) = shadow {
+        if sidecar.is_none_or(|rows| rows.len() != input_idx) {
+            return Err("Original behavior provenance length mismatch".into());
+        }
+        labels.finish()?;
     }
 
     let Some(winners) = winners else {
