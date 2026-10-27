@@ -46,6 +46,7 @@ pub(super) fn mask_non_priority_single_choice(
             if *taken <= 2 {
                 let mut land_count = 0_usize;
                 let mut hand_colors = [false; 5];
+                let mut has_choose_subtype_land = false;
                 for h in &view.hand {
                     if is_true_land_card(view, h.id) {
                         land_count += 1;
@@ -54,6 +55,15 @@ pub(super) fn mask_non_priority_single_choice(
                             if ok {
                                 hand_colors[c] = true;
                             }
+                        }
+                        if baylee_cards::by_index(h.card.index)
+                            .and_then(|d| d.faces.get(usize::from(h.card.face)))
+                            .is_some_and(|f| {
+                                f.enter_modifiers
+                                    .contains(&baylee_cards_dsl::EnterModifier::ChooseSubtype)
+                            })
+                        {
+                            has_choose_subtype_land = true;
                         }
                     }
                 }
@@ -70,9 +80,19 @@ pub(super) fn mask_non_priority_single_choice(
                             })
                     })
                     .count();
+                let any_color_castable_up_to_4 = view.hand.iter().any(|h| {
+                    !is_true_land_card(view, h.id)
+                        && lookup_spell_cost(view, h.id).is_some_and(|(cost, tax)| {
+                            cost.with_x(0).cmc().saturating_add(tax) <= 4
+                                && (0..5)
+                                    .all(|c| count_color_pips(&cost, c) == 0 || hand_colors[c])
+                        })
+                });
                 let has_castable_early_spell = early_castable_count >= 1;
                 let should_take = land_count == 0
                     || land_count >= 6
+                    || (!has_choose_subtype_land && *next_is_free && !has_castable_early_spell)
+                    || (!has_choose_subtype_land && *taken <= 1 && !any_color_castable_up_to_4)
                     || (land_count == 1
                         && *next_is_free
                         && *taken == 0
@@ -672,6 +692,15 @@ pub(super) fn adjust_subset_logits(
                     out[i] = out[i].max(4.0);
                     continue;
                 }
+                let opp_total_crackback_power: i32 = view
+                    .battlefield_of(def_pid)
+                    .filter(|b| {
+                        b.types.contains(TypeSet::CREATURE)
+                            && !b.status.contains(ObjectStatus::PHASED_OUT)
+                            && !has_kw(b, KeywordSet::DEFENDER)
+                    })
+                    .map(|b| i32::from(b.power.unwrap_or(0)).max(0))
+                    .sum();
                 let death_payoff = friendly_creature_death_payoff(view, actor, att_obj);
                 let go_wide_alpha = !is_fragile_engine
                     && ((guaranteed_unblocked_count > 0 && guaranteed_unblocked_dmg >= def_life)
@@ -688,8 +717,10 @@ pub(super) fn adjust_subset_logits(
                             && (death_payoff >= 1 || my_life >= 12))
                         || (is_unblockable
                             && (has_vigilance
+                                || has_kw(att_obj, KeywordSet::CANT_BLOCK)
                                 || total_pos_attackers >= total_def_blockers + 2
-                                || my_life >= 12)));
+                                || my_life >= 12
+                                || my_life - opp_total_crackback_power >= 5)));
                 if go_wide_alpha {
                     out[i] = out[i].max(2.0);
                     continue;
@@ -1112,20 +1143,21 @@ fn is_suicide_attack_into_blockers(
         && !has_kw(att_obj, KeywordSet::TRAMPLE)
         && !has_kw(att_obj, KeywordSet::MENACE)
         && att_power >= 3
-        && att_rem_tough <= 2
+        && att_rem_tough <= 3
         && death_payoff == 0
         && total_pos_attackers <= legal_blockers.len()
         && def_life > att_power
     {
-        let trades_down = legal_blockers.iter().any(|b| {
-            let bp = i32::from(b.power.unwrap_or(0)).max(0);
-            let b_rem = (i32::from(b.toughness.unwrap_or(1)) - i32::from(b.damage)).max(1);
-            let b_kills = bp >= att_rem_tough || (has_kw(b, KeywordSet::DEATHTOUCH) && bp > 0);
-            b_kills
-                && bp < att_power
-                && ((b_rem <= att_rem_tough && bp + b_rem + 2 <= att_power + att_rem_tough)
-                    || (att_rem_tough == 1 && legal_blockers.len() >= 2))
-        });
+        let trades_down = att_rem_tough <= 2
+            && legal_blockers.iter().any(|b| {
+                let bp = i32::from(b.power.unwrap_or(0)).max(0);
+                let b_rem = (i32::from(b.toughness.unwrap_or(1)) - i32::from(b.damage)).max(1);
+                let b_kills = bp >= att_rem_tough || (has_kw(b, KeywordSet::DEATHTOUCH) && bp > 0);
+                b_kills
+                    && bp < att_power
+                    && ((b_rem <= att_rem_tough && bp + b_rem + 2 <= att_power + att_rem_tough)
+                        || (att_rem_tough == 1 && legal_blockers.len() >= 2))
+            });
         let small_one_power_blks = legal_blockers
             .iter()
             .filter(|b| {
@@ -1144,7 +1176,7 @@ fn is_suicide_attack_into_blockers(
             && att_rem_tough == 2
             && small_one_power_blks >= 2
             && any_small_token;
-        let gang_surviving_trade_down = total_pos_attackers < legal_blockers.len()
+        let gang_surviving_trade_down = total_pos_attackers <= legal_blockers.len()
             && (0..legal_blockers.len()).any(|i| {
                 let b1 = legal_blockers[i];
                 let b1_p = i32::from(b1.power.unwrap_or(0)).max(0);
@@ -1167,7 +1199,7 @@ fn is_suicide_attack_into_blockers(
         }
     }
 
-    // 2. Protect fragile tap-ability, combat-begin/upkeep/spellcast engine, or catastrophic-LTB creatures
+    // 2. Protect fragile tap-ability, combat-begin/upkeep/spellcast/lord/fog engine, or catastrophic-LTB creatures
     let is_small_spellcast_engine = total_pos_attackers <= legal_blockers.len() + 1
         && att_power <= 2
         && att_rem_tough <= 2
@@ -1182,11 +1214,15 @@ fn is_suicide_attack_into_blockers(
                 )
             })
         });
+    let sum_blocker_powers: i32 = legal_blockers
+        .iter()
+        .map(|b| i32::from(b.power.unwrap_or(0)).max(0))
+        .sum();
     if (is_protected_engine_or_catastrophic_ltb(view, att_obj) || is_small_spellcast_engine)
-        && legal_blockers.iter().any(|b| {
-            let bp = i32::from(b.power.unwrap_or(0)).max(0);
-            bp >= att_rem_tough || (has_kw(b, KeywordSet::DEATHTOUCH) && bp > 0)
-        })
+        && (sum_blocker_powers >= att_rem_tough
+            || legal_blockers
+                .iter()
+                .any(|b| has_kw(b, KeywordSet::DEATHTOUCH) && b.power.unwrap_or(0) > 0))
     {
         return true;
     }
@@ -1255,6 +1291,15 @@ fn is_protected_engine_or_catastrophic_ltb(view: &PlayerView, obj: &PublicObject
                 },
             ..
         } => p <= 2 && rem_t <= 2,
+        AbilityDef::Static(_) => p <= 1 && rem_t <= 1,
+        AbilityDef::Activated { effects, .. }
+        | AbilityDef::ActivatedConditional { effects, .. } => {
+            p <= 2
+                && rem_t <= 2
+                && effects
+                    .iter()
+                    .any(|e| matches!(e, Effect::PreventAllCombatDamageThisTurn))
+        }
         _ => false,
     })
 }
@@ -1434,7 +1479,7 @@ pub(super) fn adjust_pair_logits(
                 let kills = !ind && (total_bp >= at || any_dt);
                 let kills_without_smallest =
                     !ind && (total_bp - min_bp >= at || (any_dt && assigned.len() >= 2));
-                if !kills || (kills_without_smallest && unblocked_atks_exist) {
+                if !kills || kills_without_smallest {
                     has_redundant_multiblock = true;
                 }
                 if !mn {
@@ -1479,6 +1524,41 @@ pub(super) fn adjust_pair_logits(
             my_life - raw_unblocked_dmg <= 4 && ap >= 2 && ap >= bp && !(a_fs && !b_fs && ap >= bt);
         survives || favorable_trade_at_low_life
     });
+    let has_missed_gang_kill = attackers.iter().any(|&atk_id| {
+        if !attacks_me(atk_id) || atk_max_blockers(atk_id) < 2 {
+            return false;
+        }
+        let (ap, at, a_dt, a_fs, _, _, a_ind) = atk_stats(atk_id);
+        if a_ind || a_dt || a_fs || ap < 2 || at <= 0 {
+            return false;
+        }
+        let assigned = raw_atk_blks.get(&atk_id).map_or(&[][..], Vec::as_slice);
+        let raw_kills = assigned.iter().map(|&b| blk_stats(b).0).sum::<i32>() >= at
+            || assigned.iter().any(|&b| blk_stats(b).2);
+        if raw_kills {
+            return false;
+        }
+        let cand_blks: Vec<ObjectId> = (0..n)
+            .filter_map(|i| {
+                let [b_idx, a_idx] = cands.pairs[i];
+                if b_idx < 0 || a_idx < 0 {
+                    return None;
+                }
+                let (b_id, a_id) = cands.pair_objects[i];
+                (a_id == atk_id
+                    && (!raw_used_blk_set.contains(&b_id) || assigned.contains(&b_id))
+                    && blk_stats(b_id).0 > 0)
+                    .then_some(b_id)
+            })
+            .collect();
+        (0..cand_blks.len()).any(|i| {
+            let (bp1, bt1, ..) = blk_stats(cand_blks[i]);
+            ((i + 1)..cand_blks.len()).any(|j| {
+                let (bp2, bt2, ..) = blk_stats(cand_blks[j]);
+                bp1 + bp2 >= at && bt1 + bt2 > ap && ap >= bp1.min(bp2)
+            })
+        })
+    });
     let has_wasted_zero_power_block = raw_atk_blks
         .iter()
         .any(|(&atk_id, blks)| !blks.is_empty() && atk_stats(atk_id).0 <= 0);
@@ -1517,6 +1597,7 @@ pub(super) fn adjust_pair_logits(
             && !has_illegal_menace
             && !lethal_unblocked
             && !has_missed_kill
+            && !has_missed_gang_kill
             && !has_wasted_zero_power_block))
         && !has_illegal_menace
     {
@@ -1553,8 +1634,16 @@ pub(super) fn adjust_pair_logits(
                     });
                 let trades_favorably = kills
                     && !(a_fs && !b_fs && ap >= bt)
-                    && (ap > bp || (atk_has_active_engine && bt == 1 && ap >= 1));
-                if raw_logits[i] > 0.0 || need_survival_blocks || survives || trades_favorably {
+                    && (ap > bp
+                        || (atk_has_active_engine && bt == 1 && ap >= 1)
+                        || (ap == bp
+                            && ap >= 2
+                            && (my_life <= 12 || my_life - raw_unblocked_dmg <= 8)));
+                let pointless_solo_chump =
+                    assigned.len() == 1 && !kills && !survives && !need_survival_blocks;
+                if !pointless_solo_chump
+                    && (raw_logits[i] > 0.0 || need_survival_blocks || survives || trades_favorably)
+                {
                     *out_l = (*out_l).max(0.5);
                 } else {
                     *out_l = -20.0;
@@ -1785,10 +1874,7 @@ pub(super) fn adjust_pair_logits(
             continue;
         }
         let (ap, at, a_dt, a_fs, _, _a_mn, a_ind) = atk_stats(atk_id);
-        let raw_assigned = raw_atk_blks.get(&atk_id).map_or(0, Vec::len);
-        let allow_gang = raw_assigned >= 2
-            || (attacks_me(atk_id) && ap >= 3 && my_life <= 10 && blockers.len() >= 6);
-        if !allow_gang || a_ind || a_dt || a_fs || at <= 0 {
+        if a_ind || a_dt || a_fs || at <= 0 {
             continue;
         }
         let mut avail: Vec<usize> = (0..n)
@@ -1821,8 +1907,34 @@ pub(super) fn adjust_pair_logits(
                 break;
             }
         }
+        let mut idx = 0;
+        while idx < gang.len() && gang.len() > min_b {
+            let (blk_id, _) = cands.pair_objects[gang[idx]];
+            let (bp, ..) = blk_stats(blk_id);
+            if sum_bp - bp >= at {
+                sum_bp -= bp;
+                gang.remove(idx);
+            } else {
+                idx += 1;
+            }
+        }
+        let sum_bt: i32 = gang
+            .iter()
+            .map(|&p_idx| blk_stats(cands.pair_objects[p_idx].0).1)
+            .sum();
+        let min_gang_bp: i32 = gang
+            .iter()
+            .map(|&p_idx| blk_stats(cands.pair_objects[p_idx].0).0)
+            .min()
+            .unwrap_or(0);
+        let one_survives_two_block = gang.len() == 2 && sum_bt > ap && ap >= min_gang_bp;
+        let raw_assigned = raw_atk_blks.get(&atk_id).map_or(0, Vec::len);
+        let allow_gang = raw_assigned >= 2
+            || (attacks_me(atk_id) && ap >= 3 && my_life <= 10 && blockers.len() >= 6)
+            || (attacks_me(atk_id) && ap >= 2 && one_survives_two_block);
         let gang_blks: Vec<ObjectId> = gang.iter().map(|&idx| cands.pair_objects[idx].0).collect();
-        if sum_bp >= at
+        if allow_gang
+            && sum_bp >= at
             && gang.len() >= min_b
             && gang.len() <= max_b
             && ap >= 2
@@ -2900,14 +3012,35 @@ pub(super) fn active_source_fixed_damage(
     view: &PlayerView,
     active_source: Option<(ObjectId, Option<u32>)>,
 ) -> Option<i32> {
+    let src_self_power: Option<i32> = active_source
+        .map(|(oid, _)| oid)
+        .or_else(|| {
+            view.top_of_stack().map(|top| match top.stack_item {
+                Some(baylee_view::StackItem::Ability { source, .. }) => source,
+                _ => top.id,
+            })
+        })
+        .and_then(|oid| view.object(oid))
+        .and_then(|o| o.power)
+        .map(|p| i32::from(p).max(0));
     let check_effects = |effects: &[Effect]| -> Option<i32> {
         for eff in effects {
-            if let Effect::DealDamage {
-                amount: Amount::Fixed(dmg),
-                ..
-            } = eff
-            {
-                return i32::try_from(*dmg).ok();
+            match eff {
+                Effect::DealDamage {
+                    amount: Amount::Fixed(dmg),
+                    ..
+                } => {
+                    return i32::try_from(*dmg).ok();
+                }
+                Effect::Fight {
+                    fighter: baylee_cards_dsl::TargetSlot::This,
+                    ..
+                } => {
+                    if let Some(p) = src_self_power.filter(|&p| p > 0) {
+                        return Some(p);
+                    }
+                }
+                _ => {}
             }
         }
         None

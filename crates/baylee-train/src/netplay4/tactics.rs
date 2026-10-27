@@ -2906,6 +2906,41 @@ fn is_activated_ability_worth_activating_now(
                     return false;
                 }
             }
+        } else if let Effect::PumpTarget {
+            power: Amount::Fixed(0),
+            toughness: Amount::Fixed(0),
+            keywords,
+            ..
+        } = eff
+            && !keywords.is_empty()
+        {
+            let menace_bit = baylee_cards_dsl::KeywordSet::MENACE.bits();
+            let trample_bit = baylee_cards_dsl::KeywordSet::TRAMPLE.bits();
+            let vigilance_bit = baylee_cards_dsl::KeywordSet::VIGILANCE.bits();
+            let atk_only_bits = menace_bit | trample_bit | vigilance_bit;
+            if (keywords.bits() & !atk_only_bits) == 0 {
+                if view.active != actor
+                    || !(view.phase == Phase::FirstMain
+                        || (view.phase == Phase::Combat && view.step == Step::CombatBegin))
+                {
+                    return false;
+                }
+                let has_eligible_attacker = view.battlefield_of(actor).any(|o| {
+                    o.types.contains(TypeSet::CREATURE)
+                        && !o.status.contains(ObjectStatus::TAPPED)
+                        && !o.status.contains(ObjectStatus::PHASED_OUT)
+                        && !o.summoning_sick
+                        && (o.keywords & baylee_cards_dsl::KeywordSet::DEFENDER.bits()) == 0
+                        && (o.keywords & keywords.bits()) != keywords.bits()
+                        && target_spec.is_none_or(|ts| match ts {
+                            TargetSpec::Object(f) => public_object_matches_basic_filter(actor, o, f),
+                            _ => true,
+                        })
+                });
+                if !has_eligible_attacker {
+                    return false;
+                }
+            }
         }
     }
     if cost.mana.has_variable() {
@@ -3148,7 +3183,15 @@ pub(super) fn classify_active_target_intent(
 }
 
 fn classify_effects_intent(view: &PlayerView, actor: PlayerId, effects: &[Effect]) -> TargetIntent {
-    if effects.iter().any(|e| matches!(e, Effect::Fight { .. })) {
+    if effects.iter().any(|e| {
+        matches!(
+            e,
+            Effect::Fight {
+                fighter: baylee_cards_dsl::TargetSlot::First,
+                ..
+            }
+        )
+    }) {
         return TargetIntent::Neutral;
     }
     if is_hostile_object_effects(effects) {
@@ -3256,12 +3299,24 @@ fn is_pure_pump_effects(effects: &[Effect]) -> bool {
 
 fn is_hostile_object_effects(effects: &[Effect]) -> bool {
     !effects.is_empty()
-        && !effects.iter().any(|e| matches!(e, Effect::Fight { .. }))
+        && !effects.iter().any(|e| {
+            matches!(
+                e,
+                Effect::Fight {
+                    fighter: baylee_cards_dsl::TargetSlot::First,
+                    ..
+                }
+            )
+        })
         && effects.iter().any(|e| match e {
             Effect::Destroy { .. }
             | Effect::Exile { .. }
             | Effect::DealDamage { .. }
-            | Effect::TapTarget => true,
+            | Effect::TapTarget
+            | Effect::Fight {
+                fighter: baylee_cards_dsl::TargetSlot::This,
+                ..
+            } => true,
             Effect::PumpTarget {
                 power, toughness, ..
             }
