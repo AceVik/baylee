@@ -9,6 +9,7 @@ import torch
 import model4 as M
 from checkpoint4 import atomic_save
 from .source_identity import file_digest
+from .model_identity import source_model, source_identity
 
 
 def collection_plan(path, source_hash):
@@ -49,11 +50,13 @@ def load_source(model):
     path = Path(model).expanduser()
     path = path / "net.pt" if path.is_dir() else path
     saved = torch.load(path, map_location="cpu", weights_only=False)
-    for name in ("encoder_version", "model_version", "trajectory_version", "sampling_version"):
+    for name in ("encoder_version", "trajectory_version", "sampling_version"):
         if saved.get(name) != getattr(M, name.upper()):
             raise ValueError(f"Incompatible source {name}")
-    net = M.PlayerNet4(M.Config4(**saved["config"]))
+    net = source_model(saved)
     net.attach_structure(saved["structure"])
+    if saved.get("structure_sha256", net.rules.digest) != net.rules.digest:
+        raise ValueError("Source declared rule catalog digest differs")
     net.load_state_dict(saved["state_dict"], strict=True)
     if not all(torch.isfinite(p).all() for p in net.parameters()):
         raise ValueError("Nonfinite source weights")
@@ -71,6 +74,5 @@ def merged_checkpoint(saved, head, provenance):
     for key, original in saved["state_dict"].items():
         if not key.startswith("seat_value_head.") and not torch.equal(original.cpu(), state[key]):
             raise AssertionError(f"Calibration altered frozen tensor: {key}")
-    return {**{key: saved[key] for key in ("encoder_version", "model_version", "trajectory_version",
-                                          "sampling_version", "config", "structure")},
+    return {**source_identity(saved), "structure": saved["structure"],
             "state_dict": state, "provenance": provenance}

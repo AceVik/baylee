@@ -180,8 +180,9 @@ all exported K budgets and variable/empty/duplicate-edge cases. Additional GPU
 memory and throughput costs must be measured, not inferred from the design.
 `train5.py` selects v5 explicitly; checkpoint/export loaders require its
 architecture identity. Explicit v4-to-v5 initialization transfers the backbone
-with a fresh optimizer. V5 critic-calibration and PPO training loaders remain
-unsupported until explicitly extended and tested.
+with a fresh optimizer. Isolated value-head calibration supports explicit v5
+revisions 1 and 2 as described below. V5 PPO and optimizer/package-continuation
+loaders remain unsupported until separately extended and tested.
 
 The matched pilot lives at
 `/home/ace/baylee-data/v4/experiments/v5-relational-20261027`. Its admission audit
@@ -285,6 +286,31 @@ This is inspired by function-preserving network growth
 measured, not inferred from depth. The
 [depth-pilot plan](history/trained-ai-v4-depth-pilot-2026-10-24.md) also records
 the subsequent learner-game/critic work and the house-AI improvement loop.
+
+`calibrate_value4.py` strictly loads v4 or explicitly identified v5 relational
+revision 1/2 checkpoints. V5 architecture/config disagreement, missing v2
+revision, incompatible family/version, corrupt state or declared catalog
+mismatch is refused. Old v1 configs may omit their revision only with an explicit
+v1 architecture. The calibrated checkpoint preserves source model identity,
+config and structural catalog, with source file hash and architecture in
+provenance. Feature-cache compatibility includes both model families' source
+code. CPU tests exercise nonzero learned relational weights and verify that all
+policy/backbone/memory tensors and outputs remain unchanged after fitting and
+reloading the value head.
+
+This bounded extension retains genuine stochastic-neural-trajectory eligibility.
+Current house-teacher packages and greedy evaluation reports are refused as
+calibration inputs; they must not be relabeled to pass that gate. Greedy own
+states could support future critic fitting under a separate explicit provenance
+and eligibility contract. Teacher-state critic metrics do not establish
+calibration on the deployed actor's visited-state distribution.
+
+Trajectory-version-2 conversion emits separate deduplicated K0 observation rows,
+including the acting seat, before its positive-K decision readout. Calibration
+consumes those observation rows and does not observe the decision view again;
+adding a K0 update to every decision would double-advance memory. This contract
+is covered by real v5 extraction tests, rather than inferred from the model's
+positive-K forward alone.
 
 `calibrate_value4.py` fits only `seat_value_head` from complete games visited by
 the frozen source actor. Its `value_calibration4/` package advances recurrent

@@ -8,6 +8,7 @@ from .checkpoint import collection_plan, file_digest, load_source, merged_checkp
 from .extract import cached_features
 from .fit import fit
 from .metrics import assert_disjoint_games
+from .model_identity import source_identity
 
 
 def main():
@@ -59,7 +60,7 @@ def main():
     if file_digest(source_path) != source_hash:
         raise RuntimeError("Source checkpoint changed during calibration")
     provenance = dict(kind="isolated_value_calibration", source=str(source_path.resolve()),
-                      source_sha256=source_hash, seed=args.seed, promoted=False,
+                      source_sha256=source_hash, source_identity=source_identity(saved), source_catalog_sha256=net.rules.digest, seed=args.seed, promoted=False,
                       train_fingerprint=datasets[0].fingerprint, validation_fingerprint=datasets[1].fingerprint,
                       caches=[str(cache.path) for cache in caches], selected_epoch=report["selected_epoch"],
                       collection_plan=plan,

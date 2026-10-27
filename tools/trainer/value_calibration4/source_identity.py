@@ -8,8 +8,9 @@ def extraction_sources_digest():
     sources = [root / name for name in ("dataset4.py", "sampler4.py", "trajectory_store4.py",
                                         "structure_data4.py", "training4/execution.py")]
     sources += sorted((root / "model4").glob("*.py"))
+    sources += sorted((root / "model5").glob("*.py"))
     sources += [Path(__file__).parent / name for name in
-                ("extract.py", "cache.py", "features.py", "source_identity.py")]
+                ("extract.py", "cache.py", "features.py", "source_identity.py", "model_identity.py")]
     digest = hashlib.sha256()
     for path in sorted(sources):
         digest.update(str(path.relative_to(root)).encode() + b"\0")
