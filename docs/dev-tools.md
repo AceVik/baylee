@@ -37,6 +37,7 @@ contact production or run a release.
 | `scripts/site/card_status.py`, `stamp.py`, `impressum_blob.py` | `cargo tools site card-status`, `stamp`, `impressum-blob`, `check` |
 | `scripts/forge/*.py` | `cargo tools forge read-adventure-save`, `parse-friend-list`, `resolve-printings`, `to-deck-rows` |
 | `.claude/hooks/*.py` | `cargo tools hooks card-test-debt`, `require-card-tests` |
+| `art/music/memorial/prepare.py`, `prepare_bank.py` | `cargo tools art memorial score`, `bank` (see `art/music/memorial/README.md`) |
 | `art/music/prepare.py`, `originality.py` | `cargo tools art prepare`, `originality` |
 | `art/baylee/lantern.py` | `cargo tools art lantern` (native glTF generation) |
 | `scripts/server/baylee-deploy`, `baylee-invite`, `baylee-reboot` and their JSON reader | `baylee-deploy`, `baylee-invite`, `baylee-reboot` (crate baylee-ops) |

@@ -21,10 +21,10 @@ are in `sources.json`. No Yiruma composition or commercial performance is used.
 
 ## Performance
 
-Regenerate with:
+Reproduce and compare every performance byte with:
 
 ```sh
-uv run --with mido==1.3.3 art/music/memorial/prepare.py
+cargo tools art memorial score
 ```
 
 All 1,923 piano notes are retained: 1,468 in Debussy and 455 in Satie. The Satie
@@ -70,14 +70,33 @@ allocation, pitch resampling or network activity in the callback.
 The exact CC0 legal texts ship in `crates/baylee-client-core/assets/chamber/`.
 No finished third-party musical performance or Wizards audio is used.
 
-Regenerate the recorded bank with:
+Verify the shipped bank, then optionally reconstruct every recording with:
 
 ```sh
-uv run --with numpy==2.4.3 --with soundfile==0.13.1 --with soxr==1.0.0 art/music/memorial/prepare_bank.py
+cargo tools art memorial bank
+cargo tools art memorial bank --raw /tmp/baylee-piano-revision/raw --soxr /path/to/libsoxr.dylib
 ```
 
-Downloads use pinned revisions and cache outside the repository under
-`/tmp/baylee-piano-revision/raw`. Offline libsoxr VHQ prepares exact pitches at
+The tools are Rust-only. The approved `instruments.json` is also the source-selection
+recipe: every recording, pitch, layer, duration and tuning is explicit. Reconstruction
+requires native `ffmpeg`/`ffprobe` and an explicitly selected libsoxr 0.1 shared
+library. The reference build uses
+[`dofuuz/soxr@a66f3eeeeb62a32403ff143b756eed92b1ec6b62`](https://github.com/dofuuz/soxr/tree/a66f3eeeeb62a32403ff143b756eed92b1ec6b62)
+(0.1.3-14, LGPL-2.1-or-later), an external authoring dependency, not distributed
+with the client. No Python runtime or subprocess is used.
+
+Downloads require `--download`, use pinned revisions **and source hashes**, and
+cache outside the repository under the chosen `--raw` path. Without `--raw`,
+only the shipped bank is verified and no external program is required.
+The score check needs neither external programs nor network access.
+
+Reconstruction refuses differing PCM. `--output` writes a separate candidate
+score file or bank directory only after parity succeeds; it never replaces the
+approved playback assets. Rust zlib packing may produce different compressed
+bytes, so candidate banks include updated compression hashes alongside the
+unchanged PCM hashes. Existing source licence files remain in the asset folder.
+
+Offline libsoxr VHQ prepares exact pitches at
 48 kHz. Source stereo, recording levels and the natural tail are retained;
 only leading silence/DC and an end taper outside the played release are removed.
 High keys that decay before key-up receive trailing silence, never a piano loop. No per-note
@@ -113,3 +132,14 @@ The mix was revised once after the first climax reached that knee; the final
 piano gain preserves the dynamic arc without limiter coloration. See
 `review.json` for both passes and section levels. The login-to-lobby request
 at 31.13 s was admitted at 31.163 s; waveform continuity is also tested exactly.
+
+## Native-tool migration (28 October 2026)
+
+Both former Python preparation tools now live under
+`crates/baylee-tools/src/art/memorial/`. Migration validation rebuilt all 2,053
+performance events and all 157 stereo clips from the cached original sources;
+every performance and PCM byte matched the approved hashes. Shipped music,
+source editions and recorded-bank files were not modified. Tests exercise
+truncated MIDI, repeat unfolding, source-score parity, stereo fades/padding,
+and invalid PCM. Native resampler boundary/stereo tests run when
+`BAYLEE_TEST_SOXR` names the reference library.
