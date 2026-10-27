@@ -146,8 +146,16 @@ before a long training/evaluation chain. `eval4 --help` and Python ONNX export
 parity do not exercise that native runtime. Preserve failed jobs and recover
 evaluation in a new directory using the verified completed checkpoints.
 
+The local `seat4` preview accepts frozen v4 exports and explicit v5 relational
+v1/v2 exports. V5 selection binds the architecture, relational revision and
+model dimensions; it cannot silently switch between architecture revisions.
+Inference stays on CPU while training may use the GPU. `--raw-policy` opts
+into the unmodified neural policy; the default retains tactical overrides.
+Waiting, pinned-model and aggregate reports record this policy mode. Selecting
+a newer checkpoint makes no claim that it plays more strongly.
+
 `cargo build --release -p baylee-train --features live-seat --bin seat4`
-builds an optional local v4 opponent for the ordinary gateway protocol.
+builds an optional local v4/v5 opponent for the ordinary gateway protocol.
 `seat4 --model /path/to/exported/model --name v4-R02 --acceptance Victory`
 opens a two-player room at `http://127.0.0.1:28766`, signs in as `NET-v4-R02`,
 and starts when the other socket player joins with a deck and says ready.

@@ -13,17 +13,20 @@ use baylee_seat::deck::Deck;
 use baylee_seat::link::SeatLink;
 use baylee_seat::lobby::{Chair, GuestSignIn, Lobby, Session, seat_name};
 use baylee_train::live4::{LiveReport4, LiveSeat4};
-use baylee_train::netplay4::NetPlayer4;
+use baylee_train::netplay4::{NetPlayer4, PolicyMode4};
 use clap::Parser;
 
 #[derive(Parser)]
-#[command(about = "Play a frozen v4 checkpoint through a gateway; observes every received view")]
+#[command(about = "Play a frozen v4/v5 checkpoint through a gateway; observes every received view")]
 struct Args {
     #[arg(long, default_value = "http://127.0.0.1:28766")]
     gateway: String,
     /// An exported checkpoint directory; the running trainer never writes here.
     #[arg(long)]
     model: PathBuf,
+    /// Use the evaluated unmodified neural policy instead of tactical overrides.
+    #[arg(long)]
+    raw_policy: bool,
     /// Supervisor selection checked only before the first view of each new game.
     #[arg(long)]
     model_selection: Option<PathBuf>,
@@ -126,7 +129,7 @@ async fn run(
             "{}",
             serde_json::json!({
                 "phase": "waiting-for-player", "name": name, "game": chair.game_id,
-                "gateway": lobby.base(), "deck": deck.name, "device": "cpu",
+                "gateway": lobby.base(), "deck": deck.name, "device": "cpu", "policy_mode": policy_mode_name(args),
                 "model": args.model, "thinking_steps": args.thinking_steps,
             })
         );
@@ -146,7 +149,7 @@ async fn run(
             println!(
                 "{}",
                 serde_json::json!({
-                    "phase":"model-pinned", "game_id":chair.game_id,"neural_seat":chair.seat,
+                    "policy_mode":policy_mode_name(args), "phase":"model-pinned", "game_id":chair.game_id,"neural_seat":chair.seat,
                     "model":selected.model,"model_label":selected.label,
                     "model_sha256":selected.model_sha256,"score":selected.score,
                     "benchmark_id":selected.benchmark_id,
@@ -242,6 +245,10 @@ fn write_report(
     let fields = report
         .as_object_mut()
         .context("aggregate report must be an object")?;
+    fields.insert(
+        "policy_mode".into(),
+        serde_json::json!(policy_mode_name(args)),
+    );
     fields.insert("game_id".into(), serde_json::json!(chair.game_id));
     fields.insert("neural_seat".into(), serde_json::json!(chair.seat));
     fields.insert("model".into(), serde_json::json!(selected.model));
@@ -268,8 +275,17 @@ fn write_report(
     Ok(())
 }
 
+fn policy_mode_name(args: &Args) -> &'static str {
+    if args.raw_policy { "raw" } else { "tactical" }
+}
+
 fn load_brain(args: &Args, model: &std::path::Path) -> anyhow::Result<NetPlayer4> {
     Ok(NetPlayer4::load(model)?
+        .with_policy_mode(if args.raw_policy {
+            PolicyMode4::Raw
+        } else {
+            PolicyMode4::Tactical
+        })
         .with_temperature(0.0)
         .with_thinking_steps(args.thinking_steps))
 }
@@ -338,5 +354,17 @@ mod tests {
             missing_room_outcome(false).unwrap_err().to_string(),
             "room no longer exists"
         );
+    }
+}
+
+#[cfg(test)]
+mod policy_cli_tests {
+    use super::*;
+    #[test]
+    fn raw_is_explicit_and_default_remains_tactical() {
+        let default = Args::try_parse_from(["seat4", "--model", "/model"]).unwrap();
+        assert_eq!(policy_mode_name(&default), "tactical");
+        let raw = Args::try_parse_from(["seat4", "--model", "/model", "--raw-policy"]).unwrap();
+        assert_eq!(policy_mode_name(&raw), "raw");
     }
 }
