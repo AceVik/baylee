@@ -38,6 +38,7 @@ from .deferred import deferred_readouts
 from .prefetch import prefetch_batches
 from .checkpoint_async import AsyncCheckpointWriter
 from .objective import LOSS_VERSION, selection_score, check_resume_objective
+from .optimizer_groups import build_optimizer_groups, apply_relational_warmup, check_resume_schedule
 
 
 def main(default_architecture="v4") -> None:
@@ -65,6 +66,9 @@ def main(default_architecture="v4") -> None:
     ap.add_argument("--max-steps", type=int, default=0, help="Stop after N optimizer steps if > 0")
     ap.add_argument("--max-shards", type=int, default=0, help="Limit shards loaded (0 = all)")
     ap.add_argument("--lr", type=float, default=3e-4)
+    ap.add_argument("--relational-lr", type=float, default=0., help="Opt-in v5 inner learning rate; zero preserves original optimizer groups")
+    ap.add_argument("--relational-output-lr", type=float, default=0., help="Relational output learning rate; zero inherits --relational-lr")
+    ap.add_argument("--relational-warmup-steps", type=int, default=0, help="Linear warmup of relational groups over global optimizer updates")
     ap.add_argument("--max-entities", type=int, default=M.MAX_ENTITIES)
     ap.add_argument("--num-workers", type=int, default=0)
     ap.add_argument("--seed", type=int, default=42)
@@ -227,11 +231,10 @@ def main(default_architecture="v4") -> None:
         )
         for n, p in net.named_parameters():
             p.requires_grad_(n.startswith(head_prefixes))
-    val_head_params = [p for n, p in net.named_parameters() if p.requires_grad and "seat_value_head" in n]
-    other_params = [p for n, p in net.named_parameters() if p.requires_grad and "seat_value_head" not in n]
-    opt_groups = [{"params": other_params, "lr": args.lr, "weight_decay": 1e-2}]
-    if val_head_params:
-        opt_groups.append({"params": val_head_params, "lr": args.lr * 0.2, "weight_decay": 5e-2})
+    opt_groups, optimizer_schedule = build_optimizer_groups(
+        net, args.lr, architecture=args.architecture, freeze_trunk=args.freeze_trunk,
+        relational_lr=args.relational_lr, output_lr=args.relational_output_lr,
+        warmup_steps=args.relational_warmup_steps)
     opt = torch.optim.AdamW(
         opt_groups,
         fused=True if args.fused_optimizer and device.type == "cuda" else None,
@@ -264,6 +267,7 @@ def main(default_architecture="v4") -> None:
         if saved.get("model_version") != M.MODEL_VERSION or any(saved.get(k) != v for k, v in identity.items()):
             raise ValueError("Resume model architecture differs")
         check_resume_objective(saved, args.checkpoint_selection)
+        check_resume_schedule(saved, optimizer_schedule)
         if (saved.get("training_sampler_version", 1) != D4.StatefulBatchSampler4.VERSION
                 or saved.get("sampler_seed") != args.seed):
             raise ValueError("Resume training sampler version/seed differs; use --init-state for fresh lanes")
@@ -297,7 +301,7 @@ def main(default_architecture="v4") -> None:
     checkpoint_writer = AsyncCheckpointWriter(device, enabled=args.async_checkpoint)
 
     def save_last(epoch, next_batch, hidden):
-        checkpoint_writer.save({**identity, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": net.state_dict(),
+        checkpoint_writer.save({**identity, "optimizer_schedule": optimizer_schedule, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": net.state_dict(),
                      "optimizer": opt.state_dict(), "rng": rng_state(),
                      "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION, "sampling_version": M.SAMPLING_VERSION,
                      "step_num": step_num, "epoch": epoch, "next_batch": next_batch,
@@ -334,7 +338,7 @@ def main(default_architecture="v4") -> None:
             best_score, best_step = score, step_num
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
             best_val_metrics = dict(metrics)
-            atomic_save({**identity, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
+            atomic_save({**identity, "optimizer_schedule": optimizer_schedule, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
                          "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
                          "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
                          "sampling_version": M.SAMPLING_VERSION, "step_num": best_step,
@@ -444,6 +448,7 @@ def main(default_architecture="v4") -> None:
                 traj_loss.backward()
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0, error_if_nonfinite=True)
                 checkpoint_writer.before_mutation()
+                apply_relational_warmup(opt, optimizer_schedule, step_num + 1)
                 opt.step()
                 net.clear_structure()
 
@@ -493,7 +498,7 @@ def main(default_architecture="v4") -> None:
     final_state = best_state if best_state is not None else net.state_dict()
     final_metrics = best_val_metrics if best_val_metrics else val_metrics
     ckpt = {
-        **identity,
+        **identity, "optimizer_schedule": optimizer_schedule,
         "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
         "config": cfg.__dict__,
@@ -508,7 +513,7 @@ def main(default_architecture="v4") -> None:
     }
     atomic_save(ckpt, out_dir / "net.pt")
     meta_out = {
-        **identity,
+        **identity, "optimizer_schedule": optimizer_schedule,
         "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
