@@ -18017,6 +18017,8 @@ pub mod skeletal_crocodile;
 pub mod skeletal_grimace;
 #[path = "creatures/mv_5/skeletal_kathari.rs"]
 pub mod skeletal_kathari;
+#[path = "instants/mv_1/skeletal_scrying.rs"]
+pub mod skeletal_scrying;
 #[path = "creatures/mv_2/skeletal_snake.rs"]
 pub mod skeletal_snake;
 #[path = "creatures/mv_6/skeletal_vampire.rs"]
@@ -18077,6 +18079,8 @@ pub mod skulking_ghost;
 pub mod skull_catapult;
 #[path = "creatures/mv_3/skull_collector.rs"]
 pub mod skull_collector;
+#[path = "sorceries/mv_1/skull_fracture.rs"]
+pub mod skull_fracture;
 #[path = "artifacts/mv_3/skull_of_orm.rs"]
 pub mod skull_of_orm;
 #[path = "artifacts/mv_3/skull_of_ramos.rs"]
@@ -18155,6 +18159,8 @@ pub mod skyshaper;
 pub mod skyship_stalker;
 #[path = "artifacts/mv_4/skyship_weatherlight.rs"]
 pub mod skyship_weatherlight;
+#[path = "creatures/mv_2/skyshooter.rs"]
+pub mod skyshooter;
 #[path = "creatures/mv_1/skyshroud_archer.rs"]
 pub mod skyshroud_archer;
 #[path = "creatures/mv_7/skyshroud_behemoth.rs"]
@@ -18643,6 +18649,8 @@ pub mod spare_supplies;
 pub mod spark_double;
 #[path = "instants/mv_1/spark_jolt.rs"]
 pub mod spark_jolt;
+#[path = "creatures/mv_1/spark_mage.rs"]
+pub mod spark_mage;
 #[path = "instants/mv_1/spark_spray.rs"]
 pub mod spark_spray;
 #[path = "creatures/mv_4/sparkcaster.rs"]
@@ -18723,6 +18731,8 @@ pub mod spell_pierce;
 pub mod spell_snare;
 #[path = "instants/mv_3/spell_snip.rs"]
 pub mod spell_snip;
+#[path = "creatures/mv_3/spellbane_centaur.rs"]
+pub mod spellbane_centaur;
 #[path = "artifacts/mv_0/spellbook.rs"]
 pub mod spellbook;
 #[path = "creatures/mv_3/spellgorger_weird.rs"]
@@ -18733,8 +18743,18 @@ pub mod spellkeeper_weird;
 pub mod spellseeker;
 #[path = "enchantments/mv_3/spellshock.rs"]
 pub mod spellshock;
+#[path = "enchantments/mv_4/sphere_of_duty.rs"]
+pub mod sphere_of_duty;
+#[path = "enchantments/mv_4/sphere_of_grace.rs"]
+pub mod sphere_of_grace;
+#[path = "enchantments/mv_4/sphere_of_law.rs"]
+pub mod sphere_of_law;
+#[path = "enchantments/mv_4/sphere_of_reason.rs"]
+pub mod sphere_of_reason;
 #[path = "artifacts/mv_2/sphere_of_resistance.rs"]
 pub mod sphere_of_resistance;
+#[path = "enchantments/mv_4/sphere_of_truth.rs"]
+pub mod sphere_of_truth;
 #[path = "artifacts/mv_7/sphinx_bone_wand.rs"]
 pub mod sphinx_bone_wand;
 #[path = "creatures/mv_7/sphinx_mindbreaker.rs"]
@@ -18895,6 +18915,8 @@ pub mod spiritual_focus;
 pub mod spiritual_guardian;
 #[path = "enchantments/mv_4/spiritual_sanctuary.rs"]
 pub mod spiritual_sanctuary;
+#[path = "instants/mv_3/spiritualize.rs"]
+pub mod spiritualize;
 #[path = "instants/mv_4/spite.rs"]
 pub mod spite;
 #[path = "creatures/mv_2/spiteflame_witch.rs"]
@@ -18971,6 +18993,8 @@ pub mod spreading_rot;
 pub mod spreading_seas;
 #[path = "sorceries/mv_5/spring_of_eternal_peace.rs"]
 pub mod spring_of_eternal_peace;
+#[path = "creatures/mv_4/springing_tiger.rs"]
+pub mod springing_tiger;
 #[path = "lands/utility/springjack_pasture.rs"]
 pub mod springjack_pasture;
 #[path = "artifacts/mv_1/springjaw_trap.rs"]
@@ -19019,6 +19043,8 @@ pub mod squire;
 pub mod squire_s_devotion;
 #[path = "creatures/mv_2/squirming_mass.rs"]
 pub mod squirming_mass;
+#[path = "creatures/mv_3/squirrel_mob.rs"]
+pub mod squirrel_mob;
 #[path = "enchantments/auras/mv_3/squirrel_nest.rs"]
 pub mod squirrel_nest;
 #[path = "creatures/mv_2/squirrel_sovereign.rs"]
@@ -19083,6 +19109,8 @@ pub mod standard_bearer;
 pub mod standing_stones;
 #[path = "creatures/mv_3/standing_troops.rs"]
 pub mod standing_troops;
+#[path = "enchantments/mv_2/standstill.rs"]
+pub mod standstill;
 #[path = "creatures/mv_6/stangg.rs"]
 pub mod stangg;
 #[path = "artifacts/mv_2/star_compass.rs"]
@@ -19161,6 +19189,10 @@ pub mod steam_frigate;
 pub mod steam_spitter;
 #[path = "lands/shock/steam_vents.rs"]
 pub mod steam_vents;
+#[path = "enchantments/auras/mv_3/steam_vines.rs"]
+pub mod steam_vines;
+#[path = "artifacts/mv_2/steamclaw.rs"]
+pub mod steamclaw;
 #[path = "creatures/artifacts/mv_3/steel_golem.rs"]
 pub mod steel_golem;
 #[path = "creatures/mv_3/steel_leaf_champion.rs"]
@@ -19265,6 +19297,8 @@ pub mod stone_rain;
 pub mod stone_spirit;
 #[path = "creatures/mv_1/stone_throwing_devils.rs"]
 pub mod stone_throwing_devils;
+#[path = "creatures/mv_7/stone_tongue_basilisk.rs"]
+pub mod stone_tongue_basilisk;
 #[path = "creatures/mv_3/stonefare_crocodile.rs"]
 pub mod stonefare_crocodile;
 #[path = "instants/mv_5/stonefury.rs"]
@@ -19807,6 +19841,8 @@ pub mod sylvan_hierophant;
 pub mod sylvan_library;
 #[path = "creatures/mv_4/sylvan_messenger.rs"]
 pub mod sylvan_messenger;
+#[path = "instants/mv_2/sylvan_might.rs"]
+pub mod sylvan_might;
 #[path = "instants/mv_1/sylvan_paradise.rs"]
 pub mod sylvan_paradise;
 #[path = "creatures/mv_1/sylvan_safekeeper.rs"]
@@ -19827,6 +19863,8 @@ pub mod symbiotic_deployment;
 pub mod symbol_of_unsummoning;
 #[path = "creatures/mv_5/synchronous_sliver.rs"]
 pub mod synchronous_sliver;
+#[path = "instants/mv_1/syncopate.rs"]
+pub mod syncopate;
 #[path = "creatures/mv_2/syndicate_trafficker.rs"]
 pub mod syndicate_trafficker;
 #[path = "instants/mv_3/syphon_essence.rs"]
@@ -20217,6 +20255,8 @@ pub mod terrain_generator;
 pub mod terramorphic_expanse;
 #[path = "artifacts/mv_1/terrarion.rs"]
 pub mod terrarion;
+#[path = "creatures/mv_3/terravore.rs"]
+pub mod terravore;
 #[path = "creatures/mv_5/terrian_world_tyrant.rs"]
 pub mod terrian_world_tyrant;
 #[path = "creatures/mv_5/territorial_baloth.rs"]
@@ -20235,6 +20275,8 @@ pub mod territorial_scythecat;
 pub mod terror;
 #[path = "creatures/mv_4/terror_of_the_fairgrounds.rs"]
 pub mod terror_of_the_fairgrounds;
+#[path = "enchantments/mv_1/testament_of_faith.rs"]
+pub mod testament_of_faith;
 #[path = "creatures/mv_1/tethered_griffin.rs"]
 pub mod tethered_griffin;
 #[path = "creatures/mv_3/tethered_skirge.rs"]
@@ -20385,6 +20427,8 @@ pub mod thelonite_monk;
 pub mod theoden_king_of_rohan;
 #[path = "creatures/mv_2/theorist_s_proxy.rs"]
 pub mod theorist_s_proxy;
+#[path = "instants/mv_5/thermal_blast.rs"]
+pub mod thermal_blast;
 #[path = "creatures/mv_3/thermal_glider.rs"]
 pub mod thermal_glider;
 #[path = "creatures/artifacts/mv_3/thermal_navigator.rs"]
@@ -20475,10 +20519,16 @@ pub mod thornwood_falls;
 pub mod those_who_serve;
 #[path = "creatures/mv_2/thought_courier.rs"]
 pub mod thought_courier;
+#[path = "creatures/mv_4/thought_devourer.rs"]
+pub mod thought_devourer;
+#[path = "creatures/mv_2/thought_eater.rs"]
+pub mod thought_eater;
 #[path = "enchantments/mv_4/thought_lash.rs"]
 pub mod thought_lash;
 #[path = "creatures/artifacts/mv_7/thought_monitor.rs"]
 pub mod thought_monitor;
+#[path = "creatures/mv_1/thought_nibbler.rs"]
+pub mod thought_nibbler;
 #[path = "instants/mv_1/thought_scour.rs"]
 pub mod thought_scour;
 #[path = "artifacts/mv_2/thought_vessel.rs"]

@@ -74,6 +74,7 @@ mod sky_diamond;
 mod skyshaper;
 mod sphere_of_resistance;
 mod star_compass;
+mod steamclaw;
 mod sword_of_the_chosen;
 mod talisman_of_dominance;
 mod talisman_of_impulse;

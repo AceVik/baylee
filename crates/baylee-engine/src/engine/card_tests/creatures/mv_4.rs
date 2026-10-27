@@ -312,6 +312,7 @@ mod souldrinker;
 mod sparkcaster;
 mod spirit_en_kor;
 mod spotted_griffin;
+mod springing_tiger;
 mod squallmonger;
 mod squirrel_wrangler;
 mod stalking_tiger;

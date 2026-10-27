@@ -473,6 +473,7 @@ mod sphinx_mindbreaker;
 mod sphinx_of_the_final_word;
 mod spike_hatcher;
 mod spined_megalodon;
+mod stone_tongue_basilisk;
 mod striped_riverwinder;
 mod the_balrog_of_moria;
 mod the_terror_of_serpent_s_pass;

@@ -503,6 +503,11 @@ impl Tx<'_> {
         Some(match api {
             "DealDamage" => {
                 let n = self.amount_or_count(&p.take("NumDmg")?)?;
+                let may = match p.take("OptionalDecider").as_deref() {
+                    None => false,
+                    Some("You") => true,
+                    Some(_) => return None,
+                };
                 // "Deals 4 damage to any target and 2 damage to you"
                 // (Psionic Blast): the reference gathers both into one
                 // simultaneous event and deals it at `DamageResolve`. The
@@ -526,9 +531,12 @@ impl Tx<'_> {
                     // player the line names without targeting one.
                     Some(who) => format!("TargetSpec::Player({})", self.player_rel(Some(who))?),
                 };
-                vec![format!(
-                    "Effect::DealDamage {{ amount: {n}, target: {to} }}"
-                )]
+                let dmg = format!("Effect::DealDamage {{ amount: {n}, target: {to} }}");
+                if may {
+                    vec![format!("Effect::MayDo {{ effects: &[{dmg}] }}")]
+                } else {
+                    vec![dmg]
+                }
             }
             // A number, or the X the player announced (Stream of Life's
             // "target player gains X life"): [`amount`] asks both of its

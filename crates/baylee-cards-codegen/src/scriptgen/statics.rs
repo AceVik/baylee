@@ -512,6 +512,18 @@ impl Tx<'_> {
             ));
             return Some(());
         }
+        if let Some(valid) = count.strip_prefix("Count$ValidGraveyard ") {
+            if valid.contains("Ctrl") || valid.contains("Own") || valid.contains('/') {
+                return self.deny(format!("count `{count}`"));
+            }
+            let filter = self.filter_expr(valid)?;
+            let name = self.body.filter_static("COUNTED", &filter);
+            self.body.abilities.push(format!(
+                "static_ability!(Filter::This, Modifier::CharacteristicPT {{ \
+                 count: PtCount::InAllGraveyards(&{name}), toughness_plus: 0 }})"
+            ));
+            return Some(());
+        }
         let Some(valid) = count.strip_prefix("Count$Valid ") else {
             return self.deny(format!("count `{count}`"));
         };

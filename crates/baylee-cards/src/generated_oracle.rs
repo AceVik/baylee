@@ -15350,7 +15350,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[],
     &[],
     &[],
-    &[],
+    // Stone-Tongue Basilisk
+    &[
+        "Whenever this creature deals combat damage to a creature, destroy that creature at end of combat.\nThreshold — As long as there are seven or more cards in your graveyard, all creatures able to block this creature do so.",
+    ],
     // Abandoned Outpost
     &[
         "This land enters tapped.\n{T}: Add {W}.\n{T}, Sacrifice this land: Add one mana of any color.",
@@ -16201,32 +16204,66 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Simplify
     &["Each player sacrifices an enchantment of their choice."],
-    &[],
-    &[],
+    // Skeletal Scrying
+    &[
+        "As an additional cost to cast this spell, exile X cards from your graveyard.\nYou draw X cards and you lose X life.",
+    ],
+    // Skull Fracture
+    &[
+        "Target player discards a card.\nFlashback {3}{B} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     // Skycloud Egg
     &["{2}, {T}, Sacrifice this artifact: Add {W}{U}. Draw a card. (Activate only as an instant.)"],
     // Skycloud Expanse
     &["{1}, {T}: Add {W}{U}."],
-    &[],
+    // Skyshooter
+    &[
+        "Reach (This creature can block creatures with flying.)\n{T}, Sacrifice this creature: Destroy target attacking or blocking creature with flying.",
+    ],
     // Soulcatcher
     &["Flying\nWhenever a creature with flying dies, put a +1/+1 counter on this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Spark Mage
+    &[
+        "Whenever this creature deals combat damage to a player, you may have this creature deal 1 damage to target creature that player controls.",
+    ],
+    // Spellbane Centaur
+    &["Creatures you control can't be the targets of blue spells or abilities from blue sources."],
+    // Sphere of Duty
+    &["If a green source would deal damage to you, prevent 2 of that damage."],
+    // Sphere of Grace
+    &["If a black source would deal damage to you, prevent 2 of that damage."],
+    // Sphere of Law
+    &["If a red source would deal damage to you, prevent 2 of that damage."],
+    // Sphere of Reason
+    &["If a blue source would deal damage to you, prevent 2 of that damage."],
+    // Sphere of Truth
+    &["If a white source would deal damage to you, prevent 2 of that damage."],
+    // Spiritualize
+    &[
+        "Until end of turn, whenever target creature deals damage, you gain that much life.\nDraw a card.",
+    ],
+    // Springing Tiger
+    &[
+        "Threshold — This creature gets +2/+2 as long as there are seven or more cards in your graveyard.",
+    ],
+    // Squirrel Mob
+    &["This creature gets +1/+1 for each other Squirrel on the battlefield."],
     // Squirrel Nest
     &["Enchant land\nEnchanted land has \"{T}: Create a 1/1 green Squirrel creature token.\""],
     // Stalking Bloodsucker
     &["Flying\n{1}{B}, Discard a card: This creature gets +2/+2 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Standstill
+    &[
+        "When a player casts a spell, sacrifice this enchantment. If you do, each of that player's opponents draws three cards.",
+    ],
+    // Steam Vines
+    &[
+        "Enchant land\nWhen enchanted land becomes tapped, destroy it and this Aura deals 1 damage to that land's controller. That player attaches this Aura to a land of their choice.",
+    ],
+    // Steamclaw
+    &[
+        "{3}, {T}: Exile target card from a graveyard.\n{1}, Sacrifice this artifact: Exile target card from a graveyard.",
+    ],
     // Still Life
     &[
         "{G}{G}: This enchantment becomes a 4/3 Centaur creature in addition to its other types until end of turn.",
@@ -16235,8 +16272,14 @@ pub static ORACLE: &[&[&str]] = &[
     &["{2}, {T}, Sacrifice this artifact: Add {G}{W}. Draw a card. (Activate only as an instant.)"],
     // Sungrass Prairie
     &["{1}, {T}: Add {G}{W}."],
-    &[],
-    &[],
+    // Sylvan Might
+    &[
+        "Target creature gets +2/+2 and gains trample until end of turn.\nFlashback {2}{G}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Syncopate
+    &[
+        "Counter target spell unless its controller pays {X}. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
+    ],
     // Tainted Pact
     &[
         "Exile the top card of your library. You may put that card into your hand unless it has the same name as another card exiled this way. Repeat this process until you put a card into your hand or you exile two cards with the same name, whichever comes first.",
@@ -16247,20 +16290,32 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nEnchanted creature gets +1/+1 and has protection from enchantments. This effect doesn't remove this Aura.\nSacrifice this Aura: Destroy target enchantment.",
     ],
-    &[],
-    &[],
+    // Terravore
+    &[
+        "Trample\nTerravore's power and toughness are each equal to the number of land cards in all graveyards.",
+    ],
+    // Testament of Faith
+    &[
+        "{X}: This enchantment becomes an X/X Wall creature with defender in addition to its other types until end of turn.",
+    ],
     // Thaumatog
     &[
         "Sacrifice a land: This creature gets +1/+1 until end of turn.\nSacrifice an enchantment: This creature gets +1/+1 until end of turn.",
     ],
-    &[],
+    // Thermal Blast
+    &[
+        "Thermal Blast deals 3 damage to target creature.\nThreshold — Thermal Blast deals 5 damage instead if there are seven or more cards in your graveyard.",
+    ],
     // Think Tank
     &[
         "At the beginning of your upkeep, surveil 1. (Look at the top card of your library. You may put that card into your graveyard.)",
     ],
-    &[],
-    &[],
-    &[],
+    // Thought Devourer
+    &["Flying\nYour maximum hand size is reduced by four."],
+    // Thought Eater
+    &["Flying\nYour maximum hand size is reduced by three."],
+    // Thought Nibbler
+    &["Flying\nYour maximum hand size is reduced by two."],
     // Timberland Ruins
     &[
         "This land enters tapped.\n{T}: Add {G}.\n{T}, Sacrifice this land: Add one mana of any color.",

@@ -271,6 +271,7 @@ mod skittering_skirge;
 mod skittish_kavu;
 mod skulking_ghost;
 mod skyclave_cleric;
+mod skyshooter;
 mod skyshroud_condor;
 mod skyshroud_elf;
 mod skyshroud_falcon;

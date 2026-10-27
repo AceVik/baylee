@@ -11579,3 +11579,28 @@ Shelter
 Shifty Doppelganger
 Shower of Coals
 Simplify
+Skeletal Scrying
+Skull Fracture
+Skyshooter
+Spark Mage
+Spellbane Centaur
+Sphere of Duty
+Sphere of Grace
+Sphere of Law
+Sphere of Reason
+Sphere of Truth
+Spiritualize
+Springing Tiger
+Squirrel Mob
+Standstill
+Steam Vines
+Steamclaw
+Stone-Tongue Basilisk
+Sylvan Might
+Syncopate
+Terravore
+Testament of Faith
+Thermal Blast
+Thought Devourer
+Thought Eater
+Thought Nibbler

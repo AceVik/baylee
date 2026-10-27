@@ -167,6 +167,7 @@ mod sleeper_agent;
 mod soldier_of_fortune;
 mod songstitcher;
 mod soul_warden;
+mod spark_mage;
 mod stampede_driver;
 mod stone_throwing_devils;
 mod stormscape_apprentice;
