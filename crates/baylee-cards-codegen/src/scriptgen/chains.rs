@@ -769,7 +769,14 @@ impl Tx<'_> {
             // line targets, or on the player `Defined$` names. With
             // neither, nothing is shielded, and that is not a card.
             "PreventDamage" => {
-                let n = amount(&p.take("Amount")?, self.svars, self.has_x)?;
+                let raw_amount = p.take("Amount")?;
+                let n = if self.svars.get(raw_amount.trim()).map(|d| d.trim())
+                    == Some("Count$Domain")
+                {
+                    "Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)".to_string()
+                } else {
+                    amount(&raw_amount, self.svars, self.has_x)?
+                };
                 let to = match (p.take("Defined").as_deref(), target) {
                     (Some("Self"), None) if !self.on_a_spell => {
                         "TargetSpec::ThisObject".to_string()

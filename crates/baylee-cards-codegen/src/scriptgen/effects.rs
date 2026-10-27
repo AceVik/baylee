@@ -877,10 +877,15 @@ impl Tx<'_> {
             self.note(format!("`ChangeZone` returning {count} chosen permanents"));
             return None;
         }
-        let filter = self.filter_expr(&p.take("ChangeType")?)?;
+        let who = self.player_rel(p.take("DefinedPlayer").as_deref())?;
+        let change_type = p.take("ChangeType")?;
+        if who != "PlayerRel::You" && change_type.contains("YouCtrl") {
+            return None;
+        }
+        let filter = self.filter_expr(&change_type)?;
         let name = self.body.filter_static("RETURN", &filter);
         Some(vec![format!(
-            "Effect::ReturnChosenToHand {{ who: PlayerRel::You, filter: &{name} }}"
+            "Effect::ReturnChosenToHand {{ who: {who}, filter: &{name} }}"
         )])
     }
 

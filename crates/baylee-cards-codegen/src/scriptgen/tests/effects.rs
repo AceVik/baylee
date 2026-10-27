@@ -2231,3 +2231,59 @@ fn planeshift_batch_two_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn planeshift_batch_three_and_four_reader_patterns() {
+    let pilgrim = "Name:Samite Pilgrim\nManaCost:1 W\nTypes:Creature Human Cleric\nPT:1/1\n\
+        A:AB$ PreventDamage | Cost$ T | ValidTgts$ Creature | Amount$ X | PrecostDesc$ Domain —\n\
+        SVar:X:Count$Domain";
+    assert_eq!(
+        read(pilgrim).abilities,
+        [
+            "activated!(Cost::TAP, &[Effect::PreventNextDamage { target: TargetSpec::Object(&Filter::CREATURE), amount: Amount::BasicLandTypesAmong(&Filter::YOUR_LAND) }], target = Some(TargetSpec::Object(&Filter::CREATURE)))"
+        ]
+    );
+
+    let explorer = "Name:Quirion Explorer\nManaCost:1 G\nTypes:Creature Elf Druid Scout\nPT:1/1\n\
+        A:AB$ ManaReflected | Cost$ T | ColorOrType$ Color | Valid$ Land.OppCtrl | ReflectProperty$ Produce";
+    assert_eq!(
+        read(explorer).abilities,
+        ["mana_ability!(&[Effect::mana_land_color(false)])"]
+    );
+
+    let compass = "Name:Star Compass\nManaCost:2\nTypes:Artifact\n\
+        A:AB$ ManaReflected | Cost$ T | ColorOrType$ Color | Valid$ Basic.YouCtrl | ReflectProperty$ Produce";
+    assert_eq!(
+        read(compass).abilities,
+        ["mana_ability!(&[Effect::mana_from_lands(&Filter::BASIC_LAND, true, false)])"]
+    );
+
+    let radiant_kavu = "Name:Radiant Kavu\nManaCost:R G W\nTypes:Creature Kavu\nPT:3/3\n\
+        A:AB$ Effect | Cost$ R G W | ReplacementEffects$ RPrevent\n\
+        SVar:RPrevent:Event$ DamageDone | Prevent$ True | IsCombat$ True | ActiveZones$ Command | ValidSource$ Creature.Blue,Creature.Black";
+    assert_eq!(
+        read(radiant_kavu).abilities,
+        [
+            "activated!(cost!(\"{R}{G}{W}\"), &[Effect::continuous(&EFFECT1, Modifier::PreventDamageFromIt, Duration::UntilEndOfTurn)])"
+        ]
+    );
+
+    let familiar = "Name:Stormscape Familiar\nManaCost:1 U\nTypes:Creature Bird\nPT:1/1\n\
+        S:Mode$ ReduceCost | ValidCard$ Card.White,Card.Black | Type$ Spell | Activator$ You | Amount$ 1";
+    assert_eq!(
+        read(familiar).abilities,
+        [
+            "static_ability!(Filter::Or(&[Filter::And(&[Filter::HasColor(ColorSet::from_slice(&[Color::White])), Filter::ControlledByYou]), Filter::And(&[Filter::HasColor(ColorSet::from_slice(&[Color::Black])), Filter::ControlledByYou])]), Modifier::SpellsCostLess(1))"
+        ]
+    );
+
+    let sunken_hope = "Name:Sunken Hope\nManaCost:3 U U\nTypes:Enchantment\n\
+        T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | TriggerZones$ Battlefield | Execute$ TrigChangeZoneYou\n\
+        SVar:TrigChangeZoneYou:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand | Hidden$ True | Mandatory$ True | ChangeType$ Creature | DefinedPlayer$ TriggeredPlayer | ChangeNum$ 1";
+    assert_eq!(
+        read(sunken_hope).abilities,
+        [
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::EachPlayer }, &[Effect::ReturnChosenToHand { who: PlayerRel::ActivePlayer, filter: &Filter::CREATURE }])"
+        ]
+    );
+}

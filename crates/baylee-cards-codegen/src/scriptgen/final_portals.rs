@@ -1,6 +1,44 @@
 //! Narrow readers for Thran Portal and Quarum Trench Gnomes.
 use super::{Params, Tx};
 impl Tx<'_> {
+    pub(super) fn reduce_cost(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("Type").as_deref() != Some("Spell")
+            || !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+        {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        let valid = match p.take("Activator").as_deref() {
+            None => valid,
+            Some("You") => valid
+                .split(',')
+                .map(|alt| format!("{alt}.YouCtrl"))
+                .collect::<Vec<_>>()
+                .join(","),
+            Some("Opponent") => valid
+                .split(',')
+                .map(|alt| format!("{alt}.OppCtrl"))
+                .collect::<Vec<_>>()
+                .join(","),
+            Some(_) => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
+        };
+        let Some(amount) = p.take("Amount").and_then(|a| a.parse::<u8>().ok()) else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        }
+        let filter = self.filter_expr(&valid)?;
+        let modifier = format!("Modifier::SpellsCostLess({amount})");
+        self.body
+            .abilities
+            .push(Self::static_expr(&filter, &modifier));
+        Some(())
+    }
+
     /// A self mana-ability surcharge, only from the ordinary battlefield zone.
     pub(super) fn mana_life_tax(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();

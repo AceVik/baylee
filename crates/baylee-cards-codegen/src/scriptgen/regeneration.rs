@@ -117,6 +117,9 @@ impl Tx<'_> {
         target: Option<&str>,
     ) -> Option<Vec<String>> {
         if p.peek("ReplacementEffects").is_some() {
+            if target.is_none() {
+                return self.prevent_combat_damage_from_effect(p);
+            }
             return self.replace_target_white_mana(p, target);
         }
         if p.peek("Triggers").is_some() {
@@ -162,6 +165,31 @@ impl Tx<'_> {
              duration: Duration::UntilEndOfTurn }"
                 .to_string(),
         ])
+    }
+
+    fn prevent_combat_damage_from_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn")) {
+            return None;
+        }
+        let name = p.take("ReplacementEffects")?;
+        let (event, mut r) = Params::parse(self.svars.get(name.trim())?)?;
+        r.drop_prose();
+        if event != "DamageDone"
+            || r.take("Prevent").as_deref() != Some("True")
+            || r.take("IsCombat").as_deref() != Some("True")
+            || !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+        {
+            return None;
+        }
+        let valid = r.take("ValidSource")?;
+        if !r.exhausted() {
+            return None;
+        }
+        let filter = self.filter_expr(&valid)?;
+        let filter_static = self.body.filter_static("EFFECT", &filter);
+        Some(vec![format!(
+            "Effect::continuous(&{filter_static}, Modifier::PreventDamageFromIt, Duration::UntilEndOfTurn)"
+        )])
     }
 
     /// "Destroy target blocking creature at end of combat" (Silent Assassin):

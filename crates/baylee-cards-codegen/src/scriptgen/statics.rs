@@ -150,6 +150,7 @@ impl Tx<'_> {
         };
         match mode.as_str() {
             "RaiseCost" => return self.mana_life_tax(p),
+            "ReduceCost" => return self.reduce_cost(p),
             "CantBeCast" => return self.one_spell_each_turn(p),
             "CantBlockBy" => return self.cant_block_by(p),
             "MustAttack" => return self.must_attack(p),
