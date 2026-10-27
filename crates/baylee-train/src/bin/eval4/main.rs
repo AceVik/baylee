@@ -42,6 +42,7 @@ use flate2::write::GzEncoder;
 use serde_json::{Value, json};
 
 include!("options.rs");
+include!("provenance.rs");
 include!("runtime.rs");
 include!("game.rs");
 include!("decks.rs");
@@ -177,27 +178,38 @@ fn main() -> anyhow::Result<()> {
                 json!({"key": d.key, "cards": cards})
             })
             .collect();
-        fs::write(
-            rec_dir.join("run.json"),
-            serde_json::to_vec_pretty(&json!({
-                "run": "eval4-rollout",
-                "policy_mode": policy_mode,
-                "policy_contract": policy_mode.contract(),
-                "policy_provenance_version": 1,
-                "model_family": model_identity.as_ref().map(|identity|identity.model_family),
-                "model_identity": model_identity,
-                "evaluator_build": baylee_build::short(),
-                "evaluator_revision": baylee_build::COMMIT,
-                "evaluator_dirty": baylee_build::DIRTY,
-                "record_version": baylee_gamehost::record::RECORD_VERSION,
-                "training_data": true,
-                "decks": deck_json,
-                "seats": args.seats,
-                "accepted_deck_keys": accepted_deck_keys,
-                "accepted_deck_count": accepted_deck_count,
-                "generated_deck_count": generated_deck_count,
-            }))?,
-        )?;
+        let mut run = json!({
+            "run": "eval4-rollout",
+            "policy_mode": policy_mode,
+            "policy_contract": policy_mode.contract(),
+            "policy_provenance_version": 1,
+            "model_family": model_identity.as_ref().map(|identity|identity.model_family),
+            "model_identity": model_identity,
+            "evaluator_build": baylee_build::short(),
+            "evaluator_revision": baylee_build::COMMIT,
+            "evaluator_dirty": baylee_build::DIRTY,
+            "record_version": baylee_gamehost::record::RECORD_VERSION,
+            "training_data": true,
+            "decks": deck_json,
+            "seats": args.seats,
+            "accepted_deck_keys": accepted_deck_keys,
+            "accepted_deck_count": accepted_deck_count,
+            "generated_deck_count": generated_deck_count,
+        });
+        run.as_object_mut().context("run metadata object")?.extend(
+            collector_policy_metadata(
+                policy_mode,
+                args.temperature,
+                args.thinking_steps,
+                model_identity
+                    .as_ref()
+                    .map_or("v4", |identity| identity.model_family),
+            )
+            .as_object()
+            .context("policy metadata object")?
+            .clone(),
+        );
+        fs::write(rec_dir.join("run.json"), serde_json::to_vec_pretty(&run)?)?;
     }
 
     let threads = match args.threads {
@@ -523,6 +535,7 @@ fn main() -> anyhow::Result<()> {
     };
     summary["house_counts_include_tactical_demonstrations"] =
         json!(!args.legacy_v3 && policy_mode == PolicyMode4::Tactical);
+    summary["sampling_version"] = json!(2);
     summary["deal_details"] = json!(st.deal_details);
     summary["accepted_deck_keys"] = json!(accepted_deck_keys);
     summary["accepted_deck_count"] = json!(accepted_deck_count);
