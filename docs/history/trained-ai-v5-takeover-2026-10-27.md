@@ -925,3 +925,62 @@ retains the training branch's previous resolutions. Compared with the previous
 training tip, only the three incoming runner commits change the resulting tree.
 The full and development-feature gates use a separate local PostgreSQL test
 database and must pass before the fast-forward push to main.
+
+### Corrective admission and fixed-budget comparison
+
+Recovery completed with all 252 games converted, no rejected or unencoded
+games, 2,197,633 frames and 99,883 Sharp labels. Independent review rehashed
+the produced artifacts and compared every frame against the ordinary replay:
+state, menus, chronology, values, auxiliary targets and unlabeled actions stay
+unchanged. Only the admitted teacher action labels differ. The review is
+`/home/ace/baylee-data/v5/advice/shadow-corrective-recovery-20261027/review.json`,
+SHA256 `bdf86322ff9405b824e6187a75f8c2bd2b095bb67ca8ee8d62bb306e0dfbed94`.
+It admits supervised BC only; these teacher labels are not PPO samples.
+
+The mixed-data cache has 752 complete seat trajectories. Its independently
+checked lane prefixes exceed the 1,500-update budget, and the shared old-data
+half produces exactly the control arm's batch sequence. Four lanes per source
+do not imply equal labeled-choice counts or equal gradient weight.
+The reviewed admission file is `approved-corrective-review.json` under the
+mixed-BC root, SHA256
+`8d41be0bcc95ec537a1ac85de43bbcafde6abdcce23b5dc0871b20b578510640`.
+
+The control completed all 1,500 updates. Full validation active-choice accuracy
+is 60.30%, policy loss 0.13845 and value MSE 0.15833; the latter still exceeds
+the uniform-seat baseline 0.15694. These are validation diagnostics, not a
+playing-strength result. The augmented arm started as PID694072 after the
+independent admission and has also reached 1,500 updates; final full validation
+is running. Each arm retains its fixed-final checkpoint separately from any
+checkpoint selected during training. Neither model is promoted.
+
+Evaluation PID513026 waits for both training controllers to finish and verifies
+their sealed inputs and final checkpoints before using the GPU. Its root is
+`/home/ace/baylee-data/v5/experiments/shadow-mixed-bc-eval-20261027`, seal
+`163fb6d084fa4a187d3641988b53859f00e28b103d83078531cd0caac38659d2`.
+It checks K0/1/2/4/8 export parity and common chronological validation, then
+compares source, control and augmented models on 64 duels and 32 Commander
+games per model against Sharp. Identical fresh deals and seat rotations support
+paired comparisons; answer caps remain unknown outcomes in their intervals.
+The 40 table seeds were checked against resolved reserved records and immutable
+historical seed snapshots. Deck families are reused, so this is not a family
+holdout. Separate watchers cover augmented training and evaluation.
+
+The full corrective label audit found 31,750 exact disagreements with the
+executed network action (31.79%). This is disagreement, not a correctness rate:
+different mana sources or ordering may be equivalent. All 252 labeled opening
+hands were kept by the network; Sharp recommended 45 mulligans. Counterfactual
+continuations were not played. The report is
+`/home/ace/baylee-data/v5/advice/shadow-label-disagreement-20261027/REPORT.md`.
+
+Landing checks found and fixed a missing `play`-feature dependency on
+`baylee-ai` for shadow-teacher validation; no-default-feature tooling remains
+independent. All development-feature checks pass. The default suite passed
+23,694 tests and exposed one golden test that generated its supposedly fixed
+table by running the changing House policy. A historical input fixture captured
+from origin/main preserves both original golden values without changing the
+public-state encoder. All eight targeted `record::seen` tests pass on the
+current engine, including every historical engine hash and both original
+goldens; this confirms the changed policy had changed the fixture inputs.
+The 174.7-second bounded-conversion test now starts with the existing long-test
+priority group instead of occupying the very end of the suite; no check is
+removed or relaxed.
