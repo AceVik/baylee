@@ -42,7 +42,6 @@ use flate2::write::GzEncoder;
 use serde_json::{Value, json};
 
 include!("options.rs");
-include!("provenance.rs");
 include!("runtime.rs");
 include!("game.rs");
 include!("decks.rs");
@@ -576,3 +575,5 @@ fn main() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+include!("provenance.rs");
