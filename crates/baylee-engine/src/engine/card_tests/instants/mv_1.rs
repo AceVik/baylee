@@ -125,6 +125,7 @@ mod rescue;
 mod revitalizing_repast;
 mod righteousness;
 mod rock_slide;
+mod run_wild;
 mod rust;
 mod sacrifice;
 mod sandstorm;

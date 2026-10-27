@@ -349,6 +349,7 @@ mod stromgald_spy;
 mod subtlety;
 mod sunscape_master;
 mod sustainer_of_the_realm;
+mod symbiotic_elf;
 mod tainted_specter;
 mod talas_air_ship;
 mod talruum_minotaur;

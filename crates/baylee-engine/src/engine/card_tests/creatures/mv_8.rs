@@ -116,6 +116,7 @@ mod razaketh_the_foulblooded;
 mod scaled_wurm;
 mod silver_seraph;
 mod skeletal_wurm;
+mod symbiotic_wurm;
 mod tidal_force;
 mod tidal_kraken;
 mod tidespout_tyrant;

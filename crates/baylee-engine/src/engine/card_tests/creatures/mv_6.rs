@@ -100,6 +100,7 @@ mod storm_elemental;
 mod storm_spirit;
 mod sun_titan;
 mod sunrise_sovereign;
+mod symbiotic_beast;
 mod tangle_spider;
 mod tithebearer_giant;
 mod trumpeting_carnosaur;

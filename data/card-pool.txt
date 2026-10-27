@@ -12019,3 +12019,71 @@ Quicksilver Dragon
 Read the Runes
 Renewed Faith
 Riptide Biologist
+Riptide Chronologist
+Riptide Entrancer
+Riptide Replicator
+Riptide Shapeshifter
+Risky Move
+Run Wild
+Sandskin
+Screaming Seahawk
+Searing Flesh
+Serpentine Basilisk
+Shade's Breath
+Shared Triumph
+Shieldmage Elder
+Sigil of the New Dawn
+Silklash Spider
+Skirk Commando
+Skirk Fire Marshal
+Skittish Valesk
+Slate of Ancestry
+Slice and Dice
+Snapping Thragg
+Snarling Undorak
+Solar Blast
+Soulless One
+Spined Basher
+Spitfire Handler
+Spitting Gourna
+Spurred Wolverine
+Spy Network
+Stag Beetle
+Standardize
+Strongarm Tactics
+Sunfire Balm
+Supreme Inquisitor
+Symbiotic Beast
+Symbiotic Elf
+Symbiotic Wurm
+Syphon Mind
+Tempting Wurm
+Tephraderm
+Thoughtbound Primoc
+Thrashing Mudspawn
+Threaten
+Thunder of Hooves
+Towering Baloth
+Trade Secrets
+Treespring Lorian
+Tribal Unity
+Trickery Charm
+True Believer
+Undead Gladiator
+Unified Strike
+Venomspout Brackus
+Voice of the Woods
+Voidmage Prodigy
+Walking Desecration
+Wave of Indifference
+Weathered Wayfarer
+Weird Harvest
+Wheel and Deal
+Whipcorder
+Wirewood Herald
+Withering Hex
+Words of War
+Words of Waste
+Words of Wilding
+Words of Wind
+Words of Worship

@@ -18141,13 +18141,26 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Protection from Beasts\nMorph {2}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
     ],
-    &[],
-    &[],
+    // Riptide Chronologist
+    &["{U}, Sacrifice this creature: Untap all creatures of the creature type of your choice."],
+    // Riptide Entrancer
+    &[
+        "Whenever this creature deals combat damage to a player, you may sacrifice it. If you do, gain control of target creature that player controls. (This effect lasts indefinitely.)\nMorph {U}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Riptide Laboratory
     &["{T}: Add {C}.\n{1}{U}, {T}: Return target Wizard you control to its owner's hand."],
-    &[],
-    &[],
-    &[],
+    // Riptide Replicator
+    &[
+        "As this artifact enters, choose a color and a creature type.\nThis artifact enters with X charge counters on it.\n{4}, {T}: Create an X/X creature token of the chosen color and type, where X is the number of charge counters on this artifact.",
+    ],
+    // Riptide Shapeshifter
+    &[
+        "{2}{U}{U}, Sacrifice this creature: Choose a creature type. Reveal cards from the top of your library until you reveal a creature card of that type. Put that card onto the battlefield and shuffle the rest into your library.",
+    ],
+    // Risky Move
+    &[
+        "At the beginning of each player's upkeep, that player gains control of this enchantment.\nWhen you gain control of this enchantment from another player, choose a creature you control and an opponent. Flip a coin. If you lose the flip, that opponent gains control of that creature.",
+    ],
     // Rorix Bladewing
     &["Flying, haste"],
     // Rotlung Reanimator
@@ -18156,70 +18169,136 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{2}{U}: Surveil 1. (Look at the top card of your library. You may put that card into your graveyard.)",
     ],
-    &[],
+    // Run Wild
+    &["Until end of turn, target creature gains trample and \"{G}: Regenerate this creature.\""],
     // Sage Aven
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhen this creature enters, look at the top four cards of your library, then put them back in any order.",
     ],
-    &[],
-    &[],
+    // Sandskin
+    &[
+        "Enchant creature\nPrevent all combat damage that would be dealt to and dealt by enchanted creature.",
+    ],
+    // Screaming Seahawk
+    &[
+        "Flying\nWhen this creature enters, you may search your library for a card named Screaming Seahawk, reveal it, put it into your hand, then shuffle.",
+    ],
     // Screeching Buzzard
     &["Flying\nWhen this creature dies, each opponent discards a card."],
     // Sea's Claim
     &[
         "Enchant land (Target a land as you cast this. This card enters attached to that land.)\nEnchanted land is an Island.",
     ],
-    &[],
+    // Searing Flesh
+    &["Searing Flesh deals 7 damage to target opponent or planeswalker."],
     // Seaside Haven
     &["{T}: Add {C}.\n{W}{U}, {T}, Sacrifice a Bird: Draw a card."],
     // Secluded Steppe
     &[
         "This land enters tapped.\n{T}: Add {W}.\nCycling {W} ({W}, Discard this card: Draw a card.)",
     ],
-    &[],
+    // Serpentine Basilisk
+    &[
+        "Whenever this creature deals combat damage to a creature, destroy that creature at end of combat.\nMorph {1}{G}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Severed Legion
     &["Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)"],
-    &[],
+    // Shade's Breath
+    &[
+        "Until end of turn, each creature you control becomes a black Shade and gains \"{B}: This creature gets +1/+1 until end of turn.\"",
+    ],
     // Shaleskin Bruiser
     &[
         "Trample\nWhenever this creature attacks, it gets +3/+0 until end of turn for each other attacking Beast.",
     ],
-    &[],
+    // Shared Triumph
+    &[
+        "As this enchantment enters, choose a creature type.\nCreatures of the chosen type get +1/+1.",
+    ],
     // Shepherd of Rot
     &["{T}: Each player loses 1 life for each Zombie on the battlefield."],
-    &[],
-    &[],
-    &[],
+    // Shieldmage Elder
+    &[
+        "Tap two untapped Clerics you control: Prevent all damage target creature would deal this turn.\nTap two untapped Wizards you control: Prevent all damage target spell would deal this turn.",
+    ],
+    // Sigil of the New Dawn
+    &[
+        "Whenever a creature is put into your graveyard from the battlefield, you may pay {1}{W}. If you do, return that card to your hand.",
+    ],
+    // Silklash Spider
+    &["Reach\n{X}{G}{G}: This creature deals X damage to each creature with flying."],
     // Silvos, Rogue Elemental
     &["Trample\n{G}: Regenerate Silvos."],
-    &[],
-    &[],
+    // Skirk Commando
+    &[
+        "Whenever this creature deals combat damage to a player, you may have it deal 2 damage to target creature that player controls.\nMorph {2}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Skirk Fire Marshal
+    &[
+        "Protection from red\nTap five untapped Goblins you control: This creature deals 10 damage to each creature and each player.",
+    ],
     // Skirk Prospector
     &["Sacrifice a Goblin: Add {R}."],
-    &[],
-    &[],
-    &[],
+    // Skittish Valesk
+    &[
+        "At the beginning of your upkeep, flip a coin. If you lose the flip, turn this creature face down.\nMorph {5}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Slate of Ancestry
+    &["{4}, {T}, Discard your hand: Draw a card for each creature you control."],
+    // Slice and Dice
+    &[
+        "Slice and Dice deals 4 damage to each creature.\nCycling {2}{R} ({2}{R}, Discard this card: Draw a card.)\nWhen you cycle this card, you may have it deal 1 damage to each creature.",
+    ],
     // Slipstream Eel
     &[
         "This creature can't attack unless defending player controls an Island.\nCycling {1}{U} ({1}{U}, Discard this card: Draw a card.)",
     ],
     // Smother
     &["Destroy target creature with mana value 3 or less. It can't be regenerated."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Snapping Thragg
+    &[
+        "Whenever this creature deals combat damage to a player, you may have it deal 3 damage to target creature that player controls.\nMorph {4}{R}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Snarling Undorak
+    &[
+        "{2}{G}: Target Beast creature gets +1/+1 until end of turn.\nMorph {1}{G}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Solar Blast
+    &[
+        "Solar Blast deals 3 damage to any target.\nCycling {1}{R}{R} ({1}{R}{R}, Discard this card: Draw a card.)\nWhen you cycle this card, you may have it deal 1 damage to any target.",
+    ],
+    // Soulless One
+    &[
+        "Soulless One's power and toughness are each equal to the number of Zombies on the battlefield plus the number of Zombie cards in all graveyards.",
+    ],
     // Sparksmith
     &[
         "{T}: This creature deals X damage to target creature and X damage to you, where X is the number of Goblins on the battlefield.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Spined Basher
+    &[
+        "Morph {2}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Spitfire Handler
+    &[
+        "This creature can't block creatures with power greater than this creature's power.\n{R}: This creature gets +1/+0 until end of turn.",
+    ],
+    // Spitting Gourna
+    &[
+        "Reach (This creature can block creatures with flying.)\nMorph {4}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Spurred Wolverine
+    &["Tap two untapped Beasts you control: Target creature gains first strike until end of turn."],
+    // Spy Network
+    &[
+        "Look at target player's hand, the top card of that player's library, and any face-down creatures they control. Look at the top four cards of your library, then put them back in any order.",
+    ],
+    // Stag Beetle
+    &[
+        "This creature enters with X +1/+1 counters on it, where X is the number of other creatures on the battlefield.",
+    ],
+    // Standardize
+    &["Choose a creature type other than Wall. Each creature becomes that type until end of turn."],
     // Starlit Sanctum
     &[
         "{T}: Add {C}.\n{W}, {T}, Sacrifice a Cleric creature: You gain life equal to the sacrificed creature's toughness.\n{B}, {T}, Sacrifice a Cleric creature: Target player loses life equal to the sacrificed creature's power.",
@@ -18232,65 +18311,142 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "As this enchantment enters, choose a creature type.\nCreatures of the chosen type have shroud. (They can't be the targets of spells or abilities.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Strongarm Tactics
+    &[
+        "Each player discards a card. Then each player who didn't discard a creature card this way loses 4 life.",
+    ],
+    // Sunfire Balm
+    &[
+        "Prevent the next 4 damage that would be dealt to any target this turn.\nCycling {1}{W} ({1}{W}, Discard this card: Draw a card.)\nWhen you cycle this card, you may prevent the next 1 damage that would be dealt to any target this turn.",
+    ],
+    // Supreme Inquisitor
+    &[
+        "Tap five untapped Wizards you control: Search target player's library for up to five cards and exile them. Then that player shuffles.",
+    ],
+    // Symbiotic Beast
+    &["When this creature dies, create four 1/1 green Insect creature tokens."],
+    // Symbiotic Elf
+    &["When this creature dies, create two 1/1 green Insect creature tokens."],
+    // Symbiotic Wurm
+    &["When this creature dies, create seven 1/1 green Insect creature tokens."],
+    // Syphon Mind
+    &["Each other player discards a card. You draw a card for each card discarded this way."],
+    // Tempting Wurm
+    &[
+        "When this creature enters, each opponent may put any number of artifact, creature, enchantment, and/or land cards from their hand onto the battlefield.",
+    ],
+    // Tephraderm
+    &[
+        "Whenever a creature deals damage to this creature, this creature deals that much damage to that creature.\nWhenever a spell deals damage to this creature, this creature deals that much damage to that spell's controller.",
+    ],
+    // Thoughtbound Primoc
+    &[
+        "Flying\nAt the beginning of your upkeep, if a player controls more Wizards than each other player, the player who controls the most Wizards gains control of this creature.",
+    ],
+    // Thrashing Mudspawn
+    &[
+        "Whenever this creature is dealt damage, you lose that much life.\nMorph {1}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Threaten
+    &[
+        "Untap target creature and gain control of it until end of turn. That creature gains haste until end of turn. (It can attack and {T} this turn.)",
+    ],
+    // Thunder of Hooves
+    &[
+        "Thunder of Hooves deals X damage to each creature without flying and each player, where X is the number of Beasts on the battlefield.",
+    ],
+    // Towering Baloth
+    &[
+        "Morph {6}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Trade Secrets
+    &[
+        "Target opponent draws two cards, then you draw up to four cards. That opponent may repeat this process as many times as they choose.",
+    ],
     // Tranquil Thicket
     &[
         "This land enters tapped.\n{T}: Add {G}.\nCycling {G} ({G}, Discard this card: Draw a card.)",
     ],
-    &[],
+    // Treespring Lorian
+    &[
+        "Morph {5}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Tribal Golem
     &[
         "This creature has trample as long as you control a Beast, haste as long as you control a Goblin, first strike as long as you control a Soldier, flying as long as you control a Wizard, and \"{B}: Regenerate this creature\" as long as you control a Zombie.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Tribal Unity
+    &["Creatures of the creature type of your choice get +X/+X until end of turn."],
+    // Trickery Charm
+    &[
+        "Choose one —\n• Target creature gains flying until end of turn.\n• Target creature becomes the creature type of your choice until end of turn.\n• Look at the top four cards of your library, then put them back in any order.",
+    ],
+    // True Believer
+    &["You have shroud. (You can't be the target of spells or abilities.)"],
+    // Undead Gladiator
+    &[
+        "{1}{B}, Discard a card: Return this card from your graveyard to your hand. Activate only during your upkeep.\nCycling {1}{B} ({1}{B}, Discard this card: Draw a card.)",
+    ],
     // Unholy Grotto
     &[
         "{T}: Add {C}.\n{B}, {T}: Put target Zombie card from your graveyard on top of your library.",
     ],
-    &[],
-    &[],
+    // Unified Strike
+    &[
+        "Exile target attacking creature if its power is less than or equal to the number of Soldiers on the battlefield.",
+    ],
+    // Venomspout Brackus
+    &[
+        "{1}{G}, {T}: This creature deals 5 damage to target attacking or blocking creature with flying.\nMorph {3}{G}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Visara the Dreadful
     &["Flying\n{T}: Destroy target creature. It can't be regenerated."],
     // Vitality Charm
     &[
         "Choose one —\n• Create a 1/1 green Insect creature token.\n• Target creature gets +1/+1 and gains trample until end of turn.\n• Regenerate target Beast.",
     ],
-    &[],
-    &[],
-    &[],
+    // Voice of the Woods
+    &[
+        "Tap five untapped Elves you control: Create a 7/7 green Elemental creature token with trample. (It can deal excess combat damage to the player or planeswalker it's attacking.)",
+    ],
+    // Voidmage Prodigy
+    &[
+        "{U}{U}, Sacrifice a Wizard: Counter target spell.\nMorph {U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Walking Desecration
+    &["{B}, {T}: Creatures of the creature type of your choice attack this turn if able."],
     // Wall of Mulch
     &["Defender (This creature can't attack.)\n{G}, Sacrifice a Wall: Draw a card."],
-    &[],
-    &[],
-    &[],
+    // Wave of Indifference
+    &["X target creatures can't block this turn."],
+    // Weathered Wayfarer
+    &[
+        "{W}, {T}: Search your library for a land card, reveal it, put it into your hand, then shuffle. Activate only if an opponent controls more lands than you.",
+    ],
+    // Weird Harvest
+    &[
+        "Each player may search their library for up to X creature cards, reveal those cards, put them into their hand, then shuffle.",
+    ],
     // Wellwisher
     &["{T}: You gain 1 life for each Elf on the battlefield."],
-    &[],
-    &[],
+    // Wheel and Deal
+    &[
+        "Any number of target opponents each discard their hands, then draw seven cards.\nDraw a card.",
+    ],
+    // Whipcorder
+    &[
+        "{W}, {T}: Tap target creature.\nMorph {W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Windswept Heath
     &[
         "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Plains card, put it onto the battlefield, then shuffle.",
     ],
     // Wirewood Elf
     &["{T}: Add {G}."],
-    &[],
+    // Wirewood Herald
+    &[
+        "When this creature dies, you may search your library for an Elf card, reveal that card, put it into your hand, then shuffle.",
+    ],
     // Wirewood Lodge
     &["{T}: Add {C}.\n{G}, {T}: Untap target Elf."],
     // Wirewood Pride
@@ -18299,16 +18455,30 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Wirewood Savage
     &["Whenever a Beast enters, you may draw a card."],
-    &[],
+    // Withering Hex
+    &[
+        "Enchant creature\nWhenever a player cycles a card, put a plague counter on this Aura.\nEnchanted creature gets -1/-1 for each plague counter on this Aura.",
+    ],
     // Wooded Foothills
     &[
         "{T}, Pay 1 life, Sacrifice this land: Search your library for a Mountain or Forest card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Words of War
+    &[
+        "{1}: The next time you would draw a card this turn, this enchantment deals 2 damage to any target instead.",
+    ],
+    // Words of Waste
+    &["{1}: The next time you would draw a card this turn, each opponent discards a card instead."],
+    // Words of Wilding
+    &[
+        "{1}: The next time you would draw a card this turn, create a 2/2 green Bear creature token instead.",
+    ],
+    // Words of Wind
+    &[
+        "{1}: The next time you would draw a card this turn, each player returns a permanent they control to its owner's hand instead.",
+    ],
+    // Words of Worship
+    &["{1}: The next time you would draw a card this turn, you gain 5 life instead."],
     // Wretched Anurid
     &["Whenever another creature enters, you lose 1 life."],
     &[],

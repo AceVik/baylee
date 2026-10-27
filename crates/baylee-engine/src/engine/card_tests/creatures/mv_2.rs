@@ -356,6 +356,7 @@ mod willow_faerie;
 mod wind_dancer;
 mod winged_sliver;
 mod wirewood_elf;
+mod wirewood_herald;
 mod wirewood_hivemaster;
 mod wizened_cenn;
 mod wood_sage;
