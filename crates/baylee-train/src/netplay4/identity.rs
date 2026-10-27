@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 
 /// Exact architecture label shared with the V5 checkpoint/export implementation.
 pub const V5_ARCHITECTURE: &str = "baylee_ai_v5_relational_v1";
+const V5_ARCHITECTURE_V2: &str = "baylee_ai_v5_relational_v2";
 
 /// Content identity of the exact graph and metadata accepted by the loader.
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
@@ -45,7 +46,12 @@ fn contract(meta: &Value) -> anyhow::Result<(u32, u32, &'static str)> {
     let encoder = version(meta, "encoder_version")?;
     let model = version(meta, "model_version")?;
     let v4 = (encoder == 5 && model == 2) || ((encoder == 6 || encoder == 7) && model == 3);
-    let v5 = encoder == 7 && model == 5 && meta["architecture"] == V5_ARCHITECTURE;
+    let v5 = encoder == 7
+        && model == 5
+        && matches!(
+            meta["architecture"].as_str(),
+            Some(V5_ARCHITECTURE | V5_ARCHITECTURE_V2)
+        );
     anyhow::ensure!(
         (v4 || v5) && meta["trajectory_version"] == 2 && meta["sampling_version"] == 2,
         "incompatible neural model/encoder/architecture contracts"
@@ -132,7 +138,12 @@ pub(super) fn read_model(path: &Path) -> anyhow::Result<(PathBuf, Value, ModelId
         model_version,
         encoder_version,
         architecture: if model_family == "v5" {
-            Some(V5_ARCHITECTURE.to_owned())
+            Some(
+                meta["architecture"]
+                    .as_str()
+                    .context("V5 architecture")?
+                    .to_owned(),
+            )
         } else {
             None
         },
@@ -214,5 +225,15 @@ mod tests {
         assert!(verify_depth_graph(&path, 0, &identity).is_err());
         assert_ne!(inspect_model_identity(&directory.0).unwrap(), identity);
         assert!(verify_depth_graph(&path, 2, &identity).is_err());
+    }
+
+    #[test]
+    fn v5_revision_two_is_explicit_and_unknown_revision_three_is_refused() {
+        let mut meta = serde_json::json!({"encoder_version":7,"model_version":5,
+            "architecture":V5_ARCHITECTURE_V2,"trajectory_version":2,"sampling_version":2,
+            "d_model":640,"n_heads":10,"n_layers":12});
+        assert_eq!(contract(&meta).unwrap().2, "v5");
+        meta["architecture"] = serde_json::json!("baylee_ai_v5_relational_v3");
+        assert!(contract(&meta).is_err());
     }
 }
