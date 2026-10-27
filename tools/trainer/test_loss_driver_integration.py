@@ -61,6 +61,7 @@ class IntegrationTests(unittest.TestCase):
    for chunk in (1,2):
     output=Path(temporary)/str(chunk)
     argv=['train5','--data','fake','--out',str(output),'--d-model','32','--layers','1','--heads','4','--d-ff','64','--batch-size','4','--unroll','4','--board-chunk','2','--decision-chunk',str(chunk),'--max-steps','1','--epochs','1','--loss-version','5','--loss-normalization','unroll_per_head','--outcome-weighting-off','--detach-value-input','--detach-aux-input']
+    if chunk==2:argv.append('--compact-thinking-rows')
     metrics=dict(val_pol_loss=1.,val_mse=1.,val_aux_mse=1.,val_top1_acc=0.)
     with patch('sys.argv',argv),patch.object(driver.D4,'TrajectoryDataset4',Dataset),patch.object(driver.D4,'StatefulBatchSampler4',Sampler),patch.object(driver,'DataLoader',return_value=[]),patch.object(driver,'prefetch_batches',return_value=[(copy.deepcopy(batch),None)]),patch.object(driver,'evaluate_device',return_value=metrics),patch.object(driver.torch,'set_num_threads'),contextlib.redirect_stdout(io.StringIO()):
      driver.main('v5')

@@ -21,6 +21,7 @@ from .update import capture, difference, update
 
 VARIANTS = {
     'baseline': dict(saved=0, prefetch=1, board=4),
+    'compact-thinking':dict(saved=0,prefetch=1,board=4,compact=True),
     'saved1': dict(saved=1, prefetch=1, board=4),
     'saved2': dict(saved=2, prefetch=1, board=4),
     'prefetch2': dict(saved=0, prefetch=2, board=4),
@@ -39,6 +40,7 @@ def checksum(path):
 def configure(net, settings, compile_enabled):
     if not net.cfg.activation_checkpointing or settings['saved'] > net.cfg.n_layers:
         raise ValueError('Probe requires activation checkpointing and sufficient layers')
+    net.compact_thinking_rows = settings.get('compact',False)
     net.saved_activation_layers = settings['saved']
     net.cache_thinking_kv = True
     net.prune_unused_policy_heads = True

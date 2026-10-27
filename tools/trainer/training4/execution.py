@@ -16,6 +16,7 @@ class StepPlan:
     thinking: int
     valid: bool
     heads: tuple[bool, ...]
+    decision_rows: tuple[int, ...] | None = None
 
     @property
     def hint(self):
@@ -50,6 +51,7 @@ def plan_batch(batch, step_num, thinking_steps=1, curriculum=False):
             k if dec_any[t] else 0,
             bool(val_any[t]),
             (bool(head_any[0][t]), bool(head_any[1][t]), bool(head_any[2][t]), bool(head_any[3][t])),
+            tuple(int(row) for row in np.flatnonzero(valid_dec[:,t])),
         ))
     return result
 

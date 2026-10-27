@@ -60,6 +60,7 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--relational-revision", type=int, choices=(1, 2), default=2)
     from .supervised_options import add_options, configuration
     add_options(ap)
+    ap.add_argument("--compact-thinking-rows",action="store_true",help="Opt-in thinking only for CPU-planned valid decision rows; requires deferred execution and dropout=0")
     args = ap.parse_args()
     args.supervised_loss = configuration(args, ap)
     if args.architecture == "v5":
@@ -82,6 +83,8 @@ def parse_args(default_architecture="v4"):
 
     if args.decision_chunk > 1 and (args.reference_execution or args.board_chunk < 2 or args.dropout != 0):
         ap.error("--decision-chunk > 1 requires --board-chunk >= 2, dropout=0 and optimized execution")
+    if args.compact_thinking_rows and (args.dropout != 0 or args.decision_chunk <= 1):
+        ap.error("--compact-thinking-rows requires --decision-chunk >1 and dropout=0")
     if args.decision_chunk < 1:
         ap.error("--decision-chunk must be positive")
 

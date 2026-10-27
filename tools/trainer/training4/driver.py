@@ -119,6 +119,7 @@ def main(default_architecture="v4") -> None:
         identity["architecture"] = M.architecture_for_config(cfg)
     # Extra architecture initialization must not perturb training RNG in paired runs.
     net = M.PlayerNet5(cfg) if args.architecture == "v5" else M.PlayerNet4(cfg)
+    net.compact_thinking_rows = args.compact_thinking_rows
     net.detach_value_input = loss_config.detach_value_input
     net.attach_structure(train_ds.structure.data)
     net = net.to(device)

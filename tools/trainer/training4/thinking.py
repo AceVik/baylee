@@ -2,7 +2,7 @@
 import torch
 
 
-def dense_thinking(net, z_all, boards, thinking, plans, b):
+def dense_thinking(net, z_all, boards, thinking, plans, b, device):
     active_times = [t for t, p in enumerate(plans) if p.thinking > 0]
     if active_times:
         max_k = min(max(plans[t].thinking for t in active_times), net.cfg.max_thinking_steps)
@@ -46,3 +46,40 @@ def dense_thinking(net, z_all, boards, thinking, plans, b):
             z_all = torch.stack(z_list, dim=0)
 
     return z_all
+
+
+def compact_thinking(net, z_all, boards, plans):
+    """Think only CPU-planned valid decision lanes; observation H is untouched."""
+    if net.cfg.dropout != 0:
+        raise ValueError('Compact thinking requires dropout=0')
+    if any(plan.decision_rows is None for plan in plans):
+        raise ValueError('Compact thinking requires CPU decision-row plans')
+    b=z_all.shape[1];device=z_all.device
+    if any(tuple(p.decision_rows)!=tuple(sorted(set(p.decision_rows))) or
+           any(type(row) is not int or not 0<=row<b for row in p.decision_rows) for p in plans):
+        raise ValueError('Invalid CPU decision-row plan')
+    active=[(t,tuple(plan.decision_rows)) for t,plan in enumerate(plans)
+            if plan.thinking>0 and plan.decision_rows]
+    if not active:return z_all
+    flat_rows=[t*b+lane for t,rows in active for lane in rows]
+    depths=[min(plans[t].thinking,net.cfg.max_thinking_steps) for t,rows in active for _ in rows]
+    indices=torch.tensor(flat_rows,dtype=torch.long,device=device)
+    selected_z=z_all.flatten(0,1).index_select(0,indices)
+    lane_indices=[torch.tensor(rows,dtype=torch.long,device=device) for _,rows in active]
+    selected_board=torch.cat([boards[t][0].index_select(0,rows) for (t,_),rows in zip(active,lane_indices)],0)
+    selected_mask=torch.cat([boards[t][1].index_select(0,rows) for (t,_),rows in zip(active,lane_indices)],0)
+    max_k=max(depths)
+    kv=(net.thinking_block.prepare_board(selected_board)
+        if getattr(net,'cache_thinking_kv',False) and max_k>1 else None)
+    for k in range(max_k):
+        rows=[i for i,depth in enumerate(depths) if depth>k]
+        gather=torch.tensor(rows,dtype=torch.long,device=device)
+        z=selected_z.index_select(0,gather)
+        board=selected_board.index_select(0,gather)
+        mask=selected_mask.index_select(0,gather)
+        projections=tuple(p.index_select(0,gather) for p in kv) if kv is not None else None
+        steps=torch.full((len(rows),),k,dtype=torch.long,device=device)
+        updated=net.thinking_block(z,board,mask,steps,projections)
+        # Retain dense-path arithmetic, including its floating-point rounding.
+        selected_z=selected_z.index_copy(0,gather,z+(updated-z))
+    return z_all.flatten(0,1).index_copy(0,indices,selected_z).reshape_as(z_all)

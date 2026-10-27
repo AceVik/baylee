@@ -76,8 +76,9 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
         mem_stack = torch.stack(memories, dim=0)
         z_all = mem_stack + board_slots
 
-        from .thinking import dense_thinking
-        z_all = dense_thinking(net, z_all, boards, thinking, plans, b)
+        from .thinking import dense_thinking, compact_thinking
+        z_all = (compact_thinking(net,z_all,boards,plans) if getattr(net,"compact_thinking_rows",False)
+                 else dense_thinking(net,z_all,boards,thinking,plans,b,device))
 
         z_out_all = net.h_norm(z_all)
         g_ref_all = z_out_all[:, :, 0]
