@@ -12087,3 +12087,57 @@ Words of Waste
 Words of Wilding
 Words of Wind
 Words of Worship
+Aphetto Exterminator
+Aven Warhawk
+Bane of the Living
+Beacon of Destiny
+Berserk Murlodont
+Bloodstoke Howler
+Branchsnap Lorian
+Brontotherium
+Brood Sliver
+Caller of the Claw
+Canopy Crawler
+Celestial Gatekeeper
+Cephalid Pathmage
+Chromeshell Crab
+Corpse Harvester
+Covert Operative
+Crested Craghorn
+Crookclaw Elder
+Crypt Sliver
+Dark Supplicant
+Daru Mender
+Daru Sanctifier
+Daru Stinger
+Deathmark Prelate
+Defender of the Order
+Deftblade Elite
+Dermoplasm
+Dreamborn Muse
+Drinker of Sorrow
+Dripping Dead
+Echo Tracer
+Elvish Soultiller
+Embalmed Brawler
+Essence Sliver
+Flamewave Invoker
+Frenetic Raptor
+Gempalm Avenger
+Gempalm Incinerator
+Gempalm Polluter
+Gempalm Sorcerer
+Gempalm Strider
+Ghastly Remains
+Glowering Rogon
+Glowrider
+Goblin Assassin
+Goblin Dynamo
+Goblin Firebug
+Goblin Goon
+Goblin Grappler
+Goblin Lookout
+Goblin Turncoat
+Graveborn Muse
+Havoc Demon
+Hollow Specter

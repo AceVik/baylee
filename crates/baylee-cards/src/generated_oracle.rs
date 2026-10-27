@@ -18565,84 +18565,226 @@ pub static ORACLE: &[&[&str]] = &[
     &["Cleric creatures have vigilance."],
     // Akroma, Angel of Wrath
     &["Flying, first strike, vigilance, trample, haste, protection from black and from red"],
-    &[],
+    // Aphetto Exterminator
+    &[
+        "Morph {3}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, target creature gets -3/-3 until end of turn.",
+    ],
     // Aven Envoy
     &["Flying"],
     // Aven Redeemer
     &["Flying\n{T}: Prevent the next 2 damage that would be dealt to any target this turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Aven Warhawk
+    &[
+        "Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Bird and/or Soldier card you reveal in your hand.)\nFlying",
+    ],
+    // Bane of the Living
+    &[
+        "Morph {X}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, all creatures get -X/-X until end of turn.",
+    ],
+    // Beacon of Destiny
+    &[
+        "{T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to this creature instead.",
+    ],
+    // Berserk Murlodont
+    &[
+        "Whenever a Beast becomes blocked, it gets +1/+1 until end of turn for each creature blocking it.",
+    ],
     // Blade Sliver
     &["All Sliver creatures get +1/+0."],
     // Blood Celebrant
     &["{B}, Pay 1 life: Add one mana of any color."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Bloodstoke Howler
+    &[
+        "Morph {6}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, Beast creatures you control get +3/+0 until end of turn.",
+    ],
+    // Branchsnap Lorian
+    &[
+        "Trample\nMorph {G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Brontotherium
+    &[
+        "Trample\nProvoke (Whenever this creature attacks, you may have target creature defending player controls untap and block it if able.)",
+    ],
+    // Brood Sliver
+    &[
+        "Whenever a Sliver deals combat damage to a player, its controller may create a 1/1 colorless Sliver creature token.",
+    ],
+    // Caller of the Claw
+    &[
+        "Flash\nWhen this creature enters, create a 2/2 green Bear creature token for each nontoken creature put into your graveyard from the battlefield this turn.",
+    ],
+    // Canopy Crawler
+    &[
+        "Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Beast card you reveal in your hand.)\n{T}: Target creature gets +1/+1 until end of turn for each +1/+1 counter on this creature.",
+    ],
+    // Celestial Gatekeeper
+    &[
+        "Flying\nWhen this creature dies, exile it, then return up to two target Bird and/or Cleric permanent cards from your graveyard to the battlefield.",
+    ],
+    // Cephalid Pathmage
+    &[
+        "This creature can't be blocked.\n{T}, Sacrifice this creature: Target creature can't be blocked this turn.",
+    ],
+    // Chromeshell Crab
+    &[
+        "Morph {4}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, you may exchange control of target creature you control and target creature an opponent controls.",
+    ],
     // Clickslither
     &["Haste\nSacrifice a Goblin: This creature gets +2/+2 and gains trample until end of turn."],
     // Cloudreach Cavalry
     &["As long as you control a Bird, this creature gets +2/+2 and has flying."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Corpse Harvester
+    &[
+        "{1}{B}, {T}, Sacrifice a creature: Search your library for a Zombie card and a Swamp card, reveal them, put them into your hand, then shuffle.",
+    ],
+    // Covert Operative
+    &["This creature can't be blocked."],
+    // Crested Craghorn
+    &[
+        "Haste\nProvoke (Whenever this creature attacks, you may have target creature defending player controls untap and block it if able.)",
+    ],
+    // Crookclaw Elder
+    &[
+        "Flying\nTap two untapped Birds you control: Draw a card.\nTap two untapped Wizards you control: Target creature gains flying until end of turn.",
+    ],
+    // Crypt Sliver
+    &["All Slivers have \"{T}: Regenerate target Sliver.\""],
+    // Dark Supplicant
+    &[
+        "{T}, Sacrifice three Clerics: Search your graveyard, hand, and/or library for a card named Scion of Darkness and put it onto the battlefield. If you search your library this way, shuffle.",
+    ],
+    // Daru Mender
+    &[
+        "Morph {W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, regenerate target creature.",
+    ],
+    // Daru Sanctifier
+    &[
+        "Morph {1}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, destroy target enchantment.",
+    ],
+    // Daru Stinger
+    &[
+        "Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Soldier card you reveal in your hand.)\n{T}: This creature deals damage equal to the number of +1/+1 counters on it to target attacking or blocking creature.",
+    ],
+    // Deathmark Prelate
+    &[
+        "{2}{B}, {T}, Sacrifice a Zombie: Destroy target non-Zombie creature. It can't be regenerated. Activate only as a sorcery.",
+    ],
+    // Defender of the Order
+    &[
+        "Morph {W}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, creatures you control get +0/+2 until end of turn.",
+    ],
     // Defiant Elf
     &["Trample"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Deftblade Elite
+    &[
+        "Provoke (Whenever this creature attacks, you may have target creature defending player controls untap and block it if able.)\n{1}{W}: Prevent all combat damage that would be dealt to and dealt by this creature this turn.",
+    ],
+    // Dermoplasm
+    &[
+        "Flying\nMorph {2}{U}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, you may put a creature card with a morph ability from your hand onto the battlefield face up. If you do, return this creature to its owner's hand.",
+    ],
+    // Dreamborn Muse
+    &[
+        "At the beginning of each player's upkeep, that player mills X cards, where X is the number of cards in their hand.",
+    ],
+    // Drinker of Sorrow
+    &[
+        "This creature can't block.\nWhenever this creature deals combat damage, sacrifice a permanent.",
+    ],
+    // Dripping Dead
+    &[
+        "This creature can't block.\nWhenever this creature deals combat damage to a creature, destroy that creature. It can't be regenerated.",
+    ],
     // Earthblighter
     &["{2}{B}, {T}, Sacrifice a Goblin: Destroy target land."],
-    &[],
-    &[],
-    &[],
+    // Echo Tracer
+    &[
+        "Morph {2}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, return target creature to its owner's hand.",
+    ],
+    // Elvish Soultiller
+    &[
+        "When this creature dies, choose a creature type. Shuffle all creature cards of that type from your graveyard into your library.",
+    ],
+    // Embalmed Brawler
+    &[
+        "Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Zombie card you reveal in your hand.)\nWhenever this creature attacks or blocks, you lose 1 life for each +1/+1 counter on it.",
+    ],
     // Enormous Baloth
     &[""],
-    &[],
-    &[],
-    &[],
+    // Essence Sliver
+    &["Whenever a Sliver deals damage, its controller gains that much life."],
+    // Flamewave Invoker
+    &["{7}{R}: This creature deals 5 damage to target player or planeswalker."],
+    // Frenetic Raptor
+    &["Beasts can't block."],
     // Fugitive Wizard
     &[""],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Gempalm Avenger
+    &[
+        "Cycling {2}{W} ({2}{W}, Discard this card: Draw a card.)\nWhen you cycle this card, Soldier creatures get +1/+1 and gain first strike until end of turn.",
+    ],
+    // Gempalm Incinerator
+    &[
+        "Cycling {1}{R} ({1}{R}, Discard this card: Draw a card.)\nWhen you cycle this card, you may have it deal X damage to target creature, where X is the number of Goblins on the battlefield.",
+    ],
+    // Gempalm Polluter
+    &[
+        "Cycling {B}{B} ({B}{B}, Discard this card: Draw a card.)\nWhen you cycle this card, you may have target player lose life equal to the number of Zombies on the battlefield.",
+    ],
+    // Gempalm Sorcerer
+    &[
+        "Cycling {2}{U} ({2}{U}, Discard this card: Draw a card.)\nWhen you cycle this card, Wizard creatures gain flying until end of turn.",
+    ],
+    // Gempalm Strider
+    &[
+        "Cycling {2}{G}{G} ({2}{G}{G}, Discard this card: Draw a card.)\nWhen you cycle this card, Elf creatures get +2/+2 until end of turn.",
+    ],
+    // Ghastly Remains
+    &[
+        "Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Zombie card you reveal in your hand.)\nAt the beginning of your upkeep, if this card is in your graveyard, you may pay {B}{B}{B}. If you do, return it to your hand.",
+    ],
     // Glintwing Invoker
     &["{7}{U}: This creature gets +3/+3 and gains flying until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Glowering Rogon
+    &[
+        "Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Beast card you reveal in your hand.)",
+    ],
+    // Glowrider
+    &["Noncreature spells cost {1} more to cast."],
+    // Goblin Assassin
+    &[
+        "Whenever this creature or another Goblin enters, each player flips a coin. Each player whose coin comes up tails sacrifices a creature of their choice.",
+    ],
     // Goblin Clearcutter
     &["{T}, Sacrifice a Forest: Add three mana in any combination of {R} and/or {G}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Goblin Dynamo
+    &[
+        "{T}: This creature deals 1 damage to any target.\n{X}{R}, {T}, Sacrifice this creature: It deals X damage to any target.",
+    ],
+    // Goblin Firebug
+    &["When this creature leaves the battlefield, sacrifice a land."],
+    // Goblin Goon
+    &[
+        "This creature can't attack unless you control more creatures than defending player.\nThis creature can't block unless you control more creatures than attacking player.",
+    ],
+    // Goblin Grappler
+    &[
+        "Provoke (Whenever this creature attacks, you may have target creature defending player controls untap and block it if able.)",
+    ],
+    // Goblin Lookout
+    &["{T}, Sacrifice a Goblin: Goblin creatures get +2/+0 until end of turn."],
+    // Goblin Turncoat
+    &["Sacrifice a Goblin: Regenerate this creature."],
+    // Graveborn Muse
+    &[
+        "At the beginning of your upkeep, you draw X cards and lose X life, where X is the number of Zombies you control.",
+    ],
+    // Havoc Demon
+    &["Flying\nWhen this creature dies, all creatures get -5/-5 until end of turn."],
+    // Hollow Specter
+    &[
+        "Flying\nWhenever this creature deals combat damage to a player, you may pay {X}. If you do, that player reveals X cards from their hand and you choose one of them. That player discards that card.",
+    ],
     // Hundroog
     &["Cycling {3} ({3}, Discard this card: Draw a card.)"],
     &[],

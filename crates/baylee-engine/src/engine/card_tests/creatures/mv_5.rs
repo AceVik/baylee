@@ -43,6 +43,7 @@ mod coastal_hornclaw;
 mod cockatrice;
 mod coffin_puppets;
 mod corrupt_official;
+mod covert_operative;
 mod crashing_boars;
 mod crimson_roc;
 mod cromat;
