@@ -18,6 +18,7 @@ workspace = true
 default = ["play"]
 # Playing and recording games: everything past the card rule.
 play = [
+    "dep:baylee-ai",
     "dep:baylee-build",
     "dep:baylee-cards-dsl",
     "dep:baylee-engine",
