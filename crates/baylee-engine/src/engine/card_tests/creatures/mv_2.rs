@@ -300,6 +300,7 @@ mod storm_crow;
 mod stormscape_familiar;
 mod strangleroot_geist;
 mod sunscape_familiar;
+mod sunstrike_legionnaire;
 mod sustaining_spirit;
 mod svyelunite_priest;
 mod swamp_mosquito;

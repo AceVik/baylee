@@ -114,6 +114,7 @@ mod pestilence_demon;
 mod piru_the_volatile;
 mod razaketh_the_foulblooded;
 mod scaled_wurm;
+mod scion_of_darkness;
 mod silver_seraph;
 mod skeletal_wurm;
 mod symbiotic_wurm;

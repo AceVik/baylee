@@ -196,6 +196,7 @@ mod tundra_wolves;
 mod vebulid;
 mod vigilant_martyr;
 mod viridian_acolyte;
+mod wall_of_hope;
 mod wall_of_wood;
 mod water_wurm;
 mod whippoorwill;

@@ -12141,3 +12141,57 @@ Goblin Turncoat
 Graveborn Muse
 Havoc Demon
 Hollow Specter
+Hunter Sliver
+Imperial Hellkite
+Infernal Caretaker
+Keeper of the Nine Gales
+Kilnmouth Dragon
+Krosan Cloudscraper
+Krosan Vorine
+Lavaborn Muse
+Liege of the Axe
+Lowland Tracker
+Magma Sliver
+Master of the Veil
+Mistform Seaswift
+Mistform Sliver
+Mistform Ultimus
+Mistform Wakecaster
+Nantuko Vigilante
+Noxious Ghoul
+Patron of the Wild
+Phage the Untouchable
+Planar Guide
+Primal Whisperer
+Quick Sliver
+Riptide Director
+Riptide Mangler
+Rockshard Elemental
+Root Sliver
+Scion of Darkness
+Seedborn Muse
+Shaleskin Plower
+Skinthinner
+Skirk Alarmist
+Skirk Drill Sergeant
+Sootfeather Flock
+Stoic Champion
+Sunstrike Legionnaire
+Swooping Talon
+Synapse Sliver
+Toxin Sliver
+Tribal Forcemage
+Unstable Hulk
+Vexing Beetle
+Voidmage Apprentice
+Wall of Deceit
+Wall of Hope
+Warbreak Trumpeter
+Ward Sliver
+Warped Researcher
+Weaver of Lies
+Whipgrass Entangler
+Willbender
+Windborn Muse
+Wingbeat Warrior
+Zombie Brute

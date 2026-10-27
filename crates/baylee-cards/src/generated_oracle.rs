@@ -18787,100 +18787,248 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Hundroog
     &["Cycling {3} ({3}, Discard this card: Draw a card.)"],
-    &[],
-    &[],
-    &[],
+    // Hunter Sliver
+    &[
+        "All Sliver creatures have provoke. (Whenever a Sliver attacks, its controller may have target creature defending player controls untap and block it if able.)",
+    ],
+    // Imperial Hellkite
+    &[
+        "Flying\nMorph {6}{R}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, you may search your library for a Dragon card, reveal it, put it into your hand, then shuffle.",
+    ],
+    // Infernal Caretaker
+    &[
+        "Morph {3}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, return all Zombie cards from all graveyards to their owners' hands.",
+    ],
     // Keeneye Aven
     &["Flying\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Keeper of the Nine Gales
+    &[
+        "Flying\n{T}, Tap two untapped Birds you control: Return target permanent to its owner's hand.",
+    ],
+    // Kilnmouth Dragon
+    &[
+        "Amplify 3 (As this creature enters, put three +1/+1 counters on it for each Dragon card you reveal in your hand.)\nFlying\n{T}: This creature deals damage equal to the number of +1/+1 counters on it to any target.",
+    ],
+    // Krosan Cloudscraper
+    &[
+        "At the beginning of your upkeep, sacrifice this creature unless you pay {G}{G}.\nMorph {7}{G}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Krosan Vorine
+    &[
+        "Provoke (Whenever this creature attacks, you may have target creature defending player controls untap and block it if able.)\nThis creature can't be blocked by more than one creature.",
+    ],
+    // Lavaborn Muse
+    &[
+        "At the beginning of each opponent's upkeep, if that player has two or fewer cards in hand, this creature deals 3 damage to that player.",
+    ],
+    // Liege of the Axe
+    &[
+        "Vigilance\nMorph {1}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, untap it.",
+    ],
+    // Lowland Tracker
+    &[
+        "First strike\nProvoke (Whenever this creature attacks, you may have target creature defending player controls untap and block it if able.)",
+    ],
     // Macetail Hystrodon
     &["First strike, haste\nCycling {3} ({3}, Discard this card: Draw a card.)"],
-    &[],
-    &[],
+    // Magma Sliver
+    &[
+        "All Slivers have \"{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield.\"",
+    ],
+    // Master of the Veil
+    &[
+        "Morph {2}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, you may turn target creature with a morph ability face down.",
+    ],
     // Merchant of Secrets
     &["When this creature enters, draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mistform Seaswift
+    &[
+        "Flying\n{1}: This creature becomes the creature type of your choice until end of turn.\nMorph {1}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Mistform Sliver
+    &[
+        "All Slivers have \"{1}: This permanent becomes the creature type of your choice in addition to its other types until end of turn.\"",
+    ],
+    // Mistform Ultimus
+    &["Mistform Ultimus is every creature type (even if this card isn't on the battlefield)."],
+    // Mistform Wakecaster
+    &[
+        "Flying\n{1}: This creature becomes the creature type of your choice until end of turn.\n{2}{U}{U}, {T}: Choose a creature type. Each creature you control becomes that type until end of turn.",
+    ],
+    // Nantuko Vigilante
+    &[
+        "Morph {1}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, destroy target artifact or enchantment.",
+    ],
     // Needleshot Gourna
     &["Reach (This creature can block creatures with flying.)"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Noxious Ghoul
+    &[
+        "Whenever this creature or another Zombie enters, all non-Zombie creatures get -1/-1 until end of turn.",
+    ],
+    // Patron of the Wild
+    &[
+        "Morph {2}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, target creature gets +3/+3 until end of turn.",
+    ],
+    // Phage the Untouchable
+    &[
+        "When Phage enters, if you didn't cast it from your hand, you lose the game.\nWhenever Phage deals combat damage to a creature, destroy that creature. It can't be regenerated.\nWhenever Phage deals combat damage to a player, that player loses the game.",
+    ],
+    // Planar Guide
+    &[
+        "{3}{W}, Exile this creature: Exile all creatures. At the beginning of the next end step, return those cards to the battlefield under their owners' control.",
+    ],
     // Plated Sliver
     &["All Sliver creatures get +0/+1."],
-    &[],
+    // Primal Whisperer
+    &[
+        "This creature gets +2/+2 for each face-down creature on the battlefield.\nMorph {3}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Primoc Escapee
     &["Flying\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
+    // Quick Sliver
+    &["Flash\nAny player may cast Sliver spells as though they had flash."],
     // Ridgetop Raptor
     &["Double strike (This creature deals both first-strike and regular combat damage.)"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Riptide Director
+    &["{2}{U}{U}, {T}: Draw a card for each Wizard you control."],
+    // Riptide Mangler
+    &[
+        "{1}{U}: This creature's base power becomes equal to target creature's power. (This effect lasts indefinitely.)",
+    ],
+    // Rockshard Elemental
+    &[
+        "Double strike (This creature deals both first-strike and regular combat damage.)\nMorph {4}{R}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Root Sliver
+    &["This spell can't be countered.\nSliver spells can't be countered."],
+    // Scion of Darkness
+    &[
+        "Trample\nWhenever this creature deals combat damage to a player, you may put target creature card from that player's graveyard onto the battlefield under your control.\nCycling {3} ({3}, Discard this card: Draw a card.)",
+    ],
+    // Seedborn Muse
+    &["Untap all permanents you control during each other player's untap step."],
+    // Shaleskin Plower
+    &[
+        "Morph {4}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, destroy target land.",
+    ],
     // Shifting Sliver
     &["Slivers can't be blocked except by Slivers."],
-    &[],
-    &[],
-    &[],
+    // Skinthinner
+    &[
+        "Morph {3}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, destroy target nonblack creature. It can't be regenerated.",
+    ],
+    // Skirk Alarmist
+    &[
+        "Haste\n{T}: Turn target face-down creature you control face up. At the beginning of the next end step, sacrifice it.",
+    ],
+    // Skirk Drill Sergeant
+    &[
+        "Whenever this creature or another Goblin dies, you may pay {2}{R}. If you do, reveal the top card of your library. If it's a Goblin permanent card, put it onto the battlefield. Otherwise, put it into your graveyard.",
+    ],
     // Skirk Outrider
     &["As long as you control a Beast, this creature gets +2/+2 and has trample."],
     // Smokespew Invoker
     &["{7}{B}: Target creature gets -3/-3 until end of turn."],
-    &[],
+    // Sootfeather Flock
+    &[
+        "Flying\nMorph {3}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Spectral Sliver
     &["All Sliver creatures have \"{2}: This creature gets +1/+1 until end of turn.\""],
     // Starlight Invoker
     &["{7}{W}: You gain 5 life."],
-    &[],
+    // Stoic Champion
+    &["Whenever a player cycles a card, this creature gets +2/+2 until end of turn."],
     // Stonewood Invoker
     &["{7}{G}: This creature gets +5/+5 until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Sunstrike Legionnaire
+    &[
+        "This creature doesn't untap during your untap step.\nWhenever another creature enters, untap this creature.\n{T}: Tap target creature with mana value 3 or less.",
+    ],
+    // Swooping Talon
+    &[
+        "Flying\n{1}: This creature loses flying until end of turn.\nProvoke (Whenever this creature attacks, you may have target creature defending player controls untap and block it if able.)",
+    ],
+    // Synapse Sliver
+    &["Whenever a Sliver deals combat damage to a player, its controller may draw a card."],
     // Timberwatch Elf
     &[
         "{T}: Target creature gets +X/+X until end of turn, where X is the number of Elves on the battlefield.",
     ],
     // Totem Speaker
     &["Whenever a Beast enters, you may gain 3 life."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Toxin Sliver
+    &[
+        "Whenever a Sliver deals combat damage to a creature, destroy that creature. It can't be regenerated.",
+    ],
+    // Tribal Forcemage
+    &[
+        "Morph {1}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, creatures of the creature type of your choice get +2/+2 and gain trample until end of turn.",
+    ],
+    // Unstable Hulk
+    &[
+        "Morph {3}{R}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, it gets +6/+6 and gains trample until end of turn. You skip your next turn.",
+    ],
+    // Vexing Beetle
+    &[
+        "This spell can't be countered.\nThis creature gets +3/+3 as long as no opponent controls a creature.",
+    ],
     // Vile Deacon
     &[
         "Whenever this creature attacks, it gets +X/+X until end of turn, where X is the number of Clerics on the battlefield.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Voidmage Apprentice
+    &[
+        "Morph {2}{U}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, counter target spell.",
+    ],
+    // Wall of Deceit
+    &[
+        "Defender (This creature can't attack.)\n{3}: Turn this creature face down.\nMorph {U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Wall of Hope
+    &[
+        "Defender (This creature can't attack.)\nWhenever this creature is dealt damage, you gain that much life.",
+    ],
+    // Warbreak Trumpeter
+    &[
+        "Morph {X}{X}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, create X 1/1 red Goblin creature tokens.",
+    ],
+    // Ward Sliver
+    &[
+        "As this creature enters, choose a color.\nAll Slivers have protection from the chosen color.",
+    ],
+    // Warped Researcher
+    &[
+        "Whenever a player cycles a card, this creature gains flying and shroud until end of turn. (It can't be the target of spells or abilities.)",
+    ],
+    // Weaver of Lies
+    &[
+        "Morph {4}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, turn any number of target creatures with morph abilities other than this creature face down.",
+    ],
+    // Whipgrass Entangler
+    &[
+        "{1}{W}: Until end of turn, target creature gains \"This creature can't attack or block unless its controller pays {1} for each Cleric on the battlefield.\"",
+    ],
+    // Willbender
+    &[
+        "Morph {1}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, change the target of target spell or ability with a single target.",
+    ],
+    // Windborn Muse
+    &[
+        "Flying\nCreatures can't attack you unless their controller pays {2} for each creature they control that's attacking you.",
+    ],
+    // Wingbeat Warrior
+    &[
+        "Flying\nMorph {2}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, target creature gains first strike until end of turn.",
+    ],
     // Wirewood Channeler
     &["{T}: Add X mana of any one color, where X is the number of Elves on the battlefield."],
     // Wirewood Hivemaster
     &["Whenever another nontoken Elf enters, you may create a 1/1 green Insect creature token."],
-    &[],
+    // Zombie Brute
+    &[
+        "Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Zombie card you reveal in your hand.)\nTrample",
+    ],
     &[],
     // Accelerated Mutation
     &[
