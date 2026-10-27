@@ -605,3 +605,69 @@ history/context without an explicit free-mulligan signal. Add these authorized
 inputs to the next versioned encoder with matching data, and evaluate Keep/Take
 separately from bottom-card quality. Existing Encoder7 archives and active
 frozen comparisons remain unchanged.
+
+### Post-review completed; objective study started
+
+Completion event `ba33abe08ebc50fae9ec149c` was checked against the actual
+post-review artifacts. All three full diagnostic reports cover the same 64
+games and 769,611 frames, with matching source/data identities and no coverage
+or finite-metric blocker. The detailed review is retained as
+`objective-ablation-20261027/diagnosis-review.json`. The already queued
+controller PID 471736 advanced to `train-loss4-reference`, beginning with its
+initial full validation. Its child is PID 473664. No duplicate was launched.
+
+The completed performance screen measured five warmup and 20 timed updates
+per variant on fresh chronological prefixes, with at most 112 entity slots in
+these batches. Inputs were already pinned in RAM; loading waits were outside
+the measured window. Ratios below compare each variant with the baseline in
+the same process, and each candidate was timed only once:
+
+| Execution variant | Throughput ratio | Peak allocated VRAM | Result |
+| --- | --- | --- | --- |
+| Baseline | 1.000 | 3.47 GiB | Available in every probe |
+| Save one activation layer | 1.011 | 4.10 GiB | Within sampled numerical tolerances |
+| Save two activation layers | 1.040 | 4.73 GiB | Within sampled numerical tolerances |
+| Compact thinking rows | 0.993 | 3.24 GiB | Within sampled numerical tolerances |
+| Prefetch two future batches | 0.995 | 3.48 GiB | Within sampled numerical tolerances |
+| Board chunk eight | Not timed | Not established | Numerical check rejected |
+
+Board chunk eight had relative gradient L2 difference 0.2204 and maximum
+hidden-state difference 0.0840, exceeding declared tolerances of 0.02. It was
+correctly rejected; this is not a training crash or a memory-limit result.
+Even unchanged-pipeline variants have small BF16 differences, so these are
+tolerance checks, not bit-exact equivalence claims.
+
+No execution setting was adopted. Saving two activation layers is only a
+candidate for repeated measurements on larger boards with valid recurrent
+histories and sufficient worst-case memory headroom. The short screen does
+not establish a whole-training 4% gain, and neither larger prefetch nor compact
+thinking improved this sampled throughput. Its review is preserved in
+`performance-20261027/screen-review.json`; the ongoing four-arm comparison
+retains its sealed execution settings.
+
+The first real guarded training job used 1,484 digest-cache hits, hashing only
+the previously uncached Python executable (31,508,264 bytes). This confirms
+that its job manifest avoided rereading the 22.59 GiB sealed inputs already
+verified by the controller. It does not change GPU arithmetic or learning.
+
+An independent code review found no weight, optimizer, RNG or initial-H
+restoration error; four focused CPU tests pass. It did identify measurement
+limits beyond the short window: prefetch2's correctness pass uses the same
+compute path as the baseline, yet has a relative gradient difference of 0.0096.
+That is evidence of a nonzero repeat-computation noise floor, not an effect of
+prefetching. An explicit baseline repeat is needed to measure it. Baseline
+throughput varied by about 1.05% between these separate probes, so saved1's
+1.06% result is not distinguishable from that variation here. The original
+report also omitted effective TF32/float32 precision flags; later shape
+compilation may remain inside timed windows. Follow-up probes must record
+precision, include repeated controls and broaden multi-step/shape coverage.
+
+Commit `31dcef534` adds the identical `baseline-repeat` execution variant to
+future probes, records effective precision and determinism flags, and checks
+that these flags remain unchanged across variants. The explicit
+`--float32-precision highest` option disables TF32 probe-wide; the default
+`inherit` preserves existing behavior. Reports now label numerical coverage
+`FIRST_UNROLL_ONLY`. Eight focused CPU tests pass. This instrumentation does
+not retroactively change the completed screen or the frozen training runtime.
+The first objective arm completed its initial full validation and reached
+175 optimizer updates with no reported allocator retries or stderr errors.

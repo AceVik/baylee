@@ -65,12 +65,20 @@ collector audit remains required before a production DAgger collection.
 For execution experiments, `--compact-thinking-rows` restricts scratchpad
 thinking to CPU-planned decision rows while preserving every observation and
 persistent-memory update. It is off by default and requires deferred readouts
-and zero dropout. CPU forward/memory/gradient parity passes; CUDA throughput
-and numerical parity are still pending. `bench_training5.py` restores the
-declared architecture, objective and optimizer groups into disposable probes;
+and zero dropout. CPU forward/memory/gradient parity passes. A bounded CUDA
+screen passed its one-batch numerical tolerances, but compact thinking provided
+no throughput gain over 20 timed early-game updates. Broader shape/history and
+repeatability checks remain required before adoption. `bench_training5.py`
+restores the declared architecture, objective and optimizer groups into disposable probes;
 `bench_training4.py` is not a valid benchmark for current v5 optimizer/K settings.
 Use immutable checkpoint copies and an idle GPU. A short fresh-trajectory probe
 does not establish performance on late-game Commander boards.
+Future probes include `baseline-repeat` by default to measure repeat-computation
+variation. They record effective precision flags and mark numerical coverage as
+`FIRST_UNROLL_ONLY`; a failing repeat control makes comparisons inconclusive.
+`--float32-precision inherit` preserves existing flags, while `highest` explicitly
+disables TF32 for the whole probe. Results under a different precision policy
+need separate validation before applying them to training.
 
 Controllers may opt into `run_guard4.run_job(..., digest_cache=cache)` using a
 process-local `input_digests4.InputDigestCache`. Repeated unchanged inputs then
