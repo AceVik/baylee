@@ -91,6 +91,7 @@ def main(default_architecture="v4") -> None:
     ap.add_argument("--freeze-trunk", action="store_true", help="Freeze board encoder, transformer trunk, recurrent memory, and critic; train only action/policy heads")
     ap.add_argument("--architecture", choices=("v4", "v5"), default=default_architecture)
     ap.add_argument("--relational-steps", type=int, choices=range(5), default=2)
+    ap.add_argument("--relational-revision", type=int, choices=(1, 2), default=2)
     args = ap.parse_args()
     if args.architecture == "v5":
         import model5 as M
@@ -183,6 +184,8 @@ def main(default_architecture="v4") -> None:
     )
     if args.architecture == "v5":
         cfg.relational_steps = args.relational_steps
+        cfg.relational_revision = args.relational_revision
+        identity["architecture"] = M.architecture_for_config(cfg)
     # Extra architecture initialization must not perturb training RNG in paired runs.
     net = M.PlayerNet5(cfg) if args.architecture == "v5" else M.PlayerNet4(cfg)
     net.attach_structure(train_ds.structure.data)
@@ -205,8 +208,8 @@ def main(default_architecture="v4") -> None:
         if args.architecture == "v5" and ckpt_init["model_version"] == 3:
             upgraded = M.warmstart_from_v4(ckpt_init["state_dict"], net)
         else:
-            if args.architecture == "v5" and (ckpt_init.get("architecture") != M.ARCHITECTURE
-                    or ckpt_init["config"] != cfg.to_dict()):
+            if args.architecture == "v5" and (ckpt_init.get("architecture") != M.architecture_for_config(cfg)
+                    or M.Config5(**ckpt_init["config"]).to_dict() != cfg.to_dict()):
                 raise ValueError("V5 initialization architecture/config differs")
             upgraded = (dict(ckpt_init["state_dict"]) if args.architecture == "v5"
                         else M.upgrade_state_dict_to_v7(ckpt_init["state_dict"], net))
@@ -268,7 +271,7 @@ def main(default_architecture="v4") -> None:
             raise ValueError("Resume dataset differs from the checkpoint")
         if saved.get("validation_fingerprint", val_ds.fingerprint) != val_ds.fingerprint:
             raise ValueError("Resume validation dataset differs from the checkpoint")
-        if saved["config"] != cfg.to_dict() or saved["batch_size"] != args.batch_size or saved["unroll"] != args.unroll:
+        if ((M.Config5(**saved["config"]).to_dict() if args.architecture == "v5" else saved["config"]) != cfg.to_dict()) or saved["batch_size"] != args.batch_size or saved["unroll"] != args.unroll:
             raise ValueError("Resume configuration/batch lanes must match exactly")
         if saved.get("validation_batch_size", saved["batch_size"]) != args.validation_batch_size:
             raise ValueError("Resume validation batch lanes must match the saved scoring protocol")
