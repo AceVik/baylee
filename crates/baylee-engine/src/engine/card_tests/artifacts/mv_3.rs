@@ -67,6 +67,7 @@ mod phyrexian_vault;
 mod rejuvenation_chamber;
 mod ring_of_gix;
 mod runed_arch;
+mod sandstone_deadfall;
 mod scepter_of_insight;
 mod scrapheap;
 mod seashell_cameo;

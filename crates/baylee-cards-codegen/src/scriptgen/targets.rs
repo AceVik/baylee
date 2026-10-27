@@ -244,7 +244,7 @@ impl Tx<'_> {
 
     fn push_filter_base(&self, base: &str, card_zone: bool, clauses: &mut Vec<String>) -> bool {
         match base {
-            "Card" => {}
+            "Card" | "card" => {}
             "Permanent" if !card_zone => {}
             "Permanent" => clauses.push(
                 "Filter::HasType(TypeSet::ARTIFACT.union(TypeSet::BATTLE)\

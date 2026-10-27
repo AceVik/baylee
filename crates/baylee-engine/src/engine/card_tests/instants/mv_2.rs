@@ -126,6 +126,7 @@ mod serene_offering;
 mod shadowbane;
 mod shatter;
 mod shattering_pulse;
+mod shelter;
 mod silhouette;
 mod simoon;
 mod simulacrum;

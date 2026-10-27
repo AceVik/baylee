@@ -266,6 +266,7 @@ mod razorfoot_griffin;
 mod reckless_embermage;
 mod reckless_ogre;
 mod reclusive_wight;
+mod resilient_wanderer;
 mod restoration_angel;
 mod retromancer;
 mod reveka_wizard_savant;

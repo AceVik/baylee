@@ -16077,37 +16077,88 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nEnchanted creature has \"{T}: This creature deals 1 damage to any target.\"",
     ],
-    &[],
+    // Psychatog
+    &[
+        "Discard a card: This creature gets +1/+1 until end of turn.\nExile two cards from your graveyard: This creature gets +1/+1 until end of turn.",
+    ],
     // Pulsating Illusion
     &[
         "Flying\nDiscard a card: This creature gets +4/+4 until end of turn. Activate only once each turn.",
     ],
     // Puppeteer
     &["{U}, {T}: You may tap or untap target creature."],
-    &[],
+    // Rabid Elephant
+    &[
+        "Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it.",
+    ],
     // Ravaged Highlands
     &[
         "This land enters tapped.\n{T}: Add {R}.\n{T}, Sacrifice this land: Add one mana of any color.",
     ],
-    &[],
-    &[],
-    &[],
+    // Ray of Distortion
+    &[
+        "Destroy target artifact or enchantment.\nFlashback {4}{W}{W} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Reckless Charge
+    &[
+        "Target creature gets +3/+0 and gains haste until end of turn.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Recoup
+    &[
+        "Target sorcery card in your graveyard gains flashback until end of turn. The flashback cost is equal to its mana cost. (Mana cost includes color.)\nFlashback {3}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     // Refresh
     &["Regenerate target creature.\nDraw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Repel
+    &["Put target creature on top of its owner's library."],
+    // Repentant Vampire
+    &[
+        "Flying\nWhenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature.\nThreshold — As long as there are seven or more cards in your graveyard, this creature is white and has \"{T}: Destroy target black creature.\"",
+    ],
+    // Resilient Wanderer
+    &[
+        "First strike\nDiscard a card: This creature gains protection from the color of your choice until end of turn.",
+    ],
+    // Rites of Initiation
+    &[
+        "Discard any number of cards at random. Creatures you control get +1/+0 until end of turn for each card discarded this way.",
+    ],
+    // Rites of Refusal
+    &[
+        "Discard any number of cards. Counter target spell unless its controller pays {3} for each card discarded this way.",
+    ],
+    // Rites of Spring
+    &[
+        "Discard any number of cards. Search your library for up to that many basic land cards, reveal them, put them into your hand, then shuffle.",
+    ],
+    // Roar of the Wurm
+    &[
+        "Create a 6/6 green Wurm creature token.\nFlashback {3}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Rotting Giant
+    &[
+        "Whenever this creature attacks or blocks, sacrifice it unless you exile a card from your graveyard.",
+    ],
+    // Sacred Rites
+    &[
+        "Discard any number of cards. Creatures you control get +0/+1 until end of turn for each card discarded this way.",
+    ],
+    // Sadistic Hypnotist
+    &["Sacrifice a creature: Target player discards two cards. Activate only as a sorcery."],
+    // Sandstone Deadfall
+    &["{T}, Sacrifice two lands and this artifact: Destroy target attacking creature."],
+    // Sarcatog
+    &[
+        "Exile two cards from your graveyard: This creature gets +1/+1 until end of turn.\nSacrifice an artifact: This creature gets +1/+1 until end of turn.",
+    ],
+    // Savage Firecat
+    &[
+        "Trample\nThis creature enters with seven +1/+1 counters on it.\nWhenever you tap a land for mana, remove a +1/+1 counter from this creature.",
+    ],
+    // Scorching Missile
+    &[
+        "Scorching Missile deals 4 damage to target player or planeswalker.\nFlashback {9}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     // Screams of the Damned
     &[
         "{1}{B}, Exile a card from your graveyard: This enchantment deals 1 damage to each creature and each player.",
@@ -16118,8 +16169,14 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Second Thoughts
     &["Exile target attacking creature.\nDraw a card."],
-    &[],
-    &[],
+    // Seize the Day
+    &[
+        "Untap target creature. After this main phase, there is an additional combat phase followed by an additional main phase.\nFlashback {2}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Seton's Desire
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+2.\nThreshold — As long as there are seven or more cards in your graveyard, all creatures able to block enchanted creature do so.",
+    ],
     // Seton, Krosan Protector
     &["Tap an untapped Druid you control: Add {G}."],
     // Shadowblood Egg
@@ -16130,10 +16187,20 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nWhenever this creature deals combat damage to a player, you may draw a card.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Shelter
+    &[
+        "Target creature you control gains protection from the color of your choice until end of turn.\nDraw a card.",
+    ],
+    // Shifty Doppelganger
+    &[
+        "{3}{U}, Exile this creature: You may put a creature card from your hand onto the battlefield. If you do, that creature gains haste until end of turn. At the beginning of the next end step, sacrifice that creature. If you do, return this card to the battlefield.",
+    ],
+    // Shower of Coals
+    &[
+        "Shower of Coals deals 2 damage to each of up to three targets.\nThreshold — Shower of Coals deals 4 damage to each of those permanents and/or players instead if there are seven or more cards in your graveyard.",
+    ],
+    // Simplify
+    &["Each player sacrifices an enchantment of their choice."],
     &[],
     &[],
     // Skycloud Egg

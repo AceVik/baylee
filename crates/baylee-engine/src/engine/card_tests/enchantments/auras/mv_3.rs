@@ -39,6 +39,7 @@ mod phyrexian_boon;
 mod relic_bind;
 mod ritual_of_steel;
 mod scavenged_weaponry;
+mod seton_s_desire;
 mod shackles;
 mod sleeper_s_guile;
 mod slow_motion;

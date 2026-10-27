@@ -241,6 +241,7 @@ mod rock_hydra;
 mod rofellos_llanowar_emissary;
 mod rogue_kavu;
 mod rootwater_thief;
+mod rotting_giant;
 mod royal_falcon;
 mod ruby_leech;
 mod safehold_elite;

@@ -287,11 +287,17 @@ impl Tx<'_> {
             ));
         }
         let valid = def.trim().strip_prefix("Count$Valid ")?;
+        let (valid, factor) = match valid.split_once("/Times.") {
+            None => (valid, None),
+            Some((v, f)) => (v, Some(f.trim().parse::<u32>().ok()?)),
+        };
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNT", &expr);
-        Some(format!(
-            "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}"
-        ))
+        let base = format!("Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}");
+        Some(match factor {
+            None => base,
+            Some(factor) => format!("Amount::Times {{ base: &{base}, factor: {factor} }}"),
+        })
     }
 
     /// The atoms that are one word of printed text each, and the filter each
@@ -546,7 +552,8 @@ impl Tx<'_> {
             && self.has_x
             && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
             && !self.oracle.to_ascii_lowercase().contains("x is ");
-        let two_parts = matches!(kind, "Sac" | "Discard") && n == "2" && spec != "CARDNAME";
+        let two_parts =
+            matches!(kind, "Sac" | "Discard" | "ExileFromGrave") && n == "2" && spec != "CARDNAME";
         if n != "1" && !sac_x && !two_parts {
             return self.deny(format!("a cost naming `{n}` objects"));
         }
