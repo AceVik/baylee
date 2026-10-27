@@ -62,6 +62,7 @@ mod breezekeeper;
 mod brine_hag;
 mod brine_seer;
 mod burning_palm_efreet;
+mod cabal_surgeon;
 mod cackling_imp;
 mod canyon_drake;
 mod captain_sisay;

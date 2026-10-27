@@ -56,6 +56,7 @@ mod breathstealer;
 mod brushwagg;
 mod burning_shield_askari;
 mod cabal_archon;
+mod cabal_torturer;
 mod cadaverous_knight;
 mod caldera_kavu;
 mod calming_licid;

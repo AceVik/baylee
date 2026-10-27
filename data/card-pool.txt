@@ -11624,3 +11624,32 @@ Zombie Assassin
 Zombie Cannibal
 Zombie Infestation
 Zoologist
+Acorn Harvest
+Alter Reality
+Anurid Scavenger
+Aquamoeba
+Arrogant Wurm
+Basking Rootwalla
+Boneshard Slasher
+Breakthrough
+Cabal Surgeon
+Cabal Torturer
+Carrion Rats
+Carrion Wurm
+Centaur Chieftain
+Cephalid Aristocrat
+Cephalid Illusionist
+Cephalid Sage
+Cephalid Snitch
+Cephalid Vandal
+Chainer's Edict
+Chainer, Dementia Master
+Churning Eddy
+Circular Logic
+Cleansing Meditation
+Coral Net
+Crazed Firecat
+Crippling Fatigue
+Dawn of the Dead
+Deep Analysis
+Devastating Dreams
