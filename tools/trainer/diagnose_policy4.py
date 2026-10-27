@@ -15,6 +15,12 @@ from training4.validation_device import evaluate_device
 from training4.objective import LOSS_VERSION
 
 
+def diagnostic_loader(data, args, device):
+    return DataLoader(data,batch_sampler=StatefulBatchSampler4(data,args.batch_size,shuffle=False),
+                      collate_fn=collate_trajectories,num_workers=args.num_workers,
+                      pin_memory=(device.type == "cuda"))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--model',type=Path,required=True,help='Checkpoint file or directory containing net.pt')
@@ -60,8 +66,7 @@ def main():
     provenance=Provenance(data)
     collector=Collector(provenance)
     source_inputs={str(data.data_dir/'meta.json'):file_hash(data.data_dir/'meta.json'), **provenance.inputs}
-    loader=DataLoader(data,batch_sampler=StatefulBatchSampler4(data,args.batch_size,shuffle=False),
-                      collate_fn=collate_trajectories,num_workers=args.num_workers)
+    loader=diagnostic_loader(data,args,device)
     try:
         validation=evaluate_device(net,loader,device,args.thinking_steps,args.board_chunk,args.progress_every,
                                    diagnostic_collector=collector,use_bf16=args.bf16)

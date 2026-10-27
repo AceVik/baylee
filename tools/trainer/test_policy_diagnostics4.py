@@ -175,6 +175,17 @@ class Diagnostics(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'incomplete'):
             data.encode_single_step({'_bst4':pack_step_bst4(step,{})})
 
+    def test_loader_pins_only_cuda_without_initializing_gpu(self):
+        import diagnose_policy4
+        args=SimpleNamespace(batch_size=8,num_workers=0)
+        data=SimpleNamespace(trajectories=[[0]])
+        for kind,pinned in (("cpu",False),("cuda",True)):
+            with patch.object(diagnose_policy4,"DataLoader") as loader:
+                diagnose_policy4.diagnostic_loader(data,args,torch.device(kind))
+            self.assertIs(loader.call_args.kwargs["pin_memory"],pinned)
+            self.assertFalse(loader.call_args.kwargs["batch_sampler"].shuffle)
+            self.assertIs(loader.call_args.kwargs["collate_fn"],collate_trajectories)
+
     def test_cli_end_to_end_v4_and_v5_full_json_histories(self):
         import diagnose_policy4
         import model5 as V5
