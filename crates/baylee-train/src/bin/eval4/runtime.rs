@@ -104,12 +104,14 @@ fn load_player(
     legacy: bool,
     depth: u8,
     temperature: f32,
+    policy_mode: PolicyMode4,
 ) -> anyhow::Result<Box<dyn EvaluationPlayer>> {
     if !legacy {
         return Ok(Box::new(
             NetPlayer4::load(path)?
                 .with_thinking_steps(depth)
-                .with_temperature(temperature),
+                .with_temperature(temperature)
+                .with_policy_mode(policy_mode),
         ));
     }
     let model = if path.is_dir() {

@@ -36,6 +36,9 @@ struct Args {
     /// Sampling temperature `tau` (`0.0` = greedy argmax).
     #[arg(long, default_value_t = 0.0)]
     temperature: f32,
+    /// Use unmodified neural outputs; stochastic version-2 sampling requires tau > 0.35.
+    #[arg(long)]
+    raw_policy: bool,
     /// Number of generated decks to build (`0` = use `--decks-manifest` only).
     #[arg(long, default_value_t = 32)]
     generated: usize,

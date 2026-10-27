@@ -41,6 +41,7 @@ mod fallback_tests;
 mod live_init;
 mod policy;
 use policy::sample_categorical;
+pub use policy::{PolicyMode4, valid_raw_temperature};
 mod structure;
 mod tactics;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
@@ -89,6 +90,7 @@ pub struct NetPlayer4 {
     d_model: usize,
     thinking_steps: u8,
     temperature: f32,
+    policy_mode: PolicyMode4,
     rng: Rng,
     /// Per-seat team assignments cached from `init_game` (`[Option<u8>; N]`).
     teams: Vec<Option<u8>>,
@@ -194,6 +196,7 @@ impl NetPlayer4 {
             d_model,
             thinking_steps,
             temperature: 0.0,
+            policy_mode: PolicyMode4::Tactical,
             rng: Rng::new(0x517c_c1b7_2722_0a95),
             teams: Vec::new(),
             h_states: BTreeMap::new(),
@@ -215,6 +218,19 @@ impl NetPlayer4 {
     pub fn with_temperature(mut self, tau: f32) -> Self {
         self.temperature = tau.max(0.0);
         self
+    }
+
+    /// Chooses raw model decisions or the separately attributed tactical player.
+    #[must_use]
+    pub const fn with_policy_mode(mut self, mode: PolicyMode4) -> Self {
+        self.policy_mode = mode;
+        self
+    }
+
+    /// The policy responsible for non-forced successful decisions.
+    #[must_use]
+    pub const fn policy_mode(&self) -> PolicyMode4 {
+        self.policy_mode
     }
 
     /// Updates the sampling temperature `tau` in place.
@@ -436,17 +452,17 @@ impl NetPlayer4 {
         let ans = if let Ok((action, value, logprob, target)) =
             self.infer_and_sample(&state, &cands, view, pending, &h_in)
         {
-            self.coverage.record(p_kind, SourceKind4::Net);
+            let provenance = self.policy_mode.provenance(
+                self.temperature,
+                self.thinking_steps,
+                cands.head,
+                logprob,
+            );
+            self.coverage.record(p_kind, provenance.source);
             Answer4 {
                 action,
                 value,
-                provenance: StepProvenance4 {
-                    source: SourceKind4::Net,
-                    temperature: self.temperature,
-                    thinking_steps: self.thinking_steps,
-                    behavior_logprob: logprob,
-                    has_logprob: self.temperature > 1e-4 && cands.head != HeadKind4::ScalarValue,
-                },
+                provenance,
                 target,
             }
         } else {

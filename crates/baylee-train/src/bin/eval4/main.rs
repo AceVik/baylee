@@ -31,7 +31,7 @@ use baylee_train::features4::{
     CoverageMatrix4, SourceKind4, StepProvenance4, side_utility, view_only_state_hash,
 };
 use baylee_train::housedeck::HouseDeck;
-use baylee_train::netplay4::NetPlayer4;
+use baylee_train::netplay4::{NetPlayer4, PolicyMode4, valid_raw_temperature};
 use baylee_train::selfplay::table_for;
 use baylee_train::working::{Working, repo_root};
 use clap::Parser;
@@ -54,6 +54,14 @@ include!("decks.rs");
 )]
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    if args.raw_policy && (args.legacy_v3 || !valid_raw_temperature(args.temperature)) {
+        bail!("--raw-policy requires v4 and temperature 0 or >0.35");
+    }
+    let policy_mode = if args.raw_policy {
+        PolicyMode4::Raw
+    } else {
+        PolicyMode4::Tactical
+    };
     if args.legacy_v3
         && (args.record_out.is_some() || args.temperature != 0.0 || args.thinking_steps != 1)
     {
@@ -140,6 +148,10 @@ fn main() -> anyhow::Result<()> {
     }
 
     if let Some(rec_dir) = &args.record_out {
+        anyhow::ensure!(
+            !rec_dir.exists() || fs::read_dir(rec_dir)?.next().is_none(),
+            "--record-out must be new or empty; existing records cannot acquire new provenance"
+        );
         fs::create_dir_all(rec_dir.join("records"))?;
         let deck_json: Vec<_> = decks
             .iter()
@@ -158,6 +170,9 @@ fn main() -> anyhow::Result<()> {
             rec_dir.join("run.json"),
             serde_json::to_vec_pretty(&json!({
                 "run": "eval4-rollout",
+                "policy_mode": policy_mode,
+                "policy_contract": policy_mode.contract(),
+                "policy_provenance_version": 1,
                 "record_version": baylee_gamehost::record::RECORD_VERSION,
                 "training_data": true,
                 "decks": deck_json,
@@ -210,7 +225,7 @@ fn main() -> anyhow::Result<()> {
         let legacy = args.legacy_v3;
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
-            let mut net = load_player(&model_path, legacy, k_steps, temp)?;
+            let mut net = load_player(&model_path, legacy, k_steps, temp, policy_mode)?;
 
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
             let mut shard_file = match &rec_out {
@@ -464,6 +479,23 @@ fn main() -> anyhow::Result<()> {
         },
         "elapsed_secs": started.elapsed().as_secs_f64(),
     });
+    summary["policy_mode"] = if args.legacy_v3 {
+        json!("legacy_v3")
+    } else {
+        json!(policy_mode)
+    };
+    summary["policy_contract"] = if args.legacy_v3 {
+        Value::Null
+    } else {
+        json!(policy_mode.contract())
+    };
+    summary["policy_provenance_version"] = if args.legacy_v3 {
+        Value::Null
+    } else {
+        json!(1)
+    };
+    summary["house_counts_include_tactical_demonstrations"] =
+        json!(!args.legacy_v3 && policy_mode == PolicyMode4::Tactical);
     summary["deal_details"] = json!(st.deal_details);
     summary["coverage_matrix"] = json!(st.coverage.counts);
     summary["model_family"] = json!(if args.legacy_v3 { "v3-expert" } else { "v4" });
