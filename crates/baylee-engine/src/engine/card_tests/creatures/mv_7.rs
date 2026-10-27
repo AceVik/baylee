@@ -382,6 +382,7 @@ mod aven_fateshaper;
 mod axebane_stag;
 mod birthing_hulk;
 mod black_dragon;
+mod bladewing_the_risen;
 mod blizzard_elemental;
 mod boldwyr_intimidator;
 mod cat_gator;

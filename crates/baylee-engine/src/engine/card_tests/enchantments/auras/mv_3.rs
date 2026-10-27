@@ -21,6 +21,7 @@ mod farmstead;
 mod farrel_s_mantle;
 mod feedback;
 mod forbidden_lore;
+mod frozen_solid;
 mod funeral_march;
 mod goblin_caves;
 mod goblin_shrine;

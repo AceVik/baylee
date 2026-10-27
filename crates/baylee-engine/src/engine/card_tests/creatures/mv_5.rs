@@ -8,6 +8,7 @@ mod aclazotz_deepest_betrayal;
 mod aerathi_berserker;
 mod airdrop_condor;
 mod aku_djinn;
+mod ambush_commander;
 mod ambush_party;
 mod anarchist;
 mod ancient_hydra;

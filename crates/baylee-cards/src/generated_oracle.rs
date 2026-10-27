@@ -19034,19 +19034,46 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Target creature gets +X/+X until end of turn, where X is the greatest mana value among permanents you control.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ageless Sentinels
+    &[
+        "Defender (This creature can't attack.)\nFlying\nWhen this creature blocks, it becomes a Bird Giant, and it loses defender. (It's no longer a Wall. This effect lasts indefinitely.)",
+    ],
+    // Alpha Status
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+2 for each other creature on the battlefield that shares a creature type with it.",
+    ],
+    // Ambush Commander
+    &[
+        "Forests you control are 1/1 green Elf creatures that are still lands.\n{1}{G}, Sacrifice an Elf: Target creature gets +3/+3 until end of turn.",
+    ],
+    // Ancient Ooze
+    &[
+        "Ancient Ooze's power and toughness are each equal to the total mana value of other creatures you control.",
+    ],
+    // Aphetto Runecaster
+    &["Whenever a permanent is turned face up, you may draw a card."],
     // Ark of Blight
     &["{3}, {T}, Sacrifice this artifact: Destroy target land."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Astral Steel
+    &[
+        "Target creature gets +1/+2 until end of turn.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    ],
+    // Aven Farseer
+    &["Flying\nWhenever a permanent is turned face up, put a +1/+1 counter on this creature."],
+    // Aven Liberator
+    &[
+        "Flying\nMorph {3}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, target creature you control gains protection from the color of your choice until end of turn.",
+    ],
+    // Bladewing the Risen
+    &[
+        "Flying\nWhen Bladewing enters, you may return target Dragon permanent card from your graveyard to the battlefield.\n{B}{R}: Dragon creatures get +1/+1 until end of turn.",
+    ],
+    // Bladewing's Thrall
+    &[
+        "This creature has flying as long as you control a Dragon.\nWhen a Dragon enters, you may return this card from your graveyard to the battlefield.",
+    ],
+    // Bonethorn Valesk
+    &["Whenever a permanent is turned face up, this creature deals 1 damage to any target."],
     // Brain Freeze
     &[
         "Target player mills three cards.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
@@ -19055,17 +19082,32 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Destroy target artifact or enchantment.\nCycling {2} ({2}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
-    &[],
+    // Cabal Conditioning
+    &[
+        "Any number of target players each discard a number of cards equal to the greatest mana value among permanents you control.",
+    ],
+    // Cabal Interrogator
+    &[
+        "{X}{B}, {T}: Target player reveals X cards from their hand and you choose one of them. That player discards that card. Activate only as a sorcery.",
+    ],
+    // Call to the Grave
+    &[
+        "At the beginning of each player's upkeep, that player sacrifices a non-Zombie creature of their choice.\nAt the beginning of the end step, if no creatures are on the battlefield, sacrifice this enchantment.",
+    ],
     // Carbonize
     &[
         "Carbonize deals 3 damage to any target. If it's a creature, it can't be regenerated this turn, and if it would die this turn, exile it instead.",
     ],
     // Carrion Feeder
     &["This creature can't block.\nSacrifice a creature: Put a +1/+1 counter on this creature."],
-    &[],
-    &[],
+    // Chartooth Cougar
+    &[
+        "{R}: This creature gets +1/+0 until end of turn.\nMountaincycling {2} ({2}, Discard this card: Search your library for a Mountain card, reveal it, put it into your hand, then shuffle.)",
+    ],
+    // Chill Haunting
+    &[
+        "As an additional cost to cast this spell, exile X creature cards from your graveyard.\nTarget creature gets -X/-X until end of turn.",
+    ],
     // Claws of Wirewood
     &[
         "Claws of Wirewood deals 3 damage to each creature with flying and each player.\nCycling {2} ({2}, Discard this card: Draw a card.)",
@@ -19080,59 +19122,160 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{2}{B}{B}: Target creature gets -1/-1 until end of turn. Put a +1/+1 counter on this creature.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Daru Spiritualist
+    &[
+        "Whenever a Cleric creature you control becomes the target of a spell or ability, it gets +0/+2 until end of turn.",
+    ],
+    // Daru Warchief
+    &["Soldier spells you cast cost {1} less to cast.\nSoldier creatures you control get +1/+2."],
+    // Dawn Elemental
+    &["Flying\nPrevent all damage that would be dealt to this creature."],
+    // Day of the Dragons
+    &[
+        "When this enchantment enters, exile all creatures you control. Then create that many 5/5 red Dragon creature tokens with flying.\nWhen this enchantment leaves the battlefield, sacrifice all Dragons you control. Then return the exiled cards to the battlefield under your control.",
+    ],
+    // Death's-Head Buzzard
+    &["Flying\nWhen this creature dies, all creatures get -1/-1 until end of turn."],
+    // Decree of Annihilation
+    &[
+        "Exile all artifacts, creatures, and lands from the battlefield, all cards from all graveyards, and all cards from all hands.\nCycling {5}{R}{R} ({5}{R}{R}, Discard this card: Draw a card.)\nWhen you cycle this card, destroy all lands.",
+    ],
+    // Decree of Justice
+    &[
+        "Create X 4/4 white Angel creature tokens with flying.\nCycling {2}{W} ({2}{W}, Discard this card: Draw a card.)\nWhen you cycle this card, you may pay {X}. If you do, create X 1/1 white Soldier creature tokens.",
+    ],
+    // Decree of Pain
+    &[
+        "Destroy all creatures. They can't be regenerated. Draw a card for each creature destroyed this way.\nCycling {3}{B}{B} ({3}{B}{B}, Discard this card: Draw a card.)\nWhen you cycle this card, all creatures get -2/-2 until end of turn.",
+    ],
+    // Decree of Savagery
+    &[
+        "Put four +1/+1 counters on each creature you control.\nCycling {4}{G}{G} ({4}{G}{G}, Discard this card: Draw a card.)\nWhen you cycle this card, you may put four +1/+1 counters on target creature.",
+    ],
+    // Decree of Silence
+    &[
+        "Whenever an opponent casts a spell, counter that spell and put a depletion counter on this enchantment. If there are three or more depletion counters on this enchantment, sacrifice it.\nCycling {4}{U}{U} ({4}{U}{U}, Discard this card: Draw a card.)\nWhen you cycle this card, you may counter target spell.",
+    ],
+    // Dimensional Breach
+    &[
+        "Exile all permanents. For as long as any of those cards remain exiled, at the beginning of each player's upkeep, that player returns one of the exiled cards they own to the battlefield.",
+    ],
+    // Dispersal Shield
+    &[
+        "Counter target spell if its mana value is less than or equal to the greatest mana value among permanents you control.",
+    ],
+    // Divergent Growth
+    &["Until end of turn, lands you control gain \"{T}: Add one mana of any color.\""],
+    // Dragon Breath
+    &[
+        "Enchant creature\nEnchanted creature has haste.\n{R}: Enchanted creature gets +1/+0 until end of turn.\nWhen a creature with mana value 6 or greater enters, you may return this card from your graveyard to the battlefield attached to that creature.",
+    ],
+    // Dragon Fangs
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+1 and has trample.\nWhen a creature with mana value 6 or greater enters, you may return this card from your graveyard to the battlefield attached to that creature.",
+    ],
     // Dragon Mage
     &[
         "Flying\nWhenever this creature deals combat damage to a player, each player discards their hand, then draws seven cards.",
     ],
-    &[],
-    &[],
+    // Dragon Scales
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+2 and has vigilance.\nWhen a creature with mana value 6 or greater enters, you may return this card from your graveyard to the battlefield attached to that creature.",
+    ],
+    // Dragon Shadow
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+0 and has fear. (It can't be blocked except by artifact creatures and/or black creatures.)\nWhen a creature with mana value 6 or greater enters, you may return this card from your graveyard to the battlefield attached to that creature.",
+    ],
     // Dragon Tyrant
     &[
         "Flying, trample\nDouble strike (This creature deals both first-strike and regular combat damage.)\nAt the beginning of your upkeep, sacrifice this creature unless you pay {R}{R}{R}{R}.\n{R}: This creature gets +1/+0 until end of turn.",
     ],
-    &[],
-    &[],
+    // Dragon Wings
+    &[
+        "Enchant creature\nEnchanted creature has flying.\nCycling {1}{U} ({1}{U}, Discard this card: Draw a card.)\nWhen a creature with mana value 6 or greater enters, you may return this card from your graveyard to the battlefield attached to that creature.",
+    ],
+    // Dragonspeaker Shaman
+    &["Dragon spells you cast cost {2} less to cast."],
     // Dragonstalker
     &["Flying, protection from Dragons"],
-    &[],
-    &[],
+    // Dragonstorm
+    &[
+        "Search your library for a Dragon permanent card, put it onto the battlefield, then shuffle.\nStorm (When you cast this spell, copy it for each spell cast before it this turn.)",
+    ],
+    // Edgewalker
+    &[
+        "Cleric spells you cast cost {W}{B} less to cast. This effect reduces only the amount of colored mana you pay. (For example, if you cast a Cleric spell with mana cost {1}{W}, it costs {1} to cast.)",
+    ],
     // Enrage
     &["Target creature gets +X/+0 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Eternal Dragon
+    &[
+        "Flying\n{3}{W}{W}: Return this card from your graveyard to your hand. Activate only during your upkeep.\nPlainscycling {2} ({2}, Discard this card: Search your library for a Plains card, reveal it, put it into your hand, then shuffle.)",
+    ],
+    // Exiled Doomsayer
+    &[
+        "All morph costs cost {2} more. (This doesn't affect the cost to cast creature spells face down.)",
+    ],
+    // Extra Arms
+    &["Enchant creature\nWhenever enchanted creature attacks, it deals 2 damage to any target."],
+    // Faces of the Past
+    &[
+        "Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.",
+    ],
+    // Fatal Mutation
+    &[
+        "Enchant creature\nWhen enchanted creature is turned face up, destroy it. It can't be regenerated.",
+    ],
+    // Fierce Empath
+    &[
+        "When this creature enters, you may search your library for a creature card with mana value 6 or greater, reveal it, put it into your hand, then shuffle.",
+    ],
+    // Final Punishment
+    &["Target player loses life equal to the damage already dealt to that player this turn."],
+    // Force Bubble
+    &[
+        "If damage would be dealt to you, put that many depletion counters on this enchantment instead.\nWhen there are four or more depletion counters on this enchantment, sacrifice it.\nAt the beginning of each end step, remove all depletion counters from this enchantment.",
+    ],
+    // Forgotten Ancient
+    &[
+        "Whenever a player casts a spell, you may put a +1/+1 counter on this creature.\nAt the beginning of your upkeep, you may move any number of +1/+1 counters from this creature onto other creatures.",
+    ],
+    // Form of the Dragon
+    &[
+        "At the beginning of your upkeep, this enchantment deals 5 damage to any target.\nAt the beginning of each end step, your life total becomes 5.\nCreatures without flying can't attack you.",
+    ],
+    // Frontline Strategist
+    &[
+        "Morph {W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, prevent all combat damage non-Soldier creatures would deal this turn.",
+    ],
+    // Frozen Solid
+    &[
+        "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\nWhen enchanted creature is dealt damage, destroy it.",
+    ],
+    // Gilded Light
+    &[
+        "You gain shroud until end of turn. (You can't be the target of spells or abilities.)\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
     // Goblin Brigand
     &["This creature attacks each combat if able."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Goblin Psychopath
+    &[
+        "Whenever this creature attacks or blocks, flip a coin. If you lose the flip, the next time it would deal combat damage this turn, it deals that damage to you instead.",
+    ],
+    // Goblin Warchief
+    &["Goblin spells you cast cost {1} less to cast.\nGoblins you control have haste."],
+    // Grip of Chaos
+    &[
+        "Whenever a spell or ability is put onto the stack, if it has a single target, reselect its target at random. (Select from among all legal targets.)",
+    ],
+    // Guilty Conscience
+    &[
+        "Enchant creature\nWhenever enchanted creature deals damage, this Aura deals that much damage to that creature.",
+    ],
+    // Hindering Touch
+    &[
+        "Counter target spell unless its controller pays {2}.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    ],
     &[],
     &[],
     &[],

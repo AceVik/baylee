@@ -43,6 +43,7 @@ mod defy_gravity;
 mod demonic_consultation;
 mod demystify;
 mod disfigure;
+mod divergent_growth;
 mod dredge;
 mod dwarven_catapult;
 mod dwarven_song;

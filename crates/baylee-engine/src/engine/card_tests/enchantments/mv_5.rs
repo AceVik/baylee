@@ -115,6 +115,7 @@ mod blockbuster;
 mod blood_rites;
 mod bulwark;
 mod burning_sands;
+mod call_to_the_grave;
 mod centaur_glade;
 mod curse_of_marit_lage;
 mod death_pits_of_rath;
