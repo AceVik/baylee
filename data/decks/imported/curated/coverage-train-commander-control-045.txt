@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control B #20266046]
+1 Anointed Deacon
+1 Appendage Amalgam
+1 Armor of Shadows
+1 Arrogant Vampire
+1 Ash Barrens
+1 Asphodel Wanderer
+1 Blanket of Night
+1 Bleed Dry
+1 Bloodcrazed Paladin
+1 Bogstomper
+1 Brink of Madness
+1 Carrionette
+1 Cathedral of Serra
+1 Caustic Rain
+1 Clinging Darkness
+1 Coat with Venom
+1 Consume the Meek
+1 Cradle of the Accursed
+1 Damnation
+1 Dauthi Embrace
+1 Deadly Rollick
+1 Defile
+1 Demolition Field
+1 Eye of Ugin
+1 Face of Fear
+1 Fell the Profane
+1 Feral Abomination
+1 Fugue
+1 Give In to Violence
+1 Gloom
+1 Gravkill
+1 Grotesque Mutation
+1 Hell Swarm
+1 Labyrinth of Skophos
+1 Lash of Thorns
+1 Midnight Assassin
+1 Mind Knives
+1 Minion of the Wastes
+1 Necrogen Mists
+1 Nocturnal Raid
+1 Noxious Field
+1 Oblivion Crown
+1 Olivia's Dragoon
+1 Quagmire
+1 Rush of Vitality
+1 Scare Tactics
+1 Scorpion's Sting
+1 Scrounger of Souls
+1 Season of the Witch
+1 Shadow Stinger
+1 Sheltered Valley
+1 Skeletal Grimace
+1 Skyshroud Vampire
+1 Soul Channeling
+1 Stab
+1 Stalking Bloodsucker
+36 Swamp
+1 Tainted Aether
+1 Torment
+1 Underworld Connections
+1 Vampire Revenant
+1 Voracious Vampire
+1 Wander Off
+1 Wit's End
+
+[commander]
+Irini Sengir

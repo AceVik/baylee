@@ -6,10 +6,10 @@
 3 Grasp of Darkness
 3 Grim Physician
 4 Masked Blackguard
-3 Mind Rot
 2 Painful Lesson
 4 Rakshasa's Secret
 1 Reaver Ambush
+3 Reckless Spite
 2 Risky Shortcut
 1 Slay
 1 Spin Out

@@ -1,73 +1,71 @@
 # baylee curated commander ramp seed=20261118
 # licence: AGPL-3.0-only
-[deck:commander ramp U #20261118]
-1 Alchemist's Apprentice
-1 Brilliant Plan
-1 Bronze Horse
-1 Buzz Bots
-1 Citywatch Sphinx
-1 Clear the Mind
-1 Contradict
-1 Cursecatcher
-1 Darksteel Forge
-1 Dispersal Technician
-1 Disrupt
-1 Drake Hatchling
-1 Eternity Snare
-1 Excavated Wall
-1 Gemstone Array
-1 Ghost Ship
-1 Glintwing Invoker
-1 Griffin Canyon
-1 Hair-Strung Koto
-1 Harbinger of the Seas
+[deck:commander ramp B #20261118]
+1 Akroma's Memorial
+1 Anodet Lurker
+1 Arcum's Astrolabe
+1 Black Mana Battery
+1 Blood Servitor
+1 Brass Man
+1 Brass Secretary
+1 Charcoal Diamond
+1 Chromatic Star
+1 Commander's Sphere
+1 Dalek Drone
+1 Diabolic Machine
+1 Dreamstone Hedron
+1 Empowered Autogenerator
+1 Energy Refractor
+1 Failed Conversion
+1 Forbidden Orchard
+1 Gallifrey Council Chamber
+1 Giant's Boulder
+1 Golden Egg
+1 Heap Gate
+1 Hedron Archive
 1 Hedron Crawler
-34 Island
-1 Island of Wak-Wak
-1 Jwari Disruption
-1 Lodestone Myr
-1 Lonely Sandbar
-1 Lux Cannon
-1 Merfolk Mesmerist
-1 Mind Sculpt
-1 Misdirection
-1 Moonring Island
-1 Obsianus Golem
-1 Orochi Hatchery
-1 Pin to the Earth
-1 Planar Portal
-1 Pulsating Illusion
-1 Pyramids
-1 Robotics Mastery
-1 Rootwater Hunter
-1 Rusted Sentinel
-1 Sage Owl
-1 Serpentine Ambush
-1 Shore Keeper
-1 Simulacrum Synthesizer
-1 Skateboard
-1 Smuggler's Copter
-1 Snapcaster Mage
-1 Soaring Drake
-1 Spectral Interference
-1 Stern Scolding
-1 Straw Soldiers
-1 Surrakar Banisher
-1 Swan Song
-1 Talrand, Sky Summoner
-1 Tangle Kelp
-1 Tendo Ice Bridge
-1 The Theorist, Jace Beleren
-1 Tidal Warrior
-1 Time Warp
-1 Tome Raider
-1 Treasure Trove
-1 Triton Shorethief
-1 Urza's Power Plant
-1 Warped Landscape
-1 Well-Worn Spatula
-1 Winding Canyons
-1 Windstorm Drake
+1 Infernal Idol
+1 Leaden Myr
+1 Liliana's Mastery
+1 Limestone Golem
+1 Mana Vault
+1 Meteor Golem
+1 Mind Stone
+1 Mindless Automaton
+1 Moriok Replica
+1 Mox Opal
+1 Myr Moonvessel
+1 Necrogen Spellbomb
+1 Open the Graves
+1 Paradise Mantle
+1 Pentavus
+1 Phyrexian Tower
+1 Planar Nexus
+1 Plaza of Heroes
+1 Prizefighter Construct
+1 Prophetic Prism
+1 Razorfield Thresher
+1 Runed Servitor
+1 Salvaged Manaworker
+1 Sanitation Automaton
+1 Scrap Trawler
+1 Skull of Ramos
+1 Slayer's Plate
+35 Snow-Covered Swamp
+1 Solemn Simulacrum
+1 Sparring Construct
+1 Springleaf Drum
+1 Staff of Nin
+1 Strands of Night
+1 Su-Chi
+1 Tarrian's Journal
+1 Terrarion
+1 Tetravus
+1 The Hive
+1 Triskelavus
+1 Triskelion
+1 Unholy Grotto
+1 Voltaic Servant
 
 [commander]
-Talrand, Sky Summoner
+Borg Queen, Perfection Manifest

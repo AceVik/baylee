@@ -1,73 +1,71 @@
 # baylee curated commander ramp seed=20261058
 # licence: AGPL-3.0-only
-[deck:commander ramp R #20261058]
-1 Ali Baba
-1 Anaba Shaman
-1 Arcane Encyclopedia
-1 Arcane Spyglass
-1 Baton of Morale
-1 Caterwauling Boggart
-1 Cave People
-1 Celestial Sword
-1 Crucible of Worlds
-1 Cryptic Caves
-1 Darksteel Ingot
-1 Dingus Egg
-1 Dragon Moose
-1 Drannith Ruins
-1 Ember Shot
-1 Enslaved Dwarf
-1 Exotic Orchard
-1 Feint
-1 Field Creeper
-1 Fire Nation Soldier
-1 Fissure
-1 Fountain of Youth
-1 Frantic Confrontation
-1 Giant Strength
-1 Glimmerlight
-1 Goblin Artisans
-1 Goblin Cannon
-1 Goblin Hero
-1 Hellkite Punisher
-1 Hoof Skulkin
-1 Horn of Deafening
-1 Hyperion Blacksmith
-1 Inferno
-1 Kher Keep
-1 Kindled Heroism
-1 Lovisa Coldeyes
-1 Magnetic Mine
-1 Malachite Talisman
-1 Manifold Key
-1 Matzalantli, the Great Door
-1 Meteor Sword
-34 Mountain
-1 Myr Scrapling
-1 Ornithopter of Paradise
-1 Plaza of Heroes
-1 Predator, Flagship
-1 Pyrite Spellbomb
-1 Ral's Reinforcements
-1 Rath's Edge
-1 Rock Badger
-1 Runesword
-1 Scour from Existence
-1 Scrapyard Mongrel
-1 Smaug the Magnificent
-1 Spider-Man, Hometown Hero
-1 Spinerock Knoll
-1 Swiftfoot Boots
-1 Temple of the False God
-1 The Walls of Ba Sing Se
-1 Tin Street Market
-1 Urza's Avenger
-1 Vault Robber
-1 Violent Impact
-1 Vulshok Berserker
-1 Wild Colos
-1 Winds of Change
-1 Zuran Orb
+[deck:commander ramp B #20261058]
+1 Agents of HYDRA
+1 Baron Sengir
+1 Barrow Witches
+1 Bitterblossom
+1 Blightspeaker
+1 Bog Glider
+1 Bucolic Ranch
+1 Cabal Archon
+1 Cabal Patriarch
+1 Callous Inspector
+1 Cateran Overlord
+1 Claws of Gix
+1 Common Crook
+1 Corpsehatch
+1 Corrupted Crossroads
+1 Criminal Enterprise
+1 Dai Li Censor
+1 Dark Prophecy
+1 Deathgreeter
+1 Doomed Dissenter
+1 Essence Feed
+1 Gild
+1 Graf Harvest
+1 Greedy Freebooter
+1 Harvester of Souls
+1 Hopeless Nightmare
+1 Interplanar Beacon
+1 Liliana the Repentant
+1 Liliana's Mastery
+1 Live or Die
+1 Locthwain Lancer
+1 Massacre Wurm
+1 Master of Dark Rites
+1 Minotaur, Roxxon CEO
+1 Mortuary
+1 Nirkana Revenant
+1 Ogre Slumlord
+1 Open the Graves
+1 Orochi Hatchery
+1 Phyrexian Vivisector
+1 Pitiless Plunderer
+1 Priest of Yawgmoth
+1 Prowess of the Fair
+1 Quest for the Gravelord
+1 Razaketh, the Foulblooded
+1 Rotlung Reanimator
+1 Rumble Arena
+1 Sarcomancy
+1 Sengir Autocrat
+1 Shadow-Rite Priest
+1 Shauku, Endbringer
+1 Skeletal Vampire
+1 Spire of Industry
+1 Strands of Night
+1 Strongarm Thug
+1 Surveillance Room
+35 Swamp
+1 Sweettooth Witch
+1 Tempting Witch
+1 Thran Quarry
+1 Toxin Analysis
+1 Village Cannibals
+1 Virtue of Persistence
+1 Yawgmoth, Thran Physician
+1 Zulaport Cutthroat
 
 [commander]
-Spider-Man, Hometown Hero
+Veldrane of Sengir

@@ -3,17 +3,16 @@
 [deck:Unraveling Mind (Adapted)]
 4 Auger Spree
 4 Bedevil
-1 Breath of Malfegor
+4 Delirium
 1 Disintegrate
-4 Dreadbore
+4 Kaervek's Purge
 7 Mountain
-1 Phyrexian Denouncer
+1 Plaguebearer
 1 Ridged Kusite
 4 Shambling Goblin
-2 Skull Rend
+4 Spontaneous Combustion
 14 Swamp
-4 Terminate
+3 Terminate
 3 Terramorphic Expanse
 3 Trespasser il-Vec
 3 Undertaker
-4 Wrecking Ball

@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander ramp
+# licence: AGPL-3.0-only
+[deck:highlander ramp WUBRG #20266280]
+1 Abstergo Entertainment
+1 Abundant Countryside
+1 Alley Evasion
+1 Ally Encampment
+1 Angelic Shield
+1 Anthem of Champions
+1 Archers' Parapet
+1 Behemoth's Herald
+1 Blazing Hellhound
+1 Brushfire Elemental
+1 Call to the Feast
+1 Capital City
+1 Ceta Disciple
+1 Crystal Grotto
+1 Day of Destiny
+1 Defibrillating Current
+1 Dralnu's Crusade
+1 Druid of the Anima
+1 Earthlink
+1 Elemental Summoning
+1 Fallaji Vanguard
+1 Favor of the Overbeing
+1 Flayer Drone
+1 Forbidden Orchard
+3 Forest
+1 Gift of Orzhova
+1 Godsire
+1 Great Hall of the Citadel
+1 Grove Rumbler
+1 Holdout Settlement
+5 Island
+1 Jasmine Dragon Tea Shop
+1 Jeskai Shrinekeeper
+1 Knotvine Mystic
+1 Magefire Wings
+1 Mana Confluence
+1 Mirrodin's Core
+1 Monstrous Carabid
+2 Mountain
+1 Narset's Rebuke
+1 Necra Disciple
+1 Nykthos, Shrine to Nyx
+1 Overgrown Estate
+8 Plains
+1 Planar Nexus
+1 Poison-Tip Archer
+1 Pursuit of Flight
+1 Riptide Crab
+1 Rotwidow Pack
+1 Rumble Arena
+1 Rumbling Slum
+1 Sacellum Archers
+1 Sangrite Backlash
+1 Savage Gorilla
+1 Sawback Manticore
+1 Scaldkin
+1 Scourge of the Nobilis
+1 Shadow Lance
+1 Simic Sky Swallower
+1 Skirmish Rhino
+1 Skull Rend
+1 Somnomancer
+1 Spectral Shield
+1 Storm the Vault
+8 Swamp
+1 Temur Ascendancy
+1 Temur Devotee
+1 Temur Tawnyback
+1 Tendo Ice Bridge
+1 Thunderscape Apprentice
+1 Timeless Lotus
+1 Two-Headed Hellkite
+1 Urborg Elf
+1 Villainous Hideout
+1 Weaver of Currents
+1 Whirlwind of Thought
+1 Wild Research
+1 Wings of Aesthir
+1 Wings of Hope

@@ -1,0 +1,30 @@
+# baylee synergistic coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WUBRG #20266060]
+3 Bog Wreckage
+2 Ceta Disciple
+2 Coerced to Kill
+2 Forest
+2 Glasswing Grace
+2 Godsire
+3 Island
+2 Jeskai Shrinekeeper
+2 Magefire Wings
+5 Mountain
+2 Necra Disciple
+3 Plains
+2 Ravaged Highlands
+2 Samite Archer
+2 Siege Rhino
+2 Skirmish Rhino
+2 Starting Town
+2 Storm the Vault
+2 Swamp
+1 Temur Ascendancy
+2 Temur Devotee
+2 Timeless Lotus
+2 Two-Headed Hellkite
+3 Vivid Marsh
+2 Whirlwind of Thought
+2 Wild Research
+2 Wings of Hope

@@ -1,7 +1,6 @@
 # adapted from data/decks/precon/LRW/kithkin-militia.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, KithkinMilitia_LRW.json)
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Kithkin Militia (Adapted)]
-1 Aerial Assault
 2 Avian Changeling
 1 Bargain
 1 Battle Mastery
@@ -22,3 +21,4 @@
 4 Survive the Night
 1 Vanquish
 2 Wizened Cenn
+1 Yare

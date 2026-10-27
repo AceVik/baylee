@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BR #20266230]
+1 Ally Encampment
+1 Anaba Shaman
+1 Barbarian Lunatic
+1 Blessing of Leeches
+1 Blockbuster
+1 Burning Earth
+1 Cascading Cataracts
+1 Castle Doom
+1 Cavern of Souls
+1 Cleansing Screech
+1 Consuming Bonfire
+1 Contaminated Ground
+1 Cunning Sparkmage
+1 Daily Bugle Building
+1 Deadeye Duelist
+1 Delete
+1 Dwarven Sea Clan
+1 Dwarven Vigilantes
+1 Emberstrike Duo
+1 End the Festivities
+1 Fault Line
+1 Fire Whip
+1 Flame Rift
+1 Flowstone Salamander
+1 Frostling
+1 Goblin Medics
+1 Goblin Snowman
+1 Great Hall of the Biblioplex
+1 Guerrilla Tactics
+1 Heat of Battle
+1 Henge of Ramos
+1 Holdout Settlement
+1 Honden of Infinite Rage
+1 Inordinate Rage
+1 Interplanar Beacon
+1 Iroas's Blessing
+1 Jeska, Warrior Adept
+1 Karplusan Yeti
+1 Land's Edge
+1 Lust for War
+1 Mage-Ring Bully
+1 Magmasaur
+1 Manabarbs
+1 Maraxus of Keld
+1 Mirrex
+1 Molten Slagheap
+19 Mountain
+1 Needletooth Raptor
+1 Opportunist
+1 Orcish Artillery
+1 Rage Reflection
+1 Rain of Embers
+1 Reckless Assault
+1 Reckless Embermage
+1 Rix Maadi, Dungeon Palace
+1 Sawtooth Ogre
+1 Scald
+1 Secret Base
+1 Seismic Assault
+1 Soul Bleed
+1 Spireside Infiltrator
+1 Spitting Hydra
+7 Swamp
+1 Tainted Peak
+1 Tectonic Hazard
+1 Thrashing Wumpus
+1 Tourach's Chant
+1 Turtle Lair
+1 Underworld Dreams
+1 Undiscovered Paradise
+1 Urborg Stalker
+1 Viashino Fangtail
+1 Victorious Destruction
+1 Warp Artifact
+1 Word of Blasting
+
+[commander]
+Pavel Maliki

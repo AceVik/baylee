@@ -4,13 +4,13 @@
 4 Abrupt Decay
 3 Assassin's Trophy
 1 Courser of Kruphix
-2 Darkness
 1 Debilitating Injury
 1 Eidolon of Blossoms
 1 Font of Fertility
 12 Forest
 4 Gaze of Granite
 2 Grim Guardian
+2 Human Frailty
 2 Jungle Hollow
 4 Maelstrom Pulse
 2 Oakheart Dryads

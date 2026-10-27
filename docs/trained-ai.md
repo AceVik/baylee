@@ -1,8 +1,14 @@
-# The trained AI
+# The trained AI (`BayleeKI`)
 
-**Current v4 work (23 October 2026):** implementation and experiments are on
-`c42/trained-ai`. The [takeover and training log](history/trained-ai-v4-codex-run-2026-10-22.md)
-records the repaired observation clock, contract versions, measured model size,
+**Current work (27 October 2026):** BayleeAI v5 adds an explicit relational
+architecture (`model_version = 5`); archived v4 remains a separate loadable
+model family. The matched BC pilot below is research, with no playing-strength
+claim or automatic promotion. Historical v4 implementation through
+`88bc2b07f` is on
+`main`; subsequent corrections are on `c42/trained-ai`. The
+[latest review and run results](history/trained-ai-v4-review-2026-10-24.md) and
+[takeover and training log](history/trained-ai-v4-codex-run-2026-10-22.md)
+record the repaired observation clock, contract versions, measured model size,
 checks and remaining limitations. v4 uses structural card features and
 persistent seat memory; the older pipeline below describes v1–v3.
 The [structured encoder implementation](history/trained-ai-v4-structured-encoder-2026-10-23.md)
@@ -15,7 +21,436 @@ CUDA inference is measured and rollout-probability audited on the 4070 Ti;
 see the log for whole-game CPU/GPU comparisons. v4 fallbacks use legal offered
 answers, valid clock defaults, or the ordinary view-only house AI. A question
 without a clock default must never be answered with an invented priority pass.
+Band formation currently uses an explicit house fallback that declines the
+optional band. The neural subset sampler represents cardinality, but not the
+banding/bands-with-other membership restriction; such decisions carry house
+provenance, no behavior probability and no neural policy target. This avoids
+invalid multi-member bands without changing sampling version 2. It sacrifices
+band tactics until those constraints are represented for neural sampling.
 Experienced-human strength and Phoenix NPU deployment are not established.
+
+**Learning diagnostics and isolated ablations (27 October):**
+`tools/trainer/diagnose_policy4.py` reads strict v4/v5 checkpoints and complete
+seat histories. Its independent reports group policy errors by head, pending
+question, verified source format and game namespace. Genuine categorical
+choices exclude forced/padded/zero-weight targets. Subset/pair scores describe
+free-entry BCE and threshold agreement; they do not certify the legality of a
+decoded engine action. On CUDA, use `--bf16 --num-workers 2` when comparing
+against the current optimized validation protocol; the diagnostic CLI otherwise
+defaults to FP32. Existing checkpoint-selection metrics remain separate.
+
+Supervised loss4 remains the default. `train4.py`/`train5.py --loss-version 5`
+permit independent `--outcome-weighting-off`,
+`--loss-normalization unroll_per_head`, `--detach-value-input` and
+`--detach-aux-input` ablations. Full-unroll normalization changes relative
+head/value gradient scaling; it is a learning experiment. Checkpoints retain
+the complete objective contract and reject incompatible resume requests.
+Loss5 requires an optimized execution path; reference execution and package
+`--init-state` are explicitly unsupported. Compare variants with fixed data,
+initial weights, seeds, update budgets and unchanged validation definitions.
+
+`eval4 --raw-policy --record-out DIR --shadow-teacher sharp` (or `expert`)
+can collect separate, view-only teacher labels on states visited by the neural
+actor. The original executed-action record and rollout probabilities remain
+separate from the teacher labels. `convert4 --runs DIR --out NEW_DIR --include-passive-obs --shadow-bc`
+replays complete records, verifies source/view/menu identities and reconstructs
+each teacher target. Unlabelled decisions retain their chronological position
+with zero policy weight; actual outcomes remain available for value/auxiliary
+targets. Completed metadata and hashed `shadow-bc/` companion files are required
+before Python cache admission. These datasets are explicitly BC-only and both
+PPO admission paths reject them. Streaming partial packages are unsupported.
+The real-network greedy pilot passed full replay and a plain-versus-shadow
+comparison of all 150,393 frames and 5,964 teacher targets. Observations, menus,
+outcomes, auxiliary targets and memory clocks were unchanged. The stochastic
+sidecar test failed exact floating-point equality; repeated shadow-off runs also
+varied slightly. Those stochastic records remain excluded and are not certified
+for PPO. A monitored 256-game greedy corrective collection is now running;
+its complete replay/admission review must pass before training.
+
+`train5.py --bc-replay-data DIR` opts into two separate supervised data stores
+with fixed half-batch trajectory lanes. The primary `--data` contributes the
+same stable table half in both comparisons. Passing that same directory as
+replay uses its complementary table half for the old-data control; a different
+directory contributes all of its training games for the corrective arm.
+Source game indices must remain available to prove table identity, seat coverage
+and separation from `--validation-data`. Local game IDs stay within their own
+stores, and checkpoints bind the mixture and its source identities. This is
+half the physical lanes, not necessarily half the labels or loss. A bounded
+comparison must fit inside both arms' fully occupied lane prefixes; exhausted
+lanes otherwise produce padding. Existing single-source training is unchanged.
+
+Legacy nondecision frames may store default provenance `thinking_steps=1`.
+Execution derives their effective K=0 from `is_decision`; the stored value does
+not advance scratchpad thinking. A final genuine decision may also carry
+`is_terminal=true` and still have a valid policy target. Audits must preserve
+these flags and compare effective observation semantics rather than reject
+valid legacy metadata or discard terminal decisions.
+
+For execution experiments, `--compact-thinking-rows` restricts scratchpad
+thinking to CPU-planned decision rows while preserving every observation and
+persistent-memory update. It is off by default and requires deferred readouts
+and zero dropout. CPU forward/memory/gradient parity passes. A bounded CUDA
+screen passed its one-batch numerical tolerances, but compact thinking provided
+no throughput gain over 20 timed early-game updates. Broader shape/history and
+repeatability checks remain required before adoption. `bench_training5.py`
+restores the declared architecture, objective and optimizer groups into disposable probes;
+`bench_training4.py` is not a valid benchmark for current v5 optimizer/K settings.
+Use immutable checkpoint copies and an idle GPU. A short fresh-trajectory probe
+does not establish performance on late-game Commander boards.
+Future probes include `baseline-repeat` by default to measure repeat-computation
+variation. They record effective precision flags and mark numerical coverage as
+`FIRST_UNROLL_ONLY`; a failing repeat control makes comparisons inconclusive.
+`--float32-precision inherit` preserves existing flags, while `highest` explicitly
+disables TF32 for the whole probe. Results under a different precision policy
+need separate validation before applying them to training.
+
+Controllers may opt into `run_guard4.run_job(..., digest_cache=cache)` using a
+process-local `input_digests4.InputDigestCache`. Repeated unchanged inputs then
+reuse a SHA-256 receipt after checking resolved path, device/inode, size and
+nanosecond modification/change times. A changed identity forces a fresh read;
+changes during that read fail. Controllers must keep their expected sealed
+digests separately and call `cache.verify(expected)` before and after consumers.
+This avoids repeatedly streaming the same large immutable dataset for each
+job. Receipts are never loaded as trusted persistent caches, and default
+`run_job` behavior remains full hashing. It is not a filesystem lock.
+
+Freeze the complete evaluator runtime, including its provider libraries. The
+current Linux CUDA evaluator loads `libonnxruntime_providers_shared.so` and
+`libonnxruntime_providers_cuda.so` beside the executable; copying only `eval4`
+failed even with the original library directory in `LD_LIBRARY_PATH`. Pin the
+executable and library hashes together, and run a short actual CUDA match
+before a long training/evaluation chain. `eval4 --help` and Python ONNX export
+parity do not exercise that native runtime. Preserve failed jobs and recover
+evaluation in a new directory using the verified completed checkpoints.
+
+`cargo build --release -p baylee-train --features live-seat --bin seat4`
+builds an optional local v4 opponent for the ordinary gateway protocol.
+`seat4 --model /path/to/exported/model --name v4-R02 --acceptance Victory`
+opens a two-player room at `http://127.0.0.1:28766`, signs in as `NET-v4-R02`,
+and starts when the other socket player joins with a deck and says ready.
+`--deck` accepts an exported deck instead, `--join <room>` joins an existing
+two-socket room, and `--games 0` hosts another room after each completed game.
+An engine agent and a gateway accepting guests must already be running.
+Use a frozen exported checkpoint; this is a playtest, not model promotion.
+The guest keeps a ticketed lobby socket open across games, answering heartbeats
+so the gateway retains its next waiting room after the previous game socket
+closes, and `--games 0` opens a fresh waiting room if an idle room expires
+before play starts. Losing either live connection stops the adapter; it does not reconnect
+over missing game history. Local aggregate reports are retained on failure too.
+
+This adapter uses `baylee-seat`'s lobby, ticketed socket and `TableMemory`
+transport helpers, with its own `live4` core instead of the LLM `SeatCore` or
+`WakeFilter`. Every distinct authorized view advances recurrent state at K=0;
+the fixed decision budget defaults to K=1 with greedy selection. Only the
+submitted own deck and public teams initialize knowledge. Repeated statics do
+not reset memory. An observation failure or an opened socket's interruption
+ends the session; reconnecting with a latest snapshot cannot reconstruct missed
+observations. Aggregate reports separate neural, forced and fallback answers.
+For compatibility with current offline evaluation, the live policy clears only
+the socket-only `casting` and `targeting` additions before observation hashing,
+memory updates and answering; the raw authorized wire view remains intact.
+This prevents an extra `CancelCast` candidate that offline evaluation does not
+provide. A future shared offline/wire view contract should remove this temporary
+compatibility concession, with matching encoder and candidate tests.
+The current wire has no neural `SeatMind` kind, so the visible `NET-` name and
+local report identify it without claiming to be an LLM.
+
+`seat4 --model-selection /path/to/selected-model.json` optionally reads a local
+supervisor manifest at the start of each game, before the first view. A model
+stays pinned for that entire game. The manifest carries the absolute frozen
+directory, label, benchmark ID, score and SHA-256 of every model file. A later
+selection must improve the same benchmark, preserve encoder/catalog contracts
+and load successfully; otherwise the previous valid selection remains. Local
+reports include the exact model, hash, game and neural seat for diagnosis.
+They are operational metadata, not anonymous training exports.
+
+`tools/trainer/publish_live_model4.py` verifies completed paired evaluation jobs,
+identical deals and house baselines, export parity and evaluated model hashes
+before publishing that manifest atomically. Ranking is development mean side
+utility across duel and Commander suites, not a statistically established
+strength promotion. `live_play_maintenance4.py` checks the registered experiment
+every 30 seconds and imports completed official gateway exports every five
+minutes. A changed benchmark requires new comparable evidence. It never
+restarts a live game, changes a checkpoint or trains on unfinished records.
+
+The local adapter answers actual draw offers using `critic_draw_rule_v1`:
+compare the neural continuation side utility with the agreed-draw utility
+(0.5 in duels; divided among surviving sides otherwise). Accept only if it is
+more than 0.10 lower. This is a heuristic decision margin, not a confidence
+interval or a calibrated pure win probability. Unavailable/nonfinite inference
+declines. The ordinary policy logits do not determine this reply: it is marked
+as a rule/House override with separate draw counters and values in the report.
+Other yes/no questions remain unchanged. Frozen evaluation and training actors
+do not acquire this live-only rule. A learned draw policy needs explicit
+prompt/proposer features in a new encoder contract.
+
+The owner authorized human playtest records for training on 25 October 2026.
+`import_live_records4.py` reads only numbered files from the official anonymized
+gateway export, deduplicates uncompressed content and creates an immutable,
+train-only staging corpus. Confirmed human, neural, clock and house origins
+stay distinct; house smoke opponents are excluded, unknown/mixed opponent
+declarations quarantined. These are not automatically good imitation labels.
+Greedy neural moves have no behavior probabilities and are not PPO data.
+Staging does not mean replay validation, conversion or optimization has run.
+
+The [live information audit](history/trained-ai-v4-live-information-audit-2026-10-25.md)
+records the encoder-6 omissions and successive Encoder 7 implementation claims.
+Those dated milestones are history, not evidence that every proposed field is
+connected end to end. The current Encoder 7 contract has 128 entity, 64 seat,
+80 global and 48 candidate features. It includes public commander designations,
+ordered-zone features, projected characteristics, mana/payment features,
+registered-deck inventory bookkeeping and permanent grouping with
+explicit multiplicity (`entity_feat[122]`). The v4 runtime dispatches archived
+encoder-6 and Encoder 7 models separately; `upgrade_state_dict_to_v7` zero-pads
+older input projections and initializes the candidate-context residual.
+
+**Known Encoder 7 gaps remain:** inventory bookkeeping and aggregate counts do
+not emit all unseen own-library/sideboard cards as graph entities; payable-cast
+candidate coverage is incomplete. Inventory uncertainty and some payment and
+public rule relationships still need audited end-to-end contracts. Existing
+features do not establish complete rules understanding. The v5 pilot reuses this
+same Encoder 7 ABI and therefore inherits these gaps. New semantic edge kinds
+such as legal-target, legal-block or tutor-match relationships require a
+separately versioned, view-only encoder change; they are not silently supplied
+by the new model.
+
+**Current objective (`LOSS_VERSION = 4`):** categorical cross-entropy and ordinary
+Bernoulli BCE use symmetric class treatment and unit policy-head coefficients.
+Earlier loss versions retained asymmetric behavior that their “calibrated” label
+overstated. Explicit per-step/outcome weights still apply: this is weighted
+imitation, not a guarantee of calibrated action probabilities or critic win
+probabilities. Changing the loss version requires fresh `--init`, not resuming
+an incompatible optimizer/objective. Re-evaluate source and candidate with the
+same current validator before comparing their losses.
+
+**Raw versus tactical provenance:** `PolicyMode4::Raw` uses unmodified neural
+outputs and the sampling-version-2 constraints (`raw_neural_sampler2_v1`).
+`Tactical`, the default, includes deterministic playtest heuristics and records
+successful non-forced answers as House demonstrations
+(`tactical_house_demonstrations_v1`), without neural behavior probabilities.
+Raw mode records stochastic neural probabilities only at finite temperature
+above 0.35 and for supported nonscalar heads; temperature zero is greedy and
+has no PPO behavior probability. Forced and fallback answers remain distinct.
+Evaluation/collection records must preserve the mode and executable/model
+identity. Historical tactical improvements and mislabeled tactical PPO samples
+do not establish raw-policy learning or valid on-policy PPO data.
+
+### BayleeAI v5 relational pilot
+
+`model5.Config5` / `PlayerNet5` identify the new major family with
+`model_version = 5`, `model_family = "v5"` and architecture
+`baylee_ai_v5_relational_v1` or `baylee_ai_v5_relational_v2`. A small identity
+hook leaves archived `PlayerNet4` behavior unchanged. V5 adds two shared-weight
+message-passing rounds with a
+160-wide bottleneck after the existing typed-edge block and before the
+transformer. Messages depend nonlinearly on source, destination, relation and
+direction; gated updates receive directed log-degree counts and public grouped
+multiplicity. A zero-initialized output projection gives an exact v4 warmstart.
+`relational_steps=0` bypasses the new processing. This is graph relational
+processing over existing public entities, not new physical coordinates or
+additional engine knowledge.
+
+New `train5.py` runs default to relational revision 2. Revision 1 remains
+loadable: a missing `Config5.relational_revision` means revision 1, never an
+implicit upgrade. Revision 2 adds input normalization, source-multiplicity
+weighted message means accumulated in FP32, separate group and source-card
+counts for each directed relation, and accumulated residual deltas. Synthetic
+fanout tests exposed saturation in revision 1's unnormalized sums; they do not
+establish a playing-strength gain for revision 2. The zero-output warmstart,
+public-information boundary and observation clock remain unchanged.
+
+Optional `--relational-lr`, `--relational-output-lr` and
+`--relational-warmup-steps` configure only the new parameters. Shared backbone
+and critic rates retain their existing semantics. Checkpoints record group
+membership, rates and warmup; resume rejects a changed schedule. Leaving these
+options disabled preserves the old optimizer layout.
+
+The module preserves initialization RNG for matched experiments, supports
+activation checkpointing, and leaves the once-per-view recurrent observation
+contract unchanged. CPU tests cover exact transfer, permutation/masking/count
+behavior, two-hop dependence, learning after the first output update and
+checkpointed gradients. ONNX parity covers actual nonzero relational weights,
+all exported K budgets and variable/empty/duplicate-edge cases. Additional GPU
+memory and throughput costs must be measured, not inferred from the design.
+`train5.py` selects v5 explicitly; checkpoint/export loaders require its
+architecture identity. Explicit v4-to-v5 initialization transfers the backbone
+with a fresh optimizer. Isolated value-head calibration supports explicit v5
+revisions 1 and 2 as described below. V5 PPO and optimizer/package-continuation
+loaders remain unsupported until separately extended and tested.
+
+The matched pilot lives at
+`/home/ace/baylee-data/v4/experiments/v5-relational-20261027`. Its admission audit
+contains 185 complete training games (639,954 frames) and 19 complete held-out
+validation games (164,055 frames), with no overlapping source records. Both
+arms start from the same 75.37M-parameter clean 12-layer, width-640 stage-a BC
+checkpoint (`net.pt` SHA-256
+`9ec9035f9689683cdb16099c3c430a4b68934bd28b2fbe469f0e3a2ab88240e0`).
+They use 1,000 full-model updates, loss 4, seed 31437, K2, batch 8, unroll 32,
+learning rate 1e-5 and combined held-out checkpoint selection. The control's
+frozen Python revision is `df838e9952f36a4e56e4a6be9a99c281ce0a5b11`;
+V5 implementation is `753535908` with separately versioned export/loader
+support. Both arms completed. Active-choice validation accuracy was 59.36%
+for control and 59.25% for v5 revision 1, versus 57.96% initially; this is a
+small supervised feasibility result, not a playing-strength verdict. Game
+evaluation stopped before any deals: the current compiled catalog has 47 new
+rule tags, so these old-catalog exports cannot be evaluated by that engine.
+Failed startup artifacts and original checkpoints are retained.
+
+The [v5 takeover and training plan](history/trained-ai-v5-takeover-2026-10-27.md)
+records the three-model review, revised architecture and fresh-data follow-up.
+New rule tags require explicit initialization followed by training; a catalog
+refresh with donor-initialized symbols is not a lossless model migration.
+Raw-policy and tactical match comparisons remain separate, with pinned engine,
+catalog, model, deck files, seeds and execution provider. Validation selection
+is not an independent test. Engine-derived
+public combat/target/stack auxiliary supervision is a future separately audited
+objective. No result here establishes stronger play or human-level ability.
+
+The eight-round Sharp experiment is complete with **no confirmed playing
+improvement** on its new-seed confirmation. A completed nonpositive mean
+confirmation now vetoes publication of that candidate. The publisher writes
+`<selection>.confirmation-status.json`, and maintenance exposes this as
+`selection_review`; an already active preview is retained and explicitly
+marked for review. This is a conservative operational filter, not a test of
+statistical significance. Pending confirmation still means an experimental
+development preview, never a confirmed strength promotion.
+
+The preview requires two socket chairs, no house-AI chairs, and CPU inference
+(`BAYLEE_EP=cpu` or unset); it refuses CUDA to keep training independent.
+`BAYLEE_ENGINE_PUMP_STEPS=1` on the engine agent limits attached host pumping;
+it is not a guarantee of observation parity for arbitrary mixed house tables.
+No gateway/engine hidden state is passed to the neural adapter. The native
+client accepts cleartext only on numeric loopback, so another local device can
+use an SSH port forward and add `http://127.0.0.1:28766` to its gateway list.
+For example: `ssh -N -L 28766:127.0.0.1:28766 user@linux-host`. Gateway and client
+must speak the same protocol; this does not require running the model on the
+client's device.
+
+`tools/trainer/watch_run4.py` provides an optional local completion wake-up for
+long experiments. It reads `status.json` and checks the controller's Linux boot
+ID and process start ticks; PID reuse cannot make a dead run look live. A
+30-second user timer checks the entire experiment, including comparisons.
+Unchanged running state makes no model call. A declared failure wakes immediately
+on the next check; unexpected controller exit needs two checks, unreadable status
+three. Successful terminal phases require the explicitly listed result artifacts
+(JSON files must parse). Existing per-job timeouts remain responsible for live
+but stuck jobs. The watcher never stops or starts training.
+
+Install the standalone script in `~/.local/lib/baylee-training-watch/` and both
+`scripts/systemd/baylee-training-watch@.*` units in `~/.config/systemd/user/`.
+Arm a live run before enabling its timer, using the **exact** destination thread
+UUID and the controller's actual terminal phase:
+
+```sh
+python3 tools/trainer/watch_run4.py arm \
+  --root "$RUN_ROOT" --thread "$THREAD_UUID" \
+  --success-phase depth-pilot-and-comparisons-complete \
+  --require-artifact evaluation/paired-depth12-k4-vs-k1-commander.json
+systemctl --user daemon-reload
+systemctl --user enable --now baylee-training-watch@depth12-20261024.timer
+```
+
+The unit instance is the directory name below `~/baylee-data/v4/experiments/`;
+adjust paths for another layout. The installed script uses `/usr/local/bin/codex
+queue --thread UUID --message TEXT`, the supported
+[existing-session queue](https://learn.chatgpt.com/docs/developer-commands#codex-queue).
+This is a local user timer, not a cloud scheduled task. It needs the computer and
+user manager running and a usable local Codex session. No linger setting changes;
+after a reboot checks resume at the next user-manager start. Queue failures retry
+after 60 seconds. `watchdog/state.json` records intent and the CLI queue receipt;
+`watchdog/delivered.json` suppresses further checks after accepted delivery.
+Acceptance by the queue is not proof that the model has processed the message.
+An ambiguous crash/timeout around enqueue can repeat a wake: the prompt carries
+a stable event ID for deduplication. Stop an old timer with
+`systemctl --user disable --now baylee-training-watch@depth12-20261024.timer`.
+Use a fresh experiment directory for a fresh run; arming is idempotent and refuses
+to overwrite a different controller/thread configuration.
+
+`deepen4.py --model SOURCE --out NEW --layers 12` grows the eight-layer v4
+trunk without discarding its learned behavior. Existing layers retain their
+order; inserted pre-norm residual blocks start with zero attention/FFN output
+projections and initially compute the identity. Their output projections get
+gradients immediately and their internal projections learn after the first
+update. CPU float32 transfer requires dropout=0 and preserves the catalog,
+action heads and `h_out -> h_in` memory contract. It records source hashes and
+the layer mapping; source checkpoints are never overwritten. Start the new
+experiment with `--init NEW --layers 12`, fresh optimizer and trajectory lanes.
+This is inspired by function-preserving network growth
+([Net2Net](https://arxiv.org/abs/1511.05641)); greater playing strength must be
+measured, not inferred from depth. The
+[depth-pilot plan](history/trained-ai-v4-depth-pilot-2026-10-24.md) also records
+the subsequent learner-game/critic work and the house-AI improvement loop.
+
+`calibrate_value4.py` strictly loads v4 or explicitly identified v5 relational
+revision 1/2 checkpoints. V5 architecture/config disagreement, missing v2
+revision, incompatible family/version, corrupt state or declared catalog
+mismatch is refused. Old v1 configs may omit their revision only with an explicit
+v1 architecture. The calibrated checkpoint preserves source model identity,
+config and structural catalog, with source file hash and architecture in
+provenance. Feature-cache compatibility includes both model families' source
+code. CPU tests exercise nonzero learned relational weights and verify that all
+policy/backbone/memory tensors and outputs remain unchanged after fitting and
+reloading the value head.
+
+This bounded extension retains genuine stochastic-neural-trajectory eligibility.
+Current house-teacher packages and greedy evaluation reports are refused as
+calibration inputs; they must not be relabeled to pass that gate. Greedy own
+states could support future critic fitting under a separate explicit provenance
+and eligibility contract. Teacher-state critic metrics do not establish
+calibration on the deployed actor's visited-state distribution.
+
+Trajectory-version-2 conversion emits separate deduplicated K0 observation rows,
+including the acting seat, before its positive-K decision readout. Calibration
+consumes those observation rows and does not observe the decision view again;
+adding a K0 update to every decision would double-advance memory. This contract
+is covered by real v5 extraction tests, rather than inferred from the model's
+positive-K forward alone.
+
+`calibrate_value4.py` fits only `seat_value_head` from complete games visited by
+the frozen source actor. Its `value_calibration4/` package advances recurrent
+memory through every chronological observation in float32, then caches sampled
+readout features outside the repository. First/terminal states and every 64th
+cursor are retained by default. Only trajectories containing genuine stochastic
+neural decisions enter fitting; earlier passive observations of those trajectories
+remain eligible. Each trajectory has equal loss weight, with equal weights among
+its sampled states, so long losing games cannot dominate merely by length.
+Training and validation game IDs must be disjoint. Epoch zero is a selection
+candidate, and reports compare held-out MSE/calibration with the original head,
+uniform side prior and training-derived seat-count prior. Selection does not
+establish improvement on an untouched test set or in playing strength.
+
+The new checkpoint verifies every non-value tensor bit-for-bit and carries no
+stale optimizer, recurrent lanes or validation metrics. Cache identity includes
+source/data/implementation hashes and device type; record content is hash-checked.
+`--collection-plan plan.json` additionally requires the collecting model's hash
+to match `--model`. The experiment controller must still verify the actual
+collection job manifests: a plan alone is not proof of who produced the games.
+Output is published atomically to a new directory. This is an isolated critic
+experiment, not a policy update or automatic promotion. See the
+[own-game critic pilot](history/trained-ai-v4-own-critic-2026-10-24.md).
+
+`train_policy4.py` provides a separate, bounded action-head PPO path in
+`policy_training4/`. It audits complete learner histories against recorded
+stochastic probabilities in FP32 before fitting. House-only histories are
+excluded from this audit; every observation of a learner history remains.
+Raw conditional masks and provenance must be valid, not loader-invented defaults.
+PPO admission requires `policy_provenance_version = 2`, certifying the exact
+sampled-choice-to-action decoding gate. Version 1 predates that gate and is
+rejected for PPO even if numerical probability parity passes; it remains
+available for supervised imitation.
+Terminal Monte Carlo outcomes (`gamma=lambda=1`) supply returns. The fixed critic
+is a state baseline, not a judge assigning labels to individual moves.
+
+Only candidate/pair action heads learn. Shared encoding, thinking, recurrent
+memory, scalar and value heads remain bit-identical. At least 128 genuine choices
+are accumulated per update by default, with one decision-count denominator across
+all microbatches. Forced/no-choice answers cannot meet that minimum; zero-policy
+and zero-gradient groups never advance Adam. Updates that exceed sampled behavior
+KL restore both parameters and optimizer state. A final audit over all eligible
+rollout decisions must pass before the changed policy is published; otherwise the
+unchanged source is published with zero accepted updates. This empirical guard
+does not certify behavior outside the recorded states. See the
+[Sharp-intensive experiment](history/trained-ai-v4-sharp-intensive-2026-10-25.md).
 
 The v4 Python CLI remains `tools/trainer/train4.py`; its implementation is split
 into `training4/` (driver, losses, validation and execution planning), and the
@@ -72,6 +507,12 @@ execution change: saved recurrent state and sampler cursors cannot be reassigned
 to a new batch size. The benchmark's `--fresh-trajectories --batch-size N` resets
 both at trajectory boundaries and reports valid frames/decisions per second;
 its results alone do not justify a production batch-size change.
+Benchmark continuation restores the checkpoint's sampler version, seed, epoch
+and cursor before reusing its saved H. The old helper hardcoded seed 42, which
+assigned that H to different trajectories for checkpoints trained with another
+seed. Such a benchmark was not a valid continuation. `--sampler-seed` overrides
+require `--fresh-trajectories`; incompatible or missing resume metadata is
+rejected. Frozen trainers already checked their actual saved seed.
 For learning pilots, `--validation-batch-size 8` keeps validation lanes and
 per-head normalization fixed even when the training batch size changes. The
 default follows the training batch size for compatibility. Resume checks this
@@ -80,7 +521,22 @@ Full optimized validation logs progress every 500 batches without per-frame
 device synchronization.
 `last.pt` also records `last_validation_step` and `last_validation_metrics`;
 metrics apply only to that step, which may precede its latest optimizer step.
-`net.pt` remains the checkpoint selected by the combined validation score.
+`net.pt` is now selected by validation policy loss by default. The previous
+`policy + 2*value` criterion remains explicit `--checkpoint-selection combined`
+for controlled comparisons; it is not a playing-strength criterion.
+`--validate-initial` includes the unchanged initial weights in snapshot selection.
+Loss version 2 removes forced single-option rows from the policy denominator,
+while retaining their observations and value/auxiliary targets. Exact resume
+rejects a different loss or selection protocol. `--init` starts a new experiment
+with transferred weights and fresh optimizer/memory. Validation additionally
+reports `val_choice_nll`, `val_choice_top1_acc` and `val_choices` over supervised
+single-choice questions with at least two legal candidates. Optional passes count;
+forced non-pass answers do not. The historical `val_active_top1_acc` means
+non-pass labels and is retained only as a separately named comparison metric.
+The current converter already omits forced policy rows; the full 24 October
+bootstrap audit found none. This is defensive loss validation, not an explanation
+of that run's weak match results. Older/other producers can differ; re-evaluate
+both checkpoints with the same validator for a versioned comparison.
 Evaluate unique parameter sets: a resumed run may keep the same earlier best
 checkpoint while `last.pt` contains newer weights worth a separate diagnostic.
 
@@ -122,9 +578,20 @@ consecutive winner-only updates; balancing reduced its 4,683 batches to 4,031,
 with 99.93% lane occupancy. This is a batching correction, not a measured gain
 in playing strength. Exact resume requires the same sampler version and seed;
 older checkpoints can transfer weights/Adam via `--init-state` with fresh lanes.
+This sampler transfer does not imply that an old loss version can resume exactly.
 `deck_catalog4` also exports held-out-card presence across all deck sections,
 including the sideboard and commanders, so new imports cannot silently move
 held-out cards into training.
+
+Composed copy abilities now use `PublicObject.ability_sources`: runtime ability
+indices are mapped to their original printed/token source and exact quoted copy
+modifier. A copied Effigy mana ability must not select a nonexistent ability of
+the copied Goblin Striker or Thrun. The card catalog exports `/copy/N` roots for
+quoted `CopyOnEnter` abilities. Its changed digest requires catalog refresh,
+fresh export and replayed feature data; old frozen experiments stay unchanged.
+Unresolved future provenance still rejects a game instead of silently discarding
+the ability. Both the whole copied object and its selected action carry these
+public references; unknown/face-down objects do not expose them.
 
 `tools/trainer/paired_eval4.py` compares completed model evaluations case by
 case against the same opponents. It verifies the frozen engine/deck hashes,

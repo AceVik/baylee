@@ -1,0 +1,80 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange BRG #20266292]
+1 Abstergo Entertainment
+1 Abundant Countryside
+1 Aisling Leprechaun
+1 Alpine Grizzly
+1 Archaeological Dig
+1 Ashcoat Bear
+1 Balduvian Bears
+1 Barreling Attack
+1 Baxter Building
+1 Bear Cub
+1 Blazing Specter
+1 Crimson Muckwader
+1 Deathgaze Cockatrice
+1 Deity of Scars
+1 Demon's Grasp
+1 Discordant Spirit
+1 Dread Shade
+1 Duskwatch Hunter
+1 Erstwhile Trooper
+1 Expanded Anatomy
+1 Flinthoof Boar
+10 Forest
+1 Forest Bear
+1 Fugue
+1 Gift of the Deity
+1 Grizzly Ghoul
+1 Grollub
+1 Hoar Shade
+1 Holdout Settlement
+1 Igneous Cur
+1 Koskun Keep
+1 Krakilin
+1 Large Bear
+1 Lazotep Quarry
+1 Looming Shade
+1 Mech Hangar
+1 Mirrex
+1 Moldering Karok
+1 Muck Rats
+1 Nameless Race
+1 Nezumi Bladeblesser
+1 Offer Immortality
+1 Pale Bears
+1 Perilous Shadow
+1 Pestilence Rats
+1 Plague Rats
+1 Planar Nexus
+1 Putrid Leech
+1 Rabid Rats
+1 Rakdos Ragemutt
+1 Ritual of the Machine
+1 Riveteers Initiate
+1 Rubblebelt Boar
+1 Sanity Gnawers
+1 Scarland Thrinax
+1 Scion of the Wild
+1 Screeching Harpy
+1 Sheoldred's Edict
+1 Specter's Wail
+1 Squirrel Sovereign
+1 Squirrelanoids
+1 Stenchskipper
+1 Survivors' Encampment
+15 Swamp
+1 Tattered Apparition
+1 Tendo Ice Bridge
+1 The Mycosynth Gardens
+1 Transmutation
+1 Tree Monkey
+1 Undercity Shade
+1 Underdome
+1 Vampire Hounds
+1 Veiled Shade
+1 Waking Nightmare
+1 Weight of the Underworld
+1 Whispering Shade
+1 White Lotus Hideout

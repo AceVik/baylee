@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro U #20266159]
+1 Advanced Hoverguard
+1 Aegis Turtle
+1 Agna Qel'a
+1 Blind Phantasm
+1 Blinding Drone
+1 Cephalid Retainer
+1 Chronatog
+1 Containment Protocol
+1 Coralhelm Guide
+1 Cradle of Safety
+1 Deeptread Merrow
+1 Desert of the Mindful
+1 Diplomatic Immunity
+1 Dream Prowler
+1 Esperzoa
+1 Freed from the Real
+1 Fylamarid
+1 Giant Octopus
+1 Glimmerdust Nap
+1 Grayscaled Gharial
+1 Horseshoe Crab
+1 Hoverguard Observer
+1 Illusory Wrappings
+32 Island
+1 Jwari Shapeshifter
+1 Kelpie Guide
+1 Magical Hack
+1 Malfunction
+1 Merfolk Raiders
+1 Merfolk Seastalkers
+1 Merrow Wavebreakers
+1 Metathran Transport
+1 Mistrise Village
+1 Mistwalker
+1 Persuasion
+1 Phantasmal Forces
+1 Phantasmal Image
+1 Plated Seastrider
+1 Pulsating Illusion
+1 Relic's Roar
+1 Riptide Turtle
+1 River Darter
+1 River Merfolk
+1 Rootwater Commando
+1 Serpentine Ambush
+1 Shelldock Isle
+1 Shorecomber Crab
+1 Shoreline Raider
+1 Short Circuit
+1 Sleight of Mind
+1 Slimebind
+1 Soaring Seacliff
+1 Somnophore
+1 Starlight Snare
+1 Straw Soldiers
+1 Streambed Aquitects
+1 Sunken Palace
+1 Svyelunite Priest
+1 Sworn Guardian
+1 Thalakos Mistfolk
+1 Thirst
+1 Threads of Disloyalty
+1 Thunder Wall
+1 Vodalian Knights
+1 Vodalian Soldiers
+1 Walking Dream
+1 Water Wings
+1 Water Wurm
+
+[commander]
+Caelorna, Coral Tyrant

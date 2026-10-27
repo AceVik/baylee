@@ -1,84 +1,82 @@
-# baylee unseen-card holdout commander seed=90000038
+# baylee unseen-card holdout commander seed=90000027
 # licence: AGPL-3.0-only
-[deck:commander midrange BR #90000038]
-1 Anchovy & Banana Pizza
-1 Arguel's Blood Fast
-1 Astral Cornucopia
-1 Base Camp
-1 Bog Imp
-1 Boltwing Marauder
-1 Branch of Vitu-Ghazi
-1 Caterwauling Boggart
-1 Chitinous Cloak
-1 Dark Fortress
-1 Desperate Bloodseeker
-1 Diregraf Ghoul
-1 Disciple of the Vault
-1 Dreamstone Hedron
-1 Drill Too Deep
-1 Dwarven Mine
-1 Dwarven Trader
-1 Eastern Paladin
-1 Eater of the Dead
-1 Embraal Bruiser
-1 Fire Snake
-1 Flowstone Kavu
-1 Fountain of Ichor
-1 Goblin Mutant
-1 Goblin Sledder
-1 Gold-Forged Sentinel
-1 Grinding Station
-1 HYDRA Assault Robot
-1 Hobbit Hole
-1 Jovial Evil
-1 Krark-Clan Stoker
-1 Legion Extruder
-1 Locust Spray
-1 Mage-Ring Network
-1 Marauder's Axe
-1 Mark of the Oni
-1 Markov Patrician
-1 Metallic Sliver
-1 Mikokoro, Center of the Sea
-1 Miren, the Moaning Well
-1 Mogg Raider
-13 Mountain
-1 Nether Shadow
-1 No-Dachi
+[deck:commander midrange RG #90000027]
+1 Abundant Countryside
+1 Arctic Wolves
+1 Blisterstick Shaman
+1 Bolt of Keranos
+1 Brand
+1 Bucolic Ranch
+1 Cascading Cataracts
+1 Centaur Nurturer
+1 Citanul Druid
+1 City of Brass
+1 Contested Cliffs
+1 Cyclone
+1 Deadshot Minotaur
+1 Detonate
+1 Explosive Impact
+1 Fire Ambush
+1 Fire Imp
+1 Firefist Adept
+6 Forest
+1 Fungal Reaches
+1 Ghitu Slinger
+1 Gladewalker Ritualist
+1 Goblin Bomb
+1 Heap Gate
+1 Henge of Ramos
+1 Inferno
+1 Jade Guardian
+1 Jaya's Firenado
+1 Kessig Wolf Run
+1 Kujar Seedsculptor
+1 Lava Hounds
+1 Lightning Cloud
+1 Mana Crypt
+1 Massive Raid
+1 Mogg Bombers
+19 Mountain
+1 Onslaught
+1 Orcish Cannonade
 1 Outnumber
-1 Peat Bog
-1 Phyrexian Broodlings
-1 Polluted Bonds
-1 Prophetic Prism
-1 Rabbit Battery
-1 Rakdos Guildgate
-1 Rathi Trapper
-1 Ray of Ruin
-1 Reckless Brute
-1 Rohgahh of Kher Keep
-1 Runesword
-1 Scorching Dragonfire
-1 Scrapheap
-1 Shivan Gorge
-1 Skemfar Avenger
-1 Skullmead Cauldron
-1 Sokenzan Bruiser
-1 Spireside Infiltrator
-1 Super Speed
-1 Survey the Wreckage
-11 Swamp
-1 Terrain Generator
-1 Thermal Navigator
-1 Three Tree Mascot
-1 Tor Wauki
-1 Urborg Volcano
-1 Valakut, the Molten Pinnacle
-1 Wall of Torches
-1 Warteye Witch
-1 Windgrace Acolyte
-1 Winding Canyons
-1 Wooded Foothills
-1 Yellowjacket, Heartless Marauder
+1 Primeval Bounty
+1 Pyrogoyf
+1 Pyrostatic Pillar
+1 Raking Claws
+1 Sabotender
+1 Sarkhan's Unsealing
+1 Satyr Grovedancer
+1 Scorching Spear
+1 Scorchmark
+1 Searing Wind
+1 Secret Base
+1 Sliver Hive
+1 Spellshock
+1 Springjack Pasture
+1 Starstorm
+1 Storm Caller
+1 Strangle
+1 Surveillance Room
+1 Tajuru Archer
+1 Talisman of Impulse
+1 Tanglespan Lookout
+1 Tarfire
+1 The Vision and Scarlet Witch
+1 Throne of Makindi
+1 Tinder Wall
+1 Training Compound
+1 Trumpeting Carnosaur
+1 Tuktuk Grunts
+1 Tuktuk Scrapper
+1 Tunneling Geopede
+1 Vinelasher Kudzu
+1 Walking Ballista
+1 Whiptail Moloch
+1 Winds of Change
+1 Witty Roastmaster
+1 Zap
+1 Zhur-Taa Druid
 
 [commander]
-Tor Wauki
+Radha, Heir to Keld

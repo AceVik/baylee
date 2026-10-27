@@ -13,7 +13,7 @@
 2 Fireball
 1 Icatian Town
 3 Icy Manipulator
-2 Incandescent Aria
+2 Iroh's Demonstration
 1 Jayemdae Tome
 4 Karplusan Forest
 1 Land Tax
@@ -22,8 +22,10 @@
 4 Mountain
 1 Orgg
 4 Plains
-4 Rith's Charm
 1 Serra Angel
+1 Skysnare Spider
+1 Spirit Mirror
+2 Stormbind
 3 Swords to Plowshares
 2 Wrath of God
 1 Zuran Orb

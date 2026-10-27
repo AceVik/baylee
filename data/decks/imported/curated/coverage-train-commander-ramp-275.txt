@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp R #20266276]
+1 Adarkar Sentinel
+1 Adventuring Gear
+1 Amaranthine Wall
+1 Amulet of Kroog
+1 Baton of Morale
+1 Bone Saw
+1 Celestial Sword
+1 Clockwork Gnomes
+1 Consulate Skygate
+1 Copper Gnomes
+1 Coral Helm
+1 Crenellated Wall
+1 Darksteel Brute
+1 Dowsing Device
+1 Ersatz Gnomes
+1 Feldon's Cane
+1 Field of the Dead
+1 Flood Plain
+1 Forethought Amulet
+1 Fyndhorn Bow
+1 Gauntlets of Chaos
+1 Helm of Chatzuk
+1 Hoof Skulkin
+1 Hotfoot Gnome
+1 Jabari's Banner
+1 Jawbone Skulkin
+1 Jousting Dummy
+1 Leonin Bladetrap
+1 Lion Heart
+1 Living Wall
+1 Locthwain Gargoyle
+1 Manifold Key
+1 Meekstone
+1 Mirrorpool
+1 Mobile Fort
+1 Molten-Tail Masticore
+35 Mountain
+1 Necropolis
+1 Night Market
+1 One-Clown Band
+1 Pacification Array
+1 Patchwork Gnomes
+1 Path of Ancestry
+1 Ragged Playmate
+1 Reinforced Bulwark
+1 Relic Barrier
+1 Saberclaw Golem
+1 Scarecrow
+1 Shell Skulkin
+1 Shield of the Ages
+1 Shuko
+1 Skyshaper
+1 Soldevi Golem
+1 Stuffed Bear
+1 Sunken Citadel
+1 Suspicious Bookcase
+1 Tarnation Vista
+1 Ticking Gnomes
+1 Towering Viewpoint
+1 Urza's Avenger
+1 Wall of Shields
+1 Wall of Spears
+1 Watchwing Scarecrow
+1 Wicker Witch
+1 Witches' Eye
+
+[commander]
+Quicksilver, Pietro Maximoff

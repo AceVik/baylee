@@ -3,15 +3,15 @@
 [deck:Spiritbane (Adapted)]
 4 Akki Avalanchers
 3 Akki Rockspeaker
-1 Battle Frenzy
-4 Deflecting Swat
+2 Boiling Blood
 2 Desert Sandstorm
 4 Fateful End
-2 Goblin Offensive
+4 Hammer of Bogardan
 1 Hordeling Outburst
 24 Mountain
 2 No-Dachi
-4 Sarkhan's Triumph
+4 Rack and Ruin
+1 Sarkhan's Triumph
 2 Sizzle
 4 Slagstorm
 1 Smash

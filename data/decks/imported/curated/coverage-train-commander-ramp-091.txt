@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUB #20266092]
+1 Agna Qel'a
+1 Angel's Herald
+1 Apprentice Necromancer
+1 Argivian Restoration
+1 Ashen Powder
+1 Ashiok, Dream Render
+1 Auriok Salvagers
+1 Banishing Betrayal
+1 Bishop of Rebirth
+1 Black Dragon Gate
+1 Brain Freeze
+1 Breath of Life
+1 Contingency Plan
+1 Deadly Visit
+1 Death's Duet
+1 Doomed Necromancer
+1 Déjà Vu
+1 Emerge from the Cocoon
+1 Energy Tap
+1 False Defeat
+1 Festerleech
+1 Hall of Storm Giants
+1 Hanna, Ship's Navigator
+1 He's Dead, Jim
+1 Hidden Courtyard
+1 Hive of the Eye Tyrant
+1 Horrifying Revelation
+1 Index
+6 Island
+1 Judge Magister Gabranth
+1 Kasimir the Lone Wolf
+1 Loran's Escape
+1 Lord of the Undead
+1 Lose Hope
+1 Lotus Guardian
+1 Luminous Broodmoth
+1 Minamo, School at Water's Edge
+1 Mindscour Dragon
+1 Moonring Island
+1 Obzedat's Aid
+1 Order of Whiteclay
+1 Peat Bog
+11 Plains
+1 Polluted Dead
+1 Protomatter Powder
+1 Ramosian Revivalist
+1 Ray of Ruin
+1 Refurbish
+1 Reliquary Monk
+1 Rise of Eagles
+1 Rotcrown Ghoul
+1 Rummaging Wizard
+1 Samite Herbalist
+1 Sand Silos
+1 Screeching Skaab
+1 Scribe of the Mindful
+1 Sejiri Steppe
+1 Select for Inspection
+1 Selhoff Occultist
+1 Shelldock Isle
+1 Spined Megalodon
+1 Starfighter Pilot
+1 Sunken Palace
+9 Swamp
+1 Taigam's Scheming
+1 The Surgical Bay
+1 Tolarian Academy
+1 Tolarian Serpent
+1 Tomb Fortress
+1 Tome Scour
+1 Trenzalore Clocktower
+1 Unauthorized Exit
+1 Viscerid Drone
+1 Winds of Rebuke
+1 Woebearer
+1 Zhang Liao, Hero of Hefei
+
+[commander]
+Dakkon Blackblade

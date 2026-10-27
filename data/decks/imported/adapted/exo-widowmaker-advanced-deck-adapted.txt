@@ -3,20 +3,25 @@
 [deck:Widowmaker - Advanced Deck (Adapted)]
 2 Blood Pet
 1 Bottle Gnomes
-4 Consult the Necrosages
 2 Counterspell
 1 Dark Ritual
-4 Essence Vortex
+1 Dissipate
 2 Fallen Angel
+1 Glasses of Urza
+2 Impulse
 8 Island
+4 Ledger Shredder
+3 Live or Die
 4 Man-o'-War
 4 Merfolk Looter
-4 Notion Rain
-1 Pilfered Plans
+1 Misdirection
+1 Ozai's Cruelty
 4 Rootwater Depths
-4 Scorpion Sentinel
+1 Sedraxis Alchemist
 1 Spirit of the Night
 7 Swamp
 4 Underground River
 2 Undiscovered Paradise
+2 Unexplained Disappearance
 1 Vampire Hounds
+1 Void Helix

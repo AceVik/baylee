@@ -1,7 +1,10 @@
 import copy
+import json
+import tempfile
+from pathlib import Path
 import unittest
 
-from paired_eval4 import compare
+from paired_eval4 import compare, read_verified
 
 
 def fixture(utilities):
@@ -32,6 +35,38 @@ class PairedModelEvaluation(unittest.TestCase):
         self.assertEqual(result["paired_uncertainty"]["paired_utility_difference"], 0)
         a["deal_details"].reverse()
         self.assertEqual(self.compare(a, b), result)
+
+    def test_verified_raw_flag_does_not_consume_following_option(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            evaluation, job = root / "eval.json", root / "job.json"
+            value = {**fixture([0, 1]), "decks_manifest": "decks.json", "policy_mode": "Raw"}
+            evaluation.write_text(json.dumps(value))
+            job.write_text(json.dumps({"status": "complete", "executable_sha256": "engine",
+                "inputs": {"decks.json": "decks"}, "command": ["eval4", "--raw-policy",
+                "--out", str(evaluation), "--model", "test", "--decks-manifest", "decks.json",
+                "--max-decisions", "42"]}))
+            report, provenance, _ = read_verified(evaluation, job)
+            self.assertEqual(report["policy_mode"], "Raw")
+            self.assertEqual(provenance["max_decisions"], 42)
+
+    def test_policy_execution_contract_must_match_if_declared(self):
+        for key, left, right in (("policy_mode", "Raw", "Tactical"),
+                                 ("policy_contract", "raw-policy-v1", "tactical-policy-v1")):
+            a, b = fixture([0, 1]), fixture([0, 1])
+            a[key] = left
+            for other in (None, right):
+                if other is not None:
+                    b[key] = other
+                with self.subTest(key=key, other=other), self.assertRaisesRegex(ValueError, key):
+                    self.compare(a, b)
+            b[key] = left
+            a['model_identity'] = {'model_version': 5, 'sha256': 'candidate'}
+            b['model_identity'] = {'model_version': 3, 'sha256': 'reference'}
+            result = self.compare(a, b)
+            self.assertEqual(result['policy_execution']['candidate'][key], left)
+            self.assertEqual(result['policy_execution']['candidate']['model_identity'], a['model_identity'])
+            self.assertEqual(result['policy_execution']['reference']['model_identity'], b['model_identity'])
 
     def test_caps_are_unknown_and_not_an_improvement(self):
         a, b = fixture([0.5, 1]), fixture([0, 1])

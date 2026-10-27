@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266091]
+1 Akki Avalanchers
+1 Akki Raider
+1 Arena of Glory
+1 Barktooth Warbeard
+1 Beetleback Chief
+1 Bloodshot Trainee
+1 Boggart Cursecrafter
+1 Bojuka Bog
+1 Bottomless Vault
+1 Bubbling Muck
+1 Cabal Pit
+1 Canopy Tactician
+1 Castle Locthwain
+1 Centaur Glade
+1 Cha'DIch Investigator
+1 Charnelhoard Wurm
+1 Dark Heart of the Wood
+1 Diamond Kaleidoscope
+1 Dragon Roost
+1 Dying Wail
+1 Earthlink
+1 Exiled Boggart
+1 Feral Prowler
+1 Flamekin Village
+10 Forest
+1 Foul Roads
+1 Gimli, Counter of Kills
+1 Gladiolus Amicitia
+1 Glissa, the Traitor
+1 Goblin Artillery
+1 Goblin Assault
+1 Goblin Gang Leader
+1 Goblin Gardener
+1 Goblin Masons
+1 Goblin Rabblemaster
+1 Golgari Thug
+1 Great Arashin City
+1 Grim Feast
+1 Grisly Ritual
+1 Ignoble Hierarch
+1 Krark-Clan Grunt
+1 Lair of the Hydra
+1 Last Laugh
+1 Magma Vein
+1 Minas Morgul, Dark Fortress
+1 Mirri's Guile
+1 Mogg Raider
+14 Mountain
+1 Munitions Enthusiast
+1 Orc General
+1 Oxidda Daredevil
+1 Poisonbelly Ogre
+1 Radha, Heir to Keld
+1 Revel of the Fallen God
+1 Rhys the Exiled
+1 Rise Again
+1 Sapseep Forest
+1 Scrapyard Steelbreaker
+1 Seething Pathblazer
+1 Serpent Warrior
+1 Shizo, Death's Storehouse
+1 Slobad, Goblin Tinkerer
+1 Spreading Algae
+1 Sunrise Sovereign
+1 Sustenance
+2 Swamp
+1 Thriving Bluff
+1 Tomb of Urami
+1 Tuktuk Grunts
+1 Urborg
+1 Vampire Warlord
+1 Virtue of Persistence
+1 Warteye Witch
+1 Windgrace Acolyte
+1 Wort, Boggart Auntie
+1 Zanarkand, Ancient Metropolis
+
+[commander]
+Bartel Runeaxe

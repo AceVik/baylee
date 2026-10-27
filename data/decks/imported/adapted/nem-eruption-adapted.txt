@@ -6,16 +6,16 @@
 1 Crenellated Wall
 1 Disenchant
 1 Double Cleave
+4 Energy Bolt
 1 Flaming Sword
 2 Flowstone Crusher
 1 Iron Lance
 1 Kris Mage
-4 Legion Leadership
+1 Legion Leadership
 3 Lightning Helix
 4 Martial Glory
 14 Mountain
 10 Plains
-1 Rip Apart
 1 Rubblebelt Recluse
 1 Seal of Cleansing
 3 Seal of Fire

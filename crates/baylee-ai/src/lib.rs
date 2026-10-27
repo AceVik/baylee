@@ -372,7 +372,8 @@ impl HeuristicAgent {
         match pending {
             Pending::ChooseManaAbility {
                 choice, options, ..
-            } => constrained::mana_choice(choice, &options).unwrap_or(PlayerAction::PassPriority),
+            } => constrained::mana_choice(view, choice, &options)
+                .unwrap_or(PlayerAction::PassPriority),
             ref pending @ (Pending::ChooseDamageSource { .. }
             | Pending::ChooseDamageEffect { .. }
             | Pending::AllocatePrevention { .. }) => {

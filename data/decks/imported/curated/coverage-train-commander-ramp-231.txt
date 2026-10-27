@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp RG #20266232]
+1 Amok
+1 Ancient Ziggurat
+1 Ant Queen
+1 Asceticism
+1 Axegrinder Giant
+1 Baldur's Gate
+1 Berserkers' Onslaught
+1 Boldwyr Aggressor
+1 Briar Shield
+1 Burgeoning
+1 Captivating Cave
+1 Carapace
+1 Cavern of Souls
+1 Chocobo Racetrack
+1 Cinder Giant
+1 Colossification
+1 Conduit Pylons
+1 Contested Cliffs
+1 Craw Giant
+1 Crosswinds
+1 Crucible of Fire
+1 Dagger Caster
+1 Dryad's Favor
+1 Eclipsed Realms
+1 Elfsworn Giant
+1 Feral Invocation
+1 Fervor
+1 Flowstone Surge
+18 Forest
+1 Frost Giant
+1 Fíli and Kíli, Joyous
+1 Gallifrey Council Chamber
+1 Gift of Strands
+1 Goblin Lore
+1 Goblin Oriflamme
+1 Goblin War Drums
+1 Gruul War Chant
+1 Guildmages' Forum
+1 Hidden Path
+1 Hidden Predators
+1 Interplanar Beacon
+1 Kithkin Mourncaller
+1 Lava Hounds
+1 Lazotep Quarry
+1 Marker Beetles
+1 Mirrex
+8 Mountain
+1 Mythic Proportions
+1 Natural Emergence
+1 Noxious Newt
+1 Nyxborn Colossus
+1 Oakgnarl Warrior
+1 Plaza of Heroes
+1 Primal Frenzy
+1 Primal Rage
+1 Raking Claws
+1 Ravenous Giant
+1 Rising of the Day
+1 Rootrider Faun
+1 Roughshod Mentor
+1 Rummaging Goblin
+1 Satyr Hedonist
+1 Seal of Strength
+1 Shocker
+1 Skarrg, the Rage Pits
+1 Spidersilk Armor
+1 Spire of Industry
+1 Spitfire Lagac
+1 Spore Crawler
+1 Steely Resolve
+1 Three Tree City
+1 Tireless Provisioner
+1 Web
+1 Wild Celebrants
+1 Xenobotanist
+
+[commander]
+The Lady of the Mountain

@@ -1,0 +1,86 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20266045]
+1 Aliban's Tower
+1 Antagonize
+1 Artifact Blast
+1 Balduvian Hydra
+1 Bedlam
+1 Break Through the Line
+1 Brimstone Dragon
+1 Canyon Drake
+1 Cave Sense
+1 Chaotic Goo
+1 Crevasse
+1 Deadshot
+1 Deface
+1 Deranged Whelp
+1 Desert Drake
+1 Deserted Temple
+1 Destructive Urge
+1 Devastation
+1 Echoing Deeps
+1 Eldrazi Linebreaker
+1 Elven Passage
+1 Feral Ridgewolf
+1 Fire Drake
+1 Firebreathing
+1 Flowstone Kavu
+1 Flowstone Wyvern
+1 Frenzied Rage
+1 Geier Reach Sanitarium
+1 Glyph of Destruction
+1 Goblin Caves
+1 Goblin Kites
+1 Goblin Rock Sled
+1 Gods' Eye, Gate to the Reikai
+1 Granite Gargoyle
+1 Gravity Sphere
+1 Halls of Mist
+1 Homeward Path
+1 Horde of Boggarts
+1 Isolated Watchtower
+1 Komodo Rhino
+1 Lightning Talons
+1 Madcap Skills
+1 Markov Blademaster
+1 Marsh Flats
+1 Maze of Ith
+1 Mikokoro, Center of the Sea
+1 Monster Mashup
+20 Mountain
+1 Nalathni Dragon
+1 Petrified Field
+1 Petrified Hamlet
+1 Pyroblast
+1 Pyrohemia
+1 Quaketusk Boar
+1 Raze the Effigy
+1 Resistance Skywarden
+1 Rig for War
+1 Roc of Kher Ridges
+1 Ruinous Gremlin
+1 Scarlet Witch, Wanda Maximoff
+1 Shivan Devastator
+1 Siege Modification
+1 Skyship Stalker
+1 Smash to Dust
+1 Stampede Rider
+1 Sun-Collared Raptor
+1 Swashbuckling
+1 Tectonic Edge
+1 Throne of the High City
+1 Tomb of the Spirit Dragon
+1 Two-Headed Giant of Foriys
+1 Underworld Breach
+1 Urza's Cave
+1 Urza's Mine
+1 Urza's Tower
+1 Utvara Scalper
+1 Vance's Blasting Cannons
+1 Vesuva
+1 Volcanic Strength
+1 Wayward Giant
+
+[commander]
+Hulk, Bruce Banner

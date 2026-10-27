@@ -1,82 +1,80 @@
 # baylee curated commander control seed=20261043
 # licence: AGPL-3.0-only
 [deck:commander control RG #20261043]
-1 Arcum's Astrolabe
-1 Arena of Glory
-1 Astral Cornucopia
-1 Baton of Morale
-1 Berserkers' Onslaught
-1 Bloodfire Dwarf
-1 Boseiju, Who Endures
-1 Brute Force
-1 Captive Flame
-1 Channel
-1 Char
-1 Cobbled Wings
-1 Creeping Mold
-1 Curse of Marit Lage
-1 Dwarven Trader
-1 Fireforger's Puzzleknot
-1 Flashfires
-14 Forest
-1 Furious Bellow
-1 Glimmerlight
-1 Goblin Boom Keg
-1 Gravity Sphere
-1 Hair-Strung Koto
-1 Hall of Oracles
-1 Hammerheim
-1 Highland Forest
-1 Highland Weald
-1 Hostile Desert
-1 Ichneumon Druid
-1 Ironclaw Orcs
-1 Isolation Cell
-1 Lifespark Spellbomb
-1 Lightning Talons
-1 Lurker
-1 Maestros Theater
-1 Memorial to War
-1 Might of the Masses
-1 Mirror Universe
-1 Mishra's Factory
-1 Molten-Tail Masticore
-12 Mountain
-1 Opal Palace
-1 Piggy Bank
-1 Power Surge
-1 Raking Claws
-1 Raven Wings
-1 Recollect
-1 Sanctum of Ugin
-1 Sarkhan's Unsealing
-1 Scrying Sheets
-1 Seal of Fire
-1 Secret Base
-1 Shatterskull Smashing
-1 Spatial Contortion
-1 Spawning Grounds
-1 Spidery Grasp
-1 Spike Drone
-1 Spring of Eternal Peace
+1 Abstergo Entertainment
+1 Archaeological Dig
+1 Argothian Enchantress
+1 Brazen Freebooter
+1 Capital City
+1 Choco-Comet
+1 Conduit Pylons
+1 Dismissive Pyromancer
+1 Draconic Disciple
+1 Dragon Trainer
+1 Dragon-Style Twins
+1 Elturgard Ranger
+1 Embersmith
+1 Faithless Looting
+1 Fell the Pheasant
+1 Fire Nation Archers
+1 Firebrand Archer
+1 Firefist Adept
+1 Flame Jet
+1 Flare
+1 Flick a Coin
+7 Forest
+1 Ghitu Slinger
+1 Haven of the Spirit Dragon
+1 Havoc
+1 Imperial Recruiter
+1 Improvised Weaponry
+1 Iron Man, Tony Stark
+1 Jungle Patrol
+1 Kamahl, Pit Fighter
+1 Karplusan Forest
+1 Kessig Flamebreather
+1 Kessig Wolf Run
+1 Lazotep Quarry
+1 Lotus Vale
+1 Magus of the Order
+1 Make Mischief
+1 Mana Confluence
+1 Mana Crypt
+1 Many Partings
+1 Mech Hangar
+1 Molten Nursery
+20 Mountain
+1 Mox Ruby
+1 Murasa Pyromancer
+1 Murasa Ranger
+1 Omnath, Locus of Rage
+1 Orcish Cannonade
+1 Path of Annihilation
+1 Pia and Kiran Nalaar
+1 Primeval Bounty
+1 Reckless Fireweaver
+1 Rockslide Sorcerer
+1 Sawblade Scamp
+1 School of the Unseen
+1 Secluded Courtyard
+1 Setessan Champion
+1 Shocking Sharpshooter
+1 Shredded Sails
+1 Skirsdag Cultist
+1 Skybeast Tracker
+1 Spark Spray
+1 Spellshock
 1 Stangg
-1 Stimulus Package
-1 Stingmoggie
-1 Sunglasses of Urza
-1 Sunscorched Desert
-1 Sword of the Ages
-1 Temple of the Dragon Queen
-1 Throne of Makindi
-1 Tower of Calamities
-1 Tranquil Path
-1 Troll-Horn Cameo
-1 Tumble Magnet
-1 Tunnel
-1 Tyrant's Machine
-1 Umezawa's Jitte
-1 Vance's Blasting Cannons
-1 Where Ancients Tread
-1 Yotian Soldier
+1 Stomping Ground
+1 Study Hall
+1 The Immortal Weapons
+1 Underdome
+1 Verduran Enchantress
+1 Vertigo
+1 Weaver of Lightning
+1 Winter Sky
+1 Young Pyromancer
+1 Zuko, Avatar Hunter
 
 [commander]
-Stangg
+Tuknir Deathlock

@@ -8,7 +8,7 @@ Implements the architecture specified in `docs/proposals/trained-ai-v4.md` and
 - 8-seat relative table representation (`RECURRENT_SLOTS = 9`: 1 Global + 8 Seats).
 - Typed relation message-passing (`edge_index`, `edge_type`, `edge_mask`) over
   `[Global(1), Seats(8), Entities(E)]`.
-- Spatial Pre-Norm Transformer trunk (`d_model` in {256, 384, 512}, `n_layers` in {4, 8}).
+- Configurable spatial Pre-Norm Transformer trunk; depth pilots use d=640 and 8/12 layers.
 - Per-seat recurrent belief memory (`h_in -> h_out`, shape `[B, 9, d_model]`)
   updated via a gated GRU cell across the game trajectory.
 - Latent Thinking Loop (`K` steps of shared-weight cross-attention refinement
@@ -96,6 +96,9 @@ class PlayerNet4(nn.Module):
             nn.GELU(),
             nn.Linear(d, d),
         )
+        self.cand_ctx_proj = nn.Linear(d * 2, d)
+        nn.init.zeros_(self.cand_ctx_proj.weight)
+        nn.init.zeros_(self.cand_ctx_proj.bias)
         self.cand_scorer = nn.Sequential(
             nn.Linear(d * 4, d),
             nn.LayerNorm(d),
@@ -129,9 +132,9 @@ class PlayerNet4(nn.Module):
         from .structure import RuleEncoder
         self.rules = RuleEncoder(data, self.cfg.structure_width)
 
-    def prepare_structure(self):
+    def prepare_structure(self, active_refs=None):
         if self.rules is not None:
-            self.rules.prepare()
+            self.rules.prepare(active_refs)
 
     def clear_structure(self):
         if self.rules is not None:
@@ -201,6 +204,7 @@ class PlayerNet4(nn.Module):
         e_pad = ~entity_mask
         pad_mask = torch.cat([g_pad, s_pad, e_pad], dim=1)  # [B, 9 + E]
 
+        tokens = self.relational_tokens(tokens, edge_index, edge_type, edge_mask, ~pad_mask, entity_feat)
         x = tokens
         # Execution-only memory/compute tradeoff: retaining the last N layers'
         # activations avoids recomputing them on backward. Default remains full
@@ -214,6 +218,10 @@ class PlayerNet4(nn.Module):
                 x = layer(x, src_key_padding_mask=pad_mask)
         board = self.trunk_norm(x)
         return board, pad_mask
+
+    def relational_tokens(self, tokens, edge_index, edge_type, edge_mask, present, entity_feat):
+        """Identity extension point; archived v4 weights and operations are unchanged."""
+        return tokens
 
     def observe_memory(self, board, h_in, thinking_steps):
         """Consume K=0 observations; decision scratchpads never alter memory."""
@@ -338,7 +346,14 @@ class PlayerNet4(nn.Module):
 
             g_exp = g_ref.unsqueeze(1).expand_as(c_emb)
             cand_in = torch.cat([c_emb, c_ent, c_seat, g_exp], dim=-1)
-            cand_logits = self.cand_scorer(cand_in).squeeze(-1)
+            h_c = self.cand_scorer[2](self.cand_scorer[1](self.cand_scorer[0](cand_in)))
+            valid_c = cand_mask.unsqueeze(-1).to(h_c.dtype)
+            c_count = valid_c.sum(dim=1, keepdim=True).clamp(min=1.0)
+            c_mean = (h_c * valid_c).sum(dim=1, keepdim=True) / c_count
+            c_max = h_c.masked_fill(~cand_mask.unsqueeze(-1), -1e4).amax(dim=1, keepdim=True)
+            c_max = c_max * (valid_c.sum(dim=1, keepdim=True) > 0.0).to(h_c.dtype)
+            h_c = h_c + self.cand_ctx_proj(torch.cat([c_mean, c_max], dim=-1))
+            cand_logits = self.cand_scorer[3](h_c).squeeze(-1)
             cand_logits = cand_logits.masked_fill(~cand_mask, -1e9)
         else:
             cand_logits = torch.zeros_like(cand_mask, dtype=board.dtype).masked_fill(~cand_mask, -1e9)
@@ -380,12 +395,16 @@ class PlayerNet4(nn.Module):
         )
 
         sv_in = torch.cat([s_ref, g_ref.unsqueeze(1).expand(-1, MAX_SEATS, d)], dim=-1)
-        seat_win_logits = self.seat_value_head(sv_in).squeeze(-1)
+        seat_win_logits = self.value_readout(sv_in).squeeze(-1)
         seat_win_logits = seat_win_logits.masked_fill(~s_active, -1e9)
         seat_probs = F.softmax(seat_win_logits, dim=-1)
         value = (seat_probs * s_allied.to(seat_probs.dtype)).sum(dim=-1).clamp(0.0, 1.0)
 
         return h_out, cand_logits, pair_logits, scalar_pred, value, seat_win_logits
+
+    def value_readout(self, features):
+        """Training-only gradient routing; defaults preserve inference and state dict."""
+        return self.seat_value_head(features.detach() if getattr(self, "detach_value_input", False) else features)
 
     def forward(
         self,
@@ -441,3 +460,22 @@ class PlayerNet4(nn.Module):
             )
         )
         return h_out, cand_logits, pair_logits, scalar_pred, value
+
+
+def upgrade_state_dict_to_v7(
+    state_dict: dict[str, torch.Tensor], net: PlayerNet4
+) -> dict[str, torch.Tensor]:
+    """Zero-pad Encoder 6 input projections and initialize missing candidate context weights."""
+    out = dict(state_dict)
+    for key in ("global_proj.0.weight", "entity_proj.0.weight"):
+        if key in out:
+            old_w = out[key]
+            target_w = net.state_dict()[key]
+            if old_w.shape[0] == target_w.shape[0] and old_w.shape[1] < target_w.shape[1]:
+                padded = torch.zeros_like(target_w, dtype=old_w.dtype, device=old_w.device)
+                padded[:, : old_w.shape[1]] = old_w
+                out[key] = padded
+    for key in ("cand_ctx_proj.weight", "cand_ctx_proj.bias"):
+        if key not in out and key in net.state_dict():
+            out[key] = torch.zeros_like(net.state_dict()[key])
+    return out

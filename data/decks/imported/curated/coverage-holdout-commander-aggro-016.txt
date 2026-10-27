@@ -1,0 +1,83 @@
+# baylee synergistic holdout coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro RG #90010017]
+1 Aggression
+1 Archaeological Dig
+1 Avengers Tower
+1 Birthing Hulk
+1 Bloated Toad
+1 Bold Impaler
+1 Break Asunder
+1 Brotherhood Headquarters
+1 Child of Thorns
+1 Crackling Perimeter
+1 Crucible of the Spirit Dragon
+1 Deranged Hermit
+1 Elvish Mystic
+1 Energizer
+1 Falkenrath Marauders
+1 Farmstead Gleaner
+1 Filigree Familiar
+1 Fire-Lit Thicket
+1 Fire-Omen Crane
+17 Forest
+1 Fountain of Renewal
+1 Generous Stray
+1 Ghor-Clan Bloodscale
+1 Giant Solifuge
+1 Glade Gnarr
+1 Grove of the Burnwillows
+1 Growing Rites of Itlimoc
+1 Gruul Signet
+1 Haven of the Spirit Dragon
+1 Jinxed Ring
+1 Karplusan Forest
+1 Kavu Climber
+1 Krark-Clan Shaman
+1 Lifeforce
+1 Llanowar Envoy
+1 Mammoth Harness
+1 Marsh Viper
+7 Mountain
+1 Nacatl Outlander
+1 Nutrient Block
+1 Omni-Cheese Pizza
+1 Orochi Sustainer
+1 Plated Geopede
+1 Quirion Ranger
+1 Red Herring
+1 Redrock Sentinel
+1 Refresh
+1 Roaming Throne
+1 Sabotender
+1 Sakura-Tribe Elder
+1 Sarpadian Simulacrum
+1 Savage Hunger
+1 Scaled Hulk
+1 Seton, Krosan Protector
+1 Shimmering Grotto
+1 Skyclave Geopede
+1 Skyscanner
+1 Skyshroud Elite
+1 Skyshroud Troopers
+1 Spike Worker
+1 Spire Barrage
+1 Stonehands
+1 Tajuru Archer
+1 Tajuru Blightblade
+1 Tarnished Citadel
+1 Tendo Ice Bridge
+1 Thornspire Verge
+1 Thran Turbine
+1 Three Visits
+1 Torch Courier
+1 Toxic Scorpion
+1 Undiscovered Paradise
+1 Viashino Heretic
+1 Volcanic Submersion
+1 White Lotus Hideout
+1 Woodland Mystic
+1 Zephyr Boots
+
+[commander]
+Marhault Elsdragon

@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266278]
+1 Aardvark Sloth
+1 Abzan Runemark
+1 Adept Watershaper
+1 Aerial Modification
+1 Alabaster Potion
+1 Angel's Mercy
+1 Angelic Voices
+1 Auratog
+1 Balm of Restoration
+1 Big Apple, 3 a.m.
+1 Braidwood Cup
+1 Builder's Blessing
+1 Call the Cavalry
+1 Caravan Hurda
+1 Caribou Range
+1 Champion of Arashin
+1 Conviction
+1 Cooperation
+1 Desperate Lunge
+1 Dromad Purebred
+1 Dungeon Descent
+1 Elixir of Vitality
+1 Filigree Crawler
+1 Goldmeadow Dodger
+1 Guardian Automaton
+1 Hidden Hideout
+1 Imperial Ceratops
+1 Isamaru, Hound of Konda
+1 Jhovall Queen
+1 Kithkin Billyrider
+1 Kithkin Healer
+1 Knight of Meadowgrain
+1 Lifeblood
+1 Mageta's Boon
+1 Maze's End
+1 Mesa Unicorn
+1 Mistmeadow Skulk
+1 Moat
+1 Narrow Escape
+1 Order of the Golden Cricket
+1 Pariah
+1 Patrol Hound
+34 Plains
+1 Recuperate
+1 Resplendent Mentor
+1 Reverse Polarity
+1 Rocky Tar Pit
+1 Scrapheap
+1 Selfless Savior
+1 Serra's Boon
+1 Shackles
+1 Shimmerdrift Vale
+1 Sickbay Orderly
+1 Skullmead Cauldron
+1 Snow Hound
+1 Soldevi Steam Beast
+1 Spectral Guardian
+1 Spirit Mantle
+1 Stone Haven Pilgrim
+1 Tanglebloom
+1 Thraben Purebloods
+1 Tower of Eons
+1 Warclamp Mastiff
+1 Watchdog
+1 You're Ambushed on the Road
+1 Zarichi Tiger
+
+[commander]
+Worf, Chief Tactical Officer

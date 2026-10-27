@@ -4,7 +4,6 @@
 2 Barren Moor
 2 Delirium Skeins
 3 Douse in Gloom
-2 Entreat the Dead
 3 Essence Extraction
 3 Feeding Frenzy
 1 Festering Goblin
@@ -15,6 +14,7 @@
 3 Perish
 2 Shepherd of Rot
 3 Smokespew Invoker
-1 Spin Out
+1 Stench of Decay
 23 Swamp
 3 Toxic Deluge
+2 Victimize

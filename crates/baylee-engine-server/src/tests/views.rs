@@ -631,3 +631,43 @@ fn under_heavy_engine_load_sliced_pumping_streams_live_views_and_answers_control
         "duel must exercise multi-slice house turns under pump_budget=1"
     );
 }
+
+/// With both chairs held by sockets, each explicit answer is published to
+/// both seats before another socket answer can be accepted. Internal engine
+/// automation within that answer remains one published transition.
+#[test]
+fn single_step_pump_publishes_each_two_socket_answer_to_both_seats() {
+    let mut runner = EngineRunner::new().with_pump_budget(1);
+    setup(&mut runner, &two_humans(600));
+    sit_both(&mut runner);
+    keep_both(&mut runner);
+
+    for _ in 0..24 {
+        let session = runner.session().expect("a game");
+        let player = session.awaited().iter().next().expect("a socket decision");
+        let action = session
+            .timeout_action(player)
+            .expect("a legal default answer");
+        let before = session.seq();
+        let out = act(&mut runner, u32::from(player.get()), &action);
+        assert_eq!(runner.session().unwrap().seq(), before + 1);
+        assert!(
+            !runner.needs_pump(),
+            "two connected sockets owe no house work"
+        );
+        for seat in [0, 1] {
+            let view = last_view(&out, seat).expect("every answer publishes each seat's own view");
+            assert_eq!(u32::from(view.seat.get()), seat);
+            assert_eq!(
+                frames(&out)
+                    .iter()
+                    .filter(
+                        |(to, msg)| *to == seat && matches!(msg, v1::envelope::Msg::StateDelta(_))
+                    )
+                    .count(),
+                1,
+                "one published view per explicit socket answer"
+            );
+        }
+    }
+}

@@ -1,79 +1,78 @@
 # baylee curated highlander control seed=20261126
 # licence: AGPL-3.0-only
-[deck:highlander control WG #20261126]
-1 Angelic Blessing
-1 Arborback Stomper
-1 Arid Archway
-1 Automatic Librarian
-1 Avacyn's Memorial
-1 Ba Sing Se
-1 Base Camp
-1 Bast, Panther Goddess
-1 Braidwood Sextant
-1 Broken Fall
-1 Captain's Call
-1 Cathar's Companion
-1 Cathedral of War
-1 Celestial Sword
-1 Cleansing Nova
-1 Cobbled Wings
-1 Colossification
-1 Conduit of Worlds
-1 Cryptic Caves
-1 Cryptic Spires
-1 Disruptor Pistol
-1 Divine Verdict
-1 Dryad Arbor
-1 Eerie Interlude
-1 Enchantress's Presence
-7 Forest
-1 Frontier Guide
-1 Gallifrey Council Chamber
-1 Gilt-Leaf's Embrace
-1 Goblin Cannon
-1 Hana Kami
-1 Horizon of Progress
-1 Hornet Sting
-1 Idyllic Tutor
-1 Invasion of Belenon
-1 Iron Will
-1 Ironwright's Cleansing
-1 Join the Ranks
-1 Kite Shield
-1 Living Lands
-1 Make Your Move
-1 Manor Gate
-1 Mirror Universe
-1 Monumental Henge
-1 Natural Connection
-1 Obscura Storefront
-1 Omen of the Sun
-1 Ominous Cemetery
-1 Pegasus Refuge
-19 Plains
-1 Planar Gate
-1 Privileged Position
+[deck:highlander control UG #20261126]
+1 Abstruse Interference
+1 Ally Encampment
+1 Aspiring Aeronaut
+1 Baldur's Gate
+1 Barkchannel Pathway
+1 Cephalid Scout
+1 City of Brass
+1 Confirm Suspicions
+1 Contradict
+1 Crack Open
+1 Dance of Many
+1 Deduce
+1 Deeproot Waters
+1 Dream Fracture
+1 Drowner of Hope
+1 Elephant Guide
+1 Elvish Clancaller
+1 Fable of Wolf and Owl
+1 Faerie Formation
+1 Falcon, Winged Wonder
+1 Fanatic of Rhonas
+1 Fists of Ironwood
+1 Floodhound
+12 Forest
+1 From Beyond
+1 Geist Snatch
+1 Glimmerburst
+1 Hard Evidence
+1 Haven of the Spirit Dragon
+1 Homarid Spawning Bed
+1 Hornswoggle
+1 Icewind Elemental
+15 Island
+1 Jeskai Sage
+1 Launch Mishap
+1 Lazotep Quarry
+1 Llanowar Sentinel
+1 Lotus Vale
+1 Mana Confluence
+1 Many Partings
+1 Maul Splicer
+1 Mech Hangar
+1 Meloku the Clouded Mirror
+1 Mirrodin's Core
+1 Mongrel Pack
+1 Night Soil
+1 Orochi Hatchery
+1 Pirate's Prize
 1 Reach for the Sky
-1 Recollect
-1 Reliquary Tower
-1 Righteous Cause
-1 Rogue's Passage
-1 Sarkhan's Resolve
-1 Sejiri Shelter
-1 Sidequest: Catch a Fish
-1 Simian Brawler
-1 Soulbound Guardians
-1 Spawning Grounds
-1 Spike-Tailed Ceratops
-1 Spotted Griffin
-1 Stoneskin
-1 Terramorphic Expanse
-1 Thrór's Map
-1 Urza's Cave
-1 Wall of Light
-1 Wanderer's Twig
-1 War Horn
-1 Wayfarer's Bauble
-1 Whisperer of the Wilds
-1 Wirewood Elf
-1 Zuran Orb
+1 Revive the Shire
+1 Rise of Eagles
+1 Root Out
+1 Secluded Courtyard
+1 Seshiro the Anointed
+1 Sliver Hive
+1 Spore Swarm
+1 Sprout
+1 Summoner's Bane
+1 Sustenance
+1 Swan Song
+1 Syphon Essence
+1 Tarnished Citadel
+1 Tatyova, Benthic Druid
+1 The Theorist, Jace Beleren
+1 Thran Quarry
+1 Three Steps Ahead
+1 Unclaimed Territory
+1 Verdant Force
+1 Villainous Hideout
+1 Vodalian Hexcatcher
+1 Welcome to . . .
+1 Wistful Selkie
+1 Wretched Throng
+1 Wurmweaver Coil
+1 You Find the Villains' Lair

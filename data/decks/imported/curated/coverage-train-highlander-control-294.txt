@@ -1,0 +1,79 @@
+# baylee synergistic coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WRG #20266295]
+1 Ambush
+1 Axebane Beast
+1 Barbary Apes
+1 Beacon Behemoth
+1 Beast Walkers
+1 Blood of the Martyr
+1 Brotherhood Headquarters
+1 Brushstrider
+1 Bucolic Ranch
+1 Cabaretti Initiate
+1 Canyon Wildcat
+1 Capital City
+1 Cascading Cataracts
+1 Castle Doom
+1 Cavern of Souls
+1 Clever Concealment
+1 Darba
+1 Eclipsed Realms
+1 Eerie Interlude
+1 Eureka
+1 Everybody Lives!
+1 Feral Krushok
+1 Feral Maaka
+1 Ferocious Zheng
+1 Flowstone Charger
+1 Flowstone Shambler
+8 Forest
+1 Frog-Squirrels
+1 Garruk's Gorehorn
+1 Gemstone Mine
+1 Gorilla Pack
+1 Grizzled Leotau
+1 Guma
+1 Heap Gate
+1 Henge of Ramos
+1 Hollowhenge Beast
+1 Huatli's Snubhorn
+1 Ironclad Krovod
+1 Jasmine Dragon Tea Shop
+1 Leaping Master
+1 Lynx
+1 Marauding Maulhorn
+1 Mizzix's Mastery
+5 Mountain
+1 Mountain Goat
+1 Mugato
+1 Nest Robber
+1 Noble Panther
+1 Pillar of the Paruns
+14 Plains
+1 Pouncing Cheetah
+1 Raging Cougar
+1 Rakeclaw Gargantuan
+1 Rapid Fire
+1 Raptor Companion
+1 Regathan Firecat
+1 Reverse Damage
+1 Ridgetop Raptor
+1 Rime Dryad
+1 Rith's Grove
+1 Rock Badger
+1 Sabretooth Tiger
+1 Scragnoth
+1 Sedge Scorpion
+1 Song-Mad Treachery
+1 Spore Frog
+1 Surveillance Room
+1 Tarnished Citadel
+1 Teferi's Protection
+1 Towering Indrik
+1 Trained Jackal
+1 Underdome
+1 Vernadi Shieldmate
+1 Wild Colos
+1 Woolly Thoctar
+1 Zodiac Goat

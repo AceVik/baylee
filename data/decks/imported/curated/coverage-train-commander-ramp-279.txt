@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp R #20266280]
+1 Adventuring Gear
+1 Amaranthine Wall
+1 Balduvian Hydra
+1 Battle Rampart
+1 Bladed Bracers
+1 Blighted Gorge
+1 Blistering Barrier
+1 Brass-Talon Chimera
+1 Coretapper
+1 Crazed Goblin
+1 Crenellated Wall
+1 Crown of the Ages
+1 Elven Lyre
+1 Endoskeleton
+1 Firestorm Phoenix
+1 Gold-Forged Sentinel
+1 Great Furnace
+1 Greataxe
+1 Hammerheim
+1 Hanweir Battlements
+1 Hellion Crucible
+1 Honed Khopesh
+1 Illusionary Mask
+1 Iron-Heart Chimera
+1 Keldon Necropolis
+1 Kry Shield
+1 Lead-Belly Chimera
+1 Living Armor
+1 Living Wall
+1 Mardu Runemark
+1 Mishra's Helix
+1 Mobile Fort
+35 Mountain
+1 Necropolis
+1 Neurok Hoversail
+1 Obelisk of Undoing
+1 Pacification Array
+1 Prowler's Helm
+1 Ramunap Ruins
+1 Raven Wings
+1 Reinforced Bulwark
+1 Resistance Skywarden
+1 Roterothopter
+1 Rustspore Ram
+1 Short Sword
+1 Shriekhorn
+1 Stuffed Bear
+1 Sword of the Chosen
+1 Talons of Falkenrath
+1 Thran Lens
+1 Tin Street Market
+1 Tin-Wing Chimera
+1 Tuktuk Rubblefort
+1 Ultron, Machine Overlord
+1 Urza's Engine
+1 Walking Wall
+1 Wall of Dust
+1 Wall of Earth
+1 Wall of Granite
+1 Wall of Opposition
+1 Wall of Razors
+1 Wall of Shields
+1 Wall of Spears
+1 Wall of Stone
+1 Wall of Torches
+
+[commander]
+Quicksilver, Pietro Maximoff

@@ -31,7 +31,9 @@ use baylee_train::features4::{
     CoverageMatrix4, SourceKind4, StepProvenance4, side_utility, view_only_state_hash,
 };
 use baylee_train::housedeck::HouseDeck;
-use baylee_train::netplay4::NetPlayer4;
+use baylee_train::netplay4::{
+    ModelIdentity, NetPlayer4, PolicyMode4, inspect_model_identity, valid_raw_temperature,
+};
 use baylee_train::selfplay::table_for;
 use baylee_train::working::{Working, repo_root};
 use clap::Parser;
@@ -40,6 +42,8 @@ use flate2::write::GzEncoder;
 use serde_json::{Value, json};
 
 include!("options.rs");
+mod shadow;
+
 include!("runtime.rs");
 include!("game.rs");
 include!("decks.rs");
@@ -54,6 +58,31 @@ include!("decks.rs");
 )]
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    if args.shadow_teacher.is_some()
+        && (!args.raw_policy || args.record_out.is_none() || args.legacy_v3)
+    {
+        bail!("--shadow-teacher requires --raw-policy and --record-out");
+    }
+    if args.raw_policy && (args.legacy_v3 || !valid_raw_temperature(args.temperature)) {
+        bail!("--raw-policy requires v4 and temperature 0 or >0.35");
+    }
+    let policy_mode = if args.raw_policy {
+        PolicyMode4::Raw
+    } else {
+        PolicyMode4::Tactical
+    };
+    let model_identity = if args.legacy_v3 {
+        None
+    } else {
+        Some(inspect_model_identity(&args.model)?)
+    };
+    if args.shadow_teacher.is_some()
+        && model_identity
+            .as_ref()
+            .is_none_or(|identity| identity.encoder_version != 7)
+    {
+        bail!("--shadow-teacher requires encoder 7");
+    }
     if args.legacy_v3
         && (args.record_out.is_some() || args.temperature != 0.0 || args.thinking_steps != 1)
     {
@@ -86,9 +115,9 @@ fn main() -> anyhow::Result<()> {
     let empty_held = BTreeSet::new();
     let pool = if args.held_out_cards {
         // Include all working cards (including the held-out 5%) and seed from the held-out region
-        deckgen::Pool::new(&working, &empty_held)
+        deckgen::pool_for_working(&working, &empty_held)
     } else {
-        deckgen::Pool::new(&working, &held)
+        deckgen::pool_for_working(&working, &held)
     };
 
     let mut decks: Vec<HouseDeck> = Vec::new();
@@ -101,6 +130,7 @@ fn main() -> anyhow::Result<()> {
             args.held_out_cards,
         )?);
     }
+    let manifest_accepted_deck_count = decks.len();
     let mut attempt = 0_u64;
     let seed_base = if args.held_out_cards {
         99_999_u64
@@ -139,7 +169,14 @@ fn main() -> anyhow::Result<()> {
         );
     }
 
+    let accepted_deck_keys: Vec<_> = decks.iter().map(|deck| deck.key.clone()).collect();
+    let accepted_deck_count = decks.len();
+    let generated_deck_count = accepted_deck_count - manifest_accepted_deck_count;
     if let Some(rec_dir) = &args.record_out {
+        anyhow::ensure!(
+            !rec_dir.exists() || fs::read_dir(rec_dir)?.next().is_none(),
+            "--record-out must be new or empty; existing records cannot acquire new provenance"
+        );
         fs::create_dir_all(rec_dir.join("records"))?;
         let deck_json: Vec<_> = decks
             .iter()
@@ -154,16 +191,59 @@ fn main() -> anyhow::Result<()> {
                 json!({"key": d.key, "cards": cards})
             })
             .collect();
-        fs::write(
-            rec_dir.join("run.json"),
-            serde_json::to_vec_pretty(&json!({
-                "run": "eval4-rollout",
-                "record_version": baylee_gamehost::record::RECORD_VERSION,
-                "training_data": true,
-                "decks": deck_json,
-                "seats": args.seats,
-            }))?,
-        )?;
+        let mut run = json!({
+            "run": "eval4-rollout",
+            "policy_mode": policy_mode,
+            "policy_contract": policy_mode.contract(),
+            "model_family": model_identity.as_ref().map(|identity|identity.model_family),
+            "model_identity": model_identity,
+            "evaluator_build": baylee_build::short(),
+            "evaluator_revision": baylee_build::COMMIT,
+            "evaluator_dirty": baylee_build::DIRTY,
+            "record_version": baylee_gamehost::record::RECORD_VERSION,
+            "training_data": true,
+            "decks": deck_json,
+            "seats": args.seats,
+            "accepted_deck_keys": accepted_deck_keys,
+            "accepted_deck_count": accepted_deck_count,
+            "generated_deck_count": generated_deck_count,
+        });
+        run.as_object_mut().context("run metadata object")?.extend(
+            collector_policy_metadata(
+                policy_mode,
+                args.temperature,
+                args.thinking_steps,
+                model_identity
+                    .as_ref()
+                    .map_or("v4", |identity| identity.model_family),
+            )
+            .as_object()
+            .context("policy metadata object")?
+            .clone(),
+        );
+        if let Some(profile) = &args.shadow_teacher {
+            let metadata_path = if args.model.is_dir() {
+                args.model.join("model.onnx.json")
+            } else {
+                args.model.with_extension("onnx.json")
+            };
+            let metadata = fs::read(metadata_path)?;
+            anyhow::ensure!(
+                Some(shadow::sha(&metadata))
+                    == model_identity.as_ref().map(|i| i.metadata_sha256.clone()),
+                "Shadow model metadata changed"
+            );
+            let metadata: Value = serde_json::from_slice(&metadata)?;
+            anyhow::ensure!(
+                metadata["structure_sha256"]
+                    .as_str()
+                    .is_some_and(|v| v.len() == 64),
+                "Shadow requires catalog identity"
+            );
+            run["shadow_teacher"] = shadow::metadata(profile);
+            run["shadow_structure_sha256"] = metadata["structure_sha256"].clone();
+        }
+        fs::write(rec_dir.join("run.json"), serde_json::to_vec_pretty(&run)?)?;
     }
 
     let threads = match args.threads {
@@ -199,6 +279,7 @@ fn main() -> anyhow::Result<()> {
         let games_lines = games_lines.clone();
         let model_path = args.model.clone();
         let rec_out = args.record_out.clone();
+        let shadow_profile = args.shadow_teacher.clone();
         let deals = end_deal;
         let seats = args.seats;
         let first_seed = args.first_seed;
@@ -208,9 +289,17 @@ fn main() -> anyhow::Result<()> {
         let fair = args.fair_scouting;
         let no_base = args.no_baseline;
         let legacy = args.legacy_v3;
+        let expected_identity = model_identity.clone();
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
-            let mut net = load_player(&model_path, legacy, k_steps, temp)?;
+            let mut net = load_player(
+                &model_path,
+                legacy,
+                k_steps,
+                temp,
+                policy_mode,
+                expected_identity.as_ref(),
+            )?;
 
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
             let mut shard_file = match &rec_out {
@@ -254,6 +343,16 @@ fn main() -> anyhow::Result<()> {
                             "policy_seed": policy_seed, "model": model_path}))?,
                     )?;
                 }
+                let mut shadow = match (&rec_out, &shadow_profile) {
+                    (Some(dir), Some(profile)) => Some(shadow::ShadowGame::new(
+                        dir,
+                        &rec_game_id,
+                        d,
+                        profile,
+                        policy_seed ^ d.rotate_left(29),
+                    )?),
+                    _ => None,
+                };
                 let (
                     net_u,
                     net_capped,
@@ -279,6 +378,7 @@ fn main() -> anyhow::Result<()> {
                     fair,
                     max_decisions,
                     shard_file.is_some(),
+                    shadow.as_mut(),
                 )?;
 
                 if let Some((f, offset)) = &mut shard_file {
@@ -306,6 +406,10 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
 
+                if let Some(shadow) = shadow {
+                    shadow.finish(&rec_bytes, net_capped)?;
+                }
+
                 let (base_u, base_capped) = if no_base {
                     (0.0, false)
                 } else {
@@ -323,6 +427,7 @@ fn main() -> anyhow::Result<()> {
                         fair,
                         max_decisions,
                         false,
+                        None,
                     )?;
                     (bu, bc)
                 };
@@ -464,9 +569,39 @@ fn main() -> anyhow::Result<()> {
         },
         "elapsed_secs": started.elapsed().as_secs_f64(),
     });
+    summary["policy_mode"] = if args.legacy_v3 {
+        json!("legacy_v3")
+    } else {
+        json!(policy_mode)
+    };
+    summary["policy_contract"] = if args.legacy_v3 {
+        Value::Null
+    } else {
+        json!(policy_mode.contract())
+    };
+    summary["policy_provenance_version"] = if args.legacy_v3 {
+        Value::Null
+    } else {
+        json!(2)
+    };
+    summary["house_counts_include_tactical_demonstrations"] =
+        json!(!args.legacy_v3 && policy_mode == PolicyMode4::Tactical);
+    summary["sampling_version"] = json!(2);
     summary["deal_details"] = json!(st.deal_details);
+    summary["accepted_deck_keys"] = json!(accepted_deck_keys);
+    summary["accepted_deck_count"] = json!(accepted_deck_count);
+    summary["generated_deck_count"] = json!(generated_deck_count);
+    summary["shadow_teacher"] = json!(args.shadow_teacher.as_deref().map(shadow::metadata));
     summary["coverage_matrix"] = json!(st.coverage.counts);
-    summary["model_family"] = json!(if args.legacy_v3 { "v3-expert" } else { "v4" });
+    summary["model_family"] = json!(
+        model_identity
+            .as_ref()
+            .map_or("v3-expert", |identity| identity.model_family)
+    );
+    summary["model_identity"] = json!(model_identity);
+    summary["evaluator_build"] = json!(baylee_build::short());
+    summary["evaluator_revision"] = json!(baylee_build::COMMIT);
+    summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
 
     if let Some(parent) = args.out.parent() {
@@ -493,3 +628,5 @@ fn main() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+include!("provenance.rs");

@@ -1,82 +1,80 @@
 # baylee curated commander control seed=20261103
 # licence: AGPL-3.0-only
 [deck:commander control UB #20261103]
-1 Adventurer's Inn
-1 Agatha's Soul Cauldron
-1 Animate Artifact
-1 Artificer's Intuition
-1 Asphodel Wanderer
-1 Aven Reedstalker
-1 Barrin, Master Wizard
-1 Bronze Sword
-1 Butcher's Cleaver
+1 Aether Hub
+1 Ally Encampment
+1 Ambition's Cost
+1 Ancestral Vision
+1 Ancient Craving
+1 Audacious Thief
+1 Bad Deal
+1 Blightspeaker
+1 Boomerang, Blade Flinger
 1 Capital City
-1 Cave of Temptation
-1 Celestial Sword
-1 Conservator
-1 Creeping Tar Pit
-1 Darksteel Plate
-1 Dead Weight
-1 Dispersing Orb
-1 Festering Evil
-1 Font of Fortunes
-1 Forsaken Crossroads
-1 Gargoyle Castle
-1 Glasspool Mimic
-1 Graf Harvest
-1 Gravitational Shift
-1 Gristle Grinner
-1 Harbinger of the Seas
-1 Henge of Ramos
-1 Hive of the Eye Tyrant
-17 Island
-1 Isolated Watchtower
-1 Ivory Cup
-1 Kalastria Highborn
-1 Kitesail Corsair
-1 Lay Claim
-1 Learn from the Past
-1 Lesser Werewolf
-1 Life Matrix
-1 Lodestone Myr
-1 Mahamoti Djinn
-1 Mana Prism
-1 Mark of the Oni
-1 Metalspinner's Puzzleknot
-1 Mindless Automaton
-1 Mishra's Groundbreaker
-1 Mudflat Village
-1 Mystic Sanctuary
-1 Nath's Buffoon
-1 Necromaster Dragon
-1 Obyra, Dreaming Duelist
-1 Oraxid
-1 Otawara, Soaring City
-1 Paradise Mantle
-1 Persuasion
-1 Pestilence
-1 Power Matrix
-1 Prying Eyes
-1 Psychic Venom
-1 Rhystic Deluge
-1 Rise Again
+1 Clearwater Pathway
+1 Conduit Pylons
+1 Consuming Corruption
+1 Corrupted Roots
+1 Crucible of the Spirit Dragon
+1 Crushing Disappointment
+1 Delusions of Mediocrity
+1 Dogged Pursuit
+1 Dusk Legion Zealot
+1 Efficient Construction
+1 Eternity Snare
+1 Foul Imp
+1 Hall of Oracles
+1 Harrowing Journey
+1 Haunt the Network
+1 Hidden Grotto
+1 Hidden Lair
+1 Highway Robber
+1 Holdout Settlement
+1 Illusions of Grandeur
+1 Infernal Contract
+1 Insight
+1 Invoke Prejudice
+12 Island
+1 Jhessian Thief
+1 Last Caress
+1 Mai, Scornful Striker
+1 Malakir Rebirth
+1 Malakir Soothsayer
+1 Micromancer
+1 Northern Air Temple
+1 Novice Occultist
+1 Numbing Dose
+1 Painful Lesson
+1 Painful Quandary
+1 Pharika's Cure
+1 Profane Tutor
+1 Pulse Tracker
+1 Putrefaction
+1 Read the Bones
+1 Reverent Howl
+1 Riddleform
 1 Risky Shortcut
-1 Rivendell
-1 River's Favor
-1 Rupture Spire
-1 Serum Raker
-1 Silumgar Monument
-1 Skeletal Vampire
-1 Skycoach Waypoint
-1 Soul Read
-1 Soulstone Sanctuary
-1 Starlit Mantle
-1 Steal Enchantment
-1 Stealth Mission
-1 Stormrider Spirit
-9 Swamp
-1 Vivid Marsh
-1 Wall of Tombstones
+1 River Delta
+1 Secluded Courtyard
+1 Shredder's Revenge
+1 Simulacrum
+1 Sire of the Storm
+1 Soul Barrier
+1 Sovereign's Bite
+1 Succumb to Temptation
+15 Swamp
+1 Tainted Isle
+1 Tarnished Citadel
+1 Thoughtseize
+1 Unifying Theory
+1 Vampire Sovereign
+1 Vampiric Feast
+1 Veil of Birds
+1 Veiled Sentry
+1 Veiled Serpent
+1 Waterveil Cavern
+1 Watery Grave
+1 Yawgmoth's Edict
 
 [commander]
-Obyra, Dreaming Duelist
+Sivitri Scarzam

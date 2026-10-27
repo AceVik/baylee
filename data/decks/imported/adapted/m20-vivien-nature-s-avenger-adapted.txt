@@ -4,13 +4,13 @@
 1 Aggressive Mammoth
 3 Barkhide Troll
 2 Bridgeworks Battle
-3 Cultivate
 25 Forest
 4 Greenwood Sentinel
 3 Khalni Ambush
 1 Might of the Masses
 3 Silverback Shaman
 1 Spoils of Victory
+3 Stampede
 4 They Went This Way
 1 Thornado
 3 Titanic Growth

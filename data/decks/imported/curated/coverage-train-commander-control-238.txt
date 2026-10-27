@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control UR #20266239]
+1 Abjure
+1 Aether Storm
+1 Artifact Blast
+1 Attunement
+1 Brotherhood Headquarters
+1 Bucolic Ranch
+1 Cascade Bluffs
+1 Ceremonious Rejection
+1 City of Brass
+1 Clash of Wills
+1 Convolute
+1 Corrupted Crossroads
+1 Countersculpt
+1 Curse of Marit Lage
+1 Deep Spawn
+1 Dictate of Kruphix
+1 Disdainful Stroke
+1 Douse
+1 Enhanced Awareness
+1 Envelop
+1 Evasive Action
+1 Extinguish
+1 False Summoning
+1 Fierce Guardianship
+1 Fiery Islet
+1 Flash Counter
+1 Force of Negation
+1 Frazzle
+1 Great Hall of the Citadel
+1 Hall of Oracles
+1 Homarid Explorer
+20 Island
+1 It'll Quench Ya!
+1 Jade Idol
+1 Leering Emblem
+1 Lotus Vale
+1 Mage's Guile
+1 Minor Misstep
+1 Mirrex
+1 Miscast
+1 Mm'menon, Uthros Exile
+7 Mountain
+1 Noggle Bridgebreaker
+1 Nullify
+1 Nykthos, Shrine to Nyx
+1 Nyxborn Brute
+1 Nyxborn Seaguard
+1 Ogre Arsonist
+1 Ophidian Eye
+1 Painted Bluffs
+1 Pendrell Mists
+1 Preemptive Strike
+1 Quench
+1 Refocus
+1 Remove Soul
+1 Revolutionary Rebuff
+1 Riverfall Mimic
+1 Shimmering Grotto
+1 Silundi Vision
+1 Sliver Hive
+1 Spectral Interference
+1 Spell Pierce
+1 Spell Snare
+1 Steel Sabotage
+1 Study Hall
+1 Suit Up
+1 Surrakar Banisher
+1 Symbol of Unsummoning
+1 Unknown Shores
+1 Unstable Shapeshifter
+1 Updraft
+1 Valakut Predator
+1 Viashino Bladescout
+1 Waxen Shapethief
+
+[commander]
+Bria, Riptide Rogue

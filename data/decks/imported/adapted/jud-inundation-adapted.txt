@@ -12,12 +12,12 @@
 1 Healing Hands
 2 Ironwright's Cleansing
 3 Make Your Move
-1 Master's Call
 3 Militant Monk
 3 Patrol Hound
 20 Plains
-1 Radiant's Judgment
+1 Repentance
 4 Suntail Hawk
 2 Survive the Night
 1 Tireless Tribe
 2 Unquestioned Authority
+1 Warrior's Honor

@@ -22,13 +22,14 @@ use baylee_train::carddsl::{
 };
 use baylee_train::convert4::{RolloutStepSidecar4, Step4, stream_game4};
 use baylee_train::features4::{
-    CAND_FEAT_WIDTH, CoverageMatrix4, ENCODER_VERSION, ENTITY_FEAT_WIDTH, GLOBAL_FEAT_WIDTH,
-    MAX_CANDIDATES, MAX_EDGES, MAX_ENTITIES, MAX_PAIRS, MAX_SEATS, SEAT_FEAT_WIDTH,
+    CoverageMatrix4, MAX_CANDIDATES, MAX_EDGES, MAX_ENTITIES, MAX_PAIRS, MAX_SEATS,
+};
+use baylee_train::features7::{
+    CAND_FEAT_WIDTH7, ENCODER_VERSION7, ENTITY_FEAT_WIDTH7, GLOBAL_FEAT_WIDTH7, SEAT_FEAT_WIDTH7,
 };
 use clap::Parser;
 use flate2::Compression;
 use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
 use serde_json::{Value, json};
 
 #[derive(Parser, Debug)]
@@ -63,6 +64,9 @@ struct Args {
     /// Include passive observation frames when another seat acts.
     #[arg(long)]
     include_passive_obs: bool,
+    /// Build a separate BC-only dataset from verified shadow/*.jsonl advice.
+    #[arg(long)]
+    shadow_bc: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -73,6 +77,7 @@ struct GameRef {
     len: u64,
     sidecar: Option<Vec<RolloutStepSidecar4>>,
     validation: bool,
+    shadow: Option<shadow::Source>,
 }
 
 fn read_member(path: &Path, offset: u64, len: u64) -> anyhow::Result<Vec<u8>> {
@@ -99,6 +104,8 @@ fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<(
 }
 
 mod output;
+mod policy_provenance;
+mod shadow;
 use output::{GameWriter, publish_ready};
 
 #[allow(
@@ -107,12 +114,17 @@ use output::{GameWriter, publish_ready};
 )]
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    if args.shadow_bc && !args.include_passive_obs {
+        bail!("--shadow-bc requires --include-passive-obs for complete recurrent history");
+    }
     if args.out.exists() {
         bail!("{} already exists", args.out.display());
     }
     fs::create_dir_all(&args.out)?;
 
     let mut games: Vec<GameRef> = Vec::new();
+    let mut policy_sources = Vec::new();
+    let mut shadow_seen = BTreeSet::new();
     let mut vocab_set: BTreeSet<u32> = baylee_cards::all().map(|card| card.index.get()).collect();
     vocab_set.insert(UNKNOWN_CARD);
 
@@ -121,6 +133,7 @@ fn main() -> anyhow::Result<()> {
             &fs::read(run_dir.join("run.json"))
                 .with_context(|| format!("reading {}/run.json", run_dir.display()))?,
         )?;
+        policy_sources.push(run_json.clone());
         if let Some(decks) = run_json["decks"].as_array() {
             for d in decks {
                 if let Some(cards) = d["cards"].as_array() {
@@ -155,9 +168,30 @@ fn main() -> anyhow::Result<()> {
             let game_id = (games.len() + 1) as u32;
             games.push(GameRef {
                 game_id,
-                shard_path: run_dir.join("records").join(shard_name),
+                shard_path: if args.shadow_bc {
+                    run_dir.join("records").join(shard_name).canonicalize()?
+                } else {
+                    run_dir.join("records").join(shard_name)
+                },
                 offset,
                 len,
+                shadow: if args.shadow_bc {
+                    anyhow::ensure!(
+                        sidecar.is_some(),
+                        "Shadow BC requires original behavior sidecar"
+                    );
+                    let source = shadow::Source::load(
+                        run_dir,
+                        v["game"].as_str().context("Shadow game key")?,
+                    )?;
+                    anyhow::ensure!(
+                        shadow_seen.insert(source.namespace_key()),
+                        "Duplicate shadow source game"
+                    );
+                    Some(source)
+                } else {
+                    None
+                },
                 sidecar,
                 validation: if args.val_runs.is_empty() {
                     args.val_every > 0 && seed.is_multiple_of(args.val_every)
@@ -223,7 +257,8 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     let mut meta = json!({
-        "encoder_version": ENCODER_VERSION,
+        "encoder_version": ENCODER_VERSION7,
+        "policy_provenance_version": if policy_provenance::certified_dataset(&policy_sources) { json!(2) } else { Value::Null },
         "package_target_steps": args.shard_steps,
         "streaming_frames_per_worker": MAX_SEATS,
         "trajectory_version": if args.include_passive_obs { 2 } else { 1 },
@@ -234,10 +269,10 @@ fn main() -> anyhow::Result<()> {
         "card_dsl_width": CARD_DSL_WIDTH,
         "ability_dsl_width": ABILITY_DSL_WIDTH,
         "max_abilities": MAX_ABILITIES,
-        "entity_feat_width": ENTITY_FEAT_WIDTH,
-        "seat_feat_width": SEAT_FEAT_WIDTH,
-        "global_feat_width": GLOBAL_FEAT_WIDTH,
-        "cand_feat_width": CAND_FEAT_WIDTH,
+        "entity_feat_width": ENTITY_FEAT_WIDTH7,
+        "seat_feat_width": SEAT_FEAT_WIDTH7,
+        "global_feat_width": GLOBAL_FEAT_WIDTH7,
+        "cand_feat_width": CAND_FEAT_WIDTH7,
         "max_seats": MAX_SEATS,
         "max_entities": MAX_ENTITIES,
         "max_edges": MAX_EDGES,
@@ -258,6 +293,24 @@ fn main() -> anyhow::Result<()> {
         "coverage_matrix": CoverageMatrix4::default().counts,
         "elapsed_secs": 0.0,
     });
+    if args.shadow_bc {
+        meta["shadow_bc_version"] = json!(1);
+        meta["shadow_bc_contract"] = json!("verified_view_only_teacher_v1");
+        meta["shadow_bc_status"] = json!("in_progress");
+        meta["ppo_eligible"] = json!(false);
+        meta["policy_provenance_version"] = Value::Null;
+        meta["shadow_bc_sources"] = json!(
+            games_arc
+                .iter()
+                .filter_map(|game| game.shadow.as_ref().map(|source| source.metadata(
+                    game.game_id,
+                    &game.shard_path,
+                    game.offset,
+                    game.len
+                )))
+                .collect::<Vec<_>>()
+        );
+    }
     fs::write(
         args.out.join("dataset_header.json"),
         serde_json::to_vec_pretty(&meta)?,
@@ -291,13 +344,20 @@ fn main() -> anyhow::Result<()> {
                 journal_worker(&journal, gref, "replaying")?;
                 let bytes = read_member(&gref.shard_path, gref.offset, gref.len)?;
                 let mut writer = GameWriter::new(&root, gref.validation, gref.game_id, rule_roots.clone())?;
-                let extracted = match stream_game4(
-                    &bytes,
-                    gref.game_id,
-                    include_passive,
-                    gref.sidecar.as_deref(),
-                    |step| writer.push(&step).map_err(|e| e.to_string()),
-                ) {
+                let mut frame_labels = gref.shadow.as_ref()
+                    .map(|source| shadow::FrameLabels::new(&root,gref.game_id,source)).transpose()?;
+                let emit = |step: Step4| {
+                    if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
+                    writer.push(&step).map_err(|e|e.to_string())
+                };
+                let result = if let Some(source) = &gref.shadow {
+                    source.verify(&bytes,&structure_sha256).and_then(|mut labels|
+                        baylee_train::convert4::stream_game4_shadow_bc(&bytes,gref.game_id,
+                            gref.sidecar.as_deref().expect("checked behavior sidecar"),&mut labels,emit))
+                } else {
+                    stream_game4(&bytes,gref.game_id,include_passive,gref.sidecar.as_deref(),emit)
+                };
+                let extracted = match result {
                     Ok(ex) => ex,
                     Err(e) => {
                         eprintln!("[convert4] quarantining game {}: {e}", gref.game_id);
@@ -326,6 +386,7 @@ fn main() -> anyhow::Result<()> {
                     journal_worker(&journal, gref, "rejected")?;
                     continue;
                 }
+                if let Some(labels) = frame_labels { labels.finish()?; }
                 let name = writer.finish()?;
                 publish_ready(&root, gref, &name, extracted.steps, &structure_sha256)?;
                 let rows = if gref.validation { &val_rows } else { &train_rows };
@@ -361,6 +422,22 @@ fn main() -> anyhow::Result<()> {
         serde_json::to_vec_pretty(&*rejected)?,
     )?;
 
+    if args.shadow_bc {
+        anyhow::ensure!(
+            rejected.is_empty(),
+            "Shadow BC conversion rejected games; no completed meta.json published"
+        );
+        meta["shadow_bc_status"] = json!("complete");
+        let mut hashes = serde_json::Map::new();
+        for game in games_arc.iter() {
+            let name = format!("shadow-bc/game-{:06}.jsonl", game.game_id);
+            hashes.insert(
+                name.clone(),
+                json!(shadow::sha(&fs::read(args.out.join(name))?)),
+            );
+        }
+        meta["shadow_bc_label_sha256"] = Value::Object(hashes);
+    }
     meta["train_steps"] = json!(train_steps);
     meta["val_steps"] = json!(val_steps);
     meta["train_shards"] = json!(train_shards);

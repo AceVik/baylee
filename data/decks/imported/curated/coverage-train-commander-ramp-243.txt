@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WG #20266244]
+1 Abbey Matron
+1 Abstergo Entertainment
+1 Abzan Kin-Guard
+1 An-Havva Constable
+1 Archaeological Dig
+1 Auriok Bladewarden
+1 Aysen Crusader
+1 Benalish Veteran
+1 Brown Ouphe
+1 Brushland
+1 Bucolic Ranch
+1 Burrenton Shield-Bearers
+1 Capashen Knight
+1 Capashen Templar
+1 Cave of Temptation
+1 Charging Paladin
+1 Cloudreach Cavalry
+1 Daily Bugle Building
+1 Deepwood Drummer
+1 Elder of Laurels
+1 Femeref Knight
+1 Folk of An-Havva
+8 Forest
+1 Gathering Place
+1 Griffin Rider
+1 Grove of the Guardian
+1 Guan Yu's 1,000-Li March
+1 Hardened Escort
+1 Haven of the Spirit Dragon
+1 Heir of the Wilds
+1 Honor Guard
+1 Icatian Lieutenant
+1 Icatian Priest
+1 Imperial Lancer
+1 Kinsbaile Cavalier
+1 Kjeldoran Elite Guard
+1 Kjeldoran Knight
+1 Kjeldoran Outrider
+1 Knight of the Skyward Eye
+1 Knotvine Paladin
+1 Lionheart Maverick
+1 Makindi Stampede
+1 Mana Tithe
+1 Mirrex
+1 Ondu Inversion
+1 Oran-Rief Invoker
+1 Order of Leitbur
+1 Order of the Sacred Torch
+1 Painted Bluffs
+1 People of the Woods
+18 Plains
+1 Planar Cleansing
+1 Plover Knights
+1 Preacher
+1 Pterodon Knight
+1 Rashka the Slayer
+1 Rune-Cervin Rider
+1 Rust
+1 Saltcrusted Steppe
+1 Scalebane's Elite
+1 Scarwood Bandits
+1 Serra Inquisitors
+1 Shield Mate
+1 Soltari Lancer
+1 Songstitcher
+1 Soulscour
+1 Spirit Weaver
+1 Steadfast Cathar
+1 Temple Garden
+1 Thran Quarry
+1 Throne of Makindi
+1 Tireless Tribe
+1 Topan Ascetic
+1 Voldaren Estate
+1 White Shield Crusader
+
+[commander]
+Jasmine Boreal

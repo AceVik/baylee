@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUG #20266111]
+1 Absolute Grace
+1 Arctic Flats
+1 Armed Response
+1 Bee Sting
+1 Birnin Zana Plaza
+1 Botanical Plaza
+1 Bountiful Promenade
+1 Celestial Colonnade
+1 Circle of Protection: Shadow
+1 Collective Blessing
+1 Coordinated Maneuver
+1 Copy Artifact
+1 Deep Water
+1 Dream Tides
+1 Dreamroot Cascade
+1 Earthlore
+1 Elemental Bond
+1 Elven Fortress
+1 Elvenking's Halls
+1 Embargo
+1 Enchanted Evening
+1 Epic Proportions
+1 Fire and Brimstone
+1 Flooded Shoreline
+13 Forest
+1 Gates of Istfell
+1 Gerrard's Battle Cry
+1 Glare of Subdual
+1 Greater Realm of Preservation
+1 Haze of Pollen
+1 Hidden Predators
+1 High Ground
+1 Intrepid Hero
+13 Island
+1 Jungle Barrier
+1 Kavu Lair
+1 Mawcor
+1 Nature's Revolt
+1 Nature's Wrath
+1 Numbing Dose
+1 Nyxborn Colossus
+1 Paradox Gardens
+1 Plains
+1 Port Town
+1 Prairie Stream
+1 Primal Order
+1 Psionic Entity
+1 Questing Beast
+1 Razorgrass Ambush
+1 Reveka, Wizard Savant
+1 Revelation
+1 Rimewood Falls
+1 Rousing Read
+1 Samite Archer
+1 Seachrome Coast
+1 Southern Paladin
+1 Stasis
+1 Steely Resolve
+1 Storm Seeker
+1 Sunpetal Grove
+1 Tanglepool Bridge
+1 Thelon's Chant
+1 Time Elemental
+1 Unlikely Alliance
+1 Unquestioned Authority
+1 Unyaro Bee Sting
+1 Unyaro Bees
+1 Utopia Tree
+1 Vapor Snag
+1 Volcanic Eruption
+1 Windurst, Federation Center
+1 Wrath of Marit Lage
+1 Xenobotanist
+1 Yavimaya's Embrace
+1 Zuran Spellcaster
+
+[commander]
+Angus Mackenzie

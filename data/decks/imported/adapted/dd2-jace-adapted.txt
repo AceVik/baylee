@@ -10,19 +10,20 @@
 2 Clear the Mind
 2 Condescend
 2 Counterspell
+1 Dissipate
 1 Fact or Fiction
 1 Frantic Search
 1 Galestrike
 1 I Am Iron Man
 23 Island
 2 Man-o'-War
-4 Meditate
+3 Meditate
 1 Mind Stone
 2 Mulldrifter
 1 Mystic Denial
+1 Ophidian
 2 Psionic Blast
 2 Repulse
 1 Silent Observer
-1 Sinister Sabotage
 1 Stealth Mission
 1 Terrain Generator

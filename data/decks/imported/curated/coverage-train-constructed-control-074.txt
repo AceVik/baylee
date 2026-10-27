@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed control
+# licence: AGPL-3.0-only
+[deck:constructed control WUB #20266075]
+2 Acidic Dagger
+2 Angel of Despair
+2 Azorius Signet
+2 Dark Hatchling
+2 Dimir Cluestone
+2 Dimir Locket
+2 Dutiful Servants
+2 Easy Prey
+2 Eerie Procession
+3 Forlorn Flats
+2 Golgothian Sylex
+2 Horror of the Dim
+2 Humongulus
+9 Island
+2 Mask of Riddles
+2 Moor Fiend
+2 Nether Horror
+1 Plains
+2 Shattered Sanctum
+6 Swamp
+2 Tower of Champions
+3 Turbulent Moor
+2 Umbral Expanse
+2 Whimwader

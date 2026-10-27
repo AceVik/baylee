@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20266042]
+1 Acid Rain
+1 Anti-Magic Aura
+1 Arcane Laboratory
+1 Arena
+1 Aven Smokeweaver
+1 Branch of Vitu-Ghazi
+1 Bribery
+1 Cerulean Wyvern
+1 Cloud Manta
+1 Cloudsculpt Technician
+1 Coastal Drake
+1 Defensive Stance
+1 Douse
+1 Dream Coat
+1 Erosion
+1 Ethereal Whiskergill
+1 False Summoning
+1 Field of Dreams
+1 Flashfreeze
+1 Floodbringer
+1 Flying Dolphin-Fish
+1 Frostwalk Bastion
+1 Fylamarid
+1 Gitaxian Raptor
+1 Glimmerbell
+1 Hisoka's Defiance
+1 Horizon Drake
+1 Indigo Faerie
+34 Island
+1 It'll Quench Ya!
+1 Living Tempest
+1 Living Tsunami
+1 Mana Chains
+1 Metathran Transport
+1 Metropolis Sprite
+1 Mistwalker
+1 Niblis of the Breath
+1 Nyxborn Seaguard
+1 Oboro Breezecaller
+1 Oboro Envoy
+1 Pendrell Mists
+1 Plaza of Harmony
+1 Polluted Delta
+1 Riptide Chimera
+1 Sea Eagle
+1 Sea Sprite
+1 Sea's Claim
+1 Silver Erne
+1 Skyshroud Condor
+1 Sleep Magic
+1 Steal Enchantment
+1 Storm Crow
+1 Stratozeppelid
+1 Tidal Flats
+1 Tolarian Drake
+1 Trained Condor
+1 Treetop Sentinel
+1 Troublesome Spirit
+1 Vexing Gull
+1 Vibrant Cityscape
+1 Wanderlight Spirit
+1 Wind Dancer
+1 Wind Spirit
+1 Wrath of Marit Lage
+1 Zephyr Gull
+1 Zephyr Sprite
+
+[commander]
+Taniwha

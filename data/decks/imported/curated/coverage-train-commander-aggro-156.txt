@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro R #20266157]
+1 Amulet of Kroog
+1 Anvilwrought Raptor
+1 Brass-Talon Chimera
+1 Chaotic Goo
+1 Copper Gnomes
+1 Coretapper
+1 Crimson Roc
+1 Crown of the Ages
+1 Custodian of the Trove
+1 Darksteel Myr
+1 Darksteel Pendant
+1 Dwarven Hold
+1 Endoskeleton
+1 Ersatz Gnomes
+1 Gold-Forged Sentinel
+1 Gorgon's Head
+1 Guardians of Meletis
+1 Hidden Volcano
+1 Hivestone
+1 Hoof Skulkin
+1 Illusionary Mask
+1 Iron Lance
+1 Iron-Heart Chimera
+1 Jawbone Skulkin
+1 Jousting Dummy
+1 Komodo Rhino
+1 Lead-Belly Chimera
+1 Library of Leng
+1 Madblind Mountain
+1 Meekstone
+1 Mek'leth Berserker
+1 Mercadian Bazaar
+1 Monster Mashup
+32 Mountain
+1 Myr Landshaper
+1 Necropolis
+1 Obsianus Golem
+1 One-Eyed Scarecrow
+1 Patchwork Gnomes
+1 Pygmy Pyrosaur
+1 Quaketusk Boar
+1 Reinforced Bulwark
+1 Resistance Skywarden
+1 Roc Hatchling
+1 Roc of Kher Ridges
+1 Roterothopter
+1 Rusted Sentinel
+1 Sanctuary Raptor
+1 Shadowspear
+1 Shield of the Ages
+1 Skyshaper
+1 Spinerock Knoll
+1 Squee's Toy
+1 Tezzeret's Strider
+1 Thaumaturge's Familiar
+1 The Lonely Mountain
+1 Thran Lens
+1 Tin-Wing Chimera
+1 Tower of Coireall
+1 U.S.S. Enterprise-D, Galaxy-Class
+1 Universal Automaton
+1 Vanquisher's Axe
+1 Viashino Outrider
+1 Viashino Runner
+1 Wall of Shields
+1 Wall of Spears
+1 Wicker Witch
+1 Winter Moon
+
+[commander]
+Quicksilver, Pietro Maximoff

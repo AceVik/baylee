@@ -19,6 +19,7 @@ use crate::record::{Mind, MindKind, Recorder, Source};
 
 mod answers;
 mod chairs;
+mod choice_context;
 mod clocks;
 mod frames;
 pub mod project;

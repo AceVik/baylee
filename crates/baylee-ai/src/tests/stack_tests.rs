@@ -446,3 +446,115 @@ fn removal_is_not_cast_at_what_this_seats_own_removal_is_taking() {
         );
     }
 }
+
+#[test]
+fn removal_is_not_cast_or_aimed_at_what_this_seats_ability_or_burn_is_taking() {
+    use baylee_cards_dsl::{Effect, Filter, TargetSpec};
+    use baylee_engine::engine::DecisionContext;
+
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let chupacabra = carded(
+        permanent(obj(20), me, 2),
+        "Ravenous Chupacabra",
+        TypeSet::CREATURE,
+    );
+    let mut trigger = permanent(obj(6), me, 0);
+    trigger.types = TypeSet::EMPTY;
+    trigger.stack_item = Some(baylee_view::StackItem::Ability {
+        token: None,
+        source: obj(20),
+        ability: chupacabra
+            .rules
+            .map(|r| baylee_core::ids::AbilityRef::new(r.card, 0)),
+        text: None,
+        rules: chupacabra.rules,
+    });
+    trigger.targets = vec![baylee_client_core::test_support::target(obj(7))];
+
+    let mut v = view(0, &[20, 20], vec![chupacabra, permanent(obj(7), them, 3)]);
+    v.phase = baylee_view::Phase::FirstMain;
+    v.seats[0].mana_pool.white = 1;
+    v.hand = vec![hand_card(1, "Swords to Plowshares")];
+    v.stack = vec![trigger];
+    baylee_client_core::test_support::project_current_targets(&mut v);
+    let pending = Pending::Priority {
+        player: me,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            can_pass: true,
+            castable: vec![obj(1)],
+            ..Default::default()
+        }),
+    };
+    for (name, profile) in EVERY_PROFILE {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &pending),
+            PlayerAction::PassPriority,
+            "{name}: Chupacabra's trigger on the stack is already destroying the 3/3"
+        );
+    }
+
+    // Lethal burn on the stack also marks the 3/3 as answered, so a second
+    // removal effect aims at the unanswered 2/2 instead of piling onto obj(7).
+    v.battlefield.push(permanent(obj(8), them, 2));
+    v.stack = vec![stack_spell(6, "Lightning Bolt", me, obj(7))];
+    baylee_client_core::test_support::project_current_targets(&mut v);
+    let effects = [Effect::Exile {
+        target: TargetSpec::Object(&Filter::CREATURE),
+    }];
+    let context = DecisionContext {
+        effects: &effects,
+        ..Default::default()
+    };
+    let choose = Pending::ChooseTargets {
+        player: me,
+        options: vec![obj(7), obj(8)],
+        player_options: vec![],
+        min: 1,
+        max: 1,
+        reason: baylee_engine::choice::TargetPrompt::Targets,
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &choose, &context),
+        PlayerAction::ChooseTargets {
+            objects: vec![obj(8)],
+            players: vec![],
+        },
+        "the unanswered 2/2 is chosen over the 3/3 already dying to Lightning Bolt"
+    );
+}
+
+#[test]
+fn harmful_targeted_spells_are_held_when_only_friendly_creatures_are_on_the_board() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    for spell_name in ["Disfigure", "Flame Slash", "Unsummon"] {
+        let mut v = view(0, &[20, 20], vec![permanent(obj(2), me, 2)]);
+        v.phase = baylee_view::Phase::FirstMain;
+        v.seats[0].mana_pool.black = 1;
+        v.seats[0].mana_pool.red = 1;
+        v.seats[0].mana_pool.blue = 1;
+        v.hand = vec![hand_card(1, spell_name)];
+        let pending = Pending::Priority {
+            player: me,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                castable: vec![obj(1)],
+                ..Default::default()
+            }),
+        };
+        for (name, profile) in EVERY_PROFILE {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::PassPriority,
+                "{name} cast {spell_name} with only its own creature on the table"
+            );
+        }
+        v.battlefield.push(permanent(obj(3), them, 2));
+        for (name, profile) in EVERY_PROFILE {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::CastSpell { card: obj(1) },
+                "{name} held {spell_name} when an opposing creature arrived"
+            );
+        }
+    }
+}

@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WG #20266250]
+1 Arbor Elf
+1 Archaeological Dig
+1 Armored Wolf-Rider
+1 Avengers Tower
+1 Capital City
+1 Catastrophe
+1 Cavern of Souls
+1 City of Brass
+1 Cleanfall
+1 Cleanse
+1 Crisis of Conscience
+1 Crucible of the Spirit Dragon
+1 Cylian Elf
+1 Dawn's Light Archer
+1 Devkarin Dissident
+1 Devoted Hero
+1 Drove of Elves
+1 Druid of the Spade
+1 Dwynen, Gilt-Leaf Daen
+1 Eclipsed Realms
+1 Elvish Berserker
+1 Elvish Healer
+1 Elvish Herder
+1 Elvish Hunter
+1 Elvish Lookout
+1 Elvish Scout
+1 Final Showdown
+1 Gladecover Scout
+1 Greenhilt Trainee
+1 Greenside Watcher
+1 Greenwood Sentinel
+1 Holdout Settlement
+1 Iridescent Blademaster
+1 Kaysa
+1 Keen-Eyed Archers
+1 Kraul Warrior
+1 Llanowar Druid
+1 Llanowar Knight
+1 Lothlórien Lookout
+1 Mirkwood Channeler
+1 Mirkwood Pathmaker
+1 Mirrex
+1 Nantuko Mentor
+1 Norwood Ranger
+1 Quirion Druid
+1 Safehold Elite
+1 Safehold Sentry
+1 Saltcrusted Steppe
+1 Sandstorm
+1 Scattershot Archer
+1 Sculptor of Winter
+1 Seeker of Skybreak
+1 Serene Heart
+1 Silhana Ledgewalker
+1 Skyshroud Archer
+1 Skyshroud Ranger
+1 Sliver Hive
+17 Snow-Covered Forest
+7 Snow-Covered Plains
+1 Steel Leaf Champion
+1 Stonewood Invoker
+1 Tajuru Snarecaster
+1 Tel-Jilad Chosen
+1 Tendo Ice Bridge
+1 Treetop Rangers
+1 Treetop Scout
+1 Treetop Warden
+1 Unknown Shores
+1 Villainous Hideout
+1 Viridian Lorebearers
+1 Warren-Scourge Elf
+1 Weatherseed Elf
+1 Wild Nacatl
+1 Wildheart Invoker
+1 Willow Elf
+1 Wilt-Leaf Cavaliers
+1 Winds of Rath
+
+[commander]
+Kudo, King Among Bears

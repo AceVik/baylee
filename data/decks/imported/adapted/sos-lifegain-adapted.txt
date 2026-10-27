@@ -3,6 +3,7 @@
 [deck:Lifegain (Adapted)]
 4 Anguished Unmaking
 2 Call to the Feast
+2 Forum of Amity
 3 Fracture
 4 Harsh Sustenance
 4 Inkling Summoning
@@ -14,5 +15,4 @@
 8 Swamp
 4 Unmake
 3 Vanishing Verse
-2 Vault of the Archangel
 4 Vindicate

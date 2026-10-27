@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WB #20266123]
+1 Abomination
+1 Asphyxiate
+1 Assassin's Strike
+1 Ballroom
+1 Bilbo's Deadly Slice
+1 Carrion Beetles
+1 Cast Down
+1 Collar the Culprit
+1 Cruel Cut
+1 Cursed Minotaur
+1 Daraja Griffin
+1 Dauthi Cutthroat
+1 Dauthi Jackal
+1 Deathmark
+1 Defenestrate
+1 Demystify
+1 Desecrated Earth
+1 Destroy Evil
+1 Dread Specter
+1 Eastern Paladin
+1 Eater of the Dead
+1 Eclipsed Steppe
+1 Eliminate
+1 Fatal Blow
+1 Fell
+1 Fell the Profane
+1 Finishing Blow
+1 Fisk Tower
+1 Forsaken Sanctuary
+1 Forum of Amity
+1 Fragmentize
+1 Hero's Demise
+1 Immolating Glare
+1 Infernal Medusa
+1 Insomnia, Crown City
+1 Keening Apparition
+1 Lawbringer
+1 Lieutenant Kirtar
+1 Lightbringer
+1 Lurching Rotbeast
+1 Misty Palms Oasis
+1 Moment of Valor
+1 Necrite
+1 Nettling Imp
+1 Nezumi Shadow-Watcher
+1 Norritt
+1 Oblivion Strike
+1 Orzhov Guildgate
+1 Peace and Quiet
+1 Phyrexian Battleflies
+1 Phyrexian Pegasus
+8 Plains
+1 Power Word Kill
+1 Primaris Eliminator
+1 Quiet Purity
+1 Rats of Rath
+1 Reave Soul
+1 Restless Fortress
+1 Ronom Unicorn
+1 Salt Flats
+1 Shadowy Backstreet
+1 Shambling Vent
+1 Shattered Sanctum
+1 Shinewend
+1 Silverquill Campus
+1 Sinkhole
+1 Smite
+1 Stream of Acid
+17 Swamp
+1 Swift Response
+1 Turbulent Moor
+1 Unliving Psychopath
+1 Vengeance
+1 Wall of Corpses
+1 Wasteland Scorpion
+1 Western Paladin
+
+[commander]
+Selenia, Dark Angel

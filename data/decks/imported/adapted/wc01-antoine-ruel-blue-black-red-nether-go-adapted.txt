@@ -5,6 +5,7 @@
 4 Counterspell
 4 Crosis's Charm
 4 Drastic Revelation
+2 Duress
 2 Eyeblight's Ending
 3 Fact or Fiction
 4 Fire
@@ -16,6 +17,6 @@
 2 Stroke of Genius
 4 Stupor
 1 Sulfurous Springs
-3 Sweltering Suns
+1 Sweltering Suns
 4 Underground River
 3 Urborg Volcano

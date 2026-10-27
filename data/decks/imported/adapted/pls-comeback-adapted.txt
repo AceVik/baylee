@@ -7,7 +7,6 @@
 2 Dromar's Cavern
 4 Esper Charm
 1 Galina's Knight
-2 Hornswoggle
 7 Island
 1 Mana Cylix
 2 Marsh Crocodile
@@ -24,6 +23,7 @@
 1 Stormscape Apprentice
 6 Swamp
 1 Terminal Moraine
+2 Undo
 1 Vodalian Merchant
 4 Void Rend
 2 Wistful Thinking

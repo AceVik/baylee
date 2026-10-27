@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WRG #20266017]
+1 Anaba Shaman
+1 Arctic Flats
+1 Blazing Effigy
+1 Boldwyr Aggressor
+1 Bretagard Stronghold
+1 Centaur Archer
+1 Collision Course
+1 D'Avenant Archer
+1 D'Avenant Healer
+1 Deadeye Duelist
+1 Delete
+1 Devout Harpist
+1 Dining Room
+1 Dive Bomber
+1 Dwarven Sea Clan
+1 Dwarven Vigilantes
+1 Dáin of the Ancient Halls
+1 Elite Javelineer
+1 Etched Cornfield
+1 Eternal Flame
+1 Expendable Troops
+1 Falkenrath Exterminator
+1 Fault Line
+1 Feed the Flames
+1 Femeref Archers
+10 Forest
+1 Goblin Artillery
+1 Haazda Exonerator
+1 Harpoon Sniper
+1 Herald of Dromoka
+1 High Noon
+1 Hornet Sting
+1 Ichneumon Druid
+1 Impeccable Timing
+1 Insolence
+1 Insolent Neonate
+1 Iron Hills
+1 Jeska, Warrior Adept
+1 Khenra Charioteer
+1 Lorehold Campus
+1 Lush Portico
+1 Miracle Worker
+11 Mountain
+1 Nova Cleric
+1 Orcish Mechanics
+1 Outflank
+1 Penregon Strongbull
+3 Plains
+1 Rabanastre, Royal City
+1 Radiant Summit
+1 Raging Ravine
+1 Ravenous Giant
+1 Razorgrass Ambush
+1 Reckless Embermage
+1 Renegade Map
+1 Reroute Systems
+1 Restless Prairie
+1 Restless Ridgeline
+1 Rumbling Slum
+1 Sacellum Archers
+1 Sawback Manticore
+1 Scald
+1 Skyway Sniper
+1 Solarium Sentry
+1 Spitting Hydra
+1 Squall Line
+1 Staff of Nin
+1 Stature, Young Avenger
+1 Stirring Wildwood
+1 Storm Seeker
+1 Suburban Sanctuary
+1 Tangletrap
+1 Thelon's Chant
+1 Tibalt's Rager
+1 Tracker
+1 Unyaro Bees
+1 Viridian Zealot
+1 Witch Hunter
+
+[commander]
+Jacques le Vert

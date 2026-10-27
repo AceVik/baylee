@@ -5,7 +5,6 @@
 1 Altar of Bone
 4 Call of the Conclave
 2 Cultist's Staff
-2 Eladamri's Call
 1 Equestrian Skill
 12 Forest
 2 Gerrard's Command
@@ -22,3 +21,4 @@
 2 Subjugator Angel
 2 Thraben Standard Bearer
 1 Ulvenwald Observer
+2 Vitalizing Cascade

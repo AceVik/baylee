@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp B #20266254]
+1 Appendage Amalgam
+1 Ash Barrens
+1 Blanket of Night
+1 Blasted Landscape
+1 Bogstomper
+1 Brink of Madness
+1 Consume the Meek
+1 Crux of Fate
+1 Damnation
+1 Darksteel Gargoyle
+1 Dauthi Embrace
+1 Dauthi Horror
+1 Daxos's Torment
+1 Death Pits of Rath
+1 Doom Whisperer
+1 Extinguish All Hope
+1 Eye Collector
+1 Flowstone Sculpture
+1 Flowstone Thopter
+1 Fomori Vault
+1 Forced March
+1 Gloom
+1 Glyph of Doom
+1 Greel's Caress
+1 Iron Giant
+1 Kaervek's Hex
+1 Larceny
+1 Lich
+1 Marsh Flats
+1 Mindwrack Harpy
+1 Minion of the Wastes
+1 Misshapen Fiend
+1 Molting Harpy
+1 Mortuary
+1 Necrogen Mists
+1 Nectar Faerie
+1 Nightwing Shade
+1 Nyxborn Marauder
+1 Oblivion Crown
+1 Oubliette
+1 Paralyze
+1 Petrified Hamlet
+1 Pili-Pala
+1 Quagmire
+1 Ridged Kusite
+1 Scarecrow Guide
+1 Season of the Witch
+1 Shire Scarecrow
+1 Signpost Scarecrow
+1 Sinister Strength
+1 Skeletal Grimace
+1 Squirming Mass
+1 Stardew Valley
+35 Swamp
+1 Tainted Aether
+1 The Abyss
+1 The Fallen
+1 Their Name Is Death
+1 Three Tree Mascot
+1 Thrull Retainer
+1 Tocasia's Dig Site
+1 Torture
+1 Virtue's Ruin
+1 Wasteland Scorpion
+1 Worms of the Earth
+
+[commander]
+Ihsan's Shade

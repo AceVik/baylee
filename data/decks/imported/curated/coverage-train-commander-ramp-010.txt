@@ -1,0 +1,87 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266011]
+1 Accelerate
+1 Beastcaller Savant
+1 Bladebrand
+1 Boggart Cursecrafter
+1 Brand
+1 Brood Weaver
+1 Burning Inquiry
+1 Burnout
+1 Clutch of Undeath
+1 Cryptolith Rite
+1 Dangerous Wager
+1 Deathcap Glade
+1 Deathknell Berserker
+1 Dragon's Herald
+1 Dread Drone
+1 Drossforge Bridge
+1 Earthlink
+1 Eladamri's Vineyard
+1 Emrakul's Hatcher
+1 Expedite
+1 Festering Thicket
+1 Fire Imp
+1 Fire-Lit Thicket
+1 Flayer Drone
+1 Foggy Bottom Swamp
+1 Ghoulflesh
+1 Gilt-Leaf Palace
+1 Glaring Fleshraker
+1 Gnottvold Slumbermound
+1 Goblin Clearcutter
+1 Gorilla War Cry
+1 Gravebind
+1 Grisly Ritual
+1 Hammerfist Giant
+1 Haze of Pollen
+1 Hellkite Overlord
+1 Impolite Entrance
+1 Into the North
+1 Iroas's Blessing
+1 Kozilek's Predator
+1 Krovikan Fetish
+1 Lavaclaw Reaches
+1 Luxury Suite
+1 Metamorphosis
+1 Mold Demon
+1 Mythic Proportions
+1 Nighthaze
+1 Ohran Frostfang
+1 Omashu City
+1 Pharika's Mender
+1 Raucous Theater
+1 Razortrap Gorge
+1 Restless Vents
+1 Sachi, Daughter of Seshiro
+1 Scavenged Weaponry
+1 Scion Summoner
+1 Serpent Warrior
+1 Sheltering Boughs
+1 Sifter of Skulls
+1 Sky Scourer
+1 Slagwoods Bridge
+9 Snow-Covered Forest
+6 Snow-Covered Mountain
+6 Snow-Covered Swamp
+1 Soulreaper of Mogis
+1 Spire Garden
+1 Strangled Cemetery
+1 Subterranean Cavern
+1 Sunastian Falconer
+1 Sunrise Sovereign
+1 Thallid Soothsayer
+1 Thoughtrender Lamia
+1 Tranquil Path
+1 Tresserhorn Sinks
+1 Turbulent Fen
+1 Turntimber Symbiosis
+1 Twin-Silk Spider
+1 Undergrowth Stadium
+1 Vector, Imperial Capital
+1 Vernal Bloom
+1 Whisperer of the Wilds
+
+[commander]
+Bartel Runeaxe

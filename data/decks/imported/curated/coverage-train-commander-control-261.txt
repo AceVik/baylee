@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control B #20266262]
+1 Ancestral Statue
+1 Arcum's Sleigh
+1 Ashnod's Battle Gear
+1 Blast Zone
+1 Bone Flute
+1 Cabaretti Courtyard
+1 Candelabra of Tawnos
+1 Cathar's Shield
+1 Chariot of the Sun
+1 Citanul Flute
+1 City in a Bottle
+1 Clay Statue
+1 Crown of the Ages
+1 Crucible of Worlds
+1 Crystal Golem
+1 Cursed Totem
+1 Custodian of the Trove
+1 Darksteel Forge
+1 Defense Grid
+1 Derelor
+1 Echo Circlet
+1 Eldrazi Temple
+1 Emmessi Tome
+1 Exotic Orchard
+1 Feroz's Ban
+1 Floodwater Dam
+1 Forgotten Sentinel
+1 Fountainport
+1 Glass Golem
+1 Glasses of Urza
+1 Grasping Dunes
+1 Guardian Beast
+1 Guardians of Meletis
+1 Illusionary Mask
+1 Joven's Tools
+1 Karn, Silver Golem
+1 Lead Golem
+1 Library of Leng
+1 Meteor Sword
+1 Mirror Universe
+1 Nacre Talisman
+1 Nemesis Mask
+1 Nim Replica
+1 Null Brooch
+1 Null Rod
+1 Patagia Golem
+1 Pithing Needle
+1 Prakhata Pillar-Bug
+1 Prowler's Helm
+1 Ring of Immortals
+1 Rusted Sentinel
+1 Sculpting Steel
+1 Sphere of Resistance
+1 Squee's Toy
+1 Steel Golem
+1 Stone Golem
+36 Swamp
+1 Teferi's Sentinel
+1 Tezzeret's Strider
+1 Tower of Fortunes
+1 Unholy Citadel
+1 Universal Solvent
+1 Watcher of the Wayside
+1 Winter Moon
+
+[commander]
+Irini Sengir

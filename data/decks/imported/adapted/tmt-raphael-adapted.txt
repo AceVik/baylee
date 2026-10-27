@@ -3,9 +3,9 @@
 [deck:Raphael (Adapted)]
 4 Arrows of Justice
 2 Double Cleave
+3 Energy Bolt
 1 Frontline Rush
 4 Lightning Helix
-3 Martial Glory
 2 Mechanized Ninja Cavalry
 3 Monster Mashup
 24 Mountain

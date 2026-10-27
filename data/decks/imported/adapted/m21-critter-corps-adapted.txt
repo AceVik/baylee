@@ -16,5 +16,6 @@
 2 Nature's Chant
 10 Plains
 1 Rambunctious Mutt
-4 Selesnya Charm
+1 Selesnya Charm
 2 Selfless Savior
+3 Vitalizing Cascade

@@ -1,75 +1,72 @@
 # baylee curated commander midrange seed=20261028
 # licence: AGPL-3.0-only
-[deck:commander midrange R #20261028]
-1 Akki Avalanchers
-1 Astral Cornucopia
-1 Barrels of Blasting Jelly
-1 Basilisk Gate
-1 Bolt of Keranos
-1 Book of Rass
-1 Bot Bashing Time
-1 Brass Man
-1 Consulate Skygate
-1 Coretapper
-1 Crookshank Kobolds
-1 Crumbling Vestige
-1 Darksteel Forge
-1 Deadeye Duelist
-1 Dungeon Descent
-1 Dwarven Song
-1 Explosive Apparatus
-1 Fiery Intervention
-1 Firespitter Whelp
-1 Frost Giant
-1 Furnace Strider
-1 Gallifrey Council Chamber
-1 Ghirapur Gearcrafter
-1 Hollowhead Sliver
-1 Impetuous Sunchaser
-1 Kry Shield
-1 Limestone Golem
-1 Loxodon Warhammer
-1 Mad Prophet
-1 Messenger's Speed
-32 Mountain
-1 Mox Diamond
-1 Murmuring Volume
-1 Myriad Landscape
-1 Obelisk of Undoing
-1 Ogre Arsonist
-1 One-Clown Band
-1 Panicked Altisaur
-1 Pitchburn Devils
-1 Rain of Embers
-1 Rapacious Dragon
-1 Raphael, Tough Turtle
-1 Red Elemental Blast
-1 Red Mana Battery
-1 Rust Monster
-1 Sandals of Abdallah
-1 Scarlet Witch, Wanda Maximoff
-1 Secluded Courtyard
-1 Seismic Shudder
-1 Shatterskull Recruit
-1 Shivan Hellkite
-1 Shock Troops
-1 Skittering Invasion
-1 Skullclamp
-1 Skullmead Cauldron
-1 Slaughter Cry
-1 Spare Supplies
-1 Sparkmage Apprentice
-1 Spellshock
-1 Storm's Wrath
-1 Tezzeret's Strider
-1 Thaumatic Compass
-1 Tocasia's Dig Site
-1 Torch Gauntlet
-1 Wand of the Elements
-1 War Chariot
-1 Whirling Strike
-1 Windswept Heath
-1 Witches' Eye
+[deck:commander midrange W #20261028]
+1 April O'Neil, Kunoichi Trainee
+1 Attended Knight
+1 Avatar Enthusiasts
+1 Backup Agent
+1 Bishop of Wings
+1 Blade Splicer
+1 Captain of the Watch
+1 Cathedral Sanctifier
+1 Cave of Temptation
+1 Champion of the Parish
+1 Clarion Cathars
+1 Daysquad Marshal
+1 Doomed Traveler
+1 Drogskol Cavalry
+1 Elspeth, Storm Slayer
+1 Extraction Specialist
+1 Geist-Honored Monk
+1 Glider Kids
+1 Glimmervoid
+1 Guarded Heir
+1 Hada Freeblade
+1 Heavy Infantry
+1 Henge of Ramos
+1 Honored Knight-Captain
+1 Invasion Reinforcements
+1 Ironclad Slayer
+1 Jeong Jeong's Deserters
+1 Kazandu Blademaster
+1 Kindly Customer
+1 Kjeldoran Home Guard
+1 Kyoshi Warriors
+1 Loran of the Third Path
+1 Mandroid Squadron
+1 Master Splicer
+1 Monk Realist
+1 Mox Pearl
+1 Nighthawk, Dark Defender
+1 Novice Inspector
+1 Nykthos, Shrine to Nyx
+1 Oltec Cloud Guard
+1 Operations Officer
+1 Palace Jailer
+34 Plains
+1 Protector of Gondor
+1 Recruiter of the Guard
+1 Resolute Reinforcements
+1 Sanctifier of Souls
+1 Seller of Songbirds
+1 Sensor Splicer
+1 Serra's Sanctum
+1 Settlement Blacksmith
+1 Shimmering Grotto
+1 Shu Grain Caravan
+1 Shu Soldier-Farmers
+1 Siege Veteran
+1 Slumbering Keepguard
+1 Soul Warden
+1 Soul's Attendant
+1 Temple Acolyte
+1 Thraben Inspector
+1 Tivadar of Thorn
+1 Treasure Hunter
+1 Venerable Monk
+1 Wakandan Shield Guard
+1 War Priest of Thune
+1 Zuran Orb
 
 [commander]
-Raphael, Tough Turtle
+Sokka, Wolf Cove's Protector

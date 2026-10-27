@@ -1,82 +1,71 @@
-# baylee unseen-card holdout commander seed=90000025
+# baylee unseen-card holdout commander seed=90000017
 # licence: AGPL-3.0-only
-[deck:commander ramp BR #90000025]
-1 Accursed Duneyard
-1 Akroma's Memorial
-1 Ancient Ziggurat
-1 Ashen Firebeast
-1 Barren Moor
-1 Berserkers' Onslaught
-1 Blaze
-1 Blood Host
-1 Bloodsoaked Insight
-1 Bog Serpent
-1 Boiling Rock Prison
-1 Boiling Seas
-1 Castle Embereth
-1 Caterwauling Boggart
-1 City of Shadows
-1 Cloudpost
-1 Conduit Pylons
-1 Cosmic Horror
-1 Desert of the Fervent
-1 Douse in Gloom
-1 Dowsing Dagger
-1 Ebon Praetor
-1 Experimental Armor
-1 Fire Tempest
-1 Flameborn Viron
-1 Giant Slug
-1 Harrowing Journey
-1 Harvesttide Infiltrator
-1 Heart of Ramos
-1 Helm of the Host
-1 High Market
-1 Iroas's Blessing
-1 Kobold Taskmaster
-1 Mahadi, Emporium Master
-1 Mana Vault
-1 Mikokoro, Center of the Sea
-1 Mirror Universe
-1 Mishra's Foundry
-1 Mold Demon
-16 Mountain
-1 Mox Diamond
-1 Mycosynth Lattice
-1 Nebula Dragon
-1 Nezumi Shadow-Watcher
-1 Noxious Grasp
-1 Obsianus Golem
-1 Orcish Spy
-1 Phyrexian Tower
-1 Plagued Rusalka
-1 Ravenous Rats
-1 Razorfield Thresher
-1 Rearing Embermare
-1 Ring of Ma'rûf
-1 Ritual of Soot
-1 Rorix Bladewing
-1 Rust Monster
-1 Sanctum Seeker
-1 Sawblade Scamp
-1 Scream Puff
-1 Sell-Sword Brute
-1 Sneaking Guide
-1 Sparkmage Apprentice
-1 Steel Wall
-10 Swamp
-1 Tarfire
-1 Thunder Strike
-1 Thundermaw Hellkite
-1 Tremor
-1 Urza's Power Plant
-1 Vivid Crag
-1 Vivid Marsh
-1 Voldaren Stinger
-1 Western Paladin
-1 Wit's End
-1 Woebearer
-1 Zodiac Rat
+[deck:commander ramp U #90000017]
+1 Aether Channeler
+1 Angler Drake
+1 Archaeomancer
+1 Aven Fateshaper
+1 Baldur's Gate
+1 Bazaar Trademage
+1 Cave of Temptation
+1 Cephalid Scout
+1 City of Brass
+1 Citywatch Sphinx
+1 Cloudreader Sphinx
+1 Crystal Grotto
+1 Dragoon's Wyvern
+1 Drowned Rusalka
+1 Faerie Seer
+1 Forsaken City
+1 Glimmerburst
+1 Hapless Researcher
+1 Henge of Ramos
+1 Horizon Scholar
+1 Hydro-Channeler
+1 Iceberg
+35 Island
+1 Lay Claim
+1 Lotus Vale
+1 Mana Drain
+1 Merfolk Traders
+1 Micromancer
+1 Moonlit Scavengers
+1 Mox Sapphire
+1 Muse Drake
+1 Nimble Innovator
+1 Pondering Mage
+1 Primoc Escapee
+1 Quicksilver Fisher
+1 Sage Aven
+1 Sage of Epityr
+1 Sage's Row Savant
+1 Salvager of Secrets
+1 Screeching Drake
+1 Serum Visionary
+1 Shipwreck Dowser
+1 Sibilant Spirit
+1 Slipstream Eel
+1 Spellseeker
+1 Sphinx Mindbreaker
+1 Sphinx of Enlightenment
+1 Sphinx of Magosi
+1 Super Intelligence
+1 Terrarion
+1 Thalakos Seer
+1 The Unspeakable
+1 Three Steps Ahead
+1 Tishana's Tidebinder
+1 Tome Raider
+1 Unfathomable Truths
+1 Vendilion Clique
+1 Virtue of Knowledge
+1 Vodalian Hexcatcher
+1 Vodalian Merchant
+1 Voracious Greatshark
+1 Wan Shi Tong, Librarian
+1 Wave-Wing Elemental
+1 Witching Well
+1 Wizard Class
 
 [commander]
-Mahadi, Emporium Master
+Kami of the Crescent Moon

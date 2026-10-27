@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro W #20266153]
+1 Aether Shockwave
+1 Alabaster Mage
+1 Ardent Militia
+1 Asha's Favor
+1 Battle Mastery
+1 Blade of the Sixth Pride
+1 Burst of Energy
+1 Call to Serve
+1 Clergy en-Vec
+1 Cliff Threader
+1 Coeurl
+1 Country Roads
+1 Dazzling Ramparts
+1 Defender of Law
+1 Enchanted Being
+1 Fan Bearer
+1 Farbog Explorer
+1 Farmstead
+1 Femeref Scouts
+1 Forbidding Watchtower
+1 Foriysian Brigade
+1 Fortified Rampart
+1 Fresh Volunteers
+1 Guardian Angel
+1 Half-Elf Monk
+1 Hawkeye, Clint Barton
+1 Heaven's Gate
+1 Holy Day
+1 Icatian Store
+1 Imperial Outrider
+1 Indomitable Will
+1 Ishgard, the Holy See
+1 Kami of False Hope
+1 Karakas
+1 Kitsune Diviner
+1 Knight of Valor
+1 Loxodon Mystic
+1 Mantle of Leadership
+1 Marked by Honor
+1 Marsh Threader
+1 Master Apothecary
+1 Mistveil Plains
+1 Mounted Archers
+1 Nebelgast Beguiler
+1 Order of the Golden Cricket
+32 Plains
+1 Prismatic Ward
+1 Ramosian Sergeant
+1 Red Ward
+1 Repentant Blacksmith
+1 Sacred Knight
+1 Saltfield Recluse
+1 Sanctuary Cat
+1 Savai Sabertooth
+1 Seeker
+1 Serra Paladin
+1 Siegecraft
+1 Sokka, Wolf Cove's Protector
+1 Soltari Monk
+1 Spawnbinder Mage
+1 Split-Tail Miko
+1 Stoneskin
+1 Sword Dancer
+1 Thistledown Players
+1 Wanderbrine Trapper
+1 Warded Battlements
+1 White Ward
+1 Zhalfirin Knight
+
+[commander]
+Sidar Jabari

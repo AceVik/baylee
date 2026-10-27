@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUB #20266206]
+1 Archon of Sun's Grace
+1 Avengers Tower
+1 Betrayal
+1 Blood Pet
+1 Blood Vassal
+1 Bog Initiate
+1 Bog Witch
+1 Captivating Cave
+1 Cascading Cataracts
+1 Cloudreader Sphinx
+1 Conduit Pylons
+1 Contraband Kingpin
+1 Corrupt Court Official
+1 Corrupted Crossroads
+1 Cryptic Command
+1 Curate
+1 Curiosity
+1 Daily Bugle Building
+1 Deepfathom Skulker
+1 Dimir Informant
+1 Drowner of Hope
+1 Eclipsed Realms
+1 Energy Tap
+1 Ertai Resurrected
+1 Failed Inspection
+1 Fascination
+1 Forbidden Orchard
+1 Fourth Bridge Prowler
+1 Gateway Sneak
+1 Great Whale
+1 Harmonious Archon
+1 Humbling Elder
+1 Icewind Elemental
+1 Infernal Tribute
+1 Inkfathom Divers
+16 Island
+1 Knight of the Mists
+1 Lay Claim
+1 Leonin Squire
+1 Lotus Vale
+1 Mech Hangar
+1 Mirrex
+1 Moonlit Scavengers
+1 Nimble Innovator
+1 Obyra, Dreaming Duelist
+1 Omen of the Sea
+1 Opal Lake Gatekeepers
+1 Overeager Apprentice
+1 Plains
+1 Power Artifact
+1 Recover
+1 Rhox Meditant
+1 Rumble Arena
+1 Sage Aven
+1 Sage's Row Denizen
+1 Sage's Row Savant
+1 Sea Scryer
+1 Sliver Hive
+1 Solitude
+1 Sphinx Mindbreaker
+1 Striped Riverwinder
+1 Super Intelligence
+9 Swamp
+1 Tarnished Citadel
+1 Thassa's Bounty
+1 Thassa's Devourer
+1 Tortured Existence
+1 Unclaimed Territory
+1 Vendilion Clique
+1 Vessel of Paramnesia
+1 Vodalian Arcanist
+1 Wave-Wing Elemental
+1 Weight of Memory
+1 White Lotus Hideout
+1 Willow-Wind
+1 Windreader Sphinx
+
+[commander]
+Dakkon Blackblade

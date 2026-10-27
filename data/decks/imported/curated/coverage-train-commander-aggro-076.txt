@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro BR #20266077]
+1 Agent of Shauku
+1 Akoum Refuge
+1 Barrier of Bones
+1 Betrothed of Fire
+1 Black Widow, Deadly Hunter
+1 Blight Mound
+1 Blighted Shaman
+1 Blood Petal Celebrant
+1 Bog Tatters
+1 Boggart Birth Rite
+1 Boseiju, Who Shelters All
+1 Canyon Slough
+1 Cateran Persuader
+1 Crossroads Village
+1 Dark Privilege
+1 Deathknell Berserker
+1 Demon's Herald
+1 Desiccated Naga
+1 Desperate Bloodseeker
+1 Doom's Servo-Guards
+1 Dori, Bearer of Friends
+1 Dragon Egg
+1 Dragon Moose
+1 Dragonmaster Outcast
+1 Dragonskull Summit
+1 Dross Harvester
+1 Drossforge Bridge
+1 Etched Familiar
+1 Fable of the Mirror-Breaker
+1 Flayed One
+1 Flowstone Hellion
+1 Garna, the Bloodflame
+1 Geothermal Bog
+1 Gibbering Barricade
+1 Goblin-town
+1 Hammerfist Giant
+1 Hidden Hideout
+1 Highland Giant
+1 Jagged Barrens
+1 Kiora of Fire and Ashes
+1 Koma's Faithful
+1 Luxury Suite
+1 Merciless Enforcers
+8 Mountain
+1 Mountain Titan
+1 Mountain Yeti
+1 Need for Speed
+1 Needlepeak Spider
+1 Obsidian Giant
+1 Odylic Wraith
+1 Ophiomancer
+1 Piggy Bank
+1 Prowling Nightstalker
+1 Redcap Thief
+1 Return to Battle
+1 Sanguine Syphoner
+1 Scarblade Scout
+1 Scourge of the Undercity
+1 Shelob's Ambush
+1 Skirsdag Flayer
+1 Skyraker Giant
+1 Sluggishness
+1 Smoldering Marsh
+1 Stir the Grave
+16 Swamp
+1 Symbiote Spawn
+1 Terror of the Fairgrounds
+1 Tor Giant
+1 Tortured Existence
+1 Toxin Analysis
+1 Treasure Dredger
+1 Treetop Freedom Fighters
+1 Tresserhorn Sinks
+1 Ukud Cobra
+1 Vector, Imperial Capital
+1 Whisper Squad
+1 Winter's Intervention
+
+[commander]
+Axelrod Gunnarson

@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BG #20266236]
+1 Abomination
+1 Acid Web Spider
+1 Archweaver
+1 Asphyxiate
+1 Assassin's Strike
+1 Bayou
+1 Befoul
+1 Bilbo's Deadly Slice
+1 Blooming Marsh
+1 Carrion Beetles
+1 Cast Down
+1 Caustic Caterpillar
+1 Conclave Naturalists
+1 Cruel Cut
+1 Darkmoss Bridge
+1 Death Stroke
+1 Deathmark
+1 Defenestrate
+1 Desecrated Earth
+1 Desecration Plague
+1 Eastern Paladin
+1 Eat to Extinction
+1 Eater of the Dead
+1 Eliminate
+1 Elvish Scrapper
+1 Eviscerate
+1 Fatal Blow
+1 Fell
+1 Fell the Profane
+1 Finishing Blow
+1 Floral Spuzzem
+10 Forest
+1 Galewind Moose
+1 Ghostly Visit
+1 Gohn, Town of Ruin
+1 Goliath Spider
+1 Grim Backwoods
+1 Hero's Demise
+1 Human Frailty
+1 Ice Storm
+1 Impale
+1 Infernal Medusa
+1 Jungle Hollow
+1 Llanowar Wastes
+1 Moaning Wall
+1 Nettling Imp
+1 Nezumi Shadow-Watcher
+1 Nurturing Peatland
+1 Overgrown Tomb
+1 Oxidize
+1 Power Word Kill
+1 Rats of Rath
+1 Reave Soul
+1 Restless Cottage
+1 Savaen Elves
+1 Sheltering Boughs
+1 Sinkhole
+1 Steelbane Hydra
+1 Svogthos, the Restless Tomb
+16 Swamp
+1 Tainted Wood
+1 Thicket Basilisk
+1 Underground Mortuary
+1 Undergrowth Leopard
+1 Verdigris
+1 Viridescent Bog
+1 Voracious Varmint
+1 Wall of Corpses
+1 Wallop
+1 Wasteland Scorpion
+1 Wastewood Verge
+1 Western Paladin
+1 Wing Snare
+1 Woodland Chasm
+1 Woodwraith Corrupter
+
+[commander]
+Yargle and Multani

@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WRG #20266289]
+1 Adult Gold Dragon
+1 Archaeological Dig
+1 Avengers Tower
+1 Blaze of Glory
+1 Bloodcrusher of Khorne
+1 Boartusk Liege
+1 Bramblefort Fink
+1 Brazen Wolves
+1 Bristlepack Sentry
+1 Cavern of Souls
+1 Cerodon Yearling
+1 Chaotic Goo
+1 Coeurl
+1 Corrupted Crossroads
+1 Creeping Trailblazer
+1 Death Ward
+1 Ember-Eye Wolf
+1 Extruder
+1 Eye for an Eye
+1 Fleetfoot Dancer
+1 Flowstone Infusion
+1 Foratog
+10 Forest
+1 Gangly Stompling
+1 Gruul War Plow
+1 Heap Gate
+1 Helm of the Host
+1 Hobgoblin Dragoon
+1 Holy Day
+1 Holy Mantle
+1 Horned Kavu
+1 Kalonian Tusker
+1 Kessig Wolf
+1 Kitchen Finks
+1 Kyscu Drake
+1 Lazotep Quarry
+1 Leopard-Spotted Jiao
+1 Lithatog
+1 Lotus Vale
+1 Lumbering Satyr
+1 Lurker
+1 Makindi Ox
+1 Mending Hands
+1 Mirrodin's Core
+9 Mountain
+1 Mulch
+1 Mycoid Shepherd
+1 Obelisk of Naya
+1 Ondu Greathorn
+6 Plains
+1 Planar Nexus
+1 Purelace
+1 Regal Bunnicorn
+1 Rimefur Reindeer
+1 Ruination Wurm
+1 Runes of the Deus
+1 Saheeli's Silverwing
+1 Segmented Wurm
+1 Shambling Strider
+1 Shivan Wurm
+1 Siegecraft
+1 Silence
+1 Sliver Hive
+1 Spire of Industry
+1 Study Hall
+1 Thaumatog
+1 Thran Quarry
+1 Three Tree City
+1 Tuktuk Rubblefort
+1 Tundra Wolves
+1 Ulrich's Kindred
+1 Unflinching Courage
+1 Ursapine
+1 Viashivan Dragon
+1 Voldaren Estate
+1 Wakandan Tusker
+1 Wellspring
+1 Zebra Unicorn

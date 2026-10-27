@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUB #20266307]
+1 Amrou Seekers
+1 Ancient Spring
+1 Arcane Sanctum
+1 Arena of the Ancients
+1 Armor Sliver
+1 Barrenton Cragtreads
+1 Blind Phantasm
+1 Bog Tatters
+1 Bone Flute
+1 Changeling Sentinel
+1 Chimeric Staff
+1 Clever Impersonator
+1 Clone
+1 Coiled Tinviper
+1 Conqueror's Galleon
+1 Contaminated Landscape
+1 Cursed Rack
+1 Dirtwater Wraith
+1 Dream Prowler
+1 Dromar's Cavern
+1 Fetid Heath
+1 Glacial Wall
+1 Gloom Pangolin
+1 Gloomlake Verge
+1 Godless Shrine
+1 Hengegate Pathway
+1 Huatli's Snubhorn
+1 Humongulus
+1 Imperious Inkmage
+10 Island
+1 Killer Whale
+1 Kithkin Billyrider
+1 Kithkin Rabble
+1 Kitsune Riftwalker
+1 Kolinahr Priest
+1 Kor Sky Climber
+1 Looming Altisaur
+1 Loxodon Wayfarer
+1 Medicine Bag
+1 Mindwhip Sliver
+1 Mishra's Groundbreaker
+1 Morphling
+1 Nimbus Maze
+1 Nova Pentacle
+1 Odylic Wraith
+1 Pearled Unicorn
+1 Pentagram of the Ages
+1 Petra Sphinx
+1 Phantasmal Fiend
+12 Plains
+1 Primal Clay
+1 Raffine's Tower
+1 Raptor Companion
+1 Regal Unicorn
+1 Resplendent Mentor
+1 Sandbar Crocodile
+1 Scrubland
+1 Shadow Rider
+1 Shifting Sliver
+1 Shore Snapper
+1 Siege Mastodon
+1 Silent Clearing
+1 Spark Double
+1 Starfleet Crew
+1 Starlit Sanctum
+1 Stunt Double
+1 Sunglasses of Urza
+1 Suppression Ray
+3 Swamp
+1 Tainted Isle
+1 Tawnos's Coffin
+1 Tower of Champions
+1 Unraveling Mummy
+1 Unyielding Krumar
+1 Wall of Vapor
+1 Wall of Wonder
+1 Weakstone
+1 Wizards' School

@@ -1,73 +1,72 @@
 # baylee curated highlander aggro seed=20261096
 # licence: AGPL-3.0-only
 [deck:highlander aggro B #20261096]
-1 Abstergo Entertainment
-1 Aclazotz, Deepest Betrayal
-1 Banehound
-1 Battlefly Swarm
-1 Bereavement
-1 Burglar Rat
-1 Carrier Thrall
+1 Ancient Ziggurat
+1 Apprentice Necromancer
+1 Ashen Ghoul
+1 Baldur's Gate
+1 Carnival of Souls
+1 Carrion Feeder
 1 Champion of the Perished
-1 Contested War Zone
-1 Coretapper
-1 Dark Prophecy
-1 Darksteel Plate
-1 Demon's Herald
+1 Cyclopean Mummy
+1 Dakmor Ghoul
+1 Dauthi Ghoul
+1 Death Watch
+1 Desiccated Naga
+1 Discordant Piper
 1 Dream Beavers
 1 Eclipsed Realms
-1 Embraal Bruiser
-1 Endless One
-1 Fear
-1 Feral Abomination
+1 Facevaulter
+1 Festering Goblin
 1 Festerleech
-1 Foundry Screecher
-1 Frankenstein's Monster
-1 Gold Pan
+1 Forsaken Drifters
+1 Gavony Unhallowed
+1 Gravedigger
+1 Grim Guardian
 1 Grim Physician
-1 Guardians of Meletis
-1 Guildless Commons
-1 Hunted Ghoul
-1 Illness in the Ranks
-1 Inkmoth Nexus
-1 Isolated Watchtower
-1 Ivory Cup
-1 Jandor's Saddlebags
-1 Jawbone Skulkin
-1 Levitating Statue
-1 Locthwain Gargoyle
-1 Mind Twist
-1 Mischievous Poltergeist
-1 Monoist Sentry
-1 Moor Fiend
-1 Nighthaze
-1 Order of the Ebon Hand
-1 Ornithopter
-1 Pitiless Plunderer
-1 Plague Beetle
-1 Planar Bridge
-1 Prakhata Club Security
-1 Rathi Fiend
-1 Ring of Three Wishes
-1 Sacred Armory
-1 Salvaged Manaworker
-1 Serrated Scorpion
-1 Sinkhole
-1 Specter's Shroud
-1 Springjaw Trap
+1 Gristle Grinner
+1 Gutless Ghoul
+1 Hopeless Nightmare
+1 Hungry Ghoul
+1 Infectious Host
+1 Jasmine Dragon Tea Shop
+1 Knucklebone Witch
+1 Krovikan Plague
+1 Lead Pipe
+1 Maggot Carrier
+1 Malevolent Awakening
+1 Miasmic Mummy
+1 Midnight Reaper
+1 Mire Triton
+1 Murderous Rider
+1 Necromancer's Assistant
+1 Ob Nixilis, the Fallen
+1 Omen of the Dead
+1 Phyrexian Gargantua
+1 Phyrexian Ghoul
+1 Prowess of the Fair
+1 Quest for the Gravelord
+1 Returned Centaur
+1 Returned Reveler
+1 Rotlung Reanimator
+1 Sarcomancy
+1 Sedraxis Alchemist
+1 Sepulcher Ghoul
+1 Shambling Goblin
+1 Skirk Ridge Exhumer
+32 Snow-Covered Swamp
 1 Stitcher's Supplier
-1 Stone-Throwing Devils
-1 Suspicious Bookcase
-31 Swamp
-1 Sweettooth Witch
-1 Teferi's Sentinel
-1 Throne of the High City
-1 Tinybones, the Pickpocket
-1 Unburied Earthcarver
-1 Undercity Dire Rat
-1 Unholy Strength
-1 Vampire Bats
-1 Vampire Envoy
-1 Voltaic Key
-1 Walking Ballista
+1 Tattered Mummy
+1 Tortured Existence
+1 Toxic Abomination
+1 Undead Augur
+1 Underdome
+1 Unearth
+1 Vampiric Rites
+1 Vengeful Dead
+1 Wailing Ghoul
+1 Warren Soultrader
+1 Weirding Shaman
+1 White Lotus Hideout
+1 Wretched Anurid
 1 Wriggling Grub

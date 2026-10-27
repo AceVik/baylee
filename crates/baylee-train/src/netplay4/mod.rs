@@ -10,18 +10,16 @@
 //! - Explicit [`CoverageMatrix4`] and [`StepProvenance4`] tracking.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context as _;
-use baylee_core::ids::PlayerId;
+use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::PlayerView;
 use ort::session::Session;
 use ort::session::builder::GraphOptimizationLevel;
 use ort::value::Tensor;
-use serde_json::Value;
 
 use crate::carddsl::CARD_DSL_WIDTH;
 use crate::deckgen::Rng;
@@ -31,10 +29,22 @@ use crate::features4::{
     StepProvenance4, TeacherTarget4, decode_action4, denormalize_scalar_choice, encode_candidates4,
     encode_state4, normalize_scalar_choice, view_only_state_hash,
 };
+use crate::features7::{
+    ENTITY_FEAT_WIDTH7, GLOBAL_FEAT_WIDTH7, encode_candidates7_grouped, encode_state7,
+};
+mod choices;
 mod fallback;
 #[cfg(test)]
 mod fallback_tests;
+mod identity;
+mod live_init;
+pub use identity::{ModelIdentity, inspect_model_identity};
+mod policy;
+mod shadow;
+use policy::sample_categorical;
+pub use policy::{PolicyMode4, valid_raw_temperature};
 mod structure;
+mod tactics;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
 use fallback::fallback_action;
 
@@ -66,14 +76,23 @@ pub struct Answer4 {
     pub target: TeacherTarget4,
 }
 
-/// A Playernet v4 agent driving one or more seats via ONNX Runtime.
+/// Canonical display name of the trained neural player (`BayleeKI`; `NET-BayleeKI` on the gateway wire).
+pub const BAYLEE_KI_NAME: &str = "BayleeKI";
+
+/// Canonical alias for the trained Playernet v4 agent ([`NetPlayer4`]).
+pub type BayleeKI = NetPlayer4;
+
+/// A Playernet v4 (`BayleeKI`) agent driving one or more seats via ONNX Runtime.
 pub struct NetPlayer4 {
     sessions: BTreeMap<u8, Session>,
     model_dir: PathBuf,
     rule_roots: Option<BTreeMap<String, u32>>,
+    encoder_version: u32,
+    model_identity: ModelIdentity,
     d_model: usize,
     thinking_steps: u8,
     temperature: f32,
+    policy_mode: PolicyMode4,
     rng: Rng,
     /// Per-seat team assignments cached from `init_game` (`[Option<u8>; N]`).
     teams: Vec<Option<u8>>,
@@ -83,6 +102,9 @@ pub struct NetPlayer4 {
     knowledge: BTreeMap<u8, SeatKnowledge4>,
     /// View-only state visit counts `(seat, view_hash) -> count` for loop guarding.
     seen_hashes: BTreeMap<(u8, u64), u8>,
+    /// Per-seat most recently announced `CastSpell` or `ActivateAbility` `(object_id, ability_index)`
+    /// for target-intent and scalar choice disambiguation before `Pending::Priority` resumes.
+    last_announced_source: BTreeMap<u8, (ObjectId, Option<u32>)>,
     /// Accumulated coverage matrix across decisions.
     pub coverage: CoverageMatrix4,
 }
@@ -122,32 +144,15 @@ fn load_session(path: &Path) -> anyhow::Result<Session> {
 }
 
 impl NetPlayer4 {
-    /// Loads a Playernet v4 ONNX checkpoint directory (containing `model.onnx`
-    /// and `meta.json`) or a direct `.onnx` file path.
+    /// Loads a supported V4/V5 ONNX directory (`model.onnx` and
+    /// `model.onnx.json`) or a graph with companion metadata.
     ///
     /// # Errors
     /// When the ONNX model or metadata cannot be loaded.
     pub fn load(path: &Path) -> anyhow::Result<Self> {
-        let (onnx_path, meta_path) = if path.is_dir() {
-            (path.join("model.onnx"), path.join("model.onnx.json"))
-        } else {
-            let onnx_json = path.with_extension("onnx.json");
-            let meta_p = if onnx_json.exists() {
-                onnx_json
-            } else {
-                path.with_file_name("meta.json")
-            };
-            (path.to_path_buf(), meta_p)
-        };
-        let meta: Value = serde_json::from_slice(&fs::read(&meta_path)?)?;
-        let legacy = meta["encoder_version"] == 5 && meta["model_version"] == 2;
-        let structured = meta["encoder_version"] == 6 && meta["model_version"] == 3;
-        anyhow::ensure!(
-            (legacy || structured)
-                && meta["trajectory_version"] == 2
-                && meta["sampling_version"] == 2,
-            "incompatible v4 model contracts; re-export repaired model"
-        );
+        let (onnx_path, meta, model_identity) = identity::read_model(path)?;
+        let encoder_version = model_identity.encoder_version;
+        let structured = matches!(model_identity.model_version, 3 | 5);
         let d_model = meta["d_model"].as_u64().context("missing d_model")? as usize;
         let thinking_steps = meta["thinking_steps"]
             .as_u64()
@@ -164,20 +169,40 @@ impl NetPlayer4 {
             None
         };
 
+        anyhow::ensure!(
+            identity::read_model(path)?.2 == model_identity,
+            "model files changed while opening the ONNX session"
+        );
         Ok(Self {
             sessions: BTreeMap::from([(thinking_steps, session)]),
             model_dir: onnx_path.parent().context("model parent")?.to_path_buf(),
             rule_roots,
+            encoder_version,
+            model_identity,
             d_model,
             thinking_steps,
             temperature: 0.0,
+            policy_mode: PolicyMode4::Tactical,
             rng: Rng::new(0x517c_c1b7_2722_0a95),
             teams: Vec::new(),
             h_states: BTreeMap::new(),
             knowledge: BTreeMap::new(),
             seen_hashes: BTreeMap::new(),
+            last_announced_source: BTreeMap::new(),
             coverage: CoverageMatrix4::default(),
         })
+    }
+
+    /// Exact model family, architecture and graph/metadata content hashes.
+    #[must_use]
+    pub const fn model_identity(&self) -> &ModelIdentity {
+        &self.model_identity
+    }
+
+    /// Returns `true` when this player uses the Encoder 7 state/candidate contract.
+    #[must_use]
+    pub const fn is_encoder7(&self) -> bool {
+        self.encoder_version >= 7
     }
 
     /// Sets the sampling temperature `tau` (`0.0` = greedy argmax).
@@ -185,6 +210,19 @@ impl NetPlayer4 {
     pub fn with_temperature(mut self, tau: f32) -> Self {
         self.temperature = tau.max(0.0);
         self
+    }
+
+    /// Chooses raw model decisions or the separately attributed tactical player.
+    #[must_use]
+    pub const fn with_policy_mode(mut self, mode: PolicyMode4) -> Self {
+        self.policy_mode = mode;
+        self
+    }
+
+    /// The policy responsible for non-forced successful decisions.
+    #[must_use]
+    pub const fn policy_mode(&self) -> PolicyMode4 {
+        self.policy_mode
     }
 
     /// Updates the sampling temperature `tau` in place.
@@ -210,6 +248,7 @@ impl NetPlayer4 {
         self.h_states.clear();
         self.knowledge.clear();
         self.seen_hashes.clear();
+        self.last_announced_source.clear();
     }
 
     /// Reseeds the policy sampling RNG from an independent seed (never the game
@@ -226,6 +265,7 @@ impl NetPlayer4 {
         self.h_states.clear();
         self.knowledge.clear();
         self.seen_hashes.clear();
+        self.last_announced_source.clear();
         for s in 0..preset.seats.len() {
             let pid = PlayerId::new(s as u8);
             self.h_states
@@ -262,7 +302,11 @@ impl NetPlayer4 {
             .entry(s)
             .or_insert_with(|| vec![0.0_f32; RECURRENT_SLOTS * self.d_model])
             .clone();
-        let state = encode_state4(view, None, self.knowledge.get(&s), &self.teams);
+        let state = if self.encoder_version >= 7 {
+            encode_state7(view, None, self.knowledge.get(&s), &self.teams)
+        } else {
+            encode_state4(view, None, self.knowledge.get(&s), &self.teams)
+        };
         let empty_cands = EncodedCandidates4 {
             head: HeadKind4::SingleChoice,
             pending_kind: PendingKind4::Priority,
@@ -289,6 +333,10 @@ impl NetPlayer4 {
 
     /// Chooses a legal [`PlayerAction`] and returns full [`Answer4`] metadata
     /// (value prediction, [`StepProvenance4`], and [`TeacherTarget4`]).
+    #[allow(
+        clippy::too_many_lines,
+        reason = "One decision pipeline records provenance for forced, guarded, neural and fallback answers"
+    )]
     pub fn act_detailed(
         &mut self,
         view: &PlayerView,
@@ -296,7 +344,18 @@ impl NetPlayer4 {
         teams: &[Option<u8>],
     ) -> Answer4 {
         let seat_u8 = view.seat.get();
+        if matches!(pending, Pending::Priority { .. })
+            && view.owed.is_none()
+            && view.stack.is_empty()
+        {
+            self.last_announced_source.remove(&seat_u8);
+        }
         let p_kind = PendingKind4::of(pending);
+
+        if let Some(answer) = fallback::unsupported_choice_answer(pending, self.temperature) {
+            self.coverage.record(p_kind, SourceKind4::House);
+            return answer;
+        }
 
         // The host calls observe() for every neural seat before each table action.
         // Decision inference is read-only with respect to persistent memory.
@@ -306,8 +365,7 @@ impl NetPlayer4 {
             .or_insert_with(|| vec![0.0; RECURRENT_SLOTS * self.d_model])
             .clone();
 
-        let state = encode_state4(view, Some(pending), self.knowledge.get(&seat_u8), teams);
-        let cands = encode_candidates4(&state, view, pending);
+        let (state, cands) = self.policy_encoding(view, pending, teams);
 
         // 1. Check if forced (<= 1 legal choice)
         let is_forced = match cands.head {
@@ -325,7 +383,10 @@ impl NetPlayer4 {
                 scalar_norm: 0.0,
             };
             let (action, source) = decode_action4(&cands, view, pending, &forced_target)
-                .filter(|a| pending.answer_fault(a).is_none())
+                .filter(|a| {
+                    (matches!(a, PlayerAction::CancelCast) && view.casting.is_some())
+                        || pending.answer_fault(a).is_none()
+                })
                 .map_or_else(
                     || {
                         (
@@ -372,20 +433,20 @@ impl NetPlayer4 {
         }
 
         // 3. Run ONNX inference
-        if let Ok((action, value, logprob, target)) =
+        let ans = if let Ok((action, value, logprob, target)) =
             self.infer_and_sample(&state, &cands, view, pending, &h_in)
         {
-            self.coverage.record(p_kind, SourceKind4::Net);
+            let provenance = self.policy_mode.provenance(
+                self.temperature,
+                self.thinking_steps,
+                cands.head,
+                logprob,
+            );
+            self.coverage.record(p_kind, provenance.source);
             Answer4 {
                 action,
                 value,
-                provenance: StepProvenance4 {
-                    source: SourceKind4::Net,
-                    temperature: self.temperature,
-                    thinking_steps: self.thinking_steps,
-                    behavior_logprob: logprob,
-                    has_logprob: self.temperature > 1e-4 && cands.head != HeadKind4::ScalarValue,
-                },
+                provenance,
                 target,
             }
         } else {
@@ -403,7 +464,23 @@ impl NetPlayer4 {
                 },
                 target: TeacherTarget4::default(),
             }
+        };
+        if view.owed.is_none() {
+            match &ans.action {
+                PlayerAction::CastSpell { card } => {
+                    self.last_announced_source.insert(seat_u8, (*card, None));
+                }
+                PlayerAction::ActivateAbility {
+                    source,
+                    ability_index,
+                } if !tactics::is_mana_ability_entry(view, *source, *ability_index) => {
+                    self.last_announced_source
+                        .insert(seat_u8, (*source, Some(*ability_index)));
+                }
+                _ => {}
+            }
         }
+        ans
     }
 
     #[allow(
@@ -418,12 +495,19 @@ impl NetPlayer4 {
         k_val: u8,
     ) -> anyhow::Result<StepOutputs> {
         let e_len = state.entity_feat.len().max(1);
-        let mut ent_feat = vec![0.0_f32; e_len * ENTITY_FEAT_WIDTH];
+        let ent_width = state.entity_feat.first().map_or(
+            if self.encoder_version >= 7 {
+                ENTITY_FEAT_WIDTH7
+            } else {
+                ENTITY_FEAT_WIDTH
+            },
+            Vec::len,
+        );
+        let mut ent_feat = vec![0.0_f32; e_len * ent_width];
         let mut ent_dsl = vec![0.0_f32; e_len * CARD_DSL_WIDTH];
         let mut ent_mask = vec![false; e_len];
         for i in 0..state.entity_feat.len() {
-            ent_feat[i * ENTITY_FEAT_WIDTH..(i + 1) * ENTITY_FEAT_WIDTH]
-                .copy_from_slice(&state.entity_feat[i]);
+            ent_feat[i * ent_width..(i + 1) * ent_width].copy_from_slice(&state.entity_feat[i]);
             let dsl = state.entity_dsl_summary(i);
             ent_dsl[i * CARD_DSL_WIDTH..(i + 1) * CARD_DSL_WIDTH].copy_from_slice(&dsl);
             ent_mask[i] = true;
@@ -434,6 +518,15 @@ impl NetPlayer4 {
             seat_feat[s * SEAT_FEAT_WIDTH..(s + 1) * SEAT_FEAT_WIDTH]
                 .copy_from_slice(&state.seat_feat[s]);
         }
+        let glob_width = if state.global_feat.is_empty() {
+            if self.encoder_version >= 7 {
+                GLOBAL_FEAT_WIDTH7
+            } else {
+                GLOBAL_FEAT_WIDTH
+            }
+        } else {
+            state.global_feat.len()
+        };
         let global_feat = state.global_feat.clone();
 
         let m_len = state.edges.len().max(1);
@@ -473,11 +566,11 @@ impl NetPlayer4 {
 
         let k_steps = vec![i64::from(k_val)];
         let mut inputs = ort::inputs![
-            "entity_feat" => Tensor::from_array(([1, e_len, ENTITY_FEAT_WIDTH], ent_feat)).map_err(ort_error)?,
+            "entity_feat" => Tensor::from_array(([1, e_len, ent_width], ent_feat)).map_err(ort_error)?,
             "entity_dsl" => Tensor::from_array(([1, e_len, CARD_DSL_WIDTH], ent_dsl)).map_err(ort_error)?,
             "entity_mask" => Tensor::from_array(([1, e_len], ent_mask)).map_err(ort_error)?,
             "seat_feat" => Tensor::from_array(([1, MAX_SEATS, SEAT_FEAT_WIDTH], seat_feat)).map_err(ort_error)?,
-            "global_feat" => Tensor::from_array(([1, GLOBAL_FEAT_WIDTH], global_feat)).map_err(ort_error)?,
+            "global_feat" => Tensor::from_array(([1, glob_width], global_feat)).map_err(ort_error)?,
             "edge_index" => Tensor::from_array(([1, m_len, 2], edge_index)).map_err(ort_error)?,
             "edge_type" => Tensor::from_array(([1, m_len], edge_type)).map_err(ort_error)?,
             "edge_mask" => Tensor::from_array(([1, m_len], edge_mask)).map_err(ort_error)?,
@@ -513,7 +606,9 @@ impl NetPlayer4 {
         };
         if !self.sessions.contains_key(&depth) {
             let path = self.model_dir.join(format!("model.k{depth}.onnx"));
+            identity::verify_depth_graph(&path, depth, &self.model_identity)?;
             let session = load_session(&path)?;
+            identity::verify_depth_graph(&path, depth, &self.model_identity)?;
             self.sessions.insert(depth, session);
         }
         let outputs = self
@@ -545,116 +640,4 @@ impl NetPlayer4 {
             v_slice.first().copied().unwrap_or(0.5),
         ))
     }
-
-    fn infer_and_sample(
-        &mut self,
-        state: &crate::features4::EncodedState4,
-        cands: &crate::features4::EncodedCandidates4,
-        view: &PlayerView,
-        pending: &Pending,
-        h_in: &[f32],
-    ) -> anyhow::Result<(PlayerAction, f32, f32, TeacherTarget4)> {
-        let k_val = self.thinking_steps;
-        let (_, cand_logits, pair_logits, scalar_pred, value) =
-            self.run_onnx_step(state, cands, h_in, k_val)?;
-        let mut target = TeacherTarget4::default();
-
-        let logprob: f32 = match cands.head {
-            HeadKind4::SingleChoice => {
-                let n = cands.candidates.len();
-                let logits = &cand_logits[..n];
-                let (chosen_idx, lp) = sample_categorical(logits, self.temperature, &mut self.rng);
-                target.single_idx = chosen_idx as u16;
-                lp
-            }
-            HeadKind4::SubsetPick => {
-                let n = cands.candidates.len();
-                let logits = &cand_logits[..n];
-                let (mask, free_mask, seq, lp) = sample_subset_constrained(
-                    logits,
-                    cands,
-                    pending,
-                    self.temperature,
-                    &mut self.rng,
-                );
-                target.multi_mask = mask;
-                target.free_mask = free_mask;
-                target.pick_sequence = seq;
-                lp
-            }
-            HeadKind4::PairPick => {
-                let n = cands.pairs.len();
-                let logits = &pair_logits[..n];
-                let (mask, free_mask, seq, lp) =
-                    sample_pairs_constrained(logits, cands, self.temperature, &mut self.rng);
-                target.multi_mask = mask;
-                target.free_mask = free_mask;
-                target.pick_sequence = seq;
-                lp
-            }
-            HeadKind4::ScalarValue => {
-                let pred = scalar_pred.clamp(0.0, 1.0);
-                let chosen_int =
-                    denormalize_scalar_choice(pred, cands.min_choices, cands.max_choices);
-                let norm =
-                    normalize_scalar_choice(chosen_int, cands.min_choices, cands.max_choices);
-                target.scalar_norm = norm;
-                // Deterministic regression head: supervised training only.
-                0.0
-            }
-        };
-
-        let action = decode_action4(cands, view, pending, &target)
-            .context("decode_action4 returned None")?;
-        if let Some(fault) = pending.answer_fault(&action) {
-            anyhow::bail!("decoded action failed answer_fault: {fault:?}");
-        }
-        Ok((action, value.clamp(0.0, 1.0), logprob, target))
-    }
-}
-
-fn sample_categorical(logits: &[f32], tau: f32, rng: &mut Rng) -> (usize, f32) {
-    if logits.is_empty() {
-        return (0, 0.0);
-    }
-    let scale = if tau <= 1e-4 { 1.0 } else { 1.0 / tau };
-    let max_l = logits.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-    let mut probs = Vec::with_capacity(logits.len());
-    let mut sum = 0.0_f32;
-    for &l in logits {
-        let p = ((l - max_l) * scale).exp();
-        probs.push(p);
-        sum += p;
-    }
-    if sum <= 0.0 || !sum.is_finite() {
-        return (0, 0.0);
-    }
-    for p in &mut probs {
-        *p /= sum;
-    }
-    let chosen = if tau <= 1e-4 {
-        logits
-            .iter()
-            .enumerate()
-            .max_by(|a, b| a.1.total_cmp(b.1))
-            .map_or(0, |(i, _)| i)
-    } else {
-        let u = rng.unit() as f32;
-        let mut acc = 0.0_f32;
-        let mut idx = probs.len() - 1;
-        for (i, &p) in probs.iter().enumerate() {
-            acc += p;
-            if u <= acc {
-                idx = i;
-                break;
-            }
-        }
-        idx
-    };
-    let lp = if tau <= 1e-4 {
-        0.0
-    } else {
-        probs[chosen].max(1e-12).ln()
-    };
-    (chosen, lp)
 }

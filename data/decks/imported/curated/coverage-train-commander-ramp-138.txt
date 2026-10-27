@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp U #20266139]
+1 Academy Ruins
+1 Acid Rain
+1 Ancestral Reminiscence
+1 Angler Turtle
+1 Benthic Behemoth
+1 Bribery
+1 Brilliant Plan
+1 Chain Stasis
+1 Chase Inspiration
+1 Cold-Water Snapper
+1 Dampening Pulse
+1 Deep-Sea Serpent
+1 Encase in Ice
+1 Floodchaser
+1 Fog Elemental
+1 Frilled Sea Serpent
+1 Geist of the Archives
+1 Glimmerbell
+1 Glint
+1 Hermetic Study
+1 Hydroblast
+1 Hydrosurge
+1 Introduction to Prophecy
+1 Ipnu Rivulet
+1 Island Fish Jasconius
+1 Jeskai Runemark
+1 Jwari Disruption
+1 Leave in the Dust
+1 Leviathan
+1 Lilypad Village
+1 Living Tempest
+1 Minamo, School at Water's Edge
+1 Mystic Decree
+1 Oboro, Palace in the Clouds
+1 Octoprophet
+1 Piracy Charm
+1 Piranha Fly
+1 Power Leak
+1 Reef Pirates
+1 Rhystic Deluge
+1 Riptide Laboratory
+1 Ronom Serpent
+1 Runner's Bane
+1 Sea Monster
+1 Seer of the Last Tomorrow
+1 Sigiled Starfish
+1 Sisay's Ring
+35 Snow-Covered Island
+1 Spectral Flight
+1 Steel Sabotage
+1 Taniwha
+1 Temporal Manipulation
+1 Thing from the Deep
+1 Tidal Force
+1 Tidepool Turtle
+1 Tightening Coils
+1 Time Warp
+1 Tolarian Academy
+1 Treachery
+1 Undersea Invader
+1 Updraft Elemental
+1 Ur-Golem's Eye
+1 Vanishing
+1 Warden of Geometries
+1 You See a Guard Approach
+
+[commander]
+Aboshan, Cephalid Emperor

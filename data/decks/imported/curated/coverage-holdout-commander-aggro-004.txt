@@ -1,0 +1,74 @@
+# baylee synergistic holdout coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro W #90010005]
+1 Affa Protector
+1 Akroan Jailer
+1 Alpine Watchdog
+1 Amateur Hero
+1 Angel of Mercy
+1 Argivian Archaeologist
+1 Auramancer
+1 Auriok Champion
+1 Benalish Knight
+1 Beskir Shieldmate
+1 Capashen Unicorn
+1 Cathar Commando
+1 Cavalry Drillmaster
+1 Citywide Bust
+1 Crusader of Odric
+1 Dalkovan Encampment
+1 Devout Monk
+1 Divine Arrow
+1 Divine Retribution
+1 Elite Inquisitor
+1 Emergency Medical Hologram
+1 Faith Healer
+1 Faithbearer Paladin
+1 Font of Vigor
+1 Fountain of Renewal
+1 Gallantry
+1 Golem Foundry
+1 Holy Cow
+1 Idyllic Grange
+1 Infantry Veteran
+1 Inner Sanctum
+1 Jinxed Ring
+1 Keepers of the Faith
+1 Kemba's Skyguard
+1 Kjeldoran Outpost
+1 Kjeldoran Warrior
+1 Kor Castigator
+1 Kor Line-Slinger
+1 Mage's Attendant
+1 Magus of the Disk
+1 Makindi Shieldmate
+1 Mesa Cavalier
+1 Moorish Cavalry
+1 Mystifying Maze
+1 Nutrient Block
+1 Okoye, Dora Milaje Leader
+1 Omni-Cheese Pizza
+1 Phalanx Vanguard
+32 Plains
+1 Precinct Captain
+1 Ranger-Captain of Eos
+1 Resupply
+1 Revitalize
+1 Sacred Nectar
+1 Safe Haven
+1 Silent Artisan
+1 Slayer of the Wicked
+1 Soulmender
+1 Spectral Reserves
+1 Steadfast Sentry
+1 Sunspire Gatekeepers
+1 Throne of Bone
+1 Valgavoth's Lair
+1 Veteran Swordsmith
+1 Volunteer Militia
+1 Wanderer's Intervention
+1 Watchful Giant
+1 Zephyr Boots
+
+[commander]
+Orim, Samite Healer

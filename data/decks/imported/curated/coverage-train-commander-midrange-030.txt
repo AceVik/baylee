@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WB #20266031]
+1 Abbey Griffin
+1 Angelic Curator
+1 Armored Griffin
+1 Assault Intercessor
+1 Aven Mindcensor
+1 Aven Redeemer
+1 Aven Sentry
+1 Aven Trooper
+1 Battlefly Swarm
+1 Beacon Hawk
+1 Bleachbone Verge
+1 Carrion Screecher
+1 Catastrophe
+1 Cave of the Frost Dragon
+1 Combat Professor
+1 Companion of the Trials
+1 Country Roads
+1 Courier Hawk
+1 Daraja Griffin
+1 Dauntless Aven
+1 Dragonstalker
+1 Duskrider Falcon
+1 Eagle of the Great Shelf
+1 Eagle of the Watch
+1 Ekundu Griffin
+1 Emeria, the Sky Ruin
+1 Enforcer Griffin
+1 Eye Collector
+1 Fisk Tower
+1 Gale Swooper
+1 Ghirapur Osprey
+1 Harrier Griffin
+1 Healer's Flock
+1 Insomnia, Crown City
+1 Isolate
+1 Lieutenant Kirtar
+1 Makindi Griffin
+1 Mesa Falcon
+1 Mistral Charger
+1 Misty Palms Oasis
+1 Mothrider Patrol
+1 Nectar Faerie
+1 Neglected Manor
+1 Orzhova, the Church of Deals
+1 Peregrine Griffin
+1 Phyrexian Pegasus
+1 Pit Raptor
+1 Ravenous Skirge
+1 Royal Falcon
+1 Scrubland
+1 Segovian Angel
+1 Seraph of the Suns
+1 Shinewend
+1 Shriekdiver
+1 Shrike Force
+1 Silent Clearing
+1 Silverclaw Griffin
+1 Skyshroud Falcon
+20 Snow-Covered Plains
+5 Snow-Covered Swamp
+1 Spotted Griffin
+1 Squall Drifter
+1 Starlit Sanctum
+1 Stonerise Spirit
+1 Sunspire Griffin
+1 Sustaining Spirit
+1 Teremko Griffin
+1 Tethered Griffin
+1 The Fair Basilica
+1 Thriving Heath
+1 Tributary Vaulter
+1 Unyaro Griffin
+1 Vault of the Archangel
+1 Wild Griffin
+1 Zeriam, Golden Wind
+1 Zuberi, Golden Feather
+
+[commander]
+Selenia, Dark Angel

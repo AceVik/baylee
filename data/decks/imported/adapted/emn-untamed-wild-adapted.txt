@@ -8,12 +8,13 @@
 3 Ground Assault
 2 Kird Ape
 1 Mad Prophet
-4 Manamorphose
+3 Manamorphose
 13 Mountain
 1 Noose Constrictor
 2 Quilled Wolf
 1 Rush of Adrenaline
-4 Savage Twister
+3 Savage Twister
 4 Stump Stomp
+2 Surge of Strength
 1 Uncaged Fury
 3 Wolfkin Bond

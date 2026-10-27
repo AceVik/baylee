@@ -1,83 +1,81 @@
 # baylee curated highlander aggro seed=20261084
 # licence: AGPL-3.0-only
 [deck:highlander aggro UBG #20261084]
-1 Alpha Tyrranax
-1 Animal Sanctuary
-1 Ankle Biter
-1 Arcum's Astrolabe
-1 Ba Sing Se
-1 Barren Moor
-1 Basal Sliver
-1 Basalt Monolith
+1 Aclazotz, Deepest Betrayal
+1 Aether Hub
+1 An Offer You Can't Refuse
+1 Ancestral Vision
+1 Arasta of the Endless Web
+1 Aviation Pioneer
+1 Bitterblossom
+1 Blight Mound
 1 Blisterpod
-1 Bog Imp
-1 Boreal Druid
-1 Buzz Bots
-1 Dawntreader Elk
-1 Disentomb
-1 Drainpipe Vermin
-1 Dryad Arbor
-1 Dryad's Favor
-1 Ebon Stronghold
-1 Eidolon of Blossoms
-1 Erg Raiders
-1 Escape Tunnel
-1 Feral Ferocity
+1 Brine Shaman
+1 Brood Monitor
+1 Cabal Archon
+1 Callous Inspector
+1 Carrion Feeder
+1 Castle Doom
+1 Chime of Night
+1 Cold Case Cracker
+1 Criminal Enterprise
+1 Dai Li Censor
+1 Dark Prophecy
+1 Deranged Outcast
+1 Dire Fleet Hoarder
+1 Discordant Piper
+1 Drowned Rusalka
+1 Elderfang Ritualist
+1 Elven Palisade
+1 Enlightened Maniac
+1 Fear of Lost Teeth
+1 Festering Wound
+1 Floodhound
 7 Forest
-1 Fountainport
-1 Frilled Oculus
-1 Furtive Analyst
-1 Geier Reach Sanitarium
-1 Gemstone Mine
-1 Gift of Strands
-1 Gilacorn
-1 Give In to Violence
-1 Glyph of Delusion
-1 Hoof Skulkin
-1 Hoverguard Observer
-1 Human Frailty
-1 Ingenious Skaab
-7 Island
-1 Jandor's Ring
-1 Jungle Delver
-1 Looter il-Kor
-1 Magma Mine
-1 Mana Geode
-1 Merchant of Secrets
-1 Neverwinter Dryad
-1 Ornithopter
-1 Painsmith
-1 Rathi Trapper
-1 Restless Bones
-1 Ruin Crab
-1 Ruins Recluse
-1 Runeclaw Bear
-1 Salvage Scuttler
-1 Sandstorm Verge
-1 Saruli Caretaker
-1 Scathe Zombies
-1 Serendib Efreet
-1 Shadow Stinger
-1 Shadowspear
-1 Short Bow
-1 Spiketail Drake
-1 Stalking Stones
-1 Strip Mine
-1 Stronghold Assassin
-9 Swamp
-1 Tajuru Pathwarden
-1 Thermal Navigator
-1 Tidehollow Strix
-1 Timbermaw Larva
-1 Titan's Grave
-1 Tormod's Crypt
-1 Trespasser il-Vec
-1 Turbulent Fen
+1 Gallifrey Council Chamber
+1 Golgari Guildmage
+1 Graf Harvest
+1 Greedy Freebooter
+1 Groundskeeper
+1 Haven of the Spirit Dragon
+1 Hidden Grotto
+1 Jasmine Dragon Tea Shop
+1 Krovikan Plague
+1 Lampad of Death's Vigil
+1 Last Laugh
+1 Lazotep Quarry
+1 Long Feng, Grand Secretariat
+1 Marionette Apprentice
+1 Mirrex
+1 Nykthos, Shrine to Nyx
+1 Overwhelmed Apprentice
+1 Phyrexian Vivisector
+1 Pitiless Plunderer
+1 Plagued Rusalka
+1 Planar Nexus
+1 Renowned Weaver
+1 Rotlung Reanimator
+1 Sage of Lat-Nam
+1 Selhoff Occultist
+1 Shadow-Rite Priest
+1 Shattered Crypt
+1 Sire of the Storm
+1 Skirsdag Flayer
+1 Soldevi Adnate
+1 Spirit of Malevolence
+1 Starved Rusalka
+1 Stitcher's Supplier
+17 Swamp
+1 Sweettooth Witch
+1 Sylvan Safekeeper
+1 Tamiyo, Inquisitive Student
+1 The Mechanist, Aerial Artisan
+1 Throne of Makindi
+1 Titania, Protector of Argoth
+1 Tunnel Surveyor
+1 Unburied Earthcarver
+1 Unclaimed Territory
 1 Unknown Shores
-1 Vicious Conquistador
-1 Viridian Zealot
-1 Wall of Shields
-1 Wanderbrine Rootcutters
-1 Wei Ambush Force
-1 Whisperer of the Wilds
-1 Yawgmoth's Will
+1 Village Elder
+1 Vital Splicer
+1 White Lotus Hideout

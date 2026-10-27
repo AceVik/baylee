@@ -1,21 +1,20 @@
-# baylee unseen-card holdout constructed seed=90000036
+# baylee unseen-card holdout constructed seed=90000025
 # licence: AGPL-3.0-only
-[deck:constructed midrange BRG #90000036]
-2 Archdruid's Charm
-2 Avalanche
-4 Blisterpod
-2 Certain Death
-3 Creeping Trailblazer
-4 Fomori Vault
-6 Forest
-4 Goblin Wizard
-1 Grasslands
-4 Guardian of Cloverdell
-3 Lotus Petal
-9 Mountain
-3 Mythic Proportions
-3 Ring of the Lucii
-3 Sangrite Surge
-3 Shuko
-1 Throne of the High City
-3 War Room
+[deck:constructed midrange WB #90000025]
+3 Bishop of Wings
+1 Captivating Cave
+2 Conduit Pylons
+3 Desolate Mire
+4 Hero of the Dunes
+2 Honored Knight-Captain
+2 Icatian Moneychanger
+2 Liliana the Repentant
+4 Loran, Disciple of History
+4 Metamorphosis Fanatic
+3 Neva, Stalked by Nightmares
+11 Plains
+3 Secret Base
+4 Shinra Reinforcements
+4 Slumbering Keepguard
+4 Swamp
+4 Undead Slayer

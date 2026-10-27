@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUG #20266108]
+1 Alchemist's Refuge
+1 Alpha Tyrranax
+1 Arcbound Ravager
+1 Boreal Shelf
+1 Bretagard Stronghold
+1 Burrowing Razormaw
+1 Caribou Range
+1 Carnage Tyrant
+1 Chronic Flooding
+1 Codex Shredder
+1 Dispersing Orb
+1 Drop of Honey
+1 Earthshaking Si
+1 Enormous Baloth
+1 Eye of Malcator
+1 Fangren Marauder
+1 Fear of Surveillance
+1 Floodgate
+7 Forest
+1 Gang of Elk
+1 Giant Warthog
+1 Gift of Strands
+1 Guadosalam, Farplane Gateway
+1 Gumato
+1 Harnessed Snubhorn
+1 Heliod's Intervention
+1 Hymn of Rebirth
+1 Il Mheg Pixie
+6 Island
+1 Kalonian Behemoth
+1 Kitchen
+1 Krark-Clan Ironworks
+1 Krosan Groundshaker
+1 Lumbering Falls
+1 Meditation Pools
+1 Mind Sculpt
+1 Mindeye Drake
+1 Mortal Wound
+1 Mtenda Griffin
+1 Mutant Town
+1 Needleshot Gourna
+1 Nightveil Sprite
+1 Nim Deathmantle
+1 Nissa, Vital Force
+1 North Pole Gates
+1 Noxious Newt
+1 Obelisk of Bant
+1 Overgrown Farmland
+13 Plains
+1 Precognition
+1 Pym Technologies
+1 Rampaging Brontodon
+1 Ransack
+1 Ravenous Baloth
+1 Sabertooth Nishoba
+1 Scattered Groves
+1 Search for Azcanta
+1 Simic Keyrune
+1 So Shiny
+1 Sonic Screwdriver
+1 Spearbreaker Behemoth
+1 Spellkeeper Weird
+1 Spitting Spider
+1 Tangled Islet
+1 Think Tank
+1 Thornglint Bridge
+1 Turbulent Wilderness
+1 Tusked Colossodon
+1 Tyrranax
+1 Tyrranax Rex
+1 Vineglimmer Snarl
+1 Visions
+1 Vizzerdrix
+1 Vodalian War Machine
+1 Wakandan Tusker
+1 Zetalpa, Primal Dawn
+
+[commander]
+Rubinia Soulsinger

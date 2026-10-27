@@ -4,19 +4,19 @@
 4 Auger Spree
 4 Bedevil
 3 Bloodcrazed Neonate
-2 Bog Initiate
 1 Child of Night
 1 Cobbled Wings
+4 Delirium
 1 Diabolic Tutor
-4 Dreadbore
 2 Falkenrath Noble
 1 Fireball
+1 Gerrard's Irregulars
 2 Markov Patrician
 2 Mask of Avacyn
 12 Mountain
 1 Sengir Vampire
+4 Spontaneous Combustion
 2 Stromkirk Patrol
 12 Swamp
-4 Terminate
 1 Traveler's Amulet
-1 Zuko, Avatar Hunter
+2 Vengeful Bloodwitch

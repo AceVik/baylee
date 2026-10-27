@@ -7,7 +7,7 @@ import model4 as M
 from test_training_execution4 import batch_fixture
 from training4.deferred import deferred_readouts, readout_groups
 from training4.execution import plan_batch, encode_boards, StepPlan
-from training4.device_loss import compute_device_loss
+from training4.device_loss import compute_device_loss, compute_unroll_device_loss
 
 
 class DeferredReadouts(unittest.TestCase):
@@ -62,15 +62,25 @@ class DeferredReadouts(unittest.TestCase):
                                       plans[t].heads[2], plans[t].heads[3])[head-1]
                             if not needed: continue
                         torch.testing.assert_close(a, b, atol=3e-6, rtol=3e-5)
-                def backward(model, outputs):
+                def backward(model, outputs, vectorized=False):
+                    if vectorized:
+                        aux_all = model.aux_head(torch.stack([out[0][:, 0] for out in outputs], dim=1))
+                        total, stats = compute_unroll_device_loss(outputs, aux_all.float(), batch, plans)
+                        total.backward()
+                        return total, stats
                     total = 0
+                    stats_sum = torch.zeros(5)
                     for t, out in enumerate(outputs):
                         auxiliary = model.aux_head(out[0][:, 0])
-                        loss, _ = compute_device_loss(*out[1:], auxiliary, batch, t, plans[t])
+                        loss, st = compute_device_loss(*out[1:], auxiliary, batch, t, plans[t])
                         total = total + loss/8
+                        stats_sum = stats_sum + st
                     total.backward()
-                    return total
-                torch.testing.assert_close(backward(net, left), backward(actual, right), atol=1e-6, rtol=1e-6)
+                    return total, stats_sum
+                loss_l, stats_l = backward(net, left, vectorized=False)
+                loss_r, stats_r = backward(actual, right, vectorized=True)
+                torch.testing.assert_close(loss_l, loss_r, atol=1e-6, rtol=1e-6)
+                torch.testing.assert_close(stats_l, stats_r, atol=1e-5, rtol=1e-5)
                 for (name, a), (_, b) in zip(net.named_parameters(), actual.named_parameters()):
                     self.assertEqual(a.grad is None, b.grad is None, name)
                     if a.grad is not None:

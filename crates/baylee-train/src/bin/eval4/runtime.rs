@@ -3,6 +3,9 @@
 trait EvaluationPlayer {
     fn reseed(&mut self, seed: u64);
     fn init_game(&mut self, preset: &baylee_core::preset::GamePreset);
+    fn uses_context(&self) -> bool {
+        false
+    }
     fn observe(&mut self, view: &baylee_view::PlayerView) -> anyhow::Result<()>;
     fn answer(
         &mut self,
@@ -11,14 +14,39 @@ trait EvaluationPlayer {
         teams: &[Option<u8>],
     ) -> anyhow::Result<Option<baylee_train::netplay4::Answer4>>;
     fn coverage(&self) -> &CoverageMatrix4;
+    fn policy_encoding(
+        &self,
+        _view: &baylee_view::PlayerView,
+        _pending: &Pending,
+        _teams: &[Option<u8>],
+    ) -> Option<(
+        baylee_train::features4::EncodedState4,
+        baylee_train::features4::EncodedCandidates4,
+    )> {
+        None
+    }
 }
 
 impl EvaluationPlayer for NetPlayer4 {
+    fn policy_encoding(
+        &self,
+        view: &baylee_view::PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+    ) -> Option<(
+        baylee_train::features4::EncodedState4,
+        baylee_train::features4::EncodedCandidates4,
+    )> {
+        Some(Self::policy_encoding(self, view, pending, teams))
+    }
     fn reseed(&mut self, seed: u64) {
         Self::reseed(self, seed);
     }
     fn init_game(&mut self, preset: &baylee_core::preset::GamePreset) {
         Self::init_game(self, preset);
+    }
+    fn uses_context(&self) -> bool {
+        self.is_encoder7()
     }
     fn observe(&mut self, view: &baylee_view::PlayerView) -> anyhow::Result<()> {
         Self::observe(self, view)
@@ -98,13 +126,19 @@ fn load_player(
     legacy: bool,
     depth: u8,
     temperature: f32,
+    policy_mode: PolicyMode4,
+    expected_identity: Option<&ModelIdentity>,
 ) -> anyhow::Result<Box<dyn EvaluationPlayer>> {
     if !legacy {
-        return Ok(Box::new(
-            NetPlayer4::load(path)?
-                .with_thinking_steps(depth)
-                .with_temperature(temperature),
-        ));
+        let player = NetPlayer4::load(path)?
+            .with_thinking_steps(depth)
+            .with_temperature(temperature)
+            .with_policy_mode(policy_mode);
+        anyhow::ensure!(
+            expected_identity == Some(player.model_identity()),
+            "worker model identity differs from evaluation/run metadata"
+        );
+        return Ok(Box::new(player));
     }
     let model = if path.is_dir() {
         path.join("net.onnx")

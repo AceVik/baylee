@@ -25,19 +25,16 @@ use std::path::PathBuf;
 use anyhow::{Context as _, bail};
 use baylee_cards::decks::{leader_of, may_lead_together};
 use baylee_cards::formats::{self, Shape};
-use baylee_cards_dsl::CardDef;
 use baylee_core::color::{Color, ColorSet};
 use baylee_core::ids::CardIndex;
-use baylee_core::types::{SupertypeSet, TypeSet};
-use baylee_train::carddsl::encode_card_face;
-use baylee_train::deckgen::{self, Archetype, Rng};
+use baylee_train::deckgen::strategy::MultisetSimilarityIndex;
+use baylee_train::deckgen::{self, Archetype, CoverageConfig, Rng, build_coverage_corpus_scoped};
 use baylee_train::housedeck::HouseDeck;
 use baylee_train::working::{Refusal, Working, repo_root};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
-const IMPORTER_VERSION: &str = "v4.1.0-2026-10-22";
+const IMPORTER_VERSION: &str = "v4.2.0-2026-10-25";
 
 #[derive(Parser, Debug)]
 #[command(about = "Imports, validates, deduplicates, and splits the Playernet v4 deck corpus")]
@@ -68,6 +65,10 @@ struct Args {
     /// Maximum Jaccard similarity allowed across `train` vs `val`/`test` splits.
     #[arg(long, default_value_t = 0.85)]
     max_cross_split_jaccard: f64,
+
+    /// Minimum number of decks each working card must appear in (`>= 3`; `0` to skip).
+    #[arg(long, default_value_t = 3)]
+    min_card_coverage: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -782,17 +783,27 @@ fn main() -> anyhow::Result<()> {
     //    all 4 archetypes and color combinations, plus dedicated unseen-card test decks!
     // -------------------------------------------------------------------------
     let empty_set = BTreeSet::new();
-    let train_pool = deckgen::Pool::new(&working, &held_out_set);
-    let full_pool = deckgen::Pool::new(&working, &empty_set);
+    let train_pool = deckgen::pool_for_working(&working, &held_out_set);
+    let full_pool = deckgen::pool_for_working(&working, &empty_set);
 
     let shapes = [Shape::Constructed, Shape::Highlander, Shape::Commander];
+    let mut curated_usage: BTreeMap<CardIndex, usize> = BTreeMap::new();
     let mut gen_idx = 0_usize;
     let mut seed_cursor = 2026_1022_u64;
     while gen_idx < 105 && seed_cursor < 2026_5000 {
         let shape = shapes[gen_idx % shapes.len()];
         let arch = Archetype::ALL[(gen_idx / shapes.len()) % Archetype::ALL.len()];
         seed_cursor += 1;
-        let Ok(g) = deckgen::generate(&train_pool, shape, arch, seed_cursor) else {
+        let req = deckgen::DeckBuildRequest {
+            shape,
+            archetype: arch,
+            seed: seed_cursor,
+            anchor: None,
+            forced_colors: None,
+            deficits: None,
+            usage_counts: Some(&curated_usage),
+        };
+        let Ok(g) = deckgen::build_synergistic(&train_pool, &req) else {
             continue;
         };
         if !formats::check(shape, &g.main, &g.leaders).is_empty() {
@@ -820,6 +831,9 @@ fn main() -> anyhow::Result<()> {
             tags.sort();
         }
         let multiset = compute_multiset(&g.main, &g.leaders);
+        for &cid in multiset.keys() {
+            *curated_usage.entry(cid).or_insert(0) += 1;
+        }
         let deck_hash = compute_deck_hash(&multiset, &g.leaders);
         let cmd_names: Vec<String> = g
             .leaders
@@ -864,13 +878,25 @@ fn main() -> anyhow::Result<()> {
         let shape = shapes[unseen_idx % shapes.len()];
         let arch = Archetype::ALL[(unseen_idx / shapes.len()) % Archetype::ALL.len()];
         unseen_seed += 1;
-        let Ok(g) = deckgen::generate(&full_pool, shape, arch, unseen_seed) else {
+        let req = deckgen::DeckBuildRequest {
+            shape,
+            archetype: arch,
+            seed: unseen_seed,
+            anchor: None,
+            forced_colors: None,
+            deficits: None,
+            usage_counts: Some(&curated_usage),
+        };
+        let Ok(g) = deckgen::build_synergistic(&full_pool, &req) else {
             continue;
         };
         let multiset = compute_multiset(&g.main, &g.leaders);
         let held_cnt = multiset.keys().filter(|c| held_out_set.contains(c)).count();
         if held_cnt < 2 {
             continue;
+        }
+        for &cid in multiset.keys() {
+            *curated_usage.entry(cid).or_insert(0) += 1;
         }
         let fmt_str = deckgen::shape_name(shape);
         let slug = format!("holdout-cards-{fmt_str}-{}-{unseen_idx:02}", arch.name());
@@ -931,16 +957,18 @@ fn main() -> anyhow::Result<()> {
     // 5. Deduplicate via canonical card-multiset Jaccard similarity (`J < max_within_jaccard`)
     // -------------------------------------------------------------------------
     let mut deduped: Vec<CandidateDeck> = Vec::new();
+    let mut dedup_hashes: BTreeSet<String> = BTreeSet::new();
+    let mut dedup_sim_index = MultisetSimilarityIndex::new();
     let mut dropped_duplicates = 0_usize;
     for cand in candidates {
-        let is_dup = deduped.iter().any(|existing| {
-            existing.deck_hash == cand.deck_hash
-                || multiset_jaccard(&existing.multiset, &cand.multiset) >= args.max_within_jaccard
-        });
+        let is_dup = dedup_hashes.contains(&cand.deck_hash)
+            || dedup_sim_index.max_jaccard(&cand.multiset) >= args.max_within_jaccard;
         if is_dup {
             dropped_duplicates += 1;
             continue;
         }
+        dedup_hashes.insert(cand.deck_hash.clone());
+        dedup_sim_index.add(&cand.multiset);
         deduped.push(cand);
     }
 
@@ -948,14 +976,11 @@ fn main() -> anyhow::Result<()> {
     // 6. Group connected components with `J > max_cross_split_jaccard` (`0.85`)
     //    and assign deterministic `train / val / test` splits with ZERO cross-split leakage!
     // -------------------------------------------------------------------------
-    let n = deduped.len();
-    let mut sim_mat = vec![vec![0.0_f64; n]; n];
-    let mut parent: Vec<usize> = (0..n).collect();
-    for i in 0..n {
-        for j in (i + 1)..n {
+    let n_base = deduped.len();
+    let mut parent: Vec<usize> = (0..n_base).collect();
+    for i in 0..n_base {
+        for j in (i + 1)..n_base {
             let jacc = multiset_jaccard(&deduped[i].multiset, &deduped[j].multiset);
-            sim_mat[i][j] = jacc;
-            sim_mat[j][i] = jacc;
             if jacc > args.max_cross_split_jaccard {
                 let ri = find(&mut parent, i);
                 let rj = find(&mut parent, j);
@@ -967,17 +992,16 @@ fn main() -> anyhow::Result<()> {
     }
 
     let mut groups: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-    for i in 0..n {
+    for i in 0..n_base {
         let r = find(&mut parent, i);
         groups.entry(r).or_default().push(i);
     }
 
     let mut split_assignment: Vec<(String, String, usize)> =
-        vec![(String::new(), String::new(), 0); n];
+        vec![(String::new(), String::new(), 0); n_base];
     let mut strat_counters: BTreeMap<(String, String), usize> = BTreeMap::new();
 
     for (group_id, (_, members)) in groups.iter().enumerate() {
-        // Check if any member in the similarity group has a forced split (e.g. test/unseen_cards or test/eval_benchmark)
         let mut forced: Option<(String, String)> = None;
         for &m in members {
             if let Some(f) = &deduped[m].forced_split {
@@ -992,7 +1016,6 @@ fn main() -> anyhow::Result<()> {
             let key = (first.format.clone(), first.archetype.clone());
             let idx = *strat_counters.get(&key).unwrap_or(&0);
             strat_counters.insert(key, idx + 1);
-            // Stratified 70% train / 15% val / 15% test (every 7th -> val, every 8th -> test)
             match idx % 10 {
                 7 => ("val".to_string(), "val_known_cards".to_string()),
                 8 => ("test".to_string(), "unseen_deck_known_cards".to_string()),
@@ -1000,7 +1023,6 @@ fn main() -> anyhow::Result<()> {
             }
         };
         for &m in members {
-            // Double-check: a deck with held-out cards can NEVER enter train or val
             if deduped[m].contains_held_out_cards && sp != "test" {
                 split_assignment[m] = ("test".to_string(), "unseen_cards".to_string(), group_id);
             } else {
@@ -1009,17 +1031,230 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    // Iteratively enforce `J(A, B) <= max_cross_split_jaccard` across different splits
+    // -------------------------------------------------------------------------
+    // 6b. Coverage-Constrained Synergistic Deck Generation (`k >= min_card_coverage`)
+    //     Ensures every working `train_safe` card appears in `>= k` train decks and
+    //     every working `held_out` card appears in `>= k` unseen-card test decks!
+    // -------------------------------------------------------------------------
+    let mut next_group_id = groups.len();
+    let mut train_cov_report = None;
+    let mut holdout_cov_report = None;
+
+    if args.min_card_coverage > 0 {
+        let mut train_ms: Vec<BTreeMap<CardIndex, u32>> = Vec::new();
+        let mut non_train_ms: Vec<BTreeMap<CardIndex, u32>> = Vec::new();
+        for (idx, d) in deduped.iter().enumerate() {
+            if split_assignment[idx].0 == "train" {
+                train_ms.push(d.multiset.clone());
+            } else {
+                non_train_ms.push(d.multiset.clone());
+            }
+        }
+
+        let train_cfg = CoverageConfig {
+            min_coverage: args.min_card_coverage,
+            max_jaccard: (args.max_cross_split_jaccard - 0.03).clamp(0.50, 0.84),
+            base_seed: 2026_6000,
+            max_new_decks: 1200,
+        };
+        let (train_cov_decks, t_rep) =
+            build_coverage_corpus_scoped(&train_pool, None, &train_ms, &non_train_ms, &train_cfg)?;
+        println!(
+            "[import_decks] Train card coverage (k >= {}): under-covered {} -> {} ({} new synergistic decks)",
+            args.min_card_coverage,
+            t_rep.under_covered_before,
+            t_rep.under_covered_after,
+            t_rep.decks_generated
+        );
+        train_cov_report = Some(t_rep);
+
+        for (cov_idx, g) in train_cov_decks.into_iter().enumerate() {
+            let fmt_str = deckgen::shape_name(g.shape);
+            let slug = format!(
+                "coverage-train-{fmt_str}-{}-{cov_idx:03}",
+                g.archetype.name()
+            );
+            let norm_rel = format!("data/decks/imported/curated/{slug}.txt");
+            let norm_text = format_house_deck_text(
+                &g.name,
+                &format!(
+                    "baylee synergistic coverage {fmt_str} {}",
+                    g.archetype.name()
+                ),
+                "AGPL-3.0-only",
+                &g.main,
+                &[],
+                &g.leaders,
+            );
+            fs::write(root.join(&norm_rel), norm_text)?;
+
+            let (_, mut tags, colors) = classify_deck_strategy(&g.main, &g.leaders);
+            if !tags.contains(&g.archetype.name().to_string()) {
+                tags.push(g.archetype.name().to_string());
+                tags.sort();
+            }
+            let multiset = compute_multiset(&g.main, &g.leaders);
+            let deck_hash = compute_deck_hash(&multiset, &g.leaders);
+            let cmd_names: Vec<String> = g
+                .leaders
+                .iter()
+                .filter_map(|&c| baylee_cards::by_index(c).map(|d| d.name().to_string()))
+                .collect();
+
+            let gid = next_group_id;
+            next_group_id += 1;
+            deduped.push(CandidateDeck {
+                id: format!("coverage/{slug}"),
+                name: g.name,
+                rel_path: norm_rel,
+                format: fmt_str.to_string(),
+                shape_valid: true,
+                archetype: g.archetype.name().to_string(),
+                strategy_tags: tags,
+                strategy_confidence: "generator_spec_and_dsl",
+                colors: color_string(colors),
+                source_key: "curated_coverage".to_string(),
+                source_ref: format!("baylee_train::deckgen::coverage train #{cov_idx}"),
+                source_date: "2026-10-25".to_string(),
+                license: "AGPL-3.0-only".to_string(),
+                is_derived: false,
+                original_ref: None,
+                adaptations: Vec::new(),
+                main_cards: g.main,
+                side_cards: Vec::new(),
+                sideboard_supported: true,
+                commander_names: cmd_names,
+                multiset,
+                contains_held_out_cards: false,
+                held_out_card_count: 0,
+                deck_hash,
+                forced_split: Some(("train".to_string(), "train_active".to_string())),
+            });
+            split_assignment.push(("train".to_string(), "train_active".to_string(), gid));
+        }
+
+        // Now ensure every held-out 5% zero-shot test card appears in >= k test decks
+        let mut test_ms: Vec<BTreeMap<CardIndex, u32>> = Vec::new();
+        let mut non_test_ms: Vec<BTreeMap<CardIndex, u32>> = Vec::new();
+        for (idx, d) in deduped.iter().enumerate() {
+            if split_assignment[idx].0 == "test" {
+                test_ms.push(d.multiset.clone());
+            } else {
+                non_test_ms.push(d.multiset.clone());
+            }
+        }
+        let holdout_cfg = CoverageConfig {
+            min_coverage: args.min_card_coverage,
+            max_jaccard: (args.max_cross_split_jaccard - 0.03).clamp(0.50, 0.84),
+            base_seed: 9001_0000,
+            max_new_decks: 400,
+        };
+        let (holdout_cov_decks, h_rep) = build_coverage_corpus_scoped(
+            &full_pool,
+            Some(&held_out_set),
+            &test_ms,
+            &non_test_ms,
+            &holdout_cfg,
+        )?;
+        println!(
+            "[import_decks] Holdout test card coverage (k >= {}): under-covered {} -> {} ({} new synergistic decks)",
+            args.min_card_coverage,
+            h_rep.under_covered_before,
+            h_rep.under_covered_after,
+            h_rep.decks_generated
+        );
+        holdout_cov_report = Some(h_rep);
+
+        for (cov_idx, g) in holdout_cov_decks.into_iter().enumerate() {
+            let fmt_str = deckgen::shape_name(g.shape);
+            let slug = format!(
+                "coverage-holdout-{fmt_str}-{}-{cov_idx:03}",
+                g.archetype.name()
+            );
+            let norm_rel = format!("data/decks/imported/curated/{slug}.txt");
+            let norm_text = format_house_deck_text(
+                &g.name,
+                &format!(
+                    "baylee synergistic holdout coverage {fmt_str} {}",
+                    g.archetype.name()
+                ),
+                "AGPL-3.0-only",
+                &g.main,
+                &[],
+                &g.leaders,
+            );
+            fs::write(root.join(&norm_rel), norm_text)?;
+
+            let (_, mut tags, colors) = classify_deck_strategy(&g.main, &g.leaders);
+            if !tags.contains(&g.archetype.name().to_string()) {
+                tags.push(g.archetype.name().to_string());
+                tags.sort();
+            }
+            let multiset = compute_multiset(&g.main, &g.leaders);
+            let held_cnt = multiset.keys().filter(|c| held_out_set.contains(c)).count();
+            let deck_hash = compute_deck_hash(&multiset, &g.leaders);
+            let cmd_names: Vec<String> = g
+                .leaders
+                .iter()
+                .filter_map(|&c| baylee_cards::by_index(c).map(|d| d.name().to_string()))
+                .collect();
+
+            let gid = next_group_id;
+            next_group_id += 1;
+            deduped.push(CandidateDeck {
+                id: format!("holdout/{slug}"),
+                name: g.name,
+                rel_path: norm_rel,
+                format: fmt_str.to_string(),
+                shape_valid: true,
+                archetype: g.archetype.name().to_string(),
+                strategy_tags: tags,
+                strategy_confidence: "generator_spec_and_dsl",
+                colors: color_string(colors),
+                source_key: "curated_holdout_cards".to_string(),
+                source_ref: format!("baylee_train::deckgen::coverage holdout #{cov_idx}"),
+                source_date: "2026-10-25".to_string(),
+                license: "AGPL-3.0-only".to_string(),
+                is_derived: false,
+                original_ref: None,
+                adaptations: Vec::new(),
+                main_cards: g.main,
+                side_cards: Vec::new(),
+                sideboard_supported: true,
+                commander_names: cmd_names,
+                multiset,
+                contains_held_out_cards: held_cnt > 0,
+                held_out_card_count: held_cnt,
+                deck_hash,
+                forced_split: Some(("test".to_string(), "unseen_cards".to_string())),
+            });
+            split_assignment.push(("test".to_string(), "unseen_cards".to_string(), gid));
+        }
+    }
+
+    // Build per-split inverted indices to verify `J(A, B) <= max_cross_split_jaccard` across splits
+    let n = deduped.len();
+    let mut train_idx = MultisetSimilarityIndex::new();
+    let mut val_idx = MultisetSimilarityIndex::new();
+    let mut test_idx = MultisetSimilarityIndex::new();
+    for i in 0..n {
+        match split_assignment[i].0.as_str() {
+            "train" => train_idx.add(&deduped[i].multiset),
+            "val" => val_idx.add(&deduped[i].multiset),
+            _ => test_idx.add(&deduped[i].multiset),
+        }
+    }
+
     let mut entries: Vec<ManifestDeckEntry> = Vec::with_capacity(n);
     let mut max_observed_cross_jaccard = 0.0_f64;
     for i in 0..n {
         let (ref sp_i, ref tier_i, gid_i) = split_assignment[i];
-        let mut max_cross = 0.0_f64;
-        for j in 0..n {
-            if i != j && split_assignment[j].0 != *sp_i {
-                max_cross = max_cross.max(sim_mat[i][j]);
-            }
-        }
+        let ms_i = &deduped[i].multiset;
+        let max_cross = match sp_i.as_str() {
+            "train" => val_idx.max_jaccard(ms_i).max(test_idx.max_jaccard(ms_i)),
+            "val" => train_idx.max_jaccard(ms_i).max(test_idx.max_jaccard(ms_i)),
+            _ => train_idx.max_jaccard(ms_i).max(val_idx.max_jaccard(ms_i)),
+        };
         assert!(
             max_cross <= args.max_cross_split_jaccard + 1e-9,
             "Cross-split Jaccard violation: deck {} ({}) has J={:.4} > {:.2}",
@@ -1091,11 +1326,16 @@ fn main() -> anyhow::Result<()> {
 
     let manifest_json = serde_json::json!({
         "importer_version": IMPORTER_VERSION,
-        "generated_at": "2026-10-22",
+        "generated_at": "2026-10-25",
         "working_pool_cards": working.cards.len(),
         "working_pool_hash": working.hash(),
         "held_out_every": 20,
         "held_out_cards_count": held_out_set.len(),
+        "min_card_coverage_target": args.min_card_coverage,
+        "train_card_coverage_after_min": train_cov_report.as_ref().map(|r| r.min_coverage_after),
+        "train_under_covered_after": train_cov_report.as_ref().map(|r| r.under_covered_after),
+        "holdout_card_coverage_after_min": holdout_cov_report.as_ref().map(|r| r.min_coverage_after),
+        "holdout_under_covered_after": holdout_cov_report.as_ref().map(|r| r.under_covered_after),
         "total_accepted_decks": entries.len(),
         "original_unmodified_decks": original_count,
         "derived_adapted_decks": derived_count,

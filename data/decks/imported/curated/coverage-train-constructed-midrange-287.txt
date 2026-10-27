@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange UBR #20266288]
+2 Battlefield Percher
+2 Belbe's Percher
+2 Blistering Dieflyn
+2 Bloodsoaked Insight
+1 Castle Doom
+2 Crazed Skirge
+2 Dusk Imp
+2 Eclipsed Realms
+2 Fog of Gnats
+1 Gallifrey Council Chamber
+2 Gloomhunter
+3 Guildmages' Forum
+2 Heap Gate
+6 Island
+2 Kelinore Bat
+2 Part Water
+2 Prismatic Lace
+2 Sewn-Eye Drake
+2 Shriek of Dread
+9 Swamp
+2 Tattered Drake
+2 Urborg Drake
+2 Volcano Imp
+2 Wasp Lancer
+2 Word of Command

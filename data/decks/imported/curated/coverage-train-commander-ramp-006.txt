@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUB #20266007]
+1 Argivian Find
+1 Ashen Powder
+1 Avengers Hangar
+1 Badgey, Malicious Glitch
+1 Bleachbone Verge
+1 Brain Freeze
+1 Breath of Life
+1 Citywatch Sphinx
+1 Codex Shredder
+1 Compelling Argument
+1 Crypt Angel
+1 Desolate Mire
+1 Desperate Bloodseeker
+1 Devout Decree
+1 Dimir Keyrune
+1 Doom's Servo-Guards
+1 Drownyard Amalgam
+1 Ebon Dragon
+1 Eclipsed Steppe
+1 Emerge from the Cocoon
+1 Etherium Astrolabe
+1 Eye of Ramos
+1 Fetid Heath
+1 Flayed One
+1 Gloomlake Verge
+1 Graveshifter
+1 Grim Bauble
+1 Iceberg Cancrix
+1 Liturgy of Blood
+1 Mind Sculpt
+1 Mindscour Dragon
+1 Murky Sewer
+1 Naga Oracle
+1 Obelisk of Esper
+1 Orzhov Keyrune
+1 Phyrexian Fleshgorger
+1 Protomatter Powder
+1 Psychic Symbiont
+1 Ray of Ruin
+1 Reconstruction
+1 Return to Battle
+1 Ritual of Restoration
+1 River of Tears
+1 Rootwater Diver
+1 Sanctum Gargoyle
+1 Seachrome Coast
+1 Secret Passage
+1 Shambling Vent
+1 Sharuum the Hegemon
+1 Sibilant Spirit
+1 Silent Clearing
+1 Silumgar Monument
+1 Silverquill Campus
+1 Simulacrum Synthesizer
+1 Sinister Hideout
+1 Skull of Ramos
+14 Snow-Covered Island
+5 Snow-Covered Plains
+7 Snow-Covered Swamp
+1 Sphinx of the Steel Wind
+1 Spined Megalodon
+1 Sunken Ruins
+1 Tamiyo's Epiphany
+1 Thunder Totem
+1 Time Warp
+1 Tolarian Serpent
+1 Tooth of Ramos
+1 Vault of the Archangel
+1 Wakandan Drone Flock
+1 Wall of Lost Thoughts
+1 Weight of Memory
+1 Winds of Rebuke
+1 Wishclaw Talisman
+1 Witch Engine
+1 Wretched Doll
+1 Yawgmoth Demon
+
+[commander]
+Chromium

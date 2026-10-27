@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WR #20266121]
+1 Akoum Warrior
+1 Atog
+1 Auratog
+1 Balduvian Trading Post
+1 Balthor the Stout
+1 Bear Trap
+1 Bot Bashing Time
+1 Burning Palm Efreet
+1 Disruptor Pistol
+1 Duergar Hedge-Mage
+1 Dwarven Armorer
+1 Dwarven Miner
+1 Dwarven Sea Clan
+1 Dwarven Vigilantes
+1 Dwarven Weaponsmith
+1 Dáin of the Ancient Halls
+1 Earth Tremor
+1 Electrify
+1 Engulfing Eruption
+1 Enslaved Dwarf
+1 Fanatical Devotion
+1 Feed the Flames
+1 Flame Lash
+1 Flamekin Village
+1 Friendly Teddy
+1 Gleaming Barrier
+1 Goblin Digging Team
+1 Goblin Gardener
+1 Goblin Legionnaire
+1 Goblin Picker
+1 Gorilla War Cry
+1 Hanweir Battlements
+1 Hellion Crucible
+1 High Noon
+1 Hotfoot Gnome
+1 Hurler Cyclops
+1 Hurloon Shaman
+1 Junktown
+1 Karplusan Hound
+1 Kher Keep
+1 Kiki-Jiki, Mirror Breaker
+1 Krark-Clan Grunt
+1 Liberated Dwarf
+1 Lindblum, Industrial Regency
+1 Mines of Moria
+1 Moonglove Extract
+16 Mountain
+1 Myr Moonvessel
+1 Myr Retriever
+1 Myr Sire
+1 Nahiri's Machinations
+1 Oni of Wild Places
+1 Orc General
+1 Penregon Strongbull
+8 Plains
+1 Rabbit Battery
+1 Ragged Playmate
+1 Ramunap Ruins
+1 Ravaged Highlands
+1 Ravenous Intruder
+1 Retributive Wand
+1 Rockface Village
+1 Rumbling Rockslide
+1 Sandstone Needle
+1 Scalding Cauldron
+1 Scrapyard Steelbreaker
+1 Seething Pathblazer
+1 Shinka, the Bloodsoaked Keep
+1 Shocker
+1 Slobad, Goblin Tinkerer
+1 Springjaw Trap
+1 Sudden Impact
+1 The Lonely Mountain
+1 Thorin Oakenshield
+1 Troubled Healer
+1 Unfriendly Fire
+1 Weldfast Monitor
+
+[commander]
+Eivor, Battle-Ready

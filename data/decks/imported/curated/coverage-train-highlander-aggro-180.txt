@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro WUG #20266181]
+1 Abundant Countryside
+1 Alpha Kavu
+1 Altered Ego
+1 Amphin Cutthroat
+1 Ancient Crab
+1 Armor Sliver
+1 Armored Whirl Turtle
+1 Blockade Runner
+1 Captivating Cave
+1 Cephalid Inkshrouder
+1 Chitinous Cloak
+1 Chitinous Graspling
+1 City of Brass
+1 Clever Impersonator
+1 Crop Rotation
+1 Curio Vendor
+1 Daring Thunder-Thief
+1 Dispeller's Capsule
+1 Erratic Portal
+1 Forbidden Orchard
+9 Forest
+1 Frilled Oculus
+1 Fyndhorn Brownie
+1 Gibbering Hyenas
+1 Glacial Wall
+1 Glimmervoid
+1 Gnarled Mass
+1 Goggles of Night
+1 Gorilla Pack
+1 Guildmages' Forum
+1 Hall of Oracles
+1 Haywire Mite
+1 Headwater Sentries
+1 Horned Turtle
+1 Implement of Improvement
+11 Island
+1 Kraul Stinger
+1 Land Leeches
+1 Lazotep Quarry
+1 Leaping Lizard
+1 Loxodon Anchorite
+1 Lucky Offering
+1 Mirror Image
+1 Mistford River Turtle
+1 Morphling
+1 Moss Diamond
+1 Old Ghastbark
+1 Phase Dolphin
+1 Pillar of the Paruns
+4 Plains
+1 Potion of Healing
+1 Redwood Treefolk
+1 School of the Unseen
+1 Scion of Glaciers
+1 Scuttling Sliver
+1 Secret Base
+1 Shifting Sliver
+1 Slippery Bogle
+1 Southern Elephant
+1 Spire of Industry
+1 Springjack Pasture
+1 Storm Spirit
+1 Stunt Double
+1 Sungrass Egg
+1 Talisman of Unity
+1 Talon Gates of Madara
+1 Tawnos's Wand
+1 Thornling
+1 Treefolk Healer
+1 Turtle-Seals
+1 Walking Sponge
+1 Warthog
+1 Wary Okapi
+1 Watercourser
+1 Wave Elemental
+1 Wetland Sambar
+1 Whimwader
+1 Winter Blast
+1 Wipe Clean

@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBG #20266065]
+1 Agent of Horizons
+1 Alchemist's Refuge
+1 Ankle Biter
+1 Ashcoat Bear
+1 Assault Zeppelid
+1 Avengers Hangar
+1 Balloon Peddler
+1 Bant Battlemage
+1 Barkchannel Pathway
+1 Bear Cub
+1 Beast Walkers
+1 Blossom Dryad
+1 Clever Concealment
+1 Dauthi Horror
+1 Dawnstrider
+1 Death-Hood Cobra
+1 Deathcult Rogue
+1 Disorient
+1 Dread Warlock
+1 Dutiful Thrull
+1 Eel-Hounds
+1 Faithful Watchdog
+5 Forest
+1 Forest Bear
+1 Glissa's Courier
+1 Great Hall of Starnheim
+1 Guadosalam, Farplane Gateway
+1 Hag of Twisted Visions
+1 Haunter of Nightveil
+1 Hinterland Harbor
+1 Hussar Patrol
+1 Hyalopterous Lemure
+2 Island
+1 Jhessian Balmgiver
+1 Juxtapose
+1 Kolinahr Priest
+1 Large Bear
+1 Living Airship
+1 Lynx
+1 Marsh Boa
+1 Master Healer
+1 Minister of Impediments
+1 Mire Boa
+1 Mnemonic Nexus
+1 Moss Viper
+1 Nacatl Savage
+1 Nameless Race
+1 Nightveil Predator
+1 Novijen, Heart of Progress
+1 Orzhov Basilica
+1 Overflowing Basin
+1 Pale Bears
+1 Paradox Gardens
+9 Plains
+1 Restless Vinestalk
+1 Retrieval Agent
+1 Rhox War Monk
+1 Rime Dryad
+1 Rune-Cervin Rider
+1 Rushwood Dryad
+1 Scalebane's Elite
+1 Sivitri, Dragon Master
+1 Spectral Lynx
+1 Stoic Angel
+1 Strangled Cemetery
+1 Study
+1 Suppression Ray
+9 Swamp
+1 Taoist Hermit
+1 Teferi's Honor Guard
+1 Tropical Island
+1 Twilight Panther
+1 Unseen Walker
+1 Vineglimmer Snarl
+1 Willow Dryad
+1 Wily Bandar
+1 Woodland Patrol
+1 Zebra Unicorn
+
+[commander]
+Atraxa, Grand Unifier

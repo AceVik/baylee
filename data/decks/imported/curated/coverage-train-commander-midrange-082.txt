@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266083]
+1 Abstruse Interference
+1 Aclazotz, Deepest Betrayal
+1 Akoum Refuge
+1 Altac Bloodseeker
+1 Ancestors' Aid
+1 Angel's Herald
+1 Aragorn, the Uniter
+1 Auspicious Arrival
+1 Awaken the Woods
+1 Axgard Armory
+1 Ballroom
+1 Bleeding Woods
+1 Brine Shaman
+1 Carrion
+1 Crib Swap
+1 Crystal Quarry
+1 Doubling Season
+1 Dragonlair Spider
+1 Errand of Duty
+1 Femeref Enchantress
+10 Forest
+1 Foul Play
+1 Ghen, Arcanum Weaver
+1 Hanweir Garrison
+1 Hard Evidence
+1 Headstone
+1 Hidden Lair
+1 Hornswoggle
+1 Icatian Crier
+1 Icatian Town
+1 Inquisitor Greyfax
+2 Island
+1 Jace's Scrutiny
+1 Jagged Barrens
+1 Judge Magister Gabranth
+1 Jund Battlemage
+1 Krark-Clan Stoker
+1 Kykar, Wind's Fury
+1 Legion's Landing
+1 Living Lightning
+1 Lossarnach Captain
+1 Luke Cage, Hero for Hire
+1 Maelstrom Wanderer
+1 Mass Production
+1 Morphic Pool
+3 Mountain
+1 Mouser Attack!
+1 Nearby Planet
+7 Plains
+1 Queen's Commission
+1 Raging Ravine
+1 Rakdos Guildgate
+1 Rakka Mar
+1 Reckless Ransacking
+1 Renegade's Getaway
+1 Revel of the Fallen God
+1 Robotics Mastery
+1 Rotwidow Pack
+1 Rufus Shinra
+1 Savor
+1 Sek'Kuar, Deathkeeper
+1 Servo Exhibition
+1 Shadewing Laureate
+1 Slimefoot, the Stowaway
+1 Sokka, Tenacious Tactician
+1 Squire's Devotion
+1 Stimulus Package
+1 Storm God's Oracle
+1 Sudden Breakthrough
+1 Sunlit Marsh
+3 Swamp
+1 Tamiyo, Inquisitive Student
+1 Temple of Deceit
+1 The World Tree
+1 Tooth and Claw
+1 Tunnel Surveyor
+1 Turbulent Steppe
+1 Wretched Throng
+1 Youthful Scholar
+
+[commander]
+Sliver Queen

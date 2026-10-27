@@ -1,7 +1,7 @@
 # adapted from data/decks/precon/M11/power-of-prophecy.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PowerOfProphecy_M11.json)
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Power of Prophecy (Adapted)]
-4 Absorb
+3 Absorb
 2 Aether Adept
 2 Air Servant
 1 Armored Cancrix
@@ -18,6 +18,7 @@
 1 Mighty Leap
 1 Mind Control
 2 Negate
+1 Pacifism
 9 Plains
 1 Scroll Thief
 1 Solemn Offering

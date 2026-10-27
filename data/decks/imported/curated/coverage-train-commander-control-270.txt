@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control G #20266271]
+1 Accorder's Shield
+1 Ancient Silverback
+1 Animal Sanctuary
+1 Axebane Stag
+1 Barkhide Troll
+1 Bazaar of Baghdad
+1 Birthing Boughs
+1 Blessed Respite
+1 Blinkmoth Nexus
+1 Broodwarden
+1 Bullwhip
+1 Cat Warriors
+1 Centaur Courser
+1 Crossbow Ambush
+1 Darksteel Axe
+1 Dingus Egg
+1 Elite Cat Warrior
+1 Encroaching Wastes
+1 Fanatical Fever
+1 Fool's Tome
+1 Forbidden Lore
+36 Forest
+1 Giltgrove Stalker
+1 Goblin Boom Keg
+1 Gold Pan
+1 Goldvein Pick
+1 Grizzled Outrider
+1 Harrier Naga
+1 Initiate's Companion
+1 Introduction to Prophecy
+1 Larger Than Life
+1 Lure
+1 Magnetic Mine
+1 Malamet Brawler
+1 Misty Rainforest
+1 Mogg Cannon
+1 Murasa Brute
+1 Nacatl Savage
+1 Necrogen Censer
+1 Oakenform
+1 Panther Warriors
+1 Pheres-Band Centaurs
+1 Reclaim
+1 Rootwater Alligator
+1 Scaled Behemoth
+1 Shrine of the Forsaken Gods
+1 Shrink
+1 Simian Brawler
+1 Skysnare Spider
+1 Snare the Skies
+1 Spidersilk Net
+1 Squirrel Nest
+1 Summit Apes
+1 Swordwise Centaur
+1 Tel-Jilad Exile
+1 Tel-Jilad Outrider
+1 Timber Protector
+1 Tower of Calamities
+1 Underdark Rift
+1 Weatherseed Treefolk
+1 Whirlermaker
+1 Wily Bandar
+1 Wolfir Avenger
+1 Worldslayer
+
+[commander]
+Thrun, the Last Troll

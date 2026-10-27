@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUB #20266103]
+1 Aang, Air Nomad
+1 Adherent of Hope
+1 Aeronaut Admiral
+1 Ant-Man, Scott Lang
+1 Arcane Flight
+1 Aven Brigadier
+1 Bake into a Pie
+1 Barrin, Master Wizard
+1 Battlefield Promotion
+1 Bounty Agent
+1 Calciform Pools
+1 Clearwater Pathway
+1 Cloak of Invisibility
+1 Cloud Pirates
+1 Daring Mechanic
+1 Deadly Derision
+1 Defensive Stance
+1 Desert of the Glorified
+1 Desolate Mire
+1 Dreadship Reef
+1 Everglades
+1 Ezio, Blade of Vengeance
+1 Fetid Heath
+1 Flight
+1 Flying Men
+1 Ghoulflesh
+1 Gideon's Avenger
+1 High Priest of Penance
+1 Initiates of the Ebon Hand
+1 Inkrise Infiltrator
+1 Inspired Insurgent
+11 Island
+1 King Suleiman
+1 Lawless Broker
+1 Leshrac's Rite
+1 Lightfoot Technique
+1 Lord of the Unreal
+1 Lore Broker
+1 Marshal of Zhalfir
+1 Meloku the Clouded Mirror
+1 Mire Shade
+1 Mockingbird, Bobbi Morse
+1 Moriok Rigger
+1 Mystic Archaeologist
+1 Nephalia Drownyard
+1 Neurok Commando
+1 Odric's Outrider
+1 Orzhova, the Church of Deals
+1 Paragon of Gathering Mists
+11 Plains
+1 Ravenous Harpy
+1 Rishadan Airship
+1 River Delta
+1 Robe of Mirrors
+1 Rosa, Resolute White Mage
+1 Rufus Shinra
+1 Security Blockade
+1 Shadewing Laureate
+1 Silent Clearing
+1 Simulacrum Synthesizer
+1 Skycloud Expanse
+1 Spawning Kraken
+1 Sphinx's Herald
+1 Stalking Assassin
+1 Stormscape Apprentice
+1 Sunken Ruins
+1 Suq'Ata Assassin
+2 Swamp
+1 Syndicate Trafficker
+1 Take Up the Shield
+1 Talas Scout
+1 Thought Courier
+1 Troubled Healer
+1 Umara Raptor
+1 Unholy Officiant
+1 Volunteer Reserves
+1 Waterveil Cavern
+1 Yotian Tactician
+
+[commander]
+Inquisitor Greyfax

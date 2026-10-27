@@ -1,79 +1,79 @@
-# baylee unseen-card holdout highlander seed=90000024
+# baylee unseen-card holdout highlander seed=90000016
 # licence: AGPL-3.0-only
-[deck:highlander ramp RG #90000024]
-1 Aggressive Mammoth
-1 Aladdin's Lamp
-1 Axebane Beast
-1 Berserkers' Onslaught
-1 Black Vise
-1 Blockbuster
-1 Carnivorous Moss-Beast
-1 Caverns of Despair
-1 Collector's Vault
-1 Conquer
-1 Crenellated Wall
-1 Diabolic Machine
-1 Disintegrate
-1 Dosan's Oldest Chant
-1 Dread Statuary
-1 Ember Shot
-1 Field Creeper
-1 Flowstone Mauler
-13 Forest
-1 Foundry Street Denizen
-1 Gerrard's Irregulars
-1 Gilded Lotus
-1 Glimmervoid
-1 Go Forth
-1 Great Furnace
-1 Groundskeeper
-1 Guardian Automaton
-1 Hashep Oasis
-1 Hickory Woodlot
-1 Homeward Path
-1 Junktown
-1 Khenra Charioteer
-1 Lotus Petal
-1 Lunar Frenzy
-1 Magmatic Force
-1 Manabarbs
-1 Masticore
-1 Maze's End
-1 Meteor Sword
-1 Molten Nursery
-13 Mountain
-1 Myr Landshaper
-1 Omashu City
-1 Omni-Cheese Pizza
-1 Orcish Cannonade
-1 Orcish Oriflamme
-1 Painted Bluffs
-1 Paragon of Eternal Wilds
-1 Planar Portal
-1 Primal Visitation
-1 Pyre Charger
-1 Radiant Fountain
-1 Raging Bull
-1 Rakalite
-1 Ready to Rumble
-1 Regenerate
-1 Relic of Legends
-1 Revelation
-1 Ring of Three Wishes
-1 Scour from Existence
-1 Shimmering Grotto
-1 Smoke
-1 Smoldering Crater
-1 Sudden Breakthrough
-1 Sure Strike
-1 Taiga
-1 Thrór's Map
-1 Thunder Strike
-1 Titan Forge
-1 Turntimber Symbiosis
-1 Twists and Turns
-1 Valakut, the Molten Pinnacle
-1 Vernal Bloom
-1 Watermarket
-1 Whippoorwill
-1 Xanthic Statue
+[deck:highlander ramp WU #90000016]
+1 Adarkar Wastes
+1 Aegis of the Heavens
+1 Ancestral Vision
+1 Archaeological Dig
+1 Aven Wind Mage
+1 Baxter Building
+1 Blessed Spirits
+1 Captain of the Watch
+1 Cathar's Companion
+1 Cloudcrest Lake
+1 Compelling Argument
+1 Condescend
+1 Cruel Witness
+1 Cunning Breezedancer
+1 Dawnhart Geist
+1 Delusions of Mediocrity
+1 Enlightened Tutor
+1 Erode
+1 Forced Fruition
+1 Gallantry
+1 God-Pharaoh's Faithful
+1 Guardian of Solitude
+1 Hallowed Fountain
+1 Hengegate Pathway
+1 Horizon Seed
+1 Iguana Parrot
+1 Invoke Prejudice
+22 Island
+1 Jasmine Dragon Tea Shop
+1 Jin-Gitaxias, Progress Tyrant
+1 Jinx
+1 Lightshell Duo
+1 Lotus Path Djinn
+1 Mana Confluence
+1 Mana Drain
+1 Mirrex
+1 Mirrodin's Core
+1 Mistral Singer
+1 Moorland Haunt
+1 Open Communications
+1 Open the Armory
+1 Oyobi, Who Split the Heavens
+1 Pact of Negation
+1 Piercing Light
+1 Pileated Provisioner
+4 Plains
+1 Planar Nexus
+1 Portent
+1 Prescient Chimera
+1 Rasputin Dreamweaver
+1 Refocus
+1 Reya Dawnbringer
+1 Ringwarden Owl
+1 Riverwheel Aerialists
+1 Sibilant Spirit
+1 Sigil of the Empty Throne
+1 Sire of the Storm
+1 Slip Through Space
+1 Solve the Equation
+1 Spell Snip
+1 Sphinx Mindbreaker
+1 Sphinx of Magosi
+1 Stand Firm
+1 Storyteller Pixie
+1 The Theorist, Jace Beleren
+1 The Unspeakable
+1 Transmute Artifact
+1 Tura Kennerüd, Skyknight
+1 Turtle Lair
+1 Umara Wizard
+1 Underdome
+1 Undiscovered Paradise
+1 Veiled Apparition
+1 Villainous Hideout
+1 Windreader Sphinx
+1 Wing Commando

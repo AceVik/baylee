@@ -4,17 +4,16 @@
 4 Auger Spree
 4 Bedevil
 4 Bloodfell Caves
-3 Breath of Malfegor
 3 Careless Celebrant
+4 Delirium
 3 Discordant Piper
 4 Dreadbore
 1 Eat to Extinction
-1 Get the Point
 2 Infuriate
 9 Mountain
 2 Serrated Scorpion
-1 Skull Rend
+4 Spontaneous Combustion
 10 Swamp
 1 Temple of Malice
 4 Terminate
-4 Wrecking Ball
+1 Wrecking Ball

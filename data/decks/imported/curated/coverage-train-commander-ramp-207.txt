@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WBR #20266208]
+1 Akki Avalanchers
+1 Ancestral Vengeance
+1 Assault Intercessor
+1 Aven Brigadier
+1 Avengers Tower
+1 Avenging Angel
+1 Bloodflow Connoisseur
+1 Boggart Cursecrafter
+1 Cave of Temptation
+1 Conduit Pylons
+1 Crypt Angel
+1 Dauthi Ghoul
+1 Devouring Swarm
+1 Dragon Roost
+1 Ebon Praetor
+1 Elderfang Ritualist
+1 Facevaulter
+1 Fallen Angel
+1 Gallifrey Council Chamber
+1 Gimli, Counter of Kills
+1 Goblin Bomb
+1 Goblin Chirurgeon
+1 Goblin Rabblemaster
+1 Goblin Soothsayer
+1 Guardian Kirin
+1 Haven of the Spirit Dragon
+1 Havengul Vampire
+1 Hidden Grotto
+1 Hobblefiend
+1 Hungry Ghoul
+1 Icatian Town
+1 Klingon Strike Force
+1 Lawless Broker
+1 Lotus Vale
+1 Mire Shade
+1 Mogg Raider
+4 Mountain
+1 Mtenda Griffin
+1 Munitions Enthusiast
+1 Nesting Dovehawk
+1 Orcish Vandal
+1 Osai Vultures
+1 Painted Bluffs
+1 Phyrexian Broodlings
+8 Plains
+1 Planar Nexus
+1 Ravenous Harpy
+1 Razaketh, the Foulblooded
+1 Return to Battle
+1 Rukh Egg
+1 Rumble Arena
+1 Sardian Avenger
+1 Scavenger Drake
+1 Screeching Buzzard
+1 Sengir Bats
+1 Shattered Landscape
+1 She-Hulk, Jennifer Walters
+1 Shimmering Grotto
+1 Skeletal Kathari
+1 Soulcatcher
+1 Spectral Procession
+1 Spinal Centipede
+1 Spire of Industry
+1 Stir the Grave
+14 Swamp
+1 Swamp Mosquito
+1 Swarm of Bloodflies
+1 Syndicate Trafficker
+1 Takklemaggot
+1 Three Tree City
+1 Throne of Makindi
+1 Tourach's Gate
+1 Vampire Warlord
+1 Vessel of Ephemera
+1 White Lotus Hideout
+1 Windbrisk Raptor
+
+[commander]
+Oros, the Avenger

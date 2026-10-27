@@ -2,14 +2,16 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Phyrexia (Adapted)]
 1 Assassinate
+1 Bone Shredder
 1 Carrion Feeder
 2 Dark Ritual
-1 Entreat the Dead
-1 Essence Extraction
+1 Ebony Rhino
+1 Grafted Skullcap
 1 Hideous End
 1 Howling Fury
 1 Lightning Greaves
-1 Mind Rot
+1 Live or Die
+1 Order of Yawgmoth
 1 Pelakka Predation
 1 Phyrexian Arena
 1 Phyrexian Battleflies
@@ -24,11 +26,10 @@
 1 Phyrexian Vault
 2 Priest of Gix
 2 Puppet Strings
+1 Ring of the Lucii
 1 Sanguine Guard
 1 Slay
-2 Spin Out
 25 Swamp
-1 Syphon Soul
 2 Tendrils of Corruption
 1 Voltaic Key
 1 Worn Powerstone

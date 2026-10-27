@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266005]
+1 Abandoned Outpost
+1 Angelheart Protector
+1 Archway Commons
+1 Atalan Jackal
+1 Badgermole Cub
+1 Barrier of Bones
+1 Burning-Yard Trainer
+1 Captain Storm, Cosmium Raider
+1 Command Bridge
+1 Contraband Kingpin
+1 Corpse Knight
+1 Corrupt Court Official
+1 Dagger Caster
+1 Dawnhart Disciple
+1 Daybreak Combatants
+1 Dimir Informant
+1 Dwalin, Weaponmaster
+1 EPF Point Squad
+1 Ertai Resurrected
+1 Eutropia the Twice-Favored
+1 Faerie Duelist
+1 Fallaji Vanguard
+1 Favored of Iroas
+1 Fearless Fledgling
+1 Fleshpulper Giant
+3 Forest
+1 Fourth Bridge Prowler
+1 Gateway Plaza
+1 Gateway Sneak
+1 Glidedive Duo
+1 Grand Coliseum
+1 Guardian Gladewalker
+1 Harmonious Archon
+1 Hedron Crab
+1 Hulk, Always Angry
+6 Island
+1 Kraul Whipcracker
+1 Lotus Field
+1 Lumengrid Sentinel
+1 Mercenary Knight
+1 Merfolk Observer
+1 Moggcatcher
+1 Momo, Rambunctious Rascal
+6 Mountain
+1 Nearby Planet
+1 Nezumi Informant
+1 Noggle Ransacker
+5 Plains
+1 Power Depot
+1 Primal Beyond
+1 Primeval Titan
+1 Public Thoroughfare
+1 Ramses Overdark
+1 Ravaging Horde
+1 Ruin Crab
+1 Rumbling Sentry
+1 Sanguine Glorifier
+1 Scythe Tiger
+1 Seahunter
+1 Shore Lurker
+1 Skyshroud Poacher
+1 Soldier of the Grey Host
+1 Steppe Lynx
+5 Swamp
+1 The World Tree
+1 Théoden, King of Rohan
+1 Timberland Ruins
+1 Transguild Promenade
+1 Tuktuk Grunts
+1 Uro, Titan of Nature's Wrath
+1 Venser, Shaper Savant
+1 Vicious Clown
+1 Vithian Renegades
+1 Vivid Crag
+1 Vivid Meadow
+1 Wartime Protestors
+1 Whisper Agent
+1 Yellowjacket, Heartless Marauder
+1 Yotian Dissident
+
+[commander]
+General Tazri

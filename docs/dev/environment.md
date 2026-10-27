@@ -117,6 +117,7 @@ The UI's GitHub issue carries only the admin's own summary, a category and the b
 ## Engine server (`baylee-engine-server`)
 
 - `--attach/--game/--token` or `BAYLEE_ATTACH_URL`/`BAYLEE_GAME`/`BAYLEE_ENGINE_TOKEN`; none = listening dev harness (`PORT`, `0` and `BAYLEE_PORT_FILE` as on the gateway; `BAYLEE_BIND`). Never bind it publicly: unauthenticated, every hand leaks.
+- `BAYLEE_ENGINE_PUMP_STEPS` (attached transport only, default `128`, integer `1..=128`; invalid values refuse launch). `1` publishes each house-pump slice for local neural-seat experiments. A socket action followed by house work can still share one output batch; this does not expose internal automatic actions or guarantee training-equivalent observations for mixed house/socket tables. Two connected socket seats receive their own filtered view after every explicit answer.
 
 ## Client (`baylee-client`)
 

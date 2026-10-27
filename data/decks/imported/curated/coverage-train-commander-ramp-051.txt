@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp G #20266052]
+1 Animal Sanctuary
+1 Archers of Qarsi
+1 Argothian Elder
+1 Bassara Tower Archer
+1 Bird Admirer
+1 Bitterbow Sharpshooters
+1 Blessed Respite
+1 Cavernous Maw
+1 Celestial Sword
+1 Civic Gardener
+1 Crossbow Ambush
+1 Cylian Elf
+1 Dawn's Light Archer
+1 Diamond Valley
+1 Elder Druid
+1 Elvish Herder
+1 Elvish Hunter
+1 Elvish Lookout
+1 Elvish Piper
+1 Elvish Ranger
+1 Eureka
+1 Forethought Amulet
+1 Frontier Guide
+1 Giltgrove Stalker
+1 Greenside Watcher
+1 Grizzled Outrider
+1 Harrier Naga
+1 Indicate
+1 Jukai Messenger
+1 Jumbo Cactuar
+1 Juniper Order Druid
+1 Llanowar Druid
+1 Mage-Ring Network
+1 Malamet Brawler
+1 Meng Huo's Horde
+1 Norwood Archers
+1 Norwood Ranger
+1 Order of the Sacred Bell
+1 Panther Warriors
+1 Pheres-Band Warchief
+1 Quirion Druid
+1 Rakalite
+1 Realms Uncharted
+1 Rime Tender
+1 Rushwood Herbalist
+1 Silhana Ledgewalker
+1 Skyshroud Archer
+1 Skyshroud Ranger
+35 Snow-Covered Forest
+1 Spire Tracer
+1 Steel Leaf Champion
+1 Strength of Cedars
+1 Summer Bloom
+1 Swarmyard
+1 Tajuru Snarecaster
+1 The Gold Saucer
+1 The Grey Havens
+1 The Walls of Ba Sing Se
+1 Tireless Hauler
+1 Trailblazer
+1 Treetop Rangers
+1 Treetop Warden
+1 Warren-Scourge Elf
+1 Weatherseed Elf
+1 Willow Elf
+
+[commander]
+Thrun, the Last Troll

@@ -5,10 +5,11 @@
 4 Arrows of Justice
 2 Cyclops of One-Eyed Pass
 3 Double Cleave
+4 Energy Bolt
 2 Hold at Bay
-4 Legion Leadership
+1 Legion Leadership
 4 Lightning Helix
-4 Martial Glory
+3 Martial Glory
 2 Mortal's Ardor
 14 Mountain
 11 Plains

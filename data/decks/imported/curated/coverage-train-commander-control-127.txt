@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control BG #20266128]
+1 Akroma's Memorial
+1 Altar of Dementia
+1 Ankh of Mishra
+1 Ant Queen
+1 Barrin's Codex
+1 Birthing Boughs
+1 Blinkmoth Well
+1 Blooming Marsh
+1 Bog Naughty
+1 Bottle of Suleiman
+1 Deathcap Glade
+1 Delif's Cube
+1 Dingus Staff
+1 Enatu Golem
+1 Excavator
+1 Filigree Crawler
+1 Fodder Cannon
+16 Forest
+1 Foundry of the Consuls
+1 Friendly Teddy
+1 Gift of the Deity
+1 Glimmerlight
+1 Glimmerpost
+1 Gobbling Ooze
+1 Goblin Boom Keg
+1 Golden Urn
+1 Grasping Dunes
+1 Hag of Death's Legion
+1 Howlpack Resurgence
+1 Magnetic Mine
+1 Manhole Cover
+1 Marsh Lurker
+1 Maskwood Nexus
+1 Meteor Sword
+1 Mirkwood
+1 Molder Beast
+1 Myr Matrix
+1 Necroblossom Snarl
+1 Nettlecyst
+1 Nuisance Engine
+1 Pine Barrens
+1 Planar Bridge
+1 Planar Portal
+1 Pristine Talisman
+1 Quagmire Druid
+1 Retributive Wand
+1 Rotwidow Pack
+1 Scalding Tongs
+1 Servant of Volrath
+1 Silent Dart
+1 Sinister Strength
+1 Skemfar Elderhall
+1 Sliversmith
+1 Snake Basket
+1 Sol Grail
+1 Spidersilk Net
+11 Swamp
+1 Tarpan
+1 Temple of Malady
+1 The Rack
+1 Thelonite Monk
+1 Throne of the High City
+1 Titan Forge
+1 Titan's Grave
+1 Turbulent Fen
+1 Turtle Power!
+1 Uktabi Wildcats
+1 Vernal Fen
+1 Virulent Plague
+1 Wand of the Elements
+1 Well-Worn Spatula
+1 Whirlermaker
+1 Whiteout
+1 Witherbloom Campus
+
+[commander]
+The Serpent Society

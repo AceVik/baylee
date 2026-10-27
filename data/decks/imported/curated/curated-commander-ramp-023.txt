@@ -1,83 +1,71 @@
 # baylee curated commander ramp seed=20261046
 # licence: AGPL-3.0-only
-[deck:commander ramp WRG #20261046]
-1 Angelfire Crusader
-1 Anthem of Champions
-1 Astral Cornucopia
-1 Avacyn's Pilgrim
-1 Ba Sing Se
-1 Battle Hurda
-1 Bhaal's Invoker
-1 Birnin Zana Plaza
-1 Blisterpod
-1 Bucolic Ranch
-1 Cavern of Souls
-1 Celestial Sword
-1 Chocobo Camp
-1 Chocobo Racetrack
-1 Crib Swap
-1 Curse of Marit Lage
-1 Divine Intervention
-1 Dragon's Claw
-1 Elvish Healer
-1 Explosive Apparatus
-1 Font of Mythos
-8 Forest
-1 Gemstone Mine
-1 Gideon's Reproach
-1 Glittering Massif
-1 Gold Pan
-1 Great Hall of the Biblioplex
-1 Groundchuck & Dirtbag
-1 Halberdier
-1 Harrier Naga
-1 Heap Gate
-1 Imperial Oath
-1 Improvised Armor
-1 Indomitable Ancients
-1 Inferno
-1 Levitating Statue
-1 Living Lands
-1 Los Diablos Missile Base
-1 Lumbering Satyr
-1 Magus of the Moon
+[deck:commander ramp R #20261046]
+1 Aether Sting
+1 Akoum Boulderfoot
+1 Aleatory
+1 Birgi, God of Storytelling
+1 Bloodfire Colossus
+1 Bloodshot Cyclops
+1 Burning Prophet
+1 Castle Doom
+1 Choco-Comet
+1 Coming In Hot
+1 Dragon's Rage Channeler
+1 Dragon-Style Twins
+1 Ember Shot
+1 Embraal Gear-Smasher
+1 Faithless Looting
+1 Firebrand Archer
+1 Flick a Coin
+1 Gremlin Infestation
+1 Guttersnipe
+1 Hammerheim
+1 Hearthcage Giant
+1 Improvised Weaponry
+1 Inordinate Rage
+1 Interplanar Beacon
+1 Ishi-Ishi, Akki Crackshot
+1 Jaya's Greeting
+1 Kamahl, Pit Fighter
+1 Keldon Necropolis
+1 Kessig Flamebreather
+1 Kindled Heroism
+1 Lazotep Quarry
+1 Lightning Diadem
+1 Mage-Ring Bully
+1 Magma Giant
+1 Make Mischief
+1 Mana Crypt
 1 Meteorite
-1 Mishra's Workshop
-7 Mountain
-1 Mox Pearl
-1 Mycosynth Lattice
-1 New Benalia
-1 Novice Inspector
-1 Nyx-Fleece Ram
-1 Ogre's Cleaver
-1 Okina, Temple to the Grandfathers
-1 Oyobi, Who Split the Heavens
-1 Pacification Array
-1 Palace Jailer
-11 Plains
-1 Plateau
-1 Prowler's Helm
-1 Ridge Rannet
-1 Rin and Seri, Inseparable
-1 Roots
-1 Rugged Highlands
-1 Rune-Cervin Rider
-1 Runes of the Deus
-1 Slash Panther
-1 Soilshaper
-1 Spinning Wheel
-1 Spore Frog
-1 Squirrel Nest
-1 Strider Harness
-1 Swab Goblin
-1 Thicket Crasher
-1 Thundering Tanadon
-1 Tinder Farm
-1 Vibranium Energy Daggers
-1 Volcanic Geyser
-1 Voldaren Stinger
-1 Whirling Strike
-1 Wolfkin Bond
+1 Mirrodin's Core
+35 Mountain
+1 Mox Ruby
+1 Murasa Pyromancer
+1 Nebula Dragon
+1 Pia and Kiran Nalaar
+1 Pillar of the Paruns
+1 Pinnacle Monk
+1 Pyre Spawn
+1 Rite of the Dragoncaller
+1 Rockslide Sorcerer
+1 Samut's Sprint
+1 Sarkhan's Unsealing
+1 Sawblade Scamp
+1 Shock
+1 Siege-Gang Commander
+1 Skirsdag Cultist
+1 Spark Jolt
+1 Spark Spray
+1 Spawning Breath
+1 Spellshock
+1 Sphinx-Bone Wand
+1 Storm Strike
+1 Sunset Strikemaster
+1 The Immortal Weapons
+1 Vertigo
+1 Weaver of Lightning
+1 Young Pyromancer
 
 [commander]
-Rin and Seri, Inseparable
+Iron Man, Tony Stark

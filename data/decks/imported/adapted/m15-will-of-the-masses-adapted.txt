@@ -5,15 +5,16 @@
 1 Altar of Bone
 4 Call of the Conclave
 4 Eladamri's Call
-1 Feral Ferocity
 13 Forest
 1 Gerrard's Command
 4 Heroes' Reunion
 1 Hornet Queen
-4 Nature's Chant
+1 Nature's Chant
 2 Oreskos Swiftclaw
 12 Plains
+1 Plummet
 3 Raise the Alarm
-4 Selesnya Charm
+3 Selesnya Charm
 1 Titanic Growth
+4 Vitalizing Cascade
 1 Wall of Mulch

@@ -375,9 +375,20 @@ pub fn encode_candidates4(
 
         Pending::ChooseSubtype { options, .. } => {
             let mut prioritized: Vec<baylee_core::ids::SubtypeId> = Vec::new();
+            for h_obj in &view.hand {
+                if let Some(def) = baylee_cards::by_index(h_obj.card.index) {
+                    for face in def.faces {
+                        for &st in face.subtypes {
+                            if options.contains(&st) && !prioritized.contains(&st) {
+                                prioritized.push(st);
+                            }
+                        }
+                    }
+                }
+            }
             for obj in view
-                .battlefield
-                .iter()
+                .battlefield_of(viewer)
+                .chain(view.battlefield.iter())
                 .chain(&view.stack)
                 .chain(view.graveyards.iter().flatten())
                 .chain(view.command.iter().flatten())
@@ -391,17 +402,6 @@ pub fn encode_candidates4(
                 if let Some(ci) = obj.card
                     && let Some(def) = baylee_cards::by_index(ci.index)
                 {
-                    for face in def.faces {
-                        for &st in face.subtypes {
-                            if options.contains(&st) && !prioritized.contains(&st) {
-                                prioritized.push(st);
-                            }
-                        }
-                    }
-                }
-            }
-            for h_obj in &view.hand {
-                if let Some(def) = baylee_cards::by_index(h_obj.card.index) {
                     for face in def.faces {
                         for &st in face.subtypes {
                             if options.contains(&st) && !prioritized.contains(&st) {
@@ -698,16 +698,446 @@ pub fn encode_candidates4(
             }
         }
 
-        Pending::ChooseNumber { min, max, .. } => {
+        Pending::ChooseNumber {
+            min, max, reason, ..
+        } => {
             out.head = HeadKind4::ScalarValue;
             out.min_choices = *min;
-            out.max_choices = *max;
+            out.max_choices = bounded_scalar_max(view, *min, *max, *reason);
         }
 
         Pending::GameOver(_) => {}
     }
 
     out
+}
+
+/// Bounds open-ended `ChooseNumber` prompts (`max > 64`, e.g. `2_147_483_647` on
+/// `NumberPrompt::X` or `NumberPrompt::ManaPayment`) to the view-only reachable
+/// mana or life limit so `normalize_scalar_choice` and `denormalize_scalar_choice`
+/// operate on the true payable range rather than `[0, 2^31 - 1]`.
+#[must_use]
+#[allow(
+    clippy::too_many_lines,
+    reason = "Bounds X across active casting, top of stack, hand/zone spells, and battlefield abilities"
+)]
+pub fn bounded_scalar_max(
+    view: &PlayerView,
+    min: u32,
+    max: u32,
+    prompt: baylee_engine::choice::NumberPrompt,
+) -> u32 {
+    if max <= 64 && !matches!(prompt, baylee_engine::choice::NumberPrompt::X) {
+        return max.max(min);
+    }
+    let actor = view.decision_player.unwrap_or(view.seat);
+    let pool_total = view
+        .seat(actor)
+        .map_or(0, |s| u32::try_from(s.mana_pool.total()).unwrap_or(u32::MAX));
+    match prompt {
+        baylee_engine::choice::NumberPrompt::ManaPayment { preventable_damage } => {
+            let cap = if preventable_damage > 0 {
+                pool_total.min(preventable_damage)
+            } else {
+                pool_total
+            };
+            cap.clamp(min, max)
+        }
+        baylee_engine::choice::NumberPrompt::X => {
+            let untapped_mana = untapped_mana_production(view, actor);
+            let total_mana = pool_total.saturating_add(untapped_mana);
+            if let Some(id) = view.casting {
+                if let Some(h) = view.hand.iter().find(|h| h.id == id)
+                    && let Some(def) = baylee_cards::by_index(h.card.index)
+                    && let Some(mx) = bound_x_for_card_def(
+                        view,
+                        actor,
+                        def,
+                        usize::from(h.card.face),
+                        total_mana,
+                        0,
+                        true,
+                    )
+                {
+                    return mx.clamp(min, max);
+                }
+                if let Some(obj) = view.object(id)
+                    && let Some(mx) = bound_x_for_public_object(view, actor, obj, total_mana, true)
+                {
+                    return mx.clamp(min, max);
+                }
+            }
+            if let Some(top) = view.top_of_stack()
+                && let Some(mx) = bound_x_for_public_object(view, actor, top, total_mana, true)
+            {
+                return mx.clamp(min, max);
+            }
+
+            // In offline evaluation and self-play, `view.casting` is `None` and the spell
+            // or activated ability asking `NumberPrompt::X` has not yet moved to `view.stack`.
+            // Inspect visible hand/zone spells and battlefield activated abilities with X costs.
+            let mut spell_candidates = Vec::new();
+            if actor == view.seat {
+                for h in &view.hand {
+                    if let Some(def) = baylee_cards::by_index(h.card.index)
+                        && let Some(mx) = bound_x_for_card_def(
+                            view,
+                            actor,
+                            def,
+                            usize::from(h.card.face),
+                            total_mana,
+                            0,
+                            true,
+                        )
+                    {
+                        spell_candidates.push(mx);
+                    }
+                }
+            }
+            for obj in view
+                .command
+                .iter()
+                .flatten()
+                .chain(view.graveyards.iter().flatten())
+                .chain(view.exile.iter().flatten())
+            {
+                if obj.owner == actor
+                    && let Some(mx) = bound_x_for_public_object(view, actor, obj, total_mana, true)
+                {
+                    spell_candidates.push(mx);
+                }
+            }
+            if let Some(best_spell_x) = spell_candidates
+                .iter()
+                .copied()
+                .filter(|&mx| mx > 0 && mx >= min)
+                .min()
+            {
+                return best_spell_x.clamp(min, max);
+            }
+
+            let mut abil_candidates = Vec::new();
+            for obj in view.battlefield_of(actor) {
+                if obj.status.contains(ObjectStatus::PHASED_OUT) {
+                    continue;
+                }
+                if let Some(mx) = bound_x_for_public_object(view, actor, obj, total_mana, false) {
+                    abil_candidates.push(mx);
+                }
+            }
+            if let Some(best_abil_x) = abil_candidates
+                .iter()
+                .copied()
+                .filter(|&mx| mx > 0 && mx >= min)
+                .min()
+                .or_else(|| abil_candidates.into_iter().filter(|&mx| mx >= min).min())
+            {
+                return best_abil_x.clamp(min, max);
+            }
+            if let Some(zero_spell_x) = spell_candidates.into_iter().filter(|&mx| mx >= min).min() {
+                return zero_spell_x.clamp(min, max);
+            }
+
+            total_mana.clamp(min, max)
+        }
+        _ => max.max(min),
+    }
+}
+
+fn bound_x_for_public_object(
+    view: &PlayerView,
+    actor: PlayerId,
+    obj: &PublicObject,
+    total_mana: u32,
+    include_spell: bool,
+) -> Option<u32> {
+    let rf = obj.rules.or_else(|| {
+        obj.card.map(|c| baylee_view::RulesFace {
+            card: c.index,
+            face: c.face,
+        })
+    })?;
+    let def = baylee_cards::by_index(rf.card)?;
+    let self_mana = single_object_mana_production(obj);
+    bound_x_for_card_def(
+        view,
+        actor,
+        def,
+        usize::from(rf.face),
+        total_mana,
+        self_mana,
+        include_spell,
+    )
+}
+
+fn bound_x_for_card_def(
+    view: &PlayerView,
+    actor: PlayerId,
+    def: &baylee_cards_dsl::CardDef,
+    face_idx: usize,
+    total_mana: u32,
+    self_mana: u32,
+    include_spell: bool,
+) -> Option<u32> {
+    let face = def.faces.get(face_idx)?;
+    if include_spell {
+        let cost = face.mana_cost;
+        if cost.has_variable() {
+            let base_cmc = cost.with_x(0).cmc();
+            if base_cmc > total_mana {
+                return Some(0);
+            }
+            let x_pips = cost.with_x(1).cmc().saturating_sub(base_cmc).max(1);
+            let mut max_x = total_mana.saturating_sub(base_cmc) / x_pips;
+            for ab in def.abilities_for_face(face_idx) {
+                if let baylee_cards_dsl::AbilityDef::Spell {
+                    targets: Some(req), ..
+                } = ab
+                    && req.count_is_x
+                    && let baylee_cards_dsl::TargetSpec::Object(filter) = req.spec
+                {
+                    let count = u32::try_from(
+                        view.battlefield
+                            .iter()
+                            .filter(|o| public_object_matches_basic_filter(actor, o, filter))
+                            .count(),
+                    )
+                    .unwrap_or(u32::MAX);
+                    max_x = max_x.min(count);
+                }
+            }
+            return Some(max_x);
+        }
+        let pays_life_x = face
+            .mandatory_additional_costs
+            .contains(&baylee_cards_dsl::CostPart::PayLifeX);
+        if pays_life_x {
+            let life_cap = view
+                .seat(actor)
+                .map_or(0, |s| u32::try_from(s.life.saturating_sub(1)).unwrap_or(0));
+            return Some(life_cap);
+        }
+    }
+
+    let mut best_abil: Option<u32> = None;
+    for ab in def.abilities_for_face(face_idx) {
+        let (cost, target_spec) = match ab {
+            baylee_cards_dsl::AbilityDef::Activated { cost, targets, .. }
+            | baylee_cards_dsl::AbilityDef::ActivatedConditional { cost, targets, .. } => {
+                (cost, targets.as_ref().map(|r| &r.spec))
+            }
+            baylee_cards_dsl::AbilityDef::ModalActivated { cost, .. } => (cost, None),
+            _ => continue,
+        };
+        if cost.mana.has_variable() {
+            let avail = if cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf) {
+                total_mana.saturating_sub(self_mana)
+            } else {
+                total_mana
+            };
+            let base_cmc = cost.mana.with_x(0).cmc();
+            if base_cmc > avail {
+                continue;
+            }
+            let x_pips = cost.mana.with_x(1).cmc().saturating_sub(base_cmc).max(1);
+            let mut max_x = avail.saturating_sub(base_cmc) / x_pips;
+            if let Some(baylee_cards_dsl::TargetSpec::CardInGraveyard(
+                filter,
+                baylee_cards_dsl::PlayerRel::You,
+            )) = target_spec
+                && filter_requires_cmc_exactly_x(filter)
+                && let Some(gy) = view.graveyards.get(usize::from(actor.get()))
+            {
+                let best_gy = gy
+                    .iter()
+                    .filter(|o| public_object_matches_basic_filter(actor, o, filter))
+                    .filter_map(|o| {
+                        let rf = o.rules.or_else(|| {
+                            o.card.map(|c| baylee_view::RulesFace {
+                                card: c.index,
+                                face: c.face,
+                            })
+                        })?;
+                        let d = baylee_cards::by_index(rf.card)?;
+                        let f = d.faces.get(usize::from(rf.face))?;
+                        Some(f.mana_cost.cmc())
+                    })
+                    .filter(|&cmc| cmc <= max_x)
+                    .max()
+                    .unwrap_or(0);
+                max_x = best_gy;
+            }
+            best_abil = Some(best_abil.map_or(max_x, |prev| prev.min(max_x)));
+        }
+    }
+    best_abil
+}
+
+fn filter_requires_cmc_exactly_x(filter: &baylee_cards_dsl::Filter) -> bool {
+    match filter {
+        baylee_cards_dsl::Filter::CmcExactlyX => true,
+        baylee_cards_dsl::Filter::And(parts) | baylee_cards_dsl::Filter::Or(parts) => {
+            parts.iter().any(filter_requires_cmc_exactly_x)
+        }
+        _ => false,
+    }
+}
+
+/// Checks whether a [`PublicObject`] satisfies a basic type/controller/characteristic [`baylee_cards_dsl::Filter`].
+#[must_use]
+pub fn public_object_matches_basic_filter(
+    actor: PlayerId,
+    obj: &PublicObject,
+    filter: &baylee_cards_dsl::Filter,
+) -> bool {
+    match filter {
+        baylee_cards_dsl::Filter::And(parts) => parts
+            .iter()
+            .all(|f| public_object_matches_basic_filter(actor, obj, f)),
+        baylee_cards_dsl::Filter::Or(parts) => parts
+            .iter()
+            .any(|f| public_object_matches_basic_filter(actor, obj, f)),
+        baylee_cards_dsl::Filter::Not(inner) => {
+            !public_object_matches_basic_filter(actor, obj, inner)
+        }
+        baylee_cards_dsl::Filter::HasType(ts) => obj.types.intersects(*ts),
+        baylee_cards_dsl::Filter::LacksType(ts) => !obj.types.intersects(*ts),
+        baylee_cards_dsl::Filter::HasSupertype(st) => obj.supertypes.contains(*st),
+        baylee_cards_dsl::Filter::HasSubtype(sub) => obj.subtypes.contains(*sub),
+        baylee_cards_dsl::Filter::HasColor(cs) => obj.colors.intersects(*cs),
+        baylee_cards_dsl::Filter::IsColorless => obj.colors.is_empty(),
+        baylee_cards_dsl::Filter::Monocolored => obj.colors.len() == 1,
+        baylee_cards_dsl::Filter::HasKeyword(kw) => (obj.keywords & kw.bits()) == kw.bits(),
+        baylee_cards_dsl::Filter::IsToken => obj.token.is_some() || obj.card.is_none(),
+        baylee_cards_dsl::Filter::IsCommander => obj.commander,
+        baylee_cards_dsl::Filter::CmcAtMost(n) => obj.mana_value <= *n,
+        baylee_cards_dsl::Filter::CmcAtLeast(n) => obj.mana_value >= *n,
+        baylee_cards_dsl::Filter::PowerAtMost(n) => obj.power.is_some_and(|p| p <= *n),
+        baylee_cards_dsl::Filter::PowerAtLeast(n) => obj.power.is_some_and(|p| p >= *n),
+        baylee_cards_dsl::Filter::ToughnessAtMost(n) => obj.toughness.is_some_and(|t| t <= *n),
+        baylee_cards_dsl::Filter::ToughnessAtLeast(n) => obj.toughness.is_some_and(|t| t >= *n),
+        baylee_cards_dsl::Filter::ControlledByYou => obj.controller == actor,
+        baylee_cards_dsl::Filter::ControlledByOpponent => obj.controller != actor,
+        baylee_cards_dsl::Filter::OwnedByYou => obj.owner == actor,
+        baylee_cards_dsl::Filter::Tapped => obj.status.contains(ObjectStatus::TAPPED),
+        baylee_cards_dsl::Filter::Untapped => !obj.status.contains(ObjectStatus::TAPPED),
+        baylee_cards_dsl::Filter::HasAnyCounter => !obj.counters.is_empty(),
+        _ => true,
+    }
+}
+
+fn single_object_mana_production(obj: &PublicObject) -> u32 {
+    if obj.status.contains(ObjectStatus::TAPPED)
+        || obj.status.contains(ObjectStatus::PHASED_OUT)
+        || obj.summoning_sick
+    {
+        return 0;
+    }
+    let mut prod = 0_u32;
+    for gm in obj.granted_mana_options() {
+        prod = prod.max(u32::from(gm.amount));
+    }
+    if obj.board_mana.is_some() {
+        prod = prod.max(1);
+    }
+    if obj.types.contains(TypeSet::LAND) {
+        prod = prod.max(1);
+    }
+    let rf = obj.rules.or_else(|| {
+        obj.card.map(|c| baylee_view::RulesFace {
+            card: c.index,
+            face: c.face,
+        })
+    });
+    if let Some(rf) = rf
+        && let Some(def) = baylee_cards::by_index(rf.card)
+    {
+        for ab in def.abilities_for_face(usize::from(rf.face)) {
+            if let baylee_cards_dsl::AbilityDef::Activated {
+                cost,
+                effects,
+                targets,
+                ..
+            } = ab
+                && baylee_cards_dsl::mana_rule::activated_mana_ability(
+                    cost,
+                    effects,
+                    targets.is_some(),
+                )
+            {
+                let counter_unmet = cost.parts.iter().any(|p| match p {
+                    baylee_cards_dsl::CostPart::RemoveCounterSelf { n, .. } => {
+                        obj.counters.iter().map(|c| c.count).sum::<u16>() < *n
+                    }
+                    baylee_cards_dsl::CostPart::RemoveCounterSelfX { .. } => {
+                        obj.counters.iter().map(|c| c.count).sum::<u16>() < 1
+                    }
+                    baylee_cards_dsl::CostPart::TapOther(_)
+                    | baylee_cards_dsl::CostPart::TapX(_)
+                    | baylee_cards_dsl::CostPart::Sacrifice(_)
+                    | baylee_cards_dsl::CostPart::SacrificeX(_) => true,
+                    _ => false,
+                });
+                if counter_unmet {
+                    continue;
+                }
+                let amt = mana_effects_amount(effects).saturating_sub(cost.mana.cmc());
+                prod = prod.max(amt);
+            }
+        }
+    } else if let Some(tok_id) = obj.token
+        && let Some(tdef) = baylee_cards::tokens::by_token_id(tok_id)
+    {
+        for ab in tdef.abilities {
+            if let baylee_cards_dsl::AbilityDef::Activated {
+                cost,
+                effects,
+                targets,
+                ..
+            } = ab
+                && baylee_cards_dsl::mana_rule::activated_mana_ability(
+                    cost,
+                    effects,
+                    targets.is_some(),
+                )
+            {
+                let amt = mana_effects_amount(effects).saturating_sub(cost.mana.cmc());
+                prod = prod.max(amt);
+            }
+        }
+    }
+    prod
+}
+
+/// Estimates the total mana producible right now by untapped permanents
+/// controlled by `actor` on `view.battlefield`.
+#[must_use]
+pub fn untapped_mana_production(view: &PlayerView, actor: PlayerId) -> u32 {
+    view.battlefield_of(actor)
+        .map(single_object_mana_production)
+        .fold(0_u32, u32::saturating_add)
+}
+
+fn mana_effects_amount(effects: &[baylee_cards_dsl::Effect]) -> u32 {
+    let mut sum = 0_u32;
+    for eff in effects {
+        if let baylee_cards_dsl::Effect::AddMana {
+            amount,
+            restriction,
+            ..
+        } = eff
+        {
+            if restriction.is_some_and(|r| r.restricts) {
+                continue;
+            }
+            let n = match amount {
+                baylee_cards_dsl::Amount::Fixed(v) => (*v).max(1),
+                _ => 1,
+            };
+            sum = sum.saturating_add(n.max(1));
+        }
+    }
+    sum
 }
 
 fn prioritize_object_options(view: &PlayerView, objs: &[ObjectId], cap: usize) -> Vec<ObjectId> {

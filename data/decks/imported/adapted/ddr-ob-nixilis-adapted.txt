@@ -3,26 +3,26 @@
 [deck:Ob Nixilis (Adapted)]
 1 Ambition's Cost
 2 Blistergrub
+2 Buried Alive
 1 Cadaver Imp
 2 Carrier Thrall
 1 Demon's Grasp
 1 Diresight
 1 Disfigure
 2 Doom Blade
-2 Essence Extraction
 2 Fetid Imp
 1 Foul Imp
 2 Funeral Rites
 1 Giant Scorpion
 1 Gruesome Fate
-1 Hell's Caretaker
 1 Hideous End
 2 Leechridden Swamp
-3 Mind Rot
 1 Pestilence Demon
 2 Quest for the Gravelord
+3 Reckless Spite
 2 Rend Flesh
 1 Renegade Demon
+1 Returned Centaur
 1 Risky Shortcut
 1 Squelching Leeches
 22 Swamp

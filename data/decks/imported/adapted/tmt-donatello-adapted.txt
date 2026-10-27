@@ -8,9 +8,8 @@
 2 Counsel of the Soratami
 1 Donatello, Turtle Techie
 1 Donatello, Way with Machines
-2 Déjà Vu
 4 Exclude
-4 Force of Negation
+2 Force of Negation
 24 Island
 2 Manhole Cover
 2 Meditate
@@ -18,4 +17,5 @@
 4 Refute
 1 Spell Snip
 3 Suit Up
+4 Tinker
 1 Twitch

@@ -1,7 +1,7 @@
 # adapted from data/decks/precon/5DN/stampede.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Stampede_5DN.json)
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Stampede (Adapted)]
-4 Colossal Might
+3 Colossal Might
 1 Eternal Witness
 1 Fangren Hunter
 1 Ferocious Charge
@@ -9,12 +9,13 @@
 1 Goblin Cannon
 1 Goblin Replica
 1 Magma Jet
-4 Manamorphose
+3 Manamorphose
 12 Mountain
 1 Pyrite Spellbomb
 3 Savage Twister
 1 Slith Firewalker
 4 Stump Stomp
+2 Surge of Strength
 2 Talisman of Impulse
 1 Tangle Asp
 1 Tel-Jilad Chosen

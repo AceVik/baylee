@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUR #20266072]
+2 Ancient Crab
+2 Burnout
+2 Clever Impersonator
+2 Daring Thunder-Thief
+2 Glasspool Mimic
+2 Homarid Shaman
+2 Incurable Ogre
+7 Island
+2 Mijae Djinn
+2 Mirror Image
+2 Morphling
+7 Mountain
+2 Oggyar Battle-Seer
+2 Ogre Berserker
+2 Ogre Errant
+2 Phase Dolphin
+1 Plains
+2 Reshape
+2 Restless Spire
+2 Scuttling Sliver
+4 Spectacle Summit
+3 Spirebluff Canal
+2 Stunt Double
+2 Ydwen Efreet

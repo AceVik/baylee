@@ -4,12 +4,12 @@
 4 Absorb
 2 Archon of Sun's Grace
 4 Daring Leap
-3 Dramatic Rescue
 1 Emeria's Call
+4 Energy Arc
 8 Island
 1 Negate
 3 Neutralize
-4 Offering to Asha
+3 Offering to Asha
 4 Ojutai's Command
 4 Omen of the Sea
 8 Plains

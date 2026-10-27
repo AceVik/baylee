@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WBG #20266190]
+1 Abstergo Entertainment
+1 Abyssal Horror
+1 Abzan Banner
+1 Angel of Despair
+1 Annihilate
+1 Archaeological Dig
+1 Bag End Porter
+1 Bitterbow Sharpshooters
+1 Bladebrand
+1 Broodhunter Wurm
+1 Bucolic Ranch
+1 Captivating Cave
+1 Castle Doom
+1 Cateran Brute
+1 Champion of the Perished
+1 Dark Hatchling
+1 Deathrite Shaman
+1 Dosan's Oldest Chant
+1 Dread Reaper
+1 Druids' Repository
+1 Dutiful Servants
+1 Elves of Deep Shadow
+1 Emerald Oryx
+1 Emperor Crocodile
+1 Endangered Armodon
+1 Fauna Shaman
+1 Forbidden Orchard
+15 Forest
+1 Frog Tongue
+1 Golden Bear
+1 Golgari Cluestone
+1 Golgari Locket
+1 Grasping Thrull
+1 Great Hart
+1 Henge of Ramos
+1 Indatha Crystal
+1 Keen Sense
+1 Keen-Eyed Raven
+1 Lifespark Spellbomb
+1 Mirrex
+1 Moonglove Extractor
+1 Moor Fiend
+1 Mungha Wurm
+1 Nettle Swine
+1 Orcish Bowmasters
+1 Ordinary Bear
+1 Ostiary Thrull
+1 Pileated Provisioner
+1 Plains
+1 Rabid Wombat
+1 Rathi Intimidator
+1 Roving Harper
+1 Rune of Protection: Blue
+1 Rune of Protection: Red
+1 Satyr Grovedancer
+1 Scourgemark
+1 Selesnya Cluestone
+1 Selesnya Signet
+1 Setessan Training
+1 Shaman of the Pack
+1 Sneering Shadewriter
+1 Springjack Pasture
+9 Swamp
+1 Tanglespan Lookout
+1 Tendo Ice Bridge
+1 Thran Quarry
+1 Throne of Makindi
+1 Tribute to the World Tree
+1 Trigon of Mending
+1 Turtle Lair
+1 Ukud Cobra
+1 Voldaren Estate
+1 Wayward Servant
+1 White Lotus Hideout
+1 Willow Satyr
+1 Without Weakness
+1 Youthful Valkyrie
+1 Zodiac Pig

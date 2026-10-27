@@ -6,7 +6,7 @@
 1 Altar of Bone
 1 Angel of Renewal
 4 Call of the Conclave
-4 Eladamri's Call
+2 Eladamri's Call
 1 Evolving Wilds
 2 Expedition Envoy
 7 Forest
@@ -23,5 +23,6 @@
 1 Oran-Rief Invoker
 1 Overgrown Farmland
 15 Plains
-3 Selesnya Charm
+2 Selesnya Charm
 2 Shadow Glider
+3 Vitalizing Cascade

@@ -12,9 +12,9 @@
 1 Kami of Tattered Shoji
 3 Kami of the Hunt
 2 Lantern Kami
-4 Nature's Chant
 1 Orbweaver Kumo
 1 Oyobi, Who Split the Heavens
 10 Plains
 4 Selesnya Charm
 2 Terashi's Verdict
+4 Vitalizing Cascade

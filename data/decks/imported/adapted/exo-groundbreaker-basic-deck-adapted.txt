@@ -2,16 +2,23 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Groundbreaker - Basic Deck (Adapted)]
 2 Aftershock
-4 Auger Spree
-4 Bedevil
-4 Dreadbore
+3 Anarchist
+1 Crushing Disappointment
+2 Dauthi Jackal
+2 Dauthi Voidwalker
+3 Diabolic Edict
+1 Machinesmith Automaton
 12 Mountain
-1 Phyrexian Denouncer
+1 Nausea
+1 Necrologia
+1 Necromantic Thirst
+1 Plaguebearer
 3 Rain of Tears
 3 Shock
-1 Skull Rend
+1 Spontaneous Combustion
 4 Stone Rain
+1 Strangle
 12 Swamp
-4 Terminate
+1 Thopter Squadron
 2 Vampire Hounds
-4 Wrecking Ball
+3 Violent Impact

@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBG #20266290]
+1 Aisling Leprechaun
+1 Anti-Magic Aura
+1 Arrogant Vampire
+1 Balshan Collaborator
+1 Bladestitched Skaab
+1 Bogwater Lumaret
+1 Bonds of Quicksilver
+1 Bounding Krasis
+1 Clearwater Pathway
+1 Deity of Scars
+1 Demonic Torment
+1 Dimir Cutpurse
+1 Drafna's Restoration
+1 Duskwatch Hunter
+1 Eldrazi Devastator
+1 Ethereal Whiskergill
+1 Flooded Grove
+1 Foreboding Landscape
+10 Forest
+1 Freed from the Real
+1 Gaea's Skyfolk
+1 Ghost Hounds
+1 Gilacorn
+1 Glimmerdust Nap
+1 Gnarled Mass
+1 Grim Backwoods
+1 Grizzly Ghoul
+1 Haunter of Nightveil
+1 Hidden Lair
+1 Hoodwink
+1 Hyalopterous Lemure
+5 Island
+1 Jump
+1 Malfunction
+1 Mark of the Oni
+1 Marsh Crocodile
+1 Moldering Karok
+1 Mordenkainen's Polymorph
+1 Needlethorn Drake
+1 Nightveil Predator
+1 Nimbus Swimmer
+1 Novijen, Heart of Progress
+1 Opulent Palace
+1 Orc Sureshot
+1 Overkill
+1 Paralyzing Grasp
+1 Pit Raptor
+1 Risen Reef
+1 River Kaijin
+1 River of Tears
+1 Rootwater Depths
+1 Savage Gorilla
+1 Second Wind
+1 Shorecrasher Mimic
+1 Sick and Tired
+1 Silhouette
+1 Skyshroud Vampire
+1 Steal Artifact
+1 Stenchskipper
+1 Strangleroot Geist
+1 Sunken Ruins
+1 Svogthos, the Restless Tomb
+10 Swamp
+1 Tainted Isle
+1 Tattered Drake
+1 Torpor Dust
+1 Transmutation
+1 Twilight Mire
+1 Vampire Revenant
+1 Viridescent Bog
+1 Void Grafter
+1 Warden of Geometries
+1 Wasp Lancer
+1 Waterknot
+1 Word of Binding
+1 Word of Command
+1 Zagoth Triome
+
+[commander]
+Leovold, Emissary of Trest

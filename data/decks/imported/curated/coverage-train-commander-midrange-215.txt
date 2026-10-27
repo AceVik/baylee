@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBG #20266216]
+1 Abundant Countryside
+1 Acid Web Spider
+1 Attended Socialite
+1 Attercop
+1 Barrier of Bones
+1 Baxter Building
+1 Blood-Toll Harpy
+1 Blooming Stinger
+1 Bounding Krasis
+1 Bucolic Ranch
+1 Cackling Fiend
+1 Canopy Baloth
+1 Cavern of Souls
+1 Clairvoyance
+1 Conclave Naturalists
+1 Cryptic Annelid
+1 Dewdrop Spy
+1 Dream Stalker
+1 Drekavac
+1 Elderfang Disciple
+1 Elegant Entourage
+1 Emry, Lurker of the Loch
+1 Endurance
+1 Eyeblight Assassin
+1 Faerie Duelist
+1 Forbidden Orchard
+8 Forest
+1 Gemstone Mine
+1 Gitaxian Probe
+1 Glaze Fiend
+1 Glimmervoid
+1 Graveshifter
+1 Grey Havens Navigator
+1 Guildmages' Forum
+1 Hagra Diabolist
+1 Hall of Oracles
+1 Holdout Settlement
+11 Island
+1 Jadecraft Artisan
+1 Jungle Barrier
+1 Jungle Weaver
+1 Kapsho Kitefins
+1 Kjeldoran Dead
+1 Miasmic Mummy
+1 Mirkwood Meditator
+1 Mnemonic Wall
+1 Mystic Snake
+1 Naga Oracle
+1 Necromancer's Assistant
+1 Plant Elemental
+1 Plaza of Heroes
+1 Rhox Oracle
+1 Risen Reef
+1 Sage Owl
+1 Scampering Surveyor
+1 Secret Base
+1 Sibsig Host
+1 Silt Crawler
+1 Simic Keyrune
+1 Snapping Creeper
+1 Spiderwig Boggart
+1 Springjack Pasture
+1 Subtlety
+1 Sultai Skullkeeper
+6 Swamp
+1 Tarnished Citadel
+1 The Everflowing Well
+1 Theorist's Proxy
+1 Thoughtrender Lamia
+1 Three Tree City
+1 Tome Raider
+1 Triton Waverider
+1 Venomous Hierophant
+1 Voracious Greatshark
+1 Wall of Lost Thoughts
+1 Waterkin Shaman
+1 Yarok's Wavecrasher
+
+[commander]
+Leovold, Emissary of Trest

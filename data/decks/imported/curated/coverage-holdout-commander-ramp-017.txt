@@ -1,0 +1,81 @@
+# baylee synergistic holdout coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BG #90010018]
+1 Al-abara's Carpet
+1 Anchovy & Banana Pizza
+1 Arachnoid
+1 Aspect of Gorgon
+1 Bala Ged Scorpion
+1 Bayou
+1 Bloated Toad
+1 Blood Seeker
+1 Boggart Trawler
+1 Child of Thorns
+1 Chromatic Lantern
+1 Copper Tablet
+1 Cutthroat Contender
+1 Dark Betrayal
+1 Darkbore Pathway
+1 Deathcap Glade
+1 Disciple of Malice
+1 Dross Hopper
+1 Encroach
+1 Essence Drain
+1 Execute
+1 Fevered Strength
+1 Fiend Artisan
+1 Fledgling Djinn
+11 Forest
+1 Ghoul's Feast
+1 Grendel, Spawn of Knull
+1 Grim Backwoods
+1 Grim Monolith
+1 Hag of Syphoned Breath
+1 Hagra Mauling
+1 Hapatra, Vizier of Poisons
+1 Hour of Defeat
+1 Jinxed Ring
+1 Knight of Dusk
+1 Knowledge Vault
+1 Lash of the Whip
+1 Lifeforce
+1 Llanowar Wastes
+1 Lunatic Pandora
+1 Mammoth Harness
+1 Mire's Grasp
+1 Mirkwood
+1 Naturalize
+1 Nimana Skydancer
+1 Noxious Dragon
+1 Overgrown Tomb
+1 Pine Barrens
+1 Redrock Sentinel
+1 Roaming Throne
+1 Seal of Primordium
+1 Seizan, Perverter of Truth
+1 Seton, Krosan Protector
+1 Sibsig Icebreakers
+1 Skyshroud Elite
+1 Soot Imp
+1 Soul Feast
+1 Stony-Voiced Goblins
+1 Strangled Cemetery
+1 Street Wraith
+1 Svogthos, the Restless Tomb
+15 Swamp
+1 Tainted Wood
+1 Tajuru Blightblade
+1 Twilight Mire
+1 Unburden
+1 Undergrowth Stadium
+1 Urza's Miter
+1 Vampire Opportunist
+1 Vebulid
+1 Viridescent Bog
+1 Wastewood Verge
+1 Withering Boon
+1 Withstand Death
+1 Woodland Cemetery
+
+[commander]
+Davvol, Evincar of Rath

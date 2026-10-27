@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20266266]
+1 Acid Rain
+1 Ancestral Reminiscence
+1 Animate Artifact
+1 Aura Flux
+1 Avalanche Caller
+1 Bounce Off
+1 Cache Raiders
+1 Clammy Prowler
+1 Contempt
+1 Coral Merfolk
+1 Crafty Pathmage
+1 Curfew
+1 Cyclonic Rift
+1 Detection Tower
+1 Disappear
+1 Drown in Shapelessness
+1 Evacuation
+1 Eye of Nowhere
+1 Gaseous Form
+1 Hibernation
+1 Hoodwink
+1 Horizon of Progress
+1 Hurkyl's Recall
+1 Illusory Wrappings
+1 Imaginary Pet
+1 Leave in the Dust
+1 Lord of Atlantis
+1 Manta Riders
+1 Merfolk Raiders
+1 Merfolk Sovereign
+1 Mirozel
+1 Mirrormade
+1 Mystic Decree
+1 Oboro Envoy
+1 Ophidian
+1 Pulsating Illusion
+1 Rescue
+1 Rishadan Dockhand
+1 River Darter
+1 Rootwater Commando
+1 Salvage Scuttler
+1 Scour from Existence
+1 Sift
+1 Sink into Stupor
+1 Sky Weaver
+34 Snow-Covered Island
+1 Soratami Mirror-Guard
+1 Stern Dismissal
+1 Sunder
+1 Surgespanner
+1 Svyelunite Priest
+1 Thalakos Scout
+1 Throne of the High City
+1 Tidal Warrior
+1 Undo
+1 Unstable Frontier
+1 Urza's Factory
+1 Vedalken Mastermind
+1 Vedalken Mesmerist
+1 Vodalian Illusionist
+1 Void Snare
+1 Wall of Tears
+1 Waterknot
+1 Wizard Mentor
+1 Word of Undoing
+1 Zoetic Cavern
+
+[commander]
+Heidar, Rimewind Master

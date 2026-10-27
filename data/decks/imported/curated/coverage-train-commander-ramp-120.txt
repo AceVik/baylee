@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BG #20266121]
+1 Archers' Parapet
+1 Artifact Possession
+1 Banshee
+1 Battlefly Swarm
+1 Bile Urchin
+1 Blanket of Night
+1 Blessing of Leeches
+1 Blight Pile
+1 Cackling Imp
+1 Call of the Wild
+1 Chains of Mephistopheles
+1 Dakmor Plague
+1 Darkmoss Bridge
+1 Davriel's Shadowfugue
+1 Dense Canopy
+1 Dry Spell
+1 Dryad of the Ilysian Grove
+1 Earthcraft
+1 Engine Rat
+1 Exploration
+1 Face of Fear
+1 Famine
+1 Festering Gulch
+1 Festering Thicket
+1 Flora Colossus
+1 Foggy Bottom Swamp
+9 Forest
+1 Foul Orchard
+1 Gate to Phyrexia
+1 Gilt-Leaf Palace
+1 Gohn, Town of Ruin
+1 Golgari Rot Farm
+1 Hasran Ogress
+1 Haunted Mire
+1 Hellfire
+1 Hissing Quagmire
+1 Hot Springs
+1 Infectious Horror
+1 Instill Energy
+1 Intimidation
+1 Jolrael's Favor
+1 Juzám Djinn
+1 Kezzerdrix
+1 Lounge
+1 Mental Agony
+1 Moaning Wall
+1 Moss Kami
+1 Nettletooth Djinn
+1 Nim Abomination
+1 Nylea's Forerunner
+1 Oakheart Dryads
+1 Parasitic Bond
+1 Pharika's Mender
+1 Quagmire
+1 Reign of Terror
+1 Restless Cottage
+1 Root Cage
+1 Root Maze
+1 Silken Strength
+1 Song of Serenity
+1 Soul Bleed
+1 Spawning Grounds
+1 Spiteful Bully
+1 Strangled Cemetery
+1 Subterranean Cavern
+17 Swamp
+1 Tethered Skirge
+1 Tranquil Grove
+1 Undergrowth Stadium
+1 Vorstclaw
+1 Walk-In Closet
+1 Woodland Chasm
+1 Worms of the Earth
+1 Wormwood Dryad
+1 Wormwood Treefolk
+
+[commander]
+Yargle and Multani

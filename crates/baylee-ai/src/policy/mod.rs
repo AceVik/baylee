@@ -16,7 +16,17 @@ use baylee_view::{CardIdentity, PlayerView};
 
 use crate::HeuristicAgent;
 
+mod x_exact;
 mod x_targets;
+
+fn own_main_phase(view: &PlayerView) -> bool {
+    view.active == view.seat
+        && view.stack.is_empty()
+        && matches!(
+            view.phase,
+            baylee_view::Phase::FirstMain | baylee_view::Phase::SecondMain
+        )
+}
 
 pub(crate) fn face(card: CardIdentity) -> Option<&'static FaceDef> {
     baylee_cards::by_index(card.index)?
@@ -267,6 +277,16 @@ impl HeuristicAgent {
             } else {
                 upper = x - 1;
             }
+        }
+        if let (Some(source), Some(printed)) = (context.source, context.printed)
+            && context.whole_spell
+            && let Some(values) = self.exact_x_values(view, source, printed.card(), printed.face())
+        {
+            return values
+                .into_iter()
+                .filter(|&x| x >= min && x <= lower)
+                .max()
+                .unwrap_or(min);
         }
         lower
     }
@@ -725,6 +745,7 @@ impl HeuristicAgent {
             .min_by_key(|o| {
                 (
                     o.source.priced,
+                    o.source.preserve,
                     std::cmp::Reverse(o.source.amount),
                     std::cmp::Reverse(o.source.colors.len()),
                     o.source.id,
@@ -754,12 +775,7 @@ impl HeuristicAgent {
         let pool = &seat.mana_pool;
         let (restricted, plain) = split_restricted(offers(view, legal));
         let plain = usable(plain);
-        let main = view.active == view.seat
-            && view.stack.is_empty()
-            && matches!(
-                view.phase,
-                baylee_view::Phase::FirstMain | baylee_view::Phase::SecondMain
-            );
+        let main = own_main_phase(view);
         let available = pool.total() + plain.iter().map(|s| u64::from(s.amount)).sum::<u64>();
         let reserve = self.reserve(view, main);
         let mut best: Option<(i64, PlayerAction)> = None;
@@ -801,6 +817,9 @@ impl HeuristicAgent {
                 &plain,
                 u32::try_from(budget).unwrap_or(u32::MAX),
             );
+            let Some(cost) = self.exact_x_cost(view, id, card, &printed, cost) else {
+                continue;
+            };
             if stillborn(f, &printed, &cost)
                 || self.unreachable_x_graveyard_target(view, id, card, &printed, &cost)
             {
@@ -821,6 +840,7 @@ impl HeuristicAgent {
             if !crate::granted::viable_cast(view, legal, &cost, sources) {
                 continue;
             }
+            let spell_harm = self.spell_total_harm(view, Some(id), card, f);
             let action = if legal.castable.contains(&id)
                 && (!floats_first || manaplan::plan(&cost, pool, &[]).is_some())
             {
@@ -829,6 +849,9 @@ impl HeuristicAgent {
                 let Some(plan) = manaplan::plan(&cost, pool, sources) else {
                     continue;
                 };
+                if !plan_survives(view, &plan.steps, spell_harm) {
+                    continue;
+                }
                 let Some(step) = plan.steps.first() else {
                     continue;
                 };
@@ -911,10 +934,11 @@ impl HeuristicAgent {
         {
             return true;
         }
+        let id = own_casts(view).find(|&id| identity(view, id) == Some(card));
         // Decide whether the spell has a useful legal-shaped target before
         // spending mana. Merely seeing an enemy permanent is insufficient
         // for colour/type restrictions or a symmetric same-name sweep.
-        if let Some(id) = own_casts(view).find(|&id| identity(view, id) == Some(card)) {
+        if let Some(id) = id {
             for ability in spells {
                 let AbilityDef::Spell {
                     effects, targets, ..
@@ -922,7 +946,18 @@ impl HeuristicAgent {
                 else {
                     continue;
                 };
-                if effects.iter().any(removal)
+                if (effects.iter().any(removal)
+                    || (!f.mana_cost.has_variable()
+                        && (effects.iter().any(harmful_targeted)
+                            || effects.iter().any(|e| {
+                                matches!(
+                                    e,
+                                    Effect::DrawCardsFor {
+                                        who: baylee_cards_dsl::PlayerRel::Chosen,
+                                        ..
+                                    }
+                                )
+                            }))))
                     && self
                         .aimed_worth(
                             view,
@@ -935,6 +970,27 @@ impl HeuristicAgent {
                 {
                     return true;
                 }
+            }
+        }
+        for ability in spells {
+            match ability {
+                AbilityDef::Spell { effects, .. } => {
+                    if !f.mana_cost.has_variable()
+                        && self
+                            .sweeper_net_worth(view, id, effects)
+                            .is_some_and(|net| net <= 0)
+                    {
+                        return true;
+                    }
+                }
+                AbilityDef::ModalSpell { modes, .. }
+                    if !modes
+                        .iter()
+                        .any(|mode| self.modal_mode_useful(view, id, mode)) =>
+                {
+                    return true;
+                }
+                _ => {}
             }
         }
         if f.mandatory_additional_costs
@@ -962,6 +1018,304 @@ impl HeuristicAgent {
         false
     }
 
+    /// Net board worth gained by a pure symmetric sweeper effect list, or `None`
+    /// when `effects` is not composed solely of board sweepers.
+    fn sweeper_net_worth(
+        &self,
+        view: &PlayerView,
+        id: Option<ObjectId>,
+        effects: &[Effect],
+    ) -> Option<i64> {
+        if effects.is_empty() || !effects.iter().all(board_sweeper) {
+            return None;
+        }
+        let mut net = 0_i64;
+        for effect in effects {
+            let (filter, opponents_only, check_indest, dmg) = match effect {
+                Effect::DestroyAll { filter, .. } => (*filter, false, true, None),
+                Effect::ExileAll { filter } => (*filter, false, false, None),
+                Effect::ReturnAllToHand {
+                    filter,
+                    opponents_only,
+                } => (*filter, *opponents_only, false, None),
+                Effect::DealDamageEach { filter, amount } => (
+                    *filter,
+                    false,
+                    true,
+                    Some(crate::tactics::amount(*amount, 0)),
+                ),
+                _ => return None,
+            };
+            if dmg.is_some_and(|d| d <= 0) {
+                continue;
+            }
+            for o in &view.battlefield {
+                if self.filter_matches(filter, view, o, baylee_cards_dsl::ZoneRef::Battlefield, id)
+                    == Some(false)
+                {
+                    continue;
+                }
+                if check_indest
+                    && o.keywords & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE.bits() != 0
+                {
+                    continue;
+                }
+                if let Some(d) = dmg
+                    && o.toughness
+                        .is_none_or(|t| i32::from(t) - i32::from(o.damage) > d)
+                {
+                    continue;
+                }
+                let worth = Self::permanent_worth(view, o);
+                if self.hostile(o.controller, view.seat) {
+                    net += worth;
+                } else if !opponents_only && o.controller == view.seat {
+                    net -= worth;
+                }
+            }
+        }
+        Some(net)
+    }
+
+    /// Whether a mode of a modal spell has a legal, non-suicidal, non-idle
+    /// use on the current board.
+    fn modal_mode_useful(
+        &self,
+        view: &PlayerView,
+        id: Option<ObjectId>,
+        mode: &baylee_cards_dsl::SpellMode,
+    ) -> bool {
+        let draws = crate::optional::self_draws(view, mode.effects, 0);
+        if draws > 0
+            && view
+                .seat(resource_player(view))
+                .is_some_and(|s| s.library_count <= draws)
+        {
+            return false;
+        }
+        let harm = effects_self_harm(mode.effects, true);
+        if harm > 0
+            && view
+                .seat(resource_player(view))
+                .is_some_and(|s| harm >= s.life)
+        {
+            return false;
+        }
+        let origin_id = id.unwrap_or(ObjectId::new(0x00FF_FFFE, 0));
+        let origin = crate::worth::Origin::of(view, origin_id);
+        for req in [mode.targets, mode.second_targets].into_iter().flatten() {
+            if req.min >= 1
+                && self
+                    .target_candidates(view, origin, &req)
+                    .is_some_and(|n| n < usize::from(req.min))
+            {
+                return false;
+            }
+        }
+        if mode.targets.is_some_and(|req| req.min >= 1)
+            && mode.second_targets.is_none()
+            && (mode.effects.iter().any(removal)
+                || mode.effects.iter().any(harmful_targeted)
+                || mode.effects.iter().any(|e| {
+                    matches!(
+                        e,
+                        Effect::DrawCardsFor {
+                            who: baylee_cards_dsl::PlayerRel::Chosen,
+                            ..
+                        }
+                    )
+                }))
+            && self
+                .aimed_worth(view, origin, mode.effects, mode.targets.as_ref(), 0)
+                .is_some_and(|(worth, _)| worth <= 0)
+        {
+            return false;
+        }
+        if self
+            .sweeper_net_worth(view, id, mode.effects)
+            .is_some_and(|net| net <= 0)
+        {
+            return false;
+        }
+        if self.effects_reach(view, mode.effects, origin_id) == Some(false) {
+            return false;
+        }
+        for effect in mode.effects {
+            if counter(effect) && !self.has_counter_target(view, effect) {
+                return false;
+            }
+            if redirect(effect) && !view.stack.iter().any(|o| self.redirect_worth(view, o) > 0) {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn has_counter_target(&self, view: &PlayerView, effect: &Effect) -> bool {
+        view.stack.iter().any(|o| {
+            self.hostile(o.controller, view.seat)
+                && crate::tactics::counterable(o)
+                && !crate::tactics::only_replaces_itself(o)
+                && match effect {
+                    Effect::CounterTargetSpell | Effect::CounterTargetSpellToExile => {
+                        !matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. }))
+                    }
+                    Effect::CounterTargetAbility => {
+                        matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. }))
+                    }
+                    _ => true,
+                }
+        })
+    }
+
+    /// Total self-harm from casting and resolving `card` (pre-resolution costs
+    /// and `SpellCast` triggers plus non-negative resolution self-harm).
+    fn spell_total_harm(
+        &self,
+        view: &PlayerView,
+        id: Option<ObjectId>,
+        card: CardIdentity,
+        f: &FaceDef,
+    ) -> i32 {
+        let Some(def) = baylee_cards::by_index(card.index) else {
+            return 0;
+        };
+        let spells = def.abilities_for_face(usize::from(card.face));
+        let (pre, res) = self.spell_self_harm(view, id, card, f, spells);
+        pre.saturating_add(res.max(0))
+    }
+
+    /// `(pre_resolution_harm, resolution_harm)` for casting `card`.
+    ///
+    /// `pre_resolution_harm` includes mandatory additional life costs and
+    /// mandatory `SpellCast` / `SpellCastOrCopied` triggers on the battlefield,
+    /// which resolve before the spell itself.
+    fn spell_self_harm(
+        &self,
+        view: &PlayerView,
+        id: Option<ObjectId>,
+        card: CardIdentity,
+        f: &FaceDef,
+        spells: &[AbilityDef],
+    ) -> (i32, i32) {
+        let mut pre = cost_self_harm(view, f.mandatory_additional_costs);
+        let obj = card_as_object(view, id, card, f);
+        for perm in &view.battlefield {
+            let perm_is_you = perm.controller == resource_player(view);
+            for ability in crate::activate::printed_list(perm) {
+                let AbilityDef::Triggered {
+                    trigger:
+                        baylee_cards_dsl::Trigger::SpellCast(filter)
+                        | baylee_cards_dsl::Trigger::SpellCastOrCopied(filter),
+                    effects,
+                    ..
+                } = ability
+                else {
+                    continue;
+                };
+                if self.filter_matches(
+                    filter,
+                    view,
+                    &obj,
+                    baylee_cards_dsl::ZoneRef::Stack,
+                    Some(perm.id),
+                ) == Some(true)
+                {
+                    pre = pre.saturating_add(effects_self_harm(effects, perm_is_you).max(0));
+                }
+            }
+        }
+        let mut res = 0_i32;
+        let permanent_spell = !f.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY));
+        for ability in spells {
+            match ability {
+                AbilityDef::Spell { effects, .. } => {
+                    res = res.saturating_add(effects_self_harm(effects, true));
+                }
+                AbilityDef::Triggered {
+                    trigger:
+                        baylee_cards_dsl::Trigger::EntersBattlefield(baylee_cards_dsl::Filter::This),
+                    effects,
+                    ..
+                } if permanent_spell => {
+                    res = res.saturating_add(effects_self_harm(effects, true));
+                }
+                _ => {}
+            }
+        }
+        (pre, res)
+    }
+
+    /// Mandatory cards `view.seat` will draw from casting and resolving `card`,
+    /// including `SpellCast` and `EntersBattlefield` triggers on the board.
+    fn spell_mandatory_draws(
+        &self,
+        view: &PlayerView,
+        id: Option<ObjectId>,
+        card: CardIdentity,
+        f: &FaceDef,
+        spells: &[AbilityDef],
+    ) -> u32 {
+        let mut draws = 0_u32;
+        let permanent_spell = !f.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY));
+        for ability in spells {
+            match ability {
+                AbilityDef::Spell { effects, .. } if !f.mana_cost.has_variable() => {
+                    draws = draws.saturating_add(crate::optional::self_draws(view, effects, 0));
+                }
+                AbilityDef::Triggered {
+                    trigger:
+                        baylee_cards_dsl::Trigger::EntersBattlefield(baylee_cards_dsl::Filter::This),
+                    effects,
+                    ..
+                } if permanent_spell => {
+                    draws = draws.saturating_add(crate::optional::self_draws(view, effects, 0));
+                }
+                _ => {}
+            }
+        }
+        let obj = card_as_object(view, id, card, f);
+        for perm in &view.battlefield {
+            if perm.controller != resource_player(view) {
+                continue;
+            }
+            for ability in crate::activate::printed_list(perm) {
+                let AbilityDef::Triggered {
+                    trigger, effects, ..
+                } = ability
+                else {
+                    continue;
+                };
+                let fires = match trigger {
+                    baylee_cards_dsl::Trigger::SpellCast(filter)
+                    | baylee_cards_dsl::Trigger::SpellCastOrCopied(filter) => {
+                        self.filter_matches(
+                            filter,
+                            view,
+                            &obj,
+                            baylee_cards_dsl::ZoneRef::Stack,
+                            Some(perm.id),
+                        ) == Some(true)
+                    }
+                    baylee_cards_dsl::Trigger::EntersBattlefield(filter) if permanent_spell => {
+                        self.filter_matches(
+                            filter,
+                            view,
+                            &obj,
+                            baylee_cards_dsl::ZoneRef::Battlefield,
+                            Some(perm.id),
+                        ) == Some(true)
+                    }
+                    _ => false,
+                };
+                if fires {
+                    draws = draws.saturating_add(crate::optional::self_draws(view, effects, 0));
+                }
+            }
+        }
+        draws
+    }
+
     pub(crate) fn spell_score(&self, view: &PlayerView, card: CardIdentity) -> i64 {
         let Some(f) = face(card) else {
             return 0;
@@ -971,6 +1325,21 @@ impl HeuristicAgent {
         };
         let spells = def.abilities_for_face(usize::from(card.face));
         if crate::optional::not_now(view, spells, |seat| self.hostile(seat, view.seat)) {
+            return -10_000;
+        }
+        let id = own_casts(view).find(|&id| identity(view, id) == Some(card));
+        let (pre_harm, res_harm) = self.spell_self_harm(view, id, card, f, spells);
+        if view.seat(resource_player(view)).is_some_and(|s| {
+            pre_harm >= s.life || pre_harm.saturating_add(res_harm.max(0)) >= s.life
+        }) {
+            return -10_000;
+        }
+        let draws = self.spell_mandatory_draws(view, id, card, f, spells);
+        if draws > 0
+            && view
+                .seat(resource_player(view))
+                .is_some_and(|s| s.library_count <= draws)
+        {
             return -10_000;
         }
         if self.bad_removal_exchange(view, card, f, spells) {
@@ -1011,25 +1380,7 @@ impl HeuristicAgent {
             // a counter pointed at it resolves and counters nothing. Only a
             // stack object the counter would actually take off counts, and
             // only one worth a card: a cantrip is not (#226).
-            if counter(effect)
-                && !view.stack.iter().any(|o| {
-                    self.hostile(o.controller, view.seat)
-                        && crate::tactics::counterable(o)
-                        && !crate::tactics::only_replaces_itself(o)
-                        && match effect {
-                            Effect::CounterTargetSpell | Effect::CounterTargetSpellToExile => {
-                                !matches!(
-                                    o.stack_item,
-                                    Some(baylee_view::StackItem::Ability { .. })
-                                )
-                            }
-                            Effect::CounterTargetAbility => {
-                                matches!(o.stack_item, Some(baylee_view::StackItem::Ability { .. }))
-                            }
-                            _ => true,
-                        }
-                })
-            {
+            if counter(effect) && !self.has_counter_target(view, effect) {
                 return -10_000;
             }
             // A redirect is worth what it saves, and this seat's own spell is
@@ -1056,6 +1407,7 @@ impl HeuristicAgent {
                 value += 300 + self.strategy.draw_bonus;
             }
         }
+        value += self.modal_spell_bonus(view, id, spells);
         if f.types.contains(TypeSet::ARTIFACT) {
             value += self.strategy.artifact_bonus;
         }
@@ -1080,6 +1432,44 @@ impl HeuristicAgent {
             value -= owed_later;
         }
         value
+    }
+
+    fn modal_spell_bonus(
+        &self,
+        view: &PlayerView,
+        id: Option<ObjectId>,
+        spells: &[AbilityDef],
+    ) -> i64 {
+        let mut bonus = 0;
+        for ability in spells {
+            let AbilityDef::ModalSpell { modes, .. } = ability else {
+                continue;
+            };
+            let useful: Vec<_> = modes
+                .iter()
+                .filter(|m| self.modal_mode_useful(view, id, m))
+                .collect();
+            if useful.iter().any(|m| m.effects.iter().any(counter)) {
+                bonus += 1500 + self.strategy.interaction_bonus;
+            }
+            if useful.iter().any(|m| m.effects.iter().any(removal)) {
+                bonus += 400 + self.strategy.interaction_bonus;
+            }
+            if useful.iter().any(|m| {
+                m.effects.iter().any(|effect| {
+                    matches!(
+                        effect,
+                        Effect::DrawCards { .. }
+                            | Effect::DrawCardsFor { .. }
+                            | Effect::LookAtTopPick { .. }
+                            | Effect::RevealTopAndSort { .. }
+                    )
+                })
+            }) {
+                bonus += 300 + self.strategy.draw_bonus;
+            }
+        }
+        bonus
     }
 }
 
@@ -1114,8 +1504,246 @@ fn redirect(effect: &Effect) -> bool {
 pub(crate) fn removal(effect: &Effect) -> bool {
     matches!(
         effect,
-        Effect::Destroy { .. } | Effect::Exile { .. } | Effect::PutTargetOnBottomOfLibrary
+        Effect::Destroy { .. }
+            | Effect::DestroyOthersNamedLike { .. }
+            | Effect::Exile { .. }
+            | Effect::ExileTargetsWithSource
+            | Effect::PutTargetOnBottomOfLibrary
+    ) || {
+        let (then, otherwise) = effect.branches();
+        then.iter().chain(otherwise).any(removal)
+    }
+}
+
+/// An offensive or disruptive targeted effect that must not be cast when
+/// every legal target on the board is a loss to this seat.
+fn harmful_targeted(effect: &Effect) -> bool {
+    if removal(effect) {
+        return true;
+    }
+    match effect {
+        Effect::DealDamage { .. }
+        | Effect::DealDamageWithCappedLifeGain { .. }
+        | Effect::ReturnToHand { .. }
+        | Effect::TapTarget => true,
+        Effect::PumpTarget {
+            power, toughness, ..
+        }
+        | Effect::PumpTargetSlot {
+            power, toughness, ..
+        } => crate::tactics::amount(*power, 0) < 0 || crate::tactics::amount(*toughness, 0) < 0,
+        Effect::AddCounter { kind, .. } => matches!(
+            kind,
+            baylee_cards_dsl::CounterKind::Minus { .. }
+                | baylee_cards_dsl::CounterKind::Stun
+                | baylee_cards_dsl::CounterKind::Finality
+        ),
+        _ => {
+            let (then, otherwise) = effect.branches();
+            then.iter().chain(otherwise).any(harmful_targeted)
+        }
+    }
+}
+
+/// Whether `effect` is a symmetric board sweeper.
+fn board_sweeper(effect: &Effect) -> bool {
+    matches!(
+        effect,
+        Effect::DestroyAll { .. }
+            | Effect::ExileAll { .. }
+            | Effect::ReturnAllToHand { .. }
+            | Effect::DealDamageEach { .. }
     )
+}
+
+/// Self-harm (`life` paid or lost / damage taken by `view.seat`) from
+/// activating mana ability `ability_index` on `id` (`None` for the intrinsic
+/// basic-land tap).
+pub(crate) fn mana_ability_harm(
+    view: &PlayerView,
+    id: ObjectId,
+    ability_index: Option<u32>,
+) -> i32 {
+    let Some(object) = view.object(id) else {
+        return 0;
+    };
+    let tap_harm = tap_trigger_harm(object);
+    let Some(index) = ability_index else {
+        return tap_harm;
+    };
+    if let Some(slot) = baylee_engine::choice::granted_slot(index)
+        && object.granted_mana_for(slot).is_some()
+    {
+        return tap_harm;
+    }
+    let Some(
+        AbilityDef::Activated { cost, effects, .. }
+        | AbilityDef::ActivatedConditional { cost, effects, .. },
+    ) = crate::activate::printed(view, id, index)
+    else {
+        return tap_harm;
+    };
+    tap_harm
+        .saturating_add(cost_self_harm(view, cost.parts))
+        .saturating_add(effects_self_harm(effects, true).max(0))
+}
+
+fn cost_self_harm(view: &PlayerView, parts: &[baylee_cards_dsl::CostPart]) -> i32 {
+    parts
+        .iter()
+        .map(|part| match part {
+            baylee_cards_dsl::CostPart::PayLife(n) => i32::from(*n),
+            baylee_cards_dsl::CostPart::PayCommanderColors => view
+                .seat(resource_player(view))
+                .and_then(|s| s.commanders.first())
+                .and_then(|c| view.object(c.object))
+                .map_or(1, |o| {
+                    i32::try_from(o.colors.iter().count()).unwrap_or(1).max(1)
+                }),
+            _ => 0,
+        })
+        .fold(0_i32, i32::saturating_add)
+}
+
+fn player_rel_hits_you(rel: baylee_cards_dsl::PlayerRel, controller_is_you: bool) -> bool {
+    use baylee_cards_dsl::PlayerRel;
+    if controller_is_you {
+        matches!(
+            rel,
+            PlayerRel::You
+                | PlayerRel::EachPlayer
+                | PlayerRel::ControllerOfEvent
+                | PlayerRel::EventPlayer
+                | PlayerRel::OwnerOfSource
+        )
+    } else {
+        matches!(
+            rel,
+            PlayerRel::Opponent
+                | PlayerRel::EachOpponent
+                | PlayerRel::EachPlayer
+                | PlayerRel::ControllerOfEvent
+                | PlayerRel::EventPlayer
+        )
+    }
+}
+
+/// Net self-harm to `view.seat` from unconditional damage/life-loss/life-gain
+/// effects in `effects`, evaluated with `controller_is_you`.
+fn effects_self_harm(effects: &[Effect], controller_is_you: bool) -> i32 {
+    effects
+        .iter()
+        .map(|effect| match effect {
+            Effect::DealDamage {
+                amount,
+                target: baylee_cards_dsl::TargetSpec::Player(who),
+            }
+            | Effect::LoseLife {
+                amount,
+                target: who,
+            } if player_rel_hits_you(*who, controller_is_you) => {
+                crate::tactics::amount(*amount, 0).max(0)
+            }
+            Effect::GainLife { amount } if controller_is_you => {
+                -crate::tactics::amount(*amount, 0).max(0)
+            }
+            Effect::GainLifeFor { amount, who } if player_rel_hits_you(*who, controller_is_you) => {
+                -crate::tactics::amount(*amount, 0).max(0)
+            }
+            Effect::Sequence(inner) => effects_self_harm(inner, controller_is_you),
+            _ => 0,
+        })
+        .fold(0_i32, i32::saturating_add)
+}
+
+fn tap_trigger_harm(object: &baylee_view::PublicObject) -> i32 {
+    crate::activate::printed_list(object)
+        .iter()
+        .map(|ability| match ability {
+            AbilityDef::Triggered {
+                trigger: baylee_cards_dsl::Trigger::BecomesTapped(Filter::This),
+                effects,
+                ..
+            } => effects_self_harm(effects, true).max(0),
+            _ => 0,
+        })
+        .fold(0_i32, i32::saturating_add)
+}
+
+fn plan_survives(view: &PlayerView, steps: &[manaplan::Step], spell_harm: i32) -> bool {
+    let Some(seat) = view.seat(resource_player(view)) else {
+        return true;
+    };
+    let tap_harm = steps
+        .iter()
+        .map(|step| {
+            let index = match step.tap {
+                Tap::Intrinsic => None,
+                Tap::Ability(i) => Some(i),
+            };
+            mana_ability_harm(view, step.source, index)
+        })
+        .fold(0_i32, i32::saturating_add);
+    let total = tap_harm.saturating_add(spell_harm.max(0));
+    total == 0 || total < seat.life
+}
+
+fn card_as_object(
+    view: &PlayerView,
+    id: Option<ObjectId>,
+    card: CardIdentity,
+    f: &FaceDef,
+) -> baylee_view::PublicObject {
+    let mut subtypes = baylee_core::types::SubtypeSet::EMPTY;
+    for &subtype in f.subtypes {
+        subtypes.insert(subtype);
+    }
+    let colors = f.mana_cost.colors().union(f.color_indicator);
+    let seat = resource_player(view);
+    baylee_view::PublicObject {
+        battle_protector: None,
+        id: id.unwrap_or(ObjectId::new(0x00FF_FFFE, 0)),
+        card: Some(card),
+        rules: None,
+        prepared_spell: None,
+        name: f.name.into(),
+        controller: seat,
+        owner: seat,
+        commander: false,
+        status: baylee_view::ObjectStatus::default(),
+        types: f.types,
+        supertypes: f.supertypes,
+        subtypes,
+        chosen_subtype: None,
+        chosen_name: None,
+        chosen_opponent: None,
+        unlocked_doors: None,
+        suspended: false,
+        token: None,
+        colors,
+        mana_value: f.mana_cost.cmc(),
+        keywords: baylee_cards::by_index(card.index).map_or(0, |def| {
+            def.keywords_for_face(usize::from(card.face)).bits()
+        }),
+        power: f.power,
+        toughness: f.toughness,
+        base_power: f.power,
+        base_toughness: f.toughness,
+        loyalty: f.loyalty,
+        damage: 0,
+        counters: Vec::new(),
+        attached_to: None,
+        targets: Vec::new(),
+        stack_item: None,
+        summoning_sick: false,
+        ability_mana_spending: baylee_core::mana::ManaSpending::EXACT,
+        granted_mana: None,
+        board_mana: None,
+        flashback: None,
+        grants: Vec::new(),
+        ability_sources: Vec::new(),
+        word_changes: Vec::new(),
+    }
 }
 
 /// One tap toward what this seat owes inside a payment window (CR 605.3a).
@@ -1172,6 +1800,9 @@ pub(crate) fn pay_owed(view: &PlayerView, legal: &LegalActions) -> Option<Player
             None
         }
     })?;
+    if !plan_survives(view, &plan.steps, 0) {
+        return None;
+    }
     let step = plan.steps.first()?;
     Some(match step.tap {
         Tap::Intrinsic => PlayerAction::ActivateManaAbility {
@@ -1320,9 +1951,17 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
     // lands from three directions — `mana_bundle`, `duplicates_intrinsic`
     // and this field — and one flag doing two jobs would silently make that
     // one reader wearing three names.
+    let life = view
+        .seat(resource_player(view))
+        .map_or(i32::MAX, |s| s.life);
     let mut result: Vec<Offer> = Vec::new();
+    let mut harms: Vec<i32> = Vec::new();
     for &id in &legal.mana_abilities {
         if legal.activation_increase(id) > 0 {
+            continue;
+        }
+        let harm = mana_ability_harm(view, id, None);
+        if harm > 0 && harm >= life {
             continue;
         }
         if let Some(color) = view
@@ -1331,14 +1970,23 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
         {
             // CR 305.6: the intrinsic tap of a basic land type costs the tap
             // and nothing else.
+            let mut source = Source::fixed(id, Tap::Intrinsic, color);
+            if harm > 0 {
+                source.priced = true;
+            }
             result.push(Offer {
-                source: Source::fixed(id, Tap::Intrinsic, color),
+                source,
                 only_for: None,
             });
+            harms.push(harm);
         }
     }
     for &(id, index) in &legal.abilities {
         if legal.activation_increase(id) > 0 {
+            continue;
+        }
+        let harm = mana_ability_harm(view, id, Some(index));
+        if harm > 0 && harm >= life {
             continue;
         }
         let Some(object) = view.object(id) else {
@@ -1355,48 +2003,7 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                 // ability that has nothing to do with the grant.
                 .map(|m| (m.colors.clone(), m.amount, false, None))
         } else {
-            crate::activate::printed(view, id, index).and_then(|a| {
-                let (AbilityDef::Activated {
-                    cost,
-                    effects,
-                    mana_ability: true,
-                    ..
-                }
-                | AbilityDef::ActivatedConditional {
-                    cost,
-                    effects,
-                    mana_ability: true,
-                    ..
-                }) = a
-                else {
-                    return None;
-                };
-                // The planner's door, as the client's: a tap that also does
-                // something else (Adarkar Wastes' damage) is still a source,
-                // and `priced` keeps it behind every clean one.
-                let (kind, amount, _) = baylee_cards_dsl::mana_with_riders(cost, effects)?;
-                let colors = match kind {
-                    ManaSource::Fixed(c) => vec![c],
-                    ManaSource::Choice(c) => c.to_vec(),
-                    _ => object
-                        .board_mana
-                        .as_ref()
-                        .filter(|m| m.index == index)?
-                        .colors
-                        .clone(),
-                };
-                // A count of the board (Harabaz Druid's Allies) is read the
-                // way the client's planner reads it, so both plan one tap.
-                let amount = amount
-                    .or_else(|| crate::mana_poured(view, id, effects))
-                    .filter(|amount| *amount > 0)?;
-                Some((
-                    colors,
-                    amount,
-                    priced(cost) || effects.iter().any(|e| !matches!(e, Effect::AddMana { .. })),
-                    crate::restricted::only_for(effects),
-                ))
-            })
+            printed_mana_offer(view, id, index, object)
         };
         if let Some((colors, amount, priced, only_for)) = source {
             // A tap that sets off the permanent's own trigger (City of
@@ -1420,6 +2027,7 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
                 },
                 only_for,
             });
+            harms.push(harm);
         }
     }
     let costs: Vec<_> = view
@@ -1429,10 +2037,62 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
         .collect();
     let mut ranked: Vec<_> = result.iter().map(|offer| offer.source.clone()).collect();
     manaplan::prioritize(&mut ranked, view, &costs);
-    for (offer, source) in result.iter_mut().zip(ranked) {
-        offer.source.preserve = source.preserve;
+    for ((offer, source), harm) in result.iter_mut().zip(ranked).zip(harms) {
+        let pain_penalty = u32::try_from(harm.max(0))
+            .unwrap_or(u32::MAX)
+            .saturating_mul(20_000);
+        offer.source.preserve = source.preserve.saturating_add(pain_penalty);
     }
     result
+}
+
+fn printed_mana_offer(
+    view: &PlayerView,
+    id: ObjectId,
+    index: u32,
+    object: &baylee_view::PublicObject,
+) -> Option<(Vec<ManaColor>, u8, bool, Option<&'static Filter>)> {
+    let a = crate::activate::printed(view, id, index)?;
+    let (AbilityDef::Activated {
+        cost,
+        effects,
+        mana_ability: true,
+        ..
+    }
+    | AbilityDef::ActivatedConditional {
+        cost,
+        effects,
+        mana_ability: true,
+        ..
+    }) = a
+    else {
+        return None;
+    };
+    // The planner's door, as the client's: a tap that also does
+    // something else (Adarkar Wastes' damage) is still a source,
+    // and `priced` keeps it behind every clean one.
+    let (kind, amount, _) = baylee_cards_dsl::mana_with_riders(cost, effects)?;
+    let colors = match kind {
+        ManaSource::Fixed(c) => vec![c],
+        ManaSource::Choice(c) => c.to_vec(),
+        _ => object
+            .board_mana
+            .as_ref()
+            .filter(|m| m.index == index)?
+            .colors
+            .clone(),
+    };
+    // A count of the board (Harabaz Druid's Allies) is read the
+    // way the client's planner reads it, so both plan one tap.
+    let amount = amount
+        .or_else(|| crate::mana_poured(view, id, effects))
+        .filter(|amount| *amount > 0)?;
+    Some((
+        colors,
+        amount,
+        priced(cost) || effects.iter().any(|e| !matches!(e, Effect::AddMana { .. })),
+        crate::restricted::only_for(effects),
+    ))
 }
 
 /// Whether `object` prints "whenever this becomes tapped": City of Brass.
@@ -1456,12 +2116,27 @@ fn usable(offers: Vec<Offer>) -> Vec<Source> {
         (
             s.id,
             s.priced,
+            s.preserve,
             std::cmp::Reverse(s.amount),
             std::cmp::Reverse(s.colors.len()),
             matches!(s.tap, Tap::Ability(_)),
         )
     });
+    let dear_preserve: Vec<(ObjectId, Tap, u32)> = result
+        .iter()
+        .filter(|s| s.priced)
+        .map(|s| (s.id, s.tap, s.preserve))
+        .collect();
     manaplan::keep_one_per_permanent(&mut result);
+    for s in &mut result {
+        if let Some(dear) = &s.dear
+            && let Some(&(_, _, p)) = dear_preserve
+                .iter()
+                .find(|&&(id, tap, _)| id == s.id && tap == dear.tap)
+        {
+            s.preserve = s.preserve.saturating_add(p / 200);
+        }
+    }
     result
 }
 
@@ -1511,14 +2186,20 @@ fn aim(
     sources: &[Source],
     budget: u32,
 ) -> (baylee_core::mana::ManaCost, bool) {
-    let Some(pool) = view.seat(resource_player(view)).map(|s| &s.mana_pool) else {
+    let Some(seat) = view.seat(resource_player(view)) else {
         return (cost, false);
     };
+    let pool = &seat.mana_pool;
     if cost.has_variable() {
+        let effects = spell_effects(card);
         let available = pool.total() + sources.iter().map(|s| u64::from(s.amount)).sum::<u64>();
         let x = (1..=u32::try_from(available).unwrap_or(u32::MAX).min(50))
             .rev()
             .find_map(|x| {
+                let draws = crate::optional::self_draws(view, effects, x);
+                if draws > 0 && draws >= seat.library_count {
+                    return None;
+                }
                 let cost = cost.with_x(x);
                 manaplan::plan(&cost, pool, sources)
                     .is_some()
@@ -1754,7 +2435,8 @@ pub(crate) fn pays_tax(
     // A price rather than a tax — Crystal Rod's "you may pay {1}. If you
     // do, you gain 1 life" — asks the same question the other way round:
     // what paying buys is on a card this seat chose to play, so it is
-    // bought whenever the mana is there.
+    // bought whenever the mana is there, unless the reward would draw the
+    // library out.
     if context.effects.iter().any(|effect| {
         matches!(
             effect,
@@ -1765,6 +2447,30 @@ pub(crate) fn pays_tax(
                 | Effect::PlayerMayPayManaAndLifeEachThenElse { .. }
         )
     }) {
+        let draws: u32 = context
+            .effects
+            .iter()
+            .filter(|effect| {
+                matches!(
+                    effect,
+                    Effect::PlayerMayPayThen { .. }
+                        | Effect::PlayerMayPayManaThen { .. }
+                        | Effect::PlayerMayPayThenElse { .. }
+                        | Effect::PlayerMayPayManaEachThenElse { .. }
+                )
+            })
+            .map(|effect| {
+                let (then, _) = effect.branches();
+                crate::optional::self_draws(view, then, context.x)
+            })
+            .sum();
+        if draws > 0
+            && view
+                .seat(resource_player(view))
+                .is_some_and(|s| s.library_count <= draws)
+        {
+            return false;
+        }
         return can_pay(view, &price);
     }
     let refusal_costs_a_card = context.effects.iter().any(|effect| match effect {

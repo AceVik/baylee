@@ -1,81 +1,80 @@
-# baylee unseen-card holdout highlander seed=90000037
+# baylee unseen-card holdout highlander seed=90000026
 # licence: AGPL-3.0-only
-[deck:highlander midrange UG #90000037]
-1 Access Tunnel
-1 Aeronaut's Wings
-1 Air Marshal
-1 Angel's Tomb
-1 Ash Barrens
-1 Baldur's Gate
-1 Battlegrowth
-1 Bone to Ash
-1 Claws of Gix
-1 Cloistered Telepath
-1 Cloud Djinn
-1 Constricting Tendrils
-1 Containment Protocol
-1 Darksteel Forge
-1 Desecration Plague
-1 Desert Twister
-1 Dragon Blood
-1 Efficient Construction
-1 Ensouled Scimitar
-1 Envelop
-1 Ertai, Wizard Adept
-1 Eternity Snare
-1 Eye of Ramos
-1 Fierce Guardianship
-1 Flight
+[deck:highlander midrange UG #90000026]
+1 Abundant Countryside
+1 Ancient Ziggurat
+1 Arcane Flight
+1 Archaeological Dig
+1 Archdruid's Charm
+1 Artificer's Intuition
+1 Aviation Pioneer
+1 Ayula's Influence
+1 Barkchannel Pathway
+1 Blisterpod
+1 Blizzard
+1 Brood Monitor
+1 Conduit Pylons
+1 Cyclone
+1 Dance of Many
+1 Defense of the Heart
+1 Dragoon's Wyvern
+1 Drowned Rusalka
+1 Drowner of Hope
+1 Eldrazi Skyspawner
+1 Energy Vortex
+1 Eyeless Watcher
+1 Faerie Formation
+1 Fastbond
+1 Fecundity
+1 Floodhound
 1 Font of Fertility
-7 Forest
-1 Giant Warthog
-1 Glyph of Reincarnation
-1 Gnarled Mass
-1 Grounded
-1 Hornswoggle
-1 Interplanar Beacon
-17 Island
-1 Kodama's Reach
-1 Krosan Verge
-1 Mental Discipline
-1 Merchant of Secrets
-1 Mikokoro, Center of the Sea
-1 Mind Over Matter
-1 Moon-Eating Dog
-1 Mosstodon
-1 Mox Sapphire
-1 Mystifying Maze
-1 Natural Spring
-1 Oashra Cultivator
-1 Petrified Field
-1 Phyrexian Altar
-1 Prosperous Pirates
-1 Pyramids
-1 Quandrix Campus
-1 Reincarnation
-1 Rishadan Dockhand
-1 Roterothopter
-1 Sanctum of Eternity
-1 School of the Unseen
-1 Sea Gate
-1 Search for Azcanta
-1 Shifting Wall
-1 Shopkeeper's Bane
-1 Silver-Inlaid Dagger
-1 Slumbering Waterways
-1 Social Climber
-1 Stronghold Machinist
-1 Swampbenders
-1 Temporal Manipulation
-1 The One Ring
-1 The Rack
-1 Thornwood Falls
-1 Tower of Champions
-1 Trained Armodon
-1 True-Faith Censer
-1 Turtle Lair
+1 Forecasting Fortune Teller
+16 Forest
+1 Forsaken City
+1 Fungal Bloom
+1 Garruk's Uprising
+1 Gilded Goose
+1 Glimmervoid
+1 Greater Good
+1 Greensleeves, Maro-Sorcerer
+1 Hatching Plans
+1 Henge of Ramos
+1 Homarid Spawning Bed
+1 Iceberg
+1 Incubator Drone
+1 Innkeeper's Talent
+1 Ior Ruin Expedition
+9 Island
+1 Jewel-Eyed Cobra
+1 Kingfisher
+1 Knightfisher
+1 Kozilek's Predator
+1 Malcator's Watcher
+1 Mongrel Pack
+1 Most Wanted
+1 Nest Invader
+1 Novijen, Heart of Progress
+1 Orochi Hatchery
+1 Preening Champion
+1 Runewing
+1 S.H.I.E.L.D. Deployment Drone
+1 Secluded Courtyard
+1 Shimmering Grotto
+1 Silver Raven
+1 Sliver Hive
+1 Soul of the Harvest
+1 Spike Breeder
+1 Sporemound
+1 Springjack Pasture
+1 Survival of the Fittest
+1 Survivors' Encampment
+1 Trade Routes
+1 Tunnel Surveyor
+1 Verdant Force
+1 Viscerid Drone
 1 Walking Ballista
-1 Wall of Brambles
-1 Wind Spirit
-1 Winged Coatl
-1 Wirewood Lodge
+1 Waterlogged Grove
+1 Welcome to . . .
+1 Wizard Class
+1 Yavimaya Sapherd
+1 Yavimaya's Embrace

@@ -1,82 +1,81 @@
 # baylee curated highlander aggro seed=20261072
 # licence: AGPL-3.0-only
 [deck:highlander aggro WG #20261072]
-1 Abu Ja'far
-1 Aisling Leprechaun
-1 Angelic Armaments
-1 Animate Land
 1 April O'Neil, Kunoichi Trainee
-1 Arboria
-1 Arch of Orazca
-1 Attentive Sunscribe
-1 Attercop
-1 Bear Cub
-1 Bloodstained Mire
-1 Bonders' Enclave
-1 Bountiful Harvest
-1 Cathedral of Serra
-1 Cavernous Maw
-1 Chitinous Cloak
-1 Coordinated Maneuver
-1 Corrosive Gale
-1 Defiant Falcon
-1 Detection Tower
-1 Divine Offering
-1 Elite Vanguard
-1 Elven Lyre
-1 Erhnam Djinn
-1 Fang of Shigeki
-1 Field Marshal
-11 Forest
-1 Foxfire
-1 Gaea's Avenger
-1 Gallows Warden
-1 Gideon's Reproach
-1 Golden Bear
-1 Goldmeadow Dodger
+1 Arashin Cleric
+1 Archaeological Dig
+1 Baldur's Gate
+1 Beloved Princess
+1 Brotherhood Headquarters
+1 Castle Doom
+1 Cathedral Sanctifier
+1 Centaur Peacemaker
+1 Champion of the Parish
+1 City of Brass
+1 Dawnhart Rejuvenator
+1 Dedicated Martyr
+1 Delif's Cone
+1 Dwarven Priest
+1 Eclipsed Realms
+1 Extraction Specialist
+7 Forest
+1 Gallant Citizen
+1 Guildmages' Forum
+1 Hada Freeblade
 1 Healer of the Glade
-1 Hematite Talisman
-1 Iron Star
-1 Ironpaw Aspirant
-1 Jade Guardian
-1 Jeong Jeong's Deserters
-1 Joiner Adept
-1 Kalonian Tusker
-1 Kami of False Hope
-1 Karn's Bastion
-1 Knight of the Keep
-1 Lotus Petal
-1 Loxodon Wayfarer
-1 Mana Prism
+1 Healer of the Pride
+1 Healing Salve
+1 Hushwood Verge
+1 Impassioned Orator
+1 Implement of Improvement
+1 Inspiring Cleric
+1 Ironclad Slayer
+1 Jaddi Offshoot
+1 Kindly Customer
+1 Leonin Elder
+1 Lone Missionary
+1 Lotus Vale
 1 Mandible Justiciar
 1 Mandroid Squadron
-1 Mirrorpool
-1 Nantuko Mentor
-1 Nesting Dovehawk
-1 Nuisance Engine
-1 Okina, Temple to the Grandfathers
-1 Oran-Rief, the Vastwood
-1 Order of Whiteclay
+1 Mindful Biomancer
+1 Monk Realist
+1 Mox Emerald
+1 Novice Inspector
+1 Ondu Cleric
 1 Perimeter Patrol
-1 Phyrexian Walker
-1 Pili-Pala
-12 Plains
-1 Primal Amulet
-1 Rishkar, Peema Renegade
-1 Selfless Savior
-1 Shimmering Barrier
-1 Shimmering Grotto
-1 Shredding Winds
+1 Pious Wayfarer
+17 Plains
+1 Potion of Healing
+1 Recruiter of the Guard
+1 Renegade Rallier
+1 Sanctify
+1 Savannah
+1 Savannah Sage
+1 Setessan Skirmisher
+1 Setessan Starbreaker
+1 Settlement Blacksmith
+1 Shu Grain Caravan
+1 Skyclave Cleric
+1 Slumbering Keepguard
 1 Social Climber
-1 Student of Ojutai
-1 Swordwise Centaur
-1 Throne of Makindi
-1 Titania's Chosen
-1 Treetop Scout
-1 Unclaimed Territory
-1 Underdark Rift
-1 Universal Solvent
-1 Valorous Stance
-1 Willow Dryad
-1 Woodland Druid
-1 Yavimaya, Cradle of Growth
+1 Soul Warden
+1 Soul's Attendant
+1 Sunbeam Spellbomb
+1 Sunshower Druid
+1 Surveillance Room
+1 Suture Priest
+1 Talon Gates of Madara
+1 Tamiyo's Safekeeping
+1 Temple Acolyte
+1 Tenth District Guard
+1 Teroh's Faithful
+1 Thraben Inspector
+1 Tivadar of Thorn
+1 Totem Speaker
+1 Turntimber Ascetic
+1 Turtle Lair
+1 Venerable Monk
+1 War Priest of Thune
+1 Werefox Bodyguard
+1 Witch Enchanter
+1 Wooded Bastion

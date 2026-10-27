@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro BRG #20266067]
+1 Battle Rampart
+1 Bonebreaker Giant
+1 Bounding Wolf
+1 Bristlepack Sentry
+1 Canyon Wildcat
+1 Cat Warriors
+1 Cave Tiger
+1 Cemetery Gate
+1 Chained Brute
+1 Chaos Terminator Lord
+1 Cinder Marsh
+1 Contested Cliffs
+1 Cragcrown Pathway
+1 Darkmoss Bridge
+1 Deer-Dog
+1 Elite Cat Warrior
+1 Falkenrath Reaver
+1 Fire-Lit Thicket
+1 Flame Blitz
+1 Flowstone Wall
+12 Forest
+1 Frog-Squirrels
+1 Fungal Reaches
+1 Goblin Outlander
+1 Grappler Spider
+1 Grappling Sundew
+1 Grave Bramble
+1 Grove of the Burnwillows
+1 Guma
+1 Highborn Vampire
+1 Karoo Meerkat
+1 Lantern-Lit Graveyard
+1 Madrush Cyclops
+1 Marsh Goblins
+1 Mirkwood Spider
+1 Mist Leopard
+1 Molten Slagheap
+1 Mossfire Valley
+1 Mosstodon
+4 Mountain
+1 Ogre Warrior
+1 Pestilent Wolf
+1 Prakhata Club Security
+1 Raging Cougar
+1 Rakshasa Deathdealer
+1 Regathan Firecat
+1 Restless Vents
+1 Rhox Brute
+1 Riveteers Initiate
+1 Rubble Slinger
+1 Sabretooth Tiger
+1 Scoria Cat
+1 Sedge Scorpion
+1 Shatterskull Giant
+1 Shelkin Brownie
+1 Stensia Bloodhall
+8 Swamp
+1 Talarian Hook Spider
+1 Thornspire Verge
+1 Timberline Ridge
+1 Trained Jackal
+1 Tree Monkey
+1 Turn to Dust
+1 Underdark Basilisk
+1 Wall of Earth
+1 Wall of Granite
+1 Wall of Ice
+1 Wall of Opposition
+1 Wall of Putrid Flesh
+1 Wall of Shadows
+1 Wall of Torches
+1 Wall of Vines
+1 Whip Vine
+1 Wild Jhovall
+1 Wild Leotau
+1 Zodiac Monkey
+1 Zodiac Rabbit
+1 Zodiac Rooster
+1 Zodiac Tiger

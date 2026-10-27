@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro UBR #20266290]
+1 Abundant Countryside
+1 Alesha's Legacy
+1 Alley Strangler
+1 Ally Encampment
+1 Anaba Ancestor
+1 Ancient Ziggurat
+1 Archdemon of Paliano
+1 Balshan Collaborator
+1 Battle-Rage Blessing
+1 Black Carriage
+1 Bladestitched Skaab
+1 Bog Rats
+1 Cadaverous Knight
+1 Castaway's Despair
+1 Daily Bugle Building
+1 Dauthi Warlord
+1 Deepwood Ghoul
+1 Desolation Prowler
+1 Dimir Cutpurse
+1 Dreadwing
+1 Drifting Shade
+1 Dross Prowler
+1 Drowned
+1 Dwarven Pony
+1 Eclipsed Realms
+1 Errant Minion
+1 Foundry Screecher
+1 Gemstone Mine
+1 Havoc Devils
+1 Hidden Grotto
+4 Island
+1 Jagwasp Swarm
+1 Jasmine Dragon Tea Shop
+1 Junún Efreet
+1 Kederekt Creeper
+1 Kird Ape
+1 Lava Zombie
+1 Legions of Lim-Dûl
+1 Maelstrom of the Spirit Dragon
+1 Metathran Zombie
+1 Mind Bend
+1 Mind Knives
+1 Mind Shatter
+1 Misdirection
+1 Mordenkainen's Polymorph
+1 Mountain
+1 Murk Dwellers
+1 Nantuko Shade
+1 Nausea
+1 Nightveil Predator
+1 Persuasion
+1 Pit Raptor
+1 Plague Beetle
+1 Planar Nexus
+1 Queen's Bay Soldier
+1 Roc Hatchling
+1 Roofstalker Wight
+1 Rotting Regisaur
+1 Secluded Courtyard
+1 Sewer Rats
+1 Shivan Zombie
+1 Skittering Heartstopper
+1 Sleep Paralysis
+1 Snarling Warg
+1 Stone-Throwing Devils
+19 Swamp
+1 Talon Gates of Madara
+1 Tarnished Citadel
+1 Torpor Dust
+1 Undead Minotaur
+1 Underdome
+1 Unhallowed Phalanx
+1 Vodalian Zombie
+1 Warpath Ghoul
+1 Wei Infantry
+1 Zodiac Rat
+1 Zombie Outlander
+1 Zombie Trailblazer
+
+[commander]
+Kess, Dissident Mage

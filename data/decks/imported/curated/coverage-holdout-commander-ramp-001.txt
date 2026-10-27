@@ -1,0 +1,81 @@
+# baylee synergistic holdout coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WG #90010002]
+1 Akroan Jailer
+1 Appa, Aang's Companion
+1 Aven Flock
+1 Birthing Hulk
+1 Bloated Toad
+1 Carnassid
+1 Child of Thorns
+1 Crash of Rhinos
+1 Creosote Heath
+1 Crossroads Consecrator
+1 Crushing Vines
+1 Dalkovan Encampment
+1 Divine Arrow
+1 Divine Retribution
+1 Duskborne Skymarcher
+1 Dust to Dust
+1 Fanatical Strength
+1 Farrel's Mantle
+1 Felidar Cub
+13 Forest
+1 Glade Gnarr
+1 Growing Rites of Itlimoc
+1 Hall of Tagsin
+1 Idyllic Grange
+1 Inner Sanctum
+1 Iona's Judgment
+1 Kabira Takedown
+1 Kjeldoran Outpost
+1 Knight's Pledge
+1 Lifeforce
+1 Llanowar Envoy
+1 Magus of the Disk
+1 Mammoth Harness
+1 Mariposa Military Base
+1 Mystifying Maze
+1 Nantuko Monastery
+1 Naturalize
+1 Orochi Sustainer
+1 Oversoul of Dusk
+1 Pendelhaven
+13 Plains
+1 Purify
+1 Quirion Ranger
+1 Rainbow Vale
+1 Refresh
+1 Reprisal
+1 Risen Sanctuary
+1 Ritual of Subdual
+1 Safe Haven
+1 Savage Hunger
+1 Scaled Hulk
+1 Scene of the Crime
+1 Seal of Primordium
+1 Seton, Krosan Protector
+1 Shield of Duty and Reason
+1 Shield of the Oversoul
+1 Skyhunter Patrol
+1 Skyhunter Skirmisher
+1 Skyshroud Elite
+1 Skyshroud Troopers
+1 Slippery Karst
+1 Spirit of the Labyrinth
+1 Tajuru Blightblade
+1 Thran Turbine
+1 Tranquil Expanse
+1 Treasure Vault
+1 Urza's Miter
+1 Valgavoth's Lair
+1 Veteran Swordsmith
+1 Wanderer's Intervention
+1 War Elephant
+1 Withstand Death
+1 Woodland Mystic
+1 Zendikar Farguide
+1 Zephyr Boots
+
+[commander]
+Gabriel Angelfire

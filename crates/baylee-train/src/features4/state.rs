@@ -26,6 +26,10 @@ pub enum EntityZone4 {
     CommanderDesignation = 10,
     /// Previously revealed opponent card remembered by `SeatKnowledge4` (`11`).
     RememberedOpponentCard = 11,
+    /// Viewing seat's remaining library card group from `InventoryLedger7` (`12`).
+    DeckInventory = 12,
+    /// Viewing seat's remaining sideboard wish group from `InventoryLedger7` (`13`).
+    SideboardInventory = 13,
 }
 
 /// Directed edge relation kinds (`0..14`) between tokens in the unified
@@ -71,6 +75,9 @@ pub struct EncodedState4 {
     pub entity_feat: Vec<Vec<f32>>,
     /// Engine `ObjectId` for each entity row (`0` for synthetic memory rows).
     pub entity_object_ids: Vec<u64>,
+    /// Packed `ObjectId`s of all members when a battlefield entity represents a permanent group.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub entity_group_members: Vec<Vec<u64>>,
     /// Active rules `CardIndex` (`rules.card` when copying, else `card.index`, `UNKNOWN_CARD` if unknown/token).
     pub entity_card_ids: Vec<u32>,
     /// Active face (`0` or `1`).
@@ -96,6 +103,7 @@ impl Default for EncodedState4 {
         Self {
             entity_feat: Vec::new(),
             entity_object_ids: Vec::new(),
+            entity_group_members: Vec::new(),
             entity_card_ids: Vec::new(),
             entity_face_ids: Vec::new(),
             entity_token_ids: Vec::new(),
@@ -114,7 +122,20 @@ impl EncodedState4 {
     #[must_use]
     pub fn find_entity(&self, id: ObjectId) -> Option<usize> {
         let raw = pack_object_id(id);
-        self.entity_object_ids.iter().position(|&oid| oid == raw)
+        if raw == u64::MAX {
+            return None;
+        }
+        if !self.entity_group_members.is_empty()
+            && let Some(pos) = self
+                .entity_group_members
+                .iter()
+                .position(|members| members.contains(&raw))
+        {
+            return Some(pos);
+        }
+        self.entity_object_ids
+            .iter()
+            .position(|&oid| oid != u64::MAX && oid == raw)
     }
 
     /// Materializes the `CARD_DSL_WIDTH` (`160`) vector for entity `idx` using

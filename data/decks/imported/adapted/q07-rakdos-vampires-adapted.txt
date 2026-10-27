@@ -5,15 +5,15 @@
 4 Bedevil
 2 Blightstep Pathway
 4 Bloodfell Caves
-2 Breath of Malfegor
-4 Burnt Offering
+4 Delirium
 2 Den of the Bugbear
 4 Dreadbore
 2 Infernal Grasp
+4 Kaervek's Purge
 6 Mountain
-4 Skull Rend
+4 Spontaneous Combustion
 7 Swamp
-4 Terminate
+2 Terminate
 4 Voldaren Epicure
 3 Voldaren Estate
 4 Wrecking Ball

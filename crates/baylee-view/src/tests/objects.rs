@@ -388,6 +388,18 @@ fn every_field_the_key_is_made_of_keeps_two_objects_apart() {
                 ..GrantSource::default()
             }];
         }),
+        ("ability_sources", |o| {
+            o.ability_sources.push(AbilitySource {
+                index: 2,
+                rules: Some(RulesFace {
+                    card: CardIndex::new(30),
+                    face: 0,
+                }),
+                ability: 0,
+                token: None,
+                copy_modifier: Some(2),
+            });
+        }),
         ("ability_mana_spending", |o| {
             o.ability_mana_spending = baylee_core::mana::ManaSpending::ANY_COLOR;
         }),

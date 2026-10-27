@@ -6,7 +6,6 @@
 2 Brindle Boar
 2 Deadly Recluse
 2 Doom Blade
-1 Elvish Lookout
 1 Fog
 17 Forest
 3 Gaze of Granite
@@ -15,6 +14,7 @@
 2 Kalonian Tusker
 4 Maelstrom Pulse
 1 Mind Rot
+1 Orochi Leafcaller
 1 Plummet
 2 Rootwalla
 2 Rumbling Baloth

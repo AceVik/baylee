@@ -2,6 +2,7 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Elspeth (Adapted)]
 1 Aerial Assault
+1 Afterlife
 2 Army of Allah
 2 Bargain
 1 Blinding Light
@@ -16,7 +17,6 @@
 1 Guiding Bolt
 1 Holy Light
 1 Kabira Crossroads
-1 Kithkin Healer
 2 Kor Skyfisher
 1 Master's Call
 1 Metal Fatigue
@@ -24,11 +24,11 @@
 1 Morale
 22 Plains
 2 Raise the Alarm
-1 Rebuke
 1 Resolute Watchdog
 1 Rustic Clachan
 1 Saltblast
 1 Seasoned Marshal
+1 Slith Ascendant
 1 Split Up
 1 Sunlance
 2 Swords to Plowshares

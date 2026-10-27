@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control R #20266147]
+1 Aerathi Berserker
+1 Aspect of Manticore
+1 Avalanche
+1 Balduvian Trading Post
+1 Balduvian War-Makers
+1 Barbarian Outcast
+1 Black Widow, Natasha Romanoff
+1 Bloodlust Inciter
+1 Bloodthorn Taunter
+1 Boil
+1 Boiling Seas
+1 Borderland Marauder
+1 Break Through the Line
+1 Burning Shield Askari
+1 Capital Guard
+1 Consuming Bonfire
+1 Crimson Mage
+1 Crush
+1 Deface
+1 Demolish
+1 Desert Nomads
+1 Deserter's Disciple
+1 Emblem of the Warmind
+1 Fathom Fleet Firebrand
+1 Fiery Intervention
+1 Firebreathing
+1 Fogwell's Gym
+1 Frontline Rebel
+1 Furious Strength
+1 Giant Spectacle
+1 Gnat Alley Creeper
+1 Goblin Burrows
+1 Goblin Caves
+1 Granite Grip
+1 Happy Hogan, Dauntless Driver
+1 Haradrim Spearmaster
+1 Harvesttide Infiltrator
+1 Inventor's Apprentice
+1 Junktown
+1 Keldon Warlord
+1 Lightning Talons
+1 Minotaur Aggressor
+36 Mountain
+1 Márton Stromgald
+1 Perils of the Past
+1 Ramunap Ruins
+1 Renegade Firebrand
+1 Renegade Warlord
+1 Rising of the Day
+1 Rockface Village
+1 Rowan's Battleguard
+1 Ruination
+1 Sandstone Warrior
+1 Shatterstorm
+1 Shinka, the Bloodsoaked Keep
+1 Siege Modification
+1 Stingmoggie
+1 Sunder from Within
+1 Tilonalli's Knight
+1 Varchild's Crusader
+1 Victorious Destruction
+1 Volcanic Upheaval
+1 Warship Scout
+1 Whip Sergeant
+
+[commander]
+Eron the Relentless

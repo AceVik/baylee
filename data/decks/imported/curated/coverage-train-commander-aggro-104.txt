@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro BRG #20266105]
+1 Auntie's Hovel
+1 Bayou
+1 Bladebrand
+1 Blightstep Pathway
+1 Blister Beetle
+1 Bloodrage Brawler
+1 Blooming Stinger
+1 Bogwater Lumaret
+1 Brushfire Elemental
+1 Burglar Rat
+1 Cabal Ritual
+1 Canopy Baloth
+1 Cinder Marsh
+1 Corrupt Court Official
+1 Crumble
+1 Dark Offering
+1 Darkbore Pathway
+1 Daybreak Combatants
+1 Drekavac
+1 Dualcaster Mage
+1 Earsplitting Rats
+1 Elderfang Disciple
+1 Emerald Charm
+1 Endurance
+1 Eyeblight Assassin
+13 Forest
+1 Fruition
+1 Fury
+1 Geyser Glider
+1 Gladewalker Ritualist
+1 Glaze Fiend
+1 Goblin Settler
+1 Grove Rumbler
+1 Hecteyes
+1 Herd Gnarr
+1 Hyrax Tower Scout
+1 Illegitimate Business
+1 Jadecraft Artisan
+1 Kraul Whipcracker
+1 Lantern-Lit Graveyard
+1 Lull
+1 Mercenary Knight
+1 Molten Slagheap
+1 Mount Doom
+11 Mountain
+1 Nexus Wardens
+1 Nezumi Informant
+1 Ogre Gatecrasher
+1 Perimeter Patrol
+1 Planetary Patrol
+1 Plant Elemental
+1 Pyknite
+1 Raucous Theater
+1 Ravenous Baboons
+1 Remnant Elemental
+1 Rubblebelt Boar
+1 Sanity Gnawers
+1 Serpent Assassin
+1 Silt Crawler
+1 Snapping Creeper
+1 Spiderwig Boggart
+1 Spined Fluke
+1 Spitfire Lagac
+1 Tainted Peak
+1 Tainted Wood
+1 Tanglespan Lookout
+1 Territorial Baloth
+1 Territorial Boar
+1 Tunneling Geopede
+1 Underground Mortuary
+1 Valakut Predator
+1 Viashino Bladescout
+1 Vicious Clown
+1 Viridescent Bog
+1 Vulshok Heartstoker
+1 Vulshok War Boar
+1 Wild Celebrants
+
+[commander]
+Xira Arien

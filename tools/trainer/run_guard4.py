@@ -46,7 +46,18 @@ def group_pss_bytes(group):
     return total
 
 
-def run_job(directory, command, timeout, memory_gib=48, inputs=()):
+def input_sha256(path):
+    """Hash immutable inputs without allocating their potentially GiB-sized bytes."""
+    with Path(path).open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def run_job(directory, command, timeout, memory_gib=48, inputs=(), *, digest_cache=None):
+    """Run with optional process-memory input receipts; None preserves full reads.
+
+    Cache receipts are not expected seals. Controllers retaining sealed digests
+    must still call digest_cache.verify(expected) before/after consumers.
+    """
     directory = Path(directory).resolve()
     directory.mkdir(parents=True, exist_ok=True)
     manifest = directory / "job.json"
@@ -61,8 +72,18 @@ def run_job(directory, command, timeout, memory_gib=48, inputs=()):
     diff = git("diff", "--binary", "HEAD")
     (directory / "source.patch").write_bytes(diff)
     executable = Path(shutil.which(command[0]) or command[0]).resolve()
-    with executable.open("rb") as executable_file:
-        executable_sha256 = hashlib.file_digest(executable_file, "sha256").hexdigest()
+    cache_before = None if digest_cache is None else digest_cache.statistics()
+    receipts = {}
+    if digest_cache is None:
+        with executable.open("rb") as executable_file:
+            executable_sha256 = hashlib.file_digest(executable_file, "sha256").hexdigest()
+        input_hashes = {str(p): input_sha256(p) for p in inputs}
+    else:
+        executable_receipt = digest_cache.receipt(executable)
+        executable_sha256 = executable_receipt.sha256
+        for path in inputs:
+            receipts[str(path)] = digest_cache.receipt(path).as_dict()
+        input_hashes = {path: receipt["sha256"] for path, receipt in receipts.items()}
     state = {"command": command, "cwd": os.getcwd(), "revision": revision,
              # Only known non-secret execution settings; never dump the environment.
              "runtime_environment": {key: os.environ[key] for key in
@@ -70,9 +91,16 @@ def run_job(directory, command, timeout, memory_gib=48, inputs=()):
                  if key in os.environ},
              "executable": str(executable), "executable_sha256": executable_sha256,
              "tracked_diff_sha256": hashlib.sha256(diff).hexdigest(),
-             "inputs": {str(p): hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in inputs},
+             "inputs": input_hashes,
              "status": "starting", "started_at_unix": time.time(),
              "timeout_seconds": timeout, "memory_limit_gib": memory_gib}
+    if digest_cache is not None:
+        from input_digests4 import STRATEGY
+        after = digest_cache.statistics()
+        state["input_digest_strategy"] = STRATEGY
+        state["input_digest_receipts"] = receipts
+        state["executable_digest_receipt"] = executable_receipt.as_dict()
+        state["input_digest_cache_activity"] = {key: after[key] - cache_before[key] for key in after}
     atomic_json(manifest, state)
     with (directory / "stdout.log").open("wb") as stdout, (directory / "stderr.log").open("wb") as stderr:
         child = subprocess.Popen(command, stdout=stdout, stderr=stderr, start_new_session=True)

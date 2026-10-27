@@ -42,6 +42,7 @@ fn play_one_table(
     fair_scouting: bool,
     max_decisions: u64,
     record_steps: bool,
+    mut shadow: Option<&mut shadow::ShadowGame>,
 ) -> anyhow::Result<TableOutcome> {
     let preset = table_for(seed, decks, profiles, teams_u8);
     let n_seats = decks.len();
@@ -126,11 +127,16 @@ fn play_one_table(
         }
 
         // Passively observe the table for all neural seats after opponent progression (P0-4)
+        let uses_ctx = net.as_deref().is_some_and(EvaluationPlayer::uses_context);
         if let Some(n) = net.as_deref_mut() {
             for s in 0..n_seats {
                 if is_net_seat(s, focal_seat, teams) {
                     let pid = PlayerId::new(s as u8);
-                    let obs_v = session.observe_view(pid);
+                    let obs_v = if uses_ctx {
+                        session.observe_view_with_context(pid)
+                    } else {
+                        session.observe_view(pid)
+                    };
                     n.observe(&obs_v)?;
                 }
             }
@@ -148,7 +154,12 @@ fn play_one_table(
                 continue;
             }
             let pid = PlayerId::new(s as u8);
-            let Some((pending, view)) = session.view_for(pid) else {
+            let pending_view = if uses_ctx {
+                session.view_for_with_context(pid)
+            } else {
+                session.view_for(pid)
+            };
+            let Some((pending, view)) = pending_view else {
                 continue;
             };
             let vh = view_only_state_hash(&view, &pending);
@@ -196,8 +207,33 @@ fn play_one_table(
                 } else if ans.provenance.source == SourceKind4::House {
                     fallbacks += 1;
                 }
+                let proposal = if let Some(shadow) = shadow.as_deref_mut() {
+                    if ans.provenance.source == SourceKind4::Net {
+                        let (state, menu) = n
+                            .policy_encoding(&view, &pending, teams)
+                            .context("Shadow requires exact runtime encoding")?;
+                        shadow.propose(
+                            &view,
+                            &pending,
+                            &state,
+                            &menu,
+                            &ans,
+                            teams,
+                            session.decision_seq(),
+                            session.record_pending(),
+                        )?
+                    } else {
+                        shadow.exclude_non_neural();
+                        None
+                    }
+                } else {
+                    None
+                };
                 let attempted_action = ans.action.clone();
                 let result = session.act_slice(pid, ans.action, 0);
+                if let Some(shadow) = shadow.as_deref_mut() {
+                    shadow.executed(proposal, result.is_ok())?;
+                }
                 if result.is_ok() {
                     if record_steps {
                         rollout_sidecar.push(RolloutStepSidecar4 {

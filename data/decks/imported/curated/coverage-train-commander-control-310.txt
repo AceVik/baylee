@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control UG #20266311]
+1 Aether Hub
+1 Altered Ego
+1 Ancestral Vision
+1 Cave of Temptation
+1 Cavern of Souls
+1 Chitinous Graspling
+1 Compelling Argument
+1 Corrupted Crossroads
+1 Deeproot Waters
+1 Deliberate
+1 Dissenter's Deliverance
+1 Emperor Crocodile
+1 Enchantress's Presence
+1 Endangered Armodon
+1 Energy Vortex
+1 Eyes of the Watcher
+1 Fable of Wolf and Owl
+1 Fleeting Distraction
+1 Force Void
+1 Forced Fruition
+6 Forest
+1 Freyalise's Charm
+1 Gallifrey Council Chamber
+1 Go Forth
+1 Halcyon Glaze
+1 Halt Order
+1 Haven of the Spirit Dragon
+1 Heap Gate
+1 Hesitation
+1 Hidden Gibbons
+1 In the Eye of Chaos
+1 Infested Roothold
+1 Insight
+1 Invoke Prejudice
+21 Island
+1 Jinx
+1 Kozilek's Unsealing
+1 Lost in a Labyrinth
+1 Lotus Vale
+1 Mana Vortex
+1 Ojer Pakpatiq, Deepest Epoch
+1 Omnibian
+1 Overflowing Basin
+1 Pact of Negation
+1 Plaza of Heroes
+1 Predatory Hunger
+1 Primeval Bounty
+1 Psychic Allergy
+1 Reshape
+1 Riddleform
+1 Runeboggle
+1 Shared Roots
+1 Shocking Grasp
+1 Sire of the Storm
+1 Skybeast Tracker
+1 Southern Elephant
+1 Sphinx of Magosi
+1 Sphinx-Bone Wand
+1 Storyteller Pixie
+1 Stymied Hopes
+1 Teller of Tales
+1 Thran Quarry
+1 Three Tree City
+1 Underdome
+1 Unifying Theory
+1 Unknown Shores
+1 Veiled Sentry
+1 Veiled Serpent
+1 Virtue of Knowledge
+1 Voldaren Estate
+1 Willowrush Verge
+1 Wilt
+1 Windreader Sphinx
+1 You Find the Villains' Lair
+
+[commander]
+Sab-Sunen, Luxa Embodied

@@ -1,20 +1,21 @@
 # baylee curated constructed ramp seed=20261068
 # licence: AGPL-3.0-only
 [deck:constructed ramp WB #20261068]
-3 Abandoned Air Temple
-4 Assault Griffin
-4 Daring Mechanic
-4 Dragon's Eye Sentry
-3 Geistcatcher's Rig
-2 Gemstone Caverns
-3 Grixis Panorama
-2 Kismet
-4 Lord of the Pit
-12 Plains
-4 Rolling Stones
-3 Soul Channeling
-3 Swamp
-1 Throne of Makindi
-4 Thunder Spirit
-1 Underdark Rift
-3 Winged Shepherd
+3 Brightclimb Pathway
+3 Champion of the Parish
+4 Cold Snap
+2 Festering Wound
+1 Haven of the Spirit Dragon
+2 Jasmine Dragon Tea Shop
+3 Krovikan Plague
+3 Mirrodin's Core
+3 Nightshade Harvester
+2 Ob Nixilis, the Fallen
+3 Orcish Bowmasters
+8 Plains
+1 Plaza of Heroes
+4 Royal Decree
+4 Shauku, Endbringer
+3 Sterling Supplier
+7 Swamp
+4 Vampiric Tutor

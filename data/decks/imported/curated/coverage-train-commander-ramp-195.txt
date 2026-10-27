@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUBRG #20266196]
+1 Abzan Banner
+1 Architects of Will
+1 Black Mana Battery
+1 Broodmate Dragon
+1 Candy Trail
+1 Castle Sengir
+1 Contaminated Landscape
+1 Crosis's Catacombs
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Culling Dais
+1 Dalek Drone
+1 Dark Hatchling
+1 Dimir Cluestone
+1 Dimir Locket
+1 Dimir Signet
+1 Dragon Mage
+1 Dromar's Cavern
+1 Ebon Dragon
+1 Firestorm Hellkite
+5 Forest
+1 Galazeth Prismari
+1 Golden Egg
+1 Golgari Locket
+1 Golgari Signet
+5 Island
+1 Izzet Locket
+1 Jeskai Banner
+1 Jeskai Shrinekeeper
+1 Ketria Crystal
+1 Lotus Guardian
+1 Mardu Devotee
+1 Mask of Riddles
+7 Mountain
+1 Mox Jasper
+1 Mystic Monastery
+1 Nearby Planet
+1 Necromaster Dragon
+1 Oasis Gardener
+1 Perilous Landscape
+1 Pili-Pala
+1 Piru, the Volatile
+5 Plains
+1 Psychic Symbiont
+1 Raffine's Tower
+1 Rakdos Cluestone
+1 Rapacious Dragon
+1 Raugrin Crystal
+1 Ray of Erasure
+1 Relic of Sauron
+1 Scarecrow Guide
+1 Seething Landscape
+1 Shattered Landscape
+1 Shire Scarecrow
+1 Shivan Hellkite
+1 Skullclamp
+1 Smaug the Magnificent
+1 Sprite Dragon
+1 Sulfur Vent
+4 Swamp
+1 Temur Banner
+1 The One Ring
+1 The Reaper, King No More
+1 The Theorist, Jace Beleren
+1 The Underworld Cookbook
+1 The World Tree
+1 Thundermaw Hellkite
+1 Time Sieve
+1 Timeless Lotus
+1 Tournament Grounds
+1 Trading Post
+1 Two-Headed Hellkite
+1 Urn of Godfire
+1 Utvara Hellkite
+1 Vorosh, the Hunter
+1 Wizards' School
+1 Wreckage Wickerfolk
+1 Zagoth Crystal
+
+[commander]
+Reaper King

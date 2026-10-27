@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBR #20266088]
+1 Agent of Stromgald
+1 Ashen Firebeast
+1 Betrayal
+1 Blacklance Paragon
+1 Bogardan Rager
+1 Brightstone Ritual
+1 Burning-Yard Trainer
+1 Burnt Offering
+1 Captain Storm, Cosmium Raider
+1 Castle Sengir
+1 Catalyst Elemental
+1 Crosis's Catacombs
+1 Crumbling Necropolis
+1 Crypt of the Eternals
+1 Culling the Weak
+1 Desolation of Smaug
+1 Doc Ock, Evil Inventor
+1 Dragon Mage
+1 Drifting Djinn
+1 Ebon Dragon
+1 Emry, Lurker of the Loch
+1 Ertai Resurrected
+1 Flamekin Gildweaver
+1 Fourth Bridge Prowler
+1 Frostboil Snarl
+1 Gamble
+1 Granitic Titan
+1 Headstone
+8 Island
+1 Izzet Chronarch
+1 Lava Serpent
+1 Lumengrid Sentinel
+1 Macetail Hystrodon
+1 Magus of the Coffers
+1 Merfolk Observer
+1 Merfolk Seer
+1 Mesmeric Trance
+1 Moggcatcher
+7 Mountain
+1 Nucklavee
+1 Oscorp Industries
+1 Professor Zei, Anthropologist
+1 Ramses Overdark
+1 Rapacious Dragon
+1 Ravaging Horde
+1 Reckless Barbarian
+1 Sage Aven
+1 Sage's Row Denizen
+1 Sage's Row Savant
+1 Sea Scryer
+1 Seething Landscape
+1 Seismic Spike
+1 Silverbluff Bridge
+1 Sisters of the Flame
+1 Sivitri Scarzam
+1 Smog Elemental
+1 Songs of the Damned
+1 Stark Industries
+1 Stingcaster Mage
+1 Sulfur Vent
+1 Summit Sentinel
+1 Surtland Frostpyre
+11 Swamp
+1 TCRI Building
+1 Thassa's Devourer
+1 Tunnel Surveyor
+1 Turbulent Springs
+1 Unfathomable Truths
+1 Vodalian Arcanist
+1 Volatile Fjord
+1 Wandering Fumarole
+1 Wartime Protestors
+1 Whisper Agent
+1 Willow-Wind
+1 Xander's Lounge
+1 Yellowjacket, Heartless Marauder
+
+[commander]
+Nicol Bolas

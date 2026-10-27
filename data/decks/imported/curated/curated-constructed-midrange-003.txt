@@ -1,19 +1,19 @@
 # baylee curated constructed midrange seed=20261026
 # licence: AGPL-3.0-only
 [deck:constructed midrange UG #20261026]
-3 Civic Gardener
-1 Deserted Temple
-8 Forest
-3 Grand Coliseum
-4 Heir of the Wilds
-7 Island
-3 Lore Broker
-4 Merrow Wavebreakers
-4 Retreat to Kazandu
-4 Ring of the Lucii
-2 Rocky Tar Pit
-3 Saprazzan Skerry
-3 Silkwing Scout
-3 Silundi Vision
-4 Water Wings
-4 Weaver of Currents
+4 Cloud of Faeries
+4 Cloudkin Seer
+1 Crucible of the Spirit Dragon
+2 Daily Bugle Building
+12 Forest
+4 Graypelt Hunter
+3 Island
+3 Maddening Wind
+3 Maul Splicer
+3 Painted Bluffs
+4 Setessan Champion
+3 Soul of the Harvest
+3 Sunshower Druid
+4 Tangled Florahedron
+4 Valley Mightcaller
+3 Yavimaya Coast

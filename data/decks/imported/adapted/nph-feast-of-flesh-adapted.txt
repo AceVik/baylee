@@ -6,16 +6,18 @@
 2 Blistergrub
 2 Blisterstick Shaman
 2 Caustic Hound
+4 Delirium
 1 Disentomb
-4 Dreadbore
+2 Dreadbore
 2 Flameborn Viron
+1 Fling
 1 Go for the Throat
 11 Mountain
 2 Phyrexian Rager
 1 Prodigal Pyromancer
 1 Scoria Elemental
+4 Spontaneous Combustion
 13 Swamp
-4 Terminate
 1 Tower of Calamities
 1 Whipflare
-4 Wrecking Ball
+1 Wrecking Ball

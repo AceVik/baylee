@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UB #20266116]
+1 A.I.M. Bot
+1 Accursed Duneyard
+1 Altar of the Brood
+1 Amulet of Unmaking
+1 Arcane Lighthouse
+1 Bant Panorama
+1 Black Vise
+1 Book of Rass
+1 Bullwhip
+1 Citanul Flute
+1 Cobalt Golem
+1 Contaminated Aquifer
+1 Crystal Chimes
+1 Darksteel Relic
+1 Darksteel Sentinel
+1 Deserted Temple
+1 Dimir Aqueduct
+1 Dimir Guildgate
+1 Dimir Keyrune
+1 Dross Ripper
+1 Dukhara Peafowl
+1 Ensoul Artifact
+1 Fetid Pools
+1 Filigree Sages
+1 Forethought Amulet
+1 Frost Marsh
+1 Ghoulcaller's Bell
+1 Guardian Beast
+1 Guardian Idol
+1 Gust-Skimmer
+1 Hermitic Nautilus
+1 Hexplate Golem
+16 Island
+1 Jandor's Ring
+1 Jwar Isle Refuge
+1 Lightning-Core Excavator
+1 Mana Matrix
+1 Mimic
+1 Monoist Sentry
+1 Moonfolk Puzzlemaker
+1 Morphic Pool
+1 Murky Sewer
+1 Neurok Replica
+1 Nim Replica
+1 Opaline Unicorn
+1 Pewter Golem
+1 Pilgrim of the Fires
+1 Planar Gate
+1 Prakhata Pillar-Bug
+1 Prismatic Lens
+1 Prismite
+1 Ring of Ma'rûf
+1 Rogue's Gloves
+1 Sapphire Medallion
+1 Scalding Cauldron
+1 Scarab of the Unseen
+1 Scorpion Sentinel
+1 Scrap Compactor
+1 Shipwreck Marsh
+1 Shire Scarecrow
+1 Shriekhorn
+1 Signpost Scarecrow
+1 Silumgar Monument
+1 Spellbook
+1 Sunken Hollow
+10 Swamp
+1 Tidehollow Strix
+1 Triangle of War
+1 Undercity Sewers
+1 Urza's Blueprints
+1 Vectis Agents
+1 Vectis Silencers
+1 War Room
+1 Wretched Doll
+1 Xanthic Statue
+
+[commander]
+Ur-Drago

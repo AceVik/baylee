@@ -1,80 +1,79 @@
 # baylee curated highlander control seed=20261030
 # licence: AGPL-3.0-only
 [deck:highlander control WUB #20261030]
-1 Aladdin's Lamp
-1 Alchemist's Apprentice
-1 Ancient Spring
-1 Annihilate
-1 Bartizan Bats
-1 Blight
-1 Chromatic Star
-1 Clear
-1 Conqueror's Galleon
+1 Abstergo Entertainment
+1 Al Bhed Salvagers
+1 Ancestral Vision
+1 Attended Knight
+1 Auspicious Ancestor
+1 Barrow Witches
+1 Bishop of Wings
+1 Blade Splicer
+1 Bog Glider
+1 Brotherhood Headquarters
+1 Callous Inspector
+1 Cascading Cataracts
+1 Cave of Temptation
+1 City of Brass
+1 Clarion Cathars
+1 Cloudblazer
+1 Commissar Severina Raine
 1 Contaminated Landscape
-1 Conversion
-1 Courier Hawk
-1 Crystal Ball
-1 Darksteel Relic
-1 Death Cultist
-1 Demon's Due
-1 Douse in Gloom
-1 Dreamstone Hedron
-1 Echo Circlet
-1 Ensouled Scimitar
-1 Erode
-1 Eye of Nowhere
-1 Flood Plain
-1 Forge of Heroes
-1 Gifted Aetherborn
-1 Glacial Fortress
-1 Greel's Caress
-1 Grim Bounty
-1 Introduction to Prophecy
-5 Island
-1 Jasmine Dragon Tea Shop
-1 Kite Shield
-1 Lonely Arroyo
-1 Makindi Stampede
-1 Martyrs of Korlis
-1 Mass Production
-1 Mech Hangar
-1 Meekstone
-1 Miasmic Mummy
-1 Mothrider Patrol
-1 Mox Pearl
-1 Naya Panorama
-1 Nimbus Maze
-1 Nykthos, Shrine to Nyx
-1 Ondu Cleric
-1 Overflowing Insight
-10 Plains
-1 Planar Portal
-1 Prodigal Sorcerer
-1 Psionic Blast
-1 Rapid Fire
-1 Rathi Intimidator
-1 Recruiter of the Guard
-1 Restless Fortress
-1 Sage of Epityr
-1 Scavenged Weaponry
-1 Scuttling Sliver
-1 Search for Azcanta
-1 Serpent Generator
-1 Serra's Blessing
-1 Soulstone Sanctuary
-1 Spare Supplies
-1 Spirit Mantle
-1 Stromkirk Mentor
-1 Survivors' Encampment
-11 Swamp
-1 Taigam's Scheming
-1 Take Vengeance
-1 Thalakos Sentry
-1 Thriving Isle
-1 True-Faith Censer
-1 Uncle Istvan
-1 Urza's Mine
-1 Vampiric Feast
-1 Vault of Whispers
-1 Venarian Gold
-1 Vindicate
+1 Corsair Captain
+1 Crucible of the Spirit Dragon
+1 Daily Bugle Building
+1 Dedicated Martyr
+1 Dire Fleet Hoarder
+1 Disciple of the Vault
+1 Drogskol Cavalry
+1 Elgaud Inquisitor
+1 Essence Feed
+1 Geist-Honored Monk
+1 Great Hall of the Biblioplex
+1 Greedy Freebooter
+1 Guarded Heir
+1 Heap Gate
+1 Hero of the Dunes
+1 Highway Robber
+1 Holdout Settlement
+1 Honored Knight-Captain
+1 Inspiring Commander
+3 Island
+1 Jeskai Sage
+1 Kambal, Consul of Allocation
+1 Knight-Captain of Eos
+1 Lake-town Lookout
+1 Locthwain Lancer
+1 Mana Confluence
+1 Marionette Apprentice
+1 Master Splicer
+1 Midnight Entourage
+1 Mirrex
+1 Monastery Mentor
+1 Myrsmith
+1 Neva, Stalked by Nightmares
+1 Novice Occultist
+1 Operations Officer
+1 Outlaw Medic
+14 Plains
+1 Pretending Poxbearers
+1 Profane Tutor
+1 Prosperous Pirates
+1 Riven Turnbull
+1 School of the Unseen
+1 Sengir Autocrat
+1 Shadow-Rite Priest
+1 Shimmering Grotto
+1 Siege Veteran
+10 Swamp
+1 Sweettooth Witch
+1 Tempting Witch
+1 Thraben Inspector
+1 Ultimecia, Temporal Threat
+1 Underworld Coinsmith
+1 Urbis Protector
+1 Vault Plunderer
+1 Voldaren Estate
+1 Wing Splicer
+1 Worthy Knight
+1 Zulaport Cutthroat

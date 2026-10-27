@@ -1,84 +1,72 @@
 # baylee curated commander midrange seed=20261088
 # licence: AGPL-3.0-only
-[deck:commander midrange UR #20261088]
-1 Aether Vial
-1 Akki Avalanchers
-1 Black Lotus
-1 Blood Knight
-1 Blood Rites
-1 Brawler's Plate
-1 Caldera Lake
-1 Careless Celebrant
-1 Cloud Elemental
-1 Countersculpt
-1 Cryptic Command
-1 Crystal Ball
-1 Desolate Lighthouse
-1 Disruptive Student
-1 Elder Spawn
-1 Flowstone Strike
-1 Forgotten Cave
-1 Fountain of Youth
-1 Frenzied Devils
-1 Glacial Chasm
-1 Goblin Rabblemaster
-1 Goblin Ski Patrol
-1 Goblin Tomb Raider
-1 Gods' Eye, Gate to the Reikai
-1 Gold-Forged Sentinel
-1 Hellion Crucible
-1 Helm of the Host
-1 Hobblefiend
-1 Hornswoggle
+[deck:commander midrange U #20261088]
+1 A.I.M. Synthoids
+1 Angler Drake
+1 Barrels of Blasting Jelly
+1 Bazaar Trademage
+1 Bellowing Crier
+1 Blue Mana Battery
+1 Buzz Bots
+1 Chromatic Star
+1 Council of Advisors
+1 Courier's Capsule
+1 Culling Dais
+1 Elite Instructor
+1 Energy Refractor
+1 Experimental Aviator
+1 Eye of Vecna
+1 Falcon, Winged Wonder
+1 Futurist Forge
+1 Goggles of Night
+1 Golden Guardian
+1 Gryff Vanguard
+1 Hierophant's Chalice
+1 Icewind Elemental
 1 Insight Engine
-1 Intruding Soulrager
-10 Island
-1 Lightning Strike
-1 Living Tsunami
-1 Micromancer
-1 Mm'menon, Uthros Exile
-14 Mountain
-1 Murmuring Volume
-1 Naga Eternal
-1 Oboro Breezecaller
-1 Ogre Gatecrasher
-1 Orcish Bloodpainter
-1 Pashalik Mons
-1 Pentavus
-1 Petrified Field
-1 Pin to the Earth
-1 Powerstone Shard
-1 Ravenous Giant
-1 Reef Roads
-1 Scion of Ugin
-1 Searing Wind
-1 Shivan Gorge
-1 Sky Weaver
-1 Skyraker Giant
-1 Sleep Paralysis
-1 Smash
-1 Spawning Kraken
-1 Spinning Wheel
-1 Spirebluff Canal
-1 Stardew Valley
-1 Steam Vents
-1 Stonework Puma
-1 Striking Sliver
-1 Summit Prowler
-1 Sword of the Ages
-1 Symbol of Unsummoning
-1 Terramorphic Expanse
-1 The Hive
-1 Thespian's Stage
-1 Tomb of the Spirit Dragon
-1 Touch of Invisibility
-1 Trail of Evidence
-1 Treasure Map
-1 Two-Headed Giant of Foriys
-1 Vendilion Clique
-1 Victorious Destruction
-1 Wartime Protestors
-1 Windswept Heath
+34 Island
+1 Jace, the Mind Sculptor
+1 Lotus Petal
+1 Mechan Navigator
+1 Memory Deluge
+1 Mental Note
+1 Merchant of Secrets
+1 Mightstone's Animation
+1 Mox Opal
+1 Muse Drake
+1 Nimble Innovator
+1 Oboro, Palace in the Clouds
+1 Ominous Parcel
+1 Owl Familiar
+1 Padeem, Consul of Innovation
+1 Parasitic Strix
+1 Parcel Myr
+1 Plaza of Heroes
+1 Prophetic Prism
+1 Quicksilver Fisher
+1 Raven Familiar
+1 Ray of Erasure
+1 S.H.I.E.L.D. Deployment Drone
+1 Sarcomite Myr
+1 Scepter of Insight
+1 Secluded Courtyard
+1 Serum Visions
+1 Shield-Wall Sentinel
+1 Silver Raven
+1 Sire of the Storm
+1 Soaring Show-Off
+1 Soldevi Excavations
+1 Solemn Simulacrum
+1 Springjack Pasture
+1 Surveillance Room
+1 Terrarion
+1 The Everflowing Well
+1 Three Steps Ahead
+1 Thrór's Map
+1 Trigon of Thought
+1 Unstable Obelisk
+1 Wan Shi Tong, Librarian
+1 Witching Well
 
 [commander]
-Mm'menon, Uthros Exile
+Iron Man, Futurist Paragon

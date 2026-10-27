@@ -1,79 +1,78 @@
 # baylee curated highlander control seed=20261054
 # licence: AGPL-3.0-only
 [deck:highlander control BG #20261054]
-1 Abstergo Entertainment
-1 Accorder's Shield
-1 Afflict
-1 Ancient Ziggurat
-1 Armageddon Clock
-1 Assassin's Trophy
-1 Bladebrand
-1 Certain Death
-1 Corrupted Roots
-1 Cryptic Caves
-1 Dark Nourishment
-1 Dark Sphere
-1 Death-Hood Cobra
-1 Defenestrate
-1 Deranged Outcast
-1 Diamond City
-1 Dream Beavers
-1 Dungeon Descent
-1 Eat to Extinction
-1 Essence Filter
-1 Feeding Frenzy
-1 Final Death
-1 Final Reward
-1 Flooded Strand
-1 Flying Carpet
-1 Fodder Cannon
-11 Forest
-1 Forge of Heroes
-1 Fountain of Youth
-1 Fungal Infection
-1 Gaea's Gift
-1 Glass Golem
-1 Grisly Ritual
-1 Harmonize
-1 Howlpack Resurgence
-1 Iridescent Blademaster
-1 Kozilek's Translator
-1 Larceny
-1 Lifegift
-1 Live or Die
-1 Llanowar Dead
+1 Arnyn, Deathbloom Botanist
+1 Audacity
+1 Bastion of Remembrance
+1 Bishop of the Bloodstained
+1 Bitterbloom Bearer
+1 Blood Artist
+1 Body Snatcher
+1 Carrier Thrall
+1 Castle Doom
+1 Caustic Hound
+1 Cavern of Souls
+1 Cirith Ungol Patrol
+1 City of Brass
+1 Claws of Gix
+1 Criminal Enterprise
+1 Crucible of the Spirit Dragon
+1 Daily Bugle Building
+1 Decomposition
+1 Dire Fleet Hoarder
+1 Dusk Legion Zealot
+1 Etched Familiar
+1 Falkenrath Noble
+7 Forest
+1 Fortitude
+1 Gilded Goose
+1 Grist, the Hunger Tide
+1 Haven of the Spirit Dragon
+1 Holdout Settlement
+1 Infernal Idol
+1 Kalastria Healer
+1 Kalastria Highborn
+1 Kheru Bloodsucker
+1 Lazotep Quarry
+1 Lead Pipe
 1 Llanowar Wastes
-1 Lurking Lizards
-1 Memnite
-1 Memorial to Folly
-1 Meteor Sword
-1 Meteorite
-1 Might of Oaks
-1 Moonglove Extract
-1 Mox Opal
-1 Nettlecyst
-1 Nova Pentacle
-1 Onyx Goblet
-1 Peat Bog
-1 Power Matrix
-1 Priest of Titania
-1 Raise Dead
-1 Reflecting Mirror
-1 Scavenger Grounds
-1 Scour from Existence
-1 Skeletal Kathari
-1 Sol Ring
-1 Spidery Grasp
-15 Swamp
-1 Swarmyard
-1 Tawnos's Coffin
-1 Terminal Moraine
-1 The Great Mound
-1 The Hive
-1 Three Tragedies
-1 Timberland Ruins
-1 Vault of Whispers
-1 Walking Ballista
-1 War Chariot
-1 Winding Canyons
-1 Yawgmoth's Will
+1 Lotus Vale
+1 Malakir Soothsayer
+1 Mana Confluence
+1 Mantle of the Wolf
+1 Marsh Flitter
+1 Massacre Wurm
+1 Master of Dark Rites
+1 Midnight Entourage
+1 Mirrodin's Core
+1 Necrogen Scudder
+1 Nocturnal Feeder
+1 Nurturing Peatland
+1 Open the Graves
+1 Path of Annihilation
+1 Pawn of Ulamog
+1 Pelakka Wurm
+1 Phyrexian Gargantua
+1 Phyrexian Rager
+1 Pillar of the Paruns
+1 Rabid Bloodsucker
+1 Rathi Fiend
+1 Skeletal Vampire
+1 Sleeper Agent
+1 Sling-Gang Lieutenant
+1 Sneering Shadewriter
+1 Svogthos, the Restless Tomb
+20 Swamp
+1 The Meathook Massacre
+1 Toxic Abomination
+1 Vampire Neonate
+1 Vampire Sovereign
+1 Vampire Spawn
+1 Vampiric Rites
+1 Vault Plunderer
+1 Vermin Gorger
+1 Vindictive Vampire
+1 White Lotus Hideout
+1 Witch's Cauldron
+1 Wolfwillow Haven
+1 Yawgmoth, Thran Physician

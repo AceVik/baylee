@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange UBR #20266310]
+1 Abstergo Entertainment
+1 Adaptive Shimmerer
+1 Aether Hub
+1 Ally Encampment
+1 Amphin Cutthroat
+1 Ancient Carp
+1 Barrage of Expendables
+1 Bastion of Remembrance
+1 Baxter Building
+1 Bogbrew Witch
+1 Capital City
+1 Carnival of Souls
+1 Cat Burglar
+1 Clever Impersonator
+1 Clone
+1 Crystacean
+1 Daring Thunder-Thief
+1 Dark Prophecy
+1 Dauthi Marauder
+1 Dragon Moose
+1 Fen Stalker
+1 Firemind's Research
+1 Flick a Coin
+1 Havoc Sower
+1 Holdout Settlement
+1 Hulking Devil
+1 Humongulus
+1 Incurable Ogre
+1 Infernal Idol
+6 Island
+1 Killer Whale
+1 Labyrinth Minotaur
+1 Lead Pipe
+1 Legion Extruder
+1 Lightning Hounds
+1 Mirrodin's Core
+1 Mirrorhall Mimic
+1 Moor Fiend
+4 Mountain
+1 Narwhal
+1 Odylic Wraith
+1 Ogre Errant
+1 Ominous Parcel
+1 Phantasmal Fiend
+1 Pointed Discussion
+1 Rite of the Dragoncaller
+1 Rotted Hulk
+1 Russet Wolves
+1 Sarcomancy
+1 Seething Landscape
+1 Segovian Leviathan
+1 Shadow Rider
+1 Shimmering Grotto
+1 Shore Snapper
+1 Slimy Dualleech
+1 Slinking Serpent
+1 Sootwalkers
+1 Study Hall
+1 Stunt Double
+1 Survivors' Encampment
+15 Swamp
+1 Talisman of Creativity
+1 Talon Gates of Madara
+1 Tendo Ice Bridge
+1 Thalakos Drifters
+1 Turtle Lair
+1 Turtle-Seals
+1 Vampire's Kiss
+1 Viashino Skeleton
+1 Wall of Vapor
+1 Wall of Wonder
+1 Whimwader
+1 White Lotus Hideout
+1 Wild Jhovall
+1 Wishcoin Crab
+1 Witch's Familiar
+1 Wormhole Serpent
+1 Zof Shade

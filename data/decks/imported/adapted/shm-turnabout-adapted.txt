@@ -8,7 +8,6 @@
 2 Call of the Conclave
 2 Devoted Druid
 2 Drove of Elves
-2 Eladamri's Call
 1 Elvish Hexhunter
 11 Forest
 4 Gerrard's Command
@@ -23,4 +22,5 @@
 1 Sapseep Forest
 1 Toil to Renown
 1 Umbral Mantle
+2 Vitalizing Cascade
 1 Wilt-Leaf Cavaliers

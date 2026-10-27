@@ -1,0 +1,30 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro WUG #20266189]
+2 Air Nomad Legacy
+2 Anaconda
+2 Ancient Spider
+2 Archers of Qarsi
+2 Azorius Locket
+3 Bucolic Ranch
+2 Cartouche of Solidarity
+1 Crystal Grotto
+2 Dwarven Castle Guard
+2 Fanatic of Rhonas
+2 Fists of Ironwood
+10 Forest
+3 Glimmervoid
+1 Interplanar Beacon
+1 Island
+2 Jewel-Eyed Cobra
+2 Martyr of Dusk
+1 Master Trinketeer
+3 Plains
+2 Seshiro the Anointed
+2 Spreading Algae
+1 Turtle Lair
+2 Twin-Silk Spider
+2 Village Elder
+2 Watcher in the Web
+2 Welcome to . . .
+2 Zodiac Ox

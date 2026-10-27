@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266026]
+1 Akroma's Devoted
+1 Angelic Voices
+1 Anthem of Champions
+1 Avacyn, Angel of Hope
+1 Ayesha Tanaka
+1 Aysen Abbey
+1 Brave the Sands
+1 Briar Shield
+1 Brown Ouphe
+1 Castle Ardenvale
+1 Castle Raptors
+1 Collector Ouphe
+1 Cradle of Safety
+1 Daring Apprentice
+1 Desert of the Indomitable
+1 Diplomatic Immunity
+1 Disdainful Stroke
+1 Drannith Magistrate
+1 Fae Flight
+1 Faeburrow Elder
+1 Flood
+2 Forest
+1 Gaea's Anthem
+1 Gift of Granite
+1 Hanna's Custody
+1 Irrigation Ditch
+6 Island
+1 Ivory Guardians
+1 Jihad
+1 Knighthood
+1 Kongming, "Sleeping Dragon"
+1 Kor Scythemaster
+1 Levitation
+1 Mageta's Boon
+1 Mantle of Webs
+1 Memorial to Unity
+1 Meng Huo, Barbarian King
+1 Mystic Sanctuary
+1 Nimbus Wings
+1 Noble Hierarch
+1 Nylea's Forerunner
+1 Order of the Sacred Torch
+1 Paladin of the Bloodstained
+1 Paragon of Eternal Wilds
+1 Paragon of Gathering Mists
+1 Paragon of New Dawns
+1 Pegasus Refuge
+17 Plains
+1 Primal Rage
+1 Remote Farm
+1 Revolutionary Rebuff
+1 Riptide Crab
+1 Robe of Mirrors
+1 Saryth, the Viper's Fang
+1 Scampering Surveyor
+1 Seaside Citadel
+1 Security Detail
+1 Serra Aviary
+1 Serra's Blessing
+1 Sky Tether
+1 Soraya the Falconer
+1 Soulsworn Jury
+1 Spara's Headquarters
+1 Steely Resolve
+1 Stonybrook Schoolmaster
+1 Supply Caravan
+1 Terra Eternal
+1 The Hunter Maze
+1 Thriving Grove
+1 Torsten Von Ursus
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Urban Retreat
+1 Valorous Steed
+1 Vodalian Mage
+1 White Lotus Reinforcements
+1 Zanarkand, Ancient Metropolis
+
+[commander]
+Ragnar

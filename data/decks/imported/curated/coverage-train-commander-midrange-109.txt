@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUB #20266110]
+1 Abjure
+1 Absolute Virtue
+1 Adarkar Unicorn
+1 Ayesha Tanaka
+1 Azorius Chancery
+1 Basal Sliver
+1 Benalish Heralds
+1 Blood Vassal
+1 Cateran Slaver
+1 Choked Estuary
+1 Clash of Wills
+1 Concealed Courtyard
+1 Countersculpt
+1 Creeping Tar Pit
+1 Cursecatcher
+1 Daring Apprentice
+1 Darkslick Shores
+1 Derelor
+1 Disdainful Stroke
+1 Disruptive Student
+1 Drannith Magistrate
+1 Envelop
+1 Ertai, Wizard Adept
+1 Evasive Action
+1 Extinguish
+1 Fall of the Gavel
+1 False Summoning
+1 Flash Counter
+1 Flashfreeze
+1 Frazzle
+1 Gainsay
+1 Glacial Floodplain
+1 Goldmire Bridge
+1 Gravelgill Duo
+1 Great Hall of Starnheim
+1 Hisoka's Defiance
+1 Idyllic Beachfront
+1 Irini Sengir
+19 Island
+1 Isolated Chapel
+1 It'll Quench Ya!
+1 Kami of the Waning Moon
+1 Malevolent Hermit
+1 Mana Tithe
+1 Mental Misstep
+1 Minor Misstep
+1 Miscast
+1 Moment of Defiance
+1 Nightsky Mimic
+1 Nullify
+1 Order of the Sacred Torch
+1 Patron Wizard
+3 Plains
+1 Port of Karfell
+1 Preemptive Strike
+1 Quench
+1 Razortide Bridge
+1 Remove Soul
+1 Revolutionary Rebuff
+1 Sandbar Serpent
+1 Scatter Ray
+1 Sea of Clouds
+1 Secluded Glen
+1 Skittering Horror
+1 Soratami Savant
+1 Soulsworn Jury
+1 Spectral Interference
+1 Spell Pierce
+1 Spell Snare
+1 Spiketail Drake
+1 Stern Scolding
+1 Stromgald Cabal
+1 Stronghold Machinist
+3 Swamp
+1 Thrull Wizard
+1 Umbral Expanse
+1 Vodalian Mage
+
+[commander]
+Halfdane

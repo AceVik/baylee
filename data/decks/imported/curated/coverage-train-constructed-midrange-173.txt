@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WRG #20266174]
+1 Ancient Ziggurat
+2 Brushwagg
+1 Cave of Temptation
+1 Cavern of Souls
+3 Crystal Grotto
+2 Flinthoof Boar
+8 Forest
+2 Garrison Sergeant
+2 Grizzled Wolverine
+2 Kird Chieftain
+2 Mire Kavu
+2 Molecular Modifier
+7 Mountain
+2 Nantuko Disciple
+2 Pyric Salamander
+2 Raging Gorilla
+2 Reckless Pangolin
+2 Scarwood Hag
+2 Stone Kavu
+2 Summit Apes
+2 Three Tree City
+1 Unknown Shores
+2 Valor Singer
+2 Viashino Weaponsmith
+2 Willow Priestess
+2 Wolverine Pack

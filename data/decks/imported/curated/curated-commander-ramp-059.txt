@@ -1,83 +1,81 @@
 # baylee curated commander ramp seed=20261082
 # licence: AGPL-3.0-only
-[deck:commander ramp UBG #20261082]
-1 Archweaver
-1 Ashnod's Battle Gear
-1 Baloth Woodcrasher
-1 Cavern of Souls
-1 Chord of Calling
-1 City in a Bottle
-1 Coma Veil
-1 Consulate Skygate
-1 Corrosive Gale
-1 Crumble
-1 Darksteel Plate
-1 Demonic Hordes
-1 Douse in Gloom
-1 Drowner of Truth
-1 Enter the Enigma
-1 Exotic Orchard
-12 Forest
-1 Friendly Teddy
-1 Gateway Sneak
-1 Gift of the Deity
-1 Golden Egg
-1 Golgari Rot Farm
-1 Guardian Automaton
-1 Hag of Death's Legion
-1 Homarid Warrior
-1 Honor-Worn Shaku
-1 Horizon of Progress
-1 Hornet Sting
-1 Infiltrate
-1 Intimidation
-9 Island
-1 Island of Wak-Wak
-1 Jayemdae Tome
-1 Karn, the Great Creator
-1 Kudzu
-1 Leafdrake Roost
-1 Levitating Statue
-1 Lightning-Core Excavator
-1 Limestone Golem
-1 Lotus Vale
-1 Lounge
-1 Maggot Carrier
-1 Meteor Sword
-1 Mirror Universe
-1 Mishra's Foundry
-1 Muldrotha, the Gravetide
-1 Murderous Rider
-1 Mutant Town
-1 Mythic Proportions
-1 Necroblossom Snarl
-1 Overflowing Insight
-1 Pardic Wanderer
-1 Planar Bridge
-1 Polluted Mire
-1 Razaketh's Rite
-1 Refocus
-1 Serpent of Yawning Depths
-1 Shelkin Brownie
-1 Skateboard
-1 Skeletal Crocodile
-1 Skittering Heartstopper
-1 Slumbering Waterways
-1 Sodden Verdure
-1 Sonic Screwdriver
-1 Soratami Rainshaper
-1 Spitting Sliver
-1 Stir the Grave
-5 Swamp
-1 Tsunami
-1 Tyrant's Scorn
-1 Unclaimed Territory
-1 Vesuva
-1 Weatherseed Elf
-1 Willow Satyr
-1 Without Weakness
-1 Woodland Chasm
-1 Zombie Outlander
+[deck:commander ramp WB #20261082]
+1 Abu Ja'far
+1 Aeronaut Cavalry
+1 Agents of HYDRA
+1 Akron Legionnaire
+1 Angel of Despair
+1 Baron Sengir
+1 Barrow Witches
+1 Bishop of Wings
+1 Bog Glider
+1 Brotherhood Headquarters
+1 Capital City
+1 Caregiver
+1 City of Brass
+1 Claws of Gix
+1 Commander Greven il-Vec
+1 Commissar Severina Raine
+1 Corrupted Crossroads
+1 Dakmor Lancer
+1 Deathcurse Ogre
+1 Doomed Traveler
+1 Drogskol Cavalry
+1 Eclipsed Realms
+1 Forbidden Orchard
+1 Gallant Cavalry
+1 Geist-Honored Monk
+1 Glider Kids
+1 Godless Shrine
+1 Great Hall of the Citadel
+1 Hero of the Dunes
+1 Honored Knight-Captain
+1 Hunted Witness
+1 Inspiring Commander
+1 Ironclad Slayer
+1 Jasmine Dragon Tea Shop
+1 Jedit's Dragoons
+1 Judge Magister Gabranth
+1 Kazandu Blademaster
+1 Kyoshi Warriors
+1 Lake-town Lookout
+1 Liliana the Repentant
+1 Marionette Apprentice
+1 Mirrex
+1 Monk Idealist
+1 Nimana Sell-Sword
+1 Oltec Cloud Guard
+17 Plains
+1 Pretending Poxbearers
+1 Priest of Gix
+1 Priest of Yawgmoth
+1 Protector of Gondor
+1 Restoration Gearsmith
+1 Reya Dawnbringer
+1 Rising Populace
+1 Salvage Scout
+1 Savior of the Sleeping
+1 School of the Unseen
+1 Shimmering Grotto
+1 Shu Soldier-Farmers
+1 Soldevi Adnate
+1 Springjack Pasture
+1 Sterling Supplier
+1 Study Hall
+1 Survivors' Encampment
+9 Swamp
+1 Thraben Standard Bearer
+1 Tireless Missionaries
+1 Tithebearer Giant
+1 Tragic Poet
+1 Unburied Earthcarver
+1 Unknown Shores
+1 Unruly Mob
+1 Urbis Protector
+1 Veldrane of Sengir
+1 Venerable Knight
+1 Zuran Orb
 
 [commander]
-Muldrotha, the Gravetide
+Neva, Stalked by Nightmares

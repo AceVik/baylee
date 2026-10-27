@@ -4,7 +4,6 @@
 1 Befuddle
 1 Cast Away Doubt
 1 Charging Troll
-2 Cleansing
 2 Confidence from Strength
 1 Darigaaz's Charm
 1 Eerie Interlude
@@ -12,6 +11,7 @@
 1 Evasive Action
 10 Forest
 1 Gerrard's Command
+2 Harrow
 1 Howling Fury
 1 Island
 2 Jovial Evil
@@ -23,13 +23,13 @@
 1 Power Armor
 1 Pulse of Murasa
 1 Quirion Elves
-2 Rakshasa's Secret
 2 Read the Bones
 1 Rith's Charm
 1 Scrap
 1 Shivan Oasis
 1 Spin Out
 1 Swamp
+2 Sylvan Library
 3 Terramorphic Expanse
 2 Thornscape Apprentice
 1 Tranquility

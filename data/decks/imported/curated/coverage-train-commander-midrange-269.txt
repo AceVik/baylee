@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266270]
+1 Aether Shockwave
+1 Alaborn Cavalier
+1 Alaborn Musketeer
+1 Ancient Tomb
+1 Ardent Militia
+1 Argivian Blacksmith
+1 Auriok Transfixer
+1 Avacynian Priest
+1 Aysen Bureaucrats
+1 Barrenton Medic
+1 Benalish Infantry
+1 Benalish Trapper
+1 Blade Banish
+1 Blinding Mage
+1 Border Guard
+1 Burst of Energy
+1 Celestial Enforcer
+1 Checkpoint Officer
+1 Cho-Arrim Alchemist
+1 Clergy en-Vec
+1 Day of Judgment
+1 Death Speakers
+1 Defender of Law
+1 Dromoka Dunecaster
+1 Ephara's Warden
+1 Errant Doomsayers
+1 Escape Tunnel
+1 Farbog Explorer
+1 Femeref Scouts
+1 Field Surgeon
+1 Flanking Troops
+1 Fresh Volunteers
+1 Frostbridge Guard
+1 Gavony Trapper
+1 Goldmeadow Harrier
+1 Grixis Panorama
+1 Half-Elf Monk
+1 Icatian Infantry
+1 Jhovall Rider
+1 Kitsune Diviner
+1 Knight of Valor
+1 Kor Scythemaster
+1 Loxodon Mender
+1 Loxodon Mystic
+1 Master Apothecary
+1 Master of Arms
+1 Mouth of Ronom
+1 Nebelgast Beguiler
+1 Nephalia Academy
+1 Paladin en-Vec
+1 Peacekeeper
+1 Petrified Field
+34 Plains
+1 Ravages of War
+1 Repentant Blacksmith
+1 Samite Alchemist
+1 Sanctum Custodian
+1 Seasoned Marshal
+1 Shrine Keeper
+1 Sigardian Priest
+1 Spawnbinder Mage
+1 Sterling Keykeeper
+1 Tenth District Veteran
+1 Traveling Philosopher
+1 Veteran Bodyguard
+1 Zhalfirin Knight
+
+[commander]
+Sidar Jabari

@@ -1,79 +1,79 @@
-# baylee unseen-card holdout highlander seed=90000020
+# baylee unseen-card holdout highlander seed=90000013
 # licence: AGPL-3.0-only
-[deck:highlander control UR #90000020]
-1 Acid Rain
-1 Aether Sting
-1 Bellowing Crier
-1 Blue Elemental Blast
-1 Boil
-1 Brass's Tunnel-Grinder
-1 Brilliant Plan
-1 Darkslick Drake
-1 Devastation
-1 Dread Statuary
-1 Dwarven Ruins
-1 Earthquake
-1 Empowered Autogenerator
-1 Experimental Armor
-1 Field of Ruin
-1 Fire
-1 Fire Nation's Conquest
-1 Fireball
-1 Frontline War-Rager
-1 Ghirapur Gearcrafter
-1 Goblin Bully
-1 Goblin Burrows
-1 Goblin Snowman
-1 Gryff Vanguard
-1 Hidden Volcano
-1 Hobblefiend
-1 Hordeling Outburst
-11 Island
-1 Kher Keep
-1 Levitating Statue
-1 Lose Focus
-1 Majestic Metamorphosis
-1 Merfolk Assassin
-1 Miner's Bane
-1 Mirror Universe
-1 Mobilized District
-15 Mountain
-1 Mouth of Ronom
-1 Mox Ruby
-1 Myr Matrix
-1 Planar Bridge
-1 Pyramids
-1 Ravenous Giant
-1 Renegade Map
-1 Repulse
-1 Runesword
-1 Sandstone Needle
-1 Saprazzan Skerry
-1 Scour from Existence
-1 Scrap
-1 Shatterskull Giant
-1 Sheltered Valley
-1 Sonic Screwdriver
-1 Starlit Mantle
-1 Sterling Hound
-1 Stern Scolding
-1 Stonefury
-1 Storm's Wrath
-1 Sword of the Meek
-1 Tectonic Edge
-1 The Chase Is On
-1 The Whizzer, Classic Speedster
-1 Thriving Bluff
-1 Tolaria West
-1 Tormod's Crypt
-1 Tower of Eons
-1 Trenchpost
-1 Two-Headed Dragon
-1 Valgavoth's Lair
-1 Vampires' Vengeance
-1 Veteran's Sidearm
+[deck:highlander control UBG #90000013]
+1 Abduction
+1 An Offer You Can't Refuse
+1 Archaeological Dig
+1 Blistergrub
+1 Bloodflow Connoisseur
+1 Body Snatcher
+1 Bone Devourer
+1 Brotherhood Headquarters
+1 Brotherhood Patriarch
+1 Capital City
+1 Centaur's Herald
+1 Corrupted Crossroads
+1 Corrupted Harvester
+1 Creakwood Liege
+1 Crystal Grotto
+1 Deathcurse Ogre
+1 Deathknell Berserker
+1 Decomposition
+1 Deranged Hermit
+1 Doubling Season
+1 Dross Harvester
+1 Drowner of Hope
+1 Elderfang Ritualist
+1 Elderfang Venom
+1 Elvish Farmer
+1 Emergency Weld
+1 Eyeblight Cullers
+1 Fate Foretold
+1 Fists of Ironwood
+8 Forest
+1 Glimmerburst
+1 Glimmervoid
+1 Glissa, the Traitor
+1 Golgari Guildmage
+1 Grim Feast
+1 Grist, the Hunger Tide
+1 Hall of Oracles
+1 Haunt the Network
+1 Homarid Spawning Bed
+1 Imperious Perfect
+1 Infestation Sage
+8 Island
+1 Jasmine Dragon Tea Shop
+1 Llanowar Mentor
+1 Maelstrom of the Spirit Dragon
+1 Mintstrosity
+1 Morcant's Loyalist
+1 Mox Jet
+1 Nykthos, Shrine to Nyx
+1 Poison-Tip Archer
+1 Prowess of the Fair
+1 Puppet Master
+1 Quest for the Gravelord
+1 Rancor
+1 Recurring Nightmare
+1 Robotics Mastery
+1 Rumble Arena
+1 Sadistic Glee
+1 Secret Base
+1 Skeletal Vampire
+1 Skemfar Avenger
+1 Slimefoot, the Stowaway
+1 Surveillance Room
+11 Swamp
+1 Tarnished Citadel
+1 Thranduil the Strategist
+1 Thundering Spineback
+1 Tireless Provisioner
+1 Turtle Lair
+1 Undercity Dire Rat
+1 Urza, Lord High Artificer
+1 Violet Pall
 1 Voldaren Estate
-1 Voodoo Doll
-1 Where Ancients Tread
-1 Worn Powerstone
-1 You Come to a River
+1 Wolfwillow Haven
+1 Wretched Throng
+1 Zendikar's Roil

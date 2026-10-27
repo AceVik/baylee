@@ -2,20 +2,22 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Assassin - Enhanced Deck (Adapted)]
 1 Assassinate
-2 Blood Pact
+4 Bone Shredder
 2 Claws of Gix
 4 Dark Ritual
-4 Diresight
-1 Final Death
-4 Grotesque Demise
+2 Dauthi Voidwalker
+1 Despoil
+4 Duress
+1 Harrowing Journey
+2 Mobile Fort
 1 Nightmare
+4 Order of Yawgmoth
 4 Polluted Mire
 4 Ravenous Rats
-4 Risky Shortcut
-4 Spin Out
+2 Risky Shortcut
 3 Stalking Stones
 4 Stupor
 14 Swamp
-2 Swat
 1 Vampiric Tutor
 1 Volrath's Stronghold
+1 Wheel of Torture

@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBR #20266008]
+1 Agent of Stromgald
+1 Arguel's Blood Fast
+1 Astral Cornucopia
+1 Badlands
+1 Battle Hymn
+1 Blazemire Verge
+1 Blood Celebrant
+1 Blood Pet
+1 Bloodstone Cameo
+1 Bog Initiate
+1 Bone Pit Brute
+1 Brightstone Ritual
+1 Bubbling Muck
+1 Burnt Offering
+1 Cabal Ritual
+1 Capture of Jingzhou
+1 Cascade Bluffs
+1 Catalyst Elemental
+1 Cinder Marsh
+1 Cryptic Command
+1 Culling the Weak
+1 Cursed Mirror
+1 Dark Fortress
+1 Desolation of Smaug
+1 Dragon Mage
+1 Dragon's Desire
+1 Dread Rider
+1 Fetid Pools
+1 Fiery Islet
+1 Firestorm Hellkite
+1 Font of Fortunes
+1 Foriysian Totem
+1 Fíli and Kíli, Joyous
+1 Geosurge
+1 Goblin-town
+1 Granitic Titan
+1 Headstone
+1 Heart of Ramos
+1 Immersturm Skullcairn
+16 Island
+1 Kozilek's Translator
+1 La Forge, Perceptive Engineer
+1 Lava Serpent
+1 Lava Tubes
+1 Lay Claim
+1 Lingering Mirage
+1 Magus of the Coffers
+1 Mana Geyser
+1 Marjhan
+1 Mistvault Bridge
+1 Molten Slagheap
+1 Moonglove Extractor
+1 Morgue Toad
+1 Mount Doom
+10 Mountain
+1 Overeager Apprentice
+1 Power Artifact
+1 Pyretic Ritual
+1 Rakdos Keyrune
+1 Reckless Barbarian
+1 Ridge Rannet
+1 Rite of Flame
+1 Riverglide Pathway
+1 Sacrifice
+1 Sea Scryer
+1 Seismic Spike
+1 Skirge Familiar
+1 Songs of the Damned
+1 Stensia Bloodhall
+1 Striped Riverwinder
+1 Telim'Tor's Edict
+1 Temporal Manipulation
+1 Turbulent Springs
+1 Vesper Ghoul
+1 Wave-Wing Elemental
+
+[commander]
+Nicol Bolas

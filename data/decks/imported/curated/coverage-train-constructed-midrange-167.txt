@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WRG #20266168]
+1 An-Havva Township
+2 Crossbow Ambush
+2 Elfhame Wurm
+2 Expanded Anatomy
+2 Fleetfoot Dancer
+2 Flicker
+10 Forest
+2 Gangly Stompling
+2 Heroic Intervention
+2 Huatli's Snubhorn
+2 Imperial Ceratops
+2 Jetmir's Garden
+2 Joyous Respite
+1 Jungle Shrine
+2 Kessig Wolf
+2 Life Chisel
+5 Plains
+2 Raptor Companion
+1 Rith's Grove
+2 Segmented Wurm
+1 Sheltering Landscape
+2 Shieldmate's Blessing
+2 Spore Cloud
+3 Tinder Farm
+2 Ulrich's Kindred
+2 Zebra Unicorn

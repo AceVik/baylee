@@ -7,7 +7,6 @@
 2 Call of the Conclave
 1 Colossification
 3 Druid of the Spade
-2 Eladamri's Call
 11 Forest
 2 Gerrard's Command
 2 Giant Growth
@@ -19,3 +18,4 @@
 2 Repel Calamity
 1 Selesnya Charm
 3 Treeguard Duo
+2 Vitalizing Cascade

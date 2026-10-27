@@ -1,0 +1,79 @@
+# baylee synergistic coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WBG #20266307]
+1 Accursed Horde
+1 Ally Encampment
+1 Bitterbow Sharpshooters
+1 Black Poplar Shaman
+1 Bog Elemental
+1 Brotherhood Headquarters
+1 Capital City
+1 Captivating Cave
+1 Carnivorous Plant
+1 Carrion Howler
+1 Carrion Wall
+1 Cemetery Gate
+1 Changeling Sentinel
+1 Colossapede
+1 Conduit Pylons
+1 Cudgel Troll
+1 Deadly Insect
+1 Dutiful Servants
+1 Dutiful Thrull
+1 Elvish Piper
+12 Forest
+1 Gemstone Mine
+1 Giant Mantis
+1 Giant Scorpion
+1 Glissa's Courier
+1 Gloom Pangolin
+1 Gnarled Mass
+1 Golgari Longlegs
+1 Grave Bramble
+1 Greater Basilisk
+1 Hall of Oracles
+1 Jolrael's Centaur
+1 Kraul Stinger
+1 Land Leeches
+1 Mana Confluence
+1 Mindwarper
+1 Mirrex
+1 Mirrodin's Core
+1 Moonglove Changeling
+1 Moonglove Winnower
+1 Noxious Groodion
+1 Ogre Jailbreaker
+1 Orchard Spirit
+1 Ostiary Thrull
+1 Plains
+1 Python
+1 Redwood Treefolk
+1 Renegade Demon
+1 Rotted Hystrix
+1 Rotting Fensnake
+1 Secluded Courtyard
+1 Selesnya Sagittars
+1 Shimian Night Stalker
+1 Singing Tree
+1 Squelching Leeches
+14 Swamp
+1 Thistledown Players
+1 Three Tree City
+1 Trestle Troll
+1 Ukud Cobra
+1 Unclaimed Territory
+1 Undiscovered Paradise
+1 Unraveling Mummy
+1 Venomous Changeling
+1 Voldaren Estate
+1 Wall of Brambles
+1 Wall of Ice
+1 Wall of Pine Needles
+1 Wall of Putrid Flesh
+1 Wall of Shadows
+1 Wandering Tombshell
+1 Warthog
+1 White Lotus Hideout
+1 Woodwraith Strangler
+1 Zodiac Pig
+1 Zodiac Snake

@@ -6,7 +6,6 @@
 1 Curse of the Swine
 2 Divination
 2 Double Major
-4 Elvish Lookout
 1 Font of Fertility
 16 Forest
 4 Hydroform
@@ -15,6 +14,7 @@
 4 Neoform
 1 Nessian Courser
 1 Nykthos, Shrine to Nyx
+4 Orochi Leafcaller
 3 Pterafractyl
 4 Square Up
 1 Temple of Mystery

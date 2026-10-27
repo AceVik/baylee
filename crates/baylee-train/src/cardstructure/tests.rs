@@ -129,3 +129,66 @@ fn changing_opponents_hidden_deal_cannot_change_actor_inputs() {
         serde_json::to_value(b).unwrap()
     );
 }
+
+#[test]
+fn copy_exceptions_resolve_their_definition_not_the_primary_face_index() {
+    use crate::features4::{Candidate4, ENTITY_FEAT_WIDTH, EncodedState4};
+    let effigy = baylee_cards::all()
+        .find(|c| c.name() == "Machine God's Effigy")
+        .unwrap();
+    let cards = ["Goblin Striker", "Thrun, Breaker of Silence"]
+        .map(|name| baylee_cards::all().find(|c| c.name() == name).unwrap());
+    let mut forest = catalog(&[
+        effigy.index.get(),
+        cards[0].index.get(),
+        cards[1].index.get(),
+    ])
+    .unwrap();
+    let baylee_cards_dsl::AbilityDef::CopyOnEnter { mods, .. } = effigy.abilities[0] else {
+        panic!("copy clause")
+    };
+    let baylee_cards_dsl::CopyMod::GrantAbility(blue) = mods[2] else {
+        panic!("quoted blue ability")
+    };
+    let key = format!("a/{}/0/0/copy/2", effigy.index.get());
+    let expected = blue.tree(&mut forest);
+    assert_eq!(forest.roots[&key], expected);
+    assert_ne!(
+        forest.roots[&key],
+        forest.roots[&format!("a/{}/0/0", effigy.index.get())]
+    );
+    for card in cards {
+        let index = u32::try_from(card.abilities.len()).unwrap();
+        let mut references = refs::card_refs(card.index.get(), 0, 0);
+        references.push(refs::RuleRef {
+            key: key.clone(),
+            role: 6,
+            slot: None,
+            ability: Some(index),
+        });
+        let state = EncodedState4 {
+            entity_feat: vec![vec![0.0; ENTITY_FEAT_WIDTH]],
+            entity_card_ids: vec![card.index.get()],
+            entity_face_ids: vec![0],
+            entity_token_ids: vec![0],
+            entity_rule_refs: vec![references],
+            ..Default::default()
+        };
+        let candidate = Candidate4 {
+            entity_idx: 0,
+            ability_idx: i64::from(index),
+            ..Default::default()
+        };
+        let selected = refs::candidate_refs(&candidate, &state)
+            .into_iter()
+            .find(|r| r.role == 7)
+            .unwrap();
+        assert_eq!(selected.key, key);
+        assert!(forest.roots.contains_key(&selected.key));
+        assert!(
+            !forest
+                .roots
+                .contains_key(&format!("a/{}/0/{index}", card.index.get()))
+        );
+    }
+}

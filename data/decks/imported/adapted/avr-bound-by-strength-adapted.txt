@@ -11,9 +11,10 @@
 2 Llanowar Elves
 1 Natural End
 4 Neoform
+1 Overrun
 3 Recollect
 1 Runeclaw Bear
-2 Solve the Equation
+1 Solve the Equation
 4 Square Up
 2 Vorstclaw
 1 Wolfir Avenger

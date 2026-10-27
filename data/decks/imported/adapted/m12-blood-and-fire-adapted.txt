@@ -3,19 +3,18 @@
 [deck:Blood and Fire (Adapted)]
 4 Auger Spree
 4 Bedevil
-2 Breath of Malfegor
-1 Burnt Offering
+4 Delirium
 4 Dreadbore
-3 Get the Point
 1 Goblin Arsonist
 1 Goblin Tunneler
+1 Iroh's Demonstration
+2 Kaervek's Purge
 1 Manic Vandal
 14 Mountain
 1 Onyx Mage
 3 Shock
-1 Skull Rend
+4 Spontaneous Combustion
 10 Swamp
 1 Swiftfoot Boots
 4 Terminate
 1 Volcanic Dragon
-4 Wrecking Ball

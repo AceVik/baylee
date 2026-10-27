@@ -6,14 +6,15 @@
 1 Branchloft Pathway
 4 Call of the Conclave
 4 Eladamri's Call
-3 Errand of Duty
 9 Forest
-4 Gerrard's Command
+3 Gerrard's Command
 1 Heroes' Reunion
 3 Kor Celebrant
-4 Nature's Chant
+3 Nature's Chant
 2 Pillardrop Rescuer
 10 Plains
-4 Reknit
-4 Selesnya Charm
+3 Reknit
+3 Sanctify
+3 Selesnya Charm
 2 Story Seeker
+4 Vitalizing Cascade

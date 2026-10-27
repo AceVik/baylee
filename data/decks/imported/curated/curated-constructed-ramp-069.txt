@@ -1,21 +1,22 @@
 # baylee curated constructed ramp seed=20261092
 # licence: AGPL-3.0-only
 [deck:constructed ramp WB #20261092]
-3 +2 Mace
-4 Appendage Amalgam
-3 Book of Rass
-1 Cradle of the Accursed
-2 Glidedive Duo
-4 Healer's Hawk
-4 Icatian Skirmishers
-4 Karma
-2 Luminous Broodmoth
-2 Meteorite
-3 Mind Stone
-2 Nephalia Academy
-10 Plains
-4 Reroute Systems
-3 Silverquill Campus
-5 Swamp
-2 Tomb Fortress
-2 Tomb of Urami
+4 Ayara, First of Locthwain
+1 Brotherhood Headquarters
+3 Carnival of Souls
+4 Dogged Pursuit
+2 Elas il-Kor, Sadistic Pilgrim
+4 Fear of Lost Teeth
+3 Gerrard's Battle Cry
+2 Ill-Gotten Inheritance
+2 Mech Hangar
+3 Mirrodin's Core
+1 Nykthos, Shrine to Nyx
+1 Personal Incarnation
+4 Phyrexian Arena
+3 Plains
+3 Scrubland
+2 Sneering Shadewriter
+12 Swamp
+2 Underworld Coinsmith
+4 Walking Ballista

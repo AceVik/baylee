@@ -9,7 +9,6 @@
 4 Drastic Revelation
 2 Eyeblight's Ending
 1 Hate Weaver
-1 Inquisition
 11 Island
 1 Last Caress
 1 Metathran Zombie
@@ -29,3 +28,4 @@
 9 Swamp
 2 Urborg Drake
 1 Vodalian Zombie
+1 Waterlogged Teachings

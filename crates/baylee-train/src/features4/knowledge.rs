@@ -1,3 +1,148 @@
+struct Fnv1aWriter(u64);
+
+impl Fnv1aWriter {
+    const fn new() -> Self {
+        Self(0xcbf2_9ce4_8422_2325)
+    }
+
+    fn feed(&mut self, bytes: &[u8]) {
+        let mut h = self.0;
+        for &b in bytes {
+            h = (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3);
+        }
+        self.0 = h;
+    }
+}
+
+impl std::io::Write for Fnv1aWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.feed(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[derive(Serialize)]
+struct ObservableView<'a> {
+    decision_player: &'a Option<PlayerId>,
+    controlled_hands: &'a [baylee_view::SharedHand],
+    damage_sources: &'a [baylee_view::DamageSourceView],
+    target_objects: &'a [baylee_view::DamageSourceView],
+    targeting: &'a Option<baylee_view::TargetingContext>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    casting: &'a Option<ObjectId>,
+    seat: &'a PlayerId,
+    turn: &'a u32,
+    phase: &'a baylee_view::Phase,
+    step: &'a baylee_view::Step,
+    active: &'a PlayerId,
+    awaiting: &'a Option<PlayerId>,
+    deciding: &'a baylee_core::ids::SeatSet,
+    priority_held: &'a bool,
+    owed: &'a Option<baylee_core::mana::ManaPayment>,
+    monarch: &'a Option<PlayerId>,
+    day_night: &'a Option<baylee_view::DayNight>,
+    seats: &'a [baylee_view::SeatView],
+    hand: &'a [baylee_view::HandObject],
+    shared_hands: &'a [baylee_view::SharedHand],
+    hand_shared_with: &'a baylee_core::ids::SeatSet,
+    hand_requests: &'a baylee_core::ids::SeatSet,
+    hand_requested: &'a baylee_core::ids::SeatSet,
+    battlefield: &'a [baylee_view::PublicObject],
+    stack: &'a [baylee_view::PublicObject],
+    graveyards: &'a [Vec<baylee_view::PublicObject>],
+    exile: &'a [Vec<baylee_view::PublicObject>],
+    command: &'a [Vec<baylee_view::PublicObject>],
+    combat: &'a baylee_view::CombatView,
+    looking_at: &'a [baylee_view::PublicObject],
+    library_tops: &'a [baylee_view::PublicObject],
+    sorcery_lock: &'a Option<ObjectId>,
+    sorceries_have_flash: &'a bool,
+}
+
+impl<'a> ObservableView<'a> {
+    fn from_view(view: &'a PlayerView) -> Self {
+        let PlayerView {
+            decision_player,
+            controlled_hands,
+            damage_sources,
+            target_objects,
+            targeting,
+            casting,
+            seq: _,
+            seat,
+            turn,
+            phase,
+            step,
+            active,
+            awaiting,
+            deciding,
+            decision_remaining_ms: _,
+            clocks: _,
+            lost: _,
+            priority_held,
+            policy_acts: _,
+            owed,
+            monarch,
+            day_night,
+            seats,
+            hand,
+            shared_hands,
+            hand_shared_with,
+            hand_requests,
+            hand_requested,
+            battlefield,
+            stack,
+            graveyards,
+            exile,
+            command,
+            combat,
+            looking_at,
+            library_tops,
+            sorcery_lock,
+            sorceries_have_flash,
+        } = view;
+        Self {
+            decision_player,
+            controlled_hands,
+            damage_sources,
+            target_objects,
+            targeting,
+            casting,
+            seat,
+            turn,
+            phase,
+            step,
+            active,
+            awaiting,
+            deciding,
+            priority_held,
+            owed,
+            monarch,
+            day_night,
+            seats,
+            hand,
+            shared_hands,
+            hand_shared_with,
+            hand_requests,
+            hand_requested,
+            battlefield,
+            stack,
+            graveyards,
+            exile,
+            command,
+            combat,
+            looking_at,
+            library_tops,
+            sorcery_lock,
+            sorceries_have_flash,
+        }
+    }
+}
+
 /// Computes a deterministic 64-bit FNV-1a hash of the seat-authorized
 /// [`PlayerView`] and [`Pending`] ONLY.
 ///
@@ -6,56 +151,10 @@
 /// and opponent hand state, P0-6).
 #[must_use]
 pub fn view_only_state_hash(view: &PlayerView, pending: &Pending) -> u64 {
-    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    let mut feed = |bytes: &[u8]| {
-        for &b in bytes {
-            h ^= u64::from(b);
-            h = h.wrapping_mul(0x0100_0000_01b3);
-        }
-    };
-    feed(&view.turn.to_le_bytes());
-    feed(&[view.seat.get(), view.active.get()]);
-    feed(&[view.awaiting.map_or(255, PlayerId::get)]);
-    if let Ok(bytes) = serde_json::to_vec(&view.step) {
-        feed(&bytes);
-    }
-    for s in &view.seats {
-        feed(&s.life.to_le_bytes());
-        feed(&s.poison.to_le_bytes());
-        feed(&s.energy.to_le_bytes());
-        feed(&[s.speed]);
-        feed(&s.rad.to_le_bytes());
-        feed(&s.hand_count.to_le_bytes());
-        feed(&s.library_count.to_le_bytes());
-        feed(&s.graveyard_count.to_le_bytes());
-        feed(&s.mana_pool.total().to_le_bytes());
-    }
-    for h_obj in &view.hand {
-        feed(&pack_object_id(h_obj.id).to_le_bytes());
-        feed(&h_obj.card.index.get().to_le_bytes());
-    }
-    for obj in view
-        .battlefield
-        .iter()
-        .chain(&view.stack)
-        .chain(view.graveyards.iter().flatten())
-        .chain(view.exile.iter().flatten())
-        .chain(view.command.iter().flatten())
-        .chain(&view.looking_at)
-    {
-        feed(&pack_object_id(obj.id).to_le_bytes());
-        feed(&[obj.controller.get(), obj.owner.get(), obj.status.bits()]);
-        feed(&obj.damage.to_le_bytes());
-        feed(&obj.power.unwrap_or(0).to_le_bytes());
-        feed(&obj.toughness.unwrap_or(0).to_le_bytes());
-        for c in &obj.counters {
-            feed(&c.count.to_le_bytes());
-        }
-    }
-    if let Ok(p_bytes) = serde_json::to_vec(pending) {
-        feed(&p_bytes);
-    }
-    h
+    let mut writer = Fnv1aWriter::new();
+    let _ = serde_json::to_writer(&mut writer, &ObservableView::from_view(view));
+    let _ = serde_json::to_writer(&mut writer, pending);
+    writer.0
 }
 
 /// Computes a deterministic 64-bit FNV-1a hash of the observable board, stack,
@@ -69,27 +168,10 @@ pub fn view_only_state_hash(view: &PlayerView, pending: &Pending) -> u64 {
 /// If serializing the view fails; the current view contains only JSON-safe types.
 #[must_use]
 pub fn board_observation_hash(view: &PlayerView) -> u64 {
-    // Serialize the complete authorized view, not an incomplete hand-written
-    // list of fields (which missed phases, colors of floating mana, faces,
-    // combat, revealed library tops and several card-specific choices).
-    let mut value = serde_json::to_value(view).expect("PlayerView serializes");
-    if let Some(obj) = value.as_object_mut() {
-        for key in [
-            "seq",
-            "decision_remaining_ms",
-            "clocks",
-            "lost",
-            "policy_acts",
-        ] {
-            obj.remove(key);
-        }
-    }
-    let bytes = serde_json::to_vec(&value).expect("PlayerView value serializes");
-    bytes
-        .into_iter()
-        .fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
-            (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
-        })
+    let mut writer = Fnv1aWriter::new();
+    serde_json::to_writer(&mut writer, &ObservableView::from_view(view))
+        .expect("ObservableView serializes");
+    writer.0
 }
 
 /// Public per-seat history statistics accumulated from seat-authorized views.
@@ -142,6 +224,8 @@ pub struct SeatKnowledge4 {
     pub seat_count: usize,
     /// Own submitted decklist `(CardIndex, total_copies)` sorted by `CardIndex`.
     pub own_deck_cards: Vec<(u32, u8)>,
+    /// Exact own-deck and sideboard movement ledger (`InventoryLedger7`).
+    pub inventory: crate::features7::inventory::InventoryLedger7,
     /// Compact `24`-float summary of own submitted deck (curve, colors, roles).
     pub own_deck_summary: [f32; 24],
     /// Starting life per seat (observed on turn 0/1).
@@ -154,6 +238,8 @@ pub struct SeatKnowledge4 {
     seen_stack_ids: Vec<u64>,
     /// Public object IDs already counted on the battlefield.
     seen_bf_ids: Vec<u64>,
+    /// Turn when each currently-present battlefield permanent was first observed on the battlefield.
+    bf_entered_turn: BTreeMap<u64, u32>,
     /// Revealed opponent cards in hidden zones (`(owner_seat, object_id) -> KnownCardMemory4`).
     pub known_cards: BTreeMap<(u8, u64), KnownCardMemory4>,
     /// Per-seat public history counters (indexed by absolute `PlayerId`).
@@ -165,6 +251,56 @@ pub struct SeatKnowledge4 {
 }
 
 impl SeatKnowledge4 {
+    /// Initializes a socket player's knowledge from its own submitted cards.
+    /// No opponent deck or engine state belongs to this interface.
+    #[must_use]
+    pub fn from_own_cards(viewer: PlayerId, seat_count: usize, cards: &[(u32, u8)]) -> Self {
+        let mut knowledge = Self::empty(viewer, seat_count);
+        let mut counts = BTreeMap::<u32, u8>::new();
+        let mut counts_u32 = Vec::<(CardIndex, u32)>::new();
+        for &(card, count) in cards {
+            if card != UNKNOWN_CARD {
+                let entry = counts.entry(card).or_default();
+                *entry = entry.saturating_add(count);
+                counts_u32.push((CardIndex::new(card), u32::from(count)));
+            }
+        }
+        knowledge.own_deck_cards = counts.into_iter().collect();
+        knowledge.inventory =
+            crate::features7::inventory::InventoryLedger7::from_own_cards(viewer, counts_u32);
+        knowledge.own_deck_summary = summarize_deck(&knowledge.own_deck_cards);
+        knowledge
+    }
+
+    /// Initializes a socket player's knowledge from its full [`baylee_seat::DeckList`]
+    /// (preserving `main`, `sideboard`, `commanders`, and exact `u32` counts).
+    #[cfg(feature = "live-seat")]
+    #[must_use]
+    pub fn from_deck_list(
+        viewer: PlayerId,
+        seat_count: usize,
+        deck: &baylee_seat::DeckList,
+    ) -> Self {
+        let mut knowledge = Self::empty(viewer, seat_count);
+        let mut counts = BTreeMap::<u32, u8>::new();
+        for entry in deck.main.iter().chain(&deck.commanders) {
+            let cid = entry.card.get();
+            if cid != UNKNOWN_CARD {
+                let slot = counts.entry(cid).or_default();
+                *slot = slot.saturating_add(u8::try_from(entry.count).unwrap_or(u8::MAX));
+            }
+        }
+        knowledge.own_deck_cards = counts.into_iter().collect();
+        knowledge.inventory = crate::features7::inventory::InventoryLedger7::from_sections(
+            viewer,
+            deck.main.iter().map(|e| (e.card, e.count)),
+            deck.sideboard.iter().map(|e| (e.card, e.count)),
+            deck.commanders.iter().map(|e| (e.card, e.count)),
+        );
+        knowledge.own_deck_summary = summarize_deck(&knowledge.own_deck_cards);
+        knowledge
+    }
+
     /// Initializes `SeatKnowledge4` for `viewer` from the seat's own submitted
     /// deck in `preset` (never reading any opponent's deck!).
     #[must_use]
@@ -191,16 +327,27 @@ impl SeatKnowledge4 {
         }
         let own_deck_cards: Vec<(u32, u8)> = counts.into_iter().collect();
         let own_deck_summary = summarize_deck(&own_deck_cards);
+        let inventory = crate::features7::inventory::InventoryLedger7::from_preset(preset, viewer)
+            .unwrap_or_else(|_| {
+                crate::features7::inventory::InventoryLedger7::from_own_cards(
+                    viewer,
+                    own_deck_cards
+                        .iter()
+                        .map(|&(c, n)| (CardIndex::new(c), u32::from(n))),
+                )
+            });
         Self {
             viewer,
             seat_count: preset.seats.len().clamp(1, MAX_SEATS),
             own_deck_cards,
+            inventory,
             own_deck_summary,
             starting_life: [start_life; MAX_SEATS],
             last_life: [start_life; MAX_SEATS],
             last_turn: 0,
             seen_stack_ids: Vec::new(),
             seen_bf_ids: Vec::new(),
+            bf_entered_turn: BTreeMap::new(),
             known_cards: BTreeMap::new(),
             seat_history: [SeatHistoryStats4::default(); MAX_SEATS],
             cursor: 0,
@@ -215,17 +362,35 @@ impl SeatKnowledge4 {
             viewer,
             seat_count: seat_count.clamp(1, MAX_SEATS),
             own_deck_cards: Vec::new(),
+            inventory: crate::features7::inventory::InventoryLedger7::empty(),
             own_deck_summary: [0.0; 24],
             starting_life: [20; MAX_SEATS],
             last_life: [20; MAX_SEATS],
             last_turn: 0,
             seen_stack_ids: Vec::new(),
             seen_bf_ids: Vec::new(),
+            bf_entered_turn: BTreeMap::new(),
             known_cards: BTreeMap::new(),
             seat_history: [SeatHistoryStats4::default(); MAX_SEATS],
             cursor: 0,
             last_frame_digest: 0,
         }
+    }
+
+    /// Number of turns `id` has been continuously present on the battlefield.
+    #[must_use]
+    pub fn permanent_age_turns(&self, id: ObjectId) -> u32 {
+        self.bf_entered_turn
+            .get(&pack_object_id(id))
+            .map_or(0, |&entered| self.last_turn.saturating_sub(entered))
+    }
+
+    /// Whether `id` was first observed on the battlefield during the current turn.
+    #[must_use]
+    pub fn entered_battlefield_this_turn(&self, id: ObjectId) -> bool {
+        self.bf_entered_turn
+            .get(&pack_object_id(id))
+            .is_some_and(|&entered| entered == self.last_turn)
     }
 
     /// Updates `SeatKnowledge4` from a seat-authorized `PlayerView` and returns
@@ -277,9 +442,12 @@ impl SeatKnowledge4 {
             // If a known opponent card was cast, remove it from hidden-zone memory
             self.known_cards.remove(&(obj.owner.get(), id));
         }
-        // Track battlefield arrivals
+        // Track battlefield arrivals and continuous battlefield presence
+        let mut current_bf = std::collections::BTreeSet::<u64>::new();
         for obj in &view.battlefield {
             let id = pack_object_id(obj.id);
+            current_bf.insert(id);
+            self.bf_entered_turn.entry(id).or_insert(view.turn);
             if !self.seen_bf_ids.contains(&id) {
                 self.seen_bf_ids.push(id);
                 let c = (obj.controller.get() as usize).min(MAX_SEATS - 1);
@@ -295,6 +463,8 @@ impl SeatKnowledge4 {
             }
             self.known_cards.remove(&(obj.owner.get(), id));
         }
+        self.bf_entered_turn.retain(|id, _| current_bf.contains(id));
+        self.inventory.observe(view);
         for obj in view
             .graveyards
             .iter()

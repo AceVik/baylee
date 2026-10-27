@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WG #20266037]
+1 Abbey Matron
+1 Adept Watershaper
+1 Alabaster Mage
+1 Alaborn Grenadier
+1 Alloy Animist
+1 An-Havva Constable
+1 Austere Command
+1 Basilisk Gate
+1 Beaming Defiance
+1 Brokers Hideout
+1 Capashen Knight
+1 Capashen Templar
+1 Cho-Arrim Alchemist
+1 Cleanse
+1 Cloudreach Cavalry
+1 Corrosive Gale
+1 Creeping Corrosion
+1 Day of Judgment
+1 Dragon Sniper
+1 Dune Diviner
+1 Emergence Zone
+1 Essence Filter
+1 Final Showdown
+1 Folk of An-Havva
+7 Forest
+1 Forge of Heroes
+1 Gale Force
+1 Glyph of Reincarnation
+1 Griffin Rider
+1 Guan Yu's 1,000-Li March
+1 Hardened Escort
+1 Hobbit Hole
+1 Icatian Infantry
+1 Imperial Lancer
+1 Knight Errant
+1 Kyoshi Warrior Guard
+1 Lothlórien Lookout
+1 Master Apothecary
+1 Midnight Duelist
+1 Nephalia Academy
+1 Nesting Grounds
+1 Northampton Farm
+1 Order of Leitbur
+1 People of the Woods
+17 Plains
+1 Pradesh Gypsies
+1 Preacher
+1 Prismatic Vista
+1 Rashka the Slayer
+1 Ravages of War
+1 Remove Enchantments
+1 Sandstorm
+1 Scattershot Archer
+1 Scavenger Grounds
+1 Sea Gate Wreckage
+1 Serra Inquisitors
+1 Skyline Scout
+1 Sorrow's Path
+1 Soulstone Sanctuary
+1 Spirit Weaver
+1 Stone Haven Pilgrim
+1 The Biblioplex
+1 The Fabulous Frog-Man
+1 Topan Ascetic
+1 Tranquil Domain
+1 Treefolk Mystic
+1 Tropical Storm
+1 Tsunami
+1 Valeron Outlander
+1 Valiant Guard
+1 Veteran Cathar
+1 Veteran Cavalier
+1 Whirlwind
+1 White Shield Crusader
+1 Winter Soldier, Bucky Barnes
+1 Wolf Cove Villager
+1 Woodland Druid
+
+[commander]
+Kei Takahashi

@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control B #20266267]
+1 Amulet of Unmaking
+1 Arcum's Whistle
+1 Arisen Gorgon
+1 Ark of Blight
+1 Aspect of Lamprey
+1 Black Oak of Odunos
+1 Bloodcurdling Scream
+1 Bog Raiders
+1 Bonders' Enclave
+1 Boon of Emrakul
+1 Carnophage
+1 Carrion Screecher
+1 Caustic Rain
+1 Command Beacon
+1 Cryptic Caves
+1 Cursed Minotaur
+1 Deadly Rollick
+1 Demonic Torment
+1 Desert
+1 Dreg Reaver
+1 Dross Crocodile
+1 Eastern Paladin
+1 Elven Passage
+1 Emergence Zone
+1 Feast of the Unicorn
+1 Fell the Profane
+1 Frankenstein's Monster
+1 Gluttonous Zombie
+1 Goblin Firebomb
+1 Grotesque Demise
+1 Gutter Skulk
+1 Hate Weaver
+1 Headless Horseman
+1 Hollow Dogs
+1 Hunted Ghoul
+1 Kite Shield
+1 Lazotep Behemoth
+1 Lim-Dûl's Cohort
+1 Mass of Ghouls
+1 Melancholy
+1 Midnight Covenant
+1 Mishra's Workshop
+1 No Mercy
+1 Noxious Field
+1 Oblivion Strike
+1 Pit Trap
+1 Rotting Legion
+1 Sandals of Abdallah
+1 Sanguine Guard
+1 Scare Tactics
+1 Severed Legion
+1 Shriekdiver
+1 Smokespew Invoker
+1 Soul Kiss
+1 Stromgald Crusader
+36 Swamp
+1 Touch of Darkness
+1 Two-Headed Zombie
+1 Unlicensed Hearse
+1 Untamed Hunger
+1 Wander Off
+1 Whipstitched Zombie
+1 Wit's End
+1 Zombie Master
+
+[commander]
+Yargle, Glutton of Urborg

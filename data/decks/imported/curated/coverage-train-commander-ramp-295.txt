@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WRG #20266296]
+1 Aladdin
+1 Ancient Ziggurat
+1 Angelfire Crusader
+1 Avengers Tower
+1 Baldur's Gate
+1 Basilisk Collar
+1 Battle Rampart
+1 Bladed Bracers
+1 Border Patrol
+1 Borderland Minotaur
+1 Bronze Sword
+1 Cave of Temptation
+1 Cavern of Souls
+1 City of Brass
+1 Cliff Threader
+1 Cliffhaven Sell-Sword
+1 Dawnstrider
+1 Dazzling Ramparts
+1 Eclipsed Realms
+1 Falkenrath Reaver
+1 Folk of the Pines
+3 Forest
+1 Foriysian Interceptor
+1 Glorifier of Dusk
+1 Grappling Sundew
+1 Great Hall of the Biblioplex
+1 Hearthfire Hobgoblin
+1 Holdout Settlement
+1 Icatian Skirmishers
+1 Iroas's Champion
+1 Ivy Dancer
+1 Kor Sky Climber
+1 Llanowar Cavalry
+1 Llanowar Vanguard
+1 Loxodon Convert
+1 Loxodon Gatekeeper
+1 Loxodon Line Breaker
+1 Loxodon Stalwart
+1 Loxodon Wayfarer
+1 Mana Confluence
+1 Marisi's Twinclaws
+1 Marsh Threader
+1 Mosstodon
+9 Mountain
+1 Mounted Archers
+1 Old Ghastbark
+14 Plains
+1 Prized Elephant
+1 Ranger en-Vec
+1 Ravenous Bloodseeker
+1 Rith's Grove
+1 Rushwood Dryad
+1 School of the Unseen
+1 Secluded Courtyard
+1 Selesnya Sentry
+1 Serra Paladin
+1 Shu Elite Infantry
+1 Siege Mastodon
+1 Silver-Inlaid Dagger
+1 Skateboard
+1 Soltari Emissary
+1 Surveillance Room
+1 Survivors' Encampment
+1 Towering Thunderfist
+1 Tundra Wall
+1 Turtle Lair
+1 Unseen Walker
+1 Wall of Caltrops
+1 Wall of Dust
+1 Wall of Earth
+1 Wall of Razors
+1 Wall of Torches
+1 Wall of Vines
+1 Willow Dryad
+1 Woolly Mammoths
+1 Zodiac Rabbit
+
+[commander]
+Samut, Voice of Dissent

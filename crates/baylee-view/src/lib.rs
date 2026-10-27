@@ -55,8 +55,8 @@ pub use log::{
     LogTail, LogTarget, LogZone, PolicyAct, PolicyAnswer,
 };
 pub use objects::{
-    BoardMana, CardIdentity, DamageSourceView, GrantSource, GrantedMana, HandObject, NamedFace,
-    ObjectSummaryKey, PublicObject, RulesFace, StackItem, StackText, TokenAbility,
+    AbilitySource, BoardMana, CardIdentity, DamageSourceView, GrantSource, GrantedMana, HandObject,
+    NamedFace, ObjectSummaryKey, PublicObject, RulesFace, StackItem, StackText, TokenAbility,
 };
 pub use player_view::{LostSeat, PlayerView, SeatClock, TargetingContext, WordChange};
 pub use seats::{CommanderDamage, CommanderView, HouseAnswer, LossCause, ManaPoolView, SeatView};

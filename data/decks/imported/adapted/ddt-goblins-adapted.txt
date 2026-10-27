@@ -16,11 +16,11 @@
 1 Goblin Rabblemaster
 1 Goblin Tunneler
 3 Hordeling Outburst
-1 Improvised Weaponry
 3 Krenko's Command
 1 Make Mischief
 1 Molten Blast
 20 Mountain
+1 Ruination
 3 Smash
 4 Start from Scratch
 2 Tarfire

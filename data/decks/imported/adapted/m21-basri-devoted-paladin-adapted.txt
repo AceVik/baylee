@@ -3,12 +3,12 @@
 [deck:Basri, Devoted Paladin (Adapted)]
 4 Adherent of Hope
 3 Anointed Chorister
+1 Exile
 3 Forsake the Worldly
 3 Hive Stirrings
 2 Holy Light
 1 Kill Shot
 1 Metal Fatigue
-1 Piety
 25 Plains
 4 Sandblast
 1 Sungold Barrage

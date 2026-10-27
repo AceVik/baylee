@@ -1,0 +1,30 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro BRG #20266168]
+2 Defense Force Aggressor
+4 Forest
+2 Goblin Cadets
+2 Goblin Patrol
+2 Goblin Striker
+2 Goblins of the Flarg
+3 Guildmages' Forum
+2 Iron-Shield Elf
+2 Kraul Raider
+2 Madrush Cyclops
+9 Mountain
+2 Mudbrawler Raiders
+2 Pensive Minotaur
+1 Plaza of Heroes
+2 Rubble Slinger
+2 Rubblebelt Runner
+1 Scarwood Goblins
+3 Shimmering Grotto
+2 Sokenzan Bruiser
+2 Spike Jester
+1 Swamp
+2 Tar Pit Warrior
+1 Tarnished Citadel
+2 Tattermunge Maniac
+1 Twisted Landscape
+2 Viashino Slasher
+2 Viashino Slaughtermaster

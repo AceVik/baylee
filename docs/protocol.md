@@ -3,6 +3,24 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Composed ability origins (compatible addition)
+
+`PublicObject.ability_sources` maps runtime indices in composed ability lists
+to their public printed clause or registry token, including a `copy_modifier`
+index for an ability quoted by a copy exception. Machine God's Effigy copying
+Thrun has a blue-mana ability at runtime index 2; that ability comes from
+Effigy's copy clause, not a nonexistent third printed ability on Thrun.
+Copies of copies retain that original provenance. On an ability on the stack,
+only its captured selected entry is included. Ordinary printed lists omit the
+field; missing fields decode as an empty list. Existing readers ignore it.
+
+The projection uses the visible object's captured rules, never a hidden donor
+lookup. Unknown and face-down objects expose no composed origins. Board grouping
+includes the origins so copies with different acquired text do not collapse.
+This does not grant permission to activate: the current legal offer remains
+authoritative. Training catalogs name the exact quoted ability separately and
+must be refreshed/replayed when their semantic-reference digest changes.
+
 ## Mana spending permissions (compatible view-45 addition)
 
 `ManaPoolView.spending` carries each seat's current `ManaSpending` permissions.
@@ -547,6 +565,12 @@ a stale client safe: a view is a snapshot, so a client that sends the depth it
 last saw is sending a number the engine may already have passed — and the
 engine reading a larger depth cancels the hold, which is exactly the right
 answer, because somebody just responded to what was being let through.
+As the engine observes the stack shrink, it lowers this boundary. A response
+that restores the original depth after one object resolves therefore also
+ends the hold. This remains a depth-based check: a resolution that replaces
+itself with a trigger before the next check need not expose an intermediate
+smaller depth. Neural seats currently use individual priority passes, keeping
+their observation and decision loop active, rather than these client holds.
 
 A hold or a per-ability yield passes **priority** and nothing that only looks
 like it. A payment window (CR 601.2g, 605.3a: the seat said yes to a tax, owes

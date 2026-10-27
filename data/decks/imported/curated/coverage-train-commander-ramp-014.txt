@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBG #20266015]
+1 Bag End Banquet
+1 Blood Vassal
+1 Blooming Marsh
+1 Botanical Sanctum
+1 Carapace
+1 Cateran Slaver
+1 Confirm Suspicions
+1 Crosswinds
+1 Dark Heart of the Wood
+1 Darkmoss Bridge
+1 Dread of Night
+1 Drider
+1 Drunau Corpse Trawler
+1 Elvenking's Halls
+1 Festering Gulch
+1 Flight
+1 Flight of Fancy
+1 Floodchaser
+1 Floodgate
+1 Foreboding Landscape
+2 Forest
+1 Future Flight
+1 Grasping Longneck
+1 Gravitational Shift
+1 Grim Feast
+1 Groundshaker Sliver
+1 Howlpack Resurgence
+1 Illuminated Wings
+7 Island
+1 Leshrac's Rite
+1 Lich
+1 Lilypad Village
+1 Littjara Mirrorlake
+1 Lounge
+1 Lumbering Falls
+1 Merfolk Seer
+1 Mindslicer
+1 Molting Snakeskin
+1 Necromaster Dragon
+1 Night of Souls' Betrayal
+1 Nissa, Vital Force
+1 Oko, Thief of Crowns
+1 Plague Spitter
+1 Polluted Dead
+1 Restless Vinestalk
+1 Revelation
+1 Rottenheart Ghoul
+1 Sea Legs
+1 Sensory Deprivation
+1 Shizo, Death's Storehouse
+1 Slow Motion
+1 Sodden Verdure
+1 Spawning Kraken
+1 Spirit of the Night
+1 Stronghold Assassin
+1 Summit Sentinel
+1 Sunken City
+1 Sustenance
+17 Swamp
+1 Sylvan Anthem
+1 Sylvan Caryatid
+1 Thassa's Devourer
+1 Tidal Force
+1 Turtle Power!
+1 Twists and Turns
+1 Ur-Drago
+1 Urborg Panther
+1 Utopia Tree
+1 Vineglimmer Snarl
+1 Vodalian War Machine
+1 Wall of Kelp
+1 Westvale Abbey
+1 Wildwood Rebirth
+1 Woodwraith Corrupter
+1 Xenobotanist
+1 Zagoth Triome
+
+[commander]
+Muldrotha, the Gravetide

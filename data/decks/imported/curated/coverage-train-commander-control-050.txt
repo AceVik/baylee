@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control U #20266051]
+1 Aegis Turtle
+1 Amnesia
+1 Annex
+1 Aquitect's Defenses
+1 Artificer's Intuition
+1 Aura Flux
+1 Aura of Dominion
+1 Back to Basics
+1 Clammy Prowler
+1 Coastal Hornclaw
+1 Cold-Water Snapper
+1 Convincing Mirage
+1 Copy Artifact
+1 Copy Land
+1 Countersculpt
+1 Dampening Pulse
+1 Dream Tides
+1 Dunes of the Dead
+1 Eden, Seat of the Sanctum
+1 Encase in Ice
+1 Errant Minion
+1 Escape Routes
+1 Esper Panorama
+1 Extinguish
+1 Glimmerdust Nap
+1 Gond Gate
+1 Harbinger of the Seas
+1 Ice Over
+1 Illusory Wrappings
+36 Island
+1 Land Equilibrium
+1 Manta Riders
+1 Merrow Wavebreakers
+1 Mirrormade
+1 Mouth of Ronom
+1 Mystic Decree
+1 Persuasion
+1 Pestered Wellguard
+1 Reduce in Stature
+1 Rishadan Dockhand
+1 Rite of Replication
+1 Serra Sphinx
+1 Shimmer
+1 Shorecomber Crab
+1 Skittering Invasion
+1 Slimebind
+1 Spectral Flight
+1 Stasis
+1 Stonybrook Angler
+1 Tangle Kelp
+1 Thirst
+1 Threads of Disloyalty
+1 Tidepool Turtle
+1 Tocasia's Dig Site
+1 Tractor Beam
+1 Treachery
+1 Undertow
+1 Unholy Citadel
+1 Veiled Crocodile
+1 Venarian Gold
+1 Viscerid Armor
+1 Wandering Ones
+1 Web of Inertia
+1 Zephyr Charge
+
+[commander]
+Yargle, Goliath of Otaria

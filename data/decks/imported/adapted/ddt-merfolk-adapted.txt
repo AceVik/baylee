@@ -6,7 +6,7 @@
 1 Concentrate
 1 Dream Fracture
 2 Essence Scatter
-1 Force of Negation
+1 Infuse
 1 Inkfathom Divers
 21 Island
 2 Launch Mishap
@@ -26,5 +26,5 @@
 2 Scroll Thief
 3 Streambed Aquitects
 2 Stroke of Genius
-1 Teleport
 2 Tidal Warrior
+1 Tinker

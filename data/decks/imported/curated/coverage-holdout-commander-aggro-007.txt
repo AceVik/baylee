@@ -1,0 +1,84 @@
+# baylee synergistic holdout coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUG #90010008]
+1 Aerial Engineer
+1 Alert Heedbonder
+1 Anthroplasm
+1 Archaeological Dig
+1 Ashiok's Skulker
+1 Aven Fleetwing
+1 Balamb Garden, SeeD Academy
+1 Battlefield Raptor
+1 Battlegrowth
+1 Caller of Gales
+1 Captain of Umbar
+1 Carnassid
+1 Change the Equation
+1 Cloak of Feathers
+1 Creature Bond
+1 Creosote Heath
+1 Crossroads Consecrator
+1 Deny Entry
+1 Dispel
+1 Drakewing Krasis
+1 Duskborne Skymarcher
+1 Eldrazi Skyspawner
+1 Essence Flare
+1 Floodfarm Verge
+11 Forest
+1 Forsaken City
+1 Freyalise Supplicant
+1 Frightful Delusion
+1 Generous Stray
+1 Hydro-Channeler
+1 Incubator Drone
+1 Inertia Bubble
+1 Infantry Veteran
+9 Island
+1 Jwari Scuttler
+1 Kavu Climber
+1 Keeneye Aven
+1 Kukemssa Pirates
+1 Lakeside Shack
+1 Legerdemain
+1 Master of the Hunt
+1 Merfolk Mistbinder
+1 Merfolk Traders
+1 Merrow Witsniper
+1 Mindstatic
+1 Nantuko Monastery
+4 Plains
+1 Plumecreed Escort
+1 Reminisce
+1 Restless Anchorage
+1 Ritual of Subdual
+1 Sage's Knowledge
+1 Sandbar Merfolk
+1 Seaside Haven
+1 Second Chance
+1 Sky Theater Strix
+1 Skywinder Drake
+1 Soldevi Machinist
+1 Spike Worker
+1 Spiketail Drakeling
+1 Sylvan Hierophant
+1 Thalakos Dreamsower
+1 Thelon's Curse
+1 Thoughtbind
+1 Thoughtweft Lieutenant
+1 Tolaria
+1 Tolaria West
+1 Tough Cookie
+1 Toxic Scorpion
+1 Tranquil Expanse
+1 Trusty Packbeast
+1 University Campus
+1 Uthros, Titanic Godcore
+1 Vastwood Fortification
+1 Vesuvan Doppelganger
+1 Wall of Mist
+1 Waterspout Djinn
+1 Zhalfirin Shapecraft
+
+[commander]
+Jenara, Asura of War

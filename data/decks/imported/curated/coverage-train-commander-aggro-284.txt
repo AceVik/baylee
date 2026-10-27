@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro W #20266285]
+1 Adarkar Sentinel
+1 Aeronaut's Wings
+1 Aesthir Glider
+1 Akroan Mastiff
+1 Assembly-Worker
+1 Baton of Morale
+1 Blighted Steppe
+1 Bronze Sword
+1 Clockwork Gnomes
+1 Clockwork Steed
+1 Cobbled Wings
+1 Copper Gnomes
+1 Darksteel Myr
+1 Dragon Engine
+1 Eiganjo Castle
+1 Ersatz Gnomes
+1 Extruder
+1 Guardian Automaton
+1 Hedron Rover
+1 Helm of the Host
+1 Hivestone
+1 Hoof Skulkin
+1 Jousting Dummy
+1 Kami of False Hope
+1 Karakas
+1 Liquimetal Coating
+1 Lodestone Myr
+1 Lupinflower Village
+1 Marauder's Axe
+1 Marble Priest
+1 Metrognome
+1 Myr Landshaper
+1 Nettlecyst
+1 Omega Myr
+1 One-Eyed Scarecrow
+1 Patchwork Gnomes
+1 Patrol Hound
+1 Peregrine Mask
+32 Plains
+1 Regal Bunnicorn
+1 Sanctuary Cat
+1 Sanctuary Raptor
+1 Selfless Savior
+1 Serra's Sanctum
+1 Serrated Biskelion
+1 Shefet Dunes
+1 Shell Skulkin
+1 Shuko
+1 Skateboard
+1 Snow Hound
+1 Soltari Monk
+1 Sterling Hound
+1 Stonework Puma
+1 Tawnos's Weaponry
+1 Thaumaturge's Familiar
+1 Thraben Purebloods
+1 Thran War Machine
+1 Trenching Steed
+1 Trip Noose
+1 Trusty Machete
+1 Vanquisher's Axe
+1 Warclamp Mastiff
+1 Warmonger's Chariot
+1 Watchdog
+1 Watcher of the Wayside
+1 Watchwing Scarecrow
+1 Wicker Witch
+1 Winter Moon
+
+[commander]
+Isamaru, Hound of Konda

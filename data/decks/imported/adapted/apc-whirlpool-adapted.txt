@@ -7,7 +7,6 @@
 2 Chromatic Sphere
 1 Coastal Drake
 1 Exclude
-2 Expressive Iteration
 4 Fire
 1 Flametongue Kavu
 4 Invoke the Firemind
@@ -18,4 +17,5 @@
 1 Opt
 2 Razorfin Hunter
 4 Rush of Inspiration
+2 Stun
 1 Traumatic Critique

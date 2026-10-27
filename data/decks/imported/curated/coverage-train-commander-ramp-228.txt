@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp RG #20266229]
+1 Alpha Tyrranax
+1 Avengers Tower
+1 Barkhide Mauler
+1 Captivating Cave
+1 Cavern Thoctar
+1 Collector Ouphe
+1 Cragcrown Pathway
+1 Drop of Honey
+1 Earthshaking Si
+1 Elemental Bond
+1 Enormous Baloth
+1 Exploration
+1 Fertile Thicket
+1 Flowstone Mauler
+1 Forbidden Orchard
+1 Forgeborn Oreads
+1 Frog Butler
+1 Gang of Elk
+1 Garruk's Uprising
+1 Gemrazer
+1 Geyser Glider
+1 Giant Warthog
+1 Goblin Replica
+1 Golden Hind
+1 Goobbue Gardener
+1 Gruul Keyrune
+1 Gruul Nodorog
+1 Herd Gnarr
+1 Icecave Crasher
+1 Instill Energy
+1 Kalonian Behemoth
+1 Krosan Groundshaker
+1 Manor Gate
+1 Mech Hangar
+1 Mirrodin's Core
+1 Mortal Wound
+1 Mosswort Bridge
+1 Nature's Chosen
+1 Nightshade Dryad
+1 Nylea's Forerunner
+1 Oakheart Dryads
+1 Ohran Frostfang
+1 Oread of Mountain's Blaze
+1 Overgrowth
+1 Oxidda Scrapmelter
+1 Plated Crusher
+1 Poison Dart Frog
+1 Prophetic Ravings
+1 Revelation
+1 Ridge Rannet
+1 Rushwood Grove
+1 Sanctum Weaver
+1 Saruli Caretaker
+1 Secret Base
+1 Shaleskin Bruiser
+14 Snow-Covered Forest
+12 Snow-Covered Mountain
+1 Spearbreaker Behemoth
+1 Spinal Villain
+1 Study Hall
+1 Sudden Strength
+1 Sylvan Caryatid
+1 Tangle Hulk
+1 Tenement Crasher
+1 Territorial Baloth
+1 The Hunter Maze
+1 The Shire
+1 Troll-Horn Cameo
+1 Tusked Colossodon
+1 Utopia Tree
+1 Vernal Bloom
+1 Villainous Hideout
+1 Vivify
+1 Vulshok War Boar
+1 Wild Roads
+
+[commander]
+Jerrard of the Closed Fist

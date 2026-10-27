@@ -1,17 +1,16 @@
 # baylee curated constructed midrange seed=20261074
 # licence: AGPL-3.0-only
 [deck:constructed midrange R #20261074]
-4 Aladdin
-3 Ashnod's Altar
-2 Goblin Brigand
-2 Hall of the Bandit Lord
+1 Captivating Cave
+4 Choco-Comet
+4 Fire Dragon
+4 Fire Drake
+3 Goblin Bomb
+3 Gremlin Infestation
 20 Mountain
-2 Nettlecyst
-4 Planar Bridge
-2 Promising Vein
-4 Reflecting Mirror
-4 Underworld Breach
-4 Viashino Fangtail
-4 Voltaic Servant
-3 Wall of Opposition
-2 Warden of Geometries
+2 Mox Ruby
+4 Red Dragon
+4 Sawblade Scamp
+3 School of the Unseen
+4 She-Hulk, Jennifer Walters
+4 Torch Song

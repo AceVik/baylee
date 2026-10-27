@@ -1,0 +1,31 @@
+# baylee synergistic holdout coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WUBRG #90010015]
+2 Aerial Engineer
+2 Aether Hub
+2 Ashiok's Skulker
+2 Bear's Companion
+2 Blood-Cursed Knight
+2 Channel the Suns
+2 Darkwater Egg
+2 Drakewing Krasis
+10 Forest
+2 Frightful Delusion
+2 Giant Solifuge
+1 Island
+2 Kin-Tree Severance
+2 Kiora's Follower
+3 Molten Tributary
+1 Mountain
+2 Munitions Expert
+2 Nacatl Outlander
+2 Peculiar Lighthouse
+1 Plains
+2 Progenitor Mimic
+2 Reminisce
+2 Secret Base
+2 Swamp
+2 Thelon's Curse
+2 Thoughtbind
+1 Vesuvan Doppelganger
+1 Voldaren Estate

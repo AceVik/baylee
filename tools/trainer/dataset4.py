@@ -34,8 +34,9 @@ from torch.utils.data import Dataset
 from sampler4 import StatefulBatchSampler4
 
 import model4 as M
-from trajectory_store4 import TrajectoryStore4
+from trajectory_store4 import BST4_HDR, BST4_MAGIC, TrajectoryStore4
 from structure_data4 import StructureData
+import orjson
 
 SOURCE_KIND_MAP = {
     "Net": 0,
@@ -94,6 +95,11 @@ class TrajectoryDataset4(Dataset):
         # Map card_id -> row index in card_dsl.bin / card_dsl_back.bin
         cards = self.meta["cards"]
         self.card_to_row: dict[int, int] = {int(cid): i for i, cid in enumerate(cards)}
+        max_cid = max((k for k in self.card_to_row if k != M.UNKNOWN_CARD), default=0)
+        self.cid_to_row_arr = np.full(max_cid + 1, -1, dtype=np.int32)
+        for cid, row_idx in self.card_to_row.items():
+            if 0 <= cid <= max_cid and cid != M.UNKNOWN_CARD:
+                self.cid_to_row_arr[cid] = row_idx
         dsl_raw = np.fromfile(self.data_dir / "card_dsl.bin", dtype=np.float32)
         self.card_dsl_table = dsl_raw.reshape(len(cards), M.CARD_DSL_WIDTH)
 
@@ -157,8 +163,259 @@ class TrajectoryDataset4(Dataset):
             return self.token_dsl_table[tslot]
         return np.zeros(M.CARD_DSL_WIDTH, dtype=np.float32)
 
+    def _fill_entity_dsl(
+        self,
+        ent_dsl: np.ndarray,
+        cids: np.ndarray,
+        fids: np.ndarray,
+        tids: np.ndarray,
+    ) -> None:
+        n = len(cids)
+        if n == 0:
+            return
+        known = cids != M.UNKNOWN_CARD
+        if known.any():
+            known_cids = cids[known]
+            if (known_cids < 0).any() or (known_cids >= len(self.cid_to_row_arr)).any():
+                for cid in known_cids.tolist():
+                    _ = self.card_to_row[int(cid)]
+            rows = self.cid_to_row_arr[known_cids]
+            if (rows < 0).any():
+                for cid in known_cids.tolist():
+                    _ = self.card_to_row[int(cid)]
+            known_idx = np.flatnonzero(known)
+            back_mask = fids[known] == 1
+            if back_mask.any():
+                ent_dsl[known_idx[back_mask]] = self.card_dsl_back_table[rows[back_mask]]
+            front_mask = ~back_mask
+            if front_mask.any():
+                ent_dsl[known_idx[front_mask]] = self.card_dsl_table[rows[front_mask]]
+        if self.token_dsl_table is not None:
+            tok_mask = (~known) & (tids > 0) & (tids < len(self.token_dsl_table))
+            if tok_mask.any():
+                ent_dsl[tok_mask] = self.token_dsl_table[tids[tok_mask]]
+
+    def _fill_cand_dsl(
+        self,
+        cand_dsl: np.ndarray,
+        ent_dsl: np.ndarray,
+        n_ent: int,
+        ce: np.ndarray,
+        ccid: np.ndarray,
+        cface: np.ndarray,
+    ) -> None:
+        n = len(ce)
+        if n == 0:
+            return
+        named_face = cface != 255
+        from_ent = (~named_face) & (ce >= 0) & (ce < n_ent)
+        from_card = (~named_face) & (~from_ent) & (ccid != M.UNKNOWN_CARD)
+        if from_ent.any():
+            cand_dsl[from_ent] = ent_dsl[ce[from_ent]]
+        lookup_mask = (named_face & (ccid != M.UNKNOWN_CARD)) | from_card
+        if lookup_mask.any():
+            l_cids = ccid[lookup_mask]
+            if (l_cids < 0).any() or (l_cids >= len(self.cid_to_row_arr)).any():
+                for cid in l_cids.tolist():
+                    _ = self.card_to_row[int(cid)]
+            rows = self.cid_to_row_arr[l_cids]
+            if (rows < 0).any():
+                for cid in l_cids.tolist():
+                    _ = self.card_to_row[int(cid)]
+            l_idx = np.flatnonzero(lookup_mask)
+            back = named_face[lookup_mask] & (cface[lookup_mask] == 1)
+            if back.any():
+                cand_dsl[l_idx[back]] = self.card_dsl_back_table[rows[back]]
+            front = ~back
+            if front.any():
+                cand_dsl[l_idx[front]] = self.card_dsl_table[rows[front]]
+
+    def _encode_bst4(self, buf: bytes) -> dict[str, np.ndarray]:
+        (
+            _magic, _ver, _game_id, _seat, _step_cursor, _turn, flags, head,
+            _pending_kind, src_kind, _pad0, thinking_steps, raw_single_idx,
+            loss_weight, scalar_norm, outcome, aux0, aux1, aux2, aux3,
+            behavior_logprob, temp_val, n_ent_raw, ent_width, ent_rule_cols,
+            seat_width, global_width, n_edg_raw, n_cand_raw, cand_width,
+            cand_rule_cols, n_pair_raw, n_mm, n_fm,
+        ) = BST4_HDR.unpack_from(buf, 0)
+        offset = BST4_HDR.size
+
+        E_max = max(1, min(n_ent_raw, self.max_entities))
+        M_max = max(1, min(n_edg_raw, self.max_edges))
+        C_max = max(1, min(n_cand_raw, self.max_cands))
+        P_max = max(1, min(n_pair_raw, self.max_pairs))
+        if n_ent_raw > E_max or n_cand_raw > C_max:
+            raise ValueError("Semantic references would be truncated")
+
+        raw_ef = np.frombuffer(buf, dtype="<f4", count=n_ent_raw * ent_width, offset=offset).reshape(n_ent_raw, ent_width)
+        offset += n_ent_raw * ent_width * 4
+        raw_cids = np.frombuffer(buf, dtype="<u4", count=n_ent_raw, offset=offset)
+        offset += n_ent_raw * 4
+        raw_fids = np.frombuffer(buf, dtype="<u1", count=n_ent_raw, offset=offset)
+        offset += n_ent_raw
+        raw_tids = np.frombuffer(buf, dtype="<u2", count=n_ent_raw, offset=offset)
+        offset += n_ent_raw * 2
+        raw_erules = np.frombuffer(buf, dtype="<u4", count=n_ent_raw * ent_rule_cols * 2, offset=offset).reshape(n_ent_raw, ent_rule_cols, 2)
+        offset += n_ent_raw * ent_rule_cols * 8
+
+        seat_feat = np.frombuffer(buf, dtype="<f4", count=8 * seat_width, offset=offset).reshape(8, seat_width).copy()
+        offset += 8 * seat_width * 4
+        global_feat = np.frombuffer(buf, dtype="<f4", count=global_width, offset=offset).copy()
+        offset += global_width * 4
+
+        raw_edges = np.frombuffer(buf, dtype="<i4", count=n_edg_raw * 3, offset=offset).reshape(n_edg_raw, 3)
+        offset += n_edg_raw * 12
+
+        raw_cf = np.frombuffer(buf, dtype="<f4", count=n_cand_raw * cand_width, offset=offset).reshape(n_cand_raw, cand_width)
+        offset += n_cand_raw * cand_width * 4
+        raw_ce = np.frombuffer(buf, dtype="<i2", count=n_cand_raw, offset=offset)
+        offset += n_cand_raw * 2
+        raw_cs = np.frombuffer(buf, dtype="<i1", count=n_cand_raw, offset=offset)
+        offset += n_cand_raw
+        raw_ccid = np.frombuffer(buf, dtype="<u4", count=n_cand_raw, offset=offset)
+        offset += n_cand_raw * 4
+        raw_cface = np.frombuffer(buf, dtype="<u1", count=n_cand_raw, offset=offset)
+        offset += n_cand_raw
+        raw_crules = np.frombuffer(buf, dtype="<u4", count=n_cand_raw * cand_rule_cols * 2, offset=offset).reshape(n_cand_raw, cand_rule_cols, 2)
+        offset += n_cand_raw * cand_rule_cols * 8
+
+        raw_pairs = np.frombuffer(buf, dtype="<i2", count=n_pair_raw * 2, offset=offset).reshape(n_pair_raw, 2)
+        offset += n_pair_raw * 4
+        raw_mm = np.frombuffer(buf, dtype="<u1", count=n_mm, offset=offset)
+        offset += n_mm
+        raw_fm = np.frombuffer(buf, dtype="<u1", count=n_fm, offset=offset)
+
+        ent_feat = np.zeros((E_max, M.ENTITY_FEAT_WIDTH), dtype=np.float32)
+        ent_dsl = np.zeros((E_max, M.CARD_DSL_WIDTH), dtype=np.float32)
+        ent_mask = np.zeros((E_max,), dtype=bool)
+        entity_rules = np.zeros((E_max, ent_rule_cols, 2), dtype=np.int64)
+        n_ent = min(n_ent_raw, E_max)
+        if n_ent > 0:
+            ent_feat[:n_ent] = raw_ef[:n_ent]
+            self._fill_entity_dsl(ent_dsl[:n_ent], raw_cids[:n_ent], raw_fids[:n_ent], raw_tids[:n_ent])
+            entity_rules[:n_ent] = raw_erules[:n_ent]
+            ent_mask[:n_ent] = True
+
+        edge_index = np.zeros((M_max, 2), dtype=np.int64)
+        edge_type = np.zeros((M_max,), dtype=np.int64)
+        edge_mask = np.zeros((M_max,), dtype=bool)
+        if n_edg_raw > 0:
+            max_tok = M.RECURRENT_SLOTS + E_max
+            valid_e = (raw_edges[:, 0] >= 0) & (raw_edges[:, 0] < max_tok) & (raw_edges[:, 1] >= 0) & (raw_edges[:, 1] < max_tok)
+            kept = raw_edges[valid_e][:M_max]
+            n_edg = len(kept)
+            if n_edg > 0:
+                edge_index[:n_edg] = kept[:, :2]
+                edge_type[:n_edg] = kept[:, 2]
+                edge_mask[:n_edg] = True
+
+        cand_feat = np.zeros((C_max, M.CAND_FEAT_WIDTH), dtype=np.float32)
+        cand_dsl = np.zeros((C_max, M.CARD_DSL_WIDTH), dtype=np.float32)
+        cand_ent = np.full((C_max,), -1, dtype=np.int64)
+        cand_seat = np.full((C_max,), -1, dtype=np.int64)
+        cand_mask = np.zeros((C_max,), dtype=bool)
+        cand_rules = np.zeros((C_max, cand_rule_cols, 2), dtype=np.int64)
+        n_cand = min(n_cand_raw, C_max)
+        if n_cand > 0:
+            cand_feat[:n_cand] = raw_cf[:n_cand]
+            ce = raw_ce[:n_cand].astype(np.int64)
+            cand_ent[:n_cand] = np.where(ce < E_max, ce, -1)
+            cand_seat[:n_cand] = raw_cs[:n_cand]
+            self._fill_cand_dsl(cand_dsl[:n_cand], ent_dsl, n_ent, ce, raw_ccid[:n_cand], raw_cface[:n_cand])
+            cand_rules[:n_cand] = raw_crules[:n_cand]
+            cand_mask[:n_cand] = True
+        else:
+            cand_mask[0] = True
+
+        is_decision = bool(flags & 1)
+        is_terminal = bool(flags & 2)
+        has_lp = bool(flags & 4)
+        if is_decision and head == 0 and not 0 <= raw_single_idx < n_cand:
+            raise ValueError("Decision target is outside the represented candidate set")
+        single_idx = min(max(raw_single_idx, 0), max(n_cand - 1, 0))
+
+        cand_target_mask = np.zeros((C_max,), dtype=np.float32)
+        cand_free_mask = np.zeros((C_max,), dtype=np.float32)
+        if head == 1:
+            k = min(n_mm, n_cand)
+            if k > 0:
+                cand_target_mask[:k] = raw_mm[:k]
+                if n_fm >= k:
+                    cand_free_mask[:k] = raw_fm[:k]
+                else:
+                    cand_free_mask[:k] = 1.0
+
+        pair_index = np.zeros((P_max, 2), dtype=np.int64)
+        pair_mask = np.zeros((P_max,), dtype=bool)
+        pair_target_mask = np.zeros((P_max,), dtype=np.float32)
+        pair_free_mask = np.zeros((P_max,), dtype=np.float32)
+        n_pair = 0
+        if n_pair_raw > 0:
+            valid_p = (raw_pairs[:, 0] >= 0) & (raw_pairs[:, 0] < E_max) & (raw_pairs[:, 1] >= 0) & (raw_pairs[:, 1] < E_max)
+            orig_idx = np.flatnonzero(valid_p)[:P_max]
+            n_pair = len(orig_idx)
+            if n_pair > 0:
+                pair_index[:n_pair] = raw_pairs[orig_idx]
+                pair_mask[:n_pair] = True
+                if head == 2:
+                    in_mm = orig_idx < n_mm
+                    if in_mm.any():
+                        pair_target_mask[:n_pair][in_mm] = raw_mm[orig_idx[in_mm]]
+                    in_fm = orig_idx < n_fm
+                    pair_free_mask[:n_pair] = 1.0
+                    if in_fm.any():
+                        pair_free_mask[:n_pair][in_fm] = raw_fm[orig_idx[in_fm]]
+        if n_pair == 0:
+            pair_mask[0] = True
+
+        return {
+            "entity_feat": ent_feat,
+            "entity_dsl": ent_dsl,
+            "entity_rules": entity_rules,
+            "cand_rules": cand_rules,
+            "entity_mask": ent_mask,
+            "seat_feat": seat_feat,
+            "global_feat": global_feat,
+            "edge_index": edge_index,
+            "edge_type": edge_type,
+            "edge_mask": edge_mask,
+            "cand_feat": cand_feat,
+            "cand_dsl": cand_dsl,
+            "cand_entity_idx": cand_ent,
+            "cand_seat_idx": cand_seat,
+            "cand_mask": cand_mask,
+            "pair_index": pair_index,
+            "pair_mask": pair_mask,
+            "is_decision": np.array(is_decision, dtype=bool),
+            "loss_weight": np.array(loss_weight, dtype=np.float32),
+            "is_terminal": np.array(is_terminal, dtype=bool),
+            "head": np.array(head, dtype=np.int64),
+            "single_idx": np.array(single_idx, dtype=np.int64),
+            "cand_target_mask": cand_target_mask,
+            "cand_free_mask": cand_free_mask,
+            "pair_target_mask": pair_target_mask,
+            "pair_free_mask": pair_free_mask,
+            "scalar_target": np.array(scalar_norm, dtype=np.float32),
+            "outcome": np.array(outcome, dtype=np.float32),
+            "aux_target": np.array([aux0, aux1, aux2, aux3], dtype=np.float32),
+            "behavior_logprob": np.array(behavior_logprob, dtype=np.float32),
+            "has_logprob": np.array(has_lp, dtype=bool),
+            "source_kind": np.array(src_kind, dtype=np.int64),
+            "temperature": np.array(temp_val, dtype=np.float32),
+            "thinking_steps": np.array(thinking_steps, dtype=np.int64),
+        }
+
     def encode_single_step(self, step_or_row: dict[str, Any] | int) -> dict[str, np.ndarray]:
-        st = step_or_row if isinstance(step_or_row, dict) else self.store.read(int(step_or_row))
+        if not isinstance(step_or_row, dict):
+            buf = self.store.read_raw(int(step_or_row))
+            if buf[:4] == BST4_MAGIC:
+                return self._encode_bst4(buf)
+            st = orjson.loads(buf)
+        elif "_bst4" in step_or_row:
+            return self._encode_bst4(step_or_row["_bst4"])
+        else:
+            st = step_or_row
         state = st["state"]
         # Allocate actual lengths, then pad only this minibatch. In particular,
         # naming any card/subtype must not require a 65k-row padded tensor at
@@ -174,16 +431,23 @@ class TrajectoryDataset4(Dataset):
 
         raw_ef = state["entity_feat"]
         raw_cids = state["entity_card_ids"]
-        raw_fids = state.get("entity_face_ids", [0] * len(raw_cids))
-        raw_tids = state.get("entity_token_ids", [0] * len(raw_cids))
+        raw_fids = state.get("entity_face_ids")
+        raw_tids = state.get("entity_token_ids")
         n_ent = min(len(raw_ef), E_max)
         if n_ent > 0:
             ent_feat[:n_ent] = np.asarray(raw_ef[:n_ent], dtype=np.float32)
-            for i in range(n_ent):
-                cid = int(raw_cids[i])
-                fid = int(raw_fids[i]) if i < len(raw_fids) else 0
-                tslot = int(raw_tids[i]) if i < len(raw_tids) else 0
-                ent_dsl[i] = self.lookup_entity_dsl(cid, fid, tslot)
+            cids_arr = np.asarray(raw_cids[:n_ent], dtype=np.int64)
+            fids_arr = (np.asarray(raw_fids[:n_ent], dtype=np.uint8)
+                        if raw_fids is not None and len(raw_fids) >= n_ent
+                        else np.zeros(n_ent, dtype=np.uint8))
+            if raw_fids is not None and 0 < len(raw_fids) < n_ent:
+                fids_arr[:len(raw_fids)] = np.asarray(raw_fids, dtype=np.uint8)
+            tids_arr = (np.asarray(raw_tids[:n_ent], dtype=np.uint16)
+                        if raw_tids is not None and len(raw_tids) >= n_ent
+                        else np.zeros(n_ent, dtype=np.uint16))
+            if raw_tids is not None and 0 < len(raw_tids) < n_ent:
+                tids_arr[:len(raw_tids)] = np.asarray(raw_tids, dtype=np.uint16)
+            self._fill_entity_dsl(ent_dsl[:n_ent], cids_arr, fids_arr, tids_arr)
             ent_mask[:n_ent] = True
 
         seat_feat = np.asarray(state["seat_feat"], dtype=np.float32)
@@ -193,17 +457,16 @@ class TrajectoryDataset4(Dataset):
         edge_type = np.zeros((M_max,), dtype=np.int64)
         edge_mask = np.zeros((M_max,), dtype=bool)
         raw_edges = state["edges"]
-        n_edg = 0
-        max_tok = M.RECURRENT_SLOTS + E_max
-        for src, dst, rel in raw_edges:
-            if n_edg >= M_max:
-                break
-            if 0 <= src < max_tok and 0 <= dst < max_tok:
-                edge_index[n_edg, 0] = src
-                edge_index[n_edg, 1] = dst
-                edge_type[n_edg] = rel
-                edge_mask[n_edg] = True
-                n_edg += 1
+        if len(raw_edges) > 0:
+            max_tok = M.RECURRENT_SLOTS + E_max
+            edges_arr = np.asarray(raw_edges, dtype=np.int64)
+            valid_e = (edges_arr[:, 0] >= 0) & (edges_arr[:, 0] < max_tok) & (edges_arr[:, 1] >= 0) & (edges_arr[:, 1] < max_tok)
+            kept = edges_arr[valid_e][:M_max]
+            n_edg = len(kept)
+            if n_edg > 0:
+                edge_index[:n_edg] = kept[:, :2]
+                edge_type[:n_edg] = kept[:, 2]
+                edge_mask[:n_edg] = True
 
         cand_feat = np.zeros((C_max, M.CAND_FEAT_WIDTH), dtype=np.float32)
         cand_dsl = np.zeros((C_max, M.CARD_DSL_WIDTH), dtype=np.float32)
@@ -217,18 +480,18 @@ class TrajectoryDataset4(Dataset):
         n_cand = min(len(raw_cf), C_max)
         if n_cand > 0:
             cand_feat[:n_cand] = np.asarray(raw_cf[:n_cand], dtype=np.float32)
-            for i in range(n_cand):
-                ce = int(raw_ce[i])
-                cand_ent[i] = ce if ce < E_max else -1
-                cand_seat[i] = int(raw_cs[i])
-                cid = int(st.get("cand_card_id", [M.UNKNOWN_CARD] * n_cand)[i])
-                face = int(st.get("cand_face_id", [255] * n_cand)[i])
-                if face != 255:
-                    cand_dsl[i] = self.lookup_entity_dsl(cid, face, 0)
-                elif 0 <= ce < n_ent:
-                    cand_dsl[i] = ent_dsl[ce]
-                elif cid != M.UNKNOWN_CARD:
-                    cand_dsl[i] = self.lookup_entity_dsl(cid, 0, 0)
+            ce_arr = np.asarray(raw_ce[:n_cand], dtype=np.int64)
+            cand_ent[:n_cand] = np.where(ce_arr < E_max, ce_arr, -1)
+            cand_seat[:n_cand] = np.asarray(raw_cs[:n_cand], dtype=np.int64)
+            raw_ccid = st.get("cand_card_id")
+            ccid_arr = (np.asarray(raw_ccid[:n_cand], dtype=np.int64)
+                        if raw_ccid is not None and len(raw_ccid) >= n_cand
+                        else np.full(n_cand, M.UNKNOWN_CARD, dtype=np.int64))
+            raw_cface = st.get("cand_face_id")
+            cface_arr = (np.asarray(raw_cface[:n_cand], dtype=np.uint8)
+                         if raw_cface is not None and len(raw_cface) >= n_cand
+                         else np.full(n_cand, 255, dtype=np.uint8))
+            self._fill_cand_dsl(cand_dsl[:n_cand], ent_dsl, n_ent, ce_arr, ccid_arr, cface_arr)
             cand_mask[:n_cand] = True
         else:
             cand_mask[0] = True

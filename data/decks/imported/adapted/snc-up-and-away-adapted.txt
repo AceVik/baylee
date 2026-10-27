@@ -4,11 +4,11 @@
 4 Absorb
 3 Backup Agent
 4 Daring Leap
+1 Energy Arc
 1 Extraction Specialist
 11 Island
 2 Kill Shot
 2 Nebelgast Beguiler
-1 Offering to Asha
 1 Ojutai's Command
 12 Plains
 3 Serpentine Ambush

@@ -154,11 +154,45 @@ fn is_draw_skip(source: Option<AbilityRef>) -> bool {
     })
 }
 
+/// Mandatory cards `effects` draw for this seat (`You` or `EachPlayer`).
+pub(crate) fn self_draws(view: &PlayerView, effects: &[Effect], x: u32) -> u32 {
+    let casts = view
+        .seat(view.seat)
+        .map_or(0, |s| s.commanders.iter().map(|c| c.casts).sum::<u32>());
+    let count = |n: baylee_cards_dsl::Amount| -> u32 {
+        let base = u32::try_from(crate::tactics::amount(n, x)).unwrap_or(0);
+        if matches!(n, baylee_cards_dsl::Amount::XPlusCommanderCasts) {
+            base.saturating_add(casts)
+        } else {
+            base
+        }
+    };
+    effects.iter().fold(0u32, |sum, effect| {
+        let added = match effect {
+            Effect::DrawCards { amount }
+            | Effect::DrawCardsFor {
+                who: baylee_cards_dsl::PlayerRel::You | baylee_cards_dsl::PlayerRel::EachPlayer,
+                amount,
+            } => count(*amount),
+            Effect::Sequence(inner) => self_draws(view, inner, x),
+            _ => 0,
+        };
+        sum.saturating_add(added)
+    })
+}
+
 /// Island Sanctuary: a card is worth more than the protection, unless the
-/// creatures the restriction would keep home (no flying, no islandwalk)
-/// threaten this seat's life: their power is half of it or more.
+/// seat's library cannot spare the draw or the creatures the restriction
+/// would keep home (no flying, no islandwalk) threaten this seat's life:
+/// their power is half of it or more.
 fn skips_draw(view: &PlayerView, hostile: impl Fn(PlayerId) -> bool) -> bool {
-    let life = i64::from(view.seat(view.seat).map_or(0, |s| s.life));
+    let Some(seat) = view.seat(view.seat) else {
+        return false;
+    };
+    if seat.library_count <= 1 {
+        return true;
+    }
+    let life = i64::from(seat.life);
     let ground: i64 = view
         .battlefield
         .iter()
@@ -176,8 +210,9 @@ fn skips_draw(view: &PlayerView, hostile: impl Fn(PlayerId) -> bool) -> bool {
 impl HeuristicAgent {
     /// A "you may" (`YesNoPrompt::MayDo`): the known prompts by what they
     /// are, the rest by what the yes would do on this board — declined when
-    /// it costs this seat, taken when it is free or helps, and taken when
-    /// the measure cannot read it (a card this seat chose to play).
+    /// it costs this seat or decks its library, taken when it is free or
+    /// helps, and taken when the measure cannot read it (a card this seat
+    /// chose to play).
     pub(crate) fn may_do(
         &self,
         view: &PlayerView,
@@ -193,8 +228,17 @@ impl HeuristicAgent {
             // A legal decline is safer than valuing another controller's
             // instructions as though the pending choosing player owned them.
             Some(Err(())) => return false,
+            None if !context.effects.is_empty() => context.effects,
             None => return true,
         };
+        let draws = self_draws(view, then, context.x);
+        if draws > 0
+            && view
+                .seat(view.seat)
+                .is_some_and(|s| s.library_count <= draws)
+        {
+            return false;
+        }
         let Some(id) = context.source else {
             return true;
         };

@@ -12,10 +12,10 @@
 4 Make Your Move
 4 Midnight Haunting
 2 Moorland Inquisitor
+3 Pacifism
 25 Plains
-2 Radiant's Judgment
 1 Serra Angel
 1 Spiritual Guardian
-3 Split Up
 1 Survive the Night
 2 Sworn Companions
+2 Warrior's Honor

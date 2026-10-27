@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266281]
+1 Abundant Countryside
+1 Ana Disciple
+1 Archaeological Dig
+1 Armorer Guildmage
+1 Bane Alley Blackguard
+1 Baxter Building
+1 Beetleform Mage
+1 Bonds of Quicksilver
+1 Boros Guildmage
+1 Charmed Sleep
+1 Chief of the Edge
+1 Chief of the Scale
+1 Containment Protocol
+1 Conversion
+1 Curse of Chains
+1 Daily Bugle Building
+1 Dauntless River Marshal
+1 Deft Duelist
+1 Dega Disciple
+1 Disciple of the Old Ways
+1 Dragonsoul Knight
+1 Elemental Augury
+1 Elite Arrester
+1 Enchanted Evening
+1 Esper Battlemage
+1 Fallen Askari
+1 Fireborn Knight
+1 Firehoof Cavalry
+1 Foxfire Oak
+1 Fulminator Mage
+1 Fusion Elemental
+1 Hand of Silumgar
+1 Heap Gate
+1 High Priest of Penance
+1 Keldon Mantle
+1 Kjeldoran Pride
+1 Krovikan Elementalist
+1 Krovikan Scoundrel
+1 Lazotep Quarry
+1 Mantis Rider
+1 Marshal of Zhalfir
+1 Martyrs' Tomb
+1 Minister of Impediments
+1 Morgue Toad
+10 Mountain
+1 Naya Battlemage
+1 Onyx Mage
+1 Paragon of the Amesha
+1 Pardic Collaborator
+1 Path of Mettle
+12 Plains
+1 Profane Procession
+1 Rakdos Ringleader
+1 Rakdos Shred-Freak
+1 Rakdos Trumpeter
+1 Relentless Hunter
+1 Righteous War
+1 Rumble Arena
+1 Secluded Courtyard
+1 Shaper Guildmage
+1 Shimmering Grotto
+1 Spiritual Asylum
+1 Springjack Pasture
+1 Stormcaller of Keranos
+1 Suleiman's Legacy
+1 Sultai Ascendancy
+2 Swamp
+1 Thran Quarry
+1 Threads of Disloyalty
+1 Three Tree City
+1 Trench Wurm
+1 Unknown Shores
+1 Utter End
+1 Valeron Outlander
+1 Veteran Cathar
+1 Voldaren Estate
+1 Votary of the Conclave
+1 Yotian Tactician
+
+[commander]
+General Tazri

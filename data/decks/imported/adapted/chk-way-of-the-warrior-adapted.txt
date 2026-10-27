@@ -5,15 +5,15 @@
 4 Bargain
 3 Blinding Light
 1 Bring to Trial
+1 Exile
 3 Expel
 4 Flawless Maneuver
 2 Guiding Bolt
 2 Indomitable Will
-4 Legion's Judgment
 2 No-Dachi
-1 Piety
 24 Plains
 1 Sevinne's Reclamation
 2 Split Up
 1 Sungold Barrage
 2 Vigilance
+4 Yare

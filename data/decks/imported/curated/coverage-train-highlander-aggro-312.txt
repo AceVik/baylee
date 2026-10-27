@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro WBG #20266313]
+1 Aclazotz, Deepest Betrayal
+1 Acolyte of Xathrid
+1 Ancient Ziggurat
+1 Baldur's Gate
+1 Blight Keeper
+1 Blightcaster
+1 Bloodrite Invoker
+1 Boomerang, Blade Flinger
+1 Callous Inspector
+1 Capital City
+1 Castle Doom
+1 Cavern of Souls
+1 Commissar Severina Raine
+1 Contemplation
+1 Court Cleric
+1 Crucible of the Spirit Dragon
+1 Crystal Grotto
+1 Dawnhart Geist
+1 Deadly Riposte
+1 Death Cultist
+1 Death Watch
+1 Deathrite Shaman
+1 Elas il-Kor, Sadistic Pilgrim
+1 Elite Archers
+1 Elves of Deep Shadow
+3 Forest
+1 Foul-Tongue Shriek
+1 Gallifrey Council Chamber
+1 Grasping Thrull
+1 Great Hall of the Biblioplex
+1 Haywire Mite
+1 Heap Gate
+1 Holdout Settlement
+1 Implement of Improvement
+1 Joust Through
+1 Kambal, Consul of Allocation
+1 Kheru Bloodsucker
+1 Kor Firewalker
+1 Lampad of Death's Vigil
+1 Last Kiss
+1 Leaf Arrow
+1 Lotus-Eye Mystics
+1 Lys Alana Bowmaster
+1 Merciless Enforcers
+1 Midnight Charm
+1 Night Market Lookout
+1 Orzhov Guildmage
+1 Outflank
+1 Painful Lesson
+1 Painsmith
+1 Pharika's Cure
+1 Pitiless Gorgon
+8 Plains
+1 Plaza of Heroes
+1 Sanctum Seeker
+1 Sanguine Syphoner
+1 Satyr Enchanter
+1 Shimmering Grotto
+1 Simulacrum
+1 Slash of Talons
+1 Sleeper Agent
+1 Slimefoot, the Stowaway
+1 Sling-Gang Lieutenant
+1 Sliver Hive
+1 Sneering Shadewriter
+1 Solarium Sentry
+1 Sovereign's Bite
+1 Stonefare Crocodile
+13 Swamp
+1 Sythis, Harvest's Hand
+1 Thorntooth Witch
+1 Vampire Neonate
+1 Vampire's Kiss
+1 Vermin Gorger
+1 Vicious Conquistador
+1 Walking Ballista
+1 Winter's Intervention
+1 Yawgmoth's Edict
+1 Zuran Orb

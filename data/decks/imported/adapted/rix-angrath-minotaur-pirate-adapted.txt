@@ -2,19 +2,19 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Angrath, Minotaur Pirate (Adapted)]
 3 Angrath's Ambusher
-4 Auger Spree
+3 Auger Spree
 4 Bedevil
 4 Cinder Barrens
+4 Delirium
 2 Dire Fleet Captain
 1 Dire Fleet Neckbreaker
-4 Dreadbore
 2 Gilded Sentinel
 2 Goblin Trailblazer
 1 Grasping Scoundrel
 1 Impale
 2 Lightning Strike
 11 Mountain
+4 Spontaneous Combustion
 3 Sure Strike
 4 Swab Goblin
 9 Swamp
-3 Terminate

@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange B #20266150]
+1 Accursed Horde
+1 Arisen Gorgon
+1 Ark of Blight
+1 Ashnod's Transmogrant
+1 Bleed Dry
+1 Bog Raiders
+1 Brink of Madness
+1 Bronze Horse
+1 Cabal Pit
+1 Cadaverous Knight
+1 Carnophage
+1 Carrion Howler
+1 Carrion Screecher
+1 Cursed Totem
+1 Defense Grid
+1 Desert of the Glorified
+1 Disruptor Pistol
+1 Dreg Reaver
+1 Dross Crocodile
+1 Dross Prowler
+1 Flatten
+1 Frankenstein's Monster
+1 Ghosts of the Damned
+1 Gluttonous Zombie
+1 Gutter Skulk
+1 Havengul Laboratory
+1 Headless Horseman
+1 Hornet Harasser
+1 Hunted Ghoul
+1 Hyalopterous Lemure
+1 Legions of Lim-Dûl
+1 Lim-Dûl's Cohort
+1 Marsh Gas
+1 Mass of Ghouls
+1 Melancholy
+1 Moonglove Extract
+1 Mycosynth Lattice
+1 Nausea
+1 Noxious Field
+1 Null Rod
+1 Ostracize
+1 Pacification Array
+1 Phyrexian Boon
+1 Phyrexian Tower
+1 Rabid Rats
+1 Rakalite
+1 Rocket Launcher
+1 Rotting Fensnake
+1 Rotting Legion
+1 Rotting Regisaur
+1 Scorpion's Sting
+1 Severed Legion
+1 Smokespew Invoker
+1 Sphere of Resistance
+1 Spymaster's Vault
+34 Swamp
+1 Tar Snare
+1 Throne of the God-Pharaoh
+1 Two-Headed Zombie
+1 Unhallowed Phalanx
+1 Urborg
+1 Viscid Lemures
+1 Wandering Tombshell
+1 Whipstitched Zombie
+1 Zombie Master
+1 Zombie Trailblazer
+
+[commander]
+Yargle, Glutton of Urborg

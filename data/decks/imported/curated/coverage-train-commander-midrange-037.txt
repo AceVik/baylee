@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BG #20266038]
+1 Abzan Kin-Guard
+1 Accelerated Evolution
+1 Aspect of Lamprey
+1 Bayou
+1 Bloodcurdling Scream
+1 Charging Bandits
+1 Crux of Fate
+1 Dauthi Mercenary
+1 Dauthi Warlord
+1 Deathcap Glade
+1 Dungrove Elder
+1 Ebony Treefolk
+1 Elvish Berserker
+1 Elvish Scout
+1 Embraal Bruiser
+1 Erstwhile Trooper
+1 Feral Ferocity
+1 Feral Roar
+1 Festering Gulch
+1 Fleshgrafter
+1 Flora Colossus
+1 Forced March
+10 Forest
+1 Frantic Strength
+1 Frilled Sandwalla
+1 Gaea's Avenger
+1 Gaea's Embrace
+1 Glyph of Doom
+1 Gravblade Heavy
+1 Greenhilt Trainee
+1 Haunted Mire
+1 Hissing Quagmire
+1 Hunger of the Nim
+1 Hungry Spriggan
+1 Kaervek's Hex
+1 Kithkin Daggerdare
+1 Larger Than Life
+1 Lounge
+1 Mirkwood
+1 Mirkwood Channeler
+1 Mirkwood Pathmaker
+1 Monstrous Growth
+1 Nuclear Fallout
+1 Overprotect
+1 Phytoburst
+1 Pine Barrens
+1 Plated Rootwalla
+1 Restless Cottage
+1 Sarkhan's Resolve
+1 Savage Silhouette
+1 Scarwood Bandits
+1 Silken Strength
+1 Simian Brawler
+1 Soul Kiss
+1 Stromgald Cabal
+1 Stromgald Crusader
+1 Subterranean Cavern
+15 Swamp
+1 Tall as a Beanstalk
+1 Temur Runemark
+1 Their Name Is Death
+1 Timber Protector
+1 Titan's Grave
+1 Torture
+1 Treefolk Seedlings
+1 Turbulent Fen
+1 Tyvar's Stand
+1 Underground Mortuary
+1 Undergrowth Stadium
+1 Vernal Fen
+1 Vile Deacon
+1 Virtue's Ruin
+1 Wei Ambush Force
+1 Wielding the Green Dragon
+1 Wild Nacatl
+1 Wormwood Treefolk
+
+[commander]
+Vhati il-Dal

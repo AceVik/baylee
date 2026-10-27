@@ -4,16 +4,16 @@
 4 Auger Spree
 3 Barbarian Outcast
 4 Bedevil
-1 Burnt Offering
+4 Delirium
 1 Demolish
 4 Dreadbore
 1 Enslaved Dwarf
-4 Get the Point
+3 Kaervek's Purge
 1 Malevolent Awakening
 9 Mountain
 2 Pardic Collaborator
-4 Skull Rend
+4 Spontaneous Combustion
 12 Swamp
 2 Tainted Peak
-4 Terminate
+2 Terminate
 4 Wrecking Ball

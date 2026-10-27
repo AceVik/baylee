@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WBR #20266010]
+1 Ashen Firebeast
+1 Ashiok's Reaper
+1 Battlefield Forge
+1 Bereavement
+1 Betrothed of Fire
+1 Bishop of Rebirth
+1 Bogardan Phoenix
+1 Caribou Range
+1 Celestial Force
+1 Charming Prince
+1 Compassionate Healer
+1 Corrupted Harvester
+1 Crowd Favorites
+1 Daring Escape
+1 Death's Duet
+1 Demonic Tutor
+1 Doomed Necromancer
+1 Dregs of Sorrow
+1 Elesh Norn, Grand Cenobite
+1 Elesh Norn, Mother of Machines
+1 False Defeat
+1 Fanatical Devotion
+1 Farrelite Priest
+1 Fisk Tower
+1 Furious Bellow
+1 Gamble
+1 Geothermal Bog
+1 Gibbering Barricade
+1 Gnathosaur
+1 Goblin Assault
+1 Goldmire Bridge
+1 Great Hall of Starnheim
+1 Hall
+1 Hand of Justice
+1 Harnessed Snubhorn
+1 Horror of Horrors
+1 Imposing Vantasaur
+1 Initiates of the Ebon Hand
+1 Kiora of Fire and Ashes
+1 Lay Waste
+1 Living Lightning
+1 Loran's Escape
+1 Lose Hope
+1 Magma Vein
+12 Mountain
+1 Neglected Manor
+1 Obzedat's Aid
+1 Ojer Axonil, Deepest Might
+1 Omen of the Forge
+1 Order of Whiteclay
+1 Oros, the Avenger
+1 Past in Flames
+6 Plains
+1 Plateau
+1 Refurbish
+1 Revered Unicorn
+1 Rise Again
+1 Rugged Prairie
+1 Rustvale Bridge
+1 Scourgemark
+1 Scouring Sands
+1 Sheltering Light
+1 Shivan Phoenix
+1 Spectator Seating
+1 Splatter Goblin
+1 Sunbaked Canyon
+1 Sunbillow Verge
+1 Sunscorched Divide
+1 Sunseed Nurturer
+8 Swamp
+1 Titan's Strength
+1 Tramway Station
+1 Tsabo Tavoc
+1 Umbral Expanse
+1 Venomous Hierophant
+1 Visions
+
+[commander]
+Piru, the Volatile

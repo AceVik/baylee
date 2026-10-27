@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WB #20266119]
+1 Adagia, Windswept Bastion
+1 Angel of Flight Alabaster
+1 Angel of Light
+1 Angelic Curator
+1 Angelic Overseer
+1 Angelic Protector
+1 Archon of Justice
+1 Assault Intercessor
+1 Aven Mindcensor
+1 Aven Sentry
+1 Aven Skirmisher
+1 Beacon Hawk
+1 Belbe's Percher
+1 Bloodied Ghost
+1 Catacomb Dragon
+1 Cave of the Frost Dragon
+1 Companion of the Trials
+1 Courier Hawk
+1 Dakmor Salvage
+1 Duskrider Falcon
+1 Eagle of the Watch
+1 Eiganjo Castle
+1 Eiganjo, Seat of the Empire
+1 Erase
+1 Eye Collector
+1 Fallen Angel
+1 Freewind Falcon
+1 Ghirapur Osprey
+1 Hall of Heliod's Generosity
+1 Herald of Serra
+1 Hive of the Eye Tyrant
+1 Kabuto Moth
+1 Kor Haven
+1 Lantern Kami
+1 Malach of the Dawn
+1 Mesa Falcon
+1 Minas Tirith
+1 Mischievous Poltergeist
+1 Moaning Spirit
+1 Mothrider Patrol
+1 Niblis of the Urn
+1 Pearl Dragon
+1 Peat Bog
+1 Phyrexian Battleflies
+1 Piranha Marsh
+1 Pit Raptor
+15 Plains
+1 Pteron Ghost
+1 Realm of Koh
+1 Roc Charger
+1 Royal Falcon
+1 Segovian Angel
+1 Serra Advocate
+1 Serra's Sanctum
+1 Shefet Dunes
+1 Shinewend
+1 Shrike Force
+1 Skeletal Kathari
+1 Skyshroud Falcon
+1 Soulscour
+1 Stonerise Spirit
+1 Sustaining Spirit
+1 Suture Spirit
+10 Swamp
+1 Territorial Roc
+1 The Fair Basilica
+1 Thunder Spirit
+1 Tormented Angel
+1 Triassic Egg
+1 Venerable Lammasu
+1 Voice of Duty
+1 Voice of Grace
+1 Voice of Law
+1 Voice of Truth
+1 Voiceless Spirit
+1 Wild Aesthir
+
+[commander]
+Selenia, Dark Angel

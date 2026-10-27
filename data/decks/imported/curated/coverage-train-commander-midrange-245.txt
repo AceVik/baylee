@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WU #20266246]
+1 Akroma, Angel of Wrath
+1 Altar's Light
+1 Baldur's Gate
+1 Baxter Building
+1 Blessed Light
+1 Bucolic Ranch
+1 Calciform Pools
+1 Cleansing Ray
+1 Cloud Spirit
+1 Cloudcrest Lake
+1 Collar the Culprit
+1 Commander's Insight
+1 Corrupted Crossroads
+1 Divine Verdict
+1 Drogskol Captain
+1 Ephemeron
+1 Excoriate
+1 Fragmentize
+1 Gallows Warden
+1 Geist of the Archives
+1 Geist of the Moors
+1 Ghost Ship
+1 Ghostly Sentinel
+1 Godhead of Awe
+1 Harbor Guardian
+1 Hengegate Pathway
+1 Hidden Grotto
+1 Immolating Glare
+10 Island
+1 Isolate
+1 Kabuto Moth
+1 Kami of Ancient Law
+1 Keening Apparition
+1 Land Cap
+1 Moment of Valor
+1 Moorland Haunt
+1 Neck Snap
+1 Niblis of the Breath
+1 Niblis of the Urn
+1 Nine-Tail White Fox
+1 Peace and Quiet
+1 Pillar of Light
+15 Plains
+1 Puncturing Light
+1 Quiet Purity
+1 Rebuild
+1 Repel Calamity
+1 Ronom Unicorn
+1 Searing Light
+1 Silverchase Fox
+1 Smite
+1 Soulbound Guardians
+1 Spirit Water Revival
+1 Spirit of the Spires
+1 Stonerise Spirit
+1 Stormcloud Spirit
+1 Sudden Strike
+1 Surveillance Room
+1 Swift Response
+1 Take Vengeance
+1 Teferi, Time Raveler
+1 Terashi's Verdict
+1 The Mycosynth Gardens
+1 Three Tree City
+1 Thunder Spirit
+1 Troublesome Spirit
+1 Underdome
+1 Urgent Exorcism
+1 Vanquish
+1 Vassal Soul
+1 Vengeance
+1 Voiceless Spirit
+1 Voldaren Estate
+1 Wandering Ones
+1 Wayward Soul
+1 Wind Spirit
+
+[commander]
+Tobias Andrion

@@ -4,22 +4,22 @@
 1 Brotherhood's End
 1 Crucible of Fire
 4 Darigaaz's Charm
-1 Disharmony
 3 Dragon Fodder
 1 Dragon Roost
 1 Dragon's Claw
-2 Feral Ferocity
 11 Forest
 4 Furnace Whelp
 2 Gravedigger
+3 Iroh's Demonstration
 6 Mountain
 2 Plague Beetle
+2 Plummet
 1 Pointed Discussion
 4 Rampant Growth
+1 Reckless Spite
 1 Shivan Dragon
 5 Swamp
 2 Terramorphic Expanse
 2 Terror
 2 Typhoon
 1 Wurm's Tooth
-3 Yawgmoth's Will

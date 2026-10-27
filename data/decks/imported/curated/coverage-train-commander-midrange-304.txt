@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WR #20266305]
+1 Abundant Countryside
+1 Aether Hub
+1 Amrou Seekers
+1 Assembly-Worker
+1 Barl's Cage
+1 Battle Hurda
+1 Baxter Building
+1 Bloodrock Cyclops
+1 Bonebreaker Giant
+1 Brawler's Plate
+1 Cavern Crawler
+1 Champion's Helm
+1 Chariot of Victory
+1 Chimeric Staff
+1 Clockwork Steed
+1 Conqueror's Galleon
+1 Conservator
+1 Crystal Ball
+1 Dovin's Automaton
+1 Ensouled Scimitar
+1 Erratic Portal
+1 Ethereal Champion
+1 Flowstone Giant
+1 Flowstone Hellion
+1 Flowstone Wall
+1 Forbidden Orchard
+1 Furnace Strider
+1 Golgothian Sylex
+1 Gray Ogre
+1 Great Hall of the Biblioplex
+1 Great Hall of the Citadel
+1 Great-Horn Krushok
+1 Highland Giant
+1 Highspire Mantis
+1 Hillcomber Giant
+1 Hollowhead Sliver
+1 Horn of Deafening
+1 Jade Monolith
+1 Juggernaut
+1 Kavu Recluse
+1 Kormus Bell
+1 Lithophage
+1 Living Armor
+1 Lowland Giant
+1 Marble Titan
+1 Mech Hangar
+19 Mountain
+1 North Star
+1 Nova Pentacle
+1 Nykthos, Shrine to Nyx
+1 Obsidian Giant
+1 Ogre Berserker
+1 One-Eyed Scarecrow
+1 Pentagram of the Ages
+6 Plains
+1 Power Armor
+1 Puppet Strings
+1 Rusted Slasher
+1 Sacred Foundry
+1 Secret Base
+1 Skyraker Giant
+1 Slimy Kavu
+1 Staff of Zegon
+1 Strider Harness
+1 Study Hall
+1 Talon Gates of Madara
+1 Tawnos's Wand
+1 Tendo Ice Bridge
+1 Thran Weaponry
+1 Throne of Makindi
+1 Umbilicus
+1 Wall of Granite
+1 Whetstone
+1 White Lotus Hideout
+1 Windseeker Centaur
+1 Ydwen Efreet
+
+[commander]
+Dwalin, Weaponmaster

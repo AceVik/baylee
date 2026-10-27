@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266219]
+1 Agonizing Syphon
+1 Ally Encampment
+1 Ancient Ziggurat
+1 Angelic Edict
+1 Baldur's Gate
+1 Baxter Building
+1 Celestial Force
+1 Celestial Purge
+1 Chaplain's Blessing
+1 Consuming Corruption
+1 Contaminated Landscape
+1 Crystal Rod
+1 Cursebreak
+1 Dark Maze
+1 Dark Nourishment
+1 Dark Offering
+1 Despark
+1 Divine Offering
+1 Dromar's Cavern
+1 Eclipsed Realms
+1 Environmental Sciences
+1 Eriette's Lullaby
+1 Excise
+1 Exorcise
+1 Flight-Deck Coordinator
+1 Gallifrey Council Chamber
+1 Gemstone Mine
+1 Gibbering Barricade
+1 Grave Robbers
+1 Gravkill
+1 Heap Gate
+1 Heliod's Intervention
+1 Ill-Gotten Inheritance
+1 Invoke the Divine
+1 Ivory Cup
+1 Last Breath
+1 Last Kiss
+1 Lawbringer
+1 Lich's Caress
+1 Lightbringer
+1 Locke Cole
+1 Lotus Vale
+1 Mana Confluence
+1 Maw of the Mire
+1 Mech Hangar
+1 Merchant Ship
+1 Moonlit Wake
+1 Northern Paladin
+1 Noxious Grasp
+1 Orim's Prayer
+15 Plains
+1 Poison Arrow
+1 Prismatic Ending
+1 Profane Prayers
+1 Radiant Strike
+1 Rashida Scalebane
+1 Relic Bind
+1 Revoke Existence
+1 Ritual of Rejuvenation
+1 Senate Guildmage
+1 Sephiroth's Intervention
+1 Serene Offering
+1 Shimmering Grotto
+1 Silverstrike
+1 Soothing Balm
+1 Soul Shred
+12 Swamp
+1 Take Heart
+1 Talon Gates of Madara
+1 Triumphant Surge
+1 Turtle Lair
+1 Undead Slayer
+1 Vona, Butcher of Magan
+1 Winter's Intervention
+
+[commander]
+Halfdane

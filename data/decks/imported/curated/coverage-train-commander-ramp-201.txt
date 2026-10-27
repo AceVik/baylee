@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBR #20266202]
+1 Baldur's Gate
+1 Black Waltz No. 3
+1 Blaze
+1 Boar-q-pine
+1 Boltwave
+1 Breath of Fire
+1 Capital City
+1 Cascading Cataracts
+1 Chaos Charm
+1 Choking Sands
+1 Conduit Pylons
+1 Elder Spawn
+1 Explosive Impact
+1 Explosive Shot
+1 Fanged Flames
+1 Fiery Finish
+1 Fire Ambush
+1 Flame-Blessed Bolt
+1 Gallifrey Council Chamber
+1 Great Hall of the Biblioplex
+1 Haven of the Spirit Dragon
+1 Heap Gate
+1 Holdout Settlement
+5 Island
+1 Jeskai Windscout
+1 Kazarov, Sengir Pureblood
+1 Kazuul's Fury
+1 Kindled Heroism
+1 Kookus
+1 Kulrath Mystic
+1 Lazotep Quarry
+1 Lightning Reaver
+1 Lim-Dûl's Paladin
+1 Lord of Tresserhorn
+1 Magmatic Force
+1 Mana Confluence
+1 Mech Hangar
+1 Mind Bomb
+1 Minion of Tevesh Szat
+1 Mob Justice
+1 Moggcatcher
+14 Mountain
+1 Nightfire Giant
+1 Nightscape Master
+1 Obliterating Bolt
+1 Ozai's Cruelty
+1 Panicked Altisaur
+1 Pestilence Demon
+1 Price of Progress
+1 Primordial Ooze
+1 Ragefire
+1 Reckless Air Strike
+1 Reveka, Wizard Savant
+1 Roast
+1 Rockslide Ambush
+1 Rumble Arena
+1 Scorching Shot
+1 Scorchmark
+1 Sear
+1 Secluded Courtyard
+1 Sip of Hemlock
+1 Sol'kanar the Swamp King
+1 Stormchaser Mage
+1 Strafe
+7 Swamp
+1 Tarfire
+1 Taurean Mauler
+1 Tempest Angler
+1 Throne of Makindi
+1 Tibor and Lumia
+1 Tor Wauki
+1 Turtle Lair
+1 Umara Mystic
+1 Void Helix
+1 Volcanic Hammer
+1 Withering Torment
+
+[commander]
+Nicol Bolas

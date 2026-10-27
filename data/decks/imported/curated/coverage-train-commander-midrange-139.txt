@@ -1,0 +1,86 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20266140]
+1 Abundant Countryside
+1 Aether Hub
+1 Agility
+1 Amonkhet Raceway
+1 Baxter Building
+1 Bloodcrusher of Khorne
+1 Bloodfire Dwarf
+1 Bravado
+1 Brotherhood Headquarters
+1 Brute Force
+1 Canyon Drake
+1 Chaotic Goo
+1 Corrupted Crossroads
+1 Crevasse
+1 Crimson Roc
+1 Crown of Flames
+1 Deranged Whelp
+1 Desert Drake
+1 Desert Sandstorm
+1 Destructive Urge
+1 Detection Tower
+1 Devastation
+1 Eldrazi Linebreaker
+1 Emblem of the Warmind
+1 Erdwal Ripper
+1 Feral Ridgewolf
+1 Fighting Chance
+1 Fire Drake
+1 Fire-Rim Form
+1 Firestorm Phoenix
+1 Flaming Sword
+1 Flowstone Wyvern
+1 Furious Resistance
+1 Gallifrey Council Chamber
+1 Goblin Caves
+1 Goblin Swine-Rider
+1 Goblin Wizardry
+1 Granite Gargoyle
+1 Gravity Sphere
+1 Horde of Boggarts
+1 Horizon of Progress
+1 Hurly-Burly
+1 Komodo Rhino
+1 Lunar Frenzy
+1 Mage-Ring Network
+1 Magmaquake
+1 Maniacal Rage
+1 Mek'leth Berserker
+1 Mirrex
+1 Monster Mashup
+20 Mountain
+1 Mudslide
+1 Nalathni Dragon
+1 Opal Palace
+1 Orgg
+1 Rageblood Shaman
+1 Resistance Skywarden
+1 Ripscale Predator
+1 Sabertooth Wyvern
+1 Sanctum of Eternity
+1 Sawtooth Ogre
+1 Seafarer's Quay
+1 Seismic Shudder
+1 Siege Modification
+1 Sigiled Skink
+1 Skyship Stalker
+1 Spitting Drake
+1 Sun-Collared Raptor
+1 Tendo Ice Bridge
+1 The Brute
+1 The Great Mound
+1 Two-Headed Dragon
+1 Unholy Citadel
+1 Urborg, Tomb of Yawgmoth
+1 Vestige of Emrakul
+1 Viashino Runner
+1 Wayward Giant
+1 Whipflare
+1 Winding Canyons
+1 Yavimaya, Cradle of Growth
+
+[commander]
+Hulk, Bruce Banner

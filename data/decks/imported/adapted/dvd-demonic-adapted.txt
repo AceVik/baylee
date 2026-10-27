@@ -1,27 +1,28 @@
 # adapted from data/decks/precon/DVD/demonic.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Demonic_DVD.json)
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Demonic (Adapted)]
+1 Abyssal Gatekeeper
 1 Abyssal Specter
 2 Barren Moor
 2 Breeding Pit
+1 Buried Alive
 1 Cackling Imp
-1 Complete Disregard
+1 Corrupt
 1 Dark Banishing
 2 Dark Ritual
 1 Demon's Horn
 1 Demonic Tutor
-2 Diresight
+1 Diresight
 1 Dismember
+1 Duress
 2 Dusk Imp
-1 Essence Extraction
 1 Fallen Angel
+1 Feral Shadow
 1 Foul Imp
 1 Gruesome Fate
 1 Howling Fury
 1 Kuro, Pitlord
-1 Last Kiss
 1 Lord of the Pit
-1 Necrite
 2 Overeager Apprentice
 1 Overkill
 1 Rend Flesh

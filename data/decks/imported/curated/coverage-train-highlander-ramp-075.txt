@@ -1,0 +1,80 @@
+# baylee synergistic coverage highlander ramp
+# licence: AGPL-3.0-only
+[deck:highlander ramp WUG #20266076]
+1 Adaptive Shimmerer
+1 Aggressive Urge
+1 Amphin Cutthroat
+1 Amrou Scout
+1 Barrenton Cragtreads
+1 Botanical Sanctum
+1 Breeding Pool
+1 Compelling Argument
+1 Crop Rotation
+1 Crystacean
+1 Curate
+1 Deeproot Waters
+1 Destructor Dragon
+1 Dromoka Monument
+1 Drowned Secrets
+1 Embodiment of Spring
+1 Eye of Ramos
+1 Fascination
+1 Flooded Grove
+4 Forest
+1 Fortress Crab
+1 Giant Mantis
+1 Gitaxian Probe
+1 Groundchuck & Dirtbag
+1 Hand of Justice
+11 Island
+1 Labyrinth Minotaur
+1 Lifespark Spellbomb
+1 Littjara Mirrorlake
+1 Lush Oasis
+1 Marjhan
+1 Meditation Pools
+1 Merchant Scroll
+1 Moss Diamond
+1 Mungha Wurm
+1 Oashra Cultivator
+1 Omnibian
+1 Open the Armory
+11 Plains
+1 Port Town
+1 Prairie Stream
+1 Primoc Escapee
+1 Prosperity
+1 Pym Particles
+1 Quandrix Campus
+1 Razortide Bridge
+1 Rejuvenating Springs
+1 Salvage Scuttler
+1 Sandbar Crocodile
+1 Selesnya Cluestone
+1 Selesnya Keyrune
+1 Shadow Rift
+1 Simic Cluestone
+1 Simic Ragworm
+1 Skybridge Towers
+1 Snapping Voidcraw
+1 Sodden Verdure
+1 Species Gorger
+1 Sphinx of Magosi
+1 Storm Spirit
+1 Sylvan Scrying
+1 Tangled Islet
+1 Temporal Mastery
+1 Thought Scour
+1 Tigereye Cameo
+1 Tooth of Ramos
+1 Tranquil Path
+1 Trapmaker's Snare
+1 Turbulent Wilderness
+1 Turtle-Seals
+1 Veiled Apparition
+1 Wall of Vapor
+1 Wall of Wonder
+1 Wave Elemental
+1 Willowrush Verge
+1 Wishcoin Crab
+1 Yoked Plowbeast

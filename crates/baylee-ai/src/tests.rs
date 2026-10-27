@@ -126,6 +126,7 @@ fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
         board_mana: None,
         flashback: None,
         grants: Vec::new(),
+        ability_sources: Vec::new(),
         word_changes: Vec::new(),
     }
 }

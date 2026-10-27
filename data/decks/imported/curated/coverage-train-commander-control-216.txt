@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266217]
+1 +2 Mace
+1 Aegis Automaton
+1 Aether Hub
+1 Ancient Ziggurat
+1 Archaeological Dig
+1 Astrolabe
+1 Augmenting Automaton
+1 Aura of Silence
+1 Avacyn's Memorial
+1 Bladed Sentinel
+1 Cascading Cataracts
+1 Chrome Prowler
+1 Commander's Sphere
+1 Corridor Monitor
+1 Crystal Grotto
+1 Cumber Stone
+1 Diversion Unit
+1 Dross Ripper
+1 Elesh Norn, Mother of Machines
+1 Ensoul Artifact
+1 Escaped Experiment
+1 Ethersworn Adjudicator
+1 Exocomp
+1 Geistcatcher's Rig
+1 Glint Hawk Idol
+1 Hall of Oracles
+1 Hanna's Custody
+8 Island
+1 Mechan Navigator
+1 Monoist Sentry
+1 Nykthos, Shrine to Nyx
+1 Obelisk of Esper
+1 Ojutai Monument
+1 Orzhov Keyrune
+1 Padeem, Consul of Innovation
+1 Parcel Myr
+1 Pewter Golem
+1 Phyrexian Metamorph
+1 Phyrexian Walker
+1 Pierce Strider
+1 Pillar of the Paruns
+11 Plains
+1 Protomatter Powder
+1 Rambunctious Mutt
+1 Runaway Boulder
+1 Sarcomite Myr
+1 Scepter of Fugue
+1 School of the Unseen
+1 Secluded Courtyard
+1 Simulacrum Synthesizer
+1 Sliver Hive
+1 Soliton
+1 Sphinx's Herald
+1 Spined Thopter
+1 Sundial, Dawn Tyrant
+1 Surgical Metamorph
+8 Swamp
+1 Swooping Lookout
+1 Teferi's Curse
+1 Tendo Ice Bridge
+1 Thousand Moons Smithy
+1 Thran Quarry
+1 Throne of Makindi
+1 Thunder Totem
+1 Triskelavus
+1 Triskelion
+1 True Love's Kiss
+1 Unbender Tine
+1 Unclaimed Territory
+1 Underdome
+1 Urn of Godfire
+1 Vectis Agents
+1 Veil of Assimilation
+1 Wakandan Drone Flock
+1 Watchful Automaton
+
+[commander]
+Aminatou, the Fateshifter

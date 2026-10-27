@@ -10,8 +10,8 @@
 9 Mountain
 3 Rampart Smasher
 4 Rugged Highlands
-4 Sangrite Surge
 4 Savage Twister
 2 Scorching Dragonfire
 4 Stump Stomp
+4 Surge of Strength
 1 Temple of Abandon

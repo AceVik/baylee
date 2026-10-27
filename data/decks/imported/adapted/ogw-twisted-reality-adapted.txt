@@ -9,9 +9,9 @@
 1 Endless One
 1 Evolving Wilds
 1 Faerie Conclave
-1 Force of Negation
 2 Galestrike
 3 Halt Order
+1 Infuse
 14 Island
 2 Kozilek's Channeler
 2 Launch Mishap
@@ -20,7 +20,7 @@
 1 Scour from Existence
 2 Spatial Contortion
 3 Stealth Mission
-1 Teleport
 1 Tide Drifter
+1 Tinker
 10 Wastes
 2 Wing Commando

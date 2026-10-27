@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro UR #20266247]
+1 Aerial Guide
+1 Airship Engine Room
+1 Artifact Blast
+1 Azimaet Drake
+1 Bigfin Bouncer
+1 Bloodfire Mentor
+1 Blue Elemental Blast
+1 Breaching Hippocamp
+1 Call to Heel
+1 Cascade Bluffs
+1 Ceremonious Rejection
+1 Chase Inspiration
+1 Cinder Wall
+1 Clash of Wills
+1 Clear a Path
+1 Crush
+1 Cryptic Annelid
+1 Desolate Lighthouse
+1 Dream Stalker
+1 Envelop
+1 False Summoning
+1 Ferrous Lake
+1 Fiery Islet
+1 Fleeting Image
+1 Force Spike
+1 Gilded Drake
+1 Glimmerbell
+1 Glowing Anemone
+1 Gulf Squid
+1 Hearth Charm
+1 Highland Lake
+1 Hydroelectric Specimen
+1 Iceridge Serpent
+19 Island
+1 It'll Quench Ya!
+1 Izzet Boilerworks
+1 Kami of the Crescent Moon
+1 Krovikan Mist
+1 Lightning Stormkin
+1 Minor Misstep
+1 Mistfolk
+5 Mountain
+1 Nebelgast Herald
+1 Niblis of the Breath
+1 Nine-Tail White Fox
+1 Nivix Barrier
+1 Nivix, Aerie of the Firemind
+1 Noggle Bridgebreaker
+1 Pedal to the Metal
+1 Peregrine Drake
+1 Phantasmal Mount
+1 Quick Study
+1 Reckless Reveler
+1 Riverfall Mimic
+1 Riverglide Pathway
+1 Riverpyre Verge
+1 Scrapskin Drake
+1 Seacoast Drake
+1 Shivan Reef
+1 Soaring Drake
+1 Spirit Water Revival
+1 Steam Vents
+1 Steel Sabotage
+1 Subtlety
+1 Supreme Phantom
+1 Tattered Haunter
+1 Tenement Crasher
+1 Theorist's Proxy
+1 Timid Drake
+1 Training Center
+1 Unstable Shapeshifter
+1 Vaporkin
+1 Volcanic Island
+1 Wanderlight Spirit
+1 Willow-Wind
+1 Windrider Eel
+1 Yarok's Wavecrasher
+
+[commander]
+Mm'menon, Uthros Exile

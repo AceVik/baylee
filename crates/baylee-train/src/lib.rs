@@ -12,8 +12,7 @@
 
 #[cfg(feature = "onnx")]
 pub mod batchnet;
-#[cfg(feature = "play")]
-pub mod carddsl;
+pub use baylee_cards::carddsl;
 #[cfg(feature = "play")]
 pub mod cardstructure;
 pub mod cardwalk;
@@ -30,7 +29,11 @@ pub mod features;
 pub mod features3;
 #[cfg(feature = "play")]
 pub mod features4;
+#[cfg(feature = "play")]
+pub mod features7;
 pub mod housedeck;
+#[cfg(feature = "live-seat")]
+pub mod live4;
 #[cfg(feature = "llm")]
 pub mod llmchair;
 #[cfg(feature = "onnx")]
@@ -39,6 +42,8 @@ pub mod netplay;
 pub mod netplay3;
 #[cfg(feature = "onnx")]
 pub mod netplay4;
+#[cfg(feature = "onnx")]
+pub use netplay4::{BAYLEE_KI_NAME, BayleeKI};
 #[cfg(feature = "onnx")]
 pub mod onnx;
 #[cfg(feature = "play")]

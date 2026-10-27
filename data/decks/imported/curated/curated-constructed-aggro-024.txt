@@ -1,21 +1,22 @@
 # baylee curated constructed aggro seed=20261047
 # licence: AGPL-3.0-only
 [deck:constructed aggro WU #20261047]
-2 Arid Archway
-4 Cho-Arrim Alchemist
-4 Cursecatcher
-4 Darksteel Pendant
-1 Floodbringer
-4 Gideon's Avenger
-3 Icatian Javelineers
-9 Island
-3 Leonin Vanguard
-4 Locthwain Gargoyle
-2 Mechan Navigator
-5 Plains
-2 Starlit Mantle
-4 Swarmyard
-2 Take Vengeance
-1 The Mycosynth Gardens
-4 Weight of Memory
-2 Winding Canyons
+4 Backup Agent
+4 Brinebarrow Intruder
+2 Brotherhood Headquarters
+1 Cave of Temptation
+4 Champion of the Parish
+4 Hada Freeblade
+1 Heap Gate
+1 Hidden Grotto
+1 Island
+4 Jeong Jeong's Deserters
+4 Kazandu Blademaster
+2 Kindly Customer
+2 Loran of the Third Path
+1 Mox Sapphire
+1 Mystic Gate
+3 Nimbus Maze
+4 Ondu Greathorn
+13 Plains
+4 Tidus, Blitzball Star

@@ -1,7 +1,7 @@
 # adapted from data/decks/precon/PS11/mind-of-the-void.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MindOfTheVoid_PS11.json)
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Mind of the Void (Adapted)]
-3 Absorb
+1 Absorb
 1 Air Elemental
 1 Angel's Feather
 3 Cancel
@@ -19,6 +19,7 @@
 1 Kraken's Eye
 1 Lake-town
 2 Mind Control
+2 Pacifism
 10 Plains
 2 Reckless Scholar
 2 Sky Ruin Drake

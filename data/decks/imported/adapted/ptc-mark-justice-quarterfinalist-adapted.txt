@@ -4,7 +4,6 @@
 1 Balance
 1 Black Vise
 2 City of Brass
-1 Crucible of Worlds
 1 Detonate
 4 Dwarven Ruins
 1 Earthquake
@@ -14,15 +13,17 @@
 1 Havenwood Battleground
 4 Howling Mine
 4 Icy Manipulator
-1 Incandescent Aria
+2 Iroh's Demonstration
+1 Iron Maiden
 1 Ivory Tower
 4 Karplusan Forest
 4 Lightning Bolt
 4 Mishra's Factory
 3 Mountain
 3 Plains
-4 Rith's Charm
 2 Shatter
+2 Stormbind
 3 Swords to Plowshares
+1 Time Bomb
 3 Winter Orb
 1 Zuran Orb

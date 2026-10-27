@@ -2,9 +2,9 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Sacrificial Bam (Adapted)]
 2 Atog
-3 Auger Spree
 2 Bedevil
 2 Cathodion
+1 Delirium
 3 Disciple of the Vault
 3 Goblin Replica
 4 Great Furnace
@@ -20,6 +20,7 @@
 1 Nuisance Engine
 1 Pentavus
 2 Pyrite Spellbomb
+2 Spontaneous Combustion
 7 Swamp
 2 Talisman of Indulgence
 4 Vault of Whispers

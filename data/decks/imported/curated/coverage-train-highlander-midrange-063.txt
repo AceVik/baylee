@@ -1,0 +1,80 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUR #20266064]
+1 Adult Gold Dragon
+1 Aquus Steed
+1 Beasts of Bogardan
+1 Benevolent Ancestor
+1 Blood of the Martyr
+1 Bloodcrusher of Khorne
+1 Boreal Shelf
+1 Caldera Lake
+1 Cascade Bluffs
+1 Chronatog
+1 Cloaked Siren
+1 Dromosaur
+1 Dwarven Pony
+1 Everybody Lives!
+1 Ferrous Lake
+1 Fiery Islet
+1 Fleetfeather Sandals
+1 Flowstone Charger
+1 Flowstone Crusher
+1 Glimmering Angel
+1 Godhead of Awe
+1 Hibernation
+1 Ironclad Krovod
+8 Island
+1 Izzet Boilerworks
+1 Jeskai Brushmaster
+1 Kavu Glider
+1 Kelpie Guide
+1 Kitesail
+1 Kranioceros
+1 Leering Gargoyle
+1 Library
+1 Lightning Angel
+1 Makindi Stampede
+1 Marauding Maulhorn
+1 Mire Kavu
+1 Molecular Modifier
+1 Mordenkainen's Polymorph
+1 Murmuring Phantasm
+1 Mystic Compass
+1 Ogre's Cleaver
+1 Oraxid
+1 Phantatog
+17 Plains
+1 Political Trickery
+1 Prismatic Lace
+1 Raging Spirit
+1 Rapid Fire
+1 Rapturous Moment
+1 Redeem
+1 Relic Sloth
+1 Reverse Damage
+1 Ridgeline Rager
+1 Ridgetop Raptor
+1 Riverglide Pathway
+1 Riverpyre Verge
+1 Rock Badger
+1 Scabland
+1 Sea Spirit
+1 Sejiri Shelter
+1 Sharlayan, Nation of Scholars
+1 Silhouette
+1 Sink into Stupor
+1 Sleight of Mind
+1 Slimy Kavu
+1 Spur Grappler
+1 Steam Vents
+1 Talisman of Creativity
+1 Telekinesis
+1 Telim'Tor's Edict
+1 Touchstone
+1 Training Center
+1 Unbender Tine
+1 Valor Singer
+1 Volcanic Island
+1 Wanderwine Hub
+1 Water Wings

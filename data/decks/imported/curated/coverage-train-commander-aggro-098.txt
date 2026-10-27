@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WRG #20266099]
+1 Anaba Shaman
+1 Barbarian Lunatic
+1 Ben-Ben, Akki Hermit
+1 Bhaal's Invoker
+1 Castle Garenbrig
+1 Centaur Archer
+1 Country Roads
+1 Cunning Sparkmage
+1 D'Avenant Archer
+1 D'Avenant Healer
+1 Deadeye Duelist
+1 Desert of the Indomitable
+1 Dive Bomber
+1 Druid Lyrist
+1 Dwarven Mine
+1 Earthbind
+1 Eivor, Battle-Ready
+1 Elite Javelineer
+1 Elspeth's Smite
+1 End the Festivities
+1 Expendable Troops
+1 Farrel's Zealot
+1 Fault Line
+1 Femeref Archers
+1 Fire Nation Palace
+1 Flame Rift
+1 Flamekin Spitfire
+7 Forest
+1 Frostling
+1 Gideon's Reproach
+1 Glissa's Scorn
+1 Goblin Legionnaire
+1 Goblin Medics
+1 Goblin Snowman
+1 Grove of the Burnwillows
+1 Guerrilla Tactics
+1 Harpoon Sniper
+1 Heavy Ballista
+1 Hornet Sting
+1 Icatian Store
+1 Ichneumon Druid
+1 Jeska, Warrior Adept
+1 Kessig Wolf Run
+1 Khenra Charioteer
+1 Mob Justice
+1 Mogg Maniac
+1 Molten Vortex
+11 Mountain
+1 Obliterating Bolt
+1 Ogre Shaman
+1 Opportunist
+1 Outflank
+1 Pinecrest Ridge
+6 Plains
+1 Plateau
+1 Ramosian Sky Marshal
+1 Reckless Embermage
+1 Remote Farm
+1 Rustic Clachan
+1 Sacellum Archers
+1 Shatterskull Smashing
+1 Skyway Sniper
+1 Slingshot Goblin
+1 Soldier Replica
+1 Spireside Infiltrator
+1 Squall Line
+1 Stature, Young Avenger
+1 Suplex
+1 Take Down
+1 Tangletrap
+1 Timber Protector
+1 Timberline Ridge
+1 Tracker
+1 Valakut Invoker
+1 Viashino Fangtail
+1 Volcanic Hammer
+1 Windbrisk Heights
+1 Witch Hunter
+
+[commander]
+Jacques le Vert

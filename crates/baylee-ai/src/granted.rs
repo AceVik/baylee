@@ -101,7 +101,7 @@ pub(crate) fn protect(
         if !friendly
             || !view.stack.iter().any(|spell| {
                 spell.targets.contains(&target)
-                    && crate::tactics::stack_meaning(spell, 0).damage > 0
+                    && crate::tactics::stack_meaning(view, spell, 0).damage > 0
             })
         {
             return None;

@@ -1,7 +1,7 @@
 //! Effect-based choices, shared by targeting, planeswalkers and deck analysis.
 //! Unknown effects retain the general policy; new cards need no name table.
 
-use baylee_cards_dsl::{AbilityDef, Amount, CounterKind, Effect, Modifier};
+use baylee_cards_dsl::{AbilityDef, Amount, CounterKind, Effect, KeywordSet, Modifier};
 use baylee_core::ids::{CardIndex, ObjectId, PlayerId, SubtypeId};
 use baylee_core::types::TypeSet;
 use baylee_engine::choice::PlayerAction;
@@ -152,11 +152,117 @@ pub(crate) fn printed_effects(o: &PublicObject) -> Vec<&'static [Effect]> {
         .collect()
 }
 
-/// What an instant or sorcery on the stack means ([`printed_effects`]), X
+/// Every effect slice a spell or ability on the stack resolves.
+///
+/// Instant and sorcery spells carry their printed [`AbilityDef::Spell`]
+/// effects; abilities on the stack carry the effects of the activated,
+/// triggered or loyalty ability their [`baylee_view::StackItem::Ability`]
+/// names.
+pub(crate) fn stack_effects(view: &PlayerView, o: &PublicObject) -> Vec<&'static [Effect]> {
+    if let Some(baylee_view::StackItem::Ability {
+        token,
+        source,
+        ability,
+        rules,
+        ..
+    }) = &o.stack_item
+    {
+        let def = if let Some(tok) = token {
+            usize::try_from(tok.index).ok().and_then(|idx| {
+                baylee_cards::tokens::by_token_id(tok.token)?
+                    .abilities
+                    .get(idx)
+            })
+        } else if let Some(ability_ref) = ability {
+            usize::try_from(ability_ref.index).ok().and_then(|index| {
+                let face = rules.or(o.rules).map_or(0, |r| usize::from(r.face));
+                baylee_cards::by_index(ability_ref.card)
+                    .and_then(|d| {
+                        d.abilities_for_face(face)
+                            .get(index)
+                            .or_else(|| d.abilities.get(index))
+                    })
+                    .or_else(|| crate::activate::printed(view, *source, ability_ref.index))
+            })
+        } else {
+            None
+        };
+        return match def {
+            Some(
+                AbilityDef::Activated { effects, .. }
+                | AbilityDef::ActivatedConditional { effects, .. }
+                | AbilityDef::Triggered { effects, .. }
+                | AbilityDef::Loyalty { effects, .. },
+            ) => vec![*effects],
+            Some(
+                AbilityDef::ModalActivated { modes, .. } | AbilityDef::ModalTriggered { modes, .. },
+            ) => modes.iter().map(|m| m.effects).collect(),
+            _ => Vec::new(),
+        };
+    }
+    printed_effects(o)
+}
+
+/// Whether `s` on the stack removes battlefield permanent `o` when it resolves.
+pub(crate) fn stack_removes(view: &PlayerView, s: &PublicObject, o: &PublicObject) -> bool {
+    let indestructible = o.keywords & KeywordSet::INDESTRUCTIBLE.bits() != 0;
+    let creature = o.types.contains(TypeSet::CREATURE);
+    stack_effects(view, s).into_iter().any(|effects| {
+        let m = meaning(effects, 0);
+        if effects.iter().any(crate::policy::removal)
+            && !(indestructible && m.destroy && !exiles_or_tucks(effects))
+        {
+            return true;
+        }
+        if !creature {
+            return false;
+        }
+        let left = i32::from(o.toughness.unwrap_or(0));
+        let delta = toughness_delta(effects, 0);
+        let finishes_toughness = delta < 0
+            && (left + delta <= 0 || (!indestructible && left - i32::from(o.damage) + delta <= 0));
+        let finishes_damage =
+            m.damage > 0 && !indestructible && i64::from(m.damage) >= damage_to_finish(o);
+        finishes_toughness || finishes_damage
+    })
+}
+
+fn toughness_delta(effects: &[Effect], x: u32) -> i32 {
+    effects
+        .iter()
+        .map(|effect| match effect {
+            Effect::PumpTarget { toughness, .. } | Effect::PumpTargetSlot { toughness, .. } => {
+                amount(*toughness, x)
+            }
+            Effect::AddCounter {
+                kind: CounterKind::Minus { toughness, .. },
+                amount: count,
+            } => -i32::from(*toughness) * amount(*count, x).max(0),
+            _ => {
+                let (then, otherwise) = effect.branches();
+                toughness_delta(then, x).min(toughness_delta(otherwise, x))
+            }
+        })
+        .sum()
+}
+
+fn exiles_or_tucks(effects: &[Effect]) -> bool {
+    effects.iter().any(|effect| {
+        matches!(
+            effect,
+            Effect::Exile { .. } | Effect::PutTargetOnBottomOfLibrary
+        ) || {
+            let (then, otherwise) = effect.branches();
+            exiles_or_tucks(then) || exiles_or_tucks(otherwise)
+        }
+    })
+}
+
+/// What a spell or ability on the stack means ([`stack_effects`]), X
 /// read as `x`: the view does not say what X a spell was cast with.
-pub(crate) fn stack_meaning(o: &PublicObject, x: u32) -> Meaning {
+pub(crate) fn stack_meaning(view: &PlayerView, o: &PublicObject, x: u32) -> Meaning {
     let mut m = Meaning::default();
-    for effects in printed_effects(o) {
+    for effects in stack_effects(view, o) {
         m.absorb(meaning(effects, x));
     }
     m
@@ -382,9 +488,17 @@ pub(crate) fn damage_to_finish(o: &PublicObject) -> i64 {
 }
 
 pub(crate) fn material(o: &PublicObject) -> i64 {
+    let keywords = if o.types.contains(TypeSet::CREATURE) {
+        let positive = (o.keywords & !KeywordSet::DEFENDER.bits()).count_ones();
+        let defender = u32::from(o.keywords & KeywordSet::DEFENDER.bits() != 0);
+        (i64::from(positive) - i64::from(defender)) * 60
+    } else {
+        0
+    };
     200 + i64::from(o.mana_value) * 70
         + i64::from(o.power.unwrap_or(0).max(0)) * 110
         + i64::from(o.toughness.unwrap_or(0).max(0)) * 30
+        + keywords
         + if o.commander { 200 } else { 0 }
         + if o.types.contains(TypeSet::PLANESWALKER) {
             500
@@ -799,7 +913,7 @@ impl HeuristicAgent {
         let mut hostile: Vec<&PublicObject> = objects
             .iter()
             .filter_map(|id| view.object(*id))
-            .filter(|o| self.hostile(o.controller, view.seat))
+            .filter(|o| self.hostile(o.controller, view.seat) && !Self::answered(view, o))
             .collect();
         hostile.sort_by_key(|o| (std::cmp::Reverse(material(o)), o.id));
         let mut left = i64::from(total);
@@ -913,7 +1027,7 @@ impl HeuristicAgent {
                     if friendly != beneficial {
                         return -score - 10_000;
                     }
-                    if !beneficial && spent.contains(id) {
+                    if !beneficial && (spent.contains(id) || Self::answered(view, o)) {
                         return 0;
                     }
                     if friendly {
@@ -977,13 +1091,21 @@ impl HeuristicAgent {
             .rev()
             .max_by_key(|&p| {
                 let enemy = self.hostile(p, view.seat);
-                if m.draws(view) > 0
-                    && enemy
-                    && view
-                        .seat(p)
-                        .is_some_and(|s| m.draws(view) > s.library_count)
-                {
-                    return 1_000_000;
+                if m.draws(view) > 0 {
+                    if enemy
+                        && view
+                            .seat(p)
+                            .is_some_and(|s| m.draws(view) > s.library_count)
+                    {
+                        return 1_000_000;
+                    }
+                    if !enemy
+                        && view
+                            .seat(p)
+                            .is_some_and(|s| m.draws(view) >= s.library_count)
+                    {
+                        return -1_000_000;
+                    }
                 }
                 if m.benefit > 0 {
                     if p == view.seat {

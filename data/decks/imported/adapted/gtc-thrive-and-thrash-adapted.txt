@@ -3,6 +3,7 @@
 [deck:Thrive and Thrash (Adapted)]
 2 Acidic Slime
 4 Arbor Elf
+3 Boiling Blood
 1 Bramblecrush
 1 Broken Wings
 1 Cancel
@@ -11,11 +12,10 @@
 2 Evolving Wilds
 4 Farseek
 1 Flare
+2 Fog Bank
 10 Forest
 4 Frontier Bivouac
-3 Goblin Offensive
 2 Ground Assault
-2 Inner Calm, Outer Strength
 6 Island
 3 Ketria Triome
 2 Mist Raven

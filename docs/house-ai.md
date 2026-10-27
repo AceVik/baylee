@@ -15,6 +15,22 @@ All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
 source per permanent. The agent does not tap toward an unaffordable spell.
 
+Before announcing a mana-X activation, the house checks that its fixed price
+and any printed minimum X can be reached through the ordinary view-only mana
+planner. A permanent whose cost includes tapping itself cannot also be used
+as a mana source for that same activation. Affordable X=0 remains useful when
+the fixed effect matters, such as Kessig Wolf Run granting trample.
+This closes a repeated rollback found in eight of the 17 capped Sharp-training
+cases: announce Wolf Run, choose X=0, choose a creature, then pass its unpaid
+`{R}{G}` window without the required colors. The engine correctly reverses that incomplete
+activation, but the same unchanged priority offer used to make the house try
+again thousands of times. Real-Session regressions in
+`crates/baylee-gamehost/tests/ai_activation_payment.rs` prove the rollback and
+the affordable activation's actual payment/tap. Card-defined X and printed
+activation reductions remain outside this new precheck; it does not claim a
+complete solver for every non-mana resource cost or all remaining caps. Frozen
+experiment artifacts retain their original house behavior.
+
 An X spell whose required graveyard target has a positive mana-value bound must
 also have enough visible eligible targets at the planned, payable X. This avoids
 repeatedly announcing Stir the Grave with X=1 when every creature in the caster's
@@ -23,6 +39,15 @@ priority offer otherwise causes another identical attempt. The check reads only
 the seat's public graveyards and treats unknown filter clauses as possible,
 not impossible. The regression is in `baylee-ai/src/tests/x_target_tests.rs`;
 six-seat training seed 891015 now finishes instead of looping on turn 118.
+
+An exact mana-value X target is not monotone in the amount paid. The house
+planner and its subsequent number answer restrict ordinary object-targeting
+X spells to matching visible mana values at or below the payable bound,
+including zero. They do not repeatedly cast Detonate at X=6 when only an
+artifact of mana value 3 is available. Shroud, opposing hexproof and phased-out
+objects are excluded; the engine still makes the authoritative target check.
+`x_target_tests.rs` covers affordable, zero, unaffordable and protected targets.
+The reproduced training fault is duel seed 1400020 (`next-duels-0000019`).
 
 **One source per permanent is a rule with a consequence**, and it is the
 reason a tap's *price* is part of the ranking. Nothing under `manaplan::plan`
@@ -69,12 +94,13 @@ traded for a lone Dark Ritual whose caster has nothing left to spend the
 mana on; `a_counterspell_is_not_spent_on_a_spell_that_only_replaces_itself`
 pins that as a limitation.
 Removal needs something opposing on the battlefield, and a permanent this
-seat's own instant or sorcery on the stack already destroys, exiles or tucks
-is nothing to aim a second one at (`worth::answered`, the mirror of
-`doomed`): the house used to cast Swords to Plowshares at the commander its
-own Path to Exile was taking, and Path lost its target
-(`removal_is_not_cast_at_what_this_seats_own_removal_is_taking`). An ability
-on the stack is not read this way yet. A deferred pay-or-lose
+seat's own spell or ability on the stack already removes — by destruction,
+exile, tucking, lethal damage or lethal toughness reduction — is nothing to
+aim a second one at (`worth::answered`, the mirror of `doomed`): the house
+used to cast Swords to Plowshares at the commander its own Path to Exile was
+taking, and Path lost its target
+(`removal_is_not_cast_at_what_this_seats_own_removal_is_taking`). A deferred
+pay-or-lose
 obligation (a pact) is cast only as described under "A pact is a counter paid
 for next turn" below. An "unless" price
 paid by naming an object — a sacrifice, a discard, a card exiled from the

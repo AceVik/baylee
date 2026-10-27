@@ -2,7 +2,6 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Nicol Bolas, the Deceiver (Adapted)]
 2 Aerial Guide
-3 Bilbo's Deadly Slice
 2 Burning-Fist Minotaur
 4 Cinder Barrens
 4 Crosis's Charm
@@ -17,6 +16,7 @@
 2 Open Fire
 4 Perish
 2 Rakshasa's Secret
+3 Spontaneous Combustion
 6 Swamp
 1 Throne of the God-Pharaoh
 2 Unsubtle Mockery

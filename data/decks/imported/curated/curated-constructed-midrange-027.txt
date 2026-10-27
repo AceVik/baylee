@@ -1,19 +1,20 @@
 # baylee curated constructed midrange seed=20261050
 # licence: AGPL-3.0-only
 [deck:constructed midrange WB #20261050]
-4 Citadel Gate
-1 Great Arashin City
-2 Greed
-4 Headless Horseman
-2 Helm of Chatzuk
-4 Minas Tirith
-4 One with Nothing
-4 Path to Exile
-4 Plains
-3 Sentinel Sliver
-4 Succumb to Temptation
-11 Swamp
-2 Tower of Fortunes
-4 Vampire Warlord
-4 Vona, Butcher of Magan
-3 Wall of Caltrops
+2 Damnable Pact
+3 Inspiring Commander
+4 Kambal, Consul of Allocation
+2 Lazotep Quarry
+4 Lotus-Eye Mystics
+3 Mai, Scornful Striker
+4 Mesa Enchantress
+2 Night's Whisper
+4 Painful Quandary
+7 Plains
+3 Presence of the Master
+4 Righteousness
+3 Sign in Blood
+8 Swamp
+2 Three Tree City
+2 Undiscovered Paradise
+3 Villainous Hideout

@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro R #20266145]
+1 Accursed Duneyard
+1 Adventurer's Inn
+1 Anaba Ancestor
+1 Antagonize
+1 Arch of Orazca
+1 Bellows Lizard
+1 Boggart Sprite-Chaser
+1 Brazen Wolves
+1 Buccaneer's Bravado
+1 Bull Rush
+1 Char-Rumbler
+1 Conduit Pylons
+1 Crash and Burn
+1 Crookshank Kobolds
+1 Deadshot
+1 Desert
+1 Dowsing Device
+1 Dromosaur
+1 Duct Crawler
+1 Dwarven Bloodboiler
+1 Dwarven Lieutenant
+1 Dwarven Soldier
+1 Dwarven Song
+1 Dwarven Thaumaturgist
+1 Ember-Eye Wolf
+1 Feroz's Ban
+1 Fire Snake
+1 Fists of the Anvil
+1 Flame Spirit
+1 Flame-Chain Mauler
+1 Forge of Heroes
+1 Furnace Spirit
+1 Goblin Elite Infantry
+1 Goblin Flotilla
+1 Goblin Ski Patrol
+1 Goblin Tomb Raider
+1 Igneous Cur
+1 Keeper of Kookus
+1 Keldon Berserker
+1 Lavakin Brawler
+1 Mana Clash
+1 Minotaur Sureshot
+1 Minotaur Tactician
+1 Mogg Squad
+1 Molecular Modifier
+1 Molten Ravager
+32 Mountain
+1 Pedal to the Metal
+1 Precise Strike
+1 Pyre Charger
+1 Raging Spirit
+1 Rampaging Classmate
+1 Ridgeline Rager
+1 Rise to the Challenge
+1 Roc Hatchling
+1 Run Amok
+1 Sandstone Warrior
+1 Screaming Fury
+1 Skirk Outrider
+1 Smaug's Fury
+1 Spur Grappler
+1 Teeterpeak Ambusher
+1 Thunder Strike
+1 Toxic Iguanar
+1 Uncanny Speed
+1 Valor Singer
+1 Viashino Weaponsmith
+1 Weaselback Redcap
+
+[commander]
+Hivis of the Scale

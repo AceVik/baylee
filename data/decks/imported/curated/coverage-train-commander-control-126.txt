@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WG #20266127]
+1 Abandoned Air Temple
+1 Abbey Matron
+1 Abzan Kin-Guard
+1 An-Havva Constable
+1 Armory Guard
+1 Auriok Bladewarden
+1 Austere Command
+1 Aysen Crusader
+1 Blessed Light
+1 Burrenton Shield-Bearers
+1 Capashen Knight
+1 Capashen Templar
+1 Catastrophe
+1 Cenn's Heir
+1 Charging Paladin
+1 Citadel Gate
+1 Cleanfall
+1 Cleanse
+1 Cloudreach Cavalry
+1 Country Roads
+1 Day of Judgment
+1 Elder of Laurels
+1 Emeria, the Sky Ruin
+1 Evendo, Waking Haven
+1 Farewell
+1 Femeref Knight
+1 Folk of An-Havva
+1 Forbidding Watchtower
+13 Forest
+1 Griffin Rider
+1 Guan Yu's 1,000-Li March
+1 Hardened Escort
+1 Hedge Troll
+1 Honor Guard
+1 Horizon Canopy
+1 Icatian Lieutenant
+1 Icatian Priest
+1 Imperial Lancer
+1 Ishgard, the Holy See
+1 Kabira Crossroads
+1 Kjeldoran Knight
+1 Kjeldoran Outrider
+1 Knight of the Skyward Eye
+1 Knotvine Paladin
+1 Lionheart Maverick
+1 Loxodon Stalwart
+1 Makindi Stampede
+1 Memorial to Glory
+1 Might of Oaks
+1 Moment of Valor
+1 Monumental Henge
+1 Order of Leitbur
+1 Paragon of Eternal Wilds
+1 People of the Woods
+1 Phytoburst
+14 Plains
+1 Preacher
+1 Pterodon Knight
+1 Rashka the Slayer
+1 Remote Farm
+1 Rushwood Grove
+1 Scarwood Bandits
+1 Serra Inquisitors
+1 Shield Mate
+1 Soltari Crusader
+1 Songstitcher
+1 Spirit Weaver
+1 Steadfast Cathar
+1 Temple Garden
+1 Topan Ascetic
+1 Tsunami
+1 Vivid Meadow
+1 White Shield Crusader
+1 Wild Roads
+
+[commander]
+Jasmine Boreal

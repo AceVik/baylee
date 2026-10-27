@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BG #20266233]
+1 Aerial Predation
+1 Aether Hub
+1 Banehound
+1 Bayou
+1 Blood Glutton
+1 Bootleggers' Stash
+1 Captivating Cave
+1 Cavern of Souls
+1 Conduit Pylons
+1 Curious Altisaur
+1 Delif's Cone
+1 Dreadwurm
+1 Eater of the Dead
+1 Eclipsed Realms
+1 Emerald Charm
+1 Emerald Medallion
+1 Face of Fear
+1 Flayed One
+17 Forest
+1 Fountain of Youth
+1 Golden Urn
+1 Golem's Heart
+1 Golgari Keyrune
+1 Grazing Gladehart
+1 Great Hall of the Citadel
+1 Grim Backwoods
+1 Haven of the Spirit Dragon
+1 Hecteyes
+1 Helm of Awakening
+1 Imprison
+1 Instant Ramen
+1 Leyline Prowler
+1 Lifegift
+1 Lurching Rotbeast
+1 Maelstrom of the Spirit Dragon
+1 Mana Cylix
+1 Moaning Wall
+1 Moment of Craving
+1 Nexus Wardens
+1 Nourish
+1 Oasis Gardener
+1 Overgrown Battlement
+1 Pearl Medallion
+1 Powerleech
+1 Rampaging Brontodon
+1 Rampart Hunter
+1 Ripjaw Raptor
+1 Sacred White Deer
+1 Saruli Gatekeepers
+1 School of the Unseen
+1 Scrounger of Souls
+1 Sensei's Divining Top
+1 Shoreline Salvager
+1 Skeletal Wurm
+1 Skorpekh Destroyer
+1 Spawning Grounds
+1 Spire of Industry
+1 Springmane Cervin
+1 Springsage Ritual
+9 Swamp
+1 Sylvan Brushstrider
+1 Syphon Fuel
+1 Talon Gates of Madara
+1 Team Transmitter
+1 The Mycosynth Gardens
+1 Thermokarst
+1 Thirsting Shade
+1 Tidy Conclusion
+1 Titania's Song
+1 Umezawa's Jitte
+1 Unclaimed Territory
+1 Vermiculos
+1 Villainous Hideout
+1 Vorstclaw
+1 Woodwraith Corrupter
+
+[commander]
+Yargle and Multani

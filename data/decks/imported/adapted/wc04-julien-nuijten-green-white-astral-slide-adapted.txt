@@ -3,8 +3,7 @@
 [deck:Julien Nuijten - Green-White Astral Slide (Adapted)]
 4 Advent of the Wurm
 2 Akroma's Vengeance
-3 Call of the Conclave
-4 Eladamri's Call
+3 Eladamri's Call
 4 Eternal Witness
 7 Forest
 2 Heroes' Reunion
@@ -14,5 +13,6 @@
 4 Secluded Steppe
 4 Tranquil Thicket
 4 Viridian Shaman
+4 Vitalizing Cascade
 4 Windswept Heath
 4 Wrath of God

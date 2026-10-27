@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WU #20266132]
+1 Affa Guard Hound
+1 Allied Reinforcements
+1 Arena
+1 Armor of Faith
+1 Austere Command
+1 Azorius First-Wing
+1 Basilisk Gate
+1 Blinkmoth Nexus
+1 Blizzard Elemental
+1 Captivating Unicorn
+1 Catastrophe
+1 Cleanfall
+1 Cleansing Nova
+1 Cloud Djinn
+1 Contempt
+1 Crisis of Conscience
+1 Day of Judgment
+1 Djinn of the Lamp
+1 Drownyard Amalgam
+1 Ephemeron
+1 Erosion
+1 Faceless Haven
+1 Fanatical Devotion
+1 Final Showdown
+1 Fledgling Griffin
+1 Fomori Vault
+1 Fortified Area
+1 Glacial Chasm
+1 Glorious Anthem
+1 Goliath Sphinx
+1 Harbor Guardian
+1 Haunted Fengraf
+1 Havengul Skaab
+1 Homarid Explorer
+1 Hostile Desert
+1 Invisibility
+1 Irregular Cohort
+1 Levitation
+1 Mighty Mutanimals
+1 Naga Oracle
+1 Nimbus Wings
+1 Ominous Cemetery
+1 Ondu Inversion
+1 Phyrexia's Core
+1 Pin to the Earth
+1 Planar Cleansing
+1 Plaza of Harmony
+1 Ravages of War
+1 Remove Enchantments
+1 Riptide Crab
+1 Rite of Replication
+1 Rumbling Sentry
+1 Senate Griffin
+1 Shimmer
+1 Sky Tether
+13 Snow-Covered Island
+13 Snow-Covered Plains
+1 Soulherder
+1 Sparring Mummy
+1 Spawning Bed
+1 Squall Drifter
+1 Sunscorched Desert
+1 Teferi, Time Raveler
+1 Terra Eternal
+1 Teyo's Lightshield
+1 Triclopean Sight
+1 Urborg, Tomb of Yawgmoth
+1 Valkyrior Skyrider
+1 Venerable Lammasu
+1 Vesuva
+1 Viscerid Armor
+1 Waxen Shapethief
+1 Winds of Rath
+1 Wizened Cenn
+1 Wooded Foothills
+
+[commander]
+Tobias Andrion

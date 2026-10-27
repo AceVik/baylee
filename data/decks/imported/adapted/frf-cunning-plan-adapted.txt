@@ -1,11 +1,12 @@
 # adapted from data/decks/precon/FRF/cunning-plan.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CunningPlan_FRF.json)
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Cunning Plan (Adapted)]
+1 Arc Lightning
 1 Bathe in Dragonfire
 1 Bloodfire Expert
 4 Broadside Barrage
 1 Dragon-Style Twins
-2 Fire
+1 Fire
 1 Hordeling Outburst
 4 Invoke the Firemind
 12 Island

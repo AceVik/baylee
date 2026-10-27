@@ -7,11 +7,11 @@
 1 Debilitating Injury
 2 Diresight
 1 Dismal Backwater
+2 Dissipate
 8 Forest
 1 Frantic Search
 1 Gravedigger
 1 Grim Tutor
-2 Hideous End
 6 Island
 1 Jungle Hollow
 1 Mystic Denial

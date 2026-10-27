@@ -5,16 +5,16 @@
 4 Bedevil
 1 Blighted Fen
 2 Blighted Gorge
-4 Breath of Malfegor
 1 Complete Disregard
+4 Delirium
 4 Dreadbore
 2 Evolving Wilds
 2 Forerunner of Slaughter
+4 Kaervek's Purge
 2 Kozilek's Sentinel
 2 Molten Nursery
 10 Mountain
-1 Skull Rend
+4 Spontaneous Combustion
 10 Swamp
-4 Terminate
 3 Vestige of Emrakul
-4 Wrecking Ball
+1 Wrecking Ball

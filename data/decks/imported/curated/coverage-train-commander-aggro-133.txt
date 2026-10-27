@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WR #20266134]
+1 Auriok Transfixer
+1 Avacynian Priest
+1 Avalanche
+1 Axgard Armory
+1 Aysen Bureaucrats
+1 Barbarian Riftcutter
+1 Benalish Trapper
+1 Blaster Mage
+1 Blinding Mage
+1 Blood Frenzy
+1 Bloodlust Inciter
+1 Bloodthorn Taunter
+1 Boggart Arsonists
+1 Boros Garrison
+1 Burning Shield Askari
+1 Celestial Enforcer
+1 Checkpoint Officer
+1 Cho-Arrim Alchemist
+1 Craterize
+1 Dragon's Eye Sentry
+1 Dromoka Dunecaster
+1 Dwarven Demolition Team
+1 Eager Cadet
+1 Fathom Fleet Firebrand
+1 Glyph of Destruction
+1 Goblin Settler
+1 Hearth Charm
+1 Hyperion Blacksmith
+1 Icatian Infantry
+1 Inventor's Apprentice
+1 Joven
+1 Kelsinko Ranger
+1 Knight of the Keep
+1 Kor Scythemaster
+1 Lava Flow
+1 Law-Rune Enforcer
+1 Lorehold Campus
+1 Master of Arms
+1 Midnight Duelist
+11 Mountain
+1 Mountain Bandit
+1 Needleverge Pathway
+1 Perils of the Past
+13 Plains
+1 Raze the Effigy
+1 Renegade Firebrand
+1 Repentant Blacksmith
+1 Rugged Prairie
+1 Sacred Foundry
+1 Seismic Mage
+1 Shrine Keeper
+1 Sidar Jabari
+1 Sigardian Priest
+1 Slayers' Stronghold
+1 Smash to Dust
+1 Sokka, Wolf Cove's Protector
+1 Soldier of Fortune
+1 Spinal Villain
+1 Starke of Rath
+1 Sterling Keykeeper
+1 Stingmoggie
+1 Stonehorn Chanter
+1 Sunbaked Canyon
+1 Sunbillow Verge
+1 Sunder from Within
+1 Sunhome, Fortress of the Legion
+1 Sunscorched Divide
+1 Swiftblade Vindicator
+1 Sword Dancer
+1 Teetering Peaks
+1 Tenth District Veteran
+1 Thriving Bluff
+1 Tilonalli's Knight
+1 Volcanic Upheaval
+1 Wind-Scarred Crag
+1 Winter Soldier, Bucky Barnes
+1 Wolf Cove Villager
+
+[commander]
+Nori, Teller of Tales

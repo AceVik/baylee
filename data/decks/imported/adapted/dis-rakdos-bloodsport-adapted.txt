@@ -3,16 +3,16 @@
 [deck:Rakdos Bloodsport (Adapted)]
 4 Auger Spree
 4 Bedevil
-3 Breath of Malfegor
+4 Delirium
 1 Douse in Gloom
 4 Dreadbore
 2 Drekavac
-4 Get the Point
 11 Mountain
 1 Rakdos Ickspitter
 2 Rakdos Signet
 1 Rix Maadi, Dungeon Palace
 3 Seal of Fire
+4 Spontaneous Combustion
 12 Swamp
 4 Terminate
-4 Wrecking Ball
+3 Wrecking Ball

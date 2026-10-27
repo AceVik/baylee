@@ -1,81 +1,80 @@
-# baylee unseen-card holdout highlander seed=90000011
+# baylee unseen-card holdout highlander seed=90000010
 # licence: AGPL-3.0-only
-[deck:highlander midrange UR #90000011]
-1 Acid Rain
-1 Arena
-1 Arena of the Ancients
-1 Ashnod's Altar
-1 Basilisk Gate
-1 Bloodcrazed Neonate
-1 Cephalid Inkshrouder
-1 Clive's Hideaway
-1 Confiscate
-1 Conquer
-1 Conservator
-1 Cryptic Caves
-1 Darksteel Citadel
-1 Dazzling Lights
-1 Drownyard Temple
-1 Ebony Rhino
-1 Eye of Malcator
-1 Faerie Conclave
-1 Fearless Halberdier
-1 Fiery Finish
-1 Fishliver Oil
-1 Flametongue Kavu
-1 Flurry of Horns
-1 Frontline Rebel
-1 Furnace Brood
-1 Galazeth Prismari
-1 Geosurge
-1 Glimmerbell
-1 Goblin Arsonist
-1 Goldhound
-1 Gorgon Flail
-1 Helm of the Host
-1 Hithlain Knots
-1 Illvoi Galeblade
-1 Inertia Bubble
-15 Island
-1 Jace's Ingenuity
-1 Jaya's Firenado
-1 Krosan Verge
-1 Liquimetal Coating
-9 Mountain
-1 Mountain Goat
-1 Mouth of Ronom
-1 Naya Panorama
-1 Nephalia Academy
-1 Power Boost
-1 Priest of Urabrask
-1 Prodigal Sorcerer
-1 Psychic Allergy
-1 Raging Goblin
-1 Ramunap Ruins
-1 Relic Barrier
-1 Rite of Flame
-1 Romantic Rendezvous
-1 Rush of Adrenaline
-1 Sanctum of Eternity
-1 Scald
-1 Shore Keeper
-1 Shredded Sails
-1 Stealer of Secrets
-1 Stern Proctor
-1 Summit Prowler
-1 Tarnation Vista
-1 Thundering Giant
-1 Treasure Vault
-1 Trenchpost
-1 Ultron, Machine Overlord
-1 Undertow
-1 Urza's Miter
-1 Vault Robber
-1 Vedalken Mastermind
-1 Wall of Wonder
-1 Whetstone
-1 Whiptongue Frog
-1 Winter Orb
-1 Witty Roastmaster
-1 You Come to a River
-1 Zephyr Falcon
+[deck:highlander midrange UR #90000010]
+1 Abstergo Entertainment
+1 Agate Assault
+1 Ancestral Vision
+1 Arc Lightning
+1 Blaze
+1 Bloodshot Cyclops
+1 Bria, Riptide Rogue
+1 Broadside Barrage
+1 Builder's Bane
+1 Cascading Cataracts
+1 City of Brass
+1 Conduit Pylons
+1 Corrupt Eunuchs
+1 Earthshaker
+1 Eidolon of Philosophy
+1 Electrostatic Infantry
+1 Elusive Spellfist
+1 Equilibrium
+1 Ferrous Lake
+1 Firemind's Research
+1 Flame Jet
+1 Flame-Blessed Bolt
+1 Frenzied Devils
+1 Great Hall of the Biblioplex
+1 Halcyon Glaze
+1 Hammer of Bogardan
+1 Heap Gate
+1 Intruding Soulrager
+1 Invoke the Firemind
+11 Island
+1 Izzet Charm
+1 Lazotep Quarry
+1 Lightning Cloud
+1 Lightshell Duo
+1 Lost in a Labyrinth
+1 Lotus Path Djinn
+1 Mage-Ring Bully
+1 Mana Confluence
+1 Mana Drain
+1 Mercurial Geists
+1 Merrow Reejerey
+1 Meticulous Artisan
+1 Molten Blast
+14 Mountain
+1 Onslaught
+1 Pinnacle Monk
+1 Reckless Air Strike
+1 Ringwarden Owl
+1 Sanguinary Mage
+1 Sarkhan's Unsealing
+1 School of the Unseen
+1 Secluded Courtyard
+1 Shimmering Grotto
+1 Shipwreck Dowser
+1 Shivan Hellkite
+1 Sibilant Spirit
+1 Skycrash
+1 Soul Barrier
+1 Soul of Magma
+1 Spark Spray
+1 Spellshock
+1 Spitting Earth
+1 Stormchaser Mage
+1 Sundering Eruption
+1 Tarnished Citadel
+1 Tempest Angler
+1 The Seedcore
+1 Third Path Iconoclast
+1 Thorned Moloch
+1 Tibor and Lumia
+1 Traumatic Critique
+1 Umara Mystic
+1 Umara Wizard
+1 Undiscovered Paradise
+1 Urza, Lord High Artificer
+1 Vedalken Blademaster
+1 Volcanic Geyser

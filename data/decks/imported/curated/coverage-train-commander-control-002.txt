@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUBRG #20266003]
+1 Ancestral Vengeance
+1 Atraxa, Grand Unifier
+1 Aven Brigadier
+1 Base Camp
+1 Blizzard
+1 Bountiful Landscape
+1 Brass's Tunnel-Grinder
+1 Breath of Dreams
+1 Cloudchaser Kestrel
+1 Command Bridge
+1 Dance of Many
+1 Dark Hatchling
+1 Deceptive Landscape
+1 Defiant Falcon
+1 Derevi, Empyrial Tactician
+1 Dimir Cluestone
+1 Dragonback Assault
+1 Drill Too Deep
+1 Druids' Repository
+1 East Wind Avatar
+1 Fasting
+1 Foreboding Landscape
+4 Forest
+1 Gallowbraid
+1 Goblin Bomb
+1 Grasping Shadows
+1 Herald of the Sun
+1 Infinite Authority
+1 Innkeeper's Talent
+9 Island
+1 Ithilien Kingfisher
+1 Jungle Shrine
+1 Knightfisher
+1 Koskun Keep
+1 Ledger Shredder
+1 Lilting Refrain
+1 Lord of Tresserhorn
+1 Mesmeric Trance
+1 Messenger Falcons
+1 Mighty Mutanimals
+1 Mind Harness
+1 Mm'menon, Uthros Exile
+1 Mystic Might
+1 Oscorp Industries
+1 Palace Familiar
+1 Perilous Landscape
+1 Pileated Provisioner
+12 Plains
+1 Plumecreed Mentor
+1 Preening Champion
+1 Public Thoroughfare
+1 Returned Pastcaller
+1 Rukh Egg
+1 Sage Aven
+1 Sage Owl
+1 Savai Triome
+1 Shattered Landscape
+1 She-Hulk, Jennifer Walters
+1 Sheltering Landscape
+1 Sivitri, Dragon Master
+1 Sledding Otter-Penguin
+1 Soulcatcher
+1 Spirit Mirror
+1 Strix Lookout
+1 Sunspring Expedition
+1 Supply-Line Cranes
+2 Swamp
+1 The World Tree
+1 Toucan-Puffin
+1 Tournament Grounds
+1 Twisted Landscape
+1 Umara Raptor
+1 Unspeakable Symbol
+1 War Dance
+1 Welkin Guide
+1 Windbrisk Raptor
+
+[commander]
+Child of Alara

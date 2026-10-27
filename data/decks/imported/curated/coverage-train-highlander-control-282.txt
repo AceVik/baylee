@@ -1,0 +1,78 @@
+# baylee synergistic coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WBR #20266283]
+1 Adamant Will
+1 Aegis of the Heavens
+1 Aerial Maneuver
+1 Atog
+1 Baxter Building
+1 Beasts of Bogardan
+1 Brotherhood Headquarters
+1 Bull Cerodon
+1 Bull Rush
+1 Candlelight Vigil
+1 Cascading Cataracts
+1 Castle
+1 Colos Yearling
+1 Corrupted Crossroads
+1 Damn
+1 Disease Carriers
+1 Ferrovore
+1 Fervent Strike
+1 Fill with Fright
+1 Flowstone Crusher
+1 Glasswing Grace
+1 Glimmervoid
+1 Haven of the Spirit Dragon
+1 Indestructibility
+1 Indestructible Aura
+1 Interjection
+1 Iona's Blessing
+1 Kranioceros
+1 Lazotep Quarry
+1 Legion Lieutenant
+1 Lotus Vale
+1 Marked by Honor
+1 Marsh Lurker
+1 Maskwood Nexus
+1 Metrognome
+1 Mindslicer
+1 Mortal's Ardor
+12 Mountain
+1 Nettlecyst
+1 Nobilis of War
+1 Nuisance Engine
+1 Nykthos, Shrine to Nyx
+1 Obzedat's Aid
+1 Painted Bluffs
+1 Piety
+1 Pitiless Pontiff
+15 Plains
+1 Plaza of Heroes
+1 Rally
+1 Ravenous Intruder
+1 Relic Sloth
+1 Ridgeline Rager
+1 Ruinous Ultimatum
+1 Rust Monster
+1 School of the Unseen
+1 Seize the Initiative
+1 Serra Aviary
+1 Servant of Volrath
+1 Shadow Stinger
+1 Shield Wall
+1 Skillful Lunge
+1 Spiteful Motives
+1 Spur Grappler
+1 Stromkirk Captain
+1 Sultai Runemark
+1 Sunstone
+1 Survivors' Encampment
+1 Talon Gates of Madara
+1 Tendo Ice Bridge
+1 Thirsting Bloodlord
+1 Trenching Steed
+1 Undiscovered Paradise
+1 Vanishing Verse
+1 Warning
+1 Zealous Strike

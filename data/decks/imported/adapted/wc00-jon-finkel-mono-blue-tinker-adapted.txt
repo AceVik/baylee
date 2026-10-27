@@ -5,15 +5,15 @@
 4 Cancel
 4 Catalog
 4 Crystal Vein
-1 Déjà Vu
-4 Elven Lyre
-4 Fabricate
+1 Ebony Rhino
 1 Force of Negation
+4 Grafted Skullcap
 9 Island
-1 Launch Mishap
 4 Masticore
+1 Mishra's Helix
+4 Pearl Medallion
 4 Rishadan Port
 4 Saprazzan Skerry
-4 Teleport
 4 Thran Dynamo
+4 Tinker
 4 Voltaic Key

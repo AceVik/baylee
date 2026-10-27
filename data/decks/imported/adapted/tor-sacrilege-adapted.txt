@@ -4,11 +4,11 @@
 1 Angel of Retribution
 4 Anguished Unmaking
 1 Aven Cloudchaser
-1 Bastion Enforcer
+3 Buried Alive
+1 Glider Kids
 4 Gravedigger
-2 Harsh Sustenance
 1 Hypochondria
-4 Inkling Summoning
+3 Inkling Summoning
 1 Malevolent Awakening
 4 Mortify
 10 Plains

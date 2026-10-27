@@ -6,6 +6,7 @@
 1 Cultivate
 2 Duskdale Wurm
 1 Fireball
+1 Fling
 16 Forest
 2 Garruk's Packleader
 2 Giant Growth
@@ -19,7 +20,7 @@
 1 Plummet
 2 Runeclaw Bear
 1 Sacred Wolf
-3 Savage Twister
+2 Savage Twister
 1 Spined Wurm
 4 Stump Stomp
 2 Yavimaya Wurm

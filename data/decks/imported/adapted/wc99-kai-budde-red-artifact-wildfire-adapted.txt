@@ -2,17 +2,17 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Kai Budde - Red-Artifact Wildfire (Adapted)]
 3 Ancient Tomb
-1 Bathe in Dragonfire
 4 City of Traitors
 4 Covetous Dragon
-4 Elven Lyre
-4 Fateful End
+4 Cursed Scroll
 4 Fire Diamond
 4 Hordeling Outburst
-4 Massive Raid
+1 Karn, Silver Golem
 3 Masticore
+2 Mishra's Helix
 13 Mountain
-2 Sweltering Suns
+4 Pearl Medallion
+4 Thaumatic Compass
 4 Thran Dynamo
 4 Voltaic Key
 2 Worn Powerstone

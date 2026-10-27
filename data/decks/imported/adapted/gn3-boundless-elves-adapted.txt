@@ -16,9 +16,9 @@
 24 Forest
 1 Joraga Visionary
 2 Khalni Ambush
-1 Lace with Moonglove
 3 Llanowar Elves
 2 Llanowar Tribe
+1 Overrun
 1 Regrowth
 1 Spoils of Victory
 2 Squall

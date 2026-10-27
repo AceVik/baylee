@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control B #20266055]
+1 Accursed Horde
+1 Alesha's Legacy
+1 Battle-Rage Blessing
+1 Bog Raiders
+1 Bronze Sword
+1 Burrog Banemaker
+1 Carrion Howler
+1 Catacomb Crocodile
+1 Corpse Blockade
+1 Cyclopean Tomb
+1 Darkness
+1 Dauthi Marauder
+1 Deathlace
+1 Demonic Torment
+1 Dreg Reaver
+1 Dross Prowler
+1 Escape Tunnel
+1 Excavator
+1 Frankenstein's Monster
+1 Gold-Forged Sentinel
+1 Greataxe
+1 Hag of Death's Legion
+1 Hag of Noxious Nightmares
+1 Headless Horseman
+1 Helm of Possession
+1 Hero's Heirloom
+1 Imi Statue
+1 Iron Giant
+1 Lash of Malice
+1 Lim-Dûl's Cohort
+1 Mightstone
+1 Nightwing Shade
+1 Noxious Toad
+1 Offer Immortality
+1 Rathi Assassin
+1 Raven Wings
+1 Rhystic Cave
+1 Ring of Ma'rûf
+1 Rotting Legion
+1 Rotting Regisaur
+1 Rusted Slasher
+1 Scorched Ruins
+1 Screeching Buzzard
+1 Scrying Sheets
+1 Servant of Volrath
+1 Sheoldred's Edict
+1 Short Bow
+1 Shriek of Dread
+1 Silverskin Armor
+1 Stardew Valley
+36 Swamp
+1 Tendrils of Despair
+1 Tower of the Magistrate
+1 Two-Headed Zombie
+1 Undercity Shade
+1 Unhallowed Phalanx
+1 Urza's Workshop
+1 Vanguard's Shield
+1 Veteran's Sidearm
+1 Vibranium Energy Daggers
+1 Wandering Tombshell
+1 Weakstone
+1 Whipstitched Zombie
+1 Zombie Trailblazer
+
+[commander]
+Kalakscion, Hunger Tyrant

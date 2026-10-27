@@ -1,75 +1,72 @@
 # baylee curated commander midrange seed=20261064
 # licence: AGPL-3.0-only
 [deck:commander midrange G #20261064]
-1 A.I.M. Synthoids
-1 Anodet Lurker
-1 Archers of Qarsi
-1 Argothian Pixies
-1 Ashnod's Transmogrant
-1 Awaken the Woods
-1 Baxter Building
-1 Brown Ouphe
-1 Bull Aurochs
-1 Chrome Cat
-1 Cyclopean Tomb
-1 Daggerback Basilisk
-1 Dancing Scimitar
-1 Darksteel Plate
-1 Defiant Elf
-1 Dingus Egg
-1 Dreamstone Hedron
-32 Forest
-1 Gaea's Embrace
-1 Gemstone Mine
-1 Gilt-Leaf Seer
-1 Growth Spasm
-1 Icy Manipulator
-1 Lay of the Land
-1 Leatherback Baloth
-1 Lurker
-1 Moss Viper
-1 Mox Diamond
-1 Myr Matrix
-1 Nature's Chosen
-1 Pheres-Band Centaurs
-1 Phyrexia's Core
-1 Primal Huntbeast
-1 Ravenous Baloth
-1 Regrowth
-1 Rib Cage Spider
-1 Ring of Ma'rûf
-1 Ring of Renewal
-1 Ring of the Lucii
-1 Rod of Ruin
-1 Roughshod Mentor
-1 Rusted Sentinel
-1 Sanitation Automaton
-1 Scarwood Treefolk
-1 Sculpting Steel
-1 Sea Gate Wreckage
-1 Serpent Skin
-1 Shifting Wall
-1 Shimmerdrift Vale
-1 Shopkeeper's Bane
-1 Spawning Bed
-1 Spawning Pit
-1 Spidery Grasp
-1 Spike Feeder
-1 Thaumatic Compass
-1 The Fabulous Frog-Man
-1 The Grey Havens
-1 Topan Ascetic
-1 Trained Jackal
-1 True-Faith Censer
-1 Unforgiving Aim
-1 Urza's Factory
+1 Aether Hub
+1 Ancient Ziggurat
+1 Attended Socialite
+1 Baldur's Gate
+1 Beast-Kin Ranger
+1 Briarbridge Tracker
+1 Bristly Bill, Spine Sower
+1 Cavern of Souls
+1 Centaur's Herald
+1 Disciple of Freyalise
+1 Elderleaf Mentor
+1 Elturgard Ranger
+1 Elvish Clancaller
+1 Elvish Farmer
+1 Elvish Regrower
+1 Elvish Skysweeper
+1 Elvish Vanguard
+1 Elvish Visionary
+1 Eternal Witness
+1 Fauna Shaman
+34 Forest
+1 Galadhrim Guide
+1 Gilded Goose
+1 Glittermonger
+1 Greenseeker
+1 Greensleeves, Maro-Sorcerer
+1 Guardian of Cloverdell
+1 Heart Warden
+1 Howling Giant
+1 Imperious Perfect
+1 Ivy Lane Denizen
+1 Jade Bearer
+1 Joraga Visionary
+1 Jungleborn Pioneer
+1 Leaf-Crowned Visionary
+1 Legolas Greenleaf
+1 Llanowar Mentor
+1 Llanowar Sentinel
+1 Llanowar Stalker
+1 Llanowar Visionary
+1 Marshdrinker Giant
+1 Mossbeard Ancient
+1 Multani's Acolyte
+1 Nissa, Resurgent Animist
+1 Orochi Hatchery
+1 Owlbear
+1 Pawpatch Formation
+1 Planar Nexus
+1 Professor of Zoomancy
+1 Quirion Sentinel
+1 Reclamation Sage
+1 Satyr Grovedancer
+1 Soul of the Harvest
+1 Sunshower Druid
+1 Titania, Protector of Argoth
+1 Turntimber Ranger
+1 Turtle Lair
+1 Valley Mightcaller
+1 Viridian Shaman
 1 Wild Wanderer
-1 Wirewood Elf
-1 Wirewood Symbiote
+1 Wirewood Hivemaster
+1 Wirewood Savage
 1 Wood Elves
-1 Wyluli Wolf
-1 Yavimaya Scion
-1 Zodiac Horse
+1 Woodland Liege
+1 World Shaper
+1 Yavimaya Granger
 
 [commander]
-The Fabulous Frog-Man
+Lumra, Bellow of the Woods

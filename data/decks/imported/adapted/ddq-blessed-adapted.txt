@@ -10,17 +10,17 @@
 1 Doomed Traveler
 1 Eerie Interlude
 1 Emancipation Angel
+2 Energy Arc
 1 Gryff Vanguard
+1 Imperial Aerosaur
 7 Island
 1 Mist Raven
 1 Moorland Haunt
 1 Moorland Inquisitor
-2 Offering to Asha
 3 Ojutai's Command
 3 Overrule
 12 Plains
 2 Rebuke
-1 Seasoned Marshal
 1 Seraph Sanctuary
 1 Sharpened Pitchfork
 4 Sphinx's Revelation

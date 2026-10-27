@@ -1,82 +1,81 @@
 # baylee curated highlander aggro seed=20261060
 # licence: AGPL-3.0-only
 [deck:highlander aggro WB #20261060]
-1 Bastion Enforcer
-1 Blade Splicer
-1 Bog Initiate
-1 Brawler's Plate
-1 Cabal Coffers
-1 Cabal Trainee
-1 Call to Serve
-1 Carrion Ants
-1 Darksteel Axe
-1 Dauntless Aven
-1 Dead Weight
-1 Desperate Bloodseeker
-1 Diamond City
-1 Dragon's Eye Sentry
-1 Dread Statuary
-1 Dreg Reaver
-1 Eidolon of Rhetoric
-1 Eldrazi Temple
-1 Flying Carpet
-1 Goblin Lyre
-1 Gods' Eye, Gate to the Reikai
-1 Greedy Freebooter
-1 Guard Duty
-1 Guided Strike
-1 Healer's Hawk
-1 Holy Light
-1 Honed Khopesh
-1 Invasion Reinforcements
-1 Judge Magister Gabranth
-1 Kami of False Hope
-1 King Suleiman
-1 Kinsbaile Cavalier
-1 Kitsune Diviner
-1 Levitating Statue
-1 Limestone Golem
-1 Miren, the Moaning Well
-1 Mortify
-1 Mothrider Patrol
-1 Mountain Stronghold
-1 Myr Scrapling
-1 Nath's Buffoon
-1 Nemesis Mask
-1 Nezumi Informant
-1 Nightwing Shade
-1 Nimble Pilferer
+1 Abundant Countryside
+1 Ancient Ziggurat
+1 Arashin Cleric
+1 Avengers Tower
+1 Ayara, First of Locthwain
+1 Baldur's Gate
+1 Baxter Building
+1 Cascading Cataracts
+1 Castle Doom
+1 Cathedral Sanctifier
+1 Champion of the Parish
+1 Commissar Severina Raine
+1 Contemplation
+1 Corrupted Crossroads
+1 Cosmium Blast
+1 Dakmor Ghoul
+1 Death Cultist
+1 Death Watch
+1 Dream Beavers
+1 Dusk Legion Zealot
+1 Elas il-Kor, Sadistic Pilgrim
+1 Extraction Specialist
+1 Foul-Tongue Shriek
+1 Grim Guardian
+1 Healer of the Pride
+1 Highway Robber
+1 Holdout Settlement
+1 Impassioned Orator
+1 Inspiring Cleric
+1 Jasmine Dragon Tea Shop
+1 Joust Through
+1 Kalastria Healer
+1 Last Caress
+1 Leonin Elder
+1 Maga, Traitor to Mortals
+1 Maggot Carrier
+1 Mandroid Squadron
+1 Midnight Charm
+1 Mire Triton
+1 Misery Charm
+1 Mox Pearl
+1 Necrogen Scudder
+1 Night Market Lookout
+1 Northern Air Temple
 1 Nykthos, Shrine to Nyx
-1 Ornithopter
-1 Orzhov Basilica
-1 Patagia Golem
-1 Pearl Dragon
-1 Petrified Hamlet
-1 Phyrexian Walker
-16 Plains
-1 Powerstone Shard
-1 Promising Vein
-1 Quicksand
-1 Ravenous Rats
-1 Salvage Scout
-1 Scourgemark
-1 Scrap Trawler
-1 Skull of Orm
-1 Sliver Construct
-1 Spirit Shield
-1 Stalking Stones
-1 Stern Constable
-1 Sudden Strike
-7 Swamp
-1 Syphon Soul
-1 Trained Caracal
-1 Trenchpost
-1 Vanquish the Weak
-1 Wakandan Drone Flock
-1 Walking Ballista
-1 Wall of Shadows
-1 Warlord's Axe
-1 Wintermoon Mesa
-1 Wolf Cove Villager
-1 Wooden Sphere
-1 World Map
+1 Ondu Cleric
+1 Operations Officer
+1 Orcish Bowmasters
+1 Painted Bluffs
+1 Phyrexian Rager
+6 Plains
+1 Polluted Bonds
+1 Rathi Fiend
+1 Savannah Sage
+1 Shu Soldier-Farmers
+1 Sign in Blood
+1 Skyclave Cleric
+1 Skymarch Bloodletter
+1 Sleeper Agent
+1 Soul Warden
+1 Soul's Attendant
+1 Sunbeam Spellbomb
+1 Surveillance Room
+1 Suture Priest
+18 Swamp
+1 Tainted Field
+1 Tendrils of Corruption
+1 Toxic Abomination
+1 Underworld Coinsmith
+1 Vampire Neonate
+1 Vampire Spawn
+1 Vampiric Rites
+1 Venerable Monk
+1 Warmth
+1 Wayward Servant
+1 Wretched Anurid
+1 Zof Consumption
+1 Zuran Orb

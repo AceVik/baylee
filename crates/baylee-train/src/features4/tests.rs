@@ -1,4 +1,8 @@
 #[cfg(test)]
+#[path = "tactical_tests.rs"]
+mod tactical_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

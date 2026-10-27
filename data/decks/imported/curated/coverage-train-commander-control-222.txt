@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266223]
+1 Adarkar Wastes
+1 Ancient Spring
+1 Arcane Sanctum
+1 Backfire
+1 Benthic Djinn
+1 Bile Urchin
+1 Blight Pile
+1 Caves of Koilos
+1 Circle of Protection: Red
+1 Cloudcrest Lake
+1 Contaminated Landscape
+1 D'Avenant Healer
+1 Deep Water
+1 Dictate of Kruphix
+1 Divine Intervention
+1 Dromar's Cavern
+1 Dry Spell
+1 Elite Javelineer
+1 Embargo
+1 Engine Rat
+1 Famine
+1 Feedback
+1 Festering Evil
+1 Forbidden Ritual
+1 Godless Shrine
+1 Hallowed Fountain
+1 Hecatomb
+1 Hellfire
+9 Island
+1 Karma
+1 Megrim
+1 Mental Agony
+1 Mental Discipline
+1 Mind Over Matter
+1 Mind Whip
+1 Mystic Gate
+1 Numbing Dose
+1 Pestilence
+1 Pillar Tombs of Aku
+3 Plains
+1 Psychic Allergy
+1 Psychic Purge
+1 Raffine's Tower
+1 Reconnaissance
+1 Reconnaissance Mission
+1 Royal Decree
+1 Rune of Protection: Black
+1 Rune of Protection: Blue
+1 Rune of Protection: Green
+1 Rune of Protection: Lands
+1 Rune of Protection: Red
+1 Rune of Protection: White
+1 Samite Archer
+1 Screams of the Damned
+1 Scrubland
+1 Shepherd of Rot
+1 Sip of Hemlock
+1 Skirsdag Supplicant
+1 Soul Bleed
+1 Storm of Saruman
+1 Stormscape Apprentice
+15 Swamp
+1 Thalakos Lowlands
+1 Thoughtseize
+1 Tourach's Chant
+1 True Conviction
+1 Underground Sea
+1 Underworld Dreams
+1 Urborg Stalker
+1 Vesper Ghoul
+1 Warp Artifact
+1 Watery Grave
+1 Wizards' School
+1 Zulaport Chainmage
+1 Zuran Spellcaster
+
+[commander]
+Lady Evangela

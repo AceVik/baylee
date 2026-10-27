@@ -7,10 +7,10 @@
 2 Boros Keyrune
 2 Canyon Minotaur
 1 Court Street Denizen
+4 Energy Bolt
 1 Foundry Champion
-2 Legion Leadership
 4 Lightning Helix
-4 Martial Glory
+2 Martial Glory
 12 Mountain
 12 Plains
 4 Rip Apart

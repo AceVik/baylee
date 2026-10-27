@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BRG #20266214]
+1 Abyssal Gatekeeper
+1 Akki Raider
+1 All Hallow's Eve
+1 Ally Encampment
+1 Artisan's Sorrow
+1 Ashen Powder
+1 Baldur's Gate
+1 Bereavement
+1 Bogardan Firefiend
+1 Captivating Cave
+1 Careless Celebrant
+1 Chime of Night
+1 Corrupted Crossroads
+1 Crucible of the Spirit Dragon
+1 Darigaaz's Caldera
+1 Deadly Visit
+1 Death's Duet
+1 Diamond Kaleidoscope
+1 Doomed Necromancer
+1 Dragon's Herald
+1 Dross Harvester
+1 Dying Wail
+1 Eat to Extinction
+1 Elvish Doomsayer
+1 Entreat the Dead
+1 Exiled Boggart
+1 Footlight Fiend
+1 Get the Point
+1 Glacial Crevasses
+1 Glimmervoid
+1 Goblin Masons
+1 Grasping Longneck
+1 He's Dead, Jim
+1 Hell's Caretaker
+1 Hellkite Overlord
+1 Holdout Settlement
+1 Horror of Horrors
+1 Koma's Faithful
+1 Krark-Clan Grunt
+1 Lampad of Death's Vigil
+1 Last Laugh
+1 Magma Vein
+1 Megatog
+1 Mirrex
+4 Mountain
+1 Necromantic Thirst
+1 Nether Shadow
+1 Nocturnal Feeder
+1 Orcish Bloodpainter
+1 Oxidda Daredevil
+1 Painted Bluffs
+1 Pharika's Mender
+1 Pillar of the Paruns
+1 Plague Spitter
+1 Plagued Rusalka
+1 Reaper of the Wilds
+1 Rhys the Exiled
+1 Rise Again
+1 Sleeper's Guile
+1 Slobad, Goblin Tinkerer
+1 Smoldering Efreet
+1 Sultai Flayer
+21 Swamp
+1 Tar Pitcher
+1 Tarpan
+1 Tel-Jilad Lifebreather
+1 Tendo Ice Bridge
+1 Tsabo Tavoc
+1 Unclaimed Territory
+1 Undercity Dire Rat
+1 Unknown Shores
+1 Visara the Dreadful
+1 Voldaren Estate
+1 Warteye Witch
+1 Wort, Boggart Auntie
+1 Wriggling Grub
+
+[commander]
+Adun Oakenshield

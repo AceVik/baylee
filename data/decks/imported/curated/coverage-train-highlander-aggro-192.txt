@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro WRG #20266193]
+1 Abstergo Entertainment
+1 Akki Rockspeaker
+1 Akoum Hellhound
+1 An-Havva Township
+1 Angelheart Protector
+1 Archaeological Dig
+1 Atalan Jackal
+1 Balduvian Horde
+1 Bloodrage Brawler
+1 Bond Beetle
+1 City of Brass
+1 Court Street Denizen
+1 Dawnhart Disciple
+1 Daybreak Combatants
+1 Deadshot Minotaur
+1 Deeproot Elite
+1 Dualcaster Mage
+1 Dwalin, Weaponmaster
+1 EPF Point Squad
+1 Enlightened Ascetic
+1 Favored of Iroas
+1 Forbidden Orchard
+3 Forest
+1 Gemstone Mine
+1 Gladiolus Amicitia
+1 Guardian Gladewalker
+1 Guardian of Pilgrims
+1 Haazda Officer
+1 Heavy Infantry
+1 Helpful Hunter
+1 Herald of the Fair
+1 Hyrax Tower Scout
+1 Implode
+1 Interplanar Beacon
+1 Kor Skyfisher
+1 Kruin Striker
+1 Leonin Snarecaster
+1 Lotus Vale
+1 Marketwatch Phantom
+1 Maw of Kozilek
+11 Mountain
+1 Murasa Ranger
+1 Orazca Raptor
+1 Palace Jailer
+1 Perimeter Patrol
+1 Pillar of the Paruns
+10 Plains
+1 Raging Minotaur
+1 Ravaging Horde
+1 Remnant Elemental
+1 Returned Pastcaller
+1 Rogue Elephant
+1 Rumble Arena
+1 Sazh's Chocobo
+1 Scythe Leopard
+1 Scythe Tiger
+1 Setessan Skirmisher
+1 Setessan Starbreaker
+1 Shimmering Grotto
+1 Springjack Pasture
+1 Steppe Lynx
+1 Stingcaster Mage
+1 Storm Caller
+1 Subterranean Scout
+1 Tarnished Citadel
+1 Tenth District Guard
+1 Thopter Architect
+1 Théoden, King of Rohan
+1 Tivadar of Thorn
+1 Treasure Hunter
+1 Turtle Lair
+1 Vicious Clown
+1 Vinelasher Kudzu
+1 Vithian Renegades
+1 Vulshok Heartstoker
+1 Wartime Protestors
+1 Whitemane Lion
+1 Witch Enchanter
+1 Zhalfirin Lancer

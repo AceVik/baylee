@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/DDL/monsters.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Monsters_DDL.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Monsters (Adapted)]
+4 Colossal Might
+1 Crater Hellion
+2 Deadly Recluse
+1 Dragon Blood
+1 Fires of Yavimaya
+11 Forest
+4 Ground Assault
+2 Kazandu Refuge
+2 Llanowar Reborn
+2 Manamorphose
+10 Mountain
+1 Orcish Lumberjack
+1 Pyroclasm
+1 Regrowth
+1 Satyr Hedonist
+4 Savage Twister
+1 Shower of Sparks
+1 Skarrg, the Rage Pits
+4 Stump Stomp
+4 Surge of Strength
+1 Troll Ascetic
+1 Zhur-Taa Druid

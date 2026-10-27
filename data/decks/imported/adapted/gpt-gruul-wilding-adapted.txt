@@ -7,15 +7,15 @@
 12 Forest
 4 Ground Assault
 1 Gruul Nodorog
-4 Guttural Response
+1 Guttural Response
 4 Manamorphose
 11 Mountain
-1 Sangrite Surge
 4 Savage Twister
 1 Skarrg, the Rage Pits
 2 Sparkmage Apprentice
 1 Streetbreaker Wurm
 4 Stump Stomp
+4 Surge of Strength
 1 Wild Cantor
 1 Wildsize
 1 Wurmweaver Coil

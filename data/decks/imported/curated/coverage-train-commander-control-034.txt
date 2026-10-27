@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control UB #20266035]
+1 Amulet of Unmaking
+1 Ankh of Mishra
+1 Ashnod's Battle Gear
+1 Book of Rass
+1 Bullwhip
+1 Caltrops
+1 Candelabra of Tawnos
+1 Chrome Prowler
+1 Citanul Flute
+1 Cobalt Golem
+1 Creeping Tar Pit
+1 Dark Sphere
+1 Darkslick Shores
+1 Didgeridoo
+1 Dross Ripper
+1 Echo Circlet
+1 Escaped Experiment
+1 Fetid Pools
+1 Filigree Sages
+1 Firdoch Core
+1 Fool's Tome
+1 Forbidden Ritual
+1 Guardian Beast
+1 Gust-Skimmer
+1 Hematite Talisman
+1 Hermitic Nautilus
+1 Honor-Worn Shaku
+14 Island
+1 Jandor's Ring
+1 Kezzerdrix
+1 Library of Leng
+1 Mana Matrix
+1 Mishra's War Machine
+1 Mistvault Bridge
+1 Morphic Pool
+1 Murky Sewer
+1 Nacre Talisman
+1 Neurok Replica
+1 Nine-Ringed Bo
+1 Obelisk of Undoing
+1 Paupers' Cage
+1 Port of Karfell
+1 Powerstone Shard
+1 Prakhata Pillar-Bug
+1 Psionic Entity
+1 Restless Reef
+1 Reveka, Wizard Savant
+1 Ring of Three Wishes
+1 Ruby Medallion
+1 Runesword
+1 Scalding Tongs
+1 Secret Passage
+1 Serpent's Pass
+1 Silent Dart
+1 Sinister Hideout
+1 Skorpekh Destroyer
+1 Smuggler's Copter
+1 Sol Grail
+1 Soliton
+1 Soured Springs
+1 Spellbook
+1 Springjaw Trap
+1 Standing Stones
+1 Sunken Hollow
+1 Surgical Metamorph
+13 Swamp
+1 Temple Bell
+1 Temple of Deceit
+1 Thumbscrews
+1 Treno, Dark City
+1 Underground Sea
+1 Urborg Stalker
+1 Well of Knowledge
+1 Xanthic Statue
+
+[commander]
+Nebuchadnezzar

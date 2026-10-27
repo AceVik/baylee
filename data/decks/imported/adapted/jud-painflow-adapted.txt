@@ -2,18 +2,18 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Painflow (Adapted)]
 2 Airship Crash
+3 An-Havva Inn
 1 Bala Ged Recovery
 4 Bridgeworks Battle
 1 Broken Wings
-2 Call the Scions
 4 Chord of Calling
 2 Eldritch Evolution
 20 Forest
+2 Gaea's Bounty
 4 Giant Warthog
 2 Ice Storm
 3 Khalni Ambush
 1 Krosan Archer
-3 Lace with Moonglove
 2 Nantuko Elder
 2 Root Out
 2 Squall

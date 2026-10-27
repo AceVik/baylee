@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266218]
+1 +2 Mace
+1 Akron Legionnaire
+1 Ancient Spring
+1 Arcane Sanctum
+1 Ascendant Evincar
+1 Avacyn's Collar
+1 Avacyn's Memorial
+1 Barrels of Blasting Jelly
+1 Bleachbone Verge
+1 Chrome Prowler
+1 Clearwater Pathway
+1 Cloudcrest Lake
+1 Cogwork Wrestler
+1 Confirm Suspicions
+1 Contaminated Landscape
+1 Corpsehatch
+1 Corridor Monitor
+1 Dark Favor
+1 Darkslick Drake
+1 Deadly Derision
+1 Donatello, Turtle Techie
+1 Donatello, Way with Machines
+1 Dragoon's Wyvern
+1 Drake-Skull Cameo
+1 Dreadship Reef
+1 Dromar's Cavern
+1 Elesh Norn, Mother of Machines
+1 Ensoul Artifact
+1 Faerie Formation
+1 Fate Foretold
+1 Feast or Famine
+1 Floodhound
+1 Glassdust Hulk
+1 Gleaming Bastion
+1 Grasping Thrull
+1 Grim Bounty
+1 Implement of Examination
+10 Island
+1 Karn, the Great Creator
+1 Land Cap
+1 Launch
+1 Malcator's Watcher
+1 Mechan Navigator
+1 Moorland Haunt
+1 Nephalia Drownyard
+1 Obelisk of Esper
+1 Onyx Goblet
+1 Parcel Myr
+1 Pegasus Refuge
+1 Phyrexian Broodlings
+1 Pirate's Prize
+9 Plains
+1 Raffine's Tower
+1 Rambunctious Mutt
+1 River of Tears
+1 Rootwater Depths
+1 S.H.I.E.L.D. Deployment Drone
+1 Sarcomite Myr
+1 Scepter of Insight
+1 Servo Exhibition
+1 Shield-Wall Sentinel
+1 Solemn Simulacrum
+1 Spawning Kraken
+1 Stratus Walk
+1 Summoner's Bane
+8 Swamp
+1 Sword of the Ages
+1 Syphon Essence
+1 Teferi's Curse
+1 Thousand Moons Smithy
+1 Thunder Totem
+1 Tribal Golem
+1 Voracious Greatshark
+1 Walking Archive
+1 Wizards' School
+
+[commander]
+Aminatou, the Fateshifter

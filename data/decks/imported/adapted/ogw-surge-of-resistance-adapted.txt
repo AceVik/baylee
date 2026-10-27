@@ -11,9 +11,10 @@
 4 Invoke the Firemind
 11 Island
 2 Izzet Boilerworks
-3 Izzet Charm
+2 Izzet Charm
 3 Lavastep Raider
 12 Mountain
+1 Rolling Thunder
 4 Rush of Inspiration
 2 Stormchaser Mage
 3 Umara Entangler

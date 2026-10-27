@@ -1,81 +1,80 @@
 # baylee curated highlander midrange seed=20261087
 # licence: AGPL-3.0-only
 [deck:highlander midrange UG #20261087]
-1 Aesi, Tyrant of Gyre Strait
-1 Aquatic Incursion
-1 Aquus Steed
-1 Back to Basics
-1 Bad River
-1 Binding Grasp
-1 Bloodstained Mire
-1 Bonesplitter
-1 Borne Upon a Wind
-1 Captivating Cave
-1 Centaur Glade
-1 Cerulean Wyvern
-1 Claws of Wirewood
-1 Corridor Monitor
-1 Crash the Ramparts
-1 Cumber Stone
-1 Dark Depths
-1 Deep Spawn
-1 Deeptread Merrow
-1 Dispersing Orb
-1 Doubling Season
-1 Douse
-1 Elite Cat Warrior
-1 Fable of Wolf and Owl
-1 Flooded Strand
-12 Forest
-1 Fylamarid
+1 Ancestral Vision
+1 Ancient Ziggurat
+1 Beast-Kin Ranger
+1 Bond Beetle
+1 Bristly Bill, Spine Sower
+1 Capital City
+1 City of Brass
+1 Cloudkin Seer
+1 Coiling Oracle
+1 Crystal Grotto
+1 Disciple of Freyalise
+1 Dundoolin Weaver
+1 Elderleaf Mentor
+1 Elegant Entourage
+1 Elvish Regrower
+1 Elvish Visionary
+1 Eumidian Terrabotanist
+1 Faerie Seer
+17 Forest
+1 Frilled Mystic
 1 Galadhrim Guide
-1 Gargoyle Castle
-1 Gauntlets of Chaos
-1 Giant Shark
-1 Gladewalker Ritualist
-1 Grappler Spider
-1 Havenwood Battleground
-1 Homarid Spawning Bed
-1 Howlpack Resurgence
-1 Hullbreacher
-12 Island
-1 Joiner Adept
-1 Mana Matrix
-1 Maze's End
-1 Millstone
-1 Mirkwood Spider
-1 Mox Emerald
-1 Mystic Restraints
-1 Paragon of Gathering Mists
-1 Parcel Myr
-1 Petrified Field
-1 Pit of Offerings
-1 Prescient Chimera
-1 Primoc Escapee
-1 Prizefighter Construct
-1 Ravenous Daggertooth
-1 Reef Pirates
-1 Regeneration
-1 Reliquary Tower
-1 Reset
-1 Roterothopter
-1 Scavenging Ooze
-1 Secluded Courtyard
-1 Sejiri Merfolk
-1 Shadow Sliver
-1 Silver Erne
-1 Silver Myr
-1 Skateboard
-1 Sporecap Spider
-1 The One Ring
-1 The Rack
-1 Throne of the High City
-1 Tower of Eons
-1 Tranquility
-1 Turbulent Wilderness
-1 Vineglimmer Snarl
-1 Vulshok Battlegear
-1 Whirling Dervish
+1 Grey Havens Navigator
+1 Heart Warden
+1 Hill Giant Herdgorger
+8 Island
+1 Jaddi Offshoot
+1 Jade Bearer
+1 Jade Guardian
+1 Joraga Visionary
+1 Lazotep Quarry
+1 Leaf-Crowned Visionary
+1 Legolas Greenleaf
+1 Llanowar Stalker
+1 Llanowar Visionary
+1 Marshdrinker Giant
+1 Mindful Biomancer
+1 Mirkwood Meditator
+1 Multani's Acolyte
+1 Nissa, Resurgent Animist
+1 Nykthos, Shrine to Nyx
+1 Overwhelmed Apprentice
+1 Palinchron
+1 Pillar of the Paruns
+1 Planar Nexus
+1 Professor of Zoomancy
+1 Quirion Sentinel
+1 Reclamation Sage
+1 Sage of Epityr
+1 Sage of Mysteries
+1 Salvager of Secrets
+1 Saruli Gatekeepers
+1 Scrivener
+1 Shaman of Spring
+1 Sliver Hive
+1 Social Climber
+1 Sphinx of Enlightenment
+1 Spire of Industry
+1 Study Hall
+1 Sultai Skullkeeper
+1 Sunshower Druid
+1 Talon Gates of Madara
+1 Tatyova, Benthic Druid
+1 Thran Quarry
+1 Thranduil the Strategist
+1 Three Steps Ahead
+1 Totem Speaker
+1 Viridian Shaman
+1 Vodalian Merchant
+1 Wall of Blossoms
+1 Waterlogged Grove
 1 White Lotus Hideout
-1 Woodcutter's Grit
-1 Zephyr Charge
+1 Wilt
+1 Wirewood Savage
+1 Wood Elves
+1 Woodland Liege
+1 Yavimaya Granger
+1 Yeva's Forcemage

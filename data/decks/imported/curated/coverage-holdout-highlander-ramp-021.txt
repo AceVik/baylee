@@ -1,0 +1,81 @@
+# baylee synergistic holdout coverage highlander ramp
+# licence: AGPL-3.0-only
+[deck:highlander ramp WUBRG #90010022]
+1 Aerial Engineer
+1 An Offer You Can't Refuse
+1 Ancestral Vision
+1 Ashiok's Skulker
+1 Bear's Companion
+1 Blood-Cursed Knight
+1 Brine Hag
+1 Bucolic Ranch
+1 Callous Inspector
+1 Captain of the Watch
+1 Change the Equation
+1 Channel the Suns
+1 Courier's Briefcase
+1 Culling Sun
+1 Daily Bugle Building
+1 Deviant Glee
+1 Etherium Spinner
+1 Firemind's Research
+1 Forced Fruition
+1 Forest
+1 Frightful Delusion
+1 Ghor-Clan Bloodscale
+1 Glimmervoid
+1 Great Hall of the Biblioplex
+1 Guarded Heir
+1 Haven of the Spirit Dragon
+1 Hazezon Tamar
+1 Hearthcage Giant
+1 Honored Knight-Captain
+1 Iron Man, Tony Stark
+10 Island
+1 Izzet Signet
+1 Jwari Scuttler
+1 Kin-Tree Severance
+1 Kiora's Follower
+1 Legerdemain
+1 Lose Focus
+1 Lotus Vale
+1 Luxurious Libation
+1 Maelstrom Wanderer
+1 Maelstrom of the Spirit Dragon
+1 Manaforge Cinder
+1 Manamorphose
+1 Many Partings
+1 Maul Splicer
+1 Mindstatic
+1 Mirrodin's Core
+1 Mist Dragon
+10 Mountain
+1 Munitions Expert
+1 Myrsmith
+1 Mystic Remora
+1 Nykthos, Shrine to Nyx
+1 Omnath, Locus of Rage
+5 Plains
+1 Profane Tutor
+1 Reminisce
+1 Riot Spikes
+1 Shadow-Rite Priest
+1 Sigil of the Empty Throne
+1 Sokka, Tenacious Tactician
+1 Stangg
+1 Surveillance Room
+1 Survivors' Encampment
+1 Swan Song
+1 Talon Gates of Madara
+1 Thalakos Dreamsower
+1 The Immortal Weapons
+1 The Mycosynth Gardens
+1 Third Path Iconoclast
+1 Thoughtbind
+1 Three Steps Ahead
+1 Turtle Lair
+1 Unfulfilled Desires
+1 Vesuvan Doppelganger
+1 Villainous Hideout
+1 Wall of Mist
+1 White Lotus Hideout

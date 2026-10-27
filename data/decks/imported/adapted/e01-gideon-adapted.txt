@@ -11,7 +11,6 @@
 2 Gideon's Lawkeeper
 1 Legion's Judgment
 1 Make Your Move
-1 Mesa Unicorn
 1 Metal Fatigue
 2 Moment of Heroism
 25 Plains
@@ -23,4 +22,5 @@
 1 Tempest of Light
 2 Those Who Serve
 1 Wizened Cenn
+1 Worthy Knight
 1 Youthful Knight

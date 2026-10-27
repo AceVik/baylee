@@ -9,9 +9,10 @@
 4 Heroes' Reunion
 4 Llanowar Elves
 2 Lyra Dawnbringer
-4 Nature's Chant
+3 Nature's Chant
 8 Plains
 4 Secluded Courtyard
-4 Selesnya Charm
+1 Selesnya Charm
 2 Split Up
+4 Vitalizing Cascade
 4 Youthful Valkyrie

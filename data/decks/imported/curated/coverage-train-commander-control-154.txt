@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control R #20266155]
+1 Aladdin
+1 Ali from Cairo
+1 Ambush Party
+1 Balduvian Barbarians
+1 Barbarian Horde
+1 Barreling Attack
+1 Bedlam
+1 Berserkers of Blood Ridge
+1 Blood Knight
+1 Buccaneer's Bravado
+1 Cave People
+1 Chaos Terminator Lord
+1 Cori Mountain Monastery
+1 Crazed Goblin
+1 Crookshank Kobolds
+1 Defender of Chaos
+1 Defiant Khenra
+1 Destructive Urge
+1 Dwarven Song
+1 Dwarven Warriors
+1 Fallaji Chaindancer
+1 Fervent Strike
+1 Fighting Chance
+1 Fire Nation Palace
+1 Fire Nation Soldier
+1 Fists of the Anvil
+1 Flameborn Hellion
+1 Ghitu War Cry
+1 Goblin Assailant
+1 Goblin Brigand
+1 Goblin Chariot
+1 Halberdier
+1 Hyperion Blacksmith
+1 Lindblum, Industrial Regency
+1 Magus of the Moon
+1 Memorial to War
+1 Mines of Moria
+36 Mountain
+1 Ogre Sentry
+1 Orgg
+1 Pedal to the Metal
+1 Precise Strike
+1 Rage Weaver
+1 Reckless Brute
+1 Renegade Troops
+1 Rig for War
+1 Rise to the Challenge
+1 Rocky Roads
+1 Searing Spear Askari
+1 Shatterskull Giant
+1 Sigiled Skink
+1 Soldier of Fortune
+1 Song-Mad Treachery
+1 Spiteful Motives
+1 Tavern Ruffian
+1 The Autonomous Furnace
+1 Thunder Strike
+1 Tin Street Market
+1 Trained Orgg
+1 Tyrox, Saurid Tyrant
+1 Viashino Spearhunter
+1 Viashino Warrior
+1 Vulshok Refugee
+1 Whirling Strike
+
+[commander]
+The Whizzer, Classic Speedster

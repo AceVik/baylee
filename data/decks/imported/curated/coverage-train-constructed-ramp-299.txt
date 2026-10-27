@@ -1,0 +1,30 @@
+# baylee synergistic coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WUR #20266300]
+1 Armored Warhorse
+2 Armory Guard
+2 Curio Vendor
+2 Evacuation
+2 Garrison Sergeant
+2 Grizzled Wolverine
+2 Heart Wolf
+2 Imaginary Pet
+7 Island
+2 Kavu Glider
+2 Moon-Eating Dog
+4 Mountain
+1 Mystic Monastery
+2 Orthodoxy Enforcer
+1 Perilous Landscape
+4 Plains
+1 Plateau
+2 Raging Gorilla
+2 Raka Disciple
+3 Raugrin Triome
+1 Rugged Prairie
+2 Sunder
+3 Sunhome, Fortress of the Legion
+2 Valor Singer
+2 Venser, the Sojourner
+2 Warship Flight Crew
+2 Wetland Sambar

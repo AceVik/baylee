@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUB #20266024]
+1 Aardvark Sloth
+1 Abandoned Air Temple
+1 Alabaster Host Sanctifier
+1 Arvad the Cursed
+1 Barad-dûr
+1 Black Dragon Gate
+1 Brad Boimler, Eager Ensign
+1 Brightblade Stoat
+1 Caravan Hurda
+1 Citadel Gate
+1 Convalescence
+1 Cursebreak
+1 Dakmor Salvage
+1 Desperate Lunge
+1 Divine Offering
+1 Dromad Purebred
+1 Eriette's Lullaby
+1 Everglades
+1 Fall of the Gavel
+1 Flight-Deck Coordinator
+1 Foul Roads
+1 Gerrard's Wisdom
+1 Glyph of Life
+1 Golden Urn
+1 Grollub
+1 Heliod's Intervention
+1 Howltooth Hollow
+1 Icatian Store
+1 Illumination
+1 Imperial Ceratops
+1 Invoke the Divine
+1 Ishgard, the Holy See
+1 Island
+1 Judge of Currents
+1 Koala-Sheep
+1 Linden, the Steadfast Queen
+1 Lucky Offering
+1 Memorial to Glory
+1 Minas Morgul, Dark Fortress
+1 Monumental Henge
+1 Moonrise Cleric
+1 Nip Gwyllion
+1 Nyx-Fleece Ram
+1 Ondu War Cleric
+1 Orim's Prayer
+1 Piranha Marsh
+23 Plains
+1 Prideful Feastling
+1 Radiant Strike
+1 Realm of Koh
+1 Recuperate
+1 Reverse Polarity
+1 Rousing Read
+1 Serene Offering
+1 Sickbay Orderly
+1 Silent Attendant
+1 Soothing Balm
+1 Soul Shepherd
+1 Starlight Invoker
+1 Steadfast Paladin
+1 Surge of Righteousness
+2 Swamp
+1 Thirsting Shade
+1 Tonic Peddler
+1 Trained Caracal
+1 Triumphant Surge
+1 True Conviction
+1 Valkyrior Skyrider
+1 Vizkopa Vampire
+1 Vona, Butcher of Magan
+1 Wanderbrine Preacher
+1 Well-Worn Spatula
+1 Windbrisk Heights
+1 Yotian Medic
+1 Zarichi Tiger
+1 Zealots en-Dal
+
+[commander]
+Halfdane

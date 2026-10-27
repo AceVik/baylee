@@ -24,7 +24,7 @@ def read_verified(evaluation, job):
     command = iter(run["command"][1:])
     options = {}
     for flag in command:
-        options[flag] = True if flag in ("--legacy-v3", "--fair-scouting", "--no-baseline", "--held-out-cards") else next(command)
+        options[flag] = True if flag in ("--legacy-v3", "--fair-scouting", "--no-baseline", "--held-out-cards", "--raw-policy") else next(command)
     if Path(options["--out"]).resolve() != path.resolve() or options["--model"] != value["model"]:
         raise ValueError("Evaluation does not belong to the supplied job")
     manifest = value["decks_manifest"]
@@ -52,6 +52,12 @@ def compare(candidate, reference, candidate_provenance, reference_provenance, re
             continue
         if candidate[key] != reference[key]:
             raise ValueError(f"Evaluation protocol differs or is missing: {key}")
+    # Legacy reports without either field remain comparable to one another.
+    # Once declared, policy execution semantics are part of the matched protocol.
+    for key in ("policy_mode", "policy_contract"):
+        if key in candidate or key in reference:
+            if key not in candidate or key not in reference or candidate[key] != reference[key]:
+                raise ValueError(f"Evaluation protocol differs or is missing: {key}")
     if candidate.get("no_baseline") or reference.get("no_baseline"):
         raise ValueError("House duplicates are required to audit matching outcomes")
 
@@ -87,6 +93,9 @@ def compare(candidate, reference, candidate_provenance, reference_provenance, re
     return {"candidate": candidate["model"], "reference": reference["model"],
             "thinking_steps": {"candidate": candidate["thinking_steps"], "reference": reference["thinking_steps"]},
             "different_thinking_budgets_allowed": allow_thinking_difference,
+            "policy_execution": {label: {key: value[key] for key in
+                ("policy_mode", "policy_contract", "model_identity") if key in value}
+                for label, value in (("candidate", candidate), ("reference", reference))},
             "provenance": candidate_provenance, "outcomes": dict(counts),
             "execution_quality": {label: {key: value.get(key) for key in
                 ("model_family", "house_fallbacks", "fallback_rate", "refused", "stalls", "net_answer_caps")}

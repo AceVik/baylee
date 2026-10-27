@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266142]
+1 Adamant Will
+1 Aerial Maneuver
+1 Alarum
+1 Ancient Den
+1 Angel of Light
+1 Angelic Curator
+1 Angelic Overseer
+1 Angelic Protector
+1 Aven Mindcensor
+1 Aven Redeemer
+1 Avian Changeling
+1 Banishing Stroke
+1 Beaming Defiance
+1 Combat Professor
+1 Daru Encampment
+1 Dauntless Aven
+1 Dawn Gryff
+1 Dawnglare Invoker
+1 Eiganjo Castle
+1 Flagstones of Trokair
+1 Great Defender
+1 Hall of Heliod's Generosity
+1 Heavenly Qilin
+1 Herald of Serra
+1 Hope and Glory
+1 Indestructible Aura
+1 Isolation Cell
+1 Ivory Charm
+1 Kabuto Moth
+1 Lupinflower Village
+1 Makindi Aeronaut
+1 Malach of the Dawn
+1 Melesse Spirit
+1 Mesa Pegasus
+1 Mistral Charger
+1 Nacre Talisman
+1 Necrogen Censer
+1 Niblis of the Urn
+1 Nine-Ringed Bo
+1 Piety
+34 Plains
+1 Pteron Ghost
+1 Qilin's Blessing
+1 Rally
+1 Seize the Initiative
+1 Serra Advocate
+1 Shepherd of the Lost
+1 Shield Wall
+1 Skillful Lunge
+1 Soulbound Guardians
+1 Starlit Angel
+1 Stormfront Pegasus
+1 Swift Justice
+1 Thunder Spirit
+1 Tormented Angel
+1 Tributary Vaulter
+1 Trusted Pegasus
+1 Voice of Duty
+1 Voice of Grace
+1 Voice of Law
+1 Voice of Reason
+1 Voice of Truth
+1 Warning
+1 Wheel of Torture
+1 You're Ambushed on the Road
+1 Zealous Strike
+
+[commander]
+Radiant, Archangel

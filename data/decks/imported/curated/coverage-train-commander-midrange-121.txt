@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UB #20266122]
+1 Aether Vial
+1 Agatha's Soul Cauldron
+1 Armor Thrull
+1 Aven Envoy
+1 Battlefield Percher
+1 Battleground Geist
+1 Bay Falcon
+1 Buried Ruin
+1 Celestial Messenger
+1 City of Traitors
+1 Cloud Spirit
+1 Coast Watcher
+1 Cradle of the Accursed
+1 Crypt Cobra
+1 Deep Spawn
+1 Extinguish All Hope
+1 Fountainport
+1 Geier Reach Sanitarium
+1 Ghost Ship
+1 Gitaxian Raptor
+1 Greater Werewolf
+1 Guul Draz Mucklord
+1 Harbinger of Night
+1 Homarid
+16 Island
+1 Ithilien Kingfisher
+1 Khabál Ghoul
+1 Lesser Werewolf
+1 Lux Cannon
+1 Mischievous Poltergeist
+1 Moaning Spirit
+1 Niblis of the Breath
+1 Pendrell Drake
+1 Pit Imp
+1 Pit Scorpion
+1 Prismatic Vista
+1 Radiant Fountain
+1 Rhystic Cave
+1 Runewing
+1 Scavenger Grounds
+1 Screaming Phantom
+1 Screeching Buzzard
+1 Sea Eagle
+1 Sea Gate Wreckage
+1 Seafarer's Quay
+1 Searchlight Geist
+1 Shimmerscale Drake
+1 Shriekdiver
+1 Shriekgeist
+1 Silver Erne
+1 Skulking Ghost
+1 Skyline Predator
+1 Skyshroud Condor
+1 Souldrinker
+1 Spiketail Hatchling
+1 Spindrift Drake
+1 Storm Crow
+1 Stormcloud Spirit
+1 Supreme Phantom
+9 Swamp
+1 Tattered Haunter
+1 The Great Mound
+1 Thopter Squadron
+1 Time Bomb
+1 Trained Condor
+1 Treetop Sentinel
+1 Troublesome Spirit
+1 Tyrite Sanctum
+1 Unstable Frontier
+1 Vampire Revenant
+1 Vedalken Infuser
+1 Vexing Gull
+1 Wanderlight Spirit
+1 Wind Spirit
+1 Witch's Clinic
+1 Zephyr Gull
+
+[commander]
+Skeleton Ship

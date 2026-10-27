@@ -1,10 +1,10 @@
 # adapted from data/decks/precon/LRW/boggart-feast.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BoggartFeast_LRW.json)
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Boggart Feast (Adapted)]
-4 Auger Spree
+2 Auger Spree
 4 Bedevil
 2 Boggart Birth Rite
-4 Dreadbore
+4 Delirium
 2 Exiled Boggart
 3 Facevaulter
 2 Ghostly Changeling
@@ -16,7 +16,7 @@
 2 Mudbutton Torchrunner
 2 Shimmering Grotto
 1 Spiderwig Boggart
+4 Spontaneous Combustion
 12 Swamp
 1 Tar Pitcher
 2 Tarfire
-2 Terminate

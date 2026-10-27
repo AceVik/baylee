@@ -12,8 +12,8 @@
 6 Mountain
 4 Naya Charm
 8 Plains
-2 Ray of Dissolution
 4 Rith's Charm
+2 Scarwood Goblins
 2 Strength in Numbers
 2 Terramorphic Expanse
 2 Two-Headed Sliver

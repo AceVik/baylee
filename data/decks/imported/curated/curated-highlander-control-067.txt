@@ -1,69 +1,68 @@
 # baylee curated highlander control seed=20261090
 # licence: AGPL-3.0-only
 [deck:highlander control W #20261090]
-1 Allied Teamwork
+1 Academy Rector
+1 Ancient Ziggurat
 1 Armed Response
-1 Beaming Defiance
-1 Big Apple, 3 a.m.
-1 Blood of the Martyr
-1 Bottle of Suleiman
-1 Bounty Agent
-1 Braidwood Cup
-1 Claws of Gix
-1 Conqueror's Galleon
-1 Crusade
-1 D'Avenant Archer
-1 Desert
-1 Diamond Kaleidoscope
-1 Divine Intervention
-1 Dungeon Descent
-1 Foundry of the Consuls
-1 Glory Seeker
-1 Grapeshot Catapult
-1 Hallowed Ground
-1 Hero's Resolve
-1 Honor-Worn Shaku
+1 Aura Blast
+1 Auspicious Ancestor
+1 Battlewise Valor
+1 Baxter Building
+1 Blessed Wine
+1 Call the Gatewatch
+1 Captain of the Watch
+1 Captain's Defense
+1 Clear
+1 Contemplation
+1 Coordinated Maneuver
+1 Crystal Grotto
+1 Dragon's Presence
+1 Eclipsed Realms
+1 Eiganjo Castle
+1 Elite Archers
+1 Festival of the Guildpact
+1 Fire and Brimstone
+1 Forsake the Worldly
+1 Guided Strike
+1 Hamato Guardian Stance
+1 Heavy Ballista
+1 Horizon Seed
+1 Inspiring Commander
+1 Jeskai Student
+1 Joust Through
 1 Kami of Tattered Shoji
-1 Karn, the Great Creator
-1 Knight-Captain of Eos
-1 Leonin Scimitar
-1 Marked by Honor
-1 Mending Hands
-1 Moonglove Extract
-1 Mycosynth Lattice
-1 Nine-Ringed Bo
-1 North Star
-1 Panharmonicon
-1 Pardic Wanderer
-1 Pit Trap
-35 Plains
-1 Planar Bridge
-1 Plaza of Heroes
-1 Ray of Dissolution
-1 Recuperate
-1 Red Ward
-1 Righteous Avengers
-1 Rising Populace
-1 Rumble Arena
-1 Sanctimony
-1 Seeker
-1 Sensor Splicer
-1 Serum Tank
-1 Silver Knight
-1 Sonic Screwdriver
-1 Spatial Contortion
-1 Spirit Mantle
-1 Staff of Domination
-1 Static Orb
+1 Kor Firewalker
+1 Kree Commandos
+1 Lotus-Eye Mystics
+1 Maelstrom of the Spirit Dragon
+1 Mana Crypt
+1 Mesa Enchantress
+1 Meteorite
+1 Nykthos, Shrine to Nyx
+1 Opal Archangel
+1 Opal Caryatid
+1 Opal Champion
+1 Operations Officer
+1 Oyobi, Who Split the Heavens
+1 Personal Incarnation
+36 Plains
+1 Presence of the Master
+1 Pressure Point
+1 Primal Amulet
+1 Radiant's Judgment
+1 Repentance
+1 Ritual of Rejuvenation
+1 Royal Decree
+1 Sandblast
+1 Seeker of the Way
+1 Sigil of the Empty Throne
+1 Slash of Talons
+1 Sphinx-Bone Wand
+1 Sram, Senior Edificer
+1 Student of Ojutai
+1 Sunscorch Regent
 1 Survive the Night
-1 Sylvok Lifestaff
-1 Thran Portal
-1 Tower of Eons
-1 U.S.S. Enterprise-D, Galaxy-Class
-1 Unholy Citadel
-1 Vanquish
-1 Wall of Spears
-1 War Chariot
-1 Winged Shepherd
-1 Winter Moon
-1 Worn Powerstone
+1 Ultimate Alliance
+1 Warmth
+1 White Mana Battery
+1 Wipe Clean

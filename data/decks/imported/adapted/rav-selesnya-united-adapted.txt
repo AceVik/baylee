@@ -5,18 +5,18 @@
 4 Call of the Conclave
 2 Caregiver
 1 Dowsing Shaman
-4 Eladamri's Call
+3 Eladamri's Call
 2 Elvish Skysweeper
 4 Fists of Ironwood
 11 Forest
-1 Gerrard's Command
 4 Nature's Chant
 10 Plains
-4 Reknit
+3 Reknit
 1 Scion of the Wild
 4 Selesnya Charm
 2 Selesnya Evangel
 2 Selesnya Sanctuary
 1 Tolsimir Wolfblood
+3 Vitalizing Cascade
 1 Vitu-Ghazi, the City-Tree
 1 Watchwolf

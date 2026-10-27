@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266141]
+1 Aesthir Glider
+1 Anvilwrought Raptor
+1 Arcum's Whistle
+1 Birthing Boughs
+1 Bladed Pinions
+1 Brass-Talon Chimera
+1 Bronze Horse
+1 Bucolic Ranch
+1 Caltrops
+1 Cathar's Shield
+1 Chardalyn Dragon
+1 City in a Bottle
+1 Coretapper
+1 Defense Grid
+1 Dragonstalker
+1 Eagle of the Great Shelf
+1 Frostwalk Bastion
+1 Gold-Forged Sentinel
+1 Gorgon Flail
+1 Haunted Cloak
+1 Herbal Poultice
+1 Honed Khopesh
+1 Iron Tusk Elephant
+1 Iron-Heart Chimera
+1 Kinsbaile Balloonist
+1 Kitesail
+1 Lead-Belly Chimera
+1 Leonin Bladetrap
+1 Life Matrix
+1 Living Armor
+1 Loxodon Battle Priest
+1 Majestic Heliopterus
+1 Mogg Cannon
+1 Muraganda Raceway
+1 Myr Scrapling
+1 Necrogen Censer
+1 Neurok Hoversail
+1 Nine-Ringed Bo
+1 Noble Elephant
+1 Obscura Storefront
+1 Pacification Array
+1 Peregrine Mask
+34 Plains
+1 Planar Portal
+1 Plover Knights
+1 Ring of Three Wishes
+1 Riveteers Overlook
+1 Roterothopter
+1 Sanctuary Raptor
+1 Serrated Biskelion
+1 Shining Aerosaur
+1 Silverskin Armor
+1 Skyswirl Harrier
+1 Sliversmith
+1 Specter's Shroud
+1 Spectral Guardian
+1 Sphere of Resistance
+1 Sunweb
+1 Teeka's Dragon
+1 Thaumaturge's Familiar
+1 Tin-Wing Chimera
+1 Unlicensed Hearse
+1 Vesuva
+1 Veteran of the Depths
+1 Wall of Swords
+1 Whirlermaker
+
+[commander]
+Commander Eesha

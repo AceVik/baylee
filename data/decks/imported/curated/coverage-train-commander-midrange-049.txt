@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20266050]
+1 Accursed Duneyard
+1 Adventurer's Inn
+1 Adventurers' Guildhouse
+1 Alpha Tyrranax
+1 Altar of Dementia
+1 Apes of Rath
+1 Barbary Apes
+1 Beacon Behemoth
+1 Broodwarden
+1 Brushstrider
+1 Cacophodon
+1 Camouflage
+1 Canopy Gorger
+1 Chitinous Cloak
+1 Chorus of Might
+1 Cloak of the Bat
+1 Colossadactyl
+1 Dingus Staff
+1 Fanatical Fever
+1 Feral Krushok
+1 Filigree Crawler
+34 Forest
+1 Garruk's Gorehorn
+1 Gnottvold Recluse
+1 Goblin Boom Keg
+1 Goliath Spider
+1 Gorilla Pack
+1 Helm of the Host
+1 Heroic Intervention
+1 Horrid Vigor
+1 Jibbirik Omnivore
+1 Leatherback Baloth
+1 Lurker
+1 Mending Touch
+1 Metrognome
+1 Misty Rainforest
+1 Moopsy
+1 Mosscoat Goriak
+1 Mugato
+1 Nettlecyst
+1 Orazca Frillback
+1 Pygmy Allosaurus
+1 Quakestrider Ceratops
+1 Ranger's Guile
+1 Reclaim
+1 Regenerate
+1 Resuscitate
+1 Riot Gear
+1 Root Snare
+1 Rotted Hystrix
+1 Sanctum of Eternity
+1 Scrapheap
+1 Shrink
+1 Spike-Tailed Ceratops
+1 Sporecap Spider
+1 Sunstone
+1 Tenza, Godo's Maul
+1 Towering Indrik
+1 True-Faith Censer
+1 Urza's Factory
+1 Vitalize
+1 War Barge
+1 War Horn
+1 Warden of Geometries
+1 Warmonger's Chariot
+1 Whiptail Wurm
+
+[commander]
+Terrian, World Tyrant

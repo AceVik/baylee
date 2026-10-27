@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange RG #20266314]
+1 Akoum Boulderfoot
+1 Axebane Guardian
+1 Black Lotus
+1 Bloom Tender
+1 Boreal Druid
+1 Brotherhood Headquarters
+1 Bugenhagen, Wise Elder
+1 Canopy Tactician
+1 Capital City
+1 Captivating Cave
+1 Cascading Cataracts
+1 Centaur Nurturer
+1 Chromatic Sphere
+1 Circle of Dreams Druid
+1 Citanul Hierophants
+1 Cryptic Spires circles=RG
+1 Dawnhart Rejuvenator
+1 Deadshot Minotaur
+1 Deathbloom Gardener
+1 Devoted Druid
+1 Dismissive Pyromancer
+1 Dragon Trainer
+1 Druid of the Cowl
+1 Drumhunter
+1 Elturgard Ranger
+1 Elvish Archdruid
+1 Elvish Spirit Guide
+1 Eumidian Terrabotanist
+1 Fang Guardian
+1 Firefist Adept
+1 Fyndhorn Elder
+1 Glimmervoid
+1 Great Hall of the Citadel
+1 Greenweaver Druid
+1 Gruul Cluestone
+1 Gruul Locket
+1 Harabaz Druid
+1 Heart Warden
+1 Hill Giant Herdgorger
+1 Holdout Settlement
+1 Howling Giant
+1 Humble Naturalist
+1 Jaspera Sentinel
+1 Joiner Adept
+1 Joraga Visionary
+1 Lifespring Druid
+1 Mossfire Egg
+1 Mox Ruby
+1 Nissa, Resurgent Animist
+1 Paradise Druid
+1 Priest of Titania
+1 Pyrite Spellbomb
+1 Rofellos, Llanowar Emissary
+1 Shaman of Spring
+1 Silhana Starfletcher
+1 Skarrg, the Rage Pits
+18 Snow-Covered Forest
+6 Snow-Covered Mountain
+1 Somberwald Sage
+1 Spire of Industry
+1 Sunastian Falconer
+1 Sunshower Druid
+1 Surveillance Room
+1 Swampbenders
+1 Tendo Ice Bridge
+1 Thornspire Verge
+1 Three Tree City
+1 Throne of Makindi
+1 Turntimber Ranger
+1 Turtle Lair
+1 Viridian Acolyte
+1 Wild Cantor
+1 Wild Wanderer
+1 Wirewood Channeler
+1 Wirewood Elf
+1 Woodland Liege
+1 Zhur-Taa Druid
+
+[commander]
+Radha, Heir to Keld

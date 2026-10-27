@@ -1,0 +1,81 @@
+# baylee synergistic holdout coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BG #90010021]
+1 Abstergo Entertainment
+1 Aclazotz, Deepest Betrayal
+1 Aspect of Gorgon
+1 Bala Ged Scorpion
+1 Blighted Bat
+1 Boggart Trawler
+1 Castle Doom
+1 Cave of Temptation
+1 Coercion
+1 Cunning Lethemancer
+1 Cutthroat Contender
+1 Dark Betrayal
+1 Darkheart Sliver
+1 Dauthi Slayer
+1 Deathgazer
+1 Deception
+1 Dross Hopper
+1 Dungeon Shade
+1 Encroach
+1 Execute
+1 Felhide Petrifier
+1 Fiend Artisan
+1 Fledgling Djinn
+8 Forest
+1 Gateway Shade
+1 Ghoul's Feast
+1 Gilded Goose
+1 Glimmervoid
+1 Grendel, Spawn of Knull
+1 Grim Backwoods
+1 Guardian of Cloverdell
+1 Guildmages' Forum
+1 Hagra Mauling
+1 Hapatra, Vizier of Poisons
+1 Hornet Queen
+1 Interplanar Beacon
+1 Knight of Dusk
+1 Lash of the Whip
+1 Maalfeld Twins
+1 Manor Skeleton
+1 Many Partings
+1 Metamorphosis Fanatic
+1 Mindlash Sliver
+1 Mire's Grasp
+1 Nature's Ruin
+1 Nurturing Peatland
+1 Painted Bluffs
+1 Phyrexian Gargantua
+1 Planar Nexus
+1 Primeval Bounty
+1 Profane Tutor
+1 Putrefy
+1 Rampart Crawler
+1 Razortooth Rats
+1 Reclusive Wight
+1 Rotting Mastodon
+1 Secret Base
+1 Shambling Ghoul
+1 Sibsig Icebreakers
+1 Skeletal Vampire
+1 Stalker Hag
+1 Stony-Voiced Goblins
+1 Street Wraith
+1 Stronghold Rats
+1 Study Hall
+18 Swamp
+1 The Mycosynth Gardens
+1 The Wretched
+1 Turtle Lair
+1 Unclaimed Territory
+1 Unknown Shores
+1 Vebulid
+1 Walking Dead
+1 Withering Boon
+1 Wolfkin Bond
+
+[commander]
+Davvol, Evincar of Rath

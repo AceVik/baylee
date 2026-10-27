@@ -8,7 +8,6 @@
 1 Cultivate
 1 Eldritch Evolution
 2 Evolving Wilds
-1 Fang of Shigeki
 1 Fleetfoot Panther
 8 Forest
 1 Graypelt Refuge
@@ -20,12 +19,13 @@
 1 Kazandu Refuge
 1 Kird Ape
 1 Lightning Helix
+1 Llanowar Stalker
 1 Loam Lion
 1 Marisi's Twinclaws
 3 Mountain
 4 Naya Charm
 6 Plains
-2 Pulse of Murasa
+2 Repentance
 4 Rith's Charm
 1 Sapseep Forest
 1 Spoils of Victory

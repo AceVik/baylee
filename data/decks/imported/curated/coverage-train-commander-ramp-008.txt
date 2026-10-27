@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266009]
+1 Ambush Gigapede
+1 Ambush Krotiq
+1 Avaricious Dragon
+1 Belligerent Guest
+1 Billiard Room
+1 Bleeding Woods
+1 Boiling Rock Prison
+1 Boots of Speed
+1 Chocobo Racetrack
+1 Contested Cliffs
+1 Crystal Slipper
+1 Darkbore Pathway
+1 Deadapult
+1 Dragon Tyrant
+1 Dreamstone Hedron
+1 Failed Conversion
+1 Falkenrath Celebrants
+1 Fierce Witchstalker
+1 Fireforger's Puzzleknot
+1 Flamekin Gildweaver
+7 Forest
+1 Gene Pollinator
+1 Golden Egg
+1 Goldhound
+1 Grove of the Burnwillows
+1 Gruul Keyrune
+1 Hell's Kitchen
+1 Hellkite Igniter
+1 Hellkite Overlord
+1 Hellkite Punisher
+1 Hobblefiend
+1 Jungle Weaver
+1 Kavu Monarch
+1 Lightning Spear
+1 Lotus Guardian
+1 Maximum Overdrive
+1 Morselhoarder
+1 Mossfire Valley
+11 Mountain
+1 Multani's Harmony
+1 Necroblossom Snarl
+1 Need for Speed
+1 Obelisk of Jund
+1 Primordial Ooze
+1 Quarry Beetle
+1 Rampaging Hippo
+1 Rapacious Dragon
+1 Rathi Dragon
+1 Ravenous Harpy
+1 Restless Cottage
+1 Rockslide Elemental
+1 Runaway Boulder
+1 Scavenger Drake
+1 Sengir Bats
+1 Slith Predator
+1 Soul Rend
+8 Swamp
+1 Swamp Mosquito
+1 Swarm of Bloodflies
+1 Syndicate Trafficker
+1 The One Ring
+1 Thief of Blood
+1 Thornspire Verge
+1 Thundermaw Hellkite
+1 Titan's Grave
+1 Training Compound
+1 Trigon of Rage
+1 Troll-Horn Cameo
+1 Urn of Godfire
+1 Utvara Hellkite
+1 Venomcrawler
+1 Verdant Automaton
+1 Vernal Fen
+1 Viridescent Bog
+1 Wastewood Verge
+1 Wrenn and Realmbreaker
+
+[commander]
+Vaevictis Asmadi

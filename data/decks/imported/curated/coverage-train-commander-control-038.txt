@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WG #20266039]
+1 Abzan Runemark
+1 Almost Perfect
+1 Arcane Lighthouse
+1 Arid Mesa
+1 Avoid Fate
+1 Bee Sting
+1 Big Bertha
+1 Blossoming Wreath
+1 Blunt the Assault
+1 Bountiful Harvest
+1 Burrowguard Mentor
+1 Call to Serve
+1 Cooperation
+1 Crash of Rhino Beetles
+1 Crazed Armodon
+1 Devil Dinosaur
+1 Drannith Ruins
+1 Drownyard Temple
+1 Dub
+1 Elephant Graveyard
+1 Emerald Dragonfly
+1 Excavation Mole
+1 Farewell
+17 Forest
+1 Fortified Area
+1 Fountainport
+1 Fruition
+1 Galewind Moose
+1 Game-Trail Changeling
+1 Grasping Dunes
+1 Greater Realm of Preservation
+1 Grounded
+1 Healing Leaves
+1 Hungry Megasloth
+1 Kazandu Nectarpot
+1 Lifegift
+1 Loxodon Battle Priest
+1 Mishra's Foundry
+1 Mistmeadow Skulk
+1 Moat
+1 Nasty Little Rabbit
+1 Noble Elephant
+1 Nourish
+1 Ondu Inversion
+1 Opal Avenger
+10 Plains
+1 Prismatic Ward
+1 Radiant Fountain
+1 Ravenous Daggertooth
+1 Respite
+1 Return to the Earth
+1 Rust
+1 Scalding Tarn
+1 Shopkeeper's Bane
+1 Siegecraft
+1 Siegehorn Ceratops
+1 Silvos, Rogue Elemental
+1 Skyscythe Engulfer
+1 Spawning Bed
+1 Springmane Cervin
+1 Springsage Ritual
+1 Still Life
+1 Stomper Cub
+1 Unflinching Courage
+1 Urborg, Tomb of Yawgmoth
+1 Vagrant Plowbeasts
+1 Venomous Breath
+1 Wakandan Tusker
+1 War Room
+1 Wild Elephant
+1 Winding Canyons
+1 Wolfsbane, Highland Hero
+1 Wooded Foothills
+1 Yavimaya, Cradle of Growth
+
+[commander]
+Trostani, Three Whispers

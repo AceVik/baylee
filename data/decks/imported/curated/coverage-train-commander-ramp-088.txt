@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WRG #20266089]
+1 Afiya Grove
+1 Akroma, Angel of Wrath
+1 Amok
+1 Angel of Flight Alabaster
+1 Angel of Retribution
+1 Angel of the God-Pharaoh
+1 Archangel
+1 Atalan Jackal
+1 Avacyn, Angel of Hope
+1 Balduvian Trading Post
+1 Baneslayer Angel
+1 Carrier Pigeons
+1 Cocoon
+1 Cryptolith Rite
+1 Daru Encampment
+1 Defense of the Heart
+1 Drill Too Deep
+1 Druid Class
+1 Druids' Repository
+1 Eladamri's Vineyard
+1 Emeria Angel
+1 Fasting
+1 Fire Sprites
+1 Fogwell's Gym
+12 Forest
+1 Fungal Bloom
+1 Fyndhorn Pollen
+1 Gaea's Touch
+1 Goblin Burrows
+1 Hammerheim
+1 Hanweir Battlements
+1 Hellion Crucible
+1 Herald of the Sun
+1 Infinite Authority
+1 Innkeeper's Talent
+1 Junktown
+1 Karoo
+1 Keen-Eyed Raven
+1 Kher Keep
+1 Kor Haven
+1 Lyra Dawnbringer
+1 Multani's Harmony
+1 Natural Order
+1 Nature's Blessing
+1 Nesting Dovehawk
+1 Pileated Provisioner
+14 Plains
+1 Primordial Ooze
+1 Ramunap Ruins
+1 Restoration Angel
+1 Returned Pastcaller
+1 Rock Basilisk
+1 Rockface Village
+1 Rogue Skycaptain
+1 Scavenging Ooze
+1 Seraph of the Suns
+1 Shattered Angel
+1 She-Hulk, Jennifer Walters
+1 Shinka, the Bloodsoaked Keep
+1 Shivan Gorge
+1 Sidequest: Catch a Fish
+1 Sokenzan, Crucible of Defiance
+1 Soulcatcher
+1 Sunblade Angel
+1 Sunspring Expedition
+1 Supply-Line Cranes
+1 Sustaining Spirit
+1 Torch Song
+1 Tribute to the World Tree
+1 War Dance
+1 Warrior Angel
+1 Wild Cantor
+1 Windbrisk Raptor
+1 Winged Shepherd
+1 Youthful Valkyrie
+
+[commander]
+Palladia-Mors

@@ -29,7 +29,7 @@ class ValidationLanes(unittest.TestCase):
                        "--data", str(data), "--out", str(out), "--d-model", "32",
                        "--layers", "1", "--heads", "4", "--d-ff", "64",
                        "--batch-size", "4", "--unroll", "4", "--epochs", "1",
-                       "--validation-every", "0", "--async-checkpoint"]
+                       "--validation-every", "0", "--async-checkpoint", "--validate-initial"]
             env = dict(os.environ, CUDA_VISIBLE_DEVICES="", OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
 
             def run(extra):
@@ -42,10 +42,17 @@ class ValidationLanes(unittest.TestCase):
             self.assertEqual(saved["h"].shape[0], 4)
             self.assertEqual(saved["last_validation_step"], 1)
             self.assertEqual(saved["last_validation_metrics"]["val_frames"], 32)
+            self.assertEqual(saved["training_loss_version"], 3)
+            self.assertEqual(saved["checkpoint_selection"], "policy")
+            self.assertGreater(saved["last_validation_metrics"]["val_choices"], 0)
+            self.assertIn("step=0", first.stdout)
             metrics = json.loads((out / "meta.json").read_text())
             self.assertEqual(metrics["validation_batch_size"], 2)
             self.assertEqual(metrics["val_metrics"]["val_frames"], 32)
             resume = ["--resume", str(out / "last.pt"), "--max-steps", "2"]
+            wrong_objective = run(resume + ["--validation-batch-size", "2", "--checkpoint-selection", "combined"])
+            self.assertNotEqual(wrong_objective.returncode, 0)
+            self.assertIn("Resume checkpoint selection differs", wrong_objective.stderr)
             wrong_seed = run(resume + ["--validation-batch-size", "2", "--seed", "999"])
             self.assertNotEqual(wrong_seed.returncode, 0)
             self.assertIn("Resume training sampler version/seed", wrong_seed.stderr)

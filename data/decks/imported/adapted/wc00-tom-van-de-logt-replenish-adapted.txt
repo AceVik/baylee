@@ -6,12 +6,13 @@
 4 Attunement
 3 Counterspell
 4 Daring Leap
+1 Deep Water
 3 Enlightened Tutor
 4 Frantic Search
 1 Futurist Forge
 9 Island
 1 Mystical Tutor
-4 Ojutai's Command
+3 Ojutai's Command
 8 Plains
 4 Rishadan Port
 1 Seal of Cleansing

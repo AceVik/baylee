@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WUBRG #20266163]
+1 Abstergo Entertainment
+1 Ana Disciple
+1 Ancient Ziggurat
+1 Angelfire Crusader
+1 Anti-Magic Aura
+1 Armorer Guildmage
+1 Baldur's Gate
+1 Boartusk Liege
+1 Bonds of Quicksilver
+1 Breath of Malfegor
+1 Cascading Cataracts
+1 Castaway's Despair
+1 Coerced to Kill
+1 Corrupted Crossroads
+1 Crackling Triton
+1 Crystal Grotto
+1 Crystal Quarry
+1 Curse of Chains
+1 Damn
+1 Dauntless River Marshal
+1 Dauthi Mercenary
+1 Dega Disciple
+1 Despark
+1 Disciple of the Old Ways
+1 Dragonsoul Knight
+1 Dreadwing
+1 Esper Battlemage
+1 Ethersworn Adjudicator
+1 Fireborn Knight
+1 Foot Elite
+1 Forbidden Orchard
+2 Forest
+1 Foriysian Interceptor
+1 Foxfire Oak
+1 Glasswing Grace
+1 Glen Elendra Liege
+1 Harbor Bandit
+1 Icatian Phalanx
+1 Interplanar Beacon
+3 Island
+1 Keldon Mantle
+1 Kjeldoran Escort
+1 Krovikan Elementalist
+1 Mantis Rider
+1 Martyrs' Tomb
+1 Mirrex
+8 Mountain
+1 Naya Battlemage
+1 Nightfire Giant
+1 Ocular Halo
+1 Paragon of the Amesha
+1 Pardic Collaborator
+10 Plains
+1 Primal Visitation
+1 Profane Procession
+1 Rakdos Trumpeter
+1 Relentless Hunter
+1 Righteous War
+1 Scourge of the Nobilis
+1 Shaper Guildmage
+1 Skull Rend
+1 Spire of Industry
+1 Stillmoon Cavalier
+1 Stormcaller of Keranos
+1 Strength of the Harvest
+1 Study Hall
+1 Surveillance Room
+4 Swamp
+1 Thistledown Liege
+1 Throne of Makindi
+1 Underdome
+1 Utter End
+1 Valeron Outlander
+1 Vernadi Shieldmate
+1 Veteran Cathar
+1 Voldaren Estate
+1 Wellspring
+1 Zuran Enchanter

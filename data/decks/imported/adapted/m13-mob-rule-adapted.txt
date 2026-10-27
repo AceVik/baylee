@@ -2,6 +2,7 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Mob Rule (Adapted)]
 1 Arms Dealer
+2 Burning-Fist Minotaur
 4 Colossal Might
 2 Dragon Hatchling
 1 Evolving Wilds
@@ -13,13 +14,13 @@
 3 Goblin Arsonist
 1 Kindled Fury
 2 Krenko's Command
-2 Manamorphose
 15 Mountain
 2 Reckless Brute
 1 Rummaging Goblin
 1 Savage Twister
 1 Serpent's Gift
-4 Stump Stomp
+2 Stump Stomp
+2 Surge of Strength
 2 Titanic Growth
 1 Torch Fiend
 2 Volcanic Geyser

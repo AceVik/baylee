@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266173]
+1 An-Havva Township
+1 Assault Zeppelid
+1 Axebane Beast
+1 Barkhide Troll
+1 Bleed Dry
+1 Breach
+1 Brokers Initiate
+1 Cabaretti Initiate
+1 Cat Warriors
+1 Cave Tiger
+1 Chained Brute
+1 Crosis's Catacombs
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Darba
+1 Darigaaz's Caldera
+1 Death-Hood Cobra
+1 Deceptive Landscape
+1 Drowned
+1 Dutiful Thrull
+1 Elite Cat Warrior
+1 Fatal Fumes
+1 Feiyi Snake
+1 Flame Blitz
+1 Flatten
+15 Forest
+1 Frog-Squirrels
+1 Furnace Strider
+1 Grizzled Leotau
+1 Hornet Cobra
+1 Iron-Shield Elf
+1 Ironclad Krovod
+1 Irradiate
+1 Island
+1 Jungle Shrine
+1 Koskun Keep
+1 Leatherback Baloth
+1 Leopard-Spotted Jiao
+1 Lurker
+1 Lynx
+1 Marauding Maulhorn
+1 Metathran Zombie
+1 Mire Boa
+1 Mosscoat Goriak
+1 Mountain
+1 Mtenda Lion
+1 Naga Eternal
+1 Nearby Planet
+1 Noble Panther
+1 Nocturnal Raid
+1 Noxious Groodion
+1 Odious Trow
+1 Plague Witch
+1 Pouncing Cheetah
+1 Primal Huntbeast
+1 Putrid Leech
+1 Rakeclaw Gargantuan
+1 Rith's Grove
+1 Riveteers Initiate
+1 Roofstalker Wight
+1 Screeching Harpy
+1 Sewers of Estark
+1 Sheltering Landscape
+1 Shivan Zombie
+1 Shore Snapper
+1 Spectral Lynx
+1 Steeple Creeper
+1 Stone-Throwing Devils
+7 Swamp
+1 Tasseled Dromedary
+1 The World Tree
+1 Tournament Grounds
+1 Trained Jackal
+1 Transmutation
+1 Treva's Ruins
+1 Wily Bandar
+1 Woolly Thoctar
+1 Yavimaya Barbarian
+1 Zodiac Rooster
+
+[commander]
+General Tazri

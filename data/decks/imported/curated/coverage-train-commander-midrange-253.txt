@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266254]
+1 Absolute Grace
+1 Absolute Law
+1 Arboria
+1 Awakening
+1 Barbed Foliage
+1 Bower Passage
+1 Branchloft Pathway
+1 Broken Fall
+1 Brushland
+1 Builder's Blessing
+1 Call of the Wild
+1 Circle of Protection: Artifacts
+1 Circle of Protection: Green
+1 Circle of Protection: Shadow
+1 Cleanfall
+1 Cleanse
+1 Cleansing Nova
+1 Crackdown
+1 Day of Judgment
+1 Deadfall
+1 Dense Canopy
+1 Dense Foliage
+1 Earthcraft
+1 Elven Fortress
+1 Essence Filter
+1 Fanatical Devotion
+1 Farmstead
+10 Forest
+1 Gang of Elk
+1 Gathering Place
+1 Gavony Township
+1 Glare of Subdual
+1 Grove of the Guardian
+1 Hallowed Ground
+1 Horizon Canopy
+1 Hot Springs
+1 Hushwood Verge
+1 Hypochondria
+1 Island Sanctuary
+1 Kjeldoran Frostbeast
+1 Living Plane
+1 Molting Skin
+1 Mortal Wound
+1 Nature's Revolt
+1 Pariah
+15 Plains
+1 Planar Cleansing
+1 Primordial Wurm
+1 Ravages of War
+1 Retaliation
+1 Revelation
+1 Riftstone Portal
+1 Righteous Aura
+1 Rolling Stones
+1 Rootbreaker Wurm
+1 Rule of Law
+1 Safeguard
+1 Saltcrusted Steppe
+1 Sandstorm
+1 Savannah
+1 Serene Heart
+1 Stern Constable
+1 Still Life
+1 Storm Front
+1 Temple Garden
+1 Tivadar's Crusade
+1 Tranquil Domain
+1 Tranquil Garden
+1 Treefolk Mystic
+1 Tsunami
+1 Vagrant Plowbeasts
+1 Vec Townships
+1 Veldt
+1 Walk-In Closet
+1 Winds of Rath
+1 Wooded Bastion
+
+[commander]
+Kei Takahashi

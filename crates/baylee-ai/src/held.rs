@@ -142,7 +142,7 @@ fn least(
     match pending {
         Pending::ChooseManaAbility {
             choice, options, ..
-        } => crate::constrained::mana_choice(*choice, options),
+        } => crate::constrained::mana_choice(view, *choice, options),
         Pending::ChooseDamageSource { .. }
         | Pending::ChooseDamageEffect { .. }
         | Pending::AllocatePrevention { .. } => crate::damage::answer(view, pending, hostile),

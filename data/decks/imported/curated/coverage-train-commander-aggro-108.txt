@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro UBR #20266109]
+1 Archivist
+1 Axiom Engraver
+1 Barbarian Riftcutter
+1 Basal Thrull
+1 Blaster Mage
+1 Boggart Loggers
+1 Cascade Bluffs
+1 Commander's Insight
+1 Dagger Caster
+1 Desolate Lighthouse
+1 Dragonborn Looter
+1 Drossforge Bridge
+1 Electric Eel
+1 Faerie Mastermind
+1 Fallowsage
+1 Fiery Islet
+1 Furtive Analyst
+1 Gloomlake Verge
+1 Goblin Digging Team
+1 Goblin Picker
+1 Gorilla War Cry
+1 Grey Havens Navigator
+1 Hearth Charm
+1 Human Frailty
+14 Island
+1 Joven
+1 Kami of the Crescent Moon
+1 Library Larcenist
+1 Looter il-Kor
+1 Luxury Suite
+1 Magus of the Wheel
+1 Mirkwood Meditator
+2 Mountain
+1 Nine-Tail White Fox
+1 Nivix, Aerie of the Firemind
+1 Noggle Bridgebreaker
+1 Noggle Ransacker
+1 Notorious Assassin
+1 Orcish Spy
+1 Psychic Purge
+1 Pyretic Ritual
+1 Rakdos Guildgate
+1 Ramirez DePietro
+1 Raze
+1 Refocus
+1 Riverglide Pathway
+1 Riverpyre Verge
+1 Romantic Rendezvous
+1 Scarblade Elite
+1 Sea Gate Loremaster
+1 Seafloor Oracle
+1 Seismic Mage
+1 Selhoff Entomber
+1 Shore Keeper
+1 Silundi Vision
+1 Silvergill Peddler
+1 Sinister Hideout
+1 Soratami Cloudskater
+1 Soulknife Spy
+1 Spectacle Summit
+1 Starke of Rath
+1 Startling Development
+1 Stealer of Secrets
+1 Steam Vents
+1 Stock Up
+1 Suit Up
+1 Sure-Footed Infiltrator
+8 Swamp
+1 Teferi's Protege
+1 Tolarian Winds
+1 Tony Stark
+1 Touch of Brilliance
+1 Tunnel
+1 Tymora's Invoker
+1 Vision Skeins
+1 Volcanic Island
+1 Whiptail Moloch
+1 Without Weakness
+
+[commander]
+Gwendlyn Di Corci

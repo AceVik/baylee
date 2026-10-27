@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WBR #20266073]
+1 Alchor's Tomb
+1 Amber Prison
+1 Anaba Bodyguard
+1 Auntie's Hovel
+1 Barbed-Back Wurm
+1 Barl's Cage
+1 Billiard Room
+1 Black Poplar Shaman
+1 Bog Elemental
+1 Boiling Rock Prison
+1 Boros Cluestone
+1 Boros Locket
+1 Canal Monitor
+1 Cat Burglar
+1 Catacomb Slug
+1 Charcoal Diamond
+1 Cinderhaze Wretch
+1 Daredevil's Billy Club
+1 Dauthi Trapper
+1 Dispeller's Capsule
+1 Eclipsed Steppe
+1 Elixir of Vitality
+1 Emeritus of Woe
+1 Ethereal Champion
+1 Executioner's Capsule
+1 Fireforger's Puzzleknot
+1 Foot Headquarters
+1 Foreboding Ruins
+1 Furnace Brood
+1 Goldmire Bridge
+1 Gore Swine
+1 Hag of Dark Duress
+1 Hell's Kitchen
+1 Hulking Devil
+1 Lavaclaw Reaches
+1 Life Chisel
+1 Lightning Hounds
+1 Looming Altisaur
+1 Marble Diamond
+1 Mardu Banner
+1 Maw of Kozilek
+1 Mishra's Groundbreaker
+7 Mountain
+1 Necrogen Spellbomb
+1 Nova Pentacle
+1 Onyx Goblet
+1 Orazca Raptor
+1 Orzhov Cluestone
+1 Orzhov Signet
+1 Pentagram of the Ages
+1 Petra Sphinx
+13 Plains
+1 Rakdos Carnarium
+1 Raucous Theater
+1 Razortrap Gorge
+1 Rotted Hulk
+1 Scoria Wurm
+1 Shadowblood Egg
+1 Shimian Night Stalker
+1 Silverquill Campus
+1 Skeletal Crocodile
+1 Sootwalkers
+1 Soul Rend
+1 Staff of Zegon
+1 Sunlit Marsh
+5 Swamp
+1 Talisman of Hierarchy
+1 Tarrian's Journal
+1 Temple of Malice
+1 The Balrog of Moria
+1 Tower of Eons
+1 Trigon of Mending
+1 Venomous Changeling
+1 Viashino Skeleton
+1 Vibrating Sphere
+1 Volcano Imp
+1 War-Spike Changeling
+1 Zodiac Pig

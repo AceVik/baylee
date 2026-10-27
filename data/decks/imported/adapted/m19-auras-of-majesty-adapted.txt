@@ -5,7 +5,6 @@
 3 Altar of Bone
 3 Call of the Conclave
 2 Daybreak Chaplain
-3 Eladamri's Call
 9 Forest
 2 Greenwood Sentinel
 1 Heroes' Reunion
@@ -20,3 +19,4 @@
 3 Satyr Enchanter
 1 Siegehorn Ceratops
 1 Sunpetal Grove
+3 Vitalizing Cascade

@@ -9,10 +9,10 @@
 2 Elvish Warrior
 14 Forest
 4 Ground Assault
-4 Guttural Response
+2 Guttural Response
 2 Kindled Fury
 4 Manamorphose
 10 Mountain
-2 Sangrite Surge
 4 Savage Twister
 4 Stump Stomp
+4 Surge of Strength

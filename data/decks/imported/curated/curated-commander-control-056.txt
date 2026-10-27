@@ -1,72 +1,80 @@
 # baylee curated commander control seed=20261079
 # licence: AGPL-3.0-only
-[deck:commander control R #20261079]
-1 Adarkar Sentinel
-1 Aladdin
-1 Backdraft
-1 Basalt Monolith
-1 Ben-Ben, Akki Hermit
-1 Birthing Boughs
-1 Bogardan Rager
-1 Bombard
-1 Bonders' Enclave
-1 Breakneck Berserker
-1 Bronze Sword
-1 Brotherhood's End
-1 Captain's Tutelage
-1 City of Traitors
-1 Claws of Gix
-1 Coral Helm
-1 Defense Force Aggressor
-1 Desert of the Fervent
-1 Dingus Staff
-1 Fellwar Stone
-1 Fiery Hellhound
-1 Forgotten Monument
-1 Goblin Artillery
-1 Goblin Kites
-1 Goldhound
-1 Greataxe
-1 Heart of Ramos
-1 Implode
-1 Inferno
-1 Instant Ramen
-1 Jalum Tome
-1 Lava Flow
-1 Liberated Dwarf
-1 Make Mischief
-1 Manalith
-35 Mountain
-1 Nova Pentacle
-1 Omega Myr
-1 Orcish Veteran
-1 Patriar's Seal
-1 Power Matrix
-1 Prowler's Helm
-1 Rage Reflection
-1 Ready to Rumble
-1 Rustspore Ram
-1 Sandals of Abdallah
-1 Searing Spear
-1 Seething Pathblazer
-1 Seismic Rupture
-1 Shatterstorm
-1 Skullmead Cauldron
-1 Smoldering Crater
-1 Sonic Screwdriver
-1 Springjaw Trap
-1 Stone Golem
-1 Sundering Eruption
-1 Sword of Hearth and Home
-1 Temple of the Dragon Queen
-1 The Autonomous Furnace
-1 Ticked Off
-1 Tocasia's Dig Site
-1 Victorious Destruction
-1 Voodoo Doll
-1 Wild Jhovall
-1 Wildfire Emissary
-1 Workhorse
+[deck:commander control BG #20261079]
+1 Abstergo Entertainment
+1 Aclazotz, Deepest Betrayal
+1 Animate Dead
+1 Baron Sengir
+1 Bastion of Remembrance
+1 Bequeathal
+1 Bitterbloom Bearer
+1 Bitterblossom
+1 Blood Artist
+1 Breeding Pit
+1 Call the Bloodline
+1 Daily Bugle Building
+1 Elderfang Venom
+1 Elephant Guide
+1 Enduring Vitality
+1 Failed Conversion
+1 Falkenrath Noble
+1 Fists of Ironwood
+1 Forbidden Orchard
+10 Forest
+1 Fortitude
+1 From Beyond
+1 Golgari Germination
+1 Graf Harvest
+1 Grim Feast
+1 Grisly Ritual
+1 Guardian of Cloverdell
+1 Haven of the Spirit Dragon
+1 Heap Gate
+1 Holdout Settlement
+1 Jasmine Dragon Tea Shop
+1 Kalastria Highborn
+1 Kheru Bloodsucker
+1 Liliana's Mastery
+1 Lotus Vale
+1 Maelstrom of the Spirit Dragon
+1 Malakir Cullblade
+1 Mantle of the Wolf
+1 Many Partings
+1 Mech Hangar
+1 Midnight Entourage
+1 Midsummer Revel
+1 Minotaur, Roxxon CEO
+1 Mintstrosity
+1 Mirrodin's Core
+1 Moldervine Reclamation
+1 Most Wanted
+1 Night Soil
+1 Nocturnal Feeder
+1 Ogre Slumlord
+1 Open the Graves
+1 Orochi Hatchery
+1 Path of Annihilation
+1 Pawn of Ulamog
+1 Quest for the Gravelord
+1 Rampaging Baloths
+1 Return from the Wilds
+1 Sarcomancy
+1 School of the Unseen
+1 Secret Base
+1 Skeletal Vampire
+1 Sling-Gang Lieutenant
+1 Sprout
+17 Swamp
+1 The Meathook Massacre
+1 They Went This Way
+1 Throne of Makindi
+1 Toxin Analysis
+1 Turtle Lair
+1 Vengeful Bloodwitch
+1 Vindictive Vampire
+1 Voldaren Estate
+1 Weirding Shaman
+1 Yahenni, Undying Partisan
 
 [commander]
-Ben-Ben, Akki Hermit
+Slimefoot, the Stowaway

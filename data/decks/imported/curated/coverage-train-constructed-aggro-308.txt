@@ -1,0 +1,30 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro UBR #20266309]
+2 Archaeological Dig
+2 Armored Cancrix
+2 Breathstealer
+2 Canal Monitor
+3 Crystal Grotto
+2 Dauthi Mindripper
+2 Dauthi Trapper
+1 Deflection
+2 Felhide Minotaur
+2 Fledgling Imp
+2 Frostburn Weird
+1 Gallifrey Council Chamber
+2 Hall of Oracles
+2 Horned Turtle
+8 Island
+2 Kolinahr Priest
+2 Mindwhip Sliver
+2 Mistford River Turtle
+5 Mountain
+2 Mountain Titan
+2 Noggle Bandit
+2 Prowling Nightstalker
+2 Raiding Nightstalker
+2 Scuttling Sliver
+2 Shifting Sliver
+1 Swamp
+1 White Lotus Hideout

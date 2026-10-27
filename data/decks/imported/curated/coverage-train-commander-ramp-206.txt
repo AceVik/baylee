@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WRG #20266207]
+1 Abundant Countryside
+1 Angel of Flight Alabaster
+1 Argivian Find
+1 Aura Fracture
+1 Auriok Salvagers
+1 Avengers Tower
+1 Betrothed of Fire
+1 Bishop of Rebirth
+1 Bogardan Phoenix
+1 Breath of Life
+1 Burrowing Razormaw
+1 Cartographer
+1 Cascading Cataracts
+1 Charming Prince
+1 Compassionate Healer
+1 Conduit Pylons
+1 Cryptolith Rite
+1 Daring Escape
+1 Decomposition
+1 Dowsing Shaman
+1 Eclipsed Realms
+1 Elven Cache
+1 Elven Palisade
+1 Fanatical Devotion
+1 Fangren Marauder
+9 Forest
+1 Gaea's Touch
+1 Gnathosaur
+1 Goblin Clearcutter
+1 Hall of Oracles
+1 Hana Kami
+1 Hand of Justice
+1 Harnessed Snubhorn
+1 Heroism
+1 Hidden Grotto
+1 Hymn of Rebirth
+1 Imperial Oath
+1 Interplanar Beacon
+1 Jasmine Dragon Tea Shop
+1 Jaya's Firenado
+1 Loran's Escape
+1 Luminous Angel
+1 Luminous Broodmoth
+1 Miraculous Recovery
+7 Mountain
+1 Nissa, Vital Force
+1 Ojer Axonil, Deepest Might
+1 Ojer Kaslem, Deepest Growth
+1 Onslaught
+1 Order of Whiteclay
+1 Painted Bluffs
+1 Pillar of the Paruns
+10 Plains
+1 Raiding Party
+1 Ramosian Revivalist
+1 Refurbish
+1 Reincarnation
+1 Rubble Reading
+1 Rumble Arena
+1 Samite Herbalist
+1 School of the Unseen
+1 Shattered Wings
+1 Sheltering Light
+1 Shivan Phoenix
+1 Shower of Arrows
+1 Silent Sentinel
+1 Skywhaler's Shot
+1 Starfighter Pilot
+1 Starved Rusalka
+1 Survivors' Encampment
+1 Sustenance
+1 Tendo Ice Bridge
+1 Visions
+1 Voldaren Estate
+1 Whiteout
+1 Wildwood Rebirth
+
+[commander]
+Johan

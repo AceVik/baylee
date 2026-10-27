@@ -4,6 +4,7 @@
 4 Anguished Unmaking
 1 Blood Host
 2 Child of Night
+1 Colorful Feiyi Sparrow
 1 Divine Favor
 1 Geist of the Moors
 1 Kinsbaile Skirmisher
@@ -19,6 +20,5 @@
 13 Swamp
 1 Tireless Missionaries
 2 Ulcerate
-1 Unmake
 4 Vindicate
 2 Witch's Familiar

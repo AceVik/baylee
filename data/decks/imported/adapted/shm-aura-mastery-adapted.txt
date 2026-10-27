@@ -5,9 +5,9 @@
 1 Barrenton Medic
 2 Curse of Chains
 4 Daring Leap
+3 Energy Arc
 10 Island
 1 Kithkin Rabble
-3 Offering to Asha
 4 Ojutai's Command
 1 Overrule
 2 Parapet Watchers

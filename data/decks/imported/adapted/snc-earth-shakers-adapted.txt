@@ -4,13 +4,13 @@
 3 Abrade
 4 Colossal Might
 11 Forest
-4 Ground Assault
-1 Guttural Response
+2 Ground Assault
 4 Manamorphose
 12 Mountain
 4 Rugged Highlands
 4 Savage Twister
 3 Spore Crawler
 4 Stump Stomp
+3 Surge of Strength
 4 Timberland Guide
 2 Voldaren Stinger

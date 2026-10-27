@@ -105,4 +105,29 @@ class StructureTests(unittest.TestCase):
             actual = session.run(list(M.OUTPUT_NAMES), {n: t.numpy() for n, t in zip(M.INPUT_NAMES, values)})
             for a, b in zip(actual, expected): np.testing.assert_allclose(a, b.numpy(), atol=1e-5, rtol=1e-5)
 
+    def test_active_subgraph_encoding_matches_full_catalog_outputs_and_gradients(self):
+        torch.manual_seed(11)
+        forest = small_forest()
+        # Pad with unreferenced nodes so active subgraph is a strict subset.
+        for i in range(16):
+            forest["nodes"].append({"tag": (i % 4) + 1, "bytes": [i, 1], "children": [1, 2]})
+        a = RuleEncoder(forest, 16).eval()
+        b = copy.deepcopy(a)
+        refs = torch.tensor([[[[3, 1], [5, 7]], [[4, 1], [0, 0]]]])
+        a.prepare()
+        expected = a(refs)
+        expected.square().mean().backward()
+        b._table = b.encode_active((refs,))
+        role_idx = torch.arange(8)
+        b._gate_w = torch.sigmoid(b.role_gate(role_idx))
+        b._role_w = b.role(role_idx)
+        actual = b(refs)
+        actual.square().mean().backward()
+        torch.testing.assert_close(actual, expected, atol=1e-6, rtol=1e-6)
+        for (name, p), (_, q) in zip(a.named_parameters(), b.named_parameters()):
+            self.assertEqual(p.grad is None, q.grad is None, name)
+            if p.grad is not None:
+                torch.testing.assert_close(p.grad, q.grad, atol=1e-6, rtol=1e-6, msg=name)
+
+
 if __name__ == "__main__": unittest.main()

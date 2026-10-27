@@ -1,0 +1,86 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266167]
+1 An-Havva Township
+1 Anaba Spirit Crafter
+1 Aspect of Lamprey
+1 Benthic Djinn
+1 Bloodcrazed Paladin
+1 Boartusk Liege
+1 Boros Recruit
+1 Bountiful Landscape
+1 Broodwarden
+1 Contaminated Landscape
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Death Ward
+1 Drafna's Restoration
+1 Dromar's Cavern
+1 Enchantment Alteration
+1 Enter the Avatar State
+1 Evil Eye of Orms-by-Gore
+1 Falkenrath Reaver
+1 Foreboding Landscape
+5 Forest
+1 Galina's Knight
+1 Glen Elendra Liege
+1 Gnarled Mass
+1 Goblin Outlander
+1 Gravel-Hide Goblin
+1 Infiltrate
+5 Island
+1 Kami of False Hope
+1 Kithkin Billyrider
+1 Llanowar Knight
+1 Lumbering Satyr
+1 Madrush Cyclops
+1 Marsh Goblins
+1 Melancholy
+1 Mind Bend
+4 Mountain
+1 Nath's Buffoon
+1 Nearby Planet
+1 Noxious Field
+1 Ocular Halo
+1 Olivia's Dragoon
+1 Parapet Watchers
+1 Pay No Heed
+1 Perilous Landscape
+4 Plains
+1 Queen's Bay Soldier
+1 Raka Disciple
+1 Rakdos Ickspitter
+1 Ravenous Bloodseeker
+1 Reset
+1 Scarwood Goblins
+1 Scorpion's Sting
+1 Shadow Stinger
+1 Sheltering Landscape
+1 Slippery Bogle
+1 Sootstoke Kindler
+1 Soul Channeling
+1 Soulsworn Jury
+1 Spike Jester
+1 Stillmoon Cavalier
+1 Stream Hopper
+1 Stromkirk Captain
+6 Swamp
+1 Tattermunge Maniac
+1 The World Tree
+1 Thistledown Liege
+1 Thoughtlace
+1 Throatseeker
+1 Torpor Dust
+1 Tournament Grounds
+1 Tractor Beam
+1 Twilight Panther
+1 Twisted Landscape
+1 Vampire Hexmage
+1 Vampire Hounds
+1 Veteran Cathar
+1 Wellspring
+1 Wizards' School
+1 Zealous Guardian
+
+[commander]
+Sliver Queen

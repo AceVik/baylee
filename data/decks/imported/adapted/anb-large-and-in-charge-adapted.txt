@@ -3,12 +3,12 @@
 [deck:Large and in Charge (Adapted)]
 1 Chord of Calling
 2 Colossal Majesty
-2 Deadly Recluse
 1 Epic Proportions
 25 Forest
 2 Gigantosaurus
 3 Jungle Delver
 3 Khalni Ambush
+2 Overgrown Battlement
 2 Rampaging Brontodon
 2 Rumbling Baloth
 2 Sentinel Spider

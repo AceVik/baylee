@@ -3,6 +3,7 @@
 [deck:Stampeding Hordes (Adapted)]
 4 Arrows of Justice
 1 Bathe in Dragonfire
+2 Energy Bolt
 2 Firehoof Cavalry
 2 Frontline Rush
 1 Geist of the Moors
@@ -11,7 +12,7 @@
 2 Highspire Mantis
 2 Leaping Master
 1 Lightning Helix
-4 Martial Glory
+2 Martial Glory
 13 Mountain
 9 Plains
 1 Pyrotechnics

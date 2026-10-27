@@ -1,81 +1,80 @@
 # baylee curated highlander midrange seed=20261051
 # licence: AGPL-3.0-only
 [deck:highlander midrange WU #20261051]
-1 Aerial Maneuver
-1 Aether Vial
-1 Angry Mob
-1 Bad River
-1 Brainwash
-1 Burden of Guilt
-1 Castle
-1 Cleansing
-1 Collision Course
-1 Coral Eel
-1 Cosmium Blast
-1 Dehydration
-1 Despotic Scepter
-1 Drownyard Temple
-1 Dunes of the Dead
-1 Elite Vanguard
-1 Encroaching Wastes
-1 Erosion
-1 Feather of Flight
-1 Fleeting Distraction
-1 Foundry of the Consuls
-1 Gemstone Array
-1 Glimmering Angel
-1 Glory Seeker
-1 Goldvein Pick
-1 Great Hart
-1 Griffin Rider
-1 Haazda Exonerator
+1 Ancient Ziggurat
+1 Auspicious Ancestor
+1 Azorius Skyguard
+1 Brotherhood Headquarters
+1 Capital City
+1 Captivating Cave
+1 Censor
+1 Cloudcrest Lake
+1 Constricting Tendrils
+1 Customs Depot
+1 Deduce
+1 Defiant Strike
+1 Dragon Bell Monk
+1 Drowned Secrets
+1 Drowner Initiate
+1 Efficient Construction
+1 Etherium Spinner
+1 Falcon, Winged Wonder
+1 Gallant Strike
 1 Hall of Oracles
-1 Halls of Mist
-1 Homeward Path
-1 Icatian Scout
-1 Imperial Oath
-8 Island
-1 Kite Shield
+1 Hesitation
+1 In the Eye of Chaos
+1 Inspiring Commander
+1 Invoke Prejudice
+1 Iron Will
+20 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Jeskai Sage
+1 Jhessian Thief
+1 Jin-Gitaxias, Progress Tyrant
 1 Knight-Captain of Eos
-1 Library Larcenist
-1 Manta Riders
-1 Marauder's Axe
-1 Military Discipline
-1 Minister of Impediments
-1 Mobilized District
+1 Lake-town Lookout
+1 Lightshield Parry
+1 Lunar Mystic
+1 Mana Confluence
+1 Mana Vortex
+1 Mesa Enchantress
+1 Miscalculation
+1 Mistfire Adept
 1 Monastery Mentor
-1 Neutralize
-1 Noble Steeds
-1 Nykthos, Shrine to Nyx
-1 Opportunity
-1 Path of Ancestry
-1 Patrol Hound
-16 Plains
+1 Murmuring Mystic
+1 Myrsmith
+1 Mystic Gate
+1 Mystic Remora
+1 Opal Archangel
+1 Opal Champion
+1 Opal Gargoyle
+1 Oyobi, Who Split the Heavens
+5 Plains
+1 Presence of the Master
+1 Rasputin Dreamweaver
 1 Reflections of Littjara
-1 Research Assistant
-1 Rumble Arena
-1 Sanctum of Ugin
-1 Scatter Arc
-1 Scour from Existence
-1 Sea Gate Restoration
-1 Seasoned Marshal
-1 Sentinel Sliver
-1 Seraph Sanctuary
-1 Skillful Lunge
-1 Skycloud Expanse
-1 Sokka's Sword Training
-1 Soltari Foot Soldier
-1 Sorrow's Path
-1 Squee's Toy
-1 Supply-Line Cranes
-1 Sword of Hearth and Home
-1 Tempest of Light
-1 Teremko Griffin
-1 Thalakos Drifters
+1 Rhystic Study
+1 Sacred Mesa
+1 Seeker of the Way
+1 Shimmering Grotto
+1 Shocking Grasp
+1 Soul Barrier
+1 Stormkeld Prowler
+1 Storyteller Pixie
+1 Student of Ojutai
+1 Study Hall
+1 Survivors' Encampment
+1 Talrand, Sky Summoner
+1 Tanufel Rimespeaker
+1 Teller of Tales
 1 The Mechanist, Aerial Artisan
-1 Trapmaker's Snare
-1 Unfathomable Truths
-1 Venser, the Sojourner
-1 Welkin Guide
-1 Yotian Soldier
-1 Zuran Orb
+1 Trail of Evidence
+1 Tura Kennerüd, Skyknight
+1 Unclaimed Territory
+1 Undiscovered Paradise
+1 Unifying Theory
+1 Unknown Shores
+1 Veiled Sentry
+1 Villainous Hideout
+1 Wing Commando
+1 Worthy Knight

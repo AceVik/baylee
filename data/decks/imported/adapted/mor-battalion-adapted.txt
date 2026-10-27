@@ -5,12 +5,12 @@
 1 Burrenton Shield-Bearers
 4 Daring Leap
 1 Disperse
-2 Dramatic Rescue
+4 Energy Arc
 2 Inkfathom Divers
 9 Island
 2 Kinsbaile Skirmisher
 2 Mothdust Changeling
-4 Offering to Asha
+2 Offering to Asha
 4 Ojutai's Command
 2 Overrule
 12 Plains

@@ -3,7 +3,7 @@
 [deck:Swarm & Slam (Adapted)]
 1 Advent of the Wurm
 4 Call of the Conclave
-4 Eladamri's Call
+2 Eladamri's Call
 16 Forest
 3 Gerrard's Command
 4 Gold Myr
@@ -13,9 +13,10 @@
 8 Plains
 2 Pteron Ghost
 2 Raise the Alarm
-3 Selesnya Charm
+2 Selesnya Charm
 2 Spawning Pit
 2 Tangle Spider
 1 Tel-Jilad Archers
 2 Tel-Jilad Outrider
 2 Viridian Shaman
+3 Vitalizing Cascade

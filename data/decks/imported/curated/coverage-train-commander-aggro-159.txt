@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro W #20266160]
+1 Adagia, Windswept Bastion
+1 Adarkar Sentinel
+1 Akroan Mastiff
+1 Amaranthine Wall
+1 Ashnod's Battle Gear
+1 Assembly-Worker
+1 Basilisk Collar
+1 Castle Ardenvale
+1 Chariot of the Sun
+1 Chimeric Sphere
+1 Clay Statue
+1 Coiled Tinviper
+1 Crenellated Wall
+1 Crucible of Worlds
+1 Crystal Golem
+1 Cyclopean Snare
+1 Desert of the True
+1 Ebony Horse
+1 Echo Circlet
+1 Esper Sentinel
+1 Forgotten Sentinel
+1 Glass Golem
+1 Glorifier of Dusk
+1 Hidden Courtyard
+1 Honed Khopesh
+1 Horrible Hordes
+1 Jabari's Banner
+1 Jandor's Saddlebags
+1 Juntu Stakes
+1 Karn, Silver Golem
+1 Kry Shield
+1 Liquimetal Coating
+1 Living Wall
+1 Maned Serval
+1 Mantis Engine
+1 Masterwork of Ingenuity
+1 Molten-Tail Masticore
+1 Nemesis Mask
+1 Neurok Hoversail
+1 Nova Pentacle
+1 Obelisk of Undoing
+1 Patagia Golem
+1 Peregrine Mask
+32 Plains
+1 Prowler's Helm
+1 Ring of Gix
+1 Sacred Armory
+1 Shell Skulkin
+1 Short Sword
+1 Snow Hound
+1 Soldevi Golem
+1 Soldevi Simulacrum
+1 Stonework Puma
+1 Stuffed Bear
+1 Teferi's Sentinel
+1 Thermal Navigator
+1 Thraben Purebloods
+1 Thriving Heath
+1 Touchstone
+1 Trip Noose
+1 Tyrant's Machine
+1 Vibranium Energy Daggers
+1 Walking Wall
+1 Watchdog
+1 Watchwing Scarecrow
+1 Whalebone Glider
+1 Windbrisk Heights
+1 Wirecat
+
+[commander]
+Isamaru, Hound of Konda

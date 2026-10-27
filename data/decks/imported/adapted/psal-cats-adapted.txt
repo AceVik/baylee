@@ -4,8 +4,8 @@
 1 Advent of the Wurm
 2 Altar of Bone
 2 Bonesplitter
-4 Call of the Conclave
-4 Eladamri's Call
+3 Call of the Conclave
+2 Eladamri's Call
 5 Forest
 2 Griffin Sentinel
 1 Heroes' Reunion
@@ -18,11 +18,11 @@
 12 Plains
 1 Reknit
 2 Saltblast
-1 Selesnya Charm
 2 Selesnya Sanctuary
 3 Selesnya Signet
 1 Slagwurm Armor
 1 Specter's Shroud
 4 Terramorphic Expanse
 2 Thraben Watcher
+4 Vitalizing Cascade
 1 Whitemane Lion

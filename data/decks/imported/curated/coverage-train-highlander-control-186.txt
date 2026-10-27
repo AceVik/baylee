@@ -1,0 +1,79 @@
+# baylee synergistic coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WBR #20266187]
+1 Abstergo Entertainment
+1 Acidic Dagger
+1 Akron Legionnaire
+1 Archaeological Dig
+1 Baxter Building
+1 Borg Queen, Perfection Manifest
+1 Boros Cluestone
+1 Boros Locket
+1 Boros Signet
+1 Brotherhood Headquarters
+1 Bucolic Ranch
+1 Cavern of Souls
+1 Charcoal Diamond
+1 Chimeric Staff
+1 Cogworker's Puzzleknot
+1 Cursed Rack
+1 Dalek Drone
+1 Daredevil's Billy Club
+1 Deathcurse Ogre
+1 Easy Prey
+1 Executioner's Capsule
+1 Fire Diamond
+1 Firescreamer
+1 Fledgling Imp
+1 Flying Carpet
+1 Goldhound
+1 Great Hall of the Citadel
+1 Grim Bauble
+1 Heart of Ramos
+1 Hedgewitch's Mask
+1 Henge of Ramos
+1 Horn of Deafening
+1 Incurable Ogre
+1 Kiora of Fire and Ashes
+1 Kor Halberd
+1 Lightning Hounds
+1 Lightning Spear
+1 Liturgy of Blood
+1 Maelstrom of the Spirit Dragon
+1 Malakir Soothsayer
+1 Mana Confluence
+1 Mardu Banner
+1 Mirrodin's Core
+1 Moriok Replica
+20 Mountain
+1 Ogre Errant
+1 Ogre Jailbreaker
+1 Ogre Warrior
+1 Onyx Goblet
+1 Orzhov Cluestone
+1 Orzhov Signet
+1 Pentagram of the Ages
+1 Plains
+1 Power Armor
+1 Rakdos Cluestone
+1 Rakdos Locket
+1 Rakdos Signet
+1 Reckless Ogre
+1 Rotted Hulk
+1 Rumble Arena
+1 Savai Crystal
+1 Scrapyard Mongrel
+1 Secluded Courtyard
+1 Second Thoughts
+1 Slash, Reptile Rampager
+1 Sootwalkers
+1 Stormfist Crusader
+1 Surveillance Room
+6 Swamp
+1 Tarrian's Journal
+1 Tawnos's Coffin
+1 The Mycosynth Gardens
+1 Tooth of Ramos
+1 Turtle Lair
+1 Vampire Champion
+1 Ydwen Efreet

@@ -6,7 +6,6 @@
 2 Broken Wings
 4 Call of the Conclave
 3 Diving Griffin
-3 Eladamri's Call
 12 Forest
 1 Gerrard's Command
 1 Giant Growth
@@ -18,3 +17,4 @@
 4 Selesnya Charm
 1 Siege Veteran
 1 Titanic Growth
+3 Vitalizing Cascade

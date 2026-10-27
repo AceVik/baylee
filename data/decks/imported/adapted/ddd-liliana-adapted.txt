@@ -3,10 +3,9 @@
 [deck:Liliana (Adapted)]
 1 Afflict
 1 Bad Moon
-2 Complete Disregard
+2 Corrupt
 1 Deathgreeter
 1 Drudge Skeletons
-2 Essence Extraction
 2 Funeral Rites
 2 Gruesome Fate
 1 Hand of Death
@@ -17,11 +16,12 @@
 1 Ob Nixilis's Cruelty
 1 Perish
 2 Phyrexian Rager
+2 Phyrexian Tribute
 2 Polluted Mire
 1 Ravenous Rats
 2 Sign in Blood
 1 Skeletal Vampire
-1 Spin Out
+1 Stench of Decay
 1 Succumb to Temptation
 23 Swamp
 2 Syphon Soul

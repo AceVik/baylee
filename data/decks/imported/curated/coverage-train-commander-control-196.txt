@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUBRG #20266197]
+1 Abduction
+1 Aclazotz, Deepest Betrayal
+1 Aether Hub
+1 Agent of Shauku
+1 Altac Bloodseeker
+1 Ardent Elementalist
+1 Azorius Skyguard
+1 Baron Sengir
+1 Blighted Shaman
+1 Brine Shaman
+1 Cephalid Scout
+1 Dai Li Censor
+1 Deathknell Berserker
+1 Demon's Herald
+1 Desolation of Smaug
+1 Destructor Dragon
+1 Exultant Cultist
+1 False Demise
+1 Forbidden Orchard
+2 Forest
+1 Gemstone Mine
+1 Ghen, Arcanum Weaver
+1 Goblin Shrine
+1 Golgari Thug
+1 Great Hall of the Citadel
+1 Guildmages' Forum
+1 Henge of Ramos
+1 Humble the Brute
+1 Interplanar Beacon
+7 Island
+1 Krark-Clan Stoker
+1 Lazotep Quarry
+1 Long Feng, Grand Secretariat
+1 Lotus Vale
+1 Luke Cage, Hero for Hire
+1 Meloku the Clouded Mirror
+1 Merfolk Seer
+1 Moldervine Reclamation
+1 Moriok Rigger
+6 Mountain
+1 Obsessive Stitcher
+1 Ophiomancer
+1 Orcish Lumberjack
+1 Piru, the Volatile
+5 Plains
+1 Plaza of Heroes
+1 Professor Zei, Anthropologist
+1 Rakka Mar
+1 Reliquary Monk
+1 Requiem Angel
+1 Restoration Gearsmith
+1 Ripchain Razorkin
+1 Rufus Shinra
+1 Salvage Scout
+1 Savior of the Sleeping
+1 Secret Base
+1 Sek'Kuar, Deathkeeper
+1 Selhoff Occultist
+1 Shadewing Laureate
+1 Shimmering Grotto
+1 Shivan Harvest
+1 Sivitri, Dragon Master
+1 Skirsdag Flayer
+1 Sliver Hive
+1 Spirit Mirror
+7 Swamp
+1 Tamiyo, Inquisitive Student
+1 Teferi's Care
+1 Thalakos Seer
+1 The Serpent Society
+1 Three Tree City
+1 Tragic Poet
+1 Treasure Dredger
+1 Unclaimed Territory
+1 Underdome
+1 Village Cannibals
+1 Youthful Scholar
+
+[commander]
+Child of Alara

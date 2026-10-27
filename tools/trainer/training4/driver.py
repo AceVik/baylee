@@ -14,7 +14,6 @@ using bf16 mixed precision on CUDA:
 
 from __future__ import annotations
 
-import argparse
 import json
 import time
 import random
@@ -32,74 +31,21 @@ from checkpoint4 import atomic_save, rng_state, restore_rng, move_optimizer
 from .loss import compute_step_loss
 from .validation import evaluate
 from .validation_device import evaluate_device
-from .device_loss import compute_device_loss
+from .device_loss import compute_device_loss, compute_unroll_device_loss
 from .execution import plan_batch, transfer_batch, encode_boards, compile_regions
 from .deferred import deferred_readouts
 from .prefetch import prefetch_batches
 from .checkpoint_async import AsyncCheckpointWriter
+from .objective import selection_score, check_resume_objective
+from .optimizer_groups import build_optimizer_groups, apply_relational_warmup, check_resume_schedule
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="Train Playernet v4 via stateful TBPTT distillation")
-    ap.add_argument("--data", required=True, help="Dataset directory produced by convert4")
-    ap.add_argument("--validation-data", default="", help="Separate immutable validation dataset; reuses its cache while training packages change")
-    ap.add_argument("--out", required=True, help="Output checkpoint directory")
-    ap.add_argument("--init", default="", help="Optional initial checkpoint directory (e.g. Phase A)")
-    ap.add_argument("--init-state", default="", help="Continue weights/optimizer from last.pt on a new package; reset recurrent lanes and sampler")
-    ap.add_argument("--d-model", type=int, default=512)
-    ap.add_argument("--layers", "--n-layers", dest="layers", type=int, default=8)
-    ap.add_argument("--heads", "--n-heads", dest="heads", type=int, default=8)
-    ap.add_argument("--d-ff", type=int, default=0, help="FFN width (0 = 4 * d_model)")
-    ap.add_argument("--batch-size", type=int, default=4)
-    ap.add_argument("--validation-batch-size", type=int, default=0, help="Validation lanes (0=training batch size); keep fixed when comparing training batch sizes")
-    ap.add_argument("--unroll", "--unroll-len", dest="unroll", type=int, default=16)
-    ap.add_argument("--thinking-steps", type=int, default=2)
-    ap.add_argument(
-        "--thinking-curriculum",
-        action="store_true",
-        help="Cycle thinking_steps K across (1, 2, 4, 8) during training (Phase B)",
-    )
-    ap.add_argument("--epochs", type=int, default=3)
-    ap.add_argument("--max-steps", type=int, default=0, help="Stop after N optimizer steps if > 0")
-    ap.add_argument("--max-shards", type=int, default=0, help="Limit shards loaded (0 = all)")
-    ap.add_argument("--lr", type=float, default=3e-4)
-    ap.add_argument("--max-entities", type=int, default=M.MAX_ENTITIES)
-    ap.add_argument("--num-workers", type=int, default=0)
-    ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--resume", default="", help="Resume an atomic last.pt checkpoint")
-    ap.add_argument("--checkpoint-every", type=int, default=100)
-    ap.add_argument("--validation-every", type=int, default=1000)
-    ap.add_argument("--activation-checkpointing", action="store_true")
-    ap.add_argument("--saved-activation-layers", type=int, default=0, help="Keep the last N trunk layers' activations instead of recomputing them; uses more VRAM")
-    ap.add_argument("--async-checkpoint", action="store_true", help="Stage one immutable last.pt snapshot and write it in the background")
-    ap.add_argument("--time-budget-seconds", type=float, default=0)
-    ap.add_argument("--dropout", type=float, default=0.0)
-    ap.add_argument("--reference-execution", action="store_true", help="Use the original synchronized execution for A/B checks")
-    ap.add_argument("--fused-optimizer", action="store_true", help="Fuse CUDA AdamW kernels; benchmark before enabling")
-    ap.add_argument("--board-chunk", type=int, default=1, help="Independent observation encodings per trunk call; recurrence remains sequential")
-    ap.add_argument("--compile-regions", action="store_true", help="Compile repeated transformer/thinking blocks with TorchInductor")
-    ap.add_argument("--compile-readouts", action="store_true", help="Also compile recurrent updates and action/value readouts; requires --compile-regions")
-    ap.add_argument("--cache-thinking-kv", action="store_true", help="Reuse this decision's board attention projections across thinking steps")
-    ap.add_argument("--prune-unused-policy-heads", action="store_true", help="Skip only policy heads that contribute nothing to this frame's loss")
-    ap.add_argument("--decision-chunk", type=int, default=1, help="Group independent readouts after causal memory updates; requires grouped boards and dropout=0")
-    ap.add_argument("--gpu-prefetch", type=int, choices=range(4), default=0, help="Future CUDA input batches on a separate copy stream (0=off, 1=double buffer)")
-    args = ap.parse_args()
-    if sum(bool(v) for v in (args.init, args.init_state, args.resume)) > 1:
-        ap.error("Choose one of --init, --init-state or --resume")
-    if args.batch_size < 1 or args.validation_batch_size < 0:
-        ap.error("Training batch size must be positive; validation batch size must be nonnegative")
-    args.validation_batch_size = args.validation_batch_size or args.batch_size
-    if args.compile_readouts and not args.compile_regions:
-        ap.error("--compile-readouts requires --compile-regions")
-    if not 0 <= args.saved_activation_layers <= args.layers:
-        ap.error("--saved-activation-layers must be between zero and --layers")
-    if args.saved_activation_layers and not args.activation_checkpointing:
-        ap.error("--saved-activation-layers requires --activation-checkpointing")
-
-    if args.decision_chunk > 1 and (args.reference_execution or args.board_chunk < 2 or args.dropout != 0):
-        ap.error("--decision-chunk > 1 requires --board-chunk >= 2, dropout=0 and optimized execution")
-    if args.decision_chunk < 1:
-        ap.error("--decision-chunk must be positive")
+def main(default_architecture="v4") -> None:
+    global M
+    from .cli import parse_args
+    args, M, identity = parse_args(default_architecture)
+    loss_config = args.supervised_loss
+    from .supervised_options import auxiliary_readout
 
     torch.set_num_threads(4)
     torch.manual_seed(args.seed)
@@ -134,6 +80,14 @@ def main() -> None:
     train_sampler = D4.StatefulBatchSampler4(
         train_ds, batch_size=args.batch_size, shuffle=True, seed=args.seed
     )
+    if args.bc_replay_data:
+        from .bc_mixture import BCMixture, BCMixtureSampler
+        replay_path = Path(args.bc_replay_data).expanduser()
+        replay = train_ds if replay_path.resolve() == data_dir.resolve() else D4.TrajectoryDataset4(
+            replay_path, split="train", unroll_len=args.unroll, max_entities=args.max_entities)
+        train_ds = BCMixture(train_ds, replay, val_ds, args.batch_size)
+        train_sampler = BCMixtureSampler(train_ds, args.batch_size, args.seed)
+        identity["bc_mixture"] = train_ds.contract
     val_sampler = D4.StatefulBatchSampler4(
         val_ds, batch_size=args.validation_batch_size, shuffle=False, seed=args.seed
     )
@@ -157,7 +111,8 @@ def main() -> None:
         pin_memory=(device.type == "cuda"),
     )
 
-    cfg = M.Config4(
+    config_class = M.Config5 if args.architecture == "v5" else M.Config4
+    cfg = config_class(
         d_model=args.d_model,
         n_layers=args.layers,
         n_heads=args.heads,
@@ -166,7 +121,14 @@ def main() -> None:
         dropout=args.dropout,
         activation_checkpointing=args.activation_checkpointing,
     )
-    net = M.PlayerNet4(cfg)
+    if args.architecture == "v5":
+        cfg.relational_steps = args.relational_steps
+        cfg.relational_revision = args.relational_revision
+        identity["architecture"] = M.architecture_for_config(cfg)
+    # Extra architecture initialization must not perturb training RNG in paired runs.
+    net = M.PlayerNet5(cfg) if args.architecture == "v5" else M.PlayerNet4(cfg)
+    net.compact_thinking_rows = args.compact_thinking_rows
+    net.detach_value_input = loss_config.detach_value_input
     net.attach_structure(train_ds.structure.data)
     net = net.to(device)
     net.saved_activation_layers = args.saved_activation_layers
@@ -178,24 +140,45 @@ def main() -> None:
         init_p = Path(args.init).expanduser()
         init_pt = init_p / "net.pt" if init_p.is_dir() else init_p
         ckpt_init = torch.load(init_pt, map_location="cpu", weights_only=False)
-        if (ckpt_init.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt_init.get("model_version") != M.MODEL_VERSION
-                or ckpt_init.get("encoder_version") != M.ENCODER_VERSION):
+        if (ckpt_init.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt_init.get("model_version") not in ((3, 5) if args.architecture == "v5" else (3,))
+                or ckpt_init.get("encoder_version") not in (6, M.ENCODER_VERSION)):
             raise ValueError("Initial checkpoint uses an incompatible memory contract")
         from model4.structure import structure_digest
         if structure_digest(ckpt_init["structure"]) != train_ds.structure.digest:
             raise ValueError("Initial checkpoint uses a different public rules catalog")
-        net.load_state_dict(ckpt_init["state_dict"], strict=True)
+        if args.architecture == "v5" and ckpt_init["model_version"] == 3:
+            upgraded = M.warmstart_from_v4(ckpt_init["state_dict"], net)
+        else:
+            if args.architecture == "v5" and (ckpt_init.get("architecture") != M.architecture_for_config(cfg)
+                    or M.Config5(**ckpt_init["config"]).to_dict() != cfg.to_dict()):
+                raise ValueError("V5 initialization architecture/config differs")
+            upgraded = (dict(ckpt_init["state_dict"]) if args.architecture == "v5"
+                        else M.upgrade_state_dict_to_v7(ckpt_init["state_dict"], net))
+        net.load_state_dict(upgraded, strict=True)
         print(f"[train4] loaded initial weights from {init_pt}")
-    val_head_params = [p for n, p in net.named_parameters() if "seat_value_head" in n]
-    other_params = [p for n, p in net.named_parameters() if "seat_value_head" not in n]
+    if args.freeze_trunk:
+        head_prefixes = (
+            "cand_proj.",
+            "cand_ctx_proj.",
+            "cand_scorer.",
+            "pair_blk_proj.",
+            "pair_atk_proj.",
+            "pair_scorer.",
+            "scalar_head.",
+        )
+        for n, p in net.named_parameters():
+            p.requires_grad_(n.startswith(head_prefixes))
+    opt_groups, optimizer_schedule = build_optimizer_groups(
+        net, args.lr, architecture=args.architecture, freeze_trunk=args.freeze_trunk,
+        relational_lr=args.relational_lr, output_lr=args.relational_output_lr,
+        warmup_steps=args.relational_warmup_steps)
     opt = torch.optim.AdamW(
-        [
-            {"params": other_params, "lr": args.lr, "weight_decay": 1e-2},
-            {"params": val_head_params, "lr": args.lr * 0.2, "weight_decay": 5e-2},
-        ],
+        opt_groups,
         fused=True if args.fused_optimizer and device.type == "cuda" else None,
     )
     package_parent = None
+    if args.init_state and args.architecture == "v5":
+        raise ValueError("V5 package continuation requires explicit verified support; use --init or --resume")
     if args.init_state:
         from .package_state import load_package_state
         package_parent = load_package_state(args.init_state, net, opt, device)
@@ -218,6 +201,12 @@ def main() -> None:
     resume_epoch, resume_batch, resume_h = 1, 0, None
     if args.resume:
         saved = torch.load(Path(args.resume).expanduser(), map_location="cpu", weights_only=False)
+        if saved.get("model_version") != M.MODEL_VERSION or any(saved.get(k) != v for k, v in identity.items()):
+            raise ValueError("Resume model architecture differs")
+        from .bc_mixture import check_resume
+        check_resume(saved, getattr(train_ds, "contract", None))
+        check_resume_objective(saved, args.checkpoint_selection, loss_config)
+        check_resume_schedule(saved, optimizer_schedule)
         if (saved.get("training_sampler_version", 1) != D4.StatefulBatchSampler4.VERSION
                 or saved.get("sampler_seed") != args.seed):
             raise ValueError("Resume training sampler version/seed differs; use --init-state for fresh lanes")
@@ -225,7 +214,7 @@ def main() -> None:
             raise ValueError("Resume dataset differs from the checkpoint")
         if saved.get("validation_fingerprint", val_ds.fingerprint) != val_ds.fingerprint:
             raise ValueError("Resume validation dataset differs from the checkpoint")
-        if saved["config"] != cfg.to_dict() or saved["batch_size"] != args.batch_size or saved["unroll"] != args.unroll:
+        if ((M.Config5(**saved["config"]).to_dict() if args.architecture == "v5" else saved["config"]) != cfg.to_dict()) or saved["batch_size"] != args.batch_size or saved["unroll"] != args.unroll:
             raise ValueError("Resume configuration/batch lanes must match exactly")
         if saved.get("validation_batch_size", saved["batch_size"]) != args.validation_batch_size:
             raise ValueError("Resume validation batch lanes must match the saved scoring protocol")
@@ -251,7 +240,7 @@ def main() -> None:
     checkpoint_writer = AsyncCheckpointWriter(device, enabled=args.async_checkpoint)
 
     def save_last(epoch, next_batch, hidden):
-        checkpoint_writer.save({"config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": net.state_dict(),
+        checkpoint_writer.save({**identity, "optimizer_schedule": optimizer_schedule, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": net.state_dict(),
                      "optimizer": opt.state_dict(), "rng": rng_state(),
                      "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION, "sampling_version": M.SAMPLING_VERSION,
                      "step_num": step_num, "epoch": epoch, "next_batch": next_batch,
@@ -260,6 +249,7 @@ def main() -> None:
                      "validation_fingerprint": val_ds.fingerprint,
                      "package_parent": package_parent,
                      "training_sampler_version": D4.StatefulBatchSampler4.VERSION,
+                     "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
                      "sampler_seed": args.seed,
                      "batch_size": args.batch_size, "unroll": args.unroll,
                      "validation_batch_size": args.validation_batch_size,
@@ -282,12 +272,13 @@ def main() -> None:
         metrics = (evaluate(net, val_loader, device, args.thinking_steps) if args.reference_execution
                    else evaluate_device(net, val_loader, device, args.thinking_steps, args.board_chunk, progress_every=500))
         net.train(was_training)
-        score = metrics["val_pol_loss"] + 2.0 * metrics["val_mse"]
+        score = selection_score(metrics, args.checkpoint_selection)
         if score < best_score:
             best_score, best_step = score, step_num
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
             best_val_metrics = dict(metrics)
-            atomic_save({"config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
+            atomic_save({**identity, "optimizer_schedule": optimizer_schedule, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
+                         "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
                          "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
                          "sampling_version": M.SAMPLING_VERSION, "step_num": best_step,
                          "validation_batch_size": args.validation_batch_size,
@@ -303,6 +294,8 @@ def main() -> None:
         print("[train4] Requested epochs already complete; checkpoint preserved", flush=True)
         return
     with checkpoint_writer:
+        if args.validate_initial and not args.resume:
+            validate_and_save()
         for epoch in range(resume_epoch, args.epochs + 1):
             net.train()
             ep_pol = 0.0
@@ -325,7 +318,7 @@ def main() -> None:
                 batch = transfer_batch(host, device) if staged is None else staged
                 B, U = batch["step_valid"].shape
                 opt.zero_grad(set_to_none=True)
-                is_new = batch["is_new_traj"].to(device)
+                is_new = batch["is_new_traj"].to(device, non_blocking=True)
                 if h is None or h.shape[0] != B:
                     h = torch.zeros(
                         (B, M.RECURRENT_SLOTS, cfg.d_model), dtype=torch.float32, device=device
@@ -335,18 +328,27 @@ def main() -> None:
                     h = torch.where(is_new.view(B, 1, 1), torch.zeros_like(h), h)
 
                 k_choices = (1, 2, 4, 8)
-                traj_loss = torch.tensor(0.0, device=device)
+                traj_loss = torch.zeros((), device=device)
                 with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
                     net.clear_structure()
-                    net.prepare_structure()
+                    net.prepare_structure(
+                        None if args.reference_execution else (host["entity_rules"], host["cand_rules"])
+                    )
                     boards = encode_boards(net, batch, args.board_chunk, device)
 
                 prepared = None
                 if args.decision_chunk > 1:
                     prepared, final_hidden = deferred_readouts(net, batch, boards, h, plans,
                                                               args.decision_chunk, device, use_bf16)
-                for t in range(U):
-                    if prepared is None:
+                    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                        aux_all = auxiliary_readout(net, torch.stack([prepared[t][0][:, 0] for t in range(U)], dim=1), loss_config)
+                    traj_loss, st = compute_unroll_device_loss(prepared, aux_all.float(), batch, plans, loss_config)
+                    epoch_stats[:3] += st[:3] / U
+                    epoch_stats[3:] += st[3:]
+                    h = final_hidden
+                else:
+                    full_outputs, full_aux = [], []
+                    for t in range(U):
                         k_val = (k_choices[(step_num + t) % len(k_choices)]
                                  if args.thinking_curriculum else args.thinking_steps)
                         k_tensor = batch["is_decision"][:, t].to(device).long() * k_val
@@ -355,43 +357,46 @@ def main() -> None:
                                          execution_hint=None if plans is None else plans[t].hint,
                                          encoded_board=None if boards is None else boards[t],
                                          policy_heads=plans[t].heads if plans is not None and args.prune_unused_policy_heads else None)
-                    else:
-                        output = prepared[t]
-                    h_next, cand_l, pair_l, scal_p, val_p = output
-                    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
-                        aux_p = net.aux_head(h_next[:, 0])
-                    loss_function = compute_step_loss if plans is None else compute_device_loss
-                    loss_t, st = loss_function(
-                        cand_l.float(),
-                        pair_l.float(),
-                        scal_p.float(),
-                        val_p.float(),
-                        aux_p.float(),
-                        batch,
-                        t,
-                        *([] if plans is None else [plans[t]]),
-                    )
-                    if prepared is None:
+                        h_next, cand_l, pair_l, scal_p, val_p = output
+                        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                            aux_p = auxiliary_readout(net, h_next[:, 0], loss_config)
                         valid_t = batch["step_valid"][:, t].to(device)
                         h = torch.where(valid_t.view(B, 1, 1), h_next.float(), h)
-                    traj_loss = traj_loss + loss_t / U
-                    if plans is None:
-                        ep_pol += st["pol_loss"] / U
-                        ep_val += st["val_loss"] / U
-                        ep_aux += st["aux_loss"] / U
-                        ep_corr += st["correct_single"]
-                        ep_tot += st["total_single"]
-                    else:
+                        if loss_config.version == 5:
+                            full_outputs.append((h_next, cand_l.float(), pair_l.float(), scal_p.float(), val_p.float()))
+                            full_aux.append(aux_p.float())
+                        else:
+                            loss_function = compute_step_loss if plans is None else compute_device_loss
+                            loss_t, st = loss_function(
+                                cand_l.float(),
+                                pair_l.float(),
+                                scal_p.float(),
+                                val_p.float(),
+                                aux_p.float(),
+                                batch,
+                                t,
+                                *([] if plans is None else [plans[t]]),
+                            )
+                            traj_loss = traj_loss + loss_t / U
+                            if plans is None:
+                                ep_pol += st["pol_loss"] / U
+                                ep_val += st["val_loss"] / U
+                                ep_aux += st["aux_loss"] / U
+                                ep_corr += st["correct_single"]
+                                ep_tot += st["total_single"]
+                            else:
+                                epoch_stats[:3] += st[:3] / U
+                                epoch_stats[3:] += st[3:]
+                    if loss_config.version == 5:
+                        traj_loss, st = compute_unroll_device_loss(full_outputs, torch.stack(full_aux, dim=1), batch, plans, loss_config)
                         epoch_stats[:3] += st[:3] / U
                         epoch_stats[3:] += st[3:]
-
-                if prepared is not None:
-                    h = final_hidden
                 if not torch.isfinite(traj_loss):
                     raise FloatingPointError(f"Non-finite loss at step {step_num}")
                 traj_loss.backward()
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0, error_if_nonfinite=True)
                 checkpoint_writer.before_mutation()
+                apply_relational_warmup(opt, optimizer_schedule, step_num + 1)
                 opt.step()
                 net.clear_structure()
 
@@ -441,6 +446,8 @@ def main() -> None:
     final_state = best_state if best_state is not None else net.state_dict()
     final_metrics = best_val_metrics if best_val_metrics else val_metrics
     ckpt = {
+        **identity, "optimizer_schedule": optimizer_schedule,
+        "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
         "config": cfg.__dict__,
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
@@ -454,6 +461,8 @@ def main() -> None:
     }
     atomic_save(ckpt, out_dir / "net.pt")
     meta_out = {
+        **identity, "optimizer_schedule": optimizer_schedule,
+        "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
         "sampling_version": M.SAMPLING_VERSION,

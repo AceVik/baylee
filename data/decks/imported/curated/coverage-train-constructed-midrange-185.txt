@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WBR #20266186]
+2 Ancient Ziggurat
+1 Cascading Cataracts
+1 Castle Doom
+2 Catacomb Slug
+2 Demonic Tutor
+2 Fireforger's Puzzleknot
+2 Flowstone Wall
+2 Giant Scorpion
+2 Golgothian Sylex
+1 Guildmages' Forum
+1 Haven of the Spirit Dragon
+2 Highborn Vampire
+2 Hooded Kavu
+2 Lithophage
+7 Mountain
+2 Mountain Titan
+2 Necrogen Spellbomb
+3 Painted Bluffs
+2 Prakhata Club Security
+2 Skull Collector
+8 Swamp
+2 Talisman of Indulgence
+2 Thran Weaponry
+2 Tower of Champions
+2 Unyielding Krumar
+2 Wall of Stone

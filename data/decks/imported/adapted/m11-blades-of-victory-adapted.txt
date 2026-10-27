@@ -6,10 +6,12 @@
 1 Assassinate
 2 Cloud Crusader
 1 Doom Blade
+1 Duress
 2 Elite Vanguard
 1 Mighty Leap
 1 Mind Rot
-4 Mortify
+1 Mortify
+2 Pacifism
 16 Plains
 2 Resolute Watchdog
 2 Serra Angel

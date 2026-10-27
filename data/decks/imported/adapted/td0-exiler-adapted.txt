@@ -2,6 +2,7 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Exiler (Adapted)]
 4 Aether Vial
+4 Afterlife
 1 Bonesplitter
 4 Bring to Trial
 1 Expose to Daylight
@@ -11,10 +12,9 @@
 3 Holy Light
 3 Hop to It
 3 Karakas
-3 Master's Call
 2 Mishra's Factory
 14 Plains
-4 Rebuke
+3 Repentance
 4 Swords to Plowshares
 3 Tempest of Light
 1 Umezawa's Jitte

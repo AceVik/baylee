@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WG #20266257]
+1 Angelic Blessing
+1 Avoid Fate
+1 Aysen Crusader
+1 Back to Nature
+1 Branchloft Pathway
+1 Brushland
+1 Burrenton Shield-Bearers
+1 Capashen Templar
+1 Cenn's Heir
+1 Devkarin Dissident
+1 Devotee of Strength
+1 Dire Wolf Prowler
+1 Dire Wolves
+1 Drove of Elves
+1 Druid of the Spade
+1 Elfhame Palace
+1 Elvish Berserker
+1 Elvish Scout
+1 Farewell
+1 Feral Ferocity
+1 Feral Roar
+12 Forest
+1 Frilled Sandwalla
+1 Gathering Place
+1 Gavony Township
+1 Greenhilt Trainee
+1 Griffin Rider
+1 Grove of the Guardian
+1 Hedge Troll
+1 Honor Guard
+1 Horizon Canopy
+1 Iridescent Blademaster
+1 Kithkin Daggerdare
+1 Kithkin Shielddare
+1 Knight of the Skyward Eye
+1 Knotvine Paladin
+1 Legolas's Quick Reflexes
+1 Llanowar Behemoth
+1 Llanowar Vanguard
+1 Loam Lion
+1 Loxodon Stalwart
+1 Massive Might
+1 Might of Oaks
+1 Might of the Masses
+1 Mirkwood Channeler
+1 Mirkwood Pathmaker
+1 Order of Leitbur
+12 Plains
+1 Preacher
+1 Riftstone Portal
+1 Righteousness
+1 Rust
+1 Safehold Sentry
+1 Saltcrusted Steppe
+1 Savannah
+1 Shape the Sands
+1 Show of Valor
+1 Snarling Wolf
+1 Soltari Champion
+1 Soltari Crusader
+1 Soltari Trooper
+1 Spirit Weaver
+1 Stone Haven Pilgrim
+1 Stoneskin
+1 Stonewood Invoker
+1 Sungrass Prairie
+1 Temur Runemark
+1 Tireless Tribe
+1 Untamed Might
+1 Vec Townships
+1 Veldt
+1 Viridian Lorebearers
+1 Whippoorwill
+1 Wildheart Invoker
+1 Wirewood Pride
+1 Wooded Bastion
+1 Wyluli Wolf
+
+[commander]
+Kudo, King Among Bears

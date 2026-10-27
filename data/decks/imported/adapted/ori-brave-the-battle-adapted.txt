@@ -14,8 +14,9 @@
 2 Mighty Leap
 4 Nature's Chant
 14 Plains
-2 Reknit
-4 Selesnya Charm
+1 Reknit
+1 Selesnya Charm
 2 Sentinel of the Eternal Watch
 1 Titanic Growth
 1 Vastwood Gorger
+4 Vitalizing Cascade

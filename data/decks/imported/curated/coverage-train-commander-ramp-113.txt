@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WU #20266114]
+1 Adventurer's Inn
+1 Aegis Automaton
+1 Anodet Lurker
+1 Archon of Justice
+1 Attentive Sunscribe
+1 Avacyn's Collar
+1 Avengers Hangar
+1 Bastion Mastodon
+1 Bladed Sentinel
+1 Blood Servitor
+1 Brass Secretary
+1 Chrome Prowler
+1 Clockwork Drawbridge
+1 Cloudheath Drake
+1 Command Beacon
+1 Cumber Stone
+1 Daily Bugle Newspaper
+1 Deserted Beach
+1 Eldrazi Temple
+1 Elesh Norn, Grand Cenobite
+1 Escaped Experiment
+1 Exocomp
+1 Expedition Map
+1 Halls of Mist
+1 Hanna's Custody
+1 Hedron Scrabbler
+1 Inkwell Leviathan
+12 Island
+1 Ivory Guardians
+1 Jhovall Queen
+1 Journeyer's Kite
+1 Leonin Abunas
+1 Mana Cylix
+1 Manakin
+1 Messenger Drake
+1 Misty Rainforest
+1 Padeem, Consul of Innovation
+1 Pentavus
+1 Phyrexian Metamorph
+1 Phyrexian Walker
+14 Plains
+1 Prophet of the Peak
+1 Razorfield Thresher
+1 Retrofitter Foundry
+1 Rune-Sealed Wall
+1 Runed Servitor
+1 Salvaged Manaworker
+1 Scalding Tarn
+1 Scrap Trawler
+1 Serpent Generator
+1 Shire Terrace
+1 Skybridge Towers
+1 Soliton
+1 Sorrow's Path
+1 Sparring Construct
+1 Spined Thopter
+1 Study
+1 Su-Chi
+1 Sundial, Dawn Tyrant
+1 Surgical Metamorph
+1 Swooping Lookout
+1 Sword of Hearth and Home
+1 Sword of the Ages
+1 Terrain Generator
+1 Thaumatic Compass
+1 Triskelavus
+1 Unbender Tine
+1 Underdark Rift
+1 Unstable Obelisk
+1 Vedalken Outlander
+1 Watchful Automaton
+1 Watermarket
+1 Workhorse
+1 Worldslayer
+1 Zoetic Cavern
+
+[commander]
+Jedit Ojanen

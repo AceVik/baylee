@@ -2,6 +2,7 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Tidal Mastery (Adapted)]
 4 Absorb
+2 Afterlife
 2 Alabaster Wall
 1 Cloud Sprite
 1 Coastal Piracy
@@ -14,7 +15,7 @@
 2 Drake Hatchling
 16 Island
 1 Offering to Asha
-3 Ojutai's Command
+1 Ojutai's Command
 1 Overrule
 10 Plains
 4 Sphinx's Revelation

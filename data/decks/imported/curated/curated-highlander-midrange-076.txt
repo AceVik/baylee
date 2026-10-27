@@ -1,81 +1,80 @@
 # baylee curated highlander midrange seed=20261099
 # licence: AGPL-3.0-only
 [deck:highlander midrange WB #20261099]
-1 Aerial Responder
-1 Akroma's Vengeance
-1 Ankh of Mishra
-1 Bag End Banquet
-1 Blighted Shaman
-1 Bone Saw
-1 Cave of Temptation
-1 Celestial Sword
-1 Certain Death
-1 Clergy of the Holy Nimbus
-1 Commander's Sphere
-1 Contested War Zone
-1 Cryptic Caves
-1 Cryptic Spires
-1 Dawnstrike Paladin
-1 Doomed Traveler
-1 Dread of Night
-1 East Wind Avatar
-1 Edgewall Inn
-1 Eidolon of Inspiration
-1 Elephant Graveyard
-1 Endless Sands
-1 Expedition Map
-1 Eyeblight Assassin
-1 Farmstead
-1 Feldon's Cane
-1 Forgotten Sentinel
-1 Goldmeadow Lookout
-1 Goldmire Bridge
-1 Gond Gate
-1 Grasping Dunes
-1 Grotesque Mutation
-1 Guul Draz Mucklord
-1 Hive of the Eye Tyrant
-1 Hop to It
-1 Hunted Ghoul
-1 Icatian Skirmishers
-1 Indestructible Aura
-1 Knight of Doves
-1 Leonin Scimitar
-1 Looming Altisaur
-1 Make Your Move
-1 Mana Matrix
-1 Memnite
-1 Nighthaze
-1 Ogre's Cleaver
-1 Olivia's Dragoon
-1 Orzhov Keyrune
-1 Phyrexian Hulk
+1 Ajani's Welcome
+1 Angel of Renewal
+1 Arashin Cleric
+1 Armistice
+1 Aven Battle Priest
+1 Aven of Enduring Hope
+1 Bishop of Wings
+1 Black Dragon
+1 Blightspeaker
+1 Bloodhunter Bat
+1 Bulwark Giant
+1 Carrier Pigeons
+1 Cascading Cataracts
+1 Castle Doom
+1 Cathedral Sanctifier
+1 Caves of Koilos
+1 Delif's Cone
+1 Demon's Due
+1 Dwarven Priest
+1 Elas il-Kor, Sadistic Pilgrim
+1 Foul Imp
+1 Gallifrey Council Chamber
+1 Glider Kids
+1 Hall of Oracles
+1 Harsh Sustenance
+1 Healer of the Pride
+1 Heap Gate
+1 Henge of Ramos
+1 Holdout Settlement
+1 Honored Knight-Captain
+1 Implement of Improvement
+1 Inspiring Cleric
+1 Kalastria Healer
+1 Kor Celebrant
+1 Leonin Elder
+1 Lifecreed Duo
+1 Lone Missionary
+1 Maga, Traitor to Mortals
+1 Mandible Justiciar
+1 Mirrex
+1 Monk Idealist
+1 Necrogen Scudder
+1 Northern Air Temple
+1 Operations Officer
 1 Phyrexian Rager
-14 Plains
-1 Predator, Flagship
-1 Ramosian Revivalist
-1 Ramosian Sergeant
-1 Rhystic Cave
-1 Risky Shortcut
-1 Savannah Lions
-1 Scepter of Dominance
-1 School of the Unseen
-1 Scorpion's Sting
-1 Scour from Existence
-1 Shimmering Grotto
-1 Spectral Procession
-1 Starlight Invoker
-1 Starry-Eyed Skyrider
-10 Swamp
-1 Tasseled Dromedary
-1 Tawnos's Weaponry
-1 Terminal Moraine
-1 Twisted Experiment
-1 Umbral Expanse
-1 Vanquish the Weak
-1 Vermiculos
-1 Voice of Truth
-1 Vona, Butcher of Magan
-1 War Chariot
-1 Zhang Liao, Hero of Hefei
-1 Zulaport Cutthroat
+12 Plains
+1 Potion of Healing
+1 Radiant's Dragoons
+1 Rathi Fiend
+1 Reviving Dose
+1 Rune-Scarred Demon
+1 Savannah Sage
+1 Settlement Blacksmith
+1 Shinra Reinforcements
+1 Shu Soldier-Farmers
+1 Skyclave Cleric
+1 Skymarch Bloodletter
+1 Spirit Link
+1 Staunch Defenders
+1 Sunbeam Spellbomb
+1 Suture Priest
+13 Swamp
+1 Tainted Field
+1 Tendrils of Corruption
+1 Three Tree City
+1 Tireless Missionaries
+1 Treasure Hunter
+1 Unclaimed Territory
+1 Underdome
+1 Underworld Coinsmith
+1 Unknown Shores
+1 Vampiric Rites
+1 Villainous Hideout
+1 Wild Aesthir
+1 Windgrace Acolyte
+1 Witch's Cauldron
+1 Zuran Orb

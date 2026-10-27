@@ -1,72 +1,80 @@
-# baylee unseen-card holdout commander seed=90000021
+# baylee unseen-card holdout commander seed=90000014
 # licence: AGPL-3.0-only
-[deck:commander control R #90000021]
-1 Accorder's Shield
-1 Angel's Feather
-1 Arcane Encyclopedia
-1 Armageddon Clock
-1 Balduvian Hydra
-1 Balduvian Trading Post
-1 Bear Trap
-1 Belligerent Guest
-1 Blade Sliver
-1 Blighted Gorge
-1 Blockbuster
-1 Blood Moon
-1 Claws of Gix
-1 Command Beacon
-1 Demolish
+[deck:commander control BR #90000014]
+1 Aclazotz, Deepest Betrayal
+1 Ally Encampment
+1 Bereavement
+1 Blight Mound
+1 Blood Rites
+1 Bloodgift Demon
+1 Body Snatcher
+1 Bogardan Firefiend
+1 Brotherhood Patriarch
+1 Castle Doom
+1 Caustic Hound
+1 Cave of Temptation
+1 City of Brass
+1 Conscripted Infantry
+1 Dance with Devils
+1 Dark Fortress
+1 Deathbringer Thoctar
+1 Deathknell Berserker
+1 Despondency
+1 Discordant Piper
 1 Dragon Roost
-1 Dwarven Soldier
-1 Erratic Portal
-1 Fiery Hellhound
-1 Fire Tempest
-1 Fissure
-1 Flooded Strand
-1 Flowstone Wall
-1 Forcefield
-1 Goblin Assault
-1 Grinding Station
-1 Honden of Infinite Rage
-1 Jackhammer
-1 Kamahl, Pit Fighter
-1 Kozilek's Sentinel
-1 Lapis Lazuli Talisman
-1 Lay Waste
-1 Lightning Javelin
-1 Magma Vein
-1 Mishra's War Machine
-1 Mogg Sentry
-35 Mountain
-1 Neurok Hoversail
-1 Nevinyrral's Disk
-1 Nine-Ringed Bo
-1 Orcish Cannonade
-1 Outnumber
-1 Ramunap Ruins
-1 Reckless One
-1 Reduce to Ashes
-1 Rocket Launcher
-1 Rockslide Elemental
-1 Scarlet Witch, Wanda Maximoff
-1 Secluded Starforge
-1 Seismic Assault
-1 Shatterskull Smashing
-1 Spire Barrage
-1 Staff of Domination
-1 Start from Scratch
-1 Super Speed
-1 Sweltering Suns
-1 Tawnos's Weaponry
-1 Tectonic Edge
-1 Thaumatic Compass
-1 The Lonely Mountain
-1 The Walls of Ba Sing Se
-1 Tower of Fortunes
-1 Valakut Awakening
-1 Voodoo Doll
-1 Wall of Earth
-1 Winter Orb
+1 Drider
+1 Emergency Weld
+1 Failed Conversion
+1 Gnawing Zombie
+1 Gremlin Infestation
+1 Headless Rider
+1 Heap Gate
+1 Horror of Horrors
+1 Hungry Ghoul
+1 Infernal Tribute
+1 Infestation Sage
+1 Last Laugh
+1 Liliana's Mastery
+1 Lotus Vale
+1 Maalfeld Twins
+1 Maelstrom of the Spirit Dragon
+1 Malevolent Awakening
+1 Marsh Flitter
+1 Midnight Entourage
+1 Moriok Rigger
+3 Mountain
+1 Mox Jet
+1 Need for Speed
+1 Omen of the Dead
+1 Orochi Hatchery
+1 Phyrexian Reclamation
+1 Piggy Bank
+1 Plagued Rusalka
+1 Plaza of Heroes
+1 Razaketh, the Foulblooded
+1 Recurring Nightmare
+1 Rotlung Reanimator
+1 Ryusei, the Falling Star
+1 Sadistic Glee
+1 Secret Base
+1 Seizan, Perverter of Truth
+1 Shivan Harvest
+1 Skemfar Avenger
+1 Sleeper's Guile
+1 Soulcage Fiend
+1 Spirit of Malevolence
+1 Stensia Bloodhall
+24 Swamp
+1 Tainted Peak
+1 Tarnished Citadel
+1 Tarrian's Journal
+1 Throne of Makindi
+1 Tooth and Claw
+1 Unclaimed Territory
+1 Unknown Shores
+1 Venomcrawler
+1 Warren Soultrader
+1 Wishclaw Talisman
 
 [commander]
-Kamahl, Pit Fighter
+The Balrog of Moria

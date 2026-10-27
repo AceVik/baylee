@@ -5,15 +5,15 @@
 4 Barren Moor
 4 Bedevil
 4 Bloodstained Mire
-1 Breath of Malfegor
+3 Buried Alive
+4 Delirium
 4 Doomed Necromancer
-4 Dreadbore
 6 Mountain
 2 Shadowblood Ridge
-3 Skull Rend
 2 Smother
+4 Spontaneous Combustion
 9 Swamp
-4 Terminate
+1 Terminate
 1 Visara the Dreadful
 4 Wrecking Ball
 4 Zombify

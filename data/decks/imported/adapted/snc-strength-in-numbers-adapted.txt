@@ -5,7 +5,7 @@
 3 Altar of Bone
 4 Blossoming Sands
 2 Botanical Plaza
-4 Call of the Conclave
+3 Call of the Conclave
 3 Celebrity Fencer
 2 Darling of the Masses
 4 Eladamri's Call
@@ -13,7 +13,7 @@
 4 Gerrard's Command
 4 Heroes' Reunion
 2 Luxurious Libation
-1 Nature's Chant
 1 Overgrown Farmland
 9 Plains
-4 Selesnya Charm
+2 Selesnya Charm
+4 Vitalizing Cascade

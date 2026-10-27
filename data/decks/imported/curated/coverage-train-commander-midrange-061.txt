@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266062]
+1 Abstergo Entertainment
+1 Ally Encampment
+1 Behemoth's Herald
+1 Bladestitched Skaab
+1 Bloodsoaked Insight
+1 Bounding Krasis
+1 Bronzebeak Moa
+1 Bucolic Ranch
+1 Cascading Cataracts
+1 Castaway's Despair
+1 Corrupted Crossroads
+1 Crystal Grotto
+1 Dauntless River Marshal
+1 Deepchannel Duelist
+1 Disappear
+1 Dragonsoul Knight
+1 Dreadwing
+1 Drowned
+1 Duct Crawler
+1 Eclipsed Realms
+1 Elemental Augury
+1 Enchanted Evening
+1 Eye of Nowhere
+1 Flame Spirit
+1 Fleetfoot Dancer
+1 Forest
+1 Gallifrey Council Chamber
+1 Glaciers
+1 Godsire
+1 Great Hall of the Citadel
+1 Gulf Squid
+1 Haven of the Spirit Dragon
+1 Imperious Inkmage
+10 Island
+1 Knotvine Mystic
+1 Lava Zombie
+1 Leafdrake Roost
+1 Lord of Tresserhorn
+1 Martyrs' Tomb
+1 Mech Hangar
+1 Merseine
+1 Monstrous Carabid
+1 Mountain
+1 Natural Emergence
+1 Ocular Halo
+1 Omnath, Locus of Creation
+1 Overgrown Estate
+1 Pillar of the Paruns
+6 Plains
+1 Primal Visitation
+1 Putrid Leech
+1 Reality Ripple
+1 Reset
+1 Righteous War
+1 Risen Reef
+1 Roofstalker Wight
+1 Salivating Gremlins
+1 Sanity Gnawers
+1 Savage Gorilla
+1 Scornful Aether-Lich
+1 Shivan Wurm
+1 Sire of Insanity
+1 Sootstoke Kindler
+1 Spectral Shield
+1 Spire of Industry
+1 Stillmoon Cavalier
+1 Stormcaller of Keranos
+1 Strength of the Harvest
+7 Swamp
+1 Tendo Ice Bridge
+1 Three Tree City
+1 Torpor Dust
+1 Utter End
+1 Vedalken Outlander
+1 Viashino Slaughtermaster
+1 Votary of the Conclave
+1 Wellspring
+1 Yarok's Wavecrasher
+1 Zombie Outlander
+
+[commander]
+General Tazri

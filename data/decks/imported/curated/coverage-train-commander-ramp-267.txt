@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp G #20266268]
+1 Accelerated Evolution
+1 Aim High
+1 Blossoming Defense
+1 Cacophodon
+1 Canopy Gorger
+1 City of Traitors
+1 Crash of Rhino Beetles
+1 Craw Wurm
+1 Darkthicket Wolf
+1 Dire Wolf Prowler
+1 Dire Wolves
+1 Drowsing Tyrannodon
+1 Dust Bowl
+1 Entangling Vines
+1 Equestrian Skill
+1 Feral Ferocity
+1 Feral Roar
+35 Forest
+1 Frilled Sandwalla
+1 Gaea's Embrace
+1 Gilt-Leaf's Embrace
+1 Grazing Whiptail
+1 Hardened-Scale Armor
+1 Hot Springs
+1 Johtull Wurm
+1 Jungle Wurm
+1 Kindercatch
+1 Massive Might
+1 Might of Oaks
+1 Might of the Masses
+1 Monstrous Growth
+1 Nantuko Disciple
+1 Orazca Frillback
+1 Ornery Dilophosaur
+1 Pestilent Wolf
+1 Phytoburst
+1 Primordial Wurm
+1 Pygmy Allosaurus
+1 Pygmy Troll
+1 Quilled Wolf
+1 Ranger's Guile
+1 Ravenous Daggertooth
+1 Regal Imperiosaur
+1 Riveteers Overlook
+1 Roaring Slagwurm
+1 Roots
+1 Scaled Wurm
+1 Seraph Sanctuary
+1 Serpent Skin
+1 Snarling Wolf
+1 Spike-Tailed Ceratops
+1 Strength of Cedars
+1 Tall as a Beanstalk
+1 Thornhide Wolves
+1 Trollhide
+1 Trolls of Tel-Jilad
+1 Tyrite Sanctum
+1 Urza's Mine
+1 War Room
+1 Wayward Swordtooth
+1 Whippoorwill
+1 Whiptail Wurm
+1 Wielding the Green Dragon
+1 Wyluli Wolf
+1 Young Wolf
+
+[commander]
+Terrian, World Tyrant

@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro R #20266265]
+1 Arcane Lighthouse
+1 Bellows Lizard
+1 Bloodlust Inciter
+1 Boil
+1 Boiling Seas
+1 Brute Strength
+1 Buccaneer's Bravado
+1 Caterwauling Boggart
+1 Crazed Goblin
+1 Defense Force Aggressor
+1 Defiant Khenra
+1 Demolish
+1 Dread Statuary
+1 Dwarven Song
+1 Fearless Halberdier
+1 Fists of the Anvil
+1 Furious Resistance
+1 Goblin Assailant
+1 Goblin Balloon Brigade
+1 Goblin Bird-Grabber
+1 Goblin Brigand
+1 Goblin Bully
+1 Goblin Chariot
+1 Goblin Chieftain
+1 Goblin Mountaineer
+1 Goblin Patrol
+1 Goblin Piker
+1 Goblin Striker
+1 Goblins of the Flarg
+1 High Market
+1 Kindled Fury
+1 Lathnu Sailback
+1 Lizard Warrior
+1 Lunar Frenzy
+1 Minotaur Warrior
+32 Mountain
+1 Mountain Stronghold
+1 Ogre Sentry
+1 Onakke Ogre
+1 Orc General
+1 Pedal to the Metal
+1 Pensive Minotaur
+1 Precise Strike
+1 Pygmy Pyrosaur
+1 Rampaging Classmate
+1 Reckless Brute
+1 Reliquary Tower
+1 Rig for War
+1 Ruination
+1 Rush of Adrenaline
+1 Sokenzan Bruiser
+1 Swab Goblin
+1 Thunder Strike
+1 Toxic Iguanar
+1 Tyrox, Saurid Tyrant
+1 Uncanny Speed
+1 Viashino Cutthroat
+1 Viashino Outrider
+1 Viashino Sandscout
+1 Viashino Sandswimmer
+1 Viashino Slasher
+1 Viashino Spearhunter
+1 Viashino Warrior
+1 Viashino Weaponsmith
+1 Vug Lizard
+1 Vulshok Refugee
+1 Whirling Strike
+1 Witch's Clinic
+
+[commander]
+Hivis of the Scale

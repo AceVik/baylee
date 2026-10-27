@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control UB #20266131]
+1 Access Tunnel
+1 Aether Storm
+1 Arcane Laboratory
+1 Aura Flux
+1 Avishkar Raceway
+1 Back to Basics
+1 Benthic Giant
+1 Blight
+1 Carrionette
+1 Clammy Prowler
+1 Contested War Zone
+1 Controlled Instincts
+1 Copy Enchantment
+1 Copy Land
+1 Daring Demolition
+1 Dark Maze
+1 Dauthi Embrace
+1 Daxos's Torment
+1 Deadly Rollick
+1 Death Pits of Rath
+1 Deathgrip
+1 Defeat
+1 Douse
+1 Dream Coat
+1 Encroaching Wastes
+1 Endless Sands
+1 Epic Downfall
+1 Escape Routes
+1 Eye Collector
+1 Final Death
+1 Frozen Aether
+1 Giant Shark
+1 Gloom
+1 Gravitational Shift
+1 Gravkill
+1 Grotesque Demise
+1 HELIOS One
+1 Intruder Alarm
+13 Island
+1 Land Equilibrium
+1 Larceny
+1 Mana Chains
+1 Midnight Covenant
+1 Mikokoro, Center of the Sea
+1 Mirrormade
+1 Necrogen Mists
+1 No Mercy
+1 Nyxborn Marauder
+1 Opposition
+1 Oubliette
+1 Pendrell Mists
+1 Reduce in Stature
+1 Riptide Chimera
+1 Roadside Reliquary
+1 Sanctum of Eternity
+1 Sea Serpent
+1 Secluded Starforge
+1 Skeletal Wurm
+14 Swamp
+1 Symbol of Unsummoning
+1 Tectonic Edge
+1 The Abyss
+1 The Grey Havens
+1 The Tabernacle at Pendrell Vale
+1 The Terror of Serpent's Pass
+1 Thespian's Stage
+1 Tinybones, the Pickpocket
+1 Undertow
+1 Urza's Cave
+1 Urza's Power Plant
+1 Veiled Crocodile
+1 Victim of Night
+1 Wander Off
+1 Zephyr Charge
+
+[commander]
+Nebuchadnezzar

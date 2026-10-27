@@ -8,8 +8,12 @@
 use baylee_cards_dsl::CardDef;
 use baylee_core::ids::CardIndex;
 
+/// Deterministic CardDsl AST encoder and semantic summary vectors.
+pub mod carddsl;
 /// Generated: one module per card.
 pub mod cards;
+/// Synergistic, curve-balanced, pip-accurate deck generator and coverage corpus builder.
+pub mod deckgen;
 /// Deck parsing and name resolution against the registry (acceptance
 /// deck format, `"N Card Name"` lines, preset assembly).
 pub mod decks;

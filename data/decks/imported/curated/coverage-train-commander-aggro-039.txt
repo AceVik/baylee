@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WG #20266040]
+1 Adamant Will
+1 Aegis of the Heavens
+1 Amonkhet Raceway
+1 Blitzball Shot
+1 Bonders' Enclave
+1 Bramble Creeper
+1 Brushwagg
+1 Cenn's Heir
+1 Chub Toad
+1 City of Shadows
+1 Cliffrunner Behemoth
+1 Darkthicket Wolf
+1 Detection Tower
+1 Devotee of Strength
+1 Dire Wolf Prowler
+1 Dire Wolves
+1 Druid of the Spade
+1 Eldrazi Temple
+1 Ember Weaver
+1 Flutterfox
+15 Forest
+1 Gaea's Liege
+1 Gargoyle Castle
+1 Get a Leg Up
+1 Ghost Warden
+1 Giant Turtle
+1 Graceful Cat
+1 Great Defender
+1 Griffin Canyon
+1 HELIOS One
+1 Hedge Troll
+1 Indestructible Aura
+1 Interjection
+1 Johtull Wurm
+1 Joven's Ferrets
+1 Kithkin Shielddare
+1 Legolas's Quick Reflexes
+1 Library of Alexandria
+1 Llanowar Vanguard
+1 Loam Lion
+1 Loxodon Stalwart
+1 Massive Might
+1 Nantuko Disciple
+9 Plains
+1 Prized Elephant
+1 Pygmy Troll
+1 Rabid Wolverines
+1 Radiant Essence
+1 Rally
+1 Regal Bunnicorn
+1 Scarwood Hag
+1 Shape the Sands
+1 Silk Net
+1 Skycoach Waypoint
+1 Snare the Skies
+1 Spitting Slug
+1 Staggering Size
+1 Steady Aim
+1 Subdue
+1 Summit Apes
+1 Sylvan Paradise
+1 The Great Mound
+1 The Monumental Facade
+1 Timbermaw Larva
+1 Urza's Power Plant
+1 Vintara Snapper
+1 Vivien's Crocodile
+1 Wall of Faith
+1 Warning
+1 Watermarket
+1 Wayward Swordtooth
+1 Whippoorwill
+1 Willow Priestess
+1 Willow Satyr
+1 Wolverine Pack
+1 Wood Elemental
+1 You're Ambushed on the Road
+
+[commander]
+Kudo, King Among Bears

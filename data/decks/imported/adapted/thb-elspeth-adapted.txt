@@ -3,15 +3,15 @@
 [deck:Elspeth (Adapted)]
 2 Call the Gatewatch
 3 Eidolon of Inspiration
+1 Exile
 4 Expel
 2 Flawless Maneuver
 3 Forsake the Worldly
 4 Hop to It
 3 Indomitable Will
-2 Master's Call
 3 Metal Fatigue
-1 Piety
 25 Plains
 2 Ray of Dissolution
+2 Repentance
 2 Sevinne's Reclamation
 4 Vanquish

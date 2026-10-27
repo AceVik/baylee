@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WRG #20266192]
+2 Bright Reprisal
+1 Bulwark Giant
+1 Capital City
+2 Finale of Devastation
+2 Hammerfist Giant
+2 Into the North
+2 Jungle Troll
+2 Karplusan Giant
+2 Mountain Yeti
+2 Needlepeak Spider
+2 Oashra Cultivator
+2 Outland Boar
+2 Rhox Brute
+2 Ritual of Restoration
+2 Rockcaster Platoon
+2 Rumble Arena
+2 Rumbling Sentry
+3 Secluded Courtyard
+2 Sliver Hive
+7 Snow-Covered Forest
+4 Snow-Covered Mountain
+4 Snow-Covered Plains
+2 Sun Titan
+2 Sunrise Sovereign
+2 Throne of Makindi
+2 Wrenn and Realmbreaker

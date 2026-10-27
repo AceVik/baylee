@@ -14,11 +14,11 @@
 3 Oreskos Swiftclaw
 2 Pegasus Courser
 25 Plains
-1 Radiant's Judgment
 2 Rune of Protection: Blue
 2 Serra Angel
 1 Serra's Guardian
 2 Silverbeak Griffin
 1 Spiritual Guardian
 2 Take Vengeance
+1 Warrior's Honor
 1 Zetalpa, Primal Dawn

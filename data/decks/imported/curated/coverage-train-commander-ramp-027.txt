@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BR #20266028]
+1 Aether Flash
+1 Badlands
+1 Balthor the Stout
+1 Blazemire Verge
+1 Bloodshed Fever
+1 Boil
+1 Bottomless Vault
+1 Captain's Tutelage
+1 Chains of Mephistopheles
+1 Chaosphere
+1 Cori Mountain Monastery
+1 Crown of Flames
+1 Crypt of Agadeem
+1 Curse of Marit Lage
+1 Cyclops of Eternal Fury
+1 Darkest Hour
+1 Daxos's Torment
+1 Death Pits of Rath
+1 Deathgrip
+1 Dralnu's Crusade
+1 Dwarven Armorer
+1 Evil Eye of Orms-by-Gore
+1 Ferocity of the Wilds
+1 Fire-Rim Form
+1 Flamekin Village
+1 Flowstone Surge
+1 Gate to Phyrexia
+1 Giant Spectacle
+1 Goblin Oriflamme
+1 Goblin War Drums
+1 Graven Cairns
+1 Hive of the Eye Tyrant
+1 Impending Disaster
+1 Karplusan Giant
+1 Kobold Drill Sergeant
+1 Kobold Overlord
+1 Kobold Taskmaster
+1 Kobolds of Kher Keep
+1 Kuro, Pitlord
+1 Lava Tubes
+1 Lindblum, Industrial Regency
+1 Madblind Mountain
+1 Mahadi, Emporium Master
+1 Master of the Feast
+1 Mindwrack Harpy
+13 Mountain
+1 Nyxborn Brute
+1 Nyxborn Marauder
+1 Oni of Wild Places
+1 Paragon of Fierce Defiance
+1 Paragon of Open Graves
+1 Power Boost
+1 Pride of the Perfect
+1 Primaris Eliminator
+1 Prophetic Ravings
+1 Raging River
+1 Rakdos Ringleader
+1 Rising of the Day
+1 Shadowblood Ridge
+1 Sinister Strength
+1 Skeletal Wurm
+1 Spinerock Knoll
+1 Stromkirk Captain
+1 Stronghold Taskmaster
+1 Sultai Runemark
+1 Super Speed
+1 Susur Secundi, Void Altar
+13 Swamp
+1 Thriving Moor
+1 Throatseeker
+1 Thrull Champion
+1 Total War
+1 Valakut, the Molten Pinnacle
+1 Virulent Plague
+1 Worms of the Earth
+
+[commander]
+Rohgahh of Kher Keep

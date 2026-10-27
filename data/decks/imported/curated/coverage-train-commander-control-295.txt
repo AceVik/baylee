@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WURG #20266296]
+1 An-Havva Township
+1 Aquus Steed
+1 Axebane Beast
+1 Aysen Abbey
+1 Beacon Behemoth
+1 Bloodcrusher of Khorne
+1 Bountiful Landscape
+1 Cerodon Yearling
+1 Disorient
+1 Dreamwinder
+1 Fade Away
+1 Fleetfeather Sandals
+1 Flowstone Charger
+1 Flowstone Crusher
+1 Flowstone Hellion
+1 Flowstone Shambler
+9 Forest
+1 Frontier Bivouac
+1 Garruk's Gorehorn
+1 Gorgon's Head
+1 Great-Horn Krushok
+1 Hibernation
+1 Hollowhenge Beast
+1 Ironclad Krovod
+1 Irrigation Ditch
+10 Island
+1 Jeskai Brushmaster
+1 Jibbirik Omnivore
+1 Kalonian Tusker
+1 Ketria Triome
+1 Kranioceros
+1 Kukemssa Serpent
+1 Leatherback Baloth
+1 Leopard-Spotted Jiao
+1 Lumbering Satyr
+1 Mana Short
+1 Marauding Maulhorn
+1 Mosscoat Goriak
+3 Mountain
+1 Mystic Monastery
+1 No-Dachi
+1 Order of the Golden Cricket
+1 Perilous Landscape
+1 Phantatog
+5 Plains
+1 Political Trickery
+1 Primal Huntbeast
+1 Rakeclaw Gargantuan
+1 Raugrin Triome
+1 Reality Ripple
+1 Rhox War Monk
+1 Ridgeline Rager
+1 Ridgetop Raptor
+1 Rith's Grove
+1 Rock Badger
+1 Scragnoth
+1 Seaside Citadel
+1 Serpent of the Endless Sea
+1 Serpentine Ambush
+1 Sharpened Pitchfork
+1 Sheltering Landscape
+1 Short Bow
+1 Species Gorger
+1 Spur Grappler
+1 Stream Hopper
+1 Teleport
+1 Thistledown Liege
+1 Tinder Farm
+1 Towering Indrik
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Urban Retreat
+1 Vigilant Baloth
+1 Viridian Claw
+1 Wild Colos
+1 Woolly Thoctar
+
+[commander]
+Aragorn, the Uniter

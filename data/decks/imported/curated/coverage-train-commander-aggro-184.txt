@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUG #20266185]
+1 Aesi, Tyrant of Gyre Strait
+1 Angelic Renewal
+1 Aquus Steed
+1 Avengers Tower
+1 Aysen Abbey
+1 Badgermole Cub
+1 Baldur's Gate
+1 Bequeathal
+1 Blinking Spirit
+1 Bull Hippo
+1 Capashen Standard
+1 Cascading Cataracts
+1 Cloistered Telepath
+1 Crystacean
+1 Dance of Many
+1 Devout Lightcaster
+1 Drowned Rusalka
+1 Dundoolin Weaver
+1 Fate Foretold
+1 Force Void
+1 Fortress Crab
+1 Giant Crab
+1 Glimmervoid
+1 Great Hall of the Citadel
+1 Hatching Plans
+1 Haven of the Spirit Dragon
+1 Heap Gate
+1 Hedron Crab
+1 Henge of Ramos
+1 Humongulus
+1 Iceberg Cancrix
+1 Inheritance
+1 Jaddi Offshoot
+1 Jungleborn Pioneer
+1 Legion's Landing
+1 Looming Altisaur
+1 Mana Confluence
+1 Merfolk Observer
+1 Most Wanted
+1 Nest Invader
+1 Omen of the Sun
+1 Omnibian
+1 Oraxid
+1 Paleoloth
+1 Pillarfield Ox
+1 Pond Prophet
+1 Portcullis Vine
+1 Puppet Master
+1 Purple-Crystal Crab
+1 Radjan Spirit
+1 Ray of Erasure
+1 Ruin Crab
+1 Secret Base
+1 Segovian Leviathan
+1 Serum Visionary
+1 Shimmering Grotto
+1 Silver Raven
+1 Skyclave Apparition
+1 Snapping Voidcraw
+7 Snow-Covered Forest
+11 Snow-Covered Island
+6 Snow-Covered Plains
+1 Species Gorger
+1 Spell Snip
+1 Tarnished Citadel
+1 Tishana's Tidebinder
+1 Underdome
+1 Uro, Titan of Nature's Wrath
+1 Viridian Harvest
+1 Viscerid Drone
+1 Vodalian Hexcatcher
+1 Wall of Mulch
+1 Wall of Omens
+1 Wall of Wonder
+1 Werefox Bodyguard
+1 Wishcoin Crab
+1 Wistful Selkie
+1 Zodiac Horse
+
+[commander]
+Phelddagrif

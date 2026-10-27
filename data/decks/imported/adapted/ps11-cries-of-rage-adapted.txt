@@ -6,19 +6,19 @@
 4 Colossal Might
 1 Dragon's Claw
 2 Elvish Warrior
-2 Feral Ferocity
 2 Flamekin Brawler
 12 Forest
 2 Giant Growth
-2 Ground Assault
 1 Gruul Guildgate
 1 Hurricane
-2 Manamorphose
+2 Iroh's Demonstration
 1 Mirri, Cat Warrior
 12 Mountain
 2 Mudbutton Torchrunner
 1 Oakgnarl Warrior
+2 Plummet
 2 Rip-Clan Crasher
 1 Sangrite Surge
 4 Stump Stomp
+2 Surge of Strength
 1 Wurm's Tooth

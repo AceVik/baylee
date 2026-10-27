@@ -2,7 +2,6 @@
 # licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
 [deck:Mirromancy (Adapted)]
 2 Blisterstick Shaman
-2 Borderland Minotaur
 4 Broadside Barrage
 2 Call to Mind
 1 Crush
@@ -20,3 +19,4 @@
 1 Preordain
 4 Rush of Inspiration
 1 Silver Myr
+2 Wild Wurm

@@ -4,12 +4,12 @@
 4 Auger Spree
 4 Bedevil
 2 Blistering Dieflyn
-4 Breath of Malfegor
-4 Burnt Offering
+4 Delirium
 4 Dreadbore
 2 Emberstrike Duo
+4 Kaervek's Purge
 12 Mountain
-4 Skull Rend
+4 Spontaneous Combustion
 12 Swamp
 4 Terminate
 4 Wrecking Ball

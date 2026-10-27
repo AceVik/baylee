@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro G #20266142]
+1 Aim High
+1 Arid Mesa
+1 Arlinn's Wolf
+1 Blitzball Shot
+1 Bounding Wolf
+1 Bristlepack Sentry
+1 Brushwagg
+1 Cacophodon
+1 Centaur Veteran
+1 Chorus of Might
+1 Crawling Barrens
+1 Dire Wolf Prowler
+1 Dire Wolves
+1 Drowsing Tyrannodon
+1 Elvish Herder
+1 Elvish Lookout
+1 Feral Ferocity
+1 Geier Reach Sanitarium
+1 Get a Leg Up
+1 Gladecover Scout
+1 Grasping Dunes
+1 Grazing Whiptail
+1 Greenside Watcher
+1 Jolrael's Centaur
+1 Machine Man, Model X-51
+1 Massive Might
+1 Megantic Sliver
+1 Mirkwood Channeler
+1 Mortal's Resolve
+1 Narcissism
+1 Norwood Ranger
+1 Orazca Frillback
+1 Ornery Dilophosaur
+1 Overprotect
+1 Pestilent Wolf
+1 Primal Bellow
+1 Pygmy Allosaurus
+1 Regal Imperiosaur
+1 Resuscitate
+1 Scarwood Hag
+1 Sculptor of Winter
+1 Seedling Charm
+1 Seeker of Skybreak
+1 Silk Net
+1 Skyshroud Archer
+1 Skyshroud Ranger
+1 Snapping Sailback
+32 Snow-Covered Forest
+1 Soulstone Sanctuary
+1 Spike-Tailed Ceratops
+1 Steady Aim
+1 Steel Golem
+1 Strength in Numbers
+1 Study Hall
+1 Subdue
+1 Sylvan Paradise
+1 Terrian, World Tyrant
+1 Tread Upon
+1 Treetop Scout
+1 Uktabi Efreet
+1 Unnatural Predation
+1 Wall of Vines
+1 Warren-Scourge Elf
+1 Wayward Swordtooth
+1 Weatherseed Elf
+1 Willow Elf
+1 Wolfir Avenger
+1 Wyluli Wolf
+
+[commander]
+Devil Dinosaur

@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WU #20266242]
+1 Angelic Curator
+1 Angry Mob
+1 Austere Command
+1 Aven Envoy
+1 Aven Mindcensor
+1 Baneslayer Angel
+1 Bay Falcon
+1 Bucolic Ranch
+1 Celestial Messenger
+1 Cloud Crusader
+1 Cloud Pirates
+1 Coast Watcher
+1 Colorful Feiyi Sparrow
+1 Combat Professor
+1 Companion of the Trials
+1 Courier Hawk
+1 Crystal Grotto
+1 Dauntless Aven
+1 Dragonstalker
+1 Duskrider Falcon
+1 Eagle of the Watch
+1 Flying Men
+1 Freewind Falcon
+1 Gallifrey Council Chamber
+1 Gemstone Mine
+1 Ghirapur Osprey
+1 Gitaxian Raptor
+1 Healer's Flock
+1 Illumination
+5 Island
+1 Jasmine Dragon Tea Shop
+1 Kjeldoran Skycaptain
+1 Kjeldoran Skyknight
+1 Lazotep Quarry
+1 Loxodon Battle Priest
+1 Lyra Dawnbringer
+1 Mesa Falcon
+1 Mindless Automaton
+1 Mockingbird, Bobbi Morse
+1 Moon Heron
+1 Moorland Haunt
+1 Nephalia Seakite
+1 Nightwind Glider
+20 Plains
+1 Planar Nexus
+1 Plaza of Heroes
+1 Rishadan Airship
+1 Roc Charger
+1 Rosa, Resolute White Mage
+1 Royal Falcon
+1 Rustwing Falcon
+1 Sea Eagle
+1 Senate Courier
+1 Seraph of Dawn
+1 Seraph of the Suns
+1 Shimmering Grotto
+1 Skyshroud Condor
+1 Skyshroud Falcon
+1 Skyspear Cavalry
+1 Soulherder
+1 Springjack Pasture
+1 Storm Crow
+1 Suntail Hawk
+1 Surge of Righteousness
+1 Talas Air Ship
+1 Talas Scout
+1 Talon Trooper
+1 Tarnished Citadel
+1 Tendo Ice Bridge
+1 Territorial Roc
+1 Thalakos Lowlands
+1 Thermal Glider
+1 Tolarian Sentinel
+1 Turtle Lair
+1 Valkyrior Skyrider
+1 Zephyr Gull
+
+[commander]
+Tidus, Blitzball Star

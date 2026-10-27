@@ -8,9 +8,9 @@
 3 Impassioned Orator
 3 Make Your Move
 4 Moment of Heroism
+3 Pacifism
 25 Plains
 4 Savannah Sage
 1 Serra's Guardian
-3 Split Up
 1 Survive the Night
 3 Sworn Companions

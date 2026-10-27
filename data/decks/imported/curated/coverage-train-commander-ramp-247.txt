@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BG #20266248]
+1 Abomination
+1 Ally Encampment
+1 Asphyxiate
+1 Baxter Building
+1 Befoul
+1 Bilbo's Deadly Slice
+1 Bramblecrush
+1 Brotherhood Headquarters
+1 Bucolic Ranch
+1 Capital City
+1 Captivating Cave
+1 Carnage Tyrant
+1 Carrion Beetles
+1 Castle Doom
+1 Caustic Caterpillar
+1 Cruel Cut
+1 Daring Demolition
+1 Dauthi Cutthroat
+1 Dauthi Jackal
+1 Death Stroke
+1 Defeat
+1 Defenestrate
+1 Desecrated Earth
+1 Dread Specter
+1 Eliminate
+1 Elvish Scrapper
+1 Eviscerate
+1 Fell
+1 Feral Abomination
+1 Final Death
+1 Final Reward
+1 Finishing Blow
+1 Floral Spuzzem
+11 Forest
+1 Ghostly Visit
+1 Glimmervoid
+1 Goliath Spider
+1 Groundshaker Sliver
+1 Hall of Oracles
+1 Heap Gate
+1 Hero's Demise
+1 Horrifying Revelation
+1 Ice Storm
+1 Impale
+1 Infernal Medusa
+1 Jasmine Dragon Tea Shop
+1 Moment of Defiance
+1 Necrite
+1 Nettling Imp
+1 Norritt
+1 Oxidize
+1 Plaza of Heroes
+1 Power Word Kill
+1 Primaris Eliminator
+1 Rats of Rath
+1 Reave Soul
+1 Return to the Earth
+1 Savaen Elves
+1 Secret Base
+1 Sinkhole
+1 Steelbane Hydra
+1 Stream of Acid
+15 Swamp
+1 Talon Gates of Madara
+1 Tangle Spider
+1 The Mycosynth Gardens
+1 Thicket Basilisk
+1 Thrashing Brontodon
+1 Verdigris
+1 Viridian Zealot
+1 Voldaren Estate
+1 Voracious Varmint
+1 Wall of Corpses
+1 Wallop
+1 Wing Snare
+
+[commander]
+Vhati il-Dal
