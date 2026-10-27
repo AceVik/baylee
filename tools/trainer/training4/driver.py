@@ -80,6 +80,14 @@ def main(default_architecture="v4") -> None:
     train_sampler = D4.StatefulBatchSampler4(
         train_ds, batch_size=args.batch_size, shuffle=True, seed=args.seed
     )
+    if args.bc_replay_data:
+        from .bc_mixture import BCMixture, BCMixtureSampler
+        replay_path = Path(args.bc_replay_data).expanduser()
+        replay = train_ds if replay_path.resolve() == data_dir.resolve() else D4.TrajectoryDataset4(
+            replay_path, split="train", unroll_len=args.unroll, max_entities=args.max_entities)
+        train_ds = BCMixture(train_ds, replay, val_ds, args.batch_size)
+        train_sampler = BCMixtureSampler(train_ds, args.batch_size, args.seed)
+        identity["bc_mixture"] = train_ds.contract
     val_sampler = D4.StatefulBatchSampler4(
         val_ds, batch_size=args.validation_batch_size, shuffle=False, seed=args.seed
     )
@@ -195,6 +203,8 @@ def main(default_architecture="v4") -> None:
         saved = torch.load(Path(args.resume).expanduser(), map_location="cpu", weights_only=False)
         if saved.get("model_version") != M.MODEL_VERSION or any(saved.get(k) != v for k, v in identity.items()):
             raise ValueError("Resume model architecture differs")
+        from .bc_mixture import check_resume
+        check_resume(saved, getattr(train_ds, "contract", None))
         check_resume_objective(saved, args.checkpoint_selection, loss_config)
         check_resume_schedule(saved, optimizer_schedule)
         if (saved.get("training_sampler_version", 1) != D4.StatefulBatchSampler4.VERSION

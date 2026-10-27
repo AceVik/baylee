@@ -52,15 +52,39 @@ initial weights, seeds, update budgets and unchanged validation definitions.
 `eval4 --raw-policy --record-out DIR --shadow-teacher sharp` (or `expert`)
 can collect separate, view-only teacher labels on states visited by the neural
 actor. The original executed-action record and rollout probabilities remain
-unchanged. `convert4 --runs DIR --out NEW_DIR --include-passive-obs --shadow-bc`
+separate from the teacher labels. `convert4 --runs DIR --out NEW_DIR --include-passive-obs --shadow-bc`
 replays complete records, verifies source/view/menu identities and reconstructs
 each teacher target. Unlabelled decisions retain their chronological position
 with zero policy weight; actual outcomes remain available for value/auxiliary
 targets. Completed metadata and hashed `shadow-bc/` companion files are required
 before Python cache admission. These datasets are explicitly BC-only and both
 PPO admission paths reject them. Streaming partial packages are unsupported.
-An actual Rust-to-Python CPU engine fixture passes; a controlled real-network
-collector audit remains required before a production DAgger collection.
+The real-network greedy pilot passed full replay and a plain-versus-shadow
+comparison of all 150,393 frames and 5,964 teacher targets. Observations, menus,
+outcomes, auxiliary targets and memory clocks were unchanged. The stochastic
+sidecar test failed exact floating-point equality; repeated shadow-off runs also
+varied slightly. Those stochastic records remain excluded and are not certified
+for PPO. A monitored 256-game greedy corrective collection is now running;
+its complete replay/admission review must pass before training.
+
+`train5.py --bc-replay-data DIR` opts into two separate supervised data stores
+with fixed half-batch trajectory lanes. The primary `--data` contributes the
+same stable table half in both comparisons. Passing that same directory as
+replay uses its complementary table half for the old-data control; a different
+directory contributes all of its training games for the corrective arm.
+Source game indices must remain available to prove table identity, seat coverage
+and separation from `--validation-data`. Local game IDs stay within their own
+stores, and checkpoints bind the mixture and its source identities. This is
+half the physical lanes, not necessarily half the labels or loss. A bounded
+comparison must fit inside both arms' fully occupied lane prefixes; exhausted
+lanes otherwise produce padding. Existing single-source training is unchanged.
+
+Legacy nondecision frames may store default provenance `thinking_steps=1`.
+Execution derives their effective K=0 from `is_decision`; the stored value does
+not advance scratchpad thinking. A final genuine decision may also carry
+`is_terminal=true` and still have a valid policy target. Audits must preserve
+these flags and compare effective observation semantics rather than reject
+valid legacy metadata or discard terminal decisions.
 
 For execution experiments, `--compact-thinking-rows` restricts scratchpad
 thinking to CPU-planned decision rows while preserving every observation and

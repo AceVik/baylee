@@ -789,3 +789,88 @@ admission and PPO rejection. The stochastic pair remains audit-only. No model
 training or automatic dataset expansion is launched by this pilot. Its
 `complete-review-required` result is monitored by
 `baylee-v5-shadow-pilot-watch.timer`; the completed recovery watcher was retired.
+
+### Shadow pilot failure reviewed; corrective collection started
+
+Wake `f6ca2d2a9c6f3ccffa612a74` was deduplicated and checked against the
+exited controller. All six collection jobs completed. Every paired engine
+record, executed action and outcome was exact. Greedy sidecars were also exact
+for all four duel and eight Commander deals. The stochastic pair differed only
+in 117 behavior log-probabilities, by at most 1.6689301e-6; its strict check
+correctly left the original pilot failed.
+
+Three same-runtime/model/seed repeats in `shadow-numerics-20261027` showed
+similar variation without the teacher: two OFF repeats changed 116 and 110
+likelihoods, with maxima 1.2516975e-6 and 1.5497208e-6. Another ON repeat changed
+119, maximum 3.0845404e-6. All engine records and non-likelihood fields remained
+exact. Independent audit:
+`/home/ace/baylee-data/v5/advice/shadow-numerics-20261027/review.json`.
+This identifies a repeat-computation noise floor, not its exact numerical cause
+or a worst-case bound. No probability tolerance was waived and no stochastic
+records were admitted to training or PPO.
+
+Only the twelve exact greedy games were recovered. A first recovery launch
+failed before starting the converter because its guard expected a repository
+working directory. The next launch completed both shadow and ordinary
+reference conversions. Its new differential audit then exposed two incorrect
+audit assumptions, not changed game data: passive observations store legacy
+Forced provenance K1 although every training path computes effective K0, and
+four real teacher decisions also carry the terminal flag. These decisions must
+retain their targets. The initial review script additionally pinned a mutable
+workspace driver while independent mixture development changed it; the final
+review instead verifies the identical archived runtime modules already recorded
+by the independent reviewer. All failed attempts remain preserved; completed
+conversions were reused without changing their bytes or repeating games.
+
+The final review at
+`/home/ace/baylee-data/v5/experiments/shadow-replay-reviewed-20261027/result.json`
+passed full payload comparison: 150,393 frames, 40 complete seat histories,
+125,106 passive frames and 5,964 verified Sharp labels. Observation/menu bytes,
+value and auxiliary targets, outcomes, stored K, decision flags and terminal
+clocks match the ordinary replay reference. Only the declared teacher policy
+fields differ. Nonlabels have zero policy weight; likelihood fields are removed
+from this BC-only dataset. Companion admission and explicit PPO rejection pass.
+The ordinary reference is audit-only, never a training source. The semantics
+review is `advice/shadow-replay-audit-20261027/review.json` under the v5 data root.
+
+A bounded successor was launched as PID 500747 at
+`/home/ace/baylee-data/v5/experiments/shadow-corrective-20261027` with seal
+`27633e64bc4ac3a7e057c2aa15e18cbfbee928521287b4a402940929432d10e4`.
+It collects 128 duel deals across 64 tables and 128 Commander deals across 32
+tables. Fresh seeds are 500280000–500280063 and 500281000–500281031; all table
+rotations stay in TRAIN. It retains the original broad-selected source, K2 raw
+greedy policy, Sharp opponents, independent view-only Sharp advice and the
+frozen 613/285 deck pools. Six controller/payload CPU tests pass. Both complete
+conversions and the same full-frame comparison must pass before a dataset is
+reviewed for training. No model or objective is promoted.
+`baylee-v5-shadow-corrective-watch.timer` wakes this session on completion or
+failure; the delivered pilot timer was retired.
+
+The next learning comparison will mix old examples with these corrective
+examples while keeping validation separate. An opt-in two-store loader preserves
+full chronological seat histories, isolates colliding local game IDs, groups
+rotated starts by their source table, and keeps the old-data half of the batch
+identical between control and corrective arms. Positive fixed-update budgets
+must remain within both arms' fully occupied lane prefixes. This is data
+augmentation research; no improvement in playing strength is established yet.
+
+The implemented mixture passes 15 focused CPU tests covering source isolation,
+chronology, reset flags, whole-table partitions, all-seat coverage, resume
+identity, explicit budget admission, shadow/PPO admission and existing sampler
+behavior. Real metadata/index checks pass for old training, the separate 64-game
+validation set and the recovered twelve-game dataset. At B8/U32 and seed31445,
+the old-only halves have fully occupied prefixes of 8,077/7,664 updates; the
+small recovered corrective source has only 1,178, so it cannot support a matched
+1,500-update comparison. It remains an integrity fixture. Receipt:
+`/home/ace/baylee-data/v5/advice/bc-mixture-20261027/metadata-check.json`.
+
+The next bounded learning protocol is 1,500 updates per arm from the same
+broad-selected checkpoint, fresh identical optimizers, unchanged default loss4,
+B8/U32/K2 and seed31445. Control uses old half A + old half B; the corrective arm
+uses the identical old half A + admitted new games. After collection, verify
+that all four source prefixes cover the budget, freeze the tested new runtime
+and the complete data identities, and retain full initial/final validation.
+Compare fixed-final checkpoints against the source on fresh paired duel and
+Commander seeds against Sharp; report per-head active-choice diagnostics
+separately from win differences. Do not select a winner from teacher agreement
+alone or automatically deploy either candidate.
