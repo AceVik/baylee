@@ -15833,28 +15833,56 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Reach (This creature can block creatures with flying.)\n{G}, Discard a card: This creature gets +0/+2 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Krosan Avenger
+    &[
+        "Trample\nThreshold — {1}{G}: Regenerate this creature. Activate only if there are seven or more cards in your graveyard.",
+    ],
+    // Krosan Beast
+    &[
+        "Threshold — This creature gets +7/+7 as long as there are seven or more cards in your graveyard.",
+    ],
+    // Laquatus's Creativity
+    &[
+        "Target player draws cards equal to the number of cards in their hand, then discards that many cards.",
+    ],
+    // Last Rites
+    &[
+        "Discard any number of cards. Target player reveals their hand, then you choose a nonland card from it for each card discarded this way. That player discards those cards.",
+    ],
+    // Lava Blister
+    &["Destroy target nonbasic land unless its controller has Lava Blister deal 6 damage to them."],
     // Leaf Dancer
     &["Forestwalk (This creature can't be blocked as long as defending player controls a Forest.)"],
     // Lieutenant Kirtar
     &["Flying\n{1}{W}, Sacrifice Lieutenant Kirtar: Exile target attacking creature."],
-    &[],
+    // Life Burst
+    &[
+        "Target player gains 4 life, then gains 4 life for each card named Life Burst in each graveyard.",
+    ],
     // Limestone Golem
     &["{2}, Sacrifice this creature: Target player draws a card."],
-    &[],
+    // Liquid Fire
+    &[
+        "As an additional cost to cast this spell, choose a number between 0 and 5.\nLiquid Fire deals X damage to target creature and 5 minus X damage to that creature's controller, where X is the chosen number.",
+    ],
     // Lithatog
     &[
         "Sacrifice an artifact: This creature gets +1/+1 until end of turn.\nSacrifice a land: This creature gets +1/+1 until end of turn.",
     ],
-    &[],
-    &[],
+    // Luminous Guardian
+    &[
+        "{W}: This creature gets +0/+1 until end of turn.\n{2}: This creature can block an additional creature this turn.",
+    ],
+    // Mad Dog
+    &[
+        "At the beginning of your end step, if this creature didn't attack or come under your control this turn, sacrifice it.",
+    ],
     // Magma Vein
     &["{R}, Sacrifice a land: This enchantment deals 1 damage to each creature without flying."],
-    &[],
+    // Magnivore
+    &[
+        "Haste (This creature can attack and {T} as soon as it comes under your control.)\nMagnivore's power and toughness are each equal to the number of sorcery cards in all graveyards.",
+    ],
     // Malevolent Awakening
     &[
         "{1}{B}{B}, Sacrifice a creature: Return target creature card from your graveyard to your hand.",
@@ -15863,31 +15891,72 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Tap an untapped Cleric you control: Prevent the next 2 damage that would be dealt to any target this turn.",
     ],
-    &[],
-    &[],
-    &[],
+    // Metamorphic Wurm
+    &[
+        "Threshold — This creature gets +4/+4 as long as there are seven or more cards in your graveyard.",
+    ],
+    // Millikin
+    &[
+        "{T}, Mill a card: Add {C}. (Activate only as an instant. To mill a card, put the top card of your library into your graveyard.)",
+    ],
+    // Mind Burst
+    &[
+        "Target player discards X cards, where X is one plus the number of cards named Mind Burst in all graveyards.",
+    ],
     // Mindslicer
     &["When this creature dies, each player discards their hand."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mine Layer
+    &[
+        "{1}{R}, {T}: Put a mine counter on target land.\nWhenever a land with a mine counter on it becomes tapped, destroy it.\nWhen this creature leaves the battlefield, remove all mine counters from all lands.",
+    ],
+    // Minotaur Explorer
+    &["When this creature enters, sacrifice it unless you discard a card at random."],
+    // Mirari
+    &[
+        "Whenever you cast an instant or sorcery spell, you may pay {3}. If you do, copy that spell. You may choose new targets for the copy.",
+    ],
+    // Molten Influence
+    &[
+        "Counter target instant or sorcery spell unless its controller has Molten Influence deal 4 damage to them.",
+    ],
+    // Moment's Peace
+    &[
+        "Prevent all combat damage that would be dealt this turn.\nFlashback {2}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Morbid Hunger
+    &[
+        "Morbid Hunger deals 3 damage to any target. You gain 3 life.\nFlashback {7}{B}{B} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Morgue Theft
+    &[
+        "Return target creature card from your graveyard to your hand.\nFlashback {4}{B} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Mortivore
+    &[
+        "Mortivore's power and toughness are each equal to the number of creature cards in all graveyards.\n{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+    ],
     // Mossfire Egg
     &["{2}, {T}, Sacrifice this artifact: Add {R}{G}. Draw a card. (Activate only as an instant.)"],
     // Mossfire Valley
     &["{1}, {T}: Add {R}{G}."],
-    &[],
+    // Mudhole
+    &["Target player exiles all land cards from their graveyard."],
     // Muscle Burst
     &[
         "Target creature gets +X/+X until end of turn, where X is 3 plus the number of cards named Muscle Burst in all graveyards.",
     ],
-    &[],
-    &[],
-    &[],
+    // Mystic Crusader
+    &[
+        "Protection from black and from red\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has flying.",
+    ],
+    // Mystic Enforcer
+    &[
+        "Protection from black\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +3/+3 and has flying.",
+    ],
+    // Mystic Penitent
+    &[
+        "Vigilance\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has flying.",
+    ],
     &[],
     &[],
     // Nantuko Disciple

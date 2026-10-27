@@ -249,6 +249,7 @@ mod moriok_rigger;
 mod mournful_zombie;
 mod mundungu;
 mod murderous_rider;
+mod mystic_crusader;
 mod nantuko_elder;
 mod nantuko_husk;
 mod nantuko_mentor;

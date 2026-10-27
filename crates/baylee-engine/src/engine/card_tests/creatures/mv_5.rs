@@ -120,6 +120,7 @@ mod magmasaur;
 mod martyrs_of_korlis;
 mod mawcor;
 mod meloku_the_clouded_mirror;
+mod metamorphic_wurm;
 mod minotaur_illusionist;
 mod morinfen;
 mod morphling;

@@ -123,6 +123,7 @@ mod mountain_bandit;
 mod mtenda_herder;
 mod mtenda_lion;
 mod mwonvuli_ooze;
+mod mystic_penitent;
 mod netter_en_dal;
 mod nezumi_shadow_watcher;
 mod noble_hierarch;
