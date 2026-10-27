@@ -57,6 +57,7 @@ mod jolt;
 mod kazuul_s_fury;
 mod khalni_ambush;
 mod krosan_grip;
+mod liquify;
 mod mana_short;
 mod mangara_s_blessing;
 mod mogg_salvage;

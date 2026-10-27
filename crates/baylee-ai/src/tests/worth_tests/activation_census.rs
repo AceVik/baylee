@@ -437,7 +437,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // read by the evaluator).
     // Torment (`tor`) Batch 1 adds 3 non-mana activated abilities on Cabal
     // Surgeon and Cabal Torturer (2) (3 of 3 read by the evaluator).
-    assert_eq!((read, of), (2886, 3647), "activated/loyalty reader census");
+    // Torment (`tor`) Batch 2 adds 3 non-mana activated abilities on Grim
+    // Lavamancer, Grotesque Hybrid, and Hell-Bent Raider (1 of 3 read by the
+    // evaluator).
+    assert_eq!((read, of), (2887, 3650), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

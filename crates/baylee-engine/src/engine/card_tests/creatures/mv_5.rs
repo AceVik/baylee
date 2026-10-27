@@ -85,6 +85,7 @@ mod gorilla_berserkers;
 mod grandmother_sengir;
 mod greater_werewolf;
 mod greel_mind_raker;
+mod grotesque_hybrid;
 mod hakim_loreweaver;
 mod heartwood_giant;
 mod hivis_of_the_scale;

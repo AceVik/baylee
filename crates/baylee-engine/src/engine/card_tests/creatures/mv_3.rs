@@ -166,6 +166,7 @@ mod hag_of_dark_duress;
 mod harvesttide_infiltrator;
 mod haunting_apparition;
 mod helionaut;
+mod hell_bent_raider;
 mod hidden_horror;
 mod homarid;
 mod horned_sliver;

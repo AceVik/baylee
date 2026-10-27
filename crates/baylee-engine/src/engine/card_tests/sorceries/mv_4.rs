@@ -33,6 +33,7 @@ mod flowstone_flood;
 mod flowstone_slide;
 mod forbidden_ritual;
 mod gerrard_s_wisdom;
+mod invigorating_falls;
 mod juxtapose;
 mod lay_waste;
 mod legerdemain;

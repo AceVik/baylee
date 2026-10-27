@@ -78,6 +78,7 @@ mod goblin_vandal;
 mod gorilla_shaman;
 mod granger_guildmage;
 mod greenseeker;
+mod grim_lavamancer;
 mod healer_of_the_glade;
 mod hexdrinker;
 mod honor_guard;

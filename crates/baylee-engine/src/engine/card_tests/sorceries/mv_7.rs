@@ -6,6 +6,7 @@ use super::*;
 mod bloodsoaked_insight;
 mod cinder_storm;
 mod emeria_s_call;
+mod kamahl_s_sledge;
 mod sea_gate_restoration;
 mod temporal_mastery;
 mod turntimber_symbiosis;
