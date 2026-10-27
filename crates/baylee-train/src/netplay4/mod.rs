@@ -40,6 +40,7 @@ mod identity;
 mod live_init;
 pub use identity::{ModelIdentity, inspect_model_identity};
 mod policy;
+mod shadow;
 use policy::sample_categorical;
 pub use policy::{PolicyMode4, valid_raw_temperature};
 mod structure;
@@ -364,15 +365,7 @@ impl NetPlayer4 {
             .or_insert_with(|| vec![0.0; RECURRENT_SLOTS * self.d_model])
             .clone();
 
-        let (state, cands) = if self.encoder_version >= 7 {
-            let st = encode_state7(view, Some(pending), self.knowledge.get(&seat_u8), teams);
-            let cd = encode_candidates7_grouped(&st, view, pending);
-            (st, cd)
-        } else {
-            let st = encode_state4(view, Some(pending), self.knowledge.get(&seat_u8), teams);
-            let cd = encode_candidates4(&st, view, pending);
-            (st, cd)
-        };
+        let (state, cands) = self.policy_encoding(view, pending, teams);
 
         // 1. Check if forced (<= 1 legal choice)
         let is_forced = match cands.head {

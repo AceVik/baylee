@@ -14,9 +14,31 @@ trait EvaluationPlayer {
         teams: &[Option<u8>],
     ) -> anyhow::Result<Option<baylee_train::netplay4::Answer4>>;
     fn coverage(&self) -> &CoverageMatrix4;
+    fn policy_encoding(
+        &self,
+        _view: &baylee_view::PlayerView,
+        _pending: &Pending,
+        _teams: &[Option<u8>],
+    ) -> Option<(
+        baylee_train::features4::EncodedState4,
+        baylee_train::features4::EncodedCandidates4,
+    )> {
+        None
+    }
 }
 
 impl EvaluationPlayer for NetPlayer4 {
+    fn policy_encoding(
+        &self,
+        view: &baylee_view::PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+    ) -> Option<(
+        baylee_train::features4::EncodedState4,
+        baylee_train::features4::EncodedCandidates4,
+    )> {
+        Some(Self::policy_encoding(self, view, pending, teams))
+    }
     fn reseed(&mut self, seed: u64) {
         Self::reseed(self, seed);
     }

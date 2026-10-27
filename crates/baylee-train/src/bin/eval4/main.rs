@@ -42,6 +42,8 @@ use flate2::write::GzEncoder;
 use serde_json::{Value, json};
 
 include!("options.rs");
+mod shadow;
+
 include!("runtime.rs");
 include!("game.rs");
 include!("decks.rs");
@@ -56,6 +58,11 @@ include!("decks.rs");
 )]
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    if args.shadow_teacher.is_some()
+        && (!args.raw_policy || args.record_out.is_none() || args.legacy_v3)
+    {
+        bail!("--shadow-teacher requires --raw-policy and --record-out");
+    }
     if args.raw_policy && (args.legacy_v3 || !valid_raw_temperature(args.temperature)) {
         bail!("--raw-policy requires v4 and temperature 0 or >0.35");
     }
@@ -69,6 +76,13 @@ fn main() -> anyhow::Result<()> {
     } else {
         Some(inspect_model_identity(&args.model)?)
     };
+    if args.shadow_teacher.is_some()
+        && model_identity
+            .as_ref()
+            .is_none_or(|identity| identity.encoder_version != 7)
+    {
+        bail!("--shadow-teacher requires encoder 7");
+    }
     if args.legacy_v3
         && (args.record_out.is_some() || args.temperature != 0.0 || args.thinking_steps != 1)
     {
@@ -207,6 +221,28 @@ fn main() -> anyhow::Result<()> {
             .context("policy metadata object")?
             .clone(),
         );
+        if let Some(profile) = &args.shadow_teacher {
+            let metadata_path = if args.model.is_dir() {
+                args.model.join("model.onnx.json")
+            } else {
+                args.model.with_extension("onnx.json")
+            };
+            let metadata = fs::read(metadata_path)?;
+            anyhow::ensure!(
+                Some(shadow::sha(&metadata))
+                    == model_identity.as_ref().map(|i| i.metadata_sha256.clone()),
+                "Shadow model metadata changed"
+            );
+            let metadata: Value = serde_json::from_slice(&metadata)?;
+            anyhow::ensure!(
+                metadata["structure_sha256"]
+                    .as_str()
+                    .is_some_and(|v| v.len() == 64),
+                "Shadow requires catalog identity"
+            );
+            run["shadow_teacher"] = shadow::metadata(profile);
+            run["shadow_structure_sha256"] = metadata["structure_sha256"].clone();
+        }
         fs::write(rec_dir.join("run.json"), serde_json::to_vec_pretty(&run)?)?;
     }
 
@@ -243,6 +279,7 @@ fn main() -> anyhow::Result<()> {
         let games_lines = games_lines.clone();
         let model_path = args.model.clone();
         let rec_out = args.record_out.clone();
+        let shadow_profile = args.shadow_teacher.clone();
         let deals = end_deal;
         let seats = args.seats;
         let first_seed = args.first_seed;
@@ -306,6 +343,16 @@ fn main() -> anyhow::Result<()> {
                             "policy_seed": policy_seed, "model": model_path}))?,
                     )?;
                 }
+                let mut shadow = match (&rec_out, &shadow_profile) {
+                    (Some(dir), Some(profile)) => Some(shadow::ShadowGame::new(
+                        dir,
+                        &rec_game_id,
+                        d,
+                        profile,
+                        policy_seed ^ d.rotate_left(29),
+                    )?),
+                    _ => None,
+                };
                 let (
                     net_u,
                     net_capped,
@@ -331,6 +378,7 @@ fn main() -> anyhow::Result<()> {
                     fair,
                     max_decisions,
                     shard_file.is_some(),
+                    shadow.as_mut(),
                 )?;
 
                 if let Some((f, offset)) = &mut shard_file {
@@ -358,6 +406,10 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
 
+                if let Some(shadow) = shadow {
+                    shadow.finish(&rec_bytes, net_capped)?;
+                }
+
                 let (base_u, base_capped) = if no_base {
                     (0.0, false)
                 } else {
@@ -375,6 +427,7 @@ fn main() -> anyhow::Result<()> {
                         fair,
                         max_decisions,
                         false,
+                        None,
                     )?;
                     (bu, bc)
                 };
@@ -538,6 +591,7 @@ fn main() -> anyhow::Result<()> {
     summary["accepted_deck_keys"] = json!(accepted_deck_keys);
     summary["accepted_deck_count"] = json!(accepted_deck_count);
     summary["generated_deck_count"] = json!(generated_deck_count);
+    summary["shadow_teacher"] = json!(args.shadow_teacher.as_deref().map(shadow::metadata));
     summary["coverage_matrix"] = json!(st.coverage.counts);
     summary["model_family"] = json!(
         model_identity

@@ -42,6 +42,7 @@ fn play_one_table(
     fair_scouting: bool,
     max_decisions: u64,
     record_steps: bool,
+    mut shadow: Option<&mut shadow::ShadowGame>,
 ) -> anyhow::Result<TableOutcome> {
     let preset = table_for(seed, decks, profiles, teams_u8);
     let n_seats = decks.len();
@@ -206,8 +207,33 @@ fn play_one_table(
                 } else if ans.provenance.source == SourceKind4::House {
                     fallbacks += 1;
                 }
+                let proposal = if let Some(shadow) = shadow.as_deref_mut() {
+                    if ans.provenance.source == SourceKind4::Net {
+                        let (state, menu) = n
+                            .policy_encoding(&view, &pending, teams)
+                            .context("Shadow requires exact runtime encoding")?;
+                        shadow.propose(
+                            &view,
+                            &pending,
+                            &state,
+                            &menu,
+                            &ans,
+                            teams,
+                            session.decision_seq(),
+                            session.record_pending(),
+                        )?
+                    } else {
+                        shadow.exclude_non_neural();
+                        None
+                    }
+                } else {
+                    None
+                };
                 let attempted_action = ans.action.clone();
                 let result = session.act_slice(pid, ans.action, 0);
+                if let Some(shadow) = shadow.as_deref_mut() {
+                    shadow.executed(proposal, result.is_ok())?;
+                }
                 if result.is_ok() {
                     if record_steps {
                         rollout_sidecar.push(RolloutStepSidecar4 {
