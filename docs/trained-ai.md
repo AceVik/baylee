@@ -29,6 +29,49 @@ invalid multi-member bands without changing sampling version 2. It sacrifices
 band tactics until those constraints are represented for neural sampling.
 Experienced-human strength and Phoenix NPU deployment are not established.
 
+**Learning diagnostics and isolated ablations (27 October):**
+`tools/trainer/diagnose_policy4.py` reads strict v4/v5 checkpoints and complete
+seat histories. Its independent reports group policy errors by head, pending
+question, verified source format and game namespace. Genuine categorical
+choices exclude forced/padded/zero-weight targets. Subset/pair scores describe
+free-entry BCE and threshold agreement; they do not certify the legality of a
+decoded engine action. On CUDA, use `--bf16 --num-workers 2` when comparing
+against the current optimized validation protocol; the diagnostic CLI otherwise
+defaults to FP32. Existing checkpoint-selection metrics remain separate.
+
+Supervised loss4 remains the default. `train4.py`/`train5.py --loss-version 5`
+permit independent `--outcome-weighting-off`,
+`--loss-normalization unroll_per_head`, `--detach-value-input` and
+`--detach-aux-input` ablations. Full-unroll normalization changes relative
+head/value gradient scaling; it is a learning experiment. Checkpoints retain
+the complete objective contract and reject incompatible resume requests.
+Loss5 requires an optimized execution path; reference execution and package
+`--init-state` are explicitly unsupported. Compare variants with fixed data,
+initial weights, seeds, update budgets and unchanged validation definitions.
+
+`eval4 --raw-policy --record-out DIR --shadow-teacher sharp` (or `expert`)
+can collect separate, view-only teacher labels on states visited by the neural
+actor. The original executed-action record and rollout probabilities remain
+unchanged. `convert4 --runs DIR --out NEW_DIR --include-passive-obs --shadow-bc`
+replays complete records, verifies source/view/menu identities and reconstructs
+each teacher target. Unlabelled decisions retain their chronological position
+with zero policy weight; actual outcomes remain available for value/auxiliary
+targets. Completed metadata and hashed `shadow-bc/` companion files are required
+before Python cache admission. These datasets are explicitly BC-only and both
+PPO admission paths reject them. Streaming partial packages are unsupported.
+An actual Rust-to-Python CPU engine fixture passes; a controlled real-network
+collector audit remains required before a production DAgger collection.
+
+For execution experiments, `--compact-thinking-rows` restricts scratchpad
+thinking to CPU-planned decision rows while preserving every observation and
+persistent-memory update. It is off by default and requires deferred readouts
+and zero dropout. CPU forward/memory/gradient parity passes; CUDA throughput
+and numerical parity are still pending. `bench_training5.py` restores the
+declared architecture, objective and optimizer groups into disposable probes;
+`bench_training4.py` is not a valid benchmark for current v5 optimizer/K settings.
+Use immutable checkpoint copies and an idle GPU. A short fresh-trajectory probe
+does not establish performance on late-game Commander boards.
+
 `cargo build --release -p baylee-train --features live-seat --bin seat4`
 builds an optional local v4 opponent for the ordinary gateway protocol.
 `seat4 --model /path/to/exported/model --name v4-R02 --acceptance Victory`

@@ -379,3 +379,113 @@ had worsened from the step-2,500 result. No monotonic improvement is established
 Two seeds are a noise probe, not a significance test; gameplay comparisons with
 uncertainty remain necessary before any promotion, even when offline metrics
 improve. The existing controller retains the GPU and its scheduled comparisons.
+
+## Implemented learning and performance follow-up
+
+The owner authorized implementation and another performance discussion. Gemini
+`gemini-4-argon-high` and Claude `claude-opus-5-5` (xhigh) each received supplied
+code, measurements and a corrective follow-up. Artifacts are under
+`/home/ace/baylee-data/v5/advice/performance-20261027`; `review-summary.json`
+records model identities, corrections and retained hypotheses. Neither adviser
+changed files or ran training. GPT 6.1 Sol agents implemented and independently
+reviewed bounded subtasks in the shared repository.
+
+Implemented, with the frozen broad experiment unchanged:
+
+- Optional complete-history diagnostics by head/pending/format/game, with
+  additive per-game summaries and explicit namespace identities. Statistics
+  transfer from CUDA once per unroll; pinned loader batches enable prefetch.
+  Threshold-based subset/pair agreement is not decoded-action legality.
+- Versioned loss5 flags for outcome weighting, full-unroll normalization and
+  detached value/auxiliary inputs. Loss4 defaults pass exact loss/stat/gradient
+  regression; ordinary and deferred optimized paths support the new loss.
+  Checkpoint resume validates the entire objective contract.
+- A view-only Sharp/Expert shadow collector and an opt-in verified converter.
+  Neural actions remain the executed record; counterfactual labels go into a
+  separate BC dataset. All observations remain chronological. Python requires
+  completed metadata and intact companion hashes, and both PPO paths reject
+  shadow-label datasets before model execution.
+- A current-architecture performance probe with correct v5 optimizer groups,
+  fixed K, raw pre-clipping gradient parity outside timed updates, bounded
+  pinned input storage and retained production finite-value guards. No extra
+  per-update timing synchronization is introduced. The old benchmark used v4
+  construction and curriculum K and cannot establish current v5 throughput.
+- Optional compact thinking on actual decision rows. The complete K0 memory
+  pass still executes for every row; CPU output, H, loss and gradient tests
+  cover v4/v5, mixed K, empty/all/sparse decisions and padded frames.
+
+The shadow path has a real producer-to-consumer integration artifact:
+`performance-20261027/shadow-contract-fixture`. An engine fixture with a mock
+actor created the original record and shadow sidecar; the actual `convert4`
+binary produced 3,275 frames in one complete game with zero rejections. Python
+admitted its exact metadata/companions and opened the binary dataset as 206
+segments in two trajectories. PPO admission rejected it. This checks the data
+contract, not ONNX actor probabilities or improved play. Existing streaming
+package builders must not discard companion files or publish in-progress
+shadow metadata; actual-network collector auditing remains a next step.
+
+### What the performance measurements establish
+
+The first 20-second process/GPU sample was taken during validation. Its idle
+training workers cannot diagnose validation-worker starvation. A second short
+training sample saw GPU utilization reach 100% in eight of eleven samples,
+while the two loader processes averaged about 5.8% CPU each and disk reads
+were negligible. These observations do not establish an epoch-wide idle
+fraction, an exclusive host bottleneck, or a power-limit diagnosis.
+
+`audit_batches5.py` then inspected 48 deterministic, evenly spaced batches from
+the actual frozen epoch-0 sampler (B8/U32/seed31440, 7,888 total batches). It ran
+with one CPU thread at nice19 in 11.81 seconds without a GPU forward. All 48
+fit the 128 MiB input-prefetch threshold: backing storage median 46.61 MiB,
+p95 89.14 MiB, sampled maximum 126.61 MiB. This is not a global bound.
+
+Across sampled allocated entries, entity padding was 58.52%, the E-squared
+attention estimate 74.91%, and candidate padding 92.08%. Only 2,142 of 12,064
+seat/time rows in active thinking timesteps were decisions (17.76%). This
+motivates compact thinking and a later investigation of board padding.
+It does not predict a whole-training speedup: board encoding, backward,
+readouts, validation and synchronization remain. Larger buffers alone are
+not supported as the leading improvement by this sample.
+
+The advisers agreed after correction to test saved activation layers 1/2,
+unchanged-batch board chunking and compact thinking, and to use a trace before
+changing recurrent compilation or pair grouping. Increasing saved activations
+trades recomputation for memory; the current peak cannot guarantee worst-case
+headroom. This follows the mechanisms documented in PyTorch's
+[activation checkpointing guide](https://pytorch.org/blog/activation-checkpointing-techniques/)
+and [asynchronous transfer guide](https://docs.pytorch.org/tutorials/intermediate/pinmem_nonblock.html).
+The production loss/gradient finite checks remain before the optimizer update;
+moving their failure detection later would change behavior. Whole-trajectory
+sorting and different batch lane counts remain separate learning experiments.
+
+### Current run and automatic next window
+
+The broad v5 arm finished all 7,888 updates. Its existing policy score selected
+step 2,500 (choice NLL 0.238308, active-choice accuracy 58.8318%, value MSE
+0.160583). The final checkpoint instead has choice NLL 0.243727, active-choice
+accuracy 60.8216%, value MSE 0.152104 and ECE 0.041909. Different metrics prefer
+different checkpoints; these values do not establish a playing-strength gain.
+The matched control arm and original scheduled comparisons remain in progress.
+
+A separate queued controller, PID 454387, is registered at
+`/home/ace/baylee-data/v5/experiments/post-broad-review-20261027` and in the broad
+run's `queued-successor.json`. It waits for the exact predecessor identity to
+exit successfully, completed comparisons, verified model hashes and a free GPU.
+It then copies immutable inputs and diagnoses v5 before/after and the selected
+control on all 769,611 validation frames. A bounded performance screen compares
+the baseline with saved1, saved2, compact thinking, prefetch2 and board8 in
+separate candidate jobs. Fresh-prefix scope, numerical rejection and memory
+failures remain explicit; no configuration or model is promoted automatically.
+The runtime is frozen at `dac7498501f051dae314174a946d1b5df7498c2b`, with 150
+hashed Python/controller files. The existing broad-run watcher remains active;
+`baylee-v5-postreview-watch.timer` independently wakes this session after the
+new review completes or fails.
+
+The next learning comparison uses the same source checkpoint, data, seed and
+update budget for unchanged loss, outcome-off and full-unroll normalization.
+Critic/auxiliary detachment follows independently. Review the new head/pending
+diagnostics and current playing-strength results before selecting that pilot;
+do not silently combine the ablations or start a duplicate controller on a
+completion wake. No user confirmation is needed to continue the authorized
+work. Encoder8 inventory/payment completeness remains separately versioned
+work, not a modification to the running Encoder7 archive.
