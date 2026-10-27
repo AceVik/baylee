@@ -55,6 +55,7 @@ mod pillage;
 mod political_trickery;
 mod precision_bolt;
 mod rain_of_tears;
+mod rancid_earth;
 mod recover;
 mod renewal;
 mod repentance;

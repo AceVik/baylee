@@ -138,6 +138,7 @@ mod phyrexian_battleflies;
 mod plagued_rusalka;
 mod plated_sliver;
 mod pouncing_jaguar;
+mod putrid_imp;
 mod quirion_ranger;
 mod ragavan_nimble_pilferer;
 mod raging_goblin;

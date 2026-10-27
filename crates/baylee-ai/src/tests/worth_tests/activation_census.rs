@@ -444,7 +444,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Teroh, Mortiphobia (2), Nantuko Calmer, Organ Grinder, Pardic Lancer,
     // Possessed Aven, Possessed Barbarian, Possessed Centaur, and Possessed
     // Nomad (9 of 10 read by the evaluator).
-    assert_eq!((read, of), (2896, 3660), "activated/loyalty reader census");
+    // Torment (`tor`) Batch 4 adds 5 non-mana activated abilities on Putrid
+    // Imp, Pyromania (2), Skywing Aven, and Stern Judge (4 of 5 read by the
+    // evaluator).
+    assert_eq!((read, of), (2900, 3665), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

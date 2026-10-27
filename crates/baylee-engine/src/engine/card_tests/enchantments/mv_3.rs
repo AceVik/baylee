@@ -94,6 +94,7 @@ mod overgrown_estate;
 mod phyrexian_arena;
 mod phyrexian_tyranny;
 mod prismatic_circle;
+mod pyromania;
 mod raiding_party;
 mod repercussion;
 mod retaliation;

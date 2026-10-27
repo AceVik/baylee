@@ -259,6 +259,7 @@ mod sea_eagle;
 mod sea_scryer;
 mod seeker_of_skybreak;
 mod selesnya_evangel;
+mod seton_s_scout;
 mod shaman_en_kor;
 mod shimmering_barrier;
 mod shocker;

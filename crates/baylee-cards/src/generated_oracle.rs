@@ -16404,18 +16404,34 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{3}{G}, {T}: Reveal the top card of your library. If it's a creature card, put it onto the battlefield. Otherwise, put it into your graveyard.",
     ],
-    &[],
+    // Laquatus's Champion
+    &[
+        "When this creature enters, target player loses 6 life.\nWhen this creature leaves the battlefield, that player gains 6 life.\n{B}: Regenerate this creature.",
+    ],
     // Accelerate
     &["Target creature gains haste until end of turn.\nDraw a card."],
-    &[],
-    &[],
+    // Acorn Harvest
+    &[
+        "Create two 1/1 green Squirrel creature tokens.\nFlashback—{1}{G}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Alter Reality
+    &[
+        "Change the text of target spell or permanent by replacing all instances of one color word with another. (This effect lasts indefinitely.)\nFlashback {1}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     // Ambassador Laquatus
     &["{3}: Target player mills three cards."],
     // Angel of Retribution
     &["Flying, first strike"],
-    &[],
-    &[],
-    &[],
+    // Anurid Scavenger
+    &[
+        "Protection from black\nAt the beginning of your upkeep, sacrifice this creature unless you put a card from your graveyard on the bottom of your library.",
+    ],
+    // Aquamoeba
+    &["Discard a card: Switch this creature's power and toughness until end of turn."],
+    // Arrogant Wurm
+    &[
+        "Trample\nMadness {2}{G} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
     // Aven Trooper
     &["Flying\n{2}{W}, Discard a card: This creature gets +1/+2 until end of turn."],
     // Balshan Collaborator
@@ -16426,128 +16442,338 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Barbarian Outcast
     &["When you control no Swamps, sacrifice this creature."],
-    &[],
-    &[],
-    &[],
+    // Basking Rootwalla
+    &[
+        "{1}{G}: This creature gets +2/+2 until end of turn. Activate only once each turn.\nMadness {0} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
+    // Boneshard Slasher
+    &[
+        "Flying\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and has \"When this creature becomes the target of a spell or ability, sacrifice it.\"",
+    ],
+    // Breakthrough
+    &["Draw four cards, then choose X cards in your hand and discard the rest."],
     // Cabal Coffers
     &["{2}, {T}: Add {B} for each Swamp you control."],
     // Cabal Ritual
     &[
         "Add {B}{B}{B}.\nThreshold — Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Cabal Surgeon
+    &[
+        "{2}{B}{B}, {T}, Exile two cards from your graveyard: Return target creature card from your graveyard to your hand.",
+    ],
+    // Cabal Torturer
+    &[
+        "{B}, {T}: Target creature gets -1/-1 until end of turn.\nThreshold — {3}{B}{B}, {T}: Target creature gets -2/-2 until end of turn. Activate only if there are seven or more cards in your graveyard.",
+    ],
+    // Carrion Rats
+    &[
+        "Whenever this creature attacks or blocks, any player may exile a card from their graveyard. If a player does, this creature assigns no combat damage this turn.",
+    ],
+    // Carrion Wurm
+    &[
+        "Whenever this creature attacks or blocks, any player may exile three cards from their graveyard. If a player does, this creature assigns no combat damage this turn.",
+    ],
+    // Centaur Chieftain
+    &[
+        "Haste\nThreshold — As long as there are seven or more cards in your graveyard, this creature has \"When this creature enters, creatures you control get +1/+1 and gain trample until end of turn.\"",
+    ],
     // Centaur Veteran
     &["Trample\n{G}, Discard a card: Regenerate this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Cephalid Aristocrat
+    &["Whenever this creature becomes the target of a spell or ability, mill two cards."],
+    // Cephalid Illusionist
+    &[
+        "Whenever this creature becomes the target of a spell or ability, mill three cards.\n{2}{U}, {T}: Prevent all combat damage that would be dealt to and dealt by target creature you control this turn.",
+    ],
+    // Cephalid Sage
+    &[
+        "Threshold — As long as there are seven or more cards in your graveyard, this creature has \"When this creature enters, draw three cards, then discard two cards.\"",
+    ],
+    // Cephalid Snitch
+    &["Sacrifice this creature: Target creature loses protection from black until end of turn."],
+    // Cephalid Vandal
+    &[
+        "At the beginning of your upkeep, put a shred counter on this creature. Then mill a card for each shred counter on this creature.",
+    ],
+    // Chainer's Edict
+    &[
+        "Target player sacrifices a creature of their choice.\nFlashback {5}{B}{B} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Chainer, Dementia Master
+    &[
+        "All Nightmares get +1/+1.\n{B}{B}{B}, Pay 3 life: Put target creature card from a graveyard onto the battlefield under your control. That creature is black and is a Nightmare in addition to its other creature types.\nWhen Chainer leaves the battlefield, exile all Nightmares.",
+    ],
+    // Churning Eddy
+    &["Return target creature and target land to their owners' hands."],
+    // Circular Logic
+    &[
+        "Counter target spell unless its controller pays {1} for each card in your graveyard.\nMadness {U} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
+    // Cleansing Meditation
+    &[
+        "Destroy all enchantments.\nThreshold — If there are seven or more cards in your graveyard, instead destroy all enchantments, then return all cards in your graveyard destroyed this way to the battlefield.",
+    ],
     // Compulsion
     &["{1}{U}, Discard a card: Draw a card.\n{1}{U}, Sacrifice this enchantment: Draw a card."],
-    &[],
+    // Coral Net
+    &[
+        "Enchant green or white creature\nEnchanted creature has \"At the beginning of your upkeep, sacrifice this creature unless you discard a card.\"",
+    ],
     // Crackling Club
     &[
         "Enchant creature\nEnchanted creature gets +1/+0.\nSacrifice this Aura: It deals 1 damage to target creature.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Crazed Firecat
+    &[
+        "When this creature enters, flip a coin until you lose a flip. Put a +1/+1 counter on this creature for each flip you won.",
+    ],
+    // Crippling Fatigue
+    &[
+        "Target creature gets -2/-2 until end of turn.\nFlashback—{1}{B}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Dawn of the Dead
+    &[
+        "At the beginning of your upkeep, you lose 1 life.\nAt the beginning of your upkeep, you may return target creature card from your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
+    ],
+    // Deep Analysis
+    &[
+        "Target player draws two cards.\nFlashback—{1}{U}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Devastating Dreams
+    &[
+        "As an additional cost to cast this spell, discard X cards at random.\nEach player sacrifices X lands of their choice. Devastating Dreams deals X damage to each creature.",
+    ],
+    // Dwell on the Past
+    &["Target player shuffles up to four target cards from their graveyard into their library."],
     // Enslaved Dwarf
     &[
         "{R}, Sacrifice this creature: Target black creature gets +1/+0 and gains first strike until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Equal Treatment
+    &[
+        "If any source would deal 1 or more damage to a permanent or player this turn, it deals 2 damage to that permanent or player instead.\nDraw a card.",
+    ],
+    // Faceless Butcher
+    &[
+        "When this creature enters, exile another target creature.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
+    ],
+    // False Memories
+    &[
+        "Mill seven cards. At the beginning of the next end step, exile seven cards from your graveyard.",
+    ],
+    // Far Wanderings
+    &[
+        "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nThreshold — If there are seven or more cards in your graveyard, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",
+    ],
+    // Fiery Temper
+    &[
+        "Fiery Temper deals 3 damage to any target.\nMadness {R} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
+    // Flaming Gambit
+    &[
+        "Flaming Gambit deals X damage to target player or planeswalker. That player or that planeswalker's controller may choose a creature they control and have Flaming Gambit deal that damage to it instead.\nFlashback {X}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Flash of Defiance
+    &[
+        "Green creatures and white creatures can't block this turn.\nFlashback—{1}{R}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Floating Shield
+    &[
+        "Enchant creature\nAs this Aura enters, choose a color.\nEnchanted creature has protection from the chosen color. This effect doesn't remove this Aura.\nSacrifice this Aura: Target creature gains protection from the chosen color until end of turn.",
+    ],
+    // Frantic Purification
+    &[
+        "Destroy target enchantment.\nMadness {W} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
+    // Ghostly Wings
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+1 and has flying.\nDiscard a card: Return enchanted creature to its owner's hand.",
+    ],
+    // Gloomdrifter
+    &[
+        "Flying\nThreshold — As long as there are seven or more cards in your graveyard, this creature has \"When this creature enters, nonblack creatures get -2/-2 until end of turn.\"",
+    ],
+    // Gravegouger
+    &[
+        "When this creature enters, exile up to two target cards from a single graveyard.\nWhen this creature leaves the battlefield, return the exiled cards to their owner's graveyard.",
+    ],
+    // Grim Lavamancer
+    &["{R}, {T}, Exile two cards from your graveyard: This creature deals 2 damage to any target."],
+    // Grotesque Hybrid
+    &[
+        "Whenever this creature deals combat damage to a creature, destroy that creature. It can't be regenerated.\nDiscard a card: This creature gains flying and protection from green and from white until end of turn.",
+    ],
+    // Gurzigost
+    &[
+        "At the beginning of your upkeep, sacrifice this creature unless you put two cards from your graveyard on the bottom of your library.\n{G}{G}, Discard a card: You may have this creature assign its combat damage this turn as though it weren't blocked.",
+    ],
+    // Hell-Bent Raider
+    &[
+        "First strike, haste\nDiscard a card at random: This creature gains protection from white until end of turn.",
+    ],
+    // Hydromorph Guardian
+    &["{U}, Sacrifice this creature: Counter target spell that targets a creature you control."],
+    // Hydromorph Gull
+    &[
+        "Flying\n{U}, Sacrifice this creature: Counter target spell that targets a creature you control.",
+    ],
+    // Hypnox
+    &[
+        "Flying\nWhen this creature enters, if you cast it from your hand, exile all cards from target opponent's hand.\nWhen this creature leaves the battlefield, return the exiled cards to their owner's hand.",
+    ],
     // Hypochondria
     &[
         "{W}, Discard a card: Prevent the next 3 damage that would be dealt to any target this turn.\n{W}, Sacrifice this enchantment: Prevent the next 3 damage that would be dealt to any target this turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ichorid
+    &[
+        "Haste\nAt the beginning of the end step, sacrifice this creature.\nAt the beginning of your upkeep, if this card is in your graveyard, you may exile a black creature card other than this card from your graveyard. If you do, return this card to the battlefield.",
+    ],
+    // Insidious Dreams
+    &[
+        "As an additional cost to cast this spell, discard X cards.\nSearch your library for X cards, then shuffle and put those cards on top in any order.",
+    ],
+    // Insist
+    &["The next creature spell you cast this turn can't be countered.\nDraw a card."],
+    // Invigorating Falls
+    &["You gain life equal to the number of creature cards in all graveyards."],
+    // Kamahl's Sledge
+    &[
+        "Kamahl's Sledge deals 4 damage to target creature.\nThreshold — If there are seven or more cards in your graveyard, instead Kamahl's Sledge deals 4 damage to that creature and 4 damage to that creature's controller.",
+    ],
     // Krosan Constrictor
     &[
         "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\n{T}: Target black creature gets -2/-0 until end of turn.",
     ],
-    &[],
+    // Krosan Restorer
+    &[
+        "{T}: Untap target land.\nThreshold — {T}: Untap up to three target lands. Activate only if there are seven or more cards in your graveyard.",
+    ],
     // Last Laugh
     &[
         "Whenever a permanent other than this enchantment is put into a graveyard from the battlefield, this enchantment deals 1 damage to each creature and each player.\nWhen no creatures are on the battlefield, sacrifice this enchantment.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Liquify
+    &[
+        "Counter target spell with mana value 3 or less. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
+    ],
+    // Llawan, Cephalid Empress
+    &[
+        "When Llawan enters, return all blue creatures your opponents control to their owners' hands.\nYour opponents can't cast blue creature spells.",
+    ],
+    // Longhorn Firebeast
+    &[
+        "When this creature enters, any opponent may have it deal 5 damage to them. If a player does, sacrifice this creature.",
+    ],
+    // Major Teroh
+    &["Flying\n{3}{W}{W}, Sacrifice Major Teroh: Exile all black creatures."],
+    // Mesmeric Fiend
+    &[
+        "When this creature enters, target opponent reveals their hand and you choose a nonland card from it. Exile that card.\nWhen this creature leaves the battlefield, return the exiled card to its owner's hand.",
+    ],
     // Militant Monk
     &["Vigilance\n{T}: Prevent the next 1 damage that would be dealt to any target this turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mind Sludge
+    &["Target player discards a card for each Swamp you control."],
+    // Morningtide
+    &["Exile all graveyards."],
+    // Mortal Combat
+    &[
+        "At the beginning of your upkeep, if twenty or more creature cards are in your graveyard, you win the game.",
+    ],
+    // Mortiphobia
+    &[
+        "{1}{B}, Discard a card: Exile target card from a graveyard.\n{1}{B}, Sacrifice this enchantment: Exile target card from a graveyard.",
+    ],
+    // Mutilate
+    &["All creatures get -1/-1 until end of turn for each Swamp you control."],
+    // Mystic Familiar
+    &[
+        "Flying\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has protection from black.",
+    ],
+    // Nantuko Blightcutter
+    &[
+        "Protection from black\nThreshold — This creature gets +1/+1 for each black permanent your opponents control as long as there are seven or more cards in your graveyard.",
+    ],
+    // Nantuko Calmer
+    &[
+        "{G}, {T}, Sacrifice this creature: Destroy target enchantment.\nThreshold — This creature gets +1/+1 as long as there are seven or more cards in your graveyard.",
+    ],
+    // Nantuko Cultivator
+    &[
+        "When this creature enters, you may discard any number of land cards. Put that many +1/+1 counters on this creature and draw that many cards.",
+    ],
     // Nantuko Shade
     &["{B}: This creature gets +1/+1 until end of turn."],
     // Narcissism
     &[
         "{G}, Discard a card: Target creature gets +2/+2 until end of turn.\n{G}, Sacrifice this enchantment: Target creature gets +2/+2 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Nostalgic Dreams
+    &[
+        "As an additional cost to cast this spell, discard X cards.\nReturn X target cards from your graveyard to your hand. Exile Nostalgic Dreams.",
+    ],
+    // Obsessive Search
+    &[
+        "Draw a card.\nMadness {U} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
+    // Organ Grinder
+    &["{T}, Exile three cards from your graveyard: Target player loses 3 life."],
+    // Overmaster
+    &["The next instant or sorcery spell you cast this turn can't be countered.\nDraw a card."],
+    // Parallel Evolution
+    &[
+        "For each creature token on the battlefield, its controller creates a token that's a copy of that creature.\nFlashback {4}{G}{G}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Pardic Arsonist
+    &[
+        "Threshold — As long as there are seven or more cards in your graveyard, this creature has \"When this creature enters, it deals 3 damage to any target.\"",
+    ],
     // Pardic Collaborator
     &["First strike\n{B}: This creature gets +1/+1 until end of turn."],
-    &[],
+    // Pardic Lancer
+    &[
+        "Discard a card at random: This creature gets +1/+0 and gains first strike until end of turn.",
+    ],
     // Pay No Heed
     &["Prevent all damage a source of your choice would deal this turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Petradon
+    &[
+        "When this creature enters, exile two target lands.\nWhen this creature leaves the battlefield, return the exiled cards to the battlefield under their owners' control.\n{R}: This creature gets +1/+0 until end of turn.",
+    ],
+    // Petravark
+    &[
+        "When this creature enters, exile target land.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
+    ],
+    // Pitchstone Wall
+    &[
+        "Defender (This creature can't attack.)\nWhenever you discard a card, you may sacrifice this creature. If you do, return the discarded card from your graveyard to your hand.",
+    ],
+    // Plagiarize
+    &[
+        "Until end of turn, if target player would draw a card, instead that player skips that draw and you draw a card.",
+    ],
+    // Possessed Aven
+    &[
+        "Flying\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1, is black, and has \"{2}{B}, {T}: Destroy target blue creature.\"",
+    ],
+    // Possessed Barbarian
+    &[
+        "First strike\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1, is black, and has \"{2}{B}, {T}: Destroy target red creature.\"",
+    ],
+    // Possessed Centaur
+    &[
+        "Trample\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1, is black, and has \"{2}{B}, {T}: Destroy target green creature.\"",
+    ],
+    // Possessed Nomad
+    &[
+        "Vigilance\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1, is black, and has \"{2}{B}, {T}: Destroy target white creature.\"",
+    ],
+    // Psychotic Haze
+    &[
+        "Psychotic Haze deals 1 damage to each creature and each player.\nMadness {1}{B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
     &[],
     &[],
     &[],
