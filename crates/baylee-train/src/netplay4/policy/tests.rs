@@ -233,3 +233,24 @@ fn categorical_frequency_and_logprob_describe_the_same_raw_distribution() {
     }
     assert!((f64::from(selected) / 20_000.0 - f64::from(expected)).abs() < 0.015);
 }
+
+#[test]
+fn raw_reencode_gate_rejects_decoder_minimum_fill_including_forced_bits() {
+    let view = view();
+    let pending = Pending::DiscardChoice {
+        player: view.seat,
+        count: 2,
+    };
+    let cands = menu(&view, &pending);
+    let sampled = TeacherTarget4 {
+        multi_mask: vec![0; cands.candidates.len()],
+        ..TeacherTarget4::default()
+    };
+    let repaired = decode_action4(&cands, &view, &pending, &sampled).unwrap();
+    assert!(pending.answer_fault(&repaired).is_none());
+    assert!(!decoded_matches_sample(
+        &cands, &pending, &repaired, &sampled
+    ));
+    let valid = crate::features4::encode_teacher_action4(&cands, &pending, &repaired).unwrap();
+    assert!(decoded_matches_sample(&cands, &pending, &repaired, &valid));
+}

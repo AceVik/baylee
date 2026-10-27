@@ -327,12 +327,37 @@ impl PolicySampler4<'_> {
                 _ => {}
             }
         }
+        if self.mode == PolicyMode4::Raw {
+            anyhow::ensure!(
+                decoded_matches_sample(cands, pending, &action, &target),
+                "raw decoded action differs from sampled target (decoder repair)"
+            );
+        }
         if !(matches!(action, PlayerAction::CancelCast) && view.casting.is_some())
             && let Some(fault) = pending.answer_fault(&action)
         {
             anyhow::bail!("decoded action failed answer_fault: {fault:?}");
         }
         Ok((action, value.clamp(0.0, 1.0), logprob, target))
+    }
+}
+
+fn decoded_matches_sample(
+    cands: &EncodedCandidates4,
+    pending: &Pending,
+    action: &PlayerAction,
+    target: &TeacherTarget4,
+) -> bool {
+    let Some(encoded) = crate::features4::encode_teacher_action4(cands, pending, action) else {
+        return false;
+    };
+    match cands.head {
+        HeadKind4::SingleChoice => encoded.single_idx == target.single_idx,
+        // Include forced bits: a decoder must not fill missing selections.
+        // Re-encoding has a different visitation representation, so compare the
+        // chosen action mask, retaining the sampler's original free/order/LP.
+        HeadKind4::SubsetPick | HeadKind4::PairPick => encoded.multi_mask == target.multi_mask,
+        HeadKind4::ScalarValue => encoded.scalar_norm.to_bits() == target.scalar_norm.to_bits(),
     }
 }
 
