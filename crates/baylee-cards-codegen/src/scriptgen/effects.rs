@@ -67,6 +67,7 @@ impl Tx<'_> {
     pub(super) fn token_effect(
         &mut self,
         p: &mut Params,
+        target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
         // Who gets it. The corpus writes `TokenOwner$ You` on 2220 of its
@@ -80,6 +81,28 @@ impl Tx<'_> {
         let owner = match p.take("TokenOwner").as_deref() {
             Some("You") => "PlayerRel::You",
             Some("TriggeredCardController") if self.trigger_is_self => "PlayerRel::You",
+            Some("TargetedController")
+                if target.is_some_and(|t| {
+                    t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::CardInGraveyard(")
+                }) && matches!(p.peek("TokenAmount"), None | Some("1")) =>
+            {
+                p.take("TokenAmount");
+                let Some(stem) = p.take("TokenScript") else {
+                    return self.deny("a `Token` effect naming no `TokenScript$`".to_string());
+                };
+                let Some(tokens) = self.tokens else {
+                    return self
+                        .deny("`Token` with no token scripts to read it against".to_string());
+                };
+                let Some(body) = tokens.body(&stem, self.cats) else {
+                    return self.deny(format!("token script `{stem}`"));
+                };
+                return Some(vec![format!(
+                    "Effect::CreateTokenForTargetController {{ token: &generated_tokens::{} }}",
+                    body.constant
+                )]);
+            }
             None => self.player_rel_of(None, targets_a_player)?,
             Some(who) => return self.deny(format!("token owner `{who}`")),
         };
@@ -524,6 +547,17 @@ impl Tx<'_> {
                         "Effect::ExileGraveyard { player: PlayerRel::EachPlayer }".to_string(),
                     ])
                 }
+                (Some("Graveyard"), Some("Battlefield")) => {
+                    let valid = p.take("ChangeType")?;
+                    if valid.contains("Ctrl") || valid.contains("Own") {
+                        return None;
+                    }
+                    let expr = self.filter_expr_in_zone(&valid, true)?;
+                    let name = self.body.filter_static("REANIMATE_ALL", &expr);
+                    Some(vec![format!(
+                        "Effect::EachPlayerGraveyardToBattlefield {{ filter: &{name} }}"
+                    )])
+                }
                 _ => None,
             };
         }
@@ -730,6 +764,7 @@ impl Tx<'_> {
                 self.defaults_to_self_zone_change(p, &origin, &destination, target, targets_here)
             }
             Some("Self") => true,
+            Some("Targeted") if !targets_here && target != "TargetSpec::AnyPlayer" => false,
             Some("ExiledWith")
                 if origin == "Exile"
                     && destination == "Battlefield"

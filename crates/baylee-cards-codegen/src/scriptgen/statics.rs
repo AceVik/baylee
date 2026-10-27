@@ -170,7 +170,7 @@ impl Tx<'_> {
             "CantPlayLand" => return self.cant_play_land(p),
             _ => {}
         }
-        if p.peek("EffectZone") == Some("Graveyard") {
+        if p.peek("EffectZone") == Some("Graveyard") && p.peek("Affected") == Some("Land.YouCtrl") {
             return self.riftstone_graveyard_grant(&mode, p);
         }
         if mode == "CantTarget"
@@ -189,11 +189,19 @@ impl Tx<'_> {
         // `EffectZone$ Battlefield` is the default written out; any other
         // zone means the source works from somewhere else, which is a
         // different rule than the one below.
+        let mut graveyard_zone = false;
         if let Some(zone) = p.take("EffectZone")
             && zone != "Battlefield"
         {
-            self.note(format!("static ability from `EffectZone$ {zone}`"));
-            return None;
+            if zone == "Graveyard"
+                && p.peek("Affected") == Some("Creature.YouCtrl")
+                && p.has("AddKeyword")
+            {
+                graveyard_zone = true;
+            } else {
+                self.note(format!("static ability from `EffectZone$ {zone}`"));
+                return None;
+            }
         }
         if p.peek("AffectedZone") == Some("Hand")
             && p.peek("MayLookAt") == Some("Player")
@@ -254,10 +262,15 @@ impl Tx<'_> {
                 return None;
             }
         }
-        if !condition.is_empty() {
+        if graveyard_zone || !condition.is_empty() {
+            let zone_arg = if graveyard_zone {
+                ", zone = ZoneRef::Graveyard"
+            } else {
+                ""
+            };
             for ability in &mut out {
                 if let Some(open) = ability.strip_suffix(')') {
-                    *ability = format!("{open}{condition})");
+                    *ability = format!("{open}{zone_arg}{condition})");
                 }
             }
         }
@@ -682,6 +695,10 @@ impl Tx<'_> {
     /// untapped lands" is a different sentence.
     pub(super) fn cant_attack_unless(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`CantAttack.Secondary$ {other}`")),
+        }
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("`CantAttack` naming no creature".to_string());
         };
@@ -748,6 +765,39 @@ impl Tx<'_> {
         let add_t = p.take("AddToughness");
         if add_p.is_some() || add_t.is_some() {
             if let (Some(var_p), Some(var_t)) = (add_p.as_deref(), add_t.as_deref())
+                && var_p == var_t
+                && var_p.trim().parse::<i16>().is_err()
+                && let Some(count) = self.svars.get(var_p.trim()).cloned()
+                && let Some(counter) = count.trim().strip_prefix("Count$CardCounters.")
+            {
+                let Some(kind) = super::counter_kind(counter) else {
+                    self.note(format!("counter `{counter}`"));
+                    return None;
+                };
+                out.push(Self::static_expr(
+                    filter,
+                    &format!("Modifier::ModifyPTByCount(PtCount::CountersOnThis({kind}))"),
+                ));
+            } else if let (Some(var_p), Some(var_t)) = (add_p.as_deref(), add_t.as_deref())
+                && var_p == var_t
+                && var_p.trim().parse::<i16>().is_err()
+                && let Some(count) = self.svars.get(var_p.trim()).cloned()
+                && let Some(valid) = count.strip_prefix("Count$ValidGraveyard ")
+            {
+                if valid.contains("Ctrl") || valid.contains("Own") || valid.contains('/') {
+                    self.note("static ability with a computed P/T".to_string());
+                    return None;
+                }
+                let Some(counted_filter) = self.filter_expr(valid) else {
+                    self.note("static ability with a computed P/T".to_string());
+                    return None;
+                };
+                let name = self.body.filter_static("COUNTED", &counted_filter);
+                out.push(Self::static_expr(
+                    filter,
+                    &format!("Modifier::ModifyPTByCount(PtCount::InAllGraveyards(&{name}))"),
+                ));
+            } else if let (Some(var_p), Some(var_t)) = (add_p.as_deref(), add_t.as_deref())
                 && var_p == var_t
                 && var_p.trim().parse::<i16>().is_err()
                 && let Some(count) = self.svars.get(var_p.trim()).cloned()

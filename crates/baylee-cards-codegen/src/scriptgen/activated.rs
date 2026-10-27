@@ -232,6 +232,7 @@ impl Tx<'_> {
                 chain.target.as_deref(),
                 chain.target_is_x,
                 chain.target_up_to,
+                chain.target_exact,
                 &second_targets,
             )
         }
@@ -334,6 +335,7 @@ impl Tx<'_> {
         target: Option<&str>,
         target_is_x: bool,
         target_up_to: Option<u8>,
+        target_exact: Option<u8>,
         second_targets: &str,
     ) -> Option<()> {
         if limit.is_some() {
@@ -359,6 +361,8 @@ impl Tx<'_> {
                     } else {
                         format!(", targets = Some(TargetReq::up_to({t}, {max}))")
                     }
+                } else if let Some(n) = target_exact {
+                    format!(", targets = Some(TargetReq::exact({t}, {n}))")
                 } else {
                     let req_fn = if target_is_x { "x_targets" } else { "one" };
                     format!(", targets = Some(TargetReq::{req_fn}({t}))")
@@ -491,6 +495,16 @@ impl Tx<'_> {
         if p.peek("Condition") == Some("Threshold") && !p.has("IsPresent") {
             p.take("Condition");
             return Some(", condition = Some(Condition::GraveyardCountAtLeast(7))".to_string());
+        }
+        if p.peek("LifeTotal") == Some("You") && !p.has("IsPresent") {
+            p.take("LifeTotal");
+            let life_amount = p.take("LifeAmount").unwrap_or_else(|| "GE1".to_string());
+            let Some(Bound::AtLeast(n)) = count_bound(&life_amount) else {
+                return self.deny(format!("`LifeAmount$ {life_amount}`"));
+            };
+            return Some(format!(
+                ", condition = Some(Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n}))"
+            ));
         }
         let Some(valid) = p.take("IsPresent") else {
             return Some(String::new());

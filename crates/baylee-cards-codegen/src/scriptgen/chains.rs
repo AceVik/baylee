@@ -98,7 +98,8 @@ impl Tx<'_> {
             }
             return None;
         };
-        let mut effects = self.wrap_line_condition(&api, &mut p, effects)?;
+        let mut effects =
+            self.wrap_line_condition(&api, &mut p, &mut sub, target.as_deref(), effects)?;
         if prevent_damaged_regeneration {
             effects.push("Effect::DamagedThisWayCantBeRegenerated".to_string());
         }
@@ -145,6 +146,8 @@ impl Tx<'_> {
         &mut self,
         api: &str,
         p: &mut Params,
+        sub: &mut Option<String>,
+        target: Option<&str>,
         effects: Vec<String>,
     ) -> Option<Vec<String>> {
         if p.exhausted() {
@@ -162,6 +165,56 @@ impl Tx<'_> {
                 }
                 return Some(vec![format!(
                     "Effect::IfCondition {{ condition: Condition::GraveyardCountAtLeast(7), then: &[{}], otherwise: &[] }}",
+                    effects.join(", ")
+                )]);
+            }
+            if let (Some(var), Some(cmp), Some(sub_name)) = (
+                p.peek("ConditionCheckSVar").map(str::to_string),
+                p.peek("ConditionSVarCompare").map(str::to_string),
+                sub.clone(),
+            ) && matches!(cmp.trim(), "LE6" | "LT7")
+                && self.svars.get(var.trim()).map(|s| s.trim())
+                    == Some("Count$ValidGraveyard Card.YouOwn")
+            {
+                p.take("ConditionCheckSVar");
+                p.take("ConditionSVarCompare");
+                p.take("ConditionDescription");
+                if !p.exhausted() {
+                    if let Some(key) = p.first_key() {
+                        self.note(format!("unclaimed parameter `{api}.{key}`"));
+                    }
+                    return None;
+                }
+                let sub_body = self.svars.get(sub_name.trim())?.clone();
+                let (sub_api, mut sp) = Params::parse(&sub_body)?;
+                sp.drop_prose();
+                if sp.has("SubAbility") || sp.has("ValidTgts") {
+                    return None;
+                }
+                let sub_threshold = if sp.peek("Condition") == Some("Threshold") {
+                    sp.take("Condition");
+                    true
+                } else if sp.peek("ConditionCheckSVar").map(str::trim) == Some(var.trim())
+                    && sp.peek("ConditionSVarCompare").map(str::trim) == Some("GE7")
+                {
+                    sp.take("ConditionCheckSVar");
+                    sp.take("ConditionSVarCompare");
+                    true
+                } else {
+                    false
+                };
+                if !sub_threshold {
+                    return None;
+                }
+                sp.take("ConditionDescription");
+                let then_effects = self.effect_of(&sub_api, &mut sp, target, false, false)?;
+                if !sp.exhausted() || then_effects.is_empty() {
+                    return None;
+                }
+                *sub = None;
+                return Some(vec![format!(
+                    "Effect::IfCondition {{ condition: Condition::GraveyardCountAtLeast(7), then: &[{}], otherwise: &[{}] }}",
+                    then_effects.join(", "),
                     effects.join(", ")
                 )]);
             }
@@ -285,9 +338,10 @@ impl Tx<'_> {
                 p.take("TargetMax");
                 chain.target_is_x = true;
             } else if self.on_a_spell
-                && api == "ChangeZone"
-                && p.peek("Origin") == Some("Graveyard")
-                && p.peek("Destination") == Some("Hand")
+                && ((api == "ChangeZone"
+                    && p.peek("Origin") == Some("Graveyard")
+                    && p.peek("Destination") == Some("Hand"))
+                    || api == "Tap")
                 && p.peek("TargetMin") == Some("0")
                 && let Some(max) = p
                     .peek("TargetMax")
@@ -297,6 +351,16 @@ impl Tx<'_> {
                 p.take("TargetMin");
                 p.take("TargetMax");
                 chain.target_up_to = Some(max);
+            } else if self.on_a_spell
+                && api == "DealDamage"
+                && let (Some(min), Some(max)) = (p.peek("TargetMin"), p.peek("TargetMax"))
+                && min == max
+                && let Ok(n) = min.trim().parse::<u8>()
+                && n > 1
+            {
+                p.take("TargetMin");
+                p.take("TargetMax");
+                chain.target_exact = Some(n);
             }
             chain.target = Some(spec);
         }
@@ -905,7 +969,17 @@ impl Tx<'_> {
                 if targets_here {
                     return None;
                 }
-                let n = self.amount_or_count(&p.take("NumDmg")?)?;
+                let raw_dmg = p.take("NumDmg")?;
+                let threshold_dmg = self
+                    .svars
+                    .get(raw_dmg.trim())
+                    .and_then(|s| s.trim().strip_prefix("Count$Threshold."))
+                    .and_then(|s| s.strip_suffix(".0"))
+                    .and_then(|s| s.parse::<u32>().ok());
+                let n = match threshold_dmg {
+                    Some(v) => format!("Amount::Fixed({v})"),
+                    None => self.amount_or_count(&raw_dmg)?,
+                };
                 // The printed words for the two keys below ("each creature
                 // and each player"), which say nothing those keys do not.
                 p.take("ValidDescription");
@@ -926,7 +1000,14 @@ impl Tx<'_> {
                 if out.is_empty() {
                     return None;
                 }
-                out
+                if threshold_dmg.is_some() {
+                    vec![format!(
+                        "Effect::IfCondition {{ condition: Condition::GraveyardCountAtLeast(7), then: &[{}], otherwise: &[] }}",
+                        out.join(", ")
+                    )]
+                } else {
+                    out
+                }
             }
             "Regenerate" => {
                 // Bare `AB$ Regenerate` is "regenerate CARDNAME" — 181 of
@@ -939,6 +1020,7 @@ impl Tx<'_> {
                 // carry a `ValidTgts$` as the targeted half.
                 match p.take("Defined").as_deref() {
                     None => {}
+                    Some("Self") if target.is_none() && !self.on_a_spell => {}
                     // "Regenerate enchanted creature" (Regeneration): the
                     // Aura's host, which the filter binds to the source.
                     Some("Enchanted" | "Equipped") if target.is_none() => {
@@ -954,7 +1036,7 @@ impl Tx<'_> {
                     None => vec!["Effect::regenerate(TargetSpec::ThisObject)".to_string()],
                 }
             }
-            "Token" => self.token_effect(p, targets_a_player)?,
+            "Token" => self.token_effect(p, target, targets_a_player)?,
             "Investigate" => self.investigate_effect(p, targets_a_player)?,
             "Animate" => self.animate_effect(p, target)?,
             "Debuff" => self.debuff_effect(p, target)?,

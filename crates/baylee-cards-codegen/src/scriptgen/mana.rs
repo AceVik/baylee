@@ -267,6 +267,9 @@ impl Tx<'_> {
         if def.trim() == "Targeted$CardToughness" {
             return Some("Amount::TargetToughness".to_string());
         }
+        if def.trim() == "Targeted$CardPower" {
+            return Some("Amount::TargetPower".to_string());
+        }
         if (def.trim() == "Count$CardPower"
             || (def.trim() == "Sacrificed$CardPower" && self.cost_sacrifices_self))
             && !self.on_a_spell
@@ -275,6 +278,12 @@ impl Tx<'_> {
         }
         if def.trim() == "Sacrificed$CardPower" && self.cost_sacrifices_other && !self.on_a_spell {
             return Some("Amount::SacrificedPower".to_string());
+        }
+        if def.trim() == "Count$ValidGraveyard Card.YouOwn" {
+            return Some(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::You) }"
+                    .to_string(),
+            );
         }
         if let Some(valid) = def.trim().strip_prefix("Count$ValidGraveyard ")
             && !valid.contains("Ctrl")

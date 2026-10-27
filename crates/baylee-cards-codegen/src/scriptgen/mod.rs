@@ -264,6 +264,7 @@ struct Chain {
     target: Option<String>,
     target_is_x: bool,
     target_up_to: Option<u8>,
+    target_exact: Option<u8>,
     target_unique: bool,
     second_target: Option<String>,
     could_add_mana: bool,
