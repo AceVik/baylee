@@ -16774,27 +16774,86 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Psychotic Haze deals 1 damage to each creature and each player.\nMadness {1}{B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Putrid Imp
+    &[
+        "Discard a card: This creature gains flying until end of turn.\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and can't block.",
+    ],
+    // Pyromania
+    &[
+        "{1}{R}, Discard a card at random: This enchantment deals 1 damage to any target.\n{1}{R}, Sacrifice this enchantment: It deals 1 damage to any target.",
+    ],
+    // Radiate
+    &[
+        "Choose target instant or sorcery spell that targets only a single permanent or player. Copy that spell for each other permanent or player the spell could target. Each copy targets a different one of those permanents and players.",
+    ],
+    // Rancid Earth
+    &[
+        "Destroy target land.\nThreshold — If there are seven or more cards in your graveyard, instead destroy that land and Rancid Earth deals 1 damage to each creature and each player.",
+    ],
+    // Reborn Hero
+    &[
+        "Vigilance\nThreshold — As long as there are seven or more cards in your graveyard, this creature has \"When this creature dies, you may pay {W}{W}. If you do, return this card to the battlefield under your control.\"",
+    ],
+    // Restless Dreams
+    &[
+        "As an additional cost to cast this spell, discard X cards.\nReturn X target creature cards from your graveyard to your hand.",
+    ],
+    // Retraced Image
+    &[
+        "Reveal a card in your hand, then put that card onto the battlefield if it has the same name as a permanent.",
+    ],
+    // Seton's Scout
+    &[
+        "Reach (This creature can block creatures with flying.)\nThreshold — This creature gets +2/+2 as long as there are seven or more cards in your graveyard.",
+    ],
+    // Shade's Form
+    &[
+        "Enchant creature\nEnchanted creature has \"{B}: This creature gets +1/+1 until end of turn.\"\nWhen enchanted creature dies, return that card to the battlefield under your control.",
+    ],
+    // Shambling Swarm
+    &[
+        "When this creature dies, distribute three -1/-1 counters among one, two, or three target creatures. For each -1/-1 counter you put on a creature this way, remove a -1/-1 counter from that creature at the beginning of the next end step.",
+    ],
+    // Sickening Dreams
+    &[
+        "As an additional cost to cast this spell, discard X cards.\nSickening Dreams deals X damage to each creature and each player.",
+    ],
+    // Skullscorch
+    &[
+        "Target player discards two cards at random unless that player has Skullscorch deal 4 damage to them.",
+    ],
+    // Skywing Aven
+    &["Flying\nDiscard a card: Return this creature to its owner's hand."],
+    // Slithery Stalker
+    &[
+        "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\nWhen this creature enters, exile target green or white creature an opponent controls.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
+    ],
+    // Sonic Seizure
+    &[
+        "As an additional cost to cast this spell, discard a card at random.\nSonic Seizure deals 3 damage to any target.",
+    ],
+    // Soul Scourge
+    &[
+        "Flying\nWhen this creature enters, target player loses 3 life.\nWhen this creature leaves the battlefield, that player gains 3 life.",
+    ],
+    // Spirit Flare
+    &[
+        "Tap target untapped creature you control. If you do, it deals damage equal to its power to target attacking or blocking creature an opponent controls.\nFlashback—{1}{W}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Stern Judge
+    &["{T}: Each player loses 1 life for each Swamp they control."],
+    // Strength of Isolation
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+2 and has protection from black.\nMadness {W} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
+    // Strength of Lunacy
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+1 and has protection from white.\nMadness {B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
+    // Stupefying Touch
+    &[
+        "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature's activated abilities can't be activated.",
+    ],
     // Tainted Field
     &["{T}: Add {C}.\n{T}: Add {W} or {B}. Activate only if you control a Swamp."],
     // Tainted Isle
@@ -16803,65 +16862,167 @@ pub static ORACLE: &[&[&str]] = &[
     &["{T}: Add {C}.\n{T}: Add {B} or {R}. Activate only if you control a Swamp."],
     // Tainted Wood
     &["{T}: Add {C}.\n{T}: Add {B} or {G}. Activate only if you control a Swamp."],
-    &[],
+    // Temporary Insanity
+    &[
+        "Untap target creature with power less than the number of cards in your graveyard and gain control of it until end of turn. That creature gains haste until end of turn.",
+    ],
     // Teroh's Faithful
     &["When this creature enters, you gain 4 life."],
-    &[],
-    &[],
-    &[],
+    // Teroh's Vanguard
+    &[
+        "Flash\nThreshold — As long as there are seven or more cards in your graveyard, this creature has \"When this creature enters, creatures you control gain protection from black until end of turn.\"",
+    ],
+    // Transcendence
+    &[
+        "You don't lose the game for having 0 or less life.\nWhen you have 20 or more life, you lose the game.\nWhenever you lose life, you gain 2 life for each 1 life you lost. (Damage dealt to you causes you to lose life.)",
+    ],
+    // Turbulent Dreams
+    &[
+        "As an additional cost to cast this spell, discard X cards.\nReturn X target nonland permanents to their owners' hands.",
+    ],
     // Unhinge
     &["Target player discards a card.\nDraw a card."],
-    &[],
-    &[],
-    &[],
+    // Vengeful Dreams
+    &[
+        "As an additional cost to cast this spell, discard X cards.\nExile X target attacking creatures.",
+    ],
+    // Violent Eruption
+    &[
+        "Violent Eruption deals 4 damage divided as you choose among any number of targets.\nMadness {1}{R}{R} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+    ],
+    // Waste Away
+    &[
+        "As an additional cost to cast this spell, discard a card.\nTarget creature gets -5/-5 until end of turn.",
+    ],
     // Zombie Trailblazer
     &[
         "Tap an untapped Zombie you control: Target land becomes a Swamp until end of turn.\nTap an untapped Zombie you control: Target creature gains swampwalk until end of turn. (It can't be blocked as long as defending player controls a Swamp.)",
     ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ancestor's Chosen
+    &[
+        "First strike (This creature deals combat damage before creatures without first strike.)\nWhen this creature enters, you gain 1 life for each card in your graveyard.",
+    ],
+    // Anger
+    &[
+        "Haste\nAs long as this card is in your graveyard and you control a Mountain, creatures you control have haste.",
+    ],
+    // Anurid Barkripper
+    &[
+        "Threshold — This creature gets +2/+2 as long as there are seven or more cards in your graveyard.",
+    ],
+    // Anurid Brushhopper
+    &[
+        "Discard two cards: Exile this creature. Return it to the battlefield under its owner's control at the beginning of the next end step.",
+    ],
+    // Anurid Swarmsnapper
+    &[
+        "Reach (This creature can block creatures with flying.)\n{1}{G}: This creature can block an additional creature this turn.",
+    ],
+    // Arcane Teachings
+    &[
+        "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nEnchanted creature gets +2/+2 and has \"{T}: This creature deals 1 damage to any target.\"",
+    ],
     // Aven Fogbringer
     &["Flying\nWhen this creature enters, return target land to its owner's hand."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Aven Warcraft
+    &[
+        "Creatures you control get +0/+2 until end of turn.\nThreshold — If there are seven or more cards in your graveyard, choose a color. Creatures you control also gain protection from the chosen color until end of turn.",
+    ],
+    // Balthor the Defiled
+    &[
+        "Minion creatures get +1/+1.\n{B}{B}{B}, Exile Balthor: Each player returns all black and all red creature cards from their graveyard to the battlefield.",
+    ],
+    // Barbarian Bully
+    &[
+        "Discard a card at random: This creature gets +2/+2 until end of turn unless a player has this creature deal 4 damage to them. Activate only once each turn.",
+    ],
+    // Battle Screech
+    &[
+        "Create two 1/1 white Bird creature tokens with flying.\nFlashback—Tap three untapped white creatures you control. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Battlefield Scrounger
+    &[
+        "Threshold — Put three cards from your graveyard on the bottom of your library: This creature gets +3/+3 until end of turn. Activate only once each turn and only if there are seven or more cards in your graveyard.",
+    ],
+    // Battlewise Aven
+    &[
+        "Flying\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has first strike.",
+    ],
+    // Benevolent Bodyguard
+    &[
+        "Sacrifice this creature: Target creature you control gains protection from the color of your choice until end of turn.",
+    ],
+    // Book Burning
+    &[
+        "Any player may have Book Burning deal 6 damage to them. If no one does, target player mills six cards.",
+    ],
     // Border Patrol
     &["Vigilance"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Brawn
+    &[
+        "Trample\nAs long as this card is in your graveyard and you control a Forest, creatures you control have trample.",
+    ],
+    // Breaking Point
+    &[
+        "Any player may have Breaking Point deal 6 damage to them. If no one does, destroy all creatures. Creatures destroyed this way can't be regenerated.",
+    ],
+    // Browbeat
+    &[
+        "Any player may have Browbeat deal 5 damage to them. If no one does, target player draws three cards.",
+    ],
+    // Burning Wish
+    &[
+        "You may reveal a sorcery card you own from outside the game and put it into your hand. Exile Burning Wish.",
+    ],
+    // Cabal Therapy
+    &[
+        "Choose a nonland card name. Target player reveals their hand and discards all cards with that name.\nFlashback—Sacrifice a creature. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     // Cabal Trainee
     &["Sacrifice this creature: Target creature gets -2/-0 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Cagemail
+    &["Enchant creature\nEnchanted creature gets +2/+2 and can't attack."],
+    // Canopy Claws
+    &[
+        "Target creature loses flying until end of turn.\nFlashback {G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Centaur Rootcaster
+    &[
+        "Whenever this creature deals combat damage to a player, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    ],
+    // Cephalid Constable
+    &[
+        "Whenever this creature deals combat damage to a player, return up to that many target permanents that player controls to their owner's hand.",
+    ],
     // Cephalid Inkshrouder
     &[
         "Discard a card: This creature gains shroud until end of turn and can't be blocked this turn. (A creature with shroud can't be the target of spells or abilities.)",
     ],
-    &[],
+    // Chastise
+    &["Destroy target attacking creature. You gain life equal to its power."],
     // Commander Eesha
     &["Flying, protection from creatures"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Crush of Wurms
+    &[
+        "Create three 6/6 green Wurm creature tokens.\nFlashback {9}{G}{G}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Cunning Wish
+    &[
+        "You may reveal an instant card you own from outside the game and put it into your hand. Exile Cunning Wish.",
+    ],
+    // Death Wish
+    &[
+        "You may put a card you own from outside the game into your hand. You lose half your life, rounded up. Exile Death Wish.",
+    ],
+    // Defy Gravity
+    &[
+        "Target creature gains flying until end of turn.\nFlashback {U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     // Dwarven Bloodboiler
     &["Tap an untapped Dwarf you control: Target creature gets +2/+0 until end of turn."],
-    &[],
+    // Dwarven Driller
+    &["{T}: Destroy target land unless its controller has this creature deal 2 damage to them."],
     &[],
     // Earsplitting Rats
     &[

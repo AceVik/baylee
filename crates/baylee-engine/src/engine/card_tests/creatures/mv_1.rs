@@ -17,6 +17,7 @@ mod aven_envoy;
 mod balduvian_shaman;
 mod benalish_hero;
 mod benalish_missionary;
+mod benevolent_bodyguard;
 mod bile_urchin;
 mod birds_of_paradise;
 mod blood_celebrant;

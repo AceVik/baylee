@@ -6,6 +6,7 @@ use super::*;
 mod altar_s_light;
 mod ambush;
 mod barreling_attack;
+mod chastise;
 mod clever_concealment;
 mod congregate;
 mod cryptic_command;

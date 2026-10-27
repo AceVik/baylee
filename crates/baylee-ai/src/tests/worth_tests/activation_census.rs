@@ -447,7 +447,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Torment (`tor`) Batch 4 adds 5 non-mana activated abilities on Putrid
     // Imp, Pyromania (2), Skywing Aven, and Stern Judge (4 of 5 read by the
     // evaluator).
-    assert_eq!((read, of), (2900, 3665), "activated/loyalty reader census");
+    // Judgment (`jud`) Batch 1 adds 2 non-mana activated abilities on Balthor
+    // the Defiled and Benevolent Bodyguard (0 of 2 read by the evaluator).
+    assert_eq!((read, of), (2900, 3667), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

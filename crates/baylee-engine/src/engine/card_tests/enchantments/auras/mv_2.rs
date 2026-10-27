@@ -14,6 +14,7 @@ mod blessing;
 mod bravado;
 mod brilliant_halo;
 mod buoyancy;
+mod cagemail;
 mod cho_manno_s_blessing;
 mod cloak_of_confusion;
 mod cloak_of_mists;
