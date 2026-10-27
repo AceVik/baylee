@@ -1,10 +1,12 @@
 """The watchdog must preserve failures and stop orphaned job workers."""
 import json
+import hashlib
 from pathlib import Path
 import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 from run_guard4 import run_job
 
@@ -20,6 +22,23 @@ class GuardContracts(unittest.TestCase):
             status = json.loads((root / "late" / "job.json").read_text())
             self.assertEqual(status["reason"], "deadline")
             self.assertEqual(status["status"], "quarantined")
+
+    def test_input_hashes_stream_without_read_bytes_and_keep_manifest_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            small, large = root / "abc.bin", root / "multi-buffer.bin"
+            small.write_bytes(b"abc")
+            block = bytes(range(256)) * 4096  # Exceeds file_digest's read buffer.
+            large.write_bytes(block)
+            expected = {str(small): "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                        str(large): hashlib.sha256(block).hexdigest()}
+            with patch.object(Path, "read_bytes", side_effect=AssertionError("Whole-file allocation forbidden")):
+                result = run_job(root / "streamed", [sys.executable, "-c", "pass"], 1,
+                                 inputs=[small, str(large)])
+            self.assertEqual(result, 0)
+            manifest = json.loads((root / "streamed/job.json").read_text())
+            self.assertEqual(manifest["inputs"], expected)
+            self.assertEqual(manifest["status"], "complete")
 
     def test_parent_exit_cannot_leave_a_worker_running(self):
         with tempfile.TemporaryDirectory() as tmp:

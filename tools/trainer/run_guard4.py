@@ -46,6 +46,12 @@ def group_pss_bytes(group):
     return total
 
 
+def input_sha256(path):
+    """Hash immutable inputs without allocating their potentially GiB-sized bytes."""
+    with Path(path).open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
 def run_job(directory, command, timeout, memory_gib=48, inputs=()):
     directory = Path(directory).resolve()
     directory.mkdir(parents=True, exist_ok=True)
@@ -70,7 +76,7 @@ def run_job(directory, command, timeout, memory_gib=48, inputs=()):
                  if key in os.environ},
              "executable": str(executable), "executable_sha256": executable_sha256,
              "tracked_diff_sha256": hashlib.sha256(diff).hexdigest(),
-             "inputs": {str(p): hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in inputs},
+             "inputs": {str(p): input_sha256(p) for p in inputs},
              "status": "starting", "started_at_unix": time.time(),
              "timeout_seconds": timeout, "memory_limit_gib": memory_gib}
     atomic_json(manifest, state)
