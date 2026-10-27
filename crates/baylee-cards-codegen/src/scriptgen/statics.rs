@@ -632,20 +632,33 @@ impl Tx<'_> {
             None | Some("True") => {}
             Some(other) => return self.deny(format!("`CantBlockBy.Secondary$ {other}`")),
         }
-        let (Some(attacker), Some(blocker)) = (p.take("ValidAttacker"), p.take("ValidBlocker"))
-        else {
+        let Some(attacker) = p.take("ValidAttacker") else {
             return self.deny("`CantBlockBy` naming no attacker or no blocker".to_string());
         };
+        let blocker = p.take("ValidBlocker");
         let condition = self.condition(&mut p)?;
         if let Some(key) = p.first_key() {
             self.note(format!("unclaimed parameter `CantBlockBy.{key}`"));
             return None;
         }
-        let attackers = self.filter_expr(&attacker)?;
-        let blockers = self.filter_expr(&blocker)?;
-        let name = self.body.filter_static("BLOCKER", &blockers);
+        let (attackers, modifier) = if let Some(blocker) = blocker {
+            let attackers = self.filter_expr(&attacker)?;
+            let blockers = self.filter_expr(&blocker)?;
+            let name = self.body.filter_static("BLOCKER", &blockers);
+            (attackers, format!("Modifier::CantBeBlockedBy(&{name})"))
+        } else {
+            let attackers = if matches!(attacker.as_str(), "Creature.Self" | "Card.Self") {
+                "Filter::This".to_string()
+            } else {
+                self.filter_expr(&attacker)?
+            };
+            (
+                attackers,
+                "Modifier::AddKeyword(KeywordSet::UNBLOCKABLE)".to_string(),
+            )
+        };
         self.body.abilities.push(format!(
-            "static_ability!({attackers}, Modifier::CantBeBlockedBy(&{name}){condition})"
+            "static_ability!({attackers}, {modifier}{condition})"
         ));
         Some(())
     }

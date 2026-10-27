@@ -661,7 +661,7 @@ impl Tx<'_> {
             return None;
         }
         let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
-        if ends.as_deref() != Some("Battlefield") || p.take("Duration").is_some() {
+        if !matches!(ends.as_deref(), None | Some("Battlefield")) || p.take("Duration").is_some() {
             return None;
         }
         p.take("IsCurse");

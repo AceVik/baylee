@@ -576,8 +576,12 @@ impl Tx<'_> {
             let yours = valid
                 .split(',')
                 .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+            let opponents = valid
+                .split(',')
+                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
+                && matches!(bound, Bound::AtMost(0));
             let nobodys = !atoms().any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
-            if !yours && !nobodys {
+            if !yours && !nobodys && !opponents {
                 return self.deny(format!("`IsPresent$ {valid}`, a count of somebody else's"));
             }
             // And a count says nothing about the card that states it.
