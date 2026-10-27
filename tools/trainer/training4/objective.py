@@ -16,8 +16,17 @@ def selection_score(metrics, selection):
     raise ValueError(f"Unknown checkpoint selection: {selection}")
 
 
-def check_resume_objective(saved, selection):
-    if saved.get("training_loss_version", 1) != LOSS_VERSION:
+def check_resume_objective(saved, selection, loss_config=None):
+    from .loss_config import SupervisedLossConfig
+    expected = loss_config or SupervisedLossConfig()
+    recorded = saved.get('supervised_loss_config')
+    if recorded is not None and expected.version == 5 and set(recorded) != set(expected.to_dict()):
+        raise ValueError('Incomplete supervised loss configuration')
+    if recorded is not None and SupervisedLossConfig.from_dict(recorded) != expected:
+        raise ValueError('Resume supervised loss configuration differs')
+    if recorded is None and expected.version != 4:
+        raise ValueError('Explicit supervised loss configuration required for version5')
+    if saved.get("training_loss_version", 1) != expected.version:
         raise ValueError("Resume loss semantics differ; use --init for a new learning experiment")
     if saved.get("checkpoint_selection", "combined") != selection:
         raise ValueError("Resume checkpoint selection differs from the saved scoring protocol")

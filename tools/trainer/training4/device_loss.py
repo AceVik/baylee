@@ -8,7 +8,13 @@ import torch
 import torch.nn.functional as F
 
 
-def compute_device_loss(cand, pair, scalar, value, auxiliary, batch, t, plan):
+def compute_device_loss(cand, pair, scalar, value, auxiliary, batch, t, plan, loss_config=None):
+    if loss_config is not None and loss_config.version == 5:
+        if loss_config.normalization != 'legacy_timestep':
+            raise ValueError('Unroll normalization requires compute_unroll_device_loss')
+        from .loss_v5 import compute_loss_v5
+        sliced={key: tensor[:, t:t+1] for key,tensor in batch.items() if torch.is_tensor(tensor) and tensor.ndim>=2}
+        return compute_loss_v5([(None,cand,pair,scalar,value)],auxiliary[:,None],sliced,[plan],loss_config)
     device = cand.device
     at = lambda key: batch[key][:, t].to(device, non_blocking=True)
     valid = at("step_valid")
@@ -66,7 +72,7 @@ def compute_device_loss(cand, pair, scalar, value, auxiliary, batch, t, plan):
     return total, stats
 
 
-def compute_unroll_device_loss(prepared, aux_all, batch, plans):
+def compute_unroll_device_loss(prepared, aux_all, batch, plans, loss_config=None):
     """Vectorized loss across all U unroll steps for deferred-readout execution.
 
     Computes `value_loss` and `aux_loss` across the full `[B, U]` tensor in a
@@ -74,6 +80,9 @@ def compute_unroll_device_loss(prepared, aux_all, batch, plans):
     for policy heads, avoiding hundreds of tiny per-timestep kernel launches on
     passive observation frames while preserving exact gradients and statistics.
     """
+    if loss_config is not None and loss_config.version == 5:
+        from .loss_v5 import compute_loss_v5
+        return compute_loss_v5(prepared, aux_all, batch, plans, loss_config)
     device = aux_all.device
     unroll = len(plans)
     zero = torch.zeros((), device=device)
