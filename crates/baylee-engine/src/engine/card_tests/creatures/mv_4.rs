@@ -72,6 +72,7 @@ mod carrion_howler;
 mod cat_burglar;
 mod chaos_harlequin;
 mod chaotic_goo;
+mod childhood_horror;
 mod cho_manno_revolutionary;
 mod cinder_elemental;
 mod cinder_giant;

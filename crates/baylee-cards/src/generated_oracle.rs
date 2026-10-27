@@ -15489,7 +15489,10 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Burning Sands
     &["Whenever a creature dies, that creature's controller sacrifices a land of their choice."],
-    &[],
+    // Cabal Inquisitor
+    &[
+        "Threshold — {1}{B}, {T}, Exile two cards from your graveyard: Target player discards a card. Activate only as a sorcery and only if there are seven or more cards in your graveyard.",
+    ],
     // Cabal Patriarch
     &[
         "{2}{B}, Sacrifice a creature: Target creature gets -2/-2 until end of turn.\n{2}{B}, Exile a creature card from your graveyard: Target creature gets -2/-2 until end of turn.",
@@ -15498,14 +15501,26 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{T}: Add {B}. This land deals 1 damage to you.\nThreshold — {B}, {T}, Sacrifice this land: Target creature gets -2/-2 until end of turn. Activate only if there are seven or more cards in your graveyard.",
     ],
-    &[],
-    &[],
-    &[],
+    // Cabal Shrine
+    &[
+        "Whenever a player casts a spell, that player discards X cards, where X is the number of cards in all graveyards with the same name as that spell.",
+    ],
+    // Call of the Herd
+    &[
+        "Create a 3/3 green Elephant creature token.\nFlashback {3}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Cantivore
+    &[
+        "Vigilance\nCantivore's power and toughness are each equal to the number of enchantment cards in all graveyards.",
+    ],
     // Careful Study
     &["Draw two cards, then discard two cards."],
-    &[],
-    &[],
-    &[],
+    // Catalyst Stone
+    &["Flashback costs you pay cost {2} less.\nFlashback costs your opponents pay cost {2} more."],
+    // Caustic Tar
+    &["Enchant land\nEnchanted land has \"{T}: Target player loses 3 life.\""],
+    // Cease-Fire
+    &["Target player can't cast creature spells this turn.\nDraw a card."],
     // Centaur Garden
     &[
         "{T}: Add {G}. This land deals 1 damage to you.\nThreshold — {G}, {T}, Sacrifice this land: Target creature gets +3/+3 until end of turn. Activate only if there are seven or more cards in your graveyard.",
@@ -15522,32 +15537,80 @@ pub static ORACLE: &[&[&str]] = &[
     &["{U}{U}: Tap target creature without flying."],
     // Cephalid Scout
     &["Flying\n{2}{U}, Sacrifice a land: Draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Cephalid Shrine
+    &[
+        "Whenever a player casts a spell, counter that spell unless that player pays {X}, where X is the number of cards in all graveyards with the same name as the spell.",
+    ],
+    // Chainflinger
+    &[
+        "{1}{R}, {T}: This creature deals 1 damage to any target.\nThreshold — {2}{R}, {T}: This creature deals 2 damage to any target. Activate only if there are seven or more cards in your graveyard.",
+    ],
+    // Chamber of Manipulation
+    &[
+        "Enchant land\nEnchanted land has \"{T}, Discard a card: Gain control of target creature until end of turn.\"",
+    ],
+    // Chance Encounter
+    &[
+        "Whenever you win a coin flip, put a luck counter on this enchantment.\nAt the beginning of your upkeep, if this enchantment has ten or more luck counters on it, you win the game.",
+    ],
+    // Charmed Pendant
+    &[
+        "{T}, Mill a card: For each colored mana symbol in the milled card's mana cost, add one mana of that color. (Activate only as an instant. For example, if the card's mana cost is {3}{U}{U}{B}, you add {U}{U}{B}.)",
+    ],
+    // Chatter of the Squirrel
+    &[
+        "Create a 1/1 green Squirrel creature token.\nFlashback {1}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Childhood Horror
+    &[
+        "Flying\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and can't block.",
+    ],
+    // Chlorophant
+    &[
+        "At the beginning of your upkeep, you may put a +1/+1 counter on this creature.\nThreshold — As long as there are seven or more cards in your graveyard, this creature has \"At the beginning of your upkeep, you may put another +1/+1 counter on this creature.\"",
+    ],
+    // Coffin Purge
+    &[
+        "Exile target card from a graveyard.\nFlashback {B} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Cognivore
+    &[
+        "Flying\nCognivore's power and toughness are each equal to the number of instant cards in all graveyards.",
+    ],
     // Concentrate
     &["Draw three cards."],
-    &[],
-    &[],
-    &[],
+    // Confessor
+    &["Whenever a player discards a card, you may gain 1 life."],
+    // Crashing Centaur
+    &[
+        "{G}, Discard a card: This creature gains trample until end of turn.\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and has shroud. (It can't be the target of spells or abilities.)",
+    ],
+    // Crypt Creeper
+    &["Sacrifice this creature: Exile target card from a graveyard."],
     // Crystal Quarry
     &["{T}: Add {C}.\n{5}, {T}: Add {W}{U}{B}{R}{G}."],
-    &[],
-    &[],
+    // Cultural Exchange
+    &[
+        "Choose any number of creatures target player controls. Choose the same number of creatures another target player controls. Those players exchange control of those creatures. (This effect lasts indefinitely.)",
+    ],
+    // Cursed Monstrosity
+    &[
+        "Flying\nWhenever this creature becomes the target of a spell or ability, sacrifice it unless you discard a land card.",
+    ],
     // Darkwater Catacombs
     &["{1}, {T}: Add {U}{B}."],
     // Darkwater Egg
     &["{2}, {T}, Sacrifice this artifact: Add {U}{B}. Draw a card. (Activate only as an instant.)"],
-    &[],
-    &[],
-    &[],
+    // Decaying Soil
+    &[
+        "At the beginning of your upkeep, exile a card from your graveyard.\nThreshold — As long as there are seven or more cards in your graveyard, this enchantment has \"Whenever a nontoken creature is put into your graveyard from the battlefield, you may pay {1}. If you do, return that card to your hand.\"",
+    ],
+    // Decimate
+    &[
+        "Destroy target artifact, target creature, target enchantment, and target land. (You can't cast this spell unless you have legal choices for all its targets.)",
+    ],
+    // Decompose
+    &["Exile up to three target cards from a single graveyard."],
     // Dedicated Martyr
     &["{W}, Sacrifice this creature: You gain 3 life."],
     &[],

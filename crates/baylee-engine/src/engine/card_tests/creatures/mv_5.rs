@@ -43,6 +43,7 @@ mod corrupt_official;
 mod crashing_boars;
 mod crimson_roc;
 mod cromat;
+mod cursed_monstrosity;
 mod dark_maze;
 mod deadly_insect;
 mod deepwood_tantiv;

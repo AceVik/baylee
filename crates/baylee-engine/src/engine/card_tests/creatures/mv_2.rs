@@ -62,6 +62,7 @@ mod collector_ouphe;
 mod consumptive_goo;
 mod coral_fighters;
 mod crimson_acolyte;
+mod crypt_creeper;
 mod crystalline_sliver;
 mod cuombajj_witches;
 mod dakmor_bat;

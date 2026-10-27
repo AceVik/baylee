@@ -2675,12 +2675,16 @@ pub mod cabal_archon;
 pub mod cabal_coffers;
 #[path = "creatures/mv_2/cabal_evangel.rs"]
 pub mod cabal_evangel;
+#[path = "creatures/mv_2/cabal_inquisitor.rs"]
+pub mod cabal_inquisitor;
 #[path = "creatures/mv_6/cabal_patriarch.rs"]
 pub mod cabal_patriarch;
 #[path = "lands/pain/cabal_pit.rs"]
 pub mod cabal_pit;
 #[path = "instants/mv_2/cabal_ritual.rs"]
 pub mod cabal_ritual;
+#[path = "enchantments/mv_3/cabal_shrine.rs"]
+pub mod cabal_shrine;
 #[path = "creatures/mv_3/cabal_slaver.rs"]
 pub mod cabal_slaver;
 #[path = "lands/cabal_stronghold.rs"]
@@ -2719,6 +2723,8 @@ pub mod caldera_kavu;
 pub mod caldera_lake;
 #[path = "sorceries/mv_2/call_of_the_conclave.rs"]
 pub mod call_of_the_conclave;
+#[path = "sorceries/mv_3/call_of_the_herd.rs"]
+pub mod call_of_the_herd;
 #[path = "enchantments/mv_4/call_of_the_wild.rs"]
 pub mod call_of_the_wild;
 #[path = "enchantments/mv_2/call_the_bloodline.rs"]
@@ -2783,6 +2789,8 @@ pub mod canopy_surge;
 pub mod canopy_tactician;
 #[path = "lands/battle/canopy_vista.rs"]
 pub mod canopy_vista;
+#[path = "creatures/mv_3/cantivore.rs"]
+pub mod cantivore;
 #[path = "creatures/mv_4/canyon_drake.rs"]
 pub mod canyon_drake;
 #[path = "creatures/mv_4/canyon_minotaur.rs"]
@@ -2943,6 +2951,8 @@ pub mod catacomb_slug;
 pub mod catalog;
 #[path = "creatures/mv_3/catalyst_elemental.rs"]
 pub mod catalyst_elemental;
+#[path = "artifacts/mv_2/catalyst_stone.rs"]
+pub mod catalyst_stone;
 #[path = "sorceries/mv_6/catastrophe.rs"]
 pub mod catastrophe;
 #[path = "creatures/mv_3/cateran_brute.rs"]
@@ -2987,6 +2997,8 @@ pub mod caustic_crawler;
 pub mod caustic_hound;
 #[path = "sorceries/mv_4/caustic_rain.rs"]
 pub mod caustic_rain;
+#[path = "enchantments/auras/mv_6/caustic_tar.rs"]
+pub mod caustic_tar;
 #[path = "creatures/mv_3/caustic_wasps.rs"]
 pub mod caustic_wasps;
 #[path = "creatures/mv_2/cavalry_drillmaster.rs"]
@@ -3017,6 +3029,8 @@ pub mod cavernous_maw;
 pub mod caverns_of_despair;
 #[path = "lands/pain/caves_of_koilos.rs"]
 pub mod caves_of_koilos;
+#[path = "instants/mv_3/cease_fire.rs"]
+pub mod cease_fire;
 #[path = "creatures/mv_4/celebrity_fencer.rs"]
 pub mod celebrity_fencer;
 #[path = "lands/manlands/celestial_colonnade.rs"]
@@ -3073,6 +3087,8 @@ pub mod cephalid_looter;
 pub mod cephalid_retainer;
 #[path = "creatures/mv_2/cephalid_scout.rs"]
 pub mod cephalid_scout;
+#[path = "enchantments/mv_3/cephalid_shrine.rs"]
+pub mod cephalid_shrine;
 #[path = "creatures/mv_3/ceremonial_guard.rs"]
 pub mod ceremonial_guard;
 #[path = "instants/mv_1/ceremonious_rejection.rs"]
@@ -3101,8 +3117,12 @@ pub mod chain_stasis;
 pub mod chain_to_memory;
 #[path = "creatures/mv_2/chained_brute.rs"]
 pub mod chained_brute;
+#[path = "creatures/mv_4/chainflinger.rs"]
+pub mod chainflinger;
 #[path = "enchantments/mv_2/chains_of_mephistopheles.rs"]
 pub mod chains_of_mephistopheles;
+#[path = "enchantments/auras/mv_4/chamber_of_manipulation.rs"]
+pub mod chamber_of_manipulation;
 #[path = "creatures/mv_3/chambered_nautilus.rs"]
 pub mod chambered_nautilus;
 #[path = "creatures/mv_4/chameleon_spirit.rs"]
@@ -3115,6 +3135,8 @@ pub mod champion_of_the_parish;
 pub mod champion_of_the_perished;
 #[path = "artifacts/equipment/mv_3/champion_s_helm.rs"]
 pub mod champion_s_helm;
+#[path = "enchantments/mv_4/chance_encounter.rs"]
+pub mod chance_encounter;
 #[path = "creatures/mv_5/chandler.rs"]
 pub mod chandler;
 #[path = "creatures/mv_3/chandra_s_emberling.rs"]
@@ -3191,6 +3213,8 @@ pub mod charity_extractor;
 pub mod charm_peddler;
 #[path = "creatures/mv_4/charmed_griffin.rs"]
 pub mod charmed_griffin;
+#[path = "artifacts/mv_4/charmed_pendant.rs"]
+pub mod charmed_pendant;
 #[path = "enchantments/auras/mv_3/charmed_sleep.rs"]
 pub mod charmed_sleep;
 #[path = "creatures/mv_2/charming_prince.rs"]
@@ -3201,6 +3225,8 @@ pub mod charnelhoard_wurm;
 pub mod chase_inspiration;
 #[path = "creatures/mv_5/chasm_drake.rs"]
 pub mod chasm_drake;
+#[path = "sorceries/mv_1/chatter_of_the_squirrel.rs"]
+pub mod chatter_of_the_squirrel;
 #[path = "creatures/mv_2/checkpoint_officer.rs"]
 pub mod checkpoint_officer;
 #[path = "creatures/mv_2/chief_of_the_edge.rs"]
@@ -3217,6 +3243,8 @@ pub mod child_of_gaea;
 pub mod child_of_night;
 #[path = "creatures/mv_1/child_of_thorns.rs"]
 pub mod child_of_thorns;
+#[path = "creatures/mv_4/childhood_horror.rs"]
+pub mod childhood_horror;
 #[path = "enchantments/mv_2/chill.rs"]
 pub mod chill;
 #[path = "creatures/mv_3/chilling_apparition.rs"]
@@ -3235,6 +3263,8 @@ pub mod chimeric_staff;
 pub mod chitinous_cloak;
 #[path = "creatures/mv_4/chitinous_graspling.rs"]
 pub mod chitinous_graspling;
+#[path = "creatures/mv_3/chlorophant.rs"]
+pub mod chlorophant;
 #[path = "creatures/mv_1/cho_arrim_alchemist.rs"]
 pub mod cho_arrim_alchemist;
 #[path = "creatures/mv_6/cho_arrim_bruiser.rs"]
@@ -3559,8 +3589,12 @@ pub mod coercion;
 pub mod coeurl;
 #[path = "creatures/mv_5/coffin_puppets.rs"]
 pub mod coffin_puppets;
+#[path = "instants/mv_1/coffin_purge.rs"]
+pub mod coffin_purge;
 #[path = "creatures/mv_3/coffin_queen.rs"]
 pub mod coffin_queen;
+#[path = "creatures/mv_8/cognivore.rs"]
+pub mod cognivore;
 #[path = "creatures/artifacts/mv_4/cogwork_librarian.rs"]
 pub mod cogwork_librarian;
 #[path = "creatures/artifacts/mv_1/cogwork_wrestler.rs"]
@@ -3697,6 +3731,8 @@ pub mod conduit_of_worlds;
 pub mod conduit_pylons;
 #[path = "sorceries/mv_5/cone_of_flame.rs"]
 pub mod cone_of_flame;
+#[path = "creatures/mv_1/confessor.rs"]
+pub mod confessor;
 #[path = "sorceries/mv_3/confidence_from_strength.rs"]
 pub mod confidence_from_strength;
 #[path = "instants/mv_5/confirm_suspicions.rs"]
@@ -3947,6 +3983,8 @@ pub mod crash_of_rhinos;
 pub mod crash_the_ramparts;
 #[path = "creatures/mv_5/crashing_boars.rs"]
 pub mod crashing_boars;
+#[path = "creatures/mv_6/crashing_centaur.rs"]
+pub mod crashing_centaur;
 #[path = "creatures/mv_6/crater_hellion.rs"]
 pub mod crater_hellion;
 #[path = "sorceries/mv_4/craterize.rs"]
@@ -4093,6 +4131,8 @@ pub mod crux_of_fate;
 pub mod crypt_angel;
 #[path = "creatures/mv_4/crypt_cobra.rs"]
 pub mod crypt_cobra;
+#[path = "creatures/mv_2/crypt_creeper.rs"]
+pub mod crypt_creeper;
 #[path = "lands/tapland/crypt_of_agadeem.rs"]
 pub mod crypt_of_agadeem;
 #[path = "lands/filter/crypt_of_the_eternals.rs"]
@@ -4145,6 +4185,8 @@ pub mod culling_the_weak;
 pub mod cultist_s_staff;
 #[path = "sorceries/mv_3/cultivate.rs"]
 pub mod cultivate;
+#[path = "sorceries/mv_6/cultural_exchange.rs"]
+pub mod cultural_exchange;
 #[path = "artifacts/mv_4/cumber_stone.rs"]
 pub mod cumber_stone;
 #[path = "enchantments/auras/mv_2/cunning.rs"]
@@ -4189,6 +4231,8 @@ pub mod cursed_land;
 pub mod cursed_minotaur;
 #[path = "artifacts/mv_3/cursed_mirror.rs"]
 pub mod cursed_mirror;
+#[path = "creatures/mv_5/cursed_monstrosity.rs"]
+pub mod cursed_monstrosity;
 #[path = "artifacts/mv_4/cursed_rack.rs"]
 pub mod cursed_rack;
 #[path = "artifacts/mv_1/cursed_scroll.rs"]
@@ -4573,10 +4617,16 @@ pub mod deathrite_shaman;
 pub mod debilitating_injury;
 #[path = "instants/mv_3/debt_of_loyalty.rs"]
 pub mod debt_of_loyalty;
+#[path = "enchantments/mv_3/decaying_soil.rs"]
+pub mod decaying_soil;
 #[path = "sorceries/mv_3/deception.rs"]
 pub mod deception;
 #[path = "lands/fetch/deceptive_landscape.rs"]
 pub mod deceptive_landscape;
+#[path = "sorceries/mv_4/decimate.rs"]
+pub mod decimate;
+#[path = "sorceries/mv_2/decompose.rs"]
+pub mod decompose;
 #[path = "enchantments/auras/mv_2/decomposition.rs"]
 pub mod decomposition;
 #[path = "sorceries/mv_3/deconstruct.rs"]

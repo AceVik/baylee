@@ -18,6 +18,7 @@ mod carnage_tyrant;
 mod catacomb_dragon;
 mod cho_arrim_bruiser;
 mod commander_greven_il_vec;
+mod crashing_centaur;
 mod crater_hellion;
 mod craw_wurm;
 mod deathcurse_ogre;
