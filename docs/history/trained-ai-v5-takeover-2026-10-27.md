@@ -127,7 +127,7 @@ four-player Commander, teams, six-player and eight-player tables. Only four
 Commander validation deck lists are available, so larger validation tables
 repeat decks; this is a diversity limitation.
 
-Active experiment: `/home/ace/baylee-data/v5/experiments/fresh-relational-20261027`.
+Completed experiment: `/home/ace/baylee-data/v5/experiments/fresh-relational-20261027`.
 The v5 revision 2 arm has 75.86M parameters and started on the GPU with full
 initial validation. Its frozen Python runtime is revision `bbcc46a75`; the
 CUDA evaluator and replay converter are pinned separately with binary hashes.
@@ -148,12 +148,12 @@ CUDA evaluator and replay converter are pinned separately with binary hashes.
 6. Admit further completed packages while preserving split and catalog
    contracts; seek independent seeds and family holdouts before promotion.
 
-In parallel, eight CPU workers replay the remaining 1,919 complete training
-games into `dataset-followup0001-0015`; the sole capped game is excluded.
-This conversion does not modify the active experiment's admitted dataset.
-Its own completion/failure watcher requests review before the new data can
-enter training. Both watchers check every 30 seconds and identify controllers
-by boot ID and process start time, not PID alone.
+Eight CPU workers replayed the remaining 1,919 complete training games into
+`dataset-followup0001-0015`; the sole capped game was excluded. This conversion
+did not modify the active experiment's admitted dataset. Its separate
+completion/failure watcher requested review before admitting the new data.
+Watchers check every 30 seconds and identify controllers by boot ID and process
+start time, not PID alone.
 
 The follow-up conversion subsequently completed: 1,919 games and 24,990,570
 frames, zero rejected games, unencoded decisions or validation frames. An
@@ -179,8 +179,9 @@ selection preserves the source distribution and excludes the reserved seeds;
 peaked at about 135 MiB PSS and added about 13.1 GiB of caches. Source payloads
 are unchanged hardlinks; selected payload hashes were checked before and after
 publication. Cache identities and sample reads were verified at their final
-paths. The original training source stays separate. No next-stage GPU job has
-started: initialization and objectives depend on the current paired results.
+paths. The original training source stays separate. No next-stage GPU job had
+started at that preparation milestone; initialization and objectives were
+chosen after the paired results below.
 
 At fresh v5 step 1,500, genuine single-choice validation accuracy improved from
 89.94% to 90.66% and choice NLL from 0.25213 to 0.24069. Value MSE worsened from
@@ -197,6 +198,91 @@ Job controllers and completion/failure wakeups continue work without user
 confirmation. Successful jobs are not silently restarted. The original live
 gateway model is unchanged until comparable evidence supports a replacement.
 
+## Completed 6,000-update comparison
+
+Both arms completed 6,000 optimizer updates. The combined validation criterion
+selected v5 step 0 and v4 step 3,000. V5's selected relational output remained
+entirely zero: these game results cannot establish a benefit from learned
+relational reasoning.
+
+| Selected models against Sharp | V5 wins | V4 control wins | Steady house baseline wins |
+|---|---:|---:|---:|
+| Raw duels, 64 paired deals | 15 | 11 | 34 |
+| Tactical duels, same 64 deals | 40 | 36 | 34 |
+| Raw Commander, 32 deals / 8 independent tables | 0 | 1 | 6 |
+
+No games hit decision caps, stalled or refused answers. The raw duel difference
+was +6.25 percentage points for the selected v5 model, with a table-clustered
+bootstrap interval of -4.69 to +17.19 points. Tactical assistance materially
+changes these results; it is not evidence of unaided neural strength. The
+Commander sample is particularly small. No model was promoted.
+
+Both actual final checkpoints improved genuine-choice imitation relative to
+initialization. Final v5 choice NLL/accuracy was 0.24138 / 90.69%, versus
+0.24226 / 90.64% for final control. V5 critic MSE was worse (0.16329 versus
+control 0.15400 and initial 0.14598). The final v5 relational projection has
+102,400 nonzero weights, L2 norm 1.48179; it was trained, but was excluded by
+the combined checkpoint criterion.
+
+The separate `final-checkpoints-20261027` diagnostic exports and evaluates
+the exact final step-6,000 weights against their selected checkpoints and
+each other. Original results remain intact. It reuses the pilot deals and is
+explicitly a post-hoc diagnostic, not independent confirmation.
+
+| Actual step-6,000 models against Sharp | V5 wins | V4 control wins | Steady house baseline wins |
+|---|---:|---:|---:|
+| Raw duels, 64 paired deals | 12 | 14 | 34 |
+| Raw Commander, 32 deals / 8 independent tables | 2 | 1 | 6 |
+
+Neither arm hit decision caps or stalled. The final v5-minus-control difference
+was -3.125 percentage points in duels (table bootstrap interval -10.94 to +4.69)
+and +3.125 points in Commander (-9.375 to +18.75). These small development
+samples establish no architecture gain. Final v5 improved teacher imitation
+while its duel wins fell from 15 to 12; imitation accuracy alone is not a
+playing-strength criterion. Both actual final checkpoints remain the sources
+for the next learning experiment, without promoting either to the live gateway.
+
+Isolated v5 value-head calibration is now implemented with strict v1/v2
+identity preservation and 13 passing CPU tests. It does not alter policy,
+backbone or recurrent weights. Current house-teacher data does not meet its
+stochastic-neural eligibility contract, so no calibration was started.
+
+## Broader supervised continuation
+
+`/home/ace/baylee-data/v5/experiments/broad-bc-20261027` starts from both exact
+step-6,000 checkpoints with fresh optimizers and recurrent lanes. It uses only
+the first prepared follow-up package: 251 games, 2,006,968 frames, 690 seat
+trajectories and 63,056 segments. Enumerating the frozen sampler proves one
+complete epoch is exactly 7,888 updates, with every segment visited once.
+The original 64-game validation stays fixed; the reserved 128 seed-holdout games
+remain excluded. No cross-conversion numeric game IDs are merged.
+
+Train v5 first, then the matched v4 control, B8/U32/K2, seed 31440 and shared
+learning rate 5e-6. V5 relational inner/output parameters use 1e-5 with 100-update
+warmup. Both arms retain the 12-layer, width-640 backbone and full-network
+training. Initial validation, every 2,500 updates and final validation select
+snapshots using the existing weighted policy loss across all supervised heads.
+This is not categorical-choice NLL alone; that unweighted diagnostic and critic
+MSE remain separately reported. A selected step 0 is allowed and would mean
+the inherited checkpoint beat this continuation on the selection criterion.
+
+The six-hour training budget and seven-hour job deadline are safeguards, not
+permission to label a partial epoch complete. Completion requires the exact
+7,888 updates, matching sampler identity, a complete epoch cursor and validation
+at the final step. Selected and final weights are retained. The controller then
+exports all thinking depths with parity checks and runs raw 64-duel/32-Commander
+comparisons against each source checkpoint and the other arm. These repeated
+development deals do not authorize promotion. PPO and critic calibration are
+not part of this run.
+
+The reviewed seal is
+`0b603be5a7cc018ea5df78a0cd691a955ef824d8abc9dbbf069d314f2dd32e8a`;
+`launch.json` records controller PID 431041 and the exact invocation. Exclusive
+start markers reject duplicate starts; the completion/failure watcher continues
+the review workflow. Repository guard input hashing now streams instead of
+allocating whole files, with three focused tests passing. This improvement does
+not mutate the older guard code in the frozen experiment runtime.
+
 ## Remaining priorities
 
 Before treating the system as complete, repair the PlayerView-to-encoder gaps:
@@ -204,8 +290,28 @@ unseen own-deck inventory entities, payable-cast paths, payment-source context,
 and explicit truncation reporting. Add per-head and per-format diagnostics;
 frame-weighted aggregate accuracy can hide attack/block/target failures and
 overweight long multiplayer games. Separate tactical demonstrations from true
-fallback counters. V5 PPO/calibration loaders still need explicit support and
-real stochastic rollout audits. Longer thinking, search, pondering and trained
+fallback counters. V5 PPO and optimizer/package continuation still need explicit
+support; value calibration requires genuine own-policy records and provenance
+audits. Longer thinking, search, pondering and trained
 self-critique require their own evidence; adding relational layers alone does
 not implement them. Experienced-human strength is still an objective, not a
 measured result.
+
+The next encoder priority is concrete: `live4/brain.rs` registers the submitted
+own deck and `features7/inventory.rs::remaining_groups` exposes its remaining
+library/sideboard groups. `features7/state.rs` emits no corresponding entities;
+only aggregate inventory globals reach the model. A new versioned encoder should
+represent the known card identities, structural references and remaining counts
+without library order or opponent-private inventory. Regression tests must
+cover an unseen tutor target, sideboard, observed zone changes, uncertainty and
+entity-budget exhaustion. Current public-object emission silently stops at
+1,024 entities. More imitation data cannot restore exact inventory omitted from
+the inputs, but this audit does not establish the cause of the measured losses.
+
+The action-menu gap is separate: both production inference and conversion use
+`encode_candidates7_grouped`, which intentionally omits `legal.payable`; the
+opt-in announce-before-payment encoder is not wired into those paths. Enabling
+it needs a complete payment/cancellation contract and matching demonstrations,
+not just concatenating new candidates into the archived training ABI. Payment
+globals already contain owed-cost context; they should not be described as
+entirely absent.
