@@ -583,3 +583,25 @@ from 0.6118 to 0.5408. These distinct reductions emphasize different decisions;
 both must be retained. They do not establish a causal explanation or certify
 decoded-action legality. The selected control diagnostic and bounded GPU
 performance screen remain in progress at this entry.
+
+### Mulligan capability and remaining input gap
+
+A follow-up inspection confirms that Encoder7 offers Keep and, when legal,
+Take, and uses the subset head with exact cardinality for MulliganBottom. The
+live seat defaults to Tactical mode, whose view-only mulligan rules may override
+the model; raw evaluation bypasses those rules. These are supported actions,
+not evidence that the learned strategy is strong.
+
+The selected v5 diagnostic agrees with 212 of 258 mulligan labels. Reading the
+validation cache headers found exactly 212 Keep and 46 Take labels: always
+keeping achieves the same aggregate score. This does not prove the model always
+keeps; a prediction confusion matrix is needed. The audit is preserved in
+`/home/ace/baylee-data/v5/advice/mulligan-20261027/inspection.json`.
+
+Encoder7 does not explicitly encode `Pending::Mulligan.taken` or
+`next_is_free`; only the candidate legality reflects `can_take`. The tactical
+helper can read the missing fields directly, while the neural policy must infer
+history/context without an explicit free-mulligan signal. Add these authorized
+inputs to the next versioned encoder with matching data, and evaluate Keep/Take
+separately from bottom-card quality. Existing Encoder7 archives and active
+frozen comparisons remain unchanged.
