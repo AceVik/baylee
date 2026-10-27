@@ -315,3 +315,67 @@ it needs a complete payment/cancellation contract and matching demonstrations,
 not just concatenating new candidates into the archived training ABI. Payment
 globals already contain owed-cost context; they should not be described as
 entirely absent.
+
+## Follow-up advice on learning progress
+
+At the owner's request, Gemini 4 Argon High and Claude Opus 5.5 xhigh reviewed
+the updated results and supplied code excerpts independently. Both calls had
+no external tool capabilities; neither inspected additional repository files
+or changed the active experiment. Each received a corrective follow-up and
+returned a revised recommendation. The four responses and source packet are
+preserved under `/home/ace/baylee-data/v5/advice/training-improvement-20261027`.
+`review-summary.json` records actual model identities and the accepted scope.
+
+Both now prioritize measurement and learning objectives over another increase
+in model size. Argon emphasizes loss normalization, outcome weighting and
+diversity; Opus gives greater priority to a shadow house teacher correcting
+states visited by the neural actor (DAgger). Neither review establishes the
+cause of the weak raw results. The agreed sequence is:
+
+1. Add independent diagnostics by policy head, pending question and format:
+   genuine-choice NLL/accuracy, pass versus active labels, free-entry BCE and
+   exact-set/legality measures for subset and pair heads. Expose truncation,
+   repairs and actual tactical overrides separately. Preserve a common,
+   unweighted evaluation protocol across loss variants. Use available source,
+   selected and final checkpoints; intermediate logged steps are not necessarily
+   retained as separate weights.
+2. Test loss changes individually with the same initialization, data, update
+   budget and evaluation: outcome weights disabled; unroll-wide instead of
+   per-timestep normalization; then isolated changes to critic/auxiliary
+   gradients into the shared representation. Keep these opt-in and versioned;
+   the running frozen loss and sampler remain unchanged. The current categorical
+   weighting cancels for singleton active groups, while BCE denominators have
+   a different clamp, so a universal 4.7-fold effect would be an overstatement.
+3. Control data balance with whole chronological seat trajectories and bounded
+   packages/caches. Do not sample arbitrary mid-game windows with an unrelated
+   recurrent state. Measure decision/loss contributions before treating frame
+   counts as gradient weights.
+4. Build a separate DAgger contract: replay still records the executed neural
+   action; an optional sidecar carries the teacher's unexecuted action tied to
+   game/frame, view, candidate and version identities. The teacher must receive
+   only permitted information and compatible plan/history state. Mapping
+   failures are counted. Start with a supervised policy-only comparison against
+   ordinary teacher data; these labels are not PPO behavior actions. Actual
+   actor outcomes and next observations remain valid for separately scoped
+   value/auxiliary work.
+5. Specify Encoder8 inventory and payment/cancellation coverage alongside this
+   work. Keep Encoder7 archives unchanged. Detailed input completeness is a
+   real requirement, but its contribution to the measured losses is unknown.
+
+A new index-only audit of the 251-game package counted 360,859 decision frames.
+Duels account for 138 games, 13.87% of all frames and 22.67% of decision frames;
+Commander accounts for 46 games, 46.03% of all frames and 44.62% of decisions.
+Two eight-player games account for 11.05% of frames but 5.66% of decisions.
+The remaining games cover teams, Highlander, three-player and six-player.
+These are counts, not measured gradient contributions, and are recorded in
+`package-frame-audit.json` and `package-decision-audit.json`.
+
+The reviews' original stronger statements were corrected: `h.detach()` stops
+backpropagation across an unroll boundary but preserves forward memory; it
+does not erase a payment plan. Critic memorization and policy distribution
+shift remain hypotheses. At broad-BC step 5,000, critic MSE was 0.152554, below
+the 0.156940 uniform baseline and its 0.163289 source value, while choice NLL
+had worsened from the step-2,500 result. No monotonic improvement is established.
+Two seeds are a noise probe, not a significance test; gameplay comparisons with
+uncertainty remain necessary before any promotion, even when offline metrics
+improve. The existing controller retains the GPU and its scheduled comparisons.
