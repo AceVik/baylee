@@ -874,3 +874,54 @@ Compare fixed-final checkpoints against the source on fresh paired duel and
 Commander seeds against Sharp; report per-head active-choice diagnostics
 separately from win differences. Do not select a winner from teacher agreement
 alone or automatically deploy either candidate.
+
+### Corrective cap exclusion and matched BC control
+
+Wake `907332fd75a5319b1da1a931` was reviewed against the stopped corrective
+controller. All 256 collection jobs were recorded; two Commander games reached
+the configured 10,000-decision limit. Both belong to table21, seed500281021,
+rotations86/87. Their source outcome is `answer_cap`, not a draw, and their
+shadow files correctly remain incomplete. The other two rotations of that
+same table ended normally after 8,664/8,623 decisions, at turns179/214.
+Changing actions and public state hashes do not establish a simple idle loop;
+this inspection also does not rule out every possible engine problem.
+
+The original failed result and counters are preserved. Recovery excludes all
+four table21 rotations, including the two completed ones, and retains128duels
+and124Commander games:252 complete games from95tables. This is explicitly a
+training-data selection and can bias coverage away from very long games; it is
+not a revised win-rate estimate. The cap investigation is retained at
+`/home/ace/baylee-data/v5/advice/shadow-caps-20261027/review.json`.
+
+Recovery PID503628 runs at
+`/home/ace/baylee-data/v5/experiments/shadow-corrective-recovery-20261027`, input
+seal `b5adc4fab5ef6f8e3a2d6e5b3d50b4551f1187ec5c80f378f47d5dd2a898a337`.
+Its filtered source indices preserve each selected original line exactly.
+Canonical run and record paths still resolve to the original immutable sources;
+completed shadow labels are identical hardlinks within the new alias directory.
+The separate selection manifest records excluded IDs, seeds and outcomes.
+Six CPU tests pass, and independent preflight verified all252 source bindings.
+Both full replay conversions and their payload comparison are required before
+corrective training admission. No source records or counters were rewritten.
+
+The old-only GPU control started independently as PID506784 while CPU conversion
+continued. Its root is
+`/home/ace/baylee-data/v5/experiments/shadow-mixed-bc-20261027`, with per-arm status
+under `arms/control`; final prelaunch seal is
+`a8f437cd73da0d7b2f33fc99ad89e538b43ba832bbb9df649db95cfd62b4e739`.
+The frozen Python runtime is revision71390ccf5. Source weights, metadata, native
+providers, old training and fixed validation inputs were verified. The model has
+75,862,632 parameters. Five controller tests pass, and the control's full-lane
+prefixes8077/7664 exceed the1500-update budget. It uses unchanged loss4,
+B8/U32/K2, seed31445, and fresh optimizer groups. Initial full CUDA validation has
+started. The augmented arm requires the independently reviewed corrective
+replay, a matching old-data partition and sufficient occupied lanes; neither arm
+is automatically promoted. Separate watchers monitor replay and GPU control.
+
+At the owner's request, integration uses a separate worktree,
+`/home/ace/Projects/baylee-ai-land`, so the frozen experiments keep their original
+workspace inputs. Rebase with merge preservation onto origin/main49c9a4d8f
+retains the training branch's previous resolutions. Compared with the previous
+training tip, only the three incoming runner commits change the resulting tree.
+The full and development-feature gates use a separate local PostgreSQL test
+database and must pass before the fast-forward push to main.
