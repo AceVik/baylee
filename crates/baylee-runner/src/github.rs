@@ -116,27 +116,31 @@ impl<'a> GitHub<'a> {
         let encoded = answer
             .get("encoded_jit_config")
             .and_then(Value::as_str)
-            .context("JIT response has no encoded configuration")?;
+            .filter(|value| !value.is_empty() && !value.chars().any(char::is_whitespace));
+        let Some(encoded) = encoded else {
+            self.remove(id);
+            bail!("JIT response has no valid encoded configuration");
+        };
         Ok(Registration {
             id,
             encoded: encoded.to_owned(),
         })
     }
 
-    /// Whether a registered runner currently has a job. Errors answer false,
-    /// so an idle registration is stopped instead of kept forever.
-    pub fn busy(&mut self, id: u64) -> bool {
+    /// Whether a registered runner currently has a job. Unknown status must not
+    /// abort a potentially busy job; the absolute VM deadline still applies.
+    pub fn busy(&mut self, id: u64) -> Option<bool> {
         let path = format!("repos/{}/actions/runners/{id}", self.repo);
         self.api(&["api", &path])
             .ok()
             .and_then(|answer| answer.get("busy").and_then(Value::as_bool))
-            .unwrap_or(false)
     }
 
     /// Deletes a JIT registration, best effort after job completion.
     pub fn remove(&mut self, id: u64) {
         let path = format!("repos/{}/actions/runners/{id}", self.repo);
-        let _ = self.api(&["api", "-X", "DELETE", &path]);
+        let spec = self.spec(["api", "-X", "DELETE", &path]).for_cleanup();
+        let _ = self.operations.output(spec);
     }
 }
 
@@ -220,47 +224,93 @@ mod tests {
     }
 
     #[test]
+    fn busy_keeps_unknown_distinct_from_idle() {
+        for (reply, expected) in [
+            (output(0, r#"{"busy":true}"#), Some(true)),
+            (output(0, r#"{"busy":false}"#), Some(false)),
+            (output(1, ""), None),
+            (output(0, "{}"), None),
+        ] {
+            let mut operations = MockOperations::default();
+            operations.push_output(
+                Spec::new("gh", ["api", "repos/example/repo/actions/runners/42"])
+                    .with_env("GH_TOKEN", "fixture")
+                    .with_timeout(Duration::from_secs(30)),
+                reply,
+            );
+            assert_eq!(
+                GitHub::new(&mut operations, "example/repo", "fixture").busy(42),
+                expected
+            );
+            operations.assert_done();
+        }
+    }
+
+    #[test]
     fn registration_returns_id_and_opaque_config_without_logging_it() {
-        let mut operations = MockOperations::default();
-        let repo = "AceVik/baylee";
-        let token = "secret-token";
-        let expected = Spec::new(
-            "gh",
-            [
-                "api",
-                "-X",
-                "POST",
-                "repos/AceVik/baylee/actions/runners/generate-jitconfig",
-                "-f",
-                "name=vm-one",
-                "-F",
-                "runner_group_id=1",
-                "-f",
-                "work_folder=_work",
-                "-f",
-                "labels[]=self-hosted",
-                "-f",
-                "labels[]=macOS",
-                "-f",
-                "labels[]=ARM64",
-                "-f",
-                "labels[]=baylee-vm",
-            ],
-        )
-        .with_env("GH_TOKEN", token)
-        .with_timeout(Duration::from_secs(30));
-        operations.push_output(
-            expected,
-            output(
-                0,
-                r#"{"runner":{"id":42},"encoded_jit_config":"opaque-secret"}"#,
-            ),
-        );
-        let registration = GitHub::new(&mut operations, repo, token)
-            .register("vm-one", "baylee-vm")
-            .unwrap();
-        assert_eq!(registration.id, 42);
-        assert_eq!(registration.encoded, "opaque-secret");
-        operations.assert_done();
+        for encoded in ["opaque-secret", "", "line\nbreak"] {
+            let mut operations = MockOperations::default();
+            let repo = "AceVik/baylee";
+            let token = "secret-token";
+            let expected = Spec::new(
+                "gh",
+                [
+                    "api",
+                    "-X",
+                    "POST",
+                    "repos/AceVik/baylee/actions/runners/generate-jitconfig",
+                    "-f",
+                    "name=vm-one",
+                    "-F",
+                    "runner_group_id=1",
+                    "-f",
+                    "work_folder=_work",
+                    "-f",
+                    "labels[]=self-hosted",
+                    "-f",
+                    "labels[]=macOS",
+                    "-f",
+                    "labels[]=ARM64",
+                    "-f",
+                    "labels[]=baylee-vm",
+                ],
+            )
+            .with_env("GH_TOKEN", token)
+            .with_timeout(Duration::from_secs(30));
+            operations.push_output(
+                expected,
+                output(
+                    0,
+                    &json!({"runner": {"id": 42}, "encoded_jit_config": encoded}).to_string(),
+                ),
+            );
+            let valid = encoded == "opaque-secret";
+            if !valid {
+                operations.push_output(
+                    Spec::new(
+                        "gh",
+                        [
+                            "api",
+                            "-X",
+                            "DELETE",
+                            "repos/AceVik/baylee/actions/runners/42",
+                        ],
+                    )
+                    .with_env("GH_TOKEN", token)
+                    .with_timeout(Duration::from_secs(30))
+                    .for_cleanup(),
+                    output(0, ""),
+                );
+            }
+            let result = GitHub::new(&mut operations, repo, token).register("vm-one", "baylee-vm");
+            if valid {
+                let registration = result.unwrap();
+                assert_eq!(registration.id, 42);
+                assert_eq!(registration.encoded, "opaque-secret");
+            } else {
+                assert!(result.is_err());
+            }
+            operations.assert_done();
+        }
     }
 }

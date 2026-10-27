@@ -1,14 +1,13 @@
 //! External processes, their timeouts, and a mockable boundary for tests.
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 use std::fmt;
-use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
-use std::process::{Child, Command, ExitStatus, Output, Stdio};
-use std::sync::mpsc;
-use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::process::{Command, ExitStatus, Output};
+use std::thread;
+use std::time::Duration;
+
+mod real;
 
 const DEFAULT_PATH: &str = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin";
 
@@ -29,6 +28,8 @@ pub struct Spec {
     pub prefix: Option<String>,
     /// Hard deadline for the whole command.
     pub timeout: Duration,
+    /// Cleanup commands must still run after a shutdown request.
+    pub cleanup: bool,
 }
 
 impl Spec {
@@ -46,6 +47,7 @@ impl Spec {
             log: None,
             prefix: None,
             timeout: Duration::from_secs(60),
+            cleanup: false,
         }
     }
 
@@ -84,10 +86,22 @@ impl Spec {
         self
     }
 
+    /// Allows a cleanup command to finish after a shutdown signal.
+    #[must_use]
+    pub const fn for_cleanup(mut self) -> Self {
+        self.cleanup = true;
+        self
+    }
+
     fn command(&self) -> Command {
         let mut command = Command::new(&self.program);
         command.args(&self.args).env("PATH", DEFAULT_PATH);
         command.envs(self.env.iter().map(|(key, value)| (key, value)));
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            command.process_group(0);
+        }
         command
     }
 }
@@ -102,6 +116,7 @@ impl fmt::Debug for Spec {
             .field("log", &self.log)
             .field("prefix", &self.prefix)
             .field("timeout", &self.timeout)
+            .field("cleanup", &self.cleanup)
             .finish_non_exhaustive()
     }
 }
@@ -123,10 +138,21 @@ pub trait Process: Send {
     /// # Errors
     /// Returns an error when termination cannot be requested.
     fn kill(&mut self) -> Result<()>;
+    /// Requests graceful termination of a process group.
+    ///
+    /// # Errors
+    /// Returns an error when termination cannot be requested.
+    fn terminate(&mut self) -> Result<()> {
+        self.kill()
+    }
 }
 
 /// The process boundary used by GitHub, Tart, and the installer.
 pub trait Operations {
+    /// Whether shutdown was requested; mocks may override this.
+    fn cancelled(&self) -> bool {
+        false
+    }
     /// Runs a command to completion and captures both output streams.
     ///
     /// # Errors
@@ -145,161 +171,27 @@ pub trait Operations {
 #[derive(Default)]
 pub struct RealOperations;
 
-struct RealProcess {
-    child: Child,
-    readers: Vec<JoinHandle<()>>,
-}
-
-impl RealProcess {
-    fn join_readers(&mut self) {
-        for reader in self.readers.drain(..) {
-            let _ = reader.join();
-        }
-    }
-}
-
-impl Process for RealProcess {
-    fn try_wait(&mut self) -> Result<Option<ExitStatus>> {
-        let status = self.child.try_wait().context("checking child status")?;
-        if status.is_some() {
-            self.join_readers();
-        }
-        Ok(status)
-    }
-
-    fn wait(&mut self, timeout: Duration) -> Result<ExitStatus> {
-        let started = Instant::now();
-        loop {
-            if let Some(status) = self.try_wait()? {
-                return Ok(status);
-            }
-            if started.elapsed() >= timeout {
-                self.kill()?;
-                let _ = self.child.wait();
-                self.join_readers();
-                bail!("child timed out after {}s", timeout.as_secs());
-            }
-            thread::sleep(Duration::from_millis(50));
-        }
-    }
-
-    fn kill(&mut self) -> Result<()> {
-        self.child.kill().context("killing child")
-    }
-}
-
-impl Drop for RealProcess {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-        self.join_readers();
-    }
-}
-
-fn forward<R: Read + Send + 'static>(reader: R, prefix: String) -> JoinHandle<()> {
-    thread::spawn(move || {
-        for line in BufReader::new(reader).lines().map_while(Result::ok) {
-            println!("{prefix} {line}");
-        }
-    })
-}
-
-fn spawn_real(spec: &Spec) -> Result<Box<dyn Process>> {
-    let mut command = spec.command();
-    command.stdin(if spec.stdin.is_some() {
-        Stdio::piped()
-    } else {
-        Stdio::null()
-    });
-    if let Some(path) = &spec.log {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .with_context(|| format!("creating {}", parent.display()))?;
-        }
-        let out = File::create(path).with_context(|| format!("creating {}", path.display()))?;
-        let err = out.try_clone().context("cloning the log file")?;
-        command.stdout(Stdio::from(out)).stderr(Stdio::from(err));
-    } else if spec.prefix.is_some() {
-        command.stdout(Stdio::piped()).stderr(Stdio::piped());
-    } else {
-        command.stdout(Stdio::null()).stderr(Stdio::null());
-    }
-    let mut child = command
-        .spawn()
-        .with_context(|| format!("spawning {}", spec.program))?;
-    if let Some(bytes) = &spec.stdin {
-        let mut input = child.stdin.take().context("opening child stdin")?;
-        input.write_all(bytes).context("writing child stdin")?;
-        drop(input);
-    }
-    let mut readers = Vec::new();
-    if let Some(prefix) = &spec.prefix {
-        if let Some(stdout) = child.stdout.take() {
-            readers.push(forward(stdout, prefix.clone()));
-        }
-        if let Some(stderr) = child.stderr.take() {
-            readers.push(forward(stderr, prefix.clone()));
-        }
-    }
-    Ok(Box::new(RealProcess { child, readers }))
-}
-
-fn kill_process(id: u32) {
-    let _ = Command::new("/bin/kill").arg(id.to_string()).status();
-}
-
-fn output_with_timeout(spec: &Spec) -> Result<Output> {
-    let mut command = spec.command();
-    command
-        .stdin(if spec.stdin.is_some() {
-            Stdio::piped()
-        } else {
-            Stdio::null()
-        })
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    let mut child = command
-        .spawn()
-        .with_context(|| format!("spawning {}", spec.program))?;
-    if let Some(bytes) = &spec.stdin {
-        let mut input = child.stdin.take().context("opening child stdin")?;
-        input.write_all(bytes).context("writing child stdin")?;
-        drop(input);
-    }
-    let id = child.id();
-    let (sender, receiver) = mpsc::channel();
-    let waiter = thread::spawn(move || {
-        let result = child.wait_with_output();
-        let _ = sender.send(result);
-    });
-    if let Ok(result) = receiver.recv_timeout(spec.timeout) {
-        let output = result.context("reading child output")?;
-        waiter
-            .join()
-            .map_err(|_| anyhow::anyhow!("output thread panicked"))?;
-        Ok(output)
-    } else {
-        kill_process(id);
-        let _ = waiter.join();
-        bail!(
-            "{} timed out after {}s",
-            spec.program,
-            spec.timeout.as_secs()
-        );
-    }
-}
-
 impl Operations for RealOperations {
+    fn cancelled(&self) -> bool {
+        crate::shutdown::requested()
+    }
     fn output(&mut self, spec: Spec) -> Result<Output> {
-        output_with_timeout(&spec)
+        real::output(&spec)
     }
 
     fn spawn(&mut self, spec: Spec) -> Result<Box<dyn Process>> {
-        spawn_real(&spec)
+        real::spawn(&spec).map(|child| Box::new(child) as Box<dyn Process>)
     }
 
     fn sleep(&mut self, duration: Duration) {
-        thread::sleep(duration);
+        let started = std::time::Instant::now();
+        while !self.cancelled() && started.elapsed() < duration {
+            thread::sleep(
+                duration
+                    .saturating_sub(started.elapsed())
+                    .min(Duration::from_millis(100)),
+            );
+        }
     }
 }
 

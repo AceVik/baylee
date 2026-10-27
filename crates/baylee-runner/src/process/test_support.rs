@@ -1,5 +1,6 @@
 //! Fixtures shared by the process and runner tests.
 use super::*;
+use std::fs::File;
 
 /// A real exit status for this platform.
 pub fn status(code: i32) -> ExitStatus {
@@ -80,6 +81,8 @@ pub struct MockOperations {
     processes: std::collections::VecDeque<(Spec, Box<dyn Process>)>,
     /// Delays requested by production logic, with no real sleeping.
     pub sleeps: Vec<Duration>,
+    /// Request cancellation after this many process spawns.
+    pub cancel_after_spawns: Option<usize>,
 }
 
 impl MockOperations {
@@ -104,6 +107,9 @@ impl MockOperations {
 }
 
 impl Operations for MockOperations {
+    fn cancelled(&self) -> bool {
+        self.cancel_after_spawns == Some(0)
+    }
     fn output(&mut self, spec: Spec) -> Result<Output> {
         let (expected, output) = self.outputs.pop_front().expect("unexpected output call");
         assert_eq!(spec, expected);
@@ -119,6 +125,9 @@ impl Operations for MockOperations {
             }
             File::create(path).expect("create mock log");
         }
+        self.cancel_after_spawns = self
+            .cancel_after_spawns
+            .map(|count| count.saturating_sub(1));
         Ok(process)
     }
 

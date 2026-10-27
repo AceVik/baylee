@@ -1299,6 +1299,7 @@ version = "0.1.0-beta.8b"
 dependencies = [
  "anyhow",
  "clap",
+ "ctrlc",
  "serde_json",
  "tempfile",
 ]

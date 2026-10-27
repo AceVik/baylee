@@ -9,7 +9,7 @@ use std::process::ExitStatus;
 use std::time::{Duration, Instant, SystemTime};
 
 const RUNNER_DIR: &str = "/Users/admin/actions-runner";
-const START_SCRIPT: &str = "IFS= read -r ACTIONS_RUNNER_INPUT_JITCONFIG; export ACTIONS_RUNNER_INPUT_JITCONFIG; export PATH=/Users/admin/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin; cd /Users/admin/actions-runner; exec ./run.sh";
+const START_SCRIPT: &str = "set -eu; IFS= read -r ACTIONS_RUNNER_INPUT_JITCONFIG; export ACTIONS_RUNNER_INPUT_JITCONFIG; export PATH=/Users/admin/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin; cd /Users/admin/actions-runner; exec ./run.sh";
 
 struct Vm<'a> {
     name: String,
@@ -68,9 +68,11 @@ impl<'a> Vm<'a> {
     }
 
     fn stop(&mut self) {
-        let _ = self
-            .operations
-            .output(Spec::new("tart", ["stop", &self.name]).with_timeout(Duration::from_secs(30)));
+        let _ = self.operations.output(
+            Spec::new("tart", ["stop", &self.name])
+                .with_timeout(Duration::from_secs(30))
+                .for_cleanup(),
+        );
         if let Some(mut tart) = self.tart.take() {
             let _ = tart.wait(Duration::from_secs(60));
         }
@@ -86,7 +88,9 @@ impl Drop for Vm<'_> {
         self.stop();
         if self.delete_on_drop {
             let _ = self.operations.output(
-                Spec::new("tart", ["delete", &self.name]).with_timeout(Duration::from_secs(60)),
+                Spec::new("tart", ["delete", &self.name])
+                    .with_timeout(Duration::from_secs(60))
+                    .for_cleanup(),
             );
         }
         if let Some(path) = &self.log {
@@ -97,6 +101,9 @@ impl Drop for Vm<'_> {
 
 fn wait_for_agent(vm: &mut Vm<'_>) -> Result<()> {
     for _ in 0..90 {
+        if vm.operations.cancelled() {
+            bail!("runner shutdown requested");
+        }
         if vm
             .operations
             .output(vm.exec(["true"], Duration::from_secs(10)))
@@ -111,6 +118,9 @@ fn wait_for_agent(vm: &mut Vm<'_>) -> Result<()> {
 
 fn wait_for_network(vm: &mut Vm<'_>) -> Result<()> {
     for _ in 0..30 {
+        if vm.operations.cancelled() {
+            bail!("runner shutdown requested");
+        }
         if vm
             .operations
             .output(vm.exec(
@@ -136,7 +146,7 @@ fn wait_for_network(vm: &mut Vm<'_>) -> Result<()> {
 
 fn start_runner_spec(vm: &str, registration: &Registration, settings: &Settings) -> Spec {
     Spec::new("tart", ["exec", "-i", vm, "/bin/sh", "-c", START_SCRIPT])
-        .with_stdin(registration.encoded.as_bytes().to_vec())
+        .with_stdin(format!("{}\n", registration.encoded).into_bytes())
         .with_prefix(format!("{vm}:"))
         .with_timeout(settings.job_cap + Duration::from_secs(60))
 }
@@ -153,6 +163,9 @@ fn run_registered_job(
     let started = Instant::now();
     let mut checked_busy = false;
     let status = loop {
+        if vm.operations.cancelled() {
+            bail!("runner shutdown requested");
+        }
         if checked_busy && started.elapsed() >= settings.job_cap {
             crate::log(format!(
                 "{}: still running after {}s, stopping",
@@ -164,7 +177,7 @@ fn run_registered_job(
         if !checked_busy && started.elapsed() >= settings.idle {
             checked_busy = true;
             let mut github = GitHub::new(vm.operations, &settings.repo, token);
-            if !github.busy(registration.id) {
+            if github.busy(registration.id) == Some(false) {
                 crate::log(format!(
                     "{}: no job after {}s, stopping",
                     vm.name,

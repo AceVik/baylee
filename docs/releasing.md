@@ -260,7 +260,13 @@ Each job runs in a throwaway Tart VM (`crates/baylee-runner`):
   timeout. Giving the lock back after each job, as first written, let a land
   in between the two (22.10.2026), and the second package waited for the
   whole land. Every `tart exec` under the lock is bounded and no job outlives
-  three hours, since a wedged guest's exec never returns.
+  three hours, since a wedged guest's exec never returns. Native process
+  deadlines include stdin delivery and both output streams; timeout/drop
+  kills the owned process group, including descendants holding pipes open.
+  SIGINT/SIGTERM requests orderly VM and registration cleanup before releasing
+  the lock. The LaunchAgent allows 180 seconds for shutdown. A failed GitHub
+  busy-status lookup is unknown, not evidence that a running job is idle;
+  the three-hour absolute limit still applies.
 - **One VM at a time.** macOS allows two per Mac, and `MAX_VMS=2` would build
   both packages at once, but on 22.10.2026 the second of two VMs started
   together got no name resolution and then an exec that never returned, so
@@ -284,6 +290,14 @@ adds rustup and the pinned actions runner, and `cargo run -p baylee-runner --
 install`, which copies the native binary to `~/baylee-ci` and loads the
 LaunchAgent `org.baylee.macos-runner` (log:
 `~/Library/Logs/baylee-macos-runner.log`).
+The installer stages the executable beside its destination and replaces it
+atomically, including when invoked through the already installed binary. It
+creates the log directory and XML-escapes home paths in the LaunchAgent plist.
+The review regression suite uses real local subprocesses for blocked stdin,
+inherited output pipes, TERM-resistant children and orderly signal handling;
+Tart and GitHub lifecycle calls remain mocked. Provisioning and LaunchAgent
+installation need a separate live operational check.
+
 When the pinned actions runner is a month old, `tart delete baylee-runner`,
 raise the pin and `prepare` again: an older runner downloads its update at the
 start of every job.

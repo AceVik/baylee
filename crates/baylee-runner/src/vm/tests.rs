@@ -6,8 +6,7 @@ fn clone_spec(base: &str, name: &str) -> Spec {
 }
 
 fn run_spec(name: &str, log: &Path) -> Spec {
-    Spec::new("tart", ["run", name, "--no-graphics", "--net-softnet"])
-        .with_log(log.to_path_buf())
+    Spec::new("tart", ["run", name, "--no-graphics", "--net-softnet"]).with_log(log.to_path_buf())
 }
 
 fn exec_spec(name: &str, args: &[&str], timeout: Duration) -> Spec {
@@ -55,70 +54,84 @@ fn delete_spec(settings: &Settings, token: &str) -> Spec {
     )
     .with_env("GH_TOKEN", token)
     .with_timeout(Duration::from_secs(30))
+    .for_cleanup()
 }
 
 #[test]
 fn one_job_uses_stdin_and_cleans_vm_and_registration() {
-    let settings = Settings::default();
-    let token = "secret-token";
-    let name = "vm-one";
-    let dir = tempfile::tempdir().unwrap();
-    let log = dir.path().join("vm-one.log");
-    let mut operations = MockOperations::default();
-    operations.push_output(clone_spec(&settings.image, name), output(0, ""));
-    operations.push_process(run_spec(name, &log), Box::new(MockProcess::new(status(0))));
-    operations.push_output(
-        exec_spec(name, &["true"], Duration::from_secs(10)),
-        output(0, ""),
-    );
-    operations.push_output(
-        exec_spec(
-            name,
-            &[
-                "/usr/bin/curl",
-                "-sS",
-                "-m",
-                "3",
-                "-o",
-                "/dev/null",
-                "https://github.com",
-            ],
-            Duration::from_secs(10),
-        ),
-        output(0, ""),
-    );
-    operations.push_output(
-        registration_spec(&settings, name, token),
-        output(
-            0,
-            r#"{"runner":{"id":42},"encoded_jit_config":"opaque-secret"}"#,
-        ),
-    );
-    let registration = Registration {
-        id: 42,
-        encoded: "opaque-secret".to_owned(),
-    };
-    operations.push_process(
-        start_runner_spec(name, &registration, &settings),
-        Box::new(MockProcess::with_steps(status(0), &[false, true])),
-    );
-    operations.push_output(delete_spec(&settings, token), output(0, "{}"));
-    operations.push_output(
-        Spec::new("tart", ["stop", name]).with_timeout(Duration::from_secs(30)),
-        output(0, ""),
-    );
-    operations.push_output(
-        Spec::new("tart", ["delete", name]).with_timeout(Duration::from_secs(60)),
-        output(0, ""),
-    );
-    let result = one_job_named(&settings, &mut operations, name, token, dir.path()).unwrap();
-    assert!(result.success());
-    assert!(!log.exists());
-    operations.assert_done();
-    let spec = start_runner_spec(name, &registration, &settings);
-    assert!(!spec.args.join(" ").contains("opaque-secret"));
-    assert_eq!(spec.stdin.as_deref(), Some(b"opaque-secret".as_slice()));
-    assert!(START_SCRIPT.contains("/Users/admin/.cargo/bin"));
+    for cancel in [false, true] {
+        let settings = Settings::default();
+        let token = "secret-token";
+        let name = "vm-one";
+        let dir = tempfile::tempdir().unwrap();
+        let log = dir.path().join("vm-one.log");
+        let mut operations = MockOperations::default();
+        if cancel {
+            operations.cancel_after_spawns = Some(2);
+        }
+        operations.push_output(clone_spec(&settings.image, name), output(0, ""));
+        operations.push_process(run_spec(name, &log), Box::new(MockProcess::new(status(0))));
+        operations.push_output(
+            exec_spec(name, &["true"], Duration::from_secs(10)),
+            output(0, ""),
+        );
+        operations.push_output(
+            exec_spec(
+                name,
+                &[
+                    "/usr/bin/curl",
+                    "-sS",
+                    "-m",
+                    "3",
+                    "-o",
+                    "/dev/null",
+                    "https://github.com",
+                ],
+                Duration::from_secs(10),
+            ),
+            output(0, ""),
+        );
+        operations.push_output(
+            registration_spec(&settings, name, token),
+            output(
+                0,
+                r#"{"runner":{"id":42},"encoded_jit_config":"opaque-secret"}"#,
+            ),
+        );
+        let registration = Registration {
+            id: 42,
+            encoded: "opaque-secret".to_owned(),
+        };
+        operations.push_process(
+            start_runner_spec(name, &registration, &settings),
+            Box::new(MockProcess::with_steps(status(0), &[false, true])),
+        );
+        operations.push_output(delete_spec(&settings, token), output(0, "{}"));
+        operations.push_output(
+            Spec::new("tart", ["stop", name])
+                .with_timeout(Duration::from_secs(30))
+                .for_cleanup(),
+            output(0, ""),
+        );
+        operations.push_output(
+            Spec::new("tart", ["delete", name])
+                .with_timeout(Duration::from_secs(60))
+                .for_cleanup(),
+            output(0, ""),
+        );
+        let result = one_job_named(&settings, &mut operations, name, token, dir.path());
+        if cancel {
+            assert!(result.unwrap_err().to_string().contains("shutdown"));
+        } else {
+            assert!(result.unwrap().success());
+        }
+        assert!(!log.exists());
+        operations.assert_done();
+        let spec = start_runner_spec(name, &registration, &settings);
+        assert!(!spec.args.join(" ").contains("opaque-secret"));
+        assert_eq!(spec.stdin.as_deref(), Some(b"opaque-secret\n".as_slice()));
+        assert!(START_SCRIPT.contains("/Users/admin/.cargo/bin"));
+    }
 }
 
 #[test]
@@ -153,11 +166,15 @@ fn a_network_failure_still_deletes_the_vm_without_registering() {
         );
     }
     operations.push_output(
-        Spec::new("tart", ["stop", name]).with_timeout(Duration::from_secs(30)),
+        Spec::new("tart", ["stop", name])
+            .with_timeout(Duration::from_secs(30))
+            .for_cleanup(),
         output(0, ""),
     );
     operations.push_output(
-        Spec::new("tart", ["delete", name]).with_timeout(Duration::from_secs(60)),
+        Spec::new("tart", ["delete", name])
+            .with_timeout(Duration::from_secs(60))
+            .for_cleanup(),
         output(0, ""),
     );
     let error = one_job_named(&settings, &mut operations, name, "token", dir.path())
@@ -227,16 +244,22 @@ fn an_idle_registration_is_stopped_and_removed() {
         output(0, r#"{"busy":false}"#),
     );
     operations.push_output(
-        Spec::new("tart", ["stop", name]).with_timeout(Duration::from_secs(30)),
+        Spec::new("tart", ["stop", name])
+            .with_timeout(Duration::from_secs(30))
+            .for_cleanup(),
         output(0, ""),
     );
     operations.push_output(delete_spec(&settings, token), output(0, "{}"));
     operations.push_output(
-        Spec::new("tart", ["stop", name]).with_timeout(Duration::from_secs(30)),
+        Spec::new("tart", ["stop", name])
+            .with_timeout(Duration::from_secs(30))
+            .for_cleanup(),
         output(0, ""),
     );
     operations.push_output(
-        Spec::new("tart", ["delete", name]).with_timeout(Duration::from_secs(60)),
+        Spec::new("tart", ["delete", name])
+            .with_timeout(Duration::from_secs(60))
+            .for_cleanup(),
         output(0, ""),
     );
     let result = one_job_named(&settings, &mut operations, name, token, dir.path()).unwrap();
@@ -387,7 +410,9 @@ fn prepare_builds_the_image_without_a_start_runner_file() {
         output(0, ""),
     );
     operations.push_output(
-        Spec::new("tart", ["stop", name]).with_timeout(Duration::from_secs(30)),
+        Spec::new("tart", ["stop", name])
+            .with_timeout(Duration::from_secs(30))
+            .for_cleanup(),
         output(0, ""),
     );
     prepare(&settings, &mut operations).unwrap();

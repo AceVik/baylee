@@ -4,6 +4,7 @@ mod github;
 mod install;
 pub mod process;
 mod settings;
+mod shutdown;
 mod vm;
 
 use crate::github::GitHub;
@@ -12,7 +13,7 @@ use crate::settings::Settings;
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 /// The command's four modes.
 #[derive(Subcommand)]
@@ -44,6 +45,7 @@ struct Cli {
 /// Returns an error when the requested operation cannot be completed.
 pub fn main_entry() -> Result<()> {
     let cli = Cli::parse();
+    shutdown::install()?;
     let settings = Settings::from_env();
     let mut operations = RealOperations;
     match cli.mode {
@@ -94,6 +96,9 @@ fn serve(settings: &Settings, operations: &mut dyn Operations) -> Result<()> {
         settings.repo, settings.label, settings.image
     ));
     loop {
+        if operations.cancelled() {
+            return Ok(());
+        }
         let queued = GitHub::new(operations, &settings.repo, &token).queued(&settings.label);
         if queued > 0 {
             crate::log("a job is queued; taking the cargo lock");
@@ -111,9 +116,22 @@ fn locked_batch(settings: &Settings, operations: &mut dyn Operations) -> Result<
         .with_env("BAYLEE_SESSION", "macos-runner (CI jobs)")
         .with_prefix("batch:".to_owned())
         // A batch may contain more than one three-hour VM.
-        .with_timeout(Duration::from_hours(24));
-    let timeout = spec.timeout;
-    let status = operations.spawn(spec)?.wait(timeout)?;
+        .with_timeout(Duration::from_hours(24) + Duration::from_secs(180))
+        .for_cleanup();
+    let mut process = operations.spawn(spec)?;
+    let started = Instant::now();
+    let status = loop {
+        if operations.cancelled() || started.elapsed() >= Duration::from_hours(24) {
+            // The lock wrapper and batch share a group. Let the batch remove its
+            // VM and registration before the wrapper releases the Cargo lock.
+            process.terminate()?;
+            break process.wait(Duration::from_secs(180))?;
+        }
+        if let Some(status) = process.try_wait()? {
+            break status;
+        }
+        operations.sleep(Duration::from_millis(100));
+    };
     if !status.success() {
         bail!("Cargo-locked batch failed with {status}");
     }
@@ -121,7 +139,7 @@ fn locked_batch(settings: &Settings, operations: &mut dyn Operations) -> Result<
 }
 
 fn batch(settings: &Settings, operations: &mut dyn Operations) -> Result<()> {
-    let token = match operations.output(
+    let output = operations.output(
         Spec::new(
             "security",
             [
@@ -132,13 +150,12 @@ fn batch(settings: &Settings, operations: &mut dyn Operations) -> Result<()> {
             ],
         )
         .with_timeout(Duration::from_secs(10)),
-    ) {
-        Ok(output) => String::from_utf8(output.stdout)
-            .context("the keychain token is not UTF-8")?
-            .trim()
-            .to_owned(),
-        Err(_) => String::new(),
-    };
+    )?;
+    require_success(&output, "security find-generic-password")?;
+    let token = String::from_utf8(output.stdout)
+        .context("the keychain token is not UTF-8")?
+        .trim()
+        .to_owned();
     if token.is_empty() {
         bail!(
             "no token in the keychain under {}",
@@ -148,6 +165,9 @@ fn batch(settings: &Settings, operations: &mut dyn Operations) -> Result<()> {
     let log_dir = home()?.join("Library/Logs");
     let mut failed_rounds = 0;
     loop {
+        if operations.cancelled() {
+            return Ok(());
+        }
         let queued = GitHub::new(operations, &settings.repo, &token).queued(&settings.label);
         if queued == 0 {
             return Ok(());
@@ -226,6 +246,27 @@ mod tests {
     }
 
     #[test]
+    fn failed_keychain_command_cannot_supply_a_batch_token() {
+        let settings = Settings::default();
+        let mut operations = MockOperations::default();
+        operations.push_output(
+            Spec::new(
+                "security",
+                [
+                    "find-generic-password",
+                    "-s",
+                    &settings.keychain_service,
+                    "-w",
+                ],
+            )
+            .with_timeout(Duration::from_secs(10)),
+            output(1, "not-a-token"),
+        );
+        assert!(batch(&settings, &mut operations).is_err());
+        operations.assert_done();
+    }
+
+    #[test]
     fn an_empty_batch_returns_immediately() {
         let settings = Settings::default();
         let mut operations = MockOperations::default();
@@ -274,7 +315,8 @@ mod tests {
         let spec = Spec::new(&lock, [current, "batch".to_owned()])
             .with_env("BAYLEE_SESSION", "macos-runner (CI jobs)")
             .with_prefix("batch:".to_owned())
-            .with_timeout(Duration::from_hours(24));
+            .with_timeout(Duration::from_hours(24) + Duration::from_secs(180))
+            .for_cleanup();
         for code in [0, 1] {
             let mut operations = MockOperations::default();
             operations.push_process(

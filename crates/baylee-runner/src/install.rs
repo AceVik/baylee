@@ -8,7 +8,12 @@ const PLIST: &str = include_str!("../../../scripts/macos-runner/org.baylee.macos
 const LABEL: &str = "org.baylee.macos-runner";
 
 fn plist_text(home: &Path) -> String {
-    PLIST.replace("@HOME@", &home.to_string_lossy())
+    let home = home
+        .to_string_lossy()
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
+    PLIST.replace("@HOME@", &home)
 }
 
 /// Copies the current native binary and loads the user's `LaunchAgent`.
@@ -21,7 +26,9 @@ pub fn install_agent(
     std::fs::create_dir_all(&directory)
         .with_context(|| format!("creating {}", directory.display()))?;
     let installed = directory.join("baylee-macos-runner");
-    std::fs::copy(current_exe, &installed).with_context(|| {
+    let replacement =
+        tempfile::NamedTempFile::new_in(&directory).context("staging the native runner")?;
+    std::fs::copy(current_exe, replacement.path()).with_context(|| {
         format!(
             "copying {} to {}",
             current_exe.display(),
@@ -31,9 +38,14 @@ pub fn install_agent(
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&installed, std::fs::Permissions::from_mode(0o755))
+        std::fs::set_permissions(replacement.path(), std::fs::Permissions::from_mode(0o755))
             .context("making the runner executable")?;
     }
+
+    replacement
+        .persist(&installed)
+        .context("replacing the installed runner")?;
+    std::fs::create_dir_all(home.join("Library/Logs")).context("creating the log directory")?;
 
     let agents = home.join("Library/LaunchAgents");
     std::fs::create_dir_all(&agents).with_context(|| format!("creating {}", agents.display()))?;
@@ -85,7 +97,21 @@ mod tests {
         operations.assert_done();
 
         let installed = home.path().join("baylee-ci/baylee-macos-runner");
-        assert_eq!(std::fs::read(installed).unwrap(), b"native runner");
+        assert_eq!(std::fs::read(&installed).unwrap(), b"native runner");
+        assert!(home.path().join("Library/Logs").is_dir());
+        // Reinstalling via the installed executable must not truncate its source.
+        operations.push_output(Spec::new("id", ["-u"]), output(0, "501\n"));
+        operations.push_output(
+            Spec::new("launchctl", ["bootout", &domain, &plist]),
+            output(0, ""),
+        );
+        operations.push_output(
+            Spec::new("launchctl", ["bootstrap", &domain, &plist]),
+            output(0, ""),
+        );
+        install_agent(&mut operations, home.path(), &installed).unwrap();
+        assert_eq!(std::fs::read(&installed).unwrap(), b"native runner");
+        operations.assert_done();
         let text = std::fs::read_to_string(
             home.path()
                 .join("Library/LaunchAgents/org.baylee.macos-runner.plist"),
@@ -94,6 +120,12 @@ mod tests {
         assert!(text.contains("/baylee-ci/baylee-macos-runner"));
         assert!(!text.contains("runner.sh"));
         assert!(!text.contains("@HOME@"));
+    }
+
+    #[test]
+    fn plist_escapes_home_for_xml() {
+        let text = plist_text(Path::new("/Users/A&B<C>"));
+        assert!(text.contains("/Users/A&amp;B&lt;C&gt;/baylee-ci"));
     }
 
     #[test]
