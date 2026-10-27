@@ -671,3 +671,55 @@ that these flags remain unchanged across variants. The explicit
 not retroactively change the completed screen or the frozen training runtime.
 The first objective arm completed its initial full validation and reached
 175 optimizer updates with no reported allocator retries or stderr errors.
+
+### Objective fits complete; native evaluator runtime recovery
+
+Wake event `bf9ad9e69dd9d623f4ff1656` reported a failure at
+`eval-source-raw-duels`. The original controller had exited. All four fits had
+already completed 1,500 updates and full 769,611-frame final validation;
+selected steps also happened to be 1,500. Five common diagnostics and five
+79-frame ONNX export checks had completed. No training was lost or repeated.
+An independent audit verified the completion, checkpoint, diagnostic and job
+identities; the separate runtime preflight also rehashed the complete original
+input and produced-artifact seals.
+
+| Fixed-final model | Active teacher-label agreement | Active categorical NLL | Critic MSE |
+| --- | --- | --- | --- |
+| Source | 58.82% | 1.03684 | 0.16058 |
+| Loss4 reference | 59.79% | 1.00807 | 0.15212 |
+| Loss5 legacy bridge | 59.50% | 1.01158 | 0.15234 |
+| Outcome weighting off | 59.72% | 1.00596 | 0.14299 |
+| Unroll per head | 59.96% | 1.00256 | 0.15406 |
+
+All arms improve active-label NLL, while pass-label agreement falls slightly.
+Unroll normalization improves subset free-entry BCE to 0.33402 versus the
+bridge's 0.38260, but its mean per-decision BCE is worse (0.51395 versus
+0.50031). Outcome-off has the lowest observed critic MSE. Target and card
+choice errors remain substantial. These are reused-development-label metrics
+from one training seed, not proof of better play or grounds for promotion.
+The detailed audit is
+`/home/ace/baylee-data/v5/advice/objective-review-20261027/diagnosis-review.json`.
+
+The failure was native runtime packaging: the copied `runtime/bin/eval4`
+looked beside itself for `libonnxruntime_providers_shared.so`, which had not
+been copied. Both required provider libraries were already sealed at the
+original evaluator directory, but `LD_LIBRARY_PATH` alone did not satisfy this
+load. The original executable has the exact frozen SHA-256
+`0938b6179863b77109e5a1262d38be5b0af3954487ad510775cbd7fa1c843388`.
+Running that executable with its existing colocated libraries completed a
+two-deal CUDA preflight in 14.27 seconds. Its loaded model identity and raw
+protocol passed verification, with no caps, stalls or refusals. This confirms
+runtime viability, not playing strength. The original failed directory and
+its status are preserved; recovery uses a separate evaluation-only controller.
+
+The reviewed recovery controller was launched as PID 491128 in
+`/home/ace/baylee-data/v5/experiments/objective-eval-recovery-20261027`.
+Ten focused CPU tests pass. Its 1,576-file input seal has SHA-256
+`90ddf9e9097f0b275de60ece203ac09a6456b66460405544fc4f84f78b43812e`.
+It rechecks the original training completions and all reused artifacts, records
+loaded CUDA provider mappings in its own short preflight, then runs the same
+64 duel and 32 Commander cases for the source and four fixed-final models.
+Eighteen paired reports compare source, loss4 reference and loss5 bridge.
+Completed fits, diagnostics and exports are reused; no new training or automatic
+promotion occurs. `baylee-v5-objective-recovery-watch.timer` reports completion
+or failure to this session. Previously delivered experiment timers were retired.

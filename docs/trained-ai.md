@@ -90,6 +90,15 @@ This avoids repeatedly streaming the same large immutable dataset for each
 job. Receipts are never loaded as trusted persistent caches, and default
 `run_job` behavior remains full hashing. It is not a filesystem lock.
 
+Freeze the complete evaluator runtime, including its provider libraries. The
+current Linux CUDA evaluator loads `libonnxruntime_providers_shared.so` and
+`libonnxruntime_providers_cuda.so` beside the executable; copying only `eval4`
+failed even with the original library directory in `LD_LIBRARY_PATH`. Pin the
+executable and library hashes together, and run a short actual CUDA match
+before a long training/evaluation chain. `eval4 --help` and Python ONNX export
+parity do not exercise that native runtime. Preserve failed jobs and recover
+evaluation in a new directory using the verified completed checkpoints.
+
 `cargo build --release -p baylee-train --features live-seat --bin seat4`
 builds an optional local v4 opponent for the ordinary gateway protocol.
 `seat4 --model /path/to/exported/model --name v4-R02 --acceptance Victory`
