@@ -119,6 +119,7 @@ mod skeletal_wurm;
 mod tidal_force;
 mod tidal_kraken;
 mod tidespout_tyrant;
+mod tunneler_wurm;
 mod utvara_hellkite;
 mod vampiric_dragon;
 mod verdant_force;

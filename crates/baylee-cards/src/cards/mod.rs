@@ -18857,6 +18857,8 @@ pub mod solemn_simulacrum;
 pub mod solfatara;
 #[path = "instants/mv_4/solidarity.rs"]
 pub mod solidarity;
+#[path = "enchantments/mv_3/solitary_confinement.rs"]
+pub mod solitary_confinement;
 #[path = "creatures/artifacts/mv_5/soliton.rs"]
 pub mod soliton;
 #[path = "creatures/mv_5/solitude.rs"]
@@ -18991,8 +18993,12 @@ pub mod soulbound_guardians;
 pub mod soulcage_fiend;
 #[path = "creatures/mv_2/soulcatcher.rs"]
 pub mod soulcatcher;
+#[path = "enchantments/mv_2/soulcatchers_aerie.rs"]
+pub mod soulcatchers_aerie;
 #[path = "creatures/mv_4/souldrinker.rs"]
 pub mod souldrinker;
+#[path = "creatures/mv_5/soulgorger_orgg.rs"]
+pub mod soulgorger_orgg;
 #[path = "creatures/mv_3/soulherder.rs"]
 pub mod soulherder;
 #[path = "creatures/mv_3/soulknife_spy.rs"]
@@ -19113,8 +19119,12 @@ pub mod spell_snip;
 pub mod spellbane_centaur;
 #[path = "artifacts/mv_0/spellbook.rs"]
 pub mod spellbook;
+#[path = "creatures/mv_4/spellgorger_barbarian.rs"]
+pub mod spellgorger_barbarian;
 #[path = "creatures/mv_3/spellgorger_weird.rs"]
 pub mod spellgorger_weird;
+#[path = "instants/mv_6/spelljack.rs"]
+pub mod spelljack;
 #[path = "creatures/mv_3/spellkeeper_weird.rs"]
 pub mod spellkeeper_weird;
 #[path = "creatures/mv_3/spellseeker.rs"]
@@ -19253,6 +19263,8 @@ pub mod spirebluff_canal;
 pub mod spireside_infiltrator;
 #[path = "enchantments/auras/mv_7/spirit_away.rs"]
 pub mod spirit_away;
+#[path = "enchantments/mv_3/spirit_cairn.rs"]
+pub mod spirit_cairn;
 #[path = "creatures/mv_4/spirit_en_kor.rs"]
 pub mod spirit_en_kor;
 #[path = "instants/mv_4/spirit_flare.rs"]
@@ -19391,6 +19403,8 @@ pub mod sprite_dragon;
 pub mod sprout;
 #[path = "creatures/mv_3/spur_grappler.rs"]
 pub mod spur_grappler;
+#[path = "creatures/mv_1/spurnmage_advocate.rs"]
+pub mod spurnmage_advocate;
 #[path = "lands/check/spymaster_s_vault.rs"]
 pub mod spymaster_s_vault;
 #[path = "sorceries/mv_3/squall.rs"]
@@ -19647,6 +19661,8 @@ pub mod stingmoggie;
 pub mod stir_the_grave;
 #[path = "lands/manlands/stirring_wildwood.rs"]
 pub mod stirring_wildwood;
+#[path = "sorceries/mv_2/stitch_together.rs"]
+pub mod stitch_together;
 #[path = "creatures/mv_1/stitcher_s_supplier.rs"]
 pub mod stitcher_s_supplier;
 #[path = "sorceries/mv_3/stock_up.rs"]
@@ -20145,6 +20161,8 @@ pub mod susur_secundi_void_altar;
 pub mod suture_priest;
 #[path = "creatures/mv_2/suture_spirit.rs"]
 pub mod suture_spirit;
+#[path = "creatures/mv_7/sutured_ghoul.rs"]
+pub mod sutured_ghoul;
 #[path = "lands/manlands/svogthos_the_restless_tomb.rs"]
 pub mod svogthos_the_restless_tomb;
 #[path = "creatures/mv_2/svyelunite_priest.rs"]
@@ -20175,6 +20193,8 @@ pub mod swat;
 pub mod sway_of_illusion;
 #[path = "creatures/mv_3/sweettooth_witch.rs"]
 pub mod sweettooth_witch;
+#[path = "sorceries/mv_4/swelter.rs"]
+pub mod swelter;
 #[path = "sorceries/mv_3/sweltering_suns.rs"]
 pub mod sweltering_suns;
 #[path = "instants/mv_1/swift_justice.rs"]
@@ -20193,6 +20213,8 @@ pub mod swiftblade_vindicator;
 pub mod swiftfoot_boots;
 #[path = "lands/gain/swiftwater_cliffs.rs"]
 pub mod swiftwater_cliffs;
+#[path = "sorceries/mv_4/swirling_sandstorm.rs"]
+pub mod swirling_sandstorm;
 #[path = "creatures/artifacts/mv_1/swooping_lookout.rs"]
 pub mod swooping_lookout;
 #[path = "creatures/mv_2/sword_dancer.rs"]
@@ -20529,6 +20551,8 @@ pub mod tel_jilad_lifebreather;
 pub mod tel_jilad_outrider;
 #[path = "instants/mv_2/telekinesis.rs"]
 pub mod telekinesis;
+#[path = "enchantments/mv_5/telekinetic_bonds.rs"]
+pub mod telekinetic_bonds;
 #[path = "creatures/mv_3/telepathic_spies.rs"]
 pub mod telepathic_spies;
 #[path = "enchantments/mv_1/telepathy.rs"]
@@ -20667,6 +20691,8 @@ pub mod territorial_scythecat;
 pub mod terror;
 #[path = "creatures/mv_4/terror_of_the_fairgrounds.rs"]
 pub mod terror_of_the_fairgrounds;
+#[path = "enchantments/mv_4/test_of_endurance.rs"]
+pub mod test_of_endurance;
 #[path = "enchantments/mv_1/testament_of_faith.rs"]
 pub mod testament_of_faith;
 #[path = "creatures/mv_1/tethered_griffin.rs"]
@@ -21373,6 +21399,8 @@ pub mod toxic_deluge;
 pub mod toxic_iguanar;
 #[path = "creatures/mv_2/toxic_scorpion.rs"]
 pub mod toxic_scorpion;
+#[path = "instants/mv_2/toxic_stench.rs"]
+pub mod toxic_stench;
 #[path = "instants/mv_1/toxin_analysis.rs"]
 pub mod toxin_analysis;
 #[path = "creatures/artifacts/mv_2/toymaker.rs"]
@@ -21407,6 +21435,8 @@ pub mod trained_condor;
 pub mod trained_jackal;
 #[path = "creatures/mv_7/trained_orgg.rs"]
 pub mod trained_orgg;
+#[path = "creatures/mv_2/trained_pronghorn.rs"]
+pub mod trained_pronghorn;
 #[path = "lands/crowd/training_center.rs"]
 pub mod training_center;
 #[path = "lands/restricted/training_compound.rs"]
@@ -21463,6 +21493,10 @@ pub mod traveling_philosopher;
 pub mod traveling_plague;
 #[path = "enchantments/auras/mv_2/treacherous_link.rs"]
 pub mod treacherous_link;
+#[path = "creatures/mv_5/treacherous_vampire.rs"]
+pub mod treacherous_vampire;
+#[path = "creatures/mv_3/treacherous_werewolf.rs"]
+pub mod treacherous_werewolf;
 #[path = "enchantments/auras/mv_5/treachery.rs"]
 pub mod treachery;
 #[path = "instants/mv_2/tread_upon.rs"]
@@ -21643,6 +21677,8 @@ pub mod tundra_wolves;
 pub mod tunnel;
 #[path = "creatures/mv_3/tunnel_surveyor.rs"]
 pub mod tunnel_surveyor;
+#[path = "creatures/mv_8/tunneler_wurm.rs"]
+pub mod tunneler_wurm;
 #[path = "creatures/mv_3/tunneling_geopede.rs"]
 pub mod tunneling_geopede;
 #[path = "creatures/mv_5/tura_kennerud_skyknight.rs"]
@@ -22087,6 +22123,8 @@ pub mod valkyrior_skyrider;
 pub mod valley_dasher;
 #[path = "creatures/mv_1/valley_mightcaller.rs"]
 pub mod valley_mightcaller;
+#[path = "creatures/mv_4/valor.rs"]
+pub mod valor;
 #[path = "creatures/mv_3/valor_singer.rs"]
 pub mod valor_singer;
 #[path = "instants/mv_2/valorous_stance.rs"]
@@ -22265,6 +22303,8 @@ pub mod venomous_dragonfly;
 pub mod venomous_fangs;
 #[path = "creatures/mv_4/venomous_hierophant.rs"]
 pub mod venomous_hierophant;
+#[path = "sorceries/mv_4/venomous_vines.rs"]
+pub mod venomous_vines;
 #[path = "creatures/mv_3/venomthrope.rs"]
 pub mod venomthrope;
 #[path = "creatures/artifacts/mv_5/venser_s_sliver.rs"]
@@ -22421,6 +22461,8 @@ pub mod vigilant_baloth;
 pub mod vigilant_drake;
 #[path = "creatures/mv_1/vigilant_martyr.rs"]
 pub mod vigilant_martyr;
+#[path = "creatures/mv_3/vigilant_sentry.rs"]
+pub mod vigilant_sentry;
 #[path = "enchantments/mv_4/vigilante_justice.rs"]
 pub mod vigilante_justice;
 #[path = "instants/mv_1/vigorous_charge.rs"]
@@ -23489,6 +23531,8 @@ pub mod wolfsbane_highland_hero;
 pub mod wolfwillow_haven;
 #[path = "creatures/mv_4/wolverine_pack.rs"]
 pub mod wolverine_pack;
+#[path = "creatures/mv_4/wonder.rs"]
+pub mod wonder;
 #[path = "creatures/mv_4/wood_elemental.rs"]
 pub mod wood_elemental;
 #[path = "creatures/mv_3/wood_elves.rs"]
@@ -23555,12 +23599,26 @@ pub mod workhorse;
 pub mod world_map;
 #[path = "creatures/mv_4/world_shaper.rs"]
 pub mod world_shaper;
+#[path = "creatures/mv_6/worldgorger_dragon.rs"]
+pub mod worldgorger_dragon;
 #[path = "instants/mv_2/worldly_counsel.rs"]
 pub mod worldly_counsel;
 #[path = "instants/mv_1/worldly_tutor.rs"]
 pub mod worldly_tutor;
 #[path = "artifacts/equipment/mv_5/worldslayer.rs"]
 pub mod worldslayer;
+#[path = "creatures/mv_5/wormfang_behemoth.rs"]
+pub mod wormfang_behemoth;
+#[path = "creatures/mv_4/wormfang_crab.rs"]
+pub mod wormfang_crab;
+#[path = "creatures/mv_3/wormfang_drake.rs"]
+pub mod wormfang_drake;
+#[path = "creatures/mv_7/wormfang_manta.rs"]
+pub mod wormfang_manta;
+#[path = "creatures/mv_2/wormfang_newt.rs"]
+pub mod wormfang_newt;
+#[path = "creatures/mv_3/wormfang_turtle.rs"]
+pub mod wormfang_turtle;
 #[path = "creatures/mv_5/wormhole_serpent.rs"]
 pub mod wormhole_serpent;
 #[path = "enchantments/mv_5/worms_of_the_earth.rs"]

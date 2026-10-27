@@ -362,7 +362,7 @@ impl Tx<'_> {
                         format!(", targets = Some(TargetReq::up_to({t}, {max}))")
                     }
                 } else if let Some(n) = target_exact {
-                    format!(", targets = Some(TargetReq::exact({t}, {n}))")
+                    format!(", targets = Some(TargetReq::exactly({t}, {n}))")
                 } else {
                     let req_fn = if target_is_x { "x_targets" } else { "one" };
                     format!(", targets = Some(TargetReq::{req_fn}({t}))")

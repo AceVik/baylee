@@ -17274,53 +17274,130 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying\nThreshold — Other creatures you control get +2/+2 as long as there are seven or more cards in your graveyard.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Solitary Confinement
+    &[
+        "At the beginning of your upkeep, sacrifice this enchantment unless you discard a card.\nSkip your draw step.\nYou have shroud. (You can't be the target of spells or abilities.)\nPrevent all damage that would be dealt to you.",
+    ],
+    // Soulcatchers' Aerie
+    &[
+        "Whenever a Bird is put into your graveyard from the battlefield, put a feather counter on this enchantment.\nBird creatures get +1/+1 for each feather counter on this enchantment.",
+    ],
+    // Soulgorger Orgg
+    &[
+        "Trample\nWhen this creature enters, you lose all but 1 life.\nWhen this creature leaves the battlefield, you gain life equal to the life you lost when it entered.",
+    ],
+    // Spellgorger Barbarian
+    &[
+        "When this creature enters, discard a card at random.\nWhen this creature leaves the battlefield, draw a card.",
+    ],
+    // Spelljack
+    &[
+        "Counter target spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard. You may play it without paying its mana cost for as long as it remains exiled. (If it has X in its mana cost, X is 0.)",
+    ],
+    // Spirit Cairn
+    &[
+        "Whenever a player discards a card, you may pay {W}. If you do, create a 1/1 white Spirit creature token with flying.",
+    ],
+    // Spurnmage Advocate
+    &[
+        "{T}: Return two target cards from an opponent's graveyard to their hand. Destroy target attacking creature.",
+    ],
+    // Stitch Together
+    &[
+        "Return target creature card from your graveyard to your hand.\nThreshold — Return that card from your graveyard to the battlefield instead if there are seven or more cards in your graveyard.",
+    ],
     // Sudden Strength
     &["Target creature gets +3/+3 until end of turn.\nDraw a card."],
     // Suntail Hawk
     &["Flying"],
-    &[],
-    &[],
-    &[],
+    // Sutured Ghoul
+    &[
+        "Trample\nAs this creature enters, exile any number of creature cards from your graveyard.\nSutured Ghoul's power is equal to the total power of the exiled cards and its toughness is equal to their total toughness.",
+    ],
+    // Swelter
+    &["Swelter deals 2 damage to each of two target creatures."],
+    // Swirling Sandstorm
+    &[
+        "Threshold — Swirling Sandstorm deals 5 damage to each creature without flying if there are seven or more cards in your graveyard.",
+    ],
     // Sylvan Safekeeper
     &[
         "Sacrifice a land: Target creature you control gains shroud until end of turn. (It can't be the target of spells or abilities.)",
     ],
-    &[],
-    &[],
+    // Telekinetic Bonds
+    &[
+        "Whenever a player discards a card, you may pay {1}{U}. If you do, you may tap or untap target permanent.",
+    ],
+    // Test of Endurance
+    &["At the beginning of your upkeep, if you have 50 or more life, you win the game."],
     // Thriss, Nantuko Primus
     &["{G}, {T}: Target creature gets +5/+5 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Toxic Stench
+    &[
+        "Target nonblack creature gets -1/-1 until end of turn.\nThreshold — If there are seven or more cards in your graveyard, instead destroy that creature. It can't be regenerated.",
+    ],
+    // Trained Pronghorn
+    &["Discard a card: Prevent all damage that would be dealt to this creature this turn."],
+    // Treacherous Vampire
+    &[
+        "Flying\nWhenever this creature attacks or blocks, sacrifice it unless you exile a card from your graveyard.\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and has \"When this creature dies, you lose 6 life.\"",
+    ],
+    // Treacherous Werewolf
+    &[
+        "Threshold — As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and has \"When this creature dies, you lose 4 life.\"",
+    ],
+    // Tunneler Wurm
+    &["Discard a card: Regenerate this creature."],
     // Unquestioned Authority
     &[
         "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature has protection from creatures.",
     ],
-    &[],
-    &[],
-    &[],
+    // Valor
+    &[
+        "First strike\nAs long as this card is in your graveyard and you control a Plains, creatures you control have first strike.",
+    ],
+    // Venomous Vines
+    &["Destroy target enchanted permanent."],
+    // Vigilant Sentry
+    &[
+        "Threshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has \"{T}: Target attacking or blocking creature gets +3/+3 until end of turn.\"",
+    ],
     // Web of Inertia
     &[
         "At the beginning of combat on each opponent's turn, that player may exile a card from their graveyard. If the player doesn't, creatures they control can't attack you this turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Wonder
+    &[
+        "Flying\nAs long as this card is in your graveyard and you control an Island, creatures you control have flying.",
+    ],
+    // Worldgorger Dragon
+    &[
+        "Flying, trample\nWhen this creature enters, exile all other permanents you control.\nWhen this creature leaves the battlefield, return the exiled cards to the battlefield under their owners' control.",
+    ],
+    // Wormfang Behemoth
+    &[
+        "When this creature enters, exile all cards from your hand.\nWhen this creature leaves the battlefield, return the exiled cards to their owner's hand.",
+    ],
+    // Wormfang Crab
+    &[
+        "This creature can't be blocked.\nWhen this creature enters, an opponent chooses a permanent you control other than this creature and exiles it.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
+    ],
+    // Wormfang Drake
+    &[
+        "Flying\nWhen this creature enters, sacrifice it unless you exile a creature you control other than this creature.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
+    ],
+    // Wormfang Manta
+    &[
+        "Flying\nWhen this creature enters, you skip your next turn.\nWhen this creature leaves the battlefield, you take an extra turn after this one.",
+    ],
+    // Wormfang Newt
+    &[
+        "When this creature enters, exile a land you control.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
+    ],
+    // Wormfang Turtle
+    &[
+        "When this creature enters, exile a land you control.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
+    ],
     &[],
     &[],
     &[],

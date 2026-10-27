@@ -896,10 +896,9 @@ pub(super) fn recipients(
         // whichever half it landed in is dealt to.
         TargetSpec::OpponentOrObject(_) | TargetSpec::PlayerOrObject(_) => res
             .targets
-            .first()
+            .iter()
             .copied()
             .map(DamageTarget::Object)
-            .into_iter()
             .chain(players(res.target_players))
             .collect(),
         // Only ever a second instance of "target": the damage goes to what
@@ -933,7 +932,7 @@ pub(super) fn recipients(
             .into_iter()
             .collect(),
         // Everything else names an object, and the damage goes to
-        // the one that was chosen. Spelled out rather than left to
+        // the one(s) that were chosen. Spelled out rather than left to
         // a `_` arm: a new player-flavoured `TargetSpec` would land
         // in a catch-all silently and be dealt to as an object.
         TargetSpec::Object(_)
@@ -949,10 +948,9 @@ pub(super) fn recipients(
         | TargetSpec::AbilityOnStack(_)
         | TargetSpec::SpellOrAbility(_) => res
             .targets
-            .first()
+            .iter()
             .copied()
             .map(DamageTarget::Object)
-            .into_iter()
             .collect(),
         // "That creature": chosen when the ability's own target requirement
         // says `EventObject` (Caltrops), and otherwise the object the trigger

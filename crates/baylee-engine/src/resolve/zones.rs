@@ -365,6 +365,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 let Some(owner) = state.object(id).map(|o| o.owner) else {
                     continue;
                 };
+                if let Some(obj) = state.object_mut(id) {
+                    obj.kind = ObjectKind::Card;
+                    obj.riders.push(crate::object::Rider::Linked {
+                        host: res.source,
+                        until: None,
+                    });
+                }
                 let _ = state.move_object(
                     id,
                     ZoneLocation::Exile(owner),

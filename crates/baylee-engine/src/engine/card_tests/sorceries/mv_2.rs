@@ -55,6 +55,7 @@ mod sign_in_blood;
 mod sinkhole;
 mod song_of_blood;
 mod soul_exchange;
+mod stitch_together;
 mod stump_stomp;
 mod summer_bloom;
 mod sylvan_scrying;

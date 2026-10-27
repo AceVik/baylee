@@ -82,6 +82,7 @@ mod serra_s_blessing;
 mod shivan_harvest;
 mod smoke;
 mod song_of_serenity;
+mod soulcatchers_aerie;
 mod stasis;
 mod steely_resolve;
 mod sterling_grove;

@@ -495,5 +495,6 @@ mod vizzerdrix;
 mod whiptail_wurm;
 mod windbrisk_raptor;
 mod windreader_sphinx;
+mod wormfang_manta;
 mod yoked_plowbeast;
 mod zhou_yu_chief_commander;

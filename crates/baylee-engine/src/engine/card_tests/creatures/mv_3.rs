@@ -434,6 +434,7 @@ mod viashino_grappler;
 mod viashino_heretic;
 mod viashino_outrider;
 mod vicious_kavu;
+mod vigilant_sentry;
 mod viridian_shaman;
 mod vodalian_illusionist;
 mod vodalian_war_machine;

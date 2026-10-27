@@ -11825,3 +11825,32 @@ Serene Sunset
 Shaman's Trance
 Shieldmage Advocate
 Silver Seraph
+Solitary Confinement
+Soulcatchers' Aerie
+Soulgorger Orgg
+Spellgorger Barbarian
+Spelljack
+Spirit Cairn
+Spurnmage Advocate
+Stitch Together
+Sutured Ghoul
+Swelter
+Swirling Sandstorm
+Telekinetic Bonds
+Test of Endurance
+Toxic Stench
+Trained Pronghorn
+Treacherous Vampire
+Treacherous Werewolf
+Tunneler Wurm
+Valor
+Venomous Vines
+Vigilant Sentry
+Wonder
+Worldgorger Dragon
+Wormfang Behemoth
+Wormfang Crab
+Wormfang Drake
+Wormfang Manta
+Wormfang Newt
+Wormfang Turtle

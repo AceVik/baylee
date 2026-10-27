@@ -104,6 +104,7 @@ mod volcanic_dragon;
 mod warrior_angel;
 mod wiitigo;
 mod witch_engine;
+mod worldgorger_dragon;
 mod yavimaya_wurm;
 mod yawgmoth_demon;
 mod zephid;

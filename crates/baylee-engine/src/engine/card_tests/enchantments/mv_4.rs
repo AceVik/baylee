@@ -206,6 +206,7 @@ mod stimulus_package;
 mod storm_the_vault;
 mod strands_of_night;
 mod tainted_aether;
+mod test_of_endurance;
 mod the_abyss;
 mod tooth_and_claw;
 mod total_war;
