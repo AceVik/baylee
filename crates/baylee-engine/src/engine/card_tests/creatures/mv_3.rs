@@ -272,6 +272,7 @@ mod pallimud;
 mod peacekeeper;
 mod pearled_unicorn;
 mod pegasus_charger;
+mod penumbra_bobcat;
 mod pestilence_rats;
 mod phyrexian_broodlings;
 mod phyrexian_driver;

@@ -25,6 +25,7 @@ mod makindi_stampede;
 mod mana_geyser;
 mod natural_spring;
 mod overrun;
+mod planar_despair;
 mod reign_of_terror;
 mod rhystic_syphon;
 mod sever_soul;

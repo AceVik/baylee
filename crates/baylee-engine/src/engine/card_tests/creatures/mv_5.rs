@@ -127,6 +127,7 @@ mod ojer_kaslem_deepest_growth;
 mod orcish_squatters;
 mod ore_gorger;
 mod orgg;
+mod penumbra_kavu;
 mod peregrine_drake;
 mod phyrexian_bloodstock;
 mod phyrexian_delver;

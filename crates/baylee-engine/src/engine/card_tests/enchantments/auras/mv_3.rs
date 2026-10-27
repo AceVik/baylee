@@ -42,6 +42,7 @@ mod scavenged_weaponry;
 mod shackles;
 mod sleeper_s_guile;
 mod slow_motion;
+mod soul_link;
 mod spectral_shield;
 mod strength_of_the_harvest;
 mod tiger_claws;

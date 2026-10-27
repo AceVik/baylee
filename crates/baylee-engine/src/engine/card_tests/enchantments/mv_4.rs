@@ -180,6 +180,7 @@ mod pegasus_refuge;
 mod pendrell_mists;
 mod pestilence;
 mod pillar_tombs_of_aku;
+mod powerstone_minefield;
 mod pride_of_the_perfect;
 mod primal_order;
 mod pursuit_of_knowledge;

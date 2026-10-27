@@ -444,6 +444,7 @@ mod omnath_locus_of_rage;
 mod oyobi_who_split_the_heavens;
 mod palinchron;
 mod pelakka_wurm;
+mod penumbra_wurm;
 mod pit_spawn;
 mod plated_crusher;
 mod plated_slagwurm;

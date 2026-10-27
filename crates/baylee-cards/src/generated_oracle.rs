@@ -15168,57 +15168,120 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "At the beginning of your upkeep, if you control a green or white permanent, target player loses 1 life. If you control a green permanent and a white permanent, that player loses 3 life instead.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Necravolver
+    &[
+        "Kicker {1}{G} and/or {W} (You may pay an additional {1}{G} and/or {W} as you cast this spell.)\nIf this creature was kicked with its {1}{G} kicker, it enters with two +1/+1 counters on it and with trample.\nIf this creature was kicked with its {W} kicker, it enters with a +1/+1 counter on it and with \"Whenever this creature deals damage, you gain that much life.\"",
+    ],
+    // Night
+    &[
+        "Target creature gets -1/-1 until end of turn.",
+        "Creatures target player controls get +1/+1 until end of turn.",
+    ],
+    // Order
+    &[
+        "Exile target attacking creature.",
+        "Creatures can't block this turn.",
+    ],
+    // Orim's Thunder
+    &[
+        "Kicker {R} (You may pay an additional {R} as you cast this spell.)\nDestroy target artifact or enchantment. If this spell was kicked, it deals damage equal to that permanent's mana value to target creature.",
+    ],
     // Overgrown Estate
     &["Sacrifice a land: You gain 3 life."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Penumbra Bobcat
+    &["When this creature dies, create a 2/1 black Cat creature token."],
+    // Penumbra Kavu
+    &["When this creature dies, create a 3/3 black Kavu creature token."],
+    // Penumbra Wurm
+    &["Trample\nWhen this creature dies, create a 6/6 black Wurm creature token with trample."],
+    // Pernicious Deed
+    &[
+        "{X}, Sacrifice this enchantment: Destroy each artifact, creature, and enchantment with mana value X or less.",
+    ],
     // Phyrexian Arena
     &["At the beginning of your upkeep, you draw a card and lose 1 life."],
     // Phyrexian Gargantua
     &["When this creature enters, you draw two cards and you lose 2 life."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Planar Despair
+    &[
+        "Domain — All creatures get -1/-1 until end of turn for each basic land type among lands you control.",
+    ],
+    // Powerstone Minefield
+    &["Whenever a creature attacks or blocks, this enchantment deals 2 damage to it."],
+    // Prophetic Bolt
+    &[
+        "Prophetic Bolt deals 4 damage to any target. Look at the top four cards of your library. Put one of those cards into your hand and the rest on the bottom of your library in any order.",
+    ],
+    // Putrid Warrior
+    &[
+        "Whenever this creature deals damage, choose one —\n• Each player loses 1 life.\n• Each player gains 1 life.",
+    ],
     // Quagmire Druid
     &["{G}, {T}, Sacrifice a creature: Destroy target enchantment."],
-    &[],
+    // Quicksilver Dagger
+    &[
+        "Enchant creature\nEnchanted creature has \"{T}: This creature deals 1 damage to target player or planeswalker. You draw a card.\"",
+    ],
     // Raka Disciple
     &[
         "{W}, {T}: Prevent the next 1 damage that would be dealt to any target this turn.\n{U}, {T}: Target creature gains flying until end of turn.",
     ],
-    &[],
-    &[],
+    // Raka Sanctuary
+    &[
+        "At the beginning of your upkeep, if you control a white or blue permanent, this enchantment deals 1 damage to target creature. If you control a white permanent and a blue permanent, this enchantment deals 3 damage instead.",
+    ],
+    // Rakavolver
+    &[
+        "Kicker {1}{W} and/or {U} (You may pay an additional {1}{W} and/or {U} as you cast this spell.)\nIf this creature was kicked with its {1}{W} kicker, it enters with two +1/+1 counters on it and with \"Whenever this creature deals damage, you gain that much life.\"\nIf this creature was kicked with its {U} kicker, it enters with a +1/+1 counter on it and with flying.",
+    ],
     // Razorfin Hunter
     &["{T}: This creature deals 1 damage to any target."],
-    &[],
+    // Reef Shaman
+    &["{T}: Target land becomes the basic land type of your choice until end of turn."],
     // Savage Gorilla
     &[
         "{U}{B}, {T}, Sacrifice this creature: Target creature gets -3/-3 until end of turn. Draw a card.",
     ],
     // Shield of Duty and Reason
     &["Enchant creature\nEnchanted creature has protection from green and from blue."],
-    &[],
+    // Shimmering Mirage
+    &["Target land becomes the basic land type of your choice until end of turn.\nDraw a card."],
     // Shivan Reef
     &["{T}: Add {C}.\n{T}: Add {U} or {R}. This land deals 1 damage to you."],
     // Smash
     &["Destroy target artifact.\nDraw a card."],
-    &[],
+    // Soul Link
+    &[
+        "Enchant creature\nWhenever enchanted creature deals damage, you gain that much life.\nWhenever enchanted creature is dealt damage, you gain that much life.",
+    ],
     // Spectral Lynx
     &["Protection from green\n{B}: Regenerate this creature."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Spiritmonger
+    &[
+        "Whenever this creature deals damage to a creature, put a +1/+1 counter on this creature.\n{B}: Regenerate this creature.\n{G}: This creature becomes the color of your choice until end of turn.",
+    ],
+    // Squee's Embrace
+    &[
+        "Enchant creature\nEnchanted creature gets +2/+2.\nWhen enchanted creature dies, return that card to its owner's hand.",
+    ],
+    // Squee's Revenge
+    &[
+        "Choose a number. Flip a coin that many times or until you lose a flip, whichever comes first. If you win all the flips, draw two cards for each flip.",
+    ],
+    // Standard Bearer
+    &[
+        "While an opponent is choosing targets as part of casting a spell they control or activating an ability they control, that player must choose at least one Flagbearer on the battlefield if able.",
+    ],
+    // Strength of Night
+    &[
+        "Kicker {B} (You may pay an additional {B} as you cast this spell.)\nCreatures you control get +1/+1 until end of turn. If this spell was kicked, Zombie creatures you control get an additional +2/+2 until end of turn.",
+    ],
+    // Suffocating Blast
+    &["Counter target spell and Suffocating Blast deals 3 damage to target creature."],
+    // Suppress
+    &[
+        "Target player exiles all cards from their hand face down. At the beginning of the end step of that player's next turn, that player returns those cards to their hand.",
+    ],
     &[],
     &[],
     &[],

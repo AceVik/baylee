@@ -11366,3 +11366,28 @@ Mask of Intolerance
 Mind Extraction
 Minotaur Illusionist
 Necra Sanctuary
+Necravolver
+Night // Day
+Order // Chaos
+Orim's Thunder
+Penumbra Bobcat
+Penumbra Kavu
+Penumbra Wurm
+Pernicious Deed
+Planar Despair
+Powerstone Minefield
+Prophetic Bolt
+Putrid Warrior
+Quicksilver Dagger
+Raka Sanctuary
+Rakavolver
+Reef Shaman
+Shimmering Mirage
+Soul Link
+Spiritmonger
+Squee's Embrace
+Squee's Revenge
+Standard Bearer
+Strength of Night
+Suffocating Blast
+Suppress
