@@ -79,6 +79,10 @@ pub(super) fn select_single_choice(
                     {
                         trial[i] = f32::NEG_INFINITY;
                     }
+                } else if let PlayerAction::ActivateManaAbility { source } = act {
+                    if !is_mana_ability_usable_now(view, legal, *source, 0) {
+                        trial[i] = f32::NEG_INFINITY;
+                    }
                 } else if let PlayerAction::ActivateAbility {
                     source,
                     ability_index,
@@ -998,10 +1002,14 @@ fn is_removal_or_board_affecting_noncreature(view: &PlayerView, id: ObjectId) ->
                         | Effect::DestroyAll { .. }
                         | Effect::Exile { .. }
                         | Effect::ExileAll { .. }
-                        | Effect::DealDamage { .. }
+                        | Effect::DealDamage {
+                            target:
+                                TargetSpec::Object(_)
+                                | TargetSpec::AnyTarget,
+                            ..
+                        }
                         | Effect::CreateToken { .. }
                         | Effect::Fight { .. }
-                        | Effect::PumpTarget { .. }
                 )
             }),
             _ => false,
@@ -1088,9 +1096,15 @@ fn should_hold_spell_for_better_main_phase_creature(
         })
         .count();
 
+    let dup_noncreature_on_board = !is_low_creature
+        && lookup_card_identity(view, card).is_some_and(|ci| {
+            view.battlefield_of(actor).any(|o| {
+                !o.status.contains(ObjectStatus::PHASED_OUT)
+                    && o.card.is_some_and(|c| c.index == ci.index)
+            })
+        });
     if !is_low_creature
-        && my_creatures == 0
-        && opp_creatures > 0
+        && ((my_creatures == 0 && opp_creatures > 0) || dup_noncreature_on_board)
         && !is_removal_or_board_affecting_noncreature(view, card)
     {
         let blocks_creature = legal
@@ -1122,10 +1136,29 @@ fn should_hold_spell_for_better_main_phase_creature(
         }
     }
 
-    if !is_low_creature || creature_has_immediate_or_engine_ability(view, card) {
+    if !is_low_creature {
         return false;
     }
 
+    let mut color_supply = [0_u32; 5];
+    if let Some(seat) = view.seat(actor) {
+        color_supply[0] = seat.mana_pool.white;
+        color_supply[1] = seat.mana_pool.blue;
+        color_supply[2] = seat.mana_pool.black;
+        color_supply[3] = seat.mana_pool.red;
+        color_supply[4] = seat.mana_pool.green;
+    }
+    for o in view.battlefield_of(actor) {
+        if o.status.contains(ObjectStatus::TAPPED) || o.status.contains(ObjectStatus::PHASED_OUT) {
+            continue;
+        }
+        let sc = non_sac_source_colors(view, o.id);
+        for c in 0..5 {
+            if sc[c] {
+                color_supply[c] += 1;
+            }
+        }
+    }
     let can_double_spell = legal
         .castable
         .iter()
@@ -1136,10 +1169,27 @@ fn should_hold_spell_for_better_main_phase_creature(
                 && is_spell_worth_casting_now(view, other)
                 && lookup_spell_cost(view, other).is_some_and(|(c2, t2)| {
                     let cmc2 = c2.with_x(0).cmc().saturating_add(t2);
-                    cmc2 > 0 && cmc_low + cmc2 <= total_reachable
+                    cmc2 > 0
+                        && cmc_low + cmc2 <= total_reachable
+                        && (0..5).all(|col| {
+                            let pips = super::choices::count_color_pips(&cost_low, col)
+                                + super::choices::count_color_pips(&c2, col);
+                            pips <= color_supply[col]
+                        })
                 })
         });
     if can_double_spell {
+        return false;
+    }
+
+    let low_has_engine = creature_has_immediate_or_engine_ability(view, card);
+    let low_is_flying_3drop = cmc_low == 3
+        && lookup_card_identity(view, card)
+            .and_then(|ci| {
+                baylee_cards::by_index(ci.index).and_then(|d| d.faces.get(usize::from(ci.face)))
+            })
+            .is_some_and(|f| f.keywords.contains(baylee_cards_dsl::KeywordSet::FLYING));
+    if low_has_engine && !low_is_flying_3drop {
         return false;
     }
 
@@ -1163,8 +1213,11 @@ fn should_hold_spell_for_better_main_phase_creature(
                 return false;
             };
             let cmc_hi = cost_hi.with_x(0).cmc().saturating_add(tax_hi);
-            let better = (cmc_hi == cmc_low + 1)
-                || (cmc_hi == cmc_low && legal.castable.contains(&other));
+            let better = if low_has_engine {
+                cmc_hi > cmc_low && cmc_hi <= 5 && score_hi >= score_low + 3
+            } else {
+                (cmc_hi == cmc_low + 1) || (cmc_hi == cmc_low && legal.castable.contains(&other))
+            };
             better
                 && cmc_hi <= total_reachable
                 && cmc_low + cmc_hi > total_reachable
@@ -1781,7 +1834,32 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                     && o.card
                         .is_some_and(|c| c.index == ci.index && c.face == ci.face)
             })
-            && !abilities.iter().any(|ab| {
+        {
+            let opp_benefits_from_deaths = view.battlefield.iter().any(|o| {
+                o.controller != actor
+                    && !o.status.contains(ObjectStatus::PHASED_OUT)
+                    && abilities_of_battlefield_object(o).is_some_and(|abs| {
+                        abs.iter().any(|ab| {
+                            matches!(
+                                ab,
+                                AbilityDef::Triggered {
+                                    trigger: Trigger::Dies(f),
+                                    ..
+                                } if !matches!(f, Filter::This)
+                            )
+                        })
+                    })
+            });
+            let has_other_castable_creature = view.hand.iter().any(|h| {
+                h.id != id
+                    && h.card.index != ci.index
+                    && creature_card_board_score(view, h.id) > 0
+                    && lookup_spell_cost(view, h.id).is_some_and(|(hc, htax)| {
+                        hc.with_x(0).cmc().saturating_add(htax) <= total_reachable
+                            && spell_colors_reachable(view, actor, h.id, &hc)
+                    })
+            });
+            let has_value_etb_or_dies = abilities.iter().any(|ab| {
                 matches!(
                     ab,
                     AbilityDef::Triggered {
@@ -1791,9 +1869,10 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                         ..
                     }
                 )
-            })
-        {
-            return false;
+            });
+            if !has_value_etb_or_dies || opp_benefits_from_deaths || has_other_castable_creature {
+                return false;
+            }
         }
         let cast_self_loss = cast_trigger_self_damage(view, actor, face.types, spell_cmc);
         existing_cast_self_loss = cast_self_loss;
@@ -1948,23 +2027,93 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
             }
             if let Some(req) = targets
                 && (req.min >= 1 || req.count_is_x)
-                && let TargetSpec::Object(filter) = req.spec
             {
-                if is_pure_pump_effects(effects)
-                    && !view
-                        .battlefield_of(actor)
-                        .any(|o| public_object_matches_basic_filter(actor, o, filter))
+                if let TargetSpec::Object(filter) = req.spec {
+                    if is_pure_pump_effects(effects) {
+                        if !view
+                            .battlefield_of(actor)
+                            .any(|o| public_object_matches_basic_filter(actor, o, filter))
+                        {
+                            continue;
+                        }
+                        let is_instant = face_opt.is_some_and(|f| f.types.contains(TypeSet::INSTANT));
+                        let grants_haste = effects.iter().any(|e| {
+                            matches!(
+                                e,
+                                Effect::PumpTarget { keywords, .. }
+                                    if keywords.contains(baylee_cards_dsl::KeywordSet::HASTE)
+                            )
+                        });
+                        let has_sick_creature = view.battlefield_of(actor).any(|o| {
+                            o.types.contains(TypeSet::CREATURE)
+                                && o.summoning_sick
+                                && !o.status.contains(ObjectStatus::TAPPED)
+                                && !o.status.contains(ObjectStatus::PHASED_OUT)
+                                && (o.keywords & baylee_cards_dsl::KeywordSet::HASTE.bits()) == 0
+                                && public_object_matches_basic_filter(actor, o, filter)
+                        });
+                        if is_instant
+                            && matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
+                            && view.stack.is_empty()
+                            && !(grants_haste && has_sick_creature)
+                        {
+                            continue;
+                        }
+                    }
+                    if is_hostile_object_effects(effects)
+                        && !view.battlefield.iter().any(|o| {
+                            o.controller != actor
+                                && (!o.types.contains(TypeSet::LAND) || filter_targets_lands(filter))
+                                && public_object_matches_basic_filter(actor, o, filter)
+                        })
+                    {
+                        continue;
+                    }
+                } else if matches!(req.spec, TargetSpec::AnyTarget)
+                    && effects.len() == 1
+                    && let Effect::DealDamage {
+                        amount: Amount::Fixed(dmg_u),
+                        ..
+                    } = effects[0]
+                    && dmg_u <= 2
+                    && view.phase != Phase::Combat
                 {
-                    continue;
-                }
-                if is_hostile_object_effects(effects)
-                    && !view.battlefield.iter().any(|o| {
+                    let dmg = i32::try_from(dmg_u).unwrap_or(2);
+                    let opp_low_life = view
+                        .seats
+                        .iter()
+                        .any(|s| s.player != actor && s.life > 0 && s.life <= dmg * 2 + 1);
+                    let opp_has_killable_target = view.battlefield.iter().any(|o| {
                         o.controller != actor
-                            && (!o.types.contains(TypeSet::LAND) || filter_targets_lands(filter))
-                            && public_object_matches_basic_filter(actor, o, filter)
-                    })
-                {
-                    continue;
+                            && !o.status.contains(ObjectStatus::PHASED_OUT)
+                            && ((o.types.contains(TypeSet::CREATURE)
+                                && (o.keywords
+                                    & baylee_cards_dsl::KeywordSet::INDESTRUCTIBLE.bits())
+                                    == 0
+                                && ((i32::from(o.toughness.unwrap_or(1)) - i32::from(o.damage))
+                                    .max(1)
+                                    <= dmg
+                                    || o.damage > 0))
+                                || (o.types.contains(TypeSet::PLANESWALKER)
+                                    && i32::from(o.loyalty.unwrap_or(99)) <= dmg))
+                    });
+                    let has_spellcast_payoff = view.battlefield_of(actor).any(|o| {
+                        !o.status.contains(ObjectStatus::PHASED_OUT)
+                            && abilities_of_battlefield_object(o).is_some_and(|abs| {
+                                abs.iter().any(|ab| {
+                                    matches!(
+                                        ab,
+                                        AbilityDef::Triggered {
+                                            trigger: Trigger::SpellCast(_),
+                                            ..
+                                        }
+                                    )
+                                })
+                            })
+                    });
+                    if !opp_low_life && !opp_has_killable_target && !has_spellcast_payoff {
+                        continue;
+                    }
                 }
             }
             // Do not cast self-loot spells (e.g. Faithless Looting: draw N, discard M with M >= N)
@@ -2093,6 +2242,31 @@ pub(super) fn is_modal_mode_worth_casting(
                 )
             });
             if is_zero_pt_keyword_pump && !matches!(view.phase, Phase::Combat) {
+                return false;
+            }
+            let grants_haste = mode.effects.iter().any(|e| {
+                matches!(
+                    e,
+                    Effect::PumpTarget { keywords, .. }
+                        if keywords.contains(baylee_cards_dsl::KeywordSet::HASTE)
+                )
+            });
+            let has_sick_creature = view.battlefield_of(actor).any(|o| {
+                o.types.contains(TypeSet::CREATURE)
+                    && o.summoning_sick
+                    && !o.status.contains(ObjectStatus::TAPPED)
+                    && !o.status.contains(ObjectStatus::PHASED_OUT)
+                    && (o.keywords & baylee_cards_dsl::KeywordSet::HASTE.bits()) == 0
+                    && public_object_matches_basic_filter(actor, o, filter)
+            });
+            if matches!(view.phase, Phase::SecondMain | Phase::Ending) && view.stack.is_empty() {
+                return false;
+            }
+            if grants_haste
+                && !has_sick_creature
+                && view.phase == Phase::FirstMain
+                && view.stack.is_empty()
+            {
                 return false;
             }
         }
@@ -2360,6 +2534,36 @@ fn has_reachable_payable_spell(view: &PlayerView, legal: &LegalActions) -> bool 
     false
 }
 
+fn permanent_tap_self_damage(abilities: &[AbilityDef]) -> i32 {
+    let mut dmg = 0_i32;
+    for ab in abilities {
+        if let AbilityDef::Triggered {
+            trigger: Trigger::BecomesTapped(_) | Trigger::TappedForMana { .. },
+            effects,
+            ..
+        } = ab
+        {
+            for e in *effects {
+                match e {
+                    Effect::DealDamage {
+                        target: TargetSpec::Player(PlayerRel::You | PlayerRel::EachPlayer),
+                        amount: Amount::Fixed(n),
+                        ..
+                    }
+                    | Effect::LoseLife {
+                        target: PlayerRel::You | PlayerRel::EachPlayer,
+                        amount: Amount::Fixed(n),
+                    } => {
+                        dmg = dmg.saturating_add(i32::try_from(*n).unwrap_or(99));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    dmg
+}
+
 #[allow(
     clippy::too_many_lines,
     reason = "Validates mana ability sacrifice, life, tap, and filter restrictions against current sinks"
@@ -2427,6 +2631,9 @@ fn is_mana_ability_usable_now(
         }
     }
     let my_life = view.seat(actor).map_or(20, |s| s.life);
+    if cost.parts.contains(&CostPart::TapSelf) && my_life <= permanent_tap_self_damage(abilities) {
+        return false;
+    }
     if effects.iter().any(|e| match e {
         Effect::DealDamage {
             target: TargetSpec::Player(PlayerRel::You | PlayerRel::EachPlayer),
@@ -2441,36 +2648,41 @@ fn is_mana_ability_usable_now(
     }) {
         return false;
     }
-    if ability_index > 0 {
-        let mut any_mana = false;
-        let mut any_usable = false;
-        for eff in *effects {
-            if let Effect::AddMana {
-                source: m_src,
-                restriction,
-                ..
-            } = eff
+    let mut any_mana = false;
+    let mut any_usable = false;
+    for eff in *effects {
+        if let Effect::AddMana {
+            source: m_src,
+            restriction,
+            ..
+        } = eff
+        {
+            any_mana = true;
+            if let ManaSource::ColorsAmong { filter, .. } = m_src
+                && colors_among_battlefield(view, actor, filter) == [false; 5]
             {
-                any_mana = true;
-                if let ManaSource::ColorsAmong { filter, .. } = m_src
-                    && colors_among_battlefield(view, actor, filter) == [false; 5]
-                {
-                    continue;
-                }
-                if let Some(rest) = restriction
-                    && rest.restricts
-                {
-                    if payable_admits_mana_restriction(view, obj, legal, rest) {
-                        any_usable = true;
-                    }
-                } else {
+                continue;
+            }
+            if matches!(m_src, ManaSource::CommanderIdentity)
+                && view.seat(actor).is_none_or(|s| s.commanders.is_empty())
+            {
+                continue;
+            }
+            if let Some(rest) = restriction
+                && rest.restricts
+            {
+                if payable_admits_mana_restriction(view, obj, legal, rest) {
                     any_usable = true;
                 }
+            } else {
+                any_usable = true;
             }
         }
-        if any_mana && !any_usable {
-            return false;
-        }
+    }
+    if any_mana && !any_usable {
+        return false;
+    }
+    if ability_index > 0 {
         let filter_cmc = cost.mana.with_x(0).cmc();
         if filter_cmc > 0 {
             let has_zero_cost_mana_ab = abilities.iter().any(|ab| {
@@ -2841,18 +3053,104 @@ fn is_activated_ability_worth_activating_now(
     {
         return false;
     }
+    if !effects.is_empty() && effects.iter().all(|e| matches!(e, Effect::Regenerate { .. })) {
+        let sac_creature_cost = cost
+            .parts
+            .iter()
+            .any(|p| matches!(p, CostPart::Sacrifice(_) | CostPart::SacrificeX(_)));
+        if sac_creature_cost
+            && !view.battlefield_of(actor).any(|o| {
+                o.id != source
+                    && o.types.contains(TypeSet::CREATURE)
+                    && !o.status.contains(ObjectStatus::PHASED_OUT)
+            })
+        {
+            return false;
+        }
+        let stack_threatens_source = view.top_of_stack().is_some_and(|top| {
+            top.controller != actor
+                && abilities_of_battlefield_object(top).is_some_and(|abs| {
+                    abs.iter().any(|ab| match ab {
+                        AbilityDef::Spell { effects: se, .. }
+                        | AbilityDef::Activated { effects: se, .. }
+                        | AbilityDef::ActivatedConditional { effects: se, .. }
+                        | AbilityDef::Triggered { effects: se, .. } => se.iter().any(|e| {
+                            matches!(
+                                e,
+                                Effect::Destroy { .. }
+                                    | Effect::DestroyAll { .. }
+                                    | Effect::DealDamage { .. }
+                            )
+                        }),
+                        _ => false,
+                    })
+                })
+        });
+        let in_lethal_combat = view.phase == Phase::Combat
+            && matches!(view.step, Step::DeclareBlockers | Step::CombatDamageFirst)
+            && (view.combat.attackers.iter().any(|a| {
+                a.creature == source
+                    && view.combat.blockers.iter().any(|b| b.attacker == source)
+            }) || view.combat.blockers.iter().any(|b| b.blocker == source));
+        if !stack_threatens_source && !in_lethal_combat {
+            return false;
+        }
+    }
     let creates_only_non_creature_token = effects.iter().any(|e| {
         matches!(e, Effect::CreateToken { token, .. } if !token.types.contains(TypeSet::CREATURE))
     }) && !effects.iter().any(|e| {
         matches!(e, Effect::CreateToken { token, .. } if token.types.contains(TypeSet::CREATURE))
     });
     if creates_only_non_creature_token
-        && cost.mana.with_x(0).cmc() >= 4
-        && ((view.active == actor && view.phase == Phase::FirstMain) || view.hand.len() >= 2)
+        && ((view.active == actor && view.phase == Phase::FirstMain)
+            || (cost.mana.with_x(0).cmc() >= 4 && view.hand.len() >= 2))
     {
         return false;
     }
+    let is_pure_lifegain_sac = cost.parts.contains(&CostPart::SacrificeSelf)
+        && !effects.is_empty()
+        && effects.iter().all(|e| matches!(e, Effect::GainLife { .. }));
+    if is_pure_lifegain_sac {
+        let my_life = view.seat(actor).map_or(20, |s| s.life);
+        if my_life > 10 || (view.active == actor && view.phase == Phase::FirstMain && my_life > 5) {
+            return false;
+        }
+    }
     for eff in effects {
+        if let Effect::PumpFilter {
+            filter: Filter::This,
+            power,
+            toughness,
+            duration: baylee_cards_dsl::Duration::UntilEndOfTurn,
+            keywords,
+            ..
+        } = eff
+            && keywords.is_empty()
+        {
+            if let Amount::CountOf { filter: f, .. } = power
+                && !view.battlefield.iter().any(|o| {
+                    !o.status.contains(ObjectStatus::PHASED_OUT)
+                        && public_object_matches_basic_filter(actor, o, f)
+                })
+            {
+                return false;
+            }
+            if let Amount::CountOf { filter: f, .. } = toughness
+                && !view.battlefield.iter().any(|o| {
+                    !o.status.contains(ObjectStatus::PHASED_OUT)
+                        && public_object_matches_basic_filter(actor, o, f)
+                })
+            {
+                return false;
+            }
+            let in_combat = view.phase == Phase::Combat
+                && matches!(view.step, Step::DeclareAttackers | Step::DeclareBlockers)
+                && (view.combat.attackers.iter().any(|a| a.creature == source)
+                    || view.combat.blockers.iter().any(|b| b.blocker == source));
+            if !in_combat {
+                return false;
+            }
+        }
         if let Effect::PumpFilter {
             filter: Filter::This,
             power: Amount::Fixed(0),
@@ -3446,29 +3744,12 @@ fn mana_action_pain_tier(view: &PlayerView, action: &PlayerAction) -> u8 {
     }) {
         return 3;
     }
-    if abilities.iter().any(|ab| {
-        matches!(
-            ab,
-            AbilityDef::Triggered {
-                trigger: Trigger::BecomesTapped(_) | Trigger::TappedForMana { .. },
-                effects,
-                ..
-            } if effects.iter().any(|e| matches!(
-                e,
-                Effect::DealDamage {
-                    target: TargetSpec::Player(PlayerRel::You | PlayerRel::EachPlayer),
-                    ..
-                } | Effect::LoseLife {
-                    target: PlayerRel::You | PlayerRel::EachPlayer,
-                    ..
-                }
-            ))
-        )
-    }) {
-        return 1;
-    }
     let actor = view.decision_player.unwrap_or(view.seat);
     let my_life = view.seat(actor).map_or(20, |s| s.life);
+    let tap_self_dmg = permanent_tap_self_damage(abilities);
+    if tap_self_dmg > 0 {
+        return if my_life <= tap_self_dmg { 99 } else { 1 };
+    }
     let idx = ab_idx_opt.unwrap_or(0);
     if let Some(
         AbilityDef::Activated { cost, effects, .. }
@@ -3481,6 +3762,10 @@ fn mana_action_pain_tier(view: &PlayerView, action: &PlayerAction) -> u8 {
                 CostPart::PayLife(n) if *n >= 3 => return 4,
                 CostPart::PayLife(n) if *n == 2 => return 2,
                 CostPart::PayLife(_) | CostPart::PayLifeX => return 1,
+                CostPart::Sacrifice(_)
+                | CostPart::SacrificeSelf
+                | CostPart::SacrificeX(_)
+                | CostPart::RemoveCounterSelf { .. } => return 2,
                 _ => {}
             }
         }
@@ -3825,7 +4110,15 @@ fn unmet_color_deficit(view: &PlayerView, legal: &LegalActions) -> [u32; 6] {
     let Some(seat) = view.seat(actor) else {
         return [0; 6];
     };
-    let have = [
+    let have_unrestricted = [
+        seat.mana_pool.white,
+        seat.mana_pool.blue,
+        seat.mana_pool.black,
+        seat.mana_pool.red,
+        seat.mana_pool.green,
+        seat.mana_pool.colorless,
+    ];
+    let have_creature = [
         seat.mana_pool
             .white
             .saturating_add(u32::try_from(seat.mana_pool.restricted[0]).unwrap_or(0)),
@@ -3848,8 +4141,13 @@ fn unmet_color_deficit(view: &PlayerView, legal: &LegalActions) -> [u32; 6] {
     let pool_total = u32::try_from(seat.mana_pool.total()).unwrap_or(0);
     let total_reachable = pool_total.saturating_add(untapped_mana_production(view, actor));
 
-    let mut max_need = [0_u32; 6];
-    let mut accum_cost = |cost: &ManaCost| {
+    let mut deficit = [0_u32; 6];
+    let mut accum_cost = |cost: &ManaCost, is_creature: bool| {
+        let have = if is_creature {
+            &have_creature
+        } else {
+            &have_unrestricted
+        };
         let mut need = [0_u32; 6];
         for (sym, count) in cost.runs() {
             let n = u32::from(count);
@@ -3890,12 +4188,15 @@ fn unmet_color_deficit(view: &PlayerView, legal: &LegalActions) -> [u32; 6] {
             }
         }
         for c in 0..6 {
-            max_need[c] = max_need[c].max(need[c]);
+            deficit[c] = deficit[c].max(need[c].saturating_sub(have[c]));
         }
     };
 
     if let Some(ManaPayment::Fixed(ref cost)) = view.owed {
-        accum_cost(cost);
+        let owed_is_creature = view
+            .top_of_stack()
+            .is_some_and(|top| top.types.contains(TypeSet::CREATURE));
+        accum_cost(cost, owed_is_creature);
     } else {
         let mut any_payable_accum = false;
         for &id in &legal.payable {
@@ -3917,7 +4218,7 @@ fn unmet_color_deficit(view: &PlayerView, legal: &LegalActions) -> [u32; 6] {
                     false,
                 )
             {
-                accum_cost(&cost);
+                accum_cost(&cost, creature_card_board_score(view, id) > 0);
                 any_payable_accum = true;
             }
         }
@@ -3933,7 +4234,7 @@ fn unmet_color_deficit(view: &PlayerView, legal: &LegalActions) -> [u32; 6] {
                     && cost.with_x(0).cmc().saturating_add(tax) <= total_reachable
                     && spell_colors_reachable_inner(view, actor, Some(legal), Some(id), None, &cost)
                 {
-                    accum_cost(&cost);
+                    accum_cost(&cost, creature_card_board_score(view, id) > 0);
                     any_payable_accum = true;
                 }
             }
@@ -3979,16 +4280,12 @@ fn unmet_color_deficit(view: &PlayerView, legal: &LegalActions) -> [u32; 6] {
                 if cost.with_x(0).cmc() <= avail_for_ab
                     && spell_colors_reachable_inner(view, actor, Some(legal), None, exclude, cost)
                 {
-                    accum_cost(cost);
+                    accum_cost(cost, false);
                 }
             }
         }
     }
 
-    let mut deficit = [0_u32; 6];
-    for c in 0..6 {
-        deficit[c] = max_need[c].saturating_sub(have[c]);
-    }
     deficit
 }
 
@@ -4025,32 +4322,25 @@ fn spell_colors_reachable_inner_opts(
     cost: &ManaCost,
     allow_filter_lands: bool,
 ) -> bool {
+    let spell_face = spell_id
+        .and_then(|sid| lookup_card_identity(view, sid))
+        .and_then(|ci| {
+            baylee_cards::by_index(ci.index).and_then(|d| d.faces.get(usize::from(ci.face)))
+        });
+    let allow_restricted = spell_face.is_some_and(|f| f.types.contains(TypeSet::CREATURE));
     let mut counts = [0_u32; 6];
     if let Some(seat) = view.seat(actor) {
-        counts[0] = seat
-            .mana_pool
-            .white
-            .saturating_add(u32::try_from(seat.mana_pool.restricted[0]).unwrap_or(0));
-        counts[1] = seat
-            .mana_pool
-            .blue
-            .saturating_add(u32::try_from(seat.mana_pool.restricted[1]).unwrap_or(0));
-        counts[2] = seat
-            .mana_pool
-            .black
-            .saturating_add(u32::try_from(seat.mana_pool.restricted[2]).unwrap_or(0));
-        counts[3] = seat
-            .mana_pool
-            .red
-            .saturating_add(u32::try_from(seat.mana_pool.restricted[3]).unwrap_or(0));
-        counts[4] = seat
-            .mana_pool
-            .green
-            .saturating_add(u32::try_from(seat.mana_pool.restricted[4]).unwrap_or(0));
-        counts[5] = seat
-            .mana_pool
-            .colorless
-            .saturating_add(u32::try_from(seat.mana_pool.restricted[5]).unwrap_or(0));
+        counts[0] = seat.mana_pool.white;
+        counts[1] = seat.mana_pool.blue;
+        counts[2] = seat.mana_pool.black;
+        counts[3] = seat.mana_pool.red;
+        counts[4] = seat.mana_pool.green;
+        counts[5] = seat.mana_pool.colorless;
+        if allow_restricted {
+            for (cnt, &rest) in counts.iter_mut().zip(seat.mana_pool.restricted.iter()) {
+                *cnt = cnt.saturating_add(u32::try_from(rest).unwrap_or(0));
+            }
+        }
     }
     let pool_total = view
         .seat(actor)
@@ -4063,11 +4353,6 @@ fn spell_colors_reachable_inner_opts(
             |(c, tax)| c.with_x(0).cmc().saturating_add(tax),
         );
     let mut rem_filter_slack = total_reach.saturating_sub(spell_cmc);
-    let spell_face = spell_id
-        .and_then(|sid| lookup_card_identity(view, sid))
-        .and_then(|ci| {
-            baylee_cards::by_index(ci.index).and_then(|d| d.faces.get(usize::from(ci.face)))
-        });
     for obj in view.battlefield_of(actor) {
         if Some(obj.id) == exclude_source
             || obj.status.contains(ObjectStatus::TAPPED)
@@ -4370,30 +4655,35 @@ pub(super) fn non_sac_source_colors(view: &PlayerView, source: ObjectId) -> [boo
                 continue;
             }
             let my_life = view.seat(actor).map_or(20, |s| s.life);
-            if cost.parts.iter().any(|p| match p {
-                CostPart::PayEnergy(n) => view.seat(actor).map_or(0, |s| s.energy) < *n,
-                CostPart::PayLife(n) => my_life <= i32::from(*n),
-                CostPart::TapOther(filter) | CostPart::TapX(filter) => {
-                    !view.battlefield_of(actor).any(|o| {
-                        o.id != source
-                            && !o.status.contains(ObjectStatus::TAPPED)
-                            && !o.status.contains(ObjectStatus::PHASED_OUT)
-                            && public_object_matches_basic_filter(actor, o, filter)
-                    })
-                }
-                _ => false,
-            }) || effects.iter().any(|e| match e {
-                Effect::DealDamage {
-                    target: TargetSpec::Player(PlayerRel::You | PlayerRel::EachPlayer),
-                    amount: Amount::Fixed(n),
-                    ..
-                }
-                | Effect::LoseLife {
-                    target: PlayerRel::You | PlayerRel::EachPlayer,
-                    amount: Amount::Fixed(n),
-                } => my_life <= i32::try_from(*n).unwrap_or(99),
-                _ => false,
-            }) {
+            if (cost.parts.contains(&CostPart::TapSelf)
+                && my_life
+                    <= permanent_tap_self_damage(def.abilities_for_face(usize::from(rf.face))))
+                || cost.parts.iter().any(|p| match p {
+                    CostPart::PayEnergy(n) => view.seat(actor).map_or(0, |s| s.energy) < *n,
+                    CostPart::PayLife(n) => my_life <= i32::from(*n),
+                    CostPart::TapOther(filter) | CostPart::TapX(filter) => {
+                        !view.battlefield_of(actor).any(|o| {
+                            o.id != source
+                                && !o.status.contains(ObjectStatus::TAPPED)
+                                && !o.status.contains(ObjectStatus::PHASED_OUT)
+                                && public_object_matches_basic_filter(actor, o, filter)
+                        })
+                    }
+                    _ => false,
+                })
+                || effects.iter().any(|e| match e {
+                    Effect::DealDamage {
+                        target: TargetSpec::Player(PlayerRel::You | PlayerRel::EachPlayer),
+                        amount: Amount::Fixed(n),
+                        ..
+                    }
+                    | Effect::LoseLife {
+                        target: PlayerRel::You | PlayerRel::EachPlayer,
+                        amount: Amount::Fixed(n),
+                    } => my_life <= i32::try_from(*n).unwrap_or(99),
+                    _ => false,
+                })
+            {
                 continue;
             }
             if obj.types.contains(TypeSet::LAND)
@@ -4747,8 +5037,16 @@ fn mark_single_mana_source_with_view(
                 }
             }
         }
-        ManaSource::CommanderIdentity
-        | ManaSource::LandColor { .. }
+        ManaSource::CommanderIdentity => {
+            if let Some((view, actor)) = ctx
+                && view.seat(actor).is_some_and(|s| !s.commanders.is_empty())
+            {
+                for col in colors.iter_mut().take(5) {
+                    *col = true;
+                }
+            }
+        }
+        ManaSource::LandColor { .. }
         | ManaSource::Chosen
         | ManaSource::ExiledWithSource
         | ManaSource::CircledColors => {

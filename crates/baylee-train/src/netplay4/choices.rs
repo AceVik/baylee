@@ -701,6 +701,39 @@ pub(super) fn adjust_subset_logits(
                     })
                     .map(|b| i32::from(b.power.unwrap_or(0)).max(0))
                     .sum();
+                let mut sum_legal_blk_power = 0_i32;
+                let mut any_dt_blk = false;
+                let mut any_stonewall_blk = false;
+                for b in view.battlefield_of(def_pid) {
+                    if b.types.contains(TypeSet::CREATURE)
+                        && !b.status.contains(ObjectStatus::TAPPED)
+                        && !b.status.contains(ObjectStatus::PHASED_OUT)
+                        && !has_kw(b, KeywordSet::CANT_BLOCK)
+                        && can_legally_block(att_obj, b)
+                    {
+                        sum_legal_blk_power += i32::from(b.power.unwrap_or(0)).max(0);
+                        if has_kw(b, KeywordSet::DEATHTOUCH) {
+                            any_dt_blk = true;
+                        }
+                        let b_rem_t =
+                            (i32::from(b.toughness.unwrap_or(1)) - i32::from(b.damage)).max(1);
+                        if b_rem_t > i32::from(att_power) || has_kw(b, KeywordSet::INDESTRUCTIBLE) {
+                            any_stonewall_blk = true;
+                        }
+                    }
+                }
+                let att_rem_t =
+                    (i32::from(att_obj.toughness.unwrap_or(1)) - i32::from(att_obj.damage)).max(1);
+                let is_unkillable_juggernaut = !is_fragile_engine
+                    && att_power >= 4
+                    && !any_dt_blk
+                    && (!any_stonewall_blk || has_kw(att_obj, KeywordSet::TRAMPLE))
+                    && sum_legal_blk_power < att_rem_t
+                    && (has_vigilance || (my_life >= 10 && my_life - opp_total_crackback_power >= 5));
+                if is_unkillable_juggernaut {
+                    out[i] = out[i].max(2.0);
+                    continue;
+                }
                 let death_payoff = friendly_creature_death_payoff(view, actor, att_obj);
                 let go_wide_alpha = !is_fragile_engine
                     && ((guaranteed_unblocked_count > 0 && guaranteed_unblocked_dmg >= def_life)
@@ -1898,13 +1931,42 @@ pub(super) fn adjust_pair_logits(
         });
         let mut gang = Vec::new();
         let mut sum_bp = 0_i32;
-        for &p_idx in &avail {
-            let (blk_id, _) = cands.pair_objects[p_idx];
-            let (bp, ..) = blk_stats(blk_id);
-            gang.push(p_idx);
-            sum_bp += bp;
-            if sum_bp >= at && gang.len() >= min_b {
-                break;
+        if min_b <= 2 && avail.len() >= 2 {
+            let mut best_two: Option<(bool, i32, usize, usize)> = None;
+            for ia in 0..avail.len() {
+                let pa = avail[ia];
+                let (ba, _) = cands.pair_objects[pa];
+                let (bpa, bta, ..) = blk_stats(ba);
+                for &pb in &avail[(ia + 1)..] {
+                    let (bb, _) = cands.pair_objects[pb];
+                    let (bpb, btb, ..) = blk_stats(bb);
+                    if bpa + bpb >= at {
+                        let one_surv = bta + btb > ap && ap >= bpa.min(bpb);
+                        let cost_stat = bpa + bta + bpb + btb;
+                        let cand_key = (one_surv, -cost_stat, pa, pb);
+                        if best_two.is_none_or(|cur| (cand_key.0, cand_key.1) > (cur.0, cur.1)) {
+                            best_two = Some(cand_key);
+                        }
+                    }
+                }
+            }
+            if let Some((_, _, pa, pb)) = best_two {
+                let (ba, _) = cands.pair_objects[pa];
+                let (bb, _) = cands.pair_objects[pb];
+                sum_bp = blk_stats(ba).0 + blk_stats(bb).0;
+                gang.push(pa);
+                gang.push(pb);
+            }
+        }
+        if gang.is_empty() {
+            for &p_idx in &avail {
+                let (blk_id, _) = cands.pair_objects[p_idx];
+                let (bp, ..) = blk_stats(blk_id);
+                gang.push(p_idx);
+                sum_bp += bp;
+                if sum_bp >= at && gang.len() >= min_b {
+                    break;
+                }
             }
         }
         let mut idx = 0;
@@ -2966,14 +3028,19 @@ pub(super) fn is_urgent_enchantment(obj: &PublicObject) -> bool {
     let Some(abs) = super::tactics::abilities_of_battlefield_object(obj) else {
         return false;
     };
-    abs.iter().any(|ab| {
-        matches!(
-            ab,
-            AbilityDef::Triggered {
-                trigger: Trigger::SpellCast(_),
-                ..
-            } | AbilityDef::Static(_)
-        )
+    abs.iter().any(|ab| match ab {
+        AbilityDef::Triggered {
+            trigger:
+                Trigger::SpellCast(_)
+                | Trigger::StepBegin { .. }
+                | Trigger::Dies(_),
+            effects,
+            ..
+        } => !effects
+            .iter()
+            .all(|e| matches!(e, Effect::AddMana { .. } | Effect::GainLife { .. })),
+        AbilityDef::Static(_) => true,
+        _ => false,
     })
 }
 
