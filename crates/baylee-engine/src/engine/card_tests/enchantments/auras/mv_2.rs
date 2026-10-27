@@ -55,6 +55,7 @@ mod lashknife;
 mod launch;
 mod lightning_reflexes;
 mod mageta_s_boon;
+mod manacles_of_decay;
 mod maniacal_rage;
 mod mourning;
 mod muzzle;

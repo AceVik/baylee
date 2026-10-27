@@ -135,6 +135,7 @@ mod elderfang_venom;
 mod embargo;
 mod emrakul_s_influence;
 mod enduring_renewal;
+mod fervent_charge;
 mod field_of_souls;
 mod flooded_woodlands;
 mod freyalise_s_winds;

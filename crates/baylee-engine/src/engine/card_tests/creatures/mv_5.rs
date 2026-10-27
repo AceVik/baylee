@@ -116,6 +116,7 @@ mod magmasaur;
 mod martyrs_of_korlis;
 mod mawcor;
 mod meloku_the_clouded_mirror;
+mod minotaur_illusionist;
 mod morinfen;
 mod morphling;
 mod ogre_arsonist;

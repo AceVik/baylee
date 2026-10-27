@@ -29872,7 +29872,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Bloodfire Infusion
+    &[FaceLines {
+        sentences: 2,
+        stackable: 1,
+        lines: &[None, Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Bloodfire Kavu
     &[FaceLines {
         sentences: 1,
@@ -30003,7 +30010,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         alternatives: &[],
     }],
     &[],
-    &[],
+    // Fervent Charge
+    &[FaceLines {
+        sentences: 1,
+        stackable: 1,
+        lines: &[Some(0)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Fire
     &[
         FaceLines {
@@ -30152,7 +30166,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
         modes: &[],
         alternatives: &[],
     }],
-    &[],
+    // Manacles of Decay
+    &[FaceLines {
+        sentences: 4,
+        stackable: 2,
+        lines: &[None, None, Some(2), Some(3)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Martyrs' Tomb
     &[FaceLines {
         sentences: 1,
@@ -30163,7 +30184,14 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     }],
     &[],
     &[],
-    &[],
+    // Minotaur Illusionist
+    &[FaceLines {
+        sentences: 2,
+        stackable: 2,
+        lines: &[Some(0), Some(1)],
+        modes: &[],
+        alternatives: &[],
+    }],
     // Minotaur Tactician
     &[FaceLines {
         sentences: 3,

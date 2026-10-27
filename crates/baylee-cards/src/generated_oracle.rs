@@ -15011,13 +15011,20 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Kicker {X} (You may pay an additional {X} as you cast this spell.)\nSpend only colored mana on X. No more than one mana of each color may be spent this way.\nIf this creature was kicked, it enters with X +1/+1 counters on it.",
     ],
-    &[],
+    // Enlistment Officer
+    &[
+        "First strike\nWhen this creature enters, reveal the top four cards of your library. Put all Soldier cards revealed this way into your hand and the rest on the bottom of your library in any order.",
+    ],
     // Evasive Action
     &[
         "Domain — Counter target spell unless its controller pays {1} for each basic land type among lands you control.",
     ],
-    &[],
-    &[],
+    // False Dawn
+    &[
+        "Until end of turn, spells and abilities you control that would add colored mana instead add that much white mana. Until end of turn, you may spend white mana as though it were mana of any color.\nDraw a card.",
+    ],
+    // Fervent Charge
+    &["Whenever a creature you control attacks, it gets +2/+2 until end of turn."],
     // Fire
     &[
         "Fire deals 2 damage divided as you choose among one or two targets.",
@@ -15025,51 +15032,100 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Flowstone Charger
     &["Whenever this creature attacks, it gets +3/-3 until end of turn."],
-    &[],
-    &[],
+    // Foul Presence
+    &[
+        "Enchant creature\nEnchanted creature gets -1/-1 and has \"{T}: Target creature gets -1/-1 until end of turn.\"",
+    ],
+    // Gaea's Balance
+    &[
+        "As an additional cost to cast this spell, sacrifice five lands.\nSearch your library for a land card of each basic land type, put those cards onto the battlefield, then shuffle.",
+    ],
     // Gaea's Skyfolk
     &["Flying"],
-    &[],
-    &[],
+    // Gerrard Capashen
+    &[
+        "At the beginning of your upkeep, you gain 1 life for each card in target opponent's hand.\n{3}{W}: Tap target creature. Activate only if Gerrard Capashen is attacking.",
+    ],
+    // Gerrard's Verdict
+    &["Target player discards two cards. You gain 3 life for each land card discarded this way."],
     // Glade Gnarr
     &["Whenever a player casts a blue spell, this creature gets +2/+2 until end of turn."],
     // Goblin Legionnaire
     &[
         "{R}, Sacrifice this creature: It deals 2 damage to any target.\n{W}, Sacrifice this creature: Prevent the next 2 damage that would be dealt to any target this turn.",
     ],
-    &[],
+    // Goblin Ringleader
+    &[
+        "Haste (This creature can attack and {T} as soon as it comes under your control.)\nWhen this creature enters, reveal the top four cards of your library. Put all Goblin cards revealed this way into your hand and the rest on the bottom of your library in any order.",
+    ],
     // Goblin Trenches
     &["{2}, Sacrifice a land: Create two 1/1 red and white Goblin Soldier creature tokens."],
-    &[],
-    &[],
-    &[],
+    // Grave Defiler
+    &[
+        "When this creature enters, reveal the top four cards of your library. Put all Zombie cards revealed this way into your hand and the rest on the bottom of your library in any order.\n{1}{B}: Regenerate this creature.",
+    ],
+    // Guided Passage
+    &[
+        "Reveal the cards in your library. An opponent chooses from among them a creature card, a land card, and a noncreature, nonland card. You put the chosen cards into your hand. Then shuffle.",
+    ],
+    // Haunted Angel
+    &[
+        "Flying\nWhen this creature dies, exile it and each other player creates a 3/3 black Angel creature token with flying.",
+    ],
     // Helionaut
     &["Flying\n{1}, {T}: Add one mana of any color."],
-    &[],
-    &[],
-    &[],
+    // Ice Cave
+    &[
+        "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell. (Mana cost includes color.)",
+    ],
+    // Illuminate
+    &[
+        "Kicker {2}{R} and/or {3}{U} (You may pay an additional {2}{R} and/or {3}{U} as you cast this spell.)\nIlluminate deals X damage to target creature. If this spell was kicked with its {2}{R} kicker, it deals X damage to that creature's controller. If this spell was kicked with its {3}{U} kicker, you draw X cards.",
+    ],
+    // Illusion
+    &[
+        "Target spell or permanent becomes the color of your choice until end of turn.",
+        "Destroy target artifact.",
+    ],
     // Index
     &["Look at the top five cards of your library, then put them back in any order."],
-    &[],
-    &[],
+    // Jaded Response
+    &["Counter target spell if it shares a color with a creature you control."],
+    // Jilt
+    &[
+        "Kicker {1}{R} (You may pay an additional {1}{R} as you cast this spell.)\nReturn target creature to its owner's hand. If this spell was kicked, it deals 2 damage to another target creature.",
+    ],
     // Jungle Barrier
     &["Defender (This creature can't attack.)\nWhen this creature enters, draw a card."],
     // Kavu Glider
     &[
         "{W}: This creature gets +0/+1 until end of turn.\n{U}: This creature gains flying until end of turn.",
     ],
-    &[],
+    // Kavu Howler
+    &[
+        "When this creature enters, reveal the top four cards of your library. Put all Kavu cards revealed this way into your hand and the rest on the bottom of your library in any order.",
+    ],
     // Kavu Mauler
     &[
         "Trample\nWhenever this creature attacks, it gets +1/+1 until end of turn for each other attacking Kavu.",
     ],
     // Last Caress
     &["Target player loses 1 life and you gain 1 life.\nDraw a card."],
-    &[],
+    // Last Stand
+    &[
+        "Target opponent loses 2 life for each Swamp you control. Last Stand deals damage to target creature equal to the number of Mountains you control. Create a 1/1 green Saproling creature token for each Forest you control. You gain 2 life for each Plains you control. Draw a card for each Island you control, then discard that many cards.",
+    ],
     // Lay of the Land
     &["Search your library for a basic land card, reveal it, put it into your hand, then shuffle."],
-    &[],
-    &[],
+    // Legacy Weapon
+    &[
+        "{W}{U}{B}{R}{G}: Exile target permanent.\nIf Legacy Weapon would be put into a graveyard from anywhere, reveal Legacy Weapon and shuffle it into its owner's library instead.",
+    ],
+    // Life
+    &[
+        "All lands you control become 1/1 creatures until end of turn. They're still lands.",
+        "Return target creature card from your graveyard to the battlefield. You lose life equal to its mana value.",
+    ],
     // Lightning Angel
     &["Flying, vigilance, haste"],
     // Living Airship
@@ -15078,12 +15134,24 @@ pub static ORACLE: &[&[&str]] = &[
     &["{T}: Add {B}."],
     // Llanowar Wastes
     &["{T}: Add {C}.\n{T}: Add {B} or {G}. This land deals 1 damage to you."],
-    &[],
+    // Manacles of Decay
+    &[
+        "Enchant creature\nEnchanted creature can't attack.\n{B}: Enchanted creature gets -1/-1 until end of turn.\n{R}: Enchanted creature can't block this turn.",
+    ],
     // Martyrs' Tomb
     &["Pay 2 life: Prevent the next 1 damage that would be dealt to target creature this turn."],
-    &[],
-    &[],
-    &[],
+    // Mask of Intolerance
+    &[
+        "At the beginning of each player's upkeep, if there are four or more basic land types among lands that player controls, this artifact deals 3 damage to that player.",
+    ],
+    // Mind Extraction
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nTarget player reveals their hand and discards all cards of each of the sacrificed creature's colors.",
+    ],
+    // Minotaur Illusionist
+    &[
+        "{1}{U}: This creature gains shroud until end of turn. (It can't be the target of spells or abilities.)\n{R}, Sacrifice this creature: It deals damage equal to its power to target creature.",
+    ],
     // Minotaur Tactician
     &[
         "Haste\nThis creature gets +1/+1 as long as you control a white creature.\nThis creature gets +1/+1 as long as you control a blue creature.",
@@ -15096,7 +15164,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{G}, {T}: Add one mana of any color.\n{W}, {T}: Prevent the next 1 damage that would be dealt to any target this turn.",
     ],
-    &[],
+    // Necra Sanctuary
+    &[
+        "At the beginning of your upkeep, if you control a green or white permanent, target player loses 1 life. If you control a green permanent and a white permanent, that player loses 3 life instead.",
+    ],
     &[],
     &[],
     &[],
