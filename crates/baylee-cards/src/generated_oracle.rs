@@ -15282,24 +15282,50 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Target player exiles all cards from their hand face down. At the beginning of the end step of that player's next turn, that player returns those cards to their hand.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Sylvan Messenger
+    &[
+        "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nWhen this creature enters, reveal the top four cards of your library. Put all Elf cards revealed this way into your hand and the rest on the bottom of your library in any order.",
+    ],
+    // Symbiotic Deployment
+    &["Skip your draw step.\n{1}, Tap two untapped creatures you control: Draw a card."],
+    // Tahngarth's Glare
+    &[
+        "Look at the top three cards of target opponent's library, then put them back in any order. That player looks at the top three cards of your library, then puts them back in any order.",
+    ],
+    // Temporal Spring
+    &["Put target permanent on top of its owner's library."],
+    // Tidal Courier
+    &[
+        "When this creature enters, reveal the top four cards of your library. Put all Merfolk cards revealed this way into your hand and the rest on the bottom of your library in any order.\n{3}{U}: This creature gains flying until end of turn.",
+    ],
     // Tranquil Path
     &["Destroy all enchantments.\nDraw a card."],
-    &[],
-    &[],
+    // Tundra Kavu
+    &["{T}: Target land becomes a Plains or an Island until end of turn."],
+    // Unnatural Selection
+    &[
+        "{1}: Choose a creature type other than Wall. Target creature becomes that type until end of turn.",
+    ],
     // Urborg Elf
     &["{T}: Add {B}, {G}, or {U}."],
-    &[],
+    // Urborg Uprising
+    &["Return up to two target creature cards from your graveyard to your hand.\nDraw a card."],
     // Vindicate
     &["Destroy target permanent."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Vodalian Mystic
+    &["{T}: Target instant or sorcery spell becomes the color of your choice."],
+    // Whirlpool Drake
+    &[
+        "Flying\nWhen this creature enters, shuffle the cards from your hand into your library, then draw that many cards.\nWhen this creature dies, shuffle the cards from your hand into your library, then draw that many cards.",
+    ],
+    // Whirlpool Rider
+    &[
+        "When this creature enters, shuffle the cards from your hand into your library, then draw that many cards.",
+    ],
+    // Whirlpool Warrior
+    &[
+        "When this creature enters, shuffle the cards from your hand into your library, then draw that many cards.\n{R}, Sacrifice this creature: Each player shuffles the cards from their hand into their library, then draws that many cards.",
+    ],
     // Wild Research
     &[
         "{1}{W}: Search your library for an enchantment card and reveal that card. Put it into your hand, then discard a card at random. Then shuffle.\n{1}{U}: Search your library for an instant card and reveal that card. Put it into your hand, then discard a card at random. Then shuffle.",
@@ -15310,7 +15336,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\nYou control enchanted creature.\nEnchanted creature gets +2/+2 and has trample.",
     ],
-    &[],
+    // Zombie Boa
+    &[
+        "{1}{B}: Choose a color. Whenever this creature becomes blocked by a creature of that color this turn, destroy that creature. Activate only as a sorcery.",
+    ],
     &[],
     &[],
     &[],

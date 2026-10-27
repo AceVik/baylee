@@ -19455,6 +19455,8 @@ pub mod sylvan_caryatid;
 pub mod sylvan_hierophant;
 #[path = "enchantments/mv_2/sylvan_library.rs"]
 pub mod sylvan_library;
+#[path = "creatures/mv_4/sylvan_messenger.rs"]
+pub mod sylvan_messenger;
 #[path = "instants/mv_1/sylvan_paradise.rs"]
 pub mod sylvan_paradise;
 #[path = "creatures/mv_1/sylvan_safekeeper.rs"]
@@ -19469,6 +19471,8 @@ pub mod sylvok_replica;
 pub mod symbiosis;
 #[path = "creatures/mv_3/symbiote_spawn.rs"]
 pub mod symbiote_spawn;
+#[path = "enchantments/mv_3/symbiotic_deployment.rs"]
+pub mod symbiotic_deployment;
 #[path = "sorceries/mv_3/symbol_of_unsummoning.rs"]
 pub mod symbol_of_unsummoning;
 #[path = "creatures/mv_5/synchronous_sliver.rs"]
@@ -19487,6 +19491,8 @@ pub mod syphon_soul;
 pub mod sythis_harvest_s_hand;
 #[path = "artifacts/mv_1/tablet_of_epityr.rs"]
 pub mod tablet_of_epityr;
+#[path = "sorceries/mv_1/tahngarth_s_glare.rs"]
+pub mod tahngarth_s_glare;
 #[path = "enchantments/auras/mv_1/tahngarth_s_rage.rs"]
 pub mod tahngarth_s_rage;
 #[path = "creatures/mv_5/tahngarth_talruum_hero.rs"]
@@ -19811,6 +19817,8 @@ pub mod temporal_distortion;
 pub mod temporal_manipulation;
 #[path = "sorceries/mv_7/temporal_mastery.rs"]
 pub mod temporal_mastery;
+#[path = "sorceries/mv_3/temporal_spring.rs"]
+pub mod temporal_spring;
 #[path = "creatures/mv_3/tempting_licid.rs"]
 pub mod tempting_licid;
 #[path = "creatures/mv_3/tempting_witch.rs"]
@@ -20295,6 +20303,8 @@ pub mod ticking_gnomes;
 pub mod tidal_bore;
 #[path = "enchantments/mv_3/tidal_control.rs"]
 pub mod tidal_control;
+#[path = "creatures/mv_4/tidal_courier.rs"]
+pub mod tidal_courier;
 #[path = "enchantments/mv_1/tidal_flats.rs"]
 pub mod tidal_flats;
 #[path = "creatures/mv_8/tidal_force.rs"]
@@ -20819,6 +20829,8 @@ pub mod tuktuk_scrapper;
 pub mod tumble_magnet;
 #[path = "lands/dual/tundra.rs"]
 pub mod tundra;
+#[path = "creatures/mv_3/tundra_kavu.rs"]
+pub mod tundra_kavu;
 #[path = "creatures/mv_2/tundra_wall.rs"]
 pub mod tundra_wall;
 #[path = "creatures/mv_1/tundra_wolves.rs"]
@@ -21097,6 +21109,8 @@ pub mod unmask;
 pub mod unnatural_hunger;
 #[path = "instants/mv_1/unnatural_predation.rs"]
 pub mod unnatural_predation;
+#[path = "enchantments/mv_2/unnatural_selection.rs"]
+pub mod unnatural_selection;
 #[path = "instants/mv_1/unnatural_speed.rs"]
 pub mod unnatural_speed;
 #[path = "sorceries/mv_4/unnerve.rs"]
@@ -21177,6 +21191,8 @@ pub mod urborg_skeleton;
 pub mod urborg_stalker;
 #[path = "lands/urborg_tomb_of_yawgmoth.rs"]
 pub mod urborg_tomb_of_yawgmoth;
+#[path = "sorceries/mv_5/urborg_uprising.rs"]
+pub mod urborg_uprising;
 #[path = "lands/tapland/urborg_volcano.rs"]
 pub mod urborg_volcano;
 #[path = "instants/mv_2/urgent_exorcism.rs"]
@@ -21719,6 +21735,8 @@ pub mod vodalian_knights;
 pub mod vodalian_mage;
 #[path = "creatures/mv_2/vodalian_merchant.rs"]
 pub mod vodalian_merchant;
+#[path = "creatures/mv_2/vodalian_mystic.rs"]
+pub mod vodalian_mystic;
 #[path = "creatures/mv_4/vodalian_serpent.rs"]
 pub mod vodalian_serpent;
 #[path = "creatures/mv_2/vodalian_soldiers.rs"]
@@ -22325,6 +22343,12 @@ pub mod whirling_catapult;
 pub mod whirling_dervish;
 #[path = "instants/mv_2/whirling_strike.rs"]
 pub mod whirling_strike;
+#[path = "creatures/mv_4/whirlpool_drake.rs"]
+pub mod whirlpool_drake;
+#[path = "creatures/mv_2/whirlpool_rider.rs"]
+pub mod whirlpool_rider;
+#[path = "creatures/mv_3/whirlpool_warrior.rs"]
+pub mod whirlpool_warrior;
 #[path = "sorceries/mv_4/whirlwind.rs"]
 pub mod whirlwind;
 #[path = "creatures/mv_5/whirlwind_adept.rs"]
@@ -22963,6 +22987,8 @@ pub mod zoetic_cavern;
 pub mod zof_consumption;
 #[path = "creatures/mv_4/zof_shade.rs"]
 pub mod zof_shade;
+#[path = "creatures/mv_5/zombie_boa.rs"]
+pub mod zombie_boa;
 #[path = "creatures/mv_5/zombie_goliath.rs"]
 pub mod zombie_goliath;
 #[path = "creatures/mv_3/zombie_master.rs"]
