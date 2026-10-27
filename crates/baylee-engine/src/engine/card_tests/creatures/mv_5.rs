@@ -192,6 +192,7 @@ mod silver_wyvern;
 mod silverglade_elemental;
 mod skeleton_ship;
 mod skirge_familiar;
+mod sliver_overlord;
 mod sliver_queen;
 mod solitude;
 mod soul_of_magma;

@@ -12250,3 +12250,59 @@ Goblin Warchief
 Grip of Chaos
 Guilty Conscience
 Hindering Touch
+Hunting Pack
+Karona's Zealot
+Karona, False God
+Krosan Drover
+Krosan Warchief
+Lethal Vapors
+Lingering Death
+Long-Term Plans
+Mercurial Kite
+Metamorphose
+Mind's Desire
+Mischievous Quanar
+Misguided Rage
+Mistform Warchief
+Nefashu
+Noble Templar
+One with Nature
+Parallel Thoughts
+Pemmin's Aura
+Primitive Etchings
+Proteus Machine
+Putrid Raptor
+Raven Guild Initiate
+Raven Guild Master
+Reaping the Graves
+Reward the Faithful
+Riptide Survivor
+Rock Jockey
+Root Elemental
+Rush of Knowledge
+Scattershot
+Scornful Egotist
+Shoreline Ranger
+Skirk Volcanist
+Skulltap
+Sliver Overlord
+Sprouting Vines
+Stabilizer
+Stifle
+Sulfuric Vortex
+Temporal Fissure
+Tendrils of Agony
+Thundercloud Elemental
+Titanic Bulvox
+Torrent of Fire
+Trap Digger
+Twisted Abomination
+Uncontrolled Infestation
+Undead Warchief
+Upwelling
+Wing Shards
+Wirewood Guardian
+Woodcloaker
+Xantid Swarm
+Zealous Inquisitor
+Zombie Cutthroat

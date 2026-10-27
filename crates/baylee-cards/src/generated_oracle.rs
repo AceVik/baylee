@@ -19276,102 +19276,246 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Counter target spell unless its controller pays {2}.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Hunting Pack
+    &[
+        "Create a 4/4 green Beast creature token.\nStorm (When you cast this spell, copy it for each spell cast before it this turn.)",
+    ],
+    // Karona's Zealot
+    &[
+        "Morph {3}{W}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, all damage that would be dealt to it this turn is dealt to target creature instead.",
+    ],
+    // Karona, False God
+    &[
+        "Haste\nAt the beginning of each player's upkeep, that player untaps Karona and gains control of it.\nWhenever Karona attacks, creatures of the creature type of your choice get +3/+3 until end of turn.",
+    ],
+    // Krosan Drover
+    &["Creature spells you cast with mana value 6 or greater cost {2} less to cast."],
+    // Krosan Warchief
+    &["Beast spells you cast cost {1} less to cast.\n{1}{G}: Regenerate target Beast."],
     // Kurgadon
     &[
         "Whenever you cast a creature spell with mana value 6 or greater, put three +1/+1 counters on this creature.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Lethal Vapors
+    &[
+        "Whenever a creature enters, destroy it.\n{0}: Destroy this enchantment. You skip your next turn. Any player may activate this ability.",
+    ],
+    // Lingering Death
+    &[
+        "Enchant creature\nAt the beginning of the end step of enchanted creature's controller, that player sacrifices that creature.",
+    ],
+    // Long-Term Plans
+    &["Search your library for a card, then shuffle and put that card third from the top."],
+    // Mercurial Kite
+    &[
+        "Flying\nWhenever this creature deals combat damage to a creature, tap that creature. That creature doesn't untap during its controller's next untap step.",
+    ],
+    // Metamorphose
+    &[
+        "Put target permanent an opponent controls on top of its owner's library. That opponent may put an artifact, creature, enchantment, or land card from their hand onto the battlefield.",
+    ],
+    // Mind's Desire
+    &[
+        "Shuffle your library. Then exile the top card of your library. Until end of turn, you may play that card without paying its mana cost.\nStorm (When you cast this spell, copy it for each spell cast before it this turn.)",
+    ],
+    // Mischievous Quanar
+    &[
+        "{3}{U}{U}: Turn this creature face down.\nMorph {1}{U}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, copy target instant or sorcery spell. You may choose new targets for that copy.",
+    ],
+    // Misguided Rage
+    &["Target player sacrifices a permanent of their choice."],
+    // Mistform Warchief
+    &[
+        "Creature spells you cast that share a creature type with this creature cost {1} less to cast.\n{T}: This creature becomes the creature type of your choice until end of turn.",
+    ],
+    // Nefashu
+    &[
+        "Whenever this creature attacks, up to five target creatures each get -1/-1 until end of turn.",
+    ],
+    // Noble Templar
+    &[
+        "Vigilance\nPlainscycling {2} ({2}, Discard this card: Search your library for a Plains card, reveal it, put it into your hand, then shuffle.)",
+    ],
+    // One with Nature
+    &[
+        "Enchant creature\nWhenever enchanted creature deals combat damage to a player, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    ],
+    // Parallel Thoughts
+    &[
+        "When this enchantment enters, search your library for seven cards, exile them in a face-down pile, and shuffle that pile. Then shuffle your library.\nIf you would draw a card, you may instead put the top card of the pile you exiled into your hand.",
+    ],
+    // Pemmin's Aura
+    &[
+        "Enchant creature\n{U}: Untap enchanted creature.\n{U}: Enchanted creature gains flying until end of turn.\n{U}: Enchanted creature gains shroud until end of turn. (It can't be the target of spells or abilities.)\n{1}: Enchanted creature gets +1/-1 or -1/+1 until end of turn.",
+    ],
+    // Primitive Etchings
+    &[
+        "Reveal the first card you draw each turn. Whenever you reveal a creature card this way, draw a card.",
+    ],
+    // Proteus Machine
+    &[
+        "Morph {0} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, it becomes the creature type of your choice. (This effect lasts indefinitely.)",
+    ],
+    // Putrid Raptor
+    &[
+        "Morph—Discard a Zombie card. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Pyrostatic Pillar
     &[
         "Whenever a player casts a spell with mana value 3 or less, this enchantment deals 2 damage to that player.",
     ],
     // Rain of Blades
     &["Rain of Blades deals 1 damage to each attacking creature."],
-    &[],
-    &[],
-    &[],
+    // Raven Guild Initiate
+    &[
+        "Morph—Return a Bird you control to its owner's hand. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Raven Guild Master
+    &[
+        "Whenever this creature deals combat damage to a player, that player exiles the top ten cards of their library.\nMorph {2}{U}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Reaping the Graves
+    &[
+        "Return target creature card from your graveyard to your hand.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    ],
     // Recuperate
     &[
         "Choose one —\n• You gain 6 life.\n• Prevent the next 6 damage that would be dealt to target creature this turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Reward the Faithful
+    &[
+        "Any number of target players each gain life equal to the greatest mana value among permanents you control.",
+    ],
+    // Riptide Survivor
+    &[
+        "Morph {1}{U}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, discard two cards, then draw three cards.",
+    ],
+    // Rock Jockey
+    &[
+        "You can't cast Rock Jockey if you've played a land this turn.\nYou can't play lands if this creature was cast this turn.",
+    ],
+    // Root Elemental
+    &[
+        "Morph {5}{G}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, you may put a creature card from your hand onto the battlefield.",
+    ],
+    // Rush of Knowledge
+    &["Draw cards equal to the greatest mana value among permanents you control."],
+    // Scattershot
+    &[
+        "Scattershot deals 1 damage to target creature.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    ],
+    // Scornful Egotist
+    &[
+        "Morph {U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Shoreline Ranger
+    &[
+        "Flying\nIslandcycling {2} ({2}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)",
+    ],
     // Siege-Gang Commander
     &[
         "When this creature enters, create three 1/1 red Goblin creature tokens.\n{1}{R}, Sacrifice a Goblin: This creature deals 2 damage to any target.",
     ],
     // Silver Knight
     &["First strike, protection from red"],
-    &[],
-    &[],
-    &[],
+    // Skirk Volcanist
+    &[
+        "Morph—Sacrifice two Mountains. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, it deals 3 damage divided as you choose among one, two, or three target creatures.",
+    ],
+    // Skulltap
+    &["As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards."],
+    // Sliver Overlord
+    &[
+        "{3}: Search your library for a Sliver card, reveal that card, put it into your hand, then shuffle.\n{3}: Gain control of target Sliver. (This effect lasts indefinitely.)",
+    ],
     // Spark Spray
     &[
         "Spark Spray deals 1 damage to any target.\nCycling {R} ({R}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Sprouting Vines
+    &[
+        "Search your library for a basic land card, reveal that card, put it into your hand, then shuffle.\nStorm (When you cast this spell, copy it for each spell cast before it this turn.)",
+    ],
+    // Stabilizer
+    &["Players can't cycle cards."],
+    // Stifle
+    &["Counter target activated or triggered ability. (Mana abilities can't be targeted.)"],
+    // Sulfuric Vortex
+    &[
+        "At the beginning of each player's upkeep, this enchantment deals 2 damage to that player.\nIf a player would gain life, that player gains no life instead.",
+    ],
     // Temple of the False God
     &["{T}: Add {C}{C}. Activate only if you control five or more lands."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Temporal Fissure
+    &[
+        "Return target permanent to its owner's hand.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    ],
+    // Tendrils of Agony
+    &[
+        "Target player loses 2 life and you gain 2 life.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    ],
+    // Thundercloud Elemental
+    &[
+        "Flying\n{3}{U}: Tap all creatures with toughness 2 or less.\n{3}{U}: All other creatures lose flying until end of turn.",
+    ],
+    // Titanic Bulvox
+    &[
+        "Trample\nMorph {4}{G}{G}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Torrent of Fire
+    &[
+        "Torrent of Fire deals damage to any target equal to the greatest mana value among permanents you control.",
+    ],
+    // Trap Digger
+    &[
+        "{2}{W}, {T}: Put a trap counter on target land you control.\nSacrifice a land with a trap counter on it: This creature deals 3 damage to target attacking creature without flying.",
+    ],
     // Treetop Scout
     &["This creature can't be blocked except by creatures with flying."],
-    &[],
+    // Twisted Abomination
+    &[
+        "{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)\nSwampcycling {2} ({2}, Discard this card: Search your library for a Swamp card, reveal it, put it into your hand, then shuffle.)",
+    ],
     // Unburden
     &["Target player discards two cards.\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
-    &[],
+    // Uncontrolled Infestation
+    &["Enchant nonbasic land\nWhen enchanted land becomes tapped, destroy it."],
+    // Undead Warchief
+    &["Zombie spells you cast cost {1} less to cast.\nZombie creatures you control get +2/+1."],
     // Unspeakable Symbol
     &["Pay 3 life: Put a +1/+1 counter on target creature."],
-    &[],
+    // Upwelling
+    &["Players don't lose unspent mana as steps and phases end."],
     // Vengeful Dead
     &["Whenever this creature or another Zombie dies, each opponent loses 1 life."],
-    &[],
+    // Wing Shards
+    &[
+        "Target player sacrifices an attacking creature of their choice.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    ],
     // Wipe Clean
     &["Exile target enchantment.\nCycling {3} ({3}, Discard this card: Draw a card.)"],
-    &[],
+    // Wirewood Guardian
+    &[
+        "Forestcycling {2} ({2}, Discard this card: Search your library for a Forest card, reveal it, put it into your hand, then shuffle.)",
+    ],
     // Wirewood Symbiote
     &[
         "Return an Elf you control to its owner's hand: Untap target creature. Activate only once each turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Woodcloaker
+    &[
+        "Morph {2}{G}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, target creature gains trample until end of turn.",
+    ],
+    // Xantid Swarm
+    &["Flying\nWhenever this creature attacks, defending player can't cast spells this turn."],
+    // Zealous Inquisitor
+    &[
+        "{1}{W}: The next 1 damage that would be dealt to this creature this turn is dealt to target creature instead.",
+    ],
+    // Zombie Cutthroat
+    &[
+        "Morph—Pay 5 life. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     &[],
     // Aether Spellbomb
     &[

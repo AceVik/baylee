@@ -157,6 +157,7 @@ mod invoke_prejudice;
 mod karma;
 mod kyren_negotiations;
 mod last_laugh;
+mod lethal_vapors;
 mod levitation;
 mod light_of_day;
 mod lightning_cloud;

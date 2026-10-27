@@ -218,6 +218,7 @@ mod knight_of_the_mists;
 mod knight_of_valor;
 mod krark_clan_grunt;
 mod krark_clan_stoker;
+mod krosan_warchief;
 mod krovikan_sorcerer;
 mod kyren_sniper;
 mod laccolith_grunt;

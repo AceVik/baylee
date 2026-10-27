@@ -484,6 +484,7 @@ mod the_terror_of_serpent_s_pass;
 mod thorn_elemental;
 mod thriss_nantuko_primus;
 mod thunder_dragon;
+mod thundercloud_elemental;
 mod thundering_spineback;
 mod tolarian_serpent;
 mod trained_orgg;

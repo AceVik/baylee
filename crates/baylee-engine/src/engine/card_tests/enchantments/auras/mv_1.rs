@@ -52,6 +52,7 @@ mod mind_harness;
 mod mob_mentality;
 mod mortal_wound;
 mod mystic_might;
+mod one_with_nature;
 mod paralyze;
 mod predatory_hunger;
 mod primal_frenzy;
