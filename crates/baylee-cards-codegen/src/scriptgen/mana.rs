@@ -279,6 +279,9 @@ impl Tx<'_> {
         if def.trim() == "Sacrificed$CardPower" && self.cost_sacrifices_other && !self.on_a_spell {
             return Some("Amount::SacrificedPower".to_string());
         }
+        if def.trim() == "Sacrificed$CardManaCost" && self.cost_sacrifices_other {
+            return Some("Amount::SacrificedManaValue".to_string());
+        }
         if def.trim() == "Count$ValidGraveyard Card.YouOwn" {
             return Some(
                 "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::You) }"

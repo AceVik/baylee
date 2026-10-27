@@ -177,12 +177,17 @@ fn render_card(
             (Some(body), 0) => body.flashback.as_deref(),
             _ => None,
         };
+        let cost_reduction = match (&land, i) {
+            (Some(body), 0) => body.cost_reduction.as_deref(),
+            _ => None,
+        };
         face_defs.push_str(&render_face(
             &card.name,
             f,
             cats,
             enters,
             flashback,
+            cost_reduction,
             i > 0,
             card.layout.as_deref(),
         )?);

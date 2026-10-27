@@ -127,6 +127,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Untap",
     "Counter",
     "PutCounter",
+    "RemoveCounter",
     "Sacrifice",
     "Pump",
     "PumpAll",

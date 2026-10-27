@@ -564,12 +564,14 @@ fn doc_lines(out: &mut String, prefix: &str, text: &str) {
 /// written out; the rest come from the struct-update tail. A stub therefore
 /// says exactly what is printed on the face and nothing else, and a new
 /// `FaceDef` field does not have to be back-filled into every card file.
+#[allow(clippy::too_many_arguments)]
 fn render_face(
     card_name: &str,
     f: &FaceData,
     cats: &SubtypeCatalogs,
     enter_modifiers: &[String],
     flashback: Option<&str>,
+    cost_reduction: Option<&str>,
     is_back: bool,
     layout: Option<&str>,
 ) -> Result<String, CodegenError> {
@@ -618,6 +620,9 @@ fn render_face(
     }
     if let Some(fb) = flashback {
         fields.push(format!("flashback = {fb}"));
+    }
+    if let Some(cr) = cost_reduction {
+        fields.push(format!("cost_reduction = {cr}"));
     }
     // CR 712.2 vs. 712.4a: an MDFC's back is castable or playable from hand,
     // a nonmodal (transforming) one's back is not — in hand the card has

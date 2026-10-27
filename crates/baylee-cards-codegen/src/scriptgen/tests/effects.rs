@@ -2393,3 +2393,38 @@ fn odyssey_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn mirrodin_reader_patterns() {
+    let frogmite = "Name:Frogmite\nManaCost:4\nTypes:Artifact Creature\nPT:2/2\nK:Affinity:Artifact";
+    assert_eq!(
+        read(frogmite).cost_reduction.as_deref(),
+        Some(
+            "Some(CostReduction::PerCount { amount: Amount::CountOf { filter: &Filter::YOUR_ARTIFACT, zone: ZoneSel::Battlefield }, each: 1 })"
+        )
+    );
+
+    let bosh = "Name:Bosh, Iron Golem\nManaCost:8\nTypes:Legendary Artifact Creature\nPT:6/7\n\
+        A:AB$ DealDamage | Cost$ 3 R Sac<1/Artifact> | ValidTgts$ Any | NumDmg$ X\n\
+        SVar:X:Sacrificed$CardManaCost";
+    assert_eq!(
+        read(bosh).abilities,
+        [
+            "activated!(cost!(\"{3}{R}\", Sacrifice(&Filter::YOUR_ARTIFACT)), &[Effect::DealDamage { amount: Amount::SacrificedManaValue, target: TargetSpec::AnyTarget }], target = Some(TargetSpec::AnyTarget))",
+        ]
+    );
+
+    let beetle = "Name:Clockwork Beetle\nManaCost:1\nTypes:Artifact Creature\nPT:0/0\n\
+        K:etbCounter:P1P1:2\n\
+        T:Mode$ Attacks | ValidCard$ Card.Self | Execute$ TrigDelayed\n\
+        T:Mode$ Blocks | ValidCard$ Card.Self | Secondary$ True | Execute$ TrigDelayed\n\
+        SVar:TrigDelayed:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | Execute$ TrigRemoveCounter\n\
+        SVar:TrigRemoveCounter:DB$ RemoveCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1";
+    assert_eq!(
+        read(beetle).abilities,
+        [
+            "triggered!(Trigger::Attacks(&Filter::This), &[Effect::AtEndOfCombat { about: TargetSpec::EventObject, effects: &[Effect::RemoveCounterSelf { kind: CounterKind::P1P1, n: 1 }] }])",
+            "triggered!(Trigger::Blocks(&Filter::This), &[Effect::AtEndOfCombat { about: TargetSpec::EventObject, effects: &[Effect::RemoveCounterSelf { kind: CounterKind::P1P1, n: 1 }] }])",
+        ]
+    );
+}

@@ -773,6 +773,28 @@ impl Tx<'_> {
                     "Effect::AddCounter {{ kind: {kind}, amount: {n} }}"
                 )]
             }
+            "RemoveCounter" => {
+                let code = p.take("CounterType")?;
+                let Some(kind) = counter_kind(&code) else {
+                    return self.deny(format!("counter `{code}`"));
+                };
+                let n: u8 = plain_number(
+                    p.take("CounterNum").as_deref().unwrap_or("1"),
+                    self.svars,
+                )?
+                .try_into()
+                .ok()?;
+                if n == 0 {
+                    return None;
+                }
+                match p.take("Defined").as_deref() {
+                    None | Some("Self") if target.is_none() => {}
+                    _ => return None,
+                }
+                vec![format!(
+                    "Effect::RemoveCounterSelf {{ kind: {kind}, n: {n} }}"
+                )]
+            }
             "Scry" => {
                 let n = plain_number(p.take("ScryNum").as_deref().unwrap_or("1"), self.svars)?;
                 vec![format!("Effect::scry({n})")]

@@ -829,9 +829,9 @@ fn a_refused_script_always_says_why() {
         ),
         (
             "Name:X\nTypes:Creature\n\
-             T:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | Execute$ TrigDraw\n\
+             T:Mode$ Phase | Phase$ Main2 | ValidPlayer$ You | Execute$ TrigDraw\n\
              SVar:TrigDraw:DB$ Draw | NumCards$ 1",
-            "trigger at step `Main1`",
+            "trigger at step `Main2`",
         ),
         (
             "Name:X\nTypes:Creature\n\
@@ -959,6 +959,9 @@ fn a_refused_script_always_says_why() {
         "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ T | NumCards$ 1",
         "Name:X\nTypes:Creature\n\
          T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+        "Name:X\nTypes:Creature\n\
+         T:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | NumCards$ 1",
         "Name:X\nTypes:Creature\n\
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \

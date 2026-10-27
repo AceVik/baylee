@@ -23,6 +23,14 @@ pub(super) fn count_controlled(
     filter: &baylee_cards_dsl::Filter,
     context: crate::text_changes::RuleContext,
 ) -> usize {
+    let context = if counts_by_attachment(filter) {
+        crate::text_changes::RuleContext {
+            source: obj.id,
+            ..context
+        }
+    } else {
+        context
+    };
     state
         .battlefield_seen()
         .filter_map(|id| state.object(id))

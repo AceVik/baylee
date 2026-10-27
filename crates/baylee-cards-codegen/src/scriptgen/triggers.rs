@@ -241,6 +241,7 @@ impl Tx<'_> {
                 let step = match phase.as_str() {
                     "Upkeep" => "StepKind::Upkeep",
                     "Draw" => "StepKind::Draw",
+                    "Main1" => "StepKind::FirstMain",
                     "BeginCombat" => "StepKind::CombatBegin",
                     "End of Turn" => "StepKind::End",
                     other => return self.deny(format!("trigger at step `{other}`")),
