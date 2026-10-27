@@ -137,6 +137,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "RearrangeTopOfLibrary",
     "Token",
     "Investigate",
+    "WinsGame",
 ];
 
 /// A cost token that names an object, split into its kind and its body.

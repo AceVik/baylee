@@ -552,11 +552,17 @@ impl Tx<'_> {
             && self.has_x
             && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
             && !self.oracle.to_ascii_lowercase().contains("x is ");
-        let two_parts =
-            matches!(kind, "Sac" | "Discard" | "ExileFromGrave") && n == "2" && spec != "CARDNAME";
-        if n != "1" && !sac_x && !two_parts {
+        let multi_parts = matches!(kind, "Sac" | "Discard" | "ExileFromGrave")
+            && matches!(n, "2" | "3")
+            && spec != "CARDNAME";
+        if n != "1" && !sac_x && !multi_parts {
             return self.deny(format!("a cost naming `{n}` objects"));
         }
+        let part_count = if multi_parts {
+            n.parse::<usize>().unwrap_or(1)
+        } else {
+            1
+        };
         let (variant, controlled) = match kind {
             "Sac" => ("Sacrifice", true),
             "Discard" => ("Discard", false),
@@ -575,11 +581,7 @@ impl Tx<'_> {
             });
         }
         if variant == "Discard" && spec == "Random" {
-            return Some(if two_parts {
-                vec!["DiscardRandom".to_string(); 2]
-            } else {
-                vec!["DiscardRandom".to_string()]
-            });
+            return Some(vec!["DiscardRandom".to_string(); part_count]);
         }
         let spec = if controlled {
             // Appended per alternative, because a valid-string's commas are
@@ -604,10 +606,8 @@ impl Tx<'_> {
         let name = self.body.filter_static("COST", &expr);
         Some(if sac_x {
             vec![format!("SacrificeX(&{name})")]
-        } else if two_parts {
-            vec![format!("{variant}(&{name})"); 2]
         } else {
-            vec![format!("{variant}(&{name})")]
+            vec![format!("{variant}(&{name})"); part_count]
         })
     }
 }

@@ -214,8 +214,19 @@ impl Tx<'_> {
         let body = self.svars.get(repeat_sub.trim())?.clone();
         let (sub_api, mut sp) = Params::parse(&body)?;
         sp.drop_prose();
-        if sub_api == "LoseLife" && sp.take("Defined").as_deref() == Some("Player.IsRemembered") {
+        if sub_api == "LoseLife"
+            && matches!(
+                sp.take("Defined").as_deref(),
+                Some("Player.IsRemembered" | "Remembered")
+            )
+        {
             let amount_var = sp.take("LifeAmount")?;
+            if let Some(sub_name) = sp.take("SubAbility")
+                && self.svars.get(sub_name.trim()).map(String::as_str)
+                    != Some("DB$ Cleanup | ClearRemembered$ True")
+            {
+                return None;
+            }
             if !sp.exhausted() {
                 return None;
             }
@@ -479,6 +490,43 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
+        if p.peek("Destination") != Some("Library") {
+            if target.is_some() || targets_a_player || p.take("Defined").is_some() {
+                return None;
+            }
+            return match (
+                p.take("Origin").as_deref(),
+                p.take("Destination").as_deref(),
+            ) {
+                (Some("Exile"), Some("Battlefield"))
+                    if p.take("ChangeType").as_deref() == Some("Card.ExiledWithSource") =>
+                {
+                    Some(vec!["Effect::ReturnLinkedToBattlefield".to_string()])
+                }
+                (Some("Battlefield"), Some("Hand")) => {
+                    let valid = p.take("ChangeType")?;
+                    let expr = self.filter_expr(&valid)?;
+                    let name = self.body.filter_static("BOUNCE_ALL", &expr);
+                    Some(vec![format!(
+                        "Effect::ReturnAllToHand {{ filter: &{name}, opponents_only: false }}"
+                    )])
+                }
+                (Some("Battlefield"), Some("Exile")) => {
+                    let valid = p.take("ChangeType")?;
+                    let expr = self.filter_expr(&valid)?;
+                    let name = self.body.filter_static("EXILE_ALL", &expr);
+                    Some(vec![format!("Effect::ExileAll {{ filter: &{name} }}")])
+                }
+                (Some("Graveyard"), Some("Exile"))
+                    if p.take("ChangeType").as_deref() == Some("Card") =>
+                {
+                    Some(vec![
+                        "Effect::ExileGraveyard { player: PlayerRel::EachPlayer }".to_string(),
+                    ])
+                }
+                _ => None,
+            };
+        }
         if p.take("Destination").as_deref() != Some("Library")
             || p.take("Shuffle").as_deref() != Some("True")
         {
@@ -752,11 +800,10 @@ impl Tx<'_> {
                 }
             }
             ("Battlefield", "Exile", false) => {
-                let verb = if self
-                    .svars
-                    .values()
-                    .any(|s| s.contains("Defined$ ExiledWith"))
-                {
+                p.take("IsCurse");
+                let verb = if self.svars.values().any(|s| {
+                    s.contains("Defined$ ExiledWith") || s.contains("Card.ExiledWithSource")
+                }) {
                     "exile_linked"
                 } else {
                     "exile"

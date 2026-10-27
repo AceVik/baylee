@@ -151,6 +151,20 @@ impl Tx<'_> {
             return Some(effects);
         }
         if !p.has("ConditionPresent") {
+            if p.peek("Condition") == Some("Threshold") {
+                p.take("Condition");
+                p.take("ConditionDescription");
+                if !p.exhausted() {
+                    if let Some(key) = p.first_key() {
+                        self.note(format!("unclaimed parameter `{api}.{key}`"));
+                    }
+                    return None;
+                }
+                return Some(vec![format!(
+                    "Effect::IfCondition {{ condition: Condition::GraveyardCountAtLeast(7), then: &[{}], otherwise: &[] }}",
+                    effects.join(", ")
+                )]);
+            }
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `{api}.{key}`"));
             }
@@ -529,7 +543,10 @@ impl Tx<'_> {
                     }
                     // "Deals 1 damage to that player" and every other
                     // player the line names without targeting one.
-                    Some(who) => format!("TargetSpec::Player({})", self.player_rel(Some(who))?),
+                    Some(who) => format!(
+                        "TargetSpec::Player({})",
+                        self.player_of_line(Some(who), target, false)?
+                    ),
                 };
                 let dmg = format!("Effect::DealDamage {{ amount: {n}, target: {to} }}");
                 if may {
@@ -601,17 +618,19 @@ impl Tx<'_> {
             "Discard" if p.peek("Mode") == Some("TgtChoose") => {
                 p.take("Mode");
                 p.take("IsCurse");
-                let n = p
-                    .take("NumCards")
-                    .as_deref()
-                    .unwrap_or("1")
-                    .parse::<u8>()
-                    .ok()?;
+                let raw_n = p.take("NumCards").unwrap_or_else(|| "1".to_string());
                 let who =
                     self.player_of_line(p.take("Defined").as_deref(), target, targets_a_player)?;
-                vec![format!(
-                    "Effect::DiscardForPlayers {{ who: {who}, count: {n} }}"
-                )]
+                if let Ok(n) = raw_n.parse::<u8>() {
+                    vec![format!(
+                        "Effect::DiscardForPlayers {{ who: {who}, count: {n} }}"
+                    )]
+                } else {
+                    let amount = self.amount_or_count(&raw_n)?;
+                    vec![format!(
+                        "Effect::DiscardAmountForPlayers {{ who: {who}, amount: {amount} }}"
+                    )]
+                }
             }
             "Discard" if p.peek("Mode") == Some("RevealYouChoose") => {
                 p.take("Mode");
@@ -781,6 +800,9 @@ impl Tx<'_> {
                     p.take("Defined");
                     vec![format!("Effect::{verb}(TargetSpec::EventObject)")]
                 } else {
+                    if !targets_here && target.is_some() && p.peek("Defined") == Some("Targeted") {
+                        p.take("Defined");
+                    }
                     vec![format!("Effect::{verb}({aimed})")]
                 }
             }
@@ -1081,24 +1103,42 @@ impl Tx<'_> {
                         )]
                     }
                     Some(gains) => {
-                        let from =
-                            self.protection_filter(&format!("Protection from {}", gains.trim()))?;
-                        vec![format!(
-                            "Effect::continuous(&Filter::This, Modifier::ProtectionFrom(&{from}), {duration})"
-                        )]
+                        let mut out = Vec::new();
+                        for part in gains.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                            let from =
+                                self.protection_filter(&format!("Protection from {part}"))?;
+                            out.push(format!(
+                                "Effect::continuous(&Filter::This, Modifier::ProtectionFrom(&{from}), {duration})"
+                            ));
+                        }
+                        if out.is_empty() {
+                            return None;
+                        }
+                        out
                     }
                     None => return None,
                 }
             }
             "Counter" => {
-                if p.take("Destination").is_some_and(|d| d != "Graveyard") {
-                    return None;
-                }
-                match p.take("TargetType").as_deref() {
-                    Some("Spell") => vec!["Effect::CounterTargetSpell".to_string()],
-                    Some("Activated") => vec!["Effect::CounterTargetAbility".to_string()],
+                let dest = p.take("Destination");
+                match (dest.as_deref(), p.take("TargetType").as_deref()) {
+                    (None | Some("Graveyard"), Some("Spell")) => {
+                        vec!["Effect::CounterTargetSpell".to_string()]
+                    }
+                    (Some("Exile"), Some("Spell")) => {
+                        vec!["Effect::CounterTargetSpellToExile".to_string()]
+                    }
+                    (None | Some("Graveyard"), Some("Activated")) => {
+                        vec!["Effect::CounterTargetAbility".to_string()]
+                    }
                     _ => return None,
                 }
+            }
+            "WinsGame" => {
+                if target.is_some() || p.take("Defined").as_deref() != Some("You") {
+                    return None;
+                }
+                vec!["Effect::WinGame".to_string()]
             }
             _ => return None,
         })

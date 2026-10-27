@@ -50,6 +50,13 @@ impl Tx<'_> {
             clauses.push(clause.to_string());
             claimed.push("ActivationPhases$");
         }
+        if let Some(act) = probe.take("Activation") {
+            if !is_activated || act != "Threshold" {
+                return self.deny(format!("`Activation$ {act}`"));
+            }
+            clauses.push("Condition::GraveyardCountAtLeast(7)".to_string());
+            claimed.push("Activation$");
+        }
         if let Some(name) = probe.take("CheckSVar") {
             if !is_activated || !clauses.is_empty() {
                 return self
@@ -502,6 +509,21 @@ impl Tx<'_> {
         }
         if p.take("IsPresent2").is_some() {
             return self.deny("a second `IsPresent2$` clause".to_string());
+        }
+        if p.peek("PresentZone") == Some("Graveyard") && p.peek("PresentPlayer") == Some("You") {
+            p.take("PresentZone");
+            p.take("PresentPlayer");
+            let compare = p
+                .take("PresentCompare")
+                .unwrap_or_else(|| "GE1".to_string());
+            let Some(Bound::AtLeast(n)) = count_bound(&compare) else {
+                return self.deny(format!("`PresentCompare$ {compare}`"));
+            };
+            let expr = self.filter_expr_in_zone(valid, true)?;
+            let name = self.body.filter_static("CHECK", &expr);
+            return Some(format!(
+                "Condition::AmountAtLeast(Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Graveyard(PlayerRel::You) }}, {n})"
+            ));
         }
         if let Some(who) = p.take("PresentPlayer") {
             return self.deny(format!("`PresentPlayer$ {who}`"));

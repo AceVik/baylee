@@ -157,6 +157,9 @@ impl Tx<'_> {
             "CantAttack,CantBlock,CantBeActivated" => {
                 return self.cant_attack_block_activate(&mode, p);
             }
+            "CantBeActivated" if p.peek("ValidSA") == Some("Activated") => {
+                return self.cant_be_activated(p);
+            }
             "CantAttack" if p.peek("ValidCard") == Some("Card.Self+attackedLastTurn") => {
                 return self.cant_attack_after_last_own_turn(p);
             }
@@ -233,11 +236,12 @@ impl Tx<'_> {
             condition = self.static_svar_condition(&mut p)?;
         }
         let mut out = Vec::new();
+        let mut self_granted = false;
         self.pt_modifiers(&mut p, &filter, &mut out)?;
         self.keyword_modifiers(&mut p, &filter, &mut out)?;
         self.type_modifiers(&mut p, &filter, &mut out)?;
         self.color_modifiers(&mut p, &filter, &mut out)?;
-        self.grant_modifiers(&mut p, &filter, &mut out)?;
+        self.grant_modifiers(&mut p, &filter, &condition, &mut out, &mut self_granted)?;
         self.block_modifiers(&mut p, &filter, &mut out)?;
         // "You control enchanted creature" (Control Magic): layer 2
         // (CR 613.1b), and the static's controller is who gains control —
@@ -259,7 +263,7 @@ impl Tx<'_> {
         }
         // The honest-stub rule: one key nothing claimed and the card stays
         // a stub, however much of the line was understood.
-        if !p.exhausted() || out.is_empty() {
+        if !p.exhausted() || (out.is_empty() && !self_granted) {
             if let Some(key) = p.first_key() {
                 self.note(format!("unclaimed parameter `Continuous.{key}`"));
             } else {
@@ -372,6 +376,30 @@ impl Tx<'_> {
             }
             self.body.abilities.push(expr);
         }
+        Some(())
+    }
+
+    fn cant_be_activated(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        p.take("ValidSA");
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `CantBeActivated` with no `ValidCard$`".to_string());
+        };
+        let filter = self.filter_expr(&valid)?;
+        let condition = self.condition(&mut p)?;
+        if !p.exhausted() {
+            if let Some(key) = p.first_key() {
+                self.note(format!("unclaimed parameter `CantBeActivated.{key}`"));
+            }
+            return None;
+        }
+        let mut expr = Self::static_expr(&filter, "Modifier::CantActivate");
+        if !condition.is_empty()
+            && let Some(open) = expr.strip_suffix(')')
+        {
+            expr = format!("{open}{condition})");
+        }
+        self.body.abilities.push(expr);
         Some(())
     }
 
@@ -1029,7 +1057,9 @@ impl Tx<'_> {
         &mut self,
         p: &mut Params,
         filter: &str,
+        condition: &str,
         out: &mut Vec<String>,
+        self_granted: &mut bool,
     ) -> Option<()> {
         let Some(raw) = p.take("AddAbility") else {
             return Some(());
@@ -1054,7 +1084,21 @@ impl Tx<'_> {
                 .collect();
             let mut chain = Chain::default();
             self.chain(&stripped.join(" | "), &mut chain)?;
-            if chain.target.is_some() {
+            if let Some(target) = &chain.target {
+                if filter == "Filter::This"
+                    && chain.second_target.is_none()
+                    && !chain.target_is_x
+                    && chain.target_up_to.is_none()
+                    && !chain.effects.is_empty()
+                    && !chain.could_add_mana
+                {
+                    self.body.abilities.push(format!(
+                        "activated!({cost}, &[{}], target = Some({target}){condition})",
+                        chain.effects.join(", ")
+                    ));
+                    *self_granted = true;
+                    continue;
+                }
                 return self.deny("a granted ability with a target".to_string());
             }
             if chain.effects.is_empty() {

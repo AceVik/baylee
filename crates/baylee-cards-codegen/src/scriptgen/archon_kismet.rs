@@ -8,6 +8,22 @@ impl Tx<'_> {
         {
             return self.deny(format!("a spell quota from `{zone}`"));
         }
+        if p.peek("Caster") == Some("Opponent") && !p.has("NumLimitEachTurn") {
+            p.take("Caster");
+            let Some(valid) = p.take("ValidCard") else {
+                return self.deny("an opponent cast prohibition without `ValidCard$`".into());
+            };
+            if !p.exhausted() {
+                return self.deny("an opponent cast prohibition with extra clauses".into());
+            }
+            let expr = self.filter_expr(&valid)?;
+            let name = self.body.filter_static("CANT_CAST", &expr);
+            self.body.abilities.push(Self::static_expr(
+                "Filter::Any",
+                &format!("Modifier::OpponentsCantCast(&{name})"),
+            ));
+            return Some(());
+        }
         if p.take("ValidCard").as_deref() != Some("Card")
             || p.take("Caster").as_deref() != Some("Player")
             || p.take("NumLimitEachTurn").as_deref() != Some("1")
