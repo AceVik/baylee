@@ -465,7 +465,27 @@ step 2,500 (choice NLL 0.238308, active-choice accuracy 58.8318%, value MSE
 0.160583). The final checkpoint instead has choice NLL 0.243727, active-choice
 accuracy 60.8216%, value MSE 0.152104 and ECE 0.041909. Different metrics prefer
 different checkpoints; these values do not establish a playing-strength gain.
-The matched control arm and original scheduled comparisons remain in progress.
+The matched control arm and original scheduled comparisons subsequently
+completed. Control selected its final step 7,888: choice NLL 0.239097,
+active-choice accuracy 61.7027%, value MSE 0.173852 and ECE 0.131599.
+
+Raw-policy matches against Sharp, with the same deals and seat rotations:
+
+| Model | Duels | Commander |
+| --- | --- | --- |
+| v5 source | 12/64 | 2/32 |
+| v5 selected after broad BC | 16/64 | 1/32 |
+| control source | 14/64 | 1/32 |
+| control selected after broad BC | 14/64 | 1/32 |
+
+No game was capped or refused. The v5-versus-control duel difference was
+3.125 percentage points, with a table-cluster bootstrap 95% interval of
+[-7.8125, 14.0625] points. The v5-versus-source difference was 6.25 points,
+interval [-3.125, 15.625]. Both include zero. Commander has only eight
+independent tables and no positive signal. These results establish neither
+architecture superiority nor experienced-human strength. No model was promoted.
+Both ONNX exports passed 79-frame parity checks. The complete results are in
+`broad-bc-20261027/result.json` and its referenced paired reports.
 
 A separate queued controller, PID 454387, is registered at
 `/home/ace/baylee-data/v5/experiments/post-broad-review-20261027` and in the broad
@@ -476,7 +496,8 @@ control on all 769,611 validation frames. A bounded performance screen compares
 the baseline with saved1, saved2, compact thinking, prefetch2 and board8 in
 separate candidate jobs. Fresh-prefix scope, numerical rejection and memory
 failures remain explicit; no configuration or model is promoted automatically.
-The runtime is frozen at `dac7498501f051dae314174a946d1b5df7498c2b`, with 150
+It has now advanced from waiting to the GPU diagnostics. The runtime is frozen
+at `dac7498501f051dae314174a946d1b5df7498c2b`, with 150
 hashed Python/controller files. The existing broad-run watcher remains active;
 `baylee-v5-postreview-watch.timer` independently wakes this session after the
 new review completes or fails.
@@ -489,3 +510,30 @@ do not silently combine the ablations or start a duplicate controller on a
 completion wake. No user confirmation is needed to continue the authorized
 work. Encoder8 inventory/payment completeness remains separately versioned
 work, not a modification to the running Encoder7 archive.
+
+### Avoiding repeated input reads in future controllers
+
+The completed comparison controller spent substantial CPU time rehashing
+unchanged sealed inputs between small jobs. Its cumulative logical read count
+exceeded 960 GB; that is not a measurement of physical disk traffic. The active
+frozen controller was left unchanged. New optional process-local digest
+receipts reuse a hash only when resolved path and strict file identity still
+match; fixed expected seals remain separate. CPU tests cover same-size edits
+with restored mtime, replacement, symlink retargeting, mid-read changes and
+actual guarded-job integration. All 12 focused tests pass.
+
+A bounded warm-cache probe used three files totalling 128 MiB and three passes:
+384 MiB of logical reads fell to 128 MiB, with identical SHA-256 results and
+six cache hits. Observed elapsed time was 0.241 versus 0.083 seconds. This
+demonstrates the redundant-read reduction, not a whole-training speedup. The
+measurement is retained in `performance-20261027/input-digests-benchmark.json`.
+
+The next objective study is prepared in `objective-ablation-20261027`.
+Package 0001 contains 278 complete games and 2,005,009 frames. A metadata audit
+found no source-record or byte-interval overlap with package 0000, the original
+training/validation splits or the reserved seed holdout. It is unexposed
+relative to those audited inputs; ancestral-model exposure and identical
+payloads under different paths remain unknown. This is not a held-out-family
+test. A matched loss5 legacy arm is included alongside the unchanged loss4
+reference so implementation-version effects can be separated from the
+outcome-weight and unroll-normalizer changes.

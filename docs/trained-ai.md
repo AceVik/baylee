@@ -72,6 +72,16 @@ declared architecture, objective and optimizer groups into disposable probes;
 Use immutable checkpoint copies and an idle GPU. A short fresh-trajectory probe
 does not establish performance on late-game Commander boards.
 
+Controllers may opt into `run_guard4.run_job(..., digest_cache=cache)` using a
+process-local `input_digests4.InputDigestCache`. Repeated unchanged inputs then
+reuse a SHA-256 receipt after checking resolved path, device/inode, size and
+nanosecond modification/change times. A changed identity forces a fresh read;
+changes during that read fail. Controllers must keep their expected sealed
+digests separately and call `cache.verify(expected)` before and after consumers.
+This avoids repeatedly streaming the same large immutable dataset for each
+job. Receipts are never loaded as trusted persistent caches, and default
+`run_job` behavior remains full hashing. It is not a filesystem lock.
+
 `cargo build --release -p baylee-train --features live-seat --bin seat4`
 builds an optional local v4 opponent for the ordinary gateway protocol.
 `seat4 --model /path/to/exported/model --name v4-R02 --acceptance Victory`
