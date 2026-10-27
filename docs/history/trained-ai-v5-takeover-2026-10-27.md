@@ -723,3 +723,41 @@ Eighteen paired reports compare source, loss4 reference and loss5 bridge.
 Completed fits, diagnostics and exports are reused; no new training or automatic
 promotion occurs. `baylee-v5-objective-recovery-watch.timer` reports completion
 or failure to this session. Previously delivered experiment timers were retired.
+
+### Objective playing comparisons complete
+
+Completion event `8578befdaf4edcc78880f24e` was reviewed against the actual
+recovery result. Ten evaluations and eighteen paired reports passed an
+independent identity/hash audit and exact recomputation of their paired
+statistics. Every evaluation had zero caps, refusals and stalls. Small explicit
+house fallbacks remain part of the recorded raw-policy execution contract.
+
+| Fixed-final model | Duel wins / 64 | Commander wins / 32 |
+| --- | --- | --- |
+| Source | 16 | 1 |
+| Loss4 reference | 15 | 2 |
+| Loss5 legacy bridge | 18 | 2 |
+| Outcome weighting off | 13 | 2 |
+| Unroll per head | 17 | 3 |
+| House Steady baseline | 34 | 6 |
+
+All models face Sharp on the same starts. These are policy-substitution
+comparisons, not model-versus-model matches. The bridge improves two duel
+outcomes and worsens none relative to the source, but its table-bootstrap
+interval for the win-rate difference includes zero: 0 to +7.81 percentage
+points. Unroll versus bridge is -1.56 points, interval -7.81 to +4.69. Every
+one of the eighteen paired empirical and bounded intervals includes zero;
+Commander has only eight independent tables. Repeated use of this development
+suite further limits any selection claim. No objective or model is promoted.
+The lower critic error of outcome-off did not translate into the best observed
+duel result, reinforcing the need to keep value diagnostics and playing strength
+separate. Full audit:
+`/home/ace/baylee-data/v5/advice/objective-final-review-20261027/review.json`.
+
+The next data experiment targets states reached by the neural actor itself,
+with independent Sharp teacher advice for those exact authorized views. Before
+scaling collection, compare real-neural games with shadow advice disabled and
+enabled, verify unchanged executed records/probabilities, replay all records and
+audit Python admission of complete chronological BC-only labels. Use separate
+TRAIN decks and fresh seeds, with complete table rotations kept within one
+split. This is a corrective-data pilot, not a claimed strength improvement.
