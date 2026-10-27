@@ -5,7 +5,7 @@ fn collector_policy_metadata(
     thinking_steps: u8,
     family: &str,
 ) -> Value {
-    json!({"policy_mode":mode,"policy_contract":mode.contract(),"policy_provenance_version":1,
+    json!({"policy_mode":mode,"policy_contract":mode.contract(),"policy_provenance_version":2,
         "model_family":family,"temperature":temperature,"thinking_steps":thinking_steps,"sampling_version":2})
 }
 

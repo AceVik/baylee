@@ -5,7 +5,7 @@
 use serde_json::Value;
 
 pub(super) fn certified_run(run: &Value) -> bool {
-    if run["policy_provenance_version"].as_u64() != Some(1)
+    if run["policy_provenance_version"].as_u64() != Some(2)
         || !matches!(run["model_family"].as_str(), Some("v4" | "v5"))
     {
         return false;
@@ -29,13 +29,19 @@ mod tests {
     use serde_json::json;
 
     fn raw() -> Value {
-        json!({"model_family":"v4", "policy_provenance_version":1,
+        json!({"model_family":"v4", "policy_provenance_version":2,
             "policy_mode":"raw", "policy_contract":"raw_neural_sampler2_v1",
             "temperature":0.7})
     }
 
     #[test]
     fn historical_and_mixed_sources_cannot_certify_ppo() {
+        let mut prior = raw();
+        prior["policy_provenance_version"] = json!(1);
+        assert!(
+            !certified_run(&prior),
+            "version 1 predates exact raw decoder validation"
+        );
         assert!(!certified_dataset(&[]));
         assert!(!certified_run(&json!({"model_family":"v4"})));
         assert!(!certified_dataset(&[raw(), json!({"model_family":"v4"})]));

@@ -228,7 +228,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut meta = json!({
         "encoder_version": ENCODER_VERSION7,
-        "policy_provenance_version": if policy_provenance::certified_dataset(&policy_sources) { json!(1) } else { Value::Null },
+        "policy_provenance_version": if policy_provenance::certified_dataset(&policy_sources) { json!(2) } else { Value::Null },
         "package_target_steps": args.shard_steps,
         "streaming_frames_per_worker": MAX_SEATS,
         "trajectory_version": if args.include_passive_obs { 2 } else { 1 },

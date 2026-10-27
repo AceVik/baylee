@@ -181,7 +181,6 @@ fn main() -> anyhow::Result<()> {
             "run": "eval4-rollout",
             "policy_mode": policy_mode,
             "policy_contract": policy_mode.contract(),
-            "policy_provenance_version": 1,
             "model_family": model_identity.as_ref().map(|identity|identity.model_family),
             "model_identity": model_identity,
             "evaluator_build": baylee_build::short(),
@@ -530,7 +529,7 @@ fn main() -> anyhow::Result<()> {
     summary["policy_provenance_version"] = if args.legacy_v3 {
         Value::Null
     } else {
-        json!(1)
+        json!(2)
     };
     summary["house_counts_include_tactical_demonstrations"] =
         json!(!args.legacy_v3 && policy_mode == PolicyMode4::Tactical);
