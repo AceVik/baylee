@@ -16,7 +16,9 @@ use bevy::prelude::*;
 /// Tab stays inside the album; Escape and the close button return to its opener.
 pub(crate) const ALBUM_ORDER: TabOrder = TabOrder {
     name: "memorial",
-    stops: &["previous", "photos", "next", "close"],
+    stops: &[
+        "chapters", "previous", "next", "reading", "back", "forward", "close",
+    ],
     modal: true,
 };
 
@@ -27,7 +29,9 @@ pub(crate) enum MemorialPress {
     Close,
     Previous,
     Next,
-    Photo(u8),
+    Chapter(u8),
+    Back,
+    Forward,
     Nothing,
 }
 
@@ -42,10 +46,15 @@ impl MemorialPress {
             Self::Close => album.open = false,
             Self::Previous => album.turn(false),
             Self::Next => album.turn(true),
-            Self::Photo(i) if usize::from(i) < baylee_client_core::memorial::PHOTOS => {
-                album.photo = usize::from(i);
+            Self::Chapter(i) if usize::from(i) < baylee_client_core::memorial::CHAPTERS => {
+                album.chapter = usize::from(i);
+                cx.scrolled.set(super::List::Memorial, 0.0);
             }
-            Self::Photo(_) | Self::Nothing => {}
+            Self::Back | Self::Forward => {
+                album.read(self == Self::Forward);
+                cx.scrolled.set(super::List::Memorial, 0.0);
+            }
+            Self::Chapter(_) | Self::Nothing => {}
         }
     }
 }
@@ -58,6 +67,7 @@ pub(super) fn draw(
     kit: Kit,
     assets: Option<&AssetServer>,
     art: Option<&CloudArt>,
+    scrolled: &super::Scrolled,
 ) {
     if state.settings_open()
         || state.terms.up()
@@ -127,7 +137,7 @@ pub(super) fn draw(
     commands.entity(cloud).add_child(caption);
     commands.entity(root).add_child(cloud);
     if state.memorial.open {
-        album::draw(commands, root, state, kit, assets);
+        album::draw(commands, root, state, kit, assets, art, scrolled);
     }
 }
 

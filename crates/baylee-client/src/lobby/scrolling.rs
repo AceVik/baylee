@@ -40,6 +40,8 @@ pub(crate) enum List {
     Terms,
     /// The About sheet's text (WP1).
     About,
+    /// Baylee's story, independent of its photograph selection.
+    Memorial,
     /// A language-model profile's sheet (WP5).
     ProfileSheet,
     /// The settings screen's section list (WP5).
@@ -69,6 +71,7 @@ pub(crate) struct Scrolled {
     transfer: f32,
     terms: f32,
     about: f32,
+    memorial: f32,
     profile_sheet: f32,
     settings_nav: f32,
     replays: f32,
@@ -90,6 +93,7 @@ impl Scrolled {
             List::Transfer => self.transfer,
             List::Terms => self.terms,
             List::About => self.about,
+            List::Memorial => self.memorial,
             List::ProfileSheet => self.profile_sheet,
             List::SettingsNav => self.settings_nav,
             List::Replays => self.replays,
@@ -111,6 +115,7 @@ impl Scrolled {
             List::Transfer => self.transfer = at,
             List::Terms => self.terms = at,
             List::About => self.about = at,
+            List::Memorial => self.memorial = at,
             List::ProfileSheet => self.profile_sheet = at,
             List::SettingsNav => self.settings_nav = at,
             List::Replays => self.replays = at,

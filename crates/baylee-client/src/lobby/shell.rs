@@ -596,6 +596,7 @@ pub(super) fn ui(
         kit,
         assets.as_deref(),
         cloud.as_deref(),
+        &scrolled_to,
     );
     if state.memorial.open {
         *builder_drawn = None;

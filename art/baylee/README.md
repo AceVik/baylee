@@ -25,12 +25,15 @@ layers. Both new logos include sleeping Baylee. No external game art was used.
 history; [manifest](memorial/assets.json) identifies the selected outputs and
 photo sources. The original photographs remain untouched in Pictures. Their
 use in this local album was explicitly requested by the owner on 26 October.
-The draft remembrance asserts only details the owner supplied, in German and English.
+The complete owner-approved remembrance is in the client’s German and English
+Fluent files: eight chapters and 37 paragraphs, matching Baylee Central. The
+“Bei uns / With us” date range is the time with the family, not an invented lifespan.
 
 The interactive cloud has warm contour light, engraved botanical arcs, a small
 sun ornament at the pointer, keyboard focus and an accessible button label.
-The album supports arrows, numbered photographs, Escape, a focus trap and return
-to its opener. Reduced motion and low ambient quality freeze all idle movement.
+The book supports independent photo/chapter navigation, a scrollable reading
+column, Escape, a focus trap and return to its opener. Its header reuses the
+approved cloud material; gold ornaments are geometry, independent of fonts. Reduced motion and low ambient quality freeze all idle movement.
 The full-screen world uses one texture with restrained parallax, moving light
 and cloud haze; it is a layered image with shader effects, not a 3D city.
 

@@ -57,3 +57,69 @@ a claim of a listening-panel evaluation. Source editions, every one of the
 Full workspace/database release gates were not run. This local branch has not
 been pushed or landed; `cargo dev gate` and `cargo dev gate features` remain
 required before doing so.
+
+## Complete remembrance book · 27 October 2026
+
+The approved German remembrance and its English translation are now embedded in
+both products: eight chapters, 37 paragraphs each, with exact paragraph equality
+checked between the native and Central Fluent files and the prepared source.
+The story remains complete. The dates explicitly describe her time with the
+family. The five original photo derivatives and approved cloud asset are unchanged.
+
+The native book has a real scrollbar, independent photo navigation, chapter
+boundaries, a fixed footer and serif prose. Its header reuses the existing GPU
+cloud material; the three gold diamonds are geometry, avoiding a missing font
+glyph found in the first render. Home/End and arrow scrolling now belong to the
+focused reading column, so the chapter row can keep its own roving focus. Photo
+changes preserve the scroll offset; chapter changes start at the top.
+
+Live checks used a silent passive debug client (`dev-control,dev-reload`) on the
+MacBook's verified built-in monitor (native index 0), isolated XDG folders and
+loopback-only network sandbox. All eight chapters were opened through actual
+virtual input, every German paragraph checked in the live tree, and the reading
+column scrolled to its end. The final farewell, portrait and landscape photos,
+English, 1280 × 720 with normal/XL text, Tab trapping, Escape/opener restoration
+and opening the book from the offline lobby were checked. A photo change kept
+the inspected paragraph at exactly y = 425 logical pixels. Close and chapter
+controls stayed visible at XL size. Each owned client exited and its harness
+port was verified closed. The last source-only cleanup extracted the unchanged
+header/navigation construction into `album/chrome.rs`; final Clippy checks the
+same construction and all test targets.
+
+Two 2560 × 1440 book screenshots per policy, separated by two seconds:
+
+| Policy | Peak RGB delta | Mean RGB delta | Changed pixels |
+| --- | ---: | ---: | ---: |
+| Default motion | 210 | 0.157544 | 63,841 |
+| Reduced motion | 0 | 0 | 0 |
+
+This verifies moving decoration and a completely still counter-test, not an
+absence-of-flicker claim. The prose does not animate continuously.
+
+Indicative six-second frame samples at 1280 × 720, normal text, album open,
+virtual pointer outside, audio silent (debug/dev-control; not a release GPU
+benchmark):
+
+| Sample | FPS | Frame p50 / p95 ms | Update p50 / p95 ms | Entities | Allocated bytes/frame |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Previous five-photo draft | 60.01 | 16.630 / 18.447 | 5.896 / 6.578 | 774 | 346,224 |
+| Complete eight-chapter book | 59.77 | 16.591 / 18.357 | 6.211 / 6.807 | 811 | 364,061 |
+
+The baseline is the preserved earlier `client-6` memorial build; its music
+revision differs (silent in both), so these samples are not a strict same-commit
+A/B attribution. The complete reading tree adds 37 entities, with about 0.32 ms
+higher measured median update time in this run; both remained near the 60-Hz cap.
+
+Automated checks: 2,176 client library tests passed, 8 ignored; 5 selected core
+memorial/music checks and 13 localization checks passed. Final client/core Clippy
+with all targets and `dev-control,dev-reload`, formatting and patch whitespace
+passed. The real render also exposed an existing initial-room-focus race: the
+cloud could name the room before its seat tree existed. Initial focus now waits
+for the real stop; the existing regression passes. The German sample-rate help
+was reworded to preserve its existing 44,1 kHz display contract. No audio changed.
+
+Central's matching book passed 215 unit tests, 34 browser tests and its normal
+Rust/PostgreSQL/smoke/secret checks; its pre-existing crypto-bigint RustSec finding
+still blocks a complete release gate (see that repository's security record).
+Native full workspace/database release gates were not run. Both changes remain
+local and were not pushed or deployed.

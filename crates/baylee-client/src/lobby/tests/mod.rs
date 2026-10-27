@@ -27,6 +27,7 @@ mod header;
 mod invites;
 mod perf;
 mod printings;
+mod remembrance;
 mod report;
 mod settings;
 mod shortcuts;

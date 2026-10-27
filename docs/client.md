@@ -4288,9 +4288,17 @@ never start that flight. Reduced motion uses the existing short colour change.
 `lobby::memorial` draws the approved cloud as an accessible button. Its independent
 material adds tiny breathing/cloud motion, warm contour light, engraved botanical
 arcs and a sun ornament at the pointer. Hover and keyboard focus share feedback.
-Click/Enter opens a local five-photo album with a draft remembrance, previous/next,
-numbered photos and Escape/close. The modal traps input and returns focus to its
-opener. The supplied photographs preserve their aspect ratios; shipping copies
+Click/Enter opens a local remembrance book: the family's complete approved story,
+37 paragraphs in eight chapters, in German and English. The story has a serif
+reading column with a real scrollbar; chapter controls and Close stay visible,
+including at XL text size. Five photographs turn independently of the chapter
+and retain its scroll position. Selecting a chapter starts its text at the top;
+chapter navigation stops at either end, while photos wrap. Left/Right turns
+photos; Alt+Left/Right changes chapters. PageUp/PageDown scroll the text;
+Home/End and Up/Down scroll when the reading column has focus. The chapter row
+keeps the kit's roving focus. Escape/close returns focus to the opener, and the
+modal owns input throughout. The approved cloud and its existing light shader
+decorate the book header; no moving texture is drawn behind the prose. The supplied photographs preserve their aspect ratios; shipping copies
 are resized and stripped of location/capture metadata. No album request uses a network.
 
 `VistaArt` keeps the world, cloud and title logo resident for the startup curtain.

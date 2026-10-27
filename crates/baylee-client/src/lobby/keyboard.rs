@@ -56,9 +56,19 @@ pub(super) fn keyboard(
         if codes.just_pressed(KeyCode::Escape) {
             state.memorial.open = false;
         } else if codes.just_pressed(KeyCode::ArrowRight) {
-            state.memorial.turn(true);
+            if codes.pressed(KeyCode::AltLeft) || codes.pressed(KeyCode::AltRight) {
+                state.memorial.read(true);
+                scrolled.set(List::Memorial, 0.0);
+            } else {
+                state.memorial.turn(true);
+            }
         } else if codes.just_pressed(KeyCode::ArrowLeft) {
-            state.memorial.turn(false);
+            if codes.pressed(KeyCode::AltLeft) || codes.pressed(KeyCode::AltRight) {
+                state.memorial.read(false);
+                scrolled.set(List::Memorial, 0.0);
+            } else {
+                state.memorial.turn(false);
+            }
         }
         return;
     }

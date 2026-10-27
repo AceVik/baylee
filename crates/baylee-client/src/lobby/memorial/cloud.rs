@@ -30,6 +30,7 @@ pub(crate) struct CloudArt(pub Handle<CloudMaterial>);
 pub(crate) struct CloudPlugin;
 impl Plugin for CloudPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(Update, super::album::reading_keys);
         if !app.world().contains_resource::<AssetServer>() {
             return;
         }
