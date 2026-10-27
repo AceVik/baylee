@@ -761,3 +761,31 @@ enabled, verify unchanged executed records/probabilities, replay all records and
 audit Python admission of complete chronological BC-only labels. Use separate
 TRAIN decks and fresh seeds, with complete table rotations kept within one
 split. This is a corrective-data pilot, not a claimed strength improvement.
+
+The bounded real-neural pilot was launched as PID 496881 at
+`/home/ace/baylee-data/v5/experiments/shadow-pilot-20261027`. Its 1,232-input
+seal is `527391116b99117d414142b5818e2886ff6a95d1da9a71d7c502d9c576917681`.
+The actor remains the unchanged broad-selected source, avoiding selection from
+the noisy objective leaderboard. A newly archived CUDA evaluator/converter at
+revision `9282a32f6` includes shadow collection and colocated provider libraries.
+The archive's CPU mock replay/conversion/admission recheck passes; this alone
+does not prove real-neural correctness.
+
+The pilot runs matched shadow-off/on pairs for four greedy duel deals and
+eight greedy Commander deals, plus two stochastic duel deals at temperature
+0.7. These represent two, two and one independent tables respectively, with
+all seat rotations retained. Fresh seeds start at 500270000, 500271000 and
+500272000; frozen TRAIN-only pools contain 613 constructed and 285 Commander
+decks. Eight CPU contract tests pass, including correct f32 temperature
+comparison. Executed record hashes, original behavior sidecars and outcomes
+must match between off/on. Nonzero stochastic likelihoods test noninterference,
+not independent probability calibration. Explicit House fallbacks are counted
+and excluded from shadow labels.
+
+Only the twelve greedy shadow-on games are converted, preserving passive
+observations and complete recurrent histories. Conversion must replay correctly,
+retain the model catalog and completed teacher bindings, and pass Python BC-only
+admission and PPO rejection. The stochastic pair remains audit-only. No model
+training or automatic dataset expansion is launched by this pilot. Its
+`complete-review-required` result is monitored by
+`baylee-v5-shadow-pilot-watch.timer`; the completed recovery watcher was retired.
