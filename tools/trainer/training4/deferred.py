@@ -135,7 +135,7 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
             | seat0_mask
         )
         sv_in = torch.cat([s_ref_all, g_ref_all.unsqueeze(2).expand(-1, -1, M.MAX_SEATS, d)], dim=-1)
-        seat_win_logits = net.seat_value_head(sv_in).squeeze(-1)
+        seat_win_logits = net.value_readout(sv_in).squeeze(-1)
         seat_win_logits = seat_win_logits.masked_fill(~s_active, -1e9)
         seat_probs = torch.nn.functional.softmax(seat_win_logits, dim=-1)
         value_all = (seat_probs * s_allied.to(seat_probs.dtype)).sum(dim=-1).clamp(0.0, 1.0)

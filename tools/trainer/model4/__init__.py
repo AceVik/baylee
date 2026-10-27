@@ -395,12 +395,16 @@ class PlayerNet4(nn.Module):
         )
 
         sv_in = torch.cat([s_ref, g_ref.unsqueeze(1).expand(-1, MAX_SEATS, d)], dim=-1)
-        seat_win_logits = self.seat_value_head(sv_in).squeeze(-1)
+        seat_win_logits = self.value_readout(sv_in).squeeze(-1)
         seat_win_logits = seat_win_logits.masked_fill(~s_active, -1e9)
         seat_probs = F.softmax(seat_win_logits, dim=-1)
         value = (seat_probs * s_allied.to(seat_probs.dtype)).sum(dim=-1).clamp(0.0, 1.0)
 
         return h_out, cand_logits, pair_logits, scalar_pred, value, seat_win_logits
+
+    def value_readout(self, features):
+        """Training-only gradient routing; defaults preserve inference and state dict."""
+        return self.seat_value_head(features.detach() if getattr(self, "detach_value_input", False) else features)
 
     def forward(
         self,

@@ -36,7 +36,7 @@ from .execution import plan_batch, transfer_batch, encode_boards, compile_region
 from .deferred import deferred_readouts
 from .prefetch import prefetch_batches
 from .checkpoint_async import AsyncCheckpointWriter
-from .objective import LOSS_VERSION, selection_score, check_resume_objective
+from .objective import selection_score, check_resume_objective
 from .optimizer_groups import build_optimizer_groups, apply_relational_warmup, check_resume_schedule
 
 
@@ -44,6 +44,8 @@ def main(default_architecture="v4") -> None:
     global M
     from .cli import parse_args
     args, M, identity = parse_args(default_architecture)
+    loss_config = args.supervised_loss
+    from .supervised_options import auxiliary_readout
 
     torch.set_num_threads(4)
     torch.manual_seed(args.seed)
@@ -117,6 +119,7 @@ def main(default_architecture="v4") -> None:
         identity["architecture"] = M.architecture_for_config(cfg)
     # Extra architecture initialization must not perturb training RNG in paired runs.
     net = M.PlayerNet5(cfg) if args.architecture == "v5" else M.PlayerNet4(cfg)
+    net.detach_value_input = loss_config.detach_value_input
     net.attach_structure(train_ds.structure.data)
     net = net.to(device)
     net.saved_activation_layers = args.saved_activation_layers
@@ -191,7 +194,7 @@ def main(default_architecture="v4") -> None:
         saved = torch.load(Path(args.resume).expanduser(), map_location="cpu", weights_only=False)
         if saved.get("model_version") != M.MODEL_VERSION or any(saved.get(k) != v for k, v in identity.items()):
             raise ValueError("Resume model architecture differs")
-        check_resume_objective(saved, args.checkpoint_selection)
+        check_resume_objective(saved, args.checkpoint_selection, loss_config)
         check_resume_schedule(saved, optimizer_schedule)
         if (saved.get("training_sampler_version", 1) != D4.StatefulBatchSampler4.VERSION
                 or saved.get("sampler_seed") != args.seed):
@@ -235,7 +238,7 @@ def main(default_architecture="v4") -> None:
                      "validation_fingerprint": val_ds.fingerprint,
                      "package_parent": package_parent,
                      "training_sampler_version": D4.StatefulBatchSampler4.VERSION,
-                     "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
+                     "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
                      "sampler_seed": args.seed,
                      "batch_size": args.batch_size, "unroll": args.unroll,
                      "validation_batch_size": args.validation_batch_size,
@@ -264,7 +267,7 @@ def main(default_architecture="v4") -> None:
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
             best_val_metrics = dict(metrics)
             atomic_save({**identity, "optimizer_schedule": optimizer_schedule, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
-                         "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
+                         "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
                          "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
                          "sampling_version": M.SAMPLING_VERSION, "step_num": best_step,
                          "validation_batch_size": args.validation_batch_size,
@@ -327,12 +330,13 @@ def main(default_architecture="v4") -> None:
                     prepared, final_hidden = deferred_readouts(net, batch, boards, h, plans,
                                                               args.decision_chunk, device, use_bf16)
                     with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
-                        aux_all = net.aux_head(torch.stack([prepared[t][0][:, 0] for t in range(U)], dim=1))
-                    traj_loss, st = compute_unroll_device_loss(prepared, aux_all.float(), batch, plans)
+                        aux_all = auxiliary_readout(net, torch.stack([prepared[t][0][:, 0] for t in range(U)], dim=1), loss_config)
+                    traj_loss, st = compute_unroll_device_loss(prepared, aux_all.float(), batch, plans, loss_config)
                     epoch_stats[:3] += st[:3] / U
                     epoch_stats[3:] += st[3:]
                     h = final_hidden
                 else:
+                    full_outputs, full_aux = [], []
                     for t in range(U):
                         k_val = (k_choices[(step_num + t) % len(k_choices)]
                                  if args.thinking_curriculum else args.thinking_steps)
@@ -344,30 +348,38 @@ def main(default_architecture="v4") -> None:
                                          policy_heads=plans[t].heads if plans is not None and args.prune_unused_policy_heads else None)
                         h_next, cand_l, pair_l, scal_p, val_p = output
                         with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
-                            aux_p = net.aux_head(h_next[:, 0])
-                        loss_function = compute_step_loss if plans is None else compute_device_loss
-                        loss_t, st = loss_function(
-                            cand_l.float(),
-                            pair_l.float(),
-                            scal_p.float(),
-                            val_p.float(),
-                            aux_p.float(),
-                            batch,
-                            t,
-                            *([] if plans is None else [plans[t]]),
-                        )
+                            aux_p = auxiliary_readout(net, h_next[:, 0], loss_config)
                         valid_t = batch["step_valid"][:, t].to(device)
                         h = torch.where(valid_t.view(B, 1, 1), h_next.float(), h)
-                        traj_loss = traj_loss + loss_t / U
-                        if plans is None:
-                            ep_pol += st["pol_loss"] / U
-                            ep_val += st["val_loss"] / U
-                            ep_aux += st["aux_loss"] / U
-                            ep_corr += st["correct_single"]
-                            ep_tot += st["total_single"]
+                        if loss_config.version == 5:
+                            full_outputs.append((h_next, cand_l.float(), pair_l.float(), scal_p.float(), val_p.float()))
+                            full_aux.append(aux_p.float())
                         else:
-                            epoch_stats[:3] += st[:3] / U
-                            epoch_stats[3:] += st[3:]
+                            loss_function = compute_step_loss if plans is None else compute_device_loss
+                            loss_t, st = loss_function(
+                                cand_l.float(),
+                                pair_l.float(),
+                                scal_p.float(),
+                                val_p.float(),
+                                aux_p.float(),
+                                batch,
+                                t,
+                                *([] if plans is None else [plans[t]]),
+                            )
+                            traj_loss = traj_loss + loss_t / U
+                            if plans is None:
+                                ep_pol += st["pol_loss"] / U
+                                ep_val += st["val_loss"] / U
+                                ep_aux += st["aux_loss"] / U
+                                ep_corr += st["correct_single"]
+                                ep_tot += st["total_single"]
+                            else:
+                                epoch_stats[:3] += st[:3] / U
+                                epoch_stats[3:] += st[3:]
+                    if loss_config.version == 5:
+                        traj_loss, st = compute_unroll_device_loss(full_outputs, torch.stack(full_aux, dim=1), batch, plans, loss_config)
+                        epoch_stats[:3] += st[:3] / U
+                        epoch_stats[3:] += st[3:]
                 if not torch.isfinite(traj_loss):
                     raise FloatingPointError(f"Non-finite loss at step {step_num}")
                 traj_loss.backward()
@@ -424,7 +436,7 @@ def main(default_architecture="v4") -> None:
     final_metrics = best_val_metrics if best_val_metrics else val_metrics
     ckpt = {
         **identity, "optimizer_schedule": optimizer_schedule,
-        "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
+        "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
         "config": cfg.__dict__,
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
@@ -439,7 +451,7 @@ def main(default_architecture="v4") -> None:
     atomic_save(ckpt, out_dir / "net.pt")
     meta_out = {
         **identity, "optimizer_schedule": optimizer_schedule,
-        "training_loss_version": LOSS_VERSION, "checkpoint_selection": args.checkpoint_selection,
+        "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
         "sampling_version": M.SAMPLING_VERSION,

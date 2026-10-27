@@ -58,7 +58,10 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--architecture", choices=("v4", "v5"), default=default_architecture)
     ap.add_argument("--relational-steps", type=int, choices=range(5), default=2)
     ap.add_argument("--relational-revision", type=int, choices=(1, 2), default=2)
+    from .supervised_options import add_options, configuration
+    add_options(ap)
     args = ap.parse_args()
+    args.supervised_loss = configuration(args, ap)
     if args.architecture == "v5":
         import model5 as M
     else:
