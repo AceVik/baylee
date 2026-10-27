@@ -1869,4 +1869,27 @@ fn silkenfist_skyshroud_claim_stronghold_biologist_discipline_viseling_and_wande
         eye.abilities,
         ["static_ability!(Filter::Any, Modifier::RevealAllHands)"]
     );
+
+    let convalescent = read(
+        "T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | LifeTotal$ You | LifeAmount$ LE5 | Execute$ TrigGainLife\n\
+         SVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 3 | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw",
+    );
+    assert!(
+        convalescent.abilities[0].contains("Condition::LifeAtMost(5)"),
+        "{:?}",
+        convalescent.abilities
+    );
+
+    let gustcloak = read(
+        "T:Mode$ AttackerBlocked | ValidCard$ Card.Self | OptionalDecider$ You | Execute$ TrigUntap\n\
+         SVar:TrigUntap:DB$ Untap | Defined$ Self | SubAbility$ RemCombat\n\
+         SVar:RemCombat:DB$ RemoveFromCombat | Defined$ Self",
+    );
+    assert!(
+        gustcloak.abilities[0].contains("Effect::UntapSelf")
+            && gustcloak.abilities[0].contains("Effect::RemoveTargetFromCombat { unblock: false }"),
+        "{:?}",
+        gustcloak.abilities
+    );
 }

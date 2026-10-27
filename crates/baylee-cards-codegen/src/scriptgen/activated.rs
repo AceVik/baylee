@@ -499,12 +499,15 @@ impl Tx<'_> {
         if p.peek("LifeTotal") == Some("You") && !p.has("IsPresent") {
             p.take("LifeTotal");
             let life_amount = p.take("LifeAmount").unwrap_or_else(|| "GE1".to_string());
-            let Some(Bound::AtLeast(n)) = count_bound(&life_amount) else {
-                return self.deny(format!("`LifeAmount$ {life_amount}`"));
+            return match count_bound(&life_amount) {
+                Some(Bound::AtLeast(n)) => Some(format!(
+                    ", condition = Some(Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n}))"
+                )),
+                Some(Bound::AtMost(n)) => {
+                    Some(format!(", condition = Some(Condition::LifeAtMost({n}))"))
+                }
+                _ => self.deny(format!("`LifeAmount$ {life_amount}`")),
             };
-            return Some(format!(
-                ", condition = Some(Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n}))"
-            ));
         }
         let Some(valid) = p.take("IsPresent") else {
             return Some(String::new());

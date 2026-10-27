@@ -1141,6 +1141,12 @@ impl Tx<'_> {
                 }
                 _ => return None,
             },
+            "RemoveFromCombat" => match (p.take("Defined").as_deref(), target) {
+                (None | Some("Self"), None) => {
+                    vec!["Effect::RemoveTargetFromCombat { unblock: false }".to_string()]
+                }
+                _ => return None,
+            },
             // A fixed single skip owed by the resolving ability's controller.
             // Other players and counts are not represented by SkipNextTurn.
             "SkipTurn" => {
