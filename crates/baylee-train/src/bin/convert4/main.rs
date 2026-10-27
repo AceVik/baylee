@@ -100,6 +100,7 @@ fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<(
 }
 
 mod output;
+mod policy_provenance;
 use output::{GameWriter, publish_ready};
 
 #[allow(
@@ -114,6 +115,7 @@ fn main() -> anyhow::Result<()> {
     fs::create_dir_all(&args.out)?;
 
     let mut games: Vec<GameRef> = Vec::new();
+    let mut policy_sources = Vec::new();
     let mut vocab_set: BTreeSet<u32> = baylee_cards::all().map(|card| card.index.get()).collect();
     vocab_set.insert(UNKNOWN_CARD);
 
@@ -122,6 +124,7 @@ fn main() -> anyhow::Result<()> {
             &fs::read(run_dir.join("run.json"))
                 .with_context(|| format!("reading {}/run.json", run_dir.display()))?,
         )?;
+        policy_sources.push(run_json.clone());
         if let Some(decks) = run_json["decks"].as_array() {
             for d in decks {
                 if let Some(cards) = d["cards"].as_array() {
@@ -225,6 +228,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut meta = json!({
         "encoder_version": ENCODER_VERSION7,
+        "policy_provenance_version": if policy_provenance::certified_dataset(&policy_sources) { json!(1) } else { Value::Null },
         "package_target_steps": args.shard_steps,
         "streaming_frames_per_worker": MAX_SEATS,
         "trajectory_version": if args.include_passive_obs { 2 } else { 1 },
