@@ -569,6 +569,7 @@ fn render_face(
     f: &FaceData,
     cats: &SubtypeCatalogs,
     enter_modifiers: &[String],
+    flashback: Option<&str>,
     is_back: bool,
     layout: Option<&str>,
 ) -> Result<String, CodegenError> {
@@ -614,6 +615,9 @@ fn render_face(
             "enter_modifiers = &[{}]",
             enter_modifiers.join(", ")
         ));
+    }
+    if let Some(fb) = flashback {
+        fields.push(format!("flashback = {fb}"));
     }
     // CR 712.2 vs. 712.4a: an MDFC's back is castable or playable from hand,
     // a nonmodal (transforming) one's back is not — in hand the card has

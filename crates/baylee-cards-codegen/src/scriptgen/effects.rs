@@ -615,6 +615,21 @@ impl Tx<'_> {
                     .to_string(),
             ]);
         }
+        if target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            && p.peek("Defined").is_none()
+            && let Some(kw) = p.take("Keywords")
+        {
+            p.take("IsCurse");
+            let mut out = Vec::new();
+            for part in kw.split('&') {
+                let bit = keyword_const(part.trim())?;
+                out.push(format!(
+                    "Effect::ModifyTargets {{ modifier: Modifier::RemoveKeyword({bit}), \
+                     duration: Duration::UntilEndOfTurn }}"
+                ));
+            }
+            return (!out.is_empty()).then_some(out);
+        }
         if target.is_none() && p.take("Defined").as_deref() == Some("Self") {
             let kw = p.take("Keywords")?;
             let mut out = Vec::new();

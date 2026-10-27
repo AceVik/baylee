@@ -40,6 +40,9 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Fading:") {
             return self.fading(rest);
         }
+        if let Some(rest) = line.strip_prefix("Flashback:") {
+            return self.flashback(rest);
+        }
         if let Some(bit) = keyword_const(line) {
             if bit == "KeywordSet::PROWESS" && self.body.keywords.iter().any(|k| k == bit) {
                 let expr = self.filter_expr("Card.nonCreature+YouCtrl")?;
@@ -324,6 +327,20 @@ impl Tx<'_> {
             "activated!({cost}, &[Effect::draw(1)], zone = ActivationZone::Hand)"
         ));
         self.body.notes.push("cycling".to_string());
+        Some(())
+    }
+
+    /// `K:Flashback:<cost>` for mana-only flashback costs (CR 702.34a).
+    pub(super) fn flashback(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("a `Flashback` with extra fields `{rest}`"));
+        }
+        let (mana, parts) = self.cost_pieces(rest)?;
+        if mana.is_empty() || !parts.is_empty() {
+            return self.deny(format!("a non-mana `Flashback` cost `{rest}`"));
+        }
+        self.body.flashback = Some(format!("Some(mana!(\"{mana}\"))"));
+        self.body.notes.push("flashback".to_string());
         Some(())
     }
 

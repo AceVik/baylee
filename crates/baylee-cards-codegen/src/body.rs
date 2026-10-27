@@ -38,6 +38,8 @@ pub struct CardBody {
     pub statics: String,
     /// `EnterModifier` expressions for the front face.
     pub enter_modifiers: Vec<String>,
+    /// `flashback` expression for the front face, when present.
+    pub flashback: Option<String>,
     /// `KeywordSet` constants to union.
     pub keywords: Vec<String>,
     /// Ability expressions for the card literal.
@@ -50,7 +52,10 @@ impl CardBody {
     /// Whether anything at all was read.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.abilities.is_empty() && self.enter_modifiers.is_empty() && self.keywords.is_empty()
+        self.abilities.is_empty()
+            && self.enter_modifiers.is_empty()
+            && self.flashback.is_none()
+            && self.keywords.is_empty()
     }
 
     /// Declares a `static <NAME>: Filter = <expr>;` and returns its name.
