@@ -15,12 +15,14 @@ from checkpoint4 import restore_rng
 from run_guard4 import atomic_json
 from training4.execution import compile_regions
 from training4.prefetch import prefetch_batches
+from . import precision
 from .state import restore
 from .update import capture, difference, update
 
 
 VARIANTS = {
     'baseline': dict(saved=0, prefetch=1, board=4),
+    'baseline-repeat': dict(saved=0, prefetch=1, board=4),
     'compact-thinking':dict(saved=0,prefetch=1,board=4,compact=True),
     'saved1': dict(saved=1, prefetch=1, board=4),
     'saved2': dict(saved=2, prefetch=1, board=4),
@@ -85,6 +87,8 @@ def run(args):
     if names[0] != 'baseline' or any(n not in VARIANTS for n in names):
         raise ValueError('Baseline must be first; unknown variant')
     torch.set_num_threads(4)
+    precision_policy = getattr(args, 'float32_precision', 'inherit')
+    precision_flags = precision.configure(precision_policy, not args.no_compile)
     if len(names)!=len(set(names)):
         raise ValueError('Duplicate variants')
     destination.parent.mkdir(parents=True,exist_ok=True)
@@ -111,6 +115,9 @@ def run(args):
                   fresh_trajectories=not args.resume_lanes, sampler_start_batch=saved['next_batch'] if args.resume_lanes else 0,
                   data_scope='Finite contiguous checkpoint/fresh window only; fresh lanes emphasize early-game shapes; no full-distribution claim',
                   torch=torch.__version__, gpu=torch.cuda.get_device_name(),
+                  float32_precision_policy=precision_policy, precision=precision_flags,
+                  parity_scope='FIRST_UNROLL_ONLY',
+                  parity_scope_detail='One initial BxU update only; not full-trajectory or production numerical parity',
                   warmup_updates=args.warmup, timed_updates=args.steps,
                   loader_wait_s=waits, loader_wait_scope='Iterator wait plus explicit bounded pinning; outside update timing', timing_scope='Warm pinned-RAM inputs; disk/loader waits reported separately. Includes H2D API/staging; no additional per-update timing synchronization or gradient CPU copies. Production finite-loss and clipping guards retain their synchronization.',
                   batch_mib=[sum(t.numel()*t.element_size() for t in b.values()) / 2**20 for b in batches],
@@ -141,6 +148,7 @@ def run(args):
             restored, net, optimizer, config = restore(Path(args.checkpoint), device)
             if checksum(args.checkpoint)!=checkpoint_sha:raise RuntimeError('Checkpoint changed before variant')
             configure(net, settings, not args.no_compile)
+            row['precision'] = precision.require_unchanged(precision_flags, not args.no_compile)
             restore_rng(restored['rng'])
             snapshots=[]
             parity_begin=time.perf_counter()
@@ -149,7 +157,8 @@ def run(args):
                                   before_clip=lambda n,h,l:snapshots.append(capture(n,h,l)))
             candidate = snapshots.pop()
             row['untimed_parity_and_first_shape_compile_s']=time.perf_counter()-parity_begin
-            row['gradient_parity_scope']='Raw gradients captured before production clipping; parity optimizer update discarded'
+            row['gradient_parity_scope']='FIRST_UNROLL_ONLY: raw gradients before clipping; disposable parity update discarded'
+            precision.require_unchanged(precision_flags, not args.no_compile)
             if reference is None:
                 reference = candidate
             row['parity'] = difference(reference, candidate)
@@ -193,6 +202,7 @@ def run(args):
                     losses.append(loss)
                 torch.cuda.synchronize()
                 elapsed = time.perf_counter() - begin
+                row['precision_after_timing'] = precision.require_unchanged(precision_flags, not args.no_compile)
                 measured = batches[args.warmup:]
                 row.update(elapsed_s=elapsed, updates_per_s=args.steps/elapsed,
                            valid_frames_per_s=sum(int(b['step_valid'].sum()) for b in measured)/elapsed,
@@ -252,6 +262,8 @@ def main():
     parser.add_argument('--sampler-seed', type=int)
     parser.add_argument('--resume-lanes', action='store_true', help='Use exact saved sampler cursor/H instead of fresh early-game lanes')
     parser.add_argument('--no-compile', action='store_true')
+    parser.add_argument('--float32-precision', choices=('inherit', 'highest'), default='inherit',
+                        help='Probe-wide FP32 policy: inherit preserves existing flags; highest disables matmul/cuDNN TF32')
     parser.add_argument('--profile', action='store_true')
     parser.add_argument('--gradient-tolerance', type=float, default=.02)
     parser.add_argument('--hidden-tolerance', type=float, default=.02)
