@@ -11314,3 +11314,30 @@ Thunderscape Familiar
 Voice of All
 Warped Devotion
 Waterspout Elemental
+
+# Apocalypse (apc) — batch 1
+Aether Mutation
+Ana Sanctuary
+Anavolver
+Bloodfire Infusion
+Brass Herald
+Captain's Maneuver
+Ceta Sanctuary
+Cetavolver
+Coalition Flag
+Coalition Honor Guard
+Consume Strength
+Cromat
+Dead Ringers
+Death Mutation
+Dega Sanctuary
+Degavolver
+Desolation Angel
+Desolation Giant
+Diversionary Tactics
+Divine Light
+Dodecapod
+Dragon Arch
+Dwarven Landslide
+Dwarven Patrol
+Emblazoned Golem

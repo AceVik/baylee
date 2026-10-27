@@ -10,6 +10,7 @@ mod armadillo_cloak;
 mod arrest;
 mod bestial_fury;
 mod blanchwood_armor;
+mod bloodfire_infusion;
 mod cessation;
 mod chromatic_armor;
 mod destructive_urge;

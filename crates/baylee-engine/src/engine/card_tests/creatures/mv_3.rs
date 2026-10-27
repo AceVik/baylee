@@ -95,6 +95,7 @@ mod dream_fighter;
 mod dromosaur;
 mod dusk_imp;
 mod dwarven_demolition_team;
+mod dwarven_patrol;
 mod dwarven_sea_clan;
 mod dwarven_thaumaturgist;
 mod dwarven_vigilantes;

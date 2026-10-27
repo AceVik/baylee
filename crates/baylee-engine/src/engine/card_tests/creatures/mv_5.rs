@@ -41,6 +41,7 @@ mod coffin_puppets;
 mod corrupt_official;
 mod crashing_boars;
 mod crimson_roc;
+mod cromat;
 mod dark_maze;
 mod deadly_insect;
 mod deepwood_tantiv;

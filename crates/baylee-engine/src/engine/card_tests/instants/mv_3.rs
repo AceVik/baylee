@@ -18,6 +18,7 @@ mod bone_harvest;
 mod capsize;
 mod carrion;
 mod chord_of_calling;
+mod consume_strength;
 mod crash;
 mod daring_leap;
 mod dark_banishing;

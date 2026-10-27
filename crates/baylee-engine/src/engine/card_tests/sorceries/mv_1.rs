@@ -13,6 +13,7 @@ mod cloak_of_feathers;
 mod detonate;
 mod disentomb;
 mod disintegrate;
+mod divine_light;
 mod duress;
 mod earthquake;
 mod encroach;

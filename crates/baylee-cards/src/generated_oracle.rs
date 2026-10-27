@@ -14885,13 +14885,22 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Trample\nWhenever this creature deals damage to an opponent, you draw a card and that opponent discards a card.",
     ],
-    &[],
+    // Aether Mutation
+    &[
+        "Return target creature to its owner's hand. Create X 1/1 green Saproling creature tokens, where X is that creature's mana value.",
+    ],
     // Ana Disciple
     &[
         "{U}, {T}: Target creature gains flying until end of turn.\n{B}, {T}: Target creature gets -2/-0 until end of turn.",
     ],
-    &[],
-    &[],
+    // Ana Sanctuary
+    &[
+        "At the beginning of your upkeep, if you control a blue or black permanent, target creature gets +1/+1 until end of turn. If you control a blue permanent and a black permanent, that creature gets +5/+5 until end of turn instead.",
+    ],
+    // Anavolver
+    &[
+        "Kicker {1}{U} and/or {B} (You may pay an additional {1}{U} and/or {B} as you cast this spell.)\nIf this creature was kicked with its {1}{U} kicker, it enters with two +1/+1 counters on it and with flying.\nIf this creature was kicked with its {B} kicker, it enters with a +1/+1 counter on it and with \"Pay 3 life: Regenerate this creature.\"",
+    ],
     // Angelfire Crusader
     &["{R}: This creature gets +1/+0 until end of turn."],
     // Battlefield Forge
@@ -14900,48 +14909,108 @@ pub static ORACLE: &[&[&str]] = &[
     &["{R}, Sacrifice this creature: It deals 6 damage to each creature and each player."],
     // Bloodfire Dwarf
     &["{R}, Sacrifice this creature: It deals 1 damage to each creature without flying."],
-    &[],
+    // Bloodfire Infusion
+    &[
+        "Enchant creature you control\n{R}, Sacrifice enchanted creature: This Aura deals damage equal to the sacrificed creature's power to each creature.",
+    ],
     // Bloodfire Kavu
     &["{R}, Sacrifice this creature: It deals 2 damage to each creature."],
     // Bog Gnarr
     &["Whenever a player casts a black spell, this creature gets +2/+2 until end of turn."],
-    &[],
-    &[],
+    // Brass Herald
+    &[
+        "As this creature enters, choose a creature type.\nWhen this creature enters, reveal the top four cards of your library. Put all creature cards of the chosen type revealed this way into your hand and the rest on the bottom of your library in any order.\nCreatures of the chosen type get +1/+1.",
+    ],
+    // Captain's Maneuver
+    &[
+        "The next X damage that would be dealt to target creature, planeswalker, or player this turn is dealt to another target creature, planeswalker, or player instead.",
+    ],
     // Caves of Koilos
     &["{T}: Add {C}.\n{T}: Add {W} or {B}. This land deals 1 damage to you."],
     // Ceta Disciple
     &[
         "{R}, {T}: Target creature gets +2/+0 until end of turn.\n{G}, {T}: Add one mana of any color.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Ceta Sanctuary
+    &[
+        "At the beginning of your upkeep, if you control a red or green permanent, draw a card, then discard a card. If you control a red permanent and a green permanent, instead draw two cards, then discard a card.",
+    ],
+    // Cetavolver
+    &[
+        "Kicker {1}{R} and/or {G} (You may pay an additional {1}{R} and/or {G} as you cast this spell.)\nIf this creature was kicked with its {1}{R} kicker, it enters with two +1/+1 counters on it and with first strike.\nIf this creature was kicked with its {G} kicker, it enters with a +1/+1 counter on it and with trample.",
+    ],
+    // Coalition Flag
+    &[
+        "Enchant creature you control\nEnchanted creature is a Flagbearer.\nWhile an opponent is choosing targets as part of casting a spell they control or activating an ability they control, that player must choose at least one Flagbearer on the battlefield if able.",
+    ],
+    // Coalition Honor Guard
+    &[
+        "While an opponent is choosing targets as part of casting a spell they control or activating an ability they control, that player must choose at least one Flagbearer on the battlefield if able.",
+    ],
     // Coastal Drake
     &["Flying\n{1}{U}, {T}: Return target Kavu to its owner's hand."],
-    &[],
-    &[],
-    &[],
+    // Consume Strength
+    &[
+        "Target creature gets +2/+2 until end of turn. Another target creature gets -2/-2 until end of turn.",
+    ],
+    // Cromat
+    &[
+        "{W}{B}: Destroy target creature blocking or blocked by Cromat.\n{U}{R}: Cromat gains flying until end of turn.\n{B}{G}: Regenerate Cromat.\n{R}{W}: Cromat gets +1/+1 until end of turn.\n{G}{U}: Put Cromat on top of its owner's library.",
+    ],
+    // Dead Ringers
+    &[
+        "Destroy two target nonblack creatures unless either one is a color the other isn't. They can't be regenerated.",
+    ],
     // Death Grasp
     &["Death Grasp deals X damage to any target. You gain X life."],
-    &[],
+    // Death Mutation
+    &[
+        "Destroy target nonblack creature. It can't be regenerated. Create X 1/1 green Saproling creature tokens, where X is that creature's mana value.",
+    ],
     // Dega Disciple
     &[
         "{B}, {T}: Target creature gets -2/-0 until end of turn.\n{R}, {T}: Target creature gets +2/+0 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dega Sanctuary
+    &[
+        "At the beginning of your upkeep, if you control a black or red permanent, you gain 2 life. If you control a black permanent and a red permanent, you gain 4 life instead.",
+    ],
+    // Degavolver
+    &[
+        "Kicker {1}{B} and/or {R} (You may pay an additional {1}{B} and/or {R} as you cast this spell.)\nIf this creature was kicked with its {1}{B} kicker, it enters with two +1/+1 counters on it and with \"Pay 3 life: Regenerate this creature.\"\nIf this creature was kicked with its {R} kicker, it enters with a +1/+1 counter on it and with first strike.",
+    ],
+    // Desolation Angel
+    &[
+        "Kicker {W}{W} (You may pay an additional {W}{W} as you cast this spell.)\nFlying\nWhen this creature enters, destroy all lands you control. If it was kicked, destroy all lands instead.",
+    ],
+    // Desolation Giant
+    &[
+        "Kicker {W}{W} (You may pay an additional {W}{W} as you cast this spell.)\nWhen this creature enters, destroy all other creatures you control. If it was kicked, destroy all other creatures instead.",
+    ],
+    // Diversionary Tactics
+    &["Tap two untapped creatures you control: Tap target creature."],
+    // Divine Light
+    &["Prevent all damage that would be dealt this turn to creatures you control."],
+    // Dodecapod
+    &[
+        "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield with two +1/+1 counters on it instead of putting it into your graveyard.",
+    ],
+    // Dragon Arch
+    &["{2}, {T}: You may put a multicolored creature card from your hand onto the battlefield."],
+    // Dwarven Landslide
+    &[
+        "Kicker—{2}{R}, Sacrifice a land. (You may pay {2}{R} and sacrifice a land in addition to any other costs as you cast this spell.)\nDestroy target land. If this spell was kicked, destroy another target land.",
+    ],
+    // Dwarven Patrol
+    &[
+        "This creature doesn't untap during your untap step.\nWhenever you cast a nonred spell, untap this creature.",
+    ],
     // Ebony Treefolk
     &["{B}{G}: This creature gets +1/+1 until end of turn."],
-    &[],
+    // Emblazoned Golem
+    &[
+        "Kicker {X} (You may pay an additional {X} as you cast this spell.)\nSpend only colored mana on X. No more than one mana of each color may be spent this way.\nIf this creature was kicked, it enters with X +1/+1 counters on it.",
+    ],
     &[],
     // Evasive Action
     &[
