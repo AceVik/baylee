@@ -317,7 +317,9 @@ impl Tx<'_> {
     }
 
     fn changes_zone_trigger(&mut self, p: &mut Params) -> Option<String> {
-        let origin = p.take("Origin");
+        let origin = p
+            .take("Origin")
+            .or_else(|| (p.peek("Destination") == Some("Battlefield")).then(|| "Any".to_string()));
         let dest = p.take("Destination");
         let valid = p.take("ValidCard");
         let (Some(origin), Some(dest), Some(valid)) = (origin, dest, valid) else {
@@ -723,7 +725,17 @@ impl Tx<'_> {
         }
         let targets = chain
             .target
-            .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
+            .map(|t| {
+                if let Some(max) = chain.target_up_to {
+                    if max == 1 {
+                        format!(", targets = Some(TargetReq::up_to_one({t}))")
+                    } else {
+                        format!(", targets = Some(TargetReq::up_to({t}, {max}))")
+                    }
+                } else {
+                    format!(", targets = Some(TargetReq::one({t}))")
+                }
+            })
             .unwrap_or_default();
         let second = chain
             .second_target

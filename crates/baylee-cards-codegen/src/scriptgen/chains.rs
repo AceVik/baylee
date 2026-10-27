@@ -337,11 +337,12 @@ impl Tx<'_> {
                 p.take("TargetMin");
                 p.take("TargetMax");
                 chain.target_is_x = true;
-            } else if self.on_a_spell
+            } else if ((self.on_a_spell
                 && ((api == "ChangeZone"
                     && p.peek("Origin") == Some("Graveyard")
                     && p.peek("Destination") == Some("Hand"))
-                    || api == "Tap")
+                    || api == "Tap"))
+                || api == "Pump")
                 && p.peek("TargetMin") == Some("0")
                 && let Some(max) = p
                     .peek("TargetMax")
@@ -854,15 +855,27 @@ impl Tx<'_> {
                         p.peek("Defined"),
                         Some("DelayTriggerRememberedLKI" | "DelayTriggerRemembered")
                     ))
-                    || (self.trigger_mode.as_deref() == Some("DamageDone")
-                        && target.is_none()
+                    || (matches!(
+                        self.trigger_mode.as_deref(),
+                        Some("DamageDone" | "DamageDoneOnce")
+                    ) && target.is_none()
                         && matches!(
                             p.peek("Defined"),
                             Some("TriggeredTargetLKICopy" | "TriggeredTarget")
+                        ))
+                    || (self.trigger_mode.as_deref() == Some("ChangesZone")
+                        && target.is_none()
+                        && matches!(
+                            p.peek("Defined"),
+                            Some("TriggeredCardLKICopy" | "TriggeredCard")
                         ));
                 if remembered {
                     p.take("Defined");
                     vec![format!("Effect::{verb}(TargetSpec::EventObject)")]
+                } else if !self.on_a_spell && target.is_none() && p.peek("Defined") == Some("Self")
+                {
+                    p.take("Defined");
+                    vec![format!("Effect::{verb}(TargetSpec::ThisObject)")]
                 } else {
                     if !targets_here && target.is_some() && p.peek("Defined") == Some("Targeted") {
                         p.take("Defined");

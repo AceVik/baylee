@@ -205,6 +205,20 @@ impl Tx<'_> {
                 duration,
             ));
         }
+        if let Some(raw) = p.take("RemoveKeywords") {
+            let each: Option<Vec<&str>> = raw.split('&').map(|k| keyword_const(k.trim())).collect();
+            let Some(each) = each else {
+                self.note(format!("`Animate` removing `{raw}`"));
+                return None;
+            };
+            let joined =
+                each.join(".union(") + &")".repeat(raw.split('&').count().saturating_sub(1));
+            out.push(Self::animate_expr_for(
+                filter,
+                &format!("Modifier::RemoveKeyword({joined})"),
+                duration,
+            ));
+        }
         if let Some(raw) = p.take("Abilities") {
             for name in raw.split(',').map(str::trim) {
                 let Some(line) = self.svars.get(name).cloned() else {

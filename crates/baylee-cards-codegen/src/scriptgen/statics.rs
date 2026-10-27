@@ -12,7 +12,12 @@ impl Tx<'_> {
             && p.take("Affected").is_some()
             && p.take("AddSVar")
                 .and_then(|s| self.svars.get(&s))
-                .is_some_and(|v| v.trim() == "SVar:AITapDown:True")
+                .is_some_and(|v| {
+                    matches!(
+                        v.trim(),
+                        "SVar:AITapDown:True" | "SVar:DestroyWhenDamaged:True"
+                    )
+                })
             && p.exhausted()
     }
 
@@ -124,6 +129,12 @@ impl Tx<'_> {
         } else {
             self.filter_expr(&valid)?
         };
+        if p.peek("AddSVar")
+            .and_then(|s| self.svars.get(s))
+            .is_some_and(|v| v.trim() == "SVar:DestroyWhenDamaged:True")
+        {
+            p.take("AddSVar");
+        }
         if !p.exhausted() {
             self.note(format!(
                 "a `doesn't untap` with `{}`",
