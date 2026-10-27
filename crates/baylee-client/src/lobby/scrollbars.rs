@@ -111,6 +111,7 @@ pub(super) fn remember(
                 | List::SettingsNav
                 | List::Terms
                 | List::About
+                | List::Memorial
         ) && (memory.get(which.0) - position.y).abs() > f32::EPSILON
         {
             memory.set(which.0, position.y);

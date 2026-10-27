@@ -53,6 +53,7 @@ pub const TABLES: &[&TabOrder] = &[
     &crate::lobby::front::keys::SIGN_IN,
     &crate::lobby::front::keys::CREATE,
     &crate::lobby::front::keys::GUEST,
+    &crate::lobby::front::keys::NEW_PASSWORD,
     &crate::lobby::front::keys::TERMS,
     &crate::lobby::front::keys::ABOUT,
     &crate::lobby::memorial::ALBUM_ORDER,
@@ -200,7 +201,7 @@ pub(super) fn install(app: &mut App) {
         // After every system that moves focus this frame (the walker, the
         // overlay that takes it, a screen's initial focus), so the ring and
         // the report say where it ended up, not where it was.
-        .add_systems(PostUpdate, (draw_ring, report).chain());
+        .add_systems(PostUpdate, (draw_ring, report).chain().in_set(FocusVisuals));
 }
 
 /// The kit's focus systems, which the shell's key resolver runs after: a
@@ -208,6 +209,10 @@ pub(super) fn install(app: &mut App) {
 /// asked about it.
 #[derive(SystemSet, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct FocusSystems;
+
+/// Ring/report pass after a rebuilt modal has rebound its semantic focus.
+#[derive(SystemSet, Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub(crate) struct FocusVisuals;
 
 /// Every stop gets its ring hidden, so focusing it later changes a colour
 /// and inserts nothing.
@@ -422,7 +427,9 @@ fn walk(
             | Key::ArrowUp
             | Key::ArrowDown
             | Key::Home
-            | Key::End => {
+            | Key::End
+                if !ctrl_alt_meta =>
+            {
                 let Some(here) = here else { continue };
                 if focus.get().is_some_and(|f| fields.contains(f)) {
                     continue;

@@ -71,6 +71,8 @@ struct Globals { time: f32 };
     let prelude = format!("{prelude}{}", include_str!("../shaders/noise.wesl"));
     crate::cardmat::tests::check_wgsl(include_str!("../shaders/vista.wesl"), &prelude);
     crate::cardmat::tests::check_wgsl(include_str!("../shaders/memorial.wesl"), &prelude);
+    crate::cardmat::tests::check_wgsl(include_str!("../shaders/memorial_paper.wesl"), &prelude);
+    crate::cardmat::tests::check_wgsl(include_str!("../shaders/memorial_preview.wesl"), &prelude);
 }
 
 /// The lobby's world (Baylee's fireflies are drawn from its clock,

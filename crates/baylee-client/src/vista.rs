@@ -319,6 +319,8 @@ impl Plugin for VistaPlugin {
         app.insert_resource(art);
         embedded_asset!(app, "shaders/vista.wesl");
         embedded_asset!(app, "shaders/memorial.wesl");
+        embedded_asset!(app, "shaders/memorial_paper.wesl");
+        embedded_asset!(app, "shaders/memorial_preview.wesl");
         app.add_plugins(UiMaterialPlugin::<VistaMaterial>::default());
     }
 }

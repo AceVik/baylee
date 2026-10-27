@@ -1,7 +1,7 @@
 //! Readable paragraphs, a real scrollbar and keyboard scrolling in the modal.
 use super::ALBUM_ORDER;
 use crate::lobby::{List, LobbyState, Scrollable, Scrolled};
-use crate::shellkit::{controls::Kit, focus::Stop, metrics::px_fixed, surfaces, tokens};
+use crate::shellkit::{controls::Kit, focus::Stop, metrics::px_fixed, surfaces};
 use baylee_client_core::{i18n::Phrase, memorial};
 use bevy::prelude::*;
 use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
@@ -19,16 +19,12 @@ pub(super) fn serif(
     commands
         .spawn((
             Text::new(text),
-            crate::hud::tf_serif(
+            crate::hud::tf_serif_italic(
                 kit.fonts,
                 surfaces::whole_pixels(size),
-                if title { 500 } else { 400 },
+                if title { 600 } else { 500 },
             ),
-            TextColor(if title {
-                Color::srgb(0.93, 0.80, 0.55)
-            } else {
-                tokens::INK
-            }),
+            TextColor(super::style::INK),
             bevy::text::LineHeight::RelativeToFont(1.45),
             Node {
                 flex_shrink: 0.0,
@@ -80,34 +76,7 @@ pub(super) fn draw(
         let text = serif(commands, kit, paragraph, kit.m.text, false);
         commands.entity(reading).add_child(text);
     }
-    // Geometry keeps the gold ornament independent of font glyph coverage.
-    let ornament = commands
-        .spawn((
-            Node {
-                height: kit.m.px(24.0),
-                column_gap: kit.m.px(10.0),
-                align_items: AlignItems::Center,
-                flex_shrink: 0.0,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    for size in [4.0, 6.0, 4.0] {
-        let diamond = commands
-            .spawn((
-                Node {
-                    width: kit.m.px(size),
-                    height: kit.m.px(size),
-                    ..default()
-                },
-                UiTransform::from_rotation(Rot2::radians(std::f32::consts::FRAC_PI_4)),
-                BackgroundColor(Color::srgb(0.78, 0.65, 0.39)),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(ornament).add_child(diamond);
-    }
+    let ornament = ornament(commands, kit);
     commands.entity(reading).add_child(ornament);
     let track = commands
         .spawn((
@@ -118,7 +87,7 @@ pub(super) fn draw(
                 border_radius: BorderRadius::all(px_fixed(6.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgb(0.08, 0.14, 0.17)),
+            BackgroundColor(Color::srgba(0.45, 0.30, 0.13, 0.10)),
             Scrollbar::new(reading, ControlOrientation::Vertical, 30.0),
         ))
         .id();
@@ -147,7 +116,7 @@ pub(in crate::lobby::memorial) fn reading_keys(
     mut texts: Query<(Entity, &mut ScrollPosition, &ComputedNode), With<Reading>>,
     mut scrolled: ResMut<Scrolled>,
 ) {
-    if !state.memorial.open {
+    if !state.memorial.open || state.memorial.viewing {
         return;
     }
     let Ok((entity, mut position, node)) = texts.single_mut() else {
@@ -180,4 +149,100 @@ pub(in crate::lobby::memorial) fn reading_keys(
         position.y = to;
         scrolled.set(List::Memorial, to);
     }
+}
+
+/// The previous chapter is a visual-only leaf above the new reading viewport.
+/// Its text keeps the old scroll while the leaf pivots towards its binding.
+pub(super) fn leaf(c: &mut Commands, parent: Entity, state: &LobbyState, kit: Kit) {
+    if state.memorial.revision == 0 {
+        return;
+    }
+    let page = c
+        .spawn((
+            super::super::paper::Leaf,
+            Node {
+                position_type: PositionType::Absolute,
+                left: px_fixed(0.0),
+                top: px_fixed(0.0),
+                right: kit.m.px(12.0),
+                height: Val::Percent(100.0),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(super::style::PAPER),
+            Visibility::Hidden,
+            ZIndex(2),
+            Pickable::IGNORE,
+        ))
+        .id();
+    super::super::paper::attach(c, page, true);
+    let mut access = accesskit::Node::new(accesskit::Role::GenericContainer);
+    access.set_hidden();
+    c.entity(page).insert(bevy::a11y::AccessibilityNode(access));
+    let words = c
+        .spawn((
+            super::super::paper::LeafScroll,
+            ScrollPosition::default(),
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                overflow: Overflow::scroll_y(),
+                padding: UiRect::axes(kit.m.px(16.0), kit.m.px(8.0)),
+                row_gap: kit.m.px(15.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let (title, body) = memorial::STORY[state.memorial.previous_chapter];
+    let heading = serif(
+        c,
+        kit,
+        title.text(state.lobby.lang()),
+        kit.m.head * 1.15,
+        true,
+    );
+    c.entity(words).add_child(heading);
+    for paragraph in body.text(state.lobby.lang()).split("\n\n") {
+        let text = serif(c, kit, paragraph, kit.m.text, false);
+        c.entity(words).add_child(text);
+    }
+    let ornament = ornament(c, kit);
+    c.entity(words).add_child(ornament);
+    super::super::paper::restore_scroll(c, words);
+    c.entity(page).add_child(words);
+    c.entity(parent).add_child(page);
+}
+
+fn ornament(commands: &mut Commands, kit: Kit) -> Entity {
+    // Geometry keeps the gold ornament independent of font glyph coverage.
+    let ornament = commands
+        .spawn((
+            Node {
+                height: kit.m.px(24.0),
+                column_gap: kit.m.px(10.0),
+                align_items: AlignItems::Center,
+                flex_shrink: 0.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for size in [4.0, 6.0, 4.0] {
+        let diamond = commands
+            .spawn((
+                Node {
+                    width: kit.m.px(size),
+                    height: kit.m.px(size),
+                    ..default()
+                },
+                UiTransform::from_rotation(Rot2::radians(std::f32::consts::FRAC_PI_4)),
+                BackgroundColor(Color::srgb(0.78, 0.65, 0.39)),
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(ornament).add_child(diamond);
+    }
+    ornament
 }

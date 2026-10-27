@@ -123,3 +123,55 @@ Rust/PostgreSQL/smoke/secret checks; its pre-existing crypto-bigint RustSec find
 still blocks a complete release gate (see that repository's security record).
 Native full workspace/database release gates were not run. Both changes remain
 local and were not pushed or deployed.
+
+## Parchment, focus and photograph refinement — 27 October 2026
+
+Multiple review/fix passes covered the native client and Central. Argon High
+(`agy --model gemini-4-argon-high --effort high`) reviewed source and then PNG
+frames/contact sheets from Dev-Control video captures. Direct MP4 ingestion in
+headless agy attempted a command that its permission policy denied; no settings
+were weakened. Its successful visual review used direct image tools and explicitly
+did not claim video playback. Reports are included with the local evidence.
+
+Confirmed fixes: static portrait UVs and antialiased ornament contours; removed
+pointer ornament; retained cloud geometry across rebuilds; shared shader clock
+and guarded idle material writes; live scrollbar memory before actions; old leaf
+scroll/width/ornament parity; pre-layout full-photo geometry; initial and same-frame
+rebuilt modal focus; caret parking before opening; chapter key repeat and modifier
+ownership; direction retained through photo wrap; selected bookmark contrast while
+hovering. Full-image loading keeps requested zoom; web image elements are keyed
+per photo, and dragging from paper to backdrop cannot dismiss the book.
+
+New owner-supplied photographs bring the album to ten. Per-photo crop anchors,
+rounded preview corners, light vignette, finite slide transitions and elevation
+shadows are independent of full-resolution uncropped originals. EXIF and motion
+trailers are stripped from the new shipping copies; the five existing previews
+are unchanged. Eight chapters and all 37 paragraphs
+remain, with the family-requested gentler tumour wording in both languages.
+
+Initial native scale-1 recordings: four 5-second captures at 800×500, 8fps, virtual speed
+0.15, each 40 saved / 0 dropped. Cloud ROI x8/y185/w156/h104: max adjacent channel
+delta 2/255, average absolute channel delta 0.00174; paused control entirely
+pixel-identical across all raw frames. Full-frame changing pixels also include
+the gateway caret, so full-frame peaks are not evidence of portrait flicker.
+The five-second leaf clips end shortly before the 0.72s virtual turn completes;
+a thin final strip is expected at that sampling boundary, not a stuck leaf.
+Four final 6.5-second captures save 52/52 frames each without drops. Both leaf
+turns settle completely. The final hover ROI has max channel delta 2/255 and
+mean 0.00130; the paused control remains pixel-identical. Scrolling naturally clips partial
+lines at the viewport edge; every paragraph remains reachable. The dim world
+visible beyond the parchment is intentional modal context.
+
+Live narrow/wide XL hub checks also found and fixed the cloud being blocked by
+panels: the hub now reserves its own sky strip. The caption stays on one line,
+and both memorial scrims stand above transient toast notifications.
+
+Normal and XL native screens plus desktop/phone website screenshots were inspected.
+Portrait and landscape originals fit without crop; zoom and bounded pan work.
+The normal 1280×720 native book sample (6 seconds, no recording) measured 59.87fps,
+update p50 6.289ms / p95 6.865ms, 835 entities. These are local observations, not a
+cross-device performance guarantee. All agent-started clients and helper processes
+were stopped and their dev-control ports checked closed.
+
+Detailed final gate results and final revision identifiers are preserved in the
+local QA report alongside recordings; no external release or main merge is implied.

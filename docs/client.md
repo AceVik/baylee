@@ -4280,26 +4280,44 @@ and photo mapping are in `art/baylee/README.md`.
 `shaders/vista.wesl` fits the world with cover coordinates and supplies subtle
 pointer parallax, slow cloud haze, warm sun rays and a dark mask following the
 form. The lobby uses the same world at slightly quieter exposure. The existing
-forms, lobby panels, legal footer, QR and authentication logic remain unchanged.
+forms, legal footer, QR and authentication logic remain unchanged. Hub panels
+leave a 180-pixel strip of sky clear for Baylee and her caption, so their hit
+areas cannot cover the cloud at narrow widths or XL text size.
 The existing passage timings remain; a feathered light aperture reveals the
 lobby after accepted authentication. Rejected credentials and offline entry
 never start that flight. Reduced motion uses the existing short colour change.
 
-`lobby::memorial` draws the approved cloud as an accessible button. Its independent
-material adds tiny breathing/cloud motion, warm contour light, engraved botanical
-arcs and a sun ornament at the pointer. Hover and keyboard focus share feedback.
-Click/Enter opens a local remembrance book: the family's complete approved story,
-37 paragraphs in eight chapters, in German and English. The story has a serif
-reading column with a real scrollbar; chapter controls and Close stay visible,
-including at XL text size. Five photographs turn independently of the chapter
-and retain its scroll position. Selecting a chapter starts its text at the top;
-chapter navigation stops at either end, while photos wrap. Left/Right turns
-photos; Alt+Left/Right changes chapters. PageUp/PageDown scroll the text;
-Home/End and Up/Down scroll when the reading column has focus. The chapter row
-keeps the kit's roving focus. Escape/close returns focus to the opener, and the
-modal owns input throughout. The approved cloud and its existing light shader
-decorate the book header; no moving texture is drawn behind the prose. The supplied photographs preserve their aspect ratios; shipping copies
-are resized and stripped of location/capture metadata. No album request uses a network.
+`lobby::memorial` draws the approved cloud as an accessible button. Its portrait
+UVs remain fixed; warm contour light and botanical engraving respond to hover
+and keyboard focus without a pointer ornament or enlarged hit geometry. The
+shader uses the shared virtual clock; its material stays unchanged at rest.
+Measured cloud geometry survives shell rebuilds.
+
+Click/Enter opens a parchment remembrance book: the family's approved story,
+37 paragraphs in eight chapters, in German and English. Faustina italic ink
+sits over stationary paper fibres. The reading column has a real scrollbar;
+chapter controls and Close remain visible at XL text size. Ten photographs turn
+independently of the chapter and preserve its scroll position, including a
+scrollbar drag. Preview-only shaders crop around per-photo anchors, round the
+corners and add a subtle vignette. Selecting the preview opens its uncropped,
+full-resolution photograph. Zoom is bounded from fit to 400%, with bounded drag,
+wheel, explicit buttons and Fit. Full copies are loaded on demand and contain no
+capture/location metadata. Originals are not retouched. No album request uses a network.
+
+Left/Right turns photos; over the chapter row it selects chapters instead.
+Alt+Left/Right changes chapters without wrapping. PageUp/PageDown scroll the
+text; Home/End and Up/Down scroll when the reading column has focus. In the
+viewer, +/− zoom and 0 fits. Escape closes the viewer first and restores the
+preview focus, then closes the book and restores the cloud. Initial focus enters
+the modal; sign-in fields cannot reclaim it. The family-approved chapter-six
+wording says the tumour grew larger and wept increasingly, without rupture imagery.
+
+A finite leaf animation retains its origin, old scroll and progress through
+rebuilds and rapid reversals. Surface/photo slides and elevation shadows clarify
+the layers; controls never scale on hover or click. Reduced motion immediately
+settles the leaf and slides. Cached fitted photo geometry is applied before
+layout to avoid a one-frame miniature during zoom. The approved cloud decorates
+the book header without inheriting hover from behind the modal.
 
 `VistaArt` keeps the world, cloud and title logo resident for the startup curtain.
 A missing image uses the existing asset failure path. Ambient low quality and

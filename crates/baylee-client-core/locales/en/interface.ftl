@@ -8451,7 +8451,7 @@ MemorialChapter5Body =
 
 MemorialChapter6Title = With her tail held high
 MemorialChapter6Body =
-    Eventually, the tumour broke open. Baylee was visibly in pain. When the pain eased, she was once again our little cat, moving through the rooms with her tail held high and claiming her people for herself.
+    The tumour grew larger and wept increasingly. Baylee was visibly in pain. When the pain eased, she was once again our little cat, moving through the rooms with her tail held high and claiming her people for herself.
 
     We could see her strength slowly fading. But her appetite, her curiosity, her affectionate nature and her loud purr were still there.
 
@@ -8491,3 +8491,10 @@ MemorialChapter8Body =
 
 MemorialFirstChapter = You are at the beginning of her story.
 MemorialLastChapter = You are at the end of her story.
+
+MemorialPhotoOpen = View full photograph
+MemorialZoomIn = Zoom in
+MemorialZoomOut = Zoom out
+MemorialFit = Fit
+MemorialZoomMinimum = The entire photograph is visible.
+MemorialZoomMaximum = Maximum zoom reached.

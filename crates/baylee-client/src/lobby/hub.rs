@@ -33,7 +33,7 @@ pub(super) fn table(
         ));
     }
 
-    // Use the full viewport for discovery and multiplayer configuration.
+    // Keep the memorial's cloud and caption outside every hub panel's hit area.
     let frame = commands
         .spawn((
             Node {
@@ -43,6 +43,7 @@ pub(super) fn table(
                 flex_shrink: 0.0,
                 align_self: AlignSelf::Center,
                 flex_direction: FlexDirection::Column,
+                padding: UiRect::bottom(px(super::memorial::CLOUD_FOOTER)),
                 ..default()
             },
             Pickable::IGNORE,

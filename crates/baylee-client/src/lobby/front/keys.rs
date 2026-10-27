@@ -203,6 +203,9 @@ fn at_the_door(state: &LobbyState) -> bool {
 /// the settings screen (its search is a lobby field, owner 09.10.2026),
 /// unless a confirmation stands over it.
 fn bridged(state: &LobbyState) -> bool {
+    if state.memorial.open {
+        return false;
+    }
     at_the_door(state)
         || (state.settings.is_open()
             && state.confirmation.is_none()
@@ -300,6 +303,7 @@ pub(in crate::lobby) fn ours(table: &str) -> bool {
         SIGN_IN.name,
         CREATE.name,
         GUEST.name,
+        NEW_PASSWORD.name,
         TERMS.name,
         ABOUT.name,
         crate::lobby::memorial::ALBUM_ORDER.name,

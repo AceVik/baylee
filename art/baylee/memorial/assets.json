@@ -43,5 +43,95 @@
     "asset": "memorial/baylee-5.jpg",
     "source": "PXL_20260212_084306146.jpg",
     "sha256": "3e967c9185694136468c05c3f2094d9305b0540160216b2f2db7376a6ea3b885"
+  },
+  {
+    "asset": "memorial/full/baylee-1.jpg",
+    "source": "PXL_20260212_084326728.jpg",
+    "sha256": "77317d7b18fd79de8349fedb64a65aa565567a359b6eb4be206376cf959ed230",
+    "variant": "full uncropped, metadata removed"
+  },
+  {
+    "asset": "memorial/full/baylee-2.jpg",
+    "source": "PXL_20260127_075332867.jpg",
+    "sha256": "71e3826a910dbdf92862cd6298a4f8eb26eeb1396bc367673484ee4b3d658675",
+    "variant": "full uncropped, metadata removed"
+  },
+  {
+    "asset": "memorial/full/baylee-3.jpg",
+    "source": "PXL_20260113_125944795.jpg",
+    "sha256": "66281da67c7d138faf71d71af124f4b2fd42875e5154f77681ac5dd9931cde4b",
+    "variant": "full uncropped, metadata removed"
+  },
+  {
+    "asset": "memorial/full/baylee-4.jpg",
+    "source": "PXL_20260131_092837183.jpg",
+    "sha256": "acecc0efe55120b08c31c029877c78ce9912801ecb1dbc4388eb428aa1237a38",
+    "variant": "full uncropped, metadata removed"
+  },
+  {
+    "asset": "memorial/full/baylee-5.jpg",
+    "source": "PXL_20260212_084306146.jpg",
+    "sha256": "247efb8964d9aaca5a9dc6258b15c24ab8e41f27d8826a0c96a94ad060dd0699",
+    "variant": "full uncropped, metadata removed"
+  },
+  {
+    "asset": "memorial/baylee-6.jpg",
+    "source": "PXL_20260116_225450836.MP.jpg",
+    "sha256": "d1b2084ac6872924dd53e4ada99949182d9d2385fdc66e1767402e05618426d9",
+    "variant": "preview, metadata removed"
+  },
+  {
+    "asset": "memorial/full/baylee-6.jpg",
+    "source": "PXL_20260116_225450836.MP.jpg",
+    "sha256": "205f9895702a688848ed4ab956c312eadddd26f61e5689f0e400eeee3538d158",
+    "variant": "full uncropped, metadata removed"
+  },
+  {
+    "asset": "memorial/baylee-7.jpg",
+    "source": "PXL_20260324_064651597.jpg",
+    "sha256": "a564656eca3e04a0be791aece06bf7706da5c480d97d44365a8161631e040926",
+    "variant": "preview, metadata removed"
+  },
+  {
+    "asset": "memorial/full/baylee-7.jpg",
+    "source": "PXL_20260324_064651597.jpg",
+    "sha256": "ca88db088edbb942026d48a224a366f29425018258c2d6f6d609a7af005b51c1",
+    "variant": "full uncropped, metadata removed"
+  },
+  {
+    "asset": "memorial/baylee-8.jpg",
+    "source": "PXL_20260409_112337689.jpg",
+    "sha256": "b3c9b1d4101ab02b83d518a71e7a7fe9e0be0ccbcbadeb58ded74b2f50c8948b",
+    "variant": "preview, metadata removed"
+  },
+  {
+    "asset": "memorial/full/baylee-8.jpg",
+    "source": "PXL_20260409_112337689.jpg",
+    "sha256": "99deaacc97b66296cfcffe153028557160bf0d4943d1880e82c20ed9012a7ad3",
+    "variant": "full uncropped, metadata removed"
+  },
+  {
+    "asset": "memorial/baylee-9.jpg",
+    "source": "PXL_20251220_022019300.jpg",
+    "sha256": "950c6ea7ee140b3cde1fa1dedef916a7bd75e6c6e35918561e2917910f8ba325",
+    "variant": "preview, metadata removed"
+  },
+  {
+    "asset": "memorial/full/baylee-9.jpg",
+    "source": "PXL_20251220_022019300.jpg",
+    "sha256": "2d00edf2a3b099d54ea6c627cffcd0beca277a3614b32b9a3ebca73449454f86",
+    "variant": "full uncropped, metadata removed"
+  },
+  {
+    "asset": "memorial/baylee-10.jpg",
+    "source": "PXL_20260307_202151314.jpg",
+    "sha256": "7b0e813e411a4ba19834f5c7a6ec43de9e3bd7f821ea2128c4bd9ec6afa8f824",
+    "variant": "preview, metadata removed"
+  },
+  {
+    "asset": "memorial/full/baylee-10.jpg",
+    "source": "PXL_20260307_202151314.jpg",
+    "sha256": "3ce859665afe58c6b3959252d35ee51a95ec1225cdb58cd9e186c79c815d2fbf",
+    "variant": "full uncropped, metadata removed"
   }
 ]

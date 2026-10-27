@@ -2840,7 +2840,7 @@ MemorialChapter5Body =
 
 MemorialChapter6Title = Mit erhobenem Schwanz
 MemorialChapter6Body =
-    Irgendwann brach der Tumor auf. Baylee hatte sichtbar Schmerzen. Als diese nachließen, war sie wieder unsere kleine Katze, die mit erhobenem Schwanz durch die Räume zog und ihre Menschen für sich beanspruchte.
+    Der Tumor wurde größer und nässte zunehmend. Baylee hatte sichtbar Schmerzen. Als diese nachließen, war sie wieder unsere kleine Katze, die mit erhobenem Schwanz durch die Räume zog und ihre Menschen für sich beanspruchte.
 
     Wir sahen, dass ihre Kräfte langsam weniger wurden. Doch ihr Appetit, ihre Neugier, ihre verschmuste Art und ihr lautes Schnurren waren noch da.
 
@@ -2880,3 +2880,10 @@ MemorialChapter8Body =
 
 MemorialFirstChapter = Du bist am Anfang ihrer Geschichte.
 MemorialLastChapter = Du bist am Ende ihrer Geschichte.
+
+MemorialPhotoOpen = Foto groß ansehen
+MemorialZoomIn = Vergrößern
+MemorialZoomOut = Verkleinern
+MemorialFit = Einpassen
+MemorialZoomMinimum = Das Foto ist vollständig sichtbar.
+MemorialZoomMaximum = Maximale Vergrößerung erreicht.

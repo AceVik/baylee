@@ -86,7 +86,7 @@ impl Plugin for LobbyPlugin {
         // Closing the application only disconnects. Explicit table actions
         // alone may depart; dropping the World must leave the seat resumable.
         crate::vista::install(app);
-        app.add_plugins(memorial::CloudPlugin);
+        app.add_plugins((memorial::CloudPlugin, memorial::BookPlugin));
         // The same orchestra continues through the lobby and every table.
         crate::music::install(app);
         // The report form stands over the lobby and every table (#309).
@@ -148,6 +148,7 @@ impl Plugin for LobbyPlugin {
                         play::discovery::hover_cards.after(crate::ambience::feel),
                     ),
                     softkeys,
+                    scrollbars::remember,
                     (
                         crate::seatpanel::poll,
                         // Before the kit's walker reads the same keys: an
@@ -161,7 +162,6 @@ impl Plugin for LobbyPlugin {
                     // answered in the same frame.
                     (clicks, crate::buildui::transfer::act).chain(),
                     (scrolls, scroll_the_preview),
-                    scrollbars::remember,
                     (hovers, hint::hint_hovers),
                     // The motion decides which panels are drawn, and the
                     // pose lands on the panels the rebuild just stood up.
@@ -333,7 +333,9 @@ impl Plugin for LobbyPlugin {
                         .before(bevy::ui::UiSystems::PostLayout),
                     crate::buildui::sample_hand::reveal.after(bevy::ui::UiSystems::Layout),
                     focusing::follow_focus,
-                    memorial::return_focus.after(focusing::follow_focus),
+                    memorial::return_focus
+                        .after(focusing::follow_focus)
+                        .before(crate::shellkit::focus::FocusVisuals),
                 )
                     .run_if(in_state(DuelPhase::Closed)),
             )

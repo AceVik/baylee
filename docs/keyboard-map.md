@@ -500,3 +500,12 @@ Unbinding an action is allowed — a pointer can still reach everything.
 Repeated target choices: `Shift+Enter` explicitly confirms the selected targets
 for the current series (rebindable in Settings). Normal confirmation still answers
 only one choice.
+
+### Baylee's remembrance book
+
+Left/Right changes photos, or the focused chapter bookmark. Alt+Left/Right
+changes chapters without wrapping. Home/End on bookmarks selects the first/last
+chapter; on the reading column it scrolls to the beginning/end. PageUp/PageDown
+scrolls the writing. Enter opens the focused photo. In the photo viewer, +/−
+zooms, 0 fits, and Escape returns to the same book/photo; a second Escape returns
+to the cloud. Tab stays within the active modal. Controls never enlarge on hover.
