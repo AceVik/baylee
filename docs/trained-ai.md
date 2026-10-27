@@ -30,6 +30,14 @@ invalid multi-member bands without changing sampling version 2. It sacrifices
 band tactics until those constraints are represented for neural sampling.
 Experienced-human strength and Phoenix NPU deployment are not established.
 
+Raw action verification and replay of explicit `SourceKind4::Net` sidecars
+preserve the executed subset members and defenders. They use
+`encode_executed_action4`; canonical BC teacher targets remain separate.
+Canonicalizing an executed grouped attack could previously reject a legal
+choice or change its replay target while retaining its behavior probability.
+Evaluator and converter builds containing this correction must be pinned
+together; archived datasets retain their original producer/converter identity.
+
 **Learning diagnostics and isolated ablations (27 October):**
 `tools/trainer/diagnose_policy4.py` reads strict v4/v5 checkpoints and complete
 seat histories. Its independent reports group policy errors by head, pending

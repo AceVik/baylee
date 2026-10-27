@@ -157,20 +157,43 @@ pub fn denormalize_scalar_choice(scalar_norm: f32, min: u32, max: u32) -> u32 {
     lo.saturating_add(offset).clamp(lo, hi)
 }
 
-/// Encodes a ground-truth teacher or rollout [`PlayerAction`] into a
+/// Encodes a canonical BC teacher [`PlayerAction`] into a
 /// [`TeacherTarget4`] against `cands`.
 ///
 /// Never falls back to `single_idx = 0` when an action is missing from `cands`:
 /// returns `None` so `convert4` increments `unencoded_decisions` honestly (`P0-2`).
 #[must_use]
-#[allow(
-    clippy::too_many_lines,
-    reason = "Explicit action-to-label mapping for each Pending variant"
-)]
 pub fn encode_teacher_action4(
     cands: &EncodedCandidates4,
     pending: &Pending,
     action: &PlayerAction,
+) -> Option<TeacherTarget4> {
+    encode_action4(cands, pending, action, true)
+}
+
+/// Encodes an executed policy action without canonicalizing subset members.
+///
+/// Neural behavior masks and probabilities refer to the actual selected objects
+/// and defenders. BC teachers keep their existing canonical targets through
+/// [`encode_teacher_action4`]; single-choice equivalence groups remain intact.
+#[must_use]
+pub fn encode_executed_action4(
+    cands: &EncodedCandidates4,
+    pending: &Pending,
+    action: &PlayerAction,
+) -> Option<TeacherTarget4> {
+    encode_action4(cands, pending, action, false)
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "Explicit action-to-label mapping for each Pending variant"
+)]
+fn encode_action4(
+    cands: &EncodedCandidates4,
+    pending: &Pending,
+    action: &PlayerAction,
+    canonicalize: bool,
 ) -> Option<TeacherTarget4> {
     let mut target = TeacherTarget4::default();
     match cands.head {
@@ -255,26 +278,32 @@ pub fn encode_teacher_action4(
                             .iter()
                             .position(|c| c.object_id == Some(oid) && c.defender == Some(def))
                             .or_else(|| {
-                                cands
-                                    .candidates
-                                    .iter()
-                                    .position(|c| c.object_id == Some(oid))
+                                canonicalize
+                                    .then(|| {
+                                        cands
+                                            .candidates
+                                            .iter()
+                                            .position(|c| c.object_id == Some(oid))
+                                    })
+                                    .flatten()
                             });
                         if let Some(idx) = maybe_idx {
                             target.multi_mask[idx] = 1;
                             target.pick_sequence.push(idx as u16);
-                        } else if cands.candidates.len() < MAX_CANDIDATES {
+                        } else if !canonicalize || cands.candidates.len() < MAX_CANDIDATES {
                             return None;
                         }
                     }
                     if !attackers.is_empty() && target.pick_sequence.is_empty() {
                         return None;
                     }
-                    canonicalize_grouped_subset_mask(
-                        cands,
-                        &mut target.multi_mask,
-                        &mut target.pick_sequence,
-                    );
+                    if canonicalize {
+                        canonicalize_grouped_subset_mask(
+                            cands,
+                            &mut target.multi_mask,
+                            &mut target.pick_sequence,
+                        );
+                    }
                     target.free_mask = compute_subset_free_mask(
                         cands,
                         pending,
@@ -292,11 +321,13 @@ pub fn encode_teacher_action4(
                         target.multi_mask[idx] = 1;
                         target.pick_sequence.push(idx as u16);
                     }
-                    canonicalize_grouped_subset_mask(
-                        cands,
-                        &mut target.multi_mask,
-                        &mut target.pick_sequence,
-                    );
+                    if canonicalize {
+                        canonicalize_grouped_subset_mask(
+                            cands,
+                            &mut target.multi_mask,
+                            &mut target.pick_sequence,
+                        );
+                    }
                     target.free_mask = compute_subset_free_mask(
                         cands,
                         pending,
@@ -322,11 +353,13 @@ pub fn encode_teacher_action4(
                         target.multi_mask[idx] = 1;
                         target.pick_sequence.push(idx as u16);
                     }
-                    canonicalize_grouped_subset_mask(
-                        cands,
-                        &mut target.multi_mask,
-                        &mut target.pick_sequence,
-                    );
+                    if canonicalize {
+                        canonicalize_grouped_subset_mask(
+                            cands,
+                            &mut target.multi_mask,
+                            &mut target.pick_sequence,
+                        );
+                    }
                     target.free_mask = compute_subset_free_mask(
                         cands,
                         pending,

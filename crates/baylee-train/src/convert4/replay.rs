@@ -196,7 +196,13 @@ pub(super) fn replay_frames_shadow(
                         return Err("Shadow label attached to a forced decision".into());
                     }
                     coverage.record(p_kind, SourceKind4::Forced);
-                } else if let Some(mut target) = encode_teacher_action4(&cands, &pending, &action) {
+                } else if let Some(mut target) = if cur_sidecar
+                    .is_some_and(|entry| entry.provenance.source == SourceKind4::Net)
+                {
+                    crate::features4::encode_executed_action4(&cands, &pending, &action)
+                } else {
+                    encode_teacher_action4(&cands, &pending, &action)
+                } {
                     let default_src = match by {
                         Source::Seat => SourceKind4::Net,
                         _ => SourceKind4::House,
