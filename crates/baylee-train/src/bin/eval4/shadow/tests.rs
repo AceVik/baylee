@@ -122,6 +122,7 @@ impl EvaluationPlayer for FixturePolicy {
 #[test]
 fn shadow_preserves_executed_record_and_binds_only_bc_labels() {
     let dir = Directory::new();
+    configure_export_catalog(&dir);
     let deck = baylee_train::housedeck::HouseDeck::named("victory").unwrap();
     let mut off = FixturePolicy::default();
     let mut on = FixturePolicy::default();
@@ -283,9 +284,13 @@ fn verify_bc_conversion(
 ) {
     use baylee_train::convert4::{shadow_bc::ShadowBc4, stream_game4, stream_game4_shadow_bc};
     let run = std::fs::read(dir.0.join("run.json")).unwrap();
+    let run_value: Value = serde_json::from_slice(&run).unwrap();
+    let catalog = run_value["shadow_structure_sha256"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     let sidecar = std::fs::read(dir.0.join("shadow/eval4-00000.jsonl")).unwrap();
-    let mut labels =
-        ShadowBc4::load(&run, &sidecar, record, "eval4-00000", &"b".repeat(64)).unwrap();
+    let mut labels = ShadowBc4::load(&run, &sidecar, record, "eval4-00000", &catalog).unwrap();
     let mut original = Vec::new();
     let mut bc = Vec::new();
     stream_game4(record, 1, true, Some(behavior), |step| {
@@ -322,6 +327,8 @@ fn verify_bc_conversion(
         }
     }
     assert!(advice > 0);
+    export_fixture(dir, record, behavior, &original, &bc);
+
     let mut rows: Vec<Value> = sidecar
         .split(|b| *b == b'\n')
         .filter(|l| !l.is_empty())
@@ -336,37 +343,114 @@ fn verify_bc_conversion(
     };
     let original_rows = rows.clone();
     rows[index]["candidates_sha256"] = json!("f".repeat(64));
-    let mut bad =
-        ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &"b".repeat(64)).unwrap();
+    let mut bad = ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &catalog).unwrap();
     assert!(stream_game4_shadow_bc(record, 1, behavior, &mut bad, |_| Ok(())).is_err());
     rows = original_rows.clone();
     rows[index]["teacher_target"]["scalar_norm"] = json!(1.0);
-    let mut bad =
-        ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &"b".repeat(64)).unwrap();
+    let mut bad = ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &catalog).unwrap();
     assert!(
         stream_game4_shadow_bc(record, 1, behavior, &mut bad, |_| Ok(())).is_err(),
         "stored raw targets must never override reconstructed teacher action"
     );
     let mut changed_record = record.to_vec();
     changed_record.push(b'\n');
-    assert!(
-        ShadowBc4::load(
-            &run,
-            &sidecar,
-            &changed_record,
-            "eval4-00000",
-            &"b".repeat(64)
-        )
-        .is_err()
-    );
+    assert!(ShadowBc4::load(&run, &sidecar, &changed_record, "eval4-00000", &catalog).is_err());
     rows = original_rows.clone();
     rows.insert(index, rows[index].clone());
-    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &"b".repeat(64)).is_err());
+    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &catalog).is_err());
     rows = original_rows.clone();
     rows.remove(index);
-    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &"b".repeat(64)).is_err());
+    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &catalog).is_err());
     rows = original_rows;
     rows.pop();
-    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &"b".repeat(64)).is_err());
-    assert!(ShadowBc4::load(&run, &sidecar, record, "wrong-source-game", &"b".repeat(64)).is_err());
+    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &catalog).is_err());
+    assert!(ShadowBc4::load(&run, &sidecar, record, "wrong-source-game", &catalog).is_err());
+}
+
+// Explicit test-only export. Refuses overwrite and does not load ONNX or run
+// production games. The actor remains the documented deterministic mock.
+fn configure_export_catalog(dir: &Directory) {
+    if std::env::var_os("BAYLEE_SHADOW_TEST_EXPORT").is_none() {
+        return;
+    }
+    let catalog = baylee_train::cardstructure::catalog(
+        &baylee_cards::all()
+            .map(|c| c.index.get())
+            .collect::<Vec<_>>(),
+    )
+    .unwrap();
+    let mut run: Value =
+        serde_json::from_slice(&std::fs::read(dir.0.join("run.json")).unwrap()).unwrap();
+    run["shadow_structure_sha256"] = json!(baylee_train::cardstructure::digest(&catalog).unwrap());
+    run["fixture_scope"] =
+        json!("CPU engine plumbing with mock actor and stub behavior LP, not real ONNX sampling");
+    std::fs::write(dir.0.join("run.json"), serde_json::to_vec(&run).unwrap()).unwrap();
+}
+
+fn export_fixture(
+    dir: &Directory,
+    record: &[u8],
+    behavior: &[baylee_train::convert4::RolloutStepSidecar4],
+    original: &[baylee_train::convert4::Step4],
+    bc: &[baylee_train::convert4::Step4],
+) {
+    use std::io::Write as _;
+    let Some(output) = std::env::var_os("BAYLEE_SHADOW_TEST_EXPORT") else {
+        return;
+    };
+    let root = std::path::PathBuf::from(output);
+    assert!(root.is_absolute(), "fixture export must use absolute path");
+    std::fs::create_dir(&root).expect("preserve existing fixture; choose a new export path");
+    let raw = root.join("raw-run");
+    std::fs::create_dir_all(raw.join("records")).unwrap();
+    std::fs::create_dir(raw.join("shadow")).unwrap();
+    std::fs::copy(dir.0.join("run.json"), raw.join("run.json")).unwrap();
+    std::fs::copy(
+        dir.0.join("shadow/eval4-00000.jsonl"),
+        raw.join("shadow/eval4-00000.jsonl"),
+    )
+    .unwrap();
+    let mut gzip = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+    gzip.write_all(record).unwrap();
+    let compressed = gzip.finish().unwrap();
+    std::fs::write(raw.join("records/fixture.jsonl.gz"), &compressed).unwrap();
+    let end: Value = serde_json::from_slice(
+        record
+            .split(|b| *b == b'\n')
+            .rfind(|l| !l.is_empty())
+            .unwrap(),
+    )
+    .unwrap();
+    let winners = end["winners"].as_array().unwrap();
+    let outcome = match winners.as_slice() {
+        [] => json!({"kind":"draw"}),
+        [winner] => json!({"kind":"won","seat":winner}),
+        _ => json!({"kind":"team_won","seats":winners}),
+    };
+    let index = json!({"game":"eval4-00000","i":0,"seed":12,"outcome":outcome,
+        "shard":"fixture.jsonl.gz","offset":0,"len":compressed.len(),"rollout_sidecar":behavior});
+    std::fs::write(
+        raw.join("games.jsonl"),
+        serde_json::to_string(&index).unwrap() + "\n",
+    )
+    .unwrap();
+    for (name, steps) in [
+        ("original-steps.jsonl.gz", original),
+        ("bc-steps.jsonl.gz", bc),
+    ] {
+        let gzip = flate2::write::GzEncoder::new(
+            std::fs::File::create(root.join(name)).unwrap(),
+            flate2::Compression::fast(),
+        );
+        let mut output = std::io::BufWriter::new(gzip);
+        for step in steps {
+            serde_json::to_writer(&mut output, step).unwrap();
+            writeln!(output).unwrap();
+        }
+        output.into_inner().unwrap().finish().unwrap();
+    }
+    std::fs::write(root.join("fixture.json"),serde_json::to_vec_pretty(&json!({"schema":1,
+        "generator":"eval4 shadow::tests::shadow_preserves_executed_record_and_binds_only_bc_labels",
+        "record_sha256":sha(record),"original_frames":original.len(),"bc_frames":bc.len(),
+        "scope":"actual Rust writer/replay, mock actor, no ONNX/GPU"})).unwrap()).unwrap();
 }

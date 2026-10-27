@@ -45,3 +45,23 @@ CPU fixture tests use a deterministic mock policy, not an ONNX model: shadow
 off/on produces byte-identical completed engine records and rollout provenance,
 including when teacher advice differs. They establish collector separation,
 not learned playing strength or real-policy sampling correctness.
+
+For a persistent CPU producer/consumer fixture, the engine integration test has
+an explicit `cfg(test)`-only export switch. Choose an absolute, nonexistent
+output directory (its parent must exist):
+
+```
+CARGO_BUILD_JOBS=4 BAYLEE_SHADOW_TEST_EXPORT=/absolute/NEW-fixture \
+  cargo test -p baylee-train --features onnx --bin eval4 \
+  shadow::tests::shadow_preserves_executed_record_and_binds_only_bc_labels \
+  -- --exact --nocapture
+convert4 --runs /absolute/NEW-fixture/raw-run \
+  --out /absolute/NEW-fixture/dataset --include-passive-obs --shadow-bc \
+  --threads 1 --val-every 0
+```
+
+The test exports the actual run/record/collector-sidecar bytes and gzip JSONL
+original/BC steps. The converter then writes its actual BST4 dataset and companion
+provenance. This tests Rust→Python contracts without hand-written copies of the
+companion format. The actor and LP remain explicit fixture stubs; no ONNX session
+or GPU is used, and this is not a production rollout or sampling audit.
