@@ -126,6 +126,7 @@ mod mwonvuli_ooze;
 mod mystic_penitent;
 mod netter_en_dal;
 mod nezumi_shadow_watcher;
+mod nimble_mongoose;
 mod noble_hierarch;
 mod nomads_en_kor;
 mod orcish_captain;

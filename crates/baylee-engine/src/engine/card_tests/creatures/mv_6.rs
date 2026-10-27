@@ -68,6 +68,7 @@ mod needleshot_gourna;
 mod nemata_grove_guardian;
 mod nesting_wurm;
 mod nightmare;
+mod nut_collector;
 mod oathsworn_giant;
 mod ojer_taq_deepest_foundation;
 mod pavel_maliki;

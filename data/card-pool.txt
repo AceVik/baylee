@@ -11529,3 +11529,28 @@ Mudhole
 Mystic Crusader
 Mystic Enforcer
 Mystic Penitent
+Mystic Visionary
+Mystic Zealot
+Nantuko Shrine
+Nefarious Lich
+New Frontiers
+Nimble Mongoose
+Nomad Decoy
+Nut Collector
+Obstinate Familiar
+Otarian Juggernaut
+Painbringer
+Pardic Firecat
+Pardic Miner
+Pardic Swordsmith
+Patriarch's Desire
+Pedantic Learning
+Peek
+Phantom Whelp
+Pianna, Nomad Captain
+Pilgrim of Justice
+Pilgrim of Virtue
+Piper's Melody
+Predict
+Price of Glory
+Psionic Gift

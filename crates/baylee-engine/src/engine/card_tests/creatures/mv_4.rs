@@ -217,6 +217,7 @@ mod mtenda_griffin;
 mod murk_dwellers;
 mod mystic_enforcer;
 mod mystic_snake;
+mod mystic_zealot;
 mod nalathni_dragon;
 mod nameless_race;
 mod nantuko_disciple;

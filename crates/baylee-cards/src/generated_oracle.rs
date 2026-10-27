@@ -15957,8 +15957,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Vigilance\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has flying.",
     ],
-    &[],
-    &[],
+    // Mystic Visionary
+    &[
+        "Threshold — This creature has flying as long as there are seven or more cards in your graveyard.",
+    ],
+    // Mystic Zealot
+    &[
+        "Threshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has flying.",
+    ],
     // Nantuko Disciple
     &["{G}, {T}: Target creature gets +2/+2 until end of turn."],
     // Nantuko Elder
@@ -15967,33 +15973,70 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{2}{G}, {T}: Target creature gets +X/+X until end of turn, where X is that creature's power.",
     ],
-    &[],
+    // Nantuko Shrine
+    &[
+        "Whenever a player casts a spell, that player creates X 1/1 green Squirrel creature tokens, where X is the number of cards in all graveyards with the same name as that spell.",
+    ],
     // Need for Speed
     &["Sacrifice a land: Target creature gains haste until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Nefarious Lich
+    &[
+        "If damage would be dealt to you, exile that many cards from your graveyard instead. If you can't, you lose the game.\nIf you would gain life, draw that many cards instead.\nWhen this enchantment leaves the battlefield, you lose the game.",
+    ],
+    // New Frontiers
+    &[
+        "Each player may search their library for up to X basic land cards and put them onto the battlefield tapped. Then each player who searched their library this way shuffles.",
+    ],
+    // Nimble Mongoose
+    &[
+        "Shroud (This creature can't be the target of spells or abilities.)\nThreshold — This creature gets +2/+2 as long as there are seven or more cards in your graveyard.",
+    ],
+    // Nomad Decoy
+    &[
+        "{W}, {T}: Tap target creature.\nThreshold — {W}{W}, {T}: Tap two target creatures. Activate only if there are seven or more cards in your graveyard.",
+    ],
     // Nomad Stadium
     &[
         "{T}: Add {W}. This land deals 1 damage to you.\nThreshold — {W}, {T}, Sacrifice this land: You gain 4 life. Activate only if there are seven or more cards in your graveyard.",
     ],
-    &[],
-    &[],
-    &[],
+    // Nut Collector
+    &[
+        "At the beginning of your upkeep, you may create a 1/1 green Squirrel creature token.\nThreshold — All Squirrels get +2/+2 as long as there are seven or more cards in your graveyard.",
+    ],
+    // Obstinate Familiar
+    &["If you would draw a card, you may skip that draw instead."],
+    // Otarian Juggernaut
+    &[
+        "This creature can't be blocked by Walls.\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +3/+0 and attacks each combat if able.",
+    ],
     // Overeager Apprentice
     &["Discard a card, Sacrifice this creature: Add {B}{B}{B}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Painbringer
+    &[
+        "{T}, Exile any number of cards from your graveyard: Target creature gets -X/-X until end of turn, where X is the number of cards exiled this way.",
+    ],
+    // Pardic Firecat
+    &[
+        "Haste\nIf this card is in a graveyard, effects from spells named Flame Burst count it as a card named Flame Burst.",
+    ],
+    // Pardic Miner
+    &["Sacrifice this creature: Target player can't play lands this turn."],
+    // Pardic Swordsmith
+    &["{R}, Discard a card at random: This creature gets +2/+0 until end of turn."],
+    // Patriarch's Desire
+    &[
+        "Enchant creature\nEnchanted creature gets +2/-2.\nThreshold — Enchanted creature gets an additional +2/-2 as long as there are seven or more cards in your graveyard.",
+    ],
     // Patrol Hound
     &["Discard a card: This creature gains first strike until end of turn."],
     // Patron Wizard
     &["Tap an untapped Wizard you control: Counter target spell unless its controller pays {1}."],
-    &[],
-    &[],
+    // Pedantic Learning
+    &[
+        "Whenever a land card is put into your graveyard from your library, you may pay {1}. If you do, draw a card.",
+    ],
+    // Peek
+    &["Look at target player's hand.\nDraw a card."],
     // Persuasion
     &[
         "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nYou control enchanted creature.",
@@ -16006,16 +16049,34 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Sacrifice an enchantment: This creature gets +1/+1 until end of turn.\nDiscard a card: This creature gets +1/+1 until end of turn.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Phantom Whelp
+    &[
+        "When this creature attacks or blocks, return it to its owner's hand at end of combat. (Return it only if it's on the battlefield.)",
+    ],
+    // Pianna, Nomad Captain
+    &["Whenever Pianna attacks, attacking creatures get +1/+1 until end of turn."],
+    // Pilgrim of Justice
+    &[
+        "Protection from red\n{W}, Sacrifice this creature: The next time a red source of your choice would deal damage this turn, prevent that damage.",
+    ],
+    // Pilgrim of Virtue
+    &[
+        "Protection from black\n{W}, Sacrifice this creature: The next time a black source of your choice would deal damage this turn, prevent that damage.",
+    ],
+    // Piper's Melody
+    &["Shuffle any number of target creature cards from your graveyard into your library."],
+    // Predict
+    &[
+        "Choose a card name, then target player mills a card. If a card with the chosen name was milled this way, you draw two cards. Otherwise, you draw a card.",
+    ],
+    // Price of Glory
+    &["Whenever a player taps a land for mana, if it's not that player's turn, destroy that land."],
     // Primal Frenzy
     &["Enchant creature\nEnchanted creature has trample."],
-    &[],
+    // Psionic Gift
+    &[
+        "Enchant creature\nEnchanted creature has \"{T}: This creature deals 1 damage to any target.\"",
+    ],
     &[],
     // Pulsating Illusion
     &[
