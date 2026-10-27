@@ -42,6 +42,7 @@ mod howling_fury;
 mod ice_storm;
 mod icequake;
 mod infernal_contract;
+mod infest;
 mod inquisition;
 mod jovial_evil;
 mod kodama_s_reach;

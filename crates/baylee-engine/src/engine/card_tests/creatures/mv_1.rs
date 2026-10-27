@@ -81,6 +81,7 @@ mod gorilla_shaman;
 mod granger_guildmage;
 mod greenseeker;
 mod grim_lavamancer;
+mod gustcloak_runner;
 mod healer_of_the_glade;
 mod hexdrinker;
 mod honor_guard;

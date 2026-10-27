@@ -17829,75 +17829,186 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Play with the top card of your library revealed.\nYou may play lands and cast spells from the top of your library.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Gangrenous Goliath
+    &["Tap three untapped Clerics you control: Return this card from your graveyard to your hand."],
+    // Ghosthelm Courier
+    &[
+        "You may choose not to untap this creature during your untap step.\n{2}{U}, {T}: Target Wizard creature gets +2/+2 and has shroud for as long as this creature remains tapped. (It can't be the target of spells or abilities.)",
+    ],
+    // Gigapede
+    &[
+        "Shroud (This creature can't be the target of spells or abilities.)\nAt the beginning of your upkeep, if this card is in your graveyard, you may discard a card. If you do, return this card to your hand.",
+    ],
+    // Glarecaster
+    &[
+        "Flying\n{5}{W}: The next time damage would be dealt to this creature and/or you this turn, that damage is dealt to any target instead.",
+    ],
     // Glory Seeker
     &[""],
     // Gluttonous Zombie
     &["Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)"],
     // Goblin Burrows
     &["{T}: Add {C}.\n{1}{R}, {T}: Target Goblin creature gets +2/+0 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Goblin Machinist
+    &[
+        "{2}{R}: Reveal cards from the top of your library until you reveal a nonland card. This creature gets +X/+0 until end of turn, where X is that card's mana value. Put the revealed cards on the bottom of your library in any order.",
+    ],
+    // Goblin Piledriver
+    &[
+        "Protection from blue (This creature can't be blocked, targeted, dealt damage, or enchanted by anything blue.)\nWhenever this creature attacks, it gets +2/+0 until end of turn for each other attacking Goblin.",
+    ],
+    // Goblin Pyromancer
+    &[
+        "When this creature enters, Goblin creatures get +3/+0 until end of turn.\nAt the beginning of the end step, destroy all Goblins.",
+    ],
+    // Goblin Sharpshooter
+    &[
+        "This creature doesn't untap during your untap step.\nWhenever a creature dies, untap this creature.\n{T}: This creature deals 1 damage to any target.",
+    ],
     // Goblin Sky Raider
     &["Flying (This creature can't be blocked except by creatures with flying or reach.)"],
     // Goblin Sledder
     &["Sacrifice a Goblin: Target creature gets +1/+1 until end of turn."],
-    &[],
+    // Goblin Taskmaster
+    &[
+        "{1}{R}: Target Goblin creature gets +1/+0 until end of turn.\nMorph {R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Grand Coliseum
     &[
         "This land enters tapped.\n{T}: Add {C}.\n{T}: Add one mana of any color. This land deals 1 damage to you.",
     ],
-    &[],
+    // Grand Melee
+    &["All creatures attack each combat if able.\nAll creatures block each combat if able."],
     // Grassland Crusader
     &["{T}: Target Elf or Soldier creature gets +2/+2 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Gratuitous Violence
+    &[
+        "If a creature you control would deal damage to a permanent or player, it deals double that damage instead.",
+    ],
+    // Gravel Slinger
+    &[
+        "{T}: This creature deals 1 damage to target attacking or blocking creature.\nMorph {1}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Gravespawn Sovereign
+    &[
+        "Tap five untapped Zombies you control: Put target creature card from a graveyard onto the battlefield under your control.",
+    ],
+    // Graxiplon
+    &[
+        "This creature can't be blocked unless defending player controls three or more creatures that share a creature type.",
+    ],
+    // Grinning Demon
+    &[
+        "At the beginning of your upkeep, you lose 2 life.\nMorph {2}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Gustcloak Harrier
+    &[
+        "Flying\nWhenever this creature becomes blocked, you may untap it and remove it from combat.",
+    ],
+    // Gustcloak Runner
+    &["Whenever this creature becomes blocked, you may untap it and remove it from combat."],
+    // Gustcloak Savior
+    &[
+        "Flying\nWhenever a creature you control becomes blocked, you may untap that creature and remove it from combat.",
+    ],
+    // Gustcloak Sentinel
+    &["Whenever this creature becomes blocked, you may untap it and remove it from combat."],
+    // Gustcloak Skirmisher
+    &[
+        "Flying\nWhenever this creature becomes blocked, you may untap it and remove it from combat.",
+    ],
+    // Harsh Mercy
+    &[
+        "Each player chooses a creature type. Destroy all creatures that aren't of a type chosen this way. They can't be regenerated.",
+    ],
+    // Haunted Cadaver
+    &[
+        "Whenever this creature deals combat damage to a player, you may sacrifice it. If you do, that player discards three cards.\nMorph {1}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Head Games
+    &[
+        "Target opponent puts the cards from their hand on top of their library. Search that player's library for that many cards. The player puts those cards into their hand, then shuffles.",
+    ],
+    // Headhunter
+    &[
+        "Whenever this creature deals combat damage to a player, that player discards a card.\nMorph {B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Heedless One
     &[
         "Trample\nHeedless One's power and toughness are each equal to the number of Elves on the battlefield.",
     ],
-    &[],
-    &[],
+    // Hystrodon
+    &[
+        "Trample\nWhenever this creature deals combat damage to a player, you may draw a card.\nMorph {1}{G}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Imagecrafter
+    &[
+        "{T}: Choose a creature type other than Wall. Target creature becomes that type until end of turn.",
+    ],
     // Improvised Armor
     &[
         "Enchant creature\nEnchanted creature gets +2/+5.\nCycling {3} ({3}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Infest
+    &["All creatures get -2/-2 until end of turn."],
+    // Information Dealer
+    &[
+        "{T}: Look at the top X cards of your library, where X is the number of Wizards on the battlefield, then put them back in any order.",
+    ],
+    // Inspirit
+    &["Untap target creature. It gets +2/+4 until end of turn."],
+    // Insurrection
+    &[
+        "Untap all creatures and gain control of them until end of turn. They gain haste until end of turn.",
+    ],
+    // Invigorating Boon
+    &["Whenever a player cycles a card, you may put a +1/+1 counter on target creature."],
+    // Ironfist Crusher
+    &[
+        "This creature can block any number of creatures.\nMorph {3}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Ixidor's Will
+    &["Counter target spell unless its controller pays {2} for each Wizard on the battlefield."],
+    // Ixidor, Reality Sculptor
+    &["Face-down creatures get +1/+1.\n{2}{U}: Turn target face-down creature face up."],
+    // Jareth, Leonine Titan
+    &[
+        "Whenever Jareth blocks, it gets +7/+7 until end of turn.\n{W}: Jareth gains protection from the color of your choice until end of turn.",
+    ],
+    // Kaboom!
+    &[
+        "Choose any number of target players or planeswalkers. For each of them, reveal cards from the top of your library until you reveal a nonland card, Kaboom! deals damage equal to that card's mana value to that player or planeswalker, then you put the revealed cards on the bottom of your library in any order.",
+    ],
+    // Kamahl's Summons
+    &[
+        "Each player may reveal any number of creature cards from their hand. Then each player creates a 2/2 green Bear creature token for each card they revealed this way.",
+    ],
+    // Kamahl, Fist of Krosa
+    &[
+        "{G}: Target land becomes a 1/1 creature until end of turn. It's still a land.\n{2}{G}{G}{G}: Creatures you control get +3/+3 and gain trample until end of turn.",
+    ],
+    // Krosan Colossus
+    &[
+        "Morph {6}{G}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Krosan Groundshaker
     &["{G}: Target Beast creature gains trample until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Krosan Tusker
+    &[
+        "Cycling {2}{G} ({2}{G}, Discard this card: Draw a card.)\nWhen you cycle this card, you may search your library for a basic land card, reveal that card, put it into your hand, then shuffle. (Do this before you draw.)",
+    ],
+    // Lavamancer's Skill
+    &[
+        "Enchant creature\nEnchanted creature has \"{T}: This creature deals 1 damage to target creature.\"\nAs long as enchanted creature is a Wizard, it has \"{T}: This creature deals 2 damage to target creature.\"",
+    ],
+    // Leery Fogbeast
+    &[
+        "Whenever this creature becomes blocked, prevent all combat damage that would be dealt this turn.",
+    ],
+    // Lightning Rift
+    &[
+        "Whenever a player cycles a card, you may pay {1}. If you do, this enchantment deals 2 damage to any target.",
+    ],
     // Lonely Sandbar
     &[
         "This land enters tapped.\n{T}: Add {U}.\nCycling {U} ({U}, Discard this card: Draw a card.)",
@@ -17906,64 +18017,130 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Target creature gains shroud until end of turn. (It can't be the target of spells or abilities.)\nCycling {U} ({U}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
+    // Mana Echoes
+    &[
+        "Whenever a creature enters, you may add an amount of {C} equal to the number of creatures you control that share a creature type with it.",
+    ],
+    // Menacing Ogre
+    &[
+        "Trample, haste\nWhen this creature enters, each player secretly chooses a number. Then those numbers are revealed. Each player with the highest number loses that much life. If you are one of those players, put two +1/+1 counters on this creature.",
+    ],
     // Misery Charm
     &[
         "Choose one —\n• Destroy target Cleric.\n• Return target Cleric card from your graveyard to your hand.\n• Target player loses 2 life.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mistform Dreamer
+    &["Flying\n{1}: This creature becomes the creature type of your choice until end of turn."],
+    // Mistform Mask
+    &[
+        "Enchant creature\n{1}: Enchanted creature becomes the creature type of your choice until end of turn.",
+    ],
+    // Mistform Mutant
+    &[
+        "{1}{U}: Choose a creature type other than Wall. Target creature becomes that type until end of turn.",
+    ],
+    // Mistform Shrieker
+    &[
+        "Flying\n{1}: This creature becomes the creature type of your choice until end of turn.\nMorph {3}{U}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Mistform Skyreaver
+    &["Flying\n{1}: This creature becomes the creature type of your choice until end of turn."],
+    // Mistform Stalker
+    &[
+        "{1}: This creature becomes the creature type of your choice until end of turn.\n{2}{U}{U}: This creature gets +2/+2 and gains flying until end of turn.",
+    ],
+    // Mistform Wall
+    &[
+        "This creature has defender as long as it's a Wall.\n{1}: This creature becomes the creature type of your choice until end of turn.",
+    ],
     // Mobilization
     &["Soldier creatures have vigilance.\n{2}{W}: Create a 1/1 white Soldier creature token."],
     // Mythic Proportions
     &["Enchant creature\nEnchanted creature gets +8/+8 and has trample."],
-    &[],
+    // Nameless One
+    &[
+        "Nameless One's power and toughness are each equal to the number of Wizards on the battlefield.\nMorph {2}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Nantuko Husk
     &["Sacrifice a creature: This creature gets +2/+2 until end of turn."],
     // Naturalize
     &["Destroy target artifact or enchantment."],
-    &[],
+    // Nosy Goblin
+    &["{T}, Sacrifice this creature: Destroy target face-down creature."],
     // Nova Cleric
     &["{2}{W}, {T}, Sacrifice this creature: Destroy all enchantments."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Oblation
+    &[
+        "The owner of target nonland permanent shuffles it into their library, then draws two cards.",
+    ],
+    // Oversold Cemetery
+    &[
+        "At the beginning of your upkeep, if you have four or more creature cards in your graveyard, you may return target creature card from your graveyard to your hand.",
+    ],
+    // Overwhelming Instinct
+    &["Whenever you attack with three or more creatures, draw a card."],
+    // Patriarch's Bidding
+    &[
+        "Each player chooses a creature type. Each player returns all creature cards of a type chosen this way from their graveyard to the battlefield.",
+    ],
+    // Pearlspear Courier
+    &[
+        "You may choose not to untap this creature during your untap step.\n{2}{W}, {T}: Target Soldier creature gets +2/+2 and has vigilance for as long as this creature remains tapped.",
+    ],
+    // Peer Pressure
+    &[
+        "Choose a creature type. If you control more creatures of that type than each other player, you gain control of all creatures of that type. (This effect lasts indefinitely.)",
+    ],
+    // Piety Charm
+    &[
+        "Choose one —\n• Destroy target Aura attached to a creature.\n• Target Soldier creature gets +2/+2 until end of turn.\n• Creatures you control gain vigilance until end of turn.",
+    ],
+    // Pinpoint Avalanche
+    &["Pinpoint Avalanche deals 4 damage to target creature. The damage can't be prevented."],
     // Polluted Delta
     &[
         "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
+    // Primal Boost
+    &[
+        "Target creature gets +4/+4 until end of turn.\nCycling {2}{G} ({2}{G}, Discard this card: Draw a card.)\nWhen you cycle this card, you may have target creature get +1/+1 until end of turn.",
+    ],
     // Profane Prayers
     &[
         "Profane Prayers deals X damage to any target and you gain X life, where X is the number of Clerics on the battlefield.",
     ],
-    &[],
-    &[],
-    &[],
+    // Prowling Pangolin
+    &[
+        "When this creature enters, any player may sacrifice two creatures of their choice. If a player does, sacrifice this creature.",
+    ],
+    // Psychic Trance
+    &["Until end of turn, Wizards you control gain \"{T}: Counter target spell.\""],
+    // Quicksilver Dragon
+    &[
+        "Flying\n{U}: If target spell has only one target and that target is this creature, change that spell's target to another creature.\nMorph {4}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Ravenous Baloth
     &["Sacrifice a Beast: You gain 4 life."],
-    &[],
+    // Read the Runes
+    &[
+        "Draw X cards. For each card drawn this way, discard a card unless you sacrifice a permanent.",
+    ],
     // Reckless One
     &[
         "Haste\nReckless One's power and toughness are each equal to the number of Goblins on the battlefield.",
     ],
     // Reminisce
     &["Target player shuffles their graveyard into their library."],
-    &[],
+    // Renewed Faith
+    &[
+        "You gain 6 life.\nCycling {1}{W} ({1}{W}, Discard this card: Draw a card.)\nWhen you cycle this card, you may gain 2 life.",
+    ],
     // Righteous Cause
     &["Whenever a creature attacks, you gain 1 life."],
-    &[],
+    // Riptide Biologist
+    &[
+        "Protection from Beasts\nMorph {2}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     &[],
     &[],
     // Riptide Laboratory
