@@ -1003,9 +1003,7 @@ fn is_removal_or_board_affecting_noncreature(view: &PlayerView, id: ObjectId) ->
                         | Effect::Exile { .. }
                         | Effect::ExileAll { .. }
                         | Effect::DealDamage {
-                            target:
-                                TargetSpec::Object(_)
-                                | TargetSpec::AnyTarget,
+                            target: TargetSpec::Object(_) | TargetSpec::AnyTarget,
                             ..
                         }
                         | Effect::CreateToken { .. }
@@ -2036,7 +2034,8 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                         {
                             continue;
                         }
-                        let is_instant = face_opt.is_some_and(|f| f.types.contains(TypeSet::INSTANT));
+                        let is_instant =
+                            face_opt.is_some_and(|f| f.types.contains(TypeSet::INSTANT));
                         let grants_haste = effects.iter().any(|e| {
                             matches!(
                                 e,
@@ -2063,7 +2062,8 @@ fn is_spell_worth_casting_now_inner(view: &PlayerView, id: ObjectId) -> bool {
                     if is_hostile_object_effects(effects)
                         && !view.battlefield.iter().any(|o| {
                             o.controller != actor
-                                && (!o.types.contains(TypeSet::LAND) || filter_targets_lands(filter))
+                                && (!o.types.contains(TypeSet::LAND)
+                                    || filter_targets_lands(filter))
                                 && public_object_matches_basic_filter(actor, o, filter)
                         })
                     {
@@ -3053,7 +3053,11 @@ fn is_activated_ability_worth_activating_now(
     {
         return false;
     }
-    if !effects.is_empty() && effects.iter().all(|e| matches!(e, Effect::Regenerate { .. })) {
+    if !effects.is_empty()
+        && effects
+            .iter()
+            .all(|e| matches!(e, Effect::Regenerate { .. }))
+    {
         let sac_creature_cost = cost
             .parts
             .iter()
@@ -3089,8 +3093,7 @@ fn is_activated_ability_worth_activating_now(
         let in_lethal_combat = view.phase == Phase::Combat
             && matches!(view.step, Step::DeclareBlockers | Step::CombatDamageFirst)
             && (view.combat.attackers.iter().any(|a| {
-                a.creature == source
-                    && view.combat.blockers.iter().any(|b| b.attacker == source)
+                a.creature == source && view.combat.blockers.iter().any(|b| b.attacker == source)
             }) || view.combat.blockers.iter().any(|b| b.blocker == source));
         if !stack_threatens_source && !in_lethal_combat {
             return false;
@@ -3231,7 +3234,9 @@ fn is_activated_ability_worth_activating_now(
                         && (o.keywords & baylee_cards_dsl::KeywordSet::DEFENDER.bits()) == 0
                         && (o.keywords & keywords.bits()) != keywords.bits()
                         && target_spec.is_none_or(|ts| match ts {
-                            TargetSpec::Object(f) => public_object_matches_basic_filter(actor, o, f),
+                            TargetSpec::Object(f) => {
+                                public_object_matches_basic_filter(actor, o, f)
+                            }
                             _ => true,
                         })
                 });
@@ -4078,7 +4083,9 @@ fn redirect_land_for_hand_colors(
                     }
                     _ => true,
                 };
-                bad_b.cmp(&bad_a).then_with(|| logits[a].total_cmp(&logits[b]))
+                bad_b
+                    .cmp(&bad_a)
+                    .then_with(|| logits[a].total_cmp(&logits[b]))
             })
         {
             return best_missing;

@@ -539,7 +539,11 @@ impl HeuristicAgent {
     /// at, so it falls through to the effects like an untargeted mode.
     fn mode_reaches(&self, view: &PlayerView, mode: &SpellMode, this: ObjectId) -> Option<bool> {
         let draws = crate::optional::self_draws(view, mode.effects, 0);
-        if draws > 0 && view.seat(view.seat).is_some_and(|s| s.library_count <= draws) {
+        if draws > 0
+            && view
+                .seat(view.seat)
+                .is_some_and(|s| s.library_count <= draws)
+        {
             return Some(false);
         }
         if [mode.targets, mode.second_targets]

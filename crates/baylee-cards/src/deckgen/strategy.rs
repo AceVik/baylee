@@ -335,10 +335,7 @@ pub fn compute_multiset(main: &[CardIndex], commanders: &[CardIndex]) -> BTreeMa
 /// Computes a deterministic 32-hex-char (128-bit) fingerprint of a deck's card
 /// multiset and commanders.
 #[must_use]
-pub fn compute_deck_hash(
-    multiset: &BTreeMap<CardIndex, u32>,
-    commanders: &[CardIndex],
-) -> String {
+pub fn compute_deck_hash(multiset: &BTreeMap<CardIndex, u32>, commanders: &[CardIndex]) -> String {
     let mut h1 = 0xcbf2_9ce4_8422_2325_u64;
     let mut h2 = 0x8422_2325_cbf2_9ce4_u64;
     let feed = |h1: &mut u64, h2: &mut u64, bytes: [u8; 4]| {
@@ -485,4 +482,3 @@ impl MultisetSimilarityIndex {
         max_j
     }
 }
-

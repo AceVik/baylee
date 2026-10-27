@@ -319,10 +319,7 @@ pub fn build_synergistic(
         };
 
         let has_untaken_partner = wanted_partners.iter().any(|p| {
-            !taken.contains(p)
-                && pool_by_id
-                    .get(p)
-                    .is_some_and(|pe| !pe.land && fits(pe))
+            !taken.contains(p) && pool_by_id.get(p).is_some_and(|pe| !pe.land && fits(pe))
         });
         let candidates: &[&Entry] = if has_untaken_partner {
             &spell_pool
@@ -420,9 +417,10 @@ pub fn build_synergistic(
         }
         // Fallback if strict colourless/{C} filter left `top_cands` empty in `target_b`
         if top_cands.is_empty() {
-            if let Some(&fallback) = spell_pool.iter().find(|e| {
-                !taken.contains(&e.card) && !e.profile.has_external_named_dependency
-            }) {
+            if let Some(&fallback) = spell_pool
+                .iter()
+                .find(|e| !taken.contains(&e.card) && !e.profile.has_external_named_dependency)
+            {
                 top_cands.push((0.0, fallback));
             } else if let Some(&fallback) = spell_pool.iter().find(|e| !taken.contains(&e.card)) {
                 top_cands.push((0.0, fallback));
@@ -704,9 +702,7 @@ fn refine_spells_1swap(
             let cand_score = 2.2 * theme.synergy_score(&cand.profile)
                 + 1.5 * theme.quota_bonus(&cand.profile, archetype, target_spells)
                 + 1.4 * theme.curve_bonus(&cand.profile, archetype, target_spells);
-            if cand_score > base_score + 0.4
-                && best_rep.is_none_or(|(b_s, _)| cand_score > b_s)
-            {
+            if cand_score > base_score + 0.4 && best_rep.is_none_or(|(b_s, _)| cand_score > b_s) {
                 best_rep = Some((cand_score, cand));
             }
         }
@@ -844,22 +840,21 @@ pub fn build_coverage_corpus_scoped(
             pref_arch
         };
         let can_use_commander = commander_identities.iter().any(|&ci| {
-            anchor_ci.difference(ci).is_empty()
-                && (anchor_cid != CRYPTIC_SPIRES || ci.len() >= 2)
+            anchor_ci.difference(ci).is_empty() && (anchor_cid != CRYPTIC_SPIRES || ci.len() >= 2)
         });
 
-        let preferred_shapes: [Shape; 3] = if anchor_entry.leader && !anchor_entry.identity.is_empty()
-        {
-            [Shape::Commander, Shape::Highlander, Shape::Constructed]
-        } else if !can_use_commander {
-            [Shape::Highlander, Shape::Constructed, Shape::Highlander]
-        } else {
-            match generated_decks.len() % 3 {
-                0 => [Shape::Highlander, Shape::Commander, Shape::Constructed],
-                1 => [Shape::Commander, Shape::Highlander, Shape::Constructed],
-                _ => [Shape::Constructed, Shape::Highlander, Shape::Commander],
-            }
-        };
+        let preferred_shapes: [Shape; 3] =
+            if anchor_entry.leader && !anchor_entry.identity.is_empty() {
+                [Shape::Commander, Shape::Highlander, Shape::Constructed]
+            } else if !can_use_commander {
+                [Shape::Highlander, Shape::Constructed, Shape::Highlander]
+            } else {
+                match generated_decks.len() % 3 {
+                    0 => [Shape::Highlander, Shape::Commander, Shape::Constructed],
+                    1 => [Shape::Commander, Shape::Highlander, Shape::Constructed],
+                    _ => [Shape::Constructed, Shape::Highlander, Shape::Commander],
+                }
+            };
 
         let mut accepted: Option<(Generated, BTreeMap<CardIndex, u32>)> = None;
         for attempt in 0..12_u64 {
@@ -869,10 +864,7 @@ pub fn build_coverage_corpus_scoped(
                 None
             } else {
                 Some(choose_broad_deficit_colors(
-                    pool,
-                    anchor_ci,
-                    &deficits,
-                    attempt,
+                    pool, anchor_ci, &deficits, attempt,
                 ))
             };
             let req = DeckBuildRequest {

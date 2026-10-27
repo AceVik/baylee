@@ -18,18 +18,17 @@ pub(crate) fn mana_choice(
         .iter()
         .enumerate()
         .min_by_key(|&(position, option)| {
-            let harm = crate::policy::mana_ability_harm(
-                view,
-                option.source.object,
-                option.ability_index,
-            );
+            let harm =
+                crate::policy::mana_ability_harm(view, option.source.object, option.ability_index);
             let lethal = harm > 0 && harm >= life;
             let priced = option
                 .ability_index
                 .and_then(|i| crate::activate::printed(view, option.source.object, i))
                 .is_some_and(|def| match def {
                     baylee_cards_dsl::AbilityDef::Activated { cost, effects, .. }
-                    | baylee_cards_dsl::AbilityDef::ActivatedConditional { cost, effects, .. } => {
+                    | baylee_cards_dsl::AbilityDef::ActivatedConditional {
+                        cost, effects, ..
+                    } => {
                         crate::policy::priced(cost)
                             || effects
                                 .iter()

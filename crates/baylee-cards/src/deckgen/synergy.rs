@@ -385,8 +385,8 @@ impl DeckThemeAccumulator {
             bonus += 2.0 * deficit;
         }
         if cand.is_card_advantage() && self.card_advantage_count < target_draw {
-            let deficit = f64::from(target_draw - self.card_advantage_count)
-                / f64::from(target_draw.max(1));
+            let deficit =
+                f64::from(target_draw - self.card_advantage_count) / f64::from(target_draw.max(1));
             bonus += 1.7 * deficit;
         }
         // Equipment/Aura guard: ensure enough creatures to wear them

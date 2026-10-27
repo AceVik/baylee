@@ -32,8 +32,8 @@ pub fn hypergeom_at_least(deck_size: usize, sources: usize, n_drawn: usize, k: u
         if needed_non > non_sources {
             continue;
         }
-        let log_p =
-            ln_choose(sources, x) + ln_choose(non_sources, needed_non) - ln_choose(deck_size, n_drawn);
+        let log_p = ln_choose(sources, x) + ln_choose(non_sources, needed_non)
+            - ln_choose(deck_size, n_drawn);
         prob_sum += log_p.exp();
     }
     prob_sum.clamp(0.0, 1.0)
@@ -162,11 +162,8 @@ pub fn build_manabase(
                 wants_snow = true;
             }
             if e.profile.pips[5] > 0 {
-                let req_c = karsten_sources_for_spell(
-                    deck_size,
-                    e.mana_value.max(1),
-                    e.profile.pips[5],
-                );
+                let req_c =
+                    karsten_sources_for_spell(deck_size, e.mana_value.max(1), e.profile.pips[5]);
                 c_pips_needed = c_pips_needed.max(req_c);
             }
             if e.profile.is_ramp() {
@@ -202,8 +199,7 @@ pub fn build_manabase(
             let mut score = 0.0_f64;
             let mut colors_fixed = 0_usize;
             for (c, &target_c) in targets.iter().enumerate() {
-                if (colors.bits() >> c) & 1 == 1
-                    && (e.profile.produced_colors.bits() >> c) & 1 == 1
+                if (colors.bits() >> c) & 1 == 1 && (e.profile.produced_colors.bits() >> c) & 1 == 1
                 {
                     colors_fixed += 1;
                     score += (target_c * 0.12).min(2.0);
@@ -242,7 +238,10 @@ pub fn build_manabase(
         let has_deficit = deficits
             .and_then(|m| m.get(&e.card))
             .is_some_and(|&d| d > 0);
-        if score < 0.0 && !has_deficit && !(c_pips_needed > have_c_sources && e.profile.produces_colorless) {
+        if score < 0.0
+            && !has_deficit
+            && !(c_pips_needed > have_c_sources && e.profile.produces_colorless)
+        {
             continue;
         }
         if e.profile.enters_tapped && tapped_count >= max_tapped_lands && !has_deficit {
@@ -316,9 +315,8 @@ pub fn build_manabase(
         let basic = if wants_snow && pool_by_id.contains_key(&snow_cid) {
             snow_cid
         } else {
-            basics[colour].ok_or_else(|| {
-                DeckGenError("the five basic lands are in the pool".to_string())
-            })?
+            basics[colour]
+                .ok_or_else(|| DeckGenError("the five basic lands are in the pool".to_string()))?
         };
         land_cards.push(basic);
         have_sources[colour] += 1.0;

@@ -84,8 +84,7 @@ pub(super) fn mask_non_priority_single_choice(
                     !is_true_land_card(view, h.id)
                         && lookup_spell_cost(view, h.id).is_some_and(|(cost, tax)| {
                             cost.with_x(0).cmc().saturating_add(tax) <= 4
-                                && (0..5)
-                                    .all(|c| count_color_pips(&cost, c) == 0 || hand_colors[c])
+                                && (0..5).all(|c| count_color_pips(&cost, c) == 0 || hand_colors[c])
                         })
                 });
                 let has_castable_early_spell = early_castable_count >= 1;
@@ -609,11 +608,11 @@ pub(super) fn adjust_subset_logits(
                                 ))
                             })
                             .collect();
-                        hold_candidates
-                            .sort_by(|a, b| a.1.cmp(&b.1).then_with(|| b.2.cmp(&a.2)));
+                        hold_candidates.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| b.2.cmp(&a.2)));
                         let mut cur_skip = already_holding;
                         for (cid, _, _, self_dmg) in hold_candidates {
-                            let blocked_p = opp_crackback_powers.get(cur_skip).copied().unwrap_or(0);
+                            let blocked_p =
+                                opp_crackback_powers.get(cur_skip).copied().unwrap_or(0);
                             if blocked_p <= self_dmg {
                                 continue;
                             }
@@ -621,10 +620,7 @@ pub(super) fn adjust_subset_logits(
                             cur_skip += 1;
                             held_self_dmg += self_dmg;
                             let next_rem: i32 = opp_unblockable_crackback
-                                + opp_crackback_powers
-                                    .iter()
-                                    .skip(cur_skip)
-                                    .sum::<i32>()
+                                + opp_crackback_powers.iter().skip(cur_skip).sum::<i32>()
                                 + held_self_dmg;
                             if next_rem < my_life {
                                 break;
@@ -667,7 +663,11 @@ pub(super) fn adjust_subset_logits(
                             && !has_kw(b, KeywordSet::CANT_BLOCK)
                     })
                     .count();
-                let min_blks = if has_kw(att_obj, KeywordSet::MENACE) { 2 } else { 1 };
+                let min_blks = if has_kw(att_obj, KeywordSet::MENACE) {
+                    2
+                } else {
+                    1
+                };
                 let is_unblockable = !is_fragile_engine
                     && view
                         .battlefield_of(def_pid)
@@ -729,7 +729,8 @@ pub(super) fn adjust_subset_logits(
                     && !any_dt_blk
                     && (!any_stonewall_blk || has_kw(att_obj, KeywordSet::TRAMPLE))
                     && sum_legal_blk_power < att_rem_t
-                    && (has_vigilance || (my_life >= 10 && my_life - opp_total_crackback_power >= 5));
+                    && (has_vigilance
+                        || (my_life >= 10 && my_life - opp_total_crackback_power >= 5));
                 if is_unkillable_juggernaut {
                     out[i] = out[i].max(2.0);
                     continue;
@@ -1353,9 +1354,7 @@ pub(super) fn adjust_pair_logits(
     let n = raw_logits.len().min(cands.pair_objects.len());
     let mut out = raw_logits[..n].to_vec();
     let Pending::ChooseBlockers {
-        bounds,
-        obeying,
-        ..
+        bounds, obeying, ..
     } = pending
     else {
         return out;
@@ -1737,9 +1736,7 @@ pub(super) fn adjust_pair_logits(
         let mut other_powers: Vec<i32> = sorted_atks
             .iter()
             .copied()
-            .filter(|&other| {
-                other != atk_id && !blocked_atks.contains(&other) && attacks_me(other)
-            })
+            .filter(|&other| other != atk_id && !blocked_atks.contains(&other) && attacks_me(other))
             .map(|other| atk_stats(other).0)
             .collect();
         other_powers.sort_unstable_by(|a, b| b.cmp(a));
@@ -2798,9 +2795,7 @@ fn discard_card_tier(view: &PlayerView, actor: PlayerId, oid: ObjectId) -> (i32,
         let copies_in_hand = view
             .hand
             .iter()
-            .filter(|h| {
-                lookup_card_identity(view, h.id).is_some_and(|hc| hc.index == ci.index)
-            })
+            .filter(|h| lookup_card_identity(view, h.id).is_some_and(|hc| hc.index == ci.index))
             .count();
         if on_board || copies_in_hand >= 2 {
             return (3, 0.8 + cmc_bonus);
@@ -3030,10 +3025,7 @@ pub(super) fn is_urgent_enchantment(obj: &PublicObject) -> bool {
     };
     abs.iter().any(|ab| match ab {
         AbilityDef::Triggered {
-            trigger:
-                Trigger::SpellCast(_)
-                | Trigger::StepBegin { .. }
-                | Trigger::Dies(_),
+            trigger: Trigger::SpellCast(_) | Trigger::StepBegin { .. } | Trigger::Dies(_),
             effects,
             ..
         } => !effects

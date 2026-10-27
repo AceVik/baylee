@@ -232,7 +232,11 @@ impl HeuristicAgent {
             None => return true,
         };
         let draws = self_draws(view, then, context.x);
-        if draws > 0 && view.seat(view.seat).is_some_and(|s| s.library_count <= draws) {
+        if draws > 0
+            && view
+                .seat(view.seat)
+                .is_some_and(|s| s.library_count <= draws)
+        {
             return false;
         }
         let Some(id) = context.source else {

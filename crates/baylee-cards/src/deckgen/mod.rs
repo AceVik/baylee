@@ -331,9 +331,7 @@ impl Generated {
     pub fn text(&self) -> String {
         let mut counts: BTreeMap<String, usize> = BTreeMap::new();
         for c in &self.main {
-            let mut name = crate::by_index(*c)
-                .map_or("?", |d| d.name())
-                .to_owned();
+            let mut name = crate::by_index(*c).map_or("?", |d| d.name()).to_owned();
             if let Some(pair) = self.copy(*c).choices.circled_colors {
                 let _ = write!(
                     name,

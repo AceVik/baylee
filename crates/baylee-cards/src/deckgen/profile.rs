@@ -395,4 +395,3 @@ fn collect_named_from_filter(filter: &Filter, out: &mut Vec<&'static str>, snow:
         _ => {}
     }
 }
-

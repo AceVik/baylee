@@ -1038,22 +1038,20 @@ impl HeuristicAgent {
                     filter,
                     opponents_only,
                 } => (*filter, *opponents_only, false, None),
-                Effect::DealDamageEach { filter, amount } => {
-                    (*filter, false, true, Some(crate::tactics::amount(*amount, 0)))
-                }
+                Effect::DealDamageEach { filter, amount } => (
+                    *filter,
+                    false,
+                    true,
+                    Some(crate::tactics::amount(*amount, 0)),
+                ),
                 _ => return None,
             };
             if dmg.is_some_and(|d| d <= 0) {
                 continue;
             }
             for o in &view.battlefield {
-                if self.filter_matches(
-                    filter,
-                    view,
-                    o,
-                    baylee_cards_dsl::ZoneRef::Battlefield,
-                    id,
-                ) == Some(false)
+                if self.filter_matches(filter, view, o, baylee_cards_dsl::ZoneRef::Battlefield, id)
+                    == Some(false)
                 {
                     continue;
                 }
@@ -1228,9 +1226,7 @@ impl HeuristicAgent {
             }
         }
         let mut res = 0_i32;
-        let permanent_spell = !f
-            .types
-            .intersects(TypeSet::INSTANT.union(TypeSet::SORCERY));
+        let permanent_spell = !f.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY));
         for ability in spells {
             match ability {
                 AbilityDef::Spell { effects, .. } => {
@@ -1261,9 +1257,7 @@ impl HeuristicAgent {
         spells: &[AbilityDef],
     ) -> u32 {
         let mut draws = 0_u32;
-        let permanent_spell = !f
-            .types
-            .intersects(TypeSet::INSTANT.union(TypeSet::SORCERY));
+        let permanent_spell = !f.types.intersects(TypeSet::INSTANT.union(TypeSet::SORCERY));
         for ability in spells {
             match ability {
                 AbilityDef::Spell { effects, .. } if !f.mana_cost.has_variable() => {
@@ -1287,9 +1281,7 @@ impl HeuristicAgent {
             }
             for ability in crate::activate::printed_list(perm) {
                 let AbilityDef::Triggered {
-                    trigger,
-                    effects,
-                    ..
+                    trigger, effects, ..
                 } = ability
                 else {
                     continue;
@@ -1337,10 +1329,9 @@ impl HeuristicAgent {
         }
         let id = own_casts(view).find(|&id| identity(view, id) == Some(card));
         let (pre_harm, res_harm) = self.spell_self_harm(view, id, card, f, spells);
-        if view
-            .seat(resource_player(view))
-            .is_some_and(|s| pre_harm >= s.life || pre_harm.saturating_add(res_harm.max(0)) >= s.life)
-        {
+        if view.seat(resource_player(view)).is_some_and(|s| {
+            pre_harm >= s.life || pre_harm.saturating_add(res_harm.max(0)) >= s.life
+        }) {
             return -10_000;
         }
         let draws = self.spell_mandatory_draws(view, id, card, f, spells);
@@ -1568,7 +1559,11 @@ fn board_sweeper(effect: &Effect) -> bool {
 /// Self-harm (`life` paid or lost / damage taken by `view.seat`) from
 /// activating mana ability `ability_index` on `id` (`None` for the intrinsic
 /// basic-land tap).
-pub(crate) fn mana_ability_harm(view: &PlayerView, id: ObjectId, ability_index: Option<u32>) -> i32 {
+pub(crate) fn mana_ability_harm(
+    view: &PlayerView,
+    id: ObjectId,
+    ability_index: Option<u32>,
+) -> i32 {
     let Some(object) = view.object(id) else {
         return 0;
     };
@@ -1602,7 +1597,9 @@ fn cost_self_harm(view: &PlayerView, parts: &[baylee_cards_dsl::CostPart]) -> i3
                 .seat(resource_player(view))
                 .and_then(|s| s.commanders.first())
                 .and_then(|c| view.object(c.object))
-                .map_or(1, |o| i32::try_from(o.colors.iter().count()).unwrap_or(1).max(1)),
+                .map_or(1, |o| {
+                    i32::try_from(o.colors.iter().count()).unwrap_or(1).max(1)
+                }),
             _ => 0,
         })
         .fold(0_i32, i32::saturating_add)
@@ -1650,9 +1647,7 @@ fn effects_self_harm(effects: &[Effect], controller_is_you: bool) -> i32 {
             Effect::GainLife { amount } if controller_is_you => {
                 -crate::tactics::amount(*amount, 0).max(0)
             }
-            Effect::GainLifeFor { amount, who }
-                if player_rel_hits_you(*who, controller_is_you) =>
-            {
+            Effect::GainLifeFor { amount, who } if player_rel_hits_you(*who, controller_is_you) => {
                 -crate::tactics::amount(*amount, 0).max(0)
             }
             Effect::Sequence(inner) => effects_self_harm(inner, controller_is_you),
