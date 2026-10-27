@@ -18,6 +18,8 @@ from .packing import INDEX, BST4_MAGIC, build_part, unpack_bst4_header_dict
 
 class TrajectoryStore4:
     def __init__(self, data_dir: Path, split: str, shards: list[str]):
+        from dataset_contract4 import validate_shadow_dataset
+        validate_shadow_dataset(data_dir, json.loads((data_dir / 'meta.json').read_text()))
         paths = [data_dir / split / name for name in shards]
         identity = hashlib.sha256((data_dir / "meta.json").read_bytes())
         for path in paths:
