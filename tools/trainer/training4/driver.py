@@ -86,7 +86,7 @@ def main(default_architecture="v4") -> None:
         replay = train_ds if replay_path.resolve() == data_dir.resolve() else D4.TrajectoryDataset4(
             replay_path, split="train", unroll_len=args.unroll, max_entities=args.max_entities)
         train_ds = BCMixture(train_ds, replay, val_ds, args.batch_size)
-        train_sampler = BCMixtureSampler(train_ds, args.batch_size, args.seed)
+        train_sampler = BCMixtureSampler(train_ds, args.batch_size, args.seed, args.bc_epoch_batches)
         identity["bc_mixture"] = train_ds.contract
     val_sampler = D4.StatefulBatchSampler4(
         val_ds, batch_size=args.validation_batch_size, shuffle=False, seed=args.seed

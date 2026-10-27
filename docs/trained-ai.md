@@ -5,7 +5,8 @@ architecture (`model_version = 5`); archived v4 remains a separate loadable
 model family. The matched BC pilot below is research, with no playing-strength
 claim or automatic promotion. Historical v4 implementation through
 `88bc2b07f` is on
-`main`; subsequent corrections are on `c42/trained-ai`. The
+`main`; the v5 pipeline and subsequent training corrections were integrated
+into `main` on 27 October. The
 [latest review and run results](history/trained-ai-v4-review-2026-10-24.md) and
 [takeover and training log](history/trained-ai-v4-codex-run-2026-10-22.md)
 record the repaired observation clock, contract versions, measured model size,
@@ -64,8 +65,11 @@ comparison of all 150,393 frames and 5,964 teacher targets. Observations, menus,
 outcomes, auxiliary targets and memory clocks were unchanged. The stochastic
 sidecar test failed exact floating-point equality; repeated shadow-off runs also
 varied slightly. Those stochastic records remain excluded and are not certified
-for PPO. A monitored 256-game greedy corrective collection is now running;
-its complete replay/admission review must pass before training.
+for PPO. The 256-game greedy corrective collection completed; 252 games passed
+complete replay/admission after excluding the whole four-seat rotation of a
+table with capped games. This selected collection is training data, not an
+unbiased strength estimate. Its first 1500-update mixed-data pilot did not
+establish a playing-strength improvement over matched old-data training.
 
 `train5.py --bc-replay-data DIR` opts into two separate supervised data stores
 with fixed half-batch trajectory lanes. The primary `--data` contributes the
@@ -78,6 +82,17 @@ stores, and checkpoints bind the mixture and its source identities. This is
 half the physical lanes, not necessarily half the labels or loss. A bounded
 comparison must fit inside both arms' fully occupied lane prefixes; exhausted
 lanes otherwise produce padding. Existing single-source training is unchanged.
+
+For full-coverage mixtures, opt-in `--bc-epoch-batches N` repeats exhausted
+child schedules with deterministic cycle seeds until exactly N batches. N must
+cover both sources' complete first passes. Complete trajectories retain their
+chronological frames and genuine H resets; per-pass lane tail padding remains.
+The final repeated pass may stop mid-trajectory at the explicit epoch boundary.
+Checkpoints bind the budget, seed rule and epoch-zero source repetition/padding
+report; the sampler can report later epochs separately. Both matched arms must
+use the same anchor source, seed and budget. This does not equalize labels or
+loss mass, and stopping early with `--max-steps` still forfeits full coverage.
+Zero (the default) preserves the original exhausted-source padding behavior.
 
 Legacy nondecision frames may store default provenance `thinking_steps=1`.
 Execution derives their effective K=0 from `is_decision`; the stored value does

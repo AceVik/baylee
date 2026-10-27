@@ -8,6 +8,7 @@ def parse_args(default_architecture="v4"):
     ap = argparse.ArgumentParser(description="Train BayleeAI v4/v5 via stateful TBPTT distillation")
     ap.add_argument("--data", required=True, help="Dataset directory produced by convert4")
     ap.add_argument("--bc-replay-data", default="", help="Opt-in BC-only half-lane mixture: primary data stable table half0 + replay all (same path: complementary half1)")
+    ap.add_argument("--bc-epoch-batches", type=int, default=0, help="Opt-in fixed BC mixture epoch: cycle exhausted source schedules; must cover both complete first passes (0 preserves ordinary tails)")
     ap.add_argument("--validation-data", default="", help="Separate immutable validation dataset; reuses its cache while training packages change")
     ap.add_argument("--out", required=True, help="Output checkpoint directory")
     ap.add_argument("--init", default="", help="Optional initial checkpoint directory (e.g. Phase A)")
@@ -74,6 +75,8 @@ def parse_args(default_architecture="v4"):
         ap.error("Choose one of --init, --init-state or --resume")
     if args.batch_size < 1 or args.validation_batch_size < 0:
         ap.error("Training batch size must be positive; validation batch size must be nonnegative")
+    if args.bc_epoch_batches < 0 or (args.bc_epoch_batches and not args.bc_replay_data):
+        ap.error("--bc-epoch-batches requires --bc-replay-data and nonnegative batches")
     if args.bc_replay_data and (not args.validation_data or args.batch_size%2 or args.batch_size<2 or args.init_state or args.max_shards):
         ap.error("--bc-replay-data requires separate validation, even B>=2, full shards and no --init-state")
     args.validation_batch_size = args.validation_batch_size or args.batch_size
