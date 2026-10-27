@@ -14553,13 +14553,28 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "{2}{W}, {T}: Choose a permanent you control. Prevent all combat damage target creature would deal this turn if it shares a color with that permanent.",
     ],
-    &[],
-    &[],
-    &[],
+    // Heroic Defiance
+    &[
+        "Enchant creature\nEnchanted creature gets +3/+3 unless it shares a color with the most common color among all permanents or a color tied for most common.",
+    ],
+    // Hobble
+    &[
+        "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature can't attack.\nEnchanted creature can't block if it's black.",
+    ],
+    // Honorable Scout
+    &[
+        "When this creature enters, you gain 2 life for each black and/or red creature target opponent controls.",
+    ],
     // Horned Kavu
     &["When this creature enters, return a red or green creature you control to its owner's hand."],
-    &[],
-    &[],
+    // Hull Breach
+    &[
+        "Choose one —\n• Destroy target artifact.\n• Destroy target enchantment.\n• Destroy target artifact and target enchantment.",
+    ],
+    // Hunting Drake
+    &[
+        "Flying\nWhen this creature enters, put target red or green creature on top of its owner's library.",
+    ],
     // Implode
     &["Destroy target land.\nDraw a card."],
     // Insolence
@@ -14572,8 +14587,14 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Enchant creature\n{B}: Regenerate enchanted creature.\n{R}: Enchanted creature gets +1/+0 until end of turn.\n{G}: Enchanted creature gains trample until end of turn.",
     ],
-    &[],
-    &[],
+    // Keldon Twilight
+    &[
+        "At the beginning of each player's end step, if no creatures attacked this turn, that player sacrifices a creature of their choice that they controlled since the beginning of the turn.",
+    ],
+    // Lashknife Barrier
+    &[
+        "When this enchantment enters, draw a card.\nIf a source would deal damage to a creature you control, it deals that much damage minus 1 to that creature instead.",
+    ],
     // Lava Zombie
     &[
         "When this creature enters, return a black or red creature you control to its owner's hand.\n{2}: This creature gets +1/+0 until end of turn.",
@@ -14584,23 +14605,42 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Maggot Carrier
     &["When this creature enters, each player loses 1 life."],
-    &[],
-    &[],
-    &[],
+    // Magma Burst
+    &[
+        "Kicker—Sacrifice two lands. (You may sacrifice two lands in addition to any other costs as you cast this spell.)\nMagma Burst deals 3 damage to any target. If this spell was kicked, it deals 3 damage to another target.",
+    ],
+    // Magnigoth Treefolk
+    &[
+        "Domain — For each basic land type among lands you control, this creature has landwalk of that type. (It can't be blocked as long as defending player controls a land of that type.)",
+    ],
+    // Malicious Advice
+    &["Tap X target artifacts, creatures, and/or lands. You lose X life."],
     // Mana Cylix
     &["{1}, {T}: Add one mana of any color."],
-    &[],
+    // March of Souls
+    &[
+        "Destroy all creatures. They can't be regenerated. For each creature destroyed this way, its controller creates a 1/1 white Spirit creature token with flying.",
+    ],
     // Marsh Crocodile
     &[
         "When this creature enters, return a blue or black creature you control to its owner's hand.\nWhen this creature enters, each player discards a card.",
     ],
-    &[],
+    // Meddling Mage
+    &[
+        "As this creature enters, choose a nonland card name.\nSpells with the chosen name can't be cast.",
+    ],
     // Meteor Crater
     &["{T}: Choose a color of a permanent you control. Add one mana of that color."],
     // Mire Kavu
     &["This creature gets +1/+1 as long as you control a Swamp."],
-    &[],
-    &[],
+    // Mirrorwood Treefolk
+    &[
+        "{2}{R}{W}: The next time damage would be dealt to this creature this turn, that damage is dealt to any target instead.",
+    ],
+    // Mogg Jailer
+    &[
+        "This creature can't attack if defending player controls an untapped creature with power 2 or less.",
+    ],
     // Mogg Sentry
     &["Whenever an opponent casts a spell, this creature gets +2/+2 until end of turn."],
     // Morgue Toad
@@ -14611,17 +14651,48 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "When this enchantment enters, return a red or green enchantment you control to its owner's hand.\nLands you control are 2/2 creatures with first strike. They're still lands.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Nemata, Grove Guardian
+    &[
+        "{2}{G}: Create a 1/1 green Saproling creature token.\nSacrifice a Saproling: Saproling creatures get +1/+1 until end of turn.",
+    ],
+    // Nightscape Battlemage
+    &[
+        "Kicker {2}{U} and/or {2}{R} (You may pay an additional {2}{U} and/or {2}{R} as you cast this spell.)\nWhen this creature enters, if it was kicked with its {2}{U} kicker, return up to two target nonblack creatures to their owners' hands.\nWhen this creature enters, if it was kicked with its {2}{R} kicker, destroy target land.",
+    ],
+    // Nightscape Familiar
+    &[
+        "Blue spells and red spells you cast cost {1} less to cast.\n{1}{B}: Regenerate this creature.",
+    ],
+    // Noxious Vapors
+    &[
+        "Each player reveals their hand, chooses one card of each color from it, then discards all other nonland cards.",
+    ],
+    // Orim's Chant
+    &[
+        "Kicker {W} (You may pay an additional {W} as you cast this spell.)\nTarget player can't cast spells this turn. If this spell was kicked, creatures can't attack this turn.",
+    ],
+    // Phyrexian Bloodstock
+    &[
+        "When this creature leaves the battlefield, destroy target white creature. It can't be regenerated.",
+    ],
+    // Phyrexian Scuta
+    &[
+        "Kicker—Pay 3 life. (You may pay 3 life in addition to any other costs as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it.",
+    ],
+    // Phyrexian Tyranny
+    &["Whenever a player draws a card, that player loses 2 life unless they pay {2}."],
+    // Planar Overlay
+    &[
+        "Each player chooses a land they control of each basic land type. Return those lands to their owners' hands.",
+    ],
+    // Planeswalker's Favor
+    &[
+        "{3}{G}: Target opponent reveals a card at random from their hand. Target creature gets +X/+X until end of turn, where X is the revealed card's mana value.",
+    ],
+    // Planeswalker's Fury
+    &[
+        "{3}{R}: Target opponent reveals a card at random from their hand. This enchantment deals damage equal to that card's mana value to that player. Activate only as a sorcery.",
+    ],
     &[],
     &[],
     &[],

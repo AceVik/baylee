@@ -183,6 +183,7 @@ mod metathran_soldier;
 mod mire_shade;
 mod misshapen_fiend;
 mod mistfolk;
+mod mogg_jailer;
 mod mogg_maniac;
 mod mogg_squad;
 mod molten_hydra;

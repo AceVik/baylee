@@ -24,6 +24,7 @@ mod funeral_march;
 mod goblin_caves;
 mod goblin_shrine;
 mod granite_grip;
+mod hobble;
 mod infinite_authority;
 mod journey_to_eternity;
 mod krovikan_fetish;

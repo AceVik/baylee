@@ -90,6 +90,7 @@ mod orim_s_prayer;
 mod oubliette;
 mod overgrown_estate;
 mod phyrexian_arena;
+mod phyrexian_tyranny;
 mod prismatic_circle;
 mod raiding_party;
 mod repercussion;

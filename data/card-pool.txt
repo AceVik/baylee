@@ -11245,3 +11245,30 @@ Falling Timber
 Gaea's Herald
 Goblin Game
 Guard Dogs
+
+# Planeshift (pls) — batch 2
+Heroic Defiance
+Hobble
+Honorable Scout
+Hull Breach
+Hunting Drake
+Keldon Twilight
+Lashknife Barrier
+Magma Burst
+Magnigoth Treefolk
+Malicious Advice
+March of Souls
+Meddling Mage
+Mirrorwood Treefolk
+Mogg Jailer
+Nemata, Grove Guardian
+Nightscape Battlemage
+Nightscape Familiar
+Noxious Vapors
+Orim's Chant
+Phyrexian Bloodstock
+Phyrexian Scuta
+Phyrexian Tyranny
+Planar Overlay
+Planeswalker's Favor
+Planeswalker's Fury

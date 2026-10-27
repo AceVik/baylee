@@ -126,6 +126,7 @@ mod orcish_squatters;
 mod ore_gorger;
 mod orgg;
 mod peregrine_drake;
+mod phyrexian_bloodstock;
 mod phyrexian_delver;
 mod phyrexian_plaguelord;
 mod pinnacle_monk;
