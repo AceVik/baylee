@@ -63,6 +63,7 @@ mod fighting_chance;
 mod final_showdown;
 mod firestorm;
 mod fog;
+mod funeral_pyre;
 mod gaea_s_might;
 mod giant_growth;
 mod glyph_of_delusion;

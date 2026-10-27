@@ -40,6 +40,7 @@ mod gang_of_elk;
 mod giant_shark;
 mod giant_warthog;
 mod goblin_marshal;
+mod goretusk_firebeast;
 mod grassland_crusader;
 mod gruul_nodorog;
 mod hand_of_justice;

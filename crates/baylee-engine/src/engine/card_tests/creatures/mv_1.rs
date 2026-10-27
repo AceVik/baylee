@@ -103,6 +103,7 @@ mod kird_ape;
 mod kitsune_diviner;
 mod kjeldoran_dead;
 mod kris_mage;
+mod krosan_wayfarer;
 mod laccolith_whelp;
 mod lake_town_lookout;
 mod lantern_kami;

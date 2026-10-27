@@ -30,6 +30,7 @@ mod despondency;
 mod diplomatic_immunity;
 mod enfeeblement;
 mod errantry;
+mod exoskeletal_armor;
 mod favorable_destiny;
 mod fear;
 mod ferocity;

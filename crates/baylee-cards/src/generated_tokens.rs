@@ -2589,6 +2589,18 @@ pub static WURM_6_6_BLACK_TRAMPLE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 1/1 red Elemental Cat with haste.
+pub static ELEMENTAL_CAT_1_1_RED_HASTE: TokenDef = TokenDef {
+    name: "Elemental Cat",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL, creature::CAT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2846,6 +2858,7 @@ pub static ALL: &[&TokenDef] = &[
     &ANGEL_3_3_BLACK_FLYING,
     &KAVU_3_3_BLACK,
     &WURM_6_6_BLACK_TRAMPLE,
+    &ELEMENTAL_CAT_1_1_RED_HASTE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -3070,4 +3083,5 @@ pub static GENERATED: &[&TokenDef] = &[
     &ANGEL_3_3_BLACK_FLYING,
     &KAVU_3_3_BLACK,
     &WURM_6_6_BLACK_TRAMPLE,
+    &ELEMENTAL_CAT_1_1_RED_HASTE,
 ];

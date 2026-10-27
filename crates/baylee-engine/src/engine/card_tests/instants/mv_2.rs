@@ -86,6 +86,7 @@ mod kabira_takedown;
 mod karn_s_touch;
 mod kindle;
 mod last_gasp;
+mod lead_astray;
 mod legion_leadership;
 mod lightning_blow;
 mod lightning_strike;

@@ -16898,7 +16898,10 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Tap an untapped Zombie you control: Target land becomes a Swamp until end of turn.\nTap an untapped Zombie you control: Target creature gains swampwalk until end of turn. (It can't be blocked as long as defending player controls a Swamp.)",
     ],
-    &[],
+    // Glory
+    &[
+        "Flying\n{2}{W}: Choose a color. Creatures you control gain protection from the chosen color until end of turn. Activate only if this card is in your graveyard.",
+    ],
     // Ancestor's Chosen
     &[
         "First strike (This creature deals combat damage before creatures without first strike.)\nWhen this creature enters, you gain 1 life for each card in your graveyard.",
@@ -17023,7 +17026,10 @@ pub static ORACLE: &[&[&str]] = &[
     &["Tap an untapped Dwarf you control: Target creature gets +2/+0 until end of turn."],
     // Dwarven Driller
     &["{T}: Destroy target land unless its controller has this creature deal 2 damage to them."],
-    &[],
+    // Dwarven Scorcher
+    &[
+        "Sacrifice this creature: This creature deals 1 damage to target creature unless that creature's controller has this creature deal 2 damage to them.",
+    ],
     // Earsplitting Rats
     &[
         "When this creature enters, each player discards a card.\nDiscard a card: Regenerate this creature.",
@@ -17036,49 +17042,118 @@ pub static ORACLE: &[&[&str]] = &[
     &["Ember Shot deals 3 damage to any target.\nDraw a card."],
     // Envelop
     &["Counter target sorcery spell."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Epic Struggle
+    &[
+        "At the beginning of your upkeep, if you control twenty or more creatures, you win the game.",
+    ],
+    // Exoskeletal Armor
+    &[
+        "Enchant creature\nEnchanted creature gets +X/+X, where X is the number of creature cards in all graveyards.",
+    ],
+    // Filth
+    &[
+        "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\nAs long as this card is in your graveyard and you control a Swamp, creatures you control have swampwalk.",
+    ],
+    // Firecat Blitz
+    &[
+        "Create X 1/1 red Elemental Cat creature tokens with haste. Exile them at the beginning of the next end step.\nFlashback—{R}{R}, Sacrifice X Mountains. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Flaring Pain
+    &[
+        "Damage can't be prevented this turn.\nFlashback {R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Flash of Insight
+    &[
+        "Look at the top X cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.\nFlashback—{1}{U}, Exile X blue cards from your graveyard. (You may cast this card from your graveyard for its flashback cost, then exile it. You can't exile Flash of Insight to pay for its own flashback cost.)",
+    ],
+    // Fledgling Dragon
+    &[
+        "Flying\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +3/+3 and has \"{R}: This creature gets +1/+0 until end of turn.\"",
+    ],
+    // Folk Medicine
+    &[
+        "You gain 1 life for each creature you control.\nFlashback {1}{W} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Forcemage Advocate
+    &[
+        "{T}: Return target card from an opponent's graveyard to their hand. Put a +1/+1 counter on target creature.",
+    ],
+    // Funeral Pyre
+    &[
+        "Exile target card from a graveyard. Its owner creates a 1/1 white Spirit creature token with flying.",
+    ],
+    // Genesis
+    &[
+        "At the beginning of your upkeep, if this creature is in your graveyard, you may pay {2}{G}. If you do, return target creature card from your graveyard to your hand.",
+    ],
     // Giant Warthog
     &["Trample"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Golden Wish
+    &[
+        "You may reveal an artifact or enchantment card you own from outside the game and put it into your hand. Exile Golden Wish.",
+    ],
+    // Goretusk Firebeast
+    &["When this creature enters, it deals 4 damage to target player or planeswalker."],
+    // Grave Consequences
+    &[
+        "Each player may exile any number of cards from their graveyard. Then each player loses 1 life for each card in their graveyard.\nDraw a card.",
+    ],
+    // Grip of Amnesia
+    &[
+        "Counter target spell unless its controller exiles all cards from their graveyard.\nDraw a card.",
+    ],
+    // Grizzly Fate
+    &[
+        "Create two 2/2 green Bear creature tokens.\nThreshold — Create four 2/2 green Bear creature tokens instead if there are seven or more cards in your graveyard.\nFlashback {5}{G}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Guiltfeeder
+    &[
+        "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nWhenever this creature attacks and isn't blocked, defending player loses 1 life for each card in their graveyard.",
+    ],
     // Hapless Researcher
     &["Sacrifice this creature: Draw a card, then discard a card."],
-    &[],
-    &[],
-    &[],
+    // Harvester Druid
+    &["{T}: Add one mana of any color that a land you control could produce."],
+    // Hunting Grounds
+    &[
+        "Threshold — As long as there are seven or more cards in your graveyard, this enchantment has \"Whenever an opponent casts a spell, you may put a creature card from your hand onto the battlefield.\"",
+    ],
+    // Infectious Rage
+    &[
+        "Enchant creature\nEnchanted creature gets +2/-1.\nWhen enchanted creature dies, choose a creature at random this Aura can enchant. Return this card to the battlefield attached to that creature.",
+    ],
     // Ironshell Beetle
     &["When this creature enters, put a +1/+1 counter on target creature."],
     // Jeska, Warrior Adept
     &["First strike, haste\n{T}: Jeska deals 1 damage to any target."],
-    &[],
-    &[],
+    // Keep Watch
+    &["Draw a card for each attacking creature."],
+    // Krosan Reclamation
+    &[
+        "Target player shuffles up to two target cards from their graveyard into their library.\nFlashback {1}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     // Krosan Verge
     &[
         "This land enters tapped.\n{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Search your library for a Forest card and a Plains card, put them onto the battlefield tapped, then shuffle.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Krosan Wayfarer
+    &["Sacrifice this creature: You may put a land card from your hand onto the battlefield."],
+    // Laquatus's Disdain
+    &["Counter target spell cast from a graveyard.\nDraw a card."],
+    // Lava Dart
+    &[
+        "Lava Dart deals 1 damage to any target.\nFlashback—Sacrifice a Mountain. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Lead Astray
+    &["Tap up to two target creatures."],
     // Liberated Dwarf
     &[
         "{R}, Sacrifice this creature: Target green creature gets +1/+0 and gains first strike until end of turn.",
     ],
-    &[],
+    // Lightning Surge
+    &[
+        "Lightning Surge deals 4 damage to any target.\nThreshold — If there are seven or more cards in your graveyard, instead Lightning Surge deals 6 damage to that permanent or player and the damage can't be prevented.\nFlashback {5}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     &[],
     &[],
     &[],
