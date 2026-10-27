@@ -417,7 +417,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Apocalypse (`apc`) Batch 2 adds 4 non-mana activated abilities on
     // Manacles of Decay (2) and Minotaur Illusionist (2) (3 of 4 read by the
     // evaluator).
-    assert_eq!((read, of), (2864, 3622), "activated/loyalty reader census");
+    // Odyssey (`ody`) Batch 1 adds 2 non-mana activated abilities on Amugaba
+    // and Balshan Griffin (2 of 2 read by the evaluator).
+    assert_eq!((read, of), (2866, 3624), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

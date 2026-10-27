@@ -23,6 +23,7 @@ mod aven_flock;
 mod avenging_angel;
 mod azami_lady_of_scrolls;
 mod balduvian_war_makers;
+mod balshan_griffin;
 mod barbarian_riftcutter;
 mod barbed_back_wurm;
 mod barkhide_mauler;

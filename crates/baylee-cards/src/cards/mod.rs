@@ -59,6 +59,8 @@ pub mod abomination;
 pub mod aboroth;
 #[path = "creatures/mv_6/aboshan_cephalid_emperor.rs"]
 pub mod aboshan_cephalid_emperor;
+#[path = "enchantments/auras/mv_1/aboshan_s_desire.rs"]
+pub mod aboshan_s_desire;
 #[path = "instants/mv_1/about_face.rs"]
 pub mod about_face;
 #[path = "instants/mv_2/abrade.rs"]
@@ -111,6 +113,8 @@ pub mod accelerate;
 pub mod accelerated_evolution;
 #[path = "instants/mv_5/accelerated_mutation.rs"]
 pub mod accelerated_mutation;
+#[path = "sorceries/mv_4/acceptable_losses.rs"]
+pub mod acceptable_losses;
 #[path = "lands/utility/access_tunnel.rs"]
 pub mod access_tunnel;
 #[path = "artifacts/equipment/mv_0/accorder_s_shield.rs"]
@@ -183,6 +187,8 @@ pub mod adventuring_gear;
 pub mod advocate_of_the_beast;
 #[path = "creatures/artifacts/mv_2/aegis_automaton.rs"]
 pub mod aegis_automaton;
+#[path = "enchantments/mv_1/aegis_of_honor.rs"]
+pub mod aegis_of_honor;
 #[path = "instants/mv_2/aegis_of_the_heavens.rs"]
 pub mod aegis_of_the_heavens;
 #[path = "artifacts/mv_3/aegis_of_the_meek.rs"]
@@ -225,6 +231,8 @@ pub mod aesthir_glider;
 pub mod aether_adept;
 #[path = "enchantments/mv_3/aether_barrier.rs"]
 pub mod aether_barrier;
+#[path = "instants/mv_2/aether_burst.rs"]
+pub mod aether_burst;
 #[path = "creatures/mv_3/aether_channeler.rs"]
 pub mod aether_channeler;
 #[path = "enchantments/mv_4/aether_flash.rs"]
@@ -523,6 +531,8 @@ pub mod amrou_kithkin;
 pub mod amrou_scout;
 #[path = "creatures/mv_3/amrou_seekers.rs"]
 pub mod amrou_seekers;
+#[path = "creatures/mv_7/amugaba.rs"]
+pub mod amugaba;
 #[path = "artifacts/mv_2/amulet_of_kroog.rs"]
 pub mod amulet_of_kroog;
 #[path = "artifacts/mv_5/amulet_of_unmaking.rs"]
@@ -571,6 +581,8 @@ pub mod ancestral_recall;
 pub mod ancestral_reminiscence;
 #[path = "creatures/artifacts/mv_4/ancestral_statue.rs"]
 pub mod ancestral_statue;
+#[path = "sorceries/mv_7/ancestral_tribute.rs"]
+pub mod ancestral_tribute;
 #[path = "enchantments/auras/mv_2/ancestral_vengeance.rs"]
 pub mod ancestral_vengeance;
 #[path = "sorceries/mv_0/ancestral_vision.rs"]
@@ -681,6 +693,8 @@ pub mod angry_mob;
 pub mod anguished_unmaking;
 #[path = "creatures/mv_3/angus_mackenzie.rs"]
 pub mod angus_mackenzie;
+#[path = "enchantments/auras/mv_3/animal_boneyard.rs"]
+pub mod animal_boneyard;
 #[path = "lands/utility/animal_sanctuary.rs"]
 pub mod animal_sanctuary;
 #[path = "enchantments/auras/mv_4/animate_artifact.rs"]
@@ -1113,6 +1127,8 @@ pub mod aura_blast;
 pub mod aura_flux;
 #[path = "enchantments/mv_3/aura_fracture.rs"]
 pub mod aura_fracture;
+#[path = "instants/mv_2/aura_graft.rs"]
+pub mod aura_graft;
 #[path = "instants/mv_2/aura_mutation.rs"]
 pub mod aura_mutation;
 #[path = "enchantments/auras/mv_2/aura_of_dominion.rs"]
@@ -1193,6 +1209,8 @@ pub mod aven_cloudchaser;
 pub mod aven_envoy;
 #[path = "creatures/mv_7/aven_fateshaper.rs"]
 pub mod aven_fateshaper;
+#[path = "creatures/mv_4/aven_fisher.rs"]
+pub mod aven_fisher;
 #[path = "creatures/mv_4/aven_fleetwing.rs"]
 pub mod aven_fleetwing;
 #[path = "creatures/mv_5/aven_flock.rs"]
@@ -1209,6 +1227,8 @@ pub mod aven_redeemer;
 pub mod aven_reedstalker;
 #[path = "creatures/mv_4/aven_sentry.rs"]
 pub mod aven_sentry;
+#[path = "enchantments/mv_3/aven_shrine.rs"]
+pub mod aven_shrine;
 #[path = "creatures/mv_1/aven_skirmisher.rs"]
 pub mod aven_skirmisher;
 #[path = "creatures/mv_4/aven_smokeweaver.rs"]
@@ -1217,6 +1237,8 @@ pub mod aven_smokeweaver;
 pub mod aven_trooper;
 #[path = "creatures/mv_3/aven_wind_mage.rs"]
 pub mod aven_wind_mage;
+#[path = "creatures/mv_5/aven_windreader.rs"]
+pub mod aven_windreader;
 #[path = "creatures/mv_2/avenger_en_dal.rs"]
 pub mod avenger_en_dal;
 #[path = "lands/gain/avengers_hangar.rs"]
@@ -1345,6 +1367,8 @@ pub mod bala_ged_scorpion;
 pub mod balamb_garden_see_d_academy;
 #[path = "sorceries/mv_2/balance.rs"]
 pub mod balance;
+#[path = "sorceries/mv_4/balancing_act.rs"]
+pub mod balancing_act;
 #[path = "lands/gates/baldur_s_gate.rs"]
 pub mod baldur_s_gate;
 #[path = "creatures/mv_3/balduvian_barbarians.rs"]
@@ -1383,10 +1407,16 @@ pub mod ballroom;
 pub mod balm_of_restoration;
 #[path = "creatures/mv_6/baloth_woodcrasher.rs"]
 pub mod baloth_woodcrasher;
+#[path = "creatures/mv_3/balshan_beguiler.rs"]
+pub mod balshan_beguiler;
 #[path = "creatures/mv_4/balshan_collaborator.rs"]
 pub mod balshan_collaborator;
+#[path = "creatures/mv_5/balshan_griffin.rs"]
+pub mod balshan_griffin;
 #[path = "creatures/mv_3/balthor_the_stout.rs"]
 pub mod balthor_the_stout;
+#[path = "sorceries/mv_3/bamboozle.rs"]
+pub mod bamboozle;
 #[path = "instants/mv_1/bandage.rs"]
 pub mod bandage;
 #[path = "creatures/mv_2/bane_alley_blackguard.rs"]
@@ -1501,6 +1531,8 @@ pub mod basalt_golem;
 pub mod basalt_monolith;
 #[path = "lands/tapland/base_camp.rs"]
 pub mod base_camp;
+#[path = "instants/mv_4/bash_to_bits.rs"]
+pub mod bash_to_bits;
 #[path = "creatures/mv_4/basilica_bell_haunt.rs"]
 pub mod basilica_bell_haunt;
 #[path = "artifacts/equipment/mv_1/basilisk_collar.rs"]
@@ -1539,6 +1571,8 @@ pub mod battle_hurda;
 pub mod battle_hymn;
 #[path = "enchantments/auras/mv_3/battle_mastery.rs"]
 pub mod battle_mastery;
+#[path = "enchantments/mv_5/battle_of_wits.rs"]
+pub mod battle_of_wits;
 #[path = "instants/mv_2/battle_rage_blessing.rs"]
 pub mod battle_rage_blessing;
 #[path = "creatures/mv_3/battle_rampart.rs"]
@@ -1549,6 +1583,8 @@ pub mod battle_rattle_shaman;
 pub mod battle_sliver;
 #[path = "creatures/mv_5/battle_squadron.rs"]
 pub mod battle_squadron;
+#[path = "enchantments/mv_2/battle_strain.rs"]
+pub mod battle_strain;
 #[path = "lands/pain/battlefield_forge.rs"]
 pub mod battlefield_forge;
 #[path = "creatures/mv_5/battlefield_percher.rs"]
@@ -1597,6 +1633,10 @@ pub mod bear_cub;
 pub mod bear_s_companion;
 #[path = "artifacts/mv_1/bear_trap.rs"]
 pub mod bear_trap;
+#[path = "enchantments/mv_3/bearscape.rs"]
+pub mod bearscape;
+#[path = "instants/mv_5/beast_attack.rs"]
+pub mod beast_attack;
 #[path = "creatures/mv_3/beast_kin_ranger.rs"]
 pub mod beast_kin_ranger;
 #[path = "creatures/artifacts/mv_6/beast_of_burden.rs"]
@@ -1849,6 +1889,8 @@ pub mod blazemire_verge;
 pub mod blazing_effigy;
 #[path = "creatures/mv_4/blazing_hellhound.rs"]
 pub mod blazing_hellhound;
+#[path = "instants/mv_1/blazing_salvo.rs"]
+pub mod blazing_salvo;
 #[path = "creatures/mv_4/blazing_specter.rs"]
 pub mod blazing_specter;
 #[path = "sorceries/mv_1/blazing_volley.rs"]
@@ -2001,6 +2043,8 @@ pub mod bloodcrazed_neonate;
 pub mod bloodcrazed_paladin;
 #[path = "creatures/mv_4/bloodcrusher_of_khorne.rs"]
 pub mod bloodcrusher_of_khorne;
+#[path = "creatures/mv_2/bloodcurdler.rs"]
+pub mod bloodcurdler;
 #[path = "sorceries/mv_1/bloodcurdling_scream.rs"]
 pub mod bloodcurdling_scream;
 #[path = "lands/gain/bloodfell_caves.rs"]
@@ -2175,6 +2219,8 @@ pub mod bolt_of_keranos;
 pub mod boltwave;
 #[path = "creatures/mv_5/boltwing_marauder.rs"]
 pub mod boltwing_marauder;
+#[path = "creatures/mv_4/bomb_squad.rs"]
+pub mod bomb_squad;
 #[path = "instants/mv_3/bombard.rs"]
 pub mod bombard;
 #[path = "creatures/mv_1/bond_beetle.rs"]
@@ -2315,6 +2361,8 @@ pub mod bower_passage;
 pub mod brad_boimler_eager_ensign;
 #[path = "artifacts/mv_3/braided_net.rs"]
 pub mod braided_net;
+#[path = "creatures/mv_4/braids_cabal_minion.rs"]
+pub mod braids_cabal_minion;
 #[path = "artifacts/mv_3/braidwood_cup.rs"]
 pub mod braidwood_cup;
 #[path = "artifacts/mv_1/braidwood_sextant.rs"]
@@ -2583,6 +2631,8 @@ pub mod burning_inquiry;
 pub mod burning_palm_efreet;
 #[path = "creatures/mv_2/burning_prophet.rs"]
 pub mod burning_prophet;
+#[path = "enchantments/mv_5/burning_sands.rs"]
+pub mod burning_sands;
 #[path = "creatures/mv_3/burning_shield_askari.rs"]
 pub mod burning_shield_askari;
 #[path = "creatures/mv_2/burning_tree_emissary.rs"]

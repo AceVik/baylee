@@ -369,6 +369,7 @@ fn life_of(engine: &Engine<RegistryLookup>, seat: usize) -> i32 {
     engine.state().players[seat].life
 }
 
+mod amugaba;
 mod angel_of_despair;
 mod angel_of_retribution;
 mod angler_turtle;

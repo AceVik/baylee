@@ -114,6 +114,7 @@ mod black_market;
 mod blockbuster;
 mod blood_rites;
 mod bulwark;
+mod burning_sands;
 mod centaur_glade;
 mod curse_of_marit_lage;
 mod death_pits_of_rath;

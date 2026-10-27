@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod aboshan_s_desire;
 mod animate_wall;
 mod apathy;
 mod artifact_ward;

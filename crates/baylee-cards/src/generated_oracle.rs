@@ -15355,26 +15355,48 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\n{T}: Add {W}.\n{T}, Sacrifice this land: Add one mana of any color.",
     ],
-    &[],
+    // Aboshan's Desire
+    &[
+        "Enchant creature\nEnchanted creature has flying.\nThreshold — Enchanted creature has shroud as long as there are seven or more cards in your graveyard. (It can't be the target of spells or abilities.)",
+    ],
     // Aboshan, Cephalid Emperor
     &[
         "Tap an untapped Octopus you control: Tap target permanent.\n{U}{U}{U}: Tap all creatures without flying.",
     ],
-    &[],
-    &[],
-    &[],
+    // Acceptable Losses
+    &[
+        "As an additional cost to cast this spell, discard a card at random.\nAcceptable Losses deals 5 damage to target creature.",
+    ],
+    // Aegis of Honor
+    &[
+        "{1}: The next time an instant or sorcery spell would deal damage to you this turn, that spell deals that damage to its controller instead.",
+    ],
+    // Aether Burst
+    &[
+        "Return up to X target creatures to their owners' hands, where X is one plus the number of cards named Aether Burst in all graveyards as you cast this spell.",
+    ],
     // Afflict
     &["Target creature gets -1/-1 until end of turn.\nDraw a card."],
-    &[],
-    &[],
-    &[],
+    // Amugaba
+    &["Flying\n{2}{U}, Discard a card: Return this creature to its owner's hand."],
+    // Ancestral Tribute
+    &[
+        "You gain 2 life for each card in your graveyard.\nFlashback {9}{W}{W}{W} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Animal Boneyard
+    &[
+        "Enchant land\nEnchanted land has \"{T}, Sacrifice a creature: You gain life equal to the sacrificed creature's toughness.\"",
+    ],
     // Ashen Firebeast
     &["{1}{R}: This creature deals 1 damage to each creature without flying."],
     // Atogatog
     &[
         "Sacrifice an Atog creature: Atogatog gets +X/+X until end of turn, where X is the sacrificed creature's power.",
     ],
-    &[],
+    // Aura Graft
+    &[
+        "Gain control of target Aura that's attached to a permanent. Attach it to another permanent it can enchant.",
+    ],
     // Auramancer
     &[
         "When this creature enters, you may return target enchantment card from your graveyard to your hand.",
@@ -15387,43 +15409,86 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhen this creature enters, destroy target enchantment.",
     ],
-    &[],
+    // Aven Fisher
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhen this creature dies, you may draw a card.",
+    ],
     // Aven Flock
     &[
         "Flying (This creature can't be blocked except by creatures with flying or reach.)\n{W}: This creature gets +0/+1 until end of turn.",
     ],
-    &[],
+    // Aven Shrine
+    &[
+        "Whenever a player casts a spell, that player gains X life, where X is the number of cards in all graveyards with the same name as that spell.",
+    ],
     // Aven Smokeweaver
     &["Flying, protection from red"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Aven Windreader
+    &[
+        "Flying (This creature can't be blocked except by creatures with flying or reach.)\n{1}{U}: Target player reveals the top card of their library.",
+    ],
+    // Balancing Act
+    &[
+        "Each player chooses a number of permanents they control equal to the number of permanents controlled by the player who controls the fewest, then sacrifices the rest. Each player discards cards the same way.",
+    ],
+    // Balshan Beguiler
+    &[
+        "Whenever this creature deals combat damage to a player, that player reveals the top two cards of their library. You choose one of those cards and put it into their graveyard.",
+    ],
+    // Balshan Griffin
+    &["Flying\n{1}{U}, Discard a card: Return this creature to its owner's hand."],
+    // Bamboozle
+    &[
+        "Target player reveals the top four cards of their library. You choose two of those cards and put them into that player's graveyard. Put the rest on top of their library in any order.",
+    ],
     // Barbarian Lunatic
     &["{2}{R}, Sacrifice this creature: It deals 2 damage to target creature."],
     // Barbarian Ring
     &[
         "{T}: Add {R}. This land deals 1 damage to you.\nThreshold — {R}, {T}, Sacrifice this land: It deals 2 damage to any target. Activate only if there are seven or more cards in your graveyard.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Bash to Bits
+    &[
+        "Destroy target artifact.\nFlashback {4}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Battle Strain
+    &["Whenever a creature blocks, this enchantment deals 1 damage to that creature's controller."],
+    // Battle of Wits
+    &[
+        "At the beginning of your upkeep, if you have 200 or more cards in your library, you win the game.",
+    ],
+    // Bearscape
+    &["{1}{G}, Exile two cards from your graveyard: Create a 2/2 green Bear creature token."],
+    // Beast Attack
+    &[
+        "Create a 4/4 green Beast creature token.\nFlashback {2}{G}{G}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
     // Beloved Chaplain
     &["Protection from creatures"],
-    &[],
+    // Blazing Salvo
+    &[
+        "Blazing Salvo deals 3 damage to target creature unless that creature's controller has Blazing Salvo deal 5 damage to them.",
+    ],
     // Blessed Orator
     &["Other creatures you control get +0/+1."],
-    &[],
+    // Bloodcurdler
+    &[
+        "Flying\nAt the beginning of your upkeep, mill a card.\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has \"At the beginning of your end step, exile two cards from your graveyard.\"",
+    ],
     // Bog Wreckage
     &[
         "This land enters tapped.\n{T}: Add {B}.\n{T}, Sacrifice this land: Add one mana of any color.",
     ],
-    &[],
-    &[],
-    &[],
+    // Bomb Squad
+    &[
+        "{T}: Put a fuse counter on target creature.\nAt the beginning of your upkeep, put a fuse counter on each creature with a fuse counter on it.\nWhenever a creature has four or more fuse counters on it, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller.",
+    ],
+    // Braids, Cabal Minion
+    &[
+        "At the beginning of each player's upkeep, that player sacrifices an artifact, creature, or land of their choice.",
+    ],
+    // Burning Sands
+    &["Whenever a creature dies, that creature's controller sacrifices a land of their choice."],
     &[],
     // Cabal Patriarch
     &[
