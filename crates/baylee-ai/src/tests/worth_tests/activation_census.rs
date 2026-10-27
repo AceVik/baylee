@@ -432,7 +432,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Sarcatog (2) (5 of 7 read by the evaluator).
     // Odyssey (`ody`) Batch 8 adds 3 non-mana activated abilities on Skyshooter
     // and Steamclaw (2) (3 of 3 read by the evaluator).
-    assert_eq!((read, of), (2880, 3640), "activated/loyalty reader census");
+    // Odyssey (`ody`) Batch 9 adds 4 non-mana activated abilities on Vampiric
+    // Dragon, Wild Mongrel, Zombie Assassin, and Zombie Infestation (3 of 4
+    // read by the evaluator).
+    assert_eq!((read, of), (2883, 3644), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -11604,3 +11604,23 @@ Thermal Blast
 Thought Devourer
 Thought Eater
 Thought Nibbler
+Time Stretch
+Tombfire
+Traumatize
+Traveling Plague
+Tremble
+Twigwalker
+Upheaval
+Vampiric Dragon
+Verdant Succession
+Volcanic Spray
+Volley of Boulders
+Wayward Angel
+Werebear
+Whipkeeper
+Wild Mongrel
+Words of Wisdom
+Zombie Assassin
+Zombie Cannibal
+Zombie Infestation
+Zoologist

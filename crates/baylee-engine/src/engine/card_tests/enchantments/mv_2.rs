@@ -98,3 +98,4 @@ mod unlikely_alliance;
 mod veiled_apparition;
 mod volrath_s_gardens;
 mod warmth;
+mod zombie_infestation;

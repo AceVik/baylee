@@ -16320,46 +16320,90 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "This land enters tapped.\n{T}: Add {G}.\n{T}, Sacrifice this land: Add one mana of any color.",
     ],
-    &[],
+    // Time Stretch
+    &["Target player takes two extra turns after this one."],
     // Tireless Tribe
     &["Discard a card: This creature gets +0/+4 until end of turn."],
-    &[],
+    // Tombfire
+    &["Target player exiles all cards with flashback from their graveyard."],
     // Touch of Invisibility
     &["Target creature can't be blocked this turn.\nDraw a card."],
-    &[],
-    &[],
+    // Traumatize
+    &["Target player mills half their library, rounded down."],
+    // Traveling Plague
+    &[
+        "Enchant creature\nAt the beginning of each upkeep, put a plague counter on this Aura.\nEnchanted creature gets -1/-1 for each plague counter on this Aura.\nWhen enchanted creature leaves the battlefield, that creature's controller returns this Aura from its owner's graveyard to the battlefield.",
+    ],
     // Treetop Sentinel
     &["Flying, protection from green"],
-    &[],
-    &[],
+    // Tremble
+    &["Each player sacrifices a land of their choice."],
+    // Twigwalker
+    &["{1}{G}, Sacrifice this creature: Two target creatures each get +2/+2 until end of turn."],
     // Unifying Theory
     &[
         "Whenever a player casts a spell, that player may pay {2}. If the player does, they draw a card.",
     ],
-    &[],
-    &[],
-    &[],
+    // Upheaval
+    &["Return all permanents to their owners' hands."],
+    // Vampiric Dragon
+    &[
+        "Flying\nWhenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature.\n{1}{R}: This creature deals 1 damage to target creature.",
+    ],
+    // Verdant Succession
+    &[
+        "Whenever a green nontoken creature dies, that creature's controller may search their library for a card with the same name as that creature, put it onto the battlefield, then shuffle.",
+    ],
     // Vivify
     &["Target land becomes a 3/3 creature until end of turn. It's still a land.\nDraw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Volcanic Spray
+    &[
+        "Volcanic Spray deals 1 damage to each creature without flying and each player.\nFlashback {1}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Volley of Boulders
+    &[
+        "Volley of Boulders deals 6 damage divided as you choose among any number of targets.\nFlashback {R}{R}{R}{R}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Wayward Angel
+    &[
+        "Flying, vigilance\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +3/+3, is black, has trample, and has \"At the beginning of your upkeep, sacrifice a creature.\"",
+    ],
+    // Werebear
+    &[
+        "{T}: Add {G}.\nThreshold — This creature gets +3/+3 as long as there are seven or more cards in your graveyard.",
+    ],
+    // Whipkeeper
+    &[
+        "{T}: This creature deals damage to target creature equal to the damage already dealt to it this turn.",
+    ],
     // Whispering Shade
     &[
         "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\n{B}: This creature gets +1/+1 until end of turn.",
     ],
-    &[],
+    // Wild Mongrel
+    &[
+        "Discard a card: This creature gets +1/+1 and becomes the color of your choice until end of turn.",
+    ],
     // Woodland Druid
     &[""],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Words of Wisdom
+    &["You draw two cards, then each other player draws a card."],
+    // Zombie Assassin
+    &[
+        "{T}, Exile two cards from your graveyard and this creature: Destroy target nonblack creature. It can't be regenerated.",
+    ],
+    // Zombie Cannibal
+    &[
+        "Whenever this creature deals combat damage to a player, you may exile target card from that player's graveyard.",
+    ],
+    // Zombie Infestation
+    &["Discard two cards: Create a 2/2 black Zombie creature token."],
     // Zombify
     &["Return target creature card from your graveyard to the battlefield."],
-    &[],
+    // Zoologist
+    &[
+        "{3}{G}, {T}: Reveal the top card of your library. If it's a creature card, put it onto the battlefield. Otherwise, put it into your graveyard.",
+    ],
     &[],
     // Accelerate
     &["Target creature gains haste until end of turn.\nDraw a card."],

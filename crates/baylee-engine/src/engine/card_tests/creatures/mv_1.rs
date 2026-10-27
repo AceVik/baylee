@@ -197,3 +197,4 @@ mod wild_dogs;
 mod will_o_the_wisp;
 mod wirewood_symbiote;
 mod young_wolf;
+mod zombie_cannibal;

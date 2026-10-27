@@ -216,4 +216,5 @@ mod winding_wurm;
 mod windstorm_drake;
 mod woodripper;
 mod zirilan_of_the_claw;
+mod zombie_assassin;
 mod zuberi_golden_feather;

@@ -20769,6 +20769,8 @@ pub mod time_of_need;
 pub mod time_sieve;
 #[path = "sorceries/mv_6/time_spiral.rs"]
 pub mod time_spiral;
+#[path = "sorceries/mv_10/time_stretch.rs"]
+pub mod time_stretch;
 #[path = "artifacts/mv_2/time_vault.rs"]
 pub mod time_vault;
 #[path = "sorceries/mv_2/time_walk.rs"]
@@ -20867,6 +20869,8 @@ pub mod tomb_fortress;
 pub mod tomb_of_the_spirit_dragon;
 #[path = "lands/pain/tomb_of_urami.rs"]
 pub mod tomb_of_urami;
+#[path = "sorceries/mv_1/tombfire.rs"]
+pub mod tombfire;
 #[path = "enchantments/mv_4/tombstone_stairwell.rs"]
 pub mod tombstone_stairwell;
 #[path = "creatures/mv_3/tome_raider.rs"]
@@ -21053,12 +21057,16 @@ pub mod trap_runner;
 pub mod trapmaker_s_snare;
 #[path = "instants/mv_2/traumatic_critique.rs"]
 pub mod traumatic_critique;
+#[path = "sorceries/mv_5/traumatize.rs"]
+pub mod traumatize;
 #[path = "artifacts/mv_1/traveler_s_amulet.rs"]
 pub mod traveler_s_amulet;
 #[path = "enchantments/auras/mv_3/traveler_s_cloak.rs"]
 pub mod traveler_s_cloak;
 #[path = "creatures/mv_2/traveling_philosopher.rs"]
 pub mod traveling_philosopher;
+#[path = "enchantments/auras/mv_5/traveling_plague.rs"]
+pub mod traveling_plague;
 #[path = "enchantments/auras/mv_2/treacherous_link.rs"]
 pub mod treacherous_link;
 #[path = "enchantments/auras/mv_5/treachery.rs"]
@@ -21103,6 +21111,8 @@ pub mod treetop_sentinel;
 pub mod treetop_village;
 #[path = "creatures/mv_2/treetop_warden.rs"]
 pub mod treetop_warden;
+#[path = "sorceries/mv_2/tremble.rs"]
+pub mod tremble;
 #[path = "sorceries/mv_1/tremor.rs"]
 pub mod tremor;
 #[path = "creatures/mv_4/trench_wurm.rs"]
@@ -21279,6 +21289,8 @@ pub mod tusked_colossodon;
 pub mod tva_bureaucrat;
 #[path = "instants/mv_1/twiddle.rs"]
 pub mod twiddle;
+#[path = "creatures/mv_3/twigwalker.rs"]
+pub mod twigwalker;
 #[path = "lands/filter/twilight_mire.rs"]
 pub mod twilight_mire;
 #[path = "creatures/mv_1/twilight_panther.rs"]
@@ -21559,6 +21571,8 @@ pub mod unyielding_krumar;
 pub mod updraft;
 #[path = "creatures/mv_3/updraft_elemental.rs"]
 pub mod updraft_elemental;
+#[path = "sorceries/mv_6/upheaval.rs"]
+pub mod upheaval;
 #[path = "enchantments/mv_3/uphill_battle.rs"]
 pub mod uphill_battle;
 #[path = "creatures/mv_7/ur_drago.rs"]
@@ -21717,6 +21731,8 @@ pub mod vampire_spawn;
 pub mod vampire_warlord;
 #[path = "instants/mv_3/vampires_vengeance.rs"]
 pub mod vampires_vengeance;
+#[path = "creatures/mv_8/vampiric_dragon.rs"]
+pub mod vampiric_dragon;
 #[path = "enchantments/auras/mv_4/vampiric_embrace.rs"]
 pub mod vampiric_embrace;
 #[path = "sorceries/mv_7/vampiric_feast.rs"]
@@ -21869,6 +21885,8 @@ pub mod verdant_catacombs;
 pub mod verdant_field;
 #[path = "creatures/mv_8/verdant_force.rs"]
 pub mod verdant_force;
+#[path = "enchantments/mv_5/verdant_succession.rs"]
+pub mod verdant_succession;
 #[path = "sorceries/mv_2/verdant_touch.rs"]
 pub mod verdant_touch;
 #[path = "creatures/mv_6/verdeloth_the_ancient.rs"]
@@ -22189,6 +22207,8 @@ pub mod volcanic_geyser;
 pub mod volcanic_hammer;
 #[path = "lands/dual/volcanic_island.rs"]
 pub mod volcanic_island;
+#[path = "sorceries/mv_2/volcanic_spray.rs"]
+pub mod volcanic_spray;
 #[path = "enchantments/auras/mv_2/volcanic_strength.rs"]
 pub mod volcanic_strength;
 #[path = "sorceries/mv_5/volcanic_submersion.rs"]
@@ -22205,6 +22225,8 @@ pub mod voldaren_epicure;
 pub mod voldaren_estate;
 #[path = "creatures/mv_1/voldaren_stinger.rs"]
 pub mod voldaren_stinger;
+#[path = "sorceries/mv_9/volley_of_boulders.rs"]
+pub mod volley_of_boulders;
 #[path = "creatures/mv_4/volley_veteran.rs"]
 pub mod volley_veteran;
 #[path = "enchantments/auras/mv_2/volrath_s_curse.rs"]
@@ -22615,6 +22637,8 @@ pub mod wayfarer_s_bauble;
 pub mod wayfaring_giant;
 #[path = "instants/mv_3/waylay.rs"]
 pub mod waylay;
+#[path = "creatures/mv_6/wayward_angel.rs"]
+pub mod wayward_angel;
 #[path = "creatures/mv_5/wayward_giant.rs"]
 pub mod wayward_giant;
 #[path = "creatures/mv_2/wayward_servant.rs"]
@@ -22693,6 +22717,8 @@ pub mod well_worn_spatula;
 pub mod wellspring;
 #[path = "creatures/mv_2/wellwisher.rs"]
 pub mod wellwisher;
+#[path = "creatures/mv_2/werebear.rs"]
+pub mod werebear;
 #[path = "creatures/mv_3/werefox_bodyguard.rs"]
 pub mod werefox_bodyguard;
 #[path = "creatures/mv_4/western_paladin.rs"]
@@ -22723,6 +22749,8 @@ pub mod whip_silk;
 pub mod whip_vine;
 #[path = "sorceries/mv_2/whipflare.rs"]
 pub mod whipflare;
+#[path = "creatures/mv_4/whipkeeper.rs"]
+pub mod whipkeeper;
 #[path = "creatures/mv_1/whippoorwill.rs"]
 pub mod whippoorwill;
 #[path = "creatures/mv_2/whipstitched_zombie.rs"]
@@ -22827,6 +22855,8 @@ pub mod wild_leotau;
 pub mod wild_mammoth;
 #[path = "instants/mv_2/wild_might.rs"]
 pub mod wild_might;
+#[path = "creatures/mv_2/wild_mongrel.rs"]
+pub mod wild_mongrel;
 #[path = "creatures/mv_1/wild_nacatl.rs"]
 pub mod wild_nacatl;
 #[path = "creatures/mv_4/wild_ox.rs"]
@@ -23113,6 +23143,8 @@ pub mod word_of_blasting;
 pub mod word_of_command;
 #[path = "instants/mv_1/word_of_undoing.rs"]
 pub mod word_of_undoing;
+#[path = "instants/mv_2/words_of_wisdom.rs"]
+pub mod words_of_wisdom;
 #[path = "creatures/mv_3/worf_chief_tactical_officer.rs"]
 pub mod worf_chief_tactical_officer;
 #[path = "creatures/artifacts/mv_6/workhorse.rs"]
@@ -23387,10 +23419,16 @@ pub mod zoetic_cavern;
 pub mod zof_consumption;
 #[path = "creatures/mv_4/zof_shade.rs"]
 pub mod zof_shade;
+#[path = "creatures/mv_5/zombie_assassin.rs"]
+pub mod zombie_assassin;
 #[path = "creatures/mv_5/zombie_boa.rs"]
 pub mod zombie_boa;
+#[path = "creatures/mv_1/zombie_cannibal.rs"]
+pub mod zombie_cannibal;
 #[path = "creatures/mv_5/zombie_goliath.rs"]
 pub mod zombie_goliath;
+#[path = "enchantments/mv_2/zombie_infestation.rs"]
+pub mod zombie_infestation;
 #[path = "creatures/mv_3/zombie_master.rs"]
 pub mod zombie_master;
 #[path = "creatures/mv_4/zombie_mob.rs"]
@@ -23403,6 +23441,8 @@ pub mod zombie_scavengers;
 pub mod zombie_trailblazer;
 #[path = "sorceries/mv_4/zombify.rs"]
 pub mod zombify;
+#[path = "creatures/mv_4/zoologist.rs"]
+pub mod zoologist;
 #[path = "creatures/mv_5/zuberi_golden_feather.rs"]
 pub mod zuberi_golden_feather;
 #[path = "creatures/mv_5/zuko_avatar_hunter.rs"]

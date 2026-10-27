@@ -550,6 +550,9 @@ impl Tx<'_> {
             None => {}
             Some("You") => whose = "PlayerRel::You",
             Some("TriggeredCardController") if whose == "PlayerRel::You" => {}
+            Some("TriggeredTarget") if self.trigger_mode.as_deref() == Some("DamageDone") => {
+                whose = "PlayerRel::DamagedPlayer";
+            }
             Some(_) => return None,
         }
         let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;

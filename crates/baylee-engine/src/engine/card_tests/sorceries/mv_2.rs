@@ -60,6 +60,7 @@ mod sylvan_scrying;
 mod three_visits;
 mod time_of_need;
 mod time_walk;
+mod tremble;
 mod verdant_touch;
 mod vicious_hunger;
 mod volcanic_hammer;

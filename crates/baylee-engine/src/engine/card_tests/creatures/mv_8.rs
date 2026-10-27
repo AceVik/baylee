@@ -119,5 +119,6 @@ mod tidal_force;
 mod tidal_kraken;
 mod tidespout_tyrant;
 mod utvara_hellkite;
+mod vampiric_dragon;
 mod verdant_force;
 mod zetalpa_primal_dawn;
