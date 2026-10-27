@@ -11854,3 +11854,97 @@ Wormfang Drake
 Wormfang Manta
 Wormfang Newt
 Wormfang Turtle
+
+# Onslaught (ons) — batch 1
+Accursed Centaur
+Aether Charge
+Aggravated Assault
+Airborne Aid
+Airdrop Condor
+Akroma's Blessing
+Ancestor's Prophet
+Animal Magnetism
+Aphetto Alchemist
+Aphetto Dredging
+Aphetto Grifter
+Aphetto Vulture
+Arcanis the Omnipotent
+Artificial Evolution
+Ascending Aven
+Astral Slide
+Aura Extraction
+Aurification
+Avarax
+Aven Soulgazer
+Backslide
+Battering Craghorn
+Battlefield Medic
+Biorhythm
+Birchlore Rangers
+Blackmail
+Blatant Thievery
+Blistering Firecat
+Bloodline Shaman
+Boneknitter
+Break Open
+Broodhatch Nantuko
+Butcher Orgg
+Cabal Executioner
+Callous Oppressor
+Catapult Master
+Catapult Squad
+Chain of Acid
+Chain of Plasma
+Chain of Silence
+Chain of Smog
+Chain of Vapor
+Charging Slateback
+Choking Tethers
+Circle of Solace
+Commando Raid
+Complicate
+Convalescent Care
+Cover of Darkness
+Crown of Ascension
+Crown of Awe
+Crown of Fury
+Crown of Suspicion
+Crown of Vigor
+Crude Rampart
+Cruel Revival
+Cryptic Gateway
+Custody Battle
+Daru Cavalier
+Daru Healer
+Daru Lancer
+Daunting Defender
+Dawning Purist
+Death Match
+Death Pulse
+Defensive Maneuvers
+Dirge of Dread
+Discombobulate
+Disruptive Pitmage
+Doom Cannon
+Doubtless One
+Dream Chisel
+Dwarven Blastminer
+Ebonblade Reaper
+Elvish Guidance
+Elvish Pioneer
+Embermage Goblin
+Endemic Plague
+Entrails Feaster
+Erratic Explosion
+Essence Fracture
+Everglove Courier
+Exalted Angel
+Explosive Vegetation
+Fade from Memory
+Fallen Cleric
+False Cure
+Flamestick Courier
+Fleeting Aven
+Foothill Guide
+Frightshroud Courier
+Future Sight

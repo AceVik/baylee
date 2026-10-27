@@ -17399,167 +17399,400 @@ pub static ORACLE: &[&[&str]] = &[
         "When this creature enters, exile a land you control.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.",
     ],
     &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Accursed Centaur
+    &["When this creature enters, sacrifice a creature."],
+    // Aether Charge
+    &[
+        "Whenever a Beast you control enters, you may have it deal 4 damage to target opponent or planeswalker.",
+    ],
+    // Aggravated Assault
+    &[
+        "{3}{R}{R}: Untap all creatures you control. After this main phase, there is an additional combat phase followed by an additional main phase. Activate only as a sorcery.",
+    ],
+    // Airborne Aid
+    &["Draw a card for each Bird on the battlefield."],
+    // Airdrop Condor
+    &[
+        "Flying\n{1}{R}, Sacrifice a Goblin creature: This creature deals damage equal to the sacrificed creature's power to any target.",
+    ],
+    // Akroma's Blessing
+    &[
+        "Choose a color. Creatures you control gain protection from the chosen color until end of turn.\nCycling {W} ({W}, Discard this card: Draw a card.)",
+    ],
     // Akroma's Vengeance
     &[
         "Destroy all artifacts, creatures, and enchantments.\nCycling {3} ({3}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
+    // Ancestor's Prophet
+    &["Tap five untapped Clerics you control: You gain 10 life."],
+    // Animal Magnetism
+    &[
+        "Reveal the top five cards of your library. An opponent chooses a creature card from among them. Put that card onto the battlefield and the rest into your graveyard.",
+    ],
     // Annex
     &[
         "Enchant land (Target a land as you cast this. This card enters attached to that land.)\nYou control enchanted land.",
     ],
     // Anurid Murkdiver
     &["Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Aphetto Alchemist
+    &[
+        "{T}: Untap target artifact or creature.\nMorph {U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Aphetto Dredging
+    &[
+        "Return up to three target creature cards of the creature type of your choice from your graveyard to your hand.",
+    ],
+    // Aphetto Grifter
+    &["Tap two untapped Wizards you control: Tap target permanent."],
+    // Aphetto Vulture
+    &[
+        "Flying\nWhen this creature dies, you may put target Zombie card from your graveyard on top of your library.",
+    ],
+    // Arcanis the Omnipotent
+    &["{T}: Draw three cards.\n{2}{U}{U}: Return Arcanis to its owner's hand."],
+    // Artificial Evolution
+    &[
+        "Change the text of target spell or permanent by replacing all instances of one creature type with another. The new creature type can't be Wall. (This effect lasts indefinitely.)",
+    ],
+    // Ascending Aven
+    &[
+        "Flying\nThis creature can block only creatures with flying.\nMorph {2}{U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Astral Slide
+    &[
+        "Whenever a player cycles a card, you may exile target creature. If you do, return that card to the battlefield under its owner's control at the beginning of the next end step.",
+    ],
+    // Aura Extraction
+    &[
+        "Put target enchantment on top of its owner's library.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    ],
+    // Aurification
+    &[
+        "Whenever a creature deals damage to you, put a gold counter on it.\nEach creature with a gold counter on it is a Wall in addition to its other creature types and has defender. (Those creatures can't attack.)\nWhen this enchantment leaves the battlefield, remove all gold counters from all creatures.",
+    ],
+    // Avarax
+    &[
+        "Haste\nWhen this creature enters, you may search your library for a card named Avarax, reveal it, put it into your hand, then shuffle.\n{1}{R}: This creature gets +1/+0 until end of turn.",
+    ],
     // Aven Brigadier
     &["Flying\nOther Bird creatures get +1/+1.\nOther Soldier creatures get +1/+1."],
     // Aven Fateshaper
     &[
         "Flying\nWhen this creature enters, look at the top four cards of your library, then put them back in any order.\n{4}{U}: Look at the top four cards of your library, then put them back in any order.",
     ],
-    &[],
-    &[],
+    // Aven Soulgazer
+    &["Flying\n{2}{W}: Look at target face-down creature."],
+    // Backslide
+    &[
+        "Turn target creature with a morph ability face down.\nCycling {U} ({U}, Discard this card: Draw a card.)",
+    ],
     // Barkhide Mauler
     &["Cycling {2} ({2}, Discard this card: Draw a card.)"],
     // Barren Moor
     &[
         "This land enters tapped.\n{T}: Add {B}.\nCycling {B} ({B}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Battering Craghorn
+    &[
+        "First strike\nMorph {1}{R}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Battlefield Medic
+    &[
+        "{T}: Prevent the next X damage that would be dealt to target creature this turn, where X is the number of Clerics on the battlefield.",
+    ],
+    // Biorhythm
+    &["Each player's life total becomes the number of creatures they control."],
+    // Birchlore Rangers
+    &[
+        "Tap two untapped Elves you control: Add one mana of any color.\nMorph {G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Blackmail
+    &[
+        "Target player reveals three cards from their hand and you choose one of them. That player discards that card.",
+    ],
+    // Blatant Thievery
+    &["For each opponent, gain control of target permanent that player controls."],
+    // Blistering Firecat
+    &[
+        "Trample, haste\nAt the beginning of the end step, sacrifice this creature.\nMorph {R}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Bloodline Shaman
+    &[
+        "{T}: Choose a creature type. Reveal the top card of your library. If that card is a creature card of the chosen type, put it into your hand. Otherwise, put it into your graveyard.",
+    ],
     // Bloodstained Mire
     &[
         "{T}, Pay 1 life, Sacrifice this land: Search your library for a Swamp or Mountain card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
-    &[],
+    // Boneknitter
+    &[
+        "{1}{B}: Regenerate target Zombie.\nMorph {2}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Break Open
+    &["Turn target face-down creature an opponent controls face up."],
     // Brightstone Ritual
     &["Add {R} for each Goblin on the battlefield."],
-    &[],
-    &[],
+    // Broodhatch Nantuko
+    &[
+        "Whenever this creature is dealt damage, you may create that many 1/1 green Insect creature tokens.\nMorph {2}{G} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Butcher Orgg
+    &[
+        "You may assign this creature's combat damage divided as you choose among defending player and/or any number of creatures they control.",
+    ],
     // Cabal Archon
     &["{B}, Sacrifice a Cleric: Target player loses 2 life and you gain 2 life."],
-    &[],
+    // Cabal Executioner
+    &[
+        "Whenever this creature deals combat damage to a player, that player sacrifices a creature of their choice.\nMorph {3}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Cabal Slaver
     &["Whenever a Goblin deals combat damage to a player, that player discards a card."],
-    &[],
-    &[],
-    &[],
+    // Callous Oppressor
+    &[
+        "You may choose not to untap this creature during your untap step.\nAs this creature enters, an opponent chooses a creature type.\n{T}: Gain control of target creature that isn't of the chosen type for as long as this creature remains tapped.",
+    ],
+    // Catapult Master
+    &["Tap five untapped Soldiers you control: Exile target creature."],
+    // Catapult Squad
+    &[
+        "Tap two untapped Soldiers you control: This creature deals 2 damage to target attacking or blocking creature.",
+    ],
     // Centaur Glade
     &["{2}{G}{G}: Create a 3/3 green Centaur creature token."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Chain of Acid
+    &[
+        "Destroy target noncreature permanent. Then that permanent's controller may copy this spell and may choose a new target for that copy.",
+    ],
+    // Chain of Plasma
+    &[
+        "Chain of Plasma deals 3 damage to any target. Then that player or that permanent's controller may discard a card. If the player does, they may copy this spell and may choose a new target for that copy.",
+    ],
+    // Chain of Silence
+    &[
+        "Prevent all damage target creature would deal this turn. That creature's controller may sacrifice a land of their choice. If the player does, they may copy this spell and may choose a new target for that copy.",
+    ],
+    // Chain of Smog
+    &[
+        "Target player discards two cards. That player may copy this spell and may choose a new target for that copy.",
+    ],
+    // Chain of Vapor
+    &[
+        "Return target nonland permanent to its owner's hand. Then that permanent's controller may sacrifice a land of their choice. If the player does, they may copy this spell and may choose a new target for that copy.",
+    ],
+    // Charging Slateback
+    &[
+        "This creature can't block.\nMorph {4}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Choking Tethers
+    &[
+        "Tap up to four target creatures.\nCycling {1}{U} ({1}{U}, Discard this card: Draw a card.)\nWhen you cycle this card, you may tap target creature.",
+    ],
+    // Circle of Solace
+    &[
+        "As this enchantment enters, choose a creature type.\n{1}{W}: The next time a creature of the chosen type would deal damage to you this turn, prevent that damage.",
+    ],
+    // Commando Raid
+    &[
+        "Until end of turn, target creature you control gains \"When this creature deals combat damage to a player, you may have it deal damage equal to its power to target creature that player controls.\"",
+    ],
+    // Complicate
+    &[
+        "Counter target spell unless its controller pays {3}.\nCycling {2}{U} ({2}{U}, Discard this card: Draw a card.)\nWhen you cycle this card, you may counter target spell unless its controller pays {1}.",
+    ],
     // Contested Cliffs
     &[
         "{T}: Add {C}.\n{R}{G}, {T}: Target Beast creature you control fights target creature an opponent controls. (Each deals damage equal to its power to the other.)",
     ],
-    &[],
-    &[],
+    // Convalescent Care
+    &[
+        "At the beginning of your upkeep, if you have 5 or less life, you gain 3 life and draw a card.",
+    ],
+    // Cover of Darkness
+    &[
+        "As this enchantment enters, choose a creature type.\nCreatures of the chosen type have fear. (They can't be blocked except by artifact creatures and/or black creatures.)",
+    ],
     // Crafty Pathmage
     &["{T}: Target creature with power 2 or less can't be blocked this turn."],
     // Crowd Favorites
     &["{3}{W}: Tap target creature.\n{3}{W}: This creature gets +0/+5 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Crown of Ascension
+    &[
+        "Enchant creature\nEnchanted creature has flying.\nSacrifice this Aura: Enchanted creature and other creatures that share a creature type with it gain flying until end of turn.",
+    ],
+    // Crown of Awe
+    &[
+        "Enchant creature\nEnchanted creature has protection from black and from red.\nSacrifice this Aura: Enchanted creature and other creatures that share a creature type with it gain protection from black and from red until end of turn.",
+    ],
+    // Crown of Fury
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+0 and has first strike.\nSacrifice this Aura: Enchanted creature and other creatures that share a creature type with it get +1/+0 and gain first strike until end of turn.",
+    ],
+    // Crown of Suspicion
+    &[
+        "Enchant creature\nEnchanted creature gets +2/-1.\nSacrifice this Aura: Enchanted creature and other creatures that share a creature type with it get +2/-1 until end of turn.",
+    ],
+    // Crown of Vigor
+    &[
+        "Enchant creature\nEnchanted creature gets +1/+1.\nSacrifice this Aura: Enchanted creature and other creatures that share a creature type with it get +1/+1 until end of turn.",
+    ],
+    // Crude Rampart
+    &[
+        "Defender (This creature can't attack.)\nMorph {4}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Cruel Revival
+    &[
+        "Destroy target non-Zombie creature. It can't be regenerated. Return up to one target Zombie card from your graveyard to your hand.",
+    ],
+    // Cryptic Gateway
+    &[
+        "Tap two untapped creatures you control: You may put a creature card from your hand that shares a creature type with each creature tapped this way onto the battlefield.",
+    ],
+    // Custody Battle
+    &[
+        "Enchant creature\nEnchanted creature has \"At the beginning of your upkeep, target opponent gains control of this creature unless you sacrifice a land.\"",
+    ],
+    // Daru Cavalier
+    &[
+        "First strike\nWhen this creature enters, you may search your library for a card named Daru Cavalier, reveal it, put it into your hand, then shuffle.",
+    ],
     // Daru Encampment
     &["{T}: Add {C}.\n{W}, {T}: Target Soldier creature gets +1/+1 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Daru Healer
+    &[
+        "{T}: Prevent the next 1 damage that would be dealt to any target this turn.\nMorph {W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Daru Lancer
+    &[
+        "First strike\nMorph {2}{W}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Daunting Defender
+    &["If a source would deal damage to a Cleric creature you control, prevent 1 of that damage."],
+    // Dawning Purist
+    &[
+        "Whenever this creature deals combat damage to a player, you may destroy target enchantment that player controls.\nMorph {1}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Death Match
+    &[
+        "Whenever a creature enters, that creature's controller may have target creature of their choice get -3/-3 until end of turn.",
+    ],
+    // Death Pulse
+    &[
+        "Target creature gets -4/-4 until end of turn.\nCycling {1}{B}{B} ({1}{B}{B}, Discard this card: Draw a card.)\nWhen you cycle this card, you may have target creature get -1/-1 until end of turn.",
+    ],
+    // Defensive Maneuvers
+    &["Creatures of the creature type of your choice get +0/+4 until end of turn."],
     // Demystify
     &["Destroy target enchantment."],
-    &[],
+    // Dirge of Dread
+    &[
+        "All creatures gain fear until end of turn. (They can't be blocked except by artifact creatures and/or black creatures.)\nCycling {1}{B} ({1}{B}, Discard this card: Draw a card.)\nWhen you cycle this card, you may have target creature gain fear until end of turn.",
+    ],
     // Disciple of Malice
     &["Protection from white\nCycling {2} ({2}, Discard this card: Draw a card.)"],
-    &[],
+    // Discombobulate
+    &[
+        "Counter target spell. Look at the top four cards of your library, then put them back in any order.",
+    ],
     // Dispersing Orb
     &["{3}{U}, Sacrifice a permanent: Return target permanent to its owner's hand."],
-    &[],
+    // Disruptive Pitmage
+    &[
+        "{T}: Counter target spell unless its controller pays {1}.\nMorph {U} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Dive Bomber
     &[
         "Flying\n{T}, Sacrifice this creature: It deals 2 damage to target attacking or blocking creature.",
     ],
-    &[],
+    // Doom Cannon
+    &[
+        "As this artifact enters, choose a creature type.\n{3}, {T}, Sacrifice a creature of the chosen type: This artifact deals 3 damage to any target.",
+    ],
     // Doomed Necromancer
     &[
         "{B}, {T}, Sacrifice this creature: Return target creature card from your graveyard to the battlefield.",
     ],
-    &[],
+    // Doubtless One
+    &[
+        "Doubtless One's power and toughness are each equal to the number of Clerics on the battlefield.\nWhenever this creature deals damage, you gain that much life.",
+    ],
     // Dragon Roost
     &[
         "{5}{R}{R}: Create a 5/5 red Dragon creature token with flying. (It can't be blocked except by creatures with flying or reach.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dream Chisel
+    &["Face-down creature spells you cast cost {1} less to cast."],
+    // Dwarven Blastminer
+    &[
+        "{2}{R}, {T}: Destroy target nonbasic land.\nMorph {R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Ebonblade Reaper
+    &[
+        "Whenever this creature attacks, you lose half your life, rounded up.\nWhenever this creature deals combat damage to a player, that player loses half their life, rounded up.\nMorph {3}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Elvish Guidance
+    &[
+        "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G} for each Elf on the battlefield.",
+    ],
     // Elvish Pathcutter
     &[
         "{2}{G}: Target Elf creature gains forestwalk until end of turn. (It can't be blocked as long as defending player controls a Forest.)",
     ],
-    &[],
+    // Elvish Pioneer
+    &[
+        "When this creature enters, you may put a basic land card from your hand onto the battlefield tapped.",
+    ],
     // Elvish Scrapper
     &["{G}, {T}, Sacrifice this creature: Destroy target artifact."],
     // Elvish Vanguard
     &["Whenever another Elf enters, put a +1/+1 counter on this creature."],
     // Elvish Warrior
     &[""],
-    &[],
+    // Embermage Goblin
+    &[
+        "When this creature enters, you may search your library for a card named Embermage Goblin, reveal it, put it into your hand, then shuffle.\n{T}: This creature deals 1 damage to any target.",
+    ],
     // Enchantress's Presence
     &["Whenever you cast an enchantment spell, draw a card."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Endemic Plague
+    &[
+        "As an additional cost to cast this spell, sacrifice a creature.\nDestroy all creatures that share a creature type with the sacrificed creature. They can't be regenerated.",
+    ],
+    // Entrails Feaster
+    &[
+        "At the beginning of your upkeep, you may exile a creature card from a graveyard. If you do, put a +1/+1 counter on this creature. If you don't, tap this creature.",
+    ],
+    // Erratic Explosion
+    &[
+        "Choose any target. Reveal cards from the top of your library until you reveal a nonland card. Erratic Explosion deals damage equal to that card's mana value to that permanent or player. Put the revealed cards on the bottom of your library in any order.",
+    ],
+    // Essence Fracture
+    &[
+        "Return two target creatures to their owners' hands.\nCycling {2}{U} ({2}{U}, Discard this card: Draw a card.)",
+    ],
+    // Everglove Courier
+    &[
+        "You may choose not to untap this creature during your untap step.\n{2}{G}, {T}: Target Elf creature gets +2/+2 and has trample for as long as this creature remains tapped.",
+    ],
+    // Exalted Angel
+    &[
+        "Flying\nWhenever this creature deals damage, you gain that much life.\nMorph {2}{W}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // Explosive Vegetation
+    &[
+        "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",
+    ],
+    // Fade from Memory
+    &["Exile target card from a graveyard.\nCycling {B} ({B}, Discard this card: Draw a card.)"],
+    // Fallen Cleric
+    &[
+        "Protection from Clerics\nMorph {4}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
+    // False Cure
+    &[
+        "Until end of turn, whenever a player gains life, that player loses 2 life for each 1 life they gained.",
+    ],
     // Feeding Frenzy
     &[
         "Target creature gets -X/-X until end of turn, where X is the number of Zombies on the battlefield.",
@@ -17570,19 +17803,32 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Choose one —\n• Target creature gains haste until end of turn.\n• Target creature gets +2/+0 until end of turn.\n• Fever Charm deals 3 damage to target Wizard creature.",
     ],
-    &[],
-    &[],
+    // Flamestick Courier
+    &[
+        "You may choose not to untap this creature during your untap step.\n{2}{R}, {T}: Target Goblin creature gets +2/+2 and has haste for as long as this creature remains tapped.",
+    ],
+    // Fleeting Aven
+    &["Flying\nWhenever a player cycles a card, return this creature to its owner's hand."],
     // Flooded Strand
     &[
         "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle.",
     ],
-    &[],
+    // Foothill Guide
+    &[
+        "Protection from Goblins\nMorph {W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+    ],
     // Forgotten Cave
     &[
         "This land enters tapped.\n{T}: Add {R}.\nCycling {R} ({R}, Discard this card: Draw a card.)",
     ],
-    &[],
-    &[],
+    // Frightshroud Courier
+    &[
+        "You may choose not to untap this creature during your untap step.\n{2}{B}, {T}: Target Zombie creature gets +2/+2 and has fear for as long as this creature remains tapped. (It can't be blocked except by artifact creatures and/or black creatures.)",
+    ],
+    // Future Sight
+    &[
+        "Play with the top card of your library revealed.\nYou may play lands and cast spells from the top of your library.",
+    ],
     &[],
     &[],
     &[],

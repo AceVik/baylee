@@ -10,6 +10,8 @@ mod aesi_tyrant_of_gyre_strait;
 mod aggressive_mammoth;
 mod akoum_boulderfoot;
 mod akoum_warrior;
+mod aphetto_vulture;
+mod arcanis_the_omnipotent;
 mod autumn_willow;
 mod bartel_runeaxe;
 mod bloodshot_cyclops;

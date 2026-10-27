@@ -4,6 +4,7 @@
 use super::*;
 
 mod abu_ja_far;
+mod accursed_centaur;
 mod acolyte_of_xathrid;
 mod agent_of_stromgald;
 mod akki_avalanchers;

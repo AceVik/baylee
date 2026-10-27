@@ -22,6 +22,7 @@ mod circle_of_despair;
 mod citadel_of_pain;
 mod cold_snap;
 mod contemplation;
+mod convalescent_care;
 mod dark_prophecy;
 mod deadapult;
 mod dense_foliage;

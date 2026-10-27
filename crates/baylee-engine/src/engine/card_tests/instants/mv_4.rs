@@ -11,6 +11,7 @@ mod clever_concealment;
 mod congregate;
 mod cryptic_command;
 mod deflection;
+mod discombobulate;
 mod dismiss;
 mod ensnare;
 mod fact_or_fiction;

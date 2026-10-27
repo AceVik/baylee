@@ -55,6 +55,7 @@ mod enrage;
 mod envelop;
 mod ephemerate;
 mod erase;
+mod fade_from_memory;
 mod false_orders;
 mod fatal_blow;
 mod feint;
