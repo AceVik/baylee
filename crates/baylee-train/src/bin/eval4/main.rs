@@ -116,6 +116,7 @@ fn main() -> anyhow::Result<()> {
             args.held_out_cards,
         )?);
     }
+    let manifest_accepted_deck_count = decks.len();
     let mut attempt = 0_u64;
     let seed_base = if args.held_out_cards {
         99_999_u64
@@ -154,6 +155,9 @@ fn main() -> anyhow::Result<()> {
         );
     }
 
+    let accepted_deck_keys: Vec<_> = decks.iter().map(|deck| deck.key.clone()).collect();
+    let accepted_deck_count = decks.len();
+    let generated_deck_count = accepted_deck_count - manifest_accepted_deck_count;
     if let Some(rec_dir) = &args.record_out {
         anyhow::ensure!(
             !rec_dir.exists() || fs::read_dir(rec_dir)?.next().is_none(),
@@ -189,6 +193,9 @@ fn main() -> anyhow::Result<()> {
                 "training_data": true,
                 "decks": deck_json,
                 "seats": args.seats,
+                "accepted_deck_keys": accepted_deck_keys,
+                "accepted_deck_count": accepted_deck_count,
+                "generated_deck_count": generated_deck_count,
             }))?,
         )?;
     }
@@ -517,6 +524,9 @@ fn main() -> anyhow::Result<()> {
     summary["house_counts_include_tactical_demonstrations"] =
         json!(!args.legacy_v3 && policy_mode == PolicyMode4::Tactical);
     summary["deal_details"] = json!(st.deal_details);
+    summary["accepted_deck_keys"] = json!(accepted_deck_keys);
+    summary["accepted_deck_count"] = json!(accepted_deck_count);
+    summary["generated_deck_count"] = json!(generated_deck_count);
     summary["coverage_matrix"] = json!(st.coverage.counts);
     summary["model_family"] = json!(
         model_identity
