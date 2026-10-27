@@ -38,7 +38,7 @@ def load_export_checkpoint(checkpoint_path: Path):
     elif version == 5:
         import model5 as module
         config_type, model_type = module.Config5, module.PlayerNet5
-        if checkpoint.get("architecture") != module.ARCHITECTURE:
+        if checkpoint.get("architecture") not in module.ARCHITECTURES.values():
             raise ValueError("V5 checkpoint architecture is missing or incompatible")
     else:
         raise ValueError(f"Unsupported checkpoint model_version: {version}")
@@ -51,7 +51,14 @@ def load_export_checkpoint(checkpoint_path: Path):
                 "GLOBAL_FEAT_WIDTH", "CAND_FEAT_WIDTH", "CARD_DSL_WIDTH", "RECURRENT_SLOTS"):
         if getattr(module, key) != getattr(M, key):
             raise ValueError(f"Checkpoint architecture does not use the shared E7 tensor ABI: {key}")
-    config = config_type(**checkpoint["config"])
+    config_values = dict(checkpoint["config"])
+    if version == 5 and "relational_revision" not in config_values:
+        if checkpoint["architecture"] != module.ARCHITECTURES[1]:
+            raise ValueError("V5 architecture requires an explicit matching relational revision")
+        config_values["relational_revision"] = 1
+    config = config_type(**config_values)
+    if version == 5 and checkpoint["architecture"] != module.architecture_for_config(config):
+        raise ValueError("V5 architecture and relational revision disagree")
     net = model_type(config).eval()
     net.attach_structure(checkpoint["structure"])
     net.load_state_dict(checkpoint["state_dict"], strict=True)
@@ -267,7 +274,7 @@ def main() -> None:
         "parity_max_abs_diff": worst_diff, "checked_frames": checked,
     }
     if model_module.MODEL_VERSION == 5:
-        meta["architecture"] = model_module.ARCHITECTURE
+        meta["architecture"] = model_module.architecture_for_config(cfg)
     (model_dir / "model.onnx.json").write_text(json.dumps(meta, indent=2))
     print(f"[export model_version={model_module.MODEL_VERSION}] verified {checked} frames, max error={worst_diff:.3g}; exported K=0,1,2,4,8")
 
