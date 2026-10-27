@@ -27,6 +27,7 @@ answers the same way, finds none on the whole house-deck grid.
 | question | refusal on a396e52e | rule | stated now by |
 | --- | --- | --- | --- |
 | `ChooseCards` (`CostCrew { power }`) | "not enough power to crew": the chosen creatures' total power below N | CR 702.122a | `ChooseCards.total: Some(CardTotal { of: Power, weights, at_least: Some(N), at_most: None })`, fault `TotalTooLow` |
+| `ChooseCards` (`CostExile`, one graveyard) | "cards must be exiled from a single graveyard": a batch spanning two offered graveyards | the printed cost's single-graveyard restriction | when multiple graveyards can pay, choose one card first (`min = max = 1`), then choose the remainder only from that graveyard; one payable graveyard keeps the ordinary counted batch |
 | `ChooseBlockers` | "menace requires two blockers": exactly one blocker on a menace attacker | CR 702.111b | `ChooseBlockers.bounds: Vec<AttackerBound>`, menace `2..=u32::MAX`, faults `TooFewBlockers`/`TooManyBlockers` |
 | `Mulligan` | a take once the hand would open with zero cards | CR 103.5 | `Mulligan.can_take: bool`, fault `NoFurtherMulligan` |
 | `ChooseBlockers` | "duplicate blocker": one creature named against two attackers | CR 509.1a ("chooses one creature for it to block") | `BlockOption`'s documented shape (each blocker at most once), fault `Repeated` |
