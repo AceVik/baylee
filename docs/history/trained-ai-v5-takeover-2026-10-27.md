@@ -155,6 +155,44 @@ Its own completion/failure watcher requests review before the new data can
 enter training. Both watchers check every 30 seconds and identify controllers
 by boot ID and process start time, not PID alone.
 
+The follow-up conversion subsequently completed: 1,919 games and 24,990,570
+frames, zero rejected games, unencoded decisions or validation frames. An
+independent audit checked every frame index, cursor, terminal marker and file
+offset across 5,756 seat trajectories, plus 17,268 actual frame headers.
+It did not independently decompress all 113 GiB of payload or repeat the
+engine replay. The successful converter provides the replay evidence.
+`teacher-20261027/followup-admission.json` records admission for supervised
+staging only; these house demonstrations are not certified PPO rollouts.
+
+Before the next stage, reserve all 128 games from `train-0015-*` as an additional
+seed holdout (1,762,161 frames). These share training deck families and are not
+an independent family holdout. The original 64-game validation remains fixed.
+This leaves 1,791 new training games, with the original 128 training games
+available for replay. Separate converter runs reuse numeric game IDs, so the
+two sources must stay in separate trajectory stores unless a future explicit
+namespace/remapping contract is introduced. Changing filenames is insufficient.
+
+Two follow-up-only packages are now prepared under `teacher-20261027/next-stage`:
+251 games / 2,006,968 frames and 278 games / 2,005,009 frames. Their complete-game
+selection preserves the source distribution and excludes the reserved seeds;
+1,262 eligible follow-up games remain unpackaged. Preparation took 54.3 seconds,
+peaked at about 135 MiB PSS and added about 13.1 GiB of caches. Source payloads
+are unchanged hardlinks; selected payload hashes were checked before and after
+publication. Cache identities and sample reads were verified at their final
+paths. The original training source stays separate. No next-stage GPU job has
+started: initialization and objectives depend on the current paired results.
+
+At fresh v5 step 1,500, genuine single-choice validation accuracy improved from
+89.94% to 90.66% and choice NLL from 0.25213 to 0.24069. Value MSE worsened from
+0.14598 to 0.15989 (uniform-seat baseline 0.15694), and ECE from 0.07451 to
+0.11473. The combined checkpoint criterion therefore still selected step 0
+when checked. Finish the frozen v5/control protocol unchanged; inspect both
+selected and final checkpoints before making architectural claims. The critic
+here learns teacher continuation outcomes on teacher trajectories, not a
+calibrated winning probability under the deployed raw policy. A later protocol
+should distinguish policy quality from critic quality and report per-format,
+per-trajectory and decision-only diagnostics alongside the current frame mean.
+
 Job controllers and completion/failure wakeups continue work without user
 confirmation. Successful jobs are not silently restarted. The original live
 gateway model is unchanged until comparable evidence supports a replacement.
