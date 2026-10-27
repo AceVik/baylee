@@ -323,6 +323,9 @@ impl Tx<'_> {
         let (Some(origin), Some(dest), Some(valid)) = (origin, dest, valid) else {
             return self.deny("a `ChangesZone` trigger missing one of its three keys".to_string());
         };
+        if origin == "Battlefield" && dest == "Graveyard" && valid == "Creature.DamagedBy" {
+            return Some("Trigger::DiesAfterDamageByThis(&Filter::CREATURE)".to_string());
+        }
         let filter = if valid == "Card.Self" {
             "&Filter::This".to_string()
         } else {
@@ -919,7 +922,13 @@ impl Tx<'_> {
         let self_combat = remembered.is_empty()
             && self.block_line.is_none()
             && matches!(self.trigger_mode.as_deref(), Some("Attacks" | "Blocks"));
-        if !self_combat {
+        let damage_done_target = self.block_line.is_none()
+            && self.trigger_mode.as_deref() == Some("DamageDone")
+            && matches!(
+                remembered.as_str(),
+                "TriggeredTargetLKICopy" | "TriggeredTarget"
+            );
+        if !self_combat && !damage_done_target {
             let other_side = match self.block_line.as_ref().map(|(role, ..)| *role) {
                 Some(BlockRole::Blocks) => "TriggeredAttacker",
                 Some(BlockRole::Blocked) => "TriggeredBlocker",

@@ -377,6 +377,10 @@ impl Tx<'_> {
 
     fn cant_block(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`CantBlock.Secondary$ {other}`")),
+        }
         if let Some(other) = p.take("NonStackingEffect")
             && other != "True"
         {

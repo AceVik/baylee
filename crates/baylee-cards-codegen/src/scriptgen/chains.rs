@@ -701,6 +701,40 @@ impl Tx<'_> {
                 }
             }
             "Mana" => self.mana_effect(p)?,
+            "Branch" => {
+                let var = p.take("BranchConditionSVar")?;
+                let cmp = p
+                    .take("BranchConditionSVarCompare")
+                    .unwrap_or_else(|| "GE1".to_string());
+                let cond = match (self.svars.get(var.trim()).map(|s| s.trim()), cmp.trim()) {
+                    (Some("Count$ValidGraveyard Card.YouOwn"), "GE7") => {
+                        "Condition::GraveyardCountAtLeast(7)"
+                    }
+                    _ => return None,
+                };
+                let true_sub = p.take("TrueSubAbility")?;
+                let false_sub = p.take("FalseSubAbility")?;
+                let true_body = self.svars.get(true_sub.trim())?.clone();
+                let false_body = self.svars.get(false_sub.trim())?.clone();
+                let mut then_chain = Chain {
+                    target: target.map(str::to_string),
+                    ..Chain::default()
+                };
+                let mut else_chain = Chain {
+                    target: target.map(str::to_string),
+                    ..Chain::default()
+                };
+                self.chain(&true_body, &mut then_chain)?;
+                self.chain(&false_body, &mut else_chain)?;
+                if then_chain.effects.is_empty() || else_chain.effects.is_empty() {
+                    return None;
+                }
+                vec![format!(
+                    "Effect::IfCondition {{ condition: {cond}, then: &[{}], otherwise: &[{}] }}",
+                    then_chain.effects.join(", "),
+                    else_chain.effects.join(", ")
+                )]
+            }
             "DelayedTrigger" => vec![self.delayed_trigger(p, target, targets_here)?],
             "Destroy" => {
                 // `NoRegen$ True` is **read** and no longer merely consumed.
@@ -743,7 +777,7 @@ impl Tx<'_> {
                 }
             }
             "SacrificeAll" => {
-                if target.is_some() {
+                if targets_here {
                     return None;
                 }
                 let valid = p.take("ValidCards")?;

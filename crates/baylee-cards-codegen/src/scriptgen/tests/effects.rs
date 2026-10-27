@@ -2344,3 +2344,52 @@ fn apocalypse_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn odyssey_reader_patterns() {
+    let horror = "Name:Childhood Horror\nManaCost:3 B\nTypes:Creature\nPT:2/2\n\
+        S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ 2 | AddToughness$ 2 | Condition$ Threshold\n\
+        S:Mode$ CantBlock | ValidCard$ Card.Self | Condition$ Threshold | Secondary$ True";
+    assert_eq!(
+        read(horror).abilities,
+        [
+            "static_ability!(Filter::This, Modifier::ModifyPT(2, 2), condition = Some(Condition::GraveyardCountAtLeast(7)))",
+            "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::CANT_BLOCK), condition = Some(Condition::GraveyardCountAtLeast(7)))",
+        ]
+    );
+
+    let basilisk = "Name:Stone-Tongue Basilisk\nManaCost:4 G G G\nTypes:Creature\nPT:4/5\n\
+        S:Mode$ Continuous | AffectedDefined$ Self | AddHiddenKeyword$ All creatures able to block CARDNAME do so. | Condition$ Threshold\n\
+        T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Creature | CombatDamage$ True | TriggerZones$ Battlefield | Execute$ DelTrig\n\
+        SVar:DelTrig:DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat | ValidPlayer$ Player | Execute$ TrigDestroy | RememberObjects$ TriggeredTargetLKICopy\n\
+        SVar:TrigDestroy:DB$ Destroy | Defined$ DelayTriggerRememberedLKI";
+    assert_eq!(
+        read(basilisk).abilities,
+        [
+            "static_ability!(Filter::This, Modifier::MustBeBlockedByAllAble, condition = Some(Condition::GraveyardCountAtLeast(7)))",
+            "triggered!(Trigger::DealsCombatDamageToCreature(&Filter::This), &[Effect::AtEndOfCombat { about: TargetSpec::EventObject, effects: &[Effect::destroy(TargetSpec::EventObject)] }])",
+        ]
+    );
+
+    let dragon = "Name:Vampiric Dragon\nManaCost:6 B R\nTypes:Creature\nPT:5/5\n\
+        T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.DamagedBy | TriggerZones$ Battlefield | Execute$ TrigPutCounter\n\
+        SVar:TrigPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1";
+    assert_eq!(
+        read(dragon).abilities,
+        [
+            "triggered!(Trigger::DiesAfterDamageByThis(&Filter::CREATURE), &[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }])",
+        ]
+    );
+
+    let epicenter = "Name:Epicenter\nManaCost:4 R\nTypes:Sorcery\n\
+        A:SP$ Branch | ValidTgts$ Player | BranchConditionSVar$ X | BranchConditionSVarCompare$ GE7 | TrueSubAbility$ ThreshWaste | FalseSubAbility$ WasteLand\n\
+        SVar:WasteLand:DB$ Sacrifice | Defined$ Targeted | SacValid$ Land\n\
+        SVar:ThreshWaste:DB$ SacrificeAll | ValidCards$ Land\n\
+        SVar:X:Count$ValidGraveyard Card.YouOwn";
+    assert_eq!(
+        read(epicenter).abilities,
+        [
+            "spell!(&[Effect::IfCondition { condition: Condition::GraveyardCountAtLeast(7), then: &[Effect::SacrificeAll { filter: &Filter::LAND }], otherwise: &[Effect::SacrificeFilter { who: PlayerRel::Chosen, filter: &Filter::LAND }] }], targets = Some(TargetReq::one(TargetSpec::AnyPlayer)))",
+        ]
+    );
+}

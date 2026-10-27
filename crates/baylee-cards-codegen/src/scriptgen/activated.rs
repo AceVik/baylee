@@ -155,6 +155,7 @@ impl Tx<'_> {
         // level down as the unclaimed parameter it is.
         let claimed: &[&str] = if present_read {
             &[
+                "Condition$",
                 "IsPresent$",
                 "PresentZone$",
                 "PresentCompare$",
@@ -480,6 +481,10 @@ impl Tx<'_> {
     /// of CR 603.4's second check — a clause asked once instead of twice,
     /// which this DSL cannot say at all.
     pub(super) fn condition(&mut self, p: &mut Params) -> Option<String> {
+        if p.peek("Condition") == Some("Threshold") && !p.has("IsPresent") {
+            p.take("Condition");
+            return Some(", condition = Some(Condition::GraveyardCountAtLeast(7))".to_string());
+        }
         let Some(valid) = p.take("IsPresent") else {
             return Some(String::new());
         };
