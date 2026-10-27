@@ -15729,41 +15729,106 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Counter target spell.\nFlashback {5}{U}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
     ],
-    &[],
-    &[],
-    &[],
+    // Filthy Cur
+    &["Whenever this creature is dealt damage, you lose that much life."],
+    // Firebolt
+    &[
+        "Firebolt deals 2 damage to any target.\nFlashback {4}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Flame Burst
+    &[
+        "Flame Burst deals X damage to any target, where X is 2 plus the number of cards named Flame Burst in all graveyards.",
+    ],
     // Fledgling Imp
     &["{B}, Discard a card: This creature gains flying until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Frenetic Ogre
+    &["{R}, Discard a card at random: This creature gets +3/+0 until end of turn."],
+    // Frightcrawler
+    &[
+        "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and can't block.",
+    ],
+    // Ghastly Demise
+    &[
+        "Destroy target nonblack creature if its toughness is less than or equal to the number of cards in your graveyard.",
+    ],
+    // Gorilla Titan
+    &["Trample\nThis creature gets +4/+4 as long as there are no cards in your graveyard."],
+    // Graceful Antelope
+    &[
+        "Plainswalk (This creature can't be blocked as long as defending player controls a Plains.)\nWhenever this creature deals combat damage to a player, you may have target land become a Plains until this creature leaves the battlefield.",
+    ],
+    // Gravestorm
+    &[
+        "At the beginning of your upkeep, target opponent may exile a card from their graveyard. If that player doesn't, you may draw a card.",
+    ],
+    // Ground Seal
+    &[
+        "When this enchantment enters, draw a card.\nCards in graveyards can't be the targets of spells or abilities.",
+    ],
     // Halberdier
     &["First strike"],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Hallowed Healer
+    &[
+        "{T}: Prevent the next 2 damage that would be dealt to any target this turn.\nThreshold — {T}: Prevent the next 4 damage that would be dealt to any target this turn. Activate only if there are seven or more cards in your graveyard.",
+    ],
+    // Haunting Echoes
+    &[
+        "Exile all cards from target player's graveyard other than basic land cards. For each card exiled this way, search that player's library for all cards with the same name as that card and exile them. Then that player shuffles.",
+    ],
+    // Hint of Insanity
+    &[
+        "Target player reveals their hand. That player discards all nonland cards with the same name as another card in their hand.",
+    ],
+    // Holistic Wisdom
+    &[
+        "{2}, Exile a card from your hand: Return target card from your graveyard to your hand if it shares a card type with the card exiled this way. (Artifact, battle, creature, enchantment, kindred, instant, land, planeswalker, and sorcery are card types.)",
+    ],
+    // Howling Gale
+    &[
+        "Howling Gale deals 1 damage to each creature with flying and each player.\nFlashback {1}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+    ],
+    // Immobilizing Ink
+    &[
+        "Enchant creature\nEnchanted creature doesn't untap during its controller's untap step.\nEnchanted creature has \"{1}, Discard a card: Untap this creature.\"",
+    ],
+    // Impulsive Maneuvers
+    &[
+        "Whenever a creature attacks, flip a coin. If you win the flip, the next time that creature would deal combat damage this turn, it deals double that damage instead. If you lose the flip, the next time that creature would deal combat damage this turn, prevent that damage.",
+    ],
+    // Infected Vermin
+    &[
+        "{2}{B}: This creature deals 1 damage to each creature and each player.\nThreshold — {3}{B}: This creature deals 3 damage to each creature and each player. Activate only if there are seven or more cards in your graveyard.",
+    ],
+    // Innocent Blood
+    &["Each player sacrifices a creature of their choice."],
+    // Iridescent Angel
+    &["Flying, protection from each color"],
     // Ivy Elemental
     &["This creature enters with X +1/+1 counters on it."],
-    &[],
-    &[],
+    // Junk Golem
+    &[
+        "This creature enters with three +1/+1 counters on it.\nAt the beginning of your upkeep, sacrifice this creature unless you remove a +1/+1 counter from it.\n{1}, Discard a card: Put a +1/+1 counter on this creature.",
+    ],
+    // Kamahl's Desire
+    &[
+        "Enchant creature\nEnchanted creature has first strike.\nThreshold — Enchanted creature gets +3/+0 as long as there are seven or more cards in your graveyard.",
+    ],
     // Kamahl, Pit Fighter
     &[
         "Haste (This creature can attack and {T} as soon as it comes under your control.)\n{T}: Kamahl deals 3 damage to any target.",
     ],
-    &[],
-    &[],
-    &[],
+    // Karmic Justice
+    &[
+        "Whenever a spell or ability an opponent controls destroys a noncreature permanent you control, you may destroy target permanent that opponent controls.",
+    ],
+    // Kirtar's Desire
+    &[
+        "Enchant creature\nEnchanted creature can't attack.\nThreshold — Enchanted creature can't block as long as there are seven or more cards in your graveyard.",
+    ],
+    // Kirtar's Wrath
+    &[
+        "Destroy all creatures. They can't be regenerated.\nThreshold — If there are seven or more cards in your graveyard, instead destroy all creatures, then create two 1/1 white Spirit creature tokens with flying. Creatures destroyed this way can't be regenerated.",
+    ],
     // Krosan Archer
     &[
         "Reach (This creature can block creatures with flying.)\n{G}, Discard a card: This creature gets +0/+2 until end of turn.",

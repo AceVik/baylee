@@ -652,6 +652,9 @@ impl Tx<'_> {
         {
             return self.cast_self_protection_trigger(&mode, p);
         }
+        let prose_may = p
+            .peek("TriggerDescription")
+            .is_some_and(|d| d.to_ascii_lowercase().contains(", you may have target "));
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
         if self.is_imprison_clause(&mode, &p) {
@@ -680,7 +683,7 @@ impl Tx<'_> {
         // no effect here can ask them, so they are refused by name rather
         // than quietly asked of the wrong player.
         let may = match p.take("OptionalDecider").as_deref() {
-            None => false,
+            None => prose_may,
             Some("You") => true,
             Some("TriggeredCardController")
                 if (trigger == "Trigger::ETB" || trigger.contains("&Filter::This"))

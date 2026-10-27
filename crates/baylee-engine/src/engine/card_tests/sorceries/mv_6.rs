@@ -334,6 +334,7 @@ mod guan_yu_s_1_000_li_march;
 mod icatian_town;
 mod imperial_oath;
 mod jokulhaups;
+mod kirtar_s_wrath;
 mod kiss_of_the_amesha;
 mod mass_production;
 mod mindculling;

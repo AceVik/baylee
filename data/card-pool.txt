@@ -11479,3 +11479,28 @@ Escape Artist
 Extract
 Famished Ghoul
 Fervent Denial
+Filthy Cur
+Firebolt
+Flame Burst
+Frenetic Ogre
+Frightcrawler
+Ghastly Demise
+Gorilla Titan
+Graceful Antelope
+Gravestorm
+Ground Seal
+Hallowed Healer
+Haunting Echoes
+Hint of Insanity
+Holistic Wisdom
+Howling Gale
+Immobilizing Ink
+Impulsive Maneuvers
+Infected Vermin
+Innocent Blood
+Iridescent Angel
+Junk Golem
+Kamahl's Desire
+Karmic Justice
+Kirtar's Desire
+Kirtar's Wrath

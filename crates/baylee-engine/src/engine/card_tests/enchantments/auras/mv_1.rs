@@ -42,6 +42,7 @@ mod imposing_visage;
 mod incendiary;
 mod instill_energy;
 mod ironclaw_curse;
+mod kirtar_s_desire;
 mod kithkin_armor;
 mod lance;
 mod living_artifact;

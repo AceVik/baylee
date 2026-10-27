@@ -423,7 +423,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Centaur and Crypt Creeper (2 of 2 read by the evaluator).
     // Odyssey (`ody`) Batch 3 adds 2 non-mana activated abilities on Dirty
     // Wererat and Dwarven Strike Force (2 of 2 read by the evaluator).
-    assert_eq!((read, of), (2870, 3628), "activated/loyalty reader census");
+    // Odyssey (`ody`) Batch 4 adds 1 non-mana activated ability on Frenetic
+    // Ogre (1 of 1 read by the evaluator).
+    assert_eq!((read, of), (2871, 3629), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

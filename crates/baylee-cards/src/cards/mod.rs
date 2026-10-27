@@ -6821,6 +6821,8 @@ pub mod filigree_familiar;
 pub mod filigree_sages;
 #[path = "sorceries/mv_4/fill_with_fright.rs"]
 pub mod fill_with_fright;
+#[path = "creatures/mv_2/filthy_cur.rs"]
+pub mod filthy_cur;
 #[path = "instants/mv_5/final_death.rs"]
 pub mod final_death;
 #[path = "instants/mv_2/final_fortune.rs"]
@@ -6887,6 +6889,8 @@ pub mod fire_whip;
 pub mod fireball;
 #[path = "instants/mv_6/fireblast.rs"]
 pub mod fireblast;
+#[path = "sorceries/mv_1/firebolt.rs"]
+pub mod firebolt;
 #[path = "creatures/mv_4/fireborn_knight.rs"]
 pub mod fireborn_knight;
 #[path = "creatures/mv_2/firebrand_archer.rs"]
@@ -6949,6 +6953,8 @@ pub mod flailing_soldier;
 pub mod flame_blessed_bolt;
 #[path = "enchantments/mv_1/flame_blitz.rs"]
 pub mod flame_blitz;
+#[path = "instants/mv_2/flame_burst.rs"]
+pub mod flame_burst;
 #[path = "creatures/mv_2/flame_chain_mauler.rs"]
 pub mod flame_chain_mauler;
 #[path = "creatures/mv_4/flame_elemental.rs"]
@@ -7375,6 +7381,8 @@ pub mod freed_from_the_real;
 pub mod freewind_falcon;
 #[path = "creatures/mv_3/frenetic_efreet.rs"]
 pub mod frenetic_efreet;
+#[path = "creatures/mv_5/frenetic_ogre.rs"]
+pub mod frenetic_ogre;
 #[path = "creatures/mv_5/frenzied_devils.rs"]
 pub mod frenzied_devils;
 #[path = "enchantments/auras/mv_2/frenzied_rage.rs"]
@@ -7395,6 +7403,8 @@ pub mod freyalise_supplicant;
 pub mod friendly_ghost;
 #[path = "creatures/artifacts/mv_2/friendly_teddy.rs"]
 pub mod friendly_teddy;
+#[path = "creatures/mv_2/frightcrawler.rs"]
+pub mod frightcrawler;
 #[path = "instants/mv_3/frightful_delusion.rs"]
 pub mod frightful_delusion;
 #[path = "creatures/mv_4/frilled_mystic.rs"]
@@ -7721,6 +7731,8 @@ pub mod geyser_glider;
 pub mod geyserfield_stalker;
 #[path = "creatures/mv_7/ghastbark_twins.rs"]
 pub mod ghastbark_twins;
+#[path = "instants/mv_1/ghastly_demise.rs"]
+pub mod ghastly_demise;
 #[path = "creatures/mv_1/ghazban_ogre.rs"]
 pub mod ghazban_ogre;
 #[path = "creatures/mv_3/ghen_arcanum_weaver.rs"]
@@ -8313,6 +8325,8 @@ pub mod gorilla_chieftain;
 pub mod gorilla_pack;
 #[path = "creatures/mv_1/gorilla_shaman.rs"]
 pub mod gorilla_shaman;
+#[path = "creatures/mv_5/gorilla_titan.rs"]
+pub mod gorilla_titan;
 #[path = "instants/mv_2/gorilla_war_cry.rs"]
 pub mod gorilla_war_cry;
 #[path = "creatures/mv_3/gorilla_warrior.rs"]
@@ -8325,6 +8339,8 @@ pub mod gossamer_chains;
 pub mod gosta_dirk;
 #[path = "creatures/artifacts/mv_8/graaz_unstoppable_juggernaut.rs"]
 pub mod graaz_unstoppable_juggernaut;
+#[path = "creatures/mv_4/graceful_antelope.rs"]
+pub mod graceful_antelope;
 #[path = "creatures/mv_3/graceful_cat.rs"]
 pub mod graceful_cat;
 #[path = "enchantments/mv_1/graf_harvest.rs"]
@@ -8397,6 +8413,8 @@ pub mod gravelgill_duo;
 pub mod graven_cairns;
 #[path = "creatures/mv_4/graveshifter.rs"]
 pub mod graveshifter;
+#[path = "enchantments/mv_3/gravestorm.rs"]
+pub mod gravestorm;
 #[path = "enchantments/mv_5/gravitational_shift.rs"]
 pub mod gravitational_shift;
 #[path = "enchantments/mv_3/gravity_sphere.rs"]
@@ -8557,6 +8575,8 @@ pub mod grotesque_demise;
 pub mod grotesque_mutation;
 #[path = "sorceries/mv_2/ground_assault.rs"]
 pub mod ground_assault;
+#[path = "enchantments/mv_2/ground_seal.rs"]
+pub mod ground_seal;
 #[path = "creatures/mv_6/groundchuck_dirtbag.rs"]
 pub mod groundchuck_dirtbag;
 #[path = "enchantments/auras/mv_2/grounded.rs"]
@@ -8741,6 +8761,8 @@ pub mod hall_of_the_bandit_lord;
 pub mod hallowed_fountain;
 #[path = "enchantments/mv_2/hallowed_ground.rs"]
 pub mod hallowed_ground;
+#[path = "creatures/mv_3/hallowed_healer.rs"]
+pub mod hallowed_healer;
 #[path = "lands/halls_of_mist.rs"]
 pub mod halls_of_mist;
 #[path = "instants/mv_3/halt_order.rs"]
@@ -8869,6 +8891,8 @@ pub mod haunted_ridge;
 pub mod haunter_of_nightveil;
 #[path = "creatures/mv_3/haunting_apparition.rs"]
 pub mod haunting_apparition;
+#[path = "sorceries/mv_5/haunting_echoes.rs"]
+pub mod haunting_echoes;
 #[path = "sorceries/mv_3/haunting_misery.rs"]
 pub mod haunting_misery;
 #[path = "enchantments/mv_4/haunting_wind.rs"]
@@ -9185,6 +9209,8 @@ pub mod hill_giant;
 pub mod hill_giant_herdgorger;
 #[path = "creatures/mv_4/hillcomber_giant.rs"]
 pub mod hillcomber_giant;
+#[path = "sorceries/mv_3/hint_of_insanity.rs"]
+pub mod hint_of_insanity;
 #[path = "lands/check/hinterland_harbor.rs"]
 pub mod hinterland_harbor;
 #[path = "creatures/mv_2/hipparion.rs"]
@@ -9231,6 +9257,8 @@ pub mod hobgoblin_dragoon;
 pub mod hold_at_bay;
 #[path = "lands/holdout_settlement.rs"]
 pub mod holdout_settlement;
+#[path = "enchantments/mv_3/holistic_wisdom.rs"]
+pub mod holistic_wisdom;
 #[path = "creatures/mv_5/hollow_dogs.rs"]
 pub mod hollow_dogs;
 #[path = "lands/storage/hollow_trees.rs"]
@@ -9383,6 +9411,8 @@ pub mod howl_from_beyond;
 pub mod howling_banshee;
 #[path = "sorceries/mv_3/howling_fury.rs"]
 pub mod howling_fury;
+#[path = "instants/mv_2/howling_gale.rs"]
+pub mod howling_gale;
 #[path = "creatures/mv_7/howling_giant.rs"]
 pub mod howling_giant;
 #[path = "artifacts/mv_2/howling_mine.rs"]
@@ -9627,6 +9657,8 @@ pub mod imaginary_pet;
 pub mod imi_statue;
 #[path = "lands/utility/immersturm_skullcairn.rs"]
 pub mod immersturm_skullcairn;
+#[path = "enchantments/auras/mv_2/immobilizing_ink.rs"]
+pub mod immobilizing_ink;
 #[path = "instants/mv_2/immolating_glare.rs"]
 pub mod immolating_glare;
 #[path = "enchantments/auras/mv_1/immolation.rs"]
@@ -9689,6 +9721,8 @@ pub mod improvised_weaponry;
 pub mod imps_taunt;
 #[path = "instants/mv_2/impulse.rs"]
 pub mod impulse;
+#[path = "enchantments/mv_4/impulsive_maneuvers.rs"]
+pub mod impulsive_maneuvers;
 #[path = "enchantments/mv_3/in_the_eye_of_chaos.rs"]
 pub mod in_the_eye_of_chaos;
 #[path = "sorceries/mv_3/incandescent_aria.rs"]
@@ -9729,6 +9763,8 @@ pub mod indrik_stomphowler;
 pub mod inertia_bubble;
 #[path = "creatures/mv_1/infantry_veteran.rs"]
 pub mod infantry_veteran;
+#[path = "creatures/mv_3/infected_vermin.rs"]
+pub mod infected_vermin;
 #[path = "creatures/mv_4/infectious_horror.rs"]
 pub mod infectious_horror;
 #[path = "creatures/mv_3/infectious_host.rs"]
@@ -9795,6 +9831,8 @@ pub mod inner_calm_outer_strength;
 pub mod inner_sanctum;
 #[path = "enchantments/classes/mv_2/innkeeper_s_talent.rs"]
 pub mod innkeeper_s_talent;
+#[path = "sorceries/mv_1/innocent_blood.rs"]
+pub mod innocent_blood;
 #[path = "instants/mv_2/inordinate_rage.rs"]
 pub mod inordinate_rage;
 #[path = "sorceries/mv_3/inquisition.rs"]
@@ -9901,6 +9939,8 @@ pub mod iona_s_judgment;
 pub mod ior_ruin_expedition;
 #[path = "lands/deserts/ipnu_rivulet.rs"]
 pub mod ipnu_rivulet;
+#[path = "creatures/mv_7/iridescent_angel.rs"]
+pub mod iridescent_angel;
 #[path = "creatures/mv_2/iridescent_blademaster.rs"]
 pub mod iridescent_blademaster;
 #[path = "creatures/mv_4/iridescent_drake.rs"]
@@ -10263,6 +10303,8 @@ pub mod juniper_order_advocate;
 pub mod juniper_order_druid;
 #[path = "creatures/artifacts/mv_3/junk_diver.rs"]
 pub mod junk_diver;
+#[path = "creatures/artifacts/mv_4/junk_golem.rs"]
+pub mod junk_golem;
 #[path = "lands/utility/junktown.rs"]
 pub mod junktown;
 #[path = "artifacts/mv_2/juntu_stakes.rs"]
@@ -10313,6 +10355,8 @@ pub mod kalonian_behemoth;
 pub mod kalonian_tusker;
 #[path = "creatures/mv_6/kamahl_pit_fighter.rs"]
 pub mod kamahl_pit_fighter;
+#[path = "enchantments/auras/mv_2/kamahl_s_desire.rs"]
+pub mod kamahl_s_desire;
 #[path = "creatures/mv_3/kambal_consul_of_allocation.rs"]
 pub mod kambal_consul_of_allocation;
 #[path = "creatures/mv_2/kami_of_ancient_law.rs"]
@@ -10343,6 +10387,8 @@ pub mod kargan_warleader;
 pub mod karma;
 #[path = "creatures/mv_5/karmic_guide.rs"]
 pub mod karmic_guide;
+#[path = "enchantments/mv_3/karmic_justice.rs"]
+pub mod karmic_justice;
 #[path = "lands/utility/karn_s_bastion.rs"]
 pub mod karn_s_bastion;
 #[path = "instants/mv_2/karn_s_touch.rs"]
@@ -10555,6 +10601,10 @@ pub mod kiora_s_follower;
 pub mod kird_ape;
 #[path = "creatures/mv_4/kird_chieftain.rs"]
 pub mod kird_chieftain;
+#[path = "enchantments/auras/mv_1/kirtar_s_desire.rs"]
+pub mod kirtar_s_desire;
+#[path = "sorceries/mv_6/kirtar_s_wrath.rs"]
+pub mod kirtar_s_wrath;
 #[path = "lands/check/kishla_village.rs"]
 pub mod kishla_village;
 #[path = "enchantments/mv_4/kismet.rs"]

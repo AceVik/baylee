@@ -143,6 +143,7 @@ mod goblin_mutant;
 mod goblin_settler;
 mod goblin_snowman;
 mod goblin_wizard;
+mod graceful_antelope;
 mod halberdier;
 mod halfdane;
 mod harbinger_of_night;

@@ -71,6 +71,7 @@ mod flowstone_salamander;
 mod flowstone_wyvern;
 mod folk_of_the_pines;
 mod fountain_watch;
+mod frenetic_ogre;
 mod fury;
 mod gallowbraid;
 mod garna_the_bloodflame;
