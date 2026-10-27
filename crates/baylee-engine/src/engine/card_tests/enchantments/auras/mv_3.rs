@@ -14,6 +14,7 @@ mod bloodfire_infusion;
 mod cessation;
 mod chromatic_armor;
 mod destructive_urge;
+mod domineer;
 mod erosion;
 mod errant_minion;
 mod false_demise;

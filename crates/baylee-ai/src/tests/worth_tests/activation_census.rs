@@ -453,7 +453,9 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Wayfarer (0 of 1 read by the evaluator).
     // Judgment (`jud`) Batch 4 adds 2 non-mana activated abilities on Tunneler
     // Wurm and Vigilant Sentry (2 of 2 read by the evaluator).
-    assert_eq!((read, of), (2928, 3704), "activated/loyalty reader census");
+    // Onslaught (`ons`), Legions (`lgn`), Scourge (`scg`), and Mirrodin (`mrd`)
+    // Batch 1 add 15 non-mana activated abilities (13 of 15 read by the evaluator).
+    assert_eq!((read, of), (2941, 3719), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -110,6 +110,7 @@ impl Tx<'_> {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
         let is_activated = spec.starts_with("AB$");
         if !is_activated

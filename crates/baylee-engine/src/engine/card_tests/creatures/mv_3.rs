@@ -121,6 +121,7 @@ mod faerie_noble;
 mod fallow_wurm;
 mod farrel_s_zealot;
 mod farrelite_priest;
+mod fatespinner;
 mod fault_riders;
 mod fearful_villager;
 mod femeref_knight;

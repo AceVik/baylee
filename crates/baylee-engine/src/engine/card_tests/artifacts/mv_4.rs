@@ -44,6 +44,7 @@ mod gauntlet_of_might;
 mod gemstone_array;
 mod goblin_boom_keg;
 mod goblin_cannon;
+mod goblin_charbelcher;
 mod grafted_skullcap;
 mod gruul_war_plow;
 mod hedron_archive;

@@ -749,16 +749,27 @@ no-engine-change contract:
   - Batch 2 (`Flint Golem` to `Netter en-Dal`, 25 cards): **13 Implemented, 4 Partial, 8 Unimplemented (held back/stubs)** (`12 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `4 Partial` hand-owned, and `8 Unimplemented` stubs).
   - Batch 3 (`Noble Stand` to `Shrieking Mogg`, 25 cards): **11 Implemented, 4 Partial, 10 Unimplemented (held back/stubs)** (`11 Implemented` machine-owned via `scriptgen`, `4 Partial` hand-owned, and `10 Unimplemented` stubs).
   - Batch 4 (`Silkenfist Fighter` to `Woodripper`, 25 cards): **16 Implemented, 1 Partial, 8 Unimplemented (held back/stubs)** (`16 Implemented` machine-owned via `scriptgen`, `1 Partial` hand-owned, and `8 Unimplemented` stubs).
-- **Prophecy (`pcy`)** — completed across 4 batches (**37 Implemented, 8 Partial, 52 Unimplemented (held back/stubs)** across the 97 newly added cards, every implemented/partial card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+- **Prophecy (`pcy`)** — completed across 4 batches (full set 142/142 in pool: **83 Implemented, 7 Partial, 52 Unimplemented (held back/stubs)**, every implemented/partial card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
   - Batch 1 (`Abolish` to `Fickle Efreet`, 25 cards): **9 Implemented, 6 Partial, 10 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `6 Partial` hand-owned, and `10 Unimplemented` stubs).
   - Batch 2 (`Flameshot` to `Mercenary Informer`, 25 cards): **7 Implemented, 2 Partial, 16 Unimplemented (held back/stubs)** (`7 Implemented` machine-owned via `scriptgen`, `2 Partial` hand-owned, and `16 Unimplemented` stubs).
   - Batch 3 (`Mine Bearer` to `Shrouded Serpent`, 25 cards): **10 Implemented, 0 Partial, 15 Unimplemented (held back/stubs)** (`10 Implemented` machine-owned via `scriptgen` and `15 Unimplemented` stubs).
   - Batch 4 (`Snag` to `Zerapa Minotaur`, 22 cards): **11 Implemented, 0 Partial, 11 Unimplemented (held back/stubs)** (`11 Implemented` machine-owned via `scriptgen` and `11 Unimplemented` stubs).
-- **Invasion (`inv`)** — in progress:
-  - Batch 1 (`Addle` to `Breath of Darigaaz`, 25 cards): **9 Implemented, 0 Partial, 16 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen` and `16 Unimplemented` stubs).
-  - Batch 2 (`Callous Giant` to `Dredge`, 25 cards): **9 Implemented, 0 Partial, 16 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen` and `16 Unimplemented` stubs).
-  - Batch 3 (`Dromar, the Banisher` to `Kavu Chameleon`, 25 cards): **7 Implemented, 0 Partial, 18 Unimplemented (held back/stubs)** (`7 Implemented` machine-owned via `scriptgen` and `18 Unimplemented` stubs).
-  - Batch 4 (`Kavu Runner` to `Phyrexian Reaper`, 25 cards): **6 Implemented, 0 Partial, 19 Unimplemented (held back/stubs)** (`6 Implemented` machine-owned via `scriptgen` and `19 Unimplemented` stubs).
+- **Invasion (`inv`)** — completed across 8 batches (full set 309/309 in pool: **162 Implemented, 0 Partial, 147 Unimplemented (held back/stubs)**):
+  - Batch 1 (`Addle` to `Breath of Darigaaz`, 25 cards): **9 Implemented, 0 Partial, 16 Unimplemented (held back/stubs)**.
+  - Batch 2 (`Callous Giant` to `Dredge`, 25 cards): **9 Implemented, 0 Partial, 16 Unimplemented (held back/stubs)**.
+  - Batch 3 (`Dromar, the Banisher` to `Kavu Chameleon`, 25 cards): **7 Implemented, 0 Partial, 18 Unimplemented (held back/stubs)**.
+  - Batch 4 (`Kavu Runner` to `Phyrexian Reaper`, 25 cards): **6 Implemented, 0 Partial, 19 Unimplemented (held back/stubs)**.
+  - Batches 5–8 (`Phyrexian Slayer` to `Zanam Djinn`, 84 cards): **23 Implemented, 0 Partial, 61 Unimplemented (held back/stubs)**.
+- **Planeshift (`pls`)** — completed across 4 batches (full set 141/141 in pool: **79 Implemented, 0 Partial, 62 Unimplemented (held back/stubs)**).
+- **Apocalypse (`apc`)** — completed across 4 batches (full set 141/141 in pool: **70 Implemented, 0 Partial, 71 Unimplemented (held back/stubs)**).
+- **Odyssey (`ody`)** — completed across 9 batches (full set 320/320 in pool: **157 Implemented, 0 Partial, 163 Unimplemented (held back/stubs)**).
+- **Torment (`tor`)** — completed across 4 batches (full set 141/141 in pool: **61 Implemented, 0 Partial, 80 Unimplemented (held back/stubs)**).
+- **Judgment (`jud`)** — completed across 4 batches (full set 140/140 in pool: **66 Implemented, 0 Partial, 74 Unimplemented (held back/stubs)**).
+- **Onslaught (`ons`)** — completed across 3 batches (full set 319/319 in pool: **129 Implemented, 0 Partial, 190 Unimplemented (held back/stubs)**).
+- **Legions (`lgn`)** — completed across 2 batches (full set 141/141 in pool: **55 Implemented, 0 Partial, 86 Unimplemented (held back/stubs)**).
+- **Scourge (`scg`)** — completed across 2 batches (full set 140/140 in pool: **49 Implemented, 0 Partial, 91 Unimplemented (held back/stubs)**).
+- **Mirrodin (`mrd`)** — in progress (267 first-printing identities in `set_mrd.rs`: **164 Implemented, 0 Partial, 1 Unimplemented, 102 Absent**):
+  - Batch 1 (`Aether Spellbomb` to `Grip of Chaos`, 50 cards): **50 Implemented, 0 Partial, 0 Unimplemented** (`19 Implemented` machine-owned via `scriptgen` and `31 Implemented` hand-owned with full engine support for Entwine, Imprint, Affinity, and Mirrodin Batch 1 mechanics).
 
 ## PR #394 review snapshot (2026-10-23)
 

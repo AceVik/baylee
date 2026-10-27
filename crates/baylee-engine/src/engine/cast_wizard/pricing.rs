@@ -114,11 +114,15 @@ fn raw_option_cost(
                     return None;
                 };
                 let base = casting::mode_set_cost(normal, modes, set);
-                Some(if choose.is_one() && let Some(entwine) = face.entwine {
-                    base.combine(&entwine.mana)
-                } else {
-                    base
-                })
+                Some(
+                    if choose.is_one()
+                        && let Some(entwine) = face.entwine
+                    {
+                        base.combine(&entwine.mana)
+                    } else {
+                        base
+                    },
+                )
             })
             .expect("modal spell"),
     };

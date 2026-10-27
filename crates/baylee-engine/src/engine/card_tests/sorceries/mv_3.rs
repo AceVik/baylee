@@ -29,6 +29,7 @@ mod entreat_the_dead;
 mod essence_filter;
 mod fabricate;
 mod fade_away;
+mod fiery_gambit;
 mod fiery_justice;
 mod gaea_s_bounty;
 mod game_of_chaos;

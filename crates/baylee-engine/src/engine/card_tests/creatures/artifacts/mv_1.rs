@@ -5,6 +5,7 @@ use super::*;
 
 mod augmenting_automaton;
 mod chronomaton;
+mod clockwork_beetle;
 mod clockwork_drawbridge;
 mod cogwork_wrestler;
 mod emergency_medical_hologram;

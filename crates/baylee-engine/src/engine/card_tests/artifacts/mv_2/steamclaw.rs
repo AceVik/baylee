@@ -40,7 +40,7 @@ fn steamclaw_exiles_card_from_graveyard_by_tapping_or_sacrificing() {
     e.refresh_offer();
 
     let claw = on_battlefield(&e, p0, card).unwrap();
-    let gy_cards = e.state().zones.list(ZoneLocation::Graveyard(p1)).to_vec();
+    let gy_cards = e.state().zones.list(ZoneLocation::Graveyard(p1)).clone();
     assert_eq!(gy_cards.len(), 2);
 
     tap_mana_where(&mut e, p0, |_| true);

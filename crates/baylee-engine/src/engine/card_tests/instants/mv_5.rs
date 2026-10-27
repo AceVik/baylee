@@ -292,6 +292,7 @@ mod fire_and_brimstone;
 mod fissure;
 mod flesh_to_dust;
 mod force_of_will;
+mod forge_armor;
 mod get_the_point;
 mod gush;
 mod hatred;

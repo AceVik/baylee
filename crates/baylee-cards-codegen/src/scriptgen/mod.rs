@@ -259,6 +259,7 @@ impl Params {
 
 /// A chain of effects and its independently announced target instances.
 #[derive(Debug, Default)]
+#[allow(clippy::struct_excessive_bools)]
 struct Chain {
     effects: Vec<String>,
     target: Option<String>,
@@ -319,6 +320,7 @@ struct BlockHalf {
     ability: String,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
     oracle: &'a str,

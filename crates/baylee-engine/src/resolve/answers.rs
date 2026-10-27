@@ -764,27 +764,6 @@ pub(super) fn resume_yes_no_inner(
         return finish_choice(state, res, since);
     }
     if let Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative { wins }) = res.awaiting {
-        res.awaiting = None;
-        let you = res.controller;
-        if answer {
-            let won = state.rng.below(2) == 0;
-            state.journal.record(GameEvent::CoinFlipped {
-                player: you,
-                won,
-            });
-            if !won {
-                res.pc += 1;
-                return run(state, res);
-            }
-            res.awaiting = Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative {
-                wins: wins.saturating_add(1),
-            });
-            return Flow::Wait(Pending::YesNo {
-                player: you,
-                prompt: YesNoPrompt::MayDo,
-                source: resolving_ability(state, res),
-            });
-        }
         const WIN_1: &[Effect] = &[Effect::DealDamage {
             target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
             amount: Amount::Fixed(3),
@@ -815,6 +794,26 @@ pub(super) fn resume_yes_no_inner(
                 filter: &baylee_cards_dsl::Filter::YOUR_LAND,
             },
         ];
+        res.awaiting = None;
+        let you = res.controller;
+        if answer {
+            let won = state.rng.below(2) == 0;
+            state
+                .journal
+                .record(GameEvent::CoinFlipped { player: you, won });
+            if !won {
+                res.pc += 1;
+                return run(state, res);
+            }
+            res.awaiting = Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative {
+                wins: wins.saturating_add(1),
+            });
+            return Flow::Wait(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::MayDo,
+                source: resolving_ability(state, res),
+            });
+        }
         let effects = match wins {
             0 => &[][..],
             1 => WIN_1,

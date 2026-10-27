@@ -406,10 +406,12 @@ pub fn matches_projected_with_context(
                     .min()
                     .is_some_and(|lowest| chars.mana_value() == lowest)
         }
-        Filter::SameNameAsLinkedExile => linked_exile_cards(state, you, context, None, &Filter::Any)
-            .into_iter()
-            .filter_map(|id| state.object(id))
-            .any(|exiled| exiled.characteristics().name == chars.name),
+        Filter::SameNameAsLinkedExile => {
+            linked_exile_cards(state, you, context, None, &Filter::Any)
+                .into_iter()
+                .filter_map(|id| state.object(id))
+                .any(|exiled| exiled.characteristics().name == chars.name)
+        }
         Filter::CmcEqualsYourUnspentMana => state
             .players
             .get(usize::from(you.get()))

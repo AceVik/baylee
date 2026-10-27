@@ -2396,7 +2396,8 @@ fn odyssey_reader_patterns() {
 
 #[test]
 fn mirrodin_reader_patterns() {
-    let frogmite = "Name:Frogmite\nManaCost:4\nTypes:Artifact Creature\nPT:2/2\nK:Affinity:Artifact";
+    let frogmite =
+        "Name:Frogmite\nManaCost:4\nTypes:Artifact Creature\nPT:2/2\nK:Affinity:Artifact";
     assert_eq!(
         read(frogmite).cost_reduction.as_deref(),
         Some(

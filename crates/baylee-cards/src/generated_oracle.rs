@@ -19523,116 +19523,248 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Alpha Myr
     &[""],
-    &[],
+    // Altar of Shadows
+    &[
+        "At the beginning of your first main phase, add {B} for each charge counter on this artifact.\n{7}, {T}: Destroy target creature. Then put a charge counter on this artifact.",
+    ],
     // Altar's Light
     &["Exile target artifact or enchantment."],
     // Ancient Den
     &["{T}: Add {W}."],
-    &[],
-    &[],
+    // Arc-Slogger
+    &["{R}, Exile the top ten cards of your library: This creature deals 2 damage to any target."],
+    // Assert Authority
+    &[
+        "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nCounter target spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.",
+    ],
     // Auriok Bladewarden
     &["{T}: Target creature gets +X/+X until end of turn, where X is this creature's power."],
-    &[],
+    // Auriok Steelshaper
+    &[
+        "Equip costs you pay cost {1} less.\nAs long as this creature is equipped, each creature you control that's a Soldier or a Knight gets +1/+1.",
+    ],
     // Auriok Transfixer
     &["{W}, {T}: Tap target artifact."],
-    &[],
-    &[],
-    &[],
+    // Awe Strike
+    &[
+        "The next time target creature would deal damage this turn, prevent that damage. You gain life equal to the damage prevented this way.",
+    ],
+    // Banshee's Blade
+    &[
+        "Equipped creature gets +1/+1 for each charge counter on this Equipment.\nWhenever equipped creature deals combat damage, put a charge counter on this Equipment.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
+    // Barter in Blood
+    &["Each player sacrifices two creatures of their choice."],
     // Battlegrowth
     &["Put a +1/+1 counter on target creature."],
-    &[],
-    &[],
-    &[],
+    // Betrayal of Flesh
+    &[
+        "Choose one —\n• Destroy target creature.\n• Return target creature card from your graveyard to the battlefield.\nEntwine—Sacrifice three lands. (Choose both if you pay the entwine cost.)",
+    ],
+    // Blinding Beam
+    &[
+        "Choose one —\n• Tap two target creatures.\n• Creatures don't untap during target player's next untap step.\nEntwine {1} (Choose both if you pay the entwine cost.)",
+    ],
+    // Blinkmoth Urn
+    &[
+        "At the beginning of each player's first main phase, if this artifact is untapped, that player adds {C} for each artifact they control.",
+    ],
     // Blinkmoth Well
     &["{T}: Add {C}.\n{2}, {T}: Tap target noncreature artifact."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Bloodscent
+    &["All creatures able to block target creature this turn do so."],
+    // Bosh, Iron Golem
+    &[
+        "Trample\n{3}{R}, Sacrifice an artifact: Bosh deals damage equal to the sacrificed artifact's mana value to any target.",
+    ],
+    // Broodstar
+    &[
+        "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nFlying\nBroodstar's power and toughness are each equal to the number of artifacts you control.",
+    ],
+    // Chalice of the Void
+    &[
+        "This artifact enters with X charge counters on it.\nWhenever a player casts a spell with mana value equal to the number of charge counters on this artifact, counter that spell.",
+    ],
+    // Chimney Imp
+    &[
+        "Flying\nWhen this creature dies, target opponent puts a card from their hand on top of their library.",
+    ],
     // Chrome Mox
     &[
         "Imprint — When this artifact enters, you may exile a nonartifact, nonland card from your hand.\n{T}: Add one mana of any of the exiled card's colors.",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Clockwork Beetle
+    &[
+        "This creature enters with two +1/+1 counters on it.\nWhenever this creature attacks or blocks, remove a +1/+1 counter from it at end of combat.",
+    ],
+    // Clockwork Condor
+    &[
+        "Flying\nThis creature enters with three +1/+1 counters on it.\nWhenever this creature attacks or blocks, remove a +1/+1 counter from it at end of combat.",
+    ],
+    // Clockwork Dragon
+    &[
+        "Flying\nThis creature enters with six +1/+1 counters on it.\nWhenever this creature attacks or blocks, remove a +1/+1 counter from it at end of combat.\n{3}: Put a +1/+1 counter on this creature.",
+    ],
+    // Clockwork Vorrac
+    &[
+        "Trample\nThis creature enters with four +1/+1 counters on it.\nWhenever this creature attacks or blocks, remove a +1/+1 counter from it at end of combat.\n{T}: Put a +1/+1 counter on this creature.",
+    ],
     // Cloudpost
     &["This land enters tapped.\n{T}: Add {C} for each Locus on the battlefield."],
     // Cobalt Golem
     &["{1}{U}: This creature gains flying until end of turn."],
-    &[],
-    &[],
-    &[],
+    // Confusion in the Ranks
+    &[
+        "Whenever an artifact, creature, or enchantment enters, its controller chooses target permanent another player controls that shares a card type with it. Exchange control of those permanents.",
+    ],
+    // Consume Spirit
+    &[
+        "Spend only black mana on X.\nConsume Spirit deals X damage to any target and you gain X life.",
+    ],
+    // Contaminated Bond
+    &[
+        "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nWhenever enchanted creature attacks or blocks, its controller loses 3 life.",
+    ],
     // Copper Myr
     &["{T}: Add {G}."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Copperhoof Vorrac
+    &["This creature gets +1/+1 for each untapped permanent your opponents control."],
+    // Crystal Shard
+    &[
+        "{3}, {T} or {U}, {T}: Return target creature to its owner's hand unless its controller pays {1}.",
+    ],
+    // Culling Scales
+    &[
+        "At the beginning of your upkeep, destroy target nonland permanent with the lowest mana value. (If two or more permanents are tied for lowest, target any one of them.)",
+    ],
+    // Damping Matrix
+    &[
+        "Activated abilities of artifacts and creatures can't be activated unless they're mana abilities.",
+    ],
+    // Dead-Iron Sledge
+    &[
+        "Whenever equipped creature blocks or becomes blocked by a creature, destroy both creatures.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     // Deconstruct
     &["Destroy target artifact. Add {G}{G}{G}."],
-    &[],
+    // Disarm
+    &["Unattach all Equipment from target creature."],
     // Disciple of the Vault
     &[
         "Whenever an artifact is put into a graveyard from the battlefield, you may have target opponent lose 1 life.",
     ],
-    &[],
-    &[],
+    // Domineer
+    &["Enchant artifact creature\nYou control enchanted artifact creature."],
+    // Dream's Grip
+    &[
+        "Choose one —\n• Tap target permanent.\n• Untap target permanent.\nEntwine {1} (Choose both if you pay the entwine cost.)",
+    ],
     // Dross Harvester
     &[
         "Protection from white\nAt the beginning of your end step, you lose 4 life.\nWhenever a creature dies, you gain 2 life.",
     ],
     // Dross Prowler
     &["Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)"],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Dross Scorpion
+    &["Whenever this creature or another artifact creature dies, you may untap target artifact."],
+    // Duplicant
+    &[
+        "Imprint — When this creature enters, you may exile target nontoken creature.\nAs long as a card exiled with this creature is a creature card, this creature has the power, toughness, and creature types of the last creature card exiled with it. It's still a Shapeshifter.",
+    ],
+    // Duskworker
+    &[
+        "Whenever this creature becomes blocked, regenerate it.\n{3}: This creature gets +1/+0 until end of turn.",
+    ],
+    // Electrostatic Bolt
+    &[
+        "Electrostatic Bolt deals 2 damage to target creature. If it's an artifact creature, Electrostatic Bolt deals 4 damage to it instead.",
+    ],
     // Elf Replica
     &["{1}{G}, Sacrifice this creature: Destroy target enchantment."],
-    &[],
-    &[],
+    // Empyrial Plate
+    &["Equipped creature gets +1/+1 for each card in your hand.\nEquip {2}"],
+    // Extraplanar Lens
+    &[
+        "Imprint — When this artifact enters, you may exile target land you control.\nWhenever a land with the same name as the exiled card is tapped for mana, its controller adds one mana of any type that land produced.",
+    ],
     // Fabricate
     &["Search your library for an artifact card, reveal it, put it into your hand, then shuffle."],
     // Fangren Hunter
     &["Trample"],
-    &[],
-    &[],
-    &[],
+    // Farsight Mask
+    &[
+        "Whenever a source an opponent controls deals damage to you, if this artifact is untapped, you may draw a card.",
+    ],
+    // Fatespinner
+    &[
+        "At the beginning of each opponent's upkeep, that player chooses draw step, main phase, or combat phase. The player skips each instance of the chosen step or phase this turn.",
+    ],
+    // Fiery Gambit
+    &[
+        "Flip a coin until you lose a flip or choose to stop flipping. If you lose a flip, Fiery Gambit has no effect. If you win one or more flips, Fiery Gambit deals 3 damage to target creature. If you win two or more flips, Fiery Gambit deals 6 damage to each opponent. If you win three or more flips, draw nine cards and untap all lands you control.",
+    ],
     // Fireshrieker
     &[
         "Equipped creature has double strike. (It deals both first-strike and regular combat damage.)\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
     ],
     // Fists of the Anvil
     &["Target creature gets +4/+0 until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Flayed Nim
+    &[
+        "Whenever this creature deals combat damage to a creature, that creature's controller loses that much life.\n{2}{B}: Regenerate this creature.",
+    ],
+    // Forge Armor
+    &[
+        "As an additional cost to cast this spell, sacrifice an artifact.\nPut X +1/+1 counters on target creature, where X is the sacrificed artifact's mana value.",
+    ],
+    // Fractured Loyalty
+    &[
+        "Enchant creature\nWhenever enchanted creature becomes the target of a spell or ability, that spell or ability's controller gains control of that creature. (This effect lasts indefinitely.)",
+    ],
+    // Frogmite
+    &["Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)"],
     // Galvanic Key
     &["Flash\n{3}, {T}: Untap target artifact."],
-    &[],
+    // Gate to the Aether
+    &[
+        "At the beginning of each player's upkeep, that player reveals the top card of their library. If it's an artifact, creature, enchantment, or land card, the player may put it onto the battlefield.",
+    ],
     // Gilded Lotus
     &["{T}: Add three mana of any one color."],
     // Glimmervoid
     &[
         "At the beginning of the end step, if you control no artifacts, sacrifice this land.\n{T}: Add one mana of any color.",
     ],
-    &[],
-    &[],
-    &[],
+    // Glissa Sunseeker
+    &[
+        "First strike\n{T}: Destroy target artifact if its mana value is equal to the amount of unspent mana you have.",
+    ],
+    // Goblin Charbelcher
+    &[
+        "{3}, {T}: Reveal cards from the top of your library until you reveal a land card. This artifact deals damage equal to the number of nonland cards revealed this way to any target. If the revealed land card was a Mountain, this artifact deals double that damage instead. Put the revealed cards on the bottom of your library in any order.",
+    ],
+    // Goblin Dirigible
+    &[
+        "Flying\nThis creature doesn't untap during your untap step.\nAt the beginning of your upkeep, you may pay {4}. If you do, untap this creature.",
+    ],
     // Goblin Replica
     &["{3}{R}, Sacrifice this creature: Destroy target artifact."],
     // Goblin Striker
     &["First strike, haste"],
-    &[],
+    // Goblin War Wagon
+    &[
+        "This creature doesn't untap during your untap step.\nAt the beginning of your upkeep, you may pay {2}. If you do, untap this creature.",
+    ],
     // Gold Myr
     &["{T}: Add {W}."],
-    &[],
-    &[],
+    // Golem-Skin Gauntlets
+    &[
+        "Equipped creature gets +1/+0 for each Equipment attached to it.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
+    // Grab the Reins
+    &[
+        "Choose one —\n• Until end of turn, you gain control of target creature and it gains haste.\n• Sacrifice a creature. Grab the Reins deals damage equal to that creature's power to any target.\nEntwine {2}{R} (Choose both if you pay the entwine cost.)",
+    ],
     &[],
     // Great Furnace
     &["{T}: Add {R}."],

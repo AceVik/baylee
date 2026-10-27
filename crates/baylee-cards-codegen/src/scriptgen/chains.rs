@@ -245,6 +245,7 @@ impl Tx<'_> {
     }
 
     /// Register a fresh target declaration without merging independent instances.
+    #[allow(clippy::too_many_lines)]
     fn chain_target(
         &mut self,
         api: &str,
@@ -778,12 +779,10 @@ impl Tx<'_> {
                 let Some(kind) = counter_kind(&code) else {
                     return self.deny(format!("counter `{code}`"));
                 };
-                let n: u8 = plain_number(
-                    p.take("CounterNum").as_deref().unwrap_or("1"),
-                    self.svars,
-                )?
-                .try_into()
-                .ok()?;
+                let n: u8 =
+                    plain_number(p.take("CounterNum").as_deref().unwrap_or("1"), self.svars)?
+                        .try_into()
+                        .ok()?;
                 if n == 0 {
                     return None;
                 }

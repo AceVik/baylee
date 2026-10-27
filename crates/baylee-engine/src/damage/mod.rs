@@ -601,6 +601,7 @@ impl DamageWork {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn apply_effect(&mut self, state: &mut GameState, candidate: &Candidate) {
         if self.apply_batch57(state, candidate) {
             return;

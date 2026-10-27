@@ -24,6 +24,7 @@ mod armored_pegasus;
 mod atog;
 mod auratog;
 mod auriok_bladewarden;
+mod auriok_steelshaper;
 mod avenger_en_dal;
 mod azure_mage;
 mod badgermole_cub;

@@ -14,6 +14,7 @@ mod ancient_craving;
 mod armageddon;
 mod ashen_powder;
 mod avalanche;
+mod barter_in_blood;
 mod bee_sting;
 mod break_asunder;
 mod calming_verse;

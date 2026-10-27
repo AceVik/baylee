@@ -280,6 +280,7 @@ impl Tx<'_> {
     /// (`card_zone == false`, where every object is already a permanent) from
     /// card zones such as graveyards and libraries (`card_zone == true`, where
     /// `"Permanent"` means a permanent card under CR 110.4a).
+    #[allow(clippy::too_many_lines)]
     pub(super) fn filter_expr_in_zone(&self, valid: &str, card_zone: bool) -> Option<String> {
         let mut alternatives = Vec::new();
         for alt in valid.split(',') {

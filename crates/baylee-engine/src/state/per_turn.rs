@@ -6,6 +6,7 @@ use std::hash::Hash;
 
 /// Per-turn counters for conditional triggers (reset at every turn start).
 #[derive(Clone, Hash, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct PerTurn {
     /// Untapped lands controlled by this turn's active player at its start,
     /// before untapping or phasing; independent of any source's presence.

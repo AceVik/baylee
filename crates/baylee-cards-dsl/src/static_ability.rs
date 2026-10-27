@@ -1130,7 +1130,6 @@ impl Modifier {
             | Self::GrantsFlashback
             | Self::GrantsEscape(_)
             | Self::CantActivateArtifacts
-            | Self::CantActivateNonMana
             // CR 613.1f is the whole argument for these two: "Layer 6:
             // Ability-adding effects, keyword counters, ability-removing
             // effects, and effects that say an object can't have an ability
@@ -1182,6 +1181,7 @@ impl Modifier {
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
             | Self::CantActivate
+            | Self::CantActivateNonMana
             | Self::ChosenNameCantActivate
             | Self::SpellCastLimitPerTurn { .. }
             | Self::OpponentsCantCast(_)

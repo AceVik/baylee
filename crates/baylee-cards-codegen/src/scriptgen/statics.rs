@@ -155,6 +155,7 @@ impl Tx<'_> {
     /// in layer 6, and CR 613.1 applies those in order. The corpus writes both
     /// on one line, so this emits one `StaticAbility` per layer touched
     /// rather than trying to fold them into one.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn static_ability(&mut self, spec: &str) -> Option<()> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("an `S:` line with no `$` in it".to_string());
@@ -303,14 +304,14 @@ impl Tx<'_> {
         let var = p.take("CheckSVar")?;
         let cmp = p.take("SVarCompare").unwrap_or_else(|| "GE1".to_string());
         if cmp != "EQ0" {
-            return self.deny(format!("unclaimed parameter `Continuous.CheckSVar`"));
+            return self.deny("unclaimed parameter `Continuous.CheckSVar`".to_string());
         }
         let Some(raw) = self
             .svars
             .get(var.trim())
             .and_then(|s| s.trim().strip_prefix("Count$Valid "))
         else {
-            return self.deny(format!("unclaimed parameter `Continuous.CheckSVar`"));
+            return self.deny("unclaimed parameter `Continuous.CheckSVar`".to_string());
         };
         let valid = match raw.split_once("/Plus.") {
             None => raw.to_string(),
@@ -320,13 +321,13 @@ impl Tx<'_> {
                     .get(second_var.trim())
                     .and_then(|s| s.trim().strip_prefix("Count$Valid "))
                 else {
-                    return self.deny(format!("unclaimed parameter `Continuous.CheckSVar`"));
+                    return self.deny("unclaimed parameter `Continuous.CheckSVar`".to_string());
                 };
                 format!("{first},{second}")
             }
         };
         if valid.contains('/') {
-            return self.deny(format!("unclaimed parameter `Continuous.CheckSVar`"));
+            return self.deny("unclaimed parameter `Continuous.CheckSVar`".to_string());
         }
         let relative = valid.split(',').any(|alt| {
             alt.split(['.', '+']).any(|a| {
@@ -347,7 +348,7 @@ impl Tx<'_> {
             .flat_map(|alt| alt.split(['.', '+']))
             .any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
         if relative || (!yours && !opps && !nobodys) {
-            return self.deny(format!("unclaimed parameter `Continuous.CheckSVar`"));
+            return self.deny("unclaimed parameter `Continuous.CheckSVar`".to_string());
         }
         let expr = self.filter_expr(&valid)?;
         let name = self.body.filter_static("CHECK", &expr);
@@ -779,6 +780,7 @@ impl Tx<'_> {
 
     /// `AddPower`/`AddToughness` (layer 7c) and `SetPower`/`SetToughness`
     /// (layer 7b) as static abilities.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn pt_modifiers(
         &mut self,
         p: &mut Params,
@@ -848,7 +850,7 @@ impl Tx<'_> {
                         if !(1..=4).contains(&n) {
                             self.note("static ability with a computed P/T".to_string());
                             return None;
-                        };
+                        }
                         (v, n)
                     }
                 };

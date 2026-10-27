@@ -7,6 +7,7 @@ mod altar_of_bone;
 mod balance;
 mod braingeyser;
 mod channel;
+mod consume_spirit;
 mod damn;
 mod death_stroke;
 mod demonic_tutor;

@@ -57,9 +57,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::AddManaAmountFor { who, color, amount } => {
             let you = res.controller;
             for player in players_of(who, state, you, res) {
-                let n =
-                    u16::try_from(super::amount_for_player(&amount, state, you, res, player))
-                        .unwrap_or(u16::MAX);
+                let n = u16::try_from(super::amount_for_player(&amount, state, you, res, player))
+                    .unwrap_or(u16::MAX);
                 add_to(state, res, player, color, n, None);
             }
             None

@@ -12,6 +12,7 @@ mod archdruid_s_charm;
 mod army_of_allah;
 mod battle_cry;
 mod battle_frenzy;
+mod blinding_beam;
 mod blood_of_the_martyr;
 mod boiling_blood;
 mod bone_harvest;

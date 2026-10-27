@@ -4,6 +4,7 @@
 use super::*;
 
 mod aeronaut_s_wings;
+mod banshee_s_blade;
 mod bladed_pinions;
 mod c_2_mace;
 mod cloak_of_the_bat;
@@ -13,6 +14,7 @@ mod cultist_s_staff;
 mod daredevil_s_billy_club;
 mod dowsing_dagger;
 mod echo_circlet;
+mod empyrial_plate;
 mod fleetfeather_sandals;
 mod gilded_pinions;
 mod glimmerlight;

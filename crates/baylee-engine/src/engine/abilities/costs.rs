@@ -250,6 +250,7 @@ impl<L: CardLookup> Engine<L> {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn can_afford(
         &self,
         player: PlayerId,

@@ -17,13 +17,7 @@ fn andradite_leech_taxes_your_black_spells_and_pumps_self_for_black() {
     assert!(walk_to_own_main(&mut engine, p0));
 
     // Tap 3 Swamps to cast Andradite Leech ({2}{B}), leaving 1 untapped Swamp.
-    let swamps: Vec<_> = engine
-        .state()
-        .zones
-        .list(ZoneLocation::Battlefield)
-        .iter()
-        .copied()
-        .collect();
+    let swamps = engine.state().zones.list(ZoneLocation::Battlefield).clone();
     for &s in &swamps[..3] {
         engine
             .apply(p0, PlayerAction::ActivateManaAbility { source: s })

@@ -39,12 +39,11 @@ impl<L: CardLookup> Engine<L> {
     /// The intrinsic CR 305.6 mana of `legal.mana_abilities` is mana too.
     pub(super) fn narrow_under_chosen_names(&self, legal: &mut LegalActions) {
         let locked = self.names_locked_from_activating();
-        let has_non_mana_lock = self.state.effects.may_change_or_forbid_abilities()
-            && self
-                .state
-                .effects
-                .iter()
-                .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::CantActivateNonMana));
+        let has_non_mana_lock =
+            self.state.effects.may_change_or_forbid_abilities()
+                && self.state.effects.iter().any(|fx| {
+                    matches!(fx.modifier, baylee_cards_dsl::Modifier::CantActivateNonMana)
+                });
         if locked.is_empty() && !has_non_mana_lock {
             return;
         }

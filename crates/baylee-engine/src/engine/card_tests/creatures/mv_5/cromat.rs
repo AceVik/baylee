@@ -8,6 +8,7 @@ fn cromat() -> CardIndex {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn cromat_five_activated_abilities_destroy_blocker_grant_flying_regenerate_pump_and_topdeck() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = Duel::new(SEED, plains())

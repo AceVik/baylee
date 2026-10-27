@@ -908,25 +908,17 @@ pub(super) fn recipients(
             .into_iter()
             .map(DamageTarget::Player)
             .collect(),
-        // "Any target" (CR 115.4) chose from one set spanning both,
-        // so both halves are dealt to — a spell with two any-targets
-        // can have picked a creature and a face.
-        TargetSpec::AnyTarget => res
-            .targets
-            .iter()
-            .copied()
-            .map(DamageTarget::Object)
-            .chain(players(res.target_players))
-            .collect(),
-        // "Target opponent or planeswalker": one choice over both lists, so
-        // whichever half it landed in is dealt to.
-        TargetSpec::OpponentOrObject(_) | TargetSpec::PlayerOrObject(_) => res
-            .targets
-            .iter()
-            .copied()
-            .map(DamageTarget::Object)
-            .chain(players(res.target_players))
-            .collect(),
+        // "Any target" (CR 115.4) and "target opponent/player or <object>"
+        // chose from one set spanning both, so whichever half it landed in
+        // is dealt to.
+        TargetSpec::AnyTarget | TargetSpec::OpponentOrObject(_) | TargetSpec::PlayerOrObject(_) => {
+            res.targets
+                .iter()
+                .copied()
+                .map(DamageTarget::Object)
+                .chain(players(res.target_players))
+                .collect()
+        }
         // Only ever a second instance of "target": the damage goes to what
         // that instance chose, if it chose anything ("up to one").
         TargetSpec::ObjectOfFirstTargetsPlayer(_) | TargetSpec::CardInFirstTargetsGraveyard(_) => {

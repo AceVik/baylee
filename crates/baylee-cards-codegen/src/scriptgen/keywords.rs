@@ -423,6 +423,7 @@ impl Tx<'_> {
     /// *as the permanent enters*, which is what CR 614.1c describes and what
     /// stops the land from being tapped a moment after it arrives untapped.
     /// Every other `Moved` replacement is a rule of its own and refuses.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn replacement(&mut self, spec: &str) -> Option<()> {
         let Some((event, mut p)) = Params::parse(spec) else {
             return self.deny("an `R:` line with no `$` in it".to_string());

@@ -117,6 +117,7 @@ mod bulwark;
 mod burning_sands;
 mod call_to_the_grave;
 mod centaur_glade;
+mod confusion_in_the_ranks;
 mod curse_of_marit_lage;
 mod death_pits_of_rath;
 mod dictate_of_heliod;

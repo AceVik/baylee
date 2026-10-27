@@ -12306,3 +12306,53 @@ Woodcloaker
 Xantid Swarm
 Zealous Inquisitor
 Zombie Cutthroat
+Altar of Shadows
+Arc-Slogger
+Assert Authority
+Auriok Steelshaper
+Awe Strike
+Banshee's Blade
+Barter in Blood
+Betrayal of Flesh
+Blinding Beam
+Blinkmoth Urn
+Bloodscent
+Bosh, Iron Golem
+Broodstar
+Chalice of the Void
+Chimney Imp
+Clockwork Beetle
+Clockwork Condor
+Clockwork Dragon
+Clockwork Vorrac
+Confusion in the Ranks
+Consume Spirit
+Contaminated Bond
+Copperhoof Vorrac
+Crystal Shard
+Culling Scales
+Damping Matrix
+Dead-Iron Sledge
+Disarm
+Domineer
+Dream's Grip
+Dross Scorpion
+Duplicant
+Duskworker
+Electrostatic Bolt
+Empyrial Plate
+Extraplanar Lens
+Farsight Mask
+Fatespinner
+Fiery Gambit
+Flayed Nim
+Forge Armor
+Fractured Loyalty
+Frogmite
+Gate to the Aether
+Glissa Sunseeker
+Goblin Charbelcher
+Goblin Dirigible
+Goblin War Wagon
+Golem-Skin Gauntlets
+Grab the Reins

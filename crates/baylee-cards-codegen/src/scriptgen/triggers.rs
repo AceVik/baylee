@@ -634,6 +634,7 @@ impl Tx<'_> {
         Some(format!("Trigger::State(&{name})"))
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn triggered(&mut self, spec: &str) -> Option<()> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("a `T:` line with no `$` in it".to_string());

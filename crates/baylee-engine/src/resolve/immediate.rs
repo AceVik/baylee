@@ -3310,9 +3310,7 @@ pub(super) fn exec_immediate(
             None
         }
         Effect::UnattachAllEquipmentFromTarget => {
-            let Some(&host) = res.targets.first() else {
-                return None;
-            };
+            let &host = res.targets.first()?;
             if !state
                 .object(host)
                 .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
@@ -3356,15 +3354,13 @@ pub(super) fn exec_immediate(
             })
         }
         Effect::AttachedGainControlBy { new_controller } => {
-            let Some(host) = crate::eval::attached_for_ability(
+            let host = crate::eval::attached_for_ability(
                 state,
                 res.source,
                 source_version(state, res),
                 source_attachment_lki(state, res.on_stack),
             )
-            .map(|o| o.id) else {
-                return None;
-            };
+            .map(|o| o.id)?;
             if let Some(&player) = players_of(new_controller, state, you, res).first() {
                 gain_control(state, &[(host, player)]);
             }

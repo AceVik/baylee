@@ -62,6 +62,7 @@ mod anodet_lurker;
 mod bastion_mastodon;
 mod boulderborn_dragon;
 mod clockwork_avian;
+mod clockwork_vorrac;
 mod cloudheath_drake;
 mod coal_golem;
 mod copper_leaf_angel;

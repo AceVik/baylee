@@ -613,6 +613,7 @@ impl Tx<'_> {
     /// the battlefield. The engine's word for it is the keyword, granted for
     /// the rest of the turn — to the targets, or to the source itself.
     /// Every other `Effect` is its own sentence and stays refused.
+    #[allow(clippy::unused_self)]
     pub(super) fn debuff_effect(
         &mut self,
         p: &mut Params,
@@ -762,6 +763,7 @@ impl Tx<'_> {
     /// Graveyard is the pair that makes the point: it is *not* `Destroy`,
     /// which checks indestructible (CR 702.12b), and generating one for the
     /// other would quietly kill creatures that survive.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn change_zone(
         &mut self,
         p: &mut Params,
