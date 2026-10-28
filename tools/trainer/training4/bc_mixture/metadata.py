@@ -17,7 +17,7 @@ def game_metadata(dataset, split):
     if entries is None:
         entries=[json.loads(p.read_text()) for p in sorted((root/'ready').glob('*.json'))]
     entries=[e for e in entries if e['split']==split]
-    source_hashes={e['converted_game_id']:e['record_sha256'] for e in meta.get('shadow_bc_sources',[])}
+    source_hashes={e['converted_game_id']:e['record_sha256'] for e in [*meta.get('shadow_bc_sources',[]),*meta.get('llm_bc_sources',[])]}
     indices={};games={};receipts={};seen_records=set();observed_by_game={}
     # Dataset4 already groups/validates every complete seat trajectory. Inspect
     # its first row once, rather than scanning the full frame index per game.

@@ -43,6 +43,7 @@ SOURCE_KIND_MAP = {
     "House": 1,
     "Forced": 2,
     "Search": 3,
+    "External": 4,
 }
 
 

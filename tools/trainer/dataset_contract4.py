@@ -9,6 +9,8 @@ SHA256 = re.compile(r'[0-9a-f]{64}\Z')
 
 
 def reject_shadow_policy_gradient(meta):
+    if any(key.startswith('llm_bc_') for key in meta):
+        raise ValueError('Verified LLM labels are BC-only, never PPO behavior probabilities')
     if any(key.startswith('shadow_bc_') for key in meta) or meta.get('ppo_eligible') is False:
         raise ValueError('Shadow teacher labels are BC-only, never PPO behavior probabilities')
 
@@ -85,3 +87,10 @@ def validate_shadow_dataset(root, meta):
         identities.add(identity)
     if names != set(hashes):
         raise ValueError('Unbound shadow BC companion files')
+
+
+def validate_bc_dataset(root, meta):
+    """Validate both optional BC provenance contracts before any cached read."""
+    validate_shadow_dataset(root, meta)
+    from dataset_llm_contract4 import validate_llm_dataset
+    validate_llm_dataset(root, meta)

@@ -88,6 +88,7 @@ impl GameWriter {
             SourceKind4::House => 1,
             SourceKind4::Forced => 2,
             SourceKind4::Search => 3,
+            SourceKind4::External => 4,
         };
 
         self.bst4_buf.clear();

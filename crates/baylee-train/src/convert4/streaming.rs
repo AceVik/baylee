@@ -147,7 +147,15 @@ pub fn stream_game4(
     sidecar: Option<&[RolloutStepSidecar4]>,
     emit: impl FnMut(Step4) -> Result<(), String>,
 ) -> Result<StreamedGame4, String> {
-    stream_inner(record, game_id, include_passive_obs, sidecar, None, emit)
+    stream_inner(
+        record,
+        game_id,
+        include_passive_obs,
+        sidecar,
+        None,
+        None,
+        emit,
+    )
 }
 
 /// Convert a separate BC-only dataset with strictly verified shadow advice.
@@ -162,7 +170,28 @@ pub fn stream_game4_shadow_bc(
     labels: &mut super::shadow_bc::ShadowBc4,
     emit: impl FnMut(Step4) -> Result<(), String>,
 ) -> Result<StreamedGame4, String> {
-    stream_inner(record, game_id, true, Some(sidecar), Some(labels), emit)
+    stream_inner(
+        record,
+        game_id,
+        true,
+        Some(sidecar),
+        Some(labels),
+        None,
+        emit,
+    )
+}
+
+/// Convert verified external LLM actions as BC-only targets, preserving every observation.
+///
+/// # Errors
+/// Any record, origin, replay or output mismatch.
+pub fn stream_game4_llm_bc(
+    record: &[u8],
+    game_id: u32,
+    labels: &mut super::llm_bc::LlmBc4,
+    emit: impl FnMut(Step4) -> Result<(), String>,
+) -> Result<StreamedGame4, String> {
+    stream_inner(record, game_id, true, None, None, Some(labels), emit)
 }
 
 fn stream_inner(
@@ -171,18 +200,20 @@ fn stream_inner(
     include_passive_obs: bool,
     sidecar: Option<&[RolloutStepSidecar4]>,
     shadow: Option<&mut super::shadow_bc::ShadowBc4>,
+    llm: Option<&mut super::llm_bc::LlmBc4>,
     mut emit: impl FnMut(Step4) -> Result<(), String>,
 ) -> Result<StreamedGame4, String> {
     let targets = terminal_targets(record)?;
     let mut pending: [Option<(Step4, i32)>; MAX_SEATS] = std::array::from_fn(|_| None);
     let mut steps = 0;
     let mut peak_buffered_frames = 0;
-    let replay = super::replay::replay_frames_shadow(
+    let replay = super::replay::replay_frames_modes(
         record,
         game_id,
         include_passive_obs,
         sidecar,
         shadow,
+        llm,
         |step, life| {
             let seat = step.seat as usize;
             if let Some((mut previous, previous_life)) = pending[seat].take() {

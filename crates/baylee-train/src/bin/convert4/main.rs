@@ -67,6 +67,9 @@ struct Args {
     /// Build a separate BC-only dataset from verified shadow/*.jsonl advice.
     #[arg(long)]
     shadow_bc: bool,
+    /// Verified executed external LLM labels only; all other policy weights zero.
+    #[arg(long, conflicts_with = "shadow_bc")]
+    llm_bc: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -78,6 +81,7 @@ struct GameRef {
     sidecar: Option<Vec<RolloutStepSidecar4>>,
     validation: bool,
     shadow: Option<shadow::Source>,
+    llm: Option<llm::Source>,
 }
 
 fn read_member(path: &Path, offset: u64, len: u64) -> anyhow::Result<Vec<u8>> {
@@ -103,6 +107,7 @@ fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<(
     Ok(())
 }
 
+mod llm;
 mod output;
 mod policy_provenance;
 mod shadow;
@@ -114,6 +119,9 @@ use output::{GameWriter, publish_ready};
 )]
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    if args.llm_bc && !args.include_passive_obs {
+        bail!("--llm-bc requires --include-passive-obs");
+    }
     if args.shadow_bc && !args.include_passive_obs {
         bail!("--shadow-bc requires --include-passive-obs for complete recurrent history");
     }
@@ -125,6 +133,7 @@ fn main() -> anyhow::Result<()> {
     let mut games: Vec<GameRef> = Vec::new();
     let mut policy_sources = Vec::new();
     let mut shadow_seen = BTreeSet::new();
+    let mut llm_seen = BTreeSet::new();
     let mut vocab_set: BTreeSet<u32> = baylee_cards::all().map(|card| card.index.get()).collect();
     vocab_set.insert(UNKNOWN_CARD);
 
@@ -168,7 +177,7 @@ fn main() -> anyhow::Result<()> {
             let game_id = (games.len() + 1) as u32;
             games.push(GameRef {
                 game_id,
-                shard_path: if args.shadow_bc {
+                shard_path: if args.shadow_bc || args.llm_bc {
                     run_dir.join("records").join(shard_name).canonicalize()?
                 } else {
                     run_dir.join("records").join(shard_name)
@@ -187,6 +196,26 @@ fn main() -> anyhow::Result<()> {
                     anyhow::ensure!(
                         shadow_seen.insert(source.namespace_key()),
                         "Duplicate shadow source game"
+                    );
+                    Some(source)
+                } else {
+                    None
+                },
+                llm: if args.llm_bc {
+                    anyhow::ensure!(
+                        sidecar.is_none(),
+                        "LLM BC must not fabricate neural rollout provenance"
+                    );
+                    let source = llm::Source::load(
+                        run_dir,
+                        v["game"].as_str().context("LLM game key")?,
+                        &run_dir.join("records").join(shard_name),
+                        offset,
+                        len,
+                    )?;
+                    anyhow::ensure!(
+                        llm_seen.insert(source.record_sha().to_string()),
+                        "Duplicate LLM record across source namespaces"
                     );
                     Some(source)
                 } else {
@@ -311,6 +340,20 @@ fn main() -> anyhow::Result<()> {
                 .collect::<Vec<_>>()
         );
     }
+    if args.llm_bc {
+        anyhow::ensure!(!games_arc.is_empty(), "No completed LLM games selected");
+        meta["llm_bc_version"] = json!(1);
+        meta["llm_bc_contract"] = json!("verified_executed_llm_v1");
+        meta["llm_bc_status"] = json!("in_progress");
+        meta["ppo_eligible"] = json!(false);
+        meta["policy_provenance_version"] = Value::Null;
+        meta["llm_bc_sources"] = json!(
+            games_arc
+                .iter()
+                .filter_map(|g| g.llm.as_ref().map(|s| s.metadata(g.game_id)))
+                .collect::<Vec<_>>()
+        );
+    }
     fs::write(
         args.out.join("dataset_header.json"),
         serde_json::to_vec_pretty(&meta)?,
@@ -346,11 +389,15 @@ fn main() -> anyhow::Result<()> {
                 let mut writer = GameWriter::new(&root, gref.validation, gref.game_id, rule_roots.clone())?;
                 let mut frame_labels = gref.shadow.as_ref()
                     .map(|source| shadow::FrameLabels::new(&root,gref.game_id,source)).transpose()?;
+                let mut llm_labels=gref.llm.as_ref().map(|source|llm::FrameLabels::new(&root,gref.game_id,source)).transpose()?;
                 let emit = |step: Step4| {
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
+                    if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
                     writer.push(&step).map_err(|e|e.to_string())
                 };
-                let result = if let Some(source) = &gref.shadow {
+                let result = if let Some(source)=&gref.llm {
+                    source.verify(&bytes).and_then(|mut labels|baylee_train::convert4::stream_game4_llm_bc(&bytes,gref.game_id,&mut labels,emit))
+                } else if let Some(source) = &gref.shadow {
                     source.verify(&bytes,&structure_sha256).and_then(|mut labels|
                         baylee_train::convert4::stream_game4_shadow_bc(&bytes,gref.game_id,
                             gref.sidecar.as_deref().expect("checked behavior sidecar"),&mut labels,emit))
@@ -374,7 +421,7 @@ fn main() -> anyhow::Result<()> {
                 {
                     let mut cov = cov_total.lock().expect("cov lock");
                     for pk in 0..extracted.coverage.counts.len() {
-                        for sk in 0..4 {
+                        for sk in 0..cov.counts[pk].len() {
                             cov.counts[pk][sk] += extracted.coverage.counts[pk][sk];
                         }
                     }
@@ -387,6 +434,7 @@ fn main() -> anyhow::Result<()> {
                     continue;
                 }
                 if let Some(labels) = frame_labels { labels.finish()?; }
+                if let Some(labels)=llm_labels {labels.finish()?;}
                 let name = writer.finish()?;
                 publish_ready(&root, gref, &name, extracted.steps, &structure_sha256)?;
                 let rows = if gref.validation { &val_rows } else { &train_rows };
@@ -446,6 +494,13 @@ fn main() -> anyhow::Result<()> {
     meta["games_rejected"] = json!(rejected.len());
     meta["unencoded_decisions"] = json!(unencoded_total.load(Ordering::Relaxed));
     meta["coverage_matrix"] = json!(cov.counts);
+    if args.llm_bc {
+        anyhow::ensure!(
+            rejected.is_empty(),
+            "LLM BC rejected games; no completed meta.json published"
+        );
+        llm::finish_metadata(&args.out, &mut meta)?;
+    }
     meta["elapsed_secs"] = json!(started.elapsed().as_secs_f64());
     fs::write(
         args.out.join("meta.json"),

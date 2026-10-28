@@ -112,6 +112,9 @@ pub enum SourceKind4 {
     Forced = 2,
     /// Answered by belief-consistent lookahead search over `Playernet v4`.
     Search = 3,
+    /// An ordinary external socket answer; detailed origin is separately verified.
+    /// Used only by explicit BC conversion, never neural behavior probabilities.
+    External = 4,
 }
 
 /// Provenance metadata stored with every decision step in v4 datasets and RL rollouts.
@@ -143,11 +146,11 @@ impl Default for StepProvenance4 {
 }
 
 /// Coverage matrix tracking per-`PendingKind4` counts of `Net`, `House`, `Forced`,
-/// and `Search` answers across a run or arena evaluation.
+/// `Search`, and explicit `External` answers across a run or arena evaluation.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct CoverageMatrix4 {
     /// Counts `[pending_kind][source_kind]`.
-    pub counts: [[u64; 4]; PendingKind4::COUNT],
+    pub counts: [[u64; 5]; PendingKind4::COUNT],
 }
 
 impl CoverageMatrix4 {

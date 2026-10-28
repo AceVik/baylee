@@ -38,7 +38,35 @@ pub(super) fn replay_frames_shadow(
     game_id: u32,
     include_passive_obs: bool,
     sidecar: Option<&[RolloutStepSidecar4]>,
+    shadow: Option<&mut super::shadow_bc::ShadowBc4>,
+    emit: impl FnMut(Step4, i32) -> Result<(), String>,
+) -> Result<ReplaySummary, String> {
+    replay_frames_modes(
+        record,
+        game_id,
+        include_passive_obs,
+        sidecar,
+        shadow,
+        None,
+        emit,
+    )
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "Audited chronological observation and decision replay"
+)]
+#[allow(
+    clippy::cast_precision_loss,
+    reason = "Existing normalized auxiliary values"
+)]
+pub(super) fn replay_frames_modes(
+    record: &[u8],
+    game_id: u32,
+    include_passive_obs: bool,
+    sidecar: Option<&[RolloutStepSidecar4]>,
     mut shadow: Option<&mut super::shadow_bc::ShadowBc4>,
+    mut llm: Option<&mut super::llm_bc::LlmBc4>,
     mut emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<ReplaySummary, String> {
     let mut lines = record
@@ -166,6 +194,7 @@ pub(super) fn replay_frames_shadow(
                                         ..StepProvenance4::default()
                                     },
                                     shadow_label: None,
+                                    llm_label: None,
                                 },
                                 cur_life,
                             )?;
@@ -188,16 +217,35 @@ pub(super) fn replay_frames_shadow(
                     HeadKind4::ScalarValue => cands.max_choices <= cands.min_choices,
                 };
 
-                if is_forced {
+                let llm_label = if matches!(by, Source::Seat) {
+                    llm.as_deref_mut()
+                        .map(|labels| labels.input(input_n, seat_u8, &action, is_forced))
+                        .transpose()?
+                        .flatten()
+                } else {
+                    None
+                };
+
+                if is_forced
+                    || (llm.is_some()
+                        && matches!(action, baylee_engine::choice::PlayerAction::Concede))
+                {
                     if shadow
                         .as_ref()
                         .is_some_and(|labels| labels.has_label(input_n))
                     {
                         return Err("Shadow label attached to a forced decision".into());
                     }
-                    coverage.record(p_kind, SourceKind4::Forced);
-                } else if let Some(mut target) = if cur_sidecar
-                    .is_some_and(|entry| entry.provenance.source == SourceKind4::Net)
+                    coverage.record(
+                        p_kind,
+                        if is_forced {
+                            SourceKind4::Forced
+                        } else {
+                            SourceKind4::External
+                        },
+                    );
+                } else if let Some(mut target) = if llm.is_some()
+                    || cur_sidecar.is_some_and(|entry| entry.provenance.source == SourceKind4::Net)
                 {
                     crate::features4::encode_executed_action4(&cands, &pending, &action)
                 } else {
@@ -228,6 +276,18 @@ pub(super) fn replay_frames_shadow(
                     };
                     let mut policy_weight = step_loss_weight;
                     let mut shadow_label = None;
+                    if llm.is_some() {
+                        policy_weight = if llm_label.is_some() { 1.0 } else { 0.0 };
+                        prov.source = if matches!(by, Source::Seat) {
+                            SourceKind4::External
+                        } else {
+                            SourceKind4::House
+                        };
+                        prov.temperature = 0.0;
+                        prov.thinking_steps = 0;
+                        prov.has_logprob = false;
+                        prov.behavior_logprob = 0.0;
+                    }
                     if let Some(labels) = shadow.as_deref_mut() {
                         let original_provenance = prov;
                         policy_weight = 0.0;
@@ -302,6 +362,7 @@ pub(super) fn replay_frames_shadow(
                             aux: AuxTargets4::default(),
                             provenance: prov,
                             shadow_label,
+                            llm_label,
                         },
                         cur_life,
                     )?;
@@ -334,6 +395,10 @@ pub(super) fn replay_frames_shadow(
         if sidecar.is_none_or(|rows| rows.len() != input_idx) {
             return Err("Original behavior provenance length mismatch".into());
         }
+        labels.finish()?;
+    }
+
+    if let Some(labels) = llm {
         labels.finish()?;
     }
 

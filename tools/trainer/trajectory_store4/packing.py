@@ -30,7 +30,7 @@ ROW = struct.Struct("<IIQQII")
 BST4_MAGIC = b"BST4"
 BST4_HDR = struct.Struct("<4s10I2i9f12I")
 STATE_FIELD = re.compile(rb',\s*"state"\s*:')
-SOURCE_KIND_MAP = {"Net": 0, "House": 1, "Forced": 2, "Search": 3}
+SOURCE_KIND_MAP = {"Net": 0, "House": 1, "Forced": 2, "Search": 3, "External": 4}
 
 
 def parse_source_kind(raw) -> int:
