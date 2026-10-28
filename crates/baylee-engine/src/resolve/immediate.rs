@@ -3386,75 +3386,7 @@ pub(super) fn exec_immediate(
                 source: resolving_ability(state, res),
             })
         }
-        Effect::RevealUntilLandDealDamage { target } => {
-            let library: Vec<ObjectId> = state.zones.list(ZoneLocation::Library(you)).clone();
-            let mut revealed = Vec::new();
-            let mut nonland_count = 0u32;
-            let mut is_mountain = false;
-            for &card in library.iter().rev() {
-                revealed.push(card);
-                let Some(o) = state.object(card) else {
-                    continue;
-                };
-                let chars = o.characteristics();
-                if chars.types.contains(baylee_core::types::TypeSet::LAND) {
-                    is_mountain = chars
-                        .subtypes
-                        .contains(baylee_core::generated::subtypes::land::MOUNTAIN);
-                    break;
-                }
-                nonland_count += 1;
-            }
-            if !revealed.is_empty() {
-                state.journal.record(GameEvent::Revealed {
-                    player: you,
-                    cards: revealed.clone(),
-                });
-            }
-            let damage = if is_mountain {
-                nonland_count.saturating_mul(2)
-            } else {
-                nonland_count
-            };
-            let dmg_pending = life::exec(
-                state,
-                res,
-                Effect::DealDamage {
-                    target,
-                    amount: baylee_cards_dsl::Amount::Fixed(damage),
-                },
-            );
-            if dmg_pending.is_some() {
-                for card in revealed {
-                    let _ = state.move_object(
-                        card,
-                        ZoneLocation::Library(you),
-                        ZonePosition::Bottom,
-                        Cause::Effect,
-                    );
-                }
-                return dmg_pending;
-            }
-            if revealed.len() > 1 {
-                res.awaiting = Some(AwaitingOp::DigBottom);
-                let n = u32::try_from(revealed.len()).unwrap_or(u32::MAX);
-                return Some(Pending::Arrange {
-                    player: you,
-                    cards: revealed,
-                    piles: vec![ArrangePile::all_of(ArrangePlace::LibraryBottom, n)],
-                    prompt: ArrangePrompt::Order,
-                });
-            }
-            for card in revealed {
-                let _ = state.move_object(
-                    card,
-                    ZoneLocation::Library(you),
-                    ZonePosition::Bottom,
-                    Cause::Effect,
-                );
-            }
-            None
-        }
+        Effect::RevealUntilLandDealDamage { target } => life::reveal_until_land(state, res, target),
     }
 }
 

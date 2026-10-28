@@ -246,12 +246,16 @@ pub struct DamageResolution {
     after: AfterDamage,
 }
 
-#[derive(Clone, Copy, Debug, Hash)]
+#[derive(Clone, Debug, Hash)]
 enum AfterDamage {
     Done,
     CappedLifeGain {
         recipient: DamageTarget,
         before_cap: i32,
+    },
+    BottomOfLibrary {
+        player: PlayerId,
+        cards: Vec<ObjectId>,
     },
 }
 
@@ -365,6 +369,70 @@ fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pend
     finish_or_suspend(state, res, DamageResolution { work, after })
 }
 
+/// Reveal until a land, deal the resulting damage, then order those same cards
+/// onto the bottom. The damage continuation retains the cards even when a
+/// replacement effect suspends the instruction.
+pub(super) fn reveal_until_land(
+    state: &mut GameState,
+    res: &mut Resolution,
+    target: TargetSpec,
+) -> Option<Pending> {
+    let you = res.controller;
+    let library: Vec<ObjectId> = state.zones.list(ZoneLocation::Library(you)).clone();
+    let mut revealed = Vec::new();
+    let mut nonland_count = 0u32;
+    let mut is_mountain = false;
+    for &card in library.iter().rev() {
+        revealed.push(card);
+        let Some(o) = state.object(card) else {
+            continue;
+        };
+        let chars = o.characteristics();
+        if chars.types.contains(TypeSet::LAND) {
+            is_mountain = chars
+                .subtypes
+                .contains(baylee_core::generated::subtypes::land::MOUNTAIN);
+            break;
+        }
+        nonland_count += 1;
+    }
+    if !revealed.is_empty() {
+        state.journal.record(GameEvent::Revealed {
+            player: you,
+            cards: revealed.clone(),
+        });
+    }
+    let damage = if is_mountain {
+        nonland_count.saturating_mul(2)
+    } else {
+        nonland_count
+    };
+    let assignments = assignments(
+        state,
+        res,
+        Effect::DealDamage {
+            target,
+            amount: baylee_cards_dsl::Amount::Fixed(damage),
+        },
+    );
+    let cause = batch57::cause(state, res);
+    let mut work = DamageWork::new(state, assignments);
+    if let Some(cause) = cause {
+        work = work.with_cause(&cause);
+    }
+    finish_or_suspend(
+        state,
+        res,
+        DamageResolution {
+            work,
+            after: AfterDamage::BottomOfLibrary {
+                player: you,
+                cards: revealed,
+            },
+        },
+    )
+}
+
 /// The DSL spells one untargeted creature-and-player damage sentence as
 /// this adjacent pair. Other instructions and differing amounts delimit it.
 fn simultaneous_player_half(res: &Resolution, op: Effect) -> Option<Effect> {
@@ -400,33 +468,59 @@ fn finish_or_suspend(
         res.awaiting = Some(AwaitingOp::Damage(Box::new(damage)));
         return Some(pending);
     }
-    after_damage(state, res, &damage);
-    None
+    after_damage(state, res, &damage)
 }
 
-fn after_damage(state: &mut GameState, res: &Resolution, damage: &DamageResolution) {
-    if let AfterDamage::CappedLifeGain {
-        recipient,
-        before_cap,
-    } = damage.after
-    {
-        state.refresh_characteristics();
-        let cap = match recipient {
-            DamageTarget::Object(_) => target_chars(res, state)
-                .filter(|c| c.types.contains(TypeSet::CREATURE))
-                .map_or(before_cap, |c| {
-                    before_cap.min(i32::from(c.toughness.unwrap_or(0)).max(0))
-                }),
-            DamageTarget::Player(_) => before_cap,
-        };
-        gain_life(
-            state,
-            res.controller,
-            i32::try_from(damage.work.dealt())
-                .unwrap_or(i32::MAX)
-                .min(cap),
-        );
+fn after_damage(
+    state: &mut GameState,
+    res: &mut Resolution,
+    damage: &DamageResolution,
+) -> Option<Pending> {
+    match &damage.after {
+        AfterDamage::Done => {}
+        AfterDamage::CappedLifeGain {
+            recipient,
+            before_cap,
+        } => {
+            state.refresh_characteristics();
+            let cap = match recipient {
+                DamageTarget::Object(_) => target_chars(res, state)
+                    .filter(|c| c.types.contains(TypeSet::CREATURE))
+                    .map_or(*before_cap, |c| {
+                        (*before_cap).min(i32::from(c.toughness.unwrap_or(0)).max(0))
+                    }),
+                DamageTarget::Player(_) => *before_cap,
+            };
+            gain_life(
+                state,
+                res.controller,
+                i32::try_from(damage.work.dealt())
+                    .unwrap_or(i32::MAX)
+                    .min(cap),
+            );
+        }
+        AfterDamage::BottomOfLibrary { player, cards } => {
+            if cards.len() > 1 {
+                res.awaiting = Some(AwaitingOp::DigBottom);
+                let n = u32::try_from(cards.len()).unwrap_or(u32::MAX);
+                return Some(Pending::Arrange {
+                    player: *player,
+                    cards: cards.clone(),
+                    piles: vec![ArrangePile::all_of(ArrangePlace::LibraryBottom, n)],
+                    prompt: ArrangePrompt::Order,
+                });
+            }
+            for &card in cards {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(*player),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+        }
     }
+    None
 }
 
 pub(crate) fn resume_damage(
@@ -441,7 +535,9 @@ pub(crate) fn resume_damage(
         res.awaiting = Some(AwaitingOp::Damage(damage));
         return Flow::Wait(pending);
     }
-    after_damage(state, res, &damage);
+    if let Some(pending) = after_damage(state, res, &damage) {
+        return Flow::Wait(pending);
+    }
     res.pc += 1;
     run(state, res)
 }
@@ -464,7 +560,9 @@ pub(crate) fn refresh_damage(state: &mut GameState, res: &mut Resolution) -> Flo
         res.awaiting = Some(AwaitingOp::Damage(damage));
         return Flow::Wait(pending);
     }
-    after_damage(state, res, &damage);
+    if let Some(pending) = after_damage(state, res, &damage) {
+        return Flow::Wait(pending);
+    }
     res.pc += 1;
     run(state, res)
 }
