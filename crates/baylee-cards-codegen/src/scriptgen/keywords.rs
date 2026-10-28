@@ -350,12 +350,21 @@ impl Tx<'_> {
     /// `K:Affinity:<valid>` (CR 702.41a): "This spell costs {1} less to cast
     /// for each [text] you control."
     pub(super) fn affinity(&mut self, rest: &str) -> Option<()> {
-        let valid = rest.split(':').next().unwrap_or(rest).trim();
-        let you_ctrl = if valid.contains('.') {
-            format!("{valid}+YouCtrl")
-        } else {
-            format!("{valid}.YouCtrl")
-        };
+        if rest.contains(':') {
+            return self.deny(format!("an `Affinity` with extra fields `{rest}`"));
+        }
+        let you_ctrl = rest
+            .split([',', ';'])
+            .map(|alternative| {
+                let alternative = alternative.trim();
+                if alternative.contains('.') {
+                    format!("{alternative}+YouCtrl")
+                } else {
+                    format!("{alternative}.YouCtrl")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
         let expr = self.filter_expr(&you_ctrl)?;
         let filter = self.body.filter_static("AFFINITY", &expr);
         self.body.cost_reduction = Some(format!(

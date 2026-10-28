@@ -2429,3 +2429,19 @@ fn mirrodin_reader_patterns() {
         ]
     );
 }
+
+#[test]
+fn affinity_scopes_every_alternative_and_refuses_extra_fields() {
+    let body = read("Name:X\nManaCost:4\nTypes:Artifact\nK:Affinity:Artifact,Creature");
+    assert_eq!(
+        body.statics.matches("Filter::ControlledByYou").count(),
+        2,
+        "each alternative is something you control: {}",
+        body.statics
+    );
+    assert!(body.statics.contains("Filter::ARTIFACT"));
+    assert!(body.statics.contains("Filter::CREATURE"));
+    assert!(refused(
+        "Name:X\nManaCost:4\nTypes:Artifact\nK:Affinity:Artifact:UnreadRule"
+    ));
+}
