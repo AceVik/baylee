@@ -59,6 +59,7 @@ fn cavern_harpy_returns_blue_or_black_creature_on_etb_and_bounces_itself_for_one
     assert!(on_battlefield(&engine, p0, index::FUGITIVE_WIZARD).is_none());
     assert!(in_hand(&engine, p0, index::FUGITIVE_WIZARD).is_some());
     let harpy_id = on_battlefield(&engine, p0, harpy).expect("Cavern Harpy remains on battlefield");
+    assert!(keywords(&engine, harpy_id).contains(KeywordSet::FLYING));
 
     // Activated ability (index 1, after triggered ability 0): Pay 1 life: Return Cavern Harpy to its owner's hand.
     assert_eq!(engine.state().players[0].life, 20);

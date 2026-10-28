@@ -82,3 +82,35 @@ fn grab_the_reins_entwined_steals_creature_then_sacrifices_it_to_deal_damage() {
     assert!(on_battlefield(&engine, p1, HILL_GIANT).is_none());
     assert_eq!(engine.state().players[1].life, 17);
 }
+
+#[test]
+fn grab_the_reins_first_mode_grants_control_and_haste_until_cleanup() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, mountain())
+        .hand(0, &[grab_the_reins()])
+        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+        .battlefield(1, &[HILL_GIANT])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    let giant = on_battlefield(&engine, p1, HILL_GIANT).unwrap();
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, grab_the_reins());
+    let Pending::ChooseCastMode { options, .. } = engine.pending().clone() else {
+        panic!("expected ChooseCastMode, got {:?}", engine.pending());
+    };
+    let mode = options
+        .iter()
+        .position(|o| o.kind == CastModeKind::Mode(0))
+        .expect("first mode offered alone");
+    engine.apply(p0, PlayerAction::ChooseMode(mode)).unwrap();
+    aim_at(&mut engine, p0, giant);
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(engine.state().object(giant).unwrap().controller, p0);
+    assert!(keywords(&engine, giant).contains(KeywordSet::HASTE));
+    reach_their_main_phase(&mut engine, p1);
+    assert_eq!(engine.state().object(giant).unwrap().controller, p1);
+    assert!(!keywords(&engine, giant).contains(KeywordSet::HASTE));
+}

@@ -89,6 +89,11 @@ fn grotesque_hybrid_destroys_creature_it_deals_combat_damage_to() {
 
     let hybrid = on_battlefield(&game, p0, card).unwrap();
     let wall = on_battlefield(&game, p1, index::WALL_OF_STONE).unwrap();
+    game.dev_state_mut(p1)
+        .unwrap()
+        .object_mut(wall)
+        .unwrap()
+        .regeneration_shields = 1;
     assert_eq!(pt(&game, wall), (0, 8));
 
     pass_until(&mut game, |e| {

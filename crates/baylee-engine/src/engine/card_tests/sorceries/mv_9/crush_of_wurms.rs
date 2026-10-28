@@ -40,6 +40,19 @@ fn crush_of_wurms_creates_three_six_six_wurm_tokens_and_flashes_back_for_twelve_
         })
         .collect();
     assert_eq!(wurms_1.len(), 3);
+    for &wurm in &wurms_1 {
+        let characteristics = engine.state().object(wurm).unwrap().characteristics();
+        assert!(
+            characteristics
+                .colors
+                .contains(baylee_core::color::Color::Green)
+        );
+        assert!(
+            characteristics
+                .subtypes
+                .contains(baylee_core::generated::subtypes::creature::WURM)
+        );
+    }
 
     let remaining_forests: Vec<_> = all_on_battlefield(&engine, p0, forest())
         .into_iter()

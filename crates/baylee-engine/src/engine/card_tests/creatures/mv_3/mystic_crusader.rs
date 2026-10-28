@@ -65,3 +65,24 @@ fn mystic_crusader_has_protection_and_gains_stats_and_flying_with_threshold() {
     assert!(!options.contains(&id), "protection from red blocks Shock");
     assert!(options.contains(&bears));
 }
+
+#[test]
+fn mystic_crusader_protection_from_black_excludes_black_spells() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, index::PLAINS)
+        .battlefield(0, &[mystic_crusader()])
+        .battlefield(1, &[index::SWAMP, index::GRIZZLY_BEARS])
+        .hand(1, &[index::DISFIGURE])
+        .start();
+    keep_mulligans(&mut e);
+    reach_their_main_phase(&mut e, p1);
+
+    let crusader = on_battlefield(&e, p0, mystic_crusader()).unwrap();
+    let bears = on_battlefield(&e, p1, index::GRIZZLY_BEARS).unwrap();
+    cast_from_hand(&mut e, p1, index::DISFIGURE);
+    let Pending::ChooseTargets { options, .. } = e.pending().clone() else {
+        panic!("expected Disfigure targets")
+    };
+    assert!(!options.contains(&crusader));
+    assert!(options.contains(&bears));
+}

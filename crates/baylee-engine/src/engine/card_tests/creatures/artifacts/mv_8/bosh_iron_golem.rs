@@ -18,6 +18,7 @@ fn bosh_iron_golem_sacrifices_an_artifact_and_deals_damage_equal_to_its_mana_val
     reach_main_phase(&mut engine, p0);
 
     let bosh_id = on_battlefield(&engine, p0, bosh).unwrap();
+    assert!(keywords(&engine, bosh_id).contains(KeywordSet::TRAMPLE));
     tap_all_mana_but(&mut engine, p0, None);
     activate(&mut engine, p0, bosh, 0);
     engine

@@ -89,6 +89,10 @@ fn betrayal_of_flesh_entwined_sacrifices_three_lands_to_destroy_and_reanimate() 
     }
     pass_until(&mut engine, stack_is_empty);
 
+    for &land in &swamps[..3] {
+        assert_eq!(engine.state().object(land).unwrap().zone, Zone::Graveyard);
+    }
+    assert_eq!(all_on_battlefield(&engine, p0, swamp()).len(), 3);
     assert!(on_battlefield(&engine, p1, HILL_GIANT).is_none());
     assert!(on_battlefield(&engine, p0, grizzly_bears()).is_some());
 }

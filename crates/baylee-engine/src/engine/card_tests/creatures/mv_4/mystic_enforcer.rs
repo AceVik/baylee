@@ -54,3 +54,24 @@ fn mystic_enforcer_gains_plus_three_plus_three_and_flying_with_threshold() {
     assert_eq!(pt(&e, id), (6, 6));
     assert!(keywords(&e, id).contains(KeywordSet::FLYING));
 }
+
+#[test]
+fn mystic_enforcer_protection_from_black_excludes_black_spells() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, index::FOREST)
+        .battlefield(0, &[mystic_enforcer()])
+        .battlefield(1, &[index::SWAMP, index::GRIZZLY_BEARS])
+        .hand(1, &[index::DISFIGURE])
+        .start();
+    keep_mulligans(&mut e);
+    reach_their_main_phase(&mut e, p1);
+
+    let enforcer = on_battlefield(&e, p0, mystic_enforcer()).unwrap();
+    let bears = on_battlefield(&e, p1, index::GRIZZLY_BEARS).unwrap();
+    cast_from_hand(&mut e, p1, index::DISFIGURE);
+    let Pending::ChooseTargets { options, .. } = e.pending().clone() else {
+        panic!("expected Disfigure targets")
+    };
+    assert!(!options.contains(&enforcer));
+    assert!(options.contains(&bears));
+}

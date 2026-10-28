@@ -21,6 +21,12 @@ fn toxin_sliver_destroys_creature_dealt_combat_damage_by_any_sliver() {
 
     let sliver = on_battlefield(&engine, p0, index::METALLIC_SLIVER).unwrap();
     let force = on_battlefield(&engine, p1, index::FORCE_OF_NATURE).unwrap();
+    engine
+        .dev_state_mut(p1)
+        .unwrap()
+        .object_mut(force)
+        .unwrap()
+        .regeneration_shields = 1;
 
     pass_until(&mut engine, |e| {
         matches!(e.pending(), Pending::ChooseAttackers { .. })

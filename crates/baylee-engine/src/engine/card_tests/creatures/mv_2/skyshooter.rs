@@ -16,6 +16,7 @@ fn skyshooter_sacrifices_to_destroy_attacking_creature_with_flying() {
     reach_their_main_phase(&mut e, p1);
 
     let shooter = on_battlefield(&e, p0, card).unwrap();
+    assert!(keywords(&e, shooter).contains(KeywordSet::REACH));
     let crow = on_battlefield(&e, p1, index::STORM_CROW).unwrap();
 
     pass_until(&mut e, |e| {

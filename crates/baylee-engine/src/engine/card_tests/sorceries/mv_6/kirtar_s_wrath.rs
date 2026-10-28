@@ -29,6 +29,12 @@ fn kirtar_s_wrath_without_threshold_destroys_all_creatures_and_creates_no_tokens
     keep_mulligans(&mut e);
     reach_main_phase(&mut e, p0);
 
+    let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    e.dev_state_mut(p0)
+        .unwrap()
+        .object_mut(bear)
+        .unwrap()
+        .regeneration_shields = 1;
     cast_from_hand(&mut e, p0, kirtar_s_wrath());
     pass_until(&mut e, stack_is_empty);
 
@@ -51,6 +57,12 @@ fn kirtar_s_wrath_with_threshold_destroys_all_creatures_and_creates_two_spirits(
     keep_mulligans(&mut e);
     reach_main_phase(&mut e, p0);
 
+    let bear = on_battlefield(&e, p0, index::GRIZZLY_BEARS).unwrap();
+    e.dev_state_mut(p0)
+        .unwrap()
+        .object_mut(bear)
+        .unwrap()
+        .regeneration_shields = 1;
     let forests = all_on_battlefield(&e, p0, index::FOREST);
     for &f in &forests {
         e.dev_state_mut(p0)
@@ -75,5 +87,16 @@ fn kirtar_s_wrath_with_threshold_destroys_all_creatures_and_creates_two_spirits(
     for &s in &spirits {
         assert_eq!(pt(&e, s), (1, 1));
         assert!(keywords(&e, s).contains(KeywordSet::FLYING));
+        let characteristics = e.state().object(s).unwrap().characteristics();
+        assert!(
+            characteristics
+                .colors
+                .contains(baylee_core::color::Color::White)
+        );
+        assert!(
+            characteristics
+                .subtypes
+                .contains(baylee_core::generated::subtypes::creature::SPIRIT)
+        );
     }
 }

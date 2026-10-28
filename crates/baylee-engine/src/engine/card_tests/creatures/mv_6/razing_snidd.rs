@@ -66,5 +66,11 @@ fn razing_snidd_returns_black_or_red_creature_and_makes_each_player_sacrifice_a_
     assert!(on_battlefield(&engine, p0, snidd).is_some());
     assert!(on_battlefield(&engine, p0, index::HILL_GIANT).is_none());
     assert!(in_hand(&engine, p0, index::HILL_GIANT).is_some());
+    assert_eq!(
+        all_on_battlefield(&engine, p0, swamp()).len()
+            + all_on_battlefield(&engine, p0, mountain()).len(),
+        5,
+        "the caster sacrificed one of their six lands"
+    );
     assert!(on_battlefield(&engine, p1, swamp()).is_none());
 }

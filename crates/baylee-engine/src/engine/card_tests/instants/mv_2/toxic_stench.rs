@@ -46,7 +46,13 @@ fn toxic_stench_shrinks_below_threshold_and_destroys_without_regeneration_at_thr
     assert!(on_battlefield(&engine, p1, grizzly_bears()).is_some());
 
     // 2. First Toxic Stench is now the 7th card in graveyard (threshold);
-    // second Toxic Stench destroys Gray Ogre instead.
+    // second Toxic Stench destroys Gray Ogre instead, even through a shield.
+    engine
+        .dev_state_mut(p1)
+        .unwrap()
+        .object_mut(ogre)
+        .unwrap()
+        .regeneration_shields = 1;
     for &s in &swamps[2..4] {
         engine
             .apply(p0, PlayerAction::ActivateManaAbility { source: s })

@@ -22,6 +22,12 @@ fn dripping_dead_cant_block_and_destroys_damaged_creature_without_regeneration()
 
     let dripping = on_battlefield(&engine, p0, dripping_card).unwrap();
     let force = on_battlefield(&engine, p1, index::FORCE_OF_NATURE).unwrap();
+    engine
+        .dev_state_mut(p1)
+        .unwrap()
+        .object_mut(force)
+        .unwrap()
+        .regeneration_shields = 1;
     assert!(keywords(&engine, dripping).contains(KeywordSet::CANT_BLOCK));
 
     pass_until(&mut engine, |e| {

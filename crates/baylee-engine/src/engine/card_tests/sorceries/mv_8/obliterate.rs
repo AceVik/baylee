@@ -34,6 +34,13 @@ fn obliterate_cannot_be_countered_and_destroys_artifacts_creatures_and_lands() {
     keep_mulligans(&mut engine);
     assert!(walk_to_own_main(&mut engine, p0));
 
+    let bear = on_battlefield(&engine, p0, index::GRIZZLY_BEARS).unwrap();
+    engine
+        .dev_state_mut(p0)
+        .unwrap()
+        .object_mut(bear)
+        .unwrap()
+        .regeneration_shields = 1;
     cast_from_hand(&mut engine, p0, obliterate);
     let spell_id = *engine
         .state()

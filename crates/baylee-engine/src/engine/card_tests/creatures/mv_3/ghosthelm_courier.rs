@@ -48,17 +48,33 @@ fn ghosthelm_courier_grants_wizard_plus_two_plus_two_and_shroud_while_tapped() {
     assert_eq!(pt(&engine, wizard), (3, 3));
     assert!(keywords(&engine, wizard).contains(KeywordSet::SHROUD));
 
-    // Advance through p1's turn to p0's next main phase; `pass_until` untaps Ghosthelm Courier, ending the effect.
+    reach_their_main_phase(&mut engine, p1);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::LeaveTapped,
+                ..
+            }
+        )
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![courier],
+            },
+        )
+        .unwrap();
+    reach_main_phase(&mut engine, p0);
+    assert!(is_tapped(&engine, courier));
+    assert_eq!(pt(&engine, wizard), (3, 3));
+    assert!(keywords(&engine, wizard).contains(KeywordSet::SHROUD));
+
+    // On the following turn, allow Ghosthelm Courier to untap normally.
     reach_their_main_phase(&mut engine, p1);
     reach_their_main_phase(&mut engine, p0);
-    assert!(
-        !engine
-            .state()
-            .object(courier)
-            .unwrap()
-            .status
-            .contains(Status::TAPPED)
-    );
+    assert!(!is_tapped(&engine, courier));
     assert_eq!(pt(&engine, wizard), (1, 1));
     assert!(!keywords(&engine, wizard).contains(KeywordSet::SHROUD));
 }

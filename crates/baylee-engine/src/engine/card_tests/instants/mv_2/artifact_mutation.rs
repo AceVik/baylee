@@ -17,23 +17,44 @@ fn artifact_mutation_destroys_artifact_and_creates_saprolings_equal_to_its_mana_
     assert!(walk_to_own_main(&mut engine, p0));
 
     let tome = on_battlefield(&engine, p1, index::JAYEMDAE_TOME).unwrap();
+    engine
+        .dev_state_mut(p1)
+        .unwrap()
+        .object_mut(tome)
+        .unwrap()
+        .regeneration_shields = 1;
     tap_all_mana(&mut engine, p0);
     cast_with_floating(&mut engine, p0, mutation);
     aim_at(&mut engine, p0, tome);
     pass_until(&mut engine, stack_is_empty);
 
     assert!(on_battlefield(&engine, p1, index::JAYEMDAE_TOME).is_none());
-    let saprolings = engine
+    let saprolings: Vec<_> = engine
         .state()
         .zones
         .list(ZoneLocation::Battlefield)
         .iter()
-        .filter(|&&id| {
+        .copied()
+        .filter(|&id| {
             engine
                 .state()
                 .object(id)
                 .is_some_and(|o| o.controller == p0 && o.card.is_none())
         })
-        .count();
-    assert_eq!(saprolings, 4);
+        .collect();
+    assert_eq!(saprolings.len(), 4);
+    for saproling in saprolings {
+        assert_eq!(pt(&engine, saproling), (1, 1));
+        let characteristics = engine.state().object(saproling).unwrap().characteristics();
+        assert!(
+            characteristics
+                .colors
+                .contains(baylee_core::color::Color::Green)
+        );
+        assert!(
+            characteristics
+                .subtypes
+                .contains(baylee_core::generated::subtypes::creature::SAPROLING)
+        );
+    }
 }

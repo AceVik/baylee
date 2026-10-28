@@ -26,6 +26,7 @@ fn clockwork_dragon_enters_with_six_counters_adds_one_for_three_mana_and_loses_o
     pass_until(&mut engine, stack_is_empty);
 
     let dragon_id = on_battlefield(&engine, p0, dragon).unwrap();
+    assert!(keywords(&engine, dragon_id).contains(KeywordSet::FLYING));
     assert_eq!(pt(&engine, dragon_id), (6, 6));
 
     tap_mana_where(&mut engine, p0, |id| forests[7..10].contains(&id));

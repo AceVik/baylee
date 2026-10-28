@@ -31,6 +31,12 @@ fn deathmark_prelate_sacrifices_zombie_to_destroy_non_zombie_without_regeneratio
     let fodder = on_battlefield(&engine, p0, index::SCATHE_ZOMBIES).unwrap();
     let opp_zombie = on_battlefield(&engine, p1, index::SCATHE_ZOMBIES).unwrap();
     let opp_bear = on_battlefield(&engine, p1, grizzly_bears()).unwrap();
+    engine
+        .dev_state_mut(p1)
+        .unwrap()
+        .object_mut(opp_bear)
+        .unwrap()
+        .regeneration_shields = 1;
 
     tap_all_mana_but(&mut engine, p0, None);
     activate(&mut engine, p0, prelate_card, 0);

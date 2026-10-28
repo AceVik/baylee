@@ -31,6 +31,11 @@ fn zombie_assassin_exiles_two_graveyard_cards_and_itself_to_destroy_nonblack_cre
 
     let assassin = on_battlefield(&e, p0, card).unwrap();
     let bear = on_battlefield(&e, p1, index::GRIZZLY_BEARS).unwrap();
+    e.dev_state_mut(p1)
+        .unwrap()
+        .object_mut(bear)
+        .unwrap()
+        .regeneration_shields = 1;
     let gy_cards = e.state().zones.list(ZoneLocation::Graveyard(p0)).clone();
     assert_eq!(gy_cards.len(), 2);
 

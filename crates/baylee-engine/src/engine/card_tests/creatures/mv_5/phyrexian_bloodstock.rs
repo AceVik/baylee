@@ -21,6 +21,12 @@ fn phyrexian_bloodstock_destroys_target_white_creature_when_it_leaves_the_battle
     let bloodstock_id =
         on_battlefield(&engine, p0, bloodstock).expect("Phyrexian Bloodstock on board");
     let lions_id = on_battlefield(&engine, p1, index::SAVANNAH_LIONS).unwrap();
+    engine
+        .dev_state_mut(p1)
+        .unwrap()
+        .object_mut(lions_id)
+        .unwrap()
+        .regeneration_shields = 1;
 
     tap_all_mana(&mut engine, p0);
     cast_with_floating(&mut engine, p0, index::UNSUMMON);

@@ -49,15 +49,32 @@ fn pearlspear_courier_grants_soldier_plus_two_plus_two_and_vigilance_while_tappe
     assert!(keywords(&engine, soldier).contains(KeywordSet::VIGILANCE));
 
     reach_their_main_phase(&mut engine, p1);
+    pass_until(&mut engine, |e| {
+        matches!(
+            e.pending(),
+            Pending::ChooseCards {
+                prompt: ChoicePrompt::LeaveTapped,
+                ..
+            }
+        )
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![courier],
+            },
+        )
+        .unwrap();
+    reach_main_phase(&mut engine, p0);
+    assert!(is_tapped(&engine, courier));
+    assert_eq!(pt(&engine, soldier), (3, 3));
+    assert!(keywords(&engine, soldier).contains(KeywordSet::VIGILANCE));
+
+    // On the following turn, allow Pearlspear Courier to untap normally.
+    reach_their_main_phase(&mut engine, p1);
     reach_their_main_phase(&mut engine, p0);
-    assert!(
-        !engine
-            .state()
-            .object(courier)
-            .unwrap()
-            .status
-            .contains(Status::TAPPED)
-    );
+    assert!(!is_tapped(&engine, courier));
     assert_eq!(pt(&engine, soldier), (1, 1));
     assert!(!keywords(&engine, soldier).contains(KeywordSet::VIGILANCE));
 }

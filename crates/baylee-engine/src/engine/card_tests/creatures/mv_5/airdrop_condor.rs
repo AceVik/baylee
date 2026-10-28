@@ -13,6 +13,8 @@ fn airdrop_condor_sacrifices_a_goblin_to_deal_its_power_in_damage() {
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
 
+    let condor_id = on_battlefield(&engine, p0, condor).unwrap();
+    assert!(keywords(&engine, condor_id).contains(KeywordSet::FLYING));
     let goblin = on_battlefield(&engine, p0, goblin_berserker()).unwrap();
     tap_all_mana(&mut engine, p0);
     activate(&mut engine, p0, condor, 0);
