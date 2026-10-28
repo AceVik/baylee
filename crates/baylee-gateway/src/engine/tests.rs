@@ -14,10 +14,8 @@ use super::*;
 /// and it is dropped rather than hung up on, because the next frame from
 /// the same engine is the game continuing.
 ///
-/// A **close** frame is `Ignored` too, which looks wrong and is not: it
-/// carries no envelope, and what ends the loop is the stream yielding
-/// `None` immediately after it. Reading the frame itself as the end would
-/// be a second answer to a question the stream already answers.
+/// A close frame ends the conversation immediately; no second frame or
+/// completed TCP close handshake is needed to release its ownership.
 #[test]
 fn a_frame_that_carries_nothing_is_not_a_socket_that_is_gone() {
     let hello = Envelope {
@@ -43,13 +41,17 @@ fn a_frame_that_carries_nothing_is_not_a_socket_that_is_gone() {
         ("a text frame", Message::Text("hello".into())),
         ("a ping", Message::Ping(Vec::new().into())),
         ("a pong", Message::Pong(Vec::new().into())),
-        ("a close frame", Message::Close(None)),
     ] {
         assert!(
             matches!(next_envelope(Some(Ok(frame))), Incoming::Ignored),
             "{what} is nothing to act on and is not a reason to hang up"
         );
     }
+
+    assert!(matches!(
+        next_envelope(Some(Ok(Message::Close(None)))),
+        Incoming::Closed
+    ));
 
     assert!(
         matches!(next_envelope(None), Incoming::Closed),

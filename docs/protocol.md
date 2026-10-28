@@ -1759,6 +1759,18 @@ nowhere else, so a link that closes before `GameEnded` is a game that cannot be
 continued; the gateway marks it over rather than leaving a table that will
 never move again.
 
+Engine ownership also has transport deadlines. An ordered engine must attach
+within 30 seconds; an exit before its hello or a failed setup closes that
+assignment and releases its agent's capacity. After attachment, an agent's
+exit notice does not overtake the engine socket's final record and `GameEnded`.
+Status notices are accepted only for games assigned to that agent connection.
+An agent silent for 90 seconds loses its control connection. Losing that
+connection closes its games and replay jobs; the agent stops and reaps its
+own children before redialling. There is no transfer of engines to the new
+agent identity. SIGTERM and Ctrl-C likewise stop and reap those children.
+These are engine/agent lifetimes, separate from a player's reconnect and
+24-hour paused-game hold below.
+
 ### The game record (#315)
 
 Every game an engine plays is written down whole: the preset it was built

@@ -29,6 +29,8 @@ use std::collections::HashMap;
 use tokio::sync::{broadcast, mpsc};
 use uuid::Uuid;
 
+mod lifecycle;
+
 /// How often a connected agent is asked to say it is still there.
 const HEARTBEAT_SECS: u32 = 30;
 
@@ -154,6 +156,7 @@ pub fn start_engine(state: &Shared, game_id: &str) -> Result<(), &'static str> {
     }
     agent.games.push(game_id.to_string());
     tracing::info!(game_id, agent_id, agent = agent.name, "engine ordered");
+    lifecycle::watch_start(state.clone(), game_id.to_string(), agent_id);
     Ok(())
 }
 
@@ -205,6 +208,11 @@ fn stop_engine(state: &Shared, game_id: &str) {
 /// (`BAYLEE_UNIX_SOCKET`) is local, and so is every game it runs. A
 /// player's seat token or session opens no agent link. Frames have no
 /// bound beyond the transport's default, and there is no rate bound.
+/// An agent silent for 90 seconds loses this link. Disconnect closes only
+/// its assigned games and replay jobs; a new link cannot reclaim them.
+/// An ordered game engine must attach within 30 seconds. Exit before its
+/// hello releases the assignment; an attached engine drains its final
+/// record on its own link before its exit is acted on.
 /// @receive `AgentHello`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `agent_hello`, first: `token` (the gateway's `BAYLEE_AGENT_TOKEN`), `name` (for logs and the operator), `capacity` (engines at once, 0 for no bound) and `protocol_version` (the protocol it was built with; another, or 0, is refused)."
 /// @receive `EngineStatus`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `engine_status`: what became of one engine, by `game_id`. `kind` is `KIND_STARTED`, `KIND_EXITED` or `KIND_FAILED` (it never started, which ends the game), and `detail` says why."
 /// @receive `Heartbeat`: proto(baylee.v1.Envelope) application/x-protobuf "Envelope case `heartbeat`, every `heartbeat_secs`: still here. It needs no answer."
@@ -277,13 +285,21 @@ async fn run_agent_socket(state: Shared, mut socket: WebSocket, local: bool) {
         })),
     };
     if send(&mut socket, &welcome).await.is_ok() {
-        pump_agent(&state, &mut socket, &mut rx).await;
+        pump_agent(&state, &agent_id, &mut socket, &mut rx).await;
     }
-    let last = {
+    let (lost, last) = {
         let mut agents = state.agents.lock();
-        agents.connected.remove(&agent_id);
-        !agents.any_connected()
+        let lost = agents.connected.remove(&agent_id);
+        (lost, !agents.any_connected())
     };
+    // A new connection gets a new identity; there is no protocol for
+    // transferring its old engines. Releasing their owner cannot leave
+    // running tables behind, including engines that never sent a hello.
+    if let Some(agent) = lost {
+        for game_id in agent.games {
+            lifecycle::owner_lost(&state, &game_id);
+        }
+    }
     tracing::info!(agent_id, "agent gone");
     if last {
         state.lobby_moved();
@@ -293,23 +309,28 @@ async fn run_agent_socket(state: Shared, mut socket: WebSocket, local: bool) {
 /// One agent's conversation: orders out, status in.
 async fn pump_agent(
     state: &Shared,
+    agent_id: &str,
     socket: &mut WebSocket,
     rx: &mut mpsc::UnboundedReceiver<Envelope>,
 ) {
+    let silence = std::time::Duration::from_secs(u64::from(HEARTBEAT_SECS) * 3);
+    let mut heard = tokio::time::Instant::now();
     loop {
         tokio::select! {
+            () = tokio::time::sleep_until(heard + silence) => return,
             order = rx.recv() => {
                 let Some(order) = order else { return };
-                if send_queued(socket, &order, rx).await.is_err() {
+                if !matches!(tokio::time::timeout(silence, send_queued(socket, &order, rx)).await, Ok(Ok(()))) {
                     return;
                 }
             }
             frame = socket.recv() => {
+                heard = tokio::time::Instant::now();
                 // Heartbeats need no answer; they exist so a dead socket stops
                 // looking like a live agent with nothing to do.
                 match next_envelope(frame) {
                     Incoming::Msg(v1::envelope::Msg::EngineStatus(status)) => {
-                        report(state, &status);
+                        report(state, agent_id, &status);
                     }
                     Incoming::Msg(_) | Incoming::Ignored => {}
                     Incoming::Closed => return,
@@ -320,7 +341,16 @@ async fn pump_agent(
 }
 
 /// What an agent says became of one engine.
-fn report(state: &Shared, status: &v1::EngineStatus) {
+fn report(state: &Shared, agent_id: &str, status: &v1::EngineStatus) {
+    if !state
+        .agents
+        .lock()
+        .connected
+        .get(agent_id)
+        .is_some_and(|agent| agent.games.contains(&status.game_id))
+    {
+        return;
+    }
     let kind = v1::engine_status::Kind::try_from(status.kind)
         .unwrap_or(v1::engine_status::Kind::Unspecified);
     match kind {
@@ -340,7 +370,18 @@ fn report(state: &Shared, status: &v1::EngineStatus) {
                 end_game(state, &status.game_id);
             }
         }
-        _ => tracing::info!(
+        v1::engine_status::Kind::Exited => {
+            // An exit may precede the engine's first hello. Once attached,
+            // let its own ordered socket drain the final record/GameEnded;
+            // the status link can overtake those frames.
+            if status.game_id.starts_with(crate::replays::JOB_PREFIX) {
+                // Replay jobs already have an independent deadline and
+                // must likewise drain the final tape before being failed.
+                return;
+            }
+            lifecycle::end_unattached(state, &status.game_id, agent_id);
+        }
+        v1::engine_status::Kind::Unspecified => tracing::info!(
             game_id = status.game_id,
             detail = status.detail,
             "engine exited"
@@ -514,6 +555,7 @@ async fn run_engine_socket(state: Shared, mut socket: WebSocket) {
         }
     };
     if send(&mut socket, &setup).await.is_err() {
+        end_game(&state, &game_id);
         return;
     }
     // Only now: a seat socket that sees this waits no longer, and everything
@@ -749,13 +791,15 @@ pub(crate) fn end_game(state: &Shared, game_id: &str) {
 /// Whatever identifies the peer has to be the first thing it says: a socket
 /// that opens and then waits is not one this gateway keeps.
 async fn hello_of(socket: &mut WebSocket) -> Option<v1::envelope::Msg> {
-    let deadline = std::time::Duration::from_secs(HELLO_TIMEOUT_SECS);
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(HELLO_TIMEOUT_SECS);
     loop {
-        let frame = tokio::time::timeout(deadline, socket.recv()).await.ok()?;
+        let frame = tokio::time::timeout_at(deadline, socket.recv())
+            .await
+            .ok()?;
         match frame? {
             Ok(Message::Binary(data)) => return Envelope::decode(data).ok()?.msg,
+            Ok(Message::Close(_)) | Err(_) => return None,
             Ok(_) => {}
-            Err(_) => return None,
         }
     }
 }
@@ -781,9 +825,9 @@ fn next_envelope(frame: Option<Result<Message, axum::Error>>) -> Incoming {
             .ok()
             .and_then(|e| e.msg)
             .map_or(Incoming::Ignored, Incoming::Msg),
+        Some(Ok(Message::Close(_)) | Err(_)) | None => Incoming::Closed,
         // Pings are answered by axum; other frame kinds are not this protocol.
         Some(Ok(_)) => Incoming::Ignored,
-        Some(Err(_)) | None => Incoming::Closed,
     }
 }
 

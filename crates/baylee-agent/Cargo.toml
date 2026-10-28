@@ -24,3 +24,6 @@ tracing-subscriber.workspace = true
 [[bin]]
 name = "baylee-agent"
 path = "src/main.rs"
+
+[dev-dependencies]
+tempfile.workspace = true

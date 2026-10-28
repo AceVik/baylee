@@ -7379,6 +7379,11 @@ operations:
       (`BAYLEE_UNIX_SOCKET`) is local, and so is every game it runs. A
       player's seat token or session opens no agent link. Frames have no
       bound beyond the transport's default, and there is no rate bound.
+      An agent silent for 90 seconds loses this link. Disconnect closes only
+      its assigned games and replay jobs; a new link cannot reclaim them.
+      An ordered game engine must attach within 30 seconds. Exit before its
+      hello releases the assignment; an attached engine drains its final
+      record on its own link before its exit is acted on.
   agent_ws_receive:
     action: receive
     channel:
@@ -7406,6 +7411,11 @@ operations:
       (`BAYLEE_UNIX_SOCKET`) is local, and so is every game it runs. A
       player's seat token or session opens no agent link. Frames have no
       bound beyond the transport's default, and there is no rate bound.
+      An agent silent for 90 seconds loses this link. Disconnect closes only
+      its assigned games and replay jobs; a new link cannot reclaim them.
+      An ordered game engine must attach within 30 seconds. Exit before its
+      hello releases the assignment; an attached engine drains its final
+      record on its own link before its exit is acted on.
   engine_ws_send:
     action: send
     channel:
