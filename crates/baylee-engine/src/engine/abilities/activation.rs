@@ -339,6 +339,7 @@ impl<L: CardLookup> Engine<L> {
                     self.activation_price(
                         player,
                         source,
+                        ability_index,
                         &Cost {
                             mana: cost.mana.with_x(x),
                             parts: cost.parts,

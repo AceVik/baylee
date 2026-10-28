@@ -36,3 +36,36 @@ fn auriok_steelshaper_reduces_equip_costs_by_one_and_pumps_soldiers_and_knights_
     assert_eq!(pt(&engine, shapers[1]), (2, 2));
     assert_eq!(pt(&engine, elf_id), (1, 1));
 }
+
+#[test]
+fn auriok_steelshaper_does_not_reduce_an_equipments_other_abilities() {
+    let p0 = PlayerId::new(0);
+    let shaper = auriok_steelshaper();
+    let scimitar = card_index("aa5865f5-aafc-4e46-995b-f005aeefde91");
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[shaper, scimitar])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let scimitar = on_battlefield(&engine, p0, scimitar).unwrap();
+    let cost = |mana| baylee_cards_dsl::Cost {
+        mana: baylee_core::mana::ManaCost::parse(mana),
+        parts: &[],
+    };
+    assert_eq!(
+        engine
+            .activation_price(p0, scimitar, 0, &cost("{2}"), None)
+            .mana
+            .generic_total(),
+        1,
+        "the actual equip ability is reduced"
+    );
+    assert_eq!(
+        engine
+            .activation_price(p0, scimitar, 1, &cost("{3}"), None)
+            .mana
+            .generic_total(),
+        3,
+        "the Scimitar's separate animation ability keeps its printed price"
+    );
+}

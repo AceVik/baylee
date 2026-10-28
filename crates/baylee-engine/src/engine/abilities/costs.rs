@@ -40,6 +40,7 @@ impl<L: CardLookup> Engine<L> {
         &self,
         player: PlayerId,
         source: ObjectId,
+        ability_index: u32,
         cost: &Cost,
         reduction: Option<baylee_cards_dsl::CostReduction>,
     ) -> ActivationPrice {
@@ -62,6 +63,14 @@ impl<L: CardLookup> Engine<L> {
         } else {
             0
         };
+        let equip = self
+            .activation_definition(source, ability_index)
+            .is_some_and(|ability| match ability {
+                AbilityDef::Activated { effects, .. } => effects
+                    .iter()
+                    .any(|effect| matches!(effect, baylee_cards_dsl::Effect::AttachSelf { .. })),
+                _ => false,
+            });
         // Apply reductions with a local floor first, so they do not limit
         // an independent unrestricted reduction applied afterwards.
         if full.generic_total() > 0
@@ -79,21 +88,10 @@ impl<L: CardLookup> Engine<L> {
                     }
                     baylee_cards_dsl::Modifier::EquipCostsLess(amount)
                         if crate::effects::applies_to(&self.state, effect, object)
-                            && object
-                                .characteristics()
-                                .subtypes
-                                .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT)
-                            && object.abilities(&self.lookup).iter().any(|a| {
-                                matches!(
-                                    a,
-                                    AbilityDef::Activated {
-                                        cost: c,
-                                        effects,
-                                        ..
-                                    } if c.parts == cost.parts
-                                        && effects.iter().any(|e| matches!(e, baylee_cards_dsl::Effect::AttachSelf { .. }))
-                                )
-                            }) =>
+                            && object.characteristics().subtypes.contains(
+                                baylee_core::generated::subtypes::artifact::EQUIPMENT,
+                            )
+                            && equip =>
                     {
                         mana = mana.with_less_generic(amount);
                     }

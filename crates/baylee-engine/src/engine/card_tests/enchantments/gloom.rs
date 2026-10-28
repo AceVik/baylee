@@ -508,7 +508,7 @@ fn gloom_cost_increases_are_applied_before_activation_reductions() {
         amount: baylee_cards_dsl::Amount::Fixed(1),
         each: 2,
     };
-    let price = e.activation_price(p, source, &cost, Some(reduction));
+    let price = e.activation_price(p, source, 0, &cost, Some(reduction));
     assert_eq!(
         price.mana,
         baylee_core::mana!("{2}"),
