@@ -62,12 +62,7 @@ pub(super) async fn sit(
         by: by.clone(),
         room: chair.game_id.clone(),
     });
-    if room
-        .clock
-        .decide_secs
-        .is_some_and(|s| s <= super::BLITZ_SECS)
-        && !join.allow_blitz
-    {
+    if room.clock.decide_secs.is_some_and(super::is_blitz_clock) && !join.allow_blitz {
         bail!("host chair room clock is too short (use --allow-blitz explicitly)");
     }
     Ok((by, chair))

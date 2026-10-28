@@ -47,7 +47,7 @@ use baylee_seat::keys;
 use baylee_seat::link::SeatLink;
 use baylee_seat::llm::{self, AnswerMode, Price, Secret, Spec, Tally, scrub};
 use baylee_seat::lobby::{Chair, ChairTicket, GuestSignIn, Lobby, Room, Session, seat_name};
-use baylee_seat::seat::{BLITZ_SECS, Outcome};
+use baylee_seat::seat::{Outcome, is_blitz_clock};
 use baylee_seat::show::Show;
 use baylee_seat::spend::{self, Booked};
 use baylee_seat::{BridgeConfig, Disclosure, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
@@ -1246,7 +1246,7 @@ fn room_takes_us(room: &Room, join: &Join, has_password: bool) -> anyhow::Result
     if room.locked && !has_password {
         bail!("the room {} is locked: give its --password", room.id);
     }
-    if let Some(secs) = room.clock.decide_secs.filter(|s| *s <= BLITZ_SECS)
+    if let Some(secs) = room.clock.decide_secs.filter(|s| is_blitz_clock(*s))
         && !join.allow_blitz
     {
         bail!(
@@ -1329,7 +1329,7 @@ async fn sit_down(
                 by: by.clone(),
                 room: chair.game_id.clone(),
             });
-            if let Some(secs) = decide_secs.filter(|s| *s <= BLITZ_SECS)
+            if let Some(secs) = decide_secs.filter(|s| is_blitz_clock(*s))
                 && !join.allow_blitz
             {
                 bail!(

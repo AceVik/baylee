@@ -40,7 +40,7 @@ fn malformed_or_mismatched_handoffs_fail_without_echoing_tokens_or_json() {
 
 #[test]
 fn room_must_be_waiting_and_session_must_own_occupied_human_zero() {
-    let value = serde_json::json!({"id":"room","state":"waiting","yours":true,"seats":[{"seat":0,"kind":"human","taken":true,"you":true}]});
+    let value = serde_json::json!({"id":"room","state":"waiting","yours":true,"clock":{"decide_secs":0},"seats":[{"seat":0,"kind":"human","taken":true,"you":true}]});
     validate_room(&serde_json::from_value(value.clone()).unwrap()).unwrap();
     for key in ["you", "taken"] {
         let mut bad = value.clone();
@@ -80,7 +80,7 @@ async fn existing_host_sit_only_reads_room_with_original_session() {
                 .contains("authorization: bearer session-secret")
         );
         assert!(!request.contains("seat-secret"));
-        let body = r#"{"games":[{"id":"room","state":"waiting","yours":true,"seats":[{"seat":0,"kind":"human","taken":true,"you":true}]}]}"#;
+        let body = r#"{"games":[{"id":"room","state":"waiting","yours":true,"clock":{"decide_secs":0},"seats":[{"seat":0,"kind":"human","taken":true,"you":true}]}]}"#;
         let response = format!(
             "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
             body.len()

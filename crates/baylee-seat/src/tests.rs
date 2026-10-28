@@ -1153,3 +1153,26 @@ fn host_chair_is_explicit_tethered_stdin_and_conflicts_with_ticket() {
     }
     assert!(!join_args(&[]).unwrap().host_chair);
 }
+
+#[test]
+fn room_preflight_distinguishes_untimed_from_positive_short_clocks() {
+    let join = join_args(&[]).unwrap();
+    for (seconds, permitted) in [
+        (None, true),
+        (Some(0), true),
+        (Some(10), false),
+        (Some(30), false),
+        (Some(31), true),
+    ] {
+        let room: Room = serde_json::from_value(serde_json::json!({
+            "id":"room", "state":"waiting", "clock":{"decide_secs":seconds},
+            "seats":[{"seat":1,"kind":"human","taken":false}]
+        }))
+        .unwrap();
+        assert_eq!(
+            room_takes_us(&room, &join, false).is_ok(),
+            permitted,
+            "clock={seconds:?}"
+        );
+    }
+}

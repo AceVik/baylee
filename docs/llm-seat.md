@@ -852,8 +852,11 @@ holds the processes).
   and a refused chair read is asked again. A room that is gone (`404`)
   closes it at once. Until 22.10.2026 the first `401` ended the seat for
   good (owner: the local LLM agent "keeps losing its connection").
-- **Limits.** A blitz table (30 seconds or less a decision) is refused by
-  the bridge, as from a terminal. The chair keeps the house level `steady`
+- **Limits.** A positive decision clock of 30 seconds or less is refused by
+  the bridge, as from a terminal, unless `--allow-blitz` is explicit.
+  `decide_secs: 0` and an absent decision clock mean untimed and need no
+  override: guest rooms, delegated tickets, host handoffs and the socket
+  seat all use this rule. The chair keeps the house level `steady`
   for its fallbacks (a plan's end, a cap reached).
 
 ## Changing a chair during the game
