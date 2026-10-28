@@ -140,6 +140,28 @@ fn goblin_charbelcher_orders_the_bottom_cards_after_damage_replacement_choices()
             },
         )
         .unwrap();
+    answer_damage_choices(&mut engine);
+    let Pending::Arrange { player, cards, .. } = engine.pending().clone() else {
+        panic!("the revealed cards still need their bottom-order choice");
+    };
+    let ordered: Vec<ObjectId> = cards.into_iter().rev().collect();
+    engine
+        .apply(
+            player,
+            PlayerAction::Arrange {
+                piles: vec![ordered.clone()],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(engine.state().players[1].life, 18);
+    let library = engine.state().zones.list(ZoneLocation::Library(p0));
+    let bottom_to_top: Vec<ObjectId> = ordered.into_iter().rev().collect();
+    assert_eq!(&library[..bottom_to_top.len()], bottom_to_top);
+}
+
+fn answer_damage_choices(engine: &mut Engine<RegistryLookup>) {
     for _ in 0..12 {
         if matches!(engine.pending(), Pending::Arrange { .. }) {
             break;
@@ -183,23 +205,4 @@ fn goblin_charbelcher_orders_the_bottom_cards_after_damage_replacement_choices()
             pending => panic!("expected a damage replacement choice: {pending:?}"),
         }
     }
-
-    let Pending::Arrange { player, cards, .. } = engine.pending().clone() else {
-        panic!("the revealed cards still need their bottom-order choice");
-    };
-    let ordered: Vec<ObjectId> = cards.into_iter().rev().collect();
-    engine
-        .apply(
-            player,
-            PlayerAction::Arrange {
-                piles: vec![ordered.clone()],
-            },
-        )
-        .unwrap();
-    pass_until(&mut engine, stack_is_empty);
-
-    assert_eq!(engine.state().players[1].life, 18);
-    let library = engine.state().zones.list(ZoneLocation::Library(p0));
-    let bottom_to_top: Vec<ObjectId> = ordered.into_iter().rev().collect();
-    assert_eq!(&library[..bottom_to_top.len()], bottom_to_top);
 }
