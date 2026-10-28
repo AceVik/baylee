@@ -367,6 +367,61 @@ async fn central_generation_upgrade_keeps_pending_markers_without_inventing_a_pr
 }
 
 #[tokio::test]
+async fn a_projection_takes_its_name_and_tag_from_central() {
+    use baylee_db::central;
+    let sandbox = Sandbox::open("central_projection_profile").await;
+    let row = |id: String| {
+        let db = sandbox.db.clone();
+        async move {
+            let row = Account::find_by_id(Uuid::parse_str(&id).unwrap())
+                .one(&db)
+                .await
+                .unwrap()
+                .unwrap();
+            (row.display_name, row.tag)
+        }
+    };
+    let floo = central::projection(&sandbox.db, *Uuid::now_v7().as_bytes(), true)
+        .await
+        .unwrap();
+    let other = central::projection(&sandbox.db, *Uuid::now_v7().as_bytes(), true)
+        .await
+        .unwrap();
+    let (name, drawn) = row(floo.clone()).await;
+    assert_eq!(name, "Player");
+    // Central's name and tag replace the local ones, and taking them again
+    // writes nothing.
+    assert!(
+        central::take_profile(&sandbox.db, &floo, Some("floo"), Some(0x1337))
+            .await
+            .unwrap()
+    );
+    assert_eq!(row(floo.clone()).await, ("floo".into(), 0x1337));
+    assert!(
+        !central::take_profile(&sandbox.db, &floo, Some("floo"), Some(0x1337))
+            .await
+            .unwrap()
+    );
+    // What Central does not say keeps the local value.
+    assert!(
+        central::take_profile(&sandbox.db, &floo, None, None)
+            .await
+            .is_ok()
+    );
+    assert_eq!(row(floo.clone()).await, ("floo".into(), 0x1337));
+    // A tag another account holds here is not taken; the name still is.
+    let (_, held) = row(other.clone()).await;
+    assert!(
+        central::take_profile(&sandbox.db, &floo, Some("floo2"), Some(held))
+            .await
+            .unwrap()
+    );
+    assert_eq!(row(floo.clone()).await, ("floo2".into(), 0x1337));
+    assert_ne!(drawn, 0x1337);
+    sandbox.close().await;
+}
+
+#[tokio::test]
 async fn central_gateway_projection_is_immutable_and_sessions_require_a_bound_live_lease() {
     use baylee_db::central::{self, SessionBinding};
     let sandbox = Sandbox::open("central_projection").await;

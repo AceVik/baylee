@@ -95,6 +95,42 @@ pub async fn projection(
     Ok(account.to_string())
 }
 
+/// Copy the display name and tag other players see at Central onto a
+/// projection, at each of its sign-ins, so that a player is the same
+/// `name#tag` here as on the website. A missing name or tag keeps the local
+/// one; so does a tag another account here already holds, which the unique
+/// index would refuse. Answers whether the row was written.
+///
+/// # Errors
+/// Refuses a malformed account id and unavailable storage.
+pub async fn take_profile(
+    db: &impl ConnectionTrait,
+    account: &str,
+    display_name: Option<&str>,
+    tag: Option<i32>,
+) -> Result<bool, DbErr> {
+    let account = super::id(account)?;
+    let updated = db
+        .execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE account SET
+                 display_name = COALESCE($2::text, display_name),
+                 tag = CASE WHEN $3::integer IS NULL OR EXISTS
+                     (SELECT 1 FROM account other WHERE other.tag = $3::integer AND other.id <> $1)
+                     THEN tag ELSE $3::integer END
+             WHERE id = $1 AND central_only
+               AND (display_name IS DISTINCT FROM COALESCE($2::text, display_name)
+                    OR tag IS DISTINCT FROM COALESCE($3::integer, tag))",
+            [
+                account.into(),
+                display_name.map(str::to_owned).into(),
+                tag.into(),
+            ],
+        ))
+        .await?;
+    Ok(updated.rows_affected() == 1)
+}
+
 /// Issue a local session atomically with its non-renewable Central lease.
 ///
 /// # Errors

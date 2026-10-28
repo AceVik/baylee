@@ -437,6 +437,47 @@ async fn admin_login(
     login_for(&state, capability, TicketPurpose::Admin).await
 }
 
+/// Takes the name and tag the account has at Central onto its projection
+/// here (`GatewayProfile`), at each sign-in, so a name chosen or changed on
+/// the website arrives with the next one. A name this gateway's rule
+/// refuses is not taken. Any refusal, Central being away included, leaves
+/// the projection as it is and the sign-in goes on; answers whether the
+/// projection was written.
+async fn take_profile(
+    state: &Shared,
+    lease: &baylee_account::Token,
+    purpose: TicketPurpose,
+    central: [u8; 16],
+    account_id: &str,
+) -> bool {
+    let Ok(bridge) = bridge(state) else {
+        return false;
+    };
+    let Ok(Response::GatewayProfile {
+        identity,
+        display_name,
+        tag,
+    }) = bridge
+        .exchange(Request::GatewayProfile {
+            lease: baylee_account::Token::from_secret_bytes(lease.to_secret_bytes()),
+            purpose,
+        })
+        .await
+    else {
+        return false;
+    };
+    if identity.account != central {
+        return false;
+    }
+    let display_name = display_name.filter(|name| crate::auth::valid_display_name(name));
+    let tag = tag
+        .and_then(|tag| i32::try_from(tag).ok())
+        .filter(|tag| *tag > 0);
+    baylee_db::central::take_profile(&state.db, account_id, display_name.as_deref(), tag)
+        .await
+        .unwrap_or(false)
+}
+
 async fn login_for(
     state: &Shared,
     capability: Capability,
@@ -481,9 +522,11 @@ async fn login_for(
         .await
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?,
     };
-    let account = allowed(state, &account_id).await?;
+    let mut account = allowed(state, &account_id).await?;
     if bridge(state)?.legacy && legacy_link {
         carry_profile(state, &account).await;
+    } else if take_profile(state, &lease, purpose, identity.account, &account_id).await {
+        account = allowed(state, &account_id).await?;
     }
     let token = crate::auth::new_token();
     baylee_db::central::issue_session(
