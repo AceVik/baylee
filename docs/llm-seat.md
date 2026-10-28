@@ -800,6 +800,22 @@ holds the processes).
   guests, and the chair's card says why not where it takes none. So does
   an older gateway that sells no tickets (`404`): the guest door, where
   there is one.
+- **An already occupied host chair (local supervision).** A controller that
+  created a regular account and already opened a room in chair 0 may hand
+  that same chair to `baylee-seat join <room> --chair 0 --tethered
+  --host-chair`. Its first stdin line is JSON with `game_id`, `seat: 0`,
+  `seat_token` and `session_token`; the remaining stdin still holds the
+  tether. Never put that line in arguments, environment, logs or files.
+  The bridge checks that the session owns the occupied human chair 0 of
+  that waiting room, then uses the same session and chair for ready,
+  waiting and its socket. It creates no guest, uploads no second deck and
+  never starts the room; the controller does that once all chairs are
+  ready. The account's displayed name and uploaded deck must already
+  match the chosen mind's disclosed name and configured deck. This is the
+  account's own chair, not a delegated chair ticket: the normal account
+  identity remains in the gateway's record until its ordinary anonymized
+  export. Only a trusted local supervisor should hand over this session,
+  which retains the account's authority. `--chair-ticket` is incompatible.
 - **Ready once the model answers.** Sitting is not ready. The bridge first
   asks its mind the cheapest question its provider takes (`Mind::check`:
   the model's entry for Anthropic, the model list for an OpenAI-compatible

@@ -1131,3 +1131,25 @@ fn a_fallback_reserves_its_game_in_its_own_book_when_it_takes_over() {
     drop((swap, second, fallen, kept_second, kept_third));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn host_chair_is_explicit_tethered_stdin_and_conflicts_with_ticket() {
+    let sat = join_args(&["--tethered", "--chair", "0", "--host-chair"]).unwrap();
+    assert!(sat.host_chair && sat.tethered && !sat.chair_ticket);
+    for args in [
+        vec!["--host-chair"],
+        vec!["--host-chair", "--chair", "0"],
+        vec!["--host-chair", "--tethered"],
+        vec![
+            "--host-chair",
+            "--tethered",
+            "--chair",
+            "0",
+            "--chair-ticket",
+        ],
+        vec!["--host-chair=session-secret", "--tethered", "--chair", "0"],
+    ] {
+        assert!(join_args(&args).is_err());
+    }
+    assert!(!join_args(&[]).unwrap().host_chair);
+}

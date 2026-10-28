@@ -11,7 +11,9 @@
 //! and plays the game to its end. A bridge a host's client starts
 //! (`--tethered --chair <n> --chair-ticket`) instead reads the host's chair
 //! ticket off its stdin and sits down on it, with no account of its own, so
-//! it gets in where the gateway takes no guests. The gateway is `--gateway`, else
+//! it gets in where the gateway takes no guests. `--host-chair --tethered
+//! --chair 0` instead reuses an existing host chair/session from first-line
+//! stdin JSON; it creates no account or deck. The gateway is `--gateway`, else
 //! `BAYLEE_GATEWAY`, else the local default; a closed beta's key is
 //! `--invite-key` or `BAYLEE_INVITE_KEY`, a locked room's password
 //! `--password` or `BAYLEE_ROOM_PASSWORD`. `RUST_LOG=info` says what the
@@ -157,6 +159,10 @@ struct Join {
     /// (`docs/llm-seat.md` §"A language model at your table").
     #[arg(long, requires_all = ["tethered", "chair"])]
     chair_ticket: bool,
+    /// Reuse the existing host chair and session from first-line stdin JSON.
+    /// Never pass tokens as arguments; the remaining stdin holds the tether.
+    #[arg(long, requires_all = ["tethered", "chair"], conflicts_with = "chair_ticket")]
+    host_chair: bool,
     /// The gateway's address [default: `BAYLEE_GATEWAY`, else the local one].
     #[arg(long)]
     gateway: Option<String>,
@@ -776,7 +782,7 @@ async fn run() -> anyhow::Result<()> {
         }
         Command::Join(join) => {
             let (mut let_go, orders, ticket) = if join.tethered {
-                let held = tether::hold(join.chair_ticket);
+                let held = tether::hold(join.chair_ticket || join.host_chair);
                 (Some(held.let_go), Some(held.orders), held.ticket)
             } else {
                 (None, None, None)
@@ -978,7 +984,7 @@ struct Leaving {
 /// with afterwards.
 #[derive(Clone)]
 enum Standing {
-    /// As a guest, under its own session.
+    /// Under its own session, as a guest or an explicitly handed-over host.
     Guest(Session),
     /// On its host's chair ticket: it has the chair's seat token and
     /// nothing else.
@@ -986,7 +992,7 @@ enum Standing {
 }
 
 impl Standing {
-    /// The session to take the chair back with, for a guest.
+    /// The owning session to take the chair back with.
     fn session(&self) -> Option<Session> {
         match self {
             Self::Guest(session) => Some(session.clone()),
@@ -1022,6 +1028,7 @@ async fn leave_unstarted(unstarted: &Unstarted) {
     }
 }
 
+mod host_chair;
 mod tether;
 
 /// Every signal a process can be asked to stop by, registered with the
@@ -1302,6 +1309,7 @@ async fn sit_down(
         .unwrap_or_else(|| LOCAL_GATEWAY.to_string());
     let lobby = Lobby::new(&gateway);
     let (by, chair) = match ticket {
+        Some(ticket) if join.host_chair => host_chair::sit(join, &lobby, ticket, unstarted).await?,
         Some(ticket) => {
             let line = tokio::time::timeout(TICKET_WAIT, ticket)
                 .await
@@ -1332,6 +1340,7 @@ async fn sit_down(
             }
             (by, chair)
         }
+        None if join.host_chair => bail!("host chair credentials must come on stdin"),
         None => sit_as_guest(join, &lobby, &display_name, &deck, unstarted).await?,
     };
     say!(
