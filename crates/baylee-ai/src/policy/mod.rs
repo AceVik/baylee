@@ -1033,7 +1033,7 @@ impl HeuristicAgent {
         for effect in effects {
             let (filter, opponents_only, check_indest, dmg) = match effect {
                 Effect::DestroyAll { filter, .. } => (*filter, false, true, None),
-                Effect::ExileAll { filter } => (*filter, false, false, None),
+                Effect::ExileAll { filter, .. } => (*filter, false, false, None),
                 Effect::ReturnAllToHand {
                     filter,
                     opponents_only,

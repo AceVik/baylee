@@ -2426,6 +2426,10 @@ pub enum Effect {
     ExileAll {
         /// What.
         filter: &'static Filter,
+        /// Whether each permanent is exiled with a link to this source, so a
+        /// later ability can return those cards (Worldgorger Dragon). Ordinary
+        /// exile sweeps leave this false and create no such relationship.
+        linked: bool,
     },
     /// "Choose a creature you control. It gains indestructible until end of
     /// turn." (Final Showdown): as this resolves its controller chooses one

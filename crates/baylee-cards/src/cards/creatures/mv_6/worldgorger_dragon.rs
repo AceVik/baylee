@@ -29,7 +29,8 @@ card!(
         triggered!(
             Trigger::ETB,
             &[Effect::ExileAll {
-                filter: &EXILE_ALL1
+                filter: &EXILE_ALL1,
+                linked: true,
             }]
         ),
         triggered!(

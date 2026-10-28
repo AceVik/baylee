@@ -19,6 +19,7 @@ card!(
     abilities = &[spell!(&[
         Effect::ExileAll {
             filter: &Filter::Any,
+            linked: false,
         },
         Effect::DiscardHand {
             who: PlayerRel::You,

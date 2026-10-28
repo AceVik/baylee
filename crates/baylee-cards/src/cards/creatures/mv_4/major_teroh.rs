@@ -32,7 +32,8 @@ card!(
     abilities = &[activated!(
         cost!("{3}{W}{W}", SacrificeSelf),
         &[Effect::ExileAll {
-            filter: &EXILE_ALL1
+            filter: &EXILE_ALL1,
+            linked: false,
         }]
     ),],
 );

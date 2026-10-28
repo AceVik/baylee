@@ -352,7 +352,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // Farewell's four sweeps. Nothing is targeted, and a phased-out
         // permanent is treated as though it doesn't exist (CR 702.26b),
         // which `battlefield_seen` is.
-        Effect::ExileAll { filter } => {
+        Effect::ExileAll { filter, linked } => {
             let all: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
@@ -365,7 +365,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 let Some(owner) = state.object(id).map(|o| o.owner) else {
                     continue;
                 };
-                if let Some(obj) = state.object_mut(id) {
+                if linked && let Some(obj) = state.object_mut(id) {
                     obj.kind = ObjectKind::Card;
                     obj.riders.push(crate::object::Rider::Linked {
                         host: res.source,

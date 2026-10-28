@@ -551,7 +551,12 @@ impl Tx<'_> {
                     let valid = p.take("ChangeType")?;
                     let expr = self.filter_expr(&valid)?;
                     let name = self.body.filter_static("EXILE_ALL", &expr);
-                    Some(vec![format!("Effect::ExileAll {{ filter: &{name} }}")])
+                    let linked = self.svars.values().any(|s| {
+                        s.contains("Defined$ ExiledWith") || s.contains("Card.ExiledWithSource")
+                    });
+                    Some(vec![format!(
+                        "Effect::ExileAll {{ filter: &{name}, linked: {linked} }}"
+                    )])
                 }
                 (Some("Graveyard"), Some("Exile"))
                     if p.take("ChangeType").as_deref() == Some("Card") =>

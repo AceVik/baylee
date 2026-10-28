@@ -2445,3 +2445,20 @@ fn affinity_scopes_every_alternative_and_refuses_extra_fields() {
         "Name:X\nManaCost:4\nTypes:Artifact\nK:Affinity:Artifact:UnreadRule"
     ));
 }
+
+#[test]
+fn exile_sweeps_link_only_when_a_companion_reads_the_link() {
+    let entry = "T:Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Exile\n\
+        SVar:Exile:DB$ ChangeZoneAll | Origin$ Battlefield | Destination$ Exile | ChangeType$ Creature";
+    let body = read(&format!("Name:X\nTypes:Creature\n{entry}"));
+    assert!(body.abilities[0].contains("Effect::ExileAll"));
+    assert!(body.abilities[0].contains("linked: false"));
+
+    let body = read(&format!(
+        "Name:X\nTypes:Creature\n{entry}\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ Return\n\
+         SVar:Return:DB$ ChangeZoneAll | Origin$ Exile | Destination$ Battlefield | ChangeType$ Card.ExiledWithSource"
+    ));
+    assert!(body.abilities[0].contains("linked: true"));
+    assert!(body.abilities[1].contains("Effect::ReturnLinkedToBattlefield"));
+}
