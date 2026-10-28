@@ -526,6 +526,15 @@ activations instead of checkpoint-recomputing them. It requires activation
 checkpointing, defaults to zero and spends VRAM to avoid backward recomputation;
 benchmark worst-case entity/candidate shapes before selecting it. It does not
 change model weights, the loss or the recurrent memory contract.
+`--offload-checkpoint-inputs` instead stores CUDA checkpoint inputs in pinned
+CPU RAM and restores them for backward recomputation. It requires
+`--activation-checkpointing`, applies to trunk and v5 relational checkpoints,
+and leaves the default and CPU paths unchanged. It trades host RAM and transfer
+time for VRAM without changing batch/unroll lengths, RNG preservation, the
+full recurrent graph, model configuration or state-dict keys; existing
+checkpoints remain resumable. Compiled CUDA/BF16 numerical parity is not
+guaranteed: compare gradients and optimizer updates against a repeat control
+before adopting it for a run.
 `--async-checkpoint` stages one immutable CPU snapshot of `last.pt`, then writes
 and atomically publishes it in a background thread. CUDA staging uses pinned RAM
 and a copy stream. The next optimizer mutation waits for staging, while forward/

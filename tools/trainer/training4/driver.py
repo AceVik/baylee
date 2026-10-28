@@ -132,6 +132,7 @@ def main(default_architecture="v4") -> None:
     net.attach_structure(train_ds.structure.data)
     net = net.to(device)
     net.saved_activation_layers = args.saved_activation_layers
+    net.offload_checkpoint_inputs = args.offload_checkpoint_inputs
     net.cache_thinking_kv = args.cache_thinking_kv
     net.decision_chunk = args.decision_chunk
     net.gpu_prefetch = args.gpu_prefetch

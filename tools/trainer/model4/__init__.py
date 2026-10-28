@@ -21,7 +21,7 @@ from __future__ import annotations
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.utils.checkpoint import checkpoint
+from .activation_checkpoint import checkpoint_activation
 
 from .config import *
 from .layers import GatedResidualUpdate, DynamicMultiHeadAttention, PreNormTransformerLayer, ThinkingStepBlock
@@ -213,7 +213,10 @@ class PlayerNet4(nn.Module):
         for index, layer in enumerate(self.trunk_layers):
             if (self.cfg.activation_checkpointing and self.training and torch.is_grad_enabled()
                     and index < len(self.trunk_layers) - saved_layers):
-                x = checkpoint(layer, x, pad_mask, use_reentrant=False)
+                x = checkpoint_activation(
+                    layer, x, pad_mask,
+                    offload_inputs=getattr(self, "offload_checkpoint_inputs", False),
+                )
             else:
                 x = layer(x, src_key_padding_mask=pad_mask)
         board = self.trunk_norm(x)

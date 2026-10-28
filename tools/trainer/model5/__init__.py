@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 import torch
 from torch import nn
-from torch.utils.checkpoint import checkpoint
+from model4.activation_checkpoint import checkpoint_activation
 import model4 as V4
 from model4.config import *
 
@@ -51,7 +51,10 @@ class PlayerNet5(V4.PlayerNet4):
                  torch.cat((torch.ones_like(tokens[:, :RECURRENT_SLOTS, 0]), raw_count), 1))
         arguments = (tokens, edge_index, edge_type, edge_mask, present, count)
         if self.cfg.activation_checkpointing and self.training and torch.is_grad_enabled():
-            return checkpoint(self.relational, *arguments, use_reentrant=False)
+            return checkpoint_activation(
+                self.relational, *arguments,
+                offload_inputs=getattr(self, "offload_checkpoint_inputs", False),
+            )
         return self.relational(*arguments)
 
 

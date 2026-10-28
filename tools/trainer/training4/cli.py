@@ -43,6 +43,7 @@ def parse_args(default_architecture="v4"):
                     help="Supervised snapshot criterion; match evaluation is still required for promotion")
     ap.add_argument("--validate-initial", action="store_true", help="Include the untouched initial policy in checkpoint selection")
     ap.add_argument("--activation-checkpointing", action="store_true")
+    ap.add_argument("--offload-checkpoint-inputs", action="store_true", help="Offload CUDA checkpoint inputs to pinned CPU memory; requires activation checkpointing, preserves the full-unroll graph")
     ap.add_argument("--saved-activation-layers", type=int, default=0, help="Keep the last N trunk layers' activations instead of recomputing them; uses more VRAM")
     ap.add_argument("--async-checkpoint", action="store_true", help="Stage one immutable last.pt snapshot and write it in the background")
     ap.add_argument("--time-budget-seconds", type=float, default=0)
@@ -86,6 +87,8 @@ def parse_args(default_architecture="v4"):
         ap.error("--saved-activation-layers must be between zero and --layers")
     if args.saved_activation_layers and not args.activation_checkpointing:
         ap.error("--saved-activation-layers requires --activation-checkpointing")
+    if args.offload_checkpoint_inputs and not args.activation_checkpointing:
+        ap.error("--offload-checkpoint-inputs requires --activation-checkpointing")
 
     if args.decision_chunk > 1 and (args.reference_execution or args.board_chunk < 2 or args.dropout != 0):
         ap.error("--decision-chunk > 1 requires --board-chunk >= 2, dropout=0 and optimized execution")
