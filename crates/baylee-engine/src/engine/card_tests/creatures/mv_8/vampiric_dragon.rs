@@ -16,6 +16,7 @@ fn vampiric_dragon_pings_creature_and_grows_when_it_dies() {
     reach_main_phase(&mut e, p0);
 
     let dragon = on_battlefield(&e, p0, card).unwrap();
+    assert!(keywords(&e, dragon).contains(KeywordSet::FLYING));
     let goblin = on_battlefield(&e, p1, index::RAGING_GOBLIN).unwrap();
     assert_eq!(pt(&e, dragon), (5, 5));
 

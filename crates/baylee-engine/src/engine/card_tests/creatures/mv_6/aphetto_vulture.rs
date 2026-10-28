@@ -16,6 +16,7 @@ fn aphetto_vulture_dies_trigger_puts_target_zombie_from_graveyard_on_top_of_libr
     reach_main_phase(&mut engine, p0);
 
     let vulture_id = on_battlefield(&engine, p0, vulture).unwrap();
+    assert!(keywords(&engine, vulture_id).contains(KeywordSet::FLYING));
     let zombie_id = on_battlefield(&engine, p0, SCATHE_ZOMBIES).unwrap();
     bury(&mut engine, &[zombie_id]);
     let zombie_in_gy = in_graveyard(&engine, p0, SCATHE_ZOMBIES).unwrap();

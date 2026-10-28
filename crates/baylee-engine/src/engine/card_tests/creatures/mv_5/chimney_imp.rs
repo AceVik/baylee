@@ -21,6 +21,7 @@ fn chimney_imp_makes_target_opponent_put_a_card_from_hand_on_top_of_library_when
     reach_main_phase(&mut engine, p0);
 
     let imp_id = on_battlefield(&engine, p0, imp).unwrap();
+    assert!(keywords(&engine, imp_id).contains(KeywordSet::FLYING));
     let p1_card = in_hand(&engine, p1, elf).unwrap();
     let p1_lib_before = library_size(&engine, p1);
 

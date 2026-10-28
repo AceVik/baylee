@@ -26,3 +26,24 @@ fn gate_to_the_aether_lets_active_player_put_revealed_permanent_card_onto_battle
         p0_forests_before + 1
     );
 }
+
+#[test]
+fn gate_to_the_aether_offers_the_reveal_to_the_player_whose_upkeep_it_is() {
+    let p1 = PlayerId::new(1);
+    let gate = gate_to_the_aether();
+    let mut engine = Duel::new(SEED, forest()).battlefield(0, &[gate]).start();
+    keep_mulligans(&mut engine);
+
+    let before = all_on_battlefield(&engine, p1, forest()).len();
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == p1 && matches!(e.pending(), Pending::YesNo { .. })
+    });
+    let Pending::YesNo { player, .. } = engine.pending().clone() else {
+        unreachable!();
+    };
+    assert_eq!(player, p1);
+    engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(all_on_battlefield(&engine, p1, forest()).len(), before + 1);
+}

@@ -17,6 +17,8 @@ fn sunscape_familiar_discounts_green_and_blue_spells_you_cast() {
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    let familiar_id = on_battlefield(&engine, p0, familiar).unwrap();
+    assert!(keywords(&engine, familiar_id).contains(KeywordSet::DEFENDER));
 
     // Grizzly Bears ({1}{G} -> {G}) and Phantom Monster ({3}{U} -> {2}{U}) cast off 4 lands.
     tap_all_mana(&mut engine, p0);

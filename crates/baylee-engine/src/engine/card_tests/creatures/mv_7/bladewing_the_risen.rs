@@ -58,6 +58,7 @@ fn bladewing_the_risen_returns_dragon_from_graveyard_on_etb_and_pumps_dragons() 
     pass_until(&mut engine, stack_is_empty);
 
     let bladewing_id = on_battlefield(&engine, p0, bladewing).unwrap();
+    assert!(keywords(&engine, bladewing_id).contains(KeywordSet::FLYING));
     let shivan_id = on_battlefield(&engine, p0, index::SHIVAN_DRAGON)
         .expect("Shivan Dragon returned to the battlefield");
 

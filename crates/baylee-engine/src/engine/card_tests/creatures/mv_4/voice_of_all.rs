@@ -40,6 +40,7 @@ fn voice_of_all_enters_choosing_color_and_gains_protection_from_it() {
     pass_until(&mut engine, stack_is_empty);
 
     let voice_id = on_battlefield(&engine, p0, voice).expect("Voice of All on board");
+    assert!(keywords(&engine, voice_id).contains(KeywordSet::FLYING));
     let bears_id = on_battlefield(&engine, p0, grizzly_bears()).expect("Grizzly Bears on board");
 
     // Red Lightning Bolt cannot target Voice of All (protection from red), only Grizzly Bears.

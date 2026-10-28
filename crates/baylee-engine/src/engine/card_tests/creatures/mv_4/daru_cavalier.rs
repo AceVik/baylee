@@ -36,6 +36,7 @@ fn daru_cavalier_etb_searches_library_for_another_copy_to_hand() {
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(on_battlefield(&engine, p0, cavalier).is_some());
+    let cavalier_id = on_battlefield(&engine, p0, cavalier).unwrap();
+    assert!(keywords(&engine, cavalier_id).contains(KeywordSet::FIRST_STRIKE));
     assert_eq!(hand_size(&engine, p0), hand_before);
 }

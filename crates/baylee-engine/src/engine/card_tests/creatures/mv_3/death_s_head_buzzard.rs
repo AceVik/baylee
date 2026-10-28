@@ -17,6 +17,7 @@ fn death_s_head_buzzard_gives_all_creatures_minus_one_minus_one_when_it_dies() {
     reach_main_phase(&mut engine, p0);
 
     let buzzard_id = on_battlefield(&engine, p0, buzzard).unwrap();
+    assert!(keywords(&engine, buzzard_id).contains(KeywordSet::FLYING));
     let bears_id = on_battlefield(&engine, p1, index::GRIZZLY_BEARS).unwrap();
 
     tap_all_mana(&mut engine, p0);

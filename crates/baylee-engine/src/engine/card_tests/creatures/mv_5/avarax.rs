@@ -48,6 +48,7 @@ fn avarax_searches_for_another_copy_on_etb_and_pumps_itself() {
     pass_until(&mut engine, stack_is_empty);
 
     let beast = on_battlefield(&engine, p0, avarax).unwrap();
+    assert!(keywords(&engine, beast).contains(KeywordSet::HASTE));
     assert_eq!(hand_size(&engine, p0), hand_before);
     assert_eq!(pt(&engine, beast), (3, 3));
 

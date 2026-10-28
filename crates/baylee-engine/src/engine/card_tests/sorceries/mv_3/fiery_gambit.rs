@@ -58,3 +58,76 @@ fn fiery_gambit_cumulative_coin_flips_deal_damage_or_fizzle_on_loss() {
     }
     assert!(found_win, "found a seed where first flip was won");
 }
+
+fn play_gambit(seed: u64, stop_after: Option<u8>) -> Option<Engine<RegistryLookup>> {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(seed, mountain())
+        .hand(0, &[fiery_gambit()])
+        .battlefield(0, &[mountain(), mountain(), mountain()])
+        .battlefield(1, &[HILL_GIANT])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let giant = on_battlefield(&engine, p1, HILL_GIANT).unwrap();
+    cast_from_hand(&mut engine, p0, fiery_gambit());
+    aim_at(&mut engine, p0, giant);
+
+    let mut wins = 0;
+    for _ in 0..30 {
+        match engine.pending().clone() {
+            Pending::Priority { player, .. } => {
+                if stack_is_empty(&engine) {
+                    return stop_after.is_none().then_some(engine);
+                }
+                engine.apply(player, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::YesNo { player, .. } => {
+                let target = stop_after?;
+                wins += 1;
+                let again = wins < target;
+                engine.apply(player, PlayerAction::YesNo(again)).unwrap();
+                if !again {
+                    pass_until(&mut engine, stack_is_empty);
+                    return Some(engine);
+                }
+            }
+            other => panic!("unexpected Fiery Gambit choice: {other:?}"),
+        }
+    }
+    None
+}
+
+#[test]
+fn fiery_gambit_covers_two_and_three_wins_and_a_loss() {
+    let engine = (1..100)
+        .find_map(|seed| play_gambit(seed, None))
+        .expect("loss seed");
+    assert!(on_battlefield(&engine, PlayerId::new(1), HILL_GIANT).is_some());
+    assert_eq!(engine.state().players[1].life, 20, "a loss has no effect");
+
+    let engine = (1..100)
+        .find_map(|seed| play_gambit(seed, Some(2)))
+        .expect("two-win seed");
+    assert!(on_battlefield(&engine, PlayerId::new(1), HILL_GIANT).is_none());
+    assert_eq!(engine.state().players[1].life, 14);
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(PlayerId::new(0)))
+            .is_empty()
+    );
+
+    let engine = (1..200)
+        .find_map(|seed| play_gambit(seed, Some(3)))
+        .expect("three-win seed");
+    let p0 = PlayerId::new(0);
+    assert!(on_battlefield(&engine, PlayerId::new(1), HILL_GIANT).is_none());
+    assert_eq!(engine.state().players[1].life, 14);
+    assert_eq!(engine.state().zones.list(ZoneLocation::Hand(p0)).len(), 9);
+    assert!(
+        all_on_battlefield(&engine, p0, mountain())
+            .into_iter()
+            .all(|land| !is_tapped(&engine, land))
+    );
+}

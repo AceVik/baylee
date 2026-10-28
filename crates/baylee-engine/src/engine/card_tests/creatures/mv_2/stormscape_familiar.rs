@@ -29,6 +29,8 @@ fn stormscape_familiar_reduces_generic_cost_of_white_and_black_spells_you_cast()
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    let familiar_id = on_battlefield(&engine, p0, familiar).unwrap();
+    assert!(keywords(&engine, familiar_id).contains(KeywordSet::FLYING));
 
     // Cast Serra Angel ({3}{W}{W}) for {2}{W}{W} and Bog Wraith ({3}{B}) for {2}{B}.
     cast_from_hand(&mut engine, p0, index::SERRA_ANGEL);

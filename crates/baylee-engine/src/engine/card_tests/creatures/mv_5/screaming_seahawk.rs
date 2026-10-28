@@ -41,6 +41,7 @@ fn screaming_seahawk_searches_library_for_another_copy_on_etb() {
         .unwrap();
     pass_until(&mut engine, stack_is_empty);
 
-    assert!(on_battlefield(&engine, p0, seahawk_card).is_some());
+    let seahawk = on_battlefield(&engine, p0, seahawk_card).unwrap();
+    assert!(keywords(&engine, seahawk).contains(KeywordSet::FLYING));
     assert!(in_hand(&engine, p0, seahawk_card).is_some());
 }

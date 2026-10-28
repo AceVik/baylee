@@ -17,6 +17,8 @@ fn thunderscape_familiar_discounts_black_and_green_spells_you_cast() {
         .start();
     keep_mulligans(&mut engine);
     reach_main_phase(&mut engine, p0);
+    let familiar_id = on_battlefield(&engine, p0, familiar).unwrap();
+    assert!(keywords(&engine, familiar_id).contains(KeywordSet::FIRST_STRIKE));
 
     // Bog Wraith ({3}{B} -> {2}{B}) and Grizzly Bears ({1}{G} -> {G}) cast off 4 lands.
     tap_all_mana(&mut engine, p0);

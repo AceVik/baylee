@@ -40,6 +40,7 @@ fn cursed_monstrosity_stays_when_land_discarded_and_is_sacrificed_when_declined(
     pass_until(&mut e, stack_is_empty);
 
     let monstrosity = on_battlefield(&e, p0, cursed_monstrosity()).unwrap();
+    assert!(keywords(&e, monstrosity).contains(KeywordSet::FLYING));
     let land_in_hand = in_hand(&e, p0, index::SWAMP).unwrap();
 
     cast_with_floating(&mut e, p0, index::GIANT_GROWTH);
