@@ -66,7 +66,8 @@ class FullPPOCapacity(unittest.TestCase):
         optimizer=torch.optim.AdamW(model.parameters(),lr=.0001)
         first=transactional_update(model,optimizer,dataset,[1],prefixes,device,target_kl=1)
         self.assertTrue(first['accepted'])
-        contract={'version':1,'device':'cuda','fixture':'synthetic'}
+        contract={'version':2,'behavior_probability_reference':'recorded_executed_action',
+                  'device':'cuda','fixture':'synthetic'}
         source=dict(model_version=5,config=cfg.to_dict(),structure={})
         stream=io.BytesIO();torch.save(training_payload(model,optimizer,source,contract,{'next_batch':1}),stream)
         expected=transactional_update(model,optimizer,dataset,[3],prefixes,device,target_kl=1)

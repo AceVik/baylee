@@ -122,7 +122,8 @@ class RecurrentPPO5(unittest.TestCase):
         optimizer=torch.optim.AdamW(self.net.parameters(),lr=.0001)
         first=transactional_update(self.net,optimizer,self.dataset,[1],self.prefixes,self.device,target_kl=1)
         self.assertTrue(first['accepted'])
-        contract={'version':1,'dataset':'fixed_fixture','source':'immutable_fixture'}
+        contract={'version':2,'behavior_probability_reference':'recorded_executed_action',
+                  'dataset':'fixed_fixture','source':'immutable_fixture'}
         savedsource=dict(model_version=5,config=self.net.cfg.to_dict(),encoder_version=7,
                          trajectory_version=M.TRAJECTORY_VERSION,sampling_version=M.SAMPLING_VERSION,
                          architecture=M.architecture_for_config(self.net.cfg),structure={})
@@ -135,6 +136,19 @@ class RecurrentPPO5(unittest.TestCase):
         freshopt=torch.optim.AdamW(fresh.parameters(),lr=.0001)
         stream.seek(0);saved=torch.load(stream,weights_only=False)
         before=copy.deepcopy(fresh.state_dict())
+        from unittest.mock import patch
+        for invalid in ({**contract,'version':1},
+                        {k:v for k,v in contract.items() if k!='behavior_probability_reference'},
+                        {**contract,'behavior_probability_reference':'recomputed_replay'}):
+            with self.subTest(contract=invalid), \
+                 patch.object(fresh,'load_state_dict') as load_weights, \
+                 patch.object(freshopt,'load_state_dict') as load_optimizer, \
+                 patch('recurrent_ppo4.checkpoint.restore_rng') as load_rng:
+                with self.assertRaisesRegex(ValueError,'probability reference'):
+                    restore_training({**saved,'full_ppo_contract':invalid},fresh,freshopt,contract,self.device)
+                load_weights.assert_not_called()
+                load_optimizer.assert_not_called()
+                load_rng.assert_not_called()
         with self.assertRaises(ValueError):restore_training(saved,fresh,freshopt,{'changed':True},self.device)
         assert_state_equal(self,fresh.state_dict(),before)
         progress=restore_training(saved,fresh,freshopt,contract,self.device)
@@ -143,6 +157,24 @@ class RecurrentPPO5(unittest.TestCase):
         self.assertEqual(expected,actual)
         assert_state_equal(self,fresh.state_dict(),weights)
         assert_state_equal(self,freshopt.state_dict(),moments)
+
+    def test_legacy_resume_driver_rejects_before_model_optimizer_or_rng_setup(self):
+        from unittest.mock import patch
+        from recurrent_ppo4.driver import main
+        args=['train_rl4','--init','unused-source','--rollout-data','unused-data',
+              '--admission','unused-admission','--out','unused-output','--resume','legacy.pt']
+        for contract in ({'version':1}, {'version':2},
+                         {'version':2,'behavior_probability_reference':'recomputed_replay'}):
+            with self.subTest(contract=contract), patch('sys.argv',args), \
+                 patch('torch.load',return_value={'full_ppo_contract':contract}), \
+                 patch('recurrent_ppo4.checkpoint.load_policy') as load_model, \
+                 patch('torch.optim.AdamW') as optimizer, \
+                 patch('torch.manual_seed') as seed:
+                with self.assertRaisesRegex(ValueError,'probability reference'):
+                    main()
+                load_model.assert_not_called()
+                optimizer.assert_not_called()
+                seed.assert_not_called()
 
     def test_complete_disk_episode_driver_resume_matches_uninterrupted_and_excludes_opponent(self):
         import gzip,json,tempfile
@@ -205,6 +237,7 @@ class RecurrentPPO5(unittest.TestCase):
             torch.save(dict(config=self.net.cfg.to_dict(),model_version=5,model_family='v5',
                             architecture=M.architecture_for_config(self.net.cfg),encoder_version=7,
                             trajectory_version=M.TRAJECTORY_VERSION,sampling_version=M.SAMPLING_VERSION,
+                            full_ppo_contract={'version':1},
                             structure=forest,state_dict=self.net.state_dict()),source)
             admission=root/'admission.json'
             # Fixture receipt exercises the PyTorch consumer. Rust issuance is
@@ -268,6 +301,8 @@ class RecurrentPPO5(unittest.TestCase):
             assert_state_equal(self,resumed['state_dict'],uninterrupted['state_dict'])
             assert_state_equal(self,resumed['optimizer'],uninterrupted['optimizer'])
             self.assertEqual(resumed['full_ppo_contract']['admission']['decisions'],3)
+            self.assertEqual(resumed['full_ppo_contract']['version'],2)
+            self.assertEqual(resumed['full_ppo_contract']['behavior_probability_reference'],'recorded_executed_action')
             self.assertEqual(resumed['full_ppo_progress']['attempts'],2)
             from export_onnx4 import load_export_checkpoint,export_v4_onnx,make_dummy_inputs
             import onnxruntime as ort

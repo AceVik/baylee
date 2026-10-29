@@ -262,6 +262,11 @@ within the unroll. Its initial episode-return contract is gamma=lambda=1;
 segment boundaries are not terminal events. Only referenced public rule subtrees
 are encoded. KL rejection restores model, optimizer and RNG together. A small
 synthetic capacity probe does not certify real Commander-board memory use.
+Full-PPO resume contract version 2 explicitly binds
+`behavior_probability_reference='recorded_executed_action'`: replay checks the
+recorded likelihoods without replacing the PPO denominator. Older or differently
+marked optimizer continuations fail before restoration; their weights remain
+usable through a fresh `--init` experiment.
 
 `monitor_ops4 --root PATH --check` observes configured round, review, quota-probe
 and maintenance state. It preserves the existing event IDs and delivery ledger,

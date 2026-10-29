@@ -62,6 +62,7 @@ def main() -> None:
     import os
     from contextlib import ExitStack
     from .checkpoint import load_policy,training_payload,restore_training,native_source_digest,native_verify_admission
+    from .checkpoint import validate_resume_probability,FULL_PPO_CONTRACT_VERSION,BEHAVIOR_PROBABILITY_REFERENCE
     from .forward import episode_prefixes
     from .optimization import transactional_update,collection_divergence
     from .supervised import supervised_loss
@@ -95,6 +96,10 @@ def main() -> None:
         ap.error('Invalid PPO settings')
     if args.thinking_steps!=2 or args.max_shards or args.gamma!=1 or args.gae_lambda!=1:
         ap.error('Full-model pilot requires fixed K2, all shards and complete terminal-return targets gamma=lambda=1')
+    resume_saved = None
+    if args.resume:
+        resume_saved = torch.load(Path(args.resume).expanduser(),map_location='cpu',weights_only=False)
+        validate_resume_probability(resume_saved)
     os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG',':4096:8')
     torch.use_deterministic_algorithms(True)
     torch.set_num_threads(4)
@@ -140,7 +145,8 @@ def main() -> None:
             if anchor_dataset.structure.digest!=net.rules.digest:
                 raise ValueError('Supervised anchor rule catalog differs')
             anchor_prefixes=episode_prefixes(anchor_dataset)
-        contract=dict(version=1,source_checkpoint_sha256=source_hash,dataset_fingerprint=dataset.fingerprint,
+        contract=dict(version=FULL_PPO_CONTRACT_VERSION,behavior_probability_reference=BEHAVIOR_PROBABILITY_REFERENCE,
+                      source_checkpoint_sha256=source_hash,dataset_fingerprint=dataset.fingerprint,
                       admission=admission,encoder_version=source['encoder_version'],
                       target='complete terminal side outcome; gamma=lambda=1',precision='float32',
                       memory='current_policy_complete_episode_prefix_detached_at_unroll_boundary',
@@ -154,8 +160,7 @@ def main() -> None:
         progress=dict(epoch=0,next_batch=0,attempts=0,accepted=0,updates=[],terminal=False)
         out=Path(args.out).expanduser()
         if args.resume:
-            saved=torch.load(Path(args.resume).expanduser(),map_location='cpu',weights_only=False)
-            progress=restore_training(saved,net,optimizer,contract,device)
+            progress=restore_training(resume_saved,net,optimizer,contract,device)
         elif out.exists():
             raise FileExistsError('Preserving existing full-PPO output; use --resume or a new directory')
         out.mkdir(parents=True,exist_ok=True)
