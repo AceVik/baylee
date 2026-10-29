@@ -176,6 +176,21 @@ pub fn board_observation_hash(view: &PlayerView) -> u64 {
     writer.0
 }
 
+/// SHA256 of the same Encoder-5/6/7 observation projection as
+/// [`board_observation_hash`], excluding transport sequence and clock fields.
+/// This additive audit identity does not change the observation clock or hashes.
+/// Encoder-8/9 announcement context requires its own versioned projection.
+///
+/// # Panics
+/// If serializing the observable projection fails; its types are JSON-safe.
+#[must_use]
+pub fn board_observation_sha256(view: &PlayerView) -> [u8; 32] {
+    use sha2::Digest as _;
+    let bytes = serde_json::to_vec(&ObservableView::from_view(view))
+        .expect("ObservableView serializes");
+    sha2::Sha256::digest(bytes).into()
+}
+
 /// Public per-seat history statistics accumulated from seat-authorized views.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SeatHistoryStats4 {

@@ -1,5 +1,5 @@
 //! The view-only boundary shared by ONNX and deterministic adapter tests.
-use crate::features4::SourceKind4;
+use crate::features4::{SourceKind4, StepProvenance4};
 use crate::netplay4::NetPlayer4;
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
@@ -10,8 +10,8 @@ use baylee_view::PlayerView;
 pub struct LiveAnswer4 {
     /// Legal engine action chosen from this seat's view and pending question.
     pub action: PlayerAction,
-    /// Neural, forced, or fallback origin returned by the runtime.
-    pub source: SourceKind4,
+    /// Actual runtime origin and conditional probability, never inferred from a label.
+    pub provenance: StepProvenance4,
     /// Live-only draw rule audit, absent for ordinary learned policy answers.
     pub draw: Option<super::DrawDecision4>,
 }
@@ -59,8 +59,8 @@ pub trait Brain4 {
 
 pub(super) fn validate_wire_encoder(encoder: u32) -> anyhow::Result<()> {
     anyhow::ensure!(
-        encoder != 8,
-        "Encoder 8 live seats require payment-context wire support; use offline eval4"
+        matches!(encoder, 5..=7),
+        "Encoder {encoder} live seats require a supported observation contract; Encoders 8 and 9 need payment-context wire support; use offline eval4"
     );
     Ok(())
 }
@@ -92,20 +92,37 @@ impl Brain4 for NetPlayer4 {
         teams: &[Option<u8>],
     ) -> anyhow::Result<LiveAnswer4> {
         self.validate_live_contract()?;
-        let answer = self.act_detailed(view, pending, teams);
-        let draw =
-            super::draw::decide(pending, view, teams, answer.provenance.source, answer.value);
-        if let Some(decision) = draw {
-            return Ok(LiveAnswer4 {
-                action: PlayerAction::YesNo(decision.accepted),
+        Ok(from_runtime(
+            self.act_detailed(view, pending, teams),
+            view,
+            pending,
+            teams,
+        ))
+    }
+}
+
+pub(super) fn from_runtime(
+    answer: crate::netplay4::Answer4,
+    view: &PlayerView,
+    pending: &Pending,
+    teams: &[Option<u8>],
+) -> LiveAnswer4 {
+    let draw = super::draw::decide(pending, view, teams, answer.provenance.source, answer.value);
+    if let Some(decision) = draw {
+        return LiveAnswer4 {
+            action: PlayerAction::YesNo(decision.accepted),
+            provenance: StepProvenance4 {
                 source: SourceKind4::House,
-                draw: Some(decision),
-            });
-        }
-        Ok(LiveAnswer4 {
-            action: answer.action,
-            source: answer.provenance.source,
-            draw: None,
-        })
+                behavior_logprob: 0.0,
+                has_logprob: false,
+                ..answer.provenance
+            },
+            draw: Some(decision),
+        };
+    }
+    LiveAnswer4 {
+        action: answer.action,
+        provenance: answer.provenance,
+        draw: None,
     }
 }

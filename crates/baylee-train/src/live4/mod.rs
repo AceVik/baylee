@@ -1,11 +1,13 @@
 //! Transport-free neural seat: every authorized observation, every offered choice.
 //! A transport break must terminate this adapter; a latest view cannot repair H.
+mod audit;
 mod brain;
 mod draw;
+pub use audit::LiveDecision4;
 pub use brain::{Brain4, LiveAnswer4};
 pub use draw::DrawDecision4;
 
-use crate::features4::{SourceKind4, board_observation_hash};
+use crate::features4::{SourceKind4, board_observation_hash, board_observation_sha256};
 use crate::netplay4::NetPlayer4;
 use anyhow::{Context as _, bail, ensure};
 use baylee_core::ids::PlayerId;
@@ -14,6 +16,7 @@ use baylee_protocol::v1::{self, Envelope};
 use baylee_seat::{DeckList, TableMemory, memory::Heard};
 use baylee_view::PlayerView;
 use serde::Serialize;
+use sha2::{Digest as _, Sha256};
 use std::borrow::Cow;
 
 /// Match the current offline observation/candidate contract without changing
@@ -77,6 +80,8 @@ pub struct LiveSeat4<B = NetPlayer4> {
     game_id: Option<String>,
     teams: Vec<Option<u8>>,
     last_observation: Option<u64>,
+    history: Sha256,
+    last_decision: Option<LiveDecision4>,
     last_answered: Option<(u64, Vec<u8>)>,
     waiting: Option<Question>,
     ready: bool,
@@ -97,6 +102,8 @@ impl<B: Brain4> LiveSeat4<B> {
             game_id: None,
             teams: Vec::new(),
             last_observation: None,
+            history: Sha256::new(),
+            last_decision: None,
             last_answered: None,
             waiting: None,
             ready: false,
@@ -139,6 +146,13 @@ impl<B: Brain4> LiveSeat4<B> {
         &self.report
     }
 
+    /// Latest generated action audit; present only until the next incoming frame.
+    /// Generation does not establish socket delivery or engine acceptance.
+    #[must_use]
+    pub const fn decision_audit(&self) -> Option<&LiveDecision4> {
+        self.last_decision.as_ref()
+    }
+
     /// A live socket gap cannot silently reuse incomplete recurrent memory.
     pub fn disconnected(&mut self) {
         self.done = true;
@@ -147,6 +161,7 @@ impl<B: Brain4> LiveSeat4<B> {
     }
 
     fn hear_inner(&mut self, bytes: &[u8]) -> anyhow::Result<Vec<Envelope>> {
+        self.last_decision = None;
         self.brain.validate_live_contract()?;
         let heard = self.memory.hear(bytes);
         let outgoing = Vec::new();
@@ -171,6 +186,21 @@ impl<B: Brain4> LiveSeat4<B> {
                         "invalid live roster"
                     );
                     self.brain.initialize(self.seat, &self.deck, &teams)?;
+                    let initial = crate::features4::SeatKnowledge4::from_deck_list(
+                        self.seat,
+                        teams.len(),
+                        &self.deck,
+                    );
+                    audit::extend(
+                        &mut self.history,
+                        b"live_authorized_history_v1/init",
+                        &serde_json::to_vec(&(
+                            self.seat,
+                            &initial.own_deck_cards,
+                            &initial.inventory,
+                            &teams,
+                        ))?,
+                    );
                     self.report.initializations += 1;
                     self.game_id = Some(statics.game_id.clone());
                     self.teams = teams;
@@ -258,12 +288,34 @@ impl<B: Brain4> LiveSeat4<B> {
                 question.pending.answer_fault(&answer.action).is_none(),
                 "brain returned an invalid offered answer"
             );
+            ensure!(
+                answer.provenance.source != SourceKind4::External,
+                "external actions cannot be attributed to a live neural brain"
+            );
+            audit::validate(answer.provenance)?;
+            let action_json = serde_json::to_vec(&answer.action)?;
+            let pending_json = serde_json::to_vec(&question.pending)?;
+            let decision = LiveDecision4 {
+                schema: "live_decision_audit_v1",
+                decision: self.report.answers + 1,
+                seq: question.seq,
+                observation: self.report.observations,
+                view_sha256: audit::digest(&serde_json::to_vec(view.as_ref())?),
+                observation_sha256: audit::hex(&board_observation_sha256(view.as_ref())),
+                pending_sha256: audit::digest(&pending_json),
+                action_sha256: audit::digest(&action_json),
+                history_sha256: audit::hex(&self.history.clone().finalize()),
+                provenance: answer.provenance,
+            };
+            audit::extend(&mut self.history, b"question", &pending_json);
+            audit::extend(&mut self.history, b"action", &action_json);
+            self.last_decision = Some(decision);
             self.report.answers += 1;
             if let Some(draw) = answer.draw {
                 self.report.draw_offer_answers += 1;
                 self.report.last_draw_decision = Some(draw);
             }
-            match answer.source {
+            match answer.provenance.source {
                 SourceKind4::Net => self.report.neural_answers += 1,
                 SourceKind4::Forced => self.report.forced_answers += 1,
                 SourceKind4::House => self.report.fallback_answers += 1,
@@ -276,7 +328,7 @@ impl<B: Brain4> LiveSeat4<B> {
                 msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {
                     game_id: self.game_id.clone().unwrap_or_default(),
                     seat_token: String::new(),
-                    action_json: serde_json::to_vec(&answer.action)?,
+                    action_json,
                 })),
             });
             self.last_answered = Some((question.seq, question.raw));
@@ -304,6 +356,11 @@ impl<B: Brain4> LiveSeat4<B> {
         self.brain
             .observe(view.as_ref())
             .context("neural observation failed; recurrent trajectory stopped")?;
+        audit::extend(
+            &mut self.history,
+            b"observation",
+            &board_observation_sha256(view.as_ref()),
+        );
         self.last_observation = Some(digest);
         self.report.observations += 1;
         Ok(())

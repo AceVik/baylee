@@ -1,4 +1,5 @@
 use super::*;
+use crate::features4::StepProvenance4;
 use baylee_client_core::test_support::{ViewBuilder, statics};
 use baylee_core::mana::ManaColor;
 use baylee_engine::choice::PlayerAction;
@@ -15,6 +16,7 @@ struct Calls {
     observations: Vec<i32>,
     answers: usize,
     fail_observation: bool,
+    provenance: Option<StepProvenance4>,
 }
 
 struct Brain(Rc<RefCell<Calls>>);
@@ -52,7 +54,7 @@ impl Brain4 for Brain {
         {
             return Ok(LiveAnswer4 {
                 action: PlayerAction::YesNo(draw.accepted),
-                source: SourceKind4::House,
+                provenance: StepProvenance4::default(),
                 draw: Some(draw),
             });
         }
@@ -71,7 +73,10 @@ impl Brain4 for Brain {
         };
         Ok(LiveAnswer4 {
             action,
-            source: SourceKind4::Net,
+            provenance: calls.provenance.unwrap_or(StepProvenance4 {
+                source: SourceKind4::Net,
+                ..StepProvenance4::default()
+            }),
             draw: None,
         })
     }
@@ -443,11 +448,11 @@ fn wire_draw_offer_reports_rule_override_separately_from_learned_net() {
 }
 
 #[test]
-fn payment_context_brain_is_rejected_before_initialization_or_observation() {
-    struct PaymentBrain;
+fn payment_context_brains_are_rejected_before_initialization_or_observation() {
+    struct PaymentBrain(u32);
     impl Brain4 for PaymentBrain {
         fn validate_live_contract(&self) -> anyhow::Result<()> {
-            super::brain::validate_wire_encoder(8)
+            super::brain::validate_wire_encoder(self.0)
         }
         fn initialize(
             &mut self,
@@ -472,19 +477,267 @@ fn payment_context_brain_is_rejected_before_initialization_or_observation() {
     for encoder in [5, 6, 7] {
         assert!(super::brain::validate_wire_encoder(encoder).is_ok());
     }
-    let mut live = LiveSeat4::new(PaymentBrain, DeckList::default(), ME);
-    assert!(
-        live.hear(&table())
-            .unwrap_err()
-            .to_string()
-            .contains("payment-context wire support")
+    for encoder in [8, 9, 10] {
+        let mut live = LiveSeat4::new(PaymentBrain(encoder), DeckList::default(), ME);
+        assert!(
+            live.hear(&table())
+                .unwrap_err()
+                .to_string()
+                .contains("payment-context wire support")
+        );
+        assert!(live.finished());
+        assert!(
+            live.report()
+                .failure
+                .as_ref()
+                .unwrap()
+                .contains(&format!("Encoder {encoder}"))
+        );
+    }
+}
+
+#[test]
+fn live_audit_retains_exact_runtime_probability_and_outgoing_action_identity() {
+    let (mut seat, calls) = adapter();
+    let provenance = StepProvenance4 {
+        source: SourceKind4::Net,
+        temperature: 0.7,
+        thinking_steps: 2,
+        behavior_logprob: -1.25,
+        has_logprob: true,
+    };
+    calls.borrow_mut().provenance = Some(provenance);
+    seat.hear(&table()).unwrap();
+    seat.hear(&view(1, 20)).unwrap();
+    seat.hear(&curtain()).unwrap();
+    let outgoing = seat.hear(&question(1)).unwrap();
+    let Some(v1::envelope::Msg::PlayerAction(action)) = &outgoing[0].msg else {
+        panic!("action")
+    };
+    let audit = seat.decision_audit().unwrap();
+    assert_eq!(audit.provenance, provenance);
+    assert_eq!(audit.decision, 1);
+    assert_eq!(audit.observation, 1);
+    assert_eq!(audit.seq, 1);
+    assert_eq!(
+        audit.action_sha256,
+        super::audit::digest(&action.action_json)
     );
-    assert!(live.finished());
-    assert!(
-        live.report()
-            .failure
-            .as_ref()
-            .unwrap()
-            .contains("Encoder 8")
+    let pending = Pending::ChooseColor {
+        player: ME,
+        options: vec![ManaColor::Red, ManaColor::Green],
+    };
+    assert_eq!(
+        audit.pending_sha256,
+        super::audit::digest(&serde_json::to_vec(&pending).unwrap())
     );
+    let serialized = serde_json::to_string(audit).unwrap();
+    for forbidden in [
+        "Own deck only",
+        "Human",
+        "ChooseColor",
+        "action_json",
+        "pending_json",
+        "view_json",
+    ] {
+        assert!(!serialized.contains(forbidden));
+    }
+    seat.hear(&question(1)).unwrap();
+    assert!(seat.decision_audit().is_none());
+}
+
+#[test]
+fn audit_history_is_reproducible_and_binds_passive_observations_and_prior_actions() {
+    fn histories(change: bool, duplicate: bool) -> Vec<String> {
+        let (mut seat, _) = adapter();
+        seat.hear(&table()).unwrap();
+        seat.hear(&view(1, 20)).unwrap();
+        seat.hear(&curtain()).unwrap();
+        seat.hear(&question(1)).unwrap();
+        let first = seat.decision_audit().unwrap().history_sha256.clone();
+        if duplicate {
+            seat.hear(&view(1, 20)).unwrap();
+        }
+        if change {
+            seat.hear(&view(2, 19)).unwrap();
+        }
+        seat.hear(&view(3, 20)).unwrap();
+        seat.hear(&question(3)).unwrap();
+        vec![first, seat.decision_audit().unwrap().history_sha256.clone()]
+    }
+    let original = histories(false, false);
+    assert_eq!(original, histories(false, true));
+    assert_eq!(original, histories(false, false));
+    let passive_change = histories(true, false);
+    assert_eq!(original[0], passive_change[0]);
+    assert_ne!(original[1], passive_change[1]);
+    assert_ne!(original[0], original[1]);
+}
+
+#[test]
+fn semantic_audit_history_ignores_socket_timing_while_exact_view_identity_retains_it() {
+    fn sample(seq: u64, remaining_ms: u32, life: i32) -> LiveDecision4 {
+        let (mut seat, _) = adapter();
+        seat.hear(&table()).unwrap();
+        let mut wire = ViewBuilder::new(2).build();
+        wire.seq = seq;
+        wire.awaiting = Some(ME);
+        wire.seats[0].life = life;
+        wire.decision_remaining_ms = Some(remaining_ms);
+        wire.clocks = vec![baylee_view::SeatClock {
+            seat: ME,
+            remaining_ms,
+        }];
+        seat.hear(&frame(v1::envelope::Msg::StateDelta(v1::StateDelta {
+            game_id: "test-game".into(),
+            seq,
+            view_json: serde_json::to_vec(&wire).unwrap(),
+            log_json: Vec::new(),
+        })))
+        .unwrap();
+        seat.hear(&curtain()).unwrap();
+        seat.hear(&question(seq)).unwrap();
+        seat.decision_audit().unwrap().clone()
+    }
+    let original = sample(1, 60_000, 20);
+    let different_timing = sample(99, 43_211, 20);
+    assert_eq!(
+        original.observation_sha256,
+        different_timing.observation_sha256
+    );
+    assert_eq!(original.history_sha256, different_timing.history_sha256);
+    assert_ne!(original.view_sha256, different_timing.view_sha256);
+    let changed_board = sample(1, 60_000, 19);
+    assert_ne!(
+        original.observation_sha256,
+        changed_board.observation_sha256
+    );
+    assert_ne!(original.history_sha256, changed_board.history_sha256);
+}
+
+#[test]
+fn audit_initialization_uses_the_runtime_canonical_inventory_including_deck_sections() {
+    use baylee_core::ids::CardIndex;
+    use baylee_seat::DeckCard;
+    let card = |id, count| DeckCard {
+        card: CardIndex::new(id),
+        count,
+    };
+    fn sample(main: Vec<DeckCard>, sideboard: Vec<DeckCard>) -> String {
+        let (mut seat, _) = adapter();
+        seat.deck.main = main;
+        seat.deck.sideboard = sideboard;
+        seat.hear(&table()).unwrap();
+        seat.hear(&view(1, 20)).unwrap();
+        seat.hear(&curtain()).unwrap();
+        seat.hear(&question(1)).unwrap();
+        seat.decision_audit().unwrap().history_sha256.clone()
+    }
+    let original = sample(vec![card(1, 1), card(2, 2)], Vec::new());
+    assert_eq!(
+        original,
+        sample(vec![card(2, 1), card(1, 1), card(2, 1)], Vec::new())
+    );
+    assert_ne!(original, sample(vec![card(1, 1)], vec![card(2, 2)]));
+}
+
+#[test]
+fn live_audit_rejects_fabricated_probability_provenance_before_sending() {
+    for provenance in [
+        StepProvenance4 {
+            source: SourceKind4::House,
+            temperature: 0.7,
+            has_logprob: true,
+            behavior_logprob: -1.0,
+            ..StepProvenance4::default()
+        },
+        StepProvenance4 {
+            source: SourceKind4::Net,
+            temperature: 0.0,
+            has_logprob: true,
+            behavior_logprob: -1.0,
+            ..StepProvenance4::default()
+        },
+        StepProvenance4 {
+            source: SourceKind4::Net,
+            temperature: 0.7,
+            has_logprob: true,
+            behavior_logprob: f32::NAN,
+            ..StepProvenance4::default()
+        },
+        StepProvenance4 {
+            source: SourceKind4::Net,
+            temperature: 0.7,
+            has_logprob: true,
+            behavior_logprob: 1.0,
+            ..StepProvenance4::default()
+        },
+        StepProvenance4 {
+            source: SourceKind4::Forced,
+            has_logprob: false,
+            behavior_logprob: -1.0,
+            ..StepProvenance4::default()
+        },
+    ] {
+        let (mut seat, calls) = adapter();
+        calls.borrow_mut().provenance = Some(provenance);
+        seat.hear(&table()).unwrap();
+        seat.hear(&view(1, 20)).unwrap();
+        seat.hear(&curtain()).unwrap();
+        assert!(seat.hear(&question(1)).is_err());
+        assert!(seat.finished());
+        assert!(seat.decision_audit().is_none());
+        assert_eq!(seat.report().answers, 0);
+    }
+}
+
+#[test]
+fn runtime_draw_override_discards_the_replaced_action_probability() {
+    let pending = Pending::YesNo {
+        player: ME,
+        prompt: baylee_engine::choice::YesNoPrompt::DrawOffer {
+            proposer: PlayerId::new(1),
+        },
+        source: None,
+    };
+    let answer = super::brain::from_runtime(
+        crate::netplay4::Answer4 {
+            action: PlayerAction::YesNo(false),
+            value: 0.1,
+            provenance: StepProvenance4 {
+                source: SourceKind4::Net,
+                temperature: 0.7,
+                thinking_steps: 2,
+                behavior_logprob: -0.25,
+                has_logprob: true,
+            },
+            target: crate::features4::TeacherTarget4::default(),
+        },
+        &ViewBuilder::new(2).build(),
+        &pending,
+        &[None, None],
+    );
+    assert!(matches!(answer.action, PlayerAction::YesNo(true)));
+    assert_eq!(answer.provenance.source, SourceKind4::House);
+    assert!(!answer.provenance.has_logprob);
+    assert_eq!(answer.provenance.behavior_logprob, 0.0);
+    assert_eq!(answer.provenance.thinking_steps, 2);
+}
+
+#[test]
+fn zero_depth_runtime_forced_and_house_answers_keep_honest_provenance() {
+    for source in [SourceKind4::Forced, SourceKind4::House] {
+        let (mut seat, calls) = adapter();
+        let provenance = StepProvenance4 {
+            source,
+            thinking_steps: 0,
+            ..StepProvenance4::default()
+        };
+        calls.borrow_mut().provenance = Some(provenance);
+        seat.hear(&table()).unwrap();
+        seat.hear(&view(1, 20)).unwrap();
+        seat.hear(&curtain()).unwrap();
+        assert_eq!(seat.hear(&question(1)).unwrap().len(), 1);
+        assert_eq!(seat.decision_audit().unwrap().provenance, provenance);
+    }
 }

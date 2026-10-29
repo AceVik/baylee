@@ -367,14 +367,49 @@ submitted own deck and public teams initialize knowledge. Repeated statics do
 not reset memory. An observation failure or an opened socket's interruption
 ends the session; reconnecting with a latest snapshot cannot reconstruct missed
 observations. Aggregate reports separate neural, forced and fallback answers.
-For compatibility with current offline evaluation, the live policy clears only
-the socket-only `casting` and `targeting` additions before observation hashing,
-memory updates and answering; the raw authorized wire view remains intact.
-This prevents an extra `CancelCast` candidate that offline evaluation does not
-provide. A future shared offline/wire view contract should remove this temporary
-compatibility concession, with matching encoder and candidate tests.
+Archived Encoder-5/6 policies clear socket `casting` and `targeting` before
+observation hashing, memory updates and answering; the authorized wire view
+remains intact. Encoder 7 retains this permitted context, matching its offline
+contract. Encoders 8 and 9 remain rejected before initialization or observation:
+the socket does not declare or supply their persistent announcement contract.
 The current wire has no neural `SeatMind` kind, so the visible `NET-` name and
 local report identify it without claiming to be an LLM.
+
+`seat4 --raw-policy --temperature 0.7 --policy-seed 77 --decision-audits DIR`
+opts into stochastic version-2 neural sampling. Temperature must be zero or
+finite and above 0.35; stochastic live play requires all three explicit options.
+The independent seed is mixed with the completed-game index rotated left by
+17 and the physical seat number, never with the shuffle seed. Each game's
+local audit pins its effective seed, policy contract, running executable SHA256,
+build revision/dirty stamp, and exact model/metadata/depth-graph hashes.
+The normal preview stays greedy.
+Its local audit UUID also appears in the pinned-model and aggregate reports;
+the hash/probability file itself names no gateway game or account.
+
+The optional `live_decision_audit_v1` JSONL files contain hashes of the exact
+normalized policy view, its separate semantic observation-clock projection,
+semantic pending question and outgoing action, the distinct-observation clock,
+and a SHA256 history chain over own-deck/public-team
+initialization, consumed observations and prior decisions. They retain runtime
+`StepProvenance4` unchanged, including conditional log-probability only where the
+runtime supplies one. Forced, scalar, tactical, fallback and live draw-rule
+answers do not acquire a neural behavior probability. A draw override clears
+the replaced neural answer's probability. Duplicate frames/questions create no
+decision entry. Raw views, decks, questions, actions, account IDs, names and
+credentials are absent; on Unix the newly created files have mode 0600.
+The semantic observation/history digests exclude transport sequence, running
+clocks and presentation fields using the same projection as the observation
+clock. The separate exact policy-view digest intentionally includes those
+bytes for wire diagnosis and cannot serve as offline semantic replay identity.
+
+The writer durably records `generated` before attempting the socket send and
+`socket_sent` only after that send completes. A send completion does not prove
+engine acceptance; a cancellation/failure may leave only `generated`. These are
+local diagnostics, explicitly neither anonymous exports nor admitted BC/PPO
+data. Complete official anonymous export, replay matching of executed actions
+and observation histories, probability verification and technical admission
+remain required before training. This preparation does not enable Encoder 9
+on the wire or change any converter/admission guard.
 
 `seat4 --model-selection /path/to/selected-model.json` optionally reads a local
 supervisor manifest at the start of each game, before the first view. A model
