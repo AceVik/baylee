@@ -20,11 +20,21 @@ from .comparison import (HIDDEN_ATOL, HIDDEN_RTOL, KL_ATOL, LP_ATOL, TARGET_KL,
 from .measurement import PhaseTimer, frame_identities, measure_pass
 
 
+def parse_device(value):
+    try:
+        device = torch.device(value)
+    except (RuntimeError, ValueError) as error:
+        raise argparse.ArgumentTypeError('Require cpu, cuda or cuda:N') from error
+    if device.type not in ('cpu', 'cuda') or (device.type == 'cpu' and device.index is not None):
+        raise argparse.ArgumentTypeError('Require cpu, cuda or cuda:N')
+    return str(device)
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('source', 'candidate', 'rollout-data', 'admission', 'out'):
         parser.add_argument('--'+name, type=Path, required=True)
-    parser.add_argument('--device', choices=('cpu', 'cuda'), default='cuda')
+    parser.add_argument('--device', type=parse_device, default='cuda', help='cpu, cuda or cuda:N')
     parser.add_argument('--preflight-only', action='store_true',
                         help='CPU checkpoint/dataset/collation validation, with no model forward')
     parser.add_argument('--unroll', type=int, choices=(64,), default=64)
@@ -77,6 +87,17 @@ def timing_delta(reference, actual):
     return result
 
 
+def initialize_device(device):
+    """Resolve CUDA's logical index before the allocator API; no tensor allocation."""
+    device = torch.device(device)
+    if device.type == 'cuda':
+        if device.index is None:
+            device = torch.device('cuda', torch.cuda.current_device())
+        total_memory = torch.cuda.get_device_properties(device).total_memory
+        torch.cuda.set_per_process_memory_fraction(min(1., 11 * 2**30 / total_memory), device)
+    return device
+
+
 def main(argv=None):
     args = parse_args(argv)
     if args.preflight_only:
@@ -93,6 +114,7 @@ def main(argv=None):
                   optimizer_steps=0, parameter_updates=0, promoted=False,
                   optimizer_group_contract=dict(batch_size=4, unroll=64, changed=False),
                   precision='float32', tf32=False, threads=4, interop_threads=1,
+                  requested_device=args.device,
                   expected=dict(histories=args.expected_histories, frames=args.expected_frames,
                                 choices=args.expected_choices),
                   tolerances=dict(logprob_atol=LP_ATOL, hidden_value_atol=HIDDEN_ATOL,
@@ -110,9 +132,8 @@ def main(argv=None):
     atomic_json(args.out, report)
     started = time.perf_counter()
     try:
-        if device.type == 'cuda':
-            total_memory = torch.cuda.get_device_properties(device).total_memory
-            torch.cuda.set_per_process_memory_fraction(min(1., 11 * 2**30 / total_memory), device)
+        device = initialize_device(device)
+        report['device'] = str(device)
         with ExitStack() as resources:
             timer = PhaseTimer(device)
             with timer.scope('source_load'):

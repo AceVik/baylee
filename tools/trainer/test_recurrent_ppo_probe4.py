@@ -16,7 +16,7 @@ import model5 as M
 from recurrent_ppo4.forward import episode_prefixes
 from recurrent_ppo4.optimization import collection_divergence
 from recurrent_ppo_probe4.comparison import compare, validate_coverage
-from recurrent_ppo_probe4.driver import main, parse_args, timing_delta, validate_candidate
+from recurrent_ppo_probe4.driver import initialize_device, main, parse_args, timing_delta, validate_candidate
 from recurrent_ppo_probe4.measurement import Snapshot, frame_identities, measure_pass
 from test_recurrent_collection5 import UnevenHistories
 
@@ -117,15 +117,17 @@ class FixedWeightProbe(unittest.TestCase):
 
 class ProbeContracts(unittest.TestCase):
     def test_cuda_initialization_failure_keeps_failed_receipt_without_model_or_data_execution(self):
-        for failing_operation in ('get_device_properties', 'set_per_process_memory_fraction'):
+        for failing_operation in ('current_device', 'get_device_properties', 'set_per_process_memory_fraction'):
             writes = []
             with self.subTest(operation=failing_operation), tempfile.TemporaryDirectory() as temporary, ExitStack() as stack:
                 prefix = 'recurrent_ppo_probe4.driver.'
                 stack.enter_context(patch(prefix+'torch.set_num_interop_threads'))
+                current_device = stack.enter_context(patch(prefix+'torch.cuda.current_device', return_value=0))
                 properties = stack.enter_context(patch(prefix+'torch.cuda.get_device_properties',
                     return_value=SimpleNamespace(total_memory=12*2**30)))
                 fraction = stack.enter_context(patch(prefix+'torch.cuda.set_per_process_memory_fraction'))
-                failed = properties if failing_operation == 'get_device_properties' else fraction
+                failed = dict(current_device=current_device, get_device_properties=properties,
+                              set_per_process_memory_fraction=fraction)[failing_operation]
                 failed.side_effect = RuntimeError('CUDA initialization failed: OS304')
                 source_digest = stack.enter_context(patch(prefix+'native_source_digest'))
                 checkpoint_load = stack.enter_context(patch(prefix+'torch.load'))
@@ -149,6 +151,48 @@ class ProbeContracts(unittest.TestCase):
                 self.assertFalse(writes[-1]['optimizer_constructed'])
                 for operation in (source_digest, checkpoint_load, policy_load, dataset_load, measure):
                     operation.assert_not_called()
+
+    def test_cuda_allocator_cap_gets_resolved_device_and_explicit_index_is_preserved(self):
+        for requested, resolved in (('cuda', 'cuda:2'), ('cuda:1', 'cuda:1')):
+            writes = []
+            with self.subTest(device=requested), tempfile.TemporaryDirectory() as temporary, ExitStack() as stack:
+                prefix = 'recurrent_ppo_probe4.driver.'
+                stack.enter_context(patch(prefix+'torch.set_num_interop_threads'))
+                current_device = stack.enter_context(patch(prefix+'torch.cuda.current_device', return_value=2))
+                properties = stack.enter_context(patch(prefix+'torch.cuda.get_device_properties',
+                    return_value=SimpleNamespace(total_memory=12*2**30)))
+                # Stop immediately at the cap boundary: this test never initializes
+                # CUDA, allocates a tensor, or invokes a model/data adapter.
+                fraction = stack.enter_context(patch(prefix+'torch.cuda.set_per_process_memory_fraction',
+                    side_effect=RuntimeError('stop after allocator cap arguments')))
+                checkpoint_load = stack.enter_context(patch(prefix+'torch.load'))
+                dataset_load = stack.enter_context(patch(prefix+'D.TrajectoryDataset4'))
+                stack.enter_context(patch(prefix+'atomic_json',
+                    side_effect=lambda _path, report: writes.append(copy.deepcopy(report))))
+                argv = ['--source', 'source.pt', '--candidate', 'candidate.pt', '--rollout-data', 'data',
+                        '--admission', 'admission.json', '--out', str(Path(temporary)/'report.json'),
+                        '--device', requested, '--expected-histories', '8',
+                        '--expected-frames', '6626', '--expected-choices', '1575']
+                with self.assertRaisesRegex(RuntimeError, 'stop after allocator cap arguments'):
+                    main(argv)
+                properties.assert_called_once_with(torch.device(resolved))
+                fraction.assert_called_once_with(11/12, torch.device(resolved))
+                self.assertEqual(current_device.call_count, int(requested == 'cuda'))
+                self.assertEqual(writes[-1]['requested_device'], requested)
+                self.assertEqual(writes[-1]['status'], 'failed')
+                checkpoint_load.assert_not_called()
+                dataset_load.assert_not_called()
+
+    def test_device_helper_returns_explicit_device_and_cpu_never_touches_cuda(self):
+        with patch('torch.cuda.current_device', return_value=3) as current:
+            with patch('torch.cuda.get_device_properties', return_value=SimpleNamespace(total_memory=12*2**30)) as properties:
+                with patch('torch.cuda.set_per_process_memory_fraction') as fraction:
+                    self.assertEqual(initialize_device('cuda'), torch.device('cuda:3'))
+                    self.assertEqual(initialize_device('cuda:1'), torch.device('cuda:1'))
+                    self.assertEqual(initialize_device('cpu'), torch.device('cpu'))
+                    current.assert_called_once_with()
+                    self.assertEqual(properties.call_count, 2)
+                    self.assertEqual(fraction.call_count, 2)
 
     def test_atomic_progress_survives_later_failure_and_completion_requires_all_configs(self):
         source = dict(encoder_version=7, config={'d_model': 32}, structure_sha256='catalog')
