@@ -31,6 +31,14 @@ offen. Belege: `refactor-investigations-20261029/r0-publication-01a18655-087f-70
 Das verspätete Terminal-Ereignis `training:49efb950e5b82472:terminal` wurde gegen
 den tatsächlichen Besitzer-Stopp geprüft und dedupliziert, ohne Neustart.
 
+Die vorbereitende R1-Modultrennung ist ebenfalls abgeschlossen (`e4e3318fa`):
+`PlayerNet4` liegt bei unveränderten öffentlichen Imports in `model4/player.py`.
+2.730 Tensorvergleiche einschließlich 1.918 Gradienten sind bitgleich über
+v4/v5r1/v5r2 und K0/1/2/4/8; neun vorhandene Modelltests bestehen.
+Die versionierte Änderung der Kontextberechnung ist damit vorbereitet,
+aber noch nicht implementiert. Belege:
+`refactor-investigations-20261029/r1-move-01a18665-1952-75d2-a1dd-93f000faed08/`.
+
 ## 1. Betriebsstand und gesicherte Arbeit
 
 - `baylee-continuous-v5-training.service` ist gestoppt; Controller und
@@ -43,8 +51,12 @@ den tatsächlichen Besitzer-Stopp geprüft und dedupliziert, ohne Neustart.
 - Der Checkpoint wurde vor dem Stop per Hardlink gesichert, anschließend geladen
   und geprüft: alle 566 Gewichtstensoren endlich; SHA-256
   `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c`.
-- Der laufende CPU-Referenzvergleich mit 256 Fällen und 128 Tisch-Clustern läuft
-  weiter. Er verändert keine Gewichte. Das Nutzer-Gateway auf Port 28766 bleibt
+- Der CPU-Referenzvergleich ist mit allen 256 Fällen und 128 Tisch-Clustern
+  abgeschlossen und geprüft: R6 gewinnt 74, Steady 125 Partien, jeweils gegen
+  Sharp. Sechs Netz-Partien enthalten insgesamt 55 ausgewiesene Fallbacks.
+  Details und Einschränkungen stehen im
+  [Referenzbericht](../history/trained-ai-v5-reference-2026-10-29.md).
+  Es wurden keine Gewichte geändert. Das Nutzer-Gateway auf Port 28766 bleibt
   verfügbar; es wurde kein neues Modell bereitgestellt.
 - Die drei CPU-Untersuchungen und der begrenzte GPU-Denkstufentest sind beendet.
   Der GPU-Test machte **null Optimizer-Updates**. Die GPU ist wieder frei.
@@ -101,8 +113,8 @@ Standard-K. Belege: `depth-contract/{report.md,probe.py,results.json}`.
 
 ### 2.3 v5-PPO: konkreter Veröffentlichungsfehler und begrenzte Unterstützung
 
-Der Head-PPO-Trainer kann v5 laden, lässt beim Schreiben jedoch `architecture`
-und `model_family` weg. Die echte Lade-/Update-/Speicherprobe reproduziert für
+Der Head-PPO-Trainer konnte v5 laden, ließ beim Schreiben jedoch `architecture`
+und `model_family` weg. Die ursprüngliche Lade-/Update-/Speicherprobe reproduzierte für
 beide v5-Relationsrevisionen ein anschließend nicht mehr ladbares Modell.
 Die Wiederverwendung der bereits existierenden `source_identity`-Funktion löst
 diesen isolierten Fehler. Die sieben bestehenden Policy-Training-Tests bestehen;
@@ -168,6 +180,9 @@ Erste Reparatur:
 `G` startet vollständig bei null. Bei d=640 kommen 819.840 Parameter hinzu;
 eine quadratische Kandidaten-Self-Attention ist dafür nicht nötig.
 
+Status: Die verhaltensneutrale Modultrennung ist committed und geprüft;
+die folgenden Änderungen und Abnahmekriterien stehen noch aus.
+
 - Eigene `candidate_context_revision`; vorhandene Modelle bleiben Revision 1.
   Erste neue Kombination: v5/Relationsrevision 2/Kandidatenrevision 2 mit
   eigener Architekturkennung. Die Relationsrevision bleibt dabei unverändert.
@@ -219,6 +234,14 @@ eigene Hand/Deckwissen, öffentliche Zonen, Marken, Instants/Stack und Kampfschr
 bleiben vollständig im erlaubten View abgebildet. Private gegnerische Karten
 und Bibliotheksreihenfolgen sind keine Eingaben. Bestehende Daten müssen sauber
 neu konvertiert werden können; Änderungen am Encoder sind ein eigenes Experiment.
+
+Der vollständige R6-Referenzlauf liefert konkrete Regressionen für diese Arbeit:
+alle 55 Fallbacks in sechs Partien mit `adapted/DDJ/izzet`, davon 53 unmittelbar
+nach `CancelCast`. Replays für reproduzierbare Zahlungs-/Abbruchszenarien nutzen
+und strukturierte Fallback-Gründe ergänzen. `stalls = 0` darf nicht als Beleg
+für ausschließlich neuronale Entscheidungen gelten; der interne Schutz greift
+früher als der äußere Stallzähler. Die genaue Ursache jeder einzelnen Auslösung
+ist bislang nicht protokolliert. Belege und Grenzen stehen im Referenzbericht.
 
 ### R4 — v5 aus eigenen Spielergebnissen lernen lassen
 
@@ -361,7 +384,7 @@ das jetzt geplante Lernen aus Ergebnissen.
 
 ## 5. Bewertung und Entscheidung über ein neues Live-Modell
 
-Die wiederholt verwendeten 64 Fälle bleiben Diagnostik. Auch die laufende
+Die wiederholt verwendeten 64 Fälle bleiben Diagnostik. Auch die abgeschlossene
 256-Fälle-Referenz ist ein Entwicklungsvergleich bekannter Deckfamilien.
 Sie ist nur wiederverwendbar, wenn Modell-/Engine-/Sampler-/View-Verträge des
 betreffenden Vergleichs unverändert bleiben; sonst muss die Referenz neu laufen.
@@ -414,7 +437,7 @@ und Seat-Prozesse werden auch bei Fehlern beendet und ihr Ende geprüft.
 Fehlgeschlagene Artefakte bleiben erhalten; kein blinder automatischer Retry.
 
 **Nächster Implementierungsschritt:** Nach der abgeschlossenen
-R0-Veröffentlichungskorrektur folgen R1-Modultrennung und Kontextreparatur;
+R0-Veröffentlichungskorrektur und R1-Modultrennung folgt die versionierte Kontextreparatur;
 R2-Schedule-Vertrag und R4-Datenzulassung parallel vorbereiten. Erst danach E1
 bzw. den technisch begrenzten E3-Pilot starten. Kein unverändertes Weiterlaufen
 der alten BC-Runden. Lokale Gates gemäß AGENTS.md vor Push/Landung; derzeit ist
