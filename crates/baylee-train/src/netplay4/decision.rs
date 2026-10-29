@@ -1,5 +1,9 @@
 //! Native decision pipeline, separated without changing its operations.
-use super::*;
+use super::{
+    Answer4, FallbackDiagnostic4, FallbackReason4, HeadKind4, NetPlayer4, Pending, PendingKind4,
+    PlayerAction, PlayerView, RECURRENT_SLOTS, SourceKind4, StepProvenance4, TeacherTarget4,
+    decode_action4, fallback, fallback_action, tactics, view_only_state_hash,
+};
 
 impl NetPlayer4 {
     /// Chooses a legal [`PlayerAction`] for `view` and `pending`.
@@ -24,6 +28,7 @@ impl NetPlayer4 {
         pending: &Pending,
         teams: &[Option<u8>],
     ) -> Answer4 {
+        self.last_fallback = None;
         let seat_u8 = view.seat.get();
         if matches!(pending, Pending::Priority { .. })
             && view.owed.is_none()
@@ -34,6 +39,10 @@ impl NetPlayer4 {
         let p_kind = PendingKind4::of(pending);
 
         if let Some(answer) = fallback::unsupported_choice_answer(pending, self.temperature) {
+            self.last_fallback = Some(FallbackDiagnostic4::new(
+                FallbackReason4::UnsupportedChoice,
+                p_kind,
+            ));
             self.coverage.record(p_kind, SourceKind4::House);
             return answer;
         }
@@ -77,6 +86,12 @@ impl NetPlayer4 {
                     },
                     |action| (action, SourceKind4::Forced),
                 );
+            if source == SourceKind4::House {
+                self.last_fallback = Some(FallbackDiagnostic4::new(
+                    FallbackReason4::ForcedDecode,
+                    p_kind,
+                ));
+            }
             self.coverage.record(p_kind, source);
             return Answer4 {
                 action,
@@ -101,6 +116,13 @@ impl NetPlayer4 {
         let visits = self.seen_hashes.entry((seat_u8, v_hash)).or_insert(0);
         *visits = visits.saturating_add(1);
         if *visits >= 4 {
+            self.last_fallback = Some(FallbackDiagnostic4 {
+                reason: FallbackReason4::RepeatedView,
+                pending_kind: p_kind,
+                view_hash: Some(format!("{v_hash:016x}")),
+                visits: Some(*visits),
+                detail: None,
+            });
             let action = fallback_action(&cands, view, pending, teams);
             self.coverage.record(p_kind, SourceKind4::House);
             return Answer4 {
@@ -118,9 +140,8 @@ impl NetPlayer4 {
         }
 
         // 3. Run ONNX inference
-        let ans = if let Ok((action, value, logprob, target)) =
-            self.infer_and_sample(&state, &cands, view, pending, &h_in)
-        {
+        let inference = self.infer_and_sample(&state, &cands, view, pending, &h_in);
+        let ans = if let Ok((action, value, logprob, target)) = inference {
             let provenance = self.policy_mode.provenance(
                 self.temperature,
                 self.thinking_steps,
@@ -135,6 +156,13 @@ impl NetPlayer4 {
                 target,
             }
         } else {
+            self.last_fallback = Some(FallbackDiagnostic4 {
+                reason: FallbackReason4::InferenceOrDecode,
+                pending_kind: p_kind,
+                view_hash: Some(format!("{v_hash:016x}")),
+                visits: None,
+                detail: inference.err().map(|error| error.to_string()),
+            });
             let action = fallback_action(&cands, view, pending, teams);
             self.coverage.record(p_kind, SourceKind4::House);
             Answer4 {

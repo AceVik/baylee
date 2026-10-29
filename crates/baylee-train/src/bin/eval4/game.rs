@@ -21,6 +21,7 @@ type TableOutcome = (
     Vec<u8>,
     Value,
     Vec<RolloutStepSidecar4>,
+    Vec<Value>,
 );
 
 #[allow(
@@ -72,6 +73,7 @@ fn play_one_table(
         }
     }
 
+    let mut fallback_events = Vec::new();
     let mut net_answers = 0_u64;
     let mut fallbacks = 0_u64;
     let mut refused = 0_u64;
@@ -109,6 +111,7 @@ fn play_one_table(
                 session.take_record(),
                 outcome_json,
                 rollout_sidecar,
+                fallback_events,
             ));
         }
         if session.decision_seq() >= max_decisions {
@@ -123,16 +126,22 @@ fn play_one_table(
                 session.take_record(),
                 json!({"kind": "answer_cap"}),
                 rollout_sidecar,
+                fallback_events,
             ));
         }
 
         // Passively observe the table for all neural seats after opponent progression (P0-4)
+        let payment_ctx = net
+            .as_deref()
+            .is_some_and(EvaluationPlayer::uses_payment_context);
         let uses_ctx = net.as_deref().is_some_and(EvaluationPlayer::uses_context);
         if let Some(n) = net.as_deref_mut() {
             for s in 0..n_seats {
                 if is_net_seat(s, focal_seat, teams) {
                     let pid = PlayerId::new(s as u8);
-                    let obs_v = if uses_ctx {
+                    let obs_v = if payment_ctx {
+                        session.observe_view_with_payment_context(pid)
+                    } else if uses_ctx {
                         session.observe_view_with_context(pid)
                     } else {
                         session.observe_view(pid)
@@ -154,7 +163,9 @@ fn play_one_table(
                 continue;
             }
             let pid = PlayerId::new(s as u8);
-            let pending_view = if uses_ctx {
+            let pending_view = if payment_ctx {
+                session.view_for_with_payment_context(pid)
+            } else if uses_ctx {
                 session.view_for_with_context(pid)
             } else {
                 session.view_for(pid)
@@ -162,14 +173,24 @@ fn play_one_table(
             let Some((pending, view)) = pending_view else {
                 continue;
             };
-            let vh = view_only_state_hash(&view, &pending);
+            let vh = if payment_ctx {
+                baylee_train::features8::view_only_state_hash8(&view, &pending)
+            } else {
+                view_only_state_hash(&view, &pending)
+            };
             let vc = seat_visits.entry(vh).or_insert(0);
             *vc = vc.saturating_add(1);
             if *vc > 4 {
                 stalls += 1;
                 fallbacks += 1;
                 let act = session.house_action(pid).context("house fallback")?;
-                if session.act_slice(pid, act, 0).is_ok() && record_steps {
+                let sequence = session.decision_seq();
+                let record_offset = session.record_pending();
+                let result = session.act_slice(pid, act.clone(), 0);
+                fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
+                    "reason":"outer_repeated_view","view_hash":format!("{vh:016x}"),
+                    "visits":*vc,"action":act,"accepted":result.is_ok()}));
+                if result.is_ok() && record_steps {
                     rollout_sidecar.push(RolloutStepSidecar4 {
                         provenance: StepProvenance4 {
                             source: SourceKind4::House,
@@ -229,8 +250,24 @@ fn play_one_table(
                 } else {
                     None
                 };
+                let recovery = if ans.provenance.source == SourceKind4::House {
+                    Some(n.fallback_diagnostic().map_or_else(
+                        || json!({"reason":"house_policy_answer"}),
+                        |diagnostic| {
+                            serde_json::to_value(diagnostic).expect("serializable diagnostic")
+                        },
+                    ))
+                } else {
+                    None
+                };
+                let sequence = session.decision_seq();
+                let record_offset = session.record_pending();
                 let attempted_action = ans.action.clone();
                 let result = session.act_slice(pid, ans.action, 0);
+                if let Some(diagnostic) = recovery {
+                    fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
+                        "diagnostic":diagnostic,"action":attempted_action,"accepted":result.is_ok()}));
+                }
                 if let Some(shadow) = shadow.as_deref_mut() {
                     shadow.executed(proposal, result.is_ok())?;
                 }
@@ -244,6 +281,9 @@ fn play_one_table(
                     }
                 } else if let Err(error) = result {
                     refused += 1;
+                    fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
+                        "reason":"engine_refusal","action":attempted_action,"accepted":false,
+                        "error":error}));
                     eprintln!(
                         "[eval4] refused deal={deal_idx} seed={seed} seat={} action={attempted_action:?} pending={pending:?}: {error}",
                         pid.get(),

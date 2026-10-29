@@ -42,6 +42,7 @@ use flate2::write::GzEncoder;
 use serde_json::{Value, json};
 
 include!("options.rs");
+mod diagnostics;
 mod shadow;
 
 include!("runtime.rs");
@@ -79,9 +80,9 @@ fn main() -> anyhow::Result<()> {
     if args.shadow_teacher.is_some()
         && model_identity
             .as_ref()
-            .is_none_or(|identity| identity.encoder_version != 7)
+            .is_none_or(|identity| !matches!(identity.encoder_version, 7 | 8))
     {
-        bail!("--shadow-teacher requires encoder 7");
+        bail!("--shadow-teacher requires encoder 7 or 8");
     }
     if args.legacy_v3
         && (args.record_out.is_some() || args.temperature != 0.0 || args.thinking_steps != 1)
@@ -364,6 +365,7 @@ fn main() -> anyhow::Result<()> {
                     rec_bytes,
                     outcome_json,
                     rollout_sidecar,
+                    mut fallback_events,
                 ) = play_one_table(
                     &deal_game_id,
                     d,
@@ -382,6 +384,7 @@ fn main() -> anyhow::Result<()> {
                 )?;
 
                 if let Some((f, offset)) = &mut shard_file {
+                    diagnostics::bind_fallback_events(&mut fallback_events, &rec_bytes)?;
                     let mut gz = GzEncoder::new(Vec::new(), Compression::fast());
                     gz.write_all(&rec_bytes)?;
                     let compressed = gz.finish()?;
@@ -398,6 +401,7 @@ fn main() -> anyhow::Result<()> {
                         "offset": *offset,
                         "len": len,
                         "rollout_sidecar": rollout_sidecar,
+                        "fallback_events": fallback_events,
                     }))?;
                     *offset += len;
                     if let Some(index) = games_lines.lock().expect("games lock").as_mut() {
@@ -413,7 +417,7 @@ fn main() -> anyhow::Result<()> {
                 let (base_u, base_capped) = if no_base {
                     (0.0, false)
                 } else {
-                    let (bu, bc, _, _, _, _, _, _, _, _) = play_one_table(
+                    let (bu, bc, _, _, _, _, _, _, _, _, _) = play_one_table(
                         &deal_game_id,
                         d,
                         focal_seat,
@@ -439,6 +443,7 @@ fn main() -> anyhow::Result<()> {
                     "net_utility": net_u, "base_utility": if no_base { None } else { Some(base_u) },
                     "net_capped": net_capped, "base_capped": base_capped,
                     "refused": ref_cnt, "stalls": st_cnt, "house_fallbacks": fb,
+                    "fallback_events": fallback_events,
                     "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>()}));
                 st.net_utility_sum += f64::from(net_u);
                 st.base_utility_sum += f64::from(base_u);

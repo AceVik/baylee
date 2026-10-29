@@ -34,6 +34,8 @@ use crate::features7::{
 };
 mod choices;
 mod decision;
+mod diagnostic;
+pub use diagnostic::{FallbackDiagnostic4, FallbackReason4};
 mod fallback;
 #[cfg(test)]
 mod fallback_tests;
@@ -108,6 +110,7 @@ pub struct NetPlayer4 {
     last_announced_source: BTreeMap<u8, (ObjectId, Option<u32>)>,
     /// Accumulated coverage matrix across decisions.
     pub coverage: CoverageMatrix4,
+    last_fallback: Option<FallbackDiagnostic4>,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -191,7 +194,15 @@ impl NetPlayer4 {
             seen_hashes: BTreeMap::new(),
             last_announced_source: BTreeMap::new(),
             coverage: CoverageMatrix4::default(),
+            last_fallback: None,
         })
+    }
+
+    /// Recovery reason for the most recent decision; cleared before every answer.
+    /// This diagnostic never grants a behavior likelihood or changes sampling.
+    #[must_use]
+    pub const fn last_fallback(&self) -> Option<&FallbackDiagnostic4> {
+        self.last_fallback.as_ref()
     }
 
     /// Exact model family, architecture and graph/metadata content hashes.
@@ -256,6 +267,7 @@ impl NetPlayer4 {
         self.knowledge.clear();
         self.seen_hashes.clear();
         self.last_announced_source.clear();
+        self.last_fallback = None;
     }
 
     /// Reseeds the policy sampling RNG from an independent seed (never the game
@@ -273,6 +285,7 @@ impl NetPlayer4 {
         self.knowledge.clear();
         self.seen_hashes.clear();
         self.last_announced_source.clear();
+        self.last_fallback = None;
         for s in 0..preset.seats.len() {
             let pid = PlayerId::new(s as u8);
             self.h_states

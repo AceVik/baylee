@@ -6,6 +6,9 @@ trait EvaluationPlayer {
     fn uses_context(&self) -> bool {
         false
     }
+    fn uses_payment_context(&self) -> bool {
+        false
+    }
     fn observe(&mut self, view: &baylee_view::PlayerView) -> anyhow::Result<()>;
     fn answer(
         &mut self,
@@ -14,6 +17,9 @@ trait EvaluationPlayer {
         teams: &[Option<u8>],
     ) -> anyhow::Result<Option<baylee_train::netplay4::Answer4>>;
     fn coverage(&self) -> &CoverageMatrix4;
+    fn fallback_diagnostic(&self) -> Option<&baylee_train::netplay4::FallbackDiagnostic4> {
+        None
+    }
     fn policy_encoding(
         &self,
         _view: &baylee_view::PlayerView,
@@ -28,6 +34,9 @@ trait EvaluationPlayer {
 }
 
 impl EvaluationPlayer for NetPlayer4 {
+    fn fallback_diagnostic(&self) -> Option<&baylee_train::netplay4::FallbackDiagnostic4> {
+        self.last_fallback()
+    }
     fn policy_encoding(
         &self,
         view: &baylee_view::PlayerView,
@@ -47,6 +56,9 @@ impl EvaluationPlayer for NetPlayer4 {
     }
     fn uses_context(&self) -> bool {
         self.is_encoder7()
+    }
+    fn uses_payment_context(&self) -> bool {
+        Self::uses_payment_context(self)
     }
     fn observe(&mut self, view: &baylee_view::PlayerView) -> anyhow::Result<()> {
         Self::observe(self, view)
