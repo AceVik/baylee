@@ -530,6 +530,18 @@ including the two that build a fresh agent for each question
   Walking Ballista died as they arrived, came back and were cast again in
   the same main phase. The X itself was never above what the pool pays:
   `number` plans it against the pool.
+- *A land that costs life is not played out of the graveyard, nor below the
+  payment margin* (`land::pick`, feedback of 28.10.2026). Fastbond deals
+  its controller 1 for each land after the first; with a permission to play
+  lands from the graveyard and Petrified Field returning one to the hand,
+  the house standing in for an absent seat played lands from 27 life to 0
+  in one turn. The view does not say how many lands the seat has played
+  this turn, so every land play is priced at what the triggers would deal
+  if all fired (the seat's own "whenever you play a land, … damage to you",
+  anybody's "whenever a land enters, … to that land's controller": Ankh of
+  Mishra, Zo-Zu the Punisher). A priced land is played from the hand only,
+  and only while life stays above price + 5, the margin `activate::life_ok`
+  keeps; at six life under Fastbond even the free first land waits.
 
 Replaying a seeded sample of 300 of those games (`selfplay --only`, same
 arguments), 300 hit a cap before and 1 after; the others finish, at a median

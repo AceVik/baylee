@@ -20,6 +20,7 @@ mod filter;
 mod granted;
 mod held;
 pub mod intelligence;
+mod land;
 mod optional;
 mod policy;
 mod proliferate;
@@ -319,8 +320,9 @@ impl HeuristicAgent {
             }
             return PlayerAction::PassPriority;
         }
-        // 1. Play a land.
-        if let Some(&card) = legal.lands.first() {
+        // 1. Play a land, unless playing it costs more life than the seat
+        //    can spare (`land`).
+        if let Some(card) = land::pick(view, legal) {
             return PlayerAction::PlayLand { card };
         }
         // 2. Crack a fetchland.

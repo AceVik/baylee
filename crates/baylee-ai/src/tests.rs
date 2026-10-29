@@ -20,6 +20,7 @@ mod choices_tests;
 mod combat_tests;
 mod counters_tests;
 mod ice_consumers_tests;
+mod land_tests;
 mod mana_tests;
 mod modes_tests;
 mod optional_tests;
