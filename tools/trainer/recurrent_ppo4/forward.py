@@ -5,6 +5,7 @@ import dataset4 as D
 import model4 as M
 from policy_math4 import action_logprob_and_kl
 from training4.execution import encode_boards
+from .execution import recorded_step_hints
 
 
 def episode_prefixes(dataset):
@@ -19,8 +20,10 @@ def episode_prefixes(dataset):
     return prefixes
 
 
-def step_inputs(batch, t, device):
+def step_inputs(batch, t, device, *, recorded_k=None):
     values = [batch[name][:, t].to(device) for name in M.INPUT_NAMES[:-2]]
+    if recorded_k is not None:
+        return values, recorded_k.to(device)
     recorded = batch["thinking_steps"][:, t].to(device)
     decision = batch["is_decision"][:, t].to(device)
     k = torch.where(decision, recorded.clamp_min(1), 0)
@@ -29,17 +32,28 @@ def step_inputs(batch, t, device):
     return values, k
 
 
-def advance(net, batch, h, device, *, board_chunk=0, phase=None):
+def advance(net, batch, h, device, *, board_chunk=0, phase=None, cpu_execution_hints=False):
     scope = phase or (lambda _name: nullcontext())
+    metadata = None
+    if cpu_execution_hints:
+        if board_chunk:
+            raise ValueError('CPU execution-hint probe retains per-frame board arithmetic')
+        with scope('cpu_execution_metadata'):
+            metadata = recorded_step_hints(batch)
     with scope("board_encoding"):
         boards = encode_boards(net, batch, board_chunk, device)
     outputs = []
     with scope("advance"):
         for t in range(batch["step_valid"].shape[1]):
-            inputs, k = step_inputs(batch, t, device)
-            if boards is None:
+            if metadata is not None:
+                recorded_k, hint = metadata[t]
+                inputs, k = step_inputs(batch, t, device, recorded_k=recorded_k)
+                out = net(*inputs, h, k, execution_hint=hint)
+            elif boards is None:
+                inputs, k = step_inputs(batch, t, device)
                 out = net(*inputs, h, k)
             else:
+                inputs, k = step_inputs(batch, t, device)
                 out = net(*inputs, h, k, encoded_board=boards[t])
             valid = batch["step_valid"][:, t].to(device)
             h = torch.where(valid[:, None, None], out[0].float(), h)

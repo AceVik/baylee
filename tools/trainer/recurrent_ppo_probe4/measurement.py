@@ -55,7 +55,7 @@ def frame_identities(dataset):
 
 
 @torch.no_grad()
-def measure_pass(net, dataset, prefixes, identities, device, lanes, board_chunk):
+def measure_pass(net, dataset, prefixes, identities, device, lanes, board_chunk, *, cpu_execution_hints=False):
     """Capture every valid H/value and actor probability without changing weights.
 
     Whole-pass time includes instrumentation, CPU parity copies and synchronization;
@@ -71,7 +71,8 @@ def measure_pass(net, dataset, prefixes, identities, device, lanes, board_chunk)
     try:
         for indices, batch, outputs in stream_collection_batches(
                 net, dataset, prefixes, device, lanes,
-                board_chunk=board_chunk, phase=timer.scope):
+                board_chunk=board_chunk, phase=timer.scope,
+                cpu_execution_hints=cpu_execution_hints):
             slots += batch['step_valid'].numel()
             for t, output in enumerate(outputs):
                 with timer.scope("likelihood_and_divergence"):

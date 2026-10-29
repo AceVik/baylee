@@ -213,9 +213,9 @@ class ProbeContracts(unittest.TestCase):
         snapshot = Snapshot({(1, 0, 0): (0., 0.)}, {(1, 0, 0): (torch.zeros(9, 32), .5)},
             dict(wall_seconds=1., phase_seconds={'advance': .5}, choices=1, frames=1,
                  padded_frames=0, allocated_slots=1, collection_behavior_kl=0.))
-        for fail in (False, True):
+        for fail, hint_mode in ((False, False), (True, False), (False, True)):
             writes = []
-            with self.subTest(fail=fail), tempfile.TemporaryDirectory() as temporary, ExitStack() as stack:
+            with self.subTest(fail=fail, hints=hint_mode), tempfile.TemporaryDirectory() as temporary, ExitStack() as stack:
                 prefix = 'recurrent_ppo_probe4.driver.'
                 stack.enter_context(patch(prefix+'torch.set_num_interop_threads'))
                 stack.enter_context(patch(prefix+'native_source_digest', side_effect=lambda path: path.name))
@@ -234,6 +234,8 @@ class ProbeContracts(unittest.TestCase):
                 argv = ['--source', 'source.pt', '--candidate', 'candidate.pt', '--rollout-data', 'data',
                         '--admission', 'admission.json', '--out', str(Path(temporary)/'report.json'),
                         '--device', 'cpu', '--expected-histories', '1', '--expected-frames', '1', '--expected-choices', '1']
+                if hint_mode:
+                    argv.extend(['--cpu-execution-hints', '--audit-lanes', '4', '--board-chunks', '0'])
                 if fail:
                     with self.assertRaisesRegex(RuntimeError, 'injected failure'):
                         main(argv)
@@ -243,10 +245,17 @@ class ProbeContracts(unittest.TestCase):
                 else:
                     main(argv)
                     self.assertEqual(writes[-1]['status'], 'complete')
-                    self.assertEqual(writes[-1]['completed_configurations'], 8)
-                    self.assertEqual(worker.call_count, 8)
+                    configurations = 4 if hint_mode else 8
+                    self.assertEqual(writes[-1]['completed_configurations'], configurations)
+                    self.assertEqual(writes[-1]['required_configurations'], configurations)
+                    self.assertEqual(worker.call_count, configurations)
                     self.assertTrue(writes[-1]['source_model_state_unchanged'])
                     self.assertTrue(writes[-1]['candidate_model_state_unchanged'])
+                    if hint_mode:
+                        self.assertEqual([(row['checkpoint'], row['audit_lanes'], row['board_chunk'], row['cpu_execution_hints'])
+                                          for row in writes[-1]['passes']],
+                                         [('source', 4, 0, False), ('source', 4, 0, True),
+                                          ('candidate', 4, 0, False), ('candidate', 4, 0, True)])
                 self.assertTrue(any(row['status'] == 'running' and row['completed_configurations'] == 4
                                     for row in writes))
                 self.assertTrue(all(not row['optimizer_constructed'] for row in writes))

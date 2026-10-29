@@ -28,7 +28,7 @@ def stream_collection_probabilities(net, dataset, prefixes, device, batch_size):
 
 
 def stream_collection_batches(net, dataset, prefixes, device, batch_size, *,
-                              board_chunk=0, phase=None):
+                              board_chunk=0, phase=None, cpu_execution_hints=False):
     """Same complete-history scheduling, with optional tensor-probe instrumentation.
 
     Chunking merges independent board encodings only. No optimizer grouping or
@@ -38,6 +38,8 @@ def stream_collection_batches(net, dataset, prefixes, device, batch_size, *,
         raise ValueError("Collection audit batch size must be positive")
     if board_chunk not in (0, 4):
         raise ValueError("Collection spatial chunk must be zero or four")
+    if cpu_execution_hints and (board_chunk != 0 or batch_size != 4):
+        raise ValueError('CPU execution-hint probe requires B4 and per-frame boards')
     scope = phase or (lambda _name: nullcontext())
     net.eval()
     hidden = None
@@ -63,5 +65,6 @@ def stream_collection_batches(net, dataset, prefixes, device, batch_size, *,
             net.clear_structure()
             net.prepare_structure((batch["entity_rules"], batch["cand_rules"]))
         outputs, hidden = advance(net, batch, hidden, device,
-                                  board_chunk=board_chunk, phase=phase)
+                                  board_chunk=board_chunk, phase=phase,
+                                  cpu_execution_hints=cpu_execution_hints)
         yield indices, batch, outputs

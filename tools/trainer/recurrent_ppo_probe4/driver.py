@@ -40,6 +40,8 @@ def parse_args(argv=None):
     parser.add_argument('--unroll', type=int, choices=(64,), default=64)
     parser.add_argument('--audit-lanes', nargs='+', type=int, default=[4, 8])
     parser.add_argument('--board-chunks', nargs='+', type=int, default=[0, 4])
+    parser.add_argument('--cpu-execution-hints', action='store_true',
+                        help='Compare baseline/CPU C/P/K hints at fixed B4/U64 and per-frame boards')
     parser.add_argument('--warmups', type=int, choices=(0, 1), default=0)
     parser.add_argument('--repeats', type=int, choices=(1, 2), default=1)
     for name in ('histories', 'choices', 'frames'):
@@ -55,7 +57,16 @@ def parse_args(argv=None):
         parser.error('Preserving existing report; choose a new output file')
     if args.preflight_only and args.device != 'cpu':
         parser.error('Preflight requires explicit --device cpu and never reserves CUDA')
+    if args.cpu_execution_hints and (args.audit_lanes != [4] or args.board_chunks != [0]):
+        parser.error('CPU execution-hint probe requires --audit-lanes 4 --board-chunks 0')
     return args
+
+
+def probe_configurations(args):
+    if args.cpu_execution_hints:
+        return [(4, 0, False), (4, 0, True)]
+    return [(lanes, chunk, False) for lanes in sorted(args.audit_lanes)
+            for chunk in sorted(args.board_chunks)]
 
 
 def validate_candidate(saved, source, source_hash, fingerprint):
@@ -110,24 +121,28 @@ def main(argv=None):
     torch.set_num_threads(4)
     torch.set_num_interop_threads(1)
     device = torch.device(args.device)
+    configurations = probe_configurations(args)
     report = dict(version=1, status='running', optimizer_constructed=False,
-                  optimizer_steps=0, parameter_updates=0, promoted=False,
+                  optimizer_steps=0, parameter_updates=0, model_writes=0, promoted=False,
                   optimizer_group_contract=dict(batch_size=4, unroll=64, changed=False),
                   precision='float32', tf32=False, threads=4, interop_threads=1,
                   requested_device=args.device,
+                  cpu_execution_hint_probe=args.cpu_execution_hints,
                   expected=dict(histories=args.expected_histories, frames=args.expected_frames,
                                 choices=args.expected_choices),
                   tolerances=dict(logprob_atol=LP_ATOL, hidden_value_atol=HIDDEN_ATOL,
                                   hidden_value_rtol=HIDDEN_RTOL, kl_atol=KL_ATOL,
                                   unchanged_target_kl=TARGET_KL),
                   warmups=args.warmups, repeats=args.repeats, passes=[],
-                  completed_configurations=0, required_configurations=2*len(args.audit_lanes)*len(args.board_chunks),
+                  completed_configurations=0, required_configurations=2*len(configurations),
                   limitations=[
                       'Instrumented fixed-weight audits only; no optimizer/Adam/backward capacity result.',
                       'Wall time includes parity copies and phase synchronization; phase sums exclude scheduling gaps.',
-                      'Order is source then candidate, lanes ascending then chunks ascending; caches/order can affect timings.',
+                      ('Order is source baseline then source CPU hints, candidate baseline then candidate CPU hints; caches/order can affect timings.'
+                       if args.cpu_execution_hints else
+                       'Order is source then candidate, lanes ascending then chunks ascending; caches/order can affect timings.'),
                       'Zero warmups/single repeat is cold-inclusive evidence, not a speedup estimate.',
-                      'Group PSS and hard 900s deadline are enforced/reported by the owning Rust launcher.',
+                      'Group PSS and the manifest-declared native deadline are enforced/reported by the owning Rust launcher.',
                       'Torch allocator cap is 11GiB or physical capacity when smaller; allocator stats exclude other device users.'])
     atomic_json(args.out, report)
     started = time.perf_counter()
@@ -172,35 +187,35 @@ def main(argv=None):
                     del saved
                 before = {key: value.detach().cpu().clone() for key, value in net.state_dict().items()}
                 reference = None
-                for lanes in sorted(args.audit_lanes):
-                    for chunk in sorted(args.board_chunks):
-                        for iteration in range(args.warmups + args.repeats):
-                            warmup = iteration < args.warmups
-                            snapshot = measure_pass(net, dataset, prefixes, identities, device, lanes, chunk)
-                            validate_coverage(snapshot, args.expected_histories,
-                                              args.expected_frames, args.expected_choices)
-                            if reference is None:
-                                reference = snapshot
-                            parity = compare(reference, snapshot)
-                            row = dict(checkpoint=label, audit_lanes=lanes, board_chunk=chunk,
-                                       warmup=warmup, repeat=iteration-args.warmups,
-                                       **snapshot.report, parity=parity,
-                                       baseline_delta=timing_delta(reference.report, snapshot.report))
-                            if label == 'source':
-                                replay_delta = max(abs(lp-old) for lp, old in snapshot.actions.values())
-                                row['max_recorded_behavior_replay_error'] = replay_delta
-                                if replay_delta > replay['tolerance']:
-                                    parity['passed'] = False
-                            report['passes'].append(row)
-                            if not parity['passed']:
-                                raise ValueError('Fixed-weight complete-history parity gate failed')
-                            if not warmup and iteration == args.warmups+args.repeats-1:
-                                report['completed_configurations'] += 1
-                            report['elapsed_seconds'] = time.perf_counter()-started
-                            atomic_json(args.out, report)
-                            print(f'[ppo-probe] {label} lanes={lanes} chunk={chunk} warmup={warmup} '
-                                  f'wall={snapshot.report["wall_seconds"]:.6f}s parity=passed', flush=True)
-                        del snapshot
+                for lanes, chunk, hinted in configurations:
+                    for iteration in range(args.warmups + args.repeats):
+                        warmup = iteration < args.warmups
+                        snapshot = measure_pass(net, dataset, prefixes, identities, device, lanes, chunk,
+                                                cpu_execution_hints=hinted)
+                        validate_coverage(snapshot, args.expected_histories,
+                                          args.expected_frames, args.expected_choices)
+                        if reference is None:
+                            reference = snapshot
+                        parity = compare(reference, snapshot)
+                        row = dict(checkpoint=label, audit_lanes=lanes, board_chunk=chunk,
+                                   cpu_execution_hints=hinted, warmup=warmup,
+                                   repeat=iteration-args.warmups, **snapshot.report, parity=parity,
+                                   baseline_delta=timing_delta(reference.report, snapshot.report))
+                        if label == 'source':
+                            replay_delta = max(abs(lp-old) for lp, old in snapshot.actions.values())
+                            row['max_recorded_behavior_replay_error'] = replay_delta
+                            if replay_delta > replay['tolerance']:
+                                parity['passed'] = False
+                        report['passes'].append(row)
+                        if not parity['passed']:
+                            raise ValueError('Fixed-weight complete-history parity gate failed')
+                        if not warmup and iteration == args.warmups+args.repeats-1:
+                            report['completed_configurations'] += 1
+                        report['elapsed_seconds'] = time.perf_counter()-started
+                        atomic_json(args.out, report)
+                        print(f'[ppo-probe] {label} lanes={lanes} chunk={chunk} hints={hinted} warmup={warmup} '
+                              f'wall={snapshot.report["wall_seconds"]:.6f}s parity=passed', flush=True)
+                    del snapshot
                 if (not all(torch.equal(before[key], value.detach().cpu()) for key, value in net.state_dict().items())
                         or any(parameter.grad is not None for parameter in net.parameters())):
                     raise ValueError('Fixed-weight probe mutated model state or created gradients')
