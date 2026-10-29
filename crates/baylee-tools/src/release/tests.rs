@@ -496,3 +496,37 @@ fn help_aliases_succeed_without_ci_environment_or_package_files() {
     assert!(!missing_root.exists());
     assert!(super::run(&missing_root, &["unknown-command".into()]).is_err());
 }
+
+/// `cargo deny` and `cargo audit` ignore the same advisories. The audit
+/// action reads no `deny.toml`, so the list is written twice, and it drifted
+/// once: RUSTSEC-2026-0387 reached `audit` only after it had failed a run.
+#[test]
+fn deny_and_audit_ignore_the_same_advisories() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let ids = |text: &str| -> BTreeSet<String> {
+        regex::Regex::new(r"RUSTSEC-\d{4}-\d{4}")
+            .unwrap()
+            .find_iter(text)
+            .map(|m| m.as_str().to_owned())
+            .collect()
+    };
+    let deny = fs::read_to_string(root.join("deny.toml")).unwrap();
+    let ignored = deny
+        .split_once("ignore = [")
+        .and_then(|(_, rest)| rest.split_once(']'))
+        .map(|(list, _)| list)
+        .expect("deny.toml has an advisories ignore list");
+    // Only the quoted entries, not the ids the comments mention.
+    let deny_ids: BTreeSet<String> = ignored
+        .lines()
+        .filter(|line| line.trim_start().starts_with('"'))
+        .flat_map(ids)
+        .collect();
+    let workflow = fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
+    let audit_line = workflow
+        .lines()
+        .find(|line| line.trim_start().starts_with("ignore: RUSTSEC-"))
+        .expect("the audit job lists what it ignores");
+    assert!(!deny_ids.is_empty());
+    assert_eq!(ids(audit_line), deny_ids);
+}
