@@ -18,6 +18,8 @@ def actor_outputs(net, batch, board_chunk=0):
     # Spatial encoding is entirely frozen in this entry point. Grouping only
     # that work retains independent boards and the same chronological H updates.
     with torch.no_grad():
+        net.clear_structure()
+        net.prepare_structure((batch['entity_rules'], batch['cand_rules']))
         boards = encode_boards(net, batch, board_chunk, device)
     current, recorded, advantage = [], [], []
     for t in range(u):

@@ -62,10 +62,6 @@ def _main(resources):
     check_audit(admission, audit)
     parameters = select_policy_parameters(net)
     optimizer = torch.optim.AdamW(parameters, lr=args.lr, weight_decay=0)
-    # All shared modules are frozen; catalog representations can be reused safely.
-    with torch.no_grad():
-        net.clear_structure()
-        net.prepare_structure()
     records, scheduling = [], []
     accepted, accepted_decisions, reason = 0, 0, "epochs_complete"
     def outputs(indices):

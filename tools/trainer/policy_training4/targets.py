@@ -178,8 +178,9 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
     net.eval()
     try:
         net.clear_structure()
-        net.prepare_structure()
         for batch_index, host in enumerate(loader):
+            net.clear_structure()
+            net.prepare_structure((host['entity_rules'], host['cand_rules']))
             ids = host['segment_index'].tolist()
             b = len(ids)
             if h is None:
