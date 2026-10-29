@@ -96,13 +96,45 @@ Der Stand und die nächste Reihenfolge lauten:
    Denkstufen wirken, ihr Nutzen ist weiterhin unbewiesen. Keine tatsächlichen
    Subset-/Paar-Aktionen dekodiert, keine Optimizer-Updates. Der eigentliche
    Vergleich von festem K und trainiertem gemischtem K steht noch aus.
-4. Erst danach eine kleine frische On-Policy-Sammlung aus Trainingsdecks gegen
-   Sharp/Steady mit festem Tisch-/Sitzplan zulassen. Mindestens 128 echte
-   Lernerentscheidungen und vollständige Wahrscheinlichkeits-Replays sind
-   Voraussetzung für einen einzelnen begrenzten Head-PPO-Updateversuch.
+4. **Sammlung und native Zulassung abgeschlossen:** Acht vorab festgelegte
+   Trainingsdeck-Partien gegen Sharp/Steady sind vollständig und ohne
+   Cap/Fallback/Refusal/Stall beendet. Alle acht bleiben im Datensatz:
+   13.655 Sitz-Frames, acht Lernerhistorien und 1.575 echte Lernerentscheidungen,
+   keine Validierungsdaten oder nachträglichen Ausschlüsse. Die zwei Siege und
+   sechs Niederlagen sind keine belastbare Stärkeaussage. Vollständige
+   Wahrscheinlichkeits-Replays und CPU/CUDA-Gradientenproben sind bestanden.
+   CUDA B8/U32/Board-Chunk4 reduziert die gemessene Probe auf 30,84 Sekunden
+   gegenüber 175,35 Sekunden bei CUDA B1; die Gradienten stimmen innerhalb
+   der vorab festgelegten Toleranz überein. Diese Ausführung ist für genau
+   einen Head-PPO-Updateversuch mit allen 1.575 Entscheidungen ausgewählt.
+   Dieser ist nach repariertem Prozessstart erfolgreich abgeschlossen:
+   ein akzeptierter Schritt, 24 geänderte Policy-Tensoren, 542 unveränderte
+   Tensoren, vollständige Abdeckung und finale KL `3,88775e-6` bei Limit `0,02`.
+   Das belegt den technischen Lernweg, noch keine bessere Spielstärke.
+   Ein zusätzlicher reparierter Referenzfehler (`09a30de36`) betrifft beide
+   PPO-Pfade: Nach bestandenem Replay bleiben die tatsächlich aufgezeichneten
+   Logprobs Nenner und KL-Referenz, statt sie durch numerisch leicht abweichende
+   Replaywerte zu ersetzen. 26 gezielte CPU-Tests bestehen.
    Kein nachträgliches Austauschen schwieriger Partien, kein Senken der
    Zulassungsschwelle, keine Lockerung des KL-Limits nur für einen akzeptierten
    Update. Der spätere gemischte E3-Vergleich bleibt eine eigene Untersuchung.
+5. **E3-Vorprobe abgeschlossen, größere Sammlung zurückgestellt:** Vier vorab
+   festgelegte Fälle gegen einen historischen Netzstand und in Selfplay sind
+   beendet. In beiden historischen Fällen greift der Wiederholungsschutz ein:
+   Fireball mit erzwungenem X=0 und mehreren unbezahlbaren Zielen wird dreimal angekündigt
+   und automatisch zurückgesetzt. Das deterministische Replay bestätigt die
+   Schleife; die zwei sauberen Selfplay-Fälle werden nicht nachträglich als
+   Trainingssatz herausgepickt. Keine der vier Partien ist zugelassen, die
+   übrigen 124 sind nicht gestartet. Zusatzkosten, Quellkarte und Mana sind in
+   den Eingaben vorhanden. Acht kontrollierte Ankündigungszweige bestätigen
+   die Kostenrechnung und einen separaten Beobachtungsfehler: X=0 und X=1
+   liefern bei der Zielwahl identische E7/E8-Eingaben, einschließlich der
+   vollständigen zehn Beobachtungen davor. Die eigene Zahlenwahl fließt nicht
+   in H zurück. Das beweist die X-Lücke, nicht ihre Ursächlichkeit für die
+   tatsächlichen X=0-Schleifen. Eine Korrektur bekommt einen eigenen
+   Beobachtungsvertrag. Zusätzlich wird geprüft, wie Fehlentscheidungen
+   lernbar bleiben, ohne Haus-Fallback-Ergebnisse der reinen Policy zuzuschreiben.
+   Kein Lockern des Guards oder nachträgliches Ändern alter Datenverträge.
 
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;
 historische Aussagen „noch nicht implementiert“ sind durch diesen Stand ersetzt.
@@ -614,9 +646,21 @@ Regressionstest und werden vor erneuter Zulassung repariert. Zugehörige Engine-
 und Seat-Prozesse werden auch bei Fehlern beendet und ihr Ende geprüft.
 Fehlgeschlagene Artefakte bleiben erhalten; kein blinder automatischer Retry.
 
-**Nächster Schritt:** Den vorab bestimmten ursprünglichen E1-Paarvergleich in
-Partien gegen Sharp auswerten. Keine weiteren
-BC-Updates allein wegen eines besseren aggregierten NLL. Der abgeschlossene,
+**Nächster Schritt:** Aus den abgeschlossenen Fireball-Fixtures einen explizit
+versionierten Beobachtungsfix ableiten und die Lernbarkeit fehlerhafter
+Ankündigungen prüfen. Der erfolgreiche Einzelschritt bekommt zunächst eine
+Export-/Spiel-Reevaluation auf seinen acht festen Trainingsfällen; das ist
+kein unabhängiger Stärkevergleich und kein Freigabekriterium. Die übrige
+gemischte Sammlung bleibt bis zur Klärung zurückgestellt.
+Vollständige CPU/CUDA-Replays und der einzelne Head-PPO-Schritt
+über alle 1.575 Entscheidungen sind bestanden, mit unverändertem KL-Limit und
+vollständiger Tensor-/Dosisprüfung. Die Rust-Guard-Reparatur `97ef8e5ad` bestand
+den tatsächlichen direkten Venv-Aufruf samt Torch-/Datenloader-Vorprobe und
+anschließender Veröffentlichung des isolierten Kandidaten. Der gesicherte
+erste Startfehler lag vor dem Torch-Import und führte zu keinem Update.
+E1-Spielvergleich und Zahlungsdiagnose sind abgeschlossen;
+weitere BC-Updates allein wegen eines besseren aggregierten NLL sind nicht
+begründet. Der abgeschlossene,
 versiegelte Pilot enthält 32 vollständige Trainingspartien, 66.739 Frames und 64
 Sitzhistorien; fünf getrennte, bereits bekannte Entwicklungspartien sind
 Validierung, kein finaler Holdout. Beide Arme starteten aus demselben d640-

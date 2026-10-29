@@ -8,9 +8,11 @@ with low scheduling priority and serves live metrics to desktop/mobile browsers.
 small workspace binary, independent of the engine, card pool and renderer.
 The `tools` profile optimises image/audio kernels and keeps panic unwinding
 for native mount cleanup. It does not change the game's build profiles.
-Python remains only in `tools/trainer`, whose PyTorch models and training
-pipeline are intentionally unchanged; the developer tasks that were shell
-scripts are `cargo dev` (below).
+Python remains only for PyTorch models, tensor execution and their direct tests
+in `tools/trainer`. Training orchestration, packing, admission, monitoring and
+other operational work use `baylee-train-ops` in Rust (see
+[`trained-ai.md`](trained-ai.md#native-experiment-control-and-ppo-admission));
+the developer tasks that were shell scripts are `cargo dev` (below).
 
 ```bash
 cargo build --locked --profile tools -p baylee-tools

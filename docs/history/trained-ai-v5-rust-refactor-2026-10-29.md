@@ -269,6 +269,191 @@ independent dataset copies, an isolated Git snapshot and an actual CPU data
 preflight loading the complete history in its final location. The generic
 process-guard smoke check alone had not tested the dataset contract.
 
+## Pre-E3: complete outcome collection and exact behavior reference
+
+A separate technical collection completed all eight predeclared training-deck
+games in 232.32 seconds: four tables, both learner-seat assignments, two tables
+against Sharp and two against Steady. R6 used raw FP32, K2 and temperature 0.7.
+There were two wins and six losses, with no caps, refusals, stalls or house
+fallbacks. Outcomes did not select the data. Eight games are not a strength
+comparison, and this does not satisfy the larger mixed-opponent E3 design.
+
+The corrected converter retained all eight games and all 13,655 seat frames,
+with no rejected games or unencoded decisions. Native admission certified
+eight learner histories and 1,575 genuine stochastic learner choices, no
+excluded games and no validation shards. Preprocessing revision is 2. The
+house opponents' actions are observations, never neural PPO targets.
+
+The first conversion pipeline had an incorrect expected output list: its
+manifest expected shard IDs 0–7 while the converter emitted IDs 1–8. Conversion
+itself completed successfully. The failed namespace remains preserved; a fresh
+admission-only continuation sealed and verified the exact completed dataset
+without reconversion, changed bytes or replacement games.
+
+Independent review found an additional shared PPO target issue. The target
+builder checked replayed log probabilities against recorded behavior values,
+then cached the replayed values as the denominator and behavior-KL reference.
+That silently erased accepted numerical replay differences. Commit `09a30de36`
+keeps the original recorded values after the same parity check. A regression
+injects an accepted 0.0005 difference and verifies that both head-only and
+recurrent PPO preserve it and report positive sampled KL. Above-tolerance
+differences still fail. All 26 focused target/training/recurrent CPU tests pass.
+This is a reference-contract repair, not evidence that the tiny numerical
+difference caused earlier poor playing results.
+
+Commit `569d1645b` also versions full-PPO resume as contract 2 with
+`behavior_probability_reference=recorded_executed_action`. Legacy or differently
+marked optimizer continuations are rejected before initialization/restoration;
+weights-only initialization remains possible. Twenty focused CPU tests and one
+tiny CUDA transaction/resume test passed, including exact next-update weights
+and Adam state. The CUDA test ran alone through explicit agent coordination;
+its lock path was accidentally different from the canonical experiment lock,
+so the receipt is not claimed as a test of cross-controller lock exclusion.
+
+Full recorded-policy replay and head-gradient accumulation passed on CPU and
+CUDA. Every replay covered 6,626 learner frames and all 1,575 choices; passive
+observations advanced memory but were not actor targets. All source tensors
+remained bit-identical, and none of these probes constructed or stepped an
+optimizer. Explicit zero moment buffers only estimated prospective Adam storage.
+
+| FP32 execution | Complete replay | Head forward/backward | Worker total |
+| --- | ---: | ---: | ---: |
+| CPU, B1 / board chunk 1 | 237.98 s | 226.43 s | 471.14 s |
+| CUDA, B1 / board chunk 1 | 88.46 s | 79.80 s | 175.35 s |
+| CUDA, B8 / board chunk 4 | 14.61 s | 9.24 s | 30.84 s |
+
+All used U32, four host threads, deterministic algorithms and disabled TF32.
+These are measured configurations, not a claim that four threads maximize CPU
+performance. The additional B8 probe preserved the full normalized objective;
+its gradient relative L2 error was `8.23e-6` against CPU and `5.39e-6` against
+CUDA B1, below the predeclared `1e-3` bound. Recorded-logprob error was at most
+`1.26e-5`, below the unchanged `0.001` admission tolerance. CUDA reserved
+770 MB and native peak group PSS was 2.34 GB. GPU numbers describe the Torch
+allocator, not whole-device usage. These head-only probes do not certify
+full-model PPO capacity or Commander performance.
+
+The single-update experiment therefore selects CUDA B8 / board chunk 4 before
+launch. Its learning settings remain one epoch, at most one update, all 1,575
+decisions in one normalized group, learning rate `2e-5`, target KL `0.02` and
+U32. There is no discarded tail, relaxed KL limit, automatic retry or live
+promotion. The real update additionally performs optimizer work and post-update
+KL checks; its timing is not inferred from the no-step probe. An accepted
+technical update would not establish better play or learned reasoning.
+
+Evidence under the same investigation root:
+
+- `pre-e3-outcome-01a18836-4a7c-768d-8c34-0a0caf0faf38/`: original plan,
+  all eight outcomes and whole-collection quality receipt.
+- `pre-e3-conversion-admission-01a1884b-fb13-776b-8e14-47079f3a6013/dataset/`:
+  complete converted records, unchanged after successful conversion.
+- `pre-e3-admission-recovery-01a1884d-10f6-76ae-a347-18aa5aa3c4ed/`:
+  admission, independent verification, source seals and process cleanup.
+- `pre-e3-resource-probe-01a1884a-89dd-742b-9b9a-83127022be15/`:
+  complete CPU/CUDA B1 replay and gradient probes.
+- `pre-e3-cuda-b8-resource-01a1885e-586e-7f89-bdf8-e1327437beef/`:
+  B8 probe and independently rehashed comparison against both B1 runs.
+- `pre-e3-one-update-01a1884f-89af-72ff-aa6e-88eda782fccb/`:
+  separately sealed single-update plan and tensor-publication audit.
+
+Dataset fingerprint:
+`6af73310519f4a131377b672112475f2bd77a492c3bf159bb65f9ffa60a00592`.
+
+The first actual update launch failed after 2.09 seconds while importing Torch,
+before loading weights or constructing an optimizer. The native guard had
+canonicalized the virtual-environment interpreter symlink and executed the
+base interpreter. The successful resource probes used a Rust exec adapter and
+therefore had not exposed that direct-invocation bug. Commit `97ef8e5ad` repairs
+the guard itself: execution preserves the invocation path while provenance
+binds both that path and the canonical binary target/hash. Twenty targeted
+native tests and focused strict Clippy passed. Failed artifacts remain intact;
+a new attempt required an actual guarded Torch/data-loader preflight with the
+corrected binary. There were zero training steps in the failed attempt.
+
+That recovery passed the actual direct-venv preflight in 6.97 seconds, including
+Torch import, the native dataset constructor, all eight learner histories and
+the expected 1,575 choices. The isolated update then completed in 53.18 guarded
+seconds and accepted exactly one step with no discarded tail. All 24 policy
+tensors changed; all 542 other tensors remained bit-identical. The full-rollout
+sampled behavior KL was `3.8877511166e-6`, below the unchanged `0.02` limit.
+All 400 sealed inputs were reverified, the publication audit passed, and all
+owned processes exited. No optimizer state or persistent match memory is
+exported with this head-only candidate. This establishes a technically complete
+outcome-based update, not stronger play, Full-PPO or better reasoning.
+
+Recovery evidence:
+`pre-e3-one-update-recovery-01a18871-31b2-7691-be6a-522189b20c10/`.
+Checkpoint SHA-256:
+`5bf79ef5c932aa715331a77408eed0326270f49037eefa3da5d0ef5e07fca9d2`.
+It remains isolated and was not promoted or used to initialize E3 automatically.
+
+## E3 first-four integration screen
+
+The mixed collection predeclares 64 TRAIN tables, both learner seats, with
+16 tables each against Sharp, Steady, a pinned historical candidate and exact
+R6 self-play. A native zero-game preflight accepted all 128 fixed deck entries
+in exact order and verified loaded model identities. The first historical and
+self-play tables were reserved as a four-case integration screen inside this
+128-case design; outcomes never selected them.
+
+All four games completed in a 151.43-second pipeline. The two self-play games
+were clean; each historical game used one `repeated_view` house fallback. No
+caps, refusals or stalls occurred. The collection therefore fails the declared
+clean-data gate. The remaining 124 cases were not started, and none of these
+four games was converted, admitted or used for an optimizer update. All four
+outcomes and both fallbacks remain visible; the clean self-play pair was not
+selected afterward as a replacement training set.
+
+Deterministic replay verified both historical records and every post-input
+snapshot. In each game the affected seat announced Fireball three times,
+received the forced payable choice X=0 and selected multiple targets. Each
+additional target costs one
+generic mana; with only one red mana available the announcement was unpayable
+and automatically unwound to the same priority question. Target selections
+varied, so this does not establish identical deterministic neural output.
+The fourth visit triggered the documented fallback. These are actual action
+cycles, with no demonstrated guard/hash false positive. Sidecars show six
+stochastic choices per affected seat (announcement and target set, three times)
+and three forced numeric choices with no policy logprob. Only the second game
+involves the designated learner; neither whole game is admitted. Head-PPO can
+change announcement and target-set logits, but cannot change a forced X answer.
+
+The static observation audit found the full `extra_target_cost=1` field in the
+actual structural catalog, a source-card relation at the target question, and
+the visible mana pool. This is not evidence of missing Fireball rules. Explicit
+chosen X and a running selected-target count/budget are absent from the target
+scorer inputs; independent subset sampling enforces cardinality bounds but no
+conditional affordability rule. Neither the guard threshold nor admission
+rule was relaxed.
+
+Eight deterministic announcement branches now confirm the distinction. With
+X=0 and one red mana, one target commits, while two or three automatically
+unwind. Adding two colorless mana makes all three target counts payable.
+Separately, with sufficient mana, X=0 and X=1 produce identical authorized
+target views, pending questions and Encoder-7/8 target tensors. The complete
+ten-frame observation prefixes also match with the actual knowledge and passive
+encoding paths. The runtime does not feed an executed `ChooseNumber` back into
+H. Identical initial memory therefore cannot distinguish these choices from
+those observations. This is an input-alias proof, not a measured neural-memory
+experiment: no inference or optimizer ran. It establishes an observation gap,
+but does not establish that the gap caused the actual X=0 failures, where the
+visible mana and target surcharge already suffice to identify excess targets.
+
+Fixture evidence: `e3-fireball-fixture-01a18873-b4b2-748c-b018-079eaef05e78/`;
+summary SHA-256
+`f8bbc1c42cd17e334985ba8ba8fe0b3f448e11070ed6d5bfce29a368358e26da`.
+Its source and dependencies are sealed. Existing Encoder-7/8 observations and
+sampling remain unchanged; an explicit observation extension needs its own
+version and matching collection/replay path. A separate training-design review
+must also address the selection bias of excluding every game containing a
+learner recovery: clean-game admission alone cannot teach the failures it
+systematically removes. This is not permission to attribute house-assisted
+terminal returns to the raw learner or to silently admit the failed four games.
+
+Evidence: `e3-mixed-collection-preparation-01a18860-9237-7420-b8df-03b22d156d51/`
+contains the fixed plan, all four outcomes, quality report and verified process
+cleanup. `e3-repeat-review-01a1886b-6d07-774a-91e2-31f79677d54e/` contains the Rust
+replay helper and exact intervening actions/resources. No live model changed.
+
 ## Verification status
 
 Targeted native and PyTorch checks cover the new contracts, rollback, complete
