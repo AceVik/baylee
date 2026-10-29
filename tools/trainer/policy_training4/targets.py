@@ -143,7 +143,7 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
     memory; their TemporaryDirectory is retained by the dataset for its lifetime.
     Teacher-only trajectories are removed from the in-memory sampler list only.
     """
-    from dataset_contract4 import reject_shadow_policy_gradient
+    from trajectory_store4 import reject_shadow_policy_gradient
     reject_shadow_policy_gradient(dataset.meta)
     if not np.isfinite(tolerance) or not 0 < tolerance <= .002:
         raise ValueError('Behavior audit tolerance must be finite and at most 0.002')

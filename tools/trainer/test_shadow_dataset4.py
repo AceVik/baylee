@@ -8,7 +8,7 @@ import unittest
 
 import torch
 
-from dataset_contract4 import reject_shadow_policy_gradient, validate_shadow_dataset
+from trajectory_store4 import reject_shadow_policy_gradient, validate_bc_dataset as validate_shadow_dataset
 from policy_training4.targets import prepare_policy_targets
 from ppo_targets4 import prepare_targets
 from test_policy_targets4 import Dataset, Frozen

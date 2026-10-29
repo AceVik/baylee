@@ -53,3 +53,7 @@ path = "src/bin/import_live_records4.rs"
 [[bin]]
 name = "live_play_maintenance4"
 path = "src/bin/live_play_maintenance4.rs"
+
+[[bin]]
+name = "trajectory_cache4"
+path = "src/bin/trajectory_cache4.rs"

@@ -55,6 +55,19 @@ fn main() -> Result<()> {
                 text.push_str(line);
                 text.push_str("\n\n");
             }
+            let validation = &r["validation"];
+            if let (Some(active), Some(brier), Some(uniform), Some(ece)) = (
+                validation["val_active_top1_acc"].as_f64(),
+                validation["val_mse"].as_f64(),
+                validation["val_uniform_seat_mse"].as_f64(),
+                validation["val_ece"].as_f64(),
+            ) {
+                writeln!(
+                    text,
+                    "Aktive Auswahl: {:.1}%; Brier: {brier:.4}; einfache Basis: {uniform:.4}; ECE: {ece:.4}.\n",
+                    active * 100.0
+                )?;
+            }
             if let Some(jobs) = r["jobs"].as_array() {
                 for j in jobs {
                     writeln!(

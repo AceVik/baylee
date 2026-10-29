@@ -1,0 +1,149 @@
+use super::*;
+use crate::files;
+use anyhow::Result;
+use flate2::{
+    Compression,
+    read::ZlibDecoder,
+    write::{GzEncoder, ZlibEncoder},
+};
+use serde_json::{Value, json};
+use std::{
+    collections::BTreeMap,
+    fs::File,
+    io::{Read, Write},
+};
+fn frame() -> Value {
+    json!({"game_id":7,"seat":1,"step_cursor":0,"turn":2,"head":1,"pending_kind":3,"is_decision":true,"is_terminal":false,"loss_weight":0.75,"outcome":0.5,
+    "provenance":{"source":"External","has_logprob":true,"thinking_steps":2,"temperature":0.7,"behavior_logprob":-1.0},
+    "state":{"entity_feat":[[0.25,-0.5]],"entity_card_ids":[17],"entity_face_ids":[1],"entity_token_ids":[256],"entity_rule_refs":[[{"key":"public","role":7}]],"seat_feat":vec![vec![1.0,0.0];8],"global_feat":[0.25,0.5],"edges":[[0,0,2]]},
+    "cand_feat":[[1.0,2.0],[3.0,4.0]],"cand_entity_idx":[0,-1],"cand_rel_seat_idx":[-1,1],"cand_card_id":[17,18],"cand_face_id":[0,255],"cand_rule_refs":[[],[{"key":"public","role":1}]],"pairs":[[0,1]],"target":{"single_idx":1,"scalar_norm":0.25,"multi_mask":[1,0],"free_mask":[1,1]}})
+}
+#[test]
+fn bst4_layout_and_admission_metadata_match_the_fixed_python_abi() -> Result<()> {
+    let raw = packing::pack_step(&frame(), &BTreeMap::from([("public".into(), 11)]))?;
+    assert_eq!(raw.len(), 299);
+    assert_eq!(&raw[..8], b"BST4\x01\x00\x00\x00");
+    assert_eq!(&raw[136..144], &[0, 0, 128, 62, 0, 0, 0, 191]);
+    assert_eq!(&raw[144..151], &[17, 0, 0, 0, 1, 0, 1]);
+    let meta = packing::metadata(&raw)?;
+    assert_eq!(meta["game_id"], 7);
+    assert_eq!(meta["seat"], 1);
+    assert_eq!(meta["provenance"]["source"], "External");
+    assert_eq!(meta["provenance"]["has_logprob"], true);
+    assert_eq!(meta["target"]["multi_mask"], json!([1, 0]));
+    assert_eq!(meta["target"]["free_mask"], json!([1, 1]));
+    assert_eq!(meta["cand_feat"].as_array().unwrap().len(), 2);
+    for broken in [&raw[..135], &raw[..298]] {
+        assert!(packing::metadata(broken).is_err());
+    }
+    let mut invalid = raw;
+    invalid[88..92].copy_from_slice(&u32::MAX.to_le_bytes());
+    assert!(packing::metadata(&invalid).is_err());
+    Ok(())
+}
+#[test]
+fn empty_cache_is_atomic_reusable_and_has_the_archived_metadata_fingerprint() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    std::fs::write(directory.path().join("meta.json"), b"{}")?;
+    let a = cache::build(directory.path(), "train", &[])?;
+    assert_eq!(
+        a.fingerprint,
+        "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    );
+    assert_eq!(a.records, 0);
+    assert_ne!(a.data_path, a.index_path);
+    let before = a.data_path.metadata()?.modified()?;
+    let b = cache::build(directory.path(), "train", &[])?;
+    assert_eq!(a.fingerprint, b.fingerprint);
+    assert_eq!(before, b.data_path.metadata()?.modified()?);
+    Ok(())
+}
+#[test]
+fn gzip_and_binary_shards_share_one_native_reader_and_cache_abi() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let root = directory.path();
+    std::fs::create_dir(root.join("train"))?;
+    std::fs::write(root.join("meta.json"), b"{}")?;
+    files::atomic_json(
+        &root.join("card_structure.json"),
+        &json!({"roots":{"public":11}}),
+    )?;
+    let step = frame();
+    let roots = BTreeMap::from([("public".into(), 11)]);
+    let packed = packing::pack_step(&step, &roots)?;
+    let mut gz = GzEncoder::new(
+        File::create(root.join("train/a.gz"))?,
+        Compression::default(),
+    );
+    serde_json::to_writer(&mut gz, &step)?;
+    gz.write_all(b"\n")?;
+    gz.finish()?;
+    let mut seen = Vec::new();
+    assert_eq!(
+        read_shard(&root.join("train/a.gz"), |v| {
+            seen.push(v);
+            Ok(())
+        })?,
+        1
+    );
+    assert_eq!(seen, [step]);
+    let mut compressed = ZlibEncoder::new(Vec::new(), Compression::fast());
+    compressed.write_all(&packed)?;
+    let compressed = compressed.finish()?;
+    let mut binary = b"BS4S\x01\x00\x00\x00".to_vec();
+    binary.extend_from_slice(&compressed);
+    let mut index = Vec::new();
+    index.extend_from_slice(&7u32.to_le_bytes());
+    index.extend_from_slice(&1u32.to_le_bytes());
+    index.extend_from_slice(&0u64.to_le_bytes());
+    index.extend_from_slice(&0u64.to_le_bytes());
+    index.extend_from_slice(&u32::try_from(compressed.len())?.to_le_bytes());
+    index.extend_from_slice(&1u32.to_le_bytes());
+    binary.extend_from_slice(&index);
+    binary.extend_from_slice(&(8 + compressed.len() as u64).to_le_bytes());
+    binary.extend_from_slice(&1u64.to_le_bytes());
+    binary.extend_from_slice(b"BS4S_END");
+    std::fs::write(root.join("train/b.bst4"), &binary)?;
+    let mut seen = Vec::new();
+    assert_eq!(
+        read_shard(&root.join("train/b.bst4"), |v| {
+            seen.push(v);
+            Ok(())
+        })?,
+        1
+    );
+    assert_eq!(seen[0], packing::metadata(&packed)?);
+    let receipt = cache::build(root, "train", &["a.gz".into(), "b.bst4".into()])?;
+    assert_eq!(receipt.records, 2);
+    let idx = std::fs::read(&receipt.index_path)?;
+    let data = std::fs::read(&receipt.data_path)?;
+    for row in idx.as_chunks::<32>().0 {
+        let offset = usize::try_from(u64::from_le_bytes(row[16..24].try_into()?))?;
+        let length = u32::from_le_bytes(row[24..28].try_into()?) as usize;
+        let mut raw = Vec::new();
+        ZlibDecoder::new(&data[offset..offset + length]).read_to_end(&mut raw)?;
+        assert_eq!(raw, packed);
+    }
+    binary[8 + compressed.len()..12 + compressed.len()].copy_from_slice(&999u32.to_le_bytes());
+    std::fs::write(root.join("train/b.bst4"), binary)?;
+    assert!(read_shard(&root.join("train/b.bst4"), |_| Ok(())).is_err());
+    Ok(())
+}
+#[test]
+fn teacher_markers_are_refused_before_ppo_and_incomplete_contracts_never_build() -> Result<()> {
+    let root = tempfile::tempdir()?;
+    for value in [
+        json!({"shadow_bc_version":1}),
+        json!({"llm_bc_version":1}),
+        json!({"ppo_eligible":false}),
+    ] {
+        assert!(contracts::reject_policy_gradient(&value).is_err());
+    }
+    for value in [json!({"shadow_bc_version":1}), json!({"llm_bc_version":1})] {
+        files::atomic_json(&root.path().join("meta.json"), &value)?;
+        assert!(cache::build(root.path(), "train", &[]).is_err());
+        assert!(!root.path().join(".trajectory-cache-v2").exists());
+    }
+    contracts::reject_policy_gradient(&json!({"policy_provenance_version":2}))?;
+    Ok(())
+}

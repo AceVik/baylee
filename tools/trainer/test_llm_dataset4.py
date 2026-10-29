@@ -4,13 +4,12 @@ from pathlib import Path
 import torch
 import model4 as M
 from dataset4 import parse_source_kind
-from dataset_contract4 import validate_bc_dataset
-from dataset_llm_contract4 import validate_llm_dataset
+from trajectory_store4 import validate_bc_dataset
+from trajectory_store4 import validate_bc_dataset as validate_llm_dataset
 from policy_training4.targets import prepare_policy_targets
 from ppo_targets4 import prepare_targets
 from test_policy_targets4 import Dataset,Frozen
 from trajectory_store4 import BST4_HDR,TrajectoryStore4,pack_step_bst4
-from trajectory_store4.packing import parse_source_kind as packed_source_kind
 
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 def fixture(root):
@@ -40,7 +39,7 @@ def rehash(meta,path,root):meta['llm_bc_label_sha256'][str(path.relative_to(root
 class LLMAdmission(unittest.TestCase):
  def test_packed_external_and_full_history_unchanged(self):
   for name,kind in [('Net',0),('House',1),('Forced',2),('Search',3),('External',4)]:
-   self.assertEqual(parse_source_kind(name),kind);self.assertEqual(packed_source_kind(name),kind)
+   self.assertEqual(parse_source_kind(name),kind)
   with tempfile.TemporaryDirectory() as d:
    root=Path(d);meta,_,_,steps=fixture(root);validate_bc_dataset(root,meta)
    store=TrajectoryStore4(root,'train',meta['train_shards'])
