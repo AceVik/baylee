@@ -1,6 +1,7 @@
 //! Offline corpus preparation and structural representation diagnostics.
 pub mod bc_metadata;
 mod cards;
+pub mod bc_cycling;
 pub mod diagnostic_provenance;
 pub mod lands;
 pub mod llm_freeze;

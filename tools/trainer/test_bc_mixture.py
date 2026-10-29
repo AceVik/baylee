@@ -54,6 +54,23 @@ class Data(TinyDataset):
 
 
 class MixtureTests(unittest.TestCase):
+    def test_native_cycling_crosses_boundary_once_per_complete_pass(self):
+        from training4.bc_mixture import cycling
+        child=SimpleNamespace(epoch=0)
+        seen=[]
+        def batches(advance_epoch=False):
+            self.assertFalse(advance_epoch)
+            seen.append(child.epoch)
+            return [[i] for i in range(200)]
+        child._build_batches=batches
+        with patch.object(cycling,'_native',wraps=cycling._native) as native:
+            rows,receipt=cycling.cycle_source(child,2,7,201)
+        self.assertEqual(native.call_count,3)
+        self.assertEqual(seen,[7,1_000_010])
+        self.assertEqual(len(rows),201)
+        self.assertEqual(rows[-1],[0,-1])
+        self.assertEqual(receipt['partial_repeat_batches'],1)
+
     def fixture(self,root):
         return Data(root/'old','old'),Data(root/'new','new'),Data(root/'val','validation',split='val')
 

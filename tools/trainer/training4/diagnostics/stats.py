@@ -1,4 +1,6 @@
 """Additive unweighted diagnostics, independent of every training loss version."""
+import json
+from trajectory_store4 import _native
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -82,31 +84,12 @@ def step_statistics(batch, t, output, heads=None):
     return torch.stack([stats[key].double() for key in FIELDS], -1)
 
 
+def _diagnostics(kind, **payload):
+    return json.loads(_native(['diagnostic-metrics'],json.dumps(dict(kind=kind,fields=FIELDS,**payload),allow_nan=False).encode()))
+
+
 def summarize(values):
-    sums = dict(zip(FIELDS, map(float, values)))
-    def ratio(num, den):
-        return sums[num] / sums[den] if sums[den] else None
-    metrics = dict(single_nll=ratio('single_nll_sum','single_choices'),
-        single_accuracy=ratio('single_correct','single_choices'),
-        pass_target_accuracy=ratio('pass_correct','pass_targets'), active_target_accuracy=ratio('active_correct','active_targets'),
-        pass_target_nll=ratio('pass_nll_sum','pass_targets'), active_target_nll=ratio('active_nll_sum','active_targets'),
-        scalar_mae=ratio('scalar_absolute_error_sum','scalar_decisions'),
-        scalar_mse=ratio('scalar_squared_error_sum','scalar_decisions'),
-        critic_mse=ratio('critic_squared_error_sum','frames'))
-    for target in ('pass', 'active'):
-        for predicted in ('pass', 'active'):
-            metrics[f'{target}_target_predicted_{predicted}_rate'] = ratio(
-                f'{target}_target_predicted_{predicted}', f'{target}_targets')
-    metrics['pass_target_predicted_other_pass_rate'] = ratio(
-        'pass_target_predicted_other_pass', 'pass_targets')
-    metrics['predicted_pass_rate'] = (
-        (sums['pass_target_predicted_pass'] + sums['active_target_predicted_pass'])
-        / sums['single_choices'] if sums['single_choices'] else None)
-    for head in ('subset','pair'):
-        metrics[head + '_free_entry_bce'] = ratio(head + '_bce_sum',head + '_free_entries')
-        metrics[head + '_mean_decision_bce'] = ratio(head + '_decision_bce_sum',head + '_choices')
-        metrics[head + '_threshold_exact_free_set_accuracy'] = ratio(head + '_exact_free_set',head + '_choices')
-    return dict(sums=sums, metrics=metrics)
+    return _diagnostics('summary',values=np.asarray(values).tolist())
 
 
 class Collector:
@@ -135,65 +118,34 @@ class Collector:
         self._steps.clear()
         self.add_cpu(host, stats)
 
+    def _state(self):
+        return dict(total=self.total.tolist(),groups={kind:{
+            json.dumps(key,separators=(',',':')) if isinstance(key,tuple) else key:value.tolist()
+            for key,value in group.items()} for kind,group in self.groups.items()},
+            games={key:{**value,'seats':sorted(value['seats'])} for key,value in self.games.items()})
+
     def add_cpu(self, host, stats):
-        arrays = {key:host[key].numpy() if isinstance(host[key], torch.Tensor) else host[key]
-                  for key in ('diag_game','diag_seat','diag_pending','head','step_valid')}
-        valid = arrays['step_valid']
-        rows = stats[valid]
-        if not np.isfinite(rows).all():
-            raise ValueError('Nonfinite diagnostic statistics')
-        if not len(rows):
-            return
-        self.total += rows.sum(0, dtype=np.float64)
-        games, seats = arrays['diag_game'][valid], arrays['diag_seat'][valid]
-        heads, pending = arrays['head'][valid], arrays['diag_pending'][valid]
-        def add(dimension, key, selected):
-            target = self.groups[dimension].setdefault(key,np.zeros(len(FIELDS),np.float64))
-            target += rows[selected].sum(0, dtype=np.float64)
-        game_formats = {}
-        for game in np.unique(games):
-            game = int(game)
-            key = json_game_key(self.provenance.namespace_id, game)
-            name = self.provenance.formats.get(game, 'unknown')
-            game_formats[game] = name
-            metadata = self.games.setdefault(key,dict(namespace=self.provenance.namespace_id,
-                game_id=game,format=name,seats=set(),source=self.provenance.sources.get(game)))
-            if metadata['format'] != name:
-                raise ValueError('Game has conflicting format identities')
-            selected = games == game
-            metadata['seats'].update(map(int,np.unique(seats[selected])))
-            add('game',key,selected)
-        names = sorted(set(game_formats.values()))
-        name_ids = {name:index for index,name in enumerate(names)}
-        formats = np.array([name_ids[game_formats[int(game)]] for game in games])
-        for head in np.unique(heads):
-            add('head',str(int(head)),heads == head)
-        for kind in np.unique(pending):
-            add('pending_kind',str(int(kind)),pending == kind)
-        for code,name in enumerate(names):
-            add('format',name,formats == code)
-        joint = np.stack((heads,pending,formats),-1)
-        unique, inverse = np.unique(joint,axis=0,return_inverse=True)
-        for index,(head,kind,code) in enumerate(unique):
-            add('head_pending_format',(str(int(head)),str(int(kind)),names[code]),inverse == index)
+        arrays={key:(host[key].numpy() if isinstance(host[key],torch.Tensor) else np.asarray(host[key])).reshape(-1).tolist()
+            for key in ('diag_game','diag_seat','diag_pending','head','step_valid')}
+        result=_diagnostics('add',state=self._state(),arrays=arrays,
+            stats=np.asarray(stats).reshape(-1,len(FIELDS)).tolist(),
+            provenance=dict(namespace=self.provenance.namespace_id,formats=self.provenance.formats,sources=self.provenance.sources))
+        self.total=np.asarray(result['total'],dtype=np.float64)
+        self.groups={kind:{tuple(json.loads(key)) if kind=='head_pending_format' else key:np.asarray(value,dtype=np.float64)
+            for key,value in group.items()} for kind,group in result['groups'].items()}
+        self.games={key:{**value,'seats':set(value['seats'])} for key,value in result['games'].items()}
 
     def report(self):
         if self._steps:
             raise ValueError('Cannot report a partial unroll batch')
-        return dict(global_metrics=summarize(self.total),
-            by_head={key:summarize(value) for key,value in sorted(self.groups['head'].items())},
-            by_pending_kind={key:summarize(value) for key,value in sorted(self.groups['pending_kind'].items())},
-            by_format={key:summarize(value) for key,value in sorted(self.groups['format'].items())},
-            by_head_pending_format=[dict(head=int(key[0]),pending_kind=int(key[1]),format=key[2],**summarize(value))
-                                   for key,value in sorted(self.groups['head_pending_format'].items())],
-            per_game=[{**self.games[key], 'seats':sorted(self.games[key]['seats']), **summarize(value)}
-                      for key,value in sorted(self.groups['game'].items())],
-            definitions=dict(pass_confusion='Masked argmax candidate feature0 >0.5 means predicted pass; exact pass_correct remains distinct from another pass option. Confusion describes teacher imitation, not whether passing is strategically wrong.',
+        result=_diagnostics('report',state=self._state())
+        result['definitions']=dict(pass_confusion='Masked argmax candidate feature0 >0.5 means predicted pass; exact pass_correct remains distinct from another pass option. Confusion describes teacher imitation, not whether passing is strategically wrong.',
                 weighting='Unweighted labeled choices; positive loss_weight is an inclusion gate only; no outcome weights.',
                 genuine_choice='Valid decision, positive weight, source != Forced, >1 categorical option or >=1 free binary entry.',
                 threshold='logit >0 on free entries only; ignores forced entries. NOT a decoded action, legality score or engine-replay result.',
                 game_cluster='All seats of one game share a conversion namespace/game_id cluster; additive sums support game bootstrap.',
-                empty_denominator='null metrics; never invented zero accuracy or zero loss.'))
+                empty_denominator='null metrics; never invented zero accuracy or zero loss.')
+        return result
 
 
 def json_game_key(namespace, game):

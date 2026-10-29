@@ -1,7 +1,8 @@
 //! Build native trajectory caches and validate teacher-only dataset provenance.
 use anyhow::{Context, Result};
 use baylee_train_ops::{
-    corpus::bc_metadata,
+    corpus::{bc_cycling, bc_metadata, diagnostic_provenance, training_contracts},
+    evaluation::{calibration, diagnostics},
     files,
     trajectory::{cache, contracts, packing},
 };
@@ -23,6 +24,12 @@ enum Task {
     TrainingContract,
     /// Bind immutable source receipts used by tensor diagnostics.
     DiagnosticProvenance,
+    /// Aggregate complete tensor prediction arrays on the CPU.
+    CalibrationMetrics,
+    /// Merge one whole unroll batch of diagnostic sufficient statistics.
+    DiagnosticMetrics,
+    /// Advance a fixed budget by one complete tensor-sampler source pass.
+    BcCycle,
     /// Hash a JSON mixture contract using its existing canonical identity.
     Digest,
     /// Bind observed tensor histories to native source-record metadata.
@@ -69,18 +76,11 @@ enum Task {
 }
 fn main() -> Result<()> {
     match Args::parse().command {
-        Task::DiagnosticProvenance => {
-            println!(
-                "{}",
-                baylee_train_ops::corpus::diagnostic_provenance::read(&stdin_value()?)?
-            );
-        }
-        Task::TrainingContract => {
-            println!(
-                "{}",
-                baylee_train_ops::corpus::training_contracts::validate(&stdin_value()?)?
-            );
-        }
+        Task::BcCycle => json_boundary(bc_cycling::run)?,
+        Task::DiagnosticMetrics => json_boundary(diagnostics::run)?,
+        Task::CalibrationMetrics => json_boundary(calibration::run)?,
+        Task::DiagnosticProvenance => json_boundary(diagnostic_provenance::read)?,
+        Task::TrainingContract => json_boundary(training_contracts::validate)?,
         Task::Digest => {
             let value = stdin_value()?;
             println!("{}", bc_metadata::digest(&value)?);
@@ -165,4 +165,8 @@ fn stdin_value() -> Result<Value> {
     let mut bytes = Vec::new();
     std::io::stdin().read_to_end(&mut bytes)?;
     Ok(serde_json::from_slice(&bytes)?)
+}
+fn json_boundary(run: fn(&Value) -> Result<Value>) -> Result<()> {
+    println!("{}", run(&stdin_value()?)?);
+    Ok(())
 }
