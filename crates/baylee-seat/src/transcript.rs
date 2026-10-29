@@ -107,6 +107,10 @@ pub enum Event {
     },
     /// The mind failed too often in a row and was taken off the table.
     MindDown,
+    /// The mind was limited (rate limited, or out of its quota) and no
+    /// fallback took over: the house plays the rest of the game, and the
+    /// seat stays at the table.
+    Housed,
     /// The bridge left the table.
     Left {
         /// Why.

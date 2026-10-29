@@ -506,6 +506,56 @@ fn a_mind_that_keeps_failing_is_taken_down_until_a_new_socket() {
     assert_eq!(core.stats().mind_down, 1);
 }
 
+/// A limit (a rate limit, a spent quota) hands the rest of the game to the
+/// house at the first (feedback of 28.10.2026): no run of three, no
+/// `MindDown`, and a new socket does not wake the mind again either. The
+/// house is declared ahead of its first answer.
+#[test]
+fn a_limited_mind_leaves_the_rest_of_the_game_to_the_house() {
+    let mut core = seated(BridgeConfig::default());
+    let question = ask_mind(&mut core, 2, &colour());
+    let steps = core.answered(
+        question,
+        Err(MindError::Limited {
+            why: "RESOURCE_EXHAUSTED: quota exceeded".into(),
+            lifts_in: None,
+        }),
+    );
+    let house = steps.iter().position(|step| {
+        matches!(step, Step::Send(Envelope { msg: Some(v1::envelope::Msg::SeatMind(mind)) })
+            if mind.kind == v1::seat_mind::Kind::House as i32 && mind.level == "steady")
+    });
+    let answered = steps
+        .iter()
+        .position(|step| matches!(step, Step::Answer { by: By::House, .. }));
+    assert!(
+        matches!((house, answered), (Some(h), Some(a)) if h < a),
+        "{steps:?}"
+    );
+    assert!(!steps.iter().any(|s| matches!(s, Step::MindDown)));
+
+    for seq in 3..6 {
+        core.hear(&view(seq));
+        let steps = core.hear(&asked(seq, &colour()));
+        assert!(request(&steps).is_none(), "the mind was asked at {seq}");
+        assert_eq!(answer(&steps).map(|(_, by, _)| by), Some(By::House));
+    }
+    core.resumed();
+    let steps = core.hear(&view(6));
+    assert!(
+        matches!(&steps[..], [
+            Step::Send(Envelope { msg: Some(v1::envelope::Msg::SeatMind(mind)) }),
+            Step::Send(Envelope { msg: Some(v1::envelope::Msg::SeatReady(_)) }),
+        ] if mind.kind == v1::seat_mind::Kind::House as i32),
+        "a new socket hears the house declared before the seat is ready: {steps:?}"
+    );
+    let steps = core.hear(&asked(6, &colour()));
+    assert!(request(&steps).is_none(), "a new socket woke the mind");
+    assert_eq!(answer(&steps).map(|(_, by, _)| by), Some(By::House));
+    let stats = core.stats();
+    assert_eq!((stats.mind_down, stats.housed), (0, true));
+}
+
 #[test]
 fn an_answer_resets_the_run_of_failures() {
     let mut core = seated(BridgeConfig::default());

@@ -266,9 +266,16 @@ none). `baylee-seat join … --profile primary --fallback-profile backup`
   code (`502 server_error`), a refused key, a task that died
   (`MindError::Unavailable`). A model that declines a kind of question
   (`MindError::Declined`) is not down: the house answers that question and
-  the fallback stands by. Without a fallback, a limit and a failure are the
-  model unavailable, as before: the house answers, and a run of them takes
-  the mind off the table.
+  the fallback stands by. Without a fallback, or with one that cannot take
+  over, a limit hands the rest of the game to the house at once: it answers
+  that question and every one after it, the model is asked nothing more,
+  the seat stays at the table, and the house is declared to it
+  (`SeatCore::limited`, owner after the feedback of 28.10.2026). It used to
+  count as the model unavailable, and the third in a row took the mind off
+  the table: the table held the chair as away for its whole reconnect
+  window, three minutes, before its stand-in played, and the mind came
+  back to be limited again. A failure is still the model unavailable: the
+  house answers, and a run of three takes the mind off the table.
 - **The same question, at once.** The question the model could not answer
   is asked of the fallback within what is left of that question's budget
   (`think_secs`, else 60 s): the table does not wait longer, the house does
@@ -485,10 +492,12 @@ before playing.
   worst; a process that ended without a word (a session not found, a
   crash before its start) reached no model, and is a failed call at no
   cost.
-- **Rate limits.** A rate limit or a spent quota is unavailable, unbilled:
-  the house answers, and the mind cools down for the time the tool names
-  when that is some time and at most fifteen minutes, else a minute,
-  doubling to fifteen. It plays again once that has passed
+- **Rate limits.** A rate limit or a spent quota is unbilled, and the house
+  plays the rest of that game, as for a model behind an API without a
+  fallback ([above](#a-fallback-profile)). The mind cools down for the
+  time the tool names when that is some time and at most fifteen minutes,
+  else a minute, doubling to fifteen. It plays a game again once that has
+  passed
   and the tool's login check (which calls no model) passes: `claude auth
   status --json` says `"loggedIn": true`; `codex login status` says
   `Logged in using …` on stderr, not with an API key; `opencode auth list`
@@ -1007,7 +1016,10 @@ as the seat's answers, like the model's. Which of them made each answer is
 in the bridge's transcript (`--transcripts`: an `answered` event's `by`), and the
 counts in its closing line. A mind taken off the table (`down_after`
 failures) leaves the socket, and the table's own stand-in, recorded as a
-`chair` line, plays until it is back.
+`chair` line, plays until it is back. A limited mind is never taken off
+the table: the bridge declares the house (`kind: house` and its level) and
+its house plays the rest of the game on the same socket, so the record
+names the house from that answer on.
 
 ## The AI log (debug builds only)
 

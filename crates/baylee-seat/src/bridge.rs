@@ -892,6 +892,21 @@ mod tests {
 
     /// [`asked`], the view as `tweak` leaves it.
     fn asked_with(core: &mut SeatCore, seq: u64, tweak: impl FnOnce(&mut PlayerView)) -> Vec<Step> {
+        let steps = put_with(core, seq, tweak);
+        assert!(
+            steps.iter().any(|s| matches!(s, Step::Ask(_))),
+            "the mind is asked: {steps:?}"
+        );
+        steps
+    }
+
+    /// The question of [`asked_in_turn`], whoever answers it.
+    fn put_in_turn(core: &mut SeatCore, seq: u64, turn: u32) -> Vec<Step> {
+        put_with(core, seq, |view| view.turn = turn)
+    }
+
+    /// The question of [`asked_with`], whoever answers it.
+    fn put_with(core: &mut SeatCore, seq: u64, tweak: impl FnOnce(&mut PlayerView)) -> Vec<Step> {
         let mut view = ViewBuilder::new(2).build();
         view.seq = seq;
         tweak(&mut view);
@@ -905,18 +920,13 @@ mod tests {
             player: ME,
             options: vec![ManaColor::Red, ManaColor::Green],
         };
-        let steps = core.hear(&frame(v1::envelope::Msg::ChoiceRequest(
+        core.hear(&frame(v1::envelope::Msg::ChoiceRequest(
             v1::ChoiceRequest {
                 game_id: "test-game".into(),
                 seq,
                 pending_json: serde_json::to_vec(&pending).unwrap(),
             },
-        )));
-        assert!(
-            steps.iter().any(|s| matches!(s, Step::Ask(_))),
-            "the mind is asked: {steps:?}"
-        );
-        steps
+        )))
     }
 
     /// A mind that answers `colour`, and writes down that it was asked.
@@ -1632,9 +1642,9 @@ mod tests {
     }
 
     /// Where the fallback cannot take over (its own spend book refuses, say)
-    /// the limit is the mind's failure as before: the house answers, the
-    /// transcript says why the fallback did not, and the fallback stands by
-    /// no longer. (Before, there was no fallback: the house answered.)
+    /// the limit is the core's as without one: the house answers and plays
+    /// the rest of the game, the transcript says why the fallback did not,
+    /// and the fallback stands by no longer.
     #[tokio::test]
     async fn a_fallback_that_cannot_take_over_leaves_the_limit_to_the_house() {
         let refusal = "the day's cap of $3.00 is spent";
@@ -1681,48 +1691,60 @@ mod tests {
             "the same road as the mind unavailable"
         );
 
-        // A later limit goes to the core without asking the fallback again.
+        // The house has the rest of the game (`SeatCore::limited`): neither
+        // the mind is asked again nor the fallback armed again.
         scene.bridge.notes.clear();
-        scene.ask(4).await;
-        let steps = scene.back().await;
+        let steps = put_in_turn(&mut scene.core, 4, TURN);
+        assert!(budget(&steps).is_none(), "the mind was asked again");
         assert!(matches!(&answers(&steps)[..], [(By::House, _)]));
+        scene.carry(steps).await;
         assert_eq!(scene.armed.lock().unwrap().len(), 1, "armed once");
         assert!(scene.bridge.notes.is_empty(), "{:?}", scene.bridge.notes);
-        assert_eq!(scene.primary.lock().unwrap().asked.len(), 3);
-        let failed = failures(&mut scene.core);
-        assert_eq!(failed.len(), 1);
-        assert!(!failed[0].contains("the fallback"), "{}", failed[0]);
-        assert_eq!(scene.core.stats().fallbacks.unavailable, 2);
+        assert_eq!(scene.primary.lock().unwrap().asked.len(), 2);
+        assert!(scene.core.stats().housed);
     }
 
-    /// With no fallback a limit is the core's like any failure of the mind:
-    /// the house answers, it counts as the mind unavailable, a run of them
-    /// takes the mind off the table, and the transcript says it was a limit.
-    /// (Before, a limit was an `Unavailable` and took this road; the new
-    /// variant must not leave it.)
+    /// With no fallback a limit hands the rest of the game to the house at
+    /// once (feedback of 28.10.2026): the house is declared to the table,
+    /// answers the question the mind could not, and every one after it; the
+    /// mind is asked nothing more and the seat stays at the table. Before,
+    /// a run of three limits took the mind off the table: the bridge left
+    /// its socket, the table held the chair as away for its whole reconnect
+    /// window before its stand-in played, and the mind came back once it
+    /// had cooled down, to be limited again.
     #[tokio::test]
-    async fn without_a_fallback_a_limit_is_the_house_s_to_answer() {
+    async fn without_a_fallback_a_limit_hands_the_rest_of_the_game_to_the_house() {
         let mut scene = Scene::new(vec![Move::Limited], Reserve::Absent);
-        for (seq, down) in [(2, false), (3, false), (4, true)] {
-            scene.ask(seq).await;
-            let steps = scene.back().await;
-            let made = answers(&steps);
-            assert!(matches!(&made[..], [(By::House, _)]), "{made:?}");
-            assert_eq!(
-                steps.iter().any(|step| matches!(step, Step::MindDown)),
-                down,
-                "taken off the table on the third in a row"
+        scene.ask(2).await;
+        let steps = scene.back().await;
+        let house = steps.iter().position(|step| {
+            matches!(step, Step::Send(Envelope { msg: Some(v1::envelope::Msg::SeatMind(mind)) })
+                if mind.kind == v1::seat_mind::Kind::House as i32)
+        });
+        let answered = steps
+            .iter()
+            .position(|step| matches!(step, Step::Answer { by: By::House, .. }));
+        assert!(
+            matches!((house, answered), (Some(h), Some(a)) if h < a),
+            "the house is declared ahead of its first answer: {steps:?}"
+        );
+        assert!(!steps.iter().any(|step| matches!(step, Step::MindDown)));
+        scene.carry(steps).await;
+        for seq in [3, 4, 5] {
+            let steps = put_in_turn(&mut scene.core, seq, TURN);
+            assert!(budget(&steps).is_none(), "the mind was asked at {seq}");
+            assert!(
+                matches!(&answers(&steps)[..], [(By::House, _)]),
+                "{steps:?}"
             );
+            assert!(!steps.iter().any(|step| matches!(step, Step::MindDown)));
             scene.carry(steps).await;
         }
+        assert_eq!(scene.primary.lock().unwrap().asked.len(), 1);
         let stats = scene.core.stats();
         assert_eq!(
-            (
-                stats.answered.house,
-                stats.fallbacks.unavailable,
-                stats.mind_down
-            ),
-            (3, 3, 1)
+            (stats.answered.house, stats.mind_down, stats.housed),
+            (4, 0, true)
         );
         assert_eq!(
             failures(&mut scene.core)[0],
