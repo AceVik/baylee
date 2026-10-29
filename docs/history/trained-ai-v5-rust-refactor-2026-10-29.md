@@ -117,8 +117,8 @@ All figures use the same five development games and eligibility mask above.
 Likelihood and pass agreement improve in all three pairs, while exact non-pass
 agreement worsens in all three. This justifies retaining the architectural bug
 fix but does not justify promoting a trained candidate or increasing BC dose.
-The next check compares the original seed-33002 pair in predeclared, seat-swapped
-games against Sharp. Choosing that pair before gameplay avoids selecting the
+The subsequent check compared the original seed-33002 pair in predeclared,
+seat-swapped games against Sharp, as reported below. Choosing that pair before gameplay avoided selecting the
 best of these small validation results. New deal seeds still do not make known
 deck families an unseen-card/generalization holdout.
 
@@ -133,6 +133,141 @@ declared continuation. `assessment.md` gives every per-game delta.
 
 No architecture winner, generalization improvement or playing-strength gain
 has been established, and no candidate has been deployed.
+
+## Completed E1 gameplay and payment diagnosis
+
+The preselected seed-33002 pair and unchanged R6 completed all 48 model cases:
+eight tables, two focal-seat rotations, three models, against Sharp. All used
+raw greedy FP32, K2, the same frozen deck order and deal seeds. There were no
+caps, refusals, outer stalls or draws. The following are descriptive outcomes
+of the executed protocol, which includes the reported house interventions:
+
+| Model | Wins / losses | House fallback events | Affected games |
+| --- | ---: | ---: | ---: |
+| R6 | 6 / 10 | 13 | 2 |
+| Original-context candidate | 4 / 12 | 8 | 1 |
+| Repaired-context candidate | 4 / 12 | 3 | 1 |
+
+The repeated Sharp reference produced eight wins and eight losses over the
+16 unique cases; its deck/seat/seed/outcome rows agree across all three runs.
+The predeclared ledger conservatively invalidates an entire four-case chunk
+when it contains a fallback. It therefore retains 36 valid and 12 unknown
+model rows, including clean rows in the affected chunk. All 48 rows remain in
+the denominator. Neither paired inference nor selection of a clean subset is
+permitted. Fewer interventions do not establish stronger play; neither trained
+candidate is promoted. This small known-family development comparison is not
+a v4-versus-v5 architecture test.
+
+All 12 report hashes were independently checked against the completed pipeline.
+The pipeline took 1,250.78 seconds; final supervisor/ledger completion took
+1,266.98 seconds, within the 1,800-second design budget. The earlier debug-build
+admission timeout was traced to graph hashing; the unchanged models passed
+native admission with the optimized tools-profile evaluator. No failed attempt
+was overwritten or counted as a successful gameplay stage.
+
+All 13 R6 interventions were `repeated_view`. Hash-verified replay of both
+affected games (2,072 input snapshots) showed three cast/cancel cycles before
+each intervention: 39 `CancelCast` choices, involving Traumatic Critique and
+Energy Bolt. These were real repeated actions, not benign recurrence falsely
+identified by the guard. Encoder7 already represented the outstanding cost;
+Encoder8 additionally retains the announced source through nested questions.
+This diagnosis does not establish that Encoder8 would correct the choices.
+
+Exact-menu replay showed that every cancellation also offered `PassPriority`;
+18 menus additionally offered two abilities. Independent reconstruction of
+each recorded prefix then replaced just that cancellation with one pass:
+
+- In 21 of 39 branches, payment settled and the same spell entered the stack.
+- In 18 branches, the engine accepted the pass but unwound the unpaid cast,
+  leaving or returning the spell to hand.
+- No branch was refused, left unclassified or left awaiting further payment.
+
+The 39 branches verified 27,984 prefix input hashes in addition to the complete
+canonical replays. They took 5.44 seconds with existing pinned Rust artifacts;
+no neural inference or training was needed. Successful casting is a rules fact,
+not a proof that casting was strategically optimal. The 21/18 counts describe
+these repeated decision states, not 39 independent games. Evaluation situations
+remain diagnostic fixtures, not new training examples.
+
+This exposed two distinct weighting problems, now corrected: live/LLM record
+conversion classified payment-settlement passes as ordinary low-value passes
+and could even remove their live policy weight on an opponent's empty stack.
+Separately, opt-in loss5 contained an undocumented candidate-based pass
+discount. The latter was **not active in E1**, whose sealed jobs used loss4;
+it cannot explain this experiment. Neither observation by itself proves the
+cause of the learned cancellation behavior.
+
+Commit `2ca3238a4` preserves settlement supervision whenever the permitted view
+contains `casting`, `announced_cast` or `owed`. Ordinary idle-pass weighting and
+source eligibility are unchanged. New conversions declare
+`idle_pass_weighting_revision=2`; missing metadata means legacy revision 1.
+Dataset fingerprints distinguish the revisions, so old data and caches are
+not silently relabeled. Real engine fixtures exercise paid Vitalizing Cascade
+in Encoder7/8 on and off turn, alongside ordinary waiting behavior. The shared
+predicate extraction is a separate behavior-preserving commit (`ed50c066d`).
+
+Commit `a414cf194` removes loss5's hidden pass discount and declares
+`categorical_weighting="symmetric_v1"`. Exact resume rejects ambiguous old
+loss5 checkpoints before optimizer or recurrent-state restoration; a fresh
+weights-only initialization remains supported. Loss4's contract, values and
+gradients are preserved. Twenty focused PyTorch tests, five native contract
+tests and strict Clippy passed. Native release helpers were rebuilt for the
+new contract boundary; new conversions must use the rebuilt converter too.
+
+Evidence under the investigation root:
+
+- `e1-gameplay-admission-recovery-01a187f9-f940-75ae-815f-ef697db3195b/`:
+  frozen gameplay plan, native jobs and all report/record outputs.
+- `e1-gameplay-observer-01a18809-debd-74fa-ad0e-ee613dede236/`:
+  finalized ledger (SHA-256 `5347aa4808aeeefd7b2780915df6c53d05f99d8f461c61146664738c7b59ab94`),
+  completion receipt and repeated-view replay.
+- `e1-gameplay-independent-summary-20261029/summary.json`: independent totals.
+- `e1-payment-menus-01a18817-e565-762d-a083-c37d95524baa/` and
+  `e1-payment-counterfactual-01a1881f-0018-7778-81c3-5bc3148ed66b/`:
+  all menus, exact branches, source and guarded execution receipts.
+
+## E2 prerequisite: real-history depth sensitivity
+
+The bounded same-state probe completed in
+`e2-statewise-depth-datafix-01a18832-06c5-7d97-95ff-a062b42d48a1/`.
+R6 and the already preselected repaired candidate each replayed all 811 frames
+of the first complete development seat history. Measurement used its first
+32 genuine decisions (31 categorical, one subset), with K1/2/4/8 starting from
+the same causal H for each state. No pair/scalar cases were substituted and no
+optimizer updates were made. Positive K preserves H bitwise; K0 observations
+advance it. The full chronological replay follows the native data contract.
+
+All 31 categorical states and the single subset state changed their probability
+outputs at K2, K4 and K8 relative to K1. Mean categorical KL(K1 || K), at
+temperature 1, was:
+
+| Model | K2 | K4 | K8 |
+| --- | ---: | ---: | ---: |
+| R6 | 0.00003172 | 0.00008647 | 0.00020716 |
+| Repaired candidate | 0.00004514 | 0.00012909 | 0.00033166 |
+
+Latent step-delta traces were exactly equal between the models, consistent
+with E1 freezing the trunk and thinking block. Their readout changes differed.
+This establishes execution sensitivity, not useful learned iterative reasoning.
+Constrained actions were not decoded; a subset logit or Bernoulli threshold
+must not be reported as an actual engine action. The fixed-K versus mixed-K
+learning experiment and playing-strength comparison remain outstanding.
+
+Worker time was 33.72 seconds; native pipeline time was 44.96 seconds. Peak
+allocated GPU memory stayed below 0.425 GiB, reserved memory below 1.147 GiB,
+and host PSS below 2.63 GiB. Instrumented joint K1/2/4/8 measurements averaged
+53.6/57.8 ms per measured state for R6/candidate. Hooks synchronize with the
+host; these are diagnostic costs, not serving latencies or isolated per-K
+benchmarks. All 263 sealed inputs were independently rehashed; no GPU child
+remained afterward. Report SHA-256:
+`86815c1554a4698b7823a4eefb341ec389d5bfacd72575d8ecfeb3d922fb7d8a`.
+
+Two preceding setup failures remain preserved: the first working directory
+lacked a Git identity, and the next dataset used symlinks escaping its root.
+Neither measured a model state. The successful preparation uses verified
+independent dataset copies, an isolated Git snapshot and an actual CPU data
+preflight loading the complete history in its final location. The generic
+process-guard smoke check alone had not tested the dataset contract.
 
 ## Verification status
 
@@ -167,6 +302,14 @@ checks. The final default gate completed on `31e6a78c0`: all 23,916 tests passed
 27 were skipped, and formatting, strict Clippy and API checks passed. The optional
 catalog validation step was skipped because this checkout has no
 `data/scryfall-cache`; no full code generation was run.
+
+Those full gates predate the payment-weighting fixes above. The later fixes
+passed their focused engine/converter, objective, resume and Clippy checks;
+the full gates must be rerun before pushing this newer source. No push or live
+model promotion was performed. After all builds stopped, only the regenerable
+`target/debug/incremental` directory in this worktree was removed to recover
+disk space (about 104 GiB free afterward); models, records, source and pinned
+binaries were retained.
 
 Receipts under the investigation root:
 

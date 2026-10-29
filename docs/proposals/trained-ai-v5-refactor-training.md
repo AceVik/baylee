@@ -59,6 +59,51 @@ Die mangels lokalem Scryfall-Cache ausgelassene Katalogvalidierung und weitere
 Prüfgrenzen sind im Bericht ausdrücklich ausgewiesen.
 Der alte Dauerlauf bleibt gestoppt; kein neues Modell ist freigegeben.
 
+**Nach dem E1-Spielvergleich:** Alle 48 vorab festgelegten Modellfälle sind
+abgeschlossen. Deskriptiv erreicht R6 6/16 Siege, beide trainierten Kandidaten
+4/16; Haus-Fallbacks treten 13/8/3-mal auf. Die ursprüngliche Zulassungsregel
+markiert deshalb den betroffenen Viererblock für alle drei Modelle als
+unbekannt: 36 gültige und 12 unbekannte Zeilen, keine gepaarte Aussage und keine
+nachträgliche Auswahl nur sauberer Fälle. Der reparierte Kandidatenkontext
+bleibt ein behobener Architekturfehler, bislang ohne nachgewiesenen
+Spielstärkegewinn. Keine automatische Dosiserhöhung oder Freigabe.
+
+Die konkrete Zahlungsdiagnose liefert eine nützlichere nächste Aufgabe:
+Von 39 wiederholten R6-Abbruchentscheidungen hätte ein einzelnes angebotenes
+`PassPriority` 21 Sprüche erfolgreich bezahlt und auf den Stack gelegt; bei
+18 hätte die Engine den unbezahlten Vorgang rückabgewickelt. Die Stellen sind
+deterministisch nachgespielt. Das ist weder ein Optimalitätslabel noch ein
+Nachweis, dass Encoder8 sie löst. Diese Validierungspartien bleiben Diagnose-
+und Regressionstestmaterial, keine Trainingsbeispiele.
+
+Der Stand und die nächste Reihenfolge lauten:
+
+1. **Umgesetzt (`2ca3238a4`):** Zahlungsabschlüsse mit sichtbarem `casting`,
+   `announced_cast` oder `owed` behalten ihr Lerngewicht. Die alte Idle-Regel
+   konnte diese bei leerem Stack außerhalb des eigenen Zugs sogar ausschließen.
+   Neue Konvertierungen deklarieren `idle_pass_weighting_revision=2`; alte Daten
+   und Caches werden nicht umetikettiert. Echte Engine-Regressionstests decken
+   Encoder7/8 und beide Zugkontexte ab.
+2. **Umgesetzt (`a414cf194`):** Loss5 gewichtet kategorische Entscheidungen
+   explizit symmetrisch (`categorical_weighting="symmetric_v1"`). Exaktes Resume
+   verweigert alte Loss5-Verträge ohne eindeutigen Marker; frische Initialisierung
+   aus deren Gewichten bleibt möglich. Loss4 bleibt unverändert. E1 benutzte
+   Loss4; dieser zweite Fehler erklärt seinen Ausgang ausdrücklich nicht.
+3. **E2-Vorprobe abgeschlossen:** Beide Modelle spielten dieselbe vollständige
+   Historie mit 811 Beobachtungen nach; die ersten 32 echten Entscheidungen
+   wurden bei gleichem kausalem H mit K1/2/4/8 verglichen. Alle 31 kategorialen
+   Fälle und der eine Subset-Fall zeigen veränderte Wahrscheinlichkeiten. Die
+   Denkstufen wirken, ihr Nutzen ist weiterhin unbewiesen. Keine tatsächlichen
+   Subset-/Paar-Aktionen dekodiert, keine Optimizer-Updates. Der eigentliche
+   Vergleich von festem K und trainiertem gemischtem K steht noch aus.
+4. Erst danach eine kleine frische On-Policy-Sammlung aus Trainingsdecks gegen
+   Sharp/Steady mit festem Tisch-/Sitzplan zulassen. Mindestens 128 echte
+   Lernerentscheidungen und vollständige Wahrscheinlichkeits-Replays sind
+   Voraussetzung für einen einzelnen begrenzten Head-PPO-Updateversuch.
+   Kein nachträgliches Austauschen schwieriger Partien, kein Senken der
+   Zulassungsschwelle, keine Lockerung des KL-Limits nur für einen akzeptierten
+   Update. Der spätere gemischte E3-Vergleich bleibt eine eigene Untersuchung.
+
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;
 historische Aussagen „noch nicht implementiert“ sind durch diesen Stand ersetzt.
 
@@ -256,7 +301,8 @@ eine quadratische Kandidaten-Self-Attention ist dafür nicht nötig.
 
 Status: Modultrennung, versionierte Kontextänderung, expliziter Gewichtsimport
 und gezielte Ausführungs-/Exporttests sind umgesetzt. Die folgenden Kriterien
-bleiben die Verträge; der kontrollierte Lernvergleich E1 steht noch aus.
+bleiben die Verträge; der begrenzte E1-Kopfvergleich und sein Spielvergleich
+sind abgeschlossen, ein Vorteil eines umfangreicheren Trainings ist noch offen.
 
 Vor einem vollen E1 ist eine begrenzte G-only- oder Kopftraining-Probe auf einem
 kleinen, vorab festgelegten Satz vollständiger Partien sinnvoll. Bei G-only

@@ -226,6 +226,12 @@ Include executed scripts, configuration, provider libraries and dataset seals
 in `inputs`; untracked scripts are not covered by the tracked Git patch alone.
 The working directory needs a Git identity. For a detached experiment copy,
 create an isolated snapshot commit and retain its original checkout receipt.
+Dataset files must resolve inside their declared dataset root. An isolated
+dataset made of symlinks back to another root is refused; copy and verify the
+files instead. Before reserving the GPU, exercise the actual native-backed
+dataset constructor in the final directory on CPU and load a complete history.
+A generic successful command under the process guard does not validate the
+data loader or the model worker's inputs.
 The pipeline seals all external inputs before its first stage and rechecks
 them and completed producer outputs before each consumer. Generated inputs
 must name an earlier stage's declared outputs; forward dependencies fail.
