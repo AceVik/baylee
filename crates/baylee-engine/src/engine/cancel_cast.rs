@@ -79,6 +79,36 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// The spell `player` is announcing, even while one of its mana abilities
+    /// is resolving. Only the caster receives this observation. Unlike
+    /// [`Self::cancellable_cast`], it grants no permission to cancel and also
+    /// covers an effect's cast or a suspended miracle payment.
+    #[must_use]
+    pub fn announced_cast(&self, player: PlayerId) -> Option<ObjectId> {
+        if let Some(wizard) = &self.cast_wizard
+            && wizard.player == player
+        {
+            return Some(wizard.card);
+        }
+        let mut window = self.mana_window.as_ref();
+        while let Some(payment) = window {
+            if payment.player != player {
+                return None;
+            }
+            match &payment.suspended {
+                super::PaymentContinuation::Miracle { wizard, .. } => {
+                    return (wizard.player == player).then_some(wizard.card);
+                }
+                super::PaymentContinuation::Cast { card, .. } => return Some(*card),
+                super::PaymentContinuation::Activation(activation) => {
+                    window = activation.previous.as_deref();
+                }
+                _ => return None,
+            }
+        }
+        None
+    }
+
     /// Takes back the cast `player` is making (`PlayerAction::CancelCast`).
     pub(super) fn cancel_cast(&mut self, player: PlayerId) -> Result<(), EngineError> {
         if self.cancellable_cast(player).is_none() {

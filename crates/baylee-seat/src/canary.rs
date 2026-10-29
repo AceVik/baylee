@@ -122,6 +122,7 @@ fn empty_view(me: PlayerId) -> PlayerView {
         owed: None,
         targeting: None,
         casting: None,
+        announced_cast: None,
         sorcery_lock: None,
         sorceries_have_flash: false,
     }

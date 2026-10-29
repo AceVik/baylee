@@ -581,6 +581,8 @@ fn miracle_uses_mana_made_after_accepting_and_survives_a_color_question() {
     assert_eq!(engine.state.players[0].mana_pool.total(), 0);
     engine.apply(player, PlayerAction::YesNo(true)).unwrap();
     assert_eq!(engine.payment_window(), debt);
+    assert_eq!(engine.announced_cast(player), Some(card));
+    assert_eq!(engine.announced_cast(PlayerId::new(1)), None);
     let Pending::Priority { legal, .. } = engine.pending().clone() else {
         panic!("mana window")
     };
@@ -613,7 +615,11 @@ fn miracle_uses_mana_made_after_accepting_and_survives_a_color_question() {
         )
         .unwrap();
     assert!(matches!(engine.pending(), Pending::ChooseColor { .. }));
+    assert_eq!(engine.cancellable_cast(player), None);
+    assert!(engine.apply(player, PlayerAction::CancelCast).is_err());
     assert_eq!(engine.payment_window(), debt);
+    assert_eq!(engine.announced_cast(player), Some(card));
+    assert_eq!(engine.announced_cast(PlayerId::new(1)), None);
     engine
         .apply(
             player,
@@ -623,6 +629,7 @@ fn miracle_uses_mana_made_after_accepting_and_survives_a_color_question() {
     assert_eq!(engine.state.players[0].mana_pool.total(), 2);
     engine.apply(player, PlayerAction::PassPriority).unwrap();
     assert_eq!(engine.payment_window(), None);
+    assert_eq!(engine.announced_cast(player), None);
     assert_eq!(engine.state.object(card).unwrap().zone, Zone::Stack);
     assert_eq!(engine.state.players[0].mana_pool.total(), 0);
     for _ in 0..10 {

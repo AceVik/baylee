@@ -599,6 +599,7 @@ pub fn player_view(
         // client owes the player the card to point at.
         targeting: None,
         casting: None,
+        announced_cast: None,
         sorcery_lock: state
             .effects
             .may_change_cast_timing_or_lock()

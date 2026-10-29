@@ -112,6 +112,7 @@ fn view(seats: u8) -> PlayerView {
         owed: None,
         targeting: None,
         casting: None,
+        announced_cast: None,
         sorcery_lock: None,
         sorceries_have_flash: false,
     }

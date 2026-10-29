@@ -20,6 +20,26 @@ impl Session {
         self.attach_choice_context(seat, self.observe_view(seat))
     }
 
+    /// Authorized deciding view with persistent owner-only announced payment
+    /// source. Opt-in consumers may distinguish this from cancellation rights.
+    /// Existing [`Self::view_for_with_context`] bytes are unchanged.
+    #[must_use]
+    pub fn view_for_with_payment_context(&self, seat: PlayerId) -> Option<(Pending, PlayerView)> {
+        self.view_for_with_context(seat).map(|(pending, mut view)| {
+            view.announced_cast = self.engine.announced_cast(seat);
+            (pending, view)
+        })
+    }
+
+    /// Passive owner view with the same persistent announced source. Default,
+    /// socket and archived context projections do not opt into this field.
+    #[must_use]
+    pub fn observe_view_with_payment_context(&self, seat: PlayerId) -> PlayerView {
+        let mut view = self.observe_view_with_context(seat);
+        view.announced_cast = self.engine.announced_cast(seat);
+        view
+    }
+
     fn attach_choice_context(&self, seat: PlayerId, mut view: PlayerView) -> PlayerView {
         view.targeting = crate::view::targeting_context(&self.engine, seat);
         view.casting = self.engine.cancellable_cast(seat);

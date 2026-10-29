@@ -75,6 +75,7 @@ impl SpectatorView {
             target_objects: Vec::new(),
             targeting: None,
             casting: None,
+            announced_cast: None,
             seq: self.seq,
             seat: perspective,
             turn: self.turn,
