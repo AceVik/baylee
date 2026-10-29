@@ -42,7 +42,9 @@ use flate2::write::GzEncoder;
 use serde_json::{Value, json};
 
 include!("options.rs");
+mod collector;
 mod diagnostics;
+mod seat_players;
 mod shadow;
 
 include!("runtime.rs");
@@ -77,6 +79,7 @@ fn main() -> anyhow::Result<()> {
     } else {
         Some(inspect_model_identity(&args.model)?)
     };
+    let collection = collector::Contract::new(&args, model_identity.as_ref())?;
     if args.shadow_teacher.is_some()
         && model_identity
             .as_ref()
@@ -202,7 +205,11 @@ fn main() -> anyhow::Result<()> {
             "evaluator_revision": baylee_build::COMMIT,
             "evaluator_dirty": baylee_build::DIRTY,
             "record_version": baylee_gamehost::record::RECORD_VERSION,
-            "training_data": true,
+            "training_data": collection.purpose == collector::Purpose::OnPolicyTraining,
+            "collection_contract": collection.metadata(),
+            "planned_deals": args.deals,"deal_offset": args.deal_offset,
+            "deck_split":args.deck_split,"decks_manifest":args.decks_manifest,
+            "held_out_cards":args.held_out_cards,"holdout_tier":args.holdout_tier,
             "decks": deck_json,
             "seats": args.seats,
             "accepted_deck_keys": accepted_deck_keys,
@@ -246,6 +253,12 @@ fn main() -> anyhow::Result<()> {
         }
         fs::write(rec_dir.join("run.json"), serde_json::to_vec_pretty(&run)?)?;
     }
+
+    let run_metadata_sha = args
+        .record_out
+        .as_ref()
+        .map(|directory| fs::read(directory.join("run.json")).map(|bytes| shadow::sha(&bytes)))
+        .transpose()?;
 
     let threads = match args.threads {
         0 => std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get),
@@ -291,16 +304,15 @@ fn main() -> anyhow::Result<()> {
         let no_base = args.no_baseline;
         let legacy = args.legacy_v3;
         let expected_identity = model_identity.clone();
+        let collection = collection.clone();
+        let run_metadata_sha = run_metadata_sha.clone();
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
-            let mut net = load_player(
-                &model_path,
-                legacy,
-                k_steps,
-                temp,
-                policy_mode,
-                expected_identity.as_ref(),
-            )?;
+            let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
+                Box::new(seat_players::SeatPlayers::load(&model_path,&collection,policy_mode)?)
+            } else {
+                load_player(&model_path,legacy,k_steps,temp,policy_mode,expected_identity.as_ref())?
+            };
 
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
             let mut shard_file = match &rec_out {
@@ -400,6 +412,16 @@ fn main() -> anyhow::Result<()> {
                         "shard": shard_name,
                         "offset": *offset,
                         "len": len,
+                        "source_run_sha256": run_metadata_sha,
+                        "focal_seat": focal_seat,
+                        "record_sha256": shadow::sha(&rec_bytes),
+                        "complete": !net_capped,
+                        "capped": net_capped,
+                        "fallback_answers": fb,
+                        "refused_answers": ref_cnt,
+                        "actor_roles": if collection.purpose == collector::Purpose::OnPolicyTraining {
+                            Some(collection.seats(seats,focal_seat,&teams_arc)?)
+                        } else {None},
                         "rollout_sidecar": rollout_sidecar,
                         "fallback_events": fallback_events,
                     }))?;
@@ -604,6 +626,7 @@ fn main() -> anyhow::Result<()> {
             .map_or("v3-expert", |identity| identity.model_family)
     );
     summary["model_identity"] = json!(model_identity);
+    summary["collection_contract"] = collection.metadata();
     summary["evaluator_build"] = json!(baylee_build::short());
     summary["evaluator_revision"] = json!(baylee_build::COMMIT);
     summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
@@ -613,6 +636,16 @@ fn main() -> anyhow::Result<()> {
         fs::create_dir_all(parent)?;
     }
     fs::write(&args.out, serde_json::to_vec_pretty(&summary)?)?;
+    if collection.purpose == collector::Purpose::OnPolicyTraining {
+        let directory = args.record_out.as_ref().context("collection output")?;
+        baylee_train_ops::files::atomic_json(
+            &directory.join("run.complete.json"),
+            &json!({
+            "version":1,"source_run_sha256":run_metadata_sha,
+            "games_index_sha256":shadow::sha(&fs::read(directory.join("games.jsonl"))?),
+            "recorded_deals":st.deals_completed,"planned_deals":args.deals}),
+        )?;
+    }
     eprintln!(
         "[eval4] seats={} teams={:?} K={} against={} deals={} | net_win={:.1}% (u={:.3}, caps={}) base_u={:?} delta={:?} | p50={:.1}ms p95={:.1}ms fb={} refused={} ({:.1}s)",
         args.seats,

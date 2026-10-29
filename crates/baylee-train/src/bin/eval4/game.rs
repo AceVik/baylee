@@ -48,6 +48,7 @@ fn play_one_table(
     let preset = table_for(seed, decks, profiles, teams_u8);
     let n_seats = decks.len();
     if let Some(n) = net.as_deref_mut() {
+        n.configure_seats(focal_seat, teams)?;
         // Independent policy RNG seed: never depends on deal shuffle `seed` (P0-7)
         let indep_policy_seed =
             policy_seed ^ deal_idx.wrapping_mul(0x9e37_79b9_7f4a_7c15) ^ ((n_seats as u64) << 48);
@@ -65,9 +66,9 @@ fn play_one_table(
         (0..n_seats).map(|s| s.to_string()).collect(),
     );
     session.set_fair_scouting(fair_scouting);
-    if net.is_some() {
+    if let Some(n) = net.as_deref() {
         for s in 0..n_seats {
-            if is_net_seat(s, focal_seat, teams) {
+            if n.controls_seat(s, focal_seat, teams) {
                 session.take_over(PlayerId::new(s as u8));
             }
         }
@@ -137,7 +138,7 @@ fn play_one_table(
         let uses_ctx = net.as_deref().is_some_and(EvaluationPlayer::uses_context);
         if let Some(n) = net.as_deref_mut() {
             for s in 0..n_seats {
-                if is_net_seat(s, focal_seat, teams) {
+                if n.controls_seat(s, focal_seat, teams) {
                     let pid = PlayerId::new(s as u8);
                     let obs_v = if payment_ctx {
                         session.observe_view_with_payment_context(pid)
@@ -159,7 +160,10 @@ fn play_one_table(
         }
 
         for (s, seat_visits) in visit_counts.iter_mut().enumerate() {
-            if !is_net_seat(s, focal_seat, teams) {
+            if !net
+                .as_deref()
+                .is_some_and(|n| n.controls_seat(s, focal_seat, teams))
+            {
                 continue;
             }
             let pid = PlayerId::new(s as u8);

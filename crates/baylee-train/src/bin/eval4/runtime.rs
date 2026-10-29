@@ -1,6 +1,12 @@
 // Keep game setup, seeds, opponents and fallback handling identical when
 // comparing an archived v3 player with the current v4 implementation.
 trait EvaluationPlayer {
+    fn configure_seats(&mut self, _focal: usize, _teams: &[Option<u8>]) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn controls_seat(&self, seat: usize, focal: usize, teams: &[Option<u8>]) -> bool {
+        is_net_seat(seat, focal, teams)
+    }
     fn reseed(&mut self, seed: u64);
     fn init_game(&mut self, preset: &baylee_core::preset::GamePreset);
     fn uses_context(&self) -> bool {
