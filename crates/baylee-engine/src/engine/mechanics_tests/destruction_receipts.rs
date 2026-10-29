@@ -298,6 +298,7 @@ fn destroyed_this_way_excludes_sacrifice_and_direct_exile_in_the_same_resolution
             Effect::SacrificeAll { filter: &PLAINS },
             Effect::ExileAll {
                 filter: &Filter::HasSubtype(land::FOREST),
+                linked: false,
             },
             Effect::DestroyAll {
                 filter: &Filter::LAND,
@@ -350,4 +351,14 @@ fn destroyed_this_way_excludes_sacrifice_and_direct_exile_in_the_same_resolution
         1
     );
     assert_eq!(objects(&e, ZoneLocation::Exile(them()), EXILED).len(), 1);
+    let exiled = the(&e, ZoneLocation::Exile(them()), EXILED);
+    assert!(
+        !e.state()
+            .object(exiled)
+            .unwrap()
+            .riders
+            .iter()
+            .any(|r| matches!(r, crate::object::Rider::Linked { .. })),
+        "an ordinary exile sweep creates no linked-exile relationship"
+    );
 }

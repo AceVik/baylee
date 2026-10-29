@@ -785,6 +785,11 @@ fn matches(
                             })))
         }
         (Trigger::BecomesTarget, _) => targeting(event, state, source).is_some(),
+        (Trigger::EnchantedBecomesTarget, _) => state
+            .object(source)
+            .and_then(|o| o.attached_to)
+            .and_then(|host| targeting(event, state, host))
+            .is_some(),
         (Trigger::Ward, _) => targeting(event, state, source)
             .is_some_and(|(_, controller)| state.is_opponent(controller, you)),
         (

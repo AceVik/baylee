@@ -6,6 +6,7 @@ use std::hash::Hash;
 
 /// Per-turn counters for conditional triggers (reset at every turn start).
 #[derive(Clone, Hash, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct PerTurn {
     /// Untapped lands controlled by this turn's active player at its start,
     /// before untapping or phasing; independent of any source's presence.
@@ -154,6 +155,12 @@ pub struct PerTurn {
         baylee_core::ids::DamageSourceRef,
         baylee_core::ids::DamageSourceRef,
     )>,
+    /// Active player skips their draw step this turn (Fatespinner).
+    pub skip_draw_step: bool,
+    /// Active player skips their main phases this turn (Fatespinner).
+    pub skip_main_phases: bool,
+    /// Active player skips their combat phases this turn (Fatespinner).
+    pub skip_combat_phases: bool,
 }
 
 /// One block declared this turn ([`PerTurn::blocks`]).
@@ -324,6 +331,9 @@ impl PerTurn {
             damage_cant_regenerate_sources: Vec::new(),
             damage_exile_if_dies_sources: Vec::new(),
             tapped_for_ability: Vec::new(),
+            skip_draw_step: false,
+            skip_main_phases: false,
+            skip_combat_phases: false,
         }
     }
 
@@ -413,6 +423,9 @@ impl PerTurn {
             damage_cant_regenerate_sources,
             damage_exile_if_dies_sources,
             tapped_for_ability,
+            skip_draw_step,
+            skip_main_phases,
+            skip_combat_phases,
             pending_entry_history,
             permanent_damage,
             damaged_creature_deaths,
@@ -462,6 +475,9 @@ impl PerTurn {
         damage_cant_regenerate_sources.clear();
         damage_exile_if_dies_sources.clear();
         tapped_for_ability.clear();
+        *skip_draw_step = false;
+        *skip_main_phases = false;
+        *skip_combat_phases = false;
     }
 }
 

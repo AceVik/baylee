@@ -330,7 +330,13 @@ impl HeuristicAgent {
         // A source's chosen colour is not in a view, and a colour compared
         // across the board is a gap like the reference family.
         | Filter::OfSourceChosenColor
-        | Filter::SharesAColorWith(_) => None,
+        | Filter::SharesAColorWith(_)
+        | Filter::Equipped
+        | Filter::CmcEqualsCountersOnSource(_)
+        | Filter::NotControlledByReferenceController
+        | Filter::LowestManaValueOnBattlefield(_)
+        | Filter::SameNameAsLinkedExile
+        | Filter::CmcEqualsYourUnspentMana => None,
         }
     }
 
@@ -716,7 +722,7 @@ impl HeuristicAgent {
                 self.battlefield_has(filter, view, &self.seats(*who, view)?, Some(this))
             }
             Effect::DestroyAll { filter, .. }
-            | Effect::ExileAll { filter }
+            | Effect::ExileAll { filter, .. }
             | Effect::TapAll { filter }
             | Effect::DealDamageEach { filter, .. } => {
                 self.battlefield_has(filter, view, &everyone, Some(this))

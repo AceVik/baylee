@@ -52,12 +52,14 @@ pub(crate) fn filter_reads_reference(filter: &baylee_cards_dsl::Filter) -> bool 
         | Filter::BlockedByReference
         | Filter::BlockedByReferenceThisTurn
         | Filter::BlockedReferenceThisTurn
+        | Filter::NotControlledByReferenceController
         | Filter::SharesCreatureTypeWithOtherTarget
         | Filter::SharesTypeWithReference(_) => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_reference),
         Filter::Not(f)
         | Filter::AttachedTo(f)
         | Filter::BlockedThisTurnBy(f)
+        | Filter::LowestManaValueOnBattlefield(f)
         | Filter::SharesAColorWith(f)
         | Filter::ControllerControls(f) => filter_reads_reference(f),
         _ => false,
@@ -73,6 +75,9 @@ pub(crate) fn modifier_reads_combat(modifier: baylee_cards_dsl::Modifier) -> boo
     use baylee_cards_dsl::Modifier;
     if matches!(modifier, Modifier::ModifyPTByAmount { .. }) {
         return true;
+    }
+    if let Modifier::ModifyPTPerCount { filter, .. } = modifier {
+        return filter_reads_board_state(filter);
     }
     if let Modifier::CharacteristicPTSeparate { power, toughness } = modifier {
         return pt_count_reads_combat(power) || pt_count_reads_combat(toughness);
@@ -95,12 +100,12 @@ fn pt_count_reads_combat(count: baylee_cards_dsl::PtCount) -> bool {
             pt_count_reads_combat(*base)
         }
         PtCount::DefendingPlayerControls(_) | PtCount::ControllerOrDefenderControls(_) => true,
-        PtCount::DistinctColorsAmong(_)
-        | PtCount::YouControl(_)
-        | PtCount::OnBattlefield(_)
-        | PtCount::CardTypesInAllGraveyards
+        PtCount::DistinctColorsAmong(f)
+        | PtCount::YouControl(f)
+        | PtCount::OnBattlefield(f)
+        | PtCount::ChosenPlayerControls(f) => filter_reads_board_state(f),
+        PtCount::CardTypesInAllGraveyards
         | PtCount::InAllGraveyards(_)
-        | PtCount::ChosenPlayerControls(_)
         | PtCount::ExiledWithThis
         | PtCount::CountersOnThis(_)
         | PtCount::EntrySacrifices

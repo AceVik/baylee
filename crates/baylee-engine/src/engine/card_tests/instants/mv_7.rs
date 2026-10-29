@@ -3,4 +3,5 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod assert_authority;
 mod ember_shot;

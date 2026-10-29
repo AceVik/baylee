@@ -267,8 +267,26 @@ impl Tx<'_> {
         if def.trim() == "Targeted$CardToughness" {
             return Some("Amount::TargetToughness".to_string());
         }
-        if def.trim() == "Count$CardPower" && !self.on_a_spell {
+        if def.trim() == "Targeted$CardPower" {
+            return Some("Amount::TargetPower".to_string());
+        }
+        if (def.trim() == "Count$CardPower"
+            || (def.trim() == "Sacrificed$CardPower" && self.cost_sacrifices_self))
+            && !self.on_a_spell
+        {
             return Some("Amount::SourcePower".to_string());
+        }
+        if def.trim() == "Sacrificed$CardPower" && self.cost_sacrifices_other && !self.on_a_spell {
+            return Some("Amount::SacrificedPower".to_string());
+        }
+        if def.trim() == "Sacrificed$CardManaCost" && self.cost_sacrifices_other {
+            return Some("Amount::SacrificedManaValue".to_string());
+        }
+        if def.trim() == "Count$ValidGraveyard Card.YouOwn" {
+            return Some(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::You) }"
+                    .to_string(),
+            );
         }
         if let Some(valid) = def.trim().strip_prefix("Count$ValidGraveyard ")
             && !valid.contains("Ctrl")
@@ -281,11 +299,17 @@ impl Tx<'_> {
             ));
         }
         let valid = def.trim().strip_prefix("Count$Valid ")?;
+        let (valid, factor) = match valid.split_once("/Times.") {
+            None => (valid, None),
+            Some((v, f)) => (v, Some(f.trim().parse::<u32>().ok()?)),
+        };
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNT", &expr);
-        Some(format!(
-            "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}"
-        ))
+        let base = format!("Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}");
+        Some(match factor {
+            None => base,
+            Some(factor) => format!("Amount::Times {{ base: &{base}, factor: {factor} }}"),
+        })
     }
 
     /// The atoms that are one word of printed text each, and the filter each
@@ -540,10 +564,17 @@ impl Tx<'_> {
             && self.has_x
             && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
             && !self.oracle.to_ascii_lowercase().contains("x is ");
-        let two_parts = matches!(kind, "Sac" | "Discard") && n == "2" && spec != "CARDNAME";
-        if n != "1" && !sac_x && !two_parts {
+        let multi_parts = matches!(kind, "Sac" | "Discard" | "ExileFromGrave")
+            && matches!(n, "2" | "3")
+            && spec != "CARDNAME";
+        if n != "1" && !sac_x && !multi_parts {
             return self.deny(format!("a cost naming `{n}` objects"));
         }
+        let part_count = if multi_parts {
+            n.parse::<usize>().unwrap_or(1)
+        } else {
+            1
+        };
         let (variant, controlled) = match kind {
             "Sac" => ("Sacrifice", true),
             "Discard" => ("Discard", false),
@@ -562,17 +593,13 @@ impl Tx<'_> {
             });
         }
         if variant == "Discard" && spec == "Random" {
-            return Some(if two_parts {
-                vec!["DiscardRandom".to_string(); 2]
-            } else {
-                vec!["DiscardRandom".to_string()]
-            });
+            return Some(vec!["DiscardRandom".to_string(); part_count]);
         }
         let spec = if controlled {
             // Appended per alternative, because a valid-string's commas are
             // `Or` and a clause glued to the end would narrow only the last
             // branch.
-            spec.split(',')
+            spec.split([',', ';'])
                 .map(|alt| {
                     if alt.contains("YouCtrl") {
                         alt.to_string()
@@ -585,16 +612,14 @@ impl Tx<'_> {
                 .collect::<Vec<_>>()
                 .join(",")
         } else {
-            spec.to_string()
+            spec.replace(';', ",")
         };
         let expr = self.filter_expr(&spec)?;
         let name = self.body.filter_static("COST", &expr);
         Some(if sac_x {
             vec![format!("SacrificeX(&{name})")]
-        } else if two_parts {
-            vec![format!("{variant}(&{name})"); 2]
         } else {
-            vec![format!("{variant}(&{name})")]
+            vec![format!("{variant}(&{name})"); part_count]
         })
     }
 }

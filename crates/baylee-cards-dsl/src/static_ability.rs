@@ -118,6 +118,17 @@ pub enum Modifier {
         /// Floor for a previously positive mana cost; a free cost stays free.
         minimum: u32,
     },
+    /// Reduce generic equip costs of matching Equipment you control by this
+    /// amount, down to {0} (Auriok Steelshaper: "Equip costs you pay cost {1}
+    /// less").
+    EquipCostsLess(u32),
+    /// Activated abilities of matching permanents can't be activated unless
+    /// they're mana abilities (Damping Matrix).
+    CantActivateNonMana,
+    /// As long as a card exiled with this creature is a creature card, this
+    /// creature has the power, toughness, and creature types of the last
+    /// creature card exiled with it (it's still a Shapeshifter) (Duplicant).
+    CopyLastExiledCreaturePTAndSubtypes,
     /// Regenerate the matching permanent whenever destruction would occur.
     RegenerateInsteadOfDestroy,
     /// Regeneration replacements cannot apply to matching permanents.
@@ -1099,7 +1110,8 @@ impl Modifier {
             | Self::SetLandTypeToSecondChosen
             | Self::AddChosenBasicLandType
             | Self::BecomeType { .. }
-            | Self::AddTypeIfCountersAtLeast { .. } => Layer::Type,
+            | Self::AddTypeIfCountersAtLeast { .. }
+            | Self::CopyLastExiledCreaturePTAndSubtypes => Layer::Type,
             // Layer 5: color-changing effects.
             Self::AddColor(_) | Self::SetColor(_) => Layer::Color,
             // Layer 6: ability-adding and -removing effects.
@@ -1154,6 +1166,7 @@ impl Modifier {
             | Self::ManaAbilitiesCostLife(_)
             | Self::ReplaceTappedMana { .. }
             | Self::AbilitiesCostLess { .. }
+            | Self::EquipCostsLess(_)
             | Self::RegenerateInsteadOfDestroy
             | Self::CantBeRegenerated
             | Self::LegendRuleOff
@@ -1168,6 +1181,7 @@ impl Modifier {
             | Self::ExtraLandDrops(_)
             | Self::OpponentsCastAsSorcery
             | Self::CantActivate
+            | Self::CantActivateNonMana
             | Self::ChosenNameCantActivate
             | Self::SpellCastLimitPerTurn { .. }
             | Self::OpponentsCantCast(_)

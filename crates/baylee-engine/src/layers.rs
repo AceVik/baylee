@@ -748,8 +748,14 @@ fn could_change_keywords(modifier: &Modifier) -> bool {
 #[allow(clippy::too_many_lines)] // Exhaustive dependency table, one arm per filter family.
 fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> bool {
     match filter {
-        Filter::Named(_) | Filter::NamedBySource | Filter::NameOriginallyPrintedIn(_) => {
+        Filter::Named(_)
+        | Filter::NamedBySource
+        | Filter::NameOriginallyPrintedIn(_)
+        | Filter::SameNameAsLinkedExile => {
             matches!(modifier, Modifier::BecomeCopyOf(_))
+        }
+        Filter::LowestManaValueOnBattlefield(f) => {
+            could_change_match(modifier, f, layer) || matches!(modifier, Modifier::BecomeCopyOf(_))
         }
         // The last two read the object's subtypes as well; what differs is
         // where the subtype they are compared against comes from.
@@ -781,6 +787,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::AddChosenBasicLandType
                     | Modifier::BecomeType { .. }
                     | Modifier::AddTypeIfCountersAtLeast { .. }
+                    | Modifier::CopyLastExiledCreaturePTAndSubtypes
                     | Modifier::BecomeCopyOf(_)
             ) || (layer == Layer::Type && crate::artifact_animation::animates(*modifier))
         }
@@ -804,6 +811,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::SetPower(_)
                     | Modifier::SetToughness(_)
                     | Modifier::SetPTToCount(_)
+                    | Modifier::CopyLastExiledCreaturePTAndSubtypes
                     | Modifier::SwitchPT
                     | Modifier::CharacteristicPT { .. }
                     | Modifier::CharacteristicPTSeparate { .. }
@@ -823,6 +831,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::ControlledByOpponent
         | Filter::ControlledByActivePlayer
         | Filter::ControlledByDefendingPlayer
+        | Filter::NotControlledByReferenceController
         | Filter::ControlledSinceTurnBegan => matches!(modifier, Modifier::GainControl),
         Filter::And(parts) | Filter::Or(parts) => {
             parts.iter().any(|f| could_change_match(modifier, f, layer))
@@ -871,6 +880,9 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         | Filter::CountersAtLeast(_, _)
         | Filter::HasAnyCounter
         | Filter::Enchanted
+        | Filter::Equipped
+        | Filter::CmcEqualsCountersOnSource(_)
+        | Filter::CmcEqualsYourUnspentMana
         | Filter::BlockingSource
         | Filter::SpellTargetingAffected
         | Filter::BlockedBySource
@@ -1186,6 +1198,8 @@ fn apply(
         | Modifier::ManaAbilitiesCostLife(_)
         | Modifier::ReplaceTappedMana { .. }
         | Modifier::AbilitiesCostLess { .. }
+        | Modifier::EquipCostsLess(_)
+        | Modifier::CantActivateNonMana
         | Modifier::RegenerateInsteadOfDestroy
         | Modifier::CantBeRegenerated
         | Modifier::LegendRuleOff
@@ -1372,6 +1386,43 @@ fn apply(
                 let n = pt_count(state, obj, c, *controller, *count, context, read_board);
                 c.power = Some(n);
                 c.toughness = Some(n);
+            }
+        }
+        Modifier::CopyLastExiledCreaturePTAndSubtypes => {
+            *read_board = true;
+            if let Some(exiled) = crate::eval::linked_exile_cards(
+                state,
+                fx.controller,
+                context,
+                None,
+                &Filter::CREATURE,
+            )
+            .into_iter()
+            .filter_map(|id| state.object(id))
+            .max_by_key(|o| o.timestamp)
+            {
+                let projected;
+                let chars = if state.off_battlefield_pt_cda(exiled).is_some() {
+                    projected = recompute(state, exiled);
+                    &projected.characteristics
+                } else {
+                    exiled.characteristics()
+                };
+                if layer == Layer::Type {
+                    c.subtypes = c
+                        .subtypes
+                        .difference(SubtypeSet::ALL_CREATURE)
+                        .union(
+                            chars
+                                .subtypes
+                                .difference(SubtypeSet::ALL.difference(SubtypeSet::ALL_CREATURE)),
+                        );
+                    c.subtypes
+                        .insert(baylee_core::generated::subtypes::creature::SHAPESHIFTER);
+                } else if layer == Layer::PtSet && c.types.contains(TypeSet::CREATURE) {
+                    c.power = chars.power;
+                    c.toughness = chars.toughness;
+                }
             }
         }
         Modifier::SwitchPT => {

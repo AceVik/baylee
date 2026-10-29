@@ -281,7 +281,8 @@ fn encode_cost_into(cost: &Cost, dst: &mut [f32]) {
             | CostPart::ExileFromGraveyard(_)
             | CostPart::ExileFromHand(_)
             | CostPart::ExilePermanent(_)
-            | CostPart::ExileFromSingleGraveyard { .. } => dst[6] = 1.0,
+            | CostPart::ExileFromSingleGraveyard { .. }
+            | CostPart::ExileTopOfLibrary(_) => dst[6] = 1.0,
             CostPart::RemoveCounterSelf { .. }
             | CostPart::RemoveCounterSelfX { .. }
             | CostPart::PutCounterSelf { .. }

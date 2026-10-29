@@ -1,6 +1,44 @@
 //! Narrow readers for Thran Portal and Quarum Trench Gnomes.
 use super::{Params, Tx};
 impl Tx<'_> {
+    pub(super) fn reduce_cost(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("Type").as_deref() != Some("Spell")
+            || !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield"))
+        {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        let valid = match p.take("Activator").as_deref() {
+            None => valid,
+            Some("You") => valid
+                .split(',')
+                .map(|alt| format!("{alt}.YouCtrl"))
+                .collect::<Vec<_>>()
+                .join(","),
+            Some("Opponent") => valid
+                .split(',')
+                .map(|alt| format!("{alt}.OppCtrl"))
+                .collect::<Vec<_>>()
+                .join(","),
+            Some(_) => return self.deny("static ability `S: Mode$ ReduceCost`".into()),
+        };
+        let Some(amount) = p.take("Amount").and_then(|a| a.parse::<u8>().ok()) else {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        };
+        if !p.exhausted() {
+            return self.deny("static ability `S: Mode$ ReduceCost`".into());
+        }
+        let filter = self.filter_expr(&valid)?;
+        let modifier = format!("Modifier::SpellsCostLess({amount})");
+        self.body
+            .abilities
+            .push(Self::static_expr(&filter, &modifier));
+        Some(())
+    }
+
     /// A self mana-ability surcharge, only from the ordinary battlefield zone.
     pub(super) fn mana_life_tax(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
@@ -9,16 +47,43 @@ impl Tx<'_> {
             if !matches!(p.take("EffectZone").as_deref(), None | Some("Battlefield")) {
                 return None;
             }
-            let amount: u8 = p.take("Amount")?.parse().ok()?;
             let valid = p.take("ValidCard")?;
+            let valid = match p.take("Activator").as_deref() {
+                None => valid,
+                Some("You") => valid
+                    .split(',')
+                    .map(|alt| format!("{alt}.YouCtrl"))
+                    .collect::<Vec<_>>()
+                    .join(","),
+                Some("Opponent") => valid
+                    .split(',')
+                    .map(|alt| format!("{alt}.OppCtrl"))
+                    .collect::<Vec<_>>()
+                    .join(","),
+                Some(_) => return None,
+            };
+            let modifier = match (p.take("Amount"), p.take("Cost")) {
+                (Some(amount), None) => {
+                    let amount: u8 = amount.parse().ok()?;
+                    format!("Modifier::SpellsCostMore({amount})")
+                }
+                (None, Some(cost)) => {
+                    let mana = super::printed_mana(&cost)?;
+                    if let Some(amount) = super::generic_mana(&mana) {
+                        format!("Modifier::SpellsCostMore({amount})")
+                    } else {
+                        format!("Modifier::SpellsCostMoreMana(mana!(\"{mana}\"))")
+                    }
+                }
+                _ => return None,
+            };
             if !p.exhausted() {
                 return None;
             }
             let filter = self.filter_expr(&valid)?;
-            self.body.abilities.push(Self::static_expr(
-                &filter,
-                &format!("Modifier::SpellsCostMore({amount})"),
-            ));
+            self.body
+                .abilities
+                .push(Self::static_expr(&filter, &modifier));
             return Some(());
         }
         if p.take("Type").as_deref() != Some("Ability")

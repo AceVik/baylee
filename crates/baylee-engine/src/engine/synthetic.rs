@@ -57,6 +57,7 @@ pub fn land_face(name: &'static str) -> FaceDef {
         color_indicator: baylee_core::color::ColorSet::EMPTY,
         castable_from_hand: false,
         miracle: None,
+        entwine: None,
         flashback: None,
         beam_me_up: None,
         delve: false,

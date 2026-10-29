@@ -20,6 +20,30 @@ pub(super) fn matches(
     match filter {
         Filter::This => same_source(),
         Filter::Another => !same_source(),
+        Filter::AttachedToBySource => subjects::event_subject(state, res).map_or_else(
+            || {
+                crate::eval::matches_with_context(
+                    filter,
+                    state,
+                    object,
+                    res.controller,
+                    res.rule_context(),
+                )
+            },
+            |subject| subject.object == object.id && subject.version == object.version,
+        ),
+        Filter::Reference => subjects::event(state, res).map_or_else(
+            || {
+                crate::eval::matches_with_context(
+                    filter,
+                    state,
+                    object,
+                    res.controller,
+                    res.rule_context(),
+                )
+            },
+            |event| event.object == object.id && event.version == object.version,
+        ),
         Filter::And(parts) => parts.iter().all(|part| matches(part, state, object, res)),
         Filter::Or(parts) => parts.iter().any(|part| matches(part, state, object, res)),
         Filter::Not(part) => !matches(part, state, object, res),

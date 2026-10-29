@@ -1525,6 +1525,9 @@ pub(super) fn resume_inner(
         | AwaitingOp::GraveyardToTopOrder { .. }
         | AwaitingOp::ChosenGraveyardCommander { .. }
         | AwaitingOp::Cleansing { .. }
+        | AwaitingOp::ChoosePhaseToSkipThisTurn
+        | AwaitingOp::FlipCoinsUntilLossOrStopCumulative { .. }
+        | AwaitingOp::RevealTopPlayerMayPut { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")
         }

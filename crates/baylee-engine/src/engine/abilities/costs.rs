@@ -40,6 +40,7 @@ impl<L: CardLookup> Engine<L> {
         &self,
         player: PlayerId,
         source: ObjectId,
+        ability_index: u32,
         cost: &Cost,
         reduction: Option<baylee_cards_dsl::CostReduction>,
     ) -> ActivationPrice {
@@ -62,6 +63,14 @@ impl<L: CardLookup> Engine<L> {
         } else {
             0
         };
+        let equip = self
+            .activation_definition(source, ability_index)
+            .is_some_and(|ability| match ability {
+                AbilityDef::Activated { effects, .. } => effects
+                    .iter()
+                    .any(|effect| matches!(effect, baylee_cards_dsl::Effect::AttachSelf { .. })),
+                _ => false,
+            });
         // Apply reductions with a local floor first, so they do not limit
         // an independent unrestricted reduction applied afterwards.
         if full.generic_total() > 0
@@ -69,13 +78,24 @@ impl<L: CardLookup> Engine<L> {
             && let Some(object) = self.state.object(source)
         {
             for effect in self.state.effects.iter() {
-                if let baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum } =
-                    effect.modifier
-                    && crate::effects::applies_to(&self.state, effect, object)
-                {
-                    // A minimum limits this reduction, never increases a free cost.
-                    let reduction = amount.min(mana.cmc().saturating_sub(minimum));
-                    mana = mana.with_less_generic(reduction);
+                match effect.modifier {
+                    baylee_cards_dsl::Modifier::AbilitiesCostLess { amount, minimum }
+                        if crate::effects::applies_to(&self.state, effect, object) =>
+                    {
+                        // A minimum limits this reduction, never increases a free cost.
+                        let reduction = amount.min(mana.cmc().saturating_sub(minimum));
+                        mana = mana.with_less_generic(reduction);
+                    }
+                    baylee_cards_dsl::Modifier::EquipCostsLess(amount)
+                        if crate::effects::applies_to(&self.state, effect, object)
+                            && object.characteristics().subtypes.contains(
+                                baylee_core::generated::subtypes::artifact::EQUIPMENT,
+                            )
+                            && equip =>
+                    {
+                        mana = mana.with_less_generic(amount);
+                    }
+                    _ => {}
                 }
             }
         }
@@ -228,6 +248,7 @@ impl<L: CardLookup> Engine<L> {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn can_afford(
         &self,
         player: PlayerId,
@@ -281,6 +302,19 @@ impl<L: CardLookup> Engine<L> {
                 }
                 CostPart::PayLife(n) => {
                     if !self.state.can_pay_life(player, i32::from(*n)) {
+                        return false;
+                    }
+                }
+                CostPart::ExileTopOfLibrary(_) => {
+                    let needed: usize = cost
+                        .parts
+                        .iter()
+                        .filter_map(|p| match p {
+                            CostPart::ExileTopOfLibrary(n) => Some(usize::from(*n)),
+                            _ => None,
+                        })
+                        .sum();
+                    if self.state.zones.list(ZoneLocation::Library(player)).len() < needed {
                         return false;
                     }
                 }
@@ -744,6 +778,29 @@ impl<L: CardLookup> Engine<L> {
                 }
                 CostPart::PayLife(n) => {
                     self.state.change_life(player, -i32::from(*n), Cause::Cost);
+                }
+                CostPart::ExileTopOfLibrary(n) => {
+                    let count = usize::from(*n);
+                    if self.state.zones.list(ZoneLocation::Library(player)).len() < count {
+                        return Err(EngineError::IllegalAction(
+                            "not enough cards in library to exile",
+                        ));
+                    }
+                    for _ in 0..count {
+                        let card = *self
+                            .state
+                            .zones
+                            .list(ZoneLocation::Library(player))
+                            .last()
+                            .expect("library count checked");
+                        let owner = self.state.object(card).map_or(player, |o| o.owner);
+                        self.state.move_object(
+                            card,
+                            ZoneLocation::Exile(owner),
+                            ZonePosition::Top,
+                            Cause::Cost,
+                        )?;
+                    }
                 }
                 CostPart::ExileSelf => {
                     let owner = self.state.object(source).map_or(player, |o| o.owner);

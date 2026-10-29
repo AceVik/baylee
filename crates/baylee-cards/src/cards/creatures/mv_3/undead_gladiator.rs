@@ -1,0 +1,25 @@
+//! Undead Gladiator — {1}{B}{B} — Creature — Zombie Barbarian
+//! Oracle: {1}{B}, Discard a card: Return this card from your graveyard to your hand. Activate only during your upkeep.
+//! Oracle: Cycling {1}{B} ({1}{B}, Discard this card: Draw a card.)
+//! Set: DMR #105 — Dominaria Remastered | Scryfall ID: 7f7a3d34-4e4e-4545-8e2e-6977eb754270 | Oracle ID: 4da2425d-2118-4116-855d-2ef80693a7b7
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+card!(
+    index = index::UNDEAD_GLADIATOR,
+    oracle_id = "4da2425d-2118-4116-855d-2ef80693a7b7",
+    scryfall_id = "7f7a3d34-4e4e-4545-8e2e-6977eb754270",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    faces = &[face!(
+        name = "Undead Gladiator",
+        mana_cost = mana!("{1}{B}{B}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[subtypes::creature::ZOMBIE, subtypes::creature::BARBARIAN],
+        power = Some(3),
+        toughness = Some(1),
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

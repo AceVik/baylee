@@ -39,6 +39,7 @@ pub fn could_add_mana(effects: &[Effect]) -> bool {
                 | Effect::AddCombatMana { .. }
                 | Effect::AddManaUnlessAnyPlayerPays { .. }
                 | Effect::AddManaFor { .. }
+                | Effect::AddManaAmountFor { .. }
                 | Effect::AddManaLikeEvent { .. }
                 | Effect::ManaForColorsAmong(_)
         ) || {
@@ -110,6 +111,7 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PutCounterSelf { .. } => false,
+        CostPart::ExileTopOfLibrary(_) => true,
     }
 }
 
@@ -137,6 +139,8 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::ExileTopToPlay { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopIf { .. }
+        | Effect::RevealTopPlayerMayPutOntoBattlefield { .. }
+        | Effect::RevealUntilLandDealDamage { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::PayLifeOrPutBackDrawn { .. }
         | Effect::PutTargetOnBottomOfLibrary

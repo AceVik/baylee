@@ -44,9 +44,9 @@ deck	set	type	released	name	cards	playable
 8ED/silver-deck	8ED	Starter Deck	2003-07-28	Silver Deck	33	yes
 8ED/sky-slam	8ED	Theme Deck	2003-07-28	Sky Slam	40	no
 8ED/speed-scorch	8ED	Theme Deck	2003-07-28	Speed Scorch	40	no
-9ED/army-of-justice	9ED	Theme Deck	2005-07-29	Army of Justice	40	no
+9ED/army-of-justice	9ED	Theme Deck	2005-07-29	Army of Justice	40	yes
 9ED/custom-creatures	9ED	Theme Deck	2005-07-29	Custom Creatures	40	yes
-9ED/dead-again	9ED	Theme Deck	2005-07-29	Dead Again	40	no
+9ED/dead-again	9ED	Theme Deck	2005-07-29	Dead Again	40	yes
 9ED/gold-deck	9ED	Starter Deck	2005-08-09	Gold Deck	33	no
 9ED/lofty-heights	9ED	Theme Deck	2005-07-29	Lofty Heights	40	no
 9ED/silver-deck	9ED	Starter Deck	2005-08-09	Silver Deck	33	yes

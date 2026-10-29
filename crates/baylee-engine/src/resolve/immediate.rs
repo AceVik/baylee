@@ -350,6 +350,7 @@ pub(super) fn exec_immediate(
         | Effect::RedirectNextDamage { .. }
         | Effect::LoseHalfLife { .. }
         | Effect::PreventNextDamage { .. }
+        | Effect::PreventNextDamageFromTarget { .. }
         | Effect::PreventAllCombatDamageThisTurn
         | Effect::ChooseDamageSourcePreventAllThisTurn
         | Effect::PreventNextFromChosenSource { .. }
@@ -444,6 +445,7 @@ pub(super) fn exec_immediate(
         | Effect::CounterTargetSpell => zones::exec(state, res, op),
         Effect::DelayedManaAtNextFirstMain { .. }
         | Effect::AddManaFor { .. }
+        | Effect::AddManaAmountFor { .. }
         | Effect::ManaForColorsAmong(_)
         | Effect::AddManaLikeEvent { .. } => mana::exec(state, res, op),
         Effect::ModifySource { .. }
@@ -3268,9 +3270,123 @@ pub(super) fn exec_immediate(
         | Effect::EachPlayerMayPutFromHandOntoBattlefieldRepeatUntilNone { .. }
         | Effect::PlayerMayMillOr { .. }
         | Effect::RaidingParty
+        | Effect::ChoosePhaseToSkipThisTurn
         | Effect::PayLifeOrEnterTapped { .. } => {
             unreachable!("choice ops dispatch to exec_choice")
         }
+        Effect::TargetPlayersCreaturesDontUntapNextUntap => {
+            for player in players_of(PlayerRel::TargetPlayerOrController, state, you, res) {
+                let timestamp = state.next_timestamp();
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(res.source),
+                    controller: player,
+                    origin: crate::effects::EffectOrigin::Resolution,
+                    layer: baylee_cards_dsl::Modifier::DoesNotUntap.layer(),
+                    timestamp,
+                    duration: baylee_cards_dsl::Duration::UntilYourNextUntapStep,
+                    filter: crate::effects::EffectFilter::Dsl(
+                        &baylee_cards_dsl::Filter::YOUR_CREATURE,
+                    ),
+                    modifier: baylee_cards_dsl::Modifier::DoesNotUntap,
+                });
+            }
+            None
+        }
+        Effect::ExchangeControlOfEventAndTarget => {
+            let event = subjects::event(state, res)
+                .filter(|r| subjects::on_battlefield(state, *r))
+                .map(|r| r.object);
+            let target = res
+                .targets
+                .first()
+                .copied()
+                .and_then(|id| subjects::target(state, res, id))
+                .filter(|r| subjects::on_battlefield(state, *r))
+                .map(|r| r.object);
+            if let (Some(a), Some(b)) = (event, target) {
+                control::exchange(state, a, b);
+            }
+            None
+        }
+        Effect::UnattachAllEquipmentFromTarget => {
+            let &host = res.targets.first()?;
+            if !state
+                .object(host)
+                .is_some_and(|o| o.zone == crate::zone::Zone::Battlefield)
+            {
+                return None;
+            }
+            let equipped: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    state.object(id).is_some_and(|o| {
+                        o.attached_to == Some(host)
+                            && o.characteristics()
+                                .subtypes
+                                .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT)
+                    })
+                })
+                .collect();
+            if !equipped.is_empty() {
+                for id in equipped {
+                    if let Some(obj) = state.object_mut(id) {
+                        obj.attached_to = None;
+                    }
+                }
+                state.invalidate_projections();
+            }
+            None
+        }
+        Effect::FlipCoinsUntilLossOrStopCumulative => {
+            let won = state.rng.below(2) == 0;
+            state
+                .journal
+                .record(GameEvent::CoinFlipped { player: you, won });
+            if !won {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative { wins: 1 });
+            Some(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::MayDo,
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::AttachedGainControlBy { new_controller } => {
+            let host = crate::eval::attached_for_ability(
+                state,
+                res.source,
+                source_version(state, res),
+                source_attachment_lki(state, res.on_stack),
+            )
+            .map(|o| o.id)?;
+            if let Some(&player) = players_of(new_controller, state, you, res).first() {
+                gain_control(state, &[(host, player)]);
+            }
+            None
+        }
+        Effect::RevealTopPlayerMayPutOntoBattlefield { player, filter } => {
+            let player = players_of(player, state, you, res).first().copied()?;
+            let card = *state.zones.list(ZoneLocation::Library(player)).last()?;
+            state.journal.record(GameEvent::Revealed {
+                player,
+                cards: vec![card],
+            });
+            let matches = state.object(card).is_some_and(|o| {
+                eval::matches_with_context(filter, state, o, player, res.rule_context())
+            });
+            if !matches {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::RevealTopPlayerMayPut { player, card });
+            Some(Pending::YesNo {
+                player,
+                prompt: YesNoPrompt::MayDo,
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::RevealUntilLandDealDamage { target } => life::reveal_until_land(state, res, target),
     }
 }
 

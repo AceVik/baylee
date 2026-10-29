@@ -299,6 +299,7 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::SacrificeAll(_)
         | CostPart::PutCounterOnOther { .. }
         | CostPart::ExileFromSingleGraveyard { .. }
+        | CostPart::ExileTopOfLibrary(_)
         | CostPart::PayAttachedManaCost => false,
     })
 }

@@ -16,6 +16,16 @@ pub(super) fn resume_with_number_inner(
     res: &mut Resolution,
     number: u32,
 ) -> Flow {
+    if matches!(res.awaiting, Some(AwaitingOp::ChoosePhaseToSkipThisTurn)) {
+        match number {
+            0 => state.per_turn.skip_draw_step = true,
+            1 => state.per_turn.skip_main_phases = true,
+            _ => state.per_turn.skip_combat_phases = true,
+        }
+        res.awaiting = None;
+        res.pc += 1;
+        return run(state, res);
+    }
     if matches!(res.awaiting, Some(AwaitingOp::ChooseNumber)) {
         if let Some(source) =
             subjects::source(state, res).filter(|source| subjects::on_battlefield(state, *source))
@@ -739,6 +749,78 @@ pub(super) fn resume_yes_no_inner(
         }
         res.pc += 1;
         return run(state, res);
+    }
+    if let Some(AwaitingOp::RevealTopPlayerMayPut { player, card }) = res.awaiting {
+        res.awaiting = None;
+        let since = state.journal.last_seq();
+        if answer
+            && state
+                .zones
+                .list(ZoneLocation::Library(player))
+                .contains(&card)
+        {
+            super::search::put_found(state, player, card, SearchDest::Battlefield);
+        }
+        return finish_choice(state, res, since);
+    }
+    if let Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative { wins }) = res.awaiting {
+        const WIN_1: &[Effect] = &[Effect::DealDamage {
+            target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
+            amount: Amount::Fixed(3),
+        }];
+        const WIN_2: &[Effect] = &[
+            Effect::DealDamage {
+                target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
+                amount: Amount::Fixed(3),
+            },
+            Effect::DealDamage {
+                target: TargetSpec::Player(PlayerRel::EachOpponent),
+                amount: Amount::Fixed(6),
+            },
+        ];
+        const WIN_3: &[Effect] = &[
+            Effect::DealDamage {
+                target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
+                amount: Amount::Fixed(3),
+            },
+            Effect::DealDamage {
+                target: TargetSpec::Player(PlayerRel::EachOpponent),
+                amount: Amount::Fixed(6),
+            },
+            Effect::DrawCards {
+                amount: Amount::Fixed(9),
+            },
+            Effect::UntapAll {
+                filter: &baylee_cards_dsl::Filter::YOUR_LAND,
+            },
+        ];
+        res.awaiting = None;
+        let you = res.controller;
+        if answer {
+            let won = state.rng.below(2) == 0;
+            state
+                .journal
+                .record(GameEvent::CoinFlipped { player: you, won });
+            if !won {
+                res.pc += 1;
+                return run(state, res);
+            }
+            res.awaiting = Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative {
+                wins: wins.saturating_add(1),
+            });
+            return Flow::Wait(Pending::YesNo {
+                player: you,
+                prompt: YesNoPrompt::MayDo,
+                source: resolving_ability(state, res),
+            });
+        }
+        let effects = match wins {
+            0 => &[][..],
+            1 => WIN_1,
+            2 => WIN_2,
+            _ => WIN_3,
+        };
+        return run_fallback(state, res, effects);
     }
     let AwaitingOp::PayLifeOrTapSelf { amount } =
         res.awaiting.take().expect("resume without awaiting op")

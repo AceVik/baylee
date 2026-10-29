@@ -335,14 +335,14 @@ fn every_other_permanent_in_the_pool_makes_the_mana_its_card_prints() {
 /// "adds". The separate coverage gap (including Eladamri's Vineyard) and the
 /// Aura fixtures needed to close it are recorded in observed-faults #65.
 const FULL_CORPUS_OTHER_PERMANENTS: Bounds = Bounds {
-    colors: 469,
-    routes: 213,
-    promises: 212..=212,
-    creature_promises: 90..=90,
-    unparsed: 59..=59,
-    fully_read: 381,
-    costly_lines: 146..=146,
-    triggered_lines: 25..=25,
+    colors: 470,
+    routes: 214,
+    promises: 213..=213,
+    creature_promises: 92..=92,
+    unparsed: 61..=61,
+    fully_read: 384,
+    costly_lines: 149..=149,
+    triggered_lines: 28..=28,
     granted_lines: 42..=42,
     self_granted: 7..=7,
     busy: 0,
@@ -379,13 +379,13 @@ fn check_other_permanent_population(tally: &Tally) {
     );
     assert_eq!(
         eligible,
-        [438, 0, 14],
+        [442, 0, 20],
         "the coverage-tier population changed"
     );
-    assert_eq!(readable, [381, 0, 0], "the readable coverage tiers changed");
+    assert_eq!(readable, [384, 0, 0], "the readable coverage tiers changed");
     let expected: usize = readable.iter().sum();
     assert_eq!(
-        expected, 381,
+        expected, 384,
         "the independently enumerated full-corpus population changed; review additions/removals before updating its pin"
     );
     assert_eq!(
@@ -401,10 +401,10 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.promises,
             tally.opponents_lands
         ),
-        (469, 213, 212, 1)
+        (470, 214, 213, 2)
     );
-    assert_eq!((tally.creatures, tally.creature_promises), (238, 90));
-    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (25, 59));
+    assert_eq!((tally.creatures, tally.creature_promises), (243, 92));
+    assert_eq!((tally.triggered_lines, tally.unparsed.len()), (28, 61));
     assert_eq!(
         (
             tally.conditional,
@@ -413,7 +413,7 @@ fn check_other_permanent_population(tally: &Tally) {
             tally.dual_typed,
             tally.self_typed
         ),
-        (4, 104, 80, 0, 0),
+        (4, 104, 82, 0, 0),
         "the measured skip categories changed"
     );
 }

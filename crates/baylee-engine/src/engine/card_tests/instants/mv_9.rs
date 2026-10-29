@@ -4,3 +4,4 @@
 use super::*;
 
 mod searing_wind;
+mod vitalizing_wind;

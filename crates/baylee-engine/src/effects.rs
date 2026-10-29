@@ -153,6 +153,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::SetPower(_)
         | Modifier::SetToughness(_)
         | Modifier::SetPTToCount(_)
+        | Modifier::CopyLastExiledCreaturePTAndSubtypes
         | Modifier::SwitchPT => true,
         // Neither: a shield that prevents damage, and the rules a player
         // plays under. Teferi's `SorceriesHaveFlash` is the clearest of
@@ -170,6 +171,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ReplaceTappedMana { .. }
         | Modifier::AbilitiesCostMore(_)
             | Modifier::AbilitiesCostLess { .. }
+            | Modifier::EquipCostsLess(_)
+            | Modifier::CantActivateNonMana
             | Modifier::RegenerateInsteadOfDestroy
                     | Modifier::CantBeRegenerated
         | Modifier::LegendRuleOff
@@ -633,7 +636,9 @@ impl EffectTable {
                 fx.modifier,
                 Modifier::AbilitiesCostMore(_)
                     | Modifier::AbilitiesCostLess { .. }
+                    | Modifier::EquipCostsLess(_)
                     | Modifier::CantActivate
+                    | Modifier::CantActivateNonMana
                     | Modifier::CantActivateArtifacts
                     | Modifier::ChosenNameCantActivate
             ),
@@ -1775,6 +1780,9 @@ mod tests {
             Modifier::CantEnterBattlefield(&Filter::LAND),
             Modifier::SpellsCostMoreMana(baylee_core::mana::ManaCost::ZERO),
             Modifier::CantAttackIfDefenderControls(&Filter::CREATURE),
+            Modifier::CopyLastExiledCreaturePTAndSubtypes,
+            Modifier::EquipCostsLess(1),
+            Modifier::CantActivateNonMana,
         ]
     }
 
@@ -1813,7 +1821,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            171,
+            174,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1896,8 +1904,9 @@ mod tests {
         // new blocking, attacking, departure and visibility rules do not.
         // Land-type replacement and the bounded P/T reduction also change
         // characteristics. Draw skipping, untap replacement and cast limits
-        // change rules only.
-        assert_eq!((locking, all.len() - locking), (52, 119));
+        // change rules only. Mirrodin Batch 1 adds `CopyLastExiledCreaturePTAndSubtypes`
+        // (characteristics, +1) and `EquipCostsLess`/`CantActivateNonMana` (rules, +2).
+        assert_eq!((locking, all.len() - locking), (53, 121));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

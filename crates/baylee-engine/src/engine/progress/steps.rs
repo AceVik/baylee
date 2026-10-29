@@ -90,7 +90,8 @@ impl<L: CardLookup> Engine<L> {
                 // CR 504.2) — the upkeep step itself has none at all
                 // (CR 503.1). The first player skips it on turn 1 of a
                 // two-player game (CR 103.8).
-                let skip = self.state.skips_draw_step(self.state.turn.active)
+                let skip = self.state.per_turn.skip_draw_step
+                    || self.state.skips_draw_step(self.state.turn.active)
                     || (self.state.turn.number == 1
                         && self.state.players.len() == 2
                         && self.state.turn.active.get() == 0);
@@ -101,9 +102,7 @@ impl<L: CardLookup> Engine<L> {
                     // on the play's first turn when this went on to
                     // `Step::Draw` without drawing. Straight on to the main
                     // phase, with the turn-based actions that begin it.
-                    self.saga_precombat_main_counters();
-                    self.queue_first_main_delayed();
-                    (Phase::FirstMain, Step::Main)
+                    self.enter_first_main_or_skip()
                 } else {
                     // The draw step has begun when its draw is made, so the
                     // draw is made in it: `draw_cards` reads the step to know
@@ -129,11 +128,9 @@ impl<L: CardLookup> Engine<L> {
                 // controls takes a lore counter. The delayed triggers go
                 // second because they are triggered abilities and wait for
                 // the stack, which the turn-based action does not use.
-                self.saga_precombat_main_counters();
-                self.queue_first_main_delayed();
-                (Phase::FirstMain, Step::Main)
+                self.enter_first_main_or_skip()
             }
-            (Phase::FirstMain, Step::Main) => (Phase::Combat, Step::CombatBegin),
+            (Phase::FirstMain, Step::Main) => self.enter_combat_or_skip(),
             (Phase::SecondMain, Step::Main) => {
                 self.queue_end_step_delayed();
                 (Phase::Ending, Step::End)
@@ -195,7 +192,7 @@ impl<L: CardLookup> Engine<L> {
                 self.state.effects.remove_where(|fx| {
                     matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfCombat)
                 });
-                (Phase::SecondMain, Step::Main)
+                self.enter_second_main_or_skip()
             }
             // A cleanup step closes through here only when CR 514.3a opened
             // it to priority, and then "another cleanup step begins"; the
@@ -205,6 +202,33 @@ impl<L: CardLookup> Engine<L> {
             _ => unreachable!("invalid phase/step combination"),
         };
         self.begin_step(next_phase, next_step);
+    }
+
+    fn enter_first_main_or_skip(&mut self) -> (Phase, Step) {
+        if self.state.per_turn.skip_main_phases {
+            self.enter_combat_or_skip()
+        } else {
+            self.saga_precombat_main_counters();
+            self.queue_first_main_delayed();
+            (Phase::FirstMain, Step::Main)
+        }
+    }
+
+    fn enter_combat_or_skip(&mut self) -> (Phase, Step) {
+        if self.state.per_turn.skip_combat_phases {
+            self.enter_second_main_or_skip()
+        } else {
+            (Phase::Combat, Step::CombatBegin)
+        }
+    }
+
+    fn enter_second_main_or_skip(&mut self) -> (Phase, Step) {
+        if self.state.per_turn.skip_main_phases {
+            self.queue_end_step_delayed();
+            (Phase::Ending, Step::End)
+        } else {
+            (Phase::SecondMain, Step::Main)
+        }
     }
 
     /// Publish the entered phase and its history before collecting beginning triggers.

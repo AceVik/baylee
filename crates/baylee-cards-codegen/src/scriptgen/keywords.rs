@@ -40,6 +40,12 @@ impl Tx<'_> {
         if let Some(rest) = line.strip_prefix("Fading:") {
             return self.fading(rest);
         }
+        if let Some(rest) = line.strip_prefix("Flashback:") {
+            return self.flashback(rest);
+        }
+        if let Some(rest) = line.strip_prefix("Affinity:") {
+            return self.affinity(rest);
+        }
         if let Some(bit) = keyword_const(line) {
             if bit == "KeywordSet::PROWESS" && self.body.keywords.iter().any(|k| k == bit) {
                 let expr = self.filter_expr("Card.nonCreature+YouCtrl")?;
@@ -327,6 +333,47 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// `K:Flashback:<cost>` for mana-only flashback costs (CR 702.34a).
+    pub(super) fn flashback(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("a `Flashback` with extra fields `{rest}`"));
+        }
+        let (mana, parts) = self.cost_pieces(rest)?;
+        if mana.is_empty() || !parts.is_empty() {
+            return self.deny(format!("a non-mana `Flashback` cost `{rest}`"));
+        }
+        self.body.flashback = Some(format!("Some(mana!(\"{mana}\"))"));
+        self.body.notes.push("flashback".to_string());
+        Some(())
+    }
+
+    /// `K:Affinity:<valid>` (CR 702.41a): "This spell costs {1} less to cast
+    /// for each [text] you control."
+    pub(super) fn affinity(&mut self, rest: &str) -> Option<()> {
+        if rest.contains(':') {
+            return self.deny(format!("an `Affinity` with extra fields `{rest}`"));
+        }
+        let you_ctrl = rest
+            .split([',', ';'])
+            .map(|alternative| {
+                let alternative = alternative.trim();
+                if alternative.contains('.') {
+                    format!("{alternative}+YouCtrl")
+                } else {
+                    format!("{alternative}.YouCtrl")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let expr = self.filter_expr(&you_ctrl)?;
+        let filter = self.body.filter_static("AFFINITY", &expr);
+        self.body.cost_reduction = Some(format!(
+            "Some(CostReduction::PerCount {{ amount: Amount::CountOf {{ filter: &{filter}, zone: ZoneSel::Battlefield }}, each: 1 }})"
+        ));
+        self.body.notes.push("affinity".to_string());
+        Some(())
+    }
+
     /// `K:Enchant:<valid>` as the spell an Aura card is.
     ///
     /// Enchant is a static ability of the *spell* (CR 702.5b): it says what
@@ -385,6 +432,7 @@ impl Tx<'_> {
     /// *as the permanent enters*, which is what CR 614.1c describes and what
     /// stops the land from being tapped a moment after it arrives untapped.
     /// Every other `Moved` replacement is a rule of its own and refuses.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn replacement(&mut self, spec: &str) -> Option<()> {
         let Some((event, mut p)) = Params::parse(spec) else {
             return self.deny("an `R:` line with no `$` in it".to_string());
@@ -419,6 +467,21 @@ impl Tx<'_> {
         }
         if event == "BeginPhase" {
             return self.skip_untap_steps(&mut p);
+        }
+        if event == "Counter" {
+            p.drop_prose();
+            if p.take("ValidCard").as_deref() == Some("Card.Self")
+                && p.take("ValidSA").as_deref() == Some("Spell")
+                && p.take("Layer").as_deref() == Some("CantHappen")
+                && p.exhausted()
+            {
+                self.body
+                    .keywords
+                    .push("KeywordSet::UNCOUNTERABLE".to_string());
+                return Some(());
+            }
+            self.note("replacement `R: Event$ Counter` this rule cannot read".to_string());
+            return None;
         }
         if event != "Moved" {
             self.note(format!("replacement `R: Event$ {event}`"));

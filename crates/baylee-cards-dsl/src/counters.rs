@@ -246,6 +246,9 @@ pub const ARROW: CounterKind = CounterKind::Custom(66);
 /// Fade counters (Fading N, CR 702.32a).
 pub const FADE: CounterKind = CounterKind::Custom(67);
 
+/// Feather counters (Soulcatchers' Aerie).
+pub const FEATHER: CounterKind = CounterKind::Custom(68);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -319,6 +322,7 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("soot", SOOT),
     ("arrow", ARROW),
     ("fade", FADE),
+    ("feather", FEATHER),
 ];
 
 #[cfg(test)]

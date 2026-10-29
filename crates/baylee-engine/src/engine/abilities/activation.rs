@@ -256,6 +256,11 @@ impl<L: CardLookup> Engine<L> {
         } else {
             mana_ability
         };
+        if !mana_ability && self.non_mana_activations_are_locked(source) {
+            return Err(EngineError::IllegalAction(
+                "non-mana activated abilities of this permanent can't be activated",
+            ));
+        }
         // The price, determined once and before anything is paid (CR 601.2f
         // through CR 602.2b): Boseiju's channel discards the very card whose
         // count of legendary creatures lowers it, and a total cost is locked
@@ -334,6 +339,7 @@ impl<L: CardLookup> Engine<L> {
                     self.activation_price(
                         player,
                         source,
+                        ability_index,
                         &Cost {
                             mana: cost.mana.with_x(x),
                             parts: cost.parts,

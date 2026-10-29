@@ -267,7 +267,7 @@ impl<L: CardLookup> Engine<L> {
                         source: t.source,
                         text: t.text,
                         resolved_name: None,
-                        reference: None,
+                        reference: t.event_object,
                     },
                     None,
                     wall_only,
@@ -639,7 +639,7 @@ impl<L: CardLookup> Engine<L> {
                         source: t.source,
                         text: t.text,
                         resolved_name: None,
-                        reference: None,
+                        reference: t.event_object,
                     },
                     None,
                     self.trigger_wall_only(&t),
@@ -696,7 +696,7 @@ impl<L: CardLookup> Engine<L> {
                                 source: t.source,
                                 text: t.text,
                                 resolved_name: None,
-                                reference: None,
+                                reference: t.event_object,
                             },
                             self.trigger_wall_only(&t),
                             first,
@@ -729,9 +729,15 @@ impl<L: CardLookup> Engine<L> {
                     let max = max.min(u32::try_from(offered).unwrap_or(u32::MAX));
                     self.pending = Pending::ChooseTargets {
                         player: match req.chooser {
-                            baylee_cards_dsl::TargetChooser::EventPlayer => t.event_player.expect(
-                                "event-player target chooser requires a captured event player",
-                            ),
+                            baylee_cards_dsl::TargetChooser::EventPlayer => t
+                                .event_player
+                                .or_else(|| {
+                                    t.event_object
+                                        .and_then(|id| self.state.last_known_controller(id))
+                                })
+                                .expect(
+                                    "event-player target chooser requires a captured event player",
+                                ),
                             baylee_cards_dsl::TargetChooser::Controller => t.controller,
                             baylee_cards_dsl::TargetChooser::Opponent => {
                                 panic!("opponent chooser requires an activation announcement")
@@ -811,7 +817,7 @@ impl<L: CardLookup> Engine<L> {
                         source: t.source,
                         text: t.text,
                         resolved_name: None,
-                        reference: None,
+                        reference: t.event_object,
                     },
                     None,
                     self.trigger_wall_only(&t),

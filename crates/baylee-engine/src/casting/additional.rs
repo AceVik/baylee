@@ -25,20 +25,31 @@ pub(crate) fn additional_payment_capacity(
     face: &'static FaceDef,
     chosen: &[ObjectId],
 ) -> Option<usize> {
-    let life = face
-        .mandatory_additional_costs
-        .iter()
-        .fold(0_i32, |sum, part| {
+    additional_payment_capacity_for(state, player, card, face, None, chosen)
+}
+
+pub(crate) fn additional_payment_capacity_for(
+    state: &GameState,
+    player: PlayerId,
+    card: ObjectId,
+    face: &'static FaceDef,
+    option: Option<crate::choice::CastModeKind>,
+    chosen: &[ObjectId],
+) -> Option<usize> {
+    let life = crate::engine::cast_wizard::wizard_mandatory_parts(face, option).fold(
+        0_i32,
+        |sum, part| {
             sum.saturating_add(if let CostPart::PayLife(life) = part {
                 i32::from(*life)
             } else {
                 0
             })
-        });
+        },
+    );
     if !state.can_pay_life(player, life) {
         return None;
     }
-    let menus: Vec<Vec<_>> = crate::engine::cast_wizard::additional_card_costs(face)
+    let menus: Vec<Vec<_>> = crate::engine::cast_wizard::additional_card_costs_for(face, option)
         .skip(chosen.len())
         .map(|part| {
             crate::engine::cost_wizard::options(state, player, card, part)
@@ -59,9 +70,8 @@ pub(crate) fn additional_payment_capacity(
     candidates.sort_by_key(|(_, enters_graveyard)| !enters_graveyard);
     let assignments = preferred_assignment(&menus, candidates.iter().map(|(id, _)| *id))?;
     let mut paid: Vec<_> = chosen.iter().copied().chain(assignments).collect();
-    if face
-        .mandatory_additional_costs
-        .contains(&CostPart::DiscardHand)
+    if crate::engine::cast_wizard::wizard_mandatory_parts(face, option)
+        .any(|p| matches!(p, CostPart::DiscardHand))
     {
         paid.extend(
             state

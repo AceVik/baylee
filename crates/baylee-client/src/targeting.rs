@@ -520,7 +520,13 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::ControllerControls(_)
         | Filter::TappedToPayForSourceThisTurn
         | Filter::OfSourceChosenColor
-        | Filter::SharesAColorWith(_) => return None,
+        | Filter::SharesAColorWith(_)
+        | Filter::Equipped
+        | Filter::CmcEqualsCountersOnSource(_)
+        | Filter::NotControlledByReferenceController
+        | Filter::LowestManaValueOnBattlefield(_)
+        | Filter::SameNameAsLinkedExile
+        | Filter::CmcEqualsYourUnspentMana => return None,
     })
 }
 

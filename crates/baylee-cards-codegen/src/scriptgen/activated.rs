@@ -50,6 +50,13 @@ impl Tx<'_> {
             clauses.push(clause.to_string());
             claimed.push("ActivationPhases$");
         }
+        if let Some(act) = probe.take("Activation") {
+            if !is_activated || act != "Threshold" {
+                return self.deny(format!("`Activation$ {act}`"));
+            }
+            clauses.push("Condition::GraveyardCountAtLeast(7)".to_string());
+            claimed.push("Activation$");
+        }
         if let Some(name) = probe.take("CheckSVar") {
             if !is_activated || !clauses.is_empty() {
                 return self
@@ -103,6 +110,7 @@ impl Tx<'_> {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn activated_or_spell(&mut self, spec: &str) -> Option<()> {
         let is_activated = spec.starts_with("AB$");
         if !is_activated
@@ -135,6 +143,7 @@ impl Tx<'_> {
         let activator = probe.take("Activator");
         let activation_zone = probe.take("ActivationZone");
         let graveyard_zone = is_activated && activation_zone.as_deref() == Some("Graveyard");
+        let battlefield_zone = is_activated && activation_zone.as_deref() == Some("Battlefield");
         let sorcery_speed = is_activated && probe.take("SorcerySpeed").as_deref() == Some("True");
         // And so does the clause, which on an `A:` line is a restriction on
         // activating rather than CR 603.4's intervening `if`: the reference
@@ -154,6 +163,7 @@ impl Tx<'_> {
         // level down as the unclaimed parameter it is.
         let claimed: &[&str] = if present_read {
             &[
+                "Condition$",
                 "IsPresent$",
                 "PresentZone$",
                 "PresentCompare$",
@@ -167,12 +177,26 @@ impl Tx<'_> {
             .split(" | ")
             .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
             .filter(|part| !(any_player && part.starts_with("Activator$")))
-            .filter(|part| !(graveyard_zone && part.starts_with("ActivationZone$")))
+            .filter(|part| {
+                !((graveyard_zone || battlefield_zone) && part.starts_with("ActivationZone$"))
+            })
             .filter(|part| !(sorcery_speed && part.starts_with("SorcerySpeed$")))
             .filter(|part| !restrictions.iter().any(|key| part.starts_with(key)))
             .filter(|part| !claimed.iter().any(|key| part.starts_with(key)))
             .collect();
-        self.chain(&stripped.join(" | "), &mut chain)?;
+        self.cost_sacrifices_self = is_activated
+            && cost
+                .as_deref()
+                .is_some_and(|c| c.split_whitespace().any(|t| t == "Sac<1/CARDNAME>"));
+        self.cost_sacrifices_other = is_activated
+            && cost.as_deref().is_some_and(|c| {
+                c.split_whitespace()
+                    .any(|t| t.starts_with("Sac<1/") && !t.starts_with("Sac<1/CARDNAME"))
+            });
+        let chain_ok = self.chain(&stripped.join(" | "), &mut chain);
+        self.cost_sacrifices_self = false;
+        self.cost_sacrifices_other = false;
+        chain_ok?;
         if chain.effects.is_empty() {
             return self.deny("an ability that reads as no effect at all".to_string());
         }
@@ -207,6 +231,9 @@ impl Tx<'_> {
                 &condition,
                 &effects,
                 chain.target.as_deref(),
+                chain.target_is_x,
+                chain.target_up_to,
+                chain.target_exact,
                 &second_targets,
             )
         }
@@ -299,6 +326,7 @@ impl Tx<'_> {
     // one of those is already here: `XMin1` is "X can't be 0" and
     // not mana at all (Ertai's Meddling and four others, none of
     // them in this pool yet, all five reachable by a batch).
+    #[allow(clippy::too_many_arguments)]
     fn push_spell_ability(
         &mut self,
         cost: Option<&str>,
@@ -306,6 +334,9 @@ impl Tx<'_> {
         condition: &str,
         effects: &str,
         target: Option<&str>,
+        target_is_x: bool,
+        target_up_to: Option<u8>,
+        target_exact: Option<u8>,
         second_targets: &str,
     ) -> Option<()> {
         if limit.is_some() {
@@ -324,7 +355,20 @@ impl Tx<'_> {
             self.spell_mana_cost(raw)?;
         }
         let targets = target
-            .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
+            .map(|t| {
+                if let Some(max) = target_up_to {
+                    if max == 1 {
+                        format!(", targets = Some(TargetReq::up_to_one({t}))")
+                    } else {
+                        format!(", targets = Some(TargetReq::up_to({t}, {max}))")
+                    }
+                } else if let Some(n) = target_exact {
+                    format!(", targets = Some(TargetReq::exactly({t}, {n}))")
+                } else {
+                    let req_fn = if target_is_x { "x_targets" } else { "one" };
+                    format!(", targets = Some(TargetReq::{req_fn}({t}))")
+                }
+            })
             .unwrap_or_default();
         self.body
             .abilities
@@ -449,6 +493,23 @@ impl Tx<'_> {
     /// of CR 603.4's second check — a clause asked once instead of twice,
     /// which this DSL cannot say at all.
     pub(super) fn condition(&mut self, p: &mut Params) -> Option<String> {
+        if p.peek("Condition") == Some("Threshold") && !p.has("IsPresent") {
+            p.take("Condition");
+            return Some(", condition = Some(Condition::GraveyardCountAtLeast(7))".to_string());
+        }
+        if p.peek("LifeTotal") == Some("You") && !p.has("IsPresent") {
+            p.take("LifeTotal");
+            let life_amount = p.take("LifeAmount").unwrap_or_else(|| "GE1".to_string());
+            return match count_bound(&life_amount) {
+                Some(Bound::AtLeast(n)) => Some(format!(
+                    ", condition = Some(Condition::AmountAtLeast(Amount::LifeTotal(PlayerRel::You), {n}))"
+                )),
+                Some(Bound::AtMost(n)) => {
+                    Some(format!(", condition = Some(Condition::LifeAtMost({n}))"))
+                }
+                _ => self.deny(format!("`LifeAmount$ {life_amount}`")),
+            };
+        }
         let Some(valid) = p.take("IsPresent") else {
             return Some(String::new());
         };
@@ -466,6 +527,21 @@ impl Tx<'_> {
         }
         if p.take("IsPresent2").is_some() {
             return self.deny("a second `IsPresent2$` clause".to_string());
+        }
+        if p.peek("PresentZone") == Some("Graveyard") && p.peek("PresentPlayer") == Some("You") {
+            p.take("PresentZone");
+            p.take("PresentPlayer");
+            let compare = p
+                .take("PresentCompare")
+                .unwrap_or_else(|| "GE1".to_string());
+            let Some(Bound::AtLeast(n)) = count_bound(&compare) else {
+                return self.deny(format!("`PresentCompare$ {compare}`"));
+            };
+            let expr = self.filter_expr_in_zone(valid, true)?;
+            let name = self.body.filter_static("CHECK", &expr);
+            return Some(format!(
+                "Condition::AmountAtLeast(Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}, {n})"
+            ));
         }
         if let Some(who) = p.take("PresentPlayer") {
             return self.deny(format!("`PresentPlayer$ {who}`"));
@@ -501,8 +577,12 @@ impl Tx<'_> {
             let yours = valid
                 .split(',')
                 .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"));
+            let opponents = valid
+                .split(',')
+                .all(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "OppCtrl"))
+                && matches!(bound, Bound::AtMost(0));
             let nobodys = !atoms().any(|atom| atom.contains("Ctrl") || atom.contains("Own"));
-            if !yours && !nobodys {
+            if !yours && !nobodys && !opponents {
                 return self.deny(format!("`IsPresent$ {valid}`, a count of somebody else's"));
             }
             // And a count says nothing about the card that states it.
@@ -518,7 +598,7 @@ impl Tx<'_> {
                 alt.split(['.', '+']).any(|a| {
                     matches!(
                         a.trim(),
-                        "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy"
+                        "Self" | "Other" | "EnchantedBy" | "EquippedBy" | "AttachedBy" | "Attached"
                     )
                 })
             }) {

@@ -722,9 +722,18 @@ fn a_pairing_nobody_may_block_is_the_attackers_restriction() {
     let statics = &body.statics;
     assert!(statics.contains("Filter::This"), "{statics}");
 
+    let unblockable = read(
+        "Name:X\nManaCost:G\nTypes:Creature Goblin\nPT:1/1\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Creature.Self\n",
+    );
+    assert_eq!(
+        unblockable.abilities,
+        ["static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::UNBLOCKABLE))"]
+    );
+
     assert!(refused(
         "Name:X\nTypes:Creature Goblin\nPT:1/1\n\
-         S:Mode$ CantBlockBy | ValidAttacker$ Creature.Self\n"
+         S:Mode$ CantBlockBy | ValidBlocker$ Creature.Self\n"
     ));
 }
 
@@ -932,6 +941,16 @@ fn a_clause_that_counts_needs_the_filter_to_say_whose() {
     assert_eq!(
         refusal_reason(&theirs, &cats(), None).as_deref(),
         Some("`IsPresent$ Creature.OppCtrl`, a count of somebody else's")
+    );
+    let theirs_none = read(
+        &script
+            .replace("Creature.YouCtrl", "Creature.OppCtrl")
+            .replace("PresentCompare$ GE2", "PresentCompare$ EQ0"),
+    );
+    assert!(
+        theirs_none.abilities[0].contains("Condition::BattlefieldCountAtMost("),
+        "{:?}",
+        theirs_none.abilities
     );
 
     // The same trap one atom further in, and the one that would have

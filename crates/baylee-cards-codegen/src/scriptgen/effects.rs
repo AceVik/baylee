@@ -22,12 +22,22 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
-        for key in ["Amount", "Optional", "RememberSacrificed"] {
+        for key in ["Optional", "RememberSacrificed"] {
             if p.take(key).is_some() {
                 return self.deny(format!("a sacrifice naming `{key}`"));
             }
         }
+        let raw_amount = p.take("Amount");
+        if let Some(num) = p.take("ChangeNum")
+            && num.trim() != "1"
+        {
+            return self.deny(format!("a sacrifice with `ChangeNum$ {num}`"));
+        }
+        p.claim_label("SacMessage", "SacValid");
         let Some(sac_valid) = p.take("SacValid") else {
+            if raw_amount.is_some() {
+                return self.deny("a sacrifice naming `Amount`".to_string());
+            }
             if p.take("Defined").is_some() {
                 return self.deny("a sacrifice naming `Defined`".to_string());
             }
@@ -40,9 +50,18 @@ impl Tx<'_> {
             let expr = self.filter_expr(&sac_valid)?;
             format!("&{}", self.body.filter_static("SAC", &expr))
         };
-        Some(vec![format!(
-            "Effect::SacrificeFilter {{ who: {who}, filter: {filter} }}"
-        )])
+        match raw_amount.as_deref().map(str::trim) {
+            None | Some("1") => Some(vec![format!(
+                "Effect::SacrificeFilter {{ who: {who}, filter: {filter} }}"
+            )]),
+            Some(raw) => {
+                let amount = self.amount_or_count(raw)?;
+                Some(vec![format!(
+                    "Effect::SacrificeAmountForPlayers {{ who: {who}, filter: {filter}, amount: \
+                     {amount} }}"
+                )])
+            }
+        }
     }
 
     /// `Token`: "create a 1/1 white Soldier creature token".
@@ -61,6 +80,7 @@ impl Tx<'_> {
     pub(super) fn token_effect(
         &mut self,
         p: &mut Params,
+        target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
         // Who gets it. The corpus writes `TokenOwner$ You` on 2220 of its
@@ -73,6 +93,29 @@ impl Tx<'_> {
         // where this line targets a player, and as you where it does not.
         let owner = match p.take("TokenOwner").as_deref() {
             Some("You") => "PlayerRel::You",
+            Some("TriggeredCardController") if self.trigger_is_self => "PlayerRel::You",
+            Some("TargetedController")
+                if target.is_some_and(|t| {
+                    t.starts_with("TargetSpec::Object(")
+                        || t.starts_with("TargetSpec::CardInGraveyard(")
+                }) && matches!(p.peek("TokenAmount"), None | Some("1")) =>
+            {
+                p.take("TokenAmount");
+                let Some(stem) = p.take("TokenScript") else {
+                    return self.deny("a `Token` effect naming no `TokenScript$`".to_string());
+                };
+                let Some(tokens) = self.tokens else {
+                    return self
+                        .deny("`Token` with no token scripts to read it against".to_string());
+                };
+                let Some(body) = tokens.body(&stem, self.cats) else {
+                    return self.deny(format!("token script `{stem}`"));
+                };
+                return Some(vec![format!(
+                    "Effect::CreateTokenForTargetController {{ token: &generated_tokens::{} }}",
+                    body.constant
+                )]);
+            }
             None => self.player_rel_of(None, targets_a_player)?,
             Some(who) => return self.deny(format!("token owner `{who}`")),
         };
@@ -207,8 +250,19 @@ impl Tx<'_> {
         let body = self.svars.get(repeat_sub.trim())?.clone();
         let (sub_api, mut sp) = Params::parse(&body)?;
         sp.drop_prose();
-        if sub_api == "LoseLife" && sp.take("Defined").as_deref() == Some("Player.IsRemembered") {
+        if sub_api == "LoseLife"
+            && matches!(
+                sp.take("Defined").as_deref(),
+                Some("Player.IsRemembered" | "Remembered")
+            )
+        {
             let amount_var = sp.take("LifeAmount")?;
+            if let Some(sub_name) = sp.take("SubAbility")
+                && self.svars.get(sub_name.trim()).map(String::as_str)
+                    != Some("DB$ Cleanup | ClearRemembered$ True")
+            {
+                return None;
+            }
             if !sp.exhausted() {
                 return None;
             }
@@ -307,6 +361,12 @@ impl Tx<'_> {
             Some(kw) if kw.trim() == "HIDDEN CARDNAME can't attack or block." => {
                 "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)".to_string()
             }
+            Some(kw)
+                if kw.trim() == "HIDDEN CARDNAME can't block."
+                    && p.peek("Defined") == Some("Enchanted") =>
+            {
+                "KeywordSet::CANT_BLOCK".to_string()
+            }
             Some(kw) => {
                 let each: Option<Vec<&str>> =
                     kw.split('&').map(|k| keyword_const(k.trim())).collect();
@@ -387,6 +447,20 @@ impl Tx<'_> {
         })
     }
 
+    pub(super) fn pump_all_side(&mut self, raw: &str) -> Option<String> {
+        let trimmed = raw.trim();
+        let var = trimmed.trim_start_matches(['+', '-']);
+        if self.svars.get(var).map(|d| d.trim()) == Some("Count$Domain") {
+            let inner = "Amount::BasicLandTypesAmong(&Filter::YOUR_LAND)";
+            return Some(if trimmed.starts_with('-') {
+                format!("Amount::Negated(&{inner})")
+            } else {
+                inner.to_string()
+            });
+        }
+        self.pump_side(raw)
+    }
+
     /// `PumpAll`: `ValidCards$ Creature.blocking | NumAtt$ +1 | NumDef$ +1`,
     /// pumping every permanent on the battlefield that matches `ValidCards$`.
     pub(super) fn pump_all_effect(
@@ -398,12 +472,18 @@ impl Tx<'_> {
             return None;
         }
         let valid = p.take("ValidCards")?;
-        let power = self.pump_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
-        let toughness = self.pump_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
+        let power = self.pump_all_side(p.take("NumAtt").as_deref().unwrap_or("0"))?;
+        let toughness = self.pump_all_side(p.take("NumDef").as_deref().unwrap_or("0"))?;
         let keywords = match p.take("KW") {
             None => "KeywordSet::EMPTY".to_string(),
             Some(kw) if kw.trim() == "HIDDEN CARDNAME can't attack or block." => {
                 "KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)".to_string()
+            }
+            Some(kw)
+                if kw.trim() == "HIDDEN CARDNAME can't block."
+                    && p.peek("Defined") == Some("Enchanted") =>
+            {
+                "KeywordSet::CANT_BLOCK".to_string()
             }
             Some(kw) => {
                 let each: Option<Vec<&str>> =
@@ -446,6 +526,59 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
+        if p.peek("Destination") != Some("Library") {
+            if target.is_some() || targets_a_player || p.take("Defined").is_some() {
+                return None;
+            }
+            return match (
+                p.take("Origin").as_deref(),
+                p.take("Destination").as_deref(),
+            ) {
+                (Some("Exile"), Some("Battlefield"))
+                    if p.take("ChangeType").as_deref() == Some("Card.ExiledWithSource") =>
+                {
+                    Some(vec!["Effect::ReturnLinkedToBattlefield".to_string()])
+                }
+                (Some("Battlefield"), Some("Hand")) => {
+                    let valid = p.take("ChangeType")?;
+                    let expr = self.filter_expr(&valid)?;
+                    let name = self.body.filter_static("BOUNCE_ALL", &expr);
+                    Some(vec![format!(
+                        "Effect::ReturnAllToHand {{ filter: &{name}, opponents_only: false }}"
+                    )])
+                }
+                (Some("Battlefield"), Some("Exile")) => {
+                    let valid = p.take("ChangeType")?;
+                    let expr = self.filter_expr(&valid)?;
+                    let name = self.body.filter_static("EXILE_ALL", &expr);
+                    let linked = self.svars.values().any(|s| {
+                        s.contains("Defined$ ExiledWith") || s.contains("Card.ExiledWithSource")
+                    });
+                    Some(vec![format!(
+                        "Effect::ExileAll {{ filter: &{name}, linked: {linked} }}"
+                    )])
+                }
+                (Some("Graveyard"), Some("Exile"))
+                    if p.take("ChangeType").as_deref() == Some("Card") =>
+                {
+                    Some(vec![
+                        "Effect::ExileGraveyard { player: PlayerRel::EachPlayer }".to_string(),
+                    ])
+                }
+                (Some("Graveyard"), Some("Battlefield")) => {
+                    let valid = p.take("ChangeType")?;
+                    if valid.contains("Ctrl") || valid.contains("Own") {
+                        return None;
+                    }
+                    let expr = self.filter_expr_in_zone(&valid, true)?;
+                    let name = self.body.filter_static("REANIMATE_ALL", &expr);
+                    Some(vec![format!(
+                        "Effect::EachPlayerGraveyardToBattlefield {{ filter: &{name} }}"
+                    )])
+                }
+                _ => None,
+            };
+        }
         if p.take("Destination").as_deref() != Some("Library")
             || p.take("Shuffle").as_deref() != Some("True")
         {
@@ -485,6 +618,52 @@ impl Tx<'_> {
     /// the battlefield. The engine's word for it is the keyword, granted for
     /// the rest of the turn — to the targets, or to the source itself.
     /// Every other `Effect` is its own sentence and stays refused.
+    #[allow(clippy::unused_self)]
+    pub(super) fn debuff_effect(
+        &mut self,
+        p: &mut Params,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if target == Some("TargetSpec::Object(&Filter::CREATURE)")
+            && p.peek("AllSuffixKeywords") == Some("walk")
+        {
+            p.take("AllSuffixKeywords");
+            return Some(vec![
+                "Effect::ModifyTargets { modifier: Modifier::LoseAllLandwalk, \
+                 duration: Duration::UntilEndOfTurn }"
+                    .to_string(),
+            ]);
+        }
+        if target.is_some_and(|t| t.starts_with("TargetSpec::Object("))
+            && p.peek("Defined").is_none()
+            && let Some(kw) = p.take("Keywords")
+        {
+            p.take("IsCurse");
+            let mut out = Vec::new();
+            for part in kw.split('&') {
+                let bit = keyword_const(part.trim())?;
+                out.push(format!(
+                    "Effect::ModifyTargets {{ modifier: Modifier::RemoveKeyword({bit}), \
+                     duration: Duration::UntilEndOfTurn }}"
+                ));
+            }
+            return (!out.is_empty()).then_some(out);
+        }
+        if target.is_none() && p.take("Defined").as_deref() == Some("Self") {
+            let kw = p.take("Keywords")?;
+            let mut out = Vec::new();
+            for part in kw.split('&') {
+                let bit = keyword_const(part.trim())?;
+                out.push(format!(
+                    "Effect::continuous(&Filter::This, Modifier::RemoveKeyword({bit}), \
+                     Duration::UntilEndOfTurn)"
+                ));
+            }
+            return (!out.is_empty()).then_some(out);
+        }
+        None
+    }
+
     pub(super) fn unblockable_effect(
         &mut self,
         p: &mut Params,
@@ -501,7 +680,7 @@ impl Tx<'_> {
             return None;
         }
         let ends = p.take("ExileOnMoved").or_else(|| p.take("ForgetOnMoved"));
-        if ends.as_deref() != Some("Battlefield") || p.take("Duration").is_some() {
+        if !matches!(ends.as_deref(), None | Some("Battlefield")) || p.take("Duration").is_some() {
             return None;
         }
         p.take("IsCurse");
@@ -589,6 +768,7 @@ impl Tx<'_> {
     /// Graveyard is the pair that makes the point: it is *not* `Destroy`,
     /// which checks indestructible (CR 702.12b), and generating one for the
     /// other would quietly kill creatures that survive.
+    #[allow(clippy::too_many_lines)]
     pub(super) fn change_zone(
         &mut self,
         p: &mut Params,
@@ -603,7 +783,7 @@ impl Tx<'_> {
         // (CR 115.2 needs a visible object), so `Effect::SearchLibrary`
         // *finds* rather than moves, and carries the shuffle with it.
         if origin == "Library" {
-            return self.search_library(p, &destination, target);
+            return self.search_library(p, &destination, targets_here);
         }
         let target = target.unwrap_or("TargetSpec::AnyPlayer");
         let itself = match p.take("Defined").as_deref() {
@@ -619,6 +799,7 @@ impl Tx<'_> {
                 self.defaults_to_self_zone_change(p, &origin, &destination, target, targets_here)
             }
             Some("Self") => true,
+            Some("Targeted") if !targets_here && target != "TargetSpec::AnyPlayer" => false,
             Some("ExiledWith")
                 if origin == "Exile"
                     && destination == "Battlefield"
@@ -637,6 +818,19 @@ impl Tx<'_> {
             && p.has("Hidden")
         {
             return self.return_chosen(p, &destination);
+        }
+        // "You may put a basic land card from your hand onto the battlefield"
+        // (Firebrand Ranger, Skyshroud Ranger): no target, no `Defined$`, and
+        // the controller optionally puts one matching card from their hand
+        // onto the battlefield.
+        if !itself
+            && target == "TargetSpec::AnyPlayer"
+            && origin == "Hand"
+            && destination == "Battlefield"
+            && p.has("ChangeType")
+            && p.has("Optional")
+        {
+            return self.put_from_hand_onto_battlefield(p);
         }
         // Without a target this would move nothing at all.
         if !itself && target == "TargetSpec::AnyPlayer" {
@@ -657,29 +851,58 @@ impl Tx<'_> {
             {
                 vec!["Effect::PutSourceOnTopOfLibrary".to_string()]
             }
-            ("Battlefield", "Library", false)
-                if target.starts_with("TargetSpec::Object(")
-                    && p.take("Shuffle").as_deref() == Some("True") =>
-            {
-                vec!["Effect::ShuffleTargetsIntoOwnersLibraries".to_string()]
+            ("Battlefield", "Library", false) if target.starts_with("TargetSpec::Object(") => {
+                match (
+                    p.take("Shuffle").as_deref(),
+                    p.take("LibraryPosition").as_deref(),
+                ) {
+                    (Some("True"), None) => {
+                        vec!["Effect::ShuffleTargetsIntoOwnersLibraries".to_string()]
+                    }
+                    (None, Some("-1")) => {
+                        p.take("IsCurse");
+                        vec!["Effect::PutTargetOnBottomOfLibrary".to_string()]
+                    }
+                    _ => {
+                        return self
+                            .deny("`ChangeZone` from `Battlefield` to `Library`".to_string());
+                    }
+                }
             }
             ("Battlefield", "Exile", false) => {
-                let verb = if self
-                    .svars
-                    .values()
-                    .any(|s| s.contains("Defined$ ExiledWith"))
-                {
+                p.take("IsCurse");
+                let verb = if self.svars.values().any(|s| {
+                    s.contains("Defined$ ExiledWith") || s.contains("Card.ExiledWithSource")
+                }) {
                     "exile_linked"
                 } else {
                     "exile"
                 };
-                vec![format!("Effect::{verb}({target})")]
+                match p.take("ThisDefinedAndTgts").as_deref() {
+                    None => vec![format!("Effect::{verb}({target})")],
+                    Some("Self") if verb == "exile" => vec![
+                        "Effect::ExileSource".to_string(),
+                        format!("Effect::{verb}({target})"),
+                    ],
+                    Some(other) => {
+                        return self
+                            .deny(format!("`ChangeZone` with `ThisDefinedAndTgts$ {other}`"));
+                    }
+                }
+            }
+            ("Graveyard", "Exile", false) if target.starts_with("TargetSpec::CardInGraveyard") => {
+                vec![format!("Effect::exile({target})")]
             }
             ("Battlefield" | "Stack", "Exile", true) => vec!["Effect::ExileSource".to_string()],
             // "Return target card from your graveyard to your hand"
             // (Regrowth): the target is a `CardInGraveyard`, which the chain
             // read off `Origin$` before it read the valid-string.
             ("Graveyard", "Hand", false) if target.starts_with("TargetSpec::CardInGraveyard") => {
+                if let Some(num) = p.take("ChangeNum")
+                    && num != "1"
+                {
+                    return self.deny(format!("`ChangeZone` with `ChangeNum$ {num}`"));
+                }
                 vec![format!("Effect::GraveyardToHand {{ target: {target} }}")]
             }
             ("Graveyard", "Library", false)
@@ -709,6 +932,11 @@ impl Tx<'_> {
                     && gain != "True"
                 {
                     return self.deny(format!("`ChangeZone` with `GainControl$ {gain}`"));
+                }
+                if let Some(num) = p.take("ChangeNum")
+                    && num != "1"
+                {
+                    return self.deny(format!("`ChangeZone` with `ChangeNum$ {num}`"));
                 }
                 vec![format!(
                     "Effect::GraveyardToBattlefield {{ target: {target}, owner_control: false, \
@@ -798,10 +1026,52 @@ impl Tx<'_> {
             self.note(format!("`ChangeZone` returning {count} chosen permanents"));
             return None;
         }
-        let filter = self.filter_expr(&p.take("ChangeType")?)?;
+        let who = self.player_rel(p.take("DefinedPlayer").as_deref())?;
+        let change_type = p.take("ChangeType")?;
+        if who != "PlayerRel::You" && change_type.contains("YouCtrl") {
+            return None;
+        }
+        let filter = self.filter_expr(&change_type)?;
         let name = self.body.filter_static("RETURN", &filter);
         Some(vec![format!(
-            "Effect::ReturnChosenToHand {{ who: PlayerRel::You, filter: &{name} }}"
+            "Effect::ReturnChosenToHand {{ who: {who}, filter: &{name} }}"
+        )])
+    }
+
+    /// `Origin$ Hand` to `Destination$ Battlefield` with an explicit `Optional$`:
+    /// "you may put a [matching] card from your hand onto the battlefield"
+    /// (Firebrand Ranger, Skyshroud Ranger).
+    pub(super) fn put_from_hand_onto_battlefield(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        let tapped = match p.take("Tapped").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => {
+                self.note(format!("`ChangeZone` found `Tapped$ {other}`"));
+                return None;
+            }
+        };
+        let optional = match p.take("Optional").as_deref() {
+            Some("You" | "True") => true,
+            Some("False") => false,
+            Some(other) => {
+                self.note(format!("`ChangeZone` found `Optional$ {other}`"));
+                return None;
+            }
+            None => {
+                self.note("`ChangeZone` from hand without `Optional$`".to_string());
+                return None;
+            }
+        };
+        let count = plain_number(p.take("ChangeNum").as_deref().unwrap_or("1"), self.svars)?;
+        if count != 1 {
+            self.note(format!("`ChangeZone` putting {count} cards from hand"));
+            return None;
+        }
+        let filter = self.filter_expr_in_zone(&p.take("ChangeType")?, true)?;
+        let name = self.body.filter_static("PUT_FROM_HAND", &filter);
+        Some(vec![format!(
+            "Effect::PutFromHandOntoBattlefield {{ tapped: {tapped}, filter: &{name}, \
+             mana_value: None, optional: {optional} }}"
         )])
     }
 
@@ -816,9 +1086,9 @@ impl Tx<'_> {
         &mut self,
         p: &mut Params,
         destination: &str,
-        target: Option<&str>,
+        targets_here: bool,
     ) -> Option<Vec<String>> {
-        if target.is_some() {
+        if targets_here {
             self.note("`ChangeZone` searching a library *and* targeting".to_string());
             return None;
         }

@@ -1057,6 +1057,21 @@ pub enum AwaitingOp {
         /// Plains protected from destruction so far.
         protected: Vec<ObjectId>,
     },
+    /// Fatespinner's choice of which phase/step to skip (`0` = draw step,
+    /// `1` = main phases, `2` = combat phases).
+    ChoosePhaseToSkipThisTurn,
+    /// Fiery Gambit's coin-flip continuation (`wins` flips won so far).
+    FlipCoinsUntilLossOrStopCumulative {
+        /// Number of coin flips won so far.
+        wins: u8,
+    },
+    /// Gate to the Aether's optional put onto the battlefield.
+    RevealTopPlayerMayPut {
+        /// Player who revealed and may put `card` onto the battlefield.
+        player: PlayerId,
+        /// The revealed top card.
+        card: ObjectId,
+    },
 }
 
 /// Work to resume after a resolution-time mana payment.

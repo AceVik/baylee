@@ -48,7 +48,8 @@ pub(super) const fn needs_the_source(part: &CostPart) -> bool {
         | CostPart::PutCounterOnOther { .. }
         | CostPart::PayLife(_)
         | CostPart::PayLifeX
-        | CostPart::ExileFromHand(_) => false,
+        | CostPart::ExileFromHand(_)
+        | CostPart::ExileTopOfLibrary(_) => false,
     }
 }
 
@@ -89,7 +90,8 @@ pub(super) const fn moves_the_source(part: &CostPart) -> bool {
         | CostPart::PayAttachedManaCost
         | CostPart::PayLife(_)
         | CostPart::PayLifeX
-        | CostPart::ExileFromHand(_) => false,
+        | CostPart::ExileFromHand(_)
+        | CostPart::ExileTopOfLibrary(_) => false,
     }
 }
 

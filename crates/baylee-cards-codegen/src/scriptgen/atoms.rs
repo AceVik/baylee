@@ -61,6 +61,12 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     if svars.get(raw).map(|def| def.trim()) == Some("Exiled$CardManaCost/Plus.1") {
         return Some("Amount::Plus { base: &Amount::SacrificedManaValue, offset: 1 }".to_string());
     }
+    if svars.get(raw).map(|def| def.trim()) == Some("Sacrificed$CardManaCost") {
+        return Some("Amount::SacrificedManaValue".to_string());
+    }
+    if svars.get(raw).map(|def| def.trim()) == Some("Targeted$CardManaCost") {
+        return Some("Amount::TargetCmc".to_string());
+    }
     if raw == "X" {
         return (has_x && svars.get("X").map(String::as_str) == Some("Count$xPaid"))
             .then(|| "Amount::X".to_string());

@@ -533,6 +533,7 @@ impl<L: CardLookup> Engine<L> {
                                 | resolve::AwaitingOp::DamagePayment { .. }
                                 | resolve::AwaitingOp::TextReplacement { .. }
                                 | resolve::AwaitingOp::RemoveCountersSelfCreateTokens { .. }
+                                | resolve::AwaitingOp::ChoosePhaseToSkipThisTurn
                         )
                     )
                 }) {

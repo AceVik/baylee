@@ -380,6 +380,42 @@ pub fn matches_projected_with_context(
                         .contains(baylee_core::generated::subtypes::enchantment::AURA)
             })
         }),
+        Filter::Equipped => state.battlefield_seen().any(|id| {
+            state.object(id).is_some_and(|equip| {
+                equip.attached_to == Some(obj.id)
+                    && equip
+                        .characteristics()
+                        .subtypes
+                        .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT)
+            })
+        }),
+        Filter::CmcEqualsCountersOnSource(kind) => state
+            .object(this)
+            .is_some_and(|src| chars.mana_value() == u32::from(src.counters.get(*kind))),
+        Filter::NotControlledByReferenceController => context
+            .reference
+            .and_then(|reference| state.object_or_departed(reference))
+            .is_some_and(|reference| obj.controller != reference.controller),
+        Filter::LowestManaValueOnBattlefield(inner) => {
+            matches(inner)
+                && state
+                    .battlefield_seen()
+                    .filter_map(|id| state.object(id))
+                    .filter(|other| matches_with_context(inner, state, other, you, context))
+                    .map(|other| other.characteristics().mana_value())
+                    .min()
+                    .is_some_and(|lowest| chars.mana_value() == lowest)
+        }
+        Filter::SameNameAsLinkedExile => {
+            linked_exile_cards(state, you, context, None, &Filter::Any)
+                .into_iter()
+                .filter_map(|id| state.object(id))
+                .any(|exiled| exiled.characteristics().name == chars.name)
+        }
+        Filter::CmcEqualsYourUnspentMana => state
+            .players
+            .get(usize::from(you.get()))
+            .is_some_and(|player| u64::from(chars.mana_value()) == player.mana_pool.total()),
         // As the source last existed when it has left the battlefield
         // (CR 608.2h): Abu Ja'far's dies trigger reads its partners there.
         Filter::BlockingSource => {

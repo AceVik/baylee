@@ -208,7 +208,7 @@ fn a_graveyard_exile_cost_is_a_filter_over_the_payers_own_pile() {
             "ExileFromGrave<1/CARDNAME/this card>",
             "cost `ExileFromGrave<1/CARDNAME/this card>` naming itself",
         ),
-        ("ExileFromGrave<3/Card>", "a cost naming `3` objects"),
+        ("ExileFromGrave<4/Card>", "a cost naming `4` objects"),
     ] {
         let script = parse(&format!(
             "Name:X\nTypes:Land\n\
@@ -322,6 +322,9 @@ fn a_cost_is_not_split_inside_its_own_brackets() {
         block_line: None,
         block_half: None,
         in_delayed: false,
+        cost_sacrifices_self: false,
+        cost_sacrifices_other: false,
+        trigger_is_self: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -812,8 +815,8 @@ fn a_refused_script_always_says_why() {
         // paid with one card where the script charges two is a
         // discount.
         (
-            "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<3/Card> | NumCards$ 1",
-            "a cost naming `3` objects",
+            "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<4/Card> | NumCards$ 1",
+            "a cost naming `4` objects",
         ),
         (
             "Name:X\nTypes:Creature\nA:AB$ Draw | NumCards$ 1",
@@ -826,9 +829,9 @@ fn a_refused_script_always_says_why() {
         ),
         (
             "Name:X\nTypes:Creature\n\
-             T:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | Execute$ TrigDraw\n\
+             T:Mode$ Phase | Phase$ Main2 | ValidPlayer$ You | Execute$ TrigDraw\n\
              SVar:TrigDraw:DB$ Draw | NumCards$ 1",
-            "trigger at step `Main1`",
+            "trigger at step `Main2`",
         ),
         (
             "Name:X\nTypes:Creature\n\
@@ -956,6 +959,9 @@ fn a_refused_script_always_says_why() {
         "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ T | NumCards$ 1",
         "Name:X\nTypes:Creature\n\
          T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+        "Name:X\nTypes:Creature\n\
+         T:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | NumCards$ 1",
         "Name:X\nTypes:Creature\n\
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \

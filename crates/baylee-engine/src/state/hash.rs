@@ -2294,6 +2294,18 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         F::TappedToPayForSourceThisTurn => h.u8(140),
         F::HasCumulativeUpkeep => h.u8(141),
         F::DealtDamageBySourceThisTurn => h.u8(142),
+        F::Equipped => h.u8(149),
+        F::CmcEqualsCountersOnSource(kind) => {
+            h.u8(144);
+            hash_counter(h, *kind);
+        }
+        F::NotControlledByReferenceController => h.u8(145),
+        F::LowestManaValueOnBattlefield(inner) => {
+            h.u8(146);
+            filter_hash(h, inner);
+        }
+        F::SameNameAsLinkedExile => h.u8(147),
+        F::CmcEqualsYourUnspentMana => h.u8(148),
     }
 }
 

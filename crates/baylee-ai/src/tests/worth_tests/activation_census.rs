@@ -378,7 +378,84 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Prophecy (`pcy`) Batch 2 adds 4 non-mana activated abilities on Greel,
     // Mind Raker, Keldon Arsonist, Latulla, Keldon Overseer, and Mageta the
     // Lion (2 of 4 read by the evaluator).
-    assert_eq!((read, of), (2824, 3562), "activated/loyalty reader census");
+    // Prophecy (`pcy`) Batch 3 adds 5 non-mana activated abilities on Mine
+    // Bearer, Quicksilver Wall, Rebel Informer, Ribbon Snake, and Samite
+    // Sanctuary (3 of 5 read by the evaluator).
+    // Prophecy (`pcy`) Batch 4 adds 6 non-mana activated abilities on Squirrel
+    // Wrangler (2), Stormwatch Eagle, Task Mage Assembly, Vintara Elephant, and
+    // Zerapa Minotaur (4 of 6 read by the evaluator).
+    // Invasion (`inv`) Batch 1 adds 4 non-mana activated abilities on Ancient
+    // Kavu, Andradite Leech, and Armored Guardian (2) (3 of 4 read by the
+    // evaluator).
+    // Invasion (`inv`) Batch 2 adds 5 non-mana activated abilities on Captain
+    // Sisay, Cinder Shade (2), Crimson Acolyte, and Devouring Strossus (3 of 5
+    // read by the evaluator).
+    // Invasion (`inv`) Batch 3 adds 4 non-mana activated abilities on Empress
+    // Galina, Firebrand Ranger, Hunting Kavu, and Kavu Chameleon (1 of 4 read
+    // by the evaluator).
+    // Invasion (`inv`) Batch 4 adds 3 non-mana activated abilities on Meteor
+    // Storm, Mourning, and Obsidian Acolyte (2 of 3 read by the evaluator).
+    // Invasion (`inv`) Batch 5 adds 1 non-mana activated ability on Rainbow
+    // Crow (0 of 1 read by the evaluator).
+    // Invasion (`inv`) Batch 6 adds 3 non-mana activated abilities on
+    // Smoldering Tar and Stormscape Master (2) (2 of 3 read by the evaluator).
+    // Invasion (`inv`) Batch 7 adds 7 non-mana activated abilities on
+    // Sunscape Master (2), Thornscape Master (2), Thunderscape Master (2),
+    // and Tidal Visionary (1) (5 of 7 read by the evaluator).
+    // Invasion (`inv`) Batch 8 adds 2 non-mana activated abilities on
+    // Vodalian Hypnotist and Whip Silk (1 of 2 read by the evaluator).
+    // Planeshift (`pls`) Batch 1 adds 5 non-mana activated abilities on
+    // Caldera Kavu (2), Cavern Harpy, Disciple of Kangee, and Ertai, the
+    // Corrupted (4 of 5 read by the evaluator).
+    // Planeshift (`pls`) Batch 2 adds 2 non-mana activated abilities on
+    // Nemata, Grove Guardian (2 of 2 read by the evaluator).
+    // Planeshift (`pls`) Batch 3 adds 3 non-mana activated abilities on
+    // Nightscape Familiar, Radiant Kavu, and Samite Pilgrim (2 of 3 read by
+    // the evaluator).
+    // Apocalypse (`apc`) Batch 1 adds 6 non-mana activated abilities on
+    // Bloodfire Infusion and Cromat (5) (5 of 6 read by the evaluator).
+    // Apocalypse (`apc`) Batch 2 adds 4 non-mana activated abilities on
+    // Manacles of Decay (2) and Minotaur Illusionist (2) (3 of 4 read by the
+    // evaluator).
+    // Odyssey (`ody`) Batch 1 adds 2 non-mana activated abilities on Amugaba
+    // and Balshan Griffin (2 of 2 read by the evaluator).
+    // Odyssey (`ody`) Batch 2 adds 2 non-mana activated abilities on Crashing
+    // Centaur and Crypt Creeper (2 of 2 read by the evaluator).
+    // Odyssey (`ody`) Batch 3 adds 2 non-mana activated abilities on Dirty
+    // Wererat and Dwarven Strike Force (2 of 2 read by the evaluator).
+    // Odyssey (`ody`) Batch 4 adds 1 non-mana activated ability on Frenetic
+    // Ogre (1 of 1 read by the evaluator).
+    // Odyssey (`ody`) Batch 6 adds 1 non-mana activated ability on Pardic
+    // Swordsmith (1 of 1 read by the evaluator).
+    // Odyssey (`ody`) Batch 7 adds 7 non-mana activated abilities on Psychatog
+    // (2), Resilient Wanderer, Sadistic Hypnotist, Sandstone Deadfall, and
+    // Sarcatog (2) (5 of 7 read by the evaluator).
+    // Odyssey (`ody`) Batch 8 adds 3 non-mana activated abilities on Skyshooter
+    // and Steamclaw (2) (3 of 3 read by the evaluator).
+    // Odyssey (`ody`) Batch 9 adds 4 non-mana activated abilities on Vampiric
+    // Dragon, Wild Mongrel, Zombie Assassin, and Zombie Infestation (3 of 4
+    // read by the evaluator).
+    // Torment (`tor`) Batch 1 adds 3 non-mana activated abilities on Cabal
+    // Surgeon and Cabal Torturer (2) (3 of 3 read by the evaluator).
+    // Torment (`tor`) Batch 2 adds 3 non-mana activated abilities on Grim
+    // Lavamancer, Grotesque Hybrid, and Hell-Bent Raider (1 of 3 read by the
+    // evaluator).
+    // Torment (`tor`) Batch 3 adds 10 non-mana activated abilities on Major
+    // Teroh, Mortiphobia (2), Nantuko Calmer, Organ Grinder, Pardic Lancer,
+    // Possessed Aven, Possessed Barbarian, Possessed Centaur, and Possessed
+    // Nomad (9 of 10 read by the evaluator).
+    // Torment (`tor`) Batch 4 adds 5 non-mana activated abilities on Putrid
+    // Imp, Pyromania (2), Skywing Aven, and Stern Judge (4 of 5 read by the
+    // evaluator).
+    // Judgment (`jud`) Batch 1 adds 2 non-mana activated abilities on Balthor
+    // the Defiled and Benevolent Bodyguard (0 of 2 read by the evaluator).
+    // Judgment (`jud`) Batch 2 adds 1 non-mana activated ability on Krosan
+    // Wayfarer (0 of 1 read by the evaluator).
+    // Judgment (`jud`) Batch 4 adds 2 non-mana activated abilities on Tunneler
+    // Wurm and Vigilant Sentry (2 of 2 read by the evaluator).
+    // Onslaught (`ons`), Legions (`lgn`), Scourge (`scg`), and Mirrodin (`mrd`)
+    // Batch 1 add 15 non-mana activated abilities (13 of 15 read by the evaluator).
+    assert_eq!((read, of), (2941, 3719), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

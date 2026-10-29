@@ -1099,7 +1099,9 @@ mod name_table_tests {
     #[test]
     fn the_table_holds_the_whole_pool_and_nothing_else() {
         assert_eq!(NAMES.len(), crate::count());
-        for (spelling, index) in NAMES {
+        // By-value iteration copies the pool-sized array onto the test
+        // thread's stack, which overflowed in Linux CI.
+        for &(spelling, index) in &NAMES {
             let def = crate::by_index(index).expect("a name resolves to a card in the pool");
             assert_eq!(def.name(), spelling);
         }

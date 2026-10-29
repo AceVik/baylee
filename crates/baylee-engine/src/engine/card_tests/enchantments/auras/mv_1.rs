@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod aboshan_s_desire;
 mod animate_wall;
 mod apathy;
 mod artifact_ward;
@@ -41,6 +42,7 @@ mod imposing_visage;
 mod incendiary;
 mod instill_energy;
 mod ironclaw_curse;
+mod kirtar_s_desire;
 mod kithkin_armor;
 mod lance;
 mod living_artifact;
@@ -50,6 +52,7 @@ mod mind_harness;
 mod mob_mentality;
 mod mortal_wound;
 mod mystic_might;
+mod one_with_nature;
 mod paralyze;
 mod predatory_hunger;
 mod primal_frenzy;
@@ -77,6 +80,7 @@ mod veteran_s_voice;
 mod vigilance;
 mod weakness;
 mod web;
+mod whip_silk;
 mod white_scarab;
 mod white_ward;
 mod wild_growth;

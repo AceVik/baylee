@@ -2426,6 +2426,10 @@ pub enum Effect {
     ExileAll {
         /// What.
         filter: &'static Filter,
+        /// Whether each permanent is exiled with a link to this source, so a
+        /// later ability can return those cards (Worldgorger Dragon). Ordinary
+        /// exile sweeps leave this false and create no such relationship.
+        linked: bool,
     },
     /// "Choose a creature you control. It gains indestructible until end of
     /// turn." (Final Showdown): as this resolves its controller chooses one
@@ -3887,6 +3891,63 @@ pub enum Effect {
     /// chooses up to two Plains for each creature tapped this way, then
     /// destroys all Plains not chosen this way by any player (Raiding Party).
     RaidingParty,
+    /// The next time the first target creature would deal damage this turn,
+    /// prevent that damage; if `gain_life` is true, you gain life equal to the
+    /// damage prevented this way (Awe Strike).
+    PreventNextDamageFromTarget {
+        /// Whether you gain life equal to the damage prevented this way.
+        gain_life: bool,
+    },
+    /// Creatures target player controls don't untap during that player's next
+    /// untap step (Blinding Beam).
+    TargetPlayersCreaturesDontUntapNextUntap,
+    /// Each player matching `who` adds `amount` of `color` mana (Blinkmoth Urn).
+    AddManaAmountFor {
+        /// Who receives the mana.
+        who: PlayerRel,
+        /// Mana color added.
+        color: ManaColor,
+        /// Amount of mana added (evaluated per player when `who` is relative).
+        amount: Amount,
+    },
+    /// Exchange control of the triggering event object and the first target
+    /// permanent (Confusion in the Ranks).
+    ExchangeControlOfEventAndTarget,
+    /// Unattach all Equipment from the first target creature (Disarm).
+    UnattachAllEquipmentFromTarget,
+    /// Target/event player chooses draw step, main phase, or combat phase and
+    /// skips each instance of the chosen step or phase this turn (Fatespinner).
+    ChoosePhaseToSkipThisTurn,
+    /// Flip a coin until you lose a flip or choose to stop; if you lose a flip,
+    /// this spell has no effect; if you win one or more flips, deal 3 damage to
+    /// target creature; if you win two or more flips, deal 6 damage to each
+    /// opponent; if you win three or more flips, draw nine cards and untap all
+    /// lands you control (Fiery Gambit).
+    FlipCoinsUntilLossOrStopCumulative,
+    /// `new_controller` gains control of the permanent this Aura is attached to
+    /// indefinitely (Fractured Loyalty).
+    AttachedGainControlBy {
+        /// Who gains control of the enchanted permanent.
+        new_controller: PlayerRel,
+    },
+    /// Each player matching `player` reveals the top card of their library; if
+    /// it matches `filter`, that player may put it onto the battlefield (Gate
+    /// to the Aether).
+    RevealTopPlayerMayPutOntoBattlefield {
+        /// Whose library is revealed and who may put the card onto the battlefield.
+        player: PlayerRel,
+        /// Filter the revealed top card must match to be put onto the battlefield.
+        filter: &'static Filter,
+    },
+    /// Reveal cards from the top of your library until you reveal a land card;
+    /// this source deals damage equal to the number of nonland cards revealed
+    /// this way to `target` (doubled if the revealed land card was a Mountain);
+    /// put the revealed cards on the bottom of your library in any order
+    /// (Goblin Charbelcher).
+    RevealUntilLandDealDamage {
+        /// Who or what receives the damage.
+        target: TargetSpec,
+    },
 }
 
 #[cfg(test)]

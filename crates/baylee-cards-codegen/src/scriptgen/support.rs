@@ -47,6 +47,9 @@ pub fn refusal_reason(
         block_line: None,
         block_half: None,
         in_delayed: false,
+        cost_sacrifices_self: false,
+        cost_sacrifices_other: false,
+        trigger_is_self: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -124,15 +127,18 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Untap",
     "Counter",
     "PutCounter",
+    "RemoveCounter",
     "Sacrifice",
     "Pump",
     "PumpAll",
+    "Protection",
     "Phases",
     "ChangeZone",
     "ChangeZoneAll",
     "RearrangeTopOfLibrary",
     "Token",
     "Investigate",
+    "WinsGame",
 ];
 
 /// A cost token that names an object, split into its kind and its body.

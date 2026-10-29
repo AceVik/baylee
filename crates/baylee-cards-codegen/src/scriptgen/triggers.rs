@@ -241,6 +241,7 @@ impl Tx<'_> {
                 let step = match phase.as_str() {
                     "Upkeep" => "StepKind::Upkeep",
                     "Draw" => "StepKind::Draw",
+                    "Main1" => "StepKind::FirstMain",
                     "BeginCombat" => "StepKind::CombatBegin",
                     "End of Turn" => "StepKind::End",
                     other => return self.deny(format!("trigger at step `{other}`")),
@@ -298,6 +299,7 @@ impl Tx<'_> {
                 Some(format!("Trigger::BecomesTapped(&{filter})"))
             }
             "LandPlayed" => self.land_played_trigger(p),
+            "Drawn" => self.drawn_trigger(p, zones.is_some()),
             other => self.deny(format!("trigger mode `{other}`")),
         }
     }
@@ -316,12 +318,17 @@ impl Tx<'_> {
     }
 
     fn changes_zone_trigger(&mut self, p: &mut Params) -> Option<String> {
-        let origin = p.take("Origin");
+        let origin = p
+            .take("Origin")
+            .or_else(|| (p.peek("Destination") == Some("Battlefield")).then(|| "Any".to_string()));
         let dest = p.take("Destination");
         let valid = p.take("ValidCard");
         let (Some(origin), Some(dest), Some(valid)) = (origin, dest, valid) else {
             return self.deny("a `ChangesZone` trigger missing one of its three keys".to_string());
         };
+        if origin == "Battlefield" && dest == "Graveyard" && valid == "Creature.DamagedBy" {
+            return Some("Trigger::DiesAfterDamageByThis(&Filter::CREATURE)".to_string());
+        }
         let filter = if valid == "Card.Self" {
             "&Filter::This".to_string()
         } else {
@@ -340,16 +347,25 @@ impl Tx<'_> {
             ("Graveyard", "Battlefield") if filter == "&Filter::This" => {
                 Some("Trigger::EnteredThisFrom(ZoneRef::Graveyard)".to_string())
             }
-            ("Battlefield", "Any")
-                if filter == "&Filter::This"
-                    && self
-                        .svars
-                        .values()
-                        .any(|s| s.contains("Defined$ ExiledWith")) =>
-            {
+            ("Battlefield", "Any") if filter == "&Filter::This" => {
                 Some("Trigger::LeavesBattlefield(&Filter::This)".to_string())
             }
             _ => self.deny(format!("trigger on a move from {origin} to {dest}")),
+        }
+    }
+
+    fn drawn_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
+        if !zoned {
+            return self.deny("a `Drawn` trigger with no `TriggerZones$`".to_string());
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `Drawn` trigger with no `ValidCard$`".to_string());
+        };
+        match valid.as_str() {
+            "Card" => Some("Trigger::Draws(PlayerRel::EachPlayer)".to_string()),
+            "Card.YouCtrl" => Some("Trigger::Draws(PlayerRel::You)".to_string()),
+            "Card.OppCtrl" => Some("Trigger::Draws(PlayerRel::Opponent)".to_string()),
+            other => self.deny(format!("`Drawn` on `{other}`")),
         }
     }
 
@@ -384,9 +400,14 @@ impl Tx<'_> {
         let Some(valid) = p.take("ValidCard") else {
             return self.deny("an `Attacks` trigger with no `ValidCard$`".to_string());
         };
+        let alone = match p.take("Alone").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Alone$ {other}`")),
+        };
         let valid = match p.take("Attacked").as_deref() {
             None => valid,
-            Some("You") if valid != "Card.Self" => valid
+            Some("You") if valid != "Card.Self" && !alone => valid
                 .split(',')
                 .map(|alt| format!("{alt}.attackingYou"))
                 .collect::<Vec<_>>()
@@ -399,7 +420,11 @@ impl Tx<'_> {
             let expr = self.filter_expr(&valid)?;
             format!("&{}", self.body.filter_static("TRIGGER", &expr))
         };
-        Some(format!("Trigger::Attacks({filter})"))
+        if alone {
+            Some(format!("Trigger::AttacksAlone({filter})"))
+        } else {
+            Some(format!("Trigger::Attacks({filter})"))
+        }
     }
 
     fn blocks_trigger(&mut self, p: &mut Params) -> Option<String> {
@@ -609,6 +634,7 @@ impl Tx<'_> {
         Some(format!("Trigger::State(&{name})"))
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) fn triggered(&mut self, spec: &str) -> Option<()> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("a `T:` line with no `$` in it".to_string());
@@ -630,6 +656,9 @@ impl Tx<'_> {
         {
             return self.cast_self_protection_trigger(&mode, p);
         }
+        let prose_may = p
+            .peek("TriggerDescription")
+            .is_some_and(|d| d.to_ascii_lowercase().contains(", you may have target "));
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
         if self.is_imprison_clause(&mode, &p) {
@@ -658,7 +687,7 @@ impl Tx<'_> {
         // no effect here can ask them, so they are refused by name rather
         // than quietly asked of the wrong player.
         let may = match p.take("OptionalDecider").as_deref() {
-            None => false,
+            None => prose_may,
             Some("You") => true,
             Some("TriggeredCardController")
                 if (trigger == "Trigger::ETB" || trigger.contains("&Filter::This"))
@@ -689,13 +718,26 @@ impl Tx<'_> {
             None => (body, None),
         };
         let mut chain = Chain::default();
-        self.chain(&body, &mut chain)?;
+        self.trigger_is_self = trigger == "Trigger::ETB" || trigger.contains("&Filter::This");
+        let chain_ok = self.chain(&body, &mut chain);
+        self.trigger_is_self = false;
+        chain_ok?;
         if chain.effects.is_empty() {
             return self.deny("a trigger that reads as no effect at all".to_string());
         }
         let targets = chain
             .target
-            .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
+            .map(|t| {
+                if let Some(max) = chain.target_up_to {
+                    if max == 1 {
+                        format!(", targets = Some(TargetReq::up_to_one({t}))")
+                    } else {
+                        format!(", targets = Some(TargetReq::up_to({t}, {max}))")
+                    }
+                } else {
+                    format!(", targets = Some(TargetReq::one({t}))")
+                }
+            })
             .unwrap_or_default();
         let second = chain
             .second_target
@@ -897,7 +939,13 @@ impl Tx<'_> {
         let self_combat = remembered.is_empty()
             && self.block_line.is_none()
             && matches!(self.trigger_mode.as_deref(), Some("Attacks" | "Blocks"));
-        if !self_combat {
+        let damage_done_target = self.block_line.is_none()
+            && self.trigger_mode.as_deref() == Some("DamageDone")
+            && matches!(
+                remembered.as_str(),
+                "TriggeredTargetLKICopy" | "TriggeredTarget"
+            );
+        if !self_combat && !damage_done_target {
             let other_side = match self.block_line.as_ref().map(|(role, ..)| *role) {
                 Some(BlockRole::Blocks) => "TriggeredAttacker",
                 Some(BlockRole::Blocked) => "TriggeredBlocker",

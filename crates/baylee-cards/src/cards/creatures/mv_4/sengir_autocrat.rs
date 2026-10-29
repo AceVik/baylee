@@ -39,6 +39,7 @@ card!(
             Trigger::LeavesBattlefield(&Filter::This),
             &[Effect::ExileAll {
                 filter: &SERF_TOKEN,
+                linked: false,
             }]
         ),
     ],

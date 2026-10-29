@@ -136,13 +136,17 @@ impl Tx<'_> {
             return self.deny("`ChooseColor` followed by something other than `Animate`".into());
         }
         animate.drop_prose();
-        let Some(valid) = animate.take("ValidTgts") else {
+        let subject = if let Some(valid) = animate.take("ValidTgts") {
+            if chain.target.is_some() {
+                return self.deny("`ChooseColor` `Animate` with a second target".to_string());
+            }
+            chain.target = Some(self.target_spec(&valid, "Animate")?);
+            "ColorSubject::Target"
+        } else if animate.take("Defined").as_deref() == Some("Self") {
+            "ColorSubject::Source"
+        } else {
             return self.deny("`ChooseColor` `Animate` with no `ValidTgts$`".to_string());
         };
-        if chain.target.is_some() {
-            return self.deny("`ChooseColor` `Animate` with a second target".to_string());
-        }
-        chain.target = Some(self.target_spec(&valid, "Animate")?);
         if animate.take("Colors").as_deref() != Some("ChosenColor")
             || animate.take("OverwriteColors").as_deref() != Some("True")
         {
@@ -157,7 +161,7 @@ impl Tx<'_> {
             return self.deny(format!("unclaimed parameter `Animate.{key}`"));
         }
         Some(vec![format!(
-            "Effect::ChooseColors {{ subject: ColorSubject::Target, max: 1, duration: {duration} }}"
+            "Effect::ChooseColors {{ subject: {subject}, max: 1, duration: {duration} }}"
         )])
     }
 
@@ -240,7 +244,7 @@ impl Tx<'_> {
 
     fn push_filter_base(&self, base: &str, card_zone: bool, clauses: &mut Vec<String>) -> bool {
         match base {
-            "Card" => {}
+            "Card" | "card" => {}
             "Permanent" if !card_zone => {}
             "Permanent" => clauses.push(
                 "Filter::HasType(TypeSet::ARTIFACT.union(TypeSet::BATTLE)\
@@ -255,6 +259,12 @@ impl Tx<'_> {
             "Planeswalker" => clauses.push("Filter::PLANESWALKER".to_string()),
             "Instant" => clauses.push("Filter::HasType(TypeSet::INSTANT)".to_string()),
             "Sorcery" => clauses.push("Filter::HasType(TypeSet::SORCERY)".to_string()),
+            "Basic" => clauses.push("Filter::HasSupertype(SupertypeSet::BASIC)".to_string()),
+            "Legendary" => {
+                clauses.push("Filter::HasSupertype(SupertypeSet::LEGENDARY)".to_string());
+            }
+            "Snow" => clauses.push("Filter::HasSupertype(SupertypeSet::SNOW)".to_string()),
+            "Enchanted" => clauses.push("Filter::AttachedToBySource".to_string()),
             _ => {
                 let Some(path) = self.cats.const_path(base) else {
                     self.note(format!("filter base `{base}`"));
@@ -270,6 +280,7 @@ impl Tx<'_> {
     /// (`card_zone == false`, where every object is already a permanent) from
     /// card zones such as graveyards and libraries (`card_zone == true`, where
     /// `"Permanent"` means a permanent card under CR 110.4a).
+    #[allow(clippy::too_many_lines)]
     pub(super) fn filter_expr_in_zone(&self, valid: &str, card_zone: bool) -> Option<String> {
         let mut alternatives = Vec::new();
         for alt in valid.split(',') {
@@ -292,6 +303,7 @@ impl Tx<'_> {
                     "EnchantedBy" | "EquippedBy" | "AttachedBy" => {
                         "Filter::AttachedToBySource".to_string()
                     }
+                    "Attached" => "Filter::AttachedToSource".to_string(),
                     "YouCtrl" => "Filter::ControlledByYou".to_string(),
                     "YouDontCtrl" => "Filter::Not(&Filter::ControlledByYou)".to_string(),
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
@@ -302,6 +314,13 @@ impl Tx<'_> {
                     "attacking" => "Filter::Attacking".to_string(),
                     "attackingYou" => "Filter::AttackingYou".to_string(),
                     "blocking" => "Filter::Blocking".to_string(),
+                    "blockingSource" => "Filter::BlockingSource".to_string(),
+                    "blockedBySource" => "Filter::BlockedBySource".to_string(),
+                    "blockingTriggeredAttacker"
+                        if self.trigger_mode.as_deref() == Some("AttackerBlocked") =>
+                    {
+                        "Filter::BlockingSource".to_string()
+                    }
                     "blocked" => "Filter::Blocked".to_string(),
                     "unblocked" => "Filter::Unblocked".to_string(),
                     "tapped" => "Filter::Tapped".to_string(),
@@ -317,6 +336,7 @@ impl Tx<'_> {
                     // creature" a second spelling that only `filter_hash`
                     // can tell from the first.
                     "nonLand" => "Filter::NONLAND".to_string(),
+                    "Artifact" => "Filter::ARTIFACT".to_string(),
                     "Creature" => "Filter::CREATURE".to_string(),
                     "nonCreature" => "Filter::NONCREATURE".to_string(),
                     // Supertypes read like subtypes in a script filter but are
@@ -338,6 +358,13 @@ impl Tx<'_> {
                     "nonArtifact" => "Filter::LacksType(TypeSet::ARTIFACT)".to_string(),
                     "nonEnchantment" => "Filter::LacksType(TypeSet::ENCHANTMENT)".to_string(),
                     "Colorless" => "Filter::IsColorless".to_string(),
+                    "MonoColor" => "Filter::Monocolored".to_string(),
+                    "MultiColor" => "Filter::And(&[Filter::Not(&Filter::IsColorless), \
+                         Filter::Not(&Filter::Monocolored)])"
+                        .to_string(),
+                    "nonMultiColor" => {
+                        "Filter::Or(&[Filter::IsColorless, Filter::Monocolored])".to_string()
+                    }
                     "ChosenColor" => "Filter::OfSourceChosenColor".to_string(),
                     "" => continue,
                     // A colour word (CR 105.2): "black creatures", "target
@@ -461,6 +488,15 @@ impl Tx<'_> {
         Some(format!("TargetSpec::StackOrBattlefield(&{name})"))
     }
 
+    /// "Target activated ability [from a <valid> source]":
+    /// `TargetSpec::AbilityOnStack` over `Filter::ActivatedAbilityFrom`.
+    pub(super) fn activated_ability_target(&mut self, valid: &str) -> Option<String> {
+        let source = self.filter_expr(valid)?;
+        let expr = format!("Filter::ActivatedAbilityFrom(&{source})");
+        let name = self.body.filter_static("TARGET", &expr);
+        Some(format!("TargetSpec::AbilityOnStack(&{name})"))
+    }
+
     /// "Target creature card in your graveyard": a `CardInGraveyard` spec,
     /// whose player is whose graveyard. In a graveyard the reference's
     /// `YouCtrl` means "yours" (a card there is controlled by nobody, and
@@ -517,6 +553,9 @@ impl Tx<'_> {
             None => {}
             Some("You") => whose = "PlayerRel::You",
             Some("TriggeredCardController") if whose == "PlayerRel::You" => {}
+            Some("TriggeredTarget") if self.trigger_mode.as_deref() == Some("DamageDone") => {
+                whose = "PlayerRel::DamagedPlayer";
+            }
             Some(_) => return None,
         }
         let filter = self.filter_expr_in_zone(&cleaned_alts.join(","), true)?;
@@ -567,6 +606,7 @@ impl Tx<'_> {
             "TriggeredCardController" if trigger == Some("SpellCast") => {
                 "PlayerRel::ControllerOfEvent"
             }
+            "TriggeredCardController" if trigger == Some("Drawn") => "PlayerRel::EventPlayer",
             // The player a damage trigger's damage was dealt to: the
             // `DamageDone` rule reads only triggers whose target is a
             // player, so `TriggeredTarget` is one.

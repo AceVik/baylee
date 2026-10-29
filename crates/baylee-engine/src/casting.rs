@@ -22,7 +22,9 @@ mod additional;
 mod escape;
 mod intrinsic;
 mod lands;
-pub(crate) use additional::{additional_card_enters_graveyard, additional_payment_capacity};
+pub(crate) use additional::{
+    additional_card_enters_graveyard, additional_payment_capacity, additional_payment_capacity_for,
+};
 mod payment;
 mod permissions;
 mod player_locks;
@@ -366,6 +368,17 @@ pub fn mode_has_a_legal_target(
     match reqs {
         Some((first, second)) => requirements_are_reachable(first, second, state, player, card),
         None => true,
+    }
+}
+
+/// Every mode of `modes` as a bitmask, for entwine (CR 702.42a).
+#[must_use]
+pub fn entwine_set(modes: &[baylee_cards_dsl::SpellMode]) -> u8 {
+    let n = modes.len().min(8);
+    if n == 0 {
+        0
+    } else {
+        u8::try_from((1_u16 << n) - 1).unwrap_or(u8::MAX)
     }
 }
 
@@ -1632,7 +1645,8 @@ fn alternative_parts_payable(
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
         | CostPart::PayCommanderColors
-        | CostPart::PayAttachedManaCost => false,
+        | CostPart::PayAttachedManaCost
+        | CostPart::ExileTopOfLibrary(_) => false,
         CostPart::DiscardHand
         | CostPart::TapSelf
         | CostPart::UntapSelf

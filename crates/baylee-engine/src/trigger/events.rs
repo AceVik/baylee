@@ -69,6 +69,15 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
     match event {
         GameEvent::StepChanged { active: player, .. }
         | GameEvent::AbilityActivated { player, .. }
+        | GameEvent::AbilityTriggered {
+            controller: player, ..
+        }
+        | GameEvent::BecameTarget {
+            controller: player, ..
+        }
+        | GameEvent::PlayerBecameTarget {
+            controller: player, ..
+        }
         | GameEvent::CardsDrawn { player, .. }
         | GameEvent::SpellCast { player, .. }
         | GameEvent::SpellCopied { player, .. }

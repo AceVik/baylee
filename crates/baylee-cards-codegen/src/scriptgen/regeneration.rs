@@ -117,6 +117,9 @@ impl Tx<'_> {
         target: Option<&str>,
     ) -> Option<Vec<String>> {
         if p.peek("ReplacementEffects").is_some() {
+            if target.is_none() {
+                return self.prevent_combat_damage_from_effect(p);
+            }
             return self.replace_target_white_mana(p, target);
         }
         if p.peek("Triggers").is_some() {
@@ -162,6 +165,41 @@ impl Tx<'_> {
              duration: Duration::UntilEndOfTurn }"
                 .to_string(),
         ])
+    }
+
+    fn prevent_combat_damage_from_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        if !matches!(p.take("Duration").as_deref(), None | Some("UntilEndOfTurn")) {
+            return None;
+        }
+        let name = p.take("ReplacementEffects")?;
+        let (event, mut r) = Params::parse(self.svars.get(name.trim())?)?;
+        r.drop_prose();
+        if event != "DamageDone"
+            || r.take("Prevent").as_deref() != Some("True")
+            || !matches!(r.take("ActiveZones").as_deref(), None | Some("Command"))
+        {
+            return None;
+        }
+        let is_combat = match r.take("IsCombat").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let (valid, modifier) = match (r.take("ValidSource"), r.take("ValidTarget"), is_combat) {
+            (Some(src), None, true) => (src, "Modifier::PreventDamageFromIt"),
+            (Some(src), None, false) => (src, "Modifier::PreventAllDamageFromIt"),
+            (None, Some(tgt), true) => (tgt, "Modifier::PreventDamageToIt"),
+            (None, Some(tgt), false) => (tgt, "Modifier::PreventDamageFrom(&Filter::Any)"),
+            _ => return None,
+        };
+        if !r.exhausted() {
+            return None;
+        }
+        let filter = self.filter_expr(&valid)?;
+        let filter_static = self.body.filter_static("EFFECT", &filter);
+        Some(vec![format!(
+            "Effect::continuous(&{filter_static}, {modifier}, Duration::UntilEndOfTurn)"
+        )])
     }
 
     /// "Destroy target blocking creature at end of combat" (Silent Assassin):
@@ -255,5 +293,53 @@ impl Tx<'_> {
         } else {
             effect
         }])
+    }
+
+    /// `ReplaceDyingDefined$` — "if that creature would die this turn,
+    /// exile it instead" (Magma Spray), a replacement on the line's own
+    /// target for the rest of the turn.
+    pub(super) fn exile_if_dies(&mut self, defined: &str, target: Option<&str>) -> Option<String> {
+        let Some(target) = target.filter(|t| {
+            !matches!(
+                *t,
+                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
+            )
+        }) else {
+            return self.deny(format!(
+                "`ReplaceDyingDefined$ {defined}` with no object target"
+            ));
+        };
+        let exile = format!("Effect::ExileIfDiesThisTurn {{ target: {target} }}");
+        match defined {
+            "Targeted" => Some(exile),
+            "ThisTargetedCard.Creature" => Some(format!(
+                "Effect::IfTargetMatches {{ filter: &Filter::CREATURE, then: &[{exile}] }}"
+            )),
+            other => self.deny(format!("`ReplaceDyingDefined$ {other}`")),
+        }
+    }
+
+    /// `AtEOT$` on a line that pumps its target — "destroy that creature at
+    /// the beginning of the next end step" (Stone Giant): a delayed trigger
+    /// about the target, `Effect::AtNextEndStep`.
+    pub(super) fn at_next_end_step(
+        &mut self,
+        api: &str,
+        what: &str,
+        target: Option<&str>,
+    ) -> Option<String> {
+        let aimed = target.is_some_and(|t| {
+            !matches!(
+                t,
+                "TargetSpec::Player(PlayerRel::Chosen)" | "TargetSpec::AnyPlayer"
+            )
+        });
+        if api != "Pump" || !aimed || what != "Destroy" {
+            return self.deny(format!("`AtEOT$ {what}` on `{api}`"));
+        }
+        Some(
+            "Effect::AtNextEndStep { effects: &[Effect::destroy(TargetSpec::EventObject)] }"
+                .to_string(),
+        )
     }
 }

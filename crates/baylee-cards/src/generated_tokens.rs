@@ -2543,6 +2543,76 @@ pub static MINION_1_1_BLACK: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 2/1 black Cat.
+pub static CAT_2_1_BLACK: TokenDef = TokenDef {
+    name: "Cat",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CAT],
+    power: Some(2),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 black Angel with flying.
+pub static ANGEL_3_3_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Angel",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ANGEL],
+    power: Some(3),
+    toughness: Some(3),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 black Kavu.
+pub static KAVU_3_3_BLACK: TokenDef = TokenDef {
+    name: "Kavu",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KAVU],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// 6/6 black Wurm with trample.
+pub static WURM_6_6_BLACK_TRAMPLE: TokenDef = TokenDef {
+    name: "Wurm",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WURM],
+    power: Some(6),
+    toughness: Some(6),
+    keywords: KeywordSet::TRAMPLE,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Elemental Cat with haste.
+pub static ELEMENTAL_CAT_1_1_RED_HASTE: TokenDef = TokenDef {
+    name: "Elemental Cat",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL, creature::CAT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 7/7 green Elemental with trample.
+pub static ELEMENTAL_7_7_GREEN_TRAMPLE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(7),
+    toughness: Some(7),
+    keywords: KeywordSet::TRAMPLE,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2796,6 +2866,12 @@ pub static ALL: &[&TokenDef] = &[
     &KNIGHT_2_2_WHITE,
     &MONKEY_2_2_GREEN,
     &MINION_1_1_BLACK,
+    &CAT_2_1_BLACK,
+    &ANGEL_3_3_BLACK_FLYING,
+    &KAVU_3_3_BLACK,
+    &WURM_6_6_BLACK_TRAMPLE,
+    &ELEMENTAL_CAT_1_1_RED_HASTE,
+    &ELEMENTAL_7_7_GREEN_TRAMPLE,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -3016,4 +3092,10 @@ pub static GENERATED: &[&TokenDef] = &[
     &KNIGHT_2_2_WHITE,
     &MONKEY_2_2_GREEN,
     &MINION_1_1_BLACK,
+    &CAT_2_1_BLACK,
+    &ANGEL_3_3_BLACK_FLYING,
+    &KAVU_3_3_BLACK,
+    &WURM_6_6_BLACK_TRAMPLE,
+    &ELEMENTAL_CAT_1_1_RED_HASTE,
+    &ELEMENTAL_7_7_GREEN_TRAMPLE,
 ];

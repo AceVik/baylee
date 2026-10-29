@@ -384,12 +384,34 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
     )
 }
 
+/// The mandatory additional cost parts for `face`, plus entwine's non-mana
+/// cost parts when `option` chooses all modes (CR 702.42a).
+pub(crate) fn wizard_mandatory_parts(
+    face: &'static baylee_cards_dsl::FaceDef,
+    option: Option<CastModeKind>,
+) -> impl Iterator<Item = &'static CostPart> {
+    let entwine_parts = match (option, face.entwine) {
+        (Some(CastModeKind::Modes(_)), Some(entwine)) => entwine.parts,
+        _ => &[],
+    };
+    face.mandatory_additional_costs
+        .iter()
+        .chain(entwine_parts.iter())
+}
+
 /// The parts of a spell's additional cost that ask which permanent pays
 /// them, in printed order: the questions the `Sacrifice` stage puts.
 pub(crate) fn additional_card_costs(
     face: &'static baylee_cards_dsl::FaceDef,
 ) -> impl Iterator<Item = &'static CostPart> {
-    face.mandatory_additional_costs.iter().filter(|p| {
+    additional_card_costs_for(face, None)
+}
+
+pub(crate) fn additional_card_costs_for(
+    face: &'static baylee_cards_dsl::FaceDef,
+    option: Option<CastModeKind>,
+) -> impl Iterator<Item = &'static CostPart> {
+    wizard_mandatory_parts(face, option).filter(|p| {
         matches!(
             p,
             CostPart::Sacrifice(_)

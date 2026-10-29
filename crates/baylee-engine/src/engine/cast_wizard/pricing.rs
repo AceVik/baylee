@@ -110,10 +110,19 @@ fn raw_option_cost(
             .abilities_for_face(wizard.face_index())
             .iter()
             .find_map(|ability| {
-                let AbilityDef::ModalSpell { modes, .. } = ability else {
+                let AbilityDef::ModalSpell { modes, choose } = ability else {
                     return None;
                 };
-                Some(casting::mode_set_cost(normal, modes, set))
+                let base = casting::mode_set_cost(normal, modes, set);
+                Some(
+                    if choose.is_one()
+                        && let Some(entwine) = face.entwine
+                    {
+                        base.combine(&entwine.mana)
+                    } else {
+                        base
+                    },
+                )
             })
             .expect("modal spell"),
     };
