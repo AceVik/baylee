@@ -136,6 +136,28 @@ impl<'a> GitHub<'a> {
             .and_then(|answer| answer.get("busy").and_then(Value::as_bool))
     }
 
+    /// This repository's offline runners whose name starts with `prefix`:
+    /// registrations a runner killed outright never removed. An API error is
+    /// an empty list; the next start tries again.
+    pub fn offline_runners(&mut self, prefix: &str) -> Vec<(u64, String)> {
+        let path = format!("repos/{}/actions/runners?per_page=100", self.repo);
+        let Ok(answer) = self.api(&["api", &path]) else {
+            return Vec::new();
+        };
+        answer
+            .get("runners")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter(|runner| runner.get("status").and_then(Value::as_str) == Some("offline"))
+            .filter_map(|runner| {
+                let id = runner.get("id").and_then(Value::as_u64)?;
+                let name = runner.get("name").and_then(Value::as_str)?;
+                name.starts_with(prefix).then(|| (id, name.to_owned()))
+            })
+            .collect()
+    }
+
     /// Deletes a JIT registration, best effort after job completion.
     pub fn remove(&mut self, id: u64) {
         let path = format!("repos/{}/actions/runners/{id}", self.repo);

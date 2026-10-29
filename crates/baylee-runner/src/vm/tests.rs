@@ -605,3 +605,64 @@ fn the_job_guard_admits_only_main_pushes_and_dispatches_of_this_repository() {
     // The hook is in place before the runner starts.
     assert!(script.find(GUARD).unwrap() < script.find("exec ./run.sh").unwrap());
 }
+
+/// A runner killed outright (SIGKILL after launchd's 180 s) leaves its VM
+/// and its registration; the next `serve` removes both before it serves,
+/// and nothing that may still be in use.
+#[test]
+fn a_start_sweeps_what_a_killed_runner_left_and_nothing_else() {
+    let settings = Settings::default();
+    let token = "token";
+    let mut operations = MockOperations::default();
+    let vms = r#"[
+        {"Name": "baylee-runner", "State": "stopped"},
+        {"Name": "baylee-vm-1793286183-1", "State": "stopped"},
+        {"Name": "baylee-vm-1793286183-2", "State": "running"},
+        {"Name": "exp-a1", "State": "stopped"}
+    ]"#;
+    operations.push_output(
+        Spec::new("tart", ["list", "--source", "local", "--format", "json"])
+            .with_timeout(Duration::from_secs(30)),
+        output(0, vms),
+    );
+    operations.push_output(
+        Spec::new("tart", ["delete", "baylee-vm-1793286183-1"])
+            .with_timeout(Duration::from_secs(60))
+            .for_cleanup(),
+        output(0, ""),
+    );
+    let runners = r#"{"runners": [
+        {"id": 41, "name": "baylee-vm-1793286183-1", "status": "offline"},
+        {"id": 42, "name": "baylee-vm-1793286183-2", "status": "online"},
+        {"id": 43, "name": "someone-else", "status": "offline"}
+    ]}"#;
+    operations.push_output(
+        Spec::new(
+            "gh",
+            [
+                "api",
+                &format!("repos/{}/actions/runners?per_page=100", settings.repo),
+            ],
+        )
+        .with_env("GH_TOKEN", token)
+        .with_timeout(Duration::from_secs(30)),
+        output(0, runners),
+    );
+    operations.push_output(
+        Spec::new(
+            "gh",
+            [
+                "api",
+                "-X",
+                "DELETE",
+                &format!("repos/{}/actions/runners/41", settings.repo),
+            ],
+        )
+        .with_env("GH_TOKEN", token)
+        .with_timeout(Duration::from_secs(30))
+        .for_cleanup(),
+        output(0, ""),
+    );
+    sweep(&settings, &mut operations, token);
+    operations.assert_done();
+}
