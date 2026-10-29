@@ -4,6 +4,32 @@ import torch
 import torch.nn.functional as F
 
 
+def _bernoulli_logprob_and_kl(
+    logits: torch.Tensor,
+    anchor_logits: torch.Tensor,
+    target: torch.Tensor,
+    free_mask: torch.Tensor,
+    scale: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Conditional free-entry likelihood and KL(anchor || policy).
+
+    Mask before arithmetic so forced/padded entries contribute neither values
+    nor gradients, even when their unused logits are nonfinite. Log-sigmoid
+    retains rare-action likelihoods and gradients after sigmoid saturates.
+    """
+    free = free_mask != 0
+    z = logits.masked_fill(~free, 0.0) * scale
+    az = anchor_logits.masked_fill(~free, 0.0) * scale
+    chosen, absent = F.logsigmoid(z), F.logsigmoid(-z)
+    anchor_chosen, anchor_absent = F.logsigmoid(az), F.logsigmoid(-az)
+    logprob = torch.where(target.bool(), chosen, absent).masked_fill(~free, 0.0)
+    kl = (
+        anchor_chosen.exp() * (anchor_chosen - chosen)
+        + anchor_absent.exp() * (anchor_absent - absent)
+    ).masked_fill(~free, 0.0)
+    return logprob.sum(dim=-1), kl.sum(dim=-1).clamp(min=0.0)
+
+
 def action_logprob_and_kl(
     cand_logits: torch.Tensor,
     pair_logits: torch.Tensor,
@@ -48,38 +74,16 @@ def action_logprob_and_kl(
     # 1: SubsetPick (temperature-scaled conditional Bernoulli over free_mask == 1)
     m1 = head == 1
     if m1.any():
-        sc1 = scale[m1]
-        fm1 = cfmask[m1]
-        t1 = ctgt[m1]
-        l1 = (cand_logits[m1] * sc1).masked_fill(~cmask[m1], 0.0)
-        al1 = (anc_cand_logits[m1] * sc1).masked_fill(~cmask[m1], 0.0)
-        p1 = torch.sigmoid(l1).clamp(1e-7, 1.0 - 1e-7)
-        ap1 = torch.sigmoid(al1).clamp(1e-7, 1.0 - 1e-7)
-        lp1 = t1 * torch.log(p1) + (1.0 - t1) * torch.log(1.0 - p1)
-        logp[m1] = (lp1 * fm1).sum(dim=-1)
-        kl1 = (
-            ap1 * (torch.log(ap1) - torch.log(p1))
-            + (1.0 - ap1) * (torch.log(1.0 - ap1) - torch.log(1.0 - p1))
+        logp[m1], kl[m1] = _bernoulli_logprob_and_kl(
+            cand_logits[m1], anc_cand_logits[m1], ctgt[m1], cfmask[m1], scale[m1]
         )
-        kl[m1] = (kl1 * fm1).sum(dim=-1).clamp(min=0.0)
 
     # 2: PairPick (temperature-scaled conditional Bernoulli over pair_free_mask == 1)
     m2 = head == 2
     if m2.any():
-        sc2 = scale[m2]
-        fm2 = pfmask[m2]
-        t2 = ptgt[m2]
-        l2 = (pair_logits[m2] * sc2).masked_fill(~pmask[m2], 0.0)
-        al2 = (anc_pair_logits[m2] * sc2).masked_fill(~pmask[m2], 0.0)
-        p2 = torch.sigmoid(l2).clamp(1e-7, 1.0 - 1e-7)
-        ap2 = torch.sigmoid(al2).clamp(1e-7, 1.0 - 1e-7)
-        lp2 = t2 * torch.log(p2) + (1.0 - t2) * torch.log(1.0 - p2)
-        logp[m2] = (lp2 * fm2).sum(dim=-1)
-        kl2 = (
-            ap2 * (torch.log(ap2) - torch.log(p2))
-            + (1.0 - ap2) * (torch.log(1.0 - ap2) - torch.log(1.0 - p2))
+        logp[m2], kl[m2] = _bernoulli_logprob_and_kl(
+            pair_logits[m2], anc_pair_logits[m2], ptgt[m2], pfmask[m2], scale[m2]
         )
-        kl[m2] = (kl2 * fm2).sum(dim=-1).clamp(min=0.0)
 
     # ScalarValue is deterministic regression, not a stochastic behavior policy.
     # It remains eligible for supervised replay, never the PPO ratio.
