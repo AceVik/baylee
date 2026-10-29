@@ -231,7 +231,7 @@ fn validate_record(
 }
 #[cfg(test)]
 #[path = "probe_tests.rs"]
-mod tests;
+pub(super) mod tests;
 
 fn validate_request(config: &Value, request: &Value, technical: &Value) -> Result<()> {
     ensure!(

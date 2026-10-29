@@ -59,7 +59,12 @@ fn setup(ops: &Path) -> Result<FakeSystem> {
         "--concurrency".into(),
         "34".into(),
     ];
-    let config = json!({"unit":PRIMARY,"root":root,"old_controller":old,"not_before_unix":0,"binary":binary,"expected_argv":argv,"sha256":{binary.to_str().context("path")?:files::sha256(&binary)?,profiles.to_str().context("path")?:files::sha256(&profiles)?,pairings.to_str().context("path")?:files::sha256(&pairings)?}});
+    let mut config = json!({"unit":PRIMARY,"root":root,"old_controller":old,"not_before_unix":0,"binary":binary,"expected_argv":argv,"sha256":{binary.to_str().context("path")?:files::sha256(&binary)?,profiles.to_str().context("path")?:files::sha256(&profiles)?,pairings.to_str().context("path")?:files::sha256(&pairings)?}});
+    let probe = super::super::probe::tests::fixture(&ops.join("probe"))?;
+    config
+        .as_object_mut()
+        .context("config")?
+        .extend(probe.as_object().context("probe config")?.clone());
     files::atomic_json(&ops.join("flash-transition.json"), &config)?;
     files::atomic_json(
         &ops.join("collector-activation-plan.json"),

@@ -151,11 +151,14 @@ fn handover_with(ops: &Path, lane: bool, system: &mut impl System) -> Result<Str
     } else {
         "flash-transition"
     };
-    let _lock = files::lock(&ops.join(if lane {
+    let lock = ops.join(if lane {
         "lane9-resume.lock"
     } else {
         "transition.lock"
-    }))?;
+    });
+    let Some(_lock) = super::try_lock(&lock)? else {
+        return Ok("busy".into());
+    };
     let path = ops.join(format!("{stem}-state.json"));
     let mut receipt = state(&path)?;
     if let Some(done) = terminal(&receipt, lane) {
@@ -177,8 +180,8 @@ fn handover_with(ops: &Path, lane: bool, system: &mut impl System) -> Result<Str
     }
     verify_activation(ops, stem, &config, now, hold)?;
     ensure!(
-        !lane || config["clean_probe_root"].is_string(),
-        "lane9 clean probe gate required"
+        config["clean_probe_root"].is_string(),
+        "native handover clean probe gate required"
     );
     if !validate_clean_probe(&config)? {
         return Ok("waiting-probe".into());

@@ -202,7 +202,9 @@ fn check_with(
     if !directory.join("config.json").exists() {
         return Ok("unarmed".into());
     }
-    let _lock = files::lock(&directory.join("lock"))?;
+    let Some(_lock) = super::try_lock(&directory.join("lock"))? else {
+        return Ok("busy".into());
+    };
     let config = json(directory.join("config.json"))?;
     uuid::Uuid::parse_str(text(&config, "thread")?)?;
     ensure!(
@@ -289,6 +291,41 @@ fn check_with(
     }
     Ok(if delivered { "notified" } else { "quiet" }.into())
 }
+
+fn controller_findings(
+    root: &Path,
+    config: &Value,
+    state: &mut Value,
+    status: &Value,
+    live: bool,
+) -> Result<Vec<Event>> {
+    let mut events = Vec::new();
+    let dead = if live {
+        0
+    } else {
+        state["dead_polls"].as_u64().unwrap_or(0) + 1
+    };
+    state["dead_polls"] = json!(dead);
+    let intentional =
+        (root.join("STOP").exists() || root.join("DRAIN").exists()) && status["phase"] == "stopped";
+    let identity = crate::watch::state::canonical(&config["controller"])?;
+    if dead >= 2 && !intentional && status["phase"] != "failed" {
+        events.push((
+            format!("dead:{identity}"),
+            "Collection controller exited or PID identity changed",
+            json!({"controller":config["controller"],"phase":status["phase"]}),
+        ));
+    }
+    if status["phase"] == "failed" {
+        events.push((
+            format!("controller-failed:{identity}"),
+            "Collection controller reports failure",
+            json!({"phase":"failed"}),
+        ));
+    }
+    Ok(events)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -343,38 +380,4 @@ mod tests {
         ensure!(calls == 1);
         Ok(())
     }
-}
-
-fn controller_findings(
-    root: &Path,
-    config: &Value,
-    state: &mut Value,
-    status: &Value,
-    live: bool,
-) -> Result<Vec<Event>> {
-    let mut events = Vec::new();
-    let dead = if live {
-        0
-    } else {
-        state["dead_polls"].as_u64().unwrap_or(0) + 1
-    };
-    state["dead_polls"] = json!(dead);
-    let intentional =
-        (root.join("STOP").exists() || root.join("DRAIN").exists()) && status["phase"] == "stopped";
-    let identity = crate::watch::state::canonical(&config["controller"])?;
-    if dead >= 2 && !intentional && status["phase"] != "failed" {
-        events.push((
-            format!("dead:{identity}"),
-            "Collection controller exited or PID identity changed",
-            json!({"controller":config["controller"],"phase":status["phase"]}),
-        ));
-    }
-    if status["phase"] == "failed" {
-        events.push((
-            format!("controller-failed:{identity}"),
-            "Collection controller reports failure",
-            json!({"phase":"failed"}),
-        ));
-    }
-    Ok(events)
 }

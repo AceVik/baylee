@@ -1,6 +1,8 @@
 //! Collector lifecycle tools. No gateway mutation or implicit collector restart.
+mod arm;
 pub mod launch;
 pub mod monitor;
+pub use arm::arm;
 mod probe;
 mod transition;
 use crate::files;
@@ -80,4 +82,20 @@ fn verify_closed(root: &Path) -> Result<()> {
         );
     }
     Ok(())
+}
+
+fn try_lock(path: &Path) -> Result<Option<std::fs::File>> {
+    match files::lock(path) {
+        Ok(lock) => Ok(Some(lock)),
+        Err(error)
+            if error.chain().any(|cause| {
+                cause
+                    .downcast_ref::<std::fs::TryLockError>()
+                    .is_some_and(|e| matches!(e, std::fs::TryLockError::WouldBlock))
+            }) =>
+        {
+            Ok(None)
+        }
+        Err(error) => Err(error),
+    }
 }

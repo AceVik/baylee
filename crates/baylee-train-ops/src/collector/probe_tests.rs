@@ -4,21 +4,17 @@ use std::fs;
 fn artifact(attempt: &Path, role: &str, value: &Value, line: bool) -> Result<Value> {
     let path = attempt.join(format!("{role}.json"));
     if line {
-        fs::write(
-            &path,
-            value
-                .as_array()
-                .context("rows")?
-                .iter()
-                .map(|v| format!("{v}\n"))
-                .collect::<String>(),
-        )?;
+        use std::io::Write;
+        let mut file = std::fs::File::create(&path)?;
+        for row in value.as_array().context("rows")? {
+            writeln!(file, "{row}")?;
+        }
     } else {
         files::atomic_json(&path, value)?;
     }
     Ok(json!({"role":role,"path":path,"sha256":files::sha256(&path)?}))
 }
-fn fixture(root: &Path) -> Result<Value> {
+pub(crate) fn fixture(root: &Path) -> Result<Value> {
     let attempt = root.join("attempts/attempt-000000000");
     fs::create_dir_all(&attempt)?;
     let profiles = root.join("profiles.json");

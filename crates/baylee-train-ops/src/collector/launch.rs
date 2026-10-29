@@ -128,7 +128,11 @@ fn prepare(plan: &serde_json::Value) -> Result<Command> {
 /// Emits one opaque error after a bounded wait; never reveals credential bytes.
 pub fn run(plan: &Path) -> Result<()> {
     let result = (|| -> Result<()> {
-        let plan = json(plan)?;
+        let path = plan;
+        let plan = json(path)?;
+        if plan.get("not_before_unix").is_some() {
+            probe_preflight(path)?;
+        }
         let deadline = Instant::now() + Duration::from_secs(45);
         let mut command = loop {
             match prepare(&plan) {
