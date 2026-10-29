@@ -81,14 +81,17 @@ the same builds and uploads them as workflow artifacts, versioned
 ## Build reuse and caches
 
 `.github/workflows/client-packages.yml` is the one packaging recipe. Main CI
-links the two shipped binaries (`baylee-client`, `baylee-launch`) in `dist` on
-each of the six shipping targets, with `--workspace` as the selection so their
-dependencies' features unify exactly as a whole-workspace build would, checks
-every target's code (`--all-targets`), and uploads the client/launcher archives.
-The Intel macOS link check of every binary stays in its own parallel job; the
-link of the other binaries on the five native platforms is the nightly `build`
-matrix. PR and dispatched
-runs cannot supply release archives.
+links the three shipped binaries (`baylee-client`, `baylee-launch`,
+`baylee-seat`: `cargo build-client`) in `dist` on each of the six shipping
+targets, with `--workspace` as the selection so their dependencies' features
+unify exactly as a whole-workspace build would, checks every target of the
+client crates that carry a platform `cfg` (`cargo check-client`), and uploads
+the client/launcher archives. Only the client is built for every platform
+(owner, 29.10.2026). The servers and tools run on Linux x86_64, where the
+tests build all of them. The nightly `build` matrix links the client natively
+on the other four platforms, and the gateway, agent and engine server on Linux
+arm64 too (`cargo build-servers`). PR and dispatched runs cannot supply release
+archives.
 
 Each package artifact includes its archive, its installers, a SHA-256 checksum
 file for each and a manifest (schema 2) naming repository, commit, source CI
@@ -163,11 +166,11 @@ push run of the tagged commit green (§"Cutting one").
 
 | Trigger | Runs |
 | --- | --- |
-| main push (code or CI changed) | everything: fmt, clippy, test ×2, test-release, shipped-features, validate, web-feedback, deny, audit, bench, msrv, macos-intel, packages ×6 |
+| main push (code or CI changed) | everything: fmt, clippy, test ×2, test-release, shipped-features, validate, web-feedback, deny, audit, bench, msrv, packages ×6 |
 | main push (docs only) | fmt, test ×2 (tests read docs); not taggable |
 | pull request | fmt, and as their inputs changed: clippy, test ×2, shipped-features, validate, deny, web-feedback |
 | pull request labelled `ci:full`, or changing CI | as a main push (its packages are never promotable) |
-| nightly | as a main push without packages, plus the five-platform `build` matrix |
+| nightly | as a main push without packages, plus the five-platform `build` matrix (every binary on Linux x86_64, the client elsewhere, the three servers also on Linux arm64) |
 | `workflow_dispatch` | `full` (default on) as a main push; `platforms` adds the matrix |
 
 Current client releases support Windows, macOS and Linux. Android, iOS and
@@ -242,8 +245,8 @@ cores, 64 GB) instead of GitHub's three-core macOS image. While the
 repository variable `MACOS_RUNNER` is `self-hosted`, a **push to main** (or a
 dispatch, which only someone with write access can start) sends them to the
 label `baylee-vm`. Every other run, a `ci:full` pull request included, and
-every other macOS job (`macos-intel`, the nightly `build` row) stays on
-GitHub; with the variable unset, nothing differs from before.
+the other macOS job (the nightly `build` row) stays on GitHub; with the
+variable unset, nothing differs from before.
 
 Measured over ten main pushes (20.–21.10.2026, minutes), GitHub's rows took
 32–88 (aarch64) and 42–82 (x86_64), 27–54 of it the `dist` build with
