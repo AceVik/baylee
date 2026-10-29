@@ -64,6 +64,18 @@ account. `/state.view` is null before the duel. A networked test uses only an
 explicitly authorised staging gateway and isolated test accounts. Keep
 secrets out of command transcripts, dumps and screenshots.
 
+A networked test always sets `BAYLEE_GATEWAY` to the QA gateway: without it
+the client takes the production gateway. The front door also lists the
+built-in production gateway (Baylee Sanctuary) beside the saved ones, and the
+rows' order can change between runs, so never pick a row by index alone:
+strip every non-loopback address from the profile's `gateways`, choose the
+row that has a bin (`Front(ForgetGateway(k))`; the built-in row has none),
+and type nothing until the gateway's own username and password fields are on
+screen and no Central control is. If the QA gateway is not answering, the
+test stops instead of signing in anywhere (29.10.2026: a run picked the
+production row by index after a QA restart and tried throwaway test
+credentials there).
+
 Build once under the shared Cargo lock, then run the binary for repeated
 checks. If worktrees share a target directory, copy the finished client and
 helper into a directory for this run; later builds can replace the shared
