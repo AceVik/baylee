@@ -1,4 +1,8 @@
-# The rules half of the gate, for work that cannot touch the client.
+# Cargo aliases: the development and release tools (`dev`, `tools`), the
+# rules half of the gate (`lint-rules`, `test-rules`), and what CI builds per
+# platform (`build-servers`, `build-client`, `check-client`).
+#
+# The rules half of the gate is for work that cannot touch the client.
 #
 # `baylee-client` is a Bevy crate and dominates a full `--workspace` run, so an
 # engine or card change that rebuilt it was paying for a renderer it had not
@@ -10,8 +14,9 @@
 # enumeration also goes stale the moment a crate is added; "everything but
 # the renderer" cannot.
 #
-# Two aliases because a cargo alias is exactly one subcommand.
-# `cargo dev gate rules` runs both and stops at the first failure.
+# `lint-rules` and `test-rules` are two aliases because a cargo alias is
+# exactly one subcommand. `cargo dev gate rules` runs both and stops at the
+# first failure.
 [alias]
 # The development tasks (crates/baylee-dev): gates, landing, deploys, mobile
 # builds and local fixtures, as `cargo dev <task>`; `cargo dev --help` lists them.
