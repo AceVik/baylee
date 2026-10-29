@@ -128,3 +128,23 @@ class DepthContracts(unittest.TestCase):
         for left, right in zip(before[:-1], after[:-1]):
             for a, b in zip(left, right):
                 torch.testing.assert_close(a, b, atol=0, rtol=0)
+
+
+    def test_explicit_cli_modes_and_transfer_guards(self):
+        from unittest.mock import patch
+        from training4.cli import parse_args
+        from contextlib import redirect_stderr
+        base = ["train5", "--data", "fixture", "--out", "fixture", "--architecture", "v5"]
+        with patch("sys.argv", base + ["--depth-schedule", "legacy_frame_cycle"]):
+            args, _, _ = parse_args()
+            self.assertTrue(args.thinking_curriculum)
+        with patch("sys.argv", base + ["--candidate-context-revision", "2", "--candidate-context-warmstart", "--init", "old.pt"]):
+            args, _, _ = parse_args()
+            self.assertTrue(args.candidate_context_warmstart)
+        for flags in (["--depth-schedule", "fixed", "--thinking-curriculum"],
+                      ["--thinking-steps", "0"],
+                      ["--candidate-context-warmstart"],
+                      ["--candidate-context-revision", "2", "--relational-revision", "1"],
+                      ["--candidate-context-revision", "2", "--candidate-context-warmstart", "--init", "old.pt", "--encoder-warmstart-from7", "--encoder-version", "8"]):
+            with patch("sys.argv", base + flags), redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit): parse_args()

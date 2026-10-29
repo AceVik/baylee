@@ -47,7 +47,7 @@ class DepthSchedule:
 
     def check_resume(self, saved):
         if saved.get("depth_schedule") != self.to_dict():
-            raise ValueError("Resume depth/validation schedule differs or is missing; use --init-state for a new continuation")
+            raise ValueError("Resume depth/validation schedule differs or is missing; use --init for a new weights-only continuation")
 
     def count_batch(self, batch, step, totals):
         """Count real valid decisions and their supervised policy weight on CPU."""
