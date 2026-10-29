@@ -659,8 +659,9 @@ change beyond the resolver's damage-batch bookkeeping removes the real stack
 object, journals `StackObjectDidNotResolve`, and runs cleanup. The journal
 counts because the snapshot hash omits it and an effect such as a revealed
 hand writes nothing else. Any actual effect, another target or division, or
-an unfinished question keeps the ordinary path. The setting is part of the
-continuation hash. New games enable it; records without the field read it as
+an unfinished question keeps the ordinary path. When on, the setting is part
+of the continuation hash; off, it adds nothing, so an old record keeps every
+hash it recorded. New games enable it; records without the field read it as
 `false`, so their historical empty-target answers still have a question to
 answer.
 
