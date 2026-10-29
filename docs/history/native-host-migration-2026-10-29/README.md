@@ -1,5 +1,11 @@
 # Native local-host migration review — 2026-10-29
 
+Current status: all three hosts now run the sealed native controller. Five
+obsolete inactive controller units were archived and masked under explicit
+owner authorization. See [OPERATIONS.md](OPERATIONS.md) for the handover,
+orphan-session ownership evidence and final verification receipts. The review
+below describes the earlier preparation stage.
+
 These three sealed manifests are review artifacts. No service, gateway, seat or
 collector was started, stopped, replaced or reconfigured while preparing them.
 They preserve the literal environment, loopback ports, database names, capacity,
