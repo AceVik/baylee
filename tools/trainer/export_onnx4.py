@@ -38,12 +38,11 @@ def load_export_checkpoint(checkpoint_path: Path):
     elif version == 5:
         import model5 as module
         config_type, model_type = module.Config5, module.PlayerNet5
-        if checkpoint.get("architecture") not in module.ARCHITECTURES.values():
+        if checkpoint.get("architecture") not in (*module.ARCHITECTURES.values(), module.CANDIDATE_ARCHITECTURE):
             raise ValueError("V5 checkpoint architecture is missing or incompatible")
     else:
         raise ValueError(f"Unsupported checkpoint model_version: {version}")
     for key, expected in (("trajectory_version", module.TRAJECTORY_VERSION),
-                          ("encoder_version", module.ENCODER_VERSION),
                           ("sampling_version", module.SAMPLING_VERSION)):
         if checkpoint.get(key) != expected:
             raise ValueError(f"Checkpoint {key} is incompatible with this exporter")
@@ -59,6 +58,9 @@ def load_export_checkpoint(checkpoint_path: Path):
     config = config_type(**config_values)
     if version == 5 and checkpoint["architecture"] != module.architecture_for_config(config):
         raise ValueError("V5 architecture and relational revision disagree")
+    from encoder_contract import validate_encoder
+    validate_encoder(checkpoint.get("encoder_version"), model_version=version,
+                     relational_revision=getattr(config, "relational_revision", 2))
     net = model_type(config).eval()
     net.attach_structure(checkpoint["structure"])
     net.load_state_dict(checkpoint["state_dict"], strict=True)
@@ -235,7 +237,7 @@ def main() -> None:
 
     if args.data:
         ds = D4.TrajectoryDataset4(Path(args.data).expanduser(), split="val", unroll_len=16,
-                                  max_shards=1)
+                                  max_shards=1, encoder_version=ckpt["encoder_version"])
         if ds.structure.digest != structure_sha256:
             raise ValueError("Parity dataset and checkpoint use different public rule catalogs")
         for trajectory in ds.trajectories:
@@ -263,7 +265,8 @@ def main() -> None:
             raise ValueError("Source checkpoint changed during export")
     shutil.copyfile(model_dir / f"model.k{args.thinking_steps}.onnx", model_dir / "model.onnx")
     meta = {
-        "encoder_version": model_module.ENCODER_VERSION, "model_version": model_module.MODEL_VERSION,
+        **({"encoder_warmstart": ckpt["encoder_warmstart"]} if "encoder_warmstart" in ckpt else {}),
+        "encoder_version": ckpt["encoder_version"], "model_version": model_module.MODEL_VERSION,
         "trajectory_version": M.TRAJECTORY_VERSION,
         "sampling_version": M.SAMPLING_VERSION,
         "structure_version": 1, "structure_sha256": structure_sha256,
