@@ -239,6 +239,68 @@ fn missing_completion_seal_recovers_only_byte_identical_recomputed_ledger() {
 }
 
 #[test]
+fn read_only_verification_requires_existing_completion_and_preserves_evidence() {
+    let mut fixture = Fixture::new();
+    fixture.ledger().claim(0, 0).unwrap();
+    fixture.close();
+    assert!(verify_finalized(fixture.root.path()).is_err());
+    assert!(!fixture.root.path().join("attempts.final.json").exists());
+    let expected = fixture.finalize().unwrap();
+    let output = fixture.root.path().join("attempts.final.json");
+    let receipt = fixture.root.path().join("attempts.complete.json");
+    let before = fs::read(&output).unwrap();
+    assert_eq!(verify_finalized(fixture.root.path()).unwrap(), expected);
+    assert_eq!(fs::read(&output).unwrap(), before);
+    fs::remove_file(&receipt).unwrap();
+    assert!(verify_finalized(fixture.root.path()).is_err());
+    assert!(
+        !receipt.exists(),
+        "verification must never recover the missing seal"
+    );
+}
+
+#[test]
+fn read_only_verification_recomputes_sealed_denominators_and_cleanup() {
+    for changed in ["ledger", "claim", "guard", "completion", "orphan"] {
+        let mut fixture = Fixture::new();
+        fixture.ledger().claim(0, 0).unwrap();
+        fixture.close();
+        fixture.finalize().unwrap();
+        let root = fixture.root.path();
+        match changed {
+            "ledger" => {
+                let output = root.join("attempts.final.json");
+                let mut ledger = files::read_json(&output).unwrap();
+                ledger["counts"]["assigned"] = json!(0);
+                files::atomic_json(&output, &ledger).unwrap();
+                let receipt = root.join("attempts.complete.json");
+                let mut completion = files::read_json(&receipt).unwrap();
+                completion["ledger_sha256"] = json!(files::sha256(&output).unwrap());
+                files::atomic_json(&receipt, &completion).unwrap();
+            }
+            "claim" => {
+                let path = attempt_path(root, 0).join("claim.json");
+                let mut claim = files::read_json(&path).unwrap();
+                claim["worker"] = json!(99);
+                files::atomic_json(&path, &claim).unwrap();
+            }
+            "guard" => {
+                let mut guard = files::read_json(&fixture.job).unwrap();
+                guard["cleanup_verified"] = json!(false);
+                files::atomic_json(&fixture.job, &guard).unwrap();
+            }
+            "completion" => fs::write(root.join("attempts.complete.json"), b"{}").unwrap(),
+            "orphan" => {
+                fs::create_dir_all(root.join("records")).unwrap();
+                fs::write(root.join("records/new.partial"), b"unsealed new evidence").unwrap();
+            }
+            _ => unreachable!(),
+        }
+        assert!(verify_finalized(root).is_err(), "{changed}");
+    }
+}
+
+#[test]
 fn native_claim_and_wait_helper() {
     let invocation = PathBuf::from(std::env::args_os().next().unwrap());
     if invocation

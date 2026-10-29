@@ -127,3 +127,77 @@ PyTorch research-return handling and loss, whole-history original-policy numeric
 LP verification, actual runtime catalog equivalence, admission/reporting gates,
 and an explicit adapter for the finalized operational attempt ledger. No new
 collection, training, GPU operation or live game was started for this slice.
+
+## Finalized operational-ledger adapter addendum
+
+The next conversion-only slice adds an explicit Linux input adapter:
+
+```text
+cargo run -p baylee-train --bin convert4 -- research --attempt-ledger-runs RUN_DIRECTORY --out NEW_DIRECTORY
+```
+
+`--attempt-ledger-runs` and the original `--runs` are mutually exclusive. The
+original complete-index path and its v1 output remain intact. The new path emits
+manifest `failure_terminal_research_conversion_v2` with denominator contract
+`failure_terminal_attempt_ledger_v1`; observation/return framing is unchanged.
+Both paths remain unadmitted and incompatible with ordinary target caches.
+
+The shared Rust `research_attempts::verify_finalized` API requires the existing
+`attempts.final.json` and `attempts.complete.json`. It opens and locks only
+existing ownership files, creates nothing, and never repairs a missing seal.
+It reuses the finalizer's exact reconciliation logic, requires a dead matching
+producer and the sealed guard's verified cleanup, recomputes the complete ledger
+and requires byte-identical ledger content plus the exact completion receipt.
+Canonical regular-file paths, claims, game/abort receipts, index and all shards
+are checked, including orphan/partial shards. Absolute original source/guard
+paths remain part of this contract; relocated copies are not silently rebound.
+The converter rechecks the immutable proof and source seals before publication.
+
+Every planned deal appears once in output `attempts.jsonl`, with its original
+planning metadata, assigned flag, operational status and exact source ledger
+entry. Only `recorded` game receipts enter the existing strict native episode
+and feature replay. An indexed row without a completed receipt stays an
+operational unknown even if its JSON line is complete. Torn index tails remain
+sealed evidence and are never promoted to recorded games. Original deck schedule
+and physical learner-seat rotation must match the sealed plan.
+
+Assigned `operational_unknown` attempts retain their original failure reason,
+null utility, null MTG outcome and `bootstrap=false`; they receive no record,
+sidecar, episode file or target frames. `not_started` retains `assigned=false`
+and null returns, and is not counted as an attempted game or unknown outcome.
+The manifest preserves planned, assigned, recorded, operational-unknown and
+not-started counts, plus recorded-unknown and emitted target-episode counts.
+Its aggregate unknown count includes operational and recorded unknowns, excluding
+not-started entries. These statuses never supply a fabricated MTG result.
+
+The bounded native fixture uses a real Rust child under the existing process
+guard. It publishes three recorded receipts, durably assigns and fails worker
+3, leaves deal 4 unstarted, and exits with code 17. It leaves an orphan complete
+index row, a torn tail and a partial shard. Conversion preserves counts
+5 planned / 4 assigned / 3 recorded / 1 operational unknown / 1 not started,
+retains the recorded opponent unknown separately and emits only two known-return
+histories. No model inference or external collection occurs. Additional fixtures
+reject changed source evidence, missing/corrupt completion, resealed false
+ledger utility/counts, unverified cleanup and mixed adapter selection. The
+existing ordinary conversion and cache-rejection fixtures remain in place.
+
+Final checks passed on this slice:
+
+```text
+cargo test -p baylee-train --bin convert4 -j 2 -- --test-threads=1
+cargo test -p baylee-train-ops --lib research_attempts -j 2 -- --test-threads=1
+cargo clippy -p baylee-train-ops --lib --bin train_ops --tests -j 2 -- -D warnings
+cargo clippy -p baylee-train --features onnx --lib --bin convert4 --bin eval4 --tests -j 2 -- -D warnings
+git diff --check
+```
+
+Results: all 14 converter tests passed (65.74 seconds), and all 11 operational
+ledger tests passed (4.04 seconds), including the existing native deadline-kill
+fixture and the new read-only verification cases. Both Clippy checks passed
+with warnings denied. The native failed-worker fixture confirmed that its exact
+child identity exited; temporary files were removed by fixture cleanup. No
+expensive full-game parity suite or release build was repeated for this adapter.
+
+This completes only the finalized-ledger input adapter. Cache/tensor, PyTorch,
+numerical likelihood/catalog audits and research admission remain outstanding;
+no collection, GPU workload, training or live-game change was launched.

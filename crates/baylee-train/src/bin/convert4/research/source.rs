@@ -14,6 +14,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod attempt_ledger;
+
 pub(super) struct Run {
     pub root: PathBuf,
     pub metadata: Value,
@@ -22,6 +24,12 @@ pub(super) struct Run {
     pub source_sha: String,
     pub index_sha: String,
     pub games: Vec<Game>,
+    accounting: Option<attempt_ledger::Accounting>,
+}
+
+pub(super) struct SourceAttempt<'a> {
+    pub game: Option<&'a Game>,
+    pub accounting: Value,
 }
 
 pub(super) struct Game {
@@ -138,9 +146,6 @@ impl Run {
         }
         let metadata = files::read_json(&root.join("run.json"))?;
         let encoder = validate_metadata(&metadata)?;
-        let contract_value = &metadata["collection_contract"];
-        let model = &contract_value["learner_model_identity"];
-        let opponent = &contract_value["opponent_model_identity"];
         let run_sha = seals[&root.join("run.json")].clone();
         let index_sha = seals[&root.join("games.jsonl")].clone();
         let complete = files::read_json(&root.join("run.complete.json"))?;
@@ -173,39 +178,12 @@ impl Run {
                 index >= first && index - first < count && seen.insert(index),
                 "missing/duplicate/outside research attempt"
             );
-            ensure!(
-                row["source_run_sha256"] == run_sha
-                    && row["fallback_answers"] == 0
-                    && row["outcome"] == row["research_episode"]
-                    && row["research_episode"]["target_contract"] == contract(),
-                "research attempt source/target/recovery mismatch"
-            );
             let key = row["game"].as_str().context("research source game key")?;
             ensure!(
                 !key.is_empty() && keys.insert(key.to_owned()),
                 "empty or duplicate research source key"
             );
-            crate::on_policy::digest(&row["record_sha256"])?;
-            let learner = roles(&row, model, opponent, &contract_value["opponent_role"])?;
-            let shard = row["shard"].as_str().context("research shard")?;
-            ensure!(
-                Path::new(shard)
-                    .file_name()
-                    .is_some_and(|name| name == shard),
-                "research shard must be a filename"
-            );
-            let shard = bound(&root, &root.join("records").join(shard))?;
-            if !seals.contains_key(&shard) {
-                seals.insert(shard.clone(), files::sha256(&shard)?);
-            }
-            let sidecar = serde_json::from_value(row["rollout_sidecar"].clone())
-                .context("research original sidecar")?;
-            games.push(Game {
-                row,
-                sidecar,
-                learner,
-                shard,
-            });
+            games.push(Game::load(&root, &metadata, &run_sha, row, &mut seals)?);
         }
         ensure!(
             u64::try_from(games.len())? == count,
@@ -220,6 +198,7 @@ impl Run {
             source_sha: run_sha,
             index_sha,
             games,
+            accounting: None,
         })
     }
 
@@ -231,17 +210,71 @@ impl Run {
                 path.display()
             );
         }
+        #[cfg(target_os = "linux")]
+        if let Some(accounting) = &self.accounting {
+            ensure!(
+                baylee_train_ops::research_attempts::verify_finalized(&self.root)?
+                    == accounting.ledger,
+                "finalized research accounting changed during conversion"
+            );
+        }
         Ok(())
     }
 
     pub fn identity(&self) -> Value {
-        json!({"directory":self.root,"source_run_sha256":self.source_sha,"games_index_sha256":self.index_sha,
+        let mut identity = json!({"directory":self.root,"source_run_sha256":self.source_sha,"games_index_sha256":self.index_sha,
             "collection_contract":self.metadata["collection_contract"],"evaluator_revision":self.metadata["evaluator_revision"],
-            "evaluator_dirty":self.metadata["evaluator_dirty"],"source_files":self.seals})
+            "evaluator_dirty":self.metadata["evaluator_dirty"],"source_files":self.seals});
+        if let Some(accounting) = &self.accounting {
+            identity["finalized_attempt_ledger"] = accounting.ledger.clone();
+        }
+        identity
     }
 }
 
 impl Game {
+    fn load(
+        root: &Path,
+        metadata: &Value,
+        source_sha: &str,
+        row: Value,
+        seals: &mut BTreeMap<PathBuf, String>,
+    ) -> anyhow::Result<Self> {
+        ensure!(
+            row["source_run_sha256"] == source_sha
+                && row["fallback_answers"] == 0
+                && row["outcome"] == row["research_episode"]
+                && row["research_episode"]["target_contract"] == contract(),
+            "research attempt source/target/recovery mismatch"
+        );
+        crate::on_policy::digest(&row["record_sha256"])?;
+        let contract = &metadata["collection_contract"];
+        let learner = roles(
+            &row,
+            &contract["learner_model_identity"],
+            &contract["opponent_model_identity"],
+            &contract["opponent_role"],
+        )?;
+        let shard = row["shard"].as_str().context("research shard")?;
+        ensure!(
+            Path::new(shard)
+                .file_name()
+                .is_some_and(|name| name == shard),
+            "research shard must be a filename"
+        );
+        let shard = bound(root, &root.join("records").join(shard))?;
+        if !seals.contains_key(&shard) {
+            seals.insert(shard.clone(), files::sha256(&shard)?);
+        }
+        let sidecar = serde_json::from_value(row["rollout_sidecar"].clone())
+            .context("research original sidecar")?;
+        Ok(Self {
+            row,
+            sidecar,
+            learner,
+            shard,
+        })
+    }
     pub fn record(&self) -> anyhow::Result<Vec<u8>> {
         let mut file = File::open(&self.shard)?;
         let offset = self.row["offset"]

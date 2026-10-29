@@ -5,6 +5,9 @@ use std::io::Read as _;
 #[path = "../../../../tests/support/research.rs"]
 mod fixtures;
 
+#[cfg(target_os = "linux")]
+mod attempt_ledger;
+
 struct Fixture {
     root: PathBuf,
     run: Value,
@@ -84,6 +87,7 @@ fn fresh_conversion_retains_all_attempts_and_publishes_only_separate_known_targe
     let out = fixture.root.join("converted");
     convert(&Args {
         runs: vec![fixture.root.join("source")],
+        attempt_ledger_runs: vec![],
         out: out.clone(),
     })
     .unwrap();
@@ -135,6 +139,7 @@ fn fresh_conversion_retains_all_attempts_and_publishes_only_separate_known_targe
     assert!(
         convert(&Args {
             runs: vec![fixture.root.join("source")],
+            attempt_ledger_runs: vec![],
             out
         })
         .is_err()

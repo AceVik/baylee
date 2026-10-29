@@ -3,7 +3,7 @@ mod finalize;
 #[cfg(test)]
 mod tests;
 
-pub use finalize::{collect, finalize};
+pub use finalize::{collect, finalize, verify_finalized};
 
 use crate::{files, process};
 use anyhow::{Context as _, Result, ensure};

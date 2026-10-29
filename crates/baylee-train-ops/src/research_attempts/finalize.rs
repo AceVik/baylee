@@ -60,25 +60,18 @@ pub(super) fn verified_guard(
     Ok(())
 }
 
-/// Reconcile only a dead, guard-owned collector. Never signals or restarts processes.
-/// # Errors
-/// Rejects live/unverified ownership, changed source receipts and corrupt completions.
 #[allow(
     clippy::too_many_lines,
     reason = "Ordered ownership, denominator and source seals"
 )]
-pub fn finalize(root: &Path, job: &Path) -> Result<Value> {
-    let root = root.canonicalize()?;
-    let job = job.canonicalize()?;
-    let _finalizer = files::lock(&root.join("attempts.finalize.lock"))?;
-    let _producer = files::lock(&root.join("attempts.live.lock"))?;
+fn reconstruct(root: &Path, job: &Path) -> Result<Value> {
     let mut seals = BTreeMap::new();
     let plan_path = root.join("attempts.plan.json");
     let plan_sha = seal(&plan_path, &mut seals)?;
     let plan: Plan = serde_json::from_value(files::read_json(&plan_path)?)?;
     ensure!(plan.schema == PLAN_SCHEMA, "unknown attempt plan contract");
-    let job_sha = seal(&job, &mut seals)?;
-    let guard = files::read_json(&job)?;
+    let job_sha = seal(job, &mut seals)?;
+    let guard = files::read_json(job)?;
     verified_guard(
         &plan,
         &guard,
@@ -97,7 +90,7 @@ pub fn finalize(root: &Path, job: &Path) -> Result<Value> {
         "ordinary sources cannot acquire research attempt accounting"
     );
     seal(&root.join("games.jsonl"), &mut seals)?;
-    let index = indexed_rows(&root)?;
+    let index = indexed_rows(root)?;
     if root.join("records").exists() {
         for entry in fs::read_dir(root.join("records"))? {
             let entry = entry?;
@@ -124,7 +117,7 @@ pub fn finalize(root: &Path, job: &Path) -> Result<Value> {
     );
     for deal in index.keys() {
         ensure!(
-            ids.contains(deal) && attempt_path(&root, *deal).join("claim.json").is_file(),
+            ids.contains(deal) && attempt_path(root, *deal).join("claim.json").is_file(),
             "indexed game is outside the planned/assigned denominator"
         );
     }
@@ -146,7 +139,7 @@ pub fn finalize(root: &Path, job: &Path) -> Result<Value> {
     let mut assigned = 0_u64;
     let mut recorded = 0_u64;
     for attempt in &plan.attempts {
-        let directory = attempt_path(&root, attempt.deal);
+        let directory = attempt_path(root, attempt.deal);
         if !directory.join("claim.json").exists() {
             ensure!(
                 !directory.join("game.json").exists() && !directory.join("abort.json").exists(),
@@ -161,7 +154,7 @@ pub fn finalize(root: &Path, job: &Path) -> Result<Value> {
         assigned += 1;
         let claim_path = directory.join("claim.json");
         let claim_sha = seal(&claim_path, &mut seals)?;
-        let claim = read_claim(&root, &plan, &plan_sha, attempt)?;
+        let claim = read_claim(root, &plan, &plan_sha, attempt)?;
         let mut row = json!({"deal":attempt.deal,"assigned":true,"claim":claim_path,
             "claim_sha256":claim_sha,"worker":claim["worker"]});
         let game_path = directory.join("game.json");
@@ -172,7 +165,7 @@ pub fn finalize(root: &Path, job: &Path) -> Result<Value> {
             );
             let game_sha = seal(&game_path, &mut seals)?;
             let game = files::read_json(&game_path)?;
-            verify_game(&root, &plan, attempt, &game)?;
+            verify_game(root, &plan, attempt, &game)?;
             let row_sha = files::hex(&sha2::Sha256::digest(serde_json::to_vec(&game)?));
             ensure!(
                 index.get(&attempt.deal) == Some(&row_sha),
@@ -236,34 +229,58 @@ pub fn finalize(root: &Path, job: &Path) -> Result<Value> {
         }
         rows.push(row);
     }
-    let output = root.join("attempts.final.json");
-    let receipt = root.join("attempts.complete.json");
     for (path, expected) in &seals {
         ensure!(
             files::sha256(path)? == *expected,
             "source changed during attempt finalization"
         );
     }
-    let ledger = json!({"schema":LEDGER_SCHEMA,"source_run_sha256":source_run_sha,
+    Ok(
+        json!({"schema":LEDGER_SCHEMA,"source_run_sha256":source_run_sha,
         "plan_sha256":plan_sha,"guard_job":job,"guard_job_sha256":job_sha,
         "guard_cleanup_verified":true,"producer_identity":plan.producer_identity,
         "counts":{"planned":count,"assigned":assigned,"recorded":recorded,
             "operational_unknown":assigned-recorded,"not_started":count-assigned},
         "attempts":rows,"source_files":seals,"training_admitted":false,
-        "ppo_certified":false,"automatic_restart":false});
+        "ppo_certified":false,"automatic_restart":false}),
+    )
+}
+
+fn completion(root: &Path, ledger: &Value) -> Result<Value> {
+    Ok(
+        json!({"schema":LEDGER_SCHEMA,"ledger_sha256":files::sha256(&root.join("attempts.final.json"))?,
+        "plan_sha256":ledger["plan_sha256"],"source_run_sha256":ledger["source_run_sha256"],
+        "guard_job_sha256":ledger["guard_job_sha256"]}),
+    )
+}
+
+fn encoded_ledger(ledger: &Value) -> Result<Vec<u8>> {
+    let mut bytes = serde_json::to_vec_pretty(ledger)?;
+    bytes.push(b'\n');
+    Ok(bytes)
+}
+
+/// Reconcile only a dead, guard-owned collector. Never signals or restarts processes.
+/// # Errors
+/// Rejects live/unverified ownership, changed source receipts and corrupt completions.
+pub fn finalize(root: &Path, job: &Path) -> Result<Value> {
+    let root = root.canonicalize()?;
+    let job = job.canonicalize()?;
+    let _finalizer = files::lock(&root.join("attempts.finalize.lock"))?;
+    let _producer = files::lock(&root.join("attempts.live.lock"))?;
+    let ledger = reconstruct(&root, &job)?;
+    let output = root.join("attempts.final.json");
+    let receipt = root.join("attempts.complete.json");
     if output.exists() {
-        let mut expected = serde_json::to_vec_pretty(&ledger)?;
-        expected.push(b'\n');
         ensure!(
-            fs::read(&output)? == expected,
+            fs::read(&output)? == encoded_ledger(&ledger)?,
             "changed finalized ledger; immutable evidence cannot be replaced"
         );
     } else {
         ensure!(!receipt.exists(), "completion seal has no final ledger");
         publish_new(&output, &ledger)?;
     }
-    let completion = json!({"schema":LEDGER_SCHEMA,"ledger_sha256":files::sha256(&output)?,
-        "plan_sha256":plan_sha,"source_run_sha256":source_run_sha,"guard_job_sha256":job_sha});
+    let completion = completion(&root, &ledger)?;
     if receipt.exists() {
         ensure!(
             files::read_json(&receipt)? == completion,
@@ -275,6 +292,72 @@ pub fn finalize(root: &Path, job: &Path) -> Result<Value> {
         publish_new(&receipt, &completion)?;
     }
     Ok(ledger)
+}
+
+fn regular(path: &Path) -> Result<()> {
+    ensure!(
+        path.is_absolute()
+            && path.canonicalize()? == path
+            && fs::symlink_metadata(path)?.file_type().is_file(),
+        "finalized research evidence must use canonical regular files"
+    );
+    Ok(())
+}
+
+/// Read-only verification of an already finalized research attempt ledger.
+/// No missing completion is recovered, file created, or evidence rewritten.
+/// # Errors
+/// Refuses active ownership, unverified cleanup, redirected/changed evidence,
+/// altered denominators, incomplete finalization and noncanonical ledger bytes.
+pub fn verify_finalized(root: &Path) -> Result<Value> {
+    let root = root.canonicalize()?;
+    let lock = |name: &str| -> Result<File> {
+        let path = root.join(name);
+        regular(&path)?;
+        let file = File::open(path)?;
+        file.try_lock().context("research evidence still owned")?;
+        Ok(file)
+    };
+    let _finalizer = lock("attempts.finalize.lock")?;
+    let _producer = lock("attempts.live.lock")?;
+    let output = root.join("attempts.final.json");
+    let receipt = root.join("attempts.complete.json");
+    regular(&output)?;
+    regular(&receipt)?;
+    let original = fs::read(&output)?;
+    let ledger: Value = serde_json::from_slice(&original)?;
+    let job = PathBuf::from(
+        ledger["guard_job"]
+            .as_str()
+            .context("finalized guard job")?,
+    );
+    regular(&job)?;
+    for path in ledger["source_files"]
+        .as_object()
+        .context("finalized source seals")?
+        .keys()
+    {
+        let path = Path::new(path);
+        ensure!(
+            path == job || path.starts_with(&root),
+            "external finalized source evidence"
+        );
+        regular(path)?;
+    }
+    let recomputed = reconstruct(&root, &job)?;
+    ensure!(
+        original == encoded_ledger(&recomputed)?,
+        "finalized ledger differs from canonical evidence"
+    );
+    ensure!(
+        files::read_json(&receipt)? == completion(&root, &recomputed)?,
+        "finalized ledger completion seal mismatch"
+    );
+    ensure!(
+        fs::read(&output)? == original,
+        "finalized ledger changed during verification"
+    );
+    Ok(recomputed)
 }
 
 /// Run an explicit CPU research collector, then account for its owned attempts.
