@@ -28,9 +28,27 @@ pub(super) struct GameBinding {
     seats: Vec<Value>,
 }
 
+fn ordinary_contract(contract: &Value) -> anyhow::Result<()> {
+    ensure!(
+        contract["purpose"].is_null()
+            || (matches!(
+                contract["purpose"].as_str(),
+                Some("evaluation" | "on_policy_training")
+            ) && contract["version"] == 1),
+        "unsupported collection purpose/version for ordinary conversion"
+    );
+    ensure!(
+        contract["purpose"] != "failure_terminal_research_v1"
+            && contract["research_target_contract"].is_null(),
+        "failure-terminal research requires its own converter; ordinary targets cannot consume these records"
+    );
+    Ok(())
+}
+
 impl RunBinding {
     pub fn load(directory: &Path, run: &Value) -> anyhow::Result<Option<Self>> {
         let contract = &run["collection_contract"];
+        ordinary_contract(contract)?;
         if contract["purpose"] != "on_policy_training" {
             return Ok(None);
         }
@@ -387,5 +405,18 @@ mod tests {
         );
         fs::remove_file(fixture.root.join("run.complete.json")).unwrap();
         assert!(RunBinding::load(&fixture.root, &fixture.run).is_err());
+    }
+
+    #[test]
+    fn research_target_semantics_never_fall_back_to_ordinary_conversion() {
+        let fixture = Fixture::new();
+        let mut research = fixture.run.clone();
+        research["collection_contract"]["purpose"] = json!("failure_terminal_research_v1");
+        research["collection_contract"]["version"] = json!(2);
+        assert!(RunBinding::load(&fixture.root, &research).is_err());
+        research["collection_contract"]["purpose"] = json!("evaluation");
+        research["collection_contract"]["research_target_contract"] =
+            json!({"name":"failure_terminal_research_v1"});
+        assert!(RunBinding::load(&fixture.root, &research).is_err());
     }
 }

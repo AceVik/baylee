@@ -44,6 +44,7 @@ use serde_json::{Value, json};
 include!("options.rs");
 mod collector;
 mod diagnostics;
+mod failure_terminal;
 mod seat_players;
 mod shadow;
 
@@ -60,6 +61,12 @@ include!("decks.rs");
     reason = "Floating-point statistical rates and latency quantiles"
 )]
 fn main() -> anyhow::Result<()> {
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|arg| arg == "audit-failure-terminal")
+    {
+        return failure_terminal::audit::run();
+    }
     let args = Args::parse();
     if args.shadow_teacher.is_some()
         && (!args.raw_policy || args.record_out.is_none() || args.legacy_v3)
@@ -393,6 +400,9 @@ fn main() -> anyhow::Result<()> {
                     max_decisions,
                     shard_file.is_some(),
                     shadow.as_mut(),
+                    if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
+                        Some(collection.learner_identity.as_ref().context("research learner")?.encoder_version)
+                    } else {None},
                 )?;
 
                 if let Some((f, offset)) = &mut shard_file {
@@ -415,13 +425,15 @@ fn main() -> anyhow::Result<()> {
                         "source_run_sha256": run_metadata_sha,
                         "focal_seat": focal_seat,
                         "record_sha256": shadow::sha(&rec_bytes),
-                        "complete": !net_capped,
+                        "complete": !net_capped && (collection.purpose != collector::Purpose::FailureTerminalResearchV1
+                            || outcome_json["termination_kind"] == "mtg_terminal"),
+                        "research_episode": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {Some(&outcome_json)}else{None},
                         "capped": net_capped,
                         "fallback_answers": fb,
                         "refused_answers": ref_cnt,
-                        "actor_roles": if collection.purpose == collector::Purpose::OnPolicyTraining {
+                        "actor_roles": if collection.purpose == collector::Purpose::Evaluation {None}else{
                             Some(collection.seats(seats,focal_seat,&teams_arc)?)
-                        } else {None},
+                        },
                         "rollout_sidecar": rollout_sidecar,
                         "fallback_events": fallback_events,
                     }))?;
@@ -454,6 +466,7 @@ fn main() -> anyhow::Result<()> {
                         max_decisions,
                         false,
                         None,
+                        None,
                     )?;
                     (bu, bc)
                 };
@@ -462,7 +475,9 @@ fn main() -> anyhow::Result<()> {
                 st.deals_completed += 1;
                 st.deal_details.push(json!({"deal": d, "table": table_idx,
                     "seed": seed, "focal_seat": focal_seat,
-                    "net_utility": net_u, "base_utility": if no_base { None } else { Some(base_u) },
+                    "net_utility": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {None}else{Some(net_u)},
+                    "research_episode": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {Some(&outcome_json)}else{None},
+                    "base_utility": if no_base { None } else { Some(base_u) },
                     "net_capped": net_capped, "base_capped": base_capped,
                     "refused": ref_cnt, "stalls": st_cnt, "house_fallbacks": fb,
                     "fallback_events": fallback_events,
@@ -631,20 +646,37 @@ fn main() -> anyhow::Result<()> {
     summary["evaluator_revision"] = json!(baylee_build::COMMIT);
     summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
+    if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
+        // The evaluation aggregate has an MTG denominator and cannot summarize
+        // censored research episodes. Preserve every attempt in the named ledger.
+        summary = json!({"collection_contract":collection.metadata(),"attempts":st.deal_details,
+            "planned_attempts":args.deals,"recorded_attempts":st.deals_completed,
+            "evaluator_revision":baylee_build::COMMIT,"evaluator_dirty":baylee_build::DIRTY,
+            "status":"unadmitted_native_collection_only"});
+    }
 
     if let Some(parent) = args.out.parent() {
         fs::create_dir_all(parent)?;
     }
     fs::write(&args.out, serde_json::to_vec_pretty(&summary)?)?;
-    if collection.purpose == collector::Purpose::OnPolicyTraining {
+    if collection.purpose != collector::Purpose::Evaluation {
         let directory = args.record_out.as_ref().context("collection output")?;
         baylee_train_ops::files::atomic_json(
             &directory.join("run.complete.json"),
             &json!({
-            "version":1,"source_run_sha256":run_metadata_sha,
+            "version":if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {2}else{1},
+            "purpose":collection.purpose,"source_run_sha256":run_metadata_sha,
             "games_index_sha256":shadow::sha(&fs::read(directory.join("games.jsonl"))?),
             "recorded_deals":st.deals_completed,"planned_deals":args.deals}),
         )?;
+    }
+    if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
+        eprintln!(
+            "[eval4] unadmitted failure-terminal research: {} attempts, summary={}",
+            st.deals_completed,
+            args.out.display()
+        );
+        return Ok(());
     }
     eprintln!(
         "[eval4] seats={} teams={:?} K={} against={} deals={} | net_win={:.1}% (u={:.3}, caps={}) base_u={:?} delta={:?} | p50={:.1}ms p95={:.1}ms fb={} refused={} ({:.1}s)",

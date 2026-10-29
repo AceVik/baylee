@@ -9,6 +9,9 @@ use std::path::PathBuf;
 pub(super) enum Purpose {
     Evaluation,
     OnPolicyTraining,
+    /// Separate research MDP; stopped prefixes are never ordinary MTG outcomes.
+    #[value(name = "failure_terminal_research_v1")]
+    FailureTerminalResearchV1,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum, serde::Serialize)]
@@ -39,7 +42,7 @@ impl Contract {
             .as_deref()
             .map(inspect_model_identity)
             .transpose()?;
-        let mixed = opponent_path.is_some() || args.collection_purpose == Purpose::OnPolicyTraining;
+        let mixed = opponent_path.is_some() || args.collection_purpose != Purpose::Evaluation;
         if mixed {
             ensure!(
                 !args.legacy_v3 && args.seats == 2 && args.teams.is_empty(),
@@ -63,7 +66,7 @@ impl Contract {
                 );
             }
         }
-        if args.collection_purpose == Purpose::OnPolicyTraining {
+        if args.collection_purpose != Purpose::Evaluation {
             ensure!(
                 args.record_out.is_some()
                     && args.deals > 0
@@ -80,6 +83,17 @@ impl Contract {
                 checkpoint(opponent)?;
             }
         }
+        if args.collection_purpose == Purpose::FailureTerminalResearchV1 {
+            super::failure_terminal::validate_encoder(
+                learner
+                    .context("missing research learner identity")?
+                    .encoder_version,
+            )?;
+            ensure!(
+                opponent_identity.is_some() && args.no_baseline,
+                "failure-terminal research currently requires a frozen neural opponent and --no-baseline"
+            );
+        }
         Ok(Self {
             purpose: args.collection_purpose,
             opponent_role: args.opponent_role,
@@ -92,11 +106,15 @@ impl Contract {
     }
 
     pub fn uses_seat_pool(&self) -> bool {
-        self.opponent_path.is_some() || self.purpose == Purpose::OnPolicyTraining
+        self.opponent_path.is_some() || self.purpose != Purpose::Evaluation
     }
 
     pub fn metadata(&self) -> Value {
-        json!({"version":1,"purpose":self.purpose,"precision":"float32",
+        json!({"version":if self.purpose == Purpose::FailureTerminalResearchV1 {2}else{1},
+            "purpose":self.purpose,"precision":"float32",
+            "research_target_contract":if self.purpose == Purpose::FailureTerminalResearchV1 {
+                Some(super::failure_terminal::contract())
+            } else {None},
             "learner_model_identity":self.learner_identity,"opponent_model_identity":self.opponent_identity,
             "opponent_role":if self.opponent_identity.is_some(){Some(self.opponent_role)}else{None},
             "seat_rng_rule":"independent_policy_seed_xor_physical_seat_v1"})
