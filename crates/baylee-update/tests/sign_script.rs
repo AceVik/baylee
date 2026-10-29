@@ -215,15 +215,31 @@ fn the_release_workflow_signs_before_it_publishes() {
             .map_or(lines.len(), |i| start + 1 + i);
         lines[start..end].join("\n")
     };
+    // A step is its `      - ` line and everything up to the next one.
+    let step_with = |job: &str, needle: &str| -> String {
+        let steps: Vec<&str> = job.split("\n      - ").collect();
+        let found: Vec<&&str> = steps.iter().filter(|s| s.contains(needle)).collect();
+        assert_eq!(found.len(), 1, "one step holds {needle}: {job}");
+        (*found[0]).to_owned()
+    };
     let sign = job("sign");
-    assert!(
-        sign.contains("--bin baylee-update-sign -- release out"),
-        "{sign}"
+    assert!(sign.contains("environment: release"), "{sign}");
+    let signing = step_with(
+        &sign,
+        "BAYLEE_UPDATE_SIGNING_KEY: ${{ secrets.BAYLEE_UPDATE_SIGNING_KEY }}",
     );
     assert!(
-        sign.contains("BAYLEE_UPDATE_SIGNING_KEY: ${{ secrets.BAYLEE_UPDATE_SIGNING_KEY }}"),
+        signing.contains("target/debug/baylee-update-sign release out"),
+        "{signing}"
+    );
+    // The secret never shares a step with the compiler, and nothing another
+    // job compiled is restored beside it.
+    assert!(!signing.contains("cargo "), "{signing}");
+    assert!(
+        sign.contains("cargo build --locked -q -p baylee-update --bin baylee-update-sign"),
         "{sign}"
     );
+    assert!(!sign.contains("rust-cache"), "{sign}");
     assert!(!workflow.contains("BAYLEE_UPDATE_VERIFY_KEY"));
     let publish = job("publish");
     assert!(
@@ -231,6 +247,9 @@ fn the_release_workflow_signs_before_it_publishes() {
         "{publish}"
     );
     assert!(publish.contains(".sig"), "{publish}");
+    let publishing = step_with(&publish, "GH_TOKEN");
+    assert!(publishing.contains("gh release create"), "{publishing}");
+    assert!(!publishing.contains("cargo "), "{publishing}");
     // Only the release build may replace itself (the client's
     // `update::native::is_release_build`): the build step says so, and it
     // builds the three binaries the package ships (client, launcher and the
@@ -238,10 +257,12 @@ fn the_release_workflow_signs_before_it_publishes() {
     // the selection so their dependencies' features are the workspace's.
     let build =
         std::fs::read_to_string(root().join(".github/workflows/client-packages.yml")).unwrap();
+    let config = std::fs::read_to_string(root().join(".cargo/config.toml")).unwrap();
     assert!(
         build.contains("BAYLEE_RELEASE_BUILD: '1'")
-            && build.contains(
-                "cargo build --locked --workspace --bin baylee-client --bin baylee-launch --bin baylee-seat --profile dist"
+            && build.contains("cargo build-client --profile dist")
+            && config.contains(
+                "build-client = \"build --locked --workspace --bin baylee-client --bin baylee-launch --bin baylee-seat\""
             ),
         "{build}"
     );

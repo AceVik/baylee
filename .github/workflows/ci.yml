@@ -10,11 +10,13 @@ name: ci
 #   REQUIRED_JOBS to have run and passed in that run, so nothing here can be
 #   skipped on a commit that is then released.
 # - **pull request**: the quick half (fmt, clippy, the debug suite in two
-#   partitions, validate, deny), each only when its inputs changed. The
+#   partitions, shipped-features, validate, deny, web-feedback), each only
+#   when its inputs changed. The
 #   label `ci:full` runs a PR as a main push would; so does any change to CI
 #   itself.
-# - **nightly**: the full set again plus the five-platform `build` matrix,
-#   for what rots without a push (a new stable toolchain, a new advisory).
+# - **nightly**: the full set again plus the five-platform `build` matrix
+#   (every binary on Linux x86_64, the client elsewhere), for what rots
+#   without a push (a new stable toolchain, a new advisory).
 #
 # Measured before this layout (30 main pushes and 31 PRs, 06.–08.10.2026):
 # PR p50 27 min (p95 40), main push p50 56 (p95 69), and three jobs stuck for 4–6 h in
@@ -34,9 +36,13 @@ on:
         type: boolean
         default: true
       platforms:
-        description: Also link every binary on all five runner platforms (the nightly matrix)
+        description: Also run the nightly build matrix (every binary on Linux x86_64, the client on the other four platforms)
         type: boolean
         default: false
+
+# Read-only unless a job says otherwise (`packages`, `audit`).
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -68,8 +74,9 @@ jobs:
       packages: ${{ steps.scope.outputs.packages }}
       platforms: ${{ steps.scope.outputs.platforms }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
           fetch-depth: 2
       - id: scope
         shell: bash
@@ -130,34 +137,38 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
         with:
           components: rustfmt
       - run: cargo fmt --all -- --check
-      # Release provenance, website and Impressum checks now live in
-      # baylee-tools and run in the workspace test jobs below.
 
-  # Caches. The repository has 10 GB of Actions cache and each Rust cache is
-  # 1.0–1.7 GB; on 08.10.2026 eight entries filled it, all from that day, and
+  # Caches. The repository had 10 GB of Actions cache (25 GB since 29.10.2026,
+  # when the package caches had pushed `tests-optimized` out twice) and each
+  # Rust cache is 1.0–1.9 GB; on 08.10.2026 eight entries filled it, all from that day, and
   # most jobs logged "No cache found" (the debug suite compiled for 7.7 min
   # instead of 3.5, the optimized one for 25 instead of 17). The writers were
   # PRs: a PR's cache lives under `refs/pull/N/merge`, which no other run can
   # read, and the PR-only platform matrix wrote five more. So only a push to
-  # main writes a cache now, and every other run restores main's. Jobs whose
-  # cold build is a few minutes (bench, msrv, the nightly matrix) write none.
+  # main writes a cache now, and every other run restores main's. Jobs no
+  # cache is written for (bench, msrv, the nightly matrix's other rows)
+  # restore none either; its Linux x86_64 row reads the debug suite's.
   clippy:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
         with:
           components: clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: tests-debug
           save-if: false
@@ -211,16 +222,18 @@ jobs:
     env:
       DATABASE_URL: postgres://baylee:baylee@127.0.0.1:5432/baylee
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: rui314/setup-mold@v1
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
+      - uses: rui314/setup-mold@339e96b4ff1f3bd865856ba4cbbe8818a7acb038 # v1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: tests-debug
           cache-on-failure: true
           save-if: ${{ matrix.partition == 1 && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@nextest
+      - uses: taiki-e/install-action@d042af60014eb018fcd01f57f4f62118b69e3ea6 # nextest branch: installs nextest
       # nextest rather than `cargo test`: it runs each test in its own process,
       # reports per *test* rather than per binary (which is how the next
       # outlier is found), and partitions. There are no doctests in this
@@ -272,16 +285,18 @@ jobs:
     env:
       DATABASE_URL: postgres://baylee:baylee@127.0.0.1:5432/baylee
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: rui314/setup-mold@v1
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
+      - uses: rui314/setup-mold@339e96b4ff1f3bd865856ba4cbbe8818a7acb038 # v1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: tests-optimized
           cache-on-failure: true
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@nextest
+      - uses: taiki-e/install-action@d042af60014eb018fcd01f57f4f62118b69e3ea6 # nextest branch: installs nextest
       - run: cargo nextest run --locked --workspace --all-targets --exclude baylee-train --no-fail-fast --cargo-profile ci-release
 
   # Main builds the actual dist packages once. Tags promote those exact
@@ -333,13 +348,17 @@ jobs:
           - os: macos-latest       # aarch64-apple-darwin
             timeout: 75
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/linux-deps
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
+      - uses: ./.github/actions/linux-deps
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
+      # Only the Linux x86_64 row has a cache to read: the debug suite's.
+      - if: matrix.everything
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: tests-debug
           save-if: false
-          key: ${{ matrix.os }}
       - if: matrix.everything
         run: cargo build --locked --workspace --bins
       # `--bins` links every binary; this is the half it does not reach, and
@@ -366,11 +385,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/scryfall-cache
         id: scryfall
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: tests-debug
           save-if: false
@@ -390,9 +411,10 @@ jobs:
       # is skipped on a failed job). `!cancelled()` and deliberately not
       # `always()`: `actions/cache/save` never overwrites a key, so a run
       # cancelled early would have saved a partial directory under the key
-      # the full fetch was going to write.
-      - uses: actions/cache/save@v4
-        if: ${{ !cancelled() }}
+      # the full fetch was going to write. A pull request saves nothing: its
+      # cache could serve only itself, and it would push main's out.
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
         continue-on-error: true
         with:
           path: data/scryfall-cache
@@ -412,9 +434,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: tests-debug
           save-if: false
@@ -430,11 +454,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          save-if: false
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
       # `--bench basics` names the target on purpose: without it libtest's own
       # harness answers `--quick` with "Unrecognized option" and exit 101.
       - run: cargo bench --locked -p baylee-engine --bench basics -- --quick
@@ -451,20 +474,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
       - id: declared
         run: |
           v=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
           test -n "$v" || { echo "Cargo.toml declares no rust-version"; exit 1; }
           echo "version=$v" >> "$GITHUB_OUTPUT"
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: ${{ steps.declared.outputs.version }}
-      - run: echo "RUSTUP_TOOLCHAIN=${{ steps.declared.outputs.version }}" >> "$GITHUB_ENV"
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: false
+      # Through `env:`, not spliced into the script: a pull request writes
+      # `Cargo.toml`, and so the text this line would run.
+      - env:
+          VERSION: ${{ steps.declared.outputs.version }}
+        run: echo "RUSTUP_TOOLCHAIN=$VERSION" >> "$GITHUB_ENV"
       # In the log, so the next person reading a green tick can see which
       # compiler earned it. This is the line whose absence hid the bug.
       - run: rustc --version && cargo --version
@@ -483,8 +509,10 @@ jobs:
       run:
         working-directory: web/feedback
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -501,8 +529,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
 
   # Main pushes and the nightly: a new advisory arrives without a push, which
   # is what the nightly is for.
@@ -519,8 +549,10 @@ jobs:
       contents: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           # The same advisories deny.toml ignores, with their reasons there:

@@ -31,7 +31,7 @@ jobs:
     # run on GitHub's image as before (docs/releasing.md §"The macOS runner").
     runs-on: ${{ inputs.source-run != '' && 'ubuntu-latest' || (matrix.mac && vars.MACOS_RUNNER == 'self-hosted' && (github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","macOS","ARM64","baylee-vm"]') || matrix.os }}
     # A build's p95 ×1.5 (06.–08.10.2026, before the build was narrowed to the
-    # two shipped binaries); a promotion takes minutes under the same bound.
+    # three shipped binaries); a promotion takes minutes under the same bound.
     timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
@@ -70,7 +70,9 @@ jobs:
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - if: inputs.source-run != ''
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
@@ -93,7 +95,7 @@ jobs:
           SOURCE_RUN: ${{ inputs.source-run }}
         run: cargo tools release verify-run "$SOURCE_RUN"
       - if: inputs.source-run != ''
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           github-token: ${{ github.token }}
           run-id: ${{ inputs.source-run }}
@@ -188,7 +190,7 @@ jobs:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
           PACKAGE_TARGET: ${{ matrix.target }}
         run: cargo tools release check-installers --install "$PACKAGE_TARGET" "$PACKAGE_VERSION"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: client-${{ matrix.target }}
           path: out/*
