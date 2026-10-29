@@ -25,6 +25,9 @@ class BCMixture(Dataset):
     No frame payload/ID is rewritten or put in a shared TrajectoryStore.
     """
     def __init__(self, anchor, replay, validation, batch_size):
+        versions = {getattr(child, 'encoder_version', 7) for child in (anchor, replay, validation)}
+        if len(versions) != 1:raise ValueError('BC mixture encoder versions differ')
+        self.encoder_version = versions.pop()
         if batch_size<2 or batch_size%2:raise ValueError('BC mixture needs positive even batch size')
         if anchor.structure.digest!=replay.structure.digest or anchor.structure.digest!=validation.structure.digest:
             raise ValueError('BC mixture public catalogs differ')
