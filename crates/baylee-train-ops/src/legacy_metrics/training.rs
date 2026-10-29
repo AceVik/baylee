@@ -39,7 +39,7 @@ pub(super) fn grouped(input: &Value) -> Result<Value> {
     }
     Ok(json!({name:groups,format!("{name}_order"):order}))
 }
-fn number(value: &Value, key: &str, digits: usize) -> String {
+pub(super) fn number(value: &Value, key: &str, digits: usize) -> String {
     value[key]
         .as_f64()
         .map_or_else(|| "n/a".into(), |v| format!("{v:.digits$}"))
@@ -180,6 +180,10 @@ pub(super) fn markdown(report: &Value) -> Result<String> {
 pub(super) fn publish(input: &Value) -> Result<Value> {
     let report = &input["report"];
     let markdown = markdown(report)?;
+    publish_files(input, report, &markdown)?;
+    Ok(json!({"markdown":markdown}))
+}
+pub(super) fn publish_files(input: &Value, report: &Value, markdown: &str) -> Result<()> {
     if let Some(root) = input["out"].as_str() {
         let root = Path::new(root);
         ensure!(
@@ -194,5 +198,5 @@ pub(super) fn publish(input: &Value) -> Result<Value> {
         #[cfg(unix)]
         std::fs::File::open(root)?.sync_all()?;
     }
-    Ok(json!({"markdown":markdown}))
+    Ok(())
 }

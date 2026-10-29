@@ -36,13 +36,14 @@ continues from it.
 from __future__ import annotations
 
 import argparse
-import json
 import time
 from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+
+from torch_io4 import atomic_json
 
 import dataset3 as D3
 import model3 as M
@@ -302,8 +303,8 @@ def main() -> None:
     ev = held_idx[: min(len(held_idx), 200_000)]
     _, _, _, side = evaluate(net, ds, ev, args.entities, args.value_weight)
     value = value_report(ds, ev, side)
-    (out / "report.json").write_text(json.dumps({"model": out.name, "from": args.init, "steps": n, "value": value,
-                                                  "verification": ds.meta.get("verification")}, indent=1))
+    atomic_json(out / "report.json", {"model": out.name, "from": args.init, "steps": n, "value": value,
+                                                  "verification": ds.meta.get("verification")})
     log(f"done: value Brier {value['all']['brier']:.4f} on {value['all']['n']:,} held-out decisions")
 
 

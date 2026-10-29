@@ -39,3 +39,35 @@ fn shift_merges_batches_and_ignores_nonfinite_advantage_slots() -> Result<()> {
     );
     Ok(())
 }
+#[test]
+fn policy_reports_preserve_profile_thresholds_masking_and_uniform_baselines() -> Result<()> {
+    let mut request = json!({"kind":"policy-report","v3":false,"hits":vec![true;101],"usable":vec![true;101],"question":vec![0;101],"profile":vec![0;101],"options":vec![2;101],"kinds":["choice"],"profiles":["house","rare"],"report":{"model":"fixture","params":1,"best_step":1000,"curve":[],"unmatched_answers":null}});
+    request["profile"][100] = json!(1);
+    let policy = run(&request)?;
+    ensure!(policy["report"]["by_profile"]["rare"]["n"] == 1);
+    ensure!(policy["report"]["agreement"] == 1.0 && policy["report"]["uniform_chance"] == 0.5);
+    ensure!(
+        policy["markdown"]
+            .as_str()
+            .context("markdown")?
+            .contains("step 1,000.")
+    );
+    request["v3"] = json!(true);
+    request["usable"][100] = json!(false);
+    request["options"][0] = json!(0);
+    request["report"]["value"] = json!({});
+    let v3 = run(&request)?;
+    ensure!(v3["report"]["held_out_steps"] == 100 && v3["report"]["by_profile"]["rare"].is_null());
+    ensure!((v3["report"]["uniform_chance"].as_f64().context("chance")? - 0.505).abs() < 1e-12);
+    ensure!(v3["report"]["params"] == 1 && v3["report"]["unmatched_answers"].is_null());
+    Ok(())
+}
+#[test]
+fn v3_value_slices_preserve_team_draw_and_first_step_rules() -> Result<()> {
+    let request = json!({"kind":"v3-value-slices","prediction":[0.25,0.75,0.5,0.99],"step":[0,0,0,1],"result":[0,0,0,0],"team":[1,2,1,1],"winners":[1,2,0,1],"seats":[2,3,4,2],"turn":[1,1,1,1]});
+    let result = run(&request)?;
+    ensure!(result["all"]["n"] == 3 && result.as_object().context("slices")?.len() == 1);
+    ensure!((result["all"]["brier"].as_f64().context("brier")? - 1.0 / 24.0).abs() < 1e-12);
+    ensure!(result["all"]["accuracy"] == 1.0);
+    Ok(())
+}

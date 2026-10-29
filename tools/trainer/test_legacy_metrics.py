@@ -88,5 +88,37 @@ class LegacyTrainingReportIntegration(unittest.TestCase):
         self.assertEqual(usable.tolist(), [True, False])
 
 
+
+class LegacyPolicyReport(unittest.TestCase):
+    setUp = LegacyMetrics.setUp
+
+    def test_native_report_accepts_torch_masks_and_preserves_schema_and_publication(self):
+        import json
+        import numpy as np
+        from train3 import value_report
+        class Dataset:
+            def col(self, name):
+                return np.asarray(dict(step=[0, 0, 1], result=[0, 2, 0], team_rel=[1, 1, 1],
+                    winners_rel=[1, 1, 1], seats=[2, 2, 2], turn=[1, 1, 1])[name])
+        value = value_report(Dataset(), np.arange(3), torch.tensor([.25, .75, .99]).numpy())
+        self.assertEqual(value['all']['n'], 2)
+        self.assertAlmostEqual(value['all']['brier'], .0625)
+        with tempfile.TemporaryDirectory() as temporary:
+            result = native_metrics('policy-report', v3=True, out=temporary,
+                hits=torch.tensor([True, False, True]).tolist(),
+                usable=torch.tensor([True, True, False]).tolist(), question=[0, 0, 0],
+                profile=[0, 0, 0], options=[2, 4, 99], kinds=['choice'], profiles=['house'],
+                report=dict(model='fixture', params=7, best_step=1000, held_loss=.1,
+                            curve=[], value=value, verification={'preserved': True}))
+            report = result['report']
+            self.assertEqual(report['agreement'], .5)
+            self.assertEqual(report['uniform_chance'], .375)
+            self.assertEqual(report['verification'], {'preserved': True})
+            self.assertEqual(report['by_kind'], {})
+            self.assertEqual(json.loads((Path(temporary)/'report.json').read_text()), report)
+            self.assertEqual((Path(temporary)/'report.md').read_text(), result['markdown'])
+            self.assertIn('Model: step 1,000.', result['markdown'])
+
+
 if __name__ == '__main__':
     unittest.main()

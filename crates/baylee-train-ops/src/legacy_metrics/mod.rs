@@ -1,4 +1,5 @@
 //! Native statistics for retained value-v2 and policy-v3 tensor baselines.
+mod policy;
 mod shift;
 #[cfg(test)]
 mod tests;
@@ -77,6 +78,8 @@ fn metrics(p: &[f64], y: &[f64]) -> Result<Value> {
 pub fn run(input: &Value) -> Result<Value> {
     match input["kind"].as_str().context("legacy metric kind")? {
         "metrics" => metrics(&floats(&input["prediction"])?, &floats(&input["truth"])?),
+        "policy-report" => policy::publish(input),
+        "v3-value-slices" => policy::value_slices(input),
         "group-report" => training::grouped(input),
         "training-report" | "training-markdown" => training::publish(input),
         "value-plan" => value::plan(input),

@@ -13,13 +13,14 @@ profiles through one net has a ceiling below 100 %; the profile is an input.
 from __future__ import annotations
 
 import argparse
-import json
 import time
 from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+
+from legacy_evaluation import native_metrics
 
 import dataset as D
 import model as M
@@ -180,29 +181,13 @@ def main() -> None:
     kind = ds.col("pending_kind")[ev]
     prof = ds.col("profile")[ev]
     nopt = ds.col("n_opts")[ev]
-    by_kind = {kinds[k]: {"n": int((kind == k).sum()), "agreement": float(hits[kind == k].mean())}
-               for k in sorted(set(kind.tolist())) if (kind == k).sum() >= 100}
-    by_profile = {ds.meta["profiles"][p]: {"n": int((prof == p).sum()), "agreement": float(hits[prof == p].mean())}
-                  for p in sorted(set(prof.tolist())) if p >= 0}
-    # What a uniform pick over the offered options would agree on.
-    chance = float(np.mean(1.0 / nopt))
-    rep = {
-        "model": out.name, "params": params, "best_step": best["step"], "curve": curve,
-        "held_out_steps": int(len(ev)), "agreement": float(hits.mean()), "uniform_chance": chance,
-        "by_kind": by_kind, "by_profile": by_profile,
-        "unmatched_answers": ds.meta.get("unmatched_answers"),
-        "offered_objects_dropped": ds.meta.get("offered_objects_dropped"),
-    }
-    (out / "report.json").write_text(json.dumps(rep, indent=1))
-    lines = [f"# Policy report — {out.name}", "",
-             f"Top-1 agreement with the house on {len(ev):,} held-out answer steps: **{rep['agreement']:.3f}** "
-             f"(a uniform pick among the offered options: {chance:.3f}). Reported model: step {best['step']:,}.", "",
-             "| question | steps | agreement |", "|---|---|---|"]
-    lines += [f"| {k} | {v['n']:,} | {v['agreement']:.3f} |" for k, v in by_kind.items()]
-    lines += ["", "| house profile | steps | agreement |", "|---|---|---|"]
-    lines += [f"| {k} | {v['n']:,} | {v['agreement']:.3f} |" for k, v in by_profile.items()]
-    (out / "report.md").write_text("\n".join(lines) + "\n")
-    print("\n".join(lines), flush=True)
+    report = {"model": out.name, "params": params, "best_step": best["step"], "curve": curve,
+              "unmatched_answers": ds.meta.get("unmatched_answers"),
+              "offered_objects_dropped": ds.meta.get("offered_objects_dropped")}
+    result = native_metrics("policy-report", v3=False, out=str(out),
+        hits=hits.tolist(), usable=torch.ones(len(hits), dtype=torch.bool).tolist(), question=kind.tolist(), profile=prof.tolist(),
+        options=nopt.tolist(), kinds=kinds, profiles=ds.meta["profiles"], report=report)
+    print(result["markdown"], end="", flush=True)
 
 
 if __name__ == "__main__":
