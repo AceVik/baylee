@@ -639,17 +639,19 @@ mod tests {
         assert!(!limiter.spent_at("someone else", now));
     }
 
+    // The clock is moved by hand in these: with real sleeps of 80–220 ms a
+    // loaded runner swept the map mid-loop and failed them (run 40622679934).
     #[test]
     fn a_spent_budget_comes_back_when_the_window_has_passed() {
         let limiter = RateLimiter::new(Duration::from_millis(120), 2);
+        let now = Instant::now();
 
-        assert!(limiter.allow("a@b.c"));
-        assert!(limiter.allow("a@b.c"));
-        assert!(!limiter.allow("a@b.c"), "spent inside the window");
+        assert!(limiter.allow_at("a@b.c", now));
+        assert!(limiter.allow_at("a@b.c", now));
+        assert!(!limiter.allow_at("a@b.c", now), "spent inside the window");
 
-        std::thread::sleep(Duration::from_millis(220));
         assert!(
-            limiter.allow("a@b.c"),
+            limiter.allow_at("a@b.c", now + Duration::from_millis(220)),
             "and handed back by the window moving on, with nobody saying so"
         );
     }
@@ -666,15 +668,16 @@ mod tests {
     #[test]
     fn an_entry_prunes_its_own_hits_when_no_sweep_is_due() {
         let limiter = RateLimiter::new(Duration::from_millis(40), 2);
+        let now = Instant::now();
 
-        assert!(limiter.allow("a@b.c"));
-        assert!(limiter.allow("a@b.c"));
-        assert!(!limiter.allow("a@b.c"), "spent");
+        assert!(limiter.allow_at("a@b.c", now));
+        assert!(limiter.allow_at("a@b.c", now));
+        assert!(!limiter.allow_at("a@b.c", now), "spent");
 
-        std::thread::sleep(Duration::from_millis(80));
-        *limiter.last_sweep.lock() = Instant::now();
+        let later = now + Duration::from_millis(80);
+        *limiter.last_sweep.lock() = later;
         assert!(
-            limiter.allow("a@b.c"),
+            limiter.allow_at("a@b.c", later),
             "the sweep is not due, and the entry's own hits are outside the \
              window"
         );
@@ -691,14 +694,14 @@ mod tests {
     #[test]
     fn a_key_nobody_uses_again_does_not_stay_in_the_map() {
         let limiter = RateLimiter::new(Duration::from_millis(80), 2);
+        let now = Instant::now();
 
         for n in 0..50 {
-            assert!(limiter.allow(&format!("stranger-{n}")));
+            assert!(limiter.allow_at(&format!("stranger-{n}"), now));
         }
         assert_eq!(limiter.hits.lock().len(), 50, "one entry each, so far");
 
-        std::thread::sleep(Duration::from_millis(160));
-        assert!(limiter.allow("the attempt that sweeps"));
+        assert!(limiter.allow_at("the attempt that sweeps", now + Duration::from_millis(160)));
         assert_eq!(
             limiter.hits.lock().len(),
             1,
