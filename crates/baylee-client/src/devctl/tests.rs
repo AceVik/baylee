@@ -312,6 +312,8 @@ pub(super) fn harness() -> (App, Sender<Job>) {
             reveal_jobs: Vec::new(),
             frame: 0,
             virtual_cursor: None,
+            served: 0,
+            idle_exit: None,
         })
         .init_resource::<perf::Probe>()
         .init_resource::<perf::Hidden>()
@@ -795,4 +797,21 @@ fn a_second_step_is_refused_while_the_first_is_running() {
     app.update();
     assert!(second.try_recv().unwrap().contains("\"error\""));
     assert!(first.try_recv().is_err(), "the first step lost its answer");
+}
+
+/// A passive client nobody asks anything of closes itself; every request
+/// starts the wait afresh.
+#[test]
+fn an_idle_passive_client_closes_and_a_request_restarts_the_wait() {
+    let limit = std::time::Duration::from_secs(600);
+    let at = std::time::Duration::from_secs;
+    // Asked nothing since it started: closes at the limit, not before.
+    assert!(!super::idle_over(0, (0, at(0)), at(599), limit).0);
+    assert!(super::idle_over(0, (0, at(0)), at(600), limit).0);
+    // A request moves the start of the wait to now.
+    let (over, seen) = super::idle_over(3, (0, at(0)), at(590), limit);
+    assert!(!over);
+    assert_eq!(seen, (3, at(590)));
+    assert!(!super::idle_over(3, seen, at(1189), limit).0);
+    assert!(super::idle_over(3, seen, at(1190), limit).0);
 }

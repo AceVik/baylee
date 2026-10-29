@@ -15,7 +15,8 @@ trainer under `tools/trainer` is a separate, intentionally Python workflow.
 ## Start an isolated, silent client
 
 Every agent-started test client must be closed after the test, including on
-failure or interruption (owner, 19.10.2026). Record its exact PID/session at
+failure or interruption (owner, 19.10.2026; again 29.10.2026: after **each**
+test run, not left open between iterations). Record its exact PID/session at
 launch and use finally/trap cleanup; verify the process exited and its harness
 port stopped listening before finishing. Close helper services started for
 the same test too. Never stop unrelated processes or leave cleanup to the
@@ -69,8 +70,12 @@ helper into a directory for this run; later builds can replace the shared
 executables. Pass the matching checkout as the helper's `--root`.
 Record its commit, features and settings. Wait for `/health` with a
 bounded deadline and inspect stderr if it fails; never loop forever. The
-passive macOS window stays above other windows to obtain drawable surfaces,
-without focusing or taking OS pointer input. A black screenshot is not proof
+passive macOS window stands behind the owner's windows and comes above them
+only while a screenshot or recording captures (`/health` says `"on_top"`),
+without focusing or taking OS pointer input. A passive client closes itself
+after `BAYLEE_DEV_IDLE_EXIT` seconds without a request (600 by default; set a
+longer one only for a long recording run, never `0` for an agent run); that
+is the backstop, not the way to close it. A black screenshot is not proof
 of a shader defect: inspect the actual surface and window state first.
 
 ## Protocol and coordinates

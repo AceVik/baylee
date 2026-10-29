@@ -9854,8 +9854,9 @@ workstation's left display (native index 0) and rejects a non-left monitor.
 `crates/baylee-client/src/devctl.rs` is a loopback HTTP harness that presses
 keys, moves and clicks the pointer, dumps what the client believes, and saves a
 screenshot — with input injected independently of OS focus. Agent runs use a passive,
-unfocused window; on macOS it stays above other windows so the renderer can
-obtain a drawable surface.
+unfocused window that stands behind the owner's windows; on macOS it comes
+above them only while it captures, so the renderer can obtain a drawable
+surface, and it closes itself after ten minutes without a request.
 It exists because the alternative is bringing a window to the front, pressing a
 key by hand and looking at it, which is neither repeatable nor available to
 anything automated.
@@ -9971,6 +9972,26 @@ client black where a 0.19 client started beside it, activated and in front,
 drew the table). Never the active app, it was also napped (priority 4,
 under a frame a second, once a hang of minutes), so it holds a process
 activity against App Nap for the run (`devctl::keep_a_passive_window_awake`).
+
+Since 29.10.2026 it stays on top only while it captures (owner: the window
+over everything was in the way). A passive window opens at the normal level,
+behind whatever the owner is using, and `devctl::window::lift_while_capturing`
+lifts it to `AlwaysOnTop` while a screenshot is pending or a recording takes
+frames, still unfocused and still letting the pointer through, then lets it
+sink back one second after the last capture (`LIFT_LINGER`), so a run of
+screenshots does not bob it up and down. `/health` says which it is
+(`"on_top"`). Measured on the M1 Max: 60 frames a second at rest behind the
+owner's windows, a `/screenshot` of the lobby drawn (mean luma 141 of 255),
+`"on_top":true` right after it and `false` two seconds later.
+
+**A forgotten client closes itself.** Agents close every client they start
+(owner, 19.10.2026), and still left them open between iterations
+(29.10.2026). A passive client that has been sent no request for
+`BAYLEE_DEV_IDLE_EXIT` seconds (600 when unset, `0` never) logs "no request
+for … s" and exits (`devctl::exit_when_idle`); every request starts the wait
+afresh. Measured with 45 s: exited 46 s after its last request, port closed.
+A client a person drives is not passive and never closes itself. This is the
+backstop, not the rule: close the client when the test is done.
 
 **Virtual pointer and dedicated display (Windows and native desktop).**
 `POST /pointer` keeps its coordinates inside the client, whether passive mode
