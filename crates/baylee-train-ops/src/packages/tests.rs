@@ -249,7 +249,11 @@ fn consumer_manifest_is_explicit_guarded_and_does_not_repeat_completed_work() ->
         &plan,
         &json!({"version":1,"packages":packages,"producer_job":producer,"validation_data":validation,"output":output,"cwd":std::env::current_dir()?,"initial_checkpoint":initial,"train_command":["/usr/bin/cp","-r","{checkpoint}","{package}","{validation_data}","{output}"],"timeout_seconds":10.0,"job_timeout_seconds":5.0,"memory_gib":1.0,"max_packages":1,"gpu_lock":root.path().join("gpu-work.lock")}),
     )?;
+    let historic = packages.join("package-0000/consumed.json");
+    fs::write(&historic, b"{\"historical\":true}")?;
+    let original_receipt = fs::read(&historic)?;
     consume(&plan, &AtomicBool::new(false))?;
+    assert_eq!(original_receipt, fs::read(&historic)?);
     let before = fs::read(output.join("progress.json"))?;
     consume(&plan, &AtomicBool::new(false))?;
     assert_eq!(before, fs::read(output.join("progress.json"))?);

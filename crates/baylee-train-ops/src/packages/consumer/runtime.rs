@@ -162,8 +162,9 @@ pub(super) fn run(
             &plan.output.join("progress.json"),
             &json!({"version":1,"manifest_sha256":seal,"consumed":used,"last_checkpoint":previous,"last_checkpoint_sha256":files::sha256(&previous)?}),
         )?;
-        files::atomic_json(
-            &package.join("consumed.json"),
+        super::receipts::consumed(
+            package,
+            seal,
             &json!({"job":completed.job,"checkpoint":previous,"manifest_sha256":seal}),
         )?;
     }
