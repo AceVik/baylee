@@ -1,0 +1,1308 @@
+{
+  "source": "paired_eval4.py/summarize_eval4.py at 6e8c50fd5; NumPy 2.3.5",
+  "candidate": {
+    "against": "sharp",
+    "baseline": "steady",
+    "seats": 2,
+    "shape": "constructed",
+    "teams": [],
+    "deck_split": "val",
+    "held_out_cards": false,
+    "first_seed": 1,
+    "deal_offset": 0,
+    "deals": 4,
+    "policy_seed": 17,
+    "temperature": 0.0,
+    "thinking_steps": 1,
+    "model": "test",
+    "deal_details": [
+      {
+        "table": 0,
+        "seed": 1,
+        "focal_seat": 0,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "net_utility": 0,
+        "net_capped": false,
+        "base_utility": 0.0,
+        "base_capped": false
+      },
+      {
+        "table": 0,
+        "seed": 1,
+        "focal_seat": 1,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "net_utility": 1,
+        "net_capped": false,
+        "base_utility": 0.0,
+        "base_capped": false
+      },
+      {
+        "table": 1,
+        "seed": 2,
+        "focal_seat": 0,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "net_utility": 1,
+        "net_capped": false,
+        "base_utility": 0.0,
+        "base_capped": false
+      },
+      {
+        "table": 1,
+        "seed": 2,
+        "focal_seat": 1,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "net_utility": 0,
+        "net_capped": false,
+        "base_utility": 0.0,
+        "base_capped": false
+      }
+    ]
+  },
+  "reference": {
+    "against": "sharp",
+    "baseline": "steady",
+    "seats": 2,
+    "shape": "constructed",
+    "teams": [],
+    "deck_split": "val",
+    "held_out_cards": false,
+    "first_seed": 1,
+    "deal_offset": 0,
+    "deals": 4,
+    "policy_seed": 17,
+    "temperature": 0.0,
+    "thinking_steps": 1,
+    "model": "test",
+    "deal_details": [
+      {
+        "table": 0,
+        "seed": 1,
+        "focal_seat": 0,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "net_utility": 0,
+        "net_capped": false,
+        "base_utility": 0.0,
+        "base_capped": false
+      },
+      {
+        "table": 0,
+        "seed": 1,
+        "focal_seat": 1,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "net_utility": 0,
+        "net_capped": false,
+        "base_utility": 0.0,
+        "base_capped": false
+      },
+      {
+        "table": 1,
+        "seed": 2,
+        "focal_seat": 0,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "net_utility": 1,
+        "net_capped": false,
+        "base_utility": 0.0,
+        "base_capped": false
+      },
+      {
+        "table": 1,
+        "seed": 2,
+        "focal_seat": 1,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "net_utility": 1,
+        "net_capped": false,
+        "base_utility": 0.0,
+        "base_capped": false
+      }
+    ]
+  },
+  "provenance": {
+    "engine_sha256": "engine",
+    "deck_manifest_sha256": "decks",
+    "max_decisions": 5000,
+    "fair_scouting": true,
+    "holdout_tier": "",
+    "generated": 0
+  },
+  "comparison": {
+    "candidate": "test",
+    "reference": "test",
+    "thinking_steps": {
+      "candidate": 1,
+      "reference": 1
+    },
+    "different_thinking_budgets_allowed": false,
+    "policy_execution": {
+      "candidate": {},
+      "reference": {}
+    },
+    "provenance": {
+      "engine_sha256": "engine",
+      "deck_manifest_sha256": "decks",
+      "max_decisions": 5000,
+      "fair_scouting": true,
+      "holdout_tier": "",
+      "generated": 0
+    },
+    "outcomes": {
+      "better": 1,
+      "equal": 2,
+      "worse": 1,
+      "unresolved_cap": 0,
+      "both_lose": 1,
+      "both_win": 1
+    },
+    "execution_quality": {
+      "candidate": {
+        "model_family": null,
+        "house_fallbacks": null,
+        "fallback_rate": null,
+        "refused": null,
+        "stalls": null,
+        "net_answer_caps": null
+      },
+      "reference": {
+        "model_family": null,
+        "house_fallbacks": null,
+        "fallback_rate": null,
+        "refused": null,
+        "stalls": null,
+        "net_answer_caps": null
+      }
+    },
+    "paired_uncertainty": {
+      "deals": 4,
+      "independent_tables": 2,
+      "paired_utility_difference": 0.0,
+      "paired_difference_with_caps_imputed_half": 0.0,
+      "censoring_bounds_on_observed_tables": [
+        0.0,
+        0.0
+      ],
+      "table_bootstrap_95_percent_interval": [
+        -0.5,
+        0.5
+      ],
+      "bounded_independent_table_95_percent_interval": [
+        -1.0,
+        1.0
+      ],
+      "capped_pairs": 0,
+      "bootstrap_resamples": 100,
+      "cluster": "table/seed/decks; all focal-seat rotations stay together",
+      "scope": "Conditional on these decks, opponent profiles and seeds; not a human-skill claim",
+      "caps": "Capped utilities are unknown in [0,1]; interval includes worst/best completion, not a draw",
+      "small_sample": true,
+      "warning": "Few tables can yield deceptively narrow bootstrap intervals; expand independent tables"
+    },
+    "scope": "Same start/decks/focal seat/opponents/engine; policy substitution against fixed opponents, not direct head-to-head",
+    "luck": "Keep every deal. Both losing does not prove unavoidability; later draws may diverge after different actions.",
+    "outcome_counts": "better/equal/worse/unresolved_cap partition all cases; both_lose and both_win are subsets of equal.",
+    "selection": "No automatic promotion; repeated selection on this suite needs an untouched final seed/deck holdout."
+  },
+  "capped_summary": {
+    "deals": 1,
+    "independent_tables": 1,
+    "paired_utility_difference": null,
+    "paired_difference_with_caps_imputed_half": -0.5,
+    "censoring_bounds_on_observed_tables": [
+      -1.0,
+      0.0
+    ],
+    "table_bootstrap_95_percent_interval": [
+      -1.0,
+      0.0
+    ],
+    "bounded_independent_table_95_percent_interval": [
+      -1.0,
+      1.0
+    ],
+    "capped_pairs": 1,
+    "bootstrap_resamples": 100,
+    "cluster": "table/seed/decks; all focal-seat rotations stay together",
+    "scope": "Conditional on these decks, opponent profiles and seeds; not a human-skill claim",
+    "caps": "Capped utilities are unknown in [0,1]; interval includes worst/best completion, not a draw",
+    "small_sample": true,
+    "warning": "Few tables can yield deceptively narrow bootstrap intervals; expand independent tables"
+  },
+  "heterogeneous_tables": {
+    "deal_details": [
+      {
+        "table": 0,
+        "seed": 1,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.0,
+        "base_utility": 0.0,
+        "net_capped": true,
+        "base_capped": true
+      },
+      {
+        "table": 1,
+        "seed": 2,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.25,
+        "base_utility": 0.875,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 1,
+        "seed": 2,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.25,
+        "base_utility": 0.875,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 2,
+        "seed": 3,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.5,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 2,
+        "seed": 3,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.5,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 2,
+        "seed": 3,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 0.5,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 3,
+        "seed": 4,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.75,
+        "base_utility": 0.375,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 4,
+        "seed": 5,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 1.0,
+        "base_utility": 0.125,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 4,
+        "seed": 5,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 1.0,
+        "base_utility": 0.125,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 5,
+        "seed": 6,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.0,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 5,
+        "seed": 6,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.0,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 5,
+        "seed": 6,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 0.0,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 6,
+        "seed": 7,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.25,
+        "base_utility": 0.75,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 7,
+        "seed": 8,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.5,
+        "base_utility": 0.5,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 7,
+        "seed": 8,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.5,
+        "base_utility": 0.5,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 8,
+        "seed": 9,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.75,
+        "base_utility": 0.25,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 8,
+        "seed": 9,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.75,
+        "base_utility": 0.25,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 8,
+        "seed": 9,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 0.75,
+        "base_utility": 0.25,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 9,
+        "seed": 10,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 1.0,
+        "base_utility": 0.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 10,
+        "seed": 11,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.0,
+        "base_utility": 0.875,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 10,
+        "seed": 11,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.0,
+        "base_utility": 0.875,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 11,
+        "seed": 12,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.25,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 11,
+        "seed": 12,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.25,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 11,
+        "seed": 12,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 0.25,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 12,
+        "seed": 13,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.5,
+        "base_utility": 0.375,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 13,
+        "seed": 14,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.75,
+        "base_utility": 0.125,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 13,
+        "seed": 14,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.75,
+        "base_utility": 0.125,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 14,
+        "seed": 15,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 1.0,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 14,
+        "seed": 15,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 1.0,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 14,
+        "seed": 15,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 1.0,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 15,
+        "seed": 16,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.0,
+        "base_utility": 0.75,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 16,
+        "seed": 17,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.25,
+        "base_utility": 0.5,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 16,
+        "seed": 17,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.25,
+        "base_utility": 0.5,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 17,
+        "seed": 18,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.5,
+        "base_utility": 0.25,
+        "net_capped": true,
+        "base_capped": false
+      },
+      {
+        "table": 17,
+        "seed": 18,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.5,
+        "base_utility": 0.25,
+        "net_capped": true,
+        "base_capped": false
+      },
+      {
+        "table": 17,
+        "seed": 18,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 0.5,
+        "base_utility": 0.25,
+        "net_capped": true,
+        "base_capped": false
+      },
+      {
+        "table": 18,
+        "seed": 19,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.75,
+        "base_utility": 0.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 19,
+        "seed": 20,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 1.0,
+        "base_utility": 0.875,
+        "net_capped": false,
+        "base_capped": true
+      },
+      {
+        "table": 19,
+        "seed": 20,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 1.0,
+        "base_utility": 0.875,
+        "net_capped": false,
+        "base_capped": true
+      },
+      {
+        "table": 20,
+        "seed": 21,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.0,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 20,
+        "seed": 21,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.0,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 20,
+        "seed": 21,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 0.0,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 21,
+        "seed": 22,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.25,
+        "base_utility": 0.375,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 22,
+        "seed": 23,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.5,
+        "base_utility": 0.125,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 22,
+        "seed": 23,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.5,
+        "base_utility": 0.125,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 23,
+        "seed": 24,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.75,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 23,
+        "seed": 24,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.75,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 23,
+        "seed": 24,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 0.75,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 24,
+        "seed": 25,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 1.0,
+        "base_utility": 0.75,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 25,
+        "seed": 26,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.0,
+        "base_utility": 0.5,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 25,
+        "seed": 26,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.0,
+        "base_utility": 0.5,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 26,
+        "seed": 27,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.25,
+        "base_utility": 0.25,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 26,
+        "seed": 27,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.25,
+        "base_utility": 0.25,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 26,
+        "seed": 27,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 0.25,
+        "base_utility": 0.25,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 27,
+        "seed": 28,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.5,
+        "base_utility": 0.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 28,
+        "seed": 29,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.75,
+        "base_utility": 0.875,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 28,
+        "seed": 29,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.75,
+        "base_utility": 0.875,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 29,
+        "seed": 30,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 1.0,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 29,
+        "seed": 30,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 1.0,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 29,
+        "seed": 30,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 1.0,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 30,
+        "seed": 31,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.0,
+        "base_utility": 0.375,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 31,
+        "seed": 32,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.25,
+        "base_utility": 0.125,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 31,
+        "seed": 32,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.25,
+        "base_utility": 0.125,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 32,
+        "seed": 33,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.5,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 32,
+        "seed": 33,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.5,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 32,
+        "seed": 33,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 0.5,
+        "base_utility": 1.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 33,
+        "seed": 34,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.75,
+        "base_utility": 0.75,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 34,
+        "seed": 35,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 1.0,
+        "base_utility": 0.5,
+        "net_capped": true,
+        "base_capped": false
+      },
+      {
+        "table": 34,
+        "seed": 35,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 1.0,
+        "base_utility": 0.5,
+        "net_capped": true,
+        "base_capped": false
+      },
+      {
+        "table": 35,
+        "seed": 36,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.0,
+        "base_utility": 0.25,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 35,
+        "seed": 36,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.0,
+        "base_utility": 0.25,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 35,
+        "seed": 36,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 0.0,
+        "base_utility": 0.25,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 36,
+        "seed": 37,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.25,
+        "base_utility": 0.0,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 37,
+        "seed": 38,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.5,
+        "base_utility": 0.875,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 37,
+        "seed": 38,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.5,
+        "base_utility": 0.875,
+        "net_capped": false,
+        "base_capped": false
+      },
+      {
+        "table": 38,
+        "seed": 39,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 0.75,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": true
+      },
+      {
+        "table": 38,
+        "seed": 39,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 1,
+        "net_utility": 0.75,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": true
+      },
+      {
+        "table": 38,
+        "seed": 39,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 2,
+        "net_utility": 0.75,
+        "base_utility": 0.625,
+        "net_capped": false,
+        "base_capped": true
+      },
+      {
+        "table": 39,
+        "seed": 40,
+        "decks": [
+          "a",
+          "b"
+        ],
+        "focal_seat": 0,
+        "net_utility": 1.0,
+        "base_utility": 0.375,
+        "net_capped": false,
+        "base_capped": false
+      }
+    ]
+  },
+  "heterogeneous_summary": {
+    "deals": 79,
+    "independent_tables": 40,
+    "paired_utility_difference": null,
+    "paired_difference_with_caps_imputed_half": -0.04746835443037975,
+    "censoring_bounds_on_observed_tables": [
+      -0.12183544303797468,
+      0.030063291139240507
+    ],
+    "table_bootstrap_95_percent_interval": [
+      -0.26470830108359134,
+      0.21296296296296297
+    ],
+    "bounded_independent_table_95_percent_interval": [
+      -0.586950804366718,
+      0.4951786524679838
+    ],
+    "capped_pairs": 11,
+    "bootstrap_resamples": 20000,
+    "cluster": "table/seed/decks; all focal-seat rotations stay together",
+    "scope": "Conditional on these decks, opponent profiles and seeds; not a human-skill claim",
+    "caps": "Capped utilities are unknown in [0,1]; interval includes worst/best completion, not a draw",
+    "small_sample": false,
+    "warning": null
+  }
+}

@@ -74,7 +74,7 @@ def main():
                      "--decks-manifest", args.manifest, "--deck-split", "val",
                      "--threads", str(args.eval_threads), "--first-seed", "870001", "--out", str(path)], 5400,
               [model / "model.onnx.json", args.manifest])
-        stage(name + "-uncertainty", [py, "tools/trainer/summarize_eval4.py", str(path),
+        stage(name + "-uncertainty", ["target/release/summarize_eval4", str(path),
               "--out", str(path.with_suffix(".uncertainty.json"))], 120, [path])
         return path
 

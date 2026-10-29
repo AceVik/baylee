@@ -1,0 +1,55 @@
+[package]
+name = "baylee-train-ops"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Native, bounded experiment orchestration and dataset administration"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+flate2.workspace = true
+ctrlc = { workspace = true, features = ["termination"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix = { workspace = true, features = ["process"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[[bin]]
+name = "train_ops"
+path = "src/main.rs"
+
+[[bin]]
+name = "summarize_eval4"
+path = "src/bin/summarize_eval4.rs"
+
+[[bin]]
+name = "paired_eval4"
+path = "src/bin/paired_eval4.rs"
+
+[[bin]]
+name = "report_experiment4"
+path = "src/bin/report_experiment4.rs"
+
+[[bin]]
+name = "publish_live_model4"
+path = "src/bin/publish_live_model4.rs"
+
+[[bin]]
+name = "import_live_records4"
+path = "src/bin/import_live_records4.rs"
+
+[[bin]]
+name = "live_play_maintenance4"
+path = "src/bin/live_play_maintenance4.rs"
