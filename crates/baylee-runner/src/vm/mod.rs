@@ -6,10 +6,40 @@ use crate::settings::Settings;
 use anyhow::{Result, bail};
 use std::path::{Path, PathBuf};
 use std::process::ExitStatus;
+use std::sync::mpsc;
 use std::time::{Duration, Instant, SystemTime};
 
 const RUNNER_DIR: &str = "/Users/admin/actions-runner";
-const START_SCRIPT: &str = "set -eu; IFS= read -r ACTIONS_RUNNER_INPUT_JITCONFIG; export ACTIONS_RUNNER_INPUT_JITCONFIG; export PATH=/Users/admin/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin; cd /Users/admin/actions-runner; exec ./run.sh";
+const GUARD: &str = "/Users/admin/job-guard.sh";
+
+/// The job-started hook: only `repo`'s pushes to main and its dispatches run
+/// in a VM. GitHub hands a just-in-time runner whichever queued job names its
+/// label, and a fork's pull request writes its own `runs-on`; the fork policy
+/// asks for approval, and this refuses the job even then (29.10.2026). A
+/// hook that fails stops the job before its first step.
+fn job_guard(repo: &str) -> String {
+    format!(
+        "#!/bin/sh\n\
+         case \"$GITHUB_REPOSITORY:$GITHUB_EVENT_NAME:$GITHUB_REF\" in\n\
+         {repo}:push:refs/heads/main | {repo}:workflow_dispatch:*) exit 0 ;;\n\
+         esac\n\
+         echo \"baylee-vm runs only main pushes and dispatches of {repo}, not $GITHUB_REPOSITORY $GITHUB_EVENT_NAME $GITHUB_REF\" >&2\n\
+         exit 1\n"
+    )
+}
+
+/// What the guest runs: the JIT configuration from stdin, the guard as the
+/// job-started hook, then the runner.
+fn start_script(settings: &Settings) -> String {
+    format!(
+        "set -eu; IFS= read -r ACTIONS_RUNNER_INPUT_JITCONFIG; export ACTIONS_RUNNER_INPUT_JITCONFIG; \
+         export PATH=/Users/admin/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin; \
+         cat > {GUARD} <<'GUARD'\n{guard}GUARD\n\
+         chmod 755 {GUARD}; export ACTIONS_RUNNER_HOOK_JOB_STARTED={GUARD}; \
+         cd {RUNNER_DIR}; exec ./run.sh",
+        guard = job_guard(&settings.repo),
+    )
+}
 
 struct Vm<'a> {
     name: String,
@@ -145,10 +175,13 @@ fn wait_for_network(vm: &mut Vm<'_>) -> Result<()> {
 }
 
 fn start_runner_spec(vm: &str, registration: &Registration, settings: &Settings) -> Spec {
-    Spec::new("tart", ["exec", "-i", vm, "/bin/sh", "-c", START_SCRIPT])
-        .with_stdin(format!("{}\n", registration.encoded).into_bytes())
-        .with_prefix(format!("{vm}:"))
-        .with_timeout(settings.job_cap + Duration::from_secs(60))
+    Spec::new(
+        "tart",
+        ["exec", "-i", vm, "/bin/sh", "-c", &start_script(settings)],
+    )
+    .with_stdin(format!("{}\n", registration.encoded).into_bytes())
+    .with_prefix(format!("{vm}:"))
+    .with_timeout(settings.job_cap + Duration::from_secs(60))
 }
 
 fn run_registered_job(
@@ -204,18 +237,25 @@ fn run_registered_job(
 }
 
 /// Runs one named VM to completion and then removes both it and its registration.
+///
+/// `on_network` hears once the VM reached github.com; it is dropped unheard
+/// when the VM gave up before that.
 pub fn one_job_named(
     settings: &Settings,
     operations: &mut dyn Operations,
     name: &str,
     token: &str,
     log_dir: &Path,
+    on_network: Option<mpsc::Sender<()>>,
 ) -> Result<ExitStatus> {
     let mut vm = Vm::clone(operations, &settings.image, name)?;
     vm.log = Some(log_dir.join(format!("{name}.log")));
     vm.start(vm.log.clone())?;
     wait_for_agent(&mut vm)?;
     wait_for_network(&mut vm)?;
+    if let Some(on_network) = on_network {
+        let _ = on_network.send(());
+    }
     let registration = {
         let mut github = GitHub::new(vm.operations, &settings.repo, token);
         github.register(&vm.name, &settings.label)?
@@ -227,6 +267,67 @@ pub fn one_job_named(
     let result = run_registered_job(&mut vm, settings, token, &registration);
     GitHub::new(vm.operations, &settings.repo, token).remove(registration.id);
     result
+}
+
+/// Runs one-job VMs with these names side by side and says whether any of
+/// them served a job. Each VM is started only once the one before it reached
+/// the network or gave up: two VMs started together left the second one
+/// without name resolution (22.10.2026). Without a worker boundary they run
+/// one after the other.
+pub fn run_jobs(
+    settings: &Settings,
+    operations: &mut dyn Operations,
+    names: &[String],
+    token: &str,
+    log_dir: &Path,
+) -> bool {
+    let mut served = false;
+    let mut report = |name: &str, result: Result<ExitStatus>| match result {
+        Ok(status) if status.success() => served = true,
+        Ok(status) => crate::log(format!("{name}: runner failed ({status})")),
+        Err(error) => crate::log(format!("{name}: {error}")),
+    };
+    std::thread::scope(|scope| {
+        let mut running = Vec::new();
+        for name in names {
+            if operations.cancelled() {
+                break;
+            }
+            let worker = if names.len() > 1 {
+                operations.worker()
+            } else {
+                None
+            };
+            let Some(mut worker) = worker else {
+                let result = one_job_named(settings, operations, name, token, log_dir, None);
+                report(name, result);
+                continue;
+            };
+            let (on_network, network) = mpsc::channel();
+            running.push((
+                name,
+                scope.spawn(move || {
+                    one_job_named(
+                        settings,
+                        worker.as_mut(),
+                        name,
+                        token,
+                        log_dir,
+                        Some(on_network),
+                    )
+                }),
+            ));
+            // Either a message or the sender's drop ends the wait.
+            let _ = network.recv();
+        }
+        for (name, job) in running {
+            let result = job
+                .join()
+                .unwrap_or_else(|_| Err(anyhow::anyhow!("the job thread panicked")));
+            report(name, result);
+        }
+    });
+    served
 }
 
 /// Gives a batch job a unique VM name without depending on a locale or `date`.

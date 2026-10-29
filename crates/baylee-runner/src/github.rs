@@ -58,7 +58,7 @@ impl<'a> GitHub<'a> {
             let Ok(answer) = self.api(&["api", &path]) else {
                 return 0;
             };
-            let Ok(ids) = run_ids(&answer) else {
+            let Ok(ids) = run_ids(&answer, self.repo) else {
                 return 0;
             };
             runs.extend(ids);
@@ -144,18 +144,33 @@ impl<'a> GitHub<'a> {
     }
 }
 
-fn run_ids(answer: &Value) -> Result<Vec<u64>> {
-    answer
+/// The runs a VM may serve: this repository's pushes to main and its
+/// dispatches, which only someone with write access can start. A pull
+/// request, a fork's above all, may name the label in its own YAML; it is
+/// left queued here, and the job guard in each VM refuses it as well.
+fn run_ids(answer: &Value, repo: &str) -> Result<Vec<u64>> {
+    let runs = answer
         .get("workflow_runs")
         .and_then(Value::as_array)
-        .context("GitHub response has no workflow_runs array")?
-        .iter()
-        .map(|run| {
-            run.get("id")
-                .and_then(Value::as_u64)
-                .context("run has no id")
-        })
-        .collect()
+        .context("GitHub response has no workflow_runs array")?;
+    let mut ids = Vec::new();
+    for run in runs {
+        let id = run
+            .get("id")
+            .and_then(Value::as_u64)
+            .context("run has no id")?;
+        let field = |pointer: &str| run.pointer(pointer).and_then(Value::as_str);
+        let trusted = field("/head_repository/full_name") == Some(repo)
+            && match field("/event") {
+                Some("push") => field("/head_branch") == Some("main"),
+                Some("workflow_dispatch") => true,
+                _ => false,
+            };
+        if trusted {
+            ids.push(id);
+        }
+    }
+    Ok(ids)
 }
 
 fn queued_jobs(answer: &Value, label: &str) -> Result<usize> {
@@ -194,11 +209,39 @@ mod tests {
 
     #[test]
     fn run_ids_requires_numeric_ids() {
+        let repo = "AceVik/baylee";
+        let run = |id: Value| {
+            json!({"id": id, "event": "push", "head_branch": "main",
+                   "head_repository": {"full_name": repo}})
+        };
         assert_eq!(
-            run_ids(&json!({"workflow_runs": [{"id": 7}, {"id": 11}]})).unwrap(),
+            run_ids(
+                &json!({"workflow_runs": [run(json!(7)), run(json!(11))]}),
+                repo
+            )
+            .unwrap(),
             [7, 11]
         );
-        assert!(run_ids(&json!({"workflow_runs": [{"id": "7"}]})).is_err());
+        assert!(run_ids(&json!({"workflow_runs": [run(json!("7"))]}), repo).is_err());
+    }
+
+    #[test]
+    fn only_main_pushes_and_dispatches_of_this_repository_are_served() {
+        let repo = "AceVik/baylee";
+        let run = |id: u64, event: &str, branch: &str, head: &str| {
+            json!({"id": id, "event": event, "head_branch": branch,
+                   "head_repository": {"full_name": head}})
+        };
+        let answer = json!({"workflow_runs": [
+            run(1, "push", "main", repo),
+            run(2, "workflow_dispatch", "c41/topic", repo),
+            run(3, "pull_request", "main", "someone/baylee"),
+            run(4, "pull_request", "c41/topic", repo),
+            run(5, "push", "c41/topic", repo),
+            run(6, "push", "main", "someone/baylee"),
+            {"id": 7, "event": "push", "head_branch": "main"},
+        ]});
+        assert_eq!(run_ids(&answer, repo).unwrap(), [1, 2]);
     }
 
     #[test]
