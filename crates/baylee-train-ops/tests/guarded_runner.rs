@@ -60,6 +60,78 @@ fn fixture_orphan() {
 }
 
 #[test]
+#[ignore = "subprocess-only fixture"]
+fn fixture_invocation_identity() {
+    let invocation = PathBuf::from(std::env::args_os().next().unwrap());
+    assert_eq!(invocation.file_name().unwrap(), "virtual-runtime");
+    println!("INVOCATION={}", invocation.display());
+    println!("TARGET={}", std::env::current_exe().unwrap().display());
+}
+
+#[test]
+fn symlink_invocation_preserves_runtime_identity_and_reuse_binds_target() {
+    let tmp = tempfile::tempdir().unwrap();
+    let alias = tmp.path().join("virtual-runtime");
+    let target = std::env::current_exe().unwrap().canonicalize().unwrap();
+    std::os::unix::fs::symlink(&target, &alias).unwrap();
+    let mut command = fixture("fixture_invocation_identity");
+    command[0] = alias.display().to_string();
+    let job = job(tmp.path(), command, 5.0);
+    assert!(guard::run(&job, &AtomicBool::new(false)).unwrap());
+    let receipt = files::read_json(&job.directory.join("job.json")).unwrap();
+    assert_eq!(
+        receipt["executable_invocation"],
+        alias.display().to_string()
+    );
+    assert_eq!(receipt["executable"], target.display().to_string());
+    assert_eq!(
+        receipt["executable_sha256"],
+        files::sha256(&target).unwrap()
+    );
+    let log = fs::read_to_string(job.directory.join("stdout.log")).unwrap();
+    assert!(log.contains(&format!("INVOCATION={}", alias.display())));
+    assert!(guard::run(&job, &AtomicBool::new(false)).unwrap());
+    let identical = tmp.path().join("same-bytes-different-target");
+    fs::copy(&target, &identical).unwrap();
+    fs::remove_file(&alias).unwrap();
+    std::os::unix::fs::symlink(&identical, &alias).unwrap();
+    assert_eq!(
+        files::sha256(&identical).unwrap(),
+        receipt["executable_sha256"]
+    );
+    assert!(guard::run(&job, &AtomicBool::new(false)).is_err());
+}
+
+#[test]
+#[ignore = "subprocess-only fixture"]
+fn fixture_retarget_invocation() {
+    let invocation = PathBuf::from(std::env::args_os().next().unwrap());
+    let replacement = invocation.parent().unwrap().join("replacement-runtime");
+    fs::remove_file(&invocation).unwrap();
+    std::os::unix::fs::symlink(replacement, invocation).unwrap();
+}
+
+#[test]
+fn invocation_retargeted_during_execution_is_quarantined_even_with_identical_bytes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let target = std::env::current_exe().unwrap().canonicalize().unwrap();
+    let alias = tmp.path().join("virtual-runtime");
+    fs::copy(&target, tmp.path().join("replacement-runtime")).unwrap();
+    std::os::unix::fs::symlink(&target, &alias).unwrap();
+    let mut command = fixture("fixture_retarget_invocation");
+    command[0] = alias.display().to_string();
+    let job = job(tmp.path(), command, 5.0);
+    assert!(!guard::run(&job, &AtomicBool::new(false)).unwrap());
+    let receipt = files::read_json(&job.directory.join("job.json")).unwrap();
+    assert_eq!(receipt["status"], "quarantined");
+    assert_eq!(receipt["reason"], "input_changed");
+    assert_eq!(receipt["returncode"], 0);
+    let pid = u32::try_from(receipt["pid"].as_u64().unwrap()).unwrap();
+    assert!(process::identity(pid).is_none());
+    assert!(guard::run(&job, &AtomicBool::new(false)).is_err());
+}
+
+#[test]
 fn deadline_reaps_owned_group_and_preserves_failure() {
     let tmp = tempfile::tempdir().unwrap();
     let job = job(tmp.path(), fixture("fixture_sleep"), 0.2);

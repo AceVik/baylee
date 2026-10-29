@@ -232,6 +232,13 @@ files instead. Before reserving the GPU, exercise the actual native-backed
 dataset constructor in the final directory on CPU and load a complete history.
 A generic successful command under the process guard does not validate the
 data loader or the model worker's inputs.
+The guard executes the resolved invocation path, preserving symlinks and
+`argv[0]` semantics such as a virtual environment's Python executable. Its
+schema-3 receipt records both `executable_invocation` and the canonical
+`executable` target plus its hash. Reuse and postflight require the same
+invocation, target and bytes; older receipts without that binding are retained
+but cannot certify reuse. A worker preflight must import Torch through the
+same guarded invocation and environment that the update will use.
 The pipeline seals all external inputs before its first stage and rechecks
 them and completed producer outputs before each consumer. Generated inputs
 must name an earlier stage's declared outputs; forward dependencies fail.

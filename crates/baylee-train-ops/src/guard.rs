@@ -131,15 +131,39 @@ pub(crate) fn capture(program: &Path, arguments: &[&str], timeout: Duration) -> 
     Ok(text)
 }
 
-fn executable(command: &str, cwd: &Path) -> Result<PathBuf> {
+#[derive(Debug, PartialEq, Eq)]
+struct Executable {
+    // Do not canonicalize the invocation: runtimes discover environments from argv[0].
+    invocation: PathBuf,
+    canonical: PathBuf,
+}
+
+fn executable(command: &str, cwd: &Path) -> Result<Executable> {
+    executable_in_path(command, cwd, &std::env::var_os("PATH").unwrap_or_default())
+}
+
+fn executable_in_path(
+    command: &str,
+    cwd: &Path,
+    search_path: &std::ffi::OsStr,
+) -> Result<Executable> {
+    let cwd = std::path::absolute(cwd)?;
+    let resolve = |invocation: PathBuf| -> Result<Executable> {
+        let canonical = invocation.canonicalize()?;
+        ensure!(canonical.is_file(), "executable is not a file: {command}");
+        Ok(Executable {
+            invocation,
+            canonical,
+        })
+    };
     let path = Path::new(command);
-    if path.components().count() > 1 || path.is_absolute() {
-        return Ok(cwd.join(path).canonicalize()?);
+    if command.contains(std::path::MAIN_SEPARATOR) || path.is_absolute() {
+        return resolve(cwd.join(path));
     }
-    for directory in std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()) {
-        let candidate = directory.join(path);
+    for directory in std::env::split_paths(search_path) {
+        let candidate = cwd.join(directory).join(path);
         if candidate.is_file() {
-            return Ok(candidate.canonicalize()?);
+            return resolve(candidate);
         }
     }
     bail!("executable not found: {command}")
@@ -159,7 +183,7 @@ fn input_hashes(job: &Job) -> Result<BTreeMap<String, String>> {
 
 /// Validated attempt inputs and durable starting state.
 struct Prepared {
-    exe: PathBuf,
+    exe: Executable,
     exe_hash: String,
     inputs: BTreeMap<String, String>,
     state: serde_json::Value,
@@ -231,7 +255,7 @@ fn prepare(job: &Job) -> Result<Option<Prepared>> {
     );
     let manifest = job.directory.join("job.json");
     let exe = executable(&job.command[0], &job.cwd)?;
-    let exe_hash = files::sha256(&exe)?;
+    let exe_hash = files::sha256(&exe.canonical)?;
     let inputs = input_hashes(job)?;
     let (revision, diff) = source_identity(&job.cwd)?;
     let diff_sha = files::hex(&Sha256::digest(&diff));
@@ -242,6 +266,8 @@ fn prepare(job: &Job) -> Result<Option<Prepared>> {
             old["status"] == "complete"
                 && old["command"] == json!(job.command)
                 && old["cwd"] == json!(job.cwd)
+                && old["executable_invocation"] == json!(exe.invocation)
+                && old["executable"] == json!(exe.canonical)
                 && old["executable_sha256"] == exe_hash
                 && old["inputs"] == json!(inputs)
                 && old["revision"] == revision
@@ -255,7 +281,7 @@ fn prepare(job: &Job) -> Result<Option<Prepared>> {
         return Ok(None);
     }
     fs::write(job.directory.join("source.patch"), &diff)?;
-    let state = json!({"schema_version":2,"guard":"rust-owned-group-v1","command":job.command,"cwd":job.cwd,"revision":revision,"runtime_environment":environment,"executable":exe,"executable_sha256":exe_hash,"tracked_diff_sha256":diff_sha,"inputs":inputs,"status":"starting","started_at_unix":files::unix_time()?,"timeout_seconds":job.timeout_seconds,"memory_limit_gib":job.memory_gib});
+    let state = json!({"schema_version":3,"guard":"rust-owned-group-v1","command":job.command,"cwd":job.cwd,"revision":revision,"runtime_environment":environment,"executable_invocation":exe.invocation,"executable":exe.canonical,"executable_sha256":exe_hash,"tracked_diff_sha256":diff_sha,"inputs":inputs,"status":"starting","started_at_unix":files::unix_time()?,"timeout_seconds":job.timeout_seconds,"memory_limit_gib":job.memory_gib});
     files::atomic_json(&manifest, &state)?;
     Ok(Some(Prepared {
         exe,
@@ -291,7 +317,12 @@ pub fn run(job: &Job, interrupted: &AtomicBool) -> Result<bool> {
             !interrupted.load(Ordering::Relaxed),
             "interrupted before spawn"
         );
-        group = Some(spawn(job, &exe)?);
+        ensure!(
+            executable(&job.command[0], &job.cwd)? == exe
+                && files::sha256(&exe.canonical)? == exe_hash,
+            "executable binding changed before spawn"
+        );
+        group = Some(spawn(job, &exe.invocation)?);
         let child = group.as_ref().context("owned child")?;
         state["pid"] = json!(child.child.id());
         state["child_identity"] = json!(process::identity(child.child.id()));
@@ -328,8 +359,11 @@ pub fn run(job: &Job, interrupted: &AtomicBool) -> Result<bool> {
     if let Err(ref error) = cleanup {
         reason = Some(format!("cleanup_failed: {error:#}"));
     }
-    let validation = input_hashes(job)
-        .and_then(|current| Ok(current == inputs && files::sha256(&exe)? == exe_hash));
+    let validation = input_hashes(job).and_then(|current| {
+        Ok(current == inputs
+            && executable(&job.command[0], &job.cwd)? == exe
+            && files::sha256(&exe.canonical)? == exe_hash)
+    });
     if reason.is_none() {
         match validation {
             Ok(true) => {}
