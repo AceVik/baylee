@@ -231,6 +231,7 @@ pub fn merge3(path: &Path) -> Result<Value> {
             &json!({"identity":identity,"outputs":outputs,"totals":totals}),
         )?;
         fs::rename(&temporary, &cache)?;
+        #[cfg(unix)]
         fs::File::open(&merged)?.sync_all()?;
         Ok(())
     })();

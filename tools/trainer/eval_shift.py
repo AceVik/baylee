@@ -27,6 +27,7 @@ import dataset3 as D3
 import model3 as M
 from train3 import gather_options
 from train_rl import EXPERT, advantages, learner_mask
+from legacy_evaluation import native_metrics
 
 
 def load(model: Path, ds) -> torch.nn.Module:
@@ -44,19 +45,26 @@ def log_probs(net, ds, b, entities, is_learner):
     -inf), the chosen option, and whether the sample is a usable choice."""
     opt, sample, live, flat_chosen, count, first = gather_options(ds, b.idx, entities)
     dev = b.cards.device
-    profile = np.where(is_learner[b.idx], EXPERT, np.where(ds.col("profile")[b.idx] < 0, 5, ds.col("profile")[b.idx]))
-    logit, _ = net(b, torch.from_numpy(profile).to(dev), torch.from_numpy(sample).to(dev),
-                   torch.from_numpy(opt.astype(np.int64)).to(dev))
+    learner = torch.from_numpy(is_learner[b.idx]).to(dev)
+    profiles = torch.from_numpy(ds.col('profile')[b.idx]).to(dev)
+    profile = torch.where(learner, EXPERT, torch.where(profiles < 0, 5, profiles))
+    sample_t = torch.from_numpy(sample).to(dev)
+    first_t = torch.from_numpy(first).to(dev)
+    count_t = torch.from_numpy(count).to(dev)
+    logit, _ = net(b, profile, sample_t, torch.from_numpy(opt.astype(np.int64)).to(dev))
     live_t = torch.from_numpy(live).to(dev)
-    logit = logit.float().masked_fill(~live_t, float("-inf"))
-    B, O = len(b.idx), max(int(count.max()) if len(count) else 0, 1)
-    pos = np.arange(len(sample)) - np.repeat(first, count)
-    padded = torch.full((B, O), float("-inf"), device=dev)
-    padded[torch.from_numpy(sample).to(dev), torch.from_numpy(pos).to(dev)] = logit
-    live_count = np.zeros(B, dtype=np.int64)
-    np.add.at(live_count, sample, live.astype(np.int64))
-    ok = (flat_chosen >= 0) & (live_count > 1) & (ds.col("offered_dropped")[b.idx] == 0) & is_learner[b.idx]
-    return torch.log_softmax(padded, dim=1), flat_chosen - first, ok
+    logit = logit.float().masked_fill(~live_t, float('-inf'))
+    B = len(b.idx)
+    O = max(int(count_t.max()) if len(count) else 0, 1)
+    pos = torch.arange(len(sample), device=dev) - torch.repeat_interleave(first_t, count_t)
+    padded = torch.full((B, O), float('-inf'), device=dev)
+    padded[sample_t, pos] = logit
+    live_count = torch.zeros(B, dtype=torch.long, device=dev)
+    live_count.scatter_add_(0, sample_t, live_t.long())
+    chosen = torch.from_numpy(flat_chosen).to(dev)
+    dropped = torch.from_numpy(ds.col('offered_dropped')[b.idx]).to(dev)
+    ok = (chosen >= 0) & (live_count > 1) & (dropped == 0) & learner
+    return torch.log_softmax(padded, dim=1), (chosen - first_t).cpu().numpy(), ok.cpu().numpy()
 
 
 def main() -> None:
@@ -79,14 +87,7 @@ def main() -> None:
     if args.player is not None:
         adv = advantages(nets[args.player], ds, is_learner, args.entities, args.lam)
         nets[args.player].eval()
-    top_p = np.zeros(k)
-    entropy = np.zeros(k)
-    adv_sum = {True: 0.0, False: 0.0}
-    adv_n = {True: 0, False: 0}
-    agree = np.zeros((k, k))
-    kl = np.zeros((k, k))
-    hit = np.zeros(k)
-    n = 0
+    measurements = []
     with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
         for b in D3.Loader(ds, held, 512, args.entities, shuffle=False):
             outs = [log_probs(net, ds, b, args.entities, is_learner) for net in nets]
@@ -96,36 +97,26 @@ def main() -> None:
             lps = [o[0][ok] for o in outs]
             chosen = torch.from_numpy(outs[0][1]).to(b.cards.device)[ok]
             tops = [lp.argmax(1) for lp in lps]
+            row = dict(n=int(ok.sum()), top_p=[], entropy=[], hit=[], agree=[], kl=[])
             if adv is not None:
-                a = adv[b.idx][outs[0][2]]
-                on_top = (tops[args.player] == chosen).cpu().numpy()
-                for flag in (True, False):
-                    m = (on_top == flag) & ~np.isnan(a)
-                    adv_sum[flag] += float(a[m].sum())
-                    adv_n[flag] += int(m.sum())
+                advantage = torch.from_numpy(adv[b.idx][outs[0][2]])
+                row.update(advantage=torch.nan_to_num(advantage).tolist(),
+                           advantage_finite=torch.isfinite(advantage).tolist(),
+                           advantage_on_top=(tops[args.player] == chosen).cpu().tolist())
             for i in range(k):
-                p_i = lps[i].exp()
-                top_p[i] += float(p_i.max(1).values.sum())
-                entropy[i] += float(torch.where(p_i > 0, -p_i * lps[i], torch.zeros_like(p_i)).sum())
-                hit[i] += float((tops[i] == chosen).sum())
-                for j in range(k):
-                    agree[i, j] += float((tops[i] == tops[j]).sum())
-                    p = lps[i].exp()
-                    d = torch.where(p > 0, p * (lps[i] - lps[j]), torch.zeros_like(p)).sum(1)
-                    kl[i, j] += float(d.clamp(min=0).sum())
-            n += int(ok.sum())
-    names = [m.name for m in models]
-    print(f"{n:,} held-out learner decisions with a choice")
-    for i in range(k):
-        print(f"{names[i]}: top option is the sampled answer {hit[i] / n:.3f}; "
-              f"mean top probability {top_p[i] / n:.3f}, entropy {entropy[i] / n:.3f}")
-    for i in range(k):
-        for j in range(i + 1, k):
-            print(f"{names[i]} -> {names[j]}: top agrees {agree[i, j] / n:.3f}, KL {kl[i, j] / n:.4f}")
-    if adv is not None:
-        for flag, what in ((True, "its top option"), (False, "another option")):
-            mean = adv_sum[flag] / max(adv_n[flag], 1)
-            print(f"sampled {what} of {names[args.player]}: {adv_n[flag]:,} decisions, mean advantage {mean:+.3f}")
+                probability = lps[i].exp()
+                row['top_p'].append(float(probability.max(1).values.sum()))
+                row['entropy'].append(float(torch.where(probability > 0, -probability * lps[i],
+                                                        torch.zeros_like(probability)).sum()))
+                row['hit'].append(int((tops[i] == chosen).sum()))
+                row['agree'].append([int((tops[i] == tops[j]).sum()) for j in range(k)])
+                row['kl'].append([float(torch.where(probability > 0,
+                    probability * (lps[i] - lps[j]), torch.zeros_like(probability)).sum(1).clamp(min=0).sum())
+                    for j in range(k)])
+            measurements.append(row)
+    report = native_metrics('shift-report', names=[m.name for m in models],
+                            player=args.player, batches=measurements)
+    print(report['text'], end='')
 
 
 if __name__ == "__main__":

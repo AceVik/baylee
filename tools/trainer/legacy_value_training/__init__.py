@@ -15,7 +15,6 @@ beside two baselines (a coin, and a logistic model on life, hand and board).
 from __future__ import annotations
 
 import argparse
-import json
 import math
 import time
 from pathlib import Path
@@ -26,6 +25,7 @@ import torch.nn.functional as F
 
 import dataset as D
 import model as M
+from legacy_evaluation import native_metrics
 
 
 def log(msg: str) -> None:
@@ -46,21 +46,7 @@ def predict(net: M.ValueNet, ds: D.Dataset, idx: np.ndarray, batch: int, entitie
 
 
 def metrics(p: np.ndarray, y: np.ndarray) -> dict:
-    p = np.clip(p, 1e-6, 1 - 1e-6)
-    brier = float(np.mean((p - y) ** 2))
-    logloss = float(-np.mean(y * np.log(p) + (1 - y) * np.log(1 - p)))
-    decided = y != 0.5
-    acc = float(np.mean((p[decided] > 0.5) == (y[decided] > 0.5))) if decided.any() else float("nan")
-    bins = np.minimum((p * 10).astype(int), 9)
-    table, ece = [], 0.0
-    for b in range(10):
-        m = bins == b
-        if not m.any():
-            continue
-        mp, my = float(p[m].mean()), float(y[m].mean())
-        table.append({"bin": f"{b / 10:.1f}-{(b + 1) / 10:.1f}", "n": int(m.sum()), "predicted": mp, "won": my})
-        ece += m.sum() / len(p) * abs(mp - my)
-    return {"n": int(len(p)), "brier": brier, "logloss": logloss, "accuracy": acc, "ece": float(ece), "reliability": table}
+    return native_metrics('metrics', prediction=p.tolist(), truth=y.tolist())
 
 
 def baseline_features(ds: D.Dataset, idx: np.ndarray) -> np.ndarray:
@@ -107,65 +93,12 @@ def fit_logistic(x: np.ndarray, y: np.ndarray):
 
 
 def report_by(name: str, keys: np.ndarray, p: np.ndarray, y: np.ndarray, order: list | None = None) -> dict:
-    out = {}
-    for k in order or sorted(set(keys.tolist())):
-        m = keys == k
-        if m.sum() >= 200:
-            r = metrics(p[m], y[m])
-            out[str(k)] = {x: r[x] for x in ("n", "brier", "logloss", "accuracy", "ece")} | {"reliability": r["reliability"]}
-    return {name: out}
+    return native_metrics('group-report', name=name, keys=keys.tolist(),
+                          prediction=p.tolist(), truth=y.tolist(), order=order)
 
 
 def markdown(rep: dict) -> str:
-    lines = [f"# Value net report — {rep['model']}", ""]
-    lines.append(f"**What it measures:** {rep['measures']}")
-    lines.append("")
-    lines.append(f"Dataset `{rep['dataset']}`: {rep['train_samples']:,} training and {rep['held_out_samples']:,} held-out decisions "
-                 f"({rep['held_out_games']:,} held-out games). Working-card sets: {', '.join(rep['working_hashes'])}.")
-    lines.append("")
-    lines.append("| | Brier ↓ | log loss ↓ | accuracy (decided) ↑ | ECE ↓ |")
-    lines.append("|---|---|---|---|---|")
-    for k in ("coin", "logistic (life, hand, library, board, turn)", "value net"):
-        r = rep["overall"][k]
-        lines.append(f"| {k} | {r['brier']:.4f} | {r['logloss']:.4f} | {r['accuracy']:.3f} | {r['ece']:.4f} |")
-    lines.append("")
-    lines.append("## The extremes")
-    lines.append("")
-    lines.append("Where a bar's credibility lives: positions rated under 10 % and over 90 %.")
-    lines.append("")
-    lines.append("| | rated under 10 %: positions, mean rating, won | rated over 90 %: positions, mean rating, won |")
-    lines.append("|---|---|---|")
-    for name, rel in [("all", rep["overall"]["value net"]["reliability"])] + [
-        (k, v["reliability"]) for k, v in rep["by_progress"].items()
-    ]:
-        low = next((r for r in rel if r["bin"] == "0.0-0.1"), None)
-        high = next((r for r in rel if r["bin"] == "0.9-1.0"), None)
-        cell = lambda r: f"{r['n']:,} · {r['predicted']:.3f} · {r['won']:.3f}" if r else "—"
-        lines.append(f"| {name} | {cell(low)} | {cell(high)} |")
-    lines.append("")
-    if rep.get("curve"):
-        lines.append(f"## Training curve (held-out slice; reported model: step {rep['best_step']:,})")
-        lines.append("")
-        lines.append("| step | train loss | held-out log loss | Brier | ECE |")
-        lines.append("|---|---|---|---|---|")
-        for c in rep["curve"]:
-            lines.append(f"| {c['step']:,} | {c['train_loss']:.4f} | {c['logloss']:.4f} | {c['brier']:.4f} | {c['ece']:.4f} |")
-        lines.append("")
-    lines.append("## Reliability (held out)")
-    lines.append("")
-    lines.append("| rated | positions | mean rating | won |")
-    lines.append("|---|---|---|---|")
-    for row in rep["overall"]["value net"]["reliability"]:
-        lines.append(f"| {row['bin']} | {row['n']:,} | {row['predicted']:.3f} | {row['won']:.3f} |")
-    for split in ("by_turn", "by_progress", "by_profile"):
-        lines.append("")
-        lines.append(f"## {split.replace('_', ' ')}")
-        lines.append("")
-        lines.append("| | positions | Brier | accuracy | ECE |")
-        lines.append("|---|---|---|---|---|")
-        for k, r in rep[split].items():
-            lines.append(f"| {k} | {r['n']:,} | {r['brier']:.4f} | {r['accuracy']:.3f} | {r['ece']:.4f} |")
-    return "\n".join(lines) + "\n"
+    return native_metrics('training-markdown', report=rep)['markdown']
 
 
 def main() -> None:
@@ -248,7 +181,7 @@ def main() -> None:
                     torch.save(net.state_dict(), out / "value_best.state")
                     mark = " · best"
                 log(f"held out @ {step:,}: log loss {m['logloss']:.4f} · Brier {m['brier']:.4f} · ECE {m['ece']:.4f} · "
-                    f"accuracy {m['accuracy']:.3f}{mark}")
+                    f"accuracy {m['accuracy_text']}{mark}")
             if step >= total:
                 break
         epoch += 1
@@ -303,9 +236,7 @@ def main() -> None:
     rep |= report_by("by_turn", turn_bucket, p, y, ["turns 1-3", "turns 4-6", "turns 7-9", "turns 10-14", "turns 15+"])
     rep |= report_by("by_progress", progress, p, y, ["early third", "middle third", "last third"])
     rep |= report_by("by_profile", profile, p, y, ["novice", "casual", "steady", "sharp", "expert"])
-    (out / "report.json").write_text(json.dumps(rep, indent=1))
-    md = markdown(rep)
-    (out / "report.md").write_text(md)
+    md = native_metrics('training-report', report=rep, out=str(out))['markdown']
     print(md, flush=True)
 
 

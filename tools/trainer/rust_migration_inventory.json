@@ -24,7 +24,18 @@
     "tools/trainer/trajectory_store4/__init__.py": "Read-only NumPy mmap decoding for torch.utils.data.Dataset and thin subprocess bridge only. Native Rust owns shard parsing, raw packing, validation, fingerprints, cache construction and publication.",
     "tools/trainer/training4/loss_config.py": "Thin immutable PyTorch objective configuration dataclass; native training-contract owns version, normalization, fixed weights, flags and supported ablation admission.",
     "tools/trainer/training4/supervised_options.py": "Mixed: CLI option/contract handling plus direct Torch auxiliary head detach/forward; pure configuration remains to audit.",
-    "tools/trainer/test_encoder8_contract.py": "Existing untracked PyTorch model/checkpoint/export integration tests retained; imports adapted to native dataset validation. Not authored by this migration."
+    "tools/trainer/test_encoder8_contract.py": "Existing untracked PyTorch model/checkpoint/export integration tests retained; imports adapted to native dataset validation. Not authored by this migration.",
+    "tools/trainer/performance5/runner.py": "Torch disposable CUDA update/parity execution remains; checkpoint checksums and atomic JSON reports delegate to native torch_io4 seals/publication.",
+    "tools/trainer/deepen4.py": "Torch function-preserving residual-block insertion and checkpoint tensor copying remain; source SHA256 and depth-transfer metadata publication delegate to native operations.",
+    "tools/trainer/refresh_structure4.py": "Torch rule-encoder parameter remapping, strict model loading and state construction remain; immutable file seals and metadata publication delegate to native operations.",
+    "tools/trainer/migrate_structure4.py": "Explicit historical Torch weight migration remains; input file SHA256 delegates to native operations.",
+    "tools/trainer/dataset3.py, tools/trainer/legacy_dataset3/__init__.py": "Supported v3 Torch tensor loader/NumPy mmap adapter retained. Native trajectory_cache4 merge3 validates sizes/offsets/source content seals and streams immutable rebased column caches; old legacy merged artifacts are preserved.",
+    "tools/trainer/batch_audit5/worker.py": "CPU Torch dataset/sampler execution, encoded-frame Tensor schemas, real collation and Tensor storage/masked counts only. Native audit_batches5 owns job argv, deterministic sample indices, shape/budget arithmetic, quantiles, source seals, hard worker deadline and final report publication.",
+    "tools/trainer/eval_value.py": "Retained v2 Torch model loading and prediction; native legacy_metrics fits the disjoint even-game baseline, selects odd-game first decisions, aggregates proper scores/calibration and writes reports.",
+    "tools/trainer/eval_shift.py": "Retained v3 Torch model/option inference and Tensor probability/KL sufficient statistics; native legacy_metrics owns cross-batch reductions, agreement/entropy/hit ratios, finite advantage grouping and report rendering.",
+    "tools/trainer/train_value.py, tools/trainer/legacy_value_training/__init__.py": "Retained legacy Torch model training, loss/backpropagation, optimizer and direct Tensor feature/prediction adapters. Native legacy_metrics owns metrics, group thresholds/statistics, Markdown rendering and JSON/Markdown report publication. Torch training/forward/optimizer bodies preserved; native statistical reductions use f64.",
+    "tools/trainer/legacy_evaluation/__init__.py": "Thin JSON/subprocess transport for Torch-derived prediction and advantage arrays; no Python aggregation or fallback.",
+    "tools/trainer/test_audit_batches5.py, tools/trainer/test_dataset3_native.py, tools/trainer/test_legacy_metrics.py": "Directly associated Torch tensor/storage, legacy mmap and real native-boundary integration fixtures; pure planner/cache/statistical unit tests moved to Rust."
   },
   "retired_operational_entries": {
     "tools/trainer/import_17lands4.py": "baylee-train-ops import_17lands4",
@@ -43,7 +54,12 @@
     "tools/trainer/report_experiment4.py": "baylee-train-ops report_experiment4",
     "tools/trainer/publish_live_model4.py": "baylee-train-ops publish_live_model4",
     "tools/trainer/import_live_records4.py": "baylee-train-ops import_live_records4",
-    "tools/trainer/live_play_maintenance4.py": "baylee-train-ops live_play_maintenance4"
+    "tools/trainer/live_play_maintenance4.py": "baylee-train-ops live_play_maintenance4",
+    "tools/trainer/audit_batches5.py": "baylee-train-ops audit_batches5 CLI; batch_audit5/worker.py retains only CPU Torch measurements",
+    "tools/trainer/dataset3.py:merge": "baylee-train-ops trajectory_cache4 merge3 --data-dir ROOT",
+    "tools/trainer/eval_value.py:baseline-and-report": "baylee-train-ops legacy_metrics value-plan/value-report",
+    "tools/trainer/eval_shift.py:aggregation-and-report": "baylee-train-ops legacy_metrics shift-report",
+    "tools/trainer/train_value.py:metrics/report_by/markdown": "baylee-train-ops legacy_metrics metrics/group-report/training-report"
   },
   "files": [
     {
