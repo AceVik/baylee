@@ -94,3 +94,66 @@ fn repeated_artifact_declarations_fail_before_any_job() {
     assert!(pipeline::run(&manifest, &AtomicBool::new(false)).is_err());
     assert!(!tmp.path().join("run/status.json").exists());
 }
+
+#[test]
+fn future_external_input_is_sealed_before_the_first_stage() {
+    let tmp = tempfile::tempdir().unwrap();
+    let manifest = setup(tmp.path(), "true");
+    let external = tmp.path().join("external.bin");
+    fs::write(&external, b"original data").unwrap();
+    let mut plan = files::read_json(&manifest).unwrap();
+    plan["stages"][0]["command"] = json!(["cp", "/dev/null", external]);
+    plan["stages"].as_array_mut().unwrap().push(json!({
+        "name":"consume", "command":["true"],
+        "timeout_seconds":5.0,"memory_gib":1.0,"inputs":[external],
+        "required_outputs":[tmp.path().join("run/jobs/consume/stdout.log")]
+    }));
+    files::atomic_json(&manifest, &plan).unwrap();
+    let error = pipeline::run(&manifest, &AtomicBool::new(false)).unwrap_err();
+    assert!(error.to_string().contains("sealed input digest mismatch"));
+    assert!(!tmp.path().join("run/jobs/consume").exists());
+    assert!(!tmp.path().join("run/result.json").exists());
+}
+
+#[test]
+fn producer_outputs_can_feed_a_later_consumer_but_not_a_forward_dependency() {
+    let tmp = tempfile::tempdir().unwrap();
+    let manifest = setup(tmp.path(), "true");
+    let earlier = tmp.path().join("run/jobs/probe/stdout.log");
+    let mut plan = files::read_json(&manifest).unwrap();
+    plan["stages"][0]["command"] = json!(["echo", "produced data"]);
+    plan["stages"].as_array_mut().unwrap().push(json!({
+        "name":"consume", "command":["cat", earlier],
+        "timeout_seconds":5.0,"memory_gib":1.0,"inputs":[earlier],
+        "required_outputs":[tmp.path().join("run/jobs/consume/stdout.log")]
+    }));
+    files::atomic_json(&manifest, &plan).unwrap();
+    let result = pipeline::run(&manifest, &AtomicBool::new(false)).unwrap();
+    assert_eq!(result["inputs"], json!({}));
+    assert_eq!(
+        fs::read(tmp.path().join("run/jobs/consume/stdout.log")).unwrap(),
+        b"produced data\n"
+    );
+
+    let tmp = tempfile::tempdir().unwrap();
+    let manifest = setup(tmp.path(), "true");
+    let mut plan = files::read_json(&manifest).unwrap();
+    plan["stages"][0]["inputs"] = plan["stages"][0]["required_outputs"].clone();
+    files::atomic_json(&manifest, &plan).unwrap();
+    assert!(pipeline::run(&manifest, &AtomicBool::new(false)).is_err());
+    assert!(!tmp.path().join("run/status.json").exists());
+}
+
+#[test]
+fn completed_run_reuse_rechecks_its_external_inputs() {
+    let tmp = tempfile::tempdir().unwrap();
+    let manifest = setup(tmp.path(), "true");
+    let external = tmp.path().join("source.dat");
+    fs::write(&external, b"unchanged").unwrap();
+    let mut plan = files::read_json(&manifest).unwrap();
+    plan["stages"][0]["inputs"] = json!([external]);
+    files::atomic_json(&manifest, &plan).unwrap();
+    pipeline::run(&manifest, &AtomicBool::new(false)).unwrap();
+    fs::write(external, b"changed").unwrap();
+    assert!(pipeline::run(&manifest, &AtomicBool::new(false)).is_err());
+}

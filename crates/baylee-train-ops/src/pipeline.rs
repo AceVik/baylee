@@ -1,5 +1,5 @@
 //! Explicit, bounded experiment manifests; no implicit training or promotion recipe.
-use crate::{files, guard, process};
+use crate::{digests::InputDigestCache, files, guard, process};
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -92,6 +92,68 @@ fn output_seals(stage: &Stage) -> Result<BTreeMap<PathBuf, String>> {
         .collect()
 }
 
+// Seal inputs for the entire experiment, not independently at each stage: a
+// producer must not rewrite a future consumer's external input between jobs.
+fn external_inputs(plan: &Plan) -> Result<BTreeSet<PathBuf>> {
+    let outputs: BTreeSet<_> = plan
+        .stages
+        .iter()
+        .flat_map(|s| &s.required_outputs)
+        .collect();
+    let mut available = BTreeSet::new();
+    let mut external = BTreeSet::new();
+    for stage in &plan.stages {
+        for input in &stage.inputs {
+            let input = plan.cwd.join(input);
+            if outputs.contains(&input) {
+                ensure!(
+                    available.contains(&input),
+                    "input requires an earlier producer: {}",
+                    input.display()
+                );
+            } else {
+                external.insert(input);
+            }
+        }
+        available.extend(stage.required_outputs.iter().cloned());
+    }
+    Ok(external)
+}
+
+fn verify_prior_outputs(
+    outputs: &BTreeMap<String, BTreeMap<PathBuf, String>>,
+    cache: &mut InputDigestCache,
+) -> Result<()> {
+    for (name, seals) in outputs {
+        cache
+            .verify(seals)
+            .with_context(|| format!("artifact from stage {name} changed before completion"))?;
+    }
+    Ok(())
+}
+
+fn completed_result(plan: &Plan, input_paths: &BTreeSet<PathBuf>) -> Result<Value> {
+    let result = files::read_json(&plan.root.join("result.json"))?;
+    let sealed_inputs: BTreeMap<PathBuf, String> = serde_json::from_value(
+        result
+            .get("inputs")
+            .context("completed attempt lacks experiment input seals")?
+            .clone(),
+    )?;
+    ensure!(
+        sealed_inputs.keys().cloned().collect::<BTreeSet<_>>() == *input_paths,
+        "completed input set changed"
+    );
+    InputDigestCache::default().verify(&sealed_inputs)?;
+    for stage in &plan.stages {
+        ensure!(
+            result["outputs"][&stage.name] == json!(output_seals(stage)?),
+            "completed artifact changed"
+        );
+    }
+    Ok(result)
+}
+
 /// Execute exactly the ordered stages in an immutable manifest under one controller.
 /// # Errors
 /// Rejects concurrent controllers, failed attempt reuse, changed manifests,
@@ -101,6 +163,8 @@ pub fn run(manifest: &Path, interrupted: &AtomicBool) -> Result<Value> {
     let digest = files::sha256(&manifest)?;
     let plan: Plan = serde_json::from_value(files::read_json(&manifest)?)?;
     validate(&plan)?;
+    let input_paths = external_inputs(&plan)?;
+    let mut cache = InputDigestCache::default();
     fs::create_dir_all(&plan.root)?;
     let _owner = files::lock(&plan.root.join("controller.lock"))?;
     let status_path = plan.root.join("status.json");
@@ -110,14 +174,7 @@ pub fn run(manifest: &Path, interrupted: &AtomicBool) -> Result<Value> {
             status["phase"] == "complete" && status["manifest_sha256"] == digest,
             "preserving existing controller attempt; use a fresh root"
         );
-        let result = files::read_json(&plan.root.join("result.json"))?;
-        for stage in &plan.stages {
-            ensure!(
-                result["outputs"][&stage.name] == json!(output_seals(stage)?),
-                "completed artifact changed"
-            );
-        }
-        return Ok(result);
+        return completed_result(&plan, &input_paths);
     }
     let identity = process::identity(std::process::id()).context("controller identity missing")?;
     files::atomic_json(&plan.root.join("controller.json"), &identity)?;
@@ -125,6 +182,11 @@ pub fn run(manifest: &Path, interrupted: &AtomicBool) -> Result<Value> {
     let mut status = json!({"phase":"starting","pid":identity.pid,"controller":identity,"manifest":manifest,"manifest_sha256":digest,"promoted":false,"automatic_restart":false,"updated_unix":files::unix_time()?});
     files::atomic_json(&status_path, &status)?;
     let outcome = (|| -> Result<Value> {
+        let inputs: BTreeMap<_, _> = input_paths
+            .iter()
+            .map(|path| Ok((path.clone(), cache.sha256(path)?)))
+            .collect::<Result<_>>()?;
+        files::atomic_json(&plan.root.join("inputs.json"), &json!(inputs))?;
         let mut outputs = BTreeMap::new();
         for stage in &plan.stages {
             ensure!(!interrupted.load(Ordering::Relaxed), "pipeline interrupted");
@@ -134,6 +196,8 @@ pub fn run(manifest: &Path, interrupted: &AtomicBool) -> Result<Value> {
                 files::sha256(&manifest)? == digest,
                 "manifest changed during experiment"
             );
+            cache.verify(&inputs)?;
+            verify_prior_outputs(&outputs, &mut cache)?;
             status["phase"] = json!(stage.name);
             status["updated_unix"] = json!(files::unix_time()?);
             files::atomic_json(&status_path, &status)?;
@@ -163,15 +227,10 @@ pub fn run(manifest: &Path, interrupted: &AtomicBool) -> Result<Value> {
             files::sha256(&manifest)? == digest,
             "manifest changed during experiment"
         );
-        for stage in &plan.stages {
-            ensure!(
-                outputs.get(&stage.name) == Some(&output_seals(stage)?),
-                "artifact from stage {} changed before completion",
-                stage.name
-            );
-        }
+        cache.verify(&inputs)?;
+        verify_prior_outputs(&outputs, &mut cache)?;
         Ok(
-            json!({"version":1,"phase":"complete","root":plan.root,"manifest_sha256":digest,"outputs":outputs,"elapsed_seconds":started.elapsed().as_secs_f64(),"promoted":false}),
+            json!({"version":1,"phase":"complete","root":plan.root,"manifest_sha256":digest,"inputs":inputs,"outputs":outputs,"elapsed_seconds":started.elapsed().as_secs_f64(),"promoted":false}),
         )
     })();
     match outcome {
