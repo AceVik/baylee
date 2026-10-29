@@ -9,7 +9,10 @@ FIELDS = ('frames', 'decisions', 'zero_weight_decisions', 'forced_source_decisio
           'subset_choices', 'subset_free_entries', 'subset_bce_sum', 'subset_decision_bce_sum', 'subset_exact_free_set',
           'pair_choices', 'pair_free_entries', 'pair_bce_sum', 'pair_decision_bce_sum', 'pair_exact_free_set',
           'scalar_decisions', 'scalar_absolute_error_sum', 'scalar_squared_error_sum',
-          'critic_squared_error_sum', 'critic_prediction_sum', 'outcome_sum')
+          'critic_squared_error_sum', 'critic_prediction_sum', 'outcome_sum',
+          'pass_target_predicted_pass', 'pass_target_predicted_active',
+          'active_target_predicted_pass', 'active_target_predicted_active',
+          'pass_target_predicted_other_pass')
 
 
 def step_statistics(batch, t, output, heads=None):
@@ -27,19 +30,28 @@ def step_statistics(batch, t, output, heads=None):
     cmask = sliced('cand_mask',cand.shape[1]) & (torch.arange(cand.shape[1], device=device)[None] < counts[:, None])
     chosen = eligible & (head == 0) & (cmask.sum(-1) > 1)
     ce, correct, pass_target = zero, torch.zeros_like(valid), torch.zeros_like(valid)
+    predicted_pass = torch.zeros_like(valid)
     if heads[0]:
         target = torch.where(chosen, at('single_idx'), 0).clamp(0, cand.shape[1] - 1)
         logits = cand.masked_fill(~cmask, -1e9)
         ce = F.cross_entropy(logits, target, reduction='none')
-        correct = logits.argmax(-1) == target
-        pass_target = batch['cand_feat'][:, t, :cand.shape[1], 0].to(device, non_blocking=True).gather(1, target[:, None])[:, 0] > .5
+        predicted = logits.argmax(-1)
+        correct = predicted == target
+        pass_options = batch['cand_feat'][:, t, :cand.shape[1], 0].to(device, non_blocking=True) > .5
+        pass_target = pass_options.gather(1, target[:, None])[:, 0]
+        predicted_pass = (pass_options & cmask).gather(1, predicted[:, None])[:, 0]
     passed, active = chosen & pass_target, chosen & ~pass_target
     stats = dict(frames=valid, decisions=decision,
         zero_weight_decisions=decision & (at('loss_weight') <= 0),
         forced_source_decisions=decision & (at('source_kind') == 2),
         single_choices=chosen, single_options=cmask.sum(-1) * chosen, single_nll_sum=ce * chosen,
         single_correct=correct & chosen, pass_targets=passed, pass_correct=correct & passed,
-        pass_nll_sum=ce * passed, active_targets=active, active_correct=correct & active, active_nll_sum=ce * active)
+        pass_nll_sum=ce * passed, active_targets=active, active_correct=correct & active, active_nll_sum=ce * active,
+        pass_target_predicted_pass=passed & predicted_pass,
+        pass_target_predicted_active=passed & ~predicted_pass,
+        active_target_predicted_pass=active & predicted_pass,
+        active_target_predicted_active=active & ~predicted_pass,
+        pass_target_predicted_other_pass=passed & predicted_pass & ~correct)
     for kind, prefix, logits in ((1, 'cand', cand), (2, 'pair', pair)):
         label = 'subset' if kind == 1 else 'pair'
         if not heads[kind]:
@@ -81,6 +93,15 @@ def summarize(values):
         scalar_mae=ratio('scalar_absolute_error_sum','scalar_decisions'),
         scalar_mse=ratio('scalar_squared_error_sum','scalar_decisions'),
         critic_mse=ratio('critic_squared_error_sum','frames'))
+    for target in ('pass', 'active'):
+        for predicted in ('pass', 'active'):
+            metrics[f'{target}_target_predicted_{predicted}_rate'] = ratio(
+                f'{target}_target_predicted_{predicted}', f'{target}_targets')
+    metrics['pass_target_predicted_other_pass_rate'] = ratio(
+        'pass_target_predicted_other_pass', 'pass_targets')
+    metrics['predicted_pass_rate'] = (
+        (sums['pass_target_predicted_pass'] + sums['active_target_predicted_pass'])
+        / sums['single_choices'] if sums['single_choices'] else None)
     for head in ('subset','pair'):
         metrics[head + '_free_entry_bce'] = ratio(head + '_bce_sum',head + '_free_entries')
         metrics[head + '_mean_decision_bce'] = ratio(head + '_decision_bce_sum',head + '_choices')
@@ -167,7 +188,8 @@ class Collector:
                                    for key,value in sorted(self.groups['head_pending_format'].items())],
             per_game=[{**self.games[key], 'seats':sorted(self.games[key]['seats']), **summarize(value)}
                       for key,value in sorted(self.groups['game'].items())],
-            definitions=dict(weighting='Unweighted labeled choices; positive loss_weight is an inclusion gate only; no outcome weights.',
+            definitions=dict(pass_confusion='Masked argmax candidate feature0 >0.5 means predicted pass; exact pass_correct remains distinct from another pass option. Confusion describes teacher imitation, not whether passing is strategically wrong.',
+                weighting='Unweighted labeled choices; positive loss_weight is an inclusion gate only; no outcome weights.',
                 genuine_choice='Valid decision, positive weight, source != Forced, >1 categorical option or >=1 free binary entry.',
                 threshold='logit >0 on free entries only; ignores forced entries. NOT a decoded action, legality score or engine-replay result.',
                 game_cluster='All seats of one game share a conversion namespace/game_id cluster; additive sums support game bootstrap.',

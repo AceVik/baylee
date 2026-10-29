@@ -81,6 +81,84 @@ class Diagnostics(unittest.TestCase):
     def setUp(self):
         torch.set_num_threads(1);torch.manual_seed(81)
 
+    def pass_confusion_fixture(self):
+        batch = batch_fixture(b=12, u=1)
+        batch['step_valid'].fill_(True)
+        batch['is_decision'].fill_(True)
+        batch['head'].zero_()
+        batch['loss_weight'].fill_(1)
+        batch['source_kind'] = torch.ones(12, 1, dtype=torch.long)
+        batch['single_idx'].fill_(1)
+        batch['single_idx'][[0, 1, 4]] = 0
+        batch['cand_feat'].zero_()
+        batch['cand_feat'][:, :, 0, 0] = 1
+        batch['cand_feat'][4, 0, 2, 0] = 1  # A second pass, not the target option.
+        batch['cand_feat'][11, 0, 2, 0] = 1
+        batch['cand_mask'].zero_()
+        batch['cand_mask'][:, :, :3] = True
+        batch['cand_mask'][5, 0, 0] = False  # Highest logit pass is unavailable.
+        batch['diag_candidates'] = torch.full((12, 1), 3)
+        batch['diag_candidates'][10] = 1  # Not a genuine choice.
+        batch['diag_candidates'][11] = 2  # Raw count also excludes a pass.
+        batch['diag_pairs'] = torch.full((12, 1), 2)
+        batch['source_kind'][6] = 2
+        batch['loss_weight'][7] = 0
+        batch['step_valid'][8] = False
+        batch['is_decision'][9] = False
+        batch['diag_game'] = torch.tensor([[1], [2]] * 6)
+        batch['diag_seat'] = torch.zeros(12, 1, dtype=torch.long)
+        batch['diag_pending'] = torch.zeros(12, 1, dtype=torch.long)
+        predicted = [0, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 2]
+        logits = torch.zeros(12, 3)
+        for row, option in enumerate(predicted):
+            logits[row, option] = 10
+        logits[5, 1] = logits[11, 1] = 5
+        output = (torch.zeros(12, 9, 16), logits, torch.zeros(12, 2),
+                  torch.zeros(12), torch.zeros(12))
+        return batch, output
+
+    def test_pass_confusion_masks_eligibility_and_multiple_pass_options(self):
+        batch, output = self.pass_confusion_fixture()
+        values = step_statistics(batch, 0, output).numpy()
+        collector = Collector(provenance())
+        collector.add_cpu(batch, values[:, None])
+        report = collector.report()['global_metrics']
+        sums, metrics = report['sums'], report['metrics']
+        fields = ['pass_target_predicted_pass', 'pass_target_predicted_active',
+                  'active_target_predicted_pass', 'active_target_predicted_active']
+        self.assertEqual([sums[k] for k in fields], [2, 1, 1, 3])
+        self.assertEqual(sums['single_choices'], 7)
+        self.assertEqual(sum(sums[k] for k in fields), sums['single_choices'])
+        self.assertEqual(sums['pass_targets'], 3)
+        self.assertEqual(sums['active_targets'], 4)
+        self.assertEqual(sums['pass_correct'], 1)
+        self.assertEqual(sums['pass_target_predicted_other_pass'], 1)
+        self.assertEqual(sums['active_correct'], 2)  # Wrong active is still active.
+        self.assertEqual(metrics['predicted_pass_rate'], 3 / 7)
+        self.assertEqual(metrics['pass_target_predicted_pass_rate'], 2 / 3)
+        self.assertEqual(metrics['active_target_predicted_pass_rate'], 1 / 4)
+        self.assertEqual(metrics['pass_target_predicted_other_pass_rate'], 1 / 3)
+        # Masked and count-excluded pass candidates must never win argmax.
+        self.assertEqual(values[5, FIELDS.index('active_target_predicted_active')], 1)
+        self.assertEqual(values[11, FIELDS.index('active_target_predicted_active')], 1)
+        for index in [6, 7, 8, 9, 10]:
+            self.assertEqual(sum(values[index, FIELDS.index(k)] for k in fields), 0)
+
+    def test_pass_confusion_is_additive_across_games_and_batches(self):
+        batch, output = self.pass_confusion_fixture()
+        values = step_statistics(batch, 0, output).numpy()[:, None]
+        full, split = Collector(provenance()), Collector(provenance())
+        full.add_cpu(batch, values)
+        for part in [slice(0, 5), slice(5, None)]:
+            split.add_cpu({k: v[part] for k, v in batch.items()}, values[part])
+        self.assertEqual(full.report(), split.report())
+        report = full.report()
+        for key in ['pass_target_predicted_pass', 'pass_target_predicted_active',
+                    'active_target_predicted_pass', 'active_target_predicted_active',
+                    'pass_target_predicted_other_pass']:
+            self.assertEqual(sum(g['sums'][key] for g in report['per_game']),
+                             report['global_metrics']['sums'][key])
+
     def test_masks_denominators_and_threshold_labels(self):
         batch,output=fixture()
         stats=step_statistics(batch,0,output)
@@ -130,6 +208,10 @@ class Diagnostics(unittest.TestCase):
         metrics=collector.report()['global_metrics']['metrics']
         self.assertIsNone(metrics['single_nll']);self.assertIsNone(metrics['subset_free_entry_bce'])
         self.assertIsNone(metrics['scalar_mse'])
+        for key in ('predicted_pass_rate', 'pass_target_predicted_pass_rate',
+                    'pass_target_predicted_active_rate', 'active_target_predicted_pass_rate',
+                    'active_target_predicted_active_rate', 'pass_target_predicted_other_pass_rate'):
+            self.assertIsNone(metrics[key])
 
     def test_full_history_default_metrics_and_optimized_hook_agree(self):
         data=History(16)
