@@ -2,6 +2,7 @@
 pub mod similarity;
 #[cfg(test)]
 mod tests;
+use super::cards::{Card, fold, registry_cards};
 use crate::files;
 use anyhow::{Context, Result, ensure};
 use flate2::read::MultiGzDecoder;
@@ -52,12 +53,6 @@ pub struct Options {
     /// Explicit first-game projection; discard all sideboard entries.
     pub mainboard_only: bool,
 }
-#[derive(Clone)]
-struct Card {
-    id: u64,
-    name: String,
-    held: bool,
-}
 struct Deck {
     cards: BTreeMap<u64, u64>,
     names: BTreeMap<u64, String>,
@@ -72,11 +67,6 @@ fn field<'a>(value: &'a Value, pascal: &str, snake: &str) -> &'a Value {
         .get(pascal)
         .or_else(|| value.get(snake))
         .unwrap_or(&Value::Null)
-}
-fn fold(value: &str) -> String {
-    icu_casemap::CaseMapper::new()
-        .fold_string(value)
-        .into_owned()
 }
 fn read_cards(
     rows: &Value,
@@ -165,36 +155,6 @@ pub fn import(options: &Options) -> Result<Value> {
     };
     read_archive(&archive, &mut importer, options)?;
     importer.finish(&archive_sha, existing.len(), options)
-}
-fn registry_cards(registry: &Value) -> Result<BTreeMap<String, Card>> {
-    let mut lookup = BTreeMap::new();
-    for row in registry["cards"]
-        .as_array()
-        .context("missing card registry")?
-    {
-        let card = Card {
-            id: row["id"].as_u64().context("invalid card id")?,
-            name: row["name"]
-                .as_str()
-                .context("missing card name")?
-                .to_owned(),
-            held: row["held_out"]
-                .as_bool()
-                .context("missing held-out marker")?,
-        };
-        let faces = row["faces"]
-            .as_array()
-            .context("missing card faces")?
-            .iter()
-            .map(|f| f.as_str().context("invalid face name"))
-            .collect::<Result<Vec<_>>>()?;
-        lookup.insert(fold(&card.name), card.clone());
-        for face in &faces {
-            lookup.insert(fold(face), card.clone());
-        }
-        lookup.insert(fold(&faces.join(" // ")), card);
-    }
-    Ok(lookup)
 }
 fn existing_similarity(existing: &[Value]) -> Result<SimilarityIndex> {
     let mut similarity = SimilarityIndex::default();
