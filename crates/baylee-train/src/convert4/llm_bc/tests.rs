@@ -1,5 +1,6 @@
 use super::{LlmBc4, sha};
 use serde_json::{Value, json};
+use std::fmt::Write as _;
 use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
@@ -92,6 +93,24 @@ fn pin(root: &std::path::Path, name: &str, value: &Value) -> Value {
     std::fs::write(&path, &bytes).unwrap();
     json!({"path":path,"sha256":sha(&bytes)})
 }
+#[test]
+fn frozen_storage_alias_preserves_original_admission_binding() {
+    let mut f = Fixture::new("llm", "gemini-4-argon-low");
+    f.manifest["frozen_game"] = json!("source-lane-a-record-hash");
+    assert!(f.load().is_ok());
+    // Renaming the storage object must never rewrite the admitted attempt.
+    f.manifest["source_game"] = json!("source-lane-a-record-hash");
+    assert!(
+        LlmBc4::load(
+            b"{\"llm_bc_version\":1}",
+            &serde_json::to_vec(&f.manifest).unwrap(),
+            &f.record,
+            "source-lane-a-record-hash"
+        )
+        .is_err()
+    );
+}
+
 #[test]
 fn verified_inputs_are_consumed_once_and_forced_decisions_have_no_policy_label() {
     let f = Fixture::new("llm", "gemini-4-argon-low");
@@ -244,4 +263,82 @@ fn ambiguity_keeps_multiple_origins_and_never_becomes_an_llm_target() {
         super::alignment::verify(&transcript, &inputs, &origins).unwrap(),
         vec![false]
     );
+}
+
+fn codex_fixture() -> Fixture {
+    let mut f = Fixture::new("llm", "gemini-4-argon-low");
+    let mut rows: Vec<Value> = std::str::from_utf8(&f.record)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    rows[1]["mind"]["provider"] = json!("codex");
+    rows[1]["mind"]["model"] = json!("gpt-6.1-terra");
+    f.record = rows
+        .iter()
+        .fold(String::new(), |mut record, row| {
+            writeln!(record, "{row}").expect("write to String");
+            record
+        })
+        .into_bytes();
+    f.manifest["record_sha256"] = json!(sha(&f.record));
+    f.manifest["seats"][0]["model"] = json!("gpt-6.1-terra");
+    let mut request: Value =
+        serde_json::from_slice(&std::fs::read(f.root.join("request.json")).unwrap()).unwrap();
+    request["models"][0] = json!("gpt-6.1-terra");
+    let input = json!({"requested_models":request["models"],
+        "requested_minds":[rows[1]["mind"],rows[2]["mind"]]});
+    let input_pin = pin(&f.root, "input.json", &input);
+    f.manifest["input_receipt"] = input_pin.clone();
+    let mut technical: Value =
+        serde_json::from_slice(&std::fs::read(f.root.join("technical.json")).unwrap()).unwrap();
+    technical["seats"][0]["model"] = json!("gpt-6.1-terra");
+    technical["artifacts"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"role":"input_receipt","sha256":input_pin["sha256"]}));
+    f.manifest["request"] = pin(&f.root, "request.json", &request);
+    f.manifest["technical_result"] = pin(&f.root, "technical.json", &technical);
+    f.manifest["admitted_receipt"] = pin(
+        &f.root,
+        "receipt.json",
+        &json!({"status":"admitted","request":request,"technical":technical}),
+    );
+    f
+}
+
+#[test]
+fn codex_terra_needs_exact_bound_requested_identity() {
+    let mut f = codex_fixture();
+    assert!(f.load().is_ok());
+    f.manifest.as_object_mut().unwrap().remove("input_receipt");
+    assert!(f.load().is_err());
+}
+
+#[test]
+fn codex_provider_model_effort_kind_spoofs_are_rejected() {
+    for (field, spoof) in [
+        ("provider", "agy"),
+        ("provider", "openai"),
+        ("model", "gpt-unknown"),
+        ("effort", "high"),
+        ("kind", "llm_api"),
+    ] {
+        let mut f = codex_fixture();
+        let mut rows: Vec<Value> = std::str::from_utf8(&f.record)
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
+        rows[1]["mind"][field] = json!(spoof);
+        f.record = rows
+            .iter()
+            .fold(String::new(), |mut record, row| {
+                writeln!(record, "{row}").expect("write to String");
+                record
+            })
+            .into_bytes();
+        f.manifest["record_sha256"] = json!(sha(&f.record));
+        assert!(f.load().is_err(), "{field}={spoof}");
+    }
 }

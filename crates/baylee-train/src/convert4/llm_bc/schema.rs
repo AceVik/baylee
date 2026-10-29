@@ -44,10 +44,16 @@ pub struct Manifest {
     pub schema_version: u8,
     pub contract: String,
     pub source_game: String,
+    /// Storage alias when several collectors reuse the same attempt identifier.
+    /// The original `source_game` still binds the unchanged admission evidence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frozen_game: Option<String>,
     pub record_sha256: String,
     pub record_artifact_sha256: String,
     pub request: FilePin,
     pub admitted_receipt: FilePin,
     pub technical_result: FilePin,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_receipt: Option<FilePin>,
     pub seats: Vec<SeatManifest>,
 }

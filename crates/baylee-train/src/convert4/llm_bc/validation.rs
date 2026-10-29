@@ -103,6 +103,20 @@ pub(super) fn load(
                 == winners.first().cloned().unwrap_or(Value::Null),
         "LLM terminal receipt mismatch"
     );
+    let input_receipt = if let Some(pin) = &manifest.input_receipt {
+        artifact(&technical, "input_receipt", &pin.sha256)?;
+        let value = pin.json()?;
+        ensure!(
+            value["requested_models"] == request["models"]
+                && value["requested_minds"]
+                    .as_array()
+                    .is_some_and(|v| v.len() == 2),
+            "LLM requested identity receipt mismatch"
+        );
+        Some(value)
+    } else {
+        None
+    };
     let mut remaining = BTreeMap::new();
     for (seat, evidence) in manifest.seats.iter().enumerate() {
         ensure!(
@@ -115,6 +129,26 @@ pub(super) fn load(
                 && technical["seats"][seat]["declared_mind_verified"] == true,
             "LLM technical model binding mismatch"
         );
+        let expected_provider = if evidence.model == "gpt-6.1-terra" {
+            "codex"
+        } else {
+            "agy"
+        };
+        ensure!(
+            expected_provider != "codex" || input_receipt.is_some(),
+            "Codex provenance requires the bound requested identity receipt"
+        );
+        if let Some(input) = &input_receipt {
+            let mind = &input["requested_minds"][seat];
+            ensure!(
+                mind["kind"] == "llm_cli"
+                    && mind["provider"] == expected_provider
+                    && mind["model"] == evidence.model
+                    && mind["effort"] == "low"
+                    && mind.get("level").is_none_or(|v| v == ""),
+                "LLM requested provider/model identity mismatch"
+            );
+        }
         let declarations: Vec<_> = rows
             .iter()
             .filter(|v| v["kind"] == "declared_mind" && v["seat"] == seat)
@@ -122,9 +156,13 @@ pub(super) fn load(
         ensure!(
             !declarations.is_empty()
                 && declarations.iter().all(|v| v["mind"]["kind"] == "llm_cli"
-                    && v["mind"]["provider"] == "agy"
+                    && v["mind"]["provider"] == expected_provider
                     && v["mind"]["model"] == evidence.model
-                    && v["mind"]["effort"] == "low"),
+                    && v["mind"]["effort"] == "low"
+                    && v["mind"].get("level").is_none_or(|v| v == "")
+                    && input_receipt
+                        .as_ref()
+                        .is_none_or(|input| input["requested_minds"][seat] == v["mind"])),
             "LLM actual declared model mismatch"
         );
         let inputs: Vec<_> = rows

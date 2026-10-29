@@ -44,7 +44,14 @@ impl Source {
         let run = bounded(&run_path)?;
         let bytes = bounded(&manifest_path)?;
         let manifest: Manifest = serde_json::from_slice(&bytes)?;
-        ensure!(manifest.source_game == game, "LLM source game mismatch");
+        ensure!(
+            manifest
+                .frozen_game
+                .as_deref()
+                .unwrap_or(&manifest.source_game)
+                == game,
+            "LLM frozen game mismatch"
+        );
         let record_path = record.canonicalize()?;
         ensure!(
             offset == 0 && len == fs::metadata(&record_path)?.len(),
@@ -104,7 +111,12 @@ pub(super) struct FrameLabels {
     labels: u64,
 }
 impl FrameLabels {
-    pub(super) fn new(root: &Path, id: u32, source: &Source) -> anyhow::Result<Self> {
+    pub(super) fn new_with_encoder(
+        root: &Path,
+        id: u32,
+        source: &Source,
+        encoder: u32,
+    ) -> anyhow::Result<Self> {
         let dir = root.join("llm-bc");
         fs::create_dir_all(&dir)?;
         let manifest = bounded(&source.manifest_path)?;
@@ -128,12 +140,13 @@ impl FrameLabels {
                 .create_new(true)
                 .open(&temporary)?,
         );
-        serde_json::to_writer(
-            &mut writer,
-            &json!({"kind":"header","schema":1,"converted_game_id":id,
+        let mut header = json!({"kind":"header","schema":1,"converted_game_id":id,
           "source_namespace":source.run_sha256,"source_game":source.manifest.source_game,"run_sha256":source.run_sha256,
-          "manifest_sha256":source.manifest_sha256,"record_sha256":source.manifest.record_sha256,"label_use":"bc_only","ppo_eligible":false}),
-        )?;
+          "manifest_sha256":source.manifest_sha256,"record_sha256":source.manifest.record_sha256,"label_use":"bc_only","ppo_eligible":false});
+        if encoder == 8 {
+            header["encoder_version"] = json!(8);
+        }
+        serde_json::to_writer(&mut writer, &header)?;
         writeln!(writer)?;
         Ok(Self {
             path,
