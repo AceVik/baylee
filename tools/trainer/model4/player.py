@@ -195,7 +195,7 @@ class PlayerNet4(nn.Module):
         # checkpointing; inference and checkpoint keys are unaffected.
         saved_layers = getattr(self, "saved_activation_layers", 0)
         for index, layer in enumerate(self.trunk_layers):
-            if (self.cfg.activation_checkpointing and self.training and torch.is_grad_enabled()
+            if (self.cfg.activation_checkpointing and (self.training or getattr(self, "checkpoint_during_eval", False)) and torch.is_grad_enabled()
                     and index < len(self.trunk_layers) - saved_layers):
                 x = checkpoint_activation(
                     layer, x, pad_mask,

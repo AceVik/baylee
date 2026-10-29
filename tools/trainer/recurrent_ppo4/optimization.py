@@ -30,7 +30,7 @@ def collection_divergence(net, dataset, prefixes, device, batch_size):
         net.clear_structure()
 
 
-def ppo_loss(output, clip_eps=.2):
+def ppo_loss(output, clip_eps=.2, beta_kl=.02):
     lp, old, advantage = (output[name] for name in ("logprob", "behavior", "advantage"))
     if not lp.numel():
         # Passive-only segments still train the critic and recurrence.
@@ -39,11 +39,12 @@ def ppo_loss(output, clip_eps=.2):
         ratio = (lp - old).exp()
         policy = -torch.minimum(ratio * advantage, ratio.clamp(1-clip_eps, 1+clip_eps) * advantage).mean()
     value = (output["value"] - output["returns"]).square().mean()
-    return policy + .5 * value
+    regularizer = behavior_divergence(lp, old) / max(lp.numel(), 1)
+    return policy + .5 * value + beta_kl * regularizer
 
 
 def transactional_update(net, optimizer, dataset, indices, prefixes, device,
-                         target_kl=.02, clip_eps=.2, audit_batch_size=4):
+                         target_kl=.02, clip_eps=.2, audit_batch_size=4, beta_kl=.02, extra_loss=None):
     before = {key: value.detach().cpu().clone() for key, value in net.state_dict().items()}
     optimizer_before = copy.deepcopy(optimizer.state_dict())
     random_before = rng_state()
@@ -51,7 +52,10 @@ def transactional_update(net, optimizer, dataset, indices, prefixes, device,
     try:
         optimizer.zero_grad(set_to_none=True)
         output = segment_outputs(net, dataset, indices, prefixes, device)
-        loss = ppo_loss(output, clip_eps)
+        record.update(decisions=output["logprob"].numel(),frames=output["value"].numel())
+        loss = ppo_loss(output, clip_eps, beta_kl)
+        if extra_loss is not None:
+            loss = loss + extra_loss()
         if not bool(torch.isfinite(loss)):
             raise FloatingPointError("Nonfinite PPO loss")
         loss.backward()

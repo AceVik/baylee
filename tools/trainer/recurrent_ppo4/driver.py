@@ -1,18 +1,8 @@
-"""Playernet v4 Recurrent PPO + Anchor KL Trainer (`train_rl4.py`).
+"""Full-model FP32 recurrent PPO with exact current-policy prefix reconstruction.
 
-Implements Phase C (T5) from `docs/history/trained-ai-v4-handover-2026-10-22.md`
-with all P0/P1 fixes from `docs/history/trained-ai-v4-argon-feedback-2026-10-22.md`:
-- Enforces `source_kind == 0` (`Net`) and `has_logprob == True` on PPO updates,
-  using the exact `behavior_logprob` recorded by `NetPlayer4` (`P0-2`, `P0-5`).
-- Exact temperature-scaled (`1 / tau`) log-probabilities and `free_mask`
-  conditioning across `SingleChoice`, `SubsetPick`, `PairPick`, and `ScalarValue` (`P0-3`).
-- Stateful trajectory streaming (`StatefulBatchSampler4`) carrying `h` and `h_anc`
-  across consecutive segments (`P0-4`).
-- True reverse-time GAE(gamma=0.995, lambda=0.95) with `is_terminal` handling and
-  `net.eval()` during PPO updates so dropout noise never corrupts importance
-  sampling ratios (`P0-5`).
-- Optional `--anchor-data` supervised replay mixing alongside explicit KL penalty
-  (`beta_kl = 0.02`) against the frozen Phase B anchor (`P1-9`).
+Frozen behavior probabilities and complete terminal side-utility targets are
+audited before updates. Every accepted update passes a whole-collection
+behavior-divergence gate; rejected updates restore weights, optimizer and RNG.
 """
 
 from __future__ import annotations
@@ -23,14 +13,11 @@ import json
 from pathlib import Path
 
 import torch
-from torch.utils.data import DataLoader
 
 import dataset4 as D4
 import model4 as M
-import train4 as T4
 from policy_math4 import action_logprob_and_kl
-from ppo_targets4 import prepare_targets
-from checkpoint4 import atomic_save, rng_state
+from checkpoint4 import atomic_save
 
 
 def compute_reverse_gae(
@@ -72,355 +59,186 @@ def compute_reverse_gae(
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Recurrent PPO + Anchor KL trainer for Playernet v4")
-    ap.add_argument("--init", required=True, help="Initial/anchor checkpoint directory")
-    ap.add_argument(
-        "--rollout-data",
-        "--rollout",
-        dest="rollout_data",
-        required=True,
-        help="Rollout dataset directory (convert4)",
-    )
-    ap.add_argument("--anchor-data", default="", help="Optional supervised replay dataset for mixing")
-    ap.add_argument("--out", required=True, help="Output checkpoint directory")
-    ap.add_argument("--audit-only", action="store_true")
-    ap.add_argument("--target-kl", type=float, default=0.03)
-    ap.add_argument("--batch-size", type=int, default=4)
-    ap.add_argument("--unroll", "--unroll-len", dest="unroll", type=int, default=16)
-    ap.add_argument("--thinking-steps", type=int, default=2)
-    ap.add_argument("--epochs", type=int, default=2)
-    ap.add_argument("--max-steps", type=int, default=120)
-    ap.add_argument("--max-shards", type=int, default=2)
-    ap.add_argument("--lr", type=float, default=2e-5)
-    ap.add_argument("--clip-eps", type=float, default=0.2)
-    ap.add_argument("--beta-kl", type=float, default=0.02)
-    ap.add_argument("--anchor-mix-weight", type=float, default=0.25)
-    ap.add_argument("--gamma", type=float, default=1.0)
-    ap.add_argument("--gae-lambda", type=float, default=0.95)
-    args = ap.parse_args()
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    use_bf16 = False  # Collector probabilities are float32; audit and PPO use the same precision.
-
-    init_dir = Path(args.init).expanduser()
-    ckpt = torch.load(init_dir / "net.pt", map_location="cpu", weights_only=False)
-    if (ckpt.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt.get("model_version") != M.MODEL_VERSION
-                or ckpt.get("encoder_version") != M.ENCODER_VERSION):
-        raise ValueError("Incompatible checkpoint memory contract")
-    cfg = M.Config4(**ckpt["config"])
-    net = M.PlayerNet4(cfg)
-    net.attach_structure(ckpt["structure"])
-    net = net.to(device)
-    net.load_state_dict(ckpt["state_dict"], strict=True)
-
-    anchor = copy.deepcopy(net).to(device).eval()
-    with torch.no_grad():
-        anchor.prepare_structure()
-    for p in anchor.parameters():
-        p.requires_grad_(False)
-
-    rollout_ds = D4.TrajectoryDataset4(
-        Path(args.rollout_data).expanduser(),
-        split="train",
-        unroll_len=args.unroll,
-        max_shards=args.max_shards,
-    )
-    if rollout_ds.structure.digest != net.rules.digest:
-        raise ValueError("Rollout and policy use different public rule catalogs")
-    audit = prepare_targets(net, rollout_ds, device, args.batch_size, args.gamma,
-                            args.gae_lambda, action_logprob_and_kl, compute_reverse_gae)
-    if args.audit_only:
-        print(json.dumps(audit, indent=2))
-        return
-    rollout_sampler = D4.StatefulBatchSampler4(
-        rollout_ds, batch_size=args.batch_size, shuffle=True
-    )
-    loader = DataLoader(
-        rollout_ds,
-        batch_sampler=rollout_sampler,
-        collate_fn=D4.collate_trajectories,
-    )
-
-    anchor_loader = None
-    anchor_iter = None
-    if args.anchor_data:
-        anc_path = Path(args.anchor_data).expanduser()
-        if (anc_path / "meta.json").exists():
-            anc_ds = D4.TrajectoryDataset4(
-                anc_path,
-                split="train",
-                unroll_len=args.unroll,
-                max_shards=1,
-            )
-            if anc_ds.structure.digest != net.rules.digest:
-                raise ValueError("Supervised anchor and policy use different public rule catalogs")
-            anc_sampler = D4.StatefulBatchSampler4(
-                anc_ds, batch_size=args.batch_size, shuffle=True
-            )
-            anchor_loader = DataLoader(
-                anc_ds,
-                batch_sampler=anc_sampler,
-                collate_fn=D4.collate_trajectories,
-            )
-
-    opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-2)
-
-    h_sup_state = None
-    stop = False
-    step_num = 0
-    total_rl_decisions = 0
-    for epoch in range(1, args.epochs + 1):
-        # Keep net in eval() mode during PPO updates so dropout noise does not
-        # corrupt importance sampling ratios (`ratio == 1.0` at epoch 0, P0-5)
-        net.eval()
-        tot_loss = 0.0
-        tot_kl = 0.0
-        n_batches = 0
-        h: torch.Tensor | None = None
-        h_anc: torch.Tensor | None = None
-
-        for batch in loader:
-            B, U = batch["step_valid"].shape
-            opt.zero_grad(set_to_none=True)
-            net.clear_structure()
-            net.prepare_structure()
-            is_new = batch["is_new_traj"].to(device)
-
-            # Standard truncated recurrent PPO: condition each unroll on the
-            # stored behavior memory, with gradients through this unroll only.
-            h = batch["behavior_h"].to(device)
-            h_anc = h.clone()
-
-            default_k = torch.full((B,), args.thinking_steps, dtype=torch.long, device=device)
-
-            logps, old_logps, values, valids, kls = [], [], [], [], []
-
-            for t in range(U):
-                if "thinking_steps" in batch:
-                    rec_k = batch["thinking_steps"][:, t].to(device)
-                    is_dec_t = batch["is_decision"][:, t].to(device)
-                    k_t = torch.where(
-                        is_dec_t,
-                        torch.where(rec_k > 0, rec_k, default_k),
-                        torch.zeros_like(default_k),
-                    )
-                else:
-                    k_t = default_k
-                step_in = (
-                    batch["entity_feat"][:, t].to(device),
-                    batch["entity_dsl"][:, t].to(device),
-                    batch["entity_mask"][:, t].to(device),
-                    batch["seat_feat"][:, t].to(device),
-                    batch["global_feat"][:, t].to(device),
-                    batch["edge_index"][:, t].to(device),
-                    batch["edge_type"][:, t].to(device),
-                    batch["edge_mask"][:, t].to(device),
-                    batch["cand_feat"][:, t].to(device),
-                    batch["cand_entity_idx"][:, t].to(device),
-                    batch["cand_seat_idx"][:, t].to(device),
-                    batch["cand_mask"][:, t].to(device),
-                    batch["pair_index"][:, t].to(device),
-                    batch["pair_mask"][:, t].to(device),
-                    batch["cand_dsl"][:, t].to(device),
-                    batch["entity_rules"][:, t].to(device),
-                    batch["cand_rules"][:, t].to(device),
-                )
-                with torch.autocast(
-                    device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16
-                ):
-                    h_next, cand_l, pair_l, scal_p, val_p = net(*step_in, h, k_t)
-                    with torch.no_grad():
-                        h_anc_next, anc_cand_l, anc_pair_l, anc_scal_p, _ = anchor(
-                            *step_in, h_anc, k_t
-                        )
-
-                lp_t, kl_t = action_logprob_and_kl(
-                    cand_l.float(),
-                    pair_l.float(),
-                    scal_p.float(),
-                    anc_cand_l.float(),
-                    anc_pair_l.float(),
-                    anc_scal_p.float(),
-                    batch,
-                    t,
-                )
-                # Strict provenance contract (P0-2, P0-5): only update policy on
-                # genuine neural rollout steps (`source_kind == 0` and `has_logprob == True`)
-                beh_lp = batch["behavior_logprob"][:, t].to(device)
-                is_net_step = (batch["source_kind"][:, t].to(device) == 0) & batch[
-                    "has_logprob"
-                ][:, t].to(device)
-                rl_valid_t = (
-                    batch["step_valid"][:, t].to(device)
-                    & batch["is_decision"][:, t].to(device)
-                    & is_net_step
-                    & (batch["head"][:, t].to(device) != 3)
-                    & (batch["temperature"][:, t].to(device) > 1e-4)
-                )
-
-                step_valid_t = batch["step_valid"][:, t].to(device)
-                h = torch.where(step_valid_t.view(B, 1, 1), h_next.float(), h)
-                h_anc = torch.where(step_valid_t.view(B, 1, 1), h_anc_next.float(), h_anc)
-
-                logps.append(lp_t)
-                old_logps.append(beh_lp)
-                values.append(val_p.float())
-                valids.append(rl_valid_t.float())
-                kls.append(kl_t)
-
-            vals = torch.stack(values, dim=1)  # [B, U]
-            outcomes = batch["outcome"].to(device)  # [B, U]
-            step_valid_stack = batch["step_valid"].to(device)  # [B, U]
-            is_term_stack = batch["is_terminal"].to(device)  # [B, U]
-            v_mask = torch.stack(valids, dim=1)  # [B, U]
-            total_rl_decisions += int(v_mask.sum().item())
-
-            # Targets were computed once from complete episodes with the frozen
-            # behavior policy, before the first optimizer step.
-            adv = batch["advantages"].to(device) * v_mask
-            td_returns = batch["returns"].to(device)
-
-            lp_stack = torch.stack(logps, dim=1)
-            old_lp_stack = torch.stack(old_logps, dim=1)
-            kl_stack = torch.stack(kls, dim=1)
-
-            ratio = torch.exp((lp_stack - old_lp_stack).clamp(-10.0, 10.0))
-            approx_kl = (((ratio - 1) - (lp_stack - old_lp_stack)) * v_mask).sum() / v_mask.sum().clamp(min=1)
-            if approx_kl > args.target_kl:
-                print(f"[train_rl4] stopping update: behavior KL={float(approx_kl):.4f}", flush=True)
-                stop = True
-                break
-            surr1 = ratio * adv
-            surr2 = torch.clamp(ratio, 1.0 - args.clip_eps, 1.0 + args.clip_eps) * adv
-            ppo_loss = -(torch.min(surr1, surr2) * v_mask).sum() / v_mask.sum().clamp(
-                min=1.0
-            )
-            val_valid_f = step_valid_stack.float()
-            val_loss = ((vals - td_returns).pow(2) * val_valid_f).sum() / val_valid_f.sum().clamp(
-                min=1.0
-            )
-            kl_loss = (kl_stack * v_mask).sum() / v_mask.sum().clamp(min=1.0)
-
-            loss = ppo_loss + 0.5 * val_loss + args.beta_kl * kl_loss
-
-            # Optional supervised replay anchor mixing (P1-9)
-            if anchor_loader is not None and args.anchor_mix_weight > 0.0:
-                if anchor_iter is None:
-                    anchor_iter = iter(anchor_loader)
-                try:
-                    anc_batch = next(anchor_iter)
-                except StopIteration:
-                    anchor_iter = iter(anchor_loader)
-                    h_sup_state = None
-                    anc_batch = next(anchor_iter)
-                B_a, U_a = anc_batch["step_valid"].shape
-                if h_sup_state is None or h_sup_state.shape[0] != B_a:
-                    h_sup_state = torch.zeros((B_a, M.RECURRENT_SLOTS, cfg.d_model), device=device)
-                h_sup = torch.where(anc_batch["is_new_traj"].to(device).view(B_a, 1, 1),
-                                    torch.zeros_like(h_sup_state), h_sup_state.detach())
-                k_sup = torch.full(
-                    (B_a,), args.thinking_steps, dtype=torch.long, device=device
-                )
-                sup_loss = torch.tensor(0.0, device=device)
-                for t_a in range(U_a):
-                    k_sup = torch.where(anc_batch["is_decision"][:, t_a].to(device),
-                                        args.thinking_steps, 0)
-                    with torch.autocast(
-                        device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16
-                    ):
-                        h_sup_next, cl_a, pl_a, sp_a, vp_a = net(
-                            anc_batch["entity_feat"][:, t_a].to(device),
-                            anc_batch["entity_dsl"][:, t_a].to(device),
-                            anc_batch["entity_mask"][:, t_a].to(device),
-                            anc_batch["seat_feat"][:, t_a].to(device),
-                            anc_batch["global_feat"][:, t_a].to(device),
-                            anc_batch["edge_index"][:, t_a].to(device),
-                            anc_batch["edge_type"][:, t_a].to(device),
-                            anc_batch["edge_mask"][:, t_a].to(device),
-                            anc_batch["cand_feat"][:, t_a].to(device),
-                            anc_batch["cand_entity_idx"][:, t_a].to(device),
-                            anc_batch["cand_seat_idx"][:, t_a].to(device),
-                            anc_batch["cand_mask"][:, t_a].to(device),
-                            anc_batch["pair_index"][:, t_a].to(device),
-                            anc_batch["pair_mask"][:, t_a].to(device),
-                            anc_batch["cand_dsl"][:, t_a].to(device),
-                            anc_batch["entity_rules"][:, t_a].to(device),
-                            anc_batch["cand_rules"][:, t_a].to(device),
-                            h_sup,
-                            k_sup,
-                        )
-                        aux_a = net.aux_head(h_sup_next[:, 0])
-                    l_a, _ = T4.compute_step_loss(
-                        cl_a.float(),
-                        pl_a.float(),
-                        sp_a.float(),
-                        vp_a.float(),
-                        aux_a.float(),
-                        anc_batch,
-                        t_a,
-                    )
-                    v_a = anc_batch["step_valid"][:, t_a].to(device)
-                    h_sup = torch.where(v_a.view(B_a, 1, 1), h_sup_next.float(), h_sup)
-                    sup_loss = sup_loss + l_a / U_a
-                h_sup_state = h_sup.detach()
-                loss = loss + args.anchor_mix_weight * sup_loss
-
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
-            opt.step()
-            net.clear_structure()
-
-            tot_loss += float(loss.detach().item())
-            tot_kl += float(kl_loss.detach().item())
-            n_batches += 1
-            step_num += 1
-            if args.max_steps > 0 and step_num >= args.max_steps:
-                break
-
-        print(
-            f"[train_rl4] epoch={epoch} step={step_num} rl_decisions={total_rl_decisions} "
-            f"loss={tot_loss / max(n_batches, 1):.4f} kl={tot_kl / max(n_batches, 1):.4f}",
-            flush=True,
-        )
-        if stop or (args.max_steps > 0 and step_num >= args.max_steps):
-            break
-
-    if total_rl_decisions == 0:
-        raise RuntimeError(
-            "train_rl4 saw 0 neural rollout decisions with has_logprob=True (P0-2 contract violation)"
-        )
-
-    out_dir = Path(args.out).expanduser()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    atomic_save(
-        {
-            "config": cfg.to_dict(),
-            "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
-            "sampling_version": M.SAMPLING_VERSION,
-            "dataset_fingerprint": rollout_ds.fingerprint,
-            "optimizer": opt.state_dict(), "rng": rng_state(), "audit": audit,
-            "structure": ckpt["structure"], "state_dict": net.state_dict(),
-            "step": step_num,
-            "rl_decisions": total_rl_decisions,
-            "dataset": str(args.rollout_data),
-        },
-        out_dir / "net.pt",
-    )
-    (out_dir / "meta.json").write_text(
-        json.dumps(
-            {
-                "encoder_version": M.ENCODER_VERSION,
-                "d_model": cfg.d_model,
-                "n_layers": cfg.n_layers,
-                "n_heads": cfg.n_heads,
-                "thinking_steps": args.thinking_steps,
-                "rl_decisions": total_rl_decisions,
-            },
-            indent=2,
-        )
-    )
-    print(f"[train_rl4] saved RL checkpoint to {out_dir / 'net.pt'}")
+    import os
+    from contextlib import ExitStack
+    from .checkpoint import load_policy,training_payload,restore_training,native_source_digest,native_verify_admission
+    from .forward import episode_prefixes
+    from .optimization import transactional_update,collection_divergence
+    from .supervised import supervised_loss
+    from policy_training4.targets import prepare_policy_targets
+    ap=argparse.ArgumentParser(description='FP32 full-model recurrent PPO with current-policy burn-in and collection-wide KL rollback')
+    ap.add_argument('--init',required=True)
+    ap.add_argument('--rollout-data','--rollout',dest='rollout_data',required=True)
+    ap.add_argument('--admission',required=True,help='Rust-certified collection admission JSON bound to source and dataset')
+    ap.add_argument('--out',required=True)
+    ap.add_argument('--resume',default='')
+    ap.add_argument('--audit-only',action='store_true')
+    ap.add_argument('--anchor-data',default='')
+    ap.add_argument('--anchor-mix-weight',type=float,default=.25)
+    ap.add_argument('--batch-size',type=int,default=4)
+    ap.add_argument('--unroll','--unroll-len',dest='unroll',type=int,default=32)
+    ap.add_argument('--thinking-steps',type=int,default=2)
+    ap.add_argument('--epochs',type=int,default=1)
+    ap.add_argument('--max-steps',type=int,default=32)
+    ap.add_argument('--max-shards',type=int,default=0)
+    ap.add_argument('--lr',type=float,default=2e-5)
+    ap.add_argument('--target-kl',type=float,default=.02)
+    ap.add_argument('--clip-eps',type=float,default=.2)
+    ap.add_argument('--beta-kl',type=float,default=.02,help='Sampled behavior-divergence regularizer')
+    ap.add_argument('--gamma',type=float,default=1.)
+    ap.add_argument('--gae-lambda',type=float,default=1.)
+    ap.add_argument('--seed',type=int,default=31431)
+    ap.add_argument('--device',choices=('cpu','cuda'),default='cpu')
+    args=ap.parse_args()
+    if (min(args.batch_size,args.unroll,args.epochs,args.max_steps)<1 or args.lr<=0
+            or not 0<args.clip_eps<1 or args.target_kl<=0 or args.beta_kl<0 or args.anchor_mix_weight<0):
+        ap.error('Invalid PPO settings')
+    if args.thinking_steps!=2 or args.max_shards or args.gamma!=1 or args.gae_lambda!=1:
+        ap.error('Full-model pilot requires fixed K2, all shards and complete terminal-return targets gamma=lambda=1')
+    os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG',':4096:8')
+    torch.use_deterministic_algorithms(True)
+    torch.set_num_threads(4)
+    torch.manual_seed(args.seed)
+    import random
+    import numpy as np
+    random.seed(args.seed);np.random.seed(args.seed)
+    device=torch.device(args.device)
+    source_path=Path(args.init).expanduser()
+    if source_path.is_dir():source_path=source_path/'net.pt'
+    source_hash=native_source_digest(source_path)
+    source=torch.load(source_path,map_location='cpu',weights_only=False)
+    net=load_policy(source,device)
+    native_verify_admission(Path(args.rollout_data).expanduser(),source_path,Path(args.admission).expanduser())
+    with ExitStack() as resources:
+        dataset=D4.TrajectoryDataset4(Path(args.rollout_data).expanduser(),split='train',
+                                     encoder_version=source['encoder_version'],unroll_len=args.unroll,max_shards=0)
+        resources.callback(dataset.store.close)
+        if dataset.structure.digest!=net.rules.digest:
+            raise ValueError('Rollout and policy rule catalogs differ')
+        admission=json.loads(Path(args.admission).read_text())
+        expected_collection=dict(mode='raw',actor_role='learner',precision='float32',thinking_steps=2,temperature=.7)
+        if (admission.get('version')!=1 or admission.get('admitted') is not True
+                or admission.get('source_checkpoint_sha256')!=source_hash
+                or admission.get('dataset_fingerprint')!=dataset.fingerprint
+                or admission.get('collection_contract')!=expected_collection):
+            raise ValueError('Missing or mismatched Rust-certified full PPO data admission')
+        admitted=admission.get('admitted_learner_histories')
+        if not isinstance(admitted,list) or not admitted:
+            raise ValueError('Admission lacks explicit learner history roles')
+        allowed=set()
+        for key in admitted:
+            if (not isinstance(key,dict) or set(key)!= {'game_id','seat'}
+                    or type(key['game_id']) is not int or key['game_id']<0
+                    or type(key['seat']) is not int or not 0<=key['seat']<8):
+                raise ValueError('Malformed admitted learner history key')
+            allowed.add((key['game_id'],key['seat']))
+        if len(allowed)!=len(admitted) or admission.get('learner_histories')!=len(allowed):
+            raise ValueError('Admission learner history counts disagree')
+        selected=[]
+        found=set()
+        for trajectory in dataset.trajectories:
+            first=dataset.store.index[int(dataset.segments[trajectory[0]][0])]
+            key=(int(first['game']),int(first['seat']))
+            if key in allowed:
+                selected.append(trajectory);found.add(key)
+        if found!=allowed or len(selected)!=len(allowed):
+            raise ValueError('Admitted learner history is absent or duplicated')
+        if admission.get('completed_games')!=len({game for game,seat in found}):
+            raise ValueError('Admission completed-game count differs')
+        dataset.trajectories=selected
+        audit=prepare_policy_targets(net,dataset,device,batch_size=args.batch_size,board_chunk=0)
+        resources.callback(dataset._policy_targets_directory.cleanup)
+        if (audit['decisions_checked']!=admission.get('decisions')
+                or audit['learner_trajectories']!=len(allowed)):
+            raise ValueError('Audited learner decisions/histories disagree with Rust admission')
+        for trajectory in dataset.trajectories:
+            for index in trajectory:
+                row=dataset[index]
+                mask=torch.from_numpy(row['actor_mask']).bool()
+                if bool((torch.from_numpy(row['thinking_steps'])[mask]!=2).any()):
+                    raise ValueError('Full PPO actor thinking depth differs from fixed K2')
+        # Every policy likelihood is replayed before the first optimizer update.
+        if args.audit_only:
+            print(json.dumps(dict(admission=admission,probability_replay=audit),sort_keys=True),flush=True)
+            return
+        prefixes=episode_prefixes(dataset)
+        segments=[idx for tr in dataset.trajectories for idx in tr]
+        anchor_dataset=anchor_prefixes=None
+        if args.anchor_data and args.anchor_mix_weight:
+            anchor_dataset=D4.TrajectoryDataset4(Path(args.anchor_data).expanduser(),split='train',
+                                                encoder_version=source['encoder_version'],unroll_len=args.unroll,max_shards=0)
+            resources.callback(anchor_dataset.store.close)
+            if anchor_dataset.structure.digest!=net.rules.digest:
+                raise ValueError('Supervised anchor rule catalog differs')
+            anchor_prefixes=episode_prefixes(anchor_dataset)
+        contract=dict(version=1,source_checkpoint_sha256=source_hash,dataset_fingerprint=dataset.fingerprint,
+                      admission=admission,encoder_version=source['encoder_version'],
+                      target='complete terminal side outcome; gamma=lambda=1',precision='float32',
+                      memory='current_policy_complete_episode_prefix_detached_at_unroll_boundary',
+                      deterministic_algorithms=True,activation_checkpointing=True,torch_version=str(torch.__version__),
+                      device=str(device),batch_size=args.batch_size,unroll=args.unroll,seed=args.seed,
+                      lr=args.lr,target_kl=args.target_kl,clip_eps=args.clip_eps,beta_kl=args.beta_kl,
+                      anchor_dataset_fingerprint=None if anchor_dataset is None else anchor_dataset.fingerprint,
+                      anchor_mix_weight=args.anchor_mix_weight,epochs=args.epochs)
+        optimizer=torch.optim.AdamW(net.parameters(),lr=args.lr,weight_decay=0)
+        source_optimizer=copy.deepcopy(optimizer.state_dict())
+        progress=dict(epoch=0,next_batch=0,attempts=0,accepted=0,updates=[],terminal=False)
+        out=Path(args.out).expanduser()
+        if args.resume:
+            saved=torch.load(Path(args.resume).expanduser(),map_location='cpu',weights_only=False)
+            progress=restore_training(saved,net,optimizer,contract,device)
+        elif out.exists():
+            raise FileExistsError('Preserving existing full-PPO output; use --resume or a new directory')
+        out.mkdir(parents=True,exist_ok=True)
+        def save():
+            atomic_save(training_payload(net,optimizer,source,contract,progress),out/'last.pt')
+        stopped=bool(progress['terminal'])
+        for epoch in range(progress['epoch'],args.epochs):
+            if stopped:break
+            generator=torch.Generator().manual_seed(args.seed+epoch)
+            order=torch.randperm(len(segments),generator=generator).tolist()
+            groups=[tuple(segments[i] for i in order[start:start+args.batch_size])
+                    for start in range(0,len(order),args.batch_size)]
+            start_batch=progress['next_batch'] if epoch==progress['epoch'] else 0
+            for batch_index in range(start_batch,len(groups)):
+                if progress['attempts']>=args.max_steps:
+                    stopped=True;break
+                extra=None
+                if anchor_dataset is not None:
+                    anchor_ids=list(anchor_prefixes)
+                    start=(progress['attempts']*args.batch_size)%len(anchor_ids)
+                    indices=tuple(anchor_ids[start:start+args.batch_size])
+                    extra=lambda:args.anchor_mix_weight*supervised_loss(net,anchor_dataset,indices,anchor_prefixes,device)
+                record=transactional_update(net,optimizer,dataset,groups[batch_index],prefixes,device,
+                                            args.target_kl,args.clip_eps,args.batch_size,args.beta_kl,extra)
+                progress['attempts']+=1
+                progress['accepted']+=int(record['accepted'])
+                progress['epoch']=epoch;progress['next_batch']=batch_index+1
+                progress['updates'].append(dict(epoch=epoch,batch=batch_index,**record))
+                print('[full-ppo-step] '+json.dumps(progress['updates'][-1],sort_keys=True),flush=True)
+                if not record['accepted']:
+                    progress['terminal']=True;stopped=True
+                save()
+                if stopped:break
+            if stopped:break
+            progress['epoch']=epoch+1;progress['next_batch']=0
+            save()
+        try:
+            final_kl=collection_divergence(net,dataset,prefixes,device,args.batch_size)
+        except FloatingPointError:
+            final_kl=float("inf")
+        if not np.isfinite(final_kl) or final_kl>args.target_kl:
+            net.load_state_dict(source['state_dict'],strict=True)
+            optimizer.load_state_dict(source_optimizer)
+            progress.update(accepted=0,terminal=True,final_gate='rejected_published_unchanged_source')
+        else:
+            progress['final_gate']='accepted'
+        progress['final_collection_behavior_kl']=final_kl if np.isfinite(final_kl) else None
+        native_verify_admission(Path(args.rollout_data).expanduser(),source_path,Path(args.admission).expanduser())
+        save()
+        atomic_save(training_payload(net,optimizer,source,contract,progress),out/'net.pt')
+        print(json.dumps(dict(output=str(out),audit=audit,progress=progress),sort_keys=True),flush=True)
 
 
-if __name__ == "__main__":
+if __name__=='__main__':
     main()

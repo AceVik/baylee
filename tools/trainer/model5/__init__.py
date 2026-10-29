@@ -63,7 +63,7 @@ class PlayerNet5(V4.PlayerNet4):
                  if self.cfg.relational_revision == 1 else
                  torch.cat((torch.ones_like(tokens[:, :RECURRENT_SLOTS, 0]), raw_count), 1))
         arguments = (tokens, edge_index, edge_type, edge_mask, present, count)
-        if self.cfg.activation_checkpointing and self.training and torch.is_grad_enabled():
+        if self.cfg.activation_checkpointing and (self.training or getattr(self, "checkpoint_during_eval", False)) and torch.is_grad_enabled():
             return checkpoint_activation(
                 self.relational, *arguments,
                 offload_inputs=getattr(self, "offload_checkpoint_inputs", False),

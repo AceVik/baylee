@@ -71,7 +71,7 @@ def segment_outputs(net, dataset, indices, prefixes, device, gradients=True):
         net.clear_structure()
         net.prepare_structure()
         outputs, final_h = advance(net, batch, h, device)
-        current, recorded, advantage, anchor_kl = [], [], [], []
+        current, recorded, advantage = [], [], []
         values, returns = [], []
         for t, out in enumerate(outputs):
             mask = batch["actor_mask"][:, t].to(device).bool()
