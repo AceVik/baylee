@@ -156,7 +156,11 @@ service or gateway owner cannot approve itself. The gateway publishes its
 compiled version and configured website every 30 seconds. Directory metadata
 is display data and never a destination for passwords. Foreign Central users
 receive a gateway-local projection identified only by their immutable Central
-UUID. A matching local username/e-mail never links accounts. New gameplay
+UUID. A matching local username/e-mail never links accounts. At each sign-in
+the projection takes the display name and tag the account has at Central
+(`GatewayProfile`), so a player is the same `name#tag` here as on the website;
+a name this gateway's rule refuses, or a tag another local account holds, keeps
+the local value. New gameplay
 projections follow `BAYLEE_REGISTRATION`; existing users and explicitly named
 gateway admins remain subject to local bans and forced-reset policy.
 

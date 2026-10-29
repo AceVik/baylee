@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 mod sessions;
 pub use sessions::{
     GatewayLease, SessionBinding, extend_session, issue_session, projection, session_binding,
+    take_profile,
 };
 
 /// Snapshot size admitted by the initial encrypted account-document format.
