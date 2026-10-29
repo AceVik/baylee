@@ -1,5 +1,6 @@
 //! Native semantic encoder and recurrent training schedule contracts.
 mod supervised_execution;
+mod supervised_objective;
 use super::bc_metadata::digest;
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
@@ -95,6 +96,8 @@ pub fn validate(value: &Value) -> Result<Value> {
         Some("initial_encoder") => initial(value),
         Some("depth") => depth(&value["contract"]),
         Some("supervised_loss") => loss(&value["contract"]),
+        Some("supervised_saved_loss") => supervised_objective::saved_loss(&value["contract"]),
+        Some("supervised_resume") => supervised_objective::resume(value),
         Some("supervised_execution") => supervised_execution::validate(value),
         Some("depth_resume") => {
             let expected = depth(&value["contract"])?;
@@ -112,6 +115,14 @@ fn loss(contract: &Value) -> Result<Value> {
     ensure!(
         matches!(version, Some(4.0 | 5.0)) && contract["outcome_weighting"].is_boolean(),
         "Invalid supervised loss version/outcome flag"
+    );
+    ensure!(
+        if version == Some(5.0) {
+            contract["categorical_weighting"] == "symmetric_v1"
+        } else {
+            contract.get("categorical_weighting").is_none()
+        },
+        "Loss5 requires explicit categorical_weighting=symmetric_v1; old loss5 is ambiguous, use --init for a new learning experiment. Loss4 contract stays unchanged"
     );
     ensure!(
         contract["detach_value_input"].is_boolean() && contract["detach_aux_input"].is_boolean(),
@@ -159,6 +170,7 @@ mod tests {
         config["detach_value_input"] = json!(true);
         assert!(loss(&config).is_err());
         config["version"] = json!(5);
+        config["categorical_weighting"] = json!("symmetric_v1");
         loss(&config)?;
         config["outcome_weighting"] = json!(1);
         assert!(loss(&config).is_err());

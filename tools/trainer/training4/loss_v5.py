@@ -36,11 +36,6 @@ def compute_loss_v5(prepared, auxiliary, batch, plans, config):
                 # Invalid/forced/inactive targets must not reach CE.
                 losses=F.cross_entropy(torch.where(genuine[:,None],logits,0.),target,reduction='none')
                 weights=weight[:,t]*factor[:,t]*genuine
-                if 'cand_feat' in batch:
-                    cf=get('cand_feat')[:,t,:logits.shape[1]]
-                    is_pass0=genuine & (target==0) & (cf[:,0,0]>0.5) & (weight[:,t]>0.5)
-                    has_land_or_cast=((cf[:,1:,2]>0.5) | (cf[:,1:,3]>0.5)).any(-1) if cf.shape[1]>1 else torch.zeros_like(is_pass0)
-                    weights=torch.where(is_pass0 & (~has_land_or_cast),weights*0.35,weights)
                 correct=correct+((logits.argmax(-1)==target)&genuine).sum().float();count=count+genuine.sum().float()
             elif kind in (1,2):
                 prefix='cand' if kind==1 else 'pair';logits=prepared[t][kind].float()

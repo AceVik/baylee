@@ -29,7 +29,10 @@ mod tests {
         for version in [4, 5] {
             for reference in [false, true] {
                 for continuation in [false, true] {
-                    let input = json!({"contract":{"version":version,"outcome_weighting":true,"normalization":"legacy_timestep","policy_head_weights":[1,1,1,1],"detach_value_input":false,"detach_aux_input":false,"value_weight":0.5,"auxiliary_weight":0.25},"reference_execution":reference,"init_state":continuation});
+                    let mut input = json!({"contract":{"version":version,"outcome_weighting":true,"normalization":"legacy_timestep","policy_head_weights":[1,1,1,1],"detach_value_input":false,"detach_aux_input":false,"value_weight":0.5,"auxiliary_weight":0.25},"reference_execution":reference,"init_state":continuation});
+                    if version == 5 {
+                        input["contract"]["categorical_weighting"] = json!("symmetric_v1");
+                    }
                     ensure!(
                         validate(&input).is_ok() == (version == 4 || (!reference && !continuation)),
                         "execution admission mismatch"

@@ -17,19 +17,13 @@ def selection_score(metrics, selection):
 
 
 def check_resume_objective(saved, selection, loss_config=None):
+    import json
+    from trajectory_store4 import _native
     from .loss_config import SupervisedLossConfig
     expected = loss_config or SupervisedLossConfig()
-    recorded = saved.get('supervised_loss_config')
-    if recorded is not None and expected.version == 5 and set(recorded) != set(expected.to_dict()):
-        raise ValueError('Incomplete supervised loss configuration')
-    if recorded is not None and SupervisedLossConfig.from_dict(recorded) != expected:
-        raise ValueError('Resume supervised loss configuration differs')
-    if recorded is None and expected.version != 4:
-        raise ValueError('Explicit supervised loss configuration required for version5')
-    if saved.get("training_loss_version", 1) != expected.version:
-        raise ValueError("Resume loss semantics differ; use --init for a new learning experiment")
-    if saved.get("checkpoint_selection", "combined") != selection:
-        raise ValueError("Resume checkpoint selection differs from the saved scoring protocol")
+    metadata = {key:saved[key] for key in ('supervised_loss_config','training_loss_version','checkpoint_selection') if key in saved}
+    _native(['training-contract'],json.dumps(dict(kind='supervised_resume',
+        contract=expected.to_dict(),selection=selection,saved=metadata),allow_nan=False).encode())
 
 
 def choice_statistics(logits, candidates, single, target, weight):

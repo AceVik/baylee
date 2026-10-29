@@ -81,6 +81,16 @@ agy records remain supported. Model answers become BC targets only after
 technical replay/provenance validation; standing and fallback answers are not
 external-model policy targets, and none of these records are PPO behavior data.
 
+New `convert4` datasets carry `idle_pass_weighting_revision = 2`. For live and
+LLM behavior-cloning labels, a priority pass during visible casting, announced
+casting or an outstanding payment keeps its normal policy weight. It can finish
+payment and is not an ordinary idle pass, including on an opponent's turn with
+an empty stack. Ordinary idle-pass discounts and source eligibility are unchanged.
+Missing metadata means legacy revision 1; existing datasets are not relabelled.
+Reconversion changes the sealed metadata/shard content and therefore the native
+cache fingerprint. This changes supervision only, not legal cancellation or
+sampling behavior; validation replays used to diagnose it remain out of training.
+
 Raw action verification and replay of explicit `SourceKind4::Net` sidecars
 preserve the executed subset members and defenders. They use
 `encode_executed_action4`; canonical BC teacher targets remain separate.
@@ -105,6 +115,12 @@ permit independent `--outcome-weighting-off`,
 `--detach-aux-input` ablations. Full-unroll normalization changes relative
 head/value gradient scaling; it is a learning experiment. Checkpoints retain
 the complete objective contract and reject incompatible resume requests.
+Loss5 records `categorical_weighting: "symmetric_v1"`: categorical targets,
+including priority passes and payment settlement, receive only their explicit
+label and optional outcome weights. Candidate features and padding never add
+an implicit pass discount. Historical loss5 contracts without this marker
+are ambiguous and cannot resume exactly; use a declared weights-only `--init`
+continuation. The loss4 objective and canonical contract remain unchanged.
 Loss5 requires an optimized execution path; reference execution and package
 `--init-state` are explicitly unsupported. Compare variants with fixed data,
 initial weights, seeds, update budgets and unchanged validation definitions.

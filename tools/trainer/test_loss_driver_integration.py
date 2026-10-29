@@ -84,6 +84,27 @@ class IntegrationTests(unittest.TestCase):
     bad_argv.remove('--detach-value-input')
     with patch('sys.argv',bad_argv),patch.object(driver.D4,'TrajectoryDataset4',Dataset),patch.object(driver.D4,'StatefulBatchSampler4',Sampler),patch.object(driver,'DataLoader',return_value=[]),patch.object(driver.torch,'set_num_threads'),self.assertRaisesRegex(ValueError,'loss configuration'):
      driver.main('v5')
+    # The old v5 contract cannot distinguish symmetric CE from the removed
+    # pass heuristic. Reject before loading optimizer or restoring lane H.
+    old=copy.deepcopy(saved)
+    old['supervised_loss_config'].pop('categorical_weighting')
+    old['optimizer']=None
+    old['h']=torch.full((4,9,32),float('nan'))
+    old_path=output/'ambiguous-v5.pt';torch.save(old,old_path)
+    with patch('sys.argv',argv+['--resume',str(old_path)]),patch.object(driver.D4,'TrajectoryDataset4',Dataset),patch.object(driver.D4,'StatefulBatchSampler4',Sampler),patch.object(driver,'DataLoader',return_value=[]),patch.object(driver.torch,'set_num_threads'),patch.object(torch.optim.AdamW,'load_state_dict') as restore_optimizer,self.assertRaisesRegex(ValueError,'categorical_weighting'):
+     driver.main('v5')
+    restore_optimizer.assert_not_called()
+    if chunk==1:
+     transfer_argv=list(argv)
+     transfer_output=Path(temporary)/'fresh-transfer'
+     transfer_argv[transfer_argv.index('--out')+1]=str(transfer_output)
+     transfer_argv+=['--init',str(old_path)]
+     with patch('sys.argv',transfer_argv),patch.object(driver.D4,'TrajectoryDataset4',Dataset),patch.object(driver.D4,'StatefulBatchSampler4',Sampler),patch.object(driver,'DataLoader',return_value=[]),patch.object(driver,'prefetch_batches',return_value=[(copy.deepcopy(batch),None)]),patch.object(driver,'evaluate_device',return_value=metrics),patch.object(driver.torch,'set_num_threads'),patch.object(torch.optim.AdamW,'load_state_dict') as restore_optimizer,contextlib.redirect_stdout(io.StringIO()):
+      driver.main('v5')
+     restore_optimizer.assert_not_called()
+     transferred=torch.load(transfer_output/'last.pt',map_location='cpu',weights_only=False)
+     self.assertEqual(transferred['step_num'],1)
+     self.assertEqual(transferred['supervised_loss_config']['categorical_weighting'],'symmetric_v1')
    for name,value in results[0]['state_dict'].items():
     torch.testing.assert_close(value,results[1]['state_dict'][name],atol=2e-5,rtol=2e-4)
 
