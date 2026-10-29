@@ -7,6 +7,7 @@ from torch import nn
 import torch.nn.functional as F
 from .activation_checkpoint import checkpoint_activation
 from .config import *
+from .candidate import score_candidate_hidden
 from .layers import GatedResidualUpdate, DynamicMultiHeadAttention, PreNormTransformerLayer, ThinkingStepBlock
 
 class PlayerNet4(nn.Module):
@@ -333,14 +334,7 @@ class PlayerNet4(nn.Module):
             g_exp = g_ref.unsqueeze(1).expand_as(c_emb)
             cand_in = torch.cat([c_emb, c_ent, c_seat, g_exp], dim=-1)
             h_c = self.cand_scorer[2](self.cand_scorer[1](self.cand_scorer[0](cand_in)))
-            valid_c = cand_mask.unsqueeze(-1).to(h_c.dtype)
-            c_count = valid_c.sum(dim=1, keepdim=True).clamp(min=1.0)
-            c_mean = (h_c * valid_c).sum(dim=1, keepdim=True) / c_count
-            c_max = h_c.masked_fill(~cand_mask.unsqueeze(-1), -1e4).amax(dim=1, keepdim=True)
-            c_max = c_max * (valid_c.sum(dim=1, keepdim=True) > 0.0).to(h_c.dtype)
-            h_c = h_c + self.cand_ctx_proj(torch.cat([c_mean, c_max], dim=-1))
-            cand_logits = self.cand_scorer[3](h_c).squeeze(-1)
-            cand_logits = cand_logits.masked_fill(~cand_mask, -1e9)
+            cand_logits = score_candidate_hidden(self, h_c, cand_mask)
         else:
             cand_logits = torch.zeros_like(cand_mask, dtype=board.dtype).masked_fill(~cand_mask, -1e9)
 
