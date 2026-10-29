@@ -95,9 +95,14 @@ pub fn build(root: &Path, split: &str, shards: &[String]) -> Result<Receipt> {
         .write(true)
         .open(cache.join(format!("{stem}.lock")))?;
     lock.lock()?;
-    if !done.exists() {
+    let sources = source_digests(&root, &paths)?;
+    if !sealed(&data_path, &index_path, &done, &fingerprint, &sources).unwrap_or(false) {
         build_files(&root, &paths, &data_path, &index_path, &done, &fingerprint)?;
     }
+    ensure!(
+        sealed(&data_path, &index_path, &done, &fingerprint, &sources)?,
+        "Trajectory cache content seal failed after publication"
+    );
     let size = index_path.metadata()?.len();
     ensure!(size % 32 == 0, "Corrupt trajectory index");
     let marker = files::read_json(&done)?;
@@ -113,6 +118,35 @@ pub fn build(root: &Path, split: &str, shards: &[String]) -> Result<Receipt> {
         records: size / 32,
     })
 }
+fn source_digests(root: &Path, paths: &[PathBuf]) -> Result<BTreeMap<String, String>> {
+    let structure = root.join("card_structure.json");
+    paths
+        .iter()
+        .chain(structure.exists().then_some(&structure))
+        .map(|path| Ok((path.to_string_lossy().into_owned(), files::sha256(path)?)))
+        .collect()
+}
+fn sealed(
+    data: &Path,
+    index: &Path,
+    done: &Path,
+    fingerprint: &str,
+    sources: &BTreeMap<String, String>,
+) -> Result<bool> {
+    let marker = files::read_json(done)?;
+    let size = index.metadata()?.len();
+    if size % 32 != 0
+        || marker["fingerprint"] != fingerprint
+        || marker["records"].as_u64() != Some(size / 32)
+        || marker["source_sha256"] != serde_json::to_value(sources)?
+        || marker["data_sha256"].as_str() != Some(files::sha256(data)?.as_str())
+        || marker["index_sha256"].as_str() != Some(files::sha256(index)?.as_str())
+    {
+        return Ok(false);
+    }
+    validate_index(index, data.metadata()?.len())?;
+    Ok(true)
+}
 fn build_files(
     root: &Path,
     paths: &[PathBuf],
@@ -125,6 +159,7 @@ fn build_files(
     let dt = data_path.with_extension(format!("bin.{id}.partial"));
     let it = index_path.with_extension(format!("idx.{id}.partial"));
     let result = (|| -> Result<()> {
+        let sources = source_digests(root, paths)?;
         let mut data = OpenOptions::new().create_new(true).write(true).open(&dt)?;
         let mut index = OpenOptions::new().create_new(true).write(true).open(&it)?;
         let roots = files::read_json(&root.join("card_structure.json"))
@@ -136,9 +171,18 @@ fn build_files(
         }
         data.sync_all()?;
         index.sync_all()?;
+        ensure!(
+            sources == source_digests(root, paths)?,
+            "Trajectory source changed during cache construction"
+        );
+        let data_sha256 = files::sha256(&dt)?;
+        let index_sha256 = files::sha256(&it)?;
         std::fs::rename(&dt, data_path)?;
         std::fs::rename(&it, index_path)?;
-        files::atomic_json(done, &json!({"fingerprint":fingerprint,"records":records}))?;
+        files::atomic_json(
+            done,
+            &json!({"fingerprint":fingerprint,"records":records,"source_sha256":sources,"data_sha256":data_sha256,"index_sha256":index_sha256}),
+        )?;
         Ok(())
     })();
     if result.is_err() {

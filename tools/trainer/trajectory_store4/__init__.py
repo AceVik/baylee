@@ -53,6 +53,7 @@ class TrajectoryStore4(torch.utils.data.Dataset):
         command = ["build", "--data-dir", data_dir, "--split", split]
         for shard in shards:
             command += ["--shard", shard]
+        self._cache_command = command
         receipt = json.loads(_native(command))
         self.fingerprint = receipt["fingerprint"]
         self.data_path = Path(receipt["data_path"])
@@ -70,6 +71,11 @@ class TrajectoryStore4(torch.utils.data.Dataset):
     def read_raw(self, row):
         if self._pid != os.getpid():
             self.close()
+            receipt = json.loads(_native(self._cache_command))
+            if receipt['fingerprint'] != self.fingerprint:
+                raise ValueError('Trajectory source changed before tensor mmap load')
+            self.index = (np.memmap(self.index_path, mode='r', dtype=INDEX)
+                          if receipt['records'] else np.empty(0, dtype=INDEX))
             self._file = self.data_path.open("rb")
             self._map = mmap.mmap(self._file.fileno(), 0, access=mmap.ACCESS_READ)
             self._pid = os.getpid()

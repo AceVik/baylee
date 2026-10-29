@@ -130,6 +130,65 @@ fn gzip_and_binary_shards_share_one_native_reader_and_cache_abi() -> Result<()> 
     Ok(())
 }
 #[test]
+fn cache_content_seals_rebuild_layout_valid_outcome_action_and_index_tampering() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let root = directory.path();
+    std::fs::create_dir(root.join("train"))?;
+    std::fs::write(root.join("meta.json"), b"{}")?;
+    let roots = BTreeMap::from([("public".to_owned(), 11)]);
+    files::atomic_json(&root.join("card_structure.json"), &json!({"roots":roots}))?;
+    let source = root.join("train/a.gz");
+    let original = frame();
+    let mut gzip = GzEncoder::new(File::create(&source)?, Compression::default());
+    serde_json::to_writer(&mut gzip, &original)?;
+    gzip.write_all(b"\n")?;
+    gzip.finish()?;
+    let shards = ["a.gz".into()];
+    let receipt = cache::build(root, "train", &shards)?;
+    let data = std::fs::read(&receipt.data_path)?;
+    let index = std::fs::read(&receipt.index_path)?;
+    for (key, value) in [
+        ("outcome", json!(-0.5)),
+        (
+            "target",
+            json!({"single_idx":0,"scalar_norm":0.75,"multi_mask":[0,1],"free_mask":[1,1]}),
+        ),
+    ] {
+        let mut tampered = original.clone();
+        tampered[key] = value;
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
+        let packed = packing::pack_step(&tampered, &roots)?;
+        packing::metadata(&packed)?;
+        encoder.write_all(&packed)?;
+        let bytes = encoder.finish()?;
+        let mut changed_index = index.clone();
+        changed_index[24..28].copy_from_slice(&u32::try_from(bytes.len())?.to_le_bytes());
+        std::fs::write(&receipt.data_path, bytes)?;
+        std::fs::write(&receipt.index_path, changed_index)?;
+        let rebuilt = cache::build(root, "train", &shards)?;
+        assert_eq!(std::fs::read(rebuilt.data_path)?, data);
+        assert_eq!(std::fs::read(rebuilt.index_path)?, index);
+    }
+    let mut changed_index = index.clone();
+    changed_index[..4].copy_from_slice(&99u32.to_le_bytes());
+    std::fs::write(&receipt.index_path, changed_index)?;
+    cache::build(root, "train", &shards)?;
+    assert_eq!(std::fs::read(&receipt.index_path)?, index);
+    let marker = receipt.data_path.with_extension("json");
+    let mut legacy = files::read_json(&marker)?;
+    legacy.as_object_mut().unwrap().remove("data_sha256");
+    files::atomic_json(&marker, &legacy)?;
+    cache::build(root, "train", &shards)?;
+    let sealed = files::read_json(&marker)?;
+    assert_eq!(sealed["data_sha256"], files::sha256(&receipt.data_path)?);
+    assert_eq!(sealed["index_sha256"], files::sha256(&receipt.index_path)?);
+    assert_eq!(
+        sealed["source_sha256"][source.to_str().unwrap()],
+        files::sha256(&source)?
+    );
+    Ok(())
+}
+#[test]
 fn teacher_markers_are_refused_before_ppo_and_incomplete_contracts_never_build() -> Result<()> {
     let root = tempfile::tempdir()?;
     for value in [
