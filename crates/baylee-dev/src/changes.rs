@@ -35,15 +35,19 @@ pub struct Classes {
 /// This file's own path: editing the classifier is a CI change.
 const SELF: &str = "crates/baylee-dev/src/changes.rs";
 
+/// The cargo aliases CI builds with (`build-client`, `check-client`,
+/// `build-servers`): changing one changes what the packages are.
+const ALIASES: &str = ".cargo/config.toml";
+
 /// Classifies paths; the first matching rule wins, as the script's `case` did.
 pub fn classify<'a>(paths: impl IntoIterator<Item = &'a str>) -> Classes {
     let mut classes = Classes::default();
     for path in paths.into_iter().map(str::trim).filter(|p| !p.is_empty()) {
-        if path.starts_with(".github/") || path == SELF {
+        if path.starts_with(".github/") || path == SELF || path == ALIASES {
             classes.ci = true;
         } else if path.starts_with("web/feedback/") {
             classes.web = true;
-        } else if [".claude/", "web/"]
+        } else if [".claude/", ".agents/", ".codex/", "web/"]
             .iter()
             .any(|prefix| path.starts_with(prefix))
         {
@@ -126,11 +130,25 @@ mod tests {
                 ..Classes::default()
             }
         );
+        assert_eq!(
+            of(&[ALIASES]),
+            Classes {
+                ci: true,
+                ..Classes::default()
+            }
+        );
     }
 
     #[test]
     fn scratch_directories_and_other_web_pages_set_nothing() {
-        let quiet = [".claude/x.md", "web/site/index.html", "", "  "];
+        let quiet = [
+            ".claude/x.md",
+            ".agents/skills/x/SKILL.md",
+            ".codex/hooks.json",
+            "web/site/index.html",
+            "",
+            "  ",
+        ];
         assert_eq!(of(&quiet), Classes::default());
     }
 

@@ -111,16 +111,16 @@ promotion/signing path after a green main CI without cutting another release:
 `gh workflow run release.yml --ref main -f promote-ci=true`. This reuses the
 workspace-version archives; the publish job remains tag-only.
 
-The five desktop package builds cache compiled dependencies. Cache keys
+The six desktop package builds cache compiled dependencies. Cache keys
 separate runner OS/target and compiler configuration. **Only a push to main
 writes any cache**; every other run (a PR, a dispatch, the nightly, a dry run)
 restores main's. A PR's own cache would live under `refs/pull/N/merge`, which
 no other run can read, and on 08.10.2026 those PR writes plus the PR platform
-matrix had pushed the repository past its 10 GB, so most jobs restored nothing
-(§"CI").
+matrix had pushed the repository past its then 10 GB, so most jobs restored
+nothing (§"CI"). The limit is 25 GB since 29.10.2026.
 
 The first debug-test partition writes a shared cache consumed read-only by
-Clippy, feature tests, validation and the signer. One writer avoids an
+Clippy, `shipped-features` and validation. One writer avoids an
 immutable key being filled first by an incomplete Clippy-only build. Workspace
 crates are not added to every compiler cache, because larger duplicated caches
 would evict each other. Exact
@@ -262,7 +262,10 @@ Each job runs in a throwaway Tart VM (`crates/baylee-runner`):
   request brings its own YAML and could name the label. What keeps it off is
   the repository's fork policy, **approval required for all external
   contributors** (set 22.10.2026). Approve a fork's run only after reading it,
-  and never one that changes `.github/` unread.
+  and never one that changes `.github/` unread. Since 29.10.2026 two more
+  checks stand behind it: the runner counts only this repository's pushes
+  to main and its dispatches when it decides to start a VM, and every VM runs
+  a job-started hook that fails any other job before its first step.
 - **No secrets.** The package jobs hold only the read-only `github.token`, and
   release signing stays on GitHub's Ubuntu runner, so no key touches the Mac.
   The runner registers with a fine-grained token of its own (this repository;
@@ -286,10 +289,12 @@ Each job runs in a throwaway Tart VM (`crates/baylee-runner`):
   the lock. The LaunchAgent allows 180 seconds for shutdown. A failed GitHub
   busy-status lookup is unknown, not evidence that a running job is idle;
   the three-hour absolute limit still applies.
-- **One VM at a time.** macOS allows two per Mac, and `MAX_VMS=2` would build
-  both packages at once, but on 22.10.2026 the second of two VMs started
-  together got no name resolution and then an exec that never returned, so
-  the runner builds them one after the other until that is understood.
+- **Two VMs, started one after the other.** macOS allows two per Mac, and the
+  runner builds both packages side by side (29.10.2026). Two VMs started
+  together both stayed offline for twelve minutes, while the second one,
+  started once the first reached github.com, had the network in two seconds
+  (measured 29.10.2026). So each VM waits for the one before it to reach the
+  network or give up, and then the jobs run in parallel.
 - **Release trust.** The macOS archives a release promotes were built on that
   Mac. `release verify-run` checks that they come from a main push run, not
   where the run built them.
@@ -319,7 +324,9 @@ installation need a separate live operational check.
 
 When the pinned actions runner is a month old, `tart delete baylee-runner`,
 raise the pin and `prepare` again: an older runner downloads its update at the
-start of every job.
+start of every job. Raise the base image's digest (`Settings::base`) in the
+same change; it is pinned because the macOS archives a release signs are
+built in it.
 
 ## Installers
 
