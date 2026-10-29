@@ -460,14 +460,21 @@ archive gets a `<archive>.sig` (base64 of the 64-byte signature) before it is
 published. The `.sha256` beside it only catches a broken download; anyone who
 can replace an archive can replace its checksum.
 
-In `release.yml` the `sign` job downloads the promoted archives and runs
-`baylee-update-sign release`, which signs them with the seed in the
-repository secret `BAYLEE_UPDATE_SIGNING_KEY` and then verifies each
-signature against the compiled keys. A secret that is not the client's key
-therefore fails the release, not every player's updater. On a tag, a missing
-secret fails the job and nothing is published; `publish` also refuses an
-archive without its `.sig`. A dry run without the secret warns and goes on
-unsigned. Only the build step sets `BAYLEE_RELEASE_BUILD=1`, which is what
+In `release.yml` the `signer` job builds `baylee-update-sign` with no secret
+in reach, and the `sign` job downloads it with the promoted archives and runs
+`baylee-update-sign release`, which signs them with the seed in the secret
+`BAYLEE_UPDATE_SIGNING_KEY` and then verifies each signature against the
+compiled keys. `sign` checks nothing out and compiles nothing, so no build
+script runs beside the seed, and it alone enters the environment `release`,
+which admits a `v*` tag and `main` (29.10.2026); the secret belongs there, not
+at repository level, where every workflow on every branch could read it. The
+release notes are written in `notes`, which compiles `cargo tools` without
+the write token; `publish` only uploads. A secret that is not the client's
+key therefore fails the release, not every player's updater. On a tag, a
+missing secret fails the job and nothing is published; `notes` also refuses
+an archive without its `.sig`. A dry run from `main` without the secret warns
+and goes on unsigned; one dispatched from another branch is refused before
+anything is built. Only the build step sets `BAYLEE_RELEASE_BUILD=1`, which is what
 lets a client replace itself; a build made anywhere else only checks and
 links.
 
@@ -483,8 +490,12 @@ The owner does this once, on their own machine:
    `~/.config/baylee-release/update-signing.key` (mode `0600`, never
    overwritten) and prints the public key. The seed of 27.09.2026 is there
    already, and its public key is the one in `TRUSTED_KEYS`.
-2. Store the file's content as the repository secret:
-   `gh secret set BAYLEE_UPDATE_SIGNING_KEY < ~/.config/baylee-release/update-signing.key`.
+2. Store the file's content as the secret of the `release` environment:
+   `gh secret set BAYLEE_UPDATE_SIGNING_KEY --env release < ~/.config/baylee-release/update-signing.key`.
+   Not at repository level: there every workflow on every branch could read
+   it, and a repository secret of the same name would go on being read by
+   nothing once the environment has one, so a rotation written there changes
+   nothing.
 3. Back the file up somewhere offline (a password manager, an encrypted
    stick). Lost, no client that has only this key can be updated
    automatically again; its players have to download the next release by

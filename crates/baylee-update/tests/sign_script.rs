@@ -222,6 +222,16 @@ fn the_release_workflow_signs_before_it_publishes() {
         assert_eq!(found.len(), 1, "one step holds {needle}: {job}");
         (*found[0]).to_owned()
     };
+    // The signer is built in a job with no secret and no environment, and
+    // the job that holds the seed checks nothing out and compiles nothing:
+    // a step of its own would be no wall against a build script.
+    let signer = job("signer");
+    assert!(
+        signer.contains("cargo build --locked -q -p baylee-update --bin baylee-update-sign"),
+        "{signer}"
+    );
+    assert!(!signer.contains("secrets."), "{signer}");
+    assert!(!signer.contains("environment:"), "{signer}");
     let sign = job("sign");
     assert!(sign.contains("environment: release"), "{sign}");
     let signing = step_with(
@@ -229,27 +239,36 @@ fn the_release_workflow_signs_before_it_publishes() {
         "BAYLEE_UPDATE_SIGNING_KEY: ${{ secrets.BAYLEE_UPDATE_SIGNING_KEY }}",
     );
     assert!(
-        signing.contains("target/debug/baylee-update-sign release out"),
+        signing.contains("signer/baylee-update-sign release out"),
         "{signing}"
     );
-    // The secret never shares a step with the compiler, and nothing another
-    // job compiled is restored beside it.
-    assert!(!signing.contains("cargo "), "{signing}");
-    assert!(
-        sign.contains("cargo build --locked -q -p baylee-update --bin baylee-update-sign"),
-        "{sign}"
-    );
-    assert!(!sign.contains("rust-cache"), "{sign}");
+    for compiles in ["cargo ", "rust-toolchain", "rust-cache", "actions/checkout"] {
+        assert!(!sign.contains(compiles), "{compiles} in sign: {sign}");
+    }
     assert!(!workflow.contains("BAYLEE_UPDATE_VERIFY_KEY"));
+    // Likewise the write token: the notes compile in a job that reads only,
+    // and `publish` uploads what it is handed.
+    let notes = job("notes");
+    assert!(
+        notes.contains("cargo tools release installer-sums"),
+        "{notes}"
+    );
+    assert!(notes.contains(".sig"), "{notes}");
+    assert!(!notes.contains("contents: write"), "{notes}");
+    assert!(!notes.contains("GH_TOKEN"), "{notes}");
     let publish = job("publish");
     assert!(
-        publish.contains("needs: [version, build, sign]"),
+        publish.contains("needs: [version, build, sign, notes]"),
         "{publish}"
     );
-    assert!(publish.contains(".sig"), "{publish}");
-    let publishing = step_with(&publish, "GH_TOKEN");
-    assert!(publishing.contains("gh release create"), "{publishing}");
-    assert!(!publishing.contains("cargo "), "{publishing}");
+    assert!(publish.contains("out/*.sig"), "{publish}");
+    assert!(publish.contains("gh release create"), "{publish}");
+    for compiles in ["cargo ", "rust-toolchain", "rust-cache", "actions/checkout"] {
+        assert!(
+            !publish.contains(compiles),
+            "{compiles} in publish: {publish}"
+        );
+    }
     // Only the release build may replace itself (the client's
     // `update::native::is_release_build`): the build step says so, and it
     // builds the three binaries the package ships (client, launcher and the

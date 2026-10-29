@@ -12,10 +12,11 @@
 # because the client installs updates by itself, and only ever an archive
 # whose signature verifies against the keys it was compiled with (#326,
 # `docs/releasing.md` §"Signing"). The seed is the secret
-# BAYLEE_UPDATE_SIGNING_KEY of the `release` environment, which only a `v*`
-# tag or `main` may enter. Without it a tag fails in `sign` and nothing is
-# published; a dry run says so and goes on unsigned. A dry run dispatched from
-# any other branch cannot enter the environment and stops at `sign`.
+# BAYLEE_UPDATE_SIGNING_KEY, kept in the `release` environment, which only a
+# `v*` tag or `main` may enter; `sign` is the one job that enters it. Without
+# the secret a tag fails in `sign` and nothing is published; a dry run says so
+# and goes on unsigned. A dry run is dispatched from `main`: from any other
+# branch it is refused in `version`, before anything is built.
 #
 # Beside each archive the release carries its installers (a dmg each for
 # Apple silicon and Intel, setup .exe, AppImage, .deb; `docs/releasing.md`
@@ -74,6 +75,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PROMOTE_CI: ${{ inputs.promote-ci || false }}
         run: |
+          # `sign` enters the `release` environment, which admits a `v*` tag
+          # and `main` only; a dry run from elsewhere would build all six
+          # packages and stop there.
+          if [ "$GITHUB_REF_TYPE" != tag ] && [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "::error::dispatch a dry run from main, not $GITHUB_REF"
+            exit 1
+          fi
           version=$(sed -n '/^\[workspace\.package\]/,/^\[/{s/^version = "\(.*\)"$/\1/p;}' Cargo.toml)
           [ -n "$version" ] || { echo "::error::no workspace.package.version in Cargo.toml"; exit 1; }
           if [ "$GITHUB_REF_TYPE" = tag ] || [ "$PROMOTE_CI" = true ]; then
@@ -108,45 +116,69 @@ jobs:
       contents: read
       actions: read
 
-  # Signs every archive, then checks each signature against the keys the
-  # client is compiled with, so a secret that is not the client's key fails
-  # here and not in every player's updater. One job for all archives, on
-  # both triggers: the secret reaches this job alone, and a dry run
-  # exercises the step a tag takes.
-  #
-  # The seed lives in the `release` environment, which only a `v*` tag or
-  # `main` may enter. It never shares a step with `cargo`: every build script
-  # and proc macro of the signer's dependencies runs in the build step, which
-  # has no secret, and no cache is restored, so nothing another job compiled
-  # runs here (29.10.2026).
-  sign:
-    needs: [version, build]
+  # The signer, the client's own verifier (`baylee-update`) built from this
+  # commit, in a job of its own: every build script and proc macro of its
+  # dependencies runs here, where no secret is, and only the binary reaches
+  # `sign`. A separate step in the signing job would be no wall: a build
+  # script can write `$GITHUB_ENV` or replace the binary the next step runs
+  # (review of 29.10.2026).
+  signer:
+    needs: version
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment: release
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      # The same pinned toolchain as the builds; the signer is the client's
-      # own verifier (`baylee-update`), built from this commit.
+      # The same pinned toolchain as the builds.
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: stable
-      - name: Build the signer, without the secret
-        shell: bash
-        run: cargo build --locked -q -p baylee-update --bin baylee-update-sign
+      - run: cargo build --locked -q -p baylee-update --bin baylee-update-sign
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signer
+          path: target/debug/baylee-update-sign
+          retention-days: 1
+          if-no-files-found: error
+
+  # Signs every archive, then checks each signature against the keys the
+  # client is compiled with, so a secret that is not the client's key fails
+  # here and not in every player's updater. One job for all archives, on
+  # both triggers: the secret reaches this job alone, and a dry run
+  # exercises the step a tag takes.
+  #
+  # The job enters the `release` environment, which only a `v*` tag or `main`
+  # may enter, and the seed belongs there (`docs/releasing.md` §"The key,
+  # once"); while a repository secret of the same name still exists, that is
+  # what it reads. Nothing is checked out or compiled here: the signer and
+  # the archives come in as artifacts.
+  sign:
+    needs: [version, build, signer]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: read
+    steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
+          name: signer
+          path: signer
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: client-*
           path: out
           merge-multiple: true
-      - name: Sign, with no compiler in the step
+      - name: Sign
         shell: bash
         env:
           BAYLEE_UPDATE_SIGNING_KEY: ${{ secrets.BAYLEE_UPDATE_SIGNING_KEY }}
-        run: target/debug/baylee-update-sign release out
+        run: |
+          chmod +x signer/baylee-update-sign
+          signer/baylee-update-sign release out
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: signatures
@@ -155,13 +187,15 @@ jobs:
           # A dry run without the secret has none.
           if-no-files-found: ${{ github.ref_type == 'tag' && 'error' || 'warn' }}
 
-  publish:
+  # The release notes need `cargo tools`, which compiles, so they are written
+  # in a job that holds no write token; `publish` only uploads.
+  notes:
     needs: [version, build, sign]
     if: github.ref_type == 'tag'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -171,11 +205,14 @@ jobs:
           toolchain: stable
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
+          pattern: client-*
           path: out
           merge-multiple: true
-      # The notes need `cargo tools`, which compiles; the write token reaches
-      # only the next step, which compiles nothing.
-      - name: Check the signatures and write the notes, without the token
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signatures
+          path: out
+      - name: Check the signatures and write the notes
         shell: bash
         env:
           VERSION: ${{ needs.version.outputs.version }}
@@ -199,13 +236,42 @@ jobs:
 
           $sums
           EOF
-          ls -l out
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-notes
+          path: notes.md
+          if-no-files-found: error
+
+  publish:
+    needs: [version, build, sign, notes]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: client-*
+          path: out
+          merge-multiple: true
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signatures
+          path: out
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-notes
+          path: .
+      # The write token, and nothing that compiles or was compiled here.
       - name: Publish
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
+          ls -l out
           # A version with a pre-release part (`0.1.0-beta.1`) is published as a
           # pre-release, so GitHub does not offer it as the latest stable build.
           pre=; case $VERSION in *-*) pre=--prerelease ;; esac
