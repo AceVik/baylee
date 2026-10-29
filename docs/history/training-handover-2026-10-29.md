@@ -203,7 +203,7 @@ remain unchanged. Full review is in the sibling operations root
 `perf-failure-review-01a18964-1a34-7002-befe-3e99dd49938d/operator-review.json`.
 The rejected variant's cold, instrumented timings are not a validated speedup.
 Keep chunk4 rejected and the original tolerances unchanged. A separate bounded
-source-only diagnostic now compares per-frame/chunked boards using common
+source-only diagnostic compared per-frame/chunked boards using common
 reference H versus independently evolving H and retains the first exact
 violation. Its root is
 `recurrent-chunk-diagnostic-01a18967-f3e9-7745-9b23-259cd24c198a/`, frozen
@@ -212,16 +212,32 @@ CPU tests pass. Its complete CPU preflight took 23.65 seconds and its exact
 CUDA prerequisite took 2.18 seconds; all prerequisite owners exited and
 groups were empty before launch. Root independently checked the seals and
 started it once. Controller `2356879`, start ticks `13833716`, boot
-`ebf55ae5-05a2-41fc-a994-e5da27268ced` was observed active in
-`source_chunk_diagnostic`, with service and watcher timer
-`baylee-recurrent-chunk-diagnostic-01a18967` active. Manifest SHA256:
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` completed; it and both guarded
+children exited with empty owned groups. Only watcher timer
+`baylee-recurrent-chunk-diagnostic-01a18967-watch.timer` was stopped.
+Manifest SHA256:
 `3315ec3e17ed485ba664e02f67509ab3c0f3dc0d65efeb3401525ad2ccde86e1`.
 Bounds are 300 seconds GPU stage / 330 pipeline / 360 service, 20-GiB host,
 11-GiB allocator, four threads. Every receipt keeps `diagnostic_only=true`,
-`parity_accepted=false` and zero updates/model writes. Inspect actual result
-and owned-process cleanup on completion; do not interpret successful diagnosis
-as numerical acceptance. Consult `active-performance-probe.json` for current
-ownership; training and gameplay comparison remain completed.
+`parity_accepted=false` and zero updates/model writes. Its first violating
+coordinate is game 2 / seat 1 / cursor 405 / original segment 52 / t21 /
+lane 1 / H[6,535], after a compared prefix of 1,622 frames and 384 choices.
+Identical incoming H still fails by 1.35505 times the allowed difference;
+contiguous board storage gives the same result. Independently carried H
+fails by 1.38913 times the allowance. Accumulation and storage stride alone
+therefore do not explain the problem. The exact encoder/kernel cause remains
+unisolated. All original recorded probabilities passed separately (8 histories,
+6,626 frames, 1,575 choices); source model state is unchanged.
+
+The diagnostic took 76.34 seconds and is `complete-reviewed`. All 284 input
+seals were rechecked; event `a038b872a495d0ec97fc1786` is deduplicated at
+`reviews/a038b872a495d0ec97fc1786/operator-review.json` under the parent ops
+root. See the [performance report](trained-ai-full-ppo-performance-2026-10-29.md)
+for exact tolerances, outputs and report hash. The next proposed probe uses
+CPU-computed C/P/recorded-K hints with unchanged per-frame board arithmetic;
+training defaults remain unchanged pending full source/candidate parity.
+Consult `active-performance-probe.json` for current ownership; training and
+gameplay comparison remain completed.
 
 Two earlier pre-model failures remain intact and reviewed. CUDA needed a
 private `/proc` mount to write its own thread name; then the allocator cap

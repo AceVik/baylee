@@ -275,14 +275,12 @@ Absolute maxima alone do not identify the violating coordinates because the
 gate also uses the reference magnitude. Another history had a larger absolute
 hidden difference and passed the relative tolerance.
 
-The report does not retain the first failing native frame or hidden coordinate.
+The report did not retain the first failing native frame or hidden coordinate.
 Static review found no evident lane/time reorder or hidden-state dependency in
-board encoding, but does not establish a numerical cause. Batch-dependent FP32
-rounding amplified by recurrence is a hypothesis. Keep the failed variant
-rejected and every tolerance unchanged. A separate source-only diagnostic is
-being prepared to compare per-frame and chunked boards at common reference H,
-independently evolving H, and a contiguous board view, retaining the first
-valid-frame violation. Diagnostic completion cannot grant parity acceptance.
+board encoding. The separate source-only diagnostic below compares per-frame
+and chunked boards at common reference H, independently evolving H, and a
+contiguous board view. Keep the failed variant rejected and every tolerance
+unchanged. Diagnostic completion cannot grant parity acceptance.
 
 The diagnostic Torch entry point is `tools/trainer/diagnose_recurrent_chunk4.py`,
 with implementation in `recurrent_ppo_chunk_diagnostic4/`. Its inner command
@@ -323,11 +321,55 @@ exact CUDA helper/cap/allocation/synchronization prerequisite passed in 2.18
 seconds, with zero allocated bytes after cleanup. Both prerequisite owners
 exited and their groups were empty. After an independent root seal/ownership
 check, controller `2356879` / start ticks `13833716` on boot
-`ebf55ae5-05a2-41fc-a994-e5da27268ced` was observed running
-`source_chunk_diagnostic`, with the owning-chat watcher active.
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` ran `source_chunk_diagnostic` once.
 Manifest SHA256 is
 `3315ec3e17ed485ba664e02f67509ab3c0f3dc0d65efeb3401525ad2ccde86e1`.
 The GPU stage is bounded at 300 seconds, pipeline at 330 and service at 360;
-host memory is limited to 20 GiB and Torch allocation to 11 GiB. This launch
-records no diagnosis result yet. Check the current operations pointer and
-retained report before acting, and never start a duplicate controller.
+host memory was limited to 20 GiB and Torch allocation to 11 GiB.
+
+## Diagnostic result: local difference before accumulated drift
+
+The diagnostic completed in 76.34 seconds (83.94 seconds for the pipeline).
+Original behavior replay passed for all eight histories, 6,626 frames and
+1,575 choices. The subsequent four-path comparison stopped after its first
+violating frame: game 2, seat 1, cursor 405, original segment 52, time 21,
+lane 1, hidden coordinate `[6,535]`. That compared prefix contains 1,622
+valid frames and 384 choices; it is not a full-collection parity result.
+
+At the failing coordinate the reference is `-0.07600271701812744`, allowing
+an absolute difference of `3.520054340362549e-5` under the unchanged gate.
+
+| Path | Absolute hidden difference | Difference / allowed difference |
+| --- | ---: | ---: |
+| Chunked board, identical incoming reference H | `4.769861698150635e-5` | 1.35505 |
+| Contiguous chunked board, identical incoming reference H | `4.769861698150635e-5` | 1.35505 |
+| Chunked board, independently carried H | `4.8898160457611084e-5` | 1.38913 |
+
+Thus accumulated recurrence is not necessary for the first failure: the
+local board-to-memory update already exceeds the gate with identical incoming
+H. Making the chunked board contiguous does not repair it. Masks match;
+this is a passive K0 observation, and all 384 compared action probabilities
+pass. Batch-dependent FP32 encoder rounding amplified by the recurrent update
+is consistent with the evidence; a specific encoder operation or CUDA kernel
+has not been isolated. Board-coordinate comparisons are descriptive and are
+not a substitute for the original hidden/value gate.
+
+Source model state remained unchanged; no optimizer, updates or model writes
+occurred. Peak CUDA allocated/reserved bytes were 437,361,152 / 499,122,176,
+with zero allocator retries. The native final review rehashed all 284 frozen
+input seals, verified controller and children exited with empty owned groups,
+and stopped only the diagnostic watcher timer. Event
+`a038b872a495d0ec97fc1786` is deduplicated. The operations pointer is
+`complete-reviewed`, with `diagnostic_only=true` and `parity_accepted=false`.
+Report SHA256:
+`dc10ad00eb1fb41d3a11e6d4905adb8e3cefd973861b2fbcb352a09632f19b2d`.
+The parent operations review is
+`reviews/a038b872a495d0ec97fc1786/operator-review.json`.
+
+The next proposed execution probe retains B4/U64 and per-frame board
+encoding. It derives candidate/pair extents and the exact recorded K on CPU
+before tensor transfer, using the model's existing execution-hint interface
+to avoid GPU-to-CPU synchronization. No policy heads are skipped and optimizer
+grouping is unchanged. This remains an opt-in fixed-weight probe until both
+source and candidate pass the original complete-history numerical checks;
+neither training defaults nor the rejected chunk4 variant are enabled by it.
