@@ -449,3 +449,119 @@ for these first tests. A better local consequence predictor could later support
 action comparison and search, but variable-depth BC alone does not implement
 the requested 15–45-second System-2 search. The review makes no promotion and
 does not alter the preregistered 8,443-update coverage pair.
+
+## Self-improvement, self-play and Terra: research follow-up
+
+The owner proposed self-play and games against Terra. Research checked on
+29 October 2026 supports a new learning loop around the existing network;
+there is no demonstrated need for another architecture revision merely to
+learn from game outcomes. Producing rollouts, updating weights and validating
+the candidate are separate operations. Ordinary inference does not perform
+the weight update, and copying all of a model's own actions is not an
+outcome-driven improvement objective.
+
+### Relevant evidence and its limits
+
+- [DeepSeek-R1](https://arxiv.org/abs/2501.12948) demonstrates reasoning
+  post-training with reinforcement learning and verifiable feedback. For Baylee,
+  the engine can establish terminal results; it cannot identify every optimal
+  move from one sampled game. A win is a learning signal, not a certificate
+  that every preceding action was good.
+- [SPIRAL, ICLR 2026](https://arxiv.org/abs/2506.24119) trains existing language
+  models through multi-turn, two-player zero-sum games. Its role-conditioned
+  advantage estimator and evolving opponents are relevant to our training
+  design. The experiments concern much smaller games, including Kuhn poker;
+  their results do not establish feasibility or strength at Magic's scale,
+  or convergence in multiplayer Commander.
+- [AlphaStar's league](https://deepmind.google/blog/alphastar-grandmaster-level-in-starcraft-ii-using-multi-agent-reinforcement-learning/)
+  combines imitation, diverse opponents, frozen historical policies and agents
+  exposing weaknesses. This motivates a small local opponent pool and retaining
+  supervised anchors; it does not require reproducing AlphaStar's compute scale.
+- [On-Policy Self-Training](https://arxiv.org/abs/2610.32770), submitted
+  23 October 2026, studies self-generated tasks and demonstrations for
+  self-distillation of pretrained foundation models. Baylee has neither their
+  language-task interface nor their broad pretrained knowledge. The useful
+  analogy is curriculum generation, with our engine checking restricted tasks.
+- Recent self-distillation studies report [loss of strategy diversity](https://arxiv.org/abs/2606.26091)
+  and [overconfidence from privileged teacher information in multi-turn tasks](https://arxiv.org/abs/2609.29051).
+  These are reasons to test external performance and keep teacher advice within
+  the student's authorized information. They do not prove the same failure has
+  occurred in Baylee.
+
+### Existing capability and specific implementation work
+
+V5 already provides a stochastic-policy-capable action interface, a recurrent
+state and a value head. An initial outcome-driven policy-gradient experiment
+does not require a language decoder, a world model, an extra independent rater,
+or a larger trunk. The value head estimates expected outcome as a baseline;
+the verified terminal result supplies the reward. These roles must stay distinct.
+
+The current continuous v5 job is BC plus value/auxiliary regression, not PPO.
+`train_rl4.py` explicitly instantiates `Config4`/`PlayerNet4` and rejects v5
+identity. The isolated action-head trainer shares a loader with value calibration
+which can load v5, but its publication payload omits the v5 architecture identity;
+this is not a supported v5 PPO round trip. Extend and test identity, loading,
+sampling/likelihood replay, update, export and rejection paths together.
+
+The head-only optimizer freezes representation, graph, thinking and memory
+parameters. It is a useful first test of rollout integrity and conservative
+policy updates, but cannot demonstrate that RL teaches the relational or thinking
+blocks. A later full-model recurrent update needs correct chronological memory,
+credit assignment, a small update budget and measured GPU memory consumption.
+Do not merely remove the freeze from a path that reuses cached behavior states
+and frozen spatial representations as if those assumptions still held.
+
+Terra integration needs another explicit distinction: `seat4/main.rs` currently
+sets temperature to zero. Those live neural actions have no PPO behavior
+probability. Existing live-BC conversion also intentionally gives neural seats
+zero policy imitation weight. Running more such games alone will not activate
+neural policy learning. A dedicated collection mode must retain the exact
+sampled learner action, temperature, K, model identity, conditional masks and
+behavior log-probability, then verify the executed engine action and replay.
+Do not retrofit invented probabilities onto archived games. Scalar or other
+unsupported sampling heads need an explicit eligibility boundary or a tested
+likelihood implementation.
+
+Terra's own probabilities are not required to update Baylee from Baylee's moves
+against it. Terra actions can separately supply supervised examples, under the
+existing teacher-data contract. Asking Terra for a correction requires a view
+of the learner's seat and its authorized history; an opponent's private view
+cannot be reused as that teacher context. Neither source belongs in the other's
+PPO denominator.
+
+### Proposed bounded learning loop
+
+1. Freeze one learner checkpoint for collection and mix opponents: the latest
+   frozen learner, older retained versions, house profiles and a smaller stream
+   of Terra games. Begin with 1v1 and balanced seats/deck pairings, then separately
+   validate teams and multiplayer objectives. Keep game-level memories separate
+   even when both seats share weights. Adapt matchmaking after measuring results;
+   avoid making a nearly unbeatable or trivially beaten opponent the whole pool.
+2. Retain full learner histories, including passive observations and losses.
+   Use genuine terminal outcome with a declared draw utility. Do not reward mana
+   tapping, raw life gain or apparent board size as substitutes for winning.
+   Model errors, crashes and caps remain technical/unresolved outcomes, never
+   invented victories; track exclusions to expose collection bias.
+3. Audit action probabilities before any PPO update. Make a small conservative
+   update with the existing KL rollback principle and a separate supervised
+   anchor against forgetting. Calibrate/check the value baseline by seat and
+   format. Estimate expected returns over varied games; one loss due to a bad
+   draw does not label each action as a mistake. GRPO is an optional later
+   comparison, not a required modernization: large groups of long game rollouts
+   can be expensive, and their rewards may mostly reflect draw/opponent variance.
+4. Evaluate against fixed opponents and fresh paired initial conditions, retaining
+   all caps and fallbacks and uncertainty at the table level. Latest-versus-latest
+   self-play win rate is not evidence of improvement. Only reviewed improvements
+   enter the deployed slot; retained checkpoints guard against cyclic forgetting.
+
+Self-play and house opponents should provide most local throughput; Terra can
+add different strategies, selected corrective examples and a challenging external
+opponent. This allocation is a proposal to measure, not a claim that Terra is
+optimal or that its past small pilot establishes comparative strength. Keep
+collection on CPU or batch inference according to measured throughput and the
+single-GPU budget; never start a competing GPU trainer beside the active job.
+
+First extend the supported v5 RL/data path, then run a small isolated pilot from
+an audited checkpoint. Keep K fixed in that pilot to avoid confusing PPO effects
+with depth training. No new collector, RL job or architecture change was started
+by this research, and the existing full-coverage experiment remains sealed.
