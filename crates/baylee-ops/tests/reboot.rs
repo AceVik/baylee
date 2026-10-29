@@ -7,20 +7,10 @@
 
 #![cfg(unix)]
 
-use std::os::unix::fs::PermissionsExt as _;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-/// A stand-in command that appends its name and arguments to `calls` and
-/// then runs `body`.
-fn stub(dir: &Path, name: &str, body: &str) {
-    let path = dir.join(name);
-    std::fs::write(
-        &path,
-        format!("#!/usr/bin/env bash\necho \"{name} $*\" >> \"$REBOOT_CALLS\"\n{body}\n"),
-    )
-    .unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-}
+#[path = "support/native_command.rs"]
+mod native_command;
 
 /// One server state the script is run against.
 #[derive(Clone, Copy, Debug)]
@@ -125,17 +115,19 @@ fn run(server: Server) -> Run {
     std::fs::write(&lock, "").unwrap();
     let calls: PathBuf = scratch.join("calls");
 
-    stub(
-        &stubs,
-        "date",
-        &format!(
-            r#"[ "$1" = +%H ] && printf '%02d\n' {}; exit 0"#,
-            server.hour
-        ),
-    );
-    stub(&stubs, "curl", &health_body(server));
-    stub(&stubs, "systemctl", "exit 0");
-    stub(&stubs, "logger", "exit 0");
+    native_command::install(&stubs, &["date", "curl", "systemctl", "logger"]);
+    let state = scratch.join("native-command-state.json");
+    std::fs::write(
+        &state,
+        serde_json::to_vec(&serde_json::json!({
+            "hour": server.hour,
+            "health": server.health,
+            "admission": server.admission,
+            "health_after_hold": server.health_after_hold,
+        }))
+        .unwrap(),
+    )
+    .unwrap();
     // A deploy holds its lock for its whole run: this test process holds it
     // while the reboot command looks.
     let held = std::fs::File::open(&lock).unwrap();
@@ -146,7 +138,9 @@ fn run(server: Server) -> Run {
     let path = format!("{}:{}", stubs.display(), std::env::var("PATH").unwrap());
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-reboot"))
         .env("PATH", path)
-        .env("REBOOT_CALLS", &calls)
+        .env("OPS_FAKE_CALLS", &calls)
+        .env("OPS_FAKE_STATE", &state)
+        .env_remove("OPS_FAKE_HEALTH")
         .env("BAYLEE_REBOOT_RUN", &runtime)
         .env("BAYLEE_REBOOT_ETC", &etc)
         .env("BAYLEE_REBOOT_DEPLOY_LOCK", &lock)
@@ -164,23 +158,6 @@ fn run(server: Server) -> Run {
     };
     let _ = std::fs::remove_dir_all(&scratch);
     run
-}
-
-fn health_body(server: Server) -> String {
-    match server.health {
-        Some((running, waiting)) => format!(
-            r#"running={running}; waiting={waiting}; admission=open
-if [ -e "$BAYLEE_REBOOT_RUN/admission-hold" ]; then
-    admission={}; running={}; waiting={}
-    [ "$admission" = down ] && exit 7
-fi
-echo "{{\"admission\":\"$admission\",\"games\":{{\"running\":$((running+5)),\"local_running\":$running,\"waiting\":$waiting}}}}""#,
-            server.admission,
-            server.health_after_hold.unwrap_or((running, waiting)).0,
-            server.health_after_hold.unwrap_or((running, waiting)).1,
-        ),
-        None => "exit 7".to_owned(),
-    }
 }
 
 #[test]

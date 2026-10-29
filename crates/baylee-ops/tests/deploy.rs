@@ -10,6 +10,9 @@
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 
+#[path = "support/native_command.rs"]
+mod native_command;
+
 /// A stand-in command that appends its name and arguments to `calls` and
 /// then runs `body`.
 fn stub(dir: &Path, name: &str, body: &str) {
@@ -99,7 +102,7 @@ fn stage(feedback_installed: bool, npm: Npm) -> (PathBuf, String) {
 /// The stand-ins that say what the machine is: whether the feedback unit is
 /// installed (asked with `systemctl cat`) and whether a game runs (with one
 /// running `finish` waits and the gateway is left alone).
-fn machine_stubs(stubs: &Path, feedback_installed: bool, game_running: bool) {
+fn machine_stubs(stubs: &Path, feedback_installed: bool) {
     stub(
         stubs,
         "systemctl",
@@ -108,14 +111,7 @@ fn machine_stubs(stubs: &Path, feedback_installed: bool, game_running: bool) {
             u8::from(!feedback_installed)
         ),
     );
-    stub(
-        stubs,
-        "curl",
-        &format!(
-            r#"echo '{{"admission":"held","games":{{"running":{0},"local_running":{0},"waiting":0}}}}'"#,
-            u8::from(game_running)
-        ),
-    );
+    native_command::install(stubs, &["curl"]);
 }
 
 /// The stand-ins for the browser client's toolchain (#327): trunk writes the
@@ -248,7 +244,7 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
     sudo_stub(&stubs, true);
     stub(&stubs, "logger", "exit 0");
     stub(&stubs, "flock", "exit 0");
-    machine_stubs(&stubs, feedback_installed, game_running);
+    machine_stubs(&stubs, feedback_installed);
     browser_stubs(&stubs, trunk, wasm_target);
 
     let npm_path = if npm == Npm::Absent {
@@ -280,6 +276,12 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
         .env("TRUNK", &trunk_path)
         .env("RUSTUP", stubs.join("rustup"))
         .env("DEPLOY_CALLS", &calls)
+        .env("OPS_FAKE_CALLS", &calls)
+        .env("OPS_FAKE_HEALTH", serde_json::json!({
+            "admission": "held", "games": {
+                "running": u8::from(game_running), "local_running": u8::from(game_running), "waiting": 0,
+            }
+        }).to_string())
         .env(
             "PATH",
             format!(
