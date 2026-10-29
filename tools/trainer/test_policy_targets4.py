@@ -38,7 +38,7 @@ class Frozen(nn.Module):
         super().__init__();self.weight=nn.Parameter(torch.ones(1),requires_grad=False)
         self.cfg=SimpleNamespace(d_model=16);self.calls=[]
     def clear_structure(self):pass
-    def prepare_structure(self):pass
+    def prepare_structure(self, active_refs=None):pass
     def forward(self,*args,**kwargs):
         h,k=args[-2:];self.calls.append((h[:,0,0].tolist(),k.tolist()))
         hn=torch.where((k==0)[:,None,None],h+1,h)
