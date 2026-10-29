@@ -24,11 +24,20 @@ pub fn read_json(path: &Path) -> Result<Value> {
         .with_context(|| format!("read {}", path.display()))
 }
 
+fn output_parent(path: &Path) -> Result<&Path> {
+    let parent = path.parent().context("output needs a parent")?;
+    Ok(if parent.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        parent
+    })
+}
+
 /// Publish a flushed JSON file by atomic rename, then sync its parent directory.
 /// # Errors
 /// Returns serialization or filesystem errors, removing the temporary on failure.
 pub fn atomic_json(path: &Path, value: &impl Serialize) -> Result<()> {
-    let parent = path.parent().context("output needs a parent")?;
+    let parent = output_parent(path)?;
     fs::create_dir_all(parent)?;
     let tmp = parent.join(format!(
         ".{}.{}.partial",
@@ -60,7 +69,7 @@ pub fn atomic_json(path: &Path, value: &impl Serialize) -> Result<()> {
 pub fn append_json(path: &Path, value: &impl Serialize) -> Result<()> {
     let mut line = serde_json::to_vec(value)?;
     line.push(b'\n');
-    let parent = path.parent().context("output needs a parent")?;
+    let parent = output_parent(path)?;
     fs::create_dir_all(parent)?;
     let mut file = OpenOptions::new()
         .create(true)
@@ -98,7 +107,7 @@ pub fn sha256(path: &Path) -> Result<String> {
 /// Rejects unreadable or changing sources and preserves the old destination on failure.
 pub fn atomic_copy(source: &Path, destination: &Path) -> Result<String> {
     let digest = sha256(source)?;
-    let parent = destination.parent().context("output needs a parent")?;
+    let parent = output_parent(destination)?;
     fs::create_dir_all(parent)?;
     let temporary = parent.join(format!(".{}.partial", uuid::Uuid::now_v7()));
     let result = (|| -> Result<String> {
