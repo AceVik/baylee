@@ -201,3 +201,103 @@ expensive full-game parity suite or release build was repeated for this adapter.
 This completes only the finalized-ledger input adapter. Cache/tensor, PyTorch,
 numerical likelihood/catalog audits and research admission remain outstanding;
 no collection, GPU workload, training or live-game change was launched.
+
+## Native research-frame storage addendum
+
+The shared target descriptor, return metadata type and frame-contract string
+were extracted without changing behavior in `91b6d92f3`. Engine predicates and
+canonical replay remain in `baylee-train`. A separate native library,
+`baylee_train_ops::research_cache`, now validates finalized-ledger conversion
+output and stores lossless random-access research frames. This is **storage
+only**, not a tensor cache, numerical policy audit or PPO admission.
+
+Explicit native commands are:
+
+```text
+trajectory_cache4 research-build --data-dir CONVERTED --out NEW_CACHE --expected-manifest-sha256 FROZEN_SHA256
+trajectory_cache4 research-verify --cache-dir CACHE --expected-manifest-sha256 FROZEN_SHA256
+trajectory_cache4 research-read --cache-dir CACHE --expected-manifest-sha256 FROZEN_SHA256 --row 0
+```
+
+The expected conversion-manifest SHA must come from the caller's externally
+frozen inputs. No command silently reads its expected value from the dataset.
+The first adapter supports conversion manifest v2 with finalized operational
+accounting on Linux. It revalidates the original plan/run/index/shard/claim/game/
+abort/guard evidence using `verify_finalized`, matches converted receipts and
+roles to those original sources, and reconciles every planned attempt. All
+catalog/episode/output seals and the conversion completion/fingerprint are
+checked. It does not certify a producer executable from revision/dirty fields;
+`producer_binary_certified=false` remains explicit.
+
+Output is `research-cache.manifest.json`, `research-cache.complete.json`, an
+exact copy of `attempts.jsonl`, `histories.jsonl`, the sealed public catalog,
+`frames.brc1` and `frames.bri1`. The cache schema is
+`failure_terminal_research_cache_v1`. It declares `admitted=false`,
+`ppo_eligible=false`, `tensor_cache=false`, ordinary-cache incompatibility and
+required numerical probability replay. Planned/assigned/recorded/unknown/
+not-started counts and all source dispositions remain visible; only recorded
+known-return learner histories have frame ranges. An entirely unknown/unstarted
+collection can produce a valid zero-frame storage artifact without becoming
+training-ready.
+
+Both files have distinct eight-byte magic/version headers (`BRC1` / `BRI1`,
+little-endian version 1). Index entries are 48 bytes: attempt ID `u64`, episode
+ID `u32`, seat `u32`, cursor `u64`, absolute compressed offset `u64`, compressed
+length `u32`, raw length `u32`, flags `u32`, reserved zero `u32`. Flag bits are
+decision, research-training-terminal and original actor candidate. They never
+claim an engine terminal. Index layout and headers differ from the ordinary
+flat 32-byte/BST4 ABI.
+
+Each zlib payload retains the **original UTF-8 JSON line bytes**, excluding its
+newline, including whitespace, pick sequences, passive frames, original masks
+and absent scalar actor LPs. The cache never invokes the ordinary packer or
+fills outcome/auxiliary/MTG-terminal fields. Candidate actor flags/counts are
+preserved; genuine stochastic-choice counts are derived separately from actual
+menu/free-mask support. Original frame order, contiguous cursors, unique final
+research terminal, fixed declared return, encoder dimensions and public rule
+references are checked. Raw frames are capped at 64 MiB; decompressed input per
+episode is capped at 2 GiB. Payload decoding checks lengths, bounds, reserved
+bits, trailing compressed bytes and identity/flag agreement.
+
+`Reader::open` performs complete source/cache verification and compares cached
+payloads against the original episode bytes. Reuse this reader for bulk reads;
+`research-read` is a diagnostic single-row command, not a per-row Torch loader.
+Subsequent random reads verify the captured row digest. Cache creation refuses
+an existing output and verification never repairs or rebuilds evidence. Failed
+artifacts are preserved. A failure in the final post-publication check can leave
+a completion receipt, so the receipt alone never replaces mandatory verification.
+
+Focused verification passed:
+
+```text
+cargo test -p baylee-train-ops --lib research_cache -j 2 -- --test-threads=1
+cargo test -p baylee-train-ops --test research_cache_cli -j 2 -- --test-threads=1
+cargo test -p baylee-train-ops --lib trajectory:: -j 2 -- --test-threads=1
+cargo test -p baylee-train --bin convert4 failed_worker_partial_index_and_not_started -j 2 -- --test-threads=1
+cargo clippy -p baylee-train-ops --lib --bin trajectory_cache4 --tests -j 2 -- -D warnings
+cargo clippy -p baylee-train --bin convert4 --tests -j 2 -- -D warnings
+git diff --check
+```
+
+Six storage tests passed (8.86 seconds), covering byte-exact random access,
+candidate-vs-genuine choice counts, zero target histories, unknown accounting,
+malformed labels/returns/cursors/masks/scalar LPs, changed external evidence,
+resealed index/valid-payload LP tampering and post-open mutation. The actual CLI
+integration passed (1.31 seconds), and all six ordinary trajectory tests passed
+(0.02 seconds). The earlier combined research suite also passed all eleven
+operational-ledger tests. Both final Clippy commands passed with warnings denied.
+
+The bounded actual producer/converter/cache integration passed (109.46 seconds):
+its real Rust child exited with code 17 under the guard, native engine fixtures
+were converted, every cached frame was compared with its original episode line,
+and counts 5 planned / 4 assigned / 3 recorded / 1 operational unknown / 1 not
+started remained intact. Unknowns retained null utility and no frame ranges.
+Its probabilities are synthetic fixture values, not numerically admitted policy
+samples. No expensive complete-game parity suite, release build, production
+collection, GPU workload, training or live game was launched for this slice.
+
+Still missing before learning: a separate strict Rust tensor boundary and thin
+PyTorch adapter, research return/loss/checkpoint/resume contracts, actual frozen
+producer/model/catalog proof, whole-history numerical LP replay, dedicated
+research admission and a bounded end-to-end trial. Ordinary admission remains
+unchanged and rejects these artifacts.

@@ -156,6 +156,31 @@ fn failed_worker_partial_index_and_not_started_preserve_every_denominator_withou
     }
     assert_eq!(fs::read_dir(out.join("episodes")).unwrap().count(), 2);
     assert!(baylee_train_ops::trajectory::cache::build(&out, "train", &[]).is_err());
+    verify_native_research_cache(&fixture, &out, &manifest);
+}
+
+fn verify_native_research_cache(fixture: &Fixture, out: &std::path::Path, manifest: &Value) {
+    let expected = files::sha256(&out.join("research.manifest.json")).unwrap();
+    let cache = fixture.root.join("research-cache");
+    baylee_train_ops::research_cache::build(out, &cache, &expected).unwrap();
+    let mut reader = baylee_train_ops::research_cache::Reader::open(&cache, &expected).unwrap();
+    assert_eq!(
+        reader.metadata()["attempt_counts"],
+        manifest["attempt_counts"]
+    );
+    let mut row = 0;
+    for episode in manifest["target_episodes"].as_array().unwrap() {
+        let mut raw = String::new();
+        GzDecoder::new(File::open(out.join(episode["episode_file"].as_str().unwrap())).unwrap())
+            .read_to_string(&mut raw)
+            .unwrap();
+        for original in raw.lines() {
+            assert_eq!(reader.read_raw(row).unwrap(), original.as_bytes());
+            row += 1;
+        }
+    }
+    assert_eq!(reader.len(), row);
+    assert_eq!(reader.metadata()["tensor_cache"], false);
 }
 
 #[test]

@@ -20,6 +20,31 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Task {
+    /// Build separate lossless research-frame storage; never tensor/PPO data.
+    ResearchBuild {
+        #[arg(long)]
+        data_dir: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long)]
+        expected_manifest_sha256: String,
+    },
+    /// Revalidate immutable research storage and its externally sealed sources.
+    ResearchVerify {
+        #[arg(long)]
+        cache_dir: PathBuf,
+        #[arg(long)]
+        expected_manifest_sha256: String,
+    },
+    /// Diagnostic single-frame read after full verification; use Reader sessions for bulk I/O.
+    ResearchRead {
+        #[arg(long)]
+        cache_dir: PathBuf,
+        #[arg(long)]
+        expected_manifest_sha256: String,
+        #[arg(long)]
+        row: usize,
+    },
     /// Merge and seal archived v3 tensor columns without changing old caches.
     Merge3 {
         #[arg(long)]
@@ -85,6 +110,9 @@ enum Task {
 }
 fn main() -> Result<()> {
     match Args::parse().command {
+        task @ (Task::ResearchBuild { .. }
+        | Task::ResearchVerify { .. }
+        | Task::ResearchRead { .. }) => research_command(task)?,
         Task::Merge3 { data_dir } => {
             println!("{}", baylee_train_ops::legacy_columns::merge3(&data_dir)?);
         }
@@ -175,6 +203,39 @@ fn main() -> Result<()> {
             "{}",
             json!({"records":cache::build_part(&shard,&data,&index)?})
         ),
+    }
+    Ok(())
+}
+fn research_command(task: Task) -> Result<()> {
+    match task {
+        Task::ResearchBuild {
+            data_dir,
+            out,
+            expected_manifest_sha256,
+        } => println!(
+            "{}",
+            baylee_train_ops::research_cache::build(&data_dir, &out, &expected_manifest_sha256)?
+        ),
+        Task::ResearchVerify {
+            cache_dir,
+            expected_manifest_sha256,
+        } => println!(
+            "{}",
+            baylee_train_ops::research_cache::verify(&cache_dir, &expected_manifest_sha256)?
+        ),
+        Task::ResearchRead {
+            cache_dir,
+            expected_manifest_sha256,
+            row,
+        } => {
+            let mut reader = baylee_train_ops::research_cache::Reader::open(
+                &cache_dir,
+                &expected_manifest_sha256,
+            )?;
+            std::io::stdout().write_all(&reader.read_raw(row)?)?;
+            std::io::stdout().write_all(b"\n")?;
+        }
+        _ => unreachable!("research dispatch accepts only explicit research commands"),
     }
     Ok(())
 }
