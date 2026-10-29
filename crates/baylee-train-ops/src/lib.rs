@@ -1,5 +1,6 @@
 //! Native training administration. Rules and neural tensor math live elsewhere.
 pub mod admission;
+pub mod batch_audit;
 #[cfg(target_os = "linux")]
 pub mod collector;
 pub mod corpus;
@@ -9,6 +10,8 @@ pub mod files;
 #[cfg(target_os = "linux")]
 pub mod guard;
 pub mod legacy;
+pub mod legacy_columns;
+pub mod legacy_metrics;
 #[cfg(target_os = "linux")]
 pub mod monitor;
 #[cfg(target_os = "linux")]
