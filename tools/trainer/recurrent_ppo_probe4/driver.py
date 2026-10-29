@@ -89,9 +89,6 @@ def main(argv=None):
     torch.set_num_threads(4)
     torch.set_num_interop_threads(1)
     device = torch.device(args.device)
-    if device.type == 'cuda':
-        total_memory = torch.cuda.get_device_properties(device).total_memory
-        torch.cuda.set_per_process_memory_fraction(min(1., 11 * 2**30 / total_memory), device)
     report = dict(version=1, status='running', optimizer_constructed=False,
                   optimizer_steps=0, parameter_updates=0, promoted=False,
                   optimizer_group_contract=dict(batch_size=4, unroll=64, changed=False),
@@ -113,6 +110,9 @@ def main(argv=None):
     atomic_json(args.out, report)
     started = time.perf_counter()
     try:
+        if device.type == 'cuda':
+            total_memory = torch.cuda.get_device_properties(device).total_memory
+            torch.cuda.set_per_process_memory_fraction(min(1., 11 * 2**30 / total_memory), device)
         with ExitStack() as resources:
             timer = PhaseTimer(device)
             with timer.scope('source_load'):

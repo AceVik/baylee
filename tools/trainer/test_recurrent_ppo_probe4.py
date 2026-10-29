@@ -116,6 +116,40 @@ class FixedWeightProbe(unittest.TestCase):
 
 
 class ProbeContracts(unittest.TestCase):
+    def test_cuda_initialization_failure_keeps_failed_receipt_without_model_or_data_execution(self):
+        for failing_operation in ('get_device_properties', 'set_per_process_memory_fraction'):
+            writes = []
+            with self.subTest(operation=failing_operation), tempfile.TemporaryDirectory() as temporary, ExitStack() as stack:
+                prefix = 'recurrent_ppo_probe4.driver.'
+                stack.enter_context(patch(prefix+'torch.set_num_interop_threads'))
+                properties = stack.enter_context(patch(prefix+'torch.cuda.get_device_properties',
+                    return_value=SimpleNamespace(total_memory=12*2**30)))
+                fraction = stack.enter_context(patch(prefix+'torch.cuda.set_per_process_memory_fraction'))
+                failed = properties if failing_operation == 'get_device_properties' else fraction
+                failed.side_effect = RuntimeError('CUDA initialization failed: OS304')
+                source_digest = stack.enter_context(patch(prefix+'native_source_digest'))
+                checkpoint_load = stack.enter_context(patch(prefix+'torch.load'))
+                policy_load = stack.enter_context(patch(prefix+'load_policy'))
+                dataset_load = stack.enter_context(patch(prefix+'D.TrajectoryDataset4'))
+                measure = stack.enter_context(patch(prefix+'measure_pass'))
+                stack.enter_context(patch(prefix+'atomic_json',
+                    side_effect=lambda _path, report: writes.append(copy.deepcopy(report))))
+                argv = ['--source', 'source.pt', '--candidate', 'candidate.pt', '--rollout-data', 'data',
+                        '--admission', 'admission.json', '--out', str(Path(temporary)/'report.json'),
+                        '--device', 'cuda', '--expected-histories', '8',
+                        '--expected-frames', '6626', '--expected-choices', '1575']
+                with self.assertRaisesRegex(RuntimeError, 'OS304'):
+                    main(argv)
+                self.assertEqual([row['status'] for row in writes], ['running', 'failed'])
+                self.assertIn('OS304', writes[-1]['error'])
+                self.assertEqual(writes[-1]['passes'], [])
+                self.assertEqual(writes[-1]['completed_configurations'], 0)
+                self.assertEqual(writes[-1]['optimizer_steps'], 0)
+                self.assertEqual(writes[-1]['parameter_updates'], 0)
+                self.assertFalse(writes[-1]['optimizer_constructed'])
+                for operation in (source_digest, checkpoint_load, policy_load, dataset_load, measure):
+                    operation.assert_not_called()
+
     def test_atomic_progress_survives_later_failure_and_completion_requires_all_configs(self):
         source = dict(encoder_version=7, config={'d_model': 32}, structure_sha256='catalog')
         candidate = dict(source, state_dict={'weight': torch.ones(1)},
