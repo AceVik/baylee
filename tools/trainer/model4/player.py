@@ -24,7 +24,7 @@ class PlayerNet4(nn.Module):
 
         # 1. Token Encoders
         self.global_proj = nn.Sequential(
-            nn.Linear(GLOBAL_FEAT_WIDTH, d),
+            nn.Linear(cfg.global_feat_width, d),
             nn.LayerNorm(d),
             nn.GELU(),
             nn.Linear(d, d),

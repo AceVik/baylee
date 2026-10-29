@@ -26,6 +26,9 @@ class Config5(V4.Config4):
     relational_width: int = 160
 
     def __post_init__(self):
+        super().__post_init__()
+        if self.global_feat_width == 82 and self.relational_revision != 2:
+            raise ValueError('Encoder9 width82 requires relational revision2')
         if type(self.candidate_context_revision) is not int or self.candidate_context_revision not in (1, 2):
             raise ValueError("Unsupported candidate context revision")
         if self.candidate_context_revision == 2 and self.relational_revision != 2:
@@ -99,3 +102,31 @@ def warmstart_candidate_context(state_dict, net):
         if value.shape != expected[key].shape or value.dtype != expected[key].dtype:
             raise ValueError(f"Candidate warmstart tensor differs: {key}")
     return {**state_dict, **{key: torch.zeros_like(expected[key]) for key in new_keys}}
+
+
+def warmstart_encoder9(state_dict, net):
+    """Fresh E7/E8 transfer; new X inputs require trunk learning, not frozen head PPO.
+
+    Zero columns preserve the old tensor function on the same first80 inputs.
+    This does not promise E7-to-E9 behavioral equality: E8 context semantics differ.
+    Caller must discard optimizer/scheduler/sampler/H state.
+    """
+    if net.cfg.global_feat_width != 82 or net.cfg.relational_revision != 2:
+        raise ValueError('Encoder9 transfer requires width82 relational2')
+    expected = net.state_dict()
+    if set(state_dict) != set(expected):
+        raise ValueError('Encoder9 transfer parameter keys differ')
+    transferred = {}
+    for key, target in expected.items():
+        source = state_dict[key]
+        if key == 'global_proj.0.weight':
+            if source.shape != (target.shape[0], 80) or source.dtype != target.dtype:
+                raise ValueError('Encoder9 transfer requires width80 source global projection')
+            value = torch.zeros_like(target)
+            value[:, :80] = source
+            transferred[key] = value
+        else:
+            if source.shape != target.shape or source.dtype != target.dtype:
+                raise ValueError(f'Encoder9 transfer tensor differs: {key}')
+            transferred[key] = source
+    return transferred

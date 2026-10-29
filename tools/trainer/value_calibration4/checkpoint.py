@@ -30,7 +30,9 @@ def load_source(model):
     net = source_model(saved)
     from encoder_contract import validate_encoder
     validate_encoder(saved.get('encoder_version'), model_version=saved.get('model_version', 4),
-                     relational_revision=getattr(net.cfg, 'relational_revision', 1))
+                     relational_revision=getattr(net.cfg, 'relational_revision', 1),
+                     candidate_context_revision=getattr(net.cfg, 'candidate_context_revision', 1),
+                     global_feat_width=net.cfg.global_feat_width)
     net.attach_structure(saved["structure"])
     if saved.get("structure_sha256", net.rules.digest) != net.rules.digest:
         raise ValueError("Source declared rule catalog digest differs")

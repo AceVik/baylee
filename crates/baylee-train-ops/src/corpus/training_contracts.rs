@@ -8,18 +8,39 @@ use serde_json::{Value, json};
 fn encoder(value: &Value) -> Result<Value> {
     let version = value["version"].as_u64();
     ensure!(
-        matches!(version, Some(7 | 8)),
+        matches!(version, Some(7..=9)),
         "Unsupported encoder version"
     );
     ensure!(
-        version != Some(8) || (value["model_version"] == 5 && value["relational_revision"] == 2),
-        "Encoder8 requires model5 relational revision2"
+        !matches!(version, Some(8 | 9))
+            || (value["model_version"] == 5 && value["relational_revision"] == 2),
+        "Encoder8/9 requires model5 relational revision2"
+    );
+    let width = value.get("global_feat_width").unwrap_or(&Value::Null);
+    ensure!(
+        if version == Some(9) {
+            width == 82 && matches!(value["candidate_context_revision"].as_u64(), Some(1 | 2))
+        } else {
+            width.is_null() || width == 80
+        },
+        "Encoder/global feature width mismatch"
     );
     Ok(value["version"].clone())
 }
 fn initial(value: &Value) -> Result<Value> {
     let source = &value["source"];
     let target = &value["target"];
+    if value["explicit_to9"] == true {
+        ensure!(
+            matches!(source.as_u64(), Some(7 | 8))
+                && target == 9
+                && value["explicit_from7"] != true,
+            "Encoder9 warmstart requires explicit 7/8-to-9 weights-only transition"
+        );
+        return Ok(
+            json!({"source_encoder_version":source,"target_encoder_version":9,"kind":"new_experiment_weights_only","new_global_columns":"zero_initialized_trainable","behavior_equivalence_claimed":false}),
+        );
+    }
     if value["explicit_from7"] == true {
         ensure!(
             source == 7 && target == 8,
@@ -153,6 +174,30 @@ fn loss(contract: &Value) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn encoder9_requires_explicit_width_architecture_and_transfer() -> Result<()> {
+        let good = json!({"kind":"encoder","version":9,"model_version":5,"relational_revision":2,"candidate_context_revision":2,"global_feat_width":82});
+        assert_eq!(validate(&good)?, 9);
+        for (key, value) in [
+            ("global_feat_width", json!(80)),
+            ("global_feat_width", Value::Null),
+            ("model_version", json!(3)),
+            ("relational_revision", json!(1)),
+            ("candidate_context_revision", json!(3)),
+        ] {
+            let mut bad = good.clone();
+            bad[key] = value;
+            assert!(validate(&bad).is_err());
+        }
+        for source in [7, 8] {
+            assert!(initial(&json!({"source":source,"target":9})).is_err());
+            assert_eq!(
+                initial(&json!({"source":source,"target":9,"explicit_to9":true}))?["target_encoder_version"],
+                9
+            );
+        }
+        Ok(())
+    }
     #[test]
     fn schedule_resume_and_loss_ablation_guards_are_native() -> Result<()> {
         let schedule = json!({"version":1,"mode":"fixed","positive_k":[2],"phase_rule":"optimizer_step_plus_frame_mod_period","selection_k":2,"report_k":[1,2,4,8],"validation_history":"complete_independent_reset_per_k","deterministic_algorithms":true});

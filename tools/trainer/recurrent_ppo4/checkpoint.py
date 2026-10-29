@@ -23,7 +23,9 @@ def load_policy(saved, device):
         raise ValueError('Incompatible recurrent policy trajectory/sampler contract')
     net = source_model(saved)
     validate_encoder(saved.get('encoder_version'),model_version=saved.get('model_version'),
-                     relational_revision=getattr(net.cfg,'relational_revision',None))
+                     relational_revision=getattr(net.cfg,'relational_revision',None),
+                     candidate_context_revision=getattr(net.cfg,'candidate_context_revision',1),
+                     global_feat_width=net.cfg.global_feat_width)
     net.attach_structure(saved['structure'])
     if saved.get('structure_sha256',net.rules.digest) != net.rules.digest:
         raise ValueError('Source rule catalog digest differs')
@@ -49,6 +51,14 @@ def training_payload(net, optimizer, source, contract, progress):
 def restore_training(saved, net, optimizer, contract, device):
     # Check the entire sealed experiment before touching parameters or optimizer.
     validate_resume_probability(saved)
+    if saved.get('encoder_version') == 9 or net.cfg.global_feat_width == 82:
+        values = saved.get('config', {})
+        validate_encoder(saved.get('encoder_version'),model_version=saved.get('model_version'),
+                         relational_revision=values.get('relational_revision',1),
+                         candidate_context_revision=values.get('candidate_context_revision',1),
+                         global_feat_width=values.get('global_feat_width',80))
+        if saved.get('encoder_version') != 9 or net.cfg.global_feat_width != 82:
+            raise ValueError('Encoder9 resume input contract differs')
     if saved.get('full_ppo_contract') != contract:
         raise ValueError('Full PPO resume experiment contract differs')
     if saved.get('memory_reconstruction') != 'current_policy_complete_episode_prefix_detached_at_unroll_boundary':

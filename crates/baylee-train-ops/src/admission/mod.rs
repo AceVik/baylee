@@ -249,7 +249,7 @@ pub fn admit(root: &Path, checkpoint: &Path, collection_path: &Path) -> Result<V
         meta["trajectory_version"] == 2
             && meta["sampling_version"] == 2
             && meta["policy_provenance_version"] == 2
-            && matches!(meta["encoder_version"].as_u64(), Some(7 | 8)),
+            && matches!(meta["encoder_version"].as_u64(), Some(7..=9)),
         "dataset trajectory/encoder/provenance contract mismatch"
     );
     ensure!(
@@ -266,6 +266,7 @@ pub fn admit(root: &Path, checkpoint: &Path, collection_path: &Path) -> Result<V
         "on-policy admission requires an unsplit collection"
     );
     let inputs = seal_dataset_files(root, &meta)?;
+    crate::trajectory::contracts::validate_encoder_rows(root, &meta)?;
     ensure!(
         inputs == collection.dataset_files,
         "collection dataset seals do not match actual inputs"

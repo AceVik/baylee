@@ -61,6 +61,7 @@ OUTPUT_NAMES = (
 
 @dataclass
 class Config4:
+    global_feat_width: int = GLOBAL_FEAT_WIDTH
     structure_width: int = 128
     d_model: int = 512
     n_layers: int = 8
@@ -70,6 +71,10 @@ class Config4:
     activation_checkpointing: bool = False
     default_thinking_steps: int = 2
     max_thinking_steps: int = 8
+
+    def __post_init__(self):
+        if type(self.global_feat_width) is not int or self.global_feat_width not in (80, 82):
+            raise ValueError('Unsupported global feature width')
 
     def to_dict(self) -> dict:
         return asdict(self)

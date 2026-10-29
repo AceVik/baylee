@@ -16,7 +16,7 @@ def load_package_state(path, net, optimizer, device):
                           ("trajectory_version", M.TRAJECTORY_VERSION), ("sampling_version", M.SAMPLING_VERSION)):
         if saved.get(key) != expected:
             raise ValueError(f"Package checkpoint has incompatible {key}")
-    if saved["config"] != net.cfg.to_dict() or structure_digest(saved["structure"]) != net.rules.digest:
+    if M.Config4(**saved["config"]).to_dict() != net.cfg.to_dict() or structure_digest(saved["structure"]) != net.rules.digest:
         raise ValueError("Package checkpoint architecture/rule catalog differs")
     options = [{k: group[k] for k in ("lr", "weight_decay", "fused")} for group in optimizer.param_groups]
     net.load_state_dict(saved["state_dict"], strict=True)

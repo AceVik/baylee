@@ -27,7 +27,12 @@ pub fn read_shard(path: &Path, mut observe: impl FnMut(Value) -> Result<()>) -> 
             if line.trim().is_empty() {
                 continue;
             }
-            observe(serde_json::from_str(&line)?)?;
+            let value: Value = serde_json::from_str(&line)?;
+            ensure!(
+                value.get("global_feat_width").is_none(),
+                "JSON frame cannot supply packed dimension metadata"
+            );
+            observe(value)?;
             count += 1;
         }
         return Ok(count);
@@ -52,7 +57,12 @@ pub fn read_shard(path: &Path, mut observe: impl FnMut(Value) -> Result<()>) -> 
         let value = if raw.starts_with(b"BST4") {
             packing::metadata(&raw)?
         } else {
-            serde_json::from_slice(&raw)?
+            let value: Value = serde_json::from_slice(&raw)?;
+            ensure!(
+                value.get("global_feat_width").is_none(),
+                "JSON frame cannot supply packed dimension metadata"
+            );
+            value
         };
         ensure!(
             value["game_id"].as_u64()

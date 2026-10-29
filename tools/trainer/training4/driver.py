@@ -122,6 +122,10 @@ def main(default_architecture="v4") -> None:
 
     config_class = M.Config5 if args.architecture == "v5" else M.Config4
     cfg = config_class(
+        global_feat_width=82 if args.encoder_version == 9 else 80,
+        **(dict(relational_revision=args.relational_revision,
+                 candidate_context_revision=args.candidate_context_revision,
+                 relational_steps=args.relational_steps) if args.architecture == 'v5' else {}),
         d_model=args.d_model,
         n_layers=args.layers,
         n_heads=args.heads,
@@ -155,7 +159,7 @@ def main(default_architecture="v4") -> None:
             raise ValueError("Initial checkpoint uses an incompatible memory contract")
         from encoder_contract import check_initial_encoder
         provenance = check_initial_encoder(ckpt_init.get("encoder_version"), args.encoder_version,
-                                           args.encoder_warmstart_from7)
+                                           args.encoder_warmstart_from7, args.encoder_warmstart_to9)
         if provenance:
             provenance["source_checkpoint"] = str(init_pt.resolve())
             from torch_io4 import file_digest
@@ -164,7 +168,15 @@ def main(default_architecture="v4") -> None:
         from model4.structure import structure_digest
         if structure_digest(ckpt_init["structure"]) != train_ds.structure.digest:
             raise ValueError("Initial checkpoint uses a different public rules catalog")
-        if args.candidate_context_warmstart:
+        if args.encoder_warmstart_to9:
+            from value_calibration4.model_identity import source_model
+            source_net = source_model(ckpt_init)
+            source_config = source_net.cfg.to_dict()
+            source_config['global_feat_width'] = 82
+            if source_config != cfg.to_dict():
+                raise ValueError('Encoder9 transfer must preserve all other model configuration')
+            upgraded = M.warmstart_encoder9(ckpt_init['state_dict'], net)
+        elif args.candidate_context_warmstart:
             source_cfg = M.Config5(**ckpt_init["config"])
             expected = cfg.to_dict()
             expected["candidate_context_revision"] = 1
@@ -255,7 +267,7 @@ def main(default_architecture="v4") -> None:
             raise ValueError("Resume dataset differs from the checkpoint")
         if saved.get("validation_fingerprint", val_ds.fingerprint) != val_ds.fingerprint:
             raise ValueError("Resume validation dataset differs from the checkpoint")
-        if ((M.Config5(**saved["config"]).to_dict() if args.architecture == "v5" else saved["config"]) != cfg.to_dict()) or saved["batch_size"] != args.batch_size or saved["unroll"] != args.unroll:
+        if (config_class(**saved["config"]).to_dict() != cfg.to_dict()) or saved["batch_size"] != args.batch_size or saved["unroll"] != args.unroll:
             raise ValueError("Resume configuration/batch lanes must match exactly")
         if saved.get("validation_batch_size", saved["batch_size"]) != args.validation_batch_size:
             raise ValueError("Resume validation batch lanes must match the saved scoring protocol")

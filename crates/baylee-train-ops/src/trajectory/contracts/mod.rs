@@ -25,8 +25,57 @@ pub fn reject_policy_gradient(meta: &Value) -> Result<()> {
 /// # Errors
 /// Rejects incomplete contracts, file tampering, escaped paths and contradictory labels.
 pub fn validate(root: &Path, meta: &Value) -> Result<()> {
+    validate_encoder_rows(root, meta)?;
     shadow::validate(root, meta)?;
     llm::validate(root, meta)
+}
+/// Check E9 metadata against actual JSON or packed tensor widths.
+/// # Errors
+/// Refuses absent/wrong E9 widths and legacy relabeling.
+pub fn validate_encoder_rows(root: &Path, meta: &Value) -> Result<()> {
+    let encoder = meta["encoder_version"].as_u64();
+    if encoder == Some(9) {
+        ensure!(
+            meta["global_feat_width"] == 82,
+            "Encoder9 metadata requires global_feat_width82"
+        );
+    } else if let Some(width) = meta.get("global_feat_width") {
+        ensure!(width == 80, "Legacy encoder global width must remain80");
+    }
+    if !matches!(encoder, Some(7..=9)) {
+        return Ok(());
+    }
+    for split in ["train", "val"] {
+        if let Some(shards) = meta[format!("{split}_shards")].as_array() {
+            for shard in shards {
+                let name = shard.as_str().context("invalid E9 shard")?;
+                ensure!(
+                    Path::new(name).file_name().is_some_and(|n| n == name),
+                    "invalid E9 shard path"
+                );
+                super::read_shard(&root.join(split).join(name), |row| {
+                    let width = row
+                        .get("global_feat_width")
+                        .and_then(Value::as_u64)
+                        .or_else(|| {
+                            row["state"]["global_feat"]
+                                .as_array()
+                                .map(|a| a.len() as u64)
+                        });
+                    ensure!(
+                        if encoder == Some(9) {
+                            width == Some(82)
+                        } else {
+                            width != Some(82)
+                        },
+                        "Encoder shard tensor width differs from metadata"
+                    );
+                    Ok(())
+                })?;
+            }
+        }
+    }
+    Ok(())
 }
 fn marked(meta: &Value, prefix: &str) -> bool {
     meta.as_object()
@@ -51,7 +100,7 @@ fn common(meta: &Value, prefix: &str, contract: &str) -> Result<()> {
             && meta[format!("{prefix}status")] == "complete"
             && meta["ppo_eligible"] == false
             && meta["policy_provenance_version"].is_null()
-            && matches!(meta["encoder_version"].as_u64(), Some(7 | 8))
+            && matches!(meta["encoder_version"].as_u64(), Some(7..=9))
             && meta["trajectory_version"].as_u64() == Some(2),
         "Incomplete or incompatible BC dataset contract"
     );

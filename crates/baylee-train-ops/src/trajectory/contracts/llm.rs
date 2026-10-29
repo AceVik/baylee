@@ -131,8 +131,8 @@ fn check_source<'a>(
     small(&path)?;
     let models = manifest(&files::read_json(&manifest_path)?, source)?;
     let mut header = json!({"kind":"header","schema":1,"converted_game_id":game,"source_namespace":source["source_namespace"],"source_game":source_game,"run_sha256":source["run_sha256"],"manifest_sha256":source["manifest_sha256"],"record_sha256":source["record_sha256"],"label_use":"bc_only","ppo_eligible":false});
-    if meta["encoder_version"] == 8 {
-        header["encoder_version"] = json!(8);
+    if matches!(meta["encoder_version"].as_u64(), Some(8 | 9)) {
+        header["encoder_version"] = meta["encoder_version"].clone();
     }
     check_labels(&path, &header, &models)?;
     seen.label_names.insert(name);

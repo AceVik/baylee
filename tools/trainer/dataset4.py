@@ -83,7 +83,7 @@ class TrajectoryDataset4(Dataset):
         self.data_dir = Path(data_dir).expanduser()
         self.meta = json.loads((self.data_dir / "meta.json").read_text())
         from encoder_contract import validate_encoder
-        validate_encoder(encoder_version)
+        validate_encoder(encoder_version, global_feat_width=self.meta.get('global_feat_width',80))
         if self.meta.get("encoder_version") != encoder_version:
             raise ValueError(f"Expected encoder_version={encoder_version}, got {self.meta.get('encoder_version')}")
         self.encoder_version = encoder_version

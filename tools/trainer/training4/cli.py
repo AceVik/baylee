@@ -60,7 +60,8 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--decision-chunk", type=int, default=1, help="Group independent readouts after causal memory updates; requires grouped boards and dropout=0")
     ap.add_argument("--gpu-prefetch", type=int, choices=range(4), default=0, help="Future CUDA input batches on a separate copy stream (0=off, 1=double buffer)")
     ap.add_argument("--freeze-trunk", action="store_true", help="Freeze board encoder, transformer trunk, recurrent memory, and critic; train only action/policy heads")
-    ap.add_argument("--encoder-version", type=int, choices=(7, 8), default=7)
+    ap.add_argument("--encoder-version", type=int, choices=(7, 8, 9), default=7)
+    ap.add_argument("--encoder-warmstart-to9", action="store_true", help="Fresh E7/E8 weights-only transfer; zero new trainable global columns, no behavior-equivalence claim")
     ap.add_argument("--encoder-warmstart-from7", action="store_true", help="Explicit new Encoder8 experiment: load Encoder7 weights only; never resume/relabel")
     ap.add_argument("--architecture", choices=("v4", "v5"), default=default_architecture)
     ap.add_argument("--relational-steps", type=int, choices=range(5), default=2)
@@ -87,13 +88,17 @@ def parse_args(default_architecture="v4"):
     from encoder_contract import validate_encoder
     try:
         validate_encoder(args.encoder_version, model_version=M.MODEL_VERSION,
-                         relational_revision=args.relational_revision)
+                         relational_revision=args.relational_revision,
+                         candidate_context_revision=args.candidate_context_revision,
+                         global_feat_width=82 if args.encoder_version == 9 else 80)
     except ValueError as error:
         ap.error(str(error))
-    if args.encoder_version == 8 and args.init_state:
+    if args.encoder_version in (8, 9) and args.init_state:
         ap.error("Encoder8 package continuation is unsupported; use --init or --resume")
     if args.encoder_warmstart_from7 and (args.encoder_version != 8 or not args.init or args.resume or args.init_state):
         ap.error("--encoder-warmstart-from7 requires --encoder-version 8 and --init only")
+    if args.encoder_warmstart_to9 and (args.encoder_version != 9 or not args.init or args.resume or args.init_state or args.encoder_warmstart_from7 or args.candidate_context_warmstart or args.freeze_trunk):
+        ap.error("--encoder-warmstart-to9 requires Encoder9 and --init only, with trainable trunk and no simultaneous transfer")
     if args.candidate_context_revision == 2 and (args.architecture != "v5" or args.relational_revision != 2):
         ap.error("Candidate context revision 2 requires v5 relational revision 2")
     if args.candidate_context_warmstart and (not args.init or args.resume or args.init_state or args.encoder_warmstart_from7 or args.architecture != "v5" or args.relational_revision != 2 or args.candidate_context_revision != 2):

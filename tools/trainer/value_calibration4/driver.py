@@ -45,7 +45,8 @@ def main():
     plan = collection_plan(args.collection_plan, source_hash)
     device = torch.device(args.device)
     net.to(device)
-    datasets = [D.TrajectoryDataset4(Path(args.data).expanduser(), split=split, unroll_len=args.unroll)
+    datasets = [D.TrajectoryDataset4(Path(args.data).expanduser(), split=split, unroll_len=args.unroll,
+                                    encoder_version=saved['encoder_version'])
                 for split in ("train", "val")]
     if not all(len(ds) for ds in datasets):
         raise ValueError("Separate nonempty training and validation games are required")

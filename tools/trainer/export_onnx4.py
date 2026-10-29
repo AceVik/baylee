@@ -58,7 +58,9 @@ def load_export_checkpoint(checkpoint_path: Path):
         raise ValueError("V5 architecture and relational revision disagree")
     from encoder_contract import validate_encoder
     validate_encoder(checkpoint.get("encoder_version"), model_version=version,
-                     relational_revision=getattr(config, "relational_revision", 2))
+                     relational_revision=getattr(config, "relational_revision", 2),
+                     candidate_context_revision=getattr(config, "candidate_context_revision", 1),
+                     global_feat_width=config.global_feat_width)
     net = model_type(config).eval()
     net.attach_structure(checkpoint["structure"])
     net.load_state_dict(checkpoint["state_dict"], strict=True)
@@ -74,6 +76,7 @@ def make_dummy_inputs(
     C: int = 32,
     P: int = 32,
     K: int = 2,
+    global_feat_width: int = M.GLOBAL_FEAT_WIDTH,
 ) -> tuple[torch.Tensor, ...]:
     entity_feat = torch.randn(B, E, M.ENTITY_FEAT_WIDTH, dtype=torch.float32)
     entity_dsl = torch.randn(B, E, M.CARD_DSL_WIDTH, dtype=torch.float32)
@@ -83,7 +86,7 @@ def make_dummy_inputs(
     seat_feat[:, 0, M.SEAT_FEAT_SELF] = 1.0      # seat 0 is self
     seat_feat[:, 1:4, M.SEAT_FEAT_OPPONENT] = 1.0  # seats 1..3 are opponents
     seat_feat[:, :4, M.SEAT_FEAT_LOST] = 0.0     # none lost
-    global_feat = torch.randn(B, M.GLOBAL_FEAT_WIDTH, dtype=torch.float32)
+    global_feat = torch.randn(B, global_feat_width, dtype=torch.float32)
     edge_index = torch.zeros(B, M_edges, 2, dtype=torch.int64)
     edge_type = torch.zeros(B, M_edges, dtype=torch.int64)
     edge_mask = torch.ones(B, M_edges, dtype=torch.bool)
@@ -128,7 +131,7 @@ def export_v4_onnx(
     from model4.structure import RuleEncoder
     if isinstance(net.rules, RuleEncoder):
         net.rules = net.rules.freeze()
-    dummy = make_dummy_inputs(net.cfg.d_model, K=thinking_steps)
+    dummy = make_dummy_inputs(net.cfg.d_model, K=thinking_steps, global_feat_width=net.cfg.global_feat_width)
     dynamic_axes = {
         "entity_feat": {0: "B", 1: "E"},
         "entity_dsl": {0: "B", 1: "E"},
@@ -230,7 +233,7 @@ def main() -> None:
         sessions[depth] = ort.InferenceSession(str(path), sess_options=options,
                                              providers=["CPUExecutionProvider"])
         for e in (1, 17, 96):
-            compare(make_dummy_inputs(cfg.d_model, E=e, M_edges=1, C=7, P=1, K=depth), depth)
+            compare(make_dummy_inputs(cfg.d_model, E=e, M_edges=1, C=7, P=1, K=depth, global_feat_width=cfg.global_feat_width), depth)
 
     if args.data:
         ds = D4.TrajectoryDataset4(Path(args.data).expanduser(), split="val", unroll_len=16,
@@ -263,6 +266,7 @@ def main() -> None:
     meta = {
         **({"encoder_warmstart": ckpt["encoder_warmstart"]} if "encoder_warmstart" in ckpt else {}),
         "encoder_version": ckpt["encoder_version"], "model_version": model_module.MODEL_VERSION,
+        **({"global_feat_width": cfg.global_feat_width} if ckpt["encoder_version"] == 9 else {}),
         "trajectory_version": M.TRAJECTORY_VERSION,
         "sampling_version": M.SAMPLING_VERSION,
         "structure_version": 1, "structure_sha256": structure_sha256,

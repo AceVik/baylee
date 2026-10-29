@@ -66,6 +66,23 @@ fn admits_only_learner_and_binds_all_content() {
 }
 
 #[test]
+fn encoder9_admission_requires_real82_column_rows() {
+    for width in [0, 80, 82] {
+        let (temp, checkpoint, manifest) = setup(|rows, meta| {
+            meta["encoder_version"] = json!(9);
+            meta["global_feat_width"] = json!(82);
+            for row in rows {
+                row["state"] = json!({"global_feat":vec![0.0;width]});
+            }
+        });
+        assert_eq!(
+            admit(temp.path(), &checkpoint, &manifest).is_ok(),
+            width == 82
+        );
+    }
+}
+
+#[test]
 fn rejects_broken_history_and_off_policy_actions() {
     for variant in 0..7 {
         let (temp, checkpoint, manifest) = setup(|rows, meta| match variant {

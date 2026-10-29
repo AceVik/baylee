@@ -82,8 +82,8 @@ pub(super) fn validate(root: &Path, meta: &Value) -> Result<()> {
             }
         }
         let mut expected = json!({"kind":"header","schema":1,"converted_game_id":game,"source_namespace":source["source_namespace"],"source_game":source["source_game"],"run_sha256":source["run_sha256"],"original_labels_sha256":source["labels_sha256"],"record_sha256":source["record_sha256"],"label_use":"bc_only","ppo_eligible":false});
-        if meta["encoder_version"] == 8 {
-            expected["encoder_version"] = json!(8);
+        if matches!(meta["encoder_version"].as_u64(), Some(8 | 9)) {
+            expected["encoder_version"] = meta["encoder_version"].clone();
         }
         ensure!(
             header == expected

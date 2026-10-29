@@ -19,6 +19,59 @@ fn frame() -> Value {
     "cand_feat":[[1.0,2.0],[3.0,4.0]],"cand_entity_idx":[0,-1],"cand_rel_seat_idx":[-1,1],"cand_card_id":[17,18],"cand_face_id":[0,255],"cand_rule_refs":[[],[{"key":"public","role":1}]],"pairs":[[0,1]],"target":{"single_idx":1,"scalar_norm":0.25,"multi_mask":[1,0],"free_mask":[1,1]}})
 }
 #[test]
+fn encoder9_metadata_cannot_relabel_legacy_tensor_rows() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let root = directory.path();
+    std::fs::create_dir(root.join("train"))?;
+    let meta = json!({"encoder_version":9,"global_feat_width":82,"train_shards":["e9.gz"],"val_shards":[]});
+    for width in [80, 82] {
+        let mut step = frame();
+        step["state"]["global_feat"] = json!(vec![0.0; width]);
+        let packed = packing::pack_step(&step, &BTreeMap::from([("public".into(), 11)]))?;
+        assert_eq!(packing::metadata(&packed)?["global_feat_width"], width);
+        let mut stream = GzEncoder::new(
+            File::create(root.join("train/e9.gz"))?,
+            Compression::default(),
+        );
+        serde_json::to_writer(&mut stream, &step)?;
+        stream.write_all(b"\n")?;
+        stream.finish()?;
+        assert_eq!(
+            contracts::validate_encoder_rows(root, &meta).is_ok(),
+            width == 82
+        );
+    }
+    let mut missing = meta.clone();
+    missing.as_object_mut().unwrap().remove("global_feat_width");
+    assert!(contracts::validate_encoder_rows(root, &missing).is_err());
+    let legacy = json!({"encoder_version":8,"train_shards":["e9.gz"]});
+    assert!(contracts::validate_encoder_rows(root, &legacy).is_err());
+    files::atomic_json(&root.join("meta.json"), &meta)?;
+    files::atomic_json(
+        &root.join("card_structure.json"),
+        &json!({"roots":{"public":11}}),
+    )?;
+    let receipt = cache::build(root, "train", &["e9.gz".into()])?;
+    let data = std::fs::read(receipt.data_path)?;
+    let mut binary = b"BS4S\x01\x00\x00\x00".to_vec();
+    binary.extend_from_slice(&data);
+    binary.extend_from_slice(&std::fs::read(receipt.index_path)?);
+    binary.extend_from_slice(&(8 + data.len() as u64).to_le_bytes());
+    binary.extend_from_slice(&1u64.to_le_bytes());
+    binary.extend_from_slice(b"BS4S_END");
+    std::fs::write(root.join("train/e9.bst4"), binary)?;
+    let mut packed_meta = meta.clone();
+    packed_meta["train_shards"] = json!(["e9.bst4"]);
+    contracts::validate_encoder_rows(root, &packed_meta)?;
+    packed_meta["encoder_version"] = json!(8);
+    packed_meta
+        .as_object_mut()
+        .unwrap()
+        .remove("global_feat_width");
+    assert!(contracts::validate_encoder_rows(root, &packed_meta).is_err());
+    Ok(())
+}
+#[test]
 fn bst4_layout_and_admission_metadata_match_the_fixed_python_abi() -> Result<()> {
     let raw = packing::pack_step(&frame(), &BTreeMap::from([("public".into(), 11)]))?;
     assert_eq!(raw.len(), 299);
