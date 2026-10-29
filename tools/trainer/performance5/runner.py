@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import dataset4 as D
 from benchmark_state4 import checkpoint_sampler
 from checkpoint4 import restore_rng
-from run_guard4 import atomic_json
+from torch_io4 import atomic_json
 from training4.execution import compile_regions
 from training4.prefetch import prefetch_batches
 from . import precision

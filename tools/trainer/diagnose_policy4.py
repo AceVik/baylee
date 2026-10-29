@@ -8,7 +8,7 @@ import model4 as M
 from export_onnx4 import load_export_checkpoint
 from sampler4 import StatefulBatchSampler4
 from dataset4 import collate_trajectories
-from run_guard4 import atomic_json
+from torch_io4 import atomic_json
 from training4.diagnostics import DiagnosticDataset, Provenance, Collector
 from training4.diagnostics.data import file_hash, PENDING_IDS
 from training4.validation_device import evaluate_device
@@ -60,7 +60,7 @@ def main():
     net.gpu_prefetch=args.gpu_prefetch
     net.cache_thinking_kv=True
     net.prune_unused_policy_heads=True
-    data=DiagnosticDataset(args.data,split=args.split,unroll_len=args.unroll)
+    data=DiagnosticDataset(args.data,split=args.split,unroll_len=args.unroll,encoder_version=saved["encoder_version"])
     if data.structure.digest != net.rules.digest:
         raise ValueError('Checkpoint and diagnostic data use different public catalogs')
     provenance=Provenance(data)
@@ -78,7 +78,7 @@ def main():
         report=dict(schema_version=1,kind='complete_history_policy_diagnostics',training=False,
             checkpoint=str(checkpoint.resolve()),checkpoint_sha256=before,model_version=module.MODEL_VERSION,
             architecture=saved.get('architecture'),checkpoint_step=saved.get('step_num'),
-            encoder_version=module.ENCODER_VERSION,catalog_sha256=data.structure.digest,
+            encoder_version=saved["encoder_version"],catalog_sha256=data.structure.digest,
             namespace=provenance.namespace,namespace_id=provenance.namespace_id,
             data=str(data.data_dir.resolve()),split=args.split,data_fingerprint=data.fingerprint,
             metadata_input_sha256=source_inputs,

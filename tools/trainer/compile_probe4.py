@@ -17,7 +17,7 @@ import dataset4 as D
 import model4 as M
 from bench_training4 import update, gradient_difference
 from checkpoint4 import move_optimizer, restore_rng
-from run_guard4 import atomic_json
+from torch_io4 import atomic_json
 from training4.execution import compile_regions
 
 

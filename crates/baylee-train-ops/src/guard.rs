@@ -1,10 +1,20 @@
 //! Bounded jobs with isolated process groups and durable, immutable attempts.
-use std::{collections::BTreeMap, fs::{self, File}, os::unix::process::CommandExt, path::{Path, PathBuf}, process::{Child, Command, ExitStatus, Stdio}, sync::atomic::{AtomicBool, Ordering}, thread, time::{Duration, Instant}};
+use crate::{files, process};
 use anyhow::{Context, Result, bail, ensure};
 use rustix::process::{Pid, Signal, WaitId, WaitIdOptions, kill_process_group, waitid};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use crate::{files, process};
+use std::{
+    collections::BTreeMap,
+    fs::{self, File},
+    io::{Read, Seek, SeekFrom},
+    os::unix::process::CommandExt,
+    path::{Path, PathBuf},
+    process::{Child, Command, ExitStatus, Stdio},
+    sync::atomic::{AtomicBool, Ordering},
+    thread,
+    time::{Duration, Instant},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -21,15 +31,24 @@ pub struct Job {
     /// Process group proportional memory limit in GiB.
     pub memory_gib: f64,
     /// Immutable input files hashed before and after the command.
-    #[serde(default)] pub inputs: Vec<PathBuf>,
+    #[serde(default)]
+    pub inputs: Vec<PathBuf>,
 }
 
 /// The unreaped direct child pins its PID and process group during cleanup.
-struct OwnedGroup { child: Child, pid: Pid, reaped: bool }
+struct OwnedGroup {
+    child: Child,
+    pid: Pid,
+    reaped: bool,
+}
 impl OwnedGroup {
     fn exited(&self) -> Result<bool> {
         ensure!(!self.reaped, "child already reaped; ownership lost");
-        Ok(waitid(WaitId::Pid(self.pid), WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT)?.is_some())
+        Ok(waitid(
+            WaitId::Pid(self.pid),
+            WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT,
+        )?
+        .is_some())
     }
     fn signal(&self, signal: Signal) -> Result<()> {
         self.exited()?;
@@ -43,12 +62,20 @@ impl OwnedGroup {
         if !process::group_members(self.child.id())?.is_empty() {
             self.signal(Signal::TERM)?;
             let deadline = Instant::now() + Duration::from_secs(5);
-            while !process::group_members(self.child.id())?.is_empty() && Instant::now() < deadline { thread::sleep(Duration::from_millis(20)); }
-            if !process::group_members(self.child.id())?.is_empty() { self.signal(Signal::KILL)?; }
+            while !process::group_members(self.child.id())?.is_empty() && Instant::now() < deadline
+            {
+                thread::sleep(Duration::from_millis(20));
+            }
+            if !process::group_members(self.child.id())?.is_empty() {
+                self.signal(Signal::KILL)?;
+            }
         }
         let deadline = Instant::now() + Duration::from_secs(5);
         while !self.exited()? || !process::group_members(self.child.id())?.is_empty() {
-            ensure!(Instant::now() < deadline, "owned descendants remain; do not reap/reuse leader identity");
+            ensure!(
+                Instant::now() < deadline,
+                "owned descendants remain; do not reap/reuse leader identity"
+            );
             thread::sleep(Duration::from_millis(20));
         }
         let status = self.child.wait()?;
@@ -58,22 +85,167 @@ impl OwnedGroup {
 }
 impl Drop for OwnedGroup {
     fn drop(&mut self) {
-        if !self.reaped { let _ = self.cleanup(); }
+        if !self.reaped {
+            let _ = self.cleanup();
+        }
     }
+}
+
+#[cfg(test)]
+mod tests;
+
+/// Capture a bounded control command without leaking descendants on timeout.
+pub(crate) fn capture(program: &Path, arguments: &[&str], timeout: Duration) -> Result<String> {
+    let mut output = tempfile::tempfile()?;
+    let child = Command::new(program)
+        .args(arguments)
+        .stdin(Stdio::null())
+        .stdout(output.try_clone()?)
+        .stderr(Stdio::null())
+        .process_group(0)
+        .spawn()?;
+    let pid = Pid::from_raw(i32::try_from(child.id())?).context("invalid child PID")?;
+    let mut group = OwnedGroup {
+        child,
+        pid,
+        reaped: false,
+    };
+    let started = Instant::now();
+    while !group.exited()? && started.elapsed() < timeout {
+        thread::sleep(Duration::from_millis(20));
+    }
+    let timed_out = !group.exited()?;
+    let status = group.cleanup()?;
+    ensure!(
+        !timed_out && status.success(),
+        "bounded control command failed or exceeded deadline"
+    );
+    ensure!(
+        output.metadata()?.len() <= 64 * 1024,
+        "oversized control-command receipt"
+    );
+    output.seek(SeekFrom::Start(0))?;
+    let mut text = String::new();
+    output.read_to_string(&mut text)?;
+    Ok(text)
 }
 
 fn executable(command: &str, cwd: &Path) -> Result<PathBuf> {
     let path = Path::new(command);
-    if path.components().count() > 1 || path.is_absolute() { return Ok(cwd.join(path).canonicalize()?); }
+    if path.components().count() > 1 || path.is_absolute() {
+        return Ok(cwd.join(path).canonicalize()?);
+    }
     for directory in std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()) {
         let candidate = directory.join(path);
-        if candidate.is_file() { return Ok(candidate.canonicalize()?); }
+        if candidate.is_file() {
+            return Ok(candidate.canonicalize()?);
+        }
     }
     bail!("executable not found: {command}")
 }
 
 fn input_hashes(job: &Job) -> Result<BTreeMap<String, String>> {
-    job.inputs.iter().map(|p| Ok((p.to_string_lossy().into_owned(), files::sha256(&job.cwd.join(p))?))).collect()
+    job.inputs
+        .iter()
+        .map(|p| {
+            Ok((
+                p.to_string_lossy().into_owned(),
+                files::sha256(&job.cwd.join(p))?,
+            ))
+        })
+        .collect()
+}
+
+/// Execute a job, record its result and clean up its entire owned process group.
+/// # Errors
+/// Rejects invalid/reused attempts, accounting failures and incomplete cleanup.
+/// A normal unsuccessful command returns `Ok(false)` with retained artifacts.
+struct Prepared {
+    exe: PathBuf,
+    exe_hash: String,
+    inputs: BTreeMap<String, String>,
+    state: serde_json::Value,
+}
+
+fn spawn(job: &Job, exe: &Path) -> Result<OwnedGroup> {
+    let child = Command::new(exe)
+        .args(&job.command[1..])
+        .current_dir(&job.cwd)
+        .stdin(Stdio::null())
+        .stdout(File::create(job.directory.join("stdout.log"))?)
+        .stderr(File::create(job.directory.join("stderr.log"))?)
+        .process_group(0)
+        .spawn()?;
+    let pid = Pid::from_raw(i32::try_from(child.id())?).context("invalid child PID")?;
+    Ok(OwnedGroup {
+        child,
+        pid,
+        reaped: false,
+    })
+}
+
+fn prepare(job: &Job) -> Result<Option<Prepared>> {
+    ensure!(!job.command.is_empty(), "empty job command");
+    ensure!(
+        job.timeout_seconds.is_finite() && job.timeout_seconds > 0.0,
+        "finite positive timeout required"
+    );
+    ensure!(
+        job.memory_gib.is_finite() && job.memory_gib > 0.0,
+        "finite positive memory bound required"
+    );
+    let manifest = job.directory.join("job.json");
+    let exe = executable(&job.command[0], &job.cwd)?;
+    let exe_hash = files::sha256(&exe)?;
+    let inputs = input_hashes(job)?;
+    if manifest.exists() {
+        let old = files::read_json(&manifest)?;
+        ensure!(
+            old["status"] == "complete"
+                && old["command"] == json!(job.command)
+                && old["cwd"] == json!(job.cwd)
+                && old["executable_sha256"] == exe_hash
+                && old["inputs"] == json!(inputs)
+                && old["timeout_seconds"] == json!(job.timeout_seconds)
+                && old["memory_limit_gib"] == json!(job.memory_gib),
+            "preserving existing attempt {}; use a new directory",
+            manifest.display()
+        );
+        return Ok(None);
+    }
+    let revision = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(&job.cwd)
+        .output()?;
+    ensure!(
+        revision.status.success(),
+        "job cwd must have a source identity"
+    );
+    let diff = Command::new("git")
+        .args(["diff", "--binary", "HEAD"])
+        .current_dir(&job.cwd)
+        .output()?;
+    ensure!(diff.status.success(), "cannot snapshot tracked sources");
+    fs::write(job.directory.join("source.patch"), &diff.stdout)?;
+    let environment: BTreeMap<_, _> = [
+        "BAYLEE_EP",
+        "CUDA_VISIBLE_DEVICES",
+        "OMP_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "LD_LIBRARY_PATH",
+        "CUBLAS_WORKSPACE_CONFIG",
+    ]
+    .into_iter()
+    .filter_map(|key| std::env::var(key).ok().map(|value| (key, value)))
+    .collect();
+    let state = json!({"schema_version":2,"guard":"rust-owned-group-v1","command":job.command,"cwd":job.cwd,"revision":String::from_utf8(revision.stdout)?.trim(),"runtime_environment":environment,"executable":exe,"executable_sha256":exe_hash,"tracked_diff_sha256":files::sha256(&job.directory.join("source.patch"))?,"inputs":inputs,"status":"starting","started_at_unix":files::unix_time()?,"timeout_seconds":job.timeout_seconds,"memory_limit_gib":job.memory_gib});
+    files::atomic_json(&manifest, &state)?;
+    Ok(Some(Prepared {
+        exe,
+        exe_hash,
+        inputs,
+        state,
+    }))
 }
 
 /// Execute a job, record its result and clean up its entire owned process group.
@@ -81,59 +253,66 @@ fn input_hashes(job: &Job) -> Result<BTreeMap<String, String>> {
 /// Rejects invalid/reused attempts, accounting failures and incomplete cleanup.
 /// A normal unsuccessful command returns `Ok(false)` with retained artifacts.
 pub fn run(job: &Job, interrupted: &AtomicBool) -> Result<bool> {
-    ensure!(!job.command.is_empty(), "empty job command");
-    ensure!(job.timeout_seconds.is_finite() && job.timeout_seconds > 0.0, "finite positive timeout required");
-    ensure!(job.memory_gib.is_finite() && job.memory_gib > 0.0, "finite positive memory bound required");
     fs::create_dir_all(&job.directory)?;
     let _lock = files::lock(&job.directory.join("guard.lock"))?;
-    let manifest = job.directory.join("job.json");
-    let exe = executable(&job.command[0], &job.cwd)?;
-    let exe_hash = files::sha256(&exe)?;
-    let inputs = input_hashes(job)?;
-    if manifest.exists() {
-        let old = files::read_json(&manifest)?;
-        ensure!(old["status"] == "complete" && old["command"] == json!(job.command) && old["cwd"] == json!(job.cwd) && old["executable_sha256"] == exe_hash && old["inputs"] == json!(inputs) && old["timeout_seconds"] == json!(job.timeout_seconds) && old["memory_limit_gib"] == json!(job.memory_gib), "preserving existing attempt {}; use a new directory", manifest.display());
+    let Some(Prepared {
+        exe,
+        exe_hash,
+        inputs,
+        mut state,
+    }) = prepare(job)?
+    else {
         return Ok(true);
-    }
-    let revision = Command::new("git").args(["rev-parse", "HEAD"]).current_dir(&job.cwd).output()?;
-    ensure!(revision.status.success(), "job cwd must have a source identity");
-    let diff = Command::new("git").args(["diff", "--binary", "HEAD"]).current_dir(&job.cwd).output()?;
-    ensure!(diff.status.success(), "cannot snapshot tracked sources");
-    fs::write(job.directory.join("source.patch"), &diff.stdout)?;
-    let environment: BTreeMap<_, _> = ["BAYLEE_EP", "CUDA_VISIBLE_DEVICES", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "LD_LIBRARY_PATH", "CUBLAS_WORKSPACE_CONFIG"].into_iter().filter_map(|key| std::env::var(key).ok().map(|value| (key, value))).collect();
-    let mut state = json!({"schema_version":2,"guard":"rust-owned-group-v1","command":job.command,"cwd":job.cwd,"revision":String::from_utf8(revision.stdout)?.trim(),"runtime_environment":environment,"executable":exe,"executable_sha256":exe_hash,"tracked_diff_sha256":files::sha256(&job.directory.join("source.patch"))?,"inputs":inputs,"status":"starting","started_at_unix":files::unix_time()?,"timeout_seconds":job.timeout_seconds,"memory_limit_gib":job.memory_gib});
-    files::atomic_json(&manifest, &state)?;
+    };
+    let manifest = job.directory.join("job.json");
     let started = Instant::now();
     let mut group: Option<OwnedGroup> = None;
     let mut peak = 0;
     let mut reason: Option<String> = None;
     let attempt = (|| -> Result<()> {
-        ensure!(!interrupted.load(Ordering::Relaxed), "interrupted before spawn");
-        let child = Command::new(&exe).args(&job.command[1..]).current_dir(&job.cwd)
-            .stdin(Stdio::null()).stdout(File::create(job.directory.join("stdout.log"))?)
-            .stderr(File::create(job.directory.join("stderr.log"))?).process_group(0).spawn()?;
-        let pid = Pid::from_raw(i32::try_from(child.id())?).context("invalid child PID")?;
-        group = Some(OwnedGroup { child, pid, reaped: false });
+        ensure!(
+            !interrupted.load(Ordering::Relaxed),
+            "interrupted before spawn"
+        );
+        group = Some(spawn(job, &exe)?);
         let child = group.as_ref().context("owned child")?;
         state["pid"] = json!(child.child.id());
+        state["child_identity"] = json!(process::identity(child.child.id()));
         state["controller"] = json!(process::identity(std::process::id()));
         state["status"] = json!("running");
         files::atomic_json(&manifest, &state)?;
         while !child.exited()? {
-            if interrupted.load(Ordering::Relaxed) { reason = Some("interrupted".into()); break; }
+            if interrupted.load(Ordering::Relaxed) {
+                reason = Some("interrupted".into());
+                break;
+            }
             let pss = process::group_pss_bytes(child.child.id())?;
             peak = peak.max(pss);
-            if started.elapsed().as_secs_f64() >= job.timeout_seconds { reason = Some("deadline".into()); break; }
-            #[allow(clippy::cast_precision_loss, reason = "memory limit comparison, not model or engine arithmetic")]
-            if pss as f64 > job.memory_gib * 1_073_741_824.0 { reason = Some("memory_limit".into()); break; }
+            if started.elapsed().as_secs_f64() >= job.timeout_seconds {
+                reason = Some("deadline".into());
+                break;
+            }
+            #[allow(
+                clippy::cast_precision_loss,
+                reason = "memory limit comparison, not model or engine arithmetic"
+            )]
+            if pss as f64 > job.memory_gib * 1_073_741_824.0 {
+                reason = Some("memory_limit".into());
+                break;
+            }
             thread::sleep(Duration::from_millis(50));
         }
         Ok(())
     })();
-    if let Err(ref error) = attempt { reason = Some(format!("exception: {error:#}")); }
+    if let Err(ref error) = attempt {
+        reason = Some(format!("exception: {error:#}"));
+    }
     let cleanup = group.as_mut().map(OwnedGroup::cleanup).transpose();
-    if let Err(ref error) = cleanup { reason = Some(format!("cleanup_failed: {error:#}")); }
-    let validation = input_hashes(job).and_then(|current| Ok(current == inputs && files::sha256(&exe)? == exe_hash));
+    if let Err(ref error) = cleanup {
+        reason = Some(format!("cleanup_failed: {error:#}"));
+    }
+    let validation = input_hashes(job)
+        .and_then(|current| Ok(current == inputs && files::sha256(&exe)? == exe_hash));
     if reason.is_none() {
         match validation {
             Ok(true) => {}
@@ -141,10 +320,21 @@ pub fn run(job: &Job, interrupted: &AtomicBool) -> Result<bool> {
             Err(error) => reason = Some(format!("input_validation_failed: {error:#}")),
         }
     }
-    let success = cleanup.as_ref().ok().and_then(|v| v.as_ref()).is_some_and(ExitStatus::success) && reason.is_none();
+    let success = cleanup
+        .as_ref()
+        .ok()
+        .and_then(|v| v.as_ref())
+        .is_some_and(ExitStatus::success)
+        && reason.is_none();
     state["status"] = json!(if success { "complete" } else { "quarantined" });
     state["reason"] = json!(reason);
-    state["returncode"] = json!(cleanup.as_ref().ok().and_then(|v| v.as_ref()).and_then(ExitStatus::code));
+    state["returncode"] = json!(
+        cleanup
+            .as_ref()
+            .ok()
+            .and_then(|v| v.as_ref())
+            .and_then(ExitStatus::code)
+    );
     state["elapsed_seconds"] = json!(started.elapsed().as_secs_f64());
     state["peak_pss_bytes"] = json!(peak);
     state["finished_at_unix"] = json!(files::unix_time()?);

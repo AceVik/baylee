@@ -49,26 +49,11 @@ def restore_training(saved, net, optimizer, contract, device):
 
 def native_source_digest(path):
     """Thin PyTorch checkpoint-I/O adapter; hashing itself belongs to Rust."""
-    import os
-    import subprocess
-    from pathlib import Path
-    executable=os.environ.get('BAYLEE_TRAIN_OPS',str(Path(__file__).resolve().parents[3]/'target/release/train_ops'))
-    result=subprocess.run([executable,'hash',str(path)],check=True,capture_output=True,text=True)
-    fields=result.stdout.split()
-    digest=fields[0] if fields else ""
-    if len(digest)!=64 or any(character not in '0123456789abcdef' for character in digest):
-        raise ValueError('Native checkpoint seal returned malformed SHA256')
-    return digest
+    from torch_io4 import file_digest
+    return file_digest(path)
 
 
 def native_verify_admission(data,source,admission):
     """Fail closed unless the native scanner verifies the actual sealed rows."""
-    import os
-    import subprocess
-    from pathlib import Path
-    executable=os.environ.get('BAYLEE_TRAIN_OPS',str(Path(__file__).resolve().parents[3]/'target/release/train_ops'))
-    try:
-        subprocess.run([executable,'verify-admission','--data',str(data),
-                        '--source-checkpoint',str(source),'--admission',str(admission)],check=True,capture_output=True,text=True)
-    except subprocess.CalledProcessError as error:
-        raise ValueError('Native policy admission rejected: '+error.stderr.strip()) from error
+    from torch_io4 import native
+    native(['verify-admission','--data',data,'--source-checkpoint',source,'--admission',admission])

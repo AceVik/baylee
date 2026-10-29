@@ -1,41 +1,177 @@
 //! CLI boundary for native training operations.
-use std::{path::PathBuf, sync::{Arc, atomic::AtomicBool}};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use std::{
+    path::PathBuf,
+    sync::{Arc, atomic::AtomicBool},
+};
 
 #[derive(Parser)]
 #[command(about = "Native bounded training operations")]
-struct Args { #[command(subcommand)] command: Task }
+struct Args {
+    #[command(subcommand)]
+    command: Task,
+}
 #[derive(Subcommand)]
 enum Task {
     /// Execute one immutable attempt. Failures always require a fresh directory.
     Run {
-        #[arg(long)] job: PathBuf,
-        #[arg(long, default_value_t = 3600.0)] timeout: f64,
-        #[arg(long, default_value_t = 48.0)] memory_gib: f64,
-        #[arg(long)] input: Vec<PathBuf>,
-        #[arg(last = true, required = true)] command: Vec<String>,
+        #[arg(long)]
+        job: PathBuf,
+        #[arg(long, default_value_t = 3600.0)]
+        timeout: f64,
+        #[arg(long, default_value_t = 48.0)]
+        memory_gib: f64,
+        #[arg(long)]
+        input: Vec<PathBuf>,
+        #[arg(last = true, required = true)]
+        command: Vec<String>,
     },
     /// Stream SHA256 seals without allocating whole datasets.
     Hash { paths: Vec<PathBuf> },
+    /// Atomically publish a JSON value supplied on stdin by a tensor worker.
+    WriteJson {
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Seal a tensor implementation tree, including module directory replacements.
+    SourceDigest {
+        #[arg(long)]
+        root: PathBuf,
+        #[arg(long, required = true)]
+        include: Vec<PathBuf>,
+    },
+    /// Certify roles, complete histories and content identities before PPO.
+    AdmitPolicy {
+        #[arg(long)]
+        data: PathBuf,
+        #[arg(long)]
+        source_checkpoint: PathBuf,
+        #[arg(long)]
+        collection_manifest: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Revalidate a receipt against the actual immutable dataset and source.
+    VerifyAdmission {
+        #[arg(long)]
+        data: PathBuf,
+        #[arg(long)]
+        source_checkpoint: PathBuf,
+        #[arg(long)]
+        admission: PathBuf,
+    },
+    /// Execute an explicit ordered experiment with bounded jobs and required outputs.
+    Pipeline {
+        #[arg(long)]
+        manifest: PathBuf,
+    },
 }
+#[cfg(target_os = "linux")]
+fn interrupt_flag() -> Result<Arc<AtomicBool>> {
+    let interrupted = Arc::new(AtomicBool::new(false));
+    let signal = Arc::clone(&interrupted);
+    ctrlc::set_handler(move || {
+        signal.store(true, std::sync::atomic::Ordering::Relaxed);
+    })?;
+    Ok(interrupted)
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
     match args.command {
-        Task::Hash { paths } => {
-            for path in paths { println!("{}  {}", baylee_train_ops::files::sha256(&path)?, path.display()); }
+        Task::SourceDigest { root, include } => {
+            println!(
+                "{}",
+                baylee_train_ops::digests::source_digest(&root, &include)?
+            );
         }
-        Task::Run { job, timeout, memory_gib, input, command } => {
+        Task::WriteJson { out } => {
+            let value: serde_json::Value = serde_json::from_reader(std::io::stdin().lock())?;
+            baylee_train_ops::files::atomic_json(&out, &value)?;
+        }
+        Task::Pipeline { manifest } => {
             #[cfg(target_os = "linux")]
             {
-                let interrupted = Arc::new(AtomicBool::new(false));
-                let handler = Arc::clone(&interrupted);
-                ctrlc::set_handler(move || handler.store(true, std::sync::atomic::Ordering::Relaxed))?;
-                let spec = baylee_train_ops::guard::Job { directory: job, cwd: std::env::current_dir()?, command, timeout_seconds: timeout, memory_gib, inputs: input };
-                if !baylee_train_ops::guard::run(&spec, &interrupted)? { std::process::exit(1); }
+                let interrupted = interrupt_flag()?;
+                println!(
+                    "{}",
+                    serde_json::to_string(&baylee_train_ops::pipeline::run(
+                        &manifest,
+                        &interrupted
+                    )?)?
+                );
             }
             #[cfg(not(target_os = "linux"))]
-            { let _ = (job, timeout, memory_gib, input, command); anyhow::bail!("bounded process-group jobs require Linux"); }
+            {
+                let _ = manifest;
+                anyhow::bail!("bounded pipeline requires Linux");
+            }
+        }
+        Task::AdmitPolicy {
+            data,
+            source_checkpoint,
+            collection_manifest,
+            out,
+        } => {
+            let result = baylee_train_ops::admission::admit(
+                &data,
+                &source_checkpoint,
+                &collection_manifest,
+            )?;
+            baylee_train_ops::files::atomic_json(&out, &result)?;
+            println!("{}", serde_json::to_string(&result)?);
+        }
+        Task::VerifyAdmission {
+            data,
+            source_checkpoint,
+            admission,
+        } => {
+            println!(
+                "{}",
+                serde_json::to_string(&baylee_train_ops::admission::verify(
+                    &data,
+                    &source_checkpoint,
+                    &admission
+                )?)?
+            );
+        }
+        Task::Hash { paths } => {
+            for path in paths {
+                println!(
+                    "{}  {}",
+                    baylee_train_ops::files::sha256(&path)?,
+                    path.display()
+                );
+            }
+        }
+        Task::Run {
+            job,
+            timeout,
+            memory_gib,
+            input,
+            command,
+        } => {
+            #[cfg(target_os = "linux")]
+            {
+                let interrupted = interrupt_flag()?;
+                let spec = baylee_train_ops::guard::Job {
+                    directory: job,
+                    cwd: std::env::current_dir()?,
+                    command,
+                    timeout_seconds: timeout,
+                    memory_gib,
+                    inputs: input,
+                };
+                if !baylee_train_ops::guard::run(&spec, &interrupted)? {
+                    std::process::exit(1);
+                }
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                let _ = (job, timeout, memory_gib, input, command);
+                anyhow::bail!("bounded process-group jobs require Linux");
+            }
         }
     }
     Ok(())

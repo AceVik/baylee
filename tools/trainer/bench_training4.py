@@ -19,7 +19,7 @@ import dataset4 as D
 import model4 as M
 from checkpoint4 import move_optimizer, restore_rng
 from benchmark_state4 import checkpoint_sampler
-from run_guard4 import atomic_json
+from torch_io4 import atomic_json
 from training4.execution import plan_batch, transfer_batch, encode_boards, compile_regions
 from training4.loss import compute_step_loss
 from training4.device_loss import compute_device_loss

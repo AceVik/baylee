@@ -1,9 +1,19 @@
 //! Native training administration. Rules and neural tensor math live elsewhere.
-pub mod files;
+pub mod admission;
 pub mod corpus;
-pub mod trajectory;
+pub mod digests;
 pub mod evaluation;
+pub mod files;
 #[cfg(target_os = "linux")]
 pub mod guard;
+pub mod legacy;
+#[cfg(target_os = "linux")]
+pub mod monitor;
+pub mod packages;
+#[cfg(target_os = "linux")]
+pub mod pipeline;
 #[cfg(target_os = "linux")]
 pub mod process;
+pub mod trajectory;
+#[cfg(target_os = "linux")]
+pub mod watch;

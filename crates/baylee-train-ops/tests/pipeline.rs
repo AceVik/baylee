@@ -1,0 +1,60 @@
+//! Immutable manifest/controller behavior with real bounded subprocess jobs.
+#![cfg(target_os = "linux")]
+use baylee_train_ops::{files, pipeline};
+use serde_json::{Value, json};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::atomic::AtomicBool,
+};
+
+fn setup(root: &Path, command: &str) -> PathBuf {
+    let manifest = root.join("plan.json");
+    let run = root.join("run");
+    let plan = json!({"version":1,"root":run,"cwd":env!("CARGO_MANIFEST_DIR"),"total_timeout_seconds":20.0,"stages":[{"name":"probe","command":[command],"timeout_seconds":5.0,"memory_gib":1.0,"inputs":[],"required_outputs":[run.join("jobs/probe/stdout.log")]}]});
+    files::atomic_json(&manifest, &plan).unwrap();
+    manifest
+}
+
+#[test]
+fn completed_pipeline_is_immutable_and_revalidated() {
+    let tmp = tempfile::tempdir().unwrap();
+    let manifest = setup(tmp.path(), "true");
+    let first = pipeline::run(&manifest, &AtomicBool::new(false)).unwrap();
+    assert_eq!(first["phase"], "complete");
+    assert_eq!(first["promoted"], false);
+    assert_eq!(
+        pipeline::run(&manifest, &AtomicBool::new(false)).unwrap(),
+        first
+    );
+    fs::write(tmp.path().join("run/jobs/probe/stdout.log"), b"changed").unwrap();
+    assert!(pipeline::run(&manifest, &AtomicBool::new(false)).is_err());
+}
+
+#[test]
+fn failed_pipeline_is_preserved_not_retried() {
+    let tmp = tempfile::tempdir().unwrap();
+    let manifest = setup(tmp.path(), "false");
+    assert!(pipeline::run(&manifest, &AtomicBool::new(false)).is_err());
+    let status = files::read_json(&tmp.path().join("run/status.json")).unwrap();
+    assert_eq!(status["phase"], "failed");
+    assert_eq!(status["automatic_restart"], false);
+    assert!(pipeline::run(&manifest, &AtomicBool::new(false)).is_err());
+    assert_eq!(
+        files::read_json(&tmp.path().join("run/status.json")).unwrap(),
+        status
+    );
+}
+
+#[test]
+fn invalid_names_and_missing_artifacts_fail_closed() {
+    for name in ["../escape", "missing"] {
+        let tmp = tempfile::tempdir().unwrap();
+        let manifest = setup(tmp.path(), "true");
+        let mut plan: Value = files::read_json(&manifest).unwrap();
+        plan["stages"][0]["name"] = json!(name);
+        plan["stages"][0]["required_outputs"] = json!([tmp.path().join("absent.pt")]);
+        files::atomic_json(&manifest, &plan).unwrap();
+        assert!(pipeline::run(&manifest, &AtomicBool::new(false)).is_err());
+    }
+}

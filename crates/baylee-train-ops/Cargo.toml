@@ -23,6 +23,7 @@ time.workspace = true
 icu_casemap.workspace = true
 csv.workspace = true
 ureq.workspace = true
+tempfile.workspace = true
 ctrlc = { workspace = true, features = ["termination"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -34,6 +35,10 @@ tempfile.workspace = true
 [[bin]]
 name = "train_ops"
 path = "src/main.rs"
+
+[[bin]]
+name = "watch_run4"
+path = "src/bin/watch_run4.rs"
 
 [[bin]]
 name = "summarize_eval4"
