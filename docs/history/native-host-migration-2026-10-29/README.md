@@ -76,3 +76,12 @@ collector. It verifies input seals, the designated active private gateway unit,
 its child UID/parent/executable/birth identity and endpoint configuration before
 reading the private token into memory and replacing itself with the collector.
 Errors remain opaque. It does not start or mutate the gateway.
+
+Historical timestamp integrity is covered by the `serde_json/float_roundtrip`
+feature and repeated read/write regression cases taken from the deployed
+ledgers. `collector_ops4 repair-ledger --state PATH --backup PATH --lock PATH
+--out RECEIPT` audits a comparison under the existing monitor lock; `--apply`
+restores only timestamp fields proven to differ by one floating-point ULP.
+Missing delivery IDs, changed receipt payloads or larger differences are refused.
+New delivery entries and all other current state are preserved. This command
+never queues notifications or starts a controller.
