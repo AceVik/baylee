@@ -4,6 +4,11 @@
   "policy": "Only PyTorch responsibilities remain Python. Import classification is an inventory, not a retention approval.",
   "audit_status": "The files array preserves the initial inventory, including retired paths. The replacement map and audited responsibilities below record follow-up decisions; unreviewed support modules are not approved for retention.",
   "audited_responsibilities": {
+    "tools/trainer/training4/bc_mixture/cycling.py": "Mixed tensor-sampler boundary: invokes chronological PyTorch sampler passes, but fixed-budget cycling receipt/count bookkeeping remains a native extraction candidate.",
+    "tools/trainer/value_calibration4/metrics.py": "Mixed: Torch prediction execution retained; NumPy trajectory-weight/calibration aggregation remains a native extraction candidate.",
+    "tools/trainer/training4/diagnostics/stats.py": "Mixed: on-device Torch step_statistics retained; Collector host aggregation remains a native extraction candidate.",
+    "tools/trainer/training4/optimizer_groups.py": "Retained Torch parameter/optimizer scheduling: inspects net.named_parameters and requires_grad, partitions AdamW groups, sets optimizer learning rates and checks the corresponding continuation protocol.",
+    "tools/trainer/train4.py, tools/trainer/train5.py, tools/trainer/train_policy4.py, tools/trainer/calibrate_value4.py, tools/trainer/bench_training5.py": "Thin compatibility entry points into PyTorch training/calibration/benchmark execution, with no independent orchestration implementation.",
     "tools/trainer/training4/diagnostics/data.py": "Retained DiagnosticDataset tensor metadata decoding/construction and thin Provenance adapter; source-marker scanning, file receipts, namespace identity and completed-job format binding delegated to native diagnostic-provenance.",
     "tools/trainer/training4/package_state.py": "Retained: torch.load, model/optimizer state restoration and tensor device migration at package boundaries.",
     "tools/trainer/benchmark_state4.py": "Retained: instantiate and restore the PyTorch recurrent trajectory batch sampler used with checkpoint memory.",
