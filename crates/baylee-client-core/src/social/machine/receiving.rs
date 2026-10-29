@@ -94,6 +94,7 @@ impl Social {
                     conv: Some(conv),
                     actions: Vec::new(),
                     until_answered: false,
+                    about: None,
                 }));
             }
             if let Some(cue) = notify.sound {
@@ -356,6 +357,7 @@ impl Social {
                     conv: Some(conv.clone()),
                     actions: Vec::new(),
                     until_answered: false,
+                    about: None,
                 }));
             }
             if let Some(cue) = notify.sound {
@@ -420,10 +422,14 @@ impl Social {
                 ),
                 (
                     ToastButton::NotNow,
-                    Intent::AnswerInvite { id, accept: false },
+                    Intent::AnswerInvite {
+                        id: id.clone(),
+                        accept: false,
+                    },
                 ),
             ],
             until_answered: true,
+            about: Some(ToastAbout::TableInvite(id)),
         }));
         if self.status != Status::Dnd {
             out.push(Effect::Sound(ChatCue::FriendRequest));

@@ -30611,6 +30611,14 @@ components:
         group:
           $ref: "#/components/schemas/GroupInfo"
           description: The group as it is now.
+        inviter:
+          anyOf:
+          - $ref: "#/components/schemas/Person"
+          - type: "null"
+          description: >-
+            Who invited this account, on `invited`, so its client can list the invite at
+            once; absent on every other event, and from a gateway older than this field, whose
+            client lists the invite from the next `snapshot`.
       required:
       - t
       - event

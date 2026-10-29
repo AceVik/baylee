@@ -28,6 +28,7 @@ fn app() -> App {
                     conv: Some(conversation()),
                     actions: Vec::new(),
                     until_answered: true,
+                    about: None,
                 },
                 0.0,
             )],
@@ -160,5 +161,41 @@ fn a_toast_rebuilt_between_down_and_up_cannot_answer_a_different_toast() {
     assert_eq!(
         app.world().resource::<SocialHost>().asks,
         [UiAsk::Open(conversation())]
+    );
+}
+
+/// A toast that waits for an answer goes once what it asks is withdrawn (a
+/// request accepted in the drawer), and the others stay.
+#[test]
+fn an_answered_request_takes_its_toast_away() {
+    let asking = |n: u64, about: Option<ToastAbout>| {
+        (
+            n,
+            ChatToast {
+                phrase: ChatPhrase::ToastFriendRequest,
+                args: Vec::new(),
+                conv: None,
+                actions: Vec::new(),
+                until_answered: true,
+                about,
+            },
+            0.0,
+        )
+    };
+    let mut standing = vec![
+        asking(1, Some(ToastAbout::FriendRequest("0001".into()))),
+        asking(2, Some(ToastAbout::GroupInvite("g".into()))),
+        asking(3, None),
+    ];
+    let gone = [ToastAbout::FriendRequest("0001".into())];
+    assert!(withdraw_answered(&mut standing, &gone));
+    assert_eq!(
+        standing.iter().map(|(n, ..)| *n).collect::<Vec<_>>(),
+        [2, 3],
+        "the answered request went; the open invite and the plain toast stayed"
+    );
+    assert!(
+        !withdraw_answered(&mut standing, &gone),
+        "nothing more to take"
     );
 }

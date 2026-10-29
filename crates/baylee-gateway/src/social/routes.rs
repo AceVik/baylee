@@ -940,6 +940,7 @@ async fn group_moved(state: &Shared, id: Uuid, notice: Option<Notice>) {
         &Down::Group {
             event: GroupEvent::Updated,
             group: info,
+            inviter: None,
         },
     );
     if let Some(notice) = notice {
@@ -999,6 +1000,7 @@ async fn create_group(
             &Down::Group {
                 event: GroupEvent::Joined,
                 group: group_info(&group),
+                inviter: None,
             },
         );
     }
@@ -1098,11 +1100,15 @@ async fn invite_to_group(
     {
         db::GroupInvited::Done => {
             if let Ok(Some(now)) = db::group(&state.db, group.id).await {
+                // Who invited, so the invitee's client lists the invite at
+                // once rather than at its next snapshot.
+                let inviter = me(&state, &caller).await.ok().map(|who| person(&who));
                 state.social.push(
                     &invitee.id.to_string(),
                     &Down::Group {
                         event: GroupEvent::Invited,
                         group: group_info(&now),
+                        inviter,
                     },
                 );
             }
@@ -1150,6 +1156,7 @@ async fn join_group(
                     &Down::Group {
                         event: GroupEvent::Joined,
                         group: group_info(&now),
+                        inviter: None,
                     },
                 );
             }
@@ -1212,6 +1219,7 @@ async fn drop_group_invite(
         &Down::Group {
             event: GroupEvent::InviteGone,
             group: group_info(&group),
+            inviter: None,
         },
     );
     group_moved(&state, group.id, None).await;
@@ -1261,6 +1269,7 @@ async fn remove_member(
         &Down::Group {
             event: GroupEvent::Left,
             group: group_info(&group),
+            inviter: None,
         },
     );
     group_left(&state, &group, owner_before, &leaving).await;
@@ -1279,6 +1288,7 @@ async fn group_left(state: &Shared, group: &db::Group, owner_before: Option<Uuid
             &Down::Group {
                 event: GroupEvent::Deleted,
                 group: group_info(group),
+                inviter: None,
             },
         );
         return;
@@ -1387,6 +1397,7 @@ async fn delete_group(
         &Down::Group {
             event: GroupEvent::Deleted,
             group: group_info(&group),
+            inviter: None,
         },
     );
     Ok(StatusCode::NO_CONTENT)

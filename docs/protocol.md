@@ -3396,7 +3396,10 @@ its one device, fetch keys, block, set its settings and report.
 Group changes reach every member as `group` frames (`joined`, `updated`,
 `left`, `invited`, `invite_gone`, `deleted`) and, for joins, departures,
 renames and new owners, as `notice` lines the client draws as server
-notices. An owner who leaves or is deleted hands the group to the member who
+notices. An `invited` frame also names its `inviter` (a `Person`, since
+29.10.2026), so the invitee's client lists the invite in its drawer at once;
+an older gateway sends none, and that client lists it from its next
+`snapshot`. An owner who leaves or is deleted hands the group to the member who
 joined first; a group nobody is left in is deleted.
 
 **Table invites** live ten minutes in the gateway's memory.
