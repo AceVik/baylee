@@ -43,7 +43,8 @@ pub struct Settings {
 }
 
 impl Settings {
-    /// Reads the same four optional environment overrides as `runner.sh`.
+    /// Reads the four optional overrides `BAYLEE_RUNNER_REPO`,
+    /// `BAYLEE_RUNNER_IMAGE`, `BAYLEE_RUNNER_BASE` and `BAYLEE_CARGO_LOCK`.
     #[must_use]
     pub fn from_env() -> Self {
         let mut settings = Self::default();

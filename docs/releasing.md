@@ -346,7 +346,7 @@ job writes a table of them into the release notes
 | x86_64 / aarch64 Linux | `Baylee-<version>-{x86_64,aarch64}.AppImage` | appimagetool 1.9.1, type2 runtime 20251108 |
 | x86_64 / aarch64 Linux | `baylee_<version>_{amd64,arm64}.deb` | the runner's `dpkg-deb` |
 
-In `client-packages.yml`, after `package-client.sh`,
+In `client-packages.yml`, after `cargo tools package client`,
 `cargo tools installers tools` checks the macOS system tools or fetches the
 Windows/Linux tools (each download pinned by version and SHA-256), `cargo tools package installers` wraps the staged tree, and
 `cargo tools release check-installers --install` installs each one on the
@@ -378,7 +378,7 @@ Where each platform finds it:
   whose pin would bypass the launcher. The launcher starts the client with
   `CREATE_NO_WINDOW`, so no console window opens beside it. The setup, its
   uninstaller, the shortcuts and Settings → Apps use the `.ico` file.
-  `check-installers.sh` reads both executables' resource tables
+  `cargo tools release check-installers` reads both executables' resource tables
   (`baylee-tools release pe-icon`) before it installs anything.
 - **Linux**: `baylee.desktop` (`Icon=baylee`, `StartupWMClass=baylee`) and
   the hicolor sizes in the `.deb` and inside the AppImage (plus its
@@ -392,7 +392,7 @@ What each installer does, and whether the client then updates itself
 original package, or beside the AppImage file):
 
 - **dmg**: the classic window, Baylee.app and a link to `/Applications`. The
-  app keeps package-client.sh's ad hoc signature; a copy dragged to
+  app keeps the ad hoc signature `cargo tools package client` gave it; a copy dragged to
   `/Applications` is writable for an administrator account (the default),
   so it updates itself. Started straight from a downloaded image, macOS
   translocates it and it still updates into its per-user state, keyed by
@@ -427,12 +427,12 @@ launcher starts the original whenever its own version is at least that of
 app: `x86_64-apple-darwin` is a sixth row of `client-packages.yml`,
 cross-compiled on the arm `macos-latest` runner (the macOS SDK carries both
 slices, so `rustup target add` is all it needs), packed by the same
-`package-client.sh` (ad hoc signature, `Baylee.app`) into
+`cargo tools package client` (ad hoc signature, `Baylee.app`) into
 `baylee-client-<version>-x86_64-apple-darwin.zip` and
 `Baylee-<version>-x86_64.dmg`. GitHub's x86_64 macOS images are retiring
 (`macos-13` sat 91 minutes in `queued` after its retirement;
 `macos-15-intel` is the last, until 2027), so the row does not depend on
-one: `check-installers.sh --install` starts the Intel app under Rosetta 2,
+one: `cargo tools release check-installers --install` starts the Intel app under Rosetta 2,
 which the row installs if the image lacks it, and checks with `lipo` that
 every program in each dmg is its target's one slice. The updater needs no
 change for it: a build asks for the archive of the target it was compiled
@@ -506,8 +506,9 @@ older builds update by hand once.
 
 ## Desktop launcher and recovery
 
-`package-client.sh` requires both the Bevy client and `baylee-launch` in
-its input directory. The main CI package workflow builds both with the dist profile.
+`cargo tools package client` requires the Bevy client, `baylee-launch` and
+`baylee-seat` in its input directory. The main CI package workflow builds all
+three with the dist profile (`cargo build-client`).
 On macOS both live in `Baylee.app/Contents/MacOS`; `CFBundleExecutable`
 continues to name `baylee-client`, now the launcher. The runtime is signed
 before the enclosing bundle. Automatic updates never alter this original

@@ -8,8 +8,8 @@ description: Drive, photograph and record the Bevy desktop client through its lo
 Read `docs/client.md` §"Driving the client without its window" for the full
 protocol and §"Recording real render frames" for capture limits. The harness
 is in `crates/baylee-client/src/devctl.rs`, compiled only with `dev-control`.
-The native Rust helper is `cargo run --profile tools -p baylee-tools -- …` (or
-`scripts/baylee-tools …`); Python and Pillow are not needed. The PyTorch
+The native Rust helper is `cargo tools …` (the alias for
+`cargo run --locked --profile tools -p baylee-tools -- …`); Python and Pillow are not needed. The PyTorch
 trainer under `tools/trainer` is a separate, intentionally Python workflow.
 
 ## Start an isolated, silent client
