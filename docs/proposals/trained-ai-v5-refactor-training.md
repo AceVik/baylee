@@ -45,7 +45,16 @@ die Rust-Supervisoren. Eine verwaiste Collector-Partie wurde nach Prüfung von
 Prozesszuordnung, Stop-Marker und fehlenden Spielern aufgeräumt; ihre unvollständige
 Aufzeichnung bleibt ohne erfundenes Ergebnis vom Training ausgeschlossen.
 Fünf alte Controller sind mit gesicherten Originalen maskiert.
-Die abschließenden Gates laufen noch.
+Der erste E1-Vergleich und zwei vorab festgelegte Wiederholungen sind abgeschlossen:
+der reparierte Kontext senkt in allen drei Paaren den Choice-NLL, verbessert aber
+hauptsächlich Pass-Ziele; die Treffer auf Nicht-Pass-Ziele fallen in allen drei
+Paaren. Das ist kein Spielstärkennachweis. Der
+[Umsetzungs- und Forschungsbericht](../history/trained-ai-v5-rust-refactor-2026-10-29.md)
+enthält Dosis, Prüfergebnisse und getrennte Fehlversuche.
+Die Gates fanden außerdem eine Deployment-Reihenfolge, die mit dem neuen
+Aufräumen unvereinbar war. Die Korrektur hält neue Partien zurück und lässt
+laufende Spiele enden, bevor ihr Agent gestoppt wird; die vollständigen Gates
+werden auf diesem Stand wiederholt.
 Der alte Dauerlauf bleibt gestoppt; kein neues Modell ist freigegeben.
 
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;
@@ -557,18 +566,19 @@ Regressionstest und werden vor erneuter Zulassung repariert. Zugehörige Engine-
 und Seat-Prozesse werden auch bei Fehlern beendet und ihr Ende geprüft.
 Fehlgeschlagene Artefakte bleiben erhalten; kein blinder automatischer Retry.
 
-**Nächster Schritt:** Rust-Betriebsumstellung und unabhängige Gegenprüfung
-abschließen und den begrenzten E1-Kopfvergleich auswerten. Der versiegelte
-Pilot enthält 32 vollständige Trainingspartien, 66.739 Frames und 64
+**Nächster Schritt:** Die vollständigen Gates abschließen und den vorab bestimmten
+ursprünglichen E1-Paarvergleich in Partien gegen Sharp auswerten. Keine weiteren
+BC-Updates allein wegen eines besseren aggregierten NLL. Der abgeschlossene,
+versiegelte Pilot enthält 32 vollständige Trainingspartien, 66.739 Frames und 64
 Sitzhistorien; fünf getrennte, bereits bekannte Entwicklungspartien sind
-Validierung, kein finaler Holdout. Beide Arme starten aus demselben d640-
+Validierung, kein finaler Holdout. Beide Arme starteten aus demselben d640-
 R6-Modell mit zwölf Schichten, frischem Adam, K2 und einem vollständigen
-Datendurchlauf. Nur die Köpfe werden trainiert; dies isoliert die Reparatur
+Datendurchlauf. Nur die Köpfe wurden trainiert; dies isoliert die Reparatur
 und prüft kein Full-Model-Lernen. E0 hat die echte vollständige Datenkette bestanden;
 der vollständige E3-Gegnerpool bleibt ein eigener Versuch. Ein FP32-Backward-
 Test mit d640, acht Schichten, zehn Köpfen, B8/U32 und K2 benötigte 2,67 GiB
 reservierten VRAM; er verwendete einen synthetischen Katalog und ist ausdrücklich
-keine Kapazitätsgarantie für echte große Boards/Kataloge. Vor dem Lernpilot folgt
+keine Kapazitätsgarantie für echte große Boards/Kataloge. Vor dem Lernpilot erfolgte
 deshalb eine Messung mit seinen tatsächlichen Daten. Diese neue Messung bestand
 für beide Kandidatenrevisionen: echte Backwards, rund 0,93 GB maximal belegter
 VRAM, keine Optimizer-Updates und keine angelegten Adam-Momente. Das ist keine
