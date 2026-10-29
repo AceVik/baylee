@@ -1917,9 +1917,12 @@ reader of that spelling. The secrets are unchanged: the socket's permissions
 are a second fence, not a replacement for `BAYLEE_AGENT_TOKEN`.
 
 An agent that came in on the socket is **local**, and so is every game it is
-ordered to run; the game keeps that mark after its agent has gone. `/health`
-counts them apart as `games.local_running`, because that is what a deploy of
-this machine waits for (`baylee-deploy`, crate baylee-ops): replacing this
+ordered to run; the game keeps that provenance after its agent has gone.
+Losing the agent's control link closes its assignments, and the agent stops
+and reaps its engines before reconnecting. `/health` counts only still-running
+local games in `games.local_running`. A graceful deploy or reboot must hold
+new admission and drain those games **before** stopping their agent. Stopping
+the agent is not a way to drain games without interruption. Replacing this
 machine's agent and engine binary does not end a game an agent elsewhere is
 running. Replacing the gateway still ends every game, local or not, since
 every engine's link runs through it.
