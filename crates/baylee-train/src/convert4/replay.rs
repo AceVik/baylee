@@ -86,12 +86,83 @@ pub(super) fn replay_frames_modes(
     game_id: u32,
     include_passive_obs: bool,
     sidecar: Option<&[RolloutStepSidecar4]>,
+    shadow: Option<&mut super::shadow_bc::ShadowBc4>,
+    llm: Option<&mut super::llm_bc::LlmBc4>,
+    live_bc: bool,
+    encoder_version: u32,
+    emit: impl FnMut(Step4, i32) -> Result<(), String>,
+) -> Result<ReplaySummary, String> {
+    let replay = replay_feature_frames(
+        record,
+        game_id,
+        include_passive_obs,
+        sidecar,
+        shadow,
+        llm,
+        live_bc,
+        encoder_version,
+        FeaturePurpose::Ordinary,
+        emit,
+    )?;
+    Ok(ReplaySummary {
+        coverage: replay.coverage,
+        unencoded_decisions: replay.unencoded_decisions,
+        targets: replay
+            .targets
+            .ok_or("ordinary replay lacks a verified natural terminal")?,
+    })
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Explicit feature replay mode retains existing observation ordering"
+)]
+pub(super) fn replay_research_frames(
+    record: &[u8],
+    game_id: u32,
+    sidecar: &[RolloutStepSidecar4],
+    encoder: u32,
+    natural: bool,
+    emit: impl FnMut(Step4, i32) -> Result<(), String>,
+) -> Result<super::streaming::FeatureReplaySummary, String> {
+    replay_feature_frames(
+        record,
+        game_id,
+        true,
+        Some(sidecar),
+        None,
+        None,
+        false,
+        encoder,
+        FeaturePurpose::Research { natural },
+        emit,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum FeaturePurpose {
+    Ordinary,
+    Research { natural: bool },
+}
+
+#[allow(
+    clippy::too_many_lines,
+    clippy::too_many_arguments,
+    clippy::cast_precision_loss,
+    reason = "Shared chronological feature replay; only explicit research prefix mode omits natural targets"
+)]
+fn replay_feature_frames(
+    record: &[u8],
+    game_id: u32,
+    include_passive_obs: bool,
+    sidecar: Option<&[RolloutStepSidecar4]>,
     mut shadow: Option<&mut super::shadow_bc::ShadowBc4>,
     mut llm: Option<&mut super::llm_bc::LlmBc4>,
     live_bc: bool,
     encoder_version: u32,
+    purpose: FeaturePurpose,
     mut emit: impl FnMut(Step4, i32) -> Result<(), String>,
-) -> Result<ReplaySummary, String> {
+) -> Result<super::streaming::FeatureReplaySummary, String> {
     if !matches!(encoder_version, 7..=9) {
         return Err("Unsupported encoder version".into());
     }
@@ -339,12 +410,28 @@ pub(super) fn replay_frames_modes(
                         _ => SourceKind4::House,
                     };
                     let mut prov = if let Some(sc_entry) = cur_sidecar {
-                        if !sc_entry.free_mask.is_empty()
+                        if matches!(purpose, FeaturePurpose::Research { .. }) {
+                            if sc_entry.free_mask.len() != target.multi_mask.len()
+                                || sc_entry.free_mask.iter().any(|&bit| bit > 1)
+                                || sc_entry
+                                    .pick_sequence
+                                    .iter()
+                                    .any(|&pick| usize::from(pick) >= target.multi_mask.len())
+                            {
+                                return Err(
+                                    "research original action mask/sequence is incompatible".into(),
+                                );
+                            }
+                            target.free_mask.clone_from(&sc_entry.free_mask);
+                            target.pick_sequence.clone_from(&sc_entry.pick_sequence);
+                        } else if !sc_entry.free_mask.is_empty()
                             && sc_entry.free_mask.len() == target.multi_mask.len()
                         {
                             target.free_mask.clone_from(&sc_entry.free_mask);
                         }
-                        if !sc_entry.pick_sequence.is_empty() {
+                        if matches!(purpose, FeaturePurpose::Ordinary)
+                            && !sc_entry.pick_sequence.is_empty()
+                        {
                             target.pick_sequence.clone_from(&sc_entry.pick_sequence);
                         }
                         sc_entry.provenance
@@ -493,11 +580,11 @@ pub(super) fn replay_frames_modes(
         labels.finish()?;
     }
 
-    let Some(winners) = winners else {
+    if winners.is_none() && !matches!(purpose, FeaturePurpose::Research { natural: false }) {
         return Err("record has no End line".to_owned());
-    };
-    if !matches!(session.pending(), Pending::GameOver(_)) {
-        return Err("record ended before Pending::GameOver".to_owned());
+    }
+    if winners.is_some() != matches!(session.pending(), Pending::GameOver(_)) {
+        return Err("record terminal marker differs from Pending::GameOver".to_owned());
     }
 
     // Compute final life totals and surviving seats for side_utility + AuxTargets4
@@ -512,18 +599,21 @@ pub(super) fn replay_frames_modes(
         }
     }
 
-    Ok(ReplaySummary {
+    Ok(super::streaming::FeatureReplaySummary {
         coverage,
         unencoded_decisions,
-        targets: Targets::new(
-            seat_count,
-            &teams,
-            &surviving_seats,
-            &winners,
-            final_turn,
-            final_lives,
-            session.snapshot_hash(),
-        ),
+        targets: winners.map(|winners| {
+            Targets::new(
+                seat_count,
+                &teams,
+                &surviving_seats,
+                &winners,
+                final_turn,
+                final_lives,
+                session.snapshot_hash(),
+            )
+        }),
+        snapshot_hash: session.snapshot_hash(),
     })
 }
 

@@ -185,6 +185,7 @@ pub fn extract_game4_with_sidecar(
 mod idle_pass;
 pub mod llm_bc;
 mod replay;
+pub mod research;
 pub mod shadow_bc;
 mod streaming;
 pub use streaming::{

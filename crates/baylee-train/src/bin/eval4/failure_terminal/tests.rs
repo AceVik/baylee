@@ -3,7 +3,11 @@ use baylee_core::{
     ids::PrintRef,
     preset::{AIProfile, DeckEntry},
 };
-use baylee_train::features4::StepProvenance4;
+use baylee_train as train;
+use baylee_train::features4::{HeadKind4, StepProvenance4};
+#[allow(dead_code)]
+#[path = "../../../../tests/support/research.rs"]
+mod research_fixtures;
 
 const OWNER: PlayerId = PlayerId::new(0);
 const OTHER: PlayerId = PlayerId::new(1);
@@ -44,20 +48,26 @@ fn entry(name: &str) -> DeckEntry {
 
 fn act(session: &mut Session, sidecar: &mut Samples, action: PlayerAction) {
     let seat = session.pending().asked().unwrap();
-    let stochastic = matches!(
-        action,
-        PlayerAction::CastSpell { .. } | PlayerAction::ChooseTargets { .. }
-    );
+    let (pending, view) = session.view_for_with_context(seat).unwrap();
+    let state = baylee_train::features7::encode_state7(&view, Some(&pending), None, &[None, None]);
+    let menu = baylee_train::features7::encode_candidates7_grouped(&state, &view, &pending);
+    let forced = match menu.head {
+        HeadKind4::SingleChoice => menu.candidates.len() <= 1,
+        HeadKind4::SubsetPick => menu.candidates.is_empty(),
+        HeadKind4::PairPick => menu.pairs.is_empty(),
+        HeadKind4::ScalarValue => menu.max_choices <= menu.min_choices,
+    };
+    let stochastic = !forced && menu.head != HeadKind4::ScalarValue;
     let step = RolloutStepSidecar4 {
         provenance: StepProvenance4 {
-            source: if stochastic {
-                SourceKind4::Net
-            } else {
+            source: if forced {
                 SourceKind4::Forced
+            } else {
+                SourceKind4::Net
             },
             has_logprob: stochastic,
             temperature: 0.7,
-            thinking_steps: if stochastic { 2 } else { 0 },
+            thinking_steps: if forced { 0 } else { 2 },
             behavior_logprob: if stochastic { -0.7 } else { 0.0 },
         },
         free_mask: vec![],
@@ -329,6 +339,10 @@ fn record_role_sidecar_and_boundary_tampering_are_rejected() {
 }
 
 #[test]
+#[allow(
+    clippy::too_many_lines,
+    reason = "End-to-end no-recovery fixture with an explicit fake policy"
+)]
 fn collector_stops_before_applying_internal_house_proposal() {
     use crate::{CoverageMatrix4, EvaluationPlayer, play_one_table};
     struct Recovery(CoverageMatrix4, bool);
@@ -435,33 +449,33 @@ fn collector_stops_before_applying_internal_house_proposal() {
 
 #[test]
 fn scalar_net_frames_keep_their_absent_actor_probability() {
-    let (mut session, mut samples, card) = fixture();
-    cast(&mut session, &mut samples, card);
-    let last = samples.steps.last_mut().unwrap();
-    last.provenance.source = SourceKind4::Net;
-    last.provenance.thinking_steps = 2;
-    // A deterministic scalar regression answer is observed, never promoted to
-    // a categorical actor sample, even when its source is Net.
-    let raw = session.take_record();
-    let (_, _, _, bindings) = replay(&raw, &samples, None, 7, 0).unwrap();
-    let hash = boundary_view_hash(&session, OWNER, 7).unwrap();
-    let result = stop(
-        &raw,
-        &samples,
-        &bindings,
+    let fixture = research_fixtures::natural_episode(0);
+    baylee_train::failure_terminal::verify_episode(
+        &fixture.record,
+        &fixture.sidecar,
+        &fixture.episode,
         7,
         0,
-        OWNER,
-        false,
-        "answer_cap",
-        hash,
-        None,
-        session.snapshot_hash(),
     )
     .unwrap();
-    assert_eq!(result["termination_kind"], "unknown");
-    assert!(!samples.last().unwrap().provenance.has_logprob);
-    let mut invalid = samples.steps.clone();
+    assert!(
+        fixture
+            .sidecar
+            .iter()
+            .any(|step| step.provenance.source == SourceKind4::Net
+                && !step.provenance.has_logprob
+                && step.provenance.behavior_logprob == 0.0)
+    );
+    let mut invalid = fixture.sidecar.clone();
     invalid[0].provenance.behavior_logprob = f32::NAN;
-    assert!(replay(&raw, &invalid, None, 7, 0).is_err());
+    assert!(
+        baylee_train::failure_terminal::verify_episode(
+            &fixture.record,
+            &invalid,
+            &fixture.episode,
+            7,
+            0,
+        )
+        .is_err()
+    );
 }

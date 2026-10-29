@@ -279,7 +279,7 @@ pub(super) fn publish(
     Ok(())
 }
 
-fn digest(value: &Value) -> anyhow::Result<String> {
+pub(super) fn digest(value: &Value) -> anyhow::Result<String> {
     let value = value.as_str().context("missing digest")?;
     ensure!(
         value.len() == 64
@@ -291,7 +291,7 @@ fn digest(value: &Value) -> anyhow::Result<String> {
     Ok(value.to_owned())
 }
 
-fn check_model(model: &Value) -> anyhow::Result<String> {
+pub(super) fn check_model(model: &Value) -> anyhow::Result<String> {
     for key in ["source_checkpoint_sha256", "onnx_sha256", "metadata_sha256"] {
         digest(&model[key])?;
     }

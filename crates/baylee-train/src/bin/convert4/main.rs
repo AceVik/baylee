@@ -123,6 +123,7 @@ mod llm;
 mod on_policy;
 mod output;
 mod policy_provenance;
+mod research;
 mod shadow;
 use output::{GameWriter, publish_ready};
 
@@ -131,6 +132,12 @@ use output::{GameWriter, publish_ready};
     reason = "Conversion setup, workers and immutable output manifest"
 )]
 fn main() -> anyhow::Result<()> {
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|arg| arg == "research")
+    {
+        return research::run();
+    }
     let args = Args::parse();
     if args.encoder_version == 9 && (args.shadow_bc || args.llm_bc) {
         bail!("Encoder9 shadow and LLM labels are not supported");

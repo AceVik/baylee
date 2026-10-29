@@ -11,6 +11,8 @@ use baylee_gamehost::{
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
+mod provenance;
+
 /// Immutable native research target descriptor.
 pub fn contract() -> Value {
     json!({"name":"failure_terminal_research_v1","predicate":"repeated_view_two_replayed_announcement_rollbacks_v1",
@@ -124,6 +126,15 @@ pub fn replay(
         session.take_over(PlayerId::new(u8::try_from(seat)?));
     }
     let mut attempts: Vec<Option<Attempt>> = (0..preset.seats.len()).map(|_| None).collect();
+    let teams: Vec<_> = preset.seats.iter().map(|seat| seat.team).collect();
+    let mut knowledge = (0..preset.seats.len())
+        .map(|seat| {
+            Ok(crate::features4::SeatKnowledge4::from_preset(
+                preset,
+                PlayerId::new(u8::try_from(seat)?),
+            ))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
     let mut rollbacks = Vec::new();
     let mut samples = 0;
     let mut last_n = 0;
@@ -152,30 +163,23 @@ pub fn replay(
                     matches!(provenance.source, SourceKind4::Net | SourceKind4::Forced),
                     "recovery source in research prefix"
                 );
-                ensure!(
-                    match provenance.source {
-                        SourceKind4::Forced =>
-                            !provenance.has_logprob && provenance.behavior_logprob == 0.0,
-                        SourceKind4::Net =>
-                            (provenance.has_logprob
-                                || (matches!(session.pending(), Pending::ChooseNumber { .. })
-                                    && matches!(action, PlayerAction::ChooseNumber(_))
-                                    && provenance.behavior_logprob == 0.0))
-                                && provenance.behavior_logprob.is_finite()
-                                && provenance.behavior_logprob <= 0.0
-                                && provenance.thinking_steps == 2
-                                && (provenance.temperature - 0.7).abs() < 1e-6,
-                        _ => false,
-                    },
-                    "invalid research behavior provenance at input {n}: {provenance:?}"
-                );
                 samples += 1;
                 let player = PlayerId::new(*seat);
                 let index = usize::from(*seat);
                 ensure!(index < attempts.len(), "research seat outside roster");
                 let mut binding =
                     sample_binding(&session, player, encoder, action, &sidecar[samples - 1])?;
-                let (_, view, view_hash) = observed(&session, player, encoder)?;
+                let (pending, view, view_hash) = observed(&session, player, encoder)?;
+                provenance::observe_all(&session, encoder, &mut knowledge);
+                provenance::validate(
+                    encoder,
+                    &view,
+                    &pending,
+                    &knowledge[index],
+                    &teams,
+                    provenance,
+                )
+                .with_context(|| format!("research provenance at input {n}"))?;
                 if let PlayerAction::CastSpell { card } = action {
                     attempts[index] = Some(Attempt {
                         source: *card,
@@ -337,3 +341,6 @@ pub fn sha(bytes: &[u8]) -> String {
     }
     result
 }
+
+mod episode;
+pub use episode::{ResearchReturn, VerifiedEpisode, verify_episode};

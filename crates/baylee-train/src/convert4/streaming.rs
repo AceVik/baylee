@@ -68,6 +68,13 @@ pub(super) struct ReplaySummary {
     pub targets: Targets,
 }
 
+pub(super) struct FeatureReplaySummary {
+    pub coverage: CoverageMatrix4,
+    pub unencoded_decisions: u64,
+    pub targets: Option<Targets>,
+    pub snapshot_hash: u64,
+}
+
 /// Counters from a conversion retaining at most one encoded frame per seat.
 #[derive(Debug)]
 pub struct StreamedGame4 {
