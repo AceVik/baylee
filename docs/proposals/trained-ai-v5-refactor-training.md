@@ -153,6 +153,19 @@ Der Stand und die nächste Reihenfolge lauten:
    Ein Artefaktcheck stoppte den ersten Vergleich nach zwei Spielen; nur die
    beiden ungestarteten Fälle wurden anschließend ausgeführt. Kein erneuter
    Lauf bereits gespielter Fälle und keine nachträgliche Auswahl.
+7. **Full-PPO-Vorprobe abgeschlossen:** Vom ursprünglichen R6/E7 aus wurden
+   acht von acht begrenzten Updates akzeptiert, mit frischem Optimizer und
+   unveränderten Daten-/Architektur-/Belohnungsverträgen. 311 von 566 Tensoren
+   änderten sich, einschließlich Trunk, relationalem Modul und Gedächtnis.
+   Finale KL über die gesamte Sammlung: `4,00522484e-5`. Die Updates selbst
+   umfassten 131 Lernerentscheidungen in 512 Frames; die vollständigen 1.575
+   Entscheidungen wurden vor und während des Lernens geprüft. Keine volle
+   Epoche und noch kein Spielstärkennachweis. Laufzeit 988,33 Sekunden,
+   maximal 2,51 GiB reservierter VRAM, keine Allocator-Retries. Der nächste
+   getrennte Schritt ist ein Vergleich auf 16 neuen Entwicklungsfällen je
+   Modell mit gleichen Seeds und vertauschten Sitzen. Betriebsstand,
+   Fehlversuche und Übernahme sind im [Trainingshandbuch](../training-runbook.md)
+   und der [aktuellen Übergabe](../history/training-handover-2026-10-29.md) verlinkt.
 
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;
 historische Aussagen „noch nicht implementiert“ sind durch diesen Stand ersetzt.

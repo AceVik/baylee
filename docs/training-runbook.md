@@ -21,7 +21,7 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current training direction | A new bounded **full-model E7/R6 FP32 PPO pilot** on the original eight admitted games, separate from the old BC loop and the completed head-only update; follow `active-training.json`, then verify the named manifest/status |
+| Current training direction | The bounded **full-model E7/R6 FP32 PPO pilot** completed with eight accepted updates. Follow `active-training.json` to its review and `active-cpu-followup.json` to the separately bounded gameplay comparison; verify actual status before restarting anything |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
@@ -195,6 +195,15 @@ The guard isolates child process groups, sums proportional memory (PSS),
 enforces deadlines/memory bounds, and cleans owned descendants before reaping
 their leader. A terminal file proves only its declared stage contract; inspect
 the worker's acceptance and coverage report too.
+
+For an isolated CPU follow-up using `bwrap`, test the actual mount/environment
+map before launching the pipeline. On this host, a read-only bind of the host
+root passed all input hashes but AppArmor denied writable `/dev/null` access:
+even Git source-identity subprocess startup failed before export. A private
+standard device mount (`--dev /dev`) fixed it while retaining read-only inputs
+and the enforcing profile, and also omitted host GPU device nodes. This is a
+CPU-only recipe, not a CUDA launch configuration. Preserve the failed attempt
+and test the narrow correction in a fresh UUIDv7 run with the same cases.
 
 There is one GPU owner at a time. Keep CPU collection/conversion threads and
 RAM finite so the gateway/input remain responsive; initial native collection
@@ -371,6 +380,7 @@ are evidence, not permission to reinterpret old data.
 | E1 supervised improvements were dominated by pass behavior and reused development data | Per-head/source active-choice diagnosis and paired games are required. In 16 cases each, R6 won 6 and both trained candidates won 4; fewer interventions did not establish a strength gain |
 | E7/E8 target observations could alias selected X=0 and X=1; X was already stored on the object before targets | E9 adds explicit authorized X presence/value and matching clocks/hashes. This is an observation gap, not proof it caused the observed X=0 multi-target affordability loop |
 | Original eight complete TRAIN games provide 1,575 genuine learner stochastic choices; one isolated head-PPO step was accepted | All 24 policy tensors changed and 542 others stayed identical; KL was `3.8877511166e-6`. Four known transfer cases had unchanged outcomes/fallbacks/reversals. This proves one technical head update, neither Full-PPO nor improvement |
+| The subsequent full-model E7/R6 pilot accepted all eight attempted updates | 311 of 566 tensors changed, including trunk, relational processing and recurrent memory; final whole-collection KL `4.00522484e-5`. The update groups contained only 131 actor choices / 512 frames; all 1,575 choices / 6,626 learner frames were audited. This is a bounded prefix dose, not a full epoch or evidence of stronger play |
 | Behavior replay can differ slightly from recorded FP32 likelihoods | Keep the recorded executed-action denominator after passing tolerance checks. Replacing it would erase real PPO drift; above-tolerance differences still fail |
 | Strictly retaining only clean terminal games censors learner failures that trigger house recovery | The original four E3 cases are not admitted. A new research failure-terminal contract needs collector/converter/target/cache/admission/resume agreement. Unknown MTG results must stay unknown |
 | Streaming full-collection KL auditing eliminated repeated fixed-weight history inference | A 256-frame/60-choice prefix measured 4.21x speedup with identical logprobs; this is not a complete-episode or backward/Adam capacity result |
@@ -382,13 +392,28 @@ case 65's belongs to the learner; 96/97 are no-recovery controls. Never equate
 record input numbers with evaluator decision sequence numbers. A future
 `failure_terminal_research_v1` utility of zero before the first house recovery
 would be an explicit task penalty with no bootstrap, not a fabricated MTG loss.
-At this runbook's baseline it is **not certified end to end or approved as
-training data**; implementation work may be underway, so require fresh native
-receipts rather than treating a new flag as completed validation. Opponent
+At this runbook's baseline it is **not certified end to end or admitted as
+training data**. Native collection now stops before recovery; its separate
+read-only Gate A v2 passes all four archived cases, with the original provenance
+and canonical hashes verified. See the [native boundary report](history/trained-ai-failure-terminal-native-boundary-2026-10-29.md).
+The first audit failed because legitimate scalar Net frames lack categorical
+log-probabilities; the correction preserves those frames without inventing an
+actor likelihood. Dedicated research conversion/cache/admission, numerical
+recurrent replay, Torch target/resume identity and operational abort accounting
+remain required. A new flag is not completed training validation. Opponent
 failure, legal cancellation, cap and engine fault need distinct handling.
 Track pass/cancel rates and full outcomes because a penalty can encourage
 excessive passing. Do not combine this reward change with E9 in one purported
 causal test.
+
+The full-model pilot took 988.33 seconds in its guarded training stage, with
+2,274,077,184 peak allocated CUDA bytes, 2,696,937,472 peak reserved bytes and
+zero allocator retries. This measures B2/U32 on the actual eight-game catalog;
+it is not a capacity guarantee for larger boards, batches or another encoder.
+Before optimizing throughput, separate history reconstruction, differentiated
+updates and repeated whole-collection auditing in a bounded profile. Do not
+remove the correctness audit merely to increase utilization. The published
+checkpoint and complete evidence are in the dated takeover receipt.
 
 ## Encoder and live boundaries
 
@@ -408,6 +433,28 @@ integer and presence. Do not relabel E7/E8 probabilities, caches or checkpoints.
 Live wire work requires its own audited capability and provenance, not removal
 of an encoder rejection. Check the current `seat4` docs/source before claiming
 that ongoing implementation is deployable.
+
+The E5–E7 live foundation now supports explicit stochastic raw play and local
+decision audits (`631ddec8f`); see the [native/live tooling description](trained-ai.md#native-experiment-control-and-ppo-admission).
+For a separate authorized playtest, the CLI shape is:
+
+```text
+/absolute/pinned/seat4 --model /absolute/frozen-export --raw-policy --temperature 0.7 --policy-seed 77 --thinking-steps 2 --decision-audits /absolute/NEW/audits
+```
+
+It preserves model/depth-graph identity, an independent policy seed, runtime
+provenance, semantic observation/history hashes, and distinct generated/sent
+records. Draw-rule overrides clear the replaced probability. Exact wire-view
+hashes are separate diagnostics because socket timing fields cannot be
+reconstructed by ordinary offline replay. The default preview remains greedy.
+These audit files are **not admitted training data**. A next agent must still
+obtain a complete official anonymous game export, establish the audit/export
+join and exact executed actions/authorized observation history, replay behavior
+probabilities, validate full source/runtime identity and secure explicit native
+admission. Maintain forced/house/clock/teacher/opponent roles and terminal
+failure distinctions. E8/E9 wire collection remains blocked; adding stochastic
+sampling does not supply persistent announcement/X context or relax the
+existing converter/admission contract.
 
 ## Evaluate and decide separately from training
 
