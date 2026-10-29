@@ -3,8 +3,7 @@ use super::{RolloutStepSidecar4, Step4};
 use crate::failure_terminal::{ResearchReturn, VerifiedEpisode, sha};
 use serde::{Serialize, Serializer, ser::Error as _};
 
-/// Structural framing/preprocessing identity. Old BST4 caches cannot consume it.
-pub const FRAME_CONTRACT: &str = "failure_terminal_research_observations_v1";
+pub use baylee_train_ops::research_contract::FRAME_CONTRACT;
 
 /// Existing feature tensors and unchanged executed-action provenance without
 /// legacy outcome, terminal markers or final-state auxiliary labels.

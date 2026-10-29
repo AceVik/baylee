@@ -13,13 +13,7 @@ use std::collections::BTreeSet;
 
 mod provenance;
 
-/// Immutable native research target descriptor.
-pub fn contract() -> Value {
-    json!({"name":"failure_terminal_research_v1","predicate":"repeated_view_two_replayed_announcement_rollbacks_v1",
-        "utility_mapping":"natural_1_0_half_learner_loop_0_unknown_null_v1",
-        "bootstrap":false,"fallback_recovery_actions_executed":0,
-        "admission":"unadmitted_native_collection_only"})
-}
+pub use baylee_train_ops::research_contract::contract;
 
 /// Validate the supported authorized-view projections.
 /// # Errors

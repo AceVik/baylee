@@ -5,22 +5,9 @@ use anyhow::{Context as _, ensure};
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::Pending;
 use baylee_gamehost::record::Line;
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-/// Separate research return. Unknown attempts have no return or MTG outcome.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ResearchReturn {
-    /// Versioned research ending, never an implicit engine result.
-    pub termination_kind: String,
-    /// Declared learner utility, absent for unknown attempts.
-    pub training_utility: Option<f32>,
-    /// Actual natural outcome only; failure terminals retain null.
-    pub mtg_outcome: Option<Value>,
-    /// Version 1 uses no bootstrapping.
-    pub bootstrap: bool,
-}
+pub use baylee_train_ops::research_contract::ResearchReturn;
 
 /// Canonical collector proof. Only native verification constructs this token.
 #[derive(Clone, Debug)]
