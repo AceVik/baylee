@@ -273,8 +273,10 @@ Each job runs in a throwaway Tart VM (`crates/baylee-runner`):
   (service `baylee-macos-runner`); the just-in-time registration it buys
   reaches the VM on stdin and is good for one job.
 - **Nothing stays.** Every job gets a fresh clone of the image `baylee-runner`,
-  deleted afterwards. Softnet (`--net-softnet`) lets the VM reach the internet
-  and not the home network.
+  deleted afterwards. A runner killed outright (launchd's SIGKILL after 180 s)
+  cannot clean up, so `serve` first deletes stopped `baylee-vm-*` VMs and the
+  label's offline registrations (29.10.2026). Softnet (`--net-softnet`) lets
+  the VM reach the internet and not the home network.
 - **The cargo lock.** The runner holds `with-cargo-lock.sh` while jobs are
   queued for it, so a CI build and a `cargo dev land` never share the CPU
   (under load the e2e timing tests fail): a land waits for both packages of a

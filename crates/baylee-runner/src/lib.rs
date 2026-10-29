@@ -95,6 +95,7 @@ fn serve(settings: &Settings, operations: &mut dyn Operations) -> Result<()> {
         "serving {} as {} from {}",
         settings.repo, settings.label, settings.image
     ));
+    vm::sweep(settings, operations, &token);
     loop {
         if operations.cancelled() {
             return Ok(());

@@ -330,6 +330,45 @@ pub fn run_jobs(
     served
 }
 
+/// Removes what a runner killed outright left behind: stopped VMs named for
+/// this label and this label's offline registrations. `serve` calls it once,
+/// before it serves anything; a running VM or an online runner is left alone.
+pub fn sweep(settings: &Settings, operations: &mut dyn Operations, token: &str) {
+    let prefix = format!("{}-", settings.label);
+    let listed = operations.output(
+        Spec::new("tart", ["list", "--source", "local", "--format", "json"])
+            .with_timeout(Duration::from_secs(30)),
+    );
+    let vms: serde_json::Value = listed
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| serde_json::from_slice(&output.stdout).ok())
+        .unwrap_or_default();
+    for vm in vms.as_array().into_iter().flatten() {
+        let Some(name) = vm.get("Name").and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        let stopped = vm.get("State").and_then(serde_json::Value::as_str) == Some("stopped");
+        if name.starts_with(&prefix) && stopped {
+            crate::log(format!(
+                "{name}: left behind by an earlier runner, deleting"
+            ));
+            let _ = operations.output(
+                Spec::new("tart", ["delete", name])
+                    .with_timeout(Duration::from_secs(60))
+                    .for_cleanup(),
+            );
+        }
+    }
+    let mut github = GitHub::new(operations, &settings.repo, token);
+    for (id, name) in github.offline_runners(&prefix) {
+        crate::log(format!(
+            "{name}: registration left behind, removing runner {id}"
+        ));
+        github.remove(id);
+    }
+}
+
 /// Gives a batch job a unique VM name without depending on a locale or `date`.
 #[must_use]
 pub fn job_name(settings: &Settings, index: usize) -> String {
