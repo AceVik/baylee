@@ -224,7 +224,7 @@ class RecurrentPPO5(unittest.TestCase):
                 collection.write_text(json.dumps(dict(version=1,purpose='on_policy_training',source_checkpoint_sha256=source_sha,
                     precision='float32',mode='raw',policy_provenance_version=2,sampling_version=M.SAMPLING_VERSION,
                     dataset_files={name:file_digest(data/name) for name in names},
-                    games=[dict(game_id=0,complete=True,capped=False,fallback_answers=0,refused_answers=0,unencoded_decisions=0,
+                    games=[dict(game_id=0,source_run_sha256='2'*64,record_sha256='1'*64,source_game='fixture-table',complete=True,capped=False,fallback_answers=0,refused_answers=0,unencoded_decisions=0,
                                 seats=[dict(seat=0,role='learner',checkpoint_sha256=source_sha,thinking_steps=2,temperature=.7),
                                        dict(seat=1,role='self_play',checkpoint_sha256=source_sha,thinking_steps=2,temperature=.7)])])))
                 subprocess.run([executable,'admit-policy','--data',str(data),'--source-checkpoint',str(source),
