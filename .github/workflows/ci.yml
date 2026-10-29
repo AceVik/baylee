@@ -295,35 +295,19 @@ jobs:
       contents: read
       actions: read
 
-  # The sixth target: an arm64 Mac links x86_64 with nothing but `rustup target
-  # add`, since the macOS SDK carries both slices (measured before the row was
-  # written). x86_64 macOS runners retire with `macos-15-intel` in 2027, and
-  # `macos-13` already sat 91 minutes in `queued` after its retirement.
-  macos-intel:
-    needs: changes
-    if: needs.changes.outputs.full == 'true'
-    runs-on: macos-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-apple-darwin
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - run: cargo build --locked --workspace --bins --target x86_64-apple-darwin
-
-  # Every binary on every platform this is meant to run on, on its own
-  # architecture: the nightly and a dispatch with `platforms`. Main's
-  # `packages` already link the shipped client and launcher and check every
-  # target's code (`--all-targets`) on all five platforms; this is the link of
-  # the *other* binaries (gateway, agent, seat, xtask, ...) there. What breaks
-  # per platform is what one Linux runner cannot see — a path separator, a
-  # `cfg` that has only met 64-bit x86, a build script that assumes a shell,
-  # and above all the link — and none of it changes per push often enough to
-  # make every change wait on five Bevy builds (macOS took 24–32 min of every
-  # PR).
+  # The client on every platform it ships for, on its own architecture: the
+  # nightly and a dispatch with `platforms`. Only the client is built for every
+  # platform; the servers and tools run on Linux x86_64 (owner, 29.10.2026), so
+  # that row alone links every binary and checks every target, and the arm64
+  # Linux row adds the gateway, agent and engine server. Main's
+  # `packages` build the shipped client for all six targets in the `dist`
+  # profile; this builds it in the debug profile developers run.
+  # What breaks per platform is what one Linux runner cannot see — a path
+  # separator, a `cfg` that has only met 64-bit x86, a build script that
+  # assumes a shell, and above all the link — and none of it changes per push
+  # often enough to make every change wait on five Bevy builds (macOS took
+  # 24–32 min of every PR). The x86_64 macOS client is the package row's alone:
+  # the `macos-intel` job that linked every binary for it went on 29.10.2026.
   build:
     needs: changes
     if: needs.changes.outputs.platforms == 'true'
@@ -338,8 +322,10 @@ jobs:
         include:
           - os: ubuntu-latest      # x86_64-unknown-linux-gnu
             timeout: 40
+            everything: true
           - os: ubuntu-24.04-arm   # aarch64-unknown-linux-gnu
             timeout: 40
+            servers: true
           - os: windows-latest     # x86_64-pc-windows-msvc
             timeout: 60
           - os: windows-11-arm     # aarch64-pc-windows-msvc
@@ -354,10 +340,18 @@ jobs:
         with:
           save-if: false
           key: ${{ matrix.os }}
-      - run: cargo build --locked --workspace --bins
+      - if: matrix.everything
+        run: cargo build --locked --workspace --bins
       # `--bins` links every binary; this is the half it does not reach, and
       # it is where a `cfg(test)` block first meets a platform.
-      - run: cargo check --locked --workspace --all-targets
+      - if: matrix.everything
+        run: cargo check --locked --workspace --all-targets
+      - if: ${{ !matrix.everything }}
+        run: cargo build-client
+      - if: ${{ !matrix.everything }}
+        run: cargo check-client
+      - if: matrix.servers
+        run: cargo build-servers
 
   # Cards are not generated here. `codegen` reads the external card-script
   # reference, which is GPL and deliberately not vendored (`NOTICE`), so a
