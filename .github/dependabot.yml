@@ -1,0 +1,15 @@
+# The workflows pin every action to a commit SHA (29.10.2026), so a pin only
+# moves when this proposes it: once a week, all actions in one pull request.
+# Crates are not on it: they are updated deliberately, with the MSRV and the
+# card pool's gates in view, which a bot's bump would skip.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

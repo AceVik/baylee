@@ -11,9 +11,11 @@
 # Every archive is signed (Ed25519, `<archive>.sig`) before it is published,
 # because the client installs updates by itself, and only ever an archive
 # whose signature verifies against the keys it was compiled with (#326,
-# `docs/releasing.md` §"Signing"). The seed is the repository secret
-# BAYLEE_UPDATE_SIGNING_KEY. Without it a tag fails in `sign` and nothing is
-# published; a dry run says so and goes on unsigned.
+# `docs/releasing.md` §"Signing"). The seed is the secret
+# BAYLEE_UPDATE_SIGNING_KEY of the `release` environment, which only a `v*`
+# tag or `main` may enter. Without it a tag fails in `sign` and nothing is
+# published; a dry run says so and goes on unsigned. A dry run dispatched from
+# any other branch cannot enter the environment and stops at `sign`.
 #
 # Beside each archive the release carries its installers (a dmg each for
 # Apple silicon and Intel, setup .exe, AppImage, .deb; `docs/releasing.md`
@@ -57,8 +59,9 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       ci-run: ${{ steps.v.outputs.ci-run }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
           # The card status check below compares the tag with the commit the
           # status was measured at.
           fetch-depth: 0
@@ -110,32 +113,41 @@ jobs:
   # here and not in every player's updater. One job for all archives, on
   # both triggers: the secret reaches this job alone, and a dry run
   # exercises the step a tag takes.
+  #
+  # The seed lives in the `release` environment, which only a `v*` tag or
+  # `main` may enter. It never shares a step with `cargo`: every build script
+  # and proc macro of the signer's dependencies runs in the build step, which
+  # has no secret, and no cache is restored, so nothing another job compiled
+  # runs here (29.10.2026).
   sign:
     needs: [version, build]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: release
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       # The same pinned toolchain as the builds; the signer is the client's
       # own verifier (`baylee-update`), built from this commit.
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: tests-debug
-          save-if: false
-      - uses: actions/download-artifact@v4
+      - name: Build the signer, without the secret
+        shell: bash
+        run: cargo build --locked -q -p baylee-update --bin baylee-update-sign
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: out
           merge-multiple: true
-      - shell: bash
+      - name: Sign, with no compiler in the step
+        shell: bash
         env:
           BAYLEE_UPDATE_SIGNING_KEY: ${{ secrets.BAYLEE_UPDATE_SIGNING_KEY }}
-        run: cargo run --locked -q -p baylee-update --bin baylee-update-sign -- release out
-      - uses: actions/upload-artifact@v4
+        run: target/debug/baylee-update-sign release out
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: signatures
           overwrite: true
@@ -151,17 +163,21 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: stable
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: out
           merge-multiple: true
-      - shell: bash
+      # The notes need `cargo tools`, which compiles; the write token reaches
+      # only the next step, which compiles nothing.
+      - name: Check the signatures and write the notes, without the token
+        shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           # No archive goes out without its signature: the updater would
@@ -184,6 +200,12 @@ jobs:
           $sums
           EOF
           ls -l out
+      - name: Publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
           # A version with a pre-release part (`0.1.0-beta.1`) is published as a
           # pre-release, so GitHub does not offer it as the latest stable build.
           pre=; case $VERSION in *-*) pre=--prerelease ;; esac

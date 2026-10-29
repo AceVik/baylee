@@ -76,4 +76,12 @@ allow = [
 
 [bans]
 
+# Crates come from crates.io, and the only git source is Baylee Central,
+# pinned by rev in the root `Cargo.toml` (29.10.2026). A new registry or git
+# repository is a new party to trust and fails here until it is named.
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = ["https://github.com/AceVik/baylee-central.git"]
+
 [output]

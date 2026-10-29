@@ -51,7 +51,7 @@ runs:
     - id: key
       shell: bash
       run: echo "key=scryfall-cache-${{ hashFiles('crates/baylee-cards-index/src/generated.rs') }}" >> "$GITHUB_OUTPUT"
-    - uses: actions/cache/restore@v4
+    - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       id: restore
       with:
         path: data/scryfall-cache
