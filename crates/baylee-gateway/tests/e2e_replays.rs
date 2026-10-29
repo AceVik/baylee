@@ -1547,8 +1547,12 @@ async fn a_seat_that_unticks_shows_the_other_player_no_card_of_its_hand() {
     assert_eq!(masked.stop.stop, StopKind::End);
     assert_eq!(masked.overs, 1);
     assert_eq!(masked.statics[0].your_seat, PlayerId::new(1));
+    // As many views as his own tape: masking hides cards, never a moment.
+    // `> 3` failed about one optimized run in ten (29.10.2026), because how
+    // far the game gets before Alice concedes is a matter of timing.
     let views = masked.player_views();
-    assert!(views.len() > 3);
+    assert!(!views.is_empty());
+    assert_eq!(views.len(), bobs.player_views().len());
     for view in &views {
         assert_eq!(view.seat, PlayerId::new(1));
         assert!(view.hand.is_empty(), "a hand in a masked tape");
