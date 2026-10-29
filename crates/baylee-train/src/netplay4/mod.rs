@@ -205,6 +205,12 @@ impl NetPlayer4 {
         self.encoder_version >= 7
     }
 
+    /// Whether the selected model requires the opt-in payment announcement view.
+    #[must_use]
+    pub const fn uses_payment_context(&self) -> bool {
+        self.encoder_version == 8
+    }
+
     /// Sets the sampling temperature `tau` (`0.0` = greedy argmax).
     #[must_use]
     pub fn with_temperature(mut self, tau: f32) -> Self {
@@ -292,7 +298,11 @@ impl NetPlayer4 {
             .knowledge
             .entry(s)
             .or_insert_with(|| SeatKnowledge4::empty(view.seat, seat_count));
-        kn.observe(view);
+        if self.encoder_version == 8 {
+            kn.observe_with_payment_context(view);
+        } else {
+            kn.observe(view);
+        }
         let new_cursor = kn.cursor;
         if new_cursor == prev_cursor {
             return Ok(());
@@ -302,7 +312,9 @@ impl NetPlayer4 {
             .entry(s)
             .or_insert_with(|| vec![0.0_f32; RECURRENT_SLOTS * self.d_model])
             .clone();
-        let state = if self.encoder_version >= 7 {
+        let state = if self.encoder_version == 8 {
+            crate::features8::encode_state8(view, None, self.knowledge.get(&s), &self.teams)
+        } else if self.encoder_version >= 7 {
             encode_state7(view, None, self.knowledge.get(&s), &self.teams)
         } else {
             encode_state4(view, None, self.knowledge.get(&s), &self.teams)
@@ -412,7 +424,11 @@ impl NetPlayer4 {
         }
 
         // 2. View-only stall/loop guard (never uses Session::snapshot_hash!)
-        let v_hash = view_only_state_hash(view, pending);
+        let v_hash = if self.uses_payment_context() {
+            crate::features8::view_only_state_hash8(view, pending)
+        } else {
+            view_only_state_hash(view, pending)
+        };
         let visits = self.seen_hashes.entry((seat_u8, v_hash)).or_insert(0);
         *visits = visits.saturating_add(1);
         if *visits >= 4 {
