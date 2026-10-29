@@ -1,8 +1,9 @@
 # Full-model PPO performance review — 29 October 2026
 
-Read-only source/artifact review; no benchmark, model execution, process change
-or optimization was performed. The proposed probe below is unimplemented and
-unlaunched. Gameplay comparison and failure-ledger integration remain separate.
+Source/artifact review; the review ran no benchmark, model execution or process
+change. A subsequent isolated fixed-weight probe worker is implemented and
+CPU-tested as described below; its GPU experiment remains unlaunched. Gameplay
+comparison and failure-ledger integration remain separate.
 
 ## Evidence and scope
 
@@ -109,3 +110,63 @@ or accumulate audited FP64 divergence on device with equivalent nonfinite
 failure handling. Neither is implemented here. Sharing stale H, omitting
 collection checks, weakening rollback, mixed precision, architecture changes
 and reward changes are outside this proposal.
+
+## Probe implementation, not performance results
+
+`tools/trainer/probe_recurrent_ppo4.py` now implements the fixed-weight portion
+through `recurrent_ppo_probe4/`. It creates no optimizer and never runs a
+transaction. The production collection scheduler is shared through
+`recurrent_ppo4.collection.stream_collection_batches`; optional board chunking
+reuses `training4.execution.encode_boards`. Default training/audit callers
+retain their per-frame execution and optimizer grouping.
+
+The worker requires explicit source/candidate checkpoint paths, admitted dataset
+and admission receipt, fresh report path, and expected history/frame/choice
+counts. It fixes U64, four intra-op threads, one inter-op thread, deterministic
+FP32 and TF32 off. The CUDA allocator is capped at 11 GiB (or physical device
+capacity if smaller). The Rust launcher must enforce the total 900-second
+deadline, 20-GiB group-PSS bound, shared GPU lock and immutable input/output
+seals. No Python process controller or monitor is added.
+
+Original recorded likelihoods are replayed with the existing admission/target
+preparation before measurement. Candidate metadata must bind the same original
+source, dataset, model identity, B4/U64 contract and unchanged KL limit `0.02`.
+Each pass captures every valid H/value and every actor log-probability, keyed
+by native `(game_id, seat, cursor)`. Numerical gates above apply to each action
+and history, not just aggregate KL. Atomic reports retain preparation and every
+completed pass; only all required configurations plus model-state/input checks
+permit status `complete`. A failed later pass preserves prior evidence.
+
+The first Rust-owned run is planned with zero warm-ups and one measured pass
+for each source/candidate × lanes4/8 × chunks0/4 configuration. Instrumented
+wall time includes parity copies and phase synchronization; phase sums omit
+scheduler gaps. Fixed order and allocator/cache warm-up can affect the timings.
+One cold-inclusive pass is diagnostic evidence, not a speedup estimate.
+
+Targeted CPU verification passed 26 tests across `test_recurrent_ppo_probe4`,
+`test_recurrent_collection5`, `test_recurrent_ppo5` and
+`test_training_execution4`: actual lane/chunk parity, uneven history refill and
+padding, production-KL agreement, model immutability, nonfinite/drift/identity
+rejection, strict checkpoint contracts and atomic partial-progress retention.
+This also exercises existing full-model transaction and grouped-board gradient
+checks on tiny fixtures; it does not establish full-model CUDA capacity.
+
+The separate `--preflight-only --device cpu` mode now imports Torch, loads both
+strict policies/catalogs on CPU, constructs the native-backed dataset, selects
+the admitted learners and loads/collates **every** segment of every selected
+history before CUDA reservation. It checks native `(game_id, seat, cursor)`
+identity, complete frame/choice counts, finite recorded actor log-probabilities
+and the K2/temperature contract without running a model forward. Its fresh
+native JSON receipt uses mode `recurrent_ppo_tensor_preflight_v1`; completion
+requires `all_histories_loaded_and_collated` and
+`source_candidate_contract_compatible`, with actual history/frame/choice totals
+and source/candidate/data identities. This CPU preflight deliberately performs
+no numerical probability replay; the GPU worker retains that existing gate.
+The owning Rust launcher must run it with the final frozen mounts/environment,
+bounded guard and sealed inputs before allowing the CUDA stage.
+
+The expanded 29-test CPU suite also checks complete short/padded-history
+loading, changed segment identities, missing frames, invalid original actor
+likelihood/K/temperature, source/candidate catalog mismatch and failed coverage.
+The dispatch test rejects any attempted CUDA allocator/device access or audit
+forward, and verifies that rejection cannot publish a complete receipt.

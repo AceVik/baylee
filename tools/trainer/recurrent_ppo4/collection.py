@@ -1,5 +1,7 @@
 """Linear-time, current-weight recurrent inference for a complete PPO audit."""
 
+from contextlib import nullcontext
+
 import torch
 
 import dataset4 as D
@@ -16,8 +18,27 @@ def stream_collection_probabilities(net, dataset, prefixes, device, batch_size):
     optimizer's differentiable unroll/burn-in remains a separate computation.
     The caller owns no_grad and clears the rule cache on completion/failure.
     """
+    for _, batch, outputs in stream_collection_batches(
+            net, dataset, prefixes, device, batch_size):
+        for t, output in enumerate(outputs):
+            mask = (batch["actor_mask"][:, t] & batch["step_valid"][:, t]).to(device).bool()
+            logprob, _ = action_logprob_and_kl(
+                *output[1:4], *output[1:4], batch, t)
+            yield logprob[mask], batch["behavior_lp"][:, t].to(device)[mask]
+
+
+def stream_collection_batches(net, dataset, prefixes, device, batch_size, *,
+                              board_chunk=0, phase=None):
+    """Same complete-history scheduling, with optional tensor-probe instrumentation.
+
+    Chunking merges independent board encodings only. No optimizer grouping or
+    history boundary changes. The caller still owns no_grad/cache cleanup.
+    """
     if batch_size < 1:
         raise ValueError("Collection audit batch size must be positive")
+    if board_chunk not in (0, 4):
+        raise ValueError("Collection spatial chunk must be zero or four")
+    scope = phase or (lambda _name: nullcontext())
     net.eval()
     hidden = None
     previous = None
@@ -36,12 +57,11 @@ def stream_collection_probabilities(net, dataset, prefixes, device, batch_size):
             previous[lane] = index if index >= 0 else None
         hidden = torch.where(torch.tensor(reset, device=device)[:, None, None],
                              torch.zeros_like(hidden), hidden)
-        batch = D.collate_trajectories([dataset[index] for index in indices])
-        net.clear_structure()
-        net.prepare_structure((batch["entity_rules"], batch["cand_rules"]))
-        outputs, hidden = advance(net, batch, hidden, device)
-        for t, output in enumerate(outputs):
-            mask = (batch["actor_mask"][:, t] & batch["step_valid"][:, t]).to(device).bool()
-            logprob, _ = action_logprob_and_kl(
-                *output[1:4], *output[1:4], batch, t)
-            yield logprob[mask], batch["behavior_lp"][:, t].to(device)[mask]
+        with scope("collation"):
+            batch = D.collate_trajectories([dataset[index] for index in indices])
+        with scope("structure"):
+            net.clear_structure()
+            net.prepare_structure((batch["entity_rules"], batch["cand_rules"]))
+        outputs, hidden = advance(net, batch, hidden, device,
+                                  board_chunk=board_chunk, phase=phase)
+        yield indices, batch, outputs

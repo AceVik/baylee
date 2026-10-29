@@ -4,6 +4,7 @@ import torch
 import dataset4 as D
 import model4 as M
 from policy_math4 import action_logprob_and_kl
+from training4.execution import encode_boards
 
 
 def episode_prefixes(dataset):
@@ -28,14 +29,21 @@ def step_inputs(batch, t, device):
     return values, k
 
 
-def advance(net, batch, h, device):
+def advance(net, batch, h, device, *, board_chunk=0, phase=None):
+    scope = phase or (lambda _name: nullcontext())
+    with scope("board_encoding"):
+        boards = encode_boards(net, batch, board_chunk, device)
     outputs = []
-    for t in range(batch["step_valid"].shape[1]):
-        inputs, k = step_inputs(batch, t, device)
-        out = net(*inputs, h, k)
-        valid = batch["step_valid"][:, t].to(device)
-        h = torch.where(valid[:, None, None], out[0].float(), h)
-        outputs.append(out)
+    with scope("advance"):
+        for t in range(batch["step_valid"].shape[1]):
+            inputs, k = step_inputs(batch, t, device)
+            if boards is None:
+                out = net(*inputs, h, k)
+            else:
+                out = net(*inputs, h, k, encoded_board=boards[t])
+            valid = batch["step_valid"][:, t].to(device)
+            h = torch.where(valid[:, None, None], out[0].float(), h)
+            outputs.append(out)
     return outputs, h
 
 
