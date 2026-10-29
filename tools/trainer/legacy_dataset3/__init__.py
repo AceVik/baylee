@@ -21,6 +21,7 @@ import numpy as np
 import torch
 
 import dataset as D
+from trajectory_store4 import _native
 
 ENCODER_VERSION = 3
 
@@ -66,8 +67,8 @@ def load(path: str | Path) -> Dataset:
     # The shards are merged once into one file per column under `merged/`,
     # and those are memory-mapped: the page cache holds what fits and the
     # disk the rest, so a dataset of any size loads (d7's note, 2026-09-30).
-    merged = path / "merged"
-    done = merged / "done.json"
+    receipt = json.loads(_native(["merge3", "--data-dir", path]))
+    merged = Path(receipt["cache_dir"])
     shapes = {
         "ent_card.i32": ("<i4", (entities,)),
         "ent_feat.i16": ("<i2", (entities, n_ent)),
@@ -81,13 +82,11 @@ def load(path: str | Path) -> Dataset:
         "opt.i16": ("<i2", (opts, 3)),
         "opt_off.i64": ("<i8", (samples + 1,)),
     }
-    stamp = {"samples": samples, "entities": entities, "decks": decks, "opts": opts}
-    if not done.exists() or json.loads(done.read_text()) != stamp:
-        merge(path, shards, shapes, stamp)
 
     def mapped(name):
         dtype, shape = shapes[name]
-        return np.memmap(merged / name, dtype=dtype, mode="r", shape=shape)
+        return (np.memmap(merged / name, dtype=dtype, mode="r", shape=shape)
+                if all(shape) else np.empty(shape, dtype=dtype))
 
     ds = Dataset(
         meta=meta,
@@ -108,45 +107,6 @@ def load(path: str | Path) -> Dataset:
     )
     ds.card_feats = np.fromfile(path / "card_feats.f32", dtype="<f4").reshape(len(ds.card_ids), -1)
     return ds
-
-
-def merge(path: Path, shards: list, shapes: dict, stamp: dict) -> None:
-    """Writes one file per column under `merged/`, shard after shard, offsets
-    rebased; RAM holds one shard's column at a time."""
-    merged = path / "merged"
-    merged.mkdir(exist_ok=True)
-    out = {name: np.memmap(merged / name, dtype=dtype, mode="w+", shape=shape) for name, (dtype, shape) in shapes.items()}
-    n_ent = shapes["ent_feat.i16"][1][1]
-    max_seats, n_seat = shapes["seat.i16"][1][1:]
-    n_glob, n_meta = shapes["glob.i16"][1][1], shapes["meta.i32"][1][1]
-    n_deck = shapes["deck_feat.i16"][1][1]
-    s0 = e0 = k0 = o0 = 0
-    for shard in shards:
-        d = path / shard["dir"]
-        ns, ne, nk, no = shard["samples"], shard["entities"], shard["decks"], shard["opts"]
-        if ns == 0:
-            continue
-
-        def mm(name, dtype):
-            return np.memmap(d / name, dtype=dtype, mode="r")
-
-        out["ent_card.i32"][e0 : e0 + ne] = mm("ent_card.i32", "<i4")
-        out["ent_feat.i16"][e0 : e0 + ne] = mm("ent_feat.i16", "<i2").reshape(-1, n_ent)
-        out["ent_off.i64"][s0 : s0 + ns] = mm("ent_off.i64", "<i8")[:-1] + e0
-        out["seat.i16"][s0 : s0 + ns] = mm("seat.i16", "<i2").reshape(-1, max_seats, n_seat)
-        out["glob.i16"][s0 : s0 + ns] = mm("glob.i16", "<i2").reshape(-1, n_glob)
-        out["meta.i32"][s0 : s0 + ns] = mm("meta.i32", "<i4").reshape(-1, n_meta)
-        out["deck_card.i32"][k0 : k0 + nk] = mm("deck_card.i32", "<i4")
-        out["deck_feat.i16"][k0 : k0 + nk] = mm("deck_feat.i16", "<i2").reshape(-1, n_deck)
-        out["deck_off.i64"][s0 : s0 + ns] = mm("deck_off.i64", "<i8")[:-1] + k0
-        out["opt.i16"][o0 : o0 + no] = mm("opt.i16", "<i2").reshape(-1, 3)
-        out["opt_off.i64"][s0 : s0 + ns] = mm("opt_off.i64", "<i8")[:-1] + o0
-        s0, e0, k0, o0 = s0 + ns, e0 + ne, k0 + nk, o0 + no
-    out["ent_off.i64"][s0], out["deck_off.i64"][s0], out["opt_off.i64"][s0] = e0, k0, o0
-    assert {"samples": s0, "entities": e0, "decks": k0, "opts": o0} == stamp
-    for m in out.values():
-        m.flush()
-    (merged / "done.json").write_text(json.dumps(stamp))
 
 
 def split_by_game(ds: Dataset, held_out_every: int = 10) -> tuple[np.ndarray, np.ndarray]:
