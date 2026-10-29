@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import dataset4 as D
 from value_calibration4.checkpoint import file_digest, load_source, publish
+from value_calibration4.model_identity import source_identity
 from .forward import actor_outputs, batch_rows
 from .optimization import (POLICY_PREFIXES, accept_final_state, behavior_kl, plan_groups, select_policy_parameters,
                            surrogate_sum, transactional_step)
@@ -107,8 +108,7 @@ def main():
                       accepted_decisions=accepted_decisions, reason=reason,
                       critic_and_memory="all shared/value tensors verified bit-identical",
                       optimizer_and_memory="new experiment; no stale optimizer or H exported")
-    payload = {**{key: saved[key] for key in ("encoder_version", "model_version", "trajectory_version",
-                                             "sampling_version", "config", "structure")},
+    payload = {**source_identity(saved), "structure": saved["structure"],
                "state_dict": state, "provenance": provenance}
     report = dict(provenance=provenance, settings=vars(args), audit=audit, updates=records,
                   scheduling=scheduling, attempted_accepted_steps=attempted_accepted,

@@ -19,6 +19,18 @@ Historische Manifeste bleiben erhalten. Maßgebliche Verträge stehen in
 [trained-ai](../trained-ai.md), [Architektur](../architecture.md) und
 [Lookahead-Design](lookahead-design.md).
 
+**Umsetzungsfortschritt, 29. Oktober:** Der erste Teil von R0 ist umgesetzt:
+Head-PPO veröffentlicht jetzt über `source_identity` auch Architektur-, Familien-
+und Katalogmetadaten. 20 bestehende Tests und zwei neue Regressionstests bestehen;
+der neue Roundtrip umfasst 16 Modell-/Update-Ausgänge einschließlich alter v5r1-
+Konfigurationen und unveränderter Rückfallmodelle. Ein tatsächlich veröffentlichtes
+synthetisches v5r2-Testmodell besteht CPU-ONNX-Parität bei K0/1/2/4/8
+(15 Frames, maximale Abweichung `5,96e-7`). Datenadmission ist in diesen
+Regressionstests eine Fixture; echte Gameplay-PPO-Integration und Encoder8 bleiben
+offen. Belege: `refactor-investigations-20261029/r0-publication-01a18655-087f-700d-8a63-bd73090097d9/`.
+Das verspätete Terminal-Ereignis `training:49efb950e5b82472:terminal` wurde gegen
+den tatsächlichen Besitzer-Stopp geprüft und dedupliziert, ohne Neustart.
+
 ## 1. Betriebsstand und gesicherte Arbeit
 
 - `baylee-continuous-v5-training.service` ist gestoppt; Controller und
@@ -401,8 +413,8 @@ Regressionstest und werden vor erneuter Zulassung repariert. Zugehörige Engine-
 und Seat-Prozesse werden auch bei Fehlern beendet und ihr Ende geprüft.
 Fehlgeschlagene Artefakte bleiben erhalten; kein blinder automatischer Retry.
 
-**Nächster Implementierungsschritt:** R0-Veröffentlichungs-/Identitätskorrektur
-mit v5-Roundtrip-Test, anschließend R1-Modultrennung und Kontextreparatur;
+**Nächster Implementierungsschritt:** Nach der abgeschlossenen
+R0-Veröffentlichungskorrektur folgen R1-Modultrennung und Kontextreparatur;
 R2-Schedule-Vertrag und R4-Datenzulassung parallel vorbereiten. Erst danach E1
 bzw. den technisch begrenzten E3-Pilot starten. Kein unverändertes Weiterlaufen
 der alten BC-Runden. Lokale Gates gemäß AGENTS.md vor Push/Landung; derzeit ist
