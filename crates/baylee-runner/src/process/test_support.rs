@@ -1,6 +1,7 @@
 //! Fixtures shared by the process and runner tests.
 use super::*;
 use std::fs::File;
+use std::sync::{Arc, Mutex};
 
 /// A real exit status for this platform.
 pub fn status(code: i32) -> ExitStatus {
@@ -83,9 +84,46 @@ pub struct MockOperations {
     pub sleeps: Vec<Duration>,
     /// Request cancellation after this many process spawns.
     pub cancel_after_spawns: Option<usize>,
+    /// Boundaries handed out, in order, to jobs on other threads.
+    pub workers: std::collections::VecDeque<Arc<Mutex<MockOperations>>>,
+    /// Every command's program and arguments, in the order they ran, shared
+    /// between the boundaries of one test.
+    pub journal: Option<Arc<Mutex<Vec<String>>>>,
+    /// Commands whose arguments contain the word take this long, for real.
+    pub slow: Vec<(String, Duration)>,
+}
+
+/// One mock boundary shared with the test that inspects it afterwards.
+pub struct SharedMock(pub Arc<Mutex<MockOperations>>);
+
+impl Operations for SharedMock {
+    fn cancelled(&self) -> bool {
+        self.0.lock().unwrap().cancelled()
+    }
+    fn output(&mut self, spec: Spec) -> Result<Output> {
+        self.0.lock().unwrap().output(spec)
+    }
+    fn spawn(&mut self, spec: Spec) -> Result<Box<dyn Process>> {
+        self.0.lock().unwrap().spawn(spec)
+    }
+    fn sleep(&mut self, duration: Duration) {
+        self.0.lock().unwrap().sleep(duration);
+    }
 }
 
 impl MockOperations {
+    fn record(&self, spec: &Spec) {
+        if let Some(journal) = &self.journal {
+            let line = format!("{} {}", spec.program, spec.args.join(" "));
+            journal.lock().unwrap().push(line);
+        }
+        for (word, delay) in &self.slow {
+            if spec.args.iter().any(|arg| arg == word) {
+                std::thread::sleep(*delay);
+            }
+        }
+    }
+
     /// Queues one completed command result.
     pub fn push_output(&mut self, spec: Spec, output: Output) {
         self.outputs.push_back((spec, output));
@@ -111,12 +149,14 @@ impl Operations for MockOperations {
         self.cancel_after_spawns == Some(0)
     }
     fn output(&mut self, spec: Spec) -> Result<Output> {
+        self.record(&spec);
         let (expected, output) = self.outputs.pop_front().expect("unexpected output call");
         assert_eq!(spec, expected);
         Ok(output)
     }
 
     fn spawn(&mut self, spec: Spec) -> Result<Box<dyn Process>> {
+        self.record(&spec);
         let (expected, process) = self.processes.pop_front().expect("unexpected spawn call");
         assert_eq!(spec, expected);
         if let Some(path) = &spec.log {
@@ -133,5 +173,10 @@ impl Operations for MockOperations {
 
     fn sleep(&mut self, duration: Duration) {
         self.sleeps.push(duration);
+    }
+
+    fn worker(&mut self) -> Option<Box<dyn Operations + Send>> {
+        let worker = self.workers.pop_front()?;
+        Some(Box::new(SharedMock(worker)))
     }
 }

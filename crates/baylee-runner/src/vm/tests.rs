@@ -119,7 +119,7 @@ fn one_job_uses_stdin_and_cleans_vm_and_registration() {
                 .for_cleanup(),
             output(0, ""),
         );
-        let result = one_job_named(&settings, &mut operations, name, token, dir.path());
+        let result = one_job_named(&settings, &mut operations, name, token, dir.path(), None);
         if cancel {
             assert!(result.unwrap_err().to_string().contains("shutdown"));
         } else {
@@ -130,8 +130,158 @@ fn one_job_uses_stdin_and_cleans_vm_and_registration() {
         let spec = start_runner_spec(name, &registration, &settings);
         assert!(!spec.args.join(" ").contains("opaque-secret"));
         assert_eq!(spec.stdin.as_deref(), Some(b"opaque-secret\n".as_slice()));
-        assert!(START_SCRIPT.contains("/Users/admin/.cargo/bin"));
+        assert!(start_script(&settings).contains("/Users/admin/.cargo/bin"));
     }
+}
+
+/// The commands of one job that is served and cleaned up.
+fn push_served_job(operations: &mut MockOperations, settings: &Settings, name: &str, dir: &Path) {
+    let token = "token";
+    operations.push_output(clone_spec(&settings.image, name), output(0, ""));
+    let log = dir.join(format!("{name}.log"));
+    operations.push_process(run_spec(name, &log), Box::new(MockProcess::new(status(0))));
+    operations.push_output(
+        exec_spec(name, &["true"], Duration::from_secs(10)),
+        output(0, ""),
+    );
+    operations.push_output(
+        exec_spec(
+            name,
+            &[
+                "/usr/bin/curl",
+                "-sS",
+                "-m",
+                "3",
+                "-o",
+                "/dev/null",
+                "https://github.com",
+            ],
+            Duration::from_secs(10),
+        ),
+        output(0, ""),
+    );
+    operations.push_output(
+        registration_spec(settings, name, token),
+        output(0, r#"{"runner":{"id":42},"encoded_jit_config":"jit"}"#),
+    );
+    let registration = Registration {
+        id: 42,
+        encoded: "jit".to_owned(),
+    };
+    operations.push_process(
+        start_runner_spec(name, &registration, settings),
+        Box::new(MockProcess::new(status(0))),
+    );
+    operations.push_output(delete_spec(settings, token), output(0, "{}"));
+    for (command, seconds) in [("stop", 30), ("delete", 60)] {
+        operations.push_output(
+            Spec::new("tart", [command, name])
+                .with_timeout(Duration::from_secs(seconds))
+                .for_cleanup(),
+            output(0, ""),
+        );
+    }
+}
+
+fn shared(operations: MockOperations) -> std::sync::Arc<std::sync::Mutex<MockOperations>> {
+    std::sync::Arc::new(std::sync::Mutex::new(operations))
+}
+
+#[test]
+fn two_jobs_run_side_by_side_and_the_second_vm_waits_for_the_first_network() {
+    let settings = Settings::default();
+    let dir = tempfile::tempdir().unwrap();
+    let journal = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut first = MockOperations::default();
+    push_served_job(&mut first, &settings, "vm-a", dir.path());
+    first.journal = Some(journal.clone());
+    // A slow network check would let a second VM start beside it, and a slow
+    // runner start keeps the first job busy while the second VM begins.
+    let delay = Duration::from_millis(300);
+    first.slow = vec![
+        ("https://github.com".to_owned(), delay),
+        ("-i".to_owned(), delay),
+    ];
+    let mut second = MockOperations::default();
+    push_served_job(&mut second, &settings, "vm-b", dir.path());
+    second.journal = Some(journal.clone());
+    let (first, second) = (shared(first), shared(second));
+    let mut operations = MockOperations::default();
+    operations.workers = [first.clone(), second.clone()].into();
+
+    let names = ["vm-a".to_owned(), "vm-b".to_owned()];
+    assert!(run_jobs(
+        &settings,
+        &mut operations,
+        &names,
+        "token",
+        dir.path()
+    ));
+    first.lock().unwrap().assert_done();
+    second.lock().unwrap().assert_done();
+    operations.assert_done();
+
+    let journal = journal.lock().unwrap();
+    let at = |line: &str| {
+        journal
+            .iter()
+            .position(|entry| entry.starts_with(line))
+            .unwrap_or_else(|| panic!("{line} never ran: {journal:#?}"))
+    };
+    let second_clone = at("tart clone baylee-runner vm-b");
+    assert!(
+        at("tart exec vm-a /usr/bin/curl") < second_clone,
+        "{journal:#?}"
+    );
+    assert!(second_clone < at("tart stop vm-a"), "{journal:#?}");
+}
+
+#[test]
+fn a_vm_that_fails_before_the_network_still_lets_the_next_one_start() {
+    let settings = Settings::default();
+    let dir = tempfile::tempdir().unwrap();
+    let mut first = MockOperations::default();
+    first.push_output(clone_spec(&settings.image, "vm-a"), output(1, ""));
+    let mut second = MockOperations::default();
+    push_served_job(&mut second, &settings, "vm-b", dir.path());
+    let (first, second) = (shared(first), shared(second));
+    let mut operations = MockOperations::default();
+    operations.workers = [first.clone(), second.clone()].into();
+
+    let names = ["vm-a".to_owned(), "vm-b".to_owned()];
+    assert!(run_jobs(
+        &settings,
+        &mut operations,
+        &names,
+        "token",
+        dir.path()
+    ));
+    first.lock().unwrap().assert_done();
+    second.lock().unwrap().assert_done();
+}
+
+#[test]
+fn a_single_job_runs_on_this_thread() {
+    let settings = Settings::default();
+    let dir = tempfile::tempdir().unwrap();
+    let mut operations = MockOperations::default();
+    push_served_job(&mut operations, &settings, "vm-one", dir.path());
+    let unused = shared(MockOperations::default());
+    operations.workers = [unused].into();
+    let names = ["vm-one".to_owned()];
+    assert!(run_jobs(
+        &settings,
+        &mut operations,
+        &names,
+        "token",
+        dir.path()
+    ));
+    operations.assert_done();
+    assert_eq!(
+        operations.workers.len(),
+        1,
+        "a single job asked for a worker"
+    );
 }
 
 #[test]
@@ -177,7 +327,7 @@ fn a_network_failure_still_deletes_the_vm_without_registering() {
             .for_cleanup(),
         output(0, ""),
     );
-    let error = one_job_named(&settings, &mut operations, name, "token", dir.path())
+    let error = one_job_named(&settings, &mut operations, name, "token", dir.path(), None)
         .expect_err("offline VM must not register");
     assert!(
         error.to_string().contains("no way to github.com"),
@@ -262,7 +412,7 @@ fn an_idle_registration_is_stopped_and_removed() {
             .for_cleanup(),
         output(0, ""),
     );
-    let result = one_job_named(&settings, &mut operations, name, token, dir.path()).unwrap();
+    let result = one_job_named(&settings, &mut operations, name, token, dir.path(), None).unwrap();
     assert!(result.success());
     operations.assert_done();
 }
@@ -417,4 +567,41 @@ fn prepare_builds_the_image_without_a_start_runner_file() {
     );
     prepare(&settings, &mut operations).unwrap();
     operations.assert_done();
+}
+
+/// The job guard runs as the job-started hook; a non-zero exit stops the
+/// job before its first step. Run here with the real shell.
+#[cfg(unix)]
+#[test]
+fn the_job_guard_admits_only_main_pushes_and_dispatches_of_this_repository() {
+    let settings = Settings::default();
+    let dir = tempfile::tempdir().unwrap();
+    let guard = dir.path().join("job-guard.sh");
+    std::fs::write(&guard, job_guard(&settings.repo)).unwrap();
+    let admits = |repository: &str, event: &str, git_ref: &str| {
+        std::process::Command::new("/bin/sh")
+            .arg(&guard)
+            .env_clear()
+            .env("GITHUB_REPOSITORY", repository)
+            .env("GITHUB_EVENT_NAME", event)
+            .env("GITHUB_REF", git_ref)
+            .output()
+            .unwrap()
+            .status
+            .success()
+    };
+    let repo = settings.repo.as_str();
+    assert!(admits(repo, "push", "refs/heads/main"));
+    assert!(admits(repo, "workflow_dispatch", "refs/heads/c41/topic"));
+    assert!(!admits(repo, "pull_request", "refs/pull/7/merge"));
+    assert!(!admits(repo, "push", "refs/heads/c41/topic"));
+    assert!(!admits(repo, "push", "refs/tags/v1.0.0"));
+    assert!(!admits("someone/baylee", "push", "refs/heads/main"));
+    assert!(!admits(repo, "pull_request_target", "refs/heads/main"));
+
+    let script = start_script(&settings);
+    assert!(script.contains(&format!("export ACTIONS_RUNNER_HOOK_JOB_STARTED={GUARD}")));
+    assert!(script.contains(&job_guard(repo)));
+    // The hook is in place before the runner starts.
+    assert!(script.find(GUARD).unwrap() < script.find("exec ./run.sh").unwrap());
 }

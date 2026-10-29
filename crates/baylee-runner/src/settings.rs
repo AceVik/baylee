@@ -10,7 +10,9 @@ pub struct Settings {
     pub repo: String,
     /// Local Tart image cloned for each job.
     pub image: String,
-    /// Upstream image used by `prepare`.
+    /// Upstream image used by `prepare`, pinned by digest: the macOS archives
+    /// a release signs are built in it, and a moving tag would change them
+    /// unseen. Raise it with the actions-runner pin.
     pub base: String,
     /// The repository-wide Cargo lock command.
     pub lock: PathBuf,
@@ -24,7 +26,9 @@ pub struct Settings {
     pub idle: Duration,
     /// Absolute lifetime of one job VM.
     pub job_cap: Duration,
-    /// Maximum jobs started per batch. Kept at one for reliable DNS and cleanup.
+    /// Jobs run side by side, at most the two VMs macOS allows. Each VM starts
+    /// once the one before it reached the network: two started together both
+    /// stayed offline for twelve minutes (29.10.2026).
     pub max_vms: usize,
     /// vCPUs assigned by `prepare`.
     pub vm_cpus: usize,
@@ -76,14 +80,15 @@ impl Default for Settings {
         Self {
             repo: "AceVik/baylee".to_owned(),
             image: "baylee-runner".to_owned(),
-            base: "ghcr.io/cirruslabs/macos-tahoe-base:latest".to_owned(),
+            base: "ghcr.io/cirruslabs/macos-tahoe-base@sha256:4aaa751fa7538902d73c767f27a066fc87e83f183069da4e4b5022863abd4c77"
+                .to_owned(),
             lock: PathBuf::from(home).join(".baylee-locks/with-cargo-lock.sh"),
             keychain_service: "baylee-macos-runner".to_owned(),
             label: "baylee-vm".to_owned(),
             poll: Duration::from_secs(60),
             idle: Duration::from_mins(15),
             job_cap: Duration::from_secs(10_800),
-            max_vms: 1,
+            max_vms: 2,
             vm_cpus: 8,
             vm_memory_mb: 16_384,
             vm_disk_gb: 120,

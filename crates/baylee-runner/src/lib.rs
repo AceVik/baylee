@@ -174,15 +174,10 @@ fn batch(settings: &Settings, operations: &mut dyn Operations) -> Result<()> {
         }
         let jobs = queued.min(settings.max_vms);
         crate::log(format!("{jobs} job(s) queued"));
-        let mut served = false;
-        for index in 0..jobs {
-            let name = vm::job_name(settings, index + 1);
-            match vm::one_job_named(settings, operations, &name, &token, &log_dir) {
-                Ok(status) if status.success() => served = true,
-                Ok(status) => crate::log(format!("{name}: runner failed ({status})")),
-                Err(error) => crate::log(format!("{name}: {error}")),
-            }
-        }
+        let names: Vec<_> = (1..=jobs)
+            .map(|index| vm::job_name(settings, index))
+            .collect();
+        let served = vm::run_jobs(settings, operations, &names, &token, &log_dir);
         if served {
             failed_rounds = 0;
         } else {

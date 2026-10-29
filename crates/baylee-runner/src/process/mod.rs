@@ -165,6 +165,11 @@ pub trait Operations {
     fn spawn(&mut self, spec: Spec) -> Result<Box<dyn Process>>;
     /// Sleeps without imposing a real delay on mocked tests.
     fn sleep(&mut self, duration: Duration);
+    /// An independent boundary for a job on another thread, or `None` when
+    /// jobs run one after the other on this one.
+    fn worker(&mut self) -> Option<Box<dyn Operations + Send>> {
+        None
+    }
 }
 
 /// The production implementation using `std::process`.
@@ -192,6 +197,10 @@ impl Operations for RealOperations {
                     .min(Duration::from_millis(100)),
             );
         }
+    }
+
+    fn worker(&mut self) -> Option<Box<dyn Operations + Send>> {
+        Some(Box::new(Self))
     }
 }
 
