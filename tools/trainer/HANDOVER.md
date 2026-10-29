@@ -1,4 +1,4 @@
-> Historical operations note (29 October 2026): use native `paired_arena` and `house_usage` for the archived diagnostics below. The old automatic RL and machine-switch scripts are retired. New work uses `train_ops pipeline --manifest PATH`; stopping a native job uses `stop_job4 --job PATH`. Copying artifacts and publishing code are separate explicit actions.
+> Current operations and takeover: read [the training runbook](../../docs/training-runbook.md). Everything below is historical evidence, including old restart instructions; do not restart the retired shell/Python controllers. New work uses native `train_ops pipeline --manifest PATH`; stop an owned native job with `stop_job4 --job /absolute/job.json`. Copying artifacts and publishing code are separate actions.
 
 # Trained AI: handover from the Windows + WSL2 PC to Ubuntu (2026-09-30)
 

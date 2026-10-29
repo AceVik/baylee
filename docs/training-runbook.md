@@ -1,0 +1,442 @@
+# Training operations and agent handover
+
+Operational entry point for BayleeAI training. Read [AGENTS.md](../AGENTS.md),
+[trained-ai](trained-ai.md), the [current research plan](proposals/trained-ai-v5-refactor-training.md)
+and the [29 October evidence report](history/trained-ai-v5-rust-refactor-2026-10-29.md)
+before changing a contract. This document explains how to continue work; dated
+measurements and failed attempts belong in the evidence report and run artifacts.
+The historical `tools/trainer/HANDOVER.md` is not a restart recipe.
+
+## Current operational pointer
+
+Last reviewed: 29 October 2026. Working checkout:
+`/home/ace/Projects/baylee-ai-payment`, branch
+`codex/payment-context-v5-20261028`. This is local research, with no automatic
+promotion or push. Always check actual status before acting on this snapshot.
+
+| Item | Authoritative pointer and interpretation |
+| --- | --- |
+| Active training | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names the current run/manifest/unit; follow it to actual `execution/status.json` and the [dated takeover receipt](history/training-handover-2026-10-29.md) |
+| Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
+| Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
+| Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
+| Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
+| Current training direction | A new bounded **full-model E7/R6 FP32 PPO pilot** on the original eight admitted games, separate from the old BC loop and the completed head-only update; follow `active-training.json`, then verify the named manifest/status |
+| GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
+| User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
+| Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
+
+The full-model pilot uses B2/U32, K2, temperature 0.7, LR `2e-6`,
+at most eight update attempts and at most 30 minutes. Its frozen manifest is the
+authority for actual limits and source identity. Preparation is not proof of a
+running job, accepted updates, full dataset exposure, resource readiness for a
+long run, or stronger play. Do not substitute the head-only candidate for its
+original R6 source. Keep E9 observation learning and a new failure reward as
+separate experiments so the cause of any change can be measured.
+
+## What runs where
+
+All operations that can be Rust are Rust: orchestration, process supervision,
+recording/replay, conversion, packing/cache administration, provenance,
+admission, metrics, reports, monitoring and publication. Python entry points
+below are PyTorch computation and tensor/model adapters only. Do not add a
+Python or shell controller, data-preparation helper or monitor. Invoke existing
+CLIs directly. New one-off operational logic must also be maintainable Rust.
+
+| Tool | Responsibility |
+| --- | --- |
+| `train_ops pipeline` | Ordered immutable experiment, input/output seals, per-root controller lock, time/PSS limits, shared GPU stage lock and terminal receipts |
+| `train_ops run` | One bounded owned process-group job; has no `--gpu-lock`, so use a pipeline for a CUDA stage |
+| `eval4` | Native CPU/CUDA actor, complete game records and sidecars; ordinary evaluation and on-policy collection are distinct purposes |
+| `convert4` | Deterministic full replay, versioned observation/target conversion and dataset publication |
+| `trajectory_cache4` | Native packed trajectory cache, source identities, seals and tensor I/O boundaries; no Python fallback |
+| `train_ops admit-policy`, `verify-admission` | Learner-only whole-collection certification and actual-content revalidation before either PPO worker |
+| `train5.py` | Supervised v5 PyTorch training; BC labels are imitation, not on-policy returns |
+| `train_policy4.py` | Isolated action-head PPO; backbone, thinking, memory and critic remain frozen |
+| `train_rl4.py` | Full-model FP32 recurrent PPO, current-policy history reconstruction, transactional KL rollback and strict optimizer continuation |
+| `export_onnx4.py` | PyTorch export and actual numerical parity for bounded-depth native graphs |
+| `paired_eval4`, `summarize_eval4`, `report_experiment4` | Native verified gameplay comparison and reports |
+| `watch_run4`, `monitor_ops4` | Durable terminal-event observation and delivery; neither starts a controller |
+| `stop_job4` | Identity-bound stop of a native guard supervisor and verification that owned descendants exited |
+| `seat4`, `publish_live_model4`, `live_play_maintenance4` | Live preview, verified development-model selection and completed official-record import; separate from training |
+
+Source directories are `crates/baylee-train-ops/src/`,
+`crates/baylee-train/src/bin/{eval4,convert4,seat4}/` and `tools/trainer/`.
+Build only required binaries when source changed; a new build is not a reason
+to replace a pinned runtime in an existing experiment:
+
+```text
+cargo build --release -p baylee-train-ops --bins
+cargo build --profile selfplay -p baylee-train --features onnx --bin eval4
+cargo build --profile selfplay -p baylee-train --bin convert4
+```
+
+Native `train_ops`, `watch_run4` and `stop_job4` syntax below was checked against
+release `--help` and source. Evaluator/converter and PyTorch options were checked
+against their CLI definitions. Use the frozen run's binaries and worker tree
+for actual continuation; current `target/` contents can differ from them.
+
+## Take over without starting a duplicate
+
+1. Read the current pointer, newest plan, `execution/status.json`,
+   `execution/controller.json`, active `execution/jobs/STAGE/job.json`, and
+   `execution/watchdog/{config,state,delivered}.json` if present. A queue event
+   can be late or delivered more than once: deduplicate its event ID and review
+   current state before acting.
+2. Check the named systemd unit and actual process identity. Native identities
+   bind **PID, kernel `start_ticks` and `boot_id`**. A live PID alone is not
+   ownership; a stale receipt is not an instruction to signal a reused PID.
+   The native guard/watcher use the identity implementation in
+   `crates/baylee-train-ops/src/process.rs`.
+3. A running valid owner keeps the work. Observe it and retain the same run
+   pointer; do not launch a second controller because the previous chat/model
+   reached its quota. Changing chat ownership does not require changing the
+   trainer, seeds, source data or process.
+4. `pipeline` holds `ROOT/controller.lock`, and individual jobs hold their guard
+   lock. This prevents duplicate owners **of that root**, not a second pipeline
+   in a different root. Review all active run pointers and the shared resource
+   locks before creating another experiment. Never delete a lock file to
+   bypass exclusion: that can create two independently locked inodes.
+5. If complete, verify receipts, hashes and expected outputs before interpreting
+   it. If failed/interrupted/quarantined, inspect failure and cleanup evidence;
+   recover explicitly into a fresh UUIDv7 attempt. Do not edit the old manifest,
+   erase its status, overwrite records or count a partial stage as complete.
+
+Useful direct read-only invocations (replace `UNIT`/paths with the named run):
+
+```text
+systemctl --user status baylee-continuous-v5-training.service
+systemctl --user show UNIT --property=MainPID --property=ActiveState --property=SubState
+cat /proc/sys/kernel/random/boot_id
+cat /proc/PID/stat
+ps -p PID -o pid,ppid,pgid,stat,args
+nvidia-smi
+df -h /home/ace/baylee-data
+```
+
+`/proc/PID/stat` field 22 is the creation tick count; use the native identity
+parser for automation because the parenthesized process name can contain spaces.
+Do not add fragile shell parsing or use name-pattern kills.
+
+## Plan, freeze and supervise an attempt
+
+Choose a fresh UUIDv7 directory; `uuidgen --time-v7` is available on this host.
+Write a Rust preparation command when plan construction needs program logic.
+Freeze the source checkpoint, dataset seals, deck order, deal and policy seeds,
+encoder/architecture/candidate/sampling contracts, loss, precision, K schedule,
+budgets and required outputs before launching. Record why the chosen experiment
+answers the next question. A useful artifact layout is:
+
+```text
+RUN/
+  plan.json                 # research question, scope, dose, gates and budgets
+  pipeline.json             # native executable plan; immutable after launch
+  input-seals.json           # source/runtime/data receipts
+  trainer/                  # frozen Git-identified worker snapshot
+  bin/                      # pinned native runtime and required provider libraries
+  execution/                # status/controller/inputs/result; jobs/STAGE/job.json
+  publication/              # candidate and worker report, when successfully written
+  review.json               # interpretation, coverage, cleanup and next decision
+```
+
+The pipeline schema is exactly version 1: absolute `root` and Git-identified
+`cwd`, finite positive `total_timeout_seconds`, and ordered stages with `name`,
+literal `command` array, finite `timeout_seconds` and `memory_gib`, `inputs`,
+distinct absolute `required_outputs`, and optional absolute `gpu_lock`.
+Unknown fields are rejected. A downstream generated input must be a declared
+output of an earlier stage. Every stage needs at least one real required file.
+Use the actual run's reviewed manifest; this structural example is not a recipe:
+
+```json
+{
+  "version": 1,
+  "root": "/absolute/new-uuidv7-run/execution",
+  "cwd": "/absolute/new-uuidv7-run/trainer",
+  "total_timeout_seconds": 1800,
+  "stages": [{
+    "name": "bounded_update",
+    "command": ["/absolute/pinned-worker", "--its-reviewed-arguments"],
+    "timeout_seconds": 1700,
+    "memory_gib": 16,
+    "gpu_lock": "/home/ace/baylee-data/v5/experiments/gpu-work.lock",
+    "inputs": ["/absolute/sealed-input"],
+    "required_outputs": ["/absolute/new-uuidv7-run/publication/net.pt"]
+  }]
+}
+```
+
+Include executable/worker files, imported modules, configs, provider libraries,
+source checkpoint, dataset metadata/index/shards/catalog and admission in seals.
+Tracked Git identity alone does not seal untracked experiment helpers. An
+isolated source snapshot needs a real Git commit/receipt; create it without
+changing the main checkout's branch. Dataset members must resolve inside their
+declared root: symlinks out to another dataset are rejected. Copy and verify
+when isolation requires a new dataset root.
+
+Before reserving CUDA, use the **final guarded invocation and environment** to
+import Torch, construct the native-backed dataset and load complete histories.
+The guard preserves virtual-environment invocation semantics and records both
+invocation path and canonical executable hash. Replacing a venv Python path by
+its resolved interpreter can lose Torch. Pin `BAYLEE_TRAIN_OPS` to the correct
+native binary for the worker and rebuild/pin `trajectory_cache4` with matching
+contracts. A generic guard smoke or `--help` is not a loader preflight.
+
+Launch the reviewed native plan directly, or through one named nonrestarting
+systemd service with bounded cgroup memory and `KillMode=control-group`:
+
+```text
+/absolute/pinned/train_ops pipeline --manifest /absolute/RUN/pipeline.json
+```
+
+`pipeline` seals external inputs before its first stage, rechecks them and
+earlier outputs before consumers, and verifies them again before completion.
+It writes atomic `status.json`, stage logs/receipts, and final `result.json`.
+The guard isolates child process groups, sums proportional memory (PSS),
+enforces deadlines/memory bounds, and cleans owned descendants before reaping
+their leader. A terminal file proves only its declared stage contract; inspect
+the worker's acceptance and coverage report too.
+
+There is one GPU owner at a time. Keep CPU collection/conversion threads and
+RAM finite so the gateway/input remain responsive; initial native collection
+used two threads and single-threaded BLAS, not all 24 hardware threads.
+On the 12-GB GPU, measure representative actual large-board forward,
+backward **and Adam state** before increasing batch/K or planning a long run.
+Head-only probes, tiny catalogs and inference prefixes do not establish this
+capacity. An optional CPU exclusion lock must be shared and explicitly acquired
+by a Rust controller; `pipeline` currently exposes only the generic stage lock
+named `gpu_lock`, with no independent CPU-lock or CPU-core-limit field. A memory
+limit does not reserve CPU cores. Record actual budgets and resource readings.
+
+## Record, replay and admit PPO data
+
+Ordinary `eval4` reports are not self-certified PPO data. Initial supported
+collection is 1v1, no teams, **Raw/FP32, K2, temperature 0.7**; explicit
+`--collection-purpose on-policy-training` binds records, completion indices,
+checkpoint identities and learner/opponent roles. Each neural actor has its own
+memory and RNG. House, opponent, forced and fallback answers remain distinct;
+only genuine learner stochastic actions have behavior-probability targets.
+
+Example CLI shape, inside a bounded CPU or GPU pipeline stage with frozen
+runtime, model/decks and predeclared seeds:
+
+```text
+/absolute/pinned/eval4 --model /absolute/r6-export --collection-purpose on-policy-training --against sharp --seats 2 --raw-policy --thinking-steps 2 --temperature 0.7 --no-baseline --deals 2 --threads 2 --generated 0 --decks-manifest /absolute/train-decks.json --deck-split train --first-seed 10000 --policy-seed 31431 --record-out /absolute/NEW/records --out /absolute/NEW/eval.json
+```
+
+For a neural opponent use `--opponent-model PATH --opponent-role historical`,
+or `self-play` only for the exact frozen source policy. Preserve the fixed deck
+order and rotations; a zero-deal preflight checks model/deck acceptance but
+plays no game. Pin CUDA evaluator **and** adjacent
+`libonnxruntime_providers_shared.so`/`libonnxruntime_providers_cuda.so`. Copying
+only the executable has failed. Exercise an actual short native CUDA match
+when that provider is intended; export parity does not exercise it.
+
+Convert complete original records with the matching producer/converter build:
+
+```text
+/absolute/pinned/convert4 --runs /absolute/collection/records --out /absolute/NEW/dataset --encoder-version 7 --include-passive-obs --val-every 0 --threads 2
+/absolute/pinned/trajectory_cache4 build --data-dir /absolute/NEW/dataset --split train
+/absolute/pinned/train_ops admit-policy --data /absolute/NEW/dataset --source-checkpoint /absolute/r6/net.pt --collection-manifest /absolute/NEW/dataset/collection.json --out /absolute/NEW/admission.json
+/absolute/pinned/train_ops verify-admission --data /absolute/NEW/dataset --source-checkpoint /absolute/r6/net.pt --admission /absolute/NEW/admission.json
+```
+
+`convert4` writes `dataset/collection.json` and names it in metadata as
+`on_policy_collection_manifest`; this binds the source records/roles to actual
+converted dataset seals. Do not fabricate it. Admission binds full histories/content and
+selects learner histories only. The worker then replays every recorded behavior
+probability before updates. Cache reuse independently checks source/data/index
+digests, including before its first lazy mmap. Staged, imported or partially
+converted files are not automatically admitted.
+
+Complete losing games remain in the dataset. The initial strict contract
+rejects caps, fallback, refusal, unencoded frames and incomplete histories;
+retain every failed case and its reason in the denominator. Caps/technical
+aborts are neither MTG draws nor manufactured losses. Preserve table pairs,
+seeds and attempt limits; do not refill until a favorable clean set appears.
+The planned E3/E4 design is at most 160 attempts for 128 complete games,
+collection at most six hours and updates at most 32 attempts/one pass/30
+minutes; smaller pilots have their own tighter limits. These are research
+budgets, not guarantees of sufficient sample size.
+
+## Update and recover
+
+The first outcome contract uses win/loss/actual draw utility 1/0/0.5,
+gamma=lambda=1. Segment boundaries are not terminal events. Both PPO workers
+require the native admission receipt; BC/live/LLM/shadow labels do not become
+PPO behavior data. Greedy moves have no PPO sampling likelihood.
+
+Full-model worker argument shape for the bounded E7 pilot (the manifest must
+also freeze source/runtime/precision, admission and external time/memory limits):
+
+```text
+/absolute/pinned-venv/bin/python /absolute/frozen-trainer/train_rl4.py --init /absolute/r6/net.pt --rollout-data /absolute/admitted-dataset --admission /absolute/admission.json --out /absolute/NEW/publication --device cuda --thinking-steps 2 --batch-size 2 --unroll 32 --epochs 1 --max-steps 8 --lr 2e-6 --target-kl 0.02 --seed 31431
+```
+
+`--audit-only` performs the native admission/probability replay with no optimizer
+update. `--max-steps` counts attempted groups, not complete exposure. Inspect
+accepted steps, consumed histories/choices, KL, terminal flags and final gate.
+A run can publish unchanged source weights after rejection; a `net.pt` file
+alone does not prove learning. Do not raise KL or temperature merely to get an
+observable change. Optional supervised anchors change the objective and need
+their own sealed contract.
+
+Full-model PPO reconstructs H using the **current** policy over each complete
+preceding history, detaches at an unroll boundary, then differentiates within
+the unroll. The complete-collection audit streams each history under fixed
+current weights. Both retain recorded executed-action probabilities as the PPO
+denominator; a small replay discrepancy does not license replacing it with a
+freshly computed behavior probability. Above-limit updates roll back model,
+Adam and RNG together. Resume contract v2 binds
+`behavior_probability_reference=recorded_executed_action` and
+`collection_audit=current_policy_streaming_v1`.
+
+Workers can support strict `--resume`, but native failed-attempt directories
+remain immutable. A recovery uses a fresh UUIDv7 root, explicitly pins the old
+checkpoint and receipts, and preserves the exact compatible optimizer/objective,
+sampler, recurrent and RNG contract. A weights-only `--init` is a **new
+experiment**, with fresh optimizer/scheduler/sampler/H where required; do not
+call it an exact resume. Incompatible model/encoder/objective contracts must
+fail, not be bypassed by changing labels. Never reuse optimizer state from a
+head-only publication that did not export it.
+
+Stop only the owned native job, using its actual guard receipt:
+
+```text
+/absolute/pinned/stop_job4 --job /absolute/RUN/execution/jobs/STAGE/job.json --timeout 15 --out /absolute/NEW-stop-receipt.json
+```
+
+This verifies guard/controller/child identity, signals the pinned supervisor,
+and checks process-group cleanup. It rejects stale/foreign identities and does
+not blindly escalate. `--job` is a **file**, not a directory or `controller.json`.
+Keep the receipt and inspect final pipeline status/owned-process exit. A stale
+receipt or expired stop deadline needs ownership investigation, not `pkill -f`.
+
+## Monitor and transfer to another agent
+
+Arm a watcher only after the actual controller starts; for a pipeline supply
+its PID explicitly, since `pipeline` writes `controller.json`, not
+`controller.pid`:
+
+```text
+/absolute/pinned/watch_run4 arm --root /absolute/RUN/execution --thread CHAT-UUID --controller-pid PID --success-phase complete --require-artifact result.json
+/absolute/pinned/watch_run4 check --root /absolute/RUN/execution
+/absolute/pinned/monitor_ops4 --root /home/ace/baylee-data/v5/ops-codex-20261028 --check
+```
+
+The checks are one-shot; an existing user timer supplies cadence. Watcher
+configuration/delivery state is durable and immutable once armed. Its
+at-least-once event IDs must be deduplicated. A wake requests review; it does
+not authorize a restart, promotion or quota bypass. Neither tool repairs a
+trainer. `watch_run4 check` can enqueue a wake to the configured owning chat;
+use it only in the established authorized monitoring workflow.
+
+If this agent's weekly quota expires, leave the live controller running within
+its existing bounds and transfer the pointer and ownership information. Another
+agent reads the same repository/run artifacts and continues the authorized
+bounded work; it does not need to replay an old chat or restart a healthy job.
+The watcher is bound to a chat UUID, not to whichever model still has quota.
+If that chat cannot act, another agent must inspect the run directly; automatic
+cross-chat reassignment is not implemented. Do not rewrite an armed watch in
+place or erase its delivery ledger to force a second wake.
+
+Paste this concise template into the handover and store its operational pointer
+in `next-actions.json` after reviewing actual state:
+
+```text
+Reviewed at / checkout / branch / source commit or dirty-source receipt:
+Owner instruction and experiment question:
+RUN / immutable plan / pipeline SHA256 / pinned tool and worker receipts:
+State: prepared | running STAGE | complete | failed | interrupted:
+Controller: unit, PID, boot_id, start_ticks; stage job.json; owned-child cleanup:
+Watcher: chat UUID, timer, config, event ID, delivered/reviewed status:
+Source checkpoint hash / dataset+admission / encoder+architecture+candidate contract:
+Bounds: remaining time, update/attempt budget, CPU/RAM, exact GPU/CPU lock paths:
+Verified result: accepted updates, consumed choices/histories, KL, tensor/resource audit:
+Artifacts preserved / failed attempts / holdouts and exclusions:
+Next authorized bounded action and its entry criteria; open blocker/hypothesis:
+Gateway28766/live selection preserved; promotion=false; push/gate status:
+```
+
+## Findings the next agent must retain
+
+Detailed receipts and limitations are in the
+[29 October report](history/trained-ai-v5-rust-refactor-2026-10-29.md) and
+[research plan](proposals/trained-ai-v5-refactor-training.md). Findings below
+are evidence, not permission to reinterpret old data.
+
+| Finding | Operational consequence and remaining question |
+| --- | --- |
+| The old candidate context added the same shift to categorical logits, so softmax cancelled it | A versioned multiplicative gate now changes relative scores. Preserve candidate-context revision and matched controls; successful plumbing is not stronger play |
+| Payment-settlement passes were discounted as idle passes in live/LLM conversion; a separate hidden discount existed in opt-in loss5 | New conversions use `idle_pass_weighting_revision=2`; corrected loss5 declares `categorical_weighting=symmetric_v1`. Do not relabel caches or exactly resume ambiguous old loss5. E1 used loss4, so the loss5 bug cannot explain E1 |
+| E1 supervised improvements were dominated by pass behavior and reused development data | Per-head/source active-choice diagnosis and paired games are required. In 16 cases each, R6 won 6 and both trained candidates won 4; fewer interventions did not establish a strength gain |
+| E7/E8 target observations could alias selected X=0 and X=1; X was already stored on the object before targets | E9 adds explicit authorized X presence/value and matching clocks/hashes. This is an observation gap, not proof it caused the observed X=0 multi-target affordability loop |
+| Original eight complete TRAIN games provide 1,575 genuine learner stochastic choices; one isolated head-PPO step was accepted | All 24 policy tensors changed and 542 others stayed identical; KL was `3.8877511166e-6`. Four known transfer cases had unchanged outcomes/fallbacks/reversals. This proves one technical head update, neither Full-PPO nor improvement |
+| Behavior replay can differ slightly from recorded FP32 likelihoods | Keep the recorded executed-action denominator after passing tolerance checks. Replacing it would erase real PPO drift; above-tolerance differences still fail |
+| Strictly retaining only clean terminal games censors learner failures that trigger house recovery | The original four E3 cases are not admitted. A new research failure-terminal contract needs collector/converter/target/cache/admission/resume agreement. Unknown MTG results must stay unknown |
+| Streaming full-collection KL auditing eliminated repeated fixed-weight history inference | A 256-frame/60-choice prefix measured 4.21x speedup with identical logprobs; this is not a complete-episode or backward/Adam capacity result |
+| v5 relational processing and E9 integration pass targeted technical checks | Neither v5 superiority to v4, human-level strength, useful extra K, E9 gameplay benefit nor a need for a larger model has been established. First repair learning signals/contracts and measure full-model learning with the current model |
+
+The original learner failure prefix has 127 stochastic samples, below the
+planned minimum of 128. Case 64's first recovery belongs to the **opponent**;
+case 65's belongs to the learner; 96/97 are no-recovery controls. Never equate
+record input numbers with evaluator decision sequence numbers. A future
+`failure_terminal_research_v1` utility of zero before the first house recovery
+would be an explicit task penalty with no bootstrap, not a fabricated MTG loss.
+At this runbook's baseline it is **not certified end to end or approved as
+training data**; implementation work may be underway, so require fresh native
+receipts rather than treating a new flag as completed validation. Opponent
+failure, legal cancellation, cap and engine fault need distinct handling.
+Track pass/cancel rates and full outcomes because a penalty can encourage
+excessive passing. Do not combine this reward change with E9 in one purported
+causal test.
+
+## Encoder and live boundaries
+
+| Contract | Inputs and compatibility | Supported operational boundary |
+| --- | --- | --- |
+| E7 | Default; entity 128, seat 64, global 80, candidate 48 | Existing datasets/checkpoints/live path retain their identities |
+| E8 | Same widths; persistent announced source and numeric prompt context; v5 relational revision 2 | Explicit offline conversion/eval only until the live wire supplies its required context; same widths do not mean same semantics |
+| E9 | E8 prefix plus X presence/value: global 82, entity 128; model5/relational2/candidate revision1 or2 | Explicit offline conversion/eval/export/cache contract; live, legacy arena, shadow/LLM conversion reject unsupported paths |
+
+`--encoder-warmstart-from7` (E8) and `--encoder-warmstart-to9` (E9) are explicit
+weights-only transitions with fresh training state. E9 retains the first 80
+global projection columns and zeros the added columns; a frozen trunk cannot
+learn them and is rejected. E7-to-E9 includes E8 changes, so only an E8 control
+isolates X. New passive ticks can change full-history H even with zero new
+columns. Large raw u32 X values lose f32 precision; hashes retain the exact
+integer and presence. Do not relabel E7/E8 probabilities, caches or checkpoints.
+Live wire work requires its own audited capability and provenance, not removal
+of an encoder rejection. Check the current `seat4` docs/source before claiming
+that ongoing implementation is deployable.
+
+## Evaluate and decide separately from training
+
+Export a fresh isolated candidate with actual PyTorch/CPU-ORT parity at every
+required K graph (0/1/2/4/8), preserve its report and model hashes, then run a
+zero-deal native load and actual bounded games. `export_onnx4.py --model DIR
+--data DATA --check 32` is the PyTorch worker's CLI shape. Numerical parity is
+not gameplay validity. Record raw/tactical mode, latency, caps, fallback
+reasons, refusals and exact actor/deck/runtime identities.
+
+Reserve fresh deal seeds before tuning, pair seats/decks and report all cases
+with uncertainty at table-cluster level. Reused E1/E3 trigger cases and the
+256-case reference are development diagnostics. Fresh seeds alone do not
+establish unseen-card/deck generalization; require separate data lineage.
+Do not turn evaluation fixtures, branch counterfactuals or held-out diagnostics
+into training labels. Compare current source and candidate with the same
+validator/runtime before attributing a metric difference to learning.
+
+```text
+/absolute/pinned/paired_eval4 /absolute/candidate/eval.json /absolute/reference/eval.json --candidate-job /absolute/candidate/job.json --reference-job /absolute/reference/job.json --out /absolute/NEW/paired.json
+```
+
+The native comparator verifies completed jobs and matched evaluation inputs.
+Changing K requires explicit `--allow-thinking-difference` and a declared
+experiment. A development mean utility ranking or better imitation NLL does
+not establish strength promotion. `publish_live_model4 --experiment DIR --out
+MANIFEST` verifies a particular completed experiment layout before atomic live
+selection; do not invoke it merely because training finished. A live selection
+is frozen for the whole game. Preserve gateway 28766 until evidence and the
+owner's current deployment scope support a change. Run both repository gates
+with `DATABASE_URL` before pushing/landing; a historical green gate does not
+cover subsequent contract changes.
