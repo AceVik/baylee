@@ -293,3 +293,159 @@ latent computation at variable depth; and
 degrade performance and studies stabilization. Their tasks and scales differ
 from this game. None establishes that increasing Baylee's K, parameter count
 or rollout time will improve its play without suitable training and evaluation.
+
+## Expanded research: training the relational and recurrent components
+
+Research checked on 29 October 2026 against the frozen trainer and the working
+checkout. These are proposed experiments, not changes to the running controller
+or the sealed full-coverage pair. The literature supports plausible mechanisms;
+none of the cited experiments establishes why Baylee's recent rounds regressed.
+
+### Keep the three kinds of recurrence separate
+
+| Mechanism | Current recipe | What changing it would do |
+| --- | --- | --- |
+| Typed graph message passing | Two shared-weight rounds, width 160 | Changes local propagation between related entities during board encoding |
+| Decision scratchpad | K=2 refinements against an encoded board | Changes computation for one decision; does not rerun the graph processor or simulate future actions |
+| Chronological memory | Nine persistent slots, TBPTT U=32 | U changes direct gradient credit across events; detached memory already survives segment boundaries |
+
+The transformer following the relational processor can communicate globally;
+two message-passing rounds are not a two-hop limit on the whole network.
+Increasing K does not increase the graph processor's round count. Neither
+parameter automatically turns the model into an action-conditioned world model.
+
+Relational inductive biases can help game agents, as demonstrated by
+[Relational Deep Reinforcement Learning](https://arxiv.org/abs/1806.01830).
+They do not imply that ordinary gradient-based imitation is invalid. Conversely,
+[Google Research's graph-algorithm study](https://research.google/blog/understanding-transformer-reasoning-capabilities-via-graph-algorithms/)
+finds task-dependent advantages for transformers and message-passing networks.
+This supports retaining our global transformer and testing what the additional
+relation path contributes. It is not evidence that a GNN must beat v4.
+
+### Train the intended serving depths
+
+[Adaptive-Depth Is a Finishing Stage](https://arxiv.org/abs/2610.14252),
+submitted 9 October 2026, studies fixed-depth language-model training followed
+by a shorter phase sampling multiple depths. Its controlled experiments retain
+performance across serving depths at lower training cost than varying depth
+throughout. This motivates finishing an existing K2 model at several K values;
+it does not prescribe Baylee's optimum schedule or establish a game-strength gain.
+
+[Recurrent-Depth VLA](https://arxiv.org/abs/2602.07845) supplies an action-policy
+analogy: a shared recurrent scratchpad attends to a static context, with randomized
+training depth and gradients through only the final part of deep unrolls. Its
+robotics setup and depth distribution differ substantially from ours. Do not
+copy its mean depth of 32 onto this 12 GB card or treat its convergence heuristic
+as proof that an action is correct.
+
+The code already has `--thinking-curriculum`, including in the frozen trainer.
+`training4/execution.py::plan_batch` and the reference driver cycle
+`(1, 2, 4, 8)[(step_num + t) % 4]`. Passive observations retain K=0. The current
+continuous controller explicitly uses K=2 and does not enable the curriculum.
+Therefore the next step is to make an existing facility reproducible and test
+it, rather than claim that variable-depth training must be implemented from
+scratch.
+
+Two limitations need attention before relying on that flag in a new experiment:
+
+- The curriculum boolean/schedule is absent from the trainer's checkpoint
+  contract and resume validation; the default K is recorded but does not
+  distinguish fixed K2 from cycling K with default K2. Bind schedule/version,
+  allowed depths and any sampler state, and reject incompatible resumes.
+- Current validation uses only `args.thinking_steps`. Report separate K1/2/4/8
+  results. Measure actual supervised depth exposure: cycling over all frames
+  need not give equal depth exposure among genuine decisions.
+
+A bounded finishing pilot should compare fixed K2 with a declared mixture of
+K1/2/4/8, from identical weights and data with matched source exposure. Supervise
+the selected endpoint rather than evaluating every depth for every training
+example. Record both updates and measured compute/time: equal updates are not
+equal computation. A schedule sampled per update with an independent, saved RNG
+is an alternative to frame cycling, but is a separate implementation change.
+Keep observation updates and persistent H independent of the selected K.
+
+More recurrence can also hurt. [STARS](https://arxiv.org/abs/2605.26733) studies
+this failure and combines random loop sampling with a Jacobian-based stability
+regularizer. First measure our latent norms, policy changes and accuracy versus
+K; add such a regularizer only in a later measured ablation if instability is
+present. A stable wrong answer is still wrong. Confidence or convergence alone
+cannot certify stronger play or a safe early-exit rule.
+
+### Give relations consequences to learn
+
+[CLRS](https://proceedings.mlr.press/v162/velickovic22a/velickovic22a.pdf) trains
+algorithmic processors using structured inputs, outputs and optional intermediate
+states. [Latent Reasoning with Supervised Thinking States](https://research.google/pubs/latent-reasoning-with-supervised-thinking-states/)
+also explores explicit intermediate supervision, in a language-model setting.
+The proposed transfer is small, verifiable game subproblems; neither paper
+demonstrates this transfer to Magic or licenses an assumption of automatic
+strategic understanding.
+
+Our four existing auxiliary targets are remaining turns, own final life,
+minimum final life among other seats, and next-decision own-life change.
+The third includes teammates under its historical semantics. These targets
+do not directly teach the consequences of particular edges or proposed actions.
+
+Start with a separately versioned, small auxiliary dataset for restricted
+public-information tasks: whether a proposed mana-payment sequence covers a
+specified cost; casualties/damage for a fully specified combat; or the effect
+of removing an attachment under explicit conditions. Use a conditional prediction
+head reading entity/pair representations and the proposed action. Merely copying
+the already encoded power, toughness or attachment ID is not a reasoning test.
+Generate paired positions differing in one relevant relationship, and include
+larger combinations and different card identities in separately reserved tests.
+
+The auxiliary must use exactly the information available to the focal player.
+Future outcomes may remain training targets without becoming inputs. For
+counterfactual exact labels, use fully specified synthetic scenarios or a
+verified reconstruction from the view and authorized history; never clone the
+real hidden engine state. If opponents can respond or hidden information affects
+the answer, condition the task explicitly, mask the exact target, or predict a
+distribution. The proposed general view reconstructor is not already implemented.
+
+For restricted tasks with several demonstrably equivalent answers, score the
+valid answer set rather than force one arbitrary tap order. Do not extend such
+equivalence claims to general strategic actions without evidence. Auxiliary
+readouts can be training-only, leaving the deployed inference graph unchanged;
+their representation changes still require export/parity and strength checks.
+
+### Improve decisions where the learner actually goes
+
+[DAgger](https://proceedings.mlr.press/v15/ross11a.html) motivates teacher advice
+on learner-visited states because imitation changes the distribution of future
+observations. Baylee already implements a view-only Sharp/Expert shadow teacher
+and verified corrective replay. Its earlier mixed-data pilot did not establish
+a strength gain. This is a mechanism to diagnose and improve, not a newly
+discovered missing feature or a guaranteed cure. Expert-versus-expert LLM games
+alone do not provide the same coverage of the learner's mistakes.
+
+Memory training needs chronological observations, not shuffled independent
+decision frames with fresh H. Our stateful lanes already retain history. Test
+recall of previously visible information and decision sensitivity to that history
+before spending substantially more VRAM on U. Burn-in/reconstruction is relevant
+if a future replay sampler starts mid-game; increasing U and mixing the slots
+are separate hypotheses, not prerequisites established by these papers.
+
+### Ordered follow-up and resource limits
+
+1. Finish the unchanged full-coverage comparison and integrate/test a repair for
+   the demonstrated categorical-context cancellation in its own versioned change. Keep Encoder8 and
+   slot mixing separate so their effects remain distinguishable.
+2. Run the depth-finishing pair after the schedule/resume contract and K-specific
+   validation are ready. Profile a representative high-candidate batch first;
+   retain BF16, activation checkpointing, cached static-board projections and
+   compact decision rows. The existing GPU job owns the GPU until it exits.
+3. Compare baseline BC against BC plus the restricted relational auxiliaries,
+   holding depth fixed. Track auxiliary accuracy, active-action performance,
+   relation-path gradients and output magnitude. Zeroing a trained branch is
+   a reliance diagnostic, not a substitute for a trained v4 control.
+4. Confirm any promising recipe in a v4/v5 comparison with an audited common
+   initialization, matched data and explicit compute accounting. Test actual
+   games on fresh table seeds, keeping caps/fallbacks and table-cluster uncertainty.
+   Include K-dependent latency and win rates before naming difficulty levels.
+
+No larger trunk, new optimizer, full world model or full restart is required
+for these first tests. A better local consequence predictor could later support
+action comparison and search, but variable-depth BC alone does not implement
+the requested 15–45-second System-2 search. The review makes no promotion and
+does not alter the preregistered 8,443-update coverage pair.
