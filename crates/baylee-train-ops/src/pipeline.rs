@@ -46,6 +46,7 @@ fn validate(plan: &Plan) -> Result<()> {
         "bounded nonempty plan required"
     );
     let mut names = BTreeSet::new();
+    let mut outputs = BTreeSet::new();
     for stage in &plan.stages {
         ensure!(
             !stage.name.is_empty()
@@ -66,9 +67,12 @@ fn validate(plan: &Plan) -> Result<()> {
             "stage needs command, finite bounds and required artifacts"
         );
         ensure!(
-            stage.required_outputs.iter().all(|p| p.is_absolute())
+            stage
+                .required_outputs
+                .iter()
+                .all(|p| p.is_absolute() && outputs.insert(p))
                 && stage.gpu_lock.as_ref().is_none_or(|p| p.is_absolute()),
-            "artifact and GPU lock paths must be absolute"
+            "artifact paths must be unique and absolute; GPU lock paths must be absolute"
         );
     }
     Ok(())
@@ -159,6 +163,13 @@ pub fn run(manifest: &Path, interrupted: &AtomicBool) -> Result<Value> {
             files::sha256(&manifest)? == digest,
             "manifest changed during experiment"
         );
+        for stage in &plan.stages {
+            ensure!(
+                outputs.get(&stage.name) == Some(&output_seals(stage)?),
+                "artifact from stage {} changed before completion",
+                stage.name
+            );
+        }
         Ok(
             json!({"version":1,"phase":"complete","root":plan.root,"manifest_sha256":digest,"outputs":outputs,"elapsed_seconds":started.elapsed().as_secs_f64(),"promoted":false}),
         )

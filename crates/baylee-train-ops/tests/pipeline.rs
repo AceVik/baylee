@@ -58,3 +58,39 @@ fn invalid_names_and_missing_artifacts_fail_closed() {
         assert!(pipeline::run(&manifest, &AtomicBool::new(false)).is_err());
     }
 }
+
+#[test]
+fn later_stage_cannot_change_an_earlier_artifact() {
+    let tmp = tempfile::tempdir().unwrap();
+    let manifest = setup(tmp.path(), "true");
+    let mut plan = files::read_json(&manifest).unwrap();
+    let earlier = tmp.path().join("run/jobs/probe/stdout.log");
+    plan["stages"].as_array_mut().unwrap().push(json!({
+        "name":"modify", "command":["cp", "/dev/null", earlier],
+        "timeout_seconds":5.0,"memory_gib":1.0,"inputs":[],
+        "required_outputs":[tmp.path().join("run/jobs/modify/stdout.log")]
+    }));
+    // First stage writes nonempty data; the later command truncates it.
+    plan["stages"][0]["command"] = json!(["echo", "immutable output"]);
+    files::atomic_json(&manifest, &plan).unwrap();
+    let error = pipeline::run(&manifest, &AtomicBool::new(false)).unwrap_err();
+    assert!(error.to_string().contains("changed before completion"));
+    assert_eq!(
+        files::read_json(&tmp.path().join("run/status.json")).unwrap()["phase"],
+        "failed"
+    );
+    assert!(!tmp.path().join("run/result.json").exists());
+}
+
+#[test]
+fn repeated_artifact_declarations_fail_before_any_job() {
+    let tmp = tempfile::tempdir().unwrap();
+    let manifest = setup(tmp.path(), "true");
+    let mut plan = files::read_json(&manifest).unwrap();
+    let mut second = plan["stages"][0].clone();
+    second["name"] = json!("second");
+    plan["stages"].as_array_mut().unwrap().push(second);
+    files::atomic_json(&manifest, &plan).unwrap();
+    assert!(pipeline::run(&manifest, &AtomicBool::new(false)).is_err());
+    assert!(!tmp.path().join("run/status.json").exists());
+}

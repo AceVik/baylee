@@ -125,3 +125,89 @@ fn second_controller_cannot_take_owned_attempt() {
     assert!(guard::run(&job, &AtomicBool::new(false)).is_err());
     assert!(!job.directory.join("job.json").exists());
 }
+
+fn repository(root: &Path) {
+    fs::create_dir_all(root).unwrap();
+    for args in [
+        vec!["init", "-q"],
+        vec![
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-qm",
+            "fixture",
+            "--allow-empty",
+        ],
+    ] {
+        assert!(
+            Command::new("git")
+                .args(args)
+                .current_dir(root)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+}
+
+#[test]
+fn completed_job_reuse_rejects_a_changed_checkout() {
+    let tmp = tempfile::tempdir().unwrap();
+    let cwd = tmp.path().join("source");
+    repository(&cwd);
+    let mut job = job(tmp.path(), vec!["true".into()], 5.0);
+    job.cwd = cwd.clone();
+    assert!(guard::run(&job, &AtomicBool::new(false)).unwrap());
+    assert!(guard::run(&job, &AtomicBool::new(false)).unwrap());
+    fs::write(cwd.join("worker.rs"), b"// changed training code\n").unwrap();
+    assert!(
+        Command::new("git")
+            .args(["add", "worker.rs"])
+            .current_dir(&cwd)
+            .status()
+            .unwrap()
+            .success()
+    );
+    assert!(guard::run(&job, &AtomicBool::new(false)).is_err());
+    assert!(
+        Command::new("git")
+            .args([
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.invalid",
+                "commit",
+                "-qm",
+                "new source"
+            ])
+            .current_dir(&cwd)
+            .status()
+            .unwrap()
+            .success()
+    );
+    assert!(guard::run(&job, &AtomicBool::new(false)).is_err());
+}
+
+#[test]
+fn completed_job_reuse_rejects_changed_runtime_environment() {
+    let tmp = tempfile::tempdir().unwrap();
+    let cwd = tmp.path().join("source");
+    repository(&cwd);
+    let invoke = |threads: &str| {
+        Command::new(env!("CARGO_BIN_EXE_train_ops"))
+            .args(["run", "--job"])
+            .arg(tmp.path().join("job"))
+            .args(["--timeout", "5", "--memory-gib", "1", "--", "true"])
+            .env("OMP_NUM_THREADS", threads)
+            .current_dir(&cwd)
+            .output()
+            .unwrap()
+    };
+    assert!(invoke("1").status.success());
+    assert!(invoke("1").status.success());
+    let changed = invoke("2");
+    assert!(!changed.status.success());
+    assert!(String::from_utf8_lossy(&changed.stderr).contains("preserving existing attempt"));
+}

@@ -4,6 +4,7 @@ use anyhow::{Context, Result, bail, ensure};
 use rustix::process::{Pid, Signal, WaitId, WaitIdOptions, kill_process_group, waitid};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     fs::{self, File},
@@ -156,15 +157,49 @@ fn input_hashes(job: &Job) -> Result<BTreeMap<String, String>> {
         .collect()
 }
 
-/// Execute a job, record its result and clean up its entire owned process group.
-/// # Errors
-/// Rejects invalid/reused attempts, accounting failures and incomplete cleanup.
-/// A normal unsuccessful command returns `Ok(false)` with retained artifacts.
+/// Validated attempt inputs and durable starting state.
 struct Prepared {
     exe: PathBuf,
     exe_hash: String,
     inputs: BTreeMap<String, String>,
     state: serde_json::Value,
+}
+
+fn source_identity(cwd: &Path) -> Result<(String, Vec<u8>)> {
+    let revision = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(cwd)
+        .output()?;
+    ensure!(
+        revision.status.success(),
+        "job cwd must have a source identity"
+    );
+    let diff = Command::new("git")
+        .args(["diff", "--binary", "HEAD"])
+        .current_dir(cwd)
+        .output()?;
+    ensure!(diff.status.success(), "cannot snapshot tracked sources");
+    Ok((
+        String::from_utf8(revision.stdout)?.trim().to_owned(),
+        diff.stdout,
+    ))
+}
+
+fn runtime_environment() -> BTreeMap<&'static str, String> {
+    [
+        "BAYLEE_EP",
+        "BAYLEE_TRAIN_OPS",
+        "CUDA_VISIBLE_DEVICES",
+        "OMP_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "LD_LIBRARY_PATH",
+        "CUBLAS_WORKSPACE_CONFIG",
+        "PYTHONPATH",
+        "PYTHONHASHSEED",
+    ]
+    .into_iter()
+    .filter_map(|key| std::env::var(key).ok().map(|value| (key, value)))
+    .collect()
 }
 
 fn spawn(job: &Job, exe: &Path) -> Result<OwnedGroup> {
@@ -198,6 +233,9 @@ fn prepare(job: &Job) -> Result<Option<Prepared>> {
     let exe = executable(&job.command[0], &job.cwd)?;
     let exe_hash = files::sha256(&exe)?;
     let inputs = input_hashes(job)?;
+    let (revision, diff) = source_identity(&job.cwd)?;
+    let diff_sha = files::hex(&Sha256::digest(&diff));
+    let environment = runtime_environment();
     if manifest.exists() {
         let old = files::read_json(&manifest)?;
         ensure!(
@@ -206,6 +244,9 @@ fn prepare(job: &Job) -> Result<Option<Prepared>> {
                 && old["cwd"] == json!(job.cwd)
                 && old["executable_sha256"] == exe_hash
                 && old["inputs"] == json!(inputs)
+                && old["revision"] == revision
+                && old["tracked_diff_sha256"] == diff_sha
+                && old["runtime_environment"] == json!(environment)
                 && old["timeout_seconds"] == json!(job.timeout_seconds)
                 && old["memory_limit_gib"] == json!(job.memory_gib),
             "preserving existing attempt {}; use a new directory",
@@ -213,32 +254,8 @@ fn prepare(job: &Job) -> Result<Option<Prepared>> {
         );
         return Ok(None);
     }
-    let revision = Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(&job.cwd)
-        .output()?;
-    ensure!(
-        revision.status.success(),
-        "job cwd must have a source identity"
-    );
-    let diff = Command::new("git")
-        .args(["diff", "--binary", "HEAD"])
-        .current_dir(&job.cwd)
-        .output()?;
-    ensure!(diff.status.success(), "cannot snapshot tracked sources");
-    fs::write(job.directory.join("source.patch"), &diff.stdout)?;
-    let environment: BTreeMap<_, _> = [
-        "BAYLEE_EP",
-        "CUDA_VISIBLE_DEVICES",
-        "OMP_NUM_THREADS",
-        "MKL_NUM_THREADS",
-        "LD_LIBRARY_PATH",
-        "CUBLAS_WORKSPACE_CONFIG",
-    ]
-    .into_iter()
-    .filter_map(|key| std::env::var(key).ok().map(|value| (key, value)))
-    .collect();
-    let state = json!({"schema_version":2,"guard":"rust-owned-group-v1","command":job.command,"cwd":job.cwd,"revision":String::from_utf8(revision.stdout)?.trim(),"runtime_environment":environment,"executable":exe,"executable_sha256":exe_hash,"tracked_diff_sha256":files::sha256(&job.directory.join("source.patch"))?,"inputs":inputs,"status":"starting","started_at_unix":files::unix_time()?,"timeout_seconds":job.timeout_seconds,"memory_limit_gib":job.memory_gib});
+    fs::write(job.directory.join("source.patch"), &diff)?;
+    let state = json!({"schema_version":2,"guard":"rust-owned-group-v1","command":job.command,"cwd":job.cwd,"revision":revision,"runtime_environment":environment,"executable":exe,"executable_sha256":exe_hash,"tracked_diff_sha256":diff_sha,"inputs":inputs,"status":"starting","started_at_unix":files::unix_time()?,"timeout_seconds":job.timeout_seconds,"memory_limit_gib":job.memory_gib});
     files::atomic_json(&manifest, &state)?;
     Ok(Some(Prepared {
         exe,
