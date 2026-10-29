@@ -20,7 +20,7 @@ INDEX = np.dtype([("game", "<u4"), ("seat", "<u4"), ("cursor", "<u8"),
 BST4_MAGIC = b"BST4"
 BST4_HDR = struct.Struct("<4s10I2i9f12I")
 
-def _native(arguments, payload=None):
+def _executable():
     executable = shutil.which("trajectory_cache4")
     if executable is None:
         root = Path(__file__).resolve().parents[3]
@@ -29,6 +29,10 @@ def _native(arguments, payload=None):
                            if (root / "target" / profile / "trajectory_cache4").is_file()), None)
     if executable is None:
         raise RuntimeError("Build native tensor-cache support: cargo build --release -p baylee-train-ops --bin trajectory_cache4")
+    return executable
+
+def _native(arguments, payload=None):
+    executable = _executable()
     result = subprocess.run([executable, *map(str, arguments)], input=payload, capture_output=True)
     if result.returncode:
         raise ValueError(result.stderr.decode(errors="replace").strip())

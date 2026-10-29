@@ -53,13 +53,17 @@ fn python_float(value: &serde_json::Number) -> String {
     }
 }
 fn python_json(value: &Value) -> Result<String> {
+    python_json_style(value, false)
+}
+fn python_json_style(value: &Value, spaced: bool) -> Result<String> {
+    let separator = if spaced { ", " } else { "," };
     Ok(match value {
         Value::Array(rows) => format!(
             "[{}]",
             rows.iter()
-                .map(python_json)
+                .map(|value| python_json_style(value, spaced))
                 .collect::<Result<Vec<_>>>()?
-                .join(",")
+                .join(separator)
         ),
         Value::Object(fields) => {
             let fields: BTreeMap<_, _> = fields.iter().collect();
@@ -68,12 +72,13 @@ fn python_json(value: &Value) -> Result<String> {
                 fields
                     .iter()
                     .map(|(key, value)| Ok(format!(
-                        "{}:{}",
-                        python_json(&json!(key))?,
-                        python_json(value)?
+                        "{}{}{}",
+                        python_json_style(&json!(key), spaced)?,
+                        if spaced { ": " } else { ":" },
+                        python_json_style(value, spaced)?
                     )))
                     .collect::<Result<Vec<_>>>()?
-                    .join(",")
+                    .join(separator)
             )
         }
         Value::String(text) => {
@@ -101,6 +106,14 @@ fn python_json(value: &Value) -> Result<String> {
 /// Returns serialization errors for malformed JSON values.
 pub fn digest(value: &Value) -> Result<String> {
     Ok(files::hex(&Sha256::digest(python_json(value)?.as_bytes())))
+}
+/// Preserve default-spaced sorted ASCII JSON cache keys.
+/// # Errors
+/// Returns JSON serialization errors.
+pub fn spaced_digest(value: &Value) -> Result<String> {
+    Ok(files::hex(&Sha256::digest(
+        python_json_style(value, true)?.as_bytes(),
+    )))
 }
 pub(super) fn resolve(path: &Path) -> Result<PathBuf> {
     if let Ok(path) = path.canonicalize() {
@@ -374,6 +387,10 @@ mod tests {
         assert_eq!(
             python_json(&value)?,
             r#"{"a":[2,null,true],"z":"\u00df\ud83d\ude00\u007f"}"#
+        );
+        assert_eq!(
+            python_json_style(&json!({"b":[1,2],"a":"ß"}), true)?,
+            r#"{"a": "\u00df", "b": [1, 2]}"#
         );
         assert_eq!(
             python_json(&json!([1e-5, 1e-4, 1e16, 1.0, -0.0, 0.25]))?,

@@ -20,6 +20,15 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Task {
+    /// Merge and seal archived v3 tensor columns without changing old caches.
+    Merge3 {
+        #[arg(long)]
+        data_dir: PathBuf,
+    },
+    /// Maintain lock-held reserve/commit/abort around tensor serialization.
+    TensorIo,
+    /// Resolve feature-cache identity, admission and collection-plan metadata.
+    CalibrationIo,
     /// Validate an encoder or recurrent training schedule contract.
     TrainingContract,
     /// Bind immutable source receipts used by tensor diagnostics.
@@ -76,6 +85,14 @@ enum Task {
 }
 fn main() -> Result<()> {
     match Args::parse().command {
+        Task::Merge3 { data_dir } => {
+            println!("{}", baylee_train_ops::legacy_columns::merge3(&data_dir)?);
+        }
+        Task::TensorIo => baylee_train_ops::corpus::tensor_io::serve(
+            std::io::stdin().lock(),
+            std::io::stdout().lock(),
+        )?,
+        Task::CalibrationIo => json_boundary(baylee_train_ops::corpus::calibration_io::run)?,
         Task::BcCycle => json_boundary(bc_cycling::run)?,
         Task::DiagnosticMetrics => json_boundary(diagnostics::run)?,
         Task::CalibrationMetrics => json_boundary(calibration::run)?,
