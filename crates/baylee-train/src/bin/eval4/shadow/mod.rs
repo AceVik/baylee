@@ -5,6 +5,7 @@ use anyhow::{Context as _, ensure};
 use baylee_ai::HeuristicAgent;
 use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{Pending, PlayerAction};
+pub(super) use baylee_train::failure_terminal::sha;
 use baylee_train::features4::{
     EncodedCandidates4, EncodedState4, SourceKind4, decode_action4, encode_teacher_action4,
     view_only_state_hash,
@@ -13,7 +14,6 @@ use baylee_train::netplay4::Answer4;
 use baylee_view::PlayerView;
 use serde::Serialize;
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 
 mod writer;
 use writer::LabelWriter;
@@ -35,15 +35,6 @@ pub(super) struct ShadowGame {
     seed: u64,
     encoder_version: u32,
     counts: Counts,
-}
-
-pub(super) fn sha(bytes: &[u8]) -> String {
-    use std::fmt::Write as _;
-    let mut result = String::new();
-    for byte in Sha256::digest(bytes) {
-        write!(result, "{byte:02x}").expect("write to String");
-    }
-    result
 }
 
 pub(super) fn metadata(profile: &str) -> Value {

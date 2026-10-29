@@ -24,6 +24,8 @@ pub mod convert3;
 pub mod convert4;
 pub mod deckgen;
 #[cfg(feature = "play")]
+pub mod failure_terminal;
+#[cfg(feature = "play")]
 pub mod features;
 #[cfg(feature = "play")]
 pub mod features3;
