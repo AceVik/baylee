@@ -47,8 +47,10 @@ CLIs directly. New one-off operational logic must also be maintainable Rust.
 | --- | --- |
 | `train_ops pipeline` | Ordered immutable experiment, input/output seals, per-root controller lock, time/PSS limits, shared GPU stage lock and terminal receipts |
 | `train_ops run` | One bounded owned process-group job; has no `--gpu-lock`, so use a pipeline for a CUDA stage |
+| `train_ops collect-research`, `finalize-research` | CPU research collector supervision and durable planned/assigned/recorded/unknown counts after verified owned-group cleanup |
 | `eval4` | Native CPU/CUDA actor, complete game records and sidecars; ordinary evaluation and on-policy collection are distinct purposes |
 | `convert4` | Deterministic full replay, versioned observation/target conversion and dataset publication |
+| `convert4 research` | Separate failure-terminal research features/returns; conversion-only output, rejected by ordinary training/cache/admission |
 | `trajectory_cache4` | Native packed trajectory cache, source identities, seals and tensor I/O boundaries; no Python fallback |
 | `train_ops admit-policy`, `verify-admission` | Learner-only whole-collection certification and actual-content revalidation before either PPO worker |
 | `train5.py` | Supervised v5 PyTorch training; BC labels are imitation, not on-policy returns |
@@ -267,6 +269,59 @@ collection at most six hours and updates at most 32 attempts/one pass/30
 minutes; smaller pilots have their own tighter limits. These are research
 budgets, not guarantees of sufficient sample size.
 
+### Separate failure-terminal research path
+
+Use freshly built and pinned tools containing the research commands; an older
+experiment's frozen binary does not acquire new commands when this checkout
+changes. This path currently supports unteamed 1v1 neural self-play or a frozen
+historical neural opponent, Raw/FP32 K2 and temperature 0.7. It stops before
+House recovery. It does not yet provide admitted PPO data or live Terra games.
+
+The bounded CPU wrapper receives the evaluator command literally after `--`:
+
+```text
+/absolute/pinned/train_ops collect-research --job /absolute/NEW/guard --run /absolute/NEW/records --timeout 600 --memory-gib 20 --input /absolute/train-decks.json -- /absolute/pinned/eval4 --model /absolute/r6-export --collection-purpose failure_terminal_research_v1 --opponent-role self-play --seats 2 --raw-policy --thinking-steps 2 --temperature 0.7 --no-baseline --deals 2 --threads 2 --generated 0 --decks-manifest /absolute/train-decks.json --deck-split train --first-seed 10000 --policy-seed 31431 --record-out /absolute/NEW/records --out /absolute/NEW/eval.json
+/absolute/pinned/train_ops finalize-research --run /absolute/NEW/records --job /absolute/NEW/guard/job.json
+```
+
+Also bind the actual model/runtime inputs through the enclosing immutable
+experiment manifest and the wrapper's repeated `--input` options. The wrapper
+finalizes automatically after guard cleanup, including failed child jobs; its
+exit remains unsuccessful for a failed collector. The second command is for
+preserved recovery only, after the guard recorded verified cleanup and the
+exact producer PID/start-ticks/boot identity is gone. It never kills a process,
+retries a game or turns a technical failure into a game loss. A dead PID alone
+without the required cleanup receipt is insufficient.
+
+`attempts.plan.json` fixes the planned deals before workers run. Each worker
+durably claims a deal before entering the engine, then publishes a completion
+receipt only after syncing and verifying the record/index. The final ledger
+distinguishes not-started deals, assigned operational unknowns and recorded
+games. Observation errors, worker panics and bounded process termination retain
+unknown utility. Missing completion-seal recovery may seal only a byte-identical
+recomputed ledger; changed evidence is rejected and preserved.
+
+For a fully indexed, completed research collection:
+
+```text
+/absolute/pinned/convert4 research --runs /absolute/NEW/records --out /absolute/NEW/research-features
+```
+
+The converter verifies original canonical replay, controlled-seat roles,
+sampling provenance and exact declared termination. It writes
+`research.manifest.json`, `research.complete.json`, `attempts.jsonl` and separate
+compressed research episodes. Known research returns are explicitly separated
+from MTG outcomes; unknown attempts emit no target rows. Ordinary `Step4`
+outcome, terminal and final-state auxiliary labels are absent. The first slice
+accepts complete index v2 collections only: it **does not yet consume the new
+operational-abort ledger**, and declares that limitation in its manifest.
+Do not feed these files to ordinary trajectory caches or PPO admission. The
+research cache/admission, PyTorch return/resume contract, numerical recurrent
+probability audit and tiny end-to-end trial remain required before learning.
+Implementation evidence and exact validations are in the
+[attempt-ledger report](history/trained-ai-research-attempt-ledger-2026-10-29.md)
+and [research-conversion report](history/trained-ai-failure-terminal-research-conversion-2026-10-29.md).
+
 ## Update and recover
 
 The first outcome contract uses win/loss/actual draw utility 1/0/0.5,
@@ -399,10 +454,12 @@ read-only Gate A v2 passes all four archived cases, with the original provenance
 and canonical hashes verified. See the [native boundary report](history/trained-ai-failure-terminal-native-boundary-2026-10-29.md).
 The first audit failed because legitimate scalar Net frames lack categorical
 log-probabilities; the correction preserves those frames without inventing an
-actor likelihood. Dedicated research conversion/cache/admission, numerical
-recurrent replay, Torch target/resume identity and operational abort accounting
-remain required. A new flag is not completed training validation. Opponent
-failure, legal cancellation, cap and engine fault need distinct handling.
+actor likelihood. The separate conversion-only path and durable operational
+ledger now exist as described above. Joining that ledger to conversion, a
+dedicated research cache/admission, numerical recurrent replay and Torch
+target/resume identity remain required. A new flag is not completed training
+validation. Opponent failure, legal cancellation, cap and engine fault need
+distinct handling.
 Track pass/cancel rates and full outcomes because a penalty can encourage
 excessive passing. Do not combine this reward change with E9 in one purported
 causal test.

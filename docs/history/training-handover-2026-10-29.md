@@ -1,6 +1,7 @@
 # Training takeover pointer — 29 October 2026
 
-Operational snapshot after the completed full-model pilot. Read the
+Operational snapshot after the completed full-model pilot and comparison,
+with the larger-exposure run active. Read the
 [training runbook](../training-runbook.md) for commands, contracts, research
 findings and handover procedure. This is a pointer to durable evidence; actual
 status can advance after this note.
@@ -42,11 +43,13 @@ The experiment directory is
 | Watcher | `baylee-full-ppo-01a188cc-watch.timer`, 30-second cadence, `execution/watchdog/config.json` |
 | Owning chat | `01a16325-d29f-7ad1-9625-cbb5bf2cb1a4`; success requires phase `complete` and `execution/result.json` |
 
-The training pointer now says `complete-reviewed`, `training=false`. For the
-next operation follow
-`/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` and inspect
-its actual `execution/status.json`, controller identity and stage receipts.
-The bounded follow-up compares candidate/R6 on 16 fresh-seed development cases
+After the pilot, its reviewed state was `complete-reviewed`, `training=false`.
+The current training pointer now refers to the active coverage experiment below.
+The completed CPU comparison is recorded in
+`/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json`. Inspect
+its actual `execution/status.json`, controller identity and stage receipts
+before taking any new action. The bounded follow-up compared candidate/R6
+on 16 fresh-seed development cases
 per model, eight seat-swapped tables, against Sharp with matched Steady baseline.
 It includes CPU ONNX parity, zero-deal identity/deck checks and native paired
 comparison, two evaluator threads, no GPU and a 30-minute overall bound.
@@ -137,10 +140,27 @@ Parallel Rust milestones are committed locally:
   65 learner loop with separate research utility zero and unknown MTG outcome,
   96/97 natural terminal controls. Seventeen evaluator and eight converter
   tests plus focused Clippy pass. See the [boundary report](trained-ai-failure-terminal-native-boundary-2026-10-29.md).
+- `333d937b5`: durable research attempt plans/claims/completions and native
+  `collect-research`/`finalize-research` supervision. Nine ledger tests cover
+  assigned unknowns, incomplete evidence, immutable seal recovery and an actual
+  bounded child timeout. Verified owned-process-group cleanup is required;
+  escaped descendants and actual OOM termination were not certified by those
+  tests. See the [attempt-ledger report](trained-ai-research-attempt-ledger-2026-10-29.md).
+- `27e69301a`: separate `convert4 research` observations/returns with canonical
+  proof and reconstructed forcedness checks. Twenty-two converter library,
+  ten converter CLI and seventeen evaluator tests passed, plus focused final
+  research regressions and combined Clippy with tests. Gate A v3 preserves the
+  same four classifications. Complete index v2 inputs only; no operational
+  abort-ledger ingestion, ordinary targets/cache or PPO admission. See the
+  [conversion report](trained-ai-failure-terminal-research-conversion-2026-10-29.md).
 
-Next implementation work: versioned research converter/cache/admission and
-Torch target/resume handling, operational abort accounting, then numerical
-recurrent probability replay and a tiny end-to-end test. For Terra/Sonnet live
+Next implementation work: join the finalized operational ledger to research
+conversion, implement the versioned research cache/admission and Torch
+target/resume handling, then numerical recurrent probability replay and a tiny
+end-to-end test. The shared replay's Forced/Net classification now checks the
+reconstructed menu rather than trusting the label; this closes a validation
+gap and does not establish that the existing PPO dataset contained mislabeled
+frames. Keep conversion-only artifacts unadmitted. For Terra/Sonnet live
 opponents, join neural audits to official anonymous exports and prove exact
 executed-action/observation correspondence. E9 additionally needs negotiated
 authorized wire context; do not remove its guard to make a test start. Keep
