@@ -233,11 +233,37 @@ The diagnostic took 76.34 seconds and is `complete-reviewed`. All 284 input
 seals were rechecked; event `a038b872a495d0ec97fc1786` is deduplicated at
 `reviews/a038b872a495d0ec97fc1786/operator-review.json` under the parent ops
 root. See the [performance report](trained-ai-full-ppo-performance-2026-10-29.md)
-for exact tolerances, outputs and report hash. The next proposed probe uses
+for exact tolerances, outputs and report hash. The subsequent probe uses
 CPU-computed C/P/recorded-K hints with unchanged per-frame board arithmetic;
 training defaults remain unchanged pending full source/candidate parity.
 Consult `active-performance-probe.json` for current ownership; training and
 gameplay comparison remain completed.
+
+The subsequent CPU-execution-hint probe was launched once at
+`full-ppo-cpu-hints-probe-01a1897a-6810-797c-928e-e4fade5119e6/`, using
+reviewed worker commit `051a814f76b3e25bebf48d0ebaea7e0150b748b2` after
+45 passing affected tests. Full CPU preflight and the exact CUDA
+initialization/allocation prerequisite passed; their owned groups were empty.
+Controller `2360605` / start ticks `13902010` on the same boot completed
+the GPU stage and native verification successfully.
+Manifest SHA256 is
+`8b35705ba43b56ffa6cb03de541d180af7d3e7e51a3c173a94d3ddbd9b3008bf`.
+This fixed-weight experiment compares baseline/hints on both original R6 and
+the coverage candidate at B4/U64/chunk0; it performs no training updates.
+Budgets: 600/630/660 seconds for GPU stage/pipeline/service, 20-GiB host,
+11-GiB Torch allocator, four threads. All four full-history comparisons passed
+with zero H/value/action-logprob/KL differences and unchanged weights. Original
+R6 audit times were 38.923 versus 38.067 seconds; candidate times were 38.501
+versus 38.221 seconds. These single fixed-order measurements do not establish
+a repeatable speedup; keep hints opt-in and prioritize the missing research
+data/tensor/admission contract over more performance probes. Worker elapsed
+218.96 seconds. Final operator review verified all 283 inputs and all native
+seals, exited controller/children, empty groups/cgroup and empty GPU. Only the
+owned watcher timer was stopped. The pointer is `complete-reviewed` and event
+`6b983b9741589b41a3ec2e9a` is deduplicated; see parent ops
+`reviews/6b983b9741589b41a3ec2e9a/operator-review.json`. The preserved
+preparation reservation belongs to this completed root. No automatic restart,
+promotion or training-mode change followed.
 
 Two earlier pre-model failures remain intact and reviewed. CUDA needed a
 private `/proc` mount to write its own thread name; then the allocator cap

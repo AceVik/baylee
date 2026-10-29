@@ -366,10 +366,80 @@ Report SHA256:
 The parent operations review is
 `reviews/a038b872a495d0ec97fc1786/operator-review.json`.
 
-The next proposed execution probe retains B4/U64 and per-frame board
+The subsequent execution probe retains B4/U64 and per-frame board
 encoding. It derives candidate/pair extents and the exact recorded K on CPU
 before tensor transfer, using the model's existing execution-hint interface
 to avoid GPU-to-CPU synchronization. No policy heads are skipped and optimizer
 grouping is unchanged. This remains an opt-in fixed-weight probe until both
 source and candidate pass the original complete-history numerical checks;
 neither training defaults nor the rejected chunk4 variant are enabled by it.
+
+Implementation commit `051a814f76b3e25bebf48d0ebaea7e0150b748b2` adds
+`recurrent_ppo4/execution.py` and an opt-in path through the existing probe.
+The inner Torch command is `probe_recurrent_ppo4.py` with its existing
+source/candidate/data/admission/output and expected-coverage arguments, plus
+`--cpu-execution-hints --audit-lanes 4 --board-chunks 0 --warmups 0 --repeats 1`.
+Use the sealed Rust pipeline to enforce budgets and ownership. The CPU
+prerequisite adds `--preflight-only --device cpu` with a separate fresh output;
+the actual probe uses `--device cuda`. Four measured configurations must exist
+in order: source baseline, source hints, candidate baseline, candidate hints.
+The native validator requires every history, frame and action, unchanged model
+state, unchanged gates and zero optimizer/model writes.
+
+Forty-five affected CPU tests pass. The actual tiny v5 fixture gives bit-equal
+H, value and every policy tensor with uneven masks and K0/K1/K2; its board
+batch shapes remain B4. Complete uneven-history tests retain exact action
+probabilities, values and collection KL. Invalid recorded K remains rejected,
+and CLI tests forbid mixing this experiment with B8 or board chunking. These
+checks establish CPU behavior; the separate CUDA result follows below.
+
+The native run is
+`full-ppo-cpu-hints-probe-01a1897a-6810-797c-928e-e4fade5119e6/` under
+the investigation root. The complete CPU prerequisite passed in 30.60 seconds
+and the exact CUDA initialization/allocation/cleanup prerequisite passed in
+2.70 seconds. Their owned processes exited and groups were empty. Root
+independently rechecked frozen inputs, prerequisites and ownership before
+launching once. Controller `2360605`, start ticks `13902010`, boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced`, completed the GPU and native
+verification stages successfully.
+Manifest SHA256:
+`8b35705ba43b56ffa6cb03de541d180af7d3e7e51a3c173a94d3ddbd9b3008bf`.
+Limits are 600 seconds GPU stage, 630 pipeline, 660 service, 20-GiB host
+memory and an 11-GiB Torch allocator cap.
+
+All four configurations passed across all eight histories, 6,626 valid frames
+and 1,575 actor choices each. The hinted outputs have zero differences in
+action log-probabilities, H, values and collection KL relative to each model's
+baseline. Source original-probability replay also passed. Both model states
+remained unchanged, with no optimizer, updates or model writes.
+
+| Model | Baseline audit | CPU-hinted audit | Observed wall-time reduction |
+| --- | ---: | ---: | ---: |
+| Original R6 | 38.923 s | 38.067 s | 0.856 s (2.20%) |
+| Full-coverage candidate | 38.501 s | 38.221 s | 0.280 s (0.73%) |
+
+These are cold-inclusive single repetitions in fixed order with synchronized
+instrumentation and parity copies. They establish numerical agreement for
+these full-history audits, not a repeatable throughput improvement or backward/
+optimizer equivalence. Peak CUDA allocated/reserved bytes were identical in
+all passes (395,998,720 / 438,304,768), with zero allocator retries. The complete
+worker took 218.96 seconds. Source KL was `1.9465931512199642e-13`; candidate
+KL was `0.00007969814658532071`, identical in baseline and hinted modes.
+Report SHA256:
+`81efb32f8d9e114f2cd589ce79855a71e906382a9a7cc90232aaf590f097dd43`.
+
+Keep this path opt-in: the observed time difference is too small and the
+measurement too limited to justify further performance experiments ahead of
+the missing research-data admission/tensor contract and outcome-learning work.
+Chunk4 remains rejected. No new playing-strength result or model promotion
+follows from this probe. Native final review rehashed all 283 frozen inputs
+and the prerequisite/stage/pipeline seals, confirmed controller and both
+children exited with empty groups/cgroup, and stopped only the owned watcher.
+The GPU was empty. The operations pointer is `complete-reviewed`; event
+`6b983b9741589b41a3ec2e9a` is deduplicated. Its review is
+`reviews/6b983b9741589b41a3ec2e9a/operator-review.json` under the parent ops
+root, SHA256
+`e256095d265728e1a06f8c1cbf059bf7a89c608ed834c656c505d4a3df41485e`.
+The complete native pipeline took 231.10 seconds and peak guarded PSS was
+3,457,025,024 bytes. The old preparation reservation is preserved as evidence
+for this completed root; it is not an active controller or restart request.
