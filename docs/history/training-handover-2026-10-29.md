@@ -129,21 +129,22 @@ per-history coverage and final rollback. The event
 `eeeb4947cfd354609d789ab8` is deduplicated in `reviewed-events/`; the independent
 operator review reverified every pipeline input/output seal and actual update
 counts. `active-training.json` now says `complete-reviewed`, `training=false`.
-These are technical learning results; improved playing strength is untested
-for these candidate bytes. Follow actual pointers before any new operation.
+These are technical learning results; the comparison below found no improved
+playing strength on its small development suite. Follow actual pointers
+before any new operation.
 
-The separate coverage-candidate CPU comparison is now running under
-`full-model-coverage-eval-01a18931-d9af-72e9-9a84-de9606a4b345/`. Its verified
-inner controller is PID `2330494`, start ticks `13431510`, on the same boot.
-The unit is `baylee-full-coverage-eval-01a18931.service`; the owning chat's
-`baylee-full-coverage-eval-01a18931-watch.timer` is active. The immutable
+The separate coverage-candidate CPU comparison completed under
+`full-model-coverage-eval-01a18931-d9af-72e9-9a84-de9606a4b345/`. Its former
+inner controller was PID `2330494`, start ticks `13431510`, on the same boot.
+The controller and all stage children are identity-checked as exited; the unit
+`baylee-full-coverage-eval-01a18931.service` completed successfully and its
+watcher timer was stopped after review. The immutable
 manifest SHA256 is
 `45e0cae4466fc8b5d6b3208a5c4ce3bc9073d5aa5bc891052da6cd76cf82d506`.
 The launch receipt seals all 7,231 inputs and binds the actual controller's
 executable, argv and cgroup. Limits: two CPU workers, 200% CPU quota, 20 GiB
 service memory, 1,800-second pipeline / 1,830-second service deadline; no retry
-or GPU use. Export parity and the zero-control check passed; the latest observed
-phase is `play_candidate`. Export verified 47 actual frames with maximum error
+or GPU use. Export parity and the zero-control check passed. Export verified 47 actual frames with maximum error
 `1.53e-5` and produced K=0/1/2/4/8 variants.
 
 Only 16 candidate cases are played anew. Exact R6 and initial-pilot references
@@ -153,11 +154,53 @@ cases, not a fresh holdout or proof of general strength. The native comparison
 retains outcomes, caps, interventions and canonical action differences for
 all three arms. No deployment change follows automatically.
 
+The completed comparison has 4 wins / 12 losses for **each** of R6, tiny pilot
+and coverage candidate, with no better/worse paired outcomes. All three have
+the same single House intervention in case 8 (seed `902610299104`, focal seat
+0): repeated Priority view, decision 264 / record input 265, accepted
+`PassPriority`. There are no caps, refusals or stalls. The coverage candidate's
+canonical sequences differ from R6 in cases 7/9/10/11 and from tiny in eight
+cases; this demonstrates changed behavior without a measured outcome gain.
+The bootstrap `[0,0]` interval is degenerate for identical observed differences
+and does not prove equivalence on eight independent tables. Future broader
+strength comparisons need a frozen candidate, a predeclared sample budget and
+fresh independent tables, retaining a separate final seed/deck holdout.
+
+Total pipeline wall time was 803.95 seconds, of which candidate gameplay took
+576.00 seconds. Operator review revalidated all pipeline input/output seals,
+48 arm-case rows, unchanged denominators and paired counts. Event
+`0350274d30e2f5f574e7fbbf` is deduplicated in this run's `reviewed-events/`;
+`active-cpu-followup.json` now says `complete-reviewed`. No longer repetition
+of the same eight-game recipe or model promotion follows from this result.
+
 The [performance review](trained-ai-full-ppo-performance-2026-10-29.md)
 documents repeated full-collection audits and prefix reconstruction. Their
-individual runtime costs have not been measured. It proposes a bounded
-execution-parity probe keeping the exact optimizer B4/U64 groups and complete
-KL/rollback checks; that probe has not been implemented or launched.
+individual runtime costs are now being measured. Its fixed-weight probe is
+implemented and CPU-tested; a guarded CUDA invocation is running under
+`full-ppo-execution-probe-recovery-01a1895c-fd11-7234-9dc3-47486276272f/`.
+The observed controller is PID `2351100`, start ticks `13706570`, on the same
+boot; unit `baylee-ppo-execution-probe-01a1895c.service` and its owning-chat
+watcher are active. Recheck those identities before acting. Frozen trainer
+commit is `0d3be58fa62f4606f38c5ff2e53cf74abb5faf60`; manifest SHA is
+`f72270b2a8a8c9911853452c4a8b5faf5f48ae5d304ed5d4b8498d73b74cebdb`.
+It compares independent audit lanes and board encoding chunks, preserving
+all 1,575 recorded decisions and 6,626 recurrent observations. It constructs
+no optimizer and does not change the B4/U64 optimizer contract. It does not
+yet measure a full update transaction or establish backward/Adam capacity.
+Limits are 900 seconds for the GPU stage, 930 for the pipeline and 960 for the
+service, with 20-GiB host memory and an 11-GiB Torch allocator cap. This is an
+eight-configuration diagnostic with zero warm-ups and one pass per configuration,
+not a training dose or a confirmed speedup. Consult `active-performance-probe.json`
+for the current operation; the training and comparison pointers remain completed.
+
+Two earlier pre-model failures remain intact and reviewed. CUDA needed a
+private `/proc` mount to write its own thread name; then the allocator cap
+needed an explicitly resolved CUDA device index. The final prerequisites now
+exercise complete CPU loading/collation plus the actual frozen CUDA helper,
+memory cap, tiny allocation, synchronization and cleanup. Both pass. The
+failure event IDs `1cb76501b759543dd394978c` and `c8f2bfbe96d7bf4a7b2dc2cc`
+are already deduplicated under their respective run roots; delayed delivery
+must not restart those attempts or replace the active pointer.
 
 If another agent takes over after a quota limit, inspect these pointers before
 launching anything. Review acceptance, consumed dose, whole-collection KL,
@@ -201,9 +244,19 @@ Parallel Rust milestones are committed locally:
   1 operational unknown / 1 not started, including orphan/torn evidence, and
   emits only two known-return histories. All unknowns remain target-free.
   The original complete-index path remains intact; the new manifest is v2.
+- `7235001dc`: lossless native research-frame storage with externally pinned
+  conversion SHA, original producer/guard/catalog verification and exact random
+  frame readback. Six cache tests, actual CLI test, six ordinary-cache tests,
+  bounded actual producer/converter/cache integration and both focused Clippy
+  commands passed. The integration preserves the same 5/4/3/1/1 accounting.
+  This is storage only: no tensor packing, numerical policy replay, producer
+  executable certification or PPO admission. Reuse the Rust reader for bulk
+  access; the single-row CLI is diagnostic. Commands and boundaries are in the
+  [runbook](../training-runbook.md#separate-failure-terminal-research-path).
 
-Next implementation work: implement the versioned research cache/admission and Torch
-target/resume handling, then numerical recurrent probability replay and a tiny
+Next implementation work: implement the strict Rust research tensor boundary,
+dedicated admission and Torch target/loss/resume handling, then numerical
+recurrent probability replay and a tiny
 end-to-end test. The shared replay's Forced/Net classification now checks the
 reconstructed menu rather than trusting the label; this closes a validation
 gap and does not establish that the existing PPO dataset contained mislabeled

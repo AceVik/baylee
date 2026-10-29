@@ -171,7 +171,12 @@ Der Stand und die nächste Reihenfolge lauten:
    6.626 Lernerframes übernommen. Architektur, Daten, Belohnung und ursprünglicher
    R6-Start blieben gleich, der Optimizer startete frisch. Finale KL `7,96981e-5`,
    2.638,27 Sekunden Trainingsphase, keine verworfenen Updates oder Allocator-Retries.
-   Der Spielstärkevergleich dieses neuen Kandidaten folgt getrennt. Betriebsstand,
+   Der getrennte Spielstärkevergleich ist abgeschlossen: erneut 4/16 Siege je
+   Modell, identische Ergebnisse und derselbe einzelne Haus-KI-Eingriff. Vier
+   kanonische Aktionsfolgen unterscheiden sich von R6. Kein belegter Gewinn;
+   acht wiederholt verwendete Entwicklungstische belegen auch keine Gleichwertigkeit.
+   Als Nächstes werden Laufzeitkosten getrennt gemessen und der eigene Lernpfad
+   für sauber klassifizierte Selbstspielverläufe vervollständigt. Betriebsstand,
    Fehlversuche und Übernahme sind im [Trainingshandbuch](../training-runbook.md)
    und der [aktuellen Übergabe](../history/training-handover-2026-10-29.md) verlinkt.
 
@@ -628,6 +633,29 @@ gemessen werden. Lokale Hilfsziele und Bootstrap bleiben getrennte Alternativen,
 damit nicht mehrere Änderungen gleichzeitig den Versuch erklären könnten.
 Die neue X-Beobachtung wird nicht gleichzeitig mit diesem Reward-Vertrag
 als vermeintlich belegte Lösung eingeführt.
+
+Der nächste Tensoradapter muss die ursprüngliche Auswahlreihenfolge, Masken
+und sämtliche passiven Beobachtungen erhalten. Das vorhandene gewöhnliche
+Dataset verlangt ein MTG-Outcome, ergänzt teilweise Masken und begrenzt
+Entitäten; ein erfundenes `outcome=0` macht es nicht zum Forschungsadapter.
+Rust übernimmt die strikte Tensoraufbereitung, PyTorch die Modellrechnung.
+Originale Net-Entscheidungen mit Logprob und tatsächlich stochastische Wahlen
+werden getrennt gezählt; erzwungene und skalare Antworten bleiben im Gedächtnis,
+erhalten aber keinen kategorialen Actor-Gradienten. Unbekannte und ungestartete
+Versuche bleiben mit ihren Nennern sichtbar, ohne Zielzeilen zu erhalten.
+
+Für diesen neuen Zielvertrag ist außerdem die Advantage-Normalisierung
+gesondert zu prüfen. Bei ausschließlich Null-Returns und konstanten Value-
+Vorhersagen entfernt die bisherige Zentrierung das Actor-Signal vollständig;
+bei unterschiedlichen Values werden einige zentrierte Advantages positiv.
+Als klar getrennte erste Variante ist `A = training_utility - V_source` ohne
+Zentrierung vorgesehen, mit eingefrorener Source-Baseline und eigenem
+Objective-/Resume-Marker. Das ist noch nicht implementiert oder als besser
+belegt. Ein nichtnull Gradient in einer Test-Fixture beweist keinen Lerngewinn;
+bei tatsächlich identischen Returns aller möglichen Aktionen gibt es auch
+keine Information darüber, welche Aktion besser ist. Vollständiges numerisches
+Replay, K2/T0,7/FP32, unveränderte aufgezeichnete Logprobs, KL `0,02` und
+gemeinsamer Gewichts-/Adam-/RNG-Rollback bleiben erforderlich.
 
 Der erste RL-Pilot bleibt bei FP32, K2 und dem vorhandenen geprüften Raw-Sampler.
 Die Temperatur wird ausdrücklich auf **0,7** gesetzt (der unterstützte

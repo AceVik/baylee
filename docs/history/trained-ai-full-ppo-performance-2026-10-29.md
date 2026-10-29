@@ -1,9 +1,9 @@
 # Full-model PPO performance review — 29 October 2026
 
-Source/artifact review; the review ran no benchmark, model execution or process
-change. A subsequent isolated fixed-weight probe worker is implemented and
-CPU-tested as described below; its GPU experiment remains unlaunched. Gameplay
-comparison and failure-ledger integration remain separate.
+The initial review below used source/artifacts only. Subsequent work implements
+and CPU-tests an isolated fixed-weight probe. Its first GPU launch failed at
+CUDA initialization; the diagnosis and fresh recovery are recorded at the end.
+Gameplay comparison and failure-ledger integration remain separate.
 
 ## Evidence and scope
 
@@ -170,3 +170,70 @@ loading, changed segment identities, missing frames, invalid original actor
 likelihood/K/temperature, source/candidate catalog mismatch and failed coverage.
 The dispatch test rejects any attempted CUDA allocator/device access or audit
 forward, and verifies that rejection cannot publish a complete receipt.
+
+## First launch failure and initialization diagnosis
+
+All following roots are under
+`/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/`.
+The first sealed launch,
+`full-ppo-execution-probe-01a18945-2801-71c6-9b7e-6ee038105ff5`, passed its
+complete CPU data preflight in 30.58 seconds, then stopped with CUDA error 304
+before executing the model. Its controller/worker identities were checked as
+exited and the owned group empty. Artifacts remain intact; the failure is
+reviewed and its watcher stopped. This is neither a training failure nor a
+numerical parity result. The PyTorch driver now writes an initial receipt and
+catches initialization failures so even a zero-pass attempt retains a report;
+11 focused tests pass, including both CUDA initialization failure points.
+
+The bounded initialization-only diagnosis,
+`cuda-map-diagnostic-01a18955-41c4-7e9c-815b-a00086214e24`, reproduced error
+304 in 2.45 seconds. The CUDA thread's write to
+`/proc/self/task/<tid>/comm` returned `EROFS` under the read-only root mount.
+Adding only `bwrap --proc /proc` let the same initialization succeed in
+2.65 seconds on the RTX 4070 Ti. This preserves the existing PID namespace,
+read-only inputs, private device directory and selected device binds. No
+model, forward pass or optimizer was used in either diagnostic.
+
+The first recovery,
+`full-ppo-execution-probe-recovery-01a18958-7f3f-7ed2-9bb9-f0fa0642cb73`,
+freezes trainer commit `283a6cc90bf839bb82a01ab01ffa8d29fd0f08bb`. Its Rust
+launcher requires both complete CPU preflight and a separately guarded
+60-second CUDA initialization check under the actual final mount map before
+allowing the full probe. CPU preflight again passed all eight histories,
+6,626 frames and 1,575 choices in 31.14 seconds. The full probe retains the
+same eight fixed-weight configurations, 900-second GPU-stage deadline,
+930-second pipeline limit, 960-second service limit, 20-GiB host limit and
+11-GiB allocator cap. No retry, numerical tolerance change, optimizer step or
+deployment is implied.
+
+That recovery passed the CUDA properties check, but its full launch stopped
+before model loading at `set_per_process_memory_fraction`: this PyTorch build
+requires an explicit device index, while the worker supplied `torch.device('cuda')`.
+The retained report records zero completed configurations, optimizer steps and
+parameter updates. The run was reviewed, its processes checked as exited, and
+its watcher stopped; event `c8f2bfbe96d7bf4a7b2dc2cc` is deduplicated.
+
+Commit `0d3be58fa62f4606f38c5ff2e53cf74abb5faf60` resolves indexless CUDA
+through `torch.cuda.current_device()` before querying properties and applying
+the cap. Explicit `cuda:N` is retained. Thirteen focused probe/preflight tests
+pass, covering actual cap arguments, all three initialization failure points
+and CPU preflight isolation. The next prerequisite must call this same frozen
+PyTorch helper and perform a tiny allocation/synchronization, so checking only
+device properties cannot miss the allocator setup again. Consult
+`active-performance-probe.json` in the parent operations directory for live
+ownership; preparation alone is not a launch.
+
+The second recovery,
+`full-ppo-execution-probe-recovery-01a1895c-fd11-7234-9dc3-47486276272f`,
+passed both strengthened prerequisites: the guarded complete CPU preflight
+took 33.80 seconds; the CUDA check took 2.70 seconds and verified `cuda:0`,
+an actual 11-GiB allocator cap, a four-byte tensor, synchronization and zero
+allocated bytes after cleanup. Owned prerequisite processes exited and their
+groups were empty. Root then independently rechecked the frozen inputs and
+launched the full probe once. At handover, controller `2351100` / start ticks
+`13706570` on boot `ebf55ae5-05a2-41fc-a994-e5da27268ced` is active in
+`fixed_weight_cuda_probe`; the service and owning-chat watcher are active.
+Manifest SHA256 is
+`f72270b2a8a8c9911853452c4a8b5faf5f48ae5d304ed5d4b8498d73b74cebdb`.
+Completed parity/timing results still require review; no execution optimization
+or learning configuration is certified by initialization alone.

@@ -31,9 +31,11 @@ The completed initial pilot used B2/U32 and eight updates, differentiating only
 fresh AdamW from original R6 and one full epoch of the same eight games. All
 27 updates were retained, covering 1,575 actor choices and 6,626 learner frames;
 the final whole-collection KL was `0.00007969814658532071`. Its frozen manifest
-is the authority for limits and source identity. The initial pilot's 16-case
-comparison showed no outcome change; the coverage candidate needs its own
-playing-strength comparison. Preparation is not proof of a
+is the authority for limits and source identity. Both candidates' 16-case
+comparisons showed no outcome change: each model won 4/16 with the same one
+House intervention. The coverage candidate changed four canonical sequences
+relative to R6; no strength gain or equivalence is established by eight
+repeated development tables. Preparation is not proof of a
 running job, accepted updates, full dataset exposure, resource readiness for a
 long run, or stronger play. Do not substitute the head-only candidate for its
 original R6 source. Keep E9 observation learning and a new failure reward as
@@ -57,6 +59,7 @@ CLIs directly. New one-off operational logic must also be maintainable Rust.
 | `convert4` | Deterministic full replay, versioned observation/target conversion and dataset publication |
 | `convert4 research` | Separate failure-terminal research features/returns; conversion-only output, rejected by ordinary training/cache/admission |
 | `trajectory_cache4` | Native packed trajectory cache, source identities, seals and tensor I/O boundaries; no Python fallback |
+| `trajectory_cache4 research-build/research-verify/research-read` | Separate lossless research JSON-frame storage and diagnostic reads; not a tensor cache or PPO admission |
 | `train_ops admit-policy`, `verify-admission` | Learner-only whole-collection certification and actual-content revalidation before either PPO worker |
 | `train5.py` | Supervised v5 PyTorch training; BC labels are imitation, not on-policy returns |
 | `train_policy4.py` | Isolated action-head PPO; backbone, thinking, memory and critic remain frozen |
@@ -339,9 +342,30 @@ outcome, terminal and final-state auxiliary labels are absent. The original
 contract. Operational unknowns and not-started entries receive no episode
 file or target frames. Fourteen converter and eleven operational-ledger tests
 plus focused Clippy passed for this integration.
-Do not feed these files to ordinary trajectory caches or PPO admission. The
-research cache/admission, PyTorch return/resume contract, numerical recurrent
-probability audit and tiny end-to-end trial remain required before learning.
+Do not feed these files to ordinary trajectory caches or PPO admission.
+The separate lossless storage adapter accepts manifest v2 from the
+finalized-ledger converter:
+
+```text
+/absolute/pinned/trajectory_cache4 research-build --data-dir /absolute/NEW/research-features --out /absolute/NEW/research-cache --expected-manifest-sha256 FROZEN_SHA256
+/absolute/pinned/trajectory_cache4 research-verify --cache-dir /absolute/NEW/research-cache --expected-manifest-sha256 FROZEN_SHA256
+/absolute/pinned/trajectory_cache4 research-read --cache-dir /absolute/NEW/research-cache --expected-manifest-sha256 FROZEN_SHA256 --row 0
+```
+
+Supply the conversion-manifest SHA from externally frozen inputs. Verification
+checks the original finalized ledger, catalogs, converted episodes and exact
+cached frame bytes. It preserves attempt denominators, passive observations,
+original masks/pick sequences and null MTG outcomes. Unknown and unstarted
+attempts retain accounting but receive no target frames. `research-read` is a
+single-frame diagnostic; bulk consumers must reuse the Rust `Reader` session,
+not spawn a process and reverify the entire collection per frame. A completion
+receipt alone does not replace verification. These artifacts explicitly remain
+`admitted=false`, `ppo_eligible=false`, `tensor_cache=false` and
+`producer_binary_certified=false`.
+
+A strict Rust tensor adapter, dedicated research admission, PyTorch return/loss/
+resume contract, complete numerical recurrent probability replay and a tiny
+end-to-end trial remain required before learning.
 Implementation evidence and exact validations are in the
 [attempt-ledger report](history/trained-ai-research-attempt-ledger-2026-10-29.md)
 and [research-conversion report](history/trained-ai-failure-terminal-research-conversion-2026-10-29.md).
@@ -461,7 +485,8 @@ are evidence, not permission to reinterpret old data.
 | Original eight complete TRAIN games provide 1,575 genuine learner stochastic choices; one isolated head-PPO step was accepted | All 24 policy tensors changed and 542 others stayed identical; KL was `3.8877511166e-6`. Four known transfer cases had unchanged outcomes/fallbacks/reversals. This proves one technical head update, neither Full-PPO nor improvement |
 | The subsequent full-model E7/R6 pilot accepted all eight attempted updates | 311 of 566 tensors changed, including trunk, relational processing and recurrent memory; final whole-collection KL `4.00522484e-5`. The update groups contained only 131 actor choices / 512 frames; all 1,575 choices / 6,626 learner frames were audited. This is a bounded prefix dose, not a full epoch or evidence of stronger play |
 | Its fresh-seed paired follow-up had identical outcomes on all 16 cases, with different canonical action sequences in seven | Both R6 and candidate won 4/16 and required one House recovery in the same case; no caps/refusals. Behaviour changed, but improvement or equivalence is not established. Distinguish audited exposure from differentiated training dose before deciding PPO failed |
-| The next B4/U64 experiment retained a full epoch: 27/27 updates, all 1,575 choices / 6,626 learner frames | Final whole-collection KL `7.96981466e-5`, 311 changed tensors, 2,638.27 seconds GPU-stage wall time and zero allocator retries. A separate CPU comparison is running; these technical results alone do not demonstrate stronger play |
+| The next B4/U64 experiment retained a full epoch: 27/27 updates, all 1,575 choices / 6,626 learner frames | Final whole-collection KL `7.96981466e-5`, 311 changed tensors, 2,638.27 seconds GPU-stage wall time and zero allocator retries. The separate completed comparison again has 4/16 wins per arm and identical outcomes/interventions; technical learning succeeded, but a strength gain is not demonstrated |
+| Device-file access and CPU preflight did not certify CUDA initialization in the frozen mount map | A read-only `/proc` caused CUDA error 304; adding private `--proc /proc` resolved it. A second pre-model failure exposed the allocator API's explicit device-index requirement. Before a GPU run, exercise the actual frozen initialization helper, cap, tiny allocation and synchronization under the final mounts; preserve failed attempts and use fresh run namespaces |
 | Behavior replay can differ slightly from recorded FP32 likelihoods | Keep the recorded executed-action denominator after passing tolerance checks. Replacing it would erase real PPO drift; above-tolerance differences still fail |
 | Strictly retaining only clean terminal games censors learner failures that trigger house recovery | The original four E3 cases are not admitted. A new research failure-terminal contract needs collector/converter/target/cache/admission/resume agreement. Unknown MTG results must stay unknown |
 | Streaming full-collection KL auditing eliminated repeated fixed-weight history inference | A 256-frame/60-choice prefix measured 4.21x speedup with identical logprobs; this is not a complete-episode or backward/Adam capacity result |
@@ -487,8 +512,10 @@ The first audit failed because legitimate scalar Net frames lack categorical
 log-probabilities; the correction preserves those frames without inventing an
 actor likelihood. The separate conversion-only path and durable operational
 ledger are now joined through the explicit finalized-ledger adapter above. A
-dedicated research cache/admission, numerical recurrent replay and Torch
-target/resume identity remain required. A new flag is not completed training
+lossless research storage layer now preserves the converted bytes and all
+attempt denominators. A strict tensor boundary, dedicated research admission,
+numerical recurrent replay and Torch target/resume identity remain required.
+A new flag is not completed training
 validation. Opponent failure, legal cancellation, cap and engine fault need
 distinct handling.
 Track pass/cancel rates and full outcomes because a penalty can encourage
