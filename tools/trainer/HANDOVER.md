@@ -1,3 +1,5 @@
+> Historical operations note (29 October 2026): use native `paired_arena` and `house_usage` for the archived diagnostics below. The old automatic RL and machine-switch scripts are retired. New work uses `train_ops pipeline --manifest PATH`; stopping a native job uses `stop_job4 --job PATH`. Copying artifacts and publishing code are separate explicit actions.
+
 # Trained AI: handover from the Windows + WSL2 PC to Ubuntu (2026-09-30)
 
 The owner moves this PC to a dual boot with Ubuntu 26.04 on 2026-09-30 and

@@ -28,7 +28,7 @@ deviations. The
 value head learns from every decision of every seat. The learner plays as the
 expert profile (4), so its RL policy is what that profile slot answers.
 
-One run is one policy-improvement step; `rl_loop.sh` alternates league games
+One run is one policy-improvement step; an explicit native pipeline manifest alternates league games
 and these steps. `last.pt` is written every `--ckpt-minutes` and `--resume`
 continues from it.
 """
