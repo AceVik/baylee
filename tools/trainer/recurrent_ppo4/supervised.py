@@ -9,7 +9,7 @@ def supervised_loss(net, dataset, indices, prefixes, device):
     h = reconstruct_hidden(net,dataset,indices,prefixes,device)
     host = D.collate_trajectories([dataset[index] for index in indices])
     net.clear_structure()
-    net.prepare_structure()
+    net.prepare_structure((host["entity_rules"],host["cand_rules"]))
     outputs,_ = advance(net,host,h,device)
     loss = torch.zeros((),device=device)
     for t,out in enumerate(outputs):

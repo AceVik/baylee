@@ -19,10 +19,10 @@ impl Drop for OwnedController {
 fn running(path: &Path) -> Result<serde_json::Value> {
     let started = Instant::now();
     loop {
-        if let Ok(receipt) = files::read_json(path) {
-            if receipt["status"] == "running" {
-                return Ok(receipt);
-            }
+        if let Ok(receipt) = files::read_json(path)
+            && receipt["status"] == "running"
+        {
+            return Ok(receipt);
         }
         ensure!(
             started.elapsed() < Duration::from_secs(5),

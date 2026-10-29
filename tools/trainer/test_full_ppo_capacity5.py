@@ -18,7 +18,7 @@ class FullPPOCapacity(unittest.TestCase):
         b=int(os.environ.get('BAYLEE_PPO_PROBE_BATCH','2'))
         u=int(os.environ.get('BAYLEE_PPO_PROBE_UNROLL','16'))
         self.assertIn((b,u),((2,16),(8,32)))
-        net=M.PlayerNet5(M.Config5(d_model=640,n_heads=8,n_layers=8,d_ff=2560,
+        net=M.PlayerNet5(M.Config5(d_model=640,n_heads=10,n_layers=8,d_ff=2560,
             activation_checkpointing=True,relational_revision=2,candidate_context_revision=2)).to(device).eval()
         net.checkpoint_during_eval=True
         optimizer=torch.optim.AdamW(net.parameters(),lr=2e-5,weight_decay=0)
@@ -43,7 +43,7 @@ class FullPPOCapacity(unittest.TestCase):
         end.record();end.synchronize();peak=torch.cuda.max_memory_reserved()
         self.assertLessEqual(peak,10.5*1024**3)
         print(json.dumps(dict(kind='synthetic_full_ppo_backward_optimizer_capacity',device=torch.cuda.get_device_name(),
-            batch=b,unroll=u,entities=64,candidates=64,d_model=640,layers=8,thinking_steps=2,precision='float32',
+            batch=b,unroll=u,entities=64,candidates=64,d_model=640,layers=8,attention_heads=10,catalog_scope="synthetic unknown rule only",thinking_steps=2,precision='float32',
             activation_checkpointing=True,elapsed_ms=start.elapsed_time(end),peak_reserved_bytes=peak,
             peak_allocated_bytes=torch.cuda.max_memory_allocated(),parameter_bytes=sum(p.numel()*p.element_size() for p in net.parameters()),
             gradient_l1=gradients,loss=float(loss.detach())),sort_keys=True),flush=True)

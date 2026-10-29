@@ -48,13 +48,14 @@ def reconstruct_hidden(net, dataset, indices, prefixes, device):
     """
     hidden = []
     net.clear_structure()
-    net.prepare_structure()
     for segment in indices:
         if segment not in prefixes:
             raise ValueError("Segment is outside admitted learner histories")
         h = torch.zeros(1, M.RECURRENT_SLOTS, net.cfg.d_model, device=device)
         for previous in prefixes[segment]:
             host = D.collate_trajectories([dataset[previous]])
+            net.clear_structure()
+            net.prepare_structure((host["entity_rules"], host["cand_rules"]))
             _, h = advance(net, host, h, device)
         hidden.append(h)
     net.clear_structure()
@@ -69,7 +70,7 @@ def segment_outputs(net, dataset, indices, prefixes, device, gradients=True):
         # Structure representations also need current-weight gradients; the
         # no-grad burn-in cache must never leak into the differentiable unroll.
         net.clear_structure()
-        net.prepare_structure()
+        net.prepare_structure((batch["entity_rules"], batch["cand_rules"]))
         outputs, final_h = advance(net, batch, h, device)
         current, recorded, advantage = [], [], []
         values, returns = [], []
