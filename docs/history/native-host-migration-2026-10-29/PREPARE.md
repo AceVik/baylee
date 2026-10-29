@@ -17,8 +17,9 @@ artifact and the unchanged installed unit bytes. The three active host units
 have no drop-ins. Preparation preserved preview PID 9331, arena PID 95824 and
 lane2 PID 95768. These are observations, not future permission to interrupt them.
 
-Deployment binaries remain absent. `release-bin-review.pending.json` is a
-template, not approval. After the final release build, the owner creates a
+Release binaries are now sealed; see [SEALED.md](SEALED.md) for the exact build
+identity, pins and validation receipts. `release-bin-review.pending.json` remains
+an unfilled historical template, not approval. To prepare a future package, the owner creates a
 separate review JSON containing `profile: "release"` and literal source paths
 and SHA256 values for `serve_local4` and `collect_local4`. The helper preflights
 both pins before copying anything, rejects debug paths and missing pins, copies
@@ -49,6 +50,7 @@ from these controller candidates.
 
 Validation performed: helper compiled; `prepare` and `verify-prepared` passed;
 `seal` with the unfilled review template was refused before any binary copy.
-No final release pin or service activation was claimed. An earlier preliminary
+The initial preparation claimed no release pin; the later sealing is recorded
+separately. No service activation occurred. Earlier preliminary
 packages ending `01a187a2-7d54-70bb-b1e4-3bfa21f0bcbf` and
 `01a187a4-8d17-70c7-a99a-f4f483e3514b` are superseded and must not be deployed.
