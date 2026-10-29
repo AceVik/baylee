@@ -51,8 +51,10 @@ fn streaming_rebase_reuse_and_content_seals() -> Result<()> {
     let cache = Path::new(first["cache_dir"].as_str().context("cache path")?);
     let bytes = fs::read(cache.join("ent_off.i64"))?;
     let offsets: Vec<_> = bytes
-        .chunks_exact(8)
-        .map(|s| i64::from_le_bytes(s.try_into().expect("8B")))
+        .as_chunks::<8>()
+        .0
+        .iter()
+        .map(|s| i64::from_le_bytes(*s))
         .collect();
     ensure!(offsets == [0, 2, 3]);
     ensure!(fs::read(cache.join("ent_card.i32"))? == [vec![1; 8], vec![2; 4]].concat());
