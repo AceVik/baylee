@@ -819,6 +819,17 @@ the window and not on the suspended resolution, which holds the price for the
 whole of the yes-or-no question too — reading the operation alone reports a
 debt while the seat is still deciding whether to take one.
 
+### Announced spell context for native training
+
+`PlayerView::announced_cast` is an optional, owner-only spell identity used by
+the opt-in native payment-context projection. It survives a nested mana ability
+asking for a color. It does not authorize `CancelCast`: `casting` retains that
+separate meaning and can be absent while `announced_cast` is present. Default
+and archived projections omit the field; it defaults to `None` when reading
+older views. This additive field does not change view version 82. The live
+socket has no payment-context capability yet, so encoder 8 must refuse live
+deployment until that capability is implemented and checked.
+
 ## How long a seat has left (view version 25)
 
 The decision clock has run since the engine moved into a process of its own,
