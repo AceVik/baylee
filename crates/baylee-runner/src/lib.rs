@@ -338,9 +338,7 @@ mod tests {
                 ) {
                     continue;
                 }
-                if relative.starts_with("tools/trainer")
-                    || relative.starts_with("crates/baylee-train")
-                {
+                if relative.starts_with("tools/trainer") {
                     continue;
                 }
                 if path.is_dir() {

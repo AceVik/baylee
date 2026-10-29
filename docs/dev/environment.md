@@ -131,3 +131,16 @@ The UI's GitHub issue carries only the admin's own summary, a category and the b
 - `BAYLEE_SEAT_CONFIG` (the settings file: model profiles and daily/monthly caps; `--config` wins; unset = `llm-seat.json` in the client's config directory; a named file must exist, none at all = no caps, as before).
 
 Keys only from the variable a profile names (`key_env`) or the OS credential store (`baylee-seat key set|status|delete`, service `baylee-seat`, account `{key_env}@{host}`; `BAYLEE_KEY_STORE=off` disables), never in the file (refused); tests use `MemoryKeys` or `BAYLEE_KEY_STORE=off`, never the real store. Under a file each game reserves in `llm-spend.json` beside it (`--ledger`) before it sits down and settles after; a killed bridge's reservation counts in full. Tests pass temp paths, never the real config directory. A host's client starts it with `--tethered --chair-ticket`, the chair ticket the first stdin line (never argv, env or a log); it says ready only after `Mind::check` (the cheapest provider call, a CLI's login check). Lines on paths that can outlive their reader go through `client_core::say!`/`say_err!`, never `println!`. `--mind cli:<tool>[:<model>]` (`provider: cli`) plays an agent CLI on its own login, no key (`cli.rs`, `docs/llm-seat.md` §"A CLI as the model"): the resolved program run with an argv array, never a shell; an empty `0700` temp working directory; `env_clear()` plus an allowlist, a key-shaped value refusing the start. Tests drive only `examples/fake-agent-cli.rs`, never a real CLI or model.
+
+## macOS CI runner (`baylee-macos-runner`)
+
+`docs/releasing.md` §"The macOS runner". Read by `serve`, `batch` and
+`prepare`; all four are optional and exist for testing the runner elsewhere.
+
+- `BAYLEE_RUNNER_REPO`: the repository it serves (default `AceVik/baylee`).
+- `BAYLEE_RUNNER_IMAGE`: the local Tart image each job clones (default `baylee-runner`).
+- `BAYLEE_RUNNER_BASE`: the upstream image `prepare` clones (default: `Settings::base`, pinned by digest).
+- `BAYLEE_CARGO_LOCK`: the lock command it holds while jobs are queued (default `~/.baylee-locks/with-cargo-lock.sh`).
+
+The fine-grained token is never a variable: it is read from the login
+keychain (service `baylee-macos-runner`) and handed to each `gh` child alone.
