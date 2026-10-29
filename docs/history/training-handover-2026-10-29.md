@@ -69,13 +69,51 @@ attempt; all 7,013 sealed recovery inputs passed the final mount-map preflight.
 It was launched as `baylee-full-ppo-eval-01a188e2.service`, no restart,
 20 GiB cgroup limit and 1,830-second outer bound. Its `eval.pipeline.json`
 SHA256 is `ef3a3e532f10149e4e2bf4b7b844e4fcf387fbbf01775007645d544d84bac7f9`.
-Observed phase: `export_cpu`. Inner native controller identity: PID `2297908`,
-start ticks `12884769`, boot ID `ebf55ae5-05a2-41fc-a994-e5da27268ced`;
-the outer service PID is not the pipeline owner. The watcher is armed to that
-inner identity and the same owning chat, requiring `complete` and `result.json`;
-`baylee-full-ppo-eval-01a188e2-watch.timer` checks every 30 seconds.
-The CPU pointer and actual stage receipts supersede this snapshot. Preparation
-and a running service alone do not certify export parity or completed games.
+The recovery **completed**. Both models won the same four cases and lost the
+same twelve: paired better/equal/worse = 0/16/0. Each needed one repeated-view
+House recovery in case 8; there were no caps or refused answers. The matched
+Steady baseline had mean utility 0.5; both neural arms had mean utility 0.25.
+All cases remain included, with interventions reported separately. Eight table
+pairs do not establish equivalence or general strength, and the bootstrap's
+degenerate zero interval must not be interpreted as certainty.
+
+The canonical records also show changed behaviour: 7/16 input sequences
+diverge, while 9/16 are identical. Initial headers match and each decoded
+record digest was verified. `action-comparison.json` records first divergence;
+this is structural comparison, not fresh engine replay or evidence of improved
+play. Shard index offsets/lengths address compressed gzip members, not decoded
+bytes; decode each indexed member before checking its canonical record hash.
+
+Former inner controller identity: PID `2297908`, start ticks `12884769`, boot ID
+`ebf55ae5-05a2-41fc-a994-e5da27268ced`; verified exited. The outer service PID
+was not the pipeline owner. The watch event is `a3f6616e85ec69e59c679c21`.
+`review.json`, `paired.json` and `reviewed-events/` contain the final report
+and operator verification. The old failed namespace attempt is still retained.
+
+The next experiment tests **actual learning exposure**, separately from new
+observation/reward contracts: original R6 and the same eight admitted games,
+fresh AdamW, B4/U64, one epoch / at most 32 attempts / 3,600 GPU-stage seconds.
+It is a new bounded experiment, not an exact optimizer resume of B2/U32.
+The wider batch/unroll needs its own measured memory result; the small pilot's
+peak does not certify it. No automatic shape fallback, KL relaxation or retry.
+It **started at 19:57 CET on 29 October** in
+`refactor-investigations-20261029/full-model-ppo-coverage-01a18905-7895-7f03-a935-b6da0046fc79`.
+The CPU loader and native schedule preflight passed: 108 unique segments,
+27 update groups, 6,626 valid frames and 1,575 actor choices over eight learner
+histories. This is the scheduled dose; actual retained exposure is reported
+after training and may be smaller after rejection or timeout.
+
+The native controller identity is PID `2310385`, start ticks `13105998`,
+boot ID `ebf55ae5-05a2-41fc-a994-e5da27268ced`. At this snapshot its phase is
+`full_model_ppo`, with GPU worker `2311533`; verify their live identities before
+acting. The service is `baylee-full-ppo-coverage-01a18905.service` and its watcher
+is `baylee-full-ppo-coverage-01a18905-watch.timer`, bound to the inner controller
+and the same chat. The manifest SHA256 is
+`dd49a21075193a333cd4be3f3f42c1057175c50c10f5c1f4c21bef967bec8191`.
+`coverage-review.json` will distinguish retained coverage, attempted dose,
+per-history coverage and final rollback. Follow `active-training.json` and
+actual receipts for current state; never launch a second controller from this
+dated snapshot. The completed pilot/comparison watchers have been stopped.
 
 If another agent takes over after a quota limit, inspect these pointers before
 launching anything. Review acceptance, consumed dose, whole-collection KL,

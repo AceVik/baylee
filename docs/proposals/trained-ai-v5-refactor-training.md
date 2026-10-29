@@ -161,9 +161,15 @@ Der Stand und die nächste Reihenfolge lauten:
    umfassten 131 Lernerentscheidungen in 512 Frames; die vollständigen 1.575
    Entscheidungen wurden vor und während des Lernens geprüft. Keine volle
    Epoche und noch kein Spielstärkennachweis. Laufzeit 988,33 Sekunden,
-   maximal 2,51 GiB reservierter VRAM, keine Allocator-Retries. Der nächste
-   getrennte Schritt ist ein Vergleich auf 16 neuen Entwicklungsfällen je
-   Modell mit gleichen Seeds und vertauschten Sitzen. Betriebsstand,
+   maximal 2,51 GiB reservierter VRAM, keine Allocator-Retries. Der anschließende
+   Vergleich auf 16 neuen Entwicklungsfällen je Modell mit gleichen Seeds und
+   vertauschten Sitzen ergab dieselben vier Siege und zwölf Niederlagen sowie
+   denselben einzelnen Haus-KI-Eingriff. Kein nachgewiesener Gewinn und kein
+   Gleichwertigkeitsnachweis bei nur acht Tischpaaren. Als getrennte nächste
+   Untersuchung läuft seit 19:57 Uhr am 29.10. ein Versuch mit höherer Lerndosis:
+   B4/U64 über höchstens eine Epoche derselben acht Partien. Architektur, Daten, Belohnung und
+   ursprünglicher R6-Start bleiben gleich, der Optimizer startet frisch.
+   Betriebsstand,
    Fehlversuche und Übernahme sind im [Trainingshandbuch](../training-runbook.md)
    und der [aktuellen Übergabe](../history/training-handover-2026-10-29.md) verlinkt.
 
