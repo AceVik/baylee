@@ -1,7 +1,7 @@
 # Training takeover pointer — 29 October 2026
 
-Operational snapshot after the completed full-model pilot and comparison,
-with the larger-exposure run active. Read the
+Operational snapshot after the completed full-model pilot, initial comparison
+and larger-exposure training run. Read the
 [training runbook](../training-runbook.md) for commands, contracts, research
 findings and handover procedure. This is a pointer to durable evidence; actual
 status can advance after this note.
@@ -44,8 +44,8 @@ The experiment directory is
 | Owning chat | `01a16325-d29f-7ad1-9625-cbb5bf2cb1a4`; success requires phase `complete` and `execution/result.json` |
 
 After the pilot, its reviewed state was `complete-reviewed`, `training=false`.
-The current training pointer now refers to the active coverage experiment below.
-The completed CPU comparison is recorded in
+The current training pointer now refers to the reviewed coverage experiment below.
+The current CPU comparison is recorded in
 `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json`. Inspect
 its actual `execution/status.json`, controller identity and stage receipts
 before taking any new action. The bounded follow-up compared candidate/R6
@@ -106,17 +106,58 @@ The CPU loader and native schedule preflight passed: 108 unique segments,
 histories. This is the scheduled dose; actual retained exposure is reported
 after training and may be smaller after rejection or timeout.
 
-The native controller identity is PID `2310385`, start ticks `13105998`,
-boot ID `ebf55ae5-05a2-41fc-a994-e5da27268ced`. At this snapshot its phase is
-`full_model_ppo`, with GPU worker `2311533`; verify their live identities before
-acting. The service is `baylee-full-ppo-coverage-01a18905.service` and its watcher
-is `baylee-full-ppo-coverage-01a18905-watch.timer`, bound to the inner controller
-and the same chat. The manifest SHA256 is
+The coverage run **completed**, with all 27 attempted updates retained and all
+1,575 actor choices / 6,626 learner frames / 108 segments covered once. All
+eight learner histories have full retained exposure. No update was rejected
+and no final rollback occurred. The final whole-collection KL is
+`0.00007969814658532071`, with 311 changed tensors and finite publication.
+The GPU stage took 2,638.27 seconds; total pipeline time was 2,666.73 seconds.
+Peak CUDA allocated/reserved bytes were 3,488,394,752 / 4,347,396,096, with zero
+allocator retries; peak host PSS was 3,591,371,776 bytes. This certifies the
+observed B4/U64 experiment, not larger batches or Commander workloads.
+
+Former native controller: PID `2310385`, start ticks `13105998`, boot ID
+`ebf55ae5-05a2-41fc-a994-e5da27268ced`. The controller, GPU worker `2311533`
+and all stage children were identity-checked as exited. The service was
+`baylee-full-ppo-coverage-01a18905.service`; its watcher timer is stopped after
+review. The manifest SHA256 is
 `dd49a21075193a333cd4be3f3f42c1057175c50c10f5c1f4c21bef967bec8191`.
-`coverage-review.json` will distinguish retained coverage, attempted dose,
-per-history coverage and final rollback. Follow `active-training.json` and
-actual receipts for current state; never launch a second controller from this
-dated snapshot. The completed pilot/comparison watchers have been stopped.
+Candidate `publication/net.pt` SHA256 is
+`b92023fd82fd2bac9574e64e4018d219019cec5a0fa7aef08aefd7af82059c74`.
+`coverage-review.json` distinguishes retained coverage, attempted dose,
+per-history coverage and final rollback. The event
+`eeeb4947cfd354609d789ab8` is deduplicated in `reviewed-events/`; the independent
+operator review reverified every pipeline input/output seal and actual update
+counts. `active-training.json` now says `complete-reviewed`, `training=false`.
+These are technical learning results; improved playing strength is untested
+for these candidate bytes. Follow actual pointers before any new operation.
+
+The separate coverage-candidate CPU comparison is now running under
+`full-model-coverage-eval-01a18931-d9af-72e9-9a84-de9606a4b345/`. Its verified
+inner controller is PID `2330494`, start ticks `13431510`, on the same boot.
+The unit is `baylee-full-coverage-eval-01a18931.service`; the owning chat's
+`baylee-full-coverage-eval-01a18931-watch.timer` is active. The immutable
+manifest SHA256 is
+`45e0cae4466fc8b5d6b3208a5c4ce3bc9073d5aa5bc891052da6cd76cf82d506`.
+The launch receipt seals all 7,231 inputs and binds the actual controller's
+executable, argv and cgroup. Limits: two CPU workers, 200% CPU quota, 20 GiB
+service memory, 1,800-second pipeline / 1,830-second service deadline; no retry
+or GPU use. Export parity and the zero-control check passed; the latest observed
+phase is `play_candidate`. Export verified 47 actual frames with maximum error
+`1.53e-5` and produced K=0/1/2/4/8 variants.
+
+Only 16 candidate cases are played anew. Exact R6 and initial-pilot references
+are reused from the preceding comparison after verifying engine, decks,
+seeds, sampling, record bytes and settings. These are repeated development
+cases, not a fresh holdout or proof of general strength. The native comparison
+retains outcomes, caps, interventions and canonical action differences for
+all three arms. No deployment change follows automatically.
+
+The [performance review](trained-ai-full-ppo-performance-2026-10-29.md)
+documents repeated full-collection audits and prefix reconstruction. Their
+individual runtime costs have not been measured. It proposes a bounded
+execution-parity probe keeping the exact optimizer B4/U64 groups and complete
+KL/rollback checks; that probe has not been implemented or launched.
 
 If another agent takes over after a quota limit, inspect these pointers before
 launching anything. Review acceptance, consumed dose, whole-collection KL,
@@ -153,9 +194,15 @@ Parallel Rust milestones are committed locally:
   same four classifications. Complete index v2 inputs only; no operational
   abort-ledger ingestion, ordinary targets/cache or PPO admission. See the
   [conversion report](trained-ai-failure-terminal-research-conversion-2026-10-29.md).
+- `7b4f7e936`: explicit `convert4 research --attempt-ledger-runs` adapter and
+  shared read-only final-ledger verification. Fourteen converter and eleven
+  operational-ledger tests plus both focused Clippy commands passed. A real
+  failed Rust child fixture preserves 5 planned / 4 assigned / 3 recorded /
+  1 operational unknown / 1 not started, including orphan/torn evidence, and
+  emits only two known-return histories. All unknowns remain target-free.
+  The original complete-index path remains intact; the new manifest is v2.
 
-Next implementation work: join the finalized operational ledger to research
-conversion, implement the versioned research cache/admission and Torch
+Next implementation work: implement the versioned research cache/admission and Torch
 target/resume handling, then numerical recurrent probability replay and a tiny
 end-to-end test. The shared replay's Forced/Net classification now checks the
 reconstructed menu rather than trusting the label; this closes a validation

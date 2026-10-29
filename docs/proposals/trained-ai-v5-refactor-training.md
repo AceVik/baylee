@@ -165,11 +165,13 @@ Der Stand und die nächste Reihenfolge lauten:
    Vergleich auf 16 neuen Entwicklungsfällen je Modell mit gleichen Seeds und
    vertauschten Sitzen ergab dieselben vier Siege und zwölf Niederlagen sowie
    denselben einzelnen Haus-KI-Eingriff. Kein nachgewiesener Gewinn und kein
-   Gleichwertigkeitsnachweis bei nur acht Tischpaaren. Als getrennte nächste
-   Untersuchung läuft seit 19:57 Uhr am 29.10. ein Versuch mit höherer Lerndosis:
-   B4/U64 über höchstens eine Epoche derselben acht Partien. Architektur, Daten, Belohnung und
-   ursprünglicher R6-Start bleiben gleich, der Optimizer startet frisch.
-   Betriebsstand,
+   Gleichwertigkeitsnachweis bei nur acht Tischpaaren. Die getrennte Untersuchung
+   mit höherer Lerndosis ist ebenfalls abgeschlossen: B4/U64, eine volle Epoche
+   derselben acht Partien, alle 27 Updates und alle 1.575 Entscheidungen in
+   6.626 Lernerframes übernommen. Architektur, Daten, Belohnung und ursprünglicher
+   R6-Start blieben gleich, der Optimizer startete frisch. Finale KL `7,96981e-5`,
+   2.638,27 Sekunden Trainingsphase, keine verworfenen Updates oder Allocator-Retries.
+   Der Spielstärkevergleich dieses neuen Kandidaten folgt getrennt. Betriebsstand,
    Fehlversuche und Übernahme sind im [Trainingshandbuch](../training-runbook.md)
    und der [aktuellen Übergabe](../history/training-handover-2026-10-29.md) verlinkt.
 

@@ -21,14 +21,19 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current training direction | The bounded **full-model E7/R6 FP32 PPO pilot** completed with eight accepted updates. Follow `active-training.json` to its review and `active-cpu-followup.json` to the separately bounded gameplay comparison; verify actual status before restarting anything |
+| Current training direction | The bounded **full-model E7/R6 FP32 coverage experiment** completed with 27 accepted updates and all 1,575 actor choices retained. Follow `active-training.json` to its review and `active-cpu-followup.json` to the separately bounded gameplay comparison; verify actual status before restarting anything |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
 
-The full-model pilot uses B2/U32, K2, temperature 0.7, LR `2e-6`,
-at most eight update attempts and at most 30 minutes. Its frozen manifest is the
-authority for actual limits and source identity. Preparation is not proof of a
+The completed initial pilot used B2/U32 and eight updates, differentiating only
+131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,
+fresh AdamW from original R6 and one full epoch of the same eight games. All
+27 updates were retained, covering 1,575 actor choices and 6,626 learner frames;
+the final whole-collection KL was `0.00007969814658532071`. Its frozen manifest
+is the authority for limits and source identity. The initial pilot's 16-case
+comparison showed no outcome change; the coverage candidate needs its own
+playing-strength comparison. Preparation is not proof of a
 running job, accepted updates, full dataset exposure, resource readiness for a
 long run, or stronger play. Do not substitute the head-only candidate for its
 original R6 source. Keep E9 observation learning and a new failure reward as
@@ -307,14 +312,33 @@ For a fully indexed, completed research collection:
 /absolute/pinned/convert4 research --runs /absolute/NEW/records --out /absolute/NEW/research-features
 ```
 
+For an already finalized operational attempt ledger, including collections
+with failed workers or unstarted deals, use the explicit Linux adapter:
+
+```text
+/absolute/pinned/convert4 research --attempt-ledger-runs /absolute/NEW/records --out /absolute/NEW/research-features
+```
+
+The two input options are mutually exclusive. The finalized-ledger adapter
+requires the original absolute source/guard paths and both existing final
+ledger seals; it does not repair evidence. It recomputes the canonical ledger,
+verifies producer exit and guard cleanup, and rechecks it before publication.
+Manifest v2 preserves planned, assigned, recorded, operational-unknown and
+not-started counts separately. An index row without a published game receipt
+remains unknown; torn tails and orphan shards remain sealed evidence. An
+unstarted deal is neither a played game nor an unknown outcome.
+
 The converter verifies original canonical replay, controlled-seat roles,
 sampling provenance and exact declared termination. It writes
 `research.manifest.json`, `research.complete.json`, `attempts.jsonl` and separate
 compressed research episodes. Known research returns are explicitly separated
 from MTG outcomes; unknown attempts emit no target rows. Ordinary `Step4`
-outcome, terminal and final-state auxiliary labels are absent. The first slice
-accepts complete index v2 collections only: it **does not yet consume the new
-operational-abort ledger**, and declares that limitation in its manifest.
+outcome, terminal and final-state auxiliary labels are absent. The original
+`--runs` adapter keeps its complete-index-v2 requirement and manifest v1;
+`--attempt-ledger-runs` emits manifest v2 without changing the frame/return
+contract. Operational unknowns and not-started entries receive no episode
+file or target frames. Fourteen converter and eleven operational-ledger tests
+plus focused Clippy passed for this integration.
 Do not feed these files to ordinary trajectory caches or PPO admission. The
 research cache/admission, PyTorch return/resume contract, numerical recurrent
 probability audit and tiny end-to-end trial remain required before learning.
@@ -436,11 +460,18 @@ are evidence, not permission to reinterpret old data.
 | E7/E8 target observations could alias selected X=0 and X=1; X was already stored on the object before targets | E9 adds explicit authorized X presence/value and matching clocks/hashes. This is an observation gap, not proof it caused the observed X=0 multi-target affordability loop |
 | Original eight complete TRAIN games provide 1,575 genuine learner stochastic choices; one isolated head-PPO step was accepted | All 24 policy tensors changed and 542 others stayed identical; KL was `3.8877511166e-6`. Four known transfer cases had unchanged outcomes/fallbacks/reversals. This proves one technical head update, neither Full-PPO nor improvement |
 | The subsequent full-model E7/R6 pilot accepted all eight attempted updates | 311 of 566 tensors changed, including trunk, relational processing and recurrent memory; final whole-collection KL `4.00522484e-5`. The update groups contained only 131 actor choices / 512 frames; all 1,575 choices / 6,626 learner frames were audited. This is a bounded prefix dose, not a full epoch or evidence of stronger play |
-| Its fresh-seed paired follow-up had identical outcomes on all 16 cases, with different canonical action sequences in seven | Both R6 and candidate won 4/16 and required one House recovery in the same case; no caps/refusals. Behaviour changed, but improvement or equivalence is not established. Distinguish audited exposure from differentiated training dose before deciding PPO failed; the next bounded experiment targets full exposure of the same eight games |
+| Its fresh-seed paired follow-up had identical outcomes on all 16 cases, with different canonical action sequences in seven | Both R6 and candidate won 4/16 and required one House recovery in the same case; no caps/refusals. Behaviour changed, but improvement or equivalence is not established. Distinguish audited exposure from differentiated training dose before deciding PPO failed |
+| The next B4/U64 experiment retained a full epoch: 27/27 updates, all 1,575 choices / 6,626 learner frames | Final whole-collection KL `7.96981466e-5`, 311 changed tensors, 2,638.27 seconds GPU-stage wall time and zero allocator retries. A separate CPU comparison is running; these technical results alone do not demonstrate stronger play |
 | Behavior replay can differ slightly from recorded FP32 likelihoods | Keep the recorded executed-action denominator after passing tolerance checks. Replacing it would erase real PPO drift; above-tolerance differences still fail |
 | Strictly retaining only clean terminal games censors learner failures that trigger house recovery | The original four E3 cases are not admitted. A new research failure-terminal contract needs collector/converter/target/cache/admission/resume agreement. Unknown MTG results must stay unknown |
 | Streaming full-collection KL auditing eliminated repeated fixed-weight history inference | A 256-frame/60-choice prefix measured 4.21x speedup with identical logprobs; this is not a complete-episode or backward/Adam capacity result |
 | v5 relational processing and E9 integration pass targeted technical checks | Neither v5 superiority to v4, human-level strength, useful extra K, E9 gameplay benefit nor a need for a larger model has been established. First repair learning signals/contracts and measure full-model learning with the current model |
+
+The [full-model performance review](history/trained-ai-full-ppo-performance-2026-10-29.md)
+identifies repeated history inference and synchronization as measurement
+candidates. Its audit-lane/spatial-chunk probe is a proposal, not a measured
+optimization. Preserve optimizer groups, recorded likelihoods, complete
+collection audits and transactional rollback when testing scheduling changes.
 
 The original learner failure prefix has 127 stochastic samples, below the
 planned minimum of 128. Case 64's first recovery belongs to the **opponent**;
@@ -455,7 +486,7 @@ and canonical hashes verified. See the [native boundary report](history/trained-
 The first audit failed because legitimate scalar Net frames lack categorical
 log-probabilities; the correction preserves those frames without inventing an
 actor likelihood. The separate conversion-only path and durable operational
-ledger now exist as described above. Joining that ledger to conversion, a
+ledger are now joined through the explicit finalized-ledger adapter above. A
 dedicated research cache/admission, numerical recurrent replay and Torch
 target/resume identity remain required. A new flag is not completed training
 validation. Opponent failure, legal cancellation, cap and engine fault need
