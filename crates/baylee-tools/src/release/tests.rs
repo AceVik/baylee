@@ -461,17 +461,24 @@ fn client_check_covers_every_platform_cfg() {
         "the walk found {client:?}"
     );
 
+    // `cfg`, `cfg!` and `cfg_attr`, over line breaks inside the brackets;
+    // a manifest's `[target.'cfg(…)'.dependencies]` counts as well.
     let platform = regex::Regex::new(
-        r"cfg!?\(.*\b(target_os|target_arch|target_family|target_env|windows|unix)\b",
+        r"(?s)cfg(?:_attr)?!?\([^\]]{0,300}?\b(target_os|target_arch|target_family|target_env|target_vendor|windows|unix)\b",
     )
     .unwrap();
     let mut needed = BTreeSet::new();
     for name in &client {
         let mut files = Vec::new();
         rust_sources(&root.join("crates").join(name), &mut files);
-        if files
-            .iter()
-            .any(|file| platform.is_match(&fs::read_to_string(file).unwrap_or_default()))
+        let manifest = fs::read_to_string(root.join("crates").join(name).join("Cargo.toml"))
+            .unwrap_or_default();
+        if manifest
+            .lines()
+            .any(|line| line.starts_with("[target.'cfg("))
+            || files
+                .iter()
+                .any(|file| platform.is_match(&fs::read_to_string(file).unwrap_or_default()))
         {
             needed.insert(name.clone());
         }

@@ -112,15 +112,17 @@ impl Operations for SharedMock {
 }
 
 impl MockOperations {
+    /// Takes a slow command's time first and then writes it down, so the
+    /// journal's order is the order commands *finished* in.
     fn record(&self, spec: &Spec) {
-        if let Some(journal) = &self.journal {
-            let line = format!("{} {}", spec.program, spec.args.join(" "));
-            journal.lock().unwrap().push(line);
-        }
         for (word, delay) in &self.slow {
             if spec.args.iter().any(|arg| arg == word) {
                 std::thread::sleep(*delay);
             }
+        }
+        if let Some(journal) = &self.journal {
+            let line = format!("{} {}", spec.program, spec.args.join(" "));
+            journal.lock().unwrap().push(line);
         }
     }
 
