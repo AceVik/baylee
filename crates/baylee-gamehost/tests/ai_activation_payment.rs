@@ -18,6 +18,9 @@ fn entry(name: &str) -> DeckEntry {
 fn position(red: bool) -> Session {
     let mut preset: GamePreset =
         baylee_cards::decks::probe_preset(41, entry("Forest").card).unwrap();
+    // The position is seat 0's first main phase; a seeded start could hand
+    // the first turn to the Bears instead.
+    preset.house_rules.starting_player = Some(0);
     for seat in &mut preset.seats {
         seat.controller = SeatController::Human { user_id: 0 };
         seat.starting_hand = Some(Vec::new());
