@@ -14,12 +14,9 @@ def configuration(args, parser):
     try:
         config=SupervisedLossConfig(version=args.loss_version,outcome_weighting=not args.outcome_weighting_off,
             normalization=args.loss_normalization,detach_value_input=args.detach_value_input,detach_aux_input=args.detach_aux_input)
+        config.validate_execution(reference_execution=args.reference_execution, init_state=args.init_state)
     except ValueError as error:
         parser.error(str(error))
-    if args.reference_execution and config.version != 4:
-        parser.error('Loss5 requires optimized execution (ordinary or deferred), not --reference-execution')
-    if args.init_state and config.version != 4:
-        parser.error('Loss5 package optimizer continuation is unsupported; use --init or strict --resume')
     return config
 
 

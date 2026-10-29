@@ -47,6 +47,13 @@ class IntegrationTests(unittest.TestCase):
   self.assertEqual(args.supervised_loss,C())
   for extra in (['--outcome-weighting-off'],['--loss-version','5','--reference-execution'],['--loss-version','5','--init-state','old.pt']):
    with patch('sys.argv',base+extra),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):parse_args('v5')
+ def test_native_execution_admission_preserves_legacy_continuation(self):
+  C().validate_execution(reference_execution=True,init_state='old.pt')
+  C(version=5).validate_execution(reference_execution=False,init_state=None)
+  with self.assertRaisesRegex(ValueError,'Loss5 requires optimized execution'):
+   C(version=5).validate_execution(reference_execution=True,init_state=None)
+  with self.assertRaisesRegex(ValueError,'package optimizer continuation'):
+   C(version=5).validate_execution(reference_execution=False,init_state='old.pt')
  def test_one_actual_driver_update_and_checkpoint_contract(self):
   batch=batch_fixture(b=4,u=4);batch['is_new_traj']=torch.ones(4,dtype=torch.bool)
   forest=M.PlayerNet4(M.Config4(d_model=32,n_heads=4,n_layers=1,d_ff=64)).rules.data

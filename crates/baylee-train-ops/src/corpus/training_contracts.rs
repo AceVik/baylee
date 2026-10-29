@@ -1,4 +1,5 @@
 //! Native semantic encoder and recurrent training schedule contracts.
+mod supervised_execution;
 use super::bc_metadata::digest;
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
@@ -94,6 +95,7 @@ pub fn validate(value: &Value) -> Result<Value> {
         Some("initial_encoder") => initial(value),
         Some("depth") => depth(&value["contract"]),
         Some("supervised_loss") => loss(&value["contract"]),
+        Some("supervised_execution") => supervised_execution::validate(value),
         Some("depth_resume") => {
             let expected = depth(&value["contract"])?;
             ensure!(

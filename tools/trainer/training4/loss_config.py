@@ -19,6 +19,11 @@ class SupervisedLossConfig:
         _native(['training-contract'],json.dumps(dict(kind='supervised_loss',contract=self.to_dict()),
             allow_nan=False).encode())
 
+    def validate_execution(self, *, reference_execution, init_state):
+        _native(['training-contract'], json.dumps(dict(kind='supervised_execution',
+            contract=self.to_dict(), reference_execution=reference_execution,
+            init_state=bool(init_state)), allow_nan=False).encode())
+
     def to_dict(self):
         return dict(version=self.version, outcome_weighting=self.outcome_weighting,
                     normalization=self.normalization, policy_head_weights=list(self.policy_head_weights),
