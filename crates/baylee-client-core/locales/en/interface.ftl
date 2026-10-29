@@ -3516,6 +3516,14 @@ GameLogNewBelow = New lines below
 # pressing it goes back to the newest line.
 GameLogLatest = Back to the latest
 
+# A folded turn's heading in the game log says how many lines the turn
+# holds (feedback of 24.10.2026); a press on it opens the turn.
+# Arguments: count
+GameLogTurnLines = { $count ->
+        [one] { $count } line
+       *[other] { $count } lines
+    }
+
 # The head of the sheet that holds up cards another seat revealed.
 # `$player` is the seat's name. Present tense, unlike the log's line: the
 # sheet stands while the cards are being shown (CR 701.20a).
