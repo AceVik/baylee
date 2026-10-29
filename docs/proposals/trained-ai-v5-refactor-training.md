@@ -53,8 +53,10 @@ Paaren. Das ist kein Spielstärkennachweis. Der
 enthält Dosis, Prüfergebnisse und getrennte Fehlversuche.
 Die Gates fanden außerdem eine Deployment-Reihenfolge, die mit dem neuen
 Aufräumen unvereinbar war. Die Korrektur hält neue Partien zurück und lässt
-laufende Spiele enden, bevor ihr Agent gestoppt wird; die vollständigen Gates
-werden auf diesem Stand wiederholt.
+laufende Spiele enden, bevor ihr Agent gestoppt wird. Default- und Feature-Gate
+sind bestanden; im abschließenden Default-Gate bestehen alle 23.916 Tests.
+Die mangels lokalem Scryfall-Cache ausgelassene Katalogvalidierung und weitere
+Prüfgrenzen sind im Bericht ausdrücklich ausgewiesen.
 Der alte Dauerlauf bleibt gestoppt; kein neues Modell ist freigegeben.
 
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;
@@ -566,8 +568,8 @@ Regressionstest und werden vor erneuter Zulassung repariert. Zugehörige Engine-
 und Seat-Prozesse werden auch bei Fehlern beendet und ihr Ende geprüft.
 Fehlgeschlagene Artefakte bleiben erhalten; kein blinder automatischer Retry.
 
-**Nächster Schritt:** Die vollständigen Gates abschließen und den vorab bestimmten
-ursprünglichen E1-Paarvergleich in Partien gegen Sharp auswerten. Keine weiteren
+**Nächster Schritt:** Den vorab bestimmten ursprünglichen E1-Paarvergleich in
+Partien gegen Sharp auswerten. Keine weiteren
 BC-Updates allein wegen eines besseren aggregierten NLL. Der abgeschlossene,
 versiegelte Pilot enthält 32 vollständige Trainingspartien, 66.739 Frames und 64
 Sitzhistorien; fünf getrennte, bereits bekannte Entwicklungspartien sind

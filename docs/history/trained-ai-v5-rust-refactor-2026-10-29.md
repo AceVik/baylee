@@ -154,7 +154,28 @@ stopping the owner. The first upgrade must install the corrected ops executable
 before using it: an already-running old deployment command still has its old
 stop-before-drain behavior. No live deployment was performed here.
 
-The corrected local-agent/lifecycle integration suite passes all seven tests;
-the ops package passed 57 tests, with final modified regressions and strict Clippy
-checked separately. Full default and feature gates are rerunning on the corrected
-source. Their earlier failed receipts remain preserved.
+The corrected local-agent/lifecycle integration suite passes all seven tests.
+The reboot command fixtures and the touched deploy health fixture now use a
+non-shipped Rust executable, including the new admission-race behavior; no new
+shell implementation remains in those tests. The ops package passes all 57 tests
+and strict Clippy. A test that inspected the moved deploy module was also updated
+to its new path and passed independently.
+
+The full feature gate completed successfully on the corrected lifecycle source
+(`328f137ea`); the subsequent test-fixture/path changes passed their targeted
+checks. The final default gate completed on `31e6a78c0`: all 23,916 tests passed,
+27 were skipped, and formatting, strict Clippy and API checks passed. The optional
+catalog validation step was skipped because this checkout has no
+`data/scryfall-cache`; no full code generation was run.
+
+Receipts under the investigation root:
+
+- `gate-full-native-fixtures-20261029.log`: final default gate, exit 0.
+- `gate-features-after-lifecycle-20261029.log`: feature gate, exit 0.
+- `torch-tests-complete-20261029.log`: 226-test suite, six GPU cases skipped.
+- `cuda-contracts-01a187cc-aa57-79ce-9c52-7cff640ce6b6/job.json`: all six GPU
+  cases passed under the exclusive GPU lock.
+
+Earlier failed gate receipts remain preserved; they are not counted as passes.
+The branch is committed locally; this report does not claim a push or live model
+deployment.
