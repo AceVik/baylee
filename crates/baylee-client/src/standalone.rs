@@ -256,19 +256,18 @@ fn primary_window() -> Window {
         window.resolution.set(width, height);
     }
     // A watched agent run (`BAYLEE_DEV_PASSIVE=1`): opens
-    // without the focus, see `primary_cursor_options` below, and
-    // stays above other windows. Since bevy 0.20 an unfocused window
-    // no longer activates the app, so it opens *behind* whatever the
-    // owner is using; and wgpu acquires no drawable for a window
-    // macOS reports occluded (`wgpu-hal` `metal::surface`), so a
-    // covered passive window draws nothing at all, and every
-    // `/screenshot` of it came back black. On top, it is always
-    // drawn; with hit testing off the owner's clicks still go
-    // through it to what lies beneath.
+    // without the focus, see `primary_cursor_options` below. Since
+    // bevy 0.20 an unfocused window no longer activates the app, so it
+    // opens *behind* whatever the owner is using, and it stays there:
+    // it no longer sits above every other window (owner, 29.10.2026).
+    // wgpu acquires no drawable for a window macOS reports occluded
+    // (`wgpu-hal` `metal::surface`), so a covered window draws nothing
+    // and a `/screenshot` of it would come back black; the harness
+    // lifts it above the others only while it captures
+    // (`devctl::window::lift_while_capturing`).
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
     if crate::devctl::passive() {
         window.focused = false;
-        window.window_level = bevy::window::WindowLevel::AlwaysOnTop;
     }
     window
 }
