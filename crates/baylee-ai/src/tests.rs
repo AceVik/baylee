@@ -277,6 +277,7 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         targeting: None,
         casting: None,
         announced_cast: None,
+        announced_x: None,
         sorcery_lock: None,
         sorceries_have_flash: false,
     }

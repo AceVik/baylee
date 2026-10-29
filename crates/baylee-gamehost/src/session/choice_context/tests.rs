@@ -275,6 +275,18 @@ fn announced_spell_survives_nested_dual_land_color_choice_without_cancellation_r
             },
         );
         assert!(matches!(session.pending(), Pending::ChooseColor { .. }));
+        assert_eq!(
+            session
+                .observe_view_with_announcement_context(OWNER)
+                .announced_x,
+            Some(0)
+        );
+        assert_eq!(
+            session
+                .observe_view_with_announcement_context(OTHER)
+                .announced_x,
+            None
+        );
         assert_payment_view_compatibility(&session, card);
         assert!(session.observe_view_with_context(OWNER).casting.is_none());
         assert!(session.act(OWNER, PlayerAction::CancelCast).is_err());
@@ -296,3 +308,5 @@ fn announced_spell_survives_nested_dual_land_color_choice_without_cancellation_r
     assert!(view.casting.is_none());
     assert!(view.stack.iter().any(|row| row.id == card));
 }
+
+mod announcement;

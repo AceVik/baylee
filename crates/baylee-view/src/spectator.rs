@@ -76,6 +76,7 @@ impl SpectatorView {
             targeting: None,
             casting: None,
             announced_cast: None,
+            announced_x: None,
             seq: self.seq,
             seat: perspective,
             turn: self.turn,

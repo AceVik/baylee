@@ -186,6 +186,7 @@ impl ViewBuilder {
                 targeting: None,
                 casting: None,
                 announced_cast: None,
+                announced_x: None,
                 sorcery_lock: None,
                 sorceries_have_flash: false,
             },

@@ -87,6 +87,11 @@ pub struct PlayerView {
     /// not grant permission to cancel. Archived/default views leave it absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub announced_cast: Option<ObjectId>,
+    /// Settled X of the authorized in-progress announcement, supplied only by
+    /// the experimental announcement-context projection. Absent before the X
+    /// choice; `Some(0)` distinguishes a settled zero. No encoder consumes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub announced_x: Option<u32>,
     /// Monotonic sequence number; a client drops out-of-order snapshots.
     pub seq: u64,
     /// The seat this view was built for.

@@ -336,7 +336,9 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // `announced_cast`: additive owner-only opt-in context, default None and
     // omitted when absent. Existing/default wire payloads remain identical;
     // old readers ignore the field, so this does not require a version bump.
-    const RECORDED: (u32, u64) = (82, 13_611_534_184_259_338_264);
+    // `announced_x` has the same default/omission compatibility, and is only
+    // populated by a separate experimental native projection, never sockets.
+    const RECORDED: (u32, u64) = (82, 17_593_544_635_232_560_164);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

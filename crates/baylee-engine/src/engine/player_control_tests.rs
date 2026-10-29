@@ -369,3 +369,14 @@ fn finishing_a_constrained_payment_cannot_discard_an_unconsumed_obligation() {
         2
     );
 }
+
+#[test]
+fn announcement_context_obeys_resource_owner_and_controller_entitlements() {
+    let engine = at_controlled_target();
+    let owner = engine
+        .announced_spell_context(SUBJECT)
+        .expect("owner sees its announcement");
+    assert_eq!(owner.1, Some(0));
+    assert_eq!(engine.announced_spell_context(ACTOR), Some(owner));
+    assert_eq!(engine.announced_spell_context(PlayerId::new(2)), None);
+}

@@ -821,6 +821,20 @@ debt while the seat is still deciding whether to take one.
 
 ### Announced spell context for native training
 
+An additional **experimental native-only** projection is available through
+`Session::view_for_with_announcement_context` and its passive counterpart
+`observe_view_with_announcement_context`. It extends the payment projection
+with optional `PlayerView.announced_x`, the settled X of the current spell
+announcement. Absence means X is not yet settled or there is no announcement;
+`0` is an explicitly settled zero (including X fixed at zero by the casting
+cost). The source is `announced_cast`. Only its resource owner and authorized
+CR 720 controller receive these facts. Commit, cancellation and reversal clear
+the context; suspended miracle and nested mana windows retain it. This is
+observation, not permission to cancel, and makes no affordability promise.
+Existing payment/default/socket methods leave `announced_x` absent, so their
+serialized bytes and observation contracts are unchanged. No wire capability,
+encoder revision or model consumption is introduced by this projection.
+
 `PlayerView::announced_cast` is an optional, owner-only spell identity used by
 the opt-in native payment-context projection. It survives a nested mana ability
 asking for a color. It does not authorize `CancelCast`: `casting` retains that

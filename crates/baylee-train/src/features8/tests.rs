@@ -9,6 +9,45 @@ use baylee_view::Phase;
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 
+#[test]
+fn experimental_announcement_x_does_not_change_encoder7_or8_or_legacy_hashes() {
+    let (session, _) = at_x_choice();
+    let (pending, view) = session.view_for_with_payment_context(P0).unwrap();
+    let mut experimental = view.clone();
+    experimental.announced_x = Some(7);
+    for (before, after) in [
+        (
+            crate::features7::encode_state7(&view, Some(&pending), None, &[]),
+            crate::features7::encode_state7(&experimental, Some(&pending), None, &[]),
+        ),
+        (
+            encode_state8(&view, Some(&pending), None, &[]),
+            encode_state8(&experimental, Some(&pending), None, &[]),
+        ),
+    ] {
+        assert_eq!(
+            serde_json::to_value(before).unwrap(),
+            serde_json::to_value(after).unwrap()
+        );
+    }
+    assert_eq!(
+        board_observation_hash8(&view),
+        board_observation_hash8(&experimental)
+    );
+    assert_eq!(
+        view_only_state_hash8(&view, &pending),
+        view_only_state_hash8(&experimental, &pending)
+    );
+    assert_eq!(
+        crate::features4::board_observation_hash(&view),
+        crate::features4::board_observation_hash(&experimental)
+    );
+    assert_eq!(
+        crate::features4::view_only_state_hash(&view, &pending),
+        crate::features4::view_only_state_hash(&experimental, &pending)
+    );
+}
+
 fn card(name: &str) -> DeckEntry {
     let card = baylee_cards::all()
         .find(|c| c.name() == name)

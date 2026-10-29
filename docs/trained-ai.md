@@ -54,6 +54,19 @@ Encoder 8 until the wire has the required payment-context capability; the
 legacy `arena` path also rejects it. Existing wire `casting` must not be used
 as a substitute for the persistent source.
 
+The separate experimental native methods
+`Session::view_for_with_announcement_context` and
+`observe_view_with_announcement_context` additionally expose optional
+`announced_x`. They distinguish an unsettled X from settled zero, retain the
+fact across nested mana/miracle payment, and enforce resource-owner/authorized
+controller visibility. No current encoder or model consumes this field:
+Encoder 7, Encoder 8, default/socket views, sampling and existing hashes keep
+their prior semantics. A future encoder must explicitly version and validate
+its use rather than relabel existing artifacts. Deterministic Fireball
+fixtures establish selected-X observation aliasing in the old projections;
+this does not establish that the omission caused the observed X=0,
+unaffordable multi-target announcements. No guard or admission rule is relaxed.
+
 Datasets, caches, checkpoints and exports bind the explicit encoder identity.
 A new v5 Encoder-8 training experiment may import Encoder-7 weights only with
 `--encoder-warmstart-from7`; this is a weights-only transition, not a compatible
@@ -451,8 +464,13 @@ memory and throughput costs must be measured, not inferred from the design.
 `train5.py` selects v5 explicitly; checkpoint/export loaders require its
 architecture identity. Explicit v4-to-v5 initialization transfers the backbone
 with a fresh optimizer. Isolated value-head calibration supports explicit v5
-revisions 1 and 2 as described below. V5 PPO and optimizer/package-continuation
-loaders remain unsupported until separately extended and tested.
+revisions 1 and 2 as described below. The original October-27 pilot did not
+support v5 PPO or optimizer/package continuation. Current strict v5 loaders
+support the explicitly versioned training, export and continuation contracts;
+the PPO admission and head/full-model paths are documented above. Both PPO
+paths require native whole-collection admission and recorded-probability replay.
+The bounded real-history head-PPO experiment establishes one technical update,
+not playing strength; full-model gameplay training remains unproven.
 
 The matched pilot lives at
 `/home/ace/baylee-data/v4/experiments/v5-relational-20261027`. Its admission audit

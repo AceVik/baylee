@@ -576,3 +576,6 @@ impl<L: CardLookup> Engine<L> {
         true
     }
 }
+#[cfg(test)]
+#[path = "delayed/announcement_tests.rs"]
+mod announcement_tests;

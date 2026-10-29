@@ -52,6 +52,15 @@ information is unrepresentable in a view, and the gateway runs no rules.
   bytes. Encoder 8 consumes this opt-in context offline; live seats must wait
   for an explicit wire capability rather than infer it from `casting`.
 - The view carries projected characteristics; clients never run layers.
+- Experimental native announcement consumers separately opt into
+  `Session::view_for_with_announcement_context` and
+  `observe_view_with_announcement_context`. These extend payment context with
+  `announced_x`: absent before the X choice, `Some(0)` for settled zero. The
+  resource owner and its authorized CR 720 controller may observe it; unrelated
+  seats may not. The read-only projection follows active and suspended casts,
+  including miracle and nested mana choices, without granting cancellation.
+  Default, socket, Encoder-7 and Encoder-8 projections remain unchanged. No
+  encoder or model consumes this experimental field yet.
 - Hidden information is unrepresentable: libraries and other hands are counts; a face-down `card` is `None` unless entitled. `crates/baylee-gamehost/src/view/tests/hidden.rs` (and its siblings) tests each guarantee; add one per new one. One deliberate exception: in debug builds only (`cfg(debug_assertions)`), an LLM seat's reasoning (`AiLog`) is forwarded to every seat at the table as a sparring tool (owner, 06.10.2026; `docs/protocol.md` §"An AI seat's reasoning"); release builds drop it.
 - Bump `VIEW_VERSION` (`crates/baylee-view/src/lib.rs`) on any breaking view change; never restate its value.
 - The game log (`crates/baylee-gamehost/src/log.rs`) tells each seat its own lines, naming an object only as that seat's view would; an object the log never saw is `Hidden` to all. Every `StateDelta` carries a view and a `LogTail { from, entries }` in `log_json`; several frames may repeat a view and `seq`, so clients read the log from every frame and append by `from`. Each entry carries the host's time, which the caller sets (`Session::tell_time`, `EngineRunner::tell_time`). The Session reads no clock, because gamehost also runs in the client's `LocalHost`, on wasm too. AI agents are never handed it. `docs/protocol.md` §"The game log".

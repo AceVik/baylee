@@ -73,6 +73,7 @@ impl<'a> ObservableView<'a> {
             targeting,
             casting,
             announced_cast: _,
+            announced_x: _,
             seq: _,
             seat,
             turn,
