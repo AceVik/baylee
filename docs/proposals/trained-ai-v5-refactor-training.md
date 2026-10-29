@@ -1,10 +1,10 @@
 # BayleeAI v5: Refactoring, Untersuchungen und nächstes Training
 
-Stand: 29. Oktober 2026. Auftrag: laufendes Training stoppen, die Erkenntnisse
-in einen umsetzbaren Plan überführen und die Untersuchungen beginnen.
-Arbeitsbasis: `codex/payment-context-v5-20261028`, `b9cf382ba`, zuzüglich des
-bereits vorhandenen, noch nicht abgeschlossenen Encoder8-/Collector-Arbeitsstands.
-Die Untersuchungen ändern diesen Arbeitsstand nicht.
+Stand: 29. Oktober 2026. Auftrag: altes Training stoppen, R0–R4 umsetzen,
+die nicht auf PyTorch angewiesenen Trainingswerkzeuge durch Rust ersetzen und
+anschließend begrenzte, aussagekräftige Lernversuche durchführen.
+Arbeitsbasis: `codex/payment-context-v5-20261028`; die ursprünglich bei
+`b9cf382ba` begonnenen Untersuchungen sind inzwischen in Implementierung übergegangen.
 
 **Entscheidung:** Zuerst die nachgewiesenen Fehler in Aktionsbewertung und
 Trainingsverträgen beheben. Danach kleine, getrennte Lernversuche mit vollständiger
@@ -19,15 +19,44 @@ Historische Manifeste bleiben erhalten. Maßgebliche Verträge stehen in
 [trained-ai](../trained-ai.md), [Architektur](../architecture.md) und
 [Lookahead-Design](lookahead-design.md).
 
-**Umsetzungsfortschritt, 29. Oktober:** Der erste Teil von R0 ist umgesetzt:
+**Aktueller Umsetzungsstand:** R0–R4 sind implementiert und in gezielten Tests
+geprüft. Der neue Kandidatenkontext hat eine eigene Revision; Encoder8 bleibt
+eine ausdrückliche Daten-/Modellentscheidung. Der gespeicherte Denkstufenvertrag
+prüft Wiederaufnahme und getrennte vollständige K1/2/4/8-Validierung.
+Head- und Full-PPO verlangen dieselbe native Datenzulassung. Full-PPO rekonstruiert
+die aktuelle Policy-Historie und rollt bei abgelehnten Updates Gewichte,
+Optimizer und RNG gemeinsam zurück. Der gemischte Collector führt getrennte
+Policy-/Gedächtnis-/RNG-Zustände und Sitzrollen.
+
+Ein echtes vollständiges, verlorenes Testspiel durchlief Collector → Encoder8-
+Konverter → native Zulassung → Wahrscheinlichkeits-Replay: 919 Frames,
+22 zugelassene Lernerentscheidungen, kein Fallback/Cap/Refusal, maximale
+Logprob-Abweichung `2,38e-7`. Die Haus-KI-Aktionen sind keine PPO-Ziele.
+Die Partie wurde nicht nach ihrem Ergebnis ausgewählt. Das ist ein technischer
+Integrationstest mit kleinem Testnetz, kein Lern- oder Spielstärkennachweis.
+Beleg: `candidate-context/native-01a18748-e70c-7010-b34a-cc750938be81/mixed-policy-receipt.txt`.
+
+Rust übernimmt bereits Datenpacking, Caches, Zulassung, Importe, Auswertung,
+begrenzte Jobs/Pipelines, Paketverwaltung und Trainingsüberwachung. Die installierte
+allgemeine Überwachung benutzt die nativen Binaries; ihre bisherigen
+Zustellquittungen bleiben unverändert. Auch Collector-Betriebssteuerung und
+Quota-Wiederaufnahme sind nativ umgestellt. Preview-Gateway und die freie
+Arena-Lane verwenden die Rust-Supervisoren; eine weitere Arena wird erst nach
+Prüfung ihrer noch offenen Partie umgestellt. Die abschließenden Gates laufen noch.
+Der alte Dauerlauf bleibt gestoppt; kein neues Modell ist freigegeben.
+
+Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;
+historische Aussagen „noch nicht implementiert“ sind durch diesen Stand ersetzt.
+
+**Früher R0-Meilenstein:**
 Head-PPO veröffentlicht jetzt über `source_identity` auch Architektur-, Familien-
 und Katalogmetadaten. 20 bestehende Tests und zwei neue Regressionstests bestehen;
 der neue Roundtrip umfasst 16 Modell-/Update-Ausgänge einschließlich alter v5r1-
 Konfigurationen und unveränderter Rückfallmodelle. Ein tatsächlich veröffentlichtes
 synthetisches v5r2-Testmodell besteht CPU-ONNX-Parität bei K0/1/2/4/8
 (15 Frames, maximale Abweichung `5,96e-7`). Datenadmission ist in diesen
-Regressionstests eine Fixture; echte Gameplay-PPO-Integration und Encoder8 bleiben
-offen. Belege: `refactor-investigations-20261029/r0-publication-01a18655-087f-700d-8a63-bd73090097d9/`.
+Regressionstests eine Fixture; die spätere echte Gameplay-/Encoder8-Integration
+steht oben. Belege: `refactor-investigations-20261029/r0-publication-01a18655-087f-700d-8a63-bd73090097d9/`.
 Das verspätete Terminal-Ereignis `training:49efb950e5b82472:terminal` wurde gegen
 den tatsächlichen Besitzer-Stopp geprüft und dedupliziert, ohne Neustart.
 
@@ -35,8 +64,8 @@ Die vorbereitende R1-Modultrennung ist ebenfalls abgeschlossen (`e4e3318fa`):
 `PlayerNet4` liegt bei unveränderten öffentlichen Imports in `model4/player.py`.
 2.730 Tensorvergleiche einschließlich 1.918 Gradienten sind bitgleich über
 v4/v5r1/v5r2 und K0/1/2/4/8; neun vorhandene Modelltests bestehen.
-Die versionierte Änderung der Kontextberechnung ist damit vorbereitet,
-aber noch nicht implementiert. Belege:
+Darauf aufbauend wurde die versionierte Kontextberechnung umgesetzt. Belege
+der vorausgehenden verhaltensneutralen Trennung:
 `refactor-investigations-20261029/r1-move-01a18665-1952-75d2-a1dd-93f000faed08/`.
 
 ## 1. Betriebsstand und gesicherte Arbeit
@@ -59,7 +88,8 @@ aber noch nicht implementiert. Belege:
   Es wurden keine Gewichte geändert. Das Nutzer-Gateway auf Port 28766 bleibt
   verfügbar; es wurde kein neues Modell bereitgestellt.
 - Die drei CPU-Untersuchungen und der begrenzte GPU-Denkstufentest sind beendet.
-  Der GPU-Test machte **null Optimizer-Updates**. Die GPU ist wieder frei.
+  Dieser GPU-Test machte **null Optimizer-Updates**. Spätere GPU-Arbeit folgt
+  ausschließlich den unten beschriebenen begrenzten Experimenten.
 
 Lokale Belege liegen unter
 `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/`:
@@ -91,10 +121,11 @@ Eine begrenzte CPU-Probe am tatsächlichen Deferred-Scorer bestätigt:
 Der alte Kontext bleibt erforderlich: Bei Subset-Sigmoid/BCE wirkt die gemeinsame
 Verschiebung auf die Einschlusswahrscheinlichkeit. Paar- und Zahlen-Head benutzen
 diese Operation nicht. Belege: `candidate-context/{report.txt,probe.py,results.json}`.
-Dies ist kein Nachweis besserer Spielstärke und noch keine vollständige
-Export-/Laufzeitprüfung.
+Diese ursprüngliche Probe war kein Nachweis besserer Spielstärke. Die spätere
+versionierte Implementierung besteht Ausführungs-/Exporttests einschließlich
+K0/1/2/4/8; ein Spielstärkennachweis steht weiterhin aus.
 
-### 2.2 Denkstufen: Ausführung korrekt, Wiederaufnahmevertrag unvollständig
+### 2.2 Denkstufen: ursprüngliche Vertragslücke, inzwischen behoben
 
 Die echte v5-CPU-Ausführung wurde sequentiell, deferred und kompakt verglichen:
 K1/2/4/8 sowie die bestehende gemischte Folge. Gültige Ausgaben, maskierter Loss
@@ -106,12 +137,14 @@ aktualisieren H; der Entscheidungsscratchpad bei K>0 überschreibt H nicht.
 Mehr Denken bedeutet hier zusätzliche Verarbeitung derselben Entscheidung,
 keine zusätzliche simulierte Partie und keine längere Beobachtungshistorie.
 
-`--thinking-curriculum` ist aktuell eine periodische Folge
-`(1,2,4,8)[(step+t)%4]`, keine fortschreitende Schwierigkeitskurve. Das Flag fehlt
-im Resume-Vertrag. Validierung und Checkpoint-Auswahl prüfen nur das konfigurierte
-Standard-K. Belege: `depth-contract/{report.md,probe.py,results.json}`.
+`--thinking-curriculum` war eine periodische Folge
+`(1,2,4,8)[(step+t)%4]`, keine fortschreitende Schwierigkeitskurve. Das Flag fehlte
+im Resume-Vertrag. Validierung und Checkpoint-Auswahl prüften nur das konfigurierte
+Standard-K. R2 ersetzt diese impliziten Annahmen durch den gespeicherten Vertrag
+und getrennte vollständige Validierung je K. Belege der Ausgangsdiagnose:
+`depth-contract/{report.md,probe.py,results.json}`.
 
-### 2.3 v5-PPO: konkreter Veröffentlichungsfehler und begrenzte Unterstützung
+### 2.3 v5-PPO: ursprüngliche Veröffentlichungs- und Integrationsfehler
 
 Der Head-PPO-Trainer konnte v5 laden, ließ beim Schreiben jedoch `architecture`
 und `model_family` weg. Die ursprüngliche Lade-/Update-/Speicherprobe reproduzierte für
@@ -120,11 +153,13 @@ Die Wiederverwendung der bereits existierenden `source_identity`-Funktion löst
 diesen isolierten Fehler. Die sieben bestehenden Policy-Training-Tests bestehen;
 sie deckten diesen v5-Roundtrip bisher nicht ab.
 
-Darüber hinaus bleibt der vollständige rekurrente PPO-Trainer v4-spezifisch.
-Encoder8 wird im gemeinsamen Kalibrierungsloader noch vor dem Modelldispatch
-abgewiesen. Der Live-Seat spielt mit Temperatur null und liefert damit keine
+Darüber hinaus war der vollständige rekurrente PPO-Trainer v4-spezifisch.
+Encoder8 wurde im gemeinsamen Kalibrierungsloader noch vor dem Modelldispatch
+abgewiesen. R4 behebt diese Integrationslücken mit ausdrücklich geprüften
+Modell-/Datenverträgen. Der bestehende Live-Seat spielt mit Temperatur null und liefert damit keine
 für PPO geeigneten stochastischen Verhaltenswahrscheinlichkeiten. Das sind
 getrennte Integrationsaufgaben, kein Grund, Versionsprüfungen einfach zu lockern.
+Der neue stochastische Sammelpfad läuft deshalb zuerst über den Offline-Collector.
 Belege: `v5-rl/{report.md,reproduce.py,results.json}`.
 
 ### 2.4 GPU-Diagnose: zusätzliches K hilft dem bestehenden Modell hier nicht
@@ -205,8 +240,9 @@ Erste Reparatur:
 `G` startet vollständig bei null. Bei d=640 kommen 819.840 Parameter hinzu;
 eine quadratische Kandidaten-Self-Attention ist dafür nicht nötig.
 
-Status: Die verhaltensneutrale Modultrennung ist committed und geprüft;
-die folgenden Änderungen und Abnahmekriterien stehen noch aus.
+Status: Modultrennung, versionierte Kontextänderung, expliziter Gewichtsimport
+und gezielte Ausführungs-/Exporttests sind umgesetzt. Die folgenden Kriterien
+bleiben die Verträge; der kontrollierte Lernvergleich E1 steht noch aus.
 
 Vor einem vollen E1 ist eine begrenzte G-only- oder Kopftraining-Probe auf einem
 kleinen, vorab festgelegten Satz vollständiger Partien sinnvoll. Bei G-only
@@ -306,11 +342,12 @@ Zuerst den vorhandenen **Head-PPO-Pfad** vollständig nutzbar machen. Offline
 für den ersten Pilot muss deshalb nicht das Nutzer-Gateway umgebaut werden.
 K, FP32-Sampling, Temperatur und vollständige Aktionsmasken werden festgeschrieben.
 
-**Collector-Voraussetzung:** `eval4` nimmt aktuell ein Modell und ein Hausprofil
-über `--against`. Das Modell spielt auf Fokal-/Teamsitzen, andere Sitze sind
-Haus-KIs. Es ist noch kein Collector für den weiter unten geplanten historischen
-Gegner-/Selbstspielmix. Dafür getrennte Policy-, Memory- und RNG-Zustände je Sitz
-sowie rollengebundene Modellhashes und Lerner-/Gegnerprovenienz implementieren.
+**Collector-Voraussetzung, inzwischen umgesetzt:** `eval4` unterscheidet
+Evaluation von `--collection-purpose on-policy-training`. Neben `--against`
+sind `--opponent-model` und `--opponent-role historical|self-play` verfügbar.
+Der erste zulässige PPO-Sammelpfad ist 1v1 ohne Teams, Raw/FP32, K2, Temperatur
+0,7. Er besitzt getrennte Policy-, Memory- und RNG-Zustände je Sitz sowie
+rollengebundene Modellhashes und Lerner-/Gegnerprovenienz.
 Aktionen einer anderen neuronalen Policy dürfen nicht allein wegen `source=Net`
 als Lerneraktionen in PPO gelangen. Ein erster kleiner Haus-KI-Smoke kann vorher
 die vorhandene Kette prüfen; er erfüllt nicht das gemischte E3-Experiment.
@@ -517,12 +554,28 @@ Regressionstest und werden vor erneuter Zulassung repariert. Zugehörige Engine-
 und Seat-Prozesse werden auch bei Fehlern beendet und ihr Ende geprüft.
 Fehlgeschlagene Artefakte bleiben erhalten; kein blinder automatischer Retry.
 
-**Nächster Implementierungsschritt:** Nach der abgeschlossenen
-R0-Veröffentlichungskorrektur und R1-Modultrennung folgt die versionierte Kontextreparatur;
-R2-Schedule-Vertrag und R4-Datenzulassung parallel vorbereiten. Erst danach E1
-bzw. den technisch begrenzten E3-Pilot starten. Kein unverändertes Weiterlaufen
-der alten BC-Runden. Lokale Gates gemäß AGENTS.md vor Push/Landung; derzeit ist
-weder ein neues Training noch eine neue Live-Modellfreigabe erfolgt.
+**Nächster Schritt:** Rust-Betriebsumstellung und unabhängige Gegenprüfung
+abschließen und den begrenzten E1-Kopfvergleich auswerten. Der versiegelte
+Pilot enthält 32 vollständige Trainingspartien, 66.739 Frames und 64
+Sitzhistorien; fünf getrennte, bereits bekannte Entwicklungspartien sind
+Validierung, kein finaler Holdout. Beide Arme starten aus demselben d640-
+R6-Modell mit zwölf Schichten, frischem Adam, K2 und einem vollständigen
+Datendurchlauf. Nur die Köpfe werden trainiert; dies isoliert die Reparatur
+und prüft kein Full-Model-Lernen. E0 hat die echte vollständige Datenkette bestanden;
+der vollständige E3-Gegnerpool bleibt ein eigener Versuch. Ein FP32-Backward-
+Test mit d640, acht Schichten, zehn Köpfen, B8/U32 und K2 benötigte 2,67 GiB
+reservierten VRAM; er verwendete einen synthetischen Katalog und ist ausdrücklich
+keine Kapazitätsgarantie für echte große Boards/Kataloge. Vor dem Lernpilot folgt
+deshalb eine Messung mit seinen tatsächlichen Daten. Diese neue Messung bestand
+für beide Kandidatenrevisionen: echte Backwards, rund 0,93 GB maximal belegter
+VRAM, keine Optimizer-Updates und keine angelegten Adam-Momente. Das ist keine
+Kapazitätsaussage für vollständiges Modelltraining. Zwei Startfehler wurden
+gesichert und getrennt repariert: fehlende Git-Identität im eingefrorenen
+Trainer sowie ein Procfs-Rennen beim Ende eines kurzlebigen Hilfsprozesses.
+Es wurde kein abgeschlossener Trainings-Checkpoint aus diesen Fehlversuchen
+übernommen. Keine unveränderte Fortsetzung
+der alten BC-Runden und keine Live-Freigabe ohne Spielvergleich. Lokale Gates
+gemäß AGENTS.md vor Push/Landung.
 
 ## 7. Forschungsgrundlage und Grenzen der Übertragung
 
