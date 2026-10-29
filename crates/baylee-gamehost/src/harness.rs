@@ -767,92 +767,127 @@ mod tests {
     /// refitted or refused over 2336 cards). Cards are collected
     /// rather than asserted one at a time, so a run names *every* offender
     /// instead of stopping at the first.
-    fn play_every_implemented_card(cap: usize) -> Vec<String> {
-        let cards: Vec<&'static baylee_cards_dsl::CardDef> =
-            baylee_cards::all().filter(|d| d.is_fully_read()).collect();
+    ///
+    /// `shard` is `(k, n)`: the sweep plays every `n`th card starting at the
+    /// `k`th, so `(0, 1)` is the whole pool.
+    fn play_every_implemented_card(cap: usize, (k, n): (usize, usize)) -> Vec<String> {
+        let cards: Vec<&'static baylee_cards_dsl::CardDef> = baylee_cards::all()
+            .filter(|d| d.is_fully_read())
+            .skip(k)
+            .step_by(n)
+            .collect();
         // The games share nothing — the registry is a static, the engine
         // keeps no process-global mutable state (the one `OnceLock` in it
         // holds an empty default), and every seed is the probe preset's own,
-        // taken per card rather than per run — so the sweep is cut into one
-        // chunk per core and what a chunk plays does not depend on how the
-        // pool was divided. The offender lists are concatenated in chunk
-        // order, which keeps the report in card order however the threads
+        // taken per card rather than per run — so the threads take the next
+        // card as they come free, and what a card plays does not depend on
+        // which thread played it. Fixed chunks per thread left the threads
+        // that drew the cheap stretches idle while one played a costly one.
+        // The offenders are sorted back into card order however the threads
         // finish.
         //
-        // It is worth the split because this is the longest test in the
+        // It is worth the threads because this is the longest test in the
         // rules gate by a factor of ten (38.5 s against 3.8 s, measured
         // 2026-09-09), and it is the only per-card guard over generated
         // cards — the pool's weakest surface. Making it cheap is what keeps
         // it running on every commit instead of joining its own `#[ignore]`d
         // twin below.
         let threads = std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get);
-        let chunk = cards.len().div_ceil(threads).max(1);
-        std::thread::scope(|scope| {
-            let handles: Vec<_> = cards
-                .chunks(chunk)
-                .map(|slice| scope.spawn(move || probe_chunk(slice, cap)))
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let mut found: Vec<(usize, String)> = std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..threads.min(cards.len()).max(1))
+                .map(|_| {
+                    scope.spawn(|| {
+                        let mut found = Vec::new();
+                        loop {
+                            let at = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            let Some(def) = cards.get(at) else {
+                                break found;
+                            };
+                            if let Some(offence) = probe_card(def, cap) {
+                                found.push((at, offence));
+                            }
+                        }
+                    })
+                })
                 .collect();
             handles
                 .into_iter()
-                .flat_map(|handle| handle.join().expect("a probe chunk does not panic"))
+                .flat_map(|handle| handle.join().expect("a probe thread does not panic"))
                 .collect()
+        });
+        found.sort_unstable_by_key(|(at, _)| *at);
+        found.into_iter().map(|(_, offence)| offence).collect()
+    }
+
+    /// Plays one game with `def` and says how it broke the game, if it did.
+    ///
+    /// The `catch_unwind` is what makes a thread safe to join: a card that
+    /// panics is the finding, so the panic must not travel out of the
+    /// thread and take the other cards' results with it.
+    fn probe_card(def: &baylee_cards_dsl::CardDef, cap: usize) -> Option<String> {
+        // No basics registered: nothing to pad with.
+        let preset = baylee_cards::decks::probe_preset(9, def.index)?;
+        let agents = [
+            HeuristicAgent::new(AIProfile::default()),
+            HeuristicAgent::new(AIProfile::default()),
+        ];
+        let played = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            play_report(RegistryLookup, &preset, &agents, cap)
+        }));
+        let Ok(report) = played else {
+            return Some(def.name().to_string());
+        };
+        let refitted: usize = report.tally.iter().map(|t| t.fallbacks).sum();
+        let refused: usize = report
+            .tally
+            .iter()
+            .map(|t| t.refused_cost + t.refused_other)
+            .sum();
+        (refitted + refused > 0).then(|| {
+            format!(
+                "{}: {refitted} house answers broke their questions and \
+                 {refused} were refused, last {:?}",
+                def.name(),
+                report.trail.last()
+            )
         })
     }
 
-    /// Plays one game per card in `slice` and names the cards that broke it.
-    ///
-    /// The `catch_unwind` is what makes a chunk safe to join: a card that
-    /// panics is the finding, so the panic must not travel out of the
-    /// thread and take the other chunks' results with it.
-    fn probe_chunk(slice: &[&'static baylee_cards_dsl::CardDef], cap: usize) -> Vec<String> {
-        let mut offenders = Vec::new();
-        for def in slice {
-            let Some(preset) = baylee_cards::decks::probe_preset(9, def.index) else {
-                continue; // no basics registered: nothing to pad with
-            };
-            let agents = [
-                HeuristicAgent::new(AIProfile::default()),
-                HeuristicAgent::new(AIProfile::default()),
-            ];
-            let played = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                play_report(RegistryLookup, &preset, &agents, cap)
-            }));
-            match played {
-                Err(_) => offenders.push(def.name().to_string()),
-                Ok(report) => {
-                    let refitted: usize = report.tally.iter().map(|t| t.fallbacks).sum();
-                    let refused: usize = report
-                        .tally
-                        .iter()
-                        .map(|t| t.refused_cost + t.refused_other)
-                        .sum();
-                    if refitted + refused > 0 {
-                        offenders.push(format!(
-                            "{}: {refitted} house answers broke their questions and \
-                             {refused} were refused, last {:?}",
-                            def.name(),
-                            report.trail.last()
-                        ));
-                    }
-                }
+    /// The sweep as eight tests, each playing every eighth card. As one test
+    /// it ran 1119 s on CI's four-core runner and held the first of the two
+    /// test partitions at 39 min against 19 for the second (run 40884505445,
+    /// 29.10.2026). As shards, nextest's count partitions split them between
+    /// the two jobs and run them side by side, and taking every eighth card
+    /// spreads a costly stretch of one set over all eight.
+    macro_rules! survives_a_game {
+        ($($name:ident: $k:literal),* $(,)?) => {$(
+            #[test]
+            fn $name() {
+                // A low cap: this runs once per card, and what it is looking
+                // for shows up in the first turns (an ability the engine
+                // cannot resolve, a filter that panics, a cost it cannot
+                // pay). Whether the game *finishes* is the acceptance soak's
+                // question, not this one.
+                let offenders = play_every_implemented_card(300, ($k, 8));
+                assert!(
+                    offenders.is_empty(),
+                    "these cards are offered as playable and break a game, or the \
+                     house's answers in it: {offenders:?}"
+                );
             }
-        }
-        offenders
+        )*};
     }
-
-    #[test]
-    fn every_implemented_card_survives_a_game() {
-        // A low cap: this runs once per card, and what it is looking for
-        // shows up in the first turns (an ability the engine cannot resolve,
-        // a filter that panics, a cost it cannot pay). Whether the game
-        // *finishes* is the acceptance soak's question, not this one.
-        let offenders = play_every_implemented_card(300);
-        assert!(
-            offenders.is_empty(),
-            "these cards are offered as playable and break a game, or the house's \
-             answers in it: {offenders:?}"
-        );
-    }
+    survives_a_game!(
+        every_implemented_card_survives_a_game_1: 0,
+        every_implemented_card_survives_a_game_2: 1,
+        every_implemented_card_survives_a_game_3: 2,
+        every_implemented_card_survives_a_game_4: 3,
+        every_implemented_card_survives_a_game_5: 4,
+        every_implemented_card_survives_a_game_6: 5,
+        every_implemented_card_survives_a_game_7: 6,
+        every_implemented_card_survives_a_game_8: 7,
+    );
 
     /// The same sweep with a real action budget, so a card that only breaks
     /// once the board fills up is still caught. Slow by construction —
@@ -860,7 +895,7 @@ mod tests {
     #[test]
     #[ignore = "one full game per card; minutes, not seconds"]
     fn every_implemented_card_survives_a_whole_game() {
-        let offenders = play_every_implemented_card(20_000);
+        let offenders = play_every_implemented_card(20_000, (0, 1));
         assert!(
             offenders.is_empty(),
             "these cards are offered as playable and break a game, or the house's \
