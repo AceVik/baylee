@@ -15,7 +15,6 @@ encoder-6 checkpoints: use `pretrain_structure4.py` for the complete rule DAG.
 from __future__ import annotations
 
 import argparse
-import json
 import time
 from pathlib import Path
 
@@ -25,6 +24,7 @@ from torch import nn
 import torch.nn.functional as F
 
 import model4 as M
+from torch_io4 import atomic_json
 
 ABILITY_DSL_WIDTH = 64
 MAX_ABILITIES = 8
@@ -188,19 +188,17 @@ def main() -> None:
         },
         out_dir / "net.pt",
     )
-    (out_dir / "meta.json").write_text(
-        json.dumps(
-            {
-                "encoder_version": 4,
-                "phase": "A_dsl_pretrained",
-                "d_model": cfg.d_model,
-                "n_layers": cfg.n_layers,
-                "n_heads": cfg.n_heads,
-                "phase_a_steps": args.steps,
-                "phase_a_loss": float(loss.detach().item()),
-            },
-            indent=2,
-        )
+    atomic_json(
+        out_dir / "meta.json",
+        {
+            "encoder_version": 4,
+            "phase": "A_dsl_pretrained",
+            "d_model": cfg.d_model,
+            "n_layers": cfg.n_layers,
+            "n_heads": cfg.n_heads,
+            "phase_a_steps": args.steps,
+            "phase_a_loss": float(loss.detach().item()),
+        },
     )
     print(f"[pretrain_dsl4] saved Phase A checkpoint to {out_dir / 'net.pt'}")
 

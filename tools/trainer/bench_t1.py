@@ -32,6 +32,7 @@ import torch
 
 import export_onnx4 as E4
 import model4 as M
+from torch_io4 import atomic_json
 
 
 def bench_gpu_config(
@@ -231,7 +232,7 @@ def main() -> None:
     if args.out:
         out_p = Path(args.out).expanduser()
         out_p.parent.mkdir(parents=True, exist_ok=True)
-        out_p.write_text(json.dumps(report, indent=2))
+        atomic_json(out_p, report)
         print(f"\n[bench_t1] saved full report to {out_p}")
 
 

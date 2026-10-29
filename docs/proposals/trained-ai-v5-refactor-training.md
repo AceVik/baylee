@@ -40,9 +40,12 @@ Rust übernimmt bereits Datenpacking, Caches, Zulassung, Importe, Auswertung,
 begrenzte Jobs/Pipelines, Paketverwaltung und Trainingsüberwachung. Die installierte
 allgemeine Überwachung benutzt die nativen Binaries; ihre bisherigen
 Zustellquittungen bleiben unverändert. Auch Collector-Betriebssteuerung und
-Quota-Wiederaufnahme sind nativ umgestellt. Preview-Gateway und die freie
-Arena-Lane verwenden die Rust-Supervisoren; eine weitere Arena wird erst nach
-Prüfung ihrer noch offenen Partie umgestellt. Die abschließenden Gates laufen noch.
+Quota-Wiederaufnahme sind nativ umgestellt. Alle drei lokalen Gateways verwenden
+die Rust-Supervisoren. Eine verwaiste Collector-Partie wurde nach Prüfung von
+Prozesszuordnung, Stop-Marker und fehlenden Spielern aufgeräumt; ihre unvollständige
+Aufzeichnung bleibt ohne erfundenes Ergebnis vom Training ausgeschlossen.
+Fünf alte Controller sind mit gesicherten Originalen maskiert.
+Die abschließenden Gates laufen noch.
 Der alte Dauerlauf bleibt gestoppt; kein neues Modell ist freigegeben.
 
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;

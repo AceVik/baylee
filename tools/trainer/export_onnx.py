@@ -21,6 +21,7 @@ import torch
 
 import dataset as D
 import model as M
+from torch_io4 import atomic_json
 
 
 def main() -> None:
@@ -96,7 +97,7 @@ def main() -> None:
         "parity_max_abs_diff": worst,
         "checked_decisions": int(len(idx)),
     }
-    (out / "policy.onnx.json").write_text(json.dumps(meta, indent=1))
+    atomic_json(out / "policy.onnx.json", meta)
     print(f"[export] {path} ({path.stat().st_size / 1e6:.1f} MB); torch vs onnxruntime on {len(idx)} "
           f"held-out decisions: max |diff| {worst:.2e}")
     if worst > 1e-3:

@@ -29,6 +29,10 @@ def atomic_json(path, value):
     native(["write-json", "--out", Path(path).absolute()], json.dumps(value, allow_nan=False))
 
 
+def append_json(path, value):
+    native(["append-json", "--out", Path(path).absolute()], json.dumps(value, allow_nan=False))
+
+
 def atomic_copy(source, destination):
     native(["copy-file", "--source", Path(source).absolute(), "--out", Path(destination).absolute()])
 

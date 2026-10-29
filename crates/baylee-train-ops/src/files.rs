@@ -4,7 +4,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::{
     fs::{self, File, OpenOptions},
-    io::Write,
+    io::{Read, Seek, SeekFrom, Write},
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -51,6 +51,39 @@ pub fn atomic_json(path: &Path, value: &impl Serialize) -> Result<()> {
         let _ = fs::remove_file(tmp);
     }
     result
+}
+
+/// Append one serialized metric record under an exclusive file lock.
+/// # Errors
+/// Rejects a torn previous line, concurrent writers and I/O failures. A failed
+/// append attempts to restore the original length instead of leaving a prefix.
+pub fn append_json(path: &Path, value: &impl Serialize) -> Result<()> {
+    let mut line = serde_json::to_vec(value)?;
+    line.push(b'\n');
+    let parent = path.parent().context("output needs a parent")?;
+    fs::create_dir_all(parent)?;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .append(true)
+        .open(path)?;
+    file.try_lock().context("metric log already owned")?;
+    let length = file.metadata()?.len();
+    if length > 0 {
+        file.seek(SeekFrom::End(-1))?;
+        let mut last = [0];
+        file.read_exact(&mut last)?;
+        anyhow::ensure!(last == *b"\n", "previous metric record is incomplete");
+    }
+    if let Err(error) = file.write_all(&line).and_then(|()| file.sync_all()) {
+        file.set_len(length)
+            .context("restore failed metric append")?;
+        file.sync_all()?;
+        return Err(error.into());
+    }
+    #[cfg(unix)]
+    File::open(parent)?.sync_all()?;
+    Ok(())
 }
 
 /// Stream a SHA256 digest while checking that the input did not change.
@@ -137,6 +170,19 @@ mod tests {
         assert_eq!(atomic_copy(&source, &out)?, sha256(&source)?);
         assert_eq!(fs::read(&out)?, b"complete new model");
         assert_eq!(fs::read_dir(root.path())?.count(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn metric_append_preserves_history_and_refuses_a_torn_record() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let path = root.path().join("metrics.jsonl");
+        append_json(&path, &serde_json::json!({"step": 0}))?;
+        append_json(&path, &serde_json::json!({"step": 1}))?;
+        assert_eq!(fs::read_to_string(&path)?, "{\"step\":0}\n{\"step\":1}\n");
+        fs::write(&path, b"{\"step\":")?;
+        assert!(append_json(&path, &serde_json::json!({"step": 2})).is_err());
+        assert_eq!(fs::read(&path)?, b"{\"step\":");
         Ok(())
     }
 }

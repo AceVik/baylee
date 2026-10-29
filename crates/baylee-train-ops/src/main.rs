@@ -33,6 +33,11 @@ enum Task {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Append one complete JSON metric record under a native file lock.
+    AppendJson {
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Atomically publish a verified byte-identical artifact.
     CopyFile {
         #[arg(long)]
@@ -83,6 +88,15 @@ fn interrupt_flag() -> Result<Arc<AtomicBool>> {
     Ok(interrupted)
 }
 
+fn publish_json(out: &std::path::Path, append: bool) -> Result<()> {
+    let value: serde_json::Value = serde_json::from_reader(std::io::stdin().lock())?;
+    if append {
+        baylee_train_ops::files::append_json(out, &value)
+    } else {
+        baylee_train_ops::files::atomic_json(out, &value)
+    }
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
     match args.command {
@@ -95,10 +109,8 @@ fn main() -> Result<()> {
                 baylee_train_ops::digests::source_digest(&root, &include)?
             );
         }
-        Task::WriteJson { out } => {
-            let value: serde_json::Value = serde_json::from_reader(std::io::stdin().lock())?;
-            baylee_train_ops::files::atomic_json(&out, &value)?;
-        }
+        Task::WriteJson { out } => publish_json(&out, false)?,
+        Task::AppendJson { out } => publish_json(&out, true)?,
         Task::Pipeline { manifest } => {
             #[cfg(target_os = "linux")]
             {
