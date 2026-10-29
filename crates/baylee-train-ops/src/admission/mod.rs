@@ -167,6 +167,7 @@ fn collection_roles(
         "collection policy differs from source checkpoint"
     );
     let mut games = BTreeSet::new();
+    let mut source_games = BTreeSet::new();
     let mut roles = BTreeMap::new();
     for game in &collection.games {
         ensure!(
@@ -177,6 +178,10 @@ fn collection_roles(
                         && s.bytes()
                             .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())),
             "missing original collection/record identity"
+        );
+        ensure!(
+            source_games.insert((&game.source_run_sha256, &game.source_game)),
+            "duplicate original source game"
         );
         ensure!(
             games.insert(game.game_id)

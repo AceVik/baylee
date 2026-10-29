@@ -106,3 +106,45 @@ fn rejects_unbound_roles_and_invalid_games() {
         );
     }
 }
+
+#[test]
+fn original_source_namespace_cannot_be_counted_as_multiple_converted_games() {
+    for variant in 0..4 {
+        let (temp, checkpoint, manifest) = setup(|rows, _| {
+            let duplicate = rows
+                .iter()
+                .cloned()
+                .map(|mut row| {
+                    row["game_id"] = json!(2);
+                    row
+                })
+                .collect::<Vec<_>>();
+            rows.extend(duplicate);
+        });
+        let mut value = files::read_json(&manifest).unwrap();
+        let mut second = value["games"][0].clone();
+        second["game_id"] = json!(2);
+        match variant {
+            1 => second["record_sha256"] = json!("e".repeat(64)),
+            2 => second["source_game"] = json!("different-original-game"),
+            3 => second["source_run_sha256"] = json!("f".repeat(64)),
+            _ => {}
+        }
+        value["games"].as_array_mut().unwrap().push(second);
+        files::atomic_json(&manifest, &value).unwrap();
+        let result = admit(temp.path(), &checkpoint, &manifest);
+        if variant < 2 {
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("duplicate original source game")
+            );
+        } else {
+            let receipt = result.unwrap();
+            assert_eq!(receipt["completed_games"], 2);
+            assert_eq!(receipt["learner_histories"], 2);
+            assert_eq!(receipt["decisions"], 4);
+        }
+    }
+}
