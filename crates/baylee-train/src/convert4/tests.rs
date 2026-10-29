@@ -174,12 +174,26 @@ fn observe_view_hides_opponent_private_hand_and_library() {
 #[test]
 fn unsupported_encoder_rejects_before_any_frames_are_emitted() {
     let mut emitted = 0;
-    let result = stream_game4_with_encoder(b"", 1, true, None, None, None, false, 9, |_| {
+    let result = stream_game4_with_encoder(b"", 1, true, None, None, None, false, 10, |_| {
         emitted += 1;
         Ok(())
     });
     assert!(result.unwrap_err().contains("Unsupported encoder"));
     assert_eq!(emitted, 0);
+}
+
+#[test]
+fn encoder9_sidecars_require_matching_explicit_producer_width() {
+    let mut run = serde_json::json!({"model_identity":{"encoder_version":9,"model_version":5,
+        "architecture":"baylee_ai_v5_relational_v2","global_feat_width":82}});
+    assert!(ProducerEncoder::from_run(&run).is_ok());
+    run["model_identity"]["global_feat_width"] = serde_json::json!(80);
+    assert!(ProducerEncoder::from_run(&run).is_err());
+    let error = stream_game4_with_encoder(b"", 1, true, Some(&[]), None, None, false, 9, |_| {
+        panic!("no emission")
+    })
+    .unwrap_err();
+    assert!(error.contains("verified producer encoder 9"));
 }
 
 #[test]

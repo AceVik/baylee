@@ -22,6 +22,9 @@ pub struct ModelIdentity {
     pub model_version: u32,
     /// Input/candidate encoder contract, independent of model architecture.
     pub encoder_version: u32,
+    /// Explicit input width for Encoder 9; omitted from archived identities.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub global_feat_width: Option<u32>,
     /// Required explicit architecture for V5; never inferred for archived V4.
     pub architecture: Option<String>,
     /// SHA256 of the loaded ONNX bytes.
@@ -53,7 +56,7 @@ fn contract(meta: &Value) -> anyhow::Result<(u32, u32, &'static str)> {
             meta["architecture"].as_str(),
             Some(V5_ARCHITECTURE | V5_ARCHITECTURE_V2 | V5_CANDIDATE_V2)
         ))
-        || (encoder == 8
+        || (matches!(encoder, 8 | 9)
             && model == 5
             && matches!(
                 meta["architecture"].as_str(),
@@ -63,6 +66,28 @@ fn contract(meta: &Value) -> anyhow::Result<(u32, u32, &'static str)> {
         (v4 || v5) && meta["trajectory_version"] == 2 && meta["sampling_version"] == 2,
         "incompatible neural model/encoder/architecture contracts"
     );
+    if encoder == 9 {
+        anyhow::ensure!(
+            meta["global_feat_width"] == 82
+                && meta["config"]["global_feat_width"] == 82
+                && meta["config"]["relational_revision"] == 2
+                && matches!(
+                    meta["config"]["candidate_context_revision"].as_u64(),
+                    Some(1 | 2)
+                ),
+            "Encoder 9 requires explicit global width 82 and v5 relational revision 2, candidate revision 1 or 2"
+        );
+    } else if matches!(encoder, 7 | 8) {
+        for width in [
+            &meta["global_feat_width"],
+            &meta["config"]["global_feat_width"],
+        ] {
+            anyhow::ensure!(
+                width.is_null() || *width == 80,
+                "Legacy Encoder 7/8 requires global width 80 when explicitly declared"
+            );
+        }
+    }
     if meta["architecture"] == V5_CANDIDATE_V2 {
         anyhow::ensure!(
             meta["config"]["relational_revision"] == 2
@@ -163,6 +188,7 @@ pub(super) fn read_model(path: &Path) -> anyhow::Result<(PathBuf, Value, ModelId
         model_family,
         model_version,
         encoder_version,
+        global_feat_width: (encoder_version == 9).then_some(82),
         architecture: if model_family == "v5" {
             Some(
                 meta["architecture"]
@@ -228,6 +254,35 @@ mod tests {
         meta["model_version"] = json!(5);
         meta["encoder_version"] = json!(9);
         assert!(contract(&meta).is_err());
+    }
+
+    #[test]
+    fn encoder9_binds_explicit_width_and_matching_relational_candidate_revision() {
+        for (architecture, candidate) in [(V5_ARCHITECTURE_V2, 1), (V5_CANDIDATE_V2, 2)] {
+            let valid = json!({"encoder_version":9,"model_version":5,"architecture":architecture,
+                "trajectory_version":2,"sampling_version":2,"global_feat_width":82,
+                "d_model":32,"n_heads":4,"n_layers":1,"config":{"d_model":32,"n_heads":4,"n_layers":1,
+                    "relational_revision":2,"candidate_context_revision":candidate,"global_feat_width":82}});
+            assert_eq!(contract(&valid).unwrap(), (9, 5, "v5"));
+            for pointer in [
+                "/global_feat_width",
+                "/config/global_feat_width",
+                "/config/relational_revision",
+                "/config/candidate_context_revision",
+            ] {
+                let mut broken = valid.clone();
+                *broken.pointer_mut(pointer).unwrap() = Value::Null;
+                assert!(contract(&broken).is_err(), "missing {pointer}");
+            }
+            for encoder in [7, 8] {
+                let mut wrong = valid.clone();
+                wrong["encoder_version"] = json!(encoder);
+                assert!(contract(&wrong).is_err());
+            }
+            let mut wrong = valid;
+            wrong["config"]["candidate_context_revision"] = json!(3 - candidate);
+            assert!(contract(&wrong).is_err());
+        }
     }
 
     #[test]

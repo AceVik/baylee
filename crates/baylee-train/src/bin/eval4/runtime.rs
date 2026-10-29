@@ -15,6 +15,9 @@ trait EvaluationPlayer {
     fn uses_payment_context(&self) -> bool {
         false
     }
+    fn uses_announcement_context(&self) -> bool {
+        false
+    }
     fn observe(&mut self, view: &baylee_view::PlayerView) -> anyhow::Result<()>;
     fn answer(
         &mut self,
@@ -65,6 +68,9 @@ impl EvaluationPlayer for NetPlayer4 {
     }
     fn uses_payment_context(&self) -> bool {
         Self::uses_payment_context(self)
+    }
+    fn uses_announcement_context(&self) -> bool {
+        Self::uses_announcement_context(self)
     }
     fn observe(&mut self, view: &baylee_view::PlayerView) -> anyhow::Result<()> {
         Self::observe(self, view)

@@ -225,3 +225,18 @@ fn encoder8_never_enters_live_model_selection_for_any_model_family() {
         );
     }
 }
+
+#[test]
+fn encoder9_is_explicitly_offline_only_before_live_model_loading() {
+    let mut fixture = Fixture::new();
+    let mut meta = v5_metadata(2);
+    meta["encoder_version"] = serde_json::json!(9);
+    meta["global_feat_width"] = serde_json::json!(82);
+    set_metadata(&mut fixture, &meta);
+    assert!(
+        Selected::fixed(&fixture.root)
+            .unwrap_err()
+            .to_string()
+            .contains("offline-only")
+    );
+}

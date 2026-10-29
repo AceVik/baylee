@@ -73,6 +73,7 @@ mod tests {
                 model_family: "v4",
                 model_version: 3,
                 encoder_version: 7,
+                global_feat_width: None,
                 architecture: None,
                 onnx_sha256: String::new(),
                 depth_graph_sha256: BTreeMap::new(),

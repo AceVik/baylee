@@ -108,7 +108,9 @@ impl NetPlayer4 {
         }
 
         // 2. View-only stall/loop guard (never uses Session::snapshot_hash!)
-        let v_hash = if self.uses_payment_context() {
+        let v_hash = if self.uses_announcement_context() {
+            crate::features9::view_only_state_hash9(view, pending)
+        } else if self.uses_payment_context() {
             crate::features8::view_only_state_hash8(view, pending)
         } else {
             view_only_state_hash(view, pending)

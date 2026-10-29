@@ -281,8 +281,8 @@ fn policy_mode_name(args: &Args) -> &'static str {
 
 fn load_brain(args: &Args, model: &std::path::Path) -> anyhow::Result<NetPlayer4> {
     anyhow::ensure!(
-        baylee_train::netplay4::inspect_model_identity(model)?.encoder_version != 8,
-        "Encoder 8 live seats require payment-context wire support; use offline eval4"
+        baylee_train::netplay4::inspect_model_identity(model)?.encoder_version < 8,
+        "Encoders 8 and 9 require versioned context on the wire; use offline eval4"
     );
     Ok(NetPlayer4::load(model)?
         .with_policy_mode(if args.raw_policy {

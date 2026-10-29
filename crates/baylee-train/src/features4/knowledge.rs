@@ -407,6 +407,11 @@ impl SeatKnowledge4 {
         self.observe_with_digest(view, crate::features8::board_observation_hash8(view))
     }
 
+    /// Encoder 9 observation clock, including authorized selected X.
+    pub fn observe_with_announcement_context(&mut self, view: &PlayerView) -> bool {
+        self.observe_with_digest(view, crate::features9::board_observation_hash9(view))
+    }
+
     #[allow(
         clippy::too_many_lines,
         reason = "One ordered update of public event counters and remembered cards"

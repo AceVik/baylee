@@ -92,8 +92,11 @@ pub(super) fn replay_frames_modes(
     encoder_version: u32,
     mut emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<ReplaySummary, String> {
-    if !matches!(encoder_version, 7 | 8) {
+    if !matches!(encoder_version, 7..=9) {
         return Err("Unsupported encoder version".into());
+    }
+    if encoder_version == 9 && (shadow.is_some() || llm.is_some()) {
+        return Err("Encoder9 shadow and LLM labels are not supported".into());
     }
     let mut lines = record
         .split(|&b| b == b'\n')
@@ -174,7 +177,9 @@ pub(super) fn replay_frames_modes(
                     None
                 };
 
-                let pending_view = if encoder_version == 8 {
+                let pending_view = if encoder_version == 9 {
+                    session.view_for_with_announcement_context(seat)
+                } else if encoder_version == 8 {
                     session.view_for_with_payment_context(seat)
                 } else {
                     session.view_for_with_context(seat)
@@ -184,7 +189,9 @@ pub(super) fn replay_frames_modes(
 
                 // Diagnostic decision-only conversion is not a recurrent training dataset.
                 if !include_passive_obs {
-                    if encoder_version == 8 {
+                    if encoder_version == 9 {
+                        knowledge[seat_u8 as usize].observe_with_announcement_context(&view);
+                    } else if encoder_version == 8 {
                         knowledge[seat_u8 as usize].observe_with_payment_context(&view);
                     } else {
                         knowledge[seat_u8 as usize].observe(&view);
@@ -215,13 +222,17 @@ pub(super) fn replay_frames_modes(
                             Cow::Borrowed(&view)
                         } else {
                             let other_pid = PlayerId::new(other_idx as u8);
-                            Cow::Owned(if encoder_version == 8 {
+                            Cow::Owned(if encoder_version == 9 {
+                                session.observe_view_with_announcement_context(other_pid)
+                            } else if encoder_version == 8 {
                                 session.observe_view_with_payment_context(other_pid)
                             } else {
                                 session.observe_view_with_context(other_pid)
                             })
                         };
-                        let changed = if encoder_version == 8 {
+                        let changed = if encoder_version == 9 {
+                            knowledge[other_idx].observe_with_announcement_context(&other_v)
+                        } else if encoder_version == 8 {
                             knowledge[other_idx].observe_with_payment_context(&other_v)
                         } else {
                             knowledge[other_idx].observe(&other_v)
@@ -523,7 +534,9 @@ fn encode_selected_state(
     knowledge: Option<&SeatKnowledge4>,
     teams: &[Option<u8>],
 ) -> crate::features4::EncodedState4 {
-    if encoder == 8 {
+    if encoder == 9 {
+        crate::features9::encode_state9(view, pending, knowledge, teams)
+    } else if encoder == 8 {
         crate::features8::encode_state8(view, pending, knowledge, teams)
     } else {
         encode_state7(view, pending, knowledge, teams)

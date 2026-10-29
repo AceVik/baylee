@@ -50,8 +50,8 @@ pub fn digest(path: &Path) -> anyhow::Result<String> {
 fn contract(model: &Path) -> anyhow::Result<Value> {
     let meta: Value = serde_json::from_slice(&std::fs::read(model.join("model.onnx.json"))?)?;
     ensure!(
-        meta["encoder_version"] != 8,
-        "Encoder 8 is offline-only until payment-context wire support is available"
+        !matches!(meta["encoder_version"].as_u64(), Some(8 | 9)),
+        "Encoders 8 and 9 are offline-only until payment-context wire support is available"
     );
     let v5 = meta["encoder_version"] == 7 && meta["model_version"] == 5;
     ensure!(

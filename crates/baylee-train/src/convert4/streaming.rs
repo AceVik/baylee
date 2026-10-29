@@ -362,6 +362,11 @@ impl ProducerEncoder {
                 Some(5),
                 Some("baylee_ai_v5_relational_v2" | "baylee_ai_v5_relational_v2_candidate_v2"),
             ) => 8,
+            (
+                Some(9),
+                Some(5),
+                Some("baylee_ai_v5_relational_v2" | "baylee_ai_v5_relational_v2_candidate_v2"),
+            ) if identity["global_feat_width"] == 82 => 9,
             _ => return Err("Missing or unsupported producer encoder identity".into()),
         };
         Ok(Self { encoder_version })
@@ -416,8 +421,11 @@ pub fn stream_game4_with_encoder_and_producer(
     producer: Option<&ProducerEncoder>,
     mut emit: impl FnMut(Step4) -> Result<(), String>,
 ) -> Result<StreamedGame4, String> {
-    if !matches!(encoder_version, 7 | 8) {
+    if !matches!(encoder_version, 7..=9) {
         return Err("Unsupported encoder version".into());
+    }
+    if encoder_version == 9 && (shadow.is_some() || llm.is_some()) {
+        return Err("Encoder9 shadow and LLM labels are not supported".into());
     }
     if let Some(labels) = shadow.as_ref()
         && labels.encoder_version != encoder_version
@@ -429,12 +437,14 @@ pub fn stream_game4_with_encoder_and_producer(
     {
         return Err("Producer/converter encoder mismatch".into());
     }
-    if encoder_version == 8
+    if matches!(encoder_version, 8 | 9)
         && sidecar.is_some()
         && shadow.is_none()
-        && producer.is_none_or(|producer| producer.encoder_version != 8)
+        && producer.is_none_or(|producer| producer.encoder_version != encoder_version)
     {
-        return Err("Encoder 8 neural sidecars require verified producer encoder 8".into());
+        return Err(format!(
+            "Encoder {encoder_version} neural sidecars require verified producer encoder {encoder_version}"
+        ));
     }
     let targets = if live_bc {
         terminal_targets_live(record)?

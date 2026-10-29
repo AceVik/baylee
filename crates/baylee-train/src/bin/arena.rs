@@ -351,8 +351,8 @@ fn main() -> anyhow::Result<()> {
         .as_u64()
         .context("encoder version")?;
     anyhow::ensure!(
-        encoder != 8,
-        "Encoder 8 requires payment-context observation ordering; use eval4, not legacy arena"
+        !matches!(encoder, 8 | 9),
+        "Encoders 8 and 9 require versioned offline observation ordering; use eval4, not legacy arena"
     );
     let known = [
         u64::from(baylee_train::features::ENCODER_VERSION),

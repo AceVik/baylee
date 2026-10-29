@@ -135,12 +135,17 @@ fn play_one_table(
         let payment_ctx = net
             .as_deref()
             .is_some_and(EvaluationPlayer::uses_payment_context);
+        let announcement_ctx = net
+            .as_deref()
+            .is_some_and(EvaluationPlayer::uses_announcement_context);
         let uses_ctx = net.as_deref().is_some_and(EvaluationPlayer::uses_context);
         if let Some(n) = net.as_deref_mut() {
             for s in 0..n_seats {
                 if n.controls_seat(s, focal_seat, teams) {
                     let pid = PlayerId::new(s as u8);
-                    let obs_v = if payment_ctx {
+                    let obs_v = if announcement_ctx {
+                        session.observe_view_with_announcement_context(pid)
+                    } else if payment_ctx {
                         session.observe_view_with_payment_context(pid)
                     } else if uses_ctx {
                         session.observe_view_with_context(pid)
@@ -167,7 +172,9 @@ fn play_one_table(
                 continue;
             }
             let pid = PlayerId::new(s as u8);
-            let pending_view = if payment_ctx {
+            let pending_view = if announcement_ctx {
+                session.view_for_with_announcement_context(pid)
+            } else if payment_ctx {
                 session.view_for_with_payment_context(pid)
             } else if uses_ctx {
                 session.view_for_with_context(pid)
@@ -177,7 +184,9 @@ fn play_one_table(
             let Some((pending, view)) = pending_view else {
                 continue;
             };
-            let vh = if payment_ctx {
+            let vh = if announcement_ctx {
+                baylee_train::features9::view_only_state_hash9(&view, &pending)
+            } else if payment_ctx {
                 baylee_train::features8::view_only_state_hash8(&view, &pending)
             } else {
                 view_only_state_hash(&view, &pending)

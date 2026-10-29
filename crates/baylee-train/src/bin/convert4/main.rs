@@ -40,7 +40,7 @@ use serde_json::{Value, json};
 #[command(about = "Converts selfplay runs into Playernet v4 trajectory shards")]
 struct Args {
     /// Explicit observation encoder. Archived conversion remains Encoder 7.
-    #[arg(long, default_value_t = 7, value_parser = clap::value_parser!(u32).range(7..=8))]
+    #[arg(long, default_value_t = 7, value_parser = clap::value_parser!(u32).range(7..=9))]
     encoder_version: u32,
     /// Input selfplay run directories, comma-separated.
     #[arg(long, value_delimiter = ',')]
@@ -132,6 +132,9 @@ use output::{GameWriter, publish_ready};
 )]
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    if args.encoder_version == 9 && (args.shadow_bc || args.llm_bc) {
+        bail!("Encoder9 shadow and LLM labels are not supported");
+    }
     if args.llm_bc && !args.include_passive_obs {
         bail!("--llm-bc requires --include-passive-obs");
     }
@@ -210,7 +213,7 @@ fn main() -> anyhow::Result<()> {
             let game_id = (games.len() + 1) as u32;
             games.push(GameRef {
                 on_policy: policy_game,
-                producer_encoder: if args.encoder_version == 8 && sidecar.is_some() {
+                producer_encoder: if matches!(args.encoder_version, 8 | 9) && sidecar.is_some() {
                     Some(ProducerEncoder::from_run(&run_json).map_err(anyhow::Error::msg)?)
                 } else {
                     None
@@ -346,7 +349,7 @@ fn main() -> anyhow::Result<()> {
         "max_abilities": MAX_ABILITIES,
         "entity_feat_width": ENTITY_FEAT_WIDTH7,
         "seat_feat_width": SEAT_FEAT_WIDTH7,
-        "global_feat_width": GLOBAL_FEAT_WIDTH7,
+        "global_feat_width": if args.encoder_version == 9 { baylee_train::features9::GLOBAL_FEAT_WIDTH9 } else { GLOBAL_FEAT_WIDTH7 },
         "cand_feat_width": CAND_FEAT_WIDTH7,
         "max_seats": MAX_SEATS,
         "max_entities": MAX_ENTITIES,
@@ -616,8 +619,12 @@ mod encoder_cli_tests {
             Args::try_parse_from(["convert4", "--out", "dataset", "--encoder-version", "8"])
                 .unwrap();
         assert_eq!(payment.encoder_version, 8);
-        assert!(
+        let announcement =
             Args::try_parse_from(["convert4", "--out", "dataset", "--encoder-version", "9"])
+                .unwrap();
+        assert_eq!(announcement.encoder_version, 9);
+        assert!(
+            Args::try_parse_from(["convert4", "--out", "dataset", "--encoder-version", "10"])
                 .is_err()
         );
     }

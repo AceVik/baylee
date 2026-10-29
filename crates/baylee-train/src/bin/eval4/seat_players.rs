@@ -98,6 +98,9 @@ impl EvaluationPlayer for SeatPlayers {
     fn uses_payment_context(&self) -> bool {
         self.learner.uses_payment_context()
     }
+    fn uses_announcement_context(&self) -> bool {
+        self.learner.uses_announcement_context()
+    }
     fn observe(&mut self, view: &PlayerView) -> anyhow::Result<()> {
         self.player_mut(usize::from(view.seat.get()))
             .context("observing uncontrolled seat")?

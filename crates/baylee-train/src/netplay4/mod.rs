@@ -24,18 +24,17 @@ use ort::value::Tensor;
 use crate::carddsl::CARD_DSL_WIDTH;
 use crate::deckgen::Rng;
 use crate::features4::{
-    CAND_FEAT_WIDTH, CoverageMatrix4, ENTITY_FEAT_WIDTH, EncodedCandidates4, GLOBAL_FEAT_WIDTH,
-    HeadKind4, MAX_SEATS, PendingKind4, SEAT_FEAT_WIDTH, SeatKnowledge4, SourceKind4,
-    StepProvenance4, TeacherTarget4, decode_action4, denormalize_scalar_choice, encode_candidates4,
-    encode_state4, normalize_scalar_choice, view_only_state_hash,
+    CAND_FEAT_WIDTH, CoverageMatrix4, EncodedCandidates4, HeadKind4, MAX_SEATS, PendingKind4,
+    SEAT_FEAT_WIDTH, SeatKnowledge4, SourceKind4, StepProvenance4, TeacherTarget4, decode_action4,
+    denormalize_scalar_choice, encode_candidates4, encode_state4, normalize_scalar_choice,
+    view_only_state_hash,
 };
-use crate::features7::{
-    ENTITY_FEAT_WIDTH7, GLOBAL_FEAT_WIDTH7, encode_candidates7_grouped, encode_state7,
-};
+use crate::features7::{encode_candidates7_grouped, encode_state7};
 mod choices;
 mod decision;
 mod diagnostic;
 pub use diagnostic::{FallbackDiagnostic4, FallbackReason4};
+mod abi;
 mod fallback;
 #[cfg(test)]
 mod fallback_tests;
@@ -162,6 +161,7 @@ impl NetPlayer4 {
             .as_u64()
             .context("missing thinking_steps")? as u8;
         let session = load_session(&onnx_path)?;
+        abi::validate(&session, encoder_version)?;
         let rule_roots = if structured {
             Some(structure::load(
                 &onnx_path.with_file_name("card_structure.json"),
@@ -221,6 +221,12 @@ impl NetPlayer4 {
     #[must_use]
     pub const fn uses_payment_context(&self) -> bool {
         self.encoder_version == 8
+    }
+
+    /// Whether this model requires authorized selected-X announcement context.
+    #[must_use]
+    pub const fn uses_announcement_context(&self) -> bool {
+        self.encoder_version == 9
     }
 
     /// Sets the sampling temperature `tau` (`0.0` = greedy argmax).
@@ -312,7 +318,9 @@ impl NetPlayer4 {
             .knowledge
             .entry(s)
             .or_insert_with(|| SeatKnowledge4::empty(view.seat, seat_count));
-        if self.encoder_version == 8 {
+        if self.encoder_version == 9 {
+            kn.observe_with_announcement_context(view);
+        } else if self.encoder_version == 8 {
             kn.observe_with_payment_context(view);
         } else {
             kn.observe(view);
@@ -326,7 +334,9 @@ impl NetPlayer4 {
             .entry(s)
             .or_insert_with(|| vec![0.0_f32; RECURRENT_SLOTS * self.d_model])
             .clone();
-        let state = if self.encoder_version == 8 {
+        let state = if self.encoder_version == 9 {
+            crate::features9::encode_state9(view, None, self.knowledge.get(&s), &self.teams)
+        } else if self.encoder_version == 8 {
             crate::features8::encode_state8(view, None, self.knowledge.get(&s), &self.teams)
         } else if self.encoder_version >= 7 {
             encode_state7(view, None, self.knowledge.get(&s), &self.teams)
@@ -359,14 +369,11 @@ impl NetPlayer4 {
         k_val: u8,
     ) -> anyhow::Result<StepOutputs> {
         let e_len = state.entity_feat.len().max(1);
-        let ent_width = state.entity_feat.first().map_or(
-            if self.encoder_version >= 7 {
-                ENTITY_FEAT_WIDTH7
-            } else {
-                ENTITY_FEAT_WIDTH
-            },
-            Vec::len,
-        );
+        let (default_entity_width, default_global_width) = abi::widths(self.encoder_version);
+        let ent_width = state
+            .entity_feat
+            .first()
+            .map_or(default_entity_width, Vec::len);
         let mut ent_feat = vec![0.0_f32; e_len * ent_width];
         let mut ent_dsl = vec![0.0_f32; e_len * CARD_DSL_WIDTH];
         let mut ent_mask = vec![false; e_len];
@@ -383,11 +390,7 @@ impl NetPlayer4 {
                 .copy_from_slice(&state.seat_feat[s]);
         }
         let glob_width = if state.global_feat.is_empty() {
-            if self.encoder_version >= 7 {
-                GLOBAL_FEAT_WIDTH7
-            } else {
-                GLOBAL_FEAT_WIDTH
-            }
+            default_global_width
         } else {
             state.global_feat.len()
         };
@@ -472,6 +475,7 @@ impl NetPlayer4 {
             let path = self.model_dir.join(format!("model.k{depth}.onnx"));
             identity::verify_depth_graph(&path, depth, &self.model_identity)?;
             let session = load_session(&path)?;
+            abi::validate(&session, self.encoder_version)?;
             identity::verify_depth_graph(&path, depth, &self.model_identity)?;
             self.sessions.insert(depth, session);
         }
