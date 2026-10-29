@@ -19,6 +19,8 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Task {
+    /// Validate an encoder or recurrent training schedule contract.
+    TrainingContract,
     /// Hash a JSON mixture contract using its existing canonical identity.
     Digest,
     /// Bind observed tensor histories to native source-record metadata.
@@ -65,6 +67,12 @@ enum Task {
 }
 fn main() -> Result<()> {
     match Args::parse().command {
+        Task::TrainingContract => {
+            println!(
+                "{}",
+                baylee_train_ops::corpus::training_contracts::validate(&stdin_value()?)?
+            );
+        }
         Task::Digest => {
             let value = stdin_value()?;
             println!("{}", bc_metadata::digest(&value)?);

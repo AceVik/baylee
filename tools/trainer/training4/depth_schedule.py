@@ -1,7 +1,7 @@
 """Versioned decision-depth contract shared by eager and planned execution."""
 from dataclasses import asdict, dataclass
-import hashlib
 import json
+from trajectory_store4 import _native
 
 
 @dataclass(frozen=True)
@@ -16,22 +16,7 @@ class DepthSchedule:
     deterministic_algorithms: bool = True
 
     def __post_init__(self):
-        if self.deterministic_algorithms is not True:
-            raise ValueError("Exact resume requires deterministic algorithms")
-        if self.version != 1 or self.mode not in ("fixed", "legacy_frame_cycle"):
-            raise ValueError("Unsupported depth schedule version/mode")
-        if self.phase_rule != "optimizer_step_plus_frame_mod_period":
-            raise ValueError("Unsupported depth schedule phase rule")
-        if not self.positive_k or any(type(k) is not int or k < 1 or k > 8 for k in self.positive_k):
-            raise ValueError("Decision depths must be positive K1..8; K0 is observation-only")
-        if self.mode == "fixed" and len(self.positive_k) != 1:
-            raise ValueError("Fixed depth needs exactly one K")
-        if self.mode == "legacy_frame_cycle" and self.positive_k != (1, 2, 4, 8):
-            raise ValueError("Legacy frame cycle is exactly K1/2/4/8")
-        if self.validation_history != "complete_independent_reset_per_k":
-            raise ValueError("Validation must reset independent complete histories for every K")
-        if self.selection_k != 2 or self.report_k != (1, 2, 4, 8):
-            raise ValueError("Validation contract requires selection K2 and reports K1/2/4/8")
+        self.to_dict()
 
     @classmethod
     def from_training(cls, thinking_steps=2, curriculum=False):
@@ -41,13 +26,15 @@ class DepthSchedule:
         return self.positive_k[(step + frame) % len(self.positive_k)]
 
     def to_dict(self):
-        contract = asdict(self)
-        contract["sha256"] = hashlib.sha256(json.dumps(contract, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        contract=json.loads(_native(['training-contract'],json.dumps(
+            dict(kind='depth',contract=asdict(self)),allow_nan=False).encode()))
+        contract['positive_k']=tuple(contract['positive_k'])
+        contract['report_k']=tuple(contract['report_k'])
         return contract
 
     def check_resume(self, saved):
-        if saved.get("depth_schedule") != self.to_dict():
-            raise ValueError("Resume depth/validation schedule differs or is missing; use --init for a new weights-only continuation")
+        _native(['training-contract'],json.dumps(dict(kind='depth_resume',contract=asdict(self),
+            saved={'depth_schedule':saved.get('depth_schedule')}),allow_nan=False).encode())
 
     def count_batch(self, batch, step, totals):
         """Count real valid decisions and their supervised policy weight on CPU."""
