@@ -330,6 +330,33 @@ fn controller_findings(
 mod tests {
     use super::*;
     #[test]
+    fn historical_timestamp_decimals_survive_repeated_state_writes() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let path = root.path().join("state.json");
+        let decimals = [
+            "1793160306.1167815",
+            "1793169226.6394777",
+            "1793194503.6600087",
+            "1793240833.6509361",
+            "1793211106.6450865",
+            "1793201663.6447005",
+        ];
+        for decimal in decimals {
+            std::fs::write(
+                &path,
+                format!("{{\"delivered\":{{\"historical\":{{\"time\":{decimal}}}}}}}"),
+            )?;
+            for _ in 0..3 {
+                files::atomic_json(&path, &files::read_json(&path)?)?;
+                ensure!(
+                    std::fs::read_to_string(&path)?.contains(decimal),
+                    "historical timestamp changed: {decimal}"
+                );
+            }
+        }
+        Ok(())
+    }
+    #[test]
     fn receipt_floor_does_not_repeat_historical_quota() -> Result<()> {
         let root = tempfile::tempdir()?;
         let mut state = json!({"quota_since":1,"receipt_alert_floor":0});

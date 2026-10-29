@@ -4,6 +4,7 @@ pub mod launch;
 pub mod monitor;
 pub use arm::arm;
 mod probe;
+pub mod repair;
 mod transition;
 use crate::files;
 use anyhow::{Context, Result, ensure};

@@ -12,6 +12,18 @@ mod cli {
     }
     #[derive(Subcommand)]
     enum Mode {
+        RepairLedger {
+            #[arg(long)]
+            state: PathBuf,
+            #[arg(long)]
+            backup: PathBuf,
+            #[arg(long)]
+            lock: PathBuf,
+            #[arg(long)]
+            out: PathBuf,
+            #[arg(long)]
+            apply: bool,
+        },
         Arm {
             #[arg(long)]
             root: PathBuf,
@@ -47,6 +59,16 @@ mod cli {
     }
     pub fn run() -> Result<()> {
         match Cli::parse().command {
+            Mode::RepairLedger {
+                state,
+                backup,
+                lock,
+                out,
+                apply,
+            } => println!(
+                "{}",
+                collector::repair::run(&state, &backup, &lock, &out, apply)?
+            ),
             Mode::Arm {
                 root,
                 pid,
