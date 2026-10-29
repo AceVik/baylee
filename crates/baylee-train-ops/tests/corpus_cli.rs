@@ -4,6 +4,55 @@ use baylee_train_ops::files::{atomic_json, read_json};
 use serde_json::{Value, json};
 use std::process::Command;
 #[test]
+fn published_bulk_mirror_import_runs_without_network_and_retains_exact_decks() -> Result<()> {
+    use flate2::{Compression, write::GzEncoder};
+    use std::io::Write;
+    let directory = tempfile::tempdir()?;
+    let root = directory.path();
+    let cards = root.join("cards.json");
+    atomic_json(
+        &cards,
+        &json!({"working_pool_hash":"pool","cards":[{"id":7,"name":"Forest","faces":["Forest"],"held_out":false}]}),
+    )?;
+    let catalog = root.join("catalog.json");
+    atomic_json(
+        &catalog,
+        &json!({"results":[{"data":{"datasets":[{"expansion":[{"text":"TEST"}],"format":[{"text":"TradDraft"}],"game_data":[{"spans":[{"data":{"url":"https://17lands-public.s3.amazonaws.com/analysis_data/game_data/fixture.csv.gz"}}]}]}]}}]}),
+    )?;
+    let mut gzip = GzEncoder::new(
+        std::fs::File::create(root.join("fixture.csv.gz"))?,
+        Compression::default(),
+    );
+    gzip.write_all(b"deck_Forest\n40\n")?;
+    gzip.finish()?;
+    let out = root.join("out");
+    let result = Command::new(env!("CARGO_BIN_EXE_import_17lands4"))
+        .arg("--cards")
+        .arg(cards)
+        .arg("--out")
+        .arg(&out)
+        .arg("--catalog")
+        .arg(catalog)
+        .arg("--bulk-dir")
+        .arg(root)
+        .output()?;
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    assert_eq!(
+        serde_json::from_slice::<Value>(&result.stdout)?["accepted"],
+        1
+    );
+    let manifest = read_json(&out.join("manifest.json"))?;
+    assert!(
+        std::fs::read_to_string(manifest["decks"][0]["path"].as_str().unwrap())?
+            .ends_with("40 Forest\n")
+    );
+    Ok(())
+}
+#[test]
 fn audit_command_reports_aliases_without_changing_dataset_bytes() -> Result<()> {
     let directory = tempfile::tempdir()?;
     let root = directory.path();

@@ -1,6 +1,7 @@
 //! Build native trajectory caches and validate teacher-only dataset provenance.
 use anyhow::{Context, Result};
 use baylee_train_ops::{
+    corpus::bc_metadata,
     files,
     trajectory::{cache, contracts, packing},
 };
@@ -18,6 +19,17 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Task {
+    /// Hash a JSON mixture contract using its existing canonical identity.
+    Digest,
+    /// Bind observed tensor histories to native source-record metadata.
+    GameMetadata {
+        #[arg(long)]
+        data_dir: PathBuf,
+        #[arg(long)]
+        split: String,
+    },
+    /// Reject overlapping immutable BC source identities.
+    RejectOverlap,
     /// Build or reopen a verified immutable trajectory cache.
     Build {
         #[arg(long)]
@@ -53,6 +65,23 @@ enum Task {
 }
 fn main() -> Result<()> {
     match Args::parse().command {
+        Task::Digest => {
+            let value = stdin_value()?;
+            println!("{}", bc_metadata::digest(&value)?);
+        }
+        Task::GameMetadata { data_dir, split } => {
+            let value = stdin_value()?;
+            let observed = serde_json::from_value::<Vec<(u64, u64)>>(value["observed"].clone())?;
+            println!(
+                "{}",
+                bc_metadata::game_metadata(&data_dir, &value["meta"], &split, &observed)?
+            );
+        }
+        Task::RejectOverlap => {
+            let value = stdin_value()?;
+            bc_metadata::reject_overlap(&value["left"], &value["right"])?;
+            println!("{}", json!({"disjoint":true}));
+        }
         Task::Build {
             data_dir,
             split,
@@ -115,4 +144,9 @@ fn main() -> Result<()> {
         ),
     }
     Ok(())
+}
+fn stdin_value() -> Result<Value> {
+    let mut bytes = Vec::new();
+    std::io::stdin().read_to_end(&mut bytes)?;
+    Ok(serde_json::from_slice(&bytes)?)
 }

@@ -21,6 +21,8 @@ flate2.workspace = true
 tar.workspace = true
 time.workspace = true
 icu_casemap.workspace = true
+csv.workspace = true
+ureq.workspace = true
 ctrlc = { workspace = true, features = ["termination"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -72,3 +74,7 @@ path = "src/bin/audit_representation4.rs"
 [[bin]]
 name = "import_mtgo4"
 path = "src/bin/import_mtgo4.rs"
+
+[[bin]]
+name = "import_17lands4"
+path = "src/bin/import_17lands4.rs"
