@@ -207,6 +207,11 @@ minutes; queueing was under 3 min at p95):
 | package aarch64-apple-darwin | — | 55 / 69 |
 | package x86_64-pc-windows-msvc | — | 37 / 51 |
 
+On 29.10.2026 `test-release` ran with a cold cache (a new stable toolchain
+changes its key) and its `ci-release` compile alone took 52 minutes; the
+60-minute limit cancelled it eight minutes into the tests. Its five main
+pushes before took 31–52 minutes. The limit is now 90.
+
 The former feature job passed in 32 minutes in run `39966346270`, including
 795 seconds for `dev-table-test`. Run `40019996413` spent almost seven minutes
 installing Linux dependencies and hit its 35-minute limit during that same
