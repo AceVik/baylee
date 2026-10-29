@@ -123,6 +123,26 @@ fn v5_metadata(revision: u64) -> Value {
             "relational_revision":revision,"relational_steps":2,"relational_width":160}})
 }
 
+#[test]
+fn candidate_context_is_bound_and_cannot_replace_a_legacy_seat_model() {
+    let mut f = Fixture::new();
+    let mut meta = v5_metadata(2);
+    set_metadata(&mut f, &meta);
+    let legacy = Selected::fixed(&f.root).unwrap();
+    meta["architecture"] = serde_json::json!("baylee_ai_v5_relational_v2_candidate_v2");
+    meta["config"]["candidate_context_revision"] = serde_json::json!(2);
+    set_metadata(&mut f, &meta);
+    assert!(Selected::fixed(&f.root).is_ok());
+    assert!(proposal(&f.path, &legacy, 1).is_err());
+    meta["config"]["candidate_context_revision"] = serde_json::json!(1);
+    set_metadata(&mut f, &meta);
+    assert!(Selected::fixed(&f.root).is_err());
+    meta["architecture"] = serde_json::json!("baylee_ai_v5_relational_v2");
+    meta["config"]["candidate_context_revision"] = serde_json::json!(2);
+    set_metadata(&mut f, &meta);
+    assert!(Selected::fixed(&f.root).is_err());
+}
+
 fn set_metadata(f: &mut Fixture, metadata: &Value) {
     let path = f.root.join("model.onnx.json");
     std::fs::write(&path, serde_json::to_vec(metadata).unwrap()).unwrap();
@@ -183,5 +203,25 @@ fn v5_refuses_unknown_architecture_revision_and_malformed_dimensions() {
         meta["config"][key] = serde_json::json!(value);
         set_metadata(&mut f, &meta);
         assert!(Selected::fixed(&f.root).is_err());
+    }
+}
+
+#[test]
+fn encoder8_never_enters_live_model_selection_for_any_model_family() {
+    let mut f = Fixture::new();
+    let current = f.model.clone();
+    for model_version in [3, 5] {
+        let mut meta = v5_metadata(2);
+        meta["encoder_version"] = serde_json::json!(8);
+        meta["model_version"] = serde_json::json!(model_version);
+        set_metadata(&mut f, &meta);
+        let error = Selected::fixed(&f.root).unwrap_err();
+        assert!(error.to_string().contains("offline-only"));
+        assert!(
+            proposal(&f.path, &current, 1)
+                .unwrap_err()
+                .to_string()
+                .contains("offline-only")
+        );
     }
 }

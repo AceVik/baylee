@@ -18,6 +18,13 @@ pub struct LiveAnswer4 {
 
 /// A synchronous seat brain. It never receives opponent decks or game state.
 pub trait Brain4 {
+    /// Check that the current socket view contract carries this brain's inputs.
+    ///
+    /// # Errors
+    /// Rejects brains requiring observation context absent from the live wire.
+    fn validate_live_contract(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
     /// Whether the brain natively consumes live `casting`/`targeting` context.
     #[must_use]
     fn retains_live_context(&self) -> bool {
@@ -50,7 +57,18 @@ pub trait Brain4 {
     ) -> anyhow::Result<LiveAnswer4>;
 }
 
+pub(super) fn validate_wire_encoder(encoder: u32) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        encoder != 8,
+        "Encoder 8 live seats require payment-context wire support; use offline eval4"
+    );
+    Ok(())
+}
+
 impl Brain4 for NetPlayer4 {
+    fn validate_live_contract(&self) -> anyhow::Result<()> {
+        validate_wire_encoder(self.model_identity().encoder_version)
+    }
     fn retains_live_context(&self) -> bool {
         self.is_encoder7()
     }
@@ -60,9 +78,11 @@ impl Brain4 for NetPlayer4 {
         deck: &DeckList,
         teams: &[Option<u8>],
     ) -> anyhow::Result<()> {
+        self.validate_live_contract()?;
         self.init_own_deck_list(seat, deck, teams)
     }
     fn observe(&mut self, view: &PlayerView) -> anyhow::Result<()> {
+        self.validate_live_contract()?;
         Self::observe(self, view)
     }
     fn answer(
@@ -71,6 +91,7 @@ impl Brain4 for NetPlayer4 {
         pending: &Pending,
         teams: &[Option<u8>],
     ) -> anyhow::Result<LiveAnswer4> {
+        self.validate_live_contract()?;
         let answer = self.act_detailed(view, pending, teams);
         let draw =
             super::draw::decide(pending, view, teams, answer.provenance.source, answer.value);

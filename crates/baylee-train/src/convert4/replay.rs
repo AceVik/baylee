@@ -1,11 +1,29 @@
 use std::borrow::Cow;
 
+use baylee_engine::choice::PlayerAction;
+use baylee_gamehost::record::MindKind;
+
 use super::{
     AuxTargets4, CoverageMatrix4, HeadKind4, Line, MAX_SEATS, Pending, PendingKind4, PlayerId,
     RECORD_VERSION, ReplaySummary, RolloutStepSidecar4, SeatKnowledge4, Session, Source,
     SourceKind4, Step4, StepProvenance4, Targets, TeacherTarget4, encode_candidates7_grouped,
     encode_state7, encode_teacher_action4,
 };
+
+const fn is_client_only_live_action(action: &PlayerAction) -> bool {
+    matches!(
+        action,
+        PlayerAction::PayWindow { .. } | PlayerAction::Concede | PlayerAction::OfferDraw
+    )
+}
+
+fn is_payable_cast(pending: &Pending, action: &PlayerAction) -> bool {
+    matches!(
+        (pending, action),
+        (Pending::Priority { legal, .. }, PlayerAction::CastSpell { card })
+            if legal.payable.contains(card)
+    )
+}
 
 #[allow(
     clippy::too_many_lines,
@@ -48,6 +66,8 @@ pub(super) fn replay_frames_shadow(
         sidecar,
         shadow,
         None,
+        false,
+        7,
         emit,
     )
 }
@@ -58,7 +78,8 @@ pub(super) fn replay_frames_shadow(
 )]
 #[allow(
     clippy::cast_precision_loss,
-    reason = "Existing normalized auxiliary values"
+    clippy::too_many_arguments,
+    reason = "Existing normalized auxiliary values and mode flags"
 )]
 pub(super) fn replay_frames_modes(
     record: &[u8],
@@ -67,8 +88,13 @@ pub(super) fn replay_frames_modes(
     sidecar: Option<&[RolloutStepSidecar4]>,
     mut shadow: Option<&mut super::shadow_bc::ShadowBc4>,
     mut llm: Option<&mut super::llm_bc::LlmBc4>,
+    live_bc: bool,
+    encoder_version: u32,
     mut emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<ReplaySummary, String> {
+    if !matches!(encoder_version, 7 | 8) {
+        return Err("Unsupported encoder version".into());
+    }
     let mut lines = record
         .split(|&b| b == b'\n')
         .filter(|l| !l.is_empty())
@@ -110,11 +136,17 @@ pub(super) fn replay_frames_modes(
     let mut winners: Option<Vec<u8>> = None;
     let mut final_turn: u32 = 1;
     let mut input_idx: usize = 0;
+    let mut seat_minds: [Option<MindKind>; MAX_SEATS] = [None; MAX_SEATS];
 
     for line in lines {
         match line? {
             Line::Header { .. } => return Err("second header in record".to_owned()),
-            Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            Line::Chair { .. } => {}
+            Line::DeclaredMind { seat, mind, .. } => {
+                if (seat as usize) < MAX_SEATS {
+                    seat_minds[seat as usize] = Some(mind.kind);
+                }
+            }
             Line::Input {
                 seat: seat_u8,
                 by,
@@ -123,8 +155,12 @@ pub(super) fn replay_frames_modes(
                 ..
             } => {
                 let seat = PlayerId::new(seat_u8);
-                if action.is_automation_setting() {
+                if action.is_automation_setting()
+                    || (live_bc
+                        && matches!(action, PlayerAction::Concede | PlayerAction::OfferDraw))
+                {
                     let _ = session.act(seat, action);
+                    final_turn = session.state().turn.number;
                     continue;
                 }
                 let cur_sidecar = if matches!(by, Source::Seat) {
@@ -138,17 +174,52 @@ pub(super) fn replay_frames_modes(
                     None
                 };
 
-                let (pending, view) = session
-                    .view_for_with_context(seat)
-                    .ok_or_else(|| format!("seat {seat:?} was not owed a question"))?;
+                let pending_view = if encoder_version == 8 {
+                    session.view_for_with_payment_context(seat)
+                } else {
+                    session.view_for_with_context(seat)
+                };
+                let (pending, view) =
+                    pending_view.ok_or_else(|| format!("seat {seat:?} was not owed a question"))?;
 
                 // Diagnostic decision-only conversion is not a recurrent training dataset.
                 if !include_passive_obs {
-                    knowledge[seat_u8 as usize].observe(&view);
+                    if encoder_version == 8 {
+                        knowledge[seat_u8 as usize].observe_with_payment_context(&view);
+                    } else {
+                        knowledge[seat_u8 as usize].observe(&view);
+                    }
                 }
 
                 let p_kind = PendingKind4::of(&pending);
-                let step_loss_weight = 1.0_f32;
+                let step_loss_weight = if live_bc {
+                    if matches!(by, Source::Seat)
+                        && matches!(
+                            seat_minds[seat_u8 as usize],
+                            Some(MindKind::Human | MindKind::LlmApi | MindKind::LlmCli)
+                        )
+                    {
+                        if matches!(action, PlayerAction::PassPriority)
+                            && let Pending::Priority { legal, .. } = &pending
+                            && legal.lands.is_empty()
+                            && legal.castable.is_empty()
+                            && legal.suspendable.is_empty()
+                            && legal.payable.is_empty()
+                        {
+                            if session.state().turn.active != seat && view.stack.is_empty() {
+                                0.0_f32
+                            } else {
+                                0.15_f32
+                            }
+                        } else {
+                            1.0_f32
+                        }
+                    } else {
+                        0.0_f32
+                    }
+                } else {
+                    1.0_f32
+                };
 
                 // Every seat observes the pre-action state, including the acting seat.
                 // Decisions consume this memory; they never update it again.
@@ -158,11 +229,25 @@ pub(super) fn replay_frames_modes(
                             Cow::Borrowed(&view)
                         } else {
                             let other_pid = PlayerId::new(other_idx as u8);
-                            Cow::Owned(session.observe_view_with_context(other_pid))
+                            Cow::Owned(if encoder_version == 8 {
+                                session.observe_view_with_payment_context(other_pid)
+                            } else {
+                                session.observe_view_with_context(other_pid)
+                            })
                         };
-                        if knowledge[other_idx].observe(&other_v) {
-                            let st =
-                                encode_state7(&other_v, None, Some(&knowledge[other_idx]), &teams);
+                        let changed = if encoder_version == 8 {
+                            knowledge[other_idx].observe_with_payment_context(&other_v)
+                        } else {
+                            knowledge[other_idx].observe(&other_v)
+                        };
+                        if changed {
+                            let st = encode_selected_state(
+                                encoder_version,
+                                &other_v,
+                                None,
+                                Some(&knowledge[other_idx]),
+                                &teams,
+                            );
                             let cur_life = other_v.seats.get(other_idx).map_or(20, |s| s.life);
                             let sc = seat_cursors[other_idx];
                             seat_cursors[other_idx] += 1;
@@ -202,7 +287,8 @@ pub(super) fn replay_frames_modes(
                     }
                 }
 
-                let state = encode_state7(
+                let state = encode_selected_state(
+                    encoder_version,
                     &view,
                     Some(&pending),
                     Some(&knowledge[seat_u8 as usize]),
@@ -277,7 +363,21 @@ pub(super) fn replay_frames_modes(
                     let mut policy_weight = step_loss_weight;
                     let mut shadow_label = None;
                     if llm.is_some() {
-                        policy_weight = if llm_label.is_some() { 1.0 } else { 0.0 };
+                        policy_weight = if llm_label.is_some() {
+                            if matches!(action, PlayerAction::PassPriority)
+                                && let Pending::Priority { legal, .. } = &pending
+                                && legal.lands.is_empty()
+                                && legal.castable.is_empty()
+                                && legal.suspendable.is_empty()
+                                && legal.payable.is_empty()
+                            {
+                                0.25_f32
+                            } else {
+                                1.0_f32
+                            }
+                        } else {
+                            0.0_f32
+                        };
                         prov.source = if matches!(by, Source::Seat) {
                             SourceKind4::External
                         } else {
@@ -366,6 +466,10 @@ pub(super) fn replay_frames_modes(
                         },
                         cur_life,
                     )?;
+                } else if live_bc
+                    && (is_client_only_live_action(&action) || is_payable_cast(&pending, &action))
+                {
+                    coverage.record(p_kind, SourceKind4::Forced);
                 } else {
                     eprintln!(
                         "[convert4] UNENCODED game_id={game_id} kind={p_kind:?} head={:?} cands={} pairs={} action={action:?} pending={pending:?}",
@@ -434,4 +538,18 @@ pub(super) fn replay_frames_modes(
             session.snapshot_hash(),
         ),
     })
+}
+
+fn encode_selected_state(
+    encoder: u32,
+    view: &baylee_view::PlayerView,
+    pending: Option<&Pending>,
+    knowledge: Option<&SeatKnowledge4>,
+    teams: &[Option<u8>],
+) -> crate::features4::EncodedState4 {
+    if encoder == 8 {
+        crate::features8::encode_state8(view, pending, knowledge, teams)
+    } else {
+        encode_state7(view, pending, knowledge, teams)
+    }
 }

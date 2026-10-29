@@ -214,14 +214,21 @@ fn encode_action4(
                 target.single_idx = idx as u16;
                 return Some(target);
             }
-            // Match ChooseObjects / ChooseTargets for single-target questions
+            // Match ChooseObjects / ChooseTargets / ChooseTargetBatch for single-target questions
             if let (
                 Pending::ChooseTargets { .. },
                 PlayerAction::ChooseObjects { objects }
-                | PlayerAction::ChooseTargets { objects, .. },
+                | PlayerAction::ChooseTargets { objects, .. }
+                | PlayerAction::ChooseTargetBatch { objects, .. },
             ) = (pending, action)
             {
+                let players = match action {
+                    PlayerAction::ChooseTargets { players, .. }
+                    | PlayerAction::ChooseTargetBatch { players, .. } => players.as_slice(),
+                    _ => &[],
+                };
                 if objects.is_empty()
+                    && players.is_empty()
                     && let Some(idx) = cands.candidates.iter().position(|c| {
                         matches!(
                             &c.action,
@@ -239,6 +246,19 @@ fn encode_action4(
                             &c.action,
                             Some(PlayerAction::ChooseTargets { objects: o, .. })
                                 if o.first() == Some(&first_oid)
+                        )
+                    })
+                {
+                    target.single_idx = idx as u16;
+                    return Some(target);
+                }
+                if objects.is_empty()
+                    && let Some(&first_pid) = players.first()
+                    && let Some(idx) = cands.candidates.iter().position(|c| {
+                        matches!(
+                            &c.action,
+                            Some(PlayerAction::ChooseTargets { objects: o, players: p })
+                                if o.is_empty() && p.first() == Some(&first_pid)
                         )
                     })
                 {
@@ -336,7 +356,10 @@ fn encode_action4(
                     );
                     Some(target)
                 }
-                PlayerAction::ChooseTargets { objects, players } => {
+                PlayerAction::ChooseTargets { objects, players }
+                | PlayerAction::ChooseTargetBatch {
+                    objects, players, ..
+                } => {
                     for oid in objects {
                         let idx = cands
                             .candidates
@@ -624,6 +647,11 @@ fn matches_grouped_single_action(cand: &Candidate4, action: &PlayerAction) -> bo
             PlayerAction::ChooseTargets {
                 objects: a_objs,
                 players: a_pl,
+            }
+            | PlayerAction::ChooseTargetBatch {
+                objects: a_objs,
+                players: a_pl,
+                ..
             },
         ) if c_objs.len() == 1 && c_pl.is_empty() && a_objs.len() == 1 && a_pl.is_empty() => {
             cand.group_object_ids.contains(&a_objs[0])

@@ -49,6 +49,10 @@ pub fn digest(path: &Path) -> anyhow::Result<String> {
 
 fn contract(model: &Path) -> anyhow::Result<Value> {
     let meta: Value = serde_json::from_slice(&std::fs::read(model.join("model.onnx.json"))?)?;
+    ensure!(
+        meta["encoder_version"] != 8,
+        "Encoder 8 is offline-only until payment-context wire support is available"
+    );
     let v5 = meta["encoder_version"] == 7 && meta["model_version"] == 5;
     ensure!(
         (v5 || matches!(
@@ -74,12 +78,18 @@ fn contract(model: &Path) -> anyhow::Result<Value> {
 }
 
 fn bind_v5_contract(meta: &Value, result: &mut Value) -> anyhow::Result<()> {
-    let revision = match meta["architecture"].as_str() {
-        Some("baylee_ai_v5_relational_v1") => 1,
-        Some("baylee_ai_v5_relational_v2") => 2,
+    let (revision, candidate_revision) = match meta["architecture"].as_str() {
+        Some("baylee_ai_v5_relational_v1") => (1, 1),
+        Some("baylee_ai_v5_relational_v2") => (2, 1),
+        Some("baylee_ai_v5_relational_v2_candidate_v2") => (2, 2),
         _ => anyhow::bail!("unsupported V5 architecture"),
     };
     let cfg = &meta["config"];
+    ensure!(
+        cfg["candidate_context_revision"] == candidate_revision
+            || (candidate_revision == 1 && cfg["candidate_context_revision"].is_null()),
+        "V5 candidate architecture/revision mismatch"
+    );
     ensure!(
         cfg["relational_revision"] == revision,
         "V5 architecture/revision mismatch"
@@ -97,6 +107,7 @@ fn bind_v5_contract(meta: &Value, result: &mut Value) -> anyhow::Result<()> {
         "invalid V5 model dimensions"
     );
     result["architecture"] = meta["architecture"].clone();
+    result["candidate_context_revision"] = serde_json::json!(candidate_revision);
     for key in ["d_model", "n_heads", "n_layers"] {
         ensure!(
             cfg[key] == meta[key],

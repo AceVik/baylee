@@ -82,6 +82,11 @@ pub(super) fn load(
         "Shadow record missing End"
     );
     Ok(ShadowBc4 {
+        encoder_version: u32::try_from(
+            serde_json::from_slice::<Value>(run)?["model_identity"]["encoder_version"]
+                .as_u64()
+                .context("Missing shadow encoder")?,
+        )?,
         header,
         record_sha256,
         labels,
@@ -131,8 +136,14 @@ fn validate_header(run: &[u8], header: &Value, game: &str, catalog: &str) -> any
     );
     let identity = &run_value["model_identity"];
     ensure!(
-        identity["encoder_version"] == 7
-            && matches!(identity["model_version"].as_u64(), Some(3 | 5)),
+        ((identity["encoder_version"] == 7
+            && matches!(identity["model_version"].as_u64(), Some(3 | 5)))
+            || (identity["encoder_version"] == 8
+                && identity["model_version"] == 5
+                && matches!(
+                    identity["architecture"].as_str(),
+                    Some("baylee_ai_v5_relational_v2" | "baylee_ai_v5_relational_v2_candidate_v2")
+                ))),
         "Shadow encoder/model mismatch"
     );
     ensure!(
@@ -141,7 +152,11 @@ fn validate_header(run: &[u8], header: &Value, game: &str, catalog: &str) -> any
                 && identity["model_family"] == "v5"
                 && matches!(
                     identity["architecture"].as_str(),
-                    Some("baylee_ai_v5_relational_v1" | "baylee_ai_v5_relational_v2")
+                    Some(
+                        "baylee_ai_v5_relational_v1"
+                            | "baylee_ai_v5_relational_v2"
+                            | "baylee_ai_v5_relational_v2_candidate_v2"
+                    )
                 )),
         "Unknown shadow behavior architecture"
     );

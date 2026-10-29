@@ -1,7 +1,7 @@
 //! Opt-in BC labels on neural-visited views. Never an executed action or PPO target.
 use std::path::Path;
 
-use anyhow::ensure;
+use anyhow::{Context as _, ensure};
 use baylee_ai::HeuristicAgent;
 use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{Pending, PlayerAction};
@@ -33,6 +33,7 @@ pub(super) struct ShadowGame {
     writer: LabelWriter,
     profile: AIProfile,
     seed: u64,
+    encoder_version: u32,
     counts: Counts,
 }
 
@@ -83,7 +84,10 @@ impl ShadowGame {
             "Shadow requires current certified Raw behavior; historical runs are not upgraded"
         );
         ensure!(
-            run_value["model_identity"]["encoder_version"] == 7,
+            matches!(
+                run_value["model_identity"]["encoder_version"].as_u64(),
+                Some(7 | 8)
+            ),
             "Shadow requires encoder 7"
         );
         ensure!(
@@ -106,6 +110,11 @@ impl ShadowGame {
             writer: LabelWriter::new(dir, game, &header)?,
             profile: profile_value,
             seed,
+            encoder_version: u32::try_from(
+                run_value["model_identity"]["encoder_version"]
+                    .as_u64()
+                    .context("Missing encoder")?,
+            )?,
             counts: Counts::default(),
         })
     }
@@ -148,7 +157,7 @@ impl ShadowGame {
         };
         Ok(Some(json!({"kind": "label", "seat": view.seat.get(),
             "decision_seq": decision_seq, "record_byte_offset": record_byte_offset,
-            "view_hash_fnv1a64": format!("{:016x}", view_only_state_hash(view, pending)),
+            "view_hash_fnv1a64": format!("{:016x}", if self.encoder_version == 8 { baylee_train::features8::view_only_state_hash8(view, pending) } else { view_only_state_hash(view, pending) }),
             "pending_sha256": sha(&serde_json::to_vec(pending)?),
             "encoded_state_sha256": sha(&serde_json::to_vec(state)?),
             "candidates_sha256": sha(&serde_json::to_vec(menu)?),

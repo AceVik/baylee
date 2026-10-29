@@ -147,6 +147,7 @@ impl<B: Brain4> LiveSeat4<B> {
     }
 
     fn hear_inner(&mut self, bytes: &[u8]) -> anyhow::Result<Vec<Envelope>> {
+        self.brain.validate_live_contract()?;
         let heard = self.memory.hear(bytes);
         let outgoing = Vec::new();
         match heard {
@@ -267,6 +268,9 @@ impl<B: Brain4> LiveSeat4<B> {
                 SourceKind4::Forced => self.report.forced_answers += 1,
                 SourceKind4::House => self.report.fallback_answers += 1,
                 SourceKind4::Search => self.report.search_answers += 1,
+                SourceKind4::External => {
+                    anyhow::bail!("external actions cannot be attributed to a live neural brain")
+                }
             }
             outgoing.push(Envelope {
                 msg: Some(v1::envelope::Msg::PlayerAction(v1::PlayerActionMsg {

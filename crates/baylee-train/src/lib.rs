@@ -31,6 +31,8 @@ pub mod features3;
 pub mod features4;
 #[cfg(feature = "play")]
 pub mod features7;
+#[cfg(feature = "play")]
+pub mod features8;
 pub mod housedeck;
 #[cfg(feature = "live-seat")]
 pub mod live4;

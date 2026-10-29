@@ -11,6 +11,7 @@ use sha2::{Digest, Sha256};
 /// Exact architecture label shared with the V5 checkpoint/export implementation.
 pub const V5_ARCHITECTURE: &str = "baylee_ai_v5_relational_v1";
 const V5_ARCHITECTURE_V2: &str = "baylee_ai_v5_relational_v2";
+const V5_CANDIDATE_V2: &str = "baylee_ai_v5_relational_v2_candidate_v2";
 
 /// Content identity of the exact graph and metadata accepted by the loader.
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
@@ -46,16 +47,41 @@ fn contract(meta: &Value) -> anyhow::Result<(u32, u32, &'static str)> {
     let encoder = version(meta, "encoder_version")?;
     let model = version(meta, "model_version")?;
     let v4 = (encoder == 5 && model == 2) || ((encoder == 6 || encoder == 7) && model == 3);
-    let v5 = encoder == 7
+    let v5 = (encoder == 7
         && model == 5
         && matches!(
             meta["architecture"].as_str(),
-            Some(V5_ARCHITECTURE | V5_ARCHITECTURE_V2)
-        );
+            Some(V5_ARCHITECTURE | V5_ARCHITECTURE_V2 | V5_CANDIDATE_V2)
+        ))
+        || (encoder == 8
+            && model == 5
+            && matches!(
+                meta["architecture"].as_str(),
+                Some(V5_ARCHITECTURE_V2 | V5_CANDIDATE_V2)
+            ));
     anyhow::ensure!(
         (v4 || v5) && meta["trajectory_version"] == 2 && meta["sampling_version"] == 2,
         "incompatible neural model/encoder/architecture contracts"
     );
+    if meta["architecture"] == V5_CANDIDATE_V2 {
+        anyhow::ensure!(
+            meta["config"]["relational_revision"] == 2
+                && meta["config"]["candidate_context_revision"] == 2,
+            "candidate architecture/revision mismatch"
+        );
+        for key in ["d_model", "n_heads", "n_layers"] {
+            anyhow::ensure!(
+                meta["config"][key] == meta[key],
+                "candidate config dimension mismatch: {key}"
+            );
+        }
+    } else if v5 {
+        anyhow::ensure!(
+            meta["config"]["candidate_context_revision"].is_null()
+                || meta["config"]["candidate_context_revision"] == 1,
+            "legacy architecture cannot declare new candidate context"
+        );
+    }
     if v5 {
         let width = version(meta, "d_model")?;
         let heads = version(meta, "n_heads")?;
@@ -167,6 +193,42 @@ pub fn inspect_model_identity(path: &Path) -> anyhow::Result<ModelIdentity> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn candidate_context_revision_has_a_distinct_strict_identity() {
+        for encoder in [7, 8] {
+            let mut meta = json!({"encoder_version":encoder,"model_version":5,
+                "architecture":V5_CANDIDATE_V2,"trajectory_version":2,"sampling_version":2,
+                "d_model":32,"n_heads":4,"n_layers":1,
+                "config":{"relational_revision":2,"candidate_context_revision":2,
+                    "d_model":32,"n_heads":4,"n_layers":1}});
+            assert_eq!(contract(&meta).unwrap(), (encoder, 5, "v5"));
+            meta["config"]["candidate_context_revision"] = json!(1);
+            assert!(contract(&meta).is_err());
+            meta["config"]["candidate_context_revision"] = json!(2);
+            meta["config"]["relational_revision"] = json!(1);
+            assert!(contract(&meta).is_err());
+            meta["config"]["relational_revision"] = json!(2);
+            meta["architecture"] = json!(V5_ARCHITECTURE_V2);
+            assert!(contract(&meta).is_err());
+        }
+    }
+
+    #[test]
+    fn encoder8_requires_v5_relational_v2_without_migrating_legacy_contracts() {
+        let mut meta = json!({"encoder_version":8,"model_version":5,
+            "architecture":V5_ARCHITECTURE_V2,"trajectory_version":2,"sampling_version":2,
+            "d_model":640,"n_heads":10,"n_layers":12});
+        assert_eq!(contract(&meta).unwrap(), (8, 5, "v5"));
+        meta["architecture"] = json!(V5_ARCHITECTURE);
+        assert!(contract(&meta).is_err());
+        meta["architecture"] = json!(V5_ARCHITECTURE_V2);
+        meta["model_version"] = json!(3);
+        assert!(contract(&meta).is_err());
+        meta["model_version"] = json!(5);
+        meta["encoder_version"] = json!(9);
+        assert!(contract(&meta).is_err());
+    }
 
     #[test]
     fn v4_contracts_remain_supported_and_v5_requires_its_own_architecture() {

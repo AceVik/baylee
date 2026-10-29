@@ -37,7 +37,15 @@ pub(super) fn target(
         "Shadow behavior/decision provenance mismatch"
     );
     ensure!(
-        label.view_hash_fnv1a64 == format!("{:016x}", view_only_state_hash(view, pending))
+        label.view_hash_fnv1a64
+            == format!(
+                "{:016x}",
+                if shadow.encoder_version == 8 {
+                    crate::features8::view_only_state_hash8(view, pending)
+                } else {
+                    view_only_state_hash(view, pending)
+                }
+            )
             && label.pending_sha256 == sha(&serde_json::to_vec(pending)?)
             && label.encoded_state_sha256 == sha(&serde_json::to_vec(state)?)
             && label.candidates_sha256 == sha(&serde_json::to_vec(menu)?),

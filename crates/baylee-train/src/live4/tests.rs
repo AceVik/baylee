@@ -441,3 +441,50 @@ fn wire_draw_offer_reports_rule_override_separately_from_learned_net() {
     assert_eq!(decision.continuation_utility, Some(0.1));
     assert!(decision.accepted);
 }
+
+#[test]
+fn payment_context_brain_is_rejected_before_initialization_or_observation() {
+    struct PaymentBrain;
+    impl Brain4 for PaymentBrain {
+        fn validate_live_contract(&self) -> anyhow::Result<()> {
+            super::brain::validate_wire_encoder(8)
+        }
+        fn initialize(
+            &mut self,
+            _: PlayerId,
+            _: &DeckList,
+            _: &[Option<u8>],
+        ) -> anyhow::Result<()> {
+            panic!("unsupported brain must not initialize")
+        }
+        fn observe(&mut self, _: &PlayerView) -> anyhow::Result<()> {
+            panic!("unsupported brain must not consume a wire observation")
+        }
+        fn answer(
+            &mut self,
+            _: &PlayerView,
+            _: &Pending,
+            _: &[Option<u8>],
+        ) -> anyhow::Result<LiveAnswer4> {
+            panic!("unsupported brain must not answer")
+        }
+    }
+    for encoder in [5, 6, 7] {
+        assert!(super::brain::validate_wire_encoder(encoder).is_ok());
+    }
+    let mut live = LiveSeat4::new(PaymentBrain, DeckList::default(), ME);
+    assert!(
+        live.hear(&table())
+            .unwrap_err()
+            .to_string()
+            .contains("payment-context wire support")
+    );
+    assert!(live.finished());
+    assert!(
+        live.report()
+            .failure
+            .as_ref()
+            .unwrap()
+            .contains("Encoder 8")
+    );
+}

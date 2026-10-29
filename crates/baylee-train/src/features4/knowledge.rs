@@ -72,6 +72,7 @@ impl<'a> ObservableView<'a> {
             target_objects,
             targeting,
             casting,
+            announced_cast: _,
             seq: _,
             seat,
             turn,
@@ -395,8 +396,21 @@ impl SeatKnowledge4 {
 
     /// Updates `SeatKnowledge4` from a seat-authorized `PlayerView` and returns
     /// `true` if the observable state changed since the last call.
-    #[allow(clippy::too_many_lines, reason = "One ordered update of public event counters and remembered cards")]
     pub fn observe(&mut self, view: &PlayerView) -> bool {
+        self.observe_with_digest(view, board_observation_hash(view))
+    }
+
+    /// Encoder 8 observation clock, including the owner's announced spell even
+    /// while a nested mana choice temporarily prevents cancelling that spell.
+    pub fn observe_with_payment_context(&mut self, view: &PlayerView) -> bool {
+        self.observe_with_digest(view, crate::features8::board_observation_hash8(view))
+    }
+
+    #[allow(
+        clippy::too_many_lines,
+        reason = "One ordered update of public event counters and remembered cards"
+    )]
+    fn observe_with_digest(&mut self, view: &PlayerView, digest: u64) -> bool {
         if self.cursor == 0 {
             for (i, s) in view.seats.iter().enumerate().take(MAX_SEATS) {
                 self.starting_life[i] = s.life;
@@ -528,7 +542,6 @@ impl SeatKnowledge4 {
                     .retain(|&(owner, _), mem| !(owner == p && mem.origin_zone == 1));
             }
         }
-        let digest = board_observation_hash(view);
         let changed = digest != self.last_frame_digest || self.cursor == 0;
         if changed {
             self.last_frame_digest = digest;
