@@ -195,7 +195,7 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
             invalid_k = ((host['thinking_steps'] < 1) | (host['thinking_steps'] > 8)) & mask
             if bool(invalid_k.any()):
                 raise ValueError('Genuine neural decision has invalid recorded thinking depth')
-            values, errors, lps = [], [], []
+            values, errors = [], []
             for t in range(u):
                 decision = host['is_decision'][:,t].to(device)
                 recorded = host['thinking_steps'][:,t].to(device)
@@ -208,11 +208,9 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
                 h = torch.where(valid[:,None,None],output[0],h)
                 lp,_ = action_logprob_and_kl(output[1].float(),output[2].float(),output[3].float(),
                                             output[1].float(),output[2].float(),output[3].float(),host,t)
-                lps.append(lp.float())
                 errors.append((lp-host['behavior_logprob'][:,t].to(device)).abs())
                 values.append(output[4].float())
             value = torch.stack(values,1).cpu().numpy()
-            lp_arr = torch.stack(lps,1).cpu().numpy()
             error = torch.stack(errors,1).cpu().numpy()
             keep = mask.numpy()
             observed = error[keep]
@@ -230,7 +228,9 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
             for lane,idx in enumerate(ids):
                 if idx >= 0:
                     cache['actor_mask'][idx] = keep[lane]
-                    cache['behavior_lp'][idx] = np.where(keep[lane],lp_arr[lane],0)
+                    # Replay certifies the behavior policy; it must not replace
+                    # the sampled policy's recorded PPO denominator/KL anchor.
+                    cache['behavior_lp'][idx] = np.where(keep[lane],host['behavior_logprob'][lane].numpy(),0)
                     cache['returns'][idx] = np.where(valid[lane],truth[lane],0)
                     cache['advantages'][idx] = np.where(keep[lane],truth[lane]-value[lane],0)
             frames += int(valid.sum())
