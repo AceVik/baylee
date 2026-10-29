@@ -54,9 +54,11 @@ enthält Dosis, Prüfergebnisse und getrennte Fehlversuche.
 Die Gates fanden außerdem eine Deployment-Reihenfolge, die mit dem neuen
 Aufräumen unvereinbar war. Die Korrektur hält neue Partien zurück und lässt
 laufende Spiele enden, bevor ihr Agent gestoppt wird. Default- und Feature-Gate
-sind bestanden; im abschließenden Default-Gate bestehen alle 23.916 Tests.
-Die mangels lokalem Scryfall-Cache ausgelassene Katalogvalidierung und weitere
-Prüfgrenzen sind im Bericht ausdrücklich ausgewiesen.
+bestanden auf den im Bericht festgehaltenen Zwischenständen; das Default-Gate
+auf `31e6a78c0` bestand alle 23.916 Tests. Die späteren Encoder9- und
+PPO-Änderungen haben gezielte Prüfungen; vor einem Push sind beide vollständigen
+Gates erneut erforderlich. Die mangels lokalem Scryfall-Cache ausgelassene
+Katalogvalidierung und weitere Prüfgrenzen sind im Bericht ausgewiesen.
 Der alte Dauerlauf bleibt gestoppt; kein neues Modell ist freigegeben.
 
 **Nach dem E1-Spielvergleich:** Alle 48 vorab festgelegten Modellfälle sind
@@ -131,10 +133,26 @@ Der Stand und die nächste Reihenfolge lauten:
    liefern bei der Zielwahl identische E7/E8-Eingaben, einschließlich der
    vollständigen zehn Beobachtungen davor. Die eigene Zahlenwahl fließt nicht
    in H zurück. Das beweist die X-Lücke, nicht ihre Ursächlichkeit für die
-   tatsächlichen X=0-Schleifen. Eine Korrektur bekommt einen eigenen
-   Beobachtungsvertrag. Zusätzlich wird geprüft, wie Fehlentscheidungen
+   tatsächlichen X=0-Schleifen. Der native Beobachtungsteil ist in `1ee48685b`
+   mit 57 gezielten Tests umgesetzt: separate autorisierte Ankündigungsansichten
+   unterscheiden unbekanntes X und gewählte Null; alte Ansichten bleiben gleich.
+   Encoder9 bindet diese Information inzwischen separat durch native Sammlung,
+   Replay, versionierte Hashes und 82 statt 80 globale Eingänge an. Bestehende
+   E7/E8-Artefakte behalten ihren Vertrag. Der explizite Gewichtsübergang beginnt
+   mit zwei Nullspalten; ein kleiner PyTorch-Lerntest bestätigt deren Lernbarkeit
+   bei trainierbarer Projektion. Das ist noch kein Spielstärkennachweis.
+   Zusätzlich wird geprüft, wie Fehlentscheidungen
    lernbar bleiben, ohne Haus-Fallback-Ergebnisse der reinen Policy zuzuschreiben.
    Kein Lockern des Guards oder nachträgliches Ändern alter Datenverträge.
+6. **Einzelschritt-Transfertest abgeschlossen:** Alle vier E3-Vorprobenfälle
+   sind mit dem aktualisierten Netz und unveränderten Gegnern nachgespielt.
+   Alle Ergebnisse, Fallbacks und Fireball-Rückabwicklungen bleiben gleich.
+   Ein Fall hat eine echte Änderung von vier auf drei Ziele, beide Varianten
+   bleiben unbezahlbar. Die anderen drei Aktionsspuren bleiben identisch.
+   Der Schritt wirkt auf die Policy, behebt den Fehler aber bislang nicht.
+   Ein Artefaktcheck stoppte den ersten Vergleich nach zwei Spielen; nur die
+   beiden ungestarteten Fälle wurden anschließend ausgeführt. Kein erneuter
+   Lauf bereits gespielter Fälle und keine nachträgliche Auswahl.
 
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;
 historische Aussagen „noch nicht implementiert“ sind durch diesen Stand ersetzt.
@@ -496,7 +514,7 @@ Planungsentscheidungen und keine bereits erprobten optimalen Hyperparameter.
 | E2 | Lernt ein bereits trainiertes Modell verschiedene Denkbudgets sinnvoll? | Feste K2-Kontrolle versus kurze K1/2/4/8-Finishing-Phase, gleiche Initialisierung und Quellenabdeckung; zunächst ein vorab versiegelter vollständiger Pilot-Datensatz | Alle K auswerten, Mehrkosten messen; nur bei Nutzen vergrößern |
 | E3 | Ist outcome-basiertes v5-Lernen technisch tragfähig? | R0/R4 Head-Pfad; 64 vollständige 1v1-Tische je zwei Sitzbelegungen = 128 Partien, höchstens 32 Update-Versuche und ein Durchlauf durch die zugelassenen Entscheidungen | Datenintegrität, KL, Verhalten und Spiele vergleichen; keine Aussage über Full-Model-Lernen |
 | E4 | Verbessert RL auch Repräsentation und Denken? | Separater Full-Model-Pfad bestanden; dieselben Grenzen von 128 Partien, höchstens 32 Update-Versuchen/einem Durchlauf, feste K2 | Erst bei stabiler Verbesserung nächste Sammelrunde; keine Endlosschleife |
-| E5 | Helfen neue Relationsziele bzw. Encoder8? | Je ein eigenständiges gepaartes Experiment; keine gleichzeitige Änderung von Encoder, Kandidatenhead und K | Gewinn einem konkreten Mechanismus zuordnen |
+| E5 | Helfen neue Relationsziele bzw. Encoder8/9? | Je ein eigenständiges gepaartes Experiment; keine gleichzeitige Änderung von Encoder, Kandidatenhead und K | Gewinn einem konkreten Mechanismus zuordnen |
 
 E3-Vorbereitung muss nicht auf den Ausgang sämtlicher BC-/Denkversuche warten.
 Bei identischen gemeinsamen Verträgen darf der begrenzte technische RL-Pilot
@@ -552,6 +570,44 @@ Nicht unbegrenzt neue Versuche nachfordern: höchstens 160 Sammelversuche für
 Technische Wiederholungen behalten Seed und Sitzbelegung; unvollständige
 Tischpaare werden nicht durch nachträglich gewählte leichtere Tische ersetzt.
 
+Die E3-Vorprobe zeigt zugleich die Grenze dieser Zulassung: Wenn Fehler der
+Policy den Schutzmechanismus auslösen, zensiert eine Sammlung ausschließlich
+sauberer Spiele genau diese Zustände. Der aktuelle vollständige Outcome-Vertrag
+darf deshalb nicht unverändert zum Dauertraining werden. Ein späterer eigener
+Vertrag kann eine ausdrücklich definierte Trainingsstrafe beim Abbruch oder
+korrekt abgeschnittene Trajektorien mit geprüftem Bootstrap unterstützen.
+Beides ist noch nicht implementiert; ein Helfer für GAE allein reicht dafür
+nicht. Die echte MTG-Niederlage, ein technischer Abbruch und eine zusätzliche
+Trainingsstrafe bleiben unterschiedliche Daten. Bereits aufgezeichnete
+Haus-Fallback-Spiele werden nicht rückwirkend zu Raw-Policy-Daten umetikettiert.
+
+Der nächste begrenzte Forschungsweg prüft einen separaten Vertrag
+`failure_terminal_research_v1`: Bei einer replay-bestätigten wiederholten
+automatischen Ankündigungsrücknahme des Lerners endet die Forschungs-Episode
+vor der ersten Haus-Ersatzaktion. Das echte MTG-Ergebnis bleibt unbekannt;
+eine explizite Trainingsutility von 0 mit `bootstrap=false` ist eine definierte
+Strafe, keine nachträglich behauptete Niederlage. Ein Fehler des Gegners,
+ein Zeitlimit oder ein Enginefehler erhält keinen erfundenen Lernersieg.
+Bewusstes legales Abbrechen ist ebenfalls nicht automatisch ein Fehler.
+
+Die vier bekannten Fälle 64/65/96/97 wurden mit allen kanonischen Inputs und
+Sitzrollen offline geprüft: Fall 64 betrifft den Gegner, Fall 65 den Lerner;
+96/97 bleiben Kontrollen ohne Recovery. Die Grenze vor der ersten Ersatzaktion
+ist anhand der Record-Bytes nachweisbar; Record-Inputnummer und
+Evaluator-Entscheidungsnummer sind dabei getrennte Zähler. Der Lernerpräfix
+hat nur 127 stochastische Net-Samples und erfüllt allein nicht das geplante
+Minimum von 128. Diese bekannten Entwicklungsfälle belegen nur die
+Fehlergrenze, keine neue Trainingszulassung. Vor neuen Versuchen brauchen Collector,
+Konverter, Targetschema, Cache, Zulassung und Resume einen gemeinsamen
+ausdrücklichen Vertrag; die bisherige Zulassung muss diese Daten weiter
+abweisen. Eine solche Strafe verteilt Verantwortung über die ganze Historie
+und kann übermäßiges Passen fördern. Deshalb müssen zusätzlich Ankündigungen,
+Zielmengen, Pass-/Abbruchhäufigkeit, Schleifen und vollständige Spielergebnisse
+gemessen werden. Lokale Hilfsziele und Bootstrap bleiben getrennte Alternativen,
+damit nicht mehrere Änderungen gleichzeitig den Versuch erklären könnten.
+Die neue X-Beobachtung wird nicht gleichzeitig mit diesem Reward-Vertrag
+als vermeintlich belegte Lösung eingeführt.
+
 Der erste RL-Pilot bleibt bei FP32, K2 und dem vorhandenen geprüften Raw-Sampler.
 Die Temperatur wird ausdrücklich auf **0,7** gesetzt (der unterstützte
 stochastische Pfad verlangt mehr als 0,35). Ausgangswerte des vorhandenen
@@ -572,6 +628,28 @@ unter explizit festgelegten Bedingungen. Ein Ziel soll Konsequenzen von
 Beziehungen lehren, nicht bereits eingegebene Stärke/Marken nur kopieren.
 Mehrere nachweislich gleichwertige Zahlungsreihenfolgen sind eine gültige
 Antwortmenge; diese Äquivalenz gilt nicht pauschal für strategische Züge.
+
+Die kontrollierte X-Diagnose erfordert zunächst einen eigenen Beobachtungsvertrag:
+autorisierter Ankündigungszustand statt einer aus alten Aktionen geratenen
+Zahl. E7/E8 verwenden 80 globale Merkmale und 128 Merkmale je Entität; die
+vorhandenen Plätze sind belegt. Der getrennte Encoder9 hängt zwei globale
+Merkmale an: X vorhanden und X-Wert. Ungewählt und gewählte Null bleiben
+unterscheidbar. Dazu gehören Sammlung, Replay, Gedächtnis-Hash,
+Dataset-/Cache-Identität, Modellform und ONNX-Parität; vorhandene E7/E8-Daten
+bleiben unverändert. Die zwei zusätzlichen Projektionsspalten beginnen bei einer
+ausdrücklichen Gewichtsübernahme mit Null und benötigen danach einen trainierbaren
+Eingangspfad. Der bisherige Head-PPO-Versuch friert diesen ein und kann solche
+Nullspalten nicht lernen. Für einen eigentlichen Nutzenvergleich braucht es deshalb
+einen getrennten Lernversuch mit aktueller vollständiger Gedächtnisrekonstruktion.
+Ein E7→E9-Übergang umfasst außerdem die E8-Kontextsemantik; er ist keine reine
+X-Ablation. Ein solcher Vergleich muss mit derselben E8-Basis und ansonsten
+identischem Training kontrolliert werden. Weder diese
+Erweiterung noch zusätzliche Zielkosten-Eingaben werden als bereits nachgewiesene
+Lösung der beobachteten Fireball-Schleife bezeichnet.
+Auch E8→E9 garantiert trotz Nullspalten keine identische rekurrente Ausführung:
+Eine X-Änderung kann einen zusätzlichen passiven Beobachtungsschritt erzeugen.
+Der Vergleich isoliert daher den neuen X-Beobachtungsvertrag einschließlich
+seines Takts, nicht nur zwei Zahlen bei ansonsten identischer Historie.
 
 Verdeckte Zustände dürfen nicht für kontrafaktische Engine-Klone verwendet
 werden. Exakte Labels kommen aus vollständig bestimmten synthetischen Aufgaben
@@ -646,12 +724,26 @@ Regressionstest und werden vor erneuter Zulassung repariert. Zugehörige Engine-
 und Seat-Prozesse werden auch bei Fehlern beendet und ihr Ende geprüft.
 Fehlgeschlagene Artefakte bleiben erhalten; kein blinder automatischer Retry.
 
-**Nächster Schritt:** Aus den abgeschlossenen Fireball-Fixtures einen explizit
-versionierten Beobachtungsfix ableiten und die Lernbarkeit fehlerhafter
-Ankündigungen prüfen. Der erfolgreiche Einzelschritt bekommt zunächst eine
-Export-/Spiel-Reevaluation auf seinen acht festen Trainingsfällen; das ist
-kein unabhängiger Stärkevergleich und kein Freigabekriterium. Die übrige
-gemischte Sammlung bleibt bis zur Klärung zurückgestellt.
+**Nächster Schritt:** Der Encoder9-Anschluss einschließlich nativem Loader und
+vollständigem kompilierten Kartenkatalog ist geprüft. Ein kleiner synthetischer
+Lerntest kann die neuen Eingangsspalten lernen; das ist noch kein erfolgreicher
+Spielversuch. Als Nächstes den Lernvertrag für fehlgeschlagene Ankündigungen
+klären und einen getrennten, begrenzten Versuch festlegen. Vor größerem Full-PPO die aktuelle
+Gedächtnisrekonstruktion und ihren Ressourcenbedarf prüfen. Die vollständige
+KL-Prüfung trägt H jetzt während ihres Durchlaufs unter festen aktuellen
+Gewichten weiter; die differenzierbaren Trainingssegmente behalten ihren
+gesonderten aktuellen Burn-in. Das vermeidet wiederholte Präfixberechnung,
+ändert aber weder Datenabdeckung noch KL-Grenze. Eine R6-Vorprobe mit 256 Frames
+und 60 Entscheidungen war damit 4,21-mal schneller (15,10 → 3,59 s), bei exakt
+gleichen Aktionslogprobs. Das ist ausdrücklich nur ein unvollständiges
+Inferenzpräfix, kein vollständiger Lernlauf oder Backward-Speichernachweis.
+
+Der Export-/Vier-Fälle-Transfertest des einzelnen Updates ist abgeschlossen,
+ohne verbesserte Ergebnisse oder behobene Schleife. Die alte Referenz bleibt
+versiegelt. Daraus folgt kein unabhängiger Stärkevergleich und keine Freigabe.
+Die übrige gemischte Sammlung bleibt bis zur Klärung des Lernsignals für
+fehlgeschlagene Ankündigungen zurückgestellt; mehr vom selben sauberen
+Datensatz allein beantwortet diese Frage nicht.
 Vollständige CPU/CUDA-Replays und der einzelne Head-PPO-Schritt
 über alle 1.575 Entscheidungen sind bestanden, mit unverändertem KL-Limit und
 vollständiger Tensor-/Dosisprüfung. Die Rust-Guard-Reparatur `97ef8e5ad` bestand

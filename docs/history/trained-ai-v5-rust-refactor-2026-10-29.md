@@ -449,10 +449,186 @@ learner recovery: clean-game admission alone cannot teach the failures it
 systematically removes. This is not permission to attribute house-assisted
 terminal returns to the raw learner or to silently admit the failed four games.
 
+The native observation foundation is implemented in `1ee48685b`:
+`Engine::announced_spell_context` and separate opt-in Session announcement views
+expose `PlayerView.announced_x` only to the resource owner or its authorized
+controller. An unsettled X remains distinct from settled zero. At that milestone
+no encoder consumed the field; old views, hashes, sampling and model inputs
+were unchanged. A regression confirms that the new authorized target views distinguish
+X=0/1 while the existing payment projections remain identical. Commit, cancel,
+automatic reversal, nested mana, miracle and controlled-player visibility are
+covered. Fifty-seven targeted Rust tests, strict Clippy on the affected
+engine/view/gamehost/train libraries and tests, and formatting passed.
+
+Independent review caught an effect-payment branch that precedes the X choice.
+Reading the object's stored X there would falsely report a selected zero or a
+stale previous value. The final accessor returns an unsettled value until the
+actual cast chooses X; its regression starts with stale stored X=9 and verifies
+the full transition to selected X=1 and commit. There is no engine-state,
+journal/hash or rules mutation in this observation change. The original fixture's
+static explanation also needed correction: `actions.rs` already writes chosen X
+onto the object before targets, not only at commit. The empirical observation
+alias remains valid. An additive `selected-x-storage-correction.json` beside
+the sealed fixture records this without replacing its original artifacts.
+
 Evidence: `e3-mixed-collection-preparation-01a18860-9237-7420-b8df-03b22d156d51/`
 contains the fixed plan, all four outcomes, quality report and verified process
 cleanup. `e3-repeat-review-01a1886b-6d07-774a-91e2-31f79677d54e/` contains the Rust
 replay helper and exact intervening actions/resources. No live model changed.
+
+## Four-case transfer after the accepted head-PPO step
+
+The unchanged published one-step candidate passed export parity at K0/1/2/4/8
+over 47 frames, with maximum absolute PyTorch/CPU-ORT error `8.58307e-6`.
+The native zero-deal loader and exact deck/preset checks also passed. This is
+numerical integration evidence, not evidence of better decisions.
+
+All four predeclared E3 cases were then completed with the same frozen runtime,
+deal/policy seeds, decks and opponent checkpoints. In the formerly identical
+R6 selfplay pair only the learner changed; the opponent remained R6, explicitly
+classified as historical. The historical pair and the R6-opponent pair have
+separate producer receipts because an incorrect required-output check stopped
+the first pipeline after its two games. A continuation ran only the two
+unstarted cases, reusing the verified export and preserving the first results.
+
+| Deal | R6 / updated utility | R6 / updated fallbacks | R6 / updated Fireball reversals |
+| --- | ---: | ---: | ---: |
+| 64 | 1 / 1 | 1 / 1 | 5 / 5 |
+| 65 | 0 / 0 | 1 / 1 | 3 / 3 |
+| 96 | 0 / 0 | 0 / 0 | 0 / 0 |
+| 97 | 0 / 0 | 0 / 0 | 0 / 0 |
+
+Only deal65 has an action divergence: at input413, from the exact same prior
+state hash, the candidate selects three targets rather than four. Both choices
+remain unaffordable and reverse to the same state. The other three action
+traces are unchanged. The one-step update therefore has a measurable policy
+effect but has not fixed the loop or improved these outcomes. These known
+trigger cases are a development diagnostic, not a strength holdout.
+
+Evidence: `step-ok-four-transfer-01a1888b-4937-76e2-95ce-5d2d48d6b9e9/` and
+`step-transfer-continuation-01a18897-7151-7411-a2ea-730b7dfe0784/final-review.json`.
+The combined comparison SHA-256 is
+`337cbbf335a3fde8889776ba5541f45ffe643fb4c6ea68c423b6b1efc3f87c23`.
+All 7,033 continuation input hashes remained unchanged and owned processes
+exited. No data admission, further weight updates or promotion occurred.
+
+## Full-PPO audit execution
+
+The complete-collection KL audit previously reconstructed every segment's
+history from the start. For a history of S segments this repeated S(S+1)/2
+segment forwards even though no weights change during the audit. The audit
+now streams each history once under the current weights, resetting H on lane
+reuse and keeping all valid stochastic decisions. It neither reads behavior H
+nor changes differentiable training unrolls or their current-policy burn-in.
+The execution contract records `collection_audit=current_policy_streaming_v1`.
+
+Twelve focused PyTorch tests passed, including existing update rollback/resume
+and disk/export integration. The new tests compare every action logprob and
+the aggregate divergence against full-prefix reconstruction, with unequal
+history lengths, padding, lane reuse and changed recurrent/input weights.
+The fixture reduces 42 network forwards to 21 at batch1. Commit `b71d9685d`
+contains this execution change and its tests.
+
+A separately bounded production-model probe then replayed the first eight
+segments of the first learner history (game 1, seat 0) from the sealed Pre-E3
+dataset. This is 256 frames and 60 stochastic decisions out of a 25-segment
+history, explicitly not a complete episode or admitted learning rollout.
+After separate warmups, repeated-prefix inference took 15.096 s and 1,152
+forward calls; streaming took 3.588 s and 256 calls, about 4.21 times faster
+for this prefix. Every action logprob was bit-identical between paths;
+reference, stream and actual collection divergence were all
+`7.556918054281898e-15`. Maximum error against recorded behavior logprobs was
+`6.258487701416016e-7`. Peak allocated CUDA memory was 369.506/368.720 MB and
+reserved memory 392.167 MB for both paths. No optimizer was constructed or
+gradient computed; source tensors and all 243 sealed inputs remained unchanged.
+Owned processes exited and the GPU lock was released. These measurements do
+not establish full-episode speedup, backward capacity or playing strength.
+
+Evidence: `full-ppo-audit-prefix-probe-01a1889f-0e6a-7496-a446-8734811d9418/review.json`
+under the investigation root. Its nested preparation audit inherits a generic
+terminal-return description from a reused helper; this does not certify the
+incomplete prefix as a complete return or authorize training on it.
+
+## Encoder 9 end-to-end integration
+
+Commits `336599702` (Torch/native tooling) and `891d57afc` (native player and
+converter) connect the opted-in X observation to a separate encoder contract.
+The global width is explicitly 82: all 80 Encoder-8 values followed by X
+presence and raw selected X. Entity width remains 128, sampling revision 2.
+Default Encoder 7 and archived Encoder-7/8 identities remain unchanged.
+Runtime and converter use the same authorized announcement view and versioned
+passive/decision hashes; sidecars require a matching producer identity.
+Unsupported live, legacy-arena, shadow and LLM conversion paths reject E9.
+
+Config, checkpoint, export, cache and native-loader checks bind the global
+width and model-5/relational-2 contract. Every loaded depth graph is checked
+against the declared width. An independent review found an empty-entity
+fallback incorrectly using the global width and explicit legacy-width
+metadata that was insufficiently checked; both are corrected and covered.
+The actual Fireball regression distinguishes unset/zero/one, preserves the
+Encoder-8 prefix and verifies privacy and complete converter/runtime clocks.
+Those two tests pass both with default features and with ONNX enabled.
+Encoder-contract tests, converter/evaluator/live-seat tests, formatting and
+strict Clippy also pass.
+
+The explicit `--encoder-warmstart-to9` transition copies weights and zero-pads
+the two input columns, with fresh optimizer/scheduler/sampler/H. A tiny
+supervised test learned those columns, resumed correctly, and rejected a
+wrong-width resume. Frozen-trunk warmstarts are refused: freezing new zero
+columns cannot teach the network to use X. E7-to-E9 also changes E8 semantics,
+so it is not a clean isolated test of X. Raw f32 encoding does not preserve
+every large u32 exactly; hashes bind its exact integer separately. X changes
+can introduce new passive observation ticks, so zero-padding an E8 projection
+also does not prove full-history recurrent behavior equivalence.
+
+All five K0/1/2/4/8 graphs pass tiny-model CPU ONNX parity. A first synthetic
+demo catalog was correctly rejected by the native compiled-rule check; that
+failure remains preserved. A separate fixture exported the actual full
+compiled catalog (149,014 DAG nodes, 36,170 roots), with no relaxed checks or
+removed nodes. Its five-graph/15-frame parity error was at most
+`5.960464477539062e-7`. Native `eval4 --deals 0` then accepted the E9 model and
+completed in 8.98 s: zero games, answers, fallbacks and refusals. The fixture
+uses d16/one layer/structure width 8; it is not a trained candidate or a
+large-model resource result. The receipt pins the exact dirty-build ELF used,
+not a retrospective claim that the binary came from the later clean commit.
+
+Evidence: `e9-tiny-compiled-cpu-export-01a188a3-779f-7345-b733-b651cdea3eaa/README.md`.
+Native report SHA256:
+`1607df0a653df866c5b165cd381d4cfc18ffe530b74e2f6a0525c421d30eb7e7`.
+No GPU training or live promotion occurred. The information path now works;
+its playing-strength benefit and the failure-learning contract remain open.
+
+## Failure-boundary feasibility
+
+An offline Rust investigation replayed all four original E3 integration
+records, without new games or model inference. Every canonical snapshot hash
+and all 19 sealed inputs were verified. In case 64 the first recovery belongs
+to the historical opponent; it cannot become a learner failure or win target.
+In case 65 it belongs to the learner. Exact prefixes stop before canonical
+inputs 303 and 417 respectively, at record byte offsets 57,742 and 72,601.
+The corresponding evaluator decision sequences are 301 and 415: these are
+different clocks, not interchangeable indices. A first helper attempt that
+incorrectly equated them failed before publication and remains preserved.
+
+The retained prefix bytes and provenance are exact original slices. Recovery
+and all subsequent actions/outcomes are excluded from the hypothetical
+failure target. The learner prefix in case 65 contains 127 stochastic Net
+probability samples; its three forced X=0 choices retain no actor probability.
+It alone does not meet the unchanged planned minimum of 128 genuine choices.
+Cases 96/97 have no recovery and remain unchanged negative controls. All four
+cases remain in the denominator; none is newly admitted for learning.
+
+This makes an explicit research termination before house recovery technically
+plausible. It does not implement or validate the proposed collector, target,
+admission or resume contract. An eventual training utility of zero for a
+certified learner announcement loop would be a declared task penalty, not a
+fabricated MTG loss. Legal cancellations, opponent failures and technical
+aborts need distinct handling. The protocol and required fixtures are in
+`failed-announcement-next-protocol-01a188a9-e814-7508-b0fe-7a88e06cbedc/protocol.md`.
+The successful replay took 0.518 s and 44.2 MB peak PSS, without GPU work.
+Evidence: `failed-announcement-gate-a-01a188ae-1c79-7780-a732-dd380715ffdf/review.json`;
+raw report SHA256
+`5b954c630e246577175618f66a370557d941e3e5e852534cda9ac85776bf9c29`.
 
 ## Verification status
 

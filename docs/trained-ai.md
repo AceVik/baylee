@@ -59,13 +59,37 @@ The separate experimental native methods
 `observe_view_with_announcement_context` additionally expose optional
 `announced_x`. They distinguish an unsettled X from settled zero, retain the
 fact across nested mana/miracle payment, and enforce resource-owner/authorized
-controller visibility. No current encoder or model consumes this field:
-Encoder 7, Encoder 8, default/socket views, sampling and existing hashes keep
-their prior semantics. A future encoder must explicitly version and validate
-its use rather than relabel existing artifacts. Deterministic Fireball
-fixtures establish selected-X observation aliasing in the old projections;
-this does not establish that the omission caused the observed X=0,
-unaffordable multi-target announcements. No guard or admission rule is relaxed.
+controller visibility. **Encoder 9 (29 October 2026)** consumes this field with
+an explicit 82-wide global tensor: the unchanged 80 Encoder-8 globals followed
+by X-presence and selected X (zero when absent). Entity width remains 128.
+Selected X uses the versioned raw `u32` to `f32` scalar representation, so very
+large integers lose numeric precision; observation hashes include the exact
+integer and presence separately. Native collection, passive/decision clocks,
+conversion, packed caches, checkpoints and all loaded depth graphs validate
+this contract. Encoder 9 requires model 5, relational revision 2 and candidate
+context revision 1 or 2. Encoder 7, Encoder 8, default/socket views and their
+hashes retain their previous semantics; sampling remains version 2.
+
+Encoder 9 is offline-only: use explicit `--encoder-version 9` conversion and
+the matching `eval4` model. Live `seat4`, legacy `arena`, shadow-BC and LLM-BC
+conversion reject it until their context/provenance paths support it. A fresh
+supervised experiment can use `--encoder-warmstart-to9` to copy Encoder-7/8
+weights, retain the first 80 global-projection columns and zero the two new
+columns. Optimizer, scheduler, sampler and recurrent state start fresh. Frozen
+trunk warmstarts are rejected because the new input columns must learn.
+An Encoder-7 transition also includes Encoder-8 semantics; only an Encoder-8
+control isolates the added X observation contract. X changes also participate
+in the observation clock, so even zero-padding an Encoder-8 projection does
+not guarantee identical recurrent behavior on a full history. Existing
+artifacts and behavior probabilities are never relabelled.
+
+Deterministic Fireball fixtures establish selected-X aliasing in the old
+projections and matching native runtime/converter histories after the fix.
+Tiny-model learning, all-five-depth CPU ONNX parity and native loading with
+the full compiled catalog passed. These are integration checks: neither a
+playing-strength gain nor a fix for the observed X=0, unaffordable multi-target
+announcements is established. No guard or admission rule is relaxed. See the
+[dated research report](history/trained-ai-v5-rust-refactor-2026-10-29.md).
 
 Datasets, caches, checkpoints and exports bind the explicit encoder identity.
 A new v5 Encoder-8 training experiment may import Encoder-7 weights only with
@@ -264,8 +288,9 @@ uses independent neural actors. Each seat has its own memory and RNG. Collection
 manifests bind source records, completion indices, source checkpoints and seat
 roles. Complete losing games are retained; cap, fallback, refusal and unencoded
 frames reject the initial collection. Ordinary evaluation cannot certify itself
-as PPO data. Encoder8 conversion requires `--encoder-version 8`,
-`--include-passive-obs` and `--val-every 0` for this training-only collection.
+as PPO data. Encoder 8 or 9 conversion requires the matching explicit
+`--encoder-version`, `--include-passive-obs` and `--val-every 0` for this
+training-only collection.
 
 `train_ops admit-policy --data DIR --source-checkpoint FILE
 --collection-manifest FILE --out FILE` audits full histories and creates the
@@ -286,7 +311,14 @@ Full-PPO resume contract version 2 explicitly binds
 `behavior_probability_reference='recorded_executed_action'`: replay checks the
 recorded likelihoods without replacing the PPO denominator. Older or differently
 marked optimizer continuations fail before restoration; their weights remain
-usable through a fresh `--init` experiment.
+usable through a fresh `--init` experiment. The complete-collection KL audit
+uses `collection_audit=current_policy_streaming_v1`: under fixed current
+weights it streams each full history once and resets H on lane reuse. It
+does not reuse behavior-policy H or change the differentiable training
+segments' separate current-policy burn-in. A bounded 256-frame R6 inference
+probe measured 15.10 s for repeated prefixes versus 3.59 s for streaming,
+with identical action logprobs. This is a probe of the audit implementation,
+not a complete training-speed or full-model memory benchmark.
 
 `monitor_ops4 --root PATH --check` observes configured round, review, quota-probe
 and maintenance state. It preserves the existing event IDs and delivery ledger,
