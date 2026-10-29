@@ -59,6 +59,8 @@ class PolicyPublication5(unittest.TestCase):
         count = 127 if mode == 'zero' else 128
         dataset = SimpleNamespace(structure=SimpleNamespace(digest=net.rules.digest),
                                   fingerprint='synthetic-publication-fixture',
+                                  store=SimpleNamespace(close=lambda: None),
+                                  _policy_targets_directory=SimpleNamespace(cleanup=lambda: None),
                                   ppo_cache={'actor_mask': np.ones((1, count), dtype=bool)})
 
         def actor_outputs(current, batch, board_chunk):

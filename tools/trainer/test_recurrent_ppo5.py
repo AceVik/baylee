@@ -229,6 +229,24 @@ class RecurrentPPO5(unittest.TestCase):
                                        dict(seat=1,role='self_play',checkpoint_sha256=source_sha,thinking_steps=2,temperature=.7)])])))
                 subprocess.run([executable,'admit-policy','--data',str(data),'--source-checkpoint',str(source),
                                 '--collection-manifest',str(collection),'--out',str(admission)],check=True,capture_output=True)
+            # The head-only worker consumes the same role receipt and genuine
+            # on-disk recurrent histories. Three decisions deliberately produce
+            # no 128-decision update; audit/selection still run in full.
+            from policy_training4.driver import main as head_main
+            head_args=['train_policy4','--model',str(source),'--rollout-data',str(data),
+                       '--admission',str(admission),'--out',str(root/'head'),
+                       '--batch-size','1','--unroll','3','--epochs','1','--device','cpu']
+            with patch('sys.argv',head_args),redirect_stdout(io.StringIO()):
+                if native_test:
+                    head_main()
+                else:
+                    with patch('recurrent_ppo4.checkpoint.native_verify_admission') as head_native:
+                        head_main()
+                        self.assertEqual(head_native.call_count,2)
+            head_report=json.loads((root/'head/report.json').read_text())
+            self.assertEqual(head_report['audit']['decisions_checked'],3)
+            self.assertEqual(head_report['audit']['learner_trajectories'],1)
+            self.assertTrue(head_report['checkpoint_is_unchanged_source'])
             base=['train_rl4' ,'--init',str(source),'--rollout-data',str(data),'--admission',str(admission),
                   '--batch-size','1','--unroll','3','--device','cpu']
             def run(output,steps,resume=False):

@@ -1,5 +1,6 @@
 """KL-gated action-head PPO; a failed final gate exports the unchanged source."""
 import argparse
+from contextlib import ExitStack
 import json
 from pathlib import Path
 import numpy as np
@@ -14,6 +15,11 @@ from .optimization import (POLICY_PREFIXES, accept_final_state, behavior_kl, pla
 
 
 def main():
+    with ExitStack() as resources:
+        _main(resources)
+
+
+def _main(resources):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", "--init", dest="model", required=True)
     parser.add_argument("--rollout-data", required=True)
@@ -46,11 +52,13 @@ def main():
     native_verify_admission(Path(args.rollout_data).expanduser(), source_path, Path(args.admission).expanduser())
     dataset = D.TrajectoryDataset4(Path(args.rollout_data).expanduser(), split="train", unroll_len=args.unroll,
                                    encoder_version=saved['encoder_version'], max_shards=0)
+    resources.callback(dataset.store.close)
     if dataset.structure.digest != net.rules.digest:
         raise ValueError("Rollout and model use different public rule catalogs")
     admission = select_learner_histories(dataset, args.admission, source_hash)
     from .targets import prepare_policy_targets
     audit = prepare_policy_targets(net, dataset, device, batch_size=args.batch_size, board_chunk=args.board_chunk)
+    resources.callback(dataset._policy_targets_directory.cleanup)
     check_audit(admission, audit)
     parameters = select_policy_parameters(net)
     optimizer = torch.optim.AdamW(parameters, lr=args.lr, weight_decay=0)
