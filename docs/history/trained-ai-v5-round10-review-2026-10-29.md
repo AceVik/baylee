@@ -1,5 +1,13 @@
 # V5 round 10 review and bounded continuation comparison
 
+**Later owner-directed change, 29 October:** The continuous run was stopped
+during round 11; step 1,800 of its LLM stage is preserved and audited. The
+[refactoring and training plan](../proposals/trained-ai-v5-refactor-training.md)
+supersedes the unstarted follow-up actions below, including launching the
+unchanged sealed coverage pair. Three CPU investigations and a no-update GPU
+K1/2/4/8 diagnostic have completed. The CPU reference and user gateway continue.
+The paragraphs below retain the earlier state and research provenance.
+
 Round 10 completed successfully. The existing controller proceeded to round
 11 and remains bounded through round 12. No second GPU controller was started;
 the user gateway and deployed model are unchanged. Monitor event
