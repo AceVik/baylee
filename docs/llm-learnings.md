@@ -5848,3 +5848,10 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
   but a journal entry, so a declined target would have discarded a public
   reveal with it. A "no effect" proof has to cover every channel an effect can
   write to; the probe now also requires an unchanged journal length.
+- Review (29 October 2026): the setting first entered `Engine::snapshot_hash`
+  as `extra * 31 + flag`. Old records read the flag as `false`, yet the
+  multiplication still moves `extra` whenever it is non-zero, so every stored
+  replay would have diverged at its opening hash. At the PR's own base `extra`
+  happened to be zero and the fixtures passed; `record::seen` caught it only
+  after the rebase. A new input to a replay hash must contribute nothing for
+  its legacy value, so the term is now added only when the setting is on.

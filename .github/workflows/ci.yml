@@ -246,9 +246,10 @@ jobs:
   # Debug-only behavior has bitten before (a `debug_assert!` hid the mana
   # payment from every release build), so the suite also runs optimized with
   # release assertions/overflow semantics, without per-test LTO. Main pushes
-  # and the nightly only, and it guards a release, not a review. A cold
-  # compile took 52 min on 29.10.2026 (a new stable toolchain changes the
-  # cache key), so 60 min cancelled it eight minutes into the tests.
+  # and the nightly only, and it guards a release, not a review. Cold
+  # compiles took 52–56 min on 29.10.2026, when eviction at the cache limit
+  # dropped its cache (docs/releasing.md §"CI"), so 60 min cancelled one
+  # eight minutes into the tests.
   test-release:
     needs: changes
     if: needs.changes.outputs.full == 'true'

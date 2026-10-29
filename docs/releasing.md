@@ -207,10 +207,18 @@ minutes; queueing was under 3 min at p95):
 | package aarch64-apple-darwin | — | 55 / 69 |
 | package x86_64-pc-windows-msvc | — | 37 / 51 |
 
-On 29.10.2026 `test-release` ran with a cold cache (a new stable toolchain
-changes its key) and its `ci-release` compile alone took 52 minutes; the
-60-minute limit cancelled it eight minutes into the tests. Its five main
-pushes before took 31–52 minutes. The limit is now 90.
+On 29.10.2026 `test-release` twice found no cache. Its `ci-release` compile
+alone took 52 and 56 minutes, and the 60-minute limit cancelled the first run
+eight minutes into the tests. Its five main pushes before took 31–52 minutes.
+A new stable toolchain changes the key, but the second run had the same key
+as the run before it. The repository's caches sat at GitHub's 10 GB limit,
+seven entries of 1.1–1.9 GB, and least-recently-used eviction dropped
+`tests-optimized` whenever the package rows saved theirs. The job limit is
+now 90 minutes, and the repository's cache limit is 25 GB. Space above 10 GB
+is billed to the owner's account, and a budget caps it. A cold
+`test-release` now means a lockfile or toolchain change, or the limit is full
+again: `gh cache list` and `gh api repos/AceVik/baylee/actions/cache/usage`
+show it.
 
 The former feature job passed in 32 minutes in run `39966346270`, including
 795 seconds for `dev-table-test`. Run `40019996413` spent almost seven minutes
