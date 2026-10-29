@@ -21,6 +21,8 @@ pub mod pipeline;
 #[cfg(target_os = "linux")]
 pub mod process;
 #[cfg(target_os = "linux")]
+pub mod research_attempts;
+#[cfg(target_os = "linux")]
 pub mod supervisor;
 pub mod trajectory;
 #[cfg(target_os = "linux")]

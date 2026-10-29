@@ -356,6 +356,9 @@ pub fn run(job: &Job, interrupted: &AtomicBool) -> Result<bool> {
         reason = Some(format!("exception: {error:#}"));
     }
     let cleanup = group.as_mut().map(OwnedGroup::cleanup).transpose();
+    // `cleanup` succeeds only after the owned leader and every live group member
+    // have exited, before the leader is reaped. No spawned child is not a proof.
+    state["cleanup_verified"] = json!(cleanup.as_ref().is_ok_and(Option::is_some));
     if let Err(ref error) = cleanup {
         reason = Some(format!("cleanup_failed: {error:#}"));
     }

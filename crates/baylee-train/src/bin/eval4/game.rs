@@ -198,7 +198,12 @@ fn play_one_table(
                     } else {
                         session.observe_view(pid)
                     };
-                    n.observe(&obs_v)?;
+                    let observation = n.observe(&obs_v);
+                    if research_encoder.is_some() {
+                        observation.context(attempts::OBSERVATION_ERROR)?;
+                    } else {
+                        observation?;
+                    }
                 }
             }
         }

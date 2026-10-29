@@ -13,6 +13,28 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Task {
+    /// Account for every assigned CPU research attempt after bounded child cleanup.
+    CollectResearch {
+        #[arg(long)]
+        job: PathBuf,
+        #[arg(long)]
+        run: PathBuf,
+        #[arg(long, default_value_t = 3600.0)]
+        timeout: f64,
+        #[arg(long, default_value_t = 48.0)]
+        memory_gib: f64,
+        #[arg(long)]
+        input: Vec<PathBuf>,
+        #[arg(last = true, required = true)]
+        command: Vec<String>,
+    },
+    /// Finalize a preserved research source only after verified owned-group cleanup.
+    FinalizeResearch {
+        #[arg(long)]
+        run: PathBuf,
+        #[arg(long)]
+        job: PathBuf,
+    },
     /// Execute one immutable attempt. Failures always require a fresh directory.
     Run {
         #[arg(long)]
@@ -97,9 +119,72 @@ fn publish_json(out: &std::path::Path, append: bool) -> Result<()> {
     }
 }
 
+fn finalize_research(run: &std::path::Path, job: &std::path::Path) -> Result<()> {
+    #[cfg(target_os = "linux")]
+    println!(
+        "{}",
+        serde_json::to_string(&baylee_train_ops::research_attempts::finalize(run, job)?)?
+    );
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (run, job);
+        anyhow::bail!("research attempt recovery requires Linux");
+    }
+    Ok(())
+}
+
+fn run_native(
+    job: PathBuf,
+    timeout: f64,
+    memory_gib: f64,
+    input: Vec<PathBuf>,
+    command: Vec<String>,
+    research: Option<PathBuf>,
+) -> Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        let interrupted = interrupt_flag()?;
+        let spec = baylee_train_ops::guard::Job {
+            directory: job,
+            cwd: std::env::current_dir()?,
+            command,
+            timeout_seconds: timeout,
+            memory_gib,
+            inputs: input,
+        };
+        if let Some(root) = research {
+            println!(
+                "{}",
+                serde_json::to_string(&baylee_train_ops::research_attempts::collect(
+                    &spec,
+                    &root,
+                    &interrupted
+                )?)?
+            );
+        } else if !baylee_train_ops::guard::run(&spec, &interrupted)? {
+            std::process::exit(1);
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (job, timeout, memory_gib, input, command, research);
+        anyhow::bail!("bounded process-group jobs require Linux");
+    }
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
     match args.command {
+        Task::FinalizeResearch { run, job } => finalize_research(&run, &job)?,
+        Task::CollectResearch {
+            job,
+            run,
+            timeout,
+            memory_gib,
+            input,
+            command,
+        } => run_native(job, timeout, memory_gib, input, command, Some(run))?,
         Task::CopyFile { source, out } => {
             println!("{}", baylee_train_ops::files::atomic_copy(&source, &out)?);
         }
@@ -172,28 +257,64 @@ fn main() -> Result<()> {
             memory_gib,
             input,
             command,
-        } => {
-            #[cfg(target_os = "linux")]
-            {
-                let interrupted = interrupt_flag()?;
-                let spec = baylee_train_ops::guard::Job {
-                    directory: job,
-                    cwd: std::env::current_dir()?,
-                    command,
-                    timeout_seconds: timeout,
-                    memory_gib,
-                    inputs: input,
-                };
-                if !baylee_train_ops::guard::run(&spec, &interrupted)? {
-                    std::process::exit(1);
-                }
-            }
-            #[cfg(not(target_os = "linux"))]
-            {
-                let _ = (job, timeout, memory_gib, input, command);
-                anyhow::bail!("bounded process-group jobs require Linux");
-            }
-        }
+        } => run_native(job, timeout, memory_gib, input, command, None)?,
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn research_commands_require_explicit_source_and_keep_literal_child_arguments() {
+        let parsed = Args::try_parse_from([
+            "train_ops",
+            "collect-research",
+            "--run",
+            "/run",
+            "--job",
+            "/job",
+            "--timeout",
+            "10",
+            "--memory-gib",
+            "1",
+            "--",
+            "eval4",
+            "--collection-purpose",
+            "failure_terminal_research_v1",
+        ])
+        .unwrap();
+        let Task::CollectResearch {
+            run, job, command, ..
+        } = parsed.command
+        else {
+            panic!("wrong task")
+        };
+        assert_eq!(run, PathBuf::from("/run"));
+        assert_eq!(job, PathBuf::from("/job"));
+        assert_eq!(
+            command,
+            [
+                "eval4",
+                "--collection-purpose",
+                "failure_terminal_research_v1"
+            ]
+        );
+        assert!(Args::try_parse_from(["train_ops", "collect-research", "--run", "/run"]).is_err());
+        assert!(matches!(
+            Args::try_parse_from([
+                "train_ops",
+                "finalize-research",
+                "--run",
+                "/run",
+                "--job",
+                "/job/job.json"
+            ])
+            .unwrap()
+            .command,
+            Task::FinalizeResearch { .. }
+        ));
+        assert!(Args::try_parse_from(["train_ops", "finalize-research", "--run", "/run"]).is_err());
+    }
 }

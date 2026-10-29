@@ -42,6 +42,7 @@ use flate2::write::GzEncoder;
 use serde_json::{Value, json};
 
 include!("options.rs");
+mod attempts;
 mod collector;
 mod diagnostics;
 mod failure_terminal;
@@ -259,6 +260,9 @@ fn main() -> anyhow::Result<()> {
             run["shadow_structure_sha256"] = metadata["structure_sha256"].clone();
         }
         fs::write(rec_dir.join("run.json"), serde_json::to_vec_pretty(&run)?)?;
+        if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
+            File::open(rec_dir.join("run.json"))?.sync_all()?;
+        }
     }
 
     let run_metadata_sha = args
@@ -288,6 +292,7 @@ fn main() -> anyhow::Result<()> {
             .map(|dir| File::create(dir.join("games.jsonl")).map(BufWriter::new))
             .transpose()?,
     ));
+    let attempts = attempts::prepare(&args, &decks_arc)?;
 
     let started = Instant::now();
     let mut handles = Vec::new();
@@ -313,6 +318,7 @@ fn main() -> anyhow::Result<()> {
         let expected_identity = model_identity.clone();
         let collection = collection.clone();
         let run_metadata_sha = run_metadata_sha.clone();
+        let attempts = attempts.clone();
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
@@ -335,6 +341,7 @@ fn main() -> anyhow::Result<()> {
                 if d >= deals {
                     break;
                 }
+                if let Some(ledger) = &attempts { ledger.claim(d, worker_id)?; }
                 let table_idx = (d as usize) / seats;
                 let focal_seat = (d as usize) % seats;
                 let seed = first_seed + (table_idx as u64);
@@ -413,6 +420,7 @@ fn main() -> anyhow::Result<()> {
                     let len = compressed.len() as u64;
                     f.write_all(&compressed)?;
                     f.flush()?;
+                    if attempts.is_some() { f.get_ref().sync_all()?; }
                     let line = serde_json::to_string(&json!({
                         "game": rec_game_id,
                         "i": d,
@@ -441,7 +449,9 @@ fn main() -> anyhow::Result<()> {
                     if let Some(index) = games_lines.lock().expect("games lock").as_mut() {
                         writeln!(index, "{line}")?;
                         index.flush()?;
+                        if attempts.is_some() { index.get_ref().sync_all()?; }
                     }
+                    if let Some(ledger) = &attempts { ledger.completed(&serde_json::from_str::<Value>(&line)?)?; }
                 }
 
                 if let Some(shadow) = shadow {
@@ -518,8 +528,12 @@ fn main() -> anyhow::Result<()> {
         }));
     }
 
-    for h in handles {
-        h.join().expect("worker panicked")?;
+    if let Some(ledger) = &attempts {
+        attempts::join_workers(handles, ledger)?;
+    } else {
+        for h in handles {
+            h.join().expect("worker panicked")?;
+        }
     }
 
     let mut st = stats_arc.lock().expect("stats lock");
