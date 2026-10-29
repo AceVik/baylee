@@ -1,8 +1,9 @@
 # Full-model PPO performance review — 29 October 2026
 
 The initial review below used source/artifacts only. Subsequent work implements
-and CPU-tests an isolated fixed-weight probe. Its first GPU launch failed at
-CUDA initialization; the diagnosis and fresh recovery are recorded at the end.
+and CPU-tests an isolated fixed-weight probe. Two initialization failures were
+corrected; the subsequent run reached a hidden/value parity failure. Diagnosis
+and retained partial measurements are recorded at the end.
 Gameplay comparison and failure-ledger integration remain separate.
 
 ## Evidence and scope
@@ -230,10 +231,103 @@ took 33.80 seconds; the CUDA check took 2.70 seconds and verified `cuda:0`,
 an actual 11-GiB allocator cap, a four-byte tensor, synchronization and zero
 allocated bytes after cleanup. Owned prerequisite processes exited and their
 groups were empty. Root then independently rechecked the frozen inputs and
-launched the full probe once. At handover, controller `2351100` / start ticks
-`13706570` on boot `ebf55ae5-05a2-41fc-a994-e5da27268ced` is active in
-`fixed_weight_cuda_probe`; the service and owning-chat watcher are active.
+launched the full probe once. Controller `2351100` / start ticks `13706570`
+on boot `ebf55ae5-05a2-41fc-a994-e5da27268ced` subsequently failed the
+unchanged hidden/value parity gate. The controller and worker `2351118`
+exited, their owned group is empty, and the owned watcher timer was stopped.
 Manifest SHA256 is
 `f72270b2a8a8c9911853452c4a8b5faf5f48ae5d304ed5d4b8498d73b74cebdb`.
-Completed parity/timing results still require review; no execution optimization
-or learning configuration is certified by initialization alone.
+Event `1a77bb8a3064b6c296d734ce` is reviewed and deduplicated. All 271 input
+seals remain unchanged. The full native review is at the sibling operations
+root `perf-failure-review-01a18964-1a34-7002-befe-3e99dd49938d/operator-review.json`;
+the failed probe report SHA256 is
+`71a288997e5ca03fa2e98f4113a6fd9dd32a6b5f642bcbc9659fdd7af3a72046`.
+
+## First execution parity result
+
+Only source B4/chunk0 and source B4/chunk4 ran. Each contained all eight
+histories, 6,626 valid frames and 1,575 actor choices, with 3,102 padded slots.
+The candidate and B8 configurations were not reached. The worker constructed
+no optimizer and recorded zero updates. It did not reach its final whole-model
+immutability gate; the separately reviewed input seals are unchanged.
+
+| Measurement | Per-frame reference | Board chunk 4 |
+| --- | ---: | ---: |
+| Instrumented pass wall time | 38.454 s | 22.329 s |
+| Advance phase | 31.721 s | 9.489 s |
+| Separate board-encoding phase | <0.001 s | 6.078 s |
+| Peak CUDA allocated bytes | 395,998,720 | 495,535,616 |
+| Peak CUDA reserved bytes | 438,304,768 | 562,036,736 |
+| Allocator retries | 0 | 0 |
+
+These are one cold-inclusive, instrumented pass per configuration in fixed
+order. The chunked variant failed parity; its timing is not a validated
+speedup or grounds to change training execution.
+
+Every actor log-probability passed the `2e-5` gate, with maximum absolute
+delta `7.62939453125e-6`. Complete collection KL differed by
+`1.8162543779359863e-14`, with identical acceptance and no boundary ambiguity.
+Hidden/value comparison failed in histories `(game 2, seat 1)` and
+`(game 8, seat 1)`. Their maximum hidden-coordinate absolute differences were
+`4.8898160457611084e-5` and `3.954209387302399e-5`; maximum value differences
+were `2.294778823852539e-5` and `6.616115570068359e-6`, respectively.
+Absolute maxima alone do not identify the violating coordinates because the
+gate also uses the reference magnitude. Another history had a larger absolute
+hidden difference and passed the relative tolerance.
+
+The report does not retain the first failing native frame or hidden coordinate.
+Static review found no evident lane/time reorder or hidden-state dependency in
+board encoding, but does not establish a numerical cause. Batch-dependent FP32
+rounding amplified by recurrence is a hypothesis. Keep the failed variant
+rejected and every tolerance unchanged. A separate source-only diagnostic is
+being prepared to compare per-frame and chunked boards at common reference H,
+independently evolving H, and a contiguous board view, retaining the first
+valid-frame violation. Diagnostic completion cannot grant parity acceptance.
+
+The diagnostic Torch entry point is `tools/trainer/diagnose_recurrent_chunk4.py`,
+with implementation in `recurrent_ppo_chunk_diagnostic4/`. Its inner command
+requires `--source`, `--rollout-data`, `--admission`, a fresh `--out`, explicit
+`--device cuda`, and `--expected-histories 8 --expected-frames 6626
+--expected-choices 1575`. Use `--preflight-only --device cpu` with a separate
+fresh output for complete loading/collation without forward execution. Run
+these through the sealed Rust controller and guards, not as an unbounded
+standalone experiment. B4/U64/chunk4 and the original numerical gates are fixed.
+
+The worker first replays every original learner probability, then traverses
+the production history schedule once in batch/time/lane order. Four paths use
+the same weights: per-frame boards with reference H, chunked boards with that
+same incoming H, contiguous chunked boards with that H, and chunked boards
+with their own carried H. It records the actual compared prefix, first failing
+native identity/coordinate, reference value, allowed difference, normalized
+error, and board shapes/strides/dtypes. Padded frames cannot trigger a stop.
+The first free-running output or valid board-mask violation ends comparison;
+otherwise all histories must be covered. Model-state and input checks still
+run after this diagnostic stop. Every successful receipt explicitly retains
+`diagnostic_only=true`, `parity_accepted=false`, zero optimizer updates and
+zero model writes. This does not measure gradients or certify changed training.
+
+Diagnostic implementation commit: `556812a7b7d534da4fce0845564ff6d59d51aa5f`.
+Forty-one targeted CPU tests pass across the two new diagnostic test modules,
+the existing probe/preflight, collection, PPO and training-execution tests.
+An actual tiny v5 fixture produces bit-identical reference H/value outputs to
+the production pass at every valid frame. Synthetic recurrence distinguishes
+small local errors from accumulated drift; other tests cover history resets,
+padding, mask mismatches, exact coordinates, immutable source state, failed
+initialization receipts and CPU preflight isolation. These checks validate the
+diagnostic mechanics, not the cause of the actual CUDA discrepancy.
+
+The sealed native run is
+`recurrent-chunk-diagnostic-01a18967-f3e9-7745-9b23-259cd24c198a/` under
+the investigation root. Complete CPU preflight passed in 23.65 seconds; the
+exact CUDA helper/cap/allocation/synchronization prerequisite passed in 2.18
+seconds, with zero allocated bytes after cleanup. Both prerequisite owners
+exited and their groups were empty. After an independent root seal/ownership
+check, controller `2356879` / start ticks `13833716` on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` was observed running
+`source_chunk_diagnostic`, with the owning-chat watcher active.
+Manifest SHA256 is
+`3315ec3e17ed485ba664e02f67509ab3c0f3dc0d65efeb3401525ad2ccde86e1`.
+The GPU stage is bounded at 300 seconds, pipeline at 330 and service at 360;
+host memory is limited to 20 GiB and Torch allocation to 11 GiB. This launch
+records no diagnosis result yet. Check the current operations pointer and
+retained report before acting, and never start a duplicate controller.

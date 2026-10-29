@@ -487,6 +487,7 @@ are evidence, not permission to reinterpret old data.
 | Its fresh-seed paired follow-up had identical outcomes on all 16 cases, with different canonical action sequences in seven | Both R6 and candidate won 4/16 and required one House recovery in the same case; no caps/refusals. Behaviour changed, but improvement or equivalence is not established. Distinguish audited exposure from differentiated training dose before deciding PPO failed |
 | The next B4/U64 experiment retained a full epoch: 27/27 updates, all 1,575 choices / 6,626 learner frames | Final whole-collection KL `7.96981466e-5`, 311 changed tensors, 2,638.27 seconds GPU-stage wall time and zero allocator retries. The separate completed comparison again has 4/16 wins per arm and identical outcomes/interventions; technical learning succeeded, but a strength gain is not demonstrated |
 | Device-file access and CPU preflight did not certify CUDA initialization in the frozen mount map | A read-only `/proc` caused CUDA error 304; adding private `--proc /proc` resolved it. A second pre-model failure exposed the allocator API's explicit device-index requirement. Before a GPU run, exercise the actual frozen initialization helper, cap, tiny allocation and synchronization under the final mounts; preserve failed attempts and use fresh run namespaces |
+| The full-history source B4/chunk4 probe passed every action-likelihood check but failed hidden/value parity in two histories | Keep chunk4 rejected and the original tolerances unchanged. The 38.454 versus 22.329 second instrumented pass times do not certify a speedup. Compare outputs using identical incoming H versus independently evolving H to separate local numerical differences from recurrent accumulation |
 | Behavior replay can differ slightly from recorded FP32 likelihoods | Keep the recorded executed-action denominator after passing tolerance checks. Replacing it would erase real PPO drift; above-tolerance differences still fail |
 | Strictly retaining only clean terminal games censors learner failures that trigger house recovery | The original four E3 cases are not admitted. A new research failure-terminal contract needs collector/converter/target/cache/admission/resume agreement. Unknown MTG results must stay unknown |
 | Streaming full-collection KL auditing eliminated repeated fixed-weight history inference | A 256-frame/60-choice prefix measured 4.21x speedup with identical logprobs; this is not a complete-episode or backward/Adam capacity result |
@@ -494,8 +495,8 @@ are evidence, not permission to reinterpret old data.
 
 The [full-model performance review](history/trained-ai-full-ppo-performance-2026-10-29.md)
 identifies repeated history inference and synchronization as measurement
-candidates. Its audit-lane/spatial-chunk probe is a proposal, not a measured
-optimization. Preserve optimizer groups, recorded likelihoods, complete
+candidates. Its first partial audit-lane/spatial-chunk measurement failed parity;
+it is not an accepted optimization. Preserve optimizer groups, recorded likelihoods, complete
 collection audits and transactional rollback when testing scheduling changes.
 
 The original learner failure prefix has 127 stochastic samples, below the

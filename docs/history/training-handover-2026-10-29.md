@@ -175,23 +175,53 @@ of the same eight-game recipe or model promotion follows from this result.
 
 The [performance review](trained-ai-full-ppo-performance-2026-10-29.md)
 documents repeated full-collection audits and prefix reconstruction. Their
-individual runtime costs are now being measured. Its fixed-weight probe is
-implemented and CPU-tested; a guarded CUDA invocation is running under
-`full-ppo-execution-probe-recovery-01a1895c-fd11-7234-9dc3-47486276272f/`.
-The observed controller is PID `2351100`, start ticks `13706570`, on the same
-boot; unit `baylee-ppo-execution-probe-01a1895c.service` and its owning-chat
-watcher are active. Recheck those identities before acting. Frozen trainer
-commit is `0d3be58fa62f4606f38c5ff2e53cf74abb5faf60`; manifest SHA is
+first partial runtime measurements are retained. Its fixed-weight probe under
+`full-ppo-execution-probe-recovery-01a1895c-fd11-7234-9dc3-47486276272f/`
+stopped at the unchanged hidden/value parity gate. Controller PID `2351100`,
+start ticks `13706570`, and worker `2351118` have exited; their owned group
+is empty, and only `baylee-ppo-execution-probe-01a1895c-watch.timer` was stopped.
+Frozen trainer commit is `0d3be58fa62f4606f38c5ff2e53cf74abb5faf60`; manifest SHA is
 `f72270b2a8a8c9911853452c4a8b5faf5f48ae5d304ed5d4b8498d73b74cebdb`.
 It compares independent audit lanes and board encoding chunks, preserving
 all 1,575 recorded decisions and 6,626 recurrent observations. It constructs
 no optimizer and does not change the B4/U64 optimizer contract. It does not
 yet measure a full update transaction or establish backward/Adam capacity.
 Limits are 900 seconds for the GPU stage, 930 for the pipeline and 960 for the
-service, with 20-GiB host memory and an 11-GiB Torch allocator cap. This is an
-eight-configuration diagnostic with zero warm-ups and one pass per configuration,
-not a training dose or a confirmed speedup. Consult `active-performance-probe.json`
-for the current operation; the training and comparison pointers remain completed.
+service, with 20-GiB host memory and an 11-GiB Torch allocator cap. This is a
+planned eight-configuration diagnostic with zero warm-ups and one pass per
+configuration; only source B4/chunk0 and B4/chunk4 were executed. Baseline
+passed in 38.454 seconds; chunk4 retained a failed comparison in 22.329 seconds.
+Both covered all histories/frames/choices. All action LPs passed (maximum delta
+`7.62939453125e-6`), KL delta was `1.8162543779359863e-14`, and acceptance
+was unchanged. Hidden/value parity failed in histories (2,1) and (8,1).
+The report lacks the exact failing frame/coordinate, so it cannot distinguish
+a local numerical/layout difference from accumulated recurrent drift. No
+candidate or lane8 result exists, and no optimizer was constructed.
+
+Event `1a77bb8a3064b6c296d734ce` is reviewed/deduplicated; all 271 input seals
+remain unchanged. Full review is in the sibling operations root
+`perf-failure-review-01a18964-1a34-7002-befe-3e99dd49938d/operator-review.json`.
+The rejected variant's cold, instrumented timings are not a validated speedup.
+Keep chunk4 rejected and the original tolerances unchanged. A separate bounded
+source-only diagnostic now compares per-frame/chunked boards using common
+reference H versus independently evolving H and retains the first exact
+violation. Its root is
+`recurrent-chunk-diagnostic-01a18967-f3e9-7745-9b23-259cd24c198a/`, frozen
+from reviewed commit `556812a7b7d534da4fce0845564ff6d59d51aa5f`; 41 focused
+CPU tests pass. Its complete CPU preflight took 23.65 seconds and its exact
+CUDA prerequisite took 2.18 seconds; all prerequisite owners exited and
+groups were empty before launch. Root independently checked the seals and
+started it once. Controller `2356879`, start ticks `13833716`, boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` was observed active in
+`source_chunk_diagnostic`, with service and watcher timer
+`baylee-recurrent-chunk-diagnostic-01a18967` active. Manifest SHA256:
+`3315ec3e17ed485ba664e02f67509ab3c0f3dc0d65efeb3401525ad2ccde86e1`.
+Bounds are 300 seconds GPU stage / 330 pipeline / 360 service, 20-GiB host,
+11-GiB allocator, four threads. Every receipt keeps `diagnostic_only=true`,
+`parity_accepted=false` and zero updates/model writes. Inspect actual result
+and owned-process cleanup on completion; do not interpret successful diagnosis
+as numerical acceptance. Consult `active-performance-probe.json` for current
+ownership; training and gameplay comparison remain completed.
 
 Two earlier pre-model failures remain intact and reviewed. CUDA needed a
 private `/proc` mount to write its own thread name; then the allocator cap
