@@ -453,6 +453,7 @@ impl<L: CardLookup> Engine<L> {
             loot: None,
             draw_watch: None,
             this_way_from: None,
+            coin_stake: None,
         };
         let mut probe = self.state.clone();
         let flow = resolve::run(&mut probe, &mut res);
