@@ -112,7 +112,7 @@ fn machine_stubs(stubs: &Path, feedback_installed: bool, game_running: bool) {
         stubs,
         "curl",
         &format!(
-            r#"echo '{{"games":{{"running":{0},"local_running":{0},"waiting":0}}}}'"#,
+            r#"echo '{{"admission":"held","games":{{"running":{0},"local_running":{0},"waiting":0}}}}'"#,
             u8::from(game_running)
         ),
     );
@@ -176,6 +176,36 @@ fn stage_in(server: Server, etc: Option<&Path>) -> (PathBuf, String, String) {
     stage_refusing(server, etc, "")
 }
 
+fn stage_files(root: &Path) {
+    for dir in [
+        "src/target/release",
+        "src/web/feedback",
+        "src/crates/baylee-client",
+        "src/scripts/server",
+        "bin",
+        "state",
+    ] {
+        std::fs::create_dir_all(root.join(dir)).unwrap();
+    }
+    for binary in [
+        "baylee-gateway",
+        "baylee-catalog",
+        "run-deploy-hooks",
+        "baylee-agent",
+        "baylee-engine-server",
+        "baylee-deploy",
+        "baylee-invite",
+        "baylee-reboot",
+    ] {
+        std::fs::write(root.join("src/target/release").join(binary), b"").unwrap();
+    }
+    std::fs::write(
+        root.join("src/scripts/server/baylee-deploy-hooks.sudoers"),
+        b"",
+    )
+    .unwrap();
+}
+
 /// [`stage_in`] where sudo refuses to run `refused` (a sudoers rule that
 /// does not allow it).
 fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf, String, String) {
@@ -195,25 +225,8 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
     ));
     let _ = std::fs::remove_dir_all(&scratch);
     let (root, stubs) = (scratch.join("opt"), scratch.join("stubs"));
-    for dir in [
-        "src/target/release",
-        "src/web/feedback",
-        "src/crates/baylee-client",
-        "src/scripts/server",
-        "bin",
-        "state",
-    ] {
-        std::fs::create_dir_all(root.join(dir)).unwrap();
-    }
+    stage_files(&root);
     std::fs::create_dir_all(&stubs).unwrap();
-    for binary in ["baylee-gateway", "baylee-catalog", "run-deploy-hooks"] {
-        std::fs::write(root.join("src/target/release").join(binary), b"").unwrap();
-    }
-    std::fs::write(
-        root.join("src/scripts/server/baylee-deploy-hooks.sudoers"),
-        b"",
-    )
-    .unwrap();
     let calls: PathBuf = scratch.join("calls");
 
     stub(
@@ -232,7 +245,7 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
             }
         },
     );
-    sudo_stub(&stubs, etc.is_some());
+    sudo_stub(&stubs, true);
     stub(&stubs, "logger", "exit 0");
     stub(&stubs, "flock", "exit 0");
     machine_stubs(&stubs, feedback_installed, game_running);
@@ -251,6 +264,12 @@ fn stage_refusing(server: Server, etc: Option<&Path>, refused: &str) -> (PathBuf
 
     let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-deploy"));
     let no_etc = scratch.join("no-etc");
+    std::fs::create_dir_all(&no_etc).unwrap();
+    std::fs::write(
+        no_etc.join("gateway.env"),
+        format!("BAYLEE_ADMISSION_HOLD={}\n", scratch.join("hold").display()),
+    )
+    .unwrap();
     command.env("BAYLEE_DEPLOY_ETC", etc.unwrap_or(&no_etc));
     command.env("SUDO_REFUSES", refused);
     let out = command
@@ -414,7 +433,7 @@ fn stage_builds_the_feedback_service_and_installs_it_only_where_its_unit_is() {
             !ran.contains("systemctl restart baylee-gateway"),
             "the gateway was swapped under a running game:\n{ran}"
         );
-        assert!(ran.contains("sudo systemctl stop baylee-agent"));
+        assert!(!ran.contains("sudo systemctl stop baylee-agent"));
         // A service that is not here gets no web UI built either.
         assert_eq!(ran.contains("npm "), installed, "{ran}");
     }
@@ -469,13 +488,13 @@ fn without_npm_or_with_a_failed_build_the_service_is_still_deployed() {
 /// `stage` installs the closed-beta key command (#317) beside itself, so a
 /// release that changes it reaches the owner's terminal.
 #[test]
-fn stage_installs_the_invite_command() {
-    let (_, ran) = stage(false, Npm::Absent);
-    assert!(
-        ran.lines().any(|l| l
-            == "sudo install -m755 target/release/baylee-invite /usr/local/sbin/baylee-invite"),
-        "{ran}"
+fn finish_installs_the_staged_invite_command() {
+    let (root, ran, _) = stage_on(Server::with_trunk(Trunk::Absent, false));
+    let expected = format!(
+        "sudo install -m755 {} /usr/local/sbin/baylee-invite",
+        root.join("state/staged/baylee-invite").display()
     );
+    assert!(ran.lines().any(|l| l == expected), "{ran}");
 }
 
 /// `baylee-invite` reads the gateway's two settings files and hands its

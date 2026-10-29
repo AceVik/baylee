@@ -9,10 +9,9 @@
 //! and no room waiting. An unreachable gateway is not taken for an empty one.
 //!
 //! Games can go on through every night. After `BAYLEE_REBOOT_DRAIN_DAYS` (3)
-//! of waiting, the window drains like a deploy does: the agent is stopped, so
-//! no new game starts, and the reboot follows once the last game is over. If
-//! the window closes first, the agent is started again and the next night
-//! tries again. Running games are never ended.
+//! of waiting, admission is held while the owner agent keeps its games alive.
+//! The reboot follows only after a fresh held-admission health response counts
+//! no local game. Closing the window removes only this command's own hold.
 use crate::{gateway, settings, sh};
 use std::{
     path::{Path, PathBuf},
@@ -20,6 +19,7 @@ use std::{
 };
 
 const TAG: &str = "baylee-reboot";
+const HOLD_OWNER: &str = "baylee-reboot admission hold\n";
 
 fn var(name: &str, default: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| default.to_owned())
@@ -35,19 +35,19 @@ pub fn main(_args: &[String]) -> i32 {
     let drain_days: u64 = var("BAYLEE_REBOOT_DRAIN_DAYS", "3").parse().unwrap_or(3);
     let drained = run.join("baylee-reboot.drained");
     let required = run.join("reboot-required");
-
-    let undrain = || {
-        if drained.exists() {
-            let _ = std::fs::remove_file(&drained);
-            sh::ok(Command::new("systemctl").args(["start", "baylee-agent"]));
-            sh::log(
-                TAG,
-                "window closed with games still running; agent started again",
-            );
-        }
+    // Serialise even releasing a hold with deployment operations.
+    let Ok(_held) = hold(&deploy_lock) else {
+        sh::log(TAG, "a deploy is running; not now");
+        return 0;
     };
+    let configured = settings::read(&etc.join("gateway.env"));
+    let admission = configured
+        .iter()
+        .find(|(k, _)| k == "BAYLEE_ADMISSION_HOLD")
+        .map(|(_, value)| PathBuf::from(value));
+
     if !required.exists() {
-        undrain();
+        undrain(admission.as_deref(), &drained);
         return 0;
     }
     let (first, last) = window.split_once('-').map_or((3, 7), |(a, b)| {
@@ -55,15 +55,10 @@ pub fn main(_args: &[String]) -> i32 {
     });
     let hour = local_hour();
     if hour < first || hour > last {
-        undrain();
+        undrain(admission.as_deref(), &drained);
         return 0;
     }
-    // A deploy in progress owns the agent and the gateway; wait for it.
-    let Ok(_held) = hold(&deploy_lock) else {
-        sh::log(TAG, "a deploy is running; not now");
-        return 0;
-    };
-    let field = if settings::read(&etc.join("gateway.env"))
+    let field = if configured
         .iter()
         .any(|(k, v)| k == "BAYLEE_UNIX_SOCKET" && !v.is_empty())
     {
@@ -74,27 +69,58 @@ pub fn main(_args: &[String]) -> i32 {
     let games = gateway::fetch("health", 5).and_then(|body| gateway::open_games(&body, field));
     let shown = |n: Option<u64>| n.map_or_else(|| "?".to_owned(), |n| n.to_string());
     let (running, waiting) = (games.map(|g| g.0), games.map(|g| g.1));
-    if running == Some(0) && (waiting == Some(0) || drained.exists()) {
-        let packages = std::fs::read_to_string(run.join("reboot-required.pkgs")).map_or_else(
-            |_| "updates".to_owned(),
-            |t| t.lines().collect::<Vec<_>>().join(" ") + " ",
-        );
-        sh::log(TAG, &format!("rebooting for {packages}"));
-        let _ = std::fs::remove_file(&drained);
-        sh::ok(Command::new("systemctl").arg("reboot"));
+    let age_days = age_secs(&required) / 86_400;
+    if running.is_none() {
+        sh::log(TAG, "gateway health unavailable; owner agent left running");
         return 0;
     }
-    let age_days = age_secs(&required) / 86_400;
-    if age_days >= drain_days && !drained.exists() && running.is_some() {
-        sh::ok(Command::new("systemctl").args(["stop", "baylee-agent"]));
-        let _ = std::fs::File::create(&drained);
+    let quiet = running == Some(0) && waiting == Some(0);
+    if !(drained.exists() || quiet) && age_days < drain_days {
+        return 0;
+    }
+    let Some(admission) = admission.filter(|p| p.is_absolute()) else {
         sh::log(
             TAG,
-            &format!(
-                "reboot pending for {age_days} days: agent stopped, rebooting once {} game(s) end",
-                shown(running)
-            ),
+            "reboot requires BAYLEE_ADMISSION_HOLD; owner agent left running",
         );
+        return 0;
+    };
+    if !claim_hold(&admission) {
+        sh::log(
+            TAG,
+            "admission hold belongs to another operation or cannot be created",
+        );
+        return 0;
+    }
+    let draining = drained.exists() || age_days >= drain_days;
+    if draining {
+        let _ = std::fs::write(&drained, "admission held; owner running\n");
+    }
+    // The initial count predates the hold. Only this fresh response can
+    // authorise reboot, closing the last-game/new-game admission race.
+    let health = gateway::fetch("health", 5);
+    let held = health
+        .as_deref()
+        .and_then(gateway::health)
+        .is_some_and(|(_, _, admission)| admission == "held");
+    let games = health
+        .as_deref()
+        .and_then(|body| gateway::open_games(body, field));
+    let (running, waiting) = (games.map(|g| g.0), games.map(|g| g.1));
+    if !held {
+        sh::log(
+            TAG,
+            "waiting for verified admission hold; owner agent left running",
+        );
+        return 0;
+    }
+    if !draining && (running != Some(0) || waiting != Some(0)) {
+        undrain(Some(&admission), &drained);
+        return 0;
+    }
+    if running == Some(0) && (waiting == Some(0) || draining) {
+        let _ = std::fs::remove_file(&drained);
+        reboot(&run);
         return 0;
     }
     sh::log(
@@ -106,6 +132,52 @@ pub fn main(_args: &[String]) -> i32 {
         ),
     );
     0
+}
+
+fn reboot(run: &Path) {
+    let packages = std::fs::read_to_string(run.join("reboot-required.pkgs")).map_or_else(
+        |_| "updates".to_owned(),
+        |t| t.lines().collect::<Vec<_>>().join(" ") + " ",
+    );
+    sh::log(TAG, &format!("rebooting for {packages}"));
+    sh::ok(Command::new("systemctl").arg("reboot"));
+}
+
+fn undrain(admission: Option<&Path>, drained: &Path) {
+    if let Some(path) = admission
+        && std::fs::read_to_string(path).ok().as_deref() == Some(HOLD_OWNER)
+    {
+        let _ = std::fs::remove_file(path);
+    }
+    if drained.exists() {
+        let _ = std::fs::remove_file(drained);
+        sh::log(
+            TAG,
+            "reboot admission hold released; owner agent kept running",
+        );
+    }
+}
+
+/// An existing foreign hold is never adopted, overwritten or removed.
+fn claim_hold(path: &Path) -> bool {
+    use std::io::Write as _;
+    if std::fs::read_to_string(path).ok().as_deref() == Some(HOLD_OWNER) {
+        return true;
+    }
+    if let Some(parent) = path.parent()
+        && std::fs::create_dir_all(parent).is_err()
+    {
+        return false;
+    }
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .and_then(|mut file| {
+            file.write_all(HOLD_OWNER.as_bytes())
+                .and_then(|()| file.sync_all())
+        })
+        .is_ok()
 }
 
 /// The deploy's lock, taken without waiting; a missing lock file holds

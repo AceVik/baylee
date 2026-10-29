@@ -133,7 +133,16 @@ impl Server {
         ] {
             std::fs::create_dir_all(root.join(dir)).unwrap();
         }
-        for binary in ["baylee-gateway", "baylee-catalog", "run-deploy-hooks"] {
+        for binary in [
+            "baylee-gateway",
+            "baylee-catalog",
+            "run-deploy-hooks",
+            "baylee-agent",
+            "baylee-engine-server",
+            "baylee-deploy",
+            "baylee-invite",
+            "baylee-reboot",
+        ] {
             std::fs::write(root.join("src/target/release").join(binary), b"").unwrap();
         }
         std::fs::write(

@@ -2,7 +2,7 @@
 //! from the tree it deploys, so a release also updates how the next one goes:
 //!
 //! ```text
-//! baylee-deploy stage <rev> [--force]   build <rev>, swap agent + engine, wait
+//! baylee-deploy stage <rev> [--force]   build <rev>, hold admission, drain
 //! baylee-deploy finish [--force]        swap the gateway once no game is open
 //! baylee-deploy watch                   stage the newest release tag, finish
 //! baylee-deploy status                  what is deployed, staged and running
@@ -10,15 +10,13 @@
 //!
 //! A deploy never ends a game unless told to. It goes in two halves:
 //!
-//! 1. Stage: build everything, then stop the agent and install the new agent
-//!    and engine-server. With the agent stopped the gateway starts no game
-//!    (`POST /lobby/games` answers 503), and the games already running go
-//!    on: each engine dialled the gateway itself, and the agent's unit has
-//!    `KillMode=process`, so stopping it leaves its engines alone.
-//! 2. Finish: when `/health` counts no game of this machine running and no
-//!    room waiting, install the gateway, restart it and start the new agent.
-//!    Until then the agent stays off and `watch` (a timer, every minute)
-//!    asks again.
+//! 1. Stage: build and retain the release binaries; hold gateway admission
+//!    (`BAYLEE_ADMISSION_HOLD`) so no new game starts. The owner agent stays
+//!    alive: stopping or disconnecting it ends the games it owns.
+//! 2. Finish: verify `/health` reports admission held, then wait for no local
+//!    games and no waiting rooms. Only then stop and replace the owner,
+//!    replace/restart the gateway and start the new agent. Until then the
+//!    owner stays alive and `watch` asks again every minute.
 //!
 //! "This machine's" games are those of the agent on the gateway's unix
 //! socket (`games.local_running`, `docs/protocol.md` §"On the same machine:
@@ -44,10 +42,10 @@
 //! - `prepare`: the target is resolved to its full commit; nothing is
 //!   installed, stopped or staged before this passes. Exit 75 ("not ready")
 //!   keeps the old system and tries the same target on the next run.
-//! - (stage) the admission hold goes up (`BAYLEE_ADMISSION_HOLD`: no game
-//!   starts on any agent), the agent stops, agent and engine are installed.
-//! - (drain) every running game, on any agent, has to end; `--force` ends them.
-//! - `before-switch`: then the seat bridge and agent, the gateway and the
+//! - (stage) the admission hold goes up; the owner agent stays alive.
+//! - (drain) every running game, on any agent, has to end; only then stop and
+//!   replace the owner. `--force` skips this wait and ends its games.
+//! - `before-switch`: then the seat bridge, the gateway and the
 //!   browser client are installed and the gateway restarts; `/info` has to
 //!   name the target commit, clean.
 //! - `after-switch`: then the hold comes down, the agent starts and the seat
@@ -65,6 +63,8 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+
+mod maintenance;
 
 const TAG: &str = "baylee-deploy";
 const REPO: &str = "https://github.com/AceVik/baylee.git";
@@ -380,7 +380,6 @@ impl Deploy {
         // Before the agent stops: the wasm build is the long one, and games
         // can still start while it runs.
         self.play_build();
-        self.install_agent(&rev)?;
         // Seat agents (`docs/llm-seat.md` §"A hosted seat"): the bridge and
         // the agent are installed as the engine is, unlinked and written
         // anew, so a bridge playing keeps its old file; they restart in finish.
@@ -406,7 +405,16 @@ impl Deploy {
         let _ = fs::remove_dir_all(&staged);
         fs::create_dir_all(&staged).map_err(|_| Stop(1))?;
         let release = self.p.src.join("target/release");
-        let mut copy = vec!["baylee-gateway", "baylee-catalog", "run-deploy-hooks"];
+        let mut copy = vec![
+            "baylee-gateway",
+            "baylee-catalog",
+            "run-deploy-hooks",
+            "baylee-agent",
+            "baylee-engine-server",
+            "baylee-deploy",
+            "baylee-invite",
+            "baylee-reboot",
+        ];
         if release.join("baylee-seat").is_file() {
             copy.extend(["baylee-seat", "baylee-seathost"]);
         }
@@ -422,32 +430,6 @@ impl Deploy {
         .map_err(|_| Stop(1))?;
         fs::write(staged.join("rev"), format!("{rev}\n")).map_err(|_| Stop(1))?;
         fs::write(staged.join("since"), format!("{}\n", sh::now())).map_err(|_| Stop(1))?;
-        Ok(())
-    }
-
-    /// Stops the agent and installs it, the engine and this release's
-    /// operating commands.
-    fn install_agent(&self, rev: &str) -> Run {
-        must(&mut self.sudo(&["systemctl", "stop", "baylee-agent"]))?;
-        must(&mut self.sudo(&[
-            "install",
-            "-m755",
-            "target/release/baylee-agent",
-            "target/release/baylee-engine-server",
-            &dir(&self.p.bin),
-        ]))?;
-        for command in ["baylee-deploy", "baylee-invite", "baylee-reboot"] {
-            must(&mut self.sudo(&[
-                "install",
-                "-m755",
-                &format!("target/release/{command}"),
-                &format!("/usr/local/sbin/{command}"),
-            ]))?;
-        }
-        say(&format!(
-            "staged {}: agent and engine installed, agent off until the gateway follows",
-            short(rev)
-        ));
         Ok(())
     }
 
@@ -681,7 +663,6 @@ impl Deploy {
             "admission held: no new game starts on any agent until {} is deployed",
             short(rev)
         ));
-        self.install_agent(rev)?;
         self.feedback(rev)?;
         txn.phase = "staged".into();
         self.txn_save(&txn)?;
@@ -822,6 +803,7 @@ impl Deploy {
             }
         }
 
+        self.install_agent(&rev)?;
         match self.run_hooks("before-switch", &rev) {
             0 => {}
             75 => return Ok(()),
@@ -1305,6 +1287,16 @@ impl Deploy {
             return self.finish_with_hooks(force, from);
         }
         let rev = read_trim(&self.p.staged("rev"));
+        let hold = self.hold_path();
+        if !hold.is_empty() {
+            self.place_hold(&hold)?;
+        }
+        if !force && !Self::admission_held(&hold) {
+            say(
+                "waiting: configure BAYLEE_ADMISSION_HOLD and verify /health admission=held; the owner agent stays running",
+            );
+            return Ok(());
+        }
         let games = self.open_games();
         let since: u64 = read_trim(&self.p.staged("since")).parse().unwrap_or(0);
         let (running, waiting) = (games.map(|g| g.0), games.map(|g| g.1));
@@ -1329,6 +1321,7 @@ impl Deploy {
                 return Ok(());
             }
         }
+        self.install_agent(&rev)?;
         self.install_staged(&["baylee-gateway", "baylee-catalog"])?;
         self.play_install()?;
         must(&mut self.sudo(&["systemctl", "restart", "baylee-gateway"]))?;
@@ -1347,6 +1340,9 @@ impl Deploy {
             .status();
         self.install_dispatcher()?;
         self.forget_transaction()?;
+        if !hold.is_empty() {
+            self.lift_hold(&hold)?;
+        }
         self.deployed(&rev)?;
         say(&format!(
             "deployed {} (games running: {}, waiting: {}{})",

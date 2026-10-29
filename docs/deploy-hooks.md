@@ -133,15 +133,24 @@ from starting on any agent while it waits:
   removes: the hold has to survive the gateway's restart.
 - The deploy reads the path from `gateway.env`, checks before `prepare` that
   the running gateway reports `admission` at all, puts the file up (as root,
-  `0644`) right after `prepare` and before the agent stops, and checks that
+  `0644`) right after `prepare`, keeps the owner agent alive, and checks that
   `/health` then says `held` before it counts games. It takes the file down
-  only after `after-switch` passed.
+  only after `after-switch` passed. Only after games have drained does it
+  stop and replace the owner, before calling `before-switch`. Stopping an
+  owner ends its games; systemd's `KillMode` cannot preserve them.
 - Without the setting, or with a gateway too old to report `admission`, a
   deploy with hooks refuses before `prepare` and changes nothing.
 - `--force` skips the wait for games (it ends them, as without hooks); it
   never skips a hook, and a failed hook stops a forced deploy too.
 - Rooms that are only waiting block for at most `BAYLEE_DEPLOY_ROOM_GRACE`
   minutes, as without hooks; while the hold is up none of them can start.
+
+Without hooks, graceful deployment also requires a configured, verified
+admission hold. It waits for local games rather than all agents' games and
+keeps the owner alive until that drain completes. A missing or mismatched
+hold leaves the release staged and never stops the owner. Agent, engine and
+maintenance binaries come from that staged release, even if another build
+has since changed `target/release`. Old incomplete stages must be rebuilt.
 
 The hold is one gateway's: every agent's games pass through it. Another
 gateway on another machine is not held by this file.
