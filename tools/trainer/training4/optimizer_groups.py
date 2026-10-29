@@ -73,6 +73,6 @@ def check_resume_schedule(saved, contract):
         if (actual.get('name') != expected['name']
                 or actual['weight_decay'] != expected['weight_decay']
                 or len(actual['params']) != len(expected['parameter_names'])
-                or not math.isclose(actual['lr'], scheduled_lr(expected, contract, saved['step_num']),
+                or not math.isclose(actual['lr'], scheduled_lr(expected, contract, saved.get('optimizer_updates', saved['step_num'])),
                                     rel_tol=1e-12, abs_tol=0.)):
             raise ValueError('Resume optimizer group layout/rate differs')

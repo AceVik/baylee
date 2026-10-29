@@ -60,6 +60,37 @@ pub fn sha256(path: &Path) -> Result<String> {
     crate::digests::InputDigestCache::default().sha256(path)
 }
 
+/// Publish a byte-identical artifact without exposing a partial replacement.
+/// # Errors
+/// Rejects unreadable or changing sources and preserves the old destination on failure.
+pub fn atomic_copy(source: &Path, destination: &Path) -> Result<String> {
+    let digest = sha256(source)?;
+    let parent = destination.parent().context("output needs a parent")?;
+    fs::create_dir_all(parent)?;
+    let temporary = parent.join(format!(".{}.partial", uuid::Uuid::now_v7()));
+    let result = (|| -> Result<String> {
+        let mut input = File::open(source)?;
+        let mut output = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)?;
+        std::io::copy(&mut input, &mut output)?;
+        output.sync_all()?;
+        anyhow::ensure!(
+            sha256(&temporary)? == digest && sha256(source)? == digest,
+            "artifact changed during publication"
+        );
+        fs::rename(&temporary, destination)?;
+        #[cfg(unix)]
+        File::open(parent)?.sync_all()?;
+        Ok(digest)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(temporary);
+    }
+    result
+}
+
 /// Encode bytes in lowercase hexadecimal.
 #[must_use]
 pub fn hex(bytes: &[u8]) -> String {
@@ -88,4 +119,24 @@ pub fn lock(path: &Path) -> Result<File> {
     file.try_lock()
         .with_context(|| format!("already owned: {}", path.display()))?;
     Ok(file)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn artifact_replacement_preserves_previous_output_on_failure() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let source = root.path().join("source");
+        let out = root.path().join("published");
+        fs::write(&source, b"complete new model")?;
+        fs::write(&out, b"previous model")?;
+        assert!(atomic_copy(&root.path().join("missing"), &out).is_err());
+        assert_eq!(fs::read(&out)?, b"previous model");
+        assert_eq!(atomic_copy(&source, &out)?, sha256(&source)?);
+        assert_eq!(fs::read(&out)?, b"complete new model");
+        assert_eq!(fs::read_dir(root.path())?.count(), 2);
+        Ok(())
+    }
 }

@@ -27,6 +27,7 @@ from torch.utils.data import DataLoader
 import dataset4 as D4
 import model4 as M
 from checkpoint4 import atomic_save, rng_state, restore_rng, move_optimizer
+from torch_io4 import atomic_json
 
 
 from .loss import compute_step_loss
@@ -39,7 +40,8 @@ from .prefetch import prefetch_batches
 from .checkpoint_async import AsyncCheckpointWriter
 from .depth_schedule import DepthSchedule, evaluate_depths
 from .objective import selection_score, check_resume_objective
-from .optimizer_groups import build_optimizer_groups, apply_relational_warmup, check_resume_schedule
+from .optimizer_groups import build_optimizer_groups, check_resume_schedule
+from .optimizer_step import update_parameters
 
 
 def main(default_architecture="v4") -> None:
@@ -227,6 +229,8 @@ def main(default_architecture="v4") -> None:
     depth_schedule = DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum)
     depth_counts = {}
     step_num = 0
+    optimizer_updates = 0
+    best_optimizer_updates = 0
     best_score = float("inf")
     best_step = 0
     last_validation_step = -1
@@ -264,6 +268,9 @@ def main(default_architecture="v4") -> None:
             group["fused"] = True if args.fused_optimizer and device.type == "cuda" else None
         move_optimizer(opt, device)
         step_num = saved["step_num"]
+        optimizer_updates = saved.get("optimizer_updates", step_num)
+        if not 0 <= optimizer_updates <= step_num:
+            raise ValueError("Resume optimizer update count exceeds consumed batches")
         resume_epoch, resume_batch = saved["epoch"], saved["next_batch"]
         resume_h = saved["h"].to(device) if saved["h"] is not None else None
         best_score = saved.get("best_score", best_score)
@@ -274,6 +281,7 @@ def main(default_architecture="v4") -> None:
                 raise ValueError("Best checkpoint encoder differs from resumed run")
             best_state = previous_best["state_dict"]
             best_step = previous_best["step_num"]
+            best_optimizer_updates = previous_best.get("optimizer_updates", best_step)
             best_val_metrics = previous_best.get("val_metrics", {})
         print(f"[train4] resumed epoch={resume_epoch} batch={resume_batch} step={step_num}", flush=True)
     elif (out_dir / "last.pt").exists() or (out_dir / "net.pt").exists():
@@ -286,6 +294,7 @@ def main(default_architecture="v4") -> None:
                      "optimizer": opt.state_dict(), "rng": rng_state(),
                      "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": args.encoder_version, "sampling_version": M.SAMPLING_VERSION,
                      "step_num": step_num, "epoch": epoch, "next_batch": next_batch,
+                     "optimizer_updates": optimizer_updates,
                      "h": None if hidden is None else (hidden.detach() if args.async_checkpoint else hidden.detach().cpu()),
                      "dataset_fingerprint": train_ds.fingerprint,
                      "validation_fingerprint": val_ds.fingerprint,
@@ -306,6 +315,7 @@ def main(default_architecture="v4") -> None:
 
     def validate_and_save():
         nonlocal best_score, best_state, best_val_metrics, best_step
+        nonlocal best_optimizer_updates
         nonlocal last_validation_step, last_validation_metrics
         if last_validation_step == step_num:
             return last_validation_metrics
@@ -318,12 +328,14 @@ def main(default_architecture="v4") -> None:
         score = selection_score(metrics, args.checkpoint_selection)
         if score < best_score:
             best_score, best_step = score, step_num
+            best_optimizer_updates = optimizer_updates
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
             best_val_metrics = dict(metrics)
             atomic_save({**identity, "optimizer_schedule": optimizer_schedule, "depth_schedule": depth_schedule.to_dict(), "depth_counts": depth_counts, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
                          "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
                          "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": args.encoder_version,
                          "sampling_version": M.SAMPLING_VERSION, "step_num": best_step,
+                         "optimizer_updates": best_optimizer_updates,
                          "validation_batch_size": args.validation_batch_size,
                          "val_metrics": metrics, "dataset_fingerprint": train_ds.fingerprint}, out_dir / "net.pt")
         last_validation_step, last_validation_metrics = step_num, metrics
@@ -433,13 +445,9 @@ def main(default_architecture="v4") -> None:
                         traj_loss, st = compute_unroll_device_loss(full_outputs, torch.stack(full_aux, dim=1), batch, plans, loss_config)
                         epoch_stats[:3] += st[:3] / U
                         epoch_stats[3:] += st[3:]
-                if not torch.isfinite(traj_loss):
-                    raise FloatingPointError(f"Non-finite loss at step {step_num}")
-                traj_loss.backward()
-                torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0, error_if_nonfinite=True)
-                checkpoint_writer.before_mutation()
-                apply_relational_warmup(opt, optimizer_schedule, step_num + 1)
-                opt.step()
+                updated = update_parameters(traj_loss, net, opt, checkpoint_writer,
+                                            optimizer_schedule, optimizer_updates + 1)
+                optimizer_updates += int(updated)
                 net.clear_structure()
 
                 step_num += 1
@@ -448,6 +456,7 @@ def main(default_architecture="v4") -> None:
                 if step_num % 25 == 0:
                     elapsed = time.perf_counter() - t0
                     print(f"[train4] step={step_num} epoch={epoch} loss={float(traj_loss.detach()):.4f} "
+                          f"optimizer_updates={optimizer_updates} "
                           f"batches_per_s={ep_batches / max(elapsed, 1):.2f} "
                           f"gpu_peak_gb={torch.cuda.max_memory_allocated() / 1e9 if device.type == 'cuda' else 0:.2f} "
                           f"gpu_alloc_retries={torch.cuda.memory_stats()['num_alloc_retries'] if device.type == 'cuda' else 0}", flush=True)
@@ -497,6 +506,7 @@ def main(default_architecture="v4") -> None:
         "dataset_fingerprint": train_ds.fingerprint,
         "structure": train_ds.structure.data, "state_dict": final_state,
         "step_num": best_step if best_state is not None else step_num,
+        "optimizer_updates": best_optimizer_updates if best_state is not None else optimizer_updates,
         "val_metrics": final_metrics,
         "validation_fingerprint": val_ds.fingerprint,
         "package_parent": package_parent,
@@ -516,11 +526,15 @@ def main(default_architecture="v4") -> None:
         "n_heads": cfg.n_heads,
         "thinking_steps": args.thinking_steps,
         "step_num": best_step if best_state is not None else step_num,
+        "optimizer_updates": best_optimizer_updates if best_state is not None else optimizer_updates,
+        "consumed_batches": step_num,
+        "total_optimizer_updates": optimizer_updates,
+        "batches_without_update": step_num - optimizer_updates,
         "val_metrics": final_metrics,
         "validation_fingerprint": val_ds.fingerprint,
         "package_parent": package_parent,
     }
-    (out_dir / "meta.json").write_text(json.dumps(meta_out, indent=2))
+    atomic_json(out_dir / "meta.json", meta_out)
     print(f"[train4] saved checkpoint to {out_dir}")
 
 

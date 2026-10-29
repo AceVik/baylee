@@ -33,6 +33,13 @@ enum Task {
         #[arg(long)]
         out: PathBuf,
     },
+    /// Atomically publish a verified byte-identical artifact.
+    CopyFile {
+        #[arg(long)]
+        source: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Seal a tensor implementation tree, including module directory replacements.
     SourceDigest {
         #[arg(long)]
@@ -79,6 +86,9 @@ fn interrupt_flag() -> Result<Arc<AtomicBool>> {
 fn main() -> Result<()> {
     let args = Args::parse();
     match args.command {
+        Task::CopyFile { source, out } => {
+            println!("{}", baylee_train_ops::files::atomic_copy(&source, &out)?);
+        }
         Task::SourceDigest { root, include } => {
             println!(
                 "{}",

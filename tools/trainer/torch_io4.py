@@ -29,6 +29,10 @@ def atomic_json(path, value):
     native(["write-json", "--out", Path(path).absolute()], json.dumps(value, allow_nan=False))
 
 
+def atomic_copy(source, destination):
+    native(["copy-file", "--source", Path(source).absolute(), "--out", Path(destination).absolute()])
+
+
 def file_digest(path):
     result = native(["hash", path]).split()
     digest = result[0] if result else ""

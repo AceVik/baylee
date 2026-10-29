@@ -11,10 +11,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
-import json
-import shutil
 from pathlib import Path
+from torch_io4 import atomic_copy, atomic_json, file_digest
 
 import numpy as np
 import onnxruntime as ort
@@ -190,13 +188,12 @@ def main() -> None:
     torch.set_num_threads(1)
     model_dir = Path(args.model).expanduser()
     checkpoint_path = model_dir / "net.pt"
-    with checkpoint_path.open("rb") as source:
-        source_checkpoint_sha256 = hashlib.file_digest(source, "sha256").hexdigest()
+    source_checkpoint_sha256 = file_digest(checkpoint_path)
     ckpt, net, model_module = load_export_checkpoint(checkpoint_path)
     cfg = net.cfg
     structure_sha256 = net.rules.digest
     net.rules = net.rules.freeze()
-    (model_dir / "card_structure.json").write_text(json.dumps(ckpt["structure"]))
+    atomic_json(model_dir / "card_structure.json", ckpt["structure"])
     options = ort.SessionOptions()
     options.intra_op_num_threads = 1
     sessions = {}
@@ -260,10 +257,9 @@ def main() -> None:
                 break
     if worst_diff > 1e-3:
         raise ValueError(f"ONNX parity failed: {worst_diff:.3g}")
-    with checkpoint_path.open("rb") as source:
-        if hashlib.file_digest(source, "sha256").hexdigest() != source_checkpoint_sha256:
-            raise ValueError("Source checkpoint changed during export")
-    shutil.copyfile(model_dir / f"model.k{args.thinking_steps}.onnx", model_dir / "model.onnx")
+    if file_digest(checkpoint_path) != source_checkpoint_sha256:
+        raise ValueError("Source checkpoint changed during export")
+    atomic_copy(model_dir / f"model.k{args.thinking_steps}.onnx", model_dir / "model.onnx")
     meta = {
         **({"encoder_warmstart": ckpt["encoder_warmstart"]} if "encoder_warmstart" in ckpt else {}),
         "encoder_version": ckpt["encoder_version"], "model_version": model_module.MODEL_VERSION,
@@ -278,7 +274,7 @@ def main() -> None:
     }
     if model_module.MODEL_VERSION == 5:
         meta["architecture"] = model_module.architecture_for_config(cfg)
-    (model_dir / "model.onnx.json").write_text(json.dumps(meta, indent=2))
+    atomic_json(model_dir / "model.onnx.json", meta)
     print(f"[export model_version={model_module.MODEL_VERSION}] verified {checked} frames, max error={worst_diff:.3g}; exported K=0,1,2,4,8")
 
 
