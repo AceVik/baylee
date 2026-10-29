@@ -192,7 +192,7 @@ mod tests {
     }
     #[test]
     fn reset_is_positive_bounded_and_not_guessed() {
-        assert_eq!(reset_seconds("Resets in 90h56m56s."), Some(327416));
+        assert_eq!(reset_seconds("Resets in 90h56m56s."), Some(327_416));
         assert_eq!(reset_seconds("Resets in 30m."), Some(1800));
         assert_eq!(reset_seconds("Resets in 1s."), Some(1));
         for text in [

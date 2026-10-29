@@ -26,19 +26,18 @@ use crate::schedule::{
 };
 use baylee_db::sea_orm::DatabaseConnection;
 
-pub const SIGTERM: i32 = 15;
-pub const SIGKILL: i32 = 9;
-
-unsafe extern "C" {
-    fn kill(pid: i32, sig: i32) -> i32;
-}
-
-pub fn kill_pg(pgid: i32, sig: i32) -> i32 {
-    if pgid <= 0 {
-        return -1;
-    }
-    // SAFETY: pgid is a positive process group ID created with process_group(0).
-    unsafe { kill(-pgid, sig) }
+pub fn gateway_endpoint(base: &str) -> anyhow::Result<()> {
+    let authority = base
+        .strip_prefix("http://")
+        .context("Collector gateway requires loopback HTTP")?;
+    let address: std::net::SocketAddr = authority
+        .parse()
+        .context("Collector gateway requires a literal IP and port without credentials or path")?;
+    ensure!(
+        address.ip().is_loopback() && address.port() != 0,
+        "Collector gateway requires a nonzero loopback port"
+    );
+    Ok(())
 }
 
 /// Paces table launches across all 50 workers so `POST /lobby/games/{id}/chairs/1/redeem`
@@ -140,6 +139,8 @@ impl GatewayClient {
         let xff = self.forwarded_ip.clone();
         tokio::task::spawn_blocking(move || {
             let agent: ureq::Agent = ureq::Agent::config_builder()
+                .proxy(None)
+                .max_redirects(0)
                 .timeout_global(Some(Duration::from_secs(timeout_secs)))
                 .build()
                 .into();
@@ -167,6 +168,8 @@ impl GatewayClient {
         let xff = self.forwarded_ip.clone();
         tokio::task::spawn_blocking(move || {
             let agent: ureq::Agent = ureq::Agent::config_builder()
+                .proxy(None)
+                .max_redirects(0)
                 .timeout_global(Some(Duration::from_secs(timeout_secs)))
                 .build()
                 .into();
@@ -203,6 +206,8 @@ impl GatewayClient {
         let xff = self.forwarded_ip.clone();
         tokio::task::spawn_blocking(move || {
             let agent: ureq::Agent = ureq::Agent::config_builder()
+                .proxy(None)
+                .max_redirects(0)
                 .timeout_global(Some(Duration::from_secs(timeout_secs)))
                 .build()
                 .into();
@@ -369,6 +374,8 @@ async fn delete_owned_account(
     let body = serde_json::to_vec(&json!({"password": password}))?;
     tokio::task::spawn_blocking(move || {
         let agent: ureq::Agent = ureq::Agent::config_builder()
+            .proxy(None)
+            .max_redirects(0)
             .timeout_global(Some(Duration::from_secs(10)))
             .build()
             .into();
@@ -627,36 +634,23 @@ impl SeatProcessGroup {
     }
 
     pub fn try_wait(&mut self) -> anyhow::Result<Option<std::process::ExitStatus>> {
-        Ok(self.child.try_wait()?)
+        crate::processes::peek_exit(&mut self.child)
     }
 
     fn group_alive(&self) -> bool {
-        kill_pg(self.pgid, 0) == 0
+        self.pgid > 0 && crate::processes::group_alive(&self.child).unwrap_or(true)
     }
 
     pub async fn terminate(&mut self) -> anyhow::Result<()> {
         drop(self.stdin.take());
         for _ in 0..30 {
-            let _ = self.child.try_wait();
             if !self.group_alive() {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
-        for sig in [SIGTERM, SIGKILL] {
-            if !self.group_alive() {
-                break;
-            }
-            let _ = kill_pg(self.pgid, sig);
-            for _ in 0..30 {
-                let _ = self.child.try_wait();
-                if !self.group_alive() {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-        }
-        let _ = tokio::time::timeout(Duration::from_secs(2), self.child.wait()).await;
+        crate::processes::cleanup(&mut self.child).await?;
+        self.pgid = 0;
         if let Some(task) = self.diag_task.take() {
             let _ = tokio::time::timeout(Duration::from_secs(1), task).await;
         }
@@ -672,8 +666,8 @@ impl SeatProcessGroup {
 impl Drop for SeatProcessGroup {
     fn drop(&mut self) {
         if self.pgid > 0 && self.group_alive() {
-            let _ = kill_pg(self.pgid, SIGTERM);
-            let _ = kill_pg(self.pgid, SIGKILL);
+            let _ = crate::processes::signal_owned(&self.child, rustix::process::Signal::TERM);
+            let _ = crate::processes::signal_owned(&self.child, rustix::process::Signal::KILL);
         }
         if let Some(task) = self.diag_task.take() {
             task.abort();
@@ -1448,6 +1442,54 @@ mod tests {
     use tokio::net::TcpListener;
 
     #[test]
+    fn credential_destination_requires_literal_loopback_without_url_secrets() {
+        for base in ["http://127.0.0.1:28768", "http://[::1]:28768"] {
+            gateway_endpoint(base).unwrap();
+        }
+        for base in [
+            "http://example.com:80",
+            "https://127.0.0.1:80",
+            "http://127.0.0.1:0",
+            "http://127.0.0.1:80/path",
+            "http://user:password@127.0.0.1:80",
+        ] {
+            assert!(gateway_endpoint(base).is_err());
+        }
+    }
+
+    #[tokio::test]
+    async fn authenticated_gateway_requests_never_follow_redirects() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let destination = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let target = format!("http://{}/unexpected", destination.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut reader = BufReader::new(socket);
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).await.unwrap();
+                if line == "\r\n" {
+                    break;
+                }
+            }
+            reader.get_mut().write_all(format!("HTTP/1.1 307 Temporary Redirect\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes()).await.unwrap();
+        });
+        assert!(
+            GatewayClient::new(&base, 0)
+                .get_json("/test", Some("fixture-token"), 1)
+                .await
+                .is_err()
+        );
+        server.await.unwrap();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), destination.accept())
+                .await
+                .is_err()
+        );
+    }
+
+    #[test]
     fn waiting_room_absence_requires_complete_empty_first_page() {
         let valid = json!({"offset":0,"limit":100,"total":0,"games":[]});
         assert!(complete_empty_lobby_page(&valid));
@@ -1723,7 +1765,7 @@ mod tests {
         write_atomic_json(
             &config,
             &json!({"profiles": {
-                "terra": {"provider":"cli", "model":"codex:gpt-6.1-terra", "effort":"low", "game_tokens":100000}
+                "terra": {"provider":"cli", "model":"codex:gpt-6.1-terra", "effort":"low", "game_tokens":100_000}
             }}),
         )
         .unwrap();

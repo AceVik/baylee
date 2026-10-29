@@ -861,7 +861,10 @@ pub(crate) mod tests {
             json!({"kind":"input", "n":0, "seat":0, "by":"seat", "action":"PassPriority", "at":0}),
             json!({"kind":"end", "n":1, "winners":[0], "at":0}),
         ];
-        let text: String = rows.iter().map(|row| format!("{row}\n")).collect();
+        let text = rows.iter().fold(String::new(), |mut text, row| {
+            writeln!(text, "{row}").unwrap();
+            text
+        });
         std::fs::write(path, text).unwrap();
     }
 
@@ -870,7 +873,10 @@ pub(crate) mod tests {
         use baylee_core::{ids::PlayerId, preset::SeatController};
         use baylee_engine::choice::PlayerAction;
         use baylee_gamehost::Session;
-        let text = include_str!("../../../../../data/acceptance-decks.txt");
+        let text = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/acceptance-decks.txt"
+        ));
         let a = baylee_cards::decks::load_acceptance(text, "Allytifact").unwrap();
         let b = baylee_cards::decks::load_acceptance(text, "Victory").unwrap();
         let dir = TestDir::new("actual-room-setup");
@@ -902,7 +908,7 @@ pub(crate) mod tests {
             .unwrap();
             assert!(audit_record_setup(&path, &opposite).is_err());
             let mut wrong_mulligans = setup.clone();
-            wrong_mulligans.free_mulligans = if setup.free_mulligans == 0 { 1 } else { 0 };
+            wrong_mulligans.free_mulligans = u8::from(setup.free_mulligans == 0);
             assert!(audit_record_setup(&path, &wrong_mulligans).is_err());
         }
     }
@@ -938,7 +944,10 @@ pub(crate) mod tests {
         use baylee_gamehost::{Session, replay};
         use std::ops::ControlFlow;
 
-        let text = include_str!("../../../../../data/acceptance-decks.txt");
+        let text = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../data/acceptance-decks.txt"
+        ));
         let a = baylee_cards::decks::load_acceptance(text, "Allytifact").unwrap();
         let b = baylee_cards::decks::load_acceptance(text, "Victory").unwrap();
         let mut preset = baylee_cards::decks::preset_for(3, &a, &b);
@@ -1005,8 +1014,10 @@ pub(crate) mod tests {
         row["hash"] = json!("wrong");
         proof.record = damaged
             .iter()
-            .map(|row| format!("{row}\n"))
-            .collect::<String>()
+            .fold(String::new(), |mut text, row| {
+                writeln!(text, "{row}").unwrap();
+                text
+            })
             .into_bytes();
         assert!(audit_tape(&path, &proof).is_err());
     }
@@ -1023,7 +1034,7 @@ pub(crate) mod tests {
         };
         let valid = json!({"kind":"stop", "stop":"end", "inputs":3,
             "exact_to":9, "seen_to":9, "diverged":null});
-        assert!(audit_tape_rows(&[valid.clone()], &proof).is_ok());
+        assert!(audit_tape_rows(std::slice::from_ref(&valid), &proof).is_ok());
         for patch in [
             json!({"exact_to":null}), // visible-only verification
             json!({"exact_to":4}),    // verified prefix
@@ -1074,6 +1085,10 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[allow(
+        clippy::too_many_lines,
+        reason = "Complete technical audit fixture binds all independent record and seat artifacts"
+    )]
     fn full_audit_and_validation_matches_prepare_llm_bc4_contract() {
         let dir = TestDir::new("audit");
         let work = dir.path();

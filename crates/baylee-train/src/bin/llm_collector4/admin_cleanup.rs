@@ -40,6 +40,23 @@ fn agent() -> ureq::Agent {
 }
 
 impl AdminCleanup {
+    pub(super) fn gateway_credentials(base: &str) -> anyhow::Result<Self> {
+        match std::env::var("BAYLEE_COLLECTOR_ADMIN_TOKEN") {
+            Ok(token) => Self::new(base, token),
+            Err(std::env::VarError::NotPresent) => {
+                use std::io::Read as _;
+                let mut bytes = [0_u8; 32];
+                std::fs::File::open("/dev/urandom")?.read_exact(&mut bytes)?;
+                Self::new(base, baylee_train_ops::files::hex(&bytes))
+            }
+            Err(_) => anyhow::bail!("Invalid collector admin token configuration"),
+        }
+    }
+
+    pub(super) fn configure_gateway(&self, command: &mut tokio::process::Command) {
+        command.env("BAYLEE_ADMIN_TOKEN", &self.token);
+    }
+
     pub fn from_env(base: &str) -> anyhow::Result<Self> {
         let token = std::env::var("BAYLEE_COLLECTOR_ADMIN_TOKEN")
             .map_err(|_| anyhow::anyhow!("BAYLEE_COLLECTOR_ADMIN_TOKEN is required"))?;

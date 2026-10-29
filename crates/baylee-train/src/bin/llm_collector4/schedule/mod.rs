@@ -1023,10 +1023,10 @@ mod tests {
     fn profiles(dir: &Path) -> PathBuf {
         let path = dir.join("profiles.json");
         write_atomic_json(&path, &json!({"profiles": {
-            "argon-low": {"provider":"cli", "model":"agy:gemini-4-argon-low", "game_tokens":100000},
-            "flash-low": {"provider":"cli", "model":"agy:gemini-3.8-flash-low", "game_tokens":100000},
-            "terra": {"provider":"cli", "model":"codex:gpt-6.1-terra", "game_tokens":100000},
-            "unspecified": {"provider":"cli", "model":"codex", "game_tokens":100000}
+            "argon-low": {"provider":"cli", "model":"agy:gemini-4-argon-low", "game_tokens":100_000},
+            "flash-low": {"provider":"cli", "model":"agy:gemini-3.8-flash-low", "game_tokens":100_000},
+            "terra": {"provider":"cli", "model":"codex:gpt-6.1-terra", "game_tokens":100_000},
+            "unspecified": {"provider":"cli", "model":"codex", "game_tokens":100_000}
         }})).unwrap();
         path
     }
@@ -1201,8 +1201,8 @@ mod tests {
         let manifest = dir.path().join("deck-manifest.json");
         write_atomic_json(&manifest, &json!({ "decks": deck_entries })).unwrap();
         write_atomic_json(&dir.path().join("profiles.json"), &json!({"profiles": {
-            "argon-low": {"provider":"cli", "model":"agy:gemini-4-argon-low", "game_tokens":100000},
-            "flash-low": {"provider":"cli", "model":"agy:gemini-3.8-flash-low", "game_tokens":100000}
+            "argon-low": {"provider":"cli", "model":"agy:gemini-4-argon-low", "game_tokens":100_000},
+            "flash-low": {"provider":"cli", "model":"agy:gemini-3.8-flash-low", "game_tokens":100_000}
         }})).unwrap();
         let mut sched = Scheduler::new(
             dir.path().to_path_buf(),

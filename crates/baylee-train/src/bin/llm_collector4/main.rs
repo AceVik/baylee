@@ -1,6 +1,7 @@
 //! Multi-table LLM self-play replay collector and single-gateway/single-agent host supervisor.
 mod admin_cleanup;
 mod audit;
+mod processes;
 mod quota_hold;
 mod schedule;
 mod table;
@@ -21,9 +22,7 @@ use tokio::sync::{Mutex, Semaphore};
 
 use crate::audit::write_atomic_json;
 use crate::schedule::{Scheduler, now_unix};
-use crate::table::{
-    GatewayClient, LaunchPacer, SIGKILL, SIGTERM, SlotAccount, kill_pg, run_attempt,
-};
+use crate::table::{GatewayClient, LaunchPacer, SlotAccount, run_attempt};
 
 #[derive(Parser)]
 #[command(
@@ -44,7 +43,7 @@ enum Commands {
         bin_dir: PathBuf,
         #[arg(long, default_value = "127.0.0.1:28768")]
         bind: String,
-        /// Optional dedicated loopback admin listener; generates a fresh memory-only token.
+        /// Optional loopback admin listener; shared environment token or generated memory-only secret.
         #[arg(long)]
         admin_bind: Option<String>,
         #[arg(
@@ -161,23 +160,12 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-async fn kill_process_group(pgid: i32, child: &mut tokio::process::Child) {
-    if pgid > 0 {
-        for sig in [SIGTERM, SIGKILL] {
-            if kill_pg(pgid, 0) != 0 {
-                break;
-            }
-            let _ = kill_pg(pgid, sig);
-            for _ in 0..30 {
-                let _ = child.try_wait();
-                if kill_pg(pgid, 0) != 0 {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-        }
-    }
-    let _ = tokio::time::timeout(Duration::from_secs(2), child.wait()).await;
+async fn kill_process_group(pgid: i32, child: &mut tokio::process::Child) -> anyhow::Result<()> {
+    ensure!(
+        child.id().and_then(|id| i32::try_from(id).ok()) == Some(pgid),
+        "Owned process group identity lost"
+    );
+    processes::cleanup(child).await
 }
 
 fn controller_lock(directory: &Path) -> anyhow::Result<std::fs::File> {
@@ -278,11 +266,11 @@ async fn wait_ready(
     loop {
         if let Some((gateway, agent)) = children.as_mut() {
             ensure!(
-                gateway.try_wait()?.is_none(),
+                processes::peek_exit(gateway)?.is_none(),
                 "Gateway exited during startup; inspect gateway logs"
             );
             ensure!(
-                agent.try_wait()?.is_none(),
+                processes::peek_exit(agent)?.is_none(),
                 "Agent exited during startup; inspect agent logs"
             );
         }
@@ -297,10 +285,13 @@ async fn wait_ready(
             // A different listener must not mask an owned child's failed startup.
             if let Some((gateway, agent)) = children.as_mut() {
                 ensure!(
-                    gateway.try_wait()?.is_none(),
+                    processes::peek_exit(gateway)?.is_none(),
                     "Gateway exited during startup"
                 );
-                ensure!(agent.try_wait()?.is_none(), "Agent exited during startup");
+                ensure!(
+                    processes::peek_exit(agent)?.is_none(),
+                    "Agent exited during startup"
+                );
             }
             return Ok(());
         }
@@ -383,18 +374,10 @@ async fn run_serve(
         .env("CUDA_VISIBLE_DEVICES", "")
         .env("RUST_BACKTRACE", "1");
     if let Some(admin) = admin_address {
-        let mut admin_random = [0_u8; 32];
-        std::fs::File::open("/dev/urandom")?.read_exact(&mut admin_random)?;
-        let admin_token = admin_random
-            .iter()
-            .fold(String::with_capacity(64), |mut s, byte| {
-                use std::fmt::Write as _;
-                let _ = write!(s, "{byte:02x}");
-                s
-            });
-        gw_cmd
-            .env("BAYLEE_ADMIN_BIND", admin.to_string())
-            .env("BAYLEE_ADMIN_TOKEN", admin_token);
+        let credential =
+            admin_cleanup::AdminCleanup::gateway_credentials(&format!("http://{admin}"))?;
+        gw_cmd.env("BAYLEE_ADMIN_BIND", admin.to_string());
+        credential.configure_gateway(&mut gw_cmd);
     }
     let ag_out = std::fs::File::create(gw_dir.join("agent.stdout.log"))?;
     let ag_err = std::fs::File::create(gw_dir.join("agent.stderr.log"))?;
@@ -423,7 +406,7 @@ async fn run_serve(
     let mut ag_child = match ag_cmd.spawn() {
         Ok(child) => child,
         Err(error) => {
-            kill_process_group(gw_pgid, &mut gw_child).await;
+            kill_process_group(gw_pgid, &mut gw_child).await?;
             return Err(error).context("spawning baylee-agent");
         }
     };
@@ -436,8 +419,10 @@ async fn run_serve(
     )
     .await
     {
-        kill_process_group(ag_pgid, &mut ag_child).await;
-        kill_process_group(gw_pgid, &mut gw_child).await;
+        let agent_cleanup = kill_process_group(ag_pgid, &mut ag_child).await;
+        let gateway_cleanup = kill_process_group(gw_pgid, &mut gw_child).await;
+        agent_cleanup?;
+        gateway_cleanup?;
         return Err(error);
     }
 
@@ -462,7 +447,7 @@ async fn run_serve(
                 _ = sigterm.recv() => break,
                 _ = sigint.recv() => break,
                 () = tokio::time::sleep(Duration::from_secs(1)) => {
-                    if gw_child.try_wait()?.is_some() || ag_child.try_wait()?.is_some() {
+                    if processes::peek_exit(&mut gw_child)?.is_some() || processes::peek_exit(&mut ag_child)?.is_some() {
                         bail!("Owned gateway or agent exited; inspect component logs");
                     }
                 }
@@ -472,8 +457,10 @@ async fn run_serve(
         Ok(())
     }
     .await;
-    kill_process_group(ag_pgid, &mut ag_child).await;
-    kill_process_group(gw_pgid, &mut gw_child).await;
+    let agent_cleanup = kill_process_group(ag_pgid, &mut ag_child).await;
+    let gateway_cleanup = kill_process_group(gw_pgid, &mut gw_child).await;
+    agent_cleanup?;
+    gateway_cleanup?;
     let _ = write_atomic_json(
         &gw_dir.join("gateway.json"),
         &json!({
@@ -502,6 +489,7 @@ async fn run_collect(
     game_timeout_seconds: u64,
     launch_interval_ms: u64,
 ) -> anyhow::Result<()> {
+    table::gateway_endpoint(&gateway)?;
     let admin_cleanup = Arc::new(admin_cleanup::AdminCleanup::from_env(&admin_url)?);
     admin_cleanup.preflight().await?;
     let _controller_lock = controller_lock(&root)?;

@@ -587,3 +587,28 @@ the corrected fixture passed. Both attempts stopped their private gateway.
 The collector remains drained during the Flash quota hold; the next probe
 remains bounded to one game. Training and the user gateway kept their original
 process identities. The user gateway's running binary was not replaced.
+
+## 29 October 2026: native source integration and cleanup review
+
+The collector source and pinned Terra provider/model evidence were integrated
+in the isolated checkout. Cleanup now observes child exit without reaping the
+group leader, preserving ownership until every live group member has stopped.
+Signaling refuses a reaped child. A subprocess regression covers a leader that
+exits before its remaining descendant, and verifies the descendant is dead
+before cleanup succeeds.
+
+Authenticated gateway requests disable proxies and redirects. Collection
+requires a literal loopback HTTP endpoint. An explicitly supplied
+`BAYLEE_COLLECTOR_ADMIN_TOKEN` can bind standalone serve and collect commands
+through their environments. Serve preserves its generated memory-only token
+fallback for the existing supervised identity-checked child-environment bridge.
+Neither path adds a secret to arguments, receipts or logs.
+
+The combined `llm-collector,onnx` collector target passed 47 offline tests.
+One live private-gateway test stayed ignored; a second ignored fixture is
+invoked explicitly by the passing owned-descendant subprocess test. Eight LLM
+converter provenance tests passed, including requested Terra identity spoofing,
+record/evidence/action tampering and frozen storage aliases. Targeted Clippy
+for the collector, converter, legacy arena and tests passed with warnings
+denied. These source checks started no gateway, collector, model call or
+training service, and establish no playing-strength result or full gate pass.
