@@ -208,8 +208,8 @@ impl Tally {
 /// state would be asking a different question.
 ///
 /// A panic inside the rules is named here rather than taking the whole sweep
-/// down, for `probe_chunk`'s reason: a run should say *every* card it found,
-/// not stop at the first.
+/// down, for the reason of `probe_card` in the gamehost harness: a run should
+/// say *every* card it found, not stop at the first.
 fn refusals(def: &'static baylee_cards_dsl::CardDef) -> (Vec<String>, Tally) {
     let seat = PlayerId::new(0);
     let mut tally = Tally::default();
