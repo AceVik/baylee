@@ -1,9 +1,14 @@
 //! Native statistics for retained value-v2 and policy-v3 tensor baselines.
+mod benchmark;
+mod benchmark_resources;
+#[cfg(test)]
+mod benchmark_tests;
 mod policy;
 mod shift;
 #[cfg(test)]
 mod tests;
 mod training;
+mod validation;
 mod value;
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
@@ -77,6 +82,11 @@ fn metrics(p: &[f64], y: &[f64]) -> Result<Value> {
 /// Refuses invalid vectors, unknown request kinds or inconsistent sample identities.
 pub fn run(input: &Value) -> Result<Value> {
     match input["kind"].as_str().context("legacy metric kind")? {
+        "benchmark-resources" => benchmark_resources::run(input),
+        "benchmark-statistics" => benchmark::statistics(input),
+        "benchmark-plan" => benchmark::plan(input),
+        "reference-calibration" => validation::calibration(input),
+        "reference-validation" => validation::summary(input),
         "metrics" => metrics(&floats(&input["prediction"])?, &floats(&input["truth"])?),
         "policy-report" => policy::publish(input),
         "v3-value-slices" => policy::value_slices(input),
