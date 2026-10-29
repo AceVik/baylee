@@ -15,6 +15,10 @@ use crate::features4::{
 };
 use crate::features7::{encode_candidates7_grouped, encode_state7};
 
+/// Converter idle-pass weighting contract. Missing dataset metadata means legacy revision 1.
+/// Revision 2 keeps in-progress casting/payment passes at their normal BC weight.
+pub const IDLE_PASS_WEIGHTING_REVISION: u32 = 2;
+
 /// Auxiliary self-supervised training targets attached to each [`Step4`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct AuxTargets4 {
@@ -61,7 +65,8 @@ pub struct Step4 {
     /// Whether this frame is an active decision (`true`) or a passive
     /// observation update (`false`).
     pub is_decision: bool,
-    /// Per-step policy loss weight (`1.0` normal, `0.2` downweighted pass, `0.0` passive/forced, `P0-4`).
+    /// Per-step policy loss weight (`1.0` normal, mode-specific ordinary idle-pass
+    /// discounts, `0.0` passive or ineligible supervision, `P0-4`).
     #[serde(default = "default_loss_weight")]
     pub loss_weight: f32,
     /// Whether this is the terminal step of `(game_id, seat)` (`P0-5`).

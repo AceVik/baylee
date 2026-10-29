@@ -330,6 +330,7 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     let mut meta = json!({
+        "idle_pass_weighting_revision": baylee_train::convert4::IDLE_PASS_WEIGHTING_REVISION,
         "encoder_version": args.encoder_version,
         "ppo_eligible": policy_sources.iter().all(|r| r["collection_contract"]["purpose"] == "on_policy_training"),
         "policy_provenance_version": if policy_provenance::certified_dataset(&policy_sources) && policy_sources.iter().all(|r| r["model_identity"]["encoder_version"].as_u64() == Some(u64::from(args.encoder_version))) { json!(2) } else { Value::Null },

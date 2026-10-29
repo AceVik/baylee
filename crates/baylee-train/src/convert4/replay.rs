@@ -199,15 +199,7 @@ pub(super) fn replay_frames_modes(
                             Some(MindKind::Human | MindKind::LlmApi | MindKind::LlmCli)
                         )
                     {
-                        if super::idle_pass::is_idle_pass(&pending, &action) {
-                            if session.state().turn.active != seat && view.stack.is_empty() {
-                                0.0_f32
-                            } else {
-                                0.15_f32
-                            }
-                        } else {
-                            1.0_f32
-                        }
+                        super::idle_pass::live_weight(&pending, &view, &action)
                     } else {
                         0.0_f32
                     }
@@ -358,11 +350,7 @@ pub(super) fn replay_frames_modes(
                     let mut shadow_label = None;
                     if llm.is_some() {
                         policy_weight = if llm_label.is_some() {
-                            if super::idle_pass::is_idle_pass(&pending, &action) {
-                                0.25_f32
-                            } else {
-                                1.0_f32
-                            }
+                            super::idle_pass::llm_weight(&pending, &view, &action)
                         } else {
                             0.0_f32
                         };
