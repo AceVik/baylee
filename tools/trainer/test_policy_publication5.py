@@ -76,6 +76,7 @@ class PolicyPublication5(unittest.TestCase):
             torch.save(saved, source)
             source_hash = file_digest(source)
             args = ['train_policy4.py', '--model', str(source), '--rollout-data', str(root / 'rollout'),
+                    '--admission', str(root / 'synthetic-admission.json'),
                     '--out', str(output), '--epochs', '1', '--max-steps', '1',
                     '--lr', '.01' if mode == 'rejected' else '.001',
                     '--target-kl', '1e-12' if mode == 'rejected' else '.5', '--device', 'cpu']
@@ -84,8 +85,13 @@ class PolicyPublication5(unittest.TestCase):
                 # Keep one thread even though the real CLI requests four.
                 stack.enter_context(patch.object(driver.torch, 'set_num_threads'))
                 stack.enter_context(patch.object(driver.D, 'TrajectoryDataset4', return_value=dataset))
+                stack.enter_context(patch('recurrent_ppo4.checkpoint.native_verify_admission'))
+                stack.enter_context(patch.object(driver, 'select_learner_histories',
+                                               return_value={'decisions': count, 'learner_histories': 1}))
                 audit = stack.enter_context(patch('policy_training4.targets.prepare_policy_targets',
-                                                 return_value={'max_logprob_error': 0.0}))
+                                                 return_value={'max_logprob_error': 0.0,
+                                                               'decisions_checked': count,
+                                                               'learner_trajectories': 1}))
                 stack.enter_context(patch.object(driver, 'batch_rows', return_value=None))
                 stack.enter_context(patch.object(driver, 'actor_outputs', side_effect=actor_outputs))
                 stack.enter_context(patch.object(driver, 'accept_final_state', side_effect=final_gate))

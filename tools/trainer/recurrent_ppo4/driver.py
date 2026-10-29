@@ -115,42 +115,11 @@ def main() -> None:
         resources.callback(dataset.store.close)
         if dataset.structure.digest!=net.rules.digest:
             raise ValueError('Rollout and policy rule catalogs differ')
-        admission=json.loads(Path(args.admission).read_text())
-        expected_collection=dict(mode='raw',actor_role='learner',precision='float32',thinking_steps=2,temperature=.7)
-        if (admission.get('version')!=1 or admission.get('admitted') is not True
-                or admission.get('source_checkpoint_sha256')!=source_hash
-                or admission.get('dataset_fingerprint')!=dataset.fingerprint
-                or admission.get('collection_contract')!=expected_collection):
-            raise ValueError('Missing or mismatched Rust-certified full PPO data admission')
-        admitted=admission.get('admitted_learner_histories')
-        if not isinstance(admitted,list) or not admitted:
-            raise ValueError('Admission lacks explicit learner history roles')
-        allowed=set()
-        for key in admitted:
-            if (not isinstance(key,dict) or set(key)!= {'game_id','seat'}
-                    or type(key['game_id']) is not int or key['game_id']<0
-                    or type(key['seat']) is not int or not 0<=key['seat']<8):
-                raise ValueError('Malformed admitted learner history key')
-            allowed.add((key['game_id'],key['seat']))
-        if len(allowed)!=len(admitted) or admission.get('learner_histories')!=len(allowed):
-            raise ValueError('Admission learner history counts disagree')
-        selected=[]
-        found=set()
-        for trajectory in dataset.trajectories:
-            first=dataset.store.index[int(dataset.segments[trajectory[0]][0])]
-            key=(int(first['game']),int(first['seat']))
-            if key in allowed:
-                selected.append(trajectory);found.add(key)
-        if found!=allowed or len(selected)!=len(allowed):
-            raise ValueError('Admitted learner history is absent or duplicated')
-        if admission.get('completed_games')!=len({game for game,seat in found}):
-            raise ValueError('Admission completed-game count differs')
-        dataset.trajectories=selected
+        from policy_training4.admission import select_learner_histories, check_audit
+        admission=select_learner_histories(dataset,args.admission,source_hash)
         audit=prepare_policy_targets(net,dataset,device,batch_size=args.batch_size,board_chunk=0)
         resources.callback(dataset._policy_targets_directory.cleanup)
-        if (audit['decisions_checked']!=admission.get('decisions')
-                or audit['learner_trajectories']!=len(allowed)):
-            raise ValueError('Audited learner decisions/histories disagree with Rust admission')
+        check_audit(admission,audit)
         for trajectory in dataset.trajectories:
             for index in trajectory:
                 row=dataset[index]

@@ -50,10 +50,13 @@ def load_source(model):
     path = Path(model).expanduser()
     path = path / "net.pt" if path.is_dir() else path
     saved = torch.load(path, map_location="cpu", weights_only=False)
-    for name in ("encoder_version", "trajectory_version", "sampling_version"):
+    for name in ("trajectory_version", "sampling_version"):
         if saved.get(name) != getattr(M, name.upper()):
             raise ValueError(f"Incompatible source {name}")
     net = source_model(saved)
+    from encoder_contract import validate_encoder
+    validate_encoder(saved.get('encoder_version'), model_version=saved.get('model_version', 4),
+                     relational_revision=getattr(net.cfg, 'relational_revision', 1))
     net.attach_structure(saved["structure"])
     if saved.get("structure_sha256", net.rules.digest) != net.rules.digest:
         raise ValueError("Source declared rule catalog digest differs")
