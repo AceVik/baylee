@@ -1,5 +1,6 @@
 //! Native training administration. Rules and neural tensor math live elsewhere.
 pub mod files;
+pub mod corpus;
 pub mod trajectory;
 pub mod evaluation;
 #[cfg(target_os = "linux")]

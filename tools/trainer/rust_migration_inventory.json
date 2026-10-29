@@ -3,6 +3,9 @@
   "snapshot": "Initial tools/trainer Python responsibility inventory before native replacements, 2026-10-29",
   "policy": "Only PyTorch responsibilities remain Python. Import classification is an inventory, not a retention approval.",
   "retired_operational_entries": {
+    "tools/trainer/import_mtgo4.py": "baylee-train-ops import_mtgo4",
+    "tools/trainer/audit_representation4.py": "baylee-train-ops audit_representation4",
+    "tools/trainer/prepare_llm_bc4.py": "baylee-train-ops prepare_llm_bc4",
     "tools/trainer/paired_eval4.py": "baylee-train-ops paired_eval4",
     "tools/trainer/summarize_eval4.py": "baylee-train-ops summarize_eval4",
     "tools/trainer/report_experiment4.py": "baylee-train-ops report_experiment4",

@@ -18,6 +18,9 @@ serde_json.workspace = true
 sha2.workspace = true
 uuid.workspace = true
 flate2.workspace = true
+tar.workspace = true
+time.workspace = true
+icu_casemap.workspace = true
 ctrlc = { workspace = true, features = ["termination"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -57,3 +60,15 @@ path = "src/bin/live_play_maintenance4.rs"
 [[bin]]
 name = "trajectory_cache4"
 path = "src/bin/trajectory_cache4.rs"
+
+[[bin]]
+name = "prepare_llm_bc4"
+path = "src/bin/prepare_llm_bc4.rs"
+
+[[bin]]
+name = "audit_representation4"
+path = "src/bin/audit_representation4.rs"
+
+[[bin]]
+name = "import_mtgo4"
+path = "src/bin/import_mtgo4.rs"

@@ -46,10 +46,6 @@ def pack_step_bst4(step, roots):
     """Native binary fixture bridge for Torch encoder equivalence tests."""
     return _native(["pack"], json.dumps({"step": step, "roots": roots}).encode())
 
-def build_part(path, data_path, index_path):
-    """Native bridge retained until package recovery's own Rust migration lands."""
-    return json.loads(_native(["build-part", "--shard", path, "--data", data_path, "--index", index_path]))["records"]
-
 class TrajectoryStore4(torch.utils.data.Dataset):
     """Read-only frame store for PyTorch DataLoader worker processes."""
     def __init__(self, data_dir: Path, split: str, shards: list[str]):
