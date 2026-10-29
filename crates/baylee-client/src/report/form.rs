@@ -46,6 +46,8 @@ use crate::shellkit::{Frame, InputClass, Platform, Role, ShellMetrics, TextSize,
 
 mod footer;
 use footer::form_foot;
+#[cfg(test)]
+pub(crate) use footer::send_keys;
 pub(super) use footer::{lock_while_sending, sync_footer, sync_touch_reason};
 
 /// The sheet's focus order (`KEYBOARD.md` §7.11, "Report sheet"): the kind,
@@ -91,7 +93,7 @@ pub(crate) struct DeskScroll;
 
 /// The report's own sticky footer, never another sheet's.
 #[derive(Component)]
-pub(super) struct DeskFoot;
+pub(crate) struct DeskFoot;
 
 /// The retained Send button and the disabled reason it currently shows.
 #[derive(Component)]
@@ -434,13 +436,20 @@ pub(super) fn draw(
             &route,
             kit,
             lang,
-            retained.as_ref(),
+            retained.is_some(),
         ))
     } else {
         None
     };
     if let Some(surface) = surface {
         scrim(&mut commands, kit, surface);
+        // Only now that the sheet stands under its scrim: attached before,
+        // the footer lost the camera it is drawn by for the frame, so the
+        // buttons under the text blinked out at every keystroke (feedback
+        // of 28.10.2026; `Kept::attach`).
+        if let Some(kept) = &retained {
+            kept.attach(&mut commands, surface);
+        }
     }
 }
 
@@ -712,7 +721,7 @@ fn form(
     route: &Route,
     kit: Kit,
     lang: Lang,
-    retained: Option<&crate::shellkit::retain::Kept>,
+    retained: bool,
 ) -> Entity {
     let mut body = Vec::new();
     let selected = Kind::OFFERED
@@ -773,16 +782,13 @@ fn form(
     if desk.form.preview {
         body.push(preview_pane(commands, desk, settings, route, kit, lang));
     }
-    let footer = if retained.is_none() {
-        form_foot(commands, desk, route, kit, lang)
-    } else {
+    let footer = if retained {
         Vec::default()
+    } else {
+        form_foot(commands, desk, route, kit, lang)
     };
     let footer = SheetFooter::compact(&footer);
-    let footer = match retained {
-        Some(kept) => footer.retained(kept),
-        None => footer,
-    };
+    let footer = if retained { footer.retained() } else { footer };
     surfaces::sheet_box_with_footer(
         commands,
         kit,

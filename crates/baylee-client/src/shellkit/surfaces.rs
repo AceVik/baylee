@@ -109,7 +109,7 @@ pub enum SheetWidth {
 /// The footer of a sheet drawn by [`sheet_box_with_footer`].
 pub struct SheetFooter<'a> {
     entities: &'a [Entity],
-    retained: Option<&'a super::retain::Kept>,
+    retained: bool,
     compact: bool,
 }
 
@@ -119,7 +119,7 @@ impl<'a> SheetFooter<'a> {
     pub fn regular(entities: &'a [Entity]) -> Self {
         Self {
             entities,
-            retained: None,
+            retained: false,
             compact: false,
         }
     }
@@ -133,10 +133,13 @@ impl<'a> SheetFooter<'a> {
         }
     }
 
-    /// Moves an existing footer into the new sheet instead of rebuilding it.
+    /// No footer: the caller keeps the one it had and attaches it with
+    /// [`super::retain::Kept::attach`] once the box stands under its scrim.
+    /// Attached here, before the box has its parent, the footer went
+    /// undrawn on every rebuild's frame (`Kept::attach` says why).
     #[must_use]
-    pub fn retained(mut self, kept: &'a super::retain::Kept) -> Self {
-        self.retained = Some(kept);
+    pub fn retained(mut self) -> Self {
+        self.retained = true;
         self
     }
 }
@@ -247,8 +250,7 @@ pub fn sheet_box_with_footer(
         .id();
     commands.entity(scroller).add_children(body);
     commands.entity(surface).add_children(&[head, scroller]);
-    if let Some(kept) = footer.retained {
-        kept.attach(commands, surface);
+    if footer.retained {
         return surface;
     }
     let (padding, gap) = if footer.compact {
