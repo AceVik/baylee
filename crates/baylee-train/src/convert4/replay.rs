@@ -199,13 +199,7 @@ pub(super) fn replay_frames_modes(
                             Some(MindKind::Human | MindKind::LlmApi | MindKind::LlmCli)
                         )
                     {
-                        if matches!(action, PlayerAction::PassPriority)
-                            && let Pending::Priority { legal, .. } = &pending
-                            && legal.lands.is_empty()
-                            && legal.castable.is_empty()
-                            && legal.suspendable.is_empty()
-                            && legal.payable.is_empty()
-                        {
+                        if super::idle_pass::is_idle_pass(&pending, &action) {
                             if session.state().turn.active != seat && view.stack.is_empty() {
                                 0.0_f32
                             } else {
@@ -364,13 +358,7 @@ pub(super) fn replay_frames_modes(
                     let mut shadow_label = None;
                     if llm.is_some() {
                         policy_weight = if llm_label.is_some() {
-                            if matches!(action, PlayerAction::PassPriority)
-                                && let Pending::Priority { legal, .. } = &pending
-                                && legal.lands.is_empty()
-                                && legal.castable.is_empty()
-                                && legal.suspendable.is_empty()
-                                && legal.payable.is_empty()
-                            {
+                            if super::idle_pass::is_idle_pass(&pending, &action) {
                                 0.25_f32
                             } else {
                                 1.0_f32
