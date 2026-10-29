@@ -4,6 +4,7 @@ import math
 import torch
 from checkpoint4 import rng_state, restore_rng
 from .forward import segment_outputs
+from .collection import stream_collection_probabilities
 
 
 def behavior_divergence(current, behavior):
@@ -16,13 +17,12 @@ def behavior_divergence(current, behavior):
 
 @torch.no_grad()
 def collection_divergence(net, dataset, prefixes, device, batch_size):
-    segments = [index for trajectory in dataset.trajectories for index in trajectory]
     total, count = 0.0, 0
     try:
-        for start in range(0, len(segments), batch_size):
-            output = segment_outputs(net, dataset, segments[start:start+batch_size], prefixes, device, gradients=False)
-            total += float(behavior_divergence(output["logprob"], output["behavior"]))
-            count += output["logprob"].numel()
+        for current, behavior in stream_collection_probabilities(
+                net, dataset, prefixes, device, batch_size):
+            total += float(behavior_divergence(current, behavior))
+            count += current.numel()
         if not count:
             raise ValueError("No admitted policy decisions")
         return total / count

@@ -146,6 +146,7 @@ def main() -> None:
                 raise ValueError('Supervised anchor rule catalog differs')
             anchor_prefixes=episode_prefixes(anchor_dataset)
         contract=dict(version=FULL_PPO_CONTRACT_VERSION,behavior_probability_reference=BEHAVIOR_PROBABILITY_REFERENCE,
+                      collection_audit='current_policy_streaming_v1',
                       source_checkpoint_sha256=source_hash,dataset_fingerprint=dataset.fingerprint,
                       admission=admission,encoder_version=source['encoder_version'],
                       target='complete terminal side outcome; gamma=lambda=1',precision='float32',
