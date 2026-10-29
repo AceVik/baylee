@@ -80,14 +80,8 @@ pub fn group_pss_bytes(group: u32) -> Result<u64> {
     let mut total = 0_u64;
     for pid in group_members(group)? {
         let path = format!("/proc/{pid}/smaps_rollup");
-        let text = match fs::read_to_string(path) {
-            Ok(text) => text,
-            Err(error)
-                if error.kind() == std::io::ErrorKind::NotFound || identity(pid).is_none() =>
-            {
-                continue;
-            }
-            Err(error) => return Err(error.into()),
+        let Some(text) = accounting_text(pid, fs::read_to_string(path))? else {
+            continue;
         };
         if let Some(value) = text.lines().find_map(|line| line.strip_prefix("Pss:")) {
             total += value
@@ -99,4 +93,73 @@ pub fn group_pss_bytes(group: u32) -> Result<u64> {
         }
     }
     Ok(total)
+}
+
+fn accounting_text(pid: u32, read: std::io::Result<String>) -> Result<Option<String>> {
+    match read {
+        Ok(text) => Ok(Some(text)),
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => Err(error.into()),
+        // Procfs can lose the task's mm before stat stops reporting it live.
+        // In that interval smaps_rollup returns ESRCH, not ENOENT. It has no
+        // address space left to account for; permission failures remain errors.
+        Err(error)
+            if error.kind() == std::io::ErrorKind::NotFound
+                || error.raw_os_error() == Some(rustix::io::Errno::SRCH.raw_os_error())
+                || identity(pid).is_none() =>
+        {
+            Ok(None)
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        io::Read,
+        process::{Child, Command},
+    };
+
+    struct NativeChild(Child);
+    impl Drop for NativeChild {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+
+    #[test]
+    fn exited_native_task_smaps_esrch_is_not_a_memory_accounting_failure() {
+        let mut child = NativeChild(Command::new("/usr/bin/sleep").arg("10").spawn().unwrap());
+        let mut smaps = fs::File::open(format!("/proc/{}/smaps_rollup", child.0.id())).unwrap();
+        child.0.kill().unwrap();
+        child.0.wait().unwrap();
+        let mut text = String::new();
+        let error = smaps.read_to_string(&mut text).unwrap_err();
+        assert_eq!(
+            error.raw_os_error(),
+            Some(rustix::io::Errno::SRCH.raw_os_error())
+        );
+        // Keep identity live to reproduce mm disappearing before the next stat
+        // read notices exit, rather than passing via the old dead-PID fallback.
+        assert!(identity(std::process::id()).is_some());
+        assert!(
+            accounting_text(std::process::id(), Err(error))
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn live_process_permission_failure_is_retained() {
+        for pid in [std::process::id(), u32::MAX] {
+            let error = std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+            let result = accounting_text(pid, Err(error)).unwrap_err();
+            assert_eq!(
+                result.downcast_ref::<std::io::Error>().unwrap().kind(),
+                std::io::ErrorKind::PermissionDenied
+            );
+        }
+    }
 }
