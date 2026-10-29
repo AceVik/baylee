@@ -360,7 +360,8 @@ impl<L: CardLookup> Engine<L> {
     /// Removes an optional trigger whose empty target answer makes the whole
     /// ability a no-op. The answer is proved, not inferred from effect names:
     /// the same resolution runs on a clone, and only a completed resolution
-    /// with an unchanged state hash permits the real stack object to go.
+    /// with an unchanged state hash and no journal entry permits the real
+    /// stack object to go.
     /// A follow-up choice or any untargeted effect keeps the ability.
     #[allow(clippy::too_many_lines)] // the probe mirrors the ordinary resolution context
     pub(crate) fn discard_empty_trigger_without_effect(&mut self, top: ObjectId) -> bool {
@@ -456,6 +457,12 @@ impl<L: CardLookup> Engine<L> {
         let mut probe = self.state.clone();
         let flow = resolve::run(&mut probe, &mut res);
         if !matches!(flow, resolve::Flow::Complete) {
+            return false;
+        }
+        // The snapshot hash leaves the journal out, and some effects are
+        // nothing but an entry there: a revealed hand changes no field.
+        // Any entry the probe wrote is an effect.
+        if probe.journal.len() != self.state.journal.len() {
             return false;
         }
         // Allocation of the next damage-batch id is resolver bookkeeping,

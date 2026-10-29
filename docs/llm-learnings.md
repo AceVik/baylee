@@ -5843,3 +5843,8 @@ fixtures must settle characteristics before measuring a no-new-events boundary.
   before shuffling. Controlled tests may override it. Missing fields in old
   presets retain historical seat 0, while new randomized presets serialize
   `starting_player: null` for identical replays.
+- Review (29 October 2026): the probe compared only `GameState::snapshot_hash`,
+  which leaves the journal out on purpose. `Effect::RevealHand` writes nothing
+  but a journal entry, so a declined target would have discarded a public
+  reveal with it. A "no effect" proof has to cover every channel an effect can
+  write to; the probe now also requires an unchanged journal length.

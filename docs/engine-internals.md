@@ -654,13 +654,15 @@ SBAs run as a fixpoint before every priority grant (plus format SBAs).
 
 With `HouseRules.auto_discard_empty_optional_triggers`, an optional trigger
 whose target answer is empty is resolved first on a cloned state. Only a
-complete resolution with no follow-up question and no state change beyond the
-resolver's damage-batch bookkeeping removes the real stack object, journals
-`StackObjectDidNotResolve`, and runs cleanup. Any actual effect, another
-target or division, or an unfinished question keeps the ordinary path. The
-setting is part of the continuation hash. New games enable it; records without
-the field read it as `false`, so their historical empty-target answers still
-have a question to answer.
+complete resolution with no follow-up question, no journal entry and no state
+change beyond the resolver's damage-batch bookkeeping removes the real stack
+object, journals `StackObjectDidNotResolve`, and runs cleanup. The journal
+counts because the snapshot hash omits it and an effect such as a revealed
+hand writes nothing else. Any actual effect, another target or division, or
+an unfinished question keeps the ordinary path. The setting is part of the
+continuation hash. New games enable it; records without the field read it as
+`false`, so their historical empty-target answers still have a question to
+answer.
 
 ### Attachments (CR 704.5m, 704.5n, 704.5p)
 
