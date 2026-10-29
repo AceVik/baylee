@@ -8,7 +8,6 @@ Export the resulting checkpoint and rerun regressions before using it in games.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 
@@ -16,6 +15,7 @@ import torch
 
 import model4 as M
 from checkpoint4 import atomic_save
+from torch_io4 import atomic_json, file_digest
 from export_onnx4 import load_export_checkpoint
 from model4.structure import RuleEncoder
 
@@ -59,11 +59,6 @@ def refresh_encoder(old: RuleEncoder, data, *, allow_new_operators: bool = False
                 parameter.copy_(source[name])
     new.train(old.training)
     return new
-
-
-def file_digest(path):
-    with Path(path).open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
 def refresh_checkpoint(model, catalog, out, *, allow_new_operators=False):
@@ -129,7 +124,7 @@ def refresh_checkpoint(model, catalog, out, *, allow_new_operators=False):
             raise ValueError("Refresh source changed: " + path)
     out.mkdir(parents=True, exist_ok=False)
     atomic_save(payload, out / "net.pt")
-    (out / "meta.json").write_text(json.dumps(metadata, indent=2))
+    atomic_json(out / "meta.json", metadata)
     return lineage
 
 

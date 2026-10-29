@@ -5,11 +5,11 @@ zero, preserving the initial legacy policy, and learns with the pretrained
 structure encoder on newly replayed observations. Optimizer/RNG/H are fresh.
 """
 import argparse
-import hashlib
 from pathlib import Path
 import torch
 import model4 as M
 from checkpoint4 import atomic_save
+from torch_io4 import file_digest
 
 
 def main():
@@ -34,8 +34,8 @@ def main():
                "encoder_version": M.ENCODER_VERSION, "model_version": M.MODEL_VERSION,
                "trajectory_version": M.TRAJECTORY_VERSION, "sampling_version": M.SAMPLING_VERSION,
                "provenance": {"policy": str(args.policy), "structure": str(args.structure),
-                              "policy_sha256": hashlib.sha256(args.policy.read_bytes()).hexdigest(),
-                              "structure_sha256": hashlib.sha256(args.structure.read_bytes()).hexdigest(),
+                              "policy_sha256": file_digest(args.policy),
+                              "structure_sha256": file_digest(args.structure),
                               "optimizer_and_memory": "fresh", "adapter": "zero initialized"}}
     atomic_save(payload, args.out / "net.pt")
     print(f"Migrated {sum(p.numel() for p in net.parameters()):,} parameters; fresh optimizer and trajectories required")
