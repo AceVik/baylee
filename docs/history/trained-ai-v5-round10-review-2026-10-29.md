@@ -123,6 +123,12 @@ were performed for this documentation update.
 
 ## Architecture and training consultation, 29 October
 
+**Later update:** Native Claude authentication was restored. Both Opus 5.5 and
+Fable 5.1 have now completed an independent review and a correction round of
+the subsequent refactoring plan. See the
+[follow-up consultation](trained-ai-v5-opus-fable-review-2026-10-29.md).
+The account below describes the earlier consultation and its limitations.
+
 The owner requested Opus 5.5 and Fable 5.1, explicitly including architecture.
 Both native Claude requests failed before analysis because the OAuth session
 had expired. Opus was then reached through agy as `claude-opus-5-5-high` and

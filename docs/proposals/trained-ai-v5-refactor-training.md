@@ -152,6 +152,31 @@ kein Live-Latenzbenchmark. Daraus folgt keine K8-Trainingskapazität auf 12 GB.
 Artefakte: `gpu-depth-01a18644-c0e0-7578-a990-58ca8ea53bc5/`, insbesondere
 `plan.json`, `result.json`, `k1.json` bis `k8.json` und die Job-Manifeste.
 
+### 2.5 Gegenprüfung durch Opus und Fable
+
+Nach erneuerter Anmeldung haben `claude-opus-5-5` und `claude-fable-5-1` den
+aktuellen Stand unabhängig geprüft und danach gegenseitige Rückmeldungen sowie
+Codekorrekturen erhalten. Beide Runden sind abgeschlossen. Der
+[Konsultationsbericht](../history/trained-ai-v5-opus-fable-review-2026-10-29.md)
+trennt bestätigte Befunde von zurückgenommenen Schlussfolgerungen.
+
+Ein zusätzlich reproduzierter Fehler betraf die PPO-Wahrscheinlichkeitsrechnung:
+Python klemmte bei Subset-/Paaraktionen zunächst Sigmoid-Wahrscheinlichkeiten und
+nahm anschließend deren Logarithmus; Rust protokolliert stabile Log-Sigmoid-
+Ausdrücke. Eine CPU-Probe der ursprünglichen Python-Funktion liefert bei skalierten Logits
+bis ±40 Abweichungen bis 24,06 Logprob-Einheiten und in acht von 18 Fällen einen
+Nullgradienten trotz nichtverschwindender Referenzableitung. Schon bei +14 und
+Nichtauswahl liegt die Abweichung bei etwa 0,00353, oberhalb des bestehenden
+0,001-Auditlimits. Das ist kein belegter Auslöser der bisherigen Trainingsergebnisse.
+
+Die Korrektur ist umgesetzt: unveränderte Auslagerung in `policy_math4.py`
+(`7308f55df`), danach stabile Log-Sigmoid-Rechnung einschließlich komplementärem
+Ereignis, KL und Maskierung (`42633ebe6`). Sieben neue Regressionstests und
+38 weitere vorhandene Checks bestehen. Die 18 ursprünglichen Proben haben jetzt
+keine Abweichung zur stabilen Referenz und keine irrtümlichen Nullgradienten.
+Auditgrenzen, Samplingversionen und Provenienz bleiben unverändert. Die echte
+Rust-/ONNX-/PPO-Datenkette vor E3 bleibt gesondert zu prüfen.
+
 ## 3. Refactoring in prüfbaren Schritten
 
 ### R0 — Verträge, Veröffentlichung und Modulgrenzen
@@ -182,6 +207,14 @@ eine quadratische Kandidaten-Self-Attention ist dafür nicht nötig.
 
 Status: Die verhaltensneutrale Modultrennung ist committed und geprüft;
 die folgenden Änderungen und Abnahmekriterien stehen noch aus.
+
+Vor einem vollen E1 ist eine begrenzte G-only- oder Kopftraining-Probe auf einem
+kleinen, vorab festgelegten Satz vollständiger Partien sinnvoll. Bei G-only
+bleiben alle bisherigen Gewichte eingefroren. Die Probe prüft Optimierbarkeit
+und Verteilungsänderung; ihr Scheitern beweist weder Unbrauchbarkeit des Gates
+noch Aussichtslosigkeit eines gemeinsamen Trunk-/Kopftrainings. Erfolgreiches
+Fitten beweist keine Spielstärke. Kontroll- und Reparaturarm erhalten identische
+Lanezuordnung und Samplerseeds; ihre reine Zahlenidentität wird protokolliert.
 
 - Eigene `candidate_context_revision`; vorhandene Modelle bleiben Revision 1.
   Erste neue Kombination: v5/Relationsrevision 2/Kandidatenrevision 2 mit
@@ -218,6 +251,13 @@ Wiederaufnahme. Pro K separate vollständige Validierungshistorien durchführen.
 Checkpoint-Auswahl bleibt zunächst vorab festgelegt bei K2; die anderen K sind
 benannte Diagnosen. Tatsächliche Entscheidungen und Loss-Gewichte je K zählen.
 
+Vor E2 Schrittänderungen im latenten Zustand **und** in Logits/Entscheidungen
+messen. Kleine latente Änderungen allein belegen keinen fehlenden Spieleffekt.
+Dass alle Endpunkte dasselbe Lehrerziel erhalten, schließt erlernte iterative
+Verbesserung nicht aus; schrittspezifische Ziele sind keine vorab notwendige
+Erweiterung. Die ungeübten höheren Schritt-Embeddings des K2-Modells sind kein
+fairer Ersatz für einen trainierten Multi-K-Kandidaten.
+
 Abnahme: ununterbrochener Lauf versus Save/Resume des nächsten Updates inklusive
 H/Optimizer/RNG; widersprüchliche Verträge werden abgewiesen; Änderungen an
 zukünftigen Frames beeinflussen keine früheren Ausgaben; CUDA-/Exportparität.
@@ -243,12 +283,37 @@ für ausschließlich neuronale Entscheidungen gelten; der interne Schutz greift
 früher als der äußere Stallzähler. Die genaue Ursache jeder einzelnen Auslösung
 ist bislang nicht protokolliert. Belege und Grenzen stehen im Referenzbericht.
 
+Diese Diagnose vor größeren Lernversuchen beginnen: Abbrüche über alle 256
+Referenzfälle zählen, statt nur die sechs Guard-Fälle zu betrachten; betroffene
+Cast-/X-/Ziel-/Zahlungsfolgen deterministisch nachspielen. Engine-Konformität,
+angebotene Möglichkeiten und deren sichtbare Kodierung getrennt vergleichen.
+Eine angebotene X-Grenze ist laut Encoder8-Vertrag keine Zusicherung, dass jeder
+Wert mit den vorhandenen Ressourcen bezahlt werden kann.
+
+Widersprüchliche Lehrerlabels bei gleicher aktueller Kodierung sind lediglich
+ein Suchsignal für fehlende Information. Historie beziehungsweise H, Lehrerquelle,
+Stochastik und nachweislich gleichwertige Aktionen mitberücksichtigen. Erst eine
+nachweislich notwendige, im Beobachtungs-/Historienvertrag fehlende Unterscheidung
+oder ein kontrolliertes Gegenbeispiel belegt einen Repräsentationsfehler.
+Gleiche aggregierte Trefferraten sind ebenfalls kein Beleg für unveränderte Züge:
+zustandsweise richtig→falsch, falsch→richtig und falsch→anders falsch ausweisen.
+Same-View-Abweichungen zur Haus-KI dienen der Diagnose, nicht als Wahrheitslabel.
+
 ### R4 — v5 aus eigenen Spielergebnissen lernen lassen
 
 Zuerst den vorhandenen **Head-PPO-Pfad** vollständig nutzbar machen. Offline
 `eval4` kann unter seinem geprüften Raw-Sampler stochastische Daten liefern;
 für den ersten Pilot muss deshalb nicht das Nutzer-Gateway umgebaut werden.
 K, FP32-Sampling, Temperatur und vollständige Aktionsmasken werden festgeschrieben.
+
+**Collector-Voraussetzung:** `eval4` nimmt aktuell ein Modell und ein Hausprofil
+über `--against`. Das Modell spielt auf Fokal-/Teamsitzen, andere Sitze sind
+Haus-KIs. Es ist noch kein Collector für den weiter unten geplanten historischen
+Gegner-/Selbstspielmix. Dafür getrennte Policy-, Memory- und RNG-Zustände je Sitz
+sowie rollengebundene Modellhashes und Lerner-/Gegnerprovenienz implementieren.
+Aktionen einer anderen neuronalen Policy dürfen nicht allein wegen `source=Net`
+als Lerneraktionen in PPO gelangen. Ein erster kleiner Haus-KI-Smoke kann vorher
+die vorhandene Kette prüfen; er erfüllt nicht das gemischte E3-Experiment.
 
 Der gemeinsame Dateneingang verlangt echte ausgeführte Aktionen, zertifizierte
 Policy-Provenienz, Modellhash, Verhaltens-Logprob und vollständige chronologische
@@ -259,6 +324,15 @@ neuronalen Wahrscheinlichkeiten. Vollständiges Wahrscheinlichkeits-Replay gegen
 die eingefrorene Behavior-Policy wird nach der Sammlung vor dem ersten Update
 geprüft. Die aktualisierte Policy darf davon abweichen; ihre Abweichung wird
 pro Update und abschließend über die ganze Sammlung begrenzt.
+
+Subset-/Paarentscheidungen verwenden kanonisch geordnete, bedingte Bernoulli-
+Schritte. Sie müssen nicht gemeinsam unabhängig sein. Die freie Maske folgt
+den bereits ausgeführten Entscheidungen und Constraints; Gewichte dürfen deren
+Besuchsreihenfolge nicht ändern. Python-/Rust-Logprob-Parität einschließlich
+ausgewählter und nicht ausgewählter Extremwerte vor E3 prüfen. Die Numerik aus
+Abschnitt 2.5 ist korrigiert; Provenienz- und Samplingversionen alter Daten wurden
+nicht umgeschrieben. Der Raw-Modus und die erlaubte Actor-Rolle müssen explizit geprüft
+sein; taktische Haus-KI-Antworten besitzen keine neuronale Behavior-Likelihood.
 
 Der **Full-Model-Pfad** ist eine getrennte Aufgabe. Eingefrorene Board-Caches,
 `no_grad` und gespeichertes Verhaltens-H aus dem Head-Pilot können nicht einfach
@@ -403,6 +477,13 @@ Pass-/aktive Ziele, Subsets, Kampfpaarungen und Zahlen getrennt ausweisen.
 Manatappen ohne Nutzung, Reaktionsfenster/Counterspells, Mulligan und Remis
 bekommen feste Szenariotests. Eine bessere Lehrer-Trefferquote ist kein Ersatz
 für bessere Partien.
+
+Ein kleiner durchschnittlicher KL-Schätzer garantiert weder unveränderte
+Greedy-Aktionen noch kleine Auswirkungen auf Spielergebnisse. E3 bekommt daher
+Aktionsvergleich und begrenztes gepaartes Gameplay als Regressionsdiagnostik;
+sein Budget ist keine vorab behauptete Teststärke. Kein Anheben der KL-Grenze,
+um einen leichter messbaren Effekt zu erzwingen. Caps bleiben ungelöst und
+werden nicht nachträglich als echte Niederlagen oder Remis etikettiert.
 
 v4 gegen v5 braucht einen gemeinsamen, auditierten Ausgangspunkt, dieselben
 Daten und ein offengelegtes Update-/Rechenbudget. Eine Graph-Abschaltung an einem
