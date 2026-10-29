@@ -1,8 +1,11 @@
 //! One-shot operational observer; a user timer controls its cadence.
 use anyhow::Result;
+#[cfg(target_os = "linux")]
 use clap::Parser;
+#[cfg(target_os = "linux")]
 use std::path::PathBuf;
 
+#[cfg(target_os = "linux")]
 #[derive(Parser)]
 struct Args {
     #[arg(long)]
@@ -11,14 +14,14 @@ struct Args {
     #[arg(long)]
     check: bool,
 }
+#[cfg(target_os = "linux")]
 fn main() -> Result<()> {
     let args = Args::parse();
-    #[cfg(target_os = "linux")]
     println!("{}", baylee_train_ops::monitor::check(&args.root)?);
-    #[cfg(not(target_os = "linux"))]
-    {
-        let _ = args;
-        anyhow::bail!("operational monitoring requires Linux");
-    }
     Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn main() -> Result<()> {
+    anyhow::bail!("operational monitoring requires Linux")
 }

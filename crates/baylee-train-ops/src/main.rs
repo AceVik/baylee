@@ -1,10 +1,9 @@
 //! CLI boundary for native training operations.
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use std::{
-    path::PathBuf,
-    sync::{Arc, atomic::AtomicBool},
-};
+use std::path::PathBuf;
+#[cfg(target_os = "linux")]
+use std::sync::{Arc, atomic::AtomicBool};
 
 #[derive(Parser)]
 #[command(about = "Native bounded training operations")]

@@ -1,7 +1,7 @@
 //! Offline matched evaluation statistics and frozen-job verification.
-mod paired;
 pub mod calibration;
 pub mod diagnostics;
+mod paired;
 mod summary;
 use crate::files::hex;
 pub use crate::files::{atomic_json, read_json};
