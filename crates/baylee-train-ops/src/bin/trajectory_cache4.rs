@@ -21,6 +21,8 @@ struct Args {
 enum Task {
     /// Validate an encoder or recurrent training schedule contract.
     TrainingContract,
+    /// Bind immutable source receipts used by tensor diagnostics.
+    DiagnosticProvenance,
     /// Hash a JSON mixture contract using its existing canonical identity.
     Digest,
     /// Bind observed tensor histories to native source-record metadata.
@@ -67,6 +69,12 @@ enum Task {
 }
 fn main() -> Result<()> {
     match Args::parse().command {
+        Task::DiagnosticProvenance => {
+            println!(
+                "{}",
+                baylee_train_ops::corpus::diagnostic_provenance::read(&stdin_value()?)?
+            );
+        }
         Task::TrainingContract => {
             println!(
                 "{}",

@@ -102,7 +102,7 @@ fn python_json(value: &Value) -> Result<String> {
 pub fn digest(value: &Value) -> Result<String> {
     Ok(files::hex(&Sha256::digest(python_json(value)?.as_bytes())))
 }
-fn resolve(path: &Path) -> Result<PathBuf> {
+pub(super) fn resolve(path: &Path) -> Result<PathBuf> {
     if let Ok(path) = path.canonicalize() {
         return Ok(path);
     }

@@ -1,9 +1,8 @@
 """Opt-in diagnostic scalars and provenance; ordinary training datasets are unchanged."""
-import hashlib
 import json
-from pathlib import Path
 import numpy as np
 import orjson
+from torch_io4 import file_digest as file_hash
 from dataset4 import TrajectoryDataset4
 from trajectory_store4 import BST4_HDR, BST4_MAGIC
 
@@ -12,11 +11,6 @@ PENDING_NAMES = ('Priority','ChooseManaAbility','ChooseDamageSource','ChooseDama
     'LegendChoice','Mulligan','MulliganBottom','DiscardChoice','YesNo','ChooseCastMode','ChooseNumber',
     'ChooseColor','ChooseSubtype','ChooseCardName','ChoosePlayer','ChoosePile')
 PENDING_IDS = {name:index for index,name in enumerate(PENDING_NAMES)} | {'GameOver':27}
-
-
-def file_hash(path):
-    with Path(path).open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
 class DiagnosticDataset(TrajectoryDataset4):
@@ -67,82 +61,15 @@ class DiagnosticDataset(TrajectoryDataset4):
 
 
 class Provenance:
-    """Formats come from explicit metadata/verified source-job options, never directory names."""
+    """Thin tensor-diagnostics bridge to native immutable source admission."""
     def __init__(self, dataset):
-        self.inputs = {}
-        self.meta = dataset.meta
-        root = dataset.data_dir.resolve()
-        namespace = self.meta.get('source_namespace')
-        if namespace is None:
-            declared = Path(self.meta.get('source_dataset', root))
-            source = declared.resolve() if declared.is_absolute() else root
-            meta_path = source / 'meta.json'
-            namespace = dict(dataset=str(source), meta_sha256=self._hash(meta_path) if meta_path.exists()
-                             else self._hash(root / 'meta.json'))
-        self.namespace = namespace
-        self.namespace_id = hashlib.sha256(json.dumps(namespace, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-        self.formats, self.sources = {}, {}
-        entries = self.meta.get('package_sources')
-        if entries is None and (root / 'source_markers.json').exists():
-            self._hash(root / 'source_markers.json')
-            entries = json.loads((root / 'source_markers.json').read_text())
-        if entries is None:
-            entries = []
-            for path in sorted((root / 'ready').glob('*.json')):
-                self._hash(path)
-                entries.append(json.loads(path.read_text()))
-        seen = {}
-        run_formats = {}
-        for entry in entries:
-            if entry.get('split') != dataset.diagnostic_split:
-                continue
-            game = int(entry['game_id'])
-            identity = (entry.get('source_shard'), entry.get('source_offset'), entry.get('source_len'))
-            if game in seen and seen[game] != identity:
-                raise ValueError('Diagnostic game ID aliases different source games')
-            seen[game] = identity
-            if (entry.get('structure_sha256') != dataset.structure.digest
-                    or entry.get('replay_hashes_checked') is not True):
-                continue
-            if not entry.get('source_shard'):
-                continue
-            if not Path(entry['source_shard']).is_absolute():
-                continue  # Relative source paths have no trustworthy base here.
-            run = Path(entry['source_shard']).parent.parent
-            if str(run) not in run_formats:
-                run_formats[str(run)] = self._format(run)
-            self.formats[game] = run_formats[str(run)]
-            self.sources[game] = dict(source_shard=entry['source_shard'],
-                                     source_offset=entry.get('source_offset'), source_len=entry.get('source_len'))
-
-    def _hash(self, path):
-        value = file_hash(path)
-        self.inputs[str(Path(path).resolve())] = value
-        return value
-
-    def _format(self, run):
-        metadata = run / 'run.json'
-        if not metadata.exists():
-            return 'unknown'
-        self._hash(metadata)
-        value = json.loads(metadata.read_text())
-        shape = value.get('shape', value.get('format'))
-        seats, teams = value.get('seats'), value.get('teams')
-        # Teacher run.json omits shape; its completed job command records it.
-        job_path = run.parent.parent / 'jobs' / run.name / 'job.json'
-        if shape is None and job_path.exists():
-            self._hash(job_path)
-            job = json.loads(job_path.read_text())
-            command = job.get('command', [])
-            def option(name):
-                if command.count(name) != 1:
-                    return None
-                index = command.index(name) + 1
-                return command[index] if index < len(command) else None
-            if job.get('status') == 'complete' and option('--out') and Path(option('--out')).resolve() == run.resolve():
-                shape = option('--shape') or option('--shapes')
-                if option('--seats') is not None and int(option('--seats')) != seats:
-                    raise ValueError('Source format metadata disagrees with its completed job')
-        if not isinstance(shape, str) or ',' in shape or not isinstance(seats, int) or not isinstance(teams, list):
-            return 'unknown'
-        return f'{shape}/seats={seats}/teams=' + (','.join(map(str, teams)) if teams else 'ffa')
+        from trajectory_store4 import _native
+        result=json.loads(_native(['diagnostic-provenance'],json.dumps(dict(
+            root=str(dataset.data_dir),meta=dataset.meta,split=dataset.diagnostic_split,
+            structure_digest=dataset.structure.digest),allow_nan=False).encode()))
+        self.meta=dataset.meta
+        self.inputs=result['inputs']
+        self.namespace=result['namespace']
+        self.namespace_id=result['namespace_id']
+        self.formats={int(game):value for game,value in result['formats'].items()}
+        self.sources={int(game):value for game,value in result['sources'].items()}

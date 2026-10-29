@@ -4,6 +4,7 @@
   "policy": "Only PyTorch responsibilities remain Python. Import classification is an inventory, not a retention approval.",
   "audit_status": "The files array preserves the initial inventory, including retired paths. The replacement map and audited responsibilities below record follow-up decisions; unreviewed support modules are not approved for retention.",
   "audited_responsibilities": {
+    "tools/trainer/training4/diagnostics/data.py": "Retained DiagnosticDataset tensor metadata decoding/construction and thin Provenance adapter; source-marker scanning, file receipts, namespace identity and completed-job format binding delegated to native diagnostic-provenance.",
     "tools/trainer/training4/package_state.py": "Retained: torch.load, model/optimizer state restoration and tensor device migration at package boundaries.",
     "tools/trainer/benchmark_state4.py": "Retained: instantiate and restore the PyTorch recurrent trajectory batch sampler used with checkpoint memory.",
     "tools/trainer/encoder_contract.py": "Thin Torch model-configuration bridge only; encoder and warmstart admission delegated to native training-contract.",
