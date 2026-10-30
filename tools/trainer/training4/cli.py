@@ -26,7 +26,7 @@ def parse_args(default_architecture="v4"):
     ap.add_argument(
         "--thinking-curriculum",
         action="store_true",
-        help="Legacy frame cycle K=(1,2,4,8)[(optimizer_step+frame)%4]; not a progressive curriculum",
+        help="Legacy frame cycle K=(1,2,4,8)[(optimizer_step+frame)%%4]; not a progressive curriculum",
     )
     ap.add_argument("--epochs", type=int, default=3)
     ap.add_argument("--max-steps", type=int, default=0, help="Stop after N optimizer steps if > 0")
