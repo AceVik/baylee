@@ -824,12 +824,12 @@ the details.
 
 ### 9. Baylee Central sign-in (optional)
 
-To let players sign in with their Baylee Central account, and to appear in
-the public gateway list, register your gateway's address on baylee.app under
-**Your gateways**. Once an administrator of Central has approved it, make a
-**gateway token** there and paste it into the admin console under **Baylee
-Central**. The token is shown once, can be revoked on the website at any
-time, and expires within a year.
+To let players sign in with their Baylee Central account, register your
+gateway's address on baylee.app under **Your gateways**, make a **gateway
+token** there and paste it into the admin console under **Baylee Central**.
+Players can sign in at once. The public gateway list waits until an
+administrator of Central has approved your gateway. The token is shown once,
+can be revoked on the website at any time, and expires within a year.
 
 The gateway keeps the token in its database, because it shows it to Central
 with every request. **Every backup of that database holds the token.** If a

@@ -25,13 +25,14 @@ current dependency chain contains 0.5.5 through `elliptic-curve` 0.13.8,
 bigint 0.5, so changing the lockfile to 0.7.6 is not a compatible upgrade.
 
 The specific Central revision
-`59d833ba425f941c793e8de88292b57f95c20e45` contains the same `central-crypto`
+`0f8005d634c47f24b9e48b0db3e0a258bb8a9852` contains the same `central-crypto`
 source tree reviewed independently by two models on 24.10.2026. The 28.10.2026 pin added the memorial website and a
 fail-closed source/graph guard for Central's matching advisory exception;
-the 30.10.2026 pin adds gateway tokens, the account area and the
-administration (Central #48, #49) over password change, roles, reset,
-deletion and export (#42 to #47). `git diff 3ae5035 59d833b --
-crates/central-crypto` is empty: the entire crypto crate is unchanged. Argon High
+the 30.10.2026 pins add gateway tokens, the account area and the
+administration (Central #48, #49), the website's follow-ups (#50) and the
+official gateway's move to gateway.baylee.app with sign-in by token before
+approval (#51), over password change, roles, reset, deletion and export (#42
+to #47). `git diff 3ae5035 0f8005d -- crates/central-crypto` is empty: the entire crypto crate is unchanged. Argon High
 reviewed the reached Ristretto/hash-expansion sources again without a
 confirmed finding. Its private, fixed `central-crypto::opaque::Suite`
 selects Ristretto255 for OPRF and Triple-DH, with SHA-512. Both upstream
@@ -181,8 +182,9 @@ as an admin if it needs SSO administration.
 
 *30.10.2026.* A self-hosted gateway links to Baylee Central without an
 operator file: its owner registers the gateway's origin on baylee.app
-(`/account/gateways`), an administrator of Central approves it, and the owner
-makes a **gateway token** there (baylee-central `docs/gateway-registry.md`
+(`/account/gateways`) and makes a **gateway token** there; an administrator
+of Central approves the gateway for the public list only (a token signs
+players in while the gateway awaits that, and not once it is disabled) (baylee-central `docs/gateway-registry.md`
 §"Gateway tokens"): named, scoped (`sso` signs players in, `listing` keeps the
 directory entry), expiring within a year, revocable, shown once, stored at
 Central as its digest. An admin pastes it into the gateway's console

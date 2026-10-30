@@ -2666,8 +2666,8 @@ itself with a gateway token its owner made on baylee.app (baylee-central
 what the token is (`GatewayStatus`) before it keeps it in the gateway's
 database (`central_link`), and uses it at once for its players' Central
 sign-ins and its directory heartbeat (one at once, then every 30 seconds),
-as far as the token's scopes allow and while Central's administrators have
-the gateway approved. `GET /admin/central` answers `source` (`file` when
+as far as the token's scopes allow and unless Central's administrators
+disabled the gateway (the public list also waits for their approval). `GET /admin/central` answers `source` (`file` when
 `BAYLEE_CENTRAL_CONFIG_FILE` sets the link, which the console cannot change;
 `token`; `none`), `token` (`last4`, `set_at`, `set_by`: never more of it),
 `central` (the gateway's id, origin and name at Central, `state` `pending`,
