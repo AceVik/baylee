@@ -451,10 +451,17 @@ fn fill_panel(
     let spare = !(revision.phone && revision.group.is_some());
     for line in revision.lines.iter().filter(|_| spare) {
         let written = sentence(commands, fonts, &line.text, line.size, line.ink);
-        commands.entity(written).insert(Node {
-            max_width: percent(100),
-            ..default()
-        });
+        // Centred as the panel's rows are, wrapped or not: a hint that ran
+        // to two lines stood flush left under the centred ones (the block
+        // list's, played 30.10.2026).
+        commands.entity(written).insert((
+            Node {
+                max_width: percent(100),
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            TextLayout::justify(Justify::Center),
+        ));
         commands.entity(panel).add_child(written);
     }
 
