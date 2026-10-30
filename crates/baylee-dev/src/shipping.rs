@@ -26,9 +26,14 @@ pub fn check(steps: &mut Steps) {
 /// platform cannot switch a hook on where this host never looks.
 pub fn verification_hooks_unshipped(steps: &mut Steps) {
     let started = Instant::now();
+    // The training crates never ship (and are not CI's, owner 30.10.2026).
     let shipped = run::captured(&mut cargo_with([
         "tree",
         "--workspace",
+        "--exclude",
+        "baylee-train",
+        "--exclude",
+        "baylee-train-ops",
         "--target",
         "all",
         "-e",
