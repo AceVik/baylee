@@ -1900,6 +1900,246 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  /admin/central:
+    get:
+      summary: The gateway's link to Baylee Central
+      description: |-
+        Where the link comes from (the operator's file, a pasted
+        token, or none) and, for a pasted token, what Baylee Central says about
+        it now: the gateway's origin and name, whether it is approved, what the
+        token allows and until when. Never the token, only its last four
+        characters.
+      operationId: getCentralLink
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: The link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsoleCentral"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /admin/central/token:
+    put:
+      summary: Link the gateway to Baylee Central with a token
+      description: |-
+        Asks Baylee Central what the token is, keeps it in the
+        gateway's database, and uses it at once: for its players' sign-ins
+        through Central and its entry in the public gateway list, as far as the
+        token's scopes allow and once an administrator of Central approved the
+        gateway. Replaces a token pasted before. Not while the operator's file
+        sets the link.
+      operationId: pasteCentralToken
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasteBody"
+        required: true
+      responses:
+        "200":
+          description: Linked, as `GET /admin/central` answers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsoleCentral"
+        "400":
+          description: "No valid `X-Baylee-Admin`, or not a token: `bgt_` and 64 lowercase hex digits"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The operator's file (`BAYLEE_CENTRAL_CONFIG_FILE`) sets the link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "422":
+          description: Baylee Central does not know the token, or it was revoked or has expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: Baylee Central or the gateway's database is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    delete:
+      summary: Remove the pasted token
+      description: |-
+        Forgets the token and unlinks the gateway at once: it
+        signs nobody in through Baylee Central, players signed in that way are
+        signed out at their next check, and its directory entry goes offline. The
+        token itself stays valid at Central until it is revoked on the website.
+      operationId: removeCentralToken
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line; ignored when the bearer is a
+          Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "204":
+          description: Unlinked
+        "400":
+          description: No valid `X-Baylee-Admin`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No token is pasted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The operator's file (`BAYLEE_CENTRAL_CONFIG_FILE`) sets the link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   /admin/llm/access:
     get:
       summary: Who may seat each hosted profile
@@ -3470,6 +3710,46 @@ components:
       - at
       - by
       description: A ban in force on an account.
+    ConsoleCentral:
+      type: object
+      properties:
+        source:
+          type: string
+          description: "Where the link comes from: the operator's file (`BAYLEE_CENTRAL_CONFIG_FILE`, which the console cannot change), a token pasted here, or none."
+          enum:
+          - file
+          - token
+          - none
+        token:
+          anyOf:
+          - $ref: "#/components/schemas/ConsoleToken"
+          - type: "null"
+          description: >-
+            The pasted token, never more of it than its last four characters; `null` unless
+            `source` is `token`.
+        central:
+          anyOf:
+          - $ref: "#/components/schemas/ConsoleStatus"
+          - type: "null"
+          description: >-
+            What Baylee Central says about the token now; `null` unless `source` is `token`
+            and Central answered.
+        check:
+          type:
+          - string
+          - "null"
+          description: "How asking Central went: `ok`, `rejected` (it does not know the token, or it was revoked or has expired: make a new one on the website) or `unavailable`; `null` when nothing was asked."
+          enum:
+          - ok
+          - rejected
+          - unavailable
+          - null
+      required:
+      - source
+      - token
+      - central
+      - check
+      description: "`GET /admin/central` and the answer of a change."
     ConsoleChair:
       type: object
       properties:
@@ -3974,6 +4254,45 @@ components:
       - invites
       - daily
       description: "`GET /admin/stats`."
+    ConsoleStatus:
+      type: object
+      properties:
+        gateway:
+          type: string
+          description: The gateway's id at Central.
+        origin:
+          type: string
+          description: Its origin, the audience of its players' tickets.
+        name:
+          type: string
+          description: The name Central lists it under.
+        state:
+          type: string
+          description: >-
+            Whether an administrator of Central approved it; only an approved gateway is
+            listed and signs players in.
+          enum:
+          - pending
+          - approved
+          - disabled
+        sso:
+          type: boolean
+          description: The token signs this gateway's players in.
+        listing:
+          type: boolean
+          description: The token keeps this gateway's directory entry.
+        expires_at:
+          type: string
+          description: When the token stops working.
+      required:
+      - gateway
+      - origin
+      - name
+      - state
+      - sso
+      - listing
+      - expires_at
+      description: What Baylee Central says about the token.
     ConsoleTerms:
       type: object
       properties:
@@ -4026,6 +4345,23 @@ components:
       - updated
       - markdown
       description: The terms in one language.
+    ConsoleToken:
+      type: object
+      properties:
+        last4:
+          type: string
+          description: Its last four characters.
+        set_at:
+          type: string
+          description: When it was pasted.
+        set_by:
+          type: string
+          description: "Who pasted it: the console's admin name, or a Central account's id."
+      required:
+      - last4
+      - set_at
+      - set_by
+      description: The pasted token, as the console shows it.
     CreateBody:
       type: object
       properties:
@@ -4954,6 +5290,16 @@ components:
       - history
       - games
       description: "`GET /admin/metrics`."
+    PasteBody:
+      type: object
+      properties:
+        token:
+          type: string
+          description: "The token as the website showed it: `bgt_` and 64 lowercase hex digits; surrounding spaces are ignored."
+      required:
+      - token
+      additionalProperties: false
+      description: What `PUT /admin/central/token` takes.
     PolicyBody:
       type: object
       properties:

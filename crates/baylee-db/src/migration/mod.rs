@@ -35,6 +35,7 @@ mod m20261019_000021_retire_legacy_passwords;
 mod m20261019_000022_central_gateway_sessions;
 mod m20261019_000023_bind_migration_credentials;
 mod m20261020_000024_gateway_terms;
+mod m20261030_000025_central_link;
 
 /// The migrator the gateway runs on connect.
 pub struct Migrator;
@@ -72,6 +73,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261019_000022_central_gateway_sessions::Migration),
             Box::new(m20261019_000023_bind_migration_credentials::Migration),
             Box::new(m20261020_000024_gateway_terms::Migration),
+            Box::new(m20261030_000025_central_link::Migration),
         ]
     }
 }

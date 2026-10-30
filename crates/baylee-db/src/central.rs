@@ -7,7 +7,9 @@ use sea_orm::{
 };
 use sha2::{Digest, Sha256};
 
+mod link;
 mod sessions;
+pub use link::{StoredLink, clear_link, link, set_link};
 pub use sessions::{
     GatewayLease, SessionBinding, extend_session, issue_session, projection, session_binding,
     take_profile,
