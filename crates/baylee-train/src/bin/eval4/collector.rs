@@ -181,6 +181,7 @@ mod tests {
             model_version: 5,
             encoder_version: 7,
             global_feat_width: None,
+            critic_semantics: None,
             architecture: Some("baylee_ai_v5_relational_v2".into()),
             onnx_sha256: "a".repeat(64),
             depth_graph_sha256: BTreeMap::from([(0, "b".repeat(64)), (2, "c".repeat(64))]),

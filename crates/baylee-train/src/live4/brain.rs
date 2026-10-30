@@ -1,6 +1,6 @@
 //! The view-only boundary shared by ONNX and deterministic adapter tests.
 use crate::features4::{SourceKind4, StepProvenance4};
-use crate::netplay4::NetPlayer4;
+use crate::netplay4::{CriticSemantics4, NetPlayer4};
 use baylee_core::ids::PlayerId;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_seat::DeckList;
@@ -18,10 +18,10 @@ pub struct LiveAnswer4 {
 
 /// A synchronous seat brain. It never receives opponent decks or game state.
 pub trait Brain4 {
-    /// Check that the current socket view contract carries this brain's inputs.
+    /// Check this brain's inputs and value semantics against the live adapter.
     ///
     /// # Errors
-    /// Rejects brains requiring observation context absent from the live wire.
+    /// Rejects unsupported observation context or critic semantics.
     fn validate_live_contract(&self) -> anyhow::Result<()> {
         Ok(())
     }
@@ -67,7 +67,9 @@ pub(super) fn validate_wire_encoder(encoder: u32) -> anyhow::Result<()> {
 
 impl Brain4 for NetPlayer4 {
     fn validate_live_contract(&self) -> anyhow::Result<()> {
-        validate_wire_encoder(self.model_identity().encoder_version)
+        let identity = self.model_identity();
+        validate_wire_encoder(identity.encoder_version)?;
+        validate_live_critic(identity.critic_semantics.as_ref())
     }
     fn retains_live_context(&self) -> bool {
         self.is_encoder7()
@@ -99,6 +101,17 @@ impl Brain4 for NetPlayer4 {
             teams,
         ))
     }
+}
+
+pub(super) fn validate_live_critic(semantics: Option<&CriticSemantics4>) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        matches!(
+            semantics,
+            None | Some(CriticSemantics4::MtgSideOutcomeUtilityV1 {})
+        ),
+        "research utility critic is incompatible with the live MTG draw rule; use offline eval4"
+    );
+    Ok(())
 }
 
 pub(super) fn from_runtime(

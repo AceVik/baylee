@@ -22,6 +22,23 @@ import dataset4 as D4
 import model4 as M
 
 
+def export_critic_semantics(checkpoint):
+    """Keep the value target explicit without copying the large training receipt."""
+    if 'research_ppo_progress' in checkpoint and 'research_ppo_contract' not in checkpoint:
+        raise ValueError('Research PPO progress requires its objective contract')
+    if 'research_ppo_contract' in checkpoint:
+        from research_ppo4.checkpoint import validate_resume
+        validate_resume(checkpoint)
+        contract = checkpoint['research_ppo_contract']
+        semantics = dict(kind='failure_terminal_research_utility_v1',
+                         objective=contract['objective'], target_contract=contract['target_contract'])
+    else:
+        semantics = dict(kind='mtg_side_outcome_utility_v1')
+    if 'critic_semantics' in checkpoint and checkpoint['critic_semantics'] != semantics:
+        raise ValueError('Checkpoint critic_semantics conflicts with its validated training objective')
+    return semantics
+
+
 def load_export_checkpoint(checkpoint_path: Path):
     """Construct only the architecture explicitly declared by the checkpoint.
 
@@ -29,6 +46,7 @@ def load_export_checkpoint(checkpoint_path: Path):
     state-dict extension that can be silently ignored by an older exporter.
     """
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    export_critic_semantics(checkpoint)
     version = checkpoint.get("model_version")
     if version == M.MODEL_VERSION:
         module = M
@@ -264,6 +282,7 @@ def main() -> None:
         raise ValueError("Source checkpoint changed during export")
     atomic_copy(model_dir / f"model.k{args.thinking_steps}.onnx", model_dir / "model.onnx")
     meta = {
+        "critic_semantics": export_critic_semantics(ckpt),
         **({"encoder_warmstart": ckpt["encoder_warmstart"]} if "encoder_warmstart" in ckpt else {}),
         "encoder_version": ckpt["encoder_version"], "model_version": model_module.MODEL_VERSION,
         **({"global_feat_width": cfg.global_feat_width} if ckpt["encoder_version"] == 9 else {}),

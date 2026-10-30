@@ -497,6 +497,61 @@ fn payment_context_brains_are_rejected_before_initialization_or_observation() {
 }
 
 #[test]
+fn research_utility_is_rejected_before_live_initialization_or_observation() {
+    use crate::netplay4::CriticSemantics4;
+    struct ResearchBrain(CriticSemantics4);
+    impl Brain4 for ResearchBrain {
+        fn validate_live_contract(&self) -> anyhow::Result<()> {
+            super::brain::validate_wire_encoder(7)?;
+            super::brain::validate_live_critic(Some(&self.0))
+        }
+        fn initialize(
+            &mut self,
+            _: PlayerId,
+            _: &DeckList,
+            _: &[Option<u8>],
+        ) -> anyhow::Result<()> {
+            panic!("unsupported critic must not initialize")
+        }
+        fn observe(&mut self, _: &PlayerView) -> anyhow::Result<()> {
+            panic!("unsupported critic must not observe")
+        }
+        fn answer(
+            &mut self,
+            _: &PlayerView,
+            _: &Pending,
+            _: &[Option<u8>],
+        ) -> anyhow::Result<LiveAnswer4> {
+            panic!("unsupported critic must not answer a draw or other question")
+        }
+    }
+    assert!(super::brain::validate_live_critic(None).is_ok());
+    assert!(
+        super::brain::validate_live_critic(Some(&CriticSemantics4::MtgSideOutcomeUtilityV1 {}))
+            .is_ok()
+    );
+    let semantics = CriticSemantics4::FailureTerminalResearchUtilityV1 {
+        objective: "failure_terminal_utility_minus_frozen_source_value_uncentered_v1".into(),
+        target_contract: "failure_terminal_research_v1".into(),
+    };
+    let mut live = LiveSeat4::new(ResearchBrain(semantics), DeckList::default(), ME);
+    assert!(
+        live.hear(&table())
+            .unwrap_err()
+            .to_string()
+            .contains("research utility critic")
+    );
+    assert!(live.finished());
+    assert!(
+        live.report()
+            .failure
+            .as_ref()
+            .unwrap()
+            .contains("MTG draw rule")
+    );
+}
+
+#[test]
 fn live_audit_retains_exact_runtime_probability_and_outgoing_action_identity() {
     let (mut seat, calls) = adapter();
     let provenance = StepProvenance4 {
@@ -619,10 +674,6 @@ fn semantic_audit_history_ignores_socket_timing_while_exact_view_identity_retain
 fn audit_initialization_uses_the_runtime_canonical_inventory_including_deck_sections() {
     use baylee_core::ids::CardIndex;
     use baylee_seat::DeckCard;
-    let card = |id, count| DeckCard {
-        card: CardIndex::new(id),
-        count,
-    };
     fn sample(main: Vec<DeckCard>, sideboard: Vec<DeckCard>) -> String {
         let (mut seat, _) = adapter();
         seat.deck.main = main;
@@ -633,6 +684,10 @@ fn audit_initialization_uses_the_runtime_canonical_inventory_including_deck_sect
         seat.hear(&question(1)).unwrap();
         seat.decision_audit().unwrap().history_sha256.clone()
     }
+    let card = |id, count| DeckCard {
+        card: CardIndex::new(id),
+        count,
+    };
     let original = sample(vec![card(1, 1), card(2, 2)], Vec::new());
     assert_eq!(
         original,

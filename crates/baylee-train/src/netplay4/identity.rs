@@ -25,6 +25,9 @@ pub struct ModelIdentity {
     /// Explicit input width for Encoder 9; omitted from archived identities.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub global_feat_width: Option<u32>,
+    /// Explicit value-head target, absent only on legacy unmarked exports.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub critic_semantics: Option<super::CriticSemantics4>,
     /// Required explicit architecture for V5; never inferred for archived V4.
     pub architecture: Option<String>,
     /// SHA256 of the loaded ONNX bytes.
@@ -175,6 +178,7 @@ pub(super) fn read_model(path: &Path) -> anyhow::Result<(PathBuf, Value, ModelId
     let bytes = std::fs::read(metadata)?;
     let meta: Value = serde_json::from_slice(&bytes)?;
     let (encoder_version, model_version, model_family) = contract(&meta)?;
+    let critic_semantics = super::critic::read_semantics(&meta)?;
     let source_checkpoint_sha256 = meta["source_checkpoint_sha256"].as_str().map(str::to_owned);
     let parent = graph.parent().context("model graph parent")?;
     let mut depth_graph_sha256 = BTreeMap::new();
@@ -189,6 +193,7 @@ pub(super) fn read_model(path: &Path) -> anyhow::Result<(PathBuf, Value, ModelId
         model_version,
         encoder_version,
         global_feat_width: (encoder_version == 9).then_some(82),
+        critic_semantics,
         architecture: if model_family == "v5" {
             Some(
                 meta["architecture"]
@@ -331,6 +336,13 @@ mod tests {
         .unwrap();
         let identity = inspect_model_identity(&directory.0).unwrap();
         assert_eq!(identity.model_family, "v5");
+        assert!(identity.critic_semantics.is_none());
+        assert!(
+            serde_json::to_value(&identity)
+                .unwrap()
+                .get("critic_semantics")
+                .is_none()
+        );
         assert_eq!(identity.architecture.as_deref(), Some(V5_ARCHITECTURE));
         assert_eq!(
             identity.onnx_sha256,
@@ -342,6 +354,32 @@ mod tests {
         assert!(verify_depth_graph(&path, 0, &identity).is_err());
         assert_ne!(inspect_model_identity(&directory.0).unwrap(), identity);
         assert!(verify_depth_graph(&path, 2, &identity).is_err());
+        let mut meta = meta;
+        for semantics in [
+            json!({"kind":"mtg_side_outcome_utility_v1"}),
+            json!({"kind":"failure_terminal_research_utility_v1",
+                "objective":"failure_terminal_utility_minus_frozen_source_value_uncentered_v1",
+                "target_contract":"failure_terminal_research_v1"}),
+        ] {
+            meta["critic_semantics"] = semantics.clone();
+            std::fs::write(
+                directory.0.join("model.onnx.json"),
+                serde_json::to_vec(&meta).unwrap(),
+            )
+            .unwrap();
+            let marked = inspect_model_identity(&directory.0).unwrap();
+            assert_eq!(
+                serde_json::to_value(marked).unwrap()["critic_semantics"],
+                semantics
+            );
+        }
+        meta["critic_semantics"] = json!({"kind":"unrecognized"});
+        std::fs::write(
+            directory.0.join("model.onnx.json"),
+            serde_json::to_vec(&meta).unwrap(),
+        )
+        .unwrap();
+        assert!(inspect_model_identity(&directory.0).is_err());
     }
 
     #[test]

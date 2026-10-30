@@ -31,6 +31,8 @@ use crate::features4::{
 };
 use crate::features7::{encode_candidates7_grouped, encode_state7};
 mod choices;
+mod critic;
+pub use critic::CriticSemantics4;
 mod decision;
 mod diagnostic;
 pub use diagnostic::{FallbackDiagnostic4, FallbackReason4};
@@ -70,7 +72,7 @@ pub const OUTPUT_NAMES: &[&str] = &[
 pub struct Answer4 {
     /// Selected legal [`PlayerAction`].
     pub action: PlayerAction,
-    /// Predicted side win/draw utility in `[0.0, 1.0]`.
+    /// Predicted utility in `[0.0, 1.0]`; meaning is bound by the model's critic semantics.
     pub value: f32,
     /// Provenance (`Net | House | Forced | Search`, `temperature`, `K`, `behavior_logprob`).
     pub provenance: StepProvenance4,

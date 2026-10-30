@@ -440,6 +440,21 @@ Other yes/no questions remain unchanged. Frozen evaluation and training actors
 do not acquire this live-only rule. A learned draw policy needs explicit
 prompt/proposer features in a new encoder contract.
 
+New `export_onnx4.py` metadata also binds `critic_semantics`: ordinary side
+outcomes use `mtg_side_outcome_utility_v1`; the separate research worker uses
+`failure_terminal_research_utility_v1` with its exact objective and target
+contract. Malformed or conflicting research checkpoints are refused before
+export. The native identity parser rejects unknown or inconsistent markers;
+offline policy evaluation can load either supported meaning. The live adapter
+rejects research-utility critics before initialization, observation or answering
+because their targets are incompatible with `critic_draw_rule_v1`.
+
+Unmarked archival exports retain their legacy identity and live behavior. This
+compatibility is not an inference about arbitrary weights: research exports
+made before the marker existed must remain offline and be re-exported from
+their original research checkpoint for future use. Do not add metadata to a
+frozen experiment or erase training provenance during a later warm start.
+
 The owner authorized human playtest records for training on 25 October 2026.
 Native `import_live_records4` reads only numbered files from the official anonymized
 gateway export, deduplicates uncompressed content and creates an immutable,
