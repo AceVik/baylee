@@ -401,9 +401,9 @@ Fast-forwarding is `Tab` and `⇧Tab`, which have no buttons of their own.
 Clicking your own permanent activates what it is offering: one ability arms
 straight away (or goes through, if it makes mana), several open the ability
 sheet on the card itself. The prompt bar carries the answers for
-whatever is pending, including combat's "Aim next", "Attack"/"Block" and
-"None" — the middle of those three appearing only once something is
-declared. The hand bar scrolls horizontally
+whatever is pending, including combat's "Attack"/"Block", "Aim next" and
+"None" — the commit appearing only once something is declared, and "Aim
+next" only where there are two or more defenders or attackers to aim at. The hand bar scrolls horizontally
 with the mouse wheel.
 
 ### Nothing a hand does moves the camera

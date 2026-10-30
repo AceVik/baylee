@@ -1062,3 +1062,37 @@ fn every_mode_in_the_pool_is_a_row_in_the_card_s_words() {
     assert!(faces_seen >= 10, "only {faces_seen} modal faces walked");
     assert!(modes_seen >= 25, "only {modes_seen} modes walked");
 }
+
+/// Every paged chooser reads a page one way: an empty list is one empty
+/// page, an asked page past the end is the last one, and the arrows stand
+/// only where there is a page to go to, worded alike.
+#[test]
+fn a_page_clamps_and_its_arrows_are_worded_alike() {
+    let empty = Page::of(0, 3, 8);
+    assert_eq!(
+        (empty.start, empty.end, empty.index, empty.count),
+        (0, 0, 0, 1)
+    );
+    assert!(!empty.earlier() && !empty.later());
+
+    let last = Page::of(20, 5, 8);
+    assert_eq!(
+        (last.start, last.end, last.index, last.count),
+        (16, 20, 2, 3)
+    );
+    assert!(last.earlier() && !last.later());
+    let first = Page::of(20, 0, 8);
+    assert_eq!((first.start, first.end), (0, 8));
+    assert!(!first.earlier() && first.later());
+
+    let mut rows = Vec::new();
+    page_arrows(&mut rows, Lang::En, true, true);
+    let words: Vec<(usize, &str)> = rows.iter().map(|r| (r.index, r.label.as_str())).collect();
+    assert_eq!(
+        words,
+        [
+            (baylee_client_core::targeting::PREVIOUS, "‹ Back"),
+            (baylee_client_core::targeting::NEXT, "More ›"),
+        ]
+    );
+}

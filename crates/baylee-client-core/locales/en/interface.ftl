@@ -3656,6 +3656,12 @@ TargetingSelected = Selected: { $targets }
 # Clear the target list's controller filter.
 TargetingAllSeats = All players
 
+# Caption over the target list's controller filter, where it is shown.
+TargetingShowFrom = Show the targets of
+
+# Caption over the target list itself, under the controller filter.
+TargetingTargets = Targets
+
 # Current page and total legal choices in the filtered list.
 # Arguments: first, last, total
 TargetingPage = Choices { $first }–{ $last } of { $total }. You can also select on the table.
@@ -3808,9 +3814,9 @@ AimedAt = Aimed at { $target } ({ $position } of { $total })
 # Arguments: count
 DeclaredCount = { $count } declared
 
-# $defender: $count attacking, $unblocked unblocked
+# $defender: $count attacking, $unblocked damage unblocked (power, not creatures)
 # Arguments: defender, count, unblocked
-IncomingAt = { $defender }: { $count } attacking, { $unblocked } unblocked
+IncomingAt = { $defender }: { $count } attacking, { $unblocked } damage unblocked
 
 # you
 IncomingYou = you

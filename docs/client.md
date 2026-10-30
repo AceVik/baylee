@@ -1383,11 +1383,46 @@ the flier's one possible blocker is the one lit). `table::track_proposals`
 rebuilds the board when that set moves with the aim. And the block
 declaration is a named list in the drawer, as the attack declaration is
 (`drawer::block`, `interaction::BlockRow`): every attacker as
-"Attacker: Earth Elemental · 1 blocking" (`[x]` on the one in aim), then
+"Attacker: Earth Elemental · 1 blocking" (the one in aim drawn chosen), then
 "Block: Grizzly Bears → Earth Elemental" for each creature that may block
 it and "Take back: … → …" for each already blocking; a row is the click the
 table takes (`Interaction::toggle`), the blockers page and the attackers stay,
 and the ordinary confirmation still sends.
+
+**The three action dialogs read alike (30.10.2026).** The owner, 29.10.2026:
+unify the dialogs for targets, attackers and blockers where possible, fix
+their glitches, and play them several times. Played on a dealt board
+(`BAYLEE_DEV_SEAT_BOARD`, six creatures a side, Lightning Bolt in hand):
+
+- **A chooser that wraps stays in its panel.** The answer row wrapped
+  without a width of its own, so the layout measured it as one line and
+  sized the panel to that; the panel grows up from the shelf, so with six
+  attackers the last line hung out of its foot over the shelf's own answers
+  ("Declare attack", "None") and hid them. `drawer::chooser` now spans the
+  panel (`a_chooser_that_wraps_stays_inside_its_panel` lays it out).
+- **Chosen is drawn, never written.** The target picked, the defender or
+  attacker in aim and the seat a target list is filtered to wear the taken
+  row's candle edge and wash (`ChoiceOption::chosen`), as a picked row
+  always did; the three dialogs wrote `[x] ` into the label instead, and
+  the seat filter said nothing about which seat was in force.
+- **One page, one pair of arrows.** `choices::Page` is the one reading of a
+  page for targets, attackers, blockers and damage (an asked page past the
+  end is the last one everywhere), and `choices::page_arrows` the one pair
+  of arrows, worded "‹ Back" / "More ›" in all four (two said "←", "→").
+- **Captioned groups in all three.** The attack list stood in captioned
+  groups (Players, Creatures); the block list ran attackers and blockers on
+  in one wrap and now stands under Attackers and Blockers (with the page's
+  range, as the attack list's creatures); a long target list stands under
+  Targets, its seat filter under "Show the targets of" (the seats' chips had
+  read as the list's seat rows said twice).
+- **The commit leads.** The combat shelf's first answer wears the candle,
+  and it was "Aim next" even where one defender or one attacker left it
+  nothing to aim at. The commit ("Attack", "Block") now leads once
+  something is declared, "Aim next" stands only where there are two or more
+  to aim at (its key `C` moves the aim wherever there is one), then "None".
+- **Words.** The incoming tally says what its number is: "steady 1: 1
+  attacking, 2 damage unblocked" (it read as two creatures). A target list
+  names the chosen targets only where the page does not show their row.
 
 The board model also builds a text chip row per seat (`board::TokenChip`,
 `12× 1/1 Soldier · 3× Treasure`) and a one-line threat read
@@ -6522,6 +6557,41 @@ reading and would probably not have needed to be; it is left where it is,
 because the tables were tuned there and a shelf's depth is a look rather than
 an arithmetic.
 
+### The turn goes round at a pace a person can follow (30.10.2026)
+
+The owner, 29.10.2026: phase transitions at the table should be smooth,
+good-looking animations, and slower, so a person can follow what happened.
+The engine moves through the steps as fast as the seats pass, and when the
+house or a standing order passed, three steps went by between two frames:
+the gold jumped from the upkeep to the end of combat, cut on the new tile and
+gone at once from the old one, because the bars are rebuilt whole with every
+step and the light lived on the tile.
+
+- **The pace** (`client-core::phasepace`, `hud::StepPace`,
+  `rail::pace_the_steps`): the bars draw the step the pace shows, not the
+  view's. Every step a view stood in is shown for at least `STEP_HOLD`
+  (0.6 s) before the next, so the light walks the row a step at a time; only
+  steps a view stood in are shown, never one the game skipped (CR 508.8). It
+  never stands in the way of an answer: when this seat is asked something,
+  the steps still waiting run by at `CATCH_UP` (0.15 s) each, so the light
+  reaches the step asked about instead of jumping there (in another seat's
+  turn a seat is asked at most steps, and a jump each time was the cut this
+  ends); with motion reduced it goes straight there. It never falls more
+  than `MAX_BEHIND` (4) steps behind. A replay that goes back or
+  jumps turns starts it over.
+- **The light** (`rail::glow_the_steps`, `hud::StepLights`): kept by seat and
+  step, off the tiles, it eases up on the step shown (`LIGHT_RATE` 3.5/s,
+  nine tenths in 0.65 s) and down on the one left twice as fast, so the gold
+  does not trail behind the step shown. It writes every part that
+  wears it, a rebuilt tile on the frame it is first drawn: the gold under the
+  glyph (`StepFill`, a child, because `Feel` owns the tile's own ground), the
+  glyph's, label's and stop accent's ink towards the ink that reads on gold
+  (`StepInk`), and the tile's glow and frame (`StepGlow`). So the gold passes
+  from tile to tile instead of jumping. Only a step that grants priority is
+  gilded, as before (CR 502.4, CR 514.3a). Every write is compared first;
+  settled, it writes nothing (`the_gold_passes_from_the_step_left_to_the_step_shown`).
+  Reduced motion cuts.
+
 ## The players' strip, and the bar's right end (#264)
 
 On 25.09.2026 the owner rearranged the bar's two ends: *"At time the Manazone
@@ -6802,8 +6872,10 @@ one bar would have said the untap step is the daytime, and
 `the_designation_does_not_borrow_a_step_glyph` reads both files to hold it.
 
 The change is marked by a flash on the block's border and shadow, and it is
-anchored to the **change** rather than to the entity. `PhaseNow` can ease
-from zero at spawn because the tree is rebuilt when the step changes; the
+anchored to the **change** rather than to the entity. `PhaseNow` could ease
+from zero at spawn because the tree is rebuilt when the step changes (until
+30.10.2026, when the step light moved off the tiles, §"The turn goes round
+at a pace a person can follow"); the
 overlay tree is rebuilt on every hover, so a light born with the block would
 fire whenever the pointer crossed a card. `rail::DesignationFlash` keeps the
 last designation it saw beside the clock, and
@@ -9302,6 +9374,38 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   encryption notice stands the first time the chat opens on a device, and
   from every lock; Chat & privacy holds the server settings, history length,
   sounds, this account's devices and Forget this device.
+- **Light** (owner, 29.10.2026: a more attractive chat input and window,
+  with light shader animations): one small UI material
+  (`social::glass`, `shaders/chat_glass.wesl`, uniforms only) laid as light
+  over the window and the composer's box, never over the middle of what is
+  read. The window wears a rim of light just inside its rounded edge (on
+  the edge itself the 1 px border covered it), brightest along the top, and
+  for 0.9 s after a **chat** line arrives a band climbs its sides from the
+  foot, where new lines appear, washing a little way in (a game log line
+  arriving in the table's window moves its row and lights nothing). The
+  composer's box lights its rim and carries a glint round it every 3.2 s
+  while it has the caret; without the caret, a faint rim and nothing that
+  moves. Two
+  materials serve every surface, written only when the caret comes or goes,
+  `reduce_motion` changes or a chat line arrives; the band and the glint
+  move on `globals.time`, so a resting chat writes nothing
+  (`a_resting_chat_writes_no_light`), and `reduce_motion` holds the glint
+  still and draws no band. Its cost is under what a GPU trace tells apart:
+  the lobby with the window open and the glint running drew 2.54 and
+  3.68 ms of fragment work a frame with it and 3.59 and 3.56 ms without
+  (`/hide chat_glass`, two interleaved rounds of Metal System Trace at
+  Retina, 30.10.2026), the rounds differing more than the switch.
+- **Where things stand** (played 29.10.2026). The header's chat count is a
+  badge on the bubble's shoulder, out of the row (it lay over the word's
+  last letter). Unlocked, nothing floats: the composer carries the lock (a
+  "Lock chat" pill stood free at 42 % of the width, over the lobby and over
+  the hand at a table, whenever the window was shut). Locked, **Unlock chat**
+  stands where the chat's pill would: the lobby's bottom-left corner, beside
+  the memorial's caption where the window is short enough to share its band
+  (`window::pill_left`; the pill had covered half of it), and at a table
+  under the arrangement pill. At a table the friends drawer ends above the
+  hand zone, whose top is the bar with the HUD's own doors (#389: run to the
+  window's foot it covered them and a press on one answered nothing).
 - **Sounds** are four synthesised cues (`sound::chat_voice`), no samples,
   at the interface level and the device's effects volume.
 - `/state.chat` reports the machine and the window and every chat control
@@ -9934,7 +10038,7 @@ frame (a `dev-control` build counts allocations through its own global
 allocator) over the window since the last reset; `/hide` takes every entity
 of one material away (`felt`, `mat`, `card`, `floor`, `shell`, `plate`,
 `badge`, `marks`, `arrow`, `sky`, `vista`, `ambience`, `frontal`, `card_ui`,
-`shell_ui`), so one switch gives both a drawing's GPU cost and, by a
+`shell_ui`, `chat_glass`), so one switch gives both a drawing's GPU cost and, by a
 full-frame diff, what it contributes to the picture.
 
 Three rows of `/state` measure the lobby rather than the table.

@@ -216,6 +216,7 @@ pub(super) fn install(app: &mut App) {
                 hide::<MaterialNode<frontal::FrontalMaterial>>("frontal"),
                 hide::<MaterialNode<cardmat::CardUiMaterial>>("card_ui"),
                 hide::<MaterialNode<shellui::ShellUiMaterial>>("shell_ui"),
+                hide::<MaterialNode<crate::social::glass::GlassMaterial>>("chat_glass"),
             )
                 .before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate),
         );

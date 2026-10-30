@@ -20,6 +20,11 @@ use crate::ui_button::UiButton;
 use baylee_client_core::i18n::Phrase;
 use bevy::prelude::*;
 
+/// The invitation's caption under the cloud, which the lobby's chat pill
+/// stands clear of (`social::window`).
+#[derive(Component)]
+pub(crate) struct MemorialCaption;
+
 /// Tab stays inside the album; Escape and the close button return to its opener.
 pub(crate) const ALBUM_ORDER: TabOrder = TabOrder {
     name: "memorial",
@@ -169,6 +174,7 @@ pub(super) fn draw(
     }
     let caption = commands
         .spawn((
+            MemorialCaption,
             Text::new(Phrase::MemorialInvitation.text(state.lobby.lang())),
             crate::hud::tf(kit.fonts, kit.m.small),
             TextColor(Color::srgb(0.96, 0.92, 0.82)),

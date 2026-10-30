@@ -292,7 +292,16 @@ fn slide_the_drawer(
             baylee_client_core::lobby::Screen::Seated(_)
         )
     });
-    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed) || seated;
+    let in_a_duel = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    let at_table = in_a_duel || seated;
+    // At a table it ends over the hand zone, whose top is the bar with the
+    // HUD's own doors (chat, log, zones, menu): run to the window's foot, it
+    // covered them and a press on one answered nothing (#389).
+    let foot = if in_a_duel {
+        Val::Px(crate::hud::HAND_ZONE_H)
+    } else {
+        zpx(0.0)
+    };
     let open = ui.drawer && host.active();
     let target = if open { 1.0 } else { 0.0 };
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
@@ -339,6 +348,9 @@ fn slide_the_drawer(
         }
         if node.top != Val::Px(header) {
             node.top = Val::Px(header);
+        }
+        if node.bottom != foot {
+            node.bottom = foot;
         }
         seen.set_if_neq(if slide.0 > 0.0 {
             Visibility::Visible

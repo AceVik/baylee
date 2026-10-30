@@ -287,7 +287,27 @@ pub(super) fn composer_parts(
         ..default()
     },));
     let row = row.id();
-    let mut kids = vec![chip, field];
+    // The box and its light: the field's text can hold only spans, so the
+    // light is a sibling over it in a frame of the box's shape (`glass`).
+    let frame = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                min_width: zpx(0.0),
+                border_radius: BorderRadius::all(zpx(4.0)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let light = commands
+        .spawn(crate::social::glass::layer(
+            crate::social::glass::Glass::Field,
+            zpx(4.0),
+        ))
+        .id();
+    commands.entity(frame).add_children(&[field, light]);
+    let mut kids = vec![chip, frame];
     kids.extend(hint);
     kids.push(send);
     kids.extend(lock);

@@ -86,6 +86,7 @@ pub mod memorial;
 pub mod music;
 pub mod paystage;
 pub mod peekchips;
+pub mod phasepace;
 pub mod prefs;
 pub mod prose;
 pub mod quiet;

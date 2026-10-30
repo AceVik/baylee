@@ -46,7 +46,7 @@ pub(super) fn reading(
     }
 
     let page_count = crate::choices::attack_page_count(&options);
-    let page = duel.target_page.min(page_count.saturating_sub(1));
+    let page = duel.target_page.min(page_count - 1);
     if page_count > 1 {
         lines.push(Line {
             text: Phrase::AttackPage
@@ -63,32 +63,20 @@ pub(super) fn reading(
             _ => None,
         })
         .collect();
-    let defender_page = page.min(defenders.len().saturating_sub(1) / targeting::PAGE_SIZE);
-    let defender_start = defender_page * targeting::PAGE_SIZE;
+    // Each group clamps to its own last page (`attack_page_count`).
+    let shown = crate::choices::Page::of(defenders.len(), page, targeting::PAGE_SIZE);
     let mut groups: Vec<(String, char, Vec<crate::choices::ChoiceOption>)> = Vec::new();
-    for (index, d) in defenders
-        .iter()
-        .copied()
-        .skip(defender_start)
-        .take(targeting::PAGE_SIZE)
-    {
+    for &(index, d) in &defenders[shown.start..shown.end] {
         let count = i
             .assignments()
             .iter()
             .filter(|(_, f)| *f == CombatFocus::Defender(d))
             .count();
-        let label = format!(
-            "{}{}",
-            if d == aim { "[x] " } else { "" },
-            Phrase::AttackAim.fill(lang, &[&defender(d), &count.to_string()])
-        );
-        let option = crate::choices::ChoiceOption {
+        let option = crate::choices::ChoiceOption::text(
             index,
-            label,
-            pip: None,
-            cost: None,
-            heading: None,
-        };
+            Phrase::AttackAim.fill(lang, &[&defender(d), &count.to_string()]),
+        )
+        .chosen(d == aim);
         let (category, icon) = match d {
             Defender::Player(_) => (Phrase::SheetPlayers.text(lang).to_string(), glyph::FRIENDS),
             Defender::Planeswalker(id) | Defender::Battle(id) => {
@@ -139,13 +127,7 @@ pub(super) fn reading(
             AttackOption::WithdrawAll => Phrase::AttackWithdrawAll.text(lang).into(),
             AttackOption::Aim(_) | AttackOption::Toggle(_) => unreachable!(),
         };
-        rows.push(crate::choices::ChoiceOption {
-            index,
-            label,
-            pip: None,
-            cost: None,
-            heading: None,
-        });
+        rows.push(crate::choices::ChoiceOption::text(index, label));
     }
 
     let creatures: Vec<(usize, baylee_core::ids::ObjectId)> = options
@@ -156,60 +138,34 @@ pub(super) fn reading(
             _ => None,
         })
         .collect();
-    let creature_page = page.min(creatures.len().saturating_sub(1) / targeting::PAGE_SIZE);
-    let creature_start = creature_page * targeting::PAGE_SIZE;
-    let creature_end = (creature_start + targeting::PAGE_SIZE).min(creatures.len());
-    for (offset, (index, id)) in creatures
-        .iter()
-        .copied()
-        .skip(creature_start)
-        .take(targeting::PAGE_SIZE)
-        .enumerate()
-    {
+    let sent = crate::choices::Page::of(creatures.len(), page, targeting::PAGE_SIZE);
+    for (offset, &(index, id)) in creatures[sent.start..sent.end].iter().enumerate() {
         let label = if let Some(CombatFocus::Defender(d)) = i.assignment(id) {
             Phrase::AttackWithdraw.fill(lang, &[&card(id), &defender(d)])
         } else {
             Phrase::AttackSend.fill(lang, &[&card(id), &aim_name])
         };
-        rows.push(crate::choices::ChoiceOption {
-            index,
-            label,
-            pip: None,
-            cost: None,
-            heading: (offset == 0).then(|| crate::choices::ChoiceHeading {
-                label: if creatures.len() > targeting::PAGE_SIZE {
+        let row = crate::choices::ChoiceOption::text(index, label);
+        rows.push(if offset == 0 {
+            row.headed(crate::choices::ChoiceHeading {
+                label: if sent.count > 1 {
                     format!(
                         "{} · {}–{}/{}",
                         Phrase::GroupCreatures.text(lang),
-                        creature_start + 1,
-                        creature_end,
+                        sent.start + 1,
+                        sent.end,
                         creatures.len()
                     )
                 } else {
                     Phrase::GroupCreatures.text(lang).to_string()
                 },
                 icon: glyph::SEND,
-            }),
+            })
+        } else {
+            row
         });
     }
-    for (show, index, label) in [
-        (page > 0, targeting::PREVIOUS, Phrase::PageBack.text(lang)),
-        (
-            page + 1 < page_count,
-            targeting::NEXT,
-            Phrase::PageMore.text(lang),
-        ),
-    ] {
-        if show {
-            rows.push(crate::choices::ChoiceOption {
-                index,
-                label: label.into(),
-                pip: None,
-                cost: None,
-                heading: None,
-            });
-        }
-    }
+    crate::choices::page_arrows(rows, lang, page > 0, page + 1 < page_count);
     rows.push(fold_row(lang, false, options.len()));
 }
 
@@ -218,17 +174,14 @@ pub(super) fn reading(
 pub(crate) const FOLD: usize = usize::MAX - 64;
 
 fn fold_row(lang: Lang, folded: bool, count: usize) -> crate::choices::ChoiceOption {
-    crate::choices::ChoiceOption {
-        index: FOLD,
-        label: if folded {
+    crate::choices::ChoiceOption::text(
+        FOLD,
+        if folded {
             Phrase::AttackListShow.fill(lang, &[&count.to_string()])
         } else {
             Phrase::AttackListHide.text(lang).into()
         },
-        pip: None,
-        cost: None,
-        heading: None,
-    }
+    )
 }
 
 #[cfg(test)]
@@ -283,7 +236,8 @@ mod tests {
     fn actual_choice_handler_edits_named_attacks_without_sending() {
         let mut duel = duel();
         let first = rows(&duel, Lang::En);
-        assert!(first[0].label.starts_with("[x] Aim:"));
+        assert!(first[0].chosen && first[0].label.starts_with("Aim:"));
+        assert!(!first[1].chosen, "one defender is aimed at");
         crate::input::pick_choice(&mut duel, 4); // first creature, first defender
         crate::input::pick_choice(&mut duel, 1); // second defender
         crate::input::pick_choice(&mut duel, 2); // remaining creatures
@@ -295,7 +249,8 @@ mod tests {
         );
         assert!(duel.outbox.is_empty());
         let after = rows(&duel, Lang::En);
-        assert!(after[1].label.starts_with("[x] Aim:"));
+        assert!(after[1].chosen && !after[0].chosen);
+        assert!(after[1].label.starts_with("Aim:"));
         assert!(after[1].label.contains("49 assigned"));
         assert!(after[4].label.starts_with("Withdraw:"));
         assert!(rows(&duel, Lang::De)[4].label.starts_with("Zurückziehen:"));
