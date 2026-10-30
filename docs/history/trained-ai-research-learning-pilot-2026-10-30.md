@@ -891,3 +891,68 @@ and preserving the gateway. Operator review SHA-256 is
 The failed export pipeline is not relabelled. This successful separate receipt
 allows preparation of the bounded matched gameplay comparison; it establishes
 neither improved play nor promotion.
+
+## Fresh 32-attempt matched comparison
+
+The successor is
+`research-breadth-paired-gameplay-01a18bf8-87a9-740e-a8f4-218d44a77c60/`.
+It fixes cases 160–175 and interleaves source/candidate runs for tables 080–087.
+Both arms use the same original seeds, decks, focal seats and fixed opponents:
+historical candidate1 on even tables and original R6 on odd tables. Changing
+the focal candidate never changes its opponent. The original 16 collection
+attempts are reproducibility evidence only, outside the fresh denominator of
+16 source plus 16 candidate attempts. These remain reused training/development
+cases, with no untouched holdout or promotion claim.
+
+Both arms use raw FP32/K2/T0.7 policy, first seed `902610300000`, policy seed
+`902610300999`, two native threads, single-thread BLAS and 5,000 decisions.
+Four zero-deal native loaders precede gameplay. Each two-case table receives
+the same 240-second inner guard; the 270-second outer guard leaves time for
+cleanup and the frozen native `collect-research --retain-deadline` accounting.
+The inner guard checks 190 actual runtime/model/plan inputs, while the outer
+guard verifies the complete source seals before starting its stage timeout.
+The final report shares one digest cache across all table input sets.
+Pipeline/service limits are 4,740/4,800 seconds, CPU200% and 20 GiB, CPU-only.
+
+Four focused Rust tests pass. A read-only fixture over all eight original
+roots verified 15 indexed histories, including one recorded unknown, and one
+operational unknown without an indexed history. It checks canonical decoding,
+receipt/index equality and research episode semantics. Missing histories never
+imply an empty equal prefix. Partial reporting requires dead owned processes
+and an empty service/cgroup, and retains all 32 planned rows. The final verifier
+binds required output digests and each guard's exact pipeline controller.
+
+| Frozen comparison artifact | SHA-256 |
+| --- | --- |
+| `ready.json` | `837f73fd43e29b907e29d9c70910c7be8912d50b360f82c9553b35eb0126fddd` |
+| `gameplay.pipeline.json` | `a4764252c9005ceb31d7b68a5560ed3907140c1495848393fa8352f767566dd2` |
+| `bin/matched_gameplay_ops` | `ce2b6379eb863b49ba2c3ca2146b3adc2db1753a29c92d77be2a6ca9dcf3e753` |
+| `gameplay/mapping-preflight.json` | `0215f86a6729bd2b20c0810a6371ecc1e4e66030f955361cc0ce754bcf987356` |
+| `reference-fixture.json` | `3e49fe785750b271c2a5eb9220bc370bfa9220531d3c99733c0b8e4c5e006cc4` |
+
+Preparation took 26.638 seconds. The actual mapping proved sealed commands,
+input lists, trainer and graphs read-only, owned outputs writable, no GPU device
+nodes, and the same clean frozen cwd Git identity. The earlier `01a18be4`
+preparation was never launched and is superseded by this derivative; preserve
+it rather than starting it. There is no Torch, conversion, optimizer, automatic
+retry/refill, collector restart or promotion stage in this comparison.
+
+Root launched the service once at 09:43:19 CET. Its controller is PID
+2500739/start ticks 18063496 on boot `ebf55ae5-05a2-41fc-a994-e5da27268ced`,
+under `baylee-research-breadth-01a18bf8-gameplay.service`. The initial launcher
+reported `No such file or directory` during watcher attachment: the controller
+receipt appeared at 09:44:24, about 65 seconds after service start, beyond its
+55-second attachment wait after verification. The active service was not
+restarted. Root inspected its successful launch receipt and live controller,
+then invoked only `attach-gameplay`; sealed inputs, exact controller identity,
+executable, argv, cgroup and canonical ownership passed. The canonical CPU
+pointer is now `running`, the watcher timer is active, and its first check
+exited zero. Future launchers must distinguish an attachment timeout from
+launch failure and allow for manifest-validation time before controller receipt.
+
+All four native zero-deal loaders completed with cleanup verified, taking
+30.539, 30.559, 30.523 and 30.410 seconds. The first observed gameplay stage was
+`source-table-080`. This establishes a running comparison, not its outcome.
+On terminal completion, inspect and run `verify-gameplay` once before reviewing
+the result; on failure, retain the run and establish owned-process cleanup
+before `report-partial`. Neither operation authorizes duplicate games or promotion.
