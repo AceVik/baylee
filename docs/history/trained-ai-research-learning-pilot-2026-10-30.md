@@ -634,3 +634,95 @@ accepted updates and 311 changed tensors. Its 16-case development comparison
 still has 4 wins/12 losses, matching original R6 without measured strength gain.
 The old continuous BC controller stays intentionally stopped, and the user
 gateway on port 28766 is preserved.
+
+## Breadth GPU audit completed and bounded learning released
+
+Event `80ea836edb2356b8b4c7b109` completed the GPU93 audit above. All 14
+histories, 14,902 frames, 3,479 genuine choices and 241 segments passed the
+unchanged FP32 replay gate. Maximum log-probability error was
+`0.00002288818359375`, against tolerance `0.001`. The uncentered research
+advantages have mean `-0.38190083379501194` and second moment
+`0.29173809510493487`; frozen source values range from
+`0.000027891794161405414` to `0.9999253749847412`. The target contract remains
+`failure_terminal_research_v1`, with no bootstrap, ordinary-PPO admission,
+optimizer updates, model writes or strength claim. Both unknown attempts stay
+target-free, with the original 16-attempt denominator preserved.
+
+Full pipeline time was 561.751 seconds. The audit guard took 491.930 seconds,
+with peak proportional memory 3,258,768,384 bytes. Its 469.684-second measured
+worker interval assigns 191.772 seconds to the native handshake, 81.803 to
+complete-history replay/target preparation and 192.269 to final verification.
+The interval excludes imports, report writing and cleanup. These host phase
+timings are not synchronized GPU-kernel timings. Native preparation plus final
+verification account for about 384 seconds; internal hashing, decompression,
+parsing and packing costs remain to be separated before optimizing them.
+
+Native `verify-gpu-audit` passed once. Artifact SHA-256 values:
+
+| Artifact under GPU93 | SHA-256 |
+| --- | --- |
+| `gpu-audit-verified.json` | `f43774692d70a5d6e2d8b357ee35b0244b0ab75fcf7a1843ffb881337e93fcda` |
+| `gpu/audit-output/probability-replay.json` | `e00d25246acdedb8d89a387fc5e193a64f3d0946846f170531ab5d341effffcf` |
+| `gpu/audit-output/report.json` | `c831437400f82502eada86dcfd076da69968a9c308d3d0b979c8ee6a1433a5f5` |
+| `gpu/audit-worker.json` | `8159fbac53de040355f856929a778cc90a08070a8fb805376216a2c859a2eee1` |
+| `reviewed-events/80ea836edb2356b8b4c7b109-operator-review.json` | `6379be65f5dcbd17a67dfb0f2ce0f5262f27bf71eb06aa2322b449fa370b7e59` |
+
+The native event review rechecked 22,285 seals and five dead owned
+identities/groups. Service/cgroup and GPU were empty; only the owned watcher
+was stopped. The gateway retained its exact PID/start/boot identity. Local and
+central event receipts deduplicate this completion. The canonical training
+pointer was marked `complete-reviewed` before the subsequent launch. Do not
+rerun the audit verifier: it has already written its immutable receipt.
+
+The sole next learning trial is
+`research-breadth-update-01a18ba0-5934-762e-961f-48b8a91e6122/`. Its split Rust
+controller pins reviewed CPU70/GPU93/data evidence, original R6 and the same
+frozen trainer/runtime. Four focused native tests and optimized `-D warnings`
+compilation passed. Preparation took 11.596 seconds and sealed-input
+verification 9.19 seconds. The actual final mount test passed CPU execution
+initialization without creating a CUDA context; frozen inputs remain read-only,
+owned cache paths writable and the shared GPU-lock inode unchanged.
+
+| Prepared artifact | SHA-256 |
+| --- | --- |
+| `ready.json` | `7f410e0d7260995c7b73da3d480ef7191db03c8873a5df17a80bef315796735f` |
+| `update.pipeline.json` | `4be7f7e81bf9cbdad41813d9f372204fb3db089b7a02c62fa2701771cf50139a` |
+| `bin/research_update_ops` | `fb6078ceae1a775e08f5edfb5772d61b81cf663ff447bde514cda9d38d97944e` |
+| `update/mapping-preflight.json` | `8cc7859ae6c05049f9b88b64723c03a8760c22d181f63debf5c408b80ccf863a` |
+
+Root reviewed the frozen source and independently checked the ready/map/helper
+hashes, prior ownership and empty GPU, then released exactly one launch with
+the external ready SHA. The launcher revalidates all input seals under the
+ownership locks. It reserves canonical ownership, releases the prelaunch GPU
+check lock before service start, and keeps ownership through watcher attachment.
+The actual controller is PID 2480842/start ticks 17525475 on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced`, verified by executable, argv and cgroup.
+Service `baylee-research-breadth-01a18ba0-update` and its `-watch.timer` are
+active; the first observed stage is `update`. Recheck live identity/status
+before acting on this launch snapshot; never start a duplicate controller.
+Before handover, owned Torch worker PID 2480931/start ticks 17528919 was
+observed on CUDA with 562 MiB reported by `nvidia-smi`. Native tensor worker
+PID 2480966 was active in the same owned process group, using the pinned
+`research_tensor4`; Torch resolved to the pinned canonical interpreter. Both
+stage logs were empty at this check, and no accepted update is inferred from
+the workers' presence.
+
+Settings remain original R6/fresh AdamW, FP32/K2/T0.7, B4/U64, seed 31431,
+LR `2e-5`, target KL `0.02`, clip `0.2`, KL penalty `0.02`, one epoch as an
+upper bound and at most eight attempted batches. Maximum planned gradient dose
+is 465 choices/2,043 frames/32 segments across 11 histories. Whole-history
+replay and memory reconstruction are additional computation, not extra gradient
+exposure. Worker/pipeline/service limits are 1,800/1,920/1,980 seconds,
+CPU400%, 20 GiB host memory and an 11 GiB CUDA allocator cap. Every update is
+transactionally checked; a rejection ends the attempt sequence. A failing
+final whole-collection KL gate restores original source parameters and reports
+zero retained updates, even if earlier transactions were accepted.
+
+No accepted update or strength improvement is claimed at launch. The next
+review must distinguish attempted batches, transaction acceptance and final
+retained dose, and inspect checkpoint tensors/progress in addition to byte
+seals. The native `verify-update` entry point creates the immutable numerical,
+exposure and cleanup receipt only after terminal success. Export and matched
+gameplay require subsequent review; there is no automatic retry, export,
+gameplay or promotion. This collection uses neural self-play/historical
+opponents; it is not a Terra- or Sonnet-opponent trial.

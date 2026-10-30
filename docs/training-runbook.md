@@ -17,14 +17,14 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
-| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-gpu-audit-recovery-01a18b93-5787-7e22-91bc-94beea70c851/gpu/execution`, now in the full numerical `audit` stage. CUDA initialization and cleanup validation passed; no optimizer stage is present. CPU loading and exact proposed dose are complete and reviewed. The launch controller is PID 2476327/start ticks 17409017; recheck its full identity. No new weight update has occurred. The earlier `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` accepted exactly one update (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546) |
+| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-update-01a18ba0-5934-762e-961f-48b8a91e6122/update/execution`, launched once in stage `update`. Controller PID 2480842/start ticks 17525475; recheck its full identity. The preceding complete-history GPU audit passed all 3,479 choices with maximum log-probability error 0.0000228882 against tolerance 0.001. The current trial permits at most eight attempted updates, then requires review; accepted updates and stronger play are not yet established. The earlier `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` accepted exactly one update (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546) |
 | Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. The broader collection now passed Torch loading of all 3,479 choices. Its planned eight updates select 465 choices across 11 histories, including 103 from natural wins. Next perform complete-history numerical replay before learning. Native input admission does not certify numerical replay or playing strength |
+| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. The broader collection now passed both loading and numerical replay of all 3,479 choices. Its running learning trial selects at most 465 choices across 11 histories, including 103 from natural wins. Review attempted versus retained updates, final KL/rollback and checkpoints before matched gameplay; successful numerical replay does not establish playing strength |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
@@ -194,7 +194,8 @@ Dose-plan SHA-256 is
 `eb56ba5e286506c33f21bd0916b24db56f4526bc5d91497e33c8216180617477`.
 No seed tuning or outcome-based selection occurred; cases 165/170 stay
 target-free. Planned selected segments are not accepted updates; rejection
-may stop learning before all eight batches. Numerical replay is still required.
+may stop learning before all eight batches. The subsequent GPU93 audit below
+completed the required numerical replay.
 
 The CPU pipeline took 838.097 seconds. The loader guard took 410.676 seconds;
 worker host timings assign 192.547 seconds to native session preparation,
@@ -222,7 +223,7 @@ ownership under lock during standalone attachment.
 
 Actual controller PID 2476327/start ticks 17409017 on boot
 `ebf55ae5-05a2-41fc-a994-e5da27268ced` was verified by executable, argv and cgroup.
-Service `baylee-research-breadth-01a18b93-audit` and its `-watch.timer` are active;
+Service `baylee-research-breadth-01a18b93-audit` and its `-watch.timer` were active;
 the first observed stage was `cuda_init`. Stage limits are 60 seconds for CUDA
 initialization, 60 for its child/allocator cleanup validation and 1,200 for
 complete-history replay. Pipeline/service limits are 1,440/1,500 seconds,
@@ -237,15 +238,63 @@ CUDA initialization and its native validation have now completed in 21.193 and
 19.715 seconds, each with exit zero and cleanup verified. The probe confirmed
 the canonical `cuda:0` device, exact allocator cap, synchronization and zero
 allocated bytes after cleanup. The pipeline advanced to `audit`, with the
-owned Python worker observed on the GPU. Full numerical replay remains pending.
+owned Python worker observed on the GPU. Event `80ea836edb2356b8b4c7b109` then
+reported completion and is now reviewed and deduplicated. Native
+`bin/research_gpu_ops verify-gpu-audit` already passed once; do not repeat it
+or restart the pipeline. All 14 histories, 14,902 frames, 3,479 choices and
+241 segments passed FP32 replay. Maximum log-probability error was
+`0.00002288818359375`, below the unchanged `0.001` tolerance. No optimizer
+update or model write occurred. GPU-verified SHA-256 is
+`f43774692d70a5d6e2d8b357ee35b0244b0ab75fcf7a1843ffb881337e93fcda`;
+operator-review SHA-256 is
+`6379be65f5dcbd17a67dfb0f2ce0f5262f27bf71eb06aa2322b449fa370b7e59`.
+Review rechecked 22,285 seals and five dead owned identities/groups, confirmed
+the empty service/cgroup and GPU, and stopped only the owned watcher.
 
-After terminal completion, recheck process/group cleanup and run this recovery's
-`bin/research_gpu_ops verify-gpu-audit` once. Inspect `gpu/cuda-verified.json`,
-`gpu/audit-output/probability-replay.json`, `gpu/audit-output/report.json` and
-`gpu-audit-verified.json`. `attach-gpu-audit` restores monitoring only for this
-exact owner; never repeat `launch-gpu-audit`. Only reviewed numerical success
-permits preparation of the already authorized bounded learning phase. This
-pipeline has no optimizer command, model publication or promotion stage.
+The audit guard took 491.930 seconds; full pipeline time was 561.751 seconds.
+Worker host timings assign 81.803 seconds to complete-history replay/target
+preparation and 384.041 seconds to native handshake plus final verification.
+These are host phase measurements, not synchronized GPU-kernel throughput.
+Measure the native phases' internal costs before changing their implementation;
+retain fresh final content verification and keep this trial's inputs frozen.
+
+The bounded learning trial launched once under
+`research-breadth-update-01a18ba0-5934-762e-961f-48b8a91e6122/` after review of
+the frozen Rust controller, prerequisite seals and actual mount/CPU-init test.
+Four native tests and optimized `-D warnings` compilation passed. Ready SHA-256:
+`7f410e0d7260995c7b73da3d480ef7191db03c8873a5df17a80bef315796735f`;
+pipeline SHA-256:
+`4be7f7e81bf9cbdad41813d9f372204fb3db089b7a02c62fa2701771cf50139a`.
+Controller PID 2480842/start ticks 17525475 on the same boot was verified by
+executable, argv and cgroup. Service `baylee-research-breadth-01a18ba0-update`
+and its `-watch.timer` are active; the first observed stage was `update`.
+The owned Torch child PID 2480931/start ticks 17528919 was observed on the GPU,
+with native tensor worker PID 2480966 in the same guarded process group. Both
+resolve to the pinned executables; startup logs were empty, with no reported
+error. This establishes worker startup, not an accepted optimizer step.
+
+This trial uses original R6 with fresh AdamW, the frozen DATA trainer, FP32/K2/
+T0.7, B4/U64, seed 31431, LR `2e-5`, target KL `0.02`, clipping `0.2` and KL
+penalty `0.02`. One epoch is an upper bound; at most eight batches are attempted.
+The fixed limits are 1,800 seconds for the worker, 1,920 for the pipeline and
+1,980 for the service, CPU400%, 20 GiB host memory and an 11 GiB CUDA allocator
+cap. The shared GPU lock covers the entire learning stage. The worker repeats
+the full probability audit, stops at a rejected transaction, and rolls back to
+the original source if the final complete-collection KL gate fails. The 465
+choices/2,043 frames are the maximum selected gradient dose, not a completed
+epoch or all 3,479 audited choices. Cases 165/170 remain target-free.
+
+After terminal completion, recheck identity/group/service cleanup and run this
+namespace's `bin/research_update_ops verify-update` once, under canonical and
+shared-GPU ownership locks. Inspect `update/output/report.json`,
+`probability-replay.json`, `last.pt`, `net.pt`, `update/worker.json` and
+`update-verified.json`. Keep attempted, transaction-accepted and finally retained
+updates distinct: final rollback can publish unchanged source after earlier
+accepted transactions. The Rust verifier seals checkpoint bytes; independently
+inspect their tensor/progress semantics with PyTorch before export. A complete
+pipeline alone does not certify accepted learning or stronger play.
+`attach-update` restores monitoring for this exact running owner only; never
+repeat `launch-update`. No automatic export, gameplay, retry or promotion follows.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,
