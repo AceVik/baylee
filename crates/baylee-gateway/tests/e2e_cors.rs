@@ -30,12 +30,14 @@ const PAGE: &str = "http://localhost:8080";
 fn a_browser_on_another_origin_may_read_what_the_gateway_answers() {
     let gw = spawn_gateway("cors");
 
-    // The preflight for the lobby's first request. `authorization` and
-    // `content-type` are what make it preflighted in the first place.
+    // The preflight for a client's first request, its sign-in through Baylee
+    // Central (`/auth/login` went with the gateway's own passwords).
+    // `authorization` and `content-type` are what make it preflighted in the
+    // first place.
     let (status, head) = http_headers(
         gw.port,
         "OPTIONS",
-        "/auth/login",
+        "/auth/central/login",
         &[
             ("Origin", PAGE),
             ("Access-Control-Request-Method", "POST"),

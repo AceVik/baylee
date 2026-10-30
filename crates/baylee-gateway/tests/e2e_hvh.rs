@@ -1,6 +1,6 @@
 //! End-to-end regression test for human-vs-human over the gateway: spawns
 //! the real `baylee-gateway` binary, attaches an agent that runs a real
-//! engine, registers two accounts over HTTP, creates and joins a lobby game,
+//! engine, gives two accounts a session each, creates and joins a lobby game,
 //! then connects BOTH seat sockets and asserts that player B sees the game
 //! advance when player A acts.
 //!
@@ -18,7 +18,7 @@ mod common;
 
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_protocol::v1::{self, Envelope};
-use common::{attach_agent, http, json_field, login, spawn_gateway};
+use common::{Gateway, attach_agent, http, json_field, login, spawn_gateway};
 use futures_util::{SinkExt, StreamExt};
 use prost::Message;
 
@@ -51,6 +51,34 @@ where
         }
     }
     panic!("expected envelope never arrived");
+}
+
+/// Another session for an account `common::login` already made, as a second
+/// device holds one: its bearer token. Written into the table as
+/// `common::login` writes the first, because no route makes one any more;
+/// an account that is not there fails the insert rather than the test's
+/// next assertion.
+fn another_session(gw: &Gateway, username: &str) -> String {
+    use sha2::Digest as _;
+    use std::fmt::Write as _;
+    let hex = |bytes: &[u8]| {
+        bytes.iter().fold(String::new(), |mut out, b| {
+            write!(out, "{b:02x}").expect("writing to a String");
+            out
+        })
+    };
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes).expect("OS randomness");
+    let token = hex(&bytes);
+    let digest = hex(&sha2::Sha256::digest(token.as_bytes()));
+    gw.sql(&format!(
+        "INSERT INTO session_token (token_hash, account_id, expires_at)
+         VALUES (decode('{digest}', 'hex'),
+                 (SELECT id FROM account WHERE username_key = '{}'),
+                 clock_timestamp() + interval '12 hours')",
+        username.to_ascii_lowercase()
+    ));
+    token
 }
 
 /// Two accounts, a deck each, a room A opens and B joins, both ready and the
@@ -490,14 +518,7 @@ async fn a_player_who_deletes_their_account_leaves_the_table() {
     };
 
     // Each player's own session, for the lobby and the deletion.
-    let session = |username: &str| {
-        let creds =
-            format!("{{\"username\":\"{username}\",\"password\":\"a-very-fine-password\"}}");
-        let (status, body) = http(port, "POST", "/auth/login", None, &creds);
-        assert_eq!(status, 200, "{body}");
-        json_field(&body, "token").to_string()
-    };
-    let (alice, bob) = (session("alice"), session("bob"));
+    let (alice, bob) = (another_session(&gw, "alice"), another_session(&gw, "bob"));
     let lobby = |token: &str| common::lobby_url(port, token, "");
     let (mut lobby_a, _) = tokio_tungstenite::connect_async(lobby(&alice))
         .await
@@ -512,13 +533,7 @@ async fn a_player_who_deletes_their_account_leaves_the_table() {
         "alice is at the table: {before}"
     );
 
-    let (status, body) = http(
-        port,
-        "DELETE",
-        "/account",
-        Some(&alice),
-        "{\"password\":\"a-very-fine-password\"}",
-    );
+    let (status, body) = http(port, "DELETE", "/account", Some(&alice), "{}");
     assert_eq!(status, 204, "{body}");
 
     assert!(closes(&mut ws_a).await, "alice's seat socket stayed open");

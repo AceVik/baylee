@@ -1900,6 +1900,155 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  /admin/auth-mode:
+    get:
+      summary: Who this gateway lets in
+      description: |-
+        The mode in force (`guests`, `central` or `mixed`), where
+        it comes from (the operator's `BAYLEE_AUTH_MODE`, an admin's choice
+        here, or the default), and whether the gateway is connected to Baylee
+        Central.
+      operationId: auth_mode
+      tags:
+      - Admin
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      responses:
+        "200":
+          description: The mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsoleAuthMode"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    put:
+      summary: Choose who this gateway lets in
+      description: |-
+        Puts `guests`, `central` or `mixed` in force for every
+        sign-in from now on and keeps it across restarts; a session already made
+        goes on until it ends. Refused while the operator's `BAYLEE_AUTH_MODE`
+        sets the mode.
+      operationId: choose_auth_mode
+      tags:
+      - Admin
+      parameters:
+      - name: X-Baylee-Admin
+        in: header
+        required: true
+        description: >-
+          The acting admin's name, for the audit line and `set_by`; ignored when the
+          bearer is a Central admin lease, whose account acts
+        schema:
+          type: string
+          pattern: ^[\w.-]{1,64}$
+      security:
+      - adminToken: []
+      servers:
+      - url: http://127.0.0.1:28767
+        description: The admin listener (loopback only)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChooseBody"
+        required: true
+      responses:
+        "200":
+          description: In force, as `GET /admin/auth-mode` answers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsoleAuthMode"
+        "400":
+          description: "No valid `X-Baylee-Admin`, or not a mode: `guests`, `central` or `mixed` (an unknown field included)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: >-
+            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
+            `Host` that is not this machine, refused before the token is read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The operator's `BAYLEE_AUTH_MODE` sets the mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: The body is over 16 KiB
+        "429":
+          description: >-
+            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
+            is refused too until the window passes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+              description: "Seconds to wait: 300"
+        "503":
+          description: >-
+            The gateway's database is unavailable (or Baylee Central, while an admin lease
+            is checked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   /admin/llm/access:
     get:
       summary: Who may seat each hosted profile
@@ -2391,107 +2540,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
-  "/admin/accounts/{id}/password":
-    post:
-      summary: Reset a registered account's password
-      description: |-
-        Gives a registered account a random password, answered
-        once for the admin to hand on. The account must choose its own at its
-        next sign-in (`POST /auth/password`); every session it had is signed
-        out and its lobby sockets close. A game it sits in plays on. No body.
-      operationId: reset_password
-      tags:
-      - Admin
-      parameters:
-      - name: X-Baylee-Admin
-        in: header
-        required: true
-        description: >-
-          The acting admin's name, for the audit line; ignored when the bearer is a
-          Central admin lease, whose account acts
-        schema:
-          type: string
-          pattern: ^[\w.-]{1,64}$
-      - name: id
-        in: path
-        required: true
-        description: The account's id
-        schema:
-          type: string
-          format: uuid
-      security:
-      - adminToken: []
-      servers:
-      - url: http://127.0.0.1:28767
-        description: The admin listener (loopback only)
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResetPassword"
-        "400":
-          description: No valid `X-Baylee-Admin`, or an id that is not a UUID
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "401":
-          description: The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "403":
-          description: >-
-            A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a
-            `Host` that is not this machine, refused before the token is read
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "404":
-          description: No such account
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "409":
-          description: A guest's account, which has no password, or one linked to Baylee Central
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "429":
-          description: >-
-            Ten wrong tokens in five minutes, or 600 requests in a minute; the right token
-            is refused too until the window passes
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-          headers:
-            Retry-After:
-              schema:
-                type: integer
-                format: int64
-                minimum: 0
-              description: "Seconds to wait: 300"
-        "500":
-          description: The password could not be hashed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "503":
-          description: >-
-            The gateway's database or Baylee Central is unavailable, or a move of accounts
-            to Central holds credential changes
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
   "/admin/accounts/{id}/ban":
     put:
       summary: Ban an account
@@ -2499,9 +2547,9 @@ paths:
         Bans an account, registered or guest, for good or until a
         moment, replacing any ban it had. It leaves every room and game, its
         sockets close and its chair tickets are spent; a registered account's
-        sessions are signed out. A guest keeps its session, which is refused
-        while the ban holds. Its sign-in and requests are refused with the
-        reason.
+        sessions are signed out, and its admission from Baylee Central is
+        refused. A guest keeps its session, which is refused with the reason
+        while the ban holds.
       operationId: ban
       tags:
       - Admin
@@ -3093,6 +3141,13 @@ components:
       - added_at
       - added_by
       description: An account on a profile's list.
+    AuthMode:
+      type: string
+      enum:
+      - guests
+      - central
+      - mixed
+      description: "Who this gateway lets in: `guests` (guests only), `central` (Baylee Central's accounts only, the default) or `mixed` (both)."
     BanBody:
       type: object
       properties:
@@ -3202,6 +3257,16 @@ components:
       - built_at
       - dirty
       description: "Which binary answers: the same five fields in `/source`, `/info` and `/health`."
+    ChooseBody:
+      type: object
+      properties:
+        mode:
+          $ref: "#/components/schemas/AuthMode"
+          description: The mode to put in force.
+      required:
+      - mode
+      additionalProperties: false
+      description: What `PUT /admin/auth-mode` takes.
     CloseOrder:
       type: object
       properties:
@@ -3445,6 +3510,41 @@ components:
       - capacity
       - games
       description: "`GET /admin/stats`'s engine agents."
+    ConsoleAuthMode:
+      type: object
+      properties:
+        mode:
+          $ref: "#/components/schemas/AuthMode"
+          description: The mode in force.
+        source:
+          type: string
+          description: "Where it comes from: the operator's `BAYLEE_AUTH_MODE`, which the console cannot change, an admin's choice here, or the default, `central`."
+          enum:
+          - environment
+          - console
+          - default
+        set_at:
+          type:
+          - string
+          - "null"
+          description: When an admin chose it, `null` unless `source` is `console`.
+        set_by:
+          type:
+          - string
+          - "null"
+          description: "Who chose it: the console's admin name or a Central account's id, `null` unless `source` is `console`."
+        connected:
+          type: boolean
+          description: >-
+            Whether the gateway is connected to Baylee Central, which is how a Central
+            sign-in reaches it. Unconnected and on `central`, it lets nobody in.
+      required:
+      - mode
+      - source
+      - set_at
+      - set_by
+      - connected
+      description: "`GET /admin/auth-mode` and `PUT /admin/auth-mode`."
     ConsoleBan:
       type: object
       properties:
@@ -3707,15 +3807,29 @@ components:
         terms:
           type: boolean
           description: Whether it has terms of use.
-        mail:
+        central:
           type: boolean
-          description: Whether it sends mail (`BAYLEE_SMTP_URL`).
+          description: >-
+            Whether it is connected to Baylee Central (`BAYLEE_CENTRAL_CONFIG_FILE`), which
+            is how a Central sign-in reaches it.
+        auth_mode:
+          $ref: "#/components/schemas/AuthMode"
+          description: "Who comes in: guests, Baylee Central's accounts, or both (`GET /admin/auth-mode`)."
+        auth_mode_source:
+          type: string
+          description: "Where that comes from: the operator's `BAYLEE_AUTH_MODE`, an admin's choice, or the default."
+          enum:
+          - environment
+          - console
+          - default
       required:
       - name
       - registration
       - uptime_secs
       - terms
-      - mail
+      - central
+      - auth_mode
+      - auth_mode_source
       allOf:
       - $ref: "#/components/schemas/Build"
       description: "`GET /admin/stats`'s gateway."
@@ -3724,7 +3838,7 @@ components:
       properties:
         enabled:
           type: boolean
-          description: Whether guests are let in (`BAYLEE_GUESTS`).
+          description: Whether guests are let in (the auth mode is `guests` or `mixed`).
         live:
           type: integer
           format: int64
@@ -4119,10 +4233,7 @@ components:
           description: What went wrong, as one sentence for a person.
         ban:
           $ref: "#/components/schemas/BanBody"
-          description: "The ban an account is refused with (beta.8): only on a `403` from a sign-in or a session of a banned account (`moderation.rs`)."
-        password_change:
-          type: boolean
-          description: "The account must choose a new password first (beta.8): only on the `403` a sign-in with an admin's reset password is answered."
+          description: "The ban an account is refused with (beta.8): only on a `403` from a Central sign-in or a session of a banned account (`moderation.rs`)."
         terms_required:
           type: string
           description: "Whose terms of use the account has to accept first (`central` or `gateway`): only on the `403` of a session that has not (`terms_admit`)."
@@ -5149,15 +5260,6 @@ components:
       - invite
       - "off"
       description: "Who may make an account: `open` (anybody), `invite` (somebody with a beta key; a new guest needs one too) or `off`."
-    ResetPassword:
-      type: object
-      properties:
-        password:
-          type: string
-          description: "The new password, `XXXX-XXXX-XXXX-XXXX` in Crockford's base 32, for the admin to hand on: shown this once, stored only as its hash."
-      required:
-      - password
-      description: "`POST /admin/accounts/{id}/password`."
     SampleShown:
       type: object
       properties:

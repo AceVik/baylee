@@ -65,8 +65,8 @@ pub struct Model {
     pub terms_version: Option<String>,
     /// When it accepted them.
     pub terms_accepted_at: Option<TimeDateTimeWithTimeZone>,
-    /// An admin reset the password: it signs in with the one it was given
-    /// only to choose its own (`POST /auth/password`).
+    /// An admin reset the password before the cutover, and it never chose its
+    /// own; the gateway admits no session of it.
     pub must_change_password: bool,
     /// Banned since then; `None` for not banned. The ban columns are all set
     /// or all `NULL`, but for `banned_until` (a `CHECK`).

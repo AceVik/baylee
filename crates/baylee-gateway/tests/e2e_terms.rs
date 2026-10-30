@@ -1,16 +1,20 @@
-//! The terms of use (WG-1): a gateway with a terms file asks at sign-in
-//! until the account accepts the version it shows, and a gateway without
-//! one answers exactly as it did before terms existed. A gateway with a
-//! directory of them shows each player the terms in their language, English
-//! where it has not got theirs, and one version for all.
+//! The terms of use (WG-1): a gateway with a terms file asks a new guest to
+//! accept the version it shows and records the version an account accepts,
+//! and a gateway without one answers exactly as it did before terms
+//! existed. A gateway with a directory of them shows each player the terms
+//! in their language, English where it has not got theirs, and one version
+//! for all.
+//!
+//! The only sign-in here that answers `terms_stale` is a guest's: an account
+//! signs in at Baylee Central (`docs/central-login.md`), and what a Central
+//! session is asked is `e2e_central`'s. A session of an account from before
+//! is never refused for the terms, so what it accepted is read from its row.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
 mod common;
 
-use common::{http, http_headers, json_field, spawn_gateway, spawn_gateway_with};
-
-const PASSWORD: &str = "a-very-fine-password";
+use common::{Gateway, http, http_headers, json_field, login, spawn_gateway, spawn_gateway_with};
 
 /// A `/terms` answer without its `digest`, checked to be the digest's
 /// 64 lowercase hex digits: what it hashes is Central's to define, and
@@ -32,21 +36,12 @@ fn without_digest(answer: &str) -> serde_json::Value {
     answer
 }
 
-/// Registers, then signs in; both answers, raw.
-fn register_and_login(port: u16, username: &str) -> (String, String) {
-    let register = format!(
-        "{{\"username\":\"{username}\",\"display_name\":\"{username}\",\"password\":\"{PASSWORD}\"}}"
-    );
-    let (status, registered) = http(port, "POST", "/auth/register", None, &register);
-    assert_eq!(status, 200, "register: {registered}");
-    (registered, login(port, username))
-}
-
-fn login(port: u16, username: &str) -> String {
-    let creds = format!("{{\"username\":\"{username}\",\"password\":\"{PASSWORD}\"}}");
-    let (status, body) = http(port, "POST", "/auth/login", None, &creds);
-    assert_eq!(status, 200, "login: {body}");
-    body
+/// The version of the terms `username`'s account last accepted, or none.
+fn accepted(gw: &Gateway, username: &str) -> Option<String> {
+    let version = gw.text(&format!(
+        "SELECT coalesce(terms_version, '') FROM account WHERE username_key = '{username}'"
+    ));
+    Some(version).filter(|v| !v.is_empty())
 }
 
 fn guest(port: u16) -> String {
@@ -86,13 +81,11 @@ fn without_a_terms_file_nothing_changes() {
     let (status, _) = http(gw.port, "GET", "/terms", None, "");
     assert_eq!(status, 404, "a gateway without terms served some");
 
-    // The answers carry no `terms_stale` at all, not `false`: a client from
+    // The answer carries no `terms_stale` at all, not `false`: a client from
     // before terms reads exactly what it always read.
-    let (registered, logged_in) = register_and_login(gw.port, "plain");
-    for answer in [registered, logged_in, guest(gw.port)] {
-        assert!(json(&answer).get("terms_stale").is_none(), "{answer}");
-    }
-    let token = json_field(&login(gw.port, "plain"), "token").to_string();
+    let answer = guest(gw.port);
+    assert!(json(&answer).get("terms_stale").is_none(), "{answer}");
+    let token = login(gw.port, "plain", "Plain");
     let (status, _) = http(
         gw.port,
         "POST",
@@ -104,7 +97,7 @@ fn without_a_terms_file_nothing_changes() {
 }
 
 #[test]
-fn a_sign_in_asks_until_the_shown_version_is_accepted() {
+fn the_shown_version_is_asked_of_a_guest_and_is_the_one_an_account_accepts() {
     let dir = temp_dir("file");
     let path = dir.join("terms.md");
     std::fs::write(
@@ -143,14 +136,10 @@ fn a_sign_in_asks_until_the_shown_version_is_accepted() {
     let (_, head) = http_headers(port, "GET", "/terms?lang=de", &[]);
     assert!(!head.contains("content-language"), "{head}");
 
-    // A new account, a returning one that never accepted, a new guest: all
-    // asked.
-    let (registered, logged_in) = register_and_login(port, "reader");
-    assert_eq!(json(&registered)["terms_stale"], true, "{registered}");
-    assert_eq!(json(&logged_in)["terms_stale"], true, "{logged_in}");
+    // A new guest is asked.
     assert_eq!(json(&guest(port))["terms_stale"], true);
 
-    let token = json_field(&logged_in, "token").to_string();
+    let token = login(port, "reader", "Reader");
     let accept = |version: &str, token: Option<&str>| {
         http(
             port,
@@ -165,15 +154,15 @@ fn a_sign_in_asks_until_the_shown_version_is_accepted() {
     // An older text than the one in force is not what is being agreed to.
     assert_eq!(accept("2026-09", Some(&token)), 409);
     assert_eq!(
-        json(&login(port, "reader"))["terms_stale"],
-        true,
+        accepted(&gw, "reader"),
+        None,
         "a refused acceptance was recorded"
     );
     assert_eq!(accept("2026-10", Some(&token)), 200);
     assert_eq!(
-        json(&login(port, "reader"))["terms_stale"],
-        false,
-        "accepted, and still asked"
+        accepted(&gw, "reader").as_deref(),
+        Some("2026-10"),
+        "accepted, and not recorded"
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -232,9 +221,8 @@ fn a_directory_shows_each_language_and_english_for_the_rest() {
 
     // Read in German, accepted: the version is the account's in every
     // language.
-    let (_, logged_in) = register_and_login(port, "leserin");
-    assert_eq!(json(&logged_in)["terms_stale"], true, "{logged_in}");
-    let token = json_field(&logged_in, "token").to_string();
+    let token = login(port, "leserin", "Leserin");
+    assert_eq!(accepted(&gw, "leserin"), None);
     let (status, _) = http(
         port,
         "POST",
@@ -244,9 +232,9 @@ fn a_directory_shows_each_language_and_english_for_the_rest() {
     );
     assert_eq!(status, 200);
     assert_eq!(
-        json(&login(port, "leserin"))["terms_stale"],
-        false,
-        "accepted in one language, and still asked"
+        accepted(&gw, "leserin").as_deref(),
+        Some("2026-10"),
+        "accepted in one language, and not recorded"
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -288,8 +276,8 @@ fn a_directory_that_is_not_one_set_of_terms_refuses_startup() {
 
 /// Declining the terms is deleting the account (the sheet's "Decline and
 /// delete account"): a session that has not accepted the current version
-/// may delete its account as any other may, an account with its password
-/// again, a guest with `{}`. No route refuses such a session.
+/// may delete its account as any other may, with `{}`, an account's as a
+/// guest's. No route refuses such a session.
 #[test]
 fn a_session_that_has_not_accepted_may_delete_its_account() {
     let dir = terms_dir("decline", &[("terms.en.md", EN), ("terms.de.md", DE)]);
@@ -299,14 +287,9 @@ fn a_session_that_has_not_accepted_may_delete_its_account() {
     );
     let port = gw.port;
 
-    let (_, logged_in) = register_and_login(port, "decliner");
-    assert_eq!(json(&logged_in)["terms_stale"], true, "{logged_in}");
-    let token = json_field(&logged_in, "token").to_string();
-    let wrong = r#"{"password":"not-the-password"}"#;
-    let (status, body) = http(port, "DELETE", "/account", Some(&token), wrong);
-    assert_eq!(status, 403, "the password is still asked: {body}");
-    let right = format!("{{\"password\":\"{PASSWORD}\"}}");
-    let (status, body) = http(port, "DELETE", "/account", Some(&token), &right);
+    let token = login(port, "decliner", "Decliner");
+    assert_eq!(accepted(&gw, "decliner"), None, "nothing accepted");
+    let (status, body) = http(port, "DELETE", "/account", Some(&token), "{}");
     assert_eq!(status, 204, "{body}");
     let (status, _) = http(port, "GET", "/me", Some(&token), "");
     assert_eq!(status, 401, "the session outlived its account");

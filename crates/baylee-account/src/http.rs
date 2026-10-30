@@ -31,7 +31,15 @@ impl CentralHttp {
     /// Reports generic auth/transport/conflict/capacity failures; never follows a redirect.
     pub fn exchange(&self, request: &Request, bearer: Option<&Token>) -> Result<Response, Error> {
         let bytes = Zeroizing::new(central_api::encode(request)?);
+        // A legacy password crosses once (`docs/central-login.md` §"Legacy
+        // migration"): a refusal before execution is answered, not retried.
+        let attempts = if matches!(request, Request::LegacyLogin { .. }) {
+            &[][..]
+        } else {
+            &[100, 250, 700][..]
+        };
         retry_busy(
+            attempts,
             || {
                 let mut asked = self
                     .agent
@@ -53,10 +61,11 @@ impl CentralHttp {
 // 429 means rejection before execution. No other error, including an ambiguous
 // connection loss after a mutating operation, permits a blind transport retry.
 fn retry_busy<T>(
+    waits: &[u64],
     mut operation: impl FnMut() -> Result<T, Error>,
     mut wait: impl FnMut(Duration),
 ) -> Result<T, Error> {
-    for millis in [100, 250, 700] {
+    for &millis in waits {
         match operation() {
             Err(Error::Busy) => wait(Duration::from_millis(millis)),
             result => return result,
@@ -131,6 +140,7 @@ mod tests {
         let mut attempts = 0;
         let mut waits = Vec::new();
         let result = retry_busy(
+            &[100, 250, 700],
             || {
                 attempts += 1;
                 if attempts < 3 {
@@ -150,6 +160,7 @@ mod tests {
         attempts = 0;
         assert!(matches!(
             retry_busy::<()>(
+                &[100, 250, 700],
                 || {
                     attempts += 1;
                     Err(Error::Unavailable)
@@ -163,6 +174,7 @@ mod tests {
         let mut waited = Duration::ZERO;
         assert!(matches!(
             retry_busy::<()>(
+                &[100, 250, 700],
                 || {
                     attempts += 1;
                     Err(Error::Busy)
@@ -176,5 +188,19 @@ mod tests {
             waited > Duration::from_secs(1),
             "the last attempt crosses the server's one-second rate window"
         );
+        // The legacy sign-in's waits: none, so its password crosses once.
+        attempts = 0;
+        assert!(matches!(
+            retry_busy::<()>(
+                &[],
+                || {
+                    attempts += 1;
+                    Err(Error::Busy)
+                },
+                |_| panic!("a legacy sign-in is not retried")
+            ),
+            Err(Error::Busy)
+        ));
+        assert_eq!(attempts, 1);
     }
 }

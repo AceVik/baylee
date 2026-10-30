@@ -59,25 +59,24 @@ async function readPort(file: string, child: ChildProcess, what: string): Promis
   throw new Error(`${what} never wrote ${file}`);
 }
 
-/** Registers `username` on the gateway with `key`; the status. */
-export async function register(username: string, key: string): Promise<number> {
-  const response = await fetch(`http://127.0.0.1:${gateway().port}/auth/register`, {
+/**
+ * Lets `name` into the gateway as a guest with the closed beta's `key`; the
+ * status. Nobody registers at a gateway any more: accounts are Baylee
+ * Central's, and a key admits a guest.
+ */
+export async function admitGuest(name: string, key: string): Promise<number> {
+  const response = await fetch(`http://127.0.0.1:${gateway().port}/auth/guest`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username,
-      display_name: username,
-      password: "a-very-fine-password",
-      invite_key: key,
-    }),
+    body: JSON.stringify({ display_name: name, invite_key: key }),
   });
   return response.status;
 }
 
 /**
  * A real baylee-gateway, a closed beta with its admin console on a loopback
- * port of its own, in a schema of its own; two accounts let in with keys
- * its own command made.
+ * port of its own, in a schema of its own; two accounts from before Baylee
+ * Central took the sign-in over, as its database holds them.
  */
 async function startGateway(url: string, sql: postgres.Sql): Promise<{ child: ChildProcess; schema: string }> {
   const bin = binary("baylee-gateway", "BAYLEE_GATEWAY_BIN");
@@ -98,6 +97,8 @@ async function startGateway(url: string, sql: postgres.Sql): Promise<{ child: Ch
       BAYLEE_ADMIN_BIND: "127.0.0.1:0",
       BAYLEE_ADMIN_PORT_FILE: adminFile,
       BAYLEE_REGISTRATION: "invite",
+      // Guests come in only where the mode says so; unset is `central`.
+      BAYLEE_AUTH_MODE: "guests",
       BAYLEE_DB_POOL: "2",
       BAYLEE_ART_PATH: "off",
       BAYLEE_DECK_IMAGE_PATH: "off",
@@ -111,15 +112,11 @@ async function startGateway(url: string, sql: postgres.Sql): Promise<{ child: Ch
   gatewayPorts = { port, admin };
   writeFileSync(resolve(tmpdir(), `baylee-feedback-e2e-gateway-${PORT}.json`), JSON.stringify(gatewayPorts));
 
-  const keys = execFileSync(bin, ["invite", "create", "--count", "2", "--note", "seed"], {
-    env: { ...process.env, DATABASE_URL: scoped, RUST_LOG: "off" },
-  })
-    .toString()
-    .trim()
-    .split("\n");
-  for (const [n, key] of keys.entries()) {
-    const status = await register(`player${n}`, key);
-    if (status !== 200) throw new Error(`registering a seeded player answered ${status}`);
+  for (const n of [0, 1]) {
+    await sql.unsafe(
+      `INSERT INTO "${schema}".account (id, username, username_key, display_name, password_hash, created_at, lang, guest)
+       VALUES (uuidv7(), 'player${n}', 'player${n}', 'player${n}', '$retired$', clock_timestamp(), 'en', false)`,
+    );
   }
   return { child, schema };
 }

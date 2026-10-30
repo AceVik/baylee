@@ -83,7 +83,7 @@ async fn redeem(
 /// @body `$CentralCapability`
 /// @return 200: `$CentralSession` "The session"
 /// @return 401: "The ticket is not good, the account is not linked here, it is a guest, or Central no longer admits it"
-/// @return 403: "The account is banned or must choose a new password first, or Central refused"
+/// @return 403: "This gateway takes no Central account (its mode is `guests`), the account is banned or must choose a new password first, or Central refused"
 /// @return 409: "Central answered a conflict"
 /// @return 413: String text/plain "The body is over 8 KiB"
 /// @return 429: "Central is busy"
@@ -92,6 +92,11 @@ async fn login(
     State(state): State<Shared>,
     Json(capability): Json<Capability>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
+    // The mode in force decides, before Central is asked anything
+    // (`authmode.rs`); the console's own sign-in below follows none.
+    if !state.auth_mode.current().central() {
+        return Err(StatusCode::FORBIDDEN);
+    }
     login_for(&state, capability, TicketPurpose::Admit).await
 }
 

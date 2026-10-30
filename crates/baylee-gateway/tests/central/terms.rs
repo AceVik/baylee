@@ -3,7 +3,8 @@
 //! publishes its default terms to Central, refuses a Central-bound session
 //! whose account has not accepted them, lets it go on once it accepted them
 //! at Central, and asks again after an admin published a new version.
-use super::{CentralHttp, Endpoint, TicketPurpose, common, config_file, sdk};
+use super::{CentralHttp, Endpoint, common, config_file, sdk};
+use baylee_account::wire::TicketPurpose;
 use baylee_account::{
     gateway::GatewayMetadata,
     terms::{TermsSubject, TermsVersion},
@@ -90,7 +91,7 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
     let Discovery::Central { identity } = sdk::discover(&http, "synthetic".into()).unwrap() else {
         panic!("a migrated account");
     };
-    let mut owner = sdk::login(&http, identity, "a-very-fine-password".into()).unwrap();
+    let mut owner = sdk::login(&http, identity, super::PASSWORD.into()).unwrap();
     owner.confirm_restored(&http).unwrap();
     let metadata = GatewayMetadata {
         name: "Synthetic gateway with terms".into(),

@@ -68,7 +68,7 @@ async fn source(db: &impl ConnectionTrait, account: Uuid) -> Result<Option<Strin
     Ok((text.len() <= MAX_SNAPSHOT_BYTES).then_some(text))
 }
 
-/// Whether a legacy account has cut over. A linked account can never use the old password route.
+/// Whether a legacy account has moved to Central and been linked here.
 ///
 /// # Errors
 /// Reports database or invalid-identifier errors.
@@ -76,20 +76,4 @@ pub async fn linked(db: &impl ConnectionTrait, account: &str) -> Result<bool, Db
     let row = db.query_one_raw(Statement::from_sql_and_values(DbBackend::Postgres,
         "SELECT central_id IS NOT NULL AS linked FROM central_account_link WHERE account_id = $1", [id(account)?.into()])).await?;
     row.map_or(Ok(false), |row| row.try_get("", "linked"))
-}
-
-/// Whether local legacy proof has prepared an enrollment that must be invalidated
-/// centrally before changing its source credential.
-///
-/// # Errors
-/// Reports unavailable storage or malformed local account identifiers.
-pub async fn pending(db: &impl ConnectionTrait, account: &str) -> Result<bool, DbErr> {
-    let row = db
-        .query_one_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "SELECT central_id IS NULL AS pending FROM central_account_link WHERE account_id = $1",
-            [id(account)?.into()],
-        ))
-        .await?;
-    row.map_or(Ok(false), |row| row.try_get("", "pending"))
 }

@@ -19,9 +19,6 @@ use common::{
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::tungstenite::Message;
 
-/// The password `common::login` registers every account with.
-const PASSWORD: &str = "a-very-fine-password";
-
 /// An account as the tests drive it: its session, its tag and its handle.
 struct Account {
     session: String,
@@ -247,8 +244,7 @@ async fn deleting_an_account_closes_its_socket_tells_its_friends_and_leaves_no_r
     assert!(bob_start.friends.iter().any(|f| f.person.tag == ann.tag));
 
     // Goodbye.
-    let body = serde_json::json!({ "password": PASSWORD }).to_string();
-    let (status, answer) = http(port, "DELETE", "/account", Some(&ann.session), &body);
+    let (status, answer) = http(port, "DELETE", "/account", Some(&ann.session), "{}");
     assert_eq!(status, 204, "{answer}");
 
     // Her socket closes; her friend is told the friendship is gone.
@@ -378,8 +374,7 @@ async fn deleting_an_account_withdraws_its_table_invites_and_a_guest_leaves_as_c
     )
     .await;
 
-    let body = serde_json::json!({ "password": PASSWORD }).to_string();
-    let (status, answer) = http(port, "DELETE", "/account", Some(&ann.session), &body);
+    let (status, answer) = http(port, "DELETE", "/account", Some(&ann.session), "{}");
     assert_eq!(status, 204, "{answer}");
     let Down::InviteGone { answer, .. } = wait_for(
         &mut bob_ws,

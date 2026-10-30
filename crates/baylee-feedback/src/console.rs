@@ -26,6 +26,8 @@
 //!   card on the gateway, for good or until a moment.
 //! - `DELETE /ui/api/admin/cards/blocks/{id}`: lifts a block.
 //! - `GET /ui/api/admin/audit`: the latest changes made through here.
+//! - `GET /ui/api/admin/auth-mode`, `PUT` the same `{mode}`: who the
+//!   gateway lets in (guests, Central's accounts, or both), and choosing it.
 //! - `GET /ui/api/admin/offline`: offline games going now, this service's
 //!   own anonymous count (`crate::alive`); needs no gateway.
 //! - `/ui/api/admin/llm/…`: the hosted models (seat agents, their profiles,
@@ -148,6 +150,10 @@ pub(crate) fn routes() -> Router<Shared> {
         )
         .route("/ui/api/admin/cards/blocks/{id}", delete(unblock_card))
         .route("/ui/api/admin/audit", get(audit))
+        .route(
+            "/ui/api/admin/auth-mode",
+            get(auth_mode).put(choose_auth_mode),
+        )
         .route("/ui/api/admin/offline", get(offline))
         .route("/ui/api/admin/llm/seathosts", get(llm_seathosts))
         .route("/ui/api/admin/llm/profiles", get(llm_profiles))
@@ -712,6 +718,80 @@ async fn revoke(
         let detail = format!("key {id}");
         tracing::info!(admin, action = "gateway.invite.revoke", %detail, "admin console");
         if let Err(e) = note(&shared, &admin, "gateway.invite.revoke", &detail).await {
+            tracing::error!("admin console: the audit row was not written: {e}");
+        }
+    }
+    Ok(answer(done))
+}
+
+// ------------------------------------------------------------ who comes in
+
+/// @route GET /ui/api/admin/auth-mode
+/// @scope feedback
+/// @summary Who the gateway lets in
+/// @description The gateway's `GET /admin/auth-mode`, passed on with its status: the mode in force (`guests`, `central` or `mixed`), where it comes from, and whether the gateway is connected to Baylee Central.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/auth-mode` answer, as it is"
+async fn auth_mode(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    ask(&gateway, "GET", "/admin/auth-mode".into(), &admin, None)
+        .await
+        .map(answer)
+}
+
+/// What `PUT /ui/api/admin/auth-mode` takes, and all it passes on.
+///
+/// @description The mode to put in force.
+/// @openapi
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct AuthModeChoice {
+    /// @description `guests`, `central` or `mixed`.
+    /// @openapi enum: [guests, central, mixed]
+    mode: String,
+}
+
+/// @route PUT /ui/api/admin/auth-mode
+/// @scope feedback
+/// @summary Choose who the gateway lets in
+/// @description The gateway's `PUT /admin/auth-mode`, passed on with its status: the mode is in force for every sign-in from now on, and a session already made goes on. This service writes an audit row naming the mode.
+/// @tag Console
+/// @operation-id `chooseAuthMode`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @body `$AuthModeChoice`
+/// @return 200: {} "In force, as the gateway's `GET /admin/auth-mode` answers"
+/// @return 400: `$ErrorBody` "Not a mode, or the gateway's own refusal"
+/// @return 409: `$ErrorBody` "The gateway's operator sets the mode (`BAYLEE_AUTH_MODE`)"
+async fn choose_auth_mode(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let choice: AuthModeChoice = serde_json::from_slice(&body)
+        .ok()
+        .filter(|choice: &AuthModeChoice| {
+            matches!(choice.mode.as_str(), "guests" | "central" | "mixed")
+        })
+        .ok_or_else(|| refuse(StatusCode::BAD_REQUEST, "not a mode"))?;
+    let body =
+        serde_json::to_vec(&choice).map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a mode"))?;
+    let done = ask(
+        &gateway,
+        "PUT",
+        "/admin/auth-mode".into(),
+        &admin,
+        Some(body),
+    )
+    .await?;
+    if done.status == 200 {
+        let detail = format!("mode {}", choice.mode);
+        tracing::info!(admin, action = "gateway.auth_mode.set", %detail, "admin console");
+        if let Err(e) = note(&shared, &admin, "gateway.auth_mode.set", &detail).await {
             tracing::error!("admin console: the audit row was not written: {e}");
         }
     }

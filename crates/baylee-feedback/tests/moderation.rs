@@ -8,8 +8,8 @@
 //! wants the UI's CSRF proof; ids are ids, and a body carries only the
 //! fields the page has; what reaches the gateway carries the admin's name;
 //! the gateway's refusals are the page's; and an act that worked is one
-//! audit row naming the account or the game, never the reset password and
-//! never a reason.
+//! audit row naming the account or the game, never a reason. There is no
+//! password reset: accounts sign in at Baylee Central.
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -27,8 +27,6 @@ const PASSWORD: &str = "a long enough password";
 const CONSOLE_TOKEN: &str = "the-gateways-admin-token-0123456789abcdef";
 const ACCOUNT: &str = "0199aaaa-0000-7000-8000-0000000000aa";
 const GAME: &str = "0199bbbb-0000-7000-8000-0000000000bb";
-/// What the stand-in gateway answers a reset with.
-const RESET: &str = "7KQ2-M9XP-4TRW-C8HD";
 
 #[derive(Clone, Debug)]
 struct Seen {
@@ -84,9 +82,6 @@ async fn stub() -> Stub {
                 }
                 let path = uri.path();
                 match method.as_str() {
-                    "POST" if path.ends_with("/password") => {
-                        axum::Json(serde_json::json!({ "password": RESET })).into_response()
-                    }
                     "PUT" if path.ends_with("/ban") => {
                         let order: serde_json::Value =
                             serde_json::from_str(&text).unwrap_or_default();
@@ -128,7 +123,6 @@ struct Answer {
     status: u16,
     body: Vec<u8>,
     cookie: Option<String>,
-    cache_control: Option<String>,
 }
 
 impl Answer {
@@ -250,16 +244,10 @@ impl Service {
                 .and_then(|v| v.to_str().ok())
                 .and_then(|set| set.split(';').next())
                 .map(|pair| pair.trim().to_owned());
-            let cache_control = response
-                .headers()
-                .get("cache-control")
-                .and_then(|v| v.to_str().ok())
-                .map(str::to_owned);
             Answer {
                 status: response.status().as_u16(),
                 body: response.body_mut().read_to_vec().unwrap_or_default(),
                 cookie,
-                cache_control,
             }
         })
         .await
@@ -308,11 +296,6 @@ impl Service {
 /// Every act of the page, with a body that is good.
 fn acts() -> Vec<(&'static str, String, Option<&'static str>)> {
     vec![
-        (
-            "POST",
-            format!("/ui/api/admin/accounts/{ACCOUNT}/password"),
-            None,
-        ),
         (
             "PUT",
             format!("/ui/api/admin/accounts/{ACCOUNT}/ban"),
@@ -385,7 +368,6 @@ async fn an_id_is_an_id_and_a_body_has_only_the_pages_fields() {
     let service = Service::start("shape", &gw.url).await;
     let proved = service.proved().await;
     for (method, path) in [
-        ("POST", "/ui/api/admin/accounts/nobody/password"),
         ("PUT", "/ui/api/admin/accounts/nobody/ban"),
         ("DELETE", "/ui/api/admin/accounts/nobody/ban"),
         ("DELETE", "/ui/api/admin/accounts/nobody"),
@@ -430,22 +412,6 @@ async fn each_act_reaches_the_gateway_as_the_admin_and_is_one_audit_row_without_
     let proved = service.proved().await;
     let reason = "a private grievance about Max";
     let closing = "a reason naming Erika";
-
-    let reset = service
-        .call(
-            "POST",
-            &format!("/ui/api/admin/accounts/{ACCOUNT}/password"),
-            &proved,
-            None,
-        )
-        .await;
-    assert_eq!(reset.status, 200, "{}", reset.text());
-    assert_eq!(reset.json()["password"], RESET, "shown to the admin once");
-    assert_eq!(
-        reset.cache_control.as_deref(),
-        Some("no-store"),
-        "a password is not kept by a cache"
-    );
 
     let ban = service
         .call(
@@ -505,7 +471,6 @@ async fn each_act_reaches_the_gateway_as_the_admin_and_is_one_audit_row_without_
     assert_eq!(
         routes,
         [
-            format!("POST /admin/accounts/{ACCOUNT}/password"),
             format!("PUT /admin/accounts/{ACCOUNT}/ban"),
             format!("PUT /admin/accounts/{ACCOUNT}/ban"),
             format!("DELETE /admin/accounts/{ACCOUNT}/ban"),
@@ -524,16 +489,16 @@ async fn each_act_reaches_the_gateway_as_the_admin_and_is_one_audit_row_without_
         }
     }
     assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&seen[1].body).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&seen[0].body).unwrap(),
         serde_json::json!({ "reason": reason, "until": "2999-01-01T00:00:00Z" })
     );
     assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&seen[2].body).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&seen[1].body).unwrap(),
         serde_json::json!({ "reason": reason }),
         "a permanent ban sends no end"
     );
     assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&seen[5].body).unwrap(),
+        serde_json::from_str::<serde_json::Value>(&seen[4].body).unwrap(),
         serde_json::json!({ "reason": closing })
     );
 
@@ -547,7 +512,6 @@ async fn each_act_reaches_the_gateway_as_the_admin_and_is_one_audit_row_without_
             "gateway.account.unban",
             "gateway.account.ban",
             "gateway.account.ban",
-            "gateway.account.password.reset",
         ],
         "newest first, one row for each act"
     );
@@ -574,7 +538,7 @@ async fn each_act_reaches_the_gateway_as_the_admin_and_is_one_audit_row_without_
         "{}",
         rows[4]
     );
-    for secret in [RESET, reason, closing, "Max", "Erika", CONSOLE_TOKEN] {
+    for secret in [reason, closing, "Max", "Erika", CONSOLE_TOKEN] {
         assert!(!text.contains(secret), "{secret} in the audit: {text}");
     }
     service.close().await;

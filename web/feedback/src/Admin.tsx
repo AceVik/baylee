@@ -1,11 +1,12 @@
 // The admin console (`/admin/…`, docs/feedback.md §"The admin console"):
 // a gateway's overview, its live tables and server, its accounts, the
-// pool's progress by set, its blocked cards and its closed-beta keys,
-// behind one section bar that sits on top on a wide screen and at the
+// pool's progress by set, its blocked cards, its closed-beta keys and who
+// it lets in, behind one section bar that sits on top on a wide screen and at the
 // bottom of a phone, under the thumb.
 
 import { useEffect } from "react";
 
+import { Access } from "./admin/Access";
 import { AccountDetail } from "./admin/AccountDetail";
 import { Accounts } from "./admin/Accounts";
 import { Cards } from "./admin/Cards";
@@ -32,6 +33,8 @@ const ICONS: Record<AdminSection, string> = {
     "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 0 1 6.3 12.9L7.1 5.7A8 8 0 0 1 12 4zM4 12a8 8 0 0 1 1.7-4.9l11.2 11.2A8 8 0 0 1 4 12z",
   models: "M9 2v2H7a3 3 0 0 0-3 3v2H2v2h2v2H2v2h2v2a3 3 0 0 0 3 3h2v2h2v-2h2v2h2v-2h2a3 3 0 0 0 3-3v-2h2v-2h-2v-2h2V9h-2V7a3 3 0 0 0-3-3h-2V2h-2v2h-2V2zm0 6h6v8H9z",
   keys: "M7 14a2 2 0 1 1 2-2 2 2 0 0 1-2 2zm5.6-4A6 6 0 1 0 12.6 14H17v4h4v-4h2v-4z",
+  // A door standing open: who comes in.
+  access: "M5 21V3h10v2H7v14h8v2zm10-16 6 2v12l-6 2zm1.5 7.5a1 1 0 1 0 0 .01z",
 };
 
 const LABELS: Record<AdminSection, Key> = {
@@ -42,6 +45,7 @@ const LABELS: Record<AdminSection, Key> = {
   cards: "sec.cards",
   keys: "sec.keys",
   models: "sec.models",
+  access: "sec.access",
 };
 
 function SectionBar({ lang, section }: { lang: Lang; section: AdminSection }) {
@@ -93,6 +97,7 @@ export function Admin({
         {section === "cards" && <Cards lang={lang} />}
         {section === "keys" && <Keys lang={lang} />}
         {section === "models" && <Models lang={lang} />}
+        {section === "access" && <Access lang={lang} />}
       </main>
     </div>
   );

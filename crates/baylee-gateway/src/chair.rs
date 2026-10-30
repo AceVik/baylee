@@ -2,7 +2,7 @@
 //! (`docs/protocol.md` §"A host's chair for a seat bridge").
 //!
 //! A seat bridge (`baylee-seat join`) used to sit down as a guest, so a
-//! gateway that takes no guests (`BAYLEE_GUESTS=off`), one whose guest cap
+//! gateway that takes no guests (auth mode `central`), one whose guest cap
 //! is reached, and a closed beta whose guest door needs a key seated none.
 //! Now the host's client asks for a **chair ticket** for one open chair of
 //! the room it hosts, and hands it to the bridge it starts on the bridge's

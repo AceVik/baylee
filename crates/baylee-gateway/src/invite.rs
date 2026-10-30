@@ -54,15 +54,6 @@ impl Registration {
             _ => Self::Open,
         }
     }
-
-    /// Whether a stranger may register at all, key or not: what
-    /// `registration_enabled` has always said. `true` for [`Self::Invite`],
-    /// so a client from before keys still offers the form and is told by
-    /// the refusal to update.
-    #[must_use]
-    pub fn takes_sign_ups(self) -> bool {
-        self != Self::Off
-    }
 }
 
 /// The refusal of a request that brought no key to a gateway that wants one.
@@ -653,12 +644,6 @@ mod tests {
                 .map(|r| serde_json::to_value(r).unwrap()),
             ["open", "invite", "off"]
         );
-        assert!(
-            Registration::Invite.takes_sign_ups(),
-            "old clients still offer the form"
-        );
-        assert!(Registration::Open.takes_sign_ups());
-        assert!(!Registration::Off.takes_sign_ups());
     }
 
     #[test]

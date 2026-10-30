@@ -249,7 +249,12 @@ export interface Stats {
     built_at?: string;
     uptime_secs?: number;
     terms?: boolean;
-    mail?: boolean;
+    /** Connected to Baylee Central: its sign-ins reach the gateway. */
+    central?: boolean;
+    /** Who comes in: guests, Central's accounts, or both. */
+    auth_mode?: AuthModeName;
+    /** Where that comes from: `BAYLEE_AUTH_MODE`, an admin's choice, or the default. */
+    auth_mode_source?: AuthModeState["source"];
   };
   accounts: {
     registered: number;
@@ -614,6 +619,20 @@ export interface Invite {
   state: InviteState;
 }
 
+/** Who a gateway lets in: guests, Baylee Central's accounts, or both. */
+export type AuthModeName = "guests" | "central" | "mixed";
+
+/** `GET /admin/auth-mode`: the mode in force and where it comes from. */
+export interface AuthModeState {
+  mode: AuthModeName;
+  /** `environment`: the operator's `BAYLEE_AUTH_MODE`, which the console cannot change. */
+  source: "environment" | "console" | "default";
+  set_at: string | null;
+  set_by: string | null;
+  /** Connected to Baylee Central; unconnected and on `central`, nobody comes in. */
+  connected: boolean;
+}
+
 /** What `invite create` takes, as fields. */
 export interface InviteOrder {
   count?: number;
@@ -895,7 +914,7 @@ export async function request(
   return response;
 }
 
-async function json<T>(method: "GET" | "POST" | "PATCH", path: string, body?: unknown): Promise<T> {
+async function json<T>(method: "GET" | "POST" | "PATCH" | "PUT", path: string, body?: unknown): Promise<T> {
   const response = await request(method, path, body);
   return (await response.json()) as T;
 }
@@ -1137,6 +1156,10 @@ export const api = {
       await request("DELETE", `/ui/api/admin/invites/${encodeURIComponent(id)}`);
     },
     audit: () => json<ConsoleChange[]>("GET", "/ui/api/admin/audit"),
+    authMode: {
+      get: () => json<AuthModeState>("GET", "/ui/api/admin/auth-mode"),
+      choose: (mode: AuthModeName) => json<AuthModeState>("PUT", "/ui/api/admin/auth-mode", { mode }),
+    },
     cards: {
       search: async (q: string) =>
         (await json<{ cards: CardHit[] }>("GET", `/ui/api/admin/cards/search?q=${encodeURIComponent(q)}`)).cards,
