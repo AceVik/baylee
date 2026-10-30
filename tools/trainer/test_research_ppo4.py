@@ -3,7 +3,10 @@ import copy
 import io
 import json
 import struct
+import tempfile
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -88,6 +91,57 @@ class ResearchPPO(unittest.TestCase):
         self.data.admission['frames'] += 1
         with self.assertRaisesRegex(ValueError, 'coverage differs'):
             check_tensors(self.data, 2)
+
+    def test_preflight_report_separates_host_phases_without_model_forward(self):
+        from research_ppo4 import driver
+        source = dict(encoder_version=7)
+        self.data.metadata = dict(source_checkpoint_sha256='source', encoder_version=7,
+                                  structure_sha256=self.net.rules.digest, catalog={})
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / 'preflight'
+            args = SimpleNamespace(resume=None, out=str(out), device='cpu', seed=31431,
+                                   init='source.pt', cache_dir='cache', conversion_sha256='conversion',
+                                   cache_sha256='cache', pins='pins', pins_sha256='pins',
+                                   admission='admission', unroll=3, batch_size=2, preflight_only=True)
+            with patch.object(driver, 'arguments', return_value=args), \
+                    patch.object(driver, 'configure_execution', return_value=(self.device, {})), \
+                    patch.object(driver.torch, 'set_num_interop_threads'), \
+                    patch.object(driver.torch, 'load', return_value=source), \
+                    patch.object(driver, 'native_source_digest', return_value='source'), \
+                    patch.object(driver, 'load_policy', return_value=self.net), \
+                    patch.object(driver, 'ResearchDataset', return_value=self.data), \
+                    patch.object(self.data, 'close', create=True) as close, \
+                    patch.object(self.data, 'verify', create=True) as verify, \
+                    patch.object(driver, 'require_unchanged'), \
+                    patch.object(self.net, 'forward', side_effect=AssertionError('No forward')):
+                driver.main()
+            report = json.loads((out / 'report.json').read_text())
+        self.assertEqual((report['frames'], report['genuine_choices']), (12, 8))
+        close.assert_called_once_with()
+        verify.assert_called_once_with()
+        timings = report['timings']
+        self.assertFalse(timings['cuda_synchronized'])
+        self.assertEqual(set(timings['phase_seconds']), {
+            'source_checkpoint_digest', 'source_checkpoint_load', 'policy_construction',
+            'native_handshake_dataset_preparation', 'preflight_tensor_materialization_validation',
+            'final_verification'})
+        self.assertTrue(all(seconds >= 0 for seconds in timings['phase_seconds'].values()))
+        self.assertFalse(hasattr(self.data, 'ppo_cache'))
+
+    def test_phase_timings_accumulate_and_snapshot_without_changing_exception(self):
+        from research_ppo4.timing import PhaseTimings
+        with patch('research_ppo4.timing.perf_counter', side_effect=[0., 1., 3., 4., 7., 8.]):
+            timings = PhaseTimings()
+            with timings.measure('publication'):
+                pass
+            with self.assertRaisesRegex(ValueError, 'preserved'):
+                with timings.measure('publication'):
+                    raise ValueError('preserved')
+            snapshot = timings.snapshot()
+        self.assertEqual(snapshot['phase_seconds'], {'publication': 5.})
+        self.assertEqual(snapshot['elapsed_seconds'], 8.)
+        snapshot['phase_seconds']['publication'] = 99
+        self.assertEqual(timings.seconds['publication'], 5.)
 
     def test_zero_returns_do_not_center_negative_advantages_into_rewards(self):
         utility = torch.zeros(1, 4)

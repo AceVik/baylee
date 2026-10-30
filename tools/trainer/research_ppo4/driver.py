@@ -22,6 +22,7 @@ from .checkpoint import (VERSION, MEMORY, PROBABILITY, validate_resume,
                          training_payload, restore_training)
 from .dataset import ResearchDataset
 from .targets import OBJECTIVE, TARGET_CONTRACT, prepare_targets
+from .timing import PhaseTimings
 
 
 def arguments():
@@ -66,11 +67,13 @@ def configure_execution(device):
 
 
 def main():
+    timings = PhaseTimings()
     args = arguments()
     resume = None
     if args.resume:
-        resume = torch.load(args.resume, map_location='cpu', weights_only=False)
-        validate_resume(resume)
+        with timings.measure('resume_checkpoint_load'):
+            resume = torch.load(args.resume, map_location='cpu', weights_only=False)
+            validate_resume(resume)
     out = Path(args.out).expanduser()
     if out.exists() and not args.resume:
         raise FileExistsError('Preserving existing research output; use a new directory or exact --resume')
@@ -83,12 +86,16 @@ def main():
     source_path = Path(args.init).expanduser()
     if source_path.is_dir():
         source_path /= 'net.pt'
-    source_sha = native_source_digest(source_path)
-    source = torch.load(source_path, map_location='cpu', weights_only=False)
-    net = load_policy(source, device)
+    with timings.measure('source_checkpoint_digest'):
+        source_sha = native_source_digest(source_path)
+    with timings.measure('source_checkpoint_load'):
+        source = torch.load(source_path, map_location='cpu', weights_only=False)
+    with timings.measure('policy_construction'):
+        net = load_policy(source, device)
     with ExitStack() as resources:
-        data = ResearchDataset(args.cache_dir, args.conversion_sha256, args.cache_sha256,
-                               args.pins, args.pins_sha256, args.admission, args.unroll)
+        with timings.measure('native_handshake_dataset_preparation'):
+            data = ResearchDataset(args.cache_dir, args.conversion_sha256, args.cache_sha256,
+                                   args.pins, args.pins_sha256, args.admission, args.unroll)
         resources.callback(data.close)
         if (data.metadata['source_checkpoint_sha256'] != source_sha
                 or data.metadata['encoder_version'] != source['encoder_version']
@@ -98,29 +105,36 @@ def main():
             raise ValueError('First research objective pilot keeps the approved E7 observation contract')
         if args.preflight_only:
             from .preflight import check_tensors
-            report = check_tensors(data, args.batch_size)
-            data.verify()
-            require_unchanged(precision, False)
-            if native_source_digest(source_path) != source_sha:
-                raise ValueError('Source checkpoint changed during research preflight')
+            with timings.measure('preflight_tensor_materialization_validation'):
+                report = check_tensors(data, args.batch_size)
+            with timings.measure('final_verification'):
+                data.verify()
+                require_unchanged(precision, False)
+                if native_source_digest(source_path) != source_sha:
+                    raise ValueError('Source checkpoint changed during research preflight')
             report.update(source_checkpoint_sha256=source_sha, encoder_version=source['encoder_version'],
                           structure_sha256=net.rules.digest, admission=data.admission,
                           catalog=data.metadata['catalog'], precision=precision,
                           automatic_promotion=False)
             out.mkdir(parents=True, exist_ok=True)
+            report['timings'] = timings.snapshot()
             atomic_json(out / 'report.json', report)
             return
-        audit = prepare_targets(net, data, device, args.batch_size)
+        with timings.measure('complete_history_replay_target_preparation'):
+            audit = prepare_targets(net, data, device, args.batch_size)
         resources.callback(data._policy_targets_directory.cleanup)
         out.mkdir(parents=True, exist_ok=True)
-        atomic_json(out / 'probability-replay.json', audit)
+        audit['timings'] = timings.snapshot()
+        with timings.measure('publication'):
+            atomic_json(out / 'probability-replay.json', audit)
         print('[research-replay] ' + json.dumps(audit, sort_keys=True), flush=True)
         if args.audit_only:
-            data.verify()
-            require_unchanged(precision, False)
+            with timings.measure('final_verification'):
+                data.verify()
+                require_unchanged(precision, False)
             atomic_json(out / 'report.json', dict(phase='audit-complete', training=False,
                         automatic_promotion=False, audit=audit, admission=data.admission,
-                        precision=precision))
+                        precision=precision, timings=timings.snapshot()))
             return
         # An explicitly small fixture is useful for tests but is never a live
         # learning admission. One transaction may use a subset of these choices.
@@ -151,7 +165,8 @@ def main():
         segments = [index for trajectory in data.trajectories for index in trajectory]
 
         def save():
-            atomic_save(training_payload(net, optimizer, source, contract, progress), out / 'last.pt')
+            with timings.measure('publication'):
+                atomic_save(training_payload(net, optimizer, source, contract, progress), out / 'last.pt')
 
         stopped = bool(progress['terminal'])
         for epoch in range(progress['epoch'], args.epochs):
@@ -166,8 +181,9 @@ def main():
                 if progress['attempts'] >= args.max_steps:
                     stopped = True
                     break
-                record = transactional_update(net, optimizer, data, groups[batch_index], prefixes, device,
-                                              args.target_kl, args.clip_eps, args.batch_size, args.beta_kl)
+                with timings.measure('update_transactions'):
+                    record = transactional_update(net, optimizer, data, groups[batch_index], prefixes, device,
+                                                  args.target_kl, args.clip_eps, args.batch_size, args.beta_kl)
                 progress['attempts'] += 1
                 progress['accepted'] += int(record['accepted'])
                 progress['epoch'] = epoch
@@ -184,7 +200,8 @@ def main():
             progress['epoch'], progress['next_batch'] = epoch + 1, 0
             save()
         try:
-            final_kl = collection_divergence(net, data, prefixes, device, args.batch_size)
+            with timings.measure('final_collection_replay'):
+                final_kl = collection_divergence(net, data, prefixes, device, args.batch_size)
         except FloatingPointError:
             final_kl = float('inf')
         if not math.isfinite(final_kl) or final_kl > args.target_kl:
@@ -195,18 +212,21 @@ def main():
         else:
             progress['final_gate'] = 'accepted'
         progress['final_collection_behavior_kl'] = final_kl if math.isfinite(final_kl) else None
-        data.verify()
-        require_unchanged(precision, False)
-        if native_source_digest(source_path) != source_sha:
-            raise ValueError('Source checkpoint changed during research PPO')
+        with timings.measure('final_verification'):
+            data.verify()
+            require_unchanged(precision, False)
+            if native_source_digest(source_path) != source_sha:
+                raise ValueError('Source checkpoint changed during research PPO')
         save()
-        atomic_save(training_payload(net, optimizer, source, contract, progress), out / 'net.pt')
-        changed_parameters = [name for name, parameter in net.named_parameters()
-                              if not torch.equal(parameter.detach().cpu(), source['state_dict'][name])]
+        with timings.measure('publication'):
+            atomic_save(training_payload(net, optimizer, source, contract, progress), out / 'net.pt')
+        with timings.measure('changed_parameter_comparison'):
+            changed_parameters = [name for name, parameter in net.named_parameters()
+                                  if not torch.equal(parameter.detach().cpu(), source['state_dict'][name])]
         atomic_json(out / 'report.json', dict(phase='complete', automatic_promotion=False,
                     audit=audit, progress=progress, admission=data.admission,
                     precision=precision, changed_parameters=changed_parameters,
-                    changed_parameter_tensors=len(changed_parameters)))
+                    changed_parameter_tensors=len(changed_parameters), timings=timings.snapshot()))
 
 
 if __name__ == '__main__':

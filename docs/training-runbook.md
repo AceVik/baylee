@@ -103,6 +103,15 @@ cargo build --profile selfplay -p baylee-train --features onnx --bin eval4
 cargo build --profile selfplay -p baylee-train --bin convert4
 ```
 
+New research-worker reports include `timings.phase_seconds` for checkpoint
+loading, policy construction, the native tensor handshake, replay, update
+transactions, final verification and publication. These are host wall times
+without added CUDA synchronization, not kernel timings; a phase can include
+previous asynchronous GPU work. Imports, the final report's own write and
+subsequent cleanup are excluded. Use native guard receipts for total worker
+time and cleanup. The already frozen one-update pilot predates these fields;
+do not rewrite its report or infer missing phase measurements.
+
 Native `train_ops`, `watch_run4` and `stop_job4` syntax below was checked against
 release `--help` and source. Evaluator/converter and PyTorch options were checked
 against their CLI definitions. Use the frozen run's binaries and worker tree
