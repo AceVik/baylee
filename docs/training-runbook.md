@@ -17,7 +17,7 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
-| Current checkpoint phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` now names `research-breadth-checkpoint-gameplay-01a18bc2-a906-7df6-9ea9-679bcbcf5831/export/execution`. One CPU-only checkpoint audit/export pipeline was launched; actual first stage was `semantic_audit`, with its watcher active. The preceding breadth update is `complete-reviewed`: eight retained updates, 465 actor choices, 2,043 frames, 311 changed tensors and final whole-collection KL 0.00105115049 (limit 0.02). Full replay passed all 3,479 choices. No optimizer or gameplay runs in this export phase. Recheck current status and never restart either namespace |
+| Current checkpoint phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-checkpoint-gameplay-01a18bc2-a906-7df6-9ea9-679bcbcf5831/export/execution`, now `failed-reviewed`. Checkpoint semantics and all 47 numerical export checks passed; only native metadata validation failed because the new config explicitly includes the legacy E7 default `global_feat_width: 80`. Processes exited and watcher stopped. A fresh native-only compatibility validation will reuse sealed exports. The preceding breadth update remains `complete-reviewed`: eight retained updates, 465 choices, 2,043 frames, 311 changed tensors, final KL 0.00105115049. No optimizer rerun or gameplay has launched |
 | Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
@@ -340,6 +340,27 @@ On terminal success, inspect actual artifacts and run this namespace's
 Then review cleanup and close its watcher before preparing/releasing fresh
 32-attempt matched gameplay. No executable gameplay manifest exists at this
 launch, and no automatic next phase, retry or promotion is enabled.
+
+Event `628be11d178d2c5fffe9c242` closed that export phase as `failed-reviewed`.
+Semantic inspection completed in 38.306 seconds and CPU export in 62.684 seconds;
+all 47 parity checks passed with maximum error `0.000014901161193847656`.
+The final Rust validator alone failed in 12.834 seconds. Its direct JSON config
+equality rejected candidate `global_feat_width: 80`, absent in legacy R6 export
+metadata. Frozen `model4/config.py` defines the E7 default as integer 80,
+`Config5` inherits it, and the exporter serializes the constructed config.
+All other compared config/architecture/catalog entries match. Checkpoint audit
+also verified raw source/candidate config equality before that serialization.
+This is a validator compatibility bug, not a failed gradient update or parity
+failure. Do not change the sealed metadata or rerun training/export. A fresh
+native-only successor must verify this exact E7 default and otherwise retain
+strict config, graph, catalog, research-critic and numerical checks.
+
+The event review rechecked 22,367 seals, all three guard groups and both Torch
+children; the service/cgroup is empty, watcher stopped and gateway unchanged.
+Operator-review SHA-256:
+`630f43bdf775af4ea4e60926e44c5e3ce7cb01c7971f2ab86580f1f302673697`.
+The failed namespace never published `export-verified.json`; preserve it and
+use a separate validation receipt before gameplay preparation.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,

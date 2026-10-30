@@ -814,3 +814,36 @@ cgroup. Service `baylee-research-breadth-01a18bc2-export` and its watcher were
 active; the first observed stage was `semantic_audit`. Recheck live state before
 acting. The phase has no optimizer, gameplay, automatic retry or promotion.
 The fresh 32-attempt comparison remains a separate reviewed phase after export.
+
+## Export completed; legacy metadata comparison rejected
+
+Event `628be11d178d2c5fffe9c242` ended that pipeline at `validate_export`.
+The preceding semantic audit and CPU export both exited zero with verified
+cleanup, in 38.306 and 62.684 seconds. All 47 parity cases passed; maximum
+absolute error was `0.000014901161193847656`, below the unchanged `0.001` bound.
+The native validator exited one after 12.834 seconds with
+`source/candidate exported architecture or catalog differs`.
+
+The only compared config difference is candidate `global_feat_width: 80`;
+legacy R6 export metadata omits the field. Frozen `Config4` defaults the E7
+width to integer 80, `Config5` inherits it, and the frozen exporter constructs
+the config and serializes all defaults with `cfg.to_dict()`. Raw checkpoint
+config equality had already passed in the independent tensor audit. Other
+compared architecture/catalog fields are equal. The validator used textual
+JSON structure equality where this specific proven default needed semantic
+comparison. The failed namespace and original graph/metadata bytes remain
+unchanged. Recovery is native validation of existing artifacts only; it must
+reject missing candidate width, wrong type/value, other encoders and any
+unrelated config change. No repeated Torch export or learning is needed.
+
+Root rechecked 22,367 seals and all controller/guard/Torch identities and groups,
+confirmed the empty service/cgroup and unchanged user gateway, stopped the owned
+watcher and deduplicated the event locally and centrally. Canonical state is
+`failed-reviewed`. Operator review SHA-256 is
+`630f43bdf775af4ea4e60926e44c5e3ce7cb01c7971f2ab86580f1f302673697`;
+semantic audit SHA-256 is
+`b19a7e85e1d906d35b6ec8d6eaceb1f296b41bca65919cdd80aa415bd28dc386`;
+export metadata SHA-256 is
+`69aefb2d76812e6c664ce2a43fa7a0dad7fedf2d64a9ebebd55ead0f9400ce92`.
+No accepted-export receipt, gameplay launch or promotion is inferred from the
+successful preceding stages.
