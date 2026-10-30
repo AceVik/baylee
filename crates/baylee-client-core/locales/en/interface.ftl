@@ -468,6 +468,39 @@ GatewaySaved = Saved { $url }.
 # Arguments: url
 GatewayNotFound = No Baylee gateway answered at { $url }. Check the address, or try again once it is up.
 
+# A `baylee:` link proposes a gateway (`docs/client.md` §"Links from the
+# website"): the question over the lobby. `$url` is the address in full, as
+# it would be saved.
+# Arguments: url
+LinkGatewayQuestion = Add { $url } to your gateways?
+
+# Under that question: what a gateway is, and what it is never given.
+LinkGatewayHint = A link asks for it. Gateways are run by other people: add one only if you know who runs it. Your Baylee Central password never goes to a gateway; a gateway that asks for a password asks for its own.
+
+# Under the hint, signed in at Baylee Central: which list it joins.
+LinkGatewayJoinsAccount = It joins your account's gateways.
+
+# Under the hint, not signed in at Baylee Central: which list it joins.
+LinkGatewayJoinsDevice = It joins this device's gateways.
+
+# The question's yes.
+LinkGatewayAdd = Add gateway
+
+# The question's no, which is also what Esc does.
+LinkNotNow = Not now
+
+# A gateway link found nobody signed in: under Baylee Central's sign-in,
+# why it is up, and what going back does instead.
+# Arguments: url
+LinkGatewaySignInFirst = Sign in, and Baylee asks whether to add { $url } to your account. Or go back to add it to this device.
+
+# A link proposed a gateway the list already has.
+# Arguments: url
+LinkGatewayKnown = { $url } is already in your gateways.
+
+# A link proposed a gateway, and the account's list is full.
+LinkGatewayListFull = Your account holds as many gateways as it can. Remove one before you add another.
+
 # Gateway row, beside its address, while it is being asked.
 GatewayCheckingShort = checking…
 

@@ -1,4 +1,6 @@
-//! Destructive actions are named and confirmed in a modal, never on a list row.
+//! Destructive actions are named and confirmed in a modal, never on a list
+//! row; so is what a `baylee:` link proposes, which changes the player's list
+//! on a stranger's word (`links`).
 #[allow(clippy::wildcard_imports)]
 use super::*;
 
@@ -13,6 +15,24 @@ pub(crate) enum Destructive {
     /// The host leaving their table, which passes it on or closes it
     /// (DESIGN-v5 §5 "Leaving"), by game id.
     LeaveHosting(String),
+    /// A gateway a `baylee:` link proposes, by its origin: not destructive,
+    /// but asked the same way, with "Not now" as what `Esc` and a tap beside
+    /// the panel do. Carried out by the press itself, which has the mailbox
+    /// the address is asked through.
+    AddGateway(String),
+}
+
+impl Destructive {
+    /// What kind of question this is, without what it names.
+    pub(crate) fn kind(&self) -> &'static str {
+        match self {
+            Destructive::Clear(_) => "clear-deck",
+            Destructive::ForgetGateway(_) => "forget-gateway",
+            Destructive::SignOutGuest => "sign-out-guest",
+            Destructive::LeaveHosting(_) => "leave-hosting",
+            Destructive::AddGateway(_) => "add-gateway",
+        }
+    }
 }
 
 pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
@@ -27,7 +47,7 @@ pub(super) fn accept(state: &mut LobbyState) -> Option<LobbyRequest> {
             state.forget_gateway(&url);
             None
         }
-        Destructive::SignOutGuest => None,
+        Destructive::SignOutGuest | Destructive::AddGateway(_) => None,
         Destructive::LeaveHosting(game) => state.lobby.leave_table(&game),
     }
 }
@@ -43,6 +63,10 @@ pub(super) fn draw(
         return;
     };
     let lang = state.lobby.lang();
+    if let Destructive::AddGateway(url) = action {
+        draw_proposal(commands, root, state, fonts, metrics, url);
+        return;
+    }
     let chosen;
     let (phrase, name, said) = match action {
         Destructive::Clear(_) => (
@@ -76,6 +100,7 @@ pub(super) fn draw(
                 .map_or("", |g| g.name.as_str()),
             Phrase::LeaveHostingHint,
         ),
+        Destructive::AddGateway(_) => unreachable!("drawn by `draw_proposal`"),
     };
     let (shade, panel) = modal(
         commands,
@@ -105,6 +130,63 @@ pub(super) fn draw(
     );
     commands.entity(actions).add_children(&[cancel, yes]);
     commands.entity(panel).add_children(&[title, hint, actions]);
+    commands.entity(shade).add_child(panel);
+    commands.entity(root).add_child(shade);
+}
+
+/// A link's gateway, asked about: the address in full as it would be saved,
+/// what a gateway is and is not given, which list it joins; "Not now" and
+/// "Add gateway". Nothing in it comes from the link but the address.
+fn draw_proposal(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    fonts: &UiFonts,
+    metrics: Metrics,
+    url: &str,
+) {
+    let lang = state.lobby.lang();
+    let (shade, panel) = modal(
+        commands,
+        metrics,
+        Press::Shared(SharedPress::CancelDestructive),
+    );
+    let title = heading(
+        commands,
+        fonts,
+        metrics,
+        &Phrase::LinkGatewayQuestion.fill(lang, &[url]),
+    );
+    let hint = note(commands, fonts, metrics, Phrase::LinkGatewayHint.text(lang));
+    let joins = if state.central_ready() {
+        Phrase::LinkGatewayJoinsAccount
+    } else {
+        Phrase::LinkGatewayJoinsDevice
+    };
+    let list = note(commands, fonts, metrics, joins.text(lang));
+    let actions = row(commands, metrics, true);
+    let not_now = button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::LinkNotNow.text(lang),
+        Press::Shared(SharedPress::CancelDestructive),
+        palette::PANEL_LIT,
+        true,
+    );
+    let add = button(
+        commands,
+        fonts,
+        metrics,
+        Phrase::LinkGatewayAdd.text(lang),
+        Press::Shared(SharedPress::ConfirmDestructive),
+        palette::ACCENT,
+        !state.lobby.busy() && state.adding.is_none(),
+    );
+    commands.entity(actions).add_children(&[not_now, add]);
+    commands
+        .entity(panel)
+        .add_children(&[title, hint, list, actions]);
     commands.entity(shade).add_child(panel);
     commands.entity(root).add_child(shade);
 }
