@@ -21,7 +21,7 @@
 # it beside the play snippet, before the proxy's `handle`, so no two of them
 # answer one request:
 #
-#   baylee.acevik.de {
+#   gateway.baylee.app {
 #       import /etc/caddy/baylee-play.caddy
 #       import /etc/caddy/baylee-site.caddy
 #       handle {
@@ -100,7 +100,7 @@ handle @baylee_site {
 	# links the browser follows, which no CSP directive governs. The
 	# gateway's /info and /health are 'self'.
 	header {
-		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://cards.scryfall.io; font-src 'self'; connect-src 'self' https://api.github.com https://feedback.baylee.acevik.de; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://cards.scryfall.io; font-src 'self'; connect-src 'self' https://api.github.com https://feedback.baylee.app; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		X-Content-Type-Options nosniff
 		Referrer-Policy no-referrer
 	}

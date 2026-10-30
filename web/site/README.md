@@ -1,4 +1,4 @@
-# web/site — the landing page at https://baylee.acevik.de/
+# web/site — the landing page at https://gateway.baylee.app/
 
 A static page: what Baylee is, what it can do today, where the cards stand,
 the closed beta, self-hosting, the licence, and a download button that picks

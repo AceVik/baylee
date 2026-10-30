@@ -9788,7 +9788,7 @@ with its page's origin, and that is the served case (#327): the origin is then
 the page's gateway (`gateway_list::page_gateway`, tested natively over a plain
 string), which joins the gateway list at the front if it is missing and is
 where the keyboard's cursor starts (`with_page`, `starting_row`). On
-`https://baylee.acevik.de/play/` that is the pinned Sanctuary row; natively
+`https://gateway.baylee.app/play/` that is the pinned Sanctuary row; natively
 there is no page and the list behaves as before.
 
 The same missing filesystem is why settings take a second back end. Natively
@@ -9834,7 +9834,7 @@ is the proof, and goes red when the door is taken out.
 ### Serving it at /play/
 
 The live gateway's host serves the browser client at
-**<https://baylee.acevik.de/play/>** (#327). Caddy terminates TLS there and
+**<https://gateway.baylee.app/play/>** (#327). Caddy terminates TLS there and
 hands every path to the gateway except `/play`, which
 `scripts/server/play.caddy` answers from `/opt/baylee/web/play`; the gateway
 has no route under `/play` and a test keeps it so

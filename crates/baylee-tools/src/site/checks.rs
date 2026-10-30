@@ -166,7 +166,7 @@ pub(super) fn privacy(root: &Path, check: &str) -> Result<()> {
             let notice = read(root, "datenschutz.html")?;
             for c in Regex::new(r"https://([a-z0-9.-]+)")?.captures_iter(&csp[1]) {
                 ensure!(
-                    c[1].ends_with("baylee.acevik.de") || notice.contains(&c[1]),
+                    c[1].ends_with(".baylee.app") || notice.contains(&c[1]),
                     "foreign CSP host missing from privacy notice"
                 );
             }

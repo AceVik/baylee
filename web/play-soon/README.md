@@ -1,7 +1,7 @@
 # web/play-soon — the page at /play/ while the browser version rests
 
 A static page (owner, 08.10.2026) that stands in for the browser client at
-<https://baylee.acevik.de/play/>: Baylee's name and logo, a short note that the
+<https://gateway.baylee.app/play/>: Baylee's name and logo, a short note that the
 web version is paused while the desktop app is polished, the download button
 (GitHub Releases), the project links and the Fan Content notice, in English
 and German (`?lang=de|en`, the browser's language, or the two buttons; without

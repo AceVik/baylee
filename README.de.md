@@ -31,7 +31,7 @@
 > **Baylee ist in der geschlossenen Beta.** Diese Seite beschreibt Version
 > **0.1.0-beta.8b**, eine Vorabversion für **Windows-, macOS- und
 > Linux-Rechner**. Auf dem öffentlichen Server **Baylee Sanctuary** unter
-> `https://baylee.acevik.de` spielst du mit einem Baylee-Account, und den
+> `https://gateway.baylee.app` spielst du mit einem Baylee-Account, und den
 > legst du auf [baylee.app](https://baylee.app/register) mit einem
 > Beta-Schlüssel an. Ohne Schlüssel kannst du trotzdem offline gegen die
 > Haus-KI spielen, Decks bauen oder für deine Runde einen eigenen Server

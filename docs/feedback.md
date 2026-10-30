@@ -104,7 +104,7 @@ Never a name, username, address, session or IP. The client decides what goes
 into `client` and says so to the player (`docs/privacy.md`).
 
 Configuration: `BAYLEE_FEEDBACK_URL` (the service's base URL, for example
-`https://feedback.baylee.acevik.de`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's
+`https://feedback.baylee.app`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's
 intake token there), `BAYLEE_FEEDBACK_KEY` (the pseudonym key; set it, and
 never change it, if reports of one player should stay linkable).
 
@@ -527,7 +527,7 @@ The list's filters beyond §"Reading": `assignee` (a name, or `none`),
 
 ## The web UI (#311)
 
-`https://feedback.baylee.acevik.de/` is a page for admins to triage reports
+`https://feedback.baylee.app/` is a page for admins to triage reports
 on: a filtered, paged list, one report with everything it carries, and
 §"Triage": status, priority, assignee, labels, duplicates, notes, its
 GitHub issue, and the trash. The page is built from `web/feedback`
@@ -924,7 +924,7 @@ FEEDBACK_ADMIN_TOKEN=<openssl rand -hex 32>
 FEEDBACK_WEB_DIR=/opt/baylee/web/feedback
 FEEDBACK_TRUSTED_PROXIES=127.0.0.1
 FEEDBACK_DIRECT_KEY=<openssl rand -hex 32>   # only to take reports straight from clients
-FEEDBACK_CONTACT_ORIGINS=https://baylee.acevik.de   # only to take the landing page's contact form
+FEEDBACK_CONTACT_ORIGINS=https://gateway.baylee.app   # only to take the landing page's contact form
 FEEDBACK_IMPRESSUM_KEY=<openssl rand -hex 32>       # only to hand out the Impressum (with the next)
 FEEDBACK_IMPRESSUM_BLOB=/etc/baylee/site-private/impressum.bin
 FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767        # the admin console

@@ -15,7 +15,7 @@
 # and in the service's site block (a file under /etc/caddy/sites/), import
 # it before any catch-all, so the two never both answer one request:
 #
-#   feedback.baylee.acevik.de {
+#   feedback.baylee.app {
 #       import /etc/caddy/baylee-feedback-direct.caddy
 #       handle {
 #           respond 404
@@ -24,7 +24,7 @@
 #
 # then `caddy validate --config /etc/caddy/Caddyfile` and
 # `systemctl reload caddy`. The service needs FEEDBACK_DIRECT_KEY set (else
-# the route answers 503), FEEDBACK_CONTACT_ORIGINS=https://baylee.acevik.de
+# the route answers 503), FEEDBACK_CONTACT_ORIGINS=https://gateway.baylee.app
 # for the contact form (else 503), and FEEDBACK_TRUSTED_PROXIES=127.0.0.1,
 # so the per-address allowances count the client's address and not Caddy's.
 # Caddy replaces any X-Forwarded-For a client sends with the address it

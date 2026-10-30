@@ -817,7 +817,7 @@ mod tests {
     #[test]
     fn an_origin_is_https_or_loopback_http_and_comes_back_lowercased() {
         for (entry, want) in [
-            ("https://baylee.acevik.de", "https://baylee.acevik.de"),
+            ("https://gateway.baylee.app", "https://gateway.baylee.app"),
             ("https://Example.org:8443", "https://example.org:8443"),
             ("http://localhost:8000", "http://localhost:8000"),
             ("http://127.0.0.1:8000", "http://127.0.0.1:8000"),
@@ -832,7 +832,7 @@ mod tests {
     #[test]
     fn an_origin_with_a_path_credentials_or_plain_http_to_the_world_is_refused() {
         for entry in [
-            "http://baylee.acevik.de",
+            "http://gateway.baylee.app",
             "https://x/",
             "https://x/path",
             "https://x?q",
@@ -844,7 +844,7 @@ mod tests {
             "https://a b",
             " https://x",
             "",
-            "baylee.acevik.de",
+            "gateway.baylee.app",
         ] {
             assert_eq!(origin(entry), None, "`{entry}`");
         }

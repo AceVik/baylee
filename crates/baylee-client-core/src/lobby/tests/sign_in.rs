@@ -189,13 +189,13 @@ fn a_username_is_sent_in_the_form_the_rule_keeps() {
 #[test]
 fn a_sign_in_sends_what_was_typed() {
     let mut lobby = Lobby::new();
-    lobby.insert(" mail@acevik.de ");
+    lobby.insert(" player@example.invalid ");
     lobby.focus_on(Field::Password);
     lobby.insert("hunter22");
     assert_eq!(
         lobby.submit(),
         Some(LobbyRequest::LogIn {
-            username: "mail@acevik.de".to_string(),
+            username: "player@example.invalid".to_string(),
             password: "hunter22".to_string(),
         })
     );
@@ -207,7 +207,7 @@ fn a_sign_in_sends_what_was_typed() {
 #[test]
 fn a_sign_in_by_address_is_told_the_name_to_use_instead() {
     let mut lobby = Lobby::new();
-    lobby.insert("mail@acevik.de");
+    lobby.insert("player@example.invalid");
     lobby.focus_on(Field::Password);
     lobby.insert("hunter22");
     assert!(lobby.submit().is_some());
