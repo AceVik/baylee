@@ -17,14 +17,14 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
-| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-cpu-recovery-01a18b70-7ab2-76ae-9a06-c06bc2f94018/cpu/execution`, running the CPU-loader test and exact proposed update-dose calculation. The preceding CPU attempt failed before model/data loading due to missing writable temp/cache paths; recovery restores them and passed actual Torch initialization in the final mount. Native data preparation is complete and reviewed. No new weight update has occurred. The earlier `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` accepted exactly one update (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546) |
+| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-cpu-recovery-01a18b70-7ab2-76ae-9a06-c06bc2f94018/cpu/execution`, now `complete-reviewed`. Torch loading and exact proposed update-dose calculation passed. The preceding CPU attempt failed before model/data loading due to missing writable temp/cache paths; recovery restored them and passed actual Torch initialization in the final mount. No new weight update has occurred. The earlier `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` accepted exactly one update (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546) |
 | Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. The broader admitted collection includes four natural wins and ten known zero-return attempts. Next validate its Torch loading, exact proposed update dose and complete-history numerical replay. Native input admission does not certify numerical replay or playing strength |
+| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. The broader collection now passed Torch loading of all 3,479 choices. Its planned eight updates select 465 choices across 11 histories, including 103 from natural wins. Next perform complete-history numerical replay before learning. Native input admission does not certify numerical replay or playing strength |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
@@ -165,7 +165,7 @@ The helper has no GPU or learning launcher. CUDA initialization,
 complete-history probability replay and bounded learning remain subsequent
 phases requiring separate reviewed manifests.
 
-The corrected CPU phase is now running under
+The corrected CPU phase completed under
 `research-breadth-cpu-recovery-01a18b70-7ab2-76ae-9a06-c06bc2f94018/`.
 Ready SHA-256 is
 `c7110a2f238c1b7c051b9b1eaa576703d7c933c1ba211119ff8cbb0f70f6dfb0`;
@@ -175,16 +175,33 @@ The actual initialization and final-mount checks passed; data, math, seed,
 trainer and stage/resource limits remain unchanged. Controller PID
 2468446/start ticks 17190395 on the same boot was verified with exact
 executable, argv and cgroup. Service `baylee-research-breadth-01a18b70-cpu`
-and its `-watch.timer` are active; the first observed stage is `loader`.
+and its `-watch.timer` were active; the first observed stage was `loader`.
 
-On successful terminal completion, recheck identity and cleanup, then run the
-recovery namespace's `bin/research_cpu_ops verify-cpu` once. Inspect
-`cpu/loader-output/report.json`, `cpu/dose-plan.json` and `cpu-verified.json`.
-`attach-cpu` restores monitoring only; do not repeat `launch-cpu`.
-Review actual CPU timings and selected actor/history/return coverage before
-preparing the separate CUDA initialization, complete-history replay and
-bounded learning phases. Planned selected segments are not accepted updates;
-rejection may stop learning before all eight batches.
+Event `3c29ba7ce0a3a10539fa3bf2` is handled. Native `verify-cpu` already passed
+once; do not repeat it or restart the completed pipeline. The review rechecked
+22,251 seals and all four owned identities/groups, and stopped only its owned
+watcher after confirming the service/cgroup empty. CPU-verified SHA-256 is
+`70ced317769de35a8a1454b18f010821aae05b3dedc5c0a4444e1d61176cbdce`;
+operator-review SHA-256 is
+`be481094f034e2605f0aa378333fcdd9dbb3a966c83962ab69af7cf9205f5e87`.
+
+`cpu/loader-output/report.json` verifies all 3,479 choices and 14,902 frames.
+`cpu/dose-plan.json` fixes 32 segments/2,043 frames/465 choices across 11
+histories for the maximum eight updates: 103 choices from natural wins, 351
+from natural losses and 11 from the learner loop. It does not count recurrent
+prefix reconstruction or whole-collection audits as gradient exposure.
+Dose-plan SHA-256 is
+`eb56ba5e286506c33f21bd0916b24db56f4526bc5d91497e33c8216180617477`.
+No seed tuning or outcome-based selection occurred; cases 165/170 stay
+target-free. Planned selected segments are not accepted updates; rejection
+may stop learning before all eight batches. Numerical replay is still required.
+
+The CPU pipeline took 838.097 seconds. The loader guard took 410.676 seconds;
+worker host timings assign 192.547 seconds to native session preparation,
+192.494 to final verification and 10.226 to all tensor materialization/checks.
+These timings identify native verification as the main measured CPU cost;
+they do not identify its internal hashing/parsing/packing costs or predict GPU
+throughput. Keep the frozen implementation unchanged for the next comparison.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,

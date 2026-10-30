@@ -529,6 +529,53 @@ cgroup. Service `baylee-research-breadth-01a18b70-cpu` and its native watcher
 timer are active; first observed stage `loader`. Neither a successful loader
 result nor a new weight update is claimed at this handover.
 
+Event `3c29ba7ce0a3a10539fa3bf2` subsequently reported successful completion.
+All three guards completed with exit code zero and cleanup verified. The
+pipeline took 838.097 seconds: loader 410.676 seconds (2,447,874,048 bytes peak
+proportional memory), Torch permutation 1.725 seconds (751,332,352 bytes),
+native dose accounting 396.813 seconds (1,192,364,032 bytes). The CPU report
+confirms all 14 histories, 14,902 frames, 3,479 genuine choices and 241 segments,
+with no model forward, optimizer construction, weight update or model write.
+
+The fixed seed-31431 first eight B4 groups select 32 distinct segments from
+11 histories: 2,043 valid target frames and 465 genuine actor choices. Their
+per-batch actor counts are 46, 49, 53, 54, 51, 70, 73 and 69. The fourth batch
+has 251 valid frames; the others have 256. Padding contributes no targets.
+These are prospective maximum gradient exposures, not accepted updates or the
+additional full-history computation needed to reconstruct memory and audit KL.
+
+| Selected return category | Segments | Frames | Actor choices |
+| --- | ---: | ---: | ---: |
+| Natural win, utility 1 | 8 | 512 | 103 |
+| Natural loss, utility 0 | 23 | 1,467 | 351 |
+| Learner announcement loop, research utility 0 | 1 | 64 | 11 |
+
+No outcome-based selection or seed tuning occurred. Cases 165 and 170 remain
+target-free. The full replay must still check all 3,479 admitted choices,
+including histories not selected by this bounded update dose.
+
+New host phase timings localize the CPU preflight cost: native tensor-session
+handshake/admission took 192.547 seconds and final verification 192.494 seconds,
+about 96.5% of the 398.880-second measured worker interval. Materializing and
+validating all tensors took 10.226 seconds; policy construction took 2.119,
+checkpoint load 0.510 and digest 0.204 seconds. The worker interval excludes
+imports, final report write and cleanup; the guard total remains 410.676.
+This supports focusing later instrumentation on native admission and repeated
+verification. It does not distinguish hashing, decompression, parsing and
+packing within those phases, or measure GPU training throughput.
+
+Native `verify-cpu` passed once; CPU-verified SHA-256 is
+`70ced317769de35a8a1454b18f010821aae05b3dedc5c0a4444e1d61176cbdce`.
+Loader-report SHA-256 is
+`0fcc5688244892ed67b33dbee7ce6be83b6bbdd76c7490149234d061ee1074c9`;
+dose-plan SHA-256 is
+`eb56ba5e286506c33f21bd0916b24db56f4526bc5d91497e33c8216180617477`.
+The event review rechecked 22,251 seals and four owned identities/groups plus
+the empty service/cgroup. Only its watcher was stopped, the event deduplicated
+locally and centrally, and the canonical pointer marked `complete-reviewed`.
+GPU and gateway are unchanged. Review SHA-256 is
+`be481094f034e2605f0aa378333fcdd9dbb3a966c83962ab69af7cf9205f5e87`.
+
 Sol's read-only performance review identified hypotheses to measure after this
 trial, not demonstrated speedups. Starting the tensor server and final native
 verification each reconstruct admission, scan and pack frames; original
