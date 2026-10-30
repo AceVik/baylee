@@ -1,5 +1,5 @@
 use crate as ops;
-mod support;
+pub(crate) mod support;
 
 use super::*;
 use serde_json::json;

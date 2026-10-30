@@ -36,7 +36,29 @@ impl Fixture {
         let cache = temporary.path().join("cache");
         fs::create_dir_all(source.join("records")).unwrap();
         fs::create_dir_all(converted.join("episodes")).unwrap();
-        let model = json!({"encoder_version":7,"source_checkpoint_sha256":"a".repeat(64)});
+        let structure =
+            json!({"version":1,"roots":{},"nodes":[],"tags":[],"dsl_source_sha256":"fixture"});
+        let checkpoint = temporary.path().join("source.pt");
+        fs::write(&checkpoint, b"synthetic source checkpoint: not a model").unwrap();
+        let checkpoint_sha = files::sha256(&checkpoint).unwrap();
+        let graph = temporary.path().join("model.onnx");
+        fs::write(&graph, b"synthetic graph: not a model").unwrap();
+        let graph_sha = files::sha256(&graph).unwrap();
+        let metadata = temporary.path().join("model.onnx.json");
+        files::atomic_json(
+            &metadata,
+            &json!({"source_checkpoint_sha256":checkpoint_sha,"encoder_version":7,"model_version":5,
+            "structure_sha256":jd(&structure),"sampling_version":2,"thinking_steps":2}),
+        )
+        .unwrap();
+        let executable = temporary.path().join("producer-binary");
+        fs::write(
+            &executable,
+            b"synthetic retained executable bytes: not launched",
+        )
+        .unwrap();
+        let model = json!({"encoder_version":7,"model_version":5,"source_checkpoint_sha256":checkpoint_sha,
+            "onnx_sha256":graph_sha,"metadata_sha256":files::sha256(&metadata).unwrap(),"depth_graph_sha256":{"0":graph_sha,"2":graph_sha}});
         let run = json!({"collection_contract":{"version":2,"purpose":"failure_terminal_research_v1",
             "research_target_contract":contract(),"precision":"float32","seat_rng_rule":"independent_policy_seed_xor_physical_seat_v1",
             "learner_model_identity":model,"opponent_model_identity":model,"opponent_role":"self_play"},
@@ -75,7 +97,7 @@ impl Fixture {
             files::atomic_json(&directory.join("claim.json"), &json!({"schema":"failure_terminal_attempt_plan_v1","plan_sha256":plan_sha,
                 "source_run_sha256":run_sha,"producer_identity":identity,"deal":deal,"worker":deal})).unwrap();
             if deal < 3 && !zero_targets {
-                let roles: Vec<_> = (0..2).map(|seat| json!({"seat":seat,"role":if seat==deal%2 {"learner"}else{"self_play"},"checkpoint_sha256":"a".repeat(64),"thinking_steps":2,"temperature":0.7})).collect();
+                let roles: Vec<_> = (0..2).map(|seat| json!({"seat":seat,"role":if seat==deal%2 {"learner"}else{"self_play"},"checkpoint_sha256":checkpoint_sha,"thinking_steps":2,"temperature":0.7})).collect();
                 let game = json!({"i":deal,"game":format!("synthetic-{deal}"),"seed":12,"policy_seed":19,"focal_seat":deal%2,
                     "source_run_sha256":run_sha,"record_sha256":sha(raw_record),"shard":"records.gz","offset":0,"len":compressed.len(),
                     "research_episode":episode,"outcome":episode,"rollout_sidecar":[],"actor_roles":roles,"fallback_answers":0});
@@ -89,7 +111,15 @@ impl Fixture {
         fs::write(source.join("games.jsonl"), index).unwrap();
         fs::write(source.join("records/orphan.partial"), b"partial evidence").unwrap();
         let job = temporary.path().join("job.json");
-        files::atomic_json(&job, &json!({"guard":"rust-owned-group-v1","cleanup_verified":true,"status":"quarantined","reason":"deadline","child_identity":identity})).unwrap();
+        let inputs: BTreeMap<_, _> = [checkpoint.clone(), graph, metadata]
+            .into_iter()
+            .map(|p| {
+                let sha = files::sha256(&p).unwrap();
+                (p, sha)
+            })
+            .collect();
+        files::atomic_json(&job, &json!({"schema_version":3,"guard":"rust-owned-group-v1","cleanup_verified":true,"status":"quarantined","reason":"deadline","child_identity":identity,
+            "executable":executable,"executable_invocation":executable,"executable_sha256":files::sha256(&executable).unwrap(),"command":[executable],"cwd":temporary.path(),"inputs":inputs})).unwrap();
         let ledger = ops::research_attempts::finalize(&source, &job).unwrap();
         let mut source_seals: BTreeMap<PathBuf, String> =
             serde_json::from_value(ledger["source_files"].clone()).unwrap();
@@ -156,14 +186,14 @@ impl Fixture {
             bytes.push(b'\n');
         }
         fs::write(converted.join("attempts.jsonl"), bytes).unwrap();
-        files::atomic_json(&converted.join("card_structure.json"), &json!({"roots":{}})).unwrap();
+        files::atomic_json(&converted.join("card_structure.json"), &structure).unwrap();
         for name in [
             "card_dsl.bin",
             "card_dsl_back.bin",
             "token_dsl.bin",
             "card_abilities.bin",
         ] {
-            fs::write(converted.join(name), [0; 4]).unwrap();
+            fs::write(converted.join(name), [0; 640]).unwrap();
         }
         let mut outputs = BTreeMap::new();
         for name in [
@@ -192,7 +222,7 @@ impl Fixture {
         let mut manifest = json!({"schema":"failure_terminal_research_conversion_v2","status":"conversion_only_unadmitted",
             "attempt_denominator_contract":"failure_terminal_attempt_ledger_v1","operational_abort_ledger_supported":true,"ppo_eligible":false,"ordinary_target_cache_compatible":false,
             "target_contract":contract(),"frame_contract":FRAME_CONTRACT,"preprocessing_version":1,"sampling_version":2,"policy_provenance_version":2,"encoder_version":7,
-            "learner_model_identity":model,"planned_attempts":5,"unknown_attempts":if zero_targets {4}else{2},"attempt_counts":counts,"target_episodes":targets,"output_files":outputs,
+            "learner_model_identity":model,"catalog":{"cards":[1],"tokens":0,"dsl_version":2,"structure_sha256":jd(&structure)},"planned_attempts":5,"unknown_attempts":if zero_targets {4}else{2},"attempt_counts":counts,"target_episodes":targets,"output_files":outputs,
             "source_runs":[{"directory":source,"source_run_sha256":run_sha,"games_index_sha256":files::sha256(&source.join("games.jsonl")).unwrap(),
                 "collection_contract":run["collection_contract"],"evaluator_revision":run["evaluator_revision"],"evaluator_dirty":true,"source_files":source_seals,"finalized_attempt_ledger":ledger}]});
         manifest["content_fingerprint"] = json!(jd(&manifest));

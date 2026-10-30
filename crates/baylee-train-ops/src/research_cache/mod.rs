@@ -3,7 +3,7 @@ mod rows;
 mod source;
 mod store;
 #[cfg(all(test, target_os = "linux"))]
-mod tests;
+pub(crate) mod tests;
 
 pub use store::{Reader, build, verify};
 
