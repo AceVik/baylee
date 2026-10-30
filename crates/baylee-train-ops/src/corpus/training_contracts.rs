@@ -100,9 +100,19 @@ fn depth(value: &Value) -> Result<Value> {
         contract["validation_history"] == "complete_independent_reset_per_k",
         "Validation must reset independent complete histories for every K"
     );
+    // Every reported depth costs one complete validation pass; a run may report
+    // fewer, but always the K2 its snapshots are selected by.
+    let reported = contract["report_k"]
+        .as_array()
+        .and_then(|depths| depths.iter().map(Value::as_u64).collect::<Option<Vec<_>>>());
     ensure!(
-        contract["selection_k"] == 2 && contract["report_k"] == json!([1, 2, 4, 8]),
-        "Validation contract requires selection K2 and reports K1/2/4/8"
+        contract["selection_k"] == 2
+            && reported.is_some_and(|depths| {
+                depths.contains(&2)
+                    && depths.windows(2).all(|pair| pair[0] < pair[1])
+                    && depths.iter().all(|k| [1, 2, 4, 8].contains(k))
+            }),
+        "Validation contract requires selection K2 and reports an increasing subset of K1/2/4/8 with K2"
     );
     contract["sha256"] = json!(digest(&contract)?);
     Ok(contract)
@@ -209,6 +219,20 @@ mod tests {
         let mut bad = schedule.clone();
         bad["positive_k"] = json!([true]);
         assert!(depth(&bad).is_err());
+        let mut fewer = schedule.clone();
+        fewer["report_k"] = json!([2]);
+        assert_ne!(depth(&fewer)?["sha256"], sealed["sha256"]);
+        for report in [
+            json!([1, 4]),
+            json!([2, 1]),
+            json!([2, 3]),
+            json!([]),
+            json!([2, 2]),
+        ] {
+            let mut bad = schedule.clone();
+            bad["report_k"] = report;
+            assert!(depth(&bad).is_err());
+        }
         assert!(validate(&json!({"kind":"depth_resume","contract":schedule,"saved":{}})).is_err());
         let mut config = json!({"version":4,"outcome_weighting":true,"normalization":"legacy_timestep","policy_head_weights":[1.0,1.0,1.0,1.0],"detach_value_input":false,"detach_aux_input":false,"value_weight":0.5,"auxiliary_weight":0.25});
         loss(&config)?;

@@ -12,6 +12,18 @@ use sha2::{Digest, Sha256};
 pub const V5_ARCHITECTURE: &str = "baylee_ai_v5_relational_v1";
 const V5_ARCHITECTURE_V2: &str = "baylee_ai_v5_relational_v2";
 const V5_CANDIDATE_V2: &str = "baylee_ai_v5_relational_v2_candidate_v2";
+/// Candidate revision 3: candidates attend to the board inside the graph; the
+/// input and output tensors are those of every other V5 export.
+const V5_CANDIDATE_V3: &str = "baylee_ai_v5_relational_v2_candidate_v3";
+
+/// The candidate context revision an architecture label requires, if any.
+fn candidate_revision(architecture: &Value) -> Option<u64> {
+    match architecture.as_str() {
+        Some(V5_CANDIDATE_V2) => Some(2),
+        Some(V5_CANDIDATE_V3) => Some(3),
+        _ => None,
+    }
+}
 
 /// Content identity of the exact graph and metadata accepted by the loader.
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
@@ -57,9 +69,15 @@ fn contract(meta: &Value) -> anyhow::Result<(u32, u32, &'static str)> {
         && model == 5
         && matches!(
             meta["architecture"].as_str(),
-            Some(V5_ARCHITECTURE | V5_ARCHITECTURE_V2 | V5_CANDIDATE_V2)
+            Some(V5_ARCHITECTURE | V5_ARCHITECTURE_V2 | V5_CANDIDATE_V2 | V5_CANDIDATE_V3)
         ))
-        || (matches!(encoder, 8 | 9)
+        || (encoder == 8
+            && model == 5
+            && matches!(
+                meta["architecture"].as_str(),
+                Some(V5_ARCHITECTURE_V2 | V5_CANDIDATE_V2 | V5_CANDIDATE_V3)
+            ))
+        || (encoder == 9
             && model == 5
             && matches!(
                 meta["architecture"].as_str(),
@@ -91,10 +109,10 @@ fn contract(meta: &Value) -> anyhow::Result<(u32, u32, &'static str)> {
             );
         }
     }
-    if meta["architecture"] == V5_CANDIDATE_V2 {
+    if let Some(revision) = candidate_revision(&meta["architecture"]) {
         anyhow::ensure!(
             meta["config"]["relational_revision"] == 2
-                && meta["config"]["candidate_context_revision"] == 2,
+                && meta["config"]["candidate_context_revision"] == revision,
             "candidate architecture/revision mismatch"
         );
         for key in ["d_model", "n_heads", "n_layers"] {
@@ -227,22 +245,32 @@ mod tests {
 
     #[test]
     fn candidate_context_revision_has_a_distinct_strict_identity() {
-        for encoder in [7, 8] {
-            let mut meta = json!({"encoder_version":encoder,"model_version":5,
-                "architecture":V5_CANDIDATE_V2,"trajectory_version":2,"sampling_version":2,
-                "d_model":32,"n_heads":4,"n_layers":1,
-                "config":{"relational_revision":2,"candidate_context_revision":2,
-                    "d_model":32,"n_heads":4,"n_layers":1}});
-            assert_eq!(contract(&meta).unwrap(), (encoder, 5, "v5"));
-            meta["config"]["candidate_context_revision"] = json!(1);
-            assert!(contract(&meta).is_err());
-            meta["config"]["candidate_context_revision"] = json!(2);
-            meta["config"]["relational_revision"] = json!(1);
-            assert!(contract(&meta).is_err());
-            meta["config"]["relational_revision"] = json!(2);
-            meta["architecture"] = json!(V5_ARCHITECTURE_V2);
-            assert!(contract(&meta).is_err());
+        for (architecture, revision) in [(V5_CANDIDATE_V2, 2), (V5_CANDIDATE_V3, 3)] {
+            for encoder in [7, 8] {
+                let mut meta = json!({"encoder_version":encoder,"model_version":5,
+                    "architecture":architecture,"trajectory_version":2,"sampling_version":2,
+                    "d_model":32,"n_heads":4,"n_layers":1,
+                    "config":{"relational_revision":2,"candidate_context_revision":revision,
+                        "d_model":32,"n_heads":4,"n_layers":1}});
+                assert_eq!(contract(&meta).unwrap(), (encoder, 5, "v5"));
+                meta["config"]["candidate_context_revision"] = json!(1);
+                assert!(contract(&meta).is_err());
+                meta["config"]["candidate_context_revision"] = json!(5 - revision);
+                assert!(contract(&meta).is_err());
+                meta["config"]["candidate_context_revision"] = json!(revision);
+                meta["config"]["relational_revision"] = json!(1);
+                assert!(contract(&meta).is_err());
+                meta["config"]["relational_revision"] = json!(2);
+                meta["architecture"] = json!(V5_ARCHITECTURE_V2);
+                assert!(contract(&meta).is_err());
+            }
         }
+        let decoder_e9 = json!({"encoder_version":9,"model_version":5,
+            "architecture":V5_CANDIDATE_V3,"trajectory_version":2,"sampling_version":2,
+            "global_feat_width":82,"d_model":32,"n_heads":4,"n_layers":1,
+            "config":{"relational_revision":2,"candidate_context_revision":3,
+                "global_feat_width":82,"d_model":32,"n_heads":4,"n_layers":1}});
+        assert!(contract(&decoder_e9).is_err());
     }
 
     #[test]
