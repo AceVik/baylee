@@ -202,8 +202,8 @@ fn the_snippet_keeps_no_access_log() {
 #[test]
 fn the_snippet_serves_what_the_deploy_installs_where_trunk_points() {
     let caddy = directives();
-    let deploy =
-        std::fs::read_to_string(repo().join("crates/baylee-ops/src/deploy.rs")).expect("deploy");
+    let deploy = std::fs::read_to_string(repo().join("crates/baylee-ops/src/deploy/mod.rs"))
+        .expect("deploy");
     assert!(
         deploy.contains(r#"play: root.join("web/play"),"#)
             && deploy.contains(r#".unwrap_or_else(|| "/opt/baylee".into())"#),

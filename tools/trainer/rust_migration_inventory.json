@@ -1,0 +1,2641 @@
+{
+  "schema_version": 1,
+  "snapshot": "Initial tools/trainer Python responsibility inventory before native replacements, 2026-10-29",
+  "policy": "Only PyTorch responsibilities remain Python. Import classification is an inventory, not a retention approval.",
+  "audit_status": "The files array preserves the initial inventory, including retired paths. The replacement map and audited responsibilities below record follow-up decisions; unreviewed support modules are not approved for retention.",
+  "audited_responsibilities": {
+    "tools/trainer/tensor_io4.py": "Thin persistent tensor-worker transport only; native tensor-io owns reserve/write/commit/abort, filesystem locks, file sync, temporary cleanup and atomic publication. Explicit successful Torch serialization handshake is required; EOF, failed serialization and truncated raw blocks abort. Raw feature records cross once per complete unroll batch without hex expansion.",
+    "tools/trainer/checkpoint4.py": "Torch serialization, RNG and optimizer-state handling only. Native tensor-io owns unique checkpoint temporary paths, flushing, atomic replacement and abort cleanup; failed Torch serialization preserves the previous checkpoint.",
+    "tools/trainer/model4/structure.py": "Torch rule encoder remains; canonical structure identity delegates to native compact sorted ASCII JSON digest with original float formatting.",
+    "tools/trainer/value_calibration4/cache.py": "Thin NumPy mmap/Torch tensor adapter; native calibration-io owns identity/default-spaced canonical key, complete metadata, file size/content admission and eligible-record indices.",
+    "tools/trainer/value_calibration4/extract.py": "Torch chronological inference and tensor-record serialization remain; native tensor-io owns raw file writes, cache locks, reservation, commit/abort and complete metadata publication.",
+    "tools/trainer/value_calibration4/checkpoint.py": "Torch source/model loading and head-only tensor merging remain; native calibration-io validates/seals collection plans and tensor-io owns locked non-overwriting compound checkpoint/report publication.",
+    "tools/trainer/training4/bc_mixture/cycling.py": "Thin callback adapter only: invokes complete chronological Torch sampler passes. Native bc-cycle owns epoch planning, budget, padding, repeat-prefix selection and receipts. One initialization plus one native call per whole source pass; never one call per batch/frame.",
+    "tools/trainer/value_calibration4/metrics.py": "Torch prediction execution and NumPy/JSON transport only. Native calibration-metrics owns trajectory weights, grouped Brier/calibration statistics, training priors and game overlap; reporting crosses the boundary once per complete prediction pass.",
+    "tools/trainer/training4/diagnostics/stats.py": "On-device Torch step_statistics and tensor-to-host transfer remain. Native diagnostic-metrics owns host merges, clustering and report ratios. One native merge per whole unroll batch plus one report call; current explicit state transport scales with retained group/game count and can later use a persistent worker if measurement justifies it.",
+    "tools/trainer/training4/optimizer_groups.py": "Retained Torch parameter/optimizer scheduling: inspects net.named_parameters and requires_grad, partitions AdamW groups, sets optimizer learning rates and checks the corresponding continuation protocol.",
+    "tools/trainer/train4.py, tools/trainer/train5.py, tools/trainer/train_policy4.py, tools/trainer/calibrate_value4.py, tools/trainer/bench_training5.py": "Thin compatibility entry points into PyTorch training/calibration/benchmark execution, with no independent orchestration implementation.",
+    "tools/trainer/training4/diagnostics/data.py": "Retained DiagnosticDataset tensor metadata decoding/construction and thin Provenance adapter; source-marker scanning, file receipts, namespace identity and completed-job format binding delegated to native diagnostic-provenance.",
+    "tools/trainer/training4/package_state.py": "Retained: torch.load, model/optimizer state restoration and tensor device migration at package boundaries.",
+    "tools/trainer/benchmark_state4.py": "Retained: instantiate and restore the PyTorch recurrent trajectory batch sampler used with checkpoint memory.",
+    "tools/trainer/encoder_contract.py": "Thin Torch model-configuration bridge only; encoder and warmstart admission delegated to native training-contract.",
+    "tools/trainer/training4/depth_schedule.py": "Retained dataclass/API and tensor execution phase selection, tensor batch decision/weight reductions, independent Torch evaluations; schedule admission, identity and resume checks delegated to native training-contract.",
+    "tools/trainer/training4/bc_mixture/metadata.py": "Thin Torch sampler-index bridge only; filesystem scanning, stream receipts, record/table identity and overlap rejection delegated to native trajectory_cache4.",
+    "tools/trainer/trajectory_store4/__init__.py": "Read-only NumPy mmap decoding for torch.utils.data.Dataset and thin subprocess bridge only. Native Rust owns shard parsing, raw packing, validation, fingerprints, cache construction and publication.",
+    "tools/trainer/training4/loss_config.py": "Thin immutable PyTorch objective configuration dataclass; native training-contract owns version, normalization, fixed weights, flags and supported ablation admission.",
+    "tools/trainer/training4/supervised_options.py": "Thin Torch CLI option binding and native training-contract admission bridge plus direct Torch auxiliary head detach/forward. Native supervised_execution validates reference execution and package-state continuation against the objective version.",
+    "tools/trainer/test_encoder8_contract.py": "Existing untracked PyTorch model/checkpoint/export integration tests retained; imports adapted to native dataset validation. Not authored by this migration.",
+    "tools/trainer/performance5/runner.py": "Torch disposable CUDA update/parity execution remains; checkpoint checksums and atomic JSON reports delegate to native torch_io4 seals/publication.",
+    "tools/trainer/deepen4.py": "Torch function-preserving residual-block insertion and checkpoint tensor copying remain; source SHA256 and depth-transfer metadata publication delegate to native operations.",
+    "tools/trainer/refresh_structure4.py": "Torch rule-encoder parameter remapping, strict model loading and state construction remain; immutable file seals and metadata publication delegate to native operations.",
+    "tools/trainer/migrate_structure4.py": "Explicit historical Torch weight migration remains; input file SHA256 delegates to native operations.",
+    "tools/trainer/dataset3.py, tools/trainer/legacy_dataset3/__init__.py": "Supported v3 Torch tensor loader/NumPy mmap adapter retained. Native trajectory_cache4 merge3 validates sizes/offsets/source content seals and streams immutable rebased column caches; old legacy merged artifacts are preserved.",
+    "tools/trainer/batch_audit5/worker.py": "CPU Torch dataset/sampler execution, encoded-frame Tensor schemas, real collation and Tensor storage/masked counts only. Native audit_batches5 owns job argv, deterministic sample indices, shape/budget arithmetic, quantiles, source seals, hard worker deadline and final report publication.",
+    "tools/trainer/bench_inference4.py": "Torch/ONNX inference and synchronized measurement remain; native legacy_metrics owns sampled-row planning, stable entity-size frame selection, NumPy-compatible median/linear quantiles and throughput ratios.",
+    "tools/trainer/bench_step.py": "Torch synthetic model, disposable updates and synchronized timing remain; native legacy_metrics owns training rates, unit conversion, Python median/indexed p95 and ties-even report rounding.",
+    "tools/trainer/bench_t1.py": "Torch disposable synthetic updates, ONNX export/inference and measurement remain; native legacy_metrics owns NumPy-compatible linear percentile statistics, rounding and resource/throughput reports. This historical v4 probe is not a current v5 capacity benchmark.",
+    "tools/trainer/bench_training4.py": "Torch disposable update/parity/profiler execution remains; native legacy_metrics owns measured timing reductions and frame/decision throughput. The historical v4 update helper remains callable by compile_probe4; it is not an admitted current v5 training recipe.",
+    "tools/trainer/training4/validation.py": "Reference recurrent Torch forward/loss/masking and tensor sufficient statistics remain; native legacy_metrics owns bounded per-batch calibration/metric accumulation and final reporting. No host NumPy calibration reductions remain.",
+    "tools/trainer/test_native_benchmark4.py": "Direct tests of retained Torch timing and recurrent validation boundaries; checks native quantile, sampling, rounding and report parity against former NumPy/statistics semantics without training updates.",
+    "tools/trainer/train3.py": "Torch forward/loss/optimizer and model selection remain; native legacy_metrics owns final policy agreement/chance/group reductions, team/draw/first-step value report slices, Markdown and atomic JSON/report publication.",
+    "tools/trainer/train_policy.py": "Torch policy training and model selection remain; native legacy_metrics owns final agreement/chance/group reductions and Markdown/JSON report publication, preserving the historical distinct profile threshold.",
+    "tools/trainer/train_rl.py": "Torch v3 RL tensor updates remain; shared native value-slice reductions and torch_io4 atomic_json publish the final report without Python filesystem writes.",
+    "tools/trainer/eval_value.py": "Retained v2 Torch model loading and prediction; native legacy_metrics fits the disjoint even-game baseline, selects odd-game first decisions, aggregates proper scores/calibration and writes reports.",
+    "tools/trainer/eval_shift.py": "Retained v3 Torch model/option inference and Tensor probability/KL sufficient statistics; native legacy_metrics owns cross-batch reductions, agreement/entropy/hit ratios, finite advantage grouping and report rendering.",
+    "tools/trainer/train_value.py, tools/trainer/legacy_value_training/__init__.py": "Retained legacy Torch model training, loss/backpropagation, optimizer and direct Tensor feature/prediction adapters. Native legacy_metrics owns metrics, group thresholds/statistics, Markdown rendering and JSON/Markdown report publication. Torch training/forward/optimizer bodies preserved; native statistical reductions use f64.",
+    "tools/trainer/legacy_evaluation/__init__.py": "Thin JSON/subprocess transport for Torch-derived prediction and advantage arrays; no Python aggregation or fallback.",
+    "tools/trainer/test_audit_batches5.py, tools/trainer/test_dataset3_native.py, tools/trainer/test_legacy_metrics.py": "Directly associated Torch tensor/storage, legacy mmap and real native-boundary integration fixtures; pure planner/cache/statistical unit tests moved to Rust."
+  },
+  "retired_operational_entries": {
+    "tools/trainer/import_17lands4.py": "baylee-train-ops import_17lands4",
+    "tools/trainer/dataset_contract4.py": "baylee-train-ops trajectory_cache4 validate",
+    "tools/trainer/dataset_llm_contract4.py": "baylee-train-ops trajectory_cache4 validate",
+    "tools/trainer/trajectory_store4/cache.py": "baylee-train-ops trajectory_cache4 build/build-part",
+    "tools/trainer/trajectory_store4/packing.py": "baylee-train-ops trajectory_cache4 pack and trajectory::packing library",
+    "tools/trainer/prepare_packages4.py": "baylee-train-ops package_ops4 prepare",
+    "tools/trainer/consume_packages4.py": "baylee-train-ops package_ops4 consume",
+    "tools/trainer/recover_packages4.py": "baylee-train-ops package_ops4 recover",
+    "tools/trainer/import_mtgo4.py": "baylee-train-ops import_mtgo4",
+    "tools/trainer/audit_representation4.py": "baylee-train-ops audit_representation4",
+    "tools/trainer/prepare_llm_bc4.py": "baylee-train-ops prepare_llm_bc4",
+    "tools/trainer/paired_eval4.py": "baylee-train-ops paired_eval4",
+    "tools/trainer/summarize_eval4.py": "baylee-train-ops summarize_eval4",
+    "tools/trainer/report_experiment4.py": "baylee-train-ops report_experiment4",
+    "tools/trainer/publish_live_model4.py": "baylee-train-ops publish_live_model4",
+    "tools/trainer/import_live_records4.py": "baylee-train-ops import_live_records4",
+    "tools/trainer/live_play_maintenance4.py": "baylee-train-ops live_play_maintenance4",
+    "tools/trainer/audit_batches5.py": "baylee-train-ops audit_batches5 CLI; batch_audit5/worker.py retains only CPU Torch measurements",
+    "tools/trainer/dataset3.py:merge": "baylee-train-ops trajectory_cache4 merge3 --data-dir ROOT",
+    "tools/trainer/eval_value.py:baseline-and-report": "baylee-train-ops legacy_metrics value-plan/value-report",
+    "tools/trainer/eval_shift.py:aggregation-and-report": "baylee-train-ops legacy_metrics shift-report",
+    "tools/trainer/train_value.py:metrics/report_by/markdown": "baylee-train-ops legacy_metrics metrics/group-report/training-report"
+  },
+  "files": [
+    {
+      "path": "tools/trainer/audit_batches5.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "argparse",
+        "gc",
+        "importlib",
+        "json",
+        "numpy",
+        "os",
+        "pathlib",
+        "sys",
+        "time",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/audit_representation4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "argparse",
+        "collections",
+        "hashlib",
+        "json",
+        "numpy",
+        "pathlib",
+        "run_guard4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/bench_inference4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "argparse",
+        "dataset4",
+        "json",
+        "model4",
+        "numpy",
+        "onnxruntime",
+        "pathlib",
+        "run_guard4",
+        "time",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/bench_step.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "json",
+        "platform",
+        "statistics",
+        "time",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/bench_t1.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "export_onnx4",
+        "json",
+        "model4",
+        "numpy",
+        "onnxruntime",
+        "pathlib",
+        "tempfile",
+        "time",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/bench_training4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "argparse",
+        "benchmark_state4",
+        "checkpoint4",
+        "copy",
+        "dataset4",
+        "gc",
+        "json",
+        "model4",
+        "numpy",
+        "pathlib",
+        "run_guard4",
+        "time",
+        "torch",
+        "training4",
+        "validation_probe4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/bench_training5.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "performance5"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/benchmark_state4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "sampler4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/calibrate_value4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "value_calibration4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/checkpoint4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "numpy",
+        "os",
+        "pathlib",
+        "random",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/compile_probe4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "argparse",
+        "bench_training4",
+        "checkpoint4",
+        "copy",
+        "dataset4",
+        "gc",
+        "json",
+        "model4",
+        "pathlib",
+        "run_guard4",
+        "time",
+        "torch",
+        "training4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/consume_packages4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "argparse",
+        "hashlib",
+        "json",
+        "pathlib",
+        "run_guard4",
+        "sys",
+        "time"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/continue_broad4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "argparse",
+        "json",
+        "pathlib",
+        "run_guard4",
+        "subprocess",
+        "sys",
+        "time"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/dataset.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "dataclasses",
+        "json",
+        "numpy",
+        "pathlib",
+        "queue",
+        "threading",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/dataset3.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "dataclasses",
+        "dataset",
+        "json",
+        "numpy",
+        "pathlib",
+        "queue",
+        "threading",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/dataset4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "encoder_contract",
+        "gzip",
+        "json",
+        "model4",
+        "numpy",
+        "orjson",
+        "pathlib",
+        "sampler4",
+        "structure_data4",
+        "torch",
+        "trajectory_store4",
+        "typing"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/dataset_contract4.py",
+      "category": "contracts_and_identity_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "dataset_llm_contract4",
+        "hashlib",
+        "json",
+        "pathlib",
+        "re"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/dataset_llm_contract4.py",
+      "category": "contracts_and_identity_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "dataset_contract4",
+        "hashlib",
+        "json",
+        "pathlib"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/deepen4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "checkpoint4",
+        "dataclasses",
+        "hashlib",
+        "json",
+        "model4",
+        "pathlib",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/diagnose_policy4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "argparse",
+        "dataset4",
+        "export_onnx4",
+        "json",
+        "model4",
+        "pathlib",
+        "run_guard4",
+        "sampler4",
+        "torch",
+        "training4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/encoder_contract.py",
+      "category": "contracts_and_identity_to_rust",
+      "direct_torch_import": false,
+      "imports": [],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/eval_shift.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "dataset3",
+        "model3",
+        "numpy",
+        "pathlib",
+        "torch",
+        "train3",
+        "train_rl"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/eval_value.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "dataset",
+        "json",
+        "model",
+        "numpy",
+        "pathlib",
+        "torch",
+        "train_value"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/export_onnx.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "dataset",
+        "json",
+        "model",
+        "numpy",
+        "onnxruntime",
+        "pathlib",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/export_onnx3.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "dataset3",
+        "json",
+        "model3",
+        "numpy",
+        "onnxruntime",
+        "pathlib",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/export_onnx4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "dataset4",
+        "encoder_contract",
+        "hashlib",
+        "json",
+        "model4",
+        "model5",
+        "numpy",
+        "onnxruntime",
+        "pathlib",
+        "shutil",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/extend_corpus4.py",
+      "category": "data_admission_aggregation_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "argparse",
+        "json",
+        "pathlib",
+        "run_guard4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/house_usage.py",
+      "category": "data_admission_aggregation_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "argparse",
+        "dataset",
+        "dataset3",
+        "json",
+        "numpy",
+        "pathlib"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/import_17lands4.py",
+      "category": "data_admission_aggregation_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "argparse",
+        "collections",
+        "csv",
+        "datetime",
+        "gzip",
+        "hashlib",
+        "io",
+        "json",
+        "pathlib",
+        "urllib"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/import_live_records4.py",
+      "category": "data_admission_aggregation_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "argparse",
+        "collections",
+        "fcntl",
+        "gzip",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "tempfile",
+        "zlib"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/import_mtgo4.py",
+      "category": "data_admission_aggregation_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "argparse",
+        "collections",
+        "datetime",
+        "hashlib",
+        "json",
+        "orjson",
+        "pathlib",
+        "run_guard4",
+        "shutil",
+        "tarfile"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/input_digests4.py",
+      "category": "contracts_and_identity_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "dataclasses",
+        "hashlib",
+        "os",
+        "pathlib",
+        "stat",
+        "threading",
+        "typing"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/live_play_maintenance4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "argparse",
+        "import_live_records4",
+        "json",
+        "os",
+        "pathlib",
+        "publish_live_model4",
+        "run_guard4",
+        "signal",
+        "subprocess",
+        "tempfile",
+        "time"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/migrate_structure4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "argparse",
+        "checkpoint4",
+        "hashlib",
+        "model4",
+        "pathlib",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "dataclasses",
+        "dataset",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model3.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "dataclasses",
+        "dataset",
+        "dataset3",
+        "numpy",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model4/__init__.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "activation_checkpoint",
+        "config",
+        "layers",
+        "player",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model4/activation_checkpoint.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model4/candidate.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model4/config.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "dataclasses",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model4/layers.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model4/player.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "activation_checkpoint",
+        "candidate",
+        "config",
+        "layers",
+        "structure",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model4/structure.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "hashlib",
+        "json",
+        "math",
+        "numpy",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model5/__init__.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "dataclasses",
+        "model4",
+        "relational_v1",
+        "relational_v2",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model5/relational_v1.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "model4",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/model5/relational_v2.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "model4",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/paired_arena.py",
+      "category": "evaluation_statistics_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "json",
+        "math",
+        "pathlib",
+        "sys"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/paired_eval4.py",
+      "category": "evaluation_statistics_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "argparse",
+        "collections",
+        "hashlib",
+        "json",
+        "pathlib",
+        "run_guard4",
+        "summarize_eval4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/performance5/__init__.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/performance5/precision.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/performance5/runner.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "",
+        "argparse",
+        "benchmark_state4",
+        "checkpoint4",
+        "copy",
+        "dataset4",
+        "gc",
+        "hashlib",
+        "json",
+        "pathlib",
+        "run_guard4",
+        "state",
+        "time",
+        "torch",
+        "training4",
+        "update"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/performance5/state.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "checkpoint4",
+        "copy",
+        "export_onnx4",
+        "torch",
+        "training4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/performance5/update.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "torch",
+        "training4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/pipeline4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "argparse",
+        "json",
+        "pathlib",
+        "run_guard4",
+        "sys"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/policy_math4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/policy_training4/__init__.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/policy_training4/driver.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "argparse",
+        "dataset4",
+        "forward",
+        "json",
+        "numpy",
+        "optimization",
+        "pathlib",
+        "targets",
+        "torch",
+        "value_calibration4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/policy_training4/forward.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "dataset4",
+        "model4",
+        "torch",
+        "train_rl4",
+        "training4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/policy_training4/optimization.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "numpy",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/policy_training4/targets.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "dataset4",
+        "dataset_contract4",
+        "mmap",
+        "model4",
+        "numpy",
+        "orjson",
+        "pathlib",
+        "tempfile",
+        "torch",
+        "train_rl4",
+        "training4",
+        "trajectory_store4",
+        "zlib"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/ppo_targets4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "dataset4",
+        "dataset_contract4",
+        "model4",
+        "numpy",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/prepare_llm_bc4.py",
+      "category": "data_admission_aggregation_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "argparse",
+        "gzip",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/prepare_packages4.py",
+      "category": "data_admission_aggregation_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "argparse",
+        "collections",
+        "fractions",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "recover_packages4",
+        "run_guard4",
+        "time",
+        "trajectory_store4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/pretrain_dsl4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "json",
+        "model4",
+        "numpy",
+        "pathlib",
+        "time",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/pretrain_structure4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "checkpoint4",
+        "json",
+        "model4",
+        "pathlib",
+        "random",
+        "time",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/publish_live_model4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "argparse",
+        "hashlib",
+        "json",
+        "math",
+        "paired_eval4",
+        "pathlib",
+        "run_guard4",
+        "time"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/recover_packages4.py",
+      "category": "data_admission_aggregation_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "argparse",
+        "concurrent",
+        "hashlib",
+        "json",
+        "numpy",
+        "os",
+        "pathlib",
+        "run_guard4",
+        "shutil",
+        "trajectory_store4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/refresh_structure4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "checkpoint4",
+        "export_onnx4",
+        "hashlib",
+        "json",
+        "model4",
+        "pathlib",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/report_experiment4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "argparse",
+        "json",
+        "pathlib",
+        "run_guard4",
+        "summarize_eval4",
+        "time"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/run_guard4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "argparse",
+        "contextlib",
+        "hashlib",
+        "input_digests4",
+        "json",
+        "os",
+        "pathlib",
+        "shutil",
+        "signal",
+        "subprocess",
+        "threading",
+        "time"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/sampler4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "dataset4",
+        "heapq",
+        "itertools",
+        "random",
+        "torch",
+        "typing"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/structure_data4.py",
+      "category": "data_admission_aggregation_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "json",
+        "model4",
+        "numpy"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/summarize_eval4.py",
+      "category": "evaluation_statistics_to_rust",
+      "direct_torch_import": false,
+      "imports": [
+        "argparse",
+        "collections",
+        "json",
+        "math",
+        "numpy",
+        "pathlib",
+        "run_guard4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_activation_retention4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "model4",
+        "test_training_execution4",
+        "torch",
+        "training4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_audit_batches5.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "audit_batches5",
+        "numpy",
+        "torch",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_bc_mixture.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "copy",
+        "dataset4",
+        "itertools",
+        "json",
+        "numpy",
+        "pathlib",
+        "tempfile",
+        "test_value_calibration4",
+        "training4",
+        "types",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_benchmark_state4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "benchmark_state4",
+        "sampler4",
+        "types",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_checkpoint_async4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "checkpoint4",
+        "collections",
+        "numpy",
+        "pathlib",
+        "tempfile",
+        "threading",
+        "torch",
+        "training4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_checkpoint_input_offload.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "contextlib",
+        "copy",
+        "export_onnx4",
+        "io",
+        "model4",
+        "model5",
+        "os",
+        "subprocess",
+        "sys",
+        "torch",
+        "training4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_compact_thinking.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "dataclasses",
+        "model4",
+        "model5",
+        "test_training_execution4",
+        "torch",
+        "training4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_deck_import4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "collections",
+        "import_mtgo4",
+        "random",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_deepen4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "deepen4",
+        "export_onnx4",
+        "model4",
+        "pathlib",
+        "tempfile",
+        "torch",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_deferred4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "model4",
+        "test_training_execution4",
+        "torch",
+        "training4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_depth_schedule.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "checkpoint4",
+        "io",
+        "model5",
+        "numpy",
+        "random",
+        "test_training_execution4",
+        "torch",
+        "training4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_encoder8_contract.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "dataset4",
+        "dataset_contract4",
+        "dataset_llm_contract4",
+        "encoder_contract",
+        "export_onnx4",
+        "hashlib",
+        "json",
+        "model4",
+        "model5",
+        "pathlib",
+        "tempfile",
+        "test_llm_dataset4",
+        "test_shadow_dataset4",
+        "torch",
+        "training4",
+        "trajectory_store4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_eval_summary4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "summarize_eval4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_export_models.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "export_onnx4",
+        "hashlib",
+        "json",
+        "model4",
+        "model5",
+        "numpy",
+        "onnxruntime",
+        "pathlib",
+        "tempfile",
+        "torch",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_import_live_records4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "gzip",
+        "hashlib",
+        "import_live_records4",
+        "json",
+        "pathlib",
+        "tempfile",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_input_digests4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "hashlib",
+        "input_digests4",
+        "json",
+        "os",
+        "pathlib",
+        "run_guard4",
+        "sys",
+        "tempfile",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_live_selection4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "json",
+        "pathlib",
+        "publish_live_model4",
+        "tempfile",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_llm_dataset4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "dataset4",
+        "dataset_contract4",
+        "dataset_llm_contract4",
+        "gzip",
+        "hashlib",
+        "json",
+        "model4",
+        "pathlib",
+        "policy_training4",
+        "ppo_targets4",
+        "tempfile",
+        "test_bc_mixture",
+        "test_policy_targets4",
+        "torch",
+        "training4",
+        "trajectory_store4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_loss_driver_integration.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "contextlib",
+        "copy",
+        "io",
+        "json",
+        "model4",
+        "model5",
+        "pathlib",
+        "tempfile",
+        "test_deferred4",
+        "test_training_execution4",
+        "torch",
+        "training4",
+        "types",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_model5.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "export_onnx4",
+        "model4",
+        "model5",
+        "torch",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_model5_v2.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "export_onnx4",
+        "model4",
+        "model5",
+        "torch",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_objective4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "test_training_execution4",
+        "torch",
+        "training4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_optimizer_groups4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "model5",
+        "torch",
+        "training4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_package_state4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "model4",
+        "pathlib",
+        "tempfile",
+        "torch",
+        "training4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_packages4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "gzip",
+        "hashlib",
+        "json",
+        "pathlib",
+        "prepare_packages4",
+        "tempfile",
+        "test_recurrent4",
+        "trajectory_store4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_paired_eval4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "copy",
+        "json",
+        "paired_eval4",
+        "pathlib",
+        "tempfile",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_performance5.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "checkpoint4",
+        "copy",
+        "hashlib",
+        "model4",
+        "model5",
+        "pathlib",
+        "performance5",
+        "tempfile",
+        "test_training_execution4",
+        "torch",
+        "training4",
+        "types",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_performance5_precision.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "performance5",
+        "sys",
+        "types",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_policy_diagnostics4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "contextlib",
+        "copy",
+        "dataset4",
+        "diagnose_policy4",
+        "gzip",
+        "io",
+        "json",
+        "math",
+        "model4",
+        "model5",
+        "numpy",
+        "pathlib",
+        "sampler4",
+        "tempfile",
+        "test_training_execution4",
+        "test_value_calibration4",
+        "torch",
+        "training4",
+        "trajectory_store4",
+        "types",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_policy_math4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "math",
+        "policy_math4",
+        "torch",
+        "train_rl4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_policy_publication5.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "contextlib",
+        "copy",
+        "export_onnx4",
+        "io",
+        "json",
+        "model4",
+        "model5",
+        "numpy",
+        "pathlib",
+        "policy_training4",
+        "sys",
+        "tempfile",
+        "torch",
+        "types",
+        "unittest",
+        "value_calibration4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_policy_targets4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "json",
+        "math",
+        "model4",
+        "numpy",
+        "pathlib",
+        "policy_training4",
+        "tempfile",
+        "test_value_calibration4",
+        "torch",
+        "types",
+        "unittest",
+        "zlib"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_policy_training4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "export_onnx4",
+        "model4",
+        "numpy",
+        "policy_training4",
+        "torch",
+        "train_rl4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_prefetch4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "torch",
+        "training4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_prepare_llm_bc4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "copy",
+        "gzip",
+        "hashlib",
+        "json",
+        "pathlib",
+        "prepare_llm_bc4",
+        "tempfile",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_publish_live_model4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "json",
+        "pathlib",
+        "publish_live_model4",
+        "tempfile",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_recurrent4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "checkpoint4",
+        "dataset4",
+        "export_onnx4",
+        "gzip",
+        "json",
+        "model4",
+        "numpy",
+        "pathlib",
+        "random",
+        "tempfile",
+        "test_structure4",
+        "torch",
+        "train_rl4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_refresh_structure4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "export_onnx4",
+        "hashlib",
+        "json",
+        "model4",
+        "model5",
+        "pathlib",
+        "refresh_structure4",
+        "tempfile",
+        "test_structure4",
+        "torch",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_run_guard4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "run_guard4",
+        "signal",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "time",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_sampler_balance4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "random",
+        "sampler4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_shadow_dataset4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "dataset_contract4",
+        "hashlib",
+        "json",
+        "pathlib",
+        "policy_training4",
+        "ppo_targets4",
+        "tempfile",
+        "test_policy_targets4",
+        "torch",
+        "trajectory_store4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_structure4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "export_onnx4",
+        "model4",
+        "numpy",
+        "onnxruntime",
+        "pathlib",
+        "refresh_structure4",
+        "tempfile",
+        "torch",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_supervised_loss_v5.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "subprocess",
+        "torch",
+        "training4",
+        "types",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_thinking_cache4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "export_onnx4",
+        "model4",
+        "torch",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_training_execution4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "checkpoint4",
+        "copy",
+        "export_onnx4",
+        "model4",
+        "torch",
+        "training4",
+        "types",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_training_head_selection4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "model4",
+        "test_training_execution4",
+        "torch",
+        "training4",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_v4_contracts.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "dataset4",
+        "export_onnx4",
+        "gzip",
+        "json",
+        "model4",
+        "numpy",
+        "onnxruntime",
+        "pathlib",
+        "tempfile",
+        "test_structure4",
+        "torch",
+        "train_rl4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_validation_lanes4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "json",
+        "os",
+        "pathlib",
+        "shutil",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "test_recurrent4",
+        "torch",
+        "unittest"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_value_calibration4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "concurrent",
+        "copy",
+        "export_onnx4",
+        "json",
+        "model4",
+        "numpy",
+        "pathlib",
+        "tempfile",
+        "torch",
+        "types",
+        "unittest",
+        "value_calibration4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_value_calibration5.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "export_onnx4",
+        "model4",
+        "model5",
+        "numpy",
+        "pathlib",
+        "tempfile",
+        "test_value_calibration4",
+        "torch",
+        "unittest",
+        "value_calibration4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/test_watch_run4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "json",
+        "pathlib",
+        "subprocess",
+        "tempfile",
+        "unittest",
+        "watch_run4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/train3.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "contextlib",
+        "dataset3",
+        "json",
+        "model3",
+        "numpy",
+        "pathlib",
+        "time",
+        "torch",
+        "train_value"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/train4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "training4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/train5.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "training4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/train_policy.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "dataset",
+        "json",
+        "model",
+        "numpy",
+        "pathlib",
+        "time",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/train_policy4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "policy_training4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/train_rl.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "dataset3",
+        "json",
+        "model3",
+        "numpy",
+        "pathlib",
+        "time",
+        "torch",
+        "train3"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/train_rl4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "checkpoint4",
+        "copy",
+        "dataset4",
+        "json",
+        "model4",
+        "pathlib",
+        "policy_math4",
+        "ppo_targets4",
+        "torch",
+        "train4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/train_value.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "argparse",
+        "dataset",
+        "json",
+        "math",
+        "model",
+        "numpy",
+        "pathlib",
+        "time",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/__init__.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/bc_mixture/__init__.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "cycling",
+        "itertools",
+        "metadata",
+        "numpy",
+        "sampler4",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/bc_mixture/cycling.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/bc_mixture/metadata.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "hashlib",
+        "json",
+        "pathlib"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/checkpoint_async.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "checkpoint4",
+        "concurrent",
+        "copy",
+        "pathlib",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/cli.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": false,
+      "imports": [
+        "argparse",
+        "depth_schedule",
+        "encoder_contract",
+        "model4",
+        "model5",
+        "supervised_options"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/deferred.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "model4",
+        "thinking",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/depth_schedule.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "dataclasses"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/device_loss.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "loss_v5",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/diagnostics/__init__.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "data",
+        "stats"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/diagnostics/data.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "dataset4",
+        "hashlib",
+        "json",
+        "numpy",
+        "orjson",
+        "pathlib",
+        "trajectory_store4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/diagnostics/stats.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "numpy",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/driver.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "__future__",
+        "bc_mixture",
+        "checkpoint4",
+        "checkpoint_async",
+        "cli",
+        "dataset4",
+        "deferred",
+        "depth_schedule",
+        "device_loss",
+        "encoder_contract",
+        "execution",
+        "hashlib",
+        "json",
+        "loss",
+        "model4",
+        "numpy",
+        "objective",
+        "optimizer_groups",
+        "package_state",
+        "pathlib",
+        "prefetch",
+        "random",
+        "supervised_options",
+        "time",
+        "torch",
+        "validation",
+        "validation_device"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/execution.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "dataclasses",
+        "depth_schedule",
+        "model4",
+        "numpy",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/loss.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "model4",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/loss_config.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "dataclasses"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/loss_v5.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/objective.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "loss_config",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/optimizer_groups.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "math"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/package_state.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "checkpoint4",
+        "model4",
+        "pathlib",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/prefetch.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "collections",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/supervised_options.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "loss_config"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/thinking.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/validation.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "loss",
+        "model4",
+        "numpy",
+        "objective",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/training4/validation_device.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "deferred",
+        "device_loss",
+        "execution",
+        "model4",
+        "objective",
+        "prefetch",
+        "time",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/trajectory_store4/__init__.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "cache",
+        "packing"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/trajectory_store4/cache.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "concurrent",
+        "dataset_contract4",
+        "fcntl",
+        "hashlib",
+        "json",
+        "mmap",
+        "numpy",
+        "orjson",
+        "os",
+        "packing",
+        "pathlib",
+        "shutil",
+        "zlib"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/trajectory_store4/packing.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "__future__",
+        "concurrent",
+        "fcntl",
+        "gzip",
+        "hashlib",
+        "json",
+        "mmap",
+        "numpy",
+        "orjson",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "struct",
+        "zlib"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/validation_probe4.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "dataset4",
+        "gc",
+        "itertools",
+        "model4",
+        "pathlib",
+        "time",
+        "torch",
+        "training4",
+        "types"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/value_calibration4/__init__.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/value_calibration4/cache.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "hashlib",
+        "json",
+        "numpy",
+        "pathlib",
+        "source_identity",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/value_calibration4/checkpoint.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "checkpoint4",
+        "fcntl",
+        "hashlib",
+        "json",
+        "model4",
+        "model_identity",
+        "os",
+        "pathlib",
+        "shutil",
+        "source_identity",
+        "tempfile",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/value_calibration4/driver.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "argparse",
+        "checkpoint",
+        "dataset4",
+        "extract",
+        "fit",
+        "json",
+        "metrics",
+        "model_identity",
+        "pathlib",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/value_calibration4/extract.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "cache",
+        "dataset4",
+        "fcntl",
+        "features",
+        "json",
+        "model4",
+        "numpy",
+        "os",
+        "pathlib",
+        "shutil",
+        "source_identity",
+        "tempfile",
+        "time",
+        "torch",
+        "training4"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/value_calibration4/features.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "model4",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/value_calibration4/fit.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "copy",
+        "features",
+        "metrics",
+        "numpy",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/value_calibration4/metrics.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": true,
+      "imports": [
+        "features",
+        "numpy",
+        "torch"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/value_calibration4/model_identity.py",
+      "category": "torch_compute_or_tensor_test",
+      "direct_torch_import": false,
+      "imports": [
+        "model4",
+        "model5"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/value_calibration4/source_identity.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "hashlib",
+        "pathlib"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    },
+    {
+      "path": "tools/trainer/watch_run4.py",
+      "category": "pure_support_or_orchestration",
+      "direct_torch_import": false,
+      "imports": [
+        "argparse",
+        "contextlib",
+        "fcntl",
+        "hashlib",
+        "json",
+        "os",
+        "pathlib",
+        "subprocess",
+        "time",
+        "uuid"
+      ],
+      "review_note": "Direct import scan; mixed modules require responsibility extraction, not blanket retention."
+    }
+  ]
+}

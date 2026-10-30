@@ -16,9 +16,32 @@ the document it names.
   provider initialization failures are errors. TF32 is disabled to preserve
   agreement with the FP32 rollout probability audit. This selects inference;
   Python training chooses its PyTorch device separately.
-- `pipeline4.py --eval-binary` selects the evaluation/collection binary and
-  `--eval-threads` controls concurrent games. Each ONNX session uses one CPU
+  With the locked trainer environment, the Linux library directories are
+  `tools/trainer/.venv/lib/python3.13/site-packages/nvidia/cu13/lib` and
+  `tools/trainer/.venv/lib/python3.13/site-packages/nvidia/cudnn/lib` (resolve
+  them to absolute paths for a launch; use the actual Python minor version).
+  PyTorch 2.15 no longer installs cuRAND itself; the trainer explicitly depends
+  on `cuda-toolkit[curand]` because the ONNX provider requires `libcurand.so.10`.
+- `train_ops pipeline --manifest <path>` specifies every stage as a literal
+  argument array, including its evaluation binary and `eval4 --threads` limit.
+  Each ONNX session uses one CPU
   intra-op thread. Measure whole games before increasing worker counts.
+- `BAYLEE_TRAIN_OPS` selects the native `train_ops` executable used by PyTorch
+  checkpoint I/O, receipts and policy admission. Otherwise the adapter checks
+  `PATH` and this checkout's `target/release`, then `target/debug`. It has no
+  Python fallback for hashing, orchestration or admission.
+- `llm_collector4 collect --admin-url http://127.0.0.1:<port>` requires
+  `BAYLEE_COLLECTOR_ADMIN_TOKEN`, read once into memory and never passed to
+  children. The URL must be a literal loopback IP and port; redirects and
+  proxies are disabled. Authentication is checked before collecting games.
+  This is the dedicated collection gateway's admin credential, used only to
+  abort the exact owned game after failed attempts. A separately verified
+  closure does not admit the failed record or manufacture a game outcome.
+  `llm_collector4 serve --admin-bind 127.0.0.1:<port>` reuses an explicitly
+  supplied `BAYLEE_COLLECTOR_ADMIN_TOKEN`, or generates a random token in memory
+  when unset, and passes it only to its gateway child. No token is
+  written to status files, logs or command arguments; the admin listener is
+  off unless this bind is supplied.
 
 ## Gateway (`baylee-gateway`)
 

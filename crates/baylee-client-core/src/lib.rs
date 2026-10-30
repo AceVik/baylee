@@ -59,6 +59,7 @@ pub mod cue;
 pub mod damage;
 pub mod decisionclock;
 pub mod deckbuilder;
+pub mod deeplink;
 pub mod depart;
 pub mod dial;
 pub mod feltveins;

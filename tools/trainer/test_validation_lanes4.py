@@ -42,7 +42,7 @@ class ValidationLanes(unittest.TestCase):
             self.assertEqual(saved["h"].shape[0], 4)
             self.assertEqual(saved["last_validation_step"], 1)
             self.assertEqual(saved["last_validation_metrics"]["val_frames"], 32)
-            self.assertEqual(saved["training_loss_version"], 3)
+            self.assertEqual(saved["training_loss_version"], 4)
             self.assertEqual(saved["checkpoint_selection"], "policy")
             self.assertGreater(saved["last_validation_metrics"]["val_choices"], 0)
             self.assertIn("step=0", first.stdout)

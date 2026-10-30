@@ -172,7 +172,8 @@ jobs:
         with:
           shared-key: tests-debug
           save-if: false
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      # The training crates are not CI's (owner, 30.10.2026): see the test job.
+      - run: cargo clippy --workspace --all-targets --exclude baylee-train --exclude baylee-train-ops -- -D warnings
 
   # The gateway keeps its accounts in PostgreSQL, so the suite needs one.
   # Not a convenience: the e2e tests spawn real gateway processes, and a
@@ -254,11 +255,14 @@ jobs:
       # workspace (`cargo test --doc` finds zero), so nextest not running them
       # costs nothing. `--no-fail-fast`: a run that stops at the first failure
       # hides how much else is broken.
-      # Offline neural-training tests run on the training workstation (owner,
-      # 24.10.2026). Keep engine, house-AI and gamehost coverage in CI.
+      # The training crates (baylee-train, baylee-train-ops) are not CI's:
+      # they are built, linted and tested locally, where the local gate runs
+      # them (owner, 24.10. and 30.10.2026). xtask still links baylee-train
+      # without `play`, so its library compiles as a dependency. Engine,
+      # house-AI and gamehost coverage stays in CI.
       - run: >-
           cargo nextest run --locked --workspace --all-targets --no-fail-fast
-          --exclude baylee-train
+          --exclude baylee-train --exclude baylee-train-ops
           --partition count:${{ matrix.partition }}/2
       - name: Isolated Linux credential-store round trip
         if: matrix.partition == 1
@@ -305,7 +309,7 @@ jobs:
           cache-on-failure: true
           save-if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule') }}
       - uses: taiki-e/install-action@d042af60014eb018fcd01f57f4f62118b69e3ea6 # nextest branch: installs nextest
-      - run: cargo nextest run --locked --workspace --all-targets --exclude baylee-train --no-fail-fast --cargo-profile ci-release
+      - run: cargo nextest run --locked --workspace --all-targets --exclude baylee-train --exclude baylee-train-ops --no-fail-fast --cargo-profile ci-release
 
   # Main builds the actual dist packages once. Tags promote those exact
   # artifacts. A dispatched or `ci:full` run builds them too, but only a main
@@ -368,11 +372,11 @@ jobs:
           shared-key: tests-debug
           save-if: false
       - if: matrix.everything
-        run: cargo build --locked --workspace --bins
+        run: cargo build --locked --workspace --bins --exclude baylee-train --exclude baylee-train-ops
       # `--bins` links every binary; this is the half it does not reach, and
       # it is where a `cfg(test)` block first meets a platform.
       - if: matrix.everything
-        run: cargo check --locked --workspace --all-targets
+        run: cargo check --locked --workspace --all-targets --exclude baylee-train --exclude baylee-train-ops
       - if: ${{ !matrix.everything }}
         run: cargo build-client
       - if: ${{ !matrix.everything }}
@@ -408,6 +412,7 @@ jobs:
       # scryfall-cache` is the command that fetches: one bulk download, 3322
       # payloads in about 30 s (run 37787880265).
       - run: cargo run --locked -p xtask -- scryfall-cache
+      # xtask links baylee-train (without `play`) for card validation, not training: `working`, `cardwalk` and `housedeck`.
       - run: cargo run --locked -p xtask -- validate
       # The API documents (docs/api/): current, and every route a service
       # registers is in one of them (`cargo dev api check`). The tool is a
@@ -502,7 +507,7 @@ jobs:
       # In the log, so the next person reading a green tick can see which
       # compiler earned it. This is the line whose absence hid the bug.
       - run: rustc --version && cargo --version
-      - run: cargo check --locked --workspace --all-targets
+      - run: cargo check --locked --workspace --all-targets --exclude baylee-train --exclude baylee-train-ops
 
   # The feedback service's web UI (web/feedback, #311): the lockfile's tree,
   # the type check, lint, the unit and component tests, and the build the

@@ -3,6 +3,12 @@ import model4 as V4
 
 
 def source_model(saved):
+    from encoder_contract import validate_encoder
+    values = saved['config']
+    validate_encoder(saved.get('encoder_version'), model_version=saved.get('model_version'),
+                     relational_revision=values.get('relational_revision', 1),
+                     candidate_context_revision=values.get('candidate_context_revision', 1),
+                     global_feat_width=values.get('global_feat_width', 80))
     version = saved.get('model_version')
     if version == V4.MODEL_VERSION:
         if saved.get('model_family', 'v4') != 'v4' or saved.get('architecture') is not None:

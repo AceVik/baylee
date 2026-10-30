@@ -6,7 +6,7 @@ ConditionPathExists=!%h/baylee-data/v4/experiments/%i/watchdog/delivered.json
 [Service]
 Type=oneshot
 WorkingDirectory=%h
-ExecStart=/usr/bin/python3 %h/.local/lib/baylee-training-watch/watch_run4.py check --root %h/baylee-data/v4/experiments/%i
+ExecStart=%h/.local/bin/watch_run4 check --root %h/baylee-data/v4/experiments/%i
 TimeoutStartSec=50
 Nice=10
 IOSchedulingClass=idle

@@ -11,10 +11,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
-import json
-import shutil
 from pathlib import Path
+from torch_io4 import atomic_copy, atomic_json, file_digest
 
 import numpy as np
 import onnxruntime as ort
@@ -24,6 +22,23 @@ import dataset4 as D4
 import model4 as M
 
 
+def export_critic_semantics(checkpoint):
+    """Keep the value target explicit without copying the large training receipt."""
+    if 'research_ppo_progress' in checkpoint and 'research_ppo_contract' not in checkpoint:
+        raise ValueError('Research PPO progress requires its objective contract')
+    if 'research_ppo_contract' in checkpoint:
+        from research_ppo4.checkpoint import validate_resume
+        validate_resume(checkpoint)
+        contract = checkpoint['research_ppo_contract']
+        semantics = dict(kind='failure_terminal_research_utility_v1',
+                         objective=contract['objective'], target_contract=contract['target_contract'])
+    else:
+        semantics = dict(kind='mtg_side_outcome_utility_v1')
+    if 'critic_semantics' in checkpoint and checkpoint['critic_semantics'] != semantics:
+        raise ValueError('Checkpoint critic_semantics conflicts with its validated training objective')
+    return semantics
+
+
 def load_export_checkpoint(checkpoint_path: Path):
     """Construct only the architecture explicitly declared by the checkpoint.
 
@@ -31,6 +46,7 @@ def load_export_checkpoint(checkpoint_path: Path):
     state-dict extension that can be silently ignored by an older exporter.
     """
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    export_critic_semantics(checkpoint)
     version = checkpoint.get("model_version")
     if version == M.MODEL_VERSION:
         module = M
@@ -38,12 +54,11 @@ def load_export_checkpoint(checkpoint_path: Path):
     elif version == 5:
         import model5 as module
         config_type, model_type = module.Config5, module.PlayerNet5
-        if checkpoint.get("architecture") not in module.ARCHITECTURES.values():
+        if checkpoint.get("architecture") not in (*module.ARCHITECTURES.values(), module.CANDIDATE_ARCHITECTURE):
             raise ValueError("V5 checkpoint architecture is missing or incompatible")
     else:
         raise ValueError(f"Unsupported checkpoint model_version: {version}")
     for key, expected in (("trajectory_version", module.TRAJECTORY_VERSION),
-                          ("encoder_version", module.ENCODER_VERSION),
                           ("sampling_version", module.SAMPLING_VERSION)):
         if checkpoint.get(key) != expected:
             raise ValueError(f"Checkpoint {key} is incompatible with this exporter")
@@ -59,6 +74,11 @@ def load_export_checkpoint(checkpoint_path: Path):
     config = config_type(**config_values)
     if version == 5 and checkpoint["architecture"] != module.architecture_for_config(config):
         raise ValueError("V5 architecture and relational revision disagree")
+    from encoder_contract import validate_encoder
+    validate_encoder(checkpoint.get("encoder_version"), model_version=version,
+                     relational_revision=getattr(config, "relational_revision", 2),
+                     candidate_context_revision=getattr(config, "candidate_context_revision", 1),
+                     global_feat_width=config.global_feat_width)
     net = model_type(config).eval()
     net.attach_structure(checkpoint["structure"])
     net.load_state_dict(checkpoint["state_dict"], strict=True)
@@ -74,6 +94,7 @@ def make_dummy_inputs(
     C: int = 32,
     P: int = 32,
     K: int = 2,
+    global_feat_width: int = M.GLOBAL_FEAT_WIDTH,
 ) -> tuple[torch.Tensor, ...]:
     entity_feat = torch.randn(B, E, M.ENTITY_FEAT_WIDTH, dtype=torch.float32)
     entity_dsl = torch.randn(B, E, M.CARD_DSL_WIDTH, dtype=torch.float32)
@@ -83,7 +104,7 @@ def make_dummy_inputs(
     seat_feat[:, 0, M.SEAT_FEAT_SELF] = 1.0      # seat 0 is self
     seat_feat[:, 1:4, M.SEAT_FEAT_OPPONENT] = 1.0  # seats 1..3 are opponents
     seat_feat[:, :4, M.SEAT_FEAT_LOST] = 0.0     # none lost
-    global_feat = torch.randn(B, M.GLOBAL_FEAT_WIDTH, dtype=torch.float32)
+    global_feat = torch.randn(B, global_feat_width, dtype=torch.float32)
     edge_index = torch.zeros(B, M_edges, 2, dtype=torch.int64)
     edge_type = torch.zeros(B, M_edges, dtype=torch.int64)
     edge_mask = torch.ones(B, M_edges, dtype=torch.bool)
@@ -128,7 +149,7 @@ def export_v4_onnx(
     from model4.structure import RuleEncoder
     if isinstance(net.rules, RuleEncoder):
         net.rules = net.rules.freeze()
-    dummy = make_dummy_inputs(net.cfg.d_model, K=thinking_steps)
+    dummy = make_dummy_inputs(net.cfg.d_model, K=thinking_steps, global_feat_width=net.cfg.global_feat_width)
     dynamic_axes = {
         "entity_feat": {0: "B", 1: "E"},
         "entity_dsl": {0: "B", 1: "E"},
@@ -188,13 +209,12 @@ def main() -> None:
     torch.set_num_threads(1)
     model_dir = Path(args.model).expanduser()
     checkpoint_path = model_dir / "net.pt"
-    with checkpoint_path.open("rb") as source:
-        source_checkpoint_sha256 = hashlib.file_digest(source, "sha256").hexdigest()
+    source_checkpoint_sha256 = file_digest(checkpoint_path)
     ckpt, net, model_module = load_export_checkpoint(checkpoint_path)
     cfg = net.cfg
     structure_sha256 = net.rules.digest
     net.rules = net.rules.freeze()
-    (model_dir / "card_structure.json").write_text(json.dumps(ckpt["structure"]))
+    atomic_json(model_dir / "card_structure.json", ckpt["structure"])
     options = ort.SessionOptions()
     options.intra_op_num_threads = 1
     sessions = {}
@@ -231,11 +251,11 @@ def main() -> None:
         sessions[depth] = ort.InferenceSession(str(path), sess_options=options,
                                              providers=["CPUExecutionProvider"])
         for e in (1, 17, 96):
-            compare(make_dummy_inputs(cfg.d_model, E=e, M_edges=1, C=7, P=1, K=depth), depth)
+            compare(make_dummy_inputs(cfg.d_model, E=e, M_edges=1, C=7, P=1, K=depth, global_feat_width=cfg.global_feat_width), depth)
 
     if args.data:
         ds = D4.TrajectoryDataset4(Path(args.data).expanduser(), split="val", unroll_len=16,
-                                  max_shards=1)
+                                  max_shards=1, encoder_version=ckpt["encoder_version"])
         if ds.structure.digest != structure_sha256:
             raise ValueError("Parity dataset and checkpoint use different public rule catalogs")
         for trajectory in ds.trajectories:
@@ -258,12 +278,14 @@ def main() -> None:
                 break
     if worst_diff > 1e-3:
         raise ValueError(f"ONNX parity failed: {worst_diff:.3g}")
-    with checkpoint_path.open("rb") as source:
-        if hashlib.file_digest(source, "sha256").hexdigest() != source_checkpoint_sha256:
-            raise ValueError("Source checkpoint changed during export")
-    shutil.copyfile(model_dir / f"model.k{args.thinking_steps}.onnx", model_dir / "model.onnx")
+    if file_digest(checkpoint_path) != source_checkpoint_sha256:
+        raise ValueError("Source checkpoint changed during export")
+    atomic_copy(model_dir / f"model.k{args.thinking_steps}.onnx", model_dir / "model.onnx")
     meta = {
-        "encoder_version": model_module.ENCODER_VERSION, "model_version": model_module.MODEL_VERSION,
+        "critic_semantics": export_critic_semantics(ckpt),
+        **({"encoder_warmstart": ckpt["encoder_warmstart"]} if "encoder_warmstart" in ckpt else {}),
+        "encoder_version": ckpt["encoder_version"], "model_version": model_module.MODEL_VERSION,
+        **({"global_feat_width": cfg.global_feat_width} if ckpt["encoder_version"] == 9 else {}),
         "trajectory_version": M.TRAJECTORY_VERSION,
         "sampling_version": M.SAMPLING_VERSION,
         "structure_version": 1, "structure_sha256": structure_sha256,
@@ -275,7 +297,7 @@ def main() -> None:
     }
     if model_module.MODEL_VERSION == 5:
         meta["architecture"] = model_module.architecture_for_config(cfg)
-    (model_dir / "model.onnx.json").write_text(json.dumps(meta, indent=2))
+    atomic_json(model_dir / "model.onnx.json", meta)
     print(f"[export model_version={model_module.MODEL_VERSION}] verified {checked} frames, max error={worst_diff:.3g}; exported K=0,1,2,4,8")
 
 

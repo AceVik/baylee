@@ -43,6 +43,40 @@ fn streamed_frames_match_collecting_conversion_with_bounded_memory() {
                 .collect::<Vec<_>>()
         };
         assert_eq!(ordered(streamed), ordered(original.steps));
+        let mut payment_frames = Vec::new();
+        let payment_result = stream_game4_with_encoder(
+            &played.record,
+            17,
+            true,
+            None,
+            None,
+            None,
+            false,
+            8,
+            |frame| {
+                payment_frames.push(frame);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(payment_result.unencoded_decisions, 0);
+        assert!(!payment_frames.is_empty());
+        assert!(payment_result.peak_buffered_frames <= decks.len());
+        for frame in &payment_frames {
+            assert!(
+                frame
+                    .state
+                    .entity_feat
+                    .iter()
+                    .all(|row| row.len() == crate::features7::ENTITY_FEAT_WIDTH7)
+            );
+            assert_eq!(
+                frame.state.global_feat.len(),
+                crate::features7::GLOBAL_FEAT_WIDTH7
+            );
+            assert!((0.0..=1.0).contains(&frame.outcome));
+        }
+
         // No corrupted input reaches a consumer, even if the recorded action
         // would still be legal: the audit must check hashes, not only legality.
         let mut lines = played
@@ -135,4 +169,90 @@ fn observe_view_hides_opponent_private_hand_and_library() {
     for card in &v0.hand {
         assert!(!v1.hand.iter().any(|c| c.id == card.id));
     }
+}
+
+#[test]
+fn unsupported_encoder_rejects_before_any_frames_are_emitted() {
+    let mut emitted = 0;
+    let result = stream_game4_with_encoder(b"", 1, true, None, None, None, false, 10, |_| {
+        emitted += 1;
+        Ok(())
+    });
+    assert!(result.unwrap_err().contains("Unsupported encoder"));
+    assert_eq!(emitted, 0);
+}
+
+#[test]
+fn encoder9_sidecars_require_matching_explicit_producer_width() {
+    let mut run = serde_json::json!({"model_identity":{"encoder_version":9,"model_version":5,
+        "architecture":"baylee_ai_v5_relational_v2","global_feat_width":82}});
+    assert!(ProducerEncoder::from_run(&run).is_ok());
+    run["model_identity"]["global_feat_width"] = serde_json::json!(80);
+    assert!(ProducerEncoder::from_run(&run).is_err());
+    let error = stream_game4_with_encoder(b"", 1, true, Some(&[]), None, None, false, 9, |_| {
+        panic!("no emission")
+    })
+    .unwrap_err();
+    assert!(error.contains("verified producer encoder 9"));
+}
+
+#[test]
+fn encoder8_sidecars_require_matching_verified_producer_before_replay() {
+    let mut emitted = 0;
+    let unbound = stream_game4_with_encoder(b"", 1, true, Some(&[]), None, None, false, 8, |_| {
+        emitted += 1;
+        Ok(())
+    });
+    assert!(unbound.unwrap_err().contains("verified producer encoder 8"));
+    let producer7 = ProducerEncoder::from_run(&serde_json::json!({
+        "model_identity":{"encoder_version":7,"model_version":5,"architecture":"baylee_ai_v5_relational_v2"}
+    })).unwrap();
+    let mismatch = stream_game4_with_encoder_and_producer(
+        b"",
+        1,
+        true,
+        Some(&[]),
+        None,
+        None,
+        false,
+        8,
+        Some(&producer7),
+        |_| {
+            emitted += 1;
+            Ok(())
+        },
+    );
+    assert!(
+        mismatch
+            .unwrap_err()
+            .contains("Producer/converter encoder mismatch")
+    );
+    assert_eq!(emitted, 0);
+    assert!(ProducerEncoder::from_run(&serde_json::json!({})).is_err());
+    assert!(ProducerEncoder::from_run(&serde_json::json!({
+        "model_identity":{"encoder_version":8,"model_version":5,"architecture":"baylee_ai_v5_relational_v1"}
+    })).is_err());
+    assert!(ProducerEncoder::from_run(&serde_json::json!({
+        "model_identity":{"encoder_version":8,"model_version":5,"architecture":"baylee_ai_v5_relational_v2"}
+    })).is_ok());
+}
+
+#[test]
+fn candidate_context_producers_keep_their_explicit_encoder_contract() {
+    for encoder in [7, 8] {
+        assert!(
+            ProducerEncoder::from_run(&serde_json::json!({
+                "model_identity":{"encoder_version":encoder,"model_version":5,
+                    "architecture":"baylee_ai_v5_relational_v2_candidate_v2"}
+            }))
+            .is_ok()
+        );
+    }
+    assert!(
+        ProducerEncoder::from_run(&serde_json::json!({
+            "model_identity":{"encoder_version":8,"model_version":5,
+                "architecture":"baylee_ai_v5_relational_v2_candidate_v3"}
+        }))
+        .is_err()
+    );
 }

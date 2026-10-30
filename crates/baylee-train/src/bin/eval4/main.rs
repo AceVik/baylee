@@ -42,6 +42,11 @@ use flate2::write::GzEncoder;
 use serde_json::{Value, json};
 
 include!("options.rs");
+mod attempts;
+mod collector;
+mod diagnostics;
+mod failure_terminal;
+mod seat_players;
 mod shadow;
 
 include!("runtime.rs");
@@ -57,6 +62,12 @@ include!("decks.rs");
     reason = "Floating-point statistical rates and latency quantiles"
 )]
 fn main() -> anyhow::Result<()> {
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|arg| arg == "audit-failure-terminal")
+    {
+        return failure_terminal::audit::run();
+    }
     let args = Args::parse();
     if args.shadow_teacher.is_some()
         && (!args.raw_policy || args.record_out.is_none() || args.legacy_v3)
@@ -76,12 +87,13 @@ fn main() -> anyhow::Result<()> {
     } else {
         Some(inspect_model_identity(&args.model)?)
     };
+    let collection = collector::Contract::new(&args, model_identity.as_ref())?;
     if args.shadow_teacher.is_some()
         && model_identity
             .as_ref()
-            .is_none_or(|identity| identity.encoder_version != 7)
+            .is_none_or(|identity| !matches!(identity.encoder_version, 7 | 8))
     {
-        bail!("--shadow-teacher requires encoder 7");
+        bail!("--shadow-teacher requires encoder 7 or 8");
     }
     if args.legacy_v3
         && (args.record_out.is_some() || args.temperature != 0.0 || args.thinking_steps != 1)
@@ -201,7 +213,11 @@ fn main() -> anyhow::Result<()> {
             "evaluator_revision": baylee_build::COMMIT,
             "evaluator_dirty": baylee_build::DIRTY,
             "record_version": baylee_gamehost::record::RECORD_VERSION,
-            "training_data": true,
+            "training_data": collection.purpose == collector::Purpose::OnPolicyTraining,
+            "collection_contract": collection.metadata(),
+            "planned_deals": args.deals,"deal_offset": args.deal_offset,
+            "deck_split":args.deck_split,"decks_manifest":args.decks_manifest,
+            "held_out_cards":args.held_out_cards,"holdout_tier":args.holdout_tier,
             "decks": deck_json,
             "seats": args.seats,
             "accepted_deck_keys": accepted_deck_keys,
@@ -244,7 +260,16 @@ fn main() -> anyhow::Result<()> {
             run["shadow_structure_sha256"] = metadata["structure_sha256"].clone();
         }
         fs::write(rec_dir.join("run.json"), serde_json::to_vec_pretty(&run)?)?;
+        if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
+            File::open(rec_dir.join("run.json"))?.sync_all()?;
+        }
     }
+
+    let run_metadata_sha = args
+        .record_out
+        .as_ref()
+        .map(|directory| fs::read(directory.join("run.json")).map(|bytes| shadow::sha(&bytes)))
+        .transpose()?;
 
     let threads = match args.threads {
         0 => std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get),
@@ -267,6 +292,7 @@ fn main() -> anyhow::Result<()> {
             .map(|dir| File::create(dir.join("games.jsonl")).map(BufWriter::new))
             .transpose()?,
     ));
+    let attempts = attempts::prepare(&args, &decks_arc)?;
 
     let started = Instant::now();
     let mut handles = Vec::new();
@@ -290,16 +316,16 @@ fn main() -> anyhow::Result<()> {
         let no_base = args.no_baseline;
         let legacy = args.legacy_v3;
         let expected_identity = model_identity.clone();
+        let collection = collection.clone();
+        let run_metadata_sha = run_metadata_sha.clone();
+        let attempts = attempts.clone();
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
-            let mut net = load_player(
-                &model_path,
-                legacy,
-                k_steps,
-                temp,
-                policy_mode,
-                expected_identity.as_ref(),
-            )?;
+            let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
+                Box::new(seat_players::SeatPlayers::load(&model_path,&collection,policy_mode)?)
+            } else {
+                load_player(&model_path,legacy,k_steps,temp,policy_mode,expected_identity.as_ref())?
+            };
 
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
             let mut shard_file = match &rec_out {
@@ -315,6 +341,7 @@ fn main() -> anyhow::Result<()> {
                 if d >= deals {
                     break;
                 }
+                if let Some(ledger) = &attempts { ledger.claim(d, worker_id)?; }
                 let table_idx = (d as usize) / seats;
                 let focal_seat = (d as usize) % seats;
                 let seed = first_seed + (table_idx as u64);
@@ -364,6 +391,7 @@ fn main() -> anyhow::Result<()> {
                     rec_bytes,
                     outcome_json,
                     rollout_sidecar,
+                    mut fallback_events,
                 ) = play_one_table(
                     &deal_game_id,
                     d,
@@ -379,15 +407,20 @@ fn main() -> anyhow::Result<()> {
                     max_decisions,
                     shard_file.is_some(),
                     shadow.as_mut(),
+                    if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
+                        Some(collection.learner_identity.as_ref().context("research learner")?.encoder_version)
+                    } else {None},
                 )?;
 
                 if let Some((f, offset)) = &mut shard_file {
+                    diagnostics::bind_fallback_events(&mut fallback_events, &rec_bytes)?;
                     let mut gz = GzEncoder::new(Vec::new(), Compression::fast());
                     gz.write_all(&rec_bytes)?;
                     let compressed = gz.finish()?;
                     let len = compressed.len() as u64;
                     f.write_all(&compressed)?;
                     f.flush()?;
+                    if attempts.is_some() { f.get_ref().sync_all()?; }
                     let line = serde_json::to_string(&json!({
                         "game": rec_game_id,
                         "i": d,
@@ -397,13 +430,28 @@ fn main() -> anyhow::Result<()> {
                         "shard": shard_name,
                         "offset": *offset,
                         "len": len,
+                        "source_run_sha256": run_metadata_sha,
+                        "focal_seat": focal_seat,
+                        "record_sha256": shadow::sha(&rec_bytes),
+                        "complete": !net_capped && (collection.purpose != collector::Purpose::FailureTerminalResearchV1
+                            || outcome_json["termination_kind"] == "mtg_terminal"),
+                        "research_episode": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {Some(&outcome_json)}else{None},
+                        "capped": net_capped,
+                        "fallback_answers": fb,
+                        "refused_answers": ref_cnt,
+                        "actor_roles": if collection.purpose == collector::Purpose::Evaluation {None}else{
+                            Some(collection.seats(seats,focal_seat,&teams_arc)?)
+                        },
                         "rollout_sidecar": rollout_sidecar,
+                        "fallback_events": fallback_events,
                     }))?;
                     *offset += len;
                     if let Some(index) = games_lines.lock().expect("games lock").as_mut() {
                         writeln!(index, "{line}")?;
                         index.flush()?;
+                        if attempts.is_some() { index.get_ref().sync_all()?; }
                     }
+                    if let Some(ledger) = &attempts { ledger.completed(&serde_json::from_str::<Value>(&line)?)?; }
                 }
 
                 if let Some(shadow) = shadow {
@@ -413,7 +461,7 @@ fn main() -> anyhow::Result<()> {
                 let (base_u, base_capped) = if no_base {
                     (0.0, false)
                 } else {
-                    let (bu, bc, _, _, _, _, _, _, _, _) = play_one_table(
+                    let (bu, bc, _, _, _, _, _, _, _, _, _) = play_one_table(
                         &deal_game_id,
                         d,
                         focal_seat,
@@ -428,6 +476,7 @@ fn main() -> anyhow::Result<()> {
                         max_decisions,
                         false,
                         None,
+                        None,
                     )?;
                     (bu, bc)
                 };
@@ -436,9 +485,12 @@ fn main() -> anyhow::Result<()> {
                 st.deals_completed += 1;
                 st.deal_details.push(json!({"deal": d, "table": table_idx,
                     "seed": seed, "focal_seat": focal_seat,
-                    "net_utility": net_u, "base_utility": if no_base { None } else { Some(base_u) },
+                    "net_utility": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {None}else{Some(net_u)},
+                    "research_episode": if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {Some(&outcome_json)}else{None},
+                    "base_utility": if no_base { None } else { Some(base_u) },
                     "net_capped": net_capped, "base_capped": base_capped,
                     "refused": ref_cnt, "stalls": st_cnt, "house_fallbacks": fb,
+                    "fallback_events": fallback_events,
                     "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>()}));
                 st.net_utility_sum += f64::from(net_u);
                 st.base_utility_sum += f64::from(base_u);
@@ -476,8 +528,12 @@ fn main() -> anyhow::Result<()> {
         }));
     }
 
-    for h in handles {
-        h.join().expect("worker panicked")?;
+    if let Some(ledger) = &attempts {
+        attempts::join_workers(handles, ledger)?;
+    } else {
+        for h in handles {
+            h.join().expect("worker panicked")?;
+        }
     }
 
     let mut st = stats_arc.lock().expect("stats lock");
@@ -599,15 +655,43 @@ fn main() -> anyhow::Result<()> {
             .map_or("v3-expert", |identity| identity.model_family)
     );
     summary["model_identity"] = json!(model_identity);
+    summary["collection_contract"] = collection.metadata();
     summary["evaluator_build"] = json!(baylee_build::short());
     summary["evaluator_revision"] = json!(baylee_build::COMMIT);
     summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
+    if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
+        // The evaluation aggregate has an MTG denominator and cannot summarize
+        // censored research episodes. Preserve every attempt in the named ledger.
+        summary = json!({"collection_contract":collection.metadata(),"attempts":st.deal_details,
+            "planned_attempts":args.deals,"recorded_attempts":st.deals_completed,
+            "evaluator_revision":baylee_build::COMMIT,"evaluator_dirty":baylee_build::DIRTY,
+            "status":"unadmitted_native_collection_only"});
+    }
 
     if let Some(parent) = args.out.parent() {
         fs::create_dir_all(parent)?;
     }
     fs::write(&args.out, serde_json::to_vec_pretty(&summary)?)?;
+    if collection.purpose != collector::Purpose::Evaluation {
+        let directory = args.record_out.as_ref().context("collection output")?;
+        baylee_train_ops::files::atomic_json(
+            &directory.join("run.complete.json"),
+            &json!({
+            "version":if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {2}else{1},
+            "purpose":collection.purpose,"source_run_sha256":run_metadata_sha,
+            "games_index_sha256":shadow::sha(&fs::read(directory.join("games.jsonl"))?),
+            "recorded_deals":st.deals_completed,"planned_deals":args.deals}),
+        )?;
+    }
+    if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
+        eprintln!(
+            "[eval4] unadmitted failure-terminal research: {} attempts, summary={}",
+            st.deals_completed,
+            args.out.display()
+        );
+        return Ok(());
+    }
     eprintln!(
         "[eval4] seats={} teams={:?} K={} against={} deals={} | net_win={:.1}% (u={:.3}, caps={}) base_u={:?} delta={:?} | p50={:.1}ms p95={:.1}ms fb={} refused={} ({:.1}s)",
         args.seats,

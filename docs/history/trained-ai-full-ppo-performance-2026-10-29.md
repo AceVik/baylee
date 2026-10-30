@@ -1,0 +1,445 @@
+# Full-model PPO performance review — 29 October 2026
+
+The initial review below used source/artifacts only. Subsequent work implements
+and CPU-tests an isolated fixed-weight probe. Two initialization failures were
+corrected; the subsequent run reached a hidden/value parity failure. Diagnosis
+and retained partial measurements are recorded at the end.
+Gameplay comparison and failure-ledger integration remain separate.
+
+## Evidence and scope
+
+Frozen run root (all source line references below resolve inside this root):
+
+```text
+/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/full-model-ppo-coverage-01a18905-7895-7f03-a935-b6da0046fc79
+```
+
+`execution/jobs/full_model_ppo/job.json:51` records 2,638.268388161 seconds for
+the entire guarded GPU stage. `publication/audit.json:410–419` records zero
+allocator retries, 3,488,394,752 peak allocated bytes, 4,347,396,096 peak
+reserved bytes, 27 accepted/attempted updates and final collection divergence
+`7.969814658532071e-5`. `dose.json:1–71` and `coverage-review.json` establish
+all eight histories, 6,626 differentiated frames, 1,575 actor choices and
+108 segments in 27 B4/U64 groups. The source target replay's maximum
+log-probability discrepancy was `7.62939453125e-6`, against tolerance `0.001`
+(`execution/jobs/full_model_ppo/stdout.log:29`).
+
+The preceding B2/U32 pilot took 988.33 seconds for eight updates containing
+512 differentiated frames/131 actor choices, while auditing the same complete
+collection (the [runbook](../training-runbook.md), findings section). These
+stages have different differentiated dose and number of audits. Their wall
+times do not isolate a batch-size speedup. Neither GPU utilization nor these
+aggregate times identifies a dominant phase or supports doubling throughput.
+
+The older `pre-e3-cuda-b8-resource-01a1885e-586e-7f89-bdf8-e1327437beef/`
+`comparison.json` measured B8/U32, spatial chunk 4: 14.608 seconds replay and
+9.240 seconds resource forward/backward, versus B1/chunk1's 88.459 and
+79.804 seconds. This was **head-only**, with 24 gradient tensors, no optimizer
+construction/step and only prospective moment buffers. It motivates a new
+full-model probe but does not certify its capacity or speed; batch and chunk
+also changed together in that comparison.
+
+## Static repeated work, not phase timing
+
+| Observation | Frozen source/evidence | Consequence to measure |
+| --- | --- | --- |
+| Every attempted update runs an entire current-weight collection audit; publication repeats it | `trainer/recurrent_ppo4/optimization.py:65`; `driver.py:202` | 28 whole-collection audits for 27 updates, plus initial target replay: 192,154 valid frame visits in those 29 passes. These are counts, not measured time. All checks must remain. |
+| Burn-in starts separately from zero for every selected segment, lane by lane | `forward.py:49–62`; `dose.json:934` | 48,832 valid burn-in frames for the epoch, in addition to 6,626 differentiated frames. Stored behavior H or H from older weights cannot replace this computation. |
+| PPO advance transfers each timestep and calls the full model without execution hints or spatial chunks | `forward.py:21–38`; `model4/player.py:270–300` | Candidate/pair extents and maximum K require CUDA-to-host shape/scalar decisions; many small transfers/kernel launches are plausible overhead. Existing CPU scheduling helpers are not used here. |
+| Action likelihood branches inspect CUDA head masks; audit divergence crosses to Python per timestep | `policy_math4.py:61,76,83`; `optimization.py:13,24` | Synchronization is a concrete candidate, but its share of elapsed time is unknown. PPO also computes unused anchor-head KL at `forward.py:79` and `collection.py:45–46`. |
+| Structure encodings are rebuilt for each burn-in segment and audit batch | `forward.py:55–59`; `collection.py:39–42` | Potential repeated fixed-weight work; no cache may survive a weight change or leak detached representations into the differentiated unroll. |
+| Full parameter/Adam snapshots precede each update; a checkpoint follows each attempt | `optimization.py:48–50`; `driver.py:168–169,196` | Measure snapshot/copy and serialization cost separately; preserve transactional model/Adam/RNG rollback. |
+
+The existing `training4/execution.py:69–100` spatial helper merges only the
+batch axis for independent board encodings. Recurrence still runs in time
+order; `model4/player.py:255` accepts the encoded board. PPO does not currently
+use that helper, and target preparation explicitly passes chunk zero
+(`driver.py:125`). Spatial chunking is mathematically equivalent in this
+eval-mode FP32 computation, subject to floating-point parity and resource
+validation. It is not established as bit-identical or faster for this run.
+
+## Next bounded probe proposal
+
+Retain **optimizer B4/U64, exact ordered segment groups, FP32, K2, temperature
+0.7, LR `2e-6`, recorded executed-action denominators and KL limit `0.02`**.
+Changing optimizer B to 8 changes loss grouping, Adam step count and trajectory;
+that would be a new training experiment. Instead, decouple audit lane count
+from optimizer batch size: `driver.py:187–188` currently passes the same value
+to both. Audit lanes 4 versus 8 change only how fixed-weight complete histories
+are scheduled. Spatial chunk 0 versus 4 changes independent board execution.
+
+1. Prepare an isolated, sealed Rust-owned pipeline and direct PyTorch tensor
+   probe. Preserve old run files. Reserve the shared
+   `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; use four Torch/OMP/MKL
+   threads, a 900-second total deadline, 20 GiB group-PSS limit and the existing
+   11 GiB Torch allocator cap. Stop on OOM, allocator retry, parity failure or
+   deadline; no automatic smaller-shape fallback or promotion.
+2. Compare the fixed-weight whole-collection audit configurations
+   `(lanes, spatial chunk) = (4,0), (8,0), (4,4), (8,4)` at the original R6
+   source and completed candidate. Map results by immutable history/frame/action
+   identity, not lane/output order. Every pass must contain exactly the same
+   eight complete histories and 1,575 choices. Record valid and padded frames.
+   At most one warm-up and two measured passes per configuration/checkpoint;
+   the hard total deadline takes precedence over completing that maximum.
+3. Record synchronized phase timings for data/collation, structure encoding,
+   prefix reconstruction, differentiated forward/backward, snapshot/Adam,
+   complete audit and save. Report warm-up separately, allocator peaks/retries,
+   group PSS and all parity deltas. CUDA events can separate device execution
+   from host/control time; whole-stage wall time remains the comparison metric.
+4. Only after audit parity, compare one fixed B4/U64 full-model transaction
+   from identical source/model/Adam/RNG snapshots with reference versus chunk4,
+   keeping the audit complete. Choose a predeclared group with long burn-in
+   and large boards. Restore the snapshots after both runs. This is a capacity
+   and numerical probe, not another learning dose or candidate publication.
+
+Predeclare proposed parity gates: actor log-probability maximum absolute delta
+`2e-5`, hidden/value comparison `atol=2e-5, rtol=2e-4`, complete divergence
+absolute delta `1e-7`, and concatenated full-model gradient relative L2
+`1e-4`. These bounds are proposed, not validated full-model results; a failure
+requires review rather than relaxing them after seeing the measurements.
+Keep the original recorded-behavior replay tolerance `0.001` and the original
+whole-collection `0.02` acceptance limit. Require identical acceptance
+decisions; a decision within the numerical comparison tolerance of the limit
+needs the reference calculation, never a relaxed limit. Check every parameter
+and Adam tensor for finiteness and report their maximum/relative differences.
+The injected rejection/exception tests must restore model, Adam and RNG exactly
+(existing transaction coverage is in `test_recurrent_ppo5.py:88–103`).
+
+If spatial or lane batching does not dominate, a later separately measured
+execution-only change can move known mask/extents/K decisions to host metadata
+or accumulate audited FP64 divergence on device with equivalent nonfinite
+failure handling. Neither is implemented here. Sharing stale H, omitting
+collection checks, weakening rollback, mixed precision, architecture changes
+and reward changes are outside this proposal.
+
+## Probe implementation, not performance results
+
+`tools/trainer/probe_recurrent_ppo4.py` now implements the fixed-weight portion
+through `recurrent_ppo_probe4/`. It creates no optimizer and never runs a
+transaction. The production collection scheduler is shared through
+`recurrent_ppo4.collection.stream_collection_batches`; optional board chunking
+reuses `training4.execution.encode_boards`. Default training/audit callers
+retain their per-frame execution and optimizer grouping.
+
+The worker requires explicit source/candidate checkpoint paths, admitted dataset
+and admission receipt, fresh report path, and expected history/frame/choice
+counts. It fixes U64, four intra-op threads, one inter-op thread, deterministic
+FP32 and TF32 off. The CUDA allocator is capped at 11 GiB (or physical device
+capacity if smaller). The Rust launcher must enforce the total 900-second
+deadline, 20-GiB group-PSS bound, shared GPU lock and immutable input/output
+seals. No Python process controller or monitor is added.
+
+Original recorded likelihoods are replayed with the existing admission/target
+preparation before measurement. Candidate metadata must bind the same original
+source, dataset, model identity, B4/U64 contract and unchanged KL limit `0.02`.
+Each pass captures every valid H/value and every actor log-probability, keyed
+by native `(game_id, seat, cursor)`. Numerical gates above apply to each action
+and history, not just aggregate KL. Atomic reports retain preparation and every
+completed pass; only all required configurations plus model-state/input checks
+permit status `complete`. A failed later pass preserves prior evidence.
+
+The first Rust-owned run is planned with zero warm-ups and one measured pass
+for each source/candidate × lanes4/8 × chunks0/4 configuration. Instrumented
+wall time includes parity copies and phase synchronization; phase sums omit
+scheduler gaps. Fixed order and allocator/cache warm-up can affect the timings.
+One cold-inclusive pass is diagnostic evidence, not a speedup estimate.
+
+Targeted CPU verification passed 26 tests across `test_recurrent_ppo_probe4`,
+`test_recurrent_collection5`, `test_recurrent_ppo5` and
+`test_training_execution4`: actual lane/chunk parity, uneven history refill and
+padding, production-KL agreement, model immutability, nonfinite/drift/identity
+rejection, strict checkpoint contracts and atomic partial-progress retention.
+This also exercises existing full-model transaction and grouped-board gradient
+checks on tiny fixtures; it does not establish full-model CUDA capacity.
+
+The separate `--preflight-only --device cpu` mode now imports Torch, loads both
+strict policies/catalogs on CPU, constructs the native-backed dataset, selects
+the admitted learners and loads/collates **every** segment of every selected
+history before CUDA reservation. It checks native `(game_id, seat, cursor)`
+identity, complete frame/choice counts, finite recorded actor log-probabilities
+and the K2/temperature contract without running a model forward. Its fresh
+native JSON receipt uses mode `recurrent_ppo_tensor_preflight_v1`; completion
+requires `all_histories_loaded_and_collated` and
+`source_candidate_contract_compatible`, with actual history/frame/choice totals
+and source/candidate/data identities. This CPU preflight deliberately performs
+no numerical probability replay; the GPU worker retains that existing gate.
+The owning Rust launcher must run it with the final frozen mounts/environment,
+bounded guard and sealed inputs before allowing the CUDA stage.
+
+The expanded 29-test CPU suite also checks complete short/padded-history
+loading, changed segment identities, missing frames, invalid original actor
+likelihood/K/temperature, source/candidate catalog mismatch and failed coverage.
+The dispatch test rejects any attempted CUDA allocator/device access or audit
+forward, and verifies that rejection cannot publish a complete receipt.
+
+## First launch failure and initialization diagnosis
+
+All following roots are under
+`/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/`.
+The first sealed launch,
+`full-ppo-execution-probe-01a18945-2801-71c6-9b7e-6ee038105ff5`, passed its
+complete CPU data preflight in 30.58 seconds, then stopped with CUDA error 304
+before executing the model. Its controller/worker identities were checked as
+exited and the owned group empty. Artifacts remain intact; the failure is
+reviewed and its watcher stopped. This is neither a training failure nor a
+numerical parity result. The PyTorch driver now writes an initial receipt and
+catches initialization failures so even a zero-pass attempt retains a report;
+11 focused tests pass, including both CUDA initialization failure points.
+
+The bounded initialization-only diagnosis,
+`cuda-map-diagnostic-01a18955-41c4-7e9c-815b-a00086214e24`, reproduced error
+304 in 2.45 seconds. The CUDA thread's write to
+`/proc/self/task/<tid>/comm` returned `EROFS` under the read-only root mount.
+Adding only `bwrap --proc /proc` let the same initialization succeed in
+2.65 seconds on the RTX 4070 Ti. This preserves the existing PID namespace,
+read-only inputs, private device directory and selected device binds. No
+model, forward pass or optimizer was used in either diagnostic.
+
+The first recovery,
+`full-ppo-execution-probe-recovery-01a18958-7f3f-7ed2-9bb9-f0fa0642cb73`,
+freezes trainer commit `283a6cc90bf839bb82a01ab01ffa8d29fd0f08bb`. Its Rust
+launcher requires both complete CPU preflight and a separately guarded
+60-second CUDA initialization check under the actual final mount map before
+allowing the full probe. CPU preflight again passed all eight histories,
+6,626 frames and 1,575 choices in 31.14 seconds. The full probe retains the
+same eight fixed-weight configurations, 900-second GPU-stage deadline,
+930-second pipeline limit, 960-second service limit, 20-GiB host limit and
+11-GiB allocator cap. No retry, numerical tolerance change, optimizer step or
+deployment is implied.
+
+That recovery passed the CUDA properties check, but its full launch stopped
+before model loading at `set_per_process_memory_fraction`: this PyTorch build
+requires an explicit device index, while the worker supplied `torch.device('cuda')`.
+The retained report records zero completed configurations, optimizer steps and
+parameter updates. The run was reviewed, its processes checked as exited, and
+its watcher stopped; event `c8f2bfbe96d7bf4a7b2dc2cc` is deduplicated.
+
+Commit `0d3be58fa62f4606f38c5ff2e53cf74abb5faf60` resolves indexless CUDA
+through `torch.cuda.current_device()` before querying properties and applying
+the cap. Explicit `cuda:N` is retained. Thirteen focused probe/preflight tests
+pass, covering actual cap arguments, all three initialization failure points
+and CPU preflight isolation. The next prerequisite must call this same frozen
+PyTorch helper and perform a tiny allocation/synchronization, so checking only
+device properties cannot miss the allocator setup again. Consult
+`active-performance-probe.json` in the parent operations directory for live
+ownership; preparation alone is not a launch.
+
+The second recovery,
+`full-ppo-execution-probe-recovery-01a1895c-fd11-7234-9dc3-47486276272f`,
+passed both strengthened prerequisites: the guarded complete CPU preflight
+took 33.80 seconds; the CUDA check took 2.70 seconds and verified `cuda:0`,
+an actual 11-GiB allocator cap, a four-byte tensor, synchronization and zero
+allocated bytes after cleanup. Owned prerequisite processes exited and their
+groups were empty. Root then independently rechecked the frozen inputs and
+launched the full probe once. Controller `2351100` / start ticks `13706570`
+on boot `ebf55ae5-05a2-41fc-a994-e5da27268ced` subsequently failed the
+unchanged hidden/value parity gate. The controller and worker `2351118`
+exited, their owned group is empty, and the owned watcher timer was stopped.
+Manifest SHA256 is
+`f72270b2a8a8c9911853452c4a8b5faf5f48ae5d304ed5d4b8498d73b74cebdb`.
+Event `1a77bb8a3064b6c296d734ce` is reviewed and deduplicated. All 271 input
+seals remain unchanged. The full native review is at the sibling operations
+root `perf-failure-review-01a18964-1a34-7002-befe-3e99dd49938d/operator-review.json`;
+the failed probe report SHA256 is
+`71a288997e5ca03fa2e98f4113a6fd9dd32a6b5f642bcbc9659fdd7af3a72046`.
+
+## First execution parity result
+
+Only source B4/chunk0 and source B4/chunk4 ran. Each contained all eight
+histories, 6,626 valid frames and 1,575 actor choices, with 3,102 padded slots.
+The candidate and B8 configurations were not reached. The worker constructed
+no optimizer and recorded zero updates. It did not reach its final whole-model
+immutability gate; the separately reviewed input seals are unchanged.
+
+| Measurement | Per-frame reference | Board chunk 4 |
+| --- | ---: | ---: |
+| Instrumented pass wall time | 38.454 s | 22.329 s |
+| Advance phase | 31.721 s | 9.489 s |
+| Separate board-encoding phase | <0.001 s | 6.078 s |
+| Peak CUDA allocated bytes | 395,998,720 | 495,535,616 |
+| Peak CUDA reserved bytes | 438,304,768 | 562,036,736 |
+| Allocator retries | 0 | 0 |
+
+These are one cold-inclusive, instrumented pass per configuration in fixed
+order. The chunked variant failed parity; its timing is not a validated
+speedup or grounds to change training execution.
+
+Every actor log-probability passed the `2e-5` gate, with maximum absolute
+delta `7.62939453125e-6`. Complete collection KL differed by
+`1.8162543779359863e-14`, with identical acceptance and no boundary ambiguity.
+Hidden/value comparison failed in histories `(game 2, seat 1)` and
+`(game 8, seat 1)`. Their maximum hidden-coordinate absolute differences were
+`4.8898160457611084e-5` and `3.954209387302399e-5`; maximum value differences
+were `2.294778823852539e-5` and `6.616115570068359e-6`, respectively.
+Absolute maxima alone do not identify the violating coordinates because the
+gate also uses the reference magnitude. Another history had a larger absolute
+hidden difference and passed the relative tolerance.
+
+The report did not retain the first failing native frame or hidden coordinate.
+Static review found no evident lane/time reorder or hidden-state dependency in
+board encoding. The separate source-only diagnostic below compares per-frame
+and chunked boards at common reference H, independently evolving H, and a
+contiguous board view. Keep the failed variant rejected and every tolerance
+unchanged. Diagnostic completion cannot grant parity acceptance.
+
+The diagnostic Torch entry point is `tools/trainer/diagnose_recurrent_chunk4.py`,
+with implementation in `recurrent_ppo_chunk_diagnostic4/`. Its inner command
+requires `--source`, `--rollout-data`, `--admission`, a fresh `--out`, explicit
+`--device cuda`, and `--expected-histories 8 --expected-frames 6626
+--expected-choices 1575`. Use `--preflight-only --device cpu` with a separate
+fresh output for complete loading/collation without forward execution. Run
+these through the sealed Rust controller and guards, not as an unbounded
+standalone experiment. B4/U64/chunk4 and the original numerical gates are fixed.
+
+The worker first replays every original learner probability, then traverses
+the production history schedule once in batch/time/lane order. Four paths use
+the same weights: per-frame boards with reference H, chunked boards with that
+same incoming H, contiguous chunked boards with that H, and chunked boards
+with their own carried H. It records the actual compared prefix, first failing
+native identity/coordinate, reference value, allowed difference, normalized
+error, and board shapes/strides/dtypes. Padded frames cannot trigger a stop.
+The first free-running output or valid board-mask violation ends comparison;
+otherwise all histories must be covered. Model-state and input checks still
+run after this diagnostic stop. Every successful receipt explicitly retains
+`diagnostic_only=true`, `parity_accepted=false`, zero optimizer updates and
+zero model writes. This does not measure gradients or certify changed training.
+
+Diagnostic implementation commit: `556812a7b7d534da4fce0845564ff6d59d51aa5f`.
+Forty-one targeted CPU tests pass across the two new diagnostic test modules,
+the existing probe/preflight, collection, PPO and training-execution tests.
+An actual tiny v5 fixture produces bit-identical reference H/value outputs to
+the production pass at every valid frame. Synthetic recurrence distinguishes
+small local errors from accumulated drift; other tests cover history resets,
+padding, mask mismatches, exact coordinates, immutable source state, failed
+initialization receipts and CPU preflight isolation. These checks validate the
+diagnostic mechanics, not the cause of the actual CUDA discrepancy.
+
+The sealed native run is
+`recurrent-chunk-diagnostic-01a18967-f3e9-7745-9b23-259cd24c198a/` under
+the investigation root. Complete CPU preflight passed in 23.65 seconds; the
+exact CUDA helper/cap/allocation/synchronization prerequisite passed in 2.18
+seconds, with zero allocated bytes after cleanup. Both prerequisite owners
+exited and their groups were empty. After an independent root seal/ownership
+check, controller `2356879` / start ticks `13833716` on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` ran `source_chunk_diagnostic` once.
+Manifest SHA256 is
+`3315ec3e17ed485ba664e02f67509ab3c0f3dc0d65efeb3401525ad2ccde86e1`.
+The GPU stage is bounded at 300 seconds, pipeline at 330 and service at 360;
+host memory was limited to 20 GiB and Torch allocation to 11 GiB.
+
+## Diagnostic result: local difference before accumulated drift
+
+The diagnostic completed in 76.34 seconds (83.94 seconds for the pipeline).
+Original behavior replay passed for all eight histories, 6,626 frames and
+1,575 choices. The subsequent four-path comparison stopped after its first
+violating frame: game 2, seat 1, cursor 405, original segment 52, time 21,
+lane 1, hidden coordinate `[6,535]`. That compared prefix contains 1,622
+valid frames and 384 choices; it is not a full-collection parity result.
+
+At the failing coordinate the reference is `-0.07600271701812744`, allowing
+an absolute difference of `3.520054340362549e-5` under the unchanged gate.
+
+| Path | Absolute hidden difference | Difference / allowed difference |
+| --- | ---: | ---: |
+| Chunked board, identical incoming reference H | `4.769861698150635e-5` | 1.35505 |
+| Contiguous chunked board, identical incoming reference H | `4.769861698150635e-5` | 1.35505 |
+| Chunked board, independently carried H | `4.8898160457611084e-5` | 1.38913 |
+
+Thus accumulated recurrence is not necessary for the first failure: the
+local board-to-memory update already exceeds the gate with identical incoming
+H. Making the chunked board contiguous does not repair it. Masks match;
+this is a passive K0 observation, and all 384 compared action probabilities
+pass. Batch-dependent FP32 encoder rounding amplified by the recurrent update
+is consistent with the evidence; a specific encoder operation or CUDA kernel
+has not been isolated. Board-coordinate comparisons are descriptive and are
+not a substitute for the original hidden/value gate.
+
+Source model state remained unchanged; no optimizer, updates or model writes
+occurred. Peak CUDA allocated/reserved bytes were 437,361,152 / 499,122,176,
+with zero allocator retries. The native final review rehashed all 284 frozen
+input seals, verified controller and children exited with empty owned groups,
+and stopped only the diagnostic watcher timer. Event
+`a038b872a495d0ec97fc1786` is deduplicated. The operations pointer is
+`complete-reviewed`, with `diagnostic_only=true` and `parity_accepted=false`.
+Report SHA256:
+`dc10ad00eb1fb41d3a11e6d4905adb8e3cefd973861b2fbcb352a09632f19b2d`.
+The parent operations review is
+`reviews/a038b872a495d0ec97fc1786/operator-review.json`.
+
+The subsequent execution probe retains B4/U64 and per-frame board
+encoding. It derives candidate/pair extents and the exact recorded K on CPU
+before tensor transfer, using the model's existing execution-hint interface
+to avoid GPU-to-CPU synchronization. No policy heads are skipped and optimizer
+grouping is unchanged. This remains an opt-in fixed-weight probe until both
+source and candidate pass the original complete-history numerical checks;
+neither training defaults nor the rejected chunk4 variant are enabled by it.
+
+Implementation commit `051a814f76b3e25bebf48d0ebaea7e0150b748b2` adds
+`recurrent_ppo4/execution.py` and an opt-in path through the existing probe.
+The inner Torch command is `probe_recurrent_ppo4.py` with its existing
+source/candidate/data/admission/output and expected-coverage arguments, plus
+`--cpu-execution-hints --audit-lanes 4 --board-chunks 0 --warmups 0 --repeats 1`.
+Use the sealed Rust pipeline to enforce budgets and ownership. The CPU
+prerequisite adds `--preflight-only --device cpu` with a separate fresh output;
+the actual probe uses `--device cuda`. Four measured configurations must exist
+in order: source baseline, source hints, candidate baseline, candidate hints.
+The native validator requires every history, frame and action, unchanged model
+state, unchanged gates and zero optimizer/model writes.
+
+Forty-five affected CPU tests pass. The actual tiny v5 fixture gives bit-equal
+H, value and every policy tensor with uneven masks and K0/K1/K2; its board
+batch shapes remain B4. Complete uneven-history tests retain exact action
+probabilities, values and collection KL. Invalid recorded K remains rejected,
+and CLI tests forbid mixing this experiment with B8 or board chunking. These
+checks establish CPU behavior; the separate CUDA result follows below.
+
+The native run is
+`full-ppo-cpu-hints-probe-01a1897a-6810-797c-928e-e4fade5119e6/` under
+the investigation root. The complete CPU prerequisite passed in 30.60 seconds
+and the exact CUDA initialization/allocation/cleanup prerequisite passed in
+2.70 seconds. Their owned processes exited and groups were empty. Root
+independently rechecked frozen inputs, prerequisites and ownership before
+launching once. Controller `2360605`, start ticks `13902010`, boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced`, completed the GPU and native
+verification stages successfully.
+Manifest SHA256:
+`8b35705ba43b56ffa6cb03de541d180af7d3e7e51a3c173a94d3ddbd9b3008bf`.
+Limits are 600 seconds GPU stage, 630 pipeline, 660 service, 20-GiB host
+memory and an 11-GiB Torch allocator cap.
+
+All four configurations passed across all eight histories, 6,626 valid frames
+and 1,575 actor choices each. The hinted outputs have zero differences in
+action log-probabilities, H, values and collection KL relative to each model's
+baseline. Source original-probability replay also passed. Both model states
+remained unchanged, with no optimizer, updates or model writes.
+
+| Model | Baseline audit | CPU-hinted audit | Observed wall-time reduction |
+| --- | ---: | ---: | ---: |
+| Original R6 | 38.923 s | 38.067 s | 0.856 s (2.20%) |
+| Full-coverage candidate | 38.501 s | 38.221 s | 0.280 s (0.73%) |
+
+These are cold-inclusive single repetitions in fixed order with synchronized
+instrumentation and parity copies. They establish numerical agreement for
+these full-history audits, not a repeatable throughput improvement or backward/
+optimizer equivalence. Peak CUDA allocated/reserved bytes were identical in
+all passes (395,998,720 / 438,304,768), with zero allocator retries. The complete
+worker took 218.96 seconds. Source KL was `1.9465931512199642e-13`; candidate
+KL was `0.00007969814658532071`, identical in baseline and hinted modes.
+Report SHA256:
+`81efb32f8d9e114f2cd589ce79855a71e906382a9a7cc90232aaf590f097dd43`.
+
+Keep this path opt-in: the observed time difference is too small and the
+measurement too limited to justify further performance experiments ahead of
+the missing research-data admission/tensor contract and outcome-learning work.
+Chunk4 remains rejected. No new playing-strength result or model promotion
+follows from this probe. Native final review rehashed all 283 frozen inputs
+and the prerequisite/stage/pipeline seals, confirmed controller and both
+children exited with empty groups/cgroup, and stopped only the owned watcher.
+The GPU was empty. The operations pointer is `complete-reviewed`; event
+`6b983b9741589b41a3ec2e9a` is deduplicated. Its review is
+`reviews/6b983b9741589b41a3ec2e9a/operator-review.json` under the parent ops
+root, SHA256
+`e256095d265728e1a06f8c1cbf059bf7a89c608ed834c656c505d4a3df41485e`.
+The complete native pipeline took 231.10 seconds and peak guarded PSS was
+3,457,025,024 bytes. The old preparation reservation is preserved as evidence
+for this completed root; it is not an active controller or restart request.

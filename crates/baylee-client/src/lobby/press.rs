@@ -115,6 +115,20 @@ impl SharedPress {
             // An empty part of the artwork dialog dismisses its set
             // autocomplete.
             SharedPress::PickerNothing => state.lobby.builder_mut().picker_close_sets(),
+            // A link's gateway, said yes to: asked about itself as a typed
+            // address is, and saved only when a gateway answers.
+            SharedPress::ConfirmDestructive
+                if matches!(
+                    state.confirmation,
+                    Some(confirm::Destructive::AddGateway(_))
+                ) =>
+            {
+                if let Some(confirm::Destructive::AddGateway(url)) = state.confirmation.take()
+                    && let Some(url) = state.ask_gateway(url)
+                {
+                    http::probe_gateway(url, mailbox);
+                }
+            }
             SharedPress::ConfirmDestructive
                 if matches!(state.confirmation, Some(confirm::Destructive::SignOutGuest)) =>
             {

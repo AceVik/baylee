@@ -21,6 +21,7 @@ type TableOutcome = (
     Vec<u8>,
     Value,
     Vec<RolloutStepSidecar4>,
+    Vec<Value>,
 );
 
 #[allow(
@@ -43,10 +44,12 @@ fn play_one_table(
     max_decisions: u64,
     record_steps: bool,
     mut shadow: Option<&mut shadow::ShadowGame>,
+    research_encoder: Option<u32>,
 ) -> anyhow::Result<TableOutcome> {
     let preset = table_for(seed, decks, profiles, teams_u8);
     let n_seats = decks.len();
     if let Some(n) = net.as_deref_mut() {
+        n.configure_seats(focal_seat, teams)?;
         // Independent policy RNG seed: never depends on deal shuffle `seed` (P0-7)
         let indep_policy_seed =
             policy_seed ^ deal_idx.wrapping_mul(0x9e37_79b9_7f4a_7c15) ^ ((n_seats as u64) << 48);
@@ -64,21 +67,56 @@ fn play_one_table(
         (0..n_seats).map(|s| s.to_string()).collect(),
     );
     session.set_fair_scouting(fair_scouting);
-    if net.is_some() {
+    if let Some(n) = net.as_deref() {
         for s in 0..n_seats {
-            if is_net_seat(s, focal_seat, teams) {
+            if n.controls_seat(s, focal_seat, teams) {
                 session.take_over(PlayerId::new(s as u8));
             }
         }
     }
 
+    let mut fallback_events = Vec::new();
     let mut net_answers = 0_u64;
     let mut fallbacks = 0_u64;
     let mut refused = 0_u64;
     let mut stalls = 0_u64;
     let mut latencies = Vec::new();
     let mut rollout_sidecar: Vec<RolloutStepSidecar4> = Vec::new();
+    let mut research_samples = Vec::new();
     let mut visit_counts = vec![std::collections::BTreeMap::<u64, u8>::new(); n_seats];
+
+    macro_rules! research_stop {
+        ($seat:expr, $guard:expr, $reason:expr, $hash:expr, $proposal:expr) => {{
+            let snapshot = session.snapshot_hash();
+            let record = session.take_record();
+            let outcome = failure_terminal::stop(
+                &record,
+                &rollout_sidecar,
+                &research_samples,
+                research_encoder.context("research encoder")?,
+                focal_seat,
+                $seat,
+                $guard,
+                $reason,
+                $hash,
+                $proposal,
+                snapshot,
+            )?;
+            return Ok((
+                0.0,
+                $reason == "answer_cap",
+                net_answers,
+                fallbacks,
+                refused,
+                stalls,
+                latencies,
+                record,
+                outcome,
+                rollout_sidecar,
+                fallback_events,
+            ));
+        }};
+    }
 
     loop {
         if let Pending::GameOver(result) = session.pending() {
@@ -93,11 +131,14 @@ fn play_one_table(
                 winners.clone()
             };
             let util = side_utility(focal_seat as u8, teams, &surviving, &winners);
-            let outcome_json = match winners.as_slice() {
+            let mut outcome_json = match winners.as_slice() {
                 [] => json!({"kind": "draw"}),
                 [w] => json!({"kind": "won", "seat": w}),
                 ws => json!({"kind": "team_won", "seats": ws}),
             };
+            if research_encoder.is_some() {
+                outcome_json = failure_terminal::natural(&outcome_json, util, &research_samples);
+            }
             return Ok((
                 util,
                 false,
@@ -109,9 +150,18 @@ fn play_one_table(
                 session.take_record(),
                 outcome_json,
                 rollout_sidecar,
+                fallback_events,
             ));
         }
         if session.decision_seq() >= max_decisions {
+            if let Some(encoder) = research_encoder {
+                let pid = session
+                    .pending()
+                    .asked()
+                    .context("cap boundary has no acting seat")?;
+                let hash = failure_terminal::boundary_view_hash(&session, pid, encoder)?;
+                research_stop!(pid, false, "answer_cap", hash, None);
+            }
             return Ok((
                 0.5,
                 true,
@@ -123,21 +173,37 @@ fn play_one_table(
                 session.take_record(),
                 json!({"kind": "answer_cap"}),
                 rollout_sidecar,
+                fallback_events,
             ));
         }
 
         // Passively observe the table for all neural seats after opponent progression (P0-4)
+        let payment_ctx = net
+            .as_deref()
+            .is_some_and(EvaluationPlayer::uses_payment_context);
+        let announcement_ctx = net
+            .as_deref()
+            .is_some_and(EvaluationPlayer::uses_announcement_context);
         let uses_ctx = net.as_deref().is_some_and(EvaluationPlayer::uses_context);
         if let Some(n) = net.as_deref_mut() {
             for s in 0..n_seats {
-                if is_net_seat(s, focal_seat, teams) {
+                if n.controls_seat(s, focal_seat, teams) {
                     let pid = PlayerId::new(s as u8);
-                    let obs_v = if uses_ctx {
+                    let obs_v = if announcement_ctx {
+                        session.observe_view_with_announcement_context(pid)
+                    } else if payment_ctx {
+                        session.observe_view_with_payment_context(pid)
+                    } else if uses_ctx {
                         session.observe_view_with_context(pid)
                     } else {
                         session.observe_view(pid)
                     };
-                    n.observe(&obs_v)?;
+                    let observation = n.observe(&obs_v);
+                    if research_encoder.is_some() {
+                        observation.context(attempts::OBSERVATION_ERROR)?;
+                    } else {
+                        observation?;
+                    }
                 }
             }
         }
@@ -150,11 +216,18 @@ fn play_one_table(
         }
 
         for (s, seat_visits) in visit_counts.iter_mut().enumerate() {
-            if !is_net_seat(s, focal_seat, teams) {
+            if !net
+                .as_deref()
+                .is_some_and(|n| n.controls_seat(s, focal_seat, teams))
+            {
                 continue;
             }
             let pid = PlayerId::new(s as u8);
-            let pending_view = if uses_ctx {
+            let pending_view = if announcement_ctx {
+                session.view_for_with_announcement_context(pid)
+            } else if payment_ctx {
+                session.view_for_with_payment_context(pid)
+            } else if uses_ctx {
                 session.view_for_with_context(pid)
             } else {
                 session.view_for(pid)
@@ -162,14 +235,30 @@ fn play_one_table(
             let Some((pending, view)) = pending_view else {
                 continue;
             };
-            let vh = view_only_state_hash(&view, &pending);
+            let vh = if announcement_ctx {
+                baylee_train::features9::view_only_state_hash9(&view, &pending)
+            } else if payment_ctx {
+                baylee_train::features8::view_only_state_hash8(&view, &pending)
+            } else {
+                view_only_state_hash(&view, &pending)
+            };
             let vc = seat_visits.entry(vh).or_insert(0);
             *vc = vc.saturating_add(1);
             if *vc > 4 {
                 stalls += 1;
+                if research_encoder.is_some() {
+                    let proposal = session.house_action(pid);
+                    research_stop!(pid, true, "outer_repeated_view", vh, proposal.as_ref());
+                }
                 fallbacks += 1;
                 let act = session.house_action(pid).context("house fallback")?;
-                if session.act_slice(pid, act, 0).is_ok() && record_steps {
+                let sequence = session.decision_seq();
+                let record_offset = session.record_pending();
+                let result = session.act_slice(pid, act.clone(), 0);
+                fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
+                    "reason":"outer_repeated_view","view_hash":format!("{vh:016x}"),
+                    "visits":*vc,"action":act,"accepted":result.is_ok()}));
+                if result.is_ok() && record_steps {
                     rollout_sidecar.push(RolloutStepSidecar4 {
                         provenance: StepProvenance4 {
                             source: SourceKind4::House,
@@ -185,7 +274,11 @@ fn play_one_table(
 
             if let Some(n) = net.as_deref_mut() {
                 let t0 = Instant::now();
-                let ans = match n.answer(&view, &pending, teams)? {
+                let answer = n.answer(&view, &pending, teams);
+                if research_encoder.is_some() && (answer.is_err() || matches!(answer, Ok(None))) {
+                    research_stop!(pid, false, "unsupported_or_inference_error", vh, None);
+                }
+                let ans = match answer? {
                     Some(answer) => answer,
                     None => baylee_train::netplay4::Answer4 {
                         action: session
@@ -200,6 +293,22 @@ fn play_one_table(
                         target: baylee_train::features4::TeacherTarget4::default(),
                     },
                 };
+                if research_encoder.is_some() && ans.provenance.source == SourceKind4::House {
+                    let repeated = n.fallback_diagnostic().is_some_and(|diagnostic| {
+                        diagnostic.reason == baylee_train::netplay4::FallbackReason4::RepeatedView
+                    });
+                    research_stop!(
+                        pid,
+                        repeated,
+                        if repeated {
+                            "internal_repeated_view"
+                        } else {
+                            "policy_fallback"
+                        },
+                        vh,
+                        Some(&ans.action)
+                    );
+                }
                 let dt_ms = t0.elapsed().as_secs_f64() * 1000.0;
                 if ans.provenance.source == SourceKind4::Net {
                     latencies.push(dt_ms);
@@ -229,12 +338,48 @@ fn play_one_table(
                 } else {
                     None
                 };
+                let recovery = if ans.provenance.source == SourceKind4::House {
+                    Some(n.fallback_diagnostic().map_or_else(
+                        || json!({"reason":"house_policy_answer"}),
+                        |diagnostic| {
+                            serde_json::to_value(diagnostic).expect("serializable diagnostic")
+                        },
+                    ))
+                } else {
+                    None
+                };
+                let sequence = session.decision_seq();
+                let record_offset = session.record_pending();
                 let attempted_action = ans.action.clone();
+                let research_binding = research_encoder
+                    .map(|encoder| {
+                        failure_terminal::sample_binding(
+                            &session,
+                            pid,
+                            encoder,
+                            &attempted_action,
+                            &RolloutStepSidecar4 {
+                                provenance: ans.provenance,
+                                free_mask: ans.target.free_mask.clone(),
+                                pick_sequence: ans.target.pick_sequence.clone(),
+                            },
+                        )
+                    })
+                    .transpose()?;
                 let result = session.act_slice(pid, ans.action, 0);
+                if let Some(diagnostic) = recovery {
+                    fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
+                        "diagnostic":diagnostic,"action":attempted_action,"accepted":result.is_ok()}));
+                }
                 if let Some(shadow) = shadow.as_deref_mut() {
                     shadow.executed(proposal, result.is_ok())?;
                 }
                 if result.is_ok() {
+                    if let Some(mut binding) = research_binding {
+                        binding["post_snapshot_hash"] =
+                            json!(format!("{:016x}", session.snapshot_hash()));
+                        research_samples.push(binding);
+                    }
                     if record_steps {
                         rollout_sidecar.push(RolloutStepSidecar4 {
                             provenance: ans.provenance,
@@ -244,10 +389,16 @@ fn play_one_table(
                     }
                 } else if let Err(error) = result {
                     refused += 1;
+                    fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
+                        "reason":"engine_refusal","action":attempted_action,"accepted":false,
+                        "error":error}));
                     eprintln!(
                         "[eval4] refused deal={deal_idx} seed={seed} seat={} action={attempted_action:?} pending={pending:?}: {error}",
                         pid.get(),
                     );
+                    if research_encoder.is_some() {
+                        research_stop!(pid, false, "engine_refusal", vh, None);
+                    }
                     let fb = session
                         .house_action(pid)
                         .context("house fallback after refusal")?;

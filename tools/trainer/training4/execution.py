@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 import model4 as M
+from .depth_schedule import DepthSchedule
 
 
 @dataclass(frozen=True)
@@ -23,10 +24,11 @@ class StepPlan:
         return (self.candidates, self.pairs, self.thinking)
 
 
-def plan_batch(batch, step_num, thinking_steps=1, curriculum=False):
+def plan_batch(batch, step_num, thinking_steps=1, curriculum=False, schedule=None):
     """Compute exact per-frame extents, head presence and K before H2D."""
     if batch["step_valid"].device.type != "cpu":
         raise ValueError("Execution plans must be computed before GPU transfer")
+    schedule = schedule or DepthSchedule.from_training(thinking_steps, curriculum)
     valid = batch["step_valid"].numpy()
     decision = batch["is_decision"].numpy()
     heads = batch["head"].numpy()
@@ -44,7 +46,7 @@ def plan_batch(batch, step_num, thinking_steps=1, curriculum=False):
     for t in range(valid.shape[1]):
         c = np.flatnonzero(cand_any[t])
         p = np.flatnonzero(pair_any[t])
-        k = (1, 2, 4, 8)[(step_num + t) % 4] if curriculum else thinking_steps
+        k = schedule.depth(step_num, t)
         result.append(StepPlan(
             int(c[-1]) + 1 if len(c) else 1,
             int(p[-1]) + 1 if len(p) else 1,

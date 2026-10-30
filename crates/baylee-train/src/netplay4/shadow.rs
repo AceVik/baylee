@@ -19,7 +19,13 @@ impl NetPlayer4 {
     ) -> (EncodedState4, EncodedCandidates4) {
         let knowledge = self.knowledge.get(&view.seat.get());
         if self.is_encoder7() {
-            let state = encode_state7(view, Some(pending), knowledge, teams);
+            let state = if self.uses_announcement_context() {
+                crate::features9::encode_state9(view, Some(pending), knowledge, teams)
+            } else if self.uses_payment_context() {
+                crate::features8::encode_state8(view, Some(pending), knowledge, teams)
+            } else {
+                encode_state7(view, Some(pending), knowledge, teams)
+            };
             let candidates = encode_candidates7_grouped(&state, view, pending);
             (state, candidates)
         } else {

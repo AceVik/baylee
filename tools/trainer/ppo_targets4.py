@@ -12,7 +12,7 @@ import model4 as M
 @torch.no_grad()
 def prepare_targets(net, dataset, device, batch_size, gamma, gae_lambda,
                     logprob_fn, gae_fn, tolerance=2e-3):
-    from dataset_contract4 import reject_shadow_policy_gradient
+    from trajectory_store4 import reject_shadow_policy_gradient
     reject_shadow_policy_gradient(dataset.meta)
     if dataset.meta.get("sampling_version") != M.SAMPLING_VERSION:
         raise ValueError("Rollout uses an incompatible constrained sampler")

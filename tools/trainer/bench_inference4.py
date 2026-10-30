@@ -15,7 +15,8 @@ import torch
 
 import dataset4 as D
 import model4 as M
-from run_guard4 import atomic_json
+from torch_io4 import atomic_json
+from legacy_evaluation import native_metrics
 
 
 def timed(fn, count):
@@ -26,7 +27,7 @@ def timed(fn, count):
         start = time.perf_counter()
         fn()
         samples.append((time.perf_counter() - start) * 1000)
-    return {"p50_ms": float(np.median(samples)), "p95_ms": float(np.quantile(samples, .95))}
+    return native_metrics("benchmark-statistics", mode="inference", samples=samples)
 
 
 def main():
@@ -56,15 +57,15 @@ def main():
                                         providers=["CPUExecutionProvider"]) for k in (0, 1)}
     ds = D.TrajectoryDataset4(Path(args.data), split="val", unroll_len=32)
     candidates = []
-    for row in np.linspace(0, len(ds.store.index) - 1, 120, dtype=int):
+    for row in native_metrics("benchmark-plan", mode="rows", length=len(ds.store.index)):
         raw = ds.store.read(int(row))
         if raw["is_decision"]:
             enc = ds.encode_single_step(raw)
             candidates.append((len(enc["entity_mask"]), int(row), enc))
     if not candidates:
         raise ValueError("No real decision frames sampled")
-    candidates.sort(key=lambda row: row[0])
-    selected = [candidates[i] for i in sorted({0, len(candidates)//2, len(candidates)-1})]
+    selected = [candidates[i] for i in native_metrics("benchmark-plan", mode="select",
+                entities=[row[0] for row in candidates])]
     report = {"model": str(model), "dataset_fingerprint": ds.fingerprint,
               "gpu": torch.cuda.get_device_name(), "precision": "FP32, TF32 disabled",
               "scope": __doc__, "results": []}
@@ -105,7 +106,8 @@ def main():
                     result = {"row": row, "entities": entities, "depth": depth,
                               "batch_size": batch_size, "cpu_single": cpu_time,
                               "gpu_batch": timed(gpu, args.repeats), "max_error": error}
-                    result["throughput_speedup"] = cpu_time["p50_ms"] * batch_size / result["gpu_batch"]["p50_ms"]
+                    result["throughput_speedup"] = native_metrics("benchmark-resources", mode="speedup",
+                        cpu=cpu_time["p50_ms"], batch=batch_size, gpu=result["gpu_batch"]["p50_ms"])
                     report["results"].append(result)
                     atomic_json(Path(args.out), report)
                     print(json.dumps(result), flush=True)

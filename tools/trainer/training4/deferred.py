@@ -7,6 +7,7 @@ does not change which stochastic mask belongs to an observation.
 """
 import torch
 import model4 as M
+from model4.candidate import score_candidate_hidden
 
 
 def readout_groups(plans, chunk, token_limit=None):
@@ -26,6 +27,45 @@ def readout_groups(plans, chunk, token_limit=None):
     for pending in groups.values():
         if pending:
             yield tuple(pending)
+
+
+def _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c):
+    d = net.cfg.d_model
+    c_emb = net.cand_proj(M.symlog(c_feat)) + net.dsl_proj(M.symlog(c_dsl)) + net.rule_features(c_rules)
+    ent_idx_clamped = c_eidx.clamp(min=0)
+    has_ent = c_eidx >= 0
+    c_ent = torch.gather(e_ref_c, 1, ent_idx_clamped.unsqueeze(-1).expand(-1, -1, d)) * has_ent.unsqueeze(-1).to(e_ref_c.dtype)
+    seat_idx_clamped = c_sidx.clamp(0, M.MAX_SEATS - 1)
+    has_seat = (c_sidx >= 0) & (c_sidx < M.MAX_SEATS)
+    c_seat = torch.gather(s_ref_c, 1, seat_idx_clamped.unsqueeze(-1).expand(-1, -1, d)) * has_seat.unsqueeze(-1).to(s_ref_c.dtype)
+    g_exp = g_ref_c.unsqueeze(1).expand_as(c_emb)
+    cand_in = torch.cat([c_emb, c_ent, c_seat, g_exp], dim=-1)
+    return net.cand_scorer[2](net.cand_scorer[1](net.cand_scorer[0](cand_in)))
+
+
+def _score_cand_rows(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c, use_ckpt=False):
+    c_len = c_feat.shape[1]
+    if c_len > 512:
+        slices = []
+        for s in range(0, c_len, 512):
+            args = (
+                c_feat[:, s : s + 512],
+                c_dsl[:, s : s + 512],
+                c_rules[:, s : s + 512],
+                c_eidx[:, s : s + 512],
+                c_sidx[:, s : s + 512],
+                e_ref_c,
+                s_ref_c,
+                g_ref_c,
+            )
+            if use_ckpt:
+                slices.append(torch.utils.checkpoint.checkpoint(lambda *a: _score_cand_slice(net, *a), *args, use_reentrant=False))
+            else:
+                slices.append(_score_cand_slice(net, *args))
+        h_c = torch.cat(slices, dim=1)
+    else:
+        h_c = _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c)
+    return score_candidate_hidden(net, h_c, c_msk)
 
 
 def _cand_groups(plans, cand_times, chunk, token_limit=None):
@@ -141,6 +181,7 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
         cand_times = [t for t, p in enumerate(plans) if (not prune) or p.heads[0] or p.heads[1]]
         if cand_times:
             token_limit = 128 * 1024**2 // (b * d * 4)
+            use_ckpt = bool(getattr(net.cfg, "activation_checkpointing", False) and net.training and torch.is_grad_enabled())
             for times in _cand_groups(plans, cand_times, max(chunk, unroll), token_limit):
                 c_max = max(plans[t].candidates for t in times)
                 c_feat = torch.cat([batch["cand_feat"][:, t, :c_max].to(device, non_blocking=True) for t in times], dim=0)
@@ -153,23 +194,13 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
                 s_ref_c = torch.cat([s_ref_all[t] for t in times], dim=0)
                 g_ref_c = torch.cat([g_ref_all[t] for t in times], dim=0)
 
-                c_emb = net.cand_proj(M.symlog(c_feat)) + net.dsl_proj(M.symlog(c_dsl)) + net.rule_features(c_rules)
-                ent_idx_clamped = c_eidx.clamp(min=0)
-                has_ent = c_eidx >= 0
-                c_ent = torch.gather(e_ref_c, 1, ent_idx_clamped.unsqueeze(-1).expand(-1, -1, d)) * has_ent.unsqueeze(-1).to(e_ref_c.dtype)
-                seat_idx_clamped = c_sidx.clamp(0, M.MAX_SEATS - 1)
-                has_seat = (c_sidx >= 0) & (c_sidx < M.MAX_SEATS)
-                c_seat = torch.gather(s_ref_c, 1, seat_idx_clamped.unsqueeze(-1).expand(-1, -1, d)) * has_seat.unsqueeze(-1).to(s_ref_c.dtype)
-                g_exp = g_ref_c.unsqueeze(1).expand_as(c_emb)
-                cand_in = torch.cat([c_emb, c_ent, c_seat, g_exp], dim=-1)
-                h_c = net.cand_scorer[2](net.cand_scorer[1](net.cand_scorer[0](cand_in)))
-                valid_c = c_msk.unsqueeze(-1).to(h_c.dtype)
-                c_count = valid_c.sum(dim=1, keepdim=True).clamp(min=1.0)
-                c_mean = (h_c * valid_c).sum(dim=1, keepdim=True) / c_count
-                c_max_v = h_c.masked_fill(~c_msk.unsqueeze(-1), -1e4).amax(dim=1, keepdim=True)
-                c_max_v = c_max_v * (valid_c.sum(dim=1, keepdim=True) > 0.0).to(h_c.dtype)
-                h_c = h_c + net.cand_ctx_proj(torch.cat([c_mean, c_max_v], dim=-1))
-                c_logits = net.cand_scorer[3](h_c).squeeze(-1).masked_fill(~c_msk, -1e9)
+                args = (c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c)
+                if use_ckpt and c_max > 64:
+                    c_logits = torch.utils.checkpoint.checkpoint(
+                        lambda *a: _score_cand_rows(net, *a, use_ckpt=True), *args, use_reentrant=False
+                    )
+                else:
+                    c_logits = _score_cand_rows(net, *args, use_ckpt=False)
                 for i, t in enumerate(times):
                     cand_outs[t] = c_logits[i * b : (i + 1) * b, :plans[t].candidates]
         for t in range(unroll):
