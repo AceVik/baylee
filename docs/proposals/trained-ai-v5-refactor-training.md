@@ -210,9 +210,13 @@ Der Stand und die nächste Reihenfolge lauten:
    natürliche Siege bei unterschiedlichen Ergebnisnennern. Der früh veränderte
    Schleifenfall endet nun mit einer Niederlage; das beweist keine Reparatur
    am ursprünglichen Fehlerzustand. Verändertes Verhalten ist belegt, ein
-   Nettogewinn an Spielstärke bislang nicht. Als Nächstes werden die
-   Wahrscheinlichkeiten, eingefrorenen Advantages und tatsächlichen
-   Trainingskontakte der Fälle 160/161/175 ohne weitere Updates untersucht.
+   Nettogewinn an Spielstärke bislang nicht. Die anschließende Diagnose der
+   Fälle 160/161/175 ist abgeschlossen: Keine erste Verzweigung und keiner
+   der untersuchten späten Schleifenzustände lag in einem der acht
+   Gradientenfenster. Vollständiges Gedächtnis-Replay bedeutet nicht, dass
+   jeder Zustand einen Loss-Beitrag erhielt. Der
+   [Pilotbericht](../history/trained-ai-research-learning-pilot-2026-10-30.md)
+   hält die Messwerte und Grenzen fest; der nächste Vergleich folgt unten.
 
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;
 historische Aussagen „noch nicht implementiert“ sind durch diesen Stand ersetzt.
@@ -886,15 +890,16 @@ Regressionstest und werden vor erneuter Zulassung repariert. Zugehörige Engine-
 und Seat-Prozesse werden auch bei Fehlern beendet und ihr Ende geprüft.
 Fehlgeschlagene Artefakte bleiben erhalten; kein blinder automatischer Retry.
 
-**Nächster Schritt:** Nach dem abgeschlossenen breiteren Spielvergleich die
-gegenläufigen Ergebniswechsel und den Schleifenfall auf denselben sichtbaren
-Source-Zuständen untersuchen. Beide Modelle rekonstruieren ihr eigenes
-Gedächtnis über die vollständige Historie; Rust verknüpft kanonische Aktionen,
-Replay-Bindungen und Cache-Frames ausdrücklich. Das PyTorch-Stück misst
-Aktionswahrscheinlichkeiten, KL und Werte ohne Optimizer. Die Diagnose soll
-den nächsten begrenzten Lernversuch begründen; sie liefert weder neue
-Optimalitätslabels noch einen Stärke- oder Holdoutnachweis. Zeitlimitfälle
-bleiben unbekannt und werden nicht für ein günstigeres Ergebnis nachgespielt.
+**Nächster Schritt:** Die Source-State-Diagnose ist mit geprüften Artefakten
+abgeschlossen (siehe [Pilotbericht](../history/trained-ai-research-learning-pilot-2026-10-30.md)).
+Sie zeigt Parameterübertragung auf Zustände außerhalb der Gradientenfenster,
+liefert aber weder neue Optimalitätslabels noch einen Stärke- oder
+Holdoutnachweis. Nun den oben beschriebenen begrenzten Loss5-BC-Vergleich
+vorbereiten: identische Lehrerzüge mit und ohne explizite Ergebnisgewichtung,
+vollständige kausale Historien und ausgewiesene tatsächliche Trainingskontakte.
+Katalogmigration und Änderungen an Value-/Aux-Loss bleiben getrennte
+Versuche. Zeitlimitfälle bleiben unbekannt und werden nicht für ein günstigeres
+Ergebnis nachgespielt.
 
 Der Encoder9-Anschluss einschließlich nativem Loader und
 vollständigem kompilierten Kartenkatalog ist geprüft. Ein kleiner synthetischer
