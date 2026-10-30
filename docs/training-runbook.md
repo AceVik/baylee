@@ -17,7 +17,7 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
-| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-update-01a18ba0-5934-762e-961f-48b8a91e6122/update/execution`, now `complete-reviewed`. All eight attempted updates were retained: 465 actor choices, 2,043 frames, 311 changed tensors and final whole-collection KL 0.00105115049 (limit 0.02). Full replay passed all 3,479 choices. Owned processes/service exited and watcher stopped. Independent checkpoint tensor/progress inspection and matched gameplay follow separately; stronger play is not established. Do not restart this completed trial |
+| Current checkpoint phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` now names `research-breadth-checkpoint-gameplay-01a18bc2-a906-7df6-9ea9-679bcbcf5831/export/execution`. One CPU-only checkpoint audit/export pipeline was launched; actual first stage was `semantic_audit`, with its watcher active. The preceding breadth update is `complete-reviewed`: eight retained updates, 465 actor choices, 2,043 frames, 311 changed tensors and final whole-collection KL 0.00105115049 (limit 0.02). Full replay passed all 3,479 choices. No optimizer or gameplay runs in this export phase. Recheck current status and never restart either namespace |
 | Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
@@ -307,6 +307,39 @@ independently inspect tensor/progress semantics with PyTorch before export.
 Planned follow-up uses fresh R6/candidate arms on all 16 fixed breadth cases
 160–175, including unknown cases, with identical opponents, seeds, focal seats
 and deadlines. No automatic export, gameplay, retry or promotion follows.
+
+The reviewed checkpoint phase subsequently launched once in
+`research-breadth-checkpoint-gameplay-01a18bc2-a906-7df6-9ea9-679bcbcf5831/`.
+Its ready SHA-256 is
+`6ad84a219a3747b4fad190fae239c0515a6addd08b318428776dab78ec0b9a83`;
+pipeline SHA-256 is
+`517a2f9ae8699891b5c14aa752372c9c4eeaba3d6688c9482bbe81f67b24b15f`.
+The native launcher rechecked seals and ownership before its single root release.
+Actual controller PID 2489514/start ticks 17782606 on the same boot was checked
+against executable, arguments and service cgroup. Service
+`baylee-research-breadth-01a18bc2-export` and its `-watch.timer` were active,
+and `semantic_audit` was the first observed stage. This is a launch snapshot,
+not a completion claim.
+
+The independent PyTorch audit checks finite tensors/optimizer state, recursive
+equality of `last.pt` and `net.pt`, preserved source/config/catalog, exact research
+contract and progress, and the actual changed parameter names. It performs no
+model forwards or optimizer steps. CPU export then checks depths 0/1/2/4/8:
+15 synthetic checks plus 32 recurrent diagnostic frames, with maximum absolute
+error still limited to `0.001`. That fixture is not research training data.
+The candidate retains its research-utility critic semantics and is not admitted
+as a live win-probability model. All orchestration and verification are Rust;
+the small checkpoint inspector is directly associated PyTorch code.
+
+Stage bounds are 180/300/60 seconds for semantic audit/export/native validation;
+pipeline/service limits are 660/720 seconds, CPU400% and 20 GiB. The actual mount
+test passed with no GPU nodes/context, read-only checkpoints/runtime/fixture and
+an owned diagnostic cache. Two native tests and three Torch fixture tests passed.
+On terminal success, inspect actual artifacts and run this namespace's
+`bin/research_export_ops verify-export` once to create its immutable receipt.
+Then review cleanup and close its watcher before preparing/releasing fresh
+32-attempt matched gameplay. No executable gameplay manifest exists at this
+launch, and no automatic next phase, retry or promotion is enabled.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,

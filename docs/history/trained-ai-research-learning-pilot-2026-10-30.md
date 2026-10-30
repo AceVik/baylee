@@ -773,3 +773,44 @@ records are reproducibility evidence, not substitutes for a source arm given
 different bounds. A deadline unknown is not a loss or a reason to refill.
 This compares behavior on reused training/development cases, not an untouched
 holdout, causal isolation of data breadth versus dose, or promotion evidence.
+
+## Independent checkpoint audit and CPU export launched
+
+The next namespace is
+`research-breadth-checkpoint-gameplay-01a18bc2-a906-7df6-9ea9-679bcbcf5831/`
+under the same evidence root. Root reviewed the native preparation, ownership,
+worker and postflight code and the independent PyTorch checkpoint inspector.
+The inspector checks finite checkpoint/optimizer/RNG tensors, recursive equality
+of both saved payloads, source identity/config/catalog, exact research contract,
+eight retained updates and independently recomputed changed parameter names.
+It performs no model forward or optimizer operation. The candidate export uses
+a pinned symlink to UPDATE's immutable `net.pt`, avoiding another checkpoint copy.
+
+CPU ONNX export is a subsequent guarded stage. It checks 47 cases (15 synthetic
+shape/depth checks and 32 recurrent diagnostic frames) across depths 0/1/2/4/8,
+with unchanged maximum absolute error `0.001`. The final native stage checks
+export metadata, catalog, graph identity and research-utility critic semantics.
+Diagnostic fixture use does not admit it as research training data or certify
+the critic as a live MTG win probability.
+
+| Frozen launch artifact | SHA-256 |
+| --- | --- |
+| `ready.json` | `6ad84a219a3747b4fad190fae239c0515a6addd08b318428776dab78ec0b9a83` |
+| `export.pipeline.json` | `517a2f9ae8699891b5c14aa752372c9c4eeaba3d6688c9482bbe81f67b24b15f` |
+| `bin/research_export_ops` | `322d11091a592345a4de19ceeb6f6aec13ad56fd235c1a2363090765ebe44186` |
+| `export/mapping-preflight.json` | `bfaf2b7e943d75401e17054c085705c28280b54d24ad7d337399baad13dc8601` |
+
+Two native tests and three small PyTorch fixtures passed. The actual final map
+verified CPU initialization, no exposed GPU device nodes/context, immutable
+inputs and writable owned caches. Preparation took 14.149 seconds. Bounds are
+180 seconds for semantic audit, 300 for export and 60 for native validation;
+pipeline/service limits are 660/720 seconds, CPU400% and 20 GiB memory.
+
+Root confirmed previous controller identities absent, canonical CPU/performance
+work reviewed and GPU empty, then launched once with the external ready hash.
+Controller PID 2489514/start ticks 17782606 on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` was verified by executable, arguments and
+cgroup. Service `baylee-research-breadth-01a18bc2-export` and its watcher were
+active; the first observed stage was `semantic_audit`. Recheck live state before
+acting. The phase has no optimizer, gameplay, automatic retry or promotion.
+The fresh 32-attempt comparison remains a separate reviewed phase after export.
