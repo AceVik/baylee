@@ -14,6 +14,7 @@ Modellversion entsteht erst mit einer Architekturänderung (Abschnitt 4).
 | Haus-KI Steady gegen Sharp, dieselben Fälle | 49,8 % |
 | Abstand | −18,1 pp, 0 Caps, 62 Haus-Fallbacks |
 | Zugelassene LLM-Partien (Argon/Flash, 1v1) | 551, 1,04 Mio. Frames |
+| v5-Netz gegen Gemini Argon (Arena, 70 Partien) | 6 Siege, Argon 64 |
 | Value-Kopf R6 (Val-MSE gegen Gleichverteilung) | 0,152 gegen 0,157 |
 
 ## 2. Entscheidungen
@@ -39,16 +40,20 @@ Modellversion entsteht erst mit einer Architekturänderung (Abschnitt 4).
 
 | Name | Frage | Stand |
 | --- | --- | --- |
-| `v6a-llm-bc` | Verbessert LLM-Imitation R6 auf `dev1024`? R6 → 3 Epochen auf allen LLM-Partien, Loss5, ohne Ergebnisgewichtung, lr 1e-5 | läuft seit 30.10. |
+| `v6ac-llm-bc`, Arm a | Verbessert LLM-Imitation R6 auf `dev1024`? R6 → 3 Epochen auf allen LLM-Partien, Loss5, ohne Ergebnisgewichtung, lr 1e-5, Auswahl nach LLM-Validierung (K2) | läuft seit 30.10. |
+| `v6ac-llm-bc`, Arm c | Dasselbe mit Kandidatenrevision 3 (Abschnitt 4.1), exakt aus R6 übernommen; einzige Änderung gegenüber Arm a | folgt in derselben Pipeline |
 | `v6b` | Wie v6a plus Haus-Lehrerdaten als Anker (halbe Lanes) gegen Vergessen | nach v6a |
 | Terra-Ergänzung | Neue Terra-Partien der laufenden Queue in den Korpus | nach Queue-Ende |
 | Value-Diagnose | Value-Güte pro Format und Spielphase | parallel, CPU |
 
 ## 4. Architektur (nach den BC-Läufen, je eine Änderung, gleiche Rechenzeit)
 
-1. Kandidaten als Tokens: Optionen sehen einander und das Board; die
-   Denkschritte sehen die Optionen. Heute schaut der Denkblock nur auf das
-   Board, daher bringen K1/2/4/8 nichts.
+1. Kandidaten als Tokens. **Umgesetzt als Revision 3** (`model5/candidate_decoder.py`):
+   Jede Option schaut per Cross-Attention auf die Denk-Slots und alle
+   Entities, bevor sie bewertet wird. Optionen sehen einander bewusst nicht,
+   damit große Menüs exakt in Scheiben bewertet werden können. Offen: Denkschritte, die
+   die Optionen sehen. Heute schaut der Denkblock nur auf das Board, daher
+   bringen K1/2/4/8 nichts.
 2. Schrittweise Auswahl für Angreifer, Blocker und Ziele statt unabhängiger
    Einzelwahrscheinlichkeiten.
 3. Relationsmodul durch einen Kantentyp-Bias in jeder Attention-Schicht
