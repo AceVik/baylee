@@ -20,12 +20,12 @@ use baylee_train::carddsl::{
     ABILITY_DSL_WIDTH, CARD_DSL_WIDTH, DSL_VERSION, MAX_ABILITIES, UNKNOWN_CARD,
     card_ability_table, card_back_summary_table, card_summary_table, token_summary_table,
 };
-use baylee_train::convert4::{RolloutStepSidecar4, Step4, stream_game4};
+use baylee_train::convert4::{ProducerEncoder, RolloutStepSidecar4, Step4};
 use baylee_train::features4::{
     CoverageMatrix4, MAX_CANDIDATES, MAX_EDGES, MAX_ENTITIES, MAX_PAIRS, MAX_SEATS,
 };
 use baylee_train::features7::{
-    CAND_FEAT_WIDTH7, ENCODER_VERSION7, ENTITY_FEAT_WIDTH7, GLOBAL_FEAT_WIDTH7, SEAT_FEAT_WIDTH7,
+    CAND_FEAT_WIDTH7, ENTITY_FEAT_WIDTH7, GLOBAL_FEAT_WIDTH7, SEAT_FEAT_WIDTH7,
 };
 use clap::Parser;
 use flate2::Compression;
@@ -33,8 +33,15 @@ use flate2::read::GzDecoder;
 use serde_json::{Value, json};
 
 #[derive(Parser, Debug)]
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "Independent converter modes and observation inclusion are explicit CLI flags"
+)]
 #[command(about = "Converts selfplay runs into Playernet v4 trajectory shards")]
 struct Args {
+    /// Explicit observation encoder. Archived conversion remains Encoder 7.
+    #[arg(long, default_value_t = 7, value_parser = clap::value_parser!(u32).range(7..=9))]
+    encoder_version: u32,
     /// Input selfplay run directories, comma-separated.
     #[arg(long, value_delimiter = ',')]
     runs: Vec<PathBuf>,
@@ -67,17 +74,26 @@ struct Args {
     /// Build a separate BC-only dataset from verified shadow/*.jsonl advice.
     #[arg(long)]
     shadow_bc: bool,
+    /// Verified executed external LLM labels only; all other policy weights zero.
+    #[arg(long, conflicts_with = "shadow_bc")]
+    llm_bc: bool,
+    /// Build a BC-only dataset from exported live-server game records.
+    #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc"])]
+    live_bc: bool,
 }
 
 #[derive(Clone, Debug)]
 struct GameRef {
     game_id: u32,
+    producer_encoder: Option<ProducerEncoder>,
+    on_policy: Option<on_policy::GameBinding>,
     shard_path: PathBuf,
     offset: u64,
     len: u64,
     sidecar: Option<Vec<RolloutStepSidecar4>>,
     validation: bool,
     shadow: Option<shadow::Source>,
+    llm: Option<llm::Source>,
 }
 
 fn read_member(path: &Path, offset: u64, len: u64) -> anyhow::Result<Vec<u8>> {
@@ -103,8 +119,11 @@ fn journal_worker(path: &Path, game: &GameRef, status: &str) -> anyhow::Result<(
     Ok(())
 }
 
+mod llm;
+mod on_policy;
 mod output;
 mod policy_provenance;
+mod research;
 mod shadow;
 use output::{GameWriter, publish_ready};
 
@@ -113,7 +132,19 @@ use output::{GameWriter, publish_ready};
     reason = "Conversion setup, workers and immutable output manifest"
 )]
 fn main() -> anyhow::Result<()> {
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|arg| arg == "research")
+    {
+        return research::run();
+    }
     let args = Args::parse();
+    if args.encoder_version == 9 && (args.shadow_bc || args.llm_bc) {
+        bail!("Encoder9 shadow and LLM labels are not supported");
+    }
+    if args.llm_bc && !args.include_passive_obs {
+        bail!("--llm-bc requires --include-passive-obs");
+    }
     if args.shadow_bc && !args.include_passive_obs {
         bail!("--shadow-bc requires --include-passive-obs for complete recurrent history");
     }
@@ -125,6 +156,7 @@ fn main() -> anyhow::Result<()> {
     let mut games: Vec<GameRef> = Vec::new();
     let mut policy_sources = Vec::new();
     let mut shadow_seen = BTreeSet::new();
+    let mut llm_seen = BTreeSet::new();
     let mut vocab_set: BTreeSet<u32> = baylee_cards::all().map(|card| card.index.get()).collect();
     vocab_set.insert(UNKNOWN_CARD);
 
@@ -133,6 +165,25 @@ fn main() -> anyhow::Result<()> {
             &fs::read(run_dir.join("run.json"))
                 .with_context(|| format!("reading {}/run.json", run_dir.display()))?,
         )?;
+        let on_policy = on_policy::RunBinding::load(run_dir, &run_json)?;
+        if on_policy.is_some() {
+            anyhow::ensure!(
+                args.include_passive_obs
+                    && args.val_every == 0
+                    && args.val_runs.is_empty()
+                    && !args.shadow_bc
+                    && !args.llm_bc
+                    && !args.live_bc,
+                "on-policy collection requires complete unsplit passive histories and no BC relabelling"
+            );
+        }
+        if !args.llm_bc && !args.live_bc && run_json.get("model_identity").is_some() {
+            anyhow::ensure!(
+                run_json["model_identity"]["encoder_version"].as_u64()
+                    == Some(u64::from(args.encoder_version)),
+                "Neural producer/converter encoder mismatch; probabilities cannot migrate across encoders"
+            );
+        }
         policy_sources.push(run_json.clone());
         if let Some(decks) = run_json["decks"].as_array() {
             for d in decks {
@@ -152,6 +203,7 @@ fn main() -> anyhow::Result<()> {
                 continue;
             }
             let v: Value = serde_json::from_str(&line)?;
+            let policy_game = on_policy.as_ref().map(|run| run.game(&v)).transpose()?;
             let kind = v["outcome"]["kind"].as_str().unwrap_or("");
             if !matches!(kind, "won" | "team_won" | "draw") {
                 continue;
@@ -167,8 +219,14 @@ fn main() -> anyhow::Result<()> {
                 .and_then(|sc| serde_json::from_value(sc.clone()).ok());
             let game_id = (games.len() + 1) as u32;
             games.push(GameRef {
+                on_policy: policy_game,
+                producer_encoder: if matches!(args.encoder_version, 8 | 9) && sidecar.is_some() {
+                    Some(ProducerEncoder::from_run(&run_json).map_err(anyhow::Error::msg)?)
+                } else {
+                    None
+                },
                 game_id,
-                shard_path: if args.shadow_bc {
+                shard_path: if args.shadow_bc || args.llm_bc {
                     run_dir.join("records").join(shard_name).canonicalize()?
                 } else {
                     run_dir.join("records").join(shard_name)
@@ -187,6 +245,26 @@ fn main() -> anyhow::Result<()> {
                     anyhow::ensure!(
                         shadow_seen.insert(source.namespace_key()),
                         "Duplicate shadow source game"
+                    );
+                    Some(source)
+                } else {
+                    None
+                },
+                llm: if args.llm_bc {
+                    anyhow::ensure!(
+                        sidecar.is_none(),
+                        "LLM BC must not fabricate neural rollout provenance"
+                    );
+                    let source = llm::Source::load(
+                        run_dir,
+                        v["game"].as_str().context("LLM game key")?,
+                        &run_dir.join("records").join(shard_name),
+                        offset,
+                        len,
+                    )?;
+                    anyhow::ensure!(
+                        llm_seen.insert(source.record_sha().to_string()),
+                        "Duplicate LLM record across source namespaces"
                     );
                     Some(source)
                 } else {
@@ -227,6 +305,11 @@ fn main() -> anyhow::Result<()> {
     )?;
     let rule_roots = Arc::new(structure.roots.clone());
     let started = Instant::now();
+    let is_on_policy = games.iter().any(|game| game.on_policy.is_some());
+    anyhow::ensure!(
+        !is_on_policy || games.iter().all(|game| game.on_policy.is_some()),
+        "cannot mix certified on-policy and roleless sources"
+    );
     let games_arc = Arc::new(games);
     let next_idx = Arc::new(AtomicUsize::new(0));
     let train_rows = Arc::new(Mutex::new(Vec::<(u32, String, u64)>::new()));
@@ -257,8 +340,10 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     let mut meta = json!({
-        "encoder_version": ENCODER_VERSION7,
-        "policy_provenance_version": if policy_provenance::certified_dataset(&policy_sources) { json!(2) } else { Value::Null },
+        "idle_pass_weighting_revision": baylee_train::convert4::IDLE_PASS_WEIGHTING_REVISION,
+        "encoder_version": args.encoder_version,
+        "ppo_eligible": policy_sources.iter().all(|r| r["collection_contract"]["purpose"] == "on_policy_training"),
+        "policy_provenance_version": if policy_provenance::certified_dataset(&policy_sources) && policy_sources.iter().all(|r| r["model_identity"]["encoder_version"].as_u64() == Some(u64::from(args.encoder_version))) { json!(2) } else { Value::Null },
         "package_target_steps": args.shard_steps,
         "streaming_frames_per_worker": MAX_SEATS,
         "trajectory_version": if args.include_passive_obs { 2 } else { 1 },
@@ -271,7 +356,7 @@ fn main() -> anyhow::Result<()> {
         "max_abilities": MAX_ABILITIES,
         "entity_feat_width": ENTITY_FEAT_WIDTH7,
         "seat_feat_width": SEAT_FEAT_WIDTH7,
-        "global_feat_width": GLOBAL_FEAT_WIDTH7,
+        "global_feat_width": if args.encoder_version == 9 { baylee_train::features9::GLOBAL_FEAT_WIDTH9 } else { GLOBAL_FEAT_WIDTH7 },
         "cand_feat_width": CAND_FEAT_WIDTH7,
         "max_seats": MAX_SEATS,
         "max_entities": MAX_ENTITIES,
@@ -311,6 +396,25 @@ fn main() -> anyhow::Result<()> {
                 .collect::<Vec<_>>()
         );
     }
+    if args.llm_bc {
+        anyhow::ensure!(!games_arc.is_empty(), "No completed LLM games selected");
+        meta["llm_bc_version"] = json!(1);
+        meta["llm_bc_contract"] = json!("verified_executed_llm_v1");
+        meta["llm_bc_status"] = json!("in_progress");
+        meta["ppo_eligible"] = json!(false);
+        meta["policy_provenance_version"] = Value::Null;
+        meta["llm_bc_sources"] = json!(
+            games_arc
+                .iter()
+                .filter_map(|g| g.llm.as_ref().map(|s| s.metadata(g.game_id)))
+                .collect::<Vec<_>>()
+        );
+    }
+    if args.live_bc {
+        meta["live_bc_version"] = json!(1);
+        meta["ppo_eligible"] = json!(false);
+        meta["policy_provenance_version"] = Value::Null;
+    }
     fs::write(
         args.out.join("dataset_header.json"),
         serde_json::to_vec_pretty(&meta)?,
@@ -332,6 +436,8 @@ fn main() -> anyhow::Result<()> {
         let rejected = rejected.clone();
         let converted = converted.clone();
         let include_passive = args.include_passive_obs;
+        let live_bc = args.live_bc;
+        let encoder_version = args.encoder_version;
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             loop {
@@ -343,19 +449,26 @@ fn main() -> anyhow::Result<()> {
                 // memory deadline must still identify the in-flight game.
                 journal_worker(&journal, gref, "replaying")?;
                 let bytes = read_member(&gref.shard_path, gref.offset, gref.len)?;
+                if let Some(binding)=&gref.on_policy {binding.verify(&bytes)?;}
                 let mut writer = GameWriter::new(&root, gref.validation, gref.game_id, rule_roots.clone())?;
                 let mut frame_labels = gref.shadow.as_ref()
-                    .map(|source| shadow::FrameLabels::new(&root,gref.game_id,source)).transpose()?;
+                    .map(|source| shadow::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
+                let mut llm_labels=gref.llm.as_ref().map(|source|llm::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let emit = |step: Step4| {
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
+                    if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
                     writer.push(&step).map_err(|e|e.to_string())
                 };
-                let result = if let Some(source) = &gref.shadow {
+                let result = if let Some(source)=&gref.llm {
+                    source.verify(&bytes).and_then(|mut labels|baylee_train::convert4::stream_game4_with_encoder(&bytes,gref.game_id,true,None,None,Some(&mut labels),false,encoder_version,emit))
+                } else if let Some(source) = &gref.shadow {
                     source.verify(&bytes,&structure_sha256).and_then(|mut labels|
-                        baylee_train::convert4::stream_game4_shadow_bc(&bytes,gref.game_id,
-                            gref.sidecar.as_deref().expect("checked behavior sidecar"),&mut labels,emit))
+                        baylee_train::convert4::stream_game4_with_encoder(&bytes,gref.game_id,true,
+                            Some(gref.sidecar.as_deref().expect("checked behavior sidecar")),Some(&mut labels),None,false,encoder_version,emit))
+                } else if live_bc {
+                    baylee_train::convert4::stream_game4_with_encoder(&bytes,gref.game_id,include_passive,None,None,None,true,encoder_version,emit)
                 } else {
-                    stream_game4(&bytes,gref.game_id,include_passive,gref.sidecar.as_deref(),emit)
+                    baylee_train::convert4::stream_game4_with_encoder_and_producer(&bytes,gref.game_id,include_passive,gref.sidecar.as_deref(),None,None,false,encoder_version,gref.producer_encoder.as_ref(),emit)
                 };
                 let extracted = match result {
                     Ok(ex) => ex,
@@ -374,7 +487,7 @@ fn main() -> anyhow::Result<()> {
                 {
                     let mut cov = cov_total.lock().expect("cov lock");
                     for pk in 0..extracted.coverage.counts.len() {
-                        for sk in 0..4 {
+                        for sk in 0..cov.counts[pk].len() {
                             cov.counts[pk][sk] += extracted.coverage.counts[pk][sk];
                         }
                     }
@@ -387,6 +500,7 @@ fn main() -> anyhow::Result<()> {
                     continue;
                 }
                 if let Some(labels) = frame_labels { labels.finish()?; }
+                if let Some(labels)=llm_labels {labels.finish()?;}
                 let name = writer.finish()?;
                 publish_ready(&root, gref, &name, extracted.steps, &structure_sha256)?;
                 let rows = if gref.validation { &val_rows } else { &train_rows };
@@ -422,6 +536,13 @@ fn main() -> anyhow::Result<()> {
         serde_json::to_vec_pretty(&*rejected)?,
     )?;
 
+    if is_on_policy {
+        anyhow::ensure!(
+            rejected.is_empty(),
+            "on-policy conversion rejected games; no collection published"
+        );
+        meta["on_policy_collection_manifest"] = json!("collection.json");
+    }
     if args.shadow_bc {
         anyhow::ensure!(
             rejected.is_empty(),
@@ -446,11 +567,31 @@ fn main() -> anyhow::Result<()> {
     meta["games_rejected"] = json!(rejected.len());
     meta["unencoded_decisions"] = json!(unencoded_total.load(Ordering::Relaxed));
     meta["coverage_matrix"] = json!(cov.counts);
+    if args.llm_bc {
+        anyhow::ensure!(
+            rejected.is_empty(),
+            "LLM BC rejected games; no completed meta.json published"
+        );
+        llm::finish_metadata(&args.out, &mut meta)?;
+    }
     meta["elapsed_secs"] = json!(started.elapsed().as_secs_f64());
     fs::write(
         args.out.join("meta.json"),
         serde_json::to_vec_pretty(&meta)?,
     )?;
+
+    if is_on_policy {
+        let bindings = games_arc
+            .iter()
+            .map(|game| {
+                (
+                    game.game_id,
+                    game.on_policy.as_ref().expect("checked role binding"),
+                )
+            })
+            .collect::<Vec<_>>();
+        on_policy::publish(&args.out, &meta, &bindings)?;
+    }
 
     eprintln!(
         "[convert4] converted {} games -> {} train steps + {} val steps ({} vocab cards, {} unencoded) in {:.1}s",
@@ -471,4 +612,27 @@ fn write_f32_bin(path: &Path, data: &[f32]) -> anyhow::Result<()> {
     }
     f.flush()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod encoder_cli_tests {
+    use super::*;
+
+    #[test]
+    fn encoder_selection_is_explicit_and_unsupported_versions_fail() {
+        let default = Args::try_parse_from(["convert4", "--out", "dataset"]).unwrap();
+        assert_eq!(default.encoder_version, 7);
+        let payment =
+            Args::try_parse_from(["convert4", "--out", "dataset", "--encoder-version", "8"])
+                .unwrap();
+        assert_eq!(payment.encoder_version, 8);
+        let announcement =
+            Args::try_parse_from(["convert4", "--out", "dataset", "--encoder-version", "9"])
+                .unwrap();
+        assert_eq!(announcement.encoder_version, 9);
+        assert!(
+            Args::try_parse_from(["convert4", "--out", "dataset", "--encoder-version", "10"])
+                .is_err()
+        );
+    }
 }

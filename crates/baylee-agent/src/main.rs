@@ -39,7 +39,54 @@ fn ws_config() -> tokio_tungstenite::tungstenite::protocol::WebSocketConfig {
 }
 
 /// Engines this agent started, by game, each holding the switch that stops it.
-type Running = Arc<Mutex<HashMap<String, oneshot::Sender<()>>>>;
+type Running = Arc<Mutex<HashMap<String, Option<oneshot::Sender<()>>>>>;
+
+/// Cancelling a session must cancel its socket writer and heartbeat too.
+struct SessionTasks {
+    /// The sole control-socket writer, aborted on cancellation.
+    writer: tokio::task::JoinHandle<()>,
+    /// Heartbeats belong to this control session only.
+    beat: Option<tokio::task::JoinHandle<()>>,
+}
+impl Drop for SessionTasks {
+    fn drop(&mut self) {
+        self.writer.abort();
+        if let Some(beat) = &self.beat {
+            beat.abort();
+        }
+    }
+}
+
+/// The gateway has no engine reattachment protocol. A lost control session
+/// therefore ends only this agent's engines, never a player's seat reconnect.
+async fn stop_all(running: &Running) {
+    {
+        let mut entries = running.lock().expect("agent process table");
+        for switch in entries.values_mut() {
+            if let Some(switch) = switch.take() {
+                let _ = switch.send(());
+            }
+        }
+    }
+    // Entries remain owned until their supervisor has successfully reaped them.
+    while !running.lock().expect("agent process table").is_empty() {
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+}
+
+/// Wait for either supported process shutdown signal.
+async fn shutdown_signal() -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+        tokio::select! {
+            result = tokio::signal::ctrl_c() => result,
+            _ = term.recv() => Ok(()),
+        }
+    }
+    #[cfg(not(unix))]
+    tokio::signal::ctrl_c().await
+}
 
 #[tokio::main]
 async fn main() {
@@ -61,24 +108,36 @@ async fn main() {
         "baylee-agent starting"
     );
 
-    // Children outlive one connection on purpose: a gateway restart must not
-    // kill the games it is about to ask for again. They talk to the gateway
-    // over their own sockets, not this one.
     let running: Running = Arc::new(Mutex::new(HashMap::new()));
+    let shutdown = shutdown_signal();
+    tokio::pin!(shutdown);
     let mut wait = RETRY_START;
     loop {
-        let ended = match session(&config, &running).await {
-            Ok(ended) => ended,
-            Err(err) => {
-                tracing::warn!(%err, "control socket failed");
-                Ended::Failed
+        let ended = tokio::select! {
+            signal = &mut shutdown => {
+                if let Err(err) = signal {
+                    tracing::error!(%err, "shutdown signal failed");
+                }
+                stop_all(&running).await;
+                break;
+            }
+            result = session(&config, &running) => match result {
+                Ok(ended) => ended,
+                Err(err) => {
+                    tracing::warn!(%err, "control socket failed");
+                    Ended::Failed
+                }
             }
         };
+        stop_all(&running).await;
         if ended == Ended::Closed {
             tracing::info!("gateway closed the control socket");
         }
         let (now, next) = redial_after(&ended, wait);
-        tokio::time::sleep(now).await;
+        tokio::select! {
+            _ = &mut shutdown => break,
+            () = tokio::time::sleep(now) => {}
+        }
         wait = next;
     }
 }
@@ -191,15 +250,22 @@ where
         }
     });
 
-    let mut beat: Option<tokio::task::JoinHandle<()>> = None;
+    let mut tasks = SessionTasks { writer, beat: None };
     let result = loop {
-        let Some(frame) = stream.next().await else {
+        let frame = tokio::select! {
+            _ = &mut tasks.writer => break Err(Box::from("control writer exited")),
+            frame = stream.next() => frame,
+        };
+        let Some(frame) = frame else {
             break Ok(Ended::Closed);
         };
         let frame = match frame {
             Ok(frame) => frame,
             Err(err) => break Err(Box::from(err.to_string())),
         };
+        if frame.is_close() {
+            break Ok(Ended::Closed);
+        }
         if !frame.is_binary() {
             continue;
         }
@@ -217,7 +283,7 @@ where
             } => {
                 tracing::info!(agent_id, "registered with the gateway");
                 if heartbeat_secs > 0
-                    && let Some(old) = beat.replace(tokio::spawn(beating(
+                    && let Some(old) = tasks.beat.replace(tokio::spawn(beating(
                         out.clone(),
                         u64::from(heartbeat_secs),
                     )))
@@ -241,11 +307,8 @@ where
         }
     };
 
-    if let Some(beat) = beat {
-        beat.abort();
-    }
-    drop(out);
-    let _ = writer.await;
+    drop(tasks);
+    stop_all(running).await;
     result
 }
 
@@ -293,7 +356,7 @@ fn start(
             ));
             return;
         }
-        running.insert(game_id.to_string(), stop_tx);
+        running.insert(game_id.to_string(), Some(stop_tx));
     }
 
     let child = tokio::process::Command::new(&config.engine_bin)
@@ -341,15 +404,21 @@ async fn supervise(
     let detail = tokio::select! {
         exit = child.wait() => match exit {
             Ok(exit) => exit.to_string(),
-            Err(err) => err.to_string(),
+            Err(err) => {
+                tracing::error!(game_id, %err, "engine wait failed; retaining ownership");
+                reap_after_error(&mut child, &game_id).await
+            },
         },
         _ = stop => {
-            // The game is over and the gateway said so. Ask first; the engine
-            // closes its socket and leaves on its own.
+            // Stop only this owned process, then confirm its exit before
+            // releasing the slot. The gateway has already ended the game.
             let _ = child.start_kill();
             match child.wait().await {
                 Ok(exit) => format!("stopped ({exit})"),
-                Err(err) => err.to_string(),
+                Err(err) => {
+                    tracing::error!(game_id, %err, "engine stop wait failed; retaining ownership");
+                    reap_after_error(&mut child, &game_id).await
+                },
             }
         }
     };
@@ -361,10 +430,26 @@ async fn supervise(
     let _ = out.send(status(&game_id, v1::engine_status::Kind::Exited, &detail));
 }
 
+/// Preserve ownership and retry after an OS wait failure.
+async fn reap_after_error(child: &mut tokio::process::Child, game_id: &str) -> String {
+    loop {
+        let _ = child.start_kill();
+        match child.wait().await {
+            Ok(exit) => return format!("stopped ({exit})"),
+            Err(err) => tracing::error!(game_id, %err, "engine reap failed; retaining ownership"),
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+}
+
 /// Signals one engine to stop. A game the agent does not have is not an error:
 /// the engine may have exited on its own a moment earlier.
 fn stop(running: &Running, game_id: &str) {
-    let switch = running.lock().expect("agent process table").remove(game_id);
+    let switch = running
+        .lock()
+        .expect("agent process table")
+        .get_mut(game_id)
+        .and_then(Option::take);
     if let Some(switch) = switch {
         let _ = switch.send(());
     } else {
@@ -375,6 +460,123 @@ fn stop(running: &Running, game_id: &str) {
 #[cfg(test)]
 mod tests {
     use super::{Ended, RETRY_MAX, RETRY_START, dial, redial_after};
+
+    /// Start a harmless engine owned by the normal supervisor.
+    #[cfg(target_os = "linux")]
+    fn owned_child(running: &super::Running, game: &str) -> u32 {
+        let child = tokio::process::Command::new("/bin/sleep")
+            .arg("60")
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let pid = child.id().unwrap();
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        running.lock().unwrap().insert(game.into(), Some(tx));
+        let (out, _received) = tokio::sync::mpsc::unbounded_channel();
+        tokio::spawn(super::supervise(
+            child,
+            rx,
+            running.clone(),
+            out,
+            game.into(),
+        ));
+        pid
+    }
+
+    /// Stop does not make capacity available before reaping.
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn stop_keeps_the_slot_owned_until_the_child_is_reaped() {
+        let running: super::Running = std::sync::Arc::default();
+        let pid = owned_child(&running, "game");
+        super::stop(&running, "game");
+        assert!(running.lock().unwrap().contains_key("game"));
+        assert!(running.lock().unwrap()["game"].is_none());
+        // A repeated Stop cannot erase the entry or permit a replacement Start.
+        super::stop(&running, "game");
+        assert!(running.lock().unwrap().contains_key("game"));
+        tokio::time::timeout(std::time::Duration::from_secs(5), super::stop_all(&running))
+            .await
+            .unwrap();
+        assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    }
+
+    /// A closed control link cannot retain live engine children.
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn control_close_reaps_children_without_waiting_for_their_output_senders() {
+        let running: super::Running = std::sync::Arc::default();
+        // A control close must reap an existing owned engine before returning.
+        let config = baylee_agent::AgentConfig {
+            gateway: "http://127.0.0.1:1".into(),
+            token: "test-placeholder".into(),
+            name: "test".into(),
+            capacity: 1,
+            engine_bin: "/bin/cat".into(),
+        };
+        let pid = owned_child(&running, "game");
+        let (a, b) = tokio::io::duplex(4096);
+        let client = tokio_tungstenite::WebSocketStream::from_raw_socket(
+            a,
+            tokio_tungstenite::tungstenite::protocol::Role::Client,
+            None,
+        )
+        .await;
+        let mut peer = tokio_tungstenite::WebSocketStream::from_raw_socket(
+            b,
+            tokio_tungstenite::tungstenite::protocol::Role::Server,
+            None,
+        )
+        .await;
+        peer.close(None).await.unwrap();
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            super::run(client, &config, &running),
+        )
+        .await
+        .unwrap();
+        assert!(matches!(result, Ok(Ended::Closed) | Err(_)));
+        assert!(running.lock().unwrap().is_empty());
+        assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    }
+
+    /// Session cancellation drops an idle writer even while senders survive.
+    #[tokio::test]
+    async fn cancelling_a_session_cancels_an_idle_writer_with_live_senders() {
+        let (out, mut inbox) = tokio::sync::mpsc::unbounded_channel::<()>();
+        let writer = tokio::spawn(async move { while inbox.recv().await.is_some() {} });
+        let cancellation = writer.abort_handle();
+        let tasks = super::SessionTasks { writer, beat: None };
+        drop(tasks);
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while !cancellation.is_finished() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert!(out.send(()).is_err());
+    }
+
+    /// Cleanup must not affect processes absent from the ownership table.
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn shutdown_reaps_only_owned_children() {
+        let running: super::Running = std::sync::Arc::default();
+        let pid = owned_child(&running, "game");
+        let mut unrelated = tokio::process::Command::new("/bin/sleep")
+            .arg("60")
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(5), super::stop_all(&running))
+            .await
+            .unwrap();
+        let unrelated_alive = unrelated.try_wait().unwrap().is_none();
+        unrelated.kill().await.unwrap();
+        assert!(unrelated_alive);
+        assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    }
 
     /// The control socket is opened with Nagle's algorithm off.
     #[tokio::test]

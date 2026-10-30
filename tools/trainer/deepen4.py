@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import replace
-import hashlib
 import json
 from pathlib import Path
 
 import torch
 
 from checkpoint4 import atomic_save
+from torch_io4 import atomic_json, file_digest
 import model4 as M
 
 
@@ -75,8 +75,7 @@ def deepen_checkpoint(checkpoint: Path, output: Path, layers: int, seed: int = 3
     if not all(torch.isfinite(p).all().item() for p in source.parameters()):
         raise ValueError("Source contains nonfinite parameters")
     deeper, report = deepen_network(source, layers, seed)
-    with checkpoint.open("rb") as stream:
-        source_digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    source_digest = file_digest(checkpoint)
     report.update(source=str(checkpoint.resolve()), source_sha256=source_digest,
                   structure_sha256=deeper.rules.digest,
                   optimizer_and_memory="fresh; use --init, not --resume or --init-state",
@@ -84,7 +83,7 @@ def deepen_checkpoint(checkpoint: Path, output: Path, layers: int, seed: int = 3
     output.mkdir(parents=True, exist_ok=False)
     atomic_save({**contracts, "config": deeper.cfg.to_dict(), "structure": saved["structure"],
                  "state_dict": deeper.state_dict(), "provenance": report}, output / "net.pt")
-    (output / "depth-transfer.json").write_text(json.dumps(report, indent=2) + "\n")
+    atomic_json(output / "depth-transfer.json", report)
     return report
 
 

@@ -26,12 +26,13 @@ import tempfile
 import time
 from pathlib import Path
 
-import numpy as np
 import onnxruntime as ort
 import torch
+from legacy_evaluation import native_metrics
 
 import export_onnx4 as E4
 import model4 as M
+from torch_io4 import atomic_json
 
 
 def bench_gpu_config(
@@ -106,21 +107,18 @@ def bench_gpu_config(
         for _ in range(iters):
             run_step()
         torch.cuda.synchronize(device)
-        elapsed = (time.perf_counter() - t0) / iters
-        peak_mb = torch.cuda.max_memory_allocated(device) / (1024 * 1024)
-        steps_per_sec = (B * U) / elapsed
+        elapsed = time.perf_counter() - t0
         return {
             "status": "ok",
             "d_model": d_model,
             "n_layers": n_layers,
-            "params_m": round(n_params / 1e6, 2),
             "B": B,
             "U": U,
             "K": K,
             "n_tok": n_tok,
-            "peak_vram_mb": round(peak_mb, 1),
-            "step_ms": round(elapsed * 1000.0, 1),
-            "decision_steps_per_s": round(steps_per_sec, 1),
+            **native_metrics("benchmark-resources", mode="t1-training",
+                elapsed=elapsed, iterations=iters, parameters=n_params, batch=B, unroll=U,
+                peak_bytes=torch.cuda.max_memory_allocated(device)),
         }
     except RuntimeError as e:
         if "out of memory" in str(e).lower():
@@ -175,16 +173,13 @@ def bench_cpu_onnx(
             t0 = time.perf_counter()
             sess.run(None, feeds)
             latencies.append((time.perf_counter() - t0) * 1000.0)
-        arr = np.array(latencies)
         return {
             "d_model": d_model,
             "n_layers": n_layers,
             "K": K,
             "n_tok": n_tok,
             "intra_threads": intra_threads,
-            "p50_ms": round(float(np.percentile(arr, 50)), 2),
-            "p95_ms": round(float(np.percentile(arr, 95)), 2),
-            "p99_ms": round(float(np.percentile(arr, 99)), 2),
+            **native_metrics("benchmark-statistics", mode="t1", samples=latencies),
         }
 
 
@@ -231,7 +226,7 @@ def main() -> None:
     if args.out:
         out_p = Path(args.out).expanduser()
         out_p.parent.mkdir(parents=True, exist_ok=True)
-        out_p.write_text(json.dumps(report, indent=2))
+        atomic_json(out_p, report)
         print(f"\n[bench_t1] saved full report to {out_p}")
 
 

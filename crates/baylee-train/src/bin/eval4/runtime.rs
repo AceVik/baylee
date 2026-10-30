@@ -1,9 +1,21 @@
 // Keep game setup, seeds, opponents and fallback handling identical when
 // comparing an archived v3 player with the current v4 implementation.
 trait EvaluationPlayer {
+    fn configure_seats(&mut self, _focal: usize, _teams: &[Option<u8>]) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn controls_seat(&self, seat: usize, focal: usize, teams: &[Option<u8>]) -> bool {
+        is_net_seat(seat, focal, teams)
+    }
     fn reseed(&mut self, seed: u64);
     fn init_game(&mut self, preset: &baylee_core::preset::GamePreset);
     fn uses_context(&self) -> bool {
+        false
+    }
+    fn uses_payment_context(&self) -> bool {
+        false
+    }
+    fn uses_announcement_context(&self) -> bool {
         false
     }
     fn observe(&mut self, view: &baylee_view::PlayerView) -> anyhow::Result<()>;
@@ -14,6 +26,9 @@ trait EvaluationPlayer {
         teams: &[Option<u8>],
     ) -> anyhow::Result<Option<baylee_train::netplay4::Answer4>>;
     fn coverage(&self) -> &CoverageMatrix4;
+    fn fallback_diagnostic(&self) -> Option<&baylee_train::netplay4::FallbackDiagnostic4> {
+        None
+    }
     fn policy_encoding(
         &self,
         _view: &baylee_view::PlayerView,
@@ -28,6 +43,9 @@ trait EvaluationPlayer {
 }
 
 impl EvaluationPlayer for NetPlayer4 {
+    fn fallback_diagnostic(&self) -> Option<&baylee_train::netplay4::FallbackDiagnostic4> {
+        self.last_fallback()
+    }
     fn policy_encoding(
         &self,
         view: &baylee_view::PlayerView,
@@ -47,6 +65,12 @@ impl EvaluationPlayer for NetPlayer4 {
     }
     fn uses_context(&self) -> bool {
         self.is_encoder7()
+    }
+    fn uses_payment_context(&self) -> bool {
+        Self::uses_payment_context(self)
+    }
+    fn uses_announcement_context(&self) -> bool {
+        Self::uses_announcement_context(self)
     }
     fn observe(&mut self, view: &baylee_view::PlayerView) -> anyhow::Result<()> {
         Self::observe(self, view)

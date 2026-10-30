@@ -1,11 +1,29 @@
 use std::borrow::Cow;
 
+use baylee_engine::choice::PlayerAction;
+use baylee_gamehost::record::MindKind;
+
 use super::{
     AuxTargets4, CoverageMatrix4, HeadKind4, Line, MAX_SEATS, Pending, PendingKind4, PlayerId,
     RECORD_VERSION, ReplaySummary, RolloutStepSidecar4, SeatKnowledge4, Session, Source,
     SourceKind4, Step4, StepProvenance4, Targets, TeacherTarget4, encode_candidates7_grouped,
     encode_state7, encode_teacher_action4,
 };
+
+const fn is_client_only_live_action(action: &PlayerAction) -> bool {
+    matches!(
+        action,
+        PlayerAction::PayWindow { .. } | PlayerAction::Concede | PlayerAction::OfferDraw
+    )
+}
+
+fn is_payable_cast(pending: &Pending, action: &PlayerAction) -> bool {
+    matches!(
+        (pending, action),
+        (Pending::Priority { legal, .. }, PlayerAction::CastSpell { card })
+            if legal.payable.contains(card)
+    )
+}
 
 #[allow(
     clippy::too_many_lines,
@@ -38,9 +56,119 @@ pub(super) fn replay_frames_shadow(
     game_id: u32,
     include_passive_obs: bool,
     sidecar: Option<&[RolloutStepSidecar4]>,
-    mut shadow: Option<&mut super::shadow_bc::ShadowBc4>,
-    mut emit: impl FnMut(Step4, i32) -> Result<(), String>,
+    shadow: Option<&mut super::shadow_bc::ShadowBc4>,
+    emit: impl FnMut(Step4, i32) -> Result<(), String>,
 ) -> Result<ReplaySummary, String> {
+    replay_frames_modes(
+        record,
+        game_id,
+        include_passive_obs,
+        sidecar,
+        shadow,
+        None,
+        false,
+        7,
+        emit,
+    )
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "Audited chronological observation and decision replay"
+)]
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::too_many_arguments,
+    reason = "Existing normalized auxiliary values and mode flags"
+)]
+pub(super) fn replay_frames_modes(
+    record: &[u8],
+    game_id: u32,
+    include_passive_obs: bool,
+    sidecar: Option<&[RolloutStepSidecar4]>,
+    shadow: Option<&mut super::shadow_bc::ShadowBc4>,
+    llm: Option<&mut super::llm_bc::LlmBc4>,
+    live_bc: bool,
+    encoder_version: u32,
+    emit: impl FnMut(Step4, i32) -> Result<(), String>,
+) -> Result<ReplaySummary, String> {
+    let replay = replay_feature_frames(
+        record,
+        game_id,
+        include_passive_obs,
+        sidecar,
+        shadow,
+        llm,
+        live_bc,
+        encoder_version,
+        FeaturePurpose::Ordinary,
+        emit,
+    )?;
+    Ok(ReplaySummary {
+        coverage: replay.coverage,
+        unencoded_decisions: replay.unencoded_decisions,
+        targets: replay
+            .targets
+            .ok_or("ordinary replay lacks a verified natural terminal")?,
+    })
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Explicit feature replay mode retains existing observation ordering"
+)]
+pub(super) fn replay_research_frames(
+    record: &[u8],
+    game_id: u32,
+    sidecar: &[RolloutStepSidecar4],
+    encoder: u32,
+    natural: bool,
+    emit: impl FnMut(Step4, i32) -> Result<(), String>,
+) -> Result<super::streaming::FeatureReplaySummary, String> {
+    replay_feature_frames(
+        record,
+        game_id,
+        true,
+        Some(sidecar),
+        None,
+        None,
+        false,
+        encoder,
+        FeaturePurpose::Research { natural },
+        emit,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum FeaturePurpose {
+    Ordinary,
+    Research { natural: bool },
+}
+
+#[allow(
+    clippy::too_many_lines,
+    clippy::too_many_arguments,
+    clippy::cast_precision_loss,
+    reason = "Shared chronological feature replay; only explicit research prefix mode omits natural targets"
+)]
+fn replay_feature_frames(
+    record: &[u8],
+    game_id: u32,
+    include_passive_obs: bool,
+    sidecar: Option<&[RolloutStepSidecar4]>,
+    mut shadow: Option<&mut super::shadow_bc::ShadowBc4>,
+    mut llm: Option<&mut super::llm_bc::LlmBc4>,
+    live_bc: bool,
+    encoder_version: u32,
+    purpose: FeaturePurpose,
+    mut emit: impl FnMut(Step4, i32) -> Result<(), String>,
+) -> Result<super::streaming::FeatureReplaySummary, String> {
+    if !matches!(encoder_version, 7..=9) {
+        return Err("Unsupported encoder version".into());
+    }
+    if encoder_version == 9 && (shadow.is_some() || llm.is_some()) {
+        return Err("Encoder9 shadow and LLM labels are not supported".into());
+    }
     let mut lines = record
         .split(|&b| b == b'\n')
         .filter(|l| !l.is_empty())
@@ -82,11 +210,17 @@ pub(super) fn replay_frames_shadow(
     let mut winners: Option<Vec<u8>> = None;
     let mut final_turn: u32 = 1;
     let mut input_idx: usize = 0;
+    let mut seat_minds: [Option<MindKind>; MAX_SEATS] = [None; MAX_SEATS];
 
     for line in lines {
         match line? {
             Line::Header { .. } => return Err("second header in record".to_owned()),
-            Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            Line::Chair { .. } => {}
+            Line::DeclaredMind { seat, mind, .. } => {
+                if (seat as usize) < MAX_SEATS {
+                    seat_minds[seat as usize] = Some(mind.kind);
+                }
+            }
             Line::Input {
                 seat: seat_u8,
                 by,
@@ -95,8 +229,12 @@ pub(super) fn replay_frames_shadow(
                 ..
             } => {
                 let seat = PlayerId::new(seat_u8);
-                if action.is_automation_setting() {
+                if action.is_automation_setting()
+                    || (live_bc
+                        && matches!(action, PlayerAction::Concede | PlayerAction::OfferDraw))
+                {
                     let _ = session.act(seat, action);
+                    final_turn = session.state().turn.number;
                     continue;
                 }
                 let cur_sidecar = if matches!(by, Source::Seat) {
@@ -110,17 +248,42 @@ pub(super) fn replay_frames_shadow(
                     None
                 };
 
-                let (pending, view) = session
-                    .view_for_with_context(seat)
-                    .ok_or_else(|| format!("seat {seat:?} was not owed a question"))?;
+                let pending_view = if encoder_version == 9 {
+                    session.view_for_with_announcement_context(seat)
+                } else if encoder_version == 8 {
+                    session.view_for_with_payment_context(seat)
+                } else {
+                    session.view_for_with_context(seat)
+                };
+                let (pending, view) =
+                    pending_view.ok_or_else(|| format!("seat {seat:?} was not owed a question"))?;
 
                 // Diagnostic decision-only conversion is not a recurrent training dataset.
                 if !include_passive_obs {
-                    knowledge[seat_u8 as usize].observe(&view);
+                    if encoder_version == 9 {
+                        knowledge[seat_u8 as usize].observe_with_announcement_context(&view);
+                    } else if encoder_version == 8 {
+                        knowledge[seat_u8 as usize].observe_with_payment_context(&view);
+                    } else {
+                        knowledge[seat_u8 as usize].observe(&view);
+                    }
                 }
 
                 let p_kind = PendingKind4::of(&pending);
-                let step_loss_weight = 1.0_f32;
+                let step_loss_weight = if live_bc {
+                    if matches!(by, Source::Seat)
+                        && matches!(
+                            seat_minds[seat_u8 as usize],
+                            Some(MindKind::Human | MindKind::LlmApi | MindKind::LlmCli)
+                        )
+                    {
+                        super::idle_pass::live_weight(&pending, &view, &action)
+                    } else {
+                        0.0_f32
+                    }
+                } else {
+                    1.0_f32
+                };
 
                 // Every seat observes the pre-action state, including the acting seat.
                 // Decisions consume this memory; they never update it again.
@@ -130,11 +293,29 @@ pub(super) fn replay_frames_shadow(
                             Cow::Borrowed(&view)
                         } else {
                             let other_pid = PlayerId::new(other_idx as u8);
-                            Cow::Owned(session.observe_view_with_context(other_pid))
+                            Cow::Owned(if encoder_version == 9 {
+                                session.observe_view_with_announcement_context(other_pid)
+                            } else if encoder_version == 8 {
+                                session.observe_view_with_payment_context(other_pid)
+                            } else {
+                                session.observe_view_with_context(other_pid)
+                            })
                         };
-                        if knowledge[other_idx].observe(&other_v) {
-                            let st =
-                                encode_state7(&other_v, None, Some(&knowledge[other_idx]), &teams);
+                        let changed = if encoder_version == 9 {
+                            knowledge[other_idx].observe_with_announcement_context(&other_v)
+                        } else if encoder_version == 8 {
+                            knowledge[other_idx].observe_with_payment_context(&other_v)
+                        } else {
+                            knowledge[other_idx].observe(&other_v)
+                        };
+                        if changed {
+                            let st = encode_selected_state(
+                                encoder_version,
+                                &other_v,
+                                None,
+                                Some(&knowledge[other_idx]),
+                                &teams,
+                            );
                             let cur_life = other_v.seats.get(other_idx).map_or(20, |s| s.life);
                             let sc = seat_cursors[other_idx];
                             seat_cursors[other_idx] += 1;
@@ -166,6 +347,7 @@ pub(super) fn replay_frames_shadow(
                                         ..StepProvenance4::default()
                                     },
                                     shadow_label: None,
+                                    llm_label: None,
                                 },
                                 cur_life,
                             )?;
@@ -173,7 +355,8 @@ pub(super) fn replay_frames_shadow(
                     }
                 }
 
-                let state = encode_state7(
+                let state = encode_selected_state(
+                    encoder_version,
                     &view,
                     Some(&pending),
                     Some(&knowledge[seat_u8 as usize]),
@@ -188,26 +371,67 @@ pub(super) fn replay_frames_shadow(
                     HeadKind4::ScalarValue => cands.max_choices <= cands.min_choices,
                 };
 
-                if is_forced {
+                let llm_label = if matches!(by, Source::Seat) {
+                    llm.as_deref_mut()
+                        .map(|labels| labels.input(input_n, seat_u8, &action, is_forced))
+                        .transpose()?
+                        .flatten()
+                } else {
+                    None
+                };
+
+                if is_forced
+                    || (llm.is_some()
+                        && matches!(action, baylee_engine::choice::PlayerAction::Concede))
+                {
                     if shadow
                         .as_ref()
                         .is_some_and(|labels| labels.has_label(input_n))
                     {
                         return Err("Shadow label attached to a forced decision".into());
                     }
-                    coverage.record(p_kind, SourceKind4::Forced);
-                } else if let Some(mut target) = encode_teacher_action4(&cands, &pending, &action) {
+                    coverage.record(
+                        p_kind,
+                        if is_forced {
+                            SourceKind4::Forced
+                        } else {
+                            SourceKind4::External
+                        },
+                    );
+                } else if let Some(mut target) = if llm.is_some()
+                    || cur_sidecar.is_some_and(|entry| entry.provenance.source == SourceKind4::Net)
+                {
+                    crate::features4::encode_executed_action4(&cands, &pending, &action)
+                } else {
+                    encode_teacher_action4(&cands, &pending, &action)
+                } {
                     let default_src = match by {
                         Source::Seat => SourceKind4::Net,
                         _ => SourceKind4::House,
                     };
                     let mut prov = if let Some(sc_entry) = cur_sidecar {
-                        if !sc_entry.free_mask.is_empty()
+                        if matches!(purpose, FeaturePurpose::Research { .. }) {
+                            if sc_entry.free_mask.len() != target.multi_mask.len()
+                                || sc_entry.free_mask.iter().any(|&bit| bit > 1)
+                                || sc_entry
+                                    .pick_sequence
+                                    .iter()
+                                    .any(|&pick| usize::from(pick) >= target.multi_mask.len())
+                            {
+                                return Err(
+                                    "research original action mask/sequence is incompatible".into(),
+                                );
+                            }
+                            target.free_mask.clone_from(&sc_entry.free_mask);
+                            target.pick_sequence.clone_from(&sc_entry.pick_sequence);
+                        } else if !sc_entry.free_mask.is_empty()
                             && sc_entry.free_mask.len() == target.multi_mask.len()
                         {
                             target.free_mask.clone_from(&sc_entry.free_mask);
                         }
-                        if !sc_entry.pick_sequence.is_empty() {
+                        if matches!(purpose, FeaturePurpose::Ordinary)
+                            && !sc_entry.pick_sequence.is_empty()
+                        {
                             target.pick_sequence.clone_from(&sc_entry.pick_sequence);
                         }
                         sc_entry.provenance
@@ -222,6 +446,22 @@ pub(super) fn replay_frames_shadow(
                     };
                     let mut policy_weight = step_loss_weight;
                     let mut shadow_label = None;
+                    if llm.is_some() {
+                        policy_weight = if llm_label.is_some() {
+                            super::idle_pass::llm_weight(&pending, &view, &action)
+                        } else {
+                            0.0_f32
+                        };
+                        prov.source = if matches!(by, Source::Seat) {
+                            SourceKind4::External
+                        } else {
+                            SourceKind4::House
+                        };
+                        prov.temperature = 0.0;
+                        prov.thinking_steps = 0;
+                        prov.has_logprob = false;
+                        prov.behavior_logprob = 0.0;
+                    }
                     if let Some(labels) = shadow.as_deref_mut() {
                         let original_provenance = prov;
                         policy_weight = 0.0;
@@ -296,9 +536,14 @@ pub(super) fn replay_frames_shadow(
                             aux: AuxTargets4::default(),
                             provenance: prov,
                             shadow_label,
+                            llm_label,
                         },
                         cur_life,
                     )?;
+                } else if live_bc
+                    && (is_client_only_live_action(&action) || is_payable_cast(&pending, &action))
+                {
+                    coverage.record(p_kind, SourceKind4::Forced);
                 } else {
                     eprintln!(
                         "[convert4] UNENCODED game_id={game_id} kind={p_kind:?} head={:?} cands={} pairs={} action={action:?} pending={pending:?}",
@@ -331,11 +576,15 @@ pub(super) fn replay_frames_shadow(
         labels.finish()?;
     }
 
-    let Some(winners) = winners else {
+    if let Some(labels) = llm {
+        labels.finish()?;
+    }
+
+    if winners.is_none() && !matches!(purpose, FeaturePurpose::Research { natural: false }) {
         return Err("record has no End line".to_owned());
-    };
-    if !matches!(session.pending(), Pending::GameOver(_)) {
-        return Err("record ended before Pending::GameOver".to_owned());
+    }
+    if winners.is_some() != matches!(session.pending(), Pending::GameOver(_)) {
+        return Err("record terminal marker differs from Pending::GameOver".to_owned());
     }
 
     // Compute final life totals and surviving seats for side_utility + AuxTargets4
@@ -350,17 +599,36 @@ pub(super) fn replay_frames_shadow(
         }
     }
 
-    Ok(ReplaySummary {
+    Ok(super::streaming::FeatureReplaySummary {
         coverage,
         unencoded_decisions,
-        targets: Targets::new(
-            seat_count,
-            &teams,
-            &surviving_seats,
-            &winners,
-            final_turn,
-            final_lives,
-            session.snapshot_hash(),
-        ),
+        targets: winners.map(|winners| {
+            Targets::new(
+                seat_count,
+                &teams,
+                &surviving_seats,
+                &winners,
+                final_turn,
+                final_lives,
+                session.snapshot_hash(),
+            )
+        }),
+        snapshot_hash: session.snapshot_hash(),
     })
+}
+
+fn encode_selected_state(
+    encoder: u32,
+    view: &baylee_view::PlayerView,
+    pending: Option<&Pending>,
+    knowledge: Option<&SeatKnowledge4>,
+    teams: &[Option<u8>],
+) -> crate::features4::EncodedState4 {
+    if encoder == 9 {
+        crate::features9::encode_state9(view, pending, knowledge, teams)
+    } else if encoder == 8 {
+        crate::features8::encode_state8(view, pending, knowledge, teams)
+    } else {
+        encode_state7(view, pending, knowledge, teams)
+    }
 }

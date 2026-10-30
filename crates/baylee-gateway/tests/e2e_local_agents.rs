@@ -198,14 +198,26 @@ async fn a_game_ordered_from_an_agent_on_the_unix_socket_is_a_local_one() {
     assert_eq!(health["games"]["running"], 1, "{health}");
     assert_eq!(health["games"]["local_running"], 1, "{health}");
 
-    // The same machine's agent going away does not make its game anyone
-    // else's: a deploy stops the agent first and still waits for this one.
+    // Losing the owner closes its assignment, even while this mock engine's
+    // socket remains open. Graceful maintenance must drain before stopping
+    // the agent; it cannot leave these games behind to drain afterwards.
     drop(agent);
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-    let (_, body) = http(port, "GET", "/health", None, "");
-    let health: serde_json::Value = serde_json::from_str(&body).expect("json");
+    let health = tokio::time::timeout(common::WAIT_BUDGET, async {
+        loop {
+            let (status, body) = http(port, "GET", "/health", None, "");
+            assert_eq!(status, 200, "{body}");
+            let health: serde_json::Value = serde_json::from_str(&body).expect("json");
+            if health["agents"]["connected"] == 0 && health["games"]["running"] == 0 {
+                break health;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("owner loss releases the local game before the deadline");
     assert_eq!(health["agents"]["connected"], 0, "{health}");
-    assert_eq!(health["games"]["local_running"], 1, "{health}");
+    assert_eq!(health["games"]["local_running"], 0, "{health}");
+    let _ = engine.close(None).await;
     let _ = std::fs::remove_file(&path);
 }
 

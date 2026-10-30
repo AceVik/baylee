@@ -350,11 +350,16 @@ fn main() -> anyhow::Result<()> {
     let encoder = meta["encoder_version"]
         .as_u64()
         .context("encoder version")?;
+    anyhow::ensure!(
+        !matches!(encoder, 8 | 9),
+        "Encoders 8 and 9 require versioned offline observation ordering; use eval4, not legacy arena"
+    );
     let known = [
         u64::from(baylee_train::features::ENCODER_VERSION),
         u64::from(baylee_train::features3::VERSION),
         u64::from(baylee_train::features4::ENCODER_VERSION),
         u64::from(baylee_train::features7::ENCODER_VERSION7),
+        8,
     ];
     if !known.contains(&encoder) {
         bail!("the model reads encoder v{encoder}; this build writes {known:?}");
@@ -367,6 +372,7 @@ fn main() -> anyhow::Result<()> {
         .collect();
     if encoder == u64::from(baylee_train::features4::ENCODER_VERSION)
         || encoder == u64::from(baylee_train::features7::ENCODER_VERSION7)
+        || encoder == 8
     {
         if outputs != baylee_train::netplay4::OUTPUT_NAMES {
             bail!(
@@ -480,6 +486,7 @@ fn main() -> anyhow::Result<()> {
         std::thread::spawn(move || {
             let loaded = if encoder == u64::from(baylee_train::features4::ENCODER_VERSION)
                 || encoder == u64::from(baylee_train::features7::ENCODER_VERSION7)
+                || encoder == 8
             {
                 baylee_train::netplay4::NetPlayer4::load(&model).map(|n| Net::V4(Box::new(n)))
             } else if encoder == u64::from(baylee_train::features3::VERSION) {

@@ -824,6 +824,31 @@ the window and not on the suspended resolution, which holds the price for the
 whole of the yes-or-no question too — reading the operation alone reports a
 debt while the seat is still deciding whether to take one.
 
+### Announced spell context for native training
+
+An additional **experimental native-only** projection is available through
+`Session::view_for_with_announcement_context` and its passive counterpart
+`observe_view_with_announcement_context`. It extends the payment projection
+with optional `PlayerView.announced_x`, the settled X of the current spell
+announcement. Absence means X is not yet settled or there is no announcement;
+`0` is an explicitly settled zero (including X fixed at zero by the casting
+cost). The source is `announced_cast`. Only its resource owner and authorized
+CR 720 controller receive these facts. Commit, cancellation and reversal clear
+the context; suspended miracle and nested mana windows retain it. This is
+observation, not permission to cancel, and makes no affordability promise.
+Existing payment/default/socket methods leave `announced_x` absent, so their
+serialized bytes and observation contracts are unchanged. No wire capability,
+encoder revision or model consumption is introduced by this projection.
+
+`PlayerView::announced_cast` is an optional, owner-only spell identity used by
+the opt-in native payment-context projection. It survives a nested mana ability
+asking for a color. It does not authorize `CancelCast`: `casting` retains that
+separate meaning and can be absent while `announced_cast` is present. Default
+and archived projections omit the field; it defaults to `None` when reading
+older views. This additive field does not change view version 82. The live
+socket has no payment-context capability yet, so encoder 8 must refuse live
+deployment until that capability is implemented and checked.
+
 ## How long a seat has left (view version 25)
 
 The decision clock has run since the engine moved into a process of its own,
@@ -1764,6 +1789,18 @@ nowhere else, so a link that closes before `GameEnded` is a game that cannot be
 continued; the gateway marks it over rather than leaving a table that will
 never move again.
 
+Engine ownership also has transport deadlines. An ordered engine must attach
+within 30 seconds; an exit before its hello or a failed setup closes that
+assignment and releases its agent's capacity. After attachment, an agent's
+exit notice does not overtake the engine socket's final record and `GameEnded`.
+Status notices are accepted only for games assigned to that agent connection.
+An agent silent for 90 seconds loses its control connection. Losing that
+connection closes its games and replay jobs; the agent stops and reaps its
+own children before redialling. There is no transfer of engines to the new
+agent identity. SIGTERM and Ctrl-C likewise stop and reap those children.
+These are engine/agent lifetimes, separate from a player's reconnect and
+24-hour paused-game hold below.
+
 ### The game record (#315)
 
 Every game an engine plays is written down whole: the preset it was built
@@ -1899,9 +1936,12 @@ reader of that spelling. The secrets are unchanged: the socket's permissions
 are a second fence, not a replacement for `BAYLEE_AGENT_TOKEN`.
 
 An agent that came in on the socket is **local**, and so is every game it is
-ordered to run; the game keeps that mark after its agent has gone. `/health`
-counts them apart as `games.local_running`, because that is what a deploy of
-this machine waits for (`baylee-deploy`, crate baylee-ops): replacing this
+ordered to run; the game keeps that provenance after its agent has gone.
+Losing the agent's control link closes its assignments, and the agent stops
+and reaps its engines before reconnecting. `/health` counts only still-running
+local games in `games.local_running`. A graceful deploy or reboot must hold
+new admission and drain those games **before** stopping their agent. Stopping
+the agent is not a way to drain games without interruption. Replacing this
 machine's agent and engine binary does not end a game an agent elsewhere is
 running. Replacing the gateway still ends every game, local or not, since
 every engine's link runs through it.

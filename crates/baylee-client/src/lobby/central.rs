@@ -198,6 +198,9 @@ pub(super) struct State {
     /// guests too (`auth_mode` `mixed`): Central's form offers it beside the
     /// sign-in ([`guest_instead`]).
     guest_door: Option<Registration>,
+    /// A `baylee:` link opened this sign-in (`lobby::links`): `‹` goes back
+    /// to the device's gateways, as from a gateway that asked for it.
+    linked: bool,
     /// Central's own terms wait for the signed-in account: their sheet is
     /// up before any gateway, nothing is admitted or synced (Central
     /// refuses tickets and writes until they are accepted).
@@ -226,6 +229,7 @@ pub(super) fn enable(state: &mut LobbyState) {
         chat_unlock: Arc::new(Mutex::new(None)),
         bound: None,
         guest_door: None,
+        linked: false,
         terms_pending: false,
     });
     state.gateway_selected = false;
@@ -237,9 +241,26 @@ pub(super) fn enable(state: &mut LobbyState) {
 }
 
 impl State {
-    /// The gateway that asked for this sign-in, if one did.
-    pub(super) fn bound_gateway(&self) -> Option<&str> {
-        self.bound.as_deref()
+    /// Whether `‹` leads back from this sign-in to the device's gateways:
+    /// a gateway asked for it, or a link opened it.
+    pub(super) fn has_way_back(&self) -> bool {
+        self.bound.is_some() || self.linked
+    }
+}
+
+/// A `baylee:` link asks for Central's sign-in (`lobby::links`): the form
+/// the official gateway would open, with `‹` back to the device's own
+/// gateways and no gateway entered afterwards; the account's list is shown
+/// instead. Nothing when Central is on already.
+pub(super) fn from_link(state: &mut LobbyState) {
+    if state.central.is_some() {
+        return;
+    }
+    let probes = std::mem::take(&mut state.probes);
+    enable(state);
+    state.probes = probes;
+    if let Some(central) = &mut state.central {
+        central.linked = true;
     }
 }
 
@@ -293,15 +314,11 @@ pub(super) fn guest_instead(state: &mut LobbyState) -> bool {
     true
 }
 
-/// Back from Central's sign-in that a gateway asked for: Central is off
-/// again and the device's own gateways are back. Central turned on without
-/// a gateway has no way back.
+/// Back from Central's sign-in that a gateway (or a link) asked for:
+/// Central is off again and the device's own gateways are back. Central
+/// turned on without either has no way back.
 pub(super) fn leave(state: &mut LobbyState) {
-    if state
-        .central
-        .as_ref()
-        .is_some_and(|central| central.bound.is_some())
-    {
+    if state.central.as_ref().is_some_and(State::has_way_back) {
         close(state);
     }
 }
@@ -641,6 +658,32 @@ pub(super) fn logout(state: &mut LobbyState, prefs: &mut crate::prefs::Prefs) {
     state.offline = None;
     prefs.detach_central();
     close(state);
+}
+
+/// Central signed in with `gateways` as the account's list, as a restore
+/// leaves it, for tests of what follows a sign-in.
+#[cfg(test)]
+pub(super) fn restored_for_test(state: &mut LobbyState, gateways: Vec<String>) {
+    if state.central.is_none() {
+        enable(state);
+    }
+    let (send, _receive) = mpsc::sync_channel::<Job>(4);
+    let restored = Restored {
+        handle: Handle {
+            send,
+            active: Arc::new(AtomicBool::new(true)),
+        },
+        gateways,
+        preferences: Preferences::default(),
+        chat_unlock: None,
+        terms_pending: false,
+    };
+    receive(
+        state,
+        &mut crate::prefs::Prefs::default(),
+        &Mailbox::default(),
+        Ok(Box::new(restored)),
+    );
 }
 
 #[cfg(test)]

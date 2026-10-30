@@ -87,6 +87,18 @@ class TinyDataset:
 
 
 class ValueCalibration(unittest.TestCase):
+    def test_native_cached_features_reuses_sealed_records_without_reextracting(self):
+        from value_calibration4.extract import cached_features
+        with tempfile.TemporaryDirectory() as directory:
+            dataset=TinyDataset(16)
+            dataset.fingerprint='fixture-data'
+            dataset.structure=self.net.rules
+            cache=cached_features(self.net,dataset,directory,'source',64,2,0,100)
+            with patch('value_calibration4.extract.extract',side_effect=AssertionError('unexpected re-extraction')):
+                reused=cached_features(self.net,dataset,directory,'source',64,2,0,100)
+            self.assertEqual(cache.path,reused.path)
+            self.assertEqual(cache.indices.tolist(),reused.indices.tolist())
+
     def setUp(self):
         torch.set_num_threads(1)
         torch.manual_seed(91)

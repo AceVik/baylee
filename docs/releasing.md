@@ -171,8 +171,9 @@ push run of the tagged commit green (§"Cutting one").
 | main push (docs only) | fmt, test ×2 (tests read docs); not taggable |
 | pull request | fmt, and as their inputs changed: clippy, test ×2, shipped-features, validate, deny, web-feedback |
 | pull request labelled `ci:full`, or changing CI | as a main push (its packages are never promotable) |
-| nightly | as a main push without packages, plus the five-platform `build` matrix (every binary on Linux x86_64, the client elsewhere, the three servers also on Linux arm64) |
+| nightly | as a main push without packages, plus the five-platform `build` matrix (every binary but the training crates' on Linux x86_64, the client elsewhere, the three servers also on Linux arm64) |
 | `workflow_dispatch` | `full` (default on) as a main push; `platforms` adds the matrix |
+| any, touching only the training area (`crates/baylee-train/`, `crates/baylee-train-ops/`, `tools/trainer/`) | nothing: it is checked locally, never by CI (owner, 30.10.2026) |
 
 Current client releases support Windows, macOS and Linux. Android, iOS and
 browser/wasm are **coming soon** (owner, 24.10.2026). Their target-specific
@@ -193,10 +194,19 @@ The same job validates the exact dependency scope of the reviewed
 `git diff --name-only origin/main | cargo dev ci-changes`). Every job has a
 `timeout-minutes` of about 1.5× its measured p95. The debug suite runs in two
 nextest partitions (`--partition count:i/2`), each compiling for itself.
-The owner excluded offline neural-training tests from both CI test profiles on
-24.10.2026 (`--exclude baylee-train`). The engine, house AI and gamehost remain
-covered. Trainer Rust/Python checks stay available on the training workstation;
-the local full gate still includes the trainer. CI continues to compile/lint it.
+The training crates are not CI's. The owner on 30.10.2026: „Der ganze train
+Bereich gehört nicht in die CI, das ist nur um lokal die Tests etc. aus zu
+führen" (on 24.10.2026 it was `baylee-train`'s tests alone). Every CI cargo
+job, `shipped-features`' feature tree included, passes
+`--exclude baylee-train --exclude baylee-train-ops`, so CI neither tests,
+lints nor builds them. `xtask` still links `baylee-train` without `play` for
+card validation (`working`, `cardwalk`, `housedeck`), so `validate` compiles
+that library; #404 moves those modules out. The training crates are checked
+locally: the local full gate (`cargo dev gate`, and so `cargo dev land`)
+still runs their clippy and tests. A change to the training area alone runs
+no CI job (`cargo dev ci-changes`); `deny` and `audit` still read the whole
+`Cargo.lock`, the training crates' dependencies included. The engine, house AI
+and gamehost remain covered in CI.
 
 Measured before this layout (30 main pushes and 31 PRs, 06.–08.10.2026,
 minutes; queueing was under 3 min at p95):
@@ -257,8 +267,14 @@ cores, 64 GB) instead of GitHub's three-core macOS image. While the
 repository variable `MACOS_RUNNER` is `self-hosted`, a **push to main** (or a
 dispatch, which only someone with write access can start) sends them to the
 label `baylee-vm`. Every other run, a `ci:full` pull request included, and
-the other macOS job (the nightly `build` row) stays on GitHub; with the
-variable unset, nothing differs from before.
+the other macOS job (the nightly `build` row) stays on GitHub; with any
+other value, nothing differs from before.
+
+Since 30.10.2026 the variable is `github` (owner): with GitHub Pro's larger
+cache the rows no longer start cold, and the runner's cargo lock had kept
+every land waiting behind both packages of each main push (two hours on
+29.10). The runner stays installed and idle, a switch back is
+`gh variable set MACOS_RUNNER --body self-hosted`.
 
 Measured over ten main pushes (20.–21.10.2026, minutes), GitHub's rows took
 32–88 (aarch64) and 42–82 (x86_64), 27–54 of it the `dist` build with
@@ -303,15 +319,16 @@ Each job runs in a throwaway Tart VM (`crates/baylee-runner`):
   the lock. The LaunchAgent allows 180 seconds for shutdown. A failed GitHub
   busy-status lookup is unknown, not evidence that a running job is idle;
   the three-hour absolute limit still applies.
-- **One VM at a time.** macOS allows two per Mac, and the runner can run
-  both packages side by side (`Settings::max_vms`), but that buys nothing
-  here: both VMs have 8 vCPUs on a Mac with ten cores, so in run 40950996798
-  each dist build took 46 minutes instead of about 22, and both packages were
-  done after 68 minutes against 70 one after the other. Since 30.10.2026 the
-  runner starts one VM at a time (owner). With two, each VM waits for the one
-  before it to reach the network or give up: two started together both stayed
-  offline for twelve minutes, while the second one, started once the first
-  reached github.com, had the network in two seconds (measured 29.10.2026).
+- **One VM, or two.** macOS allows two per Mac, and the runner can run
+  both packages side by side (`Settings::max_vms`, 1 since 30.10.2026). Two
+  are faster: three main pushes on 30.10.2026 had both packages done after
+  43–44 minutes, against 70 one after the other (run 40884505445). A first
+  two-VM run took 68 (40950996798), while the disk was filling up; the owner
+  chose one VM on that number, before the others were in. With two, each VM
+  waits for the one before it to reach the network or give up: two started
+  together both stayed offline for twelve minutes, while the second one,
+  started once the first reached github.com, had the network in two seconds
+  (measured 29.10.2026).
 - **Release trust.** The macOS archives a release promotes were built on that
   Mac. `release verify-run` checks that they come from a main push run, not
   where the run built them.
@@ -604,6 +621,23 @@ package's launcher, which an older launcher would otherwise refuse as a
 second instance; the launcher hands its stdin to the runtime, as every
 shipped one does.
 
+**Links from the website** (`docs/client.md` §"Links from the website")
+changed the launcher once, in the 30.10.2026 packages: a second launcher
+whose arguments hold a `baylee:` link no longer refuses at the lifetime
+lock (or the entry lock of a launcher still starting) but hands the link
+to the running client's door (`baylee_update::link`) and ends. The door's
+frame is frozen like the rest of the launcher's protocol. Every package
+also claims the scheme (the bundle's `CFBundleURLTypes`, the setup's
+`HKCU\Software\Classes\baylee`, the desktop entry's
+`MimeType=x-scheme-handler/baylee;`), and `check-installers` checks each.
+Neither arrives through an update: a player gets links by installing a
+new package by hand once. On macOS a downloaded generation is a whole
+`Baylee.app` with the same `Info.plist`; LaunchServices registers it when
+it runs. A spike on 30.10.2026 found the original bundle preferred when
+both claim the scheme; an original from before that date claims none, so
+until it is replaced a link may start the generation's launcher, which
+then keeps a state directory of its own.
+
 The old rename journal code remains for explicit legacy recovery. Rollback
 has a persisted direction and progress; failed reverse renames retain the
 journal and required files, and neither staging nor a new legacy transaction
@@ -624,11 +658,12 @@ platform security dialogs, or the macOS bundle's runtime behavior.
 
 The server deploys itself: a timer runs `baylee-deploy watch` every minute
 (crate baylee-ops, run by `scripts/server/baylee-deploy.service` and `.timer`), stages the newest
-`v*` tag the first time it sees one, swaps agent and engine at once and the
-gateway once no game of this machine is running;
+`v*` tag the first time it sees one, holds admission while the owner agent
+keeps playing, and replaces the agent, engine and gateway only after no game
+of this machine is running;
 `BAYLEE_DEPLOY_HOST=user@host cargo dev deploy [--force]` does the same for a
 commit by hand (the repository names no server; the host is the operator's).
-`crates/baylee-ops/src/deploy.rs` describes the two halves. A server still
+`crates/baylee-ops/src/deploy/mod.rs` describes the two halves. A server still
 running the shell script from before 20.10.2026 takes its next deploy by hand
 (`docs/dev-tools.md` §"Tests").
 
@@ -636,8 +671,19 @@ An operator can run local programs at three fixed points of that deploy
 (`prepare`, `before-switch`, `after-switch`) to keep another service on the
 same machine in lockstep, and can require release tags to be signed by a key
 of their choosing: `docs/deploy-hooks.md` is the contract, including the
-admission hold (`BAYLEE_ADMISSION_HOLD`) a deploy with hooks drains every
-agent's games under, and the dispatcher's exit codes.
+admission hold (`BAYLEE_ADMISSION_HOLD`) every graceful deploy requires,
+the wider drain of every agent's games when hooks run, and the dispatcher's
+exit codes. A missing or unverified hold leaves the owner running and the
+release staged. `--force` explicitly skips the drain and may end games.
+When upgrading an installation whose deployer still stops the owner during
+staging, install the corrected ops commands before invoking a deploy, or
+hold admission and drain manually first. An old running deployer cannot
+acquire the corrected ordering merely by building the new release.
+
+The reboot timer uses the same admission setting. It keeps the owner alive
+through the drain, verifies a fresh held-admission health response before
+rebooting, and releases only its own hold when the night window closes.
+An existing hold from another operation is never adopted or removed.
 
 ### What the server builds with
 

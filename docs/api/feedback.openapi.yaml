@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: Baylee feedback service
-  version: 0.1.1-beta.9a
+  version: 0.1.1-beta.9b
   description: "The service that keeps what players report: gateways pass reports on with their intake tokens, clients signed in nowhere send their own, and admins read and triage them, with tokens or in the service's web UI. The UI's admin pages also reach one gateway's admin console through it, and the landing page posts its contact form and fetches its Impressum here. Every JSON answer is `Cache-Control: no-store`; a refusal is an `ErrorBody`."
   license:
     name: AGPL-3.0-only

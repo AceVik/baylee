@@ -117,9 +117,9 @@ struct AppState {
     trusted_proxies: Vec<IpAddr>,
     /// Every agent connected right now, and the games each was asked to run.
     ///
-    /// Nothing here is persisted: an agent that reconnects is a new agent, and
-    /// a game whose agent went away is a game whose engine either reports its
-    /// own end or stops existing.
+    /// Nothing here is persisted: an agent that reconnects is a new agent.
+    /// Losing its control link closes its old game assignments; the agent
+    /// stops and reaps those engines before reconnecting.
     agents: Mutex<engine::Agents>,
     /// The server metrics the admin console shows (`metrics.rs`): an hour
     /// of samples in memory, and the public routes' request counter.

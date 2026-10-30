@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: Baylee gateway
-  version: 0.1.1-beta.9a
+  version: 0.1.1-beta.9b
   description: "A Baylee gateway: accounts, decks, the lobby, and the games its agents host. The gateway runs no rules; a game's engine speaks to its seats over the WebSocket routes, which this document lists but does not describe frame by frame (`docs/protocol.md`)."
   license:
     name: AGPL-3.0-only

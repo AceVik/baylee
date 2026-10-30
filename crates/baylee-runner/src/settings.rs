@@ -28,10 +28,10 @@ pub struct Settings {
     pub job_cap: Duration,
     /// Jobs run side by side, at most the two VMs macOS allows. Each VM starts
     /// once the one before it reached the network: two started together both
-    /// stayed offline for twelve minutes (29.10.2026). One by default: two
-    /// VMs of `vm_cpus` 8 share this Mac's ten cores, and both packages took
-    /// 68 minutes side by side against 70 one after the other (run
-    /// 40950996798); the owner chose one VM on 30.10.2026.
+    /// stayed offline for twelve minutes (29.10.2026). One by default since
+    /// 30.10.2026 (owner), though two are faster: both packages took 43–44
+    /// minutes side by side against 70 one after the other
+    /// (`docs/releasing.md` §"The macOS runner").
     pub max_vms: usize,
     /// vCPUs assigned by `prepare`.
     pub vm_cpus: usize,

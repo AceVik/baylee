@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "xtask"]
 
 [workspace.package]
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 edition = "2024"
 # Central's reviewed native authentication SDK requires Rust 1.99.
 # CI reads this version rather than repeating a lower renderer-only floor.
@@ -89,6 +89,8 @@ syn = { version = "3", features = ["full", "visit"] }
 proc-macro2 = { version = "1", features = ["span-locations"] }
 # Native maintenance/asset tools, independent of the renderer.
 regex = "1"
+icu_casemap = "=2.3.0"
+csv = "1"
 ctrlc = "3"
 tempfile = "3"
 ab_glyph = "0.2.32"

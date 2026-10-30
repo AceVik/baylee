@@ -143,7 +143,7 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
     memory; their TemporaryDirectory is retained by the dataset for its lifetime.
     Teacher-only trajectories are removed from the in-memory sampler list only.
     """
-    from dataset_contract4 import reject_shadow_policy_gradient
+    from trajectory_store4 import reject_shadow_policy_gradient
     reject_shadow_policy_gradient(dataset.meta)
     if not np.isfinite(tolerance) or not 0 < tolerance <= .002:
         raise ValueError('Behavior audit tolerance must be finite and at most 0.002')
@@ -178,8 +178,9 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
     net.eval()
     try:
         net.clear_structure()
-        net.prepare_structure()
         for batch_index, host in enumerate(loader):
+            net.clear_structure()
+            net.prepare_structure((host['entity_rules'], host['cand_rules']))
             ids = host['segment_index'].tolist()
             b = len(ids)
             if h is None:
@@ -194,7 +195,7 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
             invalid_k = ((host['thinking_steps'] < 1) | (host['thinking_steps'] > 8)) & mask
             if bool(invalid_k.any()):
                 raise ValueError('Genuine neural decision has invalid recorded thinking depth')
-            values, errors, lps = [], [], []
+            values, errors = [], []
             for t in range(u):
                 decision = host['is_decision'][:,t].to(device)
                 recorded = host['thinking_steps'][:,t].to(device)
@@ -207,11 +208,9 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
                 h = torch.where(valid[:,None,None],output[0],h)
                 lp,_ = action_logprob_and_kl(output[1].float(),output[2].float(),output[3].float(),
                                             output[1].float(),output[2].float(),output[3].float(),host,t)
-                lps.append(lp.float())
                 errors.append((lp-host['behavior_logprob'][:,t].to(device)).abs())
                 values.append(output[4].float())
             value = torch.stack(values,1).cpu().numpy()
-            lp_arr = torch.stack(lps,1).cpu().numpy()
             error = torch.stack(errors,1).cpu().numpy()
             keep = mask.numpy()
             observed = error[keep]
@@ -229,7 +228,9 @@ def prepare_policy_targets(net, dataset, device, batch_size=8, board_chunk=4, to
             for lane,idx in enumerate(ids):
                 if idx >= 0:
                     cache['actor_mask'][idx] = keep[lane]
-                    cache['behavior_lp'][idx] = np.where(keep[lane],lp_arr[lane],0)
+                    # Replay certifies the behavior policy; it must not replace
+                    # the sampled policy's recorded PPO denominator/KL anchor.
+                    cache['behavior_lp'][idx] = np.where(keep[lane],host['behavior_logprob'][lane].numpy(),0)
                     cache['returns'][idx] = np.where(valid[lane],truth[lane],0)
                     cache['advantages'][idx] = np.where(keep[lane],truth[lane]-value[lane],0)
             frames += int(valid.sum())

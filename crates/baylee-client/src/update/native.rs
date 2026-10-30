@@ -133,6 +133,16 @@ static CLIENT_LEASE: OnceLock<launch::ClientLease> = OnceLock::new();
 /// runtime started without a launcher.
 static LAUNCHED: OnceLock<(Install, Option<PathBuf>)> = OnceLock::new();
 
+/// The state directory of the installation whose launcher started this
+/// runtime, writable or not: its link door is named after it
+/// (`crate::links`). Unset for a runtime started without a launcher.
+static STAGE: OnceLock<PathBuf> = OnceLock::new();
+
+/// The installation's state directory, when a launcher started this runtime.
+pub(crate) fn launched_stage() -> Option<&'static Path> {
+    STAGE.get().map(PathBuf::as_path)
+}
+
 /// The relaunch helper's pipe, for the same reason as the lease: it must
 /// stay open until the process ends, after the update is installed on the
 /// way out ([`Updater`]'s `Drop`), and a resource would close it as the
@@ -287,6 +297,7 @@ fn begun() -> Begun {
     };
     let lease = match launch::join() {
         Ok(Some((install, lease))) => {
+            let _ = STAGE.set(install.stage());
             build.install = if lease.writable() {
                 Ok(install)
             } else if lease.blocked() == Some(&Blocked::Translocated) {

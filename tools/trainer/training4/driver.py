@@ -15,6 +15,7 @@ using bf16 mixed precision on CUDA:
 from __future__ import annotations
 
 import json
+import os
 import time
 import random
 import numpy as np
@@ -26,6 +27,7 @@ from torch.utils.data import DataLoader
 import dataset4 as D4
 import model4 as M
 from checkpoint4 import atomic_save, rng_state, restore_rng, move_optimizer
+from torch_io4 import atomic_json
 
 
 from .loss import compute_step_loss
@@ -36,8 +38,10 @@ from .execution import plan_batch, transfer_batch, encode_boards, compile_region
 from .deferred import deferred_readouts
 from .prefetch import prefetch_batches
 from .checkpoint_async import AsyncCheckpointWriter
+from .depth_schedule import DepthSchedule, evaluate_depths
 from .objective import selection_score, check_resume_objective
-from .optimizer_groups import build_optimizer_groups, apply_relational_warmup, check_resume_schedule
+from .optimizer_groups import build_optimizer_groups, check_resume_schedule
+from .optimizer_step import update_parameters
 
 
 def main(default_architecture="v4") -> None:
@@ -47,6 +51,9 @@ def main(default_architecture="v4") -> None:
     loss_config = args.supervised_loss
     from .supervised_options import auxiliary_readout
 
+    # Deterministic CUDA scatter/reduction kernels are required for exact resume.
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    torch.use_deterministic_algorithms(True)
     torch.set_num_threads(4)
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -60,6 +67,7 @@ def main(default_architecture="v4") -> None:
 
     train_ds = D4.TrajectoryDataset4(
         data_dir,
+        encoder_version=args.encoder_version,
         split="train",
         unroll_len=args.unroll,
         max_entities=args.max_entities,
@@ -67,6 +75,7 @@ def main(default_architecture="v4") -> None:
     )
     val_ds = D4.TrajectoryDataset4(
         Path(args.validation_data).expanduser() if args.validation_data else data_dir,
+        encoder_version=args.encoder_version,
         split="val",
         unroll_len=args.unroll,
         max_entities=args.max_entities,
@@ -84,9 +93,9 @@ def main(default_architecture="v4") -> None:
         from .bc_mixture import BCMixture, BCMixtureSampler
         replay_path = Path(args.bc_replay_data).expanduser()
         replay = train_ds if replay_path.resolve() == data_dir.resolve() else D4.TrajectoryDataset4(
-            replay_path, split="train", unroll_len=args.unroll, max_entities=args.max_entities)
+            replay_path, encoder_version=args.encoder_version, split="train", unroll_len=args.unroll, max_entities=args.max_entities)
         train_ds = BCMixture(train_ds, replay, val_ds, args.batch_size)
-        train_sampler = BCMixtureSampler(train_ds, args.batch_size, args.seed)
+        train_sampler = BCMixtureSampler(train_ds, args.batch_size, args.seed, args.bc_epoch_batches)
         identity["bc_mixture"] = train_ds.contract
     val_sampler = D4.StatefulBatchSampler4(
         val_ds, batch_size=args.validation_batch_size, shuffle=False, seed=args.seed
@@ -113,6 +122,10 @@ def main(default_architecture="v4") -> None:
 
     config_class = M.Config5 if args.architecture == "v5" else M.Config4
     cfg = config_class(
+        global_feat_width=82 if args.encoder_version == 9 else 80,
+        **(dict(relational_revision=args.relational_revision,
+                 candidate_context_revision=args.candidate_context_revision,
+                 relational_steps=args.relational_steps) if args.architecture == 'v5' else {}),
         d_model=args.d_model,
         n_layers=args.layers,
         n_heads=args.heads,
@@ -124,6 +137,7 @@ def main(default_architecture="v4") -> None:
     if args.architecture == "v5":
         cfg.relational_steps = args.relational_steps
         cfg.relational_revision = args.relational_revision
+        cfg.candidate_context_revision = args.candidate_context_revision
         identity["architecture"] = M.architecture_for_config(cfg)
     # Extra architecture initialization must not perturb training RNG in paired runs.
     net = M.PlayerNet5(cfg) if args.architecture == "v5" else M.PlayerNet4(cfg)
@@ -132,6 +146,7 @@ def main(default_architecture="v4") -> None:
     net.attach_structure(train_ds.structure.data)
     net = net.to(device)
     net.saved_activation_layers = args.saved_activation_layers
+    net.offload_checkpoint_inputs = args.offload_checkpoint_inputs
     net.cache_thinking_kv = args.cache_thinking_kv
     net.decision_chunk = args.decision_chunk
     net.gpu_prefetch = args.gpu_prefetch
@@ -140,13 +155,44 @@ def main(default_architecture="v4") -> None:
         init_p = Path(args.init).expanduser()
         init_pt = init_p / "net.pt" if init_p.is_dir() else init_p
         ckpt_init = torch.load(init_pt, map_location="cpu", weights_only=False)
-        if (ckpt_init.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt_init.get("model_version") not in ((3, 5) if args.architecture == "v5" else (3,))
-                or ckpt_init.get("encoder_version") not in (6, M.ENCODER_VERSION)):
+        if (ckpt_init.get("trajectory_version") != M.TRAJECTORY_VERSION or ckpt_init.get("model_version") not in ((3, 5) if args.architecture == "v5" else (3,))):
             raise ValueError("Initial checkpoint uses an incompatible memory contract")
+        from encoder_contract import check_initial_encoder
+        provenance = check_initial_encoder(ckpt_init.get("encoder_version"), args.encoder_version,
+                                           args.encoder_warmstart_from7, args.encoder_warmstart_to9)
+        if provenance:
+            provenance["source_checkpoint"] = str(init_pt.resolve())
+            from torch_io4 import file_digest
+            provenance["source_checkpoint_sha256"] = file_digest(init_pt)
+            identity["encoder_warmstart"] = provenance
         from model4.structure import structure_digest
         if structure_digest(ckpt_init["structure"]) != train_ds.structure.digest:
             raise ValueError("Initial checkpoint uses a different public rules catalog")
-        if args.architecture == "v5" and ckpt_init["model_version"] == 3:
+        if args.encoder_warmstart_to9:
+            from value_calibration4.model_identity import source_model
+            source_net = source_model(ckpt_init)
+            source_config = source_net.cfg.to_dict()
+            source_config['global_feat_width'] = 82
+            if source_config != cfg.to_dict():
+                raise ValueError('Encoder9 transfer must preserve all other model configuration')
+            upgraded = M.warmstart_encoder9(ckpt_init['state_dict'], net)
+        elif args.candidate_context_warmstart:
+            source_cfg = M.Config5(**ckpt_init["config"])
+            expected = cfg.to_dict()
+            expected["candidate_context_revision"] = 1
+            if (ckpt_init.get("model_version") != 5 or source_cfg.relational_revision != 2
+                    or source_cfg.to_dict() != expected
+                    or ckpt_init.get("architecture") != M.architecture_for_config(source_cfg)
+                    or ckpt_init.get("encoder_version") != args.encoder_version):
+                raise ValueError("Candidate context transfer source architecture/config differs")
+            upgraded = M.warmstart_candidate_context(ckpt_init["state_dict"], net)
+            from torch_io4 import file_digest
+            source_sha = file_digest(init_pt)
+            identity["candidate_context_warmstart"] = {
+                "kind": "weights_only", "source_checkpoint_sha256": source_sha,
+                "source_architecture": ckpt_init["architecture"], "target_architecture": identity["architecture"],
+                "source_config": source_cfg.to_dict(), "target_config": cfg.to_dict()}
+        elif args.architecture == "v5" and ckpt_init["model_version"] == 3:
             upgraded = M.warmstart_from_v4(ckpt_init["state_dict"], net)
         else:
             if args.architecture == "v5" and (ckpt_init.get("architecture") != M.architecture_for_config(cfg)
@@ -160,6 +206,7 @@ def main(default_architecture="v4") -> None:
         head_prefixes = (
             "cand_proj.",
             "cand_ctx_proj.",
+            "cand_context_gate.",
             "cand_scorer.",
             "pair_blk_proj.",
             "pair_atk_proj.",
@@ -191,7 +238,11 @@ def main(default_architecture="v4") -> None:
         f"B={args.batch_size} U={args.unroll} K={args.thinking_steps} validation_B={args.validation_batch_size}"
     )
 
+    depth_schedule = DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum)
+    depth_counts = {}
     step_num = 0
+    optimizer_updates = 0
+    best_optimizer_updates = 0
     best_score = float("inf")
     best_step = 0
     last_validation_step = -1
@@ -207,6 +258,8 @@ def main(default_architecture="v4") -> None:
         check_resume(saved, getattr(train_ds, "contract", None))
         check_resume_objective(saved, args.checkpoint_selection, loss_config)
         check_resume_schedule(saved, optimizer_schedule)
+        depth_schedule.check_resume(saved)
+        depth_counts = saved.get("depth_counts", {})
         if (saved.get("training_sampler_version", 1) != D4.StatefulBatchSampler4.VERSION
                 or saved.get("sampler_seed") != args.seed):
             raise ValueError("Resume training sampler version/seed differs; use --init-state for fresh lanes")
@@ -214,24 +267,33 @@ def main(default_architecture="v4") -> None:
             raise ValueError("Resume dataset differs from the checkpoint")
         if saved.get("validation_fingerprint", val_ds.fingerprint) != val_ds.fingerprint:
             raise ValueError("Resume validation dataset differs from the checkpoint")
-        if ((M.Config5(**saved["config"]).to_dict() if args.architecture == "v5" else saved["config"]) != cfg.to_dict()) or saved["batch_size"] != args.batch_size or saved["unroll"] != args.unroll:
+        if (config_class(**saved["config"]).to_dict() != cfg.to_dict()) or saved["batch_size"] != args.batch_size or saved["unroll"] != args.unroll:
             raise ValueError("Resume configuration/batch lanes must match exactly")
         if saved.get("validation_batch_size", saved["batch_size"]) != args.validation_batch_size:
             raise ValueError("Resume validation batch lanes must match the saved scoring protocol")
+        for receipt in ("encoder_warmstart", "candidate_context_warmstart"):
+            if receipt in saved:
+                identity[receipt] = saved[receipt]
         net.load_state_dict(saved["state_dict"], strict=True)
         opt.load_state_dict(saved["optimizer"])
         for group in opt.param_groups:
             group["fused"] = True if args.fused_optimizer and device.type == "cuda" else None
         move_optimizer(opt, device)
         step_num = saved["step_num"]
+        optimizer_updates = saved.get("optimizer_updates", step_num)
+        if not 0 <= optimizer_updates <= step_num:
+            raise ValueError("Resume optimizer update count exceeds consumed batches")
         resume_epoch, resume_batch = saved["epoch"], saved["next_batch"]
         resume_h = saved["h"].to(device) if saved["h"] is not None else None
         best_score = saved.get("best_score", best_score)
         restore_rng(saved["rng"])
         if (out_dir / "net.pt").exists():
             previous_best = torch.load(out_dir / "net.pt", map_location="cpu", weights_only=False)
+            if previous_best.get("encoder_version") != args.encoder_version:
+                raise ValueError("Best checkpoint encoder differs from resumed run")
             best_state = previous_best["state_dict"]
             best_step = previous_best["step_num"]
+            best_optimizer_updates = previous_best.get("optimizer_updates", best_step)
             best_val_metrics = previous_best.get("val_metrics", {})
         print(f"[train4] resumed epoch={resume_epoch} batch={resume_batch} step={step_num}", flush=True)
     elif (out_dir / "last.pt").exists() or (out_dir / "net.pt").exists():
@@ -240,10 +302,11 @@ def main(default_architecture="v4") -> None:
     checkpoint_writer = AsyncCheckpointWriter(device, enabled=args.async_checkpoint)
 
     def save_last(epoch, next_batch, hidden):
-        checkpoint_writer.save({**identity, "optimizer_schedule": optimizer_schedule, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": net.state_dict(),
+        checkpoint_writer.save({**identity, "optimizer_schedule": optimizer_schedule, "depth_schedule": depth_schedule.to_dict(), "depth_counts": depth_counts, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": net.state_dict(),
                      "optimizer": opt.state_dict(), "rng": rng_state(),
-                     "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION, "sampling_version": M.SAMPLING_VERSION,
+                     "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": args.encoder_version, "sampling_version": M.SAMPLING_VERSION,
                      "step_num": step_num, "epoch": epoch, "next_batch": next_batch,
+                     "optimizer_updates": optimizer_updates,
                      "h": None if hidden is None else (hidden.detach() if args.async_checkpoint else hidden.detach().cpu()),
                      "dataset_fingerprint": train_ds.fingerprint,
                      "validation_fingerprint": val_ds.fingerprint,
@@ -264,23 +327,27 @@ def main(default_architecture="v4") -> None:
 
     def validate_and_save():
         nonlocal best_score, best_state, best_val_metrics, best_step
+        nonlocal best_optimizer_updates
         nonlocal last_validation_step, last_validation_metrics
         if last_validation_step == step_num:
             return last_validation_metrics
         print(f"[validation4] starting full held-out validation at step={step_num}", flush=True)
         was_training = net.training
-        metrics = (evaluate(net, val_loader, device, args.thinking_steps) if args.reference_execution
-                   else evaluate_device(net, val_loader, device, args.thinking_steps, args.board_chunk, progress_every=500))
+        metrics = evaluate_depths(net, val_loader, device, depth_schedule,
+            lambda n, loader, dev, k: evaluate(n, loader, dev, k) if args.reference_execution
+            else evaluate_device(n, loader, dev, k, args.board_chunk, progress_every=500))
         net.train(was_training)
         score = selection_score(metrics, args.checkpoint_selection)
         if score < best_score:
             best_score, best_step = score, step_num
+            best_optimizer_updates = optimizer_updates
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
             best_val_metrics = dict(metrics)
-            atomic_save({**identity, "optimizer_schedule": optimizer_schedule, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
+            atomic_save({**identity, "optimizer_schedule": optimizer_schedule, "depth_schedule": depth_schedule.to_dict(), "depth_counts": depth_counts, "config": cfg.to_dict(), "structure": train_ds.structure.data, "state_dict": best_state,
                          "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
-                         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
+                         "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": args.encoder_version,
                          "sampling_version": M.SAMPLING_VERSION, "step_num": best_step,
+                         "optimizer_updates": best_optimizer_updates,
                          "validation_batch_size": args.validation_batch_size,
                          "val_metrics": metrics, "dataset_fingerprint": train_ds.fingerprint}, out_dir / "net.pt")
         last_validation_step, last_validation_metrics = step_num, metrics
@@ -314,7 +381,8 @@ def main(default_architecture="v4") -> None:
                                                       start=train_sampler.start_batch):
                 # A rare name-card question can pad many ordinary frames to a very
                 # wide C. Keep large batches on the host and transfer one time step.
-                plans = None if args.reference_execution else plan_batch(host, step_num, args.thinking_steps, args.thinking_curriculum)
+                plans = None if args.reference_execution else plan_batch(host, step_num, schedule=depth_schedule)
+                depth_schedule.count_batch(host, step_num, depth_counts)
                 batch = transfer_batch(host, device) if staged is None else staged
                 B, U = batch["step_valid"].shape
                 opt.zero_grad(set_to_none=True)
@@ -327,7 +395,6 @@ def main(default_architecture="v4") -> None:
                     h = h.detach()
                     h = torch.where(is_new.view(B, 1, 1), torch.zeros_like(h), h)
 
-                k_choices = (1, 2, 4, 8)
                 traj_loss = torch.zeros((), device=device)
                 with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
                     net.clear_structure()
@@ -349,8 +416,7 @@ def main(default_architecture="v4") -> None:
                 else:
                     full_outputs, full_aux = [], []
                     for t in range(U):
-                        k_val = (k_choices[(step_num + t) % len(k_choices)]
-                                 if args.thinking_curriculum else args.thinking_steps)
+                        k_val = depth_schedule.depth(step_num, t)
                         k_tensor = batch["is_decision"][:, t].to(device).long() * k_val
                         with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
                             output = net(*[batch[name][:, t].to(device) for name in M.INPUT_NAMES[:-2]], h, k_tensor,
@@ -391,13 +457,9 @@ def main(default_architecture="v4") -> None:
                         traj_loss, st = compute_unroll_device_loss(full_outputs, torch.stack(full_aux, dim=1), batch, plans, loss_config)
                         epoch_stats[:3] += st[:3] / U
                         epoch_stats[3:] += st[3:]
-                if not torch.isfinite(traj_loss):
-                    raise FloatingPointError(f"Non-finite loss at step {step_num}")
-                traj_loss.backward()
-                torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0, error_if_nonfinite=True)
-                checkpoint_writer.before_mutation()
-                apply_relational_warmup(opt, optimizer_schedule, step_num + 1)
-                opt.step()
+                updated = update_parameters(traj_loss, net, opt, checkpoint_writer,
+                                            optimizer_schedule, optimizer_updates + 1)
+                optimizer_updates += int(updated)
                 net.clear_structure()
 
                 step_num += 1
@@ -406,6 +468,7 @@ def main(default_architecture="v4") -> None:
                 if step_num % 25 == 0:
                     elapsed = time.perf_counter() - t0
                     print(f"[train4] step={step_num} epoch={epoch} loss={float(traj_loss.detach()):.4f} "
+                          f"optimizer_updates={optimizer_updates} "
                           f"batches_per_s={ep_batches / max(elapsed, 1):.2f} "
                           f"gpu_peak_gb={torch.cuda.max_memory_allocated() / 1e9 if device.type == 'cuda' else 0:.2f} "
                           f"gpu_alloc_retries={torch.cuda.memory_stats()['num_alloc_retries'] if device.type == 'cuda' else 0}", flush=True)
@@ -446,25 +509,26 @@ def main(default_architecture="v4") -> None:
     final_state = best_state if best_state is not None else net.state_dict()
     final_metrics = best_val_metrics if best_val_metrics else val_metrics
     ckpt = {
-        **identity, "optimizer_schedule": optimizer_schedule,
+        **identity, "optimizer_schedule": optimizer_schedule, "depth_schedule": depth_schedule.to_dict(), "depth_counts": depth_counts,
         "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
         "config": cfg.__dict__,
-        "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
+        "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": args.encoder_version,
         "sampling_version": M.SAMPLING_VERSION,
         "dataset_fingerprint": train_ds.fingerprint,
         "structure": train_ds.structure.data, "state_dict": final_state,
         "step_num": best_step if best_state is not None else step_num,
+        "optimizer_updates": best_optimizer_updates if best_state is not None else optimizer_updates,
         "val_metrics": final_metrics,
         "validation_fingerprint": val_ds.fingerprint,
         "package_parent": package_parent,
     }
     atomic_save(ckpt, out_dir / "net.pt")
     meta_out = {
-        **identity, "optimizer_schedule": optimizer_schedule,
+        **identity, "optimizer_schedule": optimizer_schedule, "depth_schedule": depth_schedule.to_dict(), "depth_counts": depth_counts,
         "training_loss_version": loss_config.version, "supervised_loss_config": loss_config.to_dict(), "checkpoint_selection": args.checkpoint_selection,
         "validation_batch_size": args.validation_batch_size,
-        "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": M.ENCODER_VERSION,
+        "trajectory_version": M.TRAJECTORY_VERSION, "model_version": M.MODEL_VERSION, "encoder_version": args.encoder_version,
         "sampling_version": M.SAMPLING_VERSION,
         "dataset_fingerprint": train_ds.fingerprint,
         "dsl_version": M.DSL_VERSION,
@@ -474,11 +538,15 @@ def main(default_architecture="v4") -> None:
         "n_heads": cfg.n_heads,
         "thinking_steps": args.thinking_steps,
         "step_num": best_step if best_state is not None else step_num,
+        "optimizer_updates": best_optimizer_updates if best_state is not None else optimizer_updates,
+        "consumed_batches": step_num,
+        "total_optimizer_updates": optimizer_updates,
+        "batches_without_update": step_num - optimizer_updates,
         "val_metrics": final_metrics,
         "validation_fingerprint": val_ds.fingerprint,
         "package_parent": package_parent,
     }
-    (out_dir / "meta.json").write_text(json.dumps(meta_out, indent=2))
+    atomic_json(out_dir / "meta.json", meta_out)
     print(f"[train4] saved checkpoint to {out_dir}")
 
 

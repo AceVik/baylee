@@ -50,22 +50,79 @@ pub fn digest(path: &Path) -> anyhow::Result<String> {
 fn contract(model: &Path) -> anyhow::Result<Value> {
     let meta: Value = serde_json::from_slice(&std::fs::read(model.join("model.onnx.json"))?)?;
     ensure!(
-        matches!(
+        !matches!(meta["encoder_version"].as_u64(), Some(8 | 9)),
+        "Encoders 8 and 9 are offline-only until payment-context wire support is available"
+    );
+    let v5 = meta["encoder_version"] == 7 && meta["model_version"] == 5;
+    ensure!(
+        (v5 || matches!(
             (
                 meta["encoder_version"].as_u64(),
                 meta["model_version"].as_u64()
             ),
             (Some(5), Some(2)) | (Some(6 | 7), Some(3))
-        ) && meta["trajectory_version"] == 2
+        )) && meta["trajectory_version"] == 2
             && meta["sampling_version"] == 2,
         "incompatible neural model contract"
     );
-    Ok(serde_json::json!({
+    let mut result = serde_json::json!({
         "encoder_version":meta["encoder_version"],"model_version":meta["model_version"],
         "trajectory_version":meta["trajectory_version"],"sampling_version":meta["sampling_version"],
         "structure_version":meta["structure_version"],"structure_sha256":meta["structure_sha256"],
         "dsl_version":meta["dsl_version"],
-    }))
+    });
+    if v5 {
+        bind_v5_contract(&meta, &mut result)?;
+    }
+    Ok(result)
+}
+
+fn bind_v5_contract(meta: &Value, result: &mut Value) -> anyhow::Result<()> {
+    let (revision, candidate_revision) = match meta["architecture"].as_str() {
+        Some("baylee_ai_v5_relational_v1") => (1, 1),
+        Some("baylee_ai_v5_relational_v2") => (2, 1),
+        Some("baylee_ai_v5_relational_v2_candidate_v2") => (2, 2),
+        _ => anyhow::bail!("unsupported V5 architecture"),
+    };
+    let cfg = &meta["config"];
+    ensure!(
+        cfg["candidate_context_revision"] == candidate_revision
+            || (candidate_revision == 1 && cfg["candidate_context_revision"].is_null()),
+        "V5 candidate architecture/revision mismatch"
+    );
+    ensure!(
+        cfg["relational_revision"] == revision,
+        "V5 architecture/revision mismatch"
+    );
+    ensure!(
+        cfg["relational_steps"].as_u64().is_some_and(|n| n <= 4)
+            && cfg["relational_width"].as_u64().is_some_and(|n| n > 0),
+        "invalid V5 relational dimensions"
+    );
+    let width = meta["d_model"].as_u64().context("missing V5 d_model")?;
+    let heads = meta["n_heads"].as_u64().context("missing V5 n_heads")?;
+    let layers = meta["n_layers"].as_u64().context("missing V5 n_layers")?;
+    ensure!(
+        width > 0 && heads > 0 && width % heads == 0 && layers > 0,
+        "invalid V5 model dimensions"
+    );
+    result["architecture"] = meta["architecture"].clone();
+    result["candidate_context_revision"] = serde_json::json!(candidate_revision);
+    for key in ["d_model", "n_heads", "n_layers"] {
+        ensure!(
+            cfg[key] == meta[key],
+            "V5 config/top-level dimension mismatch: {key}"
+        );
+        result[key] = meta[key].clone();
+    }
+    for key in [
+        "relational_revision",
+        "relational_steps",
+        "relational_width",
+    ] {
+        result[key] = cfg[key].clone();
+    }
+    Ok(())
 }
 
 impl Selected {
@@ -129,7 +186,7 @@ pub fn proposal(path: &Path, current: &Selected, thinking: u8) -> anyhow::Result
         "model.k0.onnx".to_owned(),
         format!("model.k{thinking}.onnx"),
     ];
-    if candidate_contract["encoder_version"] == 6 {
+    if matches!(candidate_contract["encoder_version"].as_u64(), Some(6 | 7)) {
         required.push("card_structure.json".into());
     }
     // Every published graph is pinned, including graphs lazily opened later.

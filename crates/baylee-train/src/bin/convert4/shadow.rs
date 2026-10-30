@@ -113,7 +113,16 @@ pub(super) struct FrameLabels {
     count: u64,
 }
 impl FrameLabels {
+    #[cfg(test)]
     pub(super) fn new(root: &Path, id: u32, source: &Source) -> anyhow::Result<Self> {
+        Self::new_with_encoder(root, id, source, 7)
+    }
+    pub(super) fn new_with_encoder(
+        root: &Path,
+        id: u32,
+        source: &Source,
+        encoder: u32,
+    ) -> anyhow::Result<Self> {
         let directory = root.join("shadow-bc");
         fs::create_dir_all(&directory)?;
         let path = directory.join(format!("game-{id:06}.jsonl"));
@@ -125,12 +134,13 @@ impl FrameLabels {
                 .write(true)
                 .open(&temporary)?,
         );
-        serde_json::to_writer(
-            &mut writer,
-            &json!({"kind":"header","schema":1,"converted_game_id":id,
+        let mut header = json!({"kind":"header","schema":1,"converted_game_id":id,
             "source_namespace":source.run_sha256,"source_game":source.game,"run_sha256":source.run_sha256,
-            "record_sha256":source.record_sha256,"original_labels_sha256":source.labels_sha256,"label_use":"bc_only","ppo_eligible":false}),
-        )?;
+            "record_sha256":source.record_sha256,"original_labels_sha256":source.labels_sha256,"label_use":"bc_only","ppo_eligible":false});
+        if encoder == 8 {
+            header["encoder_version"] = json!(8);
+        }
+        serde_json::to_writer(&mut writer, &header)?;
         writeln!(writer)?;
         Ok(Self {
             temporary,
@@ -229,6 +239,7 @@ mod tests {
                 ..StepProvenance4::default()
             },
             shadow_label: Some(label),
+            llm_label: None,
         };
         let mut writer = FrameLabels::new(&directory, 1, &source).unwrap();
         writer.push(&step).unwrap();
