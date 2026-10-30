@@ -847,3 +847,47 @@ export metadata SHA-256 is
 `69aefb2d76812e6c664ce2a43fa7a0dad7fedf2d64a9ebebd55ead0f9400ce92`.
 No accepted-export receipt, gameplay launch or promotion is inferred from the
 successful preceding stages.
+
+## Native export compatibility recovery completed
+
+The Rust successor checks exactly E7/V5 relational revision 2 and candidate
+context revision 1. Missing legacy source `config.global_feat_width` resolves
+to integer 80; the candidate must explicitly contain integer 80. Wrong types,
+other widths/encoders, top-level width overrides and unrelated config changes
+remain errors. Four targeted tests passed. Every exported input is bound to the
+failed validator's original sealed job and the root operator review; the
+successor neither edits metadata nor reruns Torch/export/learning.
+
+The first successor (`research-breadth-export-validation-01a18bd2-`
+`b52e-7cbf-9916-5e38b21666eb/`) failed before worker creation because its cwd was
+the new non-Git evidence directory. Event `e6df042d073e5790f8b86a5c` is closed;
+review SHA-256 is
+`9fd64a12482e52b258b8f9a75c9020f8d433be180b786061bfc56dedbf5b024b`.
+No model or validation computation occurred. Final-map preflight now also runs
+the guard's exact Git identity operations in the manifest's serialized cwd.
+
+The corrected namespace is
+`research-breadth-export-validation-recovery-01a18bdd-9c30-7bfb-bfc7-d8cb904a8725/`.
+Only the namespace, cwd and missing source-identity preflight changed; validation
+logic and 60/120/180-second worker/pipeline/service limits stayed fixed. The cwd
+is the frozen DATA trainer. Its ancestor Git marker is
+`a1f8c0da4fba4f5afc4aa10e982777590a0abd51` with empty tracked diff, matching the
+successful export guards; actual trainer bytes retain the separately pinned
+`1384b8e3d5ca8bd60e22d397adf2156fb8402451` freeze and file digests.
+
+The sole launch used ready SHA-256
+`0dc8139aadc5c79b4d1f7ec0ce838fdfee6c0333e27944a44734d3f53e98657b`.
+Controller PID 2495141/start ticks 17908749 on the same boot finished cleanly;
+the native worker took 30.054 seconds. All existing 47 parity checks and their
+unchanged maximum error of `0.000014901161193847656` were verified, along with
+exact graph/checkpoint/catalog identity and research-utility critic semantics.
+
+`validation-verified.json` SHA-256 is
+`ee647227e949017368538f7df2be38251d468bd2355c1e4f770f09cd6806eb74`.
+Event `170aa8ff1bb7ed9a2e75b5a5` is closed as `complete-reviewed` after checking
+22,385 seals, dead owned processes and empty groups/cgroup, stopping its watcher
+and preserving the gateway. Operator review SHA-256 is
+`1ba8743864c950a9dc5f5d43b7b4ae5b514cdd934d3235a4c1c7686134a06a75`.
+The failed export pipeline is not relabelled. This successful separate receipt
+allows preparation of the bounded matched gameplay comparison; it establishes
+neither improved play nor promotion.

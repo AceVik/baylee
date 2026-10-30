@@ -17,14 +17,14 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
-| Current checkpoint phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-checkpoint-gameplay-01a18bc2-a906-7df6-9ea9-679bcbcf5831/export/execution`, now `failed-reviewed`. Checkpoint semantics and all 47 numerical export checks passed; only native metadata validation failed because the new config explicitly includes the legacy E7 default `global_feat_width: 80`. Processes exited and watcher stopped. A fresh native-only compatibility validation will reuse sealed exports. The preceding breadth update remains `complete-reviewed`: eight retained updates, 465 choices, 2,043 frames, 311 changed tensors, final KL 0.00105115049. No optimizer rerun or gameplay has launched |
+| Current checkpoint phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-export-validation-recovery-01a18bdd-9c30-7bfb-bfc7-d8cb904a8725/validation/execution`, now `complete-reviewed`. Native compatibility validation accepts only the proven legacy E7 default `global_feat_width: 80`; all other config fields, sealed graphs, research-critic semantics and 47 numerical checks passed. Its processes exited and watcher stopped. No Torch/export/optimizer rerun was needed. The preceding breadth update retained eight updates, 465 choices, 2,043 frames and 311 changed tensors, final KL 0.00105115049. Fresh matched gameplay is being prepared separately |
 | Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current research direction | The first failure-terminal pilot retained one update on 61 choices and changed no executed behavior on four reused cases. The broader trial now retained all eight updates on 465 choices across 11 histories, including 103 from natural wins; 3,479 choices were audited. Final KL passed without rollback. Next independently inspect checkpoints, export with parity validation and compare fresh source/candidate arms across all 16 fixed breadth cases. These are reused training/development cases, not an untouched holdout or evidence for promotion |
+| Current research direction | The first failure-terminal pilot retained one update on 61 choices and changed no executed behavior on four reused cases. The broader trial retained all eight updates on 465 choices across 11 histories, including 103 from natural wins; 3,479 choices were audited. Final KL, independent checkpoint inspection and export parity/compatibility passed. Next compare fresh source/candidate arms across all 16 fixed breadth cases. These are reused training/development cases, not an untouched holdout or evidence for promotion |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
@@ -361,6 +361,39 @@ Operator-review SHA-256:
 `630f43bdf775af4ea4e60926e44c5e3ce7cb01c7971f2ab86580f1f302673697`.
 The failed namespace never published `export-verified.json`; preserve it and
 use a separate validation receipt before gameplay preparation.
+
+The first native successor, `research-breadth-export-validation-01a18bd2-`
+`b52e-7cbf-9916-5e38b21666eb/`, stopped before a worker was created:
+`job cwd must have a source identity`. Its manifest used the new evidence
+directory as cwd, which has no Git identity. Event `e6df042d073e5790f8b86a5c`
+is closed as `failed-reviewed`; no validation, Torch or export worker ran.
+Do not retry that sealed manifest. A filesystem mapping test alone does not
+test the guard's cwd contract: also exercise `git rev-parse HEAD` and
+`git diff --binary HEAD` in the serialized cwd under the final mapping.
+
+The corrected native-only namespace is
+`research-breadth-export-validation-recovery-01a18bdd-9c30-7bfb-bfc7-d8cb904a8725/`.
+It uses the frozen DATA trainer as cwd. Its Git identity matches the prior
+successful guard (`a1f8c0da4fba4f5afc4aa10e982777590a0abd51`, empty tracked diff);
+the frozen trainer implementation remains commit `1384b8e3d5ca8bd60e22d397adf2156fb8402451`
+with its own file seals. Four targeted native tests and the actual final-map
+source-identity check passed. Worker/pipeline/service limits stayed 60/120/180
+seconds, CPU400%/20 GiB, with no CUDA or Torch execution.
+
+Its native worker completed in 30.054 seconds. `verify-validation` already ran
+once and published `validation-verified.json`, SHA-256
+`ee647227e949017368538f7df2be38251d468bd2355c1e4f770f09cd6806eb74`.
+Ready SHA-256 is
+`0dc8139aadc5c79b4d1f7ec0ce838fdfee6c0333e27944a44734d3f53e98657b`;
+pipeline SHA-256 is
+`06278e8ee248e60b09da8d7f6a4f227074f438c0ba9c50aaaa9e0424a7730100`.
+Event `170aa8ff1bb7ed9a2e75b5a5` is reviewed and deduplicated; operator review
+SHA-256 is `1ba8743864c950a9dc5f5d43b7b4ae5b514cdd934d3235a4c1c7686134a06a75`.
+Review rechecked 22,385 seals, dead owned identities/empty groups and cgroup,
+stopped its watcher and confirmed the unchanged user gateway. Do not repeat
+the immutable verifier or either launch. The failed predecessor receipts remain
+failed; this separate receipt validates the existing graph bytes for the
+bounded research comparison, without promotion or live critic certification.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,
