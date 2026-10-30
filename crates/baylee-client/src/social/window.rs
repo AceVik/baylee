@@ -1068,7 +1068,7 @@ fn sync_lobby_window(
         let ids = skeleton(&mut commands, &fonts, Frame::Lobby, lang);
         if ui.minimised {
             commands.entity(root).add_child(ids.head);
-            for id in [ids.sub, ids.note, ids.body, ids.composer] {
+            for id in [ids.sub, ids.note, ids.body, ids.composer, ids.light] {
                 commands.entity(id).despawn();
             }
             drawn.head = Some(ids.head);
@@ -1242,11 +1242,20 @@ struct Skeleton {
     list: Entity,
     composer: Entity,
     body: Entity,
+    /// The window's light, over its parts (`glass`).
+    light: Entity,
 }
 
 impl Skeleton {
-    fn all(&self) -> [Entity; 5] {
-        [self.head, self.sub, self.note, self.body, self.composer]
+    fn all(&self) -> [Entity; 6] {
+        [
+            self.head,
+            self.sub,
+            self.note,
+            self.body,
+            self.composer,
+            self.light,
+        ]
     }
 }
 
@@ -1412,6 +1421,9 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             ),
         ))
         .id();
+    let light = commands
+        .spawn(super::glass::layer(super::glass::Glass::Window, zpx(6.0)))
+        .id();
     Skeleton {
         head,
         sub,
@@ -1419,6 +1431,7 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
         list,
         composer,
         body,
+        light,
     }
 }
 
@@ -1755,7 +1768,7 @@ fn wheel_in_the_lobby(
 mod composer;
 mod filter;
 mod head;
-mod list;
+pub(crate) mod list;
 mod peek;
 mod preview;
 mod resize;

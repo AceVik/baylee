@@ -201,6 +201,7 @@ impl Plugin for AmbiencePlugin {
         embedded_asset!(app, "shaders/ambience.wesl");
         // The shell kit's primary-button light (`shellkit::sheen`).
         embedded_asset!(app, "shaders/kit_sheen.wesl");
+        embedded_asset!(app, "shaders/chat_glass.wesl");
         app.add_plugins(UiMaterialPlugin::<AmbienceMaterial>::default());
     }
 }

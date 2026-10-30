@@ -9302,6 +9302,23 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   encryption notice stands the first time the chat opens on a device, and
   from every lock; Chat & privacy holds the server settings, history length,
   sounds, this account's devices and Forget this device.
+- **Light** (owner, 29.10.2026: a more attractive chat input and window,
+  with light shader animations): one small UI material
+  (`social::glass`, `shaders/chat_glass.wesl`, uniforms only) laid as light
+  over the window and the composer's box, never over the middle of what is
+  read. The window wears a rim of light just inside its rounded edge (on
+  the edge itself the 1 px border covered it), brightest along the top, and
+  for 0.9 s after a **chat** line arrives a band climbs its sides from the
+  foot, where new lines appear, washing a little way in (a game log line
+  arriving in the table's window moves its row and lights nothing). The
+  composer's box lights its rim and carries a glint round it every 3.2 s
+  while it has the caret; without the caret, a faint rim and nothing that
+  moves. Two
+  materials serve every surface, written only when the caret comes or goes,
+  `reduce_motion` changes or a chat line arrives; the band and the glint
+  move on `globals.time`, so a resting chat writes nothing
+  (`a_resting_chat_writes_no_light`), and `reduce_motion` holds the glint
+  still and draws no band.
 - **Where things stand** (played 29.10.2026). The header's chat count is a
   badge on the bubble's shoulder, out of the row (it lay over the word's
   last letter). Unlocked, nothing floats: the composer carries the lock (a
@@ -9945,7 +9962,7 @@ frame (a `dev-control` build counts allocations through its own global
 allocator) over the window since the last reset; `/hide` takes every entity
 of one material away (`felt`, `mat`, `card`, `floor`, `shell`, `plate`,
 `badge`, `marks`, `arrow`, `sky`, `vista`, `ambience`, `frontal`, `card_ui`,
-`shell_ui`), so one switch gives both a drawing's GPU cost and, by a
+`shell_ui`, `chat_glass`), so one switch gives both a drawing's GPU cost and, by a
 full-frame diff, what it contributes to the picture.
 
 Three rows of `/state` measure the lobby rather than the table.

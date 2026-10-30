@@ -30,6 +30,7 @@ use bevy::prelude::*;
 use crate::lobby::LobbyState;
 
 pub(crate) mod drawer;
+pub(crate) mod glass;
 pub(crate) mod keys;
 pub(crate) mod menu;
 pub(crate) mod rows;
@@ -719,6 +720,7 @@ pub(crate) fn install(app: &mut App) {
                 .chain(),
         );
     window::install(app);
+    glass::install(app);
     keys::install(app);
     menu::install(app);
     drawer::install(app);
