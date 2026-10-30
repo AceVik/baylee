@@ -217,6 +217,82 @@ Der Stand und die nächste Reihenfolge lauten:
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;
 historische Aussagen „noch nicht implementiert“ sind durch diesen Stand ersetzt.
 
+### Nächster Lernvergleich: Lehrerzüge und Kartenverständnis
+
+Der Besitzer präzisiert am 30. Oktober: LLM-Partien sollen auch dann gute
+Zugvorbilder liefern, wenn der jeweilige Sitz verliert. Das ist die richtige
+Trennung für Imitationslernen: Ein verlorenes Spiel macht seine einzelnen
+Entscheidungen nicht zu negativen Policy-Labels. Umgekehrt bescheinigt ein Sieg
+nicht die Güte jedes Zugs. Wir übernehmen technisch verifizierte LLM-Antworten
+beider Sitze unabhängig vom Ergebnis, ohne einen neuen semantischen
+Qualitätsfilter. Standing-Antworten, Fallbacks und nicht rekonstruierbare Aktionen
+werden weiterhin nicht als LLM-Entscheidungen ausgegeben. Vollständige kausale
+Historien bleiben für das Gedächtnis erhalten; keine Auswahl nur gewonnener Spiele.
+
+Der erste Vergleich hält Daten, Anfangsgewichte, Encoder, K, Seeds und
+Updatebudget fest und ändert nur die Ergebnisgewichtung der Imitationsziele:
+Loss5 mit beziehungsweise ohne `--outcome-weighting-off`. Beide Arme verwenden
+`categorical_weighting="symmetric_v1"` und neu konvertierte Daten mit
+`idle_pass_weighting_revision=2`; die bisherigen E1-Zahlen unter Loss4 sind kein
+Kontrollarm. Jede Variante beginnt als ausdrücklicher Gewichts-Neustart mit
+frischem Optimizer. Wichtig: Der Schalter entfernt die Ergebnisgewichtung der
+Policy-Labels, **nicht** den Value-Loss oder seine Gradienten im gemeinsamen
+Trunk. Ein folgender isolierter Vergleich mit `--detach-value-input` prüft diese
+Interferenz. Auch `--detach-aux-input` ist eine eigene Ablation; beide Schalter
+werden nicht gleichzeitig mit Encoder, Datenmischung oder Denkstufe geändert.
+Eine vollständig abgeschaltete Value-/Aux-Loss ist derzeit kein angebotener
+CLI-Vertrag und darf nicht durch einen undokumentierten Eingriff simuliert werden.
+
+Auswertung: echte Entscheidungen je Kopf, Nicht-Pass-Treffer, Zahlungsabschluss,
+Abbruch-/Schleifenrate und getrennte Karten-/Mechanikgruppen. Ein besserer
+mittlerer Loss durch mehr leichte Pass-Ziele genügt nicht. Trainingskontakte
+werden nach Quelle, Kopf und Spiel erfasst; die Dosis darf nicht wieder fast nur
+aus kurzen Präfixen bestehen. Danach folgt ein vorab festgelegter Spielvergleich
+mit gleichen Ausgangslagen und vertauschten Sitzen, allen Versuchen im Nenner
+und ausreichend langen, vor dem Start festgelegten Zeitgrenzen. Die bisherigen
+mehrfach verwendeten Diagnosefälle bleiben Entwicklungsmaterial. Eine frische
+Bestätigungssuite wird nicht für Lernraten- oder Checkpointauswahl verwendet.
+
+Farben, Manasymbole und vollständige geordnete Regelbäume sind bereits Eingaben
+(`features7/state.rs`, `cardstructure`). Abfragen dieser unverdeckten Merkmale
+sind nützlich als Darstellungstest, aber ihr bloßes Kopieren belegt kein
+Kartenverständnis. E5 ergänzt deshalb kontrollierte Aufgaben zu **Folgen**:
+Bezahlbarkeit einer vorgeschlagenen Zahlungsfolge, Farb-/generische Anteile,
+X und Zusatz-/Alternativkosten, Zielbeschränkungen und unmittelbar berechenbare
+Effekte. Öffentlich bekannte feste Zustände liefern Engine-geprüfte Lösungen;
+verborgene gegnerische Informationen werden niemals als Labelabkürzung genutzt.
+Karten und Decks werden auch gruppenweise zurückgehalten, damit Wiedererkennen
+einer Karten-ID nicht als Generalisierung gilt. Ein Erfolg auf solchen Aufgaben
+muss anschließend auf echte Entscheidungen übertragen werden. Datenaufbau,
+Prüfung und Berichte sind Rust; nur Modell, Loss und zugehörige Tests sind PyTorch.
+
+Der Rebase auf `origin/main` (`93e833bf5`) bringt unter anderem Mirrodin-Karten
+und Affinität, Verflechtung/Entwine und Einprägen/Imprint. Der Strukturencoder
+generiert seine Typabdeckung aus der DSL beim Build; das ersetzt keinen Nachweis,
+dass ein alter Checkpoint die neuen Begriffe beherrscht. Neue Versuche müssen
+Engine, DSL-/Katalogdigest, Konverter und Export zusammen festhalten. Alte
+Aufzeichnungen und eingefrorene Untersuchungen behalten ihre Produzenten.
+Ein neuer Katalog ist kein stilles Resume: Kompatibilität von Tag-IDs,
+Embeddings und Referenzen muss geprüft beziehungsweise eine ausdrückliche
+Gewichtsübernahme implementiert werden, bevor neue Mechaniken trainiert werden.
+Diese Migration wird getrennt von der ersten Ergebnisgewichtungs-Ablation
+geprüft, damit nicht zwei Änderungen als ein Lerngewinn ausgegeben werden.
+
+Das ergibt eine sinnvolle Reihenfolge: solide Lehrer-Imitation, kontrollierte
+Relationsaufgaben, danach zusätzliche Verbesserung durch eigene Spiele gegen
+historische Modelle, Haus-KI und Terra. Lehrerhinweise auf selbst erreichten
+Zuständen sind eine weitere getrennte Option; fremde Lehreraktionen sind dabei
+keine On-Policy-PPO-Daten. Ein größeres Netz ist für diesen nächsten Vergleich
+nicht erforderlich. Falls unterschiedliche relevante Zustände dieselbe
+Darstellung erhalten, braucht es wie beim gewählten X einen versionierten
+Beobachtungsfix. Die bereits beobachteten BC-Rückschritte werden nicht durch
+mehr Laufzeit als gelöst betrachtet.
+
+Forschungsbezug: [DAgger](https://proceedings.mlr.press/v15/ross11a.html)
+behandelt Lehrerlabels auf der vom Lerner besuchten Zustandsverteilung;
+[Kickstarting](https://arxiv.org/abs/1803.03835) verbindet Policy-Destillation
+und RL. Das begründet Versuchsrichtungen, keinen vorhergesagten Nutzen in Baylee.
+
 **Früher R0-Meilenstein:**
 Head-PPO veröffentlicht jetzt über `source_identity` auch Architektur-, Familien-
 und Katalogmetadaten. 20 bestehende Tests und zwei neue Regressionstests bestehen;

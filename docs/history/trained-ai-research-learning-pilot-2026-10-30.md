@@ -1081,3 +1081,39 @@ and retains a separate attach-only recovery command. A launch-attempt receipt
 prevents duplicate starts. Startup does not establish diagnostic success.
 No automatic optimizer, gameplay, retry/refill, promotion or old BC resume
 follows this diagnostic. Terminal review instructions are in the runbook.
+
+## Source-state diagnostic reviewed
+
+The three stages completed and the native final verifier checked all seals,
+dead controller/child identities and empty owned groups. The service is inactive
+and its watcher stopped. The canonical CPU pointer is `reviewed-complete`.
+No optimization or new gameplay occurred. Full source-history replay covers
+726 genuine choices and 2,915 frames, maximum absolute logprob error
+`0.000013113021850585938` against the unchanged `0.001` limit.
+
+The actual eight-update exposure matters: case 160 supplied no loss window;
+cases 161 and 175 supplied only frames 320–383, with 11 and 20 choices
+respectively. None of the prescribed first-divergence or late loop points was
+in those windows. Case 175's original pass has positive frozen advantage
+`0.43375027`, yet its probability falls from `0.96972150` to `0.94908947`;
+the alternative mana activation rises from `0.03012941` to `0.05073271`.
+This is an effect of shared parameter changes, not direct learning on that
+particular sampled move. It does not establish which move is strategically best.
+
+On case 161's complete original histories, the three prior Fireball proposals
+sharing the boundary view hash remain likely (logprob about `-0.4195`, versus
+source `-0.4064`, roughly 66% versus 67%). Thus the changed played trajectory
+does not demonstrate local repair. Target-subset probabilities shift more,
+but their optimality is not established. The final unexecuted boundary proposal
+has no cache row and was explicitly not evaluated. The value output is a
+research-utility critic, not a calibrated win probability.
+
+Report SHA-256:
+`4c601a6c0969ea700d12888ccd25c99baaee75a0f4f9f456c74102c0429986df`.
+Verified receipt SHA-256:
+`56e5c55882dda406af3ea8f86a8d080a469bd489b7c0d86741fffc910f8e3687`.
+The root's `operator-review.json` and native projection
+`ops-codex-20261028/reviews/source-state-summary-01a18c36.json` retain the
+bounded evidence. The owner's subsequent proposal to imitate LLM decisions
+from both winning and losing games is recorded as a separate controlled
+experiment in the research plan; no new long training was started by this review.

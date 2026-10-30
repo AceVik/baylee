@@ -19,13 +19,13 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
 | Current checkpoint phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-export-validation-recovery-01a18bdd-9c30-7bfb-bfc7-d8cb904a8725/validation/execution`, now `complete-reviewed`. Native compatibility validation accepts only the proven legacy E7 default `global_feat_width: 80`; all other config fields, sealed graphs, research-critic semantics and 47 numerical checks passed. Its processes exited and watcher stopped. No Torch/export/optimizer rerun was needed. The preceding breadth update retained eight updates, 465 choices, 2,043 frames and 311 changed tensors, final KL 0.00105115049. Its matched gameplay comparison is complete; no net benefit or promotion is established |
 | Completed behavior comparison | `research-breadth-paired-gameplay-01a18bf8-87a9-740e-a8f4-218d44a77c60/reviewed-events/1f92fce8c7a2bee4e4e248e4-operator-review.json` records `complete-reviewed`. All 32 fixed attempts were assigned, 16 per arm. Paired known utility: one better, one worse, nine equal, five unresolved. Eleven of 12 comparable canonical histories differ; all 12 comparable source histories reproduce the original. Source/candidate natural wins are four each, with different outcome denominators. The owned service, groups and watcher are stopped |
-| Current CPU diagnostic | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` names `research-breadth-source-state-diagnostic-01a18c36-1364-7587-afcb-b0bdae5ea827/`, observed `running` in native `mapping` after one successful launch. Cases 160/161/175, complete source-history probabilities/advantages and existing update exposure, no optimizer/gameplay. Three native and three CPU Torch fixtures passed. Service/watch active, service limit 29 minutes. See the exact manifest, launch receipt and controller identity below; recheck status before acting |
+| Completed CPU diagnostic | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` names `research-breadth-source-state-diagnostic-01a18c36-1364-7587-afcb-b0bdae5ea827/`, now `reviewed-complete`. Full source replay passed on 726 choices/2,915 frames, maximum logprob error 0.0000131131. None of the inspected divergence or late loop points was in an update loss window. The candidate remains likely to repeat earlier Fireball proposals on their original histories. No optimizer/gameplay or strength claim; service and watcher stopped |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current research direction | The first failure-terminal pilot retained one update on 61 choices and changed no executed behavior on four reused cases. The broader trial retained eight updates on 465 choices across 11 histories, including 103 from natural wins; 3,479 choices were audited. Final KL, checkpoint inspection and export parity/compatibility passed. The matched comparison confirms changed behavior but no demonstrated net gain. Case 161 avoids the old loop after an early divergence and then loses; this does not prove repair at the original failure state. Diagnose the decisive source-state probability changes before another learning dose. All these cases are reused training/development material |
+| Current research direction | No demonstrated net gain from the bounded PPO trials. Source-state diagnosis confirms probability shifts at positions absent from the update windows; the old loop is not locally repaired. The owner requests outcome-independent imitation from both winning and losing LLM seats and applied card/mechanic learning. The research plan specifies separate loss5 outcome-weighting, value-gradient and relational-task ablations. New main's cards/mechanics require a separately validated catalog/engine transition; no silent resume or immediate long run. All existing diagnostic cases remain reused training/development material |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
@@ -498,10 +498,28 @@ The one-shot release is `bin/source_state_ops launch-diagnostic --root-approved
 --expected-ready-sha256 <ready SHA>`. An existing launch attempt prevents another
 start. Attachment waits up to 180 seconds for initial manifest verification;
 `attach-diagnostic` only attaches the existing owned controller and watcher.
-On a terminal wake, inspect status and exact process identity first. On clean
-completion, run `verify-diagnostic` once, review `diagnostic/report.json`,
-deduplicate the event, verify cleanup and stop the owned watcher. Preserve a
-failed namespace; no automatic retry, training or promotion follows.
+This run is now reviewed complete. `verify-diagnostic` already ran successfully;
+do not rerun its create-only receipt. `diagnostic-verified.json` has SHA-256
+`56e5c55882dda406af3ea8f86a8d080a469bd489b7c0d86741fffc910f8e3687`, and
+`diagnostic/report.json` has SHA-256
+`4c601a6c0969ea700d12888ccd25c99baaee75a0f4f9f456c74102c0429986df`.
+The native verifier checked input/output seals and dead controller/child groups.
+The service is inactive; its watcher was stopped. `operator-review.json` and
+`ops-codex-20261028/reviews/source-state-summary-01a18c36.json` retain the review.
+Delayed terminal events refer to these receipts and must not start a duplicate.
+No automatic retry, training or promotion follows.
+
+Source replay covers all 726 choices and 2,915 frames of the three histories.
+The eight updates selected no window from case 160 and only frames 320–383
+from each of cases 161 and 175. None of the first-divergence or late loop
+points was directly in an update loss window. In case 175 the original pass
+mass falls from 96.97% to 94.91%, despite its positive source-frozen advantage;
+shared-parameter changes elsewhere can affect an untrained position. Earlier
+repeated Fireball proposals in case 161 retain approximately 66% probability
+on the source histories. The final unexecuted proposal was not evaluated.
+These observations neither establish optimal teacher choices nor quantify
+causal outcome effects. They favor testing useful supervised decision targets
+and actual exposure before spending another long outcome-only training dose.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,
