@@ -272,7 +272,7 @@ mod tests {
         let login = Login::central(PINNED, "secret".into());
         assert!(login.fresh_for(PINNED));
         assert!(login.fresh_for(KEYED));
-        assert!(login.fresh_for(&format!("{}/", KEYED)));
+        assert!(login.fresh_for(&format!("{KEYED}/")));
         assert!(!login.fresh_for("https://example.test"));
     }
 }
