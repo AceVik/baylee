@@ -189,8 +189,13 @@ Der Stand und die nächste Reihenfolge lauten:
    61 Entscheidungen/256 Frames, 301 geänderte Tensoren, finale KL
    `7,72555e-5`. Alle drei Zielhistorien haben Utility null. Das belegt den
    Lernpfad, keine bessere Spielstärke oder geeignete dauerhafte Datenmischung.
-   Als Nächstes folgt ein kleiner Vergleich mit identischen Ausgangslagen und
-   festgehaltenen Gegnern; Laufzeitmessungen werden unabhängig ergänzt.
+   Der anschließende Vergleich mit vier identischen Ausgangslagen pro Modell
+   und festgehaltenen Gegnern ist abgeschlossen: alle acht Versuche erfasst,
+   vier unveränderte kanonische Aktionsfolgen und gleiche Ergebnisse. Die
+   bekannte Lerner-Schleife bleibt bestehen. Eine breitere, vorab festgelegte
+   Sammlung soll unterschiedliche Gegner und neue Startbedingungen liefern;
+   keine Auswahl nach Sieg/Niederlage und kein bloßes Wiederholen der drei
+   Nullziel-Historien. Laufzeitmessungen für künftige Worker sind ergänzt.
    Details und Hashes im [Pilotbericht](../history/trained-ai-research-learning-pilot-2026-10-30.md).
 
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;

@@ -143,14 +143,106 @@ The value head now learns research utility, not solely MTG win probability;
 retain that provenance in any export/comparison. Raw policy evaluation does
 not validate that value head for live draw-offer decisions or model promotion.
 
+The follow-up was prepared and started under
+`research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`.
+It uses fresh source and candidate attempts on cases 64/65/96/97, with the
+same historical candidate1 opponent for 64/65 and frozen original R6 for 96/97.
+Both arms use the historical-opponent provenance role; candidate-versus-candidate
+would change the opponent and would not isolate the learner update. The fixed
+plan is eight attempts, raw FP32 K2, temperature 0.7 and original seeds/decks.
+Every attempt remains reported, with research utility distinct from MTG outcome.
+
+The CPU export pipeline completed. All five ONNX depth graphs passed 47 parity
+frames; maximum absolute difference was `0.000041544437408447266` against the
+`0.001` limit. Export manifest SHA-256 is
+`1130bf06be4805fe996e8f3ef0124458fa2ae76e6c6a7340c4292dcfcc25102c`;
+the K2 graph SHA-256 is
+`1a99b5189d124296812248905bc784de5e32ee9dcbb58a4903995913fae3a8cf`.
+The exporter worker took 65.768 seconds and about 4.84 GB peak host PSS;
+the complete export pipeline took 155.359 seconds. These are distinct
+measurements: the difference includes native supervision, sealing and the
+additional verification stage, not just model computation. Final operator
+review rehashed 41,778 seals and verified owned-controller/worker/cgroup exit,
+stopped the export watcher and handled event `ae6badce4982438e170d2c59`.
+Its review SHA-256 is
+`12b380c10461eab7bb0a53e9cd73ca934af8cc7d67949baa0dd5fe35ec3e7ed0`.
+The final launch map explicitly pins the approved `trajectory_cache4` on PATH;
+the earlier preparation draft is retained. `export-verified.json` retains the
+research-utility critic semantics omitted by ordinary export metadata.
+Export success alone does not establish a gameplay result. The bounded CPU
+comparison started once under `baylee-research-gameplay-01a18ae5.service`;
+controller PID 2433058/start ticks 16369208 belongs to the same boot above.
+Its gameplay manifest SHA-256 is
+`71bbbb6614cdc371429528d40e1c66302cec26a1940ea726bcd60ee2b35b69c1`.
+The initial observer attach window elapsed during native input verification;
+the existing service remained active and was attached without relaunching it.
+The canonical CPU pointer and durable watcher track this owner. The pipeline
+has a 1,260-second limit, its service 1,320 seconds, two CPU equivalents and
+20 GiB memory, with no GPU stage. Each of the four two-attempt groups is bounded
+to 240 seconds; retain incomplete or unstarted planned attempts without retries
+or refills.
+
+The comparison and its separate bounded report completed. All eight attempts
+were assigned and recorded, with zero operational unknown or unstarted cases.
+Each arm retained one opponent failure with unknown MTG outcome and no utility
+target, one learner announcement loop with utility zero, and two natural MTG
+losses with utility zero. All four candidate canonical input/action/state-hash
+sequences were identical to the fresh source; all four source records also
+reproduced the original data exactly. Each arm executed 816 learner inputs,
+including 611 `PassPriority`, 20 `CastSpell` and zero `CancelCast`. These are
+executed-input counts, including forced actions, not genuine-choice rates or
+evidence that passing was optimal. The learned probabilities changed but this
+bounded update did not alter executed behavior or fix the loop on these cases.
+
+The gameplay pipeline took 662.289 seconds; reporting took 25.685 seconds.
+`paired-review.json` SHA-256 is
+`ff320ea9dd2752a16f3abc5d69a9b4615d34bc1acc5a438bd567418b2d6ba9b2`;
+the action comparison SHA-256 is
+`3a4e01143232a495339fd797e598b49edd5f288fbdb97809743f2851b1bcd0c3`.
+Final review rehashed 41,908 seals and confirmed all owned controller, guard,
+worker and report identities/groups exited and the cgroup was empty. The
+gameplay watcher was stopped and event `a513a6a1bff9b7e06cb82b04` handled.
+`reviewed-events/a513a6a1bff9b7e06cb82b04-gameplay-review.json` SHA-256 is
+`daf77c2146ea2a8e6d38549cab1abaf7ce459cc1b094036b6de93f6f2bb3e4e6`.
+The CPU pointer is `complete-reviewed`, GPU empty and user gateway unchanged.
+These four reused development cases establish neither improved strength nor
+equivalence. Do not increase dose by repeating only the three zero-target
+histories. The next collection should predeclare a broader opponent/deck/seed
+schedule and retain its outcomes without selecting wins or replacing failures.
+
+The export review also identified a provenance bug: ordinary ONNX metadata
+dropped the research critic's target semantics. Fix `0fb67c18f` preserves an
+explicit `critic_semantics` marker, rejects malformed/conflicting checkpoint
+objectives and parses the marker into native model identity. Research critics
+remain usable offline; the live adapter refuses them before initialization
+because its draw rule uses an MTG outcome scale. Thirty native identity/live
+tests, 23 Torch export/worker tests and strict targeted Clippy passed. An orphan
+research-progress rejection was also checked by its targeted test. Existing
+unmarked archival exports remain compatible; this already frozen research
+comparison retains external provenance and must stay offline. This fix changes
+future exports, not the measured graph or the running user gateway.
+Follow-up `2ace2ab9b` also refuses incompatible critics in the preview publisher
+before replacing the live selection. All seven publication tests and strict
+Clippy passed; the new regression uses correctly resealed evaluation metadata
+and verifies the existing selection's bytes stay unchanged on refusal.
+
+The frozen failure-terminal collector supports only historical neural and
+neural self-play opponents. Its producer verification requires a model identity
+for every seat. House and external LLM opponents therefore need an explicit
+role/provenance contract extension; they cannot be admitted by relabeling a
+House seat or adding an evaluator flag. Broader collection with the currently
+supported neural roles is separate from that later extension.
+
 Sol's read-only performance review identified hypotheses to measure after this
 trial, not demonstrated speedups. Starting the tensor server and final native
 verification each reconstruct admission, scan and pack frames; original
 producer inputs can be hashed repeatedly across roles. Segment requests also
 read/decompress/pack frames again. A dummy lane currently requests segment zero
-before producing zero tensors. Add phase timings and unique/repeated byte and
-request counters around admission, reader validation, handshake, tensor loop,
-final verification and checkpoint hashing. Preserve final content revalidation
+before producing zero tensors. Commit `980427a96` adds worker host phase timings
+for future runs, with 14 passing CPU tests; it does not modify this frozen
+trial. Unique/repeated byte and request counters remain future measurements
+around admission, reader validation, handshake, tensor loop, final verification
+and checkpoint hashing. Preserve final content revalidation
 when considering reuse; the aggregate 125-second measurement does not tell us
 which component dominates.
 

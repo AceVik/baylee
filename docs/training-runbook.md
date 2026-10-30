@@ -18,13 +18,13 @@ promotion or push. Always check actual status before acting on this snapshot.
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names the four-attempt real-data pilot and is `complete-reviewed`. Collection, conversion, cache verification and native input admission passed: three histories, 1,713 frames, 372 genuine choices. Numerical Torch replay remains a separate gate. Follow actual stage receipts before launching anything |
 | Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names the latest research phase under `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/`. CPU preflight, CUDA initialization and full numerical replay passed; exactly one update was accepted (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546). Follow `execution_root` and actual receipts; no automatic repeat or promotion. Earlier coverage training remains completed and reviewed |
-| Completed gameplay comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` is `complete-reviewed`; follow its coverage-candidate comparison receipts |
+| Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update completed. Replay checked all 372 choices; update dose was only 61. Next assess behavior against fixed opponents before increasing dose. Native input admission does not certify numerical replay or playing strength |
+| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. Next predeclare a broader fresh collection rather than repeat only zero-target histories. Native input admission does not certify numerical replay or playing strength |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
@@ -111,6 +111,14 @@ previous asynchronous GPU work. Imports, the final report's own write and
 subsequent cleanup are excluded. Use native guard receipts for total worker
 time and cleanup. The already frozen one-update pilot predates these fields;
 do not rewrite its report or infer missing phase measurements.
+
+New exports retain the value objective in `critic_semantics`, and the native
+loader binds it into model identity. Research-utility models remain usable by
+offline evaluation, but the live adapter refuses them because its draw rule
+assumes MTG side-outcome utility. An older unmarked research export cannot be
+recognized by architecture or value range; retain its external provenance and
+re-export from the original checkpoint into a fresh directory when needed.
+Never relabel a frozen graph or treat a successful export as live promotion.
 
 Native `train_ops`, `watch_run4` and `stop_job4` syntax below was checked against
 release `--help` and source. Evaluator/converter and PyTorch options were checked
