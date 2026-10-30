@@ -327,38 +327,38 @@ mod tests {
         }
     }
 
+    /// Only the files the repository tracks: a walk of the tree also found
+    /// `web/feedback/node_modules`, which every worktree with the web
+    /// dependencies installed has, and an agent's untracked scratch files.
     #[test]
     fn no_python_or_shell_scripts_remain_outside_the_exclusions() {
-        fn visit(root: &Path, directory: &Path, scripts: &mut Vec<PathBuf>) {
-            for entry in std::fs::read_dir(directory).expect("read repository directory") {
-                let path = entry.expect("repository entry").path();
-                let relative = path.strip_prefix(root).expect("path inside repository");
-                if matches!(
-                    relative.components().next().map(std::path::Component::as_os_str),
-                    Some(part) if part == ".git" || part == "target" || part == ".agents" || part == ".claude" || part == ".codex"
-                ) {
-                    continue;
-                }
-                if relative.starts_with("tools/trainer") {
-                    continue;
-                }
-                if path.is_dir() {
-                    visit(root, &path, scripts);
-                } else if matches!(
-                    path.extension().and_then(|ext| ext.to_str()),
-                    Some("py" | "sh")
-                ) {
-                    scripts.push(relative.to_path_buf());
-                }
-            }
-        }
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .and_then(Path::parent)
             .expect("the repository root")
             .to_path_buf();
-        let mut scripts = Vec::new();
-        visit(&root, &root, &mut scripts);
+        let listed = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(["ls-files", "-z", "--", "*.py", "*.sh"])
+            .output()
+            .expect("git lists the tracked files");
+        assert!(
+            listed.status.success(),
+            "git ls-files: {}",
+            String::from_utf8_lossy(&listed.stderr)
+        );
+        let scripts: Vec<String> = listed
+            .stdout
+            .split(|byte| *byte == 0)
+            .filter(|path| !path.is_empty())
+            .map(|path| String::from_utf8_lossy(path).into_owned())
+            .filter(|path| {
+                ![".agents/", ".claude/", ".codex/", "tools/trainer/"]
+                    .iter()
+                    .any(|excluded| path.starts_with(excluded))
+            })
+            .collect();
         assert!(scripts.is_empty(), "scripts still to migrate: {scripts:?}");
     }
 }
