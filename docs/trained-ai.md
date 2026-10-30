@@ -422,7 +422,11 @@ They are operational metadata, not anonymous training exports.
 
 The native `publish_live_model4` binary in `baylee-train-ops` verifies completed paired evaluation jobs,
 identical deals and house baselines, export parity and evaluated model hashes
-before publishing that manifest atomically. Ranking is development mean side
+before publishing that manifest atomically. A job records its inputs as it
+declared them (relative to its `cwd`, or through a symlink such as macOS's
+`/var`); publication finds them by canonical path, and refuses one file
+recorded twice with two digests. Receipts the corpus tools write are keyed by
+canonical path too. Ranking is development mean side
 utility across duel and Commander suites, not a statistically established
 strength promotion. Native `live_play_maintenance4` checks the registered experiment
 every 30 seconds and imports completed official gateway exports every five

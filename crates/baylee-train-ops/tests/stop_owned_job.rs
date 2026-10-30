@@ -1,5 +1,5 @@
-#![cfg(target_os = "linux")]
 //! Stop one real bounded native supervisor and verify its owned group is empty.
+#![cfg(target_os = "linux")]
 use anyhow::{Context, Result, ensure};
 use baylee_train_ops::{files, process};
 use std::{
