@@ -86,6 +86,7 @@ fn streamed_frames_match_collecting_conversion_with_bounded_memory() {
             .map(|line| serde_json::from_slice::<serde_json::Value>(line).unwrap())
             .collect::<Vec<_>>();
         lines[0]["hash"] = serde_json::json!("0000000000000000");
+        lines[0]["seen"] = serde_json::json!("0000000000000000");
         let mut bad = Vec::new();
         for line in &lines {
             serde_json::to_writer(&mut bad, line).unwrap();
