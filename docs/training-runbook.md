@@ -17,14 +17,14 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
-| Current checkpoint phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-export-validation-recovery-01a18bdd-9c30-7bfb-bfc7-d8cb904a8725/validation/execution`, now `complete-reviewed`. Native compatibility validation accepts only the proven legacy E7 default `global_feat_width: 80`; all other config fields, sealed graphs, research-critic semantics and 47 numerical checks passed. Its processes exited and watcher stopped. No Torch/export/optimizer rerun was needed. The preceding breadth update retained eight updates, 465 choices, 2,043 frames and 311 changed tensors, final KL 0.00105115049. Its fresh matched gameplay comparison is running separately |
-| Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` names `research-breadth-paired-gameplay-01a18bf8-87a9-740e-a8f4-218d44a77c60/`, observed `running` after one launch and successful attach-only recovery. Four native loaders passed; first observed game stage was `source-table-080`. The fixed schedule contains 32 attempts, 16 per arm, with identical seeds/decks/seats and fixed historical/R6 opponents. CPU-only, at most 80 minutes, no refill or automatic training/promotion. The older eight-attempt pilot is `complete-reviewed` and showed identical actions/outcomes, not improvement |
+| Current checkpoint phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-export-validation-recovery-01a18bdd-9c30-7bfb-bfc7-d8cb904a8725/validation/execution`, now `complete-reviewed`. Native compatibility validation accepts only the proven legacy E7 default `global_feat_width: 80`; all other config fields, sealed graphs, research-critic semantics and 47 numerical checks passed. Its processes exited and watcher stopped. No Torch/export/optimizer rerun was needed. The preceding breadth update retained eight updates, 465 choices, 2,043 frames and 311 changed tensors, final KL 0.00105115049. Its matched gameplay comparison is complete; no net benefit or promotion is established |
+| Completed behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` records `research-breadth-paired-gameplay-01a18bf8-87a9-740e-a8f4-218d44a77c60/` as `complete-reviewed`. All 32 fixed attempts were assigned, 16 per arm. Paired known utility: one better, one worse, nine equal, five unresolved. Eleven of 12 comparable canonical histories differ; all 12 comparable source histories reproduce the original. Source/candidate natural wins are four each, with different outcome denominators. The owned service, groups and watcher are stopped. Next: bounded offline probabilities/advantages on source states in cases 160/161/175; preparation is not execution |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current research direction | The first failure-terminal pilot retained one update on 61 choices and changed no executed behavior on four reused cases. The broader trial retained all eight updates on 465 choices across 11 histories, including 103 from natural wins; 3,479 choices were audited. Final KL, independent checkpoint inspection and export parity/compatibility passed. Fresh source/candidate arms are now being compared across all 16 fixed breadth cases. These are reused training/development cases, not an untouched holdout or evidence for promotion |
+| Current research direction | The first failure-terminal pilot retained one update on 61 choices and changed no executed behavior on four reused cases. The broader trial retained eight updates on 465 choices across 11 histories, including 103 from natural wins; 3,479 choices were audited. Final KL, checkpoint inspection and export parity/compatibility passed. The matched comparison confirms changed behavior but no demonstrated net gain. Case 161 avoids the old loop after an early divergence and then loses; this does not prove repair at the original failure state. Diagnose the decisive source-state probability changes before another learning dose. All these cases are reused training/development material |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
@@ -401,7 +401,7 @@ Its ready SHA-256 is
 `837f73fd43e29b907e29d9c70910c7be8912d50b360f82c9553b35eb0126fddd`;
 pipeline SHA-256 is
 `a4764252c9005ceb31d7b68a5560ed3907140c1495848393fa8352f767566dd2`.
-Service `baylee-research-breadth-01a18bf8-gameplay` owns controller PID
+Service `baylee-research-breadth-01a18bf8-gameplay` owned controller PID
 2500739/start ticks 18063496 on boot
 `ebf55ae5-05a2-41fc-a994-e5da27268ced`. Recheck actual identity and state.
 Both models use FP32/K2/T0.7 on cases 160–175, with the same seeds and fixed
@@ -420,23 +420,44 @@ successful launch receipt and controller, then invoked only the existing
 `bin/matched_gameplay_ops attach-gameplay`. It verified sealed inputs, exact
 identity/executable/argv/cgroup and canonical ownership under locks, armed the
 watcher and changed the CPU pointer from `starting` to `running`. The watcher
-timer is active and its first check exited zero. Do not launch again because
+timer was active and its first check exited zero. Do not launch again because
 the launcher itself returned nonzero. Future launchers must account for
 manifest-validation time and distinguish attachment failure from launch failure.
 
-On the terminal wake, inspect current status, actual artifacts and owned
-identities first. On clean completion, run this namespace's
-`bin/matched_gameplay_ops verify-gameplay` once; it creates an immutable receipt.
-On failure, preserve the run and establish owned-process/cgroup cleanup before
-`report-partial`, which retains all 32 planned rows including unstarted and
-unknown cases. Do not rerun individual tables, refill outcomes or include old
-collection attempts in the fresh denominator. Keep natural MTG results,
-learner-loop utility zero and target-free unknowns separate. The report includes
-canonical action divergence and source reproducibility, not just wins. Review
-and deduplicate the event, close the owned watcher and update the canonical CPU
-pointer before any successor. The superseded `01a18be4` preparation was never
-launched. Full design and fixture evidence are in the
-[dated pilot report](history/trained-ai-research-learning-pilot-2026-10-30.md#fresh-32-attempt-matched-comparison).
+Event `1f92fce8c7a2bee4e4e248e4` is now handled as `complete-reviewed`.
+`bin/matched_gameplay_ops verify-gameplay` already ran once; do not repeat it.
+The immutable `gameplay-verified.json` SHA-256 is
+`0c51a9333d9036cce2d410a4ab2d74de8a27565406f89e24a7f2207715a3d331`;
+operator review SHA-256 is
+`ae54f6bc825ab2c0846ba9ec1eb7f414b449de5d7087d4d43d32fb24c5ca69a8`.
+The pipeline completed in 3,466.437 seconds. Review rechecked 20,507 input
+seals, 21 outer/16 inner guards, dead identities, empty groups/cgroup and the
+unchanged gateway. The owned service and watcher are inactive.
+
+All 32 planned attempts were assigned. Source: four natural wins, six losses,
+one learner loop, one recorded opponent failure and four deadline unknowns.
+Candidate: four natural wins, eight losses, one recorded opponent failure and
+three deadline unknowns. The natural-outcome denominators differ; they are not
+unqualified 4/16 win rates. Paired known research utility is one better, one
+worse, nine equal and five unresolved. Among ten pairs with natural outcomes
+in both arms, each model has four wins/six losses, with two opposite flips.
+All 25 indexed records have zero fallback/refused answers. Eleven of 12
+comparable canonical sequences differ; all 12 comparable source sequences
+exactly reproduce their original histories. Missing records are not evidence
+of equal actions.
+
+Case 160 changes loss to win; case 175 changes win to loss. Case 161 leaves
+the source loop trajectory at canonical input 173 and eventually loses. Its
+research utility stays zero, and early trajectory divergence does not prove
+repair at the original failure state. The next bounded diagnostic examines
+source-state probabilities, source-frozen advantages, KL and actual training
+exposure in these three histories, with each model reconstructing its own
+full-history memory. It adds no outcomes, optimizer updates or gameplay.
+Original continuation tables had 600-second guards; this comparison used
+240 seconds equally in both arms. Preserve all deadline unknowns; do not
+refill, retry or mix old completed attempts into the fresh denominator.
+The superseded `01a18be4` preparation was never launched. Full evidence is in
+the [dated pilot report](history/trained-ai-research-learning-pilot-2026-10-30.md#matched-comparison-results-and-next-diagnostic).
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,

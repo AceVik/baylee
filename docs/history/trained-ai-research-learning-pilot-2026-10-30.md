@@ -946,7 +946,7 @@ receipt appeared at 09:44:24, about 65 seconds after service start, beyond its
 restarted. Root inspected its successful launch receipt and live controller,
 then invoked only `attach-gameplay`; sealed inputs, exact controller identity,
 executable, argv, cgroup and canonical ownership passed. The canonical CPU
-pointer is now `running`, the watcher timer is active, and its first check
+pointer was then `running`, the watcher timer was active, and its first check
 exited zero. Future launchers must distinguish an attachment timeout from
 launch failure and allow for manifest-validation time before controller receipt.
 
@@ -956,3 +956,84 @@ All four native zero-deal loaders completed with cleanup verified, taking
 On terminal completion, inspect and run `verify-gameplay` once before reviewing
 the result; on failure, retain the run and establish owned-process cleanup
 before `report-partial`. Neither operation authorizes duplicate games or promotion.
+
+## Matched comparison results and next diagnostic
+
+Event `1f92fce8c7a2bee4e4e248e4` is closed as `complete-reviewed`. All 32
+fixed attempts were assigned, with zero unstarted cases. The pipeline took
+3,466.437 seconds. Native `verify-gameplay` passed once; its immutable
+`gameplay-verified.json` SHA-256 is
+`0c51a9333d9036cce2d410a4ab2d74de8a27565406f89e24a7f2207715a3d331`.
+Root rechecked 20,507 input seals, the 21 outer and 16 inner guards, dead owned
+identities, empty groups/cgroup and the unchanged user gateway. The owned
+watch timer is stopped; the CPU pointer is `complete-reviewed`.
+Operator review SHA-256 is
+`ae54f6bc825ab2c0846ba9ec1eb7f414b449de5d7087d4d43d32fb24c5ca69a8`.
+
+| Fixed 16-attempt arm | Original R6 | Eight-update candidate |
+| --- | ---: | ---: |
+| Indexed histories | 12 | 13 |
+| Natural MTG wins | 4 | 4 |
+| Natural MTG losses | 6 | 8 |
+| Learner announcement loop | 1 | 0 |
+| Recorded opponent failure, unknown utility | 1 | 1 |
+| Operational deadline unknowns | 4 | 3 |
+
+The natural-outcome denominators differ. All 25 indexed histories report zero
+fallback and refused answers. Among all 16 paired cases, known research utility
+is **one better, one worse, nine equal and five unresolved**. Ten pairs have
+natural MTG outcomes in both arms: each model wins four and loses six, with
+eight concordant outcomes and two opposite flips. These are reused training/
+development cases, with eight correlated table clusters, not a holdout or
+evidence of equivalence, causal training benefit or promotion.
+
+The native canonical comparison supplies the useful next diagnostic:
+
+| Case | Source to candidate outcome | First divergent canonical input | Source action to candidate action |
+| --- | --- | ---: | --- |
+| 160 | Natural loss to win | 657, learner seat 0 | `PassPriority` to `ActivateManaAbility(source=43)` |
+| 161 | Learner loop to natural loss; utility remains zero | 173, learner seat 1 | `ActivateAbility(source=104, ability_index=0)` to `ActivateManaAbility(source=110)` |
+| 175 | Natural win to loss | 70, learner seat 1 | `PassPriority` to `ActivateManaAbility(source=106)` |
+
+Eleven of the 12 pairs with both indexed histories differ in executed actions;
+case 163 alone is identical. Their initial canonical headers match, and the
+first divergence belongs to the learner seat. The old source loop in case 161
+ended after 730 executed inputs; the candidate differs much earlier and ends
+after 1,069. Avoiding that trajectory does not establish that the candidate
+chooses correctly when presented with the original failure state. Nor is the
+first changed action necessarily the sole cause of the final outcome.
+
+All 12 comparable fresh source histories exactly reproduce the original
+indexed actions and hashes. Four source histories are absent from this fresh
+comparison and cannot establish reproducibility. Cases 165/168/171 hit the
+deadline in both arms; 169 does so only in source. Case 170 has a recorded
+opponent failure in both arms. These remain unknown; the candidate's natural
+loss on 169 is not a demonstrated regression against an unknown source result.
+Original continuation tables 083–087 had 600-second guards; this comparison
+gave both arms 240 seconds. Original table 084 took 368.990 seconds and table
+085 took 566.304 seconds. The tighter wall-time budget can therefore censor
+reproducible source games. Keep the fixed denominator; do not refill unknowns
+or substitute old successful attempts.
+
+`paired-review.json` SHA-256 is
+`d6b13b4f48dfbe3ae06ac775b35e77ca53d88f105889484fe0e6efda13ea1008`;
+`action-comparison.json` SHA-256 is
+`bd36f643fd6e4e538ddf35dbeefc9ac26be031fc7345c0193c46d0c52d3ec448`.
+The bounded native projection at
+`ops-codex-20261028/reviews/breadth-gameplay-summary-01a18bf8.json` has SHA-256
+`48792a29d9e41ecc99eec7e163e8942705e67f1b003a837c339f7c45f85f4d2f`.
+Do not print whole `research_episode` objects from raw reports: their frozen
+prefixes can be very large. Project explicitly selected metrics instead.
+
+The next bounded CPU diagnostic will compare source and candidate on the same
+source histories for cases 160/161/175, using each model's own full-history
+memory. Rust must verify the replay and bind canonical action/seat/snapshot
+hashes through actual decision identifiers to the admitted cache. Canonical
+input numbers, learner inputs and tensor cursors are not interchangeable:
+forced actions may emit passive observations without decision rows. The
+PyTorch computation will measure action masses, KL, source-frozen values and
+advantages; native reports will join the already selected training exposure.
+The unexecuted terminal loop proposal is distinct from cached executed
+decisions. This diagnostic creates no labels, gradients, optimizer state,
+gameplay, refill or promotion. Changed behavior is established; a net benefit
+has not yet been demonstrated.

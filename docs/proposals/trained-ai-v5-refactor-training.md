@@ -1,6 +1,6 @@
 # BayleeAI v5: Refactoring, Untersuchungen und nächstes Training
 
-Stand: 29. Oktober 2026. Auftrag: altes Training stoppen, R0–R4 umsetzen,
+Stand: 30. Oktober 2026. Auftrag: altes Training stoppen, R0–R4 umsetzen,
 die nicht auf PyTorch angewiesenen Trainingswerkzeuge durch Rust ersetzen und
 anschließend begrenzte, aussagekräftige Lernversuche durchführen.
 Arbeitsbasis: `codex/payment-context-v5-20261028`; die ursprünglich bei
@@ -197,6 +197,22 @@ Der Stand und die nächste Reihenfolge lauten:
    keine Auswahl nach Sieg/Niederlage und kein bloßes Wiederholen der drei
    Nullziel-Historien. Laufzeitmessungen für künftige Worker sind ergänzt.
    Details und Hashes im [Pilotbericht](../history/trained-ai-research-learning-pilot-2026-10-30.md).
+9. **Breiterer Fehler-Lernversuch ausgewertet (30. Oktober):** Die feste
+   Sammlung umfasst 16 Versuche, davon 14 Zielhistorien; zwei unbekannte
+   Ergebnisse bleiben ohne Ziele. Acht Updates aus R6 mit frischem AdamW
+   verarbeiten 465 Entscheidungen in 2.043 Frames aus elf Historien, darunter
+   103 Entscheidungen aus natürlichen Siegen. 311 Tensoren ändern sich;
+   vollständiges Replay und finale KL `0,00105115` bestehen. Der frische
+   Vergleich umfasst 16 Versuche je Modell: gepaarte bekannte Utility einmal
+   besser, einmal schlechter, neunmal gleich, fünfmal ungeklärt. Elf von zwölf
+   vergleichbaren Aktionsfolgen ändern sich; alle zwölf prüfbaren R6-Verläufe
+   reproduzieren die ursprünglichen Aktionen exakt. Beide Modelle haben vier
+   natürliche Siege bei unterschiedlichen Ergebnisnennern. Der früh veränderte
+   Schleifenfall endet nun mit einer Niederlage; das beweist keine Reparatur
+   am ursprünglichen Fehlerzustand. Verändertes Verhalten ist belegt, ein
+   Nettogewinn an Spielstärke bislang nicht. Als Nächstes werden die
+   Wahrscheinlichkeiten, eingefrorenen Advantages und tatsächlichen
+   Trainingskontakte der Fälle 160/161/175 ohne weitere Updates untersucht.
 
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;
 historische Aussagen „noch nicht implementiert“ sind durch diesen Stand ersetzt.
@@ -794,12 +810,15 @@ Regressionstest und werden vor erneuter Zulassung repariert. Zugehörige Engine-
 und Seat-Prozesse werden auch bei Fehlern beendet und ihr Ende geprüft.
 Fehlgeschlagene Artefakte bleiben erhalten; kein blinder automatischer Retry.
 
-**Nächster Schritt:** Den technisch bestandenen Fehler-Lernvertrag in einem
-kleinen gepaarten Spielvergleich beurteilen. Ausgangsmodell und neuer Kandidat
-erhalten dieselben Fälle und dieselben eingefrorenen Gegner. Passhäufigkeit,
-Ankündigungen, Abbrüche und echte Spielausgänge getrennt erfassen; unbekannte
-Ergebnisse bleiben unbekannt. Den reinen Null-Return-Pilot nicht ungeprüft
-wiederholen oder als Beleg für einen langen Trainingslauf behandeln.
+**Nächster Schritt:** Nach dem abgeschlossenen breiteren Spielvergleich die
+gegenläufigen Ergebniswechsel und den Schleifenfall auf denselben sichtbaren
+Source-Zuständen untersuchen. Beide Modelle rekonstruieren ihr eigenes
+Gedächtnis über die vollständige Historie; Rust verknüpft kanonische Aktionen,
+Replay-Bindungen und Cache-Frames ausdrücklich. Das PyTorch-Stück misst
+Aktionswahrscheinlichkeiten, KL und Werte ohne Optimizer. Die Diagnose soll
+den nächsten begrenzten Lernversuch begründen; sie liefert weder neue
+Optimalitätslabels noch einen Stärke- oder Holdoutnachweis. Zeitlimitfälle
+bleiben unbekannt und werden nicht für ein günstigeres Ergebnis nachgespielt.
 
 Der Encoder9-Anschluss einschließlich nativem Loader und
 vollständigem kompilierten Kartenkatalog ist geprüft. Ein kleiner synthetischer
