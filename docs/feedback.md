@@ -678,8 +678,10 @@ query string; `/admin/accounts/{id}`: one account, its decks and latest
 games), **Blocked cards** (`/admin/cards`: a card of the gateway's pool
 found by name and blocked without an end or until a moment, with a reason
 the players are told; the blocks in force, each lifted; the earlier ones;
-`docs/protocol.md` §"Blocked cards") and **Beta keys** (`/admin/keys`), so
-the owner needs a shell for none of it.
+`docs/protocol.md` §"Blocked cards"), **Beta keys** (`/admin/keys`) and
+**Baylee Central** (`/admin/central`: the gateway's link to Central, a token
+made on baylee.app pasted and removed, `docs/central-login.md` §"Linking a
+gateway with a token"), so the owner needs a shell for none of it.
 A sidebar on a wide screen, a tab bar at the bottom of a phone. The
 service passes each request on to the gateway's admin console
 (`docs/protocol.md` §"The admin console") with the gateway's token, which
@@ -688,6 +690,9 @@ the browser never sees:
 | route | what |
 | --- | --- |
 | `GET /ui/api/admin/stats` | the gateway's `GET /admin/stats`, as it answers |
+| `GET /ui/api/admin/central` | the gateway's `GET /admin/central`: its link to Baylee Central, never more of a token than its last four characters |
+| `PUT /ui/api/admin/central/token` | `{"token"}`, read into that field and written out again: the gateway checks the token with Central, keeps it and uses it; an audit row without the token |
+| `DELETE /ui/api/admin/central/token` | the gateway forgets its pasted token and is unlinked |
 | `GET /ui/api/admin/live` | the gateway's `GET /admin/live` |
 | `GET /ui/api/admin/metrics` | the gateway's `GET /admin/metrics`: the last hour of server samples (`docs/protocol.md` §"The admin console") |
 | `GET /ui/api/admin/sets` | the gateway's `GET /admin/sets`: how far the pool is through each set |
