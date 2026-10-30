@@ -23,6 +23,9 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--thinking-steps", type=int, default=2)
     ap.add_argument("--report-depths", type=lambda v: tuple(int(k) for k in v.split(",")), default=(1, 2, 4, 8),
                     help="Validation depths, comma-separated; each is a complete pass and K2 always selects snapshots")
+    ap.add_argument("--nondeterministic-kernels", action="store_true",
+                    help="Use PyTorch's default CUDA kernels: several times faster scatter/gather, "
+                         "but a rerun is not bit-identical; bound into the resume contract")
     ap.add_argument("--depth-schedule", choices=("fixed", "legacy_frame_cycle"), default=None,
                     help="Explicit versioned decision-depth mode; checkpoint selection always uses K2")
     ap.add_argument(
@@ -55,6 +58,8 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--reference-execution", action="store_true", help="Use the original synchronized execution for A/B checks")
     ap.add_argument("--fused-optimizer", action="store_true", help="Fuse CUDA AdamW kernels; benchmark before enabling")
     ap.add_argument("--board-chunk", type=int, default=1, help="Independent observation encodings per trunk call; recurrence remains sequential")
+    ap.add_argument("--board-token-budget", type=int, default=0,
+                    help="Shrink --board-chunk per batch so one trunk call holds at most this many tokens (0 = fixed chunk)")
     ap.add_argument("--compile-regions", action="store_true", help="Compile repeated transformer/thinking blocks with TorchInductor")
     ap.add_argument("--compile-readouts", action="store_true", help="Also compile recurrent updates and action/value readouts; requires --compile-regions")
     ap.add_argument("--cache-thinking-kv", action="store_true", help="Reuse this decision's board attention projections across thinking steps")
@@ -110,7 +115,8 @@ def parse_args(default_architecture="v4"):
         ap.error("Candidate context warmstart requires v5 relational2 candidate2+ and --init only; no simultaneous encoder transfer")
     from .depth_schedule import DepthSchedule
     try:
-        DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum, args.report_depths)
+        DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum, args.report_depths,
+                                    not args.nondeterministic_kernels)
     except ValueError as error:
         ap.error(str(error))
     identity["encoder_version"] = args.encoder_version
