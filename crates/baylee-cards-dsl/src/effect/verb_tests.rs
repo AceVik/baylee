@@ -594,6 +594,9 @@ fn repeated_and_source_watching_bodies_are_visited() {
     static SUBJECT_END_STEP: &[Effect] = &[Effect::AtNextEndStepAboutSubject {
         effects: &[Effect::destroy(TargetSpec::EventObject)],
     }];
+    static TOKEN_END_STEP: &[Effect] = &[Effect::AtNextEndStepForCreatedTokens {
+        effects: &[Effect::destroy(TargetSpec::EventObject)],
+    }];
     for list in [
         REPEAT,
         WHILE,
@@ -602,6 +605,7 @@ fn repeated_and_source_watching_bodies_are_visited() {
         THIS_TURNS_COMBAT,
         ATTACK_WATCH,
         SUBJECT_END_STEP,
+        TOKEN_END_STEP,
     ] {
         let mut seen = 0;
         let mut body_seen = false;
