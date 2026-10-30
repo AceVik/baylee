@@ -174,6 +174,62 @@ token remains a separate administrative route; neither mode receives a Central
 account session token. The gateway-owning account must also be explicitly listed
 as an admin if it needs SSO administration.
 
+## The official gateway's aliases
+
+The official gateway moved from `https://baylee.acevik.de` to
+`https://gateway.baylee.app` on 30.10.2026 (owner's decision). Every client
+installed before then has the old address compiled in, so the old host serves
+the same gateway as an alias until those clients are gone. Then the old host
+only redirects, the aliases are removed, and the account document takes the
+new spelling ([#402](https://github.com/AceVik/baylee/issues/402)).
+
+A Central ticket and the lease redeemed from it carry the origin the client
+asked for (its audience): `https://baylee.acevik.de` from an installed client,
+`https://gateway.baylee.app` from a new one. So does a gateway's terms
+acceptance (`TermsSubject::Gateway`). Central holds the official gateway's
+origin together with its aliases, and it must take a ticket, a lease and a
+terms acceptance under any of them as the official gateway's. That is
+baylee-central's part, and it ships before a client with the new address: a
+new client asks for tickets for an origin today's Central does not know. The
+bridge file names `origin` (the new address) and `aliases` (the old ones: at
+most four canonical origins, none twice, none the origin, only beside an
+`origin`, and only for the bridge, since a registered gateway has the one
+origin it registered). Its `metadata.website` lies on `origin`. Order: Central,
+then the gateway with the new bridge file, then the client release.
+
+The client has one mapping, `gateway_list::moved` (client-core): the old
+address reads as the new one. Every caller asks it, or `same` and `keyed`,
+which are built on it; nothing compares two addresses itself. Its callers do
+one of two things with an old address:
+
+- **Read it under the new address.** These are this device's own files, which
+  one client version reads at a time: the saved list, the uses, the guest
+  tokens and the accepted terms in `client-settings.json` (rewritten on load),
+  `resume.json` and the crash report from the client an update replaced, the
+  configured and the page's gateway, and the account's gateway list as the
+  client shows it.
+- **Keep it under the old address** (`gateway_list::keyed`, `KEYED`). The
+  vault's scope is both its folder name and its AEAD associated data, so moving
+  it would mean unlocking and resealing real keys. The account's chat records
+  are matched with `==` by installed clients on the account's other devices: if
+  they were rewritten, those clients would find no record and generate a second
+  chat identity. The chat folder and the keychain slot follow the vault. The
+  account document's gateway list keeps the old spelling too (`filed`), so an
+  installed client shows its own pinned row and no second one, and the website
+  may keep sealing `["https://baylee.acevik.de"]`.
+
+Do not "repair" the old spelling in these. `KEYED` never changes, not even
+after #402, and `legacy.gateway` keeps the old address, because installed
+clients refuse a document whose `legacy.gateway` differs. The legacy login and
+its migration move into Central, so `/auth/central/migrate` gets no alias.
+Browser storage belongs to the page's origin: `/play/` on the new host starts
+with an empty `localStorage`, and a browser guest kept on the old host stays
+there. That was accepted rather than carrying a token across origins. Tests
+use the old spelling: `gateway_list`, `settings`, `vault::password`,
+`restore`, `resume`, `vault_access`, `lobby::central` and `crash` in the
+client, and `central::tests` in the gateway (`docs/client.md` §"The live
+gateway's address, and its move (30.10.2026)").
+
 ## Development and rollout
 
 A `dev-control` native build accepts `BAYLEE_CENTRAL_DEV_ENDPOINT`, restricted to
@@ -212,11 +268,11 @@ marked "Official") once Central's operator has listed it (baylee-central
 `docs/operations.md` §"The official gateway"). Its bridge file then gains
 `metadata` (`name`, `version`, `website`) beside `bridge`, for example
 `"metadata": {"name": "Baylee", "version": "0", "website":
-"https://baylee.acevik.de/"}`: the gateway sends `GatewayHeartbeat` with the
+"https://gateway.baylee.app/"}`: the gateway sends `GatewayHeartbeat` with the
 bridge credential every 30 seconds, Central updates the official entry and no
-other, and the entry shows online. The website must lie on the bridge's origin,
-the compiled `https://baylee.acevik.de` live; in development that is `origin`,
-which a bridge file with `metadata` must then name. `version` is replaced with
+other, and the entry shows online. The website must lie on the bridge's
+`origin`; without one, on the compiled legacy origin `https://baylee.acevik.de`
+live. In development a bridge file with `metadata` must name `origin`. `version` is replaced with
 the running binary's version. Without `metadata` the bridge sends no heartbeat
 and the entry stays listed and offline.
 Registered gateways instead use `endpoint`, canonical `origin`, `credential`,

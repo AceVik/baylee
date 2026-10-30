@@ -9737,6 +9737,40 @@ process back at the same table, seat, `seq` and hand, the zone browser
 open as it was, with the held-seat note; an offline game at turn 5 back at
 the same `seq`, hand and visit, and played on.
 
+## The live gateway's address, and its move (30.10.2026)
+
+The live gateway, Baylee Sanctuary, is `gateway_list::PINNED`:
+`https://gateway.baylee.app` since 30.10.2026, `https://baylee.acevik.de`
+(`FORMER`) before. The old host serves the same gateway as an alias until a
+release with the new address is widely installed; after that it only
+redirects. Nothing a player kept under the old address may be lost, and an
+installed client must keep working beside a new one on the account's other
+devices, so what holds the address is moved in one of two ways.
+
+- **Read under the new address** (`gateway_list::moved`), because the
+  device's own files are read by one client version at a time:
+  `client-settings.json`'s list, uses, guest tokens and accepted terms
+  (`ClientSettings::moved` on load; a guest kept under both addresses keeps
+  both, neither token is overwritten), `resume.json` and the crash report
+  written by the client an update replaced, and the account's synced list as
+  this client shows it (`renamed`).
+- **Kept under the first address** (`gateway_list::keyed`, `KEYED`), because
+  they cannot move without loss: the vault's scope, which is both its folder
+  name and its AEAD associated data, the legacy chat folder, the keychain
+  slot, and the account's chat records, which an installed client on another
+  device matches with `==` (a miss there makes it generate a second chat
+  identity). The account's synced gateway list is written in this spelling
+  too (`filed`), so an installed client shows its own pinned row and no
+  second one.
+
+The chat unlock a Central sign-in hands over is for `PINNED`. A browser's
+`localStorage` belongs to the page's origin: `/play/` on the new host starts
+empty, and a browser guest kept on the old host stays there. Tests:
+`gateway_list` (the mapping), `settings` (a file from before the move),
+`vault::password` and `restore` (the vault and the chat records),
+`lobby::central` (the account's list). The gateway's side is in
+`docs/central-login.md` §"The official gateway's aliases" (#402 is the switch that ends it).
+
 ## Where a packaged desktop build finds its fonts
 
 `standalone::asset_root` takes the `assets` directory **beside the executable**

@@ -37,6 +37,14 @@ pub fn moved(url: &str) -> &str {
     }
 }
 
+/// Whether two addresses name one gateway: the same address, a trailing
+/// slash aside, or the live gateway by its new and a [`FORMER`] address.
+/// The one comparison of gateway addresses; nothing compares them itself.
+#[must_use]
+pub fn same(a: &str, b: &str) -> bool {
+    moved(a.trim_end_matches('/')) == moved(b.trim_end_matches('/'))
+}
+
 /// The address a gateway's keys are bound to: for the live gateway its
 /// first address, [`KEYED`]; for every other gateway its own address.
 #[must_use]
@@ -320,6 +328,15 @@ mod tests {
         );
     }
 
+    #[test]
+    fn the_live_gateway_is_the_same_by_either_address() {
+        assert!(same(FORMER[0], PINNED));
+        assert!(same(&format!("{PINNED}/"), FORMER[0]));
+        assert!(same("http://127.0.0.1:28766/", "http://127.0.0.1:28766"));
+        assert!(!same(PINNED, "http://127.0.0.1:28766"));
+        assert!(!same("https://baylee.acevik.de.example", PINNED));
+    }
+
     /// Keys stay bound to the live gateway's first address: its new and its
     /// old spelling find the same vault and chat records; other gateways keep
     /// their own.
@@ -344,6 +361,19 @@ mod tests {
         );
         assert_eq!(filed(&document), document);
         assert_eq!(renamed(document), list);
+    }
+
+    /// `/play/` still served at the former address (the lobby's path, as
+    /// `LobbyState::new` runs it): one row for the live gateway, the pinned
+    /// one, and the cursor on it, where a guest kept on this browser is.
+    #[test]
+    fn a_page_served_at_the_former_address_plays_at_the_pinned_row() {
+        let old = FORMER[0];
+        let page = page_gateway(Some(old), old).map(|page| moved(&page).to_string());
+        assert_eq!(page.as_deref(), Some(PINNED));
+        let list = with_page(with_pinned(vec![old.to_string()]), page.as_deref());
+        assert_eq!(list, vec![PINNED.to_string()]);
+        assert_eq!(starting_row(&list, false, page.as_deref()), Some(0));
     }
 
     /// An entry kept under the former address comes over; one kept under

@@ -103,7 +103,7 @@ mod tests {
     fn restores_gateways_and_unknown_preference_keys_without_using_device_defaults() {
         let original = AccountData {
             version: 1,
-            gateways: vec!["https://baylee.acevik.de".into()],
+            gateways: vec![central_api::LEGACY_ORIGIN.into()],
             preferences: serde_json::json!({"future_setting": {"value": 3}}),
             legacy: None,
             chat: crate::chat::ChatArchive::default(),
