@@ -599,11 +599,11 @@ Tischpaare werden nicht durch nachträglich gewählte leichtere Tische ersetzt.
 Die E3-Vorprobe zeigt zugleich die Grenze dieser Zulassung: Wenn Fehler der
 Policy den Schutzmechanismus auslösen, zensiert eine Sammlung ausschließlich
 sauberer Spiele genau diese Zustände. Der aktuelle vollständige Outcome-Vertrag
-darf deshalb nicht unverändert zum Dauertraining werden. Ein späterer eigener
-Vertrag kann eine ausdrücklich definierte Trainingsstrafe beim Abbruch oder
-korrekt abgeschnittene Trajektorien mit geprüftem Bootstrap unterstützen.
-Beides ist noch nicht implementiert; ein Helfer für GAE allein reicht dafür
-nicht. Die echte MTG-Niederlage, ein technischer Abbruch und eine zusätzliche
+darf deshalb nicht unverändert zum Dauertraining werden. Der unten beschriebene
+separate Forschungsvertrag implementiert inzwischen eine ausdrücklich definierte
+Trainingsstrafe beim Abbruch durch eine Lernerschleife. Ein Bootstrap für andere
+abgeschnittene Trajektorien ist weiterhin nicht implementiert; ein Helfer für
+GAE allein reicht dafür nicht. Die echte MTG-Niederlage, ein technischer Abbruch und eine zusätzliche
 Trainingsstrafe bleiben unterschiedliche Daten. Bereits aufgezeichnete
 Haus-Fallback-Spiele werden nicht rückwirkend zu Raw-Policy-Daten umetikettiert.
 

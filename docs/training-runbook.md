@@ -9,22 +9,40 @@ The historical `tools/trainer/HANDOVER.md` is not a restart recipe.
 
 ## Current operational pointer
 
-Last reviewed: 29 October 2026. Working checkout:
+Last reviewed: 30 October 2026. Working checkout:
 `/home/ace/Projects/baylee-ai-payment`, branch
 `codex/payment-context-v5-20261028`. This is local research, with no automatic
 promotion or push. Always check actual status before acting on this snapshot.
 
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
-| Active training | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names the current run/manifest/unit; follow it to actual `execution/status.json` and the [dated takeover receipt](history/training-handover-2026-10-29.md) |
+| Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names the four-attempt real-data pilot and is `complete-reviewed`. Collection, conversion, cache verification and native input admission passed: three histories, 1,713 frames, 372 genuine choices. Numerical Torch replay remains a separate gate. Follow actual stage receipts before launching anything |
+| Completed training | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` is `complete-reviewed`, `training=false`; it names the coverage run/manifest/unit and its review, not an active worker. See also the [dated takeover receipt](history/training-handover-2026-10-29.md) |
+| Completed gameplay comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` is `complete-reviewed`; follow its coverage-candidate comparison receipts |
+| Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current training direction | The bounded **full-model E7/R6 FP32 coverage experiment** completed with 27 accepted updates and all 1,575 actor choices retained. Follow `active-training.json` to its review and `active-cpu-followup.json` to the separately bounded gameplay comparison; verify actual status before restarting anything |
+| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update. Collection through native input admission is complete; Torch replay/update are pending. Native input admission does not certify numerical replay |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
+
+The current pilot is
+`failure-terminal-real-e2e-01a18a9d-d0e0-7db4-b154-2cbae46d83fd/` under the
+evidence root. It retains all four fixed known development attempts, with no
+refill, holdout, strength claim or promotion. Raw E7/R6 FP32 K2/temperature 0.7
+collection stops before House recovery: learner loop has research utility zero
+and unknown MTG outcome; opponent failure, operational unknown and cap remain
+target-free. The separate worker uses uncentered `A = training_utility - V_source`
+with frozen source values and a utility critic, without ordinary outcome labels.
+Complete-history replay must meet the unchanged maximum log-probability error
+of `0.001` before any update. See the
+[separate research path](#separate-failure-terminal-research-path) for contracts
+and commands, implemented in `599cfe70a`, `5090f40a1` and `7ba44fc23`. The
+[real-data pilot report](history/trained-ai-research-learning-pilot-2026-10-30.md)
+records the completed native admission and the remaining numerical gates.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,
@@ -60,10 +78,12 @@ CLIs directly. New one-off operational logic must also be maintainable Rust.
 | `convert4 research` | Separate failure-terminal research features/returns; conversion-only output, rejected by ordinary training/cache/admission |
 | `trajectory_cache4` | Native packed trajectory cache, source identities, seals and tensor I/O boundaries; no Python fallback |
 | `trajectory_cache4 research-build/research-verify/research-read` | Separate lossless research JSON-frame storage and diagnostic reads; not a tensor cache or PPO admission |
+| `research_tensor4` | Strict native research tensor packing, pinned source/cache/conversion verification and dedicated input admission; numerical probability replay remains the Torch worker's separate gate |
 | `train_ops admit-policy`, `verify-admission` | Learner-only whole-collection certification and actual-content revalidation before either PPO worker |
 | `train5.py` | Supervised v5 PyTorch training; BC labels are imitation, not on-policy returns |
 | `train_policy4.py` | Isolated action-head PPO; backbone, thinking, memory and critic remain frozen |
 | `train_rl4.py` | Full-model FP32 recurrent PPO, current-policy history reconstruction, transactional KL rollback and strict optimizer continuation |
+| `train_research_ppo4.py` | Separate PyTorch failure-terminal utility objective, complete-history sampled-probability replay, bounded PPO update and strict research checkpoint/resume contract |
 | `probe_recurrent_ppo4.py` | Fixed-weight PyTorch execution comparisons with complete-history parity; opt-in `--cpu-execution-hints --audit-lanes 4 --board-chunks 0` compares host metadata without changing board batches or training defaults |
 | `diagnose_recurrent_chunk4.py` | Source-only PyTorch localization of chunk4 numerical differences; successful diagnosis explicitly does not accept the rejected execution variant |
 | `export_onnx4.py` | PyTorch export and actual numerical parity for bounded-depth native graphs |
@@ -90,7 +110,11 @@ for actual continuation; current `target/` contents can differ from them.
 
 ## Take over without starting a duplicate
 
-1. Read the current pointer, newest plan, `execution/status.json`,
+1. Read every canonical pointer above and its current phase, beginning with
+   `active-research-collection.json`; completed training/comparison/probe
+   pointers do not authorize a restart. Follow the active root's actual
+   execution directory (`collection-execution/` for this collector). Read the
+   newest plan, `execution/status.json`,
    `execution/controller.json`, active `execution/jobs/STAGE/job.json`, and
    `execution/watchdog/{config,state,delivered}.json` if present. A queue event
    can be late or delivered more than once: deduplicate its event ID and review
@@ -402,7 +426,10 @@ storage receipt remains storage-only. The dedicated Torch entry point is:
 ```
 
 Use the pinned `research_tensor4` through `BAYLEE_RESEARCH_TENSOR` and pinned
-`train_ops` through `BAYLEE_TRAIN_OPS`. The example is the worker invocation;
+`train_ops` through `BAYLEE_TRAIN_OPS`. Also place a pinned `trajectory_cache4`
+on the isolated process PATH: the checkpoint loader delegates encoder-contract
+validation to it, even for research tensors. Do not rely on a development
+checkout's `target/` fallback. The example is the worker invocation;
 run it under the usual native guard, GPU lock and immutable pipeline manifest.
 The worker closes and reaps its owned native tensor server on success or error.
 Its dataset must not be shared with multiprocessing DataLoader workers.

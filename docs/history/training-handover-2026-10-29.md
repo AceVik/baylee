@@ -11,10 +11,16 @@ implemented in Rust (`599cfe70a`), with a separate PyTorch research objective,
 complete recurrent replay and checkpoint/resume worker. Read the
 [native tensor report](trained-ai-failure-terminal-research-tensors-2026-10-30.md)
 and the runbook's separate failure-terminal section. A four-attempt real-data
-end-to-end trial is being prepared under
+end-to-end CPU collection trial completed under
 `refactor-investigations-20261029/failure-terminal-real-e2e-01a18a9d-d0e0-7db4-b154-2cbae46d83fd/`.
-Check its actual status and immutable receipts; this preparation statement does
-not certify completed collection, numerical replay or learning. The older
+Actual `collection-execution/status.json` now says `complete`, and
+`active-research-collection.json` says `complete-reviewed`. All four
+planned/assigned/recorded attempts are retained. Native cache verification and
+input admission passed for three target histories with 1,713 frames and
+372 genuine choices; numerical
+replay and learning remain pending. Check actual stage receipts before takeover.
+See the [real-data pilot report](trained-ai-research-learning-pilot-2026-10-30.md).
+The older
 performance/training roots described below remain completed and reviewed.
 
 The old continuous BC recipe remains stopped. The **bounded full-model E7/R6
