@@ -154,8 +154,10 @@ before the value NaN below is understood.**
 3. **PostgreSQL 18** natively, for `cargo dev gate`:
    - user and database `baylee`/`baylee`;
    - `DATABASE_URL=postgres://baylee:baylee@127.0.0.1:5432/baylee`.
-4. **Python.** Install `uv` (0.12), then `cd tools/trainer && uv sync`: torch
-   2.14 with cu132, numpy, onnx, onnxruntime. Python 3.13.
+4. **Python.** The current runtime is PyTorch 2.15 with cu132 and Python
+   3.13. Use `uv sync --locked --project tools/trainer` from the repo root;
+   see [the current runtime and migration guidance](../../docs/training-runbook.md#trainer-runtime-pytorch-215).
+   Preserve older environments named by immutable research manifests.
 5. **ONNX Runtime from Rust.** Feature `onnx` (`ort` downloads its binaries);
    `onnx-cuda` adds the CUDA execution provider. Neither is in the gates.
 6. **The Scryfall cache** (`data/scryfall-cache`, gitignored) is needed by

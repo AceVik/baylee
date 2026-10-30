@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Training for Baylee's own Magic AI: value, policy and deckbuilding nets over game records"
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "torch>=2.14",
+    "torch>=2.15,<2.16",
+    # PyTorch 2.15 dropped cuRAND; the native ONNX CUDA provider still links it.
+    "cuda-toolkit[curand]==13.2.2; sys_platform == 'linux'",
     "numpy>=2.0",
     "onnx>=1.17",
     "onnxruntime>=1.20",
