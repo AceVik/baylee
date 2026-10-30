@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "root": "/home/ace/baylee-data/v5/live-play/20261027",
+  "bind": "127.0.0.1:28766",
+  "environment": {
+    "DATABASE_URL": "postgresql://ace@localhost/baylee_neural_live?host=/var/run/postgresql",
+    "PORT": "28766",
+    "BAYLEE_BIND": "127.0.0.1",
+    "BAYLEE_DB_POOL": "4",
+    "BAYLEE_REGISTRATION": "on",
+    "BAYLEE_GATEWAY_NAME": "Baylee v5 local playtest",
+    "BAYLEE_ART_PATH": "off",
+    "BAYLEE_DECK_IMAGE_PATH": "off",
+    "BAYLEE_GATEWAY": "http://127.0.0.1:28766",
+    "BAYLEE_AGENT_NAME": "local-v5-preview",
+    "BAYLEE_AGENT_CAPACITY": "1",
+    "BAYLEE_ENGINE_BIN": "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-engine-server",
+    "BAYLEE_ENGINE_PUMP_STEPS": "1",
+    "BAYLEE_EP": "cpu",
+    "CUDA_VISIBLE_DEVICES": "",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "RUST_BACKTRACE": "0",
+    "RUST_LOG": "baylee_gateway=info,baylee_agent=info,baylee_engine_server=info"
+  },
+  "sha256": {
+    "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-gateway": "6f08a9225ad9bac9d7e39d63d8621571255459755fed13187f166c99ee4cbd67",
+    "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-agent": "d5c747032c5978fda7f36214d1b6bd25aa5c9c4456deb7a3a82dada380e77183",
+    "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-engine-server": "26646c7fa634da1029c3215a8af7ffcdb95a822a0d079a0a877bdc529f1255c9",
+    "/home/ace/baylee-data/v5/live-play/20261027/serve.py": "6e02340c46ac2801637d7ba5ba7ae740040553c3cab4d48f0584513e52753f75",
+    "/home/ace/baylee-data/v5/live-play/20261027/bin/seat4": "0e4865964741c3babbaa230487caa4bb50c47a0f4d044f5770c604632a8f2a3a",
+    "/home/ace/baylee-data/v5/live-play/20261027/model-control-final1500/net.pt": "4be83f0c2898c84e465aca896e909106dabad784f1e43a670a83d6d5ead9e7f9",
+    "/home/ace/baylee-data/v5/live-play/20261027/model-control-final1500/model.onnx.json": "d43557733dde36d861b0a728ee680fae68dd9f9a2d4679a2025a866f43eadb0f",
+    "/home/ace/baylee-data/v5/live-play/20261027/model-control-final1500/model.k2.onnx": "f273d0b73c5adcf644ed9ac937fe705052efc6511e915c05463f79445143f3f4",
+    "/home/ace/Projects/baylee-ai-payment/target/debug/collect_local4": "d5f88ec9712dd78f4bbdffca7b84bb901a05e86ce1fde424471ba0dd62d556ca"
+  },
+  "stages": [
+    {
+      "name": "gateway",
+      "command": [
+        "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-gateway"
+      ],
+      "agent_token": true,
+      "readiness": "gateway",
+      "readiness_seconds": 60
+    },
+    {
+      "name": "agent",
+      "command": [
+        "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-agent"
+      ],
+      "agent_token": true,
+      "readiness": "agent",
+      "readiness_seconds": 30
+    },
+    {
+      "name": "seat4",
+      "command": [
+        "/home/ace/baylee-data/v5/live-play/20261027/bin/seat4",
+        "--gateway",
+        "http://127.0.0.1:28766",
+        "--model",
+        "/home/ace/baylee-data/v5/live-play/20261027/model-control-final1500",
+        "--acceptance",
+        "Victory",
+        "--name",
+        "v5-Preview",
+        "--room-name",
+        "BayleeAI v5 - Praxistest",
+        "--thinking-steps",
+        "2",
+        "--raw-policy",
+        "--games",
+        "0",
+        "--reports",
+        "/home/ace/baylee-data/v5/live-play/20261027/reports"
+      ],
+      "agent_token": false,
+      "readiness": "none",
+      "readiness_seconds": 1
+    },
+    {
+      "name": "collection",
+      "command": [
+        "/home/ace/Projects/baylee-ai-payment/target/debug/collect_local4",
+        "--root",
+        "/home/ace/baylee-data/v5/live-play/20261027",
+        "--gateway-bin",
+        "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-gateway",
+        "--corpus",
+        "/home/ace/baylee-data/v4/human-live-training",
+        "--neural-seat",
+        "0"
+      ],
+      "agent_token": false,
+      "readiness": "none",
+      "readiness_seconds": 1
+    }
+  ],
+  "health_failure_limit": 5,
+  "poll_seconds": 2.0
+}

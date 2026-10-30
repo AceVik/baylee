@@ -25,6 +25,9 @@ class BCMixture(Dataset):
     No frame payload/ID is rewritten or put in a shared TrajectoryStore.
     """
     def __init__(self, anchor, replay, validation, batch_size):
+        versions = {getattr(child, 'encoder_version', 7) for child in (anchor, replay, validation)}
+        if len(versions) != 1:raise ValueError('BC mixture encoder versions differ')
+        self.encoder_version = versions.pop()
         if batch_size<2 or batch_size%2:raise ValueError('BC mixture needs positive even batch size')
         if anchor.structure.digest!=replay.structure.digest or anchor.structure.digest!=validation.structure.digest:
             raise ValueError('BC mixture public catalogs differ')
@@ -63,7 +66,10 @@ class BCMixture(Dataset):
 
 class BCMixtureSampler(Sampler):
     VERSION=1
-    def __init__(self,dataset,batch_size,seed):
+    def __init__(self,dataset,batch_size,seed,epoch_batches=0):
+        if type(epoch_batches) is not int or epoch_batches<0:
+            raise ValueError("BC epoch batches must be a nonnegative integer")
+        self.epoch_batches=epoch_batches
         self.dataset=dataset;self.seed=seed;self.epoch=0;self.start_batch=0
         self.children=[StatefulBatchSampler4(v,batch_size//2,shuffle=True,seed=seed+i)
                        for i,v in enumerate(dataset.sources)]
@@ -73,8 +79,35 @@ class BCMixtureSampler(Sampler):
             rows=child._build_batches(advance_epoch=False)
             self.full_lane_prefix_batches.append(next((i for i,row in enumerate(rows)
                 if len(row)<self.half or any(index<0 for index in row)),len(rows)))
+        if epoch_batches:
+            from .cycling import CYCLE_EPOCH_STRIDE
+            _,report=self._cycled_batches()
+            dataset.contract={**dataset.contract,'cycling':dict(version=1,epoch_batches=epoch_batches,
+                seed=seed,cycle_epoch_stride=CYCLE_EPOCH_STRIDE,
+                ending='Complete first source passes; final repeated pass may end at budget mid-trajectory',
+                epoch0_sources=report)}
+            dataset.fingerprint=digest(dataset.contract)
+
+    def _cycled_batches(self):
+        from .cycling import cycle_source
+        streams=[];reports=[]
+        for child in self.children:
+            rows,report=cycle_source(child,self.half,self.epoch,self.epoch_batches)
+            streams.append(rows);reports.append(report)
+        batches=[a+[i+self.dataset.offset if i>=0 else -1 for i in b]
+                 for a,b in zip(*streams)]
+        return batches,reports
+
+    def schedule_report(self):
+        """Current epoch source exposure, including retained per-pass tail padding."""
+        if not self.epoch_batches:return None
+        return self._cycled_batches()[1]
 
     def _batches(self,advance):
+        if self.epoch_batches:
+            batches,_=self._cycled_batches()
+            if advance:self.epoch+=1
+            return batches
         streams=[]
         for child in self.children:
             child.epoch=self.epoch
@@ -87,7 +120,7 @@ class BCMixtureSampler(Sampler):
                 for a,b in zip_longest(*streams,fillvalue=empty)]
 
     def __iter__(self):yield from self._batches(True)[self.start_batch:]
-    def __len__(self):return len(self._batches(False))
+    def __len__(self):return self.epoch_batches or len(self._batches(False))
 
 
 def check_resume(saved, contract):

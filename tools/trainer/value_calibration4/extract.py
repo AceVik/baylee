@@ -1,10 +1,5 @@
 """Frozen chronological inference; sampling never skips a memory update."""
-import fcntl
-import json
-import os
 from pathlib import Path
-import shutil
-import tempfile
 import time
 
 import numpy as np
@@ -16,6 +11,7 @@ from training4.execution import encode_boards
 from .cache import FeatureCache, identity, key_for, record_dtype
 from .features import neural_decisions, seat_masks
 from .source_identity import file_digest
+from tensor_io4 import TensorPublication
 
 
 @torch.no_grad()
@@ -41,8 +37,9 @@ def extract(net, dataset, destination, stride=64, batch_size=8, board_chunk=4,
     try:
         net.clear_structure()
         net.prepare_structure()
-        with (Path(destination) / "records.bin").open("wb") as stream:
+        with TensorPublication('file',Path(destination)/'records.bin') as stream:
             for batch_index, host in enumerate(loader):
+                record_blocks=[]
                 ids = host["segment_index"].tolist()
                 b, u = host["step_valid"].shape
                 if h is None:
@@ -103,15 +100,16 @@ def extract(net, dataset, destination, stride=64, batch_size=8, board_chunk=4,
                                 or not np.isfinite(record["source_value"]).all()
                                 or not 0 <= float(record["outcome"][0]) <= 1):
                             raise FloatingPointError("Nonfinite feature/value or invalid terminal outcome")
-                        stream.write(record.tobytes())
+                        record_blocks.append(record.tobytes())
                         counts[trajectory] = counts.get(trajectory, 0) + 1
                         count += 1
+                if record_blocks:
+                    stream.write(b''.join(record_blocks))
                 if batch_index % 100 == 0:
                     print(f"[value-cache] batches={batch_index + 1}/{len(loader)} frames={scanned} samples={count} seconds={time.monotonic()-started:.1f}", flush=True)
-            stream.flush()
-            os.fsync(stream.fileno())
-        if not eligible:
-            raise ValueError("No genuine stochastic neural trajectory; refusing teacher-only calibration")
+            if not eligible:
+                raise ValueError("No genuine stochastic neural trajectory; refusing teacher-only calibration")
+            stream.commit()
         return dict(records=count, records_sha256=file_digest(Path(destination) / "records.bin"),
                     scanned_frames=scanned, eligible_trajectories=sorted(eligible),
                     sampled_trajectories=len(counts), learner_trajectories=len(eligible),
@@ -125,22 +123,12 @@ def extract(net, dataset, destination, stride=64, batch_size=8, board_chunk=4,
 def cached_features(net, dataset, cache_root, source_hash, stride, batch_size, board_chunk, max_samples):
     settings = identity(source_hash, dataset, stride, board_chunk, next(net.parameters()).device.type)
     settings["batch_size"] = batch_size
-    root = Path(cache_root).expanduser()
-    root.mkdir(parents=True, exist_ok=True)
-    destination = root / key_for(settings)
-    with (root / (destination.name + ".lock")).open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        if not destination.exists():
-            temporary = Path(tempfile.mkdtemp(prefix=destination.name + ".partial-", dir=root))
-            try:
-                meta = extract(net, dataset, temporary, stride, batch_size, board_chunk, max_samples)
-                meta["identity"] = settings
-                (temporary / "complete.json").write_text(json.dumps(meta, indent=2) + "\n")
-                os.rename(temporary, destination)
-            finally:
-                if temporary.exists():
-                    shutil.rmtree(temporary)
+    destination=Path(cache_root).expanduser()/key_for(settings)
+    options=dict(width=net.cfg.d_model,settings=settings,max_samples=max_samples)
+    with TensorPublication('cache',destination,**options) as publication:
+        if not publication.receipt['reused']:
+            meta=extract(net,dataset,publication.path,stride,batch_size,board_chunk,max_samples)
+            meta['identity']=settings
+            publication.commit(metadata=meta)
     cache = FeatureCache(destination, net.cfg.d_model)
-    if cache.meta["identity"] != settings or cache.meta["records"] > max_samples:
-        raise ValueError("Incompatible or oversized calibration cache")
     return cache

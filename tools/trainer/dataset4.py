@@ -43,6 +43,7 @@ SOURCE_KIND_MAP = {
     "House": 1,
     "Forced": 2,
     "Search": 3,
+    "External": 4,
 }
 
 
@@ -76,13 +77,16 @@ class TrajectoryDataset4(Dataset):
         max_pairs: int = M.MAX_PAIRS,
         decisions_only: bool = False,
         max_shards: int = 0,
+        encoder_version: int = M.ENCODER_VERSION,
     ):
         super().__init__()
         self.data_dir = Path(data_dir).expanduser()
         self.meta = json.loads((self.data_dir / "meta.json").read_text())
-        assert self.meta["encoder_version"] == M.ENCODER_VERSION, (
-            f"Expected encoder_version={M.ENCODER_VERSION}, got {self.meta['encoder_version']}"
-        )
+        from encoder_contract import validate_encoder
+        validate_encoder(encoder_version, global_feat_width=self.meta.get('global_feat_width',80))
+        if self.meta.get("encoder_version") != encoder_version:
+            raise ValueError(f"Expected encoder_version={encoder_version}, got {self.meta.get('encoder_version')}")
+        self.encoder_version = encoder_version
         if self.meta.get("trajectory_version") != M.TRAJECTORY_VERSION:
             raise ValueError("Reconvert records with the current complete-observation converter")
         self.structure = StructureData(self.data_dir / "card_structure.json", self.meta["structure_sha256"])

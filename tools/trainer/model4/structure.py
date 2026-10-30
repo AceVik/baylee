@@ -7,7 +7,6 @@ public catalog table, so ordinary decisions require small gathers, not parsing.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import numpy as np
@@ -16,7 +15,8 @@ from torch import nn
 
 
 def structure_digest(data):
-    return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    from trajectory_store4 import _native
+    return _native(['digest'],json.dumps(data,allow_nan=False).encode()).decode().strip()
 
 
 class RuleEncoder(nn.Module):

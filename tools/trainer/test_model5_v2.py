@@ -49,7 +49,7 @@ class Revision2Tests(unittest.TestCase):
 
     def test_warmstart_rng_history_and_learning(self):
         torch.manual_seed(18)
-        old = V4.PlayerNet4(V4.Config4(**{k:v for k,v in self.cfg.to_dict().items() if not k.startswith('relational_')})).eval()
+        old = V4.PlayerNet4(V4.Config4(**{k:v for k,v in self.cfg.to_dict().items() if k in V4.Config4.__dataclass_fields__})).eval()
         rng = torch.get_rng_state()
         torch.manual_seed(18)
         new = V5.PlayerNet5(self.cfg).eval()

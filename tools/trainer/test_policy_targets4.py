@@ -38,7 +38,7 @@ class Frozen(nn.Module):
         super().__init__();self.weight=nn.Parameter(torch.ones(1),requires_grad=False)
         self.cfg=SimpleNamespace(d_model=16);self.calls=[]
     def clear_structure(self):pass
-    def prepare_structure(self):pass
+    def prepare_structure(self, active_refs=None):pass
     def forward(self,*args,**kwargs):
         h,k=args[-2:];self.calls.append((h[:,0,0].tolist(),k.tolist()))
         hn=torch.where((k==0)[:,None,None],h+1,h)
@@ -89,6 +89,35 @@ class Targets(unittest.TestCase):
                 return row
         with self.assertRaisesRegex(ValueError, 'probability mismatch'):
             prepare_policy_targets(Frozen(), SlightMismatch(), 'cpu', board_chunk=0)
+
+    def test_accepted_replay_difference_preserves_recorded_probability_in_both_learners(self):
+        from policy_training4.forward import actor_outputs, batch_rows
+        from policy_training4.optimization import behavior_kl
+        from recurrent_ppo4.forward import episode_prefixes, segment_outputs
+
+        class AcceptedDifference(Dataset):
+            def __getitem__(self, idx):
+                row = super().__getitem__(idx)
+                row['behavior_logprob'] += np.float32(.0005)
+                return row
+
+        dataset = AcceptedDifference()
+        net = Frozen()
+        report = prepare_policy_targets(net, dataset, 'cpu', board_chunk=0)
+        self.addCleanup(dataset._policy_targets_directory.cleanup)
+        self.assertGreater(report['max_logprob_error'], .0004)
+        self.assertLess(report['max_logprob_error'], .001)
+        expected = torch.tensor([np.float32(-math.log(3)) + np.float32(.0005)])
+        torch.testing.assert_close(torch.from_numpy(dataset.ppo_cache['behavior_lp'][1, :1]),
+                                   expected, rtol=0, atol=0)
+        head_current, head_recorded, _ = actor_outputs(net, batch_rows(dataset, [1], 'cpu'))
+        recurrent = segment_outputs(net, dataset, [1], episode_prefixes(dataset),
+                                    torch.device('cpu'), gradients=False)
+        for current, recorded in ((head_current, head_recorded),
+                                  (recurrent['logprob'], recurrent['behavior'])):
+            torch.testing.assert_close(recorded, expected, rtol=0, atol=0)
+            self.assertGreater(float((current-recorded).abs().max()), .0004)
+            self.assertGreater(float(behavior_kl(current, recorded)), 1e-8)
 
     def test_mismatch_fails_before_targets_are_published(self):
         d=Dataset(mismatch=True)

@@ -982,3 +982,23 @@ fn a_long_stack_passes_under_one_until_order_until_a_real_question() {
     let genuine = ask_mind(&mut core, 11, &colour());
     assert_eq!(genuine, 10, "a real question is not silently passed");
 }
+
+#[test]
+fn untimed_zero_and_clock_boundaries_keep_the_seat_contract() {
+    for (seconds, permitted) in [
+        (None, true),
+        (Some(0), true),
+        (Some(10), false),
+        (Some(30), false),
+        (Some(31), true),
+    ] {
+        let mut core = SeatCore::new(
+            BridgeConfig::default(),
+            DeckList::default(),
+            Disclosure::Llm,
+        );
+        core.hear(&table("LLM-seat", seconds));
+        let steps = core.hear(&view(1));
+        assert_eq!(is_ready(&steps), permitted, "clock={seconds:?}: {steps:?}");
+    }
+}

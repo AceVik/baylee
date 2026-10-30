@@ -20,3 +20,9 @@ serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+
+# Native stand-ins for operational commands in integration tests. Not shipped;
+# retain main when --all-targets builds the example as a test executable.
+[[example]]
+name = "fake-ops-command"
+harness = false

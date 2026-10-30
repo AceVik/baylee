@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "root": "/home/ace/baylee-data/v5/arena-v5-vs-argon-lane2-20261028/gateway",
+  "bind": "127.0.0.1:28777",
+  "environment": {
+    "DATABASE_URL": "postgresql://ace@localhost/baylee_arena_v5_vs_argon_lane2_20261028?host=/var/run/postgresql",
+    "PORT": "28777",
+    "BAYLEE_BIND": "127.0.0.1",
+    "BAYLEE_DB_POOL": "4",
+    "BAYLEE_REGISTRATION": "on",
+    "BAYLEE_GATEWAY_NAME": "Baylee LLM training collection",
+    "BAYLEE_ART_PATH": "off",
+    "BAYLEE_DECK_IMAGE_PATH": "off",
+    "BAYLEE_TERMS_PATH": "off",
+    "BAYLEE_GATEWAY": "http://127.0.0.1:28777",
+    "BAYLEE_AGENT_NAME": "local-arena-v5-vs-argon-lane2",
+    "BAYLEE_AGENT_CAPACITY": "1",
+    "BAYLEE_ENGINE_BIN": "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-engine-server",
+    "BAYLEE_ENGINE_PUMP_STEPS": "1",
+    "BAYLEE_EP": "cpu",
+    "CUDA_VISIBLE_DEVICES": "",
+    "OMP_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "RUST_LOG": "baylee_gateway=info,baylee_agent=info,baylee_engine_server=info"
+  },
+  "sha256": {
+    "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-gateway": "6f08a9225ad9bac9d7e39d63d8621571255459755fed13187f166c99ee4cbd67",
+    "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-agent": "d5c747032c5978fda7f36214d1b6bd25aa5c9c4456deb7a3a82dada380e77183",
+    "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-engine-server": "26646c7fa634da1029c3215a8af7ffcdb95a822a0d079a0a877bdc529f1255c9",
+    "/home/ace/baylee-data/v5/arena-v5-vs-argon-lane2-20261028/gateway/serve.py": "639faaa7ffaf4b95cf5fb22a95ae8ad96630200c6ff116697d2df1eef9c67520"
+  },
+  "stages": [
+    {
+      "name": "baylee-gateway",
+      "command": [
+        "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-gateway"
+      ],
+      "agent_token": true,
+      "readiness": "gateway",
+      "readiness_seconds": 60
+    },
+    {
+      "name": "baylee-agent",
+      "command": [
+        "/home/ace/baylee-data/v5/live-play/20261027/bin/baylee-agent"
+      ],
+      "agent_token": true,
+      "readiness": "none",
+      "readiness_seconds": 1
+    }
+  ],
+  "health_failure_limit": 0,
+  "poll_seconds": 1.0
+}

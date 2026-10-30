@@ -1,10 +1,11 @@
 //! Opt-in BC labels on neural-visited views. Never an executed action or PPO target.
 use std::path::Path;
 
-use anyhow::ensure;
+use anyhow::{Context as _, ensure};
 use baylee_ai::HeuristicAgent;
 use baylee_core::preset::AIProfile;
 use baylee_engine::choice::{Pending, PlayerAction};
+pub(super) use baylee_train::failure_terminal::sha;
 use baylee_train::features4::{
     EncodedCandidates4, EncodedState4, SourceKind4, decode_action4, encode_teacher_action4,
     view_only_state_hash,
@@ -13,7 +14,6 @@ use baylee_train::netplay4::Answer4;
 use baylee_view::PlayerView;
 use serde::Serialize;
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 
 mod writer;
 use writer::LabelWriter;
@@ -33,16 +33,8 @@ pub(super) struct ShadowGame {
     writer: LabelWriter,
     profile: AIProfile,
     seed: u64,
+    encoder_version: u32,
     counts: Counts,
-}
-
-pub(super) fn sha(bytes: &[u8]) -> String {
-    use std::fmt::Write as _;
-    let mut result = String::new();
-    for byte in Sha256::digest(bytes) {
-        write!(result, "{byte:02x}").expect("write to String");
-    }
-    result
 }
 
 pub(super) fn metadata(profile: &str) -> Value {
@@ -83,7 +75,10 @@ impl ShadowGame {
             "Shadow requires current certified Raw behavior; historical runs are not upgraded"
         );
         ensure!(
-            run_value["model_identity"]["encoder_version"] == 7,
+            matches!(
+                run_value["model_identity"]["encoder_version"].as_u64(),
+                Some(7 | 8)
+            ),
             "Shadow requires encoder 7"
         );
         ensure!(
@@ -106,6 +101,11 @@ impl ShadowGame {
             writer: LabelWriter::new(dir, game, &header)?,
             profile: profile_value,
             seed,
+            encoder_version: u32::try_from(
+                run_value["model_identity"]["encoder_version"]
+                    .as_u64()
+                    .context("Missing encoder")?,
+            )?,
             counts: Counts::default(),
         })
     }
@@ -148,7 +148,7 @@ impl ShadowGame {
         };
         Ok(Some(json!({"kind": "label", "seat": view.seat.get(),
             "decision_seq": decision_seq, "record_byte_offset": record_byte_offset,
-            "view_hash_fnv1a64": format!("{:016x}", view_only_state_hash(view, pending)),
+            "view_hash_fnv1a64": format!("{:016x}", if self.encoder_version == 8 { baylee_train::features8::view_only_state_hash8(view, pending) } else { view_only_state_hash(view, pending) }),
             "pending_sha256": sha(&serde_json::to_vec(pending)?),
             "encoded_state_sha256": sha(&serde_json::to_vec(state)?),
             "candidates_sha256": sha(&serde_json::to_vec(menu)?),

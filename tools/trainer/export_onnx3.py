@@ -23,6 +23,7 @@ import torch
 
 import dataset3 as D3
 import model3 as M
+from torch_io4 import atomic_json
 
 INPUTS = ("cards", "feats", "mask", "seats", "glob", "deck_cards", "deck_feats", "deck_mask", "profile")
 
@@ -146,7 +147,7 @@ def main() -> None:
         "parity_max_abs_diff": worst,
         "checked_decisions": int(len(idx)),
     }
-    (out / "net.onnx.json").write_text(json.dumps(meta, indent=1))
+    atomic_json(out / "net.onnx.json", meta)
     print(f"[export3] {path} ({path.stat().st_size / 1e6:.1f} MB); torch vs onnxruntime on {len(idx)} "
           f"held-out decisions: max |diff| {worst:.2e}")
     if worst > 1e-3:
@@ -204,7 +205,7 @@ def export_batched(B: int, out: Path, wrapped, ds, idx, buckets) -> None:
     meta = json.loads((out / "net.onnx.json").read_text())
     meta["batched"] = made
     meta["batched_parity_max_abs_diff"] = worst
-    (out / "net.onnx.json").write_text(json.dumps(meta, indent=1))
+    atomic_json(out / "net.onnx.json", meta)
     print(f"[export3] {len(made)} buckets at batch {B}; torch vs onnxruntime on {len(ids)} held-out decisions: "
           f"max |diff| {worst:.2e}")
 

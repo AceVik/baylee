@@ -47,6 +47,13 @@ class IntegrationTests(unittest.TestCase):
   self.assertEqual(args.supervised_loss,C())
   for extra in (['--outcome-weighting-off'],['--loss-version','5','--reference-execution'],['--loss-version','5','--init-state','old.pt']):
    with patch('sys.argv',base+extra),contextlib.redirect_stderr(io.StringIO()),self.assertRaises(SystemExit):parse_args('v5')
+ def test_native_execution_admission_preserves_legacy_continuation(self):
+  C().validate_execution(reference_execution=True,init_state='old.pt')
+  C(version=5).validate_execution(reference_execution=False,init_state=None)
+  with self.assertRaisesRegex(ValueError,'Loss5 requires optimized execution'):
+   C(version=5).validate_execution(reference_execution=True,init_state=None)
+  with self.assertRaisesRegex(ValueError,'package optimizer continuation'):
+   C(version=5).validate_execution(reference_execution=False,init_state='old.pt')
  def test_one_actual_driver_update_and_checkpoint_contract(self):
   batch=batch_fixture(b=4,u=4);batch['is_new_traj']=torch.ones(4,dtype=torch.bool)
   forest=M.PlayerNet4(M.Config4(d_model=32,n_heads=4,n_layers=1,d_ff=64)).rules.data
@@ -77,6 +84,27 @@ class IntegrationTests(unittest.TestCase):
     bad_argv.remove('--detach-value-input')
     with patch('sys.argv',bad_argv),patch.object(driver.D4,'TrajectoryDataset4',Dataset),patch.object(driver.D4,'StatefulBatchSampler4',Sampler),patch.object(driver,'DataLoader',return_value=[]),patch.object(driver.torch,'set_num_threads'),self.assertRaisesRegex(ValueError,'loss configuration'):
      driver.main('v5')
+    # The old v5 contract cannot distinguish symmetric CE from the removed
+    # pass heuristic. Reject before loading optimizer or restoring lane H.
+    old=copy.deepcopy(saved)
+    old['supervised_loss_config'].pop('categorical_weighting')
+    old['optimizer']=None
+    old['h']=torch.full((4,9,32),float('nan'))
+    old_path=output/'ambiguous-v5.pt';torch.save(old,old_path)
+    with patch('sys.argv',argv+['--resume',str(old_path)]),patch.object(driver.D4,'TrajectoryDataset4',Dataset),patch.object(driver.D4,'StatefulBatchSampler4',Sampler),patch.object(driver,'DataLoader',return_value=[]),patch.object(driver.torch,'set_num_threads'),patch.object(torch.optim.AdamW,'load_state_dict') as restore_optimizer,self.assertRaisesRegex(ValueError,'categorical_weighting'):
+     driver.main('v5')
+    restore_optimizer.assert_not_called()
+    if chunk==1:
+     transfer_argv=list(argv)
+     transfer_output=Path(temporary)/'fresh-transfer'
+     transfer_argv[transfer_argv.index('--out')+1]=str(transfer_output)
+     transfer_argv+=['--init',str(old_path)]
+     with patch('sys.argv',transfer_argv),patch.object(driver.D4,'TrajectoryDataset4',Dataset),patch.object(driver.D4,'StatefulBatchSampler4',Sampler),patch.object(driver,'DataLoader',return_value=[]),patch.object(driver,'prefetch_batches',return_value=[(copy.deepcopy(batch),None)]),patch.object(driver,'evaluate_device',return_value=metrics),patch.object(driver.torch,'set_num_threads'),patch.object(torch.optim.AdamW,'load_state_dict') as restore_optimizer,contextlib.redirect_stdout(io.StringIO()):
+      driver.main('v5')
+     restore_optimizer.assert_not_called()
+     transferred=torch.load(transfer_output/'last.pt',map_location='cpu',weights_only=False)
+     self.assertEqual(transferred['step_num'],1)
+     self.assertEqual(transferred['supervised_loss_config']['categorical_weighting'],'symmetric_v1')
    for name,value in results[0]['state_dict'].items():
     torch.testing.assert_close(value,results[1]['state_dict'][name],atol=2e-5,rtol=2e-4)
 

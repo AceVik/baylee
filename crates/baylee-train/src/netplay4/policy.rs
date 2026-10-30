@@ -348,7 +348,7 @@ fn decoded_matches_sample(
     action: &PlayerAction,
     target: &TeacherTarget4,
 ) -> bool {
-    let Some(encoded) = crate::features4::encode_teacher_action4(cands, pending, action) else {
+    let Some(encoded) = crate::features4::encode_executed_action4(cands, pending, action) else {
         return false;
     };
     match cands.head {
@@ -411,3 +411,6 @@ pub(super) fn sample_categorical(logits: &[f32], tau: f32, rng: &mut Rng) -> (us
 mod payment_tests;
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod grouped_attack_tests;

@@ -24,6 +24,8 @@ pub mod convert3;
 pub mod convert4;
 pub mod deckgen;
 #[cfg(feature = "play")]
+pub mod failure_terminal;
+#[cfg(feature = "play")]
 pub mod features;
 #[cfg(feature = "play")]
 pub mod features3;
@@ -31,6 +33,10 @@ pub mod features3;
 pub mod features4;
 #[cfg(feature = "play")]
 pub mod features7;
+#[cfg(feature = "play")]
+pub mod features8;
+#[cfg(feature = "play")]
+pub mod features9;
 pub mod housedeck;
 #[cfg(feature = "live-seat")]
 pub mod live4;

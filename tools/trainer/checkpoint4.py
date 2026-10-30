@@ -1,22 +1,18 @@
 """Atomic local checkpoints including optimizer, data cursor and RNG state."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 import random
 
 import numpy as np
 import torch
+from tensor_io4 import TensorPublication
 
 
 def atomic_save(payload: dict, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + ".partial")
-    with temp.open("wb") as out:
-        torch.save(payload, out)
-        out.flush()
-        os.fsync(out.fileno())
-    os.replace(temp, path)
+    with TensorPublication('file',path) as publication:
+        torch.save(payload,publication.path)
+        publication.commit()
 
 
 def rng_state() -> dict:
