@@ -1912,8 +1912,8 @@ pub use ledge::drawer::{
 /// (`crate::social::window`).
 pub(crate) use ledge::log as logpanel;
 pub use ledge::log::{
-    CardLens, LogHover, LogLink, LogPanel, LogRevision, follow_the_log, grow_the_log,
-    hover_log_links, sync_log,
+    CardLens, LogFoldToggle, LogFolds, LogHover, LogLink, LogPanel, LogRevision, follow_the_log,
+    grow_the_log, hover_log_links, keep_the_folds, sync_log,
 };
 pub use ledge::menu::{MenuPanel, MenuRevision, grow_the_menu, show_priority_switch, sync_menu};
 pub(crate) use ledge::players::STRIPS_H;

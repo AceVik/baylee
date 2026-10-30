@@ -11,7 +11,9 @@ use baylee_client_core::social::{
 use baylee_protocol::social::Conv;
 use bevy::prelude::*;
 
-use crate::hud::logpanel::{CLOCK_W, SWATCH_GAP, SWATCH_W, TEXT_OWN_HEIGHT};
+use crate::hud::logpanel::{
+    CLOCK_AIR, CLOCK_W, SWATCH_GAP, SWATCH_W, TEXT_OWN_HEIGHT, clock_bundle, clock_drop_at,
+};
 use crate::hud::{UiFonts, palette, tf, tf_bold, tf_italic};
 
 /// Sky cyan: the public Lobby chat for everyone online.
@@ -244,18 +246,20 @@ pub(crate) fn spawn_row(
             .insert(BackgroundColor(palette::ACTIVE.with_alpha(0.10)));
     }
     if style.timestamps && !matches!(line.kind, LineKind::Divider) {
+        // The log's own time column (`logpanel::clock_bundle`), at the
+        // window's zoom: the two lists read alike (feedback of 24.10.2026).
         let time = commands
-            .spawn((
-                Text::new(clock(line.at)),
-                tf(fonts, z(inks.pt)),
-                TextColor(inks.soft),
-                Node {
-                    width: zpx(CLOCK_W),
-                    flex_shrink: 0.0,
+            .spawn(clock_bundle(fonts, z(inks.pt), inks.soft, clock(line.at)))
+            .insert(Node {
+                width: zpx(CLOCK_W),
+                margin: UiRect {
+                    top: zpx(clock_drop_at(inks.pt)),
+                    right: zpx(CLOCK_AIR),
                     ..default()
                 },
-                Pickable::IGNORE,
-            ))
+                flex_shrink: 0.0,
+                ..default()
+            })
             .id();
         commands.entity(row).add_child(time);
     }

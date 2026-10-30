@@ -22,6 +22,7 @@ pub(super) fn fill_list(
     lists: &mut Query<(&mut LogFollow, &mut ScrollPosition), With<LogList>>,
     nodes: &Query<&ComputedNode>,
     spacers: &mut Query<&mut Node, With<logpanel::virtual_list::LogSpacer>>,
+    folds: Option<&logpanel::LogFolds>,
 ) {
     let inks = frame.inks();
     let tab = ui.tab;
@@ -60,6 +61,9 @@ pub(super) fn fill_list(
                 }
                 drawn.log_lines = log_len;
                 drawn.run = run;
+            }
+            if let Some(folds) = folds {
+                drawn.rows.fold_with(folds, scroll.y);
             }
             drawn.rows.sync(
                 commands,
@@ -121,6 +125,9 @@ pub(super) fn fill_list(
             return;
         };
         follow.stuck = true;
+        if let Some(folds) = folds {
+            drawn.rows.fold_with(folds, 0.0);
+        }
         drawn.rows.sync(
             commands,
             list,

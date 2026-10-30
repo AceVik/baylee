@@ -56,6 +56,7 @@ pub(super) fn add_present_systems(app: &mut App) {
         .init_resource::<hud::TrayReveal>()
         .init_resource::<hud::MenuRevision>()
         .init_resource::<hud::LogRevision>()
+        .init_resource::<hud::LogFolds>()
         .init_resource::<hud::revealed::RevealRevision>()
         .init_resource::<hud::TrayCarry>()
         .init_resource::<input::TrayGlide>();
@@ -264,6 +265,7 @@ pub(super) fn add_present_systems(app: &mut App) {
                     // strip that hangs off it. `follow_the_log` reads where
                     // the rows the sync just added have been laid out, which
                     // is the frame after they were spawned.
+                    hud::keep_the_folds.before(hud::sync_log),
                     hud::sync_log.after(hud::sync_ledge),
                     hud::grow_the_log.after(hud::sync_log),
                     hud::follow_the_log.after(hud::sync_log),

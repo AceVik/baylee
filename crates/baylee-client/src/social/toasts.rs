@@ -9,7 +9,7 @@
 use super::zoom::{z, zpx};
 use crate::ui_button::{Clicks, UiButton};
 use baylee_client_core::i18n::Lang;
-use baylee_client_core::social::{ChatCue, ChatToast, ToastButton};
+use baylee_client_core::social::{ChatCue, ChatToast, ToastAbout, ToastButton};
 use bevy::prelude::*;
 use bevy::ui::RelativeCursorPosition;
 
@@ -68,6 +68,9 @@ fn take(time: Res<Time>, mut host: ResMut<SocialHost>, mut toasts: ResMut<Toasts
         if !toasts.standing.is_empty() {
             toasts.standing.clear();
         }
+        if !host.withdrawn.is_empty() {
+            host.withdrawn.clear();
+        }
         return;
     }
     while let Some(toast) = host.toasts.pop_front() {
@@ -76,6 +79,13 @@ fn take(time: Res<Time>, mut host: ResMut<SocialHost>, mut toasts: ResMut<Toasts
         toasts.standing.push((toasts.next, toast, 0.0));
         while toasts.standing.len() > 6 {
             toasts.standing.remove(0);
+        }
+    }
+    // Drained whether or not anything stands, so the list never grows.
+    if !host.withdrawn.is_empty() {
+        let gone = std::mem::take(&mut host.withdrawn);
+        if withdraw_answered(&mut toasts.bypass_change_detection().standing, &gone) {
+            toasts.set_changed();
         }
     }
     if toasts.standing.is_empty() {
@@ -89,6 +99,22 @@ fn take(time: Res<Time>, mut host: ResMut<SocialHost>, mut toasts: ResMut<Toasts
         }
     }
     toasts.standing.retain(|(_, _, age)| *age < STANDS);
+}
+
+/// Takes away every toast that asked about something in `gone`: a request
+/// accepted or declined in the drawer or on another device, or taken back by
+/// whoever sent it; an invite answered, withdrawn or lapsed. Its buttons
+/// would answer nothing (feedback of 29.10.2026: the request's toast kept
+/// asking after the drawer had accepted it). Whether any went.
+fn withdraw_answered(standing: &mut Vec<(u64, ChatToast, f32)>, gone: &[ToastAbout]) -> bool {
+    let before = standing.len();
+    standing.retain(|(_, toast, _)| {
+        toast
+            .about
+            .as_ref()
+            .is_none_or(|about| !gone.contains(about))
+    });
+    standing.len() != before
 }
 
 fn presses(

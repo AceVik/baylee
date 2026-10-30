@@ -854,6 +854,66 @@ fn typing_retains_the_footer_and_its_send_icon() {
     ));
 }
 
+/// The buttons under the text blinked out at every keystroke (feedback of
+/// 28.10.2026): each keystroke rebuilds the form, and the kept footer was
+/// attached to the new sheet before the sheet went under its scrim, so it
+/// lost the camera it is drawn by on that frame (`Kept::attach`). The app
+/// propagates the UI's target camera as `bevy_ui` does, and the footer and
+/// everything in it must have it on the very frame each keystroke rebuilds.
+#[test]
+fn a_keystroke_leaves_the_footer_drawn_on_its_own_frame() {
+    use bevy::app::{HierarchyPropagatePlugin, PropagateSet};
+    use bevy::ui::{ComputedUiRenderTargetInfo, ComputedUiTargetCamera};
+    let mut app = headless();
+    app.init_resource::<UiScale>()
+        .add_plugins((
+            HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(PostUpdate),
+            HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(PostUpdate),
+        ))
+        .add_systems(
+            PostUpdate,
+            bevy::ui::update::propagate_ui_target_cameras
+                .before(PropagateSet::<ComputedUiTargetCamera>::default())
+                .before(PropagateSet::<ComputedUiRenderTargetInfo>::default()),
+        );
+    app.insert_resource(ClientSettings::default());
+    app.update();
+    open_form(&mut app);
+    app.update();
+    let mut foot = app
+        .world_mut()
+        .query_filtered::<Entity, With<crate::report::form::DeskFoot>>();
+    let footer = foot.single(app.world()).expect("the form's footer");
+    let mut subtree = vec![footer];
+    let mut next = 0;
+    while next < subtree.len() {
+        if let Some(children) = app.world().get::<Children>(subtree[next]) {
+            subtree.extend(children.iter());
+        }
+        next += 1;
+    }
+    assert!(subtree.len() > 4, "the footer holds its buttons");
+    for ch in ['h', 'i', '!'] {
+        let redraws = desk(&app).redraws;
+        keys(&mut app, [typed(ch)]);
+        if desk(&app).redraws == redraws {
+            app.update();
+        }
+        assert!(desk(&app).redraws > redraws, "{ch:?} rebuilt the form");
+        let undrawn: Vec<Entity> = subtree
+            .iter()
+            .copied()
+            .filter(|&e| app.world().get::<ComputedUiTargetCamera>(e).is_none())
+            .collect();
+        assert!(
+            undrawn.is_empty(),
+            "after {ch:?} {} of the footer's {} nodes have no camera to be drawn by",
+            undrawn.len(),
+            subtree.len()
+        );
+    }
+}
+
 /// Compact visual buttons keep the kit's touch-sized hit areas.
 #[test]
 fn compact_footer_buttons_keep_their_touch_hitboxes() {

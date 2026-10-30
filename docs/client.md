@@ -8851,9 +8851,29 @@ A turn's heading is a quieter line under a rule. Every other line reads
 like a chat (#300): its time, the seat swatch, then the sentence, and
 "(×N)" in the quieter ink after a line that happened more than once.
 
+**Turns fold** (feedback of 24.10.2026: the log is huge, fold what can be
+grouped, folded by default). The panel, the chat window's Log tab and the
+end screen show every turn but the newest as its heading alone, a chevron
+and "· 135 lines" (`virtual_list::fold`, `Entry::Turn`); a press on a heading
+opens or folds it (`LogFolds`, `spawn_turn`), and the choice holds for that
+turn for the rest of the game in all three lists, forgotten at the next game
+or a replay's jump (`keep_the_folds`). A new turn folds the one before it
+unless the player opened that one. The list keeps the whole book beside what
+it shows, so a refold keeps every measured row height and the row being
+read; a press on a heading stops the list following its end, so the heading
+stays under the pointer and the turn opens below it. A line of the newest,
+open turn is appended as before, mounting nothing again; only a new turn or
+a press refolds. The chat window's All tab does not fold.
+
 - **The time** is `LogLine::at` on the device's own clock, "14:05", in a
   column `CLOCK_W` wide so the sentences start in one place
-  (`ledge::log::local_clock`, `LogLine::clock`). The offset is asked of the
+  (`ledge::log::local_clock`, `LogLine::clock`). It is set a step smaller
+  than the sentence (`CLOCK_SCALE`), in lining figures of one width, in the
+  quieter ink faded further (`CLOCK_FADE`), lowered onto the sentence's
+  first line, with `CLOCK_AIR` of room before the swatch (feedback of
+  24.10.2026: "room between the time and the line; the time apart, but
+  quieter"). The chat window's lines take the same column
+  (`ledge::log::clock_bundle`). The offset is asked of the
   platform for the moment the line was written (`time`'s `local-offset`:
   `localtime_r`, Windows' zone information, the browser's `Date`), so a line
   from before the clocks changed keeps its hour; where the platform will not

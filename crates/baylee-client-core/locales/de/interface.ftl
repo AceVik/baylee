@@ -1214,6 +1214,10 @@ GameLogTitle = Spielprotokoll
 GameLogEmpty = Noch ist nichts passiert
 GameLogNewBelow = Neue Zeilen unten
 GameLogLatest = Zurück zum Neuesten
+GameLogTurnLines = { $count ->
+        [one] { $count } Eintrag
+       *[other] { $count } Einträge
+    }
 RevealedBy = { $player } zeigt offen vor
 RevealedWaiting = Noch { $count } weitere
 RevealedHint = Zeige auf eine Karte, um sie zu vergrößern

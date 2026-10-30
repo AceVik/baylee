@@ -23,7 +23,7 @@ use std::collections::VecDeque;
 
 use baylee_client_core::social::{
     self, ChatCue, ChatTab, ChatToast, ConvId, Effect, Entropy, Intent, Me, Social, SocialLink,
-    TableContext,
+    TableContext, ToastAbout,
 };
 use bevy::prelude::*;
 
@@ -128,6 +128,9 @@ pub struct SocialHost {
     table: Option<Option<TableContext>>,
     /// Toasts to show, newest last.
     pub(crate) toasts: VecDeque<ChatToast>,
+    /// What standing toasts asked about and is answered or gone since
+    /// (`Effect::Withdraw`), for `toasts::take` to take away.
+    pub(crate) withdrawn: Vec<ToastAbout>,
     /// Cues to play.
     pub(crate) sounds: Vec<ChatCue>,
     /// What the machine asked of the shell.
@@ -282,6 +285,11 @@ impl SocialHost {
                 while self.toasts.len() > 6 {
                     self.toasts.pop_front();
                 }
+            }
+            Effect::Withdraw(about) => {
+                self.toasts
+                    .retain(|toast| toast.about.as_ref() != Some(&about));
+                self.withdrawn.push(about);
             }
             Effect::Sound(cue) => self.sounds.push(cue),
             Effect::OpenConversation(conv) => self.asks.push(UiAsk::Open(conv)),

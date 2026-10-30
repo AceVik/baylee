@@ -690,12 +690,16 @@ pub(crate) fn sync_finish_log(
     mut lists: Query<(Entity, &mut FinishLog, &mut LogFollow, &mut ScrollPosition)>,
     nodes: Query<&ComputedNode>,
     mut spacers: Query<&mut Node, With<virtual_list::LogSpacer>>,
+    folds: Option<Res<super::LogFolds>>,
 ) {
     let Some(fonts) = fonts else {
         return;
     };
     for (list, mut log, mut follow, mut scroll) in &mut lists {
         let lang = log.lang;
+        if let Some(folds) = &folds {
+            log.rows.fold_with(folds, scroll.y);
+        }
         log.rows.sync(
             &mut commands,
             list,

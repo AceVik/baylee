@@ -97,6 +97,9 @@ impl Show {
             Event::MindDown => {
                 vec!["the mind is down: the house plays until it answers again".into()]
             }
+            Event::Housed => {
+                vec!["the mind is limited: the house plays the rest of the game".into()]
+            }
             Event::TableSaid { message } => vec![format!("table: {message}")],
             Event::Left { reason } => vec![format!("left the table: {reason}")],
             Event::Over { result } => vec![format!("game over: {result}")],

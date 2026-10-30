@@ -1540,3 +1540,98 @@ fn a_table_line_sent_before_the_member_list_waits_for_it() {
     bob.deliver(&mut gw);
     assert_eq!(bob.texts("tbl:g1"), ["gl hf"]);
 }
+
+// ---------------------------------------------------------------------------
+// A toast that waits for an answer.
+// ---------------------------------------------------------------------------
+
+/// Feedback of 29.10.2026: a friend request accepted in the drawer left its
+/// toast standing with Accept and Decline. The request's toast says what it
+/// asks about, and whatever ends the request (accepted from any device,
+/// declined or taken back, a block) withdraws it.
+#[test]
+fn whatever_ends_a_request_withdraws_its_toast() {
+    let mut gw = world();
+    let _alice = Client::new(&mut gw, ALICE, "Alice#af03", 1);
+    let mut bob = Client::new(&mut gw, BOB, "Bob#0012", 2);
+    let person = gw.person_of(ALICE);
+    let about = crate::social::ToastAbout::FriendRequest(ALICE.into());
+    for gone in [
+        FriendEvent::Accepted,
+        FriendEvent::RequestGone,
+        FriendEvent::Blocked,
+    ] {
+        bob.seen.clear();
+        bob.feed(
+            &mut gw,
+            Down::Friend {
+                event: FriendEvent::RequestIn,
+                person: person.clone(),
+                presence: None,
+            },
+        );
+        assert!(
+            bob.seen.iter().any(|effect| matches!(
+                effect,
+                Effect::Toast(toast) if toast.until_answered && toast.about.as_ref() == Some(&about)
+            )),
+            "the request's toast says what it asks"
+        );
+        bob.feed(
+            &mut gw,
+            Down::Friend {
+                event: gone,
+                person: person.clone(),
+                presence: None,
+            },
+        );
+        assert!(
+            bob.seen
+                .iter()
+                .any(|effect| matches!(effect, Effect::Withdraw(withdrawn) if *withdrawn == about)),
+            "{gone:?} withdrew it"
+        );
+    }
+}
+
+/// An invite to a group is listed at once where the gateway names who
+/// invited (feedback of 29.10.2026: it showed only after a reconnect), and
+/// its toast goes when it is answered or withdrawn.
+#[test]
+fn a_group_invite_is_listed_at_once_and_its_toast_goes_with_it() {
+    let mut gw = world();
+    let _alice = Client::new(&mut gw, ALICE, "Alice#af03", 1);
+    let mut bob = Client::new(&mut gw, BOB, "Bob#0012", 2);
+    let group = baylee_protocol::social::GroupInfo {
+        id: "01a18961-489c-7546-b62d-7a3cecbc55d3".into(),
+        name: "Spieleabend".into(),
+        members: Vec::new(),
+        invited: vec![gw.person_of(BOB)],
+    };
+    let inviter = gw.person_of(ALICE);
+    bob.feed(
+        &mut gw,
+        Down::Group {
+            event: baylee_protocol::social::GroupEvent::Invited,
+            group: group.clone(),
+            inviter: Some(inviter),
+        },
+    );
+    let listed = &bob.social.contacts().group_invites;
+    assert_eq!(listed.len(), 1, "listed in the drawer at once");
+    assert_eq!(listed[0].inviter.tag, ALICE);
+    bob.seen.clear();
+    bob.feed(
+        &mut gw,
+        Down::Group {
+            event: baylee_protocol::social::GroupEvent::InviteGone,
+            group: group.clone(),
+            inviter: None,
+        },
+    );
+    assert!(bob.social.contacts().group_invites.is_empty());
+    assert!(bob.seen.iter().any(|effect| matches!(
+        effect,
+        Effect::Withdraw(crate::social::ToastAbout::GroupInvite(id)) if *id == group.id
+    )));
+}

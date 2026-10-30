@@ -831,6 +831,7 @@ fn sync_table_window(
     nodes: Query<&ComputedNode>,
     mut spacers: Query<&mut Node, With<logpanel::virtual_list::LogSpacer>>,
     zoom: Res<super::zoom::Zoom>,
+    folds: Option<Res<logpanel::LogFolds>>,
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
     let (Some(machine), Some(duel)) = (host.machine(), duel) else {
@@ -884,6 +885,7 @@ fn sync_table_window(
         &mut lists,
         &nodes,
         &mut spacers,
+        folds.as_deref(),
     );
 }
 
@@ -1064,6 +1066,7 @@ fn sync_lobby_window(
         &mut lists,
         &nodes,
         &mut spacers,
+        None,
     );
 }
 
@@ -1401,6 +1404,7 @@ fn fill(
     lists: &mut Query<(&mut LogFollow, &mut ScrollPosition), With<LogList>>,
     nodes: &Query<&ComputedNode>,
     spacers: &mut Query<&mut Node, With<logpanel::virtual_list::LogSpacer>>,
+    folds: Option<&logpanel::LogFolds>,
 ) {
     let inks = frame.inks();
     let game_open = duel.is_some();
@@ -1576,7 +1580,7 @@ fn fill(
     if let Some(list) = drawn.list {
         fill_list(
             commands, fonts, lang, machine, ui, duel, texts, frame, drawn, list, lists, nodes,
-            spacers,
+            spacers, folds,
         );
     }
     // The composer.

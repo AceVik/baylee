@@ -248,6 +248,25 @@ fn every_shell_key_cap_can_be_drawn() {
     }
 }
 
+/// The report's Send cap is in the face its label is set in, on macOS and
+/// elsewhere: it was "⌘↵", neither of which Alegreya Sans has, and stood as
+/// an empty cap beside the word (feedback of 28.10.2026).
+#[test]
+fn the_report_send_cap_can_be_drawn() {
+    for file in ["AlegreyaSans-Regular.ttf", "AlegreyaSans-Medium.ttf"] {
+        let face = std::fs::read(path(file)).expect("a shipped cut");
+        for mac in [true, false] {
+            let shown = crate::report::form::send_keys(mac);
+            for ch in shown.chars() {
+                assert!(
+                    glyph(&face, ch as u32) > 0,
+                    "Send's cap is drawn as {shown:?}; {file} has no {ch:?}"
+                );
+            }
+        }
+    }
+}
+
 /// Every mark `hud::glyph` names is one the icon face actually has.
 ///
 /// The same trap as the chords above, in the font it is easiest to fall

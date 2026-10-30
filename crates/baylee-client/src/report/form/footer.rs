@@ -83,6 +83,17 @@ fn footer_button(
     }
 }
 
+/// Send's key cap: the chord as the shell's keymap writes one ("Cmd+Enter",
+/// "Ctrl+Enter"). It said "⌘↵" and "Ctrl ↵" before, and Alegreya Sans has
+/// neither glyph, so the cap stood empty beside the word (feedback of
+/// 28.10.2026, the buttons under the report's text).
+pub(crate) fn send_keys(mac: bool) -> String {
+    use baylee_client_core::shellkeys::{Learnt, ShellChord};
+    ShellChord::code("Enter")
+        .cmd()
+        .display(mac, &Learnt::default())
+}
+
 /// Why Send is unavailable, if it is.
 fn send_reason(
     desk: &ReportDesk,
@@ -170,18 +181,14 @@ pub(super) fn form_foot(
         (DeskPress::Close, Stop::new(REPORT.name, "close")),
     );
     footer.push(close.root);
-    let send_keys = if crate::shellkit::keys::mac() {
-        "\u{2318}\u{21b5}"
-    } else {
-        "Ctrl \u{21b5}"
-    };
+    let send_keys = send_keys(crate::shellkit::keys::mac());
     let send = footer_button(
         commands,
         kit,
         Some(crate::hud::glyph::SEND),
         Phrase::ReportSend.text(lang),
         Weight::Primary,
-        Some(send_keys),
+        Some(&send_keys),
         (DeskPress::Send, Stop::new(REPORT.name, "send")),
     );
     commands
@@ -197,22 +204,30 @@ pub(super) fn form_foot(
         .entity(spinner)
         .insert((SendSpinner, Visibility::Hidden));
     commands.entity(send.face).add_child(spinner);
+    // Centred like its neighbours. The reason under it is a finger's only
+    // (a pointer has the tooltip): a hidden line still takes its height,
+    // which stood Send higher than Close beside it, so only a touch footer
+    // has one (the footer is rebuilt when the input class changes).
     let column = commands
         .spawn((
             Node {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::End,
+                justify_content: JustifyContent::Center,
                 row_gap: kit.m.px(2.0),
                 ..default()
             },
             Pickable::IGNORE,
         ))
         .id();
-    let reason = words(commands, tf(kit.fonts, kit.m.small), "", tokens::MUTED);
-    commands
-        .entity(reason)
-        .insert((SendTouchReason, Visibility::Hidden));
-    commands.entity(column).add_children(&[send.root, reason]);
+    commands.entity(column).add_child(send.root);
+    if kit.m.touch() {
+        let reason = words(commands, tf(kit.fonts, kit.m.small), "", tokens::MUTED);
+        commands
+            .entity(reason)
+            .insert((SendTouchReason, Visibility::Hidden));
+        commands.entity(column).add_child(reason);
+    }
     footer.push(column);
     footer
 }

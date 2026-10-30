@@ -62,6 +62,15 @@ impl Kept {
     /// hands down the real values in `PostUpdate`; equal, they stop at the
     /// parent, and different (a resize on that frame), they run on down as
     /// on any frame.
+    ///
+    /// Attach last, once `parent` stands under its root. A parent put under
+    /// its own parent after this gives what it was handed up again (Bevy
+    /// takes `Inherited` off a node whose new parent has none yet), and that
+    /// removal runs down into the subtree in `PostUpdate`: the subtree is
+    /// undrawn for the frame, as with no `Kept` at all. The report sheet
+    /// attached its footer to the sheet before the sheet went under its
+    /// scrim, and its buttons blinked out at every keystroke (feedback of
+    /// 28.10.2026).
     pub fn attach(&self, commands: &mut Commands, parent: Entity) {
         if let Some(target) = &self.target {
             commands.entity(parent).insert(target.clone());
@@ -153,6 +162,86 @@ mod tests {
         commands.entity(fresh).add_child(frame);
         kept.attach(&mut commands, frame);
         world.flush();
+    }
+
+    /// A rebuild in the report sheet's shape: a new root, a new sheet with a
+    /// head and a body of its own, and the kept footer. `attach_last` puts
+    /// the sheet under the root before the footer is attached; otherwise the
+    /// footer is attached to the sheet first, as the sheet did until the
+    /// feedback of 28.10.2026. Returns the new root and the sheet's nodes.
+    fn rebuild_sheet(
+        app: &mut App,
+        old: Entity,
+        bar: Entity,
+        attach_last: bool,
+    ) -> (Entity, [Entity; 3]) {
+        let kept = {
+            let world = app.world();
+            Kept::of(bar, world.get(bar), world.get(bar))
+        };
+        let world = app.world_mut();
+        let mut commands = world.commands();
+        let fresh = commands
+            .spawn(Node {
+                width: Val::Px(1280.0),
+                height: Val::Px(800.0),
+                ..default()
+            })
+            .id();
+        commands.entity(bar).remove::<ChildOf>();
+        commands.entity(old).despawn();
+        let sheet = commands.spawn(Node::default()).id();
+        let head = commands.spawn(Node::default()).id();
+        let body = commands.spawn(Node::default()).id();
+        commands.entity(sheet).add_children(&[head, body]);
+        if attach_last {
+            commands.entity(fresh).add_child(sheet);
+            kept.attach(&mut commands, sheet);
+        } else {
+            kept.attach(&mut commands, sheet);
+            commands.entity(fresh).add_child(sheet);
+        }
+        world.flush();
+        (fresh, [sheet, head, body])
+    }
+
+    /// The report sheet's footer (feedback of 28.10.2026). Attached to a
+    /// sheet that goes under its root only afterwards, the footer and all
+    /// it holds are undrawn on each rebuild's frame and back on the next
+    /// (Bevy 0.20; when this half fails, the order stopped mattering).
+    /// Attached last, nothing is undrawn on any rebuild, the sheet's own new
+    /// nodes included.
+    #[test]
+    fn a_kept_subtree_is_attached_after_its_parent_has_its_place() {
+        let mut app = ui_app();
+        let (mut root, bar, nodes) = tree(&mut app);
+        app.update();
+        app.update();
+        let (fresh, sheet) = rebuild_sheet(&mut app, root, bar, false);
+        root = fresh;
+        app.update();
+        let mut all = nodes.clone();
+        all.extend(sheet);
+        let lost = undrawn(&mut app, &all);
+        assert_eq!(
+            lost, nodes,
+            "attached first: the footer's subtree, and only it"
+        );
+        app.update();
+        assert!(undrawn(&mut app, &all).is_empty(), "and back a frame later");
+
+        for round in 0..3 {
+            let (fresh, sheet) = rebuild_sheet(&mut app, root, bar, true);
+            root = fresh;
+            let mut all = nodes.clone();
+            all.extend(sheet);
+            app.update();
+            assert_eq!(
+                undrawn(&mut app, &all),
+                Vec::<Entity>::new(),
+                "attached last, rebuild {round}"
+            );
+        }
     }
 
     /// The owner's report of 22.10.2026, at the layer it happens in. A plain

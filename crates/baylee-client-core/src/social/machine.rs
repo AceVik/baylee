@@ -28,7 +28,7 @@ use super::vault::{self, KeyHome, SecretSlot};
 use super::words::ChatPhrase;
 use super::{
     ChatPrefs, ChatToast, DeviceRow, Effect, HttpTag, Intent, Me, Method, NoteState, SafetyView,
-    SecretValue, SocialLink, ToastButton, device_label,
+    SecretValue, SocialLink, ToastAbout, ToastButton, device_label,
 };
 
 /// Idle time after which an online player is shown away (§6).
@@ -713,6 +713,14 @@ impl Social {
             } => {
                 let was_outgoing = self.contacts.outgoing.iter().any(|p| p.tag == person.tag);
                 self.contacts.friend_event(event, &person, presence, now_ms);
+                if matches!(
+                    event,
+                    FriendEvent::Accepted | FriendEvent::RequestGone | FriendEvent::Blocked
+                ) {
+                    out.push(Effect::Withdraw(ToastAbout::FriendRequest(
+                        person.tag.clone(),
+                    )));
+                }
                 let name = self.shown_name(&person);
                 match event {
                     FriendEvent::RequestIn => {
@@ -723,9 +731,10 @@ impl Social {
                             conv: None,
                             actions: vec![
                                 (ToastButton::Accept, Intent::Accept { tag: tag.clone() }),
-                                (ToastButton::Decline, Intent::Decline { tag }),
+                                (ToastButton::Decline, Intent::Decline { tag: tag.clone() }),
                             ],
                             until_answered: true,
+                            about: Some(ToastAbout::FriendRequest(tag)),
                         }));
                         if self.status != Status::Dnd {
                             out.push(Effect::Sound(ChatCue::FriendRequest));
@@ -738,9 +747,23 @@ impl Social {
                 }
                 self.refresh_candidates();
             }
-            Down::Group { event, group } => {
+            Down::Group {
+                event,
+                group,
+                inviter,
+            } => {
                 let invited = event == GroupEvent::Invited;
-                self.contacts.group_event(event, &group);
+                self.contacts
+                    .group_event(event, &group, inviter.as_ref(), now_ms);
+                if matches!(
+                    event,
+                    GroupEvent::Joined
+                        | GroupEvent::InviteGone
+                        | GroupEvent::Left
+                        | GroupEvent::Deleted
+                ) {
+                    out.push(Effect::Withdraw(ToastAbout::GroupInvite(group.id.clone())));
+                }
                 if let Ok(id) = format!("grp:{}", group.id).parse::<Conv>() {
                     match event {
                         GroupEvent::Joined | GroupEvent::Updated => {
@@ -766,9 +789,13 @@ impl Social {
                         conv: None,
                         actions: vec![
                             (ToastButton::Accept, Intent::JoinGroup { id: id.clone() }),
-                            (ToastButton::Decline, Intent::DeclineGroup { id }),
+                            (
+                                ToastButton::Decline,
+                                Intent::DeclineGroup { id: id.clone() },
+                            ),
                         ],
                         until_answered: true,
+                        about: Some(ToastAbout::GroupInvite(id)),
                     }));
                 }
                 self.refresh_candidates();
@@ -787,6 +814,7 @@ impl Social {
             Down::Invite(invite) => self.invite(invite, now_ms, &mut out),
             Down::InviteGone { id, answer } => {
                 self.contacts.invites.retain(|i| i.invite.id != id);
+                out.push(Effect::Withdraw(ToastAbout::TableInvite(id.clone())));
                 if let Some(person) = self.sent_invites.remove(&id)
                     && answer == Some(baylee_protocol::social::InviteAnswer::Declined)
                     && let Some(conv) = self.table.as_ref().and_then(TableContext::table_conv)
@@ -945,7 +973,11 @@ impl Social {
             self.retry_register_at = None;
             self.register(&mut out);
         }
-        if self.contacts.expire_invites(now_ms) {
+        let expired = self.contacts.expire_invites(now_ms);
+        if !expired.is_empty() {
+            for id in expired {
+                out.push(Effect::Withdraw(ToastAbout::TableInvite(id)));
+            }
             self.bump();
         }
         let due = self
@@ -1640,6 +1672,7 @@ fn toast(phrase: ChatPhrase, args: Vec<String>) -> Effect {
         conv: None,
         actions: Vec::new(),
         until_answered: false,
+        about: None,
     })
 }
 

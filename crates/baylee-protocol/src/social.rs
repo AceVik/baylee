@@ -717,6 +717,12 @@ pub enum Down {
         event: GroupEvent,
         /// @description The group as it is now.
         group: GroupInfo,
+        /// @description Who invited this account, on `invited`, so its
+        /// client can list the invite at once; absent on every other event,
+        /// and from a gateway older than this field, whose client lists the
+        /// invite from the next `snapshot`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        inviter: Option<Person>,
     },
     /// @description The members of a table or team conversation, whenever
     /// they change (and to an account that left it).

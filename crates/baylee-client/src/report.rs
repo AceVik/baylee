@@ -43,7 +43,7 @@ use crate::settings::ClientSettings;
 
 mod corner;
 mod field;
-mod form;
+pub(crate) mod form;
 mod keys;
 mod refs;
 mod shot;
