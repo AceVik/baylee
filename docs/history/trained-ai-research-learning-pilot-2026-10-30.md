@@ -233,6 +233,56 @@ role/provenance contract extension; they cannot be admitted by relabeling a
 House seat or adding an evaluator flag. Broader collection with the currently
 supported neural roles is separate from that later extension.
 
+The next predeclared collection is
+`failure-terminal-breadth-01a18b06-115f-7be2-944c-0e6a4ac95fea/` under the
+same investigation root. It uses original R6 as learner, with four historical
+candidate1 tables alternating with four frozen-R6 self-play tables. Both focal
+seats are retained per table: 16 planned attempts, eight correlated table
+clusters, not 16 independent tables. Cases 160–175 select 16 distinct adapted
+train decks at indices 32–47 of the unchanged 128-deck manifest, spanning ARC,
+ATH, AVR, BFZ and BNG. Actual opening seeds are 902610300080–902610300087,
+with base policy seed 902610300999. The overlap receipt checked 147 prior native
+rows in this investigation root: no reused opening seed or full tuple matched.
+This is fresh training collection, not a holdout or a playing-strength test.
+
+The collection retains the proven E7/K2/temperature-0.7 raw FP32 runtime without
+rebuilding or copying the models. It has no House fallback, outcome selection,
+automatic refill, retry, PPO stage or promotion. Record every planned attempt,
+including unknown and unstarted outcomes, and keep each seat pair in one table
+cluster. Each two-attempt group has a 240-second guard and 270-second outer
+stage limit; the pipeline is bounded to 2,280 seconds and its service to 2,340
+seconds, with two CPU equivalents and 20 GiB host memory. The separate loader
+preflight has zero games and a 150-second pipeline limit. Root reviewed the
+preparation and released this preflight, followed by collection only if it passes.
+
+The sealed collection manifest SHA-256 is
+`eccdb0b845533fb05ab7c9af58225ecdf30e95dd55e7b45be036736c6dab5cc0`;
+its launch map SHA-256 is
+`fb98c979e283e325a08c53f2554fe88a72c08550610602d8297902fdafbdc3ac`.
+The separate preflight manifest SHA-256 is
+`4a1786e10531ad640d94391f638ed08ab9e32cd66c6552099f69050e7efbefc3`.
+`ready.json` records the schedule, command, overlap and input-seal hashes;
+20,193 frozen input files were rehashed during preparation. Preparation and
+release alone are not proof of a running collector or usable training data;
+follow the actual execution receipts and canonical collection pointer.
+
+Both final-map CPU loaders passed in 18.443 and 18.447 seconds, at peak PSS
+2,291,756,032 and 2,317,804,544 bytes respectively. The verifier took 3.111
+seconds. Preflight cleanup confirmed all owned identities/groups exited and
+the cgroup was empty; its watcher was stopped before emitting a terminal wake.
+`preflight-verified.json` SHA-256 is
+`a4f07b96c876fb26ed28c55b500ffa8d8a8a66b13057fda76745d915cc58e978`;
+the separate cleanup receipt SHA-256 is
+`f8702be685046c6db945390f946bcfdb8e78fea80235cd08c964ef9b526913f5`.
+Collection then started exactly once under
+`baylee-breadth-01a18b06-collection.service`: controller PID 2442449/start ticks
+16553759 on the unchanged boot, with actual ELF/argv/cgroup identity checked.
+The canonical collection pointer is running and its durable watcher active.
+`collection-launcher-complete.json` SHA-256 is
+`92d34c6edcc711816908dc3e95c7c135bf07d62a991d90a9fc674ea899edf9e8`.
+This is an actual CPU collection launch, not another GPU learning update;
+results still require review. The user gateway is unchanged.
+
 Sol's read-only performance review identified hypotheses to measure after this
 trial, not demonstrated speedups. Starting the tensor server and final native
 verification each reconstruct admission, scan and pack frames; original

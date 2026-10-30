@@ -16,7 +16,7 @@ promotion or push. Always check actual status before acting on this snapshot.
 
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
-| Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names the four-attempt real-data pilot and is `complete-reviewed`. Collection, conversion, cache verification and native input admission passed: three histories, 1,713 frames, 372 genuine choices. Numerical Torch replay remains a separate gate. Follow actual stage receipts before launching anything |
+| Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` now names `failure-terminal-breadth-01a18b06-115f-7be2-944c-0e6a4ac95fea/`, running after both zero-game CPU loader checks passed. Sixteen fresh attempts form eight seat-paired tables, alternating historical neural opponents and frozen-R6 self-play. No retry/refill or automatic PPO. The earlier four-attempt pilot remains complete and reviewed: three target histories, 1,713 frames, 372 genuine choices. Follow actual stage receipts before launching anything |
 | Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names the latest research phase under `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/`. CPU preflight, CUDA initialization and full numerical replay passed; exactly one update was accepted (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546). Follow `execution_root` and actual receipts; no automatic repeat or promotion. Earlier coverage training remains completed and reviewed |
 | Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
@@ -24,12 +24,12 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. Next predeclare a broader fresh collection rather than repeat only zero-target histories. Native input admission does not certify numerical replay or playing strength |
+| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. A broader predeclared fresh CPU collection is running; review all outcomes before scheduling another learning step. Native input admission does not certify numerical replay or playing strength |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
 
-The current pilot is
+The completed initial failure-terminal pilot is
 `failure-terminal-real-e2e-01a18a9d-d0e0-7db4-b154-2cbae46d83fd/` under the
 evidence root. It retains all four fixed known development attempts, with no
 refill, holdout, strength claim or promotion. Raw E7/R6 FP32 K2/temperature 0.7
@@ -43,6 +43,17 @@ of `0.001` before any update. See the
 and commands, implemented in `599cfe70a`, `5090f40a1` and `7ba44fc23`. The
 [real-data pilot report](history/trained-ai-research-learning-pilot-2026-10-30.md)
 records native admission, numerical replay and the accepted bounded update.
+
+The new breadth collection reuses the same frozen R6/native runtime, with fresh
+opening seeds and 16 distinct adapted train decks. Its eight paired tables are
+correlated within each pair; retain all 16 planned attempts, including unknown
+and unstarted outcomes. Service `baylee-breadth-01a18b06-collection` has a
+2,340-second limit, two CPU equivalents and 20 GiB memory. The durable
+`baylee-breadth-01a18b06-collection-watch.timer` observes completion or failure.
+The actual controller at launch was PID 2442449/start ticks 16553759 on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced`; recheck identity instead of reusing that
+PID. Both preflight loaders and cleanup passed before this single launch.
+This CPU collection has no GPU or automatic downstream training stage.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,
