@@ -239,7 +239,7 @@ def main(default_architecture="v4") -> None:
         f"B={args.batch_size} U={args.unroll} K={args.thinking_steps} validation_B={args.validation_batch_size}"
     )
 
-    depth_schedule = DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum)
+    depth_schedule = DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum, args.report_depths)
     depth_counts = {}
     step_num = 0
     optimizer_updates = 0
