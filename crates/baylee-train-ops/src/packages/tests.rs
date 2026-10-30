@@ -255,9 +255,52 @@ fn consumer_manifest_is_explicit_guarded_and_does_not_repeat_completed_work() ->
     consume(&plan, &AtomicBool::new(false))?;
     assert_eq!(original_receipt, fs::read(&historic)?);
     let before = fs::read(output.join("progress.json"))?;
+    let seal = files::sha256(&plan)?;
+    let experiment_receipt = packages
+        .join("package-0000/consumption")
+        .join(format!("{seal}.json"));
+    let expected_receipt = fs::read(&experiment_receipt)?;
+    // Crash after the progress commit but before either receipt publication.
+    fs::remove_file(&experiment_receipt)?;
     consume(&plan, &AtomicBool::new(false))?;
     assert_eq!(before, fs::read(output.join("progress.json"))?);
+    assert_eq!(expected_receipt, fs::read(&experiment_receipt)?);
+    assert_eq!(original_receipt, fs::read(&historic)?);
+    fs::remove_file(&experiment_receipt)?;
+    fs::remove_file(&historic)?;
+    consume(&plan, &AtomicBool::new(false))?;
+    assert_eq!(expected_receipt, fs::read(&experiment_receipt)?);
+    assert_eq!(expected_receipt, fs::read(&historic)?);
     assert!(packages.join("package-0000/consumed.json").is_file());
+    let job_path = output.join("jobs/package-0000/job.json");
+    let job = files::read_json(&job_path)?;
+    for change in [
+        json!({"status":"quarantined"}),
+        json!({"cleanup_verified":false}),
+        json!({"returncode":1}),
+        json!({"inputs":{}}),
+        json!({"command":["other-command"]}),
+        json!({"child_identity":crate::process::identity(std::process::id()),"pid":std::process::id()}),
+    ] {
+        let mut invalid = job.clone();
+        invalid
+            .as_object_mut()
+            .unwrap()
+            .extend(change.as_object().unwrap().clone());
+        files::atomic_json(&job_path, &invalid)?;
+        fs::remove_file(&experiment_receipt)?;
+        assert!(consume(&plan, &AtomicBool::new(false)).is_err(), "{change}");
+        assert!(!experiment_receipt.exists());
+        assert_eq!(before, fs::read(output.join("progress.json"))?);
+        files::atomic_json(&job_path, &job)?;
+        consume(&plan, &AtomicBool::new(false))?;
+    }
+    // A progress name cannot route recovery outside either owned root.
+    let mut progress = files::read_json(&output.join("progress.json"))?;
+    progress["consumed"] = json!(["../package-0000"]);
+    files::atomic_json(&output.join("progress.json"), &progress)?;
+    assert!(consume(&plan, &AtomicBool::new(false)).is_err());
+    fs::write(output.join("progress.json"), &before)?;
     let mut altered = files::read_json(&plan)?;
     altered["max_packages"] = json!(2);
     files::atomic_json(&plan, &altered)?;

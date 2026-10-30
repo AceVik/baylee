@@ -1,5 +1,6 @@
 mod inputs;
 mod receipts;
+mod recovery;
 mod runtime;
 use crate::files;
 use anyhow::{Context, Result, ensure};
@@ -108,6 +109,7 @@ pub fn consume(path: &Path, interrupted: &AtomicBool) -> Result<()> {
             progress["last_checkpoint_sha256"] == files::sha256(&previous)?,
             "completed checkpoint changed"
         );
+        recovery::reconcile(&plan, path, &seal, &used, &previous)?;
     }
     let result = runtime::run(&plan, path, &seal, used, previous, interrupted);
     if let Err(ref error) = result {
