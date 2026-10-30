@@ -18,7 +18,8 @@ promotion or push. Always check actual status before acting on this snapshot.
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
 | Current checkpoint phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-export-validation-recovery-01a18bdd-9c30-7bfb-bfc7-d8cb904a8725/validation/execution`, now `complete-reviewed`. Native compatibility validation accepts only the proven legacy E7 default `global_feat_width: 80`; all other config fields, sealed graphs, research-critic semantics and 47 numerical checks passed. Its processes exited and watcher stopped. No Torch/export/optimizer rerun was needed. The preceding breadth update retained eight updates, 465 choices, 2,043 frames and 311 changed tensors, final KL 0.00105115049. Its matched gameplay comparison is complete; no net benefit or promotion is established |
-| Completed behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` records `research-breadth-paired-gameplay-01a18bf8-87a9-740e-a8f4-218d44a77c60/` as `complete-reviewed`. All 32 fixed attempts were assigned, 16 per arm. Paired known utility: one better, one worse, nine equal, five unresolved. Eleven of 12 comparable canonical histories differ; all 12 comparable source histories reproduce the original. Source/candidate natural wins are four each, with different outcome denominators. The owned service, groups and watcher are stopped. Next: bounded offline probabilities/advantages on source states in cases 160/161/175; preparation is not execution |
+| Completed behavior comparison | `research-breadth-paired-gameplay-01a18bf8-87a9-740e-a8f4-218d44a77c60/reviewed-events/1f92fce8c7a2bee4e4e248e4-operator-review.json` records `complete-reviewed`. All 32 fixed attempts were assigned, 16 per arm. Paired known utility: one better, one worse, nine equal, five unresolved. Eleven of 12 comparable canonical histories differ; all 12 comparable source histories reproduce the original. Source/candidate natural wins are four each, with different outcome denominators. The owned service, groups and watcher are stopped |
+| Current CPU diagnostic | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` names `research-breadth-source-state-diagnostic-01a18c36-1364-7587-afcb-b0bdae5ea827/`, observed `running` in native `mapping` after one successful launch. Cases 160/161/175, complete source-history probabilities/advantages and existing update exposure, no optimizer/gameplay. Three native and three CPU Torch fixtures passed. Service/watch active, service limit 29 minutes. See the exact manifest, launch receipt and controller identity below; recheck status before acting |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
@@ -458,6 +459,49 @@ Original continuation tables had 600-second guards; this comparison used
 refill, retry or mix old completed attempts into the fresh denominator.
 The superseded `01a18be4` preparation was never launched. Full evidence is in
 the [dated pilot report](history/trained-ai-research-learning-pilot-2026-10-30.md#matched-comparison-results-and-next-diagnostic).
+
+The bounded offline successor is
+`research-breadth-source-state-diagnostic-01a18c36-1364-7587-afcb-b0bdae5ea827/`.
+It is frozen with ready SHA-256
+`572cf674112dc515bf10844a96b062f41c127043775812e8474b7ca4ada9f648` and pipeline
+SHA-256 `9b24e50a3ebd15bcacf8dfeb1ddbfb6d6ae1e8a680401c1acad508a1e3a764b4`.
+Native fixtures and the actual CPU mount/Torch fixtures passed three tests
+each. No source/runtime/model copies or new data admission were required.
+Rust reconstructs and byte-compares every selected source frame against the
+admitted cache, binds the matched first-divergence alternatives to their actual
+source menus, and joins the existing eight-update exposure. Torch compares
+both frozen models on the full source histories, including passive frames,
+with each model's own recurrent state; it checks every genuine source choice
+against the unchanged recorded log-probability tolerance `0.001`.
+
+The prescribed points are the first divergence in each of cases 160/161/175,
+the last 16 executed actor choices before case 161's boundary, and any prior
+executed choice sharing its authorized view hash. The unexecuted terminal
+proposal has no cache decision row and is reported separately, unevaluated.
+FP32/K2/T0.7, B4/U64, four CPU threads/one interop thread, no board chunking or
+CPU execution hints remain explicit. Mapping/inference/report limits are
+300/1,200/60 seconds; pipeline/service limits are 1,680/1,740 seconds with
+CPU400%/20 GiB and no exposed GPU devices. No gradients, optimizer, model
+writes, sampled actions or gameplay are requested.
+
+Root launched it once after reviewing the final pins and passing mount receipts.
+Controller PID 2515555/start ticks 18561265 on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` was verified by executable, exact argv
+and cgroup. Service `baylee-research-breadth-01a18c36-diagnostic` and its owned
+`-watch.timer` were verified active; the first observed stage is `mapping`.
+The attachment completed successfully. This certifies startup, not the native
+mapping, numerical inference or final result; those require actual receipts.
+
+Read `diagnostic-launch-attempt.json`, `diagnostic-launch-result.json`,
+`diagnostic/execution/status.json` and the canonical CPU owner before acting.
+The one-shot release is `bin/source_state_ops launch-diagnostic --root-approved
+--expected-ready-sha256 <ready SHA>`. An existing launch attempt prevents another
+start. Attachment waits up to 180 seconds for initial manifest verification;
+`attach-diagnostic` only attaches the existing owned controller and watcher.
+On a terminal wake, inspect status and exact process identity first. On clean
+completion, run `verify-diagnostic` once, review `diagnostic/report.json`,
+deduplicate the event, verify cleanup and stop the owned watcher. Preserve a
+failed namespace; no automatic retry, training or promotion follows.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,

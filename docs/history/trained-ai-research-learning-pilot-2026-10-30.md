@@ -1015,6 +1015,12 @@ gave both arms 240 seconds. Original table 084 took 368.990 seconds and table
 reproducible source games. Keep the fixed denominator; do not refill unknowns
 or substitute old successful attempts.
 
+For a future independently planned comparison, derive the common time budget
+from the already observed source runtimes before freezing the schedule.
+Equal limits across arms are necessary but do not remove informative censoring
+when a policy changes game duration. Report completion and unknown counts
+alongside outcomes; the completed-only win fraction cannot resolve this issue.
+
 `paired-review.json` SHA-256 is
 `d6b13b4f48dfbe3ae06ac775b35e77ca53d88f105889484fe0e6efda13ea1008`;
 `action-comparison.json` SHA-256 is
@@ -1037,3 +1043,41 @@ The unexecuted terminal loop proposal is distinct from cached executed
 decisions. This diagnostic creates no labels, gradients, optimizer state,
 gameplay, refill or promotion. Changed behavior is established; a net benefit
 has not yet been demonstrated.
+
+## Three-history source-state diagnostic launched
+
+The fresh successor is
+`research-breadth-source-state-diagnostic-01a18c36-1364-7587-afcb-b0bdae5ea827/`.
+It reuses the admitted cache, frozen trainer and actual source/candidate
+checkpoint bytes. Preparation took 51.881 seconds. Three native fixtures
+passed, covering canonical-input versus decision-index alignment, missing
+record distinctions and attachment ownership. The actual read-only CPU mount
+also passed three Torch fixtures, including the frozen CPU configuration,
+mask/temperature probabilities and complete-history segment selection.
+These fixtures loaded no model and executed no gameplay or learning.
+
+| Frozen artifact | SHA-256 |
+| --- | --- |
+| `ready.json` | `572cf674112dc515bf10844a96b062f41c127043775812e8474b7ca4ada9f648` |
+| `diagnostic.pipeline.json` | `9b24e50a3ebd15bcacf8dfeb1ddbfb6d6ae1e8a680401c1acad508a1e3a764b4` |
+| `bin/source_state_ops` | `807bd7412af3e2f7f2e4a270ae26376697242f89cc5e0ec37396708f927eb419` |
+
+The three stages are native mapping (300 seconds), Torch inference (1,200)
+and native reporting (60). Pipeline/service limits are 1,680/1,740 seconds,
+CPU400%/20 GiB, with GPU nodes absent. The computation uses FP32/K2/T0.7,
+B4/U64, four CPU threads and one interop thread, without board chunking or
+CPU execution hints. Source sampled-logprob replay must pass `0.001` over
+every genuine choice in all three complete histories, not merely the selected
+diagnostic points. Each model reconstructs its own full-history memory.
+
+Root reviewed the code, actual fixture receipts and frozen pins, confirmed
+the prior service/watcher inactive and GPU empty, then released one launch.
+Controller PID 2515555/start ticks 18561265 on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` passed executable/argv/cgroup verification.
+Service `baylee-research-breadth-01a18c36-diagnostic` and its watcher are active;
+the first observed stage is native `mapping`. The canonical CPU pointer is
+`running`. Attachment now permits 180 seconds for initial manifest checking
+and retains a separate attach-only recovery command. A launch-attempt receipt
+prevents duplicate starts. Startup does not establish diagnostic success.
+No automatic optimizer, gameplay, retry/refill, promotion or old BC resume
+follows this diagnostic. Terminal review instructions are in the runbook.
