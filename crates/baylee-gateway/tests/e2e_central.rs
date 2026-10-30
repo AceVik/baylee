@@ -17,6 +17,8 @@ mod registered;
 mod renewal;
 #[path = "central/terms.rs"]
 mod terms;
+#[path = "central/token.rs"]
+mod token;
 #[path = "central/upgrade.rs"]
 mod upgrade;
 
@@ -93,12 +95,15 @@ const RUNTIME_GRANTS: &str = "GRANT USAGE ON SCHEMA central_identity TO central_
                 central_identity.gateway_tickets, central_identity.private_objects TO central_runtime;
             GRANT SELECT, INSERT ON central_identity.migration_archives TO central_runtime;
             GRANT SELECT, INSERT, UPDATE ON central_identity.gateways TO central_runtime;
-            GRANT SELECT ON central_identity.gateway_approvals TO central_runtime;
+            GRANT SELECT, INSERT, UPDATE (enabled) ON central_identity.gateway_approvals TO central_runtime;
+            GRANT SELECT, INSERT, UPDATE (revoked_at, last_used_at) ON central_identity.gateway_tokens TO central_runtime;
             GRANT SELECT, INSERT, DELETE ON central_identity.gateway_admins, central_identity.gateway_leases TO central_runtime;
             GRANT UPDATE (expires_at) ON central_identity.gateway_leases TO central_runtime;
             GRANT SELECT, INSERT ON central_identity.gateway_terms, central_identity.gateway_terms_texts,
                 central_identity.terms_acceptances TO central_runtime;
-            GRANT SELECT, UPDATE (uses_left) ON central_identity.beta_keys TO central_runtime";
+            GRANT SELECT, UPDATE (uses_left) ON central_identity.beta_keys TO central_runtime;
+            GRANT SELECT, INSERT, DELETE ON central_identity.account_roles TO central_runtime;
+            GRANT SELECT, INSERT ON central_identity.audit_events TO central_runtime";
 
 /// `/auth/config` says whether the gateway takes Central sign-ins: a native
 /// client signs in through Central only where it does, and with the
@@ -157,6 +162,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         registered::run(&runtime, &operator, endpoint);
         terms::run(&runtime, &operator, endpoint);
         official::run(&runtime, &operator, endpoint, &served.bridge, origin);
+        token::run(&runtime, &store, &operator, endpoint);
         held::run(&runtime, &store);
         ui_fixture(endpoint, origin);
     }));

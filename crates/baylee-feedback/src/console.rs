@@ -140,6 +140,11 @@ pub(crate) fn routes() -> Router<Shared> {
             get(account).delete(crate::moderation::delete_account),
         )
         .route("/ui/api/admin/invites", get(invites).post(create))
+        .route("/ui/api/admin/central", get(central))
+        .route(
+            "/ui/api/admin/central/token",
+            put(central_paste).delete(central_remove),
+        )
         .route("/ui/api/admin/invites/{id}", delete(revoke))
         .route("/ui/api/admin/cards/search", get(search_cards))
         .route(
@@ -619,6 +624,114 @@ struct Order {
     /// @description How many keys to make.
     #[serde(skip_serializing_if = "Option::is_none")]
     count: Option<u32>,
+}
+
+/// @route GET /ui/api/admin/central
+/// @scope feedback
+/// @summary The gateway's link to Baylee Central
+/// @description The gateway's `GET /admin/central`, passed on with its status: where its link to Baylee Central comes from and, for a pasted token, what Central says about it; never the token, only its last four characters.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/central` answer, as it is"
+async fn central(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    ask(&gateway, "GET", "/admin/central".into(), &admin, None)
+        .await
+        .map(answer)
+}
+
+/// What `PUT /ui/api/admin/central/token` takes, and all it passes on.
+///
+/// @description A gateway token, as the website showed it.
+/// @openapi
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct CentralToken {
+    /// @description `bgt_` and 64 lowercase hex digits.
+    token: String,
+}
+
+/// @route PUT /ui/api/admin/central/token
+/// @scope feedback
+/// @summary Link the gateway to Baylee Central with a token
+/// @description The gateway's `PUT /admin/central/token`, passed on with its status: the gateway asks Baylee Central about the token, keeps it and uses it at once. This service writes an audit row without the token.
+/// @tag Console
+/// @operation-id `linkCentral`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @body `$CentralToken`
+/// @return 200: {} "Linked, as the gateway's `GET /admin/central` answers"
+/// @return 400: `$ErrorBody` "Not a token, or the gateway's own refusal"
+/// @return 409: `$ErrorBody` "The gateway's operator file sets the link"
+/// @return 422: `$ErrorBody` "Baylee Central does not know the token, or it was revoked or has expired"
+async fn central_paste(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let token: CentralToken = serde_json::from_slice(&body)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a gateway token"))?;
+    let body = serde_json::to_vec(&token)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a gateway token"))?;
+    drop(token);
+    let done = ask(
+        &gateway,
+        "PUT",
+        "/admin/central/token".into(),
+        &admin,
+        Some(body),
+    )
+    .await?;
+    if done.status == 200 {
+        let detail = format!(
+            "gateway {}",
+            done.json["central"]["gateway"]
+                .as_str()
+                .unwrap_or("unknown")
+        );
+        tracing::info!(admin, action = "gateway.central.link", %detail, "admin console");
+        if let Err(e) = note(&shared, &admin, "gateway.central.link", &detail).await {
+            tracing::error!("admin console: the audit row was not written: {e}");
+        }
+    }
+    Ok(answer(done))
+}
+
+/// @route DELETE /ui/api/admin/central/token
+/// @scope feedback
+/// @summary Remove the gateway's pasted token
+/// @description The gateway's `DELETE /admin/central/token`, passed on with its status: the gateway forgets the token and is unlinked from Baylee Central at once.
+/// @tag Console
+/// @operation-id `unlinkCentral`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 204: "Unlinked"
+/// @return 404: `$ErrorBody` "No token is pasted"
+/// @return 409: `$ErrorBody` "The gateway's operator file sets the link"
+async fn central_remove(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let done = ask(
+        &gateway,
+        "DELETE",
+        "/admin/central/token".into(),
+        &admin,
+        None,
+    )
+    .await?;
+    if done.status == 204 {
+        tracing::info!(admin, action = "gateway.central.unlink", "admin console");
+        if let Err(e) = note(&shared, &admin, "gateway.central.unlink", "").await {
+            tracing::error!("admin console: the audit row was not written: {e}");
+        }
+    }
+    Ok(answer(done))
 }
 
 /// One line for the audit: what was made, never a key or the note.

@@ -25,10 +25,14 @@ current dependency chain contains 0.5.5 through `elliptic-curve` 0.13.8,
 bigint 0.5, so changing the lockfile to 0.7.6 is not a compatible upgrade.
 
 The specific Central revision
-`3ae5035207f7046910c01e1cd07abcdf29f75ae0` contains the same `central-crypto`
-source tree reviewed independently by two models on 24.10.2026. The 28.10.2026 pin adds the memorial website and a
+`0f8005d634c47f24b9e48b0db3e0a258bb8a9852` contains the same `central-crypto`
+source tree reviewed independently by two models on 24.10.2026. The 28.10.2026 pin added the memorial website and a
 fail-closed source/graph guard for Central's matching advisory exception;
-`git diff` confirms the entire crypto crate is unchanged. Argon High
+the 30.10.2026 pins add gateway tokens, the account area and the
+administration (Central #48, #49), the website's follow-ups (#50) and the
+official gateway's move to gateway.baylee.app with sign-in by token before
+approval (#51), over password change, roles, reset, deletion and export (#42
+to #47). `git diff 3ae5035 0f8005d -- crates/central-crypto` is empty: the entire crypto crate is unchanged. Argon High
 reviewed the reached Ristretto/hash-expansion sources again without a
 confirmed finding. Its private, fixed `central-crypto::opaque::Suite`
 selects Ristretto255 for OPRF and Triple-DH, with SHA-512. Both upstream
@@ -228,6 +232,49 @@ use the old spelling: `gateway_list`, `settings`, `vault::password`,
 `restore`, `resume`, `vault_access`, `lobby::central` and `crash` in the
 client, and `central::tests` in the gateway (`docs/client.md` §"The live
 gateway's address, and its move (30.10.2026)").
+
+## Linking a gateway with a token
+
+*30.10.2026.* A self-hosted gateway links to Baylee Central without an
+operator file: its owner registers the gateway's origin on baylee.app
+(`/account/gateways`) and makes a **gateway token** there; an administrator
+of Central approves the gateway for the public list only (a token signs
+players in while the gateway awaits that, and not once it is disabled) (baylee-central `docs/gateway-registry.md`
+§"Gateway tokens"): named, scoped (`sso` signs players in, `listing` keeps the
+directory entry), expiring within a year, revocable, shown once, stored at
+Central as its digest. An admin pastes it into the gateway's console
+(`/admin/central`, through the feedback service's UI:
+`docs/protocol.md` §"Linking the gateway to Baylee Central").
+
+- The gateway asks Central what the token is (`GatewayStatus`: the
+  gateway's id, origin and metadata, its approval, the token's scopes and
+  expiry) before it keeps it; an unknown, revoked or expired token is
+  refused (`422`).
+- It keeps the token in its database (`central_link`, migration 000025),
+  because it presents the token to Central and so cannot keep a digest, and
+  uses it at once: the bridge is replaced while the gateway runs
+  (`central::Link`), every request asks for the bridge in use, and a request
+  in flight finishes with the one it started with. The token never reaches a
+  log or an answer; the console sees its last four characters.
+- **Backups hold the token.** A dump, snapshot or backup of the gateway's
+  database holds the token as the database does, in plain text. An operator
+  who loses one, or cannot say where one went, revokes the token on the
+  website (`/account/gateways`) and pastes a new one; the console's
+  **Remove the token** forgets the old one at the gateway.
+- One token serves both its players' sign-ins (`RedeemGateway`,
+  `GatewaySession`, `GatewayProfile`, `GatewayAuthorize`,
+  `PublishGatewayTerms`) and the heartbeat, for what its scopes allow; the
+  heartbeat names the gateway by `BAYLEE_GATEWAY_NAME` (Central's registered
+  name when unset or refused) and its own version, on its origin.
+- `BAYLEE_CENTRAL_ENDPOINT` (`live` unless a numeric-loopback development
+  origin) names where a pasted token talks to.
+- `BAYLEE_CENTRAL_CONFIG_FILE` takes precedence: the console shows a link
+  from it and cannot change it (`409`). The official gateway keeps its
+  bridge file.
+- Removing the token unlinks at once: nobody signs in through Central
+  there, those who did are signed out at their next check, and the entry
+  goes offline. The token stays valid at Central until it is revoked on the
+  website.
 
 ## Development and rollout
 

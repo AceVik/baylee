@@ -2655,6 +2655,25 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `GET /admin/cards/blocks` | every card block made, newest first: `[{"id", "index", "name", "reason", "created_at", "created_by", "until", "lifted_at", "lifted_by", "state"}]`, `state` `active`, `expired` (its `until` passed) or `lifted` |
 | `POST /admin/cards/blocks` | `{"index", "reason", "until"?}`: blocks a card of the pool. `reason` 1–200 characters after trimming, one line; `until` RFC 3339, in the future and at most ten years ahead, absent or `null` for a block without an end; unknown fields `400`. `201` with the block as listed; `404` for an index the pool has not; `409` when the card already has a block in force (lift it first) |
 | `DELETE /admin/cards/blocks/{id}` | lifts a block in force: `204`; `404` for none, or one lifted or ended already; `400` for an id that is not a UUID. The row stays, lifted |
+| `GET /admin/central` | the gateway's link to Baylee Central: `{"source", "token", "central", "check"}`; §"Linking the gateway to Baylee Central" |
+| `PUT /admin/central/token` | `{"token"}`: links the gateway with a gateway token, once Central knows it; `200` as `GET /admin/central`; `400` not a token, `409` the operator's file sets the link, `422` Central does not know it (unknown, revoked or expired), `503` Central did not answer |
+| `DELETE /admin/central/token` | forgets the pasted token and unlinks at once: `204`; `404` for none; `409` as above |
+
+**Linking the gateway to Baylee Central.** A self-hosted gateway links
+itself with a gateway token its owner made on baylee.app (baylee-central
+`docs/gateway-registry.md` §"Gateway tokens"; `docs/central-login.md`
+§"Linking a gateway with a token"). `PUT /admin/central/token` asks Central
+what the token is (`GatewayStatus`) before it keeps it in the gateway's
+database (`central_link`), and uses it at once for its players' Central
+sign-ins and its directory heartbeat (one at once, then every 30 seconds),
+as far as the token's scopes allow and unless Central's administrators
+disabled the gateway (the public list also waits for their approval). `GET /admin/central` answers `source` (`file` when
+`BAYLEE_CENTRAL_CONFIG_FILE` sets the link, which the console cannot change;
+`token`; `none`), `token` (`last4`, `set_at`, `set_by`: never more of it),
+`central` (the gateway's id, origin and name at Central, `state` `pending`,
+`approved` or `disabled`, `sso`, `listing`, `expires_at`) and `check` (`ok`,
+`rejected` for a revoked or expired token, `unavailable`). The audit lines
+are `action=central.link` with the gateway's id and `action=central.unlink`.
 
 **Audit.** Every change is a log line on the target `baylee_gateway::audit`
 at `info` (so `RUST_LOG=info` must reach it): `admin=<name>`,
