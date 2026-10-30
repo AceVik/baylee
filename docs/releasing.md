@@ -604,6 +604,23 @@ package's launcher, which an older launcher would otherwise refuse as a
 second instance; the launcher hands its stdin to the runtime, as every
 shipped one does.
 
+**Links from the website** (`docs/client.md` §"Links from the website")
+changed the launcher once, in the 30.10.2026 packages: a second launcher
+whose arguments hold a `baylee:` link no longer refuses at the lifetime
+lock (or the entry lock of a launcher still starting) but hands the link
+to the running client's door (`baylee_update::link`) and ends. The door's
+frame is frozen like the rest of the launcher's protocol. Every package
+also claims the scheme (the bundle's `CFBundleURLTypes`, the setup's
+`HKCU\Software\Classes\baylee`, the desktop entry's
+`MimeType=x-scheme-handler/baylee;`), and `check-installers` checks each.
+Neither arrives through an update: a player gets links by installing a
+new package by hand once. On macOS a downloaded generation is a whole
+`Baylee.app` with the same `Info.plist`; LaunchServices registers it when
+it runs. A spike on 30.10.2026 found the original bundle preferred when
+both claim the scheme; an original from before that date claims none, so
+until it is replaced a link may start the generation's launcher, which
+then keeps a state directory of its own.
+
 The old rename journal code remains for explicit legacy recovery. Rollback
 has a persisted direction and progress; failed reverse renames retain the
 journal and required files, and neither staging nor a new legacy transaction
