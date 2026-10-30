@@ -223,32 +223,35 @@ impl Settings {
             }
             // Only the separately provisioned official migration bridge has legacy authority.
             // Synthetic loopback fixtures deliberately use their isolated bridge credential.
+            // Live, the bridge is the official gateway's at any of its compiled
+            // origins (`Endpoint::official_origins`: the new one, and the one
+            // it moved from, docs/central-login.md §"The official gateway's aliases").
+            let official = endpoint.official_origins();
             if let Some(origin) = &self.origin {
                 baylee_account::gateway::validate_origin(
                     origin,
                     endpoint.legacy_origin().is_none(),
                 )
                 .map_err(|_| ())?;
-                if endpoint
-                    .legacy_origin()
-                    .is_some_and(|expected| expected != origin)
-                {
+                if !official.is_empty() && !official.contains(origin) {
                     return Err(());
                 }
             }
             // The official gateway's directory entry, sent with the bridge
-            // credential. Its website lies on the bridge's origin: the compiled
-            // legacy origin live, the configured `origin` in development.
+            // credential. Its website lies on the bridge's origin: the
+            // configured `origin`, or live without one any of the official
+            // gateway's, as Central checks it.
             let metadata = match self.metadata {
                 None => None,
                 Some(mut metadata) => {
-                    let origin = endpoint
-                        .legacy_origin()
-                        .map(str::to_owned)
-                        .or(self.origin)
-                        .ok_or(())?;
+                    let origins = self.origin.map_or(official, |origin| vec![origin]);
                     metadata.version = env!("CARGO_PKG_VERSION").into();
-                    metadata.validate(&origin).map_err(|_| ())?;
+                    if !origins
+                        .iter()
+                        .any(|origin| metadata.validate(origin).is_ok())
+                    {
+                        return Err(());
+                    }
                     Some(metadata)
                 }
             };
@@ -660,8 +663,9 @@ mod tests {
     /// bridge's origin; never a registered gateway's credentials.
     #[test]
     fn the_bridge_takes_metadata_on_its_own_origin_and_no_registered_credential() {
+        use central_api::{LEGACY_ORIGIN, OFFICIAL_ORIGIN};
         let live = Endpoint::live();
-        let (_, heartbeat, metadata, legacy) = official("https://baylee.acevik.de/")
+        let (_, heartbeat, metadata, legacy) = official(&format!("{OFFICIAL_ORIGIN}/"))
             .validate(&live)
             .unwrap();
         assert!(legacy);
@@ -671,12 +675,28 @@ mod tests {
         );
         let metadata = metadata.unwrap();
         assert_eq!(metadata.version, env!("CARGO_PKG_VERSION"));
-        assert_eq!(metadata.website, "https://baylee.acevik.de/");
-        let mut named = official("https://baylee.acevik.de/status");
-        named.origin = Some("https://baylee.acevik.de".into());
-        assert!(named.validate(&live).is_ok());
+        assert_eq!(metadata.website, format!("{OFFICIAL_ORIGIN}/"));
+        // A bridge file from before the move: its website on the old host.
+        assert!(
+            official(&format!("{LEGACY_ORIGIN}/"))
+                .validate(&live)
+                .is_ok()
+        );
+        // Named, the origin is either of the official gateway's, and the
+        // website lies on that one.
+        for origin in [OFFICIAL_ORIGIN, LEGACY_ORIGIN] {
+            let mut named = official(&format!("{origin}/status"));
+            named.origin = Some(origin.into());
+            assert!(named.validate(&live).is_ok(), "{origin}");
+        }
+        let mut astray = official(&format!("{LEGACY_ORIGIN}/"));
+        astray.origin = Some(OFFICIAL_ORIGIN.into());
+        assert!(astray.validate(&live).is_err());
+        let mut foreign = official("https://gateway.example/");
+        foreign.origin = Some("https://gateway.example".into());
+        assert!(foreign.validate(&live).is_err());
         // Without metadata the bridge is as before: no heartbeat at all.
-        let mut plain = official("https://baylee.acevik.de/");
+        let mut plain = official(&format!("{OFFICIAL_ORIGIN}/"));
         plain.metadata = None;
         let (_, _, metadata, legacy) = plain.validate(&live).unwrap();
         assert!(legacy && metadata.is_none());
@@ -686,10 +706,10 @@ mod tests {
                 .validate(&live)
                 .is_err()
         );
-        let mut with_credential = official("https://baylee.acevik.de/");
+        let mut with_credential = official(&format!("{OFFICIAL_ORIGIN}/"));
         with_credential.credential = Some(Token::generate().unwrap());
         assert!(with_credential.validate(&live).is_err());
-        let mut with_heartbeat = official("https://baylee.acevik.de/");
+        let mut with_heartbeat = official(&format!("{OFFICIAL_ORIGIN}/"));
         with_heartbeat.heartbeat = Some(Token::generate().unwrap());
         assert!(with_heartbeat.validate(&live).is_err());
         // In development the bridge's origin is the configured one: metadata

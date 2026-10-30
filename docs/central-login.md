@@ -195,10 +195,14 @@ client asks for the old origin. So does a gateway's terms
 acceptance (`TermsSubject::Gateway`). Central holds the official gateway's
 origin together with its aliases, and it must take a ticket, a lease and a
 terms acceptance under any of them as the official gateway's. That is
-baylee-central's part, and it ships before a client with the new address: a
-new client asks for tickets for an origin today's Central does not know. Order:
-Central, then the gateway's half of this move (its bridge file naming the new
-origin and the old one as an alias), then the client release.
+baylee-central's part (`OFFICIAL_ORIGIN` with its compiled `OFFICIAL_ALIASES`,
+pinned since #51), and it ships before a client with the new address: a new
+client asks for tickets for an origin an older Central does not know. The
+gateway keeps no list of its own. It redeems a ticket with its bridge
+credential, and Central checks the ticket's audience against the official
+origins; live, its bridge file's `origin` may name either of them
+(`Endpoint::official_origins`). Order: Central, then the gateway's half of
+this move (its host and bridge file), then the client release.
 
 The client has one mapping, `gateway_list::moved` (client-core): the old
 address reads as the new one. Every caller asks it, or `same` and `keyed`,
@@ -230,8 +234,9 @@ with an empty `localStorage`, and a browser guest kept on the old host stays
 there. That was accepted rather than carrying a token across origins. Tests
 use the old spelling: `gateway_list`, `settings`, `vault::password`,
 `restore`, `resume`, `vault_access`, `lobby::central` and `crash` in the
-client, and `central::tests` in the gateway (`docs/client.md` §"The live
-gateway's address, and its move (30.10.2026)").
+client, and `central::tests` and the e2e `central/aliases.rs` (an alias
+ticket admits, another origin's is refused) in the gateway (`docs/client.md`
+§"The live gateway's address, and its move (30.10.2026)").
 
 ## Linking a gateway with a token
 
@@ -314,11 +319,14 @@ marked "Official") once Central's operator has listed it (baylee-central
 `docs/operations.md` §"The official gateway"). Its bridge file then gains
 `metadata` (`name`, `version`, `website`) beside `bridge`, for example
 `"metadata": {"name": "Baylee", "version": "0", "website":
-"https://baylee.acevik.de/"}`: the gateway sends `GatewayHeartbeat` with the
+"https://gateway.baylee.app/"}`: the gateway sends `GatewayHeartbeat` with the
 bridge credential every 30 seconds, Central updates the official entry and no
-other, and the entry shows online. The website must lie on the bridge's origin,
-the compiled `https://baylee.acevik.de` live; in development that is `origin`,
-which a bridge file with `metadata` must then name. `version` is replaced with
+other, and the entry shows online. The website must lie on the bridge's
+origin: its `origin` where the file names one, which live is one of the
+official gateway's (`https://gateway.baylee.app`, or `https://baylee.acevik.de`
+from before the move), and live without one on either of those, as Central
+checks it. In development that is `origin`, which a bridge file with
+`metadata` must then name. `version` is replaced with
 the running binary's version. Without `metadata` the bridge sends no heartbeat
 and the entry stays listed and offline.
 Registered gateways instead use `endpoint`, canonical `origin`, `credential`,

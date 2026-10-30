@@ -1,5 +1,7 @@
 //! Synthetic real gateway + Central + PostgreSQL migration, never production services.
 #![forbid(unsafe_code)]
+#[path = "central/aliases.rs"]
+mod aliases;
 #[path = "e2e_central/chat.rs"]
 mod chat;
 mod common;
@@ -161,6 +163,7 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         fresh::run(&runtime, &served.service, &operator, endpoint, gateway);
         registered::run(&runtime, &operator, endpoint);
         terms::run(&runtime, &operator, endpoint);
+        aliases::run(gateway, endpoint);
         official::run(&runtime, &operator, endpoint, &served.bridge, origin);
         token::run(&runtime, &store, &operator, endpoint);
         held::run(&runtime, &store);
@@ -233,6 +236,8 @@ fn serve(
             &bridge,
             &origin,
         )
+        .unwrap()
+        .with_aliases(vec![aliases::ALIAS.into()])
         .unwrap()
         .with_terms(terms),
     );
