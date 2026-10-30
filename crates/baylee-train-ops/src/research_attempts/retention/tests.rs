@@ -42,10 +42,13 @@ fn job(root: &Path) -> guard::Job {
             "--collection-purpose".into(),
             "failure_terminal_research_v1".into(),
         ],
+        // The deadline must outlast the re-executed test binary's start and
+        // ledger setup: at one second, CI runners killed the child before it
+        // claimed anything, so every attempt read as not started.
         timeout_seconds: if fs::read_to_string(root.join("mode")).unwrap() == "complete" {
             10.
         } else {
-            1.
+            5.
         },
         memory_gib: 1.,
         inputs: vec![root.join("sealed-input")],
