@@ -303,12 +303,15 @@ Each job runs in a throwaway Tart VM (`crates/baylee-runner`):
   the lock. The LaunchAgent allows 180 seconds for shutdown. A failed GitHub
   busy-status lookup is unknown, not evidence that a running job is idle;
   the three-hour absolute limit still applies.
-- **Two VMs, started one after the other.** macOS allows two per Mac, and the
-  runner builds both packages side by side (29.10.2026). Two VMs started
-  together both stayed offline for twelve minutes, while the second one,
-  started once the first reached github.com, had the network in two seconds
-  (measured 29.10.2026). So each VM waits for the one before it to reach the
-  network or give up, and then the jobs run in parallel.
+- **One VM at a time.** macOS allows two per Mac, and the runner can run
+  both packages side by side (`Settings::max_vms`), but that buys nothing
+  here: both VMs have 8 vCPUs on a Mac with ten cores, so in run 40950996798
+  each dist build took 46 minutes instead of about 22, and both packages were
+  done after 68 minutes against 70 one after the other. Since 30.10.2026 the
+  runner starts one VM at a time (owner). With two, each VM waits for the one
+  before it to reach the network or give up: two started together both stayed
+  offline for twelve minutes, while the second one, started once the first
+  reached github.com, had the network in two seconds (measured 29.10.2026).
 - **Release trust.** The macOS archives a release promotes were built on that
   Mac. `release verify-run` checks that they come from a main push run, not
   where the run built them.

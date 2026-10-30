@@ -28,7 +28,10 @@ pub struct Settings {
     pub job_cap: Duration,
     /// Jobs run side by side, at most the two VMs macOS allows. Each VM starts
     /// once the one before it reached the network: two started together both
-    /// stayed offline for twelve minutes (29.10.2026).
+    /// stayed offline for twelve minutes (29.10.2026). One by default: two
+    /// VMs of `vm_cpus` 8 share this Mac's ten cores, and both packages took
+    /// 68 minutes side by side against 70 one after the other (run
+    /// 40950996798); the owner chose one VM on 30.10.2026.
     pub max_vms: usize,
     /// vCPUs assigned by `prepare`.
     pub vm_cpus: usize,
@@ -89,7 +92,7 @@ impl Default for Settings {
             poll: Duration::from_secs(60),
             idle: Duration::from_mins(15),
             job_cap: Duration::from_secs(10_800),
-            max_vms: 2,
+            max_vms: 1,
             vm_cpus: 8,
             vm_memory_mb: 16_384,
             vm_disk_gb: 120,
