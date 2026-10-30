@@ -9390,7 +9390,11 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   `reduce_motion` changes or a chat line arrives; the band and the glint
   move on `globals.time`, so a resting chat writes nothing
   (`a_resting_chat_writes_no_light`), and `reduce_motion` holds the glint
-  still and draws no band.
+  still and draws no band. Its cost is under what a GPU trace tells apart:
+  the lobby with the window open and the glint running drew 2.54 and
+  3.68 ms of fragment work a frame with it and 3.59 and 3.56 ms without
+  (`/hide chat_glass`, two interleaved rounds of Metal System Trace at
+  Retina, 30.10.2026), the rounds differing more than the switch.
 - **Where things stand** (played 29.10.2026). The header's chat count is a
   badge on the bubble's shoulder, out of the row (it lay over the word's
   last letter). Unlocked, nothing floats: the composer carries the lock (a
