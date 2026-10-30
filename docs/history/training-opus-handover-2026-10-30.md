@@ -10,8 +10,8 @@ collection must not depend on this chat remaining open.
 Working checkout: `/home/ace/Projects/baylee-ai-payment`, branch
 `codex/pytorch-215-migration`, rebased on `origin/main` at `5bae245c0`.
 The previous large research/refactoring change is already on main. Migration
-commit: `50132ab50`; the following documentation commit completes this handover.
-Find the PR with `gh pr view codex/pytorch-215-migration` from this checkout.
+commit: `50132ab50`; collector startup fix: `60ca48901`.
+Pull request: [#405](https://github.com/AceVik/baylee/pull/405).
 
 Read `AGENTS.md`, [training-runbook](../training-runbook.md),
 [research plan](../proposals/trained-ai-v5-refactor-training.md), and
@@ -22,10 +22,22 @@ PyTorch and its directly associated tests; TypeScript only for web work.
 The queue's authoritative local pointer is
 `/home/ace/baylee-data/v5/ops-codex-20261028/active-terra-weekly-queue.json`.
 It is written only after the dedicated host and collector have launched.
-The prepared run for this handover is
-`/home/ace/baylee-data/v5/llm-teacher-terra-weekly-01a18ce5-b5dc-744e-a326-64f4b5831e64/`.
+The recovery run for this handover is
+`/home/ace/baylee-data/v5/ops-codex-20261028/terra-weekly-queue-20261030/runs/llm-teacher-terra-weekly-01a18cf6-dc18-76f9-b4b9-f4c3960b7934/`.
 Two earlier preparation-only namespaces were superseded before any game was
 started; their review notes explain the fixes. They are not additional queues.
+The first actual startup, `llm-teacher-terra-weekly-01a18ce5-b5dc-744e-a326-64f4b5831e64`
+under `/home/ace/baylee-data/v5/`, failed before assigning any games: simultaneous
+account setup saturated the gateway's password-hashing workers (HTTP 429).
+The collector now serializes account setup, then releases that permit before
+gameplay; ten game slots remain concurrent. Sol reviewed that fix with no
+blocking finding. The failed run and its database are retained for diagnosis.
+
+The recovery lives under a separate `runs/` parent because the collector
+deliberately combines sibling `llm-teacher-lane*` directories for scheduling
+and statistics. The failed root's 150 attempts / 118 completed games were
+historical sibling totals, **not new Terra games**. Count the recovery root's
+own receipts; its parent contains no historical lanes.
 Do not infer that collection is running from this document. Inspect:
 
 ```text
@@ -50,7 +62,7 @@ Never start a second controller to increase its apparent throughput.
 - Human house decks **Allytifact** and **Victory**, frozen from the previously
   verified house manifest. Seat order rotates. Both have already been designated
   as training/development material; do not claim untouched deck holdouts.
-- A fresh dedicated database `baylee_terra_weekly_20261030`, loopback gateway
+- A fresh dedicated database `baylee_terra_weekly_recovery_20261030`, loopback gateway
   **28788**, admin **28789**, one agent with capacity 12. Preserve user gateway
   **28766**, arena gateways **28776/28777**, their agents and active games.
 - Each game has a 90-minute deadline, 90-second model-call deadline, 1,500-call
@@ -177,6 +189,9 @@ compiled training, macOS/MPS support or cross-version optimizer continuation.
 
 Gate and migration evidence:
 `/home/ace/baylee-data/v5/ops-codex-20261028/torch-215-migration-01a18cc3-f303-76d0-82bd-f4df25dcf719/`.
-`pr-gate/` and `pr-gate-features/` retain the required pre-push gate receipts.
+`pr-gate/` and `pr-gate-features/` retain the initial pre-push gate receipts.
+`pr-gate-collector-fix/` and `pr-gate-features-collector-fix/` retain the
+follow-up checks for the account-startup fix. Read their final `job.json`
+receipts instead of assuming a launched check has passed.
 The PR is separate from model deployment; do not promote a checkpoint because
 the software migration passed.
