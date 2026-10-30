@@ -537,37 +537,45 @@ Central; signed in, it says so and drops it (the pairing then expires).
 ### What `S` in the link means
 
 `S` is a secret in a link, which the first part of this document avoided.
-For its two minutes it is a bearer for whoever reads the link: on Windows
-and Linux the link is the launcher's argument, which the player's other
-processes can read, and an app that claims `baylee:` receives the link
-instead of the client. Such a process could claim the pairing with its own
-key and, approved, receive the master key. Three things stand in its way:
-one claim per handle (if the real client also got the link, its claim fails
-and it says so), the comparison code beside Approve, and the client's own
-question. A process that reads other programs' arguments can usually read
-their memory and keystrokes too, so this stays inside the existing local
-trust boundary, but it is the reason for the code. The owner may drop the
-code and the Approve press (the page then seals as soon as the MAC checks).
+For its two minutes it is a bearer for whoever reads the link. The attacker
+this design stands against is **another app that registered `baylee:`** on
+Windows or Linux (any app may claim a custom scheme there), which receives
+the link instead of the client, or beside it a process that reads the
+launcher's arguments. Such an app could claim the pairing with its own key
+and, approved, receive the master key. Three things stand in its way: one
+claim per handle (if the real client also got the link, its claim fails and
+it says so), the comparison code the page shows beside Approve and the
+client shows while it waits (one glance, nothing typed), and the client's
+own question. **Out of scope:** a program that can already read the
+client's memory as the same user; it can read the master key, the password
+as it is typed, and everything else, with or without a pairing.
+
+The PM confirmed on 30.10.2026: keep one claim per handle and the code;
+Approve stays one press, not an input.
 
 ### The local chat vault (owner's item 1)
 
 For a Central account the chat's device keys live in Central's encrypted
 archive (`docs/central-chat-sync.md`). A password-wrapped local vault
-(`password.vault`, `docs/password-vault.md`) is only an import source, and
-today the chat starts only with the 120-second password hand-off
-(`vault_access::Login::central`), so a paired sign-in would get no chat.
+(`password.vault`, `docs/password-vault.md`) is only the source of a
+one-time import, which the client opened with a 120-second password
+hand-off (`vault_access::Login::central`).
 
-- The account worker derives the scope's local vault key from the master
-  key and hands only that 32-byte key to the chat's restore job. The
-  password hand-off and its 120 seconds go away for Central sign-ins.
-- A vault version 2 (`BAYVAU02`) wraps the same data key under that key
-  instead of under Argon2id of a password; the payload is unchanged.
-- A version-1 vault is opened at the next password sign-in with that
-  password, while it is still in the client for OPAQUE, and rewritten as
-  version 2 (atomically, the data key and payload unchanged), then the
-  password is dropped. Until then a paired sign-in imports nothing from it;
-  the archive's keys work as before.
-- Gateways with accounts of their own (no master key) keep version 1.
+As built (Baylee branch `c41/vault-key`, `docs/password-vault.md` §"The
+account key"):
+
+- The vault gains a second way in, `account-key.wrap` beside it: its data
+  key wrapped under a key derived from the master key and the vault's scope
+  (`central-crypto`'s local vault key). The vault file itself is never
+  changed, so a gateway's own account still opens it with its password.
+- At a Central sign-in with the password, before it is dropped, every local
+  vault that password opens gains that wrapper (at most eight tried). A
+  vault's folder name is its scope, so this needs no gateway or tag; the
+  client cannot tell which vaults belong to the Central account, which is
+  why the vault files are not rewritten.
+- The chat's import tries the account's key first (through the account
+  worker, which keeps the master key), so a paired sign-in imports too. The
+  120-second hand-off is gone.
 
 ### Rotation (owner's item 4)
 
@@ -614,25 +622,24 @@ adds an object, a reset to a new vault that leaves the old `K`, and RFC
 9180's known-answer vectors for this suite in `mode_base` (Appendix A.2.1:
 the KEM, the key schedule and the sealed messages, not the KEM alone).
 
-### Dependencies (for the owner)
+### Dependencies (decided)
 
-Central already links everything the seal needs: `curve25519-dalek` 4.1.3
-(X25519 as `MontgomeryPoint::mul_clamped`), `hkdf`, `hmac`, `sha2` and
-`chacha20poly1305` 0.11. Two ways:
-
-| | What | New crates |
-| --- | --- | --- |
-| A (recommended) | HPKE base mode for the one suite, about 150 lines in `central-crypto`, pinned by RFC 9180 Appendix A's known-answer vectors for this suite, the all-zero DH output refused | none |
-| B | `hpke` 0.15.1 (rozbb/rust-hpke, MIT/Apache-2.0, 28.10.2026) | `hpke` and what it pulls (its own X25519 and AEAD dependencies) |
-
-A hybrid post-quantum KEM (ML-KEM with X25519) is not proposed now: HPKE
-has no final hybrid suite in an RFC, and the sealed key lives five minutes.
+The seal uses the vetted `hpke` crate (`=0.15.1`, only `x25519`, `chacha`
+and `alloc`): owner's "choose the more secure variant", relayed by the PM on
+30.10.2026, because Central's `AGENTS.md` rules out writing HPKE ourselves.
+Its release review (no upstream tag, compared with the commit the crate
+names; `src/` equal to 0.15.0; the unsafe profile of `curve25519-dalek` 5.0.0
+the same as the accepted 4.1.3) is Central's
+`docs/dependency-proposal/hpke.md`. RFC 9180 Appendix A.2.1 is pinned in our
+own tests through the crate's public API. A hybrid post-quantum KEM is not
+used: HPKE has no final hybrid suite in an RFC, and the sealed key lives five
+minutes.
 
 ### Who builds what
 
 | Piece | Where | Who |
 | --- | --- | --- |
-| Derivations, claim MAC, comparison code, HPKE seal/open, proof | `central-crypto` | this session |
+| Derivations, claim MAC, comparison code, the seal and its opening (through `hpke`), proof | `central-crypto` | this session |
 | Wasm exports of the page's half (verify `mac`, code, seal, proof, `K`) | `central-web-crypto` | this session, agreed with the website session |
 | Requests, table and migration (`pairings`, `key_check`, `proven_at`, `rotation_required`), budgets, browser operations | `central-identity`, `central-api`, `central-migration` | this session |
 | `central-client` SDK: claim, redeem, `SetKeyCheck`, rotation | `central-client` | this session |
