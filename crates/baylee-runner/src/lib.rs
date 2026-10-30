@@ -342,6 +342,11 @@ mod tests {
                 if relative.starts_with("tools/trainer") {
                     continue;
                 }
+                // An npm install's third-party packages, which ship their
+                // own scripts and are none of this repository's.
+                if path.file_name().is_some_and(|name| name == "node_modules") {
+                    continue;
+                }
                 if path.is_dir() {
                     visit(root, &path, scripts);
                 } else if matches!(
