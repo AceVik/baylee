@@ -318,6 +318,44 @@ deadline and proceed; generic pipeline and default collector failure behavior
 remain unchanged. Missing/corrupt evidence, changed inputs, interruption,
 worker errors and memory-limit failures still stop the collection.
 
+Commit `8ca6d1b73` implements this narrow opt-in as
+`collect-research --retain-deadline`. Sixteen research-accounting tests and the
+CLI parser test passed, including a real guarded deadline followed by the next
+independent pipeline command. The default deadline path still fails. Targeted
+strict Clippy and the release build passed. The release wrapper SHA-256 is
+`3dde481790c8ddab4543b7ca72b1950595cfdba8f08a743201a860e17a3dcfdc`.
+Every opted-in stage must require its immutable `collection-accounting.json`;
+`deadline_accounted` means the accounting is complete, not that its games
+completed or were admitted to training.
+
+The continuation was frozen under
+`failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`.
+Its ready receipt SHA-256 is
+`1892d99d89b2e2a549c01a458ab21dd7f942f9e7899e1823443191a3d125467d`,
+pipeline SHA-256
+`540f94b35a9ad2f2758c7811f78295fc7c754249db75c154eb5f32ba9ef5b4e6`
+and literal launch-map SHA-256
+`b9119666492152bdcaa324caf9e8887f1a38704cc0e9221e9cf3c55a86059d37`.
+All 20,389 inherited/new input seals were rehashed. The unchanged model loader
+checks were reused; the new wrapper's CLI passed inside the final CPU map in
+0.081 seconds, with cleanup verified. Bounds are 600 seconds per inner
+two-game collection, 660 per outer stage, 3,420 for the pipeline and 3,480 for
+the service, with two CPU equivalents and 20 GiB. There are five independent
+tables, three frozen-R6 self-play and two historical-opponent pairs, using
+only original cases 166–175. Each requires explicit collection accounting;
+no evaluator success summary is required after a retained deadline.
+
+The continuation launched once after final ownership, input and unstarted-case
+checks. Actual controller identity is PID 2452410/start ticks 16706331 on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced`; service
+`baylee-breadth-cont-01a18b20-collection` and its `-watch.timer` were verified
+active. The first observed stage was `table-083-selfplay`. Launch receipt
+`collection-launcher-complete.json` has SHA-256
+`752c6a386018687d096b6e3b65b11d5c7906b5c1a5b2b89ef1cb5181a1378a81`.
+The canonical collection pointer names this running continuation and preserves
+the original logical denominator. This is CPU data collection; no further
+gradient update, model promotion or gateway change occurred.
+
 Sol's read-only performance review identified hypotheses to measure after this
 trial, not demonstrated speedups. Starting the tensor server and final native
 verification each reconstruct admission, scan and pack frames; original

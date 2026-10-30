@@ -16,7 +16,7 @@ promotion or push. Always check actual status before acting on this snapshot.
 
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
-| Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-01a18b06-115f-7be2-944c-0e6a4ac95fea/`, now `failed-reviewed`: table 082 exceeded its 240-second deadline. Of 16 planned attempts, five were recorded, one is operationally unknown and ten unstarted. Owned processes exited and watcher stopped. A fresh continuation for only cases 166–175 is being prepared; no retry/refill or automatic PPO. The earlier four-attempt pilot remains complete and reviewed: three target histories, 1,713 frames, 372 genuine choices. Follow actual stage receipts before launching anything |
+| Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, running with verified deadline accounting. It executes only the ten originally unstarted cases 166–175. The original breadth run remains `failed-reviewed`: five recorded, one deadline unknown, ten unstarted. Combined review must retain 16 logical attempts exactly once; no retry/refill or automatic PPO. The earlier four-attempt pilot remains complete and reviewed: three target histories, 1,713 frames, 372 genuine choices. Follow actual stage receipts before launching anything |
 | Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names the latest research phase under `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/`. CPU preflight, CUDA initialization and full numerical replay passed; exactly one update was accepted (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546). Follow `execution_root` and actual receipts; no automatic repeat or promotion. Earlier coverage training remains completed and reviewed |
 | Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
@@ -24,7 +24,7 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. Broader collection now has one natural win, three natural losses and one learner loop; its deadline failure stopped the remaining cases. Complete only the unstarted schedule with explicit deadline accounting, then review all outcomes before another learning step. Native input admission does not certify numerical replay or playing strength |
+| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. Broader collection has one natural win, three natural losses and one learner loop before its deadline failure. Its ten originally unstarted cases are now running with explicit deadline accounting. Review the combined outcomes before another learning step. Native input admission does not certify numerical replay or playing strength |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
@@ -57,13 +57,23 @@ PID. Both preflight loaders and cleanup passed before this single launch.
 This CPU collection has no GPU or automatic downstream training stage.
 Event `991344e21a106d3a03403769` is handled. Its immutable original denominator
 is 16 planned, six assigned, five recorded, one deadline unknown and ten
-unstarted. Draft continuation
+unstarted. The frozen continuation
 `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`
 contains only original cases 166–175, with identical seeds/decks/opponents.
 Case 165 remains unknown and is not repeated. Combined accounting retains 16
-logical attempts, not 26; the earlier snapshot is not overwritten. Preparation
-is not proof of launch: require final wrapper identity, receipts and actual
-controller status before reporting that this continuation runs.
+logical attempts, not 26; the earlier snapshot is not overwritten. The
+continuation launched once after review of 20,389 input seals and the new
+wrapper's final-map CLI check. Its actual controller is PID 2452410/start ticks
+16706331 on the same boot; recheck identity before acting. Service
+`baylee-breadth-cont-01a18b20-collection` and its `-watch.timer` are active.
+Limits are 600 seconds per two-game collection, 660 per outer stage, 3,420 for
+the pipeline and 3,480 for the service, with CPU200%/20 GiB and no GPU.
+Wrapper commit `8ca6d1b73` adds the explicit `--retain-deadline` option; each
+stage requires `collection-accounting.json`. The launch receipt is
+`collection-launcher-complete.json`, SHA-256
+`752c6a386018687d096b6e3b65b11d5c7906b5c1a5b2b89ef1cb5181a1378a81`.
+The first observed stage was `table-083-selfplay`; inspect actual status for
+progress. There is no automatic training or promotion after collection.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,
