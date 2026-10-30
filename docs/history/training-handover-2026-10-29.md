@@ -17,8 +17,14 @@ Actual `collection-execution/status.json` now says `complete`, and
 `active-research-collection.json` says `complete-reviewed`. All four
 planned/assigned/recorded attempts are retained. Native cache verification and
 input admission passed for three target histories with 1,713 frames and
-372 genuine choices; numerical
-replay and learning remain pending. Check actual stage receipts before takeover.
+372 genuine choices. The follow-up under
+`research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` passed
+complete-history numerical replay (maximum log-probability error
+`0.000002384185791015625`) and exactly one bounded full-model update.
+It differentiated 61 choices/256 frames, changed 301 parameter tensors and
+passed the final whole-collection KL gate at `0.0000772554598370577`.
+This is a technical learning result, not evidence of stronger play. Check
+actual stage receipts and the canonical pointers before takeover.
 See the [real-data pilot report](trained-ai-research-learning-pilot-2026-10-30.md).
 The older
 performance/training roots described below remain completed and reviewed.
@@ -61,7 +67,8 @@ The experiment directory is
 | Owning chat | `01a16325-d29f-7ad1-9625-cbb5bf2cb1a4`; success requires phase `complete` and `execution/result.json` |
 
 After the pilot, its reviewed state was `complete-reviewed`, `training=false`.
-The current training pointer now refers to the reviewed coverage experiment below.
+The current training pointer has since advanced to the research experiment
+described at the top of this note; the coverage experiment below is historical.
 The current CPU comparison is recorded in
 `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json`. Inspect
 its actual `execution/status.json`, controller identity and stage receipts

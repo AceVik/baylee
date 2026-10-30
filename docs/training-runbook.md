@@ -17,14 +17,14 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names the four-attempt real-data pilot and is `complete-reviewed`. Collection, conversion, cache verification and native input admission passed: three histories, 1,713 frames, 372 genuine choices. Numerical Torch replay remains a separate gate. Follow actual stage receipts before launching anything |
-| Completed training | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` is `complete-reviewed`, `training=false`; it names the coverage run/manifest/unit and its review, not an active worker. See also the [dated takeover receipt](history/training-handover-2026-10-29.md) |
+| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names the latest research phase under `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/`. CPU preflight, CUDA initialization and full numerical replay passed; exactly one update was accepted (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546). Follow `execution_root` and actual receipts; no automatic repeat or promotion. Earlier coverage training remains completed and reviewed |
 | Completed gameplay comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` is `complete-reviewed`; follow its coverage-candidate comparison receipts |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update. Collection through native input admission is complete; Torch replay/update are pending. Native input admission does not certify numerical replay |
+| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update completed. Replay checked all 372 choices; update dose was only 61. Next assess behavior against fixed opponents before increasing dose. Native input admission does not certify numerical replay or playing strength |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
@@ -42,7 +42,7 @@ of `0.001` before any update. See the
 [separate research path](#separate-failure-terminal-research-path) for contracts
 and commands, implemented in `599cfe70a`, `5090f40a1` and `7ba44fc23`. The
 [real-data pilot report](history/trained-ai-research-learning-pilot-2026-10-30.md)
-records the completed native admission and the remaining numerical gates.
+records native admission, numerical replay and the accepted bounded update.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,
