@@ -356,6 +356,30 @@ The canonical collection pointer names this running continuation and preserves
 the original logical denominator. This is CPU data collection; no further
 gradient update, model promotion or gateway change occurred.
 
+The continuation subsequently completed all five tables in 1,342.663 seconds.
+Every stage published `collection_complete=true`, with no further deadlines.
+Combined accounting of original tables 080–082 and continuation tables 083–087
+contains exactly 16 planned/assigned attempts: 15 recorded, one operational
+unknown and none unstarted. The natural outcomes are four wins and nine losses;
+one additional learner announcement loop has research utility zero. Case 170
+ended in an opponent failure and remains target-free, as does original case
+165's deadline. Thus 14 attempts have known research utility, including positive
+returns absent from the earlier pilot; native frame/choice counts and input
+admission are still separate checks. These training cases are not a strength
+comparison or holdout.
+
+`combined-collection-review.json` SHA-256 is
+`15eb8b1b29e2123b703709eda72e0c22c42effb4d285f0a4d3d2f62b9f190a14`.
+It rehashed 20,471 input/source seals and verified all 16 original/continuation
+outer/inner guards and their owned groups had exited, along with the current
+controller and cgroup. Only the continuation's owned watcher was stopped;
+GPU empty and user gateway unchanged. Event `f3b1a65f5cbc32bc29ca5936` is
+deduplicated in local and central receipts. The canonical pointer is
+`complete-reviewed`: accounting complete, but combined collection incomplete
+because case 165 remains unknown. Conversion must use the eight native table
+roots named in the review, not duplicate the old aggregate's ten unstarted
+placeholder rows.
+
 Sol's read-only performance review identified hypotheses to measure after this
 trial, not demonstrated speedups. Starting the tensor server and final native
 verification each reconstruct admission, scan and pack frames; original
