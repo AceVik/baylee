@@ -179,8 +179,9 @@ def main(default_architecture="v4") -> None:
         elif args.candidate_context_warmstart:
             source_cfg = M.Config5(**ckpt_init["config"])
             expected = cfg.to_dict()
-            expected["candidate_context_revision"] = 1
+            expected["candidate_context_revision"] = source_cfg.candidate_context_revision
             if (ckpt_init.get("model_version") != 5 or source_cfg.relational_revision != 2
+                    or source_cfg.candidate_context_revision >= cfg.candidate_context_revision
                     or source_cfg.to_dict() != expected
                     or ckpt_init.get("architecture") != M.architecture_for_config(source_cfg)
                     or ckpt_init.get("encoder_version") != args.encoder_version):
@@ -238,7 +239,7 @@ def main(default_architecture="v4") -> None:
         f"B={args.batch_size} U={args.unroll} K={args.thinking_steps} validation_B={args.validation_batch_size}"
     )
 
-    depth_schedule = DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum)
+    depth_schedule = DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum, args.report_depths)
     depth_counts = {}
     step_num = 0
     optimizer_updates = 0

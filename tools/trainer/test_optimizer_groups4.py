@@ -62,6 +62,23 @@ class Groups(unittest.TestCase):
         self.assertIs(groups[-1]['params'][0], net.relational.output.weight)
         self.assertEqual(contract['groups'][-1]['parameter_names'], ['relational.output.weight'])
 
+    def test_candidate_decoder_learns_at_new_module_rates(self):
+        import model5 as V5
+        net = V5.PlayerNet5(V5.Config5(relational_revision=2, candidate_context_revision=3, d_model=16,
+                                      structure_width=16, n_heads=2, n_layers=1, d_ff=32))
+        groups, contract = self.configured(net)
+        ids = [id(p) for g in groups for p in g['params']]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(set(ids), {id(p) for p in net.parameters()})
+        by_name = {g['name']: g for g in contract['groups']}
+        self.assertEqual(sorted(by_name['decoder_output']['parameter_names']),
+                         sorted(n for n, _ in net.named_parameters()
+                                if n.startswith('cand_decoder.') and ('.attn.out_proj.' in n or '.ff.2.' in n)))
+        self.assertTrue(all(n.startswith('cand_decoder.') for n in by_name['decoder_inner']['parameter_names']))
+        self.assertFalse(any(n.startswith('cand_decoder.') for n in by_name['shared']['parameter_names']))
+        self.assertEqual(by_name['decoder_output']['weight_decay'], 0.)
+        self.assertTrue(by_name['decoder_inner']['warmup'] and by_name['decoder_output']['warmup'])
+
     def test_resume_preserves_adam_state_and_next_update(self):
         net = Net()
         groups, contract = self.configured(net)

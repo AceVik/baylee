@@ -21,12 +21,14 @@ def parse_args(default_architecture="v4"):
     ap.add_argument("--validation-batch-size", type=int, default=0, help="Validation lanes (0=training batch size); keep fixed when comparing training batch sizes")
     ap.add_argument("--unroll", "--unroll-len", dest="unroll", type=int, default=16)
     ap.add_argument("--thinking-steps", type=int, default=2)
+    ap.add_argument("--report-depths", type=lambda v: tuple(int(k) for k in v.split(",")), default=(1, 2, 4, 8),
+                    help="Validation depths, comma-separated; each is a complete pass and K2 always selects snapshots")
     ap.add_argument("--depth-schedule", choices=("fixed", "legacy_frame_cycle"), default=None,
                     help="Explicit versioned decision-depth mode; checkpoint selection always uses K2")
     ap.add_argument(
         "--thinking-curriculum",
         action="store_true",
-        help="Legacy frame cycle K=(1,2,4,8)[(optimizer_step+frame)%4]; not a progressive curriculum",
+        help="Legacy frame cycle K=(1,2,4,8)[(optimizer_step+frame)%%4]; not a progressive curriculum",
     )
     ap.add_argument("--epochs", type=int, default=3)
     ap.add_argument("--max-steps", type=int, default=0, help="Stop after N optimizer steps if > 0")
@@ -69,7 +71,8 @@ def parse_args(default_architecture="v4"):
     from .supervised_options import add_options, configuration
     add_options(ap)
     ap.add_argument("--compact-thinking-rows",action="store_true",help="Opt-in thinking only for CPU-planned valid decision rows; requires deferred execution and dropout=0")
-    ap.add_argument("--candidate-context-revision", type=int, choices=(1, 2), default=1)
+    ap.add_argument("--candidate-context-revision", type=int, choices=(1, 2, 3), default=1,
+                    help="2: menu-context gate; 3: gate plus candidate-to-board attention")
     ap.add_argument("--candidate-context-warmstart", action="store_true", help="Explicit weights-only candidate context revision 1 to 2 transfer")
     args = ap.parse_args()
     if args.depth_schedule == "fixed" and args.thinking_curriculum:
@@ -99,13 +102,15 @@ def parse_args(default_architecture="v4"):
         ap.error("--encoder-warmstart-from7 requires --encoder-version 8 and --init only")
     if args.encoder_warmstart_to9 and (args.encoder_version != 9 or not args.init or args.resume or args.init_state or args.encoder_warmstart_from7 or args.candidate_context_warmstart or args.freeze_trunk):
         ap.error("--encoder-warmstart-to9 requires Encoder9 and --init only, with trainable trunk and no simultaneous transfer")
-    if args.candidate_context_revision == 2 and (args.architecture != "v5" or args.relational_revision != 2):
-        ap.error("Candidate context revision 2 requires v5 relational revision 2")
-    if args.candidate_context_warmstart and (not args.init or args.resume or args.init_state or args.encoder_warmstart_from7 or args.architecture != "v5" or args.relational_revision != 2 or args.candidate_context_revision != 2):
-        ap.error("Candidate context warmstart requires v5 relational2 candidate2 and --init only; no simultaneous encoder transfer")
+    if args.candidate_context_revision >= 2 and (args.architecture != "v5" or args.relational_revision != 2):
+        ap.error("Candidate context revision 2+ requires v5 relational revision 2")
+    if args.candidate_context_revision == 3 and args.encoder_version == 9:
+        ap.error("Candidate context revision 3 is an Encoder7/8 contract")
+    if args.candidate_context_warmstart and (not args.init or args.resume or args.init_state or args.encoder_warmstart_from7 or args.architecture != "v5" or args.relational_revision != 2 or args.candidate_context_revision < 2):
+        ap.error("Candidate context warmstart requires v5 relational2 candidate2+ and --init only; no simultaneous encoder transfer")
     from .depth_schedule import DepthSchedule
     try:
-        DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum)
+        DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum, args.report_depths)
     except ValueError as error:
         ap.error(str(error))
     identity["encoder_version"] = args.encoder_version

@@ -29,21 +29,13 @@ def readout_groups(plans, chunk, token_limit=None):
             yield tuple(pending)
 
 
-def _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c):
-    d = net.cfg.d_model
-    c_emb = net.cand_proj(M.symlog(c_feat)) + net.dsl_proj(M.symlog(c_dsl)) + net.rule_features(c_rules)
-    ent_idx_clamped = c_eidx.clamp(min=0)
-    has_ent = c_eidx >= 0
-    c_ent = torch.gather(e_ref_c, 1, ent_idx_clamped.unsqueeze(-1).expand(-1, -1, d)) * has_ent.unsqueeze(-1).to(e_ref_c.dtype)
-    seat_idx_clamped = c_sidx.clamp(0, M.MAX_SEATS - 1)
-    has_seat = (c_sidx >= 0) & (c_sidx < M.MAX_SEATS)
-    c_seat = torch.gather(s_ref_c, 1, seat_idx_clamped.unsqueeze(-1).expand(-1, -1, d)) * has_seat.unsqueeze(-1).to(s_ref_c.dtype)
-    g_exp = g_ref_c.unsqueeze(1).expand_as(c_emb)
-    cand_in = torch.cat([c_emb, c_ent, c_seat, g_exp], dim=-1)
-    return net.cand_scorer[2](net.cand_scorer[1](net.cand_scorer[0](cand_in)))
+def _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c, keys=None):
+    return net.candidate_hidden(c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c, keys)
 
 
-def _score_cand_rows(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c, use_ckpt=False):
+def _score_cand_rows(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c,
+                     keys=None, use_ckpt=False):
+    # Candidates never attend to one another, so slicing a huge menu is exact.
     c_len = c_feat.shape[1]
     if c_len > 512:
         slices = []
@@ -57,6 +49,7 @@ def _score_cand_rows(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c
                 e_ref_c,
                 s_ref_c,
                 g_ref_c,
+                keys,
             )
             if use_ckpt:
                 slices.append(torch.utils.checkpoint.checkpoint(lambda *a: _score_cand_slice(net, *a), *args, use_reentrant=False))
@@ -64,7 +57,7 @@ def _score_cand_rows(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c
                 slices.append(_score_cand_slice(net, *args))
         h_c = torch.cat(slices, dim=1)
     else:
-        h_c = _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c)
+        h_c = _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c, keys)
     return score_candidate_hidden(net, h_c, c_msk)
 
 
@@ -125,22 +118,7 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
         s_ref_all = z_out_all[:, :, 1:M.RECURRENT_SLOTS]
 
         seat_feat_all = batch["seat_feat"].to(device, non_blocking=True).transpose(0, 1)
-        seat0_mask = torch.arange(M.MAX_SEATS, device=device).view(1, 1, M.MAX_SEATS) == 0
-        s_present_v = seat_feat_all[:, :, :, M.SEAT_FEAT_PRESENT] > 0.5
-        s_lost_v = seat_feat_all[:, :, :, M.SEAT_FEAT_LOST] > 0.5
-        s_active = s_present_v & (~s_lost_v)
-        any_active = s_active.to(seat_feat_all.dtype).sum(dim=-1, keepdim=True) > 0.5
-        s_active = s_active | ((~any_active) & seat0_mask)
-        s_allied = (
-            (seat_feat_all[:, :, :, M.SEAT_FEAT_SELF] > 0.5)
-            | (seat_feat_all[:, :, :, M.SEAT_FEAT_TEAMMATE] > 0.5)
-            | seat0_mask
-        )
-        sv_in = torch.cat([s_ref_all, g_ref_all.unsqueeze(2).expand(-1, -1, M.MAX_SEATS, d)], dim=-1)
-        seat_win_logits = net.value_readout(sv_in).squeeze(-1)
-        seat_win_logits = seat_win_logits.masked_fill(~s_active, -1e9)
-        seat_probs = torch.nn.functional.softmax(seat_win_logits, dim=-1)
-        value_all = (seat_probs * s_allied.to(seat_probs.dtype)).sum(dim=-1).clamp(0.0, 1.0)
+        value_all, _ = net.seat_values(s_ref_all, g_ref_all, seat_feat_all)
 
         prune = getattr(net, "prune_unused_policy_heads", False)
         cand_mask_all = batch["cand_mask"].to(device, non_blocking=True)
@@ -164,13 +142,7 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
             p_msk = torch.cat([pair_mask_all[:, t, :p_max] for t in pair_times], dim=0)
             e_ref_p = torch.cat([boards[t][0][:, M.RECURRENT_SLOTS:] for t in pair_times], dim=0)
             g_ref_p = torch.cat([g_ref_all[t] for t in pair_times], dim=0)
-            blk_idx = p_idx[:, :, 0].clamp(min=0)
-            atk_idx = p_idx[:, :, 1].clamp(min=0)
-            blk_tok = net.pair_blk_proj(torch.gather(e_ref_p, 1, blk_idx.unsqueeze(-1).expand(-1, -1, d)))
-            atk_tok = net.pair_atk_proj(torch.gather(e_ref_p, 1, atk_idx.unsqueeze(-1).expand(-1, -1, d)))
-            g_pair = g_ref_p.unsqueeze(1).expand_as(blk_tok)
-            pair_in = torch.cat([blk_tok, atk_tok, blk_tok * atk_tok + g_pair], dim=-1)
-            p_logits = net.pair_scorer(pair_in).squeeze(-1).masked_fill(~p_msk, -1e9)
+            p_logits = net.score_pairs(p_idx, p_msk, e_ref_p, g_ref_p)
             for i, t in enumerate(pair_times):
                 pair_outs[t] = p_logits[i * b : (i + 1) * b, :plans[t].pairs]
         for t in range(unroll):
@@ -193,8 +165,12 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
                 e_ref_c = torch.cat([boards[t][0][:, M.RECURRENT_SLOTS:] for t in times], dim=0)
                 s_ref_c = torch.cat([s_ref_all[t] for t in times], dim=0)
                 g_ref_c = torch.cat([g_ref_all[t] for t in times], dim=0)
+                keys = (net.candidate_decoder_keys(torch.cat([z_out_all[t] for t in times], dim=0),
+                                                   torch.cat([boards[t][0] for t in times], dim=0),
+                                                   torch.cat([boards[t][1] for t in times], dim=0))
+                        if getattr(net, "cand_decoder", None) is not None else None)
 
-                args = (c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c)
+                args = (c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c, keys)
                 if use_ckpt and c_max > 64:
                     c_logits = torch.utils.checkpoint.checkpoint(
                         lambda *a: _score_cand_rows(net, *a, use_ckpt=True), *args, use_reentrant=False

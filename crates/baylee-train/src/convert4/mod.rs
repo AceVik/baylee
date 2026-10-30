@@ -188,9 +188,12 @@ mod replay;
 pub mod research;
 pub mod shadow_bc;
 mod streaming;
+#[cfg(test)]
+use streaming::terminal_targets;
 pub use streaming::{
-    ProducerEncoder, StreamedGame4, stream_game4, stream_game4_live_bc, stream_game4_llm_bc,
-    stream_game4_shadow_bc, stream_game4_with_encoder, stream_game4_with_encoder_and_producer,
+    ProducerEncoder, ReplayCheck, StreamedGame4, stream_game4, stream_game4_live_bc,
+    stream_game4_llm_bc, stream_game4_shadow_bc, stream_game4_with_encoder,
+    stream_game4_with_encoder_and_producer,
 };
 use streaming::{ReplaySummary, Targets};
 

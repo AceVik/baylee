@@ -318,6 +318,7 @@ fn main() -> anyhow::Result<()> {
     let unencoded_total = Arc::new(AtomicUsize::new(0));
     let rejected = Arc::new(Mutex::new(Vec::<Value>::new()));
     let converted = Arc::new(AtomicUsize::new(0));
+    let replay_checks = Arc::new(Mutex::new(std::collections::BTreeMap::<&str, u64>::new()));
     let worker_dir = args.out.join("workers");
     fs::create_dir_all(&worker_dir)?;
 
@@ -435,6 +436,7 @@ fn main() -> anyhow::Result<()> {
         let unencoded_total = unencoded_total.clone();
         let rejected = rejected.clone();
         let converted = converted.clone();
+        let replay_checks = replay_checks.clone();
         let include_passive = args.include_passive_obs;
         let live_bc = args.live_bc;
         let encoder_version = args.encoder_version;
@@ -505,6 +507,7 @@ fn main() -> anyhow::Result<()> {
                 publish_ready(&root, gref, &name, extracted.steps, &structure_sha256)?;
                 let rows = if gref.validation { &val_rows } else { &train_rows };
                 rows.lock().expect("row lock").push((gref.game_id, name, extracted.steps));
+                *replay_checks.lock().expect("replay check lock").entry(extracted.replay_check.name()).or_default() += 1;
                 journal_worker(&journal, gref, "complete")?;
                 let complete = converted.fetch_add(1, Ordering::Relaxed) + 1;
                 if complete.is_multiple_of(16) || complete == games_arc.len() {
@@ -565,6 +568,7 @@ fn main() -> anyhow::Result<()> {
     meta["val_shards"] = json!(val_shards);
     meta["games_converted"] = json!(converted.load(Ordering::Relaxed));
     meta["games_rejected"] = json!(rejected.len());
+    meta["replay_checks"] = json!(*replay_checks.lock().expect("replay check lock"));
     meta["unencoded_decisions"] = json!(unencoded_total.load(Ordering::Relaxed));
     meta["coverage_matrix"] = json!(cov.counts);
     if args.llm_bc {

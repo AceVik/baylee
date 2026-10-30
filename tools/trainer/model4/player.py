@@ -316,42 +316,15 @@ class PlayerNet4(nn.Module):
         # Training may omit heads absent from the loss for this frame. The
         # default computes every output for inference and portable ONNX export.
         if policy_heads is None or policy_heads[0] or policy_heads[1]:
-            # Candidate scoring (`cand_logits: [B, C]`)
-            c_emb = self.cand_proj(symlog(cand_feat)) + self.dsl_proj(symlog(cand_dsl)) + self.rule_features(cand_rules)
-
-            ent_idx_clamped = cand_entity_idx.clamp(min=0)
-            has_ent = cand_entity_idx >= 0
-            c_ent = torch.gather(
-                e_ref, 1, ent_idx_clamped.unsqueeze(-1).expand(-1, -1, d)
-            ) * has_ent.unsqueeze(-1).to(e_ref.dtype)
-
-            seat_idx_clamped = cand_seat_idx.clamp(0, MAX_SEATS - 1)
-            has_seat = (cand_seat_idx >= 0) & (cand_seat_idx < MAX_SEATS)
-            c_seat = torch.gather(
-                s_ref, 1, seat_idx_clamped.unsqueeze(-1).expand(-1, -1, d)
-            ) * has_seat.unsqueeze(-1).to(s_ref.dtype)
-
-            g_exp = g_ref.unsqueeze(1).expand_as(c_emb)
-            cand_in = torch.cat([c_emb, c_ent, c_seat, g_exp], dim=-1)
-            h_c = self.cand_scorer[2](self.cand_scorer[1](self.cand_scorer[0](cand_in)))
+            h_c = self.candidate_hidden(cand_feat, cand_dsl, cand_rules, cand_entity_idx,
+                                        cand_seat_idx, e_ref, s_ref, g_ref,
+                                        self.candidate_decoder_keys(z_out, board, pad_mask))
             cand_logits = score_candidate_hidden(self, h_c, cand_mask)
         else:
             cand_logits = torch.zeros_like(cand_mask, dtype=board.dtype).masked_fill(~cand_mask, -1e9)
 
         if policy_heads is None or policy_heads[2]:
-            # Blocker-Attacker Pair scoring (`pair_logits: [B, P]`)
-            blk_idx = pair_index[:, :, 0].clamp(min=0)
-            atk_idx = pair_index[:, :, 1].clamp(min=0)
-            blk_tok = self.pair_blk_proj(
-                torch.gather(e_ref, 1, blk_idx.unsqueeze(-1).expand(-1, -1, d))
-            )
-            atk_tok = self.pair_atk_proj(
-                torch.gather(e_ref, 1, atk_idx.unsqueeze(-1).expand(-1, -1, d))
-            )
-            g_pair = g_ref.unsqueeze(1).expand_as(blk_tok)
-            pair_in = torch.cat([blk_tok, atk_tok, blk_tok * atk_tok + g_pair], dim=-1)
-            pair_logits = self.pair_scorer(pair_in).squeeze(-1)
-            pair_logits = pair_logits.masked_fill(~pair_mask, -1e9)
+            pair_logits = self.score_pairs(pair_index, pair_mask, e_ref, g_ref)
         else:
             pair_logits = torch.zeros_like(pair_mask, dtype=board.dtype).masked_fill(~pair_mask, -1e9)
 
@@ -360,27 +333,69 @@ class PlayerNet4(nn.Module):
                        if policy_heads is None or policy_heads[3]
                        else torch.zeros(B, device=device, dtype=g_ref.dtype))
 
-        # Multiplayer seat value distribution (`seat_win_logits: [B, 8]`, `value: [B]`)
-        seat0_mask = torch.arange(MAX_SEATS, device=device).unsqueeze(0) == 0
-        s_present_v = seat_feat[:, :, SEAT_FEAT_PRESENT] > 0.5
-        s_lost_v = seat_feat[:, :, SEAT_FEAT_LOST] > 0.5
+        value, seat_win_logits = self.seat_values(s_ref, g_ref, seat_feat)
+        return h_out, cand_logits, pair_logits, scalar_pred, value, seat_win_logits
+
+    # The readouts below are the single definition shared by inference,
+    # export and every training execution path; leading dimensions are free.
+
+    def candidate_decoder_keys(self, z_out, board, pad_mask):
+        """What candidates may attend to; `None` keeps v4/v5 candidates independent."""
+        return None
+
+    def decode_candidates(self, hidden, keys):
+        """Identity extension point; archived v4/v5 readouts are unchanged."""
+        return hidden
+
+    def candidate_hidden(self, cand_feat, cand_dsl, cand_rules, cand_entity_idx, cand_seat_idx,
+                         e_ref, s_ref, g_ref, decoder_keys=None):
+        """Per-candidate hidden state `[..., C, d]` before the menu-context readout."""
+        d = self.cfg.d_model
+        c_emb = self.cand_proj(symlog(cand_feat)) + self.dsl_proj(symlog(cand_dsl)) + self.rule_features(cand_rules)
+        has_ent = cand_entity_idx >= 0
+        c_ent = torch.gather(
+            e_ref, -2, cand_entity_idx.clamp(min=0).unsqueeze(-1).expand(*(-1,) * cand_entity_idx.dim(), d)
+        ) * has_ent.unsqueeze(-1).to(e_ref.dtype)
+        has_seat = (cand_seat_idx >= 0) & (cand_seat_idx < MAX_SEATS)
+        c_seat = torch.gather(
+            s_ref, -2, cand_seat_idx.clamp(0, MAX_SEATS - 1).unsqueeze(-1).expand(*(-1,) * cand_seat_idx.dim(), d)
+        ) * has_seat.unsqueeze(-1).to(s_ref.dtype)
+        g_exp = g_ref.unsqueeze(-2).expand_as(c_emb)
+        cand_in = torch.cat([c_emb, c_ent, c_seat, g_exp], dim=-1)
+        hidden = self.cand_scorer[2](self.cand_scorer[1](self.cand_scorer[0](cand_in)))
+        return self.decode_candidates(hidden, decoder_keys)
+
+    def score_pairs(self, pair_index, pair_mask, e_ref, g_ref):
+        """Blocker-attacker pair logits `[..., P]`."""
+        d = self.cfg.d_model
+        keep = (-1,) * (pair_index.dim() - 1)
+        blk_tok = self.pair_blk_proj(torch.gather(
+            e_ref, -2, pair_index[..., 0].clamp(min=0).unsqueeze(-1).expand(*keep, d)))
+        atk_tok = self.pair_atk_proj(torch.gather(
+            e_ref, -2, pair_index[..., 1].clamp(min=0).unsqueeze(-1).expand(*keep, d)))
+        g_pair = g_ref.unsqueeze(-2).expand_as(blk_tok)
+        pair_in = torch.cat([blk_tok, atk_tok, blk_tok * atk_tok + g_pair], dim=-1)
+        return self.pair_scorer(pair_in).squeeze(-1).masked_fill(~pair_mask, -1e9)
+
+    def seat_values(self, s_ref, g_ref, seat_feat):
+        """Side value `[...]` and per-seat win logits `[..., 8]` over the active seats."""
+        seat0_mask = torch.arange(MAX_SEATS, device=seat_feat.device) == 0
+        s_present_v = seat_feat[..., SEAT_FEAT_PRESENT] > 0.5
+        s_lost_v = seat_feat[..., SEAT_FEAT_LOST] > 0.5
         s_active = s_present_v & (~s_lost_v)
         any_active = s_active.to(seat_feat.dtype).sum(dim=-1, keepdim=True) > 0.5
         s_active = s_active | ((~any_active) & seat0_mask)
-
         s_allied = (
-            (seat_feat[:, :, SEAT_FEAT_SELF] > 0.5)
-            | (seat_feat[:, :, SEAT_FEAT_TEAMMATE] > 0.5)
+            (seat_feat[..., SEAT_FEAT_SELF] > 0.5)
+            | (seat_feat[..., SEAT_FEAT_TEAMMATE] > 0.5)
             | seat0_mask
         )
-
-        sv_in = torch.cat([s_ref, g_ref.unsqueeze(1).expand(-1, MAX_SEATS, d)], dim=-1)
+        sv_in = torch.cat([s_ref, g_ref.unsqueeze(-2).expand_as(s_ref)], dim=-1)
         seat_win_logits = self.value_readout(sv_in).squeeze(-1)
         seat_win_logits = seat_win_logits.masked_fill(~s_active, -1e9)
         seat_probs = F.softmax(seat_win_logits, dim=-1)
         value = (seat_probs * s_allied.to(seat_probs.dtype)).sum(dim=-1).clamp(0.0, 1.0)
-
-        return h_out, cand_logits, pair_logits, scalar_pred, value, seat_win_logits
+        return value, seat_win_logits
 
     def value_readout(self, features):
         """Training-only gradient routing; defaults preserve inference and state dict."""
