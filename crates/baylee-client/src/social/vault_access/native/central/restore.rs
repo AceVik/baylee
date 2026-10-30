@@ -363,6 +363,7 @@ mod tests {
     /// (the same installation), and a first chat record is filed under the
     /// address an installed client on another device looks for.
     #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn the_live_gateway_s_chat_context_and_records_outlive_its_move() {
         use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
         struct Cleanup(std::path::PathBuf);

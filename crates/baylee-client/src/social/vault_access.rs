@@ -266,6 +266,7 @@ mod tests {
     /// and a session there by either address takes it.
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn the_central_handoff_is_for_the_live_gateway_by_either_address() {
         use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
         let login = Login::central(PINNED, "secret".into());

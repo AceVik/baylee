@@ -9739,11 +9739,15 @@ the same `seq`, hand and visit, and played on.
 
 ## The live gateway's address, and its move (30.10.2026)
 
-The live gateway, Baylee Sanctuary, is `gateway_list::PINNED`:
-`https://gateway.baylee.app` since 30.10.2026, `https://baylee.acevik.de`
-(`FORMER`) before. The old host serves the same gateway as an alias until a
-release with the new address is widely installed; after that it only
-redirects. Nothing a player kept under the old address may be lost, and an
+The live gateway, Baylee Sanctuary, serves at `https://gateway.baylee.app`
+since 30.10.2026 and at `https://baylee.acevik.de`, its first address, as an
+alias. The client still pins the first address (`gateway_list::PINNED`): it
+follows once Baylee Central takes tickets for the new origin, in a step of
+its own (#402) that makes the new address `PINNED` and the old one `FORMER`.
+Until then `FORMER` is empty, the mapping below leaves every address as it
+is, and the tests that need the old spelling are ignored with that reason.
+The old host stays an alias until a release with the new address is widely
+installed; after that it only redirects. Nothing a player kept under the old address may be lost, and an
 installed client must keep working beside a new one on the account's other
 devices, so what holds the address is moved in one of two ways.
 

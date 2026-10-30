@@ -254,6 +254,7 @@ mod tests {
     /// A file written before the live gateway moved goes to it at its new
     /// address.
     #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn a_file_from_before_the_move_goes_to_the_live_gateway() {
         use crate::lobby::gateway_list::{KEYED, PINNED};
         let mut file = file();
