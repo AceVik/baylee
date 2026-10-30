@@ -7,6 +7,12 @@ before changing a contract. This document explains how to continue work; dated
 measurements and failed attempts belong in the evidence report and run artifacts.
 The historical `tools/trainer/HANDOVER.md` is not a restart recipe.
 
+**Opus takeover, 30 October:** start with the
+[session handover](history/training-opus-handover-2026-10-30.md). The owner
+authorized ten simultaneous Terra self-play games through the remaining current
+Codex weekly allowance. Its independent Rust supervisor, live status and stop
+commands are separate from the deliberately stopped old training controller.
+
 ## Trainer runtime: PyTorch 2.15
 
 The current trainer requires `torch>=2.15,<2.16`. `tools/trainer/uv.lock`
@@ -78,11 +84,14 @@ Migration verification on 30 October 2026 is retained under
 
 Last reviewed: 30 October 2026. Working checkout:
 `/home/ace/Projects/baylee-ai-payment`, branch
-`codex/payment-context-v5-20261028`. This is local research, with no automatic
-promotion or push. Always check actual status before acting on this snapshot.
+`codex/pytorch-215-migration`, rebased on `origin/main` at `5bae245c0`.
+The earlier research changes are already on main. The owner authorized pushing
+the PyTorch migration as a PR and continuing Terra replay collection; model
+promotion remains separate. Always check actual status before acting on this snapshot.
 
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
+| Terra collection handover | `/home/ace/baylee-data/v5/ops-codex-20261028/active-terra-weekly-queue.json` is published when the new independent queue starts. Follow its root, `queue-status.json`, `quota-latest.json`, `stats.json` and live systemd/process identities. Ten games, Terra low versus Terra low, human house decks, BC demonstrations from both seats. No automatic GPU training, quota-reset restart or promotion. The handover explains how to stop and inspect it |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
 | Current checkpoint phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-export-validation-recovery-01a18bdd-9c30-7bfb-bfc7-d8cb904a8725/validation/execution`, now `complete-reviewed`. Native compatibility validation accepts only the proven legacy E7 default `global_feat_width: 80`; all other config fields, sealed graphs, research-critic semantics and 47 numerical checks passed. Its processes exited and watcher stopped. No Torch/export/optimizer rerun was needed. The preceding breadth update retained eight updates, 465 choices, 2,043 frames and 311 changed tensors, final KL 0.00105115049. Its matched gameplay comparison is complete; no net benefit or promotion is established |
 | Completed behavior comparison | `research-breadth-paired-gameplay-01a18bf8-87a9-740e-a8f4-218d44a77c60/reviewed-events/1f92fce8c7a2bee4e4e248e4-operator-review.json` records `complete-reviewed`. All 32 fixed attempts were assigned, 16 per arm. Paired known utility: one better, one worse, nine equal, five unresolved. Eleven of 12 comparable canonical histories differ; all 12 comparable source histories reproduce the original. Source/candidate natural wins are four each, with different outcome denominators. The owned service, groups and watcher are stopped |
