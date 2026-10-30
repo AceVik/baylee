@@ -234,6 +234,9 @@ fn start(
     let Some(gateway) = &wanted.gateway else {
         return Started::Nothing;
     };
+    // Written before the live gateway moved (by the client this update
+    // replaced), it names the live gateway by its former address.
+    let gateway = &baylee_client_core::lobby::gateway_list::moved(gateway).to_string();
     let Some(index) = state.gateways.iter().position(|g| g == gateway) else {
         state.lobby.tell(Phrase::ResumeFailed, &[]);
         return Started::Nothing;

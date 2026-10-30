@@ -264,3 +264,35 @@ fn invalid_rewrap_is_transactional_and_debug_is_redacted() {
     assert_eq!(before, *vault.record());
     assert_eq!(format!("{vault:?}"), "Vault([redacted])");
 }
+
+/// A vault an installed client sealed for the live gateway under its former
+/// address opens under the new one: same folder, same associated data. The
+/// chat folder and the keychain slot an old client wrote are found the same
+/// way; another gateway's are not.
+#[test]
+fn the_live_gateway_s_vault_outlives_the_move_of_its_address() {
+    use crate::lobby::gateway_list::{FORMER, PINNED};
+    use crate::social::{disk::chat_folder, vault::SecretSlot};
+    let old = Scope::new("AB12", FORMER[0]).unwrap();
+    let new = Scope::new("AB12", PINNED).unwrap();
+    assert_eq!(old, new);
+    assert_eq!(old.folder(), new.folder());
+    let sealed = Vault::create(old, "a long account password", &[42; 96]).unwrap();
+    let opened = Vault::unlock(new, "a long account password", sealed.record()).unwrap();
+    assert_eq!(&*opened.secrets().unwrap(), &[42; 96]);
+    assert_eq!(chat_folder(FORMER[0], "AB12"), chat_folder(PINNED, "AB12"));
+    assert_eq!(
+        chat_folder(&format!("{PINNED}/"), "AB12"),
+        chat_folder(FORMER[0], "AB12")
+    );
+    assert_eq!(
+        SecretSlot::new("AB12", FORMER[0]),
+        SecretSlot::new("AB12", PINNED)
+    );
+    let elsewhere = Scope::new("AB12", "https://play.example").unwrap();
+    assert_ne!(elsewhere, Scope::new("AB12", PINNED).unwrap());
+    assert_ne!(
+        chat_folder("https://play.example", "AB12"),
+        chat_folder(PINNED, "AB12")
+    );
+}

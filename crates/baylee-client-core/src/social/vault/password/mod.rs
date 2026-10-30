@@ -74,11 +74,14 @@ impl std::error::Error for Error {}
 pub struct Scope([u8; 32]);
 
 impl Scope {
-    /// Binds a validated account tag to an HTTP(S) gateway base URL.
+    /// Binds a validated account tag to an HTTP(S) gateway base URL. The
+    /// live gateway binds by the address its keys are bound to
+    /// (`gateway_list::keyed`), so its vault outlives a move of its address.
     ///
     /// # Errors
     /// [`Error::Scope`] for malformed or ambiguous inputs.
     pub fn new(tag: &str, gateway: &str) -> Result<Self, Error> {
+        let gateway = crate::lobby::gateway_list::keyed(gateway.trim());
         if tag.is_empty()
             || tag.len() > 128
             || !tag.bytes().all(|b| b.is_ascii_alphanumeric())

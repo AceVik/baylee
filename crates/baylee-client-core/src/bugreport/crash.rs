@@ -70,8 +70,10 @@ impl CrashFile {
     /// nowhere, `pinned` (the live gateway every build knows).
     #[must_use]
     pub fn sends_to(&self, gateway: &str, pinned: &str) -> bool {
+        use crate::lobby::gateway_list::moved;
         let target = self.gateway.as_deref().unwrap_or(pinned);
-        target.trim_end_matches('/') == gateway.trim_end_matches('/')
+        // A file from before the live gateway moved names its former address.
+        moved(target.trim_end_matches('/')) == moved(gateway.trim_end_matches('/'))
     }
 }
 
@@ -248,6 +250,11 @@ mod tests {
         assert!(!file.sends_to(pinned, pinned));
         file.gateway = None;
         assert!(file.sends_to("https://live.example/", pinned));
+        // A file written before the live gateway moved goes to it there.
+        use crate::lobby::gateway_list::{FORMER, PINNED};
+        file.gateway = Some(FORMER[0].into());
+        assert!(file.sends_to(PINNED, PINNED));
+        assert!(!file.sends_to("https://play.example", PINNED));
     }
 
     /// A crash report carries the crash and the build that crashed, the

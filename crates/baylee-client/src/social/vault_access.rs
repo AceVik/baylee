@@ -38,9 +38,13 @@ impl Login {
         }
     }
 
+    /// Recent, and for `gateway`: the live gateway's former address is the
+    /// live gateway (`gateway_list::moved`).
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn fresh_for(&self, gateway: &str) -> bool {
-        self.created.elapsed().as_secs() <= 120 && self.gateway == gateway.trim_end_matches('/')
+        use baylee_client_core::lobby::gateway_list::moved;
+        self.created.elapsed().as_secs() <= 120
+            && moved(self.gateway.trim_end_matches('/')) == moved(gateway.trim_end_matches('/'))
     }
     #[cfg(target_arch = "wasm32")]
     pub(crate) fn from_request(_gateway: &str, _request: &LobbyRequest) -> Option<Self> {
