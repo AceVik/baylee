@@ -195,8 +195,15 @@ Gate and migration evidence:
 `/home/ace/baylee-data/v5/ops-codex-20261028/torch-215-migration-01a18cc3-f303-76d0-82bd-f4df25dcf719/`.
 `pr-gate/` and `pr-gate-features/` retain the initial pre-push gate receipts.
 `pr-gate-collector-fix/` and `pr-gate-features-collector-fix/` retain the
-follow-up checks for the account-startup fix. Read their final `job.json`
-receipts instead of assuming a launched check has passed.
+follow-up checks for the account-startup fix. The feature gate passed. The
+first follow-up full gate was stopped after a deploy-hook test failure; its
+test helper re-read a process after already observing termination. The helper
+now retains that observation; production cleanup is unchanged and the original
+failure's cause is not proven. All 22 deploy-hook tests and 20 repetitions of
+the group-timeout test then passed, with a clean Sol review. The fresh full-gate
+receipt is `pr-gate-final/job.json`. Read final receipts instead of assuming a
+launched check has passed; `handover-verification.json` records the final push
+and live-queue snapshot when this handover closes.
 The explicit `llm-collector` feature test suite is separate from those gates.
 Its initial run exposed an old replay fixture that relied on House AI mulligan
 decisions to produce a publicly invisible input. The fixture now records an
