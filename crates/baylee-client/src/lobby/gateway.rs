@@ -146,6 +146,17 @@ impl LobbyState {
             self.lobby.tell_refusal(Phrase::GatewayUrlInvalid, &[]);
             return None;
         };
+        self.ask_gateway(url)
+    }
+
+    /// Starts asking an address about itself, typed or proposed by a link
+    /// the player said yes to (`links`): the same question, the same
+    /// answer, saved by [`Self::gateway_answered`] only when a gateway
+    /// answered. Nothing while another answer is owed.
+    pub(super) fn ask_gateway(&mut self, url: String) -> Option<String> {
+        if self.adding.is_some() {
+            return None;
+        }
         self.lobby.tell(Phrase::GatewayChecking, &[&url]);
         self.probes.insert(url.clone(), Probe::Asking);
         self.adding = Some(url.clone());
@@ -168,7 +179,11 @@ impl LobbyState {
             return false;
         }
         self.lobby.tell(Phrase::GatewaySaved, &[&url]);
-        self.lobby.set_field(Field::Gateway, "");
+        // Emptied when it held this address; a link's gateway leaves what
+        // the player was typing alone.
+        if normalize(self.lobby.field(Field::Gateway)).as_ref() == Some(&url) {
+            self.lobby.set_field(Field::Gateway, "");
+        }
         if self.gateways.contains(&url) {
             return false;
         }

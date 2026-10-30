@@ -30,6 +30,18 @@ uuid.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSError", "NSFileManager", "NSString", "NSURL"] }
 
+# The link door's named pipe (`link.rs`) and the launcher's leave for the
+# running client to come forward when it hands a link over (`launch.rs`).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+    "Win32_System_Pipes",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
 # The launcher's icon resource (`build.rs`): the file a Start-menu entry,
 # Explorer and the taskbar show is `baylee-launch.exe`, packaged as
 # `baylee-client.exe`. Gated on the *target*, so no other build fetches it.

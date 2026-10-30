@@ -23,6 +23,8 @@
 //!   where updates may be installed.
 //! - [`relaunch`]: "Restart now": a helper that starts the client again
 //!   once the old one and its launcher have ended.
+//! - [`link`]: the running client's door for `baylee:` links, which a
+//!   second launcher knocks on instead of opening a second window.
 //! - [`check`]: the HTTP half: asking GitHub, downloading, verifying,
 //!   staging.
 //! - [`progress`]: how far staging has got, and the meter that turns a
@@ -44,6 +46,7 @@ pub mod apply;
 pub mod archive;
 pub mod check;
 pub mod launch;
+pub mod link;
 pub mod plan;
 pub mod progress;
 pub mod relaunch;

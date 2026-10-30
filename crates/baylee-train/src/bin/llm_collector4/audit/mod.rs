@@ -940,7 +940,7 @@ pub(crate) mod tests {
     #[test]
     fn full_engine_replay_rejects_an_invisible_intermediate_hash_mismatch() {
         use baylee_core::{ids::PlayerId, preset::SeatController};
-        use baylee_engine::choice::PlayerAction;
+        use baylee_engine::choice::{PlayerAction, PriorityHold};
         use baylee_gamehost::{Session, replay};
         use std::ops::ControlFlow;
 
@@ -955,14 +955,15 @@ pub(crate) mod tests {
             seat.controller = SeatController::Open;
         }
         let mut session = Session::new_recorded(&preset, "test").unwrap();
-        // Several mulligan answers include inputs that do not change the public table.
-        for _ in 0..4 {
-            for seat in [PlayerId::new(0), PlayerId::new(1)] {
-                if let Some(action) = session.house_action(seat) {
-                    session.act(seat, action).unwrap();
-                }
-            }
-        }
+        // A private automation setting changes the recorded engine state while
+        // mulligans are pending, without changing the public table. Do not rely
+        // on house opening-hand decisions to produce an invisible input.
+        session
+            .act(
+                PlayerId::new(0),
+                PlayerAction::SetPriorityHold(PriorityHold::PassWhenNothingToDo),
+            )
+            .unwrap();
         session
             .act(PlayerId::new(0), PlayerAction::Concede)
             .unwrap();

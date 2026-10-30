@@ -16,6 +16,12 @@ the document it names.
   provider initialization failures are errors. TF32 is disabled to preserve
   agreement with the FP32 rollout probability audit. This selects inference;
   Python training chooses its PyTorch device separately.
+  With the locked trainer environment, the Linux library directories are
+  `tools/trainer/.venv/lib/python3.13/site-packages/nvidia/cu13/lib` and
+  `tools/trainer/.venv/lib/python3.13/site-packages/nvidia/cudnn/lib` (resolve
+  them to absolute paths for a launch; use the actual Python minor version).
+  PyTorch 2.15 no longer installs cuRAND itself; the trainer explicitly depends
+  on `cuda-toolkit[curand]` because the ONNX provider requires `libcurand.so.10`.
 - `train_ops pipeline --manifest <path>` specifies every stage as a literal
   argument array, including its evaluation binary and `eval4 --threads` limit.
   Each ONNX session uses one CPU
