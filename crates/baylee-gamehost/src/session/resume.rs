@@ -17,7 +17,7 @@ use baylee_view::HouseAnswer;
 
 impl Session {
     /// The game `record` holds, rebuilt input by input and checked against
-    /// every hash the record wrote, as a recorded session that goes on
+    /// every digest the record wrote, as a recorded session that goes on
     /// writing after the record's last line.
     ///
     /// The house's answers are replayed from the record, not asked again:
@@ -30,12 +30,12 @@ impl Session {
     ///
     /// # Errors
     /// As [`record::replay`]: a line that does not parse, an input the
-    /// engine refuses, a hash that differs.
+    /// engine refuses, or state that agrees with neither recorded digest.
     pub fn resume_recorded(record: &[u8]) -> Result<Self, ReplayError> {
         let mut lines = record::lines_of(record);
-        let (preset, hash) = record::header_of(&mut lines)?;
+        let (preset, hash, seen) = record::header_of(&mut lines)?;
         let mut session = Self::new(&preset).ok_or(ReplayError::Unbuildable)?;
-        record::check_hash(&session.engine, None, hash)?;
+        record::check_hash(&session.engine, None, hash, seen.as_deref())?;
         let mut next = 0;
         let mut ended = false;
         for line in lines {
@@ -48,13 +48,14 @@ impl Session {
                     by,
                     action,
                     hash,
+                    seen,
                     ..
                 } => {
                     session.tell_time(at);
                     if !session.replayed(PlayerId::new(seat), by, action) {
                         return Err(ReplayError::Refused { n });
                     }
-                    record::check_hash(&session.engine, Some(n), hash)?;
+                    record::check_hash(&session.engine, Some(n), hash, seen.as_deref())?;
                     next = n + 1;
                 }
                 Line::Chair { n, .. } | Line::DeclaredMind { n, .. } => next = n + 1,

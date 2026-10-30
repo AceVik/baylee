@@ -400,8 +400,8 @@ pub enum ReplayError {
         /// The input's line number.
         n: u64,
     },
-    /// After input `n` (or before any, for `None`) the engine's hash was not
-    /// the one recorded.
+    /// After input `n` (or before any, for `None`) the replay agreed with
+    /// neither the recorded engine hash nor its public-table digest.
     Diverged {
         /// The input's line number.
         n: Option<u64>,
@@ -442,30 +442,38 @@ pub(crate) fn lines_of(record: &[u8]) -> impl Iterator<Item = Result<Line, Repla
         })
 }
 
-/// The preset and opening hash of a record's header, which must be its
+/// The preset and opening digests of a record's header, which must be its
 /// first line and of a shape this build reads.
 pub(crate) fn header_of(
     lines: &mut impl Iterator<Item = Result<Line, ReplayError>>,
-) -> Result<(GamePreset, String), ReplayError> {
+) -> Result<(GamePreset, String, Option<String>), ReplayError> {
     match lines.next().transpose()? {
         Some(Line::Header {
             record: RECORD_VERSION,
             preset,
             hash,
+            seen,
             ..
-        }) => Ok((preset, hash)),
+        }) => Ok((preset, hash, seen)),
         _ => Err(ReplayError::NoHeader),
     }
 }
 
 /// Whether `engine` is where the record says it was after input `n`.
+///
+/// The exact snapshot is authoritative on the recording build. On a later
+/// build its encoding may have changed, so a matching public-table digest is
+/// the specified fallback; records without one retain the exact-only check.
 pub(crate) fn check_hash(
     engine: &Engine<RegistryLookup>,
     n: Option<u64>,
     recorded: String,
+    recorded_seen: Option<&str>,
 ) -> Result<(), ReplayError> {
     let replayed = hex(engine.snapshot_hash());
-    if replayed == recorded {
+    if replayed == recorded
+        || recorded_seen.is_some_and(|expected| expected == hex(seen(engine.state())))
+    {
         Ok(())
     } else {
         Err(ReplayError::Diverged {
@@ -476,20 +484,20 @@ pub(crate) fn check_hash(
     }
 }
 
-/// Plays a record again on a fresh engine, checking the hash after every
-/// input.
+/// Plays a record again on a fresh engine, checking the exact hash and, when
+/// it differs, the stable public-table digest after every input.
 ///
 /// A trailing line without its newline is a record cut off mid-write and is
 /// left out, so a record whose engine died is replayed up to the cut.
 ///
 /// # Errors
-/// At the first line that does not parse, input the engine refuses, or hash
-/// that differs; see [`ReplayError`].
+/// At the first line that does not parse, input the engine refuses, or state
+/// that agrees with neither recorded digest; see [`ReplayError`].
 pub fn replay(record: &[u8]) -> Result<Replayed, ReplayError> {
     let mut lines = lines_of(record);
-    let (preset, hash) = header_of(&mut lines)?;
+    let (preset, hash, recorded_seen) = header_of(&mut lines)?;
     let mut engine = Engine::new(&preset, RegistryLookup).map_err(|_| ReplayError::Unbuildable)?;
-    check_hash(&engine, None, hash)?;
+    check_hash(&engine, None, hash, recorded_seen.as_deref())?;
     let mut inputs = 0;
     let mut ended = false;
     for line in lines {
@@ -500,12 +508,13 @@ pub fn replay(record: &[u8]) -> Result<Replayed, ReplayError> {
                 seat,
                 action,
                 hash,
+                seen,
                 ..
             } => {
                 engine
                     .apply(PlayerId::new(seat), action)
                     .map_err(|_| ReplayError::Refused { n })?;
-                check_hash(&engine, Some(n), hash)?;
+                check_hash(&engine, Some(n), hash, seen.as_deref())?;
                 inputs += 1;
             }
             Line::Chair { .. } | Line::DeclaredMind { .. } => {}
@@ -691,7 +700,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_wrong_hash_is_a_divergence() {
+    fn a_changed_exact_hash_needs_the_recorded_public_digest() {
         let mut written = lines(&played(3).take_record());
         let at = written
             .iter()
@@ -699,6 +708,13 @@ pub(crate) mod tests {
             .expect("a house input");
         if let Line::Input { hash, .. } = &mut written[at] {
             *hash = hex(0);
+        }
+        assert!(
+            replay(&encode(&written)).is_ok(),
+            "a later build's exact hash falls back to the unchanged public table"
+        );
+        if let Line::Input { seen, .. } = &mut written[at] {
+            *seen = Some(hex(0));
         }
         assert!(matches!(
             replay(&encode(&written)),
@@ -777,10 +793,11 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_header_whose_hash_is_not_the_table_it_describes_diverges_before_any_input() {
+    fn a_header_that_matches_neither_digest_diverges_before_any_input() {
         let mut written = lines(&played(3).take_record());
-        if let Line::Header { hash, .. } = &mut written[0] {
+        if let Line::Header { hash, seen, .. } = &mut written[0] {
             *hash = hex(1);
+            *seen = Some(hex(0));
         }
         assert!(matches!(
             replay(&encode(&written)),
