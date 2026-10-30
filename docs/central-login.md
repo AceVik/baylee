@@ -190,12 +190,9 @@ acceptance (`TermsSubject::Gateway`). Central holds the official gateway's
 origin together with its aliases, and it must take a ticket, a lease and a
 terms acceptance under any of them as the official gateway's. That is
 baylee-central's part, and it ships before a client with the new address: a
-new client asks for tickets for an origin today's Central does not know. The
-bridge file names `origin` (the new address) and `aliases` (the old ones: at
-most four canonical origins, none twice, none the origin, only beside an
-`origin`, and only for the bridge, since a registered gateway has the one
-origin it registered). Its `metadata.website` lies on `origin`. Order: Central,
-then the gateway with the new bridge file, then the client release.
+new client asks for tickets for an origin today's Central does not know. Order:
+Central, then the gateway's half of this move (its bridge file naming the new
+origin and the old one as an alias), then the client release.
 
 The client has one mapping, `gateway_list::moved` (client-core): the old
 address reads as the new one. Every caller asks it, or `same` and `keyed`,
@@ -268,11 +265,11 @@ marked "Official") once Central's operator has listed it (baylee-central
 `docs/operations.md` §"The official gateway"). Its bridge file then gains
 `metadata` (`name`, `version`, `website`) beside `bridge`, for example
 `"metadata": {"name": "Baylee", "version": "0", "website":
-"https://gateway.baylee.app/"}`: the gateway sends `GatewayHeartbeat` with the
+"https://baylee.acevik.de/"}`: the gateway sends `GatewayHeartbeat` with the
 bridge credential every 30 seconds, Central updates the official entry and no
-other, and the entry shows online. The website must lie on the bridge's
-`origin`; without one, on the compiled legacy origin `https://baylee.acevik.de`
-live. In development a bridge file with `metadata` must name `origin`. `version` is replaced with
+other, and the entry shows online. The website must lie on the bridge's origin,
+the compiled `https://baylee.acevik.de` live; in development that is `origin`,
+which a bridge file with `metadata` must then name. `version` is replaced with
 the running binary's version. Without `metadata` the bridge sends no heartbeat
 and the entry stays listed and offline.
 Registered gateways instead use `endpoint`, canonical `origin`, `credential`,
