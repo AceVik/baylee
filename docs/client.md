@@ -9775,6 +9775,82 @@ empty, and a browser guest kept on the old host stays there. Tests:
 `lobby::central` (the account's list). The gateway's side is in
 `docs/central-login.md` §"The official gateway's aliases" (#402 is the switch that ends it).
 
+## Links from the website
+
+The owner, 30.10.2026: baylee.app's gateway list links into the client,
+the client handles the player being signed in or not, and a link never
+does anything with consequences before the player confirms. The design and
+its open questions are `docs/proposals/deep-links.md`; this is slice 1 of
+it (no sign-in handoff: the client signs in with its own form).
+
+**The links.** `baylee://open` starts the client or brings it forward.
+`baylee://signin` does that, and opens Baylee Central's sign-in where
+nobody is signed in. `baylee://gateway/add?origin=<origin>` proposes a
+gateway: the origin percent-encoded, `https` and a DNS name with an
+optional port, nothing else (a `dev-control` build also takes a numeric
+loopback `http` origin, for tests). `client-core::deeplink::read` reads a
+link strictly: anything that is not exactly one of these, a link over
+2 KiB, a second or unknown parameter, is dropped without a word to the
+player. A link carries no secret and no text the client shows; the website
+puts nothing else into one. The log names a link's kind, never its text.
+
+**How a link arrives** (`src/links.rs`). Windows and Linux start the
+launcher with the link as its argument (the setup's `HKCU\Software\Classes\baylee`,
+the desktop entry's `MimeType=x-scheme-handler/baylee;` and `%u`). With no
+client running, the launcher passes it to the client it starts. With one
+running, the second launcher meets the lifetime lock and, instead of
+refusing, knocks on the running client's **door** (`baylee_update::link`:
+a Unix socket in a `0700` directory of the state root, a named pipe
+refusing remote clients on Windows, one per installation, named after its
+state directory; its frame is frozen because the launcher is permanent),
+hands the link over and ends: no second window. On Windows it first lets
+the client take the foreground. macOS sends the link to the running client
+itself as an Apple Event, on a cold start too (`src/links/macos.rs`;
+winit owns the app delegate, so the event is asked for from
+`NSAppleEventManager`, before the event loop runs and again on
+`willFinishLaunching`). A client started without a launcher (`cargo run`,
+a terminal) with a link as its argument knocks on its own door first,
+named by its program and settings folder, and ends if a client took it.
+
+**What the client does** (`lobby/links.rs`). At most ten links a minute
+are read; the latest waits (`links::Arrived`) and the window comes
+forward, never in a passive dev-control run. The lobby follows it only
+at rest: not in a game or replay (the lobby's systems do not run there),
+not over another question, the terms or About, not while a request or an
+address check is under way. `open` does nothing more. `signin` opens
+Central's sign-in when nobody is signed in anywhere, with `‹` back to the
+device's gateways, and no gateway is entered after it: the account's list
+is shown. A gateway link:
+
+- signed in at Central: asks at once, and the gateway joins the account's
+  list (`sync_gateways`, `Account::save`; refused when it holds 128);
+- signed out: opens Central's sign-in first and keeps the link; after the
+  sign-in (and Central's terms) it asks for the account's list; back with
+  `‹` instead, it asks for this device's list;
+- signed in at a gateway with its own accounts, or offline: asks for this
+  device's list;
+- already in that list: says so and asks nothing.
+
+The question (`confirm::Destructive::AddGateway`) shows the address in
+full as it would be saved, says that gateways are run by other people and
+that the Central password never goes to one, and which list it joins.
+"Not now" is what `Esc` and a tap beside the panel do; "Add gateway" needs
+a press. Nothing contacts the address before the yes; then it is asked
+about itself exactly as a typed address is (`ask_gateway`,
+`http::probe_gateway`), and saved only when a gateway answers. Nothing is
+selected or entered by itself.
+
+**This device's list stays the device's.** `keep_gateways` writes
+`state.device_gateways()` to the settings file: while Central is signed
+in, the list on screen is the account's, and before 30.10.2026 a Central
+sign-in wrote it into the device's settings, where it stayed after signing
+out.
+
+**Not yet.** Phones (no release build; on a phone a verified `https` link
+is the safer road), Wayland raising the window (the launcher carries the
+activation token; winit 0.30 cannot apply it to a window that exists), and
+signing in from the website (the proposal's slice 3, owner's questions).
+
 ## Where a packaged desktop build finds its fonts
 
 `standalone::asset_root` takes the `assets` directory **beside the executable**

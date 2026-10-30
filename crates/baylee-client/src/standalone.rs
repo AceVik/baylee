@@ -71,6 +71,15 @@ pub fn run() {
     // (`docs/client.md` §"Updating").
     #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
     let updater = crate::update::native::begin();
+    // A `baylee:` link among the arguments (`crate::links`): a client
+    // started without a launcher hands it to the one already running here
+    // and ends before it opens a window; otherwise it is this client's, and
+    // so is the door later links come through. After the updater, which is
+    // what learns whether a launcher started this client.
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    if seated.is_none() && !crate::links::start() {
+        return;
+    }
 
     // Before any window: Windows reads a process's AppUserModelID when its
     // first window appears.
@@ -198,7 +207,7 @@ pub fn run() {
         app.insert_resource(InstalledHost(host))
             .add_systems(Startup, open_duel);
     } else {
-        app.add_plugins(LobbyPlugin);
+        app.add_plugins((crate::links::LinksPlugin, LobbyPlugin));
         // A debug build's panel for changing a language-model chair during
         // the game (`crate::tablellm`); a release build has none.
         if baylee_client_core::llmseat::seating::LIVE_CHANGES {

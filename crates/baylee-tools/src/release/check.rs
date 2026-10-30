@@ -197,6 +197,16 @@ fn mac_mounted(root: &Path, mnt: &Path, install: bool, arch: &str) -> Result<()>
     ok(Command::new("codesign")
         .args(["--verify", "--deep", "--strict"])
         .arg(mnt.join("Baylee.app")))?;
+    // The bundle claims the `baylee:` link scheme (`package::info_plist`).
+    let scheme = output(
+        Command::new("plutil")
+            .args(["-extract", "CFBundleURLTypes.0.CFBundleURLSchemes.0", "raw"])
+            .arg(mnt.join("Baylee.app/Contents/Info.plist")),
+    )?;
+    ensure!(
+        scheme.trim() == "baylee",
+        "the bundle claims no baylee: scheme"
+    );
     crate::installers::run(
         root,
         &["check-dmg-layout".into(), mnt.display().to_string()],
@@ -284,6 +294,17 @@ fn windows(
         .args(["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{01A111A7-93E6-7434-8D14-F893B3405EC8}_is1", "/v", "DisplayName"])
         .stdout(Stdio::null()))
     .context("no per-user uninstall entry")?;
+    // The `baylee:` link scheme opens the launcher with the link.
+    let command = output(Command::new("reg").args([
+        "query",
+        r"HKCU\Software\Classes\baylee\shell\open\command",
+        "/ve",
+    ]))
+    .context("no baylee: link scheme")?;
+    ensure!(
+        command.contains(r#"Programs\Baylee\baylee-client.exe" "%1""#),
+        "the baylee: scheme does not open the launcher: {command}"
+    );
     ok(Command::new(dir.join("unins000.exe")).args([
         "/VERYSILENT",
         "/SUPPRESSMSGBOXES",
@@ -298,7 +319,38 @@ fn windows(
         !dir.join("baylee-client.exe").exists(),
         "uninstall left baylee-client.exe"
     );
+    // Inno undoes its registry entries before its files: the scheme is gone.
+    let scheme_left = Command::new("reg")
+        .args(["query", r"HKCU\Software\Classes\baylee"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success());
+    ensure!(!scheme_left, "uninstall left the baylee: link scheme");
     println!("setup: installed per user and uninstalled");
+    Ok(())
+}
+
+/// `xdg-open baylee://…` reaches /usr/bin/baylee once the MIME cache names
+/// the installed entry. desktop-file-utils' dpkg trigger writes it; where the
+/// trigger did not run (both arrived in one transaction), the cache is
+/// rebuilt and that is said, so what is checked is still the entry.
+fn deb_takes_links() -> Result<()> {
+    let handles = || {
+        fs::read_to_string("/usr/share/applications/mimeinfo.cache").is_ok_and(|cache| {
+            cache
+                .lines()
+                .any(|l| l.starts_with("x-scheme-handler/baylee=") && l.contains("baylee.desktop"))
+        })
+    };
+    if !handles() {
+        println!(".deb: the MIME cache was not refreshed by the trigger; rebuilding it");
+        ok(Command::new("sudo").args(["update-desktop-database", "/usr/share/applications"]))?;
+    }
+    ensure!(
+        handles(),
+        "the MIME cache names no handler for baylee: links"
+    );
     Ok(())
 }
 
@@ -337,11 +389,19 @@ fn linux(out: &Path, install: bool, version: &str, arch: &str) -> Result<()> {
     }
     // A Wayland dock pairs the window (app_id `baylee`, window_icon.rs) with
     // the entry of that name; X11 by WM_CLASS.
+    let entry = fs::read_to_string(root.join("baylee.desktop"))?;
     ensure!(
-        fs::read_to_string(root.join("baylee.desktop"))?
-            .lines()
-            .any(|l| l == "StartupWMClass=baylee"),
+        entry.lines().any(|l| l == "StartupWMClass=baylee"),
         "the AppImage's desktop entry names no WM class"
+    );
+    // The `baylee:` scheme, for a desktop that integrates the image: the
+    // link reaches the launcher as its argument.
+    ensure!(
+        entry
+            .lines()
+            .any(|l| l == "MimeType=x-scheme-handler/baylee;")
+            && entry.lines().any(|l| l == "Exec=baylee-client %u"),
+        "the AppImage's desktop entry claims no baylee: links"
     );
     println!("AppImage: layout ok");
     output(Command::new("dpkg-deb").arg("--info").arg(&deb))?;
@@ -383,6 +443,7 @@ fn linux(out: &Path, install: bool, version: &str, arch: &str) -> Result<()> {
         )))?;
     }
     ok(Command::new("desktop-file-validate").arg("/usr/share/applications/baylee.desktop"))?;
+    deb_takes_links()?;
     // Root-owned, so the launcher will not install updates here; the client
     // only links to the release (`docs/releasing.md` §"Installers").
     let writable = Command::new("test")

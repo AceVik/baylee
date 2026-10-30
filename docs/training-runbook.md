@@ -7,15 +7,91 @@ before changing a contract. This document explains how to continue work; dated
 measurements and failed attempts belong in the evidence report and run artifacts.
 The historical `tools/trainer/HANDOVER.md` is not a restart recipe.
 
+**Opus takeover, 30 October:** start with the
+[session handover](history/training-opus-handover-2026-10-30.md). The owner
+authorized ten simultaneous Terra self-play games through the remaining current
+Codex weekly allowance. Its independent Rust supervisor, live status and stop
+commands are separate from the deliberately stopped old training controller.
+
+## Trainer runtime: PyTorch 2.15
+
+The current trainer requires `torch>=2.15,<2.16`. `tools/trainer/uv.lock`
+pins 2.15.0, including the CUDA 13.2 wheel on Linux, Triton 3.9.0 and the
+CUDA 13.2.2 dependency set. Python remains 3.12 or 3.13; the migration was
+tested on Python 3.13.15 and an RTX 4070 Ti with driver 595.99.02.
+The explicit Linux `cuda-toolkit[curand]` dependency is required: PyTorch 2.15
+stopped installing cuRAND, but the native ONNX CUDA provider still links
+`libcurand.so.10`. A working Torch CUDA test alone does not check that dependency.
+Install from the checkout you intend to use, without changing a sealed run's
+environment:
+
+```text
+uv sync --locked --project tools/trainer
+uv pip check --python tools/trainer/.venv/bin/python
+```
+
+The active research checkout uses
+`/home/ace/Projects/baylee-ai-payment/tools/trainer/.venv/bin/python`.
+The old `/home/ace/Projects/baylee/tools/trainer/.venv` remains at 2.14.0
+because historical immutable manifests seal files under that exact path.
+New attempts must name and seal the new environment, worker and lockfile.
+Do not substitute it into an old manifest or assume bit-identical optimizer
+continuation across PyTorch versions. Recheck the frozen source-probability
+audit before using a new runtime for on-policy updates.
+
+The [upstream migration notes](https://github.com/pytorch/pytorch/releases/tag/v2.15.0)
+remove Python 3.10 support and require macOS 15 for MPS. The existing project
+Python range already satisfies this; macOS/MPS was not tested on this Linux
+host. This trainer does not use FSDP2, distributed checkpointing, nested tensor
+serialization or NCCL process groups, so their 2.15 breaking changes require
+no model conversion. The bounded-depth ONNX exporter explicitly retains
+`dynamo=False` and opset 18; its numerical parity tests cover v4 and both v5
+relational revisions. Ordinary checkpoint architecture and encoder contracts
+remain enforced.
+
+For compiler checks, `TRITON_DEFAULT_FP_FUSION=1` explicitly selects the
+Triton 3.9 default rather than adopting its announced future default change.
+Run the opt-in `test_compiled_runtime` with `BAYLEE_TEST_COMPILED_CUDA=1`
+under the shared GPU lock and a bounded native guard. It compares dynamic
+recurrent frames, FP32/BF16 outputs, gradients and SGD updates using the real
+regional compiler. AdamW placement and exact same-runtime resume are checked
+separately by the existing CUDA tests. These are compatibility checks, not
+evidence of faster training or stronger play.
+
+Migration verification on 30 October 2026 is retained under
+`/home/ace/baylee-data/v5/ops-codex-20261028/torch-215-migration-01a18cc3-f303-76d0-82bd-f4df25dcf719/`:
+
+- CPU discovery: 285 tests, 278 passed and seven expected CUDA opt-in skips,
+  including v4/v5 ONNX export parity. The new compiler test was added afterwards.
+- The 18 existing selected CUDA tests passed: prefetch lifetime, asynchronous
+  snapshots, optimizer placement, FP32/BF16 input offload, exact PPO resume and
+  a full-size synthetic backward/AdamW update. The new regional compiler check
+  also passed for FP32 and BF16 after correcting its comparison criterion.
+- The first compiler check compared AdamW updates on a softmax-invariant shared
+  bias. Roundoff near zero was amplified by AdamW's denominator; the same check
+  failed on 2.14. Its retained baseline distinguishes that test issue from a
+  migration regression. The final compiler check uses SGD and still compares
+  every gradient; production AdamW and numerical tolerances were not changed.
+- The historical 75,862,632-parameter R6 v5/E7 checkpoint loaded in both runtimes.
+  Three synthetic recurrent CPU frames had maximum absolute output difference
+  zero. This does not certify cross-version optimizer continuation or all states.
+- A PyTorch 2.15 linear export ran through the native Rust ONNX CUDA provider
+  with CPU fallback disabled and the new environment's libraries. Its exact
+  expected output passed after the explicit cuRAND dependency was installed.
+- `uv lock --check` and `uv pip check` passed. All bounded probe processes exited.
+
 ## Current operational pointer
 
 Last reviewed: 30 October 2026. Working checkout:
 `/home/ace/Projects/baylee-ai-payment`, branch
-`codex/payment-context-v5-20261028`. This is local research, with no automatic
-promotion or push. Always check actual status before acting on this snapshot.
+`codex/pytorch-215-migration`, rebased on `origin/main` at `5bae245c0`.
+The earlier research changes are already on main. The owner authorized pushing
+the PyTorch migration as a PR and continuing Terra replay collection; model
+promotion remains separate. Always check actual status before acting on this snapshot.
 
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
+| Terra collection handover | `/home/ace/baylee-data/v5/ops-codex-20261028/active-terra-weekly-queue.json` is published when the new independent queue starts. Follow its root, `queue-status.json`, `quota-latest.json`, `stats.json` and live systemd/process identities. Ten games, Terra low versus Terra low, human house decks, BC demonstrations from both seats. No automatic GPU training, quota-reset restart or promotion. The handover explains how to stop and inspect it |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
 | Current checkpoint phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-export-validation-recovery-01a18bdd-9c30-7bfb-bfc7-d8cb904a8725/validation/execution`, now `complete-reviewed`. Native compatibility validation accepts only the proven legacy E7 default `global_feat_width: 80`; all other config fields, sealed graphs, research-critic semantics and 47 numerical checks passed. Its processes exited and watcher stopped. No Torch/export/optimizer rerun was needed. The preceding breadth update retained eight updates, 465 choices, 2,043 frames and 311 changed tensors, final KL 0.00105115049. Its matched gameplay comparison is complete; no net benefit or promotion is established |
 | Completed behavior comparison | `research-breadth-paired-gameplay-01a18bf8-87a9-740e-a8f4-218d44a77c60/reviewed-events/1f92fce8c7a2bee4e4e248e4-operator-review.json` records `complete-reviewed`. All 32 fixed attempts were assigned, 16 per arm. Paired known utility: one better, one worse, nine equal, five unresolved. Eleven of 12 comparable canonical histories differ; all 12 comparable source histories reproduce the original. Source/candidate natural wins are four each, with different outcome denominators. The owned service, groups and watcher are stopped |

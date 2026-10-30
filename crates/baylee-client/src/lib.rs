@@ -75,6 +75,8 @@ pub mod hud;
 pub mod input;
 pub mod keys;
 pub mod lifeflash;
+/// `baylee:` links from the website: how they reach the client.
+pub mod links;
 pub mod loading;
 pub mod lobby;
 pub mod manasources;

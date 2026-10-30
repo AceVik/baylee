@@ -529,8 +529,12 @@ pub(super) fn art_follows_the_session(
 
 /// Writes the saved gateways, their uses and the guests kept at them back
 /// to the settings file.
+/// Writes this device's gateways, their uses and its guests to the settings
+/// file. The device's list, also while Central is signed in and the list on
+/// screen is the account's: that one lives in the account's document, and
+/// written here it would stay on the device after signing out.
 pub(super) fn keep_gateways(state: &LobbyState, settings: &mut crate::settings::ClientSettings) {
-    settings.gateways.clone_from(&state.gateways);
+    settings.gateways = state.device_gateways().to_vec();
     settings.gateway_uses.clone_from(&state.uses);
     settings.guests.clone_from(&state.guests);
     settings.save();

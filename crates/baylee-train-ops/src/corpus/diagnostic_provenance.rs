@@ -209,7 +209,8 @@ mod tests {
         let result = read(&request)?;
         assert_eq!(result["formats"]["1"], "commander/seats=4/teams=1,2,1,2");
         assert_eq!(
-            result["inputs"][job_path.to_str().unwrap()],
+            // Keyed by canonical path; a temporary directory is a symlink on macOS.
+            result["inputs"][job_path.canonicalize()?.to_str().unwrap()],
             files::sha256(&job_path)?
         );
         let mut alias = entry;

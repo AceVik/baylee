@@ -197,6 +197,10 @@ fn mac_bundle(
     Ok(())
 }
 
+/// The bundle's `Info.plist`. `CFBundleURLTypes` claims the `baylee:`
+/// scheme: macOS starts the bundle for a link when no client runs, and
+/// sends it to the running client as an Apple Event either way
+/// (`baylee-client/src/links/macos.rs`).
 fn info_plist(executable: &str, version: &str) -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
@@ -213,6 +217,13 @@ fn info_plist(executable: &str, version: &str) -> String {
     <key>CFBundleVersion</key><string>{version}</string>
     <key>LSMinimumSystemVersion</key><string>11.0</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key><string>local.baylee.client</string>
+            <key>CFBundleURLSchemes</key><array><string>baylee</string></array>
+        </dict>
+    </array>
 </dict>
 </plist>
 "#
@@ -490,12 +501,13 @@ fn appimage(root: &Path, stage: &Path, version: &str, arch: &str) -> Result<Path
     let desktop = fs::read_to_string(root.join(ART).join("linux/baylee.desktop"))?;
     let desktop: Vec<String> = desktop
         .lines()
-        .map(|l| {
-            if l == "Exec=baylee" {
-                "Exec=baylee-client".to_owned()
-            } else {
-                l.to_owned()
+        .map(|l| match l.strip_prefix("Exec=baylee") {
+            // `Exec=baylee %u`: the program's name inside the image, with
+            // the link argument kept.
+            Some(rest) if rest.is_empty() || rest.starts_with(' ') => {
+                format!("Exec=baylee-client{rest}")
             }
+            _ => l.to_owned(),
         })
         .collect();
     fs::write(appdir.join("baylee.desktop"), desktop.join("\n") + "\n")?;

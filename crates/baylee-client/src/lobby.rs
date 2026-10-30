@@ -111,6 +111,19 @@ impl Plugin for LobbyPlugin {
         );
         header::install(app);
         install_builder(app);
+        // A `baylee:` link the lobby follows once it can (`links`): after
+        // the mailbox, before the tree, so a question it raises is drawn the
+        // same frame. The resource is the links plugin's; a lobby without
+        // it (a test) simply never hears one.
+        app.init_resource::<crate::links::Arrived>();
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_systems(
+            Update,
+            links::follow
+                .after(poll)
+                .before(ui)
+                .run_if(in_state(DuelPhase::Closed)),
+        );
         // Restarting into an update, and coming back to where the player was.
         #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
         resume::install(app);
@@ -474,6 +487,10 @@ pub struct LobbyState {
     /// restore would replace the unsaved edits (`DESIGN` §C.3, Q-C3).
     pub(crate) confirm_restore: bool,
     pub(super) confirmation: Option<confirm::Destructive>,
+    /// A gateway link that found nobody signed in opened Central's sign-in;
+    /// back from it, the same link asks about this device's list instead
+    /// (`links`).
+    pub(super) link_asked_central: bool,
     /// The deck builder's own view state: its tabs, panes, menus, the
     /// keyboard's place and the save state (`crate::buildui::BuildUi`).
     pub(crate) build: crate::buildui::BuildUi,
@@ -806,6 +823,7 @@ impl LobbyState {
             confirm_leave: false,
             confirm_restore: false,
             confirmation: None,
+            link_asked_central: false,
             build: crate::buildui::BuildUi::default(),
             transfer_asks: Vec::new(),
             commander_pick: None,
@@ -865,6 +883,16 @@ impl LobbyState {
         &self.gateways
     }
 
+    /// This device's own gateways: the list on screen, or the one Central's
+    /// sign-in set aside while the account's is shown.
+    pub(crate) fn device_gateways(&self) -> &[String] {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(central) = &self.central {
+            return &central.local_gateways;
+        }
+        &self.gateways
+    }
+
     pub(crate) fn central_pending(&self) -> bool {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -878,19 +906,27 @@ impl LobbyState {
         }
     }
 
-    /// Central's sign-in is shown because the chosen gateway asked for it,
-    /// so there is a way back to the device's own gateways.
+    /// Central's sign-in is shown because the chosen gateway (or a link)
+    /// asked for it, so there is a way back to the device's own gateways.
     pub(crate) fn central_bound(&self) -> bool {
         #[cfg(not(target_arch = "wasm32"))]
         {
             self.central
                 .as_ref()
-                .is_some_and(|state| state.handle.is_none() && state.bound_gateway().is_some())
+                .is_some_and(|state| state.handle.is_none() && state.has_way_back())
         }
         #[cfg(target_arch = "wasm32")]
         {
             false
         }
+    }
+
+    /// Which question stands over the lobby, by kind and never by what it
+    /// names (dev-control's `/state`).
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
+    #[must_use]
+    pub(crate) fn asking(&self) -> Option<&'static str> {
+        self.confirmation.as_ref().map(confirm::Destructive::kind)
     }
 
     pub(crate) fn central_ready(&self) -> bool {
@@ -1053,6 +1089,8 @@ mod http;
 mod hub;
 mod keyboard;
 mod library_ui;
+#[cfg(not(target_arch = "wasm32"))]
+mod links;
 pub(crate) mod offline;
 mod press;
 pub(crate) mod preview;

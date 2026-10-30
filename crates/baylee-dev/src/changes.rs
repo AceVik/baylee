@@ -11,8 +11,9 @@
 //! - `ci`: the workflows, their actions and this classifier: a CI change runs
 //!   all of CI, because that is the only way to see it work.
 //!
-//! Paths no job reads (agent scratch directories, the other `web/` pages) set
-//! nothing. An empty list, or a diff that could not be computed, is the
+//! Paths no job reads (agent scratch directories, the other `web/` pages, and
+//! the training area: `baylee-train`, `baylee-train-ops` and `tools/trainer`,
+//! which are checked locally and not by CI, owner 30.10.2026) set nothing. An empty list, or a diff that could not be computed, is the
 //! caller's to treat as "everything" (`ci.yml` does).
 //!
 //! Locally: `git diff --name-only origin/main | cargo dev ci-changes`
@@ -39,6 +40,15 @@ const SELF: &str = "crates/baylee-dev/src/changes.rs";
 /// `build-servers`): changing one changes what the packages are.
 const ALIASES: &str = ".cargo/config.toml";
 
+/// The training area, which CI does not build, lint or test (owner,
+/// 30.10.2026; `docs/releasing.md` §"CI"). A trailing slash each, so a crate
+/// whose name merely starts the same is still code.
+const TRAINING: [&str; 3] = [
+    "crates/baylee-train/",
+    "crates/baylee-train-ops/",
+    "tools/trainer/",
+];
+
 /// Classifies paths; the first matching rule wins, as the script's `case` did.
 pub fn classify<'a>(paths: impl IntoIterator<Item = &'a str>) -> Classes {
     let mut classes = Classes::default();
@@ -49,6 +59,7 @@ pub fn classify<'a>(paths: impl IntoIterator<Item = &'a str>) -> Classes {
             classes.web = true;
         } else if [".claude/", ".agents/", ".codex/", "web/"]
             .iter()
+            .chain(&TRAINING)
             .any(|prefix| path.starts_with(prefix))
         {
         } else if path.starts_with("docs/")
@@ -150,6 +161,38 @@ mod tests {
             "  ",
         ];
         assert_eq!(of(&quiet), Classes::default());
+    }
+
+    /// The training area is local only: a change to it alone runs no CI
+    /// job, its Markdown included, while a crate that only shares the name's
+    /// start, or the training docs under `docs/`, still count.
+    #[test]
+    fn the_training_area_alone_sets_nothing() {
+        let training = [
+            "crates/baylee-train/src/lib.rs",
+            "crates/baylee-train/Cargo.toml",
+            "crates/baylee-train-ops/src/evaluation/publication.rs",
+            "crates/baylee-train-ops/README.md",
+            "tools/trainer/training4/bc_mixture/metadata.py",
+        ];
+        assert_eq!(of(&training), Classes::default());
+        assert_eq!(
+            of(&["crates/baylee-trainer/src/lib.rs", "tools/trainers.py"]),
+            Classes {
+                code: true,
+                ..Classes::default()
+            }
+        );
+        assert_eq!(
+            of(&["docs/trained-ai.md"]),
+            Classes {
+                docs: true,
+                ..Classes::default()
+            }
+        );
+        let mut mixed = training.to_vec();
+        mixed.push("crates/baylee-engine/src/lib.rs");
+        assert!(of(&mixed).code);
     }
 
     #[test]

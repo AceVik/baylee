@@ -236,7 +236,8 @@ fn cache_content_seals_rebuild_layout_valid_outcome_action_and_index_tampering()
     assert_eq!(sealed["data_sha256"], files::sha256(&receipt.data_path)?);
     assert_eq!(sealed["index_sha256"], files::sha256(&receipt.index_path)?);
     assert_eq!(
-        sealed["source_sha256"][source.to_str().unwrap()],
+        // Keyed by canonical path; a temporary directory is a symlink on macOS.
+        sealed["source_sha256"][source.canonicalize()?.to_str().unwrap()],
         files::sha256(&source)?
     );
     Ok(())

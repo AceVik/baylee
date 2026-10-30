@@ -916,6 +916,8 @@ fn account_json(believed: &Believed) -> String {
                 "central_ready": state.central_ready(),
                 "gateway_authenticated": state.lobby.token().is_some(),
                 "saved_gateway_count": state.gateways.len(),
+                // Which question stands over the lobby, by kind only.
+                "asking": state.asking(),
             "front_moving": believed.front_motion.as_ref().is_some_and(|motion| motion.moving()),
                 "offline": state.offline.is_some()
             })

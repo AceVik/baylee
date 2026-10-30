@@ -63,6 +63,31 @@ fn absolute(path: &Path) -> Result<PathBuf> {
 fn inputs(job: &Value) -> Result<&serde_json::Map<String, Value>> {
     job["inputs"].as_object().context("missing job inputs")
 }
+/// The digest a completed job recorded for the file at `path`, matched by
+/// canonical path. The guard records an input as the job declared it
+/// (relative to the job's `cwd`, or through a symlink such as macOS's `/var`),
+/// while the model directory checked here is canonical; two recorded
+/// spellings of one file with different digests are refused.
+fn recorded<'a>(job: &'a Value, path: &Path) -> Result<Option<&'a Value>> {
+    let wanted = path.canonicalize()?;
+    let cwd = job["cwd"].as_str().map(Path::new);
+    let mut found: Option<&Value> = None;
+    for (declared, digest) in inputs(job)? {
+        let declared = Path::new(declared);
+        let declared = match cwd {
+            Some(cwd) if declared.is_relative() => cwd.join(declared),
+            _ => declared.to_owned(),
+        };
+        if declared.canonicalize().is_ok_and(|p| p == wanted) {
+            ensure!(
+                found.is_none_or(|seen| seen == digest),
+                "A job recorded one input with two digests"
+            );
+            found = Some(digest);
+        }
+    }
+    Ok(found)
+}
 fn direct(name: &str) -> bool {
     Path::new(name).file_name().is_some_and(|n| n == name)
 }
@@ -256,11 +281,8 @@ pub fn manifest(root: &Path) -> Result<Value> {
             if ["model.onnx", "card_structure.json"].contains(&name.as_str()) {
                 continue;
             }
-            let path = selected.join(name);
             ensure!(
-                inputs(&job)?
-                    .get(path.to_str().context("invalid model path")?)
-                    .and_then(Value::as_str)
+                recorded(&job, &selected.join(name))?.and_then(Value::as_str)
                     == Some(hash.as_str()),
                 "Checkpoint changed since its completed comparison: {name}"
             );
@@ -367,9 +389,7 @@ pub fn confirmation_assessment(root: &Path, selected: &Path) -> Result<Value> {
         }
         let checkpoint = selected.join("net.pt");
         ensure!(
-            model(&v)? == selected
-                && inputs(&j)?.get(checkpoint.to_str().context("invalid path")?)
-                    == selection.get("model_sha256"),
+            model(&v)? == selected && recorded(&j, &checkpoint)? == selection.get("model_sha256"),
             "Confirmation evaluated a different candidate checkpoint"
         );
         let paired = compare(&v, &r, &p, &rp, 128, false)?;
