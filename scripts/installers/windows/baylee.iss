@@ -89,5 +89,15 @@ Source: "{#Icon}"; DestDir: "{app}"; DestName: "baylee.ico"; Flags: ignoreversio
 Name: "{userprograms}\Baylee"; Filename: "{app}\baylee-client.exe"; WorkingDir: "{app}"; IconFilename: "{app}\baylee.ico"; AppUserModelID: "AceVik.Baylee"
 Name: "{userdesktop}\Baylee"; Filename: "{app}\baylee-client.exe"; WorkingDir: "{app}"; IconFilename: "{app}\baylee.ico"; AppUserModelID: "AceVik.Baylee"; Tasks: desktopicon
 
+[Registry]
+; The `baylee:` link scheme (docs/client.md §"Links from the website"), per
+; user like the rest: the launcher gets the link as its argument and passes
+; it to the client it starts, or hands it to the one already running.
+; Removed with the installation.
+Root: HKCU; Subkey: "Software\Classes\baylee"; ValueType: string; ValueName: ""; ValueData: "URL:Baylee"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\baylee"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKCU; Subkey: "Software\Classes\baylee\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\baylee.ico"
+Root: HKCU; Subkey: "Software\Classes\baylee\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\baylee-client.exe"" ""%1"""
+
 [Run]
 Filename: "{app}\baylee-client.exe"; Description: "{cm:LaunchProgram,Baylee}"; Flags: nowait postinstall skipifsilent
