@@ -1,7 +1,7 @@
 asyncapi: "3.0.0"
 info:
   title: Baylee gateway sockets
-  version: 0.1.1-beta.9a
+  version: 0.1.1-beta.9b
   description: >-
     The gateway's WebSockets. A seat's socket carries protobuf `Envelope`s the
     gateway forwards to the game's engine and back without decoding them; the lobby feed,
