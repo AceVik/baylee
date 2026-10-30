@@ -213,6 +213,14 @@ pub fn manifest(root: &Path) -> Result<Value> {
         "Controller rank disagrees with measured utility"
     );
     let metadata = read_json(&selected.join("model.onnx.json"))?;
+    ensure!(
+        metadata
+            .get("critic_semantics")
+            .is_none_or(|marker| { *marker == json!({"kind":"mtg_side_outcome_utility_v1"}) })
+            && metadata.get("research_ppo_contract").is_none()
+            && metadata.get("research_ppo_progress").is_none(),
+        "Live selection requires MTG outcome critic semantics; research or unknown utility stays offline"
+    );
     let parity = super::number(&metadata, "parity_max_abs_diff")?;
     ensure!(
         (0.0..=0.001).contains(&parity) && metadata["checked_frames"].as_u64().unwrap_or(0) > 0,

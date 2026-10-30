@@ -161,6 +161,57 @@ fn manifest_and_publication_verify_real_inputs_and_completed_jobs() -> Result<()
 }
 
 #[test]
+fn research_or_unknown_critic_never_replaces_a_live_selection() -> Result<()> {
+    let f = Fixture::new()?;
+    let metadata_path = f.model.join("model.onnx.json");
+    let original = read_json(&metadata_path)?;
+    let output = f.root.join("selected-model.json");
+    atomic_json(
+        &output,
+        &json!({"model":f.root.join("existing-live"),"score":0.0}),
+    )?;
+    let before = std::fs::read(&output)?;
+    for extra in [
+        json!({"critic_semantics":null}),
+        json!({"critic_semantics":{"kind":"unknown"}}),
+        json!({"critic_semantics":{"kind":"failure_terminal_research_utility_v1",
+            "objective":"failure_terminal_utility_minus_frozen_source_value_uncentered_v1",
+            "target_contract":"failure_terminal_research_v1"}}),
+        json!({"critic_semantics":{"kind":"mtg_side_outcome_utility_v1","objective":"conflict"}}),
+        json!({"research_ppo_contract":null}),
+        json!({"critic_semantics":{"kind":"mtg_side_outcome_utility_v1"},"research_ppo_progress":{}}),
+        json!({}),
+        json!({"critic_semantics":{"kind":"mtg_side_outcome_utility_v1"}}),
+    ] {
+        let mut metadata = original.clone();
+        metadata
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        atomic_json(&metadata_path, &metadata)?;
+        // Re-seal the actual metadata in otherwise valid completed evaluations:
+        // refusal must concern its target, not a stale file digest.
+        for shape in ["duels", "commander"] {
+            f.evaluation("initial", shape, 0.5)?;
+        }
+        if extra == json!({})
+            || extra == json!({"critic_semantics":{"kind":"mtg_side_outcome_utility_v1"}})
+        {
+            manifest(&f.root)?;
+        } else {
+            assert!(
+                publish(&f.root, &output)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("critic semantics")
+            );
+            assert_eq!(std::fs::read(&output)?, before);
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn concurrent_incomplete_logs_are_ignored_and_failed_jobs_finish_inspection() -> Result<()> {
     let f = Fixture::new()?;
     let job = f.root.join("jobs/supervised");

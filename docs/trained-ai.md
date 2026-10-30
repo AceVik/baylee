@@ -448,6 +448,8 @@ export. The native identity parser rejects unknown or inconsistent markers;
 offline policy evaluation can load either supported meaning. The live adapter
 rejects research-utility critics before initialization, observation or answering
 because their targets are incompatible with `critic_draw_rule_v1`.
+The preview publisher rejects research, unknown or conflicting critic metadata
+before replacing an existing live selection.
 
 Unmarked archival exports retain their legacy identity and live behavior. This
 compatibility is not an inference about arbitrary weights: research exports
