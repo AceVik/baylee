@@ -239,6 +239,17 @@ Three jobs (bench, msrv, features) hung on 07.10.2026 for 228, 361 and 360
 minutes, all in `apt-get update` against a mirror that stopped answering; apt
 is now bounded in `.github/actions/linux-deps` and every job has a timeout.
 
+Every action is pinned to a full commit SHA with its version in a comment,
+which Dependabot (`.github/dependabot.yml`) moves weekly. Since 30.10.2026
+the repository enforces it (`sha_pinning_required`) and lets only GitHub's
+own actions and six others run (`allowed_actions` `selected`:
+`dtolnay/rust-toolchain`, `Swatinem/rust-cache`, `rui314/setup-mold`,
+`taiki-e/install-action`, `EmbarkStudios/cargo-deny-action`,
+`rustsec/audit-check`). A job that names any other action, or one by a tag,
+fails at "Set up job"; a new action needs its pattern in
+`gh api repos/AceVik/baylee/actions/permissions/selected-actions` first.
+GitHub's own CodeQL workflow names its actions by tag and still runs.
+
 ### The macOS runner
 
 The two macOS package rows can build on the owner's MacBook (M1 Max, ten
