@@ -518,6 +518,9 @@ async fn run_collect(
     let sched = Arc::new(Mutex::new(sched));
     let pacer = Arc::new(LaunchPacer::new(Duration::from_millis(launch_interval_ms)));
     let replay_sem = Arc::new(Semaphore::new(8));
+    // The gateway deliberately bounds password hashing/login workers. Serialize
+    // initial registration + login; games remain concurrent after setup.
+    let account_init_sem = Arc::new(Semaphore::new(1));
     let stop_flag = Arc::new(AtomicBool::new(false));
     let budget = Arc::new(AttemptBudget::new(max_attempts));
     let drain_flag = Arc::new(AtomicBool::new(budget.exhausted()));
@@ -569,6 +572,7 @@ async fn run_collect(
         let sched_c = Arc::clone(&sched);
         let pacer_c = Arc::clone(&pacer);
         let rep_c = Arc::clone(&replay_sem);
+        let account_init_c = Arc::clone(&account_init_sem);
         let stop_c = Arc::clone(&stop_flag);
         let drain_c = Arc::clone(&drain_flag);
         let budget_c = Arc::clone(&budget);
@@ -578,6 +582,10 @@ async fn run_collect(
         workers.spawn(async move {
             // Stagger initial account registration/login slightly across the 50 workers.
             tokio::time::sleep(Duration::from_millis((slot_id as u64) * 150)).await;
+            if assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c) {
+                return Ok(());
+            }
+            let account_init_permit = account_init_c.acquire().await?;
             if assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c) {
                 return Ok(());
             }
@@ -610,6 +618,7 @@ async fn run_collect(
                 }
             }
             let mut account = account.context("Account initialization exhausted without a result")?;
+            drop(account_init_permit);
             let mut worker_error = None;
             let mut consecutive_failures = 0_usize;
             while !assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c) {
