@@ -50,6 +50,10 @@ The pointer names `root`. Under that root read `queue-status.json`,
 `quota-latest.json`, collector `status.json`, `stats.json`, and
 `collector.stdout.log` / `collector.stderr.log`. `queue-status.json` contains
 PID, boot ID and start ticks. Recheck all three before signaling a process.
+The collector's aggregate statistics refresh when attempts close; before the
+first completion they can still report zero in flight. For current activity,
+inspect each `attempts/attempt-*/phase.json` (`stage: playing`) and growing
+per-seat transcripts. Count `receipt.json` admissions only after replay verification.
 The systemd unit owns the entire process tree and is independent of Codex chat.
 User lingering was enabled for `ace`, so logging out does not terminate the
 user service manager. The queue has no reboot restart or automatic restart.
@@ -193,5 +197,11 @@ Gate and migration evidence:
 `pr-gate-collector-fix/` and `pr-gate-features-collector-fix/` retain the
 follow-up checks for the account-startup fix. Read their final `job.json`
 receipts instead of assuming a launched check has passed.
+The explicit `llm-collector` feature test suite is separate from those gates.
+Its initial run exposed an old replay fixture that relied on House AI mulligan
+decisions to produce a publicly invisible input. The fixture now records an
+explicit private priority setting before concession, retaining both the valid
+replay check and rejection of a corrupted intermediate hash. Sol reviewed this
+test correction without findings; results are under `collector-login-fix-tests-recovery/`.
 The PR is separate from model deployment; do not promote a checkpoint because
 the software migration passed.
