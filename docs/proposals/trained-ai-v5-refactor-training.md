@@ -634,7 +634,7 @@ damit nicht mehrere Änderungen gleichzeitig den Versuch erklären könnten.
 Die neue X-Beobachtung wird nicht gleichzeitig mit diesem Reward-Vertrag
 als vermeintlich belegte Lösung eingeführt.
 
-Der nächste Tensoradapter muss die ursprüngliche Auswahlreihenfolge, Masken
+Der separate Rust-Tensoradapter muss die ursprüngliche Auswahlreihenfolge, Masken
 und sämtliche passiven Beobachtungen erhalten. Das vorhandene gewöhnliche
 Dataset verlangt ein MTG-Outcome, ergänzt teilweise Masken und begrenzt
 Entitäten; ein erfundenes `outcome=0` macht es nicht zum Forschungsadapter.
@@ -649,9 +649,12 @@ gesondert zu prüfen. Bei ausschließlich Null-Returns und konstanten Value-
 Vorhersagen entfernt die bisherige Zentrierung das Actor-Signal vollständig;
 bei unterschiedlichen Values werden einige zentrierte Advantages positiv.
 Als klar getrennte erste Variante ist `A = training_utility - V_source` ohne
-Zentrierung vorgesehen, mit eingefrorener Source-Baseline und eigenem
-Objective-/Resume-Marker. Das ist noch nicht implementiert oder als besser
-belegt. Ein nichtnull Gradient in einer Test-Fixture beweist keinen Lerngewinn;
+Zentrierung im separaten `research_ppo4`-Worker implementiert, mit eingefrorener
+Source-Baseline und eigenem Objective-/Resume-Marker. Tests prüfen Gradienten,
+vollständiges rekurrentes Replay, Rollback und die exakte Fortsetzung des nächsten
+Updates. Ein realer End-to-End-Nachweis und ein Spielstärkevergleich sind eigene
+Gates; die Variante ist noch nicht als besser belegt. Ein nichtnull Gradient in
+einer Test-Fixture beweist keinen Lerngewinn;
 bei tatsächlich identischen Returns aller möglichen Aktionen gibt es auch
 keine Information darüber, welche Aktion besser ist. Vollständiges numerisches
 Replay, K2/T0,7/FP32, unveränderte aufgezeichnete Logprobs, KL `0,02` und

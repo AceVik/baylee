@@ -6,6 +6,17 @@ and larger-exposure training run. Read the
 findings and handover procedure. This is a pointer to durable evidence; actual
 status can advance after this note.
 
+Update, 30 October: the missing research tensor/input-admission boundary is
+implemented in Rust (`599cfe70a`), with a separate PyTorch research objective,
+complete recurrent replay and checkpoint/resume worker. Read the
+[native tensor report](trained-ai-failure-terminal-research-tensors-2026-10-30.md)
+and the runbook's separate failure-terminal section. A four-attempt real-data
+end-to-end trial is being prepared under
+`refactor-investigations-20261029/failure-terminal-real-e2e-01a18a9d-d0e0-7db4-b154-2cbae46d83fd/`.
+Check its actual status and immutable receipts; this preparation statement does
+not certify completed collection, numerical replay or learning. The older
+performance/training roots described below remain completed and reviewed.
+
 The old continuous BC recipe remains stopped. The **bounded full-model E7/R6
 FP32 PPO pilot completed successfully**: eight attempted and eight accepted
 updates, 311 of 566 changed tensors, all published tensors finite, final
@@ -326,10 +337,14 @@ Parallel Rust milestones are committed locally:
   access; the single-row CLI is diagnostic. Commands and boundaries are in the
   [runbook](../training-runbook.md#separate-failure-terminal-research-path).
 
-Next implementation work: implement the strict Rust research tensor boundary,
-dedicated admission and Torch target/loss/resume handling, then numerical
-recurrent probability replay and a tiny
-end-to-end test. The shared replay's Forced/Net classification now checks the
+The strict Rust research tensor boundary and dedicated input admission are
+implemented, with separate Torch target/loss/resume handling and tests.
+Next verification work is the real producer-to-update trial: preserve all four
+planned attempts, require at least 128 genuine audited choices, replay complete
+histories against their original sampled probabilities, then attempt one
+bounded update. Failure means retain the evidence and diagnose, without a
+refill, shape fallback or weaker probability tolerance. The shared replay's
+Forced/Net classification now checks the
 reconstructed menu rather than trusting the label; this closes a validation
 gap and does not establish that the existing PPO dataset contained mislabeled
 frames. Keep conversion-only artifacts unadmitted. For Terra/Sonnet live

@@ -285,7 +285,8 @@ Use freshly built and pinned tools containing the research commands; an older
 experiment's frozen binary does not acquire new commands when this checkout
 changes. This path currently supports unteamed 1v1 neural self-play or a frozen
 historical neural opponent, Raw/FP32 K2 and temperature 0.7. It stops before
-House recovery. It does not yet provide admitted PPO data or live Terra games.
+House recovery. It has a separate native tensor/input-admission and PyTorch
+research worker; live Terra games still need the executed-action/export join.
 
 The bounded CPU wrapper receives the evaluator command literally after `--`:
 
@@ -365,12 +366,94 @@ receipt alone does not replace verification. These artifacts explicitly remain
 `admitted=false`, `ppo_eligible=false`, `tensor_cache=false` and
 `producer_binary_certified=false`.
 
-A strict Rust tensor adapter, dedicated research admission, PyTorch return/loss/
-resume contract, complete numerical recurrent probability replay and a tiny
-end-to-end trial remain required before learning.
+The separate `research_tensor4` executable performs strict model-input packing
+in Rust. It retains every represented entity, relation, candidate, pair, mask,
+pick sequence and passive observation, and rejects invalid references instead
+of truncating or repairing them. Its persistent process verifies source evidence
+once at opening and serves typed little-endian arrays for contiguous history
+ranges. Real empty menus retain the native evaluator's false masks. Only the
+Torch loader adds masked temporal padding; ordinary `Dataset4` is not used to
+encode research frames.
+
+Freeze a new `failure_terminal_research_input_pins_v1` JSON containing:
+
+- `cache_dir`, `conversion_manifest_sha256`, `cache_manifest_sha256`;
+- `source_checkpoint: {path, sha256}`, the exact `learner_model_identity` and
+  `catalog` from the externally checked collection/conversion;
+- one entry per source in `producers`, containing `source_run_sha256`,
+  `guard_job`, `guard_job_sha256`, `executable`, `executable_sha256` and the
+  exact original `collection_contract`.
+
+Paths are canonical absolute paths. The original schema-3 guard must seal the
+actual producer executable and all learner/opponent model metadata/depth graphs.
+Freezing arbitrary new pins does not repair missing original guard evidence.
+
+```text
+/absolute/pinned/research_tensor4 admit --pins /absolute/NEW/pins.json --expected-pins-sha256 FROZEN_PINS_SHA --out /absolute/NEW/admission.json
+/absolute/pinned/research_tensor4 verify --pins /absolute/NEW/pins.json --expected-pins-sha256 FROZEN_PINS_SHA --admission /absolute/NEW/admission.json
+```
+
+This grants only `research_input_admitted=true`; the receipt still declares
+`ordinary_ppo_admitted=false` and `numerical_replay_required=true`. The lossless
+storage receipt remains storage-only. The dedicated Torch entry point is:
+
+```text
+/absolute/torch-venv/bin/python /absolute/frozen/trainer/train_research_ppo4.py --init /absolute/r6/net.pt --cache-dir /absolute/NEW/research-cache --conversion-sha256 FROZEN_CONVERSION_SHA --cache-sha256 FROZEN_CACHE_SHA --pins /absolute/NEW/pins.json --pins-sha256 FROZEN_PINS_SHA --admission /absolute/NEW/admission.json --out /absolute/NEW/replay-only --device cuda --batch-size 4 --unroll 64 --audit-only
+```
+
+Use the pinned `research_tensor4` through `BAYLEE_RESEARCH_TENSOR` and pinned
+`train_ops` through `BAYLEE_TRAIN_OPS`. The example is the worker invocation;
+run it under the usual native guard, GPU lock and immutable pipeline manifest.
+The worker closes and reaps its owned native tensor server on success or error.
+Its dataset must not be shared with multiprocessing DataLoader workers.
+Before CUDA, use a separate output directory with `--preflight-only --device cpu`
+instead of `--audit-only`. This loads the actual checkpoint and materializes and
+collates every admitted segment, checking counts, dtypes and finite CPU tensors.
+It performs no model forward, optimizer construction, target creation or model
+write. It is not a substitute for the numerical replay. Keep the existing exact
+CUDA initialization/cap/allocation prerequisite under the final launch mappings.
+
+For the bounded learning trial, use a new output directory, omit `--audit-only`
+and explicitly set `--epochs 1 --max-steps 1 --lr 0.00002 --target-kl 0.02`.
+The entire input collection is replayed before any optimizer construction,
+with unchanged recorded behavior log probabilities and maximum error 0.001.
+At least 128 genuine stochastic choices are required for a learning run.
+All known-return learner histories remain present, including passive frames;
+unknown attempts stay in the admission denominators and receive no targets.
+The initial worker restricts this experiment to the approved E7 observation
+contract, FP32, recorded K2/T0.7, without a BC anchor or auxiliary losses.
+It explicitly disables TF32, fixes deterministic cuDNN behavior and bounds the
+CUDA allocator at 11 GiB before loading model tensors. Precision flags are
+part of the resume contract and are rechecked before publication.
+
+The objective marker is
+`failure_terminal_utility_minus_frozen_source_value_uncentered_v1`:
+`A = training_utility - V_source`, without centering or rescaling. Source values
+are frozen before updates and recomputed from the same source on resume. This
+avoids turning an all-zero-return sample into positive advantages by centering;
+it does not establish that the penalty improves play. The critic learns the
+declared research utility, never an invented MTG outcome. Current-policy hidden
+state is reconstructed from each complete history prefix. Each update checks
+the whole collection against recorded behavior and restores weights, Adam and
+RNG together on rejection. Full-model graph, recurrence and thinking parameters
+remain trainable.
+
+Research checkpoints use `research_ppo_contract` and `research_ppo_progress`;
+ordinary PPO continuations are rejected. `--resume /absolute/RUN/last.pt` needs
+the identical experiment contract. `--max-steps` is a cumulative attempted-batch
+budget and may increase for exact continuation; it is not a full-epoch claim.
+`probability-replay.json` and `report.json` record coverage and gates. Check
+accepted updates, final gate and changed weights rather than process exit alone.
+No publication to the user gateway is automatic.
+
+Before calling the new path learning-ready, retain a real, original-probability
+producer→converter→native-admission→Torch-replay→update receipt. Synthetic
+format fixtures cannot provide that evidence or a playing-strength claim.
 Implementation evidence and exact validations are in the
 [attempt-ledger report](history/trained-ai-research-attempt-ledger-2026-10-29.md)
-and [research-conversion report](history/trained-ai-failure-terminal-research-conversion-2026-10-29.md).
+and [research-conversion report](history/trained-ai-failure-terminal-research-conversion-2026-10-29.md),
+with native protocol and pin details in the
+[research-tensor report](history/trained-ai-failure-terminal-research-tensors-2026-10-30.md).
 
 ## Update and recover
 
