@@ -2592,6 +2592,12 @@ fn mirrodin_batch_two_reader_patterns() {
         &["cost!(\"{6}\", TapSelf, SacrificeSelf)"],
     );
     assert_reads(
+        "Name:Printed tap correction after sacrifice\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ 6 Sac<1/CARDNAME> | Defined$ You | NumCards$ 1\n\
+         Oracle:{6}, Sacrifice this artifact, {T}: Draw a card.",
+        &["cost!(\"{6}\", SacrificeSelf, TapSelf)"],
+    );
+    assert_reads(
         "Name:Linked instant\nTypes:Artifact\n\
          T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | OptionalDecider$ You | Execute$ Exile\n\
          SVar:Exile:DB$ ChangeZone | Imprint$ True | Origin$ Hand | Destination$ Exile | ChangeType$ Instant.cmcLE2 | ChangeNum$ 1\n\

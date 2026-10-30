@@ -136,22 +136,30 @@ impl Tx<'_> {
         };
         probe.drop_prose();
         let mut cost = probe.take("Cost");
+        let printed_cost = self.oracle.split(':').next().unwrap_or_default();
+        let tap_before_other_costs = printed_cost
+            .split(", ")
+            .take_while(|part| *part != "{T}")
+            .all(|part| part.starts_with('{') && part.ends_with('}') && part != "{Q}");
         // A script can omit a printed tap symbol from its only activated
         // ability. With exactly one Oracle colon there is no other ability it
         // could belong to, so the printed cost is an unambiguous correction;
-        // never infer a tap across several activated abilities.
+        // never infer a tap across several activated abilities. Preserve the
+        // printed position relative to the non-mana costs as well.
         if is_activated
             && self.oracle.matches(':').count() == 1
-            && self
-                .oracle
-                .split(':')
-                .next()
-                .is_some_and(|prefix| prefix.split(", ").any(|part| part == "{T}"))
+            && printed_cost.split(", ").any(|part| part == "{T}")
             && cost
                 .as_deref()
                 .is_some_and(|parts| !parts.split_whitespace().any(|part| part == "T"))
         {
-            cost = cost.map(|parts| format!("{parts} T"));
+            cost = cost.map(|parts| {
+                if tap_before_other_costs {
+                    format!("T {parts}")
+                } else {
+                    format!("{parts} T")
+                }
+            });
         }
         let alternate_cost = probe.take("AlternateCost");
         if !is_activated && alternate_cost.is_some() {
