@@ -167,8 +167,12 @@ pub fn pick_choice(duel: &mut Duel, index: usize) {
             return;
         }
         if index == baylee_client_core::targeting::NEXT {
-            duel.target_page = (duel.target_page + 1)
-                .min(visible.saturating_sub(1) / baylee_client_core::targeting::PAGE_SIZE);
+            duel.target_page = crate::choices::Page::of(
+                visible,
+                duel.target_page + 1,
+                baylee_client_core::targeting::PAGE_SIZE,
+            )
+            .index;
             return;
         }
         match options.get(index) {
@@ -259,8 +263,12 @@ fn page_damage_choice(duel: &mut Duel, index: usize) -> bool {
             return true;
         }
         if index == baylee_client_core::targeting::NEXT {
-            duel.target_page = (duel.target_page + 1)
-                .min(count.saturating_sub(1) / crate::choices::DAMAGE_PAGE_SIZE);
+            duel.target_page = crate::choices::Page::of(
+                count,
+                duel.target_page + 1,
+                crate::choices::DAMAGE_PAGE_SIZE,
+            )
+            .index;
             return true;
         }
     }
@@ -317,7 +325,8 @@ fn pick_block_choice(duel: &mut Duel, index: usize) -> bool {
                 .iter()
                 .filter(|o| matches!(o, baylee_client_core::interaction::BlockRow::Toggle(_)))
                 .count();
-            duel.target_page = (duel.target_page + 1).min(creatures.saturating_sub(1) / PAGE_SIZE);
+            duel.target_page =
+                crate::choices::Page::of(creatures, duel.target_page + 1, PAGE_SIZE).index;
         }
         _ => {
             if let Some(row) = rows.get(index) {

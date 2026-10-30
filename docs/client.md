@@ -1383,11 +1383,46 @@ the flier's one possible blocker is the one lit). `table::track_proposals`
 rebuilds the board when that set moves with the aim. And the block
 declaration is a named list in the drawer, as the attack declaration is
 (`drawer::block`, `interaction::BlockRow`): every attacker as
-"Attacker: Earth Elemental · 1 blocking" (`[x]` on the one in aim), then
+"Attacker: Earth Elemental · 1 blocking" (the one in aim drawn chosen), then
 "Block: Grizzly Bears → Earth Elemental" for each creature that may block
 it and "Take back: … → …" for each already blocking; a row is the click the
 table takes (`Interaction::toggle`), the blockers page and the attackers stay,
 and the ordinary confirmation still sends.
+
+**The three action dialogs read alike (30.10.2026).** The owner, 29.10.2026:
+unify the dialogs for targets, attackers and blockers where possible, fix
+their glitches, and play them several times. Played on a dealt board
+(`BAYLEE_DEV_SEAT_BOARD`, six creatures a side, Lightning Bolt in hand):
+
+- **A chooser that wraps stays in its panel.** The answer row wrapped
+  without a width of its own, so the layout measured it as one line and
+  sized the panel to that; the panel grows up from the shelf, so with six
+  attackers the last line hung out of its foot over the shelf's own answers
+  ("Declare attack", "None") and hid them. `drawer::chooser` now spans the
+  panel (`a_chooser_that_wraps_stays_inside_its_panel` lays it out).
+- **Chosen is drawn, never written.** The target picked, the defender or
+  attacker in aim and the seat a target list is filtered to wear the taken
+  row's candle edge and wash (`ChoiceOption::chosen`), as a picked row
+  always did; the three dialogs wrote `[x] ` into the label instead, and
+  the seat filter said nothing about which seat was in force.
+- **One page, one pair of arrows.** `choices::Page` is the one reading of a
+  page for targets, attackers, blockers and damage (an asked page past the
+  end is the last one everywhere), and `choices::page_arrows` the one pair
+  of arrows, worded "‹ Back" / "More ›" in all four (two said "←", "→").
+- **Captioned groups in all three.** The attack list stood in captioned
+  groups (Players, Creatures); the block list ran attackers and blockers on
+  in one wrap and now stands under Attackers and Blockers (with the page's
+  range, as the attack list's creatures); a long target list stands under
+  Targets, its seat filter under "Show the targets of" (the seats' chips had
+  read as the list's seat rows said twice).
+- **The commit leads.** The combat shelf's first answer wears the candle,
+  and it was "Aim next" even where one defender or one attacker left it
+  nothing to aim at. The commit ("Attack", "Block") now leads once
+  something is declared, "Aim next" stands only where there are two or more
+  to aim at (its key `C` moves the aim wherever there is one), then "None".
+- **Words.** The incoming tally says what its number is: "steady 1: 1
+  attacking, 2 damage unblocked" (it read as two creatures). A target list
+  names the chosen targets only where the page does not show their row.
 
 The board model also builds a text chip row per seat (`board::TokenChip`,
 `12× 1/1 Soldier · 3× Treasure`) and a one-line threat read
