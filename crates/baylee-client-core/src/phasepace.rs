@@ -12,9 +12,13 @@
 //! it never passes through a step the game skipped (CR 508.8).
 //!
 //! It never stands in the way of an answer: when this seat is asked
-//! something, or motion is reduced, it goes straight to where the game is.
-//! And it never falls far behind: past [`MAX_BEHIND`] waiting steps the
-//! oldest are dropped, so a long run of passes is shown as its last few.
+//! something, the steps still waiting run by at [`CATCH_UP`] each, so the
+//! light reaches the step asked about in a fraction of a second instead of
+//! jumping there (in another seat's turn a seat is asked at most steps, and
+//! a jump each time was the cut this was written to end; recorded
+//! 30.10.2026). Reduced motion goes straight to where the game is. And it
+//! never falls far behind: past [`MAX_BEHIND`] waiting steps the oldest are
+//! dropped, so a long run of passes is shown as its last few.
 
 use std::collections::VecDeque;
 
@@ -25,6 +29,9 @@ use crate::automation::RailRow;
 
 /// The least time one step is shown before the next, in seconds.
 pub const STEP_HOLD: f32 = 0.6;
+
+/// The least time one step is shown while this seat must answer.
+pub const CATCH_UP: f32 = 0.15;
 
 /// The most steps waiting to be shown; older ones are dropped.
 pub const MAX_BEHIND: usize = 4;
@@ -68,9 +75,9 @@ impl PhasePace {
 
     /// Takes the step the view stands in (`seen`), at `now` seconds, and
     /// moves on what is shown where it is time to. `asked` is whether this
-    /// seat must answer something now, and `still` whether motion is
-    /// reduced: either goes straight to `seen`. Whether what is shown
-    /// changed.
+    /// seat must answer something now, which holds each step only
+    /// [`CATCH_UP`]; `still` is whether motion is reduced, which goes
+    /// straight to `seen`. Whether what is shown changed.
     pub fn follow(&mut self, now: f32, seen: Shown, asked: bool, still: bool) -> bool {
         if self.waiting.back().copied().or(self.shown) != Some(seen) {
             self.waiting.push_back(seen);
@@ -78,14 +85,15 @@ impl PhasePace {
         while self.waiting.len() > MAX_BEHIND {
             self.waiting.pop_front();
         }
-        if self.shown.is_none() || asked || still {
+        if self.shown.is_none() || still {
             let Some(newest) = self.waiting.pop_back() else {
                 return false;
             };
             self.waiting.clear();
             return self.show(now, newest);
         }
-        if now - self.at >= STEP_HOLD
+        let hold = if asked { CATCH_UP } else { STEP_HOLD };
+        if now - self.at >= hold
             && let Some(next) = self.waiting.pop_front()
         {
             return self.show(now, next);
@@ -167,18 +175,38 @@ mod tests {
         }
     }
 
-    /// Asked something, or with motion reduced, the bars go straight to
-    /// where the game is, and what waited is forgotten.
+    /// With motion reduced, the bars go straight to where the game is, and
+    /// what waited is forgotten.
     #[test]
-    fn an_answer_or_reduced_motion_goes_straight_to_the_step() {
-        for (asked, still) in [(true, false), (false, true)] {
-            let mut pace = PhasePace::default();
-            pace.follow(0.0, at(RailRow::Upkeep), false, false);
-            pace.follow(0.1, at(RailRow::Draw), false, false);
-            assert!(pace.follow(0.2, at(RailRow::Main1), asked, still));
-            assert_eq!(pace.shown(), Some(at(RailRow::Main1)));
-            assert!(!pace.behind());
+    fn reduced_motion_goes_straight_to_the_step() {
+        let mut pace = PhasePace::default();
+        pace.follow(0.0, at(RailRow::Upkeep), false, false);
+        pace.follow(0.1, at(RailRow::Draw), false, false);
+        assert!(pace.follow(0.2, at(RailRow::Main1), false, true));
+        assert_eq!(pace.shown(), Some(at(RailRow::Main1)));
+        assert!(!pace.behind());
+    }
+
+    /// Asked something, the steps waiting run by quickly instead of being
+    /// skipped: each one is shown, and the step asked about is reached
+    /// well within one ordinary hold per step.
+    #[test]
+    fn an_answer_runs_the_light_quickly_to_the_step() {
+        let mut pace = PhasePace::default();
+        pace.follow(0.0, at(RailRow::Upkeep), false, false);
+        pace.follow(0.01, at(RailRow::Draw), false, false);
+        pace.follow(0.01, at(RailRow::Main1), false, false);
+        let mut walked = Vec::new();
+        let mut now = 0.01;
+        while pace.behind() {
+            now += 0.01;
+            if pace.follow(now, at(RailRow::Main1), true, false) {
+                walked.push(pace.shown().unwrap().row());
+            }
         }
+        assert_eq!(walked, [RailRow::Draw, RailRow::Main1], "no step skipped");
+        assert!(now < 2.0 * STEP_HOLD, "caught up only at {now} s");
+        assert!(now >= 2.0 * CATCH_UP - 0.02, "it jumped: {now} s");
     }
 
     /// A long run of passes is shown as its last few steps.

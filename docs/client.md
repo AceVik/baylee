@@ -6573,8 +6573,11 @@ step and the light lived on the tile.
   (0.6 s) before the next, so the light walks the row a step at a time; only
   steps a view stood in are shown, never one the game skipped (CR 508.8). It
   never stands in the way of an answer: when this seat is asked something,
-  or motion is reduced, it goes straight to where the game is, and it never
-  falls more than `MAX_BEHIND` (4) steps behind. A replay that goes back or
+  the steps still waiting run by at `CATCH_UP` (0.15 s) each, so the light
+  reaches the step asked about instead of jumping there (in another seat's
+  turn a seat is asked at most steps, and a jump each time was the cut this
+  ends); with motion reduced it goes straight there. It never falls more
+  than `MAX_BEHIND` (4) steps behind. A replay that goes back or
   jumps turns starts it over.
 - **The light** (`rail::glow_the_steps`, `hud::StepLights`): kept by seat and
   step, off the tiles, it eases up on the step shown (`LIGHT_RATE` 3.5/s,

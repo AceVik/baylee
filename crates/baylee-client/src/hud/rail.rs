@@ -138,8 +138,9 @@ const NOW_GLOW: f32 = 10.0;
 const NOW_SPREAD: f32 = 2.0;
 
 /// Follows the view's step with the table's pace ([`super::StepPace`]):
-/// each step a view stood in is shown for a while before the next, and this
-/// seat's own question, or reduced motion, goes straight to the step.
+/// each step a view stood in is shown for a while before the next, briefly
+/// while this seat must answer, and reduced motion goes straight to the
+/// step.
 /// Writes only when what is shown changes; a new game, or a replay that went
 /// back, starts over.
 pub fn pace_the_steps(

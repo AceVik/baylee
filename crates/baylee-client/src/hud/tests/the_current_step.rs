@@ -102,11 +102,12 @@ fn harness() -> App {
 }
 
 fn show(app: &mut App, shown: Shown) {
-    // Asked, so it is shown at once: the pace is client-core's to test.
-    app.world_mut()
-        .resource_mut::<StepPace>()
-        .0
-        .follow(0.0, shown, true, false);
+    // Shown at once, as a fresh pace shows its first step: the pace itself
+    // is client-core's to test. The light is this file's, and it is kept
+    // apart from the pace, so starting the pace over leaves it as it was.
+    let mut pace = app.world_mut().resource_mut::<StepPace>();
+    pace.0.reset();
+    pace.0.follow(0.0, shown, false, false);
 }
 
 fn frame(app: &mut App) {
