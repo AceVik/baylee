@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: Baylee gateway admin console
-  version: 0.1.1-beta.9a
+  version: 0.1.1-beta.9b
   description: "A gateway's admin console: counts, accounts, beta keys, card blocks, hosted models and the terms. It listens on its own loopback address only, never on the public port or the unix socket, and refuses a browser's request before it reads the token (`docs/protocol.md` §\"The admin console\")."
   license:
     name: AGPL-3.0-only

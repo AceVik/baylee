@@ -267,8 +267,14 @@ cores, 64 GB) instead of GitHub's three-core macOS image. While the
 repository variable `MACOS_RUNNER` is `self-hosted`, a **push to main** (or a
 dispatch, which only someone with write access can start) sends them to the
 label `baylee-vm`. Every other run, a `ci:full` pull request included, and
-the other macOS job (the nightly `build` row) stays on GitHub; with the
-variable unset, nothing differs from before.
+the other macOS job (the nightly `build` row) stays on GitHub; with any
+other value, nothing differs from before.
+
+Since 30.10.2026 the variable is `github` (owner): with GitHub Pro's larger
+cache the rows no longer start cold, and the runner's cargo lock had kept
+every land waiting behind both packages of each main push (two hours on
+29.10). The runner stays installed and idle, a switch back is
+`gh variable set MACOS_RUNNER --body self-hosted`.
 
 Measured over ten main pushes (20.–21.10.2026, minutes), GitHub's rows took
 32–88 (aarch64) and 42–82 (x86_64), 27–54 of it the `dist` build with
@@ -313,15 +319,16 @@ Each job runs in a throwaway Tart VM (`crates/baylee-runner`):
   the lock. The LaunchAgent allows 180 seconds for shutdown. A failed GitHub
   busy-status lookup is unknown, not evidence that a running job is idle;
   the three-hour absolute limit still applies.
-- **One VM at a time.** macOS allows two per Mac, and the runner can run
-  both packages side by side (`Settings::max_vms`), but that buys nothing
-  here: both VMs have 8 vCPUs on a Mac with ten cores, so in run 40950996798
-  each dist build took 46 minutes instead of about 22, and both packages were
-  done after 68 minutes against 70 one after the other. Since 30.10.2026 the
-  runner starts one VM at a time (owner). With two, each VM waits for the one
-  before it to reach the network or give up: two started together both stayed
-  offline for twelve minutes, while the second one, started once the first
-  reached github.com, had the network in two seconds (measured 29.10.2026).
+- **One VM, or two.** macOS allows two per Mac, and the runner can run
+  both packages side by side (`Settings::max_vms`, 1 since 30.10.2026). Two
+  are faster: three main pushes on 30.10.2026 had both packages done after
+  43–44 minutes, against 70 one after the other (run 40884505445). A first
+  two-VM run took 68 (40950996798), while the disk was filling up; the owner
+  chose one VM on that number, before the others were in. With two, each VM
+  waits for the one before it to reach the network or give up: two started
+  together both stayed offline for twelve minutes, while the second one,
+  started once the first reached github.com, had the network in two seconds
+  (measured 29.10.2026).
 - **Release trust.** The macOS archives a release promotes were built on that
   Mac. `release verify-run` checks that they come from a main push run, not
   where the run built them.
