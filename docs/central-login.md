@@ -199,6 +199,11 @@ Central as its digest. An admin pastes it into the gateway's console
   (`central::Link`), every request asks for the bridge in use, and a request
   in flight finishes with the one it started with. The token never reaches a
   log or an answer; the console sees its last four characters.
+- **Backups hold the token.** A dump, snapshot or backup of the gateway's
+  database holds the token as the database does, in plain text. An operator
+  who loses one, or cannot say where one went, revokes the token on the
+  website (`/account/gateways`) and pastes a new one; the console's
+  **Remove the token** forgets the old one at the gateway.
 - One token serves both its players' sign-ins (`RedeemGateway`,
   `GatewaySession`, `GatewayProfile`, `GatewayAuthorize`,
   `PublishGatewayTerms`) and the heartbeat, for what its scopes allow; the
