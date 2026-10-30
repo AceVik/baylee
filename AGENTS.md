@@ -14,6 +14,14 @@ unofficial, non-commercial fan project.
 
 ## Always
 
+- **Implementation language (owner, 29.10.2026; all agents).** Everything that
+  can be implemented in Rust must be implemented in clean Rust. No shell or
+  Python substitutes for automation, orchestration, data preparation, evaluation,
+  monitoring or helper programs. Python is allowed only for PyTorch code and
+  its directly associated tests; TypeScript only for web applications and their
+  web-specific tooling. A Rust replacement also replaces its callers and tests.
+  Existing CLI tools may be invoked directly; do not hide new program logic in
+  shell pipelines or interpreter one-liners.
 - **Gate before you push.** `cargo dev gate` and `cargo dev gate features`
   (with `DATABASE_URL`); `cargo dev land` runs both desktop gates and
   fast-forwards `main`. Wasm is an optional experimental check until browser
@@ -66,6 +74,7 @@ unofficial, non-commercial fan project.
 | Card batches: progress, held back, learnings | `docs/set-progress.md`, `docs/generated-held-back.md`, `docs/llm-learnings.md` |
 | Decks, precons, formats | `docs/deck-format.md`, `docs/precons.md`, `docs/banlists-and-formats.md` |
 | The house AI, the trained AI, language-model seats | `docs/house-ai.md`, `docs/trained-ai.md`, `docs/ai-coverage-todo.md`, `docs/llm-seat.md`, `docs/llm-protocol.md` |
+| Training operations, current run pointers, research findings and agent takeover | `docs/training-runbook.md` |
 | The wire protocol and every server route (normative) | `docs/protocol.md` |
 | The same routes and sockets as OpenAPI and AsyncAPI, generated (`cargo dev api`, `cargo dev api serve`) | `docs/api/`, `docs/dev/commands.md` |
 | Bug reports, the feedback service and its UI | `docs/feedback.md`, `web/feedback/README.md` |

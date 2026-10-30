@@ -71,10 +71,8 @@ use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// The seconds a question gets at a `blitz` table, the fastest preset: too
-/// few for a model that thinks, so the bridge refuses such a table unless
-/// told otherwise ([`BridgeConfig::allow_blitz`]).
-pub const BLITZ_SECS: u32 = 30;
+mod clock;
+pub use clock::{BLITZ_SECS, is_blitz_clock};
 
 /// How the bridge treats its mind.
 #[derive(Clone, Debug)]
@@ -91,7 +89,7 @@ pub struct BridgeConfig {
     /// Answers in a row the mind fails to give (unavailable, out of budget)
     /// before the bridge takes it off the table: [`Step::MindDown`].
     pub down_after: u32,
-    /// Sit at a table that gives a question [`BLITZ_SECS`] or fewer.
+    /// Sit at a table with a positive clock of [`BLITZ_SECS`] or fewer.
     pub allow_blitz: bool,
     /// The windows the standing orders stop at, when the seat could do
     /// something there ([`crate::wake::MIND_STOPS`] by default).
@@ -696,7 +694,7 @@ impl SeatCore {
                 );
                 return self.leave(why);
             }
-            if let Some(secs) = statics.decision_secs.filter(|s| *s <= BLITZ_SECS)
+            if let Some(secs) = statics.decision_secs.filter(|s| is_blitz_clock(*s))
                 && !self.config.allow_blitz
             {
                 return self.leave(format!(

@@ -333,7 +333,12 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 81: Battle defender/Defense counter variants and public battle protector.
     // 82: imported dungeon and mutate choices and physical-card/token status bits.
     // Composed ability sources: additive, default-empty and omitted when empty.
-    const RECORDED: (u32, u64) = (82, 15_051_149_316_722_928_707);
+    // `announced_cast`: additive owner-only opt-in context, default None and
+    // omitted when absent. Existing/default wire payloads remain identical;
+    // old readers ignore the field, so this does not require a version bump.
+    // `announced_x` has the same default/omission compatibility, and is only
+    // populated by a separate experimental native projection, never sockets.
+    const RECORDED: (u32, u64) = (82, 17_593_544_635_232_560_164);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

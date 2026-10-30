@@ -11,7 +11,9 @@
 //! and plays the game to its end. A bridge a host's client starts
 //! (`--tethered --chair <n> --chair-ticket`) instead reads the host's chair
 //! ticket off its stdin and sits down on it, with no account of its own, so
-//! it gets in where the gateway takes no guests. The gateway is `--gateway`, else
+//! it gets in where the gateway takes no guests. `--host-chair --tethered
+//! --chair 0` instead reuses an existing host chair/session from first-line
+//! stdin JSON; it creates no account or deck. The gateway is `--gateway`, else
 //! `BAYLEE_GATEWAY`, else the local default; a closed beta's key is
 //! `--invite-key` or `BAYLEE_INVITE_KEY`, a locked room's password
 //! `--password` or `BAYLEE_ROOM_PASSWORD`. `RUST_LOG=info` says what the
@@ -45,7 +47,7 @@ use baylee_seat::keys;
 use baylee_seat::link::SeatLink;
 use baylee_seat::llm::{self, AnswerMode, Price, Secret, Spec, Tally, scrub};
 use baylee_seat::lobby::{Chair, ChairTicket, GuestSignIn, Lobby, Room, Session, seat_name};
-use baylee_seat::seat::{BLITZ_SECS, Outcome};
+use baylee_seat::seat::{Outcome, is_blitz_clock};
 use baylee_seat::show::Show;
 use baylee_seat::spend::{self, Booked};
 use baylee_seat::{BridgeConfig, Disclosure, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
@@ -157,6 +159,10 @@ struct Join {
     /// (`docs/llm-seat.md` §"A language model at your table").
     #[arg(long, requires_all = ["tethered", "chair"])]
     chair_ticket: bool,
+    /// Reuse the existing host chair and session from first-line stdin JSON.
+    /// Never pass tokens as arguments; the remaining stdin holds the tether.
+    #[arg(long, requires_all = ["tethered", "chair"], conflicts_with = "chair_ticket")]
+    host_chair: bool,
     /// The gateway's address [default: `BAYLEE_GATEWAY`, else the local one].
     #[arg(long)]
     gateway: Option<String>,
@@ -776,7 +782,7 @@ async fn run() -> anyhow::Result<()> {
         }
         Command::Join(join) => {
             let (mut let_go, orders, ticket) = if join.tethered {
-                let held = tether::hold(join.chair_ticket);
+                let held = tether::hold(join.chair_ticket || join.host_chair);
                 (Some(held.let_go), Some(held.orders), held.ticket)
             } else {
                 (None, None, None)
@@ -978,7 +984,7 @@ struct Leaving {
 /// with afterwards.
 #[derive(Clone)]
 enum Standing {
-    /// As a guest, under its own session.
+    /// Under its own session, as a guest or an explicitly handed-over host.
     Guest(Session),
     /// On its host's chair ticket: it has the chair's seat token and
     /// nothing else.
@@ -986,7 +992,7 @@ enum Standing {
 }
 
 impl Standing {
-    /// The session to take the chair back with, for a guest.
+    /// The owning session to take the chair back with.
     fn session(&self) -> Option<Session> {
         match self {
             Self::Guest(session) => Some(session.clone()),
@@ -1022,84 +1028,8 @@ async fn leave_unstarted(unstarted: &Unstarted) {
     }
 }
 
-/// Stdin held by the program that started the bridge (`--tethered`).
-mod tether {
-    use baylee_client_core::llmseat::seating::{LIVE_CHANGES, ORDER_BYTES};
-    use baylee_client_core::say;
-    use tokio::io::AsyncBufReadExt as _;
-    use tokio::sync::{mpsc, oneshot};
-
-    /// What the program that started the bridge hands it on stdin.
-    pub struct Held {
-        /// Fires when stdin closes: the program let go.
-        pub let_go: oneshot::Receiver<()>,
-        /// Each later line, an order.
-        pub orders: mpsc::UnboundedReceiver<String>,
-        /// The first line, when the bridge was told a chair ticket comes
-        /// there (`--chair-ticket`): handed over as it was read and to
-        /// nothing else, never an order, never printed.
-        pub ticket: Option<oneshot::Receiver<String>>,
-    }
-
-    /// Reads stdin until it closes: first the chair ticket when `ticket`
-    /// says one comes, then each line an order (a debug build's only; a
-    /// release build reads them and does nothing with them), and its end
-    /// the program letting go.
-    pub fn hold(ticket: bool) -> Held {
-        let (gone, let_go) = oneshot::channel();
-        let (send, orders) = mpsc::unbounded_channel();
-        let (ticket_in, ticket_out) = if ticket {
-            let (tx, rx) = oneshot::channel();
-            (Some(tx), Some(rx))
-        } else {
-            (None, None)
-        };
-        tokio::spawn(async move {
-            let mut lines = tokio::io::BufReader::new(tokio::io::stdin()).lines();
-            if let Some(ticket_in) = ticket_in {
-                // Taken whatever it is: an empty or closed stdin hands over
-                // an empty line, which is refused as no ticket.
-                let first = lines.next_line().await.ok().flatten().unwrap_or_default();
-                let _ = ticket_in.send(first);
-            }
-            let mut said = false;
-            while let Ok(Some(line)) = lines.next_line().await {
-                if line.trim().is_empty() {
-                    continue;
-                }
-                if !LIVE_CHANGES {
-                    if !said {
-                        say!("order refused: a release build changes no mind during a game");
-                        said = true;
-                    }
-                    continue;
-                }
-                if line.len() > ORDER_BYTES {
-                    say!("order refused: an order is one line of at most {ORDER_BYTES} bytes");
-                    continue;
-                }
-                let _ = send.send(line);
-            }
-            let _ = gone.send(());
-        });
-        Held {
-            let_go,
-            orders,
-            ticket: ticket_out,
-        }
-    }
-
-    /// Waits for the program to let go; forever when nothing holds the
-    /// bridge.
-    pub async fn let_go(held: Option<&mut oneshot::Receiver<()>>) {
-        match held {
-            Some(held) => {
-                let _ = held.await;
-            }
-            None => std::future::pending().await,
-        }
-    }
-}
+mod host_chair;
+mod tether;
 
 /// Every signal a process can be asked to stop by, registered with the
 /// operating system the moment this is built (`arm`), well before anything
@@ -1316,7 +1246,7 @@ fn room_takes_us(room: &Room, join: &Join, has_password: bool) -> anyhow::Result
     if room.locked && !has_password {
         bail!("the room {} is locked: give its --password", room.id);
     }
-    if let Some(secs) = room.clock.decide_secs.filter(|s| *s <= BLITZ_SECS)
+    if let Some(secs) = room.clock.decide_secs.filter(|s| is_blitz_clock(*s))
         && !join.allow_blitz
     {
         bail!(
@@ -1379,6 +1309,7 @@ async fn sit_down(
         .unwrap_or_else(|| LOCAL_GATEWAY.to_string());
     let lobby = Lobby::new(&gateway);
     let (by, chair) = match ticket {
+        Some(ticket) if join.host_chair => host_chair::sit(join, &lobby, ticket, unstarted).await?,
         Some(ticket) => {
             let line = tokio::time::timeout(TICKET_WAIT, ticket)
                 .await
@@ -1398,7 +1329,7 @@ async fn sit_down(
                 by: by.clone(),
                 room: chair.game_id.clone(),
             });
-            if let Some(secs) = decide_secs.filter(|s| *s <= BLITZ_SECS)
+            if let Some(secs) = decide_secs.filter(|s| is_blitz_clock(*s))
                 && !join.allow_blitz
             {
                 bail!(
@@ -1409,6 +1340,7 @@ async fn sit_down(
             }
             (by, chair)
         }
+        None if join.host_chair => bail!("host chair credentials must come on stdin"),
         None => sit_as_guest(join, &lobby, &display_name, &deck, unstarted).await?,
     };
     say!(

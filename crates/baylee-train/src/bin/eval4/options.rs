@@ -8,6 +8,15 @@ struct Args {
     /// Path to Playernet v4 `model.onnx` or checkpoint directory.
     #[arg(long)]
     model: PathBuf,
+    /// Explicitly separate new on-policy collection from ordinary evaluation records.
+    #[arg(long, value_enum, default_value_t = collector::Purpose::Evaluation)]
+    collection_purpose: collector::Purpose,
+    /// Frozen neural opponent; omitted means the ordinary house opponent.
+    #[arg(long)]
+    opponent_model: Option<PathBuf>,
+    /// Historical policy or exact frozen-learner self-play opponent.
+    #[arg(long, value_enum, default_value_t = collector::OpponentRole::Historical)]
+    opponent_role: collector::OpponentRole,
     /// Evaluate an archived v3 net (expert profile) under the same table protocol.
     /// Greedy evaluation only; never write v4 PPO rollout labels for v3 actions.
     #[arg(long)]

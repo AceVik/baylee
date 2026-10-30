@@ -50,6 +50,9 @@ impl std::fmt::Debug for Chair {
 /// A room as the listing shows it: what the bridge checks before it sits.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Room {
+    /// Whether the signed-in caller currently hosts this room.
+    #[serde(default)]
+    pub yours: bool,
     /// The room's id, which is the game's.
     pub id: String,
     /// `waiting`, `playing` or `over`.

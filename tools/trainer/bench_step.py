@@ -19,10 +19,10 @@ from __future__ import annotations
 import argparse
 import json
 import platform
-import statistics
 import time
 
 import torch
+from legacy_evaluation import native_metrics
 from torch import nn
 
 # Rows in the append-only CardIndex ledger (`baylee_cards_index::ROWS`), plus
@@ -97,15 +97,9 @@ def train_throughput(model: nn.Module, n: int, steps: int) -> dict:
         step()
     sync()
     elapsed = time.perf_counter() - start
-    return {
-        "batch": n,
-        "steps_per_s": round(steps / elapsed, 2),
-        "samples_per_s": round(steps * n / elapsed),
-        # Past the card's own memory the driver spills into shared system
-        # memory and a step slows by an order of magnitude; this says whether
-        # a number was measured on the GPU's memory or on the spill.
-        "peak_gb": round(torch.cuda.max_memory_allocated() / 2**30, 2),
-    }
+    return dict(batch=n, **native_metrics("benchmark-resources", mode="step-training",
+        steps=steps, elapsed=elapsed, batch=n, peak_bytes=torch.cuda.max_memory_allocated()))
+
 
 
 def inference_latency(model: nn.Module, n: int, calls: int, graph: bool) -> dict:
@@ -156,15 +150,9 @@ def inference_latency(model: nn.Module, n: int, calls: int, graph: bool) -> dict
             start = time.perf_counter()
             call()
             times.append(time.perf_counter() - start)
-    times.sort()
-    median = statistics.median(times)
-    return {
-        "batch": n,
-        "cuda_graph": graph,
-        "median_ms": round(median * 1e3, 3),
-        "p95_ms": round(times[int(len(times) * 0.95)] * 1e3, 3),
-        "decisions_per_s": round(n / median),
-    }
+    return dict(batch=n, cuda_graph=graph,
+                **native_metrics("benchmark-statistics", mode="step", samples=times, batch=n))
+
 
 
 def main() -> None:
@@ -184,7 +172,7 @@ def main() -> None:
         "torch": torch.__version__,
         "cuda": torch.version.cuda,
         "gpu": torch.cuda.get_device_name(0),
-        "params_m": round(params / 1e6, 2),
+        "params_m": native_metrics("benchmark-resources", mode="parameters", parameters=params),
         "train": [],
         "infer": [],
     }

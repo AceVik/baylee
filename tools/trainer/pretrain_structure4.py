@@ -19,6 +19,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from checkpoint4 import atomic_save
+from torch_io4 import atomic_json, append_json
 from model4.structure import RuleEncoder
 
 
@@ -98,7 +99,7 @@ def main():
     meta = {"structure_sha256": model.encoder.digest, "train_roots": len(train_roots), "val_roots": len(val_roots),
             "seed": args.seed, "width": args.width, "steps": args.steps, "batch": args.batch,
             "objective": "AST path node-kind and value-byte reconstruction", "playing_strength": "not evaluated"}
-    (args.out / "plan.json").write_text(json.dumps(meta, indent=2))
+    atomic_json(args.out / "plan.json", meta)
     best = float("inf"); started = time.monotonic()
     for step in range(args.steps + 1):
         if step:
@@ -115,12 +116,12 @@ def main():
                 accuracy = sum(float(v[1]) for v in metrics) / len(metrics)
             record = {"step": step, "val_loss": value, "val_node_accuracy": accuracy, "elapsed_s": time.monotonic() - started}
             print(json.dumps(record), flush=True)
-            with (args.out / "metrics.jsonl").open("a") as log: log.write(json.dumps(record) + "\n")
+            append_json(args.out / "metrics.jsonl", record)
             payload = {"structure": forest, "width": args.width, "encoder": model.encoder.state_dict(), "metrics": record,
                        "model": model.state_dict(), "optimizer": optimizer.state_dict(), "rng": rng.getstate(), "torch_rng": torch.get_rng_state()}
             atomic_save(payload, args.out / "last.pt")
             if value < best: best = value; atomic_save(payload, args.out / "best.pt")
-    (args.out / "status.json").write_text(json.dumps({"status": "complete", "steps": args.steps, "best_val_loss": best}))
+    atomic_json(args.out / "status.json", {"status": "complete", "steps": args.steps, "best_val_loss": best})
 
 
 if __name__ == "__main__": main()

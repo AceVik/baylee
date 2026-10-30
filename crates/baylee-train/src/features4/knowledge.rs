@@ -72,6 +72,8 @@ impl<'a> ObservableView<'a> {
             target_objects,
             targeting,
             casting,
+            announced_cast: _,
+            announced_x: _,
             seq: _,
             seat,
             turn,
@@ -172,6 +174,21 @@ pub fn board_observation_hash(view: &PlayerView) -> u64 {
     serde_json::to_writer(&mut writer, &ObservableView::from_view(view))
         .expect("ObservableView serializes");
     writer.0
+}
+
+/// SHA256 of the same Encoder-5/6/7 observation projection as
+/// [`board_observation_hash`], excluding transport sequence and clock fields.
+/// This additive audit identity does not change the observation clock or hashes.
+/// Encoder-8/9 announcement context requires its own versioned projection.
+///
+/// # Panics
+/// If serializing the observable projection fails; its types are JSON-safe.
+#[must_use]
+pub fn board_observation_sha256(view: &PlayerView) -> [u8; 32] {
+    use sha2::Digest as _;
+    let bytes = serde_json::to_vec(&ObservableView::from_view(view))
+        .expect("ObservableView serializes");
+    sha2::Sha256::digest(bytes).into()
 }
 
 /// Public per-seat history statistics accumulated from seat-authorized views.
@@ -395,8 +412,26 @@ impl SeatKnowledge4 {
 
     /// Updates `SeatKnowledge4` from a seat-authorized `PlayerView` and returns
     /// `true` if the observable state changed since the last call.
-    #[allow(clippy::too_many_lines, reason = "One ordered update of public event counters and remembered cards")]
     pub fn observe(&mut self, view: &PlayerView) -> bool {
+        self.observe_with_digest(view, board_observation_hash(view))
+    }
+
+    /// Encoder 8 observation clock, including the owner's announced spell even
+    /// while a nested mana choice temporarily prevents cancelling that spell.
+    pub fn observe_with_payment_context(&mut self, view: &PlayerView) -> bool {
+        self.observe_with_digest(view, crate::features8::board_observation_hash8(view))
+    }
+
+    /// Encoder 9 observation clock, including authorized selected X.
+    pub fn observe_with_announcement_context(&mut self, view: &PlayerView) -> bool {
+        self.observe_with_digest(view, crate::features9::board_observation_hash9(view))
+    }
+
+    #[allow(
+        clippy::too_many_lines,
+        reason = "One ordered update of public event counters and remembered cards"
+    )]
+    fn observe_with_digest(&mut self, view: &PlayerView, digest: u64) -> bool {
         if self.cursor == 0 {
             for (i, s) in view.seats.iter().enumerate().take(MAX_SEATS) {
                 self.starting_life[i] = s.life;
@@ -528,7 +563,6 @@ impl SeatKnowledge4 {
                     .retain(|&(owner, _), mem| !(owner == p && mem.origin_zone == 1));
             }
         }
-        let digest = board_observation_hash(view);
         let changed = digest != self.last_frame_digest || self.cursor == 0;
         if changed {
             self.last_frame_digest = digest;

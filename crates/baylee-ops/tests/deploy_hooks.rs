@@ -41,8 +41,8 @@ fn hold_down(server: &Server) -> String {
     format!("sudo rm -f -- {}", server.hold.display())
 }
 
-/// Without a hook the deploy is the one it always was: no dispatcher call,
-/// no hold, the gateway swapped once nothing runs here. Names the
+/// Without a hook the same hold protects local games, without a dispatcher
+/// call; the gateway swaps once nothing runs here. Names the
 /// dispatcher ignores do not count as hooks.
 #[test]
 fn without_hooks_nothing_changes_and_the_dispatcher_is_installed_for_later() {
@@ -60,7 +60,8 @@ fn without_hooks_nothing_changes_and_the_dispatcher_is_installed_for_later() {
     let ran = server.run(&["stage", A]);
     assert!(ran.ok, "{}", ran.said);
     assert_eq!(ran.phases(), Vec::<String>::new(), "{}", ran.calls);
-    assert!(!ran.calls.contains(&server.hold.display().to_string()));
+    assert!(ran.has(&hold_up(&server)));
+    assert!(ran.has(&hold_down(&server)));
     assert!(
         ran.has("sudo systemctl restart baylee-gateway"),
         "{}",
@@ -319,10 +320,12 @@ fn a_game_running_on_any_agent_holds_the_switch() {
     assert_eq!(ran.phases(), ["prepare"]);
     assert!(ran.said.contains("1 game(s) running"), "{}", ran.said);
     assert!(!ran.has("sudo systemctl restart baylee-gateway"));
+    assert!(!ran.has("sudo systemctl stop baylee-agent"));
     assert!(server.held(), "no new game meanwhile");
     for _ in 0..2 {
         let ran = server.run(&["watch"]);
         assert!(ran.ok && ran.phases().is_empty(), "{}", ran.calls);
+        assert!(!ran.has("sudo systemctl stop baylee-agent"));
         assert_eq!(server.txn("phase").as_deref(), Some("draining"));
     }
     server.set("running", "0");
@@ -330,6 +333,81 @@ fn a_game_running_on_any_agent_holds_the_switch() {
     assert!(ran.ok, "{}", ran.said);
     assert_eq!(ran.phases(), ["before-switch", "after-switch"]);
     assert_eq!(server.deployed().as_deref(), Some(A));
+}
+
+/// Stopping the owner ends its games. Both paths must keep it and its
+/// executable untouched throughout repeated drain attempts.
+#[test]
+fn owner_is_preserved_until_held_admission_and_zero_games_in_both_modes() {
+    for hooks in [false, true] {
+        let server = if hooks {
+            Server::with_hooks()
+        } else {
+            Server::bare()
+        };
+        server.set("running", "1");
+        for args in [&["stage", A][..], &["finish"][..]] {
+            let ran = server.run(args);
+            assert!(ran.ok, "{}", ran.said);
+            assert!(
+                !ran.has("sudo systemctl stop baylee-agent"),
+                "{}",
+                ran.calls
+            );
+            assert!(!ran.has("sudo systemctl restart baylee-gateway"));
+            assert!(!ran.calls.lines().any(
+                |line| line.starts_with("sudo install -m755 ") && line.contains("baylee-agent")
+            ));
+            assert!(server.held());
+        }
+        server.set("running", "0");
+        for admission in ["missing", "down"] {
+            server.set("admission", admission);
+            let ran = server.run(&["finish"]);
+            assert!(!ran.has("sudo systemctl stop baylee-agent"));
+        }
+        let settings = std::fs::read_to_string(server.etc.join("gateway.env")).unwrap();
+        std::fs::write(server.etc.join("gateway.env"), "").unwrap();
+        let ran = server.run(&["finish"]);
+        assert!(!ran.has("sudo systemctl stop baylee-agent"));
+        std::fs::write(server.etc.join("gateway.env"), settings).unwrap();
+        server.set("admission", "honours");
+        let ran = server.run(&["finish"]);
+        assert!(ran.ok, "{}", ran.said);
+        assert!(
+            ran.at("sudo systemctl stop baylee-agent")
+                < ran.at("sudo systemctl restart baylee-gateway")
+        );
+    }
+}
+
+#[test]
+fn force_explicitly_replaces_owner_with_games_open_in_both_modes() {
+    for hooks in [false, true] {
+        let server = if hooks {
+            Server::with_hooks()
+        } else {
+            Server::bare()
+        };
+        server.set("running", "2");
+        let ran = server.run(&["stage", A, "--force"]);
+        assert!(ran.ok, "{}", ran.said);
+        assert!(ran.has("sudo systemctl stop baylee-agent"));
+        assert!(ran.has("sudo systemctl restart baylee-gateway"));
+    }
+}
+
+#[test]
+fn incomplete_staged_owner_never_stops_live_owner() {
+    let server = Server::bare();
+    server.set("running", "1");
+    assert!(server.run(&["stage", A]).ok);
+    std::fs::remove_file(server.root.join("state/staged/baylee-engine-server")).unwrap();
+    server.set("running", "0");
+    let ran = server.run(&["finish"]);
+    assert!(!ran.ok);
+    assert!(!ran.has("sudo systemctl stop baylee-agent"));
+    assert!(!ran.has("sudo systemctl restart baylee-gateway"));
 }
 
 /// A game that started while the hold went up is seen and waited for: the

@@ -24,15 +24,19 @@ use ort::value::Tensor;
 use crate::carddsl::CARD_DSL_WIDTH;
 use crate::deckgen::Rng;
 use crate::features4::{
-    CAND_FEAT_WIDTH, CoverageMatrix4, ENTITY_FEAT_WIDTH, EncodedCandidates4, GLOBAL_FEAT_WIDTH,
-    HeadKind4, MAX_SEATS, PendingKind4, SEAT_FEAT_WIDTH, SeatKnowledge4, SourceKind4,
-    StepProvenance4, TeacherTarget4, decode_action4, denormalize_scalar_choice, encode_candidates4,
-    encode_state4, normalize_scalar_choice, view_only_state_hash,
+    CAND_FEAT_WIDTH, CoverageMatrix4, EncodedCandidates4, HeadKind4, MAX_SEATS, PendingKind4,
+    SEAT_FEAT_WIDTH, SeatKnowledge4, SourceKind4, StepProvenance4, TeacherTarget4, decode_action4,
+    denormalize_scalar_choice, encode_candidates4, encode_state4, normalize_scalar_choice,
+    view_only_state_hash,
 };
-use crate::features7::{
-    ENTITY_FEAT_WIDTH7, GLOBAL_FEAT_WIDTH7, encode_candidates7_grouped, encode_state7,
-};
+use crate::features7::{encode_candidates7_grouped, encode_state7};
 mod choices;
+mod critic;
+pub use critic::CriticSemantics4;
+mod decision;
+mod diagnostic;
+pub use diagnostic::{FallbackDiagnostic4, FallbackReason4};
+mod abi;
 mod fallback;
 #[cfg(test)]
 mod fallback_tests;
@@ -68,7 +72,7 @@ pub const OUTPUT_NAMES: &[&str] = &[
 pub struct Answer4 {
     /// Selected legal [`PlayerAction`].
     pub action: PlayerAction,
-    /// Predicted side win/draw utility in `[0.0, 1.0]`.
+    /// Predicted utility in `[0.0, 1.0]`; meaning is bound by the model's critic semantics.
     pub value: f32,
     /// Provenance (`Net | House | Forced | Search`, `temperature`, `K`, `behavior_logprob`).
     pub provenance: StepProvenance4,
@@ -107,6 +111,7 @@ pub struct NetPlayer4 {
     last_announced_source: BTreeMap<u8, (ObjectId, Option<u32>)>,
     /// Accumulated coverage matrix across decisions.
     pub coverage: CoverageMatrix4,
+    last_fallback: Option<FallbackDiagnostic4>,
 }
 
 fn ort_error(e: impl std::fmt::Display) -> anyhow::Error {
@@ -158,6 +163,7 @@ impl NetPlayer4 {
             .as_u64()
             .context("missing thinking_steps")? as u8;
         let session = load_session(&onnx_path)?;
+        abi::validate(&session, encoder_version)?;
         let rule_roots = if structured {
             Some(structure::load(
                 &onnx_path.with_file_name("card_structure.json"),
@@ -190,7 +196,15 @@ impl NetPlayer4 {
             seen_hashes: BTreeMap::new(),
             last_announced_source: BTreeMap::new(),
             coverage: CoverageMatrix4::default(),
+            last_fallback: None,
         })
+    }
+
+    /// Recovery reason for the most recent decision; cleared before every answer.
+    /// This diagnostic never grants a behavior likelihood or changes sampling.
+    #[must_use]
+    pub const fn last_fallback(&self) -> Option<&FallbackDiagnostic4> {
+        self.last_fallback.as_ref()
     }
 
     /// Exact model family, architecture and graph/metadata content hashes.
@@ -203,6 +217,18 @@ impl NetPlayer4 {
     #[must_use]
     pub const fn is_encoder7(&self) -> bool {
         self.encoder_version >= 7
+    }
+
+    /// Whether the selected model requires the opt-in payment announcement view.
+    #[must_use]
+    pub const fn uses_payment_context(&self) -> bool {
+        self.encoder_version == 8
+    }
+
+    /// Whether this model requires authorized selected-X announcement context.
+    #[must_use]
+    pub const fn uses_announcement_context(&self) -> bool {
+        self.encoder_version == 9
     }
 
     /// Sets the sampling temperature `tau` (`0.0` = greedy argmax).
@@ -249,6 +275,7 @@ impl NetPlayer4 {
         self.knowledge.clear();
         self.seen_hashes.clear();
         self.last_announced_source.clear();
+        self.last_fallback = None;
     }
 
     /// Reseeds the policy sampling RNG from an independent seed (never the game
@@ -266,6 +293,7 @@ impl NetPlayer4 {
         self.knowledge.clear();
         self.seen_hashes.clear();
         self.last_announced_source.clear();
+        self.last_fallback = None;
         for s in 0..preset.seats.len() {
             let pid = PlayerId::new(s as u8);
             self.h_states
@@ -292,7 +320,13 @@ impl NetPlayer4 {
             .knowledge
             .entry(s)
             .or_insert_with(|| SeatKnowledge4::empty(view.seat, seat_count));
-        kn.observe(view);
+        if self.encoder_version == 9 {
+            kn.observe_with_announcement_context(view);
+        } else if self.encoder_version == 8 {
+            kn.observe_with_payment_context(view);
+        } else {
+            kn.observe(view);
+        }
         let new_cursor = kn.cursor;
         if new_cursor == prev_cursor {
             return Ok(());
@@ -302,7 +336,11 @@ impl NetPlayer4 {
             .entry(s)
             .or_insert_with(|| vec![0.0_f32; RECURRENT_SLOTS * self.d_model])
             .clone();
-        let state = if self.encoder_version >= 7 {
+        let state = if self.encoder_version == 9 {
+            crate::features9::encode_state9(view, None, self.knowledge.get(&s), &self.teams)
+        } else if self.encoder_version == 8 {
+            crate::features8::encode_state8(view, None, self.knowledge.get(&s), &self.teams)
+        } else if self.encoder_version >= 7 {
             encode_state7(view, None, self.knowledge.get(&s), &self.teams)
         } else {
             encode_state4(view, None, self.knowledge.get(&s), &self.teams)
@@ -321,168 +359,6 @@ impl NetPlayer4 {
         Ok(())
     }
 
-    /// Chooses a legal [`PlayerAction`] for `view` and `pending`.
-    pub fn act(
-        &mut self,
-        view: &PlayerView,
-        pending: &Pending,
-        teams: &[Option<u8>],
-    ) -> PlayerAction {
-        self.act_detailed(view, pending, teams).action
-    }
-
-    /// Chooses a legal [`PlayerAction`] and returns full [`Answer4`] metadata
-    /// (value prediction, [`StepProvenance4`], and [`TeacherTarget4`]).
-    #[allow(
-        clippy::too_many_lines,
-        reason = "One decision pipeline records provenance for forced, guarded, neural and fallback answers"
-    )]
-    pub fn act_detailed(
-        &mut self,
-        view: &PlayerView,
-        pending: &Pending,
-        teams: &[Option<u8>],
-    ) -> Answer4 {
-        let seat_u8 = view.seat.get();
-        if matches!(pending, Pending::Priority { .. })
-            && view.owed.is_none()
-            && view.stack.is_empty()
-        {
-            self.last_announced_source.remove(&seat_u8);
-        }
-        let p_kind = PendingKind4::of(pending);
-
-        if let Some(answer) = fallback::unsupported_choice_answer(pending, self.temperature) {
-            self.coverage.record(p_kind, SourceKind4::House);
-            return answer;
-        }
-
-        // The host calls observe() for every neural seat before each table action.
-        // Decision inference is read-only with respect to persistent memory.
-        let h_in = self
-            .h_states
-            .entry(seat_u8)
-            .or_insert_with(|| vec![0.0; RECURRENT_SLOTS * self.d_model])
-            .clone();
-
-        let (state, cands) = self.policy_encoding(view, pending, teams);
-
-        // 1. Check if forced (<= 1 legal choice)
-        let is_forced = match cands.head {
-            HeadKind4::SingleChoice => cands.candidates.len() <= 1,
-            HeadKind4::SubsetPick => cands.candidates.is_empty(),
-            HeadKind4::PairPick => cands.pairs.is_empty(),
-            HeadKind4::ScalarValue => cands.max_choices <= cands.min_choices,
-        };
-        if is_forced {
-            let forced_target = TeacherTarget4 {
-                single_idx: 0,
-                multi_mask: vec![0; cands.candidates.len().max(cands.pairs.len())],
-                free_mask: vec![0; cands.candidates.len().max(cands.pairs.len())],
-                pick_sequence: Vec::new(),
-                scalar_norm: 0.0,
-            };
-            let (action, source) = decode_action4(&cands, view, pending, &forced_target)
-                .filter(|a| {
-                    (matches!(a, PlayerAction::CancelCast) && view.casting.is_some())
-                        || pending.answer_fault(a).is_none()
-                })
-                .map_or_else(
-                    || {
-                        (
-                            fallback_action(&cands, view, pending, teams),
-                            SourceKind4::House,
-                        )
-                    },
-                    |action| (action, SourceKind4::Forced),
-                );
-            self.coverage.record(p_kind, source);
-            return Answer4 {
-                action,
-                value: 0.5,
-                provenance: StepProvenance4 {
-                    source,
-                    temperature: self.temperature,
-                    thinking_steps: 0,
-                    behavior_logprob: 0.0,
-                    has_logprob: false,
-                },
-                target: forced_target,
-            };
-        }
-
-        // 2. View-only stall/loop guard (never uses Session::snapshot_hash!)
-        let v_hash = view_only_state_hash(view, pending);
-        let visits = self.seen_hashes.entry((seat_u8, v_hash)).or_insert(0);
-        *visits = visits.saturating_add(1);
-        if *visits >= 4 {
-            let action = fallback_action(&cands, view, pending, teams);
-            self.coverage.record(p_kind, SourceKind4::House);
-            return Answer4 {
-                action,
-                value: 0.5,
-                provenance: StepProvenance4 {
-                    source: SourceKind4::House,
-                    temperature: self.temperature,
-                    thinking_steps: 0,
-                    behavior_logprob: 0.0,
-                    has_logprob: false,
-                },
-                target: TeacherTarget4::default(),
-            };
-        }
-
-        // 3. Run ONNX inference
-        let ans = if let Ok((action, value, logprob, target)) =
-            self.infer_and_sample(&state, &cands, view, pending, &h_in)
-        {
-            let provenance = self.policy_mode.provenance(
-                self.temperature,
-                self.thinking_steps,
-                cands.head,
-                logprob,
-            );
-            self.coverage.record(p_kind, provenance.source);
-            Answer4 {
-                action,
-                value,
-                provenance,
-                target,
-            }
-        } else {
-            let action = fallback_action(&cands, view, pending, teams);
-            self.coverage.record(p_kind, SourceKind4::House);
-            Answer4 {
-                action,
-                value: 0.5,
-                provenance: StepProvenance4 {
-                    source: SourceKind4::House,
-                    temperature: self.temperature,
-                    thinking_steps: 0,
-                    behavior_logprob: 0.0,
-                    has_logprob: false,
-                },
-                target: TeacherTarget4::default(),
-            }
-        };
-        if view.owed.is_none() {
-            match &ans.action {
-                PlayerAction::CastSpell { card } => {
-                    self.last_announced_source.insert(seat_u8, (*card, None));
-                }
-                PlayerAction::ActivateAbility {
-                    source,
-                    ability_index,
-                } if !tactics::is_mana_ability_entry(view, *source, *ability_index) => {
-                    self.last_announced_source
-                        .insert(seat_u8, (*source, Some(*ability_index)));
-                }
-                _ => {}
-            }
-        }
-        ans
-    }
-
     #[allow(
         clippy::too_many_lines,
         reason = "Explicit tensor packing and extraction for the model ABI"
@@ -495,14 +371,11 @@ impl NetPlayer4 {
         k_val: u8,
     ) -> anyhow::Result<StepOutputs> {
         let e_len = state.entity_feat.len().max(1);
-        let ent_width = state.entity_feat.first().map_or(
-            if self.encoder_version >= 7 {
-                ENTITY_FEAT_WIDTH7
-            } else {
-                ENTITY_FEAT_WIDTH
-            },
-            Vec::len,
-        );
+        let (default_entity_width, default_global_width) = abi::widths(self.encoder_version);
+        let ent_width = state
+            .entity_feat
+            .first()
+            .map_or(default_entity_width, Vec::len);
         let mut ent_feat = vec![0.0_f32; e_len * ent_width];
         let mut ent_dsl = vec![0.0_f32; e_len * CARD_DSL_WIDTH];
         let mut ent_mask = vec![false; e_len];
@@ -519,11 +392,7 @@ impl NetPlayer4 {
                 .copy_from_slice(&state.seat_feat[s]);
         }
         let glob_width = if state.global_feat.is_empty() {
-            if self.encoder_version >= 7 {
-                GLOBAL_FEAT_WIDTH7
-            } else {
-                GLOBAL_FEAT_WIDTH
-            }
+            default_global_width
         } else {
             state.global_feat.len()
         };
@@ -608,6 +477,7 @@ impl NetPlayer4 {
             let path = self.model_dir.join(format!("model.k{depth}.onnx"));
             identity::verify_depth_graph(&path, depth, &self.model_identity)?;
             let session = load_session(&path)?;
+            abi::validate(&session, self.encoder_version)?;
             identity::verify_depth_graph(&path, depth, &self.model_identity)?;
             self.sessions.insert(depth, session);
         }

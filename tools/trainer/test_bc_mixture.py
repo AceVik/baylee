@@ -54,6 +54,23 @@ class Data(TinyDataset):
 
 
 class MixtureTests(unittest.TestCase):
+    def test_native_cycling_crosses_boundary_once_per_complete_pass(self):
+        from training4.bc_mixture import cycling
+        child=SimpleNamespace(epoch=0)
+        seen=[]
+        def batches(advance_epoch=False):
+            self.assertFalse(advance_epoch)
+            seen.append(child.epoch)
+            return [[i] for i in range(200)]
+        child._build_batches=batches
+        with patch.object(cycling,'_native',wraps=cycling._native) as native:
+            rows,receipt=cycling.cycle_source(child,2,7,201)
+        self.assertEqual(native.call_count,3)
+        self.assertEqual(seen,[7,1_000_010])
+        self.assertEqual(len(rows),201)
+        self.assertEqual(rows[-1],[0,-1])
+        self.assertEqual(receipt['partial_repeat_batches'],1)
+
     def fixture(self,root):
         return Data(root/'old','old'),Data(root/'new','new'),Data(root/'val','validation',split='val')
 
@@ -140,15 +157,73 @@ class MixtureTests(unittest.TestCase):
                 with self.assertRaises(ValueError):validate_budget(prefixes,updates,epochs)
             self.assertGreater(len(batches),min(prefixes)) # general tails remain supported
 
+    def test_default_sampler_matches_original_child_zip_and_contract(self):
+        from itertools import zip_longest
+        with tempfile.TemporaryDirectory() as tmp:
+            a,b,v=self.fixture(Path(tmp));mix=BCMixture(a,b,v,8);contract=copy.deepcopy(mix.contract)
+            sampler=BCMixtureSampler(mix,8,11)
+            streams=[child._build_batches(advance_epoch=False) for child in sampler.children]
+            expected=[left+[i+mix.offset if i>=0 else -1 for i in right]
+                      for left,right in zip_longest(*streams,fillvalue=[-1]*4)]
+            self.assertEqual(list(sampler),expected)
+            self.assertEqual(mix.contract,contract);self.assertIsNone(sampler.schedule_report())
+
+    def test_cycling_shared_anchor_complete_passes_chronology_and_reproducibility(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a,b,v=self.fixture(Path(tmp));control=BCMixture(a,a,v,8);aug=BCMixture(a,b,v,8)
+            budget=max(len(BCMixtureSampler(m,8,42)) for m in (control,aug))+19
+            cs=BCMixtureSampler(control,8,42,budget);as_=BCMixtureSampler(aug,8,42,budget)
+            cb=list(cs);ab=list(as_)
+            self.assertEqual(len(cb),budget);self.assertEqual(len(ab),budget)
+            self.assertEqual([r[:4] for r in cb],[r[:4] for r in ab])
+            repeat=BCMixtureSampler(aug,8,42,budget)
+            self.assertEqual(ab,list(repeat));report=repeat.schedule_report() # epoch1 after iteration
+            self.assertTrue(all(r['repeated_passes_started']>0 for r in report))
+            repeat.epoch=0;report=repeat.schedule_report()
+            previous={}
+            for row in ab:
+                for lane,index in enumerate(row):
+                    item=aug[index]
+                    if index<0:
+                        self.assertTrue(item['is_new_traj']);previous.pop(lane,None);continue
+                    key=(int(item['bc_source']),int(item['game'][0]),int(item['seat'][0]))
+                    cursor=int(item['cursor'][0])
+                    if item['is_new_traj']:self.assertEqual(cursor,0)
+                    else:self.assertEqual(previous[lane],(key,cursor-2))
+                    previous[lane]=(key,cursor)
+            for source,r in enumerate(report):
+                first=r['first_pass_batches'];offset=aug.offset if source else 0
+                seen=[i-offset for row in ab[:first] for i in row[4*source:4*source+4] if i>=0]
+                self.assertEqual(sorted(seen),list(range(len(aug.sources[source].segments))))
+                self.assertEqual(r['padding_lane_batches'],sum(i<0 for row in ab for i in row[4*source:4*source+4]))
+                self.assertGreaterEqual(r['complete_passes'],1)
+                self.assertEqual(r['passes'][1]['sampler_epoch'],1_000_003)
+            resumed=BCMixtureSampler(aug,8,42,budget);resumed.start_batch=7
+            self.assertEqual(list(resumed),ab[7:])
+            other=BCMixture(a,b,v,8);BCMixtureSampler(other,8,42,budget+1)
+            with self.assertRaises(ValueError):check_resume({'bc_mixture':aug.contract},other.contract)
+            other=BCMixture(a,b,v,8);BCMixtureSampler(other,8,43,budget)
+            with self.assertRaises(ValueError):check_resume({'bc_mixture':aug.contract},other.contract)
+
+    def test_cycling_rejects_partial_first_pass_and_malformed_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a,b,v=self.fixture(Path(tmp))
+            for budget in (-1,True,1.5,1):
+                with self.assertRaises(ValueError):BCMixtureSampler(BCMixture(a,b,v,8),8,4,budget)
+
     def test_cli_opt_in_and_default(self):
         base=['train5','--data','old','--out','out']
         with patch('sys.argv',base):args,_,_=parse_args('v5')
-        self.assertEqual(args.bc_replay_data,'')
+        self.assertEqual(args.bc_replay_data,'');self.assertEqual(args.bc_epoch_batches,0)
         with patch('sys.argv',base+['--bc-replay-data','new','--validation-data','val','--batch-size','8']):
             args,_,_=parse_args('v5');self.assertEqual(args.bc_replay_data,'new')
-        for extra in ([],['--validation-data','val','--batch-size','3'],['--validation-data','val','--max-shards','1']):
+        for extra in ([],['--bc-epoch-batches','-1'],['--validation-data','val','--batch-size','3'],['--validation-data','val','--max-shards','1']):
             with patch('sys.argv',base+['--bc-replay-data','new']+extra),patch('sys.stderr'):
                 with self.assertRaises(SystemExit):parse_args('v5')
+        with patch('sys.argv',base+['--bc-epoch-batches','100']),patch('sys.stderr'):
+            with self.assertRaises(SystemExit):parse_args('v5')
+        with patch('sys.argv',base+['--bc-replay-data','new','--validation-data','val','--bc-epoch-batches','100']):
+            args,_,_=parse_args('v5');self.assertEqual(args.bc_epoch_batches,100)
 
 
 if __name__=='__main__':unittest.main()

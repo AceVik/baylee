@@ -696,7 +696,25 @@ impl<L: CardLookup> Engine<L> {
             } else if let CostPart::TapN { count, .. } = part {
                 (u8::try_from(*count).unwrap_or(u8::MAX), None)
             } else if let CostPart::ExileFromSingleGraveyard { count, .. } = part {
-                (*count, None)
+                // A batch cannot state "all from one graveyard" when several
+                // graveyards are offered. The first card chooses the graveyard;
+                // PayActivationCost then narrows the remaining card menu to it.
+                // Keep the existing batch when only one graveyard can pay.
+                let first_owner = options
+                    .first()
+                    .and_then(|id| self.state.object(*id))
+                    .and_then(|object| object.zone_owner);
+                let several_graveyards = options.iter().any(|id| {
+                    self.state.object(*id).and_then(|object| object.zone_owner) != first_owner
+                });
+                (
+                    if several_graveyards {
+                        (*count).min(1)
+                    } else {
+                        *count
+                    },
+                    None,
+                )
             } else if matches!(part, CostPart::SacrificeX(_) | CostPart::TapX(_)) {
                 (
                     u8::try_from(self.activation_x.unwrap_or(0)).unwrap_or(u8::MAX),

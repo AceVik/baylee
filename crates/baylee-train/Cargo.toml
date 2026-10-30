@@ -24,6 +24,7 @@ play = [
     "dep:baylee-engine",
     "dep:baylee-gamehost",
     "dep:baylee-view",
+    "dep:baylee-train-ops",
     "dep:clap",
     "dep:flate2",
     "dep:serde",
@@ -48,15 +49,23 @@ live-seat = [
     "onnx", "dep:baylee-seat", "dep:tokio", "dep:baylee-protocol",
     "dep:futures-util", "dep:prost", "dep:tokio-tungstenite",
 ]
+# Multi-table LLM replay collector over the ordinary gateway seat protocol.
+llm-collector = [
+    "play", "dep:baylee-db", "dep:baylee-protocol", "dep:baylee-seat",
+    "dep:futures-util", "dep:time", "dep:tokio", "dep:tokio-tungstenite",
+    "dep:ureq", "dep:rustix",
+]
 
 [dependencies]
 anyhow.workspace = true
+baylee-train-ops = { path = "../baylee-train-ops", optional = true }
 baylee-ai = { workspace = true, optional = true }
 baylee-build = { workspace = true, optional = true }
 baylee-cards.workspace = true
 baylee-cards-dsl = { workspace = true, optional = true }
 baylee-cards-index.workspace = true
 baylee-core.workspace = true
+baylee-db = { workspace = true, optional = true }
 baylee-deckio.workspace = true
 baylee-engine = { workspace = true, optional = true }
 baylee-gamehost = { workspace = true, optional = true }
@@ -65,8 +74,11 @@ baylee-seat = { workspace = true, optional = true }
 baylee-protocol = { workspace = true, optional = true }
 futures-util = { workspace = true, optional = true }
 prost = { workspace = true, optional = true }
+time = { workspace = true, optional = true }
 tokio-tungstenite = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
+ureq = { workspace = true, optional = true }
+rustix = { workspace = true, features = ["process"], optional = true }
 clap = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
@@ -162,4 +174,14 @@ required-features = ["play"]
 [[bin]]
 name = "card_structure4"
 path = "src/bin/card_structure4.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "llm_collector4"
+path = "src/bin/llm_collector4/main.rs"
+required-features = ["llm-collector"]
+
+[[bin]]
+name = "diagnose_payment4"
+path = "src/bin/diagnose_payment4/main.rs"
 required-features = ["play"]

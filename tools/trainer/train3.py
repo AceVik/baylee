@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import json
 import time
 from pathlib import Path
 
@@ -27,12 +26,12 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from legacy_evaluation import native_metrics
+
 import dataset3 as D3
 import model3 as M
-from train_value import metrics
 
 ROW_HEADS_A = (M.H_ENTITY, M.H_ABILITY, M.H_PAIR, M.H_ATTACK_PLAYER)
-BANDS = [(1, 3), (4, 6), (7, 9), (10, 14), (15, 10_000)]
 
 
 def log(msg: str) -> None:
@@ -121,25 +120,10 @@ def evaluate(net, ds, idx, entities, value_weight, batch=512):
 
 def value_report(ds, idx, side):
     """Calibration of the side's win chance on the first step of each decision."""
-    first = ds.col("step")[idx] == 0
-    result = ds.col("result")[idx].astype(np.float64) / 2
-    team = ds.col("team_rel")[idx]
-    winners = ds.col("winners_rel")[idx]
-    # The side won when a winner is on it; a draw is a half.
-    y = np.where(winners == 0, 0.5, ((winners & team) != 0).astype(np.float64))
-    y = np.where(ds.col("seats")[idx] == 2, result, y)
-    rows = {"all": metrics(side[first], y[first])}
-    seats = ds.col("seats")[idx]
-    for s in sorted(set(seats[first].tolist())):
-        m = first & (seats == s)
-        if m.sum() >= 100:
-            rows[f"{s} seats"] = metrics(side[m], y[m])
-    turn = ds.col("turn")[idx]
-    for lo, hi in BANDS:
-        m = first & (turn >= lo) & (turn <= hi)
-        if m.sum() >= 100:
-            rows[f"turns {lo}-{hi if hi < 10_000 else '+'}"] = metrics(side[m], y[m])
-    return rows
+    return native_metrics("v3-value-slices", prediction=side.tolist(),
+        **{key: ds.col(column)[idx].tolist() for key, column in
+           (("step", "step"), ("result", "result"), ("team", "team_rel"),
+            ("winners", "winners_rel"), ("seats", "seats"), ("turn", "turn"))})
 
 
 def main() -> None:
@@ -267,31 +251,14 @@ def main() -> None:
     held, hits, usable, side = evaluate(net, ds, ev, args.entities, args.value_weight)
     kinds = ds.meta["pending_kinds"]
     kind, prof, nopt = ds.col("pending_kind")[ev], ds.col("profile")[ev], ds.col("n_opts")[ev]
-    by_kind = {kinds[k]: {"n": int((usable & (kind == k)).sum()), "agreement": float(hits[usable & (kind == k)].mean())}
-               for k in sorted(set(kind.tolist())) if (usable & (kind == k)).sum() >= 100}
-    by_profile = {ds.meta["profiles"][p]: {"n": int((usable & (prof == p)).sum()),
-                                           "agreement": float(hits[usable & (prof == p)].mean())}
-                  for p in sorted(set(prof.tolist())) if p >= 0 and (usable & (prof == p)).sum() >= 100}
     value = value_report(ds, ev, side)
-    rep = {
-        "model": out.name, "params": params, "best_step": best["step"], "held_loss": held, "curve": curve,
-        "held_out_steps": int(usable.sum()), "agreement": float(hits[usable].mean()),
-        "uniform_chance": float(np.mean(1.0 / np.maximum(nopt[usable], 1))),
-        "by_kind": by_kind, "by_profile": by_profile, "value": value,
-        "verification": ds.meta.get("verification"),
-    }
-    (out / "report.json").write_text(json.dumps(rep, indent=1))
-    lines = [f"# v3 report — {out.name}", "",
-             f"Policy: top-1 agreement with the house on {int(usable.sum()):,} held-out answer steps: "
-             f"**{rep['agreement']:.3f}** (uniform pick {rep['uniform_chance']:.3f}). Model: step {best['step']:,}.", "",
-             "| question | steps | agreement |", "|---|---|---|"]
-    lines += [f"| {k} | {v['n']:,} | {v['agreement']:.3f} |" for k, v in by_kind.items()]
-    lines += ["", "| house profile | steps | agreement |", "|---|---|---|"]
-    lines += [f"| {k} | {v['n']:,} | {v['agreement']:.3f} |" for k, v in by_profile.items()]
-    lines += ["", "Value (the deciding seat's side wins):", "", "| slice | n | Brier | log loss | accuracy | ECE |", "|---|---|---|---|---|---|"]
-    lines += [f"| {k} | {v['n']:,} | {v['brier']:.4f} | {v['logloss']:.4f} | {v['accuracy']:.3f} | {v['ece']:.4f} |" for k, v in value.items()]
-    (out / "report.md").write_text("\n".join(lines) + "\n")
-    print("\n".join(lines), flush=True)
+    report = {"model": out.name, "params": params, "best_step": best["step"],
+              "held_loss": held, "curve": curve, "value": value,
+              "verification": ds.meta.get("verification")}
+    result = native_metrics("policy-report", v3=True, out=str(out),
+        hits=hits.tolist(), usable=usable.tolist(), question=kind.tolist(), profile=prof.tolist(),
+        options=nopt.tolist(), kinds=kinds, profiles=ds.meta["profiles"], report=report)
+    print(result["markdown"], end="", flush=True)
 
 
 if __name__ == "__main__":

@@ -1,14 +1,18 @@
 //! The socket boundary; the recurrent model never reconnects over missing views.
 use std::time::Duration;
 
-use anyhow::{anyhow, bail};
+use anyhow::{Context as _, anyhow, bail};
 use baylee_seat::link::SeatLink;
 use baylee_train::live4::{LiveReport4, LiveSeat4};
 use futures_util::{SinkExt as _, StreamExt as _};
 use prost::Message as _;
 use tokio_tungstenite::tungstenite::Message;
 
-pub async fn play(link: &mut SeatLink, core: &mut LiveSeat4) -> anyhow::Result<()> {
+pub async fn play(
+    link: &mut SeatLink,
+    core: &mut LiveSeat4,
+    audit: &mut Option<super::audit::Writer>,
+) -> anyhow::Result<()> {
     let mut socket = link
         .connect()
         .await
@@ -24,6 +28,20 @@ pub async fn play(link: &mut SeatLink, core: &mut LiveSeat4) -> anyhow::Result<(
             match next {
                 Some(Ok(Message::Binary(bytes))) => {
                     for envelope in core.hear(&bytes)? {
+                        let decision = if matches!(
+                            envelope.msg,
+                            Some(baylee_protocol::v1::envelope::Msg::PlayerAction(_))
+                        ) {
+                            Some(
+                                core.decision_audit()
+                                    .context("generated action has no decision audit")?,
+                            )
+                        } else {
+                            None
+                        };
+                        if let (Some(audit), Some(decision)) = (audit.as_mut(), decision) {
+                            audit.decision(decision, false)?;
+                        }
                         socket
                             .send(Message::Binary(envelope.encode_to_vec().into()))
                             .await
@@ -32,6 +50,9 @@ pub async fn play(link: &mut SeatLink, core: &mut LiveSeat4) -> anyhow::Result<(
                                     "seat action send failed; recurrent history cannot continue"
                                 )
                             })?;
+                        if let (Some(audit), Some(decision)) = (audit.as_mut(), decision) {
+                            audit.decision(decision, true)?;
+                        }
                     }
                     if core.finished() {
                         return Ok(());

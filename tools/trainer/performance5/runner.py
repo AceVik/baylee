@@ -1,7 +1,6 @@
 """Bounded matched v4/v5 CUDA probes; no checkpoint is written or promoted."""
 import argparse
 import gc
-import hashlib
 import json
 from pathlib import Path
 import time
@@ -12,7 +11,7 @@ from torch.utils.data import DataLoader
 import dataset4 as D
 from benchmark_state4 import checkpoint_sampler
 from checkpoint4 import restore_rng
-from run_guard4 import atomic_json
+from torch_io4 import atomic_json, file_digest as checksum
 from training4.execution import compile_regions
 from training4.prefetch import prefetch_batches
 from . import precision
@@ -29,14 +28,6 @@ VARIANTS = {
     'prefetch2': dict(saved=0, prefetch=2, board=4),
     'board8': dict(saved=0, prefetch=1, board=8),
 }
-
-
-def checksum(path):
-    digest = hashlib.sha256()
-    with Path(path).open('rb') as source:
-        for block in iter(lambda: source.read(8 * 1024**2), b''):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def configure(net, settings, compile_enabled):

@@ -11,7 +11,6 @@ import json
 from pathlib import Path
 import time
 
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
@@ -19,7 +18,8 @@ import dataset4 as D
 import model4 as M
 from checkpoint4 import move_optimizer, restore_rng
 from benchmark_state4 import checkpoint_sampler
-from run_guard4 import atomic_json
+from torch_io4 import atomic_json
+from legacy_evaluation import native_metrics
 from training4.execution import plan_batch, transfer_batch, encode_boards, compile_regions
 from training4.loss import compute_step_loss
 from training4.device_loss import compute_device_loss
@@ -212,9 +212,11 @@ def main():
                     elif reference_gradients is not None: row["gradient_difference"] = gradient_difference(reference_gradients,gradients)
                     del gradients
                 if i >= 2: samples.append(metrics)
-            row.update(samples=samples, updates_per_second=1000/np.mean([s["wall_ms"] for s in samples]),
-                       valid_frames_per_second=sum(int(b["step_valid"].sum()) for b in batches[2:]) / (sum(s["wall_ms"] for s in samples)/1000),
-                       decisions_per_second=sum(int((b["step_valid"] & b["is_decision"]).sum()) for b in batches[2:]) / (sum(s["wall_ms"] for s in samples)/1000),
+            row.update(samples=samples,
+                       **native_metrics("benchmark-statistics", mode="training",
+                           samples=[s["wall_ms"] for s in samples],
+                           frames=torch.stack([b["step_valid"].sum() for b in batches[2:]]).sum().item(),
+                           decisions=torch.stack([(b["step_valid"] & b["is_decision"]).sum() for b in batches[2:]]).sum().item()),
                        peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,
                        peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30,
                        allocation_retries=torch.cuda.memory_stats()["num_alloc_retries"]-retries_before)

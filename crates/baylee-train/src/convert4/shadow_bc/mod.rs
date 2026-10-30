@@ -51,6 +51,7 @@ struct Label {
 
 /// Per-game validated sidecar, consumed exactly once during chronological replay.
 pub struct ShadowBc4 {
+    pub(super) encoder_version: u32,
     header: Value,
     record_sha256: String,
     labels: BTreeMap<u64, Label>,

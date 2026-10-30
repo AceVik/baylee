@@ -3,7 +3,7 @@ import copy
 import numpy as np
 import torch
 
-POLICY_PREFIXES = ("cand_proj.", "cand_ctx_proj.", "cand_scorer.", "pair_blk_proj.", "pair_atk_proj.", "pair_scorer.")
+POLICY_PREFIXES = ("cand_proj.", "cand_ctx_proj.", "cand_context_gate.", "cand_scorer.", "pair_blk_proj.", "pair_atk_proj.", "pair_scorer.")
 
 
 def select_policy_parameters(net):
