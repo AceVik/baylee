@@ -249,14 +249,17 @@ mod tests {
         assert!(!file.sends_to(pinned, pinned));
         file.gateway = None;
         assert!(file.sends_to("https://live.example/", pinned));
-        // A file written before the live gateway moved goes to it there.
-        let (former, live) = (
-            crate::lobby::gateway_list::KEYED,
-            crate::lobby::gateway_list::PINNED,
-        );
-        file.gateway = Some(former.into());
-        assert!(file.sends_to(live, live));
-        assert!(!file.sends_to("https://play.example", live));
+    }
+
+    /// A file written before the live gateway moved goes to it at its new
+    /// address.
+    #[test]
+    fn a_file_from_before_the_move_goes_to_the_live_gateway() {
+        use crate::lobby::gateway_list::{KEYED, PINNED};
+        let mut file = file();
+        file.gateway = Some(KEYED.into());
+        assert!(file.sends_to(PINNED, PINNED));
+        assert!(!file.sends_to("https://play.example", PINNED));
     }
 
     /// A crash report carries the crash and the build that crashed, the
