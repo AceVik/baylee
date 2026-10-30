@@ -2460,8 +2460,9 @@ so a guest is `Guest#1a2b` to the other players.
   Central sign-ins (`POST /auth/central/login`): it is connected
   (`BAYLEE_CENTRAL_CONFIG_FILE`) and its mode is `central` or `mixed`
   (`docs/central-login.md`). A native client turns its account form into
-  Central's only where it is `true`; elsewhere it offers the guest door,
-  where there is one. A gateway older than the field sends none, which reads
+  Central's only where it is `true`, with the guest door beside it where
+  `guests_enabled` is too; elsewhere it offers the guest door, where there
+  is one. A gateway older than the field sends none, which reads
   as `false`.
 - The database holds a guest to all of this (migration
   `m20260925_000007_guests`): a guest has no username, address or password,

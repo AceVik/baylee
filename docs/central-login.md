@@ -47,7 +47,12 @@ about guests.
   `guests_enabled` (the mode takes guests) and `central` (connected, and the
   mode takes Central's accounts); `GET /info` says `auth_mode` and
   `guests`; the console's overview says `auth_mode` and where it comes from
-  (`auth_mode_source`). A client offers what these say.
+  (`auth_mode_source`). A client offers what these say: signed out, a
+  `mixed` gateway's form is Central's sign-in with the gateway's own *Play as
+  guest* beside it, which turns Central's form off again and opens the
+  gateway's guest face, the gateway still chosen (`lobby/central.rs`
+  `guest_instead`). A guest door for a player signed in at Central comes with
+  the device list (a later release).
 - **A gateway nobody can enter.** Until a Central sign-in reaches a gateway
   without a connection (the short-lived identity proof, a later release),
   `central` on an unconnected gateway takes nobody. The gateway says so in
@@ -64,14 +69,18 @@ current dependency chain contains 0.5.5 through `elliptic-curve` 0.13.8,
 bigint 0.5, so changing the lockfile to 0.7.6 is not a compatible upgrade.
 
 The specific Central revision
-`bd1c9b6bcf52f2094ac2438b2a2ade2abf7b9340` contains the `central-crypto`
+`6a208cf63b6e0a7a56ebe4b33e0f5718b32f4d90` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with one
 addition: the 30.10.2026 pin adds the legacy store's sign-in, whose
 `central-crypto::legacy` (behind `server`, which the client does not enable)
-derives the official gateway's Argon2id through opaque-ke's `argon2`
-re-export and touches no suite, group, OPRF or key-exchange type. An
-independent agent reviewed that change for this scope without a finding, and
-Central's own guard pins the crate's new fingerprint (baylee-central
+derives the official gateway's Argon2id with argon2 0.5.3, the version
+opaque-ke already uses, and touches no suite, group, OPRF or key-exchange
+type. An independent agent reviewed that change for this scope without a
+finding. The same day argon2's `zeroize` feature came on (owner's approval),
+named by `central-crypto` directly: argon2 wipes its own blocks for that
+check and the OPAQUE stretch alike, and the lockfile gains only the edges
+`argon2 → zeroize` and `central-crypto → argon2`. Central's own guard pins
+the crate's new fingerprint (baylee-central
 `docs/crypto-proposal/bigint-advisory.md`). The 28.10.2026 pin had added the
 memorial website and that fail-closed source/graph guard for Central's
 matching advisory exception. Argon High
@@ -114,7 +123,9 @@ store: its id here, its username, display name and tag, its Argon2id salt and
 output, the version of this gateway's terms it accepted, a forced password
 change and a ban in force, and its source snapshot. Nothing else: no address,
 no session, no chat key (baylee-central `docs/native-login.md` §"Legacy
-login").
+login"). The store lasts until the owner's deadline, the end of 30.06.2027 in
+Europe/Berlin; then Central deletes what is left of it, and an account that
+has not moved by then has no way to Central from its old password.
 
 Only an explicit Central discovery response (`Legacy`) permits the legacy
 sign-in, and the password goes to Central alone: `LegacyLogin` with the name

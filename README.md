@@ -388,7 +388,8 @@ sign in again.
 **An account from before beta.8** on Baylee Sanctuary needs no new one: the
 first time you sign in with it in the client, with the same username and
 password, it moves to Baylee Central, and your decks and settings come
-along. You accept Central's terms on the way.
+along. You accept Central's terms on the way. This works until 30 June 2027;
+after that an account that has not moved cannot move any more.
 
 Before the first gateway, the client shows **Baylee Central's terms of
 use**; your acceptance is kept with the account, so another computer does

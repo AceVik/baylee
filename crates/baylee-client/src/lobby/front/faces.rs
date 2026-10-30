@@ -693,7 +693,7 @@ pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState,
             kit,
             &text,
             Weight::Secondary,
-            if lobby.busy() || !state.gateway_selected {
+            if lobby.busy() || !(state.gateway_selected || state.central_bound()) {
                 Live::No("")
             } else {
                 Live::Yes
