@@ -920,6 +920,7 @@ impl LobbyState {
 
     /// Which question stands over the lobby, by kind and never by what it
     /// names (dev-control's `/state`).
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
     #[must_use]
     pub(crate) fn asking(&self) -> Option<&'static str> {
         self.confirmation.as_ref().map(confirm::Destructive::kind)

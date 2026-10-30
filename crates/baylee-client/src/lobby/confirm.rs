@@ -23,7 +23,9 @@ pub(crate) enum Destructive {
 }
 
 impl Destructive {
-    /// What kind of question this is, without what it names.
+    /// What kind of question this is, without what it names (dev-control's
+    /// `/state`).
+    #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
     pub(crate) fn kind(&self) -> &'static str {
         match self {
             Destructive::Clear(_) => "clear-deck",
