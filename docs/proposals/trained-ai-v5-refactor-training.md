@@ -179,6 +179,19 @@ Der Stand und die nächste Reihenfolge lauten:
    für sauber klassifizierte Selbstspielverläufe vervollständigt. Betriebsstand,
    Fehlversuche und Übernahme sind im [Trainingshandbuch](../training-runbook.md)
    und der [aktuellen Übergabe](../history/training-handover-2026-10-29.md) verlinkt.
+8. **Separater Fehler-Lernvertrag technisch bestanden (30. Oktober):** Vier
+   festgelegte reale Versuche bleiben vollständig erfasst. Drei zugelassene
+   Lernerhistorien liefern 1.713 Frames und 372 echte Entscheidungen; der
+   gegnerseitige Fehler bleibt ohne Lernerziel. Rust-Konvertierung, Cache und
+   Tensorzulassung sowie das vollständige numerische Replay bestehen
+   (maximaler Logprob-Fehler `2,38419e-6`, Grenze `0,001`). Genau ein
+   Full-Model-PPO-Schritt mit unzentrierter Utility-Advantage wurde angenommen:
+   61 Entscheidungen/256 Frames, 301 geänderte Tensoren, finale KL
+   `7,72555e-5`. Alle drei Zielhistorien haben Utility null. Das belegt den
+   Lernpfad, keine bessere Spielstärke oder geeignete dauerhafte Datenmischung.
+   Als Nächstes folgt ein kleiner Vergleich mit identischen Ausgangslagen und
+   festgehaltenen Gegnern; Laufzeitmessungen werden unabhängig ergänzt.
+   Details und Hashes im [Pilotbericht](../history/trained-ai-research-learning-pilot-2026-10-30.md).
 
 Die folgenden Befunde dokumentieren die Ausgangslage und ihre Reparaturen;
 historische Aussagen „noch nicht implementiert“ sind durch diesen Stand ersetzt.
@@ -776,12 +789,19 @@ Regressionstest und werden vor erneuter Zulassung repariert. Zugehörige Engine-
 und Seat-Prozesse werden auch bei Fehlern beendet und ihr Ende geprüft.
 Fehlgeschlagene Artefakte bleiben erhalten; kein blinder automatischer Retry.
 
-**Nächster Schritt:** Der Encoder9-Anschluss einschließlich nativem Loader und
+**Nächster Schritt:** Den technisch bestandenen Fehler-Lernvertrag in einem
+kleinen gepaarten Spielvergleich beurteilen. Ausgangsmodell und neuer Kandidat
+erhalten dieselben Fälle und dieselben eingefrorenen Gegner. Passhäufigkeit,
+Ankündigungen, Abbrüche und echte Spielausgänge getrennt erfassen; unbekannte
+Ergebnisse bleiben unbekannt. Den reinen Null-Return-Pilot nicht ungeprüft
+wiederholen oder als Beleg für einen langen Trainingslauf behandeln.
+
+Der Encoder9-Anschluss einschließlich nativem Loader und
 vollständigem kompilierten Kartenkatalog ist geprüft. Ein kleiner synthetischer
 Lerntest kann die neuen Eingangsspalten lernen; das ist noch kein erfolgreicher
-Spielversuch. Als Nächstes den Lernvertrag für fehlgeschlagene Ankündigungen
-klären und einen getrennten, begrenzten Versuch festlegen. Vor größerem Full-PPO die aktuelle
-Gedächtnisrekonstruktion und ihren Ressourcenbedarf prüfen. Die vollständige
+Spielversuch. Der getrennte Lernvertrag für fehlgeschlagene Ankündigungen hat
+inzwischen den oben beschriebenen realen Einzelschritt bestanden. Vor größerem
+Full-PPO bleiben breitere Gedächtnis- und Ressourcenprüfungen erforderlich. Die vollständige
 KL-Prüfung trägt H jetzt während ihres Durchlaufs unter festen aktuellen
 Gewichten weiter; die differenzierbaren Trainingssegmente behalten ihren
 gesonderten aktuellen Burn-in. Das vermeidet wiederholte Präfixberechnung,
