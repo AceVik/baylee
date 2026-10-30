@@ -25,7 +25,7 @@ pub(super) fn run(gateway: &common::Gateway, endpoint: &Endpoint) {
     let Discovery::Central { identity } = sdk::discover(&http, "synthetic".into()).unwrap() else {
         panic!("completed migration must be discoverable");
     };
-    let mut session = sdk::login(&http, identity, "a-very-fine-password".into()).unwrap();
+    let mut session = super::synthetic_signed_in(&http, identity);
     session.confirm_restored(&http).unwrap();
 
     let ticket = session.gateway_ticket(&http, ALIAS.into()).unwrap();

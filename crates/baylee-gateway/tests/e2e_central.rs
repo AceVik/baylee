@@ -75,6 +75,24 @@ fn config_file(settings: &serde_json::Value) -> BridgeFile {
     guard
 }
 
+/// The synthetic player's sign-in. Central allows an account eight a minute,
+/// and the steps before a caller may have spent them, so a busy answer waits.
+fn synthetic_signed_in(
+    http: &CentralHttp,
+    identity: baylee_account::wire::Identity,
+) -> sdk::Session {
+    for _ in 0..18 {
+        match sdk::login(http, identity, "a-very-fine-password".into()) {
+            Ok(session) => return session,
+            Err(baylee_account::Error::Busy) => {
+                std::thread::sleep(Duration::from_secs(5));
+            }
+            Err(error) => panic!("the synthetic player's sign-in: {error}"),
+        }
+    }
+    panic!("the synthetic player's sign-in stayed busy for 90 seconds");
+}
+
 fn database(role: &str, password: &str) -> DevConfig {
     assert_eq!(
         std::env::var("CENTRAL_TEST_FIXTURE").as_deref(),

@@ -153,21 +153,6 @@ fn listed(http: &CentralHttp, origin: &str) -> bool {
     })
 }
 
-/// The synthetic player's sign-in. Central allows an account eight a minute,
-/// and the steps before this one spent them, so a busy answer waits.
-fn signed_in(http: &CentralHttp, identity: baylee_account::wire::Identity) -> sdk::Session {
-    for _ in 0..18 {
-        match sdk::login(http, identity, "a-very-fine-password".into()) {
-            Ok(session) => return session,
-            Err(baylee_account::Error::Busy) => {
-                std::thread::sleep(std::time::Duration::from_secs(5));
-            }
-            Err(error) => panic!("the synthetic player's sign-in: {error}"),
-        }
-    }
-    panic!("the synthetic player's sign-in stayed busy for 90 seconds");
-}
-
 pub(super) fn run(
     runtime: &Runtime,
     store: &AccountStore,
@@ -183,7 +168,7 @@ pub(super) fn run(
     let Discovery::Central { identity } = sdk::discover(&http, "synthetic".into()).unwrap() else {
         panic!("the synthetic account is at Central");
     };
-    let mut player = signed_in(&http, identity);
+    let mut player = super::synthetic_signed_in(&http, identity);
     // as the client does after its sign-in, before it asks for tickets
     player.confirm_restored(&http).unwrap();
     let (browser, token, id) = minted(runtime, store, operator, identity, &origin);
