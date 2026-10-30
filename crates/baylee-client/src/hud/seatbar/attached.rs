@@ -1232,6 +1232,7 @@ fn spawn_phases(
                 Density::Full,
                 38.0,
                 TileState {
+                    player: seat.player,
                     side,
                     row,
                     skipped: orders

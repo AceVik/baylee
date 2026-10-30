@@ -344,41 +344,62 @@ pub struct PlayerTab {
     pub player: PlayerId,
 }
 
-/// The button for the step the game is in, and how far it has lit up.
-///
-/// Zero at spawn and eased to one by [`rail::light_the_current_step`]. The
-/// HUD tree is rebuilt whenever the step changes, so the button carrying this
-/// is always a *new* entity — which is what makes a value that only ever
-/// climbs from zero the whole transition.
-///
-/// The seat bar spawns one, and that is the commit the old note here was
-/// waiting for: `seatbar::tile` puts it on the current step's tile of the
-/// seat whose turn it is (`state.now && state.gold`), together with the
-/// `BoxShadow` the ease writes into. The rail that used to carry it is gone;
-/// what survived the move is the *property*, which is why the marker did —
-/// a value that only climbs from zero is the whole transition precisely
-/// because the tree is rebuilt whole.
-#[derive(Component, Default)]
-pub struct PhaseNow {
-    /// How far the light has come, 0 to 1.
-    pub lit: f32,
+/// The step the table shows, held a while per step so a person can follow
+/// the turn going round (`client-core::phasepace`, owner 29.10.2026). The
+/// seat bars are built from it rather than from the view's step
+/// ([`seatbar::sync_seat_bars`]).
+#[derive(Resource, Default, Debug)]
+pub struct StepPace(pub baylee_client_core::phasepace::PhasePace);
+
+/// The light on every step tile of every bar, by seat and step, kept across
+/// the bars' rebuilds so it can fade from the step the table left onto the
+/// one it shows instead of cutting ([`rail::glow_the_steps`]).
+#[derive(Resource, Default, Debug)]
+pub struct StepLights {
+    lit: std::collections::BTreeMap<(baylee_core::ids::PlayerId, RailRow), f32>,
+}
+
+/// A step tile that wears the step light: its seat and step, and the frame
+/// it was built with, which it wears again when the light has gone.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StepGlow {
+    /// The bar's seat.
+    pub player: baylee_core::ids::PlayerId,
+    /// The tile's step.
+    pub row: RailRow,
+    /// The tile's own border (a standing order's frame, or none).
+    pub frame: Color,
+}
+
+/// The gold under a step tile's glyph, by the tile's seat and step: as lit
+/// as the step light on it ([`rail::glow_the_steps`]).
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StepFill(pub (baylee_core::ids::PlayerId, RailRow));
+
+/// Ink on a step tile (its glyph, label, stop accent): `rest` off the gold,
+/// eased to the ink that reads on the gold as the step light comes on.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct StepInk {
+    /// The tile's seat and step.
+    pub key: (baylee_core::ids::PlayerId, RailRow),
+    /// What it wears with no light on it.
+    pub rest: Color,
 }
 
 /// The block that says whether it is day or night, and which designation it
 /// was built for.
 ///
-/// **Nothing spawns one outside a test**, and it is now alone in that —
-/// [`PhaseNow`] beside it has been spawned by the seat bar since the bar got
-/// its baton. This one stood in the rail's head and the bar was to carry it
-/// on the hinge; the hinge-light is not written yet, so
-/// [`rail::flash_the_designation`] runs over an empty query and its tests
+/// **Nothing spawns one outside a test.** It stood in the rail's head and
+/// the bar was to carry it on the hinge; the hinge-light is not written yet,
+/// so [`rail::flash_the_designation`] runs over an empty query and its tests
 /// spawn the marker by hand.
 ///
 /// The value is carried on the component rather than read back out of the
 /// view, because the flash that marks a change has to be anchored to the
 /// *change* and the HUD tree is rebuilt on every hover: a light that eased
-/// from zero at spawn, the way [`PhaseNow`] does, would fire again every
-/// time the pointer crossed a card. [`rail::flash_the_designation`] keeps
+/// from zero at spawn would fire again every time the pointer crossed a
+/// card (which is also why the step light is kept by seat and step in
+/// [`StepLights`], off the tiles). [`rail::flash_the_designation`] keeps
 /// the last value it saw beside the clock and compares.
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 pub struct Designation(pub baylee_view::DayNight);
@@ -1934,7 +1955,7 @@ pub use lostbanner::{spawn_lost_banner, tick_lost_banner};
 pub(crate) use overlay::answer_button;
 pub use overlay::{despawn_overlay, sync_overlay};
 pub use rail::same_team;
-pub use rail::{DesignationFlash, flash_the_designation, light_the_current_step};
+pub use rail::{DesignationFlash, flash_the_designation, glow_the_steps, pace_the_steps};
 pub(crate) use scroll::scrolled;
 pub use scroll::{
     HandScroll, PreviewScroll, Scrolls, follow_the_hover, keep_the_preview_scrolled, scrolls,

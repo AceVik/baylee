@@ -114,6 +114,7 @@ The narrative version this replaced is `docs/history/baylee-client-CLAUDE-2026-0
 - `Density::for_length`: Full→Compact→Pip→Mark; the hover sheet carries the dropped. `for_shelf` picks `Split` on a long, deep shelf (a duel's, in practice): plaque (name over life) beside timeline (steps over counts and turn); the plaque never shrinks for tiles. `Shelf::box_size` measures from the ledge.
 - Steps group into CR 500.1's five phases: `tile_gap` inside, `phase_gap` between (Split 3 vs 15). Main tiles `MAIN_SPAN` (2.0); width is one division in `tile_width_on`, never capped `flex_grow`; Split tiles grow together to a cap, then slack goes to phase gaps.
 - Tree rebuilt per density change, box placed per frame; `stretch_step_tiles` pairs with `place_seat_bars`, or tiles freeze stale.
+- The bars draw the step the table's pace shows (`client-core::phasepace`, `hud::StepPace`: each step a view stood in held `STEP_HOLD` 0.6 s; this seat asked or `reduce_motion` goes straight there), never the view's own; the gold is kept by seat and step in `hud::StepLights` and faded across rebuilds by `rail::glow_the_steps` onto a child (`StepFill`, since `Feel` owns the tile's ground) and the ink (`StepInk`). §"The turn goes round at a pace a person can follow".
 - Untap/cleanup tiles are dead: `grants_priority` false, `PhaseOrders::toggle` refuses; no fill, frame, stop marker; ink `DEAD_INK` (0.28); no `SeatStep`/`Feel`, so inert (CR 502.4, 514.3a). Both rows arranged in `settingsui.rs`; a bar shows its own turn's.
 
 ## Interaction

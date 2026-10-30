@@ -6522,6 +6522,38 @@ reading and would probably not have needed to be; it is left where it is,
 because the tables were tuned there and a shelf's depth is a look rather than
 an arithmetic.
 
+### The turn goes round at a pace a person can follow (30.10.2026)
+
+The owner, 29.10.2026: phase transitions at the table should be smooth,
+good-looking animations, and slower, so a person can follow what happened.
+The engine moves through the steps as fast as the seats pass, and when the
+house or a standing order passed, three steps went by between two frames:
+the gold jumped from the upkeep to the end of combat, cut on the new tile and
+gone at once from the old one, because the bars are rebuilt whole with every
+step and the light lived on the tile.
+
+- **The pace** (`client-core::phasepace`, `hud::StepPace`,
+  `rail::pace_the_steps`): the bars draw the step the pace shows, not the
+  view's. Every step a view stood in is shown for at least `STEP_HOLD`
+  (0.6 s) before the next, so the light walks the row a step at a time; only
+  steps a view stood in are shown, never one the game skipped (CR 508.8). It
+  never stands in the way of an answer: when this seat is asked something,
+  or motion is reduced, it goes straight to where the game is, and it never
+  falls more than `MAX_BEHIND` (4) steps behind. A replay that goes back or
+  jumps turns starts it over.
+- **The light** (`rail::glow_the_steps`, `hud::StepLights`): kept by seat and
+  step, off the tiles, it eases up on the step shown (`LIGHT_RATE` 3.5/s,
+  nine tenths in 0.65 s) and down on the one left twice as fast, so the gold
+  does not trail behind the step shown. It writes every part that
+  wears it, a rebuilt tile on the frame it is first drawn: the gold under the
+  glyph (`StepFill`, a child, because `Feel` owns the tile's own ground), the
+  glyph's, label's and stop accent's ink towards the ink that reads on gold
+  (`StepInk`), and the tile's glow and frame (`StepGlow`). So the gold passes
+  from tile to tile instead of jumping. Only a step that grants priority is
+  gilded, as before (CR 502.4, CR 514.3a). Every write is compared first;
+  settled, it writes nothing (`the_gold_passes_from_the_step_left_to_the_step_shown`).
+  Reduced motion cuts.
+
 ## The players' strip, and the bar's right end (#264)
 
 On 25.09.2026 the owner rearranged the bar's two ends: *"At time the Manazone
@@ -6802,8 +6834,10 @@ one bar would have said the untap step is the daytime, and
 `the_designation_does_not_borrow_a_step_glyph` reads both files to hold it.
 
 The change is marked by a flash on the block's border and shadow, and it is
-anchored to the **change** rather than to the entity. `PhaseNow` can ease
-from zero at spawn because the tree is rebuilt when the step changes; the
+anchored to the **change** rather than to the entity. `PhaseNow` could ease
+from zero at spawn because the tree is rebuilt when the step changes (until
+30.10.2026, when the step light moved off the tiles, §"The turn goes round
+at a pace a person can follow"); the
 overlay tree is rebuilt on every hover, so a light born with the block would
 fire whenever the pointer crossed a card. `rail::DesignationFlash` keeps the
 last designation it saw beside the clock, and

@@ -57,6 +57,8 @@ pub(super) fn add_present_systems(app: &mut App) {
         .init_resource::<hud::MenuRevision>()
         .init_resource::<hud::LogRevision>()
         .init_resource::<hud::LogFolds>()
+        .init_resource::<hud::StepPace>()
+        .init_resource::<hud::StepLights>()
         .init_resource::<hud::revealed::RevealRevision>()
         .init_resource::<hud::TrayCarry>()
         .init_resource::<input::TrayGlide>();
@@ -117,7 +119,6 @@ pub(super) fn add_present_systems(app: &mut App) {
             (depart::send_off, hud::sync_overlay).chain(),
             hud::apply_hand_scroll,
             (
-                hud::light_the_current_step,
                 hud::flash_the_designation,
                 hud::ease_the_stack_in.after(hud::sync_overlay),
                 hud::fold_the_stack.after(hud::sync_overlay),
@@ -157,7 +158,13 @@ pub(super) fn add_present_systems(app: &mut App) {
                 // and the ink would swim a frame behind the felt.
                 (
                     hud::measure_shelves,
+                    // The step the bars draw: the view's, held a while per
+                    // step so a person can follow the turn going round.
+                    hud::pace_the_steps,
                     hud::sync_seat_bars,
+                    // After the rebuild, so a tile spawned this frame wears
+                    // its light on the frame it is first drawn.
+                    hud::glow_the_steps,
                     hud::place_seat_bars,
                     hud::clip_only_level,
                     hud::stretch_step_tiles,
