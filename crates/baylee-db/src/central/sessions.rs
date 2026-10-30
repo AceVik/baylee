@@ -27,7 +27,7 @@ pub enum SessionBinding {
     Rejected,
 }
 
-fn central_id(value: [u8; 16]) -> Result<Uuid, DbErr> {
+pub(super) fn central_id(value: [u8; 16]) -> Result<Uuid, DbErr> {
     let id = Uuid::from_bytes(value);
     if id.get_version_num() != 7 || value[8] & 0xc0 != 0x80 {
         return Err(DbErr::Custom("invalid central identity".into()));

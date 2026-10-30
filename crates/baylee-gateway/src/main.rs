@@ -20,6 +20,7 @@ mod departure;
 mod engine;
 mod handle;
 mod invite;
+mod legacyexport;
 mod llmaccess;
 mod lobby;
 mod mail;
@@ -288,6 +289,12 @@ async fn main() {
     // likewise the operator's and the database's alone.
     if args.first().map(String::as_str) == Some("records") {
         std::process::exit(recordexport::cli(&args[1..]).await);
+    }
+    // The cutover's export of the accounts Central signs in from then on
+    // (`docs/central-login.md` §"Cutover"): the operator's and the
+    // database's alone, and never logged.
+    if args.first().map(String::as_str) == Some("legacy") {
+        std::process::exit(legacyexport::cli(&args[1..]).await);
     }
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())

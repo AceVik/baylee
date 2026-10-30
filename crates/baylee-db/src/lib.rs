@@ -112,6 +112,21 @@ pub const DEFAULT_POOL: u32 = 8;
 ///
 /// If the URL is unusable, the server unreachable, or a migration fails.
 pub async fn connect(url: &str, pool: u32) -> Result<DatabaseConnection> {
+    let db = open(url, pool).await?;
+    migration::Migrator::up(&db, None)
+        .await
+        .context("applying migrations")?;
+    Ok(db)
+}
+
+/// Open the database as it stands, without migrating it: for an operator's
+/// read that must see the schema the running gateway left, such as the
+/// legacy accounts' export at the cutover (`docs/central-login.md`).
+///
+/// # Errors
+///
+/// If the URL is unusable or the server unreachable.
+pub async fn open(url: &str, pool: u32) -> Result<DatabaseConnection> {
     let mut options = ConnectOptions::new(url.to_owned());
     options
         .max_connections(pool)
@@ -123,15 +138,9 @@ pub async fn connect(url: &str, pool: u32) -> Result<DatabaseConnection> {
         .idle_timeout(Duration::from_secs(600))
         .sqlx_logging(false);
 
-    let db = Database::connect(options)
+    Database::connect(options)
         .await
-        .with_context(|| format!("connecting to {}", redacted(url)))?;
-
-    migration::Migrator::up(&db, None)
-        .await
-        .context("applying migrations")?;
-
-    Ok(db)
+        .with_context(|| format!("connecting to {}", redacted(url)))
 }
 
 /// A database URL with its password removed, for a log line or an error.
