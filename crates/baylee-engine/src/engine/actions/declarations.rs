@@ -363,7 +363,13 @@ impl<L: CardLookup> Engine<L> {
         // could obey without breaking a restriction. `BlockRules` says how
         // the most is found, and where it is only a good declaration's.
         if rules.has_requirements() {
-            let most = rules.obeyed(&rules.obeying(&combat::block_options(&self.state, defending)));
+            let mana_reach = if window && rules.has_mana_tax() {
+                self.attack_mana_reach(defending)
+            } else {
+                0
+            };
+            let options = combat::block_options(&self.state, defending, mana_reach);
+            let most = rules.obeyed(&rules.obeying(&options));
             if rules.obeyed(blockers) < most {
                 return Err(crate::choice::AnswerFault::MustBlock.into());
             }
@@ -408,7 +414,7 @@ impl<L: CardLookup> Engine<L> {
         Ok(())
     }
 
-    /// Opens the CR 509.1g–h payment window for a block declaration.
+    /// Opens the CR 509.1d–f payment window for a block declaration.
     fn open_block_tax_window(
         &mut self,
         defending: PlayerId,

@@ -76,6 +76,48 @@ fn myr_prototype_must_pay_two_to_attack() {
 fn myr_prototype_must_pay_two_to_block() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[myr_prototype()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    set_two_counters(&mut e);
+    let prototype = on_battlefield(&e, p0, myr_prototype()).unwrap();
+    let ogre = on_battlefield(&e, p1, gray_ogre()).unwrap();
+    reach_their_main_phase(&mut e, p1);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseAttackers { .. })
+    });
+    e.apply(
+        p1,
+        PlayerAction::DeclareAttackers {
+            attackers: vec![(ogre, Defender::Player(p0))],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseBlockers { .. })
+    });
+    let Pending::ChooseBlockers { blockers, .. } = e.pending().clone() else {
+        unreachable!()
+    };
+    assert!(
+        !blockers
+            .iter()
+            .any(|option| option.attackers.contains(&ogre)),
+        "without two reachable mana, the unpayable block is not offered"
+    );
+    assert!(
+        e.apply(
+            p0,
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(prototype, ogre)],
+            },
+        )
+        .is_err()
+    );
+
+    let mut e = Duel::new(SEED, forest())
         .battlefield(0, &[myr_prototype(), forest(), forest()])
         .battlefield(1, &[gray_ogre()])
         .start();

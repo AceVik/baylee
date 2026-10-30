@@ -883,8 +883,13 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         let active = self.state.turn.active;
-        let blockers = combat::block_options(&self.state, defending);
         let rules = combat::BlockRules::new(&self.state);
+        let mana_reach = if rules.has_mana_tax() {
+            self.attack_mana_reach(defending)
+        } else {
+            0
+        };
+        let blockers = combat::block_options(&self.state, defending, mana_reach);
         let capacity = blockers
             .iter()
             .filter_map(|o| {

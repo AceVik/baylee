@@ -191,7 +191,7 @@ enum PaymentContinuation {
         opened: Box<WindowStart>,
     },
     /// A declaration of blockers whose mana tax the pool did not cover
-    /// (CR 509.1g–h), with the same payment-window reversal semantics.
+    /// (CR 509.1d–f), with the same payment-window reversal semantics.
     BlockTax {
         /// The defending player making the declaration.
         defending: PlayerId,
