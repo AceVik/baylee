@@ -17,7 +17,7 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Fourteen known-return attempts await native conversion/admission; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
-| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names the latest research phase under `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/`. CPU preflight, CUDA initialization and full numerical replay passed; exactly one update was accepted (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546). Follow `execution_root` and actual receipts; no automatic repeat or promotion. Earlier coverage training remains completed and reviewed |
+| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` now names `research-breadth-learning-01a18b4c-d87e-7e64-88a4-48a4ef6a508e/data/execution`, running bounded native data preparation. No Torch/GPU updates are part of this pipeline. Read its actual stage and receipts before continuing. The previous `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` accepted exactly one update (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546); those results remain unchanged |
 | Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
@@ -84,6 +84,39 @@ passing these eight to `--attempt-ledger-runs` preserves exactly 16 attempts.
 Do not add the old aggregate's ten unstarted placeholders again. Case 165
 remains a deadline unknown; case 170 is a recorded opponent failure. Both
 remain target-free. No training or promotion follows automatically.
+
+The next native data pipeline launched once under
+`research-breadth-learning-01a18b4c-d87e-7e64-88a4-48a4ef6a508e/`.
+Its ready SHA-256 is
+`6a047fbc37f9b3f2c5205875a5e08aacccf36ff447c14173d7d34db415b8bde8`,
+and pipeline SHA-256 is
+`e00722456944f3b3422de34ccf64586f0e439f2647bb720d9266ed7b556f0458`.
+The controller at launch was PID 2460615/start ticks 16965668 on the same boot.
+Service `baylee-research-breadth-01a18b4c-data` and its `-watch.timer` were
+verified active; `convert` was the first observed stage. Conversion, cache
+build/verification, native admission and independent verification each have
+600 seconds; final strict data validation has 120 seconds. Pipeline/service
+limits are 2,700/2,760 seconds, CPU400% and 20 GiB. The final mount map was
+tested: frozen inputs are read-only, owned outputs writable, CUDA devices absent.
+Original R6 weights and native runtime are reused; the trainer tree is frozen
+from commit `1384b8e3d5ca8bd60e22d397adf2156fb8402451`.
+
+After completion, run that namespace's `bin/research_breadth_ops verify-data`
+once and inspect `data-ready.json`, `data-verified.json` and all native receipts.
+Expected accounting is 16 planned/assigned, 15 recorded, one operational
+unknown, one recorded unknown and 14 target histories. Frame/choice counts
+must come from actual native admission. `attach-data` only restores monitoring
+of the already started service; never invoke `launch-data` as recovery.
+Prepare separate CPU-loader, CUDA-initialization, complete-history replay and
+learning phases only from verified actual metadata. The proposed dose is one
+epoch, at most eight attempted B4/U64 batches, seed 31431, original R6 and fresh
+AdamW, LR `2e-5`, KL `0.02`, FP32/K2/T0.7; the learning worker has a 1,800-second
+limit. Before releasing learning, record the exact Torch permutation and
+selected segments/actor choices/history/return coverage without changing the
+seed to obtain preferred outcomes. The broader dataset and larger dose change
+together, so this experiment will not isolate their individual effects.
+Keep both unknown cases target-free, measure worker phase timings, stop on a
+rejected update and perform matched gameplay before claiming stronger play.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,
