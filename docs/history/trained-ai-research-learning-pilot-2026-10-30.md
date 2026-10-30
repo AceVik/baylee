@@ -726,3 +726,50 @@ exposure and cleanup receipt only after terminal success. Export and matched
 gameplay require subsequent review; there is no automatic retry, export,
 gameplay or promotion. This collection uses neural self-play/historical
 opponents; it is not a Terra- or Sonnet-opponent trial.
+
+## Breadth learning completed
+
+Event `eaf79da880f54c32dc9fdf88` completed the bounded UPDATE trial. All eight
+attempted transactions passed and were retained after the final full-collection
+KL check: `0.0010511504869043218`, below the fixed `0.02` limit. There was no
+rejection or final rollback. The full 3,479-choice numerical replay again had
+maximum log-probability error `0.00002288818359375` against tolerance `0.001`.
+
+Actual gradient dose matches the frozen CPU permutation: 465 genuine actor
+choices and 2,043 frames over 32 segments from 11 histories, with per-batch
+counts 46/49/53/54/51/70/73/69. The reports identify 311 changed parameter
+tensors. This is eight batches from one bounded epoch, not a full epoch over
+241 segments; replayed or reconstructed prefixes do not enlarge gradient dose.
+The 16-attempt denominator and both target-free unknown cases are unchanged.
+
+The pipeline took 1,676.101 seconds; its learning guard took 1,649.388 seconds
+with peak proportional memory 4,082,933,760 bytes, within the unchanged limits.
+Worker measured host time was 1,627.090 seconds: update transactions 1,050.667,
+native handshake 192.164, final verification 194.385, initial full replay
+81.999, final collection replay 84.970 and publication 19.078 seconds.
+Transactions include recurrent reconstruction and post-update whole-collection
+checks, not just gradient computation. The timings do not isolate CUDA kernels.
+
+Native `verify-update` passed once under canonical ownership and shared-GPU
+locks. The event review rechecked 22,313 seals and three owned identities/groups;
+the service/cgroup and GPU were empty. Only the owned watcher stopped, and the
+user gateway retained its original identity. The event is deduplicated locally
+and centrally, and canonical training status is `complete-reviewed`.
+
+| Artifact under UPDATE | SHA-256 |
+| --- | --- |
+| `update-verified.json` | `9b47449b843ead98d2b61f05666da35cfd3a7f079a82c5aa33b69160b0535e1f` |
+| `update/output/report.json` | `025513fdad9e988736e09fd66c8982d5bd2c3c5740ba6155c56a601443e65173` |
+| `update/output/last.pt` | `1bb5dab34b57ebd5dfe30d026d77823bdcbf6e86336b59357e80fd0b40372e7f` |
+| `update/output/net.pt` | `a26eb70d09154fd99d2e0840c58fa1b283efd8309f877013ed3d97264e22566a` |
+| `reviewed-events/eaf79da880f54c32dc9fdf88-operator-review.json` | `7f52ed8e5bb461557fa77922fd46f4cfd11e14ef1d260a8dc7332c6db7278eb6` |
+
+Checkpoint byte seals and report checks passed; independent PyTorch inspection
+of checkpoint tensors/progress/optimizer state remains the next prerequisite
+to export. The proposed behavior comparison retains all 16 fixed breadth cases
+160–175, with fresh original-R6 and candidate arms: 32 planned attempts under
+equal opponents, decks, opening seeds, focal seats and deadlines. Old collection
+records are reproducibility evidence, not substitutes for a source arm given
+different bounds. A deadline unknown is not a loss or a reason to refill.
+This compares behavior on reused training/development cases, not an untouched
+holdout, causal isolation of data breadth versus dose, or promotion evidence.

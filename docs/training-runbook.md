@@ -17,14 +17,14 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
-| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-update-01a18ba0-5934-762e-961f-48b8a91e6122/update/execution`, launched once in stage `update`. Controller PID 2480842/start ticks 17525475; recheck its full identity. The preceding complete-history GPU audit passed all 3,479 choices with maximum log-probability error 0.0000228882 against tolerance 0.001. The current trial permits at most eight attempted updates, then requires review; accepted updates and stronger play are not yet established. The earlier `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` accepted exactly one update (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546) |
+| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-update-01a18ba0-5934-762e-961f-48b8a91e6122/update/execution`, now `complete-reviewed`. All eight attempted updates were retained: 465 actor choices, 2,043 frames, 311 changed tensors and final whole-collection KL 0.00105115049 (limit 0.02). Full replay passed all 3,479 choices. Owned processes/service exited and watcher stopped. Independent checkpoint tensor/progress inspection and matched gameplay follow separately; stronger play is not established. Do not restart this completed trial |
 | Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. The broader collection now passed both loading and numerical replay of all 3,479 choices. Its running learning trial selects at most 465 choices across 11 histories, including 103 from natural wins. Review attempted versus retained updates, final KL/rollback and checkpoints before matched gameplay; successful numerical replay does not establish playing strength |
+| Current research direction | The first failure-terminal pilot retained one update on 61 choices and changed no executed behavior on four reused cases. The broader trial now retained all eight updates on 465 choices across 11 histories, including 103 from natural wins; 3,479 choices were audited. Final KL passed without rollback. Next independently inspect checkpoints, export with parity validation and compare fresh source/candidate arms across all 16 fixed breadth cases. These are reused training/development cases, not an untouched holdout or evidence for promotion |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
@@ -267,7 +267,7 @@ pipeline SHA-256:
 `4be7f7e81bf9cbdad41813d9f372204fb3db089b7a02c62fa2701771cf50139a`.
 Controller PID 2480842/start ticks 17525475 on the same boot was verified by
 executable, argv and cgroup. Service `baylee-research-breadth-01a18ba0-update`
-and its `-watch.timer` are active; the first observed stage was `update`.
+and its `-watch.timer` were active; the first observed stage was `update`.
 The owned Torch child PID 2480931/start ticks 17528919 was observed on the GPU,
 with native tensor worker PID 2480966 in the same guarded process group. Both
 resolve to the pinned executables; startup logs were empty, with no reported
@@ -284,17 +284,29 @@ the original source if the final complete-collection KL gate fails. The 465
 choices/2,043 frames are the maximum selected gradient dose, not a completed
 epoch or all 3,479 audited choices. Cases 165/170 remain target-free.
 
-After terminal completion, recheck identity/group/service cleanup and run this
-namespace's `bin/research_update_ops verify-update` once, under canonical and
-shared-GPU ownership locks. Inspect `update/output/report.json`,
-`probability-replay.json`, `last.pt`, `net.pt`, `update/worker.json` and
-`update-verified.json`. Keep attempted, transaction-accepted and finally retained
-updates distinct: final rollback can publish unchanged source after earlier
-accepted transactions. The Rust verifier seals checkpoint bytes; independently
-inspect their tensor/progress semantics with PyTorch before export. A complete
-pipeline alone does not certify accepted learning or stronger play.
-`attach-update` restores monitoring for this exact running owner only; never
-repeat `launch-update`. No automatic export, gameplay, retry or promotion follows.
+Event `eaf79da880f54c32dc9fdf88` is now reviewed and deduplicated. Native
+`bin/research_update_ops verify-update` already passed once under canonical and
+shared-GPU ownership locks. All eight transactions were accepted and retained;
+the final whole-collection KL is `0.0010511504869043218`, below `0.02`, with no
+rollback. Reports confirm 465 actor choices/2,043 frames and 311 changed tensors.
+The 32 selected segments span 11 histories; no full-epoch claim is made.
+Pipeline/guard times were 1,676.101/1,649.388 seconds, within the frozen limits.
+Worker host timings assign 1,050.667 seconds to update transactions, 386.549 to
+native handshake/final verification and 84.970 to final collection replay.
+These are host phase times, not GPU-kernel timings or strength measurements.
+
+Update-verified SHA-256 is
+`9b47449b843ead98d2b61f05666da35cfd3a7f079a82c5aa33b69160b0535e1f`;
+operator-review SHA-256 is
+`7f52ed8e5bb461557fa77922fd46f4cfd11e14ef1d260a8dc7332c6db7278eb6`.
+Review rechecked 22,313 seals and three owned identities/groups, confirmed the
+empty service/cgroup/GPU and unchanged gateway, and stopped only its watcher.
+Do not repeat `verify-update`, `attach-update` or `launch-update` for this
+completed namespace. The verifier seals checkpoint bytes and report contracts;
+independently inspect tensor/progress semantics with PyTorch before export.
+Planned follow-up uses fresh R6/candidate arms on all 16 fixed breadth cases
+160–175, including unknown cases, with identical opponents, seeds, focal seats
+and deadlines. No automatic export, gameplay, retry or promotion follows.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,
