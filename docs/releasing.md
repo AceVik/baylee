@@ -64,7 +64,8 @@ prereleases afterwards, raise the patch again (for example `0.1.2-beta.1`);
    workflow refuses a tag whose status was measured at another pool
    (`cargo tools site card-status-fresh`: the measured commit must be an
    ancestor of the tag, and no card, ledger, core index or
-   `data/unplayable.tsv` may have changed since).
+   `data/unplayable.tsv` may have changed since). A dry run only warns about
+   a stale status, since between releases it always is.
 2. Wait for `ci` to go green on that commit, including `packages`. The workflow
    refuses a tag without a successful **push to this repository's main** CI run
    at that exact SHA in which every job of `REQUIRED_JOBS`

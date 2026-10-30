@@ -75,7 +75,7 @@ jobs:
         with:
           persist-credentials: false
       - if: inputs.source-run != ''
-        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
         with:
           toolchain: stable
       - id: version
@@ -112,12 +112,12 @@ jobs:
       - if: inputs.source-run == ''
         uses: ./.github/actions/linux-deps
       - if: inputs.source-run == ''
-        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
       - if: inputs.source-run == ''
-        uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         # The VM is not GitHub's image (another macOS, another SDK), so it
         # keeps a cache of its own; GitHub's rows keep their keys.
         with:

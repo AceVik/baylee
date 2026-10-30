@@ -66,7 +66,7 @@ jobs:
           # The card status check below compares the tag with the commit the
           # status was measured at.
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
         with:
           toolchain: stable
       - id: v
@@ -94,8 +94,15 @@ jobs:
             fi
             # The website reads the card status from the tagged commit, so its
             # numbers are those of the client this release ships: the status
-            # must have been measured at this pool (docs/releasing.md).
-            cargo tools site card-status-fresh --rev "$GITHUB_SHA"
+            # must have been measured at this pool (docs/releasing.md). The
+            # status is measured in the version commit, so between releases
+            # it is stale and a dry run only warns: it is there to promote
+            # and sign (run 40981976758 stopped here, 1374 cards on).
+            if [ "$GITHUB_REF_TYPE" = tag ]; then
+              cargo tools site card-status-fresh --rev "$GITHUB_SHA"
+            elif ! cargo tools site card-status-fresh --rev "$GITHUB_SHA"; then
+              echo "::warning::the card status is stale; a tag here would be refused until \`cargo tools site card-status\` is committed"
+            fi
             # Only a successful push to this repository's main, at this SHA.
             # A green PR run is not a source of release executables.
             run=$(cargo tools release resolve)
@@ -133,7 +140,7 @@ jobs:
         with:
           persist-credentials: false
       # The same pinned toolchain as the builds.
-      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
         with:
           toolchain: stable
       - run: cargo build --locked -q -p baylee-update --bin baylee-update-sign
@@ -151,9 +158,9 @@ jobs:
   # exercises the step a tag takes.
   #
   # The job enters the `release` environment, which only a `v*` tag or `main`
-  # may enter, and the seed belongs there (`docs/releasing.md` §"The key,
-  # once"); while a repository secret of the same name still exists, that is
-  # what it reads. Nothing is checked out or compiled here: the signer and
+  # may enter, and the seed is that environment's secret (`docs/releasing.md`
+  # §"The key, once"); an environment secret wins over a repository secret of
+  # the same name. Nothing is checked out or compiled here: the signer and
   # the archives come in as artifacts.
   sign:
     needs: [version, build, signer]
@@ -200,7 +207,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
         with:
           toolchain: stable
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
