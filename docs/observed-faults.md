@@ -3733,7 +3733,7 @@ follows the cast through its targets and window.
 Seen by the agent that recorded the README and website loops, on a local test
 stack (passive, silent client at 1600×900); not yet reproduced on purpose.
 
-- **The "Lock chat" pill sits over the hand** at a table on a gateway with chat.
+- **The "Lock chat" pill sits over the hand** at a table on a gateway with chat. Fixed 30.10.2026: unlocked, nothing floats (the composer carries the lock); locked, **Unlock chat** stands under the arrangement pill (`docs/client.md` §"Friends and chat").
 - **The "Ring" pill stays over the lobby's logo** after leaving a table.
 - **A lobby notice covers the room's title** while a table is being arranged.
 

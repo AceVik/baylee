@@ -433,16 +433,8 @@ fn chat_tool(
                 min_height: kit.m.px(32.0),
                 padding: UiRect::axes(kit.m.px(8.0), kit.m.px(4.0)),
                 flex_direction: FlexDirection::Row,
-                align_items: if is_chat_badge {
-                    AlignItems::FlexStart
-                } else {
-                    AlignItems::Center
-                },
-                column_gap: if is_chat_badge {
-                    px_fixed(0.0)
-                } else {
-                    kit.m.px(6.0)
-                },
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(6.0),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
                 ..default()
             },
@@ -453,13 +445,25 @@ fn chat_tool(
             Pickable::IGNORE,
         ))
         .id();
-    let icon = commands
+    let glyph = commands
         .spawn((
             Text::new(glyph.to_string()),
             crate::hud::icon_tf(kit.fonts, kit.m.text),
             TextColor(tokens::INK),
             Pickable::IGNORE,
         ))
+        .id();
+    // The glyph stands in a box of its own, which the chat's badge hangs
+    // from (`badge`).
+    let icon = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Relative,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .add_child(glyph)
         .id();
     commands.entity(face).add_child(icon);
     if let Some(word) = word {
@@ -475,39 +479,7 @@ fn chat_tool(
     }
     let initial = crate::social::header_count(count);
     if is_chat_badge {
-        let badge = commands
-            .spawn((
-                crate::shellkit::role::Role::Count,
-                Node {
-                    min_width: px_fixed(16.0),
-                    min_height: px_fixed(16.0),
-                    padding: UiRect::axes(px_fixed(4.0), px_fixed(0.0)),
-                    margin: UiRect::left(kit.m.px(-6.0)),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
-                    ..default()
-                },
-                BackgroundColor(tokens::GOLD),
-                if initial.is_empty() {
-                    Visibility::Hidden
-                } else {
-                    Visibility::Inherited
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        let n = commands
-            .spawn((
-                count,
-                Text::new(initial),
-                crate::hud::tf_bold(kit.fonts, kit.m.small * 0.85),
-                TextColor(tokens::OPAQUE),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(badge).add_child(n);
-        commands.entity(face).add_child(badge);
+        badge(commands, kit, icon, count, initial);
     } else {
         let n = commands
             .spawn((
@@ -521,6 +493,53 @@ fn chat_tool(
         commands.entity(face).add_child(n);
     }
     crate::shellkit::controls::hit(commands, kit, face, action)
+}
+
+/// The chat's count: a bell's badge on the icon's shoulder, standing out of
+/// the row. In the row with no gap and a negative margin it lay over the
+/// word's last letter ("Cha①", 29.10.2026).
+fn badge(
+    commands: &mut Commands,
+    kit: crate::shellkit::controls::Kit,
+    icon: Entity,
+    count: crate::social::HeaderCount,
+    initial: String,
+) {
+    let badge = commands
+        .spawn((
+            crate::shellkit::role::Role::Count,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px_fixed(-7.0),
+                left: Val::Percent(70.0),
+                min_width: px_fixed(16.0),
+                min_height: px_fixed(16.0),
+                padding: UiRect::axes(px_fixed(4.0), px_fixed(0.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(tokens::GOLD),
+            if initial.is_empty() {
+                Visibility::Hidden
+            } else {
+                Visibility::Inherited
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let n = commands
+        .spawn((
+            count,
+            Text::new(initial),
+            crate::hud::tf_bold(kit.fonts, kit.m.small * 0.85),
+            TextColor(tokens::OPAQUE),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(badge).add_child(n);
+    commands.entity(icon).add_child(badge);
 }
 
 /// The strips under the header: seated (not on a Phone, where the header's

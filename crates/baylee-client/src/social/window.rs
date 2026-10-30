@@ -813,6 +813,34 @@ fn swatch_of(duel: Option<&Duel>, tag: Option<&str>) -> Option<Color> {
     Some(crate::hud::seat_colour(reader, Some(statics), seat.player))
 }
 
+/// Where the lobby's chat pill stands so it clears the memorial's caption,
+/// which lies along the same bottom-left corner where the window is short
+/// enough: beside it, ten pixels on. `None` where the caption is not there,
+/// not laid out yet, or ends well above the pill.
+///
+/// The pill stood at 12 pixels whatever lay there, and covered half of
+/// "Baylee · Forever loved" (seen 29.10.2026 at 1280 × 800).
+pub(super) fn pill_left(
+    captions: &Query<
+        (&ComputedNode, &UiGlobalTransform),
+        With<crate::lobby::memorial::MemorialCaption>,
+    >,
+    window_h: f32,
+) -> Option<Val> {
+    /// How far above the window's bottom the caption may end and still
+    /// share the pill's band.
+    const BAND: f32 = 60.0;
+    let (node, at) = captions.iter().next()?;
+    let scale = node.inverse_scale_factor();
+    let size = node.size() * scale;
+    if size.x <= 0.0 {
+        return None;
+    }
+    let centre = at.translation * scale;
+    let bottom = centre.y + size.y * 0.5;
+    (bottom > window_h - BAND).then_some(Val::Px(centre.x + size.x * 0.5 + 10.0))
+}
+
 /// The table's window: the log's panel, filled with the tabs, the list and
 /// the composer while a social session exists.
 #[allow(clippy::too_many_arguments)] // a Bevy system: each is what it draws from
@@ -913,7 +941,10 @@ fn sync_lobby_window(
         (With<LobbyChat>, Without<logpanel::virtual_list::LogSpacer>),
     >,
     mut lists: Query<(&mut LogFollow, &mut ScrollPosition), With<LogList>>,
-    nodes: Query<&ComputedNode>,
+    (nodes, captions): (
+        Query<&ComputedNode>,
+        Query<(&ComputedNode, &UiGlobalTransform), With<crate::lobby::memorial::MemorialCaption>>,
+    ),
     mut spacers: Query<&mut Node, With<logpanel::virtual_list::LogSpacer>>,
     mut shape: Local<Option<LobbyShape>>,
     zoom: Res<super::zoom::Zoom>,
@@ -1011,7 +1042,11 @@ fn sync_lobby_window(
         if node.width != want_w {
             node.width = want_w;
         }
-        let left = zpx(12.0);
+        let left = if ui.open {
+            zpx(12.0)
+        } else {
+            pill_left(&captions, window.y).unwrap_or(zpx(12.0))
+        };
         if node.left != left {
             node.left = left;
         }

@@ -9302,6 +9302,17 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   encryption notice stands the first time the chat opens on a device, and
   from every lock; Chat & privacy holds the server settings, history length,
   sounds, this account's devices and Forget this device.
+- **Where things stand** (played 29.10.2026). The header's chat count is a
+  badge on the bubble's shoulder, out of the row (it lay over the word's
+  last letter). Unlocked, nothing floats: the composer carries the lock (a
+  "Lock chat" pill stood free at 42 % of the width, over the lobby and over
+  the hand at a table, whenever the window was shut). Locked, **Unlock chat**
+  stands where the chat's pill would: the lobby's bottom-left corner, beside
+  the memorial's caption where the window is short enough to share its band
+  (`window::pill_left`; the pill had covered half of it), and at a table
+  under the arrangement pill. At a table the friends drawer ends above the
+  hand zone, whose top is the bar with the HUD's own doors (#389: run to the
+  window's foot it covered them and a press on one answered nothing).
 - **Sounds** are four synthesised cues (`sound::chat_voice`), no samples,
   at the interface level and the device's effects volume.
 - `/state.chat` reports the machine and the window and every chat control
