@@ -275,18 +275,27 @@ pub fn pass_until(
         if pred(engine) {
             return;
         }
+        let actor = engine.decision_actor();
         match engine.pending().clone() {
             Pending::Priority { player, .. } => {
-                engine.apply(player, PlayerAction::PassPriority).unwrap();
+                engine
+                    .apply(actor.unwrap_or(player), PlayerAction::PassPriority)
+                    .unwrap();
             }
             Pending::ChooseAttackers { player, .. } => {
                 engine
-                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .apply(
+                        actor.unwrap_or(player),
+                        PlayerAction::DeclareAttackers { attackers: vec![] },
+                    )
                     .unwrap();
             }
             Pending::ChooseBlockers { player, .. } => {
                 engine
-                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .apply(
+                        actor.unwrap_or(player),
+                        PlayerAction::DeclareBlockers { blockers: vec![] },
+                    )
                     .unwrap();
             }
             // "You may …" on the way past. Yes, because that is what these
@@ -298,7 +307,9 @@ pub fn pass_until(
                 prompt: crate::choice::YesNoPrompt::MayDo,
                 ..
             } => {
-                engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+                engine
+                    .apply(actor.unwrap_or(player), PlayerAction::YesNo(true))
+                    .unwrap();
             }
             // The untap step's determination, and a surveil, answered by
             // taking the option that moves nothing — the same reading as
@@ -321,7 +332,10 @@ pub fn pass_until(
                 ..
             } => {
                 engine
-                    .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
+                    .apply(
+                        actor.unwrap_or(player),
+                        PlayerAction::ChooseObjects { objects: vec![] },
+                    )
                     .unwrap();
             }
             // Under an untap limit the answer is what untaps: as many as
@@ -335,7 +349,10 @@ pub fn pass_until(
             } => {
                 let objects = options.into_iter().take(usize::from(max)).collect();
                 engine
-                    .apply(player, PlayerAction::ChooseObjects { objects })
+                    .apply(
+                        actor.unwrap_or(player),
+                        PlayerAction::ChooseObjects { objects },
+                    )
                     .unwrap();
             }
             Pending::Arrange {
@@ -344,7 +361,9 @@ pub fn pass_until(
                 prompt: crate::choice::ArrangePrompt::Surveil,
                 ..
             } => {
-                engine.apply(player, look_answer(&cards, &[])).unwrap();
+                engine
+                    .apply(actor.unwrap_or(player), look_answer(&cards, &[]))
+                    .unwrap();
             }
             other => panic!("unexpected while passing: {other:?}"),
         }

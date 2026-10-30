@@ -6,6 +6,21 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-30 — *Mirrodin* (`mrd`) Batch 2 (`Granite Shard` through `Platinum Angel`, 50 cards)
+
+Completing all 50 cards through `scriptgen` required small shared mechanisms rather than card-specific engine effects. The batch also exposed four integration rules worth preserving:
+
+1. **Update the complete `Modifier` census with every new variant.**
+   `ProtectionFromExiledWithSourceTypes`, `NamedPlayersCantLose`, and `PlayersCantWin` are rule-based modifiers, not locking modifiers. Adding them only to the DSL and projection is insufficient: the exhaustive declaration and census tests in `baylee-engine/src/effects.rs` must also account for them (now 181 declared variants, 54 locking and 127 rule-based).
+2. **Keep object targets, optional empty object choices, and player-only targets distinct.**
+   Counter resolution and subject binding must not infer an empty object selection from a player target. Karn's empty `+1`, Yawgmoth's optional "up to one" choice, and Jinxed Choker's player-targeted self-counter activation now share the same resolver without stealing one another's answers.
+3. **Turn control ends immediately when either player leaves.**
+   Mindslaver's scheduled `turn_controls` are removed by state-based actions as soon as their controller or controlled player has left; cleanup is not deferred to the next turn boundary. The departure scan includes `ControlPlayerNextTurn`, and the state fingerprint covers the scheduled control.
+4. **A corpus-free checkout can finish coverage only after accepted played tests exist.**
+   Never run full `codegen` without the external scripts. For already complete machine-owned outputs whose canonical tests are present and green, advance only the derived `Coverage::Generated` field to `Implemented`, leave the generated abilities untouched, then run `codegen --tables` and `codegen --tables --check`. The `require-card-tests` hook is the final independent check that no tested card remains at `Generated`.
+5. **Prefer composable rules primitives for the remaining Mirrodin mechanics.**
+   Krark's Thumb uses coin-flip replacement with an explicit ignored flip; Isochron Scepter reuses linked exile plus card copies and optional free casting; Mirror Golem derives protection from the linked card's types; Platinum Angel composes separate can't-lose and opponents-can't-win modifiers. Dynamic per-artifact mana costs and Myr Prototype's counter-scaled combat payment stay in shared pricing and declaration code.
+
 ## 2026-10-26 — *Mercadian Masques* (`mmq`) Batch 5 (`Invigorate` through `Rishadan Footpad`, 25 cards)
 
 Adding the fifth 25 previously absent *Mercadian Masques* first-printing cards (`12 Implemented`, `3 Partial`, `10 Unimplemented`) extended the DSL, engine, and `scriptgen` across five patterns (`Inviolability`, `Kyren Negotiations`, `Natural Affinity`, `Noble Purpose`, `Pious Warrior`, `Quagmire Lamprey`, `Rappelling Scouts`, `Revered Elder`, `Rishadan Brigand`, `Rishadan Cutpurse`, `Rishadan Footpad`):

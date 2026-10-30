@@ -2430,6 +2430,237 @@ fn mirrodin_reader_patterns() {
     );
 }
 
+// Table-style regression: all batch-two reader patterns share one assertion helper.
+#[allow(clippy::too_many_lines)]
+#[test]
+fn mirrodin_batch_two_reader_patterns() {
+    let assert_reads = |script: &str, expected: &[&str]| {
+        let parsed = parse(script);
+        let body = transcode(&parsed, &cats(), None).unwrap_or_else(|| {
+            panic!(
+                "should be read in full: {:?}\n{script}",
+                refusal_reason(&parsed, &cats(), None)
+            )
+        });
+        let rendered = format!(
+            "{} {}\n{}",
+            body.statics,
+            body.entwine.as_deref().unwrap_or(""),
+            body.abilities.join("\n")
+        );
+        for needle in expected {
+            assert!(
+                rendered.contains(needle),
+                "missing `{needle}` in {rendered}"
+            );
+        }
+    };
+
+    assert_reads(
+        "Name:Two activation costs\nTypes:Artifact\n\
+         A:AB$ DealDamage | Cost$ 3 T | AlternateCost$ R T | ValidTgts$ Any | NumDmg$ 1",
+        &["cost!(\"{3}\", TapSelf)", "cost!(\"{R}\", TapSelf)"],
+    );
+    assert_reads(
+        "Name:Two modes\nManaCost:2 G\nTypes:Sorcery\nK:Entwine:2 G\n\
+         A:SP$ Charm | Choices$ Search,Grow\n\
+         SVar:Search:DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Land.Basic | ChangeTypeDesc$ basic land | ChangeNum$ 2 | Optional$ True\n\
+         SVar:Grow:DB$ Effect | StaticAbilities$ Lands\n\
+         SVar:Lands:Mode$ Continuous | Affected$ You | AdjustLandPlays$ 2",
+        &[
+            "Some(cost!(\"{2}{G}\"))",
+            "AbilityDef::ModalSpell",
+            "Modifier::ExtraLandDrops(2)",
+        ],
+    );
+    assert_reads(
+        "Name:No creatures\nTypes:Artifact Creature\nPT:4/6\n\
+         S:Mode$ CantBeCast | ValidCard$ Creature | Caster$ You",
+        &[
+            "Modifier::PlayersCantCast",
+            "who: PlayerRel::You",
+            "filter: &Filter::CREATURE",
+        ],
+    );
+    assert_reads(
+        "Name:Combat loot\nTypes:Artifact Equipment\nK:Equip:1\n\
+         T:Mode$ DamageDone | ValidSource$ Creature.AttachedBy | ValidTarget$ Player | CombatDamage$ True | Execute$ Loot | TriggerZones$ Battlefield\n\
+         SVar:Loot:AB$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ 1 | Cost$ Draw<2/You>",
+        &[
+            "Trigger::DealsCombatDamageToPlayer",
+            "Effect::MayDo",
+            "Effect::draw(2)",
+            "Effect::DiscardForPlayers",
+        ],
+    );
+    assert_reads(
+        "Name:Draw with payment\nTypes:Artifact\n\
+         T:Mode$ Drawn | ValidCard$ Card.OppOwn | TriggerZones$ Battlefield | Execute$ Draw\n\
+         SVar:Draw:AB$ Draw | Cost$ 1 | Defined$ You | NumCards$ 1",
+        &[
+            "Trigger::Draws(PlayerRel::EachOpponent)",
+            "Effect::PlayerMayPayThen",
+            "Effect::draw(1)",
+        ],
+    );
+    assert_reads(
+        "Name:Nonbasic land destruction\nManaCost:1 R R\nTypes:Sorcery\n\
+         A:SP$ Destroy | ValidTgts$ Land | SubAbility$ Damage\n\
+         SVar:Damage:DB$ DealDamage | Defined$ TargetedController | NumDmg$ 2 | ConditionDefined$ Targeted | ConditionPresent$ Land.Basic | ConditionCompare$ EQ0",
+        &[
+            "Effect::IfTargetMatches",
+            "filter: &Filter::NONBASIC_LAND",
+            "TargetSpec::Player(PlayerRel::ControllerOfTarget)",
+        ],
+    );
+    assert_reads(
+        "Name:Shuffle activation\nTypes:Artifact Creature\nPT:1/1\n\
+         A:AB$ Shuffle | Cost$ 2 T | Defined$ You",
+        &["Effect::ShuffleLibrary", "who: PlayerRel::You"],
+    );
+    assert_reads(
+        "Name:Reveal and sort\nManaCost:1 U\nTypes:Creature\nPT:1/1\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | Execute$ Dig\n\
+         SVar:Dig:DB$ Dig | DigNum$ 1 | Reveal$ True | ChangeNum$ All | ChangeValid$ Artifact | DestinationZone2$ Graveyard",
+        &[
+            "Effect::RevealTopAndSort",
+            "matched: SearchDest::Hand",
+            "otherwise: SearchDest::Graveyard",
+        ],
+    );
+    assert_reads(
+        "Name:Artifact evasion\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | IsPresent$ Artifact.DefenderCtrl",
+        &[
+            "Modifier::AddKeyword(KeywordSet::UNBLOCKABLE)",
+            "Condition::SomeDefendingPlayerControlsNone",
+        ],
+    );
+    assert_reads(
+        "Name:Artifact blocker\nManaCost:4 R\nTypes:Creature\nPT:3/3\n\
+         T:Mode$ AttackerBlockedByCreature | ValidCard$ Card.Self | ValidBlocker$ Creature.Artifact | TriggerZones$ Battlefield | Execute$ Destroy\n\
+         SVar:Destroy:DB$ Destroy | Defined$ TriggeredBlockerLKICopy",
+        &[
+            "Trigger::BecomesBlockedBy",
+            "Effect::destroy(TargetSpec::EventObject)",
+        ],
+    );
+    assert_reads(
+        "Name:Counted unless cost\nManaCost:2 U\nTypes:Instant\n\
+         A:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | UnlessCost$ Y\n\
+         SVar:Y:Count$Valid Artifact.YouCtrl",
+        &[
+            "Effect::PlayerMayPayOr",
+            "player: PlayerRel::ControllerOfTarget",
+            "filter: &Filter::YOUR_ARTIFACT",
+        ],
+    );
+    assert_reads(
+        "Name:Empty library\nTypes:Artifact Creature\nPT:10/10\n\
+         T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ Exile\n\
+         SVar:Exile:DB$ ChangeZoneAll | ChangeType$ Card.YouOwn | Origin$ Library | Destination$ Exile",
+        &[
+            "Effect::ExileTop",
+            "count: Amount::LibrarySize(PlayerRel::You)",
+        ],
+    );
+    assert_reads(
+        "Name:Animate artifacts\nManaCost:3 U\nTypes:Enchantment\n\
+         S:Mode$ Continuous | Affected$ Artifact.nonCreature | SetPower$ AffectedX | SetToughness$ AffectedX | AddType$ Creature\n\
+         SVar:AffectedX:Count$CardManaCost",
+        &[
+            "Filter::And(&[Filter::ARTIFACT, Filter::NONCREATURE])",
+            "Modifier::AnimateNoncreatureArtifact",
+        ],
+    );
+    assert_reads(
+        "Name:Counter combat costs\nManaCost:5\nTypes:Artifact Creature\nPT:2/2\n\
+         T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ Counter\n\
+         SVar:Counter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1\n\
+         S:Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ Y\n\
+         S:Mode$ CantBlockUnless | ValidCard$ Card.Self | Cost$ Y\n\
+         SVar:Y:Count$CardCounters.P1P1",
+        &[
+            "Modifier::CantAttackUnlessPayManaPerCounter(CounterKind::P1P1)",
+            "Modifier::CantBlockUnlessPayManaPerCounter(CounterKind::P1P1)",
+        ],
+    );
+    assert_reads(
+        "Name:Printed tap correction\nTypes:Artifact\n\
+         A:AB$ Draw | Cost$ 6 Sac<1/CARDNAME> | Defined$ You | NumCards$ 1\n\
+         Oracle:{6}, {T}, Sacrifice this artifact: Draw a card.",
+        &["cost!(\"{6}\", TapSelf, SacrificeSelf)"],
+    );
+    assert_reads(
+        "Name:Linked instant\nTypes:Artifact\n\
+         T:Mode$ ChangesZone | ValidCard$ Card.Self | Origin$ Any | Destination$ Battlefield | OptionalDecider$ You | Execute$ Exile\n\
+         SVar:Exile:DB$ ChangeZone | Imprint$ True | Origin$ Hand | Destination$ Exile | ChangeType$ Instant.cmcLE2 | ChangeNum$ 1\n\
+         A:AB$ Play | Cost$ 2 T | Valid$ Card.IsImprinted+ExiledWithSource | ValidZone$ Exile | Amount$ All | WithoutManaCost$ True | ValidSA$ Spell | Optional$ True | CopyCard$ True",
+        &[
+            "Effect::ExileChosenFromHandWithSource",
+            "Filter::CmcAtMost(2)",
+            "Effect::MayCopyCastLinkedExile",
+        ],
+    );
+    assert_reads(
+        "Name:Coin replacement\nTypes:Artifact\n\
+         S:Mode$ FlipCoinDoubler | ValidPlayer$ You",
+        &["Modifier::FlipTwoCoinsIgnoreOne"],
+    );
+    assert_reads(
+        "Name:Next turn control\nTypes:Artifact\n\
+         A:AB$ ControlPlayer | Cost$ 4 T Sac<1/CARDNAME> | ValidTgts$ Player",
+        &[
+            "Effect::ControlPlayerNextTurn",
+            "player: PlayerRel::Chosen",
+            "TargetSpec::AnyPlayer",
+        ],
+    );
+    assert_reads(
+        "Name:Named cast history\nManaCost:2 B\nTypes:Instant\n\
+         A:SP$ ChangeZone | Origin$ Library | Destination$ Library | ChangeType$ Card.nonLand | ChangeNum$ 1 | Imprint$ True | Reveal$ True | Shuffle$ False | StackDescription$ SpellDescription | SubAbility$ Repeat | SpellDescription$ Search and reveal, punish matching casts, then shuffle.\n\
+         SVar:Repeat:DB$ RepeatEach | RepeatPlayers$ Opponent | RepeatSubAbility$ Lose | SubAbility$ Shuffle\n\
+         SVar:Lose:DB$ LoseLife | Defined$ Player.IsRemembered | LifeAmount$ 6 | ConditionCheckSVar$ LoseLifeCheck | ConditionSVarCompare$ GE1\n\
+         SVar:Shuffle:DB$ Shuffle | Defined$ You | SubAbility$ Cleanup\n\
+         SVar:Cleanup:DB$ Cleanup | ClearImprinted$ True\n\
+         SVar:LoseLifeCheck:Count$ThisTurnCast_Card.RememberedPlayerCtrl+sharesNameWith Imprinted",
+        &[
+            "Effect::RevealLibrarySearch",
+            "Effect::PlayersWhoCastRevealedNameThisTurnLoseLife",
+            "Effect::ShuffleLibrary",
+        ],
+    );
+    assert_reads(
+        "Name:Guess a hand\nTypes:Artifact\n\
+         A:AB$ NameCard | Cost$ 2 T | Defined$ You | SubAbility$ Guess\n\
+         SVar:Guess:DB$ GenericChoice | ValidTgts$ Opponent | Choices$ GuessInHand,GuessNotInHand | ShowChoice$ True | Guess$ True\n\
+         SVar:GuessInHand:DB$ RevealHand | Defined$ You | Optional$ True | RememberRevealedPlayer$ True | SubAbility$ DBInHandDraw\n\
+         SVar:GuessNotInHand:DB$ RevealHand | Defined$ You | Optional$ True | RememberRevealedPlayer$ True | SubAbility$ DBNotInHandDraw\n\
+         SVar:DBInHandDraw:DB$ Draw | Defined$ You | ConditionPlayerDefined$ Remembered | ConditionPlayerContains$ You | ConditionCheckSVar$ X | ConditionSVarCompare$ EQ0 | SubAbility$ Cleanup\n\
+         SVar:DBNotInHandDraw:DB$ Draw | Defined$ You | ConditionPlayerDefined$ Remembered | ConditionPlayerContains$ You | ConditionCheckSVar$ X | SubAbility$ Cleanup\n\
+         SVar:Cleanup:DB$ Cleanup | ClearRemembered$ True\n\
+         SVar:X:Count$ValidHand Card.NamedCard",
+        &[
+            "Effect::ChooseCardName",
+            "Effect::GuessChosenNameInHand",
+            "Effect::RevealHandForGuess",
+            "Effect::DrawIfGuessWrong",
+        ],
+    );
+    assert_reads(
+        "Name:Artifact tax\nTypes:Enchantment\n\
+         S:Mode$ RaiseCost | ValidCard$ Artifact | Activator$ Player | Type$ Spell | Amount$ X | Relative$ True\n\
+         SVar:X:Count$Valid Artifact.YouCtrl",
+        &["Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT)"],
+    );
+    assert_reads(
+        "Name:No game loss\nTypes:Artifact Creature\nPT:4/4\n\
+         R:Event$ GameLoss | ActiveZones$ Battlefield | ValidPlayer$ You | Layer$ CantHappen\n\
+         R:Event$ GameWin | ActiveZones$ Battlefield | ValidPlayer$ Opponent | Layer$ CantHappen | Secondary$ True",
+        &["Modifier::NamedPlayersCantLose", "Modifier::PlayersCantWin"],
+    );
+}
+
 #[test]
 fn affinity_scopes_every_alternative_and_refuses_extra_fields() {
     let body = read("Name:X\nManaCost:4\nTypes:Artifact\nK:Affinity:Artifact,Creature");

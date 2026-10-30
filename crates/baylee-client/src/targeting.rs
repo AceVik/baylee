@@ -232,6 +232,7 @@ fn legal_targets(view: &PlayerView, spec: &TargetSpec) -> Option<usize> {
                 | PlayerRel::EachOtherPlayer
                 | PlayerRel::OwnerOfEvent
                 | PlayerRel::MostLifeOrTied
+                | PlayerRel::LeastLifeOrTied
                 | PlayerRel::DefendingPlayer => {
                     return None;
                 }
@@ -526,6 +527,7 @@ fn matches(view: &PlayerView, object: &PublicObject, filter: &Filter) -> Option<
         | Filter::NotControlledByReferenceController
         | Filter::LowestManaValueOnBattlefield(_)
         | Filter::SameNameAsLinkedExile
+        | Filter::SharesColorWithExiledWithSource
         | Filter::CmcEqualsYourUnspentMana => return None,
     })
 }

@@ -31,6 +31,22 @@ pub(super) fn change(
     }
 }
 
+/// Schedule control of each selected player during their next actual turn.
+pub(super) fn next_turn(
+    state: &mut GameState,
+    res: &Resolution,
+    relation: baylee_cards_dsl::PlayerRel,
+) {
+    let turn = state.turn.number.saturating_add(1);
+    for player in super::players_of(relation, state, res.controller, res) {
+        state.turn_controls.push(crate::state::PlayerTurnControl {
+            controller: res.controller,
+            player,
+            turn,
+        });
+    }
+}
+
 /// Resume a selected control transfer or a table rotation.
 ///
 /// # Panics

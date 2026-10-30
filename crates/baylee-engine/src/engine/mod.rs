@@ -190,6 +190,18 @@ enum PaymentContinuation {
         /// What closing without the declaration gives back (CR 732.1).
         opened: Box<WindowStart>,
     },
+    /// A declaration of blockers whose mana tax the pool did not cover
+    /// (CR 509.1g–h), with the same payment-window reversal semantics.
+    BlockTax {
+        /// The defending player making the declaration.
+        defending: PlayerId,
+        /// The declaration, as the seat made it.
+        blockers: Vec<(ObjectId, ObjectId)>,
+        /// The total tax, which is what the window shows as owed.
+        cost: baylee_core::mana::ManaCost,
+        /// What closing without the declaration gives back (CR 732.1).
+        opened: Box<WindowStart>,
+    },
 }
 
 /// The board a `Miracle` or `Cast` payment window was opened on, as far as
@@ -260,6 +272,16 @@ impl PaymentContinuation {
                 cost,
                 opened,
             } => crate::state::structural_fingerprint(attackers)
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::mana_cost_fingerprint(cost))
+                .wrapping_mul(31)
+                .wrapping_add(opened.fingerprint()),
+            Self::BlockTax {
+                defending,
+                blockers,
+                cost,
+                opened,
+            } => crate::state::structural_fingerprint(&(defending, blockers))
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::mana_cost_fingerprint(cost))
                 .wrapping_mul(31)
@@ -1117,7 +1139,8 @@ impl<L: CardLookup> Engine<L> {
             | PaymentContinuation::GrantedAction { cost, .. }
             | PaymentContinuation::Cast { cost, .. }
             | PaymentContinuation::Miracle { cost, .. }
-            | PaymentContinuation::AttackTax { cost, .. } => {
+            | PaymentContinuation::AttackTax { cost, .. }
+            | PaymentContinuation::BlockTax { cost, .. } => {
                 Some((window.player, ManaPayment::Fixed(*cost)))
             }
             PaymentContinuation::Activation(payment) => {

@@ -134,6 +134,9 @@ pub enum PlayerRel {
     /// the game (The Black Gate's "a player with the most life or tied for
     /// most life"). Read as the effect resolves; nothing is targeted.
     MostLifeOrTied,
+    /// Every player with the least life or tied for the least life, still in
+    /// the game. Read as the effect resolves; nothing is targeted.
+    LeastLifeOrTied,
     /// "Defending player" as an ability of an attacking creature means it
     /// (CR 508.5): the player that creature is attacking, the controller of
     /// the planeswalker it is attacking, or the protector of the battle it

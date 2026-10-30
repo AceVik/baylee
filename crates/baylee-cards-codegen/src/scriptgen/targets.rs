@@ -1,7 +1,7 @@
 //! Reading what a script points at: filters, targets, players, and the
 //! sources a prevention names.
 
-use super::{Params, Tx, color_atom};
+use super::{Params, Tx, color_atom, counter_kind};
 
 impl Tx<'_> {
     /// "The next time a red source of your choice would deal damage to you
@@ -23,6 +23,9 @@ impl Tx<'_> {
         let Some(choices) = p.take("Choices") else {
             return self.deny("`ChooseSource` with no `Choices$`".to_string());
         };
+        if choices == "Card.SharesColorWith Imprinted" {
+            return self.prevent_from_exiled_color(p, sub);
+        }
         if let Some(key) = p.first_key() {
             return self.deny(format!("unclaimed parameter `ChooseSource.{key}`"));
         }
@@ -165,6 +168,60 @@ impl Tx<'_> {
         )])
     }
 
+    /// Choose a source sharing a color with the source's exiled card and
+    /// prevent all of its damage this turn. The imprint link is structural;
+    /// the cleanup lines only mirror what the runtime riders already do.
+    fn prevent_from_exiled_color(
+        &mut self,
+        mut p: Params,
+        sub: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.take("RememberChosen").as_deref() != Some("True") {
+            return None;
+        }
+        p.take("AILogic");
+        p.take("ChoiceTitle");
+        if !p.exhausted() {
+            return None;
+        }
+        let (api, mut effect) = Params::parse(self.svars.get(sub?.trim())?)?;
+        effect.drop_prose();
+        if api != "Effect" || effect.take("RememberObjects").as_deref() != Some("Remembered") {
+            return None;
+        }
+        let replacement = effect.take("ReplacementEffects")?;
+        let cleanup = effect.take("SubAbility");
+        if !effect.exhausted() {
+            return None;
+        }
+        if let Some(name) = cleanup {
+            let (cleanup_api, mut c) = Params::parse(self.svars.get(name.trim())?)?;
+            if cleanup_api != "Cleanup"
+                || c.take("ClearRemembered").as_deref() != Some("True")
+                || !c.exhausted()
+            {
+                return None;
+            }
+        }
+        let (event, mut shield) = Params::parse(self.svars.get(replacement.trim())?)?;
+        shield.drop_prose();
+        if event != "DamageDone"
+            || shield.take("ValidSource").as_deref() != Some("Card.IsRemembered")
+            || shield.take("Prevent").as_deref() != Some("True")
+            || !matches!(
+                shield.take("ActiveZones").as_deref(),
+                None | Some("Command")
+            )
+            || !shield.exhausted()
+        {
+            return None;
+        }
+        Some(vec![
+            "Effect::ChooseDamageSourcePreventAllThisTurnMatching(&Filter::SharesColorWithExiledWithSource)"
+                .to_string(),
+        ])
+    }
+
     /// Exact repeatable prevention, all recipients and no consumption instruction.
     fn all_damage_from_chosen_source(&self, name: &str) -> bool {
         self.svars
@@ -304,6 +361,7 @@ impl Tx<'_> {
                         "Filter::AttachedToBySource".to_string()
                     }
                     "Attached" => "Filter::AttachedToSource".to_string(),
+                    "equipped" => "Filter::Equipped".to_string(),
                     "YouCtrl" => "Filter::ControlledByYou".to_string(),
                     "YouDontCtrl" => "Filter::Not(&Filter::ControlledByYou)".to_string(),
                     "OppCtrl" => "Filter::ControlledByOpponent".to_string(),
@@ -367,6 +425,26 @@ impl Tx<'_> {
                     }
                     "ChosenColor" => "Filter::OfSourceChosenColor".to_string(),
                     "" => continue,
+                    other if other.starts_with("counters_") => {
+                        let Some((comparison, raw)) = other
+                            .strip_prefix("counters_GE")
+                            .map(|raw| ("GE", raw))
+                            .or_else(|| other.strip_prefix("counters_LT").map(|raw| ("LT", raw)))
+                        else {
+                            return self.deny(format!("filter atom `{other}`"));
+                        };
+                        let Some((n, code)) = raw.split_once('_') else {
+                            return self.deny(format!("filter atom `{other}`"));
+                        };
+                        let n = n.parse::<u16>().ok()?;
+                        let kind = counter_kind(code)?;
+                        let at_least = format!("Filter::CountersAtLeast({kind}, {n})");
+                        if comparison == "GE" {
+                            at_least
+                        } else {
+                            format!("Filter::Not(&{at_least})")
+                        }
+                    }
                     // A colour word (CR 105.2): "black creatures", "target
                     // green spell", "nonblack creature". A colour is not a
                     // subtype, so it is asked before the subtype arm below,
@@ -594,7 +672,9 @@ impl Tx<'_> {
                 "PlayerRel::ControllerOfEvent"
             }
             // The permanent that became tapped is the event's object.
-            "TriggeredCardController" if trigger == Some("Taps") => "PlayerRel::ControllerOfEvent",
+            "TriggeredCardController" if matches!(trigger, Some("Taps" | "Untaps")) => {
+                "PlayerRel::ControllerOfEvent"
+            }
             // "Whenever an opponent casts a spell, … that player": the one
             // who cast it, read off the cast (CR 112.2: the player who put
             // it on the stack). Not "each opponent", which is what the

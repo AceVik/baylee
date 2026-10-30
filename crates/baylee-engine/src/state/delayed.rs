@@ -17,6 +17,19 @@ pub struct DelayedTrigger {
     pub action: DelayedAction,
 }
 
+/// One effect giving a player control of another player for one whole turn
+/// (CR 715). The turn number makes extra turns compose without a second clock.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct PlayerTurnControl {
+    /// Who makes the controlled player's decisions.
+    pub controller: PlayerId,
+    /// Whose decisions and private information are controlled.
+    pub player: PlayerId,
+    /// The earliest turn this control may cover. It stays queued across other
+    /// players' turns until the target's next actual turn begins.
+    pub turn: u32,
+}
+
 /// When a delayed trigger fires.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DelayedWhen {

@@ -416,6 +416,18 @@ impl<L: CardLookup> Engine<L> {
                         .rev()
                         .find(|entry| entry.player == actor)
                         .map(|entry| (entry.controller, entry.player))
+                })
+                .or_else(|| {
+                    self.state
+                        .turn_controls
+                        .iter()
+                        .rev()
+                        .find(|entry| {
+                            entry.turn <= self.state.turn.number
+                                && entry.player == actor
+                                && entry.player == self.state.turn.active
+                        })
+                        .map(|entry| (entry.controller, entry.player))
                 });
             let Some((controller, _)) = control else {
                 break;
@@ -500,6 +512,23 @@ impl<L: CardLookup> Engine<L> {
     }
 
     pub(super) fn prune_player_control(&mut self) {
+        let turn = self.state.turn.number;
+        let alive: baylee_core::ids::SeatSet = self
+            .state
+            .players
+            .iter()
+            .filter(|player| !player.has_lost())
+            .map(|player| player.id)
+            .collect();
+        let active = self.state.turn.active;
+        self.state.turn_controls.retain(|entry| {
+            // Before the target's turn the entry waits, even if other turns
+            // have advanced the global number. During that turn it is active;
+            // on the following turn it has expired.
+            (entry.turn >= turn || entry.player == active)
+                && alive.contains(entry.controller)
+                && alive.contains(entry.player)
+        });
         self.player_control.waiting.retain(|entry| {
             self.state
                 .object(entry.source.object)

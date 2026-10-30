@@ -725,6 +725,10 @@ pub(crate) const SCOPE_EXCEPTIONS: &[(&str, &str)] = &[
         "Word of Command",
         "\"you control that player\" is control of a player (ControlPlayerPlayCard), not a permanent's controller",
     ),
+    (
+        "Mindslaver",
+        "\"you control target player during that player's next turn\" is turn control (ControlPlayerNextTurn), not permanent control",
+    ),
     ("Fierce Guardianship", "an AlternativeCost condition"),
     (
         "Deadly Rollick",

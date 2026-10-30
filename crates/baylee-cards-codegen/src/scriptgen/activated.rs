@@ -1,8 +1,8 @@
 //! Reading activated abilities, spells, charms and their conditions.
 
 use super::{
-    Bound, Chain, Params, Price, Tx, cost_parts, count_bound, hybrid_pair, on_the_battlefield,
-    printed_mana,
+    Bound, Chain, Params, Price, Tx, cost_parts, count_bound, counter_kind, hybrid_pair,
+    on_the_battlefield, printed_mana,
 };
 
 impl Tx<'_> {
@@ -135,7 +135,28 @@ impl Tx<'_> {
             return self.deny("an `A:` line with no `$` in it".to_string());
         };
         probe.drop_prose();
-        let cost = probe.take("Cost");
+        let mut cost = probe.take("Cost");
+        // A script can omit a printed tap symbol from its only activated
+        // ability. With exactly one Oracle colon there is no other ability it
+        // could belong to, so the printed cost is an unambiguous correction;
+        // never infer a tap across several activated abilities.
+        if is_activated
+            && self.oracle.matches(':').count() == 1
+            && self
+                .oracle
+                .split(':')
+                .next()
+                .is_some_and(|prefix| prefix.split(", ").any(|part| part == "{T}"))
+            && cost
+                .as_deref()
+                .is_some_and(|parts| !parts.split_whitespace().any(|part| part == "T"))
+        {
+            cost = cost.map(|parts| format!("{parts} T"));
+        }
+        let alternate_cost = probe.take("AlternateCost");
+        if !is_activated && alternate_cost.is_some() {
+            return self.deny("an `AlternateCost` on a spell".to_string());
+        }
         // "Activate only once each turn" belongs to the ability for the same
         // reason the cost does: it restricts activating it, not what happens
         // when it resolves.
@@ -176,6 +197,7 @@ impl Tx<'_> {
         let stripped: Vec<&str> = spec
             .split(" | ")
             .filter(|part| !part.starts_with("Cost$") && !part.starts_with("ActivationLimit$"))
+            .filter(|part| alternate_cost.is_none() || !part.starts_with("AlternateCost$"))
             .filter(|part| !(any_player && part.starts_with("Activator$")))
             .filter(|part| {
                 !((graveyard_zone || battlefield_zone) && part.starts_with("ActivationZone$"))
@@ -216,6 +238,7 @@ impl Tx<'_> {
             };
             self.push_activated_ability(
                 cost.as_deref(),
+                alternate_cost.as_deref(),
                 limit.as_deref(),
                 sorcery_speed,
                 zone,
@@ -243,6 +266,7 @@ impl Tx<'_> {
     fn push_activated_ability(
         &mut self,
         cost: Option<&str>,
+        alternate_cost: Option<&str>,
         limit: Option<&str>,
         sorcery_speed: bool,
         zone: &str,
@@ -293,6 +317,15 @@ impl Tx<'_> {
             (false, _) => format!("activated!({cost}, {effects}{extras})"),
         };
         self.body.abilities.push(line);
+        if let Some(alternate_cost) = alternate_cost {
+            let alternate_cost = self.cost_expr(alternate_cost)?;
+            let line = match (mana_ability, alternate_cost.as_str()) {
+                (true, "Cost::TAP") if extras.is_empty() => format!("mana_ability!({effects})"),
+                (true, _) => format!("mana_ability!({alternate_cost}, {effects}{extras})"),
+                (false, _) => format!("activated!({alternate_cost}, {effects}{extras})"),
+            };
+            self.body.abilities.push(line);
+        }
         Some(())
     }
     // And the third of them, which this branch dropped in silence
@@ -529,19 +562,7 @@ impl Tx<'_> {
             return self.deny("a second `IsPresent2$` clause".to_string());
         }
         if p.peek("PresentZone") == Some("Graveyard") && p.peek("PresentPlayer") == Some("You") {
-            p.take("PresentZone");
-            p.take("PresentPlayer");
-            let compare = p
-                .take("PresentCompare")
-                .unwrap_or_else(|| "GE1".to_string());
-            let Some(Bound::AtLeast(n)) = count_bound(&compare) else {
-                return self.deny(format!("`PresentCompare$ {compare}`"));
-            };
-            let expr = self.filter_expr_in_zone(valid, true)?;
-            let name = self.body.filter_static("CHECK", &expr);
-            return Some(format!(
-                "Condition::AmountAtLeast(Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}, {n})"
-            ));
+            return self.graveyard_present_clause(p, valid);
         }
         if let Some(who) = p.take("PresentPlayer") {
             return self.deny(format!("`PresentPlayer$ {who}`"));
@@ -553,6 +574,18 @@ impl Tx<'_> {
         let compare = p
             .take("PresentCompare")
             .unwrap_or_else(|| "GE1".to_string());
+        if compare == "GE1"
+            && matches!(p.peek("PresentDefined"), None | Some("Self"))
+            && let Some(raw) = valid.strip_prefix("Card.Self+counters_GE")
+        {
+            let Some((n, code)) = raw.split_once('_') else {
+                return self.deny(format!("a source counter clause `{valid}`"));
+            };
+            let n = n.parse::<u8>().ok()?;
+            let kind = counter_kind(code)?;
+            p.take("PresentDefined");
+            return Some(format!("Condition::CountersOnSelf({kind}, {n})"));
+        }
         let pins_self = |alt: &str| alt.split(['.', '+']).any(|atom| atom.trim() == "Self");
         let about_source = match p.take("PresentDefined").as_deref() {
             Some("Self") => true,
@@ -630,6 +663,22 @@ impl Tx<'_> {
             }
         };
         Some(clause)
+    }
+
+    fn graveyard_present_clause(&mut self, p: &mut Params, valid: &str) -> Option<String> {
+        p.take("PresentZone");
+        p.take("PresentPlayer");
+        let compare = p
+            .take("PresentCompare")
+            .unwrap_or_else(|| "GE1".to_string());
+        let Some(Bound::AtLeast(n)) = count_bound(&compare) else {
+            return self.deny(format!("`PresentCompare$ {compare}`"));
+        };
+        let expr = self.filter_expr_in_zone(valid, true)?;
+        let name = self.body.filter_static("CHECK", &expr);
+        Some(format!(
+            "Condition::AmountAtLeast(Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardOf(PlayerRel::You) }}, {n})"
+        ))
     }
 
     /// The executed line of a "you may pay {N}. If you do, …" trigger with

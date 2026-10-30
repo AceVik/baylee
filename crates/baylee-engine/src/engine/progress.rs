@@ -1210,14 +1210,23 @@ impl<L: CardLookup> Engine<L> {
                 winner: None,
                 reason: EndReason::Draw,
             }),
-            [Side::Solo(player)] => Some(GameResult {
-                winner: Some(Victor::Player(*player)),
-                reason: EndReason::LastPlayerStanding,
-            }),
-            [Side::Team(team)] => Some(GameResult {
-                winner: Some(Victor::Team(*team)),
-                reason: EndReason::LastTeamStanding,
-            }),
+            [Side::Solo(player)] if !crate::sba::player_cant_win(&self.state, *player) => {
+                Some(GameResult {
+                    winner: Some(Victor::Player(*player)),
+                    reason: EndReason::LastPlayerStanding,
+                })
+            }
+            [Side::Team(team)]
+                if self.alive_players().into_iter().any(|player| {
+                    self.state.side_of(player) == Side::Team(*team)
+                        && !crate::sba::player_cant_win(&self.state, player)
+                }) =>
+            {
+                Some(GameResult {
+                    winner: Some(Victor::Team(*team)),
+                    reason: EndReason::LastTeamStanding,
+                })
+            }
             _ => None,
         }
     }

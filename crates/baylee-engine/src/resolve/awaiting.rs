@@ -3,6 +3,34 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
 
+/// What a replaced coin flip continues with once one result remains.
+#[derive(Clone, Debug, Hash)]
+pub enum CoinContinuation {
+    /// The two branches of `Effect::FlipCoin`.
+    FlipBranches {
+        /// Effects on a win.
+        won: &'static [Effect],
+        /// Effects on a loss.
+        lost: &'static [Effect],
+    },
+    /// Fiery Gambit's optional next flip at a higher cumulative win count.
+    UntilLossOrStop {
+        /// Wins already made, including the result just kept.
+        wins: u8,
+    },
+    /// The multi-stage life-exchange coin contest.
+    LifeExchange,
+    /// Two players' contest with damage on every losing result.
+    DamageContest {
+        /// Damage dealt to each loser.
+        damage: Amount,
+        /// The controller's result once known.
+        you_heads: Option<bool>,
+        /// The opponent's result once known.
+        opponent_heads: Option<bool>,
+    },
+}
+
 /// An operation suspended on a player choice.
 #[derive(Clone, Debug)]
 pub enum AwaitingOp {
@@ -17,6 +45,17 @@ pub enum AwaitingOp {
     RepeatCoinLifeStake(super::coin_stakes::CoinDecision),
     /// The controller selects a substitute for a departed coin winner (CR 800.4g).
     ChooseCoinRepeatPlayer(super::coin_stakes::CoinDecision),
+    /// A coin-flip replacement asks which result to ignore before continuing.
+    CoinFlipIgnore {
+        /// The player choosing which results to ignore.
+        player: PlayerId,
+        /// Remaining results; one is removed per answer until one remains.
+        outcomes: Vec<bool>,
+        /// The instruction to continue with the remaining result.
+        continuation: CoinContinuation,
+    },
+    /// A library search has found a card to reveal without moving it.
+    RevealLibrarySearch,
     /// Choose among multiple eligible physical meld partners.
     MeldPartner,
     /// Immediate plays offered by a dungeon room.
@@ -53,10 +92,14 @@ pub enum AwaitingOp {
         /// Top cards, in their inspection order.
         looked: Vec<ObjectId>,
     },
+    /// A matching hand card chosen for exile with the resolving source.
+    ExileFromHandWithSource,
     /// Remaining linked cards that may each be played during this resolution.
     LinkedPlay {
         /// Exact exile incarnations; a later exile never inherits the permission.
         cards: Vec<baylee_core::ids::DamageSourceRef>,
+        /// Whether each play creates and casts a copy instead of moving the original.
+        copy: bool,
     },
     /// Linked cards returning after their owners answer command-zone replacements.
     ReturnLinkedExile {
@@ -67,6 +110,11 @@ pub enum AwaitingOp {
     ChooseCardName {
         /// Retain this choice on the originating permanent.
         remember: bool,
+    },
+    /// An opponent guesses whether the chosen name is in the controller's hand.
+    GuessNamedCardInHand {
+        /// The fact hidden from the guesser.
+        actual: bool,
     },
     /// Revealed top card waiting for its command-zone replacement.
     NamedTop {
@@ -1162,6 +1210,15 @@ impl AwaitingOp {
             Self::ChooseCoinRepeatPlayer(decision) => {
                 crate::state::structural_fingerprint(&(62_u8, decision))
             }
+            Self::CoinFlipIgnore {
+                player,
+                outcomes,
+                continuation,
+            } => crate::state::structural_fingerprint(&(63_u8, player, outcomes, continuation)),
+            Self::RevealLibrarySearch => 66,
+            Self::GuessNamedCardInHand { actual } => {
+                crate::state::structural_fingerprint(&(64_u8, actual))
+            }
             Self::MeldPartner => 29,
             Self::Dungeon { choices } => crate::state::structural_fingerprint(&(25_u8, choices)),
             Self::MutatePosition => 26,
@@ -1218,7 +1275,10 @@ impl AwaitingOp {
             Self::TapGroup(selection) => crate::state::structural_fingerprint(&(13u8, selection)),
             Self::EmpowerJace { amount } => crate::state::structural_fingerprint(&(11u8, amount)),
             Self::Hideaway { looked } => crate::state::structural_fingerprint(&(7u8, looked)),
-            Self::LinkedPlay { cards } => crate::state::structural_fingerprint(&(8u8, cards)),
+            Self::ExileFromHandWithSource => crate::state::structural_fingerprint(&81u8),
+            Self::LinkedPlay { cards, copy } => {
+                crate::state::structural_fingerprint(&(8u8, cards, copy))
+            }
             Self::ReturnLinkedExile { to } => crate::state::structural_fingerprint(&(9u8, to)),
             Self::SharedLandSearch(selection) => {
                 selection.fingerprint().wrapping_mul(31).wrapping_add(1)

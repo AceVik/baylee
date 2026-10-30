@@ -287,16 +287,26 @@ impl Tx<'_> {
             "DamageDealtOnce" => self.damage_dealt_once_trigger(p),
             // "Whenever [a permanent] becomes tapped": the source (City of
             // Brass), or any permanent the filter matches (Lifetap).
-            "Taps" => {
+            "Taps" | "Untaps" => {
+                let untap = mode == "Untaps";
                 let Some(valid) = p.take("ValidCard") else {
-                    return self.deny("a `Taps` trigger with no `ValidCard$`".to_string());
+                    return self.deny("a tap-state trigger with no `ValidCard$`".to_string());
                 };
                 if valid == "Card.Self" {
-                    return Some("Trigger::BecomesTapped(&Filter::This)".to_string());
+                    return Some(if untap {
+                        "Trigger::BecomesUntapped(&Filter::This)".to_string()
+                    } else {
+                        "Trigger::BecomesTapped(&Filter::This)".to_string()
+                    });
                 }
                 let expr = self.filter_expr(&valid)?;
                 let filter = self.body.filter_static("TRIGGER", &expr);
-                Some(format!("Trigger::BecomesTapped(&{filter})"))
+                let variant = if untap {
+                    "BecomesUntapped"
+                } else {
+                    "BecomesTapped"
+                };
+                Some(format!("Trigger::{variant}(&{filter})"))
             }
             "LandPlayed" => self.land_played_trigger(p),
             "Drawn" => self.drawn_trigger(p, zones.is_some()),
@@ -365,6 +375,7 @@ impl Tx<'_> {
             "Card" => Some("Trigger::Draws(PlayerRel::EachPlayer)".to_string()),
             "Card.YouCtrl" => Some("Trigger::Draws(PlayerRel::You)".to_string()),
             "Card.OppCtrl" => Some("Trigger::Draws(PlayerRel::Opponent)".to_string()),
+            "Card.OppOwn" => Some("Trigger::Draws(PlayerRel::EachOpponent)".to_string()),
             other => self.deny(format!("`Drawn` on `{other}`")),
         }
     }
@@ -634,6 +645,37 @@ impl Tx<'_> {
         Some(format!("Trigger::State(&{name})"))
     }
 
+    /// Static cleanup triggers for imprint links have no runtime ability:
+    /// versioned riders already end on the relevant zone changes (CR 400.7,
+    /// 406.6). Accept only the exact cleanup forms, never an arbitrary no-op.
+    fn is_link_cleanup_trigger(&self, mode: &str, p: &Params) -> bool {
+        if mode != "ChangesZone"
+            || p.peek("Static") != Some("True")
+            || !p.entries.iter().all(|(key, _)| {
+                matches!(
+                    key.as_str(),
+                    "Origin" | "Destination" | "ValidCard" | "Static" | "Execute"
+                )
+            })
+        {
+            return false;
+        }
+        let Some((api, mut child)) = p
+            .peek("Execute")
+            .and_then(|name| self.svars.get(name))
+            .and_then(|body| Params::parse(body))
+        else {
+            return false;
+        };
+        match api.as_str() {
+            "Cleanup" => {
+                child.take("ClearImprinted").as_deref() == Some("True") && child.exhausted()
+            }
+            "Pump" => child.take("ForgetImprinted").is_some() && child.exhausted(),
+            _ => false,
+        }
+    }
+
     #[allow(clippy::too_many_lines)]
     pub(super) fn triggered(&mut self, spec: &str) -> Option<()> {
         let Some((mode, mut p)) = Params::parse(spec) else {
@@ -661,6 +703,9 @@ impl Tx<'_> {
             .is_some_and(|d| d.to_ascii_lowercase().contains(", you may have target "));
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
+        if self.is_link_cleanup_trigger(&mode, &p) {
+            return Some(());
+        }
         if self.is_imprison_clause(&mode, &p) {
             return self.imprison_clause(&mode, p);
         }
@@ -868,19 +913,32 @@ impl Tx<'_> {
         }
     }
 
-    /// Refuses a script that ended with one half of a "blocks or becomes
-    /// blocked by" trigger read and its mirror never met.
-    pub(super) fn block_halves_paired(&self) -> Option<()> {
-        match &self.block_half {
-            None => Some(()),
-            Some(half) => self.deny(format!(
-                "a `{}` trigger without its mirror",
-                match half.role {
-                    BlockRole::Blocks => "blocks",
-                    BlockRole::Blocked => "becomes blocked by",
-                }
-            )),
+    /// A lone "becomes blocked by" half has its own exact trigger. A lone
+    /// "blocks" half is not the paired trigger and stays refused.
+    pub(super) fn block_halves_paired(&mut self) -> Option<()> {
+        let Some(half) = self.block_half.take() else {
+            return Some(());
+        };
+        if half.role == BlockRole::Blocked && !half.secondary {
+            let ability = self
+                .body
+                .abilities
+                .iter_mut()
+                .find(|ability| **ability == half.ability)?;
+            *ability = ability.replacen(
+                "Trigger::BlocksOrBecomesBlockedBy",
+                "Trigger::BecomesBlockedBy",
+                1,
+            );
+            return Some(());
         }
+        self.deny(format!(
+            "a `{}` trigger without its mirror",
+            match half.role {
+                BlockRole::Blocks => "blocks",
+                BlockRole::Blocked => "becomes blocked by",
+            }
+        ))
     }
 
     /// `DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat` — "destroy that

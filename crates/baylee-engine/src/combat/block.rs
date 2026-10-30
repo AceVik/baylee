@@ -430,6 +430,7 @@ pub struct BlockRules<'a> {
     any_number: Vec<&'a crate::effects::ContinuousEffect>,
     lures: Vec<&'a crate::effects::ContinuousEffect>,
     each: Vec<&'a crate::effects::ContinuousEffect>,
+    unless_pay_mana: Vec<&'a crate::effects::ContinuousEffect>,
     max_blockers: Option<usize>,
 }
 
@@ -444,10 +445,12 @@ impl<'a> BlockRules<'a> {
             any_number: Vec::new(),
             lures: Vec::new(),
             each: Vec::new(),
+            unless_pay_mana: Vec::new(),
             max_blockers: None,
         };
         for fx in state.effects.iter() {
             match fx.modifier {
+                Modifier::CantBlockUnlessPayManaPerCounter(_) => rules.unless_pay_mana.push(fx),
                 Modifier::CanBlockAdditional(_) => rules.additional.push(fx),
                 Modifier::CanBlockAnyNumber => rules.any_number.push(fx),
                 Modifier::MustBeBlockedByAllAble | Modifier::MustBeBlockedByAllAbleMatching(_) => {
@@ -477,6 +480,27 @@ impl<'a> BlockRules<'a> {
     #[must_use]
     pub fn has_requirements(&self) -> bool {
         !self.lures.is_empty() || !self.each.is_empty()
+    }
+
+    /// Total generic mana cost `blocker`'s controller must pay to declare it
+    /// blocking (CR 509.1g–h).
+    #[must_use]
+    pub fn mana_tax(&self, blocker: ObjectId) -> u32 {
+        let Some(obj) = self.state.object(blocker) else {
+            return 0;
+        };
+        self.unless_pay_mana
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::CantBlockUnlessPayManaPerCounter(kind) =
+                    fx.modifier
+                else {
+                    return None;
+                };
+                crate::effects::applies_to(self.state, fx, obj)
+                    .then_some(u32::from(obj.counters.get(kind)))
+            })
+            .fold(0_u32, u32::saturating_add)
     }
 
     /// How many attackers `blocker` may block (CR 509.1a): one, one more

@@ -226,6 +226,53 @@ impl Tx<'_> {
         self.create_tokens(CLUE_TOKEN_SCRIPT, p.take("Num").as_deref())
     }
 
+    /// The revealed-name cast-history repeat, including its following shuffle
+    /// and the memory cleanup. Each qualifying opponent loses life only once.
+    fn revealed_name_life_loss(&mut self, mut p: Params, sub: Option<&str>) -> Option<Vec<String>> {
+        if p.take("RepeatPlayers").as_deref() != Some("Opponent") {
+            return None;
+        }
+        let repeat_sub = p.take("RepeatSubAbility")?;
+        let shuffle = sub?;
+        if !p.exhausted() {
+            return None;
+        }
+        let (api, mut loss) = Params::parse(self.svars.get(repeat_sub.trim())?)?;
+        loss.drop_prose();
+        if api != "LoseLife"
+            || loss.take("Defined").as_deref() != Some("Player.IsRemembered")
+            || loss.take("LifeAmount").as_deref() != Some("6")
+            || loss.take("ConditionCheckSVar").as_deref() != Some("LoseLifeCheck")
+            || loss.take("ConditionSVarCompare").as_deref() != Some("GE1")
+            || !loss.exhausted()
+        {
+            return None;
+        }
+        let (shuffle_api, mut sh) = Params::parse(self.svars.get(shuffle.trim())?)?;
+        sh.drop_prose();
+        let cleanup = sh.take("SubAbility");
+        if shuffle_api != "Shuffle" || sh.take("Defined").as_deref() != Some("You") {
+            return None;
+        }
+        if let Some(name) = cleanup {
+            let (api, mut c) = Params::parse(self.svars.get(name.trim())?)?;
+            if api != "Cleanup"
+                || c.take("ClearImprinted").as_deref() != Some("True")
+                || !c.exhausted()
+            {
+                return None;
+            }
+        }
+        if !sh.exhausted() {
+            return None;
+        }
+        Some(vec![
+            "Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { who: PlayerRel::EachOpponent, amount: Amount::Fixed(6) }"
+                .to_string(),
+            "Effect::ShuffleLibrary { who: PlayerRel::You }".to_string(),
+        ])
+    }
+
     /// `RepeatEach` over opponents where each opponent sacrifices a matching
     /// permanent unless they pay a generic mana cost (Rishadan Cutpurse,
     /// Rishadan Footpad, Rishadan Brigand).
@@ -235,6 +282,11 @@ impl Tx<'_> {
         sub: Option<&str>,
         chain: &super::Chain,
     ) -> Option<Vec<String>> {
+        if self.svars.get("LoseLifeCheck").map(String::as_str)
+            == Some("Count$ThisTurnCast_Card.RememberedPlayerCtrl+sharesNameWith Imprinted")
+        {
+            return self.revealed_name_life_loss(p, sub);
+        }
         if sub.is_some() || chain.target.is_some() || chain.second_target.is_some() {
             return None;
         }
@@ -526,6 +578,17 @@ impl Tx<'_> {
         target: Option<&str>,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
+        if p.peek("Origin") == Some("Library") && p.peek("Destination") == Some("Exile") {
+            if p.take("ChangeType").as_deref() != Some("Card.YouOwn") {
+                return None;
+            }
+            p.take("Origin");
+            p.take("Destination");
+            return Some(vec![
+                "Effect::ExileTop { who: PlayerRel::You, count: Amount::LibrarySize(PlayerRel::You) }"
+                    .to_string(),
+            ]);
+        }
         if p.peek("Destination") != Some("Library") {
             if target.is_some() || targets_a_player || p.take("Defined").is_some() {
                 return None;
@@ -702,6 +765,104 @@ impl Tx<'_> {
         })
     }
 
+    /// A target opponent guesses whether the chosen name is in your hand.
+    /// Read both reveal branches as one decision, then an optional reveal and
+    /// a draw only when the answer was wrong. Other generic choices refuse.
+    pub(super) fn guess_named_card_effect(
+        &mut self,
+        mut p: Params,
+        _sub: Option<&str>,
+        target: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if !matches!(
+            target,
+            Some("TargetSpec::AnyOpponent" | "TargetSpec::Player(PlayerRel::Chosen)")
+        ) || p.take("Choices").as_deref() != Some("GuessInHand,GuessNotInHand")
+            || p.take("Guess").as_deref() != Some("True")
+            || p.take("ShowChoice").as_deref() != Some("True")
+        {
+            return None;
+        }
+        p.take("AILogic");
+        if !p.exhausted() {
+            return None;
+        }
+        for (reveal_name, draw_name, compare) in [
+            ("GuessInHand", "DBInHandDraw", Some("EQ0")),
+            ("GuessNotInHand", "DBNotInHandDraw", None),
+        ] {
+            let (api, mut reveal) = Params::parse(self.svars.get(reveal_name)?)?;
+            reveal.drop_prose();
+            let sub = reveal.take("SubAbility");
+            if api != "RevealHand"
+                || reveal.take("Defined").as_deref() != Some("You")
+                || reveal.take("Optional").as_deref() != Some("True")
+                || reveal.take("RememberRevealedPlayer").as_deref() != Some("True")
+                || sub.as_deref() != Some(draw_name)
+                || !reveal.exhausted()
+            {
+                return None;
+            }
+            let (draw_api, mut draw) = Params::parse(self.svars.get(draw_name)?)?;
+            draw.drop_prose();
+            if draw_api != "Draw"
+                || draw.take("Defined").as_deref() != Some("You")
+                || draw.take("ConditionPlayerDefined").as_deref() != Some("Remembered")
+                || draw.take("ConditionPlayerContains").as_deref() != Some("You")
+                || draw.take("ConditionCheckSVar").as_deref() != Some("X")
+                || draw.take("ConditionSVarCompare").as_deref() != compare
+                || !matches!(draw.take("NumCards").as_deref(), None | Some("1"))
+            {
+                return None;
+            }
+            let cleanup = draw.take("SubAbility")?;
+            if self.svars.get(cleanup.trim()).map(String::as_str)
+                != Some("DB$ Cleanup | ClearRemembered$ True")
+                || !draw.exhausted()
+                || self.svars.get("X").map(String::as_str) != Some("Count$ValidHand Card.NamedCard")
+            {
+                return None;
+            }
+        }
+        Some(vec![
+            "Effect::GuessChosenNameInHand { who: PlayerRel::You, guesser: PlayerRel::Chosen }"
+                .to_string(),
+            "Effect::MayDo { effects: &[Effect::RevealHandForGuess, Effect::DrawIfGuessWrong] }"
+                .to_string(),
+        ])
+    }
+
+    /// Choose among every player tied for least life, then give that player
+    /// control of the source. `ChangeController` already asks only on a tie.
+    pub(super) fn choose_player_effect(
+        &mut self,
+        p: &mut Params,
+        sub: Option<&str>,
+    ) -> Option<Vec<String>> {
+        if p.take("Defined").as_deref() != Some("You")
+            || p.take("Choices").as_deref() != Some("Player.withLowestLife")
+        {
+            return None;
+        }
+        p.take("ChoiceTitle");
+        p.take("AILogic");
+        if !p.exhausted() {
+            return None;
+        }
+        let (api, mut child) = Params::parse(self.svars.get(sub?.trim())?)?;
+        child.drop_prose();
+        if api != "GainControl"
+            || child.take("Defined").as_deref() != Some("Self")
+            || child.take("NewController").as_deref() != Some("Player.Chosen")
+            || !child.exhausted()
+        {
+            return None;
+        }
+        Some(vec![
+            "Effect::ChangeController { new_controller: PlayerRel::LeastLifeOrTied }".to_string(),
+        ])
+    }
+
     pub(super) fn gain_control_effect(
         &mut self,
         p: &mut Params,
@@ -709,6 +870,18 @@ impl Tx<'_> {
         targets_here: bool,
         targets_a_player: bool,
     ) -> Option<Vec<String>> {
+        if targets_a_player
+            && target == Some("TargetSpec::Player(PlayerRel::Chosen)")
+            && p.take("Defined").as_deref() == Some("Self")
+            && matches!(
+                p.take("NewController").as_deref(),
+                None | Some("Player.Chosen")
+            )
+        {
+            return Some(vec![
+                "Effect::ChangeController { new_controller: PlayerRel::Chosen }".to_string(),
+            ]);
+        }
         if target.is_none() || targets_a_player {
             return None;
         }
@@ -832,6 +1005,22 @@ impl Tx<'_> {
         {
             return self.put_from_hand_onto_battlefield(p);
         }
+        if !itself
+            && target == "TargetSpec::AnyPlayer"
+            && origin == "Hand"
+            && destination == "Exile"
+            && p.take("Imprint").as_deref() == Some("True")
+        {
+            if p.take("ChangeNum").as_deref() != Some("1") {
+                return None;
+            }
+            let valid = p.take("ChangeType")?;
+            let expr = self.filter_expr_in_zone(&valid, true)?;
+            let filter = self.body.filter_static("IMPRINT", &expr);
+            return Some(vec![format!(
+                "Effect::ExileChosenFromHandWithSource(&{filter})"
+            )]);
+        }
         // Without a target this would move nothing at all.
         if !itself && target == "TargetSpec::AnyPlayer" {
             return self.deny("`ChangeZone` with neither a target nor `Defined$`".to_string());
@@ -858,6 +1047,9 @@ impl Tx<'_> {
                 ) {
                     (Some("True"), None) => {
                         vec!["Effect::ShuffleTargetsIntoOwnersLibraries".to_string()]
+                    }
+                    (None, Some("0")) => {
+                        vec!["Effect::PutTargetOnTopOfLibrary".to_string()]
                     }
                     (None, Some("-1")) => {
                         p.take("IsCurse");
@@ -891,7 +1083,13 @@ impl Tx<'_> {
                 }
             }
             ("Graveyard", "Exile", false) if target.starts_with("TargetSpec::CardInGraveyard") => {
-                vec![format!("Effect::exile({target})")]
+                match p.take("Imprint").as_deref() {
+                    Some("True") => vec!["Effect::ExileTargetsWithSource".to_string()],
+                    None => vec![format!("Effect::exile({target})")],
+                    Some(other) => {
+                        return self.deny(format!("`ChangeZone` with `Imprint$ {other}`"));
+                    }
+                }
             }
             ("Battlefield" | "Stack", "Exile", true) => vec!["Effect::ExileSource".to_string()],
             // "Return target card from your graveyard to your hand"
@@ -963,7 +1161,8 @@ impl Tx<'_> {
                         && (destination == "Hand"
                             || (destination == "Library"
                                 && p.peek("LibraryPosition") == Some("0"))))
-                        || (origin == "Graveyard" && destination == "Battlefield"))
+                        || (origin == "Graveyard"
+                            && matches!(destination, "Battlefield" | "Hand")))
                     && !p.has("ChangeType")))
     }
 
@@ -1092,6 +1291,13 @@ impl Tx<'_> {
             self.note("`ChangeZone` searching a library *and* targeting".to_string());
             return None;
         }
+        if destination == "Library"
+            && p.peek("Shuffle") == Some("False")
+            && p.peek("Imprint") == Some("True")
+            && p.peek("Reveal") == Some("True")
+        {
+            return self.reveal_library_search(p);
+        }
         let tapped = match p.take("Tapped").as_deref() {
             None | Some("False") => false,
             Some("True") => true,
@@ -1100,13 +1306,20 @@ impl Tx<'_> {
                 return None;
             }
         };
-        let find = match (destination, tapped) {
-            ("Battlefield", false) => "Find::BATTLEFIELD",
-            ("Battlefield", true) => "Find::BATTLEFIELD_TAPPED",
-            ("Hand", false) => "Find::HAND",
-            _ => {
-                self.note(format!("`ChangeZone` searching into {destination}"));
-                return None;
+        let any_number = self.any_number_artifact_exile(p, destination)?;
+        let find = if any_number {
+            "Find::EXILE.any_number()"
+        } else {
+            match (destination, tapped) {
+                ("Battlefield", false) => "Find::BATTLEFIELD",
+                ("Battlefield", true) => "Find::BATTLEFIELD_TAPPED",
+                ("Hand", false) => "Find::HAND",
+                ("Exile", false) => "Find::EXILE",
+                ("Library", false) => "Find::TOP_OF_LIBRARY",
+                _ => {
+                    self.note(format!("`ChangeZone` searching into {destination}"));
+                    return None;
+                }
             }
         };
         // "You may search" and "search for up to two" are both this flag:
@@ -1127,7 +1340,7 @@ impl Tx<'_> {
                 return None;
             }
         };
-        let optional = optional || shuffle_non_mandatory;
+        let optional = optional || shuffle_non_mandatory || any_number;
         // Claimed rather than read: `Mandatory$ True` is the default, every
         // search this emitter writes shuffles afterwards, and `Hidden$ True`
         // only says the library is a hidden zone, which it is.
@@ -1194,5 +1407,41 @@ impl Tx<'_> {
         Some(vec![format!(
             "Effect::SearchLibrary {{ filter: &{name}, finds: &[{finds}], optional: {optional} }}"
         )])
+    }
+
+    fn reveal_library_search(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        p.take("Shuffle");
+        p.take("Imprint");
+        p.take("Reveal");
+        if p.take("ChangeNum").as_deref() != Some("1") {
+            return None;
+        }
+        let optional = match p.take("Optional").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(_) => return None,
+        };
+        let valid = p.take("ChangeType")?;
+        let expr = self.filter_expr_in_zone(&valid, true)?;
+        let filter = self.body.filter_static("REVEAL_SEARCH", &expr);
+        Some(vec![format!(
+            "Effect::RevealLibrarySearch {{ filter: &{filter}, optional: {optional} }}"
+        )])
+    }
+
+    fn any_number_artifact_exile(&mut self, p: &mut Params, destination: &str) -> Option<bool> {
+        let any_number = destination == "Exile"
+            && p.peek("ChangeNum") == Some("X")
+            && self.svars.get("X").map(String::as_str)
+                == Some("Count$ValidLibrary Artifact.YouOwn");
+        if any_number {
+            p.take("ChangeNum");
+            for key in ["RememberChanged", "ForgetOtherRemembered"] {
+                if p.take(key).as_deref() != Some("True") {
+                    return self.deny(format!("an any-number exile search without `{key}$ True`"));
+                }
+            }
+        }
+        Some(any_number)
     }
 }

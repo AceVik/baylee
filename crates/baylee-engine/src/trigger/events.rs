@@ -215,9 +215,10 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::AttackerBlocked { object }
         | GameEvent::CreatureMutated { object }
         | GameEvent::AttackerUnblocked { object }
-        // The permanent that became tapped: "that land's controller" of
-        // Psychic Venom.
+        // The permanent that changed tap state: "that land's controller"
+        // of Psychic Venom and "that permanent's controller" of Mesmeric Orb.
         | GameEvent::ObjectTapped { object, .. }
+        | GameEvent::ObjectUntapped { object, .. }
         // The permanent tapped for mana (CR 106.12a): "its controller" and
         // "that player" of Gauntlet of Might and Manabarbs.
         | GameEvent::ManaProduced {

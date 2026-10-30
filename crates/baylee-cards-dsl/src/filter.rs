@@ -392,6 +392,9 @@ pub enum Filter {
     /// Has the same name as a card in exile linked to the source permanent
     /// (Extraplanar Lens: "a land with the same name as the exiled card").
     SameNameAsLinkedExile,
+    /// Shares at least one color with a card exiled with the source
+    /// permanent (CR 105.4, 406.6).
+    SharesColorWithExiledWithSource,
     /// Mana value equals the amount of unspent mana in `you`'s mana pool
     /// (Glissa Sunseeker: "if its mana value is equal to the amount of mana in
     /// your mana pool").

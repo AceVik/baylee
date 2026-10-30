@@ -34,7 +34,8 @@ pub(crate) fn filter_reads_board_state(filter: &baylee_cards_dsl::Filter) -> boo
         | Filter::BlockingReference
         | Filter::BlockedByReference
         | Filter::Unblocked
-        | Filter::SharesAColorWith(_) => true,
+        | Filter::SharesAColorWith(_)
+        | Filter::SharesColorWithExiledWithSource => true,
         Filter::And(parts) | Filter::Or(parts) => parts.iter().any(filter_reads_board_state),
         Filter::Not(f) | Filter::ControllerControls(f) => filter_reads_board_state(f),
         _ => false,

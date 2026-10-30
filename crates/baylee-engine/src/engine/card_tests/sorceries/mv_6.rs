@@ -338,6 +338,7 @@ mod kirtar_s_wrath;
 mod kiss_of_the_amesha;
 mod mass_production;
 mod mindculling;
+mod one_dozen_eyes;
 mod planar_cleansing;
 mod poison_arrow;
 mod pulverize;

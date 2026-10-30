@@ -19765,27 +19765,50 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Choose one —\n• Until end of turn, you gain control of target creature and it gains haste.\n• Sacrifice a creature. Grab the Reins deals damage equal to that creature's power to any target.\nEntwine {2}{R} (Choose both if you pay the entwine cost.)",
     ],
-    &[],
+    // Granite Shard
+    &["{3}, {T} or {R}, {T}: This artifact deals 1 damage to any target."],
     // Great Furnace
     &["{T}: Add {R}."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Grid Monitor
+    &["You can't cast creature spells."],
+    // Grim Reminder
+    &[
+        "Search your library for a nonland card and reveal it. Each opponent who cast a spell this turn with the same name as that card loses 6 life. Then shuffle.\n{B}{B}: Return this card from your graveyard to your hand. Activate only during your upkeep.",
+    ],
+    // Groffskithur
+    &[
+        "Whenever this creature becomes blocked, you may return target card named Groffskithur from your graveyard to your hand.",
+    ],
+    // Heartwood Shard
+    &["{3}, {T} or {G}, {T}: Target creature gains trample until end of turn."],
     // Hematite Golem
     &["{1}{R}: This creature gets +2/+0 until end of turn."],
-    &[],
-    &[],
+    // Hum of the Radix
+    &["Each artifact spell costs {1} more to cast for each artifact its controller controls."],
+    // Incite War
+    &[
+        "Choose one —\n• Creatures target player controls attack this turn if able.\n• Creatures you control gain first strike until end of turn.\nEntwine {2} (Choose both if you pay the entwine cost.)",
+    ],
     // Inertia Bubble
     &["Enchant artifact\nEnchanted artifact doesn't untap during its controller's untap step."],
     // Iron Myr
     &["{T}: Add {R}."],
     // Irradiate
     &["Target creature gets -1/-1 until end of turn for each artifact you control."],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Isochron Scepter
+    &[
+        "Imprint — When this artifact enters, you may exile an instant card with mana value 2 or less from your hand.\n{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost.",
+    ],
+    // Jinxed Choker
+    &[
+        "At the beginning of your end step, target opponent gains control of this artifact and puts a charge counter on it.\nAt the beginning of your upkeep, this artifact deals damage to you equal to the number of charge counters on it.\n{3}: Put a charge counter on this artifact or remove one from it.",
+    ],
+    // Journey of Discovery
+    &[
+        "Choose one —\n• Search your library for up to two basic land cards, reveal them, put them into your hand, then shuffle.\n• You may play up to two additional lands this turn.\nEntwine {2}{G} (Choose both if you pay the entwine cost.)",
+    ],
+    // Krark's Thumb
+    &["If you would flip a coin, instead flip two coins and ignore one."],
     // Krark-Clan Grunt
     &["Sacrifice an artifact: This creature gets +1/+0 and gains first strike until end of turn."],
     // Krark-Clan Shaman
@@ -19800,7 +19823,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Flash (You may cast this spell any time you could cast an instant.)\n{2}, Sacrifice this artifact: It deals 2 damage to each attacking creature without flying.",
     ],
-    &[],
+    // Leonin Den-Guard
+    &["As long as this creature is equipped, it gets +1/+1 and has vigilance."],
     // Leonin Elder
     &["Whenever an artifact enters, you may gain 1 life."],
     // Leonin Scimitar
@@ -19809,29 +19833,48 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Leonin Skyhunter
     &["Flying"],
-    &[],
-    &[],
-    &[],
+    // Leonin Sun Standard
+    &["{1}{W}: Creatures you control get +1/+1 until end of turn."],
+    // Leveler
+    &["When this creature enters, exile all cards from your library."],
+    // Liar's Pendulum
+    &[
+        "{2}, {T}: Choose a card name. Target opponent guesses whether a card with that name is in your hand. You may reveal your hand. If you do and your opponent guessed wrong, draw a card.",
+    ],
     // Lifespark Spellbomb
     &[
         "{G}, Sacrifice this artifact: Until end of turn, target land becomes a 3/3 creature that's still a land.\n{1}, Sacrifice this artifact: Draw a card.",
     ],
-    &[],
+    // Lightning Coils
+    &[
+        "Whenever a nontoken creature you control dies, put a charge counter on this artifact.\nAt the beginning of your upkeep, if this artifact has five or more charge counters on it, remove all of them from it and create that many 3/1 red Elemental creature tokens with haste. Exile them at the beginning of the next end step.",
+    ],
     // Lightning Greaves
     &[
         "Equipped creature has haste and shroud. (It can't be the target of spells or abilities.)\nEquip {0}",
     ],
-    &[],
+    // Living Hive
+    &[
+        "Trample\nWhenever this creature deals combat damage to a player, create that many 1/1 green Insect creature tokens.",
+    ],
     // Lodestone Myr
     &["Trample\nTap an untapped artifact you control: This creature gets +1/+1 until end of turn."],
-    &[],
+    // Looming Hoverguard
+    &["Flying\nWhen this creature enters, put target artifact on top of its owner's library."],
     // Loxodon Mender
     &["{W}, {T}: Regenerate target artifact."],
-    &[],
-    &[],
+    // Loxodon Peacekeeper
+    &[
+        "At the beginning of your upkeep, the player with the lowest life total gains control of this creature. If two or more players are tied for lowest life total, you choose one of them, and that player gains control of this creature.",
+    ],
+    // Loxodon Punisher
+    &["This creature gets +2/+2 for each Equipment attached to it."],
     // Loxodon Warhammer
     &["Equipped creature gets +3/+0 and has trample and lifelink.\nEquip {3}"],
-    &[],
+    // Lumengrid Augur
+    &[
+        "{1}, {T}: Target player draws a card, then discards a card. If that player discards an artifact card this way, untap this creature.",
+    ],
     // Lumengrid Sentinel
     &["Flying\nWhenever an artifact you control enters, you may tap target permanent."],
     // Lumengrid Warden
@@ -19842,26 +19885,64 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Malachite Golem
     &["{1}{G}: This creature gains trample until end of turn."],
-    &[],
-    &[],
+    // March of the Machines
+    &[
+        "Each noncreature artifact is an artifact creature with power and toughness each equal to its mana value. (Equipment that's a creature can't equip a creature.)",
+    ],
+    // Mask of Memory
+    &[
+        "Whenever equipped creature deals combat damage to a player, you may draw two cards. If you do, discard a card.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
     // Mass Hysteria
     &["All creatures have haste."],
     // Megatog
     &["Sacrifice an artifact: This creature gets +3/+3 and gains trample until end of turn."],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Mesmeric Orb
+    &["Whenever a permanent becomes untapped, that permanent's controller mills a card."],
+    // Mind's Eye
+    &["Whenever an opponent draws a card, you may pay {1}. If you do, draw a card."],
+    // Mindslaver
+    &[
+        "{4}, {T}, Sacrifice Mindslaver: You control target player during that player's next turn. (You see all cards that player could see and make all decisions for them.)",
+    ],
+    // Mindstorm Crown
+    &[
+        "At the beginning of your upkeep, draw a card if you had no cards in hand at the beginning of this turn. If you had a card in hand, this artifact deals 1 damage to you.",
+    ],
+    // Mirror Golem
+    &[
+        "Imprint — When this creature enters, you may exile target card from a graveyard.\nThis creature has protection from each of the exiled card's card types. (Artifact, battle, creature, enchantment, instant, kindred, land, planeswalker, and sorcery are card types.)",
+    ],
+    // Molder Slug
+    &[
+        "At the beginning of each player's upkeep, that player sacrifices an artifact of their choice.",
+    ],
+    // Molten Rain
+    &[
+        "Destroy target land. If that land was nonbasic, Molten Rain deals 2 damage to the land's controller.",
+    ],
+    // Moriok Scavenger
+    &[
+        "When this creature enters, you may return target artifact creature card from your graveyard to your hand.",
+    ],
+    // Mourner's Shield
+    &[
+        "Imprint — When this artifact enters, you may exile target card from a graveyard.\n{2}, {T}: Prevent all damage that would be dealt this turn by a source of your choice that shares a color with the exiled card.",
+    ],
+    // Myr Adapter
+    &["This creature gets +1/+1 for each Equipment attached to it."],
+    // Myr Enforcer
+    &["Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)"],
+    // Myr Incubator
+    &[
+        "{6}, {T}, Sacrifice this artifact: Search your library for any number of artifact cards, exile them, then create that many 1/1 colorless Myr artifact creature tokens. Then shuffle.",
+    ],
+    // Myr Mindservant
+    &["{2}, {T}: Shuffle your library."],
+    // Myr Prototype
+    &[
+        "At the beginning of your upkeep, put a +1/+1 counter on this creature.\nThis creature can't attack or block unless you pay {1} for each +1/+1 counter on it.",
+    ],
     // Myr Retriever
     &[
         "When this creature dies, return another target artifact card from your graveyard to your hand.",
@@ -19874,28 +19955,54 @@ pub static ORACLE: &[&[&str]] = &[
     ],
     // Needlebug
     &["Flash\nProtection from artifacts"],
-    &[],
+    // Neurok Familiar
+    &[
+        "Flying\nWhen this creature enters, reveal the top card of your library. If it's an artifact card, put it into your hand. Otherwise, put it into your graveyard.",
+    ],
     // Neurok Hoversail
     &[
         "Equipped creature has flying.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
     ],
-    &[],
-    &[],
-    &[],
-    &[],
+    // Neurok Spy
+    &["This creature can't be blocked as long as defending player controls an artifact."],
+    // Nightmare Lash
+    &[
+        "Equipped creature gets +1/+1 for each Swamp you control.\nEquip—Pay 3 life. (Pay 3 life: Attach to target creature you control. Equip only as a sorcery.)",
+    ],
+    // Nim Devourer
+    &[
+        "This creature gets +1/+0 for each artifact you control.\n{B}{B}: Return this card from your graveyard to the battlefield, then sacrifice a creature. Activate only during your upkeep.",
+    ],
+    // Nim Lasher
+    &["This creature gets +1/+0 for each artifact you control."],
     // Nim Replica
     &["{2}{B}, Sacrifice this creature: Target creature gets -1/-1 until end of turn."],
-    &[],
-    &[],
+    // Nim Shambler
+    &[
+        "This creature gets +1/+0 for each artifact you control.\nSacrifice a creature: Regenerate this creature.",
+    ],
+    // Nim Shrieker
+    &["Flying\nThis creature gets +1/+0 for each artifact you control."],
     // Nuisance Engine
     &["{2}, {T}: Create a 0/1 colorless Pest artifact creature token."],
-    &[],
-    &[],
+    // Oblivion Stone
+    &[
+        "{4}, {T}: Put a fate counter on target permanent.\n{5}, {T}, Sacrifice this artifact: Destroy each nonland permanent without a fate counter on it, then remove all fate counters from all permanents.",
+    ],
+    // Ogre Leadfoot
+    &["Whenever this creature becomes blocked by an artifact creature, destroy that creature."],
     // Omega Myr
     &[""],
-    &[],
-    &[],
-    &[],
+    // One Dozen Eyes
+    &[
+        "Choose one —\n• Create a 5/5 green Beast creature token.\n• Create five 1/1 green Insect creature tokens.\nEntwine {G}{G}{G} (Choose both if you pay the entwine cost.)",
+    ],
+    // Override
+    &["Counter target spell unless its controller pays {1} for each artifact you control."],
+    // Pearl Shard
+    &[
+        "{3}, {T} or {W}, {T}: Prevent the next 2 damage that would be dealt to any target this turn.",
+    ],
     // Pentavus
     &[
         "This creature enters with five +1/+1 counters on it.\n{1}, Remove a +1/+1 counter from this creature: Create a 1/1 colorless Pentavite artifact creature token with flying.\n{1}, Sacrifice a Pentavite: Put a +1/+1 counter on this creature.",
@@ -19906,7 +20013,8 @@ pub static ORACLE: &[&[&str]] = &[
     &[
         "Hexproof (This creature can't be the target of spells or abilities your opponents control.)",
     ],
-    &[],
+    // Platinum Angel
+    &["Flying\nYou can't lose the game and your opponents can't win the game."],
     &[],
     // Predator's Strike
     &[
