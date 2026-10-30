@@ -416,7 +416,9 @@ mod tests {
         let meta = json!({"source_namespace":"néural","package_sources":[{"game_id":0,"split":"train","source_shard":shard,"source_offset":0,"source_len":10,"replay_hashes_checked":true}],"llm_bc_sources":[{"converted_game_id":0,"record_sha256":"record-hash"}]});
         let result = game_metadata(root, &meta, "train", &[(0, 0), (0, 1)])?;
         assert_eq!(
-            result["receipts"][index.to_str().unwrap()],
+            // Receipts are keyed by canonical path (`resolve`); a temporary
+            // directory is a symlink on macOS.
+            result["receipts"][index.canonicalize()?.to_str().unwrap()],
             files::sha256(&index)?
         );
         assert_eq!(result["games"]["0"]["record_sha256"], "record-hash");

@@ -123,17 +123,21 @@ fn publish_json(out: &std::path::Path, append: bool) -> Result<()> {
 }
 
 fn finalize_research(run: &std::path::Path, job: &std::path::Path) -> Result<()> {
+    // One block per system is the function's value, so neither leaves an
+    // unreachable `Ok(())` behind the other's `bail!` (clippy on macOS).
     #[cfg(target_os = "linux")]
-    println!(
-        "{}",
-        serde_json::to_string(&baylee_train_ops::research_attempts::finalize(run, job)?)?
-    );
+    {
+        println!(
+            "{}",
+            serde_json::to_string(&baylee_train_ops::research_attempts::finalize(run, job)?)?
+        );
+        Ok(())
+    }
     #[cfg(not(target_os = "linux"))]
     {
         let _ = (run, job);
-        anyhow::bail!("research attempt recovery requires Linux");
+        anyhow::bail!("research attempt recovery requires Linux")
     }
-    Ok(())
 }
 
 fn run_native(
@@ -168,13 +172,13 @@ fn run_native(
         } else if !baylee_train_ops::guard::run(&spec, &interrupted)? {
             std::process::exit(1);
         }
+        Ok(())
     }
     #[cfg(not(target_os = "linux"))]
     {
         let _ = (job, timeout, memory_gib, input, command, research);
-        anyhow::bail!("bounded process-group jobs require Linux");
+        anyhow::bail!("bounded process-group jobs require Linux")
     }
-    Ok(())
 }
 
 fn main() -> Result<()> {

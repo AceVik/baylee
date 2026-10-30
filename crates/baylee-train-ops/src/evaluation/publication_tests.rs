@@ -6,16 +6,40 @@ use std::path::PathBuf;
 struct Fixture {
     root: PathBuf,
     model: PathBuf,
+    /// What the fixture made: its root, and for [`Fixture::through_symlink`]
+    /// the directory the root links to.
+    made: Vec<PathBuf>,
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.root).unwrap();
+        for path in &self.made {
+            if path.is_symlink() {
+                std::fs::remove_file(path).unwrap();
+            } else {
+                std::fs::remove_dir_all(path).unwrap();
+            }
+        }
     }
 }
 impl Fixture {
     fn new() -> Result<Self> {
         let root =
             std::env::temp_dir().join(format!("baylee-publication-{}", uuid::Uuid::now_v7()));
+        std::fs::create_dir_all(&root)?;
+        Self::at(root.clone(), vec![root])
+    }
+    /// A fixture whose root is a symlink to the directory that holds it, so
+    /// every path a job records runs through the link, on any system.
+    #[cfg(unix)]
+    fn through_symlink() -> Result<Self> {
+        let id = uuid::Uuid::now_v7();
+        let real = std::env::temp_dir().join(format!("baylee-publication-real-{id}"));
+        let link = std::env::temp_dir().join(format!("baylee-publication-link-{id}"));
+        std::fs::create_dir_all(&real)?;
+        std::os::unix::fs::symlink(&real, &link)?;
+        Self::at(link.clone(), vec![link, real])
+    }
+    fn at(root: PathBuf, made: Vec<PathBuf>) -> Result<Self> {
         let model = root.join("candidate");
         std::fs::create_dir_all(&model)?;
         for (name, bytes) in [
@@ -35,7 +59,7 @@ impl Fixture {
             &root.join("progress.json"),
             &json!({"best_development_candidate":model,"best_development_score":0.5,"rounds":[]}),
         )?;
-        Ok(Self { root, model })
+        Ok(Self { root, model, made })
     }
     fn evaluation(&self, label: &str, shape: &str, utility: f64) -> Result<()> {
         let g: Value = serde_json::from_str(include_str!("fixtures/python_golden.json"))?;
@@ -257,7 +281,9 @@ fn lower_scores_and_incomparable_benchmarks_preserve_current_selection() -> Resu
     current["benchmark_id"] = candidate["benchmark_id"].clone();
     atomic_json(&output, &current)?;
     assert!(publish(&f.root, &output)?);
-    assert_eq!(read_json(&output)?["model"], json!(f.model));
+    // The manifest names the model by canonical path, as every comparison
+    // here reads it; a temporary directory is a symlink on macOS.
+    assert_eq!(read_json(&output)?["model"], json!(f.model.canonicalize()?));
     Ok(())
 }
 
@@ -278,5 +304,27 @@ fn partial_exports_and_mutated_checkpoint_are_never_selected() -> Result<()> {
     std::fs::write(f.model.join("net.pt"), "frozen")?;
     std::fs::remove_file(f.model.join("model.k0.onnx"))?;
     assert!(manifest(&f.root).is_err());
+    Ok(())
+}
+
+/// Jobs record their inputs as declared, here through a symlinked root (as
+/// every macOS temporary directory is, under `/var`): publication and the
+/// confirmation match them by canonical path, and still refuse a checkpoint
+/// changed since its comparison.
+#[cfg(unix)]
+#[test]
+fn a_symlinked_root_publishes_and_still_refuses_a_changed_checkpoint() -> Result<()> {
+    let f = Fixture::through_symlink()?;
+    assert_ne!(f.root.canonicalize()?, f.root);
+    for shape in ["duels", "commander"] {
+        f.evaluation("initial", shape, 0.5)?;
+    }
+    assert_eq!(manifest(&f.root)?["score"], 0.5);
+    assert!(publish(&f.root, &f.root.join("selected-model.json"))?);
+    f.confirmation(0.001)?;
+    assert_eq!(confirmation_assessment(&f.root, &f.model)?["veto"], false);
+    std::fs::write(f.model.join("model.k0.onnx"), "mutated")?;
+    assert!(manifest(&f.root).is_err());
+    assert!(confirmation_assessment(&f.root, &f.model).is_err());
     Ok(())
 }
