@@ -86,17 +86,114 @@ pub struct StreamedGame4 {
     pub coverage: CoverageMatrix4,
     /// Decisions for which no exact supervised target was available.
     pub unencoded_decisions: u64,
+    /// How the record was shown to be the game this build replayed.
+    pub replay_check: ReplayCheck,
 }
 
-fn terminal_targets(record: &[u8]) -> Result<Targets, String> {
+/// How a converted record was shown to be the recorded game.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReplayCheck {
+    /// Every engine hash matched: the build that played it.
+    Exact,
+    /// Another build: every input's public-table digest (`seen`) matched.
+    SeenAcrossBuilds,
+    /// Live exports: every recorded action was accepted, nothing compared.
+    ActionsOnly,
+}
+
+impl ReplayCheck {
+    /// The name written into dataset metadata.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Exact => "exact",
+            Self::SeenAcrossBuilds => "seen_across_builds",
+            Self::ActionsOnly => "actions_only",
+        }
+    }
+}
+
+/// Replays a record from another build against its `seen` digests, the
+/// build-stable public table written after every input (`docs/protocol.md`
+/// §"The game record"). Every input must carry one and match it.
+fn replay_seen_across_builds(
+    record: &[u8],
+) -> Result<baylee_engine::engine::Engine<baylee_gamehost::RegistryLookup>, String> {
+    use baylee_gamehost::record::seen;
+    let digest =
+        |engine: &baylee_engine::engine::Engine<_>| format!("{:016x}", seen(engine.state()));
+    let mut lines = record
+        .split(|&b| b == b'\n')
+        .filter(|l| !l.is_empty())
+        .map(|l| serde_json::from_slice::<Line>(l).map_err(|e| e.to_string()));
+    let Some(Line::Header {
+        record: version,
+        preset,
+        seen: opening,
+        ..
+    }) = lines.next().transpose()?
+    else {
+        return Err("no header".into());
+    };
+    if version != super::RECORD_VERSION {
+        return Err(format!("record version {version} is not this build's"));
+    }
+    let mut engine = baylee_engine::engine::Engine::new(&preset, baylee_gamehost::RegistryLookup)
+        .map_err(|_| "preset failed to build an engine".to_owned())?;
+    if opening.as_deref() != Some(digest(&engine).as_str()) {
+        return Err("seen replay audit: opening table differs".into());
+    }
+    let mut ended = false;
+    for line in lines {
+        match line? {
+            Line::Header { .. } => return Err("second header in record".into()),
+            Line::Chair { .. } | Line::DeclaredMind { .. } => {}
+            Line::Input {
+                n,
+                seat,
+                action,
+                seen,
+                ..
+            } => {
+                engine
+                    .apply(PlayerId::new(seat), action)
+                    .map_err(|_| format!("seen replay audit: input {n} refused"))?;
+                if seen.as_deref() != Some(digest(&engine).as_str()) {
+                    return Err(format!("seen replay audit: table differs after input {n}"));
+                }
+            }
+            Line::End { n, .. } => {
+                if !matches!(engine.pending(), Pending::GameOver(_)) {
+                    return Err(format!("seen replay audit: game not over at end line {n}"));
+                }
+                ended = true;
+            }
+        }
+    }
+    if !ended {
+        return Err("record has no verified terminal state".into());
+    }
+    Ok(engine)
+}
+
+pub(super) fn terminal_targets(
+    record: &[u8],
+    across_builds: bool,
+) -> Result<(Targets, ReplayCheck), String> {
     // Replay once without expensive feature tensors. This verifies every
     // recorded state hash before any frame can be published and obtains only
     // training labels. Future information never reaches encode_state4.
-    let checked =
-        baylee_gamehost::record::replay(record).map_err(|e| format!("replay audit: {e:?}"))?;
-    if !checked.ended {
-        return Err("record has no verified terminal state".into());
-    }
+    // A record from another build fails at its opening hash; only callers
+    // whose labels carry no behaviour probabilities may check it by `seen`.
+    let (engine, check) = match baylee_gamehost::record::replay(record) {
+        Ok(checked) if checked.ended => (checked.engine, ReplayCheck::Exact),
+        Ok(_) => return Err("record has no verified terminal state".into()),
+        Err(baylee_gamehost::record::ReplayError::Diverged { n: None, .. }) if across_builds => (
+            replay_seen_across_builds(record)?,
+            ReplayCheck::SeenAcrossBuilds,
+        ),
+        Err(e) => return Err(format!("replay audit: {e:?}")),
+    };
     let Some(header) = record.split(|&b| b == b'\n').find(|l| !l.is_empty()) else {
         return Err("no header".into());
     };
@@ -106,8 +203,8 @@ fn terminal_targets(record: &[u8]) -> Result<Targets, String> {
         return Err("no header".into());
     };
     let teams = preset.seats.iter().map(|s| s.team).collect::<Vec<_>>();
-    let state = checked.engine.state();
-    let Pending::GameOver(result) = checked.engine.pending() else {
+    let state = engine.state();
+    let Pending::GameOver(result) = engine.pending() else {
         return Err("no GameOver".into());
     };
     let winners = (0..preset.seats.len())
@@ -126,14 +223,17 @@ fn terminal_targets(record: &[u8]) -> Result<Targets, String> {
             survivors.push(s as u8);
         }
     }
-    Ok(Targets::new(
-        preset.seats.len(),
-        &teams,
-        &survivors,
-        &winners,
-        state.turn.number,
-        lives,
-        checked.engine.snapshot_hash(),
+    Ok((
+        Targets::new(
+            preset.seats.len(),
+            &teams,
+            &survivors,
+            &winners,
+            state.turn.number,
+            lives,
+            engine.snapshot_hash(),
+        ),
+        check,
     ))
 }
 
@@ -361,13 +461,18 @@ impl ProducerEncoder {
                 Some(
                     "baylee_ai_v5_relational_v1"
                     | "baylee_ai_v5_relational_v2"
-                    | "baylee_ai_v5_relational_v2_candidate_v2",
+                    | "baylee_ai_v5_relational_v2_candidate_v2"
+                    | "baylee_ai_v5_relational_v2_candidate_v3",
                 ),
             ) => 7,
             (
                 Some(8),
                 Some(5),
-                Some("baylee_ai_v5_relational_v2" | "baylee_ai_v5_relational_v2_candidate_v2"),
+                Some(
+                    "baylee_ai_v5_relational_v2"
+                    | "baylee_ai_v5_relational_v2_candidate_v2"
+                    | "baylee_ai_v5_relational_v2_candidate_v3",
+                ),
             ) => 8,
             (
                 Some(9),
@@ -453,10 +558,13 @@ pub fn stream_game4_with_encoder_and_producer(
             "Encoder {encoder_version} neural sidecars require verified producer encoder {encoder_version}"
         ));
     }
-    let targets = if live_bc {
-        terminal_targets_live(record)?
+    // LLM demonstrations are scarce and outlive the build that played them;
+    // their labels carry no behaviour probabilities, so features re-encoded
+    // on this build remain valid imitation targets.
+    let (targets, replay_check) = if live_bc {
+        (terminal_targets_live(record)?, ReplayCheck::ActionsOnly)
     } else {
-        terminal_targets(record)?
+        terminal_targets(record, llm.is_some() && sidecar.is_none())?
     };
     let mut pending: [Option<(Step4, i32)>; MAX_SEATS] = std::array::from_fn(|_| None);
     let mut steps = 0;
@@ -496,5 +604,6 @@ pub fn stream_game4_with_encoder_and_producer(
         peak_buffered_frames,
         coverage: replay.coverage,
         unencoded_decisions: replay.unencoded_decisions,
+        replay_check,
     })
 }

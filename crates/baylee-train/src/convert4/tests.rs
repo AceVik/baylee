@@ -239,20 +239,81 @@ fn encoder8_sidecars_require_matching_verified_producer_before_replay() {
 
 #[test]
 fn candidate_context_producers_keep_their_explicit_encoder_contract() {
-    for encoder in [7, 8] {
+    for architecture in [
+        "baylee_ai_v5_relational_v2_candidate_v2",
+        "baylee_ai_v5_relational_v2_candidate_v3",
+    ] {
+        for encoder in [7, 8] {
+            assert!(
+                ProducerEncoder::from_run(&serde_json::json!({
+                    "model_identity":{"encoder_version":encoder,"model_version":5,
+                        "architecture":architecture}
+                }))
+                .is_ok()
+            );
+        }
+    }
+    for (encoder, architecture) in [
+        (8, "baylee_ai_v5_relational_v2_candidate_v9"),
+        (9, "baylee_ai_v5_relational_v2_candidate_v3"),
+    ] {
         assert!(
             ProducerEncoder::from_run(&serde_json::json!({
                 "model_identity":{"encoder_version":encoder,"model_version":5,
-                    "architecture":"baylee_ai_v5_relational_v2_candidate_v2"}
+                    "architecture":architecture,"global_feat_width":82}
             }))
-            .is_ok()
+            .is_err()
         );
     }
-    assert!(
-        ProducerEncoder::from_run(&serde_json::json!({
-            "model_identity":{"encoder_version":8,"model_version":5,
-                "architecture":"baylee_ai_v5_relational_v2_candidate_v3"}
-        }))
-        .is_err()
+}
+
+/// The record as another build would have written it: every engine hash
+/// differs, the build-stable `seen` digests stay.
+fn as_another_build(record: &[u8], corrupt_seen_at: Option<u64>) -> Vec<u8> {
+    let mut out = Vec::new();
+    for line in record.split(|&b| b == b'\n').filter(|l| !l.is_empty()) {
+        let mut value: serde_json::Value = serde_json::from_slice(line).unwrap();
+        if value.get("hash").is_some() {
+            value["hash"] = "0123456789abcdef".into();
+        }
+        if corrupt_seen_at.is_some()
+            && value["n"].as_u64() == corrupt_seen_at
+            && value["kind"] == "input"
+        {
+            value["seen"] = "fedcba9876543210".into();
+        }
+        out.extend(serde_json::to_vec(&value).unwrap());
+        out.push(b'\n');
+    }
+    out
+}
+
+#[test]
+fn records_from_another_build_convert_only_by_their_public_table_and_only_when_asked() {
+    let a = HouseDeck::named("allytifact").unwrap();
+    let b = HouseDeck::named("victory").unwrap();
+    let preset = table(23, &a, &b, [AIProfile::SHARP, AIProfile::EXPERT]);
+    let played = play_with_options(
+        &preset,
+        "t-convert4-cross-build",
+        Caps {
+            answers: 10_000,
+            wall: Duration::from_secs(60),
+        },
+        true,
     );
+    assert!(played.outcome.finished(), "{:?}", played.outcome);
+    let (same, check) = terminal_targets(&played.record, true).unwrap();
+    assert_eq!(check, ReplayCheck::Exact);
+
+    let moved = as_another_build(&played.record, None);
+    let strict = terminal_targets(&moved, false).unwrap_err();
+    assert!(strict.contains("Diverged"), "{strict}");
+    let (across, check) = terminal_targets(&moved, true).unwrap();
+    assert_eq!(check, ReplayCheck::SeenAcrossBuilds);
+    assert_eq!(across, same);
+
+    let tampered = as_another_build(&played.record, Some(12));
+    let error = terminal_targets(&tampered, true).unwrap_err();
+    assert!(error.contains("after input 12"), "{error}");
 }

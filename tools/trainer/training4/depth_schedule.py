@@ -19,8 +19,12 @@ class DepthSchedule:
         self.to_dict()
 
     @classmethod
-    def from_training(cls, thinking_steps=2, curriculum=False):
-        return cls(mode="legacy_frame_cycle", positive_k=(1, 2, 4, 8)) if curriculum else cls(positive_k=(thinking_steps,))
+    def from_training(cls, thinking_steps=2, curriculum=False, report_k=(1, 2, 4, 8)):
+        """Each reported depth is one complete validation pass; selection stays K2."""
+        report_k = tuple(report_k)
+        if curriculum:
+            return cls(mode="legacy_frame_cycle", positive_k=(1, 2, 4, 8), report_k=report_k)
+        return cls(positive_k=(thinking_steps,), report_k=report_k)
 
     def depth(self, step, frame):
         return self.positive_k[(step + frame) % len(self.positive_k)]

@@ -82,6 +82,7 @@ fn bind_v5_contract(meta: &Value, result: &mut Value) -> anyhow::Result<()> {
         Some("baylee_ai_v5_relational_v1") => (1, 1),
         Some("baylee_ai_v5_relational_v2") => (2, 1),
         Some("baylee_ai_v5_relational_v2_candidate_v2") => (2, 2),
+        Some("baylee_ai_v5_relational_v2_candidate_v3") => (2, 3),
         _ => anyhow::bail!("unsupported V5 architecture"),
     };
     let cfg = &meta["config"];
