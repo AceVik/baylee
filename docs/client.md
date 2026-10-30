@@ -9756,8 +9756,9 @@ devices, so what holds the address is moved in one of two ways.
   `client-settings.json`'s list, uses, guest tokens and accepted terms
   (`ClientSettings::moved` on load; a guest kept under both addresses keeps
   both, neither token is overwritten), `resume.json` and the crash report
-  written by the client an update replaced, and the account's synced list as
-  this client shows it (`renamed`).
+  written by the client an update replaced, the account's synced list as
+  this client shows it (`renamed`), and an address typed or proposed by a
+  link (`gateway::normalize`, `links::propose`).
 - **Kept under the first address** (`gateway_list::keyed`, `KEYED`), because
   they cannot move without loss: the vault's scope, which is both its folder
   name and its AEAD associated data, the legacy chat folder, the keychain
