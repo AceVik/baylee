@@ -94,8 +94,15 @@ jobs:
             fi
             # The website reads the card status from the tagged commit, so its
             # numbers are those of the client this release ships: the status
-            # must have been measured at this pool (docs/releasing.md).
-            cargo tools site card-status-fresh --rev "$GITHUB_SHA"
+            # must have been measured at this pool (docs/releasing.md). The
+            # status is measured in the version commit, so between releases
+            # it is stale and a dry run only warns: it is there to promote
+            # and sign (run 40981976758 stopped here, 1374 cards on).
+            if [ "$GITHUB_REF_TYPE" = tag ]; then
+              cargo tools site card-status-fresh --rev "$GITHUB_SHA"
+            elif ! cargo tools site card-status-fresh --rev "$GITHUB_SHA"; then
+              echo "::warning::the card status is stale; a tag here would be refused until \`cargo tools site card-status\` is committed"
+            fi
             # Only a successful push to this repository's main, at this SHA.
             # A green PR run is not a source of release executables.
             run=$(cargo tools release resolve)
