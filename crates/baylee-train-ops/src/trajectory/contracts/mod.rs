@@ -25,9 +25,11 @@ pub fn reject_policy_gradient(meta: &Value) -> Result<()> {
 /// # Errors
 /// Rejects incomplete contracts, file tampering, escaped paths and contradictory labels.
 pub fn validate(root: &Path, meta: &Value) -> Result<()> {
-    validate_encoder_rows(root, meta)?;
+    // Check teacher provenance (including LLM shard digests) before parsing
+    // tensor payloads, also when reopening an existing cache after a change.
     shadow::validate(root, meta)?;
-    llm::validate(root, meta)
+    llm::validate(root, meta)?;
+    validate_encoder_rows(root, meta)
 }
 /// Check E9 metadata against actual JSON or packed tensor widths.
 /// # Errors
