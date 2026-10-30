@@ -462,7 +462,9 @@ fn keyed(install: &Install, root: &Path, package: &Path) -> Install {
     managed
 }
 
-fn state_root() -> io::Result<PathBuf> {
+/// This user's state root: launcher state per installation, and the link
+/// doors ([`crate::link`]).
+pub(crate) fn state_root() -> io::Result<PathBuf> {
     let root = if cfg!(target_os = "windows") {
         std::env::var_os("LOCALAPPDATA").map(PathBuf::from)
     } else {
@@ -562,6 +564,7 @@ pub fn run(
     install: &Install,
     args: impl IntoIterator<Item = std::ffi::OsString>,
 ) -> io::Result<ExitStatus> {
+    let args: Vec<std::ffi::OsString> = args.into_iter().collect();
     let image = appimage_of(install, &|name| std::env::var_os(name));
     let place = placement(install, &translocation::System, image.as_deref());
     let managed;
@@ -571,9 +574,15 @@ pub fn run(
     } else {
         install
     };
-    let entry = Claim::named(&install.stage(), "entry.lock")?;
+    let entry = match Claim::named(&install.stage(), "entry.lock") {
+        Ok(entry) => entry,
+        Err(refused) => return hand_over(install, &args, refused),
+    };
     let live = lifetime(install)?;
-    live.try_lock().map_err(io::Error::from)?;
+    if let Err(refused) = live.try_lock() {
+        drop(entry);
+        return hand_over(install, &args, refused.into());
+    }
     {
         let _mutation = Claim::take(&install.stage())?;
         if let Err(err) = recover_locked(install) {
@@ -601,7 +610,7 @@ pub fn run(
     live.unlock()?;
     live.try_lock_shared().map_err(io::Error::from)?;
     let mut command = Command::new(started);
-    command.args(args).env(
+    command.args(&args).env(
         ENV,
         serde_json::to_string(&session).map_err(io::Error::other)?,
     );
@@ -620,6 +629,48 @@ pub fn run(
     let mut child = command.spawn()?;
     drop(entry);
     child.wait()
+}
+
+/// How long a second launcher tries the running client's door: long
+/// enough for a client its launcher is still starting to open it.
+const HAND_OVER_WAIT: std::time::Duration = std::time::Duration::from_secs(8);
+
+/// A second start while a client of this installation runs (or starts).
+/// With a `baylee:` link among the arguments, the link goes to the running
+/// client's door (`crate::link`) and this launcher ends at once, without a
+/// window of its own; without one, the refusal stands.
+fn hand_over(
+    install: &Install,
+    args: &[std::ffi::OsString],
+    refused: io::Error,
+) -> io::Result<ExitStatus> {
+    if crate::link::among(args).is_none() {
+        return Err(refused);
+    }
+    let door = crate::link::Door::of_stage(&install.stage())?;
+    hand_over_to(&door, args, refused, HAND_OVER_WAIT)
+}
+
+/// [`hand_over`] once the door is known.
+fn hand_over_to(
+    door: &crate::link::Door,
+    args: &[std::ffi::OsString],
+    refused: io::Error,
+    wait: std::time::Duration,
+) -> io::Result<ExitStatus> {
+    let Some(link) = crate::link::among(args) else {
+        return Err(refused);
+    };
+    let token = if cfg!(target_os = "linux") {
+        std::env::var("XDG_ACTIVATION_TOKEN").ok()
+    } else {
+        None
+    };
+    if door.knock(&crate::link::Knock { link, token }, wait)? {
+        Ok(ExitStatus::default())
+    } else {
+        Err(io::Error::other("the running client did not take the link"))
+    }
 }
 
 #[cfg(test)]
@@ -644,6 +695,33 @@ mod tests {
             base: base.to_path_buf(),
             program: "Baylee.app".into(),
         }
+    }
+
+    /// A second launcher with a link hands it to the running client's door
+    /// and ends well; without one, the refusal it met stands.
+    #[cfg(unix)]
+    #[test]
+    fn a_second_start_hands_its_link_over_and_refuses_without_one() {
+        use std::sync::{Arc, Mutex};
+        let root = PathBuf::from("/tmp").join(format!(
+            "bl-launch-{}",
+            &uuid::Uuid::now_v7().simple().to_string()[24..]
+        ));
+        let door = crate::link::Door::keyed(&root, b"an installation");
+        let got = Arc::new(Mutex::new(Vec::new()));
+        let into = Arc::clone(&got);
+        door.open(move |knock| into.lock().unwrap().push(knock.link))
+            .unwrap();
+        let refused = || io::Error::from(io::ErrorKind::WouldBlock);
+        let wait = std::time::Duration::from_secs(2);
+        let plain: Vec<std::ffi::OsString> = vec!["--console".into()];
+        let err = hand_over_to(&door, &plain, refused(), wait).unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::WouldBlock, "the refusal stands");
+        let linked: Vec<std::ffi::OsString> = vec!["baylee://open".into()];
+        let status = hand_over_to(&door, &linked, refused(), wait).unwrap();
+        assert!(status.success());
+        assert_eq!(*got.lock().unwrap(), vec!["baylee://open".to_string()]);
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
