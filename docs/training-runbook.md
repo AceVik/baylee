@@ -17,7 +17,7 @@ promotion or push. Always check actual status before acting on this snapshot.
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
 | Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
-| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-cpu-recovery-01a18b70-7ab2-76ae-9a06-c06bc2f94018/cpu/execution`, now `complete-reviewed`. Torch loading and exact proposed update-dose calculation passed. The preceding CPU attempt failed before model/data loading due to missing writable temp/cache paths; recovery restored them and passed actual Torch initialization in the final mount. No new weight update has occurred. The earlier `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` accepted exactly one update (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546) |
+| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-gpu-audit-recovery-01a18b93-5787-7e22-91bc-94beea70c851/gpu/execution`, now in the full numerical `audit` stage. CUDA initialization and cleanup validation passed; no optimizer stage is present. CPU loading and exact proposed dose are complete and reviewed. The launch controller is PID 2476327/start ticks 17409017; recheck its full identity. No new weight update has occurred. The earlier `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` accepted exactly one update (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546) |
 | Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
@@ -202,6 +202,50 @@ worker host timings assign 192.547 seconds to native session preparation,
 These timings identify native verification as the main measured CPU cost;
 they do not identify its internal hashing/parsing/packing costs or predict GPU
 throughput. Keep the frozen implementation unchanged for the next comparison.
+
+The next CUDA initialization and full probability-replay pipeline launched once
+under `research-breadth-gpu-audit-recovery-01a18b93-5787-7e22-91bc-94beea70c851/`.
+Ready SHA-256 is
+`507933ea3e9713111982e681a88c257dd9172bd83cfbae322bcb2b5d5e0b1afd`;
+pipeline SHA-256 is
+`087a51c789d0c872881503162a212e72520c8b2ec5b2b6b9d40ec232612b0f46`.
+The final mount check passed with NVIDIA devices accessible, the exact host
+GPU-lock inode bound writable, frozen inputs read-only and owned temporary/cache
+directories writable. It ran actual frozen CPU initialization without creating
+a CUDA context. Three focused Rust tests and an optimized `-D warnings` build
+passed. The sealed `research-breadth-gpu-audit-01a18b83-aab1-7e39-9589-1bd4b22c2011/`
+predecessor was never launched: review caught a launcher/worker GPU-lock race
+and standalone watcher attachment that could overwrite another owner. Preserve
+its `superseded-unlaunched.json`. The recovery releases the check lock before
+service start, retains canonical ownership through attachment and validates
+ownership under lock during standalone attachment.
+
+Actual controller PID 2476327/start ticks 17409017 on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` was verified by executable, argv and cgroup.
+Service `baylee-research-breadth-01a18b93-audit` and its `-watch.timer` are active;
+the first observed stage was `cuda_init`. Stage limits are 60 seconds for CUDA
+initialization, 60 for its child/allocator cleanup validation and 1,200 for
+complete-history replay. Pipeline/service limits are 1,440/1,500 seconds,
+CPU400%/20 GiB host memory and an 11 GiB CUDA allocator cap. Each stage uses
+the shared GPU lock. The audit must check all 14 histories/14,902 frames/3,479
+choices/241 segments with unchanged FP32/K2/T0.7 and log-probability tolerance
+`0.001`. The runtime estimate of roughly 500–650 seconds extrapolates small
+earlier measurements and is not a validated scaling law or permission to
+extend a deadline automatically.
+
+CUDA initialization and its native validation have now completed in 21.193 and
+19.715 seconds, each with exit zero and cleanup verified. The probe confirmed
+the canonical `cuda:0` device, exact allocator cap, synchronization and zero
+allocated bytes after cleanup. The pipeline advanced to `audit`, with the
+owned Python worker observed on the GPU. Full numerical replay remains pending.
+
+After terminal completion, recheck process/group cleanup and run this recovery's
+`bin/research_gpu_ops verify-gpu-audit` once. Inspect `gpu/cuda-verified.json`,
+`gpu/audit-output/probability-replay.json`, `gpu/audit-output/report.json` and
+`gpu-audit-verified.json`. `attach-gpu-audit` restores monitoring only for this
+exact owner; never repeat `launch-gpu-audit`. Only reviewed numerical success
+permits preparation of the already authorized bounded learning phase. This
+pipeline has no optimizer command, model publication or promotion stage.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,

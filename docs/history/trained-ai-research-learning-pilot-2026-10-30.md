@@ -576,6 +576,46 @@ locally and centrally, and the canonical pointer marked `complete-reviewed`.
 GPU and gateway are unchanged. Review SHA-256 is
 `be481094f034e2605f0aa378333fcdd9dbb3a966c83962ab69af7cf9205f5e87`.
 
+The next audit was prepared in
+`research-breadth-gpu-audit-01a18b83-aab1-7e39-9589-1bd4b22c2011/`, but never
+launched. Independent review identified two operational races: the launcher
+held the nonblocking shared GPU lock while starting a worker that needed that
+same lock, and standalone watcher attachment lacked canonical-owner locking.
+Its sealed artifacts remain unchanged with `superseded-unlaunched.json`.
+A fresh derivative fixes lock handoff and holds canonical ownership throughout
+launch/attachment. Standalone attachment rejects a foreign root, service or
+controller and terminal ownership; all three focused Rust tests passed.
+
+The corrected namespace is
+`research-breadth-gpu-audit-recovery-01a18b93-5787-7e22-91bc-94beea70c851/`.
+Preparation took 11.565 seconds; sealed-input verification took 9.14 seconds.
+Its actual mount test passed, including frozen CPU execution configuration,
+writable owned caches and shared GPU-lock device/inode 66311:72485461.
+No CUDA context was created by that preflight. Ready SHA-256 is
+`507933ea3e9713111982e681a88c257dd9172bd83cfbae322bcb2b5d5e0b1afd`;
+pipeline SHA-256 is
+`087a51c789d0c872881503162a212e72520c8b2ec5b2b6b9d40ec232612b0f46`.
+Map receipt SHA-256 is
+`dea9546285608b5b5cba647f190bfa4cd9882104ca8c24bf18c1c98da36e3a43`.
+
+Root launched it exactly once. Controller PID 2476327/start ticks 17409017 on
+the same boot was verified by executable, arguments and service cgroup;
+`baylee-research-breadth-01a18b93-audit.service` and its watcher timer are active.
+First observed stage: `cuda_init`. Bounds are 60/60/1,200 seconds for CUDA
+initialization, native cleanup validation and full numerical replay, with
+1,440/1,500 seconds for pipeline/service, CPU400%, 20 GiB host memory and an
+11 GiB CUDA allocator cap. Each CUDA stage uses the exact shared GPU lock.
+The full 3,479-choice numerical replay remains pending at this launch handover;
+the pipeline has no optimizer or promotion stage and changes no learning math.
+
+Before handover, `cuda_init` and `validate_cuda` both completed with zero exit
+and verified cleanup in 21.193 and 19.715 seconds respectively. The probe
+confirmed `cuda:0`, the exact 11 GiB cap, successful synchronization and zero
+allocated bytes after cleanup. CUDA report SHA-256 is
+`1cefc30fc2e055e5b2bb50e2719749bcccb703feb33554b31cd6e62195aa187b`.
+The pipeline then entered `audit`; owned Torch worker PID 2476705 was observed
+on the GPU. This proves startup, not successful full replay or weight updates.
+
 Sol's read-only performance review identified hypotheses to measure after this
 trial, not demonstrated speedups. Starting the tensor server and final native
 verification each reconstruct admission, scan and pack frames; original
