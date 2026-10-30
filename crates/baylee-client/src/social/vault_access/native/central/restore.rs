@@ -364,7 +364,7 @@ mod tests {
     /// address an installed client on another device looks for.
     #[test]
     fn the_live_gateway_s_chat_context_and_records_outlive_its_move() {
-        use baylee_client_core::lobby::gateway_list::{FORMER, KEYED, PINNED};
+        use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
         struct Cleanup(std::path::PathBuf);
         impl Drop for Cleanup {
             fn drop(&mut self) {
@@ -378,8 +378,7 @@ mod tests {
         let _cleanup = Cleanup(root.clone());
         std::fs::create_dir(&root).unwrap();
         let before = {
-            let context =
-                ContextGuard::open(&root, Scope::new("af03", FORMER[0]).unwrap()).unwrap();
+            let context = ContextGuard::open(&root, Scope::new("af03", KEYED).unwrap()).unwrap();
             context.installation().unwrap()
         };
         let session = Session {

@@ -267,11 +267,11 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn the_central_handoff_is_for_the_live_gateway_by_either_address() {
-        use baylee_client_core::lobby::gateway_list::{FORMER, PINNED};
+        use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
         let login = Login::central(PINNED, "secret".into());
         assert!(login.fresh_for(PINNED));
-        assert!(login.fresh_for(FORMER[0]));
-        assert!(login.fresh_for(&format!("{}/", FORMER[0])));
+        assert!(login.fresh_for(KEYED));
+        assert!(login.fresh_for(&format!("{}/", KEYED)));
         assert!(!login.fresh_for("https://example.test"));
     }
 }

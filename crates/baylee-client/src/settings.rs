@@ -724,8 +724,8 @@ mod tests {
     /// changes nothing.
     #[test]
     fn a_file_from_before_the_move_keeps_everything_under_the_new_address() {
-        use baylee_client_core::lobby::gateway_list::{FORMER, PINNED};
-        let old = FORMER[0];
+        use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
+        let old = KEYED;
         let own = "http://10.0.0.2:28766";
         let text = format!(
             r#"{{"gateways":["{own}","{old}"],

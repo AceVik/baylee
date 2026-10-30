@@ -572,14 +572,14 @@ fn snapshot(
 #[cfg(test)]
 mod tests {
     use super::row_of;
-    use baylee_client_core::lobby::gateway_list::{FORMER, PINNED};
+    use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
 
     /// A restart into the update that moved the live gateway: `resume.json`
     /// names its former address, and the live gateway's row is found.
     #[test]
     fn a_restart_named_by_the_former_address_finds_the_live_gateway() {
         let gateways = vec!["http://10.0.0.2:28766".to_string(), PINNED.to_string()];
-        assert_eq!(row_of(&gateways, FORMER[0]), Some(1));
+        assert_eq!(row_of(&gateways, KEYED), Some(1));
         assert_eq!(row_of(&gateways, PINNED), Some(1));
         assert_eq!(row_of(&gateways, "http://10.0.0.2:28766/"), Some(0));
         assert_eq!(row_of(&gateways, "https://elsewhere.invalid"), None);

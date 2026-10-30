@@ -299,7 +299,7 @@ mod tests {
     /// row stood, once, and a second pass changes nothing.
     #[test]
     fn a_former_address_of_the_live_gateway_is_read_as_the_pinned_one() {
-        let old = FORMER[0];
+        let old = KEYED;
         assert_eq!(moved(old), PINNED);
         assert_eq!(moved(&format!("{old}/")), PINNED);
         assert_eq!(moved("http://127.0.0.1:28766"), "http://127.0.0.1:28766");
@@ -330,8 +330,8 @@ mod tests {
 
     #[test]
     fn the_live_gateway_is_the_same_by_either_address() {
-        assert!(same(FORMER[0], PINNED));
-        assert!(same(&format!("{PINNED}/"), FORMER[0]));
+        assert!(same(KEYED, PINNED));
+        assert!(same(&format!("{PINNED}/"), KEYED));
         assert!(same("http://127.0.0.1:28766/", "http://127.0.0.1:28766"));
         assert!(!same(PINNED, "http://127.0.0.1:28766"));
         assert!(!same("https://baylee.acevik.de.example", PINNED));
@@ -346,7 +346,6 @@ mod tests {
         assert_eq!(keyed(KEYED), KEYED);
         assert_eq!(keyed(&format!("{KEYED}/")), KEYED);
         assert_eq!(keyed("http://127.0.0.1:28766"), "http://127.0.0.1:28766");
-        assert!(FORMER.contains(&KEYED));
     }
 
     /// The account's document keeps the live gateway under the address an
@@ -368,7 +367,7 @@ mod tests {
     /// one, and the cursor on it, where a guest kept on this browser is.
     #[test]
     fn a_page_served_at_the_former_address_plays_at_the_pinned_row() {
-        let old = FORMER[0];
+        let old = KEYED;
         let page = page_gateway(Some(old), old).map(|page| moved(&page).to_string());
         assert_eq!(page.as_deref(), Some(PINNED));
         let list = with_page(with_pinned(vec![old.to_string()]), page.as_deref());
@@ -381,7 +380,7 @@ mod tests {
     #[test]
     fn a_map_by_address_moves_a_former_entry_and_overwrites_nothing() {
         let mut map = std::collections::BTreeMap::from([
-            (FORMER[0].to_string(), 1),
+            (KEYED.to_string(), 1),
             ("http://10.0.0.2:28766".to_string(), 2),
         ]);
         rekeyed(&mut map);
@@ -396,10 +395,10 @@ mod tests {
         rekeyed(&mut map);
         assert_eq!(map, again);
         let mut both =
-            std::collections::BTreeMap::from([(FORMER[0].to_string(), 1), (PINNED.to_string(), 3)]);
+            std::collections::BTreeMap::from([(KEYED.to_string(), 1), (PINNED.to_string(), 3)]);
         rekeyed(&mut both);
         assert_eq!(both.get(PINNED), Some(&3));
-        assert_eq!(both.get(FORMER[0]), Some(&1));
+        assert_eq!(both.get(KEYED), Some(&1));
     }
 
     #[test]

@@ -251,7 +251,7 @@ mod tests {
         assert!(file.sends_to("https://live.example/", pinned));
         // A file written before the live gateway moved goes to it there.
         let (former, live) = (
-            crate::lobby::gateway_list::FORMER[0],
+            crate::lobby::gateway_list::KEYED,
             crate::lobby::gateway_list::PINNED,
         );
         file.gateway = Some(former.into());
