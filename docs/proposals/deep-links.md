@@ -6,8 +6,11 @@ normative description is `docs/client.md` §"Links from the website", and
 two findings of building it correct this text: macOS delivers the link to
 the client, not the launcher, so the launcher changed only for Windows and
 Linux; and winit 0.30 owns the macOS app delegate, so the client asks
-`NSAppleEventManager` for the link. Slices 2 and 3 are not built. Nothing
-here changes Baylee Central. Its parts are named so Central's own design pass can take them up;
+`NSAppleEventManager` for the link. Slices 2 and 3 are not built. On the same
+day the owner chose how signing in from the website works (pairing with the
+master key, a key check, a vault key from the master key, rotation): the
+section "Protocol specification" below is that decision, and it replaces
+the options A, B and C and questions 2 to 4. Its parts are named so Central's own design pass can take them up;
 Central work runs at the highest effort, and a new Central dependency needs the
 owner's approval. The questions the owner has to decide close this document.
 
@@ -391,6 +394,254 @@ What Baylee would need:
   vault is imported at the next sign-in with the password. A legacy player
   who has not moved to Central cannot sign in on the website at all, so the
   legacy migration (which needs the password) is not affected.
+
+## Protocol specification: pairing, key check, vault key, rotation
+
+The owner's decision of 30.10.2026 ("Setzen wir das so um. Gerne mit
+deinen Optimierungen und Verbesserungen"), relayed by the PM, replaces the
+options A/B/C above. This section is the contract between the pieces built
+in parallel: Central's server and crypto and Baylee's client and launcher
+(this repository's sessions), and the website (the session "Central
+website: redesign, account area, gateway tokens"). A change to a shape here
+changes this section first. Central's own documents (`web-accounts.md`,
+`native-login.md`, `crypto-protocol.md`) take the parts that are Central's
+when they are built.
+
+### The rule
+
+The password unwraps the master key once, in the client or the page that
+typed it, and is dropped at once. It is never stored, never handed to
+another part of the program, never sent anywhere (OPAQUE sends no password).
+Everything after that runs on the master key. A stolen master key harms
+Baylee; a stolen password harms every site where it is used again.
+
+### Derivations from the master key
+
+All in `central-crypto`, as the object keys already are (`vault/object.rs`):
+HKDF-SHA-512 with the master key as input, a fixed salt per purpose, and
+the account context as info (`Context::bound`: the domain, then the 32-byte
+issuer, the 16-byte account and the epoch as eight big-endian bytes). The
+master key still has no export API; each derivation is a method that
+answers its own key or value.
+
+| Purpose | Salt | Info after the context | Output |
+| --- | --- | --- | --- |
+| Key check (`K`) | `baylee-central/key-check/v1` | nothing | 32 bytes, stored by Central |
+| Local chat vault key | `baylee-central/local-vault/v1` | the vault's scope (`docs/password-vault.md`) | 32 bytes, never stored |
+
+`K` is one-way: knowing it does not give the master key. It changes with
+the epoch.
+
+### Key check (owner's item 3)
+
+Central stores `K` beside the account (`accounts.key_check`, 32 bytes,
+nullable until set). It is set:
+
+- at registration (`EnrollmentFinish` gains `key_check`);
+- by a new master key: rotation (below), and an administrator's reset that
+  makes a new vault (`ResetVault::New` gains `key_check`; a reset that
+  keeps the vault keeps `K`, a password change keeps it too);
+- for an account that has none: `SetKeyCheck { check }`, on either surface,
+  accepted once, only while `key_check` is null and only within two minutes
+  of a password proof (the session's `proven_at`, below). A stolen cookie
+  can therefore never set it to the thief's value. The client and the page
+  ask after every password sign-in (`KeyCheckStatus` → `KeyCheck { set }`,
+  a new request on both surfaces) and send it when none is set.
+
+New request fields carry `#[serde(default)]`, so an older client's request
+still reads; no existing answer gains a field (the native `SessionStatus`
+and `Session` stay as they are: clients built before refuse unknown fields).
+A request that comes without `key_check` where it now belongs (an older
+client's reset to a new vault) clears `K`, and the next password sign-in
+sets it.
+
+`K` itself never travels after that. Approving a pairing proves the master
+key with a MAC under `K` over that approval (below); Central recomputes it
+with the stored `K`. A thief with the cookie alone cannot make it. Without
+`K` stored, no pairing can be approved; the page says so and the next
+password sign-in sets it.
+
+### Pairing, browser → client (owner's item 2)
+
+Three parties: the page (signed in, master key held in its isolated worker),
+Central, the client. Two secrets: `S`, 32 random bytes the page makes, which
+only the page and the link carry (Central never sees it); and the client's
+verifier `v`, 32 random bytes, which only the client holds.
+
+| Step | Who | Message | What is checked |
+| --- | --- | --- | --- |
+| 1 | page → Central | `PairStart` (browser surface, cookie) → `PairStarted { handle, expires_at }` | a live browser session; the account has `K`; at most 3 open pairings per account |
+| 2 | page → client | opens `baylee://pair?h=<handle>&s=<S>` | — |
+| 3 | client → Central | `PairClaim { handle, public_key, challenge, mac }` (native, no session) → `PairAccepted { expires_at }` | the handle is open and unclaimed, its claim window (2 minutes) not over; exactly one claim per handle, a second is `Conflict` |
+| 4 | page → Central | `PairStatus { handle }` → `PairClaimed { public_key, challenge, mac }`, or `Pending` | the session that started it |
+| 5 | page | checks `mac`, shows the comparison code and the account's name, the player presses Approve | `mac` under `S`; a wrong one cancels the pairing |
+| 6 | page → Central | `PairApprove { handle, sealed, proof }` → `Done` | claimed, not approved, same account and session, `proof` under `K` |
+| 7 | client → Central | `PairPoll { handle }` → `Pending` or `Approved`; then `PairRedeem { handle, verifier }` → `PairSession { token, identity, username, sealed, expires_at }` | for the redeem: `SHA-256(verifier) = challenge`, approved, not redeemed; once |
+| 8 | client | opens `sealed`, asks "Sign in as `<username>`?" | the seal's binding; a no ends the session (`Logout`) |
+
+- **Handle**: 32 random bytes, base64url, stored only as a digest. A
+  pairing lives five minutes from step 1; the claim (step 3) must come in
+  its first two minutes, which is how long `S` is good for. `PairCancel {
+  handle }` (page) ends it at once. Expired, cancelled or redeemed rows are
+  deleted with their sealed key.
+- **Claim** (client): an X25519 key pair (`sk`, `pk`), `v`, `challenge =
+  SHA-256(v)`, and `mac = HMAC-SHA-256(S, "baylee-central/pair-claim/v1\0"
+  ‖ issuer ‖ handle ‖ pk ‖ challenge)`. The client keeps the pairing's
+  `expires_at` from `PairAccepted`. It polls `PairPoll` about once a second
+  until it says approved, the pairing ended, or five minutes passed, and
+  sends `v` once, in the redeem (RFC 7636's shape: the verifier crosses
+  once, at the end).
+- **Comparison code**: six Crockford base32 characters of
+  `SHA-256("baylee-central/pair-code/v1\0" ‖ handle ‖ pk)`, shown by the
+  client while it waits and by the page beside Approve. (An improvement over
+  the owner's sketch: see "What `S` in the link means".)
+- **Seal** (page): HPKE (RFC 9180) in base mode, DHKEM(X25519, HKDF-SHA256),
+  HKDF-SHA256, ChaCha20-Poly1305, to `pk`, with `info =
+  "baylee-central/pair-seal/v1\0" ‖ issuer ‖ account ‖ epoch ‖ handle ‖
+  expires_at` (eight big-endian bytes each for epoch and time) and empty
+  `aad`; the plaintext is the 32-byte master key. `sealed` is `enc` (32
+  bytes) followed by the ciphertext (48 bytes): 80 bytes.
+- **Proof** (page): `HMAC-SHA-256(K, "baylee-central/pair-approve/v1\0" ‖
+  handle ‖ pk ‖ challenge ‖ SHA-256(sealed))`.
+- **Session**: a native session like a login's, which ends the account's
+  other native sessions as a login does. Its 12 hours count from the
+  password proof behind the browser session (`proven_at`, below), never from
+  the pairing. There is no state "session without key": the session exists
+  only in the answer that also carries `sealed`, and only once.
+- **Open** (client): HPKE open with `sk` and the same `info`: the issuer
+  the client is built for, `account` and `epoch` from `PairSession.identity`,
+  the handle from the link, and `expires_at` from `PairAccepted` (the
+  pairing's, not `PairSession.expires_at`, which is the session's). Anything
+  that does not open is refused and the session ended.
+
+`proven_at`: `sessions` gains `proven_at timestamptz NOT NULL` (the time of
+the password proof the session rests on; for a login, its creation), and
+the 12-hour check moves from `created_at` to it (`expires_at <= proven_at +
+interval '12 hours'`, `proven_at <= created_at`). A pairing's session takes
+the browser session's `proven_at`; renewal never moves it.
+
+The wire shapes are new variants of `central_api::wire::{Request,
+Response}`; the browser operations join `browser_operation` and the
+per-address budget table of `web-accounts.md` (`PairStart` 10 an hour,
+`PairStatus` 120 a minute). On the native surface, which has only global
+budgets, `PairClaim` and `PairRedeem` are bounded per handle (one claim, at
+most 300 polls) and by a cap on open pairings (1000 in all).
+
+### The link `baylee://pair`
+
+`baylee://pair?h=<handle>&s=<S>`: both 43 base64url characters, exactly
+these two parameters. `client-core::deeplink` reads it like the other links.
+The client follows it only at rest and only while nobody is signed in at
+Central; signed in, it says so and drops it (the pairing then expires).
+
+### What `S` in the link means
+
+`S` is a secret in a link, which the first part of this document avoided.
+For its two minutes it is a bearer for whoever reads the link: on Windows
+and Linux the link is the launcher's argument, which the player's other
+processes can read, and an app that claims `baylee:` receives the link
+instead of the client. Such a process could claim the pairing with its own
+key and, approved, receive the master key. Three things stand in its way:
+one claim per handle (if the real client also got the link, its claim fails
+and it says so), the comparison code beside Approve, and the client's own
+question. A process that reads other programs' arguments can usually read
+their memory and keystrokes too, so this stays inside the existing local
+trust boundary, but it is the reason for the code. The owner may drop the
+code and the Approve press (the page then seals as soon as the MAC checks).
+
+### The local chat vault (owner's item 1)
+
+For a Central account the chat's device keys live in Central's encrypted
+archive (`docs/central-chat-sync.md`). A password-wrapped local vault
+(`password.vault`, `docs/password-vault.md`) is only an import source, and
+today the chat starts only with the 120-second password hand-off
+(`vault_access::Login::central`), so a paired sign-in would get no chat.
+
+- The account worker derives the scope's local vault key from the master
+  key and hands only that 32-byte key to the chat's restore job. The
+  password hand-off and its 120 seconds go away for Central sign-ins.
+- A vault version 2 (`BAYVAU02`) wraps the same data key under that key
+  instead of under Argon2id of a password; the payload is unchanged.
+- A version-1 vault is opened at the next password sign-in with that
+  password, while it is still in the client for OPAQUE, and rewritten as
+  version 2 (atomically, the data key and payload unchanged), then the
+  password is dropped. Until then a paired sign-in imports nothing from it;
+  the archive's keys work as before.
+- Gateways with accounts of their own (no master key) keep version 1.
+
+### Rotation (owner's item 4)
+
+A new master key, every object sealed again under it, the epoch one higher.
+The epoch is part of OPAQUE's context (`crypto-protocol.md`), so a new epoch
+needs a new OPAQUE registration, which needs the password: rotation goes
+with a password change ("offered at every password change"). "Automatic on
+suspicion" means Central marks the account (`rotation_required`, set by an
+administrator or by Central itself) and the next password sign-in rotates
+before anything else. It never happens silently, and the OPAQUE server
+setup is never regenerated.
+
+1. `RotateStart { login, registration }`: KE1 under the current password
+   and a registration request for the (possibly unchanged) password →
+   `RotationChallenge { attempt, … }`; every object write is refused while
+   an attempt is open (ten minutes).
+2. The client makes a new master key, reads every object, seals each again
+   under the new key and the new epoch, and uploads it to the attempt
+   (`RotateObject { attempt, object, ciphertext }`, staged beside the live
+   ones).
+3. `RotateFinish { attempt, proof, record, wrapped_master, recovery,
+   key_check }`: the proof under the current password, the new record and
+   wrapper, the new `K`, and a new recovery wrapper (`Option`, with
+   `EnrollmentFinish.recovery`'s rule: required for a registered account,
+   refused for a legacy one; the old recovery code opens only the old key,
+   so a new code is shown once). Central checks that
+   the staged set is exactly the live set, then swaps credential, wrappers,
+   `K`, epoch and objects in one transaction and ends every session; the
+   answer is a new session.
+4. The rotating client rewraps this device's version-2 vaults with the new
+   key. Another device's version-2 vault opens with the old key only; its
+   keys are in the archive, so it is rewritten from there at that device's
+   next sign-in.
+
+### Tests that must exist (attack cases)
+
+Swapped key (sealed to another `pk`), a handle claimed twice, a reused
+redeem, an expired handle (each step), a pairing approved with a wrong
+`proof` or from another account's or session's cookie, a wrong epoch (the
+account rotated between start and redeem), a `mac` under another `S`,
+`SetKeyCheck` outside its two minutes or over an existing value, a session
+that would outlive `proven_at + 12 h`, a rotation whose staged set misses or
+adds an object, a reset to a new vault that leaves the old `K`, and RFC
+9180's known-answer vectors for this suite in `mode_base` (Appendix A.2.1:
+the KEM, the key schedule and the sealed messages, not the KEM alone).
+
+### Dependencies (for the owner)
+
+Central already links everything the seal needs: `curve25519-dalek` 4.1.3
+(X25519 as `MontgomeryPoint::mul_clamped`), `hkdf`, `hmac`, `sha2` and
+`chacha20poly1305` 0.11. Two ways:
+
+| | What | New crates |
+| --- | --- | --- |
+| A (recommended) | HPKE base mode for the one suite, about 150 lines in `central-crypto`, pinned by RFC 9180 Appendix A's known-answer vectors for this suite, the all-zero DH output refused | none |
+| B | `hpke` 0.15.1 (rozbb/rust-hpke, MIT/Apache-2.0, 28.10.2026) | `hpke` and what it pulls (its own X25519 and AEAD dependencies) |
+
+A hybrid post-quantum KEM (ML-KEM with X25519) is not proposed now: HPKE
+has no final hybrid suite in an RFC, and the sealed key lives five minutes.
+
+### Who builds what
+
+| Piece | Where | Who |
+| --- | --- | --- |
+| Derivations, claim MAC, comparison code, HPKE seal/open, proof | `central-crypto` | this session |
+| Wasm exports of the page's half (verify `mac`, code, seal, proof, `K`) | `central-web-crypto` | this session, agreed with the website session |
+| Requests, table and migration (`pairings`, `key_check`, `proven_at`, `rotation_required`), budgets, browser operations | `central-identity`, `central-api`, `central-migration` | this session |
+| `central-client` SDK: claim, redeem, `SetKeyCheck`, rotation | `central-client` | this session |
+| Holding the master key in an isolated worker, idle limit, the Approve page, the rotation UI | `web/` | website session |
+| The `pair` link, the waiting screen, the question, `Account::from_pairing`, vault version 2, rotation in the client | Baylee | this session |
+
+Order (PM, 30.10.2026): slice 1; then the vault key (item 1); then the key
+check and pairing (items 3 and 2); then rotation (item 4). Landings only
+after the PM agrees; production deploys are the PM's.
 
 ## Adding a gateway from a link
 
