@@ -130,7 +130,7 @@ class CandidateContextTests(unittest.TestCase):
                         if a.grad is not None: torch.testing.assert_close(a.grad,b.grad,atol=3e-6,rtol=3e-5,msg=name)
 
     def test_strict_identity_archived_omissions_and_unknown_combinations(self):
-        for bad in (0,3,True,2.):
+        for bad in (0,4,True,2.):
             with self.assertRaises(ValueError): V5.Config5(candidate_context_revision=bad)
         with self.assertRaises(ValueError): V5.Config5(candidate_context_revision=2,relational_revision=1)
         net=self.net(); net.attach_structure(export_tests.FOREST)

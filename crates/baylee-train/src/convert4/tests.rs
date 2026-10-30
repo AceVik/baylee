@@ -239,22 +239,32 @@ fn encoder8_sidecars_require_matching_verified_producer_before_replay() {
 
 #[test]
 fn candidate_context_producers_keep_their_explicit_encoder_contract() {
-    for encoder in [7, 8] {
+    for architecture in [
+        "baylee_ai_v5_relational_v2_candidate_v2",
+        "baylee_ai_v5_relational_v2_candidate_v3",
+    ] {
+        for encoder in [7, 8] {
+            assert!(
+                ProducerEncoder::from_run(&serde_json::json!({
+                    "model_identity":{"encoder_version":encoder,"model_version":5,
+                        "architecture":architecture}
+                }))
+                .is_ok()
+            );
+        }
+    }
+    for (encoder, architecture) in [
+        (8, "baylee_ai_v5_relational_v2_candidate_v9"),
+        (9, "baylee_ai_v5_relational_v2_candidate_v3"),
+    ] {
         assert!(
             ProducerEncoder::from_run(&serde_json::json!({
                 "model_identity":{"encoder_version":encoder,"model_version":5,
-                    "architecture":"baylee_ai_v5_relational_v2_candidate_v2"}
+                    "architecture":architecture,"global_feat_width":82}
             }))
-            .is_ok()
+            .is_err()
         );
     }
-    assert!(
-        ProducerEncoder::from_run(&serde_json::json!({
-            "model_identity":{"encoder_version":8,"model_version":5,
-                "architecture":"baylee_ai_v5_relational_v2_candidate_v3"}
-        }))
-        .is_err()
-    );
 }
 
 /// The record as another build would have written it: every engine hash

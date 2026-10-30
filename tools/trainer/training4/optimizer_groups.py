@@ -20,19 +20,28 @@ def build_optimizer_groups(net, main_lr, *, architecture='v4', freeze_trunk=Fals
         if critic:
             groups.append(dict(params=[p for _, p in critic], lr=main_lr * .2, weight_decay=5e-2))
         return groups, None
-    shared = [(n, p) for n, p in other if not n.startswith('relational.')]
+    # Modules added on top of a trained trunk (the relational block, the
+    # candidate decoder) learn at the new-module rates; their zero-initialized
+    # residual outputs carry no weight decay.
+    def decoder_output(name):
+        return name.startswith('cand_decoder.') and ('.attn.out_proj.' in name or '.ff.2.' in name)
+    shared = [(n, p) for n, p in other if not n.startswith(('relational.', 'cand_decoder.'))]
     inner = [(n, p) for n, p in other if n.startswith('relational.') and n != 'relational.output.weight']
     output = [(n, p) for n, p in other if n == 'relational.output.weight']
+    decoder_inner = [(n, p) for n, p in other if n.startswith('cand_decoder.') and not decoder_output(n)]
+    decoder_outputs = [(n, p) for n, p in other if decoder_output(n)]
     if not inner or len(output) != 1:
         raise ValueError('Expected relational inner parameters and one output weight')
     definitions = [('shared', shared, main_lr, 1e-2), ('critic', critic, main_lr * .2, 5e-2),
                    ('relational_inner', inner, relational_lr, 1e-2),
-                   ('relational_output', output, output_lr or relational_lr, 0.)]
+                   ('relational_output', output, output_lr or relational_lr, 0.),
+                   ('decoder_inner', decoder_inner, relational_lr, 1e-2),
+                   ('decoder_output', decoder_outputs, output_lr or relational_lr, 0.)]
     groups, contract_groups = [], []
     for name, named, lr, decay in definitions:
         if not named:
             continue
-        warming = name.startswith('relational_')
+        warming = name.startswith(('relational_', 'decoder_'))
         groups.append(dict(params=[p for _, p in named], name=name,
                            lr=0. if warming and warmup_steps else lr, weight_decay=decay))
         contract_groups.append(dict(name=name, parameter_names=[n for n, _ in named],

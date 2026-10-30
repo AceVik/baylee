@@ -54,7 +54,7 @@ def load_export_checkpoint(checkpoint_path: Path):
     elif version == 5:
         import model5 as module
         config_type, model_type = module.Config5, module.PlayerNet5
-        if checkpoint.get("architecture") not in (*module.ARCHITECTURES.values(), module.CANDIDATE_ARCHITECTURE):
+        if checkpoint.get("architecture") not in (*module.ARCHITECTURES.values(), *module.CANDIDATE_ARCHITECTURES.values()):
             raise ValueError("V5 checkpoint architecture is missing or incompatible")
     else:
         raise ValueError(f"Unsupported checkpoint model_version: {version}")

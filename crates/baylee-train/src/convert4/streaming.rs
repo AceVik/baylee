@@ -461,13 +461,18 @@ impl ProducerEncoder {
                 Some(
                     "baylee_ai_v5_relational_v1"
                     | "baylee_ai_v5_relational_v2"
-                    | "baylee_ai_v5_relational_v2_candidate_v2",
+                    | "baylee_ai_v5_relational_v2_candidate_v2"
+                    | "baylee_ai_v5_relational_v2_candidate_v3",
                 ),
             ) => 7,
             (
                 Some(8),
                 Some(5),
-                Some("baylee_ai_v5_relational_v2" | "baylee_ai_v5_relational_v2_candidate_v2"),
+                Some(
+                    "baylee_ai_v5_relational_v2"
+                    | "baylee_ai_v5_relational_v2_candidate_v2"
+                    | "baylee_ai_v5_relational_v2_candidate_v3",
+                ),
             ) => 8,
             (
                 Some(9),

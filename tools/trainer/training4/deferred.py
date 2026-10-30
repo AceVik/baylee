@@ -29,11 +29,13 @@ def readout_groups(plans, chunk, token_limit=None):
             yield tuple(pending)
 
 
-def _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c):
-    return net.candidate_hidden(c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c)
+def _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c, keys=None):
+    return net.candidate_hidden(c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c, keys)
 
 
-def _score_cand_rows(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c, use_ckpt=False):
+def _score_cand_rows(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c,
+                     keys=None, use_ckpt=False):
+    # Candidates never attend to one another, so slicing a huge menu is exact.
     c_len = c_feat.shape[1]
     if c_len > 512:
         slices = []
@@ -47,6 +49,7 @@ def _score_cand_rows(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c
                 e_ref_c,
                 s_ref_c,
                 g_ref_c,
+                keys,
             )
             if use_ckpt:
                 slices.append(torch.utils.checkpoint.checkpoint(lambda *a: _score_cand_slice(net, *a), *args, use_reentrant=False))
@@ -54,7 +57,7 @@ def _score_cand_rows(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c
                 slices.append(_score_cand_slice(net, *args))
         h_c = torch.cat(slices, dim=1)
     else:
-        h_c = _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c)
+        h_c = _score_cand_slice(net, c_feat, c_dsl, c_rules, c_eidx, c_sidx, e_ref_c, s_ref_c, g_ref_c, keys)
     return score_candidate_hidden(net, h_c, c_msk)
 
 
@@ -162,8 +165,12 @@ def deferred_readouts(net, batch, boards, hidden, plans, chunk, device, bf16=Fal
                 e_ref_c = torch.cat([boards[t][0][:, M.RECURRENT_SLOTS:] for t in times], dim=0)
                 s_ref_c = torch.cat([s_ref_all[t] for t in times], dim=0)
                 g_ref_c = torch.cat([g_ref_all[t] for t in times], dim=0)
+                keys = (net.candidate_decoder_keys(torch.cat([z_out_all[t] for t in times], dim=0),
+                                                   torch.cat([boards[t][0] for t in times], dim=0),
+                                                   torch.cat([boards[t][1] for t in times], dim=0))
+                        if getattr(net, "cand_decoder", None) is not None else None)
 
-                args = (c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c)
+                args = (c_feat, c_dsl, c_rules, c_eidx, c_sidx, c_msk, e_ref_c, s_ref_c, g_ref_c, keys)
                 if use_ckpt and c_max > 64:
                     c_logits = torch.utils.checkpoint.checkpoint(
                         lambda *a: _score_cand_rows(net, *a, use_ckpt=True), *args, use_reentrant=False

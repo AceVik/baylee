@@ -317,7 +317,8 @@ class PlayerNet4(nn.Module):
         # default computes every output for inference and portable ONNX export.
         if policy_heads is None or policy_heads[0] or policy_heads[1]:
             h_c = self.candidate_hidden(cand_feat, cand_dsl, cand_rules, cand_entity_idx,
-                                        cand_seat_idx, e_ref, s_ref, g_ref)
+                                        cand_seat_idx, e_ref, s_ref, g_ref,
+                                        self.candidate_decoder_keys(z_out, board, pad_mask))
             cand_logits = score_candidate_hidden(self, h_c, cand_mask)
         else:
             cand_logits = torch.zeros_like(cand_mask, dtype=board.dtype).masked_fill(~cand_mask, -1e9)
@@ -338,8 +339,16 @@ class PlayerNet4(nn.Module):
     # The readouts below are the single definition shared by inference,
     # export and every training execution path; leading dimensions are free.
 
+    def candidate_decoder_keys(self, z_out, board, pad_mask):
+        """What candidates may attend to; `None` keeps v4/v5 candidates independent."""
+        return None
+
+    def decode_candidates(self, hidden, keys):
+        """Identity extension point; archived v4/v5 readouts are unchanged."""
+        return hidden
+
     def candidate_hidden(self, cand_feat, cand_dsl, cand_rules, cand_entity_idx, cand_seat_idx,
-                         e_ref, s_ref, g_ref):
+                         e_ref, s_ref, g_ref, decoder_keys=None):
         """Per-candidate hidden state `[..., C, d]` before the menu-context readout."""
         d = self.cfg.d_model
         c_emb = self.cand_proj(symlog(cand_feat)) + self.dsl_proj(symlog(cand_dsl)) + self.rule_features(cand_rules)
@@ -353,7 +362,8 @@ class PlayerNet4(nn.Module):
         ) * has_seat.unsqueeze(-1).to(s_ref.dtype)
         g_exp = g_ref.unsqueeze(-2).expand_as(c_emb)
         cand_in = torch.cat([c_emb, c_ent, c_seat, g_exp], dim=-1)
-        return self.cand_scorer[2](self.cand_scorer[1](self.cand_scorer[0](cand_in)))
+        hidden = self.cand_scorer[2](self.cand_scorer[1](self.cand_scorer[0](cand_in)))
+        return self.decode_candidates(hidden, decoder_keys)
 
     def score_pairs(self, pair_index, pair_mask, e_ref, g_ref):
         """Blocker-attacker pair logits `[..., P]`."""

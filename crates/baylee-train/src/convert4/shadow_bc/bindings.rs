@@ -142,7 +142,11 @@ fn validate_header(run: &[u8], header: &Value, game: &str, catalog: &str) -> any
                 && identity["model_version"] == 5
                 && matches!(
                     identity["architecture"].as_str(),
-                    Some("baylee_ai_v5_relational_v2" | "baylee_ai_v5_relational_v2_candidate_v2")
+                    Some(
+                        "baylee_ai_v5_relational_v2"
+                            | "baylee_ai_v5_relational_v2_candidate_v2"
+                            | "baylee_ai_v5_relational_v2_candidate_v3"
+                    )
                 ))),
         "Shadow encoder/model mismatch"
     );
@@ -156,6 +160,7 @@ fn validate_header(run: &[u8], header: &Value, game: &str, catalog: &str) -> any
                         "baylee_ai_v5_relational_v1"
                             | "baylee_ai_v5_relational_v2"
                             | "baylee_ai_v5_relational_v2_candidate_v2"
+                            | "baylee_ai_v5_relational_v2_candidate_v3"
                     )
                 )),
         "Unknown shadow behavior architecture"
