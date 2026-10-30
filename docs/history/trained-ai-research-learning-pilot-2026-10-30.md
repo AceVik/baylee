@@ -283,6 +283,41 @@ The canonical collection pointer is running and its durable watcher active.
 This is an actual CPU collection launch, not another GPU learning update;
 results still require review. The user gateway is unchanged.
 
+The collection subsequently stopped at table 082. Its inner guard reached the
+240-second deadline and finished cleanup after 243.499 seconds, with peak PSS
+3,974,852,608 bytes. There was no OOM or native traceback. Case 164 had already
+published a complete record; case 165 was assigned but had no completion and
+remains `operational_unknown/process_deadline`, with null utility and no
+bootstrap. The collector correctly finalized this ledger and returned failure;
+the generic pipeline then stopped before starting tables 083–087.
+
+The final original denominator is 16 planned, six assigned, five recorded, one
+operational unknown and ten unstarted. Recorded cases are 160 natural loss,
+161 learner announcement loop with utility zero and unknown MTG outcome,
+162 natural win, 163 natural loss and 164 natural loss. Thus four natural
+outcomes include one win and three losses; these exploratory training games
+are not a strength estimate. Two of eight paired table clusters are fully
+recorded, one partial and five unstarted. No conversion, input admission or
+training was performed on this collection.
+
+`collection-review.json` SHA-256 is
+`c18c525b99a9d5f1e1800dd4d9f32184d084a3f67af464df9cb4c1d06b9ed448`.
+Review rehashed 20,224 sealed inputs/source files and confirmed the controller
+and all six outer/inner guard identities and groups had exited, with an empty
+cgroup. Only the owned collection watcher was stopped. Event
+`991344e21a106d3a03403769` is handled and the canonical pointer is
+`failed-reviewed`; the GPU is empty and user gateway unchanged.
+
+Continuation is restricted to the ten originally unstarted cases 166–175,
+under a fresh namespace and the same original seeds/decks/opponents. Case 165
+must not be retried or replaced. The original snapshot remains immutable;
+a combined review must count 16 logical attempts exactly once, not add the
+continuation's ten cases as a new denominator. Future independent collection
+stages need an explicit accounting mode that can retain a verified, cleaned-up
+deadline and proceed; generic pipeline and default collector failure behavior
+remain unchanged. Missing/corrupt evidence, changed inputs, interruption,
+worker errors and memory-limit failures still stop the collection.
+
 Sol's read-only performance review identified hypotheses to measure after this
 trial, not demonstrated speedups. Starting the tensor server and final native
 verification each reconstruct admission, scan and pack frames; original

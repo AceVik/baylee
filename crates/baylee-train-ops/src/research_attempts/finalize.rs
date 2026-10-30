@@ -364,6 +364,26 @@ pub fn verify_finalized(root: &Path) -> Result<Value> {
 /// # Errors
 /// Preserves failed jobs and refuses live/unverified finalization; never retries games.
 pub fn collect(job: &guard::Job, root: &Path, interrupted: &AtomicBool) -> Result<Value> {
+    collect_inner(job, root, interrupted, false)
+}
+
+/// Account for a cleaned-up deadline so separately planned independent tables can continue.
+/// # Errors
+/// All failures except a fully verified deadline remain unsuccessful. Never retries games.
+pub fn collect_retaining_deadline(
+    job: &guard::Job,
+    root: &Path,
+    interrupted: &AtomicBool,
+) -> Result<Value> {
+    collect_inner(job, root, interrupted, true)
+}
+
+fn collect_inner(
+    job: &guard::Job,
+    root: &Path,
+    interrupted: &AtomicBool,
+    retain_deadline: bool,
+) -> Result<Value> {
     ensure!(
         std::env::var("BAYLEE_EP").as_deref() != Ok("cuda"),
         "research collection wrapper is CPU-only"
@@ -376,8 +396,12 @@ pub fn collect(job: &guard::Job, root: &Path, interrupted: &AtomicBool) -> Resul
     );
     let outcome = guard::run(job, interrupted);
     let ledger = finalize(root, &job.directory.join("job.json"))?;
+    let complete = outcome?;
+    if retain_deadline {
+        return super::retention::account(job, root, interrupted, complete);
+    }
     ensure!(
-        outcome?,
+        complete,
         "research collector failed; finalized unknown attempts are retained"
     );
     Ok(ledger)

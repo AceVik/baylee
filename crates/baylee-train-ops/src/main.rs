@@ -15,6 +15,9 @@ struct Args {
 enum Task {
     /// Account for every assigned CPU research attempt after bounded child cleanup.
     CollectResearch {
+        /// Retain only a verified cleaned-up deadline as incomplete collection accounting.
+        #[arg(long)]
+        retain_deadline: bool,
         #[arg(long)]
         job: PathBuf,
         #[arg(long)]
@@ -139,7 +142,7 @@ fn run_native(
     memory_gib: f64,
     input: Vec<PathBuf>,
     command: Vec<String>,
-    research: Option<PathBuf>,
+    research: Option<(PathBuf, bool)>,
 ) -> Result<()> {
     #[cfg(target_os = "linux")]
     {
@@ -152,14 +155,15 @@ fn run_native(
             memory_gib,
             inputs: input,
         };
-        if let Some(root) = research {
+        if let Some((root, retain_deadline)) = research {
+            let collect = if retain_deadline {
+                baylee_train_ops::research_attempts::collect_retaining_deadline
+            } else {
+                baylee_train_ops::research_attempts::collect
+            };
             println!(
                 "{}",
-                serde_json::to_string(&baylee_train_ops::research_attempts::collect(
-                    &spec,
-                    &root,
-                    &interrupted
-                )?)?
+                serde_json::to_string(&collect(&spec, &root, &interrupted)?)?
             );
         } else if !baylee_train_ops::guard::run(&spec, &interrupted)? {
             std::process::exit(1);
@@ -178,13 +182,21 @@ fn main() -> Result<()> {
     match args.command {
         Task::FinalizeResearch { run, job } => finalize_research(&run, &job)?,
         Task::CollectResearch {
+            retain_deadline,
             job,
             run,
             timeout,
             memory_gib,
             input,
             command,
-        } => run_native(job, timeout, memory_gib, input, command, Some(run))?,
+        } => run_native(
+            job,
+            timeout,
+            memory_gib,
+            input,
+            command,
+            Some((run, retain_deadline)),
+        )?,
         Task::CopyFile { source, out } => {
             println!("{}", baylee_train_ops::files::atomic_copy(&source, &out)?);
         }
@@ -286,12 +298,17 @@ mod tests {
         ])
         .unwrap();
         let Task::CollectResearch {
-            run, job, command, ..
+            run,
+            job,
+            command,
+            retain_deadline,
+            ..
         } = parsed.command
         else {
             panic!("wrong task")
         };
         assert_eq!(run, PathBuf::from("/run"));
+        assert!(!retain_deadline);
         assert_eq!(job, PathBuf::from("/job"));
         assert_eq!(
             command,
@@ -302,6 +319,25 @@ mod tests {
             ]
         );
         assert!(Args::try_parse_from(["train_ops", "collect-research", "--run", "/run"]).is_err());
+        let opted_in = Args::try_parse_from([
+            "train_ops",
+            "collect-research",
+            "--retain-deadline",
+            "--run",
+            "/run",
+            "--job",
+            "/job",
+            "--",
+            "eval4",
+        ])
+        .unwrap();
+        assert!(matches!(
+            opted_in.command,
+            Task::CollectResearch {
+                retain_deadline: true,
+                ..
+            }
+        ));
         assert!(matches!(
             Args::try_parse_from([
                 "train_ops",

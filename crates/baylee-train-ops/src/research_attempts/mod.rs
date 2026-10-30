@@ -1,9 +1,10 @@
 //! Research-only attempt accounting. Operational failures never acquire game utility.
 mod finalize;
+mod retention;
 #[cfg(test)]
 mod tests;
 
-pub use finalize::{collect, finalize, verify_finalized};
+pub use finalize::{collect, collect_retaining_deadline, finalize, verify_finalized};
 
 use crate::{files, process};
 use anyhow::{Context as _, Result, ensure};
