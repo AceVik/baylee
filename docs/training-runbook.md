@@ -16,15 +16,15 @@ promotion or push. Always check actual status before acting on this snapshot.
 
 | Item | Authoritative pointer and interpretation |
 | --- | --- |
-| Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Fourteen known-return attempts await native conversion/admission; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
-| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` now names `research-breadth-learning-01a18b4c-d87e-7e64-88a4-48a4ef6a508e/data/execution`, running bounded native data preparation. No Torch/GPU updates are part of this pipeline. Read its actual stage and receipts before continuing. The previous `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` accepted exactly one update (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546); those results remain unchanged |
+| Research collection and downstream work | `/home/ace/baylee-data/v5/ops-codex-20261028/active-research-collection.json` names `failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`, now `complete-reviewed`. All ten continuation cases were recorded. The combined original schedule has 16 assigned attempts: 15 recorded and one retained deadline unknown, with no duplicate or unstarted cases. Outcomes: four natural wins, nine losses, one learner loop, one recorded opponent failure and the deadline unknown. Native conversion/admission now verifies 14 histories, 14,902 frames and 3,479 genuine choices; neither unknown receives targets. No retry/refill or automatic PPO. Follow actual stage receipts before launching anything |
+| Current learning phase | `/home/ace/baylee-data/v5/ops-codex-20261028/active-training.json` names `research-breadth-cpu-recovery-01a18b70-7ab2-76ae-9a06-c06bc2f94018/cpu/execution`, running the CPU-loader test and exact proposed update-dose calculation. The preceding CPU attempt failed before model/data loading due to missing writable temp/cache paths; recovery restores them and passed actual Torch initialization in the final mount. Native data preparation is complete and reviewed. No new weight update has occurred. The earlier `research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` accepted exactly one update (61 choices/256 frames, 301 changed tensors, final KL 0.00007725546) |
 | Current behavior comparison | `/home/ace/baylee-data/v5/ops-codex-20261028/active-cpu-followup.json` follows `research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`, now `complete-reviewed`. All eight attempts are retained; four matched cases per arm produced identical canonical actions and outcomes. The learner loop persists, with no demonstrated improvement. Owned processes exited and its watcher stopped. Earlier coverage-candidate comparison receipts remain historical |
 | Completed performance probe | `/home/ace/baylee-data/v5/ops-codex-20261028/active-performance-probe.json` is `complete-reviewed`; its fixed-weight CPU-hint probe performed no updates or model writes |
 | Operational decisions | `/home/ace/baylee-data/v5/ops-codex-20261028/next-actions.json`; read the newest named experiment and its receipts, rather than historical PID fields elsewhere in that file |
 | Evidence root | `/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/` |
 | Old continuous BC controller | `baylee-continuous-v5-training.service` intentionally stopped; `stop-complete.json` under the evidence root certifies cleanup. Do not resume this recipe because of a delayed monitor event |
 | Preserved interrupted BC state | `preserved-round11-last.pt` and `checkpoint-audit.json` under the evidence root: round 11, step 1800, incomplete round; SHA-256 `ee976bc3e03b783c112a20da6314b5f324dc7527f628e2e8f2a9d51beb2c655c` |
-| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. The completed broader collection now includes four natural wins and ten known zero-return attempts. Prepare all eight original/continuation table ledgers together, retain the two target-free unknowns, and validate inputs/numerical replay before a bounded larger update dose. Native input admission does not certify numerical replay or playing strength |
+| Current research direction | Separate failure-terminal collection → conversion/cache → native input admission → Torch complete-history probability replay → one bounded PPO update and matched gameplay completed. Replay checked all 372 choices; update dose was only 61. No executed behavior changed on four reused cases. The broader admitted collection includes four natural wins and ten known zero-return attempts. Next validate its Torch loading, exact proposed update dose and complete-history numerical replay. Native input admission does not certify numerical replay or playing strength |
 | GPU exclusion | `/home/ace/baylee-data/v5/experiments/gpu-work.lock`; every CUDA stage, including probes/export, uses this exact shared lock |
 | User game service | Preserve the existing gateway on `127.0.0.1:28766`, its agent, engines, live model and active games; training does not require restarting it |
 | Quota-limited external collection | The Flash hold/probe is recorded in `next-actions.json`; a clean bounded probe permits technical review, not automatic restart of the large collector |
@@ -101,22 +101,90 @@ tested: frozen inputs are read-only, owned outputs writable, CUDA devices absent
 Original R6 weights and native runtime are reused; the trainer tree is frozen
 from commit `1384b8e3d5ca8bd60e22d397adf2156fb8402451`.
 
-After completion, run that namespace's `bin/research_breadth_ops verify-data`
-once and inspect `data-ready.json`, `data-verified.json` and all native receipts.
-Expected accounting is 16 planned/assigned, 15 recorded, one operational
-unknown, one recorded unknown and 14 target histories. Frame/choice counts
-must come from actual native admission. `attach-data` only restores monitoring
-of the already started service; never invoke `launch-data` as recovery.
+Event `ec82f6a7052c2438a3263273` is now handled. That namespace's
+`bin/research_breadth_ops verify-data` already passed; do not invoke it again
+because it creates an immutable receipt. `data-ready.json` and
+`data-verified.json` certify 14 histories, 14,902 frames, 3,479 genuine choices
+and 241 U64 segments. Accounting retains 16 planned/assigned, 15 recorded,
+one operational unknown and one recorded unknown. Cases 165 and 170 have no
+targets. Preparation took 999.800 seconds; all five guards completed and their
+owned groups exited. Its service is inactive and owned watcher stopped.
+The review rechecked 526 seals. Data-ready SHA-256 is
+`b3f16cc8fc362698ade454c26fa8f49a6bf4bd26e3dd419928f2135008284a25`;
+data-verified SHA-256 is
+`3a6de329087b218b1e330a30204176d88a92c1fcf2964302bcb158537a181429`.
+Do not restart the completed data pipeline.
 Prepare separate CPU-loader, CUDA-initialization, complete-history replay and
 learning phases only from verified actual metadata. The proposed dose is one
-epoch, at most eight attempted B4/U64 batches, seed 31431, original R6 and fresh
+epoch as an upper bound, at most eight attempted B4/U64 batches, seed 31431, original R6 and fresh
 AdamW, LR `2e-5`, KL `0.02`, FP32/K2/T0.7; the learning worker has a 1,800-second
 limit. Before releasing learning, record the exact Torch permutation and
 selected segments/actor choices/history/return coverage without changing the
-seed to obtain preferred outcomes. The broader dataset and larger dose change
+seed to obtain preferred outcomes. Eight B4 batches cover only 32 of the 241
+segments, not a full epoch; all 3,479 replayed choices must not be reported as
+gradient exposure. The broader dataset and larger dose change
 together, so this experiment will not isolate their individual effects.
 Keep both unknown cases target-free, measure worker phase timings, stop on a
 rejected update and perform matched gameplay before claiming stronger play.
+
+The CPU-loader/dose pipeline has now launched once in
+`research-breadth-cpu-preflight-01a18b63-9f3f-750e-8356-deb160cee6d4/`.
+Ready SHA-256 is
+`93a7a4e650505c086b2d327c014640b77522b42c89038c0b65fab3ffa031e7e7`;
+pipeline SHA-256 is
+`00d0a39ccb1b8d0f0c4d677f153013a3aa472f575e5c1406f624c6ce2feb72fd`.
+It reads the frozen trainer and admitted data from the preceding namespace.
+Its actual final mount test imported the Torch CLI successfully, with pinned
+venv invocation, native helpers on PATH, read-only inputs, writable owned
+outputs and no CUDA devices. Two focused native tests cover malformed boolean
+columns and invalid permutations. Independent review checked that the native
+segment order and Torch permutation match the frozen worker.
+
+Controller PID 2466542/start ticks 17147023 on the same boot was verified in
+the owned service cgroup with exact executable and arguments. Service
+`baylee-research-breadth-01a18b63-cpu` and its `-watch.timer` were active;
+`loader` was the first observed stage. Bounds are 1,200 seconds for the CPU
+loader, 60 for the Torch permutation and 600 for native dose accounting;
+pipeline/service limits are 2,100/2,160 seconds with CPU400%/20 GiB.
+The tiny Python diagnostic performs Torch `randperm`; Rust validates the
+permutation and computes native actor/history/return coverage. Its result is a
+maximum proposed dose: an update rejection may stop learning sooner.
+
+This attempt failed before loading the source model or dataset. Calling
+`torch.use_deterministic_algorithms(True)` imports Dynamo cache setup even
+without compilation; neither `/tmp`, `/var/tmp` nor the frozen working tree
+was writable. The loader exited 1 after 11.956 seconds, peak proportional
+memory 726.3 MB, with guard cleanup verified. The earlier `--help` import test
+did not exercise this initialization path. Preserve this failed namespace;
+neither `verify-cpu` nor another `launch-cpu` is appropriate for it.
+Failure event `c916ab9f99bdc95025194e75` has been reviewed and deduplicated;
+22,225 seals and owned-process cleanup passed, and its watcher is stopped.
+A fresh recovery must provide owned writable temporary/cache paths and invoke
+the frozen worker's `configure_execution('cpu')` in its final mount preflight.
+The helper has no GPU or learning launcher. CUDA initialization,
+complete-history probability replay and bounded learning remain subsequent
+phases requiring separate reviewed manifests.
+
+The corrected CPU phase is now running under
+`research-breadth-cpu-recovery-01a18b70-7ab2-76ae-9a06-c06bc2f94018/`.
+Ready SHA-256 is
+`c7110a2f238c1b7c051b9b1eaa576703d7c933c1ba211119ff8cbb0f70f6dfb0`;
+pipeline SHA-256 is
+`5722b87a5c81350622e3064d512b380079adbd080bde7faf84dd3bb1c3ce3866`.
+The actual initialization and final-mount checks passed; data, math, seed,
+trainer and stage/resource limits remain unchanged. Controller PID
+2468446/start ticks 17190395 on the same boot was verified with exact
+executable, argv and cgroup. Service `baylee-research-breadth-01a18b70-cpu`
+and its `-watch.timer` are active; the first observed stage is `loader`.
+
+On successful terminal completion, recheck identity and cleanup, then run the
+recovery namespace's `bin/research_cpu_ops verify-cpu` once. Inspect
+`cpu/loader-output/report.json`, `cpu/dose-plan.json` and `cpu-verified.json`.
+`attach-cpu` restores monitoring only; do not repeat `launch-cpu`.
+Review actual CPU timings and selected actor/history/return coverage before
+preparing the separate CUDA initialization, complete-history replay and
+bounded learning phases. Planned selected segments are not accepted updates;
+rejection may stop learning before all eight batches.
 
 The completed initial pilot used B2/U32 and eight updates, differentiating only
 131 actor choices. Its successor used B4/U64, K2, temperature 0.7, LR `2e-6`,
@@ -185,6 +253,15 @@ previous asynchronous GPU work. Imports, the final report's own write and
 subsequent cleanup are excluded. Use native guard receipts for total worker
 time and cleanup. The already frozen one-update pilot predates these fields;
 do not rewrite its report or infer missing phase measurements.
+
+For a read-only runtime mount, provide owned writable `TMPDIR` and cache
+directories explicitly. The earlier successful recovery set `TMPDIR` and
+`XDG_CACHE_HOME`; omitting them in the broader CPU wrapper caused a startup
+failure. Torch can initialize a disk cache while enabling deterministic
+algorithms even when compilation is disabled. A CLI `--help` check only proves
+imports/argument parsing: also exercise the frozen worker's CPU execution
+configuration under the final mount and environment, without model loading,
+forward passes or an optimizer. Preserve input mounts as read-only.
 
 New exports retain the value objective in `critic_semantics`, and the native
 loader binds it into model identity. Research-utility models remain usable by
