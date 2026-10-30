@@ -27,8 +27,9 @@ jobs:
     # each in a throwaway Tart VM, while the repository variable
     # `MACOS_RUNNER` is `self-hosted`, and only for a push to main or a
     # dispatch (which only someone with write access can start): a pull
-    # request, `ci:full` included, never reaches that machine. Unset, they
-    # run on GitHub's image as before (docs/releasing.md §"The macOS runner").
+    # request, `ci:full` included, never reaches that machine. Any other
+    # value (`github` since 30.10.2026) runs them on GitHub's image
+    # (docs/releasing.md §"The macOS runner").
     runs-on: ${{ inputs.source-run != '' && 'ubuntu-24.04' || (matrix.mac && vars.MACOS_RUNNER == 'self-hosted' && (github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","macOS","ARM64","baylee-vm"]') || matrix.os }}
     # A build's p95 ×1.5 (06.–08.10.2026, before the build was narrowed to the
     # three shipped binaries). A promotion verifies and copies in 2–3 minutes,

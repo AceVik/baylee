@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "xtask"]
 
 [workspace.package]
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 edition = "2024"
 # Central's reviewed native authentication SDK requires Rust 1.99.
 # CI reads this version rather than repeating a lower renderer-only floor.

@@ -829,7 +829,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "baylee-account"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "central-api",
  "central-client",
@@ -843,7 +843,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-agent"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-protocol",
  "futures-util",
@@ -857,7 +857,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-ai"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-cards",
  "baylee-cards-dsl",
@@ -871,11 +871,11 @@ dependencies = [
 
 [[package]]
 name = "baylee-build"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 
 [[package]]
 name = "baylee-cards"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-cards-dsl",
  "baylee-core",
@@ -885,7 +885,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-cards-codegen"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-cards-dsl",
  "baylee-cards-index",
@@ -900,7 +900,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-cards-dsl"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-core",
  "serde",
@@ -908,14 +908,14 @@ dependencies = [
 
 [[package]]
 name = "baylee-cards-index"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-core",
 ]
 
 [[package]]
 name = "baylee-cardtext"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "serde",
  "serde_json",
@@ -923,7 +923,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-catalog"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "anyhow",
  "baylee-cardtext",
@@ -941,7 +941,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-client"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "accesskit",
  "baylee-account",
@@ -1000,7 +1000,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-client-android"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-client",
  "bevy",
@@ -1008,7 +1008,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-client-core"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "argon2 0.6.0",
  "baylee-cards-dsl",
@@ -1042,7 +1042,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-core"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-cardtext",
  "serde",
@@ -1053,7 +1053,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-db"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "anyhow",
  "baylee-deckio",
@@ -1071,7 +1071,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-deckio"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-core",
  "serde",
@@ -1082,14 +1082,14 @@ dependencies = [
 
 [[package]]
 name = "baylee-deploy-hooks"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "rustix 1.1.5",
 ]
 
 [[package]]
 name = "baylee-dev"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "anyhow",
  "clap",
@@ -1099,7 +1099,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-engine"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-cards",
  "baylee-cards-dsl",
@@ -1118,7 +1118,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-engine-server"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-agent",
  "baylee-ai",
@@ -1146,7 +1146,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-feedback"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "anyhow",
  "argon2 0.6.0",
@@ -1171,7 +1171,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-gamehost"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-ai",
  "baylee-cards",
@@ -1189,7 +1189,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-gateway"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "anyhow",
  "argon2 0.6.0",
@@ -1245,7 +1245,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-keyring"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "apple-native-keyring-store",
  "futures-util",
@@ -1258,7 +1258,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-monitor"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "anyhow",
  "axum",
@@ -1274,7 +1274,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-ops"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "getrandom 0.4.3",
  "serde_json",
@@ -1283,7 +1283,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-protocol"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "bytes",
  "prost",
@@ -1296,7 +1296,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-runner"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "anyhow",
  "clap",
@@ -1307,7 +1307,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-seal"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "chacha20poly1305",
  "ed25519-dalek",
@@ -1323,7 +1323,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-seat"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "anyhow",
  "axum",
@@ -1355,7 +1355,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-seathost"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-client-core",
  "baylee-protocol",
@@ -1371,7 +1371,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-tools"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "ab_glyph",
  "alias_record",
@@ -1401,7 +1401,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-train"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "anyhow",
  "baylee-ai",
@@ -1438,7 +1438,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-train-ops"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "anyhow",
  "clap",
@@ -1459,7 +1459,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-update"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
@@ -1480,7 +1480,7 @@ dependencies = [
 
 [[package]]
 name = "baylee-view"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-core",
  "serde",
@@ -10798,7 +10798,7 @@ checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
 
 [[package]]
 name = "xtask"
-version = "0.1.1-beta.9a"
+version = "0.1.1-beta.9b"
 dependencies = [
  "anyhow",
  "baylee-cards",
