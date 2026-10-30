@@ -76,6 +76,7 @@ def main():
         raise FileExistsError('Preserving existing research output; use a new directory or exact --resume')
     device, precision = configure_execution(args.device)
     torch.set_num_threads(4)
+    torch.set_num_interop_threads(1)
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -133,6 +134,8 @@ def main():
                         precision_flags=precision, cuda_allocator_limit_bytes=11 * 2**30,
                         memory=MEMORY, bootstrap=False, advantage_centering=False,
                         deterministic_algorithms=True, activation_checkpointing=True,
+                        torch_threads=torch.get_num_threads(),
+                        torch_interop_threads=torch.get_num_interop_threads(),
                         torch_version=str(torch.__version__), device=str(device),
                         batch_size=args.batch_size, unroll=args.unroll, seed=args.seed,
                         epochs=args.epochs, lr=args.lr, target_kl=args.target_kl,
