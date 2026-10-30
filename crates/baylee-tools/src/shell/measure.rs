@@ -4,12 +4,80 @@ use super::{
     devctl::{Devctl, Http, sleep},
 };
 use anyhow::{Context, Result, ensure};
-use serde_json::json;
+use clap::Args;
 use std::{
     collections::BTreeSet,
+    fs,
+    io::{self, Read},
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     time::{Duration, Instant},
 };
+/// The session `measure quit` reads the client's decks with: the one the
+/// client signed in with, since a gateway signs nobody in with a password
+/// any more. Never an argument, never printed.
+#[derive(Args)]
+pub(super) struct Session {
+    /// Environment variable containing the client's session token (its value is never printed).
+    #[arg(long = "session-env", conflicts_with_all = ["file", "stdin"])]
+    pub env: Option<String>,
+    /// File containing the session token. A final newline is removed.
+    #[arg(long = "session-file", conflicts_with = "stdin")]
+    pub file: Option<PathBuf>,
+    /// Read the session token from standard input (not an interactive prompt).
+    #[arg(long = "session-stdin")]
+    pub stdin: bool,
+}
+impl Session {
+    pub fn read(&self) -> Result<String> {
+        read_secret(
+            self.env.as_deref(),
+            self.file.as_deref(),
+            self.stdin,
+            "BAYLEE_SHELL_SESSION",
+            "session",
+        )
+    }
+}
+/// A secret (`what`: the flags' word) from the named environment variable, a
+/// file or standard input, else the `fallback` variable; never from argv,
+/// and never in an error. A final newline is removed.
+fn read_secret(
+    env: Option<&str>,
+    file: Option<&Path>,
+    stdin: bool,
+    fallback: &str,
+    what: &str,
+) -> Result<String> {
+    let mut secret = if let Some(name) = env {
+        std::env::var(name)
+            .map_err(|_| anyhow::anyhow!("{what} environment variable is unavailable"))?
+    } else if let Some(path) = file {
+        fs::read_to_string(path).map_err(|_| anyhow::anyhow!("cannot read {what} file"))?
+    } else if stdin {
+        let mut value = String::new();
+        io::stdin()
+            .take(65537)
+            .read_to_string(&mut value)
+            .map_err(|_| anyhow::anyhow!("cannot read {what} stdin"))?;
+        value
+    } else {
+        std::env::var(fallback).map_err(|_| {
+            anyhow::anyhow!("supply --{what}-env, --{what}-file or --{what}-stdin (or {fallback})")
+        })?
+    };
+    if secret.ends_with('\n') {
+        secret.pop();
+        if secret.ends_with('\r') {
+            secret.pop();
+        }
+    }
+    ensure!(
+        !secret.is_empty() && secret.len() <= 65536,
+        "{what} is empty or too long"
+    );
+    Ok(secret)
+}
 fn rebuilds(d: &Devctl) -> Result<u64> {
     d.state()?["ui_rebuilds"]["total"]
         .as_u64()
@@ -151,20 +219,13 @@ fn close_window(pid: u32) -> Result<()> {
     waited?;
     Ok(())
 }
-pub(super) fn quit(d: &Devctl, gateway: &str, user: &str, password: &str, pid: u32) -> Result<()> {
+pub(super) fn quit(d: &Devctl, gateway: &str, token: &str, pid: u32) -> Result<()> {
     ensure!(
         cfg!(target_os = "macos"),
         "quit-window measurement is macOS-only"
     );
     ensure!(pid > 1 && process_alive(pid)?, "client PID is not live");
     let http = Http::new(gateway)?;
-    let login = http.call(
-        "/auth/login",
-        Some(&json!({"username":user,"password":password})),
-        None,
-        Duration::from_secs(60),
-    )?;
-    let token = login["token"].as_str().context("login returned no token")?;
     let before = decks(&http, token)?;
     common::go(d, "decks", 0.7)?;
     d.settle(8.0)?;
