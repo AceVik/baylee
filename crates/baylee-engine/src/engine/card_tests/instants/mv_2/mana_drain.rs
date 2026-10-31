@@ -2,6 +2,8 @@
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
+use crate::engine::card_tests::partials_w2c_kit as kit;
+use baylee_core::generated::index;
 
 // oracle_id = "74d3277a-38e5-4732-afed-084a56148f20"
 
@@ -107,4 +109,100 @@ fn mana_drain_counters_a_five_mana_spell_and_pays_five_colorless_a_turn_later() 
         "\"add an amount of {{C}}\": the mana is colourless, and no blue land \
          on this board made any of it"
     );
+}
+
+/// p0 casts `spell` off the mana its lands make, answering its questions
+/// from `answers`, and passes until p1 holds priority over it; p1 taps its
+/// two Islands and casts Mana Drain at it. Returns the spell.
+#[track_caller]
+fn drain_it(
+    engine: &mut Engine<RegistryLookup>,
+    spell: CardIndex,
+    answers: &mut kit::Answers,
+) -> ObjectId {
+    let (p0, p1) = (kit::P0, kit::P1);
+    tap_all_mana(engine, p0);
+    let victim = kit::cast(engine, p0, spell, answers);
+    pass_until(engine, |e| {
+        matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+            && on_stack(e, spell).is_some()
+    });
+    tap_all_mana(engine, p1);
+    cast_with_floating(engine, p1, mana_drain());
+    aim_at(engine, p1, victim);
+    victim
+}
+
+/// p1's pool at the first main phase of its own that has mana in it.
+fn drained_mana(engine: &mut Engine<RegistryLookup>) -> u32 {
+    let p1 = kit::P1;
+    pass_until(engine, |e| {
+        e.state().turn.active == p1
+            && matches!(e.state().turn.phase, Phase::FirstMain)
+            && e.state().players[1].mana_pool.total() > 0
+    });
+    engine.state().players[1]
+        .mana_pool
+        .available(ManaColor::Colorless)
+}
+
+/// "That spell's mana value" is the spell's as it last existed on the stack,
+/// X included (CR 202.3e, CR 608.2h): Blaze `{X}{R}` cast for two is a
+/// three, though the card it is in the graveyard is a one. The Drain used to
+/// read the card after its own first sentence had put it there, and paid one
+/// {C} for a three-mana spell.
+#[test]
+fn mana_drain_pays_for_the_x_the_countered_spell_was_cast_with() {
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &kit::lands(mountain(), 3))
+        .hand(0, &[index::BLAZE])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[mana_drain()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, kit::P0));
+    drain_it(
+        &mut engine,
+        index::BLAZE,
+        &mut kit::Answers::new().x(2).aim_players(&[kit::P1]),
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        in_graveyard(&engine, kit::P0, index::BLAZE).is_some(),
+        "Blaze was countered"
+    );
+    assert_eq!(kit::life(&engine, kit::P1), 20, "and dealt nothing");
+    assert_eq!(
+        drained_mana(&mut engine),
+        3,
+        "X = 2 and {{R}}: a mana value of three, not the card's one"
+    );
+}
+
+/// A spell that can't be countered is still a legal target, and the mana
+/// comes all the same: the second sentence does not depend on the first
+/// (Mana Drain's ruling of 2020-11-10). Abrupt Decay resolves after the Drain
+/// and destroys the bear, and p1 is paid its two.
+#[test]
+fn mana_drain_pays_for_a_spell_it_could_not_counter() {
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[swamp(), forest()])
+        .hand(0, &[index::ABRUPT_DECAY])
+        .battlefield(1, &[island(), island(), kit::bears()])
+        .hand(1, &[mana_drain()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, kit::P0));
+    let bear = on_battlefield(&engine, kit::P1, kit::bears()).expect("the bear");
+    drain_it(
+        &mut engine,
+        index::ABRUPT_DECAY,
+        &mut kit::Answers::new().aim(&[bear]),
+    );
+    pass_until(&mut engine, stack_is_empty);
+    assert!(
+        on_battlefield(&engine, kit::P1, kit::bears()).is_none(),
+        "Abrupt Decay could not be countered and destroyed the bear"
+    );
+    assert_eq!(drained_mana(&mut engine), 2, "and the Drain still pays two");
 }

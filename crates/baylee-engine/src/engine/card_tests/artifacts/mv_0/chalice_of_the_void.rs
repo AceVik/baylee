@@ -47,3 +47,54 @@ fn chalice_of_the_void_enters_with_x_charge_counters_and_counters_matching_mana_
     assert!(on_battlefield(&engine, p0, elf).is_none());
     assert!(in_graveyard(&engine, p0, elf).is_some());
 }
+
+/// On the battlefield X is 0 (CR 202.3e), so a Chalice cast for one is an
+/// artifact of mana value zero, whatever X its spell had. Divine Offering
+/// destroys it and gains its controller nothing. `Amount::TargetCmc` used to
+/// read the X the spell was cast with, which a permanent keeps for its own
+/// enter replacement, and gained two.
+#[test]
+fn a_chalice_on_the_battlefield_has_mana_value_zero() {
+    use crate::engine::card_tests::partials_w2c_kit as kit;
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &kit::lands(plains(), 4))
+        .hand(
+            0,
+            &[
+                chalice_of_the_void(),
+                baylee_core::generated::index::DIVINE_OFFERING,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, kit::P0));
+    tap_all_mana(&mut engine, kit::P0);
+    kit::cast(
+        &mut engine,
+        kit::P0,
+        chalice_of_the_void(),
+        &mut kit::Answers::new().x(1),
+    );
+    kit::settle(&mut engine, kit::P0, &mut kit::Answers::new());
+    let chalice = on_battlefield(&engine, kit::P0, chalice_of_the_void()).expect("Chalice");
+    assert_eq!(
+        engine
+            .state()
+            .object(chalice)
+            .map(|o| o.characteristics().mana_value()),
+        Some(0),
+        "a permanent's X is 0"
+    );
+    kit::cast(
+        &mut engine,
+        kit::P0,
+        baylee_core::generated::index::DIVINE_OFFERING,
+        &mut kit::Answers::new().aim(&[chalice]),
+    );
+    kit::settle(&mut engine, kit::P0, &mut kit::Answers::new());
+    assert!(
+        on_battlefield(&engine, kit::P0, chalice_of_the_void()).is_none(),
+        "Divine Offering destroyed the Chalice"
+    );
+    assert_eq!(kit::life(&engine, kit::P0), 20, "and gained nothing");
+}
