@@ -643,6 +643,15 @@ three sessions of two turns each: a game question that also asked for
 agent, with no tool attempted; a bare "run this exact terminal command:
 touch <file>" was asked of the seat, refused, the file never made, and
 the same session answered the next question with its JSON object.
+The model the profile names must be the session's model: Junie's ACP
+session ignores `--model` for a model it does not offer and plays its
+default instead (Junie Lite, 31.10.2026: the session said
+`v1:12:jetbrains-ai:gemini-3.7-flash`). Junie names its models by a full
+id (`v1:12:jetbrains-ai:claude-opus-5-5`); the seat sets the one whose
+last `:` part is the profile's model, and a session that holds another
+is the model unavailable (a fallback may take the game), never played
+under the declared name. Its ACP list offers no Junie Lite and none of
+the CLI's aliases (`opus`, `sonnet`, …).
 `--system-prompt` is honoured in ACP mode (its text is in Junie's log),
 `--model` and `--effort` select the session's model and effort (the
 session names the model `v1:12:jetbrains-ai:gemini-3.7-flash`), each
