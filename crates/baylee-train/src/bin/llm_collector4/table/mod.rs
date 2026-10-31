@@ -468,6 +468,22 @@ pub struct SeatProcessGroup {
     diag_task: Option<JoinHandle<()>>,
 }
 
+/// The variable an API profile reads its key from; `None` for an agent CLI,
+/// which signs in by itself.
+fn profile_key_env(profiles_config: &Path, profile: &str) -> anyhow::Result<Option<String>> {
+    let config: Value = serde_json::from_slice(&std::fs::read(profiles_config)?)?;
+    let entry = &config["profiles"][profile];
+    let default = match entry["provider"].as_str() {
+        Some("cli") => return Ok(None),
+        Some("openai") => "BAYLEE_LLM_API_KEY",
+        Some("anthropic") => "ANTHROPIC_API_KEY",
+        other => bail!("profile {profile} has no known provider: {other:?}"),
+    };
+    Ok(Some(
+        entry["key_env"].as_str().unwrap_or(default).to_owned(),
+    ))
+}
+
 impl SeatProcessGroup {
     #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     pub fn spawn(
@@ -535,6 +551,14 @@ impl SeatProcessGroup {
             if let Ok(val) = std::env::var(key) {
                 cmd.env(key, val);
             }
+        }
+        // An API profile's key, on a machine without a credential store, is
+        // read from its own variable (`docs/llm-seat.md` §"Where a key is
+        // kept"): forward exactly that one, never any other key.
+        if let Some(name) = profile_key_env(profiles_config, profile)?
+            && let Ok(val) = std::env::var(&name)
+        {
+            cmd.env(name, val);
         }
         cmd.env("OMP_NUM_THREADS", "1")
             .env("MKL_NUM_THREADS", "1")
@@ -1410,6 +1434,30 @@ mod tests {
     use crate::teacher::account_username;
     use std::sync::Arc;
     use tokio::net::TcpListener;
+
+    #[test]
+    fn only_an_api_profile_names_the_one_key_its_seat_receives() {
+        let dir = crate::audit::tests::TestDir::new("key-env");
+        let config = dir.path().join("profiles.json");
+        std::fs::write(
+            &config,
+            json!({"profiles": {
+                "cli": {"provider": "cli", "model": "codex"},
+                "deepseek": {"provider": "openai", "model": "deepseek-flash",
+                    "key_env": "DEEPSEEK_API_KEY"},
+                "plain": {"provider": "openai", "model": "local"},
+                "claude": {"provider": "anthropic", "model": "claude-opus-5-5"},
+            }})
+            .to_string(),
+        )
+        .unwrap();
+        let key = |profile| profile_key_env(&config, profile).unwrap();
+        assert_eq!(key("cli"), None);
+        assert_eq!(key("deepseek").as_deref(), Some("DEEPSEEK_API_KEY"));
+        assert_eq!(key("plain").as_deref(), Some("BAYLEE_LLM_API_KEY"));
+        assert_eq!(key("claude").as_deref(), Some("ANTHROPIC_API_KEY"));
+        assert!(profile_key_env(&config, "missing").is_err());
+    }
 
     #[test]
     fn credential_destination_requires_literal_loopback_without_url_secrets() {
