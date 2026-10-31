@@ -16,8 +16,8 @@
 use std::io::Write as _;
 
 use baylee_account::reports::{
-    self as intake, Announced, AnnouncedRecord, Build, Channel, Crash, GatewaySays, Part,
-    RecordOrigin, ReportIntake,
+    self as intake, Announced, AnnouncedRecord, Channel, Crash, GatewaySays, Part, RecordOrigin,
+    ReportIntake,
 };
 
 use super::ReportKind;
@@ -64,43 +64,11 @@ const fn kind(kind: ReportKind) -> intake::ReportKind {
     }
 }
 
-/// The client's build (`client.build {version, commit}`), when it names one:
-/// its version as one line within bounds, its commit only as hex digits.
-fn build(client: &serde_json::Value) -> Option<Build> {
-    let build = client.get("build")?;
-    let version = intake::said(build.get("version")?.as_str()?)?;
-    let commit = build
-        .get("commit")
-        .and_then(serde_json::Value::as_str)
-        .filter(|c| {
-            !c.is_empty()
-                && c.len() <= intake::MAX_COMMIT
-                && c.bytes().all(|b| b.is_ascii_hexdigit())
-        })
-        .map(str::to_owned);
-    Some(Build { version, commit })
-}
-
-/// A crash's message and place (`client.crash {message, location}`), cut to
-/// Central's bounds; only for a crash report that names either.
+/// A crash's message and place, only for a crash report.
 fn crash(kind: ReportKind, client: &serde_json::Value) -> Option<Crash> {
-    if kind != ReportKind::Crash {
-        return None;
-    }
-    let crash = client.get("crash")?;
-    let text = |key: &str| crash.get(key).and_then(serde_json::Value::as_str);
-    let (message, location) = (text("message"), text("location"));
-    if message.is_none() && location.is_none() {
-        return None;
-    }
-    Some(Crash {
-        message: intake::shown(message.unwrap_or_default(), intake::MAX_CRASH_MESSAGE, true),
-        location: intake::shown(
-            location.unwrap_or_default(),
-            intake::MAX_CRASH_LOCATION,
-            false,
-        ),
-    })
+    (kind == ReportKind::Crash)
+        .then(|| intake::crash_of(client))
+        .flatten()
 }
 
 /// `client` as the gzip of its JSON, when it says anything and fits.
@@ -145,20 +113,11 @@ pub(super) fn prepare(
     record: Option<RecordBytes>,
 ) -> Result<Filing, &'static str> {
     let crash = crash(said.kind, said.client);
-    let mut text = intake::shown(said.text, intake::MAX_TEXT, true);
-    if text.trim().is_empty() && said.kind == ReportKind::Crash {
-        // A crash report's text is the first line of its panic (the client's
-        // `crash_submission`), which can be empty: Central takes none, so it
-        // reads the crash's own message instead, or says only what it is.
-        text = crash
-            .as_ref()
-            .map(|c| c.message.trim().to_owned())
-            .filter(|m| !m.is_empty())
-            .unwrap_or_else(|| "The client crashed.".to_owned());
-    }
-    if text.trim().is_empty() {
-        return Err("the report has no text");
-    }
+    // A crash report's text is the first line of its panic (the client's
+    // `crash_submission`), which can be empty: Central takes none, so it
+    // reads the crash's own message instead (`text_of`).
+    let text = intake::text_of(said.text, kind(said.kind), crash.as_ref())
+        .ok_or("the report has no text")?;
     if said
         .game_id
         .is_some_and(|g| !g.chars().all(|c| c.is_ascii_graphic()))
@@ -174,7 +133,7 @@ pub(super) fn prepare(
         kind: kind(said.kind),
         text,
         game_id: said.game_id.map(str::to_owned),
-        build: build(said.client),
+        build: intake::build_of(said.client),
         crash,
         client: client.as_deref().and_then(Announced::of),
         record: record.as_ref().and_then(|r| {
@@ -229,6 +188,7 @@ pub(super) fn file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use baylee_account::reports::Build;
     use std::io::Read as _;
 
     fn said<'a>(kind: ReportKind, text: &'a str, client: &'a serde_json::Value) -> Said<'a> {

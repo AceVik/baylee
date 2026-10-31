@@ -314,6 +314,57 @@ impl ReportIntake {
     }
 }
 
+/// The client's build as its `client` object names it (`build {version,
+/// commit}`): the version as one line within bounds, the commit only as hex
+/// digits; `None` when it names no version.
+#[must_use]
+pub fn build_of(client: &serde_json::Value) -> Option<Build> {
+    let build = client.get("build")?;
+    let version = said(build.get("version")?.as_str()?)?;
+    let commit = build
+        .get("commit")
+        .and_then(serde_json::Value::as_str)
+        .filter(|c| {
+            !c.is_empty() && c.len() <= MAX_COMMIT && c.bytes().all(|b| b.is_ascii_hexdigit())
+        })
+        .map(str::to_owned);
+    Some(Build { version, commit })
+}
+
+/// A crash's message and place as the `client` object names them (`crash
+/// {message, location}`), cut to Central's bounds; `None` when it names
+/// neither. Only a crash report carries one.
+#[must_use]
+pub fn crash_of(client: &serde_json::Value) -> Option<Crash> {
+    let crash = client.get("crash")?;
+    let text = |key: &str| crash.get(key).and_then(serde_json::Value::as_str);
+    let (message, location) = (text("message"), text("location"));
+    if message.is_none() && location.is_none() {
+        return None;
+    }
+    Some(Crash {
+        message: shown(message.unwrap_or_default(), MAX_CRASH_MESSAGE, true),
+        location: shown(location.unwrap_or_default(), MAX_CRASH_LOCATION, false),
+    })
+}
+
+/// A report's text as Central takes it ([`shown`]); a crash report left with
+/// none reads its crash's message, or says only what it is. `None` for any
+/// other report left with none.
+#[must_use]
+pub fn text_of(text: &str, kind: ReportKind, crash: Option<&Crash>) -> Option<String> {
+    let text = shown(text, MAX_TEXT, true);
+    if !text.trim().is_empty() {
+        return Some(text);
+    }
+    (kind == ReportKind::Crash).then(|| {
+        crash
+            .map(|c| c.message.trim().to_owned())
+            .filter(|m| !m.is_empty())
+            .unwrap_or_else(|| "The client crashed.".to_owned())
+    })
+}
+
 /// A report id as Central writes it: 32 lowercase hex digits.
 pub(crate) fn id_from_hex(text: &str) -> Option<[u8; 16]> {
     if text.len() != 32 || !text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')) {

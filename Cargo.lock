@@ -1153,6 +1153,7 @@ dependencies = [
  "argon2 0.6.0",
  "axum",
  "base64 0.23.1",
+ "baylee-account",
  "baylee-build",
  "flate2",
  "getrandom 0.4.3",

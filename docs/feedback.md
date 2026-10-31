@@ -165,7 +165,48 @@ changes is where the report goes and in what shape:
 - **Not yet:** a client signed in nowhere still reports to the service
   (`POST /client/reports`, which shares its address with the offline count,
   `POST /client/alive`), and the reports the service holds stay there until
-  a one-time copy moves them (baylee-central `docs/reports.md` §"Order").
+  the one-time copy below moves them.
+
+### The one-time copy to Central: `baylee-feedback export-reports`
+
+Once the gateways are switched, the reports still open at the service are
+copied to Central once: `baylee-feedback export-reports` (with
+`FEEDBACK_DATABASE_URL` as for serving) writes them to standard output, and
+Central's `central-service --import-reports-stdin` takes them, its
+operator's line first (baylee-central `docs/operations.md`), so the copy
+travels through a pipe and never lands in a file. Standard error says how
+many were written and how many left out.
+
+JSON Lines, UTF-8: every report outside the trash whose status is `new`,
+`triaged` or `in_progress`, oldest first, one a line, every field present
+(`null` where there is none):
+
+```json
+{"id": "<the report's uuid v7, 32 hex digits>", "created_at": 1761900000, "updated_at": 1761900000,
+ "gateway": "<the name its intake token is configured under, or (direct)>",
+ "gateway_says": {"name": "…", "url": "…", "version": "…"},
+ "channel": "gateway" | "direct", "reporter": "<hex>", "kind": "bug", "status": "triaged",
+ "text": "…", "game_id": "…", "build": {"version": "…", "commit": "…"}, "crash": {"message": "…", "location": "…"},
+ "issue": 311, "priority": "high", "labels": ["ui"], "assignee": "<an admin's name here>",
+ "client_gzip": "<the client object's JSON, gzip, standard base64>",
+ "record": {"complete": true, "origin": "gateway" | "client", "gzip": "<standard base64>"},
+ "notes": [{"at": 1761900000, "author": "<admin name>", "text": "…"}],
+ "audit": [{"at": 1761900000, "actor": "<admin name or token>", "action": "status", "detail": "new → triaged"}]}
+```
+
+then one last line, `{"format": "baylee-feedback-reports/1", "count": n,
+"sha256": "<64 hex digits>"}`, the SHA-256 over every line before it, each
+with its line break, so a copy cut short is refused whole. Times are Unix
+seconds. What Central would refuse is brought within its bounds as a
+gateway brings a report (§"To Baylee Central instead"): the text, the
+build and a crash's message and place (read from the client object, a
+crash only), what the gateway said of itself, a `game_id` that is not
+printable ASCII left out; a client object or record larger than Central
+takes goes without. A report Central would still refuse (a reporter that is
+not hex) is left out and named by id on standard error. The ids stay the
+service's, so a second run finds the copied reports at Central and skips
+them. Seen marks and saved lists are an admin's own and stay; a done report
+stays too.
 
 ## A reported chat message: `POST /social/reports` (beta.8)
 
