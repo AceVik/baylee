@@ -162,10 +162,21 @@ changes is where the report goes and in what shape:
   `BAYLEE_FEEDBACK_TOKEN` stay set for it.
 - **Deploy order:** Central with its migration 000018 before a gateway is
   switched; until then Central answers `404` and every report is `502`.
-- **Not yet:** a client signed in nowhere still reports to the service
-  (`POST /client/reports`, which shares its address with the offline count,
-  `POST /client/alive`), and the reports the service holds stay there until
-  the one-time copy below moves them.
+- **Straight from a client** (owner, 31.10.2026): the official gateway takes
+  `POST /client/reports` itself and files it with Central marked `direct`,
+  under its bridge, the only credential Central takes such a report under.
+  The body, its bounds and its allowance are the service's (§"Straight from
+  a client"): no credential, a device id, 10 an hour per address and 600 in
+  all, every request counted; the reporter is the service's HMAC of the
+  device id under `BAYLEE_DIRECT_REPORT_KEY` hashed, so the same value as
+  the service's `FEEDBACK_DIRECT_KEY` keeps a device's reports linkable
+  across the move. Its record is the client's (`origin: "client"`), checked
+  as a `local_record` is. Without `BAYLEE_REPORTS_TO=central`, the bridge
+  or the key, `503`. A client sends there when its build or settings name
+  that address (`docs/client.md`, `BAYLEE_REPORT_PUBLIC_URL`, `report_url`);
+  the offline count stays with the service.
+- **The reports the service holds** stay there until the one-time copy below
+  moves them.
 
 ### The one-time copy to Central: `baylee-feedback export-reports`
 

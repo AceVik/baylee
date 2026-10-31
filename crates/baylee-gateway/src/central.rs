@@ -155,6 +155,12 @@ impl Bridge {
         })
     }
 
+    /// Whether this is the official gateway's bridge, the one credential
+    /// Central takes a report straight from a client under.
+    pub(crate) const fn official(&self) -> bool {
+        self.legacy
+    }
+
     /// Files a report's metadata with Central under this gateway's own
     /// credential (`report::central`), blocking.
     pub(crate) fn file_report(

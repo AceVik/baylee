@@ -47,11 +47,15 @@ pub(super) struct Filing {
 /// What the player sent, within Central's bounds; or why it cannot be.
 pub(super) struct Said<'a> {
     pub(super) gateway: GatewaySays,
+    /// How it came: a signed-in player's, or straight from a client.
+    pub(super) channel: Channel,
     pub(super) reporter: String,
     pub(super) kind: ReportKind,
     pub(super) text: &'a str,
     pub(super) game_id: Option<&'a str>,
     pub(super) client: &'a serde_json::Value,
+    /// The build the body names (a direct report's); else the client's own.
+    pub(super) build: Option<intake::Build>,
 }
 
 const fn kind(kind: ReportKind) -> intake::ReportKind {
@@ -128,12 +132,12 @@ pub(super) fn prepare(
     let record = record.and_then(record_part);
     let intake = ReportIntake {
         gateway: said.gateway.clone(),
-        channel: Channel::Gateway,
+        channel: said.channel,
         reporter: said.reporter.clone(),
         kind: kind(said.kind),
         text,
         game_id: said.game_id.map(str::to_owned),
-        build: intake::build_of(said.client),
+        build: said.build.clone().or_else(|| intake::build_of(said.client)),
         crash,
         client: client.as_deref().and_then(Announced::of),
         record: record.as_ref().and_then(|r| {
@@ -198,11 +202,13 @@ mod tests {
                 url: None,
                 version: Some("0.1.1".into()),
             },
+            channel: Channel::Gateway,
             reporter: "ab12".into(),
             kind,
             text,
             game_id: None,
             client,
+            build: None,
         }
     }
 

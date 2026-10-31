@@ -1096,3 +1096,95 @@ async fn without_a_link_to_central_reports_are_not_configured() {
     let (status, body) = report(gw.port, Some(&token), fine);
     assert_eq!(status, 503, "{body}");
 }
+
+/// A direct report (`POST /client/reports`) on the official gateway: no
+/// session, the device's pseudonym, filed with Central marked `direct`
+/// under the bridge; ten an hour from one address; nothing where the
+/// gateway does not send its reports to Central.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_client_signed_in_nowhere_reports_through_the_official_gateway() {
+    let bridge = baylee_account::Token::generate().expect("a token");
+    let (url, filed) = stub_central(bridge.bearer().to_string()).await;
+    let file = central_file(&url, &bridge);
+    let config = file.0.to_string_lossy().into_owned();
+    let gw = spawn_gateway_with(
+        "reports-direct",
+        &[
+            ("BAYLEE_REPORTS_TO", "central".to_owned()),
+            ("BAYLEE_FEEDBACK_KEY", "pseudonym-key".to_owned()),
+            (
+                "BAYLEE_DIRECT_REPORT_KEY",
+                "a direct key of 16+ chars".to_owned(),
+            ),
+            ("BAYLEE_CENTRAL_CONFIG_FILE", config.clone()),
+        ],
+    );
+    let device = "0123456789abcdef0123456789abcdef";
+    let local = gzip_of(b"{\"kind\":\"header\"}\n");
+    let body = serde_json::json!({
+        "kind": "crash", "text": "", "device": device,
+        "build": {"version": "0.1.1-beta.9b", "commit": "3f9a1c7e21"},
+        "client": {"crash": {"message": "boom", "location": "a.rs:1"}},
+        "record": {"complete": true, "gzip_base64": base64::engine::general_purpose::STANDARD.encode(&local)},
+    })
+    .to_string();
+    let (status, answer) = http(gw.port, "POST", "/client/reports", None, &body);
+    assert_eq!(status, 201, "{answer}");
+    {
+        let desk = filed.lock();
+        let sent = &desk.reports[0];
+        assert_eq!(sent["channel"], "direct");
+        assert!(sent["game_id"].is_null());
+        assert_eq!(
+            sent["text"], "boom",
+            "a crash without words reads its message"
+        );
+        assert_eq!(
+            sent["build"],
+            serde_json::json!({"version": "0.1.1-beta.9b", "commit": "3f9a1c7e21"})
+        );
+        assert_eq!(sent["record"]["origin"], "client");
+        let reporter = sent["reporter"].as_str().unwrap();
+        assert!(reporter.len() == 64 && !sent.to_string().contains(device));
+        assert!(
+            desk.parts
+                .iter()
+                .any(|(_, p, gzip)| p == "record" && *gzip == local)
+        );
+    }
+    // ten from one address in an hour, the refused ones counted too
+    let fine = serde_json::json!({
+        "kind": "bug", "text": "x", "device": device, "build": {"version": "1"}, "client": {},
+    })
+    .to_string();
+    let statuses: Vec<u16> = (0..10)
+        .map(|_| http(gw.port, "POST", "/client/reports", None, &fine).0)
+        .collect();
+    assert_eq!(statuses.iter().filter(|s| **s == 201).count(), 9);
+    assert_eq!(statuses.last(), Some(&429));
+    drop(gw);
+
+    // a gateway that keeps its reports at the service takes none straight
+    let off = spawn_gateway_with(
+        "reports-direct-off",
+        &[
+            (
+                "BAYLEE_DIRECT_REPORT_KEY",
+                "a direct key of 16+ chars".to_owned(),
+            ),
+            ("BAYLEE_CENTRAL_CONFIG_FILE", config),
+        ],
+    );
+    assert_eq!(
+        http(off.port, "POST", "/client/reports", None, &fine).0,
+        503
+    );
+    drop(file);
+}
+
+fn gzip_of(bytes: &[u8]) -> Vec<u8> {
+    use std::io::Write as _;
+    let mut out = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    out.write_all(bytes).unwrap();
+    out.finish().unwrap()
+}

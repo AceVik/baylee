@@ -825,6 +825,68 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  /client/reports:
+    post:
+      summary: Send a report from a client signed in nowhere
+      description: |-
+        A report from a client signed in to no gateway, filed with
+        Baylee Central marked `direct`; only the official gateway takes one,
+        where `BAYLEE_REPORTS_TO=central` and `BAYLEE_DIRECT_REPORT_KEY` are set.
+        It asks for no credential and stands on its limits: a bounded body, and
+        10 reports per address and 600 from everyone an hour, every request
+        counted, a refused one too. Any origin may post.
+      operationId: send_direct_report
+      tags:
+      - Reports
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Direct"
+        required: true
+      responses:
+        "201":
+          description: Central took it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportReceipt"
+        "400":
+          description: "Not a report: malformed JSON, an unknown field or `kind`, no text (but for a crash), `client` not an object, a malformed `device` or `build`, a record that is not base64 of gzip, or nothing left Central would take"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: >-
+            The text is over 20000 characters, `client` over 1 MiB, or the record over 4
+            MiB; a body over 6.46 MiB is refused before it is read, in plain text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Too many reports from this address or from everyone in the last hour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: Central did not take it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            Direct reports are not taken here (not the official gateway, not filing with
+            Central, or no `BAYLEE_DIRECT_REPORT_KEY`), or Central is past its budget for this
+            gateway
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   /reports:
     post:
       summary: Send a bug report or feedback
@@ -5146,6 +5208,21 @@ components:
       - built_at
       - dirty
       description: "Which binary answers: the same five fields in `/source`, `/info` and `/health`."
+    BuildIn:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The client's release.
+        commit:
+          type:
+          - string
+          - "null"
+          description: The commit it was built from, if it knows.
+      required:
+      - version
+      additionalProperties: false
+      description: The client's build as the body names it.
     CardTextEntry:
       type: object
       properties:
@@ -6314,6 +6391,40 @@ components:
       - added_at
       - seen_at
       description: One of this account's devices, as `GET /social/devices` lists it.
+    Direct:
+      type: object
+      properties:
+        kind:
+          $ref: "#/components/schemas/ReportKind"
+          description: What the report is about.
+        text:
+          type: string
+          description: What the player wrote, at most 20000 characters; empty only for a crash.
+        build:
+          $ref: "#/components/schemas/BuildIn"
+          description: "The client's build: its version and commit together at most 128 characters, not empty."
+        device:
+          type: string
+          description: "A random id the client made for its reports: 32 lowercase hex digits. The report is filed under this gateway's HMAC of it, never the id."
+          pattern: ^[0-9a-f]{32}$
+        client:
+          description: "What the client says about itself: a JSON object of at most 1 MiB serialized."
+          type: object
+        record:
+          anyOf:
+          - $ref: "#/components/schemas/LocalRecord"
+          - type: "null"
+          description: The record of a game the client hosted itself, if one is attached.
+      required:
+      - kind
+      - text
+      - build
+      - device
+      - client
+      additionalProperties: false
+      description: >-
+        A report from a client signed in to no gateway; every field named, no other
+        taken.
     ErrorBody:
       type: object
       properties:

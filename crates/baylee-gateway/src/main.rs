@@ -506,6 +506,7 @@ async fn main() {
         .merge(account_routes())
         .merge(deck_routes())
         .merge(report::routes())
+        .merge(report::direct::routes())
         .merge(social::routes::routes())
         .route("/social/ws", get(social::socket::social_ws))
         .route("/lobby/games", get(list_games).post(create_game))

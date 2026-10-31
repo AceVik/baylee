@@ -38,6 +38,7 @@ use sha2::{Digest, Sha256};
 use crate::{ErrorBody, Shared, err};
 
 mod central;
+pub mod direct;
 
 /// The longest report text, in characters.
 pub const MAX_TEXT_CHARS: usize = 20_000;
@@ -93,6 +94,13 @@ pub struct Feedback {
     to_central: bool,
     /// Reports on their way to Central at once ([`central::IN_FLIGHT`]).
     in_flight: std::sync::Arc<tokio::sync::Semaphore>,
+    /// `BAYLEE_DIRECT_REPORT_KEY`, hashed: what a device's pseudonym is made
+    /// with; none = no direct reports (`direct.rs`).
+    direct_key: Option<[u8; 32]>,
+    /// Direct reports per address ([`direct::PER_ADDRESS`]).
+    direct_per_address: crate::auth::RateLimiter,
+    /// Direct reports from everyone ([`direct::PER_GATEWAY`]).
+    direct_in_all: crate::auth::RateLimiter,
 }
 
 impl Feedback {
@@ -101,7 +109,8 @@ impl Feedback {
     /// # Errors
     /// `BAYLEE_REPORTS_TO` other than `feedback` or `central`, or `central`
     /// without a key to make pseudonyms with (`BAYLEE_FEEDBACK_KEY`, or the
-    /// token it is derived from): reporters must stay unlinkable to accounts.
+    /// token it is derived from): reporters must stay unlinkable to accounts;
+    /// a `BAYLEE_DIRECT_REPORT_KEY` under 16 characters.
     pub fn from_env() -> Result<Self, &'static str> {
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
         let to_central = match var("BAYLEE_REPORTS_TO").as_deref() {
@@ -124,6 +133,7 @@ impl Feedback {
             var("BAYLEE_PUBLIC_URL"),
         );
         feedback.to_central = to_central;
+        feedback.direct_key = direct::key(var("BAYLEE_DIRECT_REPORT_KEY").as_deref())?;
         Ok(feedback)
     }
 
@@ -152,6 +162,9 @@ impl Feedback {
             limiter: crate::auth::RateLimiter::new(REPORT_WINDOW, REPORTS_PER_WINDOW),
             to_central: false,
             in_flight: std::sync::Arc::new(tokio::sync::Semaphore::new(central::IN_FLIGHT)),
+            direct_key: None,
+            direct_per_address: crate::auth::RateLimiter::new(REPORT_WINDOW, direct::PER_ADDRESS),
+            direct_in_all: crate::auth::RateLimiter::new(REPORT_WINDOW, direct::PER_GATEWAY),
         }
     }
 
@@ -529,11 +542,13 @@ async fn to_central(
             url: out.gateway.url.and_then(said),
             version: said(out.gateway.version),
         },
+        channel: baylee_account::reports::Channel::Gateway,
         reporter: out.reporter,
         kind: out.report.kind,
         text: &out.report.text,
         game_id: out.game_id,
         client: &out.report.client,
+        build: None,
     };
     let filing =
         central::prepare(&says, out.record).map_err(|why| err(StatusCode::BAD_REQUEST, why))?;
@@ -870,6 +885,9 @@ mod tests {
             limiter: crate::auth::RateLimiter::new(REPORT_WINDOW, 1),
             to_central: false,
             in_flight: std::sync::Arc::new(tokio::sync::Semaphore::new(1)),
+            direct_key: None,
+            direct_per_address: crate::auth::RateLimiter::new(REPORT_WINDOW, 1),
+            direct_in_all: crate::auth::RateLimiter::new(REPORT_WINDOW, 1),
         };
         let a = feedback.pseudonym("0190a1b2-0000-7000-8000-000000000001");
         assert_eq!(
