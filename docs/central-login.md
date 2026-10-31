@@ -23,9 +23,10 @@ Each gateway's operator chooses (owner's decision of 30.10.2026): its auth
 mode is `guests` (guests only), `central` (Baylee Central's accounts only)
 or `mixed` (both), and with nobody's choice it is `central`, the official
 gateway included. The mode holds whether or not the gateway is connected to
-Central: the connection (`BAYLEE_CENTRAL_CONFIG_FILE`) is how a Central
-sign-in reaches the gateway today, and how it is listed, and says nothing
-about guests.
+Central: the connection (a token pasted into the console, §"Linking a
+gateway with a token", or the operator's `BAYLEE_CENTRAL_CONFIG_FILE`) is
+how a Central sign-in reaches the gateway today, and how it is listed, and
+says nothing about guests.
 
 - **Where it is chosen.** An admin chooses it in the console (*Who comes
   in*, `PUT /admin/auth-mode`), without a file or a restart; the gateway

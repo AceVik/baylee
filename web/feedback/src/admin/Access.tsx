@@ -41,7 +41,7 @@ export function NobodyComesIn({ lang, here = false }: { lang: Lang; here?: boole
     <div className="empty warn-text" role="alert">
       <p>{t(lang, "entry.nobody")}</p>
       <div className="row-actions">
-        <Link to="/admin/central" className="button small-button">
+        <Link to={adminPath("central")} className="button small-button">
           {t(lang, "entry.pasteToken")}
         </Link>
         {!here && (
