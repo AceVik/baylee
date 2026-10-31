@@ -21,11 +21,16 @@ client ── POST /client/reports ───────────────
 ```
 
 The client picks the road (`client-core::bugreport::route`): the gateway
-it is signed in to whenever there is one, else the service it knows, else
-none, and then it says so and sends nothing anywhere. Which service it
-knows: `feedback_url` in its settings file, else the address the build was
-given (`BAYLEE_FEEDBACK_PUBLIC_URL` at compile time); `https://`, or
-`http://` to the same machine, and an empty setting turns it off.
+it is signed in to whenever there is one, else the report address it knows,
+else none, and then it says so and sends nothing anywhere. Which address it
+knows (`bugreport::report_address`, 31.10.2026): `report_url` in its
+settings file, else the address the build was given
+(`BAYLEE_REPORT_PUBLIC_URL`, the official gateway's in a release, which
+takes `POST /client/reports` itself, §"To Baylee Central instead"), else the
+feedback service it knows (`feedback_url`, else
+`BAYLEE_FEEDBACK_PUBLIC_URL`), which also counts who plays offline;
+`https://`, or `http://` to the same machine, and an empty setting turns it
+off.
 
 ## The gateway: `POST /reports` (#307)
 

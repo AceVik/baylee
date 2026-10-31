@@ -17,9 +17,14 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
-  # Where a client signed in to no gateway sends reports (docs/feedback.md
+  # The feedback service a client knows: the offline count, and reports
+  # signed in nowhere when no report address is set (docs/feedback.md
   # §"Straight from a client"); a repository variable, unset = off.
   BAYLEE_FEEDBACK_PUBLIC_URL: ${{ vars.BAYLEE_FEEDBACK_PUBLIC_URL }}
+  # Where a client signed in to no gateway sends reports instead, the
+  # official gateway (docs/feedback.md §"To Baylee Central instead"); unset =
+  # the feedback service above.
+  BAYLEE_REPORT_PUBLIC_URL: ${{ vars.BAYLEE_REPORT_PUBLIC_URL }}
 jobs:
   package:
     name: package (${{ matrix.target }})

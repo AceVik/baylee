@@ -9212,10 +9212,12 @@ always goes through the confirmation), with "Never offer…"
 beside it (`RecordConsent::Never`, the one standing answer). The record
 never rides under a game id, and `seal` reads its own lines
 (`seal_record`), which the gzip would hide. `report::route` picks the
-road: the gateway signed in to, else the feedback service the settings
-(`feedback_url`, `""` = off) or the build (`BAYLEE_FEEDBACK_PUBLIC_URL`)
-name, as `bugreport::feedback_service` accepts it (`https`, or `http` to
-this machine), else none: the form then says it needs a gateway and has no
+road: the gateway signed in to, else the report address the settings
+(`report_url`, `""` = off) or the build (`BAYLEE_REPORT_PUBLIC_URL`, the
+official gateway in a release) name, else the feedback service the settings
+(`feedback_url`) or the build (`BAYLEE_FEEDBACK_PUBLIC_URL`) name
+(`bugreport::report_address`, held to `bugreport::feedback_service`'s rules:
+`https`, or `http` to this machine), else none: the form then says it needs a gateway and has no
 Send. A direct report goes under `report_device`, a random id made with
 the first (`kept_device_id`, `getrandom`), fitted to the service's 1 MiB
 (`Submission::sealed_direct`). A direct report and any report carrying a

@@ -729,13 +729,22 @@ fn system(
 /// The feedback service this build was given, if any.
 const BUILT_FEEDBACK_URL: Option<&str> = option_env!("BAYLEE_FEEDBACK_PUBLIC_URL");
 
+/// The address this build was given for reports signed in nowhere, if any.
+const BUILT_REPORT_URL: Option<&str> = option_env!("BAYLEE_REPORT_PUBLIC_URL");
+
 /// Where a report goes now: the gateway the lobby is signed in to, else
-/// the feedback service the settings or the build name, else nowhere.
+/// the report address the settings or the build name (or the feedback
+/// service), else nowhere.
 pub(crate) fn route(lobby: Option<&LobbyState>, settings: &ClientSettings) -> Route {
     let service = bugreport::feedback_service(settings.feedback_url.as_deref(), BUILT_FEEDBACK_URL);
+    let direct = bugreport::report_address(
+        settings.report_url.as_deref(),
+        BUILT_REPORT_URL,
+        service.as_deref(),
+    );
     bugreport::route(
         session(lobby).map(|(gateway, _)| gateway).as_deref(),
-        service.as_deref(),
+        direct.as_deref(),
     )
 }
 

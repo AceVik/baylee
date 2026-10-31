@@ -171,12 +171,19 @@ pub struct ClientSettings {
     /// A file from before it allows nothing and has not been asked.
     #[serde(default)]
     pub reports: baylee_client_core::bugreport::Consent,
-    /// The feedback service a report goes straight to when the client is
-    /// signed in nowhere, over the one this build was given
-    /// (`BAYLEE_FEEDBACK_PUBLIC_URL`); `""` turns direct reports off.
-    /// `bugreport::feedback_service` says which addresses count.
+    /// The feedback service, over the one this build was given
+    /// (`BAYLEE_FEEDBACK_PUBLIC_URL`): the offline count goes there, and a
+    /// report signed in nowhere too when no report address is known;
+    /// `""` turns both off. `bugreport::feedback_service` says which
+    /// addresses count.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feedback_url: Option<String>,
+    /// Where a report goes straight when the client is signed in nowhere,
+    /// over the address this build was given (`BAYLEE_REPORT_PUBLIC_URL`);
+    /// without either, the feedback service's; `""` turns direct reports
+    /// off (`bugreport::report_address`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report_url: Option<String>,
     /// The random id this device sends direct reports under, made with the
     /// first one (`bugreport::kept_device_id`). Never sent to a gateway.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -229,6 +236,7 @@ impl Default for ClientSettings {
             text_size: crate::shellkit::TextSize::default(),
             reports: baylee_client_core::bugreport::Consent::default(),
             feedback_url: None,
+            report_url: None,
             report_device: None,
             terms: std::collections::BTreeMap::new(),
             report_attachments_closed: false,
@@ -832,6 +840,7 @@ mod tests {
                 ..baylee_client_core::bugreport::Consent::default()
             },
             feedback_url: Some("https://feedback.example.test".into()),
+            report_url: Some("https://gateway.example.test".into()),
             report_device: Some("0123456789abcdef0123456789abcdef".into()),
             text_size: crate::shellkit::TextSize::Xl,
             report_attachments_closed: true,
@@ -852,6 +861,7 @@ mod tests {
         assert_eq!(read.table, written.table);
         assert_eq!(read.chat_window, written.chat_window);
         assert_eq!(read.feedback_url, written.feedback_url);
+        assert_eq!(read.report_url, written.report_url);
         assert_eq!(read.report_device, written.report_device);
         assert_eq!(read.text_size, crate::shellkit::TextSize::Xl);
         assert_eq!(read.tours, written.tours, "the tours' switches and marks");

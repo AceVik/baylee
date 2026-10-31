@@ -5510,19 +5510,20 @@ ReportNotPassedOn = The gateway could not pass the report on. Your report is sti
 # Any other answer.
 ReportFailed = The report could not be sent. Try again later.
 
-# No session to send it with, and no feedback service to send it to.
-ReportNeedsSession = Sign in to a gateway to send a report. This client knows no feedback service to send it to otherwise.
+# No session to send it with, and no address to send it to otherwise.
+ReportNeedsSession = Sign in to a gateway to send a report. This client knows no other address to send it to.
 
-# Signed in nowhere, the report goes straight to the service. `$url` is
-# its address.
+# Signed in nowhere, the report goes straight to the address this build or
+# the settings name for that (Baylee's own gateway in a release, else the
+# feedback service). `$url` is its address.
 # Arguments: url
-ReportGoesDirect = You are not signed in, so this report goes straight to the Baylee feedback service at { $url }.
+ReportGoesDirect = You are not signed in, so this report goes straight to Baylee at { $url }, without an account.
 
-# 503 from the service itself.
-ReportsDirectUnavailable = The feedback service takes no reports straight from a client right now. Sign in to a gateway to send it.
+# 503 from the report address itself.
+ReportsDirectUnavailable = Reports straight from a client are not taken there right now. Sign in to a gateway to send it.
 
-# No answer from the service.
-ReportDirectUnreachable = The feedback service could not be reached. Your report is still here.
+# No answer from the report address.
+ReportDirectUnreachable = The report address could not be reached. Your report is still here.
 
 # The box for a local game's record, ticked per report.
 ReportRecordBox = Attach the whole record of this game
@@ -6503,7 +6504,7 @@ TourT32Body = Every row under Attachments is a choice your device remembers: sys
 TourT33Title = Where it goes
 
 # Tour step T33's words (TOURS.md §2).
-TourT33Body = Your report goes to the gateway you are signed in to. Signed in nowhere, it goes to this build's feedback service; if there is none, you can only Copy. With a record, a window asks you once more. At a gateway your clock keeps running meanwhile, so better report after the question.
+TourT33Body = Your report goes to the gateway you are signed in to. Signed in nowhere, it goes straight to Baylee's report address; if this build knows none, you can only Copy. With a record, a window asks you once more. At a gateway your clock keeps running meanwhile, so better report after the question.
 
 # Tour step T34's title (TOURS.md §2).
 TourT34Title = Done

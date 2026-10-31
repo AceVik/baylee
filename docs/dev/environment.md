@@ -149,7 +149,7 @@ The UI's GitHub issue carries only the admin's own summary, a category and the b
 ## Client (`baylee-client`)
 
 - `BAYLEE_GATEWAY` + `BAYLEE_GAME`, `BAYLEE_SEAT_TOKEN`, optional `BAYLEE_SEAT`; in a browser `?game=…&token=…`.
-- At build time `BAYLEE_FEEDBACK_PUBLIC_URL` (`option_env!`) names the feedback service a client signed in nowhere reports to; `feedback_url` in the settings file overrides it (`""` = off); neither = such a client sends nothing. A `LocalHost` game is recorded and the last 20 kept in `records/` beside the settings (native); a report carries one only when ticked for that report, never remembered.
+- At build time `BAYLEE_FEEDBACK_PUBLIC_URL` (`option_env!`) names the feedback service (the offline count); `feedback_url` in the settings file overrides it (`""` = off). `BAYLEE_REPORT_PUBLIC_URL` names where a client signed in nowhere sends reports (the official gateway's `POST /client/reports`), `report_url` in the settings file overrides it (`""` = off); without either, that service; none of them = such a client sends nothing. A `LocalHost` game is recorded and the last 20 kept in `records/` beside the settings (native); a report carries one only when ticked for that report, never remembered.
 
 ## Seat bridge (`baylee-seat`)
 
