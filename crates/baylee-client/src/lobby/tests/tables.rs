@@ -988,3 +988,46 @@ fn discovery_sidebar_restores_its_own_scroll_after_search_rebuilds() {
     assert!((sidebar.1.y - 80.0).abs() < f32::EPSILON);
     assert!((app.world().resource::<Scrolled>().get(List::Games) - 112.0).abs() < f32::EPSILON);
 }
+
+/// Play's deck picker scrolls a long shelf: its body is a `Scrollable` the
+/// wheel moves, and a bar stands beside it aimed at that body (report
+/// 30.10.2026: the body was only clipped, so the wheel moved nothing and
+/// no bar said there was more).
+#[test]
+fn the_deck_picker_scrolls_and_has_its_bar() {
+    let mut app = headless();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.apply(LobbyEvent::LoggedIn {
+            token: "tok".to_string(),
+            username: None,
+        });
+        state.lobby.apply(LobbyEvent::Decks(
+            (0..24)
+                .map(|n| DeckSummary {
+                    id: format!("d{n}"),
+                    name: format!("Deck {n}"),
+                    cards: 60,
+                    copies: 60,
+                    ..Default::default()
+                })
+                .collect(),
+        ));
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
+        state.play.picker = true;
+    }
+    app.update();
+    let picker = app
+        .world_mut()
+        .query::<(Entity, &Scrollable)>()
+        .iter(app.world())
+        .find(|(_, s)| s.0 == List::DeckPicker)
+        .map(|(entity, _)| entity)
+        .expect("the picker's body scrolls to the wheel");
+    let aimed = app
+        .world_mut()
+        .query::<&bevy::ui_widgets::Scrollbar>()
+        .iter(app.world())
+        .any(|bar| bar.target == picker);
+    assert!(aimed, "and a bar is aimed at it");
+}

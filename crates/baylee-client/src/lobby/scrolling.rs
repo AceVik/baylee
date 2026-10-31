@@ -48,6 +48,8 @@ pub(crate) enum List {
     SettingsNav,
     /// The Replays tab's list.
     Replays,
+    /// Play's deck picker (Change deck).
+    DeckPicker,
 }
 
 /// Where each list was left, across rebuilds of the node tree.
@@ -75,6 +77,7 @@ pub(crate) struct Scrolled {
     profile_sheet: f32,
     settings_nav: f32,
     replays: f32,
+    deck_picker: f32,
 }
 
 impl Scrolled {
@@ -97,6 +100,7 @@ impl Scrolled {
             List::ProfileSheet => self.profile_sheet,
             List::SettingsNav => self.settings_nav,
             List::Replays => self.replays,
+            List::DeckPicker => self.deck_picker,
         }
     }
 
@@ -119,6 +123,7 @@ impl Scrolled {
             List::ProfileSheet => self.profile_sheet = at,
             List::SettingsNav => self.settings_nav = at,
             List::Replays => self.replays = at,
+            List::DeckPicker => self.deck_picker = at,
         }
     }
 }
