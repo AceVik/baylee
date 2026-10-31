@@ -38,7 +38,7 @@ fn complete_supported_decks_keep_counts_provenance_and_held_out_sideboards() -> 
     let main = json!([{"CardName":"forest","Count":24},{"CardName":"Example Spell","Count":36}]);
     archive(
         &source,
-        &json!({"Tournament":{"Date":"2026-10-28"},"Decks":[{"Player":"private gamer","Mainboard":main,"Sideboard":[{"CardName":"Held Card","Count":1}]},{"Mainboard":main,"Sideboard":[]},{"Mainboard":[{"CardName":"Forest","Count":60}]},{"Mainboard":[{"CardName":"not supported","Count":60}]},{"Mainboard":[{"CardName":"Forest","Count":-1}]}]}),
+        &json!({"Tournament":{"Date":"2026-10-28"},"Decks":[{"Player":"private gamer","Mainboard":main,"Sideboard":[{"CardName":"Held Card","Count":1}]},{"Mainboard":main,"Sideboard":[]},{"Mainboard":[{"CardName":"Forest","Count":60}]},{"Mainboard":[{"CardName":"not supported","Count":60}]},{"Mainboard":[{"CardName":"Forest","Count":-1}]},{"Mainboard":[{"CardName":"Forest","Count":56},{"CardName":"Gap One","Count":4}],"Sideboard":[{"CardName":"Gap Two","Count":2},{"CardName":"not supported","Count":1}]}]}),
     )?;
     let out = root.path().join("out");
     let manifest = import(&Options {
@@ -65,14 +65,21 @@ fn complete_supported_decks_keep_counts_provenance_and_held_out_sideboards() -> 
     assert!(!content.contains("private gamer"));
     assert!(!serde_json::to_string(&manifest)?.contains("private gamer"));
     let report = files::read_json(&out.join("import-report.json"))?;
-    for key in [
-        "duplicate",
-        "all_basic_placeholder",
-        "unsupported_card",
-        "invalid_count",
-    ] {
+    for key in ["duplicate", "all_basic_placeholder", "invalid_count"] {
         assert_eq!(report["counts"][key], 1, "{key}");
     }
+    // Two lists the pool cannot play: one misses one card, the other three
+    // across mainboard and sideboard; both are near complete.
+    assert_eq!(report["counts"]["unsupported_card"], 2);
+    assert_eq!(report["missing_card_histogram"], json!({"1": 1, "3": 1}));
+    assert_eq!(
+        report["near_complete_unlocks"],
+        json!([["not supported", 2], ["Gap One", 1], ["Gap Two", 1]])
+    );
+    assert_eq!(
+        report["unsupported_card_lists"],
+        report["near_complete_unlocks"]
+    );
     Ok(())
 }
 #[test]
@@ -117,13 +124,18 @@ fn unknown_card_or_invalid_count_rejects_the_entire_multiset() {
             held: false,
         },
     )]);
-    assert!(matches!(
-        read_cards(
-            &json!([{"CardName":"Forest","Count":20},{"CardName":"unsupported","Count":4}]),
-            &lookup
-        ),
-        Err(CardError::Unsupported(_))
-    ));
+    let Err(CardError::Unsupported(missing)) = read_cards(
+        &json!([{"CardName":"Missing B","Count":4},{"CardName":"Forest","Count":20},
+            {"CardName":"Missing A","Count":4},{"CardName":"Missing B","Count":1}]),
+        &lookup,
+    ) else {
+        panic!("a list with unsupported cards is refused");
+    };
+    assert_eq!(
+        missing.into_iter().collect::<Vec<_>>(),
+        ["Missing A", "Missing B"],
+        "every distinct missing card is named, not only the first"
+    );
     for count in [json!(-1), json!(true), json!(101)] {
         assert!(matches!(
             read_cards(&json!([{"CardName":"Forest","Count":count}]), &lookup),

@@ -167,10 +167,15 @@ pub fn load_decks(manifest_path: &Path) -> anyhow::Result<Vec<DeckEntry>> {
             Some(s) if !s.is_empty() => s.to_owned(),
             _ => sha256_file(Path::new(&path))?,
         };
-        let format = item
+        let declared = item
             .get("format")
             .and_then(Value::as_str)
-            .context("Deck manifest must explicitly declare its format")?
+            .context("Deck manifest must explicitly declare its format")?;
+        // Corpus and importer manifests name formats in lower case.
+        let format = ["Commander", "Constructed", "Highlander"]
+            .into_iter()
+            .find(|known| known.eq_ignore_ascii_case(declared))
+            .unwrap_or(declared)
             .to_owned();
         let source = item
             .get("source")
@@ -1186,9 +1191,10 @@ mod tests {
             (0, "Commander"),
             (1, "Commander"),
             (2, "Constructed"),
-            (3, "Constructed"),
+            // Importer manifests write formats in lower case.
+            (3, "constructed"),
             (4, "Highlander"),
-            (5, "Highlander"),
+            (5, "highlander"),
         ] {
             let p = dir.path().join(format!("d{i}.txt"));
             std::fs::write(&p, "60 Plains\n").unwrap();

@@ -59,9 +59,13 @@ struct Deck {
     held: bool,
 }
 enum CardError {
-    Unsupported(String),
+    /// Every distinct card of the list the pool does not have.
+    Unsupported(BTreeSet<String>),
     Invalid,
 }
+/// A deck missing at most this many distinct cards is near complete: the
+/// report ranks the missing cards by how many such decks they would unlock.
+const NEAR_COMPLETE: usize = 3;
 fn field<'a>(value: &'a Value, pascal: &str, snake: &str) -> &'a Value {
     value
         .get(pascal)
@@ -79,22 +83,29 @@ fn read_cards(
         names: BTreeMap::new(),
         held: false,
     };
+    let mut missing = BTreeSet::new();
     for row in rows {
         let name = field(row, "CardName", "card_name")
             .as_str()
             .unwrap_or_default();
-        let card = lookup
-            .get(&fold(name))
-            .ok_or_else(|| CardError::Unsupported(name.to_owned()))?;
         let count = field(row, "Count", "count")
             .as_u64()
             .filter(|n| (1..=100).contains(n))
             .ok_or(CardError::Invalid)?;
+        // Read on past an unsupported card: the report counts all of them.
+        let Some(card) = lookup.get(&fold(name)) else {
+            missing.insert(name.to_owned());
+            continue;
+        };
         *result.cards.entry(card.id).or_default() += count;
         result.names.insert(card.id, card.name.clone());
         result.held |= card.held;
     }
-    Ok(result)
+    if missing.is_empty() {
+        Ok(result)
+    } else {
+        Err(CardError::Unsupported(missing))
+    }
 }
 fn bump(counts: &mut BTreeMap<String, u64>, key: &str) {
     *counts.entry(key.to_owned()).or_default() += 1;
@@ -107,7 +118,12 @@ struct Importer {
     similarity: SimilarityIndex,
     seen: BTreeSet<String>,
     counts: BTreeMap<String, u64>,
+    /// Lists missing each card, over every tournament entry.
     unsupported: BTreeMap<String, u64>,
+    /// Near-complete lists each missing card would complete or bring closer.
+    unlocks: BTreeMap<String, u64>,
+    /// Lists by how many distinct cards they miss (`5+` beyond four).
+    missing_histogram: BTreeMap<String, u64>,
     per_format: BTreeMap<String, u64>,
     accepted: Vec<Value>,
     rejected: Vec<Value>,
@@ -149,6 +165,8 @@ pub fn import(options: &Options) -> Result<Value> {
         seen: BTreeSet::new(),
         counts: BTreeMap::new(),
         unsupported: BTreeMap::new(),
+        unlocks: BTreeMap::new(),
+        missing_histogram: BTreeMap::new(),
         per_format: BTreeMap::new(),
         accepted: Vec::new(),
         rejected: Vec::new(),
@@ -253,27 +271,29 @@ impl Importer {
         tournament: &Value,
     ) -> Result<()> {
         bump(&mut self.counts, "decks_seen");
-        let parsed = (|| -> std::result::Result<(Deck, Deck), CardError> {
-            let main = read_cards(field(raw, "Mainboard", "mainboard"), &self.lookup)?;
-            let side = read_cards(
-                if options.mainboard_only {
-                    &Value::Null
-                } else {
-                    field(raw, "Sideboard", "sideboard")
-                },
-                &self.lookup,
-            )?;
-            Ok((main, side))
-        })();
-        let (main, side) = match parsed {
-            Ok(decks) => decks,
-            Err(CardError::Unsupported(name)) => {
-                bump(&mut self.counts, "unsupported_card");
-                bump(&mut self.unsupported, &name);
+        let main = read_cards(field(raw, "Mainboard", "mainboard"), &self.lookup);
+        let side = read_cards(
+            if options.mainboard_only {
+                &Value::Null
+            } else {
+                field(raw, "Sideboard", "sideboard")
+            },
+            &self.lookup,
+        );
+        let (main, side) = match (main, side) {
+            (Ok(main), Ok(side)) => (main, side),
+            (Err(CardError::Invalid), _) | (_, Err(CardError::Invalid)) => {
+                bump(&mut self.counts, "invalid_count");
                 return Ok(());
             }
-            _ => {
-                bump(&mut self.counts, "invalid_count");
+            (main, side) => {
+                let mut missing = BTreeSet::new();
+                for part in [main, side] {
+                    if let Err(CardError::Unsupported(names)) = part {
+                        missing.extend(names);
+                    }
+                }
+                self.record_missing(&missing);
                 return Ok(());
             }
         };
@@ -342,6 +362,22 @@ impl Importer {
         bump(&mut self.counts, "accepted");
         Ok(())
     }
+    /// Counts a list the pool cannot play yet, by every card it misses.
+    fn record_missing(&mut self, missing: &BTreeSet<String>) {
+        bump(&mut self.counts, "unsupported_card");
+        let bucket = if missing.len() > 4 {
+            "5+".to_owned()
+        } else {
+            missing.len().to_string()
+        };
+        bump(&mut self.missing_histogram, &bucket);
+        for name in missing {
+            bump(&mut self.unsupported, name);
+            if missing.len() <= NEAR_COMPLETE {
+                bump(&mut self.unlocks, name);
+            }
+        }
+    }
     fn finish(self, archive_sha: &str, existing: usize, options: &Options) -> Result<Value> {
         let mut splits = BTreeMap::new();
         for deck in &self.accepted {
@@ -363,12 +399,21 @@ impl Importer {
         );
         let manifest = json!({"source":REPO,"source_revision":self.revision,"source_archive_sha256":archive_sha,"retrieved_at":retrieved,"working_pool_hash":self.pool,"existing_decks_checked":existing,"max_jaccard_threshold":options.similarity,"counts_by_source_format":self.per_format,"counts_by_split":splits,"decks":self.accepted});
         files::atomic_json(&self.root.join("manifest.json"), &manifest)?;
-        let mut unsupported = self.unsupported.into_iter().collect::<Vec<_>>();
-        unsupported.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
         files::atomic_json(
             &self.root.join("import-report.json"),
-            &json!({"counts":self.counts,"first_unsupported_card_counts":unsupported,"rejected_sources":self.rejected}),
+            &json!({"counts":self.counts,
+                "missing_card_histogram":self.missing_histogram,
+                "near_complete_limit":NEAR_COMPLETE,
+                "near_complete_unlocks":ranked(self.unlocks),
+                "unsupported_card_lists":ranked(self.unsupported),
+                "rejected_sources":self.rejected}),
         )?;
         Ok(manifest)
     }
+}
+/// Counts as `[name, count]` rows, the largest first.
+fn ranked(counts: BTreeMap<String, u64>) -> Vec<(String, u64)> {
+    let mut rows = counts.into_iter().collect::<Vec<_>>();
+    rows.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    rows
 }
