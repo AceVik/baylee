@@ -310,9 +310,11 @@ fn chain_index(
 
 /// Audit the exported gzipped game record against the exact pinned
 /// declarations: each seat's `chains[seat]`, the mind its profile declares
-/// and then its fallbacks' in the order they take over. Each seat's first
-/// declaration is its profile's, and each after it is the mind playing now
-/// or a later one of its chain ([`chain_index`]); anything else fails.
+/// and then its fallbacks' in the order they take over (for a house seat,
+/// the house alone). Each seat's first declaration is its chain's first,
+/// and each after it is the mind playing now or a later one of its chain
+/// ([`chain_index`]), or the house where a chain of models ran out;
+/// anything else fails.
 #[allow(clippy::too_many_lines)]
 pub fn audit_record(
     path: &Path,
@@ -361,7 +363,13 @@ pub fn audit_record(
                 !housed[seat],
                 "Seat {seat} declared again after the house took it over"
             );
-            if mind.kind == baylee_gamehost::record::MindKind::House && standing[seat].is_some() {
+            let house = baylee_gamehost::record::MindKind::House;
+            let index = chain_index(&chains[seat], standing[seat], &mind);
+            if index.is_none()
+                && mind.kind == house
+                && standing[seat].is_some()
+                && chains[seat].iter().all(|mind| mind.kind != house)
+            {
                 // The chain used up (or a limit with none behind it): the
                 // house plays the rest of the game. Its answers are never a
                 // teacher's; the model's before it stay the game's.
@@ -374,8 +382,8 @@ pub fn audit_record(
                 }));
                 continue;
             }
-            let index = chain_index(&chains[seat], standing[seat], &mind)
-                .with_context(|| format!("Unexpected declared identity for seat {seat}"))?;
+            let index =
+                index.with_context(|| format!("Unexpected declared identity for seat {seat}"))?;
             if standing[seat] != Some(index) {
                 declared[seat].push(json!({
                     "mind": mind,
@@ -399,8 +407,8 @@ pub fn audit_record(
             inputs[seat].push(value.clone());
         }
     }
-    ensure!(!declared[0].is_empty(), "Missing seat 0 LLM declaration");
-    ensure!(!declared[1].is_empty(), "Missing seat 1 LLM declaration");
+    ensure!(!declared[0].is_empty(), "Missing seat 0 declaration");
+    ensure!(!declared[1].is_empty(), "Missing seat 1 declaration");
     let winners = end
         .get("winners")
         .and_then(Value::as_array)
@@ -508,8 +516,33 @@ pub fn transcript_fallbacks(data: &[Value]) -> Value {
     })
 }
 
-/// Audit a single seat's CLI transcript (`transport_audit.py::audit_transcript`).
-pub fn audit_transcript(path: &Path, seat_inputs: &[Value]) -> anyhow::Result<(Value, bool)> {
+/// Who made a transcript row's send, where it is one (an `answered` or
+/// `standing` event): `llm`, `house`, `standing` or `other`. The bridge
+/// writes its mind's answers `by: mind`; at a house seat (`house_seat`, a
+/// pairing's `house:<level>`) that mind is the house, so they are the
+/// house's and never a language model's.
+fn send_source(row: &Value, house_seat: bool) -> Option<&'static str> {
+    match row.get("event").and_then(Value::as_str)? {
+        "standing" => Some("standing"),
+        "answered" => Some(match row.get("by").and_then(Value::as_str) {
+            Some("mind") if house_seat => "house",
+            Some("mind") => "llm",
+            Some("house") => "house",
+            Some("standing") => "standing",
+            _ => "other",
+        }),
+        _ => None,
+    }
+}
+
+/// Audit a single seat's CLI transcript (`transport_audit.py::audit_transcript`):
+/// its sends counted by [`send_source`], at least one of them by the seat's
+/// own mind (a model's, or at a house seat the house's).
+pub fn audit_transcript(
+    path: &Path,
+    seat_inputs: &[Value],
+    house_seat: bool,
+) -> anyhow::Result<(Value, bool)> {
     let data = read_jsonl(path)?;
     ensure!(
         data.iter()
@@ -522,26 +555,21 @@ pub fn audit_transcript(path: &Path, seat_inputs: &[Value]) -> anyhow::Result<(V
     let mut other = 0_u64;
     let mut answered: Vec<Value> = Vec::new();
     for value in &data {
-        match value.get("event").and_then(Value::as_str) {
-            Some("answered") => {
-                match value.get("by").and_then(Value::as_str) {
-                    Some("mind") => llm += 1,
-                    Some("house") => house += 1,
-                    Some("standing") => standing += 1,
-                    _ => other += 1,
-                }
-                answered.push(value.get("action").cloned().unwrap_or(Value::Null));
-            }
-            Some("standing") => {
-                standing += 1;
-                answered.push(value.get("action").cloned().unwrap_or(Value::Null));
-            }
-            _ => {}
+        let Some(source) = send_source(value, house_seat) else {
+            continue;
+        };
+        match source {
+            "llm" => llm += 1,
+            "house" => house += 1,
+            "standing" => standing += 1,
+            _ => other += 1,
         }
+        answered.push(value.get("action").cloned().unwrap_or(Value::Null));
     }
+    let own = if house_seat { house } else { llm };
     ensure!(
-        other == 0 && llm > 0,
-        "Unknown provenance or no actual model answers"
+        other == 0 && own > 0,
+        "Unknown provenance or no answer of the seat's own mind"
     );
     for value in seat_inputs {
         if value.get("by").and_then(Value::as_str) == Some("seat") {
@@ -643,41 +671,32 @@ struct SendItem {
     question: Option<u64>,
 }
 
-/// Build the conservative ordered provenance attribution for one seat (`transport_audit.py::ordered_attribution`).
+/// Build the conservative ordered provenance attribution for one seat
+/// (`transport_audit.py::ordered_attribution`), each send's source as
+/// [`send_source`] has it: at a house seat, never `llm`.
 #[allow(clippy::too_many_lines)]
-pub fn ordered_attribution(transcript_path: &Path, seat_inputs: &[Value]) -> anyhow::Result<Value> {
+pub fn ordered_attribution(
+    transcript_path: &Path,
+    seat_inputs: &[Value],
+    house_seat: bool,
+) -> anyhow::Result<Value> {
     let tr_rows = read_jsonl(transcript_path)?;
     let mut sends: Vec<SendItem> = Vec::new();
     for value in &tr_rows {
-        match value.get("event").and_then(Value::as_str) {
-            Some("answered" | "standing") => {
-                let source = if value.get("event").and_then(Value::as_str) == Some("standing") {
-                    "standing"
-                } else {
-                    match value.get("by").and_then(Value::as_str) {
-                        Some("mind") => "llm",
-                        Some("house") => "house",
-                        Some("standing") => "standing",
-                        _ => "other",
-                    }
-                };
-                sends.push(SendItem {
-                    action: value.get("action").cloned().unwrap_or(Value::Null),
-                    source,
-                    question: value.get("question").and_then(Value::as_u64),
-                });
-            }
-            Some("refused") => {
-                let q = value.get("question").and_then(Value::as_u64);
-                let act = value.get("action").unwrap_or(&Value::Null);
-                if let Some(idx) = sends
-                    .iter()
-                    .rposition(|s| s.question == q && &s.action == act)
-                {
-                    sends.remove(idx);
-                }
-            }
-            _ => {}
+        let question = value.get("question").and_then(Value::as_u64);
+        let action = value.get("action").unwrap_or(&Value::Null);
+        if let Some(source) = send_source(value, house_seat) {
+            sends.push(SendItem {
+                action: action.clone(),
+                source,
+                question,
+            });
+        } else if value.get("event").and_then(Value::as_str) == Some("refused")
+            && let Some(idx) = sends
+                .iter()
+                .rposition(|s| s.question == question && &s.action == action)
+        {
+            sends.remove(idx);
         }
     }
 
@@ -875,6 +894,16 @@ pub fn validate_technical_result(
         ensure!(
             counts.get("other").and_then(Value::as_u64) == Some(0),
             "Unresolved answer provenance"
+        );
+        // A house seat's answers are the house's, never a model's.
+        let house_seat = req_models
+            .get(seat)
+            .and_then(Value::as_str)
+            .and_then(crate::schedule::house_level)
+            .is_some();
+        ensure!(
+            !house_seat || counts.get("llm").and_then(Value::as_u64) == Some(0),
+            "House seat {seat} counts a language model's answers"
         );
     }
     let artifacts = result

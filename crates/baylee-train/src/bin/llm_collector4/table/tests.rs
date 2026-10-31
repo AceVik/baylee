@@ -120,6 +120,127 @@ fn a_seat_is_started_with_its_chain_and_the_keys_of_that_chain_only() {
     );
 }
 
+/// A house seat (`house:<level>`) is started as the house at its level:
+/// no profile, settings file, spend book or fallback, and no key at all,
+/// whatever the environment holds; it still writes its transcripts and
+/// takes its chair as a model's seat does.
+#[test]
+fn a_house_seat_is_started_at_its_level_with_no_profile_book_or_key() {
+    let dir = crate::audit::tests::TestDir::new("house-launch");
+    let config = chained_profiles(dir.path());
+    let launch = |seat: usize, entry: &str| -> (Vec<String>, BTreeMap<String, String>) {
+        let launch = SeatLaunch {
+            seat_bin: Path::new("/x/baylee-seat"),
+            game_id: "game",
+            seat,
+            gateway: "http://127.0.0.1:28766",
+            profile: entry,
+            fallbacks: &[],
+            profiles_config: &config,
+            ledger: Path::new("/x/ledger.json"),
+            deck_path: Path::new("/x/deck.txt"),
+            think_secs: 90,
+            transcripts_dir: Path::new("/x/transcripts"),
+            work_dir: dir.path(),
+            send_reports: true,
+        };
+        let env = |name: &str| {
+            [
+                "PATH",
+                "ANTHROPIC_API_KEY",
+                "DEEPSEEK_API_KEY",
+                "BAYLEE_LLM_API_KEY",
+            ]
+            .contains(&name)
+            .then(|| format!("value-of-{name}"))
+        };
+        let command = launch.command(&env).unwrap();
+        let args = command
+            .as_std()
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        let envs = command
+            .as_std()
+            .get_envs()
+            .filter_map(|(name, value)| {
+                Some((
+                    name.to_string_lossy().into_owned(),
+                    value?.to_string_lossy().into_owned(),
+                ))
+            })
+            .collect();
+        (args, envs)
+    };
+    for (seat, entry, level, chair) in [
+        (0, "house:sharp", "sharp", "--host-chair"),
+        (1, "house:novice", "novice", "--chair-ticket"),
+    ] {
+        let (args, envs) = launch(seat, entry);
+        let has = |flag: &str, value: &str| {
+            args.windows(2)
+                .any(|pair| pair[0] == flag && pair[1] == value)
+        };
+        assert!(has("--mind", "house"), "{args:?}");
+        assert!(has("--level", level), "{args:?}");
+        assert!(has("--transcripts", "/x/transcripts"), "{args:?}");
+        assert!(has("--name", &format!("teacher-{seat}")), "{args:?}");
+        assert!(args.iter().any(|arg| arg == chair), "{args:?}");
+        assert_eq!(args.iter().filter(|arg| *arg == "--level").count(), 1);
+        for refused in ["--profile", "--config", "--ledger", "--fallback-profile"] {
+            assert!(
+                !args.iter().any(|arg| arg == refused),
+                "{refused}: {args:?}"
+            );
+        }
+        assert!(
+            !args
+                .iter()
+                .any(|arg| arg.contains("profiles.json") || arg == entry),
+            "{args:?}"
+        );
+        assert_eq!(envs.get("PATH").map(String::as_str), Some("value-of-PATH"));
+        assert!(
+            !envs.keys().any(|name| name.ends_with("KEY")),
+            "the house reads no key: {envs:?}"
+        );
+    }
+}
+
+/// A house seat's pin is the house at its level with no chain behind it,
+/// and its model `house:<level>`; the model it is paired with keeps its own.
+#[test]
+fn preopen_pins_hold_a_house_seat_to_the_house() {
+    let dir = crate::audit::tests::TestDir::new("preopen-house");
+    let config = chained_profiles(dir.path());
+    let profiles = ["house:sharp".to_owned(), "cc".to_owned()];
+    let models = ["house:sharp".to_owned(), "gpt-6.1-terra".to_owned()];
+    let request = |chains: Value| {
+        json!({"profiles_config_sha256": sha256_file(&config).unwrap(),
+            "fallback_profiles": chains})
+    };
+    let chains = json!([[], ["opus-api", "ds"]]);
+    let requested =
+        validate_profile_pins(&config, &request(chains.clone()), &profiles, &models).unwrap();
+    assert!(requested.chains[0].is_house() && !requested.chains[1].is_house());
+    assert_eq!(
+        serde_json::to_value(&requested.declarable()[0]).unwrap(),
+        json!([{"kind": "house", "level": "sharp"}])
+    );
+    assert_eq!(requested.declarable()[1].len(), 3);
+    // A fallback frozen for the house, or the house's model named otherwise.
+    for (other, models) in [
+        (json!([["ds"], ["opus-api", "ds"]]), models.clone()),
+        (chains.clone(), ["sharp".to_owned(), models[1].clone()]),
+        (chains, [String::new(), models[1].clone()]),
+    ] {
+        assert!(
+            validate_profile_pins(&config, &request(other.clone()), &profiles, &models).is_err(),
+            "{other} {models:?}"
+        );
+    }
+}
+
 /// Each seat's chain is frozen in the request: what the profiles file
 /// says at room creation must be what the scheduler froze, and an older
 /// request with no chain takes none.
@@ -459,7 +580,7 @@ fn official_end_proves_closure_without_gameover_but_not_admission() {
         serde_json::from_slice(&std::fs::read(out.join("room-state.json")).unwrap()).unwrap();
     assert_eq!(room["closure_verified"], true);
     let proof = audit_record(&record, &[vec![expected.clone()], vec![expected]]).unwrap();
-    assert!(audit_transcript(&out.join("missing-seat.jsonl"), &proof.inputs[0]).is_err());
+    assert!(audit_transcript(&out.join("missing-seat.jsonl"), &proof.inputs[0], false).is_err());
     assert!(!out.join("technical-result.json").exists());
     assert!(!out.join("receipt.json").exists());
 }
@@ -513,7 +634,12 @@ fn completed_invalid_identity_proves_closure_but_never_creates_admission() {
     crate::audit::tests::write_identity_record(&record, &expected);
     let proof = audit_record(&record, &[vec![expected.clone()], vec![expected]]).unwrap();
     assert!(
-        ordered_attribution(&out.join("transcripts/game-seat0.jsonl"), &proof.inputs[0]).is_err()
+        ordered_attribution(
+            &out.join("transcripts/game-seat0.jsonl"),
+            &proof.inputs[0],
+            false
+        )
+        .is_err()
     );
     assert!(!out.join("technical-result.json").exists());
     std::fs::write(&record, "{\"kind\":\"header\"}\n").unwrap();

@@ -220,17 +220,64 @@ pub fn collector_room_setup(formats: [&str; 2]) -> anyhow::Result<baylee_core::p
     })
 }
 
-/// What a seat of one profile is asked to play, as the pinned profiles file
-/// says: the mind its profile declares, then each fallback that profile
-/// names (`fallback`, `docs/llm-seat.md` §"A fallback profile"), in the
-/// order they take over, with the mind each declares as it does.
+/// What a seat of one pairing entry is asked to play: for a profile, as the
+/// pinned profiles file says, the mind its profile declares, then each
+/// fallback that profile names (`fallback`, `docs/llm-seat.md` §"A fallback
+/// profile"), in the order they take over, with the mind each declares as
+/// it does; for `house:<level>` ([`house_level`]), the house at that level
+/// and no fallback.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Chain {
     pub mind: baylee_gamehost::record::Mind,
     pub fallbacks: Vec<(String, baylee_gamehost::record::Mind)>,
 }
 
+/// What a pairing entry starts with to seat the house rather than a
+/// profile: `house:sharp` is the house at its sharp level, the opponent the
+/// trained net is measured against.
+const HOUSE: &str = "house:";
+
+/// The house level a pairing entry names (`house:sharp` names `sharp`), or
+/// `None` for a profile of the profiles file. Such an entry is never looked
+/// up there.
+pub fn house_level(entry: &str) -> Option<&str> {
+    entry.strip_prefix(HOUSE)
+}
+
+/// The [`Chain`] of the house at `level`: the mind `baylee-seat join --mind
+/// house --level <level>` declares (`declare::house`), and no fallback.
+/// Refused for a level the house does not play (`AIProfile::NAMED`).
+fn house_chain(level: &str) -> anyhow::Result<Chain> {
+    let levels = baylee_core::preset::AIProfile::NAMED.map(|(name, _)| name);
+    ensure!(
+        levels.contains(&level),
+        "No house level called {level}: the house plays {}",
+        levels.join(", ")
+    );
+    let declared = baylee_seat::declare::house(level);
+    let mind = baylee_gamehost::record::Mind::from_wire(&declared).map_err(anyhow::Error::msg)?;
+    Ok(Chain {
+        mind,
+        fallbacks: Vec::new(),
+    })
+}
+
 impl Chain {
+    /// Whether the house plays the seat (a pairing's `house:<level>`).
+    pub fn is_house(&self) -> bool {
+        self.mind.kind == baylee_gamehost::record::MindKind::House
+    }
+
+    /// The seat's name in the request's `models`, the stats and the logs:
+    /// the model its profile declares, or `house:<level>` for the house.
+    pub fn model(&self) -> String {
+        if self.is_house() {
+            format!("{HOUSE}{}", self.mind.level)
+        } else {
+            self.mind.model.clone()
+        }
+    }
+
     /// The fallback profiles, in order.
     pub fn fallback_profiles(&self) -> Vec<String> {
         self.fallbacks
@@ -285,8 +332,9 @@ fn declared(
     Ok((plan, mind))
 }
 
-/// The [`Chain`] of `profile` in the profiles file: refused where a
-/// fallback is missing, is the profile itself or is named twice, plays an
+/// The [`Chain`] of a pairing entry: the house's for `house:<level>`
+/// ([`house_chain`]), else `profile`'s in the profiles file, refused where
+/// a fallback is missing, is the profile itself or is named twice, plays an
 /// agent CLI (a fallback is a model behind an API), or names no explicit
 /// model, so that every fallback a request lists is one the bridge seats.
 pub fn requested_chain(
@@ -294,6 +342,9 @@ pub fn requested_chain(
     paths: &baylee_seat::config::Paths,
     profile: &str,
 ) -> anyhow::Result<Chain> {
+    if let Some(level) = house_level(profile) {
+        return house_chain(level);
+    }
     let (plan, mind) = declared(settings, paths, profile)?;
     let mut fallbacks: Vec<(String, baylee_gamehost::record::Mind)> = Vec::new();
     for fallback in &plan.fallback {
@@ -363,9 +414,15 @@ impl PairingPlan {
                 seen.insert(pair.clone()),
                 "Duplicate profile pair in pairings plan"
             );
+            // The house is the opponent a teacher is measured against;
+            // against itself it measures no teacher.
+            ensure!(
+                !pair.iter().all(|entry| house_level(entry).is_some()),
+                "Pairing {pair:?} seats the house against the house"
+            );
             for profile in pair {
                 let chain = requested_chain(settings.as_ref(), &paths, profile)?;
-                models.insert(profile.clone(), chain.mind.model.clone());
+                models.insert(profile.clone(), chain.model());
                 chains.insert(profile.clone(), chain);
             }
         }
@@ -905,6 +962,11 @@ impl Scheduler {
     }
 
     /// Recompute `stats.json` and `stats.csv` identically to `core.py::summarize`.
+    ///
+    /// A house seat (a pairing's `house:<level>`, its model so named) counts
+    /// its answers as `house_answers`: never a model's, and never a
+    /// fallback's, since it has no model to fall back from; so it counts in
+    /// neither `fallback_game_count` nor `completed_with_no_fallback`.
     #[allow(clippy::too_many_lines, clippy::items_after_statements)]
     pub fn summarize(&self) -> anyhow::Result<Value> {
         let rows = self.load_receipts();
@@ -932,6 +994,7 @@ impl Scheduler {
             fallback_answers: u64,
             llm_answers: u64,
             standing_answers: u64,
+            house_answers: u64,
             fallback_game_count: u64,
             completed_with_no_fallback: u64,
         }
@@ -972,6 +1035,7 @@ impl Scheduler {
                     .to_owned();
                 let m_self = models[seat].as_str().unwrap_or("unknown").to_owned();
                 let m_other = models[other].as_str().unwrap_or("unknown").to_owned();
+                let house_seat = house_level(&m_self).is_some();
                 let key = (d_key, m_self, o_key, m_other, fmt, seat);
                 let g = groups.entry(key).or_default();
                 g.attempts += 1;
@@ -1004,10 +1068,12 @@ impl Scheduler {
                     let h = counts.get("house").and_then(Value::as_u64).unwrap_or(0);
                     let l = counts.get("llm").and_then(Value::as_u64).unwrap_or(0);
                     let st = counts.get("standing").and_then(Value::as_u64).unwrap_or(0);
-                    g.fallback_answers += h;
                     g.llm_answers += l;
                     g.standing_answers += st;
-                    if h > 0 {
+                    if house_seat {
+                        g.house_answers += h;
+                    } else if h > 0 {
+                        g.fallback_answers += h;
                         g.fallback_game_count += 1;
                     } else {
                         g.completed_with_no_fallback += 1;
@@ -1030,6 +1096,7 @@ impl Scheduler {
             d.fallback_answers += g.fallback_answers;
             d.llm_answers += g.llm_answers;
             d.standing_answers += g.standing_answers;
+            d.house_answers += g.house_answers;
             d.fallback_game_count += g.fallback_game_count;
             d.completed_with_no_fallback += g.completed_with_no_fallback;
 
@@ -1058,6 +1125,7 @@ impl Scheduler {
                 "fallback_answers": g.fallback_answers,
                 "llm_answers": g.llm_answers,
                 "standing_answers": g.standing_answers,
+                "house_answers": g.house_answers,
                 "fallback_game_count": g.fallback_game_count,
                 "completed_with_no_fallback": g.completed_with_no_fallback,
                 "win_rate": win_rate,
@@ -1087,6 +1155,7 @@ impl Scheduler {
                     "fallback_answers": g.fallback_answers,
                     "llm_answers": g.llm_answers,
                     "standing_answers": g.standing_answers,
+                    "house_answers": g.house_answers,
                     "fallback_game_count": g.fallback_game_count,
                     "completed_with_no_fallback": g.completed_with_no_fallback,
                     "win_rate": win_rate,
@@ -1107,7 +1176,7 @@ impl Scheduler {
         write_atomic_json(&self.root.join("stats.json"), &value)?;
 
         let mut csv = String::from(
-            "deck,model,opponent_deck,opponent_model,format,seat,attempts,completed,wins,losses,draws,incomplete,errors,fallback_answers,llm_answers,standing_answers,fallback_game_count,completed_with_no_fallback,win_rate\n",
+            "deck,model,opponent_deck,opponent_model,format,seat,attempts,completed,wins,losses,draws,incomplete,errors,fallback_answers,llm_answers,standing_answers,house_answers,fallback_game_count,completed_with_no_fallback,win_rate\n",
         );
         for ((deck, model, opp_deck, opp_model, fmt, seat), g) in &groups {
             let wr = if g.completed > 0 {
@@ -1121,7 +1190,7 @@ impl Scheduler {
             };
             let _ = writeln!(
                 csv,
-                "{deck},{model},{opp_deck},{opp_model},{fmt},{seat},{},{},{},{},{},{},{},{},{},{},{},{},{wr}",
+                "{deck},{model},{opp_deck},{opp_model},{fmt},{seat},{},{},{},{},{},{},{},{},{},{},{},{},{},{wr}",
                 g.attempts,
                 g.completed,
                 g.wins,
@@ -1132,6 +1201,7 @@ impl Scheduler {
                 g.fallback_answers,
                 g.llm_answers,
                 g.standing_answers,
+                g.house_answers,
                 g.fallback_game_count,
                 g.completed_with_no_fallback,
             );
@@ -1250,6 +1320,157 @@ mod tests {
                 "{refused}"
             );
         }
+    }
+
+    /// `house:<level>` seats the house at that level, never looked up in
+    /// the profiles file: its mind is the one `join --mind house` declares,
+    /// with no fallback, and its model `house:<level>`. A level the house
+    /// does not play, and the house against the house, refuse the plan.
+    #[test]
+    fn pairing_plan_seats_the_house_at_a_level_it_plays() {
+        let dir = TestDir::new("pairing-house");
+        let config = profiles(dir.path());
+        let path = dir.path().join("pairings.json");
+        write_atomic_json(
+            &path,
+            &json!([
+                ["house:sharp", "terra"],
+                ["terra", "house:sharp"],
+                ["flash-low", "house:expert"]
+            ]),
+        )
+        .unwrap();
+        let plan = PairingPlan::load(&config, Some(path.clone())).unwrap();
+        assert_eq!(plan.models["house:sharp"], "house:sharp");
+        assert_eq!(plan.models["house:expert"], "house:expert");
+        assert_eq!(plan.models["terra"], "gpt-6.1-terra");
+        let house = &plan.chains["house:sharp"];
+        assert!(house.is_house() && !plan.chains["terra"].is_house());
+        assert!(house.fallbacks.is_empty());
+        assert_eq!(
+            serde_json::to_value(house.minds()).unwrap(),
+            json!([{"kind": "house", "level": "sharp"}])
+        );
+        for refused in [
+            json!([["house:wizard", "terra"]]),
+            json!([["house:", "terra"]]),
+            json!([["house:Sharp", "terra"]]),
+            json!([["house:sharp", "house:sharp"]]),
+            json!([["terra", "terra"], ["house:steady", "house:sharp"]]),
+        ] {
+            write_atomic_json(&path, &refused).unwrap();
+            assert!(
+                PairingPlan::load(&config, Some(path.clone())).is_err(),
+                "{refused}"
+            );
+        }
+    }
+
+    /// A game against the house freezes the house's model and empty chain
+    /// in the request, and the stats count the house seat's answers as its
+    /// own (`house_answers`), never a model's or a fallback's, while the
+    /// model it played keeps its fallbacks.
+    #[test]
+    fn a_game_against_the_house_is_requested_and_counted_as_the_house_s() {
+        let dir = TestDir::new("sched-house");
+        let decks: Vec<Value> = (0..2)
+            .map(|i| {
+                let p = dir.path().join(format!("d{i}.txt"));
+                std::fs::write(&p, "60 Plains\n").unwrap();
+                json!({"key": format!("d-{i}"), "name": format!("Deck {i}"), "path": p,
+                    "sha256": sha256_file(&p).unwrap(), "format": "Constructed"})
+            })
+            .collect();
+        let manifest = dir.path().join("deck-manifest.json");
+        write_atomic_json(&manifest, &json!({ "decks": decks })).unwrap();
+        let config = profiles(dir.path());
+        let pairings = dir.path().join("pairings.json");
+        write_atomic_json(&pairings, &json!([["house:sharp", "terra"]])).unwrap();
+        let mut sched = Scheduler::new(
+            dir.path().to_path_buf(),
+            "http://127.0.0.1:28768".to_owned(),
+            config,
+            Some(pairings),
+            &manifest,
+            90,
+            3600,
+        )
+        .unwrap();
+        let assignment = sched.next_assignment(0).unwrap();
+        let request = &assignment.request;
+        assert_eq!(request["profiles"], json!(["house:sharp", "terra"]));
+        assert_eq!(request["models"], json!(["house:sharp", "gpt-6.1-terra"]));
+        assert_eq!(request["fallback_profiles"], json!([[], []]));
+        assert_eq!(request["requested_fallbacks"], json!([[], []]));
+
+        let counts = |llm: u64, house: u64, standing: u64| {
+            json!({"transcript_answer_counts":
+                {"llm": llm, "house": house, "standing": standing, "other": 0}})
+        };
+        write_atomic_json(
+            &assignment.attempt_dir.join("receipt.json"),
+            &json!({
+                "status": "admitted",
+                "request": request,
+                "technical": {
+                    "record_sha256": "a".repeat(64),
+                    "terminal": {"winner_seat": 1, "draw": false},
+                    "seats": [counts(0, 40, 3), counts(30, 2, 5)],
+                },
+            }),
+        )
+        .unwrap();
+        let stats = sched.complete_assignment(&assignment.attempt_id).unwrap();
+        let stratum = |seat: usize| -> &Value {
+            stats["strata"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["seat"] == seat)
+                .unwrap()
+        };
+        let (house, model) = (stratum(0), stratum(1));
+        assert_eq!(
+            (&house["model"], &house["opponent_model"]),
+            (&json!("house:sharp"), &json!("gpt-6.1-terra"))
+        );
+        assert_eq!(
+            [
+                &house["house_answers"],
+                &house["llm_answers"],
+                &house["standing_answers"]
+            ],
+            [&json!(40), &json!(0), &json!(3)]
+        );
+        assert_eq!(
+            [&house["fallback_answers"], &house["fallback_game_count"]],
+            [&json!(0), &json!(0)]
+        );
+        assert_eq!(house["completed_with_no_fallback"], 0);
+        assert_eq!((&house["losses"], &model["wins"]), (&json!(1), &json!(1)));
+        assert_eq!(
+            [
+                &model["llm_answers"],
+                &model["fallback_answers"],
+                &model["house_answers"]
+            ],
+            [&json!(30), &json!(2), &json!(0)]
+        );
+        assert_eq!(model["fallback_game_count"], 1);
+        let csv = std::fs::read_to_string(dir.path().join("stats.csv")).unwrap();
+        let header: Vec<&str> = csv.lines().next().unwrap().split(',').collect();
+        let row: Vec<&str> = csv
+            .lines()
+            .find(|line| line.split(',').nth(1) == Some("house:sharp"))
+            .unwrap()
+            .split(',')
+            .collect();
+        assert_eq!(header.len(), row.len());
+        let column = header
+            .iter()
+            .position(|name| *name == "house_answers")
+            .unwrap();
+        assert_eq!(row[column], "40");
     }
 
     #[test]

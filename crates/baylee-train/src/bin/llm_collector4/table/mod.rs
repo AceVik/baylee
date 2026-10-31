@@ -22,8 +22,8 @@ use crate::audit::{
     validate_technical_result, write_atomic_json,
 };
 use crate::schedule::{
-    Assignment, Chain, DeckInventory, collector_room_setup, derive_cli_decks, parse_deck_inventory,
-    requested_chain,
+    Assignment, Chain, DeckInventory, collector_room_setup, derive_cli_decks, house_level,
+    parse_deck_inventory, requested_chain,
 };
 use crate::teacher::OwnDatabase;
 use baylee_db::sea_orm::DatabaseConnection;
@@ -509,6 +509,9 @@ pub struct SeatLaunch<'a> {
     pub game_id: &'a str,
     pub seat: usize,
     pub gateway: &'a str,
+    /// The pairing entry the seat plays: a profile of `profiles_config`, or
+    /// `house:<level>` for the house, which reads no profile, key or spend
+    /// book ([`house_level`]).
     pub profile: &'a str,
     /// The fallbacks the profile names, in the order they take over: each
     /// a `--fallback-profile` of the same profiles file and spend book.
@@ -525,9 +528,11 @@ pub struct SeatLaunch<'a> {
 impl SeatLaunch<'_> {
     /// The command that starts the bridge, its environment cleared to the
     /// variables it needs and the key variable of every API profile of its
-    /// chain, read through `env`, never any other key.
+    /// chain, read through `env`, never any other key. The house plays at
+    /// its level with no profile, so it reserves nothing and reads no key.
     fn command(&self, env: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<Command> {
         let seat = self.seat;
+        let house = house_level(self.profile);
         let mut cmd = Command::new(self.seat_bin);
         cmd.arg("join")
             .arg(self.game_id)
@@ -535,19 +540,29 @@ impl SeatLaunch<'_> {
             .arg(self.gateway)
             .arg("--chair")
             .arg(seat.to_string())
-            .arg("--tethered")
-            .arg("--profile")
-            .arg(self.profile)
-            .arg("--config")
-            .arg(self.profiles_config)
-            .arg("--ledger")
-            .arg(self.ledger)
-            .arg("--deck")
+            .arg("--tethered");
+        if let Some(level) = house {
+            cmd.arg("--mind").arg("house").arg("--level").arg(level);
+        } else {
+            // The house a model falls back to plays sharp.
+            cmd.arg("--profile")
+                .arg(self.profile)
+                .arg("--config")
+                .arg(self.profiles_config)
+                .arg("--ledger")
+                .arg(self.ledger)
+                .arg("--level")
+                .arg("sharp");
+            // Named explicitly, as the request froze them: each in the
+            // profiles file and the slot's spend book, as the profile is.
+            for fallback in self.fallbacks {
+                cmd.arg("--fallback-profile").arg(fallback);
+            }
+        }
+        cmd.arg("--deck")
             .arg(self.deck_path)
             .arg("--think-secs")
             .arg(self.think_secs.to_string())
-            .arg("--level")
-            .arg("sharp")
             .arg("--transcripts")
             .arg(self.transcripts_dir)
             .arg("--name")
@@ -557,11 +572,6 @@ impl SeatLaunch<'_> {
             } else {
                 "--chair-ticket"
             });
-        // Named explicitly, as the request froze them: each in the
-        // profiles file and the slot's spend book, as the profile is.
-        for fallback in self.fallbacks {
-            cmd.arg("--fallback-profile").arg(fallback);
-        }
         if !self.send_reports {
             cmd.arg("--no-send-reports");
         }
@@ -592,9 +602,11 @@ impl SeatLaunch<'_> {
         // An API profile's key, on a machine without a credential store, is
         // read from its own variable (`docs/llm-seat.md` §"Where a key is
         // kept"): forward exactly those of the chain, never any other key.
-        for name in chain_key_envs(self.profiles_config, self.profile, self.fallbacks)? {
-            if let Some(val) = env(&name) {
-                cmd.env(name, val);
+        if house.is_none() {
+            for name in chain_key_envs(self.profiles_config, self.profile, self.fallbacks)? {
+                if let Some(val) = env(&name) {
+                    cmd.env(name, val);
+                }
             }
         }
         cmd.env("OMP_NUM_THREADS", "1")
@@ -813,7 +825,7 @@ fn validate_profile_pins(
     for (seat, profile) in profiles.iter().enumerate() {
         let chain = requested_chain(settings.as_ref(), &paths, profile)?;
         ensure!(
-            chain.mind.model == models[seat],
+            chain.model() == models[seat],
             "Requested profile/model mismatch for seat {seat}"
         );
         let frozen = request
@@ -1322,7 +1334,9 @@ pub async fn run_attempt(
         }
         for seat in [0_usize, 1_usize] {
             let tr_path = transcripts_dir.join(format!("{game_id}-seat{seat}.jsonl"));
-            let (counts, limited) = audit_transcript(&tr_path, &proof.inputs[seat])?;
+            // A house seat's mind is the house: none of its answers is a model's.
+            let house_seat = requested.chains[seat].is_house();
+            let (counts, limited) = audit_transcript(&tr_path, &proof.inputs[seat], house_seat)?;
             quota |= limited;
             let mut src_counts = serde_json::Map::new();
             for v in &proof.inputs[seat] {
@@ -1341,7 +1355,7 @@ pub async fn run_attempt(
             }));
             artifacts.push(pin(&tr_path, &format!("transcript_seat{seat}"))?);
             let prov_path = out.join(format!("input-provenance-seat{seat}.json"));
-            let attr = ordered_attribution(&tr_path, &proof.inputs[seat])?;
+            let attr = ordered_attribution(&tr_path, &proof.inputs[seat], house_seat)?;
             write_atomic_json(&prov_path, &attr)?;
             artifacts.push(pin(&prov_path, &format!("executed_provenance_seat{seat}"))?);
         }

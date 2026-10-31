@@ -403,107 +403,52 @@ fn anonymise_zeroes_human_ids_and_at_and_rejects_leaks() {
     assert!(anonymise(leaked, &names).is_err());
 }
 
-#[test]
-#[allow(
-    clippy::too_many_lines,
-    reason = "Complete technical audit fixture binds all independent record and seat artifacts"
-)]
-fn full_audit_and_validation_matches_prepare_llm_bc4_contract() {
-    let dir = TestDir::new("audit");
-    let work = dir.path();
+fn write_gz(path: &Path, rows: &[Value]) {
+    let file = std::fs::File::create(path).unwrap();
+    let mut gz = GzEncoder::new(file, Compression::default());
+    for row in rows {
+        writeln!(gz, "{row}").unwrap();
+    }
+    gz.finish().unwrap();
+}
+
+/// A complete game in `work` between `minds` (seat 0's, then seat 1's),
+/// each seat one pass its bridge wrote `by: mind`, audited as the collector
+/// audits it, seat `n` a house seat where `house[n]`: the record's proof,
+/// the technical result with every artifact pinned, and the request.
+fn audited_game(
+    work: &Path,
+    minds: &[baylee_gamehost::record::Mind; 2],
+    models: &[String; 2],
+    house: [bool; 2],
+) -> (RecordProof, Value, Value) {
     std::fs::create_dir_all(work.join("official-export")).unwrap();
     std::fs::create_dir_all(work.join("transcripts")).unwrap();
-
     let rec_path = work.join("official-export/000001.jsonl.gz");
-    let rec_lines = concat!(
-        r#"{"kind":"header","format":"Constructed","rules":{"starting_life":20},"preset":{"seed":777,"seats":[{"name":"Seat 0","deck":[]},{"name":"Seat 1","deck":[]}]}}"#,
-        "\n",
-        r#"{"kind":"declared_mind","seat":0,"mind":{"kind":"llm_cli","provider":"agy","model":"gemini-4-argon-low","effort":"low"},"at":0}"#,
-        "\n",
-        r#"{"kind":"declared_mind","seat":1,"mind":{"kind":"llm_cli","provider":"agy","model":"gemini-3.8-flash-low","effort":"low"},"at":0}"#,
-        "\n",
-        r#"{"kind":"input","n":0,"seat":0,"by":"seat","action":"PassPriority","at":0}"#,
-        "\n",
-        r#"{"kind":"input","n":1,"seat":1,"by":"seat","action":"PassPriority","at":0}"#,
-        "\n",
-        r#"{"kind":"end","winners":[0],"at":0}"#,
-        "\n"
+    write_gz(
+        &rec_path,
+        &[
+            json!({"kind":"header","format":"Constructed","rules":{"starting_life":20},
+                "preset":{"seed":777,"seats":[{"name":"Seat 0","deck":[]},{"name":"Seat 1","deck":[]}]}}),
+            json!({"kind":"declared_mind","seat":0,"mind":minds[0],"at":0}),
+            json!({"kind":"declared_mind","seat":1,"mind":minds[1],"at":0}),
+            json!({"kind":"input","n":0,"seat":0,"by":"seat","action":"PassPriority","at":0}),
+            json!({"kind":"input","n":1,"seat":1,"by":"seat","action":"PassPriority","at":0}),
+            json!({"kind":"end","winners":[0],"at":0}),
+        ],
     );
-    {
-        let f = std::fs::File::create(&rec_path).unwrap();
-        let mut gz = GzEncoder::new(f, Compression::default());
-        gz.write_all(rec_lines.as_bytes()).unwrap();
-        gz.finish().unwrap();
-    }
     let tape_path = work.join("public-replay.jsonl.gz");
-    let tape_lines = concat!(
-        r#"{"kind":"header","format":"Constructed"}"#,
-        "\n",
-        r#"{"kind":"stop","stop":"end","inputs":2,"exact_to":1,"diverged":null}"#,
-        "\n"
+    write_gz(
+        &tape_path,
+        &[
+            json!({"kind":"header","format":"Constructed"}),
+            json!({"kind":"stop","stop":"end","inputs":2,"exact_to":1,"diverged":null}),
+        ],
     );
-    {
-        let f = std::fs::File::create(&tape_path).unwrap();
-        let mut gz = GzEncoder::new(f, Compression::default());
-        gz.write_all(tape_lines.as_bytes()).unwrap();
-        gz.finish().unwrap();
-    }
-    let tr0_path = work.join("transcripts/game1-seat0.jsonl");
-    std::fs::write(
-        &tr0_path,
-        concat!(
-            r#"{"event":"answered","question":1,"by":"mind","action":"PassPriority"}"#,
-            "\n",
-            r#"{"event":"over"}"#,
-            "\n"
-        ),
-    )
-    .unwrap();
-    let tr1_path = work.join("transcripts/game1-seat1.jsonl");
-    std::fs::write(
-        &tr1_path,
-        concat!(
-            r#"{"event":"answered","question":1,"by":"mind","action":"PassPriority"}"#,
-            "\n",
-            r#"{"event":"over"}"#,
-            "\n"
-        ),
-    )
-    .unwrap();
-
-    let models = [
-        "gemini-4-argon-low".to_owned(),
-        "gemini-3.8-flash-low".to_owned(),
-    ];
-    let expected_minds = models.clone().map(|model| baylee_gamehost::record::Mind {
-        kind: baylee_gamehost::record::MindKind::LlmCli,
-        provider: "agy".into(),
-        model,
-        effort: "low".into(),
-        level: String::new(),
-    });
-    let proof = audit_record(&rec_path, &expected_minds.clone().map(|mind| vec![mind])).unwrap();
-    for (seat, mind) in expected_minds.iter().enumerate() {
-        assert_eq!(
-            proof.declared[seat],
-            [json!({"mind": mind, "chain_index": 0, "first_input_n": seat})]
-        );
-    }
-    assert_eq!(proof.actual_seed, 777);
-    assert_eq!(proof.input_count, 2);
-    let (counts0, q0) = audit_transcript(&tr0_path, &proof.inputs[0]).unwrap();
-    let (counts1, q1) = audit_transcript(&tr1_path, &proof.inputs[1]).unwrap();
-    assert!(!q0 && !q1);
-    let prov0 = ordered_attribution(&tr0_path, &proof.inputs[0]).unwrap();
-    let prov1 = ordered_attribution(&tr1_path, &proof.inputs[1]).unwrap();
+    let proof = audit_record(&rec_path, &minds.clone().map(|mind| vec![mind])).unwrap();
     let stop = audit_tape_rows(&read_jsonl(&tape_path).unwrap(), &proof).unwrap();
     assert_eq!(stop["inputs"], 2);
-
-    let prov0_path = work.join("input-provenance-seat0.json");
-    let prov1_path = work.join("input-provenance-seat1.json");
     let rep_receipt = work.join("replay-receipt.json");
-    write_atomic_json(&prov0_path, &prov0).unwrap();
-    write_atomic_json(&prov1_path, &prov1).unwrap();
     write_atomic_json(&rep_receipt, &json!({"status": "verified", "stop": stop})).unwrap();
     write_atomic_json(&work.join("room-state.json"), &json!({"status": "closed"})).unwrap();
 
@@ -514,39 +459,47 @@ fn full_audit_and_validation_matches_prepare_llm_bc4_contract() {
             "role": role,
         })
     };
-    let artifacts = vec![
+    let mut artifacts = vec![
         pin(&rec_path, "anonymized_record"),
-        pin(&tr0_path, "transcript_seat0"),
-        pin(&prov0_path, "executed_provenance_seat0"),
-        pin(&tr1_path, "transcript_seat1"),
-        pin(&prov1_path, "executed_provenance_seat1"),
         pin(&tape_path, "replay_tape"),
         pin(&rep_receipt, "replay_receipt"),
     ];
+    let mut seats = Vec::new();
+    for seat in 0..2 {
+        let tr_path = work.join(format!("transcripts/game1-seat{seat}.jsonl"));
+        std::fs::write(
+            &tr_path,
+            concat!(
+                r#"{"event":"answered","question":1,"by":"mind","action":"PassPriority"}"#,
+                "\n",
+                r#"{"event":"over"}"#,
+                "\n"
+            ),
+        )
+        .unwrap();
+        let (counts, quota) = audit_transcript(&tr_path, &proof.inputs[seat], house[seat]).unwrap();
+        assert!(!quota);
+        let prov_path = work.join(format!("input-provenance-seat{seat}.json"));
+        let provenance = ordered_attribution(&tr_path, &proof.inputs[seat], house[seat]).unwrap();
+        write_atomic_json(&prov_path, &provenance).unwrap();
+        artifacts.push(pin(&tr_path, &format!("transcript_seat{seat}")));
+        artifacts.push(pin(&prov_path, &format!("executed_provenance_seat{seat}")));
+        seats.push(json!({
+            "seat": seat,
+            "model": models[seat],
+            "declared_mind_verified": true,
+            "declared_minds": proof.declared[seat],
+            "transcript_answer_counts": counts,
+            "executed_input_sources": {"seat": 1},
+        }));
+    }
     let result = json!({
         "schema_version": 1,
         "status": "complete",
         "game_id": "game1",
         "actual_seed": proof.actual_seed,
         "terminal": proof.terminal,
-        "seats": [
-            {
-                "seat": 0,
-                "model": models[0],
-                "declared_mind_verified": true,
-                "declared_minds": proof.declared[0],
-                "transcript_answer_counts": counts0,
-                "executed_input_sources": {"seat": 1},
-            },
-            {
-                "seat": 1,
-                "model": models[1],
-                "declared_mind_verified": true,
-                "declared_minds": proof.declared[1],
-                "transcript_answer_counts": counts1,
-                "executed_input_sources": {"seat": 1},
-            }
-        ],
+        "seats": seats,
         "checks": {
             "connection": true,
             "view_boundary": true,
@@ -560,9 +513,37 @@ fn full_audit_and_validation_matches_prepare_llm_bc4_contract() {
         "ppo_eligible": false,
         "quota_limited": false,
     });
-    let req = json!({
-        "models": models,
+    (proof, result, json!({"models": models}))
+}
+
+#[test]
+fn full_audit_and_validation_matches_prepare_llm_bc4_contract() {
+    let dir = TestDir::new("audit");
+    let work = dir.path();
+    let models = [
+        "gemini-4-argon-low".to_owned(),
+        "gemini-3.8-flash-low".to_owned(),
+    ];
+    let expected_minds = models.clone().map(|model| baylee_gamehost::record::Mind {
+        kind: baylee_gamehost::record::MindKind::LlmCli,
+        provider: "agy".into(),
+        model,
+        effort: "low".into(),
+        level: String::new(),
     });
+    let (proof, result, req) = audited_game(work, &expected_minds, &models, [false, false]);
+    for (seat, mind) in expected_minds.iter().enumerate() {
+        assert_eq!(
+            proof.declared[seat],
+            [json!({"mind": mind, "chain_index": 0, "first_input_n": seat})]
+        );
+        assert_eq!(
+            result["seats"][seat]["transcript_answer_counts"],
+            json!({"llm": 1, "house": 0, "standing": 0, "other": 0})
+        );
+    }
+    assert_eq!(proof.actual_seed, 777);
+    assert_eq!(proof.input_count, 2);
     validate_technical_result(&result, &req, work).unwrap();
     // A seat whose declarations are not its chain's, in order, is refused.
     let mut misplaced = result.clone();
@@ -574,4 +555,94 @@ fn full_audit_and_validation_matches_prepare_llm_bc4_contract() {
         .unwrap()
         .remove("declared_minds");
     assert!(validate_technical_result(&missing, &req, work).is_err());
+}
+
+/// A house seat (a pairing's `house:sharp`) declares the house, again on a
+/// new socket as one mind; its answers, which its bridge writes `by: mind`,
+/// are the house's: counted and attributed so, never a model's, and a
+/// result that counts them as a model's is refused. Its game against a
+/// model passes the audit as any other.
+#[test]
+fn a_house_seat_against_a_model_passes_the_audit_as_the_house() {
+    use baylee_gamehost::record::{Mind, MindKind};
+    let dir = TestDir::new("house-seat");
+    let work = dir.path();
+    let house = |level: &str| Mind {
+        kind: MindKind::House,
+        provider: String::new(),
+        model: String::new(),
+        effort: String::new(),
+        level: level.into(),
+    };
+    let sharp = house("sharp");
+    let minds = [sharp.clone(), codex_identity()];
+    let models = ["house:sharp".to_owned(), "gpt-6.1-terra".to_owned()];
+    let (proof, result, req) = audited_game(work, &minds, &models, [true, false]);
+    assert_eq!(
+        proof.declared[0],
+        [
+            json!({"mind": {"kind": "house", "level": "sharp"}, "chain_index": 0, "first_input_n": 0})
+        ]
+    );
+    assert_eq!(
+        result["seats"][0]["transcript_answer_counts"],
+        json!({"llm": 0, "house": 1, "standing": 0, "other": 0})
+    );
+    assert_eq!(
+        result["seats"][1]["transcript_answer_counts"],
+        json!({"llm": 1, "house": 0, "standing": 0, "other": 0})
+    );
+    let provenance = |seat: usize| -> Value {
+        serde_json::from_slice(
+            &std::fs::read(work.join(format!("input-provenance-seat{seat}.json"))).unwrap(),
+        )
+        .unwrap()
+    };
+    assert_eq!(
+        provenance(0)["inputs"][0]["possible_sources"],
+        json!(["house"])
+    );
+    assert_eq!(
+        provenance(1)["inputs"][0]["possible_sources"],
+        json!(["llm"])
+    );
+    validate_technical_result(&result, &req, work).unwrap();
+    let mut as_model = result;
+    as_model["seats"][0]["transcript_answer_counts"]["llm"] = json!(1);
+    assert!(validate_technical_result(&as_model, &req, work).is_err());
+
+    // The house declared again on a new socket is the mind playing now; a
+    // model, or the house at another level (first or after it: the house
+    // takes over only a chain of models), is not the seat's.
+    let path = work.join("chain.jsonl");
+    let chains = [vec![sharp.clone()], vec![codex_identity()]];
+    write_chain_record(&path, &[&sharp, &sharp]);
+    let proof = audit_record(&path, &chains).unwrap();
+    assert_eq!(
+        proof.declared[0],
+        [json!({"mind": &sharp, "chain_index": 0, "first_input_n": 0})]
+    );
+    for seat0 in [
+        vec![codex_identity()],
+        vec![house("steady")],
+        vec![sharp.clone(), house("steady")],
+        vec![sharp.clone(), codex_identity()],
+    ] {
+        write_chain_record(&path, &seat0.iter().collect::<Vec<_>>());
+        assert!(audit_record(&path, &chains).is_err(), "{seat0:?}");
+    }
+
+    // A house seat whose house answered nothing has not played.
+    let standing = work.join("standing.jsonl");
+    std::fs::write(
+        &standing,
+        concat!(
+            r#"{"event":"standing","question":1,"action":"PassPriority"}"#,
+            "\n",
+            r#"{"event":"over"}"#,
+            "\n"
+        ),
+    )
+    .unwrap();
+    assert!(audit_transcript(&standing, &[], true).is_err());
 }
