@@ -186,6 +186,22 @@ fn api_teachers_are_bound_to_their_requested_identity() -> Result<()> {
     assert!(identity::verify(&request, &spoofed, &evidence(&bound)?).is_err());
     Ok(())
 }
+/// `JetBrains`' Junie teaches at any effort; agy and Codex only at low.
+#[test]
+fn a_junie_teacher_takes_any_effort_and_the_first_clis_only_low() {
+    let junie = json!({"kind":"llm_cli","provider":"junie","model":"junie-lite","effort":"medium"});
+    assert!(identity::teacher(&junie, "junie-lite"));
+    assert!(!identity::teacher(&junie, "opus"));
+    let agy =
+        json!({"kind":"llm_cli","provider":"agy","model":"gemini-3.8-flash-low","effort":"medium"});
+    assert!(!identity::teacher(&agy, "gemini-3.8-flash-low"));
+    let codex = json!({"kind":"llm_cli","provider":"codex","model":"gpt-6.1-terra","effort":"low"});
+    assert!(identity::teacher(&codex, "gpt-6.1-terra"));
+    assert!(!identity::teacher(
+        &json!({"kind":"llm_cli","provider":"agy","model":"gpt-6.1-terra","effort":"low"}),
+        "gpt-6.1-terra"
+    ));
+}
 #[test]
 fn earliest_admitted_selection_and_existing_output_are_explicit() -> Result<()> {
     let directory = tempfile::tempdir()?;

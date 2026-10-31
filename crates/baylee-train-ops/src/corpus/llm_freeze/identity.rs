@@ -3,19 +3,24 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 
 /// Whether `mind`, as a game's request asked for it or its record declares
-/// it, is a teacher whose games may become LLM-BC data for `model`: a CLI
-/// at effort low (Codex for Terra, agy for every other model), or a model
-/// behind an API, Anthropic's or an OpenAI-compatible one, at whatever
-/// effort its profile set. Neither declares a house level.
+/// it, is a teacher whose games may become LLM-BC data for `model`: the
+/// first corpus's CLIs at effort low (Codex for Terra, agy for every other
+/// model), `JetBrains`' Junie, or a model behind an API, Anthropic's or an
+/// OpenAI-compatible one; the last two at whatever effort their profile
+/// set. None declares a house level.
 #[must_use]
 pub fn teacher(mind: &Value, model: &str) -> bool {
-    let cli = || {
-        let tool = if model == "gpt-6.1-terra" {
-            "codex"
-        } else {
-            "agy"
-        };
-        mind["provider"] == tool && mind["effort"] == "low"
+    let cli = || match mind["provider"].as_str() {
+        Some(tool @ ("agy" | "codex")) => {
+            let expected = if model == "gpt-6.1-terra" {
+                "codex"
+            } else {
+                "agy"
+            };
+            tool == expected && mind["effort"] == "low"
+        }
+        Some("junie") => mind.get("effort").is_none_or(Value::is_string),
+        _ => false,
     };
     let api = || {
         matches!(mind["provider"].as_str(), Some("anthropic" | "openai"))
