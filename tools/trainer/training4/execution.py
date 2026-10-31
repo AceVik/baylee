@@ -77,6 +77,13 @@ def encode_boards(net, batch, chunk, device, entity_bucket=0):
         return None
     chunk = max(1, chunk)
     b, unroll = batch["step_valid"].shape
+    # An optional token budget shrinks the chunk on large boards so one trunk
+    # call never holds more tokens than the budget: small boards keep the
+    # fewer, larger launches, the largest stay at the single-frame footprint.
+    budget = getattr(net, "board_token_budget", 0)
+    if budget:
+        tokens_per_frame = b * (M.RECURRENT_SLOTS + batch["entity_feat"].shape[2])
+        chunk = max(1, min(chunk, budget // tokens_per_frame))
     result = []
     for start in range(0, unroll, chunk):
         end = min(start + chunk, unroll)
