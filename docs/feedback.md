@@ -172,9 +172,10 @@ changes is where the report goes and in what shape:
 Once the gateways are switched, the reports still open at the service are
 copied to Central once: `baylee-feedback export-reports` (with
 `FEEDBACK_DATABASE_URL` as for serving) writes them to standard output, and
-Central's `central-service --import-reports-stdin` takes them, its
-operator's line first (baylee-central `docs/operations.md`), so the copy
-travels through a pipe and never lands in a file. Standard error says how
+Central's `central-service --import-reports-stdin` takes them, after its
+migration document and the administrator the copied notes are filed under
+(baylee-central `docs/operations.md`), so the copy travels through a pipe
+and never lands in a file. Standard error says how
 many were written and how many left out.
 
 JSON Lines, UTF-8: every report outside the trash whose status is `new`,
