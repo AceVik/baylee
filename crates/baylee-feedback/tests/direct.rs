@@ -453,12 +453,12 @@ async fn a_browser_may_post_a_direct_report_from_any_origin() {
 }
 
 /// The proxy's part (`scripts/server/feedback-direct.caddy`) passes the
-/// direct route and the contact form's route, and nothing else, to the
-/// service where it binds by default, bounds each body no tighter than the
-/// service does (a report or a message the service takes is never cut off
-/// before it), and keeps no access log.
+/// direct route, the contact form's route and, for now, a gateway's intake
+/// (#408), and nothing else, to the service where it binds by default,
+/// bounds each body no tighter than the service does (a report or a message
+/// the service takes is never cut off before it), and keeps no access log.
 #[test]
-fn the_proxy_passes_the_direct_route_alone_and_bounds_it_no_tighter() {
+fn the_proxy_passes_its_routes_alone_and_bounds_them_no_tighter() {
     let caddy = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../scripts/server/feedback-direct.caddy"),
@@ -473,22 +473,28 @@ fn the_proxy_passes_the_direct_route_alone_and_bounds_it_no_tighter() {
     assert!(directives.contains(&"handle @baylee_direct_report {"));
     assert!(directives.contains(&"@baylee_contact path /site/contact"));
     assert!(directives.contains(&"handle @baylee_contact {"));
+    assert!(directives.contains(&"@baylee_intake path /intake/reports"));
+    assert!(directives.contains(&"handle @baylee_intake {"));
     assert_eq!(
         directives
             .iter()
             .filter(|l| l.starts_with("reverse_proxy"))
             .collect::<Vec<_>>(),
-        [
-            &"reverse_proxy 127.0.0.1:28780",
-            &"reverse_proxy 127.0.0.1:28780"
-        ],
+        [&"reverse_proxy 127.0.0.1:28780"; 3],
         "one proxy per route, to the service's default bind"
     );
     assert_eq!(
         directives.iter().filter(|l| l.starts_with('@')).count(),
-        2,
-        "two routes and no other"
+        3,
+        "three routes and no other"
     );
+    // The intake's bound is the owner's figure (31.10.2026), well above the
+    // service's own.
+    assert!(
+        directives.contains(&"max_size 512MiB"),
+        "the intake is bounded at 512 MiB"
+    );
+    const { assert!(512 * 1024 * 1024 >= baylee_feedback::MAX_INTAKE_BYTES) };
     let contact_kib: usize = directives
         .iter()
         .filter_map(|l| l.strip_prefix("max_size "))
