@@ -40,7 +40,8 @@ References checked for this implementation:
 
 ## Session lifecycle and recovery
 
-A successful account-auth response hands its password to the vault worker,
+For a gateway's own accounts (not Baylee Central's, which use the account key
+below), a successful account-auth response hands its password to the vault worker,
 bound to the gateway and returned session token. Failed responses discard the
 handoff. Unconsumed handoffs expire after two minutes and are discarded when
 the account/gateway changes. The worker performs the KDF, key-file I/O, legacy
@@ -70,6 +71,43 @@ locked while the player uses the rest of the application. There is no recovery
 backdoor. If the original password is lost, preserve a backup of the whole
 account vault folder before manually moving it aside to create a new device;
 the old history cannot be promised recoverable.
+
+## The account key
+
+The owner, 30.10.2026: the password opens the account's master key once and
+is dropped; it is never kept for anything else. For a Baylee Central account
+the chat's device keys live in Central's encrypted archive
+(`central-chat-sync.md`); a local password vault is only the source of a
+one-time import. Before this change the client kept the password for 120
+seconds after a Central sign-in to open that vault at the first gateway
+admission; that hand-off is gone.
+
+Instead a vault can carry a second way in: its data key wrapped under a key
+derived from the account's master key (`central-crypto`'s local vault key,
+HKDF-SHA-512 over the master key, the account context and the vault's 32-byte
+scope), in `account-key.wrap` beside `password.vault`. Version 1 is exactly 80
+bytes: `BAYAKW01`, a 24-byte nonce, and the XChaCha20-Poly1305 ciphertext and
+tag of the data key, bound to the scope. The vault file itself is never
+changed by it, so a gateway's own account (no master key) opens the vault
+with its password exactly as before.
+
+- **At a Central sign-in with the password**, in the sign-in's own thread
+  and before the password is dropped, every local vault that password opens
+  and that has no wrapper yet gains one (`attach_account_keys`). The scope
+  comes from the vault's folder name, so no gateway or tag is needed. At most
+  eight vaults are tried per sign-in (one Argon2id run each); a vault another
+  process holds is skipped.
+- **At a Central chat start** the import tries the account's key first,
+  through the account worker (which keeps the master key); the password is
+  used only where the player typed it into the existing unlock, and that
+  import then writes the wrapper too.
+- A wrapper of another account or scope, or of a vault made again since
+  (another data key), fails authentication and releases nothing.
+
+The vault file stays password-wrapped: removing that wrapper (or the file)
+once its keys are confirmed in Central's archive would end the password's
+last offline-guessable copy on the device, and is left to a later decision,
+since it deletes or rewrites a player's file.
 
 ## Creation, import, and durable storage
 

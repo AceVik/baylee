@@ -7,7 +7,7 @@ use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use super::{Error, FILE_NAME, RECORD_LEN, Scope, Vault};
+use super::{Error, FILE_NAME, RECORD_LEN, Scope, Vault, WRAP_FILE, WRAP_LEN};
 use crate::social::vault::{KeyHome, SecretSlot, SecretStore, decode_secrets, encode_secrets};
 
 /// An unlocked account vault, with exclusive process ownership until dropped.
@@ -71,23 +71,45 @@ impl ContextGuard {
         Ok(value)
     }
 
-    /// Import existing password-encrypted keys without changing or removing their source.
+    /// Import existing password-encrypted keys without changing or removing
+    /// their source: with the Central account's key where the vault has its
+    /// wrapper, else with the password, which then also writes that wrapper
+    /// when the account's key is at hand (`account-key.wrap`), so the next
+    /// sign-in needs no password.
     ///
     /// # Errors
     /// Missing credentials, wrong passwords and damaged source files fail closed.
     pub fn legacy_keys(
         &self,
+        account_key: Option<&[u8; 32]>,
         password: Option<&str>,
     ) -> Result<Option<zeroize::Zeroizing<[u8; 96]>>, Error> {
         let path = self.dir.join(FILE_NAME);
         if !check_file(&path)? {
             return Ok(None);
         }
-        let vault = Vault::unlock(
-            self.scope.clone(),
-            password.ok_or(Error::Authentication)?,
-            &read_record(&path)?,
-        )?;
+        let record = read_record(&path)?;
+        let wrap = self.dir.join(WRAP_FILE);
+        let by_account = match account_key {
+            Some(key) if check_file(&wrap)? => {
+                Vault::unlock_with_account(self.scope.clone(), key, &read_wrap(&wrap)?, &record)
+                    .ok()
+            }
+            _ => None,
+        };
+        let vault = if let Some(vault) = by_account {
+            vault
+        } else {
+            let vault = Vault::unlock(
+                self.scope.clone(),
+                password.ok_or(Error::Authentication)?,
+                &record,
+            )?;
+            if let Some(key) = account_key {
+                write_record(&wrap, &vault.account_wrap(key)?)?;
+            }
+            vault
+        };
         let bytes = vault.secrets()?;
         let mut keys = zeroize::Zeroizing::new([0; 96]);
         if bytes.len() != keys.len() {
@@ -110,6 +132,62 @@ impl ContextGuard {
     pub fn retire(&self) -> Result<(), Error> {
         write_record(&self.dir.join("central-retired"), b"retired\n")
     }
+}
+
+/// At a Central sign-in with the password, while it is still in hand:
+/// every local vault that password opens gains the account's wrapper
+/// (`account-key.wrap`, from `key_for` and the vault's scope), so a later
+/// sign-in without the password (a pairing) still opens it. The vault files
+/// are not changed. Vaults that already have a wrapper, that another process
+/// holds, or that the password does not open are left as they are; at most
+/// `limit` are tried, since each try costs one Argon2id run. Answers how many
+/// gained a wrapper.
+pub fn attach_account_keys(
+    root: &Path,
+    password: &str,
+    mut key_for: impl FnMut(&Scope) -> Option<zeroize::Zeroizing<[u8; 32]>>,
+    limit: usize,
+) -> usize {
+    let Ok(entries) = std::fs::read_dir(root.join("vault")) else {
+        return 0;
+    };
+    let mut scopes: Vec<Scope> = entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| Scope::from_folder_name(entry.file_name().to_str()?))
+        .collect();
+    scopes.sort();
+    let mut tried = 0;
+    let mut attached = 0;
+    for scope in scopes {
+        if tried == limit {
+            break;
+        }
+        let Ok((dir, _lock)) = lock_directory(root, &scope) else {
+            continue;
+        };
+        let (path, wrap) = (dir.join(FILE_NAME), dir.join(WRAP_FILE));
+        if !matches!(check_file(&path), Ok(true)) || !matches!(check_file(&wrap), Ok(false)) {
+            continue;
+        }
+        tried += 1;
+        let Ok(record) = read_record(&path) else {
+            continue;
+        };
+        let Ok(vault) = Vault::unlock(scope.clone(), password, &record) else {
+            continue;
+        };
+        let Some(key) = key_for(&scope) else {
+            continue;
+        };
+        if vault
+            .account_wrap(&key)
+            .and_then(|bytes| write_record(&wrap, &bytes))
+            .is_ok()
+        {
+            attached += 1;
+        }
+    }
+    attached
 }
 
 impl PasswordStore {
@@ -308,6 +386,18 @@ fn read_record(path: &Path) -> Result<Vec<u8>, Error> {
         .read_to_end(&mut bytes)
         .map_err(|_| Error::Io)?;
     if bytes.len() != RECORD_LEN {
+        return Err(Error::Format);
+    }
+    Ok(bytes)
+}
+
+fn read_wrap(path: &Path) -> Result<Vec<u8>, Error> {
+    let file = options().read(true).open(path).map_err(|_| Error::Io)?;
+    let mut bytes = Vec::with_capacity(WRAP_LEN + 1);
+    file.take((WRAP_LEN + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|_| Error::Io)?;
+    if bytes.len() != WRAP_LEN {
         return Err(Error::Format);
     }
     Ok(bytes)

@@ -27,11 +27,11 @@ pub(super) fn start(
     keep: u32,
     cancelled: &AtomicBool,
 ) -> Result<Ready, Error> {
-    let context = Arc::new(bootstrap::open_context(
-        root,
-        Scope::new(&session.tag, &session.gateway)?,
-        cancelled,
-    )?);
+    let scope = Scope::new(&session.tag, &session.gateway)?;
+    // An old local vault opens with the account's key where a password
+    // sign-in gave it the wrapper (`docs/password-vault.md` §"The account key").
+    let account_key = handle.local_vault_key(*scope.as_bytes()).ok();
+    let context = Arc::new(bootstrap::open_context(root, scope, cancelled)?);
     let installation = context.installation()?;
     let slot = social::SecretSlot::new(&session.tag, &session.gateway);
     let mut records = handle
@@ -51,9 +51,11 @@ pub(super) fn start(
         &installation,
         &records,
         choice,
+        account_key.as_deref(),
         &password,
     )?;
     drop(password);
+    drop(account_key);
     if let Some(local) = &local {
         handle
             .archive_chat_device(local.clone())
@@ -207,6 +209,7 @@ fn import_keys(
     installation: &str,
     records: &[ChatDevice],
     choice: Choice,
+    account_key: Option<&[u8; 32]>,
     password: &str,
 ) -> Result<Option<ChatDevice>, Error> {
     if let Some(record) = records
@@ -216,7 +219,7 @@ fn import_keys(
         return Ok(Some(record.clone()));
     }
     let legacy = root.join(social::disk::chat_folder(&session.gateway, &session.tag));
-    let keys = match context.legacy_keys((!password.is_empty()).then_some(password))? {
+    let keys = match context.legacy_keys(account_key, (!password.is_empty()).then_some(password))? {
         Some(keys) => Some(baylee_seal::DeviceSecrets::from_bytes(&keys)),
         None if choice == Choice::ImportFile
             || legacy
@@ -402,6 +405,7 @@ mod tests {
             &installation,
             &[],
             Choice::Unlock,
+            None,
             "",
         )
         .unwrap()
@@ -454,6 +458,7 @@ mod tests {
                 &installation,
                 &records,
                 Choice::Unlock,
+                None,
                 ""
             )
             .unwrap()
@@ -482,6 +487,7 @@ mod tests {
                 &installation,
                 &[],
                 Choice::Unlock,
+                None,
                 ""
             ),
             Err(Error::Missing)
