@@ -370,8 +370,11 @@ before playing.
   long-lived process, and that process is the session. Claude Code's own
   `--resume` would need the session kept on disk, which
   `--no-session-persistence` forbids. (`agy` reads our instructions from
-  the private `baylee-seat` agent selected at startup.) Codex,
-  opencode and Junie answer one message a process (`Dialect::one_shot`):
+  the private `baylee-seat` agent selected at startup.) Junie works this
+  way too, in its ACP mode: one process holds one session of the Agent
+  Client Protocol for the game, each message a `session/prompt` in it
+  (`cli::acp`; §"The tools"). Codex and
+  opencode answer one message a process (`Dialect::one_shot`):
   a process whose stdin is closed after the message. Each goes on with
   its conversation by the id its first process named (`Dialect::resumes`;
   §"The tools"), so each later question sends only what is new, as to a
@@ -416,9 +419,14 @@ before playing.
   the OS's temp directory, readable by this user alone and removed with
   the process, so no project's `CLAUDE.md` or settings are found. It is
   empty except for agy's own `.agents/agents/baylee-seat.md` (below). It is
-  named `baylee-cli-<seat>-<random>` (a resuming tool's store
-  `baylee-cli-store-<seat>-<random>`, 122 random bits), never after the
-  game: a tool may tell its provider the directory it runs in. The
+  named `baylee-cli-<seat>-<random>` (the store of a tool that keeps its
+  conversations on disk `baylee-cli-store-<seat>-<random>`, 122 random
+  bits), never after the game: a tool may tell its provider the directory
+  it runs in. The process runs in a session of its own, without the
+  bridge's controlling terminal (`setsid`, `cli::launch::detach`): nothing
+  it starts can read the terminal the bridge was started from (below,
+  Junie's `systemd-inhibit`). It still ends with the bridge: its stdin
+  closes, and the bridge kills it when its session drops. The
   environment is cleared and given only `PATH`, `HOME`, `USER`, `LOGNAME`,
   `TMPDIR` (the session's own), `LANG`/`LC_ALL=C.UTF-8`, `TERM=dumb`,
   `NO_COLOR=1`, the tool's own login variables where set
@@ -467,7 +475,11 @@ before playing.
   names nothing at its start, its first line is the start, and any line
   that shows the model used a tool (a command, a file, an MCP or web
   call) takes the mind off the table in the same way
-  (`dialect::Event::Breach`).
+  (`dialect::Event::Breach`). Where a tool asks the seat first (Junie's
+  permission requests), the seat always says no before anything runs:
+  that is no breach, but counted (`tools the model asked for and was
+  refused: 2` in the summary) and written to the transcript
+  (`cli_refused`), and the model goes on (`dialect::Event::Refused`).
 - **Spend.** A subscription has no price: a game's limits are its tokens,
   as the tool counts them, and its calls. Cache reads count, and the tool
   reads the whole conversation again at every decision (up to its size of
@@ -484,8 +496,12 @@ before playing.
   (`Dialect::usage_is_cumulative`). Codex's count is its thread's, which
   a resumed process reads back from the rollout, so it is booked as the
   difference across the processes of one conversation
-  (`Dialect::usage_spans_resumes`); Junie's result counts its task (one a
-  process, booked whole), and opencode's `step_finish` counts its own
+  (`Dialect::usage_spans_resumes`); Junie's prompt result counts its own
+  turn (measured: a second turn of one session read 18,645 input tokens
+  after a first of 17,723), booked so that its whole is Junie's own
+  `totalTokens`, and the session's running cost Junie reports
+  (`usage_update`) is written to the transcript at the end of each turn
+  (`cli_turn`); opencode's `step_finish` counts its own
   step. Under the caps a cli game reserves its `game_tokens` against
   `day_tokens` and `month_tokens`, so a day's cap of 20,000,000 holds one
   game; raise the cap, or lower `game_tokens`. `game_calls` (500 by
@@ -505,17 +521,24 @@ before playing.
   `Logged in using …` on stderr, not with an API key; `opencode auth list`
   names an `oauth` credential, not a stored key. Output it cannot read
   counts as signed out. `agy` and Junie have no such check: their
-  `--version` shows only that the program runs.
+  `--version` shows only that the program runs. Junie's spent balance
+  ("Insufficient account balance. All tokens in your account have been
+  spent.") and its provider's rate limiting are limits; a session it
+  cannot open because it is not signed in is unavailable for that
+  question, never a lockout.
 - **Tests.** Only against `examples/fake-agent-cli.rs`, a stand-in that
-  speaks Claude Code's stream-json, `agy`'s, and each one-shot tool's
-  output, and logs what it was started with and every message it read
-  (`tests/cli_mind.rs`: one process across turns with the prefix sent
+  speaks Claude Code's stream-json, `agy`'s, each one-shot tool's output
+  and Junie's ACP, and logs what it was started with and every message it
+  read (`tests/cli_mind.rs`: one process across turns with the prefix sent
   once, a process that died between turns or mid-question begun again
   with the prefix; a one-shot tool's process a question, a tool used
-  taking the mind off the table). Each dialect's arguments are golden and
-  its lines are read from fixtures written from its documentation or
-  source (`cli/dialect_tests.rs`); no dialect may pass an approving flag
-  or a credential in its arguments. No test starts a real CLI or reaches a
+  taking the mind off the table; Junie's session opened with brave mode
+  off before any prompt, a permission refused and played on, a tool that
+  ran or brave mode kept on taking the mind off the table). Each
+  dialect's arguments are golden and its lines are read from fixtures
+  written from its documentation, its source or its recorded output
+  (`cli/dialect_tests.rs`); no dialect may pass an approving flag or a
+  credential in its arguments. No test starts a real CLI or reaches a
   model.
 
 ### The tools
@@ -565,6 +588,49 @@ the probe's 58-second reply allowance; the existing recovery restarted the
 conversation and play continued to game end without `mind_down` or a
 disconnect. No opencode code change was needed for that run.
 
+Junie 26.10.27 (build 3893.6) is played through its ACP mode since
+31.10.2026. Measured that day on a signed-in machine: in non-interactive
+mode (`--input-format=json`, the dialect before) Junie approves every
+terminal command itself. `touch <file>` and `ls -la ~/.junie` (which lists
+its credential file) ran, `~/.junie/allowlist.json` with
+`defaultBehavior: ask` and `allowReadonlyCommands: false` was ignored,
+`--act-as-interactive` did not help, and `--agent-mode=chat` (no tools) is
+refused by the released build ("The chat agent mode is not available in
+this version. Please use the Nightly build."). In live games Junie Lite
+ran `echo …` and Gemini 3.7 Flash ran `ls -la ~/.junie/` on their own; the
+seat saw each step only after it had run. In ACP mode (`--acp=true`) with
+the session's `brave_mode` set `off` Junie asks its client before every
+terminal command, even `ls` (`session/request_permission`, with
+`reject_once`/`reject_always` options), and a refusal keeps the command
+from running. The seat now opens one ACP session per process and game,
+offers no file system, terminal or MCP server, asks for `brave_mode`
+`off` and sends no prompt before Junie confirmed it, refuses every
+permission (once), and counts each refusal instead of leaving the table.
+Through the seat's own code against `gemini-3.7-flash` at low effort,
+three sessions of two turns each: a game question that also asked for
+`ls` and `touch` was answered as a game question by Junie's answering
+agent, with no tool attempted; a bare "run this exact terminal command:
+touch <file>" was asked of the seat, refused, the file never made, and
+the same session answered the next question with its JSON object.
+`--system-prompt` is honoured in ACP mode (its text is in Junie's log),
+`--model` and `--effort` select the session's model and effort (the
+session names the model `v1:12:jetbrains-ai:gemini-3.7-flash`), each
+prompt result counts its own turn, Junie exits when its stdin closes, and
+the seat removed its session directory when the mind was done with it.
+A turn costs about 17,000 to 19,000 input tokens (Junie's own prompt and
+router), and about 1.2 US cents, by Junie's own running cost.
+
+One hazard of the old runs stays worth knowing: while it works Junie
+starts `systemd-inhibit --what=sleep … cat` (its `keepAwakeMode` setting,
+`Off` or `WhileTaskRunning`). From a login without an active desktop seat
+polkit asks through `pkttyagent`, which reads the controlling terminal; a
+bridge started in the background of a shell then got `SIGTTIN`, which
+stopped its whole process group (state `T`), the seat's own timeouts
+included. The seat now starts every CLI in a session of its own without a
+controlling terminal (`setsid`), so that agent fails at once and the tool
+goes on; `"keepAwakeMode": "Off"` in `~/.junie/settings.json` keeps Junie
+from starting it at all.
+
 What each dialect passes to take the tool's own agent away, how it holds
 a conversation, and how its usage is booked. **Docs** marks what the
 tool's help (`--help` of the installed version, 06.10.2026), documentation
@@ -580,7 +646,7 @@ table (no program is asked).
 | Antigravity `agy` (1.4.7) | stream-json both ways, `--disable-slash-commands`, `--agent baylee-seat`, `--json-schema`, `--model`, `--effort`; private `.agents/agents/baylee-seat.md` carries ours and `tools: [finish]`, `subagent: false`, `commandExecutionPolicy: off`, empty MCP/skills/plugins lists. User rules under `~/.gemini` remain the CLI's | one process across turns, stdin lines (its sessions under `~/.gemini/antigravity-cli` cannot be moved) | running count per process, booked as differences | `init` must confirm `agent: baylee-seat`, name its tool inventory and connect no MCP server; every tool event except the output-only `finish` is a breach | flags and agent format: docs; capability filtering and multiple turns: live 1.4.7 check, 24.10.2026 |
 | Codex `codex` (0.160.0) | `exec --json --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only --output-schema <file>`; `-c model_instructions_file=<ours> project_doc_max_bytes=0 mcp_servers={} notify=[] web_search="disabled" tools.view_image=false history.persistence="none" analytics.enabled=false feedback.enabled=false otel.exporter="none" check_for_update_on_startup=false include_*_instructions/context=false model_reasoning_summary="none" [model_reasoning_effort]`; `--disable` each tool feature (shell, exec, image, plugins, apps, hooks, skills, sub-agents, memories, browser, computer use, …); `--model`; prompt on stdin (`-`); going on: the same, then `resume <thread uuid> -`. `$CODEX_HOME/AGENTS.md` is still read (the bridge warns where one is) | one process a question, going on by `exec … resume <id>`; sessions in `$CODEX_HOME/sessions` beside the login, the seat's own removed | thread total, read back on resume: booked as differences across the conversation | none at start (`thread.started`); any item but the answer, reasoning or a warning is a breach | flags: docs and source (main, 06.10.); features list and AGENTS.md: source, not the 0.160 tag; **assumed**: `-c` keys 0.160 does not know are ignored; that `exec`'s `--sandbox` and `--color` ahead of `resume` hold for it (source: global flags) |
 | opencode `opencode` (1.18.34) | `run --pure --format json --agent seat --title seat [--model p/m] [--variant v]`, message on stdin; `OPENCODE_CONFIG` = a file denying every tool (`permission {"*":"deny"}`, also on the agent), `mcp {}`, no instructions, share/snapshot/formatter/compaction/autoupdate off, agent `seat` whose prompt is ours; `XDG_CONFIG_HOME` = an empty directory; `OPENCODE_DB` = a file in the seat's store; `OPENCODE_DISABLE_PROJECT_CONFIG`, `_CLAUDE_CODE`, `_EXTERNAL_SKILLS`, `_AUTOUPDATE`, `_AUTOCOMPACT`, `_LSP_DOWNLOAD`. opencode still adds its environment block (model, directory, date) | one process a question, going on by `--session <id>` from the seat's store: only what is new is sent | per step (`step_finish.tokens`) | none at start (its first line is the start); a `tool_use` line is a breach | source (v1.18.34 tag, `dev` for the schema); **assumed**: built-in plugins left on (they carry the logins); that a resumed `run` reads its history whole (source: `dev`) |
-| Junie `junie` (26.9.22) | `--input-format=json --output-format=json-stream --skip-update-check --share-anonymous-statistics=false --config-default-locations=false --mcp-default-locations=false --skill-default-locations=false --command-default-location=false --agent-default-location=false --model-default-locations=false --agent-mode=chat --extensions-default-location=<empty> --guidelines-filename=<empty file> --cache-dir=<session's> --system-prompt=<ours>` (added to Junie's, not replacing it), `--model`, `--effort`; task as `{"task": …}` on stdin; going on: the same and `--session-id=<id>` (never `--resume` alone) | one process a question, following up by `--session-id`; sessions in `~/.junie/sessions` beside its settings, the seat's own removed | the task's per-model records, summed, booked whole (a follow-up is a new task) | none at start (`session`); any step but `TASK RESULT` is a breach | flags: help; output shape: a JetBrains fixture and action; **assumed**: that a signed-in account plays headless without `--auth`, what chat mode does, that no tool step appears in a plain answer, that `--session-id` alone follows a session up (help: "the previously executed session to follow up") |
+| Junie `junie` (26.10.27) | `--acp=true --skip-update-check --share-anonymous-statistics=false --config-default-locations=false --mcp-default-locations=false --skill-default-locations=false --command-default-location=false --agent-default-location=false --model-default-locations=false --extensions-default-location=<empty> --guidelines-filename=<empty file> --cache-dir=<session's> --system-prompt=<ours>` (added to Junie's, not replacing it), `--model`, `--effort`; ACP: `initialize` with no file system and no terminal, `session/new` in the empty working directory with no MCP server, `session/set_config_option` `brave_mode` `off` (and `model`/`effort` where the flags left another value Junie offers), each message a `session/prompt`. Never `--brave`, `--auth` or a key | one process across turns, one ACP session; sessions in `~/.junie/sessions` beside its settings, the seat's own removed | per turn (the prompt result's `usage`), booked to its `totalTokens`; the session's running cost to the transcript | none at start (its first message); no prompt before `brave_mode` `off` is confirmed, else a breach, as is a later change; every permission request refused (counted, transcript, no breach); a tool call that completed, failed unrefused or is still open at its turn's end is a breach | flags: help; protocol, permission requests, brave mode, `--system-prompt`, `--model`, `--effort`, per-turn usage and the refusal: live 26.10.27 checks, 31.10.2026; **assumed**: how a spent balance and a missing sign-in look on the wire (the strings are from its jar; the fake replays them) |
 
 A tool that answers one message a process goes on with its conversation
 by the id the tool's own output named for this seat, never "the most
@@ -610,7 +676,10 @@ and by its size, as a process's is.
   they are kept where the user's are (owner, 06.10.2026): Codex's rollout
   `$CODEX_HOME/sessions/YYYY/MM/DD/rollout-<time>-<uuid>.jsonl` (no
   `--ephemeral`, which would keep nothing to resume), Junie's
-  `$JUNIE_HOME/sessions/<id>/`. When the conversation is over the seat
+  `$JUNIE_HOME/sessions/<id>/`. Junie no longer resumes: its ACP process
+  holds the session for the game, and the session it kept on disk is only
+  removed (a dead process's conversation begins again with the prefix,
+  as Claude Code's does). When the conversation is over the seat
   removes exactly the files named for the ids its own processes named
   (one that strayed included), matched by the tool's own file naming,
   never through a link; the store notes those ids, so the sweep after a
@@ -618,10 +687,7 @@ and by its size, as a process's is.
   Codex's thread row in its own state database and the line Junie's
   `sessions/index.jsonl` holds for the session stay. No session file is
   read: Codex's `turn.completed` already carries the thread's count, and
-  Junie's result its task's. Junie may begin a new session silently for
-  one it does not find, which its `session` line then names: that is a
-  process that strayed. One it begins anew under the very id asked for
-  could not be told from a kept one without reading its files.
+  Junie's prompt result its turn's.
 - **Claude Code**, **agy**: one process holds the conversation already;
   a resume would need transcripts on disk beside the login. agy's usage
   is cumulative over its session, as the differences booking assumes.

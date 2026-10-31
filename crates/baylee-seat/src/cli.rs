@@ -19,24 +19,27 @@
 //! cache, so each decision sends only what is new since the last. Claude
 //! Code and `agy` need no more for it than their process: the process is
 //! the session (Claude Code's own `--resume` would need the session kept
-//! on disk, which the lockdown forbids).
+//! on disk, which the lockdown forbids). Junie's process holds one session
+//! of the Agent Client Protocol the same way ([`acp`]); Junie keeps that
+//! session beside its login under the user's home, from where exactly the
+//! seat's own is removed when its process is done with (and, after a
+//! killed bridge, by the sweep of the seat's [`Store`], which names it).
 //!
-//! A tool that answers one message a process (Codex, opencode, Junie:
+//! A tool that answers one message a process (Codex, opencode:
 //! [`dialect::Dialect::one_shot`]) gets each question as a process whose
-//! stdin closes after the message. Codex and Junie get each as a
-//! conversation of its own, with the prefix and the notes, as after a loss
-//! but not counted as one; a question asked again goes to a new process,
-//! with the whole question. All three go on with their conversation by
-//! its id ([`dialect::Dialect::resumes`]), so each question within the
+//! stdin closes after the message. Codex gets each as a conversation of
+//! its own, with the prefix and the notes, as after a loss but not counted
+//! as one; a question asked again goes to a new process, with the whole
+//! question. Both go on with their conversation by its id
+//! ([`dialect::Dialect::resumes`]), so each question within the
 //! conversation's limits sends only what is new, as to a process that
-//! holds it. opencode keeps it in the seat's [`Store`]; Codex and Junie
-//! keep it beside their login under the user's home, from where exactly
-//! the seat's own session files are removed when the conversation is over
-//! (and, after a killed bridge, by the sweep of its store, which names
-//! them). One the tool cannot resume (its files are gone, it ended before
-//! a line, or it named another conversation than the one asked for) is
-//! begun again for that very question, with the prefix, and counted as
-//! lost.
+//! holds it. opencode keeps it in the seat's [`Store`]; Codex keeps it
+//! beside its login under the user's home, from where exactly the seat's
+//! own session files are removed when the conversation is over (and, after
+//! a killed bridge, by the sweep of its store, which names them). One the
+//! tool cannot resume (its files are gone, it ended before a line, or it
+//! named another conversation than the one asked for) is begun again for
+//! that very question, with the prefix, and counted as lost.
 //!
 //! A conversation past [`Settings::conversation_tokens`] closes its stdin
 //! and starts another, with the prefix and the notes again. A process that
@@ -52,8 +55,10 @@
 //!
 //! The process is the resolved program run directly with an argument
 //! array, never through a shell (a shell function of the same name never
-//! runs); in a fresh directory under the OS's temp directory that
-//! only this user can read, removed with it; with the environment cleared
+//! runs), in a session of its own without a controlling terminal
+//! ([`launch::detach`]); in a fresh directory under the OS's temp
+//! directory that only this user can read, removed with it; with the
+//! environment cleared
 //! and only [`COMMON`], `TMPDIR` (the session's own), a fixed locale and
 //! terminal, the variables the tool's login lives in, and the tool's own
 //! fixed ones (Claude Code's `DISABLE_AUTOUPDATER=1`). No key, no
@@ -69,7 +74,10 @@
 //! the table for good, and every process of the mind is killed, whether or
 //! not a question still waits on one ([`Reader`]). Where a tool names
 //! nothing at its start, a line that shows the model used a tool does the
-//! same ([`dialect::Event::Breach`]).
+//! same ([`dialect::Event::Breach`]). Where a tool asks the seat before a
+//! tool runs (Junie's permission requests), the seat always says no: that
+//! is counted ([`Tally::tools_refused`]) and written to the transcript,
+//! and the turn goes on ([`dialect::Event::Refused`]).
 //! agy's private working directory contains its restricted agent profile;
 //! other dialects leave it empty. The output function `finish` is allowed
 //! only for agy, as Claude Code's `StructuredOutput` is for its answer.
@@ -85,6 +93,7 @@
 //! fifteen); [`Mind::ready`] is the
 //! cooldown passed and the tool's login check passing.
 
+mod acp;
 mod agy;
 mod claude;
 mod codex;
@@ -109,12 +118,12 @@ use crate::narrator::{self, Decision, Menu, Narrator};
 use baylee_client_core::llmseat::{CliTool, cli_model, is_absolute_path, shaped_like_a_key};
 use baylee_engine::choice::PlayerAction;
 use io::{Reader, collect, decision, read, write};
-use launch::dialect;
 #[cfg(test)]
 use launch::program;
 #[cfg(all(test, unix))]
 use launch::runnable;
 pub use launch::{Launch, Limits, forbidden};
+use launch::{detach, dialect};
 #[cfg(test)]
 use mind::believed;
 use mind::lock_out;

@@ -16,6 +16,9 @@ mod agy;
 #[path = "cli_mind/draw.rs"]
 mod draw;
 
+#[path = "cli_mind/junie.rs"]
+mod junie;
+
 use baylee_client_core::llmseat::SeatSettings;
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_seat::cli::{CliMind, Limits};
@@ -365,6 +368,11 @@ async fn the_cli_runs_locked_down_with_only_what_it_needs() {
     assert_eq!(argv, expected);
 
     only_the_allowlist(start, &rig);
+    #[cfg(unix)]
+    assert_eq!(
+        start["sid"], true,
+        "it leads a session of its own, with no controlling terminal"
+    );
 
     let cwd = PathBuf::from(start["cwd"].as_str().unwrap());
     let root = cwd.parent().unwrap().to_path_buf();
@@ -1347,7 +1355,7 @@ async fn an_opposing_spell_mid_plan_stops_it_and_the_model_is_told_why() {
 }
 
 // ---------------------------------------------------------------------
-// Tools that answer one message a process: codex, opencode, junie
+// Tools that answer one message a process: codex, opencode
 // ---------------------------------------------------------------------
 
 /// A one-shot tool's profile, playing the fake.
@@ -1398,7 +1406,6 @@ async fn a_one_shot_cli_asks_each_question_of_a_process_of_its_own() {
     for (tool, first, files) in [
         ("codex", "exec", vec!["instructions.md", "schema.json"]),
         ("opencode", "run", vec!["opencode.json"]),
-        ("junie", "--input-format=json", vec!["guidelines.md"]),
     ] {
         let rig = Rig::new(
             &format!("oneshot-{tool}"),
@@ -1447,18 +1454,8 @@ async fn a_one_shot_cli_asks_each_question_of_a_process_of_its_own() {
         let id = first_id(tool, &starts[0]);
         assert_eq!(resumed_from(tool, &starts[0]), None, "{tool}");
         assert_eq!(resumed_from(tool, &starts[1]), Some(id), "{tool}");
-        let text = |prompt: &str| {
-            if tool == "junie" {
-                serde_json::from_str::<Value>(prompt).unwrap()["task"]
-                    .as_str()
-                    .unwrap()
-                    .to_string()
-            } else {
-                prompt.to_string()
-            }
-        };
-        assert!(text(&prompts[0].1).contains("THE GAME"), "{tool}");
-        let second = text(&prompts[1].1);
+        assert!(prompts[0].1.contains("THE GAME"), "{tool}");
+        let second = &prompts[1].1;
         assert!(
             second.contains("q2") && !second.contains("THE GAME"),
             "{tool}: only what is new: {second}"
@@ -1481,7 +1478,7 @@ async fn a_one_shot_cli_asks_each_question_of_a_process_of_its_own() {
 async fn a_tool_used_by_a_one_shot_cli_takes_the_mind_off_the_table() {
     let base = a_priority().await;
     let turn = base.view.turn;
-    for tool in ["codex", "opencode", "junie"] {
+    for tool in ["codex", "opencode"] {
         let mut step = pass(1, "");
         step["kind"] = json!("tool");
         let rig = Rig::new(
@@ -1544,7 +1541,7 @@ async fn a_one_shot_clis_unreadable_answer_is_asked_again_of_a_new_process() {
 async fn a_one_shot_clis_limit_cools_and_its_failure_is_billed() {
     let base = a_priority().await;
     let turn = base.view.turn;
-    for tool in ["codex", "opencode", "junie"] {
+    for tool in ["codex", "opencode"] {
         let rig = Rig::new(
             &format!("oneshot-limit-{tool}"),
             one_shot(tool),
@@ -1589,34 +1586,6 @@ async fn a_one_shot_clis_limit_cools_and_its_failure_is_billed() {
         !rig.mind(Limits::default()).ready().await,
         "opencode signed out"
     );
-}
-
-/// A tool that names nothing at its start and fails as its first word
-/// (signed out) is unavailable, not a reply before a start: the mind is
-/// not locked out, and plays once it can.
-#[tokio::test]
-async fn a_one_shot_clis_failure_as_its_first_word_locks_nothing_out() {
-    let base = a_priority().await;
-    let rig = Rig::new(
-        "oneshot-first",
-        one_shot("junie"),
-        &json!({"steps": [{"kind": "signed_out"}, pass(2, "")]}),
-    );
-    let mind = rig.mind(Limits::default());
-    let failed = mind
-        .decide(ask(&base, 1, base.view.turn, 20))
-        .await
-        .unwrap_err();
-    assert_eq!(
-        failed,
-        MindError::Unavailable("Cannot find authorization".into())
-    );
-    assert!(mind.ready().await, "not locked out");
-    let answer = mind
-        .decide(ask(&base, 2, base.view.turn, 20))
-        .await
-        .unwrap();
-    assert_eq!(answer.action, PlayerAction::PassPriority);
 }
 
 // ---------------------------------------------------------------------
@@ -1878,7 +1847,8 @@ async fn an_idle_conversation_kept_on_disk_is_over() {
 }
 
 // ---------------------------------------------------------------------
-// Codex and Junie: sessions beside the login, in the user's home
+// Codex and Junie: sessions beside the login, in the user's home (Codex
+// resumes its own; Junie's ACP process holds its own, `cli_mind/junie.rs`)
 // ---------------------------------------------------------------------
 
 /// The id the fake names the conversation `start` began by.
@@ -1886,7 +1856,7 @@ fn first_id(tool: &str, start: &Value) -> String {
     let pid = start["pid"].as_u64().unwrap();
     match tool {
         "codex" => format!("0199a213-0000-7000-8000-{pid:012}"),
-        "junie" => format!("session-261006-120000-{pid}"),
+        "junie" => format!("session-261031-120000-{pid}"),
         _ => format!("ses_fake{pid}"),
     }
 }
@@ -1947,231 +1917,207 @@ impl Rig {
     }
 }
 
-/// Codex and Junie go on with their conversation by the id its first
-/// process named (`resume <uuid>`, `--session-id=<id>`; never "the most
-/// recent"), every lockdown flag kept, only what is new sent, an
-/// unreadable answer asked again in it. Their sessions are kept where the
-/// tool keeps them, beside its login under the user's home; when the mind
-/// ends, exactly the seat's own are removed, and a session of the user's
-/// beside them is untouched.
+/// Codex goes on with its conversation by the id its first process named
+/// (`resume <uuid>`; never "the most recent"), every lockdown flag kept,
+/// only what is new sent, an unreadable answer asked again in it. Its
+/// sessions are kept where the tool keeps them, beside its login under
+/// the user's home; when the mind ends, exactly the seat's own are
+/// removed, and a session of the user's beside them is untouched.
 #[tokio::test]
-#[allow(clippy::too_many_lines)] // two tools, three questions, then the home after them
-async fn codex_and_junie_go_on_with_their_sessions_beside_the_login() {
+async fn codex_goes_on_with_its_sessions_beside_the_login() {
     let base = a_priority().await;
     let turn = base.view.turn;
-    for (tool, lockdown) in [
-        ("codex", "--ignore-user-config"),
-        ("junie", "--config-default-locations=false"),
-    ] {
-        let rig = Rig::new(
-            &format!("home-{tool}"),
-            one_shot(tool),
-            &json!({"steps": [
-                pass(1, "plan A"),
-                {"kind": "text", "text": "I pass."},
-                pass(2, ""),
-                pass(3, ""),
-            ]}),
-        );
-        let theirs = rig.theirs(tool);
-        let before = tree(&rig.home);
-        let mind = rig.mind(Limits::default());
-        for (question, at) in [(1, turn), (2, turn), (3, turn + 1)] {
-            let answer = mind.decide(ask(&base, question, at, 20)).await;
-            assert_eq!(answer.unwrap().action, PlayerAction::PassPriority, "{tool}");
-        }
-        let starts = rig.starts();
-        assert_eq!(starts.len(), 4, "{tool}");
-        let id = first_id(tool, &starts[0]);
-        assert_eq!(resumed_from(tool, &starts[0]), None, "{tool}");
-        for start in &starts[1..] {
-            assert_eq!(resumed_from(tool, start), Some(id.clone()), "{tool}");
-            let argv = start["argv"].as_array().unwrap();
-            assert!(argv.iter().any(|arg| arg == lockdown), "{tool}: {start}");
-            assert!(
-                !argv.iter().any(|arg| {
-                    ["--last", "--resume", "--continue", "--ephemeral", "--all"]
-                        .contains(&arg.as_str().unwrap())
-                }),
-                "{tool}: {start}"
-            );
-            assert_eq!(
-                start["cwd"], starts[0]["cwd"],
-                "{tool}: one working directory"
-            );
-        }
-        let turns: Vec<u64> = rig
-            .log()
-            .iter()
-            .filter(|line| line["session"] == id)
-            .filter_map(|line| line["turn"].as_u64())
-            .collect();
-        assert_eq!(turns, [1, 2, 3, 4], "{tool}: one conversation");
-        let prompts = rig.prompts();
-        assert!(prompts[0].1.contains("THE GAME"), "{tool}");
-        for (_, prompt) in &prompts[1..] {
-            assert!(
-                !prompt.contains("THE GAME"),
-                "{tool}: only what is new: {prompt}"
-            );
-            assert!(!prompt.contains("conversation was lost"), "{tool}");
-        }
-        assert!(
-            prompts[2].1.contains("That answer could not be taken"),
-            "{tool}"
-        );
-        let tally = spent(&mind.tally());
-        assert_eq!((tally.calls, tally.failed), (4, 0), "{tool}");
-        assert_eq!((tally.sessions, tally.restarts), (4, 0), "{tool}");
-        assert_eq!(
-            tally.usage.total(),
-            4 * 1120,
-            "{tool}: each reply once, however its tool counts"
-        );
-        assert!(
-            !rig.session_files(tool, &id).is_empty(),
-            "{tool}: kept while it plays"
-        );
-        drop(mind);
-        assert!(
-            rig.session_files(tool, &id).is_empty(),
-            "{tool}: removed with the mind"
-        );
-        assert_eq!(
-            std::fs::read_to_string(&theirs).unwrap(),
-            "the user's own",
-            "{tool}"
-        );
-        assert_eq!(rig.new_in_home(&before), Vec::<String>::new(), "{tool}");
-        let cwd = PathBuf::from(starts[0]["cwd"].as_str().unwrap());
-        assert!(!cwd.exists(), "{tool}: the store goes with the mind");
+    let (tool, lockdown) = ("codex", "--ignore-user-config");
+    let rig = Rig::new(
+        &format!("home-{tool}"),
+        one_shot(tool),
+        &json!({"steps": [
+            pass(1, "plan A"),
+            {"kind": "text", "text": "I pass."},
+            pass(2, ""),
+            pass(3, ""),
+        ]}),
+    );
+    let theirs = rig.theirs(tool);
+    let before = tree(&rig.home);
+    let mind = rig.mind(Limits::default());
+    for (question, at) in [(1, turn), (2, turn), (3, turn + 1)] {
+        let answer = mind.decide(ask(&base, question, at, 20)).await;
+        assert_eq!(answer.unwrap().action, PlayerAction::PassPriority, "{tool}");
     }
+    let starts = rig.starts();
+    assert_eq!(starts.len(), 4, "{tool}");
+    let id = first_id(tool, &starts[0]);
+    assert_eq!(resumed_from(tool, &starts[0]), None, "{tool}");
+    for start in &starts[1..] {
+        assert_eq!(resumed_from(tool, start), Some(id.clone()), "{tool}");
+        let argv = start["argv"].as_array().unwrap();
+        assert!(argv.iter().any(|arg| arg == lockdown), "{tool}: {start}");
+        assert!(
+            !argv.iter().any(|arg| {
+                ["--last", "--resume", "--continue", "--ephemeral", "--all"]
+                    .contains(&arg.as_str().unwrap())
+            }),
+            "{tool}: {start}"
+        );
+        assert_eq!(
+            start["cwd"], starts[0]["cwd"],
+            "{tool}: one working directory"
+        );
+    }
+    let turns: Vec<u64> = rig
+        .log()
+        .iter()
+        .filter(|line| line["session"] == id)
+        .filter_map(|line| line["turn"].as_u64())
+        .collect();
+    assert_eq!(turns, [1, 2, 3, 4], "{tool}: one conversation");
+    let prompts = rig.prompts();
+    assert!(prompts[0].1.contains("THE GAME"), "{tool}");
+    for (_, prompt) in &prompts[1..] {
+        assert!(
+            !prompt.contains("THE GAME"),
+            "{tool}: only what is new: {prompt}"
+        );
+        assert!(!prompt.contains("conversation was lost"), "{tool}");
+    }
+    assert!(
+        prompts[2].1.contains("That answer could not be taken"),
+        "{tool}"
+    );
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.calls, tally.failed), (4, 0), "{tool}");
+    assert_eq!((tally.sessions, tally.restarts), (4, 0), "{tool}");
+    assert_eq!(
+        tally.usage.total(),
+        4 * 1120,
+        "{tool}: each reply once, however its tool counts"
+    );
+    assert!(
+        !rig.session_files(tool, &id).is_empty(),
+        "{tool}: kept while it plays"
+    );
+    drop(mind);
+    assert!(
+        rig.session_files(tool, &id).is_empty(),
+        "{tool}: removed with the mind"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&theirs).unwrap(),
+        "the user's own",
+        "{tool}"
+    );
+    assert_eq!(rig.new_in_home(&before), Vec::<String>::new(), "{tool}");
+    let cwd = PathBuf::from(starts[0]["cwd"].as_str().unwrap());
+    assert!(!cwd.exists(), "{tool}: the store goes with the mind");
 }
 
-/// A conversation Codex or Junie cannot go on with begins again for that
-/// very question, with the prefix and word that it was lost, counted:
-/// its session files gone (it is not even asked to resume), its session
-/// unreadable (Codex exits before a line; Junie begins a new session
-/// silently, under another id), or a process that names another
+/// A conversation Codex cannot go on with begins again for that very
+/// question, with the prefix and word that it was lost, counted: its
+/// session files gone (it is not even asked to resume), its session
+/// unreadable (Codex exits before a line), or a process that names another
 /// conversation than the one asked for (stopped at that line). Every
 /// session any of them named is removed with the mind, and nothing else.
 #[tokio::test]
-#[allow(clippy::too_many_lines)] // two tools, three ways to lose a conversation
-async fn a_session_codex_or_junie_cannot_go_on_with_begins_again() {
+async fn a_session_codex_cannot_go_on_with_begins_again() {
     let base = a_priority().await;
     let turn = base.view.turn;
-    for tool in ["codex", "junie"] {
-        // A process that strays answers nothing, but takes its step.
-        let steps = if tool == "codex" {
-            json!([
-                pass(1, "plan A"),
-                pass(2, ""),
-                pass(3, ""),
-                pass(4, ""),
-                pass(4, "")
-            ])
+    let tool = "codex";
+    // A process that strays answers nothing, but takes its step.
+    let steps = json!([
+        pass(1, "plan A"),
+        pass(2, ""),
+        pass(3, ""),
+        pass(4, ""),
+        pass(4, "")
+    ]);
+    let rig = Rig::new(
+        &format!("home-lost-{tool}"),
+        one_shot(tool),
+        &json!({"steps": steps}),
+    );
+    let theirs = rig.theirs(tool);
+    let before = tree(&rig.home);
+    let mind = rig.mind(Limits::default());
+    mind.decide(ask(&base, 1, turn, 20)).await.unwrap();
+    let first = first_id(tool, &rig.starts()[0]);
+
+    // Gone: its files removed behind its back.
+    for path in rig.session_files(tool, &first) {
+        if path.is_dir() {
+            std::fs::remove_dir_all(path).unwrap();
         } else {
-            json!([
-                pass(1, "plan A"),
-                pass(2, ""),
-                pass(3, ""),
-                pass(3, ""),
-                pass(4, ""),
-                pass(4, "")
-            ])
-        };
-        let rig = Rig::new(
-            &format!("home-lost-{tool}"),
-            one_shot(tool),
-            &json!({"steps": steps}),
-        );
-        let theirs = rig.theirs(tool);
-        let before = tree(&rig.home);
-        let mind = rig.mind(Limits::default());
-        mind.decide(ask(&base, 1, turn, 20)).await.unwrap();
-        let first = first_id(tool, &rig.starts()[0]);
-
-        // Gone: its files removed behind its back.
-        for path in rig.session_files(tool, &first) {
-            if path.is_dir() {
-                std::fs::remove_dir_all(path).unwrap();
-            } else {
-                std::fs::remove_file(path).unwrap();
-            }
+            std::fs::remove_file(path).unwrap();
         }
-        mind.decide(ask(&base, 2, turn, 20)).await.unwrap();
-        let starts = rig.starts();
-        assert_eq!(starts.len(), 2, "{tool}");
-        assert_eq!(
-            resumed_from(tool, &starts[1]),
-            None,
-            "{tool}: not asked to resume"
-        );
-        let restarted = |prompt: &str| {
-            prompt.contains("THE GAME")
-                && prompt.contains("conversation was lost")
-                && prompt.contains("plan A")
-        };
-        assert!(restarted(&rig.prompts()[1].1), "{tool}");
-        assert_eq!(spent(&mind.tally()).restarts, 1, "{tool}");
-
-        // Unreadable.
-        let second = first_id(tool, &starts[1]);
-        let file = if tool == "codex" {
-            rig.session_files(tool, &second)[0].clone()
-        } else {
-            rig.session_files(tool, &second)[0].join("events.jsonl")
-        };
-        std::fs::write(&file, "not a session").unwrap();
-        mind.decide(ask(&base, 3, turn, 20)).await.unwrap();
-        let starts = rig.starts();
-        assert_eq!(starts.len(), 4, "{tool}");
-        assert_eq!(
-            resumed_from(tool, &starts[2]),
-            Some(second.clone()),
-            "{tool}"
-        );
-        assert_eq!(resumed_from(tool, &starts[3]), None, "{tool}");
-        assert!(restarted(&rig.prompts().last().unwrap().1), "{tool}");
-        assert_eq!(spent(&mind.tally()).restarts, 2, "{tool}");
-
-        // Another conversation than the one asked for.
-        let mut script = json!({"steps": steps});
-        script["stray"] = json!(true);
-        rig.script(&script);
-        mind.decide(ask(&base, 4, turn + 1, 20)).await.unwrap();
-        let starts = rig.starts();
-        assert_eq!(starts.len(), 6, "{tool}");
-        let third = first_id(tool, &starts[3]);
-        assert_eq!(resumed_from(tool, &starts[4]), Some(third), "{tool}");
-        assert_eq!(resumed_from(tool, &starts[5]), None, "{tool}");
-        assert!(restarted(&rig.prompts().last().unwrap().1), "{tool}");
-        let strayed: Vec<String> = rig
-            .log()
-            .iter()
-            .filter_map(|line| line["strayed"].as_str().map(str::to_string))
-            .collect();
-        assert!(!strayed.is_empty(), "{tool}");
-        let tally = spent(&mind.tally());
-        assert_eq!((tally.sessions, tally.restarts), (6, 3), "{tool}");
-
-        // Every session any of them named goes with the mind, and only those.
-        drop(mind);
-        let ids: Vec<String> = rig
-            .log()
-            .iter()
-            .filter_map(|line| line["session"].as_str().map(str::to_string))
-            .collect();
-        for id in &ids {
-            assert!(rig.session_files(tool, id).is_empty(), "{tool}: {id}");
-        }
-        assert_eq!(
-            std::fs::read_to_string(&theirs).unwrap(),
-            "the user's own",
-            "{tool}"
-        );
-        assert_eq!(rig.new_in_home(&before), Vec::<String>::new(), "{tool}");
     }
+    mind.decide(ask(&base, 2, turn, 20)).await.unwrap();
+    let starts = rig.starts();
+    assert_eq!(starts.len(), 2, "{tool}");
+    assert_eq!(
+        resumed_from(tool, &starts[1]),
+        None,
+        "{tool}: not asked to resume"
+    );
+    let restarted = |prompt: &str| {
+        prompt.contains("THE GAME")
+            && prompt.contains("conversation was lost")
+            && prompt.contains("plan A")
+    };
+    assert!(restarted(&rig.prompts()[1].1), "{tool}");
+    assert_eq!(spent(&mind.tally()).restarts, 1, "{tool}");
+
+    // Unreadable.
+    let second = first_id(tool, &starts[1]);
+    let file = rig.session_files(tool, &second)[0].clone();
+    std::fs::write(&file, "not a session").unwrap();
+    mind.decide(ask(&base, 3, turn, 20)).await.unwrap();
+    let starts = rig.starts();
+    assert_eq!(starts.len(), 4, "{tool}");
+    assert_eq!(
+        resumed_from(tool, &starts[2]),
+        Some(second.clone()),
+        "{tool}"
+    );
+    assert_eq!(resumed_from(tool, &starts[3]), None, "{tool}");
+    assert!(restarted(&rig.prompts().last().unwrap().1), "{tool}");
+    assert_eq!(spent(&mind.tally()).restarts, 2, "{tool}");
+
+    // Another conversation than the one asked for.
+    let mut script = json!({"steps": steps});
+    script["stray"] = json!(true);
+    rig.script(&script);
+    mind.decide(ask(&base, 4, turn + 1, 20)).await.unwrap();
+    let starts = rig.starts();
+    assert_eq!(starts.len(), 6, "{tool}");
+    let third = first_id(tool, &starts[3]);
+    assert_eq!(resumed_from(tool, &starts[4]), Some(third), "{tool}");
+    assert_eq!(resumed_from(tool, &starts[5]), None, "{tool}");
+    assert!(restarted(&rig.prompts().last().unwrap().1), "{tool}");
+    let strayed: Vec<String> = rig
+        .log()
+        .iter()
+        .filter_map(|line| line["strayed"].as_str().map(str::to_string))
+        .collect();
+    assert!(!strayed.is_empty(), "{tool}");
+    let tally = spent(&mind.tally());
+    assert_eq!((tally.sessions, tally.restarts), (6, 3), "{tool}");
+
+    // Every session any of them named goes with the mind, and only those.
+    drop(mind);
+    let ids: Vec<String> = rig
+        .log()
+        .iter()
+        .filter_map(|line| line["session"].as_str().map(str::to_string))
+        .collect();
+    for id in &ids {
+        assert!(rig.session_files(tool, id).is_empty(), "{tool}: {id}");
+    }
+    assert_eq!(
+        std::fs::read_to_string(&theirs).unwrap(),
+        "the user's own",
+        "{tool}"
+    );
+    assert_eq!(rig.new_in_home(&before), Vec::<String>::new(), "{tool}");
 }
 
 // ---------------------------------------------------------------------

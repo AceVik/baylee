@@ -204,6 +204,12 @@ impl Show {
                     tally.sessions, tally.restarts
                 ));
             }
+            if tally.tools_refused > 0 {
+                out.push(format!(
+                    "tools the model asked for and was refused: {}",
+                    tally.tools_refused
+                ));
+            }
             if tally.spent {
                 out.push("the game's budget ran out: the house finished the game".into());
             }
@@ -492,6 +498,14 @@ mod tests {
             summary[3],
             "conversations: 3 (1 begun again after one was lost)"
         );
+        assert!(summary[4].starts_with("rule of thumb"), "{summary:?}");
+        // And the tools its model asked for that the seat refused.
+        let refusing = Tally {
+            tools_refused: 2,
+            ..cli
+        };
+        let summary = show.summary(&stats, Some(&refusing));
+        assert_eq!(summary[4], "tools the model asked for and was refused: 2");
     }
 
     #[test]

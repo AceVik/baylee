@@ -3,7 +3,7 @@
 use super::{
     Arc, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader, ChildStderr, ChildStdin,
     ChildStdout, CliSeat, Decision, Dialect, Event, Gone, LockedOut, MAX_LINE, Menu, Mutex,
-    Outcome, Queue, Reply, STDERR_TAIL, Seats, Tally, Usage, Value, Waiter, Weak, Wire, lock,
+    Outcome, Queue, Reply, STDERR_TAIL, Seats, Tally, Usage, Value, Waiter, Weak, Wire, json, lock,
     lock_out, mpsc, narrator,
 };
 
@@ -140,7 +140,11 @@ impl Reader {
     /// nothing vouched for. A break locks the mind out and kills its
     /// processes before any question waiting hears it. A rate limit before
     /// any start carries no answer and breaks nothing: reading stops there
-    /// ([`Gone::Limited`]), and the mind cools down instead.
+    /// ([`Gone::Limited`]), and the mind cools down instead. A conversation
+    /// the dialect says cannot go on ([`Wire::over`]) stops it as the end
+    /// of the output does, after the line that said so was taken. A tool
+    /// the seat refused breaks nothing: it is counted
+    /// ([`Tally::tools_refused`]) and written to the transcript.
     pub(super) async fn run(mut self, stdout: ChildStdout) {
         let mut out = BufReader::new(stdout);
         let mut buf = Vec::new();
@@ -157,38 +161,67 @@ impl Reader {
             // A line is read once, or twice where the dialect asks (a start
             // read off a line that says more): never more.
             let mut events = Vec::with_capacity(1);
-            let (back, strayed) = {
+            let (back, notes, strayed, over) = {
                 let mut wire = lock(&self.wire);
                 events.push(self.dialect.read_event(line.trim_end(), &mut wire));
                 if std::mem::take(&mut wire.again) {
                     events.push(self.dialect.read_event(line.trim_end(), &mut wire));
                     wire.again = false;
                 }
-                (std::mem::take(&mut wire.out), wire.strayed())
+                (
+                    std::mem::take(&mut wire.out),
+                    std::mem::take(&mut wire.notes),
+                    wire.strayed(),
+                    wire.over,
+                )
             };
             if strayed {
                 // Nothing it says belongs to the conversation it was asked
                 // to go on with.
                 break Gone::Strayed;
             }
+            // What it is answered goes out before anything is taken from
+            // the line: a request of its own never waits on the seat.
             if let Some(lines) = self.lines.upgrade() {
                 for line in back {
                     let _ = lines.send(line);
                 }
+            }
+            for note in &notes {
+                self.note(note);
             }
             for event in events {
                 if let Some(gone) = self.take(event, &mut started) {
                     break 'reading gone;
                 }
             }
+            if over {
+                break Gone::Ended;
+            }
         };
         self.finish(&gone);
+    }
+
+    /// Writes `note` to the seat's transcript, where the seat still is.
+    pub(super) fn note(&self, note: &Value) {
+        if let Some(seat) = self.seat.upgrade() {
+            let transcript = &mut lock(&seat).seat.transcript;
+            transcript.write_value(note);
+            transcript.flush();
+        }
     }
 
     /// Takes one event, and says why the process is done with where it is.
     pub(super) fn take(&mut self, event: Event, started: &mut bool) -> Option<Gone> {
         match event {
             Event::Breach(why) => return Some(Gone::Refused(why)),
+            Event::Refused(what) => {
+                lock(&self.tally).tools_refused += 1;
+                self.note(&json!({"cli_refused": {
+                    "tool": self.dialect.tool().name(),
+                    "asked_for": what,
+                }}));
+            }
             Event::Started(said) => {
                 if let Some(why) = self.dialect.lockdown_fault(&said) {
                     return Some(Gone::Refused(why));

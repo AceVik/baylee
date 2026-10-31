@@ -452,7 +452,7 @@ pub const fn choices(tool: CliTool) -> CliChoices {
             model_hint: "an alias (sonnet, opus, gpt, …) or a model id",
             default_model: None,
             efforts: JUNIE_EFFORTS,
-            // `--session-id=<id>`, its sessions under its home.
+            // One process holds its ACP session across turns.
             keeps_conversation: true,
         },
     }

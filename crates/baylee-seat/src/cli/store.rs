@@ -118,7 +118,8 @@ pub(super) const STORE_PREFIX: &str = "baylee-cli-store-";
 pub(super) const STALE_STORE: Duration = Duration::from_hours(1);
 
 /// A seat's conversation kept on disk for a tool that resumes one
-/// ([`Dialect::resumes`]): under the OS's temp directory beside the
+/// ([`Dialect::resumes`]) or keeps it beside its login
+/// ([`super::Launch::keeps_conversations`]): under the OS's temp directory beside the
 /// sessions' own directories, readable by this user alone, removed with
 /// the conversation (and so with the seat and the mind); `work`, the
 /// working directory every process of the conversation shares, empty, and

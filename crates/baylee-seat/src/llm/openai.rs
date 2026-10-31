@@ -215,7 +215,9 @@ pub fn parse(body: &Value, mode: AnswerMode) -> Result<Reply, String> {
 }
 
 /// The first JSON object in `text`: the whole text, or the text inside a
-/// code fence, or the outermost `{…}`.
+/// code fence, or the outermost `{…}`; failing those (prose after the
+/// object that has braces of its own, as a coding agent's summary may),
+/// the first of its first 64 `{` from which a whole object reads.
 #[must_use]
 pub fn json_object(text: &str) -> Option<Value> {
     if let Ok(value @ Value::Object(_)) = serde_json::from_str::<Value>(text) {
@@ -223,10 +225,18 @@ pub fn json_object(text: &str) -> Option<Value> {
     }
     let start = text.find('{')?;
     let end = text.rfind('}')?;
-    (start < end)
-        .then(|| serde_json::from_str::<Value>(&text[start..=end]).ok())
-        .flatten()
-        .filter(Value::is_object)
+    if start < end
+        && let Ok(value @ Value::Object(_)) = serde_json::from_str::<Value>(&text[start..=end])
+    {
+        return Some(value);
+    }
+    text.match_indices('{').take(64).find_map(|(at, _)| {
+        serde_json::Deserializer::from_str(&text[at..])
+            .into_iter::<Value>()
+            .next()
+            .and_then(Result::ok)
+            .filter(Value::is_object)
+    })
 }
 
 /// What to try when an endpoint turned the request's `response_format`

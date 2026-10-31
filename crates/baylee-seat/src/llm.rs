@@ -669,6 +669,10 @@ pub struct Tally {
     /// Of them, the ones begun again because the one before was lost: its
     /// process died, hung or sat idle, and the prefix was sent again.
     pub restarts: u64,
+    /// The tools a CLI's model asked for and the seat refused before they
+    /// ran (a permission the tool asked for, [`crate::cli`]): none ran, but
+    /// each cost the model a round trip.
+    pub tools_refused: u64,
 }
 
 /// The most calls can cost: tokens, and dollars where the price is known.
