@@ -63,6 +63,12 @@ impl AdminCleanup {
         Self::new(base, token)
     }
 
+    /// An admin client holding `token`, for a test's stand-in gateway.
+    #[cfg(test)]
+    pub(crate) fn for_test(base: &str, token: &str) -> anyhow::Result<Self> {
+        Self::new(base, token.to_owned())
+    }
+
     fn new(base: &str, token: String) -> anyhow::Result<Self> {
         let base = endpoint(base)?;
         ensure!(
@@ -99,6 +105,66 @@ impl AdminCleanup {
         })
         .await
         .context("Collector admin preflight worker failed")?
+    }
+
+    /// A one-use closed-beta key made by the gateway, for
+    /// [`crate::teacher::OwnDatabase::prove`]. Only its id is kept: the key
+    /// itself is never taken out of the answer.
+    pub async fn make_probe_key(&self) -> anyhow::Result<uuid::Uuid> {
+        let url = format!("{}/admin/invites", self.base);
+        let token = self.token.clone();
+        tokio::task::spawn_blocking(move || {
+            let payload =
+                br#"{"uses":1,"expires":"1h","note":"llm-collector database probe","count":1}"#;
+            let mut response = agent()
+                .post(&url)
+                .header("Authorization", &format!("Bearer {token}"))
+                .header("X-Baylee-Admin", "llm-collector")
+                .header("Content-Type", "application/json")
+                .send(payload.as_slice())
+                .map_err(|_| anyhow::anyhow!("Database probe key transport failed"))?;
+            ensure!(
+                response.status().as_u16() == 201,
+                "Database probe key refused"
+            );
+            let body = response
+                .body_mut()
+                .read_to_string()
+                .map_err(|_| anyhow::anyhow!("Database probe key body failed"))?;
+            let value: Value = serde_json::from_str(&body)
+                .map_err(|_| anyhow::anyhow!("Invalid database probe key response"))?;
+            value
+                .get("keys")
+                .and_then(Value::as_array)
+                .filter(|keys| keys.len() == 1)
+                .and_then(|keys| keys[0].get("id"))
+                .and_then(Value::as_str)
+                .and_then(|id| uuid::Uuid::parse_str(id).ok())
+                .context("Invalid database probe key response")
+        })
+        .await
+        .context("Database probe key worker failed")?
+    }
+
+    /// Revokes the probe key `id` made by [`Self::make_probe_key`].
+    pub async fn revoke_probe_key(&self, id: uuid::Uuid) -> anyhow::Result<()> {
+        let url = format!("{}/admin/invites/{id}", self.base);
+        let token = self.token.clone();
+        tokio::task::spawn_blocking(move || {
+            let response = agent()
+                .delete(&url)
+                .header("Authorization", &format!("Bearer {token}"))
+                .header("X-Baylee-Admin", "llm-collector")
+                .call()
+                .map_err(|_| anyhow::anyhow!("Database probe key revocation transport failed"))?;
+            ensure!(
+                response.status().as_u16() == 204,
+                "Database probe key revocation refused"
+            );
+            Ok(())
+        })
+        .await
+        .context("Database probe key revocation worker failed")?
     }
 
     async fn request_close(&self, game_id: &str) -> anyhow::Result<u16> {
