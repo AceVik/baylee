@@ -7,15 +7,19 @@ use super::{
     lock_out, mpsc, narrator,
 };
 
-/// Reads an answer object against its question's menu.
-pub(super) fn read(
-    value: Option<&Value>,
-    menu: &Menu,
-) -> Result<(narrator::Resolved, Option<String>), String> {
+/// Reads an answer object as a decision, before its question's menu.
+pub(super) fn decision(value: Option<&Value>) -> Result<Decision, String> {
     let Some(value) = value else {
         return Err("answer with one JSON object and nothing else".into());
     };
-    let decision = Decision::from_json_answer(value)?;
+    Decision::from_json_answer(value)
+}
+
+/// Reads a decision against its question's menu.
+pub(super) fn read(
+    decision: Decision,
+    menu: &Menu,
+) -> Result<(narrator::Resolved, Option<String>), String> {
     let resolved = menu.resolve(&decision)?;
     Ok((resolved, decision.say.filter(|say| !say.is_empty())))
 }

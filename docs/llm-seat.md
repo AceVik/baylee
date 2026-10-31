@@ -117,6 +117,7 @@ the profile: a file is played as written or not at all.
 | `key_env` | The environment variable the key is read from (default `ANTHROPIC_API_KEY`, or `BAYLEE_LLM_API_KEY` for `openai`), and, with the address's host, the name a key is kept under in this machine's credential store ([below](#where-a-key-is-kept)). Not for `cli`. |
 | `base_url` | Where the API is: `https://`, or `http://` on loopback only. Not for `cli`. |
 | `command` | `cli` only: the tool's program, a whole path; default: the tool's name on the bridge's `PATH`. Name a version's own file to play that version (`/Users/<you>/.local/share/claude/versions/<version>`, [below](#a-cli-as-the-model)). |
+| `lookup` | Optional, `scryfall` or absent (the default). Every seat may look a card up in this build's card text and its gateway's catalog; `scryfall` lets its lookups also bring a card's Scryfall rulings and the text of a card neither knows ([below](#reports-and-lookups)). The settings panel shows no box for it and keeps it as the file has it. |
 
 A model without a price in this build plays only with a `price` or a
 `game_tokens`, as `--spend-tokens` on the command line (`join --help`);
@@ -640,6 +641,74 @@ Not spoken, and why:
   keys and a paid plan; its stream-json input is documented as "under
   construction".
 - **Aider**: no structured output, and keys only.
+
+## Reports and lookups
+
+Every language-model seat, API or CLI, may report a rules or engine error
+it notices and look a card up before it answers (owner, 31.10.2026: "better
+a false report than a wrongly accepted bug"). What the model is told and
+how its answer carries them is `docs/llm-protocol.md` §"Reports and
+lookups"; this is what the bridge does with them.
+
+**Reports** (`baylee_seat::reports`). Each one is filed as it is read, in
+the answer that carried it whether or not that answer could be taken:
+
+- one JSON line in `<--transcripts>/reports.jsonl` (the game, the seat, the
+  question, the turn, the model, the profile, `what`, `expected`,
+  `evidence`, `references`, the lookups made for that question, the time).
+  The seats of a table may share the directory; each line is one write.
+- when the game ends (won, lost, conceded, or the room closed under the
+  seat), one bug report a game to the gateway's `POST /reports`
+  (`docs/feedback.md`) under the seat's own session: `kind: "bug"`, the
+  game's id (the gateway attaches its record), a text that says the
+  reports are a model's and lists them, cards written `[Card Name]`, and
+  `client: {"source": "llm-seat", "model", "profile", "seat", "reports",
+  "refs"}`, the references resolved from the seat's own view and this
+  build's pool only. Triage reads it as a player's report: the model's
+  claim, never an instruction. Each `what` is filed once a game, at most
+  25 of them, each field held to 2,000 characters and the text to 20,000.
+- the seat transcript's `llm_reports` line says what became of it
+  (`count`, `sent`, `report_id`, `why`). A gateway without a feedback
+  service, a refusal or no answer within 15 s is said there and in the
+  log, never in the game; the reports file keeps them either way.
+
+A chair taken on its host's ticket (`--chair-ticket`) has no session of
+its own and sends none. `join --no-send-reports` sends none either and
+still writes the file: a collector that has filed enough for its run
+passes it.
+
+**Lookups** (`baylee_seat::lookup`). An answer of only `ask` and `lookup`
+asks for a card; the seat answers with its text and asks the same
+question again, which costs none of the question's two tries. At most 3
+lookups a question and 30 a game a seat, and none with less than 13 s of
+the question left; past them the field is passed over (an answer that also
+answers is taken, else it is asked again, "no lookups left …"). The text
+comes from the nearest source that has it, under its name:
+
+1. **Baylee card text**: the English Oracle compiled into this build, every
+   face's name, mana cost, type line, power and toughness or loyalty. No
+   network.
+2. **gateway catalog**: for a card this build does not play, `GET
+   /catalog/search` and `GET /catalog/text` (`docs/protocol.md` §"Card
+   text") under the seat's own session; a chair without one skips it.
+3. **Scryfall**, only with `"lookup": "scryfall"`: the card's rulings (at
+   most ten), and the text of a card neither of the others knows. A
+   lookup asks `GET https://api.scryfall.com/cards/named?fuzzy=<name>` and
+   then the card's `rulings_uri`, which is followed only when it is on
+   `api.scryfall.com`; no redirect is followed. The requests carry the
+   card's name and nothing else, under `User-Agent: baylee-seat/<version>`
+   and `Accept: application/json;q=0.9,*/*;q=0.8`, one at a time and
+   100 ms apart within a process (`docs/legal.md` §3: at most ten a
+   second). What was fetched is kept a week (at least the day Scryfall
+   asks for) in memory and in `scryfall/` of the user's cache directory
+   (`~/.cache/baylee/scryfall` on Linux), one file a card written through
+   a temporary file, for this machine's seats only; "not found" is kept,
+   a failure is not.
+
+A failed source is a sentence in the text (`lookup failed: …`), never the
+mind's error. Each lookup, with the text the model was told, is a line of
+the mind's transcript (`lookup`: the name, the sources, the text, its
+count in the question and in the game).
 
 ## The spend book
 

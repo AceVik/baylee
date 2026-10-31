@@ -11,7 +11,7 @@
 //! a bare `json_object` takes (LM Studio: "`'response_format.type' must be
 //! 'json_schema' or 'text'`").
 
-use super::prompt::{JSON_MODE, SYSTEM, answer_schema, openai_tools};
+use super::prompt::{Extras, JSON_MODE, answer_schema, openai_tools};
 use super::{AnswerMode, Call, Reply, Settings, Stop, ToolResult, Usage};
 use serde_json::{Value, json};
 
@@ -27,14 +27,14 @@ pub fn models_url(base: &str) -> String {
     format!("{base}/models")
 }
 
-/// The conversation's first message: the system prompt.
+/// The conversation's first message: the system prompt for a seat with
+/// `extras`.
 #[must_use]
-pub fn system(mode: AnswerMode) -> Value {
-    let text = if mode.is_json() {
-        format!("{SYSTEM}{JSON_MODE}")
-    } else {
-        SYSTEM.to_string()
-    };
+pub fn system(mode: AnswerMode, extras: Extras) -> Value {
+    let mut text = super::prompt::system(extras);
+    if mode.is_json() {
+        text.push_str(JSON_MODE);
+    }
     json!({"role": "system", "content": text})
 }
 
@@ -48,7 +48,7 @@ pub fn body(settings: &Settings, messages: &[Value]) -> Value {
     });
     match settings.answer {
         AnswerMode::Tools => {
-            body["tools"] = openai_tools();
+            body["tools"] = openai_tools(settings.extras());
             body["tool_choice"] = json!("auto");
         }
         AnswerMode::Json => body["response_format"] = json!({"type": "json_object"}),
@@ -58,7 +58,7 @@ pub fn body(settings: &Settings, messages: &[Value]) -> Value {
         AnswerMode::JsonSchema => {
             body["response_format"] = json!({
                 "type": "json_schema",
-                "json_schema": {"name": "decide", "schema": answer_schema()},
+                "json_schema": {"name": "decide", "schema": answer_schema(settings.extras())},
             });
         }
     }

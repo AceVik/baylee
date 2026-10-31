@@ -264,8 +264,10 @@ fn pick<'a>(
 fn tune(spec: &Spec, chosen: Option<&Chosen>, flags: &Overrides) -> Result<Settings, String> {
     let profile = chosen.map(|c| c.profile);
     let mut settings = Settings::new(spec);
+    settings.profile = chosen.map(|c| c.name.to_string());
     if let Some(profile) = profile {
         settings.session_api = profile.session_api.unwrap_or(false);
+        settings.lookup = profile.lookup;
         if let Some(effort) = profile.effort.as_ref().filter(|_| !flags.default_effort) {
             settings.effort = Some(effort.clone());
         }

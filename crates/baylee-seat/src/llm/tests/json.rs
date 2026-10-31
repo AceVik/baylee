@@ -198,9 +198,12 @@ async fn an_openai_compatible_endpoint_answers_by_json_schema() {
     let format = &seen[0].body["response_format"];
     assert_eq!(format["type"], "json_schema");
     assert_eq!(format["json_schema"]["name"], "decide");
-    assert_eq!(format["json_schema"]["schema"], prompt::answer_schema());
+    assert_eq!(
+        format["json_schema"]["schema"],
+        prompt::answer_schema(prompt::Extras::default())
+    );
     assert!(format["json_schema"].get("strict").is_none());
-    let schema = prompt::answer_schema();
+    let schema = prompt::answer_schema(prompt::Extras::default());
     for field in ["ask", "pick", "attacks", "then", "say", "concede"] {
         assert!(schema["properties"].get(field).is_some(), "{field}");
     }

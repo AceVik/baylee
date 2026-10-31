@@ -22,9 +22,12 @@
 //! another side's spell or ability on the stack, a payment owed, the end
 //! of its turn, a refusal. Nothing of a plan is ever guessed.
 
-use super::SAYS;
+use super::prompt::{LOOKUPS_PER_GAME, LOOKUPS_PER_QUESTION};
+use super::{RETRY_FLOOR, SAYS, Settings, lock};
+use crate::lookup::{self, Library};
 use crate::mind::{Answer, GameContext, Request};
-use crate::narrator::{self, Act, Hint, Narrator, Step, Stop, Table};
+use crate::narrator::{self, Act, Decision, Hint, Narrator, Step, Stop, Table};
+use crate::reports::{self, Report};
 use crate::transcript::Transcript;
 use crate::wake::{Held, Orders, Why};
 use baylee_client_core::manaplan;
@@ -35,6 +38,7 @@ use baylee_view::{LogEvent, LogObject, PlayerView};
 use serde_json::json;
 use std::collections::VecDeque;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// Taps still to send, and what they pay for.
@@ -134,9 +138,173 @@ pub(crate) struct Seat {
     pub(crate) casting: Option<ObjectId>,
     pub(crate) transcript: Transcript,
     pub(crate) stops: Option<narrator::Stops>,
+    /// The lookups this seat made in its game.
+    lookups: u32,
+    /// The reports this seat filed in its game, until the bridge takes
+    /// them.
+    pub(crate) reports: reports::Book,
+}
+
+/// A report or a lookup, as the seat that made it sees it: the question,
+/// the model, where reports are written.
+pub(crate) struct Making<'a> {
+    request: &'a Request,
+    settings: &'a Settings,
+    /// The lookups made for this question so far.
+    looked: u32,
+}
+
+impl<'a> Making<'a> {
+    /// What the seat answering `request` with `settings` makes, after
+    /// `looked` lookups for the question.
+    pub(crate) const fn new(request: &'a Request, settings: &'a Settings, looked: u32) -> Self {
+        Self {
+            request,
+            settings,
+            looked,
+        }
+    }
+}
+
+/// What holds a seat between decisions with its conversation: the API's
+/// and a CLI's.
+pub(crate) trait Holds: Send {
+    /// The seat.
+    fn seat(&mut self) -> &mut Seat;
+}
+
+/// What became of the lookup an answer asked for.
+pub(crate) enum Looked {
+    /// It asked for none.
+    Nothing,
+    /// It was made: the message that tells the model the card and asks
+    /// the question again.
+    Made(String),
+    /// It may not be made now: why, said where the answer does not answer.
+    Refused(String),
+}
+
+/// What a language model's seat does with an answer's `decision` before
+/// it reads it against its question, whoever holds the conversation: the
+/// report it carries filed, and the lookup it asks for made where it may
+/// be ([`Seat::may_look_up`], with `left` of the question's time) in
+/// `library`, off the executor. The seat is never held while the card is
+/// looked up.
+pub(crate) async fn report_and_look_up<T: Holds>(
+    holder: &Mutex<T>,
+    library: &Arc<Library>,
+    making: &Making<'_>,
+    decision: Option<&Decision>,
+    left: Duration,
+) -> Looked {
+    let Some(decision) = decision else {
+        return Looked::Nothing;
+    };
+    let (name, timeout) = {
+        let mut held = lock(holder);
+        let seat = held.seat();
+        if let Some(report) = &decision.report {
+            seat.file_report(report, making);
+        }
+        let Some(name) = decision.lookup.clone() else {
+            return Looked::Nothing;
+        };
+        match seat.may_look_up(making, left) {
+            Ok(timeout) => (name, timeout),
+            Err(why) => return Looked::Refused(why),
+        }
+    };
+    let found = super::look_up(library, making.settings, &name, timeout).await;
+    let left = {
+        let mut held = lock(holder);
+        let seat = held.seat();
+        seat.looked_up(making, &name, &found);
+        (LOOKUPS_PER_QUESTION - making.looked - 1).min(seat.lookups_left())
+    };
+    Looked::Made(lookup::message(
+        &name,
+        &found,
+        making.request.question,
+        left,
+    ))
 }
 
 impl Seat {
+    /// Files the report an answer carried ([`crate::reports`]): written to
+    /// the reports file where there are transcripts, and kept for the
+    /// bridge.
+    fn file_report(&mut self, report: &Report, at: &Making) {
+        let request = at.request;
+        let filed = reports::Filed {
+            game_id: request.context.game_id.clone(),
+            seat: request.context.seat.get(),
+            question: request.question,
+            turn: request.view.turn,
+            model: at.settings.model.clone(),
+            profile: at.settings.profile.clone(),
+            report: report.clone(),
+            lookups: at.looked,
+            unix: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |since| since.as_secs()),
+            seen: reports::seen_in(report, &request.view),
+        };
+        if self.reports.file(filed, at.settings.transcripts.as_deref()) {
+            self.transcript.write_value(&json!({
+                "question": request.question,
+                "turn": request.view.turn,
+                "report": report.what,
+            }));
+            self.transcript.flush();
+        }
+    }
+
+    /// How long a lookup's sources may each take, or why no lookup may be
+    /// made now: the question's or the game's lookups are spent, or too
+    /// little of the question's time is `left`.
+    fn may_look_up(&self, at: &Making, left: Duration) -> Result<Duration, String> {
+        let question = at.request.question;
+        if at.looked >= LOOKUPS_PER_QUESTION {
+            return Err(format!(
+                "no lookups left for this question ({LOOKUPS_PER_QUESTION} made); answer \
+                 q{question} now"
+            ));
+        }
+        if self.lookups >= LOOKUPS_PER_GAME {
+            return Err(format!(
+                "no lookups left in this game ({LOOKUPS_PER_GAME} made); answer q{question} now"
+            ));
+        }
+        let spare = left.saturating_sub(RETRY_FLOOR);
+        if spare < lookup::LEAST {
+            return Err(format!("no time left for a lookup; answer q{question} now"));
+        }
+        Ok((spare / 4).min(lookup::TIMEOUT))
+    }
+
+    /// Counts a lookup of `name` that found `found`, and writes it to the
+    /// mind's transcript, the text the model is told included.
+    fn looked_up(&mut self, at: &Making, name: &str, found: &lookup::Found) {
+        self.lookups += 1;
+        self.transcript.write_value(&json!({
+            "question": at.request.question,
+            "turn": at.request.view.turn,
+            "lookup": {
+                "name": name,
+                "sources": found.sources,
+                "text": found.text,
+                "of_question": at.looked + 1,
+                "of_game": self.lookups,
+            },
+        }));
+        self.transcript.flush();
+    }
+
+    /// The lookups this seat has left in its game.
+    const fn lookups_left(&self) -> u32 {
+        LOOKUPS_PER_GAME.saturating_sub(self.lookups)
+    }
+
     /// A seat at the start of `context`'s game, writing its transcript as
     /// `<game>-seat<n>-mind.jsonl` in `transcripts`, if that is given.
     pub(crate) fn new(
@@ -166,6 +334,8 @@ impl Seat {
             casting: None,
             transcript,
             stops: None,
+            lookups: 0,
+            reports: reports::Book::default(),
         }
     }
 

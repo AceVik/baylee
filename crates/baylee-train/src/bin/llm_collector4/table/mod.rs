@@ -644,6 +644,29 @@ impl Drop for SeatProcessGroup {
     }
 }
 
+/// The rules or engine errors the seats' models reported in `game_id`
+/// (the transcripts' `reports.jsonl`, `docs/llm-protocol.md` §"Reports and
+/// lookups"), and per seat what became of its bug report to the gateway:
+/// its transcript's `llm_reports` line, `null` where it filed none.
+fn llm_reports(transcripts_dir: &Path, game_id: &str) -> (usize, Vec<Value>) {
+    let filed = read_jsonl(&transcripts_dir.join(baylee_seat::reports::FILE))
+        .unwrap_or_default()
+        .iter()
+        .filter(|row| row.get("game_id").and_then(Value::as_str) == Some(game_id))
+        .count();
+    let sent = [0_usize, 1_usize]
+        .iter()
+        .map(|seat| {
+            read_jsonl(&transcripts_dir.join(format!("{game_id}-seat{seat}.jsonl")))
+                .unwrap_or_default()
+                .into_iter()
+                .find_map(|row| row.get("llm_reports").cloned())
+                .unwrap_or(Value::Null)
+        })
+        .collect();
+    (filed, sent)
+}
+
 fn both_transcripts_over(out_dir: &Path, game_id: &str) -> bool {
     for seat in [0_usize, 1_usize] {
         let p = out_dir
@@ -1283,6 +1306,7 @@ pub async fn run_attempt(
             );
         }
 
+        let (reported, report_submissions) = llm_reports(&transcripts_dir, &game_id);
         let result = json!({
             "schema_version": 1,
             "status": "complete",
@@ -1307,6 +1331,8 @@ pub async fn run_attempt(
             "policy_targets": "none_until_ordered_provenance_review",
             "provenance_scope": "Transcript counts are sends, not accepted-input labels; ordered companion preserves all compatible origins and ambiguity, fallback is never implicitly LLM. No targets or semantic strength filter.",
             "transport_binary_sha256": sha256_file(seat_bin)?,
+            "llm_reports": reported,
+            "llm_report_submissions": report_submissions,
         });
         Ok(result)
     };
@@ -1652,6 +1678,40 @@ mod tests {
             json!({"games":[{"id":"game", "setup":baylee_core::preset::RoomSetup::default()}]});
         assert!(verify_configured_setup(&ignored, "game", &setup).is_err());
         assert!(verify_configured_setup(&json!({"games":[]}), "game", &setup).is_err());
+    }
+
+    /// The models' reports of this game are counted from the shared
+    /// reports file, and each seat's bug report read from its transcript.
+    #[test]
+    fn the_models_reports_are_counted_per_game() {
+        let dir = crate::audit::tests::TestDir::new("llm-reports");
+        let transcripts = dir.path();
+        let (none, unsent) = llm_reports(transcripts, "game");
+        assert_eq!((none, unsent), (0, vec![Value::Null, Value::Null]));
+        let lines = [
+            json!({"game_id": "game", "seat": 0, "what": "a"}),
+            json!({"game_id": "other", "seat": 1, "what": "b"}),
+            json!({"game_id": "game", "seat": 1, "what": "c"}),
+        ];
+        let text: Vec<String> = lines.iter().map(ToString::to_string).collect();
+        std::fs::write(
+            transcripts.join(baylee_seat::reports::FILE),
+            text.join("\n") + "\n",
+        )
+        .unwrap();
+        let filing = json!({"count": 1, "sent": true, "report_id": "r", "why": null});
+        std::fs::write(
+            transcripts.join("game-seat0.jsonl"),
+            format!(
+                "{}\n{}\n",
+                json!({"event": "over"}),
+                json!({"llm_reports": filing})
+            ),
+        )
+        .unwrap();
+        let (counted, sent) = llm_reports(transcripts, "game");
+        assert_eq!(counted, 2);
+        assert_eq!(sent, vec![filing, Value::Null]);
     }
 
     #[test]

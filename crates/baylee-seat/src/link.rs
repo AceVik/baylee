@@ -132,6 +132,16 @@ impl SeatLink {
         Ok(Some(deck.list))
     }
 
+    /// The gateway and the seat's own session, to file the game's reports
+    /// with; `None` for a chair taken on its host's ticket, which has no
+    /// session.
+    pub(crate) const fn reporter(&self) -> Option<(&Lobby, &Session)> {
+        match &self.session {
+            Some(session) => Some((&self.lobby, session)),
+            None => None,
+        }
+    }
+
     /// Sockets opened so far.
     #[must_use]
     pub const fn dials(&self) -> u32 {

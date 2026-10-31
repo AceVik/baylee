@@ -697,6 +697,7 @@ fn played(fallback: Option<bridge::FellBack>) -> bridge::Played {
         result: None,
         dials: 2,
         fallback,
+        reports: None,
     }
 }
 

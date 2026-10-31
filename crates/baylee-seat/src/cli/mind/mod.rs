@@ -2,12 +2,22 @@
 
 use super::{
     Answer, Arc, BTreeMap, CliMind, CliSeat, Command, Conversation, Cooldown, Disclosure, Duration,
-    GAME_DATA, GameContext, Gone, Instant, LOST, Launch, Limits, MARGIN, MAX_COOLDOWN, Mind,
-    MindError, Mutex, Outcome, PROBE, PlayerAction, Prepared, Queue, RETRY_FLOOR, Reader,
-    Readiness, Reply, Request, STALE_STORE, Seat, Seats, Session, SessionDir, Settings, Stdio,
-    Store, Tally, Thinking, Usage, Value, Waiter, Weak, Wire, collect, json, lock, mpsc, narrator,
+    GAME_DATA, GameContext, Gone, Instant, LOST, Launch, Limits, MAX_COOLDOWN, Mind, MindError,
+    Mutex, Outcome, PROBE, PlayerAction, Prepared, Queue, RETRY_FLOOR, Reader, Readiness, Reply,
+    Request, STALE_STORE, Seat, Seats, Session, SessionDir, Settings, Stdio, Store, Tally,
+    Thinking, Usage, Value, Waiter, Weak, Wire, collect, decision, json, lock, mpsc, narrator,
     oneshot, prompt, read, scrub, sweep_stores, write,
 };
+use crate::llm::seatstate::{Holds, Looked, Making, report_and_look_up};
+use crate::llm::time_left;
+use crate::lookup::Library;
+use crate::reports::Filed;
+
+impl Holds for CliSeat {
+    fn seat(&mut self) -> &mut Seat {
+        &mut self.seat
+    }
+}
 
 mod process;
 
@@ -27,7 +37,11 @@ impl CliMind {
             }
         }
         Self {
-            system: format!("{}{}{GAME_DATA}", prompt::SYSTEM, prompt::JSON_MODE),
+            system: format!(
+                "{}{}{GAME_DATA}",
+                prompt::system(settings.extras()),
+                prompt::JSON_MODE
+            ),
             settings,
             launch,
             seats: Arc::new(Mutex::new(BTreeMap::new())),
@@ -39,6 +53,7 @@ impl CliMind {
             limits,
             locked_out: Arc::new(Mutex::new(None)),
             warned: std::sync::atomic::AtomicBool::new(false),
+            library: Library::shared(),
         }
     }
 
@@ -90,13 +105,12 @@ impl CliMind {
             Err(done) => return done,
         };
         let mut text = prepared.text.clone();
-        let mut tries = 0;
+        // Answers that could not be taken: the second is the last. A lookup
+        // asks the question again without counting among them.
+        let mut refused = 0;
+        let mut looked = 0;
         loop {
-            tries += 1;
-            let left = request
-                .budget
-                .saturating_sub(started.elapsed())
-                .saturating_sub(MARGIN);
+            let left = time_left(request, started);
             if left.is_zero() {
                 return Err(MindError::Declined("no time left to ask the model".into()));
             }
@@ -133,7 +147,7 @@ impl CliMind {
                         .afresh(&seat, request)
                         .map_err(MindError::Unavailable)?;
                     text = prepared.text.clone();
-                    tries = 0;
+                    refused = 0;
                     continue;
                 }
                 Reply::Outcome(Outcome::Answer {
@@ -154,16 +168,31 @@ impl CliMind {
                 }
                 Reply::Gone(gone) => return Err(self.gone(&seat, gone).await),
             };
-            match read(value.as_ref(), &prepared.menu) {
+            let taken = decision(value.as_ref());
+            let making = Making::new(request, &self.settings, looked);
+            let left = time_left(request, started);
+            let extras =
+                report_and_look_up(&seat, &self.library, &making, taken.as_ref().ok(), left);
+            // A lookup asks the same question again with the card's text;
+            // one that may not be made is passed over, and the answer is
+            // taken if it answers.
+            let no_lookup = match extras.await {
+                Looked::Made(message) => {
+                    looked += 1;
+                    text = self.reask(&seat, request, &mut prepared, message)?;
+                    continue;
+                }
+                Looked::Refused(why) => Some(why),
+                Looked::Nothing => None,
+            };
+            match taken.and_then(|decision| read(decision, &prepared.menu)) {
                 Ok(read) => {
                     return Self::commit(&seat, request, prepared, read, usage, sent, said.clone());
                 }
                 Err(why) => {
-                    let again = request
-                        .budget
-                        .saturating_sub(started.elapsed())
-                        .saturating_sub(MARGIN);
-                    if tries >= 2 || again < RETRY_FLOOR {
+                    let why = no_lookup.unwrap_or(why);
+                    refused += 1;
+                    if refused >= 2 || time_left(request, started) < RETRY_FLOOR {
                         return Err(MindError::Declined(format!(
                             "the model's answer could not be read: {why}"
                         )));
@@ -175,9 +204,7 @@ impl CliMind {
     }
 
     /// The message that asks `request` again after its answer could not be
-    /// read for `why`. A one-shot tool's goes to a process of its own: one
-    /// that goes on with the conversation hears only why, one that has
-    /// heard nothing yet the whole question again.
+    /// read for `why` ([`Self::reask`]).
     pub(super) fn again(
         &self,
         seat: &Arc<Mutex<CliSeat>>,
@@ -189,16 +216,31 @@ impl CliMind {
             "That answer could not be taken: {why}. Answer q{} again.",
             request.question
         );
+        self.reask(seat, request, prepared, correction)
+    }
+
+    /// The message that asks `request` again with `message` (why the last
+    /// answer could not be taken, or a lookup's card). A one-shot tool's
+    /// goes to a process of its own: one that goes on with the
+    /// conversation hears only `message`, one that has heard nothing yet
+    /// the whole question again.
+    pub(super) fn reask(
+        &self,
+        seat: &Arc<Mutex<CliSeat>>,
+        request: &Request,
+        prepared: &mut Prepared,
+        message: String,
+    ) -> Result<String, MindError> {
         if !self.launch.dialect.one_shot() {
-            return Ok(correction);
+            return Ok(message);
         }
         prepared.resumed = self
             .respawn(seat, &request.context)
             .map_err(MindError::Unavailable)?;
         Ok(if prepared.resumed {
-            correction
+            message
         } else {
-            format!("{}\n\n{correction}", prepared.text)
+            format!("{}\n\n{message}", prepared.text)
         })
     }
 
@@ -691,6 +733,13 @@ impl Mind for CliMind {
             }
             answer
         })
+    }
+
+    fn reports(&self, game: &str, seat: u8) -> Vec<Filed> {
+        let state = lock(&self.seats).get(&(game.to_owned(), seat)).cloned();
+        state
+            .map(|state| lock(&state).seat.reports.take())
+            .unwrap_or_default()
     }
 
     fn disclosure(&self) -> Disclosure {

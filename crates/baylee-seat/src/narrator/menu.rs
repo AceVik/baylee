@@ -9,6 +9,7 @@
 
 use super::{Style, Table, board, tag, words};
 use crate::mind::Request;
+use crate::reports::Report;
 use crate::wake::{Reach, ReachFrom, reachable};
 use baylee_cards_dsl::AbilityDef;
 use baylee_client_core::manaplan::{self, Tap};
@@ -212,6 +213,12 @@ pub struct Decision {
     pub board: Option<String>,
     /// A concession, with its reason.
     pub concede: Option<String>,
+    /// A rules or engine error the model reports beside its answer
+    /// ([`crate::reports`]).
+    pub report: Option<Report>,
+    /// A card the model wants to read before it answers
+    /// ([`crate::lookup`]).
+    pub lookup: Option<String>,
 }
 
 /// The phases or steps the model wants to be woken in.
@@ -277,6 +284,8 @@ impl Decision {
             react: text("react"),
             board: text("board"),
             concede: None,
+            report: map.get("report").and_then(Report::read),
+            lookup: text("lookup").filter(|name| !name.is_empty()),
         })
     }
 

@@ -66,7 +66,7 @@ impl Dialect for Agy {
         .map(OsString::from)
         .collect();
         args.push("--json-schema".into());
-        args.push(prompt::answer_schema().to_string().into());
+        args.push(prompt::answer_schema(settings.extras()).to_string().into());
         let raw_model = model.unwrap_or(DEFAULT_AGY_MODEL);
         let (resolved_model, resolved_effort) =
             match (agy_tier_stem(raw_model), settings.effort.as_deref()) {

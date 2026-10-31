@@ -128,7 +128,7 @@ fn the_prompt_states_the_grammar_the_parser_reads() {
             "the system prompt lacks «{alternative}»"
         );
     }
-    let schema = crate::llm::prompt::decide_schema();
+    let schema = crate::llm::prompt::decide_schema(crate::llm::prompt::Extras::default());
     let described = schema["properties"]["plan"]["description"]
         .as_str()
         .expect("a description");

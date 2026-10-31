@@ -139,6 +139,16 @@ spent) and its keys on its own machine. A key the console sets passes
 through the feedback service and the gateway in memory only, for that
 request, and is answered back by nothing.
 
+A model's reports of rules or engine errors (31.10.2026, `docs/llm-seat.md`
+§"Reports and lookups") are written to the bridge's `reports.jsonl` where
+it keeps transcripts, and sent as one bug report a game under the seat's
+own session, which the gateway passes on as it does a player's (its record
+of the game attached, the seat's account as a pseudonym): the model's
+words about the game, in which players are `P1…Pn`, the model's id and the
+profile's name, and nothing else. A lookup sends a card's name, and only
+that: to the gateway's catalog under the seat's session, or, for a profile
+that says so, to Scryfall.
+
 ### Who may seat each model (owner, 13.10.2026)
 
 The operator decides per hosted profile which players may seat it

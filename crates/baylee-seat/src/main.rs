@@ -270,6 +270,11 @@ struct Join {
     /// A directory for the game's transcript, one JSON line per event.
     #[arg(long)]
     transcripts: Option<PathBuf>,
+    /// Keep a language model's reports of rules or engine errors in the
+    /// transcripts' `reports.jsonl` only: no bug report goes to the
+    /// gateway when the game ends.
+    #[arg(long)]
+    no_send_reports: bool,
     /// Sit at a table that gives a question 30 seconds or fewer.
     #[arg(long)]
     allow_blitz: bool,
@@ -1513,8 +1518,14 @@ async fn play_out(
     }
     let options = PlayOptions {
         min_think: Duration::from_millis(join.min_think_ms),
+        send_reports: !join.no_send_reports,
         ..PlayOptions::default()
     };
+    // A language model's lookups of a card this build does not play go to
+    // this gateway's catalog, under the seat's own session, where it has one.
+    if let Some(session) = seated.by.session() {
+        baylee_seat::lookup::Library::shared().seat_at(seated.lobby.base(), session);
+    }
     let mut link = SeatLink::new(seated.lobby, seated.chair, seated.by.session());
     let played = bridge::play_swapping(
         &mut link,

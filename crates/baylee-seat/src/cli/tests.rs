@@ -201,7 +201,7 @@ fn claude_runs_with_no_tools_no_settings_and_our_instructions() {
         .into_iter()
         .map(|arg| arg.into_string().unwrap())
         .collect();
-    let schema = prompt::answer_schema().to_string();
+    let schema = prompt::answer_schema(prompt::Extras::default()).to_string();
     let expected = [
         "-p",
         "--input-format",

@@ -695,6 +695,7 @@ fn the_field_paths_are_the_file_s_own() {
         key_env: Some("K".into()),
         base_url: Some("https://x".into()),
         command: Some("/x".into()),
+        lookup: Some(LookupSource::Scryfall),
         ..Profile::new(Provider::Anthropic, "m")
     };
     let mut written = Vec::new();
@@ -865,4 +866,31 @@ mod on_disk {
             None
         );
     }
+}
+
+/// A profile may let its lookups reach Scryfall, by the one word the file
+/// knows for it; any other word is refused, and none is the default.
+#[test]
+fn a_profile_s_lookup_is_scryfall_or_nothing() {
+    let with = |lookup: &str| {
+        format!(
+            r#"{{"profiles": {{"t": {{"provider": "cli", "model": "claude", "lookup": {lookup}}}}}}}"#
+        )
+    };
+    let read = SeatSettings::parse(&with("\"scryfall\"")).expect("scryfall is a lookup");
+    assert_eq!(read.profiles["t"].lookup, Some(LookupSource::Scryfall));
+    assert_eq!(LookupSource::Scryfall.name(), "scryfall");
+    let written = serde_json::to_value(&read.profiles["t"]).unwrap();
+    assert_eq!(written["lookup"], "scryfall");
+    for other in ["\"gatherer\"", "true", "\"\""] {
+        assert!(SeatSettings::parse(&with(other)).is_err(), "{other}");
+    }
+    let plain = Profile::new(Provider::Cli, "claude");
+    assert_eq!(plain.lookup, None);
+    assert!(
+        serde_json::to_value(&plain)
+            .unwrap()
+            .get("lookup")
+            .is_none()
+    );
 }

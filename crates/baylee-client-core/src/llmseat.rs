@@ -279,6 +279,26 @@ impl AnswerMode {
     }
 }
 
+/// Where a seat's card lookups may go beyond the card text this build and
+/// its gateway hold (`docs/llm-seat.md` §"Reports and lookups").
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LookupSource {
+    /// Scryfall's API: a card's rulings, and the text of a card neither
+    /// this build nor the gateway knows.
+    Scryfall,
+}
+
+impl LookupSource {
+    /// The name the file spells it with.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Scryfall => "scryfall",
+        }
+    }
+}
+
 /// A model's price per million tokens, in US dollars.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Price {
@@ -468,6 +488,11 @@ pub struct Profile {
     /// shell, so a shell function or alias of the same name is not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
+    /// Where the seat's card lookups may also go: `scryfall` for a card's
+    /// rulings and for a card neither this build nor the gateway knows
+    /// [default: none; the card text of this build and the gateway only].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lookup: Option<LookupSource>,
 }
 
 impl Profile {
@@ -489,6 +514,7 @@ impl Profile {
             key_env: None,
             base_url: None,
             command: None,
+            lookup: None,
         }
     }
 
@@ -779,11 +805,13 @@ pub enum Field {
     BaseUrl,
     /// `command`.
     Command,
+    /// `lookup`.
+    Lookup,
 }
 
 impl Field {
     /// Every field, in the order a profile writes them.
-    pub const ALL: [Self; 15] = [
+    pub const ALL: [Self; 16] = [
         Self::Provider,
         Self::Model,
         Self::Effort,
@@ -799,6 +827,7 @@ impl Field {
         Self::KeyEnv,
         Self::BaseUrl,
         Self::Command,
+        Self::Lookup,
     ];
 
     /// Its path in a profile, as the file spells it: a price's two amounts
@@ -821,6 +850,7 @@ impl Field {
             Self::KeyEnv => &["key_env"],
             Self::BaseUrl => &["base_url"],
             Self::Command => &["command"],
+            Self::Lookup => &["lookup"],
         }
     }
 

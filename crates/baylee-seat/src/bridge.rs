@@ -45,6 +45,16 @@
 //! mind's as before, the house answers, and the transcript says why. A
 //! mind that declines a question ([`MindError::Declined`]) is not down:
 //! the house answers that one, and the fallback stands by.
+//!
+//! # A game's reports
+//!
+//! What a language model reported of the rules or the engine
+//! ([`crate::reports`]) is gathered from every mind that played the game,
+//! as each answer comes and before a mind leaves it, and sent when the
+//! game is over for the seat (an end, a room that closed, a seat that
+//! left) as one bug report to the gateway under the seat's own session
+//! ([`PlayOptions::send_reports`]). Whatever becomes of it is a line of the
+//! transcript (`llm_reports`) and never touches the game.
 
 use crate::link::{SeatLink, Socket};
 use crate::mind::{Answer, Mind, MindError, Request};
@@ -73,6 +83,10 @@ pub struct PlayOptions {
     /// How long the socket may be quiet before the lobby is asked whether
     /// the room is still open.
     pub room_check: Duration,
+    /// Whether the game's reports go to the gateway as its bug report when
+    /// it ends ([`crate::reports`]); they are written to the transcripts'
+    /// reports file either way (`join --no-send-reports` turns it off).
+    pub send_reports: bool,
 }
 
 impl Default for PlayOptions {
@@ -81,9 +95,13 @@ impl Default for PlayOptions {
             min_think: Duration::from_millis(1500),
             mind_poll: Duration::from_secs(5),
             room_check: Duration::from_secs(20),
+            send_reports: true,
         }
     }
 }
+
+/// How long the game's bug report may take to be sent.
+const REPORT_WAIT: Duration = Duration::from_secs(15);
 
 /// How a seat's game went.
 #[derive(Debug)]
@@ -97,6 +115,22 @@ pub struct Played {
     pub dials: u32,
     /// How the fallback profile played, where it took over.
     pub fallback: Option<FellBack>,
+    /// What became of the game's reports, where its mind filed any.
+    pub reports: Option<Filing>,
+}
+
+/// What became of a game's reports ([`crate::reports`]): how many, and
+/// whether they reached the gateway as its bug report.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct Filing {
+    /// The reports the mind filed.
+    pub count: usize,
+    /// Whether the gateway took the bug report.
+    pub sent: bool,
+    /// The service's id for it, when it took it.
+    pub report_id: Option<String>,
+    /// Why it was not sent, when it was not.
+    pub why: Option<String>,
 }
 
 /// The failure a fallback is asked to take over on: a limit, or the mind
@@ -373,18 +407,13 @@ async fn run(
                 if let Some(mut ws) = socket.take() {
                     let _ = ws.close(None).await;
                 }
-                transcript.flush();
-                return Ok(Played {
-                    stats: core.stats().clone(),
-                    result: Some(result),
-                    dials: link.dials(),
-                    fallback: bridge.fell_back.clone(),
-                });
+                return Ok(bridge.played(&core, Some(result), transcript, link).await);
             }
             Next::Left(reason) => {
                 if let Some(mut ws) = socket.take() {
                     let _ = ws.close(None).await;
                 }
+                bridge.file_reports(link, transcript).await;
                 transcript.flush();
                 anyhow::bail!("the seat left the table: {reason}");
             }
@@ -423,6 +452,9 @@ struct Bridge {
     on_fallback: bool,
     /// Lines for the transcript, written by the loop.
     notes: Vec<serde_json::Value>,
+    /// The reports the game's minds filed, gathered as they answer and
+    /// before a mind leaves the game ([`Mind::reports`]).
+    reports: Vec<crate::reports::Filed>,
 }
 
 impl Bridge {
@@ -446,20 +478,77 @@ impl Bridge {
             fell_back: None,
             on_fallback: false,
             notes: Vec::new(),
+            reports: Vec::new(),
         }
+    }
+
+    /// Gathers the reports the mind filed since it was last asked.
+    fn gather(&mut self) {
+        if let Some((game, seat)) = &self.game_seat {
+            let filed = self.mind.reports(game, *seat);
+            self.reports.extend(filed);
+        }
+    }
+
+    /// The mind plays no more of this game: its reports are gathered
+    /// first.
+    fn end_mind(&mut self) {
+        self.gather();
+        if let Some((game, seat)) = &self.game_seat {
+            self.mind.end_game(game, *seat);
+        }
+    }
+
+    /// Sends the game's reports as one bug report to the gateway, under
+    /// the seat's session, where the bridge may ([`PlayOptions::send_reports`])
+    /// and has one; says in the transcript what became of them. Never
+    /// fails the game: a report not sent stays in the reports file.
+    async fn file_reports(
+        &mut self,
+        link: &SeatLink,
+        transcript: &mut Transcript,
+    ) -> Option<Filing> {
+        self.gather();
+        let body = crate::reports::submission(&self.reports)?;
+        let count = body["client"]["reports"].as_array().map_or(0, Vec::len);
+        let sent = match (self.options.send_reports, link.reporter()) {
+            (false, _) => Err("not sent: the bridge was told not to".to_string()),
+            (true, None) => Err("not sent: the chair has no session of its own".to_string()),
+            (true, Some((lobby, session))) => {
+                match tokio::time::timeout(REPORT_WAIT, lobby.report(session, body)).await {
+                    Ok(Ok(id)) => Ok(id),
+                    Ok(Err(e)) => Err(format!("not sent: {e:#}")),
+                    Err(_) => Err("not sent: the gateway did not answer in time".to_string()),
+                }
+            }
+        };
+        let filing = match sent {
+            Ok(id) => Filing {
+                count,
+                sent: true,
+                report_id: Some(id),
+                why: None,
+            },
+            Err(why) => {
+                tracing::warn!(reports = count, "the game's reports were {why}");
+                Filing {
+                    count,
+                    sent: false,
+                    report_id: None,
+                    why: Some(why),
+                }
+            }
+        };
+        transcript.write_value(&serde_json::json!({ "llm_reports": filing }));
+        Some(filing)
     }
 
     /// Takes every mind handed over since the last question, the latest
     /// last: the mind the next question is asked of. A mind handed over
     /// plays another profile, so a fallback held for the old one is let go.
     fn take_swaps(&mut self) {
-        let Some(swaps) = self.swaps.as_mut() else {
-            return;
-        };
-        while let Ok(swap) = swaps.try_recv() {
-            if let Some((game, seat)) = &self.game_seat {
-                self.mind.end_game(game, *seat);
-            }
+        while let Some(swap) = self.swaps.as_mut().and_then(|swaps| swaps.try_recv().ok()) {
+            self.end_mind();
             self.fallback = None;
             self.on_fallback = false;
             self.mind = swap.mind;
@@ -505,6 +594,7 @@ impl Bridge {
             request,
             ..
         } = self.thinking.take()?;
+        self.gather();
         let result = joined
             .unwrap_or_else(|e| Err(MindError::Unavailable(format!("the mind stopped: {e}"))));
         let result = match (result, request) {
@@ -594,9 +684,7 @@ impl Bridge {
             },
         }));
         // The mind that could not answer plays no more of this game.
-        if let Some((game, seat)) = &self.game_seat {
-            self.mind.end_game(game, *seat);
-        }
+        self.end_mind();
         self.mind = swap.mind;
         self.rethink = swap.think.or(self.rethink);
         if let Some(declared) = swap.declared {
@@ -670,12 +758,26 @@ impl Bridge {
         let steps = core.closed();
         self.carry_out(steps, None).await;
         record(core, transcript);
+        self.played(core, None, transcript, link).await
+    }
+
+    /// How the game went, once it is over for the seat: its reports filed
+    /// first, the transcript flushed.
+    async fn played(
+        &mut self,
+        core: &SeatCore,
+        result: Option<GameResult>,
+        transcript: &mut Transcript,
+        link: &SeatLink,
+    ) -> Played {
+        let reports = self.file_reports(link, transcript).await;
         transcript.flush();
         Played {
             stats: core.stats().clone(),
-            result: None,
+            result,
             dials: link.dials(),
             fallback: self.fell_back.clone(),
+            reports,
         }
     }
 
@@ -832,6 +934,9 @@ impl Drop for Bridge {
         }
     }
 }
+
+#[cfg(test)]
+mod report_tests;
 
 #[cfg(test)]
 mod tests {

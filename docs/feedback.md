@@ -103,6 +103,12 @@ What the gateway sends on, and nothing else:
 Never a name, username, address, session or IP. The client decides what goes
 into `client` and says so to the player (`docs/privacy.md`).
 
+A language-model seat's bridge sends its model's reports of rules or engine
+errors here too, one `bug` a game under the seat's own session, with
+`client.source: "llm-seat"`, the model, the profile and each report in
+`client.reports` (`docs/llm-seat.md` §"Reports and lookups"). They are a
+model's claims: triage reads them as it reads a player's.
+
 Configuration: `BAYLEE_FEEDBACK_URL` (the service's base URL, for example
 `https://feedback.baylee.app`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's
 intake token there), `BAYLEE_FEEDBACK_KEY` (the pseudonym key; set it, and
