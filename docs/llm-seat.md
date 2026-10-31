@@ -967,15 +967,19 @@ holds the processes).
   guests, and the chair's card says why not where it takes none. So does
   an older gateway that sells no tickets (`404`): the guest door, where
   there is one.
-- **An already occupied host chair (local supervision).** A controller that
-  created a regular account and already opened a room in chair 0 may hand
-  that same chair to `baylee-seat join <room> --chair 0 --tethered
-  --host-chair`. Its first stdin line is JSON with `game_id`, `seat: 0`,
-  `seat_token` and `session_token`; the remaining stdin still holds the
-  tether. Never put that line in arguments, environment, logs or files.
-  The bridge checks that the session owns the occupied human chair 0 of
-  that waiting room, then uses the same session and chair for ready,
-  waiting and its socket. It creates no guest, uploads no second deck and
+- **An already occupied account chair (local supervision).** A controller
+  whose regular account already holds a chair of a waiting room (the
+  host's chair 0 of the room it opened, or a chair it joined) may hand that
+  same chair to `baylee-seat join <room> --chair <n> --tethered
+  --host-chair`. Its first stdin line is JSON with `game_id`, `seat` (the
+  `--chair`), `seat_token` and `session_token`; the remaining stdin still
+  holds the tether. Never put that line in arguments, environment, logs or
+  files. The bridge checks that the session owns that occupied human chair
+  of that waiting room, then uses the same session and chair for ready,
+  waiting and its socket. A chair ticket seats only a language model
+  (`LLM-…`), so this is how the house (`--mind house`) takes a chair at a
+  table it does not host: in an account named `HOUSE-…` (the LLM
+  collector's `house:<level>` seats). It creates no guest, uploads no second deck and
   never starts the room; the controller does that once all chairs are
   ready. The account's displayed name and uploaded deck must already
   match the chosen mind's disclosed name and configured deck. This is the

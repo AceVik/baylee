@@ -14,6 +14,18 @@ fn handoff_preserves_credentials_without_debugging_them() {
     assert!(!format!("{session:?} {chair:?}").contains("secret"));
 }
 
+/// A chair the account joined is handed over as the host's is: the one
+/// `--chair` names, and no other.
+#[test]
+fn a_joined_chair_is_handed_over_by_the_seat_the_bridge_is_told() {
+    let mut joined = input();
+    joined["seat"] = serde_json::json!(1);
+    let (_, chair) = parse(&joined.to_string(), "room", Some(1)).unwrap();
+    assert_eq!(chair.seat, 1);
+    assert!(parse(&joined.to_string(), "room", Some(0)).is_err());
+    assert!(parse(&input().to_string(), "room", Some(1)).is_err());
+}
+
 #[test]
 fn malformed_or_mismatched_handoffs_fail_without_echoing_tokens_or_json() {
     let mut bad = vec!["not-json-seat-secret".to_owned(), "x".repeat(17000)];
@@ -38,24 +50,33 @@ fn malformed_or_mismatched_handoffs_fail_without_echoing_tokens_or_json() {
     assert!(parse(&input().to_string(), "room", None).is_err());
 }
 
+/// The room must be waiting, and the chair named the session's own
+/// occupied person's chair: the host's chair 0, or a chair it joined.
 #[test]
-fn room_must_be_waiting_and_session_must_own_occupied_human_zero() {
-    let value = serde_json::json!({"id":"room","state":"waiting","yours":true,"clock":{"decide_secs":0},"seats":[{"seat":0,"kind":"human","taken":true,"you":true}]});
-    validate_room(&serde_json::from_value(value.clone()).unwrap()).unwrap();
+fn room_must_be_waiting_and_session_must_own_the_occupied_human_chair() {
+    let value = serde_json::json!({"id":"room","state":"waiting","yours":true,"clock":{"decide_secs":0},"seats":[{"seat":0,"kind":"human","taken":true,"you":true},{"seat":1,"kind":"human","taken":true,"you":false}]});
+    let room = |value: &serde_json::Value| serde_json::from_value(value.clone()).unwrap();
+    validate_room(&room(&value), 0).unwrap();
+    assert!(validate_room(&room(&value), 1).is_err(), "another's chair");
+    assert!(validate_room(&room(&value), 2).is_err(), "no such chair");
     for key in ["you", "taken"] {
         let mut bad = value.clone();
         bad["seats"][0][key] = serde_json::json!(false);
-        assert!(validate_room(&serde_json::from_value(bad).unwrap()).is_err());
+        assert!(validate_room(&room(&bad), 0).is_err());
     }
-    let mut not_host = value.clone();
-    not_host["yours"] = serde_json::json!(false);
-    assert!(validate_room(&serde_json::from_value(not_host).unwrap()).is_err());
+    // A chair the account joined in a room another account hosts.
+    let mut joined = value.clone();
+    joined["yours"] = serde_json::json!(false);
+    joined["seats"][0]["you"] = serde_json::json!(false);
+    joined["seats"][1]["you"] = serde_json::json!(true);
+    validate_room(&room(&joined), 1).unwrap();
+    assert!(validate_room(&room(&joined), 0).is_err());
     let mut bad = value.clone();
     bad["state"] = serde_json::json!("playing");
-    assert!(validate_room(&serde_json::from_value(bad).unwrap()).is_err());
+    assert!(validate_room(&room(&bad), 0).is_err());
     let mut bad = value;
     bad["seats"][0]["kind"] = serde_json::json!("ai");
-    assert!(validate_room(&serde_json::from_value(bad).unwrap()).is_err());
+    assert!(validate_room(&room(&bad), 0).is_err());
 }
 
 #[tokio::test]

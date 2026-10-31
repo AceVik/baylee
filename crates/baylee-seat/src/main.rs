@@ -12,8 +12,9 @@
 //! (`--tethered --chair <n> --chair-ticket`) instead reads the host's chair
 //! ticket off its stdin and sits down on it, with no account of its own, so
 //! it gets in where the gateway takes no guests. `--host-chair --tethered
-//! --chair 0` instead reuses an existing host chair/session from first-line
-//! stdin JSON; it creates no account or deck. The gateway is `--gateway`, else
+//! --chair <n>` instead reuses a chair an account already holds (the host's,
+//! or one it joined) and its session from first-line stdin JSON; it creates
+//! no account or deck. The gateway is `--gateway`, else
 //! `BAYLEE_GATEWAY`, else the local default; a closed beta's key is
 //! `--invite-key` or `BAYLEE_INVITE_KEY`, a locked room's password
 //! `--password` or `BAYLEE_ROOM_PASSWORD`. `RUST_LOG=info` says what the
@@ -160,8 +161,10 @@ struct Join {
     /// (`docs/llm-seat.md` §"A language model at your table").
     #[arg(long, requires_all = ["tethered", "chair"])]
     chair_ticket: bool,
-    /// Reuse the existing host chair and session from first-line stdin JSON.
-    /// Never pass tokens as arguments; the remaining stdin holds the tether.
+    /// Reuse a chair an account already holds (the host's chair 0, or the
+    /// one `--chair` names that it joined) and its session, from first-line
+    /// stdin JSON. Never pass tokens as arguments; the remaining stdin holds
+    /// the tether.
     #[arg(long, requires_all = ["tethered", "chair"], conflicts_with = "chair_ticket")]
     host_chair: bool,
     /// The gateway's address [default: `BAYLEE_GATEWAY`, else the local one].

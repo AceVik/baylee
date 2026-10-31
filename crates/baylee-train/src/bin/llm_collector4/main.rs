@@ -24,6 +24,7 @@ use tokio::sync::{Mutex, Semaphore};
 use crate::audit::write_atomic_json;
 use crate::schedule::{Scheduler, now_unix};
 use crate::table::{GatewayClient, LaunchPacer, SlotAccount, run_attempt};
+use crate::teacher::Sits;
 
 #[derive(Parser)]
 #[command(
@@ -263,6 +264,49 @@ fn assignment_halted(
         || drain.load(Ordering::SeqCst)
         || stop_file.exists()
         || drain_file.exists()
+}
+
+/// Slot `slot_id`'s account that seats `sits` ([`SlotAccount::init`]),
+/// tried up to three times where a failure left nothing behind, a longer
+/// pause before each try; `None` where assignment halts first. A failure
+/// whose cleanup is unproved drains the run.
+async fn slot_account(
+    own: &teacher::OwnDatabase,
+    gateway: &str,
+    slot_id: usize,
+    sits: Sits,
+    halted: &(dyn Fn() -> bool + Sync),
+    drain: &AtomicBool,
+) -> anyhow::Result<Option<SlotAccount>> {
+    for attempt in 1..=3 {
+        if halted() {
+            return Ok(None);
+        }
+        let error = match SlotAccount::init(own, gateway, slot_id, sits).await {
+            Ok(account) => return Ok(Some(account)),
+            Err(error) => error,
+        };
+        eprintln!(
+            "[slot {slot_id:02}] {sits:?} account init attempt {attempt}/3 failed: {error:#}"
+        );
+        let retry_safe = table::account_init_retry_safe(&error);
+        if !retry_safe {
+            drain.store(true, Ordering::SeqCst);
+        }
+        if attempt == 3 || !retry_safe {
+            return Err(error).context(format!(
+                "slot {slot_id:02} account initialization failed at attempt {attempt}; retries \
+                 exhausted or cleanup unproved"
+            ));
+        }
+        for _ in 0..attempt * 10 {
+            if halted() {
+                return Ok(None);
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
+    bail!("Account initialization exhausted without a result")
 }
 
 fn private_bind(bind: &str) -> anyhow::Result<SocketAddr> {
@@ -552,6 +596,7 @@ async fn run_collect(
     )?
     .with_report_games(report_games);
     let initial_summary = sched.summarize()?;
+    let seats_the_house = sched.seats_the_house();
     let sched = Arc::new(Mutex::new(sched));
     let pacer = Arc::new(LaunchPacer::new(Duration::from_millis(launch_interval_ms)));
     let replay_sem = Arc::new(Semaphore::new(8));
@@ -617,38 +662,27 @@ async fn run_collect(
             // No serialised setup since the cutover: a teacher is two rows
             // in the database and its presence socket, with no password to
             // hash at the gateway.
-            if assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c) {
+            let halted = || assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c);
+            let Some(mut account) =
+                slot_account(&own_c, &gw_c, slot_id, Sits::Model, &halted, &drain_c).await?
+            else {
                 return Ok(());
-            }
-            let mut account = None;
-            for attempt in 1..=3 {
-                if assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c) {
-                    return Ok(());
-                }
-                match SlotAccount::init(&own_c, &gw_c, slot_id).await {
-                    Ok(initialized) => {
-                        account = Some(initialized);
-                        break;
-                    }
+            };
+            // The house sits in an account of its own, named for it, where
+            // a pairing seats it (`table::run_attempt`).
+            let mut house = None;
+            if seats_the_house {
+                match slot_account(&own_c, &gw_c, slot_id, Sits::House, &halted, &drain_c).await {
+                    Ok(Some(made)) => house = Some(made),
+                    Ok(None) => return account.shutdown().await,
                     Err(error) => {
-                        eprintln!("[slot {slot_id:02}] account init attempt {attempt}/3 failed: {error:#}");
-                        let retry_safe = table::account_init_retry_safe(&error);
-                        if !retry_safe {
-                            drain_c.store(true, Ordering::SeqCst);
+                        if let Err(cleanup) = account.shutdown().await {
+                            eprintln!("[slot {slot_id:02}] account cleanup failed: {cleanup:#}");
                         }
-                        if attempt == 3 || !retry_safe {
-                            return Err(error).context(format!("slot {slot_id:02} account initialization failed at attempt {attempt}; retries exhausted or cleanup unproved"));
-                        }
-                        for _ in 0..attempt * 10 {
-                            if assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c) {
-                                return Ok(());
-                            }
-                            tokio::time::sleep(Duration::from_millis(100)).await;
-                        }
+                        return Err(error);
                     }
                 }
             }
-            let mut account = account.context("Account initialization exhausted without a result")?;
             let mut worker_error = None;
             let mut consecutive_failures = 0_usize;
             while !assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c) {
@@ -686,9 +720,17 @@ async fn run_collect(
                     assignment.models[1],
                 );
                 let t0 = Instant::now();
+                // The house's account hosts where the house plays chair 0,
+                // and joins chair 1 where it plays that.
+                let (host, chair1_house) = match (assignment.house_seat(), house.as_mut()) {
+                    (Some(0), Some(house)) => (house, None),
+                    (Some(_), house) => (&mut account, house),
+                    (None, _) => (&mut account, None),
+                };
                 let attempt_res = run_attempt(
                     &assignment,
-                    &mut account,
+                    host,
+                    chair1_house,
                     &seat_c,
                     &gw_bin_c,
                     &db_c,
@@ -831,10 +873,12 @@ async fn run_collect(
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             }
-            if let Err(error) = account.shutdown().await {
-                eprintln!("[slot {slot_id:02}] account cleanup failed: {error:#}");
-                drain_c.store(true, Ordering::SeqCst);
-                worker_error = Some(error);
+            for account in std::iter::once(&mut account).chain(house.as_mut()) {
+                if let Err(error) = account.shutdown().await {
+                    eprintln!("[slot {slot_id:02}] account cleanup failed: {error:#}");
+                    drain_c.store(true, Ordering::SeqCst);
+                    worker_error = Some(error);
+                }
             }
             match worker_error {
                 Some(error) => Err(error),

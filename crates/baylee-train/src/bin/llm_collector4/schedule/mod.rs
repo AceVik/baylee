@@ -476,6 +476,16 @@ pub struct Assignment {
     pub request: Value,
 }
 
+impl Assignment {
+    /// The seat the house plays (`house:<level>`), where it plays one: a
+    /// pairing never seats it twice.
+    pub fn house_seat(&self) -> Option<usize> {
+        self.profiles
+            .iter()
+            .position(|entry| house_level(entry).is_some())
+    }
+}
+
 #[derive(Clone, Debug)]
 struct InFlight {
     format: String,
@@ -651,6 +661,12 @@ impl Scheduler {
     pub const fn with_report_games(mut self, games: usize) -> Self {
         self.report_games = games;
         self
+    }
+
+    /// Whether any pairing seats the house (`house:<level>`), so that a
+    /// slot needs a house account beside its teacher.
+    pub fn seats_the_house(&self) -> bool {
+        self.pairing_plan.chains.values().any(Chain::is_house)
     }
 
     pub fn load_receipts(&self) -> Vec<Value> {
@@ -1402,6 +1418,8 @@ mod tests {
         assert_eq!(request["models"], json!(["house:sharp", "gpt-6.1-terra"]));
         assert_eq!(request["fallback_profiles"], json!([[], []]));
         assert_eq!(request["requested_fallbacks"], json!([[], []]));
+        assert!(sched.seats_the_house());
+        assert_eq!(assignment.house_seat(), Some(0));
 
         let counts = |llm: u64, house: u64, standing: u64| {
             json!({"transcript_answer_counts":

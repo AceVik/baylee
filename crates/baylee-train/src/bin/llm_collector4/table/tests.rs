@@ -122,8 +122,9 @@ fn a_seat_is_started_with_its_chain_and_the_keys_of_that_chain_only() {
 
 /// A house seat (`house:<level>`) is started as the house at its level:
 /// no profile, settings file, spend book or fallback, and no key at all,
-/// whatever the environment holds; it still writes its transcripts and
-/// takes its chair as a model's seat does.
+/// whatever the environment holds; it still writes its transcripts. In
+/// either chair it takes its own account's chair (`--host-chair`), never a
+/// chair ticket, which seats only a language model.
 #[test]
 fn a_house_seat_is_started_at_its_level_with_no_profile_book_or_key() {
     let dir = crate::audit::tests::TestDir::new("house-launch");
@@ -174,7 +175,7 @@ fn a_house_seat_is_started_at_its_level_with_no_profile_book_or_key() {
     };
     for (seat, entry, level, chair) in [
         (0, "house:sharp", "sharp", "--host-chair"),
-        (1, "house:novice", "novice", "--chair-ticket"),
+        (1, "house:novice", "novice", "--host-chair"),
     ] {
         let (args, envs) = launch(seat, entry);
         let has = |flag: &str, value: &str| {
@@ -186,6 +187,7 @@ fn a_house_seat_is_started_at_its_level_with_no_profile_book_or_key() {
         assert!(has("--transcripts", "/x/transcripts"), "{args:?}");
         assert!(has("--name", &format!("teacher-{seat}")), "{args:?}");
         assert!(args.iter().any(|arg| arg == chair), "{args:?}");
+        assert!(!args.iter().any(|arg| arg == "--chair-ticket"), "{args:?}");
         assert_eq!(args.iter().filter(|arg| *arg == "--level").count(), 1);
         for refused in ["--profile", "--config", "--ledger", "--fallback-profile"] {
             assert!(
@@ -205,6 +207,61 @@ fn a_house_seat_is_started_at_its_level_with_no_profile_book_or_key() {
             "the house reads no key: {envs:?}"
         );
     }
+}
+
+/// Each slot account is called what plays its chair, as the bridge holds
+/// a chair to (`Disclosure`) and as the gateway takes a name (3 to 16
+/// letters, digits, `_` or `-`): the house's `HOUSE-…`, never `LLM-…`.
+#[test]
+fn a_slot_account_is_called_what_plays_its_chair() {
+    use baylee_seat::Disclosure;
+    for slot in [0, 7, 49, 999, 9999] {
+        let (model, house) = (
+            Sits::Model.display_name(slot),
+            Sits::House.display_name(slot),
+        );
+        assert!(Disclosure::Llm.names(&model) && !Disclosure::House.names(&model));
+        assert!(Disclosure::House.names(&house) && !Disclosure::Llm.names(&house));
+        for name in [&model, &house] {
+            assert!((3..=16).contains(&name.len()), "{name}");
+            assert!(
+                name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'),
+                "{name}"
+            );
+        }
+    }
+    assert_eq!(Sits::House.display_name(3), "HOUSE-bench-3");
+    assert_eq!(Sits::Model.display_name(3), "LLM-teacher-3");
+}
+
+/// A bridge's last stderr lines are kept, the last one why it stopped;
+/// each is cut short, and one shaped like a key is never kept.
+#[test]
+fn a_bridge_s_last_stderr_lines_are_kept_without_a_key() {
+    let mut tail = StderrTail::default();
+    for n in 0..30 {
+        tail.push(&format!("line {n}"));
+    }
+    tail.push(&"x".repeat(2000));
+    tail.push("Authorization: Bearer abcdefghijklmnop0123456789");
+    tail.push("Error: sit down on the host's chair ticket: 400");
+    assert_eq!(tail.lines.len(), StderrTail::LINES);
+    assert_eq!(tail.lines.front().map(String::as_str), Some("line 13"));
+    assert_eq!(
+        tail.lines.back().map(String::as_str),
+        Some("Error: sit down on the host's chair ticket: 400")
+    );
+    assert!(
+        tail.lines
+            .iter()
+            .all(|line| line.chars().count() <= StderrTail::CHARS)
+    );
+    assert!(
+        !tail
+            .lines
+            .iter()
+            .any(|line| line.contains("abcdefghijklmnop"))
+    );
 }
 
 /// A house seat's pin is the house at its level with no chain behind it,
@@ -433,7 +490,7 @@ async fn live_setup_only_configures_twenty_life_and_deletes_owned_room_and_accou
         .context("Set BAYLEE_COLLECTOR_SETUP_TEST_DATABASE to that gateway's database")?;
     let own =
         crate::teacher::OwnDatabase::prove(&admin, baylee_db::open(&database, 2).await?).await?;
-    let mut account = SlotAccount::init(&own, &gateway, 0).await?;
+    let mut account = SlotAccount::init(&own, &gateway, 0, crate::teacher::Sits::Model).await?;
     let mut owned_room = None;
     let result: anyhow::Result<()> = async {
         let grant = account

@@ -16,7 +16,7 @@ use sha2::{Digest as _, Sha256};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpListener, TcpStream};
 
-use super::{OwnDatabase, b64};
+use super::{OwnDatabase, Sits, b64};
 use crate::admin_cleanup::AdminCleanup;
 use crate::table::{SlotAccount, account_init_retry_safe};
 
@@ -265,7 +265,7 @@ async fn a_teacher_is_what_registration_made() {
     let proved = OwnDatabase::prove(&admin(&base), own.db.clone())
         .await
         .unwrap();
-    let teacher = proved.teacher(3).await.unwrap();
+    let teacher = proved.teacher(3, Sits::Model).await.unwrap();
     let row = own
         .db
         .query_one_raw(Statement::from_sql_and_values(
@@ -340,7 +340,7 @@ async fn ten_slots_come_in_together() {
         .map(|slot| {
             let proved = Arc::clone(&proved);
             let base = base.clone();
-            tokio::spawn(async move { SlotAccount::init(&proved, &base, slot).await })
+            tokio::spawn(async move { SlotAccount::init(&proved, &base, slot, Sits::Model).await })
         })
         .collect();
     let mut accounts = Vec::new();
@@ -375,7 +375,7 @@ async fn a_gateway_that_does_not_know_the_teacher_leaves_no_teacher_behind() {
     let proved = OwnDatabase::prove(&admin(&proving), own.db.clone())
         .await
         .unwrap();
-    let refused = SlotAccount::init(&proved, &stranger, 0).await;
+    let refused = SlotAccount::init(&proved, &stranger, 0, Sits::Model).await;
     let error = refused.err().expect("an unknown session is refused");
     // Cleaned up, so a retry may make another; and nothing is left over.
     assert!(account_init_retry_safe(&error), "{error:#}");
@@ -409,7 +409,9 @@ async fn the_slot_deletes_its_teacher_through_the_gateway_with_no_password() {
     let proved = OwnDatabase::prove(&admin(&base), own.db.clone())
         .await
         .unwrap();
-    let mut account = SlotAccount::init(&proved, &base, 0).await.unwrap();
+    let mut account = SlotAccount::init(&proved, &base, 0, Sits::Model)
+        .await
+        .unwrap();
     let token = account.token.clone();
     account.shutdown().await.unwrap();
     let requests = seen.lock().unwrap().clone();

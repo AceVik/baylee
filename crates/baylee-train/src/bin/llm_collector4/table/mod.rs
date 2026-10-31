@@ -25,7 +25,7 @@ use crate::schedule::{
     Assignment, Chain, DeckInventory, collector_room_setup, derive_cli_decks, house_level,
     parse_deck_inventory, requested_chain,
 };
-use crate::teacher::OwnDatabase;
+use crate::teacher::{OwnDatabase, Sits};
 use baylee_db::sea_orm::DatabaseConnection;
 
 pub fn gateway_endpoint(base: &str) -> anyhow::Result<()> {
@@ -330,12 +330,14 @@ impl Drop for Presence {
     }
 }
 
-/// Dedicated per-slot host account and cached uploaded deck IDs.
+/// A slot's account (its teacher, or its house: [`Sits`]) and cached uploaded deck IDs.
 pub struct SlotAccount {
     pub client: GatewayClient,
     pub token: String,
     pub presence: Presence,
     pub uploaded_decks: BTreeMap<String, String>,
+    /// What its chair seats, which its name says.
+    pub sits: Sits,
     room_closed: bool,
 }
 
@@ -390,14 +392,20 @@ async fn delete_owned_account(client: &GatewayClient, token: &str) -> anyhow::Re
 }
 
 impl SlotAccount {
-    /// The slot's teacher, written into the collector's own gateway's
-    /// database ([`crate::teacher`]) and present in the lobby at `gateway`.
-    /// The presence socket's ticket is the first call with its session, and
-    /// what binds `gateway` to that database: a gateway on another database
-    /// does not know the session, and the teacher is deleted again.
-    pub async fn init(own: &OwnDatabase, gateway: &str, slot_id: usize) -> anyhow::Result<Self> {
+    /// The slot's account that seats `sits`, written into the collector's
+    /// own gateway's database ([`crate::teacher`]) and present in the lobby
+    /// at `gateway`. The presence socket's ticket is the first call with its
+    /// session, and what binds `gateway` to that database: a gateway on
+    /// another database does not know the session, and the teacher is
+    /// deleted again.
+    pub async fn init(
+        own: &OwnDatabase,
+        gateway: &str,
+        slot_id: usize,
+        sits: Sits,
+    ) -> anyhow::Result<Self> {
         let client = GatewayClient::new(gateway, slot_id);
-        let teacher = own.teacher(slot_id).await?;
+        let teacher = own.teacher(slot_id, sits).await?;
         let presence = match Presence::connect(&client, &teacher.token).await {
             Ok(presence) => presence,
             Err(error) => {
@@ -416,6 +424,7 @@ impl SlotAccount {
             token: teacher.token,
             presence,
             uploaded_decks: BTreeMap::new(),
+            sits,
             room_closed: true,
         })
     }
@@ -503,6 +512,34 @@ fn chain_key_envs(
     Ok(names)
 }
 
+/// The last lines a bridge wrote to stderr, for its `seatN-diagnostics.json`:
+/// its last line is why it stopped (`Error: …`), the one thing that says
+/// why a seat's transport exited. Each is cut short, and one shaped like a
+/// key is never kept (`baylee_protocol::mind::shaped_like_a_key`).
+#[derive(Default)]
+struct StderrTail {
+    lines: std::collections::VecDeque<String>,
+}
+
+impl StderrTail {
+    /// The most lines kept.
+    const LINES: usize = 20;
+    /// The most characters kept of one line.
+    const CHARS: usize = 500;
+
+    fn push(&mut self, line: &str) {
+        let kept = if baylee_protocol::mind::shaped_like_a_key(line) {
+            "[a line shaped like a key, not kept]".to_owned()
+        } else {
+            line.chars().take(Self::CHARS).collect()
+        };
+        if self.lines.len() == Self::LINES {
+            self.lines.pop_front();
+        }
+        self.lines.push_back(kept);
+    }
+}
+
 /// One seat's bridge, as `baylee-seat join` is told it.
 pub struct SeatLaunch<'a> {
     pub seat_bin: &'a Path,
@@ -567,7 +604,10 @@ impl SeatLaunch<'_> {
             .arg(self.transcripts_dir)
             .arg("--name")
             .arg(format!("teacher-{seat}"))
-            .arg(if seat == 0 {
+            // Chair 0 is its host's own; so is the house's chair 1, which
+            // its account joined, since a chair ticket seats only a
+            // language model (`run_attempt`).
+            .arg(if seat == 0 || house.is_some() {
                 "--host-chair"
             } else {
                 "--chair-ticket"
@@ -644,6 +684,7 @@ impl SeatProcessGroup {
                 let mut line_count = 0_u64;
                 let mut rate_limit_mentions = 0_u64;
                 let mut timeout_mentions = 0_u64;
+                let mut tail = StderrTail::default();
                 while let Ok(Some(line)) = reader.next_line().await {
                     line_count += 1;
                     let lower = line.to_ascii_lowercase();
@@ -653,6 +694,7 @@ impl SeatProcessGroup {
                     if lower.contains("timed out") || lower.contains("timeout") {
                         timeout_mentions += 1;
                     }
+                    tail.push(&line);
                 }
                 let _ = write_atomic_json(
                     &diag_path,
@@ -660,6 +702,7 @@ impl SeatProcessGroup {
                         "stderr_lines": line_count,
                         "rate_limit_mentions": rate_limit_mentions,
                         "timeout_mentions": timeout_mentions,
+                        "stderr_tail": tail.lines,
                     }),
                 );
             })
@@ -946,11 +989,19 @@ fn confirm_terminal_closure(
     )
 }
 
-/// Run a single table attempt on `account`, writing all evidence into `assignment.attempt_dir`.
+/// Run a single table attempt, writing all evidence into `assignment.attempt_dir`.
+///
+/// `account` opens the room and holds chair 0: the slot's house account
+/// where seat 0 is the house (`house:<level>`), else its teacher. Chair 1 is
+/// a model's on `account`'s chair ticket, or, where seat 1 is the house,
+/// the chair `house` (the slot's house account) joins: a chair ticket seats
+/// only a language model (`LLM-…`), and a chair must be called what plays
+/// it, so the house always sits in a `HOUSE-…` account's own chair.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub async fn run_attempt(
     assignment: &Assignment,
     account: &mut SlotAccount,
+    mut house: Option<&mut SlotAccount>,
     seat_bin: &Path,
     gateway_bin: &Path,
     db: &DatabaseConnection,
@@ -1031,6 +1082,21 @@ pub async fn run_attempt(
         &assignment.profiles,
         &assignment.models,
     )?;
+    let sits = requested.chains.clone().map(|chain| {
+        if chain.is_house() {
+            Sits::House
+        } else {
+            Sits::Model
+        }
+    });
+    ensure!(
+        account.sits == sits[0],
+        "Chair 0's account is not named for what plays it"
+    );
+    ensure!(
+        house.as_ref().map(|house| house.sits) == (sits[1] == Sits::House).then_some(Sits::House),
+        "Chair 1 takes the slot's house account where the house plays it, and only there"
+    );
     let mut frozen_paths = vec![
         seat_bin.to_path_buf(),
         profiles_config.clone(),
@@ -1075,6 +1141,18 @@ pub async fn run_attempt(
     let host_deck_id = account
         .ensure_deck_uploaded(&assignment.decks[0].key, &inv0)
         .await?;
+    // The house brings its own deck to the chair its account joins.
+    let house_deck_id = match house.as_deref_mut() {
+        Some(house) => {
+            house.ensure_presence().await?;
+            Some(
+                house
+                    .ensure_deck_uploaded(&assignment.decks[1].key, &inv1)
+                    .await?,
+            )
+        }
+        None => None,
+    };
 
     // Pace room creation + chair 1 ticket redemption across all 50 slots.
     pacer.wait_turn().await;
@@ -1145,20 +1223,49 @@ pub async fn run_attempt(
         )?;
         set_phase("seating-models")?;
 
-        let ticket_resp = account
-            .client
-            .post_json(
-                &format!("/lobby/games/{game_id}/chairs/1/ticket"),
-                &json!({}),
-                Some(&account.token),
-                20,
-            )
-            .await?;
-        let chair1_ticket = ticket_resp
-            .get("ticket")
-            .and_then(Value::as_str)
-            .context("missing ticket from POST /chairs/1/ticket")?
-            .to_owned();
+        // Chair 1's first stdin line: the house account's own chair, which
+        // it joins, or a model's chair ticket from the host.
+        let secret1 = if let (Some(house), Some(deck_id)) = (house.as_deref_mut(), &house_deck_id) {
+            house.room_closed = false;
+            let joined = house
+                .client
+                .post_json(
+                    &format!("/lobby/games/{game_id}/join"),
+                    &json!({ "deck_id": deck_id, "seat": 1 }),
+                    Some(&house.token),
+                    20,
+                )
+                .await?;
+            ensure!(
+                joined.get("seat").and_then(Value::as_u64) == Some(1),
+                "The house account was not seated in chair 1"
+            );
+            let seat_token = joined
+                .get("seat_token")
+                .and_then(Value::as_str)
+                .context("missing seat_token from POST /join")?;
+            serde_json::to_string(&json!({
+                "game_id": game_id,
+                "seat": 1,
+                "seat_token": seat_token,
+                "session_token": house.token,
+            }))?
+        } else {
+            let ticket_resp = account
+                .client
+                .post_json(
+                    &format!("/lobby/games/{game_id}/chairs/1/ticket"),
+                    &json!({}),
+                    Some(&account.token),
+                    20,
+                )
+                .await?;
+            ticket_resp
+                .get("ticket")
+                .and_then(Value::as_str)
+                .context("missing ticket from POST /chairs/1/ticket")?
+                .to_owned()
+        };
 
         let transcripts_dir = out.join("transcripts");
         std::fs::create_dir_all(&transcripts_dir)?;
@@ -1202,7 +1309,7 @@ pub async fn run_attempt(
 
         let child1 = SeatProcessGroup::spawn(&launch(1))?;
         children.push(child1);
-        children[1].deliver_secret(&chair1_ticket).await?;
+        children[1].deliver_secret(&secret1).await?;
 
         let mut started = false;
         let deadline = Instant::now() + Duration::from_secs(game_timeout_secs);
@@ -1496,8 +1603,25 @@ pub async fn run_attempt(
     if run_res.is_ok() {
         account.room_closed = true;
     } else if !account.room_closed && !start_requested && cleanup_errors.is_empty() {
+        // The house's account stands up first: a room its host leaves
+        // passes to whoever still sits there rather than closing.
+        if let Some(house) = house.as_deref() {
+            let _ = house
+                .client
+                .post_json(
+                    &format!("/lobby/games/{game_id}/leave"),
+                    &json!({}),
+                    Some(&house.token),
+                    5,
+                )
+                .await;
+        }
         account.room_closed = close_unstarted_room(&account.client, &account.token, &game_id).await;
         waiting_cancelled = account.room_closed;
+    }
+    // The house's chair goes with the room it sits in.
+    if let Some(house) = house {
+        house.room_closed = account.room_closed;
     }
     if !cleanup_errors.is_empty() || !account.room_closed {
         if !account.room_closed {
