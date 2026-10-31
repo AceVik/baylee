@@ -328,6 +328,9 @@ pub struct Assignment {
     pub decks: [DeckEntry; 2],
     pub profiles: [String; 2],
     pub models: [String; 2],
+    /// Whether this game's seats file their reports with the feedback
+    /// service; past the run's cap they keep them in `reports.jsonl` only.
+    pub send_reports: bool,
     pub request: Value,
 }
 
@@ -347,6 +350,8 @@ pub struct Scheduler {
     call_timeout_seconds: u64,
     game_timeout_seconds: u64,
     next_index: usize,
+    /// Attempts, counted over the whole root, whose seats send reports.
+    report_games: usize,
     in_flight: BTreeMap<String, InFlight>,
     known_record_shas: BTreeSet<String>,
 }
@@ -491,9 +496,19 @@ impl Scheduler {
             call_timeout_seconds,
             game_timeout_seconds,
             next_index: max_idx.map_or(0, |m| m + 1),
+            report_games: usize::MAX,
             in_flight: BTreeMap::new(),
             known_record_shas,
         })
+    }
+
+    /// Only the first `games` attempts of this root file their seats'
+    /// reports with the feedback service, so a large run cannot flood its
+    /// triage; every later game keeps them in `reports.jsonl`.
+    #[must_use]
+    pub const fn with_report_games(mut self, games: usize) -> Self {
+        self.report_games = games;
+        self
     }
 
     pub fn load_receipts(&self) -> Vec<Value> {
@@ -738,6 +753,7 @@ impl Scheduler {
         let ledger_dir = self.root.join("ledgers");
         std::fs::create_dir_all(&ledger_dir)?;
         let slot_ledger = ledger_dir.join(format!("slot-{slot_id:03}-spend.json"));
+        let send_reports = index < self.report_games;
 
         let request = json!({
             "schema_version": 1,
@@ -766,6 +782,7 @@ impl Scheduler {
             "transcriptsdir": attempt_dir.join("transcripts").to_string_lossy(),
             "call_timeout_seconds": self.call_timeout_seconds,
             "game_timeout_seconds": self.game_timeout_seconds,
+            "send_reports": send_reports,
         });
 
         self.in_flight.insert(
@@ -785,6 +802,7 @@ impl Scheduler {
             decks: [seat0_deck, seat1_deck],
             profiles: chosen_profiles,
             models: chosen_models,
+            send_reports,
             request,
         })
     }
@@ -1286,10 +1304,14 @@ mod tests {
             90,
             3600,
         )
-        .unwrap();
+        .unwrap()
+        .with_report_games(2);
         let mut used: BTreeMap<String, usize> = BTreeMap::new();
         for slot in 0..6 {
             let assignment = sched.next_assignment(slot).unwrap();
+            // Only the run's first two games file their reports.
+            assert_eq!(assignment.send_reports, slot < 2);
+            assert_eq!(assignment.request["send_reports"], slot < 2);
             *used
                 .entry(
                     assignment.request["profiles"][0]

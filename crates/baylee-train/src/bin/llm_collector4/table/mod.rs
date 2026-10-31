@@ -498,6 +498,7 @@ impl SeatProcessGroup {
         think_secs: u64,
         transcripts_dir: &Path,
         work_dir: &Path,
+        send_reports: bool,
     ) -> anyhow::Result<Self> {
         let mut cmd = Command::new(seat_bin);
         cmd.arg("join")
@@ -528,6 +529,9 @@ impl SeatProcessGroup {
             } else {
                 "--chair-ticket"
             });
+        if !send_reports {
+            cmd.arg("--no-send-reports");
+        }
         cmd.current_dir(work_dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
@@ -1103,6 +1107,7 @@ pub async fn run_attempt(
             think_secs,
             &transcripts_dir,
             out,
+            assignment.send_reports,
         )?;
         children.push(child0);
         children[0].deliver_secret(&secret0).await?;
@@ -1119,6 +1124,7 @@ pub async fn run_attempt(
             think_secs,
             &transcripts_dir,
             out,
+            assignment.send_reports,
         )?;
         children.push(child1);
         children[1].deliver_secret(&chair1_ticket).await?;

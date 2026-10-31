@@ -95,6 +95,11 @@ enum Commands {
         game_timeout_seconds: u64,
         #[arg(long, default_value_t = 2200)]
         launch_interval_ms: u64,
+        /// Only the first this many games of the root file their seats'
+        /// reports with the feedback service; later games keep them in
+        /// `reports.jsonl`, so a large run cannot flood the triage.
+        #[arg(long, default_value_t = 200)]
+        report_games: usize,
     },
 }
 
@@ -139,6 +144,7 @@ async fn main() -> anyhow::Result<()> {
             call_timeout_seconds,
             game_timeout_seconds,
             launch_interval_ms,
+            report_games,
         } => {
             run_collect(
                 root,
@@ -155,6 +161,7 @@ async fn main() -> anyhow::Result<()> {
                 call_timeout_seconds,
                 game_timeout_seconds,
                 launch_interval_ms,
+                report_games,
             )
             .await
         }
@@ -509,6 +516,7 @@ async fn run_collect(
     call_timeout_seconds: u64,
     game_timeout_seconds: u64,
     launch_interval_ms: u64,
+    report_games: usize,
 ) -> anyhow::Result<()> {
     table::gateway_endpoint(&gateway)?;
     let admin_cleanup = Arc::new(admin_cleanup::AdminCleanup::from_env(&admin_url)?);
@@ -537,7 +545,8 @@ async fn run_collect(
         &deck_manifest,
         call_timeout_seconds,
         game_timeout_seconds,
-    )?;
+    )?
+    .with_report_games(report_games);
     let initial_summary = sched.summarize()?;
     let sched = Arc::new(Mutex::new(sched));
     let pacer = Arc::new(LaunchPacer::new(Duration::from_millis(launch_interval_ms)));
