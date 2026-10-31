@@ -1122,7 +1122,12 @@ fn issue_187_saved_gateways_round_trip_without_selecting_one() {
     };
     let json = serde_json::to_string(&settings).unwrap();
     let restored = LobbyState::from_settings(serde_json::from_str(&json).unwrap());
-    assert_eq!(restored.gateways, state.gateways);
+    // The same addresses, in the order a launch draws them: the saved uses'
+    // (`GatewayUses::order`; by address where none was used), not the order
+    // they were saved in.
+    let mut drawn = state.gateways.clone();
+    settings.gateway_uses.order(&mut drawn);
+    assert_eq!(restored.gateways, drawn);
     assert!(!restored.gateway_selected);
 }
 
