@@ -198,6 +198,22 @@ def export_v4_onnx(
                 net.export_thinking_steps = previous_depth
 
 
+def convert_to_float16(path: Path) -> None:
+    """Rewrites a graph to FP16 weights and arithmetic in place.
+
+    Inputs and outputs stay FP32, so the Rust ABI and the recurrent memory
+    handed between steps are unchanged. Constants beyond FP16's range (the
+    -1e9 masks) are clamped to its largest finite value.
+    """
+    import onnx
+    from onnxruntime.transformers.float16 import convert_float_to_float16
+
+    converted = convert_float_to_float16(onnx.load(str(path)), keep_io_types=True)
+    partial = path.with_suffix(".fp16.partial")
+    onnx.save(converted, str(partial))
+    partial.replace(path)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Export bounded-depth Playernet v4/v5 graphs")
     ap.add_argument("--model", required=True)
@@ -205,16 +221,25 @@ def main() -> None:
     ap.add_argument("--entities", type=int, default=192)
     ap.add_argument("--thinking-steps", type=int, default=2, choices=(1, 2, 4, 8))
     ap.add_argument("--check", type=int, default=32)
+    ap.add_argument("--precision", choices=("float32", "float16"), default="float32",
+                    help="float16 computes in FP16 behind FP32 inputs and outputs, in its own directory")
+    ap.add_argument("--out", default="",
+                    help="Export directory (default: the model directory; MODEL/fp16 for float16)")
     args = ap.parse_args()
     torch.set_num_threads(1)
     model_dir = Path(args.model).expanduser()
+    half = args.precision == "float16"
+    out_dir = Path(args.out).expanduser() if args.out else model_dir / "fp16" if half else model_dir
+    if half and out_dir.resolve() == model_dir.resolve():
+        raise ValueError("A float16 export needs its own directory; the float32 graphs stay")
+    out_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_path = model_dir / "net.pt"
     source_checkpoint_sha256 = file_digest(checkpoint_path)
     ckpt, net, model_module = load_export_checkpoint(checkpoint_path)
     cfg = net.cfg
     structure_sha256 = net.rules.digest
     net.rules = net.rules.freeze()
-    atomic_json(model_dir / "card_structure.json", ckpt["structure"])
+    atomic_json(out_dir / "card_structure.json", ckpt["structure"])
     options = ort.SessionOptions()
     options.intra_op_num_threads = 1
     sessions = {}
@@ -246,7 +271,7 @@ def main() -> None:
         return want[0], got[0]
 
     for depth in (0, 1, 2, 4, 8):
-        path = model_dir / f"model.k{depth}.onnx"
+        path = out_dir / f"model.k{depth}.onnx"
         export_v4_onnx(net, path, thinking_steps=depth, fixed_depth=True)
         sessions[depth] = ort.InferenceSession(str(path), sess_options=options,
                                              providers=["CPUExecutionProvider"])
@@ -280,7 +305,13 @@ def main() -> None:
         raise ValueError(f"ONNX parity failed: {worst_diff:.3g}")
     if file_digest(checkpoint_path) != source_checkpoint_sha256:
         raise ValueError("Source checkpoint changed during export")
-    atomic_copy(model_dir / f"model.k{args.thinking_steps}.onnx", model_dir / "model.onnx")
+    if half:
+        # The parity above holds for the FP32 graphs these are converted from;
+        # FP16 against FP32 is measured where it runs, on the GPU
+        # (`netplay4::batch_tests`, then a paired evaluation).
+        for depth in sessions:
+            convert_to_float16(out_dir / f"model.k{depth}.onnx")
+    atomic_copy(out_dir / f"model.k{args.thinking_steps}.onnx", out_dir / "model.onnx")
     meta = {
         "critic_semantics": export_critic_semantics(ckpt),
         **({"encoder_warmstart": ckpt["encoder_warmstart"]} if "encoder_warmstart" in ckpt else {}),
@@ -297,8 +328,13 @@ def main() -> None:
     }
     if model_module.MODEL_VERSION == 5:
         meta["architecture"] = model_module.architecture_for_config(cfg)
-    atomic_json(model_dir / "model.onnx.json", meta)
-    print(f"[export model_version={model_module.MODEL_VERSION}] verified {checked} frames, max error={worst_diff:.3g}; exported K=0,1,2,4,8")
+    if half:
+        meta["precision"] = "float16"
+        meta["parity_scope"] = "float32 graphs before float16 conversion"
+        meta["float16_conversion"] = {"converter": "onnxruntime.transformers.float16",
+                                      "onnxruntime": ort.__version__, "keep_io_types": True}
+    atomic_json(out_dir / "model.onnx.json", meta)
+    print(f"[export model_version={model_module.MODEL_VERSION} precision={args.precision}] verified {checked} frames, max error={worst_diff:.3g}; exported K=0,1,2,4,8")
 
 
 if __name__ == "__main__":

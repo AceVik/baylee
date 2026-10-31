@@ -32,7 +32,8 @@ use baylee_train::features4::{
 };
 use baylee_train::housedeck::HouseDeck;
 use baylee_train::netplay4::{
-    ModelIdentity, NetPlayer4, PolicyMode4, inspect_model_identity, valid_raw_temperature,
+    BatchLimits4, BatchedNet4, ModelIdentity, NetPlayer4, PolicyMode4, inspect_model_identity,
+    valid_raw_temperature,
 };
 use baylee_train::selfplay::table_for;
 use baylee_train::working::{Working, repo_root};
@@ -99,6 +100,9 @@ fn main() -> anyhow::Result<()> {
         && (args.record_out.is_some() || args.temperature != 0.0 || args.thinking_steps != 1)
     {
         bail!("--legacy-v3 supports greedy K=1 evaluation only, without rollout recording");
+    }
+    if args.legacy_v3 && args.inference_batch > 0 {
+        bail!("--inference-batch needs a v4/v5 model");
     }
     if !(2..=8).contains(&args.seats) {
         bail!("--seats must be between 2 and 8");
@@ -237,6 +241,10 @@ fn main() -> anyhow::Result<()> {
             .context("policy metadata object")?
             .clone(),
         );
+        if args.inference_batch > 0 {
+            // Only batched runs name it, so unbatched records stay as they were.
+            run["inference_batch_rows"] = json!(args.inference_batch);
+        }
         if let Some(profile) = &args.shadow_teacher {
             let metadata_path = if args.model.is_dir() {
                 args.model.join("model.onnx.json")
@@ -293,10 +301,19 @@ fn main() -> anyhow::Result<()> {
             .transpose()?,
     ));
     let attempts = attempts::prepare(&args, &decks_arc)?;
+    let shared_nets = SharedNets::open(
+        args.inference_batch,
+        &args.model,
+        collection
+            .opponent_path
+            .as_deref()
+            .map(|path| (path, collection.opponent_identity.as_ref())),
+    )?;
 
     let started = Instant::now();
     let mut handles = Vec::new();
     for worker_id in 0..threads {
+        let shared_nets = shared_nets.clone();
         let decks_arc = decks_arc.clone();
         let teams_u8_arc = teams_u8_arc.clone();
         let teams_arc = teams_arc.clone();
@@ -322,9 +339,9 @@ fn main() -> anyhow::Result<()> {
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
-                Box::new(seat_players::SeatPlayers::load(&model_path,&collection,policy_mode)?)
+                Box::new(seat_players::SeatPlayers::load(&model_path,&collection,policy_mode,&shared_nets)?)
             } else {
-                load_player(&model_path,legacy,k_steps,temp,policy_mode,expected_identity.as_ref())?
+                load_player(&model_path,legacy,k_steps,temp,policy_mode,expected_identity.as_ref(),shared_nets.learner.as_ref())?
             };
 
             let shard_name = format!("w{worker_id:02}-0000.jsonl.gz");
@@ -660,6 +677,7 @@ fn main() -> anyhow::Result<()> {
     summary["evaluator_revision"] = json!(baylee_build::COMMIT);
     summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
+    summary["inference_batch"] = shared_nets.report();
     if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
         // The evaluation aggregate has an MTG denominator and cannot summarize
         // censored research episodes. Preserve every attempt in the named ledger.

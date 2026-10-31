@@ -436,13 +436,20 @@ filters of §"Triage" (`crate::triage::Filter`): `status`, `kind` and
 text or of a crash's message, a piece of the text (`%` and `_` literal) or
 a piece of a report's id; `from` and `to` are days, `YYYY-MM-DD` in UTC,
 both inclusive; `has_record` is `true` or `false`; `channel` is `gateway`
-or `direct`. A report in the trash is listed only under `trash=true`. A
-malformed filter is `400`.
+or `direct`; `source` is a source, `none` for reports without one, or
+either after `!` for all the others (`source=!llm-seat` hides the
+language-model seats' reports, those without a source included), 1–64
+characters without a control character. A report in the trash is listed
+only under `trash=true`. A malformed filter is `400`.
 
 `channel` says how a report came (`gateway`, or `direct`: unauthenticated,
 §"Straight from a client"); `record_origin` who wrote its record
-(`gateway`, or `client`: unverified), `null` without one. The web UI says
-both beside the report.
+(`gateway`, or `client`: unverified), `null` without one; `source` what
+sent it, as the client's `source` says (`llm-seat` for a language-model
+seat, `docs/llm-seat.md`), its first 64 characters, `null` without one. The
+client's word, unchecked: a filter to sort by, never a proof of where a
+report came from. The web UI says all three beside the report, and the
+facets count the sources (`sources`, `null` for none).
 
 ```json
 {
@@ -454,7 +461,7 @@ both beside the report.
     "reporter": "5bdc…", "kind": "bug", "status": "new",
     "text": "…", "game_id": "…",
     "has_record": true, "record_complete": true, "record_bytes": 21606,
-    "channel": "gateway", "record_origin": "gateway",
+    "channel": "gateway", "record_origin": "gateway", "source": null,
     "issue_number": 311,
     "issue_url": "https://github.com/AceVik/baylee/issues/311",
     "assignee": "viktor", "priority": "high", "labels": ["lands", "ui"],

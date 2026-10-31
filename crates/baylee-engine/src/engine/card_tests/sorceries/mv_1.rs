@@ -42,6 +42,7 @@ mod prophecy;
 mod psychic_purge;
 mod raise_dead;
 mod raze;
+mod reanimate;
 mod recall;
 mod reckless_abandon;
 mod reconstruction;

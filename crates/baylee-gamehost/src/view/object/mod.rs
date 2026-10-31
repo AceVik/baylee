@@ -178,7 +178,11 @@ fn object_targets(state: &GameState, obj: &GameObject) -> Vec<TargetRef> {
                 .recorded_target_reference(id, false, u32::try_from(index).expect("target slot"))
                 .map(TargetRef::Object)
         })
-        .chain(obj.target_players.iter().map(TargetRef::Player))
+        .chain(
+            baylee_engine::eval::first_target_players(obj)
+                .iter()
+                .map(TargetRef::Player),
+        )
         .chain(
             obj.second_targets()
                 .iter()

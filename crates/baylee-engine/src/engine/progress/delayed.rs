@@ -327,8 +327,9 @@ impl<L: CardLookup> Engine<L> {
                 }
                 false
             }
-            // Mana Drain's "add": its controller's pool, whose first main
-            // phase it waits for.
+            // Mana Drain's "add": its controller's pool, at the next main
+            // phase of theirs. Straight in, without the stack it should
+            // use (docs/observed-faults.md, entry 67).
             crate::state::DelayedAction::AddMana { color, amount } => {
                 if !self.state.players[controller.get() as usize]
                     .mana_pool

@@ -264,7 +264,9 @@ fn creature_bond_real_removal_deals_untargeted_preventable_damage() {
     pass_until(&mut e, |e| at_rest(e, P0));
     let life = e.state().players[1].life;
     let state = e.dev_state_mut(P0).unwrap();
-    let modifier = baylee_cards_dsl::Modifier::PlayerHexproof;
+    let modifier = baylee_cards_dsl::Modifier::PlayerHexproof {
+        who: baylee_cards_dsl::PlayerRel::You,
+    };
     let timestamp = state.next_timestamp();
     state.effects.register(crate::effects::ContinuousEffect {
         id: baylee_core::ids::EffectId::new(0),
