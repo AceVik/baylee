@@ -6208,12 +6208,10 @@ components:
           - "null"
           description: Whether it is a canary.
         fallback:
-          type:
-          - string
-          - "null"
-          description: >-
-            Another profile of the same seat agent, by id (1–64 of `A-Za-z0-9._-`), that
-            new games start on past `max_games`; the seat agent says whether it may be one.
+          anyOf:
+          - $ref: "#/components/schemas/LlmFallbacks"
+          - type: "null"
+          description: "Other profiles of the same seat agent, by id (each 1–64 of `A-Za-z0-9._-`): one, or a list in the order they take over, that take a game over and that new games start on past `max_games`; the seat agent says whether each may be one."
         profile:
           description: The rest of the profile, in the seat settings file's format.
       required:
@@ -6234,6 +6232,15 @@ components:
       - enabled
       additionalProperties: false
       description: "`POST …/profiles/{id}/enabled`."
+    LlmFallbacks:
+      anyOf:
+      - type: string
+        description: One profile's id.
+      - type: array
+        items:
+          type: string
+        description: Profiles' ids, in the order they take over.
+      description: One profile's id, or a list of them in the order they take over.
     LlmKey:
       type: object
       properties:

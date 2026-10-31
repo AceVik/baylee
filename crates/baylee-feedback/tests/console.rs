@@ -939,27 +939,33 @@ async fn a_hosted_profiles_fallback_is_relayed_and_a_malformed_one_refused() {
     let base = "/ui/api/admin/llm/seathosts/main/profiles/primary";
     let written = |fallback: &str| {
         format!(
-            r#"{{"label":"Model A","vendor":"Example","fallback":"{fallback}","profile":{{"provider":"openai","model":"model-a"}}}}"#
+            r#"{{"label":"Model A","vendor":"Example","fallback":{fallback},"profile":{{"provider":"openai","model":"model-a"}}}}"#
         )
     };
-    let answer = service
-        .call("PUT", base, &proved, Some(&written("backup")))
-        .await;
-    assert_eq!(answer.status, 200, "{}", answer.text());
-    let answer = service
-        .call("PUT", base, &proved, Some(&written("a/b")))
-        .await;
-    assert_eq!(answer.status, 400, "{}", answer.text());
+    // One, as ever, and a chain in its order.
+    for fallback in [r#""backup""#, r#"["backup", "spare"]"#] {
+        let answer = service
+            .call("PUT", base, &proved, Some(&written(fallback)))
+            .await;
+        assert_eq!(answer.status, 200, "{}", answer.text());
+    }
+    for malformed in [r#""a/b""#, r#"["backup", "a/b"]"#, "3"] {
+        let answer = service
+            .call("PUT", base, &proved, Some(&written(malformed)))
+            .await;
+        assert_eq!(answer.status, 400, "{malformed}: {}", answer.text());
+    }
     let seen = gw.seen();
     assert_eq!(
         seen.len(),
-        1,
-        "only the well-formed one reached the gateway"
+        2,
+        "only the well-formed ones reached the gateway"
     );
-    assert_eq!(
-        serde_json::from_str::<serde_json::Value>(&seen[0].body).unwrap()["fallback"],
-        "backup"
-    );
+    let relayed = |at: usize| {
+        serde_json::from_str::<serde_json::Value>(&seen[at].body).unwrap()["fallback"].clone()
+    };
+    assert_eq!(relayed(0), "backup");
+    assert_eq!(relayed(1), serde_json::json!(["backup", "spare"]));
     service.close().await;
     gw.server.abort();
 }

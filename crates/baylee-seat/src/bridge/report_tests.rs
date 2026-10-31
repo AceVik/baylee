@@ -121,7 +121,7 @@ fn bridge(whats: &[&str], send_reports: bool) -> Bridge {
             ..PlayOptions::default()
         },
         None,
-        None,
+        Vec::new(),
     );
     bridge.game_seat = Some(("TEST-game".into(), 1));
     bridge

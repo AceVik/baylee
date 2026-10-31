@@ -30485,13 +30485,10 @@ components:
           type: boolean
           description: Whether each probe also makes a paid canary call.
         fallback:
-          type:
-          - string
-          - "null"
-          description: >-
-            Another profile of the same seat agent and vendor that takes a game over when
-            this one's model is rate limited or busy, and that new games start on while this
-            one is not available; none when absent.
+          anyOf:
+          - $ref: "#/components/schemas/Fallbacks"
+          - type: "null"
+          description: "Other profiles of the same seat agent and vendor that take a game over, one after the other, when the model playing is rate limited, out of its quota or failing, and that new games start on while this one is not available: one profile's id, or a list of them in the order they take over; none when absent."
         profile:
           description: One profile of the seat settings file, in its own format (`docs/llm-seat.md`).
       required:
@@ -30892,6 +30889,15 @@ components:
       - device
       - guest
       description: "The answer to `hello`: who this socket is. A `snapshot` follows."
+    Fallbacks:
+      anyOf:
+      - type: string
+        description: One profile's id.
+      - type: array
+        items:
+          type: string
+        description: Profiles' ids, in the order they take over.
+      description: One profile's id, or a list of them in the order they take over.
     Frame:
       type: object
       oneOf:
@@ -31905,8 +31911,8 @@ components:
           - "null"
           description: >-
             The fallback profile a new game of this one starts on now, because this one is
-            not available and its fallback is; the profile is then reported `available`.
-            Absent otherwise.
+            not available and that fallback is (the first of its fallbacks that is); the
+            profile is then reported `available`. Absent otherwise.
         definition:
           $ref: "#/components/schemas/Definition"
           description: What an admin wrote.

@@ -113,8 +113,8 @@ impl Slot {
     ];
 
     /// The box or choice that shows `field`; `None` for a field the panel
-    /// keeps as the file has it and shows nowhere (`lookup`), whose fault
-    /// the panel says of the file as a whole.
+    /// keeps as the file has it and shows nowhere (`lookup`, `fallback`),
+    /// whose fault the panel says of the file as a whole.
     #[must_use]
     pub const fn of(field: Field) -> Option<Self> {
         Some(match field {
@@ -133,7 +133,7 @@ impl Slot {
             Field::KeyEnv => Self::KeyEnv,
             Field::BaseUrl => Self::BaseUrl,
             Field::Command => Self::Command,
-            Field::Lookup => return None,
+            Field::Lookup | Field::Fallback => return None,
         })
     }
 
@@ -295,6 +295,8 @@ struct Draft {
     command: TextBuffer,
     /// Kept as the file has it: the panel shows no box for it.
     lookup: Option<LookupSource>,
+    /// Kept as the file has it: the panel shows no box for it.
+    fallback: Vec<String>,
 }
 
 /// A form's texts and choices, to tell whether anything was edited.
@@ -329,6 +331,7 @@ impl Draft {
             base_url: text(profile.base_url.as_deref()),
             command: text(profile.command.as_deref()),
             lookup: profile.lookup,
+            fallback: profile.fallback.clone(),
         }
     }
 
@@ -422,6 +425,7 @@ impl Draft {
             base_url: word(&self.base_url),
             command: word(&self.command),
             lookup: self.lookup,
+            fallback: self.fallback.clone(),
         };
         (profile, problems)
     }

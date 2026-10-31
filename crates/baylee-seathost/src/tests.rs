@@ -365,7 +365,7 @@ fn example(label: &str, model: &str, max_games: Option<u32>, fallback: Option<&s
         max_games,
         caps: None,
         canary: false,
-        fallback: fallback.map(str::to_string),
+        fallback: fallback.map(Into::into),
         profile: json!({"provider": "openai", "model": model,
             "base_url": "https://api.example.invalid/v1"}),
     }
@@ -508,11 +508,12 @@ fn seconds_after(why: &str, lead: &str) -> i64 {
 }
 
 /// A definition naming itself as its fallback, a fallback that is no
-/// profile's id, and a CLI profile with a fallback are each refused, with the
-/// sentence that says which; a valid pair and a CLI without one are kept.
-/// (Before fallbacks no definition had one, and nothing was refused.)
+/// profile's id, one named twice, and fallbacks written into the profile's
+/// own settings are each refused, with the sentence that says which; a valid
+/// pair, a chain, and a CLI with or without fallbacks are kept. (Before,
+/// a CLI took no fallback.)
 #[test]
-fn a_definition_whose_fallback_is_itself_malformed_or_on_a_cli_is_refused() {
+fn a_definition_whose_fallback_is_itself_malformed_or_named_twice_is_refused() {
     let own = definition_fault(PRIMARY, &example("Model A", "model-a", None, Some(PRIMARY)));
     assert_eq!(own.as_deref(), Some("a profile cannot be its own fallback"));
     for bad in ["a/b", "", "..", &"x".repeat(65)] {
@@ -522,12 +523,25 @@ fn a_definition_whose_fallback_is_itself_malformed_or_on_a_cli_is_refused() {
     }
     let mut cli = cli_definition();
     cli.fallback = Some(BACKUP.into());
-    let fault = definition_fault("agent-cli", &cli).expect("a CLI takes no fallback");
-    assert!(fault.contains("an agent CLI takes none"), "{fault}");
+    assert_eq!(
+        definition_fault("agent-cli", &cli),
+        None,
+        "a subscription that runs out hands over too"
+    );
     cli.fallback = None;
     assert_eq!(definition_fault("agent-cli", &cli), None);
     let pair = example("Model A", "model-a", Some(2), Some(BACKUP));
     assert_eq!(definition_fault(PRIMARY, &pair), None);
+    let mut chain = pair.clone();
+    chain.fallback = Some(vec![BACKUP.to_owned(), "spare".to_owned()].into());
+    assert_eq!(definition_fault(PRIMARY, &chain), None);
+    chain.fallback = Some(vec![BACKUP.to_owned(), BACKUP.to_owned()].into());
+    let twice = definition_fault(PRIMARY, &chain).expect("named twice");
+    assert!(twice.contains("named twice"), "{twice}");
+    let mut inside = pair;
+    inside.profile["fallback"] = serde_json::json!(BACKUP);
+    let inside = definition_fault(PRIMARY, &inside).expect("in its settings");
+    assert!(inside.contains("in the definition's fallback"), "{inside}");
 }
 
 /// A set of definitions in which a profile's fallback plays an agent CLI, or
@@ -600,10 +614,7 @@ async fn a_fallback_written_after_its_profile_is_refused_when_it_is_a_cli_or_ano
         example("Model A", "model-a", None, Some(BACKUP)),
     ));
     assert_eq!(next_but_reports(&mut rx).await, answer("r1", true));
-    assert_eq!(
-        reported(&host, PRIMARY).definition.fallback.as_deref(),
-        Some(BACKUP)
-    );
+    assert_eq!(reported(&host, PRIMARY).definition.fallbacks(), [BACKUP]);
 
     host.handle(write("r2", BACKUP, cli_definition()));
     let Frame::Answer { request, ok, error } = next_but_reports(&mut rx).await else {
@@ -684,13 +695,23 @@ fn a_profiles_file_whose_fallback_plays_a_cli_is_not_read() {
 /// profile that can be taken along is named.
 #[test]
 fn a_fallback_is_taken_along_only_when_it_is_a_usable_profile_of_the_seat_agent() {
+    // The first fallback `PRIMARY` names, and whether a game may take it.
+    fn fallback_of(
+        defs: &BTreeMap<String, Definition>,
+        id: &str,
+    ) -> Option<Result<String, &'static str>> {
+        fallbacks_of(defs, id)
+            .into_iter()
+            .next()
+            .map(|(name, usable)| usable.map(|()| name.to_owned()))
+    }
     let with = |theirs: Option<Definition>| {
         let mut defs = BTreeMap::from([(
             PRIMARY.to_string(),
             example("Model A", "model-a", None, Some(BACKUP)),
         )]);
         defs.extend(theirs.map(|d| (BACKUP.to_string(), d)));
-        fallback_of(&defs, PRIMARY).map(|taken| taken.map(str::to_string))
+        fallback_of(&defs, PRIMARY)
     };
     let backup = || example("Model B", "model-b", None, None);
 
@@ -735,7 +756,7 @@ async fn a_game_of_an_available_profile_takes_its_fallback_along() {
         host.place(PRIMARY),
         Ok(Placement {
             plays: PRIMARY.into(),
-            fallback: Some(BACKUP.into()),
+            fallbacks: vec![BACKUP.into()],
             diverted: None
         })
     );
@@ -750,7 +771,9 @@ async fn a_game_of_an_available_profile_takes_its_fallback_along() {
         let mine = SeatSettings::parse(&j.settings).unwrap();
         assert_eq!(mine.default.as_deref(), Some(PRIMARY));
         assert_eq!(mine.profiles.keys().collect::<Vec<_>>(), [PRIMARY]);
-        let standing = j.fallback.as_ref().expect("the fallback stands by");
+        let [standing] = j.fallbacks.as_slice() else {
+            panic!("the fallback stands by, alone");
+        };
         assert_eq!(standing.profile, BACKUP);
         assert_eq!(standing.ledger, spend.join("backup.json"));
         let theirs = SeatSettings::parse(&standing.settings).unwrap();
@@ -779,7 +802,7 @@ async fn a_new_game_of_a_profile_at_its_bound_starts_on_its_fallback() {
         host.place(PRIMARY),
         Ok(Placement {
             plays: BACKUP.into(),
-            fallback: None,
+            fallbacks: Vec::new(),
             diverted: Some("primary at max_games 1/1".into())
         })
     );
@@ -797,7 +820,7 @@ async fn a_new_game_of_a_profile_at_its_bound_starts_on_its_fallback() {
         let settings = SeatSettings::parse(&j.settings).unwrap();
         assert_eq!(settings.default.as_deref(), Some(BACKUP));
         assert_eq!(settings.profiles.keys().collect::<Vec<_>>(), [BACKUP]);
-        assert!(j.fallback.is_none(), "the fallback has none of its own");
+        assert!(j.fallbacks.is_empty(), "the fallback has none of its own");
         assert!(j.heard.is_none(), "nobody listens where nothing stands by");
     });
 }
@@ -844,6 +867,7 @@ async fn a_limit_the_bridge_heard_sends_the_next_game_to_the_fallback() {
         &fake,
         "o1",
         Heard::Limited {
+            of: None,
             lifts_secs: Some(600),
         },
     );
@@ -854,8 +878,8 @@ async fn a_limit_the_bridge_heard_sends_the_next_game_to_the_fallback() {
 
     let placement = host.place(PRIMARY).unwrap();
     assert_eq!(
-        (placement.plays.as_str(), placement.fallback),
-        (BACKUP, None)
+        (placement.plays.as_str(), placement.fallbacks.is_empty()),
+        (BACKUP, true)
     );
     let lifts = seconds_after(
         &placement.diverted.expect("the reason"),
@@ -995,13 +1019,13 @@ async fn a_full_profile_is_refused_as_busy_when_its_fallback_cannot_take_the_gam
     )
     .unwrap();
     assert_eq!(
-        host.place(PRIMARY).unwrap().fallback,
-        None,
+        host.place(PRIMARY).unwrap().fallbacks,
+        Vec::<String>::new(),
         "nothing stands by"
     );
     seat(&host, &mut rx, "o1", PRIMARY).await;
     job(&fake, "o1", |j| {
-        assert!(j.fallback.is_none() && j.heard.is_none());
+        assert!(j.fallbacks.is_empty() && j.heard.is_none());
     });
     refused_busy(&host, &mut rx, "o2", PRIMARY, "busy").await;
 }
@@ -1029,7 +1053,7 @@ async fn diverted_for(
     seat(host, rx, order, PRIMARY).await;
     job(fake, order, |j| {
         assert_eq!(j.plays, BACKUP);
-        assert!(j.fallback.is_none(), "no further fallback");
+        assert!(j.fallbacks.is_empty(), "no further fallback");
     });
     assert_eq!(
         (reported(host, PRIMARY).games, reported(host, BACKUP).games),
@@ -1208,16 +1232,16 @@ async fn a_fallbacks_own_fallback_is_not_followed() {
         .unwrap();
     seat(&host, &mut rx, "o1", PRIMARY).await;
     seat(&host, &mut rx, "o2", PRIMARY).await;
-    job(&fake, "o1", |j| assert!(j.fallback.is_some()));
+    job(&fake, "o1", |j| assert_eq!(j.fallbacks.len(), 1));
     job(&fake, "o2", |j| {
         assert_eq!(j.plays, BACKUP);
-        assert!(j.fallback.is_none() && j.heard.is_none());
+        assert!(j.fallbacks.is_empty() && j.heard.is_none());
     });
     // Ordered directly, the fallback profile has its own fallback stand by.
     seat(&host, &mut rx, "o3", BACKUP).await;
     job(&fake, "o3", |j| {
         assert_eq!(
-            j.fallback.as_ref().map(|f| f.profile.as_str()),
+            j.fallbacks.first().map(|f| f.profile.as_str()),
             Some(PRIMARY)
         );
     });
@@ -1237,14 +1261,14 @@ async fn a_profile_without_a_fallback_refuses_at_its_bound_as_ever() {
         host.place(PRIMARY),
         Ok(Placement {
             plays: PRIMARY.into(),
-            fallback: None,
+            fallbacks: Vec::new(),
             diverted: None
         })
     );
     seat(&host, &mut rx, "o1", PRIMARY).await;
     job(&fake, "o1", |j| {
         assert_eq!(j.plays, PRIMARY);
-        assert!(j.fallback.is_none(), "no fallback in the job");
+        assert!(j.fallbacks.is_empty(), "no fallback in the job");
         assert!(j.heard.is_none(), "nobody listens");
     });
     refused_busy(&host, &mut rx, "o2", PRIMARY, "busy").await;
@@ -1284,4 +1308,140 @@ async fn a_draining_seat_agent_places_no_game_even_on_a_fallback() {
     );
     assert_eq!(fake.jobs.lock().unwrap().len(), 1, "no second bridge");
     assert_eq!(reported(&host, PRIMARY).diverts, None);
+}
+
+/// The second fallback of the chains below.
+const SPARE: &str = "spare";
+
+/// A seat agent holding [`PRIMARY`] (naming [`BACKUP`], then [`SPARE`], as
+/// its fallbacks), [`BACKUP`] and [`SPARE`], each with its own bound.
+fn chain(
+    name: &str,
+    maxes: [Option<u32>; 3],
+) -> (Arc<Host>, Arc<Fake>, mpsc::UnboundedReceiver<Frame>) {
+    let (host, fake, rx) = bare(name);
+    let mut primary = example("Model A", "model-a", maxes[0], None);
+    primary.fallback = Some(vec![BACKUP.to_owned(), SPARE.to_owned()].into());
+    host.write(PRIMARY, primary).unwrap();
+    host.write(BACKUP, example("Model B", "model-b", maxes[1], None))
+        .unwrap();
+    host.write(SPARE, example("Model C", "model-c", maxes[2], None))
+        .unwrap();
+    (host, fake, rx)
+}
+
+/// A game of a profile with a chain takes the whole chain along, in its
+/// order, each with its own settings file and spend book; while the profile
+/// is full a new game starts on the first fallback that is available and
+/// takes the ones after it along; when none is, the order is refused.
+#[tokio::test]
+async fn a_chain_is_taken_along_in_order_and_a_full_profile_starts_on_the_first_free_fallback() {
+    let (host, fake, mut rx) = chain("chain-place", [Some(1), Some(1), Some(1)]);
+    let spend = host.config.state_dir.join("spend");
+    let fallbacks = |j: &SeatJob| -> Vec<(String, PathBuf)> {
+        j.fallbacks
+            .iter()
+            .map(|f| (f.profile.clone(), f.ledger.clone()))
+            .collect()
+    };
+    seat(&host, &mut rx, "o1", PRIMARY).await;
+    job(&fake, "o1", |j| {
+        assert_eq!(j.plays, PRIMARY);
+        assert_eq!(
+            fallbacks(j),
+            [
+                (BACKUP.to_owned(), spend.join("backup.json")),
+                (SPARE.to_owned(), spend.join("spare.json")),
+            ]
+        );
+        assert!(j.heard.is_some());
+    });
+    assert_eq!(reported(&host, PRIMARY).diverts.as_deref(), Some(BACKUP));
+    seat(&host, &mut rx, "o2", PRIMARY).await;
+    job(&fake, "o2", |j| {
+        assert_eq!(j.plays, BACKUP, "the first available fallback");
+        assert_eq!(fallbacks(j), [(SPARE.to_owned(), spend.join("spare.json"))]);
+        assert_eq!(j.name, "Model-A");
+    });
+    assert_eq!(reported(&host, PRIMARY).diverts.as_deref(), Some(SPARE));
+    seat(&host, &mut rx, "o3", PRIMARY).await;
+    job(&fake, "o3", |j| {
+        assert_eq!(j.plays, SPARE);
+        assert!(j.fallbacks.is_empty() && j.heard.is_none());
+    });
+    refused_busy(&host, &mut rx, "o4", PRIMARY, "busy").await;
+    let games = [PRIMARY, BACKUP, SPARE].map(|id| reported(&host, id).games);
+    assert_eq!(games, [1, 1, 1]);
+}
+
+/// A fallback that took over and is limited in its turn (the bridge's `the
+/// fallback <profile> is rate limited`) is held back itself, not the
+/// profile: the next game plays the profile, and a profile the game does
+/// not take along is never held back by what its bridge says.
+#[tokio::test]
+async fn a_limit_heard_of_a_fallback_holds_that_fallback_back() {
+    let (host, fake, mut rx) = chain("chain-heard", [None, None, None]);
+    host.write("stranger", example("Model D", "model-d", None, None))
+        .unwrap();
+    seat(&host, &mut rx, "o1", PRIMARY).await;
+    hear(
+        &fake,
+        "o1",
+        Heard::Limited {
+            of: Some(BACKUP.into()),
+            lifts_secs: Some(600),
+        },
+    );
+    eventually("the fallback is held back", || {
+        reported(&host, BACKUP).state == State::Exhausted
+    })
+    .await;
+    assert_eq!(reported(&host, PRIMARY).state, State::Available);
+    assert_eq!(host.place(PRIMARY).unwrap().plays, PRIMARY);
+    hear(
+        &fake,
+        "o1",
+        Heard::Limited {
+            of: Some("stranger".into()),
+            lifts_secs: Some(600),
+        },
+    );
+    hear(
+        &fake,
+        "o1",
+        Heard::Limited {
+            of: None,
+            lifts_secs: Some(600),
+        },
+    );
+    eventually("the profile is held back", || {
+        reported(&host, PRIMARY).diverts.is_some()
+    })
+    .await;
+    assert_eq!(reported(&host, "stranger").state, State::Available);
+    assert_eq!(
+        reported(&host, PRIMARY).diverts.as_deref(),
+        Some(SPARE),
+        "the next of the chain that is available"
+    );
+}
+
+/// A chain may stand behind an agent CLI: a subscription that runs out
+/// mid-game hands over as an API's quota does.
+#[tokio::test]
+async fn an_agent_cli_takes_its_chain_along() {
+    let (host, fake, mut rx) = bare("cli-chain");
+    host.write(BACKUP, example("Model B", "model-b", None, None))
+        .unwrap();
+    let mut cli = cli_definition();
+    cli.fallback = Some(BACKUP.into());
+    host.write("agent-cli", cli).unwrap();
+    seat(&host, &mut rx, "o1", "agent-cli").await;
+    job(&fake, "o1", |j| {
+        assert_eq!(j.plays, "agent-cli");
+        assert_eq!(
+            j.fallbacks.first().map(|f| f.profile.as_str()),
+            Some(BACKUP)
+        );
+    });
 }

@@ -119,6 +119,7 @@ the profile: a file is played as written or not at all.
 | `base_url` | Where the API is: `https://`, or `http://` on loopback only. Not for `cli`. |
 | `command` | `cli` only: the tool's program, a whole path; default: the tool's name on the bridge's `PATH`. Name a version's own file to play that version (`/Users/<you>/.local/share/claude/versions/<version>`, [below](#a-cli-as-the-model)). |
 | `lookup` | Optional, `scryfall` or absent (the default). Every seat may look a card up in this build's card text and its gateway's catalog; `scryfall` lets its lookups also bring a card's Scryfall rulings and the text of a card neither knows ([below](#reports-and-lookups)). The settings panel shows no box for it and keeps it as the file has it. |
+| `fallback` | Optional: the profiles of this file that take a game over when this model is rate limited, out of its quota or failing, first to last: one name (`"backup"`) or a list (`["opus-api", "deepseek"]`), each behind an API ([below](#a-fallback-profile)). A bridge plays this chain unless `--fallback-profile` names another or `--no-fallback` none; a name a command line cannot carry is refused, and one that is no profile of the file, plays an agent CLI or is the profile itself is left out as the chair sits down. A hosted profile names its fallbacks in its definition instead. The settings panel shows no box for it and keeps it as the file has it. |
 
 A model without a price in this build plays only with a `price` or a
 `game_tokens`, as `--spend-tokens` on the command line (`join --help`);
@@ -252,68 +253,94 @@ A flag beats the profile, and the profile beats the build.
 
 ## A fallback profile
 
-A model behind an API can hand a game to another profile when it cannot
-answer, rather than to the house: when its provider says it is rate
-limited or busy, or when it fails otherwise (owner, 13.10.2026: the house
-plays only in an emergency; the staging acceptance's `502` mid-game is
-none). `baylee-seat join … --profile primary --fallback-profile backup`
-(a hosted seat gets it from its profile's `fallback`,
-[below](#a-hosted-seat)). The house plays only where the fallback cannot.
+A language model, behind an API or an agent CLI, can hand a game to other
+profiles when it cannot answer, rather than to the house: when its
+provider says it is rate limited, busy or out of its quota, or when its
+subscription's window is spent, or when it fails otherwise (owner,
+13.10.2026: the house plays only in an emergency; the staging acceptance's
+`502` mid-game is none; owner, 31.10.2026: a game stays playable when a
+quota or subscription runs out, on the same model elsewhere first and then
+on the next most suitable one). The fallbacks are a **chain**, tried in
+order. The house plays only where the whole chain cannot.
 
+- **Where the chain comes from.** A profile names it in the settings file:
+  `"fallback": "backup"` (one, as it always could) or `"fallback":
+  ["opus-api", "deepseek"]` (several, in the order they take over), each a
+  profile of the same file ([The file](#the-file)). `baylee-seat join`
+  plays that chain unless `--fallback-profile` is given, once for each
+  fallback in order (`--profile primary --fallback-profile opus-api
+  --fallback-profile deepseek`), which replaces it; `--no-fallback` plays
+  none. A hosted seat gets it from its definition's `fallback`
+  ([below](#a-hosted-seat)), and the collector names its profile's chain
+  explicitly. A fallback's own `fallback` is never followed.
 - **What it takes over on.** A limit: HTTP 429, or an error whose `code`
   or `type` (in the body's `error`, or at its top) is `rate_limited` or
   `busy`, whatever the status; a `Retry-After` in seconds is kept as when
-  it lifts (`MindError::Limited`, `llm::limited_by`). And every other
-  failure, the model unavailable: a network error, a 5xx without such a
-  code (`502 server_error`), a refused key, a task that died
+  it lifts (`MindError::Limited`, `llm::limited_by`); an agent CLI's rate
+  limit or spent quota, as its dialect reads it (`Outcome::RateLimited`),
+  is the same limit. And every other failure, the model unavailable: a
+  network error, a 5xx without such a code (`502 server_error`), a refused
+  key, a task that died, a CLI process that died or broke its lockdown
   (`MindError::Unavailable`). A model that declines a kind of question
   (`MindError::Declined`) is not down: the house answers that question and
-  the fallback stands by. Without a fallback, or with one that cannot take
-  over, a limit hands the rest of the game to the house at once: it answers
-  that question and every one after it, the model is asked nothing more,
-  the seat stays at the table, and the house is declared to it
+  the chain stands by. Past the end of the chain, or with none, a limit
+  hands the rest of the game to the house at once: it answers that
+  question and every one after it, no model is asked anything more, the
+  seat stays at the table, and the house is declared to it
   (`SeatCore::limited`, owner after the feedback of 28.10.2026). It used to
   count as the model unavailable, and the third in a row took the mind off
   the table: the table held the chair as away for its whole reconnect
   window, three minutes, before its stand-in played, and the mind came
   back to be limited again. A failure is still the model unavailable: the
   house answers, and a run of three takes the mind off the table.
-- **The same question, at once.** The question the model could not answer
-  is asked of the fallback within what is left of that question's budget
-  (`think_secs`, else 60 s): the table does not wait longer, the house does
-  not answer it, and the failure does not count towards taking the mind off
-  the table (`bridge::Standby`). From then on the fallback plays the rest of
-  the game. It never hands the game back: a game that switched stays on the
-  fallback, however soon the model is back (v1).
-- **Its own settings and its own book.** The fallback plays its own
+- **The same question, at once, down the chain.** The question the model
+  could not answer is asked of the first fallback within what is left of
+  that question's budget (`think_secs`, else 60 s): the table does not wait
+  longer, the house does not answer it, and the failure does not count
+  towards taking the mind off the table (`bridge::Standby`). From then on
+  that fallback plays, until it cannot answer either: then the next one
+  takes over in the same way, the same question again if that is where it
+  failed. A game never hands back to a mind that played before it, however
+  soon that one is back (v1).
+- **Its own settings and its own book.** Each fallback plays its own
   profile whole: its model, address, key variable, answer mode, effort,
   `max_tokens`, `think_secs`, price and budgets, never the model's, and no
-  flag of the command line tunes it. `--fallback-config` names its settings
-  file (default: the model's), `--fallback-ledger` its spend book (default:
-  the model's `--ledger` where both are in one file, else the book beside
-  its file). At sit-down its file is read and its key looked for, which
-  costs nothing; the game is reserved in its book only when it takes over,
-  under its file's caps. A book that refuses (a cap reached) or a key
-  that is missing leaves no fallback: the house answers, as without one,
-  and the bridge says why (`no fallback stands by: …` at sit-down, `the
-  fallback … could not take over in turn N: …` at the limit or failure,
-  and the transcript's `fallback_refused`). The model's own reservation
-  settles at the game's end as always, and the fallback's beside it.
-- **Only an API.** The model and its fallback both play behind an API: a
-  CLI takes no fallback and is none. A fallback's own fallback is never
-  followed.
-- **Said.** At sit-down `the fallback backup stands by: …`; at a
-  limit `the fallback backup answers from turn 3: the primary is
-  rate limited (it lifts in 120 s)` (the words a seat agent reads to hold
-  the profile back from new games, `bridge::LIMITED`), at another failure
-  `the fallback backup answers from turn 3: the primary failed: 502: …`
-  (which holds nothing back); in the transcript `{"fallback": {"profile",
-  "turn", "cause", "why"}}`, `cause` `limited` or `failed`; to the table a
-  new declaration of the fallback's model before its first answer, so the
-  game's record names the model that made each action ([below](#what-the-games-record-says-played));
-  in the closing line, after everything it said before, `; the fallback
-  (backup) answered 12 from turn 3` (its answers are also among the
-  mind's), and its tokens and money on a line of their own.
+  flag of the command line tunes it. `--fallback-config` names the
+  settings file the fallbacks are in, and `--fallback-ledger` their spend
+  book: each once for all of them, or once for each `--fallback-profile`
+  in the same order; any other count refuses the chair before it reserves
+  anything. By default a fallback's file is the model's, and its book the
+  model's `--ledger` where both are in one file, else the book beside its
+  file. At sit-down each file is read and each key looked for, which costs
+  nothing; a game is reserved in a fallback's book only when it takes over,
+  under its file's caps. A fallback that cannot stand by (a profile the
+  file lacks, one that plays an agent CLI, a key that is missing, the
+  chair's own profile, a name given twice) is left out of the chain at
+  sit-down, the bridge saying why (`the fallback … does not stand by: …`);
+  one whose book refuses when it is to take over (a cap reached) is passed
+  over for the next (`the fallback … could not take over in turn N: …`, and
+  the transcript's `fallback_refused`). The model's own reservation settles
+  at the game's end as always, and each fallback's beside it.
+- **Only an API takes over.** The model may play behind an API or an agent
+  CLI; each fallback plays behind an API: a CLI is none.
+- **Said.** At sit-down `the fallback backup stands by: …`, or `the
+  fallbacks opus-api, deepseek stand by, in this order: …`; at a limit
+  `the fallback opus-api answers from turn 3: the primary is rate limited
+  (it lifts in 120 s)` (the words a seat agent reads to hold the profile
+  back from new games, `bridge::LIMITED`), and when a fallback that took
+  over is limited in its turn `the fallback deepseek answers from turn 9:
+  the fallback opus-api is rate limited` (`bridge::fallback_limited`, which
+  holds that fallback back); at another failure `… : the primary failed:
+  502: …` or `… : the fallback opus-api failed: …` (which holds nothing
+  back); in the transcript `{"fallback": {"profile", "turn", "cause",
+  "why"}}` for each that takes over, `cause` `limited` or `failed`, and at
+  the end `{"fell_back": [{"label", "turn", "answered"}, …]}`; to the table
+  a new declaration of each fallback's model before its first answer, so
+  the game's record names the model that made each action
+  ([below](#what-the-games-record-says-played)); in the closing line, after
+  everything it said before, `; the fallback (opus-api) answered 12 from
+  turn 3` for each that played, in order (their answers are also among
+  the mind's), and each one's tokens and money on a line of its own.
 
 ## Models and efforts
 
@@ -510,9 +537,13 @@ before playing.
   worst; a process that ended without a word (a session not found, a
   crash before its start) reached no model, and is a failed call at no
   cost.
-- **Rate limits.** A rate limit or a spent quota is unbilled, and the house
-  plays the rest of that game, as for a model behind an API without a
-  fallback ([above](#a-fallback-profile)). The mind cools down for the
+- **Rate limits.** A rate limit or a spent quota is unbilled and is the
+  mind limited (`MindError::Limited`), as a model behind an API is: the
+  profile's fallbacks take the game over where it names any (the same
+  model behind an API is the natural first), and else the house plays
+  the rest of that game ([above](#a-fallback-profile)). Until 31.10.2026
+  it was the mind unavailable, so the house answered and the mind came
+  back after its cooldown. The mind cools down for the
   time the tool names when that is some time and at most fifteen minutes,
   else a minute, doubling to fifteen. It plays a game again once that has
   passed
@@ -1040,9 +1071,11 @@ describes it.
   when absent: `max_games` (games at once), `caps` (the settings file's
   four caps, kept in the profile's **own** spend book,
   `spend/<id>.json`, so one profile's spend never stops another),
-  `canary` (a paid check, below) and `fallback` (another API profile of
-  the same seat agent and vendor, [above](#a-fallback-profile) and
-  below). Which profiles a seat agent runs is
+  `canary` (a paid check, below) and `fallback` (other API profiles of the
+  same seat agent and vendor, one id or a list in the order they take
+  over, [above](#a-fallback-profile) and below; an agent CLI's profile may
+  name them too; they are named here, never in `profile`). Which
+  profiles a seat agent runs is
   written through the admin console (`PUT /admin/llm/seathosts/{name}/
   profiles/{id}`), which the gateway passes to that seat agent and keeps
   nowhere; the file may also be edited by hand, read at start. Every
@@ -1062,24 +1095,30 @@ describes it.
   `baylee-seat join <room> --chair <n> --chair-ticket --tethered
   --config … --profile <id> --ledger spend/<id>.json --name <label>` with
   the gateway's chair ticket as stdin's first line. A profile whose
-  definition names a `fallback` ([above](#a-fallback-profile)) gets a
-  second settings file holding the fallback alone, with its own caps, and
-  `--fallback-profile <fallback> --fallback-config … --fallback-ledger
-  spend/<fallback>.json`. No key travels with either: the bridge reads both
-  from the seat agent's key store, each under its own profile's entry, and
-  its environment is the seat agent's allowlist as before.
-- **New games on the fallback.** While a profile is not available for
-  any reason (at its `max_games`; limited, its book at a cap or the
-  provider's limit, which the seat agent also hears from a bridge's `the
-  primary is rate limited` line; failing its check; signed out; being
-  checked; switched off) and its fallback is available, a new game starts
-  on the fallback outright and
-  plays it whole: the fallback's settings file and book alone, no further
-  fallback, so the provider's cache is the same endpoint's from the first
-  question. The chair keeps the ordered profile's name, the gateway's
-  order and status are the ordered profile's, and the game counts in the
-  fallback's games (its `max_games` holds it). The profile is reported
-  `available`, with `diverts` naming the fallback, and the operator's log
+  definition names fallbacks ([above](#a-fallback-profile)) gets a
+  settings file for each that is usable (a profile of the seat agent,
+  behind an API, of the same vendor, switched on), holding it alone with
+  its own caps (`llm-seat-fallback-1.json`, `-2`, …, named by place, never
+  by id), and for each, in order, `--fallback-profile <fallback>
+  --fallback-config … --fallback-ledger spend/<fallback>.json`. No key
+  travels with any: the bridge reads each from the seat agent's key store,
+  each under its own profile's entry, and its environment is the seat
+  agent's allowlist as before.
+- **New games on a fallback.** While a profile is not available for any
+  reason (at its `max_games`; limited, its book at a cap or the provider's
+  limit, which the seat agent also hears from a bridge's `the primary is
+  rate limited` line; failing its check; signed out; being checked;
+  switched off) and one of its fallbacks is available, a new game starts
+  outright on the first of the chain that is: that fallback's settings
+  file and book, so the provider's cache is the same endpoint's from the
+  first question, with the fallbacks after it in the chain standing by as
+  they would behind the profile. A fallback a bridge heard limited in its
+  turn (`the fallback <id> is rate limited`) is held back from new games
+  in the same way. The chair keeps the ordered profile's name, the
+  gateway's order and status are the ordered profile's, and the game
+  counts in that fallback's games (its `max_games` holds it). The profile
+  is reported `available`, with `diverts` naming that fallback, and the
+  operator's log
   says which profile the game got and why (`primary at max_games 5/5`,
   `primary failing: …`,
   `primary limited for another 300 s`). Like every bridge it
@@ -1153,8 +1192,9 @@ chosen above, flags over profile over build (`baylee_seat::declare`):
 - a model behind a CLI: `llm_cli`, the tool (`claude`, `codex`, …), the
   model it names (empty for the tool's own default) and the effort.
 
-A fallback that takes over ([above](#a-fallback-profile)) declares its
-own model before its first answer, so the record names it from there on.
+Each fallback that takes over ([above](#a-fallback-profile)) declares its
+own model before its first answer, so the record names it from there on,
+and the next one's from where that one took over.
 Never the profile's name, its `base_url`, its key variable, a key or any
 prompt: the declaration has no field for them, and the engine refuses one
 whose text is shaped like a key or an address. It is sent on every socket

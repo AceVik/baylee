@@ -610,6 +610,11 @@ fn every_refusal_is_a_fault_with_a_place() {
             Why::NotSecure,
         ),
         (
+            one_profile(|p| p.fallback = vec!["backup".into(), "two words".into()]),
+            profile(Field::Fallback),
+            Why::NotAName,
+        ),
+        (
             SeatSettings {
                 caps: Caps {
                     month_usd: Some(-1.0),
@@ -696,6 +701,7 @@ fn the_field_paths_are_the_file_s_own() {
         base_url: Some("https://x".into()),
         command: Some("/x".into()),
         lookup: Some(LookupSource::Scryfall),
+        fallback: vec!["backup".into()],
         ..Profile::new(Provider::Anthropic, "m")
     };
     let mut written = Vec::new();
@@ -893,4 +899,50 @@ fn a_profile_s_lookup_is_scryfall_or_nothing() {
             .get("lookup")
             .is_none()
     );
+}
+
+/// A profile's `fallback` is one name, as a file with one fallback has
+/// always said it, or a list of names in the order they take over; one
+/// name is written back as one name, and none is left out. Anything else
+/// is refused, and so is a name a command line cannot carry; whether each
+/// is a profile of the file, and one behind an API, is the bridge's to
+/// say as the chair sits down.
+#[test]
+fn a_profile_s_fallback_is_one_name_or_a_list_of_them() {
+    let with = |fallback: &str| {
+        format!(
+            r#"{{"profiles": {{
+                "t": {{"provider": "cli", "model": "claude", "fallback": {fallback}}},
+                "a": {{"provider": "anthropic", "model": "m-a"}},
+                "b": {{"provider": "openai", "model": "m-b"}}
+            }}}}"#
+        )
+    };
+    let one = SeatSettings::parse(&with(r#""a""#)).expect("one name");
+    assert_eq!(one.profiles["t"].fallback, ["a"]);
+    let written = serde_json::to_value(&one.profiles["t"]).unwrap();
+    assert_eq!(written["fallback"], "a", "one name stays one name");
+    assert_eq!(SeatSettings::parse(&one.to_json()).unwrap(), one);
+
+    let chain = SeatSettings::parse(&with(r#"["b", "a"]"#)).expect("a list");
+    assert_eq!(chain.profiles["t"].fallback, ["b", "a"], "in its order");
+    let written = serde_json::to_value(&chain.profiles["t"]).unwrap();
+    assert_eq!(written["fallback"], serde_json::json!(["b", "a"]));
+    assert_eq!(SeatSettings::parse(&chain.to_json()).unwrap(), chain);
+
+    let none = SeatSettings::parse(&with("[]")).expect("an empty list");
+    assert!(none.profiles["t"].fallback.is_empty());
+    assert!(!none.to_json().contains("fallback"), "none is left out");
+    assert!(Profile::new(Provider::Cli, "claude").fallback.is_empty());
+
+    for refused in [
+        "3",
+        "null",
+        "{}",
+        r#"["a", 3]"#,
+        r#""two words""#,
+        r#"["a", ""]"#,
+    ] {
+        assert!(SeatSettings::parse(&with(refused)).is_err(), "{refused}");
+    }
 }
