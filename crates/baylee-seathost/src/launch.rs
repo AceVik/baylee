@@ -42,14 +42,15 @@ pub struct SeatJob {
     pub settings: String,
     /// That profile's own spend book.
     pub ledger: PathBuf,
-    /// The fallback that stands by in the game, where one does.
-    pub fallback: Option<FallbackJob>,
+    /// The fallbacks that stand by in the game, in the order they take
+    /// over.
+    pub fallbacks: Vec<FallbackJob>,
     /// Where what the bridge says of its model goes ([`Heard`]), where
     /// anybody listens.
     pub heard: Option<tokio::sync::mpsc::UnboundedSender<Heard>>,
 }
 
-/// A fallback profile a game takes along: `--fallback-profile`, with its
+/// A fallback profile a game takes along: a `--fallback-profile`, with its
 /// own settings file and spend book, so its caps are its own.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FallbackJob {
@@ -62,11 +63,14 @@ pub struct FallbackJob {
 }
 
 /// What a bridge says of its model while it plays.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Heard {
-    /// The model is rate limited, and the fallback was asked to take
+    /// The model playing is rate limited, and a fallback was asked to take
     /// over: until the provider's time, where it named one.
     Limited {
+        /// Whose model: `None` for the profile the game plays, else the
+        /// fallback that had taken over from it.
+        of: Option<String>,
         /// Seconds until it lifts, where said.
         lifts_secs: Option<i64>,
     },
@@ -78,15 +82,32 @@ pub enum Heard {
 /// and its bridge never says them.
 pub const LIMITED: &str = "the primary is rate limited";
 
-/// What `line` says of the model, if it is the bridge's [`LIMITED`].
+/// What a bridge says when a fallback that took over is rate limited in
+/// its turn and another stood by behind it (`baylee-seat`'s
+/// `bridge::fallback_limited`): `the fallback <profile>` before these words.
+pub const FALLBACK_LIMITED: &str = " is rate limited";
+
+/// What `line` says of the model playing, if it is the bridge's
+/// [`LIMITED`], or the same of a fallback that took over
+/// ([`FALLBACK_LIMITED`]).
 #[must_use]
 pub fn heard_in(line: &str) -> Option<Heard> {
-    let (_, after) = line.split_once(LIMITED)?;
+    let (of, after) = if let Some((_, after)) = line.split_once(LIMITED) {
+        (None, after)
+    } else {
+        let (before, after) = line.split_once(FALLBACK_LIMITED)?;
+        let (_, named) = before.rsplit_once("the fallback ")?;
+        let named = named.trim();
+        if !baylee_protocol::seathost::valid_name(named) {
+            return None;
+        }
+        (Some(named.to_owned()), after)
+    };
     let lifts_secs = after
         .split_once("(it lifts in ")
         .and_then(|(_, rest)| rest.split_once(" s)"))
         .and_then(|(secs, _)| secs.trim().parse::<i64>().ok());
-    Some(Heard::Limited { lifts_secs })
+    Some(Heard::Limited { of, lifts_secs })
 }
 
 impl std::fmt::Debug for SeatJob {
@@ -100,8 +121,9 @@ impl std::fmt::Debug for SeatJob {
         if self.plays != self.profile {
             write!(f, " plays {}", self.plays)?;
         }
-        if let Some(fallback) = &self.fallback {
-            write!(f, ", fallback {}", fallback.profile)?;
+        for (at, fallback) in self.fallbacks.iter().enumerate() {
+            let then = if at == 0 { ", fallback" } else { ", then" };
+            write!(f, "{then} {}", fallback.profile)?;
         }
         f.write_str(")")
     }
@@ -260,7 +282,9 @@ impl ProcessLauncher {
 
     /// `baylee-seat join` for `job`, its files at `files`: the settings
     /// file of the profile that plays, its book, the chair's name and deck,
-    /// and the fallback's file and book where one stands by. Nothing else:
+    /// and each fallback's file and book, in order, where any stands by
+    /// (each `--fallback-config` and `--fallback-ledger` with the
+    /// `--fallback-profile` at its place). Nothing else:
     /// the environment is [`Self::env`] alone, and no key is in either.
     #[must_use]
     pub fn join_command(&self, job: &SeatJob, files: &JobFiles) -> tokio::process::Command {
@@ -280,7 +304,7 @@ impl ProcessLauncher {
         if let Some(deck) = &files.deck {
             command.arg("--deck").arg(deck);
         }
-        if let (Some(fallback), Some(settings)) = (&job.fallback, &files.fallback) {
+        for (fallback, settings) in job.fallbacks.iter().zip(&files.fallbacks) {
             command
                 .args(["--fallback-profile", &fallback.profile])
                 .arg("--fallback-config")
@@ -303,18 +327,17 @@ impl ProcessLauncher {
             }
             None => None,
         };
-        let fallback = match &job.fallback {
-            Some(fallback) => {
-                let path = dir.join("llm-seat-fallback.json");
-                write_private(&path, &fallback.settings)?;
-                Some(path)
-            }
-            None => None,
-        };
+        // Named by place, never by id: an id is not a file's name.
+        let mut fallbacks = Vec::with_capacity(job.fallbacks.len());
+        for (at, fallback) in job.fallbacks.iter().enumerate() {
+            let path = dir.join(format!("llm-seat-fallback-{}.json", at + 1));
+            write_private(&path, &fallback.settings)?;
+            fallbacks.push(path);
+        }
         Ok(JobFiles {
             settings,
             deck,
-            fallback,
+            fallbacks,
         })
     }
 }
@@ -326,8 +349,8 @@ pub struct JobFiles {
     pub settings: PathBuf,
     /// The deck, where the order brought one.
     pub deck: Option<PathBuf>,
-    /// The fallback's settings file, where one stands by.
-    pub fallback: Option<PathBuf>,
+    /// Each fallback's settings file, in the order they take over.
+    pub fallbacks: Vec<PathBuf>,
 }
 
 /// Writes `text` to `path`, `0600`.
@@ -609,7 +632,7 @@ mod tests {
             deck_text: None,
             settings: String::new(),
             ledger: PathBuf::from("ledger.json"),
-            fallback: None,
+            fallbacks: Vec::new(),
             heard: None,
         };
         let mut command = tokio::process::Command::new("sh");
@@ -653,11 +676,14 @@ mod tests {
             deck_text: None,
             settings: r#"{"default":"settings-of-the-player"}"#.into(),
             ledger: PathBuf::from("/state/spend/own.json"),
-            fallback: fallback.then(|| FallbackJob {
-                profile: "backup".into(),
-                settings: r#"{"default":"settings-of-the-fallback"}"#.into(),
-                ledger: PathBuf::from("/state/spend/backup.json"),
-            }),
+            fallbacks: fallback
+                .then(|| FallbackJob {
+                    profile: "backup".into(),
+                    settings: r#"{"default":"settings-of-the-fallback"}"#.into(),
+                    ledger: PathBuf::from("/state/spend/backup.json"),
+                })
+                .into_iter()
+                .collect(),
             heard: None,
         }
     }
@@ -691,7 +717,7 @@ mod tests {
         let files = JobFiles {
             settings: PathBuf::from("/run/seat-order-7/llm-seat.json"),
             deck: None,
-            fallback: Some(PathBuf::from("/run/seat-order-7/llm-seat-fallback.json")),
+            fallbacks: vec![PathBuf::from("/run/seat-order-7/llm-seat-fallback-1.json")],
         };
         let command = launcher().join_command(&job(true), &files);
         assert_eq!(
@@ -720,7 +746,7 @@ mod tests {
                 "--fallback-profile",
                 "backup",
                 "--fallback-config",
-                "/run/seat-order-7/llm-seat-fallback.json",
+                "/run/seat-order-7/llm-seat-fallback-1.json",
                 "--fallback-ledger",
                 "/state/spend/backup.json",
             ]
@@ -766,7 +792,7 @@ mod tests {
         let files = JobFiles {
             settings: PathBuf::from("/run/s/llm-seat.json"),
             deck: Some(PathBuf::from("/run/s/deck.txt")),
-            fallback: None,
+            fallbacks: Vec::new(),
         };
         // Ordered as the primary, played by the fallback: `plays` is named.
         let command = launcher().join_command(&job(false), &files);
@@ -799,7 +825,7 @@ mod tests {
 
         let files = ProcessLauncher::write_job(&dir, &with_deck).unwrap();
 
-        let (settings, fallback) = (files.settings.clone(), files.fallback.clone().unwrap());
+        let (settings, fallback) = (files.settings.clone(), files.fallbacks[0].clone());
         assert_ne!(settings, fallback);
         assert_eq!(
             std::fs::read_to_string(&settings).unwrap(),
@@ -818,7 +844,7 @@ mod tests {
             assert_eq!(mode, 0o600, "{}", path.display());
         }
         let alone = ProcessLauncher::write_job(&dir, &job(false)).unwrap();
-        assert_eq!(alone.fallback, None);
+        assert!(alone.fallbacks.is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -861,24 +887,32 @@ mod tests {
         assert_eq!(
             heard_in("the primary is rate limited (it lifts in 120 s)"),
             Some(Heard::Limited {
+                of: None,
                 lifts_secs: Some(120)
             })
         );
         assert_eq!(
             heard_in("seat: the primary is rate limited; the fallback backup plays on"),
-            Some(Heard::Limited { lifts_secs: None }),
+            Some(Heard::Limited {
+                of: None,
+                lifts_secs: None
+            }),
             "no parenthesis, no seconds"
         );
         assert_eq!(
             heard_in("12:01:07 note: the primary is rate limited (it lifts in 45 s) so"),
             Some(Heard::Limited {
+                of: None,
                 lifts_secs: Some(45)
             }),
             "a prefix does not matter"
         );
         assert_eq!(
             heard_in("the primary is rate limited (it lifts in soon s)"),
-            Some(Heard::Limited { lifts_secs: None }),
+            Some(Heard::Limited {
+                of: None,
+                lifts_secs: None
+            }),
             "seconds that are no number are none"
         );
         for line in [
@@ -889,6 +923,85 @@ mod tests {
         ] {
             assert_eq!(heard_in(line), None, "«{line}»");
         }
+    }
+
+    /// A fallback that took over and is limited in its turn is heard by its
+    /// own profile, wherever the line names it: the profile held back is the
+    /// one that is limited. A provider's words that only end the same are
+    /// no profile's.
+    #[test]
+    fn a_rate_limited_fallback_is_heard_by_its_own_name() {
+        let fb1 = |lifts_secs| {
+            Some(Heard::Limited {
+                of: Some("fb1".into()),
+                lifts_secs,
+            })
+        };
+        assert_eq!(
+            heard_in(
+                "seat: the fallback fb2 answers from turn 7: the fallback fb1 is rate limited \
+                 (it lifts in 60 s)"
+            ),
+            fb1(Some(60))
+        );
+        assert_eq!(
+            heard_in(
+                "the fallback fb2 could not take over in turn 9: the day's cap is spent; the \
+                 fallback fb1 is rate limited"
+            ),
+            fb1(None)
+        );
+        for line in [
+            "the fallback fb2 answers from turn 3: the primary failed: 429: the org is rate \
+             limited",
+            "the fallback  is rate limited",
+        ] {
+            assert_eq!(heard_in(line), None, "«{line}»");
+        }
+    }
+
+    /// A chain of fallbacks reaches the bridge in its order, each with its
+    /// own settings file and spend book beside its `--fallback-profile`; the
+    /// files are named by place, never by a profile's id.
+    #[test]
+    fn a_chain_of_fallbacks_is_handed_to_the_bridge_in_its_order() {
+        let mut chain = job(true);
+        chain.fallbacks.push(FallbackJob {
+            profile: "spare".into(),
+            settings: r#"{"default":"settings-of-the-spare"}"#.into(),
+            ledger: PathBuf::from("/state/spend/spare.json"),
+        });
+        let files = JobFiles {
+            settings: PathBuf::from("/run/s/llm-seat.json"),
+            deck: None,
+            fallbacks: vec![
+                PathBuf::from("/run/s/llm-seat-fallback-1.json"),
+                PathBuf::from("/run/s/llm-seat-fallback-2.json"),
+            ],
+        };
+        let args = args_of(&launcher().join_command(&chain, &files));
+        let from = args
+            .iter()
+            .position(|a| a == "--fallback-profile")
+            .expect("a fallback");
+        assert_eq!(
+            args[from..],
+            [
+                "--fallback-profile",
+                "backup",
+                "--fallback-config",
+                "/run/s/llm-seat-fallback-1.json",
+                "--fallback-ledger",
+                "/state/spend/backup.json",
+                "--fallback-profile",
+                "spare",
+                "--fallback-config",
+                "/run/s/llm-seat-fallback-2.json",
+                "--fallback-ledger",
+                "/state/spend/spare.json",
+            ]
+        );
+        assert!(format!("{chain:?}").contains("fallback backup, then spare"));
     }
 
     /// What a running bridge says reaches the channel of its job: its rate
@@ -915,6 +1028,7 @@ mod tests {
         assert_eq!(
             listening.try_recv(),
             Ok(Heard::Limited {
+                of: None,
                 lifts_secs: Some(120)
             })
         );
