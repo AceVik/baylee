@@ -1124,7 +1124,7 @@ impl ApiMind {
             }
             let body = match self.credentials.api {
                 Api::Anthropic => anthropic::body(&self.settings, &messages),
-                Api::OpenAi => openai::body(&self.settings, &messages),
+                Api::OpenAi => openai::body(&self.settings, &self.credentials.base, &messages),
             };
             let sent = Instant::now();
             let reply = self

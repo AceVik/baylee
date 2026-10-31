@@ -249,3 +249,31 @@ async fn an_openai_compatible_endpoint_answers_by_json_schema() {
         assert!(why.contains("400") && why.contains(other), "{why}");
     }
 }
+
+/// `OpenAI`'s own API is told the reply's limit as
+/// `max_completion_tokens`, which its current models require; every other
+/// OpenAI-compatible endpoint as `max_tokens`, which they take.
+#[test]
+fn openai_itself_is_told_max_completion_tokens_and_every_other_endpoint_max_tokens() {
+    let mut settings = Settings::new(&Spec {
+        provider: Provider::OpenAi,
+        model: "TEST-model".into(),
+    });
+    settings.max_tokens = 1234;
+    for base in ["https://api.openai.com/v1", "HTTPS://API.OPENAI.COM:443/v1"] {
+        let body = openai::body(&settings, base, &[]);
+        assert_eq!(body["max_completion_tokens"], 1234, "{base}");
+        assert!(body.get("max_tokens").is_none(), "{base}");
+    }
+    for base in [
+        "https://api.deepseek.com/v1",
+        "https://generativelanguage.googleapis.com/v1beta/openai",
+        "http://127.0.0.1:1234/v1",
+        "https://api.openai.com.example.org/v1",
+        "https://proxy.example.org/api.openai.com/v1",
+    ] {
+        let body = openai::body(&settings, base, &[]);
+        assert_eq!(body["max_tokens"], 1234, "{base}");
+        assert!(body.get("max_completion_tokens").is_none(), "{base}");
+    }
+}

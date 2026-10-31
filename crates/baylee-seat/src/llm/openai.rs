@@ -38,14 +38,14 @@ pub fn system(mode: AnswerMode, extras: Extras) -> Value {
     json!({"role": "system", "content": text})
 }
 
-/// The request body.
+/// The request body for the endpoint at `base`.
 #[must_use]
-pub fn body(settings: &Settings, messages: &[Value]) -> Value {
+pub fn body(settings: &Settings, base: &str, messages: &[Value]) -> Value {
     let mut body = json!({
         "model": settings.model,
         "messages": messages,
-        "max_tokens": settings.max_tokens,
     });
+    body[reply_limit(base)] = json!(settings.max_tokens);
     match settings.answer {
         AnswerMode::Tools => {
             body["tools"] = openai_tools(settings.extras());
@@ -66,6 +66,28 @@ pub fn body(settings: &Settings, messages: &[Value]) -> Value {
         body["reasoning_effort"] = json!(effort);
     }
     body
+}
+
+/// The field the endpoint at `base` takes the most a reply may take in.
+/// `OpenAI`'s own API refuses `max_tokens` for its current models (`400
+/// Unsupported parameter: 'max_tokens' is not supported with this model.
+/// Use 'max_completion_tokens' instead.`, seen live on 31.10.2026), and
+/// is told `max_completion_tokens`; every other OpenAI-compatible endpoint
+/// (`DeepSeek`, Google's, a server on this machine) is told `max_tokens`,
+/// which it takes.
+#[must_use]
+pub fn reply_limit(base: &str) -> &'static str {
+    let host = base
+        .split_once("://")
+        .map_or(base, |(_, rest)| rest)
+        .split(['/', ':', '?', '#'])
+        .next()
+        .unwrap_or_default();
+    if host.eq_ignore_ascii_case("api.openai.com") {
+        "max_completion_tokens"
+    } else {
+        "max_tokens"
+    }
 }
 
 /// Appends the user's turn: one `tool` message per result of the model's

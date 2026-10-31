@@ -28,7 +28,8 @@ There is no option that names them: `GameContext` carries no names, and
 the narrator's roster for the log writes `P2`
 (`baylee_seat::narrator`). The people at the table did not choose the
 provider, and the terms say so. What the requests carry besides the game
-text: the API's own fields (`model`, `messages`/`system`, `max_tokens`,
+text: the API's own fields (`model`, `messages`/`system`, `max_tokens`
+or, for `OpenAI`'s own API, `max_completion_tokens`,
 `tools`/`tool_choice`, `response_format`, `reasoning_effort`,
 `output_config`, `cache_control`), never an OpenAI `user` or an
 Anthropic `metadata`; the headers `content-type`, `anthropic-version`,
@@ -108,7 +109,7 @@ the profile: a file is played as written or not at all.
 | `effort` | A word such as `low`, `medium`, `high` (default medium on Anthropic, the endpoint's or the CLI's own elsewhere). |
 | `answer` | `tools`, `json` or `json_schema` (the last two for OpenAI-compatible endpoints and CLIs; a CLI answers only these, `json_schema` by default). `json` asks the endpoint for a JSON object (`response_format` `json_object`, which `DeepSeek` takes); `json_schema` for one held to the answer's schema (`json_schema`, for an endpoint that refuses a bare object, such as LM Studio). Either way the model is told the answer's fields in its instructions, and when an endpoint turns the one mode down, the error says to try the other. |
 | `session_api` | Optional boolean, disabled by default. OpenAI-compatible servers implementing the managed-session extension only; see below. The same profile works in a local bridge and a hosted seat agent. |
-| `max_tokens` | The most one reply may take (default 16000 Anthropic, 8000 OpenAI-compatible). A CLI takes no such limit: for one it is only what a call is held at for its reply (default 16000). |
+| `max_tokens` | The most one reply may take (default 16000 Anthropic, 8000 OpenAI-compatible). Sent as `max_tokens`, except to `OpenAI`'s own API (`base_url` on `api.openai.com`), whose current models refuse it and take `max_completion_tokens` (`llm::openai::reply_limit`); DeepSeek, Google's OpenAI-compatible endpoint and local servers take `max_tokens`. A CLI takes no such limit: for one it is only what a call is held at for its reply (default 16000). |
 | `price` | `{"input": …, "output": …}`, US dollars per million tokens: the price of a model this build has none for, or a better one. It applies to the profile's own model only. A cache write is billed at 1.25× the input price for five minutes' entry and 2× for an hour's (the API path caches the game's constant head for an hour, `docs/llm-protocol.md` §"The cache"), a cache read at the input price unless the build knows better. |
 | `game_usd` | The most one game may spend in dollars (default $5); only for a model with a price. |
 | `game_tokens` | The most one game may spend in tokens, in and out (default 5,000,000; 20,000,000 for `cli`); the limit of a model without a price. |
