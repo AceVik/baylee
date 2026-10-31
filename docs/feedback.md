@@ -175,6 +175,17 @@ but a gateway's token, `413` past the gateway's limits or a record over
 64 MiB. The report is filed under the name its token was configured with,
 whatever the gateway calls itself.
 
+**Public for now (31.10.2026).** The official gateway reaches the intake over
+loopback, under the token name `sanctuary`. Since 31.10.2026 the route is
+also public at `https://feedback.baylee.app/intake/reports`
+(`scripts/server/feedback-direct.caddy`), so a gateway on another machine
+can file reports too: the trainer's private collector gateway, under the
+token name `collector`, sends the reports of its language-model seats
+(`docs/llm-seat.md`). Every request still needs a gateway's token. The proxy
+bounds a body at 512 MiB, and the service's own bound (`MAX_INTAKE_BYTES`,
+about 88 MiB) stops it before that. The owner accepts this as a temporary
+gap and wants it closed again later (#408).
+
 `record_origin` (`"gateway"` when absent) says who wrote the record. A
 client's (`"client"`) is held to a client's bounds and checked for the
 shape of a record before it is kept: at most 4 MiB of gzip that unpacks to
