@@ -270,7 +270,6 @@ fn invalid_rewrap_is_transactional_and_debug_is_redacted() {
 /// chat folder and the keychain slot an old client wrote are found the same
 /// way; another gateway's are not.
 #[test]
-#[ignore = "the client still pins the old address; runs from the flip on (#402)"]
 fn the_live_gateway_s_vault_outlives_the_move_of_its_address() {
     use crate::lobby::gateway_list::{KEYED, PINNED};
     use crate::social::{disk::chat_folder, vault::SecretSlot};

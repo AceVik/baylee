@@ -839,7 +839,6 @@ mod tests {
     /// by today's address, and is not written back in the new spelling: an
     /// installed client on another device reads the list it always read.
     #[test]
-    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn the_account_s_list_shows_the_live_gateway_by_today_s_address() {
         use bevy::ecs::system::RunSystemOnce as _;
         let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());

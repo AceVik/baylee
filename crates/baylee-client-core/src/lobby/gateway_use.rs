@@ -140,6 +140,29 @@ mod tests {
         );
     }
 
+    /// Uses kept under the live gateway's former address and under today's
+    /// come together under today's: the counts add up, the later use stays
+    /// the last, and a second pass changes nothing.
+    #[test]
+    fn the_live_gateway_s_uses_under_both_addresses_come_together() {
+        use crate::lobby::gateway_list::{KEYED, PINNED};
+        let mut uses = GatewayUses(BTreeMap::from([
+            (KEYED.to_string(), GatewayUse { count: 5, last: 7 }),
+            (PINNED.to_string(), GatewayUse { count: 2, last: 9 }),
+            ("https://a".to_string(), GatewayUse { count: 6, last: 8 }),
+        ]));
+        uses.moved();
+        assert_eq!(uses.of(PINNED), GatewayUse { count: 7, last: 9 });
+        assert!(!uses.0.contains_key(KEYED));
+        assert_eq!(uses.of("https://a"), GatewayUse { count: 6, last: 8 });
+        // Apart, each address had fewer uses than `https://a`; together the
+        // live gateway leads.
+        assert_eq!(listed(&uses, &["https://a", PINNED]), [PINNED, "https://a"]);
+        let once = uses.clone();
+        uses.moved();
+        assert_eq!(uses, once);
+    }
+
     #[test]
     fn a_forgotten_gateway_starts_again_from_nothing() {
         let mut uses = GatewayUses::default();

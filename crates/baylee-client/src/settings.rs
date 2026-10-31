@@ -723,7 +723,6 @@ mod tests {
     /// credential), the other gateway's entries stay, and a second pass
     /// changes nothing.
     #[test]
-    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn a_file_from_before_the_move_keeps_everything_under_the_new_address() {
         use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
         let old = KEYED;
@@ -738,6 +737,11 @@ mod tests {
             .expect("an old file decodes")
             .moved();
         assert_eq!(read.gateways, vec![own.to_string(), PINNED.to_string()]);
+        // Drawn where its uses put it: first, as it stood under its former
+        // address. Without them it would sort after `own` by address.
+        let mut drawn = read.gateways.clone();
+        read.gateway_uses.order(&mut drawn);
+        assert_eq!(drawn, vec![PINNED.to_string(), own.to_string()]);
         assert_eq!(read.gateway_uses.of(PINNED).count, 5);
         assert_eq!(read.gateway_uses.of(PINNED).last, 7);
         assert_eq!(read.gateway_uses.of(own).count, 1);

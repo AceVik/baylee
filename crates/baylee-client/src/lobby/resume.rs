@@ -577,7 +577,6 @@ mod tests {
     /// A restart into the update that moved the live gateway: `resume.json`
     /// names its former address, and the live gateway's row is found.
     #[test]
-    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn a_restart_named_by_the_former_address_finds_the_live_gateway() {
         let gateways = vec!["http://10.0.0.2:28766".to_string(), PINNED.to_string()];
         assert_eq!(row_of(&gateways, KEYED), Some(1));

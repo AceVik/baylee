@@ -189,9 +189,7 @@ new spelling ([#402](https://github.com/AceVik/baylee/issues/402)).
 
 A Central ticket and the lease redeemed from it carry the origin the client
 asked for (its audience): `https://baylee.acevik.de` from an installed client,
-`https://gateway.baylee.app` from one that pins the new address. The client
-pins it only once Central takes it (the flip in #402); until then every
-client asks for the old origin. So does a gateway's terms
+`https://gateway.baylee.app` from a new one. So does a gateway's terms
 acceptance (`TermsSubject::Gateway`). Central holds the official gateway's
 origin together with its aliases, and it must take a ticket, a lease and a
 terms acceptance under any of them as the official gateway's. That is

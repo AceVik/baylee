@@ -6,15 +6,15 @@
 //! away is one path, a rule in the list is every path.
 
 /// The live gateway's address, spelled as a saved address is: scheme and
-/// host, no trailing slash. The gateway serves at `https://gateway.baylee.app`
-/// too since 30.10.2026; the client follows once Baylee Central takes tickets
-/// for that origin (#402: this becomes the new address, [`FORMER`] the old).
-pub const PINNED: &str = "https://baylee.acevik.de";
+/// host, no trailing slash.
+pub const PINNED: &str = "https://gateway.baylee.app";
 
-/// The live gateway's former addresses, which [`moved`] reads as [`PINNED`].
-/// None yet: the client has not followed the gateway to its new address
-/// (#402), so every function here leaves the live gateway's address as it is.
-pub const FORMER: &[&str] = &[];
+/// The live gateway's former addresses (moved 30.10.2026). A client
+/// installed before the move saved one of these wherever it now saves
+/// [`PINNED`]; [`moved`] reads them as [`PINNED`]. The old host still serves
+/// the gateway as an alias, so an address missed here still plays, but under
+/// another name than the pinned row's.
+pub const FORMER: &[&str] = &["https://baylee.acevik.de"];
 
 /// What the live gateway calls itself (its `BAYLEE_GATEWAY_NAME`).
 pub const PINNED_NAME: &str = "Baylee Sanctuary";
@@ -298,7 +298,6 @@ mod tests {
     /// its former address: it comes back under the pinned one, where the old
     /// row stood, once, and a second pass changes nothing.
     #[test]
-    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn a_former_address_of_the_live_gateway_is_read_as_the_pinned_one() {
         let old = KEYED;
         assert_eq!(moved(old), PINNED);
@@ -330,7 +329,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn the_live_gateway_is_the_same_by_either_address() {
         assert!(same(KEYED, PINNED));
         assert!(same(&format!("{PINNED}/"), KEYED));
@@ -343,7 +341,6 @@ mod tests {
     /// old spelling find the same vault and chat records; other gateways keep
     /// their own.
     #[test]
-    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn the_live_gateway_s_keys_stay_bound_to_its_first_address() {
         assert_eq!(keyed(PINNED), KEYED);
         assert_eq!(keyed(KEYED), KEYED);
@@ -354,7 +351,6 @@ mod tests {
     /// The account's document keeps the live gateway under the address an
     /// installed client pins; reading it back gives the list as it was.
     #[test]
-    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn the_synced_list_keeps_the_live_gateway_under_its_first_address() {
         let list = vec![PINNED.to_string(), "http://10.0.0.2:28766".to_string()];
         let document = filed(&list);
@@ -370,7 +366,6 @@ mod tests {
     /// `LobbyState::new` runs it): one row for the live gateway, the pinned
     /// one, and the cursor on it, where a guest kept on this browser is.
     #[test]
-    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn a_page_served_at_the_former_address_plays_at_the_pinned_row() {
         let old = KEYED;
         let page = page_gateway(Some(old), old).map(|page| moved(&page).to_string());
@@ -383,7 +378,6 @@ mod tests {
     /// An entry kept under the former address comes over; one kept under
     /// the pinned address already is never overwritten.
     #[test]
-    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
     fn a_map_by_address_moves_a_former_entry_and_overwrites_nothing() {
         let mut map = std::collections::BTreeMap::from([
             (KEYED.to_string(), 1),
