@@ -18,10 +18,8 @@ paths:
       description: |-
         Deletes the caller's account here and everything it owns:
         its sessions, decks and their history, preferences and the pictures no
-        other account claims; its chairs and sockets close. A registered account
-        names its password again, counted against the sign-in's eight tries; a
-        guest, or a session of Baylee Central, sends `{}`. Open to a session that
-        has not accepted the terms in force.
+        other account claims; its chairs and sockets close. The body is `{}`.
+        Open to a session that has not accepted the terms in force.
       operationId: delete_account
       tags:
       - Accounts
@@ -43,21 +41,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "403":
-          description: |-
-            - The account is banned (`ban`)
-            - The password is wrong (`wrong password`), or the account is banned (`ban`)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "429":
-          description: Eight tries in five minutes are spent
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "500":
-          description: The password could not be checked
+          description: The account is banned (`ban`)
           content:
             application/json:
               schema:
@@ -162,205 +146,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
-  /auth/central/migrate:
-    post:
-      summary: Begin moving a legacy account to Baylee Central
-      description: |-
-        The native client's last password proof for a legacy
-        account, on the official migration gateway only. The gateway checks the
-        password, a ban and a forced reset, reserves the account's immutable
-        Central identity, and answers it with an enrollment ticket and the
-        account's source snapshot. Every refusal is a bare status.
-      operationId: central_migrate
-      tags:
-      - Central
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CentralCredentials"
-        required: true
-      responses:
-        "200":
-          description: The reserved identity, its enrollment ticket and the source snapshot
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CentralEnrollment"
-        "401":
-          description: >-
-            A wrong username or password, an account linked to Central already, a guest, a
-            password or name that changed meanwhile, or Central refused
-        "403":
-          description: >-
-            This gateway is not the migration gateway, or the account is banned or must
-            choose a new password first
-        "409":
-          description: >-
-            The snapshot could not be prepared (it is too large), or Central holds a
-            conflicting enrollment
-        "413":
-          description: The body is over 8 KiB
-          content:
-            text/plain:
-              schema:
-                type: string
-        "429":
-          description: Too many sign-in attempts at this account, or Central is busy
-        "500":
-          description: The password check failed
-        "503":
-          description: No Baylee Central is configured, or the database or Central is unavailable
-  /auth/central/export:
-    post:
-      summary: Read a migrating account's source snapshot again
-      description: |-
-        Resumes an interrupted migration on the official migration
-        gateway: an `export` ticket from Baylee Central buys the legacy
-        account's source snapshot as it stands now. Every refusal is a bare
-        status.
-      operationId: central_export
-      tags:
-      - Central
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CentralCapability"
-        required: true
-      responses:
-        "200":
-          description: The account's source snapshot
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CentralSnapshot"
-        "401":
-          description: >-
-            The ticket is not good, names no legacy account, or the account is a guest or
-            has no username
-        "403":
-          description: >-
-            This gateway is not the migration gateway, or the account is banned or must
-            choose a new password first
-        "409":
-          description: The snapshot could not be read, or Central answered a conflict
-        "413":
-          description: The body is over 8 KiB
-          content:
-            text/plain:
-              schema:
-                type: string
-        "429":
-          description: Central is busy
-        "503":
-          description: No Baylee Central is configured, or the database or Central is unavailable
-  /auth/central/link:
-    post:
-      summary: Link a migrated account to Baylee Central
-      description: |-
-        Finishes a migration on the official migration gateway: a
-        `link` ticket and the digest of the snapshot the client restored fix the
-        legacy account's link to its Central identity, retire its password here
-        and end its old sessions. Answers `428` when the gateway holds no source
-        proof for the account yet: then, and only then, `POST
-        /auth/central/prepare` takes one fresh password proof. Every other
-        refusal is a bare status.
-      operationId: central_link
-      tags:
-      - Central
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CentralLink"
-        required: true
-      responses:
-        "200":
-          description: Linked; the legacy account's sessions are ended
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CentralDone"
-        "401":
-          description: The ticket is not good or names no legacy account, or the account is a guest
-        "403":
-          description: >-
-            This gateway is not the migration gateway, or the account is banned or must
-            choose a new password first
-        "409":
-          description: >-
-            The digest is not the snapshot's, the source changed, or Central answered a
-            conflict
-        "413":
-          description: The body is over 8 KiB
-          content:
-            text/plain:
-              schema:
-                type: string
-        "428":
-          description: "No source proof is held for this account: send one with `POST /auth/central/prepare`"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CentralFreshProofRequired"
-        "429":
-          description: Central is busy
-        "503":
-          description: No Baylee Central is configured, or the database or Central is unavailable
-  /auth/central/prepare:
-    post:
-      summary: Prove a migrating account's password again
-      description: |-
-        After `POST /auth/central/link` answered `428`: a `link`
-        ticket and the legacy account's password establish the source proof the
-        gateway lacks, and the answer is the account's source snapshot. Only an
-        account with no source proof yet is taken. Every refusal is a bare
-        status.
-      operationId: central_prepare
-      tags:
-      - Central
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CentralPreparation"
-        required: true
-      responses:
-        "200":
-          description: The account's source snapshot
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CentralSnapshot"
-        "401":
-          description: >-
-            The ticket is not good or is another account's, a wrong username or password,
-            an account linked already, a guest, or a password or name that changed meanwhile
-        "403":
-          description: >-
-            This gateway is not the migration gateway, or the account is banned or must
-            choose a new password first
-        "409":
-          description: >-
-            A source proof is held already, the snapshot could not be prepared, or Central
-            answered a conflict
-        "413":
-          description: The body is over 8 KiB
-          content:
-            text/plain:
-              schema:
-                type: string
-        "429":
-          description: Too many sign-in attempts at this account, or Central is busy
-        "500":
-          description: The password check failed
-        "503":
-          description: No Baylee Central is configured, or the database or Central is unavailable
   /auth/central/login:
     post:
       summary: Sign in with Baylee Central
@@ -393,7 +178,9 @@ paths:
             The ticket is not good, the account is not linked here, it is a guest, or
             Central no longer admits it
         "403":
-          description: The account is banned or must choose a new password first, or Central refused
+          description: >-
+            This gateway takes no Central account (its mode is `guests`), the account is
+            banned or must choose a new password first, or Central refused
         "409":
           description: Central answered a conflict
         "413":
@@ -920,79 +707,6 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: The account store or Baylee Central is unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-  /auth/password:
-    post:
-      summary: Choose a new password
-      description: >-
-        Proves the account's password as a sign-in does (the same eight tries, the same
-        `401`), stores the new one, signs every session of the account out and answers a
-        new session, as `POST /auth/login` does. What an account whose password an admin
-        reset must do before anything else; any account may use it.
-      operationId: change_password
-      tags:
-      - Accounts
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/NewPassword"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SignedIn"
-        "400":
-          description: >-
-            The new password breaks the registration rule (`invalid password`), or is the
-            one the account has
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "401":
-          description: >-
-            The name or password is wrong (`invalid credentials`), or the account signs in
-            at Baylee Central (`use central sign-in`)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "403":
-          description: The account is banned (`ban`)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "409":
-          description: The account was linked to Baylee Central meanwhile
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "429":
-          description: >-
-            Eight tries in five minutes are spent, or the gateway is checking too many
-            passwords at once
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "500":
-          description: A password could not be checked or hashed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "503":
-          description: The gateway's database or Baylee Central is unavailable
           content:
             application/json:
               schema:
@@ -3296,207 +3010,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
-  /auth/confirm:
-    get:
-      summary: Confirm an e-mail address
-      description: |-
-        The link a confirmation mail carries: confirms the
-        account's address. A link lasts 24 hours, works once, and a newer one
-        replaces it. An address is optional and keeps nobody out; it is only a
-        way to reach the player.
-      operationId: confirm
-      tags:
-      - Accounts
-      parameters:
-      - name: token
-        in: query
-        required: true
-        description: The token of the link in the mail.
-        schema:
-          type: string
-      security: []
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Acknowledged"
-        "400":
-          description: The link is not valid, or has expired
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "503":
-          description: The gateway's database is unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-  /auth/confirm/resend:
-    post:
-      summary: Mail the confirmation link again
-      description: |-
-        Mails a new confirmation link to an address not yet
-        confirmed, invalidating the last one. Answers `{"ok": true}` whatever
-        happened, so that it says nothing about which addresses have accounts;
-        a gateway that sends no mail sends none.
-      operationId: resend_confirmation
-      tags:
-      - Accounts
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ResendBody"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Acknowledged"
-        "429":
-          description: Too many attempts from this address
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "503":
-          description: The gateway's database is unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-  /auth/register:
-    post:
-      summary: Make an account
-      description: |-
-        Makes an account with a username, a display name and a
-        password; no address is asked. A taken username is said openly (`409`).
-        On a closed beta (`registration` is `invite` in `GET /auth/config`) it
-        needs a key. The answer makes no session: the client signs in next.
-      operationId: register
-      tags:
-      - Accounts
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegisterBody"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Registered"
-        "400":
-          description: >-
-            The username, display name or password breaks its rule (`invalid username`,
-            `invalid display name`, `invalid password`)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "403":
-          description: Registration is off here, or a closed beta's key is missing or not valid
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "409":
-          description: The username is taken
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "429":
-          description: Too many attempts from this address, or too many keys tried
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "500":
-          description: The password could not be hashed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "503":
-          description: The gateway's database is unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-  /auth/login:
-    post:
-      summary: Sign in
-      description: |-
-        Signs in with a username (until the end of 2026 also the
-        address of an account from before usernames) and its password, and
-        answers a new session. Eight tries in five minutes are counted against
-        the account however it was named; an unknown name and a wrong password
-        are the same `401`. A banned account and one whose password an admin
-        reset are refused after the right password, and only then.
-      operationId: login
-      tags:
-      - Accounts
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LoginBody"
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SignedIn"
-        "401":
-          description: >-
-            The name or password is wrong (`invalid credentials`), or the account signs in
-            at Baylee Central (`use central sign-in`)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "403":
-          description: >-
-            The account is banned (`ban`), or must choose a new password at `POST
-            /auth/password` first (`password_change`)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "429":
-          description: >-
-            Eight tries in five minutes are spent, or the gateway is checking too many
-            passwords at once
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "500":
-          description: The password could not be checked
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "503":
-          description: The gateway's database is unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
   /auth/guest:
     post:
       summary: Play as a guest
@@ -3530,7 +3043,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "403":
-          description: This gateway takes no guests, or a closed beta's key is missing or not valid
+          description: >-
+            This gateway takes no guests (its mode is `central`), or a closed beta's key is
+            missing or not valid
           content:
             application/json:
               schema:
@@ -5496,15 +5011,6 @@ components:
       - handle
       - devices
       description: One account's devices.
-    Acknowledged:
-      type: object
-      properties:
-        ok:
-          type: boolean
-          description: Always `true`.
-      required:
-      - ok
-      description: What `GET /auth/confirm` and `POST /auth/confirm/resend` answer.
     Admission:
       type: string
       enum:
@@ -5517,19 +5023,19 @@ components:
       properties:
         registration_enabled:
           type: boolean
-          description: "Whether a sign-up form may be offered: true for `invite` too, where the refusal tells a client without keys to update."
+          description: "Always `false`: nobody registers or signs in with a password at a gateway; accounts are Baylee Central's. Kept for clients from before, which offer a sign-up form only where it is true."
         registration:
           $ref: "#/components/schemas/Registration"
-          description: Who may make an account.
+          description: "Who may come in new (`BAYLEE_REGISTRATION`): `open` lets anybody in, `invite` a guest only with a closed beta's key, and `off` nobody new; a Central account new here follows `docs/central-login.md`."
         guests_enabled:
           type: boolean
-          description: Whether "play as a guest" is offered.
+          description: "Whether \"play as a guest\" is offered: the mode is `guests` or `mixed`."
         central:
           type: boolean
-          description: >-
-            Whether this gateway takes Baylee Central sign-ins (`POST
-            /auth/central/login`). A native client signs in through Central only where this is true, and with the
-            gateway's own routes everywhere else.
+          description: "Whether this gateway takes Baylee Central sign-ins (`POST /auth/central/login`): it is connected to Central and its mode is `central` or `mixed`."
+        auth_mode:
+          $ref: "#/components/schemas/AuthMode"
+          description: "Who comes in: `guests`, `central` (the default) or `mixed`."
         art_cache:
           type: boolean
           description: Whether `GET /art/…` serves card images.
@@ -5546,10 +5052,18 @@ components:
       - registration
       - guests_enabled
       - central
+      - auth_mode
       - art_cache
       - deck_images
       - clocks
       description: "`GET /auth/config`."
+    AuthMode:
+      type: string
+      enum:
+      - guests
+      - central
+      - mixed
+      description: "Who this gateway lets in: `guests` (guests only), `central` (Baylee Central's accounts only, the default) or `mixed` (both)."
     BanBody:
       type: object
       properties:
@@ -5855,104 +5369,6 @@ components:
       required:
       - ticket
       additionalProperties: false
-    CentralCredentials:
-      type: object
-      description: A legacy account's last password proof; never kept.
-      properties:
-        username:
-          type: string
-          description: The legacy account's username.
-        password:
-          type: string
-          description: Its password.
-      required:
-      - username
-      - password
-      additionalProperties: false
-    CentralDone:
-      type: object
-      description: Done; nothing else is said.
-      additionalProperties: false
-    CentralEnrollment:
-      type: object
-      description: The start of a migration.
-      properties:
-        identity:
-          $ref: "#/components/schemas/CentralIdentity"
-        ticket:
-          $ref: "#/components/schemas/CentralBytes32"
-          description: >-
-            The enrollment ticket for Baylee Central, which cannot replace a credential
-            that exists already.
-        snapshot:
-          $ref: "#/components/schemas/CentralSnapshot"
-      required:
-      - identity
-      - ticket
-      - snapshot
-      additionalProperties: false
-    CentralFreshProofRequired:
-      type: object
-      description: >-
-        The one answer that lets a client send a fresh password proof (`POST
-        /auth/central/prepare`).
-      properties:
-        fresh_proof_required:
-          type: boolean
-          const: true
-          description: Always `true`.
-      required:
-      - fresh_proof_required
-      additionalProperties: false
-    CentralIdentity:
-      type: object
-      description: An account's immutable identity at Baylee Central.
-      properties:
-        account:
-          type: array
-          description: "The Central account's UUIDv7: its 16 bytes, as a JSON array of numbers from 0 to 255."
-          items:
-            type: integer
-            minimum: 0
-            maximum: 255
-          minItems: 16
-          maxItems: 16
-        epoch:
-          type: integer
-          format: int64
-          minimum: 0
-          description: The epoch of the account's encrypted vault at Central.
-      required:
-      - account
-      - epoch
-      additionalProperties: false
-    CentralLink:
-      type: object
-      description: What links a migrated account.
-      properties:
-        ticket:
-          $ref: "#/components/schemas/CentralBytes32"
-          description: A one-use `link` ticket from Baylee Central.
-        digest:
-          $ref: "#/components/schemas/CentralBytes32"
-          description: The digest of the source snapshot the client restored, as the snapshot named it.
-      required:
-      - ticket
-      - digest
-      additionalProperties: false
-    CentralPreparation:
-      type: object
-      description: A fresh source proof for a migration, bound to a `link` ticket.
-      properties:
-        ticket:
-          $ref: "#/components/schemas/CentralBytes32"
-          description: A one-use `link` ticket from Baylee Central.
-        credentials:
-          $ref: "#/components/schemas/CentralCredentials"
-      required:
-      - ticket
-      - credentials
-      additionalProperties: false
     CentralSession:
       type: object
       description: A session at this gateway, answered as a sign-in is.
@@ -5988,36 +5404,6 @@ components:
       - expires_at
       - username
       - display_name
-    CentralSnapshot:
-      type: object
-      description: >-
-        A legacy account's personal content as this gateway holds it; the gateway keeps
-        its own copy.
-      properties:
-        digest:
-          $ref: "#/components/schemas/CentralBytes32"
-          description: The digest the cutover is bound to; `POST /auth/central/link` names it back.
-        account_id:
-          type: string
-          description: The legacy account's immutable id here.
-        username:
-          type: string
-          description: Its username.
-        preferences:
-          type: object
-          description: Its whole preferences document, fields this client does not know included.
-        decks:
-          type: array
-          description: Its decks, each with its whole version history (`history`).
-          items:
-            type: object
-      required:
-      - digest
-      - account_id
-      - username
-      - preferences
-      - decks
-      additionalProperties: false
     ChairDeck:
       type: object
       properties:
@@ -6935,10 +6321,7 @@ components:
           description: What went wrong, as one sentence for a person.
         ban:
           $ref: "#/components/schemas/BanBody"
-          description: "The ban an account is refused with (beta.8): only on a `403` from a sign-in or a session of a banned account (`moderation.rs`)."
-        password_change:
-          type: boolean
-          description: "The account must choose a new password first (beta.8): only on the `403` a sign-in with an admin's reset password is answered."
+          description: "The ban an account is refused with (beta.8): only on a `403` from a Central sign-in or a session of a banned account (`moderation.rs`)."
         terms_required:
           type: string
           description: "Whose terms of use the account has to accept first (`central` or `gateway`): only on the `403` of a session that has not (`terms_admit`)."
@@ -6982,15 +6365,7 @@ components:
       description: The text of one face of a card, in the served language.
     Farewell:
       type: object
-      properties:
-        password:
-          type:
-          - string
-          - "null"
-          description: >-
-            The account's password, asked again of a registered account; a guest, or a
-            session of Baylee Central, sends `{}`.
-      description: What `DELETE /account` takes.
+      description: "What `DELETE /account` takes: `{}`. A password, which a client from before the cutover sends, is ignored: no account here signs in with one (`docs/central-login.md` §\"Cutover\")."
     Finish:
       type: string
       enum:
@@ -7364,6 +6739,9 @@ components:
         guests:
           type: boolean
           description: Whether guests are let in.
+        auth_mode:
+          $ref: "#/components/schemas/AuthMode"
+          description: "Who comes in: guests, Baylee Central's accounts, or both."
         hosted_llm:
           type: boolean
           description: Whether a host may seat a language model this gateway's seat agents run.
@@ -7393,6 +6771,7 @@ components:
       - impressum
       - registration
       - guests
+      - auth_mode
       - hosted_llm
       - social
       - replays
@@ -7711,42 +7090,6 @@ components:
       - complete
       - gzip_base64
       description: A client's record of its own game, as the body carries it.
-    LoginBody:
-      type: object
-      properties:
-        username:
-          type: string
-          description: >-
-            The username, or until the end of 2026 the address an account registered with
-            before usernames; also accepted as `email`.
-        password:
-          type: string
-          description: The password.
-      required:
-      - username
-      - password
-      description: What `POST /auth/login` takes.
-    NewPassword:
-      type: object
-      properties:
-        username:
-          type: string
-          description: >-
-            The account's username, as `POST /auth/login` takes it; `email` is read as the
-            same field.
-        password:
-          type: string
-          description: "The password it has now: an admin's reset one, or its own."
-        new_password:
-          type: string
-          description: >-
-            The password it chose, under the registration rule and other than the one it
-            has.
-      required:
-      - username
-      - password
-      - new_password
-      description: "What `POST /auth/password` takes: the sign-in, and the password to have from now on."
     OrderBody:
       type: object
       properties:
@@ -8060,46 +7403,6 @@ components:
       - display_name
       - deck
       description: The name the chair sits under, and the deck it plays.
-    RegisterBody:
-      type: object
-      properties:
-        username:
-          type: string
-          description: "The name to sign in with, private to its owner: three to twenty-four ASCII letters, digits and `_ - .`, beginning and ending on a letter or a digit, unique regardless of case."
-        display_name:
-          type: string
-          description: "The name other players see, beside the tag the gateway hands out: three to sixteen ASCII letters and digits with `_` and `-` between them."
-        password:
-          type: string
-          description: "The password: 8 to 256 bytes, neither name in any case, and none of the commonest passwords."
-        lang:
-          type: string
-          description: The language to write to this account in (`de`, `en`).
-        invite_key:
-          type:
-          - string
-          - "null"
-          description: >-
-            The closed-beta key, as typed; read only where registration is `invite`,
-            ignored elsewhere.
-      required:
-      - display_name
-      - password
-      description: What `POST /auth/register` takes.
-    Registered:
-      type: object
-      properties:
-        ok:
-          type: boolean
-          description: "Always `true`: the account is made, and signs in with its username."
-        terms_stale:
-          type: boolean
-          description: >-
-            Always `true` for a new account, which has accepted no terms yet; absent on a
-            gateway without terms.
-      required:
-      - ok
-      description: What `POST /auth/register` answers.
     Registration:
       type: string
       enum:
@@ -8372,15 +7675,6 @@ components:
       - pending
       - friends
       description: "Where a friend request stands: `pending` (sent, unanswered) or `friends` (they had asked already)."
-    ResendBody:
-      type: object
-      properties:
-        email:
-          type: string
-          description: The address an account registered with before usernames.
-      required:
-      - email
-      description: What `POST /auth/confirm/resend` takes.
     ResumableSeat:
       type: object
       properties:
@@ -8709,32 +8003,6 @@ components:
       - signature
       - unplayable
       description: One row of `GET /decks/shared`.
-    SignedIn:
-      type: object
-      properties:
-        token:
-          type: string
-          description: "The session token, sent as `Authorization: Bearer`."
-        expires_at:
-          type: integer
-          format: int64
-          minimum: 0
-          description: When the session lapses unless it is used before, in Unix seconds.
-        username:
-          type:
-          - string
-          - "null"
-          description: >-
-            The account's username, shown to nobody but its owner (a player who signed in
-            with an address learns it here); `null` for an account without one.
-        terms_stale:
-          type: boolean
-          description: "`true` when the account has not accepted the terms of use in force, and the client shows them; absent on a gateway without terms."
-      required:
-      - token
-      - expires_at
-      - username
-      description: "What a sign-in answers: `POST /auth/login`, and `POST /auth/password` after a new password was chosen."
     SocialInfo:
       type: object
       properties:

@@ -58,26 +58,7 @@ impl Gateway {
     /// when it fails: a fixture that was not written makes every assertion
     /// after it mean something else.
     pub fn sql(&self, statement: &str) {
-        let url = self.database_url();
-        let statement = statement.to_owned();
-        let done = std::thread::spawn(move || {
-            tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("a runtime for one statement")
-                .block_on(async move {
-                    use sea_orm::ConnectionTrait as _;
-                    let db = sea_orm::Database::connect(&url)
-                        .await
-                        .expect("connecting to the gateway's schema");
-                    db.execute_unprepared(&statement).await.map(|_| ())
-                })
-        })
-        .join()
-        .expect("the statement's thread");
-        if let Err(e) = done {
-            panic!("{e}");
-        }
+        sql_in(&self.schema, statement);
     }
 
     /// The one number a query in this gateway's schema answers, for what no
@@ -144,8 +125,43 @@ impl Gateway {
     }
 }
 
+/// Runs `statement` in the gateway schema `schema`. Panics when it fails, as
+/// [`Gateway::sql`] says.
+fn sql_in(schema: &str, statement: &str) {
+    let base = database_url();
+    let sep = if base.contains('?') { '&' } else { '?' };
+    let url = format!("{base}{sep}options=-c%20search_path%3D{schema},public");
+    let statement = statement.to_owned();
+    let done = std::thread::spawn(move || {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime for one statement")
+            .block_on(async move {
+                use sea_orm::ConnectionTrait as _;
+                let db = sea_orm::Database::connect(&url)
+                    .await
+                    .expect("connecting to the gateway's schema");
+                db.execute_unprepared(&statement).await.map(|_| ())
+            })
+    })
+    .join()
+    .expect("the statement's thread");
+    if let Err(e) = done {
+        panic!("{e}");
+    }
+}
+
+/// Each live gateway's schema by its port, for [`login`], which is handed a
+/// port.
+static SCHEMAS: std::sync::Mutex<std::collections::BTreeMap<u16, String>> =
+    std::sync::Mutex::new(std::collections::BTreeMap::new());
+
 impl Drop for Gateway {
     fn drop(&mut self) {
+        if let Ok(mut schemas) = SCHEMAS.lock() {
+            schemas.remove(&self.port);
+        }
         // The process first: a gateway still holding connections into the
         // schema would make the drop wait on it.
         let _ = self.child.kill();
@@ -212,12 +228,10 @@ pub fn spawn_gateway(label: &str) -> Gateway {
     spawn_gateway_with(label, &[])
 }
 
-/// The same, with extra environment for the gateway process.
-///
-/// Used by the confirmation tests, which need a gateway that has a mailer:
-/// whether an address must be confirmed is not a switch of its own, it is
-/// whether `BAYLEE_SMTP_URL` is set.
+/// The same, with extra environment for the gateway process: a console's
+/// token, a closed beta, a Baylee Central bridge, and the like.
 #[allow(dead_code)] // not every test binary in this directory needs it
+#[allow(clippy::too_many_lines)] // one process started and waited for, top to bottom
 pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
     // No port is chosen here (#279). This used to bind `127.0.0.1:0`, read
     // the number and let go, and the gateway bound `0.0.0.0` on it seconds
@@ -272,10 +286,9 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         .env("STORE_PATH", &store_path)
         .env("BAYLEE_AGENT_TOKEN", &agent_token)
         .env("DATABASE_URL", &scoped)
-        // A developer's live bridge/mailer must not leak into synthetic tests.
+        // A developer's live bridge must not leak into synthetic tests.
         // Explicit fixture overrides below may still select their own mocks.
         .env_remove("BAYLEE_CENTRAL_CONFIG_FILE")
-        .env_remove("BAYLEE_SMTP_URL")
         // Two, not the default eight. What binds is the other end: a stock
         // PostgreSQL allows a hundred connections in total, and this suite
         // has three dozen gateways alive at once. At eight apiece it would
@@ -298,6 +311,11 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         // and a Central-bound session that has not accepted them is refused.
         // The terms tests name their own.
         .env("BAYLEE_TERMS_PATH", "off")
+        // Both doors: unset is `central`, which on a gateway with no Central
+        // lets nobody in, and most of this suite comes in as a guest. The
+        // auth mode's own tests name theirs; a blank one is the default.
+        .env("BAYLEE_AUTH_MODE", "mixed")
+        .env_remove("BAYLEE_GUESTS")
         .env("RUST_LOG", if loud { "info" } else { "off" })
         .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
         .stdout(if loud {
@@ -386,6 +404,10 @@ pub fn spawn_gateway_with(label: &str, env: &[(&str, String)]) -> Gateway {
         their_words()
     );
     gateway.port = port.expect("a gateway that answered has a port");
+    SCHEMAS
+        .lock()
+        .expect("the schemas' lock")
+        .insert(gateway.port, gateway.schema.clone());
     gateway
 }
 
@@ -458,17 +480,67 @@ pub fn json_field<'a>(body: &'a str, field: &str) -> &'a str {
     &rest[..end]
 }
 
-/// Registers an account and logs in, returning the bearer token.
+/// The official gateway's own Argon2id hash of `synthetic legacy password`,
+/// the hash a fixture account keeps, as an account from before the cutover
+/// does (`docs/central-login.md` §"Cutover").
+pub const LEGACY_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$wittOwBy6Zxq/y0DGjZasA$fBlUSay3ZkJb5bDps9DdGXWgriHX9cjNYnp4ZXs80go";
+
+/// An account that signs in with `username` and is seen as `name`, and a
+/// session for it: the bearer token.
+///
+/// Nobody registers or signs in with a password at a gateway any more
+/// (`docs/central-login.md` §"Cutover"), so the fixture writes the account
+/// and its session as the database holds them: an account from before the
+/// cutover with a session, which every route below the sign-in treats as it
+/// treats any session. Names are the test's own, letters, digits and
+/// `_-.` only.
 pub fn login(port: u16, username: &str, name: &str) -> String {
-    let register = format!(
-        "{{\"username\":\"{username}\",\"display_name\":\"{name}\",\"password\":\"a-very-fine-password\"}}"
+    let plain = |text: &str| {
+        text.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"_-.".contains(&b))
+    };
+    assert!(
+        plain(username) && plain(name),
+        "a fixture name: {username} {name}"
     );
-    let (status, body) = http(port, "POST", "/auth/register", None, &register);
-    assert_eq!(status, 200, "register: {body}");
-    let creds = format!("{{\"username\":\"{username}\",\"password\":\"a-very-fine-password\"}}");
-    let (status, body) = http(port, "POST", "/auth/login", None, &creds);
-    assert_eq!(status, 200, "login: {body}");
-    json_field(&body, "token").to_string()
+    let schema = SCHEMAS
+        .lock()
+        .expect("the schemas' lock")
+        .get(&port)
+        .cloned()
+        .expect("a gateway this harness started");
+    let hex = |bytes: &[u8]| {
+        use std::fmt::Write as _;
+        bytes.iter().fold(String::new(), |mut out, b| {
+            write!(out, "{b:02x}").expect("writing to a String");
+            out
+        })
+    };
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes).expect("OS randomness");
+    let token = hex(&bytes);
+    let digest = {
+        use sha2::Digest as _;
+        hex(&sha2::Sha256::digest(token.as_bytes()))
+    };
+    let id = uuid::Uuid::now_v7();
+    let key = username.to_ascii_lowercase();
+    // Made in whole seconds, as the gateway makes every account it writes
+    // (`store::Account::created_at` is unix seconds): a fixture a guest made
+    // in the same second would otherwise be newer than the guest, and the
+    // console's newest-first order would put them the wrong way round.
+    sql_in(
+        &schema,
+        &format!(
+            "INSERT INTO account (id, username, username_key, display_name, password_hash,
+                 created_at, lang, guest)
+             VALUES ('{id}', '{username}', '{key}', '{name}', '{LEGACY_HASH}',
+                 date_trunc('second', clock_timestamp()), 'en', false);
+             INSERT INTO session_token (token_hash, account_id, expires_at)
+             VALUES (decode('{digest}', 'hex'), '{id}', clock_timestamp() + interval '12 hours');"
+        ),
+    );
+    token
 }
 
 /// A live websocket to something on the gateway.

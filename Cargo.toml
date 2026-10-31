@@ -28,8 +28,8 @@ fluent-bundle = "0.16"
 fluent-syntax = "0.12"
 unic-langid = "0.9"
 baylee-account = { path = "crates/baylee-account" }
-central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "0f8005d634c47f24b9e48b0db3e0a258bb8a9852" }
-central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "0f8005d634c47f24b9e48b0db3e0a258bb8a9852" }
+central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "94177dd768572536a238a386e3877ade69f4b93b" }
+central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "94177dd768572536a238a386e3877ade69f4b93b" }
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
 baylee-deckio = { path = "crates/baylee-deckio" }
@@ -142,12 +142,6 @@ half = "2.7"
 web-sys = "0.3"
 wasm-bindgen = "0.2"
 sha2 = "0.11"
-# Confirmation mail from the gateway. rustls only — no OpenSSL on the build
-# host, and `webpki-roots` so a container needs no CA bundle of its own.
-lettre = { version = "0.11", default-features = false, features = [
-    "builder", "smtp-transport", "hostname", "tokio1", "tokio1-rustls", "ring",
-    "webpki-roots",
-] }
 subtle = "2"
 tokio-tungstenite = "0.30"
 # Persistence, gateway side only. The engine never sees a database: the

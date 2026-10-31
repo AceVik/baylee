@@ -2,9 +2,6 @@
 //! §"The admin console"), passed on to the gateway's console as the reads
 //! are ([`crate::console`]), for a signed-in admin with the UI's CSRF proof:
 //!
-//! - `POST /ui/api/admin/accounts/{id}/password`: a registered account's
-//!   password reset; the answer carries the new one, the one time it is
-//!   shown, and nothing here writes it down.
 //! - `PUT /ui/api/admin/accounts/{id}/ban` `{reason, until?}`: a ban;
 //!   `DELETE` the same path lifts it.
 //! - `DELETE /ui/api/admin/accounts/{id}`: the account deleted, as its
@@ -13,7 +10,8 @@
 //!   ended through its engine.
 //!
 //! Each is written into `feedback_audit` with the admin and the account or
-//! game, never the password, nor a reason, which may name a person.
+//! game, never a reason, which may name a person. There is no password to
+//! reset: accounts sign in at Baylee Central (`docs/central-login.md`).
 
 use axum::Router;
 use axum::body::Bytes;
@@ -30,7 +28,6 @@ use crate::{Refusal, Shared, refuse};
 
 pub(crate) fn routes() -> Router<Shared> {
     Router::new()
-        .route("/ui/api/admin/accounts/{id}/password", post(reset_password))
         .route("/ui/api/admin/accounts/{id}/ban", put(ban).delete(unban))
         .route("/ui/api/admin/games/{id}/close", post(close_game))
 }
@@ -47,49 +44,6 @@ async fn noted(shared: &Shared, admin: &str, action: &str, detail: &str) {
     if let Err(e) = note(shared, admin, action, detail).await {
         tracing::error!("admin console: the audit row was not written: {e}");
     }
-}
-
-/// @route POST /ui/api/admin/accounts/{id}/password
-/// @scope feedback
-/// @summary Reset a registered account's password
-/// @description The gateway's `POST /admin/accounts/{id}/password`, passed
-/// on with its status. Its `200` carries the new password, the one time it
-/// is shown; nothing here writes it down, and the audit row names only the
-/// account.
-/// @tag Moderation
-/// @security session + csrf
-/// @path-param id: String format=uuid "The account's id"
-/// @insert `ConsoleChangeRefusals`
-/// @return 200: { type: object, properties: { password: { type: string, description: The new password } }, required: [password] } "Reset, as the gateway answers"
-/// @return 400: `$ErrorBody` "Not an account's id"
-/// @return 404: `$ErrorBody` "No gateway console is configured, or the gateway has no such account"
-/// @return 409: `$ErrorBody` "A guest has no password to reset (the gateway's)"
-async fn reset_password(
-    State(shared): State<Shared>,
-    headers: HeaderMap,
-    Path(id): Path<String>,
-) -> Result<Response, Refusal> {
-    same_origin(&headers)?;
-    let (admin, gateway) = signed_in(&shared, &headers).await?;
-    let id = account_id(&id)?;
-    let done = ask(
-        &gateway,
-        "POST",
-        format!("/admin/accounts/{id}/password"),
-        &admin,
-        Some(b"{}".to_vec()),
-    )
-    .await?;
-    if done.status == 200 {
-        noted(
-            &shared,
-            &admin,
-            "gateway.account.password.reset",
-            &format!("account {id}"),
-        )
-        .await;
-    }
-    Ok(answer(done))
 }
 
 /// What `PUT /ui/api/admin/accounts/{id}/ban` takes, and all it passes on.

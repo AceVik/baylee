@@ -197,6 +197,10 @@ pub(super) struct State {
     /// The gateway that asked for Central sign-in, admitted to once it is
     /// done; `None` when Central was turned on without one.
     bound: Option<String>,
+    /// That gateway's own guest door, and who it lets in new, when it takes
+    /// guests too (`auth_mode` `mixed`): Central's form offers it beside the
+    /// sign-in ([`guest_instead`]).
+    guest_door: Option<Registration>,
     /// A `baylee:` link opened this sign-in (`lobby::links`): `‹` goes back
     /// to the device's gateways, as from a gateway that asked for it.
     linked: bool,
@@ -227,6 +231,7 @@ pub(super) fn enable(state: &mut LobbyState) {
         sync_failed: false,
         chat_unlock: Arc::new(Mutex::new(None)),
         bound: None,
+        guest_door: None,
         linked: false,
         terms_pending: false,
     });
@@ -263,19 +268,53 @@ pub(super) fn from_link(state: &mut LobbyState) {
 }
 
 /// The chosen gateway takes Central sign-ins: the account form becomes
-/// Central's, and the sign-in admits the player to that gateway. Nothing
-/// when Central is on already, or a session on the gateway is.
+/// Central's, and the sign-in admits the player to that gateway. A gateway
+/// that takes guests too keeps its guest door on that form. Nothing when
+/// Central is on already, or a session on the gateway is.
 pub(super) fn bound(state: &mut LobbyState) {
     if state.central.is_some() || !state.gateway_selected || state.lobby.token().is_some() {
         return;
     }
     let gateway = state.gateway.clone();
+    let guest_door = state
+        .lobby
+        .guests_enabled()
+        .then(|| state.lobby.registration());
     let probes = std::mem::take(&mut state.probes);
     enable(state);
     state.probes = probes;
     if let Some(central) = &mut state.central {
         central.bound = Some(gateway);
+        central.guest_door = guest_door;
     }
+    if guest_door.is_some() {
+        state.lobby.set_guests_enabled(true);
+    }
+}
+
+/// Play as guest from Central's form that a gateway taking guests too
+/// asked for: Central is off again, the device's own gateways are back, and
+/// that gateway stays chosen with its guest door as it offered it, so the
+/// guest comes in as on any gateway that takes guests. `false`, and nothing
+/// changed, when the form offers no guest door.
+pub(super) fn guest_instead(state: &mut LobbyState) -> bool {
+    let Some(registration) = state
+        .central
+        .as_ref()
+        .filter(|central| central.handle.is_none() && central.bound.is_some())
+        .and_then(|central| central.guest_door)
+    else {
+        return false;
+    };
+    let Some(central) = state.central.take() else {
+        return false;
+    };
+    state.gateways = central.local_gateways;
+    state.gateway_selected = true;
+    state.lobby.set_gateway_ready(true);
+    state.lobby.set_registration(registration);
+    state.lobby.set_guests_enabled(true);
+    true
 }
 
 /// Back from Central's sign-in that a gateway (or a link) asked for:

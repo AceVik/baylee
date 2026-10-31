@@ -1,18 +1,15 @@
 //! A gateway account's move to Baylee Central while Central's own terms are
-//! in force and not yet accepted (the owner's sign-in, 22.10.2026): every
-//! sign-in failed, since the move asks for gateway tickets and Central gives
-//! none before its terms are accepted. The sign-in now succeeds with the move
-//! held, the client shows Central's terms, and their acceptance finishes the
-//! move; the gateway admits the account after that, never before.
-use super::{
-    Account, AccountData, CentralHttp, Credentials, LegacyData, LegacyHttp, Served, common, sdk,
-};
+//! in force and not yet accepted (the owner's sign-in, 22.10.2026): the move's
+//! close waits for them. The sign-in succeeds with the move held and holds no
+//! password, the client shows Central's terms, and their acceptance finishes
+//! the move; the gateway admits the account after that, never before.
+use super::{Account, PASSWORD, Served, common, cutover};
 use baylee_account::terms::{self, TermsDocument, TermsSubject, TermsText, TermsVersion};
-use central_postgres::AccountStore;
+use central_postgres::{AccountStore, LegacyStore};
+use sea_orm::DatabaseConnection;
 use tokio::runtime::Runtime;
 
 const USERNAME: &str = "held-move";
-const PASSWORD: &str = "a-very-fine-password";
 
 /// Central's terms in force on this second service.
 fn document() -> TermsDocument {
@@ -33,11 +30,16 @@ fn document() -> TermsDocument {
     }
 }
 
-pub(super) fn run(runtime: &Runtime, store: &AccountStore) {
+pub(super) fn run(
+    runtime: &Runtime,
+    store: &AccountStore,
+    legacy: &LegacyStore,
+    operator: &DatabaseConnection,
+) {
     let terms = document();
-    let served = super::serve(runtime, store, "central-held", Some(terms.clone()));
+    let served = super::serve(runtime, store, legacy, "central-held", Some(terms.clone()));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        held(&served, &terms);
+        held(&served, &terms, runtime, operator);
     }));
     served.close(runtime);
     if let Err(failure) = result {
@@ -45,41 +47,15 @@ pub(super) fn run(runtime: &Runtime, store: &AccountStore) {
     }
 }
 
-fn held(served: &Served, terms: &TermsDocument) {
+fn held(served: &Served, terms: &TermsDocument, runtime: &Runtime, operator: &DatabaseConnection) {
     let (endpoint, origin, port) = (&served.endpoint, &served.origin, served.gateway.port);
-    // Enrolled at Central, the move not linked yet: where the owner's first
-    // sign-in stopped.
+    // An account from before the cutover, in Central's legacy store: its
+    // legacy sign-in needs no terms, its close does.
     common::login(port, USERNAME, "Held");
-    let legacy = LegacyHttp::development(origin).unwrap();
-    let credentials = Credentials {
-        username: USERNAME.into(),
-        password: PASSWORD.into(),
-    };
-    let enrollment = legacy.enroll(&credentials).unwrap();
-    let source_id = enrollment.snapshot.account_id.clone();
-    let data = AccountData {
-        version: 1,
-        gateways: vec![origin.clone()],
-        preferences: enrollment.snapshot.preferences,
-        chat: baylee_account::chat::ChatArchive::default(),
-        legacy: Some(LegacyData {
-            digest: enrollment.snapshot.digest,
-            complete: false,
-            gateway: origin.clone(),
-            account_id: source_id.clone(),
-            username: enrollment.snapshot.username,
-            decks: enrollment.snapshot.decks,
-        }),
-    };
-    let http = CentralHttp::new(endpoint.clone());
-    sdk::enroll(
-        &http,
-        enrollment.identity,
-        enrollment.ticket,
-        PASSWORD.into(),
-        &data.write().unwrap(),
-    )
-    .unwrap();
+    let source_id = served.gateway.text(&format!(
+        "SELECT id::text FROM account WHERE username_key = '{USERNAME}'"
+    ));
+    assert_eq!(cutover(&served.gateway, runtime, operator), 1);
 
     let mut account = Account::login(
         endpoint.clone(),
@@ -113,14 +89,14 @@ fn held(served: &Served, terms: &TermsDocument) {
     account.finish_migration().unwrap();
     assert!(!account.migration_held());
     assert!(account.data().legacy.as_ref().unwrap().complete);
+    let admitted = account.admit(origin).unwrap();
     assert_eq!(
         served.gateway.scalar(&format!(
             "SELECT count(*) FROM account WHERE id = '{source_id}'::uuid AND central_only AND password_hash IS NULL"
         )),
         1,
-        "the gateway account moved"
+        "the gateway account is linked at its first admission"
     );
-    let admitted = account.admit(origin).unwrap();
     assert_eq!(admitted.central_terms_stale, None);
     assert_eq!(
         common::http(port, "GET", "/me", Some(&admitted.token), "").0,

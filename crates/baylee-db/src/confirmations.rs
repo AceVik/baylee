@@ -9,8 +9,8 @@ use time::OffsetDateTime;
 /// Deletes every confirmation link that has expired by `now`, answering how
 /// many went.
 ///
-/// `expires_at <= now`, the same moment `GET /auth/confirm` starts refusing
-/// the link, on the index 000001 made for it.
+/// `expires_at <= now`, on the index 000001 made for it. No link is made since
+/// the cutover (`docs/central-login.md`); the ones left go within a day.
 ///
 /// # Errors
 ///

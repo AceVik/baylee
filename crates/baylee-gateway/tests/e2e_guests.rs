@@ -4,9 +4,11 @@
 //! `POST /auth/guest` hands out an account with no username, no address and
 //! no password, and its session. The session is the guest: it lives thirty
 //! days from the last time it played, nothing signs in as a guest, and once
-//! no session leads to one it is deleted with its decks. A gateway may take
-//! no guests (`BAYLEE_GUESTS=off`), and takes a bounded number of them
-//! (`BAYLEE_GUEST_CAP`).
+//! no session leads to one it is deleted with its decks. Whether a gateway
+//! takes guests is its auth mode's (`guests`, `central`, the default, or
+//! `mixed`; `docs/central-login.md` §"Who a gateway lets in"), whether or
+//! not it is connected to Baylee Central, and it takes a bounded number of
+//! them (`BAYLEE_GUEST_CAP`).
 
 #![allow(clippy::missing_docs_in_private_items)]
 
@@ -126,10 +128,9 @@ fn a_guest_is_called_what_it_asked_to_be_or_guest() {
     assert!(body.contains("invalid display name"), "{body}");
 }
 
-/// Nothing signs in as a guest: not its name, not its handle, not an empty
-/// password. Its session is the only way in, and it lives thirty days.
+/// A guest's session is the only way in, and it lives thirty days.
 #[test]
-fn nothing_signs_in_as_a_guest_and_its_session_lives_thirty_days() {
+fn a_guests_session_lives_thirty_days() {
     let gw = spawn_gateway("guests_session");
     let port = gw.port;
     let now = std::time::SystemTime::now()
@@ -144,12 +145,6 @@ fn nothing_signs_in_as_a_guest_and_its_session_lives_thirty_days() {
         expires.abs_diff(now + thirty_days) < 60,
         "{expires} against {now}"
     );
-    let handle = json_field(&answer, "handle").to_string();
-    for typed in ["Guest", handle.as_str()] {
-        let creds = format!("{{\"username\":\"{typed}\",\"password\":\"\"}}");
-        let (status, body) = http(port, "POST", "/auth/login", None, &creds);
-        assert_eq!(status, 401, "signed in as {typed}: {body}");
-    }
 }
 
 /// A guest's session is renewed once a day of it has gone, to thirty days;
@@ -229,21 +224,131 @@ fn a_guest_that_signs_out_is_gone_with_its_decks() {
     );
 }
 
-/// `BAYLEE_GUESTS=off`: no guests, and the client is told before it offers.
+/// The default mode, `central` (a blank `BAYLEE_AUTH_MODE` is unset): no
+/// guests, and the client is told before it offers. A session already made
+/// is the mode's no longer: it goes on.
 #[test]
-fn a_gateway_may_take_no_guests_and_says_so() {
-    let open = spawn_gateway("guests_open");
+fn the_default_takes_no_guests_and_says_so() {
+    let open = spawn_gateway_with("guests_open", &[("BAYLEE_AUTH_MODE", "guests".into())]);
     let (_, config) = http(open.port, "GET", "/auth/config", None, "");
     assert!(config.contains("\"guests_enabled\":true"), "{config}");
+    assert!(config.contains("\"auth_mode\":\"guests\""), "{config}");
 
-    let closed = spawn_gateway_with("guests_closed", &[("BAYLEE_GUESTS", "off".into())]);
+    let closed = spawn_gateway_with("guests_closed", &[("BAYLEE_AUTH_MODE", String::new())]);
     let (_, config) = http(closed.port, "GET", "/auth/config", None, "");
     assert!(config.contains("\"guests_enabled\":false"), "{config}");
+    assert!(config.contains("\"auth_mode\":\"central\""), "{config}");
+    assert!(
+        config.contains("\"central\":false"),
+        "nothing reaches it: {config}"
+    );
+    let (_, info) = http(closed.port, "GET", "/info", None, "");
+    assert!(info.contains("\"auth_mode\":\"central\""), "{info}");
+    assert!(info.contains("\"guests\":false"), "{info}");
     let (status, body) = http(closed.port, "POST", "/auth/guest", None, "{}");
     assert_eq!(status, 403, "{body}");
     assert!(body.contains("this gateway takes no guests"), "{body}");
-    // Registration is its own switch.
-    login(closed.port, "member", "Member");
+    let member = login(closed.port, "member", "Member");
+    assert_eq!(http(closed.port, "GET", "/me", Some(&member), "").0, 200);
+}
+
+/// The Baylee Central configuration a gateway is started with, written for
+/// one test and removed with it, as `e2e_central`'s are, and readable by
+/// its owner alone.
+struct CentralConfig(std::path::PathBuf);
+
+impl CentralConfig {
+    /// A bridge to `endpoint`, with a bridge credential nobody holds.
+    fn to(endpoint: &str) -> Self {
+        use std::io::Write as _;
+        let path = std::env::temp_dir().join(format!(
+            "baylee-central-bridge-{}.json",
+            uuid::Uuid::now_v7()
+        ));
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.mode(0o600);
+        }
+        let mut file = options.open(&path).expect("the bridge file");
+        let config = Self(path);
+        let bridge = [7_u8; 32];
+        let settings = serde_json::json!({ "endpoint": endpoint, "bridge": bridge });
+        file.write_all(settings.to_string().as_bytes())
+            .expect("the bridge file written");
+        config
+    }
+}
+
+impl Drop for CentralConfig {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+/// A gateway connected to Baylee Central takes whom its mode names, as an
+/// unconnected one does: `central` no guest, `mixed` both, `guests` no
+/// Central account, refused before Central is asked anything. Nothing here
+/// reaches Central, so a Central nobody answers at (port 9) is enough.
+#[test]
+fn a_connected_gateway_takes_whom_its_mode_names() {
+    let config = CentralConfig::to("http://127.0.0.1:9");
+    let file = config.0.to_string_lossy().into_owned();
+    let connected = |name: &str, mode: &str| {
+        spawn_gateway_with(
+            name,
+            &[
+                ("BAYLEE_CENTRAL_CONFIG_FILE", file.clone()),
+                ("BAYLEE_AUTH_MODE", mode.into()),
+            ],
+        )
+    };
+    // Shaped as a ticket, so the refusal is the mode's and not the body's.
+    let ticket = serde_json::json!({ "ticket": vec![0_u8; 32] }).to_string();
+
+    let central = connected("guests_central", "central");
+    let (_, config_answer) = http(central.port, "GET", "/auth/config", None, "");
+    assert!(
+        config_answer.contains("\"guests_enabled\":false"),
+        "{config_answer}"
+    );
+    assert!(
+        config_answer.contains("\"central\":true"),
+        "{config_answer}"
+    );
+    let (status, body) = http(central.port, "POST", "/auth/guest", None, "{}");
+    assert_eq!(status, 403, "{body}");
+    assert!(body.contains("this gateway takes no guests"), "{body}");
+    assert_eq!(
+        central.scalar("SELECT count(*) FROM account"),
+        0,
+        "nobody was made"
+    );
+
+    let mixed = connected("guests_mixed", "mixed");
+    let (_, config_answer) = http(mixed.port, "GET", "/auth/config", None, "");
+    assert!(
+        config_answer.contains("\"guests_enabled\":true"),
+        "{config_answer}"
+    );
+    assert!(
+        config_answer.contains("\"central\":true"),
+        "{config_answer}"
+    );
+    let (token, _) = a_guest(mixed.port, "{}");
+    assert_eq!(http(mixed.port, "GET", "/me", Some(&token), "").0, 200);
+
+    let guests = connected("guests_only", "guests");
+    let (_, config_answer) = http(guests.port, "GET", "/auth/config", None, "");
+    assert!(
+        config_answer.contains("\"central\":false"),
+        "{config_answer}"
+    );
+    let (status, body) = http(guests.port, "POST", "/auth/central/login", None, &ticket);
+    assert_eq!(status, 403, "no Central account comes in: {body}");
+    a_guest(guests.port, "{}");
 }
 
 /// `BAYLEE_GUEST_CAP`: once that many guests are playing, the next is sent

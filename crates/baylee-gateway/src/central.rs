@@ -522,35 +522,6 @@ pub(crate) async fn admin_actor(
     Ok(Some(uuid::Uuid::from_bytes(binding.central).to_string()))
 }
 
-/// Retire a pending migration before changing its legacy proof. The caller must
-/// hold the exclusive migration barrier through the subsequent database mutation.
-pub(crate) async fn invalidate_password(state: &Shared, account: &str) -> Result<(), StatusCode> {
-    if baylee_db::central::linked(&state.db, account)
-        .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
-    {
-        return Err(StatusCode::CONFLICT);
-    }
-    let Some(bridge) = state.central.get().filter(|bridge| bridge.legacy) else {
-        if baylee_db::central::pending(&state.db, account)
-            .await
-            .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
-        {
-            return Err(StatusCode::SERVICE_UNAVAILABLE);
-        }
-        return Ok(());
-    };
-    match bridge
-        .exchange(wire::Request::LegacyInvalidate {
-            legacy_id: account.into(),
-        })
-        .await?
-    {
-        wire::Response::Done => Ok(()),
-        _ => Err(StatusCode::SERVICE_UNAVAILABLE),
-    }
-}
-
 /// Bind a seat capability to the session which authorized its creation.
 pub(crate) async fn seat_binding(
     state: &Shared,
@@ -572,20 +543,10 @@ pub(crate) async fn seat_binding(
     }
 }
 
-/// Drain in-flight account mutations before cutover and revoke old sessions under the same barrier.
-/// Central export/link routes are outside this layer and acquire its exclusive guard themselves.
+/// Drain in-flight account requests while a Central admission fixes a link
+/// or a projection: `central::routes` takes this barrier exclusively.
 pub(crate) async fn barrier(State(state): State<Shared>, request: Request, next: Next) -> Response {
     if !state.central.is_some() {
-        return next.run(request).await;
-    }
-    // Password changes invalidate pending Central enrollment while no cutover
-    // can race them. This route must not first acquire a shared lock.
-    if request.uri().path() == "/auth/password" {
-        let Ok(_guard) =
-            tokio::time::timeout(Duration::from_secs(5), state.central_barrier.write()).await
-        else {
-            return StatusCode::SERVICE_UNAVAILABLE.into_response();
-        };
         return next.run(request).await;
     }
     let Ok(_guard) =

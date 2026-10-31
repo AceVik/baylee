@@ -50,12 +50,12 @@ the document it names.
 - `BAYLEE_DB_POOL` (8).
 - `STORE_PATH` (import-only, not gitignored).
 - `BAYLEE_ART_PATH`/`BAYLEE_DECK_IMAGE_PATH` (`off` disables; empty also refuses uploads; `/art` answers signed-in players only and the wasm client takes art straight from Scryfall, `docs/protocol.md` §"Card art").
-- `BAYLEE_REGISTRATION` (`off`; `invite`: a closed beta, where a new account or a new guest needs a key, a returning guest none; `docs/protocol.md` §"A closed beta: keys (#317)").
-- `BAYLEE_GUESTS=off` (no guest accounts, wins over a key).
+- `BAYLEE_REGISTRATION` (`off`: nobody new; `invite`: a closed beta, where a new guest needs a key, a returning guest none; `docs/protocol.md` §"A closed beta: keys (#317)"; who a Central account new here may be, `docs/central-login.md`).
+- `BAYLEE_AUTH_MODE` (whom the gateway lets in: `guests`, `central` or `mixed`; set, it wins over the console's choice and locks it, unset the console's choice or the default `central` holds; any other value stops it; a mode without guests wins over a key; replaces `BAYLEE_GUESTS`, which is read no more; `docs/central-login.md` §"Who a gateway lets in").
 - `BAYLEE_GUEST_CAP` (live guests, default 1000, `0` = no cap; guests sign in with a display name only, are purged when their last session lapses, 30-day sliding, and may not upload images).
 - `BAYLEE_TRUSTED_PROXIES`.
 - `BAYLEE_AGENT_TOKEN` (none = no agent).
-- `BAYLEE_SMTP_URL`/`BAYLEE_MAIL_FROM`/`BAYLEE_PUBLIC_URL` (no SMTP = no mail or confirmation).
+- `BAYLEE_PUBLIC_URL` (what the gateway calls its own address in a bug report). The gateway sends no mail since the cutover; `BAYLEE_SMTP_URL` and `BAYLEE_MAIL_FROM` are not read.
 - `BAYLEE_ENGINE_URL` (set for a remote agent).
 - `BAYLEE_UNIX_SOCKET` (a path: also serve every route on a unix socket, `0660`, a stale file removed; an agent on it is local, and so are its games, `/health` `games.local_running`; `docs/protocol.md` §"On the same machine: the unix socket").
 - `BAYLEE_GATEWAY_NAME` (what `GET /info` names the gateway; unset = the client shows the address; over 64 characters or a control/bidi character refuses startup).

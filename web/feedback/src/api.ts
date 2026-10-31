@@ -249,7 +249,12 @@ export interface Stats {
     built_at?: string;
     uptime_secs?: number;
     terms?: boolean;
-    mail?: boolean;
+    /** Connected to Baylee Central: its sign-ins reach the gateway. */
+    central?: boolean;
+    /** Who comes in: guests, Central's accounts, or both. */
+    auth_mode?: AuthModeName;
+    /** Where that comes from: `BAYLEE_AUTH_MODE`, an admin's choice, or the default. */
+    auth_mode_source?: AuthModeState["source"];
   };
   accounts: {
     registered: number;
@@ -612,6 +617,20 @@ export interface Invite {
   revoked_at: string | null;
   admitted: number;
   state: InviteState;
+}
+
+/** Who a gateway lets in: guests, Baylee Central's accounts, or both. */
+export type AuthModeName = "guests" | "central" | "mixed";
+
+/** `GET /admin/auth-mode`: the mode in force and where it comes from. */
+export interface AuthModeState {
+  mode: AuthModeName;
+  /** `environment`: the operator's `BAYLEE_AUTH_MODE`, which the console cannot change. */
+  source: "environment" | "console" | "default";
+  set_at: string | null;
+  set_by: string | null;
+  /** Connected to Baylee Central; unconnected and on `central`, nobody comes in. */
+  connected: boolean;
 }
 
 /** The gateway's link to Baylee Central (`GET /admin/central`); never a token, only its last four characters. */
@@ -1153,6 +1172,10 @@ export const api = {
       await request("DELETE", `/ui/api/admin/invites/${encodeURIComponent(id)}`);
     },
     audit: () => json<ConsoleChange[]>("GET", "/ui/api/admin/audit"),
+    authMode: {
+      get: () => json<AuthModeState>("GET", "/ui/api/admin/auth-mode"),
+      choose: (mode: AuthModeName) => json<AuthModeState>("PUT", "/ui/api/admin/auth-mode", { mode }),
+    },
     central: {
       link: () => json<CentralLink>("GET", "/ui/api/admin/central"),
       paste: (token: string) => json<CentralLink>("PUT", "/ui/api/admin/central/token", { token }),

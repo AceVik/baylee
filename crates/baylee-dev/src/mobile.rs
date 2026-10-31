@@ -368,6 +368,8 @@ pub fn serve_lan(print_only: bool) -> Result<i32> {
     let mut gateway = Command::new(exe("baylee-gateway"))
         .env("PORT", port.to_string())
         .env("BAYLEE_AGENT_TOKEN", &token)
+        // No Central here: the phone comes in as a guest.
+        .env("BAYLEE_AUTH_MODE", "guests")
         .env("RUST_LOG", &rust_log)
         .stdout(log("gateway")?)
         .stderr(log("gateway")?)

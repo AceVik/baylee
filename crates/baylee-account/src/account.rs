@@ -1,9 +1,9 @@
 use crate::{
     CentralHttp, Endpoint, Error, GatewayHttp,
     data::{AccountData, LegacyData},
-    migration::{Credentials, LegacyHttp, LinkState, Snapshot},
-    wire::{Discovery, TicketPurpose},
+    wire::Discovery,
 };
+use central_api::legacy::LegacySnapshot;
 use central_client::Session;
 use zeroize::Zeroizing;
 
@@ -16,19 +16,21 @@ pub struct Account {
     // still-open settings form's unchanged values look like new edits.
     submitted_preferences: serde_json::Value,
     submitted_gateways: Vec<String>,
-    /// The password of a migration that waits for Baylee Central's terms:
-    /// resuming it asks for gateway tickets, which Central gives only once
-    /// its terms in force are accepted. Held, zeroized, until
-    /// [`Account::finish_migration`].
-    held: Option<Zeroizing<String>>,
+    /// A legacy move waits for Baylee Central's terms: its close is refused
+    /// until they are accepted. Nothing is held for it; the password was
+    /// dropped with the sign-in (`docs/central-login.md` §"Legacy migration").
+    held: bool,
     /// Baylee Central's terms in force were unaccepted when the sign-in read
     /// them, and have not been accepted through this account since.
     terms_open: bool,
 }
 
 impl Account {
-    /// Authenticate centrally and resume a previous migration. An absent upgrade-era source
-    /// proof permits one fresh proof to the compiled official gateway; ordinary errors do not.
+    /// Authenticate centrally and resume a previous migration. A legacy
+    /// account (discovery says `Legacy`) signs in once at this Central with
+    /// its old password, which Central checks against the official gateway's
+    /// hash; the account is then enrolled and signed in through OPAQUE, and
+    /// the password only ever unwraps the master key.
     ///
     /// While the account has not accepted Baylee Central's terms in force
     /// ([`Account::central_terms_open`]), the sign-in succeeds and the
@@ -49,18 +51,13 @@ impl Account {
         let identity = match central_client::discover(&http, username.clone())? {
             Discovery::Central { identity } => identity,
             Discovery::Legacy => {
-                if http.endpoint().legacy_origin().is_none() {
-                    return Err(Error::Rejected);
-                }
-                let enrollment = LegacyHttp::live().enroll(&Credentials {
-                    username,
-                    password: password.to_string(),
-                })?;
+                // The one time the password leaves the device, to this Central.
+                let enrollment = central_client::legacy_login(&http, username, &password)?;
                 let mut gateways = local_gateways;
-                if !gateways.iter().any(|g| g == central_api::LEGACY_ORIGIN) {
-                    gateways.insert(0, central_api::LEGACY_ORIGIN.into());
+                if !gateways.iter().any(|g| g == &enrollment.gateway) {
+                    gateways.insert(0, enrollment.gateway.clone());
                 }
-                let data = from_snapshot(gateways, central_api::LEGACY_ORIGIN, enrollment.snapshot);
+                let data = from_source(gateways, &enrollment.gateway, enrollment.snapshot)?;
                 central_client::enroll(
                     &http,
                     enrollment.identity,
@@ -72,6 +69,7 @@ impl Account {
             }
         };
         let mut session = central_client::login(&http, identity, password.to_string())?;
+        drop(password);
         let data = match AccountData::read(session.document()) {
             Ok(data) => data,
             Err(error) => {
@@ -96,18 +94,17 @@ impl Account {
             submitted_preferences: data.preferences.clone(),
             submitted_gateways: data.gateways.clone(),
             data,
-            held: None,
+            held: false,
             terms_open,
         };
         if terms_open && account.data.legacy.is_some() {
-            account.held = Some(password);
+            account.held = true;
             return Ok(account);
         }
-        if let Err(error) = account.resume_migration(&password) {
+        if let Err(error) = account.resume_migration() {
             let _ = account.session.logout(&account.http);
             return Err(error);
         }
-        drop(password);
         account
             .submitted_preferences
             .clone_from(&account.data.preferences);
@@ -123,70 +120,31 @@ impl Account {
         &self.data
     }
 
-    fn capability(&self, purpose: TicketPurpose) -> Result<crate::Token, Error> {
-        let gateway = self
-            .data
-            .legacy
-            .as_ref()
-            .ok_or(Error::Rejected)?
-            .gateway
-            .clone();
-        self.session
-            .gateway_capability(&self.http, gateway, purpose)
-    }
-
-    fn resume_migration(&mut self, password: &str) -> Result<(), Error> {
+    fn resume_migration(&mut self) -> Result<(), Error> {
         let Some(legacy) = &self.data.legacy else {
             return Ok(());
-        };
-        let gateway = if let Some(official) = self.http.endpoint().legacy_origin() {
-            if official != legacy.gateway {
-                return Err(Error::Rejected);
-            }
-            LegacyHttp::live()
-        } else {
-            LegacyHttp::development(&legacy.gateway)?
         };
         if legacy.complete {
             if self.session.migration_closed(&self.http)? {
                 return Ok(());
             }
-            // Old clients marked cutover complete before Central had a separate close gate.
-            // The linked gateway repairs that gate idempotently, without another password,
-            // source export or account-document rewrite.
-            return gateway.link(self.capability(TicketPurpose::Link)?, legacy.digest);
+            // Old clients marked cutover complete before Central had a separate close gate;
+            // Central closes it now, without another export or account-document rewrite.
+            return self.session.legacy_link(&self.http, legacy.digest);
         }
-        // First link is idempotent: a lost prior acknowledgement must not trigger an export
-        // that overwrites already-central edits. Only a source conflict requests a new snapshot.
-        let mut fresh_proof_used = false;
-        for _ in 0..3 {
+        // The close is idempotent: a lost answer is retried with the same digest. Only a
+        // source that is not the stored one asks for the stored snapshot again.
+        for _ in 0..2 {
             let digest = self.data.legacy.as_ref().ok_or(Error::Rejected)?.digest;
-            match gateway.link_state(self.capability(TicketPurpose::Link)?, digest) {
-                Ok(LinkState::Complete) => {
+            match self.session.legacy_link(&self.http, digest) {
+                Ok(()) => {
                     if let Some(legacy) = &mut self.data.legacy {
                         legacy.complete = true;
                     }
                     return self.session.save(&self.http, &self.data.write()?);
                 }
-                Ok(LinkState::FreshProofRequired) if !fresh_proof_used => {
-                    fresh_proof_used = true;
-                    let credentials = Credentials {
-                        username: self
-                            .data
-                            .legacy
-                            .as_ref()
-                            .ok_or(Error::Rejected)?
-                            .username
-                            .clone(),
-                        password: password.into(),
-                    };
-                    let snapshot =
-                        gateway.prepare(self.capability(TicketPurpose::Link)?, credentials)?;
-                    self.restore_source(snapshot)?;
-                }
-                Ok(LinkState::FreshProofRequired) => return Err(Error::Rejected),
                 Err(Error::Conflict) => {
-                    let snapshot = gateway.export(self.capability(TicketPurpose::Export)?)?;
+                    let snapshot = self.session.legacy_export(&self.http)?;
                     self.restore_source(snapshot)?;
                 }
                 Err(error) => return Err(error),
@@ -195,12 +153,12 @@ impl Account {
         Err(Error::Conflict)
     }
 
-    fn restore_source(&mut self, snapshot: Snapshot) -> Result<(), Error> {
+    fn restore_source(&mut self, snapshot: LegacySnapshot) -> Result<(), Error> {
         let previous = self.data.legacy.as_ref().ok_or(Error::Rejected)?;
-        if previous.account_id != snapshot.account_id {
+        if previous.account_id != snapshot.legacy_id {
             return Err(Error::Rejected);
         }
-        let mut next = from_snapshot(self.data.gateways.clone(), &previous.gateway, snapshot);
+        let mut next = from_source(self.data.gateways.clone(), &previous.gateway, snapshot)?;
         next.chat = std::mem::take(&mut self.data.chat);
         self.data = next;
         self.session.save(&self.http, &self.data.write()?)?;
@@ -212,7 +170,7 @@ impl Account {
     /// Whether a migration waits for Baylee Central's terms to be accepted.
     #[must_use]
     pub const fn migration_held(&self) -> bool {
-        self.held.is_some()
+        self.held
     }
 
     /// Whether Baylee Central's terms in force waited for this account when it
@@ -228,12 +186,12 @@ impl Account {
     ///
     /// # Errors
     /// As the sign-in's migration: conflicts, refusals and failed network
-    /// calls. The held password is gone either way; sign in again to retry.
+    /// calls. The next sign-in resumes it.
     pub fn finish_migration(&mut self) -> Result<(), Error> {
-        let Some(password) = self.held.take() else {
+        if !std::mem::take(&mut self.held) {
             return Ok(());
-        };
-        self.resume_migration(&password)?;
+        }
+        self.resume_migration()?;
         self.submitted_preferences
             .clone_from(&self.data.preferences);
         self.submitted_gateways.clone_from(&self.data.gateways);
@@ -731,21 +689,40 @@ fn merge(
     Ok(serde_json::Value::Object(merged))
 }
 
-fn from_snapshot(gateways: Vec<String>, origin: &str, snapshot: Snapshot) -> AccountData {
-    AccountData {
+/// The official gateway's export of a legacy account, exactly as it wrote it:
+/// its whole preferences document and its decks with their history.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Source {
+    preferences: serde_json::Value,
+    decks: serde_json::Value,
+}
+
+/// A first account document from a legacy account's source, checked
+/// against its digest by the SDK already.
+fn from_source(
+    gateways: Vec<String>,
+    origin: &str,
+    snapshot: LegacySnapshot,
+) -> Result<AccountData, Error> {
+    let source: Source = serde_json::from_slice(&snapshot.document).map_err(|_| Error::Rejected)?;
+    if !source.preferences.is_object() || !source.decks.is_array() {
+        return Err(Error::Rejected);
+    }
+    Ok(AccountData {
         version: 1,
         gateways,
-        preferences: snapshot.preferences,
+        preferences: source.preferences,
         legacy: Some(LegacyData {
             digest: snapshot.digest,
             complete: false,
             gateway: origin.into(),
-            account_id: snapshot.account_id,
+            account_id: snapshot.legacy_id,
             username: snapshot.username,
-            decks: snapshot.decks,
+            decks: source.decks,
         }),
         chat: crate::chat::ChatArchive::default(),
-    }
+    })
 }
 
 #[cfg(test)]

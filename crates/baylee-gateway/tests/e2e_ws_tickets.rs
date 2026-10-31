@@ -266,13 +266,7 @@ async fn a_ticket_dies_with_what_bought_it() {
     // Deleted.
     let session = login(port, "t-delete", "Delete");
     let ticket = common::lobby_ticket(port, &session);
-    let (status, body) = http(
-        port,
-        "DELETE",
-        "/account",
-        Some(&session),
-        r#"{"password":"a-very-fine-password"}"#,
-    );
+    let (status, body) = http(port, "DELETE", "/account", Some(&session), "{}");
     assert_eq!(status, 204, "{body}");
     refused_as_stale(
         &format!("ws://127.0.0.1:{port}/lobby/ws?ticket={ticket}"),

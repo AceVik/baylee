@@ -206,6 +206,8 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
         // Who may seat which hosted model (beta.8): `llmaccess.rs`.
         .merge(crate::llmaccess::console_routes())
         .merge(crate::termsadmin::console_routes())
+        // Who comes in: `authmode.rs`.
+        .merge(crate::authmode::console_routes())
         // The link to Baylee Central by a pasted token: `central/link.rs`.
         .merge(crate::central::console_routes())
         .fallback(no_such_route)
@@ -520,7 +522,9 @@ async fn stats(State(console): State<Admin>) -> Result<Json<ConsoleStats>, Refus
         registration: app.registration,
         uptime_secs: crate::auth::now_secs().saturating_sub(app.started_at),
         terms: app.terms.current().is_some(),
-        mail: !matches!(app.mail, crate::mail::Mailer::Off),
+        central: app.connected(),
+        auth_mode: app.auth_mode.current(),
+        auth_mode_source: app.auth_mode.source().as_str(),
     };
     let social = crate::social::console_counts(app).await;
     Ok(Json(ConsoleStats {
@@ -535,7 +539,7 @@ async fn stats(State(console): State<Admin>) -> Result<Json<ConsoleStats>, Refus
             decks: stored.decks,
         },
         guests: ConsoleGuestCounts {
-            enabled: app.guests_enabled,
+            enabled: app.auth_mode.current().guests(),
             live: stored.guests,
             cap: app.guest_cap,
             created: since(stored.guests_since),
@@ -628,8 +632,17 @@ pub(crate) struct ConsoleGateway {
     uptime_secs: u64,
     /// @description Whether it has terms of use.
     terms: bool,
-    /// @description Whether it sends mail (`BAYLEE_SMTP_URL`).
-    mail: bool,
+    /// @description Whether it is connected to Baylee Central
+    /// (`BAYLEE_CENTRAL_CONFIG_FILE`), which is how a Central sign-in
+    /// reaches it.
+    central: bool,
+    /// @description Who comes in: guests, Baylee Central's accounts, or
+    /// both (`GET /admin/auth-mode`).
+    auth_mode: crate::authmode::AuthMode,
+    /// @description Where that comes from: the operator's
+    /// `BAYLEE_AUTH_MODE`, an admin's choice, or the default.
+    /// @openapi enum: [environment, console, default]
+    auth_mode_source: &'static str,
 }
 
 /// `GET /admin/stats`'s registered accounts.
@@ -656,7 +669,8 @@ pub(crate) struct ConsoleAccountCounts {
 /// @openapi
 #[derive(Serialize)]
 pub(crate) struct ConsoleGuestCounts {
-    /// @description Whether guests are let in (`BAYLEE_GUESTS`).
+    /// @description Whether guests are let in (the auth mode is `guests`
+    /// or `mixed`).
     enabled: bool,
     /// @description Guest accounts now, each one a live session leads to
     /// until the next sweep.

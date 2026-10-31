@@ -54,7 +54,6 @@ getrandom.workspace = true
 # adds nothing to audit; the extra formats are the ones a player's own
 # picture actually arrives in.
 image = { workspace = true, features = ["jpeg"] }
-lettre.workspace = true
 parking_lot.workspace = true
 prost.workspace = true
 sea-orm.workspace = true
@@ -78,12 +77,12 @@ rustix.workspace = true
 [dev-dependencies]
 baylee-account = { workspace = true, features = ["client"] }
 central-api.workspace = true
-central-crypto = { git = "https://github.com/AceVik/baylee-central.git", rev = "0f8005d634c47f24b9e48b0db3e0a258bb8a9852", features = ["server"] }
-central-http = { git = "https://github.com/AceVik/baylee-central.git", rev = "0f8005d634c47f24b9e48b0db3e0a258bb8a9852" }
-central-identity = { git = "https://github.com/AceVik/baylee-central.git", rev = "0f8005d634c47f24b9e48b0db3e0a258bb8a9852" }
-central-migration = { git = "https://github.com/AceVik/baylee-central.git", rev = "0f8005d634c47f24b9e48b0db3e0a258bb8a9852" }
-central-policy = { git = "https://github.com/AceVik/baylee-central.git", rev = "0f8005d634c47f24b9e48b0db3e0a258bb8a9852" }
-central-postgres = { git = "https://github.com/AceVik/baylee-central.git", rev = "0f8005d634c47f24b9e48b0db3e0a258bb8a9852" }
+central-crypto = { git = "https://github.com/AceVik/baylee-central.git", rev = "94177dd768572536a238a386e3877ade69f4b93b", features = ["server"] }
+central-http = { git = "https://github.com/AceVik/baylee-central.git", rev = "94177dd768572536a238a386e3877ade69f4b93b" }
+central-identity = { git = "https://github.com/AceVik/baylee-central.git", rev = "94177dd768572536a238a386e3877ade69f4b93b" }
+central-migration = { git = "https://github.com/AceVik/baylee-central.git", rev = "94177dd768572536a238a386e3877ade69f4b93b" }
+central-policy = { git = "https://github.com/AceVik/baylee-central.git", rev = "94177dd768572536a238a386e3877ade69f4b93b" }
+central-postgres = { git = "https://github.com/AceVik/baylee-central.git", rev = "94177dd768572536a238a386e3877ade69f4b93b" }
 # The gateway no longer links the rules kernel — that is the point of the
 # engine plane. Its tests still have to prove the two ends agree, so they link
 # what the engine reads with, and drive a real engine over the real link.

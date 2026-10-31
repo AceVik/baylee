@@ -34,7 +34,6 @@ use tokio::sync::oneshot;
 
 const SEATHOST_TOKEN: &str = "e2e-seathost-token-0123456789abcdef0123";
 const ADMIN_TOKEN: &str = "e2e-admin-token-0123456789abcdef0123456789";
-const PASSWORD: &str = "a-very-fine-password";
 
 /// What the gateway says to an order it will not take for lack of a place on
 /// the profile's list.
@@ -716,13 +715,7 @@ async fn the_console_sets_policies_lists_accounts_and_audits_by_id() {
     rig.allow("epsilon", &[&dora_id]);
     assert_eq!(listed_ids(&rig.detail("delta")).len(), 2);
     assert_eq!(rig.row("epsilon")["listed"], 1);
-    let (status, body) = http(
-        rig.port,
-        "DELETE",
-        "/account",
-        Some(&dora),
-        &json!({ "password": PASSWORD }).to_string(),
-    );
+    let (status, body) = http(rig.port, "DELETE", "/account", Some(&dora), "{}");
     assert_eq!(status, 204, "{body}");
     assert_eq!(listed_ids(&rig.detail("delta")), only(&carla_id));
     assert_eq!(rig.detail("epsilon")["accounts"], json!([]));

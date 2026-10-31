@@ -3,7 +3,10 @@
 
 use serde::Serialize;
 
-use crate::{Json, Shared, State, StatusCode, admission::Admission, clock, invite::Registration};
+use crate::{
+    Json, Shared, State, StatusCode, admission::Admission, authmode::AuthMode, clock,
+    invite::Registration,
+};
 
 /// What this gateway is, and where the source for exactly this build lives.
 ///
@@ -196,7 +199,8 @@ pub(crate) async fn info(State(state): State<Shared>) -> Json<Info> {
         source: state.source_url.clone(),
         impressum: state.impressum_url.clone(),
         registration: state.registration,
-        guests: state.guests_enabled,
+        guests: state.auth_mode.current().guests(),
+        auth_mode: state.auth_mode.current(),
         hosted_llm: state.seathost_token.is_some() && !state.seathosts.lock().hosts.is_empty(),
         social: state.social.info(),
         replays: state.replay_jobs.on().then_some(Replays {
@@ -232,6 +236,9 @@ pub(crate) struct Info {
     registration: Registration,
     /// @description Whether guests are let in.
     guests: bool,
+    /// @description Who comes in: guests, Baylee Central's accounts, or
+    /// both.
+    auth_mode: AuthMode,
     /// @description Whether a host may seat a language model this gateway's
     /// seat agents run.
     hosted_llm: bool,
@@ -523,11 +530,15 @@ pub(crate) struct Games {
 /// @tag Accounts
 /// @security none
 pub(crate) async fn auth_config(State(state): State<Shared>) -> Json<AuthConfig> {
+    let mode = state.auth_mode.current();
     Json(AuthConfig {
-        registration_enabled: state.registration.takes_sign_ups(),
+        // Nobody signs up here: accounts are Baylee Central's.
+        registration_enabled: false,
         registration: state.registration,
-        guests_enabled: state.guests_enabled,
-        central: state.central.is_some(),
+        guests_enabled: mode.guests(),
+        // A Central sign-in reaches only a connected gateway, so far.
+        central: state.connected() && mode.central(),
+        auth_mode: mode,
         art_cache: state.art.enabled(),
         deck_images: state.deck_images.enabled(),
         clocks: clock::PRESETS
@@ -550,22 +561,29 @@ pub(crate) async fn auth_config(State(state): State<Shared>) -> Json<AuthConfig>
     reason = "the answer's shape: each bool is a switch a client reads"
 )]
 pub(crate) struct AuthConfig {
-    /// @description Whether a sign-up form may be offered: true for
-    /// `invite` too, where the refusal tells a client without keys to
-    /// update.
+    /// @description Always `false`: nobody registers or signs in with a
+    /// password at a gateway; accounts are Baylee Central's. Kept for
+    /// clients from before, which offer a sign-up form only where it is
+    /// true.
     registration_enabled: bool,
-    /// @description Who may make an account.
+    /// @description Who may come in new (`BAYLEE_REGISTRATION`): `open`
+    /// lets anybody in, `invite` a guest only with a closed beta's key, and
+    /// `off` nobody new; a Central account new here follows
+    /// `docs/central-login.md`.
     registration: Registration,
-    /// @description Whether "play as a guest" is offered.
+    /// @description Whether "play as a guest" is offered: the mode is
+    /// `guests` or `mixed`.
     guests_enabled: bool,
     /// @description Whether this gateway takes Baylee Central sign-ins
-    /// (`POST /auth/central/login`). A native client signs in through
-    /// Central only where this is true, and with the gateway's own routes
-    /// everywhere else.
+    /// (`POST /auth/central/login`): it is connected to Central and its mode
+    /// is `central` or `mixed`.
     /// @internal
-    /// True when `BAYLEE_CENTRAL_CONFIG_FILE` configured the bridge or a
-    /// registration (`central.rs`).
+    /// Connected when `BAYLEE_CENTRAL_CONFIG_FILE` configured the bridge or
+    /// a registration (`central.rs`).
     central: bool,
+    /// @description Who comes in: `guests`, `central` (the default) or
+    /// `mixed`.
+    auth_mode: AuthMode,
     /// @description Whether `GET /art/…` serves card images.
     /// @internal
     /// A client that pointed at a gateway with the mirror switched off would

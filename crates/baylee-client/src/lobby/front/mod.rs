@@ -1380,6 +1380,9 @@ impl FrontPress {
                 state.lobby.back_to_sign_in();
             }
             FrontPress::GuestFace => {
+                // From Central's form, a gateway that takes guests too.
+                #[cfg(not(target_arch = "wasm32"))]
+                super::central::guest_instead(state);
                 let request = state.lobby.open_guest_face();
                 if state.lobby.guest() {
                     let gateway = state.gateway.clone();
