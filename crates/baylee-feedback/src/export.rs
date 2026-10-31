@@ -240,7 +240,8 @@ pub async fn export_reports(db: &DatabaseConnection, out: &mut impl Write) -> Re
     let ids = db
         .query_all_raw(Statement::from_string(
             backend,
-            "SELECT id FROM feedback_report WHERE deleted_at IS NULL \
+            // a reported chat message stays at the service: Central takes none
+            "SELECT id FROM feedback_report WHERE deleted_at IS NULL AND kind <> 'chat' \
                  AND status IN ('new', 'triaged', 'in_progress') ORDER BY created_at, id",
         ))
         .await?;

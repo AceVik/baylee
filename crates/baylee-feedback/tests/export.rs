@@ -75,12 +75,13 @@ async fn the_open_reports_go_out_as_lines_central_takes() {
         .expect("dropping the schema");
 }
 
-/// Five reports: an open bug with a note, a history line and a record; an
-/// open crash without words; one resolved, one in the trash, and one whose
-/// reporter is not hex. The open bug's id, and its record.
+/// Six reports: an open bug with a note, a history line and a record; an
+/// open crash without words; one resolved, one in the trash, one whose
+/// reporter is not hex, and an open reported chat message, which stays. The open bug's id, and its record.
 async fn seed(db: &sea_orm::DatabaseConnection) -> (Uuid, Vec<u8>) {
     let record = gzip(b"{\"kind\":\"header\"}\n");
-    let (open, crash, done, trashed, odd) = (
+    let (open, crash, done, trashed, odd, chat) = (
+        Uuid::now_v7(),
         Uuid::now_v7(),
         Uuid::now_v7(),
         Uuid::now_v7(),
@@ -144,6 +145,15 @@ async fn seed(db: &sea_orm::DatabaseConnection) -> (Uuid, Vec<u8>) {
             ", NULL, now()",
         ),
         insert(odd, "not-hex", "bug", "new", "who", "{}", ""),
+        insert(
+            chat,
+            &reporter,
+            "chat",
+            "new",
+            "a reported message",
+            "{}",
+            "",
+        ),
         format!(
             "UPDATE feedback_report SET record = decode('{}', 'hex'), record_complete = true, assignee = 'viktor' WHERE id = '{open}'",
             hex(&record)

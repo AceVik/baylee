@@ -180,7 +180,8 @@ many were written and how many left out.
 
 JSON Lines, UTF-8: every report outside the trash whose status is `new`,
 `triaged` or `in_progress`, oldest first, one a line, every field present
-(`null` where there is none):
+(`null` where there is none); a reported chat message stays at the service,
+which Central does not take:
 
 ```json
 {"id": "<the report's uuid v7, 32 hex digits>", "created_at": 1761900000, "updated_at": 1761900000,
