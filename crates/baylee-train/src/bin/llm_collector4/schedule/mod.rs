@@ -63,7 +63,9 @@ pub fn parse_deck_inventory(deck: &DeckEntry) -> anyhow::Result<DeckInventory> {
             section = "sideboard";
             continue;
         }
-        if lower == "[deck]" || lower == "deck" || lower == "deck:" {
+        // `[deck:Name]` opens a deck file in the repository's own format
+        // (`xtask deck-check`, every corpus deck); the manifest names it.
+        if lower == "[deck]" || lower == "deck" || lower == "deck:" || lower.starts_with("[deck:") {
             section = "cards";
             continue;
         }
@@ -1140,7 +1142,7 @@ mod tests {
         let con_file = dir.path().join("con.txt");
         std::fs::write(
             &con_file,
-            "# format: Constructed\n60 Mountain\n\n[Sideboard]\n15 Abrade\n",
+            "# adapted from a precon\n[deck:Burn]\n60 Mountain\n\n[Sideboard]\n15 Abrade\n",
         )
         .unwrap();
         let cmd_entry = DeckEntry {
