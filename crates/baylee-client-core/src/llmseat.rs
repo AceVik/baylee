@@ -507,6 +507,55 @@ pub struct Profile {
     /// [default: none; the card text of this build and the gateway only].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lookup: Option<LookupSource>,
+    /// The profiles of the same file that take a game over, first to last,
+    /// when the model is rate limited, out of its quota or unavailable
+    /// (`docs/llm-seat.md` §"A fallback profile"): one name, or a list of
+    /// them in order. Each must play a model behind an API, which the
+    /// bridge checks as the chair sits down; a fallback's own `fallback` is
+    /// never followed. Written as one name where it holds one, so a file
+    /// with one fallback reads as it always did.
+    #[serde(default, skip_serializing_if = "Vec::is_empty", with = "one_or_more")]
+    pub fallback: Vec<String>,
+}
+
+/// A [`Profile::fallback`]: one name, or a list of names.
+mod one_or_more {
+    use serde::de::{SeqAccess, Visitor};
+    use serde::{Deserializer, Serializer};
+
+    /// One name as itself, several (or none) as a list.
+    pub fn serialize<S: Serializer>(names: &[String], to: S) -> Result<S::Ok, S::Error> {
+        match names {
+            [one] => to.serialize_str(one),
+            more => to.collect_seq(more),
+        }
+    }
+
+    /// A name, or a list of names.
+    pub fn deserialize<'de, D: Deserializer<'de>>(from: D) -> Result<Vec<String>, D::Error> {
+        /// What a fallback reads as.
+        struct Names;
+        impl<'de> Visitor<'de> for Names {
+            type Value = Vec<String>;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a profile's name, or a list of profiles' names")
+            }
+
+            fn visit_str<E: serde::de::Error>(self, name: &str) -> Result<Self::Value, E> {
+                Ok(vec![name.to_owned()])
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                let mut names = Vec::new();
+                while let Some(name) = seq.next_element::<String>()? {
+                    names.push(name);
+                }
+                Ok(names)
+            }
+        }
+        from.deserialize_any(Names)
+    }
 }
 
 impl Profile {
@@ -529,6 +578,7 @@ impl Profile {
             base_url: None,
             command: None,
             lookup: None,
+            fallback: Vec::new(),
         }
     }
 
@@ -654,11 +704,28 @@ impl Profile {
         if let Some((why, sentence)) = self.command_fault() {
             say(Field::Command, why, sentence);
         }
+        if let Some(sentence) = self.fallback_fault() {
+            say(Field::Fallback, Why::NotAName, sentence);
+        }
         out
     }
 }
 
 impl Profile {
+    /// Why its `fallback` names something that is no profile's name, or
+    /// `None`. Whether each is a profile of the file, and one behind an
+    /// API, is for the bridge to say as the chair sits down.
+    fn fallback_fault(&self) -> Option<String> {
+        let name = self
+            .fallback
+            .iter()
+            .find(|name| !profile_name_is_a_name(name))?;
+        Some(format!(
+            "fallback names profiles of this file, and «{}» is not a profile name",
+            clip(name)
+        ))
+    }
+
     /// An API profile's price and dollar budget: amounts, and a dollar
     /// budget only where the model has a price.
     fn money_faults(&self, say: &mut impl FnMut(Field, Why, String)) {
@@ -821,11 +888,13 @@ pub enum Field {
     Command,
     /// `lookup`.
     Lookup,
+    /// `fallback`.
+    Fallback,
 }
 
 impl Field {
     /// Every field, in the order a profile writes them.
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 17] = [
         Self::Provider,
         Self::Model,
         Self::Effort,
@@ -842,6 +911,7 @@ impl Field {
         Self::BaseUrl,
         Self::Command,
         Self::Lookup,
+        Self::Fallback,
     ];
 
     /// Its path in a profile, as the file spells it: a price's two amounts
@@ -865,6 +935,7 @@ impl Field {
             Self::BaseUrl => &["base_url"],
             Self::Command => &["command"],
             Self::Lookup => &["lookup"],
+            Self::Fallback => &["fallback"],
         }
     }
 
