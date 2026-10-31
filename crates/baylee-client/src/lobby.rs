@@ -768,11 +768,14 @@ impl LobbyState {
         }
         lobby.set_gateway_ready(false);
         lobby.set_registration(Registration::Off);
-        let configured = crate::settings::gateway_url();
+        let raw = crate::settings::gateway_url();
         // In a browser, the gateway that served the page (#327); natively
-        // `None`, which changes nothing below.
-        let page =
-            gateway_list::page_gateway(crate::settings::page_origin().as_deref(), &configured);
+        // `None`, which changes nothing below. The live gateway's former
+        // address, configured or serving the page, is the live gateway
+        // (`gateway_list::moved`): its row, its guest, its terms.
+        let page = gateway_list::page_gateway(crate::settings::page_origin().as_deref(), &raw)
+            .map(|page| gateway_list::moved(&page).to_string());
+        let configured = gateway_list::moved(&raw).to_string();
         let mut gateways = gateway_list::with_page(
             gateway_list::with_pinned(
                 stored

@@ -208,6 +208,8 @@ fn router(app: Shared, token: [u8; 32]) -> Router {
         .merge(crate::termsadmin::console_routes())
         // Who comes in: `authmode.rs`.
         .merge(crate::authmode::console_routes())
+        // The link to Baylee Central by a pasted token: `central/link.rs`.
+        .merge(crate::central::console_routes())
         .fallback(no_such_route)
         .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY_BYTES))
         .layer(axum::middleware::from_fn_with_state(console.clone(), guard))

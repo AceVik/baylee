@@ -649,7 +649,7 @@ decks and settings as JSON.
   site's data; a registered account's session stays in memory, as natively.
   The browser's HTTP cache also keeps the client's files and the card images
   it fetched. A seat token may arrive in the page's URL. The hosted page
-  (`https://baylee.acevik.de/play/`, #327) sets no cookie and its policy
+  (`https://gateway.baylee.app/play/`, #327) sets no cookie and its policy
   lets it talk only to its own gateway and the three Scryfall hosts below.
 - **Third parties:**
   - the client fetches card images from `cards.scryfall.io` and

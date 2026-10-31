@@ -5,6 +5,7 @@ use baylee_client_core::lobby::gateway_info::Warning;
 use baylee_client_core::lobby::gateway_list;
 
 /// Accept only an HTTP(S) origin/base path, with no embedded credentials.
+/// The live gateway's former address is today's (`gateway_list::moved`).
 pub(super) fn normalize(value: &str) -> Option<String> {
     let url = url::Url::parse(value.trim()).ok()?;
     if !matches!(url.scheme(), "http" | "https")
@@ -16,7 +17,7 @@ pub(super) fn normalize(value: &str) -> Option<String> {
     {
         return None;
     }
-    Some(url.as_str().trim_end_matches('/').to_string())
+    Some(gateway_list::moved(url.as_str().trim_end_matches('/')).to_string())
 }
 
 impl LobbyState {
@@ -711,5 +712,12 @@ mod tests {
         ] {
             assert_eq!(normalize(bad), None);
         }
+    }
+
+    /// The live gateway's former address, typed, is saved by today's.
+    #[test]
+    fn a_typed_former_address_is_the_live_gateway_s() {
+        use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
+        assert_eq!(normalize(&format!("{KEYED}/")), Some(PINNED.to_string()));
     }
 }

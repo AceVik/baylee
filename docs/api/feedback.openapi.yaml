@@ -680,6 +680,177 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  /ui/api/admin/central:
+    get:
+      summary: The gateway's link to Baylee Central
+      description: "The gateway's `GET /admin/central`, passed on with its status: where its link to Baylee Central comes from and, for a pasted token, what Central says about it; never the token, only its last four characters."
+      operationId: central
+      tags:
+      - Console
+      security:
+      - session: []
+      responses:
+        "200":
+          description: The gateway's `GET /admin/central` answer, as it is
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: "No live session: signed out, or the session lapsed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: >-
+            The gateway refused this service's console token, did not answer within 10
+            seconds, or answered with a status or body this service does not pass on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            The database is unavailable, the gateway's console is shut after too many wrong
+            tokens, or the gateway's own `503`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /ui/api/admin/central/token:
+    put:
+      summary: Link the gateway to Baylee Central with a token
+      description: "The gateway's `PUT /admin/central/token`, passed on with its status: the gateway asks Baylee Central about the token, keeps it and uses it at once. This service writes an audit row without the token."
+      operationId: linkCentral
+      tags:
+      - Console
+      security:
+      - session: []
+        csrf: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CentralToken"
+        required: true
+      responses:
+        "200":
+          description: Linked, as the gateway's `GET /admin/central` answers
+          content:
+            application/json:
+              schema: {}
+        "400":
+          description: Not a token, or the gateway's own refusal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: "No live session: signed out, or the session lapsed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: "A cross-site request: no `X-Baylee-CSRF: 1`, an `Origin` that is not this host, or `Sec-Fetch-Site` other than `same-origin`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The gateway's operator file sets the link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "422":
+          description: Baylee Central does not know the token, or it was revoked or has expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: >-
+            The gateway refused this service's console token, did not answer within 10
+            seconds, or answered with a status or body this service does not pass on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            The database is unavailable, the gateway's console is shut after too many wrong
+            tokens, or the gateway's own `503`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    delete:
+      summary: Remove the gateway's pasted token
+      description: "The gateway's `DELETE /admin/central/token`, passed on with its status: the gateway forgets the token and is unlinked from Baylee Central at once."
+      operationId: unlinkCentral
+      tags:
+      - Console
+      security:
+      - session: []
+        csrf: []
+      responses:
+        "204":
+          description: Unlinked
+        "401":
+          description: "No live session: signed out, or the session lapsed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: "A cross-site request: no `X-Baylee-CSRF: 1`, an `Origin` that is not this host, or `Sec-Fetch-Site` other than `same-origin`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: |-
+            - No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
+            - No token is pasted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The gateway's operator file sets the link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: >-
+            The gateway refused this service's console token, did not answer within 10
+            seconds, or answered with a status or body this service does not pass on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            The database is unavailable, the gateway's console is shut after too many wrong
+            tokens, or the gateway's own `503`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   "/ui/api/admin/invites/{id}":
     delete:
       summary: Revoke a beta key
@@ -5356,6 +5527,16 @@ components:
       required:
       - changed
       description: What a bulk request did.
+    CentralToken:
+      type: object
+      properties:
+        token:
+          type: string
+          description: "`bgt_` and 64 lowercase hex digits."
+      required:
+      - token
+      additionalProperties: false
+      description: A gateway token, as the website showed it.
     Challenge:
       type: object
       properties:

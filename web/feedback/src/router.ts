@@ -14,7 +14,7 @@ export type Route =
   | { page: "contact"; search: string; id?: string }
   | { page: "admin"; section: AdminSection; id?: string; search?: string };
 
-export const ADMIN_SECTIONS = ["overview", "live", "accounts", "sets", "cards", "keys", "models", "access"] as const;
+export const ADMIN_SECTIONS = ["overview", "live", "accounts", "sets", "cards", "keys", "models", "access", "central"] as const;
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
 
 export function adminPath(section: AdminSection, id?: string): string {
@@ -33,7 +33,7 @@ export function parseRoute(pathname: string, search: string): Route {
   const contact = /^\/contact\/([^/]+)\/?$/.exec(pathname);
   if (contact?.[1] !== undefined) return { page: "contact", search: "", id: decodeURIComponent(contact[1]) };
   if (/^\/admin\/?$/.test(pathname)) return { page: "admin", section: "overview" };
-  const admin = /^\/admin\/(live|accounts|sets|cards|keys|models|access)(?:\/([^/]+))?\/?$/.exec(pathname);
+  const admin = /^\/admin\/(live|accounts|sets|cards|keys|models|access|central)(?:\/([^/]+))?\/?$/.exec(pathname);
   if (admin) {
     const section = admin[1] as AdminSection;
     const id = admin[2];

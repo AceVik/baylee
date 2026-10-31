@@ -99,6 +99,9 @@ async function startGateway(url: string, sql: postgres.Sql): Promise<{ child: Ch
       BAYLEE_REGISTRATION: "invite",
       // Guests come in only where the mode says so; unset is `central`.
       BAYLEE_AUTH_MODE: "guests",
+      // A pasted gateway token talks to Baylee Central; here to a closed
+      // loopback port, never the live service (central.spec.ts).
+      BAYLEE_CENTRAL_ENDPOINT: "http://127.0.0.1:9",
       BAYLEE_DB_POOL: "2",
       BAYLEE_ART_PATH: "off",
       BAYLEE_DECK_IMAGE_PATH: "off",

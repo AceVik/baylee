@@ -220,7 +220,7 @@ fn a_browser_and_a_strange_host_are_refused_before_the_token_is_read() {
         &[("Sec-Fetch-Site", "same-origin")][..],
         &[("Sec-Fetch-Mode", "cors")][..],
         &[("Host", "evil.example")][..],
-        &[("Host", "baylee.acevik.de")][..],
+        &[("Host", "gateway.baylee.app")][..],
     ] {
         let mut headers = vec![("Authorization", BEARER), ("X-Baylee-Admin", ADMIN)];
         headers.extend_from_slice(marks);

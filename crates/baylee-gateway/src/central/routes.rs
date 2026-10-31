@@ -11,11 +11,8 @@ use baylee_account::{
 };
 use std::{sync::Arc, time::Duration};
 
-fn bridge(state: &Shared) -> Result<&Arc<Bridge>, StatusCode> {
-    state
-        .central
-        .as_ref()
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)
+fn bridge(state: &Shared) -> Result<Arc<Bridge>, StatusCode> {
+    state.central.get().ok_or(StatusCode::SERVICE_UNAVAILABLE)
 }
 
 async fn exclusive(state: &Shared) -> Result<tokio::sync::RwLockWriteGuard<'_, ()>, StatusCode> {
@@ -246,7 +243,7 @@ async fn login_for(
         let bridge = bridge(state)?;
         let standing = crate::central::authorize(
             state,
-            bridge,
+            &bridge,
             *lease.to_secret_bytes(),
             identity.account,
             expires_at,

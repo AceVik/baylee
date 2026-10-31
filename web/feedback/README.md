@@ -1,7 +1,7 @@
 # The feedback service's web UI (#311)
 
 The page an admin triages player reports on, at
-`https://feedback.baylee.acevik.de/`. It is a React app built to static
+`https://feedback.baylee.app/`. It is a React app built to static
 files that `baylee-feedback` serves itself from `FEEDBACK_WEB_DIR`, and it
 talks only to that service's `/ui/api/…` routes (`docs/feedback.md` §"The
 web UI"). Besides the reports it has a *Contact* page (`/contact`) for the

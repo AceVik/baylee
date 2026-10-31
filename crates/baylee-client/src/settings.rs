@@ -378,8 +378,25 @@ impl ClientSettings {
     #[must_use]
     pub fn load() -> Self {
         store::read()
-            .and_then(|text| serde_json::from_str(&text).ok())
+            .and_then(|text| serde_json::from_str::<Self>(&text).ok())
+            .map(Self::moved)
             .unwrap_or_default()
+    }
+
+    /// The settings with what a client from before the live gateway's move
+    /// (30.10.2026) kept under its former address kept under the new one
+    /// (`gateway_list::moved`): the list, the uses, the guest and the
+    /// accepted terms. The next [`save`](Self::save) writes it so; running
+    /// it again changes nothing. A guest kept under both addresses keeps
+    /// both entries: neither token is overwritten.
+    #[must_use]
+    pub fn moved(mut self) -> Self {
+        use baylee_client_core::lobby::gateway_list;
+        self.gateways = gateway_list::renamed(std::mem::take(&mut self.gateways));
+        self.gateway_uses.moved();
+        gateway_list::rekeyed(&mut self.guests);
+        gateway_list::rekeyed(&mut self.terms);
+        self
     }
 
     /// Persists the settings (best-effort; neither a read-only home dir nor a
@@ -699,6 +716,55 @@ mod tests {
         assert!(odd.tours.lobby);
     }
 
+    /// A settings file as a client from before the live gateway's move
+    /// (30.10.2026) wrote it: everything it kept under the former address
+    /// is kept under the new one after [`ClientSettings::load`]'s
+    /// [`ClientSettings::moved`] (the guest's token above all, its only
+    /// credential), the other gateway's entries stay, and a second pass
+    /// changes nothing.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn a_file_from_before_the_move_keeps_everything_under_the_new_address() {
+        use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
+        let old = KEYED;
+        let own = "http://10.0.0.2:28766";
+        let text = format!(
+            r#"{{"gateways":["{own}","{old}"],
+                "gateway_uses":{{"{old}":{{"count":5,"last":7}},"{own}":{{"count":1,"last":2}}}},
+                "guests":{{"{old}":{{"token":"guest-token","handle":"Guest#1a2b"}}}},
+                "terms":{{"{old}":"2026-10-01"}}}}"#
+        );
+        let read = serde_json::from_str::<ClientSettings>(&text)
+            .expect("an old file decodes")
+            .moved();
+        assert_eq!(read.gateways, vec![own.to_string(), PINNED.to_string()]);
+        assert_eq!(read.gateway_uses.of(PINNED).count, 5);
+        assert_eq!(read.gateway_uses.of(PINNED).last, 7);
+        assert_eq!(read.gateway_uses.of(own).count, 1);
+        assert!(!read.gateway_uses.0.contains_key(old));
+        let guest = read.guests.get(PINNED).expect("the guest came over");
+        assert_eq!(guest.token, "guest-token");
+        assert_eq!(guest.handle, "Guest#1a2b");
+        assert!(!read.guests.contains_key(old));
+        assert_eq!(
+            read.terms.get(PINNED).map(String::as_str),
+            Some("2026-10-01")
+        );
+        assert!(!read.terms.contains_key(old));
+        let text = serde_json::to_string(&read).expect("encodes");
+        assert!(
+            !text.contains(old),
+            "nothing is written under the old address"
+        );
+        let again = serde_json::from_str::<ClientSettings>(&text)
+            .expect("decodes")
+            .moved();
+        assert_eq!(again.gateways, read.gateways);
+        assert_eq!(again.gateway_uses, read.gateway_uses);
+        assert_eq!(again.guests, read.guests);
+        assert_eq!(again.terms, read.terms);
+    }
+
     #[test]
     #[allow(clippy::too_many_lines)] // one literal naming every field, then one read of each
     fn settings_round_trip_through_json() {
@@ -720,7 +786,7 @@ mod tests {
                 width: 640.0,
                 height: 420.0,
             }),
-            last_username: "mail@acevik.de".to_string(),
+            last_username: "player@example.invalid".to_string(),
             gateway_uses: {
                 let mut uses = baylee_client_core::lobby::gateway_use::GatewayUses::default();
                 uses.record("https://example.test");
@@ -806,7 +872,7 @@ mod tests {
             "the view the player chose has to come back, or the buttons are a setting that \
              resets every launch"
         );
-        assert_eq!(read.last_username, "mail@acevik.de");
+        assert_eq!(read.last_username, "player@example.invalid");
         assert_eq!(read.gateway_uses, written.gateway_uses);
         assert_eq!(
             read.music, written.music,
@@ -826,8 +892,9 @@ mod tests {
     #[test]
     fn the_address_remembered_before_usernames_is_still_read() {
         let settings: ClientSettings =
-            serde_json::from_str(r#"{"last_email":"mail@acevik.de"}"#).expect("still decodes");
-        assert_eq!(settings.last_username, "mail@acevik.de");
+            serde_json::from_str(r#"{"last_email":"player@example.invalid"}"#)
+                .expect("still decodes");
+        assert_eq!(settings.last_username, "player@example.invalid");
     }
 
     /// A settings file naming a view mode this build has never heard of loads

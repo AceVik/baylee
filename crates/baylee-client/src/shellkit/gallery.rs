@@ -637,7 +637,7 @@ fn surfaces_panel(commands: &mut Commands, kit: Kit, lang: Lang, caps: &Caps) ->
         kit,
         &[
             "Baylee Sanctuary",
-            "https://baylee.acevik.de",
+            "https://gateway.baylee.app",
             "0.1.0-beta.5+build.2446",
         ],
     );

@@ -1,5 +1,7 @@
 //! Synthetic real gateway + Central + PostgreSQL migration, never production services.
 #![forbid(unsafe_code)]
+#[path = "central/aliases.rs"]
+mod aliases;
 #[path = "e2e_central/chat.rs"]
 mod chat;
 mod common;
@@ -15,8 +17,12 @@ mod registered;
 mod renewal;
 #[path = "central/terms.rs"]
 mod terms;
+#[path = "central/token.rs"]
+mod token;
 
-use baylee_account::{Account, CentralHttp, Endpoint, Token, data::AccountData, sdk};
+use baylee_account::{
+    Account, CentralHttp, Endpoint, Token, data::AccountData, sdk, wire::TicketPurpose,
+};
 use central_crypto::opaque::server::ServerKeys;
 use central_http::DevelopmentServer;
 use central_identity::IdentityService;
@@ -59,6 +65,24 @@ fn config_file(settings: &serde_json::Value) -> BridgeFile {
     let bytes = zeroize::Zeroizing::new(serde_json::to_vec(settings).unwrap());
     file.write_all(&bytes).unwrap();
     guard
+}
+
+/// The synthetic player's sign-in. Central allows an account eight a minute,
+/// and the steps before a caller may have spent them, so a busy answer waits.
+fn synthetic_signed_in(
+    http: &CentralHttp,
+    identity: baylee_account::wire::Identity,
+) -> sdk::Session {
+    for _ in 0..18 {
+        match sdk::login(http, identity, "a-very-fine-password".into()) {
+            Ok(session) => return session,
+            Err(baylee_account::Error::Busy) => {
+                std::thread::sleep(Duration::from_secs(5));
+            }
+            Err(error) => panic!("the synthetic player's sign-in: {error}"),
+        }
+    }
+    panic!("the synthetic player's sign-in stayed busy for 90 seconds");
 }
 
 fn database(role: &str, password: &str) -> DevConfig {
@@ -160,7 +184,9 @@ fn central_login_migrates_then_restores_and_admits_without_the_legacy_password()
         fresh::run(&runtime, &served.service, &operator, endpoint, gateway);
         registered::run(&runtime, &operator, endpoint);
         terms::run(&runtime, &operator, endpoint);
+        aliases::run(gateway, endpoint);
         official::run(&runtime, &operator, endpoint, &served.bridge, origin);
+        token::run(&runtime, &store, &operator, endpoint);
         held::run(&runtime, &store, &legacy, &operator);
         ui_fixture(endpoint, origin);
     }));
@@ -233,6 +259,8 @@ fn serve(
             &bridge,
             &origin,
         )
+        .unwrap()
+        .with_aliases(vec![aliases::ALIAS.into()])
         .unwrap()
         .with_terms(terms)
         .with_legacy(legacy.clone()),

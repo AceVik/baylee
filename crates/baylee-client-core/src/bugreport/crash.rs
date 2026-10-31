@@ -71,7 +71,8 @@ impl CrashFile {
     #[must_use]
     pub fn sends_to(&self, gateway: &str, pinned: &str) -> bool {
         let target = self.gateway.as_deref().unwrap_or(pinned);
-        target.trim_end_matches('/') == gateway.trim_end_matches('/')
+        // A file from before the live gateway moved names its former address.
+        crate::lobby::gateway_list::same(target, gateway)
     }
 }
 
@@ -248,6 +249,18 @@ mod tests {
         assert!(!file.sends_to(pinned, pinned));
         file.gateway = None;
         assert!(file.sends_to("https://live.example/", pinned));
+    }
+
+    /// A file written before the live gateway moved goes to it at its new
+    /// address.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn a_file_from_before_the_move_goes_to_the_live_gateway() {
+        use crate::lobby::gateway_list::{KEYED, PINNED};
+        let mut file = file();
+        file.gateway = Some(KEYED.into());
+        assert!(file.sends_to(PINNED, PINNED));
+        assert!(!file.sends_to("https://play.example", PINNED));
     }
 
     /// A crash report carries the crash and the build that crashed, the

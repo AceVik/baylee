@@ -29,10 +29,12 @@ pub fn history_path(name: &str) -> String {
 /// The chat folder of the account `tag` at `gateway`, relative to the
 /// client's config directory: `chat/<gw>/<tag>`, where `<gw>` is the first
 /// twelve hex characters of SHA-256 of the gateway's normalised base URL
-/// (lower case, no trailing `/`).
+/// (lower case, no trailing `/`); for the live gateway, of the address its
+/// keys are bound to (`gateway_list::keyed`).
 #[must_use]
 pub fn chat_folder(gateway: &str, tag: &str) -> String {
     let normal = gateway.trim().trim_end_matches('/').to_ascii_lowercase();
+    let normal = crate::lobby::gateway_list::keyed(&normal);
     let hash = Sha256::digest(normal.as_bytes());
     let gw = super::sealing::hex(&hash[..6]);
     let tag: String = tag.chars().filter(char::is_ascii_alphanumeric).collect();

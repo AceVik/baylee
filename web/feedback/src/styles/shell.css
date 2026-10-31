@@ -329,7 +329,7 @@
   }
 }
 
-/* A narrow phone: seven words do not fit under seven icons, so the icons
+/* A narrow phone: eight words do not fit under eight icons, so the icons
    stand alone (each link keeps its word for a screen reader). */
 @media (max-width: 480px) {
   .sections a span {

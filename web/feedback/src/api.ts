@@ -633,6 +633,22 @@ export interface AuthModeState {
   connected: boolean;
 }
 
+/** The gateway's link to Baylee Central (`GET /admin/central`); never a token, only its last four characters. */
+export interface CentralLink {
+  source: "file" | "token" | "none";
+  token: { last4: string; set_at: string; set_by: string } | null;
+  central: {
+    gateway: string;
+    origin: string;
+    name: string;
+    state: "pending" | "approved" | "disabled";
+    sso: boolean;
+    listing: boolean;
+    expires_at: string;
+  } | null;
+  check: "ok" | "rejected" | "unavailable" | null;
+}
+
 /** What `invite create` takes, as fields. */
 export interface InviteOrder {
   count?: number;
@@ -1159,6 +1175,13 @@ export const api = {
     authMode: {
       get: () => json<AuthModeState>("GET", "/ui/api/admin/auth-mode"),
       choose: (mode: AuthModeName) => json<AuthModeState>("PUT", "/ui/api/admin/auth-mode", { mode }),
+    },
+    central: {
+      link: () => json<CentralLink>("GET", "/ui/api/admin/central"),
+      paste: (token: string) => json<CentralLink>("PUT", "/ui/api/admin/central/token", { token }),
+      remove: async () => {
+        await request("DELETE", "/ui/api/admin/central/token");
+      },
     },
     cards: {
       search: async (q: string) =>

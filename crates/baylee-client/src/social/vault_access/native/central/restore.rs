@@ -263,7 +263,9 @@ fn import_keys(
         return Ok(Some(known.clone()));
     }
     Ok(Some(ChatDevice {
-        gateway: session.gateway.clone(),
+        // Filed where `Handle::chat_devices` looks, and where an installed
+        // client on another device looks too.
+        gateway: baylee_client_core::lobby::gateway_list::keyed(&session.gateway).to_string(),
         tag: session.tag.clone(),
         installation: installation.into(),
         device: keys.device_id().into(),
@@ -355,6 +357,57 @@ fn persist(path: &Path, source: &MemoryDisk) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The live gateway's chat after its move: the vault context an
+    /// installed client opened under the former address is this client's
+    /// (the same installation), and a first chat record is filed under the
+    /// address an installed client on another device looks for.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn the_live_gateway_s_chat_context_and_records_outlive_its_move() {
+        use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
+        struct Cleanup(std::path::PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let root = std::env::temp_dir()
+            .canonicalize()
+            .unwrap()
+            .join(format!("baylee-moved-chat-{}", uuid::Uuid::now_v7()));
+        let _cleanup = Cleanup(root.clone());
+        std::fs::create_dir(&root).unwrap();
+        let before = {
+            let context = ContextGuard::open(&root, Scope::new("af03", KEYED).unwrap()).unwrap();
+            context.installation().unwrap()
+        };
+        let session = Session {
+            gateway: PINNED.into(),
+            tag: "af03".into(),
+            handle: "Alice#af03".into(),
+            token: "synthetic token".into(),
+            guest: false,
+        };
+        let context =
+            ContextGuard::open(&root, Scope::new(&session.tag, &session.gateway).unwrap()).unwrap();
+        let installation = context.installation().unwrap();
+        assert_eq!(installation, before, "the same installation, not a new one");
+        let slot = social::SecretSlot::new(&session.tag, &session.gateway);
+        let first = import_keys(
+            &root,
+            &context,
+            &session,
+            &slot,
+            &installation,
+            &[],
+            Choice::Unlock,
+            "",
+        )
+        .unwrap()
+        .expect("a first identity");
+        assert_eq!(first.gateway, KEYED);
+    }
 
     #[test]
     fn a_new_installation_reuses_identity_and_never_replaces_keyless_ciphertext() {

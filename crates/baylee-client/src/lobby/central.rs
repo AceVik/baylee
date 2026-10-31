@@ -6,7 +6,7 @@
 
 use super::{Field, Lobby, LobbyEvent, LobbyState, Mailbox, Registration, Reply, http};
 use baylee_account::{Account, Endpoint, Error};
-use baylee_client_core::{Phrase, i18n::Lang, prefs::Preferences};
+use baylee_client_core::{Phrase, i18n::Lang, lobby::gateway_list, prefs::Preferences};
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
@@ -70,11 +70,14 @@ impl Handle {
         self.call(move |account| account.read_chat_history(&device))
     }
     /// Blocking adapter for an existing background job; never called by a render system.
+    /// The live gateway's records are filed under the address its keys are
+    /// bound to (`gateway_list::keyed`), by every client before and after its move.
     pub(crate) fn chat_devices(
         &self,
         gateway: String,
         tag: String,
     ) -> Result<Vec<baylee_account::chat::ChatDevice>, Error> {
+        let gateway = gateway_list::keyed(&gateway).to_string();
         self.call(move |account| account.chat_devices(&gateway, &tag))
     }
 
@@ -352,7 +355,7 @@ pub(super) fn login(state: &mut LobbyState, mailbox: &Mailbox, username: String,
         return;
     };
     let endpoint = central.endpoint.clone();
-    let gateways = central.local_gateways.clone();
+    let gateways = gateway_list::filed(&central.local_gateways);
     let target = mailbox.clone();
     let epoch = state.gateway_epoch;
     let already_signed_in = central.handle.is_some();
@@ -370,8 +373,13 @@ pub(super) fn login(state: &mut LobbyState, mailbox: &Mailbox, username: String,
                 let endpoint = endpoint?;
                 let account =
                     Account::login(endpoint.clone(), username, password.to_string(), gateways)?;
-                let chat_unlock = endpoint.legacy_origin().map(|gateway| {
-                    crate::social::vault_access::Login::central(gateway, password.to_string())
+                // The chat unlock is for the live gateway, and only in a
+                // live sign-in (`legacy_origin` is that test).
+                let chat_unlock = endpoint.legacy_origin().map(|_| {
+                    crate::social::vault_access::Login::central(
+                        gateway_list::PINNED,
+                        password.to_string(),
+                    )
                 });
                 let Ok(preferences) = serde_json::from_value(account.data().preferences.clone())
                 else {
@@ -428,7 +436,9 @@ pub(super) fn receive(
             state.lobby.set_field(Field::Username, &username);
             state.lobby.set_gateway_ready(false);
             state.gateway_selected = false;
-            state.gateways = restored.gateways;
+            // The document names the live gateway by its first address
+            // (`gateway_list::filed`); this client shows it by today's.
+            state.gateways = gateway_list::renamed(restored.gateways);
             state.gateway_cursor = (!state.gateways.is_empty()).then_some(0);
             for url in state.unasked_gateways() {
                 http::probe_gateway(url, mailbox);
@@ -550,7 +560,7 @@ pub(super) fn sync_gateways(
     if let Ok(mut login) = central.chat_unlock.lock()
         && login
             .as_ref()
-            .is_some_and(|login| !login.fresh_for("https://baylee.acevik.de"))
+            .is_some_and(|login| !login.fresh_for(gateway_list::PINNED))
     {
         *login = None;
     }
@@ -590,10 +600,10 @@ pub(super) fn sync_gateways(
         }
         return;
     }
-    if central.saved_gateways == state.gateways {
+    let gateways = gateway_list::filed(&state.gateways);
+    if central.saved_gateways == gateways {
         return;
     }
-    let gateways = state.gateways.clone();
     let result = Arc::new(Mutex::new(None));
     let done = result.clone();
     if handle.save(None, Some(gateways.clone()), move |reply| {
@@ -861,6 +871,47 @@ mod tests {
         assert!(!terms_pending(&state));
         readmit(&mut state, &mailbox);
         assert!(jobs.try_recv().is_ok(), "accepted, the gateway is entered");
+    }
+
+    /// An account's list from before the live gateway's move (or sealed by
+    /// the website, which names its first address) shows the live gateway
+    /// by today's address, and is not written back in the new spelling: an
+    /// installed client on another device reads the list it always read.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn the_account_s_list_shows_the_live_gateway_by_today_s_address() {
+        use bevy::ecs::system::RunSystemOnce as _;
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        enable(&mut state);
+        let other = "https://other.invalid".to_string();
+        // Probed already: the test asks no gateway anything, the live one least.
+        for url in [gateway_list::PINNED.to_string(), other.clone()] {
+            state.probes.insert(url, Probe::Asking);
+        }
+        let (send, jobs) = mpsc::sync_channel::<Job>(4);
+        let restored = Restored {
+            handle: Handle {
+                send,
+                active: Arc::new(AtomicBool::new(true)),
+            },
+            gateways: vec![gateway_list::KEYED.into(), other.clone()],
+            preferences: Preferences::default(),
+            chat_unlock: None,
+            terms_pending: false,
+        };
+        let mailbox = Mailbox::default();
+        let mut prefs = crate::prefs::Prefs::default();
+        receive(&mut state, &mut prefs, &mailbox, Ok(Box::new(restored)));
+        assert_eq!(
+            state.gateways,
+            vec![gateway_list::PINNED.to_string(), other]
+        );
+        assert!(mailbox.0.lock().unwrap().is_empty(), "nothing was probed");
+        let mut world = bevy::prelude::World::new();
+        world.insert_resource(state);
+        world.insert_resource(prefs);
+        world.run_system_once(sync_gateways).unwrap();
+        assert!(jobs.try_recv().is_err(), "the list is not rewritten");
     }
 
     #[test]

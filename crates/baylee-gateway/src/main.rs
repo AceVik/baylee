@@ -76,7 +76,7 @@ use tracing_subscriber::EnvFilter;
 
 /// Shared gateway state.
 struct AppState {
-    central: Option<Arc<central::Bridge>>,
+    central: central::Link,
     central_barrier: tokio::sync::RwLock<()>,
     /// Accounts, sessions, decks, links, preferences.
     ///
@@ -392,7 +392,7 @@ async fn main() {
         tracing::warn!("BAYLEE_AGENT_TOKEN is not set: no agent can connect, so no game can start");
     }
     let state = Arc::new(AppState {
-        central: central::Bridge::from_env()
+        central: central::Link::from_env()
             .unwrap_or_else(|()| panic!("central bridge configuration rejected")),
         central_barrier: tokio::sync::RwLock::new(()),
         db,
@@ -461,6 +461,9 @@ async fn main() {
     spawn_cleanup(state.clone());
     spawn_ticket_sweep(state.clone());
     metrics::spawn(state.clone());
+    // A pasted token's link first: whether Central's sign-in reaches this
+    // gateway depends on it.
+    central::restore(&state).await;
     state
         .auth_mode
         .restore(&state.db)
@@ -471,8 +474,9 @@ async fn main() {
         tracing::warn!(
             mode = mode.as_str(),
             "this gateway takes Baylee Central's accounts and is not connected to Central \
-             (BAYLEE_CENTRAL_CONFIG_FILE): no Central sign-in reaches it yet, so it lets in \
-             {}; allow guests in the console or with BAYLEE_AUTH_MODE, or connect it",
+             (a token pasted into the console, or BAYLEE_CENTRAL_CONFIG_FILE): no Central \
+             sign-in reaches it yet, so it lets in {}; allow guests in the console or with \
+             BAYLEE_AUTH_MODE, or connect it",
             if mode.guests() {
                 "guests only"
             } else {
@@ -480,7 +484,7 @@ async fn main() {
             }
         );
     }
-    let _central_heartbeat = central::Heartbeat::start(state.central.as_ref());
+    let _central_heartbeat = central::Heartbeat::start(state.clone());
     central::spawn_terms_publisher(state.clone());
     social::sweep::sweep(&state).await;
     social::presence::spawn(state.clone());

@@ -59,9 +59,18 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
     let registered = owner
         .register_gateway(&http, origin.into(), metadata.clone())
         .unwrap();
+    // Approval is for the public list only (Central #51): a registered gateway
+    // admits players while it waits, but the list does not show it yet.
     assert!(
-        owner.gateway_ticket(&http, origin.into()).is_err(),
-        "registration alone cannot approve an origin"
+        owner.gateway_ticket(&http, origin.into()).is_ok(),
+        "a gateway awaiting approval admits players"
+    );
+    assert!(
+        !sdk::gateway_directory(&http, None)
+            .unwrap()
+            .iter()
+            .any(|entry| entry.origin == origin),
+        "registration alone does not list an origin"
     );
     runtime.block_on(async {
         operator

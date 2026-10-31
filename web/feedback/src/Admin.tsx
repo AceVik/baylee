@@ -1,8 +1,8 @@
 // The admin console (`/admin/…`, docs/feedback.md §"The admin console"):
 // a gateway's overview, its live tables and server, its accounts, the
-// pool's progress by set, its blocked cards, its closed-beta keys and who
-// it lets in, behind one section bar that sits on top on a wide screen and at the
-// bottom of a phone, under the thumb.
+// pool's progress by set, its blocked cards, its closed-beta keys, its link
+// to Baylee Central and who it lets in, behind one section bar that sits on
+// top on a wide screen and at the bottom of a phone, under the thumb.
 
 import { useEffect } from "react";
 
@@ -10,6 +10,7 @@ import { Access } from "./admin/Access";
 import { AccountDetail } from "./admin/AccountDetail";
 import { Accounts } from "./admin/Accounts";
 import { Cards } from "./admin/Cards";
+import { Central } from "./admin/Central";
 import { Keys } from "./admin/Keys";
 import { Live } from "./admin/Live";
 import { Models } from "./admin/Models";
@@ -35,6 +36,8 @@ const ICONS: Record<AdminSection, string> = {
   keys: "M7 14a2 2 0 1 1 2-2 2 2 0 0 1-2 2zm5.6-4A6 6 0 1 0 12.6 14H17v4h4v-4h2v-4z",
   // A door standing open: who comes in.
   access: "M5 21V3h10v2H7v14h8v2zm10-16 6 2v12l-6 2zm1.5 7.5a1 1 0 1 0 0 .01z",
+  // A link of two rings: the gateway joined to Baylee Central.
+  central: "M10.6 13.4a1 1 0 0 1 0-1.4l3.5-3.5a3 3 0 1 1 4.2 4.2l-1.8 1.8-1.4-1.4 1.8-1.8a1 1 0 0 0-1.4-1.4L12 13.4a1 1 0 0 1-1.4 0zm2.8-2.8a1 1 0 0 1 0 1.4l-3.5 3.5a3 3 0 1 1-4.2-4.2l1.8-1.8 1.4 1.4-1.8 1.8a1 1 0 0 0 1.4 1.4L12 10.6a1 1 0 0 1 1.4 0z",
 };
 
 const LABELS: Record<AdminSection, Key> = {
@@ -46,6 +49,7 @@ const LABELS: Record<AdminSection, Key> = {
   keys: "sec.keys",
   models: "sec.models",
   access: "sec.access",
+  central: "sec.central",
 };
 
 function SectionBar({ lang, section }: { lang: Lang; section: AdminSection }) {
@@ -98,6 +102,7 @@ export function Admin({
         {section === "keys" && <Keys lang={lang} />}
         {section === "models" && <Models lang={lang} />}
         {section === "access" && <Access lang={lang} />}
+        {section === "central" && <Central lang={lang} />}
       </main>
     </div>
   );

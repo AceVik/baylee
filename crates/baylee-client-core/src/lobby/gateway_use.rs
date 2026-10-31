@@ -38,6 +38,26 @@ impl GatewayUses {
         entry.last = next;
     }
 
+    /// Counts the uses kept under a former address of the live gateway as
+    /// uses of [`PINNED`](super::gateway_list::PINNED): the counts add up,
+    /// the later use stays the last. Running it again changes nothing.
+    pub fn moved(&mut self) {
+        use super::gateway_list::{PINNED, moved};
+        let former: Vec<String> = self
+            .0
+            .keys()
+            .filter(|key| key.as_str() != PINNED && moved(key) == PINNED)
+            .cloned()
+            .collect();
+        for key in former {
+            if let Some(old) = self.0.remove(&key) {
+                let entry = self.0.entry(PINNED.to_string()).or_default();
+                entry.count = entry.count.saturating_add(old.count);
+                entry.last = entry.last.max(old.last);
+            }
+        }
+    }
+
     /// Forgets an address, when it leaves the list.
     pub fn forget(&mut self, address: &str) {
         self.0.remove(address);
