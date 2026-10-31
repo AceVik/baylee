@@ -38,6 +38,17 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 /// An open seat socket.
 pub type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
+/// How a seat files its game's bug report ([`SeatLink::reporter`]).
+#[derive(Clone, Copy)]
+pub(crate) enum Reporter<'a> {
+    /// Under its own session, as a player does (`POST /reports`).
+    Session(&'a Lobby, &'a Session),
+    /// On its chair's seat token, the chair taken on its host's ticket
+    /// (`POST /lobby/games/{id}/chair/report`): the gateway files it under
+    /// the host's pseudonym.
+    Chair(&'a Lobby, &'a Chair),
+}
+
 /// How long a chair taken on its host's ticket goes on being refused (`401`)
 /// before it counts its room as closed to it.
 ///
@@ -132,13 +143,13 @@ impl SeatLink {
         Ok(Some(deck.list))
     }
 
-    /// The gateway and the seat's own session, to file the game's reports
-    /// with; `None` for a chair taken on its host's ticket, which has no
-    /// session.
-    pub(crate) const fn reporter(&self) -> Option<(&Lobby, &Session)> {
+    /// Where the game's reports are filed, and with what: the seat's own
+    /// session where it has one, else, for a chair taken on its host's
+    /// ticket, the chair's seat token.
+    pub(crate) const fn reporter(&self) -> Reporter<'_> {
         match &self.session {
-            Some(session) => Some((&self.lobby, session)),
-            None => None,
+            Some(session) => Reporter::Session(&self.lobby, session),
+            None => Reporter::Chair(&self.lobby, &self.chair),
         }
     }
 

@@ -1885,7 +1885,9 @@ bound.
   pieces and forwards none; nothing a seat socket or the lobby can ask reads
   them. Two readers a route reaches: `POST /reports`, for a player who sat
   at the game, which passes it to the feedback service (`docs/feedback.md`)
-  through `records::for_seated`; and a replay job (§"Replays"), which hands
+  through `records::for_seated` (and `POST …/chair/report`, for a host's
+  seat bridge, the one game its seat token opens, through
+  `records::for_delegate`); and a replay job (§"Replays"), which hands
   it only to an engine on the engine link through `records::for_projection`
   after the route found the account's seat. A replay is a projection, never
   the record.
@@ -4314,6 +4316,7 @@ needs no account at all (`crates/baylee-gateway/src/chair.rs`):
 | its mind answered its check | `POST /lobby/games/{id}/chair/ready` `{ready?}`, `Authorization: Bearer <seat token>` | `204`; `403` for a person's chair (they say ready with their session) |
 | is the game on | `GET /lobby/games/{id}/chair`, `Authorization: Bearer <seat token>` | `{game_id, seat, state, decide_secs, ready}`; `401` once the token opens nothing (the host took the chair back, or left) |
 | give the chair back before the game | `POST /lobby/games/{id}/chair/leave`, `Authorization: Bearer <seat token>` | `204`; `403` for a person's chair |
+| send its game's bug report | `POST /lobby/games/{id}/chair/report`, the body `POST /reports` takes, `Authorization: Bearer <seat token>` | `201 {report_id}`; `403` for a person's chair (they report with their session), `400` for a `game_id` of another game or a `local_record`, `409` once the chair has sent one; as `POST /reports` otherwise (`docs/feedback.md`) |
 
 A chair ticket is the same kind of secret as a socket's (§"Opening a
 socket: tickets"), in a store of its own:
@@ -4375,6 +4378,18 @@ arranging it (`POST …/seats/{seat}` with a `kind`), which ends its seat
 token; a host who leaves the room or deletes its account takes every chair
 it handed out with it. A rematch room copies no delegate: the chair waits
 open, on its side, for the host to seat another.
+
+**Its report.** The bridge has no session, so its language model's bug
+report about the game goes on its seat token (`…/chair/report`, owner,
+31.10.2026, `report::post_chair_report`): about this game only (a
+`game_id` empty or this one; the gateway files it under this one), with
+no `local_record`, once a chair a game (`Delegate::reported`, given back
+when the feedback service did not take it), for as long as the room is
+in the lobby (an hour after the game ends). The gateway passes it on as
+it does a player's, under the pseudonym of the host who answers for the
+chair and against the host's 64 an hour, with this game's record, read
+for the chair that played it (`records::for_delegate`: the token's game,
+its chair and its host), never another table's.
 
 **What the record says.** `game_record_seat` carries `delegated_by` beside
 `account_id` (migration `m20261006_000013_delegated_seats`): a delegate's

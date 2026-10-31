@@ -1,5 +1,6 @@
 //! A game's reports as the bridge files them: one bug report to a
-//! stand-in gateway on this machine, under the seat's session, or none.
+//! stand-in gateway on this machine, under the seat's session or on the
+//! seat token of a chair taken on its host's ticket, or none.
 
 use super::*;
 use crate::lobby::{Chair, Lobby, Session};
@@ -7,43 +8,47 @@ use crate::mind::{Disclosure, Request, Thinking};
 use crate::reports::{Filed, Report};
 use axum::Router;
 use axum::extract::State;
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{HeaderMap, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Value, json};
 use std::sync::Mutex;
 
-/// What the stand-in gateway was sent: the session it was shown and the
-/// body.
-type Sent = Arc<Mutex<Vec<(Option<String>, Value)>>>;
+/// What the stand-in gateway was sent: the path, the bearer it was shown
+/// and the body.
+type Sent = Arc<Mutex<Vec<(String, Option<String>, Value)>>>;
 
-/// A gateway whose `POST /reports` answers `status`, keeping what it was
-/// sent.
+/// Where a chair taken on its host's ticket sends its report.
+const CHAIR_REPORT: &str = "/lobby/games/TEST-game/chair/report";
+
+/// A gateway whose `POST /reports` and `POST …/chair/report` answer
+/// `status`, keeping what they were sent.
 async fn gateway(status: u16) -> (String, Sent) {
     let sent: Sent = Arc::default();
+    let take = move |State(sent): State<Sent>, uri: Uri, headers: HeaderMap, body: String| async move {
+        let bearer = headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+        crate::llm::lock(&sent).push((
+            uri.path().to_string(),
+            bearer,
+            serde_json::from_str(&body).unwrap(),
+        ));
+        let status = StatusCode::from_u16(status).unwrap();
+        let answer: Response = if status.is_success() {
+            (status, axum::Json(json!({"report_id": "TEST-report"}))).into_response()
+        } else {
+            (
+                status,
+                axum::Json(json!({"error": "reports are not configured"})),
+            )
+                .into_response()
+        };
+        answer
+    };
     let app = Router::new()
-        .route(
-            "/reports",
-            axum::routing::post(
-                move |State(sent): State<Sent>, headers: HeaderMap, body: String| async move {
-                    let bearer = headers
-                        .get("authorization")
-                        .and_then(|v| v.to_str().ok())
-                        .map(str::to_string);
-                    crate::llm::lock(&sent).push((bearer, serde_json::from_str(&body).unwrap()));
-                    let status = StatusCode::from_u16(status).unwrap();
-                    let answer: Response = if status.is_success() {
-                        (status, axum::Json(json!({"report_id": "TEST-report"}))).into_response()
-                    } else {
-                        (
-                            status,
-                            axum::Json(json!({"error": "reports are not configured"})),
-                        )
-                            .into_response()
-                    };
-                    answer
-                },
-            ),
-        )
+        .route("/reports", axum::routing::post(take))
+        .route("/lobby/games/{id}/chair/report", axum::routing::post(take))
         .with_state(Arc::clone(&sent));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -160,11 +165,13 @@ async fn a_game_s_reports_go_to_the_gateway_once_under_the_seat_s_session() {
             sent: true,
             report_id: Some("TEST-report".into()),
             why: None,
+            route: "reports",
         }
     );
     let sent = crate::llm::lock(&sent).clone();
     assert_eq!(sent.len(), 1, "one bug report a game");
-    let (bearer, body) = &sent[0];
+    let (path, bearer, body) = &sent[0];
+    assert_eq!(path, "/reports");
     assert_eq!(
         bearer.as_deref(),
         Some("Bearer TEST-session"),
@@ -186,31 +193,63 @@ async fn a_game_s_reports_go_to_the_gateway_once_under_the_seat_s_session() {
         assert!(!body.to_string().contains(bare), "{bare} was sent");
     }
     assert_eq!(noted(&transcript)[0]["sent"], true);
+    assert_eq!(noted(&transcript)[0]["route"], "reports");
+}
+
+/// A chair taken on its host's ticket has no session: it sends the same
+/// bug report on its seat token, to its chair's own route, and the
+/// transcript says so.
+#[tokio::test]
+async fn a_chair_on_its_host_s_ticket_sends_on_its_seat_token() {
+    let (base, sent) = gateway(201).await;
+    let mut transcript = Transcript::memory();
+    let memory = crate::reports::tests::log::told(crate::reports::tests::log::game());
+    let filing = bridge(&["Bolt dealt 2."], true)
+        .file_reports(&link(&base, false), &mut transcript, &memory)
+        .await
+        .unwrap();
+    assert_eq!(
+        filing,
+        Filing {
+            count: 1,
+            sent: true,
+            report_id: Some("TEST-report".into()),
+            why: None,
+            route: "chair",
+        }
+    );
+    let sent = crate::llm::lock(&sent).clone();
+    assert_eq!(sent.len(), 1);
+    let (path, bearer, body) = &sent[0];
+    assert_eq!(path, CHAIR_REPORT);
+    assert_eq!(bearer.as_deref(), Some("Bearer TEST-seat-token"));
+    assert_eq!(body["game_id"], "TEST-game");
+    assert_eq!(body["client"]["source"], "llm-seat");
+    assert!(body["client"]["log"]["lines"].is_array());
+    assert!(!body.to_string().contains("TEST-seat-token"));
+    let noted = noted(&transcript);
+    assert_eq!(
+        (&noted[0]["sent"], &noted[0]["route"]),
+        (&json!(true), &json!("chair"))
+    );
 }
 
 #[tokio::test]
 async fn reports_stay_at_home_when_they_may_not_or_cannot_go() {
-    // Told not to: nothing is sent.
+    // Told not to: nothing is sent, by either route.
     let (base, sent) = gateway(201).await;
     let mut transcript = Transcript::memory();
-    let filing = bridge(&["x"], false)
-        .file_reports(&link(&base, true), &mut transcript, &untold())
-        .await
-        .unwrap();
-    assert!(!filing.sent);
-    assert_eq!(
-        filing.why.as_deref(),
-        Some("not sent: the bridge was told not to")
-    );
-    // A chair on its host's ticket has no session to send them under.
-    let filing = bridge(&["x"], true)
-        .file_reports(&link(&base, false), &mut transcript, &untold())
-        .await
-        .unwrap();
-    assert_eq!(
-        filing.why.as_deref(),
-        Some("not sent: the chair has no session of its own")
-    );
+    for session in [true, false] {
+        let filing = bridge(&["x"], false)
+            .file_reports(&link(&base, session), &mut transcript, &untold())
+            .await
+            .unwrap();
+        assert!(!filing.sent);
+        assert_eq!(
+            filing.why.as_deref(),
+            Some("not sent: the bridge was told not to")
+        );
+    }
     assert!(crate::llm::lock(&sent).is_empty());
     // A gateway with no feedback service refuses: said, and nothing more.
     let (base, sent) = gateway(503).await;
@@ -240,13 +279,14 @@ async fn reports_stay_at_home_when_they_may_not_or_cannot_go() {
 #[tokio::test]
 async fn a_report_holding_a_token_is_not_sent() {
     let (base, sent) = gateway(201).await;
-    for (what, label) in [
-        ("The table showed TEST-session.", "session token"),
-        ("My chair is TEST-seat-token.", "seat token"),
+    for (what, label, session) in [
+        ("The table showed TEST-session.", "session token", true),
+        ("My chair is TEST-seat-token.", "seat token", true),
+        ("My chair is TEST-seat-token.", "seat token", false),
     ] {
         let mut transcript = Transcript::memory();
         let filing = bridge(&[what], true)
-            .file_reports(&link(&base, true), &mut transcript, &untold())
+            .file_reports(&link(&base, session), &mut transcript, &untold())
             .await
             .unwrap();
         assert!(!filing.sent);

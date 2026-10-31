@@ -15,6 +15,14 @@
 //! checks for a record's shape and keeps apart from the gateway's records.
 //! A report is about one game or the other, never both.
 //!
+//! A host's seat bridge (`chair.rs`) has a seat token and no session, and
+//! sends its language model's report about its game on that token instead
+//! (`POST /lobby/games/{id}/chair/report`): about that game only, once a
+//! chair, under the pseudonym and budget of the host who answers for the
+//! chair (owner, 31.10.2026), and with that game's record, which the chair
+//! played (`records::for_delegate`). Both routes pass a report on the same
+//! way ([`forward`]).
+//!
 //! Configured by `BAYLEE_FEEDBACK_URL` (the service; unset = `503`),
 //! `BAYLEE_FEEDBACK_TOKEN` (this gateway's intake token there) and
 //! `BAYLEE_FEEDBACK_KEY` (the key the pseudonym is made with; unset = one
@@ -24,7 +32,7 @@ use std::time::Duration;
 
 use axum::Json;
 use axum::body::Bytes;
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode};
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
@@ -330,14 +338,81 @@ struct ServiceCreated {
     report_id: String,
 }
 
-/// The route, with a body limit of its own: a whole `client` object is
-/// larger than axum's default.
+/// The largest body a chair's report is read with: a full `client` object
+/// and a full text, with room for the JSON around them. It carries no
+/// local record.
+pub const MAX_CHAIR_BODY_BYTES: usize = MAX_CLIENT_BYTES + 256 * 1024;
+
+/// The routes, each with a body limit of its own: a whole `client` object
+/// is larger than axum's default.
 pub fn routes() -> axum::Router<Shared> {
-    axum::Router::new().route(
-        "/reports",
-        axum::routing::post(post_report)
-            .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY_BYTES)),
-    )
+    axum::Router::new()
+        .route(
+            "/reports",
+            axum::routing::post(post_report)
+                .layer(axum::extract::DefaultBodyLimit::max(MAX_BODY_BYTES)),
+        )
+        .route(
+            "/lobby/games/{id}/chair/report",
+            axum::routing::post(post_chair_report)
+                .layer(axum::extract::DefaultBodyLimit::max(MAX_CHAIR_BODY_BYTES)),
+        )
+}
+
+/// Who files a report, and so whose pseudonym and budget it goes under and
+/// which game's record it may carry.
+enum Reporter<'a> {
+    /// A signed-in account: the record of the game it names, when the
+    /// account sat at it.
+    Account(&'a str),
+    /// The seat bridge in chair `seat` of the game its seat token opens, a
+    /// host's delegate (`chair.rs`). The host answers for the chair, so the
+    /// report goes under the host's pseudonym and budget (owner,
+    /// 31.10.2026), and its record is that game's, which the chair played.
+    Delegate {
+        /// The account that handed the chair over (`Delegate::by`).
+        host: &'a str,
+        /// The chair.
+        seat: usize,
+    },
+}
+
+impl Reporter<'_> {
+    /// The account the report is counted against and named after.
+    const fn account(&self) -> &str {
+        match self {
+            Self::Account(account) | Self::Delegate { host: account, .. } => account,
+        }
+    }
+
+    /// Whether `chair` is the reporter's: the account's own, or the
+    /// delegate's chair its host still answers for.
+    fn sat_in(&self, chair: &crate::lobby::LobbySeat) -> bool {
+        match self {
+            Self::Account(account) => chair.account_id.as_deref() == Some(*account),
+            Self::Delegate { host, seat } => {
+                chair.seat == *seat && chair.delegate.as_ref().is_some_and(|d| d.by == *host)
+            }
+        }
+    }
+
+    /// The stored record of `game_id`, if the reporter sat at that game
+    /// ([`baylee_db::records::for_seated`], `for_delegate`).
+    async fn record(
+        &self,
+        state: &Shared,
+        game_id: &str,
+    ) -> Result<Option<baylee_db::records::Record>, sea_orm::DbErr> {
+        let Ok(account) = uuid::Uuid::parse_str(self.account()) else {
+            return Ok(None);
+        };
+        match self {
+            Self::Account(_) => baylee_db::records::for_seated(&state.db, game_id, account).await,
+            Self::Delegate { seat, .. } => {
+                baylee_db::records::for_delegate(&state.db, game_id, *seat, account).await
+            }
+        }
+    }
 }
 
 /// `POST /reports`.
@@ -369,35 +444,154 @@ pub async fn post_report(
     body: Bytes,
 ) -> Result<(StatusCode, Json<Created>), (StatusCode, Json<ErrorBody>)> {
     let session = crate::authed_session(&state, &headers).await?;
-    let feedback = &state.feedback;
-    let Some(url) = feedback.url.clone() else {
-        return Err(err(
+    let url = configured(&state)?;
+    let report = validate(&body).map_err(|(status, why)| err(status, why))?;
+    forward(
+        &state,
+        url,
+        &Reporter::Account(&session.account_id),
+        &report,
+    )
+    .await
+}
+
+/// Where reports go, or `503` where they go nowhere.
+fn configured(state: &Shared) -> Result<String, (StatusCode, Json<ErrorBody>)> {
+    state.feedback.url.clone().ok_or_else(|| {
+        err(
             StatusCode::SERVICE_UNAVAILABLE,
             "reports are not configured",
+        )
+    })
+}
+
+/// A host's seat bridge sending its game's report on its chair's seat
+/// token: `POST /lobby/games/{id}/chair/report`.
+///
+/// @route POST /lobby/games/{id}/chair/report
+/// @scope public
+/// @operation-id `send_chair_report`
+/// @summary A seat bridge sends its game's report
+/// @description A host's seat bridge, which has a seat token and no
+/// session, sends the bug report its language model wrote about its game,
+/// in the body `POST /reports` takes. The gateway passes it on as it does
+/// a player's, under the pseudonym of the host who handed the chair over
+/// and against that host's budget, with this game's record, which the
+/// chair played. About this game only: a `game_id` is empty or this one,
+/// and no `local_record`. One report a chair a game; it may be sent until
+/// the room leaves the lobby (an hour after the game ends). A person
+/// reports with their session.
+/// @tag Chairs
+/// @security `seatToken`
+/// @path-param id: String "The game's id"
+/// @body `$Report`
+/// @return 201: `$ReportReceipt` "The feedback service took it"
+/// @return 400: `$ErrorBody` "Not a report (as `POST /reports`), a `game_id` of another game, or a `local_record`"
+/// @return 401: `$ErrorBody` "No seat token, or one that is not this game's any more (`ticket expired or used`, `invalid seat token`)"
+/// @return 403: `$ErrorBody` "The chair is a person's, not a seat bridge's"
+/// @return 404: `$ErrorBody` "No such game"
+/// @return 409: `$ErrorBody` "This chair has sent its game's report"
+/// @return 413: `$ErrorBody` "The text is over 20000 characters or `client` over 2 MiB; a body over 2.25 MiB is refused before it is read, in plain text"
+/// @return 429: `$ErrorBody` "64 reports in the last hour on the host's account"
+/// @return 500: `$ErrorBody` "The report could not be encoded"
+/// @return 502: `$ErrorBody` "The feedback service did not take it"
+/// @return 503: `$ErrorBody` "Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset), or the database or Baylee Central is unavailable"
+pub(crate) async fn post_chair_report(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Result<(StatusCode, Json<Created>), (StatusCode, Json<ErrorBody>)> {
+    crate::routes::seat_socket::authorize_seat_bearer(&state, &id, &headers).await?;
+    let url = configured(&state)?;
+    let mut report = validate(&body).map_err(|(status, why)| err(status, why))?;
+    if report.local_record.is_some() {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "a chair's report is about its own game, whose record the gateway keeps",
         ));
+    }
+    if report.game_id.as_deref().is_some_and(|game| game != id) {
+        return Err(err(
+            StatusCode::BAD_REQUEST,
+            "a chair reports about its own game only",
+        ));
+    }
+    // About this game, which the token opens, whatever the body named.
+    report.game_id = Some(id.clone());
+    // The chair is taken for its one report under the lobby's lock, so two
+    // at once cannot both go.
+    let (host, seat) = {
+        let mut lobby = state.lobby.lock();
+        let (game, seat) = crate::chair::by_seat_token(&mut lobby, &id, &headers)?;
+        let Some(delegate) = game.seats[seat].delegate.as_mut() else {
+            return Err(err(
+                StatusCode::FORBIDDEN,
+                "a player reports with their session, not their seat token",
+            ));
+        };
+        if delegate.reported {
+            return Err(err(
+                StatusCode::CONFLICT,
+                "this chair has sent its game's report",
+            ));
+        }
+        delegate.reported = true;
+        (delegate.by.clone(), seat)
     };
-    let report = validate(&body).map_err(|(status, why)| err(status, why))?;
+    let reporter = Reporter::Delegate { host: &host, seat };
+    let filed = forward(&state, url, &reporter, &report).await;
+    if filed.is_err() {
+        // Not sent: the chair may send it again.
+        let mut lobby = state.lobby.lock();
+        if let Some(delegate) = lobby
+            .games
+            .get_mut(&id)
+            .and_then(|game| game.seats.get_mut(seat))
+            .and_then(|chair| chair.delegate.as_mut())
+            .filter(|delegate| delegate.by == host)
+        {
+            delegate.reported = false;
+        }
+    }
+    filed
+}
+
+/// What both routes do once a report is theirs to send: counted against
+/// the reporter's account, the record of the game it names attached where
+/// the reporter sat there (or the client's own of a local game), passed on
+/// to the service at `url` under the reporter's pseudonym, and the
+/// service's id answered.
+async fn forward(
+    state: &Shared,
+    url: String,
+    reporter: &Reporter<'_>,
+    report: &Report,
+) -> Result<(StatusCode, Json<Created>), (StatusCode, Json<ErrorBody>)> {
+    let feedback = &state.feedback;
+    let account = reporter.account();
     let game_id = report.game_id.as_deref();
     // Checked after everything else, so a report refused for what it is
     // costs nothing of the budget, and before anything is sent; and never
     // given back unless this took it (`give_back` returns the latest).
-    if !feedback.limiter.allow(&session.account_id) {
+    if !feedback.limiter.allow(account) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many reports"));
     }
     // A report the service did not take was not sent, and costs the
     // player nothing of the budget.
-    let give_back = || feedback.limiter.give_back(&session.account_id);
+    let give_back = || feedback.limiter.give_back(account);
     if let Some(game) = game_id {
-        flush_record(&state, game, &session.account_id).await;
+        flush_record(state, game, reporter).await;
     }
     let local = report.local_record.as_ref().map(|r| RecordOut {
         complete: r.complete,
         gzip_base64: r.gzip_base64.clone(),
     });
     let record_origin = if local.is_some() { "client" } else { "gateway" };
-    let record = match (game_id, uuid::Uuid::parse_str(&session.account_id)) {
+    let record = match game_id {
         _ if local.is_some() => local,
-        (Some(game), Ok(account)) => baylee_db::records::for_seated(&state.db, game, account)
+        Some(game) => reporter
+            .record(state, game)
             .await
             .map_err(|e| {
                 give_back();
@@ -407,7 +601,7 @@ pub async fn post_report(
                 complete: r.complete,
                 gzip_base64: base64::engine::general_purpose::STANDARD.encode(r.data),
             }),
-        _ => None,
+        None => None,
     };
     let forward = Forward {
         gateway: GatewayInfo {
@@ -415,7 +609,7 @@ pub async fn post_report(
             url: feedback.public_url.as_deref(),
             version: baylee_build::short(),
         },
-        reporter: feedback.pseudonym(&session.account_id),
+        reporter: feedback.pseudonym(account),
         kind: report.kind,
         text: &report.text,
         game_id,
@@ -443,14 +637,14 @@ pub async fn post_report(
 }
 
 /// Asks the engine of `game_id` for its record as it stands and waits, up to
-/// [`FLUSH_WAIT`], until what it sent is stored (#323), when `account_id`
-/// sits at that game and it goes on; otherwise asks nothing. Whether it was
-/// stored in time.
+/// [`FLUSH_WAIT`], until what it sent is stored (#323), when `reporter`
+/// sits at that game (its account's chair, or the delegate's) and it goes
+/// on; otherwise asks nothing. Whether it was stored in time.
 ///
 /// Never an error: a report is not refused because its game's engine is
 /// slow or gone. The record attached is then what was stored before, and
 /// `complete` says what it said before: whether the game's end is in it.
-async fn flush_record(state: &Shared, game_id: &str, account_id: &str) -> bool {
+async fn flush_record(state: &Shared, game_id: &str, reporter: &Reporter<'_>) -> bool {
     // The link is cloned out, so no lock is held across the wait. A game
     // has one exactly while it goes on: it is set when the engine attaches
     // and cleared when the game ends (`LobbyGame::finish`), after the last
@@ -460,11 +654,7 @@ async fn flush_record(state: &Shared, game_id: &str, account_id: &str) -> bool {
         lobby
             .games
             .get(game_id)
-            .filter(|game| {
-                game.seats
-                    .iter()
-                    .any(|seat| seat.account_id.as_deref() == Some(account_id))
-            })
+            .filter(|game| game.seats.iter().any(|chair| reporter.sat_in(chair)))
             .and_then(|game| game.engine.clone())
     };
     let Some(engine) = engine else {

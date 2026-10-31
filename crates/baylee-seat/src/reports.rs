@@ -8,8 +8,10 @@
 //! and kept for the game. When the game is over the bridge sends a game's
 //! reports as one bug report to its gateway's `POST /reports`
 //! (`docs/feedback.md`), under the seat's own session ([`submission`]),
-//! unless the bridge was told not to; a chair taken on its host's ticket has
-//! no session, and its reports stay in the file.
+//! unless the bridge was told not to; a chair taken on its host's ticket,
+//! which has no session, sends it on its seat token
+//! (`POST /lobby/games/{id}/chair/report`), and the gateway files it under
+//! the host's pseudonym.
 //!
 //! A report is a model's words: untrusted, like a player's. It is marked
 //! `client.source: "llm-seat"` and its text says so, it is never read as an

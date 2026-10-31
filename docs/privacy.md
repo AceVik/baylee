@@ -40,7 +40,7 @@ the pointers, because line numbers move.
 | A reported chat message (its text, whether its signature checked and, when it checked, the sender's public tag) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
 | Game state | engine process memory | the game | the process exits |
 | A language-model seat's game data (its seat's view: board, its own hand, log lines, card text, seat numbers; no display name, handle, tag, account, game id or deck name) | leaves the machine its bridge runs on (the seat agent's, or the player's own) for the profile's provider | the provider's own terms | — |
-| A language-model seat's reports of rules or engine errors (the model's words, its id and profile, where in the log each was made, and the seat's own game log: the lines its seat was told, seats as "You" and `P1…Pn`, no name) | the bridge's `reports.jsonl` (the words, not the log); at the game's end leaves for the gateway (`POST /reports`, the seat's session), then the feedback service with the game's record ([below](#language-model-seats)) | as other reports | as other reports |
+| A language-model seat's reports of rules or engine errors (the model's words, its id and profile, where in the log each was made, and the seat's own game log: the lines its seat was told, seats as "You" and `P1…Pn`, no name) | the bridge's `reports.jsonl` (the words, not the log); at the game's end leaves for the gateway (`POST /reports`, the seat's session; a chair on its host's ticket on its seat token, `POST …/chair/report`, filed under the host's pseudonym), then the feedback service with the game's record ([below](#language-model-seats)) | as other reports | as other reports |
 | Hosted profiles' states, games and spend as their seat agents report them | gateway memory | while the seat agent is connected | its leaving, a restart |
 | Who may seat each hosted model: per profile id a policy, and the account ids on its list, who added each and when | Postgres `llm_profile_access`, `llm_profile_allow` | until an admin takes the account off the list | an admin; the account's deletion (cascade) |
 | A hosted profile's definition, its spend book (per game: time, model, reserved, spent; nothing of the game), its key | the seat agent's machine (`hosted.json`, `spend/<id>.json`, its key directory) | until the operator removes them | the operator |
@@ -162,10 +162,24 @@ The seat's view (its board, hand, the counts of libraries and hands) is
 not sent at all. A long log loses its oldest lines to stay within the
 report's size, and the report says how many. Like a person's report, it
 is not sent if the seat's session or seat token is anywhere in it
-(`bugreport::seal`). A chair taken on its host's ticket has no session
-and sends nothing; `--no-send-reports` sends nothing either. A lookup
-sends a card's name, and only that: to the gateway's catalog under the
-seat's session, or, for a profile that says so, to Scryfall.
+(`bugreport::seal`). `--no-send-reports` sends nothing.
+
+**A host's seat bridge reports under the host's pseudonym** (owner,
+31.10.2026). A chair taken on its host's ticket (a model the host's own
+client started, or a hosted model the host ordered for the chair) has no
+session; it sends the same report on its seat token
+(`POST /lobby/games/{id}/chair/report`, `docs/feedback.md`), and the
+gateway files it as if the host had sent it: the reporter is the
+pseudonym of the host who handed the chair over and answers for it, the
+report counts against the host's reports an hour, and that one game's
+record is attached (the chair played it; the record names the host as
+`delegated_by` already). So a model's report, written by the model and
+never seen by the host, is linked to the host's other reports at that
+gateway by the pseudonym, as the host's own would be; nothing else of the
+host is in it, and nothing names the host to the service. Once a chair a
+game, and only about that game. A lookup sends a card's name, and only
+that: to the gateway's catalog under the seat's session, or, for a
+profile that says so, to Scryfall.
 
 ### Who may seat each model (owner, 13.10.2026)
 
@@ -727,11 +741,12 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | The moment from which an unsaid choice reads yes (the beta.7 deploy) | gateway Postgres `replay_share_cutoff` (one time) | indefinitely | nothing |
 | A game an account archived in its replay list | gateway Postgres `replay_archived` (account id, game id, when) | while archived, at most until the account is deleted | unarchiving, or the account's deletion |
 | Whose seat bridge played a seat of a recorded game | gateway Postgres `game_record_seat.delegated_by` (the host's account id; `account_id` stays `NULL`) | until that account is deleted | the account's deletion sets it to `NULL`; the record stays |
-| Report count per account | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
+| Report count per account (a host's seat bridge's report counted on the host's) | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
+| Whether a host's seat bridge sent its game's report (`Delegate::reported`, one a chair a game) | gateway memory, with the room | while the room is in the lobby (an hour after the game) | the room's end, a restart |
 | Direct reports per address and in all | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
 | Direct report (kind, text, build, the `client` object, a client's record), `channel = 'direct'`, gateway `(direct)` | the feedback service's `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
 | A client's record of a game it hosted (`record_origin = 'client'`, unverified) | `feedback_report.record` | with the report | with the report |
-| Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
+| Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at, or whose chair its host's seat bridge played) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
 | Reporter pseudonym | `feedback_report.reporter` | with the report | with the report |
 | Feedback admin (name, Argon2id password hash, since when) | the feedback service's `feedback_admin` | until removed | `baylee-feedback admin remove`, on the server only |
 | Feedback admin session (SHA-256 of the cookie token, sign-in and last-use times) | `feedback_session` | 12 hours unused, at most 7 days | sign-out, lapse (deleted when next shown and at every sign-in), or the admin's removal |
@@ -748,7 +763,9 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   numbered seats, with their decks and every card they held.
 - **No seat or lobby route reads a record.** Two readers a route reaches:
   `POST /reports`, which attaches a game's record only when the reporter sat
-  at that game (`docs/protocol.md` §"The game record"), and a replay job,
+  at that game (`docs/protocol.md` §"The game record"; for a host's seat
+  bridge reporting on its seat token, only the game that token opens), and
+  a replay job,
   which hands it only to an engine (below: a replay is a projection, never
   the record). The other is the operator's export below, which no route
   reaches. The operator has full access to every record (the database, the

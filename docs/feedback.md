@@ -115,8 +115,35 @@ would pass 2,000,000 bytes and `client.log_omitted` saying how many
 triage reads them as it reads a player's. The seat's account sat at the
 game (a host's own chair handed to its bridge, `--host-chair`, too: the
 account's own chair in `game_record_seat`), so the record is attached as
-to a player's report; a chair taken on its host's ticket has no session
-and sends none.
+to a player's report. A chair taken on its host's ticket has no session
+and sends its report on its seat token instead (below).
+
+### A host's seat bridge: `POST /lobby/games/{id}/chair/report`
+
+A seat bridge sitting in a chair on its host's chair ticket
+(`docs/protocol.md` §"A host's chair for a seat bridge") has a seat token
+and no session. It sends its language model's report about its game here
+(owner, 31.10.2026), `Authorization: Bearer <seat token>`, in the body
+above, and the gateway passes it on exactly as it does a `POST /reports`,
+with these differences:
+
+- **Whose it is.** The host who handed the chair over answers for it
+  (`Delegate::by`, `game_record_seat.delegated_by`), so `reporter` is the
+  host's pseudonym and the report counts against the host's 64 an hour
+  (owner, 31.10.2026). A hosted model the host ordered for the chair is
+  the host's delegate too.
+- **About its game only.** The game is the one the token opens: a
+  `game_id` is empty or that game's (`400` otherwise), and the gateway
+  sends the report under that id either way. No `local_record` (`400`).
+- **Its record.** That game's, read for the chair that played it
+  (`records::for_delegate`: that game, that chair, that host as
+  `delegated_by` with no account), never another table's.
+- **Once a chair a game** (`409` after), the chance given back when the
+  service did not take it (`502`), and for as long as the room is in the
+  lobby: an hour after the game ends.
+- **A person's chair is refused** (`403`): a person reports with their
+  session. A token that opens nothing, or not this game, is `401`; a body
+  over 2.25 MiB is refused before it is read.
 
 Configuration: `BAYLEE_FEEDBACK_URL` (the service's base URL, for example
 `https://feedback.baylee.app`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's
