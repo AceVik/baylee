@@ -5,10 +5,12 @@
 //! only appends to and reads whole, where the one thing worth having is that
 //! a piece is added and counted in one statement.
 //!
-//! Nothing a seat or the lobby can ask reaches these tables. Two readers a
-//! route reaches hand a record on: [`for_seated`], which the gateway calls
+//! Nothing a seat or the lobby can ask reaches these tables. Three readers
+//! a route reaches hand a record on: [`for_seated`], which the gateway calls
 //! for a bug report from a player who sat at the game, and which answers
-//! nothing for anyone else; and [`for_projection`], which only the replay
+//! nothing for anyone else; [`for_delegate`], the same for a report a
+//! host's seat bridge sends on its chair's seat token, answering only that
+//! chair's game; and [`for_projection`], which only the replay
 //! route calls, after its own check that the account sat there
 //! ([`seat_of`]), and whose bytes go to an engine on the engine link, never
 //! to a player (`docs/protocol.md` §"Replays"). The list of a player's
@@ -259,18 +261,61 @@ pub async fn for_seated(
     game_id: &str,
     account: Uuid,
 ) -> Result<Option<Record>, DbErr> {
+    seated_record(
+        db,
+        "s.account_id = $2",
+        vec![game_id.into(), account.into()],
+    )
+    .await
+}
+
+/// The record of `game_id`, if its chair `seat` is one `host`'s seat bridge
+/// played (`delegated_by`, no account): what a report sent on that chair's
+/// seat token carries. `None` for another game, another chair or another
+/// host, a chair an account played, and a game with no record.
+///
+/// # Errors
+///
+/// When the statement fails.
+pub async fn for_delegate(
+    db: &impl ConnectionTrait,
+    game_id: &str,
+    seat: usize,
+    host: Uuid,
+) -> Result<Option<Record>, DbErr> {
+    let Ok(seat) = i16::try_from(seat) else {
+        return Ok(None);
+    };
+    seated_record(
+        db,
+        "s.seat = $2 AND s.delegated_by = $3 AND s.account_id IS NULL",
+        vec![game_id.into(), seat.into(), host.into()],
+    )
+    .await
+}
+
+/// The record of the game `$1` names, when a seat of it matches `seated`: a
+/// condition on `game_record_seat s`, its values from `$2` on. Never a
+/// value spliced into the text.
+async fn seated_record(
+    db: &impl ConnectionTrait,
+    seated: &'static str,
+    values: Vec<Value>,
+) -> Result<Option<Record>, DbErr> {
     let row = db
         .query_one_raw(Statement::from_sql_and_values(
             db.get_database_backend(),
-            "SELECT r.complete, \
-                 coalesce((SELECT string_agg(c.data, ''::bytea ORDER BY c.seq) \
-                           FROM game_record_chunk c WHERE c.game_id = r.game_id), ''::bytea) \
-                   AS data \
-             FROM game_record r \
-             WHERE r.game_id = $1 AND EXISTS ( \
-                 SELECT 1 FROM game_record_seat s \
-                 WHERE s.game_id = r.game_id AND s.account_id = $2)",
-            [game_id.into(), account.into()],
+            format!(
+                "SELECT r.complete, \
+                     coalesce((SELECT string_agg(c.data, ''::bytea ORDER BY c.seq) \
+                               FROM game_record_chunk c WHERE c.game_id = r.game_id), ''::bytea) \
+                       AS data \
+                 FROM game_record r \
+                 WHERE r.game_id = $1 AND EXISTS ( \
+                     SELECT 1 FROM game_record_seat s \
+                     WHERE s.game_id = r.game_id AND {seated})"
+            ),
+            values,
         ))
         .await?;
     row.map(|row| {

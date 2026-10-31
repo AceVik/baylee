@@ -595,6 +595,29 @@ impl Lobby {
         Ok(())
     }
 
+    /// Files the bug report of a chair taken on a host's ticket, about its
+    /// own game (`POST …/chair/report`, the seat token as `Authorization`,
+    /// `docs/feedback.md`): the service's id for it. The gateway files it
+    /// under the host's pseudonym, once a chair.
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached, or does not take it (no
+    /// feedback service, a limit, a report already sent, a body it
+    /// refuses).
+    pub async fn chair_report(
+        &self,
+        chair: &Chair,
+        body: serde_json::Value,
+    ) -> anyhow::Result<String> {
+        let path = format!("/lobby/games/{}/chair/report", escape(&chair.game_id));
+        let answer = self
+            .call("POST", &path, Some(&chair.seat_token), Some(body))
+            .await?;
+        answer
+            .expect_ok("file the game's reports")?
+            .string("report_id")
+    }
+
     /// [`Lobby::wait_for_start`] for a chair taken on a host's ticket,
     /// asked with its seat token.
     ///

@@ -58,11 +58,13 @@
 //! ([`crate::reports`]) is gathered from every mind that played the game,
 //! as each answer comes and before a mind leaves it, and sent when the
 //! game is over for the seat (an end, a room that closed, a seat that
-//! left) as one bug report to the gateway under the seat's own session
-//! ([`PlayOptions::send_reports`]), with the seat's own game log as the
-//! core's memory holds it ([`crate::reports::game_log`]). Whatever becomes
-//! of it is a line of the transcript (`llm_reports`) and never touches the
-//! game.
+//! left) as one bug report to the gateway under the seat's own session, or
+//! on the seat token of a chair taken on its host's ticket
+//! ([`PlayOptions::send_reports`], [`SeatLink::reporter`]), with the seat's
+//! own game log as the core's memory holds it
+//! ([`crate::reports::game_log`]). Whatever becomes of it is a line of the
+//! transcript (`llm_reports`, its `route` saying which) and never touches
+//! the game.
 
 use crate::link::{SeatLink, Socket};
 use crate::mind::{Answer, Mind, MindError, Request};
@@ -141,6 +143,10 @@ pub struct Filing {
     pub report_id: Option<String>,
     /// Why it was not sent, when it was not.
     pub why: Option<String>,
+    /// The gateway route it went to, or would have: `"reports"` under the
+    /// seat's own session (`POST /reports`), `"chair"` on the seat token
+    /// of a chair taken on its host's ticket (`POST …/chair/report`).
+    pub route: &'static str,
 }
 
 /// The failure a fallback is asked to take over on: a limit, or the mind
@@ -532,12 +538,14 @@ impl Bridge {
         }
     }
 
-    /// Sends the game's reports as one bug report to the gateway, under
-    /// the seat's session, where the bridge may ([`PlayOptions::send_reports`])
-    /// and has one, with the seat's own game log out of `memory`
-    /// ([`crate::reports::game_log`]); says in the transcript what became
-    /// of them. Never fails the game: a report not sent stays in the
-    /// reports file.
+    /// Sends the game's reports as one bug report to the gateway, where
+    /// the bridge may ([`PlayOptions::send_reports`]), with the seat's own
+    /// game log out of `memory` ([`crate::reports::game_log`]): under the
+    /// seat's own session, or, for a chair taken on its host's ticket, on
+    /// its seat token, which the gateway files under the host's pseudonym
+    /// ([`SeatLink::reporter`]). Says in the transcript what became of them
+    /// and by which route. Never fails the game: a report not sent stays in
+    /// the reports file.
     ///
     /// Like a person's report, it is sealed first (`bugreport::seal`): one
     /// that holds the session or the seat token anywhere is not sent.
@@ -547,6 +555,7 @@ impl Bridge {
         transcript: &mut Transcript,
         memory: &crate::TableMemory,
     ) -> Option<Filing> {
+        use crate::link::Reporter;
         use baylee_client_core::bugreport::{Keyring, Secret, seal};
         self.gather();
         if self.reports.is_empty() {
@@ -555,32 +564,34 @@ impl Bridge {
         let log = crate::reports::game_log(memory);
         let body = crate::reports::submission(&self.reports, log)?;
         let count = body["client"]["reports"].as_array().map_or(0, Vec::len);
-        let sent = match (self.options.send_reports, link.reporter()) {
-            (false, _) => Err("not sent: the bridge was told not to".to_string()),
-            (true, None) => Err("not sent: the chair has no session of its own".to_string()),
-            (true, Some((lobby, session))) => {
-                let secrets = [
-                    Secret {
-                        label: Keyring::SESSION,
-                        value: session.bearer(),
-                    },
-                    Secret {
-                        label: Keyring::SEAT,
-                        value: &link.chair().seat_token,
-                    },
-                ];
-                match seal(&body, &secrets) {
-                    Err(leaked) => Err(format!("not sent: {leaked}")),
-                    Ok(_) => {
-                        match tokio::time::timeout(REPORT_WAIT, lobby.report(session, body)).await {
-                            Ok(Ok(id)) => Ok(id),
-                            Ok(Err(e)) => Err(format!("not sent: {e:#}")),
-                            Err(_) => {
-                                Err("not sent: the gateway did not answer in time".to_string())
-                            }
-                        }
-                    }
+        let reporter = link.reporter();
+        let (route, session) = match reporter {
+            Reporter::Session(_, session) => ("reports", Some(session.bearer())),
+            Reporter::Chair(..) => ("chair", None),
+        };
+        let mut secrets = vec![Secret {
+            label: Keyring::SEAT,
+            value: &link.chair().seat_token,
+        }];
+        secrets.extend(session.map(|value| Secret {
+            label: Keyring::SESSION,
+            value,
+        }));
+        let sent = if !self.options.send_reports {
+            Err("not sent: the bridge was told not to".to_string())
+        } else if let Err(leaked) = seal(&body, &secrets) {
+            Err(format!("not sent: {leaked}"))
+        } else {
+            let sending = async {
+                match reporter {
+                    Reporter::Session(lobby, session) => lobby.report(session, body).await,
+                    Reporter::Chair(lobby, chair) => lobby.chair_report(chair, body).await,
                 }
+            };
+            match tokio::time::timeout(REPORT_WAIT, sending).await {
+                Ok(Ok(id)) => Ok(id),
+                Ok(Err(e)) => Err(format!("not sent: {e:#}")),
+                Err(_) => Err("not sent: the gateway did not answer in time".to_string()),
             }
         };
         let filing = match sent {
@@ -589,14 +600,16 @@ impl Bridge {
                 sent: true,
                 report_id: Some(id),
                 why: None,
+                route,
             },
             Err(why) => {
-                tracing::warn!(reports = count, "the game's reports were {why}");
+                tracing::warn!(reports = count, route, "the game's reports were {why}");
                 Filing {
                     count,
                     sent: false,
                     report_id: None,
                     why: Some(why),
+                    route,
                 }
             }
         };

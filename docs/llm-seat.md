@@ -788,21 +788,30 @@ the answer that carried it whether or not that answer could be taken:
   (`bugreport::seal`): one that holds the seat's session or seat token
   anywhere is not sent, and `why` names which token, never its value.
 - the seat transcript's `llm_reports` line says what became of it
-  (`count`, `sent`, `report_id`, `why`). A gateway without a feedback
-  service, a refusal or no answer within 15 s is said there and in the
-  log, never in the game; the reports file keeps them either way.
+  (`count`, `sent`, `report_id`, `why`, and `route`: `"reports"` or
+  `"chair"`, below). A gateway without a feedback service, a refusal or no
+  answer within 15 s is said there and in the log, never in the game; the
+  reports file keeps them either way.
 
-Which chairs send, and with which record: a seat with its own account,
-and a host's own chair handed to the bridge (`--host-chair`: the
-account's person's chair, played over its seat token), send under that
-account's session. The account sits at that chair in the game's record
-(`game_record_seat.account_id`), so the gateway attaches the record as it
-does to a player's report. A chair taken on its host's ticket
-(`--chair-ticket`) has no session of its own and sends none: the record
-names it only as its host's delegate (`delegated_by`), and no route takes
-a report on a seat token. `join --no-send-reports` sends none either and
-still writes the file: a collector that has filed enough for its run
-passes it.
+Which chairs send how, and with which record (`link::Reporter`):
+
+- a seat with its own account, and a host's own chair handed to the
+  bridge (`--host-chair`: the account's person's chair, played over its
+  seat token), send under that account's session (`POST /reports`, route
+  `"reports"`). The account sits at that chair in the game's record
+  (`game_record_seat.account_id`), so the gateway attaches the record as
+  it does to a player's report.
+- a chair taken on its host's ticket (`--chair-ticket`, a host's own
+  bridge or a hosted model) has no session: it sends the same body on its
+  seat token (`POST /lobby/games/{id}/chair/report`, route `"chair"`,
+  owner, 31.10.2026). The gateway files it under the pseudonym of the host
+  who answers for the chair, against the host's 64 an hour, with that
+  game's record, which the chair played (`delegated_by`); once a chair a
+  game, and only about that game (`docs/feedback.md`). A gateway from
+  before the route answers `404`, which `why` says.
+
+`join --no-send-reports` sends none either way and still writes the file:
+a collector that has filed enough for its run passes it.
 
 **Lookups** (`baylee_seat::lookup`). An answer of only `ask` and `lookup`
 asks for a card; the seat answers with its text and asks the same
