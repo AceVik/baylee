@@ -1,6 +1,7 @@
 use super::{Input, LlmBc4, alignment, artifact, json_lines, schema::Manifest, sha};
 use anyhow::{Context, ensure};
 use baylee_engine::choice::PlayerAction;
+use baylee_train_ops::corpus::llm_freeze::teacher;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -129,23 +130,9 @@ pub(super) fn load(
                 && technical["seats"][seat]["declared_mind_verified"] == true,
             "LLM technical model binding mismatch"
         );
-        let expected_provider = if evidence.model == "gpt-6.1-terra" {
-            "codex"
-        } else {
-            "agy"
-        };
-        ensure!(
-            expected_provider != "codex" || input_receipt.is_some(),
-            "Codex provenance requires the bound requested identity receipt"
-        );
         if let Some(input) = &input_receipt {
-            let mind = &input["requested_minds"][seat];
             ensure!(
-                mind["kind"] == "llm_cli"
-                    && mind["provider"] == expected_provider
-                    && mind["model"] == evidence.model
-                    && mind["effort"] == "low"
-                    && mind.get("level").is_none_or(|v| v == ""),
+                teacher(&input["requested_minds"][seat], &evidence.model),
                 "LLM requested provider/model identity mismatch"
             );
         }
@@ -153,16 +140,18 @@ pub(super) fn load(
             .iter()
             .filter(|v| v["kind"] == "declared_mind" && v["seat"] == seat)
             .collect();
+        // Without the bound request only the oldest teachers, agy's, stand:
+        // Codex and every API teacher prove what was asked for.
         ensure!(
             !declarations.is_empty()
-                && declarations.iter().all(|v| v["mind"]["kind"] == "llm_cli"
-                    && v["mind"]["provider"] == expected_provider
-                    && v["mind"]["model"] == evidence.model
-                    && v["mind"]["effort"] == "low"
-                    && v["mind"].get("level").is_none_or(|v| v == "")
-                    && input_receipt
-                        .as_ref()
-                        .is_none_or(|input| input["requested_minds"][seat] == v["mind"])),
+                && declarations
+                    .iter()
+                    .all(|v| teacher(&v["mind"], &evidence.model)
+                        && input_receipt
+                            .as_ref()
+                            .map_or(v["mind"]["provider"] == "agy", |input| {
+                                input["requested_minds"][seat] == v["mind"]
+                            })),
             "LLM actual declared model mismatch"
         );
         let inputs: Vec<_> = rows

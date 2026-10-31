@@ -1,6 +1,7 @@
 //! Freeze the earliest technically admitted games, without semantic teacher filtering.
 mod evidence;
 mod identity;
+pub use identity::teacher;
 #[cfg(test)]
 mod tests;
 use crate::files;

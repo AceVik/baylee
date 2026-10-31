@@ -1,6 +1,35 @@
 use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 use std::collections::BTreeMap;
+
+/// Whether `mind`, as a game's request asked for it or its record declares
+/// it, is a teacher whose games may become LLM-BC data for `model`: a CLI
+/// at effort low (Codex for Terra, agy for every other model), or a model
+/// behind an API, Anthropic's or an OpenAI-compatible one, at whatever
+/// effort its profile set. Neither declares a house level.
+#[must_use]
+pub fn teacher(mind: &Value, model: &str) -> bool {
+    let cli = || {
+        let tool = if model == "gpt-6.1-terra" {
+            "codex"
+        } else {
+            "agy"
+        };
+        mind["provider"] == tool && mind["effort"] == "low"
+    };
+    let api = || {
+        matches!(mind["provider"].as_str(), Some("anthropic" | "openai"))
+            && mind.get("effort").is_none_or(Value::is_string)
+    };
+    mind["model"] == model
+        && mind.get("level").is_none_or(|v| v == "")
+        && match mind["kind"].as_str() {
+            Some("llm_cli") => cli(),
+            Some("llm_api") => api(),
+            _ => false,
+        }
+}
+
 pub(super) fn verify(
     request: &Value,
     records: &[Value],
@@ -20,7 +49,7 @@ pub(super) fn verify(
     let terra = models.iter().any(|m| m == "gpt-6.1-terra");
     ensure!(
         !(terra || non_agy) || bound.is_some(),
-        "Codex Terra requires requested identity receipt"
+        "Codex Terra and API teachers require the requested identity receipt"
     );
     let Some(bound) = bound else {
         return Ok(());
@@ -37,18 +66,9 @@ pub(super) fn verify(
     );
     for (seat, model) in models.iter().enumerate() {
         let expected = &bound["requested_minds"][seat];
-        let provider = if model == "gpt-6.1-terra" {
-            "codex"
-        } else {
-            "agy"
-        };
         ensure!(
-            expected["kind"] == "llm_cli"
-                && expected["provider"] == provider
-                && expected["model"] == *model
-                && expected["effort"] == "low"
-                && expected.get("level").is_none_or(|v| v == ""),
-            "Unsupported or mismatched requested CLI identity"
+            model.as_str().is_some_and(|model| teacher(expected, model)),
+            "Unsupported or mismatched requested teacher identity"
         );
         let declarations = records
             .iter()

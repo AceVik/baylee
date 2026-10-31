@@ -266,14 +266,22 @@ fn ambiguity_keeps_multiple_origins_and_never_becomes_an_llm_target() {
 }
 
 fn codex_fixture() -> Fixture {
+    bound_fixture(
+        &json!({"kind":"llm_cli","provider":"codex","model":"gpt-6.1-terra","effort":"low"}),
+    )
+}
+
+/// A game whose seat 0 was asked for `mind` and declared it, with the
+/// requested identity receipt bound.
+fn bound_fixture(mind: &Value) -> Fixture {
+    let model = mind["model"].clone();
     let mut f = Fixture::new("llm", "gemini-4-argon-low");
     let mut rows: Vec<Value> = std::str::from_utf8(&f.record)
         .unwrap()
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
-    rows[1]["mind"]["provider"] = json!("codex");
-    rows[1]["mind"]["model"] = json!("gpt-6.1-terra");
+    rows[1]["mind"] = mind.clone();
     f.record = rows
         .iter()
         .fold(String::new(), |mut record, row| {
@@ -282,17 +290,17 @@ fn codex_fixture() -> Fixture {
         })
         .into_bytes();
     f.manifest["record_sha256"] = json!(sha(&f.record));
-    f.manifest["seats"][0]["model"] = json!("gpt-6.1-terra");
+    f.manifest["seats"][0]["model"] = model.clone();
     let mut request: Value =
         serde_json::from_slice(&std::fs::read(f.root.join("request.json")).unwrap()).unwrap();
-    request["models"][0] = json!("gpt-6.1-terra");
+    request["models"][0] = model.clone();
     let input = json!({"requested_models":request["models"],
         "requested_minds":[rows[1]["mind"],rows[2]["mind"]]});
     let input_pin = pin(&f.root, "input.json", &input);
     f.manifest["input_receipt"] = input_pin.clone();
     let mut technical: Value =
         serde_json::from_slice(&std::fs::read(f.root.join("technical.json")).unwrap()).unwrap();
-    technical["seats"][0]["model"] = json!("gpt-6.1-terra");
+    technical["seats"][0]["model"] = model;
     technical["artifacts"]
         .as_array_mut()
         .unwrap()
@@ -313,6 +321,29 @@ fn codex_terra_needs_exact_bound_requested_identity() {
     assert!(f.load().is_ok());
     f.manifest.as_object_mut().unwrap().remove("input_receipt");
     assert!(f.load().is_err());
+}
+
+/// A model behind an API teaches at the effort its profile set, and like
+/// Codex only with the receipt that binds what was asked for.
+#[test]
+fn an_api_teacher_needs_exact_bound_requested_identity() {
+    for mind in [
+        json!({"kind":"llm_api","provider":"anthropic","model":"claude-haiku-5-5","effort":"medium"}),
+        json!({"kind":"llm_api","provider":"openai","model":"deepseek-flash","effort":"low"}),
+        json!({"kind":"llm_api","provider":"openai","model":"gemini-3.5-flash-lite"}),
+    ] {
+        let mut f = bound_fixture(&mind);
+        assert!(f.load().is_ok(), "{mind}");
+        f.manifest.as_object_mut().unwrap().remove("input_receipt");
+        assert!(f.load().is_err(), "{mind} without its receipt");
+    }
+    for spoof in [
+        json!({"kind":"llm_api","provider":"elsewhere","model":"claude-haiku-5-5","effort":"low"}),
+        json!({"kind":"llm_api","provider":"anthropic","model":"claude-haiku-5-5","level":"steady"}),
+        json!({"kind":"house","provider":"anthropic","model":"claude-haiku-5-5"}),
+    ] {
+        assert!(bound_fixture(&spoof).load().is_err(), "{spoof}");
+    }
 }
 
 #[test]

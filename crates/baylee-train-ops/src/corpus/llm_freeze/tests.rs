@@ -148,6 +148,44 @@ fn exact_requested_codex_identity_is_bound_and_legacy_agy_is_preserved() -> Resu
     )?;
     Ok(())
 }
+/// A model behind an API teaches at any effort, bound like Codex to the
+/// identity its request asked for.
+#[test]
+fn api_teachers_are_bound_to_their_requested_identity() -> Result<()> {
+    let minds = json!([{"kind":"llm_api","provider":"anthropic","model":"claude-haiku-5-5","effort":"medium"},{"kind":"llm_api","provider":"openai","model":"deepseek-flash","effort":"low"}]);
+    let request = json!({"models":["claude-haiku-5-5","deepseek-flash"]});
+    let rows = vec![
+        json!({"kind":"declared_mind","seat":0,"mind":minds[0]}),
+        json!({"kind":"declared_mind","seat":1,"mind":minds[1]}),
+    ];
+    let bound = json!({"requested_models":request["models"],"requested_minds":minds});
+    let evidence = |v: &Value| -> Result<BTreeMap<String, Vec<u8>>> {
+        Ok(BTreeMap::from([(
+            "input_receipt".to_owned(),
+            serde_json::to_vec(v)?,
+        )]))
+    };
+    identity::verify(&request, &rows, &evidence(&bound)?)?;
+    assert!(identity::verify(&request, &rows, &BTreeMap::new()).is_err());
+    for (key, value) in [
+        ("provider", "agy"),
+        ("provider", "elsewhere"),
+        ("model", "other"),
+        ("kind", "llm_cli"),
+        ("level", "steady"),
+    ] {
+        let mut changed = bound.clone();
+        changed["requested_minds"][0][key] = json!(value);
+        assert!(
+            identity::verify(&request, &rows, &evidence(&changed)?).is_err(),
+            "{key}={value}"
+        );
+    }
+    let mut spoofed = rows;
+    spoofed[0]["mind"]["effort"] = json!("high");
+    assert!(identity::verify(&request, &spoofed, &evidence(&bound)?).is_err());
+    Ok(())
+}
 #[test]
 fn earliest_admitted_selection_and_existing_output_are_explicit() -> Result<()> {
     let directory = tempfile::tempdir()?;
