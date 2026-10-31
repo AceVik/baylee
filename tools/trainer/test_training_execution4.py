@@ -112,6 +112,24 @@ class TrainingExecution(unittest.TestCase):
             torch.testing.assert_close(before[t][0], after[t][0], rtol=0, atol=0)
         self.assertFalse(torch.equal(before[3][0], after[3][0]))
 
+    def test_token_budget_shrinks_large_board_chunks_without_changing_boards(self):
+        batch = batch_fixture(b=2, u=8)
+        net = M.PlayerNet4(M.Config4(d_model=32, n_heads=4, n_layers=1, d_ff=64)).eval()
+        tokens_per_frame = 2 * (M.RECURRENT_SLOTS + batch["entity_feat"].shape[2])
+        calls = []
+        original = net.encode_board
+        net.encode_board = lambda *inputs: calls.append(inputs[0].shape[0]) or original(*inputs)
+        with torch.no_grad():
+            unlimited = encode_boards(net, batch, 4, torch.device("cpu"))
+            for budget, rows in ((tokens_per_frame * 2, 4), (tokens_per_frame - 1, 2)):
+                calls.clear()
+                net.board_token_budget = budget
+                limited = encode_boards(net, batch, 4, torch.device("cpu"))
+                self.assertEqual(set(calls), {rows})
+                for (a, mask_a), (b, mask_b) in zip(unlimited, limited):
+                    torch.testing.assert_close(a, b, rtol=1e-6, atol=1e-6)
+                    self.assertTrue(torch.equal(mask_a, mask_b))
+
     def test_entity_padding_preserves_every_visible_token_and_reference(self):
         batch = batch_fixture(b=2)
         net = M.PlayerNet4(M.Config4(d_model=32,n_layers=1,n_heads=4,d_ff=64)).eval()

@@ -124,6 +124,38 @@ class CandidateDecoderTests(unittest.TestCase):
         export_tests.ExportModels.assert_parity(self, V5, V5.Config5, V5.PlayerNet5,
                                                 relational_revision=2, candidate_context_revision=3)
 
+    def test_checkpointed_decoder_matches_outputs_and_gradients(self):
+        plain = self.net().train()
+        self.randomize_decoder(plain)
+        checkpointed = copy.deepcopy(plain)
+        checkpointed.cfg.activation_checkpointing = True
+        inputs = list(make_dummy_inputs(32, B=2, E=6, M_edges=4, C=5, P=2))
+        inputs[-1].fill_(2)
+        losses = []
+        for net in (plain, checkpointed):
+            logits = net(*inputs)[1]
+            loss = F.cross_entropy(logits, torch.tensor([1, 3]))
+            loss.backward()
+            losses.append(loss.detach())
+        torch.testing.assert_close(*losses, atol=0, rtol=0)
+        for (name, a), (_, b) in zip(plain.named_parameters(), checkpointed.named_parameters()):
+            self.assertEqual(a.grad is None, b.grad is None, name)
+            if a.grad is not None:
+                torch.testing.assert_close(a.grad, b.grad, atol=1e-6, rtol=1e-5, msg=name)
+
+    def test_huge_menus_decode_in_exact_slices(self):
+        net = self.net().eval()
+        self.randomize_decoder(net)
+        hidden = torch.randn(2, 1300, 32)
+        tokens = torch.randn(2, 12, 32)
+        pad = torch.zeros(2, 12, dtype=torch.bool); pad[1, 7:] = True
+        with torch.no_grad():
+            sliced = net.decode_candidates(hidden, (tokens, pad))
+            whole = hidden
+            for layer in net.cand_decoder:
+                whole = layer(whole, tokens, pad)
+        torch.testing.assert_close(sliced, whole, atol=1e-6, rtol=1e-5)
+
     def test_contract_rejects_unknown_shapes(self):
         for bad in (dict(candidate_decoder_layers=0), dict(candidate_decoder_layers=5),
                     dict(relational_revision=1), dict(global_feat_width=82)):

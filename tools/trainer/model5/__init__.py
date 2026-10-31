@@ -80,6 +80,20 @@ class PlayerNet5(V4.PlayerNet4):
         if keys is None:
             return hidden
         tokens, pad = keys
+        # Candidates never attend to one another, so a huge menu (naming a
+        # card offers thousands) is decoded exactly in bounded slices. Each
+        # slice is its own checkpoint: its attention is recomputed alone in
+        # backward instead of staying alive until the unroll's backward.
+        parts = [hidden] if torch.jit.is_tracing() else hidden.split(512, dim=-2)
+        if self.cfg.activation_checkpointing and (self.training or getattr(self, "checkpoint_during_eval", False)) and torch.is_grad_enabled():
+            decoded = [checkpoint_activation(self._decode_candidates, part, tokens, pad,
+                                             offload_inputs=getattr(self, "offload_checkpoint_inputs", False))
+                       for part in parts]
+        else:
+            decoded = [self._decode_candidates(part, tokens, pad) for part in parts]
+        return decoded[0] if len(decoded) == 1 else torch.cat(decoded, dim=-2)
+
+    def _decode_candidates(self, hidden, tokens, pad):
         for layer in self.cand_decoder:
             hidden = layer(hidden, tokens, pad)
         return hidden

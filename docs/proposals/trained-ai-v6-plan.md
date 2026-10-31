@@ -40,11 +40,42 @@ Modellversion entsteht erst mit einer Architekturänderung (Abschnitt 4).
 
 | Name | Frage | Stand |
 | --- | --- | --- |
-| `v6ac-llm-bc`, Arm a | Verbessert LLM-Imitation R6 auf `dev1024`? R6 → 3 Epochen auf allen LLM-Partien, Loss5, ohne Ergebnisgewichtung, lr 1e-5, Auswahl nach LLM-Validierung (K2) | läuft seit 30.10. |
-| `v6ac-llm-bc`, Arm c | Dasselbe mit Kandidatenrevision 3 (Abschnitt 4.1), exakt aus R6 übernommen; einzige Änderung gegenüber Arm a | folgt in derselben Pipeline |
-| `v6b` | Wie v6a plus Haus-Lehrerdaten als Anker (halbe Lanes) gegen Vergessen | nach v6a |
-| Terra-Ergänzung | Neue Terra-Partien der laufenden Queue in den Korpus | nach Queue-Ende |
-| Value-Diagnose | Value-Güte pro Format und Spielphase | parallel, CPU |
+| `v6ac-llm-bc`, Arm a | Verbessert LLM-Imitation R6 auf `dev1024`? R6 → 7.200 Updates (≈ 2 Epochen) auf 551 LLM-Partien, Loss5, ohne Ergebnisgewichtung, lr 1e-5 | **354/1024 Siege (34,6 %) gegen R6 325 (31,7 %)**; gepaart 114 besser / 85 schlechter |
+| `v6c-llm-bc`, Arm c | Dasselbe mit Kandidatenrevision 3 (Abschnitt 4.1), exakt aus R6 übernommen | **302/1024 (29,5 %)**; gegen Arm a 61 besser / 113 schlechter. Bessere Imitation, schlechteres Spiel; 0 Haus-Fallbacks |
+| `v6a2-llm-bc` | Arm a weiter, 2 Epochen auf 651 LLM-Partien (inkl. 100 Terra) | **339/1024 (33,1 %)**; bessere Imitation (50,4 % echte Spielzüge), 25 statt 43 Fallbacks, aber kein Spielgewinn gegen Arm a |
+
+Offizielle gepaarte Vergleiche auf `dev1024` (`paired_eval4`, Tisch-Bootstrap,
+512 unabhängige Tische, alle Auswertungen mit versiegeltem Manifest neu gespielt;
+Wiederholungen trafen die Siegzahlen bis auf eine Partie genau):
+
+| Vergleich | Differenz | 95-%-Intervall |
+| --- | ---: | :---: |
+| Arm a gegen R6 | **+2,8 pp** | [+0,1; +5,6] |
+| a2 gegen R6 | +1,3 pp | [−1,4; +4,0] |
+| a2 gegen Arm a | −1,5 pp | [−3,9; +0,8] |
+| Arm c gegen R6 | −2,3 pp | [−5,0; +0,5] |
+| Arm c gegen Arm a | −5,1 pp | [−7,7; −2,6] |
+
+Belege: `~/baylee-data/v6/train/v6a2-llm-bc/paired-*.json`.
+| `v6b` | Haus-Lehrerdaten als Anker (halbe Lanes) gegen Vergessen | offen |
+| Value-Diagnose | Value-Güte pro Format und Spielphase | offen |
+
+Lehren aus den ersten Läufen: Imitationsmetriken auf LLM-Validierung
+sagen die Spielstärke nicht voraus (Arm c gewinnt jede Imitationsmetrik
+außer echten Spielzügen und verliert im Spiel). Einzelne
+Validierungspunkte der Trefferquote echter Spielzüge schwanken um ±2 pp.
+Wiederholte Evaluierungen derselben Fälle streuen um etwa eine Partie
+von 1.024.
+
+### Trainingsdurchsatz
+
+Das Training war durch die CPU beim Starten vieler kleiner GPU-Aufrufe
+begrenzt (GPU 26–52 % ausgelastet). Bei 150 echten Updates ohne Änderung der
+Validierung: Standard-CUDA-Kernel (`--nondeterministic-kernels`) 1,2×,
+dazu vier Frames pro Trunk-Aufruf (`--board-chunk 4 --board-token-budget 8264`)
+2,6×. Der Readout-Pfad `--decision-chunk 4` bündelt zusätzlich über die Zeit,
+checkpointet die Kandidatenbewertung und hielt den kritischen Batch von Arm c
+bei 5,96 statt 11,43 GiB; seitdem ≈ 1,5 Updates/s statt 0,45.
 
 ## 4. Architektur (nach den BC-Läufen, je eine Änderung, gleiche Rechenzeit)
 

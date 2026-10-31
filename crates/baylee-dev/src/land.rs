@@ -13,9 +13,10 @@
 //! under the machine's cargo lock (`BAYLEE_CARGO_LOCK`, default
 //! `~/.baylee-locks/with-cargo-lock.sh`): once the lock is ours, `origin/main`
 //! is fetched again and, if it moved while we waited, merged into HEAD (a
-//! merge commit; a conflict aborts and stops). The gates run on that commit
-//! and it is pushed, still under the lock, so the next lander gates on top of
-//! this push instead of racing it. A push from outside moving main during the
+//! merge commit; a conflict aborts and stops). After a merge `cargo dev` is
+//! rebuilt from the merged tree, so main's gate steps judge it, not the
+//! branch's. The gates run on that commit and it is pushed, still under the
+//! lock, so the next lander gates on top of this push instead of racing it. A push from outside moving main during the
 //! gates makes git refuse ours (never `--force`). `--check` never merges.
 use crate::{features, gate, run};
 use anyhow::{Result, bail};
@@ -91,6 +92,15 @@ fn under_lock(push: bool, branch: &str) -> Result<i32> {
             "land: merged origin/main ({}) into {branch}",
             short("origin/main")?
         );
+        // The gates are this binary, built from HEAD before the merge, so a
+        // check main changed since (a reviewed pin, a new step) would judge
+        // the merged tree in its old form: on 31.10.2026 a trainer land went
+        // red on main's Central pin. Rebuild the tool from the merged tree
+        // and gate from there; the lock stays ours.
+        println!("land: rebuilding cargo dev from the merged tree");
+        return Ok(run::code(run::status(&mut run::cargo_with([
+            "dev", "land", "--locked",
+        ]))));
     }
     let head = rev("HEAD")?;
     if head == rev("origin/main")? {
