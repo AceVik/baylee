@@ -17,7 +17,7 @@ use zeroize::Zeroizing;
 mod account;
 #[cfg(not(target_arch = "wasm32"))]
 mod file;
-pub use account::{WRAP_FILE, WRAP_LEN};
+pub use account::{MISS_FILE, MISS_LEN, WRAP_FILE, WRAP_LEN, is_miss_marker, miss_marker};
 #[cfg(windows)]
 mod windows;
 #[cfg(not(target_arch = "wasm32"))]

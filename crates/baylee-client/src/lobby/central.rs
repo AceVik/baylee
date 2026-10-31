@@ -381,12 +381,15 @@ pub(super) fn login(state: &mut LobbyState, mailbox: &Mailbox, username: String,
                     .map_err(|_| Error::Rejected)?
                     .key;
                 let endpoint = endpoint?;
+                let live = endpoint == Endpoint::live();
                 let account =
                     Account::login(endpoint.clone(), username, password.to_string(), gateways)?;
                 // The password's last use: every old local chat vault it
                 // opens gains the account's wrapper, so no later chat start
                 // needs it (`docs/password-vault.md` §"The account key").
-                if let Some(root) = crate::social::config_dir() {
+                // Only the live Central's: a development one would wrap the
+                // device's real vaults under its own issuer's key.
+                if live && let Some(root) = crate::social::config_dir() {
                     baylee_client_core::social::vault::password::attach_account_keys(
                         &root,
                         &password,

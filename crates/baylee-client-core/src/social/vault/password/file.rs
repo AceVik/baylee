@@ -7,7 +7,10 @@ use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use super::{Error, FILE_NAME, RECORD_LEN, Scope, Vault, WRAP_FILE, WRAP_LEN};
+use super::{
+    Error, FILE_NAME, MISS_FILE, MISS_LEN, RECORD_LEN, Scope, Vault, WRAP_FILE, WRAP_LEN,
+    is_miss_marker, miss_marker,
+};
 use crate::social::vault::{KeyHome, SecretSlot, SecretStore, decode_secrets, encode_secrets};
 
 /// An unlocked account vault, with exclusive process ownership until dropped.
@@ -72,13 +75,16 @@ impl ContextGuard {
     }
 
     /// Import existing password-encrypted keys without changing or removing
-    /// their source: with the Central account's key where the vault has its
-    /// wrapper, else with the password, which then also writes that wrapper
-    /// when the account's key is at hand (`account-key.wrap`), so the next
-    /// sign-in needs no password.
+    /// their source: with the Central account's key where the vault's
+    /// wrapper opens with it, else with the password. A wrapper that cannot
+    /// be checked, read or opened (another version, a damaged or restored
+    /// copy, another account's) counts as none. The password then also
+    /// writes the wrapper when the account's key is at hand
+    /// (`account-key.wrap`), so the next sign-in needs no password; that
+    /// write is best effort and never fails the import.
     ///
     /// # Errors
-    /// Missing credentials, wrong passwords and damaged source files fail closed.
+    /// Missing credentials, wrong passwords and damaged vault files fail closed.
     pub fn legacy_keys(
         &self,
         account_key: Option<&[u8; 32]>,
@@ -88,15 +94,12 @@ impl ContextGuard {
         if !check_file(&path)? {
             return Ok(None);
         }
-        let record = read_record(&path)?;
+        let record = read_exact(&path, RECORD_LEN)?;
         let wrap = self.dir.join(WRAP_FILE);
-        let by_account = match account_key {
-            Some(key) if check_file(&wrap)? => {
-                Vault::unlock_with_account(self.scope.clone(), key, &read_wrap(&wrap)?, &record)
-                    .ok()
-            }
-            _ => None,
-        };
+        let by_account = account_key.and_then(|key| {
+            let bytes = read_checked(&wrap, WRAP_LEN)?;
+            Vault::unlock_with_account(self.scope.clone(), key, &bytes, &record).ok()
+        });
         let vault = if let Some(vault) = by_account {
             vault
         } else {
@@ -106,7 +109,9 @@ impl ContextGuard {
                 &record,
             )?;
             if let Some(key) = account_key {
-                write_record(&wrap, &vault.account_wrap(key)?)?;
+                let _ = vault
+                    .account_wrap(key)
+                    .and_then(|bytes| write_record(&wrap, &bytes));
             }
             vault
         };
@@ -138,10 +143,13 @@ impl ContextGuard {
 /// every local vault that password opens gains the account's wrapper
 /// (`account-key.wrap`, from `key_for` and the vault's scope), so a later
 /// sign-in without the password (a pairing) still opens it. The vault files
-/// are not changed. Vaults that already have a wrapper, that another process
-/// holds, or that the password does not open are left as they are; at most
-/// `limit` are tried, since each try costs one Argon2id run. Answers how many
-/// gained a wrapper.
+/// are not changed. A vault the account's key already opens costs nothing,
+/// and neither does one this account's password already failed to open in
+/// its present form (`account-key.miss`, written at that failure); a
+/// wrapper of another account, or of the vault before it was made again, is
+/// replaced. A vault another process holds is skipped. At most `limit`
+/// vaults are tried, since each try costs one Argon2id run; the rest are
+/// reached at the next sign-in. Answers how many gained a wrapper.
 pub fn attach_account_keys(
     root: &Path,
     password: &str,
@@ -165,26 +173,41 @@ pub fn attach_account_keys(
         let Ok((dir, _lock)) = lock_directory(root, &scope) else {
             continue;
         };
-        let (path, wrap) = (dir.join(FILE_NAME), dir.join(WRAP_FILE));
-        if !matches!(check_file(&path), Ok(true)) || !matches!(check_file(&wrap), Ok(false)) {
+        let path = dir.join(FILE_NAME);
+        if !matches!(check_file(&path), Ok(true)) {
             continue;
         }
-        tried += 1;
-        let Ok(record) = read_record(&path) else {
-            continue;
-        };
-        let Ok(vault) = Vault::unlock(scope.clone(), password, &record) else {
+        let Ok(record) = read_exact(&path, RECORD_LEN) else {
             continue;
         };
         let Some(key) = key_for(&scope) else {
             continue;
         };
-        if vault
-            .account_wrap(&key)
-            .and_then(|bytes| write_record(&wrap, &bytes))
-            .is_ok()
-        {
-            attached += 1;
+        let (wrap, miss) = (dir.join(WRAP_FILE), dir.join(MISS_FILE));
+        let current = read_checked(&wrap, WRAP_LEN).is_some_and(|bytes| {
+            Vault::unlock_with_account(scope.clone(), &key, &bytes, &record).is_ok()
+        });
+        let missed = read_checked(&miss, MISS_LEN)
+            .is_some_and(|bytes| is_miss_marker(&scope, &key, &record, &bytes));
+        if current || missed {
+            continue;
+        }
+        tried += 1;
+        match Vault::unlock(scope.clone(), password, &record) {
+            Ok(vault) => {
+                if vault
+                    .account_wrap(&key)
+                    .and_then(|bytes| write_record(&wrap, &bytes))
+                    .is_ok()
+                {
+                    attached += 1;
+                }
+            }
+            Err(Error::Authentication) => {
+                let _ = miss_marker(&scope, &key, &record)
+                    .and_then(|bytes| write_record(&miss, &bytes));
+            }
+            Err(_) => {}
         }
     }
     attached
@@ -209,7 +232,7 @@ impl PasswordStore {
         let vault = match (exists, initial) {
             (true, Some(_)) => return Err(Error::Exists),
             (false, None) => return Err(Error::Missing),
-            (true, None) => Vault::unlock(scope, password, &read_record(&path)?)?,
+            (true, None) => Vault::unlock(scope, password, &read_exact(&path, RECORD_LEN)?)?,
             (false, Some(secrets)) => {
                 let vault = Vault::create(scope, password, secrets)?;
                 write_record(&path, vault.record())?;
@@ -379,28 +402,26 @@ fn check_file(path: &Path) -> Result<bool, Error> {
     Ok(true)
 }
 
-fn read_record(path: &Path) -> Result<Vec<u8>, Error> {
+/// A file of exactly `len` bytes; reads at most one byte more.
+fn read_exact(path: &Path, len: usize) -> Result<Vec<u8>, Error> {
     let file = options().read(true).open(path).map_err(|_| Error::Io)?;
-    let mut bytes = Vec::with_capacity(RECORD_LEN + 1);
-    file.take((RECORD_LEN + 1) as u64)
+    let mut bytes = Vec::with_capacity(len + 1);
+    file.take((len + 1) as u64)
         .read_to_end(&mut bytes)
         .map_err(|_| Error::Io)?;
-    if bytes.len() != RECORD_LEN {
+    if bytes.len() != len {
         return Err(Error::Format);
     }
     Ok(bytes)
 }
 
-fn read_wrap(path: &Path) -> Result<Vec<u8>, Error> {
-    let file = options().read(true).open(path).map_err(|_| Error::Io)?;
-    let mut bytes = Vec::with_capacity(WRAP_LEN + 1);
-    file.take((WRAP_LEN + 1) as u64)
-        .read_to_end(&mut bytes)
-        .map_err(|_| Error::Io)?;
-    if bytes.len() != WRAP_LEN {
-        return Err(Error::Format);
+/// A side file's exact bytes, or none where it is absent, fails
+/// `check_file`, cannot be read or has another length.
+fn read_checked(path: &Path, len: usize) -> Option<Vec<u8>> {
+    if !matches!(check_file(path), Ok(true)) {
+        return None;
     }
-    Ok(bytes)
+    read_exact(path, len).ok()
 }
 
 fn write_record(path: &Path, bytes: &[u8]) -> Result<(), Error> {

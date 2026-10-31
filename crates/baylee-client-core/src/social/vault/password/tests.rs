@@ -98,6 +98,7 @@ impl Drop for Root {
 
 /// The key a test account would derive for a scope: anything fixed and
 /// different per scope will do here.
+#[cfg(not(target_arch = "wasm32"))]
 fn account_key(scope: &Scope) -> zeroize::Zeroizing<[u8; 32]> {
     let mut key = zeroize::Zeroizing::new(*scope.as_bytes());
     key[0] ^= 0x5a;
@@ -208,6 +209,231 @@ fn a_held_vault_is_skipped() {
     assert_eq!(
         attach_account_keys(&root.0, "synthetic password", |s| Some(account_key(s)), 8),
         1
+    );
+}
+
+/// A vault this account's password did not open is not tried again while
+/// it is the same file, so the vaults past the limit are reached at the
+/// next sign-ins; another account's sign-in tries it anew.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_failed_vault_is_not_tried_again_so_the_limit_moves_on() {
+    let root = Root::new("limit");
+    let mut scopes: Vec<Scope> = ["AB12", "CD34", "EF56"]
+        .iter()
+        .map(|tag| Scope::new(tag, "https://example.test/gateway").unwrap())
+        .collect();
+    scopes.sort();
+    // The player's own vault sorts last, behind two of other passwords.
+    let mine = scopes.pop().unwrap();
+    for other in &scopes {
+        root.vault(other, "another password", 23);
+    }
+    root.vault(&mine, "synthetic password", 19);
+    let sign_in = |limit| {
+        attach_account_keys(
+            &root.0,
+            "synthetic password",
+            |s| Some(account_key(s)),
+            limit,
+        )
+    };
+    assert_eq!(sign_in(1), 0);
+    assert_eq!(sign_in(1), 0);
+    assert_eq!(sign_in(1), 1, "the third sign-in reaches the third vault");
+    assert!(root.file(&mine, WRAP_FILE).exists());
+    let markers: Vec<Vec<u8>> = scopes
+        .iter()
+        .map(|other| {
+            assert!(!root.file(other, WRAP_FILE).exists());
+            std::fs::read(root.file(other, MISS_FILE)).unwrap()
+        })
+        .collect();
+    assert_eq!(sign_in(8), 0, "nothing is left to try");
+    for (other, marker) in scopes.iter().zip(&markers) {
+        assert_eq!(&std::fs::read(root.file(other, MISS_FILE)).unwrap(), marker);
+    }
+    // Another account does not take these markers for its own.
+    let another = |s: &Scope| {
+        let mut key = account_key(s);
+        key[1] ^= 1;
+        Some(key)
+    };
+    assert_eq!(
+        attach_account_keys(&root.0, "another password", another, 1),
+        1
+    );
+    assert!(root.file(&scopes[0], WRAP_FILE).exists());
+    assert_eq!(
+        std::fs::read(root.file(&scopes[1], MISS_FILE)).unwrap(),
+        markers[1]
+    );
+}
+
+/// A wrapper that cannot be checked or read (a newer client's version, a
+/// damaged copy, a restored backup's mode or link) counts as none: the
+/// password still imports, and writes a good wrapper in its place.
+#[cfg(unix)]
+#[test]
+fn a_wrapper_that_cannot_be_read_is_no_wrapper() {
+    use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
+    let root = Root::new("unreadable");
+    let mine = scope();
+    root.vault(&mine, "synthetic password", 19);
+    let key = account_key(&mine);
+    let wrap = root.file(&mine, WRAP_FILE);
+    let mode = |m| std::fs::set_permissions(&wrap, std::fs::Permissions::from_mode(m)).unwrap();
+    let context = ContextGuard::open(&root.0, mine.clone()).unwrap();
+    std::fs::write(&wrap, [0; WRAP_LEN + 1]).unwrap();
+    mode(0o600);
+    assert_eq!(
+        context
+            .legacy_keys(Some(&key), Some("synthetic password"))
+            .unwrap()
+            .unwrap()
+            .as_slice(),
+        &[19; 96],
+        "a wrapper of another length"
+    );
+    assert_eq!(std::fs::read(&wrap).unwrap().len(), WRAP_LEN);
+    mode(0o644);
+    assert!(
+        matches!(
+            context.legacy_keys(Some(&key), None),
+            Err(Error::Authentication)
+        ),
+        "an unchecked wrapper is never read"
+    );
+    assert_eq!(
+        context
+            .legacy_keys(Some(&key), Some("synthetic password"))
+            .unwrap()
+            .unwrap()
+            .as_slice(),
+        &[19; 96],
+        "a wrapper others may read"
+    );
+    assert_eq!(
+        std::fs::metadata(&wrap).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    std::fs::hard_link(&wrap, root.file(&mine, "copy.wrap")).unwrap();
+    assert_eq!(
+        context
+            .legacy_keys(Some(&key), Some("synthetic password"))
+            .unwrap()
+            .unwrap()
+            .as_slice(),
+        &[19; 96],
+        "a wrapper with a second link"
+    );
+    assert_eq!(std::fs::metadata(&wrap).unwrap().nlink(), 1);
+    assert_eq!(
+        context
+            .legacy_keys(Some(&key), None)
+            .unwrap()
+            .unwrap()
+            .as_slice(),
+        &[19; 96]
+    );
+}
+
+/// A wrapper that cannot be written never costs the import: the password
+/// opened the vault, so its keys are answered.
+#[cfg(unix)]
+#[test]
+fn an_unwritable_folder_still_imports() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let root = Root::new("unwritable");
+    let mine = scope();
+    root.vault(&mine, "synthetic password", 19);
+    let context = ContextGuard::open(&root.0, mine.clone()).unwrap();
+    let dir = context.directory().to_path_buf();
+    let mode = |m| std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(m)).unwrap();
+    mode(0o500);
+    let keys = context.legacy_keys(Some(&account_key(&mine)), Some("synthetic password"));
+    mode(0o700);
+    assert_eq!(keys.unwrap().unwrap().as_slice(), &[19; 96]);
+    assert!(!root.file(&mine, WRAP_FILE).exists());
+}
+
+/// Another account's wrapper (or one from before the vault was made again)
+/// does not open the vault; the password does, and replaces it.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_foreign_wrapper_is_replaced_by_the_password() {
+    let root = Root::new("foreign");
+    let mine = scope();
+    root.vault(&mine, "synthetic password", 19);
+    let mut foreign = account_key(&mine);
+    foreign[1] ^= 1;
+    assert_eq!(
+        attach_account_keys(&root.0, "synthetic password", |_| Some(foreign.clone()), 8),
+        1
+    );
+    let before = std::fs::read(root.file(&mine, WRAP_FILE)).unwrap();
+    let key = account_key(&mine);
+    let context = ContextGuard::open(&root.0, mine.clone()).unwrap();
+    assert!(matches!(
+        context.legacy_keys(Some(&key), None),
+        Err(Error::Authentication)
+    ));
+    assert_eq!(
+        context
+            .legacy_keys(Some(&key), Some("synthetic password"))
+            .unwrap()
+            .unwrap()
+            .as_slice(),
+        &[19; 96]
+    );
+    assert_ne!(std::fs::read(root.file(&mine, WRAP_FILE)).unwrap(), before);
+    assert_eq!(
+        context
+            .legacy_keys(Some(&key), None)
+            .unwrap()
+            .unwrap()
+            .as_slice(),
+        &[19; 96]
+    );
+}
+
+/// A sign-in replaces a wrapper its account's key does not open (another
+/// account's, or a vault's made again since) and leaves one it opens alone.
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn a_sign_in_replaces_a_stale_wrapper() {
+    let root = Root::new("stale");
+    let mine = scope();
+    root.vault(&mine, "synthetic password", 19);
+    let mut foreign = account_key(&mine);
+    foreign[1] ^= 1;
+    assert_eq!(
+        attach_account_keys(&root.0, "synthetic password", |_| Some(foreign.clone()), 8),
+        1
+    );
+    assert_eq!(
+        attach_account_keys(&root.0, "synthetic password", |s| Some(account_key(s)), 8),
+        1,
+        "the stale wrapper is replaced"
+    );
+    let current = std::fs::read(root.file(&mine, WRAP_FILE)).unwrap();
+    assert_eq!(
+        attach_account_keys(&root.0, "synthetic password", |s| Some(account_key(s)), 8),
+        0
+    );
+    assert_eq!(
+        std::fs::read(root.file(&mine, WRAP_FILE)).unwrap(),
+        current,
+        "the current wrapper is left alone"
+    );
+    let context = ContextGuard::open(&root.0, mine.clone()).unwrap();
+    assert_eq!(
+        context
+            .legacy_keys(Some(&account_key(&mine)), None)
+            .unwrap()
+            .unwrap()
+            .as_slice(),
+        &[19; 96]
     );
 }
 

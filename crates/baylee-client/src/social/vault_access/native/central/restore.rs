@@ -28,9 +28,7 @@ pub(super) fn start(
     cancelled: &AtomicBool,
 ) -> Result<Ready, Error> {
     let scope = Scope::new(&session.tag, &session.gateway)?;
-    // An old local vault opens with the account's key where a password
-    // sign-in gave it the wrapper (`docs/password-vault.md` §"The account key").
-    let account_key = handle.local_vault_key(*scope.as_bytes()).ok();
+    let vault_scope = *scope.as_bytes();
     let context = Arc::new(bootstrap::open_context(root, scope, cancelled)?);
     let installation = context.installation()?;
     let slot = social::SecretSlot::new(&session.tag, &session.gateway);
@@ -43,6 +41,9 @@ pub(super) fn start(
         }
     }
     ensure_running(cancelled)?;
+    // An old local vault opens with the account's key where a password
+    // sign-in gave it the wrapper (`docs/password-vault.md` §"The account key").
+    let account_key = handle.local_vault_key(vault_scope).ok();
     let local = import_keys(
         root,
         &context,

@@ -93,14 +93,33 @@ with its password exactly as before.
 
 - **At a Central sign-in with the password**, in the sign-in's own thread
   and before the password is dropped, every local vault that password opens
-  and that has no wrapper yet gains one (`attach_account_keys`). The scope
-  comes from the vault's folder name, so no gateway or tag is needed. At most
-  eight vaults are tried per sign-in (one Argon2id run each); a vault another
-  process holds is skipped.
+  gains the account's wrapper (`attach_account_keys`). The scope comes from
+  the vault's folder name, so no gateway or tag is needed. Only the live
+  Central's sign-in does this: a development endpoint would wrap the
+  device's real vaults under its own issuer's key.
+- **What a sign-in costs.** A vault the account's key already opens costs no
+  Argon2id run. Neither does a vault this account's password already failed
+  to open: that failure leaves `account-key.miss` beside it, 48 bytes
+  (`BAYAKM01`, a 24-byte nonce, and an XChaCha20-Poly1305 tag under the
+  account's key for that scope over the scope and the whole vault file). It
+  holds nothing of the password, and it no longer holds once the vault file
+  changes, or for another account. Every other vault is a try of one
+  Argon2id run, at most eight per sign-in in the order of their folder
+  names; a ninth waits for the next sign-in, which no longer spends a try on
+  the eight before it. A vault another process holds is skipped. A wrapper
+  of another account, or of the vault before it was made again, is
+  replaced when the password opens the vault. A password change keeps the
+  master key and so the account's key: a vault the old password failed on
+  is not tried with the new one at a sign-in, and the password typed at the
+  unlock still opens it and writes the wrapper.
 - **At a Central chat start** the import tries the account's key first,
   through the account worker (which keeps the master key); the password is
   used only where the player typed it into the existing unlock, and that
-  import then writes the wrapper too.
+  import then writes the wrapper too. A wrapper that cannot be checked or
+  read (another length or version, another owner, a mode others can read,
+  a second link) counts as none, so the password still imports, and the
+  new wrapper replaces it. A wrapper that cannot be written (a full disk, a
+  read-only folder) never fails that import; the next one asks again.
 - A wrapper of another account or scope, or of a vault made again since
   (another data key), fails authentication and releases nothing.
 
