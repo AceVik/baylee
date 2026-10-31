@@ -39,7 +39,7 @@ pub use protection::{
 };
 pub use relations::{controller_of_attached, defending_player_of, most_life, players};
 pub use targets::{
-    choice_options, choice_options_with_context, stack_target_options,
+    choice_options, choice_options_with_context, first_target_players, stack_target_options,
     stack_target_options_relative, target_options, target_options_with_context,
     target_player_options, targeted_players,
 };
