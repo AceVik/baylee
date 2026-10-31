@@ -370,7 +370,7 @@ type ChatHome = Box<dyn social::disk::ChatDisk + Send + Sync>;
 /// The client's config directory, where the chat folder lives; `None` in a
 /// process that never opened the store (a test).
 #[cfg(not(target_arch = "wasm32"))]
-fn config_dir() -> Option<std::path::PathBuf> {
+pub(crate) fn config_dir() -> Option<std::path::PathBuf> {
     use baylee_client_core::userdirs::{Kind, Os, real_env, user_dir};
     if !crate::settings::store_is_open() {
         return None;
