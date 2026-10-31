@@ -280,7 +280,15 @@ pub(super) fn draw(
             ScrollPosition(Vec2::new(0.0, scroll.get(List::Table))),
         ))
         .id();
-    commands.entity(body).add_child(columns);
+    // The room scrolls under its header, and says so with a bar beside it
+    // while it runs over (the bar went with WP3's rebuild, b0dd3c480; the
+    // seats' deck lists are where it was missed, report 30.10.2026).
+    let bar = super::scrollbars::attach(commands, body, columns, m);
+    commands
+        .entity(bar)
+        .insert(super::scrollbars::OnlyWhenNeeded)
+        .entry::<Node>()
+        .and_modify(|mut node| node.display = Display::None);
     let rail = commands
         .spawn((
             Role::Panel,
