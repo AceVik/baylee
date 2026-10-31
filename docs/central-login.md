@@ -392,6 +392,12 @@ Central as its digest. An admin pastes it into the gateway's console
   there, those who did are signed out at their next check, and the entry
   goes offline. The token stays valid at Central until it is revoked on the
   website.
+- The link also files players' reports where the operator sends them to
+  Central (`BAYLEE_REPORTS_TO=central`, `docs/feedback.md` §"To Baylee
+  Central instead"), with the same credential, the bridge's or the pair's
+  as well as a pasted token's. Central takes reports only from an approved
+  gateway, and from a token only with the `sso` scope; until then every
+  report is `502`.
 
 ## Development and rollout
 

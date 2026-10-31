@@ -8,6 +8,8 @@ reports. A client signed in nowhere sends it to the service itself
 `POST /reports`, the service's API, and what either keeps.
 
 ```
+                                 ┌─ BAYLEE_REPORTS_TO=central ──> Baylee Central (POST /v1/reports,
+                                 │  (the gateway's Central link)   then the parts as gzip)
 client ── POST /reports ──> gateway ── POST /intake/reports ──> baylee-feedback
           (session)                    (gateway's intake token)     │
 client ── POST /client/reports ────────────────────────────────────>│
@@ -106,7 +108,64 @@ into `client` and says so to the player (`docs/privacy.md`).
 Configuration: `BAYLEE_FEEDBACK_URL` (the service's base URL, for example
 `https://feedback.baylee.app`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's
 intake token there), `BAYLEE_FEEDBACK_KEY` (the pseudonym key; set it, and
-never change it, if reports of one player should stay linkable).
+never change it, if reports of one player should stay linkable), and
+`BAYLEE_REPORTS_TO` (below).
+
+### To Baylee Central instead: `BAYLEE_REPORTS_TO=central` (31.10.2026)
+
+Where reports go is the operator's choice: `feedback` (the default, all of
+the above) or `central`, which files them with Baylee Central, whose
+administrators read them on its website (baylee-central `docs/reports.md`).
+The route, its body, its budget and the pseudonym stay as they are; what
+changes is where the report goes and in what shape:
+
+- **Under the gateway's own Central link** (`docs/central-login.md`): the
+  official gateway's bridge credential, or a registered gateway's credential
+  pair or pasted token, which Central takes only from an approved gateway.
+  Without a link, `503 {"error":"reports are not configured"}`.
+- **The metadata first** (`POST /v1/reports`, JSON, at most 64 KiB):
+  `gateway`, `channel: "gateway"`, `reporter`, `kind`, `text`, `game_id`,
+  and for Central's list the client's own `client.build {version, commit}`
+  and, for a crash, `client.crash {message, location}`. Central refuses a
+  whole report for one field out of its bounds, so the gateway brings each
+  within them first (`baylee_account::reports`): a carriage return before
+  a line break goes and a lone one becomes one, control characters and the
+  invisible characters that turn text around (direction marks, overrides,
+  isolates) are left out, a crash's message is cut to 2000 characters and
+  its place to 512, a version to one line of 256 bytes, a commit kept only
+  as hex. A crash report whose text is empty reads its crash's message, or
+  "The client crashed."; any other report with no text left is `400`, as is
+  a `game_id` that is not printable ASCII.
+- **Then what is heavy, as gzip Central keeps and never unpacks**
+  (`PUT /v1/reports/{id}/client` and `/record`), each announced in the
+  metadata by its length and SHA-256: the `client` object as the gzip of
+  its JSON (none for `{}`; at most 2 MiB), and the record as the gateway
+  keeps it (at most 64 MiB) or the client's `local_record` (at most 4 MiB,
+  `origin: "client"`). One larger than that goes without, with a line in
+  the log. Both are sent in the same request, after the metadata was taken;
+  a part that does not arrive leaves the report filed with that part shown
+  as awaited (the log names the report and the part, never its content),
+  and one Central already holds (a retried upload) counts as sent.
+- **Answers:** `201 {"report_id": "<32 hex digits>"}`, Central's id; `502`
+  when Central did not take the metadata; `503` without a link, when four
+  reports are already on their way to Central from this gateway and none
+  finished within 10 seconds (their parts are held in memory), or when
+  Central is past its budget for this gateway (120 reports an hour). A
+  report that was not taken costs the player nothing of their 64.
+- **Pseudonyms do not change:** made with `BAYLEE_FEEDBACK_KEY`, or the key
+  derived from `BAYLEE_FEEDBACK_TOKEN` as before, so a player's reports
+  line up across the switch. With `central` and neither set, the gateway
+  refuses to start: a key anybody could derive would make reporters
+  linkable to accounts.
+- **A reported chat message still goes to the service** (§"A reported chat
+  message"): Central does not take one, so `BAYLEE_FEEDBACK_URL` and
+  `BAYLEE_FEEDBACK_TOKEN` stay set for it.
+- **Deploy order:** Central with its migration 000018 before a gateway is
+  switched; until then Central answers `404` and every report is `502`.
+- **Not yet:** a client signed in nowhere still reports to the service
+  (`POST /client/reports`, which shares its address with the offline count,
+  `POST /client/alive`), and the reports the service holds stay there until
+  a one-time copy moves them (baylee-central `docs/reports.md` §"Order").
 
 ## A reported chat message: `POST /social/reports` (beta.8)
 

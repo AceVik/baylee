@@ -62,6 +62,7 @@ the document it names.
 - `BAYLEE_SOURCE_URL` (what `/info` and `/source` name as this build's source, AGPL §13; unset = the repository; not `http(s)://`, over 200 characters, or a whitespace/control/bidi character refuses startup).
 - `BAYLEE_IMPRESSUM_URL` (the operator's legal notice, `/info` `impressum`, `null` when unset; the client links it with its host on the front door's About, the terms sheet and Settings → Network; not `https://` with a host, over 200 characters, or a whitespace/control/bidi character refuses startup; no privacy URL, the terms carry the privacy notice).
 - `BAYLEE_FEEDBACK_URL`/`BAYLEE_FEEDBACK_TOKEN`/`BAYLEE_FEEDBACK_KEY` (`POST /reports` forwards to that service; unset URL = 503; the key makes the reporter pseudonym, unset = derived from the token; `docs/feedback.md`).
+- `BAYLEE_REPORTS_TO`: `feedback` (default) or `central`, which files `POST /reports` with Baylee Central under the gateway's Central link instead (a reported chat message still goes to the feedback service); `central` without `BAYLEE_FEEDBACK_KEY` or `BAYLEE_FEEDBACK_TOKEN` refuses startup; any other value refuses startup (`docs/feedback.md` §"To Baylee Central instead").
 - `BAYLEE_RECONNECT_SECS` (the reconnect window a room gets when it names none, default 180, `10..=3600`).
 - `BAYLEE_REPLAY_JOBS` (replay jobs at once, default 4, `0..=64`, `0` = no replays: `/replays` routes `503`, `/info.replays` `null`; `docs/protocol.md` §"Replays").
 - `BAYLEE_REPLAY_JOB_SECS` (how long a replay job may take, default 60, `1..=600`, past it `504`).

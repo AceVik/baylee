@@ -19,6 +19,11 @@
 //! `BAYLEE_FEEDBACK_TOKEN` (this gateway's intake token there) and
 //! `BAYLEE_FEEDBACK_KEY` (the key the pseudonym is made with; unset = one
 //! derived from the token, so rotating the token renames every reporter).
+//!
+//! `BAYLEE_REPORTS_TO=central` files them with Baylee Central instead, under
+//! the gateway's own Central link (`central.rs`), in the shape Central takes
+//! (`central.rs` here, baylee-central `docs/reports.md`); a reported chat
+//! message still goes to the service, which Central does not take.
 
 use std::time::Duration;
 
@@ -31,6 +36,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{ErrorBody, Shared, err};
+
+mod central;
 
 /// The longest report text, in characters.
 pub const MAX_TEXT_CHARS: usize = 20_000;
@@ -82,18 +89,42 @@ pub struct Feedback {
     /// Reports per account ([`REPORTS_PER_WINDOW`]). A limiter of its own,
     /// so a client sending crash reports never costs its player a sign-in.
     limiter: crate::auth::RateLimiter,
+    /// `BAYLEE_REPORTS_TO=central`: reports go to Central, not the service.
+    to_central: bool,
+    /// Reports on their way to Central at once ([`central::IN_FLIGHT`]).
+    in_flight: std::sync::Arc<tokio::sync::Semaphore>,
 }
 
 impl Feedback {
-    /// Reads the three variables.
-    pub fn from_env() -> Self {
+    /// Reads the variables.
+    ///
+    /// # Errors
+    /// `BAYLEE_REPORTS_TO` other than `feedback` or `central`, or `central`
+    /// without a key to make pseudonyms with (`BAYLEE_FEEDBACK_KEY`, or the
+    /// token it is derived from): reporters must stay unlinkable to accounts.
+    pub fn from_env() -> Result<Self, &'static str> {
         let var = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
-        Self::new(
+        let to_central = match var("BAYLEE_REPORTS_TO").as_deref() {
+            None | Some("feedback") => false,
+            Some("central") => true,
+            Some(_) => return Err("BAYLEE_REPORTS_TO is `feedback` or `central`"),
+        };
+        if to_central
+            && var("BAYLEE_FEEDBACK_KEY").is_none()
+            && var("BAYLEE_FEEDBACK_TOKEN").is_none()
+        {
+            return Err(
+                "BAYLEE_REPORTS_TO=central needs BAYLEE_FEEDBACK_KEY for the reporters' pseudonyms",
+            );
+        }
+        let mut feedback = Self::new(
             var("BAYLEE_FEEDBACK_URL"),
             var("BAYLEE_FEEDBACK_TOKEN").unwrap_or_default(),
             var("BAYLEE_FEEDBACK_KEY").as_deref(),
             var("BAYLEE_PUBLIC_URL"),
-        )
+        );
+        feedback.to_central = to_central;
+        Ok(feedback)
     }
 
     /// The service at `url`, taking reports with `token`; pseudonyms made
@@ -119,6 +150,8 @@ impl Feedback {
             key,
             public_url,
             limiter: crate::auth::RateLimiter::new(REPORT_WINDOW, REPORTS_PER_WINDOW),
+            to_central: false,
+            in_flight: std::sync::Arc::new(tokio::sync::Semaphore::new(central::IN_FLIGHT)),
         }
     }
 
@@ -347,22 +380,23 @@ pub fn routes() -> axum::Router<Shared> {
 /// @operation-id `send_report`
 /// @summary Send a bug report or feedback
 /// @description A signed-in player's bug report, crash report or feedback,
-/// guests included. The gateway passes it on to the feedback service with
-/// its own name and build, a pseudonym for the reporter, and the record of
-/// the game it names when the reporter sat at it (or the client's own
-/// record of a local game); never a name, address or IP. 64 reports an
-/// hour per account; one the service did not take is not counted.
+/// guests included. The gateway passes it on to the feedback service, or
+/// files it with Baylee Central where `BAYLEE_REPORTS_TO=central`, with its
+/// own name and build, a pseudonym for the reporter, and the record of the
+/// game it names when the reporter sat at it (or the client's own record of
+/// a local game); never a name, address or IP. 64 reports an hour per
+/// account; one that was not taken is not counted.
 /// @tag Reports
 /// @security bearer
 /// @insert `SessionRefusals`
 /// @body `$Report`
-/// @return 201: `$ReportReceipt` "The feedback service took it"
-/// @return 400: `$ErrorBody` "Not a report: not JSON, an unknown `kind`, no `text`, `client` not an object, a `game_id` over 128 characters, or a `local_record` beside a `game_id` or not base64 of gzip"
+/// @return 201: `$ReportReceipt` "The feedback service or Central took it"
+/// @return 400: `$ErrorBody` "Not a report: not JSON, an unknown `kind`, no `text` (for Central: none left once what it does not show is taken out), `client` not an object, a `game_id` over 128 characters (for Central: or not printable ASCII), or a `local_record` beside a `game_id` or not base64 of gzip"
 /// @return 413: `$ErrorBody` "The text is over 20000 characters, `client` over 2 MiB, or the `local_record` over 4 MiB; a body over 7.58 MiB is refused before it is read, in plain text"
 /// @return 429: `$ErrorBody` "64 reports in the last hour from this account"
 /// @return 500: `$ErrorBody` "The report could not be encoded"
-/// @return 502: `$ErrorBody` "The feedback service did not take it"
-/// @return 503: `$ErrorBody` "Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset), or the account store, the database or Baylee Central is unavailable"
+/// @return 502: `$ErrorBody` "The feedback service or Central did not take it"
+/// @return 503: `$ErrorBody` "Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset, or with `BAYLEE_REPORTS_TO=central` no link to Central), too many reports are on their way to Central or it is past its budget for this gateway, or the account store, the database or Baylee Central is unavailable"
 pub async fn post_report(
     State(state): State<Shared>,
     headers: HeaderMap,
@@ -370,11 +404,17 @@ pub async fn post_report(
 ) -> Result<(StatusCode, Json<Created>), (StatusCode, Json<ErrorBody>)> {
     let session = crate::authed_session(&state, &headers).await?;
     let feedback = &state.feedback;
-    let Some(url) = feedback.url.clone() else {
-        return Err(err(
+    let not_configured = || {
+        err(
             StatusCode::SERVICE_UNAVAILABLE,
             "reports are not configured",
-        ));
+        )
+    };
+    // Where the report goes, settled before anything is read or counted.
+    let to = if feedback.to_central {
+        To::Central(state.central.get().ok_or_else(not_configured)?)
+    } else {
+        To::Service(feedback.url.clone().ok_or_else(not_configured)?)
     };
     let report = validate(&body).map_err(|(status, why)| err(status, why))?;
     let game_id = report.game_id.as_deref();
@@ -384,62 +424,174 @@ pub async fn post_report(
     if !feedback.limiter.allow(&session.account_id) {
         return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many reports"));
     }
-    // A report the service did not take was not sent, and costs the
-    // player nothing of the budget.
+    // A report that was not taken was not sent, and costs the player
+    // nothing of the budget.
     let give_back = || feedback.limiter.give_back(&session.account_id);
+    // Central's parts are held in memory on their way: only so many at once.
+    let _slot = match &to {
+        To::Central(_) => Some(
+            tokio::time::timeout(CENTRAL_QUEUE, feedback.in_flight.clone().acquire_owned())
+                .await
+                .ok()
+                .and_then(Result::ok)
+                .ok_or_else(|| {
+                    give_back();
+                    err(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "too many reports on their way; try again",
+                    )
+                })?,
+        ),
+        To::Service(_) => None,
+    };
     if let Some(game) = game_id {
         flush_record(&state, game, &session.account_id).await;
     }
-    let local = report.local_record.as_ref().map(|r| RecordOut {
-        complete: r.complete,
-        gzip_base64: r.gzip_base64.clone(),
-    });
-    let record_origin = if local.is_some() { "client" } else { "gateway" };
-    let record = match (game_id, uuid::Uuid::parse_str(&session.account_id)) {
-        _ if local.is_some() => local,
-        (Some(game), Ok(account)) => baylee_db::records::for_seated(&state.db, game, account)
-            .await
-            .map_err(|e| {
-                give_back();
-                crate::db_down(&anyhow::Error::from(e))
-            })?
-            .map(|r| RecordOut {
-                complete: r.complete,
-                gzip_base64: base64::engine::general_purpose::STANDARD.encode(r.data),
-            }),
-        _ => None,
-    };
-    let forward = Forward {
+    let record = record_of(&state, &report, game_id, &session.account_id)
+        .await
+        .inspect_err(|_| give_back())?;
+    let out = Outgoing {
         gateway: GatewayInfo {
             name: state.display_name.as_deref(),
             url: feedback.public_url.as_deref(),
             version: baylee_build::short(),
         },
         reporter: feedback.pseudonym(&session.account_id),
-        kind: report.kind,
-        text: &report.text,
+        report: &report,
         game_id,
-        client: &report.client,
         record,
+    };
+    let sent = match to {
+        To::Service(url) => to_service(feedback, url, out).await,
+        To::Central(bridge) => to_central(bridge, out).await,
+    };
+    let report_id = sent.inspect_err(|_| give_back())?;
+    Ok((StatusCode::CREATED, Json(Created { report_id })))
+}
+
+/// A report on its way, once it was read and counted.
+struct Outgoing<'a> {
+    gateway: GatewayInfo<'a>,
+    reporter: String,
+    report: &'a Report,
+    game_id: Option<&'a str>,
+    record: Option<central::RecordBytes>,
+}
+
+/// Sends `out` to the feedback service at `url`, its record in base64; the
+/// service's id for it.
+async fn to_service(
+    feedback: &Feedback,
+    url: String,
+    out: Outgoing<'_>,
+) -> Result<String, (StatusCode, Json<ErrorBody>)> {
+    let record_origin = out.record.as_ref().map_or("gateway", |r| match r.origin {
+        baylee_account::reports::RecordOrigin::Client => "client",
+        baylee_account::reports::RecordOrigin::Gateway => "gateway",
+    });
+    let forward = Forward {
+        gateway: out.gateway,
+        reporter: out.reporter,
+        kind: out.report.kind,
+        text: &out.report.text,
+        game_id: out.game_id,
+        client: &out.report.client,
+        record: out.record.map(|r| RecordOut {
+            complete: r.complete,
+            gzip_base64: base64::engine::general_purpose::STANDARD.encode(r.gzip),
+        }),
         record_origin,
     };
     let payload = serde_json::to_vec(&forward)
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "encoding the report"))?;
     let token = feedback.token.clone();
-    let sent = tokio::task::spawn_blocking(move || send(&url, &token, &payload))
+    tokio::task::spawn_blocking(move || send(&url, &token, &payload))
         .await
-        .unwrap_or_else(|_| Err("the sender stopped".to_owned()));
-    match sent {
-        Ok(report_id) => Ok((StatusCode::CREATED, Json(Created { report_id }))),
-        Err(why) => {
+        .unwrap_or_else(|_| Err("the sender stopped".to_owned()))
+        .map_err(|why| {
             tracing::warn!("the feedback service did not take a report: {why}");
-            give_back();
-            Err(err(
+            err(
                 StatusCode::BAD_GATEWAY,
                 "the feedback service did not take the report",
-            ))
-        }
+            )
+        })
+}
+
+/// Files `out` with Central through `bridge` (`central.rs`); Central's id for it.
+async fn to_central(
+    bridge: std::sync::Arc<crate::central::Bridge>,
+    out: Outgoing<'_>,
+) -> Result<String, (StatusCode, Json<ErrorBody>)> {
+    use baylee_account::reports::{GatewaySays, said};
+    let says = central::Said {
+        gateway: GatewaySays {
+            name: out.gateway.name.and_then(said),
+            url: out.gateway.url.and_then(said),
+            version: said(out.gateway.version),
+        },
+        reporter: out.reporter,
+        kind: out.report.kind,
+        text: &out.report.text,
+        game_id: out.game_id,
+        client: &out.report.client,
+    };
+    let filing =
+        central::prepare(&says, out.record).map_err(|why| err(StatusCode::BAD_REQUEST, why))?;
+    tokio::task::spawn_blocking(move || central::file(&bridge, &filing))
+        .await
+        .unwrap_or(Err(baylee_account::Error::Unavailable))
+        .map_err(|why| {
+            tracing::warn!(?why, "Central did not take a report");
+            match why {
+                baylee_account::Error::Busy => err(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Central takes no more reports from this gateway for now",
+                ),
+                _ => err(StatusCode::BAD_GATEWAY, "Central did not take the report"),
+            }
+        })
+}
+
+/// Where a report goes.
+enum To {
+    /// The feedback service at this address.
+    Service(String),
+    /// Central, through the gateway's link.
+    Central(std::sync::Arc<crate::central::Bridge>),
+}
+
+/// How long a report waits for one of [`central::IN_FLIGHT`] places before
+/// the player is told to try again.
+const CENTRAL_QUEUE: Duration = Duration::from_secs(10);
+
+/// The record a report carries: the client's own of a local game, or the
+/// gateway's of the game it names when `account_id` sat at it; none else.
+async fn record_of(
+    state: &Shared,
+    report: &Report,
+    game_id: Option<&str>,
+    account_id: &str,
+) -> Result<Option<central::RecordBytes>, (StatusCode, Json<ErrorBody>)> {
+    use baylee_account::reports::RecordOrigin;
+    if let Some(local) = &report.local_record {
+        let gzip = local_record(local).map_err(|(status, why)| err(status, why))?;
+        return Ok(Some(central::RecordBytes {
+            complete: local.complete,
+            origin: RecordOrigin::Client,
+            gzip,
+        }));
     }
+    let (Some(game), Ok(account)) = (game_id, uuid::Uuid::parse_str(account_id)) else {
+        return Ok(None);
+    };
+    let stored = baylee_db::records::for_seated(&state.db, game, account)
+        .await
+        .map_err(|e| crate::db_down(&anyhow::Error::from(e)))?;
+    Ok(stored.map(|r| central::RecordBytes {
+        complete: r.complete,
+        origin: RecordOrigin::Gateway,
+        gzip: r.data,
+    }))
 }
 
 /// Asks the engine of `game_id` for its record as it stands and waits, up to
@@ -716,6 +868,8 @@ mod tests {
             key: [7; 32],
             public_url: None,
             limiter: crate::auth::RateLimiter::new(REPORT_WINDOW, 1),
+            to_central: false,
+            in_flight: std::sync::Arc::new(tokio::sync::Semaphore::new(1)),
         };
         let a = feedback.pseudonym("0190a1b2-0000-7000-8000-000000000001");
         assert_eq!(

@@ -831,3 +831,268 @@ async fn the_real_service_keeps_a_local_record_as_the_clients() {
     assert_eq!(report(gw.port, Some(&token), &local_report(&fake)).0, 502);
     assert_eq!(gw.scalar("SELECT count(*) FROM feedback_report"), 1);
 }
+
+// ------------------------------------------------- reports filed with Central
+
+/// What the stub Central was sent: each report's metadata, and each part it
+/// took (the report's id in hex, the part, the gzip).
+#[derive(Default)]
+struct Desk {
+    reports: Vec<serde_json::Value>,
+    parts: Vec<(String, String, Vec<u8>)>,
+}
+type Filed = Arc<Mutex<Desk>>;
+
+/// A stand-in for Central's intake (baylee-central `docs/reports.md`
+/// §"Intake"), with its checks: the gateway's own bearer and the exact
+/// content type, the metadata's ten fields, and a part only as announced
+/// (its declared length and SHA-256), once (`409` again).
+async fn stub_central(bearer: String) -> (String, Filed) {
+    use axum::extract::Path;
+    use axum::response::IntoResponse as _;
+    use sha2::Digest as _;
+    let filed: Filed = Arc::default();
+    let allowed = move |headers: &HeaderMap, content_type: &str| {
+        headers.get("authorization").and_then(|v| v.to_str().ok()) == Some(bearer.as_str())
+            && headers.get("content-type").and_then(|v| v.to_str().ok()) == Some(content_type)
+    };
+    let file = {
+        let allowed = allowed.clone();
+        move |State(filed): State<Filed>, headers: HeaderMap, body: axum::body::Bytes| async move {
+            let json: serde_json::Value = serde_json::from_slice(&body).unwrap_or_default();
+            let fields = json.as_object().map_or(0, serde_json::Map::len);
+            if !allowed(&headers, "application/json") || fields != 10 {
+                return (StatusCode::UNAUTHORIZED, String::new()).into_response();
+            }
+            let mut desk = filed.lock();
+            desk.reports.push(json);
+            let id = format!("{:032x}", desk.reports.len());
+            (
+                StatusCode::CREATED,
+                [("content-type", "application/json")],
+                format!(r#"{{"report_id":"{id}"}}"#),
+            )
+                .into_response()
+        }
+    };
+    let part = move |State(filed): State<Filed>,
+                     Path((id, part)): Path<(String, String)>,
+                     headers: HeaderMap,
+                     body: axum::body::Bytes| async move {
+        let mut desk = filed.lock();
+        let index = usize::from_str_radix(&id, 16).unwrap_or(0);
+        let Some(announced) = index
+            .checked_sub(1)
+            .and_then(|i| desk.reports.get(i))
+            .map(|r| r[&part].clone())
+        else {
+            return StatusCode::UNAUTHORIZED;
+        };
+        let declared = headers
+            .get("content-length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<u64>().ok());
+        let sha: Vec<u64> = sha2::Sha256::digest(&body)
+            .iter()
+            .map(|b| u64::from(*b))
+            .collect();
+        if !allowed(&headers, "application/gzip")
+            || declared != announced["bytes"].as_u64()
+            || announced["sha256"].as_array().map(|a| {
+                a.iter()
+                    .filter_map(serde_json::Value::as_u64)
+                    .collect::<Vec<_>>()
+            }) != Some(sha)
+        {
+            return StatusCode::UNAUTHORIZED;
+        }
+        if desk.parts.iter().any(|(i, p, _)| *i == id && *p == part) {
+            return StatusCode::CONFLICT;
+        }
+        desk.parts.push((id, part, body.to_vec()));
+        StatusCode::NO_CONTENT
+    };
+    let app = axum::Router::new()
+        .route("/v1/reports", axum::routing::post(file))
+        .route("/v1/reports/{id}/{part}", axum::routing::put(part))
+        .layer(axum::extract::DefaultBodyLimit::max(80 * 1024 * 1024))
+        .with_state(filed.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    (url, filed)
+}
+
+/// The operator's Central file for a gateway linked by `bridge` to `url`;
+/// removed when it goes.
+struct CentralFile(std::path::PathBuf);
+impl Drop for CentralFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+fn central_file(url: &str, bridge: &baylee_account::Token) -> CentralFile {
+    let path = std::env::temp_dir().join(format!(
+        "baylee-reports-central-{}.json",
+        uuid::Uuid::now_v7()
+    ));
+    let settings = serde_json::json!({"endpoint": url, "bridge": bridge});
+    std::fs::write(&path, settings.to_string()).expect("the Central file");
+    CentralFile(path)
+}
+
+/// `BAYLEE_REPORTS_TO=central`: a report goes to Central, not the service.
+/// Its metadata is within Central's bounds (a stray carriage return and a
+/// direction override left out, the build and the crash read from the
+/// client's details), its record and the client's details follow as the
+/// announced gzip, a stranger who names the game gets no record, and
+/// nothing names the player.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_report_goes_to_central_where_the_operator_says_so() {
+    let bridge = baylee_account::Token::generate().expect("a token");
+    let (url, filed) = stub_central(bridge.bearer().to_string()).await;
+    let file = central_file(&url, &bridge);
+    let gw = spawn_gateway_with(
+        "reports-central",
+        &[
+            ("BAYLEE_REPORTS_TO", "central".to_owned()),
+            ("BAYLEE_FEEDBACK_KEY", "pseudonym-key".to_owned()),
+            (
+                "BAYLEE_CENTRAL_CONFIG_FILE",
+                file.0.to_string_lossy().into_owned(),
+            ),
+        ],
+    );
+    let port = gw.port;
+    let agent = attach_agent(&gw).await;
+    let token = login(port, "cora", "CoraCentral");
+    let game = a_finished_game(port, &token).await;
+    stored(&gw, &game).await;
+
+    let client = serde_json::json!({
+        "build": {"version": "0.1.1-beta.9b", "commit": "3f9a1c7e21"},
+        "crash": {"message": "boom", "location": "crates/a/src/b.rs:1:2"},
+        "os": "somewhere",
+    });
+    let body = serde_json::json!({
+        "kind": "crash",
+        "text": "It broke\r\n\u{202E}here",
+        "game_id": game,
+        "client": client,
+    })
+    .to_string();
+    let (status, answer) = report(port, Some(&token), &body);
+    assert_eq!(status, 201, "{answer}");
+    assert_eq!(json_field(&answer, "report_id"), format!("{:032x}", 1));
+
+    let stranger = login(port, "stig", "StigStranger");
+    let naming =
+        serde_json::json!({"kind": "bug", "text": "me too", "game_id": game, "client": {}})
+            .to_string();
+    assert_eq!(report(port, Some(&stranger), &naming).0, 201);
+
+    let desk = filed.lock();
+    assert_eq!(desk.reports.len(), 2);
+    sent_within_bounds(
+        &desk.reports[0],
+        &game,
+        &["cora", "CoraCentral", token.as_str()],
+    );
+    assert!(
+        desk.reports[1]["record"].is_null(),
+        "a stranger was sent the record"
+    );
+    assert!(
+        desk.reports[1]["client"].is_null(),
+        "an empty client sends no part"
+    );
+    parts_as_announced(&desk, &client, &gw, &game);
+    drop(desk);
+    drop(file);
+    agent.abort();
+}
+
+/// The first report's metadata as Central was sent it: within its bounds,
+/// read from the client's details, and naming nobody.
+fn sent_within_bounds(sent: &serde_json::Value, game: &str, private: &[&str]) {
+    for word in private {
+        assert!(
+            !sent.to_string().contains(word),
+            "the report carried {word:?}"
+        );
+    }
+    assert_eq!(sent["channel"], "gateway");
+    assert_eq!(sent["kind"], "crash");
+    assert_eq!(sent["text"], "It broke\nhere");
+    assert_eq!(sent["game_id"], game);
+    assert_eq!(
+        sent["build"],
+        serde_json::json!({"version": "0.1.1-beta.9b", "commit": "3f9a1c7e21"})
+    );
+    assert_eq!(
+        sent["crash"],
+        serde_json::json!({"message": "boom", "location": "crates/a/src/b.rs:1:2"})
+    );
+    assert_eq!(sent["reporter"].as_str().map(str::len), Some(64));
+    assert!(
+        sent["gateway"]["version"]
+            .as_str()
+            .is_some_and(|v| !v.is_empty())
+    );
+    assert_eq!(sent["record"]["origin"], "gateway");
+    assert_eq!(sent["record"]["complete"], true);
+}
+
+/// Both parts of the first report arrived as announced: the client's details
+/// as the gzip of their JSON, and the game's record as the gateway kept it.
+fn parts_as_announced(desk: &Desk, client: &serde_json::Value, gw: &Gateway, game: &str) {
+    let first = format!("{:032x}", 1);
+    let part = |name: &str| {
+        desk.parts
+            .iter()
+            .find(|(id, p, _)| *id == first && p == name)
+            .map_or_else(|| panic!("no {name} part"), |(_, _, gzip)| gzip.clone())
+    };
+    let mut json = String::new();
+    flate2::read::GzDecoder::new(&part("client")[..])
+        .read_to_string(&mut json)
+        .expect("gzip");
+    assert_eq!(
+        &serde_json::from_str::<serde_json::Value>(&json).unwrap(),
+        client
+    );
+    let record = part("record");
+    assert_eq!(
+        i64::try_from(record.len()).unwrap(),
+        gw.scalar(&format!(
+            "SELECT bytes FROM game_record WHERE game_id = '{game}'"
+        ))
+    );
+    let mut lines = String::new();
+    flate2::read::MultiGzDecoder::new(&record[..])
+        .read_to_string(&mut lines)
+        .expect("one gzip stream");
+    assert!(
+        lines
+            .lines()
+            .next()
+            .is_some_and(|l| l.contains("\"header\""))
+    );
+}
+
+/// Switched to Central without a link to it, a report is not configured.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn without_a_link_to_central_reports_are_not_configured() {
+    let gw = spawn_gateway_with(
+        "reports-central-off",
+        &[
+            ("BAYLEE_REPORTS_TO", "central".to_owned()),
+            ("BAYLEE_FEEDBACK_KEY", "pseudonym-key".to_owned()),
+        ],
+    );
+    let token = login(gw.port, "nils", "NilsNowhere");
+    let fine = r#"{"kind":"bug","text":"x","game_id":null,"client":{}}"#;
+    let (status, body) = report(gw.port, Some(&token), fine);
+    assert_eq!(status, 503, "{body}");
+}

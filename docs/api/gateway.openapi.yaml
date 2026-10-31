@@ -830,11 +830,12 @@ paths:
       summary: Send a bug report or feedback
       description: |-
         A signed-in player's bug report, crash report or feedback,
-        guests included. The gateway passes it on to the feedback service with
-        its own name and build, a pseudonym for the reporter, and the record of
-        the game it names when the reporter sat at it (or the client's own
-        record of a local game); never a name, address or IP. 64 reports an
-        hour per account; one the service did not take is not counted.
+        guests included. The gateway passes it on to the feedback service, or
+        files it with Baylee Central where `BAYLEE_REPORTS_TO=central`, with its
+        own name and build, a pseudonym for the reporter, and the record of the
+        game it names when the reporter sat at it (or the client's own record of
+        a local game); never a name, address or IP. 64 reports an hour per
+        account; one that was not taken is not counted.
       operationId: send_report
       tags:
       - Reports
@@ -848,13 +849,13 @@ paths:
         required: true
       responses:
         "201":
-          description: The feedback service took it
+          description: The feedback service or Central took it
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReportReceipt"
         "400":
-          description: "Not a report: not JSON, an unknown `kind`, no `text`, `client` not an object, a `game_id` over 128 characters, or a `local_record` beside a `game_id` or not base64 of gzip"
+          description: "Not a report: not JSON, an unknown `kind`, no `text` (for Central: none left once what it does not show is taken out), `client` not an object, a `game_id` over 128 characters (for Central: or not printable ASCII), or a `local_record` beside a `game_id` or not base64 of gzip"
           content:
             application/json:
               schema:
@@ -894,7 +895,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "502":
-          description: The feedback service did not take it
+          description: The feedback service or Central did not take it
           content:
             application/json:
               schema:
@@ -902,7 +903,7 @@ paths:
         "503":
           description: |-
             - The account store or Baylee Central is unavailable
-            - Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset), or the account store, the database or Baylee Central is unavailable
+            - Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset, or with `BAYLEE_REPORTS_TO=central` no link to Central), too many reports are on their way to Central or it is past its budget for this gateway, or the account store, the database or Baylee Central is unavailable
           content:
             application/json:
               schema:

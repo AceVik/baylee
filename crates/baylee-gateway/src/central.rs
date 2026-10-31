@@ -155,6 +155,26 @@ impl Bridge {
         })
     }
 
+    /// Files a report's metadata with Central under this gateway's own
+    /// credential (`report::central`), blocking.
+    pub(crate) fn file_report(
+        &self,
+        intake: &baylee_account::reports::ReportIntake,
+    ) -> Result<[u8; 16], baylee_account::Error> {
+        self.http.file_report(intake, &self.credential)
+    }
+
+    /// Sends a part `report` announced, under the same credential, blocking.
+    pub(crate) fn put_report_part(
+        &self,
+        report: &[u8; 16],
+        part: baylee_account::reports::Part,
+        gzip: &[u8],
+    ) -> Result<(), baylee_account::Error> {
+        self.http
+            .put_report_part(report, part, gzip, &self.credential)
+    }
+
     async fn exchange(
         self: &Arc<Self>,
         request: wire::Request,

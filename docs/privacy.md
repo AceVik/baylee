@@ -704,6 +704,7 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | Direct report (kind, text, build, the `client` object, a client's record), `channel = 'direct'`, gateway `(direct)` | the feedback service's `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
 | A client's record of a game it hosted (`record_origin = 'client'`, unverified) | `feedback_report.record` | with the report | with the report |
 | Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
+| Report filed with Baylee Central where the gateway is switched there (`BAYLEE_REPORTS_TO=central`): kind, text, game id, the client's build and a crash's message and place, the pseudonym, the gateway's name, address and build; the `client` object and the record as the gzip the gateway sent | Baylee Central's Postgres, `reports` and `report_parts` (baylee-central `docs/reports.md`, its `docs/privacy.md`) | 90 days after it is done, 30 days in the trash, three years at most; its history (who changed what, never its words) stays | Central's sweep, or an administrator's purge from the trash |
 | Reporter pseudonym | `feedback_report.reporter` | with the report | with the report |
 | Feedback admin (name, Argon2id password hash, since when) | the feedback service's `feedback_admin` | until removed | `baylee-feedback admin remove`, on the server only |
 | Feedback admin session (SHA-256 of the cookie token, sign-in and last-use times) | `feedback_session` | 12 hours unused, at most 7 days | sign-out, lapse (deleted when next shown and at every sign-in), or the admin's removal |
@@ -767,6 +768,13 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   its reporter is HMAC-SHA256 of the client's random device id under the
   service's `FEEDBACK_DIRECT_KEY`, and the address it came from is counted
   in memory for an hour and kept nowhere.
+- **What reaches Central**, where the gateway is switched there
+  (`docs/feedback.md` §"To Baylee Central instead"), is the same list, with
+  the client's build and a crash's message and place read out of its
+  `client` object for Central's list, and that object and the record sent
+  as gzip Central stores without unpacking. The pseudonym's key stays the
+  gateway's; Central never holds it, so it cannot tell whose account a
+  report came from. A reported chat message never goes there.
 - **The feedback web UI (#311)** is for the service's admins, who are
   developers, not players. Its one cookie (`__Host-baylee-feedback`,
   `HttpOnly; Secure; SameSite=Strict`) holds the session token and is sent
