@@ -160,7 +160,8 @@ waiting for CI**: `cargo dev land` runs `cargo dev gate` and `cargo dev gate fea
 under the machine's cargo lock and then pushes the gated commit
 to main, only as a fast-forward, never forced. Landing is serial: under the
 lock it fetches main again, merges it into the branch if it moved (a conflict
-stops the run), gates that commit and pushes it, so a second lander waits and
+stops the run), rebuilds `cargo dev` from the merged tree so main's gate
+steps judge it, gates that commit and pushes it, so a second lander waits and
 gates on top of the first instead of being refused after its gates (`--check`
 gates HEAD as it is and never merges or pushes). CI green matters at a release, which needs the main
 push run of the tagged commit green (§"Cutting one").
