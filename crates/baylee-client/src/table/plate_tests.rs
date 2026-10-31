@@ -458,3 +458,40 @@ fn every_plate_and_badge_reads_upright_to_the_eye() {
         "turned and unturned both met: {seen:?}"
     );
 }
+
+/// The table the player saw (report 30.10.2026): an eternalized Fanatic of
+/// Rhonas, a 4/4 black Zombie whose base is 4/4, drawn on the Fanatic's
+/// print, whose box says 1/4. Built the way the table builds it, from the
+/// view through the board to the placement, so the plate is set against the
+/// print the board drew it on; set against the base, it was not drawn and
+/// the player read 1/4.
+#[test]
+fn an_eternalized_token_wears_its_plate_on_the_table() {
+    use baylee_client_core::layout::TableLayout;
+    use baylee_client_core::test_support::{ViewBuilder, token};
+    let mut fanatic = token(536, 0, "Fanatic of Rhonas", 4, 4);
+    fanatic.base_power = Some(4);
+    fanatic.base_toughness = Some(4);
+    fanatic.rules = Some(baylee_view::RulesFace {
+        card: baylee_core::generated::index::FANATIC_OF_RHONAS,
+        face: 0,
+    });
+    let view = ViewBuilder::new(2)
+        .with_battlefield(0, vec![fanatic])
+        .build();
+    let mut duel = Duel::default();
+    duel.receive_view(view);
+    duel.layout = Some(TableLayout::new(&[PlayerId::new(0)], 16.0 / 9.0, None));
+    crate::rebuild_board(&mut duel);
+    let placed = placements(&duel);
+    let token = placed
+        .iter()
+        .find(|p| p.object == ObjectId::new(536, 0))
+        .expect("the token is on the table");
+    assert!(token.art.is_some(), "drawn on a print, the Fanatic's");
+    assert!(
+        token.corner.shows_plate(true, token.covered),
+        "a 4/4 on a 1/4 print wears its plate: {:?}",
+        token.corner
+    );
+}

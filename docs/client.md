@@ -3236,7 +3236,12 @@ numbers, and the **light on the felt** round the card says what is on offer.
   and a plate beside it saying 2/2 is noise on every creature of the board.
   A body the layers changed, marked damage, a card drawn without its print,
   a print whose box the next card of a fanned lane covers, and every loyalty
-  and chapter count, are written. `client-core/src/cardplate.rs` decides
+  and chapter count, are written. "Changed" is against the box of the print
+  the card is drawn on (`board::printed_of`, the registry's body of the face
+  `art_of` draws, worked out when the board is built), not against the
+  view's copiable base: an eternalized Fanatic of Rhonas, a 4/4 with a 4/4
+  base on the Fanatic's 1/4 print, read 1/4 while the plate was set against
+  its base (report 30.10.2026). `client-core/src/cardplate.rs` decides
   what it says and packs it into one `u32` — three ten-bit numbers and two
   kind bits — which with its ink word (the tone and `PLATE_NIGHT`,
   `Corner::plate_words`, and `PLATE_TURNED`) is the plate material's key, so a creature dealt

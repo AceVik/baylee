@@ -305,8 +305,13 @@ pub struct Corner {
     pub plate: Plate,
     /// The net ±1/±1 swing, written in the chip.
     pub swing: Option<(i16, i16)>,
-    /// The printed body, when the view names one: what the print's own
-    /// power and toughness box says.
+    /// The printed body: what the drawn print's own power and toughness box
+    /// says. A group's is the board's answer ([`crate::board::printed_of`],
+    /// worked out when the board is built); an object's is the view's
+    /// copiable base until the caller names the print's own
+    /// ([`Self::over_print`]), which it must where the two differ: an
+    /// eternalized Fanatic of Rhonas is a 4/4 whose base is 4/4, drawn on
+    /// the Fanatic's print, whose box says 1/4 (report 30.10.2026).
     pub printed: Option<(i16, i16)>,
     /// Which numerals are not written in the plate's own ink.
     pub tone: Tone,
@@ -343,6 +348,18 @@ impl Corner {
             swing: counter_swing(&object.counters),
             printed: object.base_power.zip(object.base_toughness),
             tone: tone_of(&KeywordBadge::from_bits(object.keywords)),
+        }
+    }
+
+    /// The corner over a print whose box says `printed`: the registry's
+    /// answer for the face the card is drawn with. `None`, where the
+    /// registry prints no body (a `*`, a face it does not know), keeps the
+    /// view's base.
+    #[must_use]
+    pub fn over_print(self, printed: Option<(i16, i16)>) -> Self {
+        match printed {
+            Some(_) => Self { printed, ..self },
+            None => self,
         }
     }
 
