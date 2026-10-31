@@ -63,7 +63,9 @@ pub fn parse_deck_inventory(deck: &DeckEntry) -> anyhow::Result<DeckInventory> {
             section = "sideboard";
             continue;
         }
-        if lower == "[deck]" || lower == "deck" || lower == "deck:" {
+        // `[deck:Name]` opens a deck file in the repository's own format
+        // (`xtask deck-check`, every corpus deck); the manifest names it.
+        if lower == "[deck]" || lower == "deck" || lower == "deck:" || lower.starts_with("[deck:") {
             section = "cards";
             continue;
         }
@@ -165,10 +167,15 @@ pub fn load_decks(manifest_path: &Path) -> anyhow::Result<Vec<DeckEntry>> {
             Some(s) if !s.is_empty() => s.to_owned(),
             _ => sha256_file(Path::new(&path))?,
         };
-        let format = item
+        let declared = item
             .get("format")
             .and_then(Value::as_str)
-            .context("Deck manifest must explicitly declare its format")?
+            .context("Deck manifest must explicitly declare its format")?;
+        // Corpus and importer manifests name formats in lower case.
+        let format = ["Commander", "Constructed", "Highlander"]
+            .into_iter()
+            .find(|known| known.eq_ignore_ascii_case(declared))
+            .unwrap_or(declared)
             .to_owned();
         let source = item
             .get("source")
@@ -571,6 +578,9 @@ impl Scheduler {
         let mut pair_counts: BTreeMap<(String, String), usize> = BTreeMap::new();
         let mut orient_counts: BTreeMap<(String, String), usize> = BTreeMap::new();
         let mut model_orient: BTreeMap<(String, String, String, String), usize> = BTreeMap::new();
+        // Profile pairings over every game: with many decks almost every deck
+        // pair is new, so balancing per deck pair alone kept the first pairing.
+        let mut profile_pairs: BTreeMap<(String, String), usize> = BTreeMap::new();
         let mut deck_games: BTreeMap<String, usize> = BTreeMap::new();
 
         let mut record_usage = |fmt: &str, d0: &str, d1: &str, p0: &str, p1: &str| {
@@ -588,6 +598,9 @@ impl Scheduler {
                 .or_insert(0) += 1;
             *model_orient
                 .entry((d0.to_owned(), d1.to_owned(), p0.to_owned(), p1.to_owned()))
+                .or_insert(0) += 1;
+            *profile_pairs
+                .entry((p0.to_owned(), p1.to_owned()))
                 .or_insert(0) += 1;
             *deck_games.entry(d0.to_owned()).or_insert(0) += 1;
             *deck_games.entry(d1.to_owned()).or_insert(0) += 1;
@@ -694,15 +707,21 @@ impl Scheduler {
             .pairs
             .iter()
             .min_by_key(|ps| {
-                model_orient
-                    .get(&(
-                        seat0_deck.key.clone(),
-                        seat1_deck.key.clone(),
-                        ps[0].clone(),
-                        ps[1].clone(),
-                    ))
-                    .copied()
-                    .unwrap_or(0)
+                (
+                    profile_pairs
+                        .get(&(ps[0].clone(), ps[1].clone()))
+                        .copied()
+                        .unwrap_or(0),
+                    model_orient
+                        .get(&(
+                            seat0_deck.key.clone(),
+                            seat1_deck.key.clone(),
+                            ps[0].clone(),
+                            ps[1].clone(),
+                        ))
+                        .copied()
+                        .unwrap_or(0),
+                )
             })
             .context("Choosing profile pairing")?
             .clone();
@@ -1140,7 +1159,7 @@ mod tests {
         let con_file = dir.path().join("con.txt");
         std::fs::write(
             &con_file,
-            "# format: Constructed\n60 Mountain\n\n[Sideboard]\n15 Abrade\n",
+            "# adapted from a precon\n[deck:Burn]\n60 Mountain\n\n[Sideboard]\n15 Abrade\n",
         )
         .unwrap();
         let cmd_entry = DeckEntry {
@@ -1184,9 +1203,10 @@ mod tests {
             (0, "Commander"),
             (1, "Commander"),
             (2, "Constructed"),
-            (3, "Constructed"),
+            // Importer manifests write formats in lower case.
+            (3, "constructed"),
             (4, "Highlander"),
-            (5, "Highlander"),
+            (5, "highlander"),
         ] {
             let p = dir.path().join(format!("d{i}.txt"));
             std::fs::write(&p, "60 Plains\n").unwrap();
@@ -1226,5 +1246,66 @@ mod tests {
         assert_eq!(a0.format, "Commander");
         assert_eq!(a1.format, "Constructed");
         assert_eq!(a2.format, "Highlander");
+    }
+
+    #[test]
+    fn profile_pairings_take_turns_even_when_every_deck_pair_is_new() {
+        let dir = TestDir::new("sched-efforts");
+        let decks: Vec<Value> = (0..12)
+            .map(|i| {
+                let p = dir.path().join(format!("d{i}.txt"));
+                std::fs::write(&p, "60 Plains\n").unwrap();
+                json!({"key": format!("d-{i}"), "name": format!("Deck {i}"), "path": p,
+                    "sha256": sha256_file(&p).unwrap(), "format": "Constructed"})
+            })
+            .collect();
+        let manifest = dir.path().join("deck-manifest.json");
+        write_atomic_json(&manifest, &json!({ "decks": decks })).unwrap();
+        let effort = |e: &str| {
+            json!({"provider": "openai", "model": "deepseek-flash", "effort": e,
+                "base_url": "https://api.deepseek.com/v1", "key_env": "DEEPSEEK_API_KEY",
+                "game_tokens": 100_000})
+        };
+        write_atomic_json(
+            &dir.path().join("profiles.json"),
+            &json!({"profiles": {"low": effort("low"), "medium": effort("medium"), "high": effort("high")}}),
+        )
+        .unwrap();
+        let pairings = dir.path().join("pairings.json");
+        write_atomic_json(
+            &pairings,
+            &json!([["low", "low"], ["medium", "medium"], ["high", "high"]]),
+        )
+        .unwrap();
+        let mut sched = Scheduler::new(
+            dir.path().to_path_buf(),
+            "http://127.0.0.1:28768".to_owned(),
+            dir.path().join("profiles.json"),
+            Some(pairings),
+            &manifest,
+            90,
+            3600,
+        )
+        .unwrap();
+        let mut used: BTreeMap<String, usize> = BTreeMap::new();
+        for slot in 0..6 {
+            let assignment = sched.next_assignment(slot).unwrap();
+            *used
+                .entry(
+                    assignment.request["profiles"][0]
+                        .as_str()
+                        .unwrap()
+                        .to_owned(),
+                )
+                .or_default() += 1;
+        }
+        assert_eq!(
+            used,
+            BTreeMap::from([
+                ("high".to_owned(), 2),
+                ("low".to_owned(), 2),
+                ("medium".to_owned(), 2)
+            ])
+        );
     }
 }
