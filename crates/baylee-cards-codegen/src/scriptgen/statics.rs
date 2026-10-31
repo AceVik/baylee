@@ -1,6 +1,8 @@
 //! Reading static abilities and the modifiers they apply.
 
-use super::{Chain, Params, Tx, animation::supertype_const, card_type_const, keyword_const};
+use super::{
+    Chain, Params, Tx, animation::supertype_const, card_type_const, counter_kind, keyword_const,
+};
 
 impl Tx<'_> {
     pub(super) fn is_ai_only_static(&self, spec: &str) -> bool {
@@ -160,10 +162,43 @@ impl Tx<'_> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("an `S:` line with no `$` in it".to_string());
         };
+        if mode == "Continuous"
+            && p.peek("AddKeyword")
+                .is_some_and(|keyword| keyword.starts_with("Protection:"))
+            && p.peek("CheckSVar").is_some()
+        {
+            return self.protection_from_imprinted(p);
+        }
         match mode.as_str() {
             "RaiseCost" => return self.mana_life_tax(p),
             "ReduceCost" => return self.reduce_cost(p),
-            "CantBeCast" => return self.one_spell_each_turn(p),
+            "FlipCoinDoubler" => {
+                p.drop_prose();
+                if p.take("ValidPlayer").as_deref() != Some("You") || !p.exhausted() {
+                    return self.deny("a coin-flip replacement for another player".to_string());
+                }
+                self.body.abilities.push(Self::static_expr(
+                    "Filter::Any",
+                    "Modifier::FlipTwoCoinsIgnoreOne",
+                ));
+                return Some(());
+            }
+            "CantBeCast" => {
+                p.drop_prose();
+                if p.peek("ValidCard") == Some("Creature")
+                    && p.peek("Caster") == Some("You")
+                    && p.entries.len() == 2
+                {
+                    p.take("ValidCard");
+                    p.take("Caster");
+                    self.body.abilities.push(Self::static_expr(
+                        "Filter::Any",
+                        "Modifier::PlayersCantCast { who: PlayerRel::You, filter: &Filter::CREATURE }",
+                    ));
+                    return Some(());
+                }
+                return self.one_spell_each_turn(p);
+            }
             "CantBlockBy" => return self.cant_block_by(p),
             "MustAttack" => return self.must_attack(p),
             "CantAttack,CantBlock,CantBeActivated" => {
@@ -174,6 +209,9 @@ impl Tx<'_> {
             }
             "CantAttack" if p.peek("ValidCard") == Some("Card.Self+attackedLastTurn") => {
                 return self.cant_attack_after_last_own_turn(p);
+            }
+            "CantAttackUnless" | "CantBlockUnless" => {
+                return self.combat_mana_tax_per_counter(&mode, p);
             }
             "CantAttack" => return self.cant_attack_unless(p),
             "CantBlock" => return self.cant_block(p),
@@ -617,6 +655,75 @@ impl Tx<'_> {
         Some(())
     }
 
+    /// Nine per-type static lines can describe one protection ability whose
+    /// set is the card types among the source's exiled cards. Read all nine,
+    /// but emit the shared rule only once.
+    fn protection_from_imprinted(&mut self, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("AffectedDefined").as_deref() != Some("Self") {
+            return None;
+        }
+        let keyword = p.take("AddKeyword")?;
+        let check = p.take("CheckSVar")?;
+        if !matches!(p.take("SVarCompare").as_deref(), None | Some("GE1")) || !p.exhausted() {
+            return None;
+        }
+        let valid = self
+            .svars
+            .get(check.trim())?
+            .strip_prefix("Imprinted$Valid ")?;
+        if keyword != format!("Protection:{valid}")
+            || !matches!(
+                valid,
+                "Artifact"
+                    | "Battle"
+                    | "Creature"
+                    | "Enchantment"
+                    | "Instant"
+                    | "Kindred"
+                    | "Land"
+                    | "Planeswalker"
+                    | "Sorcery"
+            )
+        {
+            return None;
+        }
+        if valid == "Creature" {
+            self.body.abilities.push(Self::static_expr(
+                "Filter::This",
+                "Modifier::ProtectionFromExiledWithSourceTypes",
+            ));
+        }
+        Some(())
+    }
+
+    /// "Can't attack or block unless you pay {1} for each counter of a kind
+    /// on this creature": one restriction per combat declaration.
+    fn combat_mana_tax_per_counter(&mut self, mode: &str, mut p: Params) -> Option<()> {
+        p.drop_prose();
+        if p.take("ValidCard").as_deref() != Some("Card.Self") {
+            return None;
+        }
+        let cost = p.take("Cost")?;
+        let code = self
+            .svars
+            .get(cost.trim())
+            .and_then(|definition| definition.strip_prefix("Count$CardCounters."))?;
+        let kind = counter_kind(code)?;
+        if !p.exhausted() {
+            return None;
+        }
+        let modifier = match mode {
+            "CantAttackUnless" => format!("Modifier::CantAttackUnlessPayManaPerCounter({kind})"),
+            "CantBlockUnless" => format!("Modifier::CantBlockUnlessPayManaPerCounter({kind})"),
+            _ => return None,
+        };
+        self.body
+            .abilities
+            .push(Self::static_expr("Filter::This", &modifier));
+        Some(())
+    }
+
     pub(super) fn cant_play_land(&mut self, mut p: Params) -> Option<()> {
         p.drop_prose();
         let condition = self.condition(&mut p)?;
@@ -648,6 +755,16 @@ impl Tx<'_> {
             return self.deny("`CantBlockBy` naming no attacker or no blocker".to_string());
         };
         let blocker = p.take("ValidBlocker");
+        if attacker == "Card.Self"
+            && blocker.is_none()
+            && p.take("IsPresent").as_deref() == Some("Artifact.DefenderCtrl")
+        {
+            self.body.abilities.push(
+                "static_ability!(Filter::This, Modifier::AddKeyword(KeywordSet::UNBLOCKABLE), condition = Some(Condition::Not(&Condition::SomeDefendingPlayerControlsNone(&Filter::ARTIFACT))))"
+                    .to_string(),
+            );
+            return Some(());
+        }
         let condition = self.condition(&mut p)?;
         if let Some(key) = p.first_key() {
             self.note(format!("unclaimed parameter `CantBlockBy.{key}`"));
@@ -787,6 +904,20 @@ impl Tx<'_> {
         filter: &str,
         out: &mut Vec<String>,
     ) -> Option<()> {
+        if p.peek("SetPower") == Some("AffectedX")
+            && p.peek("SetToughness") == Some("AffectedX")
+            && p.peek("AddType") == Some("Creature")
+            && self.svars.get("AffectedX").map(String::as_str) == Some("Count$CardManaCost")
+        {
+            p.take("SetPower");
+            p.take("SetToughness");
+            p.take("AddType");
+            out.push(Self::static_expr(
+                filter,
+                "Modifier::AnimateNoncreatureArtifact",
+            ));
+            return Some(());
+        }
         let add_p = p.take("AddPower");
         let add_t = p.take("AddToughness");
         if add_p.is_some() || add_t.is_some() {
@@ -905,7 +1036,16 @@ impl Tx<'_> {
                     self.note("static ability with a computed P/T".to_string());
                     return None;
                 }
-                let yours = valid.split(['.', '+']).any(|atom| atom == "YouCtrl");
+                let alternatives = valid.split(',').collect::<Vec<_>>();
+                let scoped = alternatives
+                    .iter()
+                    .map(|alt| alt.split(['.', '+']).any(|atom| atom.trim() == "YouCtrl"))
+                    .collect::<Vec<_>>();
+                let yours = scoped.iter().all(|scoped| *scoped);
+                if scoped.iter().any(|scoped| *scoped) != yours {
+                    self.note("static ability with mixed controller scopes".to_string());
+                    return None;
+                }
                 let attached = valid.split(['.', '+']).any(|atom| atom == "Attached");
                 if (!yours && !attached)
                     || (attached && (valid.contains("Ctrl") || valid.contains("Own")))
@@ -913,10 +1053,10 @@ impl Tx<'_> {
                     self.note("static ability with a computed P/T".to_string());
                     return None;
                 }
-                let valid_without_you = valid
-                    .split(',')
+                let valid_without_you = alternatives
+                    .iter()
                     .map(|alt| {
-                        alt.split('.')
+                        alt.split(['.', '+'])
                             .filter(|atom| atom.trim() != "YouCtrl")
                             .collect::<Vec<_>>()
                             .join(".")
@@ -926,6 +1066,11 @@ impl Tx<'_> {
                 let Some(counted_filter) = self.filter_expr(&valid_without_you) else {
                     self.note("static ability with a computed P/T".to_string());
                     return None;
+                };
+                let counted_filter = if yours {
+                    format!("Filter::And(&[{counted_filter}, Filter::ControlledByYou])")
+                } else {
+                    counted_filter
                 };
                 let name = self.body.filter_static("COUNTED", &counted_filter);
                 let (p, t) = if power_half { (times, 0) } else { (0, times) };

@@ -307,6 +307,7 @@ mod marble_gargoyle;
 mod metalworker;
 mod moonfolk_puzzlemaker;
 mod moriok_replica;
+mod myr_adapter;
 mod myr_landshaper;
 mod neurok_replica;
 mod night_market_guard;

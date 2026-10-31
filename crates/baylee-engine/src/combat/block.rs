@@ -368,8 +368,16 @@ pub fn block_bound(state: &GameState, attacker: ObjectId) -> Option<crate::choic
 /// requirements that could be obeyed without disobeying any restrictions"
 /// (CR 509.1c) is a maximum over declarations made of these pairs.
 #[must_use]
-pub fn block_options(state: &GameState, defending: PlayerId) -> Vec<crate::choice::BlockOption> {
-    let candidates = ready_blockers(state, defending);
+pub fn block_options(
+    state: &GameState,
+    defending: PlayerId,
+    mana_reach: u64,
+) -> Vec<crate::choice::BlockOption> {
+    let rules = BlockRules::new(state).reaching(mana_reach);
+    let candidates: Vec<ObjectId> = ready_blockers(state, defending)
+        .into_iter()
+        .filter(|blocker| rules.can_pay_mana(*blocker))
+        .collect();
     let blockable: Vec<ObjectId> = state
         .combat
         .attackers()
@@ -430,7 +438,10 @@ pub struct BlockRules<'a> {
     any_number: Vec<&'a crate::effects::ContinuousEffect>,
     lures: Vec<&'a crate::effects::ContinuousEffect>,
     each: Vec<&'a crate::effects::ContinuousEffect>,
+    unless_pay_mana: Vec<&'a crate::effects::ContinuousEffect>,
     max_blockers: Option<usize>,
+    /// Mana the defending player could still make in the payment window.
+    mana_reach: u64,
 }
 
 impl<'a> BlockRules<'a> {
@@ -444,10 +455,13 @@ impl<'a> BlockRules<'a> {
             any_number: Vec::new(),
             lures: Vec::new(),
             each: Vec::new(),
+            unless_pay_mana: Vec::new(),
             max_blockers: None,
+            mana_reach: 0,
         };
         for fx in state.effects.iter() {
             match fx.modifier {
+                Modifier::CantBlockUnlessPayManaPerCounter(_) => rules.unless_pay_mana.push(fx),
                 Modifier::CanBlockAdditional(_) => rules.additional.push(fx),
                 Modifier::CanBlockAnyNumber => rules.any_number.push(fx),
                 Modifier::MustBeBlockedByAllAble | Modifier::MustBeBlockedByAllAbleMatching(_) => {
@@ -466,6 +480,40 @@ impl<'a> BlockRules<'a> {
         rules
     }
 
+    /// Whether any block costs mana, so finding the defender's mana reach is
+    /// worth it. Each blocker is offered against the whole reach; the total
+    /// cost of several blockers is still checked once, at declaration.
+    #[must_use]
+    pub fn has_mana_tax(&self) -> bool {
+        !self.unless_pay_mana.is_empty()
+    }
+
+    /// The same rules with up to `mana` more mana available in the payment
+    /// window (CR 509.1d–f).
+    #[must_use]
+    pub const fn reaching(mut self, mana: u64) -> Self {
+        self.mana_reach = mana;
+        self
+    }
+
+    /// Whether `blocker`'s own tax can be paid from its controller's pool or
+    /// the sources the payment window offers.
+    #[must_use]
+    fn can_pay_mana(&self, blocker: ObjectId) -> bool {
+        let tax = self.mana_tax(blocker);
+        if tax == 0 {
+            return true;
+        }
+        let Some(object) = self.state.object(blocker) else {
+            return false;
+        };
+        let pool = &self.state.players[usize::from(object.controller.get())].mana_pool;
+        crate::mana_pay::can_pay(
+            pool,
+            &baylee_core::mana::ManaCost::ZERO.with_more_generic(tax),
+        ) || pool.total().saturating_add(self.mana_reach) >= u64::from(tax)
+    }
+
     /// Maximum number of creatures that may block this combat, if capped.
     #[must_use]
     pub const fn max_blockers(&self) -> Option<usize> {
@@ -477,6 +525,27 @@ impl<'a> BlockRules<'a> {
     #[must_use]
     pub fn has_requirements(&self) -> bool {
         !self.lures.is_empty() || !self.each.is_empty()
+    }
+
+    /// Total generic mana cost `blocker`'s controller must pay to declare it
+    /// blocking (CR 509.1d–f).
+    #[must_use]
+    pub fn mana_tax(&self, blocker: ObjectId) -> u32 {
+        let Some(obj) = self.state.object(blocker) else {
+            return 0;
+        };
+        self.unless_pay_mana
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::CantBlockUnlessPayManaPerCounter(kind) =
+                    fx.modifier
+                else {
+                    return None;
+                };
+                crate::effects::applies_to(self.state, fx, obj)
+                    .then_some(u32::from(obj.counters.get(kind)))
+            })
+            .fold(0_u32, u32::saturating_add)
     }
 
     /// How many attackers `blocker` may block (CR 509.1a): one, one more

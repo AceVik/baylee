@@ -31,6 +31,7 @@ mod lightning_greaves;
 mod lightning_spear;
 mod marauder_s_axe;
 mod mask_of_avacyn;
+mod mask_of_memory;
 mod mask_of_riddles;
 mod nim_deathmantle;
 mod no_dachi;

@@ -44,7 +44,7 @@ pub(crate) use hash::{
     SnapshotMemo, characteristics_fingerprint, mana_cost_fingerprint, structural_fingerprint,
 };
 
-pub use delayed::{DelayedAction, DelayedTrigger, DelayedWhen};
+pub use delayed::{DelayedAction, DelayedTrigger, DelayedWhen, PlayerTurnControl};
 pub use per_turn::{
     AbilityResolved, BlockRecord, DamageLogEntry, GraveyardPlay, PerTurn, PlayLifetime,
     PlayPermission, PreviousTurn,
@@ -424,6 +424,8 @@ pub struct GameState {
     /// most recently created at the front. The front player takes the next
     /// turn instead of the normal successor.
     pub extra_turns: std::collections::VecDeque<PlayerId>,
+    /// Players controlling other players for a specified actual turn (CR 715).
+    pub turn_controls: Vec<crate::state::PlayerTurnControl>,
     /// While the current turn is an extra one, the player whose normal
     /// turn it was added after: "the turns directly after the specified
     /// turn" (CR 500.7), so the normal order resumes from that turn, not
@@ -858,6 +860,7 @@ impl GameState {
             discard_answers,
             discards_on_top,
             extra_turns,
+            turn_controls,
             resume_after,
             skip_followups,
             reanimated_auras,
@@ -967,6 +970,7 @@ impl GameState {
             ("state.discard_answers", format!("{discard_answers:?}")),
             ("state.discards_on_top", format!("{discards_on_top:?}")),
             ("state.extra_turns", format!("{extra_turns:?}")),
+            ("state.turn_controls", format!("{turn_controls:?}")),
             ("state.resume_after", format!("{resume_after:?}")),
             ("state.skip_followups", format!("{skip_followups:?}")),
             ("state.reanimated_auras", format!("{reanimated_auras:?}")),

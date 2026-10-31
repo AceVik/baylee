@@ -145,17 +145,15 @@ pub(crate) fn run_with_context(
 
     outcome.changed |= speed::start(state, lookup);
     // --- Player losses (CR 704.5a-c) -----------------------------------
-    // Everybody Lives: no losses while the effect is active.
-    let cant_lose = players_cant_lose(state);
     // Every loss is found before anybody leaves: they are one simultaneous
     // event (CR 704.3), and the crown passes over every player leaving in it
     // (CR 724.4), not through one of them on its way to the heir.
     let mut losers: Vec<(PlayerId, LossReason)> = Vec::new();
     for player in 0..state.players.len() {
-        if cant_lose {
-            break;
-        }
         let p = PlayerId::new(player as u8);
+        if player_cant_lose(state, p) {
+            continue;
+        }
         let (life, poison, empty_draw, has_lost, commander_damage) = {
             let pl = &state.players[player];
             (
@@ -1061,6 +1059,33 @@ pub fn players_cant_lose(state: &GameState) -> bool {
             .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::PlayersCantLose))
 }
 
+/// Whether this player is protected from every non-concession loss.
+#[must_use]
+pub fn player_cant_lose(state: &GameState, player: PlayerId) -> bool {
+    players_cant_lose(state)
+        || (state.effects.may_change_player_or_sba_rules()
+            && state.effects.iter().any(|fx| {
+                let baylee_cards_dsl::Modifier::NamedPlayersCantLose(who) = fx.modifier else {
+                    return false;
+                };
+                crate::eval::players(who, state, fx.controller)
+                    .is_some_and(|players| players.contains(&player))
+            }))
+}
+
+/// Whether an effect prohibits this player from winning.
+#[must_use]
+pub fn player_cant_win(state: &GameState, player: PlayerId) -> bool {
+    state.effects.may_change_player_or_sba_rules()
+        && state.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::PlayersCantWin(who) = fx.modifier else {
+                return false;
+            };
+            crate::eval::players(who, state, fx.controller)
+                .is_some_and(|players| players.contains(&player))
+        })
+}
+
 /// An effect says `player` loses the game (CR 104.3e), such as a pact left
 /// unpaid. They do, unless an effect says players can't lose the game, and
 /// then nothing happens: the effect that said so has done all it does.
@@ -1068,7 +1093,7 @@ pub fn players_cant_lose(state: &GameState) -> bool {
 /// Returns whether the player lost. Not for a concession, which "can't lose
 /// the game" does not stop (CR 104.3a); that calls [`eliminate_player`].
 pub fn lose_by_effect(state: &mut GameState, player: PlayerId) -> bool {
-    if players_cant_lose(state) {
+    if player_cant_lose(state, player) {
         return false;
     }
     eliminate_player(state, player, LossReason::Effect);
@@ -1082,9 +1107,10 @@ pub fn lose_by_effect(state: &mut GameState, player: PlayerId) -> bool {
 /// 1. Everything they own leaves the game, and every effect giving them
 ///    control of an object ends, so what they took goes back to whoever
 ///    controls it without them. So does every effect giving them control of
-///    a player: the one the engine has is Opposition Agent's search takeover
-///    (CR 722.2), and `every_card_that_controls_a_player_does_it_by_taking_over_a_search`
-///    fails the day a card controls a player some other way. What a
+///    a player: Opposition Agent's search takeover (CR 722.2) and Mindslaver's
+///    scheduled turn control both end here, and
+///    `every_card_that_controls_a_player_has_a_departure_rule` fails the day a
+///    card controls a player some other way. What a
 ///    permanent of theirs held "until it leaves the battlefield" comes back,
 ///    and if they were the monarch, the designation passes on as they leave
 ///    (CR 724.4, `GameState::monarch_leaves`).
@@ -1148,6 +1174,11 @@ fn leave(
             baylee_cards_dsl::Modifier::GainControl | baylee_cards_dsl::Modifier::SearchTakeover
         ) && fx.controller == player
     });
+    // A scheduled turn control is an effect giving one player control of
+    // another. It ends immediately when either participant leaves (CR 800.4a).
+    state
+        .turn_controls
+        .retain(|control| control.controller != player && control.player != player);
     // A permanent of theirs that held a card "until it leaves the
     // battlefield" has just left it without passing through `move_object`,
     // and the card comes back to its owner (CR 610.3).

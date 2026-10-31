@@ -11,6 +11,8 @@ pub struct PerTurn {
     /// Untapped lands controlled by this turn's active player at its start,
     /// before untapping or phasing; independent of any source's presence.
     pub untapped_lands_at_start: u32,
+    /// Cards in the active player's hand at this turn's boundary.
+    pub hand_size_at_start: u32,
     /// Main phases actually begun this turn; the first need not be precombat.
     pub main_phases_begun: u32,
     /// A permanent card actually arrived in each owner’s graveyard this turn.
@@ -287,6 +289,7 @@ impl PerTurn {
     pub fn new(players: usize) -> Self {
         Self {
             untapped_lands_at_start: 0,
+            hand_size_at_start: 0,
             main_phases_begun: 0,
             descended: vec![false; players],
             speed_triggered: vec![false; players],
@@ -382,6 +385,7 @@ impl PerTurn {
         // reset here too.
         let Self {
             untapped_lands_at_start,
+            hand_size_at_start,
             main_phases_begun,
             descended,
             speed_triggered,
@@ -431,6 +435,7 @@ impl PerTurn {
             damaged_creature_deaths,
         } = self;
         *untapped_lands_at_start = 0;
+        *hand_size_at_start = 0;
         *main_phases_begun = 0;
         descended.fill(false);
         speed_triggered.fill(false);

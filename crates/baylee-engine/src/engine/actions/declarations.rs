@@ -288,6 +288,16 @@ impl<L: CardLookup> Engine<L> {
         defending: PlayerId,
         blockers: &[(ObjectId, ObjectId)],
     ) -> Result<(), EngineError> {
+        self.declare_blockers_paying(defending, blockers, true)
+    }
+
+    /// The block declaration, with a payment window only on the outer call.
+    fn declare_blockers_paying(
+        &mut self,
+        defending: PlayerId,
+        blockers: &[(ObjectId, ObjectId)],
+        window: bool,
+    ) -> Result<(), EngineError> {
         // Sets for the reason `declare_attackers` keeps one.
         let rules = combat::BlockRules::new(&self.state);
         let mut seen = std::collections::BTreeSet::new();
@@ -353,13 +363,99 @@ impl<L: CardLookup> Engine<L> {
         // could obey without breaking a restriction. `BlockRules` says how
         // the most is found, and where it is only a good declaration's.
         if rules.has_requirements() {
-            let most = rules.obeyed(&rules.obeying(&combat::block_options(&self.state, defending)));
+            let mana_reach = if window && rules.has_mana_tax() {
+                self.attack_mana_reach(defending)
+            } else {
+                0
+            };
+            let options = combat::block_options(&self.state, defending, mana_reach);
+            let most = rules.obeyed(&rules.obeying(&options));
             if rules.obeyed(blockers) < most {
                 return Err(crate::choice::AnswerFault::MustBlock.into());
             }
         }
+        let total_mana_tax = blockers
+            .iter()
+            .map(|&(blocker, _)| rules.mana_tax(blocker))
+            .fold(0_u32, u32::saturating_add);
+        let tax = baylee_core::mana::ManaCost::ZERO.with_more_generic(total_mana_tax);
+        let can_pay = crate::mana_pay::can_pay(
+            &self.state.players[usize::from(defending.get())].mana_pool,
+            &tax,
+        );
+        drop(rules);
+        if total_mana_tax > 0 && !can_pay {
+            if !window {
+                return Err(EngineError::IllegalAction(
+                    "cannot pay mana required to declare those blockers",
+                ));
+            }
+            let reach = self.attack_mana_reach(defending);
+            let available = self.state.players[usize::from(defending.get())]
+                .mana_pool
+                .total()
+                .saturating_add(reach);
+            if available < u64::from(total_mana_tax) {
+                return Err(EngineError::IllegalAction(
+                    "cannot pay mana required to declare those blockers",
+                ));
+            }
+            self.open_block_tax_window(defending, blockers.to_vec(), tax);
+            return Ok(());
+        }
+        if total_mana_tax > 0 {
+            let paid = crate::mana_pay::pay(
+                &mut self.state.players[usize::from(defending.get())].mana_pool,
+                &tax,
+            );
+            debug_assert!(paid, "block mana tax was validated");
+        }
         self.make_blocks(defending, blockers);
         Ok(())
+    }
+
+    /// Opens the CR 509.1d–f payment window for a block declaration.
+    fn open_block_tax_window(
+        &mut self,
+        defending: PlayerId,
+        blockers: Vec<(ObjectId, ObjectId)>,
+        cost: baylee_core::mana::ManaCost,
+    ) {
+        let mut legal = self.compute_legal(defending);
+        self.narrow_to_mana(&mut legal);
+        self.mana_window = Some(super::PaymentWindow {
+            player: defending,
+            suspended: super::PaymentContinuation::BlockTax {
+                defending,
+                blockers,
+                cost,
+                opened: Box::new(self.window_start(defending)),
+            },
+        });
+        self.pending = Pending::Priority {
+            player: defending,
+            legal: Box::new(legal),
+        };
+        self.awaiting_answer = true;
+    }
+
+    /// Settles a block declaration, or reverses the window without declaring.
+    pub(in crate::engine) fn settle_block_tax(
+        &mut self,
+        defending: PlayerId,
+        blockers: &[(ObjectId, ObjectId)],
+        opened: &super::WindowStart,
+    ) -> bool {
+        self.awaiting_answer = false;
+        if self
+            .declare_blockers_paying(defending, blockers, false)
+            .is_ok()
+        {
+            return true;
+        }
+        self.give_back_window(defending, opened);
+        self.combat_declared = CombatDeclared::TaxDeclined;
+        false
     }
 
     /// Makes `defending`'s blocks (CR 509.1h), spreads them through bands

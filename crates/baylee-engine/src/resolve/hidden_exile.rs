@@ -10,11 +10,11 @@ use baylee_cards_dsl::ZoneRef;
 use baylee_core::ids::{DamageSourceRef, PlayerId, SeatSet};
 
 fn link(state: &GameState, res: &Resolution) -> Option<Rider> {
+    let source = state
+        .recorded_ability_source(res.on_stack)
+        .or_else(|| super::subjects::source(state, res))?;
     Some(Rider::LinkedExile {
-        source: DamageSourceRef {
-            object: res.source,
-            version: source_version(state, res)?,
-        },
+        source,
         acquisition: super::subjects::acquisition(state, res),
     })
 }
@@ -122,13 +122,19 @@ fn exile(state: &mut GameState, res: &Resolution, card: ObjectId, hideaway: bool
 
 pub(super) fn offer_play(state: &GameState, res: &mut Resolution) -> Option<Pending> {
     let cards = linked(state, res);
-    continue_play(state, res, cards)
+    continue_play(state, res, cards, false)
+}
+
+pub(super) fn offer_copy(state: &GameState, res: &mut Resolution) -> Option<Pending> {
+    let cards = linked(state, res);
+    continue_play(state, res, cards, true)
 }
 
 pub(crate) fn continue_play(
     state: &GameState,
     res: &mut Resolution,
     cards: Vec<DamageSourceRef>,
+    copy: bool,
 ) -> Option<Pending> {
     let options: Vec<_> = cards
         .iter()
@@ -142,7 +148,7 @@ pub(crate) fn continue_play(
     if options.is_empty() {
         return None;
     }
-    res.awaiting = Some(AwaitingOp::LinkedPlay { cards });
+    res.awaiting = Some(AwaitingOp::LinkedPlay { cards, copy });
     Some(Pending::ChooseCards {
         player: res.controller,
         options,

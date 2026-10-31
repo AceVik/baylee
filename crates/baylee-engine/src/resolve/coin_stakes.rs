@@ -1,7 +1,7 @@
 //! Winner-controlled coin contests, with replacements settled between life instructions.
 use super::{
-    Amount, AwaitingOp, Cause, Flow, GameEvent, GameState, Pending, PlayerId, PlayerRel,
-    Resolution, YesNoPrompt, amount2, life, players_of, resolving_ability, run,
+    Amount, AwaitingOp, Cause, Flow, GameState, Pending, PlayerId, PlayerRel, Resolution,
+    YesNoPrompt, amount2, life, players_of, resolving_ability, run,
 };
 
 #[derive(Clone, Copy, Debug, Hash)]
@@ -62,11 +62,15 @@ pub(super) fn start(
     };
     match contest.stage {
         Stage::Flip => {
-            contest.won = state.rng.below(2) == 0;
-            state.journal.record(GameEvent::CoinFlipped {
-                player: res.controller,
-                won: contest.won,
-            });
+            match super::coin::flip(
+                state,
+                res,
+                res.controller,
+                super::CoinContinuation::LifeExchange,
+            ) {
+                super::coin::Flip::Outcome(won) => contest.won = won,
+                super::coin::Flip::Wait(pending) => return Some(*pending),
+            }
             contest.stage = Stage::FirstLifeChange;
         }
         Stage::FirstLifeChange => {
@@ -104,6 +108,10 @@ pub(super) fn start(
     // The interpreter handles queued draw replacements before re-entering this instruction.
     res.coin_stake = Some(contest);
     None
+}
+
+pub(super) fn resume_flip(state: &mut GameState, res: &mut Resolution) -> Option<Pending> {
+    start(state, res, PlayerRel::Chosen, Amount::Fixed(0), 2)
 }
 
 pub(super) fn answer(state: &mut GameState, res: &mut Resolution, again: bool) -> Option<Flow> {

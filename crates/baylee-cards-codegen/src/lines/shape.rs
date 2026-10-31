@@ -69,12 +69,16 @@ pub fn line_shape(line: &str) -> LineShape {
         // and equip are `AbilityDef::Activated` here, and "Cycling {B}" is
         // what a player reads when one of them goes on the stack. It has no
         // colon because the card put the cost and the effect in a keyword
-        // instead of side by side.
-        return if line.len() <= 40
-            && !line.ends_with('.')
-            && (line.contains('{')
-                || reminder_spells_out_an_ability(printed)
-                || a_numbered_tapping_keyword(line))
+        // instead of side by side. An em-dash keyword may put a full stop
+        // after its prose cost before spelling the ability out in reminder
+        // text: `Equip—Pay 3 life. (Pay 3 life: …)`. `keyword_cost` keeps
+        // that exception anchored to one printed keyword, not any sentence.
+        let activated_reminder = reminder_spells_out_an_ability(printed);
+        let punctuated_keyword = activated_reminder && super::keyword_cost(line).is_some();
+        return if punctuated_keyword
+            || (line.len() <= 40
+                && !line.ends_with('.')
+                && (line.contains('{') || activated_reminder || a_numbered_tapping_keyword(line)))
         {
             LineShape::Activated
         } else {

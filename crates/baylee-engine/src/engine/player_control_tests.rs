@@ -323,6 +323,28 @@ fn a_subject_leaving_drops_the_cast_and_finishes_the_waiting_instruction() {
 }
 
 #[test]
+fn scheduled_player_control_applies_only_during_the_subjects_turn() {
+    let mut engine = fixture();
+    engine
+        .state
+        .turn_controls
+        .push(crate::state::PlayerTurnControl {
+            controller: ACTOR,
+            player: SUBJECT,
+            turn: engine.state.turn.number + 1,
+        });
+    assert_eq!(engine.controlled_actor(SUBJECT), SUBJECT);
+
+    engine.state.turn.number += 1;
+    engine.state.turn.active = SUBJECT;
+    assert_eq!(engine.controlled_actor(SUBJECT), ACTOR);
+
+    engine.state.turn.number += 1;
+    engine.state.turn.active = ACTOR;
+    assert_eq!(engine.controlled_actor(SUBJECT), SUBJECT);
+}
+
+#[test]
 fn finishing_a_constrained_payment_cannot_discard_an_unconsumed_obligation() {
     let mut engine = at_controlled_target();
     let name = engine.state.names.intern("Public mana source");
@@ -379,4 +401,22 @@ fn announcement_context_obeys_resource_owner_and_controller_entitlements() {
     assert_eq!(owner.1, Some(0));
     assert_eq!(engine.announced_spell_context(ACTOR), Some(owner));
     assert_eq!(engine.announced_spell_context(PlayerId::new(2)), None);
+}
+
+#[test]
+fn scheduled_control_ends_as_soon_as_either_player_leaves() {
+    for departing in [ACTOR, SUBJECT] {
+        let mut engine = fixture();
+        engine
+            .state
+            .turn_controls
+            .push(crate::state::PlayerTurnControl {
+                controller: ACTOR,
+                player: SUBJECT,
+                turn: engine.state.turn.number + 1,
+            });
+        engine.apply(departing, PlayerAction::Concede).unwrap();
+        assert!(engine.state.turn_controls.is_empty());
+        assert_eq!(engine.controlled_actor(SUBJECT), SUBJECT);
+    }
 }

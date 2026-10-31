@@ -8,6 +8,17 @@ use crate::{
 };
 use baylee_core::ids::DamageSourceRef;
 
+/// The answer and proof state of a named-card guess.
+#[derive(Clone, Copy, Debug, Hash)]
+pub struct GuessOutcome {
+    /// Whether a card with the chosen name was actually in the hand.
+    pub actual: bool,
+    /// What the guessing player claimed.
+    pub claimed: bool,
+    /// Whether the hand was revealed as proof.
+    pub revealed: bool,
+}
+
 /// Public-zone objects found through earlier instructions of this resolution.
 #[derive(Clone, Debug, Default)]
 pub struct SubjectContext {
@@ -16,6 +27,7 @@ pub struct SubjectContext {
     pub(super) reanimation_links: Vec<super::linked_reanimation::PendingLink>,
     /// Exact future/current battlefield incarnations from the latest search.
     pub(super) found: Vec<DamageSourceRef>,
+    pub(super) guess: Option<GuessOutcome>,
     pub(super) named: Option<(crate::object::PrintedFace, baylee_core::ids::NameRef)>,
     pub(super) sacrificed: Option<crate::object::SacrificedLki>,
     circled_colors: baylee_core::color::ColorSet,
@@ -49,6 +61,7 @@ impl SubjectContext {
             followed: paid.source_after_cost.into_iter().collect(),
             reanimation_links: Vec::new(),
             found: Vec::new(),
+            guess: None,
             named: None,
             sacrificed: paid.sacrificed_lki,
             circled_colors: baylee_core::color::ColorSet::EMPTY,
@@ -181,6 +194,9 @@ impl SubjectContext {
                 .wrapping_add(u64::from(r.object.generation()));
             h = h.wrapping_mul(31).wrapping_add(u64::from(r.version));
         }
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.guess));
         h = h
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.named));
@@ -331,9 +347,12 @@ pub(super) fn target(
 pub(super) fn this(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
     if let Some(&object) = res.targets.first() {
         target(state, res, object)
-    } else if res.targeted {
+    } else if res.targeted && res.target_players.is_empty() {
         None
     } else {
+        // A player target is not an object target whose disappearance could
+        // make "this permanent" meaningless. With no object target, the
+        // source remains the thing a self-affecting instruction names.
         source(state, res)
     }
 }

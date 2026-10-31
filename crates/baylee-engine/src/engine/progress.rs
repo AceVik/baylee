@@ -883,8 +883,13 @@ impl<L: CardLookup> Engine<L> {
             return;
         }
         let active = self.state.turn.active;
-        let blockers = combat::block_options(&self.state, defending);
         let rules = combat::BlockRules::new(&self.state);
+        let mana_reach = if rules.has_mana_tax() {
+            self.attack_mana_reach(defending)
+        } else {
+            0
+        };
+        let blockers = combat::block_options(&self.state, defending, mana_reach);
         let capacity = blockers
             .iter()
             .filter_map(|o| {
@@ -1210,14 +1215,23 @@ impl<L: CardLookup> Engine<L> {
                 winner: None,
                 reason: EndReason::Draw,
             }),
-            [Side::Solo(player)] => Some(GameResult {
-                winner: Some(Victor::Player(*player)),
-                reason: EndReason::LastPlayerStanding,
-            }),
-            [Side::Team(team)] => Some(GameResult {
-                winner: Some(Victor::Team(*team)),
-                reason: EndReason::LastTeamStanding,
-            }),
+            [Side::Solo(player)] if !crate::sba::player_cant_win(&self.state, *player) => {
+                Some(GameResult {
+                    winner: Some(Victor::Player(*player)),
+                    reason: EndReason::LastPlayerStanding,
+                })
+            }
+            [Side::Team(team)]
+                if self.alive_players().into_iter().any(|player| {
+                    self.state.side_of(player) == Side::Team(*team)
+                        && !crate::sba::player_cant_win(&self.state, player)
+                }) =>
+            {
+                Some(GameResult {
+                    winner: Some(Victor::Team(*team)),
+                    reason: EndReason::LastTeamStanding,
+                })
+            }
             _ => None,
         }
     }

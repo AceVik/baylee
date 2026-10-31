@@ -38,6 +38,7 @@ impl<L: CardLookup> Engine<L> {
                 matches!(
                     fx.modifier,
                     baylee_cards_dsl::Modifier::SpellsCostMore(_)
+                        | baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(_)
                         | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
                 )
             })

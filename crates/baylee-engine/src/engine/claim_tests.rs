@@ -341,6 +341,8 @@ const CONDITIONS: &[&str] = &[
     " x ",
     " attacking ",
     " at the beginning ",
+    // A relative clause can restrict the affected players or objects to none.
+    " who ",
 ];
 
 /// Whether the sentence carries one of those words.
@@ -1151,6 +1153,11 @@ fn the_vocabulary_reads_the_sentences_it_was_written_for() {
         found("Each opponent loses 3 life."),
         vec![(Kind::LoseLife, Some(3), false)],
         "\"each\" names who, not whether"
+    );
+    assert_eq!(
+        found("Each opponent who cast a spell this turn with that name loses 6 life."),
+        vec![(Kind::LoseLife, Some(6), true)],
+        "a restricted set of opponents can be empty"
     );
     assert_eq!(
         found("Put two +1/+1 counters on target creature."),

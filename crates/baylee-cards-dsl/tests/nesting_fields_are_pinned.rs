@@ -95,7 +95,8 @@
 // ForEachMatching, and AtNextTurnsUpkeep add one each (tested in verb_tests).
 // Ten Ice Age carriers add eleven nested effect fields. Each is walked by
 // Effect::branches; the composite mana/life payment has paid and unpaid arms.
-const NESTING_FIELDS: usize = 87;
+// AtNextEndStepForCreatedTokens adds one walker-tested delayed-effect body.
+const NESTING_FIELDS: usize = 88;
 
 /// How many variants those twenty-one fields are spread across.
 ///
@@ -155,8 +156,8 @@ const NESTING_FIELDS: usize = 87;
 /// `AnyPlayerMaySacrificeOrTakeDamageThen`, `WheneverTappedForManaThisTurn`,
 /// `WhenTargetAttacksAndIsntBlockedThisTurn`, `PlayerMayMillOr`,
 /// `ForEachMatching` and `AtNextTurnsUpkeep` are the fifty-ninth to
-/// sixty-ninth carriers.
-const CARRYING_VARIANTS: usize = 79;
+/// sixty-ninth carriers. `AtNextEndStepForCreatedTokens` is the eightieth.
+const CARRYING_VARIANTS: usize = 80;
 
 /// The floor under the reader itself.
 ///

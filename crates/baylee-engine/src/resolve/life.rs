@@ -68,6 +68,58 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             gain_life(state, you, n);
             None
         }
+        Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { who, amount } => {
+            let mut names = Vec::new();
+            for entry in super::this_way::entries(state, res) {
+                if let GameEvent::Revealed { cards, .. } = &entry.event {
+                    for &card in cards {
+                        if let Some(name) = state
+                            .object(card)
+                            .map(|object| object.characteristics().name)
+                            && !names.contains(&name)
+                        {
+                            names.push(name);
+                        }
+                    }
+                }
+            }
+            let journal = state.journal.entries();
+            let start = journal
+                .iter()
+                .rposition(|entry| matches!(entry.event, GameEvent::TurnStarted { .. }))
+                .unwrap_or(0);
+            let losses: Vec<(PlayerId, i32)> = super::players_of(who, state, you, res)
+                .into_iter()
+                .filter(|player| {
+                    journal[start..].iter().any(|entry| {
+                        let GameEvent::SpellCast {
+                            object,
+                            player: caster,
+                            ..
+                        } = &entry.event
+                        else {
+                            return false;
+                        };
+                        if caster != player {
+                            return false;
+                        }
+                        state
+                            .damage_source(*object, None)
+                            .is_some_and(|spell| names.contains(&spell.characteristics().name))
+                    })
+                })
+                .map(|player| {
+                    (
+                        player,
+                        super::amount_for_player(&amount, state, you, res, player) as i32,
+                    )
+                })
+                .collect();
+            for (player, loss) in losses {
+                state.change_life(player, -loss, Cause::Effect);
+            }
+            None
+        }
         Effect::LoseLife { amount, target } => {
             // Every amount is read before anybody's life changes.
             let losses: Vec<(PlayerId, i32)> = super::players_of(target, state, you, res)
@@ -182,6 +234,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // is an instruction, so `min: 1`; with no source to choose there is
         // no shield and no question (CR 609.3).
         Effect::ChooseDamageSourcePreventAllThisTurn
+        | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
         | Effect::PreventNextFromChosenSource { .. } => {
             let (sources, combat_only, all_but, gain_life, all_recipients) = match op {
                 Effect::PreventNextFromChosenSource {
@@ -190,6 +243,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     all_but,
                     gain_life,
                 } => (sources, combat_only, all_but, gain_life, false),
+                Effect::ChooseDamageSourcePreventAllThisTurnMatching(sources) => {
+                    (sources, false, 0, false, true)
+                }
                 _ => (&Filter::Any, false, 0, false, true),
             };
             let options = crate::prevention::source_options_with_context(

@@ -176,7 +176,8 @@ impl<'a> AttackRules<'a> {
                 Modifier::AttacksAloneOnly => alone.push(fx),
                 Modifier::CantAttackYou => cant_attack_you.push(fx),
                 Modifier::AttackTaxLife { .. } => attack_tax_life.push(fx),
-                Modifier::CantAttackUnlessPayMana(_) => unless_pay_mana.push(fx),
+                Modifier::CantAttackUnlessPayMana(_)
+                | Modifier::CantAttackUnlessPayManaPerCounter(_) => unless_pay_mana.push(fx),
                 Modifier::CantAttackUnlessYouSacrifice { .. } => unless_sacrifice.push(fx),
                 Modifier::MaxAttackersPerCombat(n)
                     if crate::effects::source_is_present(state, fx) =>
@@ -274,10 +275,14 @@ impl<'a> AttackRules<'a> {
         self.unless_pay_mana
             .iter()
             .filter_map(|fx| {
-                let baylee_cards_dsl::Modifier::CantAttackUnlessPayMana(n) = fx.modifier else {
-                    return None;
+                let amount = match fx.modifier {
+                    baylee_cards_dsl::Modifier::CantAttackUnlessPayMana(n) => n,
+                    baylee_cards_dsl::Modifier::CantAttackUnlessPayManaPerCounter(kind) => {
+                        u32::from(obj.counters.get(kind))
+                    }
+                    _ => return None,
                 };
-                crate::effects::applies_to(self.state, fx, obj).then_some(n)
+                crate::effects::applies_to(self.state, fx, obj).then_some(amount)
             })
             .fold(0_u32, u32::saturating_add)
     }

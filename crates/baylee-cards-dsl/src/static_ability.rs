@@ -96,8 +96,14 @@ pub enum Modifier {
         /// Additional counters per placement event.
         n: u16,
     },
+    /// If the effect's controller would flip a coin, flip one additional
+    /// coin and ignore one result of their choice (CR 705.3).
+    FlipTwoCoinsIgnoreOne,
     /// Generic cost increase for spells matching the static ability's filter.
     SpellsCostMore(u32),
+    /// Generic cost increase per matching permanent the spell's controller
+    /// controls, evaluated separately for each casting player.
+    SpellsCostMorePerControlled(&'static crate::Filter),
     /// Matching spells cost this much less generic mana after all increases.
     SpellsCostLess(u32),
     /// Generic cost increase for activated abilities of matching objects.
@@ -345,6 +351,10 @@ pub enum Modifier {
     },
     /// Players can't lose the game this turn (Everybody Lives!).
     PlayersCantLose,
+    /// The named players can't lose the game (Platinum Angel's controller).
+    NamedPlayersCantLose(crate::effect::PlayerRel),
+    /// The named players can't win the game (Platinum Angel's opponents).
+    PlayersCantWin(crate::effect::PlayerRel),
     /// The named players cannot gain, lose, or pay life.
     LifeTotalCantChange {
         /// Affected players relative to the effect controller.
@@ -578,6 +588,9 @@ pub enum Modifier {
     /// Protection from sources matching the filter: can't be damaged,
     /// targeted, or blocked by them (CR 702.16).
     ProtectionFrom(&'static crate::Filter),
+    /// Protection from every card type among the cards exiled with the
+    /// effect's source, evaluated from current exile (Mirror Golem).
+    ProtectionFromExiledWithSourceTypes,
     /// The affected permanent can't be the target of spells, or of abilities
     /// from sources, that match the filter — "Thrun can't be the target of
     /// nongreen spells your opponents control or abilities from nongreen
@@ -951,6 +964,12 @@ pub enum Modifier {
     MayRedirectDamageToYou,
     /// "Can't attack unless its controller pays {N}" (Brainwash).
     CantAttackUnlessPayMana(u32),
+    /// "Can't attack unless its controller pays {1} per counter of this kind
+    /// on it" (Myr Prototype).
+    CantAttackUnlessPayManaPerCounter(crate::CounterKind),
+    /// "Can't block unless its controller pays {1} per counter of this kind
+    /// on it" (Myr Prototype).
+    CantBlockUnlessPayManaPerCounter(crate::CounterKind),
     /// "Can't attack unless you sacrifice `count` [filter]" (Leviathan).
     CantAttackUnlessYouSacrifice {
         /// How many matching permanents must be sacrificed.
@@ -1137,6 +1156,7 @@ impl Modifier {
             // "Protection is a static ability" — so granting it is an
             // ability-adding effect, and so is granting a trigger.
             | Self::ProtectionFrom(_)
+            | Self::ProtectionFromExiledWithSourceTypes
             | Self::GrantTriggered { .. }
             | Self::GrantTriggeredUpToOne { .. } => Layer::Ability,
             // Layer 7a/7b/7c/7e: power and toughness.
@@ -1162,6 +1182,7 @@ impl Modifier {
             | Self::NextDrawFromTop { .. }
             | Self::CreatureAbilityManaAnyColor
             | Self::SpellsCostMore(_)
+            | Self::SpellsCostMorePerControlled(_)
             | Self::AbilitiesCostMore(_)
             | Self::ManaAbilitiesCostLife(_)
             | Self::ReplaceTappedMana { .. }
@@ -1195,6 +1216,8 @@ impl Modifier {
             | Self::CantBeTargetedByAbilitiesFrom(_)
             | Self::DrawLimitPerTurn { .. }
             | Self::PlayersCantLose
+            | Self::NamedPlayersCantLose(_)
+            | Self::PlayersCantWin(_)
             | Self::CantLoseLife { .. }
             | Self::LifeTotalCantChange { .. }
             | Self::PlayerProtectionFromEverything { .. }
@@ -1205,6 +1228,7 @@ impl Modifier {
             | Self::ReplacePlayerDamage { .. }
             | Self::DamageLifeLossFloor { .. }
             | Self::AdditionalCounterPlacement { .. }
+            | Self::FlipTwoCoinsIgnoreOne
             | Self::DoubleCountersPlacedByYou
             | Self::NextDestructionClearsDamage
             | Self::PreventDamageToIt
@@ -1227,6 +1251,8 @@ impl Modifier {
             | Self::CantAttackYou
             | Self::AttackTaxLife { .. }
             | Self::CantAttackUnlessPayMana(_)
+            | Self::CantAttackUnlessPayManaPerCounter(_)
+            | Self::CantBlockUnlessPayManaPerCounter(_)
             | Self::CantAttackUnlessYouSacrifice { .. }
             | Self::AttackWithoutTappingWhileSourceUntapped { .. }
             | Self::CantAttackUnlessDefenderControls(_)
@@ -1745,6 +1771,7 @@ mod tests {
             Modifier::NextDrawFromTop { count: 3 },
             Modifier::SpellsCostLess(3),
             Modifier::SpellsCostMore(3),
+            Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT),
             Modifier::AbilitiesCostMore(3),
             Modifier::ManaAbilitiesCostLife(1),
             Modifier::ReplaceTappedMana {
@@ -1807,6 +1834,7 @@ mod tests {
                 minimum: 1,
             },
             Modifier::AdditionalCounterPlacement { n: 1 },
+            Modifier::FlipTwoCoinsIgnoreOne,
             Modifier::DoubleCountersPlacedByYou,
             Modifier::NextDestructionClearsDamage,
             Modifier::PreventDamageToIt,
@@ -1825,6 +1853,8 @@ mod tests {
             Modifier::CantAttackYou,
             Modifier::AttackTaxLife { life: 2 },
             Modifier::CantAttackUnlessPayMana(3),
+            Modifier::CantAttackUnlessPayManaPerCounter(crate::CounterKind::P1P1),
+            Modifier::CantBlockUnlessPayManaPerCounter(crate::CounterKind::P1P1),
             Modifier::CantAttackUnlessYouSacrifice {
                 count: 2,
                 filter: &Filter::LAND,

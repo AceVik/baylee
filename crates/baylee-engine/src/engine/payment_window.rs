@@ -174,7 +174,7 @@ impl<L: CardLookup> Engine<L> {
         let Some(window) = self.mana_window.take() else {
             return Ok(WindowClose::Open);
         };
-        let mut res = match window.suspended {
+        let res = match window.suspended {
             PaymentContinuation::LandMana(work) => {
                 self.mana_window = Some(PaymentWindow {
                     player: window.player,
@@ -216,6 +216,15 @@ impl<L: CardLookup> Engine<L> {
                 let paid = self.settle_attack_tax(window.player, attackers, &opened);
                 return Ok(WindowClose::settled(paid));
             }
+            PaymentContinuation::BlockTax {
+                defending,
+                blockers,
+                opened,
+                ..
+            } => {
+                let paid = self.settle_block_tax(defending, &blockers, &opened);
+                return Ok(WindowClose::settled(paid));
+            }
             // The cast pays out of the pool as any cast does; one it cannot
             // pay is not made, and the card stays where it is (CR 601.2h
             // reverses a casting that cannot be paid), and what the window
@@ -246,9 +255,13 @@ impl<L: CardLookup> Engine<L> {
             }
         };
         let paid = self.can_settle_tax(&res);
+        Ok(self.settle_tax_resolution(res, paid))
+    }
+
+    fn settle_tax_resolution(&mut self, mut res: resolve::Resolution, paid: bool) -> WindowClose {
         if let Some(resolve::AwaitingOp::ManaForDamage { player, amount }) = res.awaiting {
             self.prompt_damage_payment(res, player, amount);
-            return Ok(WindowClose::Paid);
+            return WindowClose::Paid;
         }
         match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
             resolve::Flow::Enter => {
@@ -264,7 +277,7 @@ impl<L: CardLookup> Engine<L> {
                 self.finish_resolution(&res);
             }
         }
-        Ok(WindowClose::settled(paid))
+        WindowClose::settled(paid)
     }
 
     fn prompt_damage_payment(

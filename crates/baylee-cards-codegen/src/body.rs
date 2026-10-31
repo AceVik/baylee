@@ -42,6 +42,8 @@ pub struct CardBody {
     pub flashback: Option<String>,
     /// `cost_reduction` expression for the front face, when present.
     pub cost_reduction: Option<String>,
+    /// `entwine` expression for the front face, when present.
+    pub entwine: Option<String>,
     /// `KeywordSet` constants to union.
     pub keywords: Vec<String>,
     /// Ability expressions for the card literal.
@@ -58,6 +60,7 @@ impl CardBody {
             && self.enter_modifiers.is_empty()
             && self.flashback.is_none()
             && self.cost_reduction.is_none()
+            && self.entwine.is_none()
             && self.keywords.is_empty()
     }
 
