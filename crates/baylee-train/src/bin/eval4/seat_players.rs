@@ -1,6 +1,6 @@
 //! Independent policy instances and RNG streams for the bounded 1v1 collector.
 use super::collector::Contract;
-use super::{CoverageMatrix4, EvaluationPlayer, Pending, PolicyMode4, load_player};
+use super::{CoverageMatrix4, EvaluationPlayer, Pending, PolicyMode4, SharedNets, load_player};
 use anyhow::{Context as _, ensure};
 use baylee_core::preset::GamePreset;
 use baylee_train::features4::PendingKind4;
@@ -17,7 +17,12 @@ pub(super) struct SeatPlayers {
 }
 
 impl SeatPlayers {
-    pub fn load(path: &Path, contract: &Contract, mode: PolicyMode4) -> anyhow::Result<Self> {
+    pub fn load(
+        path: &Path,
+        contract: &Contract,
+        mode: PolicyMode4,
+        shared: &SharedNets,
+    ) -> anyhow::Result<Self> {
         let learner = load_player(
             path,
             false,
@@ -25,6 +30,7 @@ impl SeatPlayers {
             contract.temperature,
             mode,
             contract.learner_identity.as_ref(),
+            shared.learner.as_ref(),
         )?;
         let opponent = contract
             .opponent_path
@@ -37,6 +43,7 @@ impl SeatPlayers {
                     contract.temperature,
                     mode,
                     contract.opponent_identity.as_ref(),
+                    shared.opponent.as_ref(),
                 )
             })
             .transpose()?;

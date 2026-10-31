@@ -85,6 +85,12 @@ struct Args {
     /// Worker threads (`0` = all cores).
     #[arg(long, default_value_t = 0)]
     threads: usize,
+    /// Run the net's steps of every worker in shared batched calls of at most
+    /// this many rows, on one copy of each graph (`0` = every worker owns its
+    /// sessions and runs one step per call). Batched runs are not bitwise
+    /// reproducible.
+    #[arg(long, default_value_t = 0)]
+    inference_batch: usize,
     /// First deal seed (shuffle/opening hand RNG).
     #[arg(long, default_value_t = 10_000)]
     first_seed: u64,

@@ -11,6 +11,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use baylee_core::ids::{ObjectId, PlayerId};
@@ -19,17 +20,18 @@ use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::PlayerView;
 use ort::session::Session;
 use ort::session::builder::GraphOptimizationLevel;
-use ort::value::Tensor;
 
-use crate::carddsl::CARD_DSL_WIDTH;
 use crate::deckgen::Rng;
 use crate::features4::{
-    CAND_FEAT_WIDTH, CoverageMatrix4, EncodedCandidates4, HeadKind4, MAX_SEATS, PendingKind4,
-    SEAT_FEAT_WIDTH, SeatKnowledge4, SourceKind4, StepProvenance4, TeacherTarget4, decode_action4,
-    denormalize_scalar_choice, encode_candidates4, encode_state4, normalize_scalar_choice,
-    view_only_state_hash,
+    CoverageMatrix4, EncodedCandidates4, HeadKind4, MAX_SEATS, PendingKind4, SeatKnowledge4,
+    SourceKind4, StepProvenance4, TeacherTarget4, decode_action4, denormalize_scalar_choice,
+    encode_candidates4, encode_state4, normalize_scalar_choice, view_only_state_hash,
 };
 use crate::features7::{encode_candidates7_grouped, encode_state7};
+mod batch;
+#[cfg(test)]
+mod batch_tests;
+pub use batch::{BatchLimits4, BatchedNet4};
 mod choices;
 mod critic;
 pub use critic::CriticSemantics4;
@@ -41,6 +43,8 @@ mod fallback;
 #[cfg(test)]
 mod fallback_tests;
 mod identity;
+mod inference;
+use inference::StepRow;
 mod live_init;
 pub use identity::{ModelIdentity, inspect_model_identity};
 mod policy;
@@ -86,9 +90,17 @@ pub const BAYLEE_KI_NAME: &str = "BayleeKI";
 /// Canonical alias for the trained Playernet v4 agent ([`NetPlayer4`]).
 pub type BayleeKI = NetPlayer4;
 
+/// Where a player's steps run.
+enum Backend {
+    /// Its own session per depth graph, one step per call: the reference path.
+    Owned(BTreeMap<u8, Session>),
+    /// A process-wide server that batches the steps of many players.
+    Shared(Arc<BatchedNet4>),
+}
+
 /// A Playernet v4 (`BayleeKI`) agent driving one or more seats via ONNX Runtime.
 pub struct NetPlayer4 {
-    sessions: BTreeMap<u8, Session>,
+    backend: Backend,
     model_dir: PathBuf,
     rule_roots: Option<BTreeMap<String, u32>>,
     encoder_version: u32,
@@ -148,16 +160,36 @@ fn load_session(path: &Path) -> anyhow::Result<Session> {
         .with_context(|| format!("loading {}", path.display()))
 }
 
-impl NetPlayer4 {
-    /// Loads a supported V4/V5 ONNX directory (`model.onnx` and
-    /// `model.onnx.json`) or a graph with companion metadata.
-    ///
-    /// # Errors
-    /// When the ONNX model or metadata cannot be loaded.
-    pub fn load(path: &Path) -> anyhow::Result<Self> {
-        let (onnx_path, meta, model_identity) = identity::read_model(path)?;
-        let encoder_version = model_identity.encoder_version;
-        let structured = matches!(model_identity.model_version, 3 | 5);
+/// The depth graph that runs `k` thinking steps: `0` for an observation,
+/// otherwise the next exported power of two.
+const fn depth_graph(k: u8) -> u8 {
+    if k == 0 {
+        0
+    } else if k.next_power_of_two() < 8 {
+        k.next_power_of_two()
+    } else {
+        8
+    }
+}
+
+/// A verified model directory: everything a player needs besides sessions.
+struct ModelFiles {
+    model_dir: PathBuf,
+    rule_roots: Option<BTreeMap<String, u32>>,
+    encoder_version: u32,
+    identity: ModelIdentity,
+    d_model: usize,
+    thinking_steps: u8,
+}
+
+impl ModelFiles {
+    /// Opens a supported V4/V5 ONNX directory (`model.onnx` and
+    /// `model.onnx.json`) or a graph with companion metadata, with the
+    /// session of its default graph and that graph's depth.
+    fn open(path: &Path) -> anyhow::Result<(Self, u8, Session)> {
+        let (onnx_path, meta, identity) = identity::read_model(path)?;
+        let encoder_version = identity.encoder_version;
+        let structured = matches!(identity.model_version, 3 | 5);
         let d_model = meta["d_model"].as_u64().context("missing d_model")? as usize;
         let thinking_steps = meta["thinking_steps"]
             .as_u64()
@@ -176,17 +208,60 @@ impl NetPlayer4 {
         };
 
         anyhow::ensure!(
-            identity::read_model(path)?.2 == model_identity,
+            identity::read_model(path)?.2 == identity,
             "model files changed while opening the ONNX session"
         );
-        Ok(Self {
-            sessions: BTreeMap::from([(thinking_steps, session)]),
+        let files = Self {
             model_dir: onnx_path.parent().context("model parent")?.to_path_buf(),
             rule_roots,
             encoder_version,
-            model_identity,
+            identity,
             d_model,
             thinking_steps,
+        };
+        Ok((files, thinking_steps, session))
+    }
+}
+
+impl NetPlayer4 {
+    /// Loads a supported V4/V5 ONNX directory (`model.onnx` and
+    /// `model.onnx.json`) or a graph with companion metadata.
+    ///
+    /// # Errors
+    /// When the ONNX model or metadata cannot be loaded.
+    pub fn load(path: &Path) -> anyhow::Result<Self> {
+        let (files, depth, session) = ModelFiles::open(path)?;
+        Ok(Self::with_backend(
+            files,
+            Backend::Owned(BTreeMap::from([(depth, session)])),
+        ))
+    }
+
+    /// A player whose steps run in `net`'s batches, together with every
+    /// other player built on it.
+    #[must_use]
+    pub fn shared(net: &Arc<BatchedNet4>) -> Self {
+        let m = &net.model;
+        let files = ModelFiles {
+            model_dir: m.model_dir.clone(),
+            rule_roots: m.rule_roots.clone(),
+            encoder_version: m.encoder_version,
+            identity: m.identity.clone(),
+            d_model: m.d_model,
+            thinking_steps: m.thinking_steps,
+        };
+        Self::with_backend(files, Backend::Shared(net.clone()))
+    }
+
+    fn with_backend(files: ModelFiles, backend: Backend) -> Self {
+        Self {
+            backend,
+            model_dir: files.model_dir,
+            rule_roots: files.rule_roots,
+            encoder_version: files.encoder_version,
+            model_identity: files.identity,
+            d_model: files.d_model,
+            thinking_steps: files.thinking_steps,
             temperature: 0.0,
             policy_mode: PolicyMode4::Tactical,
             rng: Rng::new(0x517c_c1b7_2722_0a95),
@@ -197,7 +272,7 @@ impl NetPlayer4 {
             last_announced_source: BTreeMap::new(),
             coverage: CoverageMatrix4::default(),
             last_fallback: None,
-        })
+        }
     }
 
     /// Recovery reason for the most recent decision; cleared before every answer.
@@ -359,10 +434,6 @@ impl NetPlayer4 {
         Ok(())
     }
 
-    #[allow(
-        clippy::too_many_lines,
-        reason = "Explicit tensor packing and extraction for the model ABI"
-    )]
     fn run_onnx_step(
         &mut self,
         state: &crate::features4::EncodedState4,
@@ -370,144 +441,32 @@ impl NetPlayer4 {
         h_in: &[f32],
         k_val: u8,
     ) -> anyhow::Result<StepOutputs> {
-        let e_len = state.entity_feat.len().max(1);
-        let (default_entity_width, default_global_width) = abi::widths(self.encoder_version);
-        let ent_width = state
-            .entity_feat
-            .first()
-            .map_or(default_entity_width, Vec::len);
-        let mut ent_feat = vec![0.0_f32; e_len * ent_width];
-        let mut ent_dsl = vec![0.0_f32; e_len * CARD_DSL_WIDTH];
-        let mut ent_mask = vec![false; e_len];
-        for i in 0..state.entity_feat.len() {
-            ent_feat[i * ent_width..(i + 1) * ent_width].copy_from_slice(&state.entity_feat[i]);
-            let dsl = state.entity_dsl_summary(i);
-            ent_dsl[i * CARD_DSL_WIDTH..(i + 1) * CARD_DSL_WIDTH].copy_from_slice(&dsl);
-            ent_mask[i] = true;
-        }
-
-        let mut seat_feat = vec![0.0_f32; MAX_SEATS * SEAT_FEAT_WIDTH];
-        for s in 0..MAX_SEATS {
-            seat_feat[s * SEAT_FEAT_WIDTH..(s + 1) * SEAT_FEAT_WIDTH]
-                .copy_from_slice(&state.seat_feat[s]);
-        }
-        let glob_width = if state.global_feat.is_empty() {
-            default_global_width
-        } else {
-            state.global_feat.len()
+        let row = StepRow::pack(
+            state,
+            cands,
+            h_in,
+            k_val,
+            self.encoder_version,
+            self.rule_roots.as_ref(),
+        )?;
+        let sessions = match &mut self.backend {
+            Backend::Shared(net) => return net.run(row),
+            Backend::Owned(sessions) => sessions,
         };
-        let global_feat = state.global_feat.clone();
-
-        let m_len = state.edges.len().max(1);
-        let mut edge_index = vec![0_i64; m_len * 2];
-        let mut edge_type = vec![0_i64; m_len];
-        let mut edge_mask = vec![false; m_len];
-        for (i, &[src, dst, rel]) in state.edges.iter().enumerate() {
-            edge_index[i * 2] = i64::from(src);
-            edge_index[i * 2 + 1] = i64::from(dst);
-            edge_type[i] = i64::from(rel);
-            edge_mask[i] = true;
-        }
-
-        let c_len = cands.candidates.len().max(1);
-        let mut cand_feat = vec![0.0_f32; c_len * CAND_FEAT_WIDTH];
-        let mut cand_dsl = vec![0.0_f32; c_len * CARD_DSL_WIDTH];
-        let mut cand_ent = vec![-1_i64; c_len];
-        let mut cand_seat = vec![-1_i64; c_len];
-        let mut cand_mask = vec![false; c_len];
-        for (i, c) in cands.candidates.iter().enumerate() {
-            cand_feat[i * CAND_FEAT_WIDTH..(i + 1) * CAND_FEAT_WIDTH].copy_from_slice(&c.feat);
-            cand_dsl[i * CARD_DSL_WIDTH..(i + 1) * CARD_DSL_WIDTH]
-                .copy_from_slice(&c.dsl_summary(state));
-            cand_ent[i] = i64::from(c.entity_idx);
-            cand_seat[i] = i64::from(c.rel_seat_idx);
-            cand_mask[i] = true;
-        }
-
-        let p_len = cands.pairs.len().max(1);
-        let mut pair_index = vec![0_i64; p_len * 2];
-        let mut pair_mask = vec![false; p_len];
-        for (i, &[b_idx, a_idx]) in cands.pairs.iter().enumerate() {
-            pair_index[i * 2] = i64::from(b_idx.max(0));
-            pair_index[i * 2 + 1] = i64::from(a_idx.max(0));
-            pair_mask[i] = b_idx >= 0 && a_idx >= 0;
-        }
-
-        let k_steps = vec![i64::from(k_val)];
-        let mut inputs = ort::inputs![
-            "entity_feat" => Tensor::from_array(([1, e_len, ent_width], ent_feat)).map_err(ort_error)?,
-            "entity_dsl" => Tensor::from_array(([1, e_len, CARD_DSL_WIDTH], ent_dsl)).map_err(ort_error)?,
-            "entity_mask" => Tensor::from_array(([1, e_len], ent_mask)).map_err(ort_error)?,
-            "seat_feat" => Tensor::from_array(([1, MAX_SEATS, SEAT_FEAT_WIDTH], seat_feat)).map_err(ort_error)?,
-            "global_feat" => Tensor::from_array(([1, glob_width], global_feat)).map_err(ort_error)?,
-            "edge_index" => Tensor::from_array(([1, m_len, 2], edge_index)).map_err(ort_error)?,
-            "edge_type" => Tensor::from_array(([1, m_len], edge_type)).map_err(ort_error)?,
-            "edge_mask" => Tensor::from_array(([1, m_len], edge_mask)).map_err(ort_error)?,
-            "cand_feat" => Tensor::from_array(([1, c_len, CAND_FEAT_WIDTH], cand_feat)).map_err(ort_error)?,
-            "cand_entity_idx" => Tensor::from_array(([1, c_len], cand_ent)).map_err(ort_error)?,
-            "cand_seat_idx" => Tensor::from_array(([1, c_len], cand_seat)).map_err(ort_error)?,
-            "cand_mask" => Tensor::from_array(([1, c_len], cand_mask)).map_err(ort_error)?,
-            "pair_index" => Tensor::from_array(([1, p_len, 2], pair_index)).map_err(ort_error)?,
-            "pair_mask" => Tensor::from_array(([1, p_len], pair_mask)).map_err(ort_error)?,
-            "cand_dsl" => Tensor::from_array(([1, c_len, CARD_DSL_WIDTH], cand_dsl)).map_err(ort_error)?,
-            "h_in" => Tensor::from_array(([1, RECURRENT_SLOTS, self.d_model], h_in.to_vec())).map_err(ort_error)?,
-            "thinking_steps" => Tensor::from_array(([1], k_steps)).map_err(ort_error)?,
-        ];
-
-        if let Some(roots) = &self.rule_roots {
-            let (er, entity_rules) = structure::pack(&state.entity_rule_refs, e_len, roots)?;
-            let refs = cands
-                .candidates
-                .iter()
-                .map(|c| crate::cardstructure::refs::candidate_refs(c, state))
-                .collect::<Vec<_>>();
-            let (cr, cand_rules) = structure::pack(&refs, c_len, roots)?;
-            inputs.extend(ort::inputs![
-                "entity_rules" => Tensor::from_array(([1, e_len, er, 2], entity_rules)).map_err(ort_error)?,
-                "cand_rules" => Tensor::from_array(([1, c_len, cr, 2], cand_rules)).map_err(ort_error)?,
-            ]);
-        }
-
-        let depth = if k_val == 0 {
-            0
-        } else {
-            k_val.next_power_of_two().min(8)
+        let depth = depth_graph(k_val);
+        let session = match sessions.entry(depth) {
+            std::collections::btree_map::Entry::Occupied(loaded) => loaded.into_mut(),
+            std::collections::btree_map::Entry::Vacant(slot) => {
+                let path = self.model_dir.join(format!("model.k{depth}.onnx"));
+                identity::verify_depth_graph(&path, depth, &self.model_identity)?;
+                let session = load_session(&path)?;
+                abi::validate(&session, self.encoder_version)?;
+                identity::verify_depth_graph(&path, depth, &self.model_identity)?;
+                slot.insert(session)
+            }
         };
-        if !self.sessions.contains_key(&depth) {
-            let path = self.model_dir.join(format!("model.k{depth}.onnx"));
-            identity::verify_depth_graph(&path, depth, &self.model_identity)?;
-            let session = load_session(&path)?;
-            abi::validate(&session, self.encoder_version)?;
-            identity::verify_depth_graph(&path, depth, &self.model_identity)?;
-            self.sessions.insert(depth, session);
-        }
-        let outputs = self
-            .sessions
-            .get_mut(&depth)
-            .expect("loaded graph")
-            .run(inputs)
-            .map_err(ort_error)?;
-        let (_, h_out_slice) = outputs["h_out"]
-            .try_extract_tensor::<f32>()
-            .map_err(ort_error)?;
-        let (_, c_slice) = outputs["cand_logits"]
-            .try_extract_tensor::<f32>()
-            .map_err(ort_error)?;
-        let (_, p_slice) = outputs["pair_logits"]
-            .try_extract_tensor::<f32>()
-            .map_err(ort_error)?;
-        let (_, s_slice) = outputs["scalar_pred"]
-            .try_extract_tensor::<f32>()
-            .map_err(ort_error)?;
-        let (_, v_slice) = outputs["value"]
-            .try_extract_tensor::<f32>()
-            .map_err(ort_error)?;
-        Ok((
-            h_out_slice.to_vec(),
-            c_slice.to_vec(),
-            p_slice.to_vec(),
-            s_slice.first().copied().unwrap_or(0.0),
-            v_slice.first().copied().unwrap_or(0.5),
-        ))
+        inference::run_rows(session, &[&row], self.d_model)?
+            .pop()
+            .context("the graph answered no row")
     }
 }

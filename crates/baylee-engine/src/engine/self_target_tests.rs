@@ -135,7 +135,12 @@ fn choose_self(engine: &mut Engine<SyntheticLookup>) {
 #[test]
 fn explicit_self_target_is_offered_and_resolves_through_own_hexproof() {
     let mut engine = probe();
-    protect(&mut engine, Modifier::PlayerHexproof);
+    protect(
+        &mut engine,
+        Modifier::PlayerHexproof {
+            who: PlayerRel::You,
+        },
+    );
     activate(&mut engine, 0);
     choose_self(&mut engine);
     walk_until(&mut engine, |e| e.state.zones.stack_is_empty());
@@ -184,7 +189,12 @@ fn explicit_self_target_is_rechecked_on_resolution() {
 #[test]
 fn implicit_self_effect_needs_no_target_choice_despite_player_protection() {
     for (modifier, life) in [
-        (Modifier::PlayerHexproof, 17),
+        (
+            Modifier::PlayerHexproof {
+                who: PlayerRel::You,
+            },
+            17,
+        ),
         (
             Modifier::PlayerProtectionFromEverything {
                 who: PlayerRel::You,

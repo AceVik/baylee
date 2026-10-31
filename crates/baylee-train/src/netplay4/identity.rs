@@ -50,6 +50,10 @@ pub struct ModelIdentity {
     pub metadata_sha256: String,
     /// Exported parent checkpoint identity when the exporter supplied it.
     pub source_checkpoint_sha256: Option<String>,
+    /// Arithmetic of the graphs when it is not FP32 (`float16`); FP32
+    /// exports never name it, so their identities are unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub precision: Option<String>,
 }
 
 fn version(meta: &Value, key: &str) -> anyhow::Result<u32> {
@@ -198,6 +202,11 @@ pub(super) fn read_model(path: &Path) -> anyhow::Result<(PathBuf, Value, ModelId
     let (encoder_version, model_version, model_family) = contract(&meta)?;
     let critic_semantics = super::critic::read_semantics(&meta)?;
     let source_checkpoint_sha256 = meta["source_checkpoint_sha256"].as_str().map(str::to_owned);
+    let precision = meta["precision"].as_str().map(str::to_owned);
+    anyhow::ensure!(
+        matches!(precision.as_deref(), None | Some("float16")),
+        "unsupported graph precision {precision:?}"
+    );
     let parent = graph.parent().context("model graph parent")?;
     let mut depth_graph_sha256 = BTreeMap::new();
     for depth in [0, 1, 2, 4, 8] {
@@ -226,6 +235,7 @@ pub(super) fn read_model(path: &Path) -> anyhow::Result<(PathBuf, Value, ModelId
         depth_graph_sha256,
         metadata_sha256: hex_digest(&Sha256::digest(&bytes)),
         source_checkpoint_sha256,
+        precision,
     };
     Ok((graph, meta, identity))
 }
