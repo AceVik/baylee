@@ -40,6 +40,7 @@ the pointers, because line numbers move.
 | A reported chat message (its text, whether its signature checked and, when it checked, the sender's public tag) | leaves the device for the gateway (`POST /social/reports`), then the feedback service | as other reports | as other reports |
 | Game state | engine process memory | the game | the process exits |
 | A language-model seat's game data (its seat's view: board, its own hand, log lines, card text, seat numbers; no display name, handle, tag, account, game id or deck name) | leaves the machine its bridge runs on (the seat agent's, or the player's own) for the profile's provider | the provider's own terms | — |
+| A language-model seat's reports of rules or engine errors (the model's words, its id and profile, where in the log each was made, and the seat's own game log: the lines its seat was told, seats as "You" and `P1…Pn`, no name) | the bridge's `reports.jsonl` (the words, not the log); at the game's end leaves for the gateway (`POST /reports`, the seat's session), then the feedback service with the game's record ([below](#language-model-seats)) | as other reports | as other reports |
 | Hosted profiles' states, games and spend as their seat agents report them | gateway memory | while the seat agent is connected | its leaving, a restart |
 | Who may seat each hosted model: per profile id a policy, and the account ids on its list, who added each and when | Postgres `llm_profile_access`, `llm_profile_allow` | until an admin takes the account off the list | an admin; the account's deletion (cascade) |
 | A hosted profile's definition, its spend book (per game: time, model, reserved, spent; nothing of the game), its key | the seat agent's machine (`hosted.json`, `spend/<id>.json`, its key directory) | until the operator removes them | the operator |
@@ -143,11 +144,28 @@ A model's reports of rules or engine errors (31.10.2026, `docs/llm-seat.md`
 §"Reports and lookups") are written to the bridge's `reports.jsonl` where
 it keeps transcripts, and sent as one bug report a game under the seat's
 own session, which the gateway passes on as it does a player's (its record
-of the game attached, the seat's account as a pseudonym): the model's
-words about the game, in which players are `P1…Pn`, the model's id and the
-profile's name, and nothing else. A lookup sends a card's name, and only
-that: to the gateway's catalog under the seat's session, or, for a profile
-that says so, to Scryfall.
+of the game attached, since the session's account sat at the game, a
+host's own chair handed to its bridge included; the seat's account as a
+pseudonym): the model's words about the game, in which players are
+`P1…Pn`, the model's id and the profile's name, where in the seat's log
+each report was made, and the seat's own game log, and nothing else. The
+log (since 31.10.2026) is what a person's report carries as "your game
+log", written by the same code: the lines the table told that seat, in
+English, each with its turn and the host's clock when it was written
+(milliseconds since 1970), the seat "You" and every other seat `P1…Pn`, the
+same pseudonyms the model was told, and a roster of seat numbers, those
+pseudonyms, whether the house AI plays a seat and its team. No display
+name, handle, tag or account is in it, and nothing the seat was not
+shown: a card another seat drew or holds is "a card", a face-down card
+stays face-down; the seat's own draws are named, as the table told them.
+The seat's view (its board, hand, the counts of libraries and hands) is
+not sent at all. A long log loses its oldest lines to stay within the
+report's size, and the report says how many. Like a person's report, it
+is not sent if the seat's session or seat token is anywhere in it
+(`bugreport::seal`). A chair taken on its host's ticket has no session
+and sends nothing; `--no-send-reports` sends nothing either. A lookup
+sends a card's name, and only that: to the gateway's catalog under the
+seat's session, or, for a profile that says so, to Scryfall.
 
 ### Who may seat each model (owner, 13.10.2026)
 

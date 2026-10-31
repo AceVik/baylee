@@ -59,8 +59,10 @@
 //! as each answer comes and before a mind leaves it, and sent when the
 //! game is over for the seat (an end, a room that closed, a seat that
 //! left) as one bug report to the gateway under the seat's own session
-//! ([`PlayOptions::send_reports`]). Whatever becomes of it is a line of the
-//! transcript (`llm_reports`) and never touches the game.
+//! ([`PlayOptions::send_reports`]), with the seat's own game log as the
+//! core's memory holds it ([`crate::reports::game_log`]). Whatever becomes
+//! of it is a line of the transcript (`llm_reports`) and never touches the
+//! game.
 
 use crate::link::{SeatLink, Socket};
 use crate::mind::{Answer, Mind, MindError, Request};
@@ -442,7 +444,7 @@ async fn run(
                 if let Some(mut ws) = socket.take() {
                     let _ = ws.close(None).await;
                 }
-                bridge.file_reports(link, transcript).await;
+                bridge.file_reports(link, transcript, core.memory()).await;
                 transcript.flush();
                 anyhow::bail!("the seat left the table: {reason}");
             }
@@ -532,24 +534,52 @@ impl Bridge {
 
     /// Sends the game's reports as one bug report to the gateway, under
     /// the seat's session, where the bridge may ([`PlayOptions::send_reports`])
-    /// and has one; says in the transcript what became of them. Never
-    /// fails the game: a report not sent stays in the reports file.
+    /// and has one, with the seat's own game log out of `memory`
+    /// ([`crate::reports::game_log`]); says in the transcript what became
+    /// of them. Never fails the game: a report not sent stays in the
+    /// reports file.
+    ///
+    /// Like a person's report, it is sealed first (`bugreport::seal`): one
+    /// that holds the session or the seat token anywhere is not sent.
     async fn file_reports(
         &mut self,
         link: &SeatLink,
         transcript: &mut Transcript,
+        memory: &crate::TableMemory,
     ) -> Option<Filing> {
+        use baylee_client_core::bugreport::{Keyring, Secret, seal};
         self.gather();
-        let body = crate::reports::submission(&self.reports)?;
+        if self.reports.is_empty() {
+            return None;
+        }
+        let log = crate::reports::game_log(memory);
+        let body = crate::reports::submission(&self.reports, log)?;
         let count = body["client"]["reports"].as_array().map_or(0, Vec::len);
         let sent = match (self.options.send_reports, link.reporter()) {
             (false, _) => Err("not sent: the bridge was told not to".to_string()),
             (true, None) => Err("not sent: the chair has no session of its own".to_string()),
             (true, Some((lobby, session))) => {
-                match tokio::time::timeout(REPORT_WAIT, lobby.report(session, body)).await {
-                    Ok(Ok(id)) => Ok(id),
-                    Ok(Err(e)) => Err(format!("not sent: {e:#}")),
-                    Err(_) => Err("not sent: the gateway did not answer in time".to_string()),
+                let secrets = [
+                    Secret {
+                        label: Keyring::SESSION,
+                        value: session.bearer(),
+                    },
+                    Secret {
+                        label: Keyring::SEAT,
+                        value: &link.chair().seat_token,
+                    },
+                ];
+                match seal(&body, &secrets) {
+                    Err(leaked) => Err(format!("not sent: {leaked}")),
+                    Ok(_) => {
+                        match tokio::time::timeout(REPORT_WAIT, lobby.report(session, body)).await {
+                            Ok(Ok(id)) => Ok(id),
+                            Ok(Err(e)) => Err(format!("not sent: {e:#}")),
+                            Err(_) => {
+                                Err("not sent: the gateway did not answer in time".to_string())
+                            }
+                        }
+                    }
                 }
             }
         };
@@ -817,7 +847,7 @@ impl Bridge {
         transcript: &mut Transcript,
         link: &SeatLink,
     ) -> Played {
-        let reports = self.file_reports(link, transcript).await;
+        let reports = self.file_reports(link, transcript, core.memory()).await;
         transcript.flush();
         Played {
             stats: core.stats().clone(),

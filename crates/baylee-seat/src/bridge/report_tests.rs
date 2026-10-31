@@ -75,6 +75,7 @@ impl Reporting {
                 lookups: 0,
                 unix: 1,
                 seen: Vec::new(),
+                log_lines: 3,
             })
             .collect();
         Arc::new(Self {
@@ -137,13 +138,19 @@ fn noted(transcript: &Transcript) -> Vec<Value> {
         .collect()
 }
 
+/// A memory the table told nothing.
+fn untold() -> crate::TableMemory {
+    crate::TableMemory::default()
+}
+
 #[tokio::test]
 async fn a_game_s_reports_go_to_the_gateway_once_under_the_seat_s_session() {
     let (base, sent) = gateway(201).await;
     let mut bridge = bridge(&["Bolt dealt 2.", "BOLT dealt 2.", "No trigger."], true);
     let mut transcript = Transcript::memory();
+    let memory = crate::reports::tests::log::told(crate::reports::tests::log::game());
     let filing = bridge
-        .file_reports(&link(&base, true), &mut transcript)
+        .file_reports(&link(&base, true), &mut transcript, &memory)
         .await
         .expect("reports were filed");
     assert_eq!(
@@ -168,6 +175,16 @@ async fn a_game_s_reports_go_to_the_gateway_once_under_the_seat_s_session() {
     assert_eq!(body["client"]["source"], "llm-seat");
     assert_eq!(body["client"]["reports"].as_array().unwrap().len(), 2);
     assert!(!body.to_string().contains("TEST-seat-token"));
+    // The seat's own log rides with them, as the core's memory held it,
+    // and each report says where in it it was made.
+    let lines = body["client"]["log"]["lines"].as_array().unwrap();
+    assert_eq!(lines.len(), memory.log().len());
+    assert_eq!(body["client"]["log_omitted"], 0);
+    assert_eq!(body["client"]["reports"][0]["log_line"], 3);
+    for name in crate::reports::tests::log::NAMES {
+        let bare = name.split('#').next().unwrap();
+        assert!(!body.to_string().contains(bare), "{bare} was sent");
+    }
     assert_eq!(noted(&transcript)[0]["sent"], true);
 }
 
@@ -177,7 +194,7 @@ async fn reports_stay_at_home_when_they_may_not_or_cannot_go() {
     let (base, sent) = gateway(201).await;
     let mut transcript = Transcript::memory();
     let filing = bridge(&["x"], false)
-        .file_reports(&link(&base, true), &mut transcript)
+        .file_reports(&link(&base, true), &mut transcript, &untold())
         .await
         .unwrap();
     assert!(!filing.sent);
@@ -187,7 +204,7 @@ async fn reports_stay_at_home_when_they_may_not_or_cannot_go() {
     );
     // A chair on its host's ticket has no session to send them under.
     let filing = bridge(&["x"], true)
-        .file_reports(&link(&base, false), &mut transcript)
+        .file_reports(&link(&base, false), &mut transcript, &untold())
         .await
         .unwrap();
     assert_eq!(
@@ -198,7 +215,7 @@ async fn reports_stay_at_home_when_they_may_not_or_cannot_go() {
     // A gateway with no feedback service refuses: said, and nothing more.
     let (base, sent) = gateway(503).await;
     let filing = bridge(&["x"], true)
-        .file_reports(&link(&base, true), &mut transcript)
+        .file_reports(&link(&base, true), &mut transcript, &untold())
         .await
         .unwrap();
     assert!(!filing.sent);
@@ -210,10 +227,32 @@ async fn reports_stay_at_home_when_they_may_not_or_cannot_go() {
     let mut quiet = Transcript::memory();
     assert_eq!(
         bridge(&[], true)
-            .file_reports(&link(&base, true), &mut quiet)
+            .file_reports(&link(&base, true), &mut quiet, &untold())
             .await,
         None
     );
     assert!(noted(&quiet).is_empty());
     assert_eq!(crate::llm::lock(&sent).len(), 1);
+}
+
+/// A bug report that holds the seat's session or seat token anywhere is
+/// not sent, and what is said of it names the token, never its value.
+#[tokio::test]
+async fn a_report_holding_a_token_is_not_sent() {
+    let (base, sent) = gateway(201).await;
+    for (what, label) in [
+        ("The table showed TEST-session.", "session token"),
+        ("My chair is TEST-seat-token.", "seat token"),
+    ] {
+        let mut transcript = Transcript::memory();
+        let filing = bridge(&[what], true)
+            .file_reports(&link(&base, true), &mut transcript, &untold())
+            .await
+            .unwrap();
+        assert!(!filing.sent);
+        let why = filing.why.unwrap();
+        assert!(why.contains(label), "{why}");
+        assert!(!why.contains("TEST-se"), "{why}");
+    }
+    assert!(crate::llm::lock(&sent).is_empty(), "nothing reached it");
 }

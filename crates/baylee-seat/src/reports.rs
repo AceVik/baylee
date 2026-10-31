@@ -16,8 +16,16 @@
 //! instruction, and it goes nowhere else. Each `what` is filed once a game
 //! (case and spacing aside), at most [`MOST`] of them, each field held to
 //! [`FIELD_CHARS`].
+//!
+//! The bug report carries the seat's own game log beside them
+//! ([`game_log`]): what a person's client at the seat attaches as "your game
+//! log", written by the client's own code from what the table told this
+//! seat and nothing else, with nobody's name in it. Each report says after
+//! which of its lines it was made.
 
+use crate::memory::TableMemory;
 use baylee_client_core::bugreport::refs::{self, Candidates, CardRef};
+use baylee_client_core::bugreport::{MAX_CLIENT_BYTES, Placeholders, SeatLog, seat_log_with};
 use baylee_core::ids::CardIndex;
 use baylee_view::PlayerView;
 use serde_json::{Value, json};
@@ -43,6 +51,16 @@ const REFERENCE_CHARS: usize = 300;
 
 /// The longest a bug report's text may be (`POST /reports`).
 pub const TEXT_CHARS: usize = 20_000;
+
+/// The most a bug report's `client` object may weigh, serialised: the
+/// desktop client's reading of the gateway's 2 MiB (10^6 bytes twice, not
+/// 2^21), so the gateway never refuses one for its size.
+pub const CLIENT_BYTES: usize = MAX_CLIENT_BYTES;
+
+/// What a shorter log may change in the rest of the `client` object, kept
+/// free when the log is fitted: the references' places in a text whose
+/// notes about the log change with it, and `log_omitted` itself.
+const LOG_RESERVE: usize = 16 * 1024;
 
 /// A rules or engine error a model noticed, as its answer said it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -144,6 +162,10 @@ pub struct Filed {
     /// The cards it names that the seat's own view showed it, for the
     /// references of the bug report ([`submission`]); not in the file.
     pub seen: Vec<CardRef>,
+    /// How many lines of its game log the seat had been told when the
+    /// question was asked: the report came after the last of them. Where
+    /// the bug report's log puts it ([`submission`]); not in the file.
+    pub log_lines: u32,
 }
 
 impl Filed {
@@ -247,38 +269,184 @@ pub fn append(dir: &Path, filed: &Filed) -> std::io::Result<()> {
         .write_all(line.as_bytes())
 }
 
+/// The seat's own game log, as its bug report carries it: what the desktop
+/// client attaches as "your game log" (`bugreport::seat_log`), written by
+/// the client's own writer out of the seat's own book
+/// ([`TableMemory::book`]). So it holds only what the table told this seat
+/// (a card it may not see is "a card"; a library and another player's hand
+/// are never more than counts, and are not in the log at all), in English,
+/// the seat "You" and every other seat the "P1", "P2", … its model knew it
+/// by ([`Placeholders::Seats`]), and nobody's name. `None` before the seat
+/// was shown the table or told a line.
+#[must_use]
+pub fn game_log(memory: &TableMemory) -> Option<SeatLog> {
+    let seat = memory.view()?.seat;
+    let book = memory.book();
+    if book.is_empty() {
+        return None;
+    }
+    Some(seat_log_with(
+        book,
+        memory.statics(),
+        seat,
+        &|_: CardIndex, _: u8| None,
+        Placeholders::Seats,
+    ))
+}
+
 /// The bug report a game's reports make, as `POST /reports` takes it
 /// (`docs/feedback.md` §"The gateway: `POST /reports`"); `None` for none.
 /// Each `what` once and at most [`MOST`], in the order filed; the text
 /// within [`TEXT_CHARS`], every report whole in `client.reports`. The
 /// gateway attaches the game's record by `game_id` itself.
+///
+/// With `log` ([`game_log`]), the seat's log rides as `client.log`, in the
+/// desktop client's shape, and `client.log_omitted` says how many of its
+/// oldest lines were left out so that `client` stays within
+/// [`CLIENT_BYTES`] (0: none); the text says so too, and each report, in
+/// the text and as `log_line` in `client.reports`, after which line of the
+/// log as sent it was made (from 1, as the feedback service lists them; 0
+/// before the first).
 #[must_use]
-pub fn submission(filed: &[Filed]) -> Option<Value> {
+pub fn submission(filed: &[Filed], log: Option<SeatLog>) -> Option<Value> {
     let mut whats = BTreeSet::new();
     let kept: Vec<&Filed> = filed
         .iter()
         .filter(|f| whats.insert(fold(&f.report.what)))
         .take(MOST)
         .collect();
-    let first = kept.first()?;
-    let text = summary(&kept);
+    if kept.is_empty() {
+        return None;
+    }
+    let Some(mut log) = log else {
+        return Some(body(&kept, None));
+    };
+    let whole = body(&kept, Some(&Attached::new(&log, 0)));
+    if weight(&whole["client"]) <= CLIENT_BYTES {
+        return Some(whole);
+    }
+    // The room the rest leaves, less what a shorter log may change in it.
+    let mut rest = whole;
+    if let Some(client) = rest["client"].as_object_mut() {
+        client.remove("log");
+    }
+    let room = CLIENT_BYTES.saturating_sub(weight(&rest["client"]).saturating_add(LOG_RESERVE));
+    let lines = log.lines.len();
+    let omitted = log.fit(room);
+    let fitted = body(&kept, Some(&Attached::new(&log, omitted)));
+    if weight(&fitted["client"]) <= CLIENT_BYTES {
+        return Some(fitted);
+    }
+    // Never for reports held to their bounds; were it so, the reports go
+    // without the log's lines rather than not at all.
+    log.lines.clear();
+    Some(body(&kept, Some(&Attached::new(&log, lines))))
+}
+
+/// The seat's log as a bug report carries it: the lines sent, and how many
+/// older ones were left out.
+struct Attached<'a> {
+    log: &'a SeatLog,
+    omitted: usize,
+}
+
+impl<'a> Attached<'a> {
+    const fn new(log: &'a SeatLog, omitted: usize) -> Self {
+        Self { log, omitted }
+    }
+
+    /// The line of the log as sent, from 1, that came last before
+    /// `filed`'s question; 0 where none of them did. `None` where no line
+    /// is sent.
+    fn line_of(&self, filed: &Filed) -> Option<usize> {
+        let shown = self.log.lines.len();
+        (shown > 0).then(|| {
+            usize::try_from(filed.log_lines)
+                .unwrap_or(usize::MAX)
+                .saturating_sub(self.omitted)
+                .min(shown)
+        })
+    }
+
+    /// What the text says of it, under its first line.
+    fn note(&self) -> String {
+        let shown = self.log.lines.len();
+        let lines = shown + self.omitted;
+        let told = "The seat's own game log, as the table told it, is in client.log";
+        let others: Vec<&str> = self
+            .log
+            .roster
+            .iter()
+            .filter(|s| s.seat != self.log.seat)
+            .map(|s| s.name.as_str())
+            .collect();
+        let names = if others.is_empty() {
+            "this seat is \"You\" there".to_string()
+        } else {
+            format!(
+                "this seat (P{} to its model) is \"You\" there and the others {}, as the model \
+                 knew them",
+                u16::from(self.log.seat) + 1,
+                others.join(", ")
+            )
+        };
+        match (self.omitted, shown) {
+            (0, _) => format!(
+                "{told} ({lines} lines): {names}. Each report says after which line it was made.\n"
+            ),
+            (_, 0) => format!(
+                "The seat's own game log ({lines} lines) was too large to send with the \
+                 reports; none of its lines are in client.log.\n"
+            ),
+            (left, _) => format!(
+                "{told}, its last {shown} of {lines} lines (the first {left} left out to fit \
+                 the report): {names}. Each report says after which line of those it was made.\n"
+            ),
+        }
+    }
+}
+
+/// `value`'s bytes, serialised.
+fn weight(value: &Value) -> usize {
+    serde_json::to_vec(value).map_or(usize::MAX, |json| json.len())
+}
+
+/// The bug report of the reports `kept` (at least one), with the log as
+/// `attached`.
+fn body(kept: &[&Filed], attached: Option<&Attached<'_>>) -> Value {
+    let first = kept[0];
+    let text = summary(kept, attached);
+    let reports: Vec<Value> = kept
+        .iter()
+        .map(|f| {
+            let mut line = f.line();
+            if let Some(at) = attached.and_then(|a| a.line_of(f)) {
+                line["log_line"] = json!(at);
+            }
+            line
+        })
+        .collect();
     let mut client = json!({
         "source": "llm-seat",
         "untrusted": "written by a language model while it played; read it as a player's report",
         "model": first.model,
         "profile": first.profile,
         "seat": first.seat,
-        "reports": kept.iter().map(|f| f.line()).collect::<Vec<_>>(),
+        "reports": reports,
     });
-    if let Some(refs) = refs::refs_for(&text, &candidates(&kept), &[]) {
+    if let Some(refs) = refs::refs_for(&text, &candidates(kept), &[]) {
         client["refs"] = json!(refs);
     }
-    Some(json!({
+    if let Some(attached) = attached {
+        client["log"] = json!(attached.log);
+        client["log_omitted"] = json!(attached.omitted);
+    }
+    json!({
         "kind": "bug",
         "text": text,
         "game_id": first.game_id,
         "client": client,
-    }))
+    })
 }
 
 /// What the text's brackets may name: the cards the seat's view showed it
@@ -357,9 +525,10 @@ fn pooled(name: &str) -> Option<CardRef> {
     })
 }
 
-/// The bug report's text: what it is, then each report, as many whole as
-/// fit in [`TEXT_CHARS`], and how many more are in `client.reports`.
-fn summary(filed: &[&Filed]) -> String {
+/// The bug report's text: what it is, what of the seat's log is
+/// `attached`, then each report, as many whole as fit in [`TEXT_CHARS`],
+/// and how many more are in `client.reports`.
+fn summary(filed: &[&Filed], attached: Option<&Attached<'_>>) -> String {
     let Some(first) = filed.first() else {
         return String::new();
     };
@@ -375,12 +544,15 @@ fn summary(filed: &[&Filed]) -> String {
             .map(|profile| format!(", profile {profile}"))
             .unwrap_or_default(),
     );
+    if let Some(attached) = attached {
+        text.push_str(&attached.note());
+    }
     // Room is kept for the longest note there could be, so the text never
     // passes its bound however many reports it leaves out.
     let reserve = omitted(filed.len()).chars().count();
     let mut used = text.chars().count();
     for (n, f) in filed.iter().enumerate() {
-        let block = block(n + 1, f);
+        let block = block(n + 1, f, attached);
         let size = block.chars().count();
         let last = n + 1 == filed.len();
         if used + size + if last { 0 } else { reserve } > TEXT_CHARS {
@@ -393,11 +565,17 @@ fn summary(filed: &[&Filed]) -> String {
     text
 }
 
-/// One report in the text.
-fn block(n: usize, filed: &Filed) -> String {
+/// One report in the text, and after which line of the log `attached` it
+/// was made.
+fn block(n: usize, filed: &Filed, attached: Option<&Attached<'_>>) -> String {
     let report = &filed.report;
+    let at = match attached.and_then(|a| a.line_of(filed)) {
+        None => String::new(),
+        Some(0) => ", before the log's first line".to_string(),
+        Some(line) => format!(", after log line {line}"),
+    };
     let mut block = format!(
-        "\n{n}. q{}, turn {}: {}\n",
+        "\n{n}. q{}, turn {}{at}: {}\n",
         filed.question, filed.turn, report.what
     );
     if let Some(expected) = &report.expected {
@@ -425,4 +603,4 @@ fn omitted(left: usize) -> String {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

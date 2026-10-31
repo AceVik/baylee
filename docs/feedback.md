@@ -105,9 +105,18 @@ into `client` and says so to the player (`docs/privacy.md`).
 
 A language-model seat's bridge sends its model's reports of rules or engine
 errors here too, one `bug` a game under the seat's own session, with
-`client.source: "llm-seat"`, the model, the profile and each report in
-`client.reports` (`docs/llm-seat.md` §"Reports and lookups"). They are a
-model's claims: triage reads them as it reads a player's.
+`client.source: "llm-seat"`, the model, the profile, each report in
+`client.reports` (its `log_line` saying after which line of the log it
+was made), and the seat's own game log as `client.log`, in the shape the
+desktop client sends its log in: the reporter "You", every other seat
+`P1…Pn` as the model knew them, the oldest lines left out where `client`
+would pass 2,000,000 bytes and `client.log_omitted` saying how many
+(`docs/llm-seat.md` §"Reports and lookups"). They are a model's claims:
+triage reads them as it reads a player's. The seat's account sat at the
+game (a host's own chair handed to its bridge, `--host-chair`, too: the
+account's own chair in `game_record_seat`), so the record is attached as
+to a player's report; a chair taken on its host's ticket has no session
+and sends none.
 
 Configuration: `BAYLEE_FEEDBACK_URL` (the service's base URL, for example
 `https://feedback.baylee.app`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's

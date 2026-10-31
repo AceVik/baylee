@@ -362,8 +362,10 @@ paragraphs (`prompt::system`), since 31.10.2026:
   playing and says what the table did against the rules or a card's text.
   `what` is required; a plain string is read as `what`. The schema tells
   the model to report when unsure: a false report costs little, a missed
-  bug stays in the game. What the bridge does with it is
-  `docs/llm-seat.md` §"Reports and lookups".
+  bug stays in the game. What the bridge does with it (one bug report a
+  game, with the seat's own game log, each report placed after a line of
+  it) is `docs/llm-seat.md` §"Reports and lookups". The model's prompt
+  and schemas do not change for it.
 - `lookup` names a card. An answer of only `ask` and `lookup` is answered
   by the next message: the card's text as data, in a fence it cannot
   close, introduced by where it came from, then the same question

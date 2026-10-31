@@ -248,6 +248,10 @@ impl Seat {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_or(0, |since| since.as_secs()),
             seen: reports::seen_in(report, &request.view),
+            log_lines: request
+                .log
+                .from
+                .saturating_add(u32::try_from(request.log.entries.len()).unwrap_or(u32::MAX)),
         };
         if self.reports.file(filed, at.settings.transcripts.as_deref()) {
             self.transcript.write_value(&json!({

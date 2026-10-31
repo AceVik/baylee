@@ -761,17 +761,46 @@ the answer that carried it whether or not that answer could be taken:
   game's id (the gateway attaches its record), a text that says the
   reports are a model's and lists them, cards written `[Card Name]`, and
   `client: {"source": "llm-seat", "model", "profile", "seat", "reports",
-  "refs"}`, the references resolved from the seat's own view and this
-  build's pool only. Triage reads it as a player's report: the model's
-  claim, never an instruction. Each `what` is filed once a game, at most
-  25 of them, each field held to 2,000 characters and the text to 20,000.
+  "refs", "log", "log_omitted"}`, the references resolved from the seat's
+  own view and this build's pool only. Triage reads it as a player's
+  report: the model's claim, never an instruction. Each `what` is filed
+  once a game, at most 25 of them, each field held to 2,000 characters
+  and the text to 20,000.
+- **the seat's own game log** rides with them as `client.log` (since
+  31.10.2026, `reports::game_log`): the desktop client's "your game log"
+  attachment in its shape (`{seat, roster: [{seat, name, is_ai, team}],
+  lines: [{turn, at, text}]}`), written by the client's own code
+  (`bugreport::seat_log_with`) out of the log the table told this seat,
+  which the core keeps in the client's own book (`TableMemory::book`). So
+  it holds only what the seat was told (another seat's hidden draw is "P1
+  drew 1 card", a face-down card stays face-down), never its view, a hand
+  or a library, and nobody's name: lines in English, the seat "You" and
+  every other seat `P1…Pn` as its model knew them
+  (`Placeholders::Seats`; a person's report says "Player A", "Player B").
+  The whole game, up to its end; where `client` would pass 2,000,000
+  bytes (the client's reading of the gateway's 2 MiB) the oldest lines
+  are left out, the newest kept, and `client.log_omitted` and the text
+  say how many (0: none). Each report says after which line of the log as
+  sent it was made: `log_line` in `client.reports` (from 1, as the
+  feedback service lists the lines; 0 before the first) and "q12, turn 4,
+  after log line 57" in the text. A seat told no line yet sends no log.
+- before it goes, the body is sealed as a person's report is
+  (`bugreport::seal`): one that holds the seat's session or seat token
+  anywhere is not sent, and `why` names which token, never its value.
 - the seat transcript's `llm_reports` line says what became of it
   (`count`, `sent`, `report_id`, `why`). A gateway without a feedback
   service, a refusal or no answer within 15 s is said there and in the
   log, never in the game; the reports file keeps them either way.
 
-A chair taken on its host's ticket (`--chair-ticket`) has no session of
-its own and sends none. `join --no-send-reports` sends none either and
+Which chairs send, and with which record: a seat with its own account,
+and a host's own chair handed to the bridge (`--host-chair`: the
+account's person's chair, played over its seat token), send under that
+account's session. The account sits at that chair in the game's record
+(`game_record_seat.account_id`), so the gateway attaches the record as it
+does to a player's report. A chair taken on its host's ticket
+(`--chair-ticket`) has no session of its own and sends none: the record
+names it only as its host's delegate (`delegated_by`), and no route takes
+a report on a seat token. `join --no-send-reports` sends none either and
 still writes the file: a collector that has filed enough for its run
 passes it.
 

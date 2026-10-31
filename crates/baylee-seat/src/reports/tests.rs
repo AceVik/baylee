@@ -2,6 +2,8 @@ use super::*;
 use crate::narrator::Decision;
 use crate::narrator::tests::board;
 
+pub(crate) mod log;
+
 fn filed(what: &str, question: u64) -> Filed {
     Filed {
         game_id: "TEST-game".into(),
@@ -19,6 +21,7 @@ fn filed(what: &str, question: u64) -> Filed {
         lookups: 1,
         unix: 1_700_000_000,
         seen: Vec::new(),
+        log_lines: 0,
     }
 }
 
@@ -181,11 +184,16 @@ fn a_game_s_reports_are_one_bug_report_marked_as_a_model_s() {
     let mut reports = vec![filed("Bolt dealt 2.", 12), filed("bolt dealt 2.", 14)];
     reports[1].report.references.clear();
     reports.push(filed("The trigger never fired.", 15));
-    let body = submission(&reports).unwrap();
+    let body = submission(&reports, None).unwrap();
     assert_eq!(body["kind"], "bug");
     assert_eq!(body["game_id"], "TEST-game");
     assert!(body.get("local_record").is_none());
     let client = &body["client"];
+    assert!(
+        client.get("log").is_none() && client.get("log_omitted").is_none(),
+        "no log was told, none is sent"
+    );
+    assert!(client["reports"][0].get("log_line").is_none());
     assert_eq!(client["source"], "llm-seat");
     assert_eq!(client["model"], "TEST-model");
     assert_eq!(client["profile"], "collector");
@@ -227,7 +235,7 @@ fn a_game_s_reports_are_one_bug_report_marked_as_a_model_s() {
         );
         assert!(card.get("object").is_none(), "not from a view");
     }
-    assert_eq!(submission(&[]), None, "no reports, no report");
+    assert_eq!(submission(&[], None), None, "no reports, no report");
 }
 
 #[test]
@@ -241,7 +249,7 @@ fn a_bug_report_s_text_holds_to_its_bound() {
             f
         })
         .collect();
-    let body = submission(&reports).unwrap();
+    let body = submission(&reports, None).unwrap();
     let text = body["text"].as_str().unwrap();
     assert!(
         text.chars().count() <= TEXT_CHARS,
