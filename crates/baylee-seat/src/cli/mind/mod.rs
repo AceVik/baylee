@@ -161,7 +161,7 @@ impl CliMind {
                 }
                 Reply::Outcome(Outcome::RateLimited { why, lifts_in }) => {
                     self.cool(lifts_in);
-                    return Err(MindError::Unavailable(format!("rate limit: {why}")));
+                    return Err(limited(&why, lifts_in));
                 }
                 Reply::Outcome(Outcome::Failed(why)) => {
                     return Err(MindError::Unavailable(scrub(&why, None)));
@@ -263,10 +263,10 @@ impl CliMind {
             return Err(Err(MindError::Declined(why)));
         }
         if let Some(left) = self.cooling() {
-            return Err(Err(MindError::Unavailable(format!(
-                "rate limit: {} s left of the cooldown",
-                left.as_secs().max(1)
-            ))));
+            return Err(Err(MindError::Limited {
+                why: format!("{} s left of the cooldown", left.as_secs().max(1)),
+                lifts_in: Some(left),
+            }));
         }
         state.seat.asked += 1;
         let dialect = &self.launch.dialect;
@@ -511,7 +511,7 @@ impl CliMind {
                 return MindError::Unavailable(why);
             }
             self.cool(lifts_in);
-            return MindError::Unavailable(format!("rate limit: {why}"));
+            return limited(&why, lifts_in);
         }
         let session = Self::lose(seat);
         if let Gone::Refused(why) = &gone {
@@ -700,6 +700,18 @@ impl CliMind {
 /// longer one is as if it said nothing, and the doubling cooldown holds.
 pub(super) fn believed(lifts_in: Option<Duration>) -> Option<Duration> {
     lifts_in.filter(|wait| !wait.is_zero() && *wait <= MAX_COOLDOWN)
+}
+
+/// A rate limit or a spent quota the tool reported, in its words: the
+/// mind is limited ([`MindError::Limited`]), as a model behind an API is
+/// when its provider says so. A fallback profile takes the question over
+/// where one stands by; with none, the house plays the rest of the game
+/// (`docs/llm-seat.md` §"A CLI as the model", §"A fallback profile").
+fn limited(why: &str, lifts_in: Option<Duration>) -> MindError {
+    MindError::Limited {
+        why: scrub(why, None),
+        lifts_in,
+    }
 }
 
 /// Takes the mind off the table for good, for `why` (the first reason

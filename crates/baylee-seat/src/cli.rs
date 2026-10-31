@@ -80,10 +80,13 @@
 //! tool counts them (cache reads included), and its calls
 //! ([`Settings::spend_calls`]), both held in the shared [`Tally`] and the
 //! spend book as an API's are. A rate limit or a spent quota is
-//! [`MindError::Unavailable`] and cools the mind down (the time the tool
-//! names, when that is at most fifteen minutes, else a minute, doubling to
-//! fifteen); [`Mind::ready`] is the
-//! cooldown passed and the tool's login check passing.
+//! [`MindError::Limited`], as an API's is (a fallback profile takes over,
+//! else the house plays the rest of the game), and cools the mind down (the
+//! time the tool names, when that is at most fifteen minutes, else a
+//! minute, doubling to fifteen); [`Mind::ready`] is the cooldown passed
+//! and the tool's login check passing. A process that died or broke its
+//! lockdown is [`MindError::Unavailable`], which a fallback takes over on
+//! too.
 
 mod agy;
 mod claude;

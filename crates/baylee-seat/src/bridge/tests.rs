@@ -127,7 +127,7 @@ async fn a_swapped_mind_answers_from_the_next_question_on() {
         mind(ManaColor::Red),
         PlayOptions::default(),
         Some(swaps),
-        None,
+        Vec::new(),
     );
     let mut core = seated();
     let first = asked(&mut core, 2);
@@ -199,7 +199,7 @@ async fn a_swapped_mind_thinks_for_as_long_as_its_profile_says() {
         mind(ManaColor::Red),
         PlayOptions::default(),
         Some(swaps),
-        None,
+        Vec::new(),
     );
     let mut core = seated();
     let swap = |think| Swap {
@@ -244,7 +244,7 @@ async fn a_swapped_mind_is_declared_before_its_first_answer() {
         mind(ManaColor::Red),
         PlayOptions::default(),
         Some(swaps),
-        None,
+        Vec::new(),
     );
     let mut core = seated();
     let first = asked(&mut core, 2);
@@ -307,7 +307,12 @@ async fn swapping_and_dropping_a_bridge_release_its_owned_session() {
     let (send, swaps) = tokio::sync::mpsc::unbounded_channel();
     let task = tokio::spawn(std::future::pending());
     let aborted = task.abort_handle();
-    let mut bridge = Bridge::new(mind.clone(), PlayOptions::default(), Some(swaps), None);
+    let mut bridge = Bridge::new(
+        mind.clone(),
+        PlayOptions::default(),
+        Some(swaps),
+        Vec::new(),
+    );
     bridge.game_seat = Some(("game-owned".into(), 2));
     bridge.thinking = Some(super::Thinking {
         question: 1,
@@ -451,62 +456,124 @@ enum Reserve {
     Absent,
 }
 
+impl Reserve {
+    /// The chain it is.
+    fn links(self) -> Vec<Link> {
+        match self {
+            Self::Takes(moves) => vec![Link::Takes {
+                label: "backup",
+                model: "model-b",
+                moves,
+            }],
+            Self::Refuses(why) => vec![Link::Refuses {
+                label: "backup",
+                why,
+            }],
+            Self::Absent => Vec::new(),
+        }
+    }
+}
+
+/// One fallback of a chain in a [`Scene`], in the order they take over.
+enum Link {
+    /// The profile `label` takes over with a mind playing `moves`,
+    /// declared as `model`, thinking for 20 s.
+    Takes {
+        label: &'static str,
+        model: &'static str,
+        moves: Vec<Move>,
+    },
+    /// The profile `label`'s arm refuses, with `why`.
+    Refuses {
+        label: &'static str,
+        why: &'static str,
+    },
+}
+
 /// A bridge whose primary mind plays `primary`, a core seated before it
-/// (every question in turn [`TURN`]), and what the minds and the arm
+/// (every question in turn [`TURN`]), and what the minds and the arms
 /// wrote down. The bridge is driven as `run` drives it, a step at a
 /// time, with no socket unless the test gives it one.
 struct Scene {
     bridge: Bridge,
     core: SeatCore,
     primary: Record,
+    /// What the first fallback was asked.
     fallback: Record,
+    /// What each fallback of the chain was asked, in its order.
+    chain: Vec<Record>,
+    /// Every arm called, with what, in order.
     armed: Armed,
+    /// The profiles whose arms were called, in order.
+    armed_by: Arc<Mutex<Vec<&'static str>>>,
     wire: Option<Socket>,
 }
 
 impl Scene {
     fn new(primary: Vec<Move>, reserve: Reserve) -> Self {
-        let (primary_seen, fallback_seen) = (Record::default(), Record::default());
+        Self::chained(primary, reserve.links())
+    }
+
+    /// [`Self::new`], with a chain of fallbacks behind the primary.
+    fn chained(primary: Vec<Move>, links: Vec<Link>) -> Self {
+        let primary_seen = Record::default();
         let armed = Armed::default();
-        let standby = match reserve {
-            Reserve::Takes(moves) => {
-                let mind = Moving::mind(moves, &fallback_seen);
-                let (armed, declared) = (Arc::clone(&armed), api_mind("model-b"));
-                Some(Standby {
-                    label: "backup".into(),
+        let armed_by = Arc::new(Mutex::new(Vec::new()));
+        let mut chain = Vec::new();
+        let mut standbys = Vec::new();
+        for link in links {
+            let seen = Record::default();
+            let (armed, armed_by) = (Arc::clone(&armed), Arc::clone(&armed_by));
+            let standby = match link {
+                Link::Takes {
+                    label,
+                    model,
+                    moves,
+                } => {
+                    let (mind, declared) = (Moving::mind(moves, &seen), api_mind(model));
+                    Standby {
+                        label: label.into(),
+                        arm: Box::new(move |limit| {
+                            armed.lock().unwrap().push(limit.clone());
+                            armed_by.lock().unwrap().push(label);
+                            Ok(Swap {
+                                mind,
+                                think: Some(Duration::from_secs(20)),
+                                taken: None,
+                                declared: Some(declared),
+                            })
+                        }),
+                    }
+                }
+                Link::Refuses { label, why } => Standby {
+                    label: label.into(),
                     arm: Box::new(move |limit| {
                         armed.lock().unwrap().push(limit.clone());
-                        Ok(Swap {
-                            mind,
-                            think: Some(Duration::from_secs(20)),
-                            taken: None,
-                            declared: Some(declared),
-                        })
-                    }),
-                })
-            }
-            Reserve::Refuses(why) => {
-                let armed = Arc::clone(&armed);
-                Some(Standby {
-                    label: "backup".into(),
-                    arm: Box::new(move |limit| {
-                        armed.lock().unwrap().push(limit.clone());
+                        armed_by.lock().unwrap().push(label);
                         Err(why.into())
                     }),
-                })
-            }
-            Reserve::Absent => None,
-        };
+                },
+            };
+            chain.push(seen);
+            standbys.push(standby);
+        }
         let options = PlayOptions {
             min_think: Duration::ZERO,
             ..PlayOptions::default()
         };
         Self {
-            bridge: Bridge::new(Moving::mind(primary, &primary_seen), options, None, standby),
+            bridge: Bridge::new(
+                Moving::mind(primary, &primary_seen),
+                options,
+                None,
+                standbys,
+            ),
             core: seated(),
             primary: primary_seen,
-            fallback: fallback_seen,
+            fallback: chain.first().cloned().unwrap_or_default(),
+            chain,
             armed,
+            armed_by,
             wire: None,
         }
     }
@@ -608,7 +675,7 @@ async fn a_limit_where_a_fallback_stands_by_is_answered_by_the_fallback() {
         [(By::Mind, PlayerAction::ChooseColor(ManaColor::Red))]
     );
     assert!(scene.armed.lock().unwrap().is_empty());
-    assert_eq!(scene.bridge.fell_back, None);
+    assert!(scene.bridge.fell_back.is_empty());
 
     // The second question is the one the primary cannot answer.
     let budget = scene.ask(3).await;
@@ -635,6 +702,7 @@ async fn a_limit_where_a_fallback_stands_by_is_answered_by_the_fallback() {
             why: "429: slow down".into(),
             lifts_in: Some(Duration::from_secs(30)),
             failed: false,
+            by: None,
         }],
         "armed once, on the limit"
     );
@@ -679,11 +747,11 @@ async fn a_limit_where_a_fallback_stands_by_is_answered_by_the_fallback() {
     assert_eq!(scene.armed.lock().unwrap().len(), 1, "armed once");
     assert_eq!(
         scene.bridge.fell_back,
-        Some(FellBack {
+        [FellBack {
             label: "backup".into(),
             turn: TURN,
             answered: 2,
-        }),
+        }],
         "the fallback's two answers, not the primary's"
     );
     let stats = scene.core.stats();
@@ -841,8 +909,8 @@ async fn a_fallback_that_cannot_take_over_leaves_the_limit_to_the_house() {
             "fallback_refused": { "profile": "backup", "why": refusal },
         })]
     );
-    assert!(scene.bridge.fallback.is_none(), "it stands by no longer");
-    assert_eq!(scene.bridge.fell_back, None);
+    assert!(scene.bridge.fallbacks.is_empty(), "it stands by no longer");
+    assert!(scene.bridge.fell_back.is_empty());
     assert!(
         scene.primary.lock().unwrap().ended.is_empty(),
         "the primary plays on"
@@ -914,7 +982,7 @@ async fn without_a_fallback_a_limit_hands_the_rest_of_the_game_to_the_house() {
         "the mind is rate limited: 429: slow down (it lifts in 30 s)"
     );
     assert!(scene.bridge.notes.is_empty());
-    assert_eq!(scene.bridge.fell_back, None);
+    assert!(scene.bridge.fell_back.is_empty());
     assert!(scene.armed.lock().unwrap().is_empty());
 }
 
@@ -938,7 +1006,7 @@ async fn a_fallback_that_is_limited_too_leaves_the_limit_to_the_house() {
     assert_eq!(scene.armed.lock().unwrap().len(), 1, "armed once");
     assert_eq!(scene.fallback.lock().unwrap().asked.len(), 2);
     assert_eq!(
-        scene.bridge.fell_back.as_ref().map(|fell| fell.answered),
+        scene.bridge.fell_back.last().map(|fell| fell.answered),
         Some(1),
         "the house's answer is not the fallback's"
     );
@@ -966,7 +1034,7 @@ async fn a_swapped_mind_drops_the_fallback_held_for_the_old_one() {
     })
     .unwrap_or_else(|_| panic!("the bridge listens"));
     scene.bridge.settle(&mut scene.core);
-    assert!(scene.bridge.fallback.is_none());
+    assert!(scene.bridge.fallbacks.is_empty());
     scene.ask(2).await;
     let made = scene.answer().await;
     assert!(matches!(&made[..], [(By::House, _)]), "{made:?}");
@@ -1007,7 +1075,7 @@ async fn a_mind_handed_over_after_the_fallback_is_not_counted_as_the_fallback() 
         [(By::Mind, PlayerAction::ChooseColor(ManaColor::Red))]
     );
     assert_eq!(
-        scene.bridge.fell_back.as_ref().map(|fell| fell.answered),
+        scene.bridge.fell_back.last().map(|fell| fell.answered),
         Some(1),
         "only the fallback's own answer"
     );
@@ -1057,6 +1125,7 @@ async fn a_primary_that_fails_where_a_fallback_stands_by_is_answered_by_the_fall
         why: FAILED.into(),
         lifts_in: None,
         failed: true,
+        by: None,
     };
     assert_eq!(*scene.armed.lock().unwrap(), std::slice::from_ref(&limit));
     assert_eq!(limit.said(), format!("the primary failed: {FAILED}"));
@@ -1107,11 +1176,11 @@ async fn a_primary_that_fails_where_a_fallback_stands_by_is_answered_by_the_fall
     assert_eq!(scene.armed.lock().unwrap().len(), 1, "armed once");
     assert_eq!(
         scene.bridge.fell_back,
-        Some(FellBack {
+        [FellBack {
             label: "backup".into(),
             turn: TURN,
             answered: 3,
-        })
+        }]
     );
     let stats = scene.core.stats();
     assert_eq!(
@@ -1155,7 +1224,7 @@ async fn without_a_fallback_a_failure_is_the_house_s_to_answer() {
         format!("the mind is unavailable: {FAILED}")
     );
     assert!(scene.bridge.notes.is_empty());
-    assert_eq!(scene.bridge.fell_back, None);
+    assert!(scene.bridge.fell_back.is_empty());
 }
 
 /// Where the fallback cannot take over a failure, the house answers
@@ -1184,6 +1253,7 @@ async fn a_fallback_that_cannot_take_over_a_failure_leaves_it_to_the_house() {
             why: FAILED.into(),
             lifts_in: None,
             failed: true,
+            by: None,
         }]
     );
     assert_eq!(
@@ -1192,8 +1262,8 @@ async fn a_fallback_that_cannot_take_over_a_failure_leaves_it_to_the_house() {
             "fallback_refused": { "profile": "backup", "why": refusal },
         })]
     );
-    assert!(scene.bridge.fallback.is_none(), "it stands by no longer");
-    assert_eq!(scene.bridge.fell_back, None);
+    assert!(scene.bridge.fallbacks.is_empty(), "it stands by no longer");
+    assert!(scene.bridge.fell_back.is_empty());
     let stats = scene.core.stats();
     assert_eq!((stats.answered.house, stats.fallbacks.unavailable), (1, 1));
 }
@@ -1211,14 +1281,14 @@ async fn a_declined_question_is_the_house_s_and_the_fallback_stands_by() {
     let made = scene.answer().await;
     assert!(matches!(&made[..], [(By::House, _)]), "{made:?}");
     assert!(scene.armed.lock().unwrap().is_empty());
-    assert!(scene.bridge.fallback.is_some(), "it stands by still");
+    assert!(!scene.bridge.fallbacks.is_empty(), "it stands by still");
     scene.ask(3).await;
     assert_eq!(
         scene.answer().await,
         [(By::Mind, PlayerAction::ChooseColor(ManaColor::Red))]
     );
     assert!(scene.fallback.lock().unwrap().asked.is_empty());
-    assert_eq!(scene.bridge.fell_back, None);
+    assert!(scene.bridge.fell_back.is_empty());
 }
 
 /// What the operator reads of a limit is the words a seat agent holds
@@ -1230,6 +1300,7 @@ fn a_limit_is_said_in_the_words_a_seat_agent_reads() {
         why: "429: slow down".into(),
         lifts_in: Some(Duration::from_secs(120)),
         failed: false,
+        by: None,
     };
     assert_eq!(
         limit.said(),
@@ -1261,4 +1332,373 @@ async fn wired() -> (Socket, tokio::sync::mpsc::UnboundedReceiver<Envelope>) {
         .await
         .unwrap();
     (socket, table)
+}
+
+/// A fallback that took over and cannot answer either hands the game on
+/// down the chain (owner, 31.10.2026: the same model elsewhere first, then
+/// the next most suitable): the primary is limited and `fb1` takes over;
+/// later `fb1` fails, and `fb2` is asked that very question under the same
+/// deadline, declared to the table first, and plays on. Nobody hands the
+/// game back, the house answers nothing, and each fallback's answers are
+/// its own.
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one game down a chain, read top to bottom"
+)]
+async fn a_chain_hands_the_game_on_from_fallback_to_fallback() {
+    let mut scene = Scene::chained(
+        vec![Move::Choose(ManaColor::Red), Move::Limited],
+        vec![
+            Link::Takes {
+                label: "fb1",
+                model: "model-fb1",
+                moves: vec![Move::Choose(ManaColor::Green), Move::Unavailable],
+            },
+            Link::Takes {
+                label: "fb2",
+                model: "model-fb2",
+                moves: vec![Move::Choose(ManaColor::Red)],
+            },
+        ],
+    );
+    scene.ask(2).await;
+    assert_eq!(
+        scene.answer().await,
+        [(By::Mind, PlayerAction::ChooseColor(ManaColor::Red))]
+    );
+    // The primary is limited: `fb1` takes the question over.
+    scene.ask(3).await;
+    assert!(scene.back().await.is_empty());
+    assert_eq!(declaring(&scene.bridge), ["model-fb1"]);
+    assert_eq!(
+        scene.answer().await,
+        [(By::Mind, PlayerAction::ChooseColor(ManaColor::Green))]
+    );
+    // `fb1` fails at the next: `fb2` is asked the same question.
+    scene.ask(4).await;
+    let thinking = scene.bridge.thinking.as_ref().unwrap();
+    let (question, deadline) = (thinking.question, thinking.deadline);
+    let steps = scene.back().await;
+    assert!(steps.is_empty(), "the core hears nothing of it: {steps:?}");
+    let thinking = scene.bridge.thinking.as_ref().expect("asked of fb2");
+    assert_eq!((thinking.question, thinking.deadline), (question, deadline));
+    assert_eq!(declaring(&scene.bridge), ["model-fb2"], "declared first");
+    scene.carry(steps).await;
+    assert_eq!(
+        scene.answer().await,
+        [(By::Mind, PlayerAction::ChooseColor(ManaColor::Red))]
+    );
+    scene.ask(5).await;
+    assert_eq!(
+        scene.answer().await,
+        [(By::Mind, PlayerAction::ChooseColor(ManaColor::Red))]
+    );
+
+    assert_eq!(*scene.armed_by.lock().unwrap(), ["fb1", "fb2"]);
+    let armed = scene.armed.lock().unwrap().clone();
+    assert_eq!(
+        armed,
+        [
+            Limit {
+                turn: TURN,
+                why: "429: slow down".into(),
+                lifts_in: Some(Duration::from_secs(30)),
+                failed: false,
+                by: None,
+            },
+            Limit {
+                turn: TURN,
+                why: FAILED.into(),
+                lifts_in: None,
+                failed: true,
+                by: Some("fb1".into()),
+            },
+        ]
+    );
+    assert_eq!(
+        armed[1].said(),
+        format!("the fallback fb1 failed: {FAILED}")
+    );
+    assert_eq!(
+        scene.bridge.notes,
+        [
+            serde_json::json!({"fallback": {
+                "profile": "fb1", "turn": TURN, "cause": "limited", "why": "429: slow down",
+            }}),
+            serde_json::json!({"fallback": {
+                "profile": "fb2", "turn": TURN, "cause": "failed", "why": FAILED,
+            }}),
+        ]
+    );
+    assert_eq!(
+        scene.bridge.fell_back,
+        [
+            FellBack {
+                label: "fb1".into(),
+                turn: TURN,
+                answered: 1,
+            },
+            FellBack {
+                label: "fb2".into(),
+                turn: TURN,
+                answered: 2,
+            },
+        ],
+        "each fallback's own answers"
+    );
+    let context = scene.core.context().unwrap().clone();
+    let ended = [(context.game_id.clone(), context.seat.get())];
+    assert_eq!(scene.primary.lock().unwrap().ended, ended);
+    assert_eq!(scene.chain[0].lock().unwrap().ended, ended, "fb1 is done");
+    assert!(scene.chain[1].lock().unwrap().ended.is_empty(), "fb2 plays");
+    assert_eq!(scene.primary.lock().unwrap().asked.len(), 2);
+    assert_eq!(scene.chain[0].lock().unwrap().asked.len(), 2);
+    assert_eq!(scene.chain[1].lock().unwrap().asked.len(), 2);
+    assert!(scene.bridge.fallbacks.is_empty(), "the chain is used up");
+    let stats = scene.core.stats();
+    assert_eq!(
+        (stats.answered.mind, stats.answered.house, stats.asked),
+        (4, 0, 4)
+    );
+    assert_eq!(stats.fallbacks.total(), 0, "no house answer, no failure");
+    assert!(failures(&mut scene.core).is_empty());
+}
+
+/// A fallback that cannot answer the very question it was handed passes
+/// it on at once: the primary is limited, `fb1` fails at it, and `fb2`
+/// answers it, each within what is left of the one deadline.
+#[tokio::test]
+async fn a_fallback_that_fails_at_once_hands_the_same_question_on() {
+    let mut scene = Scene::chained(
+        vec![Move::Limited],
+        vec![
+            Link::Takes {
+                label: "fb1",
+                model: "model-fb1",
+                moves: vec![Move::Unavailable],
+            },
+            Link::Takes {
+                label: "fb2",
+                model: "model-fb2",
+                moves: vec![Move::Choose(ManaColor::Green)],
+            },
+        ],
+    );
+    let budget = scene.ask(2).await;
+    let deadline = scene.bridge.thinking.as_ref().unwrap().deadline;
+    assert!(scene.back().await.is_empty(), "the primary's limit");
+    assert_eq!(scene.bridge.thinking.as_ref().unwrap().deadline, deadline);
+    assert!(scene.back().await.is_empty(), "fb1's failure");
+    assert_eq!(scene.bridge.thinking.as_ref().unwrap().deadline, deadline);
+    assert_eq!(
+        declaring(&scene.bridge),
+        ["model-fb1", "model-fb2"],
+        "each declared before the answer"
+    );
+    assert_eq!(
+        scene.answer().await,
+        [(By::Mind, PlayerAction::ChooseColor(ManaColor::Green))]
+    );
+    let question = scene.primary.lock().unwrap().asked[0].question;
+    for seen in &scene.chain {
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.asked.len(), 1);
+        assert_eq!(seen.asked[0].question, question, "the same question");
+        assert!(!seen.asked[0].retried);
+        assert!(seen.asked[0].budget <= budget, "within what was left");
+    }
+    assert_eq!(
+        scene
+            .bridge
+            .fell_back
+            .iter()
+            .map(|fell| (fell.label.as_str(), fell.answered))
+            .collect::<Vec<_>>(),
+        [("fb1", 0), ("fb2", 1)]
+    );
+    assert_eq!(scene.core.stats().answered.house, 0);
+}
+
+/// A fallback that cannot take over (its book refuses, its key is gone) is
+/// passed over, the transcript saying why, and the next in the chain takes
+/// the question over as the first would have.
+#[tokio::test]
+async fn a_fallback_that_cannot_take_over_is_passed_over_for_the_next() {
+    let refusal = "the day's cap of $3.00 is spent";
+    let mut scene = Scene::chained(
+        vec![Move::Limited],
+        vec![
+            Link::Refuses {
+                label: "fb1",
+                why: refusal,
+            },
+            Link::Takes {
+                label: "fb2",
+                model: "model-fb2",
+                moves: vec![Move::Choose(ManaColor::Green)],
+            },
+        ],
+    );
+    scene.ask(2).await;
+    assert!(scene.back().await.is_empty(), "taken over");
+    assert_eq!(declaring(&scene.bridge), ["model-fb2"]);
+    assert_eq!(
+        scene.answer().await,
+        [(By::Mind, PlayerAction::ChooseColor(ManaColor::Green))]
+    );
+    assert_eq!(*scene.armed_by.lock().unwrap(), ["fb1", "fb2"]);
+    let armed = scene.armed.lock().unwrap().clone();
+    assert_eq!(armed[0], armed[1], "both asked on the primary's limit");
+    assert_eq!(armed[0].by, None);
+    assert_eq!(
+        scene.bridge.notes,
+        [
+            serde_json::json!({"fallback_refused": {"profile": "fb1", "why": refusal}}),
+            serde_json::json!({"fallback": {
+                "profile": "fb2", "turn": TURN, "cause": "limited", "why": "429: slow down",
+            }}),
+        ]
+    );
+    assert_eq!(
+        scene.bridge.fell_back,
+        [FellBack {
+            label: "fb2".into(),
+            turn: TURN,
+            answered: 1,
+        }]
+    );
+    assert_eq!(scene.core.stats().answered.house, 0);
+    assert!(failures(&mut scene.core).is_empty());
+}
+
+/// Past the end of the chain the house answers, as without a fallback: a
+/// limit of the last fallback that played hands the rest of the game to
+/// the house, and its failure says why each fallback after it could not
+/// take over.
+#[tokio::test]
+async fn past_the_end_of_the_chain_the_house_answers() {
+    let mut scene = Scene::chained(
+        vec![Move::Limited],
+        vec![
+            Link::Takes {
+                label: "fb1",
+                model: "model-fb1",
+                moves: vec![Move::Choose(ManaColor::Green), Move::Limited],
+            },
+            Link::Refuses {
+                label: "fb2",
+                why: "set TEST_FB_KEY",
+            },
+        ],
+    );
+    scene.ask(2).await;
+    assert_eq!(
+        scene.answer().await,
+        [(By::Mind, PlayerAction::ChooseColor(ManaColor::Green))]
+    );
+    scene.ask(3).await;
+    let steps = scene.back().await;
+    let house = steps.iter().position(|step| {
+        matches!(step, Step::Send(Envelope { msg: Some(v1::envelope::Msg::SeatMind(mind)) })
+            if mind.kind == v1::seat_mind::Kind::House as i32)
+    });
+    assert!(house.is_some(), "the house is declared: {steps:?}");
+    assert!(matches!(&answers(&steps)[..], [(By::House, _)]));
+    scene.carry(steps).await;
+    assert_eq!(
+        failures(&mut scene.core),
+        [
+            "the mind is rate limited: 429: slow down; the fallback fb2 could not take over: \
+             set TEST_FB_KEY (it lifts in 30 s)"
+        ]
+    );
+    let armed = scene.armed.lock().unwrap().clone();
+    assert_eq!(armed.len(), 2);
+    assert_eq!(armed[1].by.as_deref(), Some("fb1"), "fb1 was limited");
+    assert_eq!(
+        armed[1].said(),
+        format!("{} (it lifts in 30 s)", fallback_limited("fb1"))
+    );
+    assert_eq!(
+        scene.bridge.notes,
+        [
+            serde_json::json!({"fallback": {
+                "profile": "fb1", "turn": TURN, "cause": "limited", "why": "429: slow down",
+            }}),
+            serde_json::json!({"fallback_refused": {"profile": "fb2", "why": "set TEST_FB_KEY"}}),
+        ]
+    );
+    // The house has the rest of the game; nothing is armed again.
+    scene.bridge.notes.clear();
+    let steps = put_in_turn(&mut scene.core, 4, TURN);
+    assert!(budget(&steps).is_none(), "no mind is asked");
+    assert!(matches!(&answers(&steps)[..], [(By::House, _)]));
+    scene.carry(steps).await;
+    assert_eq!(scene.armed.lock().unwrap().len(), 2);
+    assert!(scene.bridge.notes.is_empty());
+    assert_eq!(
+        scene.bridge.fell_back,
+        [FellBack {
+            label: "fb1".into(),
+            turn: TURN,
+            answered: 1,
+        }]
+    );
+    assert!(scene.core.stats().housed);
+}
+
+/// A declined question is not a mind down, whoever plays: the fallback
+/// that took over declines one, the house answers it, and the next in the
+/// chain still stands by.
+#[tokio::test]
+async fn a_fallback_that_declines_a_question_keeps_the_chain_standing() {
+    let mut scene = Scene::chained(
+        vec![Move::Limited],
+        vec![
+            Link::Takes {
+                label: "fb1",
+                model: "model-fb1",
+                moves: vec![Move::Choose(ManaColor::Green), Move::Declined],
+            },
+            Link::Takes {
+                label: "fb2",
+                model: "model-fb2",
+                moves: vec![Move::Choose(ManaColor::Red)],
+            },
+        ],
+    );
+    scene.ask(2).await;
+    scene.answer().await;
+    scene.ask(3).await;
+    let made = scene.answer().await;
+    assert!(matches!(&made[..], [(By::House, _)]), "{made:?}");
+    assert_eq!(*scene.armed_by.lock().unwrap(), ["fb1"]);
+    assert_eq!(scene.bridge.fallbacks.len(), 1, "fb2 stands by still");
+    assert!(scene.chain[1].lock().unwrap().asked.is_empty());
+}
+
+/// What a seat agent reads of a fallback that took over and is limited in
+/// its turn names that fallback, never the primary: the profile held back
+/// is the one that is limited.
+#[test]
+fn a_fallback_s_limit_names_the_fallback() {
+    let limit = Limit {
+        turn: 3,
+        why: "429: slow down".into(),
+        lifts_in: Some(Duration::from_secs(60)),
+        failed: false,
+        by: Some("fb1".into()),
+    };
+    assert_eq!(
+        limit.said(),
+        "the fallback fb1 is rate limited (it lifts in 60 s)"
+    );
+    assert!(!limit.said().contains(LIMITED));
+    let failed = Limit {
+        failed: true,
+        lifts_in: None,
+        ..limit
+    };
+    assert_eq!(failed.said(), "the fallback fb1 failed: 429: slow down");
 }

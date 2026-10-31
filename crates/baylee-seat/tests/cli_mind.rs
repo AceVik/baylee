@@ -715,7 +715,8 @@ async fn a_hung_or_dead_process_is_unavailable_and_the_next_question_starts_agai
     assert_eq!((tally.sessions, tally.restarts), (3, 2), "two begun again");
 }
 
-/// A rate limit is unavailable and unbilled, keeps the process, and cools
+/// A rate limit is a limit, as an API's is (a fallback takes over, else the
+/// house plays on), unbilled, keeps the process, and cools
 /// the mind down: no question is sent and `ready` is false until it has
 /// passed and the login check passes.
 #[tokio::test]
@@ -735,7 +736,10 @@ async fn a_rate_limit_cools_the_mind_down_until_ready() {
     let limited = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
     assert_eq!(
         limited,
-        MindError::Unavailable("rate limit: rate_limit: Claude AI usage limit reached".into())
+        MindError::Limited {
+            why: "rate_limit: Claude AI usage limit reached".into(),
+            lifts_in: None,
+        }
     );
     let tally = spent(&mind.tally());
     assert_eq!((tally.calls, tally.failed, tally.usage.total()), (1, 1, 0));
@@ -743,7 +747,7 @@ async fn a_rate_limit_cools_the_mind_down_until_ready() {
     assert!(!mind.ready().await, "cooling down");
     let cooling = mind.decide(ask(&base, 2, turn, 20)).await.unwrap_err();
     assert!(
-        matches!(&cooling, MindError::Unavailable(why) if why.contains("cooldown")),
+        matches!(&cooling, MindError::Limited { why, lifts_in: Some(_) } if why.contains("cooldown")),
         "{cooling:?}"
     );
     assert_eq!(rig.messages().len(), 1, "nothing was sent while cooling");
@@ -1121,7 +1125,7 @@ async fn a_rate_limit_before_the_start_cools_the_mind_down() {
     let mind = rig.mind(Limits::default());
     let limited = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
     assert!(
-        matches!(&limited, MindError::Unavailable(why) if why.starts_with("rate limit")),
+        matches!(&limited, MindError::Limited { why, .. } if why.contains("limit")),
         "{limited:?}"
     );
     // The steps go on where the first process left them (the cursor is
@@ -1537,7 +1541,7 @@ async fn a_one_shot_clis_unreadable_answer_is_asked_again_of_a_new_process() {
     assert_eq!((tally.calls, tally.sessions, tally.restarts), (2, 2, 0));
 }
 
-/// A one-shot tool's rate limit is unavailable and unbilled and cools the
+/// A one-shot tool's rate limit is a limit, unbilled, and cools the
 /// mind down; a failure is unavailable and billed; signed out, it is not
 /// ready.
 #[tokio::test]
@@ -1557,7 +1561,7 @@ async fn a_one_shot_clis_limit_cools_and_its_failure_is_billed() {
         let mind = rig.mind(limits);
         let limited = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
         assert!(
-            matches!(&limited, MindError::Unavailable(why) if why.starts_with("rate limit")),
+            matches!(&limited, MindError::Limited { .. }),
             "{tool}: {limited:?}"
         );
         let tally = spent(&mind.tally());

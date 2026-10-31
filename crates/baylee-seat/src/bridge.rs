@@ -28,23 +28,29 @@
 //!
 //! # A fallback profile
 //!
-//! A bridge may hold a second mind in reserve ([`Standby`]): another
-//! profile, which takes the seat over when its mind cannot answer: the
-//! provider says it is rate limited or busy ([`MindError::Limited`]), or
-//! the mind failed otherwise ([`MindError::Unavailable`]: a 5xx, the
-//! network, a task that died). The owner's rule is that the house plays
-//! only in an emergency (13.10.2026), and a provider's `502` mid-game is
-//! none. The question the mind could not answer is asked of the fallback
-//! at once, within what is left of that question's budget, so the core
-//! never hears the failure: the house does not answer and it does not
-//! count towards [`crate::BridgeConfig::down_after`]. The fallback is said
-//! to the table before its first answer (the record writes the change
-//! where it happened), and plays the rest of the game; the bridge never
-//! switches back (`docs/llm-seat.md` §"A fallback profile"). Where it
-//! cannot take over (its own spend book refuses, say), the failure is the
-//! mind's as before, the house answers, and the transcript says why. A
-//! mind that declines a question ([`MindError::Declined`]) is not down:
-//! the house answers that one, and the fallback stands by.
+//! A bridge may hold a chain of other minds in reserve ([`Standby`], in
+//! order): other profiles, the first of which takes the seat over when its
+//! mind cannot answer: the provider says it is rate limited, busy or out of
+//! its quota ([`MindError::Limited`]), or the mind failed otherwise
+//! ([`MindError::Unavailable`]: a 5xx, the network, a task or a CLI's
+//! process that died). The owner's rule is that the house plays only in an
+//! emergency (13.10.2026), and a provider's `502` mid-game is none; a
+//! quota spent mid-game is none either (owner, 31.10.2026: the same model
+//! elsewhere first, then the next most suitable). The question the mind
+//! could not answer is asked of the fallback at once, within what is left
+//! of that question's budget, so the core never hears the failure: the
+//! house does not answer and it does not count towards
+//! [`crate::BridgeConfig::down_after`]. The fallback is said to the table
+//! before its first answer (the record writes the change where it
+//! happened), and plays the rest of the game, until it cannot answer
+//! either and the next one in the chain takes over in the same way; the
+//! bridge never switches back to a mind that played before
+//! (`docs/llm-seat.md` §"A fallback profile"). A fallback that cannot take
+//! over (its own spend book refuses, say) is passed over, the transcript
+//! saying why, and the next is tried; past the end of the chain the failure
+//! is the mind's as without one, and the house answers. A mind that
+//! declines a question ([`MindError::Declined`]) is not down: the house
+//! answers that one, and the chain stands by.
 //!
 //! # A game's reports
 //!
@@ -65,6 +71,7 @@ use baylee_engine::win::GameResult;
 use baylee_protocol::v1::{Envelope, SeatMind};
 use futures_util::{SinkExt as _, StreamExt as _};
 use prost::Message as _;
+use std::collections::VecDeque;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -113,8 +120,9 @@ pub struct Played {
     pub result: Option<GameResult>,
     /// Sockets opened, the first included.
     pub dials: u32,
-    /// How the fallback profile played, where it took over.
-    pub fallback: Option<FellBack>,
+    /// How each fallback profile that took over played, in the order they
+    /// took over; empty where none did.
+    pub fallbacks: Vec<FellBack>,
     /// What became of the game's reports, where its mind filed any.
     pub reports: Option<Filing>,
 }
@@ -149,22 +157,33 @@ pub struct Limit {
     /// ([`MindError::Unavailable`]): no limit, so nothing lifts, and a seat
     /// agent is not told the profile is rate limited.
     pub failed: bool,
+    /// Who could not answer: `None` for the mind the chair sat down with,
+    /// else the fallback ([`Standby::label`]) that had taken over from it.
+    pub by: Option<String>,
 }
 
 impl Limit {
     /// Why the fallback takes over, as the table's operator reads it:
-    /// `the primary is rate limited (it lifts in N s)`, or `the primary
-    /// failed: <why>`.
+    /// `the primary is rate limited (it lifts in N s)`, `the primary
+    /// failed: <why>`, or the same of `the fallback <profile>` that played
+    /// before it ([`fallback_limited`]).
     #[must_use]
     pub fn said(&self) -> String {
+        let who = self.by.as_ref().map_or_else(
+            || "the primary".to_owned(),
+            |by| format!("the fallback {by}"),
+        );
         if self.failed {
-            return format!("the primary failed: {}", self.why);
+            return format!("{who} failed: {}", self.why);
         }
         let lifts = self
             .lifts_in
             .map(|lifts| format!(" (it lifts in {} s)", lifts.as_secs()))
             .unwrap_or_default();
-        format!("{LIMITED}{lifts}")
+        match &self.by {
+            None => format!("{LIMITED}{lifts}"),
+            Some(by) => format!("{}{lifts}", fallback_limited(by)),
+        }
     }
 
     /// The transcript's word for it: `limited` or `failed`.
@@ -179,9 +198,18 @@ impl Limit {
 /// `launch::LIMITED`). A failure that is no limit never says it.
 pub const LIMITED: &str = "the primary is rate limited";
 
+/// What a bridge says when a fallback that took over is rate limited in
+/// its turn and another stood by behind it: `the fallback <profile> is rate
+/// limited`, read by a seat agent as [`LIMITED`] is, of that profile
+/// (`baylee-seathost`, `launch::heard_in`).
+#[must_use]
+pub fn fallback_limited(label: &str) -> String {
+    format!("the fallback {label} is rate limited")
+}
+
 /// A fallback profile held in reserve: what takes the seat over when its
 /// mind is rate limited or unavailable (the module's §"A fallback
-/// profile").
+/// profile"). A bridge holds a chain of them, in the order they take over.
 pub struct Standby {
     /// What it is called in the summary: the profile's name.
     pub label: String,
@@ -210,7 +238,8 @@ pub struct FellBack {
     /// The turn it took over in.
     pub turn: u32,
     /// The answers it gave that went to the table: the mind's answers
-    /// from then on (`stats.answered.mind` counts them too).
+    /// from then on, until the next fallback took over from it
+    /// (`stats.answered.mind` counts them too).
     pub answered: u32,
 }
 
@@ -293,14 +322,14 @@ pub fn play<'a>(
     transcript: &'a mut Transcript,
     options: &'a PlayOptions,
 ) -> Playing<'a> {
-    play_swapping(link, core, mind, transcript, options, None, None)
+    play_swapping(link, core, mind, transcript, options, None, Vec::new())
 }
 
 /// [`play`], taking another mind whenever `swaps` hands one over: never in
 /// the middle of a question, which the mind that was asked it answers, but
-/// at the next one the seat asks a mind. With a `fallback`, that profile
-/// takes the seat over when the mind is rate limited (the module's §"A
-/// fallback profile").
+/// at the next one the seat asks a mind. With `fallbacks`, those profiles
+/// take the seat over in turn when the mind playing cannot answer (the
+/// module's §"A fallback profile").
 ///
 /// # Errors
 /// As [`play`].
@@ -311,9 +340,9 @@ pub fn play_swapping<'a>(
     transcript: &'a mut Transcript,
     options: &'a PlayOptions,
     swaps: Option<Swaps>,
-    fallback: Option<Standby>,
+    fallbacks: Vec<Standby>,
 ) -> Playing<'a> {
-    Box::pin(run(link, core, mind, transcript, options, swaps, fallback))
+    Box::pin(run(link, core, mind, transcript, options, swaps, fallbacks))
 }
 
 async fn run(
@@ -323,9 +352,9 @@ async fn run(
     transcript: &mut Transcript,
     options: &PlayOptions,
     swaps: Option<Swaps>,
-    fallback: Option<Standby>,
+    fallbacks: Vec<Standby>,
 ) -> anyhow::Result<Played> {
-    let mut bridge = Bridge::new(mind, options.clone(), swaps, fallback);
+    let mut bridge = Bridge::new(mind, options.clone(), swaps, fallbacks);
     link.hold_for(Window::of(core.memory().statics()));
     let mut socket = link.connect().await?;
     if socket.is_none() {
@@ -443,12 +472,14 @@ struct Bridge {
     redeclare: Option<SeatMind>,
     /// The declaration's steps, sent ahead of the next steps carried out.
     declaring: Vec<Step>,
-    /// A fallback profile, until it takes over (or a mind handed over
-    /// makes it another profile's).
-    fallback: Option<Standby>,
-    /// How the fallback played, once it took over.
-    fell_back: Option<FellBack>,
-    /// Whether the fallback plays now: its answers are counted.
+    /// The fallback profiles that stand by, in the order they take over:
+    /// each leaves the chain as it takes over or cannot, and a mind handed
+    /// over lets them all go (it plays another profile).
+    fallbacks: VecDeque<Standby>,
+    /// How each fallback that took over played, in that order: the last
+    /// is the one that plays now where [`Self::on_fallback`].
+    fell_back: Vec<FellBack>,
+    /// Whether a fallback plays now: its answers are counted.
     on_fallback: bool,
     /// Lines for the transcript, written by the loop.
     notes: Vec<serde_json::Value>,
@@ -462,7 +493,7 @@ impl Bridge {
         mind: Arc<dyn Mind>,
         options: PlayOptions,
         swaps: Option<Swaps>,
-        fallback: Option<Standby>,
+        fallbacks: Vec<Standby>,
     ) -> Self {
         Self {
             mind,
@@ -474,8 +505,8 @@ impl Bridge {
             rethink: None,
             redeclare: None,
             declaring: Vec::new(),
-            fallback,
-            fell_back: None,
+            fallbacks: fallbacks.into(),
+            fell_back: Vec::new(),
             on_fallback: false,
             notes: Vec::new(),
             reports: Vec::new(),
@@ -545,11 +576,12 @@ impl Bridge {
 
     /// Takes every mind handed over since the last question, the latest
     /// last: the mind the next question is asked of. A mind handed over
-    /// plays another profile, so a fallback held for the old one is let go.
+    /// plays another profile, so the fallbacks held for the old one are let
+    /// go.
     fn take_swaps(&mut self) {
         while let Some(swap) = self.swaps.as_mut().and_then(|swaps| swaps.try_recv().ok()) {
             self.end_mind();
-            self.fallback = None;
+            self.fallbacks.clear();
             self.on_fallback = false;
             self.mind = swap.mind;
             self.rethink = swap.think.or(self.rethink);
@@ -580,9 +612,9 @@ impl Bridge {
 
     /// The mind answered (or its task ended): the core's steps, `None`
     /// where no question was being thought about. A limit or a failure
-    /// where a fallback stands by is not the core's to hear: the fallback
-    /// is asked the same question ([`Self::take_over`]), and there is
-    /// nothing to send yet.
+    /// where a fallback stands by is not the core's to hear: the next
+    /// fallback is asked the same question ([`Self::take_over`]), and there
+    /// is nothing to send yet.
     fn answered(
         &mut self,
         core: &mut SeatCore,
@@ -601,7 +633,7 @@ impl Bridge {
             (
                 Err(error @ (MindError::Limited { .. } | MindError::Unavailable(_))),
                 Some(request),
-            ) if self.fallback.is_some() => {
+            ) if !self.fallbacks.is_empty() => {
                 match self.take_over(*request, question, deadline, error) {
                     Ok(()) => {
                         // Told to the core now, so the declaration goes out
@@ -618,11 +650,14 @@ impl Bridge {
         Some(core.answered(question, result))
     }
 
-    /// The fallback takes the seat over on a limit or a failure of the
-    /// mind: built and reserved now ([`Standby::arm`]), it is asked
-    /// `request` within what is left before `deadline`, and plays the rest
-    /// of the game. `Err` is `error`, its sentence followed by why the
-    /// fallback could not take over; it stands by no longer either way.
+    /// The next fallback of the chain takes the seat over on a limit or a
+    /// failure of the mind that plays now: built and reserved now
+    /// ([`Standby::arm`]), it is asked `request` within what is left before
+    /// `deadline`, and plays on until it cannot answer either. A fallback
+    /// that cannot take over is passed over, the transcript saying why, and
+    /// the one after it is tried. `Err` is `error`, its sentence followed by
+    /// why each fallback tried could not take over: the chain was used up.
+    /// Every fallback tried stands by no longer, whatever came of it.
     fn take_over(
         &mut self,
         mut request: Request,
@@ -643,41 +678,50 @@ impl Bridge {
                 MindError::Limited { why, lifts_in }
             }
         };
-        let Some(standby) = self.fallback.take() else {
-            return Err(error(why));
-        };
         let limit = Limit {
             turn: request.view.turn,
             why,
             lifts_in,
             failed,
+            by: self
+                .fell_back
+                .last()
+                .filter(|_| self.on_fallback)
+                .map(|fell| fell.label.clone()),
         };
-        let swap = match (standby.arm)(&limit) {
-            Ok(swap) => swap,
-            Err(refused) => {
-                tracing::warn!(
-                    fallback = standby.label,
-                    refused,
-                    "the fallback could not take over"
-                );
-                self.notes.push(serde_json::json!({
-                    "fallback_refused": { "profile": standby.label, "why": refused },
-                }));
-                return Err(error(format!(
-                    "{}; the fallback {} could not take over: {refused}",
-                    limit.why, standby.label
-                )));
+        // Each fallback tried that could not take over, said after `why`.
+        let mut refusals = vec![limit.why.clone()];
+        let (label, swap) = loop {
+            let Some(standby) = self.fallbacks.pop_front() else {
+                return Err(error(refusals.join("; ")));
+            };
+            match (standby.arm)(&limit) {
+                Ok(swap) => break (standby.label, swap),
+                Err(refused) => {
+                    tracing::warn!(
+                        fallback = standby.label,
+                        refused,
+                        "the fallback could not take over"
+                    );
+                    refusals.push(format!(
+                        "the fallback {} could not take over: {refused}",
+                        standby.label
+                    ));
+                    self.notes.push(serde_json::json!({
+                        "fallback_refused": { "profile": standby.label, "why": refused },
+                    }));
+                }
             }
         };
         tracing::info!(
-            fallback = standby.label,
+            fallback = label,
             turn = limit.turn,
             cause = limit.cause(),
             "the fallback takes over"
         );
         self.notes.push(serde_json::json!({
             "fallback": {
-                "profile": standby.label,
+                "profile": label,
                 "turn": limit.turn,
                 "cause": limit.cause(),
                 "why": limit.why,
@@ -693,8 +737,8 @@ impl Bridge {
         if let Some(taken) = swap.taken {
             taken();
         }
-        self.fell_back = Some(FellBack {
-            label: standby.label,
+        self.fell_back.push(FellBack {
+            label,
             turn: limit.turn,
             answered: 0,
         });
@@ -703,13 +747,16 @@ impl Bridge {
         // mind's.
         request.retry = None;
         request.budget = deadline.saturating_duration_since(Instant::now());
+        // Kept while another stands by behind it, which is asked the same
+        // question if this one cannot answer it either.
+        let kept = (!self.fallbacks.is_empty()).then(|| Box::new(request.clone()));
         let mind = Arc::clone(&self.mind);
         let task = tokio::spawn(async move { mind.decide(request).await });
         self.thinking = Some(Thinking {
             question,
             deadline,
             task,
-            request: None,
+            request: kept,
         });
         Ok(())
     }
@@ -776,7 +823,7 @@ impl Bridge {
             stats: core.stats().clone(),
             result,
             dials: link.dials(),
-            fallback: self.fell_back.clone(),
+            fallbacks: self.fell_back.clone(),
             reports,
         }
     }
@@ -804,7 +851,7 @@ impl Bridge {
                 } => {
                     if by == By::Mind
                         && self.on_fallback
-                        && let Some(fell_back) = self.fell_back.as_mut()
+                        && let Some(fell_back) = self.fell_back.last_mut()
                     {
                         fell_back.answered += 1;
                     }
@@ -846,7 +893,7 @@ impl Bridge {
                     }
                     let question = request.question;
                     let deadline = now + request.budget;
-                    let kept = self.fallback.is_some().then(|| request.clone());
+                    let kept = (!self.fallbacks.is_empty()).then(|| request.clone());
                     let mind = Arc::clone(&self.mind);
                     let task = tokio::spawn(async move { mind.decide(*request).await });
                     if let Some(old) = self.thinking.replace(Thinking {

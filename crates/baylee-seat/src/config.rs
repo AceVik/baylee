@@ -141,6 +141,9 @@ pub struct Plan {
     pub command: Option<String>,
     /// The profile it plays, if one.
     pub profile: Option<String>,
+    /// The fallbacks that profile names, in the order they take over
+    /// (`docs/llm-seat.md` §"A fallback profile"); none without a profile.
+    pub fallback: Vec<String>,
     /// Something the player should be told: a default profile that did
     /// not apply.
     pub note: Option<String>,
@@ -213,6 +216,7 @@ pub fn plan(
             .map(str::to_string),
         base_url: profile.and_then(|p| p.base_url.clone()),
         command: profile.and_then(|p| p.command.clone()),
+        fallback: profile.map(|p| p.fallback.clone()).unwrap_or_default(),
         profile: chosen.map(|c| c.name.to_string()),
         spec,
         settings,
