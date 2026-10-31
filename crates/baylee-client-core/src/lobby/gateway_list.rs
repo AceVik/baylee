@@ -6,8 +6,15 @@
 //! away is one path, a rule in the list is every path.
 
 /// The live gateway's address, spelled as a saved address is: scheme and
-/// host, no trailing slash.
+/// host, no trailing slash. The gateway serves at `https://gateway.baylee.app`
+/// too since 30.10.2026; the client follows once Baylee Central takes tickets
+/// for that origin (#402: this becomes the new address, [`FORMER`] the old).
 pub const PINNED: &str = "https://baylee.acevik.de";
+
+/// The live gateway's former addresses, which [`moved`] reads as [`PINNED`].
+/// None yet: the client has not followed the gateway to its new address
+/// (#402), so every function here leaves the live gateway's address as it is.
+pub const FORMER: &[&str] = &[];
 
 /// What the live gateway calls itself (its `BAYLEE_GATEWAY_NAME`).
 pub const PINNED_NAME: &str = "Baylee Sanctuary";
@@ -18,10 +25,104 @@ pub fn is_pinned(url: &str) -> bool {
     url == PINNED
 }
 
-/// The list with the pinned gateway in it: a saved list keeps its order and
-/// gains the pinned address at the front if it lacked it.
+/// An address as it is spelled today: one of the live gateway's
+/// [`FORMER`] addresses, with or without a trailing slash, is [`PINNED`];
+/// every other address is itself.
 #[must_use]
-pub fn with_pinned(mut list: Vec<String>) -> Vec<String> {
+pub fn moved(url: &str) -> &str {
+    if FORMER.contains(&url.trim_end_matches('/')) {
+        PINNED
+    } else {
+        url
+    }
+}
+
+/// Whether two addresses name one gateway: the same address, a trailing
+/// slash aside, or the live gateway by its new and a [`FORMER`] address.
+/// The one comparison of gateway addresses; nothing compares them itself.
+#[must_use]
+pub fn same(a: &str, b: &str) -> bool {
+    moved(a.trim_end_matches('/')) == moved(b.trim_end_matches('/'))
+}
+
+/// The address a gateway's keys are bound to: for the live gateway its
+/// first address, [`KEYED`]; for every other gateway its own address.
+#[must_use]
+pub fn keyed(url: &str) -> &str {
+    if moved(url) == PINNED { KEYED } else { url }
+}
+
+/// The address the live gateway's keys are bound to, before and after its
+/// move: the vault's scope (its folder name and its associated data), the
+/// chat folder, the keychain slot and the account's chat records name the
+/// live gateway by it ([`keyed`]), so a key made on either side of the move
+/// is found on the other, and an installed client on another device finds
+/// the chat records a new one writes. It never changes, whatever [`FORMER`]
+/// becomes.
+pub const KEYED: &str = "https://baylee.acevik.de";
+
+/// A saved list with every former address of the live gateway read as
+/// [`PINNED`] ([`moved`]) and each address once, where it first stood (a
+/// repeated address of any gateway is dropped). Running it again changes
+/// nothing.
+#[must_use]
+pub fn renamed(list: Vec<String>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::with_capacity(list.len());
+    for url in list {
+        let url = if moved(&url) == PINNED {
+            PINNED.to_string()
+        } else {
+            url
+        };
+        if !out.contains(&url) {
+            out.push(url);
+        }
+    }
+    out
+}
+
+/// The list as the account's synced document keeps it: the live gateway
+/// under [`KEYED`], the address every client installed before the move pins,
+/// so that client finds its own pinned row there and no second one it does
+/// not know. A client reads it back with [`renamed`]. Running it again
+/// changes nothing.
+#[must_use]
+pub fn filed(list: &[String]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::with_capacity(list.len());
+    for url in list {
+        let url = keyed(url).to_string();
+        if !out.contains(&url) {
+            out.push(url);
+        }
+    }
+    out
+}
+
+/// A map by address with an entry under a former address of the live
+/// gateway moved to [`PINNED`]. Where [`PINNED`] has an entry already, that
+/// one stays and so does the former one: nothing kept under either address
+/// is overwritten or lost. Running it again changes nothing.
+pub fn rekeyed<V>(map: &mut std::collections::BTreeMap<String, V>) {
+    let former: Vec<String> = map
+        .keys()
+        .filter(|key| key.as_str() != PINNED && moved(key) == PINNED)
+        .cloned()
+        .collect();
+    for key in former {
+        if !map.contains_key(PINNED)
+            && let Some(value) = map.remove(&key)
+        {
+            map.insert(PINNED.to_string(), value);
+        }
+    }
+}
+
+/// The list with the pinned gateway in it: a saved list keeps its order,
+/// reads a former address of the live gateway as the pinned one
+/// ([`renamed`]), and gains the pinned address at the front if it lacked it.
+#[must_use]
+pub fn with_pinned(list: Vec<String>) -> Vec<String> {
+    let mut list = renamed(list);
     if !list.iter().any(|url| is_pinned(url)) {
         list.insert(0, PINNED.to_string());
     }
@@ -95,7 +196,7 @@ mod tests {
 
     #[test]
     fn a_page_served_by_its_gateway_names_that_gateway() {
-        // The live deployment: https://baylee.acevik.de/play/ with no
+        // The live deployment: https://gateway.baylee.app/play/ with no
         // `?gateway=`, so the client was configured with its own origin.
         assert_eq!(page_gateway(Some(PINNED), PINNED).as_deref(), Some(PINNED));
         // Another gateway serving the same build names itself, trailing
@@ -191,6 +292,119 @@ mod tests {
             with_pinned(without),
             vec![PINNED.to_string(), "http://127.0.0.1:28766".to_string()]
         );
+    }
+
+    /// A list saved before the move of 30.10.2026 names the live gateway by
+    /// its former address: it comes back under the pinned one, where the old
+    /// row stood, once, and a second pass changes nothing.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn a_former_address_of_the_live_gateway_is_read_as_the_pinned_one() {
+        let old = KEYED;
+        assert_eq!(moved(old), PINNED);
+        assert_eq!(moved(&format!("{old}/")), PINNED);
+        assert_eq!(moved("http://127.0.0.1:28766"), "http://127.0.0.1:28766");
+        // A lookalike is someone else's gateway.
+        assert_eq!(
+            moved("https://baylee.acevik.de.example"),
+            "https://baylee.acevik.de.example"
+        );
+        let saved = vec!["http://10.0.0.2:28766".to_string(), old.to_string()];
+        let read = with_pinned(saved);
+        assert_eq!(
+            read,
+            vec!["http://10.0.0.2:28766".to_string(), PINNED.to_string()]
+        );
+        assert_eq!(with_pinned(read.clone()), read);
+        // Both spellings saved (a list synced from a new and an old device):
+        // the pinned address once, where the first of them stood.
+        let both = vec![
+            old.to_string(),
+            "http://10.0.0.2:28766".to_string(),
+            PINNED.to_string(),
+        ];
+        assert_eq!(
+            renamed(both),
+            vec![PINNED.to_string(), "http://10.0.0.2:28766".to_string()]
+        );
+    }
+
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn the_live_gateway_is_the_same_by_either_address() {
+        assert!(same(KEYED, PINNED));
+        assert!(same(&format!("{PINNED}/"), KEYED));
+        assert!(same("http://127.0.0.1:28766/", "http://127.0.0.1:28766"));
+        assert!(!same(PINNED, "http://127.0.0.1:28766"));
+        assert!(!same("https://baylee.acevik.de.example", PINNED));
+    }
+
+    /// Keys stay bound to the live gateway's first address: its new and its
+    /// old spelling find the same vault and chat records; other gateways keep
+    /// their own.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn the_live_gateway_s_keys_stay_bound_to_its_first_address() {
+        assert_eq!(keyed(PINNED), KEYED);
+        assert_eq!(keyed(KEYED), KEYED);
+        assert_eq!(keyed(&format!("{KEYED}/")), KEYED);
+        assert_eq!(keyed("http://127.0.0.1:28766"), "http://127.0.0.1:28766");
+    }
+
+    /// The account's document keeps the live gateway under the address an
+    /// installed client pins; reading it back gives the list as it was.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn the_synced_list_keeps_the_live_gateway_under_its_first_address() {
+        let list = vec![PINNED.to_string(), "http://10.0.0.2:28766".to_string()];
+        let document = filed(&list);
+        assert_eq!(
+            document,
+            vec![KEYED.to_string(), "http://10.0.0.2:28766".to_string()]
+        );
+        assert_eq!(filed(&document), document);
+        assert_eq!(renamed(document), list);
+    }
+
+    /// `/play/` still served at the former address (the lobby's path, as
+    /// `LobbyState::new` runs it): one row for the live gateway, the pinned
+    /// one, and the cursor on it, where a guest kept on this browser is.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn a_page_served_at_the_former_address_plays_at_the_pinned_row() {
+        let old = KEYED;
+        let page = page_gateway(Some(old), old).map(|page| moved(&page).to_string());
+        assert_eq!(page.as_deref(), Some(PINNED));
+        let list = with_page(with_pinned(vec![old.to_string()]), page.as_deref());
+        assert_eq!(list, vec![PINNED.to_string()]);
+        assert_eq!(starting_row(&list, false, page.as_deref()), Some(0));
+    }
+
+    /// An entry kept under the former address comes over; one kept under
+    /// the pinned address already is never overwritten.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn a_map_by_address_moves_a_former_entry_and_overwrites_nothing() {
+        let mut map = std::collections::BTreeMap::from([
+            (KEYED.to_string(), 1),
+            ("http://10.0.0.2:28766".to_string(), 2),
+        ]);
+        rekeyed(&mut map);
+        assert_eq!(
+            map,
+            std::collections::BTreeMap::from([
+                (PINNED.to_string(), 1),
+                ("http://10.0.0.2:28766".to_string(), 2),
+            ])
+        );
+        let again = map.clone();
+        rekeyed(&mut map);
+        assert_eq!(map, again);
+        let mut both =
+            std::collections::BTreeMap::from([(KEYED.to_string(), 1), (PINNED.to_string(), 3)]);
+        rekeyed(&mut both);
+        assert_eq!(both.get(PINNED), Some(&3));
+        assert_eq!(both.get(KEYED), Some(&1));
     }
 
     #[test]

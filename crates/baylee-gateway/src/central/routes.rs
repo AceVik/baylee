@@ -14,14 +14,11 @@ use baylee_account::{
 };
 use std::{sync::Arc, time::Duration};
 
-fn bridge(state: &Shared) -> Result<&Arc<Bridge>, StatusCode> {
-    state
-        .central
-        .as_ref()
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)
+fn bridge(state: &Shared) -> Result<Arc<Bridge>, StatusCode> {
+    state.central.get().ok_or(StatusCode::SERVICE_UNAVAILABLE)
 }
 
-fn migration_bridge(state: &Shared) -> Result<&Arc<Bridge>, StatusCode> {
+fn migration_bridge(state: &Shared) -> Result<Arc<Bridge>, StatusCode> {
     let bridge = bridge(state)?;
     if !bridge.legacy {
         return Err(StatusCode::FORBIDDEN);
@@ -550,7 +547,7 @@ async fn login_for(
         let bridge = bridge(state)?;
         let standing = crate::central::authorize(
             state,
-            bridge,
+            &bridge,
             *lease.to_secret_bytes(),
             identity.account,
             expires_at,

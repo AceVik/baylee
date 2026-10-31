@@ -81,6 +81,9 @@ fn open_central(state: &mut LobbyState) {
 /// A gateway link: the question, or what stands before it. Answers whether
 /// the link is done with.
 fn propose(state: &mut LobbyState, url: String) -> bool {
+    // The live gateway's former address is asked about, and saved, by
+    // today's (`gateway_list::moved`), as a typed one is.
+    let url = gateway_list::moved(&url).to_string();
     if state.central_pending() {
         // Signing in at Central: asked once the account's list is back.
         return false;
@@ -208,6 +211,20 @@ mod tests {
         assert_eq!(asking(&app), None);
         assert!(app.world().resource::<Arrived>().0.is_none());
         assert!(state(&app).lobby.status().contains(ORIGIN));
+    }
+
+    /// A link to the live gateway's former address finds it saved by
+    /// today's.
+    #[test]
+    fn a_link_to_the_former_address_finds_the_live_gateway_saved() {
+        let mut app = lobby();
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .link_asked_central = true;
+        send(&mut app, Link::AddGateway(gateway_list::KEYED.into()));
+        assert_eq!(asking(&app), None);
+        assert!(app.world().resource::<Arrived>().0.is_none());
+        assert!(state(&app).lobby.status().contains(gateway_list::PINNED));
     }
 
     #[test]

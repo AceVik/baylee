@@ -91,7 +91,7 @@ fn follow_with(
     if host.machine.is_some()
         && lobby.vault_login.as_ref().is_some_and(|login| {
             host.session.as_ref().is_some_and(|session| {
-                login.gateway == session.gateway && login.token.as_deref() == Some(&session.token)
+                login.is_for(&session.gateway) && login.token.as_deref() == Some(&session.token)
             })
         })
     {
@@ -160,7 +160,7 @@ fn follow_with(
     let login = lobby
         .vault_login
         .take()
-        .filter(|l| l.gateway == session.gateway && l.token.as_deref() == Some(&session.token));
+        .filter(|l| l.is_for(&session.gateway) && l.token.as_deref() == Some(&session.token));
     if let Some(login) = login {
         start(host, login);
     }

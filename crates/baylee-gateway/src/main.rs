@@ -76,7 +76,7 @@ use tracing_subscriber::EnvFilter;
 
 /// Shared gateway state.
 struct AppState {
-    central: Option<Arc<central::Bridge>>,
+    central: central::Link,
     central_barrier: tokio::sync::RwLock<()>,
     auth_workers: Arc<tokio::sync::Semaphore>,
     /// Accounts, sessions, decks, links, preferences.
@@ -388,7 +388,7 @@ async fn main() {
         tracing::warn!("BAYLEE_AGENT_TOKEN is not set: no agent can connect, so no game can start");
     }
     let state = Arc::new(AppState {
-        central: central::Bridge::from_env()
+        central: central::Link::from_env()
             .unwrap_or_else(|()| panic!("central bridge configuration rejected")),
         central_barrier: tokio::sync::RwLock::new(()),
         auth_workers: Arc::new(tokio::sync::Semaphore::new(4)),
@@ -459,7 +459,8 @@ async fn main() {
     spawn_cleanup(state.clone());
     spawn_ticket_sweep(state.clone());
     metrics::spawn(state.clone());
-    let _central_heartbeat = central::Heartbeat::start(state.central.as_ref());
+    central::restore(&state).await;
+    let _central_heartbeat = central::Heartbeat::start(state.clone());
     central::spawn_terms_publisher(state.clone());
     social::sweep::sweep(&state).await;
     social::presence::spawn(state.clone());

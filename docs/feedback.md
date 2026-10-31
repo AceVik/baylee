@@ -104,7 +104,7 @@ Never a name, username, address, session or IP. The client decides what goes
 into `client` and says so to the player (`docs/privacy.md`).
 
 Configuration: `BAYLEE_FEEDBACK_URL` (the service's base URL, for example
-`https://feedback.baylee.acevik.de`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's
+`https://feedback.baylee.app`), `BAYLEE_FEEDBACK_TOKEN` (this gateway's
 intake token there), `BAYLEE_FEEDBACK_KEY` (the pseudonym key; set it, and
 never change it, if reports of one player should stay linkable).
 
@@ -527,7 +527,7 @@ The list's filters beyond §"Reading": `assignee` (a name, or `none`),
 
 ## The web UI (#311)
 
-`https://feedback.baylee.acevik.de/` is a page for admins to triage reports
+`https://feedback.baylee.app/` is a page for admins to triage reports
 on: a filtered, paged list, one report with everything it carries, and
 §"Triage": status, priority, assignee, labels, duplicates, notes, its
 GitHub issue, and the trash. The page is built from `web/feedback`
@@ -678,8 +678,10 @@ query string; `/admin/accounts/{id}`: one account, its decks and latest
 games), **Blocked cards** (`/admin/cards`: a card of the gateway's pool
 found by name and blocked without an end or until a moment, with a reason
 the players are told; the blocks in force, each lifted; the earlier ones;
-`docs/protocol.md` §"Blocked cards") and **Beta keys** (`/admin/keys`), so
-the owner needs a shell for none of it.
+`docs/protocol.md` §"Blocked cards"), **Beta keys** (`/admin/keys`) and
+**Baylee Central** (`/admin/central`: the gateway's link to Central, a token
+made on baylee.app pasted and removed, `docs/central-login.md` §"Linking a
+gateway with a token"), so the owner needs a shell for none of it.
 A sidebar on a wide screen, a tab bar at the bottom of a phone. The
 service passes each request on to the gateway's admin console
 (`docs/protocol.md` §"The admin console") with the gateway's token, which
@@ -688,6 +690,9 @@ the browser never sees:
 | route | what |
 | --- | --- |
 | `GET /ui/api/admin/stats` | the gateway's `GET /admin/stats`, as it answers |
+| `GET /ui/api/admin/central` | the gateway's `GET /admin/central`: its link to Baylee Central, never more of a token than its last four characters |
+| `PUT /ui/api/admin/central/token` | `{"token"}`, read into that field and written out again: the gateway checks the token with Central, keeps it and uses it; an audit row without the token |
+| `DELETE /ui/api/admin/central/token` | the gateway forgets its pasted token and is unlinked |
 | `GET /ui/api/admin/live` | the gateway's `GET /admin/live` |
 | `GET /ui/api/admin/metrics` | the gateway's `GET /admin/metrics`: the last hour of server samples (`docs/protocol.md` §"The admin console") |
 | `GET /ui/api/admin/sets` | the gateway's `GET /admin/sets`: how far the pool is through each set |
@@ -924,7 +929,7 @@ FEEDBACK_ADMIN_TOKEN=<openssl rand -hex 32>
 FEEDBACK_WEB_DIR=/opt/baylee/web/feedback
 FEEDBACK_TRUSTED_PROXIES=127.0.0.1
 FEEDBACK_DIRECT_KEY=<openssl rand -hex 32>   # only to take reports straight from clients
-FEEDBACK_CONTACT_ORIGINS=https://baylee.acevik.de   # only to take the landing page's contact form
+FEEDBACK_CONTACT_ORIGINS=https://gateway.baylee.app   # only to take the landing page's contact form; list a host the page is still served at as an alias too
 FEEDBACK_IMPRESSUM_KEY=<openssl rand -hex 32>       # only to hand out the Impressum (with the next)
 FEEDBACK_IMPRESSUM_BLOB=/etc/baylee/site-private/impressum.bin
 FEEDBACK_GATEWAY_ADMIN_URL=http://127.0.0.1:28767        # the admin console
