@@ -1519,7 +1519,21 @@ async fn ready_and_wait(
         ),
     }
     match by {
-        Standing::Guest(session) => lobby.ready(session, &chair.game_id).await?,
+        Standing::Guest(session) => {
+            if let Err(refused) = lobby.ready(session, &chair.game_id).await {
+                // The gateway counts a host's own chair ready once it holds
+                // a deck, so the host may start the room before a bridge
+                // that took that chair (`--host-chair`) and is slow to
+                // start, a CLI, says so. The mind answered its check, so a
+                // room that is playing is one the chair plays in.
+                match lobby.room(session, &chair.game_id).await? {
+                    Some(room) if room.playing() => {
+                        say!("the room started before the chair said ready; it plays");
+                    }
+                    _ => return Err(refused),
+                }
+            }
+        }
         Standing::Delegated(chair) => lobby.chair_ready(chair).await?,
     }
     say!("the mind answered its check: the chair is ready");
