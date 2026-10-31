@@ -70,7 +70,7 @@ current dependency chain contains 0.5.5 through `elliptic-curve` 0.13.8,
 bigint 0.5, so changing the lockfile to 0.7.6 is not a compatible upgrade.
 
 The specific Central revision
-`119583a8e79f4253fe1f2aab290cb395a4b886a4` contains the `central-crypto`
+`bc9ece531c2c90ca4e6bffc8d3e273dc931ecd62` contains the `central-crypto`
 source tree reviewed independently by two models on 24.10.2026, with one
 addition: the 30.10.2026 pin adds the legacy store's sign-in, whose
 `central-crypto::legacy` (behind `server`, which the client does not enable)
