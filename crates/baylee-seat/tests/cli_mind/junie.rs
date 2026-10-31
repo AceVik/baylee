@@ -224,8 +224,8 @@ async fn junie_limits_cool_and_signed_out_locks_nothing_out() {
     });
     let limited = mind.decide(ask(&base, 1, turn, 20)).await.unwrap_err();
     assert!(
-        matches!(&limited, MindError::Unavailable(why)
-            if why.starts_with("rate limit: Insufficient account balance")),
+        matches!(&limited, MindError::Limited { why, .. }
+            if why.starts_with("Insufficient account balance")),
         "{limited:?}"
     );
     assert_eq!(

@@ -141,9 +141,10 @@ fn write_chain_record(path: &Path, seat0: &[&baylee_gamehost::record::Mind]) {
 /// requested chain in their order (one passed over where it could not take
 /// over), each declared again on a new socket; the record's declarations
 /// are listed once each, with where they stand and the first input after
-/// them. A fallback out of order, a mind handed back to, one not
-/// requested, the house a used-up chain leaves, or a first declaration
-/// that is not the profile's own fails the audit.
+/// them; the house may take the seat last, once the chain is used up. A
+/// fallback out of order, a mind handed back to, one not requested, a
+/// declaration after the house, or a first declaration that is not the
+/// profile's own fails the audit.
 #[test]
 fn declarations_follow_each_seat_s_requested_chain() {
     use baylee_gamehost::record::{Mind, MindKind};
@@ -180,6 +181,15 @@ fn declarations_follow_each_seat_s_requested_chain() {
             vec![&primary, &primary, &fb2, &fb2],
             vec![place(&primary, 0, 0), place(&fb2, 2, 2)],
         ),
+        (
+            vec![&primary, &fb1, &fb2, &house],
+            vec![
+                place(&primary, 0, 0),
+                place(&fb1, 1, 1),
+                place(&fb2, 2, 2),
+                json!({"mind": &house, "chain_index": null, "house": true, "first_input_n": 3}),
+            ],
+        ),
     ] {
         write_chain_record(&path, &seat0);
         let proof = audit_record(&path, &expected).unwrap();
@@ -196,7 +206,8 @@ fn declarations_follow_each_seat_s_requested_chain() {
         vec![&primary, &fb2, &fb1],
         vec![&primary, &fb1, &primary],
         vec![&primary, &other],
-        vec![&primary, &fb1, &fb2, &house],
+        vec![&house],
+        vec![&primary, &house, &fb1],
     ] {
         write_chain_record(&path, &seat0);
         assert!(audit_record(&path, &expected).is_err(), "{seat0:?}");

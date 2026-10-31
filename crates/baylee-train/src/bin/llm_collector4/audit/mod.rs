@@ -336,6 +336,7 @@ pub fn audit_record(
     // Where each seat's last declaration stands in its chain, and what
     // each seat declared, a mind declared again folded into itself.
     let mut standing: [Option<usize>; 2] = [None, None];
+    let mut housed = [false; 2];
     let mut declared: [Vec<Value>; 2] = [Vec::new(), Vec::new()];
     let mut inputs: [Vec<Value>; 2] = [Vec::new(), Vec::new()];
     for value in &data {
@@ -356,6 +357,23 @@ pub fn audit_record(
             ensure!(seat < 2, "Unexpected declared seat");
             let mind = value.get("mind").context("Missing mind object")?;
             let mind: baylee_gamehost::record::Mind = serde_json::from_value(mind.clone())?;
+            ensure!(
+                !housed[seat],
+                "Seat {seat} declared again after the house took it over"
+            );
+            if mind.kind == baylee_gamehost::record::MindKind::House && standing[seat].is_some() {
+                // The chain used up (or a limit with none behind it): the
+                // house plays the rest of the game. Its answers are never a
+                // teacher's; the model's before it stay the game's.
+                housed[seat] = true;
+                declared[seat].push(json!({
+                    "mind": mind,
+                    "chain_index": null,
+                    "house": true,
+                    "first_input_n": null,
+                }));
+                continue;
+            }
             let index = chain_index(&chains[seat], standing[seat], &mind)
                 .with_context(|| format!("Unexpected declared identity for seat {seat}"))?;
             if standing[seat] != Some(index) {
@@ -744,12 +762,20 @@ pub fn ordered_attribution(transcript_path: &Path, seat_inputs: &[Value]) -> any
 /// A seat row's `declared_minds` hold what [`audit_record`] proved: the
 /// profile's own mind first, then fallbacks of the seat's requested chain
 /// (`requested_fallbacks`, none in an older request), each later than the
-/// one before it.
+/// one before it, and at most the house last, once the chain was used up.
 fn declared_in_order(row: &Value, request: &Value, seat: usize) -> anyhow::Result<()> {
-    let places = row
+    let mut declared = row
         .get("declared_minds")
         .and_then(Value::as_array)
         .context("Missing declared_minds")?
+        .as_slice();
+    if let [models @ .., last] = declared
+        && last.get("house") == Some(&Value::Bool(true))
+    {
+        ensure!(!models.is_empty(), "Seat {seat} began with the house");
+        declared = models;
+    }
+    let places = declared
         .iter()
         .map(|declared| declared.get("chain_index").and_then(Value::as_u64))
         .collect::<Option<Vec<u64>>>()
