@@ -1775,6 +1775,12 @@ PriorityCueOn = Priority sound: on
 # …and off
 PriorityCueOff = Priority sound: off
 
+# The game menu's switch for the table following the turn, on
+FollowTurnOn = Table follows the turn: on
+
+# …and off
+FollowTurnOff = Table follows the turn: off
+
 # The priority-sound row (DESIGN-v7 D22)
 RowPriorityCue = Priority sound
 
@@ -6443,7 +6449,7 @@ TourT22Body = Click a chip at the bottom left or press F, and the camera swings 
 TourT23Title = Following the turn
 
 # Tour step T23's words (TOURS.md §2).
-TourT23Body = By itself the camera follows only your turn and your combat questions. If you want it to swing to whoever is on turn, switch on Table follows the turn under Settings › Graphics. It never swings while a question is open for you or your pointer rests on the table.
+TourT23Body = The camera follows the turn: as another player's turn begins it swings to that player, and on your turn and your combat questions it comes back to you. Switch the swing off in the game menu (Table follows the turn) or under Settings › Graphics. It never swings while a question is open for you or your pointer rests on the table.
 
 # Tour step T24's title (TOURS.md §2).
 TourT24Title = On a phone

@@ -1149,6 +1149,13 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   of the seat shown now, never on my turn, which comes home at once; while the moved table settles a `Space` is dropped
   (`Duel::follow_settling`, cleared by `settle_the_follow` once `glide` and
   the camera are still). A seat chosen by hand holds until the next turn.
+  The switch stands in Settings › Graphics and, since a report of
+  30.10.2026, in the game menu too (`menu::switches::FollowSwitch`, "Table
+  follows the turn: on/off"), so it is turned off at the table where the
+  swing is seen. It is the swing to *another* seat's turn: coming home on
+  my own turn and on my attackers or blockers question
+  (`tableview::comes_home`) has no switch, because what those show is my
+  own board, which the question is about.
 - **Invariant 4** (`table::arrangement_tests`): every board whole on screen at
   home or as the seat of interest, and every other seat's creature card at
   least 36 px at home or 40 near (Wide, Vast, Narrow), or as large as a duel
