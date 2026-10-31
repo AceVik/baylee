@@ -78,11 +78,68 @@ pub(super) fn verify(
         let declarations = records
             .iter()
             .filter(|r| r["kind"] == "declared_mind" && r["seat"].as_u64() == Some(seat as u64))
+            .map(|r| &r["mind"])
             .collect::<Vec<_>>();
         ensure!(
-            !declarations.is_empty() && declarations.iter().all(|r| r["mind"] == *expected),
+            model.as_str().is_some_and(|model| chain_followed(
+                &declarations,
+                expected,
+                requested_fallbacks(&bound, seat),
+                model
+            )),
             "Actual declared identity differs from requested identity"
         );
     }
     Ok(())
+}
+
+/// The fallbacks `receipt` asked for at `seat`, in chain order; none in a
+/// receipt from before the chain.
+#[must_use]
+pub fn requested_fallbacks(receipt: &Value, seat: usize) -> &[Value] {
+    receipt["requested_fallbacks"][seat]
+        .as_array()
+        .map_or(&[], Vec::as_slice)
+}
+
+/// Whether `declared`, one seat's declarations in the record's order,
+/// follow what its request asked for: first `primary`, a teacher of
+/// `model`; after it the mind playing again (a socket dialled again
+/// declares it again) or a later one of `fallbacks`, each a teacher of its
+/// own model, never one before it (a game never hands back); and at most
+/// the house last, once the chain was used up, with nothing after it. The
+/// house's answers are never labels; the teachers' before it stay.
+#[must_use]
+pub fn chain_followed(
+    declared: &[&Value],
+    primary: &Value,
+    fallbacks: &[Value],
+    model: &str,
+) -> bool {
+    let chain: Vec<&Value> = std::iter::once(primary).chain(fallbacks).collect();
+    let Some((first, rest)) = declared.split_first() else {
+        return false;
+    };
+    if **first != *primary || !teacher(primary, model) {
+        return false;
+    }
+    let mut at = 0;
+    let mut housed = false;
+    for mind in rest {
+        if housed {
+            return false;
+        }
+        if mind["kind"] == "house" {
+            housed = true;
+            continue;
+        }
+        let Some(next) = (at..chain.len()).find(|&k| chain[k] == *mind) else {
+            return false;
+        };
+        if next > 0 && !mind["model"].as_str().is_some_and(|own| teacher(mind, own)) {
+            return false;
+        }
+        at = next;
+    }
+    true
 }

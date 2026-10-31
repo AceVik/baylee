@@ -1,7 +1,7 @@
 use super::{Input, LlmBc4, alignment, artifact, json_lines, schema::Manifest, sha};
 use anyhow::{Context, ensure};
 use baylee_engine::choice::PlayerAction;
-use baylee_train_ops::corpus::llm_freeze::teacher;
+use baylee_train_ops::corpus::llm_freeze::{chain_followed, requested_fallbacks, teacher};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -139,19 +139,25 @@ pub(super) fn load(
         let declarations: Vec<_> = rows
             .iter()
             .filter(|v| v["kind"] == "declared_mind" && v["seat"] == seat)
+            .map(|v| &v["mind"])
             .collect();
         // Without the bound request only the oldest teachers, agy's, stand:
-        // Codex and every API teacher prove what was asked for.
+        // Codex and every API teacher prove what was asked for, and its
+        // fallbacks with it.
         ensure!(
-            !declarations.is_empty()
-                && declarations
-                    .iter()
-                    .all(|v| teacher(&v["mind"], &evidence.model)
-                        && input_receipt
-                            .as_ref()
-                            .map_or(v["mind"]["provider"] == "agy", |input| {
-                                input["requested_minds"][seat] == v["mind"]
-                            })),
+            match &input_receipt {
+                Some(input) => chain_followed(
+                    &declarations,
+                    &input["requested_minds"][seat],
+                    requested_fallbacks(input, seat),
+                    &evidence.model,
+                ),
+                None =>
+                    !declarations.is_empty()
+                        && declarations
+                            .iter()
+                            .all(|mind| teacher(mind, &evidence.model) && mind["provider"] == "agy"),
+            },
             "LLM actual declared model mismatch"
         );
         let inputs: Vec<_> = rows

@@ -336,3 +336,36 @@ fn source_alias_is_stable_across_symlink_paths() -> Result<()> {
     );
     Ok(())
 }
+/// A seat declares its requested mind first, then fallbacks of its chain in
+/// order (one passed over, one declared again), and at most the house last.
+#[test]
+fn a_seat_s_declarations_follow_its_requested_chain() {
+    let agy =
+        json!({"kind":"llm_cli","provider":"agy","model":"claude-sonnet-5-5-low","effort":"low"});
+    let sonnet =
+        json!({"kind":"llm_api","provider":"anthropic","model":"claude-sonnet-5-5","effort":"low"});
+    let haiku = json!({"kind":"llm_api","provider":"anthropic","model":"claude-haiku-5-5","effort":"medium"});
+    let house = json!({"kind":"house","level":"sharp"});
+    let chain = [sonnet.clone(), haiku.clone()];
+    let model = "claude-sonnet-5-5-low";
+    let follows = |declared: &[&Value]| identity::chain_followed(declared, &agy, &chain, model);
+    assert!(follows(&[&agy]));
+    assert!(follows(&[&agy, &agy, &sonnet, &haiku]));
+    assert!(follows(&[&agy, &haiku, &haiku, &house]));
+    assert!(follows(&[&agy, &sonnet, &house]));
+    assert!(!follows(&[]));
+    assert!(!follows(&[&sonnet]), "the primary first");
+    assert!(!follows(&[&house]), "never the house first");
+    assert!(!follows(&[&agy, &haiku, &sonnet]), "never handed back");
+    assert!(
+        !follows(&[&agy, &house, &sonnet]),
+        "nothing after the house"
+    );
+    let stranger =
+        json!({"kind":"llm_api","provider":"anthropic","model":"claude-opus-5-5","effort":"low"});
+    assert!(!follows(&[&agy, &stranger]), "only the requested chain");
+    let receipt = json!({"requested_fallbacks": [[sonnet], []]});
+    assert_eq!(identity::requested_fallbacks(&receipt, 0).len(), 1);
+    assert!(identity::requested_fallbacks(&receipt, 1).is_empty());
+    assert!(identity::requested_fallbacks(&json!({}), 0).is_empty());
+}
