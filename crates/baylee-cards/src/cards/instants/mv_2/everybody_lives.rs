@@ -2,8 +2,8 @@
 //! Oracle: All creatures gain hexproof and indestructible until end of turn. Players gain hexproof until end of turn. Players can't lose life this turn and players can't lose the game or win the game this turn.
 //! Set: WHO #18 — Doctor Who | Scryfall ID: 9dab0052-7f0c-4b56-847f-20552666a271 | Oracle ID: 39213de3-6a4a-4879-a7f9-70f45013765e
 // IMPLEMENTED — creature hexproof+indestructible EOT, no-life-loss,
-// no-lose/no-win suppression, and player hexproof (ChoosePlayer filters
-// hexproofed players out).
+// no-lose/no-win suppression, and hexproof for every player (target
+// choices leave a hexproofed opponent out).
 
 static HEXPROOF_INDESTRUCTIBLE: KeywordSet = KeywordSet::HEXPROOF.union(KeywordSet::INDESTRUCTIBLE);
 
@@ -40,7 +40,9 @@ card!(
         ),
         Effect::continuous(
             &Filter::Any,
-            Modifier::PlayerHexproof,
+            Modifier::PlayerHexproof {
+                who: PlayerRel::EachPlayer
+            },
             Duration::UntilEndOfTurn
         ),
     ])],

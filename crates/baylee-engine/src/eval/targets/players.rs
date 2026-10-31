@@ -56,7 +56,13 @@ pub fn target_player_options(state: &GameState, spec: &TargetSpec, you: PlayerId
                     }
                 }
             }
-            baylee_cards_dsl::Modifier::PlayerHexproof => protected.insert(effect.controller),
+            baylee_cards_dsl::Modifier::PlayerHexproof { who } => {
+                if let Some(players) = players(who, state, effect.controller) {
+                    for player in players {
+                        protected.insert(player);
+                    }
+                }
+            }
             baylee_cards_dsl::Modifier::IgnoreOpponentsHexproof if effect.controller == you => {
                 ignores_hexproof = true;
             }
