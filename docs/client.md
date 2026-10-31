@@ -5202,6 +5202,17 @@ unused half of a permanent it taps anyway. A priced source is tried first,
 then the roomiest. The same pass stopped a Forest listed before a Sol Ring
 from paying half of `{2}` beside it, which predates any price.
 
+Among clean sources of one breadth, `manaplan::prioritize` decides what is
+kept, in three tiers that are never traded against each other: a creature
+(its attack and its tap), then a permanent used for more than mana (an
+ability activated on the battlefield that is not a mana ability,
+`CardDef::activates_beyond_mana`: Karakas, a creature land, Mind Stone;
+statics like Urborg's do not count), then the colours the hand still needs.
+The registry's answer comes in as a predicate, from the client
+(`cardart::taps_beyond_mana`) and from the house AI alike. A Karakas beside
+a Plains used to tie and fall to the object order, so it was tapped first
+about as often as not (report 30.10.2026; `a_utility_land_is_tapped_last`).
+
 Four rules keep it honest, and they are the reason to read the module before
 changing it:
 

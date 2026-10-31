@@ -69,7 +69,10 @@ permanent whose *only* mana ability is priced is untouched, because the dedup
 keeps one entry per permanent whatever the key says: this changes which mode
 survives and never how many. Between permanents the solver ranks the price a
 second time: `manaplan::Source` carries `priced`, and the matcher reaches for
-a priced tap only where no clean one fits the pip (#210).
+a priced tap only where no clean one fits the pip (#210). Among clean taps
+it keeps, as the client does, a creature first, then a permanent used for
+more than mana (Karakas, a creature land: `CardDef::activates_beyond_mana`,
+handed to `manaplan::prioritize`), then the colours its hand needs.
 Command-zone commanders participate in these plans, including their public
 cast-count tax, and so does a graveyard card the view says the seat may
 flash back, at the price it names (`PublicObject::flashback`, #242): the

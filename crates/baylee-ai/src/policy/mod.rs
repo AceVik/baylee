@@ -2036,7 +2036,12 @@ fn offers(view: &PlayerView, legal: &LegalActions) -> Vec<Offer> {
         .filter_map(|o| face(o.card).map(|f| f.mana_cost))
         .collect();
     let mut ranked: Vec<_> = result.iter().map(|offer| offer.source.clone()).collect();
-    manaplan::prioritize(&mut ranked, view, &costs);
+    // The registry's answer, as the client's: a land used for more than
+    // mana (Karakas) is tapped last.
+    manaplan::prioritize(&mut ranked, view, &costs, &|face| {
+        baylee_cards::by_index(face.card)
+            .is_some_and(|def| def.activates_beyond_mana(usize::from(face.face)))
+    });
     for ((offer, source), harm) in result.iter_mut().zip(ranked).zip(harms) {
         let pain_penalty = u32::try_from(harm.max(0))
             .unwrap_or(u32::MAX)
