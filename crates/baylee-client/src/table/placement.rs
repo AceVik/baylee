@@ -436,7 +436,14 @@ pub(super) fn placements_into(duel: &Duel, out: &mut Vec<Placement>) {
                     // rules facts printed on every real card and drawn nowhere
                     // in this client on a card showing art. Resolved here for
                     // the same reason the offer is: the group is here.
-                    corner: baylee_client_core::cardplate::Corner::of(group),
+                    // Set against the box of the print it is drawn with,
+                    // which a copy's own body can differ from.
+                    corner: baylee_client_core::cardplate::Corner::of(group).over_print(
+                        duel.view
+                            .as_ref()
+                            .and_then(|view| view.object(group.representative))
+                            .and_then(crate::cardart::printed_body),
+                    ),
                     // Chosen for the pending choice — resolved here for the
                     // same reason again, and through `is_selected` rather
                     // than `selected()`. In the two combat modes the answer

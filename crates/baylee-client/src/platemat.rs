@@ -117,7 +117,8 @@ pub fn preview_quad(kind: u32) -> [f32; 4] {
 /// says the numbers itself, as the preview shows the whole print.
 #[must_use]
 pub fn words_of(object: &baylee_view::PublicObject) -> Option<PlateWords> {
-    let corner = cardplate::Corner::of_object(object);
+    let corner =
+        cardplate::Corner::of_object(object).over_print(crate::cardart::printed_body(object));
     corner
         .shows_plate(true, false)
         .then(|| PlateWords::of(corner, baylee_client_core::board::asleep(object)))
