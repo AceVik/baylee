@@ -11,10 +11,12 @@
 //! | `baylee-client-core` | `test-support` |
 //! | `baylee-engine` | `fuzz` |
 //! | `baylee-cards` | `mutate` |
+//! | `baylee-train` | `llm-collector` |
 //!
 //! plus one default switched off, `baylee-train` without `play`, which is how
 //! `xtask` links it (`onnx` is trainer-only and in no gate: it downloads ONNX
-//! Runtime when it builds).
+//! Runtime when it builds; so do `llm` and `live-seat`, which pull it in, and
+//! they stay out for the same reason).
 //!
 //! It fails in both directions. A feature adds code the default build never
 //! sees (`devctl.rs` broke on `Option<Refusal>` with the whole gate green,
@@ -55,6 +57,9 @@ const CLIENT_FEATURES: &str = "dev-control,dev-reload";
 ///   the shape every consumer builds: the feature on, `cfg(test)` off.
 /// - `baylee-train` without `play` is how every `cargo run -p xtask` links it,
 ///   which the workspace build never does.
+/// - `llm-collector` builds the language-model replay collector, a binary
+///   no default feature reaches; it needs no ONNX Runtime, so it is checked
+///   whole, tests included.
 const CHECKS: &[(&str, &[&str])] = &[
     (
         "dev-dylink-resolves",
@@ -89,6 +94,20 @@ const CHECKS: &[(&str, &[&str])] = &[
             "-p",
             "baylee-train",
             "--no-default-features",
+            "--all-targets",
+            "--",
+            "-D",
+            "warnings",
+        ],
+    ),
+    (
+        "train-llm-collector",
+        &[
+            "clippy",
+            "-p",
+            "baylee-train",
+            "--features",
+            "llm-collector",
             "--all-targets",
             "--",
             "-D",
