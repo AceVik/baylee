@@ -106,6 +106,16 @@ pub fn card_by_body(object: &baylee_view::PublicObject) -> Option<Wears> {
     Some(Wears::Card(index, face))
 }
 
+/// Whether a permanent with these rules is used for more than mana: an
+/// ability activated on the battlefield that is not a mana ability
+/// ([`baylee_cards_dsl::CardDef::activates_beyond_mana`]). The mana
+/// planner taps such a source last (`manaplan::prioritize`).
+#[must_use]
+pub fn taps_beyond_mana(face: RulesFace) -> bool {
+    baylee_cards::by_index(face.card)
+        .is_some_and(|def| def.activates_beyond_mana(usize::from(face.face)))
+}
+
 /// What the box of the print `object` is drawn with says: the printed power
 /// and toughness of the face [`board::art_of`] draws, read off the registry.
 ///
@@ -201,7 +211,7 @@ pub fn registry() -> Registry<'static> {
 
 #[cfg(test)]
 mod tests {
-    use super::{named, of, printed_body, registry, utility_land, wearing};
+    use super::{named, of, printed_body, registry, taps_beyond_mana, utility_land, wearing};
     use baylee_client_core::board::Wears;
     use baylee_view::RulesFace;
 
@@ -517,5 +527,25 @@ mod tests {
             crate::platemat::words_of(&card).is_none(),
             "a vanilla body is not written"
         );
+    }
+
+    /// What the mana planner keeps for last: a land activated for more than
+    /// mana, never a static one or a plain land (report 30.10.2026).
+    #[test]
+    fn a_land_activated_for_more_than_mana_is_kept_for_last() {
+        let face = |name: &str| match named(name) {
+            Some(Wears::Card(card, face)) => RulesFace { card, face },
+            other => panic!("{name}: {other:?}"),
+        };
+        assert!(
+            taps_beyond_mana(face("Karakas")),
+            "Karakas bounces a legend"
+        );
+        for name in ["Plains", "Urborg, Tomb of Yawgmoth", "Reliquary Tower"] {
+            assert!(
+                !taps_beyond_mana(face(name)),
+                "{name} is used for mana alone"
+            );
+        }
     }
 }
