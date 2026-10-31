@@ -711,7 +711,7 @@ fn a_profile_made_a_cli_keeps_what_it_held_in_view_refused() {
 fn a_suggestion_puts_a_priced_model_in_the_box() {
     let mut panel = panel();
     let offered = panel.suggestions(1);
-    assert_eq!(offered.len(), 3, "{offered:?}");
+    assert_eq!(offered.len(), 4, "{offered:?}");
     assert!(panel.suggestions(2).is_empty(), "none priced for openai");
     let (index, model, price) = offered[2];
     panel.act(Act::Suggest(1, index));

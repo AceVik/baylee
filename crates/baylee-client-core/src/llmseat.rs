@@ -369,6 +369,20 @@ pub const PRICED: &[(Provider, &str, Price)] = &[
             cache_read: 0.2,
         },
     ),
+    // The rate for a prompt of at most 100K tokens. Anthropic bills a
+    // longer one at five times this, which a seat's request, tens of
+    // kilobytes, does not reach.
+    (
+        Provider::Anthropic,
+        "claude-haiku-5-5",
+        Price {
+            input: 0.1,
+            output: 0.5,
+            cache_write: 0.125,
+            cache_write_hour: 0.2,
+            cache_read: 0.01,
+        },
+    ),
 ];
 
 /// What a model costs, for the models this build knows ([`PRICED`]);
