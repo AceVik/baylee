@@ -18,11 +18,12 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
 
 use crate::audit::{
     audit_record, audit_record_setup, audit_tape, audit_transcript, completed_record_end,
-    export_game_record, ordered_attribution, read_jsonl, sha256_file, validate_technical_result,
-    write_atomic_json,
+    export_game_record, ordered_attribution, read_jsonl, sha256_file, transcript_fallbacks,
+    validate_technical_result, write_atomic_json,
 };
 use crate::schedule::{
-    Assignment, DeckInventory, collector_room_setup, derive_cli_decks, parse_deck_inventory,
+    Assignment, Chain, DeckInventory, collector_room_setup, derive_cli_decks, parse_deck_inventory,
+    requested_chain,
 };
 use crate::teacher::OwnDatabase;
 use baylee_db::sea_orm::DatabaseConnection;
@@ -484,44 +485,71 @@ fn profile_key_env(profiles_config: &Path, profile: &str) -> anyhow::Result<Opti
     ))
 }
 
-impl SeatProcessGroup {
-    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
-    pub fn spawn(
-        seat_bin: &Path,
-        game_id: &str,
-        seat: usize,
-        gateway: &str,
-        profile: &str,
-        profiles_config: &Path,
-        ledger: &Path,
-        deck_path: &Path,
-        think_secs: u64,
-        transcripts_dir: &Path,
-        work_dir: &Path,
-        send_reports: bool,
-    ) -> anyhow::Result<Self> {
-        let mut cmd = Command::new(seat_bin);
+/// The variables a seat's bridge reads its keys from: each API profile's
+/// of the chain it plays (`profile`, then its `fallbacks`), each once.
+fn chain_key_envs(
+    profiles_config: &Path,
+    profile: &str,
+    fallbacks: &[String],
+) -> anyhow::Result<Vec<String>> {
+    let mut names: Vec<String> = Vec::new();
+    for named in std::iter::once(profile).chain(fallbacks.iter().map(String::as_str)) {
+        if let Some(name) = profile_key_env(profiles_config, named)?
+            && !names.contains(&name)
+        {
+            names.push(name);
+        }
+    }
+    Ok(names)
+}
+
+/// One seat's bridge, as `baylee-seat join` is told it.
+pub struct SeatLaunch<'a> {
+    pub seat_bin: &'a Path,
+    pub game_id: &'a str,
+    pub seat: usize,
+    pub gateway: &'a str,
+    pub profile: &'a str,
+    /// The fallbacks the profile names, in the order they take over: each
+    /// a `--fallback-profile` of the same profiles file and spend book.
+    pub fallbacks: &'a [String],
+    pub profiles_config: &'a Path,
+    pub ledger: &'a Path,
+    pub deck_path: &'a Path,
+    pub think_secs: u64,
+    pub transcripts_dir: &'a Path,
+    pub work_dir: &'a Path,
+    pub send_reports: bool,
+}
+
+impl SeatLaunch<'_> {
+    /// The command that starts the bridge, its environment cleared to the
+    /// variables it needs and the key variable of every API profile of its
+    /// chain, read through `env`, never any other key.
+    fn command(&self, env: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<Command> {
+        let seat = self.seat;
+        let mut cmd = Command::new(self.seat_bin);
         cmd.arg("join")
-            .arg(game_id)
+            .arg(self.game_id)
             .arg("--gateway")
-            .arg(gateway)
+            .arg(self.gateway)
             .arg("--chair")
             .arg(seat.to_string())
             .arg("--tethered")
             .arg("--profile")
-            .arg(profile)
+            .arg(self.profile)
             .arg("--config")
-            .arg(profiles_config)
+            .arg(self.profiles_config)
             .arg("--ledger")
-            .arg(ledger)
+            .arg(self.ledger)
             .arg("--deck")
-            .arg(deck_path)
+            .arg(self.deck_path)
             .arg("--think-secs")
-            .arg(think_secs.to_string())
+            .arg(self.think_secs.to_string())
             .arg("--level")
             .arg("sharp")
             .arg("--transcripts")
-            .arg(transcripts_dir)
+            .arg(self.transcripts_dir)
             .arg("--name")
             .arg(format!("teacher-{seat}"))
             .arg(if seat == 0 {
@@ -529,10 +557,15 @@ impl SeatProcessGroup {
             } else {
                 "--chair-ticket"
             });
-        if !send_reports {
+        // Named explicitly, as the request froze them: each in the
+        // profiles file and the slot's spend book, as the profile is.
+        for fallback in self.fallbacks {
+            cmd.arg("--fallback-profile").arg(fallback);
+        }
+        if !self.send_reports {
             cmd.arg("--no-send-reports");
         }
-        cmd.current_dir(work_dir)
+        cmd.current_dir(self.work_dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -552,17 +585,17 @@ impl SeatProcessGroup {
             "DBUS_SESSION_BUS_ADDRESS",
             "CODEX_HOME",
         ] {
-            if let Ok(val) = std::env::var(key) {
+            if let Some(val) = env(key) {
                 cmd.env(key, val);
             }
         }
         // An API profile's key, on a machine without a credential store, is
         // read from its own variable (`docs/llm-seat.md` §"Where a key is
-        // kept"): forward exactly that one, never any other key.
-        if let Some(name) = profile_key_env(profiles_config, profile)?
-            && let Ok(val) = std::env::var(&name)
-        {
-            cmd.env(name, val);
+        // kept"): forward exactly those of the chain, never any other key.
+        for name in chain_key_envs(self.profiles_config, self.profile, self.fallbacks)? {
+            if let Some(val) = env(&name) {
+                cmd.env(name, val);
+            }
         }
         cmd.env("OMP_NUM_THREADS", "1")
             .env("MKL_NUM_THREADS", "1")
@@ -570,6 +603,14 @@ impl SeatProcessGroup {
             .env("CUDA_VISIBLE_DEVICES", "")
             .env("BAYLEE_EP", "cpu")
             .env("RUST_BACKTRACE", "0");
+        Ok(cmd)
+    }
+}
+
+impl SeatProcessGroup {
+    pub fn spawn(launch: &SeatLaunch<'_>) -> anyhow::Result<Self> {
+        let seat = launch.seat;
+        let mut cmd = launch.command(&|key| std::env::var(key).ok())?;
 
         let child = cmd
             .spawn()
@@ -584,7 +625,7 @@ impl SeatProcessGroup {
             diag_task: None,
         };
         guard.stdin = guard.child.stdin.take();
-        let diag_path = work_dir.join(format!("seat{seat}-diagnostics.json"));
+        let diag_path = launch.work_dir.join(format!("seat{seat}-diagnostics.json"));
         let diag_task = guard.child.stderr.take().map(|stderr| {
             tokio::spawn(async move {
                 let mut reader = BufReader::new(stderr).lines();
@@ -713,14 +754,47 @@ fn both_transcripts_over(out_dir: &Path, game_id: &str) -> bool {
     true
 }
 
-/// Revalidate scheduler identities before any room can be opened.
+/// What a game's two seats were asked to play, as the pinned profiles file
+/// says it again at room creation ([`validate_profile_pins`]).
+struct Requested {
+    /// The pinned pairings file, where the request names one.
+    pairings: Option<PathBuf>,
+    /// Each seat's chain: the mind its profile declares, then its
+    /// fallbacks' in the order they take over.
+    chains: [Chain; 2],
+}
+
+impl Requested {
+    /// The minds each seat's profile declares.
+    fn minds(&self) -> [baylee_gamehost::record::Mind; 2] {
+        self.chains.clone().map(|chain| chain.mind)
+    }
+
+    /// The fallback profiles of each seat, in order.
+    fn fallback_profiles(&self) -> [Vec<String>; 2] {
+        self.chains.clone().map(|chain| chain.fallback_profiles())
+    }
+
+    /// The minds each seat's fallbacks declare, in order.
+    fn fallback_minds(&self) -> [Vec<baylee_gamehost::record::Mind>; 2] {
+        self.chains.clone().map(|chain| chain.fallback_minds())
+    }
+
+    /// Every mind each seat may declare, in the order it may.
+    fn declarable(&self) -> [Vec<baylee_gamehost::record::Mind>; 2] {
+        self.chains.clone().map(|chain| chain.minds())
+    }
+}
+
+/// Revalidate scheduler identities before any room can be opened: each
+/// seat's profile and the fallbacks it names, as the request froze them
+/// (`fallback_profiles`; none where an older request has no such field).
 fn validate_profile_pins(
     config: &Path,
     request: &Value,
     profiles: &[String; 2],
     models: &[String; 2],
-) -> anyhow::Result<(Option<PathBuf>, [baylee_gamehost::record::Mind; 2])> {
-    let mut expected_minds = Vec::with_capacity(2);
+) -> anyhow::Result<Requested> {
     let expected = request
         .get("profiles_config_sha256")
         .and_then(Value::as_str)
@@ -735,37 +809,33 @@ fn validate_profile_pins(
         ledger: None,
     };
     let settings = paths.load().map_err(anyhow::Error::msg)?;
+    let mut chains = Vec::with_capacity(2);
     for (seat, profile) in profiles.iter().enumerate() {
-        let plan = baylee_seat::config::plan(
-            None,
-            settings.as_ref(),
-            &paths,
-            Some(profile),
-            &baylee_seat::config::Overrides::default(),
-        )
-        .map_err(anyhow::Error::msg)?
-        .context("Requested profile has no model")?;
-        let declared = baylee_seat::declare::llm(&plan.settings);
+        let chain = requested_chain(settings.as_ref(), &paths, profile)?;
         ensure!(
-            declared.model == models[seat],
+            chain.mind.model == models[seat],
             "Requested profile/model mismatch for seat {seat}"
         );
+        let frozen = request
+            .get("fallback_profiles")
+            .and_then(|seats| seats.get(seat))
+            .cloned()
+            .unwrap_or_else(|| json!([]));
         ensure!(
-            baylee_protocol::mind::fault(&declared).is_none(),
-            "Invalid requested declared mind"
+            frozen == json!(chain.fallback_profiles()),
+            "Requested fallback chain mismatch for seat {seat}"
         );
-        expected_minds
-            .push(baylee_gamehost::record::Mind::from_wire(&declared).map_err(anyhow::Error::msg)?);
+        chains.push(chain);
     }
     ensure!(
         sha256_file(config)? == expected,
         "Profiles config changed while validating"
     );
-    let expected_minds: [baylee_gamehost::record::Mind; 2] = expected_minds
+    let chains: [Chain; 2] = chains
         .try_into()
         .map_err(|_| anyhow!("Expected two declared identities"))?;
     let source = request.get("pairings_file").filter(|v| !v.is_null());
-    if let Some(source) = source {
+    let pairings = if let Some(source) = source {
         let path = PathBuf::from(source.as_str().context("Invalid pairings path")?);
         let expected = request
             .get("pairings_sha256")
@@ -784,14 +854,15 @@ fn validate_profile_pins(
             sha256_file(&path)? == expected,
             "Pairings changed while validating"
         );
-        Ok((Some(path), expected_minds))
+        Some(path)
     } else {
         ensure!(
             request.get("pairings_sha256").is_none_or(Value::is_null),
             "Pairings pin has no file"
         );
-        Ok((None, expected_minds))
-    }
+        None
+    };
+    Ok(Requested { pairings, chains })
 }
 
 fn room_update(
@@ -942,7 +1013,7 @@ pub async fn run_attempt(
             .and_then(Value::as_str)
             .context("missing ledger")?,
     );
-    let (pairings_path, expected_minds) = validate_profile_pins(
+    let requested = validate_profile_pins(
         &profiles_config,
         &assignment.request,
         &assignment.profiles,
@@ -956,8 +1027,8 @@ pub async fn run_attempt(
         derived_decks[0].clone(),
         derived_decks[1].clone(),
     ];
-    if let Some(path) = pairings_path {
-        frozen_paths.push(path);
+    if let Some(path) = &requested.pairings {
+        frozen_paths.push(path.clone());
     }
     if gateway_bin.is_file() {
         frozen_paths.push(gateway_bin.to_path_buf());
@@ -971,7 +1042,9 @@ pub async fn run_attempt(
         &json!({
             "sha256": input_pins,
             "requested_models": assignment.models,
-            "requested_minds": expected_minds,
+            "requested_minds": requested.minds(),
+            "requested_fallback_profiles": requested.fallback_profiles(),
+            "requested_fallbacks": requested.fallback_minds(),
             "requested_room_setup": room_setup,
             "policy_targets": "none_until_review",
             "ppo_eligible": false,
@@ -1095,37 +1168,27 @@ pub async fn run_attempt(
             "session_token": account.token,
         }))?;
 
-        let child0 = SeatProcessGroup::spawn(
+        let fallbacks = requested.fallback_profiles();
+        let launch = |seat: usize| SeatLaunch {
             seat_bin,
-            &game_id,
-            0,
-            account.client.base(),
-            &assignment.profiles[0],
-            &profiles_config,
-            &ledger,
-            &derived_decks[0],
+            game_id: &game_id,
+            seat,
+            gateway: account.client.base(),
+            profile: &assignment.profiles[seat],
+            fallbacks: &fallbacks[seat],
+            profiles_config: &profiles_config,
+            ledger: &ledger,
+            deck_path: &derived_decks[seat],
             think_secs,
-            &transcripts_dir,
-            out,
-            assignment.send_reports,
-        )?;
+            transcripts_dir: &transcripts_dir,
+            work_dir: out,
+            send_reports: assignment.send_reports,
+        };
+        let child0 = SeatProcessGroup::spawn(&launch(0))?;
         children.push(child0);
         children[0].deliver_secret(&secret0).await?;
 
-        let child1 = SeatProcessGroup::spawn(
-            seat_bin,
-            &game_id,
-            1,
-            account.client.base(),
-            &assignment.profiles[1],
-            &profiles_config,
-            &ledger,
-            &derived_decks[1],
-            think_secs,
-            &transcripts_dir,
-            out,
-            assignment.send_reports,
-        )?;
+        let child1 = SeatProcessGroup::spawn(&launch(1))?;
         children.push(child1);
         children[1].deliver_secret(&chair1_ticket).await?;
 
@@ -1235,7 +1298,7 @@ pub async fn run_attempt(
         // lifecycle independently before checking declared identity/provenance.
         confirm_terminal_closure(out, &record_path, &game_id, start_requested)?;
         account.room_closed = true;
-        let proof = audit_record(&record_path, &expected_minds)?;
+        let proof = audit_record(&record_path, &requested.declarable())?;
         let actual_setup = audit_record_setup(&record_path, &room_setup)?;
 
         let mut seats = Vec::with_capacity(2);
@@ -1271,6 +1334,8 @@ pub async fn run_attempt(
                 "seat": seat,
                 "model": assignment.models[seat],
                 "declared_mind_verified": true,
+                "declared_minds": proof.declared[seat],
+                "profile_fallbacks": transcript_fallbacks(&read_jsonl(&tr_path)?),
                 "transcript_answer_counts": counts,
                 "executed_input_sources": src_counts,
             }));

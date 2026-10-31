@@ -97,7 +97,7 @@ fn exact_codex_identity_passes_but_provider_model_effort_and_kind_spoofs_fail() 
     let dir = TestDir::new("declared-identity");
     let path = dir.path().join("record.jsonl");
     let mind = codex_identity();
-    let expected = [mind.clone(), mind.clone()];
+    let expected = [vec![mind.clone()], vec![mind.clone()]];
     write_identity_record(&path, &mind);
     assert!(audit_record(&path, &expected).is_ok());
     for field in ["provider", "model", "effort", "kind", "level"] {
@@ -114,6 +114,132 @@ fn exact_codex_identity_passes_but_provider_model_effort_and_kind_spoofs_fail() 
         // The completed lifecycle and the failed admission remain independent.
         assert!(completed_record_end(&path).is_ok());
     }
+}
+
+/// A record whose seat 1 declares `codex_identity()` and whose seat 0
+/// declares each of `seat0` in turn, an input of its own after each.
+fn write_chain_record(path: &Path, seat0: &[&baylee_gamehost::record::Mind]) {
+    let mut rows = vec![
+        json!({"kind":"header", "preset":{"seed":777,"seats":[{},{}]}}),
+        json!({"kind":"declared_mind", "seat":1, "mind":codex_identity(), "at":0}),
+    ];
+    for (n, mind) in seat0.iter().enumerate() {
+        rows.push(json!({"kind":"declared_mind", "seat":0, "mind":mind, "at":0}));
+        rows.push(
+            json!({"kind":"input", "n":n, "seat":0, "by":"seat", "action":"PassPriority", "at":0}),
+        );
+    }
+    rows.push(json!({"kind":"end", "n":seat0.len(), "winners":[0], "at":0}));
+    let text = rows.iter().fold(String::new(), |mut text, row| {
+        writeln!(text, "{row}").unwrap();
+        text
+    });
+    std::fs::write(path, text).unwrap();
+}
+
+/// A seat declares its profile's mind first, then fallbacks of its
+/// requested chain in their order (one passed over where it could not take
+/// over), each declared again on a new socket; the record's declarations
+/// are listed once each, with where they stand and the first input after
+/// them. A fallback out of order, a mind handed back to, one not
+/// requested, the house a used-up chain leaves, or a first declaration
+/// that is not the profile's own fails the audit.
+#[test]
+fn declarations_follow_each_seat_s_requested_chain() {
+    use baylee_gamehost::record::{Mind, MindKind};
+    let dir = TestDir::new("declared-chain");
+    let path = dir.path().join("record.jsonl");
+    let api = |model: &str| Mind {
+        kind: MindKind::LlmApi,
+        provider: "openai".into(),
+        model: model.into(),
+        effort: "low".into(),
+        level: String::new(),
+    };
+    let primary = codex_identity();
+    let (fb1, fb2) = (api("gpt-6.1-terra"), api("deepseek-chat"));
+    let expected = [
+        vec![primary.clone(), fb1.clone(), fb2.clone()],
+        vec![codex_identity()],
+    ];
+    let house = Mind {
+        kind: MindKind::House,
+        provider: String::new(),
+        model: String::new(),
+        effort: String::new(),
+        level: "sharp".into(),
+    };
+    let place = |mind: &Mind, index: usize, n: usize| json!({"mind": mind, "chain_index": index, "first_input_n": n});
+    for (seat0, declared) in [
+        (vec![&primary], vec![place(&primary, 0, 0)]),
+        (
+            vec![&primary, &fb1, &fb2],
+            vec![place(&primary, 0, 0), place(&fb1, 1, 1), place(&fb2, 2, 2)],
+        ),
+        (
+            vec![&primary, &primary, &fb2, &fb2],
+            vec![place(&primary, 0, 0), place(&fb2, 2, 2)],
+        ),
+    ] {
+        write_chain_record(&path, &seat0);
+        let proof = audit_record(&path, &expected).unwrap();
+        assert_eq!(proof.declared[0], declared);
+        assert_eq!(
+            proof.declared[1],
+            [json!({"mind": codex_identity(), "chain_index": 0, "first_input_n": null})],
+            "seat 1 made no input"
+        );
+    }
+    let other = api("gpt-6.1-sol");
+    for seat0 in [
+        vec![&fb1],
+        vec![&primary, &fb2, &fb1],
+        vec![&primary, &fb1, &primary],
+        vec![&primary, &other],
+        vec![&primary, &fb1, &fb2, &house],
+    ] {
+        write_chain_record(&path, &seat0);
+        assert!(audit_record(&path, &expected).is_err(), "{seat0:?}");
+    }
+    // A seat without fallbacks takes nothing but its own mind.
+    write_chain_record(&path, &[&primary, &fb1]);
+    assert!(audit_record(&path, &[vec![primary.clone()], vec![codex_identity()]]).is_err());
+}
+
+/// What the transcript says of the fallbacks is kept as it said it: each
+/// that took over and each that could not, in order, and the closing
+/// `fell_back` line; a seat without any says so with empty lists.
+#[test]
+fn a_transcript_s_fallbacks_are_kept_in_order() {
+    let rows = [
+        json!({"event":"answered","question":1,"by":"mind","action":"PassPriority"}),
+        json!({"fallback_refused": {"profile":"fb1","why":"the day's cap of $3.00 is spent"}}),
+        json!({"fallback": {"profile":"fb2","turn":3,"cause":"limited","why":"429"}}),
+        json!({"fallback": {"profile":"fb3","turn":5,"cause":"failed","why":"502"}}),
+        json!({"summary": {}}),
+        json!({"fell_back": [
+            {"label":"fb2","turn":3,"answered":4},
+            {"label":"fb3","turn":5,"answered":9},
+        ]}),
+    ];
+    assert_eq!(
+        transcript_fallbacks(&rows),
+        json!({
+            "took_over": [
+                {"profile":"fb2","turn":3,"cause":"limited","why":"429"},
+                {"profile":"fb3","turn":5,"cause":"failed","why":"502"},
+            ],
+            "refused": [{"profile":"fb1","why":"the day's cap of $3.00 is spent"}],
+            "played": [
+                {"label":"fb2","turn":3,"answered":4},
+                {"label":"fb3","turn":5,"answered":9},
+            ],
+        })
+    );
+    assert_eq!(
+        transcript_fallbacks(&rows[..1]),
+        json!({"took_over": [], "refused": [], "played": []})
+    );
 }
 
 #[test]
@@ -177,6 +303,7 @@ fn full_engine_replay_rejects_an_invisible_intermediate_hash_mismatch() {
         terminal: json!({}),
         inputs: [Vec::new(), Vec::new()],
         input_count: input_ns.len(),
+        declared: [Vec::new(), Vec::new()],
         input_ns,
         record,
     };
@@ -209,6 +336,7 @@ fn replay_receipt_requires_full_final_hash_with_noncontiguous_record_numbers() {
         terminal: json!({}),
         inputs: [Vec::new(), Vec::new()],
         input_count: 3,
+        declared: [Vec::new(), Vec::new()],
         input_ns: vec![0, 4, 9],
         record: Vec::new(),
     };
@@ -343,7 +471,13 @@ fn full_audit_and_validation_matches_prepare_llm_bc4_contract() {
         effort: "low".into(),
         level: String::new(),
     });
-    let proof = audit_record(&rec_path, &expected_minds).unwrap();
+    let proof = audit_record(&rec_path, &expected_minds.clone().map(|mind| vec![mind])).unwrap();
+    for (seat, mind) in expected_minds.iter().enumerate() {
+        assert_eq!(
+            proof.declared[seat],
+            [json!({"mind": mind, "chain_index": 0, "first_input_n": seat})]
+        );
+    }
     assert_eq!(proof.actual_seed, 777);
     assert_eq!(proof.input_count, 2);
     let (counts0, q0) = audit_transcript(&tr0_path, &proof.inputs[0]).unwrap();
@@ -389,6 +523,7 @@ fn full_audit_and_validation_matches_prepare_llm_bc4_contract() {
                 "seat": 0,
                 "model": models[0],
                 "declared_mind_verified": true,
+                "declared_minds": proof.declared[0],
                 "transcript_answer_counts": counts0,
                 "executed_input_sources": {"seat": 1},
             },
@@ -396,6 +531,7 @@ fn full_audit_and_validation_matches_prepare_llm_bc4_contract() {
                 "seat": 1,
                 "model": models[1],
                 "declared_mind_verified": true,
+                "declared_minds": proof.declared[1],
                 "transcript_answer_counts": counts1,
                 "executed_input_sources": {"seat": 1},
             }
@@ -417,4 +553,14 @@ fn full_audit_and_validation_matches_prepare_llm_bc4_contract() {
         "models": models,
     });
     validate_technical_result(&result, &req, work).unwrap();
+    // A seat whose declarations are not its chain's, in order, is refused.
+    let mut misplaced = result.clone();
+    misplaced["seats"][1]["declared_minds"][0]["chain_index"] = json!(1);
+    assert!(validate_technical_result(&misplaced, &req, work).is_err());
+    let mut missing = result;
+    missing["seats"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("declared_minds");
+    assert!(validate_technical_result(&missing, &req, work).is_err());
 }

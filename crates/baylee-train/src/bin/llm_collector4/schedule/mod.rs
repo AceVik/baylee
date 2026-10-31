@@ -220,9 +220,108 @@ pub fn collector_room_setup(formats: [&str; 2]) -> anyhow::Result<baylee_core::p
     })
 }
 
+/// What a seat of one profile is asked to play, as the pinned profiles file
+/// says: the mind its profile declares, then each fallback that profile
+/// names (`fallback`, `docs/llm-seat.md` §"A fallback profile"), in the
+/// order they take over, with the mind each declares as it does.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Chain {
+    pub mind: baylee_gamehost::record::Mind,
+    pub fallbacks: Vec<(String, baylee_gamehost::record::Mind)>,
+}
+
+impl Chain {
+    /// The fallback profiles, in order.
+    pub fn fallback_profiles(&self) -> Vec<String> {
+        self.fallbacks
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect()
+    }
+
+    /// The minds the fallbacks declare, in order.
+    pub fn fallback_minds(&self) -> Vec<baylee_gamehost::record::Mind> {
+        self.fallbacks
+            .iter()
+            .map(|(_, mind)| mind.clone())
+            .collect()
+    }
+
+    /// Every mind the seat may declare, in the order it may: the profile's,
+    /// then each fallback's.
+    pub fn minds(&self) -> Vec<baylee_gamehost::record::Mind> {
+        std::iter::once(self.mind.clone())
+            .chain(self.fallback_minds())
+            .collect()
+    }
+}
+
+/// `profile`'s plan in the profiles file (`paths`, read as `settings`) and
+/// the mind it declares: an explicit model, in a shape the engine takes.
+fn declared(
+    settings: Option<&baylee_seat::config::SeatSettings>,
+    paths: &baylee_seat::config::Paths,
+    profile: &str,
+) -> anyhow::Result<(baylee_seat::config::Plan, baylee_gamehost::record::Mind)> {
+    let plan = baylee_seat::config::plan(
+        None,
+        settings,
+        paths,
+        Some(profile),
+        &baylee_seat::config::Overrides::default(),
+    )
+    .map_err(anyhow::Error::msg)?
+    .with_context(|| format!("Profile {profile} has no model"))?;
+    let declared = baylee_seat::declare::llm(&plan.settings);
+    ensure!(
+        !declared.model.is_empty(),
+        "Profile {profile} must name an explicit model"
+    );
+    ensure!(
+        baylee_protocol::mind::fault(&declared).is_none(),
+        "Profile {profile} has an invalid declared model"
+    );
+    let mind = baylee_gamehost::record::Mind::from_wire(&declared).map_err(anyhow::Error::msg)?;
+    Ok((plan, mind))
+}
+
+/// The [`Chain`] of `profile` in the profiles file: refused where a
+/// fallback is missing, is the profile itself or is named twice, plays an
+/// agent CLI (a fallback is a model behind an API), or names no explicit
+/// model, so that every fallback a request lists is one the bridge seats.
+pub fn requested_chain(
+    settings: Option<&baylee_seat::config::SeatSettings>,
+    paths: &baylee_seat::config::Paths,
+    profile: &str,
+) -> anyhow::Result<Chain> {
+    let (plan, mind) = declared(settings, paths, profile)?;
+    let mut fallbacks: Vec<(String, baylee_gamehost::record::Mind)> = Vec::new();
+    for fallback in &plan.fallback {
+        ensure!(
+            fallback != profile,
+            "Profile {profile} names itself as its fallback"
+        );
+        ensure!(
+            fallbacks.iter().all(|(named, _)| named != fallback),
+            "Profile {profile} names its fallback {fallback} twice"
+        );
+        let (theirs, mind) = declared(settings, paths, fallback)
+            .with_context(|| format!("Fallback {fallback} of profile {profile}"))?;
+        ensure!(
+            theirs.settings.provider != baylee_seat::llm::Provider::Cli,
+            "Fallback {fallback} of profile {profile} plays an agent CLI; a fallback is a model \
+             behind an API"
+        );
+        fallbacks.push((fallback.clone(), mind));
+    }
+    Ok(Chain { mind, fallbacks })
+}
+
 struct PairingPlan {
     pairs: Vec<[String; 2]>,
     models: BTreeMap<String, String>,
+    /// What a seat of each profile may declare: its mind, then its fallbacks'.
+    chains: BTreeMap<String, Chain>,
     config_sha256: String,
     source: Option<PathBuf>,
     source_sha256: Option<String>,
@@ -257,6 +356,7 @@ impl PairingPlan {
         };
         ensure!(!pairs.is_empty(), "Pairings plan cannot be empty");
         let mut models = BTreeMap::new();
+        let mut chains = BTreeMap::new();
         let mut seen = BTreeSet::new();
         for pair in &pairs {
             ensure!(
@@ -264,25 +364,9 @@ impl PairingPlan {
                 "Duplicate profile pair in pairings plan"
             );
             for profile in pair {
-                let plan = baylee_seat::config::plan(
-                    None,
-                    settings.as_ref(),
-                    &paths,
-                    Some(profile),
-                    &baylee_seat::config::Overrides::default(),
-                )
-                .map_err(anyhow::Error::msg)?
-                .context("Profile has no model")?;
-                let declared = baylee_seat::declare::llm(&plan.settings);
-                ensure!(
-                    !declared.model.is_empty(),
-                    "Profile {profile} must name an explicit model"
-                );
-                ensure!(
-                    baylee_protocol::mind::fault(&declared).is_none(),
-                    "Profile {profile} has an invalid declared model"
-                );
-                models.insert(profile.clone(), declared.model);
+                let chain = requested_chain(settings.as_ref(), &paths, profile)?;
+                models.insert(profile.clone(), chain.mind.model.clone());
+                chains.insert(profile.clone(), chain);
             }
         }
         ensure!(
@@ -292,6 +376,7 @@ impl PairingPlan {
         Ok(Self {
             pairs,
             models,
+            chains,
             config_sha256,
             source,
             source_sha256,
@@ -744,6 +829,11 @@ impl Scheduler {
             self.pairing_plan.models[&chosen_profiles[0]].clone(),
             self.pairing_plan.models[&chosen_profiles[1]].clone(),
         ];
+        // Each seat's fallbacks, in the order they take over, and the mind
+        // each declares as it does: the audit holds the record to them.
+        let chains = chosen_profiles
+            .clone()
+            .map(|p| self.pairing_plan.chains[&p].clone());
 
         let room_setup = collector_room_setup([&seat0_deck.format, &seat1_deck.format])?;
         let index = self.next_index;
@@ -768,6 +858,8 @@ impl Scheduler {
             "decks": [seat0_deck, seat1_deck],
             "profiles": chosen_profiles,
             "models": chosen_models,
+            "fallback_profiles": chains.clone().map(|c| c.fallback_profiles()),
+            "requested_fallbacks": chains.map(|c| c.fallback_minds()),
             "bc_only": true,
             "ppo_eligible": false,
             "semantic_quality_gate": false,
@@ -1103,9 +1195,61 @@ mod tests {
         let plan = PairingPlan::load(&config, Some(path)).unwrap();
         assert_eq!(plan.models["terra"], "gpt-6.1-terra");
         assert_eq!(plan.pairs.len(), 2);
+        assert!(plan.chains["terra"].fallbacks.is_empty());
         let legacy = PairingPlan::load(&config, None).unwrap();
         assert_eq!(legacy.pairs.len(), 3);
         assert_eq!(legacy.models["argon-low"], "gemini-4-argon-low");
+    }
+
+    /// A profile's fallbacks are frozen with it, in the order they take
+    /// over, each with the mind it declares; a chain the bridge would not
+    /// seat whole (a fallback missing, the profile itself, one named twice,
+    /// an agent CLI) refuses the plan.
+    #[test]
+    fn pairing_plan_freezes_each_profile_s_fallback_chain() {
+        let dir = TestDir::new("pairing-chains");
+        let config = dir.path().join("profiles.json");
+        let path = dir.path().join("pairings.json");
+        write_atomic_json(&path, &json!([["terra", "terra"]])).unwrap();
+        let write = |fallback: Value| {
+            write_atomic_json(
+                &config,
+                &json!({"profiles": {
+                    "terra": {"provider":"cli", "model":"codex:gpt-6.1-terra",
+                              "game_tokens":100_000, "fallback": fallback},
+                    "api": {"provider":"openai", "model":"gpt-6.1-terra",
+                            "base_url":"https://api.openai.com/v1", "game_tokens":100_000},
+                    "ds": {"provider":"openai", "model":"deepseek-flash", "game_tokens":100_000},
+                    "flash": {"provider":"cli", "model":"agy:gemini-3.8-flash-low",
+                              "game_tokens":100_000},
+                }}),
+            )
+            .unwrap();
+        };
+        write(json!(["api", "ds"]));
+        let plan = PairingPlan::load(&config, Some(path.clone())).unwrap();
+        let chain = &plan.chains["terra"];
+        assert_eq!(chain.fallback_profiles(), ["api", "ds"]);
+        assert_eq!(
+            serde_json::to_value(chain.minds()).unwrap(),
+            json!([
+                {"kind":"llm_cli", "provider":"codex", "model":"gpt-6.1-terra"},
+                {"kind":"llm_api", "provider":"openai", "model":"gpt-6.1-terra"},
+                {"kind":"llm_api", "provider":"openai", "model":"deepseek-flash"},
+            ])
+        );
+        for refused in [
+            json!(["missing"]),
+            json!(["terra"]),
+            json!(["api", "api"]),
+            json!(["flash"]),
+        ] {
+            write(refused.clone());
+            assert!(
+                PairingPlan::load(&config, Some(path.clone())).is_err(),
+                "{refused}"
+            );
+        }
     }
 
     #[test]
@@ -1257,6 +1401,9 @@ mod tests {
         let a1 = sched.next_assignment(1).unwrap();
         let a2 = sched.next_assignment(2).unwrap();
         assert_eq!(a0.request["room_setup"]["starting_life"], 40);
+        // Profiles that name no fallback freeze an empty chain for each seat.
+        assert_eq!(a0.request["fallback_profiles"], json!([[], []]));
+        assert_eq!(a0.request["requested_fallbacks"], json!([[], []]));
         assert_eq!(a0.request["room_setup"]["free_mulligans"], 1);
         assert_eq!(a1.request["room_setup"]["starting_life"], 20);
         assert_eq!(a1.request["room_setup"]["free_mulligans"], 0);

@@ -11,8 +11,10 @@
 //! profile, no caps, no spend book.
 
 use crate::llm::{AnswerMode, Price, Provider, Settings, Spec};
+/// The settings file, as [`Paths::load`] reads it.
+pub use baylee_client_core::llmseat::SeatSettings;
 use baylee_client_core::llmseat::ledger::Book;
-use baylee_client_core::llmseat::{Profile, SeatSettings, effort_is_a_word, store};
+use baylee_client_core::llmseat::{Profile, effort_is_a_word, store};
 use baylee_client_core::userdirs::Os;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};

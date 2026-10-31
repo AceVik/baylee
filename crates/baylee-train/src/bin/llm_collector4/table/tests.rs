@@ -27,6 +27,144 @@ fn only_an_api_profile_names_the_one_key_its_seat_receives() {
     assert!(profile_key_env(&config, "missing").is_err());
 }
 
+/// A profiles file whose agent CLI profile `cc` names two fallbacks, the
+/// same model behind Anthropic's API first, then `DeepSeek`'s.
+fn chained_profiles(dir: &Path) -> PathBuf {
+    let config = dir.join("profiles.json");
+    write_atomic_json(
+        &config,
+        &json!({"profiles": {
+            "cc": {"provider": "cli", "model": "codex:gpt-6.1-terra", "effort": "low",
+                   "game_tokens": 100_000, "fallback": ["opus-api", "ds"]},
+            "opus-api": {"provider": "anthropic", "model": "claude-opus-5-5",
+                         "effort": "low", "game_usd": 1},
+            "ds": {"provider": "openai", "model": "deepseek-flash",
+                   "base_url": "https://api.deepseek.com/v1", "key_env": "DEEPSEEK_API_KEY",
+                   "game_tokens": 100_000},
+            "other": {"provider": "openai", "model": "gpt-6.1-sol", "key_env": "OTHER_KEY",
+                      "game_tokens": 100_000},
+        }}),
+    )
+    .unwrap();
+    config
+}
+
+/// A seat's bridge is told its chain, each fallback a `--fallback-profile`
+/// in the order it takes over, and handed the key variable of every API
+/// profile of that chain, once each, and of nothing else.
+#[test]
+fn a_seat_is_started_with_its_chain_and_the_keys_of_that_chain_only() {
+    let dir = crate::audit::tests::TestDir::new("chain-launch");
+    let config = chained_profiles(dir.path());
+    let fallbacks = vec!["opus-api".to_owned(), "ds".to_owned()];
+    let launch = |fallbacks: &[String]| -> (Vec<String>, BTreeMap<String, String>) {
+        let launch = SeatLaunch {
+            seat_bin: Path::new("/x/baylee-seat"),
+            game_id: "game",
+            seat: 1,
+            gateway: "http://127.0.0.1:28766",
+            profile: "cc",
+            fallbacks,
+            profiles_config: &config,
+            ledger: Path::new("/x/ledger.json"),
+            deck_path: Path::new("/x/deck.txt"),
+            think_secs: 90,
+            transcripts_dir: Path::new("/x/transcripts"),
+            work_dir: dir.path(),
+            send_reports: false,
+        };
+        let env = |name: &str| {
+            ["PATH", "ANTHROPIC_API_KEY", "DEEPSEEK_API_KEY", "OTHER_KEY"]
+                .contains(&name)
+                .then(|| format!("value-of-{name}"))
+        };
+        let command = launch.command(&env).unwrap();
+        let args = command
+            .as_std()
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        let envs = command
+            .as_std()
+            .get_envs()
+            .filter_map(|(name, value)| {
+                Some((
+                    name.to_string_lossy().into_owned(),
+                    value?.to_string_lossy().into_owned(),
+                ))
+            })
+            .collect();
+        (args, envs)
+    };
+    let (args, envs) = launch(&fallbacks);
+    let named: Vec<&str> = args
+        .windows(2)
+        .filter(|pair| pair[0] == "--fallback-profile")
+        .map(|pair| pair[1].as_str())
+        .collect();
+    assert_eq!(named, ["opus-api", "ds"], "in the order they take over");
+    assert!(!args.iter().any(|arg| arg.starts_with("--fallback-config")));
+    for key in ["ANTHROPIC_API_KEY", "DEEPSEEK_API_KEY"] {
+        assert_eq!(envs.get(key), Some(&format!("value-of-{key}")), "{key}");
+    }
+    assert!(!envs.contains_key("OTHER_KEY"), "no key of another profile");
+    assert_eq!(
+        chain_key_envs(&config, "cc", &fallbacks).unwrap(),
+        ["ANTHROPIC_API_KEY", "DEEPSEEK_API_KEY"]
+    );
+    let (args, envs) = launch(&[]);
+    assert!(!args.iter().any(|arg| arg == "--fallback-profile"));
+    assert!(
+        !envs.keys().any(|name| name.ends_with("KEY")),
+        "a CLI alone reads no key: {envs:?}"
+    );
+}
+
+/// Each seat's chain is frozen in the request: what the profiles file
+/// says at room creation must be what the scheduler froze, and an older
+/// request with no chain takes none.
+#[test]
+fn preopen_pins_hold_each_seat_to_its_frozen_chain() {
+    let dir = crate::audit::tests::TestDir::new("preopen-chain");
+    let config = chained_profiles(dir.path());
+    let profiles = ["cc".to_owned(), "ds".to_owned()];
+    let models = ["gpt-6.1-terra".to_owned(), "deepseek-flash".to_owned()];
+    let request = |chains: Value| {
+        let mut request = json!({"profiles_config_sha256": sha256_file(&config).unwrap()});
+        if !chains.is_null() {
+            request["fallback_profiles"] = chains;
+        }
+        request
+    };
+    let frozen = request(json!([["opus-api", "ds"], []]));
+    let requested = validate_profile_pins(&config, &frozen, &profiles, &models).unwrap();
+    assert_eq!(
+        requested.fallback_profiles(),
+        [vec!["opus-api".to_owned(), "ds".to_owned()], Vec::new()]
+    );
+    let minds = requested.fallback_minds();
+    assert_eq!(
+        serde_json::to_value(&minds).unwrap(),
+        json!([[
+            {"kind": "llm_api", "provider": "anthropic", "model": "claude-opus-5-5", "effort": "low"},
+            {"kind": "llm_api", "provider": "openai", "model": "deepseek-flash"},
+        ], []])
+    );
+    assert_eq!(requested.declarable()[0].len(), 3);
+    assert_eq!(requested.declarable()[1].len(), 1);
+    for other in [
+        json!([["ds", "opus-api"], []]),
+        json!([["opus-api"], []]),
+        json!([[], []]),
+        Value::Null,
+    ] {
+        assert!(
+            validate_profile_pins(&config, &request(other.clone()), &profiles, &models).is_err(),
+            "{other}"
+        );
+    }
+}
+
 #[test]
 fn credential_destination_requires_literal_loopback_without_url_secrets() {
     for base in ["http://127.0.0.1:28768", "http://[::1]:28768"] {
@@ -320,7 +458,7 @@ fn official_end_proves_closure_without_gameover_but_not_admission() {
     let room: Value =
         serde_json::from_slice(&std::fs::read(out.join("room-state.json")).unwrap()).unwrap();
     assert_eq!(room["closure_verified"], true);
-    let proof = audit_record(&record, &[expected.clone(), expected]).unwrap();
+    let proof = audit_record(&record, &[vec![expected.clone()], vec![expected]]).unwrap();
     assert!(audit_transcript(&out.join("missing-seat.jsonl"), &proof.inputs[0]).is_err());
     assert!(!out.join("technical-result.json").exists());
     assert!(!out.join("receipt.json").exists());
@@ -366,14 +504,14 @@ fn completed_invalid_identity_proves_closure_but_never_creates_admission() {
         serde_json::from_slice(&std::fs::read(out.join("room-state.json")).unwrap()).unwrap();
     assert_eq!(room["status"], "closed");
     assert_eq!(room["closure_verified"], true);
-    assert!(audit_record(&record, &[expected.clone(), expected]).is_err());
+    assert!(audit_record(&record, &[vec![expected.clone()], vec![expected]]).is_err());
     assert!(!out.join("technical-result.json").exists());
     assert!(!out.join("receipt.json").exists());
     // A correctly declared completed game still fails admission if its
     // accepted input has no matching ordered transcript send.
     let expected = crate::audit::tests::codex_identity();
     crate::audit::tests::write_identity_record(&record, &expected);
-    let proof = audit_record(&record, &[expected.clone(), expected]).unwrap();
+    let proof = audit_record(&record, &[vec![expected.clone()], vec![expected]]).unwrap();
     assert!(
         ordered_attribution(&out.join("transcripts/game-seat0.jsonl"), &proof.inputs[0]).is_err()
     );
@@ -401,9 +539,14 @@ fn preopen_pins_reject_changes_and_model_mismatch() {
         "profiles_config_sha256":sha256_file(&config).unwrap(),
         "pairings_file":pairings, "pairings_sha256":sha256_file(&pairings).unwrap(),
     });
-    let (_, expected_minds) = validate_profile_pins(&config, &request, &profiles, &models).unwrap();
+    let requested = validate_profile_pins(&config, &request, &profiles, &models).unwrap();
+    let expected_minds = requested.minds();
     assert_eq!(expected_minds[0], crate::audit::tests::codex_identity());
     assert_eq!(expected_minds[1], crate::audit::tests::codex_identity());
+    assert_eq!(
+        requested.fallback_profiles(),
+        [Vec::<String>::new(), Vec::new()]
+    );
     let wrong = ["wrong-model".to_owned(), models[1].clone()];
     assert!(validate_profile_pins(&config, &request, &profiles, &wrong).is_err());
     std::fs::write(&pairings, "[]").unwrap();

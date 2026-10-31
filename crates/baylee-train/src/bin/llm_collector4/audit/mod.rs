@@ -212,6 +212,13 @@ pub struct RecordProof {
     pub terminal: Value,
     pub inputs: [Vec<Value>; 2],
     pub input_count: usize,
+    /// What each seat declared, in order: `{"mind", "chain_index",
+    /// "first_input_n"}`, the mind as the record has it, where it stands in
+    /// the seat's requested chain (0 its profile's, 1 its first fallback,
+    /// …), and the record `n` of the seat's first input after it (`null`
+    /// where none came). A mind declared again on a new socket is not listed
+    /// again.
+    pub declared: [Vec<Value>; 2],
     input_ns: Vec<u64>,
     record: Vec<u8>,
 }
@@ -285,11 +292,31 @@ pub fn audit_record_setup(
     }))
 }
 
-/// Audit the exported gzipped game record against the exact pinned declarations.
+/// Where a seat's declaration stands in its requested chain: the first
+/// is the profile's own mind; each later one is the mind playing now
+/// again (a socket dialled again declares it again) or a fallback after
+/// it, never one before it (a game never hands back). `None` where the
+/// declaration is not in the chain there.
+fn chain_index(
+    chain: &[baylee_gamehost::record::Mind],
+    from: Option<usize>,
+    declared: &baylee_gamehost::record::Mind,
+) -> Option<usize> {
+    match from {
+        None => (chain.first() == Some(declared)).then_some(0),
+        Some(from) => (from..chain.len()).find(|&at| &chain[at] == declared),
+    }
+}
+
+/// Audit the exported gzipped game record against the exact pinned
+/// declarations: each seat's `chains[seat]`, the mind its profile declares
+/// and then its fallbacks' in the order they take over. Each seat's first
+/// declaration is its profile's, and each after it is the mind playing now
+/// or a later one of its chain ([`chain_index`]); anything else fails.
 #[allow(clippy::too_many_lines)]
 pub fn audit_record(
     path: &Path,
-    expected_minds: &[baylee_gamehost::record::Mind; 2],
+    chains: &[Vec<baylee_gamehost::record::Mind>; 2],
 ) -> anyhow::Result<RecordProof> {
     let data = read_jsonl(path)?;
     let end = terminal_row(&data)?.clone();
@@ -306,7 +333,10 @@ pub fn audit_record(
         .map_or(0, Vec::len);
     ensure!(seats_len == 2, "Wrong seat count");
 
-    let mut minds: [Option<Value>; 2] = [None, None];
+    // Where each seat's last declaration stands in its chain, and what
+    // each seat declared, a mind declared again folded into itself.
+    let mut standing: [Option<usize>; 2] = [None, None];
+    let mut declared: [Vec<Value>; 2] = [Vec::new(), Vec::new()];
     let mut inputs: [Vec<Value>; 2] = [Vec::new(), Vec::new()];
     for value in &data {
         let kind = value.get("kind").and_then(Value::as_str).unwrap_or("");
@@ -325,12 +355,17 @@ pub fn audit_record(
                 .context("Missing declared seat")?;
             ensure!(seat < 2, "Unexpected declared seat");
             let mind = value.get("mind").context("Missing mind object")?;
-            let declared: baylee_gamehost::record::Mind = serde_json::from_value(mind.clone())?;
-            ensure!(
-                declared == expected_minds[seat],
-                "Unexpected declared identity for seat {seat}"
-            );
-            minds[seat] = Some(mind.clone());
+            let mind: baylee_gamehost::record::Mind = serde_json::from_value(mind.clone())?;
+            let index = chain_index(&chains[seat], standing[seat], &mind)
+                .with_context(|| format!("Unexpected declared identity for seat {seat}"))?;
+            if standing[seat] != Some(index) {
+                declared[seat].push(json!({
+                    "mind": mind,
+                    "chain_index": index,
+                    "first_input_n": null,
+                }));
+            }
+            standing[seat] = Some(index);
         } else if kind == "input" {
             let seat = value
                 .get("seat")
@@ -338,11 +373,16 @@ pub fn audit_record(
                 .and_then(|s| usize::try_from(s).ok())
                 .context("Missing input seat")?;
             ensure!(seat < 2, "Unexpected input seat");
+            if let Some(latest) = declared[seat].last_mut()
+                && latest["first_input_n"].is_null()
+            {
+                latest["first_input_n"] = value.get("n").cloned().unwrap_or(Value::Null);
+            }
             inputs[seat].push(value.clone());
         }
     }
-    let _m0 = minds[0].take().context("Missing seat 0 LLM declaration")?;
-    let _m1 = minds[1].take().context("Missing seat 1 LLM declaration")?;
+    ensure!(!declared[0].is_empty(), "Missing seat 0 LLM declaration");
+    ensure!(!declared[1].is_empty(), "Missing seat 1 LLM declaration");
     let winners = end
         .get("winners")
         .and_then(Value::as_array)
@@ -383,6 +423,7 @@ pub fn audit_record(
         }),
         inputs,
         input_count,
+        declared,
         input_ns,
         record,
     })
@@ -420,6 +461,32 @@ pub fn classify_quota_events(data: &[Value]) -> Value {
         "quota_limited": !evidence.is_empty(),
         "evidence": evidence,
         "scope": "Explicit native rate-limit/busy/cooldown signals for operational backoff only; not a claim that monetary quota was exhausted.",
+    })
+}
+
+/// What a seat's transcript says of its fallback profiles
+/// (`docs/llm-seat.md` §"A fallback profile"), in the order it happened:
+/// each that took over (`took_over`: `{"profile", "turn", "cause", "why"}`,
+/// `cause` `limited` or `failed`), each that could not (`refused`:
+/// `{"profile", "why"}`), and how each that took over played (`played`:
+/// `{"label", "turn", "answered"}`, the bridge's closing `fell_back` line).
+pub fn transcript_fallbacks(data: &[Value]) -> Value {
+    let notes = |key: &str| -> Vec<Value> {
+        data.iter()
+            .filter_map(|row| row.get(key))
+            .filter(|note| note.is_object())
+            .cloned()
+            .collect()
+    };
+    json!({
+        "took_over": notes("fallback"),
+        "refused": notes("fallback_refused"),
+        "played": data
+            .iter()
+            .rev()
+            .find_map(|row| row.get("fell_back"))
+            .cloned()
+            .unwrap_or_else(|| json!([])),
     })
 }
 
@@ -674,6 +741,35 @@ pub fn ordered_attribution(transcript_path: &Path, seat_inputs: &[Value]) -> any
     }))
 }
 
+/// A seat row's `declared_minds` hold what [`audit_record`] proved: the
+/// profile's own mind first, then fallbacks of the seat's requested chain
+/// (`requested_fallbacks`, none in an older request), each later than the
+/// one before it.
+fn declared_in_order(row: &Value, request: &Value, seat: usize) -> anyhow::Result<()> {
+    let places = row
+        .get("declared_minds")
+        .and_then(Value::as_array)
+        .context("Missing declared_minds")?
+        .iter()
+        .map(|declared| declared.get("chain_index").and_then(Value::as_u64))
+        .collect::<Option<Vec<u64>>>()
+        .context("A declared mind without its place in the chain")?;
+    let fallbacks = request
+        .get("requested_fallbacks")
+        .and_then(|seats| seats.get(seat))
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    ensure!(
+        places.first() == Some(&0)
+            && places.windows(2).all(|pair| pair[0] < pair[1])
+            && places
+                .iter()
+                .all(|&place| usize::try_from(place).is_ok_and(|place| place <= fallbacks)),
+        "Declared minds out of seat {seat}'s requested chain"
+    );
+    Ok(())
+}
+
 /// Validate `technical-result.json` against `core.py::validate`.
 #[allow(clippy::too_many_lines)]
 pub fn validate_technical_result(
@@ -739,6 +835,7 @@ pub fn validate_technical_result(
                 && row.get("declared_mind_verified").and_then(Value::as_bool) == Some(true),
             "Wrong seat/model provenance"
         );
+        declared_in_order(row, request, seat)?;
         let counts = row
             .get("transcript_answer_counts")
             .and_then(Value::as_object)
