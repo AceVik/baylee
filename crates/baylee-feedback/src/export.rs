@@ -4,7 +4,8 @@
 //! `central-service --import-reports-stdin`).
 //!
 //! One report a line, oldest first, read one at a time so a record of
-//! 64 MiB is held once; then a last line with the format, the count and the
+//! 64 MiB is held once, its gzip as hex (Central reads that without a
+//! decoder of its own); then a last line with the format, the count and the
 //! SHA-256 of every line before it, so Central refuses a copy that was cut
 //! short. What Central would refuse is brought within its bounds as the
 //! gateway brings a report (`baylee_account::reports`); a report it would
@@ -13,7 +14,6 @@
 use std::io::Write;
 
 use anyhow::{Context as _, Result};
-use base64::Engine as _;
 use baylee_account::reports::{self as intake, Build, Crash, ReportKind};
 use sea_orm::{ConnectionTrait, DatabaseConnection, QueryResult, Statement, Value};
 use serde::Serialize;
@@ -30,7 +30,7 @@ struct Says {
     version: Option<String>,
 }
 
-/// A record, gzip in standard base64.
+/// A record, gzip in lowercase hex.
 #[derive(Serialize)]
 struct Record {
     complete: bool,
@@ -105,6 +105,16 @@ fn get<T: sea_orm::TryGetable>(row: &QueryResult, column: &str) -> Result<T> {
         .with_context(|| format!("reading {column}"))
 }
 
+fn hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut s, b| {
+            let _ = write!(s, "{b:02x}");
+            s
+        })
+}
+
 fn gzip(bytes: &[u8]) -> Result<Vec<u8>> {
     let mut out = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
     out.write_all(bytes)?;
@@ -168,7 +178,7 @@ fn line(
             Ok(Record {
                 complete: get::<Option<bool>>(row, "record_complete")?.unwrap_or(false),
                 origin,
-                gzip: base64::engine::general_purpose::STANDARD.encode(r),
+                gzip: hex(&r),
             })
         })
         .transpose()?;
@@ -199,7 +209,7 @@ fn line(
         priority: get(row, "priority")?,
         labels,
         assignee: get(row, "assignee")?,
-        client_gzip: client_gzip.map(|g| base64::engine::general_purpose::STANDARD.encode(g)),
+        client_gzip: client_gzip.map(|g| hex(&g)),
         record,
         notes,
         audit,
@@ -274,14 +284,7 @@ pub async fn export_reports(db: &DatabaseConnection, out: &mut impl Write) -> Re
     let trailer = Trailer {
         format: FORMAT,
         count,
-        sha256: digest
-            .finalize()
-            .iter()
-            .fold(String::with_capacity(64), |mut s, b| {
-                use std::fmt::Write as _;
-                let _ = write!(s, "{b:02x}");
-                s
-            }),
+        sha256: hex(&digest.finalize()),
     };
     serde_json::to_writer(&mut *out, &trailer)?;
     out.write_all(b"\n")?;

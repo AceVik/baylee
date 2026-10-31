@@ -1,13 +1,12 @@
 //! `baylee-feedback export-reports` against a real PostgreSQL: the open
 //! reports outside the trash, each a line within Central's bounds, with its
-//! notes and history, its client details and record as base64 gzip, and a
+//! notes and history, its client details and record as hex gzip, and a
 //! last line whose count and SHA-256 cover exactly the lines before it.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
 use std::io::{Read as _, Write as _};
 
-use base64::Engine as _;
 use sea_orm::{ConnectionTrait, Database};
 use sha2::{Digest as _, Sha256};
 use uuid::Uuid;
@@ -187,9 +186,11 @@ fn the_lines_say(lines: &[&str], open: Uuid, record: &[u8]) {
     assert_eq!(first["notes"][0]["text"], "Looks like the stack");
     assert_eq!(first["audit"][0]["detail"], "new → triaged");
     let gz = |v: &serde_json::Value| {
-        base64::engine::general_purpose::STANDARD
-            .decode(v.as_str().unwrap())
-            .unwrap()
+        let text = v.as_str().unwrap();
+        (0..text.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&text[i..i + 2], 16).unwrap())
+            .collect::<Vec<u8>>()
     };
     assert_eq!(gz(&first["record"]["gzip"]), record);
     assert_eq!(first["record"]["origin"], "gateway");

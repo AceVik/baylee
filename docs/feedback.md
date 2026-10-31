@@ -188,8 +188,8 @@ JSON Lines, UTF-8: every report outside the trash whose status is `new`,
  "channel": "gateway" | "direct", "reporter": "<hex>", "kind": "bug", "status": "triaged",
  "text": "…", "game_id": "…", "build": {"version": "…", "commit": "…"}, "crash": {"message": "…", "location": "…"},
  "issue": 311, "priority": "high", "labels": ["ui"], "assignee": "<an admin's name here>",
- "client_gzip": "<the client object's JSON, gzip, standard base64>",
- "record": {"complete": true, "origin": "gateway" | "client", "gzip": "<standard base64>"},
+ "client_gzip": "<the client object's JSON, gzip, lowercase hex>",
+ "record": {"complete": true, "origin": "gateway" | "client", "gzip": "<lowercase hex>"},
  "notes": [{"at": 1761900000, "author": "<admin name>", "text": "…"}],
  "audit": [{"at": 1761900000, "actor": "<admin name or token>", "action": "status", "detail": "new → triaged"}]}
 ```
@@ -197,7 +197,7 @@ JSON Lines, UTF-8: every report outside the trash whose status is `new`,
 then one last line, `{"format": "baylee-feedback-reports/1", "count": n,
 "sha256": "<64 hex digits>"}`, the SHA-256 over every line before it, each
 with its line break, so a copy cut short is refused whole. Times are Unix
-seconds. What Central would refuse is brought within its bounds as a
+seconds; the gzip is hex, which Central reads without a decoder of its own. What Central would refuse is brought within its bounds as a
 gateway brings a report (§"To Baylee Central instead"): the text, the
 build and a crash's message and place (read from the client object, a
 crash only), what the gateway said of itself, a `game_id` that is not
