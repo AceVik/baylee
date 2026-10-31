@@ -68,7 +68,23 @@ fn optional_band_fallback_is_accepted_when_all_three_offered_members_are_not() {
         let action = match pending {
             Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
             Pending::Priority { .. } => PlayerAction::PassPriority,
-            Pending::ChooseAttackers { attackers, .. } if player == me => {
+            // The engine asks every active player for a declaration, also
+            // one with nothing to attack with.
+            Pending::ChooseAttackers { .. } if player != me => PlayerAction::DeclareAttackers {
+                attackers: Vec::new(),
+            },
+            // The opponent, who moves first, discards to hand size.
+            Pending::DiscardChoice { count, .. } => PlayerAction::ChooseObjects {
+                objects: engine
+                    .state()
+                    .zones
+                    .list(baylee_engine::zone::ZoneLocation::Hand(player))
+                    .iter()
+                    .take(usize::from(count))
+                    .copied()
+                    .collect(),
+            },
+            Pending::ChooseAttackers { attackers, .. } => {
                 assert_eq!(attackers.len(), 4);
                 PlayerAction::DeclareAttackers {
                     attackers: attackers
