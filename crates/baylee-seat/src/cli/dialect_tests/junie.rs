@@ -90,7 +90,8 @@ fn options(changed: &[(&str, &str)]) -> Value {
         {"type": "select", "id": "model", "currentValue": value("model", "mix.normal"),
          "options": [{"group": "mixes", "options": [{"value": "mix.normal"}]},
                      {"group": "models", "options": [{"value": "gemini-3.7-flash"},
-                                                     {"value": "claude-opus-5-5"}]}]},
+                                                     {"value": "claude-opus-5-5"},
+                                                     {"value": "v1:12:jetbrains-ai:claude-haiku-5-5"}]}]},
         option("effort", &value("effort", "high"),
                &["none", "low", "medium", "high", "xhigh", "max"]),
         option("brave_mode", &value("brave_mode", "brave-auto"), &["brave-auto", "on", "off"]),
@@ -275,36 +276,68 @@ fn junie_opens_its_session_with_brave_mode_off_before_any_prompt() {
     );
 }
 
-/// A model or an effort the flags did not choose is set where Junie offers
-/// it, and left as Junie chose where it does not (an alias); brave mode is
-/// asked for whatever Junie says it offers.
-#[test]
-fn junie_sets_an_offered_model_and_leaves_an_alias() {
-    let (mut drive, _) = Drive::new(Some("claude-opus-5-5"), Some("low"));
-    drive.read(&initialized());
-    let (_, out) = drive.read(&created(&[]));
-    let asked: Vec<(&str, &str)> = out
-        .iter()
+/// The asked options of an opening's lines, as `(configId, value)`.
+fn asked(out: &[Value]) -> Vec<(&str, &str)> {
+    out.iter()
         .map(|line| {
             (
                 line["params"]["configId"].as_str().unwrap(),
                 line["params"]["value"].as_str().unwrap(),
             )
         })
-        .collect();
+        .collect()
+}
+
+/// The model and the effort a profile names are set where Junie offers
+/// them, the model by Junie's full id where that is how Junie names it;
+/// brave mode is asked for whatever Junie says it offers.
+#[test]
+fn junie_sets_the_offered_model_by_its_full_id() {
+    let (mut drive, _) = Drive::new(Some("claude-opus-5-5"), Some("low"));
+    drive.read(&initialized());
+    let (_, out) = drive.read(&created(&[]));
     assert_eq!(
-        asked,
+        asked(&out),
         [
             ("brave_mode", "off"),
             ("model", "claude-opus-5-5"),
             ("effort", "low")
         ]
     );
-    let (mut drive, _) = Drive::new(Some("opus"), None);
+    let (mut drive, _) = Drive::new(Some("claude-haiku-5-5"), None);
     drive.read(&initialized());
     let (_, out) = drive.read(&created(&[("brave_mode", "off")]));
-    assert!(out.is_empty(), "nothing to ask for: {out:?}");
+    assert_eq!(
+        asked(&out),
+        [("model", "v1:12:jetbrains-ai:claude-haiku-5-5")]
+    );
+    drive.read(&set_result(
+        3,
+        &[
+            ("brave_mode", "off"),
+            ("model", "v1:12:jetbrains-ai:claude-haiku-5-5"),
+        ],
+    ));
     assert_eq!(drive.send("q1").len(), 1, "the opening is through");
+}
+
+/// A model Junie does not offer (an alias, Junie Lite) is asked for, and
+/// a session that keeps another is the model unavailable, never played
+/// under the name the seat declared, and no breach: a fallback may take
+/// the game.
+#[test]
+fn junie_refuses_a_model_it_does_not_offer() {
+    let (mut drive, _) = Drive::new(Some("junie-lite"), None);
+    drive.read(&initialized());
+    let (_, out) = drive.read(&created(&[("brave_mode", "off")]));
+    assert_eq!(asked(&out), [("model", "junie-lite")]);
+    let (events, out) = drive.read(&set_result(3, &[("brave_mode", "off")]));
+    assert!(out.is_empty(), "nothing went out: {out:?}");
+    let [Event::Reply(Outcome::Failed(why))] = events.as_slice() else {
+        panic!("{events:?}");
+    };
+    assert!(why.contains("model mix.normal, not junie-lite"), "{why}");
+    assert!(drive.send("q1").is_empty(), "the session plays nothing");
 }
 
 /// A session that does not confirm brave mode off takes the mind off the

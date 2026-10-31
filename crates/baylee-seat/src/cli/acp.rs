@@ -336,7 +336,7 @@ fn notification(method: &str, value: &Value, wire: &mut Wire, agent: &Agent) -> 
         Some("config_option_update") if ours => {
             note_options(&mut wire.acp, update.get("configOptions"));
             match unmet(&wire.acp, agent) {
-                Some(why) if wire.acp.stage == Stage::Ready => Event::Breach(why),
+                Some((_, why)) if wire.acp.stage == Stage::Ready => Event::Breach(why),
                 _ => Event::Other,
             }
         }
@@ -449,12 +449,21 @@ fn ask_options(wire: &mut Wire) {
     let asking: Vec<Want> = acp
         .wants
         .iter()
-        .filter(|want| {
+        .filter_map(|want| {
             let choice = acp.options.get(want.id);
-            choice.and_then(|choice| choice.current.as_ref()) != Some(&want.value)
-                && (want.must || choice.is_some_and(|choice| choice.offered.contains(&want.value)))
+            if holds(want, choice.and_then(|choice| choice.current.as_deref())) {
+                return None;
+            }
+            match choice.and_then(|choice| offered(want, choice)) {
+                Some(value) => Some(Want {
+                    value,
+                    ..want.clone()
+                }),
+                // One the agent does not offer is asked for all the same
+                // where it must hold; the answer says whether it does.
+                None => want.must.then(|| want.clone()),
+            }
         })
-        .cloned()
         .collect();
     for want in asking {
         let params = json!({"sessionId": session, "configId": want.id, "value": want.value});
@@ -498,21 +507,49 @@ fn note_options(acp: &mut Acp, options: Option<&Value>) {
     }
 }
 
-/// Why the session does not hold an option it must: `None` where it holds
-/// every one.
-fn unmet(acp: &Acp, agent: &Agent) -> Option<String> {
+/// Whether `current` is the value `want` asks for: that value, or an
+/// agent's full id of it, whose last `:` part it is (Junie's model
+/// `v1:12:jetbrains-ai:claude-opus-5-5` for `claude-opus-5-5`).
+fn holds(want: &Want, current: Option<&str>) -> bool {
+    current.is_some_and(|current| {
+        current == want.value || current.rsplit(':').next() == Some(want.value.as_str())
+    })
+}
+
+/// The value the agent offers for `want`: the very value, else the one
+/// whose full id it names ([`holds`]).
+fn offered(want: &Want, choice: &Choice) -> Option<String> {
+    choice
+        .offered
+        .iter()
+        .find(|value| **value == want.value)
+        .or_else(|| {
+            choice
+                .offered
+                .iter()
+                .find(|value| holds(want, Some(value.as_str())))
+        })
+        .cloned()
+}
+
+/// The option the session does not hold though it must, and why: `None`
+/// where it holds every one.
+fn unmet(acp: &Acp, agent: &Agent) -> Option<(&'static str, String)> {
     acp.wants.iter().filter(|want| want.must).find_map(|want| {
         let current = acp
             .options
             .get(want.id)
             .and_then(|choice| choice.current.as_deref());
-        (current != Some(want.value.as_str())).then(|| {
-            format!(
-                "the {} process's session has {} {}, not {}: the seat does not play through it",
-                agent.name,
+        (!holds(want, current)).then(|| {
+            (
                 want.id,
-                current.unwrap_or("unsaid"),
-                want.value
+                format!(
+                    "the {} process's session has {} {}, not {}: the seat does not play through it",
+                    agent.name,
+                    want.id,
+                    current.unwrap_or("unsaid"),
+                    want.value
+                ),
             )
         })
     })
@@ -530,9 +567,15 @@ fn opened(wire: &mut Wire, agent: &Agent) -> Event {
     if acp.stage != Stage::Setting || setting {
         return Event::Other;
     }
-    if let Some(why) = unmet(acp, agent) {
-        return Event::Breach(why);
+    match unmet(acp, agent) {
+        // A model the agent does not offer is one this session cannot
+        // play, nothing it did: the model is unavailable, and a fallback
+        // may take the game, never another model under its name.
+        Some(("model", why)) => return broken(&why, wire, agent),
+        Some((_, why)) => return Event::Breach(why),
+        None => {}
     }
+    let acp = &mut wire.acp;
     acp.stage = Stage::Ready;
     let chosen: BTreeMap<&str, Option<&str>> = acp
         .wants

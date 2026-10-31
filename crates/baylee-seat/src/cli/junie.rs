@@ -162,10 +162,13 @@ impl Dialect for Junie {
             must: true,
         }];
         if let Some(model) = model {
+            // The model the seat declares is the one that plays: Junie's
+            // ACP session ignores `--model` for a model it does not offer
+            // (Junie Lite, measured 31.10.2026) and plays its default.
             wants.push(Want {
                 id: "model",
                 value: model.into(),
-                must: false,
+                must: true,
             });
         }
         if let Some(effort) = &settings.effort {
