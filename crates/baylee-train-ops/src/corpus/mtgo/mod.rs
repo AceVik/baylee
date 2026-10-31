@@ -52,20 +52,23 @@ pub struct Options {
     pub similarity: f64,
     /// Explicit first-game projection; discard all sideboard entries.
     pub mainboard_only: bool,
+    /// Also write, to this new JSON file, every otherwise valid list that
+    /// misses at most `NEAR_COMPLETE` distinct cards, unchanged and with its
+    /// missing cards named (`adapt_decks4` substitutes them).
+    pub near_complete_out: Option<PathBuf>,
 }
 struct Deck {
     cards: BTreeMap<u64, u64>,
     names: BTreeMap<u64, String>,
+    /// Cards the pool does not have, as the list names them, with counts.
+    missing: BTreeMap<String, u64>,
     held: bool,
 }
-enum CardError {
-    /// Every distinct card of the list the pool does not have.
-    Unsupported(BTreeSet<String>),
-    Invalid,
-}
+/// A count that is not a whole number from 1 to 100 refuses the list.
+struct InvalidCount;
 /// A deck missing at most this many distinct cards is near complete: the
 /// report ranks the missing cards by how many such decks they would unlock.
-const NEAR_COMPLETE: usize = 3;
+pub const NEAR_COMPLETE: usize = 3;
 fn field<'a>(value: &'a Value, pascal: &str, snake: &str) -> &'a Value {
     value
         .get(pascal)
@@ -75,15 +78,15 @@ fn field<'a>(value: &'a Value, pascal: &str, snake: &str) -> &'a Value {
 fn read_cards(
     rows: &Value,
     lookup: &BTreeMap<String, Card>,
-) -> std::result::Result<Deck, CardError> {
+) -> std::result::Result<Deck, InvalidCount> {
     let empty = Vec::new();
     let rows = rows.as_array().unwrap_or(&empty);
     let mut result = Deck {
         cards: BTreeMap::new(),
         names: BTreeMap::new(),
+        missing: BTreeMap::new(),
         held: false,
     };
-    let mut missing = BTreeSet::new();
     for row in rows {
         let name = field(row, "CardName", "card_name")
             .as_str()
@@ -91,21 +94,17 @@ fn read_cards(
         let count = field(row, "Count", "count")
             .as_u64()
             .filter(|n| (1..=100).contains(n))
-            .ok_or(CardError::Invalid)?;
+            .ok_or(InvalidCount)?;
         // Read on past an unsupported card: the report counts all of them.
         let Some(card) = lookup.get(&fold(name)) else {
-            missing.insert(name.to_owned());
+            *result.missing.entry(name.to_owned()).or_default() += count;
             continue;
         };
         *result.cards.entry(card.id).or_default() += count;
         result.names.insert(card.id, card.name.clone());
         result.held |= card.held;
     }
-    if missing.is_empty() {
-        Ok(result)
-    } else {
-        Err(CardError::Unsupported(missing))
-    }
+    Ok(result)
 }
 fn bump(counts: &mut BTreeMap<String, u64>, key: &str) {
     *counts.entry(key.to_owned()).or_default() += 1;
@@ -124,6 +123,9 @@ struct Importer {
     unlocks: BTreeMap<String, u64>,
     /// Lists by how many distinct cards they miss (`5+` beyond four).
     missing_histogram: BTreeMap<String, u64>,
+    /// Distinct near-complete lists, unchanged, for `--near-complete-out`.
+    near_complete: Vec<Value>,
+    near_seen: BTreeSet<String>,
     per_format: BTreeMap<String, u64>,
     accepted: Vec<Value>,
     rejected: Vec<Value>,
@@ -167,6 +169,8 @@ pub fn import(options: &Options) -> Result<Value> {
         unsupported: BTreeMap::new(),
         unlocks: BTreeMap::new(),
         missing_histogram: BTreeMap::new(),
+        near_complete: Vec::new(),
+        near_seen: BTreeSet::new(),
         per_format: BTreeMap::new(),
         accepted: Vec::new(),
         rejected: Vec::new(),
@@ -280,23 +284,23 @@ impl Importer {
             },
             &self.lookup,
         );
-        let (main, side) = match (main, side) {
-            (Ok(main), Ok(side)) => (main, side),
-            (Err(CardError::Invalid), _) | (_, Err(CardError::Invalid)) => {
-                bump(&mut self.counts, "invalid_count");
-                return Ok(());
-            }
-            (main, side) => {
-                let mut missing = BTreeSet::new();
-                for part in [main, side] {
-                    if let Err(CardError::Unsupported(names)) = part {
-                        missing.extend(names);
-                    }
-                }
-                self.record_missing(&missing);
-                return Ok(());
-            }
+        let (Ok(main), Ok(side)) = (main, side) else {
+            bump(&mut self.counts, "invalid_count");
+            return Ok(());
         };
+        let missing: BTreeSet<String> = main
+            .missing
+            .keys()
+            .chain(side.missing.keys())
+            .cloned()
+            .collect();
+        if !missing.is_empty() {
+            self.record_missing(&missing);
+            if missing.len() <= NEAR_COMPLETE && options.near_complete_out.is_some() {
+                self.keep_near_complete(format, relative, number, &main, &side, tournament)?;
+            }
+            return Ok(());
+        }
         let main_count: u64 = main.cards.values().sum();
         let side_count: u64 = side.cards.values().sum();
         if !(60..=100).contains(&main_count) || side_count > 15 {
@@ -362,6 +366,60 @@ impl Importer {
         bump(&mut self.counts, "accepted");
         Ok(())
     }
+    /// Keeps a near-complete list unchanged, under the checks a complete
+    /// list passes (size, not only basics, not an exact repeat).
+    fn keep_near_complete(
+        &mut self,
+        format: &str,
+        relative: &str,
+        number: usize,
+        main: &Deck,
+        side: &Deck,
+        tournament: &Value,
+    ) -> Result<()> {
+        let rows = |deck: &Deck| -> Vec<(String, u64)> {
+            deck.cards
+                .iter()
+                .map(|(id, count)| (deck.names[id].clone(), *count))
+                .chain(
+                    deck.missing
+                        .iter()
+                        .map(|(name, count)| (name.clone(), *count)),
+                )
+                .collect()
+        };
+        let (main_rows, side_rows) = (rows(main), rows(side));
+        let main_count: u64 = main_rows.iter().map(|(_, n)| n).sum();
+        let side_count: u64 = side_rows.iter().map(|(_, n)| n).sum();
+        if !(60..=100).contains(&main_count)
+            || side_count > 15
+            || main_rows
+                .iter()
+                .all(|(name, _)| BASICS.contains(&fold(name).as_str()))
+        {
+            return Ok(());
+        }
+        let mut folded = main_rows
+            .iter()
+            .map(|(name, count)| (fold(name), *count))
+            .collect::<Vec<_>>();
+        folded.sort();
+        let identity = files::hex(&Sha256::digest(serde_json::to_vec(&folded)?));
+        if !self.near_seen.insert(identity.clone()) {
+            return Ok(());
+        }
+        let missing: BTreeSet<&String> = main.missing.keys().chain(side.missing.keys()).collect();
+        self.near_complete.push(json!({
+            "name": format!("MTGO {format} {}", &identity[..12]),
+            "source_format": format, "source_key": "mtgo_decklistcache",
+            "source_ref": format!("{REPO}/blob/{}/{relative}", self.revision),
+            "source_deck_index": number, "source_revision": self.revision,
+            "source_date": field(tournament, "Date", "date"),
+            "license": "GPL-3.0", "deck_hash": identity,
+            "main": main_rows, "sideboard": side_rows, "missing": missing,
+        }));
+        Ok(())
+    }
     /// Counts a list the pool cannot play yet, by every card it misses.
     fn record_missing(&mut self, missing: &BTreeSet<String>) {
         bump(&mut self.counts, "unsupported_card");
@@ -399,6 +457,16 @@ impl Importer {
         );
         let manifest = json!({"source":REPO,"source_revision":self.revision,"source_archive_sha256":archive_sha,"retrieved_at":retrieved,"working_pool_hash":self.pool,"existing_decks_checked":existing,"max_jaccard_threshold":options.similarity,"counts_by_source_format":self.per_format,"counts_by_split":splits,"decks":self.accepted});
         files::atomic_json(&self.root.join("manifest.json"), &manifest)?;
+        if let Some(path) = &options.near_complete_out {
+            files::atomic_json(
+                path,
+                &json!({"version": 1, "contract": "mtgo_near_complete_v1",
+                    "source": REPO, "source_revision": self.revision,
+                    "source_archive_sha256": archive_sha, "working_pool_hash": self.pool,
+                    "max_missing": NEAR_COMPLETE, "mainboard_only": options.mainboard_only,
+                    "decks": self.near_complete}),
+            )?;
+        }
         files::atomic_json(
             &self.root.join("import-report.json"),
             &json!({"counts":self.counts,

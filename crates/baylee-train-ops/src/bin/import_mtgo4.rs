@@ -17,6 +17,10 @@ struct Args {
     similarity: f64,
     #[arg(long)]
     mainboard_only: bool,
+    /// Also write, to this new JSON file, every list that misses at most
+    /// three distinct cards, unchanged, for `adapt_decks4`.
+    #[arg(long)]
+    near_complete_out: Option<PathBuf>,
 }
 fn main() -> Result<()> {
     let a = Args::parse();
@@ -27,6 +31,7 @@ fn main() -> Result<()> {
         max_per_format: a.max_per_format,
         similarity: a.similarity,
         mainboard_only: a.mainboard_only,
+        near_complete_out: a.near_complete_out,
     })?;
     println!(
         "{}",
