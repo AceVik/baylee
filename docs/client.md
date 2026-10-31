@@ -9797,7 +9797,9 @@ devices, so what holds the address is moved in one of two ways.
   too (`filed`), so an installed client shows its own pinned row and no
   second one.
 
-The chat unlock a Central sign-in hands over is for `PINNED`. A browser's
+A Central sign-in hands the chat no password: every local vault the password
+opens gains the account's key, found by its folder under whichever address
+it is filed (`docs/password-vault.md` §"The account key"). A browser's
 `localStorage` belongs to the page's origin: `/play/` on the new host starts
 empty, and a browser guest kept on the old host stays there. Tests:
 `gateway_list` (the mapping), `settings` (a file from before the move),

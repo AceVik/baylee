@@ -61,8 +61,9 @@ create a new signing identity. Older identities remain readable archives.
 The reusable `ContextGuard` uses the same private directory validation and process
 lock as the previous password vault. The local `central-installation.id` is public
 metadata. A corrupt ID is refused, never silently replaced. Existing password-vault
-keys are opened locally using the short-lived login handoff and imported unchanged;
-the original encrypted file is retained. Existing legacy history and supported
+keys are opened locally with the account's vault key, which a password sign-in gave
+the vault (`password-vault.md` §"The account key"), and imported unchanged; the
+original encrypted file is retained. Existing legacy history and supported
 legacy key files/keychain entries are imported without overwriting unequal files.
 If an old wrapper needs a different password, the existing unlock/import UI remains
 available. Failure to read/decrypt existing data is not permission to generate keys.

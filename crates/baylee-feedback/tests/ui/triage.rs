@@ -828,3 +828,116 @@ async fn the_csv_export_follows_the_filter_and_holds_no_formula() {
     );
     service.close().await;
 }
+
+/// A report as a language-model seat (or anything else naming itself) sends
+/// it: the client's `source`.
+fn from(source: Value, text: &str) -> Value {
+    let mut r = report("bug", "ab12", text, false);
+    r["client"]["source"] = source;
+    r
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_source_filter_shows_one_source_none_or_all_the_others() {
+    let service = Service::start("source", None).await;
+    let cookie = service.login().await;
+    let seat = service
+        .hand_in(GATEWAY, from(json!("llm-seat"), "the seat saw a fault"))
+        .await;
+    let player = service
+        .hand_in(GATEWAY, report("bug", "cd34", "a player saw one", false))
+        .await;
+    let other = service
+        .hand_in(GATEWAY, from(json!("a-bot"), "a bot saw one"))
+        .await;
+    // A source longer than 64 characters is read as its first 64, by the
+    // filter, the facet and the summary alike.
+    let long = "s".repeat(80);
+    let cut = service
+        .hand_in(GATEWAY, from(json!(long), "a long name"))
+        .await;
+
+    for (query, expected) in [
+        ("source=llm-seat", vec![&seat]),
+        ("source=!llm-seat", vec![&cut, &other, &player]),
+        ("source=none", vec![&player]),
+        ("source=!none", vec![&cut, &other, &seat]),
+        (&format!("source={}", "s".repeat(64)), vec![&cut]),
+        ("source=llm-seat&kind=crash", vec![]),
+    ] {
+        assert_eq!(
+            service.ids(&cookie, query).await,
+            expected
+                .iter()
+                .map(|s| (*s).clone())
+                .collect::<Vec<String>>(),
+            "{query}"
+        );
+    }
+    for bad in [
+        "source=",
+        "source=!",
+        "source=llm%01seat",
+        &format!("source={}", "s".repeat(65)),
+    ] {
+        let answer = service
+            .get(&cookie, &format!("/ui/api/reports?{bad}"))
+            .await;
+        assert_eq!(answer.status, 400, "{bad}");
+    }
+
+    // Every list row says its source; the facet counts each, `null` for
+    // none, and keeps offering the others while one is picked.
+    let list = service
+        .get(&cookie, "/ui/api/reports?sort=received&dir=asc")
+        .await
+        .json();
+    let sources: Vec<Value> = list["reports"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["source"].clone())
+        .collect();
+    assert_eq!(
+        sources,
+        vec![
+            json!("llm-seat"),
+            Value::Null,
+            json!("a-bot"),
+            json!("s".repeat(64))
+        ],
+        "{list}"
+    );
+    let facets = service
+        .get(&cookie, "/ui/api/facets?source=llm-seat")
+        .await
+        .json();
+    assert_eq!(facets["total"], 1, "{facets}");
+    let mut counted: Vec<(Value, i64)> = facets["sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| (c["value"].clone(), c["count"].as_i64().unwrap()))
+        .collect();
+    counted.sort_by_key(|(v, _)| v.to_string());
+    assert_eq!(
+        counted,
+        vec![
+            (json!("a-bot"), 1),
+            (json!("llm-seat"), 1),
+            (json!("s".repeat(64)), 1),
+            (Value::Null, 1),
+        ],
+        "{facets}"
+    );
+
+    // The CSV names it too.
+    let csv = service
+        .get(&cookie, "/ui/api/reports.csv?source=llm-seat")
+        .await;
+    let text = String::from_utf8(csv.body).unwrap();
+    let rows: Vec<&str> = text.split("\r\n").filter(|l| !l.is_empty()).collect();
+    assert!(rows[0].contains(",record_origin,source,issue,"), "{text}");
+    assert!(rows[1].contains(",\"llm-seat\","), "{text}");
+    service.close().await;
+}

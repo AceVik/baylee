@@ -474,3 +474,30 @@ fn a_pact_left_unpaid_under_everybody_lives_costs_nothing() {
         );
     }
 }
+
+/// "Players gain hexproof until end of turn": every player, the caster's
+/// opponents too. The modifier protected only the effect's controller, so
+/// the caster's opponent could still be named by the caster's own spells
+/// and abilities, and the caster only by nobody.
+#[test]
+fn everybody_lives_gives_every_player_hexproof() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = Duel::new(SEED, plains())
+        .battlefield(0, &[plains(), plains()])
+        .hand(0, &[everybody_lives()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, everybody_lives());
+    pass_until(&mut engine, stack_is_empty);
+    let options = |you| {
+        eval::target_player_options(
+            engine.state(),
+            &baylee_cards_dsl::TargetSpec::AnyPlayer,
+            you,
+        )
+    };
+    assert_eq!(options(p0), [p0], "p0 cannot name p1, who has hexproof");
+    assert_eq!(options(p1), [p1], "nor p1 the caster");
+}

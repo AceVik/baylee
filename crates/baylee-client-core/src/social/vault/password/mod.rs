@@ -14,12 +14,14 @@ use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
+mod account;
 #[cfg(not(target_arch = "wasm32"))]
 mod file;
+pub use account::{MISS_FILE, MISS_LEN, WRAP_FILE, WRAP_LEN, is_miss_marker, miss_marker};
 #[cfg(windows)]
 mod windows;
 #[cfg(not(target_arch = "wasm32"))]
-pub use file::{ContextGuard, PasswordStore};
+pub use file::{ContextGuard, PasswordStore, attach_account_keys};
 
 const MAGIC: &[u8; 8] = b"BAYVAU01";
 const HEADER: usize = 24;
@@ -109,6 +111,26 @@ impl Scope {
         Ok(Self(hash.finalize().into()))
     }
 
+    /// The scope a vault folder's name says (its last component, 64
+    /// lowercase hex digits), or `None` for any other name.
+    #[must_use]
+    pub fn from_folder_name(name: &str) -> Option<Self> {
+        if name.len() != 64 || !name.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')) {
+            return None;
+        }
+        let mut bytes = [0; 32];
+        for (i, byte) in bytes.iter_mut().enumerate() {
+            *byte = u8::from_str_radix(&name[2 * i..2 * i + 2], 16).ok()?;
+        }
+        Some(Self(bytes))
+    }
+
+    /// The 32 bytes a key is derived for (`Vault::account_wrap`).
+    #[must_use]
+    pub const fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
     /// Relative account folder for encrypted keys. No user-controlled path parts.
     #[must_use]
     pub fn folder(&self) -> String {
@@ -168,6 +190,16 @@ impl Vault {
             return Err(Error::Format);
         }
         key.copy_from_slice(&plain);
+        Self::with_key(scope, key, &record)
+    }
+
+    /// A version-one record opened with its data key however that was
+    /// unwrapped; the payload is authenticated before the vault is answered.
+    fn with_key(scope: Scope, key: Zeroizing<[u8; 32]>, record: &[u8]) -> Result<Self, Error> {
+        let record: [u8; RECORD_LEN] = record.try_into().map_err(|_| Error::Format)?;
+        if &record[..8] != MAGIC {
+            return Err(Error::Format);
+        }
         let vault = Self { scope, key, record };
         vault.secrets()?;
         Ok(vault)
