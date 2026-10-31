@@ -209,7 +209,7 @@ impl<L: CardLookup> Engine<L> {
             self.enter_combat_or_skip()
         } else {
             self.saga_precombat_main_counters();
-            self.queue_first_main_delayed();
+            self.queue_main_phase_delayed();
             (Phase::FirstMain, Step::Main)
         }
     }
@@ -227,6 +227,7 @@ impl<L: CardLookup> Engine<L> {
             self.queue_end_step_delayed();
             (Phase::Ending, Step::End)
         } else {
+            self.queue_main_phase_delayed();
             (Phase::SecondMain, Step::Main)
         }
     }

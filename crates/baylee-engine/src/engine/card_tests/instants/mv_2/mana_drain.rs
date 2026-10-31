@@ -206,3 +206,95 @@ fn mana_drain_pays_for_a_spell_it_could_not_counter() {
     );
     assert_eq!(drained_mana(&mut engine), 2, "and the Drain still pays two");
 }
+
+/// p0 passes in `phase` of its own turn with nothing on the stack, p1 answers
+/// with Lightning Bolt at p0, and p0 Drains the Bolt. Returns the turn.
+#[track_caller]
+fn drain_a_bolt_in(engine: &mut Engine<RegistryLookup>, phase: Phase) -> u32 {
+    let (p0, p1) = (kit::P0, kit::P1);
+    pass_until(engine, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.phase == phase
+            && stack_is_empty(e)
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p1)
+    });
+    tap_all_mana(engine, p1);
+    let bolt = kit::cast(
+        engine,
+        p1,
+        kit::bolt(),
+        &mut kit::Answers::new().aim_players(&[p0]),
+    );
+    engine.apply(p1, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(engine, p0);
+    cast_with_floating(engine, p0, mana_drain());
+    aim_at(engine, p0, bolt);
+    pass_until(engine, stack_is_empty);
+    assert_eq!(kit::life(engine, p0), 20, "the Bolt was countered");
+    assert_eq!(engine.state().turn.phase, phase, "still the same phase");
+    engine.state().turn.number
+}
+
+/// A Mana Drain duel: p0 holds the Drain and two Islands, p1 a Mountain and
+/// Lightning Bolt. p0 is at its own first main phase.
+fn bolt_and_drain() -> Engine<RegistryLookup> {
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[island(), island()])
+        .hand(0, &[mana_drain()])
+        .battlefield(1, &[mountain()])
+        .hand(1, &[kit::bolt()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, kit::P0));
+    engine
+}
+
+/// "At the beginning of your next main phase": a Drain resolved in its
+/// controller's first main phase pays at the beginning of that turn's
+/// second main phase (the card's ruling of 2020-11-10), not a turn later.
+/// The engine waited for the next first main phase.
+#[test]
+fn mana_drain_cast_in_your_first_main_pays_in_your_second_main() {
+    let mut engine = bolt_and_drain();
+    let turn = drain_a_bolt_in(&mut engine, Phase::FirstMain);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "nothing yet"
+    );
+    pass_until(&mut engine, |e| e.state().turn.phase == Phase::SecondMain);
+    assert_eq!(engine.state().turn.number, turn, "the same turn");
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "Lightning Bolt's one {{C}}, as the second main phase begins"
+    );
+}
+
+/// The return trip: a Drain resolved in its controller's second main phase
+/// has seen that main phase begin already, so its next main phase is the
+/// first one of its controller's next turn, and nothing comes before.
+#[test]
+fn mana_drain_cast_in_your_second_main_pays_in_your_next_first_main() {
+    let mut engine = bolt_and_drain();
+    let turn = drain_a_bolt_in(&mut engine, Phase::SecondMain);
+    assert_eq!(
+        engine.state().players[0].mana_pool.total(),
+        0,
+        "nothing yet"
+    );
+    pass_until(&mut engine, |e| {
+        e.state().turn.active == kit::P0
+            && e.state().turn.phase == Phase::FirstMain
+            && e.state().turn.number > turn
+    });
+    assert_eq!(
+        engine.state().players[0]
+            .mana_pool
+            .available(ManaColor::Colorless),
+        1,
+        "p0's next main phase, on its next turn"
+    );
+}

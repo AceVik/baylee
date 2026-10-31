@@ -971,7 +971,7 @@ impl Effect {
             | Effect::CounterTargetAbility
             | Effect::CounterTargetSpellOrAbility
             | Effect::TargetSourceLosesAbilities { .. }
-            | Effect::DelayedManaAtNextFirstMain { .. }
+            | Effect::DelayedManaAtNextMain { .. }
             | Effect::ChangeTarget { .. }
             | Effect::ChooseNewTargets
             | Effect::ExchangeGreatestManaValue { .. }

@@ -63,13 +63,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
-        Effect::DelayedManaAtNextFirstMain { color } => {
+        Effect::DelayedManaAtNextMain { color } => {
             // "That spell's mana value": the countered spell is in its
             // owner's graveyard by now, and is read as it was on the stack.
             let amount = u16::try_from(super::target_mana_value(res, state)).unwrap_or(u16::MAX);
             state.delayed.push(crate::state::DelayedTrigger {
                 controller: res.controller,
-                when: crate::state::DelayedWhen::NextFirstMain,
+                when: crate::state::DelayedWhen::NextMain,
                 action: crate::state::DelayedAction::AddMana { color, amount },
             });
             None

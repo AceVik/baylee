@@ -147,7 +147,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::ManaForColorsAmong(_)
         | Effect::AddManaLikeEvent { .. }
         | Effect::AddCombatMana { .. }
-        | Effect::DelayedManaAtNextFirstMain { .. }
+        | Effect::DelayedManaAtNextMain { .. }
         | Effect::AddManaUnlessAnyPlayerPays { .. } => {
             ch.mana_add += 1.5;
         }
