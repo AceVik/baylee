@@ -111,7 +111,9 @@ impl Contract {
 
     pub fn metadata(&self) -> Value {
         json!({"version":if self.purpose == Purpose::FailureTerminalResearchV1 {2}else{1},
-            "purpose":self.purpose,"precision":"float32",
+            "purpose":self.purpose,
+            // PPO admission accepts FP32 rollouts only; an FP16 graph says so.
+            "precision":self.learner_identity.as_ref().and_then(|i| i.precision.as_deref()).unwrap_or("float32"),
             "research_target_contract":if self.purpose == Purpose::FailureTerminalResearchV1 {
                 Some(super::failure_terminal::contract())
             } else {None},
@@ -187,6 +189,7 @@ mod tests {
             depth_graph_sha256: BTreeMap::from([(0, "b".repeat(64)), (2, "c".repeat(64))]),
             metadata_sha256: "d".repeat(64),
             source_checkpoint_sha256: Some("e".repeat(64)),
+            precision: None,
         }
     }
     #[test]
