@@ -298,3 +298,65 @@ fn mana_drain_cast_in_your_second_main_pays_in_your_next_first_main() {
         "p0's next main phase, on its next turn"
     );
 }
+
+/// A copy of a spell is a spell with the original's X (CR 707.10), and the
+/// Drain pays for that: Fork copies Blaze cast for X = 2, the Drain counters
+/// the copy, and p1 is paid three. The countered copy ceases to exist, so
+/// it is read as it was when the Drain began to resolve (CR 608.2h). The
+/// original resolves and deals its two.
+#[test]
+fn mana_drain_pays_for_the_x_of_a_copy_it_counters() {
+    let (p0, p1) = (kit::P0, kit::P1);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &kit::lands(mountain(), 5))
+        .hand(0, &[index::BLAZE, index::FORK])
+        .battlefield(1, &[island(), island()])
+        .hand(1, &[mana_drain()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0));
+    tap_all_mana(&mut engine, p0);
+    let blaze = kit::cast(
+        &mut engine,
+        p0,
+        index::BLAZE,
+        &mut kit::Answers::new().x(2).aim_players(&[p1]),
+    );
+    kit::cast(
+        &mut engine,
+        p0,
+        index::FORK,
+        &mut kit::Answers::new().aim(&[blaze]),
+    );
+    // "You may choose new targets for the copy": none, so it keeps p1.
+    kit::drive_with(
+        &mut engine,
+        &mut kit::Answers::new().aim_players(&[]),
+        |e| {
+            on_stack(e, index::FORK).is_none()
+                && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+        },
+    );
+    let copy = *engine
+        .state()
+        .zones
+        .list(ZoneLocation::Stack)
+        .last()
+        .expect("Fork's copy is on the stack");
+    assert_ne!(copy, blaze, "the copy is on top, the original below it");
+    engine.apply(p0, PlayerAction::PassPriority).unwrap();
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, mana_drain());
+    aim_at(&mut engine, p1, copy);
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        kit::life(&engine, p1),
+        18,
+        "the original Blaze dealt its two"
+    );
+    assert_eq!(
+        drained_mana(&mut engine),
+        3,
+        "the copy's mana value: X = 2 and {{R}}"
+    );
+}
