@@ -80,11 +80,18 @@ struct Args {
     /// Build a BC-only dataset from exported live-server game records.
     #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc"])]
     live_bc: bool,
+    /// BC-only self-imitation: keep only the net decisions of the seats a
+    /// `train_ops group-weights` file lists, at their weights; games it does
+    /// not list are skipped.
+    #[arg(long, conflicts_with_all = ["shadow_bc", "llm_bc", "live_bc"])]
+    game_weights: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
 struct GameRef {
     game_id: u32,
+    /// Self-imitation weight per seat (`--game-weights`).
+    seat_weights: Option<[f32; MAX_SEATS]>,
     producer_encoder: Option<ProducerEncoder>,
     on_policy: Option<on_policy::GameBinding>,
     shard_path: PathBuf,
@@ -124,6 +131,7 @@ mod on_policy;
 mod output;
 mod policy_provenance;
 mod research;
+mod self_imitation;
 mod shadow;
 use output::{GameWriter, publish_ready};
 
@@ -148,9 +156,17 @@ fn main() -> anyhow::Result<()> {
     if args.shadow_bc && !args.include_passive_obs {
         bail!("--shadow-bc requires --include-passive-obs for complete recurrent history");
     }
+    if args.game_weights.is_some() && (!args.include_passive_obs || !args.val_runs.is_empty()) {
+        bail!("--game-weights requires --include-passive-obs and weighs --runs only");
+    }
     if args.out.exists() {
         bail!("{} already exists", args.out.display());
     }
+    let game_weights = args
+        .game_weights
+        .as_deref()
+        .map(|path| self_imitation::Weights::load(path, &args.runs))
+        .transpose()?;
     fs::create_dir_all(&args.out)?;
 
     let mut games: Vec<GameRef> = Vec::new();
@@ -208,6 +224,22 @@ fn main() -> anyhow::Result<()> {
             if !matches!(kind, "won" | "team_won" | "draw") {
                 continue;
             }
+            let seat_weights = match &game_weights {
+                Some(weights) => {
+                    let record = v["record_sha256"]
+                        .as_str()
+                        .context("self-imitation needs record_sha256")?;
+                    let Some(seats) = weights.seats(record) else {
+                        continue;
+                    };
+                    anyhow::ensure!(
+                        v.get("rollout_sidecar").is_some(),
+                        "self-imitation needs the net's rollout sidecar"
+                    );
+                    Some(seats)
+                }
+                None => None,
+            };
             let shard_name = v["shard"]
                 .as_str()
                 .context("missing shard name in games.jsonl")?;
@@ -219,6 +251,7 @@ fn main() -> anyhow::Result<()> {
                 .and_then(|sc| serde_json::from_value(sc.clone()).ok());
             let game_id = (games.len() + 1) as u32;
             games.push(GameRef {
+                seat_weights,
                 on_policy: policy_game,
                 producer_encoder: if matches!(args.encoder_version, 8 | 9) && sidecar.is_some() {
                     Some(ProducerEncoder::from_run(&run_json).map_err(anyhow::Error::msg)?)
@@ -416,6 +449,10 @@ fn main() -> anyhow::Result<()> {
         meta["ppo_eligible"] = json!(false);
         meta["policy_provenance_version"] = Value::Null;
     }
+    if let Some(weights) = &game_weights {
+        meta["self_imitation"] = weights.metadata(games_arc.len());
+        meta["ppo_eligible"] = json!(false);
+    }
     fs::write(
         args.out.join("dataset_header.json"),
         serde_json::to_vec_pretty(&meta)?,
@@ -456,7 +493,8 @@ fn main() -> anyhow::Result<()> {
                 let mut frame_labels = gref.shadow.as_ref()
                     .map(|source| shadow::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
                 let mut llm_labels=gref.llm.as_ref().map(|source|llm::FrameLabels::new_with_encoder(&root,gref.game_id,source,encoder_version)).transpose()?;
-                let emit = |step: Step4| {
+                let emit = |mut step: Step4| {
+                    if let Some(seats) = &gref.seat_weights { self_imitation::apply(&mut step, seats); }
                     if let Some(labels) = &mut frame_labels { labels.push(&step)?; }
                     if let Some(labels)=&mut llm_labels {labels.push(&step)?;}
                     writer.push(&step).map_err(|e|e.to_string())
