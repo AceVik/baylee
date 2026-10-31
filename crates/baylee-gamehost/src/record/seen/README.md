@@ -4,6 +4,6 @@
 
 Original capture SHA256: `27bebb34b190759683b4823f52db6ba16f3de018e2e2bb0c398f4def7142be70`.
 
-Current SHA256: `4205ef611c9b4308ca66e063581922f95fe95c6d88bec499c43e7a916615e9f5`. During the PR #399 review, the internal `hash` fields were refreshed after the engine state encoding changed. All 913 lines retain identical actions, metadata and `seen` values; replay checked every public digest and both golden tables before the fixture was replaced.
+Current SHA256: `9edc029ea04af51ba4c7d5d36b4d4611a2a4e53b52ddfde245e3ebbf271b0ee0`. During the PR #399 review, the internal `hash` fields were refreshed after the engine state encoding changed. On 31.10.2026 they were refreshed again, for the 22 inputs from 358 on while the game's Everybody Lives! is in effect: `Modifier::PlayerHexproof` gained a `who` field, which the effect's hash writes. Both times all 913 lines kept identical actions, metadata and `seen` values; replay checked every public digest and both golden tables before the fixture was replaced.
 
 The game and names are synthetic repository test data, not a player record. The fixture holds the original preset and executed inputs so future House policy decisions cannot redefine either golden table. Encoding and both golden literals remain unchanged. Gameplay replay still checks every exact engine hash and real completion. If an intentional engine change makes those historical inputs obsolete, isolate the captured public-table encoding fixture; do not regenerate a new golden from the current House AI.

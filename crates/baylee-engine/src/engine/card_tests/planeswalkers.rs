@@ -1209,6 +1209,92 @@ fn ashiok_dream_render_mills_target_player_and_exiles_opponents_graveyard() {
     );
 }
 
+/// Ashiok's −1 names its player through `ChoosePlayer`, which keeps the
+/// answer in `chosen_player`, and the rules read the target there.
+///
+/// Three pins, each true before the view learnt to show that target too:
+/// a player with hexproof is not offered to an opponent's ability (and its
+/// controller still is: hexproof stops only opponents); a player who gains
+/// hexproof in response leaves the ability with no legal target, so it does
+/// not resolve and nothing is milled, though the loyalty stays spent
+/// (CR 608.2b); and Leovold's controller, named by it, becomes the target
+/// of an opponent's ability and may draw.
+fn ashiok_against(opposing: &[CardIndex], hand: &[CardIndex]) -> Engine<RegistryLookup> {
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(0, &[ashiok_dream_render(), plains(), plains()])
+        .hand(0, &[everybody_lives()])
+        .battlefield(1, opposing)
+        .hand(1, hand)
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, PlayerId::new(0));
+    engine
+}
+
+#[test]
+fn ashiok_offers_no_player_its_ability_cannot_target() {
+    let p0 = PlayerId::new(0);
+    let mut engine = ashiok_against(&[], &[]);
+    tap_all_mana(&mut engine, p0);
+    cast_with_floating(&mut engine, p0, everybody_lives());
+    pass_until(&mut engine, stack_is_empty);
+    activate(&mut engine, p0, ashiok_dream_render(), 1);
+    let Pending::ChoosePlayer { options, .. } = engine.pending().clone() else {
+        panic!("{:?}", engine.pending())
+    };
+    assert_eq!(
+        options,
+        [p0],
+        "p1 has hexproof against p0's ability; p0's own hexproof does not stop p0"
+    );
+}
+
+#[test]
+fn ashiok_does_not_resolve_at_a_player_who_gained_hexproof() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = ashiok_against(&[plains(), plains()], &[everybody_lives()]);
+    let ashiok = on_battlefield(&engine, p0, ashiok_dream_render()).expect("Ashiok");
+    let library = library_size(&engine, p1);
+    activate(&mut engine, p0, ashiok_dream_render(), 1);
+    engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::Priority { player, .. } if *player == p1),
+    );
+    tap_all_mana(&mut engine, p1);
+    cast_with_floating(&mut engine, p1, everybody_lives());
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(library_size(&engine, p1), library, "nothing was milled");
+    assert_eq!(
+        counters_on(&engine, ashiok, CounterKind::Loyalty),
+        4,
+        "the −1 was paid as it was activated"
+    );
+}
+
+#[test]
+fn leovold_sees_ashiok_name_his_controller() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut engine = ashiok_against(
+        &[baylee_core::generated::index::LEOVOLD_EMISSARY_OF_TREST],
+        &[],
+    );
+    let hand = engine.state().zones.list(ZoneLocation::Hand(p1)).len();
+    activate(&mut engine, p0, ashiok_dream_render(), 1);
+    engine.apply(p0, PlayerAction::ChoosePlayer(p1)).unwrap();
+    pass_until(
+        &mut engine,
+        |e| matches!(e.pending(), Pending::YesNo { player, .. } if *player == p1),
+    );
+    engine.apply(p1, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(p1)).len(),
+        hand + 1,
+        "Leovold's controller became the target of an opponent's ability and drew"
+    );
+}
+
 /// Karn's loyalty counters, or none once he has left.
 fn karns_loyalty(engine: &Engine<RegistryLookup>, walker: ObjectId) -> u16 {
     engine

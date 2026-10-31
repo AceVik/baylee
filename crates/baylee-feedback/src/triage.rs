@@ -193,6 +193,11 @@ pub(crate) struct Filter {
     /// @description How the reports came: `gateway` or `direct`.
     /// @openapi enum: [gateway, direct]
     channel: Option<String>,
+    /// @description What sent the reports, as the client's `source` says
+    /// (`llm-seat` for a language-model seat): a source, `none` for
+    /// reports without one, or either after `!` for all the others.
+    /// 1–64 characters, no control character.
+    source: Option<String>,
     /// @description An admin's name, or `none` for reports nobody looks
     /// after.
     assignee: Option<String>,
@@ -240,6 +245,25 @@ enum Dimension {
     Priority,
     Label,
     Channel,
+    Source,
+}
+
+/// A report's source as the list reads it: what the client's `source` says,
+/// cut to 64 characters, so the filter, the facet and the summary agree on
+/// one value whatever a client sent.
+const SOURCE: &str = "left(feedback_report.client ->> 'source', 64)";
+
+/// The source filter's value: a source or `none`, with `!` before it for
+/// all the others; `None` when it is malformed.
+fn source_filter(text: &str) -> Option<(bool, Option<&str>)> {
+    let (exclude, name) = text
+        .strip_prefix('!')
+        .map_or((false, text), |rest| (true, rest));
+    let length = name.chars().count();
+    if !(1..=64).contains(&length) || name.chars().any(char::is_control) {
+        return None;
+    }
+    Some((exclude, (name != "none").then_some(name)))
 }
 
 /// A `WHERE` clause being built. `$1` is always the viewing admin (or
@@ -358,6 +382,20 @@ fn faceted(c: &mut Clauses, filter: &Filter, without: Option<Dimension>) -> Resu
             return Err(malformed());
         }
         c.add("channel = ?", channel.to_owned().into());
+    }
+    if let Some(source) = filter.source.as_deref().filter(|_| keep(Dimension::Source)) {
+        match source_filter(source).ok_or_else(malformed)? {
+            (false, None) => c.sql.push(format!("{SOURCE} IS NULL")),
+            (true, None) => c.sql.push(format!("{SOURCE} IS NOT NULL")),
+            (false, Some(name)) => c.add(&format!("{SOURCE} = ?"), name.to_owned().into()),
+            // A report without a source is one of the others too.
+            (true, Some(name)) => {
+                c.add(
+                    &format!("{SOURCE} IS DISTINCT FROM ?"),
+                    name.to_owned().into(),
+                );
+            }
+        }
     }
     if let Some(assignee) = filter
         .assignee
@@ -492,7 +530,8 @@ pub(crate) const SUMMARY: &str = "id::text AS id, \
     gateway, gateway_name, gateway_url, gateway_version, reporter, kind, status, text, game_id, \
     record IS NOT NULL AS has_record, record_complete, \
     coalesce(octet_length(record), 0)::bigint AS record_bytes, issue_number, \
-    channel, record_origin, assignee, priority, array_to_json(labels)::text AS labels, \
+    channel, record_origin, left(feedback_report.client ->> 'source', 64) AS source, \
+    assignee, priority, array_to_json(labels)::text AS labels, \
     duplicate_of::text AS duplicate_of, signature, revision, \
     to_char(done_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS done_at, \
     to_char(deleted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS deleted_at, \
@@ -562,6 +601,12 @@ pub(crate) struct Summary {
     /// without one.
     /// @openapi enum: [gateway, client, null]
     record_origin: Option<String>,
+    /// @description What sent it, as the client's `source` says, at most 64
+    /// characters (`llm-seat` for a language-model seat); `null` without
+    /// one. The client's word, unchecked.
+    /// @internal
+    /// What sent it, as the client's `source` says, cut as [`SOURCE`] cuts it.
+    source: Option<String>,
     /// @description The GitHub issue it is linked to, by number.
     /// @internal
     /// The GitHub issue it is linked to, in [`crate::ISSUE_REPOSITORY`].
@@ -645,6 +690,7 @@ impl Summary {
             record_bytes: row.try_get("", "record_bytes")?,
             channel: row.try_get("", "channel")?,
             record_origin: row.try_get("", "record_origin")?,
+            source: row.try_get("", "source")?,
             issue_number,
             issue_url: issue_number.map(|n| format!("{}/issues/{n}", crate::ISSUE_REPOSITORY)),
             assignee: row.try_get("", "assignee")?,
@@ -1534,6 +1580,8 @@ pub(crate) struct Facets {
     labels: Vec<Count>,
     /// @description Per channel.
     channels: Vec<Count>,
+    /// @description Per source; `null` for reports without one.
+    sources: Vec<Count>,
     /// @description What the whole filter matches.
     /// @internal
     /// What the whole filter matches.
@@ -1559,6 +1607,7 @@ async fn facet(
         Dimension::Assignee => ("assignee", "feedback_report", 1000),
         Dimension::Priority => ("priority", "feedback_report", 100),
         Dimension::Channel => ("channel", "feedback_report", 10),
+        Dimension::Source => (SOURCE, "feedback_report", 100),
         Dimension::Label => ("l", "feedback_report, unnest(labels) l", 200),
     };
     let rows = db
@@ -1608,6 +1657,7 @@ pub(crate) async fn facets(
         priorities: facet(db, filter, viewer, Dimension::Priority).await?,
         labels: facet(db, filter, viewer, Dimension::Label).await?,
         channels: facet(db, filter, viewer, Dimension::Channel).await?,
+        sources: facet(db, filter, viewer, Dimension::Source).await?,
         total,
     })
 }
@@ -1794,8 +1844,8 @@ pub(crate) async fn csv(
         .map_err(|e| db_down(&e))?;
     let mut out = String::from(
         "id,received,changed,kind,status,priority,assignee,labels,gateway,gateway_version,\
-         client_build,channel,reporter,game_id,has_record,record_origin,issue,duplicate_of,\
-         signature,done,text\r\n",
+         client_build,channel,reporter,game_id,has_record,record_origin,source,issue,\
+         duplicate_of,signature,done,text\r\n",
     );
     for row in &rows {
         let summary = Summary::of(row, false).map_err(|e| db_down(&e))?;
@@ -1817,6 +1867,7 @@ pub(crate) async fn csv(
             summary.game_id.unwrap_or_default(),
             summary.has_record.to_string(),
             summary.record_origin.unwrap_or_default(),
+            summary.source.unwrap_or_default(),
             summary.issue_url.unwrap_or_default(),
             summary.duplicate_of.unwrap_or_default(),
             summary.signature.unwrap_or_default(),

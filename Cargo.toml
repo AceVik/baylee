@@ -28,8 +28,8 @@ fluent-bundle = "0.16"
 fluent-syntax = "0.12"
 unic-langid = "0.9"
 baylee-account = { path = "crates/baylee-account" }
-central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "94177dd768572536a238a386e3877ade69f4b93b" }
-central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "94177dd768572536a238a386e3877ade69f4b93b" }
+central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "0a941953f8c0d5573e82e0979e7faf1fb9e40299" }
+central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "0a941953f8c0d5573e82e0979e7faf1fb9e40299" }
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
 baylee-deckio = { path = "crates/baylee-deckio" }

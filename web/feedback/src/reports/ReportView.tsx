@@ -549,6 +549,16 @@ export function ReportView({
         {report.gateway_name !== null && <span className="muted"> · {report.gateway_name}</span>}
         {!compact && report.gateway_url !== null && <span className="muted"> · {report.gateway_url}</span>}
       </dd>
+      {report.source !== null && (
+        <>
+          <dt>{t(lang, "rep.source")}</dt>
+          <dd>
+            <span className="tag" title={t(lang, "rep.sourceTitle")}>
+              {report.source}
+            </span>
+          </dd>
+        </>
+      )}
       <dt>{t(lang, "rep.gatewayBuild")}</dt>
       <dd className="mono">{report.gateway_version}</dd>
       <dt>{t(lang, "rep.clientBuild")}</dt>

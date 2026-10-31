@@ -443,7 +443,7 @@ pub(super) fn exec_immediate(
         | Effect::CounterTargetSpellOrAbility
         | Effect::CounterTargetSpellToExile
         | Effect::CounterTargetSpell => zones::exec(state, res, op),
-        Effect::DelayedManaAtNextFirstMain { .. }
+        Effect::DelayedManaAtNextMain { .. }
         | Effect::AddManaFor { .. }
         | Effect::AddManaAmountFor { .. }
         | Effect::ManaForColorsAmong(_)

@@ -125,7 +125,9 @@ fn protect_player(e: &mut Engine<RegistryLookup>, controller: PlayerId) {
         timestamp,
         duration: Duration::Indefinitely,
         filter: EffectFilter::Dsl(&Filter::Any),
-        modifier: Modifier::PlayerHexproof,
+        modifier: Modifier::PlayerHexproof {
+            who: baylee_cards_dsl::PlayerRel::You,
+        },
     });
 }
 
