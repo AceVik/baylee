@@ -494,10 +494,33 @@ pub(crate) fn check_hash(
 /// At the first line that does not parse, input the engine refuses, or state
 /// that agrees with neither recorded digest; see [`ReplayError`].
 pub fn replay(record: &[u8]) -> Result<Replayed, ReplayError> {
+    replay_with(record, false)
+}
+
+/// Plays a record again on a fresh engine, requiring every exact engine hash
+/// to match and never substituting its public-table digest.
+///
+/// # Errors
+/// The same failures as [`replay`], with every changed exact hash reported as
+/// [`ReplayError::Diverged`] even when the recorded public table still matches.
+pub fn replay_exact(record: &[u8]) -> Result<Replayed, ReplayError> {
+    replay_with(record, true)
+}
+
+fn replay_with(record: &[u8], exact_only: bool) -> Result<Replayed, ReplayError> {
     let mut lines = lines_of(record);
     let (preset, hash, recorded_seen) = header_of(&mut lines)?;
     let mut engine = Engine::new(&preset, RegistryLookup).map_err(|_| ReplayError::Unbuildable)?;
-    check_hash(&engine, None, hash, recorded_seen.as_deref())?;
+    check_hash(
+        &engine,
+        None,
+        hash,
+        if exact_only {
+            None
+        } else {
+            recorded_seen.as_deref()
+        },
+    )?;
     let mut inputs = 0;
     let mut ended = false;
     for line in lines {
@@ -514,7 +537,12 @@ pub fn replay(record: &[u8]) -> Result<Replayed, ReplayError> {
                 engine
                     .apply(PlayerId::new(seat), action)
                     .map_err(|_| ReplayError::Refused { n })?;
-                check_hash(&engine, Some(n), hash, seen.as_deref())?;
+                check_hash(
+                    &engine,
+                    Some(n),
+                    hash,
+                    if exact_only { None } else { seen.as_deref() },
+                )?;
                 inputs += 1;
             }
             Line::Chair { .. } | Line::DeclaredMind { .. } => {}
@@ -712,6 +740,13 @@ pub(crate) mod tests {
         assert!(
             replay(&encode(&written)).is_ok(),
             "a later build's exact hash falls back to the unchanged public table"
+        );
+        assert!(
+            matches!(
+                replay_exact(&encode(&written)),
+                Err(ReplayError::Diverged { .. })
+            ),
+            "an exact-only audit must not accept the public-table fallback"
         );
         if let Line::Input { seen, .. } = &mut written[at] {
             *seen = Some(hex(0));
