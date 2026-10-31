@@ -182,6 +182,23 @@ fn controller_lock(directory: &Path) -> anyhow::Result<std::fs::File> {
     Ok(lock)
 }
 
+/// The feedback service a gateway files its players' reports with
+/// (`docs/feedback.md`): the LLM seats' per-game reports reach it only when
+/// the collector was started with these. Only their names are written here.
+const FEEDBACK_ENV: [&str; 3] = [
+    "BAYLEE_FEEDBACK_URL",
+    "BAYLEE_FEEDBACK_TOKEN",
+    "BAYLEE_FEEDBACK_KEY",
+];
+
+fn forward_feedback(command: &mut Command) {
+    for name in FEEDBACK_ENV {
+        if let Some(value) = std::env::var_os(name) {
+            command.env(name, value);
+        }
+    }
+}
+
 fn isolated_command(binary: &Path) -> Command {
     let mut command = Command::new(binary);
     command.env_clear();
@@ -382,6 +399,7 @@ async fn run_serve(
         gw_cmd.env("BAYLEE_ADMIN_BIND", admin.to_string());
         credential.configure_gateway(&mut gw_cmd);
     }
+    forward_feedback(&mut gw_cmd);
     let ag_out = std::fs::File::create(gw_dir.join("agent.stdout.log"))?;
     let ag_err = std::fs::File::create(gw_dir.join("agent.stderr.log"))?;
     let mut gw_child = gw_cmd.spawn().context("spawning baylee-gateway")?;
@@ -932,6 +950,23 @@ mod startup_tests {
             ["PATH", "HOME", "USER", "LANG", "LD_LIBRARY_PATH"]
                 .iter()
                 .any(|name| *key == std::ffi::OsStr::new(name))
+        }));
+    }
+
+    #[test]
+    fn only_the_feedback_variables_reach_the_gateway_beside_its_own() {
+        let mut command = isolated_command(Path::new("baylee-gateway"));
+        forward_feedback(&mut command);
+        let names: Vec<_> = command
+            .as_std()
+            .get_envs()
+            .map(|(key, _)| key.to_string_lossy().into_owned())
+            .collect();
+        assert!(names.iter().all(|name| {
+            ["PATH", "HOME", "USER", "LANG", "LD_LIBRARY_PATH"]
+                .iter()
+                .chain(&FEEDBACK_ENV)
+                .any(|allowed| name == allowed)
         }));
     }
 
