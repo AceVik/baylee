@@ -495,7 +495,7 @@ fn a_rollout_scores_a_settled_position_and_counts_only_the_seats_choices() {
 
     let mut player = Mock::new(steady, lands);
     player.observe(&view).unwrap();
-    let horizon = 3;
+    let horizon = 8;
     let result = search_decision(
         &mut player,
         &KnownDecks(&session),

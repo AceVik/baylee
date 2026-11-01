@@ -66,24 +66,43 @@ pub(super) fn counts_toward_horizon(answer: &Answer4, view: &PlayerView) -> bool
         }
 }
 
-/// Plays `fork` on from the candidate just applied: the house answers every
-/// other chair, `player` answers `seat` from its restored memory, and the
-/// host's order is kept (observe, then one action).
+/// A phase's place in a turn.
+const fn phase_rank(phase: Phase) -> u8 {
+    match phase {
+        Phase::Beginning => 0,
+        Phase::FirstMain => 1,
+        Phase::Combat => 2,
+        Phase::SecondMain => 3,
+        Phase::Ending => 4,
+    }
+}
+
+/// Where in the game a view stands: its turn, then its phase.
+const fn moment(view: &PlayerView) -> (u32, u8) {
+    (view.turn, phase_rank(view.phase))
+}
+
+/// Plays `fork` on from the candidate just applied at `root`: the house
+/// answers every other chair, `player` answers `seat` from its restored
+/// memory, and the host's order is kept (observe, then one action).
 ///
 /// `H = 0` scores the candidate's own position. Otherwise the rollout ends
-/// at the game's end, when `seat` holds priority in a [`settled`] position
-/// and its own answer is to pass (it has done what it does in that main
-/// phase, so a land drop is scored with the spells it enables, as tapping
-/// first would be), when `seat`'s next own turn has ended, when `horizon`
-/// of its decisions ([`counts_toward_horizon`]) are spent, or when nobody
-/// can answer.
+/// at the game's end, or when `seat` holds priority in a [`settled`]
+/// position in a main phase *after the root's phase* and its own answer is
+/// to pass; or when `seat`'s next own turn has ended, when `horizon` of its
+/// decisions ([`counts_toward_horizon`]) are spent, or when nobody can
+/// answer. Every candidate is so scored at the same point of the game, the
+/// seat's first settled pass after the root's phase, and with what it did
+/// in between: a land drop with the spells it enables, a pass with the land
+/// played later, an attack with its damage.
 fn rollout<P: SearchPlayer4>(
     player: &mut P,
     fork: &mut SimulationSession,
-    seat: PlayerId,
+    root: &PlayerView,
     teams: &[Option<u8>],
     horizon: usize,
 ) -> anyhow::Result<Leaf> {
+    let seat = root.seat;
     let context = player.view_context();
     let seats = fork.state().players.len();
     let start_turn = fork.state().turn.number;
@@ -140,9 +159,12 @@ fn rollout<P: SearchPlayer4>(
             return value(player, steps, decisions, LeafKind::Stopped);
         };
         let answer = player.answer(&view, &pending, teams);
-        // The seat has done what it does in this main phase: score the
-        // position it would pass on, before the pass.
-        if settled(&view, &pending) && answer.action == PlayerAction::PassPriority {
+        // Past the root's phase, the seat has done what it does in this main
+        // phase: score the position it would pass on, before the pass.
+        if moment(&view) > moment(root)
+            && settled(&view, &pending)
+            && answer.action == PlayerAction::PassPriority
+        {
             return value(player, steps, decisions, LeafKind::Settled);
         }
         let counts = counts_toward_horizon(&answer, &view);
@@ -232,7 +254,7 @@ impl<S> Rounds<'_, S> {
                 if world.act_slice(seat, candidate.action.clone(), 0).is_err() {
                     break 'rounds;
                 }
-                let leaf = rollout(player, &mut world, seat, self.teams, config.horizon)
+                let leaf = rollout(player, &mut world, self.view, self.teams, config.horizon)
                     .map_err(Stop::Failed)?;
                 report.rollouts += 1;
                 report.rollout_steps += leaf.steps;

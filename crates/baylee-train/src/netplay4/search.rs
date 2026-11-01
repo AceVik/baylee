@@ -193,7 +193,7 @@ impl SearchConfig4 {
             "worlds": "session_fork_redealt_from_purpose_tagged_policy_seeds",
             "rollout": "net_for_the_searching_seat_house_for_every_other_chair",
             "stop": "game_over_or_settled_priority_or_end_of_next_own_turn_or_horizon",
-            "settled": "seat_would_pass_priority_main_phase_empty_stack_no_cast_no_payment_no_floating_mana",
+            "settled": "seat_would_pass_priority_in_a_main_phase_after_the_roots_phase_empty_stack_no_cast_no_payment_no_floating_mana",
             "leaf": "terminal_side_utility_else_k0_observation_value_of_the_seat",
             "prior": "softmax_of_raw_logits_over_every_legal_answer",
             "selection": self.selection,

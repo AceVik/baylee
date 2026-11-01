@@ -678,11 +678,16 @@ the house's). H = 0 scores the candidate's own position. Otherwise a
 rollout ends:
 
 - at the game's end;
-- when the seat holds priority in a main phase with an empty stack, no spell
-  being cast, no payment owed and no mana floating, *and its own answer
-  there is to pass*. It has done what it does in that phase, so a land drop
-  is scored with the spells it enables, as tapping first would be; the
-  position is scored before the pass (`settled`);
+- when the seat holds priority in a main phase *after the root's phase*,
+  with an empty stack, no spell being cast, no payment owed and no mana
+  floating, *and its own answer there is to pass* (`settled`; the position
+  is scored before the pass). Every candidate is thus scored at the same
+  point of the game, the seat's first settled pass after the root's phase,
+  with what it did in between: a land drop with the spells it enables, a
+  pass with the land played later, an attack with its damage. Scoring at the
+  seat's first settled pass instead, in the root's own phase, compared a
+  land drop before combat with a pass after it, and combat's damage chose
+  the pass;
 - when the seat's next own turn has ended (`turn_end`);
 - when H of the seat's decisions are spent (`horizon`). A decision counts
   unless it is forced or a mana ability, whether a basic land type's
