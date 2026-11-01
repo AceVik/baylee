@@ -51,6 +51,10 @@ mod policy;
 mod shadow;
 use policy::sample_categorical;
 pub use policy::{PolicyMode4, valid_raw_temperature};
+mod ranked;
+pub use ranked::{Ranked4, RootDecision4, rank_single_choice};
+mod snapshot;
+pub use snapshot::PlayerSnapshot4;
 mod structure;
 mod tactics;
 pub use crate::features4::{sample_pairs_constrained, sample_subset_constrained};
@@ -121,6 +125,9 @@ pub struct NetPlayer4 {
     /// Per-seat most recently announced `CastSpell` or `ActivateAbility` `(object_id, ability_index)`
     /// for target-intent and scalar choice disambiguation before `Pending::Priority` resumes.
     last_announced_source: BTreeMap<u8, (ObjectId, Option<u32>)>,
+    /// Per seat, the value head's output on its latest knowledge-changing
+    /// observation ([`NetPlayer4::observed_value`]).
+    observed_values: BTreeMap<u8, f32>,
     /// Accumulated coverage matrix across decisions.
     pub coverage: CoverageMatrix4,
     last_fallback: Option<FallbackDiagnostic4>,
@@ -270,9 +277,37 @@ impl NetPlayer4 {
             knowledge: BTreeMap::new(),
             seen_hashes: BTreeMap::new(),
             last_announced_source: BTreeMap::new(),
+            observed_values: BTreeMap::new(),
             coverage: CoverageMatrix4::default(),
             last_fallback: None,
         }
+    }
+
+    /// A player with no graphs, for tests of what it does around inference.
+    #[cfg(test)]
+    pub(super) fn without_graphs(encoder_version: u32, d_model: usize) -> Self {
+        let identity = ModelIdentity {
+            model_family: "v5",
+            model_version: 5,
+            encoder_version,
+            global_feat_width: None,
+            critic_semantics: None,
+            architecture: None,
+            onnx_sha256: String::new(),
+            depth_graph_sha256: BTreeMap::new(),
+            metadata_sha256: String::new(),
+            source_checkpoint_sha256: None,
+            precision: None,
+        };
+        let files = ModelFiles {
+            model_dir: PathBuf::new(),
+            rule_roots: None,
+            encoder_version,
+            identity,
+            d_model,
+            thinking_steps: 2,
+        };
+        Self::with_backend(files, Backend::Owned(BTreeMap::new()))
     }
 
     /// Recovery reason for the most recent decision; cleared before every answer.
@@ -350,6 +385,7 @@ impl NetPlayer4 {
         self.knowledge.clear();
         self.seen_hashes.clear();
         self.last_announced_source.clear();
+        self.observed_values.clear();
         self.last_fallback = None;
     }
 
@@ -368,6 +404,7 @@ impl NetPlayer4 {
         self.knowledge.clear();
         self.seen_hashes.clear();
         self.last_announced_source.clear();
+        self.observed_values.clear();
         self.last_fallback = None;
         for s in 0..preset.seats.len() {
             let pid = PlayerId::new(s as u8);
@@ -429,8 +466,9 @@ impl NetPlayer4 {
             pairs: Vec::new(),
             pair_objects: Vec::new(),
         };
-        let (h_next, _, _, _, _) = self.run_onnx_step(&state, &empty_cands, &pre_h, 0)?;
+        let (h_next, _, _, _, value) = self.run_onnx_step(&state, &empty_cands, &pre_h, 0)?;
         self.h_states.insert(s, h_next);
+        self.observed_values.insert(s, value);
         Ok(())
     }
 

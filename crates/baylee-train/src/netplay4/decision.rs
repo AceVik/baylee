@@ -1,4 +1,5 @@
 //! Native decision pipeline, separated without changing its operations.
+use super::ranked::{RootDecision4, rank_single_choice};
 use super::{
     Answer4, FallbackDiagnostic4, FallbackReason4, HeadKind4, NetPlayer4, Pending, PendingKind4,
     PlayerAction, PlayerView, RECURRENT_SLOTS, SourceKind4, StepProvenance4, TeacherTarget4,
@@ -18,16 +19,65 @@ impl NetPlayer4 {
 
     /// Chooses a legal [`PlayerAction`] and returns full [`Answer4`] metadata
     /// (value prediction, [`StepProvenance4`], and [`TeacherTarget4`]).
-    #[allow(
-        clippy::too_many_lines,
-        reason = "One decision pipeline records provenance for forced, guarded, neural and fallback answers"
-    )]
     pub fn act_detailed(
         &mut self,
         view: &PlayerView,
         pending: &Pending,
         teams: &[Option<u8>],
     ) -> Answer4 {
+        let decision = self.decide(view, pending, teams, false);
+        self.conclude(view, &decision, &decision.answer.action);
+        decision.answer
+    }
+
+    /// Finishes a decision [`Self::decide`] took, with `action` as its
+    /// answer: notes an announced spell or ability the way
+    /// [`Self::act_detailed`] notes its own answer, for the target and
+    /// number questions that follow it.
+    pub(super) fn conclude(
+        &mut self,
+        view: &PlayerView,
+        decision: &RootDecision4,
+        action: &PlayerAction,
+    ) {
+        if !decision.notes_answer || view.owed.is_some() {
+            return;
+        }
+        let seat_u8 = view.seat.get();
+        match action {
+            PlayerAction::CastSpell { card } => {
+                self.last_announced_source.insert(seat_u8, (*card, None));
+            }
+            PlayerAction::ActivateAbility {
+                source,
+                ability_index,
+            } if !tactics::is_mana_ability_entry(view, *source, *ability_index) => {
+                self.last_announced_source
+                    .insert(seat_u8, (*source, Some(*ability_index)));
+            }
+            _ => {}
+        }
+    }
+
+    /// [`Self::act_detailed`] up to noting its answer ([`Self::conclude`]),
+    /// with the policy's ranking of the legal answers when `rank` asks for
+    /// it and the answer is the policy's own single choice.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "One decision pipeline records provenance for forced, guarded, neural and fallback answers"
+    )]
+    pub(super) fn decide(
+        &mut self,
+        view: &PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        rank: bool,
+    ) -> RootDecision4 {
+        let only = |answer| RootDecision4 {
+            answer,
+            ranking: None,
+            notes_answer: false,
+        };
         self.last_fallback = None;
         let seat_u8 = view.seat.get();
         if matches!(pending, Pending::Priority { .. })
@@ -44,7 +94,7 @@ impl NetPlayer4 {
                 p_kind,
             ));
             self.coverage.record(p_kind, SourceKind4::House);
-            return answer;
+            return only(answer);
         }
 
         // The host calls observe() for every neural seat before each table action.
@@ -93,7 +143,7 @@ impl NetPlayer4 {
                 ));
             }
             self.coverage.record(p_kind, source);
-            return Answer4 {
+            return only(Answer4 {
                 action,
                 value: 0.5,
                 provenance: StepProvenance4 {
@@ -104,7 +154,7 @@ impl NetPlayer4 {
                     has_logprob: false,
                 },
                 target: forced_target,
-            };
+            });
         }
 
         // 2. View-only stall/loop guard (never uses Session::snapshot_hash!)
@@ -127,7 +177,7 @@ impl NetPlayer4 {
             });
             let action = fallback_action(&cands, view, pending, teams);
             self.coverage.record(p_kind, SourceKind4::House);
-            return Answer4 {
+            return only(Answer4 {
                 action,
                 value: 0.5,
                 provenance: StepProvenance4 {
@@ -138,63 +188,59 @@ impl NetPlayer4 {
                     has_logprob: false,
                 },
                 target: TeacherTarget4::default(),
-            };
+            });
         }
 
         // 3. Run ONNX inference
         let inference = self.infer_and_sample(&state, &cands, view, pending, &h_in);
-        let ans = if let Ok((action, value, logprob, target)) = inference {
-            let provenance = self.policy_mode.provenance(
-                self.temperature,
-                self.thinking_steps,
-                cands.head,
-                logprob,
-            );
-            self.coverage.record(p_kind, provenance.source);
-            Answer4 {
-                action,
-                value,
-                provenance,
-                target,
+        let (answer, ranking) = match inference {
+            Ok(((action, value, logprob, target), logits)) => {
+                let provenance = self.policy_mode.provenance(
+                    self.temperature,
+                    self.thinking_steps,
+                    cands.head,
+                    logprob,
+                );
+                self.coverage.record(p_kind, provenance.source);
+                let ranking = (rank && cands.head == HeadKind4::SingleChoice)
+                    .then(|| rank_single_choice(&cands, &logits, view, pending));
+                let answer = Answer4 {
+                    action,
+                    value,
+                    provenance,
+                    target,
+                };
+                (answer, ranking)
             }
-        } else {
-            self.last_fallback = Some(FallbackDiagnostic4 {
-                reason: FallbackReason4::InferenceOrDecode,
-                pending_kind: p_kind,
-                view_hash: Some(format!("{v_hash:016x}")),
-                visits: None,
-                detail: inference.err().map(|error| error.to_string()),
-            });
-            let action = fallback_action(&cands, view, pending, teams);
-            self.coverage.record(p_kind, SourceKind4::House);
-            Answer4 {
-                action,
-                value: 0.5,
-                provenance: StepProvenance4 {
-                    source: SourceKind4::House,
-                    temperature: self.temperature,
-                    thinking_steps: 0,
-                    behavior_logprob: 0.0,
-                    has_logprob: false,
-                },
-                target: TeacherTarget4::default(),
+            Err(error) => {
+                self.last_fallback = Some(FallbackDiagnostic4 {
+                    reason: FallbackReason4::InferenceOrDecode,
+                    pending_kind: p_kind,
+                    view_hash: Some(format!("{v_hash:016x}")),
+                    visits: None,
+                    detail: Some(error.to_string()),
+                });
+                let action = fallback_action(&cands, view, pending, teams);
+                self.coverage.record(p_kind, SourceKind4::House);
+                let answer = Answer4 {
+                    action,
+                    value: 0.5,
+                    provenance: StepProvenance4 {
+                        source: SourceKind4::House,
+                        temperature: self.temperature,
+                        thinking_steps: 0,
+                        behavior_logprob: 0.0,
+                        has_logprob: false,
+                    },
+                    target: TeacherTarget4::default(),
+                };
+                (answer, None)
             }
         };
-        if view.owed.is_none() {
-            match &ans.action {
-                PlayerAction::CastSpell { card } => {
-                    self.last_announced_source.insert(seat_u8, (*card, None));
-                }
-                PlayerAction::ActivateAbility {
-                    source,
-                    ability_index,
-                } if !tactics::is_mana_ability_entry(view, *source, *ability_index) => {
-                    self.last_announced_source
-                        .insert(seat_u8, (*source, Some(*ability_index)));
-                }
-                _ => {}
-            }
+        RootDecision4 {
+            answer,
+            ranking,
+            notes_answer: true,
         }
-        ans
     }
 }

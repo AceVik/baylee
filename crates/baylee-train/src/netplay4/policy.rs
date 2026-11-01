@@ -48,6 +48,10 @@ impl PolicyMode4 {
     }
 }
 
+/// A sampled answer: the action, its value, its behavior log-probability and
+/// its target.
+pub(super) type Sampled4 = (PlayerAction, f32, f32, TeacherTarget4);
+
 /// Version 2 is stochastic for every policy head only above this boundary.
 #[must_use]
 pub fn valid_raw_temperature(temperature: f32) -> bool {
@@ -59,6 +63,9 @@ impl NetPlayer4 {
         clippy::too_many_lines,
         reason = "Dispatches ONNX outputs across SingleChoice, SubsetPick, PairPick, and ScalarValue heads"
     )]
+    /// Runs the decision step and samples from it: the answer, its value,
+    /// its behavior log-probability and target, and the raw candidate
+    /// logits the sample was drawn from (which a lookahead ranks).
     pub(super) fn infer_and_sample(
         &mut self,
         state: &crate::features4::EncodedState4,
@@ -66,11 +73,11 @@ impl NetPlayer4 {
         view: &PlayerView,
         pending: &Pending,
         h_in: &[f32],
-    ) -> anyhow::Result<(PlayerAction, f32, f32, TeacherTarget4)> {
+    ) -> anyhow::Result<(Sampled4, Vec<f32>)> {
         let k_val = self.thinking_steps;
         let (_, cand_logits, pair_logits, scalar_pred, value) =
             self.run_onnx_step(state, cands, h_in, k_val)?;
-        PolicySampler4 {
+        let sampled = PolicySampler4 {
             mode: self.policy_mode,
             temperature: self.temperature,
             rng: &mut self.rng,
@@ -86,7 +93,8 @@ impl NetPlayer4 {
                 scalar_pred,
                 value,
             },
-        )
+        )?;
+        Ok((sampled, cand_logits))
     }
 }
 
