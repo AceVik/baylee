@@ -128,9 +128,11 @@ impl GameState {
             granted_actions: _,
             next_granted_action: _,
             next_damage_batch: _,
-            // Rewritten: copies taken in a hidden zone are dropped, and the
-            // index into them with them.
+            // Rewritten: copies taken in a hidden zone are dropped.
             damage_sources: _,
+            // Carried as it stands, but for its cache (the index into
+            // `damage_sources` and its length), which the deal rebuilds over
+            // the copies it keeps (`redeal`'s `forget_hidden_incarnations`).
             source_memory: _,
             // Rewritten: invalidated and refreshed by the settle.
             characteristics_generation: _,
