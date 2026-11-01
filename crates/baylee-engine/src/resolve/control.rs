@@ -43,6 +43,7 @@ pub(super) fn next_turn(
             controller: res.controller,
             player,
             turn,
+            began: None,
         });
     }
 }

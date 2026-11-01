@@ -44,6 +44,9 @@ impl<L: CardLookup> Engine<L> {
             self.state
                 .delayed
                 .retain(|d| !d.when.lapses_with_the_turn());
+            // Control of a player's turn ends as the next one begins, and
+            // one waiting for this player's turn begins it (CR 722.1).
+            self.begin_turn_controls();
         }
         // Only the seat whose turn this is: summoning sickness is measured
         // against *their* most recent turn (CR 302.6), so an opponent's

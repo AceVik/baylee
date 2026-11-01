@@ -1,5 +1,6 @@
 //! Actor authentication and exact resource obligations are shared rules primitives.
 use super::synthetic::{self, SyntheticLookup};
+use super::testkit::{self, RegistryLookup};
 use super::*;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::mana::{ManaColor, ManaFlags, ManaPool, RestrictedMana, RestrictionId};
@@ -332,16 +333,121 @@ fn scheduled_player_control_applies_only_during_the_subjects_turn() {
             controller: ACTOR,
             player: SUBJECT,
             turn: engine.state.turn.number + 1,
+            began: None,
         });
     assert_eq!(engine.controlled_actor(SUBJECT), SUBJECT);
 
     engine.state.turn.number += 1;
     engine.state.turn.active = SUBJECT;
+    engine.begin_turn_controls();
     assert_eq!(engine.controlled_actor(SUBJECT), ACTOR);
 
     engine.state.turn.number += 1;
     engine.state.turn.active = ACTOR;
+    engine.begin_turn_controls();
     assert_eq!(engine.controlled_actor(SUBJECT), SUBJECT);
+    assert!(engine.state.turn_controls.is_empty());
+}
+
+/// Mindslaver's control as `Effect::ControlPlayerNextTurn` schedules it,
+/// for `subject`, created during `seat(0)`'s first main phase.
+fn scheduled(seats: usize, seed: u64, subject: PlayerId) -> Engine<RegistryLookup> {
+    let mut engine = testkit::Duel::table(seed, testkit::basic_forest(), seats).start();
+    testkit::keep_mulligans(&mut engine);
+    testkit::reach_main_phase(&mut engine, PlayerId::new(0));
+    engine
+        .state
+        .turn_controls
+        .push(crate::state::PlayerTurnControl {
+            controller: PlayerId::new(0),
+            player: subject,
+            turn: engine.state.turn.number + 1,
+            began: None,
+        });
+    engine
+}
+
+/// Plays on until the next turn has begun and `during` has run in it, and
+/// says whose turn it is and who answers for `subject`.
+fn next_turn(
+    engine: &mut Engine<RegistryLookup>,
+    subject: PlayerId,
+    during: impl FnOnce(&mut Engine<RegistryLookup>),
+) -> (PlayerId, PlayerId) {
+    let now = engine.state.turn.number;
+    testkit::pass_until(engine, |e| e.state().turn.number > now);
+    during(engine);
+    (engine.state.turn.active, engine.controlled_actor(subject))
+}
+
+/// "This effect applies to the next turn that the affected player actually
+/// takes" (CR 722.1): at a table of four, seat 0's Mindslaver on seat 3
+/// waits through seats 1 and 2, controls seat 3's turn, and has ended as
+/// seat 0's begins. The global turn number passing the one the control was
+/// created for is no reason to drop it.
+#[test]
+fn a_scheduled_control_waits_through_the_other_players_turns() {
+    let subject = PlayerId::new(3);
+    let mut engine = scheduled(4, 7_221, subject);
+    let turns: Vec<_> = (0..4)
+        .map(|_| next_turn(&mut engine, subject, |_| {}))
+        .collect();
+    let seat = PlayerId::new;
+    assert_eq!(
+        turns,
+        [
+            (seat(1), subject),
+            (seat(2), subject),
+            (subject, seat(0)),
+            (seat(0), subject),
+        ]
+    );
+    assert!(
+        engine.state.turn_controls.is_empty(),
+        "the control ended as the next turn began"
+    );
+}
+
+/// Extra turns are turns too (CR 500.7): two the controller takes before
+/// the subject's are not the subject's, and the control waits through them.
+#[test]
+fn a_scheduled_control_waits_through_the_controllers_extra_turns() {
+    let mut engine = scheduled(2, 7_222, SUBJECT);
+    engine.state.extra_turns.push_back(ACTOR);
+    engine.state.extra_turns.push_back(ACTOR);
+    let turns: Vec<_> = (0..4)
+        .map(|_| next_turn(&mut engine, SUBJECT, |_| {}))
+        .collect();
+    assert_eq!(
+        turns,
+        [
+            (ACTOR, SUBJECT),
+            (ACTOR, SUBJECT),
+            (SUBJECT, ACTOR),
+            (ACTOR, SUBJECT),
+        ]
+    );
+}
+
+/// "The affected player is controlled during the entire turn; the effect
+/// doesn't end until the beginning of the next turn" (CR 722.1): the next
+/// turn, even when it is the subject's own extra turn right after the
+/// controlled one.
+#[test]
+fn a_scheduled_control_ends_before_the_subjects_own_extra_turn() {
+    let mut engine = scheduled(2, 7_223, SUBJECT);
+    let controlled = next_turn(&mut engine, SUBJECT, |engine| {
+        // Taken during the controlled turn, as Time Walk would be.
+        engine.state.extra_turns.push_front(SUBJECT);
+    });
+    assert_eq!(controlled, (SUBJECT, ACTOR));
+    let extra = next_turn(&mut engine, SUBJECT, |_| {});
+    assert_eq!(
+        extra,
+        (SUBJECT, SUBJECT),
+        "the extra turn is the subject's own"
+    );
+    assert!(engine.state.turn_controls.is_empty());
 }
 
 #[test]
@@ -414,6 +520,7 @@ fn scheduled_control_ends_as_soon_as_either_player_leaves() {
                 controller: ACTOR,
                 player: SUBJECT,
                 turn: engine.state.turn.number + 1,
+                began: None,
             });
         engine.apply(departing, PlayerAction::Concede).unwrap();
         assert!(engine.state.turn_controls.is_empty());
