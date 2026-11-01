@@ -906,6 +906,25 @@ test something to measure; none of the three rules is evidence of a stronger
 player yet. An earlier v2 that scored a settled pass in the root's own phase
 compared a land drop before combat with a pass after it (`c21cd263c`).
 
+**v3 measured (1 November 2026, CPU, load average about 4).** `7ee2fa72e`,
+`v6s-selfimit/s1` as above, 2 deals against sharp, one worker,
+`--inference-batch 16`, `--search 4,2,6` (prior), at most 12 searched
+decisions per game. Both arms searched the same 24 decisions, ran the same
+186 rollouts of 2,704 actions and changed the same 4 answers, so batching
+turned no greedy rollout here:
+
+| `--search-threads` | calls (rows 6,493) | rows per call | s per searched (mean, p50, max) | searched total | run |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 6,493 | 1.00 | 5.87, 3.69, 17.0 | 141 s | 314 s |
+| 4 | 5,250 | 1.24 | 4.06, 2.37, 11.7 | 97 s | 271 s |
+
+On the CPU a call's cost grows with its rows (each lane runs on one
+intra-op thread), so four rollouts at once gain 1.45 times, mostly from
+encoding and the engine running beside inference. Batches stay small because
+each twin encodes its next row while the lane runs the others'. The gain
+this is built for is on the GPU, where a call's cost grows little with its
+rows (§"Batched GPU inference and FP16 graphs"); not measured yet.
+
 ### BayleeAI v5 relational pilot
 
 `model5.Config5` / `PlayerNet5` identify the new major family with
