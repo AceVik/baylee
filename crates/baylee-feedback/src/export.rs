@@ -159,8 +159,15 @@ fn line(
     });
     let client_gzip = match client.as_object() {
         Some(map) if map.is_empty() => None,
-        _ => Some(gzip(&serde_json::to_vec(&client)?)?)
-            .filter(|g| g.len() <= intake::MAX_CLIENT_GZIP as usize),
+        _ => {
+            let packed = gzip(&serde_json::to_vec(&client)?)?;
+            if packed.len() > intake::MAX_CLIENT_GZIP as usize {
+                tracing::warn!(report = %id, bytes = packed.len(), "copied without its client details: larger than Central takes");
+                None
+            } else {
+                Some(packed)
+            }
+        }
     };
     let origin = if get::<Option<String>>(row, "record_origin")?.as_deref() == Some("client") {
         "client"
@@ -172,16 +179,18 @@ fn line(
     } else {
         intake::MAX_RECORD_GZIP
     };
-    let record = get::<Option<Vec<u8>>>(row, "record")?
-        .filter(|r| r.starts_with(&[0x1f, 0x8b]) && r.len() <= max as usize)
-        .map(|r| -> Result<Record> {
-            Ok(Record {
-                complete: get::<Option<bool>>(row, "record_complete")?.unwrap_or(false),
-                origin,
-                gzip: hex(&r),
-            })
-        })
-        .transpose()?;
+    let record = match get::<Option<Vec<u8>>>(row, "record")? {
+        Some(r) if r.starts_with(&[0x1f, 0x8b]) && r.len() <= max as usize => Some(Record {
+            complete: get::<Option<bool>>(row, "record_complete")?.unwrap_or(false),
+            origin,
+            gzip: hex(&r),
+        }),
+        Some(r) => {
+            tracing::warn!(report = %id, bytes = r.len(), "copied without its record: not one Central takes");
+            None
+        }
+        None => None,
+    };
     let labels: Vec<String> = serde_json::from_str(&get::<String>(row, "labels")?)?;
     Ok(Ok(Line {
         id: id.simple().to_string(),
