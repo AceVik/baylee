@@ -248,18 +248,20 @@ fn public_facts(engine: &Engine<RegistryLookup>) -> String {
 
 /// Passes, and declares no attackers or blockers, for whoever is asked;
 /// any other question (a discard to hand size) gets the kit's first legal
-/// answer, which depends on nothing but the question.
+/// answer, which depends on nothing but the question. Whoever answers is
+/// the decision's actor: the controller, while a player's turn is
+/// controlled (CR 722.1).
 fn step(engine: &mut Engine<RegistryLookup>) {
     let actor = engine.decision_actor().expect("somebody is asked");
-    let (actor, action) = match engine.pending() {
-        Pending::Priority { .. } => (actor, PlayerAction::PassPriority),
-        Pending::ChooseAttackers { .. } => {
-            (actor, PlayerAction::DeclareAttackers { attackers: vec![] })
+    let action = match engine.pending() {
+        Pending::Priority { .. } => PlayerAction::PassPriority,
+        Pending::ChooseAttackers { .. } => PlayerAction::DeclareAttackers { attackers: vec![] },
+        Pending::ChooseBlockers { .. } => PlayerAction::DeclareBlockers { blockers: vec![] },
+        _ => {
+            answer_one(engine)
+                .unwrap_or_else(|rest| panic!("unanswerable: {rest:?}"))
+                .1
         }
-        Pending::ChooseBlockers { .. } => {
-            (actor, PlayerAction::DeclareBlockers { blockers: vec![] })
-        }
-        _ => answer_one(engine).unwrap_or_else(|rest| panic!("unanswerable: {rest:?}")),
     };
     engine.apply(actor, action).expect("the answer is legal");
 }
@@ -1047,6 +1049,283 @@ fn a_parked_static_keeps_its_override_and_a_dealt_card_takes_its_own() {
         "nothing else goes, whether its effect is registered or not"
     );
     assert_names_none(&forked, &[hidden]);
+}
+
+fn card_of(engine: &Engine<RegistryLookup>, id: ObjectId) -> CardIndex {
+    engine
+        .state()
+        .object(id)
+        .and_then(|o| o.card)
+        .expect("a card")
+        .index
+}
+
+/// Their instant, cast in my first main phase once I have passed on my
+/// empty stack, off their battlefield's mana; both pass until it has
+/// resolved, and every card question it asks them is answered by `choose`.
+/// Back in my main phase with the stack empty: settled.
+fn their_instant(
+    table: &Table,
+    spell: CardIndex,
+    choose: impl Fn(&Engine<RegistryLookup>, &[ObjectId]) -> Vec<ObjectId>,
+) -> Engine<RegistryLookup> {
+    let mut engine = table.settled_main();
+    engine.apply(ME, PlayerAction::PassPriority).unwrap();
+    assert!(
+        matches!(engine.pending(), Pending::Priority { player, .. } if *player == THEM),
+        "they hold priority in my main phase: {:?}",
+        engine.pending()
+    );
+    cast_from_hand(&mut engine, THEM, spell);
+    for _ in 0..20 {
+        match engine.pending().clone() {
+            Pending::ChooseCards {
+                player, options, ..
+            } if player == THEM => {
+                let objects = choose(&engine, &options);
+                engine
+                    .apply(THEM, PlayerAction::ChooseObjects { objects })
+                    .expect("their choice stands");
+            }
+            Pending::Priority { player, .. } if !stack_is_empty(&engine) => {
+                let actor = engine.decision_actor().unwrap_or(player);
+                engine.apply(actor, PlayerAction::PassPriority).unwrap();
+            }
+            Pending::Priority { player, .. } => {
+                assert_eq!(player, ME, "back in my main phase");
+                // A card they drew opened its miracle check, offered once
+                // everyone has passed on the empty stack (CR 702.94a); the
+                // fork refuses it until then (`pending_miracle`).
+                pass_until(&mut engine, |e| {
+                    e.state.pending_miracle.is_empty()
+                        && matches!(e.pending(), Pending::Priority { .. })
+                });
+                return engine;
+            }
+            other => panic!("an unexpected question: {other:?}"),
+        }
+    }
+    panic!("the spell did not resolve");
+}
+
+/// Two games apart only in what I could not see fork into one game: every
+/// field of the two forks equal, journals whole, through two more turns of
+/// play; and neither fork names a card its deal removed (`retired`, one
+/// list per game).
+#[track_caller]
+fn assert_twins_fork_alike(
+    one: &Engine<RegistryLookup>,
+    two: &Engine<RegistryLookup>,
+    retired: [&[ObjectId]; 2],
+) {
+    assert_eq!(public_facts(one), public_facts(two), "I see the same game");
+    let (mut a, mut b) = (fork(one, 7), fork(two, 7));
+    assert_names_none(&a, retired[0]);
+    assert_names_none(&b, retired[1]);
+    let start = a.state().turn.number;
+    for _ in 0..80 {
+        assert_indistinguishable(&a, &b);
+        assert_eq!(a.journal().entries(), b.journal().entries());
+        if a.state().turn.number >= start + 2 {
+            return;
+        }
+        step(&mut a);
+        step(&mut b);
+    }
+    panic!("the forks did not play two more turns");
+}
+
+/// They Brainstorm in my main phase: draw three, put two back on top of
+/// their library. The twins put back different cards, so their hands and
+/// their library tops differ, and I saw neither. The forks are one game,
+/// and neither names a card that went back.
+#[test]
+fn cards_they_put_back_do_not_reach_the_fork() {
+    let brainstorm = named("Brainstorm");
+    let (mountain, swamp) = (named("Mountain"), named("Swamp"));
+    let mut table = Table::new(53, their_deck());
+    table.their_field = vec![entry(named("Island"))];
+    table.their_hand = Some(vec![
+        entry(brainstorm),
+        entry(mountain),
+        entry(swamp),
+        entry(elves()),
+        entry(quiet_artifact()),
+        entry(mountain),
+        entry(swamp),
+    ]);
+    let putting_back = |kinds: [CardIndex; 2]| {
+        their_instant(&table, brainstorm, |engine, options| {
+            let mut chosen = Vec::new();
+            for kind in kinds {
+                let card = options
+                    .iter()
+                    .copied()
+                    .find(|&id| card_of(engine, id) == kind && !chosen.contains(&id))
+                    .expect("a card of that kind in their hand");
+                chosen.push(card);
+            }
+            chosen
+        })
+    };
+    let one = putting_back([mountain, swamp]);
+    let two = putting_back([elves(), quiet_artifact()]);
+    let top = |engine: &Engine<RegistryLookup>| {
+        let library = engine.state().zones.list(ZoneLocation::Library(THEM));
+        sorted(
+            library[library.len() - 2..]
+                .iter()
+                .map(|&id| card_of(engine, id))
+                .collect(),
+        )
+    };
+    assert_ne!(top(&one), top(&two), "different cards went back");
+    assert_twins_fork_alike(&one, &two, [&retired_ids(&one), &retired_ids(&two)]);
+}
+
+/// They tutor in my main phase (Vampiric Tutor: search their library for a
+/// card, shuffle, put it on top). The twins differ only in the order of
+/// the hidden libraries before the search; they find the same card. The
+/// forks are one game, and neither names a card of the real libraries.
+#[test]
+fn a_tutor_and_its_shuffle_do_not_reach_the_fork() {
+    let tutor = named("Vampiric Tutor");
+    let swamp = named("Swamp");
+    let tutoring = |seed| {
+        let mut table = Table::new(seed, their_deck());
+        table.their_field = vec![entry(swamp)];
+        table.their_hand = Some(vec![
+            entry(tutor),
+            entry(swamp),
+            entry(named("Mountain")),
+            entry(swamp),
+            entry(named("Mountain")),
+            entry(swamp),
+            entry(named("Mountain")),
+        ]);
+        their_instant(&table, tutor, |engine, options| {
+            vec![
+                options
+                    .iter()
+                    .copied()
+                    .find(|&id| card_of(engine, id) == elves())
+                    .expect("Elves in their library"),
+            ]
+        })
+    };
+    let (before_one, before_two) = (
+        Table::new(61, their_deck()).settled_main(),
+        Table::new(62, their_deck()).settled_main(),
+    );
+    assert_ne!(
+        identities(&hidden_zones(&before_one))[1],
+        identities(&hidden_zones(&before_two))[1],
+        "their libraries are in different orders"
+    );
+    let (one, two) = (tutoring(61), tutoring(62));
+    let top = |engine: &Engine<RegistryLookup>| {
+        let library = engine.state().zones.list(ZoneLocation::Library(THEM));
+        card_of(engine, *library.last().unwrap())
+    };
+    assert_eq!(
+        (top(&one), top(&two)),
+        (elves(), elves()),
+        "both found the Elves"
+    );
+    assert_twins_fork_alike(&one, &two, [&retired_ids(&one), &retired_ids(&two)]);
+}
+
+/// I control their turn (Mindslaver, scheduled as
+/// `Effect::ControlPlayerNextTurn` schedules it), so I may look at their
+/// hand (CR 722.4): the fork keeps it as I see it, the same objects, and
+/// deals their library. Taken in their upkeep, before their draw: a card
+/// drawn from a shuffled library keeps the deck-list id of the slot that
+/// was on top, so twins taken after it would differ in that id.
+#[test]
+fn the_hand_of_a_player_i_control_stays_as_i_see_it() {
+    let swamp = named("Swamp");
+    let controlled = |seed| {
+        let mut table = Table::new(seed, their_deck());
+        table.their_hand = Some(vec![
+            entry(elves()),
+            entry(quiet_artifact()),
+            entry(named("Mountain")),
+            entry(swamp),
+            entry(elves()),
+            entry(swamp),
+            entry(named("Mountain")),
+        ]);
+        let mut engine = table.settled_main();
+        engine
+            .state
+            .turn_controls
+            .push(crate::state::PlayerTurnControl {
+                controller: ME,
+                player: THEM,
+                turn: engine.state.turn.number + 1,
+                began: None,
+            });
+        pass_until(&mut engine, |e| {
+            e.state().turn.active == THEM
+                && e.state().turn.step == crate::turn::Step::Upkeep
+                && matches!(e.pending(), Pending::Priority { .. })
+        });
+        assert_eq!(
+            engine.state().turn.step,
+            crate::turn::Step::Upkeep,
+            "their upkeep, under my control"
+        );
+        assert!(engine.may_inspect_private(ME, THEM), "I control their turn");
+        engine
+    };
+    let (one, two) = (controlled(71), controlled(72));
+    let hand = |e: &Engine<RegistryLookup>| e.state().zones.list(ZoneLocation::Hand(THEM)).clone();
+    let library =
+        |e: &Engine<RegistryLookup>| e.state().zones.list(ZoneLocation::Library(THEM)).clone();
+    assert_eq!(hand(&one), hand(&two), "I see the same hand in both");
+    let forked = fork(&one, 7);
+    assert_eq!(hand(&forked), hand(&one), "their hand stays as I see it");
+    assert!(
+        library(&forked)
+            .iter()
+            .all(|id| !library(&one).contains(id)),
+        "their library is dealt"
+    );
+    let hidden = |e: &Engine<RegistryLookup>| -> Vec<ObjectId> {
+        [ZoneLocation::Library(THEM), ZoneLocation::Library(ME)]
+            .into_iter()
+            .flat_map(|loc| e.state().zones.list(loc).clone())
+            .collect()
+    };
+    assert_twins_fork_alike(&one, &two, [&hidden(&one), &hidden(&two)]);
+}
+
+/// A spell on the stack whose payment names a card in their hand (a card
+/// discarded to pay for it, back in that hand): the record points at a
+/// hidden card, and the fork is refused rather than dealt out from under
+/// it. Written by hand: no card here pays by discarding and then returns
+/// the discarded card in response.
+#[test]
+fn a_payment_naming_a_hidden_card_is_refused() {
+    let mut engine = settled_main(73, their_deck());
+    elves_passed_over(&mut engine);
+    let spell = engine.state().zones.list(ZoneLocation::Stack)[0];
+    let hidden = engine.state().zones.list(ZoneLocation::Hand(THEM))[0];
+    let state = engine
+        .dev_state_mut(ME)
+        .expect("the fixture trusts its seats");
+    let discarded = state.source_identity(hidden).unwrap();
+    state
+        .object_mut(spell)
+        .unwrap()
+        .paid
+        .get_or_insert_with(Default::default)
+        .discarded
+        .push(discarded);
+    assert_eq!(
+        engine.fork_for(ME, DeckKnowledge::Known, 1).err(),
+        Some(ForkRefusal::ReferencedHiddenCard("an object"))
+    );
 }
 
 /// A fork is a simulation, not a seat at a table: nobody in it may rewrite
