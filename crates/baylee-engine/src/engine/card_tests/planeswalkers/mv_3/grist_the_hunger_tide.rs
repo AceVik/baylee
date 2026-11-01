@@ -266,6 +266,45 @@ fn grist_plus_one_repeats_and_adds_loyalty_for_each_insect_card_milled() {
     );
 }
 
+/// Milling another copy of Grist, the Hunger Tide with Grist's `+1` must also
+/// count as milling an Insect card (CR 113.6b-c): Grist's off-battlefield
+/// static ability makes it a 1/1 Insect creature card in both the library and
+/// the graveyard, including immediately after `Effect::Mill` moves it and
+/// before the next `sync_board_rules` pass runs.
+#[test]
+fn grist_plus_one_recognizes_milled_grist_as_an_insect_card_and_repeats() {
+    let p0 = kit::P0;
+    let (mut engine, grist) = with_grist_at(
+        Duel::new(SEED, forest())
+            .battlefield(0, &[grist_the_hunger_tide()])
+            .hand(0, &[grist_the_hunger_tide(), forest(), gray_ogre()])
+            .start(),
+        3,
+    );
+    let stacked = kit::stack_library(
+        &mut engine,
+        p0,
+        &[grist_the_hunger_tide(), forest(), gray_ogre()],
+    );
+
+    activate_nth(&mut engine, grist, 0);
+    kit::settle(&mut engine, p0, |_, _| None);
+
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        2,
+        "milling Grist repeated the +1 process once before stopping at the Forest"
+    );
+    assert_eq!(kit::zone_of(&engine, stacked[0]), Zone::Graveyard);
+    assert_eq!(kit::zone_of(&engine, stacked[1]), Zone::Graveyard);
+    assert_eq!(kit::zone_of(&engine, stacked[2]), Zone::Library);
+    assert_eq!(
+        kit::loyalty(&engine, grist),
+        5,
+        "3 + 1 (cost) + 1 (milled Grist is an Insect card) = 5"
+    );
+}
+
 /// Ruling 2021-06-18: "If Grist is no longer on the battlefield as its first
 /// loyalty ability resolves, you will still create a 1/1 black and green
 /// Insect creature token and mill a card. If an Insect card is milled this

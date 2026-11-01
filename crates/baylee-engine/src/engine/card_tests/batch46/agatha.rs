@@ -459,21 +459,13 @@ fn batch46_agatha_grants_loyalty_to_a_creature_and_preserves_once_each_turn() {
     );
     let grist = hand_to_graveyard(&mut e, P0, index::GRIST_THE_HUNGER_TIDE);
     // Grist is a 1/1 Insect creature card off the battlefield through its own
-    // static ability (CR 113.6), and in the graveyard it already is one. The
-    // Cauldron's "When a creature card is exiled this way" is checked at the
-    // moment of the exile, though, and there the exiled card still shows its
-    // printed types: the static is registered for the object in exile only on
-    // the engine's next pass (measured: the exiled Grist read as a planeswalker
-    // alone when the reflexive trigger was looked for, and as a creature one
-    // pass later). So the creature characteristic is also written onto the
-    // card's base here, which keeps the test about the Cauldron's grant of the
-    // -5 and not about that ordering.
-    let base = e.state.object_mut(grist).unwrap().base_mut();
-    base.types = base.types.union(TypeSet::CREATURE);
-    base.power = Some(1);
-    base.toughness = Some(1);
+    // static ability (CR 113.6), both in the graveyard and immediately upon
+    // moving to exile, so the Cauldron's "When a creature card is exiled this
+    // way" reflexive trigger fires naturally without any base characteristic
+    // override and puts a +1/+1 counter on the Bears.
     let bear = on_battlefield(&e, P0, index::GRIZZLY_BEARS).unwrap();
     exile(&mut e, grist, Some(bear));
+    assert_eq!(counters_on(&e, bear, CounterKind::P1P1), 1);
     let elves = hand_to_graveyard(&mut e, P0, index::LLANOWAR_ELVES);
     e.state
         .object_mut(bear)
