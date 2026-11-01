@@ -467,13 +467,41 @@ fn first_line(name: &str) -> String {
     narrator::strip_reminder(line)
 }
 
+/// The one report a real API mind files when its model looks `looked` up
+/// and then answers the priority question with a report that quotes the
+/// first line of Serra Angel's text (on the board) and of `quoted`'s.
+async fn filed_after_lookup(looked: &str, quoted: &str) -> reports::Filed {
+    let (base, provider) = stand_in().await;
+    provider.script(decide("toolu_1", json!({"ask": "q12", "lookup": looked})));
+    provider.script(decide(
+        "toolu_2",
+        json!({"ask": "q12", "pick": ["a1"], "report": {
+            "kind": "illegal_option", "severity": "minor", "confidence": "medium",
+            "cards": [
+                {"name": "Serra Angel", "oracle_quote": first_line("Serra Angel")},
+                {"name": quoted, "oracle_quote": first_line(quoted)},
+            ],
+            "rules": ["CR 601.2"],
+            "observed": "x", "expected": "y",
+        }}),
+    ));
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    mind.decide(a_priority()).await.expect("an answer");
+    let mut filed = mind.reports("golden", 0);
+    assert_eq!(filed.len(), 1);
+    filed.remove(0)
+}
+
 /// A report's quotes are checked against what the seat told the model:
 /// a card on the board, told under "New cards", and a card it looked up,
 /// told only in the lookup's answer. Its question is the one the model was
-/// shown, and its answer the one it gave.
+/// shown, and its answer the one it gave. The same report with one card
+/// changed, to a card of the pool the seat neither showed nor looked up,
+/// does not match: the lookup opens the build's text of the card looked
+/// up and no other.
 #[tokio::test]
 async fn a_report_s_quotes_are_checked_against_what_the_seat_told_the_model() {
-    // A card of the pool that is neither in the deck nor at the table.
+    // Two cards of the pool that are neither in the deck nor at the table.
     let (view, _) = board();
     let context = narrator::tests::context();
     let at_table = |name: &str| {
@@ -488,38 +516,22 @@ async fn a_report_s_quotes_are_checked_against_what_the_seat_told_the_model() {
                 .iter()
                 .any(|e| baylee_cards::by_index(e.card).is_some_and(|def| def.name() == name))
     };
-    let elsewhere = baylee_cards::all()
+    let away: Vec<&str> = baylee_cards::all()
         .filter(|def| def.faces.len() == 1)
         .map(baylee_cards_dsl::CardDef::name)
-        .find(|name| {
+        .filter(|name| {
             !at_table(name)
                 && baylee_cards::decks::by_name(name).is_some()
                 && baylee_cards::oracle::face(baylee_cards::decks::by_name(name).unwrap(), 0)
                     .is_some_and(|text| !text.trim().is_empty())
         })
-        .expect("a card away from the table");
-    let (base, provider) = stand_in().await;
-    provider.script(decide(
-        "toolu_1",
-        json!({"ask": "q12", "lookup": elsewhere}),
-    ));
-    provider.script(decide(
-        "toolu_2",
-        json!({"ask": "q12", "pick": ["a1"], "report": {
-            "kind": "illegal_option", "severity": "minor", "confidence": "medium",
-            "cards": [
-                {"name": "Serra Angel", "oracle_quote": first_line("Serra Angel")},
-                {"name": elsewhere, "oracle_quote": first_line(elsewhere)},
-            ],
-            "rules": ["CR 601.2"],
-            "observed": "x", "expected": "y",
-        }}),
-    ));
-    let mind = mind(&base, Provider::Anthropic, |_| {});
-    mind.decide(a_priority()).await.expect("an answer");
-    let filed = mind.reports("golden", 0);
-    assert_eq!(filed.len(), 1);
-    let filed = &filed[0];
+        .take(2)
+        .collect();
+    let [elsewhere, never] = away[..] else {
+        panic!("two cards away from the table: {away:?}");
+    };
+    assert_ne!(first_line(elsewhere), first_line(never), "told apart");
+    let filed = &filed_after_lookup(elsewhere, elsewhere).await;
     assert_eq!(filed.checked.kind, reports::Kind::IllegalOption);
     assert_eq!(filed.checked.oracle_quote_matches, Some(true));
     assert_eq!(filed.checked.rules_format_ok, Some(true));
@@ -529,11 +541,15 @@ async fn a_report_s_quotes_are_checked_against_what_the_seat_told_the_model() {
     assert!(answer.starts_with("a1 "), "{answer}");
     assert_eq!(filed.moment.options[0].id, "a1");
     assert_eq!(filed.moment.turn, 7);
-    // A card the model was never told: the same words do not match.
-    let mut never = filed.report.clone();
-    never.cards[1].name = "Some Other Card".into();
-    let checked = reports::Checked::new(&never, "Priority", |name| {
-        narrator::Narrator::new(&narrator::tests::context()).told_texts(name)
-    });
-    assert_eq!(checked.oracle_quote_matches, Some(false));
+    // The same answer with its second card a pool card the seat neither
+    // showed nor looked up (it looked `elsewhere` up): its own words, as
+    // exact, do not match, through the same mind.
+    let unseen = &filed_after_lookup(elsewhere, never).await;
+    assert_eq!(unseen.lookups, 1, "the same lookup was made");
+    assert_eq!(
+        unseen.report.cards[0], filed.report.cards[0],
+        "the same angel"
+    );
+    assert_eq!(unseen.report.cards[1].name, never);
+    assert_eq!(unseen.checked.oracle_quote_matches, Some(false));
 }
