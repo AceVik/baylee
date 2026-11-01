@@ -7,13 +7,31 @@ use baylee_cards_dsl::CounterKind;
 use baylee_core::ids::{DamageSourceRef, PlayerId};
 use std::collections::VecDeque;
 
+/// One additive replacement. Ordinary additions affect every kind in the event;
+/// entry additions name exactly the kind printed by their ability.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct CounterAddition {
+    kind: Option<CounterKind>,
+    n: u16,
+}
+
+impl CounterAddition {
+    fn all_kinds(n: u16) -> Self {
+        Self { kind: None, n }
+    }
+
+    fn applies_to(self, kind: CounterKind) -> bool {
+        self.kind.is_none_or(|additional| additional == kind)
+    }
+}
+
 /// A counter event awaiting replacement ordering; every amount shares its order.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct CounterPlacementPlan {
     pub(crate) recipient: DamageSourceRef,
     pub(crate) by: PlayerId,
     pub(crate) counters: Vec<(CounterKind, u16)>,
-    pub(crate) additions: Vec<u16>,
+    pub(crate) additions: Vec<CounterAddition>,
     pub(crate) doubles: u16,
     pub(crate) by_effect: bool,
     pub(crate) maximum: Option<u16>,
@@ -35,7 +53,10 @@ impl CounterPlacementPlan {
             recipient,
             by,
             counters: vec![(kind, n)],
-            additions,
+            additions: additions
+                .into_iter()
+                .map(CounterAddition::all_kinds)
+                .collect(),
             doubles,
             by_effect,
             maximum: None,
@@ -45,9 +66,11 @@ impl CounterPlacementPlan {
     }
 
     fn add(&mut self, index: usize) {
-        let n = self.additions.remove(index);
-        for (_, amount) in &mut self.counters {
-            *amount = amount.saturating_add(n);
+        let addition = self.additions.remove(index);
+        for (kind, amount) in &mut self.counters {
+            if addition.applies_to(*kind) {
+                *amount = amount.saturating_add(addition.n);
+            }
         }
         // CR 614.16: this replacement itself puts counters on the permanent,
         // making effect-only doublers applicable even to an original cost
@@ -69,13 +92,8 @@ impl CounterPlacementPlan {
     pub(crate) fn question(&mut self) -> Option<u16> {
         loop {
             if self.doubles == 0 {
-                if !self.additions.is_empty() {
-                    let total = self.additions.drain(..).fold(0u16, u16::saturating_add);
-                    for (_, amount) in &mut self.counters {
-                        *amount = amount.saturating_add(total);
-                    }
-                    self.by_effect = true;
-                    self.next = 0;
+                while !self.additions.is_empty() {
+                    self.add(0);
                 }
                 return None;
             }
@@ -100,7 +118,7 @@ impl CounterPlacementPlan {
                 self.add(self.next);
                 continue;
             }
-            return Some(self.additions[self.next]);
+            return Some(self.additions[self.next].n);
         }
     }
 
@@ -131,7 +149,7 @@ pub(crate) fn plan(
         .filter(|(kind, _)| super::counter_limits::room(state, id, *kind) != Some(0))
         .collect();
     let object = state.object(id)?;
-    build_plan(state, by, object, counters, by_effect, maximum)
+    build_plan(state, by, object, counters, by_effect, maximum, false)
 }
 
 /// Entry replacements read the prospective permanent before its battlefield move.
@@ -139,40 +157,67 @@ pub(crate) fn build_plan(
     state: &GameState,
     by: PlayerId,
     object: &crate::object::GameObject,
-    mut counters: Vec<(CounterKind, u16)>,
+    counters: Vec<(CounterKind, u16)>,
     by_effect: bool,
     maximum: Option<u16>,
+    entering: bool,
 ) -> Option<CounterPlacementPlan> {
     let mut normalized: Vec<(CounterKind, u16)> = Vec::new();
-    for (kind, n) in counters.drain(..).filter(|&(_, n)| n > 0) {
+    for (kind, n) in counters.into_iter().filter(|&(_, n)| n > 0) {
         if let Some((_, amount)) = normalized.iter_mut().find(|(held, _)| *held == kind) {
             *amount = amount.saturating_add(n);
         } else {
             normalized.push((kind, n));
         }
     }
-    counters = normalized;
-    if counters.is_empty() {
-        return None;
-    }
     let recipient = DamageSourceRef {
         object: object.id,
         version: object.version,
     };
-    let additions = state
-        .effects
-        .iter()
-        .filter_map(|effect| {
-            let baylee_cards_dsl::Modifier::AdditionalCounterPlacement { n } = effect.modifier
-            else {
-                return None;
-            };
-            (n > 0
-                && object.zone == crate::zone::Zone::Battlefield
-                && crate::effects::applies_to(state, effect, object))
-            .then_some(n)
-        })
-        .collect();
+    let mut additions: Vec<CounterAddition> = Vec::new();
+    for effect in state.effects.iter() {
+        if object.zone != crate::zone::Zone::Battlefield
+            || !crate::effects::applies_to(state, effect, object)
+        {
+            continue;
+        }
+        match effect.modifier {
+            baylee_cards_dsl::Modifier::AdditionalCounterPlacement { n } if n > 0 => {
+                additions.push(CounterAddition::all_kinds(n));
+            }
+            baylee_cards_dsl::Modifier::AdditionalCounterOnEntryByCount { kind, count }
+                if entering =>
+            {
+                let count_object = effect
+                    .source
+                    .and_then(|source| state.object(source))
+                    .unwrap_or(object);
+                let n = u16::try_from(
+                    crate::layers::counts::live_pt_count(
+                        state,
+                        count_object,
+                        effect.controller,
+                        count,
+                    )
+                    .max(0),
+                )
+                .unwrap_or(u16::MAX);
+                if n > 0 {
+                    if !normalized.iter().any(|(held, _)| *held == kind) {
+                        normalized.push((kind, 0));
+                    }
+                    additions.push(CounterAddition {
+                        kind: Some(kind),
+                        n,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    if normalized.is_empty() {
+        return None;
+    }
     let effect_doubles = state
         .replacement_rules
         .iter()
@@ -202,13 +247,14 @@ pub(crate) fn build_plan(
     let mut plan = CounterPlacementPlan::new(
         recipient,
         by,
-        counters[0].0,
-        counters[0].1,
-        additions,
+        normalized[0].0,
+        normalized[0].1,
+        Vec::new(),
         u16::try_from(doubles).unwrap_or(u16::MAX),
         by_effect,
     );
-    plan.counters = counters;
+    plan.counters = normalized;
+    plan.additions = additions;
     plan.maximum = maximum;
     Some(plan)
 }
@@ -623,8 +669,10 @@ mod tests {
                 let mut expected = actual.clone();
                 // Independent linear reference performs every individual addition.
                 for extra in std::mem::take(&mut expected.additions) {
-                    for (_, amount) in &mut expected.counters {
-                        *amount = amount.saturating_add(extra);
+                    for (kind, amount) in &mut expected.counters {
+                        if extra.applies_to(*kind) {
+                            *amount = amount.saturating_add(extra.n);
+                        }
                     }
                     expected.by_effect = true;
                     expected.next = 0;

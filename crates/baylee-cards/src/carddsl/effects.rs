@@ -94,6 +94,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::LookAtTopMayTake { .. }
         | Effect::LookAtTopKeepBottomPlay { .. }
         | Effect::RevealTopOnePerType { .. }
+        | Effect::RevealTopAllMatching { .. }
         | Effect::Cascade
         | Effect::Discover { .. }
         | Effect::DiscoverAmount { .. } => {
@@ -116,6 +117,7 @@ fn accumulate_effect(effect: &Effect, ch: &mut EffectChannels) {
         | Effect::SearchLibraryOf { .. }
         | Effect::SearchLibraryUpTo { .. }
         | Effect::OptionalBasicLandSearchFor { .. }
+        | Effect::ExileAttackingForThenMaySearchBasicLands { .. }
         | Effect::Recruit { .. }
         | Effect::WishToHand { .. } => {
             ch.tutor_search += 1.0;

@@ -12,6 +12,25 @@ The earlier feedback handoff's "seven Alpha Partials" tracked only seven cards
 whose cast-only tests were backfilled, not the entire set. Its subsequent "one
 remaining" claim was incorrect. This complete inventory supersedes those counts.
 
+## Requested card completion — 2026-11-01
+
+The owner-requested card set is implemented with clause-playing tests: The One
+Ring, the named Angel and white-card package, Chrome Mox, Coalition Relic,
+Journey to Nowhere, The Birth of Meletis, the Elves-vs.-Goblins package, Oath of
+Druids, Force of Vigor, Fireblast, Fatal Push, Cabal Therapy, Call of the Herd,
+Doomskar and Starnheim Unleashed. Shared work includes foretell, card-type
+choices, reusable alternative/pitch-cost handling, chosen-type protection,
+voting and the associated desktop prompts.
+
+Verification on this source: `codegen --tables --check` and
+`hooks require-card-tests` pass; `validate` accepts all 12,542 cards; the full
+`engine::card_tests::` selection passes **13,979 tests with zero failures**.
+`cargo dev gate rules` reaches workspace lint but remains blocked because the
+deliberately untouched `baylee-train` crate lacks seven exhaustive match arms
+for the new `Pending::ChooseCardType` and `CastModeKind::Foretell` variants.
+No complete workspace gate is claimed until those compatibility arms are
+resolved and both required gates pass on the rebased source.
+
 ## Limited Edition Alpha
 
 290 distinct Oracle identities in `set_lea.rs`: **286 Implemented, 0 Partial,

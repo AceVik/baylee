@@ -127,6 +127,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("flash", K::FLASH),   // casting::can_cast
         ("prowess", K::PROWESS), // trigger.rs (synthetic)
         ("changeling", K::CHANGELING), // layers::recompute_with
+        ("partner", K::PARTNER), // resolve::counters (Akroma counts it)
         ("unblockable", K::UNBLOCKABLE), // combat::can_block
         ("can't block", K::CANT_BLOCK), // combat::can_block
         ("undying", K::UNDYING), // trigger.rs (synthetic)

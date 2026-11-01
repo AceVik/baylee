@@ -19,6 +19,8 @@ pub static PLAYABLE: &[Precon] = &[
     Precon { key: "9ED/custom-creatures", text: include_str!("../../../../data/decks/precon/9ED/custom-creatures.txt") },
     Precon { key: "9ED/dead-again", text: include_str!("../../../../data/decks/precon/9ED/dead-again.txt") },
     Precon { key: "9ED/silver-deck", text: include_str!("../../../../data/decks/precon/9ED/silver-deck.txt") },
+    Precon { key: "DD1/goblins", text: include_str!("../../../../data/decks/precon/DD1/goblins.txt") },
+    Precon { key: "EVG/goblins", text: include_str!("../../../../data/decks/precon/EVG/goblins.txt") },
     Precon { key: "ITP/kazz-s-first-deck", text: include_str!("../../../../data/decks/precon/ITP/kazz-s-first-deck.txt") },
     Precon { key: "ITP/kazz-s-second-deck", text: include_str!("../../../../data/decks/precon/ITP/kazz-s-second-deck.txt") },
     Precon { key: "ITP/zakk-s-first-deck", text: include_str!("../../../../data/decks/precon/ITP/zakk-s-first-deck.txt") },

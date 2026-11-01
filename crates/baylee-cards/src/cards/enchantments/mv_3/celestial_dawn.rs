@@ -5,8 +5,6 @@
 //! Set: TSB #3 — Time Spiral Timeshifted | Scryfall ID: 251880e9-a472-4f33-9988-4871d31aa1d9 | Oracle ID: b4d27fad-9a94-4760-80a6-6a2948109864
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

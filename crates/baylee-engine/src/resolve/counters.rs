@@ -592,6 +592,45 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             pump(state, res, you, &filters, (p, t), keywords, duration);
             None
         }
+        Effect::PumpFilterPerKeyword {
+            filter,
+            keywords,
+            count_protection,
+            duration,
+        } => {
+            // Bind the set before calculating any bonus (CR 611.2c). Each
+            // member keeps its own count, so one effect cannot use a shared
+            // `Amount` the way an ordinary PumpFilter does.
+            let bound = super::bound_now_with_context(
+                state,
+                filter,
+                &baylee_cards_dsl::Modifier::ModifyPT(1, 1),
+                you,
+                res.rule_context(),
+                None,
+            );
+            for filter in bound {
+                let crate::effects::EffectFilter::ObjectIs(id, version) = filter else {
+                    continue;
+                };
+                let Some(object) = state.object(id) else {
+                    continue;
+                };
+                let n = listed_ability_count(state, object, keywords, count_protection);
+                if n > 0 {
+                    pump(
+                        state,
+                        res,
+                        you,
+                        &[crate::effects::EffectFilter::ObjectIs(id, version)],
+                        (n, n),
+                        baylee_cards_dsl::KeywordSet::EMPTY,
+                        duration,
+                    );
+                }
+            }
+            None
+        }
         Effect::PumpTarget {
             power,
             toughness,
@@ -656,6 +695,35 @@ fn pump_slot_filters(
         .filter(|reference| super::subjects::on_battlefield(state, *reference))
         .map(bind)
         .collect()
+}
+
+/// Counts distinct listed abilities on one projected object. Protection is
+/// deliberately a boolean: "protection from black" and "protection from red"
+/// are two variants of the one ability a card such as Akroma lists. The old
+/// protection keyword bit and parameterized protection modifiers therefore
+/// share that single contribution rather than being added independently.
+fn listed_ability_count(
+    state: &GameState,
+    object: &crate::object::GameObject,
+    listed: baylee_cards_dsl::KeywordSet,
+    count_protection: bool,
+) -> i16 {
+    let projected = object.characteristics().keywords;
+    let protection_bit = baylee_cards_dsl::KeywordSet::PROTECTION_BLACK;
+    let mut counted = projected.bits() & listed.bits();
+    if count_protection {
+        counted &= !protection_bit.bits();
+    }
+    let has_protection = count_protection
+        && (projected.contains(protection_bit)
+            || state.effects.iter().any(|effect| {
+                matches!(
+                    effect.modifier,
+                    baylee_cards_dsl::Modifier::ProtectionFrom(_)
+                        | baylee_cards_dsl::Modifier::ProtectionFromExiledWithSourceTypes
+                ) && crate::effects::applies_to(state, effect, object)
+            }));
+    i16::try_from(counted.count_ones() + u32::from(has_protection)).unwrap_or(i16::MAX)
 }
 
 /// Registers one pump: a P/T modifier, and a keyword grant beside it when

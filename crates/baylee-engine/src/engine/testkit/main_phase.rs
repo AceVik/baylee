@@ -72,6 +72,12 @@ pub fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> 
                     .is_err(),
                 None => return false,
             },
+            Pending::ChooseCardType { player, options } => match options.first().copied() {
+                Some(first) => engine
+                    .apply(player, PlayerAction::ChooseCardType(first))
+                    .is_err(),
+                None => return false,
+            },
             Pending::ChooseColor { player, options } => match options.first().copied() {
                 Some(first) => engine
                     .apply(player, PlayerAction::ChooseColor(first))

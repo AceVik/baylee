@@ -25,7 +25,7 @@
 //! changes its condition depends on the current object. A plan containing
 //! it reevaluates layer-4 dependencies during each projection (CR 613.8c).
 
-mod counts;
+pub(crate) mod counts;
 mod reductions;
 use counts::{count_controlled, counts_by_attachment, pt_count};
 
@@ -789,6 +789,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         ),
         Filter::HasType(_)
         | Filter::LacksType(_)
+        | Filter::OfSourceChosenCardType
         | Filter::HasSubtype(_)
         | Filter::MatchesChosenTypeOfSource
         | Filter::SharesCreatureTypeWithOtherTarget
@@ -1212,6 +1213,7 @@ fn apply(
         }
         // Handled by SBAs/legality checks, not by characteristics.
         Modifier::SpellsCostLess(_)
+        | Modifier::SpellsCostLessPerCounter(_)
         | Modifier::LoseAllBandsWithOther
         | Modifier::BandsWithOther(_)
         | Modifier::SpellsCostMore(_)
@@ -1261,6 +1263,7 @@ fn apply(
         | Modifier::ReplacePlayerDamage { .. }
         | Modifier::DamageLifeLossFloor { .. }
         | Modifier::AdditionalCounterPlacement { .. }
+        | Modifier::AdditionalCounterOnEntryByCount { .. }
         | Modifier::FlipTwoCoinsIgnoreOne
         | Modifier::NextDestructionClearsDamage
         | Modifier::PreventDamageToIt
@@ -1314,10 +1317,12 @@ fn apply(
         | Modifier::BoastTwice
         | Modifier::LifeTotalCantChange { .. }
         | Modifier::PlayerProtectionFromEverything { .. }
+        | Modifier::PlayerProtectionFrom { .. }
         | Modifier::PlayerProtectionFromOpponents { .. }
         | Modifier::DoubleCountersPlacedByYou
         | Modifier::CantAttackYou
         | Modifier::AttackTaxLife { .. }
+        | Modifier::AttackTaxMana { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
         | Modifier::PlayerHexproof { .. }
         | Modifier::GrantActivated { .. }
@@ -1345,6 +1350,7 @@ fn apply(
         | Modifier::MayRedirectDamageToYou
         | Modifier::CantAttackUnlessPayMana(_)
         | Modifier::CantAttackUnlessPayManaPerCounter(_)
+        | Modifier::CantBlockUnlessPayMana(_)
         | Modifier::CantBlockUnlessPayManaPerCounter(_)
         | Modifier::CantAttackUnlessYouSacrifice { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected

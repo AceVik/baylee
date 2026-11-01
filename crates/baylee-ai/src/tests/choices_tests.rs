@@ -258,6 +258,7 @@ fn a_needle_names_the_opponents_permanent_it_would_stop() {
     let pending = Pending::ChooseCardName {
         player: v.seat,
         types: baylee_core::types::TypeSet::EMPTY,
+        excluded_types: baylee_core::types::TypeSet::EMPTY,
     };
     assert_eq!(
         HeuristicAgent::new(AIProfile::EXPERT).act(&v, &pending),

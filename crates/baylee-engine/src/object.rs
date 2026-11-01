@@ -878,8 +878,12 @@ pub enum Rider {
     Rebound,
     /// On an adventure; this player may play its non-Adventure face from exile.
     Adventure(PlayerId),
-    /// Foretold (castable for its foretell cost).
-    Foretold,
+    /// This incarnation was foretold on the given turn. In exile it grants
+    /// the later-turn alternative cost; on the stack it answers "was foretold".
+    Foretold {
+        /// Turn on which this exact incarnation entered exile by foretell.
+        turn: u32,
+    },
     /// Plotted (castable without paying as a sorcery).
     Plotted,
     /// Suspended (time counters tick down at upkeep; cast for free at zero).
@@ -1065,7 +1069,7 @@ impl Rider {
             | Self::PlayableFromExileFor(_)
             | Self::Suspend
             | Self::Rebound
-            | Self::Foretold
+            | Self::Foretold { .. }
             | Self::Plotted
             | Self::NotedCounter(_, _) => true,
             // About the stack or the battlefield, not exile.
@@ -1415,6 +1419,8 @@ pub struct GameObject {
     /// differs: two Thriving Moors on one battlefield are two colours, and
     /// the card they share can say neither.
     pub chosen_color: Option<baylee_core::mana::ManaColor>,
+    /// The card type chosen as this permanent entered (Serra's Emissary).
+    pub chosen_card_type: Option<baylee_core::types::TypeSet>,
     /// The card name chosen as this entered (Pithing Needle, CR 201.4): the
     /// card and face it is the name of, packed as a [`PrintedFace`] so the
     /// `Option` is four bytes. What `Modifier::ChosenNameCantActivate`
@@ -1555,6 +1561,7 @@ impl GameObject {
             modes: 0,
             chosen_subtype: None,
             chosen_color: None,
+            chosen_card_type: None,
             chosen_name: None,
             doors: Doors::NONE,
             face_index: 0,

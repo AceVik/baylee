@@ -5,8 +5,6 @@
 //! Set: 9ED #289 — Ninth Edition | Scryfall ID: 1af0c9a0-0dfa-4245-8b29-7bd37982b7d2 | Oracle ID: 3e46381a-7850-4e50-9213-e1a180299977
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

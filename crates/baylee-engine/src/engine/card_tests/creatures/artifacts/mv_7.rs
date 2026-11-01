@@ -3,6 +3,7 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
+mod angel_of_the_ruins;
 mod clockwork_dragon;
 mod darksteel_gargoyle;
 mod ebony_rhino;

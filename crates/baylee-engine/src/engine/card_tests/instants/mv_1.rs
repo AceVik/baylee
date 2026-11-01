@@ -63,6 +63,7 @@ mod erase;
 mod fade_from_memory;
 mod false_orders;
 mod fatal_blow;
+mod fatal_push;
 mod feint;
 mod festival;
 mod fighting_chance;

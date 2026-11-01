@@ -161,9 +161,13 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::SearchOpponentSplits { .. }
         | Effect::SearchLibraryOrGraveyard { .. } => true,
         Effect::RevealUntil { found, .. } => outside_library(*found),
-        Effect::RevealTopAndSort {
+        Effect::RevealUntilMatching {
+            matched, otherwise, ..
+        }
+        | Effect::RevealTopAndSort {
             matched, otherwise, ..
         } => outside_library(*matched) || outside_library(*otherwise),
+        Effect::RevealTopAllMatching { found, .. } => outside_library(found.dest),
         Effect::LookAtTopMayPut {
             matched, otherwise, ..
         } => outside_library(matched.dest) || outside_library(*otherwise),

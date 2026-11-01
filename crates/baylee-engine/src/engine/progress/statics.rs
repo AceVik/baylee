@@ -315,12 +315,14 @@ impl crate::state::GameState {
                 }
             }
         }
+        let (emblems, lapsed_emblems) = emblem_statics(self);
+        lapsed.extend(lapsed_emblems);
         if !lapsed.is_empty() {
             self.effects
                 .remove_where(|effect| lapsed.contains(&effect.id));
         }
         to_register.extend(
-            emblem_statics(self)
+            emblems
                 .into_iter()
                 .map(|effect| (Some(effect), baylee_core::ids::EffectId::new(0), None)),
         );

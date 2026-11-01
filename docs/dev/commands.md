@@ -48,7 +48,7 @@ BAYLEE_ABILITY_LOG=<dir> cargo test -p baylee-engine --lib   # which abilities f
 No `cargo xtask` alias exists; every line below follows `cargo run -p xtask --`.
 
 ```text
-codegen [--check | --tables]      # --tables: no corpus needed
+codegen [--check | --tables | --registry]  # narrow modes need no corpus
 codegen --reclaim "<card>" --scripts <upstream-cardsfolder> [--check]
 codegen --complete-stub "<card>" --scripts <upstream-cardsfolder> [--check]
 codegen --hold-back "<card>" --hold-back-reason "<review finding>" [--check]
@@ -74,7 +74,7 @@ dev-table --seats 4 --ai sharp [--play] [--teams 1,1,2] [--bridge house|scripted
 - `cr-check` finds the Comprehensive Rules the same three ways (`--rules`, `BAYLEE_COMP_RULES`, `MagicCompRules*.txt`); none = no check. Never vendor it (`docs/legal.md`). A line using a heading word must cite under it (keyword action `701.N`, keyword ability `702.N`). Sections renumber: look numbers up, never recall them. Record an old wrong citation without `CR`.
 - Scryfall: `fetch_named` answers cached payloads from disk, else fetches one card. Fill a cold cache in bulk (`scryfall::fill_from_bulk`, `oracle_cards`), matched on ledger `oracle_id`, never name. Bulk never fails; gaps fetch singly.
 - `data/scryfall-cache` (`--cache` default) is gitignored; copy it into a fresh worktree or codegen fails at the lines stage.
-- Never run full `codegen` without the corpus: it rewrites every machine-owned card as a stub. `--tables` regenerates the four compiled-pool tables after a hand-edited card or a `baylee_cards_codegen::lines` change.
+- Never run full `codegen` without the corpus: it rewrites every machine-owned card as a stub. `--tables` regenerates the four compiled-pool tables after a hand-edited card or a `baylee_cards_codegen::lines` change. A newly added hand-owned card first needs `--registry`: it reconciles placement, the card module list and registry, and preserves every existing implementation. Rebuild and run `--tables` afterwards so the compiled-pool tables include the new card.
 - `codegen --reclaim` returns only explicitly named `Implemented` cards to
   generator ownership after their readers catch up. Repeat the flag to select
   several. It uses cached pinned printings and existing subtype assignments,

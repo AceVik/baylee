@@ -25,6 +25,7 @@ const TITHE: u32 = 7187;
 const OFFERING: u32 = 7188;
 const OX: u32 = 7189;
 const RAY: u32 = 7190;
+const DOUBLE_PITCH: u32 = 7191;
 
 /// A spell ability that does nothing: what is under test is how the spell
 /// was paid for, and an effect would be one more thing to read around.
@@ -49,6 +50,10 @@ const fn instead(parts: &'static [CostPart]) -> AlternativeCost {
     }
 }
 
+static PITCH_TWO: &[AlternativeCost] = &[instead(&[
+    CostPart::ExileFromHand(&AN_INSTANT),
+    CostPart::ExileFromHand(&AN_INSTANT),
+])];
 static PAY_THREE: &[AlternativeCost] = &[instead(&[CostPart::PayLife(3)])];
 /// Force of Will's shape: one life and an instant card from your hand.
 static PAY_ONE_AND_PITCH: &[AlternativeCost] = &[instead(&[
@@ -99,6 +104,7 @@ fn cards() -> Vec<&'static CardDef> {
     vec![
         out_of_reach(BARGAIN, "Bargain", PAY_THREE),
         out_of_reach(PITCH, "Pitch", PAY_ONE_AND_PITCH),
+        out_of_reach(DOUBLE_PITCH, "Double Pitch", PITCH_TWO),
         card(
             FODDER,
             face("Fodder", "{5}{U}", TypeSet::INSTANT),
@@ -265,6 +271,49 @@ fn an_alternative_pitch_exiles_the_card_chosen_and_pays_the_life() {
         "the pitched card is exiled"
     );
     assert_eq!(life(&engine, me()), 19, "and one life paid");
+    assert!(
+        engine
+            .state()
+            .zones
+            .list(ZoneLocation::Hand(me()))
+            .is_empty()
+    );
+}
+
+/// Two exile-from-hand parts consume two distinct cards, in two questions.
+/// One matching card neither offers the alternative nor pays both parts.
+#[test]
+fn a_double_pitch_alternative_requires_and_exiles_two_distinct_cards() {
+    assert!(!offered(
+        &holding(7192, &[DOUBLE_PITCH, FODDER], 20),
+        DOUBLE_PITCH
+    ));
+    let mut engine = holding(7193, &[DOUBLE_PITCH, FODDER, FODDER], 20);
+    let fodder = objects(&engine, ZoneLocation::Hand(me()), FODDER);
+    assert_eq!(fodder.len(), 2);
+    let pitch = cast(&mut engine, DOUBLE_PITCH);
+    for card in &fodder {
+        let Pending::ChooseCards {
+            options, min, max, ..
+        } = engine.pending().clone()
+        else {
+            panic!("one question per pitched card: {:?}", engine.pending())
+        };
+        assert_eq!((min, max), (1, 1));
+        assert!(options.contains(card));
+        engine
+            .apply(
+                me(),
+                PlayerAction::ChooseObjects {
+                    objects: vec![*card],
+                },
+            )
+            .unwrap();
+    }
+    assert!(on_the_stack(&engine, pitch).alt_cast);
+    let exiled = objects(&engine, ZoneLocation::Exile(me()), FODDER);
+    assert_eq!(exiled.len(), 2);
+    assert!(fodder.iter().all(|card| exiled.contains(card)));
     assert!(
         engine
             .state()

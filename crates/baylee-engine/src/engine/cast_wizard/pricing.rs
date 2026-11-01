@@ -79,6 +79,7 @@ fn raw_option_cost(
         Some(CastModeKind::Prototype) => face.prototype.expect("prototype").cost,
         Some(CastModeKind::Disguise) => const { ManaCost::parse("{3}") },
         Some(CastModeKind::Miracle) => face.miracle.expect("miracle"),
+        Some(CastModeKind::Foretell) => face.foretell.expect("foretell"),
         Some(CastModeKind::Flashback) => face.flashback.expect("flashback"),
         Some(CastModeKind::BeamMeUp) => face.beam_me_up.expect("beam me up"),
         Some(CastModeKind::Dash) => face.dash.expect("dash"),

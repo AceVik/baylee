@@ -96,6 +96,14 @@ pub enum Modifier {
         /// Additional counters per placement event.
         n: u16,
     },
+    /// As the affected permanent enters, add this many counters of one kind.
+    /// The count is captured before the permanent reaches the battlefield.
+    AdditionalCounterOnEntryByCount {
+        /// Kind created by this entry replacement.
+        kind: crate::CounterKind,
+        /// Number derived from the game state before entry.
+        count: crate::PtCount,
+    },
     /// If the effect's controller would flip a coin, flip one additional
     /// coin and ignore one result of their choice: a replacement effect
     /// (CR 614.1a, "instead").
@@ -107,6 +115,9 @@ pub enum Modifier {
     SpellsCostMorePerControlled(&'static crate::Filter),
     /// Matching spells cost this much less generic mana after all increases.
     SpellsCostLess(u32),
+    /// Matching spells cost {1} less for each counter of this kind on the
+    /// continuous effect's source (Herald of War).
+    SpellsCostLessPerCounter(crate::CounterKind),
     /// Generic cost increase for activated abilities of matching objects.
     AbilitiesCostMore(u32),
     /// Additional life paid when activating a mana ability of the affected object.
@@ -365,6 +376,14 @@ pub enum Modifier {
     PlayerProtectionFromEverything {
         /// Affected players relative to the effect controller.
         who: crate::PlayerRel,
+    },
+    /// The named players have protection from sources matching this filter
+    /// (CR 702.16b: only damage and targeting apply to a player).
+    PlayerProtectionFrom {
+        /// Affected players relative to the effect controller.
+        who: crate::PlayerRel,
+        /// Sources from which those players are protected.
+        from: &'static crate::Filter,
     },
     /// These players can't lose life (Everybody Lives!: `EachPlayer`). That
     /// covers damage, effects and payments alike (CR 119.8): the loss
@@ -964,6 +983,12 @@ pub enum Modifier {
         /// Life paid per attacking creature.
         life: u16,
     },
+    /// Creatures can't attack the effect's controller or their planeswalkers
+    /// unless their controller pays this much generic mana per creature.
+    AttackTaxMana {
+        /// Generic mana paid per attacking creature.
+        mana: u32,
+    },
     /// "If damage would be dealt to any creature, you may have that damage
     /// dealt to you instead" (Blood of the Martyr).
     MayRedirectDamageToYou,
@@ -972,6 +997,8 @@ pub enum Modifier {
     /// "Can't attack unless its controller pays {1} per counter of this kind
     /// on it" (Myr Prototype).
     CantAttackUnlessPayManaPerCounter(crate::CounterKind),
+    /// "Can't block unless its controller pays {N}".
+    CantBlockUnlessPayMana(u32),
     /// "Can't block unless its controller pays {1} per counter of this kind
     /// on it" (Myr Prototype).
     CantBlockUnlessPayManaPerCounter(crate::CounterKind),
@@ -1178,6 +1205,7 @@ impl Modifier {
             Self::SwitchPT => Layer::PtSwitch,
             // No layer: rules-modifying effects.
             Self::SpellsCostLess(_)
+            | Self::SpellsCostLessPerCounter(_)
             | Self::BandsWithOther(_)
             | Self::GraveyardInstantSorceryOnce
             | Self::GraveyardVampireOnce
@@ -1226,6 +1254,7 @@ impl Modifier {
             | Self::CantLoseLife { .. }
             | Self::LifeTotalCantChange { .. }
             | Self::PlayerProtectionFromEverything { .. }
+            | Self::PlayerProtectionFrom { .. }
             | Self::PlayerProtectionFromOpponents { .. }
             | Self::NoLossForZeroLife { .. }
             | Self::LifeGainDrawsInstead { .. }
@@ -1233,6 +1262,7 @@ impl Modifier {
             | Self::ReplacePlayerDamage { .. }
             | Self::DamageLifeLossFloor { .. }
             | Self::AdditionalCounterPlacement { .. }
+            | Self::AdditionalCounterOnEntryByCount { .. }
             | Self::FlipTwoCoinsIgnoreOne
             | Self::DoubleCountersPlacedByYou
             | Self::NextDestructionClearsDamage
@@ -1255,8 +1285,10 @@ impl Modifier {
             | Self::CantAttack
             | Self::CantAttackYou
             | Self::AttackTaxLife { .. }
+            | Self::AttackTaxMana { .. }
             | Self::CantAttackUnlessPayMana(_)
             | Self::CantAttackUnlessPayManaPerCounter(_)
+            | Self::CantBlockUnlessPayMana(_)
             | Self::CantBlockUnlessPayManaPerCounter(_)
             | Self::CantAttackUnlessYouSacrifice { .. }
             | Self::AttackWithoutTappingWhileSourceUntapped { .. }

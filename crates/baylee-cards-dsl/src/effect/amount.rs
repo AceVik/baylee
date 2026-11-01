@@ -13,6 +13,12 @@ pub enum Amount {
     CreaturesEnteredUnderYourControlThisTurn,
     /// The value of X chosen at cast time.
     X,
+    /// X if this spell was foretold, otherwise the stated amount. The rider
+    /// is on the spell, not on a later permanent incarnation (CR 702.143c).
+    XIfSourceWasForetold {
+        /// Amount for an ordinary cast or another non-foretold source.
+        otherwise: u32,
+    },
     /// The negated value of X (Toxic Deluge's `-X/-X`; evaluated as a
     /// negative at use sites).
     NegX,
@@ -159,6 +165,10 @@ pub enum Amount {
     HandSize(super::PlayerRel),
     /// The named player's current life total, floored at zero for a magnitude.
     LifeTotal(super::PlayerRel),
+    /// The named player's starting life total (CR 103.3).
+    StartingLifeTotal(super::PlayerRel),
+    /// Total life the named player gained this turn; later losses do not subtract.
+    LifeGainedThisTurn(super::PlayerRel),
     /// Number of matching permanents the named player controls.
     ControlledCount {
         /// Controller relative to the resolving ability.

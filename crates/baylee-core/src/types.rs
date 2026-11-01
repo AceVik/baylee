@@ -64,6 +64,26 @@ impl TypeSet {
     /// Attraction (silver-bordered).
     pub const ATTRACTION: Self = Self(1 << 15);
 
+    /// Every card type, in stable bit order, for "choose a card type".
+    pub const ALL: [Self; 16] = [
+        Self::ARTIFACT,
+        Self::CREATURE,
+        Self::ENCHANTMENT,
+        Self::INSTANT,
+        Self::KINDRED,
+        Self::LAND,
+        Self::PLANESWALKER,
+        Self::SORCERY,
+        Self::BATTLE,
+        Self::DUNGEON,
+        Self::PLANE,
+        Self::SCHEME,
+        Self::VANGUARD,
+        Self::PHENOMENON,
+        Self::CONSPIRACY,
+        Self::ATTRACTION,
+    ];
+
     /// Parses a type word from a type line ("Artifact", "Creature", …).
     #[must_use]
     pub const fn from_word(word: &str) -> Option<Self> {

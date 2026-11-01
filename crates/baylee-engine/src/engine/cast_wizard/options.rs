@@ -174,6 +174,15 @@ impl<L: CardLookup> Engine<L> {
             }
             if let Some(flashback) = face.flashback
                 && afford(&flashback.with_x(0))
+                && casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    Some(CastModeKind::Flashback),
+                    &[],
+                )
+                .is_some()
             {
                 options.push(CastModeDesc {
                     index: 0,
@@ -223,12 +232,37 @@ impl<L: CardLookup> Engine<L> {
                 .iter()
                 .any(|a| matches!(a, baylee_cards_dsl::AbilityDef::Spell { .. }))
             && !face.types.is_permanent();
+        let foretell_cost = face
+            .foretell
+            .filter(|_| casting::foretell_permission(&self.state, player, card));
+        if let Some(cost) = foretell_cost
+            && casting::can_cast_form_paying(
+                &self.state,
+                &self.lookup,
+                player,
+                card,
+                Some(casting::SpellForm::Foretell(cost)),
+                paying,
+            )
+            .is_ok()
+            && afford(&cost.with_x(0))
+            && casting::face_has_a_legal_target(&self.state, &self.lookup, player, card, 0)
+        {
+            options.push(CastModeDesc {
+                index: options.len() as u32,
+                kind: CastModeKind::Foretell,
+                cost: price(cost),
+            });
+        }
         // Normal cost (X probed with 0; the real check happens at payment).
         // Guarded by the same CR 202.1b question `can_cast` asks, and for the
         // reason every probe in this function is paired with one there: an
         // option offered here that the offer does not know about is a mode a
-        // player can pick and be refused for.
+        // player can pick and be refused for. Foretell alone grants only its
+        // alternative cost; a separate play permission can also grant Normal.
         if !modal_only
+            && (foretell_cost.is_none()
+                || casting::play_permission(&self.state, player, card).is_some())
             && !face.types.contains(baylee_core::types::TypeSet::LAND)
             && (commanded
                 || casting::can_cast_form_paying(
@@ -375,6 +409,15 @@ impl<L: CardLookup> Engine<L> {
             // spell".
             if !condition_ok
                 || !self.can_afford(player, card, &taxed, casting::SpendFor::Spell(card))
+                || casting::additional_payment_capacity_for(
+                    &self.state,
+                    player,
+                    card,
+                    face,
+                    Some(CastModeKind::Alternative(i)),
+                    &[],
+                )
+                .is_none()
             {
                 continue;
             }
@@ -574,6 +617,12 @@ impl<L: CardLookup> Engine<L> {
             && casting::spell_condition_allows(&self.state, player, card, def, 0);
         options.retain(|o| match o.kind {
             CastModeKind::PlayLandFace(_) => true,
+            CastModeKind::Foretell => {
+                casting::permitted_spell_types(&self.state, player, card, face.types, 0)
+                    && (commanded
+                        || casting::timing_allows(&self.state, player, face.types, face.keywords))
+                    && casting::spell_condition_allows(&self.state, player, card, def, 0)
+            }
             CastModeKind::Face(i) | CastModeKind::EscapeGranted { face: i, .. } => {
                 (commanded || casting::face_timing_allows(&self.state, player, card, def, i))
                     && casting::spell_condition_allows(&self.state, player, card, def, i)

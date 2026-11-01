@@ -281,6 +281,15 @@ These two entries were made on two branches, each from 296. Merged, the
 two fields share the one eight-byte step, and `GameObject` measured 304 B
 with both (`tests/footprint.rs`).
 
+## A chosen card type (01.11.2026)
+
+`GameObject` **296 → 304 B**. Serra's Emissary chooses a card type as it
+enters, which protection reads while the permanent remains on the battlefield
+(`GameObject::chosen_card_type`). The `Option<TypeSet>` occupies four bytes;
+there was no four-byte hole, so object alignment rounds the increase to eight
+bytes, exactly what a boxed record would cost. The footprint budget was raised
+to 304 deliberately. `state/clone` was not re-benched for this field.
+
 ## The snapshot hash names every field (24.09.2026, #122)
 
 `GameState::snapshot_hash` now takes every struct it walks apart by name, so

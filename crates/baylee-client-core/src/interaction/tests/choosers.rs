@@ -260,6 +260,29 @@ fn a_creature_type_choice_is_answerable() {
     );
 }
 
+#[test]
+fn a_card_type_choice_is_answerable() {
+    let options = vec![
+        baylee_core::types::TypeSet::INSTANT,
+        baylee_core::types::TypeSet::CREATURE,
+        baylee_core::types::TypeSet::SORCERY,
+    ];
+    let mut i = interaction(Pending::ChooseCardType {
+        player: me(),
+        options: options.clone(),
+    });
+    assert!(!i.can_confirm());
+    assert!(!i.choose_index(options.len()));
+    assert!(i.choose_index(1));
+    assert_eq!(i.chosen_index(), Some(1));
+    assert_eq!(
+        i.confirm(),
+        Some(PlayerAction::ChooseCardType(
+            baylee_core::types::TypeSet::CREATURE
+        ))
+    );
+}
+
 /// Every choice answered by position answers the same way, which is what
 /// lets one chooser row in the renderer serve all four.
 #[test]

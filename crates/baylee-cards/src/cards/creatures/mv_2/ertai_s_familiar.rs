@@ -5,8 +5,6 @@
 //! Set: WTH #38 — Weatherlight | Scryfall ID: 354c9de7-0cdf-4302-9d1a-ae17eca13053 | Oracle ID: 711cd80d-c58d-4c2a-87db-d2e4c75f60d3
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
