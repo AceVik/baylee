@@ -108,7 +108,8 @@ pub(super) fn recompute_observing<'a>(
                 // in-progress projection — an "all creatures get +1/+1" anthem
                 // has to see a land that layer 4 just animated.
                 let animation = crate::artifact_animation::animates(fx.modifier);
-                let applies_now = if animation && layer != Layer::Type {
+                let carried = crate::artifact_animation::carries_its_set(fx.modifier);
+                let applies_now = if carried && layer != Layer::Type {
                     animations.contains(&idx)
                 } else {
                     applies(state, fx, obj, &c)
@@ -116,7 +117,7 @@ pub(super) fn recompute_observing<'a>(
                 };
                 if applies_now {
                     prohibited = prohibited.union(prohibited_keywords(&fx.modifier));
-                    if animation && layer == Layer::Type {
+                    if carried && layer == Layer::Type {
                         animations.push(idx);
                     }
                     #[cfg(test)]

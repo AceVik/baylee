@@ -7,6 +7,7 @@ use baylee_core::types::TypeSet;
 mod battle_characteristics;
 mod characteristic_extensions;
 mod indexed;
+mod mana_value_creature;
 
 static ANY_F: Filter = Filter::Any;
 static READS_TYPE: Filter = Filter::HasType(TypeSet::ARTIFACT);

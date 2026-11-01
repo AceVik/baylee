@@ -166,6 +166,16 @@ pub enum Modifier {
     /// Titania's Song: one layer-4 cohort loses abilities in layer 6 and gets
     /// mana-value P/T in 7b; its static continues until cleanup after departure.
     AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture,
+    /// "[These permanents are] creatures in addition to their other types
+    /// and have base power and base toughness each equal to their mana
+    /// value" (Opalescence). Layer 4 adds the creature type and nothing
+    /// else, keeping every other type and subtype (CR 205.1b); the same
+    /// effect sets base power and toughness to the object's mana value in
+    /// layer 7b (CR 613.4b), on the objects it took in layer 4 (CR 613.6).
+    /// Unlike [`Self::AnimateNoncreatureArtifact`] it asks no noncreature
+    /// question and adds no artifact type: a creature it reaches has its
+    /// printed power and toughness replaced as well.
+    CreatureWithManaValuePT,
     /// Removes types.
     RemoveType(TypeSet),
     /// Adds a subtype.
@@ -1088,7 +1098,8 @@ pub enum PtCount {
 impl Modifier {
     /// The first layer this modifier applies in (CR 613.1).
     ///
-    /// [`Self::AnimateNoncreatureArtifact`] starts in layer 4 and continues
+    /// [`Self::AnimateNoncreatureArtifact`] and
+    /// [`Self::CreatureWithManaValuePT`] start in layer 4 and continue
     /// in layer 7b. The engine keeps both parts together as one effect,
     /// carrying its affected objects forward between layers (CR 613.6).
     ///
@@ -1151,6 +1162,7 @@ impl Modifier {
             | Self::RemoveSupertype(_)
             | Self::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
             | Self::AnimateNoncreatureArtifact
+            | Self::CreatureWithManaValuePT
             | Self::RemoveType(_)
             | Self::AddSubtype(_)
             | Self::AllCreatureTypes
@@ -1657,6 +1669,7 @@ mod tests {
             (Modifier::GainControl, Layer::Control),
             (Modifier::AddType(TypeSet::ARTIFACT), Layer::Type),
             (Modifier::AnimateNoncreatureArtifact, Layer::Type),
+            (Modifier::CreatureWithManaValuePT, Layer::Type),
             (Modifier::RemoveType(TypeSet::CREATURE), Layer::Type),
             (Modifier::AddSubtype(SubtypeId::new(1)), Layer::Type),
             (Modifier::AllCreatureTypes, Layer::Type),

@@ -1982,7 +1982,7 @@ Modal/sequence: `Sequence(&[..])`.
 `AddType`, `RemoveType`, `AddSubtype`, `AllCreatureTypes`,
 `ReplaceCreatureTypes(subtype)`, `AllBasicLandTypes`, `SetLandType(subtype)`,
 `SetLandTypeToChosen`,
-`BecomeType { types, subtype }`, `AnimateNoncreatureArtifact`, `AddColor`, `SetColor`,
+`BecomeType { types, subtype }`, `AnimateNoncreatureArtifact`, `CreatureWithManaValuePT`, `AddColor`, `SetColor`,
 `AddKeyword`, `RemoveKeyword`, `LoseKeywords`, `LoseAllAbilities`, `ModifyPT`, `SetPT`, `SwitchPT`, `LegendRuleOff`,
 `CantActivateArtifacts`, `ChosenNameCantActivate`, `OpponentsCastAsSorcery`,
 `PlayersCantLose`,
@@ -2040,6 +2040,21 @@ independently filtered statics: its own animation would invalidate the later
 noncreature check. Already-creature artifacts retain their existing P/T.
 The continuation follows CR 613.6; other type changes participate in dependency
 ordering in layer 4, while competing P/T setters use layer 7b order.
+
+`CreatureWithManaValuePT` is "[these permanents are] creatures in addition to
+their other types and have base power and base toughness each equal to their
+mana value" (Opalescence, with `Filter::And(&[Filter::ENCHANTMENT,
+Filter::Not(&Filter::HasSubtype(subtypes::enchantment::AURA)),
+Filter::Another])`). Layer 4 adds the creature type and nothing else (CR
+205.1b): no artifact, which is the difference from
+`AnimateNoncreatureArtifact`, and no noncreature question, so an enchantment
+that is already a creature has its printed power and toughness replaced too.
+The same effect sets both base values to the object's mana value in layer 7b
+(CR 613.4b), on the objects it took in layer 4 even where its filter would no
+longer match there (CR 613.6), and competes with other 7b setters by its
+timestamp. An effect whose filter reads creature waits for it in layer 4 (CR
+613.8a). Never write it as `AddType(TypeSet::CREATURE)` beside a second
+static: there is no 7b modifier that reads each object's own mana value.
 
 `SetPTToCount(count)` is "this creature's power and toughness are each equal
 to [count]" **granted** by an effect (Druid Class's animated land), with
@@ -4809,6 +4824,11 @@ Unleashed] is X when this spell was cast from a foretold card, else
 `otherwise`. "Was foretold" belongs to the spell on the stack, not to the
 permanent it becomes or to a later object; a foretold spell exiled from the
 stack is not foretold and has no foretell permission (CR 400.7).
+
+**Types.** `Modifier::CreatureWithManaValuePT` [Opalescence, added in the
+review] is a creature in addition to its other types with base power and
+toughness equal to its mana value, layers 4 and 7b as one effect; written
+above beside `AnimateNoncreatureArtifact`.
 
 **Combat.** `Trigger::ControlledBecomesBlocked(&Filter)` [Ib Halfheart] fires
 once for each attacking creature matching the filter that becomes blocked,

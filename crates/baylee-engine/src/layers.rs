@@ -617,7 +617,9 @@ fn sort_by_dependency(all: &[ContinuousEffect], fxs: &mut [u32], layer: Layer) {
 }
 
 fn depends_on(dependent: &ContinuousEffect, depended: &ContinuousEffect, layer: Layer) -> bool {
-    if crate::artifact_animation::animates(dependent.modifier) {
+    if crate::artifact_animation::animates(dependent.modifier)
+        || (layer != Layer::Type && crate::artifact_animation::carries_its_set(dependent.modifier))
+    {
         // Layer 4 uses `depends_on_in_type_layer` against the projection.
         // In 7b this effect's affected objects are fixed by layer 4
         // (CR 613.6), so its filter and condition create no dependency.
@@ -811,7 +813,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::AddTypeIfCountersAtLeast { .. }
                     | Modifier::CopyLastExiledCreaturePTAndSubtypes
                     | Modifier::BecomeCopyOf(_)
-            ) || (layer == Layer::Type && crate::artifact_animation::animates(*modifier))
+            ) || (layer == Layer::Type && crate::artifact_animation::carries_its_set(*modifier))
         }
         Filter::HasColor(_) | Filter::IsColorless | Filter::Monocolored => matches!(
             modifier,
@@ -844,7 +846,7 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
                     | Modifier::ReducePTByCount { .. }
                     | Modifier::ModifyPTPerGraveyardCard { .. }
                     | Modifier::BecomeCopyOf(_)
-            ) || (layer == Layer::PtSet && crate::artifact_animation::animates(*modifier))
+            ) || (layer == Layer::PtSet && crate::artifact_animation::carries_its_set(*modifier))
         }
         // Layer 2 moves a permanent from one side of the table to the
         // other, which is the whole of what these read: a change of
@@ -1024,6 +1026,18 @@ fn apply(
             } else if layer == Layer::PtSet && c.types.contains(TypeSet::CREATURE) {
                 // Read the in-progress values, including layer-1 copies,
                 // rather than this object's cache from the last refresh.
+                let value = i16::try_from(c.mana_value()).unwrap_or(i16::MAX);
+                c.power = Some(value);
+                c.toughness = Some(value);
+            }
+        }
+        // CR 205.1b: "a creature in addition to its other types" keeps every
+        // card type and subtype, and adds no artifact. The same effect sets
+        // the base values in 7b (CR 613.4b), on the objects layer 4 gave it.
+        Modifier::CreatureWithManaValuePT => {
+            if layer == Layer::Type {
+                c.types = c.types.union(TypeSet::CREATURE);
+            } else if layer == Layer::PtSet && c.types.contains(TypeSet::CREATURE) {
                 let value = i16::try_from(c.mana_value()).unwrap_or(i16::MAX);
                 c.power = Some(value);
                 c.toughness = Some(value);
