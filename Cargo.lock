@@ -1174,6 +1174,7 @@ name = "baylee-gamehost"
 version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-ai",
+ "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
  "baylee-client-core",

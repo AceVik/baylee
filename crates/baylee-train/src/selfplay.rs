@@ -346,6 +346,11 @@ mod tests {
         assert!(played.outcome.finished(), "{:?}", played.outcome);
         let replayed = replay(&played.record).expect("the record replays");
         assert!(replayed.ended);
+        assert_eq!(
+            replayed.checked,
+            baylee_gamehost::record::Checked::Exact,
+            "self-play names this build, so every engine hash held the replay"
+        );
         assert!(replayed.inputs >= played.answers);
         let end = played
             .record

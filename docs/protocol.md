@@ -1829,6 +1829,16 @@ are optional and skipped when absent: a record from before them reads as it
 did, `RECORD_VERSION` stays 1, and a replay of it on a later build is
 unverified.
 
+`record::replay` tells the two apart by the header's `build` against its
+own (`record::this_build`): a record of this build is held to every engine
+hash, and a record of another build to the engine hash or, where that
+moved, to `seen` beside it; `Replayed::checked` says whether `seen` had to
+stand in (`Checked::Seen`). A record of another build without `seen` is
+held to its hashes. `record::replay_exact` holds any record to every hash,
+for the readers that need the whole state rather than the table (training
+labels with behaviour probabilities, the research episodes), and
+`Session::resume_recorded` checks as `replay` does.
+
 The engine sends it to the gateway as `GameRecordChunk{game_id, seq, data,
 last}` on the engine link, a piece once 32 KiB of it have gathered
 (`RECORD_CHUNK_BYTES`) and the rest, `last`, just before `GameEnded`. Each

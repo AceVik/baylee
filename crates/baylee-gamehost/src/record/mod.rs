@@ -379,6 +379,94 @@ pub struct Replayed {
     pub engine: Engine<RegistryLookup>,
     /// Whether the record said the game ended, and the replay agreed.
     pub ended: bool,
+    /// Which of the record's digests held the replay to it.
+    pub checked: Checked,
+}
+
+/// Which of a record's digests a replay was held to (`docs/protocol.md`
+/// §"The game record").
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Checked {
+    /// Every engine hash the record wrote, exactly: the whole state at
+    /// every step, which is what a record promises on the build that
+    /// played it.
+    Exact,
+    /// A record another build wrote, where at least one engine hash
+    /// differed and the public-table digest ([`seen`]) beside it agreed:
+    /// the table showed the same, and what the engine keeps behind it is
+    /// unverified.
+    Seen,
+}
+
+/// The build this binary is, spelled as a record's header names the build
+/// that played it (the header's `build`).
+///
+/// `baylee_build::short`, so a binary built from an edited tree says
+/// `-dirty`: a record written on the clean commit and replayed on an edited
+/// tree of it is another build's, and the other way round.
+#[must_use]
+pub const fn this_build() -> &'static str {
+    baylee_build::short()
+}
+
+/// How a replay holds a record to its digests: on the build that played the
+/// game, every engine hash exactly; on another build, the engine hash or,
+/// where its encoding moved, the public-table digest written beside it. A
+/// record of another build without `seen` keeps the exact check.
+pub(crate) struct Checker {
+    /// Whether the header names a build other than this one.
+    across_builds: bool,
+    /// The weakest digest that has held so far.
+    held: Checked,
+}
+
+impl Checker {
+    /// For a record whose header says `build` played it.
+    pub(crate) fn for_build(build: &str) -> Self {
+        Self {
+            across_builds: build != this_build(),
+            held: Checked::Exact,
+        }
+    }
+
+    /// Every engine hash exactly, whatever build the header names.
+    const fn exact() -> Self {
+        Self {
+            across_builds: false,
+            held: Checked::Exact,
+        }
+    }
+
+    /// Whether `engine` is where the record says it was after input `n`
+    /// (before any, for `None`).
+    pub(crate) fn check(
+        &mut self,
+        engine: &Engine<RegistryLookup>,
+        n: Option<u64>,
+        recorded: String,
+        recorded_seen: Option<&str>,
+    ) -> Result<(), ReplayError> {
+        let replayed = hex(engine.snapshot_hash());
+        if replayed == recorded {
+            return Ok(());
+        }
+        if self.across_builds
+            && recorded_seen.is_some_and(|expected| expected == hex(seen(engine.state())))
+        {
+            self.held = Checked::Seen;
+            return Ok(());
+        }
+        Err(ReplayError::Diverged {
+            n,
+            recorded,
+            replayed,
+        })
+    }
+
+    /// The weakest digest that held the replay so far.
+    pub(crate) const fn held(&self) -> Checked {
+        self.held
+    }
 }
 
 /// Why a replay stopped.
@@ -400,8 +488,9 @@ pub enum ReplayError {
         /// The input's line number.
         n: u64,
     },
-    /// After input `n` (or before any, for `None`) the replay agreed with
-    /// neither the recorded engine hash nor its public-table digest.
+    /// After input `n` (or before any, for `None`) the replay's engine hash
+    /// was not the one recorded, and, on a record of another build, its
+    /// public table was not the one recorded either ([`replay`]).
     Diverged {
         /// The input's line number.
         n: Option<u64>,
@@ -442,85 +531,83 @@ pub(crate) fn lines_of(record: &[u8]) -> impl Iterator<Item = Result<Line, Repla
         })
 }
 
-/// The preset and opening digests of a record's header, which must be its
-/// first line and of a shape this build reads.
+/// What a record's header says, which must be its first line and of a shape
+/// this build reads.
+pub(crate) struct Head {
+    /// The build that played the game.
+    pub(crate) build: String,
+    /// The preset the engine was built from.
+    pub(crate) preset: GamePreset,
+    /// The engine's hash before any input.
+    pub(crate) hash: String,
+    /// [`seen`] before any input, if the record carries it.
+    pub(crate) seen: Option<String>,
+}
+
+/// The record's header ([`Head`]).
 pub(crate) fn header_of(
     lines: &mut impl Iterator<Item = Result<Line, ReplayError>>,
-) -> Result<(GamePreset, String, Option<String>), ReplayError> {
+) -> Result<Head, ReplayError> {
     match lines.next().transpose()? {
         Some(Line::Header {
             record: RECORD_VERSION,
+            build,
             preset,
             hash,
             seen,
-            ..
-        }) => Ok((preset, hash, seen)),
+        }) => Ok(Head {
+            build,
+            preset,
+            hash,
+            seen,
+        }),
         _ => Err(ReplayError::NoHeader),
     }
 }
 
-/// Whether `engine` is where the record says it was after input `n`.
+/// Plays a record again on a fresh engine, checking it after every input.
 ///
-/// The exact snapshot is authoritative on the recording build. On a later
-/// build its encoding may have changed, so a matching public-table digest is
-/// the specified fallback; records without one retain the exact-only check.
-pub(crate) fn check_hash(
-    engine: &Engine<RegistryLookup>,
-    n: Option<u64>,
-    recorded: String,
-    recorded_seen: Option<&str>,
-) -> Result<(), ReplayError> {
-    let replayed = hex(engine.snapshot_hash());
-    if replayed == recorded
-        || recorded_seen.is_some_and(|expected| expected == hex(seen(engine.state())))
-    {
-        Ok(())
-    } else {
-        Err(ReplayError::Diverged {
-            n,
-            recorded,
-            replayed,
-        })
-    }
-}
-
-/// Plays a record again on a fresh engine, checking the exact hash and, when
-/// it differs, the stable public-table digest after every input.
+/// On the build that played it (its header names [`this_build`]) every
+/// engine hash must be the one recorded. A record another build wrote is
+/// held to the engine hash too, and where that differs, because the
+/// engine's state encoding moved between the builds, to the public-table
+/// digest ([`seen`]) beside it; [`Replayed::checked`] says whether that
+/// happened. A record of another build without `seen` keeps the exact
+/// check. [`replay_exact`] never takes the public table.
 ///
 /// A trailing line without its newline is a record cut off mid-write and is
 /// left out, so a record whose engine died is replayed up to the cut.
 ///
 /// # Errors
 /// At the first line that does not parse, input the engine refuses, or state
-/// that agrees with neither recorded digest; see [`ReplayError`].
+/// the record's digests do not hold; see [`ReplayError`].
 pub fn replay(record: &[u8]) -> Result<Replayed, ReplayError> {
     replay_with(record, false)
 }
 
-/// Plays a record again on a fresh engine, requiring every exact engine hash
-/// to match and never substituting its public-table digest.
+/// Plays a record again on a fresh engine, requiring every engine hash to
+/// match whichever build the header names, never substituting the
+/// public-table digest.
 ///
 /// # Errors
-/// The same failures as [`replay`], with every changed exact hash reported as
-/// [`ReplayError::Diverged`] even when the recorded public table still matches.
+/// The same failures as [`replay`], with every changed engine hash reported
+/// as [`ReplayError::Diverged`] even when the recorded public table still
+/// matches.
 pub fn replay_exact(record: &[u8]) -> Result<Replayed, ReplayError> {
     replay_with(record, true)
 }
 
-fn replay_with(record: &[u8], exact_only: bool) -> Result<Replayed, ReplayError> {
+fn replay_with(record: &[u8], exact: bool) -> Result<Replayed, ReplayError> {
     let mut lines = lines_of(record);
-    let (preset, hash, recorded_seen) = header_of(&mut lines)?;
-    let mut engine = Engine::new(&preset, RegistryLookup).map_err(|_| ReplayError::Unbuildable)?;
-    check_hash(
-        &engine,
-        None,
-        hash,
-        if exact_only {
-            None
-        } else {
-            recorded_seen.as_deref()
-        },
-    )?;
+    let head = header_of(&mut lines)?;
+    let mut checker = if exact {
+        Checker::exact()
+    } else {
+        Checker::for_build(&head.build)
+    };
+    let mut engine =
+        Engine::new(&head.preset, RegistryLookup).map_err(|_| ReplayError::Unbuildable)?;
+    checker.check(&engine, None, head.hash, head.seen.as_deref())?;
     let mut inputs = 0;
     let mut ended = false;
     for line in lines {
@@ -537,12 +624,7 @@ fn replay_with(record: &[u8], exact_only: bool) -> Result<Replayed, ReplayError>
                 engine
                     .apply(PlayerId::new(seat), action)
                     .map_err(|_| ReplayError::Refused { n })?;
-                check_hash(
-                    &engine,
-                    Some(n),
-                    hash,
-                    if exact_only { None } else { seen.as_deref() },
-                )?;
+                checker.check(&engine, Some(n), hash, seen.as_deref())?;
                 inputs += 1;
             }
             Line::Chair { .. } | Line::DeclaredMind { .. } => {}
@@ -558,6 +640,7 @@ fn replay_with(record: &[u8], exact_only: bool) -> Result<Replayed, ReplayError>
         inputs,
         engine,
         ended,
+        checked: checker.held(),
     })
 }
 
@@ -599,7 +682,10 @@ pub(crate) mod tests {
     /// game's first pump.
     fn played_saying(seed: u64, mut between: impl FnMut(&mut Session, u32)) -> Session {
         let me = PlayerId::new(0);
-        let mut session = Session::new_recorded(&table(seed), "test").expect("the table builds");
+        // This build's own name, so a replay holds the record to every
+        // engine hash, as it holds a game this build played.
+        let mut session =
+            Session::new_recorded(&table(seed), this_build()).expect("the table builds");
         session.describe("g".into(), vec!["Alice Example".into(), "Bob".into()]);
         session.tell_time(1_000);
         between(&mut session, u32::MAX);
@@ -686,6 +772,7 @@ pub(crate) mod tests {
         let replayed = replay(&record).expect("the record replays");
         assert_eq!(replayed.engine.snapshot_hash(), session.snapshot_hash());
         assert!(replayed.ended, "the record says the game ended");
+        assert_eq!(replayed.checked, Checked::Exact, "this build's own record");
         assert_eq!(
             usize::try_from(replayed.inputs).unwrap(),
             written.iter().filter(|l| by(l).is_some()).count()
@@ -727,8 +814,11 @@ pub(crate) mod tests {
         assert_eq!(usize::try_from(replayed.inputs).unwrap(), inputs);
     }
 
+    /// On the build that played the game every engine hash holds the replay:
+    /// one changed is a divergence, though the public table beside it still
+    /// agrees.
     #[test]
-    fn a_changed_exact_hash_needs_the_recorded_public_digest() {
+    fn a_wrong_hash_is_a_divergence() {
         let mut written = lines(&played(3).take_record());
         let at = written
             .iter()
@@ -737,17 +827,57 @@ pub(crate) mod tests {
         if let Line::Input { hash, .. } = &mut written[at] {
             *hash = hex(0);
         }
-        assert!(
-            replay(&encode(&written)).is_ok(),
-            "a later build's exact hash falls back to the unchanged public table"
+        for replayed in [replay(&encode(&written)), replay_exact(&encode(&written))] {
+            assert!(
+                matches!(replayed, Err(ReplayError::Diverged { .. })),
+                "a record of this build is held to its engine hashes"
+            );
+        }
+    }
+
+    /// A record another build wrote is held to its public table where its
+    /// engine hash moved (the state encoding may have changed between the
+    /// builds), and says so; a public table that differs, or a record with
+    /// no `seen` to fall back on, is still a divergence, and an exact replay
+    /// never takes the table.
+    #[test]
+    fn another_builds_record_is_held_to_its_public_table() {
+        let mut written = lines(&played(3).take_record());
+        if let Line::Header { build, .. } = &mut written[0] {
+            *build = "0.0.0+build.0 (another)".into();
+        }
+        let untouched = replay(&encode(&written)).expect("another build's record replays");
+        assert_eq!(
+            untouched.checked,
+            Checked::Exact,
+            "no engine hash moved, so none fell back"
         );
-        assert!(
-            matches!(
-                replay_exact(&encode(&written)),
-                Err(ReplayError::Diverged { .. })
-            ),
-            "an exact-only audit must not accept the public-table fallback"
+        let at = written
+            .iter()
+            .position(|l| by(l) == Some(Source::House))
+            .expect("a house input");
+        if let Line::Input { hash, .. } = &mut written[at] {
+            *hash = hex(0);
+        }
+        let held = replay(&encode(&written)).expect("held by the public table");
+        assert_eq!(held.checked, Checked::Seen);
+        assert!(held.ended);
+        assert_eq!(
+            held.engine.snapshot_hash(),
+            untouched.engine.snapshot_hash()
         );
+        assert!(matches!(
+            replay_exact(&encode(&written)),
+            Err(ReplayError::Diverged { .. })
+        ));
+        let mut unseen = written.clone();
+        if let Line::Input { seen, .. } = &mut unseen[at] {
+            *seen = None;
+        }
+        assert!(matches!(
+            replay(&encode(&unseen)),
+            Err(ReplayError::Diverged { .. })
+        ));
         if let Line::Input { seen, .. } = &mut written[at] {
             *seen = Some(hex(0));
         }
@@ -828,11 +958,10 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_header_that_matches_neither_digest_diverges_before_any_input() {
+    fn a_header_whose_hash_is_not_the_table_it_describes_diverges_before_any_input() {
         let mut written = lines(&played(3).take_record());
-        if let Line::Header { hash, seen, .. } = &mut written[0] {
+        if let Line::Header { hash, .. } = &mut written[0] {
             *hash = hex(1);
-            *seen = Some(hex(0));
         }
         assert!(matches!(
             replay(&encode(&written)),
