@@ -14,7 +14,76 @@ pub fn run() -> i32 {
 /// Checks shipped hooks and the exact scope of the reviewed advisory exception.
 pub fn check(steps: &mut Steps) {
     verification_hooks_unshipped(steps);
+    verification_hooks_not_unified(steps);
     bigint::check(steps);
+}
+
+/// Lines of a feature graph that name a verification hook.
+fn hook_mentions(graph: &[u8]) -> usize {
+    String::from_utf8_lossy(graph)
+        .lines()
+        .filter(|l| {
+            l.contains("feature \"mutate\"")
+                || l.contains("feature \"fuzz\"")
+                || l.contains("baylee-engine feature \"simulation\"")
+        })
+        .count()
+}
+
+/// No crate's *default* features may turn a hook on, the training crates'
+/// included. `cargo build-servers` and `cargo build-client` select
+/// `--workspace`, so every member's defaults unify into the shipped binaries,
+/// even a member that never ships: the graph of
+/// [`verification_hooks_unshipped`] leaves the training crates out and would
+/// not see one of their defaults enable `simulation`. The whole workspace's
+/// graph, inverted on the crates that own a hook, must name none. The control:
+/// the trainer's own build (`baylee-train/onnx`) turns `simulation` on, and the
+/// same inverted graph must say so.
+pub fn verification_hooks_not_unified(steps: &mut Steps) {
+    let started = Instant::now();
+    let inverted = |extra: &[&str]| {
+        let mut args = vec!["tree", "--target", "all", "-e", "features,normal,build"];
+        args.extend_from_slice(extra);
+        run::captured(&mut cargo_with(args))
+    };
+    let unified = inverted(&["--workspace", "-i", "baylee-engine", "-i", "baylee-cards"]);
+    let trainer = inverted(&[
+        "-p",
+        "baylee-train",
+        "--features",
+        "onnx",
+        "-i",
+        "baylee-engine",
+    ]);
+    let secs = started.elapsed().as_secs();
+    match (unified, trainer) {
+        (Some(unified), Some(trainer)) if unified.status.success() && trainer.status.success() => {
+            let leaks = hook_mentions(&unified.stdout);
+            let control = hook_mentions(&trainer.stdout);
+            if leaks == 0 && control > 0 {
+                println!(
+                    "STEP verification-hooks-unified ok (0 in the --workspace graph, {control} in the trainer's, {secs}s)"
+                );
+                steps.record(true);
+            } else {
+                println!(
+                    "STEP verification-hooks-unified FAILED - {leaks} hooks in the --workspace graph (must be 0), {control} in baylee-train/onnx's (must be >0)"
+                );
+                steps.record(false);
+            }
+        }
+        (unified, trainer) => {
+            println!("STEP verification-hooks-unified FAILED - cargo tree did not run");
+            for out in [unified, trainer]
+                .into_iter()
+                .flatten()
+                .filter(|o| !o.status.success())
+            {
+                println!("{}", run::tail(&run::text(&out), 40));
+            }
+            steps.record(false);
+        }
+    }
 }
 
 /// Neither verification hook may reach a build that ships. `mutate` is
@@ -54,14 +123,7 @@ pub fn verification_hooks_unshipped(steps: &mut Steps) {
     let secs = started.elapsed().as_secs();
     match (shipped, engine) {
         (Some(shipped), Some(engine)) if shipped.status.success() && engine.status.success() => {
-            let leaks = String::from_utf8_lossy(&shipped.stdout)
-                .lines()
-                .filter(|l| {
-                    l.contains("feature \"mutate\"")
-                        || l.contains("feature \"fuzz\"")
-                        || l.contains("baylee-engine feature \"simulation\"")
-                })
-                .count();
+            let leaks = hook_mentions(&shipped.stdout);
             let control = String::from_utf8_lossy(&engine.stdout)
                 .lines()
                 .filter(|l| l.contains("baylee-cards feature \"mutate\""))

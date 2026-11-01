@@ -649,8 +649,14 @@ answer is the policy's own (not forced, unsupported, guarded against a
 repeated view or a fallback) is searched. Everything else is answered as
 without a search and counted by reason (`not_priority`, `phase`,
 `not_policy`); a position the engine cannot fork faithfully (a suspended
-operation, face-down objects, a loop signature, …) is answered by the policy
-and counted under the engine's `ForkRefusal`.
+operation, face-down objects, a loop signature, a static that works in a
+hidden zone (`MarkedHiddenCard`), …) is answered by the policy and counted
+under the engine's `ForkRefusal`, each by its own name in
+`search.counts.refused`. What the seat can see now (a hand a static reveals,
+a hand it may inspect, a library top a static reveals) is kept in a fork,
+not dealt again. The fork exists only under the engine's `simulation` feature, which
+`baylee-train/onnx` turns on (`docs/engine-internals.md` §"Forking a
+simulation"), so every `eval4` build can search.
 
 **Candidates.** K answers: the policy's own answer first, then the other
 legal answers of the same decision by the raw candidate logit of the same
@@ -766,8 +772,11 @@ reproducible, as without search.
 
 **Limits.** The worlds are dealt from the real remaining decks of the
 evaluator's known lists — an upper bound on what a seat without deck
-knowledge could do. What the seat knew about a hidden card (a revealed card,
-a seen library top) is lost in the fork. Only priority roots; attack and
+knowledge could do. What the seat can see now is kept (a hand a static
+reveals, a hand it may inspect, a library top a static reveals); what it
+knew earlier about a hidden card (a top it saw, a card revealed from a hand
+and kept there) is lost (`docs/engine-internals.md` §"Forking a
+simulation"). Only priority roots; attack and
 block declarations, targets and other questions are the policy's. The rest
 of the net's side plays as the house in a world. Every leaf costs a model
 call per observation, one call at a time; nothing is batched.

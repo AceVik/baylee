@@ -2052,13 +2052,19 @@ playing over the gateway has no engine to fork, and
 needs `L: CardLookup + Clone`; the registry lookups are unit structs. It
 exists only under the engine's `simulation` feature (gamehost forwards it):
 `cargo dev gate shipped-features` fails when any crate outside the training
-crates enables it, so no hosting build can fork a live game, and the
-training crates turn it on through a feature `xtask` does not enable (such
-as `baylee-train/play`).
+crates enables it, so no hosting build can fork a live game. The training
+crates turn it on through `baylee-train/onnx`, never a default:
+`cargo build-servers` and `build-client` select `--workspace`, so a default
+of any member, a training crate's too, unifies into every shipped binary.
+`baylee-train/play` is a default and would have leaked it there. The gate's
+`verification-hooks-unified` step reads the whole workspace's graph inverted
+on the engine and fails on exactly that; it was checked red with
+`simulation` in `play`.
 
 A harness that plays through a session forks the session instead:
 `Session::fork_for(seat, decks, policy_seed)` (`baylee-gamehost`,
-`session/simulation.rs`) wraps the engine's fork in a `SimulationSession`.
+`session/simulation.rs`, under gamehost's `simulation` feature and in its own
+tests through a dev edge) wraps the engine's fork in a `SimulationSession`.
 Every chair keeps its kind — a driven chair stays driven, and `release`
 hands it to the agent it kept — and every house agent is the chair's own,
 reseeded from the policy seed (never from the table's game id or deal).
