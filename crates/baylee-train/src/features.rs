@@ -263,7 +263,10 @@ pub fn question(pending: &Pending, hand: usize) -> (i16, u32) {
             8,
             n(options.len() + player_options.len() + usize::from(*min == 0)),
         ),
+        // A card type is a type choice too: the subtype's kind, so the
+        // question numbers the trained nets read stay as they are.
         Pending::ChooseSubtype { options, .. } => (9, n(options.len())),
+        Pending::ChooseCardType { options, .. } => (9, n(options.len())),
         Pending::ChooseColor { options, .. } => (10, n(options.len())),
         Pending::YesNo { .. } => (11, 2),
         Pending::ChooseCastMode { options, .. } => (12, n(options.len())),
