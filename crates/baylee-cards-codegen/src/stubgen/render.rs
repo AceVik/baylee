@@ -177,6 +177,10 @@ fn render_card(
             (Some(body), 0) => body.flashback.as_deref(),
             _ => None,
         };
+        let foretell = match (&land, i) {
+            (Some(body), 0) => body.foretell.as_deref(),
+            _ => None,
+        };
         let cost_reduction = match (&land, i) {
             (Some(body), 0) => body.cost_reduction.as_deref(),
             _ => None,
@@ -191,6 +195,7 @@ fn render_card(
             cats,
             enters,
             flashback,
+            foretell,
             cost_reduction,
             entwine,
             i > 0,

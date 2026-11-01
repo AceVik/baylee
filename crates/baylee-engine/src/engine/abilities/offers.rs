@@ -189,6 +189,7 @@ impl<L: CardLookup> Engine<L> {
                 .list(ZoneLocation::Exile(PlayerId::new(seat as u8)))
         }) {
             let permitted = casting::adventure_permission(&self.state, player, card)
+                || casting::foretell_permission(&self.state, player, card)
                 || self.state.object(card).is_some_and(|o| {
                     o.riders
                         .contains(&crate::object::Rider::PlayableFromExileFor(player))
@@ -697,6 +698,7 @@ impl<L: CardLookup> Engine<L> {
                 }
             }
         }
+        self.offer_foretell(player, &mut legal);
         self.offer_granted_actions(player, &mut legal);
         self.settle_payable(player, &mut legal);
         self.narrow_under_chosen_names(&mut legal);

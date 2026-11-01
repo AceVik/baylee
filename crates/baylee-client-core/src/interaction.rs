@@ -232,6 +232,11 @@ pub enum Prompt {
         /// this is the one indexed choice with a filter in front of it.
         options: Vec<SubtypeId>,
     },
+    /// Choose a card type (Serra's Emissary).
+    ChooseCardType {
+        /// The types on offer, in the engine's order.
+        options: Vec<baylee_core::types::TypeSet>,
+    },
     /// Choose a card name (Pithing Needle).
     ///
     /// No list rides with it: any card's name may be chosen (CR 201.4), so
@@ -241,6 +246,8 @@ pub enum Prompt {
     ChooseCardName {
         /// Eligible printed card types; empty means unrestricted.
         types: baylee_core::types::TypeSet,
+        /// Printed card types a named face must not have.
+        excluded_types: baylee_core::types::TypeSet,
     },
     /// Choose a colour.
     ChooseColor {
@@ -429,6 +436,10 @@ enum Mode {
     /// the renderer's job; the model only ever hears which row was picked.
     Subtype {
         options: Vec<SubtypeId>,
+    },
+    /// One of a fixed set of card types.
+    CardType {
+        options: Vec<baylee_core::types::TypeSet>,
     },
     /// A card name: the card and the face whose name it is, once one is
     /// picked.
@@ -686,6 +697,9 @@ impl Interaction {
             Pending::ChooseSubtype { options, .. } => Mode::Subtype {
                 options: options.clone(),
             },
+            Pending::ChooseCardType { options, .. } => Mode::CardType {
+                options: options.clone(),
+            },
             Pending::ChooseCardName { .. } => Mode::CardName { named: None },
             Pending::GameOver(_) => Mode::GameOver,
         }
@@ -715,27 +729,10 @@ impl Interaction {
             };
         }
         match &self.pending {
-            Pending::ChooseManaAbility {
-                options, choice, ..
-            } => Prompt::ChooseManaAbility {
-                processed: choice.step,
-                options: options.clone(),
-            },
-            Pending::ChooseDamageSource { options, .. } => Prompt::ChooseDamageSource {
-                options: options.clone(),
-            },
-            Pending::ChooseDamageEffect {
-                damage, options, ..
-            } => Prompt::ChooseDamageEffect {
-                damage: damage.clone(),
-                options: options.clone(),
-            },
-            Pending::AllocatePrevention {
-                effect,
-                damage,
-                total,
-                ..
-            } => self.prevention_prompt(effect, damage, *total),
+            Pending::ChooseManaAbility { .. }
+            | Pending::ChooseDamageSource { .. }
+            | Pending::ChooseDamageEffect { .. }
+            | Pending::AllocatePrevention { .. } => self.damage_choice_prompt(),
             Pending::Mulligan {
                 taken,
                 next_is_free,
@@ -769,7 +766,17 @@ impl Interaction {
             Pending::ChooseSubtype { options, .. } => Prompt::ChooseSubtype {
                 options: options.clone(),
             },
-            Pending::ChooseCardName { types, .. } => Prompt::ChooseCardName { types: *types },
+            Pending::ChooseCardType { options, .. } => Prompt::ChooseCardType {
+                options: options.clone(),
+            },
+            Pending::ChooseCardName {
+                types,
+                excluded_types,
+                ..
+            } => Prompt::ChooseCardName {
+                types: *types,
+                excluded_types: *excluded_types,
+            },
             Pending::ChooseColor { options, .. } => Prompt::ChooseColor {
                 options: options.clone(),
             },
@@ -802,6 +809,34 @@ impl Interaction {
             },
             Pending::YesNo { prompt, .. } => Prompt::YesNo { question: *prompt },
             Pending::GameOver(_) => Prompt::GameOver,
+        }
+    }
+
+    /// The prompt for a mana-payment, damage or prevention choice.
+    fn damage_choice_prompt(&self) -> Prompt {
+        match &self.pending {
+            Pending::ChooseManaAbility {
+                options, choice, ..
+            } => Prompt::ChooseManaAbility {
+                processed: choice.step,
+                options: options.clone(),
+            },
+            Pending::ChooseDamageSource { options, .. } => Prompt::ChooseDamageSource {
+                options: options.clone(),
+            },
+            Pending::ChooseDamageEffect {
+                damage, options, ..
+            } => Prompt::ChooseDamageEffect {
+                damage: damage.clone(),
+                options: options.clone(),
+            },
+            Pending::AllocatePrevention {
+                effect,
+                damage,
+                total,
+                ..
+            } => self.prevention_prompt(effect, damage, *total),
+            _ => unreachable!("only damage choices use this prompt"),
         }
     }
 
@@ -1672,6 +1707,7 @@ impl Interaction {
             Mode::Color { options } => options.len(),
             Mode::Player { options } => options.len(),
             Mode::Subtype { options } => options.len(),
+            Mode::CardType { options } => options.len(),
             _ => 0,
         };
         if index >= count {
@@ -1734,7 +1770,8 @@ impl Interaction {
             | Mode::CastOption { .. }
             | Mode::Source { .. }
             | Mode::DamageEffect { .. }
-            | Mode::Subtype { .. } => self.choice_index.is_some(),
+            | Mode::Subtype { .. }
+            | Mode::CardType { .. } => self.choice_index.is_some(),
             Mode::TextReplacement(draft) => draft.answer().is_some(),
             Mode::CardName { named } => named.is_some(),
             Mode::Mulligan | Mode::YesNo | Mode::Idle | Mode::GameOver => false,
@@ -1840,6 +1877,10 @@ impl Interaction {
                 .get(self.choice_index?)
                 .copied()
                 .map(PlayerAction::ChooseSubtype),
+            Mode::CardType { options } => options
+                .get(self.choice_index?)
+                .copied()
+                .map(PlayerAction::ChooseCardType),
             Mode::CardName { named } => {
                 named.map(|(card, face)| PlayerAction::ChooseCardName { card, face })
             }
@@ -1894,6 +1935,16 @@ impl Interaction {
             .suspendable
             .contains(&card)
             .then_some(PlayerAction::Suspend { card })
+    }
+
+    /// Builds foretell's special action, rejecting anything the engine did not
+    /// list as foretellable. Like suspend, this is deliberately not a cast.
+    #[must_use]
+    pub fn foretell(&self, card: ObjectId) -> Option<PlayerAction> {
+        self.legal_actions()?
+            .foretellable
+            .contains(&card)
+            .then_some(PlayerAction::Foretell { card })
     }
 
     /// Builds the action for playing a card while holding priority, rejecting
@@ -1969,6 +2020,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseCards { player, .. }
         | Pending::ChooseTargets { player, .. }
         | Pending::ChooseSubtype { player, .. }
+        | Pending::ChooseCardType { player, .. }
         | Pending::ChooseCardName { player, .. }
         | Pending::ChooseColor { player, .. }
         | Pending::ChooseManaAbility { player, .. }

@@ -138,6 +138,7 @@ impl<L: CardLookup> Engine<L> {
         legal.castable.clear();
         legal.payable.clear();
         legal.suspendable.clear();
+        // Foretell is a special action, not casting or activating an ability.
         legal.abilities.retain(|&(source, index)| {
             crate::choice::is_special_action(index) || self.is_mana_offer(source, index)
         });
@@ -223,6 +224,7 @@ impl<L: CardLookup> Engine<L> {
         legal.castable.clear();
         legal.payable.clear();
         legal.suspendable.clear();
+        legal.foretellable.clear();
         legal
             .abilities
             .retain(|&(source, index)| self.is_payment_mana_offer(source, index));
@@ -391,7 +393,13 @@ impl<L: CardLookup> Engine<L> {
             wall_only,
         )
         .len();
-        let players = eval::target_player_options(&self.state, &req.spec, player).len();
+        let players = eval::target_player_options_from(
+            &self.state,
+            &req.spec,
+            player,
+            self.ability_rule_context(source, ability_index),
+        )
+        .len();
         objects + players >= wanted
     }
 

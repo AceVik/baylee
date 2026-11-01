@@ -168,10 +168,12 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::BandsWithOther(_)
         | Modifier::DamageLifeLossFloor { .. }
         | Modifier::AdditionalCounterPlacement { .. }
+        | Modifier::AdditionalCounterOnEntryByCount { .. }
         | Modifier::FlipTwoCoinsIgnoreOne
         | Modifier::DoubleCountersPlacedByYou
         | Modifier::NextDestructionClearsDamage
         | Modifier::SpellsCostLess(_)
+        | Modifier::SpellsCostLessPerCounter(_)
         | Modifier::SpellsCostMore(_)
                     | Modifier::SpellsCostMorePerControlled(_)
         | Modifier::ManaAbilitiesCostLife(_)
@@ -221,6 +223,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBeAttackedExceptBy { .. }
         | Modifier::CantAttackYou
         | Modifier::AttackTaxLife { .. }
+        | Modifier::AttackTaxMana { .. }
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
             | Modifier::PreventAllDamageFromIt
@@ -263,6 +266,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::BoastTwice
         | Modifier::LifeTotalCantChange { .. }
         | Modifier::PlayerProtectionFromEverything { .. }
+        | Modifier::PlayerProtectionFrom { .. }
         | Modifier::PlayerProtectionFromOpponents { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
         | Modifier::PlayerHexproof { .. }
@@ -300,6 +304,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::MayRedirectDamageToYou
         | Modifier::CantAttackUnlessPayMana(_)
         | Modifier::CantAttackUnlessPayManaPerCounter(_)
+        | Modifier::CantBlockUnlessPayMana(_)
         | Modifier::CantBlockUnlessPayManaPerCounter(_)
         | Modifier::CantAttackUnlessYouSacrifice { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
@@ -640,6 +645,7 @@ impl EffectTable {
                     | Modifier::SpellsCostMorePerControlled(_)
                     | Modifier::SpellsCostMoreMana(_)
                     | Modifier::SpellsCostLess(_)
+                    | Modifier::SpellsCostLessPerCounter(_)
             ),
         );
         self.hints.insert_if(
@@ -1663,6 +1669,7 @@ mod tests {
             )),
             Modifier::SwitchPT,
             Modifier::SpellsCostLess(3),
+            Modifier::SpellsCostLessPerCounter(baylee_cards_dsl::CounterKind::P1P1),
             Modifier::SpellsCostMore(3),
             Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT),
             Modifier::AbilitiesCostMore(3),
@@ -1717,6 +1724,7 @@ mod tests {
             },
             Modifier::CantAttackYou,
             Modifier::AttackTaxLife { life: 2 },
+            Modifier::AttackTaxMana { mana: 1 },
             Modifier::PreventDamageToIt,
             Modifier::PreventDamageFromIt,
             Modifier::PreventAllDamageFromIt,
@@ -1734,6 +1742,10 @@ mod tests {
                 minimum: 1,
             },
             Modifier::AdditionalCounterPlacement { n: 1 },
+            Modifier::AdditionalCounterOnEntryByCount {
+                kind: baylee_cards_dsl::CounterKind::P1P1,
+                count: baylee_cards_dsl::PtCount::YouControl(&Filter::CREATURE),
+            },
             Modifier::FlipTwoCoinsIgnoreOne,
             Modifier::DoubleCountersPlacedByYou,
             Modifier::NextDestructionClearsDamage,
@@ -1784,6 +1796,10 @@ mod tests {
             Modifier::PlayerProtectionFromEverything {
                 who: PlayerRel::You,
             },
+            Modifier::PlayerProtectionFrom {
+                who: PlayerRel::You,
+                from: &Filter::CREATURE,
+            },
             Modifier::PlayerProtectionFromOpponents {
                 who: PlayerRel::You,
             },
@@ -1810,6 +1826,7 @@ mod tests {
             Modifier::MayRedirectDamageToYou,
             Modifier::CantAttackUnlessPayMana(1),
             Modifier::CantAttackUnlessPayManaPerCounter(baylee_cards_dsl::CounterKind::P1P1),
+            Modifier::CantBlockUnlessPayMana(1),
             Modifier::CantBlockUnlessPayManaPerCounter(baylee_cards_dsl::CounterKind::P1P1),
             Modifier::CantAttackUnlessYouSacrifice {
                 count: 2,
@@ -1863,7 +1880,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            181,
+            186,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1950,8 +1967,10 @@ mod tests {
         // (characteristics, +1) and `EquipCostsLess`/`CantActivateNonMana` (rules, +2).
         // `ProtectionFromExiledWithSourceTypes` also locks its set. Coin flipping,
         // per-artifact spell tax, win/loss prohibitions and per-counter attack/block
-        // costs are six more rules-only modifiers.
-        assert_eq!((locking, all.len() - locking), (54, 127));
+        // costs are six more rules-only modifiers. The requested-card batch
+        // adds five more: counted entry counters, per-counter cost reduction,
+        // filtered player protection and mana taxes on attacks and blocks.
+        assert_eq!((locking, all.len() - locking), (54, 132));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

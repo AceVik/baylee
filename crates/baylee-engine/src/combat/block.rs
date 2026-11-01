@@ -468,7 +468,8 @@ impl<'a> BlockRules<'a> {
         };
         for fx in state.effects.iter() {
             match fx.modifier {
-                Modifier::CantBlockUnlessPayManaPerCounter(_) => rules.unless_pay_mana.push(fx),
+                Modifier::CantBlockUnlessPayMana(_)
+                | Modifier::CantBlockUnlessPayManaPerCounter(_) => rules.unless_pay_mana.push(fx),
                 Modifier::CanBlockAdditional(_) => rules.additional.push(fx),
                 Modifier::CanBlockAnyNumber => rules.any_number.push(fx),
                 Modifier::MustBeBlockedByAllAble | Modifier::MustBeBlockedByAllAbleMatching(_) => {
@@ -544,13 +545,14 @@ impl<'a> BlockRules<'a> {
         self.unless_pay_mana
             .iter()
             .filter_map(|fx| {
-                let baylee_cards_dsl::Modifier::CantBlockUnlessPayManaPerCounter(kind) =
-                    fx.modifier
-                else {
-                    return None;
+                let amount = match fx.modifier {
+                    baylee_cards_dsl::Modifier::CantBlockUnlessPayMana(n) => n,
+                    baylee_cards_dsl::Modifier::CantBlockUnlessPayManaPerCounter(kind) => {
+                        u32::from(obj.counters.get(kind))
+                    }
+                    _ => return None,
                 };
-                crate::effects::applies_to(self.state, fx, obj)
-                    .then_some(u32::from(obj.counters.get(kind)))
+                crate::effects::applies_to(self.state, fx, obj).then_some(amount)
             })
             .fold(0_u32, u32::saturating_add)
     }

@@ -4,8 +4,6 @@
 //! Set: MIR #199 — Mirage | Scryfall ID: 19528a24-4968-4742-a2d1-06f94e60f290 | Oracle ID: f467ec85-ffe2-4963-82e0-509a7873fd63
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

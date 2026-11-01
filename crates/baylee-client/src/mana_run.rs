@@ -71,6 +71,13 @@ impl ManaRun {
         }
     }
 
+    /// The action a completed plan is paying for.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) const fn then(&self) -> RunEnd {
+        self.then
+    }
+
     /// The spell being paid for — the HUD says so while it happens.
     #[must_use]
     pub const fn card(&self) -> ObjectId {
@@ -186,6 +193,9 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     Some((card, RunEnd::Suspend)) if legal.suspendable.contains(&card) => {
                         action = Some(PlayerAction::Suspend { card });
                     }
+                    Some((card, RunEnd::Foretell)) if legal.foretellable.contains(&card) => {
+                        action = Some(PlayerAction::Foretell { card });
+                    }
                     // Nothing is owed at the end of a pour, and there is
                     // nothing to check either: the mana is in the pool, which
                     // is a thing the player can see and spend.
@@ -195,6 +205,9 @@ pub fn advance_mana_run(duel: &mut Duel) {
                     }
                     Some((_, RunEnd::Suspend)) => {
                         abort = Some(Phrase::PlanSuspendRefused);
+                    }
+                    Some((_, RunEnd::Foretell)) => {
+                        abort = Some(Phrase::PlanForetellRefused);
                     }
                     None => abort = Some(Phrase::PlanCardGone),
                 }
@@ -443,4 +456,31 @@ pub fn suspend_mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_cor
         .seat(baylee_client_core::decision::resource_player(view))?
         .mana_pool;
     baylee_client_core::manaplan::plan(&cost, &pool, &manasources::sources(view, legal))
+}
+
+/// The taps for foretell's fixed {2} special action, never its later cast cost.
+#[must_use]
+pub fn foretell_mana_for(
+    duel: &Duel,
+    card: ObjectId,
+) -> Option<baylee_client_core::manaplan::Plan> {
+    let view = duel.view.as_ref()?;
+    let legal = duel.interaction.as_ref()?.legal_actions()?;
+    let hand_card = baylee_client_core::decision::hand(view)
+        .iter()
+        .find(|c| c.id == card)?;
+    let def = baylee_cards::by_index(hand_card.card.index)?;
+    let face = def
+        .faces
+        .get(usize::from(hand_card.card.face))
+        .or_else(|| def.faces.first())?;
+    face.foretell?;
+    let pool = view
+        .seat(baylee_client_core::decision::resource_player(view))?
+        .mana_pool;
+    baylee_client_core::manaplan::plan(
+        &baylee_core::mana::ManaCost::parse("{2}"),
+        &pool,
+        &manasources::sources(view, legal),
+    )
 }

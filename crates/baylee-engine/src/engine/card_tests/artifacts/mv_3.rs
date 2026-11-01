@@ -22,6 +22,7 @@ mod celestial_prism;
 mod chariot_of_the_sun;
 mod chimeric_sphere;
 mod chromatic_lantern;
+mod coalition_relic;
 mod commander_s_sphere;
 mod crucible_of_worlds;
 mod crystal_ball;

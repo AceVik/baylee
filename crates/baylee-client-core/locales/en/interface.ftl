@@ -3254,6 +3254,9 @@ ChooseBasicLandType = Choose a basic land type
 # Choose a land type, including nonbasic land subtypes
 ChooseLandType = Choose a land type
 
+# Choose a card type (Serra's Emissary)
+ChooseCardType = Choose a card type
+
 # Choose a card name (Pithing Needle)
 ChooseCardName = Choose a card name
 
@@ -3327,6 +3330,9 @@ CastMiracle = Miracle
 
 # Flashback
 CastFlashback = Flashback
+
+# Foretell, both the special action and the later alternative cast
+CastForetell = Foretell
 
 # Beam me up's casting option.
 CastBeamMeUp = Beam me up
@@ -3634,6 +3640,11 @@ SuspendedCard =
 
 # Confirm a suspend action with no outstanding mana payment.
 ArmedSuspendNow = Suspend this card
+
+# Confirm foretell's {2} special action, with or without automatic taps.
+# Arguments: cost
+ArmedForetell = Pay { $cost } and foretell
+ArmedForetellNow = Foretell this card
 
 # The button that puts an armed deed back, with nothing sent.
 ArmedCancel = Not yet
@@ -4010,6 +4021,9 @@ PlanSpellRefused = The mana is up but the spell is not castable
 
 # The mana is up but the card cannot be suspended.
 PlanSuspendRefused = The mana is up but the card cannot be suspended
+
+# The mana is up but foretell's special action is no longer legal.
+PlanForetellRefused = The mana is up but the card cannot be foretold
 
 # The run lost the card it was paying for.
 PlanCardGone = The run lost the card it was paying for

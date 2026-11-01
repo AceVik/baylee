@@ -616,7 +616,7 @@ fn what_a_card_was_in_exile_ends_as_it_leaves_exile() {
         Rider::PlayableFromExileFor(me()),
         Rider::Suspend,
         Rider::Rebound,
-        Rider::Foretold,
+        Rider::Foretold { turn: 1 },
         Rider::Plotted,
     ];
     let riders = |state: &GameState| state.object(it).expect("there").riders.clone();

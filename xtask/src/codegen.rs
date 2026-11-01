@@ -30,6 +30,7 @@ pub(crate) struct Pool<'a> {
 pub(crate) fn cards(
     root: &Path,
     check: bool,
+    preserve_existing: bool,
     agent: &ureq::Agent,
     cache: &Path,
     pool: &Pool,
@@ -149,9 +150,9 @@ pub(crate) fn cards(
         // not writing it: where a card sits is codegen's to say either way.
         let hand_owned = fs::read_to_string(&stub_path)
             .is_ok_and(|existing| !stubgen::is_machine_owned(&existing));
-        if hand_owned {
+        if preserve_existing || hand_owned {
             if check {
-                println!("skip (hand-owned): {}", info.slug);
+                println!("skip (existing card): {}", info.slug);
             }
             stubs.push(info);
             continue;
@@ -305,6 +306,7 @@ pub(crate) fn codegen(
     root: &Path,
     check: bool,
     tables_only: bool,
+    registry_only: bool,
     scripts_dir: &Path,
     cache: &Path,
 ) -> anyhow::Result<()> {
@@ -333,7 +335,18 @@ pub(crate) fn codegen(
     // on a machine with none checked out it rewrites every machine-owned
     // card as an honest stub. `--tables` is the way past it: the two tables
     // below are built from the compiled pool alone.
-    if tables_only {
+    if registry_only {
+        let cats = scryfall::fetch_subtype_catalogs(&agent, &cache)?;
+        let pool = Pool {
+            names: &names,
+            cats: &cats,
+            scripts: None,
+            tokens: None,
+        };
+        // Read the metadata needed by the registry, but never rewrite a body.
+        // This is the safe first phase for a newly added hand-owned card.
+        cards(root, check, true, &agent, &cache, &pool, &mut changed)?;
+    } else if tables_only {
         // 3, the hand-written half. A token written into `tokens.rs` for a
         // card finished by hand needs its id before a card may name it, and
         // that half reads nothing from the corpus: the ledger keeps every
@@ -399,7 +412,7 @@ pub(crate) fn codegen(
         token_ledger(root, check, &pool, &mut changed)?;
 
         // 4. The card pool → per-card stubs + registry.
-        cards(root, check, &agent, &cache, &pool, &mut changed)?;
+        cards(root, check, false, &agent, &cache, &pool, &mut changed)?;
     }
 
     // 5. Which printed sentence each ability came from → generated_lines.rs.

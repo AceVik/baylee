@@ -24,6 +24,9 @@ pub(crate) fn x_bounded(
         TargetSpec::Object(f) => (TargetSpec::Object(&ANY), f),
         TargetSpec::CardInGraveyard(f, who) => (TargetSpec::CardInGraveyard(&ANY, who), f),
         TargetSpec::StackOrBattlefield(f) => (TargetSpec::StackOrBattlefield(&ANY), f),
+        TargetSpec::ObjectOrCardInAnyGraveyard(f) => {
+            (TargetSpec::ObjectOrCardInAnyGraveyard(&ANY), f)
+        }
         _ => return None,
     };
     crate::eval::reads_announced_x(filter).then_some((widened, filter))
@@ -218,11 +221,21 @@ pub(crate) fn record_mana_payment(
 pub(crate) enum SpellForm {
     Prototype(baylee_cards_dsl::Prototype),
     Disguise,
+    /// A foretold card is announced face up with its printed characteristics.
+    Foretell(ManaCost),
 }
 
 impl SpellForm {
     pub(crate) fn project(self, object: &crate::object::GameObject) -> crate::object::GameObject {
         let mut object = object.clone();
+        if matches!(self, Self::Foretell(_)) {
+            if let Some(original) = &object.original_base {
+                object.base = std::sync::Arc::clone(original);
+            }
+            object.status.remove(crate::object::Status::FACE_DOWN);
+            object.cache.clear();
+            return object;
+        }
         object.base = std::sync::Arc::new(object.characteristics().clone());
         object.cache.clear();
         let base = object.base_mut();
@@ -253,6 +266,7 @@ impl SpellForm {
                 base.produced_colorless = false;
                 base.produced_chosen = false;
             }
+            Self::Foretell(_) => unreachable!("handled before the characteristic projection"),
         }
         object
     }
@@ -261,6 +275,7 @@ impl SpellForm {
         match self {
             Self::Prototype(p) => p.cost,
             Self::Disguise => const { ManaCost::parse("{3}") },
+            Self::Foretell(cost) => cost,
         }
     }
 }

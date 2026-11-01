@@ -6,8 +6,6 @@
 //! Set: HML #78 — Homelands | Scryfall ID: 3a630875-b43d-4591-992c-117e1212fa34 | Oracle ID: a6bfa03e-6317-4550-960b-fbd2a30e521f
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 

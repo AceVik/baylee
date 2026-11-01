@@ -4,6 +4,7 @@
 use super::*;
 use baylee_core::color::{Color, ColorSet};
 
+mod kindred;
 mod legends;
 mod mv_0;
 mod mv_1;

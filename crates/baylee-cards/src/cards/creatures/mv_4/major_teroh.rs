@@ -33,7 +33,7 @@ card!(
         cost!("{3}{W}{W}", SacrificeSelf),
         &[Effect::ExileAll {
             filter: &EXILE_ALL1,
-            linked: false,
+            linked: false
         }]
     ),],
 );

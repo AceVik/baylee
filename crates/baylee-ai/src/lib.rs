@@ -688,16 +688,33 @@ impl HeuristicAgent {
             Pending::ChooseSubtype { options, .. } => {
                 PlayerAction::ChooseSubtype(self.subtype(view, &options))
             }
-            Pending::ChooseCardName { types, .. } => {
-                let (card, face) = if types.is_empty() {
+            Pending::ChooseCardType { options, .. } => {
+                let preferred = [
+                    baylee_core::types::TypeSet::CREATURE,
+                    baylee_core::types::TypeSet::INSTANT,
+                    baylee_core::types::TypeSet::SORCERY,
+                ];
+                let chosen = preferred
+                    .into_iter()
+                    .find(|card_type| options.contains(card_type))
+                    .or_else(|| options.first().copied())
+                    .expect("a card-type choice has options");
+                PlayerAction::ChooseCardType(chosen)
+            }
+            Pending::ChooseCardName {
+                types,
+                excluded_types,
+                ..
+            } => {
+                let (card, face) = if types.is_empty() && excluded_types.is_empty() {
                     self.card_name(view)
                 } else {
                     baylee_cards::all()
                         .find_map(|def| {
                             def.faces.iter().enumerate().find_map(|(face, printed)| {
-                                printed.types.intersects(types).then(|| {
-                                    (def.index, u8::try_from(face).expect("face index fits"))
-                                })
+                                ((types.is_empty() || printed.types.intersects(types))
+                                    && !printed.types.intersects(excluded_types))
+                                .then(|| (def.index, u8::try_from(face).expect("face index fits")))
                             })
                         })
                         .expect("a matching printed face exists")
@@ -1054,6 +1071,7 @@ pub fn pending_player(pending: &Pending) -> Option<PlayerId> {
         | Pending::ChooseCards { player, .. }
         | Pending::ChooseTargets { player, .. }
         | Pending::ChooseSubtype { player, .. }
+        | Pending::ChooseCardType { player, .. }
         | Pending::ChooseCardName { player, .. }
         | Pending::ChooseColor { player, .. }
         | Pending::ChooseDamageSource { player, .. }

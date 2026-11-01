@@ -76,6 +76,8 @@ pub struct Player {
     pub id: PlayerId,
     /// Life total.
     pub life: i32,
+    /// Starting life total from the preset (CR 103.3), constant during the game.
+    pub starting_life: i32,
     /// Poison counters.
     pub poison: u16,
     /// Energy counters.
@@ -114,6 +116,8 @@ pub struct Player {
     pub turns_started: u32,
     /// Independent obligations to skip the next turn; one is consumed per omitted turn.
     pub turns_to_skip: u32,
+    /// Combat-phase skips waiting for this player's next combat (CR 614.10).
+    pub combats_to_skip: u32,
     /// Exact attackers from this seat's most recently completed actual turn.
     pub last_turn_attackers: Vec<baylee_core::ids::DamageSourceRef>,
     /// Exact incarnations that blocked or became blocked since this player's latest upkeep.
@@ -1203,6 +1207,10 @@ impl GameState {
             let lost = u32::try_from(i64::from(old) - i64::from(new)).unwrap_or(u32::MAX);
             self.per_turn.life_lost_amount[seat] =
                 self.per_turn.life_lost_amount[seat].saturating_add(lost);
+        } else if new > old {
+            let gained = u32::try_from(i64::from(new) - i64::from(old)).unwrap_or(u32::MAX);
+            self.per_turn.life_gained_amount[seat] =
+                self.per_turn.life_gained_amount[seat].saturating_add(gained);
         }
         self.journal.record(GameEvent::LifeChanged {
             player,

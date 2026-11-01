@@ -70,6 +70,8 @@ pub struct PerTurn {
     pub life_lost: Vec<bool>,
     /// Cumulative loss, independent of later life gains, for counted costs.
     pub life_lost_amount: Vec<u32>,
+    /// Cumulative life actually gained this turn; later losses do not subtract.
+    pub life_gained_amount: Vec<u32>,
     /// The damage dealt to each player this turn, per seat ("the damage
     /// dealt to you this turn", Simulacrum). Written by
     /// [`GameState::damage_player`] and nothing else.
@@ -309,6 +311,7 @@ impl PerTurn {
             no_more_spells: vec![false; players],
             life_lost: vec![false; players],
             life_lost_amount: vec![0; players],
+            life_gained_amount: vec![0; players],
             damage_dealt_to: vec![0; players],
             permanent_damage: Vec::new(),
             damaged_creature_deaths: Vec::new(),
@@ -379,10 +382,35 @@ impl PerTurn {
             .unwrap_or(0)
     }
 
+    /// Clears the object and event history that belongs only to this turn.
+    fn clear_turn_history(&mut self) {
+        self.pending_entry_history.clear();
+        self.entered_battlefield.clear();
+        self.drawn.clear();
+        self.instruction_drawn.clear();
+        self.resolved.clear();
+        self.graveyard_plays.clear();
+        self.graveyard_allowances_used.clear();
+        self.entered_graveyard.clear();
+        self.exile_if_dies.clear();
+        self.cant_regenerate.clear();
+        self.attacked.clear();
+        self.blocks.clear();
+        self.damage_log.clear();
+        self.could_have_attacked.clear();
+        self.wand_of_ith_targets.clear();
+        self.damage_cant_regenerate_sources.clear();
+        self.damage_exile_if_dies_sources.clear();
+        self.tapped_for_ability.clear();
+        self.permanent_damage.clear();
+        self.damaged_creature_deaths.clear();
+    }
+
     /// Resets all counters (called at every turn start).
     pub fn reset(&mut self) {
-        // Named without `..`, so a new field does not compile until it is
-        // reset here too.
+        self.clear_turn_history();
+        // Every field is named without `..`, including the history cleared
+        // above, so adding a field makes this exhaustive reset fail to compile.
         let Self {
             untapped_lands_at_start,
             hand_size_at_start,
@@ -406,33 +434,34 @@ impl PerTurn {
             no_more_spells,
             life_lost,
             life_lost_amount,
+            life_gained_amount,
             damage_dealt_to,
             creatures_died,
             counter_placements,
-            entered_battlefield,
-            drawn,
-            instruction_drawn,
-            resolved,
-            graveyard_plays,
-            graveyard_allowances_used,
-            entered_graveyard,
-            exile_if_dies,
+            entered_battlefield: _,
+            drawn: _,
+            instruction_drawn: _,
+            resolved: _,
+            graveyard_plays: _,
+            graveyard_allowances_used: _,
+            entered_graveyard: _,
+            exile_if_dies: _,
             camouflage,
-            cant_regenerate,
-            attacked,
-            blocks,
-            damage_log,
-            could_have_attacked,
-            wand_of_ith_targets,
-            damage_cant_regenerate_sources,
-            damage_exile_if_dies_sources,
-            tapped_for_ability,
+            cant_regenerate: _,
+            attacked: _,
+            blocks: _,
+            damage_log: _,
+            could_have_attacked: _,
+            wand_of_ith_targets: _,
+            damage_cant_regenerate_sources: _,
+            damage_exile_if_dies_sources: _,
+            tapped_for_ability: _,
             skip_draw_step,
             skip_main_phases,
             skip_combat_phases,
-            pending_entry_history,
-            permanent_damage,
-            damaged_creature_deaths,
+            pending_entry_history: _,
+            permanent_damage: _,
+            damaged_creature_deaths: _,
         } = self;
         *untapped_lands_at_start = 0;
         *hand_size_at_start = 0;
@@ -452,34 +481,15 @@ impl PerTurn {
         instants_cast.fill(0);
         entered_subtypes.fill(baylee_core::types::SubtypeSet::EMPTY);
         creatures_entered.fill(0);
-        pending_entry_history.clear();
         discarded_to_graveyard.clear();
         no_more_spells.fill(false);
         life_lost.fill(false);
         life_lost_amount.fill(0);
+        life_gained_amount.fill(0);
         damage_dealt_to.fill(0);
-        permanent_damage.clear();
-        damaged_creature_deaths.clear();
         *creatures_died = 0;
         counter_placements.clear();
-        entered_battlefield.clear();
-        drawn.clear();
-        instruction_drawn.clear();
-        resolved.clear();
-        graveyard_plays.clear();
-        graveyard_allowances_used.clear();
-        entered_graveyard.clear();
-        exile_if_dies.clear();
         *camouflage = false;
-        cant_regenerate.clear();
-        attacked.clear();
-        blocks.clear();
-        damage_log.clear();
-        could_have_attacked.clear();
-        wand_of_ith_targets.clear();
-        damage_cant_regenerate_sources.clear();
-        damage_exile_if_dies_sources.clear();
-        tapped_for_ability.clear();
         *skip_draw_step = false;
         *skip_main_phases = false;
         *skip_combat_phases = false;

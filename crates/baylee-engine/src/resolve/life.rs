@@ -19,6 +19,9 @@ pub(super) mod ice_combat;
 pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
     let you = res.controller;
     match op {
+        Effect::SacrificeEventDealDamageToEachBlocker { amount } => {
+            sacrifice_blocked_event(state, res, &amount)
+        }
         Effect::DealDamageEvenly { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
         | Effect::DealDamageWithLimitedLifeGain { .. }
@@ -66,6 +69,23 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::GainLifeDoubleX => {
             let n = res.x.unwrap_or(0).saturating_mul(2) as i32;
             gain_life(state, you, n);
+            None
+        }
+        Effect::SetLifeTotal { who, amount } | Effect::RaiseLifeTotalTo { who, amount } => {
+            let raise_only = matches!(op, Effect::RaiseLifeTotalTo { .. });
+            let changes: Vec<(PlayerId, i32)> = super::players_of(who, state, you, res)
+                .into_iter()
+                .map(|player| {
+                    let target = i32::try_from(amount_for_player(&amount, state, you, res, player))
+                        .unwrap_or(i32::MAX);
+                    let current = state.players[usize::from(player.get())].life;
+                    (player, target.saturating_sub(current))
+                })
+                .filter(|(_, change)| !raise_only || *change > 0)
+                .collect();
+            for (player, change) in changes {
+                state.change_life(player, change, Cause::Effect);
+            }
             None
         }
         Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { who, amount } => {
@@ -374,6 +394,47 @@ fn origin(state: &GameState, res: &Resolution) -> ShieldOrigin {
         source: res.source,
         ability: super::resolving_ability(state, res),
     }
+}
+
+fn sacrifice_blocked_event(
+    state: &mut GameState,
+    res: &mut Resolution,
+    amount: &Amount,
+) -> Option<Pending> {
+    let source = res.event_object?;
+    let before = state.object(source).map(|object| object.version);
+    let identity = event_object_identity(state, res);
+    let damage = amount2(amount, state, res.controller, res);
+    // Capture the combat relation before sacrificing clears it. DamageWork
+    // retains only those recipients still present as these incarnations.
+    let mut assignments: Vec<_> = state
+        .combat
+        .blockers_of(source)
+        .into_iter()
+        .map(|blocker| assignment(state, res, source, DamageTarget::Object(blocker), damage))
+        .collect();
+    for assignment in &mut assignments {
+        assignment.source_version = identity.map(|(version, _)| version);
+    }
+    crate::aura_bindings::sacrifice_event(state, res);
+    if state.object(source).is_some_and(|object| {
+        Some(object.version) == before && object.zone == crate::zone::Zone::Battlefield
+    }) {
+        return None;
+    }
+    let cause = batch57::cause(state, res);
+    let mut work = DamageWork::new(state, assignments);
+    if let Some(cause) = cause {
+        work = work.with_cause(&cause);
+    }
+    finish_or_suspend(
+        state,
+        res,
+        DamageResolution {
+            work,
+            after: AfterDamage::Done,
+        },
+    )
 }
 
 fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
@@ -1091,9 +1152,11 @@ pub(super) fn recipients(
         // `Player(Chosen)` with the choice on the ability's
         // `TargetReq`, which is why the catch-all that used to be
         // here could hold this and stay green.
-        TargetSpec::AnyPlayer | TargetSpec::AnyOpponent | TargetSpec::PlayerWhoAttackedThisTurn => {
-            players(res.target_players).collect()
-        }
+        TargetSpec::AnyPlayer
+        | TargetSpec::AnyOpponent
+        | TargetSpec::PlayerWhoAttackedThisTurn
+        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+        | TargetSpec::OpponentWithMoreThanPlayer(..) => players(res.target_players).collect(),
         // "This creature": the source, which nothing chose (#147, the rule
         // `zones::spec_object` keeps for the moving effects). Rock Hydra's
         // "prevent the next 1 damage that would be dealt to this creature"
@@ -1113,6 +1176,7 @@ pub(super) fn recipients(
         | TargetSpec::ObjectOfEventPlayer(_)
         | TargetSpec::Spell(_)
         | TargetSpec::StackOrBattlefield(_)
+        | TargetSpec::ObjectOrCardInAnyGraveyard(_)
         | TargetSpec::CardInGraveyard(..)
         | TargetSpec::CardInPlayersGraveyard(..)
         | TargetSpec::CardInGraveyardBelowEvent(..)

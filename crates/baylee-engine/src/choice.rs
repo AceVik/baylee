@@ -421,6 +421,15 @@ pub enum Pending {
         player: PlayerId,
         /// Required printed card types; empty permits any card name.
         types: baylee_core::types::TypeSet,
+        /// Printed card types a named face must not have; empty excludes nothing.
+        excluded_types: baylee_core::types::TypeSet,
+    },
+    /// Choose one card type as a permanent enters (CR 205.2a).
+    ChooseCardType {
+        /// Choosing player.
+        player: PlayerId,
+        /// Every legal card type, in stable rules order.
+        options: Vec<baylee_core::types::TypeSet>,
     },
     /// Choose a mana color (choice-restricted mana abilities).
     ChooseColor {
@@ -538,6 +547,7 @@ impl Pending {
             | Self::ChooseTargets { player, .. }
             | Self::ChooseSubtype { player, .. }
             | Self::ChooseCardName { player, .. }
+            | Self::ChooseCardType { player, .. }
             | Self::ChooseColor { player, .. }
             | Self::YesNo { player, .. }
             | Self::ChooseCastMode { player, .. }
@@ -716,6 +726,9 @@ pub struct LegalActions {
     pub unpaid_abilities: Vec<(ObjectId, u32, baylee_core::mana::ManaCost)>,
     /// Cards suspendable from hand.
     pub suspendable: Vec<ObjectId>,
+    /// Cards with foretell that may be exiled face down for {2} right now.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub foretellable: Vec<ObjectId>,
 }
 
 impl LegalActions {
@@ -757,6 +770,7 @@ impl LegalActions {
             && self.castable.is_empty()
             && self.abilities.is_empty()
             && self.suspendable.is_empty()
+            && self.foretellable.is_empty()
     }
 
     /// Whether there is any mana to make here.
@@ -897,12 +911,20 @@ pub enum PlayerAction {
         /// The card to suspend.
         card: ObjectId,
     },
+    /// Pay {2} and exile a card with foretell from hand face down. This is
+    /// a special action, available with priority during its owner's turn.
+    Foretell {
+        /// The card to foretell.
+        card: ObjectId,
+    },
     /// Answer a [`Pending::Arrange`]: one list per pile, in the pile order
     /// the question gave, library piles listed top to bottom.
     Arrange {
         /// The cards in each pile.
         piles: Vec<Vec<ObjectId>>,
     },
+    /// Choose one card type.
+    ChooseCardType(baylee_core::types::TypeSet),
     /// Choose a mana color.
     ChooseColor(baylee_core::mana::ManaColor),
     /// Choose a creature type (Roaming Throne & co.).

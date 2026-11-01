@@ -31,6 +31,7 @@ fn offer(lands: &[u32], castable: &[u32], abilities: &[(u32, u32)], mana: &[u32]
                 .collect(),
             abilities: abilities.iter().map(|&(s, i)| (id(s), i)).collect(),
             suspendable: Vec::new(),
+            foretellable: Vec::new(),
             granted_actions: vec![],
         }),
     }

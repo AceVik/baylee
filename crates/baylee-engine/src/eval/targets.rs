@@ -2,7 +2,9 @@
 
 mod players;
 
-pub use players::{first_target_players, target_player_options, targeted_players};
+pub use players::{
+    first_target_players, target_player_options, target_player_options_from, targeted_players,
+};
 
 use super::protection::{protected_from_object, untargetable_by_source_object};
 use super::{
@@ -341,6 +343,33 @@ pub fn choice_options(
     choice_options_with_context(spec, state, you, live_context(state, this))
 }
 
+/// Spells on the stack and permanents on the battlefield matching `filter`.
+/// Abilities on the stack belong to neither zone-specific object category.
+fn stack_or_battlefield_options(
+    filter: &Filter,
+    state: &GameState,
+    you: PlayerId,
+    context: RuleContext,
+) -> Vec<ObjectId> {
+    let spells = state.zones.list(ZoneLocation::Stack).iter().filter(|id| {
+        state
+            .object(**id)
+            .is_some_and(|o| o.kind == crate::object::ObjectKind::Spell)
+    });
+    let mut out: Vec<ObjectId> = spells
+        .chain(state.battlefield_view().iter())
+        .filter(|id| {
+            state
+                .object(**id)
+                .is_some_and(|o| matches_with_context(filter, state, o, you, context))
+        })
+        .copied()
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
 /// [`choice_options`] with frozen ability text or a grant's original words.
 #[must_use]
 pub fn choice_options_with_context(
@@ -385,6 +414,17 @@ pub fn choice_options_with_context(
         TargetSpec::CardInGraveyard(filter, rel) => {
             graveyard_options(filter, *rel, state, you, context)
         }
+        TargetSpec::ObjectOrCardInAnyGraveyard(filter) => {
+            let mut out = graveyard_options(filter, PlayerRel::EachPlayer, state, you, context);
+            out.extend(state.battlefield_view().iter().copied().filter(|id| {
+                state
+                    .object(*id)
+                    .is_some_and(|o| matches_with_context(filter, state, o, you, context))
+            }));
+            out.sort();
+            out.dedup();
+            out
+        }
         TargetSpec::CardInFirstTargetsGraveyard(_) | TargetSpec::CardInGraveyardBelowEvent(..) => {
             Vec::new()
         }
@@ -403,23 +443,7 @@ pub fn choice_options_with_context(
         // the next one stacked over it: in l29 game 1930 thirty token
         // Vensers were asked over a menu that grew by one a question.
         TargetSpec::StackOrBattlefield(filter) => {
-            let spells = state.zones.list(ZoneLocation::Stack).iter().filter(|id| {
-                state
-                    .object(**id)
-                    .is_some_and(|o| o.kind == crate::object::ObjectKind::Spell)
-            });
-            let mut out: Vec<ObjectId> = spells
-                .chain(state.battlefield_view().iter())
-                .filter(|id| {
-                    state
-                        .object(**id)
-                        .is_some_and(|o| matches_with_context(filter, state, o, you, context))
-                })
-                .copied()
-                .collect();
-            out.sort();
-            out.dedup();
-            out
+            stack_or_battlefield_options(filter, state, you, context)
         }
         TargetSpec::ThisObject => vec![this],
         TargetSpec::AbilityOnStack(filter) => state
@@ -460,7 +484,9 @@ pub fn choice_options_with_context(
         | TargetSpec::Player(_)
         | TargetSpec::AnyPlayer
         | TargetSpec::AnyOpponent
-        | TargetSpec::PlayerWhoAttackedThisTurn => vec![],
+        | TargetSpec::PlayerWhoAttackedThisTurn
+        | TargetSpec::OpponentWithMoreThanActivePlayer(_)
+        | TargetSpec::OpponentWithMoreThanPlayer(..) => vec![],
     }
 }
 
@@ -532,5 +558,8 @@ fn stack_target_options_impl(
         .unwrap_or_else(|| target_options_with_x(spec, state, you, context, Some(obj.x_value)));
     target_domain::retain(state, &mut objects, target_domain::stack_walls(obj));
     objects.retain(|id| *id != obj.id && aura_target_permitted(state, obj, *id));
-    (objects, target_player_options(state, spec, you))
+    (
+        objects,
+        target_player_options_from(state, spec, you, context),
+    )
 }

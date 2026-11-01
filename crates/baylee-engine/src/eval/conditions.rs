@@ -161,6 +161,16 @@ pub fn condition_holds_with_context(
         Condition::CastInstantOrSorceryThisTurn => {
             state.per_turn.instant_or_sorcery_cast[usize::from(you.get())]
         }
+        Condition::CastCreatureThisTurn => {
+            let seat = usize::from(you.get());
+            state.per_turn.spells_cast_by(you)
+                > state
+                    .per_turn
+                    .noncreature_spells
+                    .get(seat)
+                    .copied()
+                    .unwrap_or(0)
+        }
         Condition::OpponentWasDealtAtLeast(minimum) => state.players.iter().any(|p| {
             let player = p.id;
             !state.has_left(player)

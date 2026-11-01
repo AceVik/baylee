@@ -48,6 +48,7 @@ pub(super) fn refers_to_subject(effects: &'static [Effect], implicit_source: boo
             | Effect::DealDamageEvenly { target, .. } => matches!(target, TargetSpec::ThisObject),
             Effect::CreateContinuousEffect { filter, .. }
             | Effect::PumpFilter { filter, .. }
+            | Effect::PumpFilterPerKeyword { filter, .. }
             | Effect::SetPTFilter { filter, .. } => {
                 implicit_source && matches!(filter, Filter::This)
             }

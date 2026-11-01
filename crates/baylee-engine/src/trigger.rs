@@ -1296,6 +1296,14 @@ impl PendingTrigger {
                 Some(player) => baylee_cards_dsl::TargetSpec::ObjectControlledBy(filter, player),
                 None => spec,
             },
+            baylee_cards_dsl::TargetSpec::OpponentWithMoreThanActivePlayer(filter) => {
+                match self.event_player {
+                    Some(player) => {
+                        baylee_cards_dsl::TargetSpec::OpponentWithMoreThanPlayer(filter, player)
+                    }
+                    None => spec,
+                }
+            }
             baylee_cards_dsl::TargetSpec::CardInGraveyard(
                 filter,
                 PlayerRel::EventPlayer | PlayerRel::DamagedPlayer,

@@ -3,8 +3,6 @@
 //! Set: VIS #78 — Visions | Scryfall ID: bcb625ba-3718-4988-962c-bf2e11eb4c16 | Oracle ID: b3488947-7142-4e6c-9c92-2728469b3ad9
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

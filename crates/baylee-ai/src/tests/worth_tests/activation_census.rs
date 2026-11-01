@@ -460,7 +460,8 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Jinxed Choker's "put a charge counter on it or remove one" is one
     // ability (`Effect::ChooseOne`), not an `AddCounter` row (read) and a
     // `RemoveCounterSelf` row (unread): the choice is unread as a whole.
-    assert_eq!((read, of), (2951, 3741), "activated/loyalty reader census");
+    // The requested-card batch on 2026-11-01 adds 40 more (27 of 40 read).
+    assert_eq!((read, of), (2978, 3781), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

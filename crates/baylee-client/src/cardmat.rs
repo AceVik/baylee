@@ -251,7 +251,10 @@ impl Offer {
                     // land the player has to see marked before the second
                     // click.
                     crate::Deed::Run { plan, .. } => spends(plan),
-                    crate::Deed::Play | crate::Deed::Ability(_) | crate::Deed::Suspend => false,
+                    crate::Deed::Play
+                    | crate::Deed::Ability(_)
+                    | crate::Deed::Suspend
+                    | crate::Deed::Foretell => false,
                 },
             },
             // The same light for a different claim, deliberately. `WILL_TAP`

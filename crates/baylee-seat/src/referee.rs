@@ -101,6 +101,7 @@ pub fn offers_nothing(pending: &Pending) -> bool {
         }
         Pending::LegendChoice { options, .. } => options.is_empty(),
         Pending::ChooseSubtype { options, .. } => options.is_empty(),
+        Pending::ChooseCardType { options, .. } => options.is_empty(),
         Pending::ChooseColor { options, .. } => options.is_empty(),
         Pending::ChoosePlayer { options, .. } => options.is_empty(),
         Pending::ChooseCastMode { options, .. } => options.is_empty(),
@@ -276,9 +277,17 @@ mod tests {
                 PlayerAction::ChooseSubtype(SubtypeId::new(3)),
             ),
             (
+                Pending::ChooseCardType {
+                    player: ME,
+                    options: vec![baylee_core::types::TypeSet::CREATURE],
+                },
+                PlayerAction::ChooseCardType(baylee_core::types::TypeSet::CREATURE),
+            ),
+            (
                 Pending::ChooseCardName {
                     player: ME,
                     types: baylee_core::types::TypeSet::EMPTY,
+                    excluded_types: baylee_core::types::TypeSet::EMPTY,
                 },
                 PlayerAction::ChooseCardName {
                     card: CardIndex::new(1),
@@ -394,6 +403,7 @@ mod tests {
             Pending::ChooseManaAbility { .. } => 22,
             Pending::ChooseDamageEffect { .. } => 19,
             Pending::AllocatePrevention { .. } => 20,
+            Pending::ChooseCardType { .. } => 23,
         }
     }
 
@@ -409,7 +419,7 @@ mod tests {
         let mut slots: Vec<usize> = questions().iter().map(|(q, _)| slot(q)).collect();
         slots.push(slot(&over()));
         slots.sort_unstable();
-        assert_eq!(slots, (0..=18).collect::<Vec<_>>());
+        assert_eq!(slots, (0..=18).chain([23]).collect::<Vec<_>>());
     }
 
     /// Every question takes its right answer, and a concession, which the

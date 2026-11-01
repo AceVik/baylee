@@ -755,6 +755,11 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Choosing a card type as a permanent enters (Serra's Emissary).
+    ChooseCardType {
+        /// The entering permanent.
+        object: ObjectId,
+    },
     /// Choosing a color as a permanent enters (Uncharted Haven).
     ///
     /// `Pending::ChooseColor` is asked for two different reasons — this, and
@@ -1944,6 +1949,7 @@ mod checkpoint_tests;
 mod constrained_mana;
 pub(crate) mod cost_wizard;
 mod effect_play;
+mod foretell;
 mod granted;
 mod land_type_choices;
 mod leave;

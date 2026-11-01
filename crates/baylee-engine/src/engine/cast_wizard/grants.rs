@@ -16,7 +16,7 @@ impl<L: CardLookup> Engine<L> {
         let mut options =
             crate::casting::escape_exile_options(&self.state, wizard.player, wizard.card);
         options.retain(|card| !wizard.delve_exiles.contains(card));
-        let mut cost_cards = wizard.sacrifices.to_vec();
+        let mut cost_cards = wizard.cost_objects.to_vec();
         if self
             .wizard_face(wizard)
             .mandatory_additional_costs

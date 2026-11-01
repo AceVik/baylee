@@ -3,8 +3,6 @@
 //! Set: DDE #28 — Duel Decks: Phyrexia vs. the Coalition | Scryfall ID: a3ea39a8-48d1-4a58-8662-88841eabec92 | Oracle ID: 595ae6f1-e66a-4774-943a-9d5368f4a3b4
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

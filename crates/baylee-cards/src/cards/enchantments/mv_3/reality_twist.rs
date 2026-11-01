@@ -4,8 +4,6 @@
 //! Set: ICE #94 — Ice Age | Scryfall ID: 1b7e955c-3de2-430c-93b9-0b39ccea5420 | Oracle ID: 2c6f9fdb-ee27-4cd8-9d4d-1ea8b2830f73
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

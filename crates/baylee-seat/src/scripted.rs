@@ -231,13 +231,18 @@ pub fn least_answer(
             PlayerAction::ChooseTargets { objects, players }
         }
         Pending::ChooseSubtype { options, .. } => PlayerAction::ChooseSubtype(*options.first()?),
+        Pending::ChooseCardType { options, .. } => PlayerAction::ChooseCardType(*options.first()?),
         Pending::ChooseColor { options, .. } => PlayerAction::ChooseColor(*options.first()?),
         Pending::ChoosePlayer { options, .. } => PlayerAction::ChoosePlayer(*options.first()?),
         Pending::ChooseCastMode { .. } | Pending::ChoosePile { .. } => PlayerAction::ChooseMode(0),
         Pending::ChooseNumber { min, .. } => PlayerAction::ChooseNumber(*min),
-        Pending::ChooseCardName { types, .. } => {
-            if !types.is_empty() {
-                return name_matching(*types);
+        Pending::ChooseCardName {
+            types,
+            excluded_types,
+            ..
+        } => {
+            if !types.is_empty() || !excluded_types.is_empty() {
+                return name_matching(*types, *excluded_types);
             }
             // A name the pool prints (CR 201.4): the seat's own first card,
             // which the pool has, or it could not have been dealt.
@@ -265,10 +270,15 @@ pub fn least_answer(
     })
 }
 
-fn name_matching(types: baylee_core::types::TypeSet) -> Option<PlayerAction> {
+fn name_matching(
+    types: baylee_core::types::TypeSet,
+    excluded_types: baylee_core::types::TypeSet,
+) -> Option<PlayerAction> {
     baylee_cards::all().find_map(|def| {
         def.faces.iter().enumerate().find_map(|(face, printed)| {
-            if !printed.types.intersects(types) {
+            if (!types.is_empty() && !printed.types.intersects(types))
+                || printed.types.intersects(excluded_types)
+            {
                 return None;
             }
             Some(PlayerAction::ChooseCardName {
@@ -297,6 +307,7 @@ pub const fn kind(pending: &Pending) -> &'static str {
         Pending::ChooseCards { .. } => "ChooseCards",
         Pending::ChooseTargets { .. } => "ChooseTargets",
         Pending::ChooseSubtype { .. } => "ChooseSubtype",
+        Pending::ChooseCardType { .. } => "ChooseCardType",
         Pending::ChooseCardName { .. } => "ChooseCardName",
         Pending::ChooseColor { .. } => "ChooseColor",
         Pending::YesNo { .. } => "YesNo",
@@ -380,6 +391,7 @@ pub(crate) mod tests {
         nothing.push(Pending::ChooseCardName {
             player: ME,
             types: baylee_core::types::TypeSet::EMPTY,
+            excluded_types: baylee_core::types::TypeSet::EMPTY,
         });
         for pending in &nothing {
             assert_eq!(

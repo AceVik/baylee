@@ -294,8 +294,8 @@ pub enum Reach {
 
 /// What an [`Armed`] tap is waiting to do.
 ///
-/// Two of the three are *intents* rather than built actions, and the third
-/// carries the action so it can be re-checked. That is the same rule
+/// Some variants are *intents* rather than built actions; an ability carries
+/// its action so it can be re-checked. That is the same rule
 /// [`ManaRun`] follows step by step: between the two taps the engine may have
 /// withdrawn the option, so every path that fires one of these resolves it
 /// against the *current* `LegalActions` and disarms instead of guessing.
@@ -316,6 +316,8 @@ pub enum Deed {
     /// playing the card: "rather than cast this card from your hand, pay {U}
     /// and exile it with four time counters on it" (CR 702.62a).
     Suspend,
+    /// Exile a card face down for later — `Interaction::foretell` (CR 702.143a).
+    Foretell,
     /// Tap the sources of this plan, then do `then` — see [`ManaRun`].
     Run {
         /// The taps, and the cost they are for.
@@ -327,8 +329,8 @@ pub enum Deed {
 
 /// What a mana run does once the mana is up.
 ///
-/// The run makes mana for a particular cast, suspend or activation. That
-/// action is remembered from confirmation and rechecked against the engine's
+/// The run makes mana for a particular cast, suspend, foretell or activation.
+/// That action is remembered from confirmation and rechecked against the engine's
 /// actual offer after the final tap; it is never guessed from the new list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunEnd {
@@ -338,6 +340,8 @@ pub enum RunEnd {
     Cast,
     /// `PlayerAction::Suspend`.
     Suspend,
+    /// `PlayerAction::Foretell`.
+    Foretell,
     /// Nothing at all: the taps **are** the point.
     ///
     /// A mana bubble pours one mana into the pool and the player spends it
@@ -675,6 +679,8 @@ pub struct Duel {
     /// click has to ask which, and because the run that spends the mana must
     /// know which list to look in when it finishes.
     pub suspend_reach: std::collections::HashSet<ObjectId>,
+    /// Cards whose {2} foretell action this client can fund by tapping sources.
+    pub foretell_reach: std::collections::HashSet<ObjectId>,
     /// Permanents whose unpaid ability this client can fund automatically.
     pub ability_reach: std::collections::HashSet<ObjectId>,
     /// Permanents the engine listed at least one activatable ability for.
@@ -1299,6 +1305,7 @@ fn run_autopilot(mut duel: ResMut<Duel>, prefs: Res<prefs::Prefs>) {
                 // hand and passes the window away.
                 offering: !duel.reachable.is_empty()
                     || !duel.suspend_reach.is_empty()
+                    || !duel.foretell_reach.is_empty()
                     || !duel.ability_reach.is_empty(),
                 owing: view.owed.is_some() && view.awaiting == Some(view.seat),
             },
@@ -1342,7 +1349,8 @@ fn requested_batch_answer(duel: &mut Duel) -> Option<PlayerAction> {
 
 mod mana_run;
 pub use mana_run::{
-    ManaRun, advance_mana_run, mana_for, suspend_mana_for, take_the_chosen_cast_mode,
+    ManaRun, advance_mana_run, foretell_mana_for, mana_for, suspend_mana_for,
+    take_the_chosen_cast_mode,
 };
 use mana_run::{answer_the_chosen_cast_mode, run_mana_plan, spell_cost};
 
@@ -1592,13 +1600,14 @@ impl Tear {
 
 /// Rebuilds the render model from the current view.
 ///
-/// `pub` because the two indigo sets it computes — [`Duel::reachable`] and
-/// [`Duel::suspend_reach`] — are what the click path reads, so an end-to-end
-/// test has to build them the way a frame does rather than assign them by
-/// hand.
+/// `pub` because the three indigo sets it computes — [`Duel::reachable`],
+/// [`Duel::suspend_reach`] and [`Duel::foretell_reach`] — are what the click
+/// path reads, so an end-to-end test has to build them the way a frame does
+/// rather than assign them by hand.
 pub fn rebuild_board(duel: &mut Duel) {
     duel.reachable = reachable(duel);
     duel.suspend_reach = suspend_reach(duel);
+    duel.foretell_reach = foretell_reach(duel);
     duel.activatable = activatable(duel);
     duel.ability_reach = ability_reach(duel);
     duel.proposed = proposals(duel);
@@ -1606,11 +1615,7 @@ pub fn rebuild_board(duel: &mut Duel) {
     let Some(view) = duel.view.as_ref() else {
         return;
     };
-    // Three lists, one light. `lands` and `castable` are what the engine will
-    // accept this instant, and `suspendable` is the same kind of claim about
-    // the other way a card leaves a hand — suspend's first ability is an
-    // activated one the engine offers or does not (CR 702.62a), so it is gold
-    // beside them rather than a fourth colour.
+    // The engine's immediate offers are gold, including both special actions.
     let playable: std::collections::HashSet<ObjectId> = duel
         .interaction
         .as_ref()
@@ -1621,18 +1626,19 @@ pub fn rebuild_board(duel: &mut Duel) {
                 .iter()
                 .chain(legal.castable.iter())
                 .chain(legal.suspendable.iter())
+                .chain(legal.foretellable.iter())
                 .copied()
                 .collect()
         })
         .unwrap_or_default();
 
-    // Indigo is this client's own offer, and it has two halves for the same
-    // reason gold does. They stay apart on `Duel` because a click has to know
-    // which `PlayerAction` a mana run ends in; the union is drawing only.
+    // The client's payable offers stay separate for action dispatch; only
+    // their presentation shares the indigo reach highlight.
     let reach: std::collections::HashSet<ObjectId> = duel
         .reachable
         .iter()
         .chain(duel.suspend_reach.iter())
+        .chain(duel.foretell_reach.iter())
         .copied()
         .collect();
 

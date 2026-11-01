@@ -3,8 +3,6 @@
 //! Set: ULG #83 — Urza's Legacy | Scryfall ID: 295f7fe0-0681-4b25-807f-30ed70ec78d5 | Oracle ID: cdd8d7cf-28f2-4a4d-a373-40d48bff615b
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

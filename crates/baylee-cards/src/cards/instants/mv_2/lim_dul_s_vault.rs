@@ -3,8 +3,6 @@
 //! Set: C13 #197 — Commander 2013 | Scryfall ID: cec89c38-0b72-44b0-ac6c-7eb9503e1256 | Oracle ID: 3f8e7a45-4c6e-4ee6-93d0-b7de9715ec97
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 
 card!(

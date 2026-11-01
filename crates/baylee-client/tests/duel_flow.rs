@@ -60,6 +60,7 @@ question_vocabulary!(
     ChooseTargets,
     ChooseSubtype,
     ChooseCardName,
+    ChooseCardType,
     ChooseColor,
     YesNo,
     ChooseCastMode,
@@ -1480,6 +1481,9 @@ const UNREACHED: &[&str] = &[
     // Drain Power's resolving activation loop has focused native input tests;
     // none of this file's spellbook scenarios casts it.
     "ChooseManaAbility",
+    // Serra's Emissary and Iona have focused chooser tests; none of this
+    // file's deterministic spellbook scenarios casts either card.
+    "ChooseCardType",
     "ChooseDamageEffect",
     "AllocatePrevention",
     "ChooseDamageSource",

@@ -719,6 +719,7 @@ impl GameState {
                 obj.regeneration_shields = 0;
                 obj.attached_to = None;
                 obj.chosen_color = None;
+                obj.chosen_card_type = None;
                 for rider in &obj.riders {
                     if let crate::object::Rider::MergedComponent(comp) = *rider {
                         merged_components.push(comp);
@@ -786,10 +787,15 @@ impl GameState {
                     )
                 });
             }
-            if to.zone() != Zone::Stack {
-                obj.riders
-                    .retain(|rider| *rider != crate::object::Rider::Uncounterable);
-            }
+            obj.riders.retain(|rider| match rider {
+                crate::object::Rider::Uncounterable => to.zone() == Zone::Stack,
+                // Foretell lasts for as long as the card remains exiled;
+                // moving it to the stack or another exile does not end that.
+                crate::object::Rider::Foretold { .. } => {
+                    matches!(to.zone(), Zone::Stack | Zone::Exile)
+                }
+                _ => true,
+            });
             // What the card was in exile lasts only as long as the exile. A
             // card that leaves exile any other way than the return its host
             // makes (cast, put into a hand, shuffled away) is a new object

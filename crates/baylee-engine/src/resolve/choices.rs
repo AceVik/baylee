@@ -15,11 +15,16 @@ pub(super) fn exec_choice(
         Effect::ChooseCardName {
             player,
             types,
+            excluded_types,
             remember,
         } => {
             let player = players_of(player, state, you, res).first().copied()?;
             res.awaiting = Some(AwaitingOp::ChooseCardName { remember });
-            Some(Pending::ChooseCardName { player, types })
+            Some(Pending::ChooseCardName {
+                player,
+                types,
+                excluded_types,
+            })
         }
         Effect::GuessChosenNameInHand { who, guesser } => {
             let hand_owner = players_of(who, state, you, res).first().copied()?;
@@ -794,7 +799,7 @@ pub(super) fn exec_choice(
             if !search::allowed(state, res, player, player) {
                 return None;
             }
-            res.awaiting = Some(AwaitingOp::MaySearchBasicLand { player });
+            res.awaiting = Some(AwaitingOp::MaySearchBasicLand { player, count: 1 });
             Some(Pending::YesNo {
                 player,
                 prompt: YesNoPrompt::MayDo,

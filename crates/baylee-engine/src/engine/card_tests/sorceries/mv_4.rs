@@ -61,6 +61,7 @@ mod skyshroud_claim;
 mod sowing_salt;
 mod splinter;
 mod spontaneous_generation;
+mod starnheim_unleashed;
 mod stronghold_discipline;
 mod sunder_from_within;
 mod swelter;

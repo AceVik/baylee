@@ -88,6 +88,7 @@ pub(super) fn basic_land(
     state: &mut GameState,
     res: &mut Resolution,
     player: PlayerId,
+    count: u8,
 ) -> Option<Pending> {
     begin_search(
         state,
@@ -98,7 +99,7 @@ pub(super) fn basic_land(
             filter: &baylee_cards_dsl::Filter::BASIC_LAND,
             bound: None,
             finds: &[baylee_cards_dsl::Find::BATTLEFIELD_TAPPED],
-            count: None,
+            count: Some(count),
             distinct_names: false,
             split: None,
             optional: true,
@@ -360,11 +361,26 @@ pub(super) fn reveal_until(
     filter: &'static baylee_cards_dsl::Filter,
     found: SearchDest,
 ) -> Option<ObjectId> {
-    let library: Vec<ObjectId> = state.zones.list(ZoneLocation::Library(you)).clone();
+    let (revealed, hit) = reveal_until_first(state, you, source, filter);
+    if let Some(card) = hit {
+        put_found(state, you, card, found);
+    }
+    let rest: Vec<ObjectId> = revealed.into_iter().filter(|c| Some(*c) != hit).collect();
+    bottom_in_random_order(state, you, rest);
+    hit
+}
+
+/// Reveal through the first match, recording the whole reveal before moving
+/// anything. The top card is the last entry in the library's zone list.
+fn reveal_until_first(
+    state: &mut GameState,
+    you: PlayerId,
+    source: ObjectId,
+    filter: &'static baylee_cards_dsl::Filter,
+) -> (Vec<ObjectId>, Option<ObjectId>) {
     let mut revealed = Vec::new();
     let mut hit = None;
-    // The top card is the last in the list.
-    for &card in library.iter().rev() {
+    for &card in state.zones.list(ZoneLocation::Library(you)).iter().rev() {
         revealed.push(card);
         if state
             .object(card)
@@ -374,19 +390,38 @@ pub(super) fn reveal_until(
             break;
         }
     }
-    if revealed.is_empty() {
-        return None;
+    if !revealed.is_empty() {
+        state.journal.record(GameEvent::Revealed {
+            player: you,
+            cards: revealed.clone(),
+        });
     }
-    state.journal.record(GameEvent::Revealed {
-        player: you,
-        cards: revealed.clone(),
-    });
-    if let Some(card) = hit {
-        put_found(state, you, card, found);
+    (revealed, hit)
+}
+
+/// The general reveal-until operation with independently chosen destinations
+/// for the first match and every other card revealed before it.
+pub(super) fn reveal_until_matching(
+    state: &mut GameState,
+    you: PlayerId,
+    source: ObjectId,
+    filter: &'static baylee_cards_dsl::Filter,
+    matched: SearchDest,
+    otherwise: SearchDest,
+) {
+    let (revealed, hit) = reveal_until_first(state, you, source, filter);
+    for card in revealed {
+        put_found(
+            state,
+            you,
+            card,
+            if Some(card) == hit {
+                matched
+            } else {
+                otherwise
+            },
+        );
     }
-    let rest: Vec<ObjectId> = revealed.into_iter().filter(|c| Some(*c) != hit).collect();
-    bottom_in_random_order(state, you, rest);
-    hit
 }
 
 /// "…on the bottom of your library in a random order": the table's
@@ -444,12 +479,12 @@ pub(super) fn resume_consent(
     res: &mut Resolution,
     answer: bool,
 ) -> Option<Flow> {
-    let Some(AwaitingOp::MaySearchBasicLand { player }) = res.awaiting else {
+    let Some(AwaitingOp::MaySearchBasicLand { player, count }) = res.awaiting else {
         return None;
     };
     res.awaiting = None;
     let since = state.journal.last_seq();
-    if answer && let Some(pending) = basic_land(state, res, player) {
+    if answer && let Some(pending) = basic_land(state, res, player, count) {
         return Some(next_choice(state, res, since, pending));
     }
     Some(finish_choice(state, res, since))

@@ -188,6 +188,28 @@ pub fn activate_card(duel: &mut Duel, object: ObjectId) -> Answer {
         );
         return Answer::Took;
     }
+    if duel
+        .interaction
+        .as_ref()
+        .is_some_and(|i| i.foretell(object).is_some())
+    {
+        arm(duel, object, Deed::Foretell);
+        return Answer::Took;
+    }
+    if duel.foretell_reach.contains(&object)
+        && let Some(plan) = crate::foretell_mana_for(duel, object)
+    {
+        duel.last_error = None;
+        arm(
+            duel,
+            object,
+            Deed::Run {
+                plan,
+                then: crate::RunEnd::Foretell,
+            },
+        );
+        return Answer::Took;
+    }
     // Mana and tap-only actions retain their one-click path. A costly
     // ability opens its sentence while armed, even when it is the only row.
     if let Some(options) = abilities_of(duel, object) {
@@ -355,13 +377,19 @@ fn open_pile(duel: &mut Duel, object: ObjectId) -> bool {
 pub(super) fn cast_menu_for(duel: &Duel, object: ObjectId) -> Option<crate::CastMenu> {
     let view = duel.view.as_ref()?;
     let legal = duel.interaction.as_ref()?.legal_actions()?;
-    if !legal.castable.contains(&object)
-        && !legal.lands.contains(&object)
-        && !duel.reachable.contains(&object)
+    let ordinary = legal.castable.contains(&object)
+        || legal.lands.contains(&object)
+        || duel.reachable.contains(&object);
+    if !ordinary && !legal.foretellable.contains(&object) && !duel.foretell_reach.contains(&object)
     {
         return None;
     }
-    let modes = crate::castmodes::reachable_modes(view, legal, object);
+    let mut modes = crate::castmodes::reachable_modes(view, legal, object);
+    if !ordinary {
+        // Foretell is legal in combat and over a nonempty stack; an ordinary
+        // sorcery-speed row computed beside it must not become clickable too.
+        modes.retain(|mode| matches!(mode.kind, baylee_engine::choice::CastModeKind::Foretell));
+    }
     (modes.len() > 1
         || modes.first().is_some_and(|m| {
             matches!(
@@ -771,6 +799,16 @@ pub fn fire_armed(duel: &mut Duel) {
                 None => duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn)),
             }
         }
+        Deed::Foretell => {
+            match duel
+                .interaction
+                .as_ref()
+                .and_then(|i| i.foretell(armed.object))
+            {
+                Some(action) => duel.submit(action),
+                None => duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn)),
+            }
+        }
         Deed::Run {
             then: crate::RunEnd::Ability(index),
             ..
@@ -799,6 +837,27 @@ pub fn fire_armed(duel: &mut Duel) {
                     plan,
                     armed.object,
                     crate::RunEnd::Suspend,
+                ));
+            } else {
+                duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));
+            }
+        }
+        Deed::Run {
+            plan,
+            then: crate::RunEnd::Foretell,
+        } => {
+            if let Some(action) = duel
+                .interaction
+                .as_ref()
+                .and_then(|i| i.foretell(armed.object))
+            {
+                duel.submit(action);
+            } else if duel.foretell_reach.contains(&armed.object) {
+                duel.last_error = None;
+                duel.mana_run = Some(crate::ManaRun::new(
+                    plan,
+                    armed.object,
+                    crate::RunEnd::Foretell,
                 ));
             } else {
                 duel.last_error = Some(Refusal::Said(Phrase::DeedWithdrawn));

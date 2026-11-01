@@ -3,8 +3,6 @@
 //! Set: 2XM #186 — Double Masters | Scryfall ID: 1a6c19cc-6469-4958-a547-1d0fe97c70e8 | Oracle ID: fa9677d2-1535-4c57-baa8-c0408e15da47
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
-// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
-
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 

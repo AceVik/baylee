@@ -860,6 +860,11 @@ impl<L: CardLookup> Engine<L> {
                 self.activation_targets_answered = false;
                 self.start_activation(player, source, ability_index, SmallVec::new())
             }
+            (Pending::Priority { player: p, .. }, PlayerAction::Foretell { card })
+                if *p == player =>
+            {
+                self.foretell(player, card)
+            }
             (Pending::Priority { player: p, .. }, PlayerAction::Suspend { card })
                 if *p == player =>
             {
@@ -1304,6 +1309,9 @@ impl<L: CardLookup> Engine<L> {
                     PlanKind::ChooseCardName { .. } => {
                         unreachable!("card-name plans are answered via ChooseCardName")
                     }
+                    PlanKind::ChooseCardType { .. } => {
+                        unreachable!("card-type plans are answered via ChooseCardType")
+                    }
                     PlanKind::ChooseColor { .. } | PlanKind::IntrinsicMana { .. } => {
                         unreachable!("color plans are answered via ChooseColor")
                     }
@@ -1399,14 +1407,19 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (
-                Pending::ChooseCardName { player: p, types },
+                Pending::ChooseCardName {
+                    player: p,
+                    types,
+                    excluded_types,
+                },
                 PlayerAction::ChooseCardName { card, face },
             ) if *p == player => {
                 let printed = self
                     .lookup
                     .card(card)
                     .and_then(|def| def.faces.get(usize::from(face)))
-                    .filter(|face| types.is_empty() || face.types.intersects(*types));
+                    .filter(|face| types.is_empty() || face.types.intersects(*types))
+                    .filter(|face| !face.types.intersects(*excluded_types));
                 let Some((named, name)) =
                     crate::object::PrintedFace::new(card, face).zip(printed.map(|face| face.name))
                 else {
@@ -1445,6 +1458,19 @@ impl<L: CardLookup> Engine<L> {
                 };
                 if let Some(obj) = self.state.object_mut(object) {
                     obj.remember_name(obj.rules_acquisition(), named, name);
+                }
+                self.state.invalidate_projections();
+                Ok(())
+            }
+            (
+                Pending::ChooseCardType { player: p, options },
+                PlayerAction::ChooseCardType(card_type),
+            ) if *p == player && options.contains(&card_type) => {
+                let Some(PlanKind::ChooseCardType { object }) = self.pending_plan.take() else {
+                    return Err(EngineError::IllegalAction("no card-type choice pending"));
+                };
+                if let Some(obj) = self.state.object_mut(object) {
+                    obj.chosen_card_type = Some(card_type);
                 }
                 self.state.invalidate_projections();
                 Ok(())
@@ -1974,8 +2000,7 @@ impl<L: CardLookup> Engine<L> {
                     .is_some_and(|w| w.stage == cast_wizard::WizardStage::PitchChoice)
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
-                    wizard.pitch = objects.into_iter().collect();
-                    wizard.stage = cast_wizard::WizardStage::ReturnCreature;
+                    wizard.pitch.extend(objects);
                     self.cast_wizard = Some(wizard);
                     // Taken like every other answer the wizard asks, and a
                     // cast that cannot go on from it is reversed (CR 601.2,
@@ -2050,7 +2075,7 @@ impl<L: CardLookup> Engine<L> {
                     .is_some_and(|w| w.stage == cast_wizard::WizardStage::Sacrifice)
                 {
                     let mut wizard = self.cast_wizard.take().expect("wizard active");
-                    wizard.sacrifices.extend(objects);
+                    wizard.cost_objects.extend(objects);
                     self.cast_wizard = Some(wizard);
                     self.continue_cast_wizard();
                     return Ok(());
