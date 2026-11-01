@@ -176,6 +176,7 @@ mod nature_s_blessing;
 mod night_of_souls_betrayal;
 mod no_mercy;
 mod opal_titan;
+mod opalescence;
 mod opposition;
 mod orcish_oriflamme;
 mod parallax_tide;
