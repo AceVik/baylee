@@ -78,6 +78,10 @@ fn play_one_table(
             }
         }
     }
+    if let Some(shadow) = shadow.as_deref_mut() {
+        let seat = PlayerId::new(u8::try_from(focal_seat)?);
+        shadow.attach(&mut session, seat, &decks[focal_seat].deck)?;
+    }
 
     let mut fallback_events = Vec::new();
     let mut net_answers = 0_u64;
@@ -211,7 +215,10 @@ fn play_one_table(
         // Observe every pre-action root. A multi-answer pump would skip states
         // that the record converter subsequently replays, breaking recurrent PPO.
         if session.needs_pump() {
-            session.pump_at_most(1);
+            let routed = session.pump_at_most(1);
+            if let Some(shadow) = shadow.as_deref_mut() {
+                shadow.hear(routed);
+            }
             continue;
         }
 
@@ -254,7 +261,11 @@ fn play_one_table(
                 let act = session.house_action(pid).context("house fallback")?;
                 let sequence = session.decision_seq();
                 let record_offset = session.record_pending();
-                let result = session.act_slice(pid, act.clone(), 0);
+                let result = session.act_slice(pid, act.clone(), 0).map(|routed| {
+                    if let Some(shadow) = shadow.as_deref_mut() {
+                        shadow.hear(routed);
+                    }
+                });
                 fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
                     "reason":"outer_repeated_view","view_hash":format!("{vh:016x}"),
                     "visits":*vc,"action":act,"accepted":result.is_ok()}));
@@ -325,6 +336,7 @@ fn play_one_table(
                 }
                 let proposal = if let Some(shadow) = shadow.as_deref_mut() {
                     if ans.provenance.source == SourceKind4::Net {
+                        shadow.prepare(&session, pid, view.seq);
                         let (state, menu) = n
                             .policy_encoding(&view, &pending, teams)
                             .context("Shadow requires exact runtime encoding")?;
@@ -373,7 +385,11 @@ fn play_one_table(
                         )
                     })
                     .transpose()?;
-                let result = session.act_slice(pid, ans.action, 0);
+                let result = session.act_slice(pid, ans.action, 0).map(|routed| {
+                    if let Some(shadow) = shadow.as_deref_mut() {
+                        shadow.hear(routed);
+                    }
+                });
                 if let Some(diagnostic) = recovery {
                     fallback_events.push(json!({"decision_seq":sequence,"record_byte_offset":record_offset,"seat":pid.get(),
                         "diagnostic":diagnostic,"action":attempted_action,"accepted":result.is_ok()}));
@@ -414,7 +430,12 @@ fn play_one_table(
                     let fb = session
                         .house_action(pid)
                         .context("house fallback after refusal")?;
-                    if session.act_slice(pid, fb, 0).is_ok() && record_steps {
+                    let routed = session.act_slice(pid, fb, 0);
+                    let accepted = routed.is_ok();
+                    if let (Some(shadow), Ok(routed)) = (shadow.as_deref_mut(), routed) {
+                        shadow.hear(routed);
+                    }
+                    if accepted && record_steps {
                         rollout_sidecar.push(RolloutStepSidecar4 {
                             provenance: StepProvenance4 {
                                 source: SourceKind4::House,

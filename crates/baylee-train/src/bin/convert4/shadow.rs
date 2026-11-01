@@ -96,7 +96,22 @@ impl Source {
         if sha(&run) != self.run_sha256 || sha(&labels) != self.labels_sha256 {
             return Err("Shadow source changed".into());
         }
-        ShadowBc4::load(&run, &labels, record, &self.game, catalog)
+        // A watching model's seat transcript, beside its labels: the footer
+        // binds it, and only its labels may have one.
+        let transcript_path = self.labels_path.with_extension("seat.jsonl");
+        let transcript = transcript_path
+            .exists()
+            .then(|| fs::read(&transcript_path))
+            .transpose()
+            .map_err(|e| e.to_string())?;
+        ShadowBc4::load(
+            &run,
+            &labels,
+            record,
+            &self.game,
+            catalog,
+            transcript.as_deref(),
+        )
     }
     pub(super) fn metadata(&self, id: u32, shard: &Path, offset: u64, len: u64) -> Value {
         json!({"converted_game_id":id,"source_namespace":self.run_sha256,"source_game":self.game,

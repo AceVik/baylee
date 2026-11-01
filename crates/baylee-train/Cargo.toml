@@ -47,7 +47,7 @@ onnx-cuda = ["onnx", "ort/cuda"]
 # A language model in an arena chair (`arena --llm`), through the seat
 # bridge's mind (`baylee_seat::llm::ApiMind`). In no gate: it is measured on
 # the trainer's machine against a model server on loopback.
-llm = ["onnx", "dep:baylee-seat", "dep:tokio"]
+llm = ["onnx", "dep:baylee-seat", "dep:tokio", "dep:baylee-protocol", "dep:prost"]
 # Local neural opponent over the ordinary gateway seat protocol.
 live-seat = [
     "onnx", "dep:baylee-seat", "dep:tokio", "dep:baylee-protocol",

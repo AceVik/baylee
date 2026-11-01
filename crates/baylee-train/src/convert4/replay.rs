@@ -481,7 +481,13 @@ fn replay_feature_frames(
                         )? {
                             target = advice;
                             policy_weight = 1.0;
-                            prov.source = SourceKind4::House;
+                            // A watching model's advice is an external teacher's, as
+                            // an LLM seat's own answers are; the house's is the house's.
+                            prov.source = if identity.teacher.starts_with("llm:") {
+                                SourceKind4::External
+                            } else {
+                                SourceKind4::House
+                            };
                             prov.temperature = 0.0;
                             shadow_label = Some(identity);
                         }

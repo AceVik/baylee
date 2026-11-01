@@ -47,6 +47,54 @@ struct Label {
     usage: String,
     teacher_source: String,
     teacher_has_logprob: bool,
+    /// A watching model's seat question: its transcript's `answered` row
+    /// by the mind is the label's evidence.
+    #[serde(default)]
+    teacher_question: Option<u64>,
+}
+
+/// A watching model's answers by seat question: the `answered` rows its
+/// seat logic wrote for the mind's own answers (never the standing
+/// orders', the house's or a least answer), the last where one question
+/// has several.
+///
+/// # Errors
+/// A transcript line that is not JSON, or an answer row with no question.
+pub fn mind_answers(transcript: &[u8]) -> anyhow::Result<BTreeMap<u64, Value>> {
+    let mut answers = BTreeMap::new();
+    for line in transcript.split(|b| *b == b'\n').filter(|l| !l.is_empty()) {
+        let row: Value = serde_json::from_slice(line)?;
+        if row["event"] == "answered" && row["by"] == "mind" {
+            answers.insert(
+                row["question"].as_u64().context("Answer question")?,
+                row["action"].clone(),
+            );
+        }
+    }
+    Ok(answers)
+}
+
+/// Whether `contract` is a watching model's, as eval4 writes it: a profile
+/// after `llm:`, its identity, and the shadow contract's fixed terms.
+pub(super) fn llm_contract(contract: &Value) -> bool {
+    let Some(object) = contract.as_object() else {
+        return false;
+    };
+    object.len() == 11
+        && contract["teacher"]
+            .as_str()
+            .and_then(|teacher| teacher.strip_prefix("llm:"))
+            .is_some_and(|profile| !profile.is_empty())
+        && contract["teacher_identity"]["model"].is_string()
+        && contract["schema"] == 1
+        && contract["label_use"] == "bc_only"
+        && contract["history_mode"] == "seat_conversation"
+        && contract["scouting"] == false
+        && contract["teacher_has_behavior_probability"] == false
+        && contract["ppo_certification"] == false
+        && contract["completion_required"] == true
+        && contract["path"] == "shadow/*.jsonl"
+        && contract["transcript_path"] == "shadow/*.seat.jsonl"
 }
 
 /// Per-game validated sidecar, consumed exactly once during chronological replay.
@@ -60,6 +108,7 @@ pub struct ShadowBc4 {
 impl ShadowBc4 {
     /// Validates immutable run/record/sidecar identities before feature replay.
     /// `game` is the source games.jsonl key, never a converted numeric game ID.
+    /// A watching model's labels also need its seat `transcript`.
     ///
     /// # Errors
     /// Unknown contracts, incomplete or mismatched records, malformed or duplicate labels.
@@ -69,8 +118,9 @@ impl ShadowBc4 {
         record: &[u8],
         game: &str,
         catalog: &str,
+        transcript: Option<&[u8]>,
     ) -> Result<Self, String> {
-        bindings::load(run, sidecar, record, game, catalog).map_err(|e| e.to_string())
+        bindings::load(run, sidecar, record, game, catalog, transcript).map_err(|e| e.to_string())
     }
 
     pub(super) fn has_label(&self, input_n: u64) -> bool {

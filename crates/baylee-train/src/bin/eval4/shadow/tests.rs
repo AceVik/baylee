@@ -279,6 +279,10 @@ fn non_neural_and_unmappable_labels_are_excluded_and_old_runs_refused() {
     assert!(ShadowGame::new(&dir.0, "historic", 0, "sharp", 99).is_err());
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "One conversion, checked step by step"
+)]
 fn verify_bc_conversion(
     dir: &Directory,
     record: &[u8],
@@ -292,7 +296,17 @@ fn verify_bc_conversion(
         .unwrap()
         .to_owned();
     let sidecar = std::fs::read(dir.0.join("shadow/eval4-00000.jsonl")).unwrap();
-    let mut labels = ShadowBc4::load(&run, &sidecar, record, "eval4-00000", &catalog).unwrap();
+    // A watching model's labels come with its seat transcript.
+    let transcript = std::fs::read(dir.0.join("shadow/eval4-00000.seat.jsonl")).ok();
+    let mut labels = ShadowBc4::load(
+        &run,
+        &sidecar,
+        record,
+        "eval4-00000",
+        &catalog,
+        transcript.as_deref(),
+    )
+    .unwrap();
     let mut original = Vec::new();
     let mut bc = Vec::new();
     stream_game4(record, 1, true, Some(behavior), |step| {
@@ -322,7 +336,12 @@ fn verify_bc_conversion(
         assert!(!new.provenance.has_logprob);
         if new.shadow_label.is_some() {
             advice += 1;
-            assert_eq!(new.provenance.source, SourceKind4::House);
+            let teacher = if transcript.is_some() {
+                SourceKind4::External
+            } else {
+                SourceKind4::House
+            };
+            assert_eq!(new.provenance.source, teacher);
             assert_eq!(new.loss_weight, 1.0);
         } else {
             assert_eq!(new.loss_weight, 0.0);
@@ -345,28 +364,94 @@ fn verify_bc_conversion(
     };
     let original_rows = rows.clone();
     rows[index]["candidates_sha256"] = json!("f".repeat(64));
-    let mut bad = ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &catalog).unwrap();
+    let mut bad = ShadowBc4::load(
+        &run,
+        &encode(&rows),
+        record,
+        "eval4-00000",
+        &catalog,
+        transcript.as_deref(),
+    )
+    .unwrap();
     assert!(stream_game4_shadow_bc(record, 1, behavior, &mut bad, |_| Ok(())).is_err());
     rows = original_rows.clone();
     rows[index]["teacher_target"]["scalar_norm"] = json!(1.0);
-    let mut bad = ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &catalog).unwrap();
+    let mut bad = ShadowBc4::load(
+        &run,
+        &encode(&rows),
+        record,
+        "eval4-00000",
+        &catalog,
+        transcript.as_deref(),
+    )
+    .unwrap();
     assert!(
         stream_game4_shadow_bc(record, 1, behavior, &mut bad, |_| Ok(())).is_err(),
         "stored raw targets must never override reconstructed teacher action"
     );
     let mut changed_record = record.to_vec();
     changed_record.push(b'\n');
-    assert!(ShadowBc4::load(&run, &sidecar, &changed_record, "eval4-00000", &catalog).is_err());
+    assert!(
+        ShadowBc4::load(
+            &run,
+            &sidecar,
+            &changed_record,
+            "eval4-00000",
+            &catalog,
+            transcript.as_deref()
+        )
+        .is_err()
+    );
     rows = original_rows.clone();
     rows.insert(index, rows[index].clone());
-    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &catalog).is_err());
+    assert!(
+        ShadowBc4::load(
+            &run,
+            &encode(&rows),
+            record,
+            "eval4-00000",
+            &catalog,
+            transcript.as_deref()
+        )
+        .is_err()
+    );
     rows = original_rows.clone();
     rows.remove(index);
-    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &catalog).is_err());
+    assert!(
+        ShadowBc4::load(
+            &run,
+            &encode(&rows),
+            record,
+            "eval4-00000",
+            &catalog,
+            transcript.as_deref()
+        )
+        .is_err()
+    );
     rows = original_rows;
     rows.pop();
-    assert!(ShadowBc4::load(&run, &encode(&rows), record, "eval4-00000", &catalog).is_err());
-    assert!(ShadowBc4::load(&run, &sidecar, record, "wrong-source-game", &catalog).is_err());
+    assert!(
+        ShadowBc4::load(
+            &run,
+            &encode(&rows),
+            record,
+            "eval4-00000",
+            &catalog,
+            transcript.as_deref()
+        )
+        .is_err()
+    );
+    assert!(
+        ShadowBc4::load(
+            &run,
+            &sidecar,
+            record,
+            "wrong-source-game",
+            &catalog,
+            transcript.as_deref()
+        )
+        .is_err()
+    );
 }
 
 // Explicit test-only export. Refuses overwrite and does not load ONNX or run
@@ -455,4 +540,142 @@ fn export_fixture(
         "generator":"eval4 shadow::tests::shadow_preserves_executed_record_and_binds_only_bc_labels",
         "record_sha256":sha(record),"original_frames":original.len(),"bc_frames":bc.len(),
         "scope":"actual Rust writer/replay, mock actor, no ONNX/GPU"})).unwrap()).unwrap();
+}
+
+/// A watching model labels the neural seat from its own answers, which its
+/// seat transcript binds, and changes nothing the game records: the same
+/// executed record, behavior probabilities and observations as a game with
+/// no teacher. Its labels are refused without that transcript, or with one
+/// that says another answer.
+#[cfg(feature = "llm")]
+#[test]
+#[allow(
+    clippy::too_many_lines,
+    reason = "One game, its labels and their refusals"
+)]
+fn a_watching_model_labels_from_its_own_answers_and_changes_nothing() {
+    use super::{Spec, llm};
+    use baylee_seat::{Mind, ScriptedMind};
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    let dir = Directory::new();
+    let teacher = llm::Teacher::new(
+        Box::new(|_| Ok(Arc::new(ScriptedMind::idle()) as Arc<dyn Mind>)),
+        Duration::from_secs(5),
+        json!({"profile": "scripted", "provider": "test", "model": "least-answer",
+            "effort": null}),
+    )
+    .unwrap();
+    let spec = Spec::Llm {
+        profile: "scripted".into(),
+        teacher: Arc::new(teacher),
+    };
+    let mut run: Value =
+        serde_json::from_slice(&std::fs::read(dir.0.join("run.json")).unwrap()).unwrap();
+    run["shadow_teacher"] = spec.contract();
+    std::fs::write(dir.0.join("run.json"), serde_json::to_vec(&run).unwrap()).unwrap();
+    configure_export_catalog(&dir);
+
+    let deck = baylee_train::housedeck::HouseDeck::named("victory").unwrap();
+    let mut off = FixturePolicy::default();
+    let mut on = FixturePolicy::default();
+    let mut shadow = spec.game(&dir.0, "eval4-00000", 0, 999).unwrap();
+    let play = |policy: &mut FixturePolicy, labels| {
+        play_one_table(
+            "shadow-test",
+            0,
+            0,
+            12,
+            34,
+            &[&deck, &deck],
+            &[AIProfile::STEADY; 2],
+            &[],
+            &[None; 2],
+            Some(policy),
+            true,
+            5000,
+            true,
+            labels,
+            None,
+        )
+        .unwrap()
+    };
+    let a = play(&mut off, None);
+    let b = play(&mut on, Some(&mut shadow));
+    assert!(!b.1, "fixture must finish, not cap");
+    assert_eq!(a.7, b.7, "the watcher must not touch engine inputs/hashes");
+    assert_eq!(
+        serde_json::to_value(&a.9).unwrap(),
+        serde_json::to_value(&b.9).unwrap(),
+        "behavior LP must stay unchanged"
+    );
+    assert_eq!(off.observations, on.observations);
+    shadow.finish(&b.7, false).unwrap();
+
+    let sidecar = std::fs::read(dir.0.join("shadow/eval4-00000.jsonl")).unwrap();
+    let transcript = std::fs::read(dir.0.join("shadow/eval4-00000.seat.jsonl")).unwrap();
+    let rows: Vec<Value> = sidecar
+        .split(|b| *b == b'\n')
+        .filter(|l| !l.is_empty())
+        .map(|l| serde_json::from_slice(l).unwrap())
+        .collect();
+    assert_eq!(rows[0]["contract"]["history_mode"], "seat_conversation");
+    let labels: Vec<_> = rows.iter().filter(|v| v["kind"] == "label").collect();
+    assert!(!labels.is_empty(), "the model answered real decisions");
+    assert!(
+        labels
+            .iter()
+            .all(|v| v["teacher_source"] == "llm" && v["teacher_question"].is_u64())
+    );
+    let footer = rows.last().unwrap();
+    assert_eq!(footer["transcript_sha256"], sha(&transcript));
+    assert!(
+        footer["counts"]["teacher_refits"].as_u64().unwrap() > 0,
+        "standing orders answer some questions, which label nothing"
+    );
+
+    let run = std::fs::read(dir.0.join("run.json")).unwrap();
+    let catalog = run_catalog(&run);
+    let load = |transcript: Option<&[u8]>| {
+        baylee_train::convert4::shadow_bc::ShadowBc4::load(
+            &run,
+            &sidecar,
+            &b.7,
+            "eval4-00000",
+            &catalog,
+            transcript,
+        )
+    };
+    assert!(
+        load(None).is_err(),
+        "a watching model's labels need its transcript"
+    );
+    let answers = baylee_train::convert4::shadow_bc::mind_answers(&transcript).unwrap();
+    let question = labels[0]["teacher_question"].as_u64().unwrap();
+    let other = transcript
+        .split(|b| *b == b'\n')
+        .filter(|l| !l.is_empty())
+        .map(|l| {
+            let mut row: Value = serde_json::from_slice(l).unwrap();
+            if row["event"] == "answered" && row["question"] == question {
+                row["action"] = json!("Concede");
+            }
+            serde_json::to_string(&row).unwrap() + "\n"
+        })
+        .collect::<String>();
+    assert_ne!(answers[&question], json!("Concede"));
+    assert!(
+        load(Some(other.as_bytes())).is_err(),
+        "a transcript saying another answer binds no label"
+    );
+    verify_bc_conversion(&dir, &b.7, &b.9);
+}
+
+#[cfg(feature = "llm")]
+fn run_catalog(run: &[u8]) -> String {
+    serde_json::from_slice::<Value>(run).unwrap()["shadow_structure_sha256"]
+        .as_str()
+        .unwrap()
+        .to_owned()
 }

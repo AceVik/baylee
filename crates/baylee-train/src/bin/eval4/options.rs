@@ -62,9 +62,15 @@ struct Args {
     /// Use unmodified neural outputs; stochastic version-2 sampling requires tau > 0.35.
     #[arg(long)]
     raw_policy: bool,
-    /// Write separate BC-only view-only teacher labels (sharp or expert); requires raw recording.
-    #[arg(long, value_parser = ["sharp", "expert"])]
+    /// Write separate BC-only teacher labels on the neural seat's views; requires
+    /// raw recording. `sharp` or `expert` asks the house afresh on each view;
+    /// `llm:<profile>` seats a language model of `--llm-profiles` that watches
+    /// the seat through its own frames (feature `llm`).
+    #[arg(long)]
     shadow_teacher: Option<String>,
+    /// The seat settings file an `llm:<profile>` shadow teacher is read from.
+    #[arg(long)]
+    llm_profiles: Option<std::path::PathBuf>,
     /// Number of generated decks to build (`0` = use `--decks-manifest` only).
     #[arg(long, default_value_t = 32)]
     generated: usize,

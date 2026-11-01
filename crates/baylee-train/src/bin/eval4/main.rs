@@ -109,6 +109,12 @@ fn main() -> anyhow::Result<()> {
     {
         bail!("--shadow-teacher requires encoder 7 or 8");
     }
+    let shadow_spec = args
+        .shadow_teacher
+        .as_deref()
+        .map(|teacher| shadow::Spec::parse(teacher, args.llm_profiles.as_deref()))
+        .transpose()?
+        .map(Arc::new);
     if args.legacy_v3
         && (args.record_out.is_some() || args.temperature != 0.0 || args.thinking_steps != 1)
     {
@@ -267,7 +273,7 @@ fn main() -> anyhow::Result<()> {
             // Only runs that accept another catalog than this build's name it.
             run["catalog"] = catalog.clone();
         }
-        if let Some(profile) = &args.shadow_teacher {
+        if let Some(spec) = &shadow_spec {
             let metadata_path = if args.model.is_dir() {
                 args.model.join("model.onnx.json")
             } else {
@@ -286,7 +292,7 @@ fn main() -> anyhow::Result<()> {
                     .is_some_and(|v| v.len() == 64),
                 "Shadow requires catalog identity"
             );
-            run["shadow_teacher"] = shadow::metadata(profile);
+            run["shadow_teacher"] = spec.contract();
             run["shadow_structure_sha256"] = metadata["structure_sha256"].clone();
         }
         fs::write(rec_dir.join("run.json"), serde_json::to_vec_pretty(&run)?)?;
@@ -345,7 +351,7 @@ fn main() -> anyhow::Result<()> {
         let games_lines = games_lines.clone();
         let model_path = args.model.clone();
         let rec_out = args.record_out.clone();
-        let shadow_profile = args.shadow_teacher.clone();
+        let shadow_spec = shadow_spec.clone();
         let deals = end_deal;
         let seats = args.seats;
         let first_seed = args.first_seed;
@@ -387,6 +393,10 @@ fn main() -> anyhow::Result<()> {
                 if d >= deals {
                     break;
                 }
+                // A watching model that said a limit teaches no further game.
+                if shadow_spec.as_ref().is_some_and(|spec| spec.spent()) {
+                    break;
+                }
                 if let Some(ledger) = &attempts { ledger.claim(d, worker_id)?; }
                 let table_idx = (d as usize) / seats;
                 let focal_seat = (d as usize) % seats;
@@ -416,12 +426,11 @@ fn main() -> anyhow::Result<()> {
                             "policy_seed": policy_seed, "model": model_path}))?,
                     )?;
                 }
-                let mut shadow = match (&rec_out, &shadow_profile) {
-                    (Some(dir), Some(profile)) => Some(shadow::ShadowGame::new(
+                let mut shadow = match (&rec_out, &shadow_spec) {
+                    (Some(dir), Some(spec)) => Some(spec.game(
                         dir,
                         &rec_game_id,
                         d,
-                        profile,
                         policy_seed ^ d.rotate_left(29),
                     )?),
                     _ => None,
@@ -710,7 +719,7 @@ fn main() -> anyhow::Result<()> {
     summary["accepted_deck_keys"] = json!(accepted_deck_keys);
     summary["accepted_deck_count"] = json!(accepted_deck_count);
     summary["generated_deck_count"] = json!(generated_deck_count);
-    summary["shadow_teacher"] = json!(args.shadow_teacher.as_deref().map(shadow::metadata));
+    summary["shadow_teacher"] = json!(shadow_spec.as_ref().map(|spec| spec.contract()));
     summary["coverage_matrix"] = json!(st.coverage.counts);
     summary["model_family"] = json!(
         model_identity

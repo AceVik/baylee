@@ -207,6 +207,29 @@ table with capped games. This selected collection is training data, not an
 unbiased strength estimate. Its first 1500-update mixed-data pilot did not
 establish a playing-strength improvement over matched old-data training.
 
+A language model can watch instead (`--shadow-teacher llm:<profile>
+--llm-profiles <seat settings file>`, feature `llm`; owner, 01.11.2026: the
+LLM trainer). The neural seat still answers every question. The model sits
+in that seat as an LLM seat would, through the seat's own frames: the
+evaluator hands the frames the table routes to the taken-over chair to a
+`SeatCore` whose mind is the profile's model, and asks the question again
+(`Session::reask`) where no frame carried it. The watcher's copy of the static
+frame names the chair `LLM-watcher`, because a seat logic leaves a chair named
+anything else; the game's roster and record keep the evaluator's names. Where
+the seat logic hands a question to the mind, its answer to the question the
+policy answers next is the label (`teacher_source: "llm"`, its seat
+`teacher_question`). Standing orders, the house's answer for a failed mind
+and refused answers label nothing (`teacher_refits`). The seat's notes go
+beside the labels as `shadow/<game>.seat.jsonl`, hashed in the footer, and
+the mind's own log goes to `shadow/transcripts/<game>/`. `convert4` refuses an
+LLM label without that transcript, or with one whose `answered` row by the
+mind for its question says another action. The house's labels are recomputed
+as before. Converted LLM labels carry `SourceKind4::External`, as an LLM seat's
+own answers do. A model that says a limit ends the run: no further deal
+starts. The fixture test plays one game with and without a watching
+`ScriptedMind`. It shows the same record, behavior probabilities and
+observations, and labels on 73 of 245 neural decisions.
+
 `train5.py --bc-replay-data DIR` opts into two separate supervised data stores
 with fixed half-batch trajectory lanes. The primary `--data` contributes the
 same stable table half in both comparisons. Passing that same directory as
