@@ -128,7 +128,7 @@ fn raw_boolean_flag_preserves_next_option_and_frozen_job_binding() {
         run["command"] = json!([
             "eval4",
             "--catalog-superset",
-            "--catalog-withdraw-changed",
+            "--catalog-drift",
             "--out",
             path,
             "--model",

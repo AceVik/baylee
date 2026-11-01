@@ -28,11 +28,13 @@ struct Args {
     /// run.json and the summary.
     #[arg(long, conflicts_with = "legacy_v3")]
     catalog_superset: bool,
-    /// With `--catalog-superset`: also accept cards and tokens whose rules
-    /// changed since the export, withdrawing every rule of each (left out
-    /// as an added card's are). The withdrawn cards are recorded.
-    #[arg(long, requires = "catalog_superset")]
-    catalog_withdraw_changed: bool,
+    /// Indices stable, structures may drift: `--catalog-superset`, and also
+    /// accept cards and tokens whose rules changed since the export,
+    /// withdrawing each card's rule trees (left out as an added card's are;
+    /// its DSL summary stays current). run.json and the summary carry the
+    /// drift report: appended cards, changed entries, the withdrawn cards.
+    #[arg(long, conflicts_with = "legacy_v3")]
+    catalog_drift: bool,
     /// Number of deals to play (each deal plays Net + optional House baseline).
     #[arg(long, default_value_t = 40)]
     deals: u64,
@@ -183,10 +185,10 @@ fn search_metadata(args: &Args, identity: Option<&ModelIdentity>) -> Option<Valu
 
 /// How every model of the run binds its card catalog to this build's.
 const fn catalog_policy(args: &Args) -> CatalogPolicy4 {
-    match (args.catalog_superset, args.catalog_withdraw_changed) {
-        (false, _) => CatalogPolicy4::Exact,
+    match (args.catalog_superset, args.catalog_drift) {
+        (_, true) => CatalogPolicy4::Drift,
         (true, false) => CatalogPolicy4::Superset,
-        (true, true) => CatalogPolicy4::SupersetWithdrawChanged,
+        (false, false) => CatalogPolicy4::Exact,
     }
 }
 

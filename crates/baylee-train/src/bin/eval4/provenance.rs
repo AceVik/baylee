@@ -47,14 +47,17 @@ mod producer_tests {
             catalog_policy(&parse(&["--catalog-superset"]).unwrap()),
             CatalogPolicy4::Superset
         );
-        assert_eq!(
-            catalog_policy(
-                &parse(&["--catalog-superset", "--catalog-withdraw-changed"]).unwrap()
-            ),
-            CatalogPolicy4::SupersetWithdrawChanged
-        );
-        assert!(parse(&["--catalog-withdraw-changed"]).is_err());
+        for drift in [
+            &["--catalog-drift"][..],
+            &["--catalog-superset", "--catalog-drift"],
+        ] {
+            assert_eq!(
+                catalog_policy(&parse(drift).unwrap()),
+                CatalogPolicy4::Drift
+            );
+        }
         assert!(parse(&["--catalog-superset", "--legacy-v3"]).is_err());
+        assert!(parse(&["--catalog-drift", "--legacy-v3"]).is_err());
         let args = parse(&[]).unwrap();
         let contract = collector::Contract::new(&args, None).unwrap();
         assert_eq!(

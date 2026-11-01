@@ -29,7 +29,7 @@ pub fn read_verified(evaluation: &Path, job: &Path) -> Result<(Value, Value, Str
             "--held-out-cards",
             "--raw-policy",
             "--catalog-superset",
-            "--catalog-withdraw-changed",
+            "--catalog-drift",
         ]
         .contains(&key)
         {

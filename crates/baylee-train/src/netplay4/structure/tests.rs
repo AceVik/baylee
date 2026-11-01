@@ -63,7 +63,7 @@ fn the_same_catalog_binds_under_every_policy_and_leaves_nothing_out() {
     for policy in [
         CatalogPolicy4::Exact,
         CatalogPolicy4::Superset,
-        CatalogPolicy4::SupersetWithdrawChanged,
+        CatalogPolicy4::Drift,
     ] {
         let roots = bound(exported(&cards), &catalog(&cards).unwrap(), policy).unwrap();
         assert!(roots.binding.identical);
@@ -84,6 +84,14 @@ fn an_added_card_is_left_out_and_known_cards_keep_the_models_nodes() {
     let roots = bound(model, &current, CatalogPolicy4::Superset).unwrap();
     assert!(!roots.binding.identical);
     assert!(roots.binding.new_roots > 0 && roots.binding.withdrawn.is_empty());
+    assert_eq!(
+        (
+            roots.binding.appended_cards,
+            roots.binding.appended_tokens,
+            roots.binding.changed_roots
+        ),
+        (1, 0, 0)
+    );
 
     let soul_key = format!("c/{soul}/0");
     let rows = vec![
@@ -124,8 +132,15 @@ fn a_changed_card_is_refused_or_withdrawn_whole() {
     let error = bound(model(), &current, CatalogPolicy4::Superset).unwrap_err();
     assert!(error.to_string().contains("changed"), "{error}");
 
-    let roots = bound(model(), &current, CatalogPolicy4::SupersetWithdrawChanged).unwrap();
-    assert_eq!(roots.binding.withdrawn, [format!("card/{negate}")]);
+    let roots = bound(model(), &current, CatalogPolicy4::Drift).unwrap();
+    let withdrawn = &roots.binding.withdrawn;
+    assert_eq!(withdrawn.len(), 1);
+    assert_eq!(withdrawn[0].owner, format!("card/{negate}"));
+    let name = baylee_cards::by_index(baylee_core::ids::CardIndex::new(negate))
+        .map(baylee_cards_dsl::CardDef::name);
+    assert_eq!(withdrawn[0].name.as_deref(), name);
+    assert!(name.is_some());
+    assert!(roots.binding.changed_roots > 0);
     let rows = vec![
         refs(&[&format!("c/{negate}/0"), &format!("i/{negate}/0")]),
         refs(&[&format!("c/{leak}/0")]),

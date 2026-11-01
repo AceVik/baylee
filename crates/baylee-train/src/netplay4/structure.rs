@@ -16,10 +16,14 @@ pub enum CatalogPolicy4 {
     /// be unchanged; references to added rules are left out, as a card's
     /// are when the encoder cannot see it.
     Superset,
-    /// As [`Self::Superset`], and a card or token whose rules changed since
-    /// the export is withdrawn: all its references are left out as an added
-    /// card's are, instead of reading a tree that is no longer its rules.
-    SupersetWithdrawChanged,
+    /// Indices stable, structures may drift: as [`Self::Superset`], and a
+    /// card or token whose rules changed since the export is withdrawn. The
+    /// export's rule table holds only the trees it was trained on, so a
+    /// drifted card has no row for its current rules; all its references are
+    /// left out as an added card's are, instead of reading the old tree. Its
+    /// DSL summary is computed from its current rules at run time, as every
+    /// card's is.
+    Drift,
 }
 
 /// What a model's catalog was bound to, for run metadata.
@@ -37,9 +41,42 @@ pub struct CatalogBinding4 {
     pub new_roots: usize,
     /// Rule operators only this build uses.
     pub new_tags: usize,
-    /// Cards and tokens (`card/N`, `token/N`) whose references are left out
-    /// because their rules changed since the export.
-    pub withdrawn: Vec<String>,
+    /// Cards this build has and the export did not: indices appended since.
+    pub appended_cards: usize,
+    /// Registry tokens appended since the export.
+    pub appended_tokens: usize,
+    /// Rule roots the export knows whose tree changed or is gone.
+    pub changed_roots: usize,
+    /// Cards and tokens whose references are left out because their rules
+    /// changed since the export ([`CatalogPolicy4::Drift`]).
+    pub withdrawn: Vec<DriftedRule4>,
+}
+
+/// A card or token whose rules drifted since a model's export.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct DriftedRule4 {
+    /// `card/N` (its `CardIndex`) or `token/N` (its registry slot).
+    pub owner: String,
+    /// Its name in this build.
+    pub name: Option<String>,
+}
+
+impl DriftedRule4 {
+    fn of(owner: String) -> Self {
+        let mut parts = owner.split('/');
+        let kind = parts.next().unwrap_or_default();
+        let id = parts.next().and_then(|id| id.parse::<u32>().ok());
+        let name = match (kind, id) {
+            ("card", Some(id)) => baylee_cards::by_index(baylee_core::ids::CardIndex::new(id))
+                .map(|card| card.name().to_owned()),
+            ("token", Some(id)) => usize::try_from(id)
+                .ok()
+                .and_then(|slot| baylee_cards::tokens::ALL.get(slot))
+                .map(|token| token.name.to_owned()),
+            _ => None,
+        };
+        Self { owner, name }
+    }
 }
 
 /// The model's rule roots as this build reads them.
@@ -94,6 +131,9 @@ fn bind(
         catalog_sha256,
         new_roots: 0,
         new_tags: 0,
+        appended_cards: 0,
+        appended_tokens: 0,
+        changed_roots: 0,
         withdrawn: Vec::new(),
     };
     if binding.identical {
@@ -115,18 +155,28 @@ fn bind(
     let report = compat::superset(&model, current);
     binding.new_roots = report.new_roots.len();
     binding.new_tags = report.new_tags.len();
+    binding.changed_roots = report.changed.len() + report.missing.len();
+    let known: BTreeSet<String> = model.roots.keys().map(|key| compat::owner(key)).collect();
+    let appended: BTreeSet<String> = report
+        .new_roots
+        .iter()
+        .map(|key| compat::owner(key))
+        .filter(|owner| !known.contains(owner))
+        .collect();
+    binding.appended_cards = appended.iter().filter(|o| o.starts_with("card/")).count();
+    binding.appended_tokens = appended.iter().filter(|o| o.starts_with("token/")).count();
     if policy == CatalogPolicy4::Superset {
         anyhow::ensure!(
             report.holds(),
             "{} rules the model knows changed and {} are gone (first: {:?}); \
-             withdraw them explicitly or re-export the model",
+             bind with drift (eval4 --catalog-drift) or re-export the model",
             report.changed.len(),
             report.missing.len(),
             report.changed.iter().chain(&report.missing).next()
         );
     }
-    binding.withdrawn = compat::withdrawn(&report, &model);
-    let withdrawn: BTreeSet<&str> = binding.withdrawn.iter().map(String::as_str).collect();
+    let owners = compat::withdrawn(&report, &model);
+    let withdrawn: BTreeSet<&str> = owners.iter().map(String::as_str).collect();
     let mut roots = model.roots;
     let mut unknown: BTreeSet<String> = report.new_roots.into_iter().collect();
     roots.retain(|key, _| {
@@ -136,6 +186,7 @@ fn bind(
         }
         keep
     });
+    binding.withdrawn = owners.into_iter().map(DriftedRule4::of).collect();
     Ok(RuleRoots {
         roots,
         unknown,
