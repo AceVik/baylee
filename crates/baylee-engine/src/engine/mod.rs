@@ -2060,6 +2060,8 @@ mod cancel_cast_tests;
 #[cfg(test)]
 mod coin_replacement_tests;
 #[cfg(test)]
+mod combat_skip_tests;
+#[cfg(test)]
 mod end_step_tests;
 #[cfg(test)]
 mod enter_zone_tests;
