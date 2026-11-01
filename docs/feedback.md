@@ -601,10 +601,16 @@ only under `trash=true`. A malformed filter is `400`.
 §"Straight from a client"); `record_origin` who wrote its record
 (`gateway`, or `client`: unverified), `null` without one; `source` what
 sent it, as the client's `source` says (`llm-seat` for a language-model
-seat, `docs/llm-seat.md`), its first 64 characters, `null` without one. The
-client's word, unchecked: a filter to sort by, never a proof of where a
-report came from. The web UI says all three beside the report, and the
-facets count the sources (`sources`, `null` for none).
+seat once its reports land, `docs/llm-seat.md`), its first 64 characters,
+`null` without one. Only a non-empty string is a source: a number, an object
+or `""` reads as none. It is kept in a column of its own beside `client`
+(`m0008_source`), so the list and its facets never unpack `client`. The
+filter matches it exactly, case and spaces included; a source a client
+named `none` or with a leading `!` is shown but cannot be picked by name,
+since those are the filter's own words. The client's word, unchecked: a
+filter to sort by, never a proof of where a report came from. The web UI
+says all three beside the report, and the facets count the sources
+(`sources`, `null` for none).
 
 ```json
 {

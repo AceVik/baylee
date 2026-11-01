@@ -555,6 +555,7 @@ rep-channelGateway = über ein Gateway
 rep-channelDirect = direkt von einem Client
 rep-source = Absender
 rep-noSource = keine Angabe
+rep-anySource = mit Angabe
 rep-sourceOthers = alle außer { $source }
 rep-sourceTitle = Was laut Client die Meldung geschickt hat (seine Angabe, ungeprüft)
 rep-onlyUnread = Nur ungelesene

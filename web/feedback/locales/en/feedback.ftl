@@ -555,6 +555,7 @@ rep-channelGateway = through a gateway
 rep-channelDirect = direct from a client
 rep-source = Sent by
 rep-noSource = no source given
+rep-anySource = any source given
 rep-sourceOthers = all but { $source }
 rep-sourceTitle = What the client says sent it (its word, unchecked)
 rep-onlyUnread = Only unread

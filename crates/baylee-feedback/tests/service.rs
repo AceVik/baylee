@@ -501,6 +501,8 @@ async fn a_malformed_report_is_refused_and_nothing_about_the_caller_is_kept() {
             // Kept by Postgres from the text and the crash.
             "signature",
             "search",
+            // What the client says sent it (m0008): its own word, never a person.
+            "source",
         ]
     );
     // A note is an admin's, about a report; a view and an opened mark are
