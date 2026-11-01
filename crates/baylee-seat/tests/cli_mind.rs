@@ -2303,3 +2303,31 @@ async fn a_cli_s_lookup_asks_again_without_spending_a_try() {
     let argv = rig.starts()[0]["argv"].to_string();
     assert!(argv.contains("report") && argv.contains("lookup"), "{argv}");
 }
+
+/// A CLI's answer that answers beside a lookup is taken in that one reply:
+/// the lookup is passed over, no second message is sent, and the report
+/// beside them is filed.
+#[tokio::test]
+async fn a_cli_s_answer_beside_a_lookup_is_taken() {
+    let base = a_priority().await;
+    let rig = Rig::new(
+        "lookup-beside",
+        cli(json!({})),
+        &json!({"steps": [
+            {"kind": "answer", "answer": {"ask": "q7", "pick": ["p"], "lookup": "Island",
+                                          "report": "The pass came too early."}},
+            pass(7, "never asked"),
+        ]}),
+    );
+    let mind = rig.mind(Limits::default());
+    let answer = mind
+        .decide(ask(&base, 7, base.view.turn, 30))
+        .await
+        .unwrap();
+    assert_eq!(answer.action, PlayerAction::PassPriority);
+    let messages = rig.messages();
+    assert_eq!(messages.len(), 1, "no lookup message: {messages:?}");
+    let filed = mind.reports(&base.context.game_id, base.context.seat.get());
+    assert_eq!(filed.len(), 1);
+    assert_eq!(filed[0].report.what, "The pass came too early.");
+}

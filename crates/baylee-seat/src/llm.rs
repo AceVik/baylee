@@ -1153,9 +1153,9 @@ impl ApiMind {
             let decision = taken.as_ref().ok().map(|taken| &taken.decision);
             let left = time_left(&request, started);
             let extras = report_and_look_up(&seat, &self.library, &making, decision, left);
-            // A lookup asks the same question again with the card's text;
-            // one that may not be made is passed over, and the answer is
-            // taken if it answers.
+            // A lookup alone asks the same question again with the card's
+            // text; one beside an answer, or one that may not be made, is
+            // passed over, and the answer is taken if it answers.
             let no_lookup = match extras.await {
                 Looked::Made(text) => {
                     looked += 1;

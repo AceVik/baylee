@@ -824,7 +824,11 @@ a collector that has filed enough for its run passes it.
 
 **Lookups** (`baylee_seat::lookup`). An answer of only `ask` and `lookup`
 asks for a card; the seat answers with its text and asks the same
-question again, which costs none of the question's two tries. At most 3
+question again, which costs none of the question's two tries. An answer
+that also answers (`pick`, `attacks`, `blocks`, `prevention`, `number`,
+`piles`, `name` or a concession, `Decision::answers`) is taken as it is,
+and its lookup is passed over: not made, not counted, and a
+`lookup_passed_over` line of the mind's transcript. At most 3
 lookups a question and 30 a game a seat, and none with less than 13 s of
 the question left; past them the field is passed over (an answer that also
 answers is taken, else it is asked again, "no lookups left …"). The text

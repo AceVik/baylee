@@ -242,6 +242,58 @@ async fn a_question_s_lookups_are_held_to_three() {
     );
 }
 
+/// Only an answer of `ask` and `lookup` alone asks for a card: one that
+/// answers its question beside a lookup is taken in that one call, and
+/// the lookup is passed over and written down, never made at the cost of
+/// the answer. The report it carries is filed all the same.
+#[tokio::test]
+async fn an_answer_beside_a_lookup_is_taken_and_the_lookup_passed_over() {
+    let (base, provider) = stand_in().await;
+    provider.script(decide(
+        "toolu_1",
+        json!({"ask": "q12", "pick": ["a1"], "lookup": "Lightning Bolt",
+               "report": "Bolt dealt 2."}),
+    ));
+    let dir = scratch("beside");
+    let mind = mind(&base, Provider::Anthropic, |s| {
+        s.transcripts = Some(dir.clone());
+    });
+    let answer = mind.decide(a_priority()).await.expect("an answer");
+    assert_eq!(answer.action, PlayerAction::PlayLand { card: id(52) });
+    assert_eq!(provider.seen().len(), 1, "no second call for the lookup");
+    assert_eq!(mind.reports("golden", 0).len(), 1, "the report is filed");
+    let transcript = std::fs::read_to_string(dir.join("golden-seat0-mind.jsonl")).unwrap();
+    let lines: Vec<Value> = transcript
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert!(
+        lines.iter().all(|line| line.get("lookup").is_none()),
+        "no lookup was made: {transcript}"
+    );
+    let passed = lines
+        .iter()
+        .find_map(|line| line.get("lookup_passed_over"))
+        .expect("the passed-over lookup is written down");
+    assert_eq!(passed["name"], "Lightning Bolt");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The same in a JSON answer: `{ask, pick, lookup}` is one answer, taken.
+#[tokio::test]
+async fn a_json_answer_beside_a_lookup_is_taken() {
+    let (base, provider) = stand_in().await;
+    provider.script(Scripted::ok(json!({
+        "choices": [{"message": {"role": "assistant", "content":
+            json!({"ask": "q12", "pick": ["a1"], "lookup": "Serra Angel"}).to_string()},
+            "finish_reason": "stop"}]
+    })));
+    let mind = mind(&base, Provider::OpenAi, |s| s.answer = AnswerMode::Json);
+    let answer = mind.decide(a_priority()).await.expect("an answer");
+    assert_eq!(answer.action, PlayerAction::PlayLand { card: id(52) });
+    assert_eq!(provider.seen().len(), 1);
+}
+
 /// With `lookup: "scryfall"`, a card's rulings come from Scryfall; a card
 /// nobody knows is said to be unknown, and the question is asked again.
 #[tokio::test]
