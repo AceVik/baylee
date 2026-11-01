@@ -51,9 +51,10 @@ def main(default_architecture="v4") -> None:
     loss_config = args.supervised_loss
     from .supervised_options import auxiliary_readout
 
-    # Deterministic CUDA scatter/reduction kernels are required for exact resume.
+    # Deterministic CUDA scatter/reduction kernels make a rerun bit-identical;
+    # the run's depth contract records the choice and resume must repeat it.
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
-    torch.use_deterministic_algorithms(True)
+    torch.use_deterministic_algorithms(not args.nondeterministic_kernels)
     torch.set_num_threads(4)
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -149,6 +150,7 @@ def main(default_architecture="v4") -> None:
     net.offload_checkpoint_inputs = args.offload_checkpoint_inputs
     net.cache_thinking_kv = args.cache_thinking_kv
     net.decision_chunk = args.decision_chunk
+    net.board_token_budget = args.board_token_budget
     net.gpu_prefetch = args.gpu_prefetch
     net.prune_unused_policy_heads = args.prune_unused_policy_heads
     if args.init:
@@ -239,7 +241,8 @@ def main(default_architecture="v4") -> None:
         f"B={args.batch_size} U={args.unroll} K={args.thinking_steps} validation_B={args.validation_batch_size}"
     )
 
-    depth_schedule = DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum, args.report_depths)
+    depth_schedule = DepthSchedule.from_training(args.thinking_steps, args.thinking_curriculum, args.report_depths,
+                                                   not args.nondeterministic_kernels)
     depth_counts = {}
     step_num = 0
     optimizer_updates = 0

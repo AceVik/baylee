@@ -1571,9 +1571,10 @@ pub enum Effect {
         /// Which permanents the rider reaches.
         source_filter: &'static Filter,
     },
-    /// Register delayed mana at the controller's next first main phase
-    /// (Mana Drain): colorless mana equal to the first target's cmc.
-    DelayedManaAtNextFirstMain {
+    /// Register delayed mana at the beginning of the controller's next main
+    /// phase, first or second (Mana Drain): mana equal to the first target's
+    /// mana value.
+    DelayedManaAtNextMain {
         /// Color of the mana.
         color: ManaColor,
     },

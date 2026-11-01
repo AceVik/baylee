@@ -1,7 +1,8 @@
 # The feedback service's public routes: `POST /client/reports`, where a
 # client signed in to no gateway reports (docs/feedback.md §"Straight from
-# a client"), and `POST /site/contact`, the landing
-# page's contact form (§"The landing page's contact form").
+# a client"), `POST /site/contact`, the landing
+# page's contact form (§"The landing page's contact form"), and for now
+# `POST /intake/reports`, a gateway's intake (§"Intake", #408).
 #
 # Directives for the feedback service's own site block. Only these
 # routes are passed on here; the read routes and the web UI are the operator's
@@ -51,6 +52,20 @@ handle @baylee_direct_report {
 handle @baylee_contact {
 	request_body {
 		max_size 64KiB
+	}
+	reverse_proxy 127.0.0.1:28780
+}
+
+# A gateway's intake, public since 31.10.2026 so a gateway on another
+# machine reaches it (the trainer's collector, token name `collector`). The
+# service refuses anything but a gateway's intake token, and stops a body
+# past `MAX_INTAKE_BYTES` (a 64 MiB record in base64, 2 MiB of client
+# details and room: about 88 MiB); the proxy allows 512 MiB (owner,
+# 31.10.2026). The owner wants this route closed again later (#408).
+@baylee_intake path /intake/reports
+handle @baylee_intake {
+	request_body {
+		max_size 512MiB
 	}
 	reverse_proxy 127.0.0.1:28780
 }

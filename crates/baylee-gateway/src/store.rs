@@ -26,46 +26,20 @@ use crate::auth;
 use anyhow::Result;
 use baylee_db::entity::account::Entity as Accounts;
 use baylee_db::entity::client_settings::Entity as Settings;
-use baylee_db::entity::confirmation::Entity as Confirmations;
 use baylee_db::entity::deck::Entity as Decks;
 use baylee_db::entity::deck_version::Entity as DeckVersions;
 use baylee_db::entity::session_token::Entity as Sessions;
 use baylee_db::entity::upload::Entity as Uploads;
-use baylee_db::entity::{account, confirmation, deck, deck_version, session_token, upload};
+use baylee_db::entity::{account, deck, deck_version, session_token, upload};
 use sea_orm::{
     ActiveValue::{NotSet, Set},
-    ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, Statement, TransactionTrait,
-    sea_query::{Expr, ExprTrait, Func, OnConflict},
+    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryOrder, Statement, TransactionTrait,
+    sea_query::{Expr, OnConflict},
 };
 use std::collections::{BTreeSet, HashMap};
 use time::OffsetDateTime;
 use uuid::Uuid;
-
-/// What a registration supplies, which is everything the database does not.
-///
-/// Separate from [`Account`] so a caller *cannot* supply a tag or an id.
-/// The tag is an identity column, and a value written into it by hand would
-/// not move the sequence and would collide with a later registration; the
-/// id is `DEFAULT uuidv7()`, and a `UUIDv7` minted by a gateway is ordered
-/// by *that gateway's* clock, which is the one thing several of them behind
-/// one database cannot agree on.
-#[derive(Clone, Debug)]
-pub struct NewAccount {
-    /// The name it signs in with, as the rule folded it
-    /// (`baylee_protocol::names::Username::shown`).
-    pub username: String,
-    /// What that name is unique under (`Username::key`).
-    pub username_key: String,
-    /// Display name shown in the lobby. Not unique.
-    pub display_name: String,
-    /// Argon2id PHC password hash.
-    pub password_hash: String,
-    /// Created at (unix seconds).
-    pub created_at: u64,
-    /// The language the account registered in, for the mail it is sent.
-    pub lang: String,
-}
 
 /// What asking to play as a guest supplies (#269): a name to be seen by and
 /// a language, and nothing to sign in with.
@@ -77,18 +51,6 @@ pub struct NewGuest {
     pub created_at: u64,
     /// The language it asked in.
     pub lang: String,
-}
-
-/// What registering came to (#317).
-#[derive(Clone, Debug)]
-pub enum Admitted {
-    /// The account was made.
-    Made,
-    /// The username is somebody's already. A key it brought is not spent.
-    Taken,
-    /// The closed-beta key it brought admits nobody: never made, used up,
-    /// expired or revoked, which of them is not said.
-    KeyRefused,
 }
 
 /// A registered account. It signs in with its username, which only its
@@ -106,25 +68,10 @@ pub struct Account {
     pub display_name: String,
     /// The discriminator, handed out by the database. See [`crate::handle`].
     pub tag: i32,
-    /// Argon2id PHC password hash; `None` for a guest.
-    pub password_hash: Option<String>,
-    /// When the address was confirmed, if it has been.
-    ///
-    /// It keeps nobody out (#269): an account signs in with its name either
-    /// way, and a confirmed address is only one known to reach its owner.
-    /// `None` is both "never asked", on a gateway with no SMTP configured
-    /// (see [`crate::mail::Mailer::required`]), and "asked and not
-    /// answered".
-    pub confirmed_at: Option<u64>,
-    /// The language the account registered in, for the mail it is sent.
-    pub lang: String,
     /// A guest (#269): no username, no password, and gone with its session.
     pub guest: bool,
-    /// The version of the gateway's terms it last accepted (WG-1), `None`
-    /// for never.
-    pub terms_version: Option<String>,
-    /// An admin reset its password (beta.8): it signs in with the one it was
-    /// given only to choose its own (`POST /auth/password`).
+    /// An admin reset its password before the cutover (beta.8), and it never
+    /// chose its own; no session of it is admitted (`moderation::admit`).
     pub must_change_password: bool,
     /// The ban an admin set on it, in force or lapsed; see
     /// [`Account::ban_in_force`].
@@ -193,33 +140,6 @@ pub struct Session {
     pub terms: crate::terms::Standing,
     /// Whether it is bound to a Baylee Central lease (`central.rs`).
     pub central: bool,
-}
-
-/// An outstanding "confirm your address" link.
-///
-/// Only the hash is kept, for the same reason a session token's is: a link
-/// that reached a mailbox is a working login, and a stored one would be a
-/// row that grants an account to whoever can read the table.
-#[derive(Clone, Debug)]
-pub struct Confirmation {
-    /// SHA-256 of the token in the link, as bytes.
-    pub token_hash: Vec<u8>,
-    /// The account it confirms.
-    pub account_id: String,
-    /// Expiry (unix seconds). A link that never expired would be a password
-    /// that never expired, sitting in a mailbox.
-    pub expires_at: u64,
-}
-
-/// A stored session token (only the SHA-256 hash is kept).
-#[derive(Clone, Debug)]
-pub struct StoredToken {
-    /// SHA-256 of the bearer token, as bytes.
-    pub token_hash: Vec<u8>,
-    /// Owning account id.
-    pub account_id: String,
-    /// Expiry (unix seconds, sliding).
-    pub expires_at: u64,
 }
 
 /// What saving a new deck supplies: everything but the id, which the
@@ -335,12 +255,8 @@ impl From<account::Model> for Account {
             username: row.username,
             display_name: row.display_name,
             tag: row.tag,
-            password_hash: row.password_hash,
-            confirmed_at: row.confirmed_at.map(secs),
-            lang: row.lang,
             guest: row.guest,
             ban,
-            terms_version: row.terms_version,
             must_change_password: row.must_change_password,
         }
     }
@@ -407,18 +323,6 @@ impl From<deck_version::Model> for DeckVersion {
     }
 }
 
-impl From<confirmation::Model> for Confirmation {
-    fn from(row: confirmation::Model) -> Self {
-        Self {
-            token_hash: row.token_hash,
-            account_id: id(row.account_id),
-            expires_at: secs(row.expires_at),
-        }
-    }
-}
-
-// -------------------------------------------------------------- accounts
-
 /// One account by id, or `None`.
 ///
 /// # Errors
@@ -429,40 +333,6 @@ pub async fn account(db: &DatabaseConnection, account_id: &str) -> Result<Option
         return Ok(None);
     };
     Ok(Accounts::find_by_id(id).one(db).await?.map(Into::into))
-}
-
-/// One account by the name it signs in with, given as its key
-/// (`baylee_protocol::names::Username::key`), which the unique index is on.
-///
-/// # Errors
-///
-/// If the database refuses.
-pub async fn account_by_username_key(
-    db: &DatabaseConnection,
-    key: &str,
-) -> Result<Option<Account>> {
-    Ok(Accounts::find()
-        .filter(account::Column::UsernameKey.eq(key))
-        .one(db)
-        .await?
-        .map(Into::into))
-}
-
-/// One account by its e-mail address, case-insensitively.
-///
-/// The comparison is `lower(email) = lower($1)`, which is the expression the
-/// unique index is built on — so this is an index lookup and not the scan an
-/// `ILIKE` would have been.
-///
-/// # Errors
-///
-/// If the database refuses.
-pub async fn account_by_email(db: &DatabaseConnection, email: &str) -> Result<Option<Account>> {
-    Ok(Accounts::find()
-        .filter(Expr::expr(Func::lower(Expr::col(account::Column::Email))).eq(email.to_lowercase()))
-        .one(db)
-        .await?
-        .map(Into::into))
 }
 
 /// Handles for a set of account ids, for the lobby's rosters.
@@ -512,78 +382,6 @@ pub async fn account_by_tag(db: &DatabaseConnection, tag: i32) -> Result<Option<
         .one(db)
         .await?
         .map(Into::into))
-}
-
-/// Write a new account, spending a use of the closed-beta key whose hash
-/// is `invite` when there is one (#317), and answer which of
-/// [`Admitted`] it came to.
-///
-/// The refusal comes from the unique index rather than from a check, which is
-/// what closes the window the file-backed version had: two registrations of
-/// one name could both read "free" and both write. A *display name* is not
-/// among the things that can be taken.
-///
-/// The tag is the database's to hand out: [`account::Column::Tag`] is an
-/// identity column and is `NotSet` on the way in.
-///
-/// # Errors
-///
-/// If the database refuses for any reason other than that clash.
-pub async fn create_account(
-    db: &DatabaseConnection,
-    new: NewAccount,
-    invite: Option<&[u8]>,
-) -> Result<Admitted> {
-    // The key's use first and the account last, in one transaction (#317):
-    // a taken name is refused by the insert, which aborts the transaction,
-    // and the rollback gives the use back. Two registrations racing for a
-    // key's last use queue on its row, and the second finds none left.
-    let txn = db.begin().await?;
-    let invite_id = match invite {
-        None => None,
-        Some(key_hash) => {
-            let Some(id) = baylee_db::invites::redeem(&txn, key_hash, at(new.created_at)).await?
-            else {
-                txn.rollback().await?;
-                return Ok(Admitted::KeyRefused);
-            };
-            Some(id)
-        }
-    };
-    let row = account::ActiveModel {
-        id: NotSet,
-        // Registration asks for no address (#269); one may be added later,
-        // for recovery.
-        email: Set(None),
-        username: Set(Some(new.username)),
-        username_key: Set(Some(new.username_key)),
-        display_name: Set(new.display_name),
-        tag: NotSet,
-        password_hash: Set(Some(new.password_hash)),
-        created_at: Set(at(new.created_at)),
-        confirmed_at: Set(None),
-        lang: Set(new.lang),
-        guest: Set(false),
-        invite_id: Set(invite_id),
-        terms_version: Set(None),
-        terms_accepted_at: Set(None),
-        must_change_password: Set(false),
-        banned_at: Set(None),
-        banned_until: Set(None),
-        ban_reason: Set(None),
-        banned_by: Set(None),
-    };
-    match Accounts::insert(row).exec_with_returning(&txn).await {
-        Ok(_) => {
-            txn.commit().await?;
-            Ok(Admitted::Made)
-        }
-        Err(e) if is_taken(&e) => {
-            txn.rollback().await?;
-            Ok(Admitted::Taken)
-        }
-        Err(e) => Err(e.into()),
-    }
 }
 
 /// Make a guest and its one session, answering the account (#269).
@@ -806,50 +604,6 @@ pub async fn claims_upload(
         > 0)
 }
 
-/// Whether a write failed because something unique already exists.
-fn is_taken(e: &sea_orm::DbErr) -> bool {
-    matches!(e, sea_orm::DbErr::RecordNotInserted) || e.to_string().contains("duplicate key value")
-}
-
-/// Mark an address confirmed. Silent when the account is gone.
-///
-/// # Errors
-///
-/// If the database refuses.
-pub async fn confirm_account(db: &DatabaseConnection, account_id: &str, now: u64) -> Result<()> {
-    let Some(id) = uuid(account_id) else {
-        return Ok(());
-    };
-    Accounts::update_many()
-        .col_expr(account::Column::ConfirmedAt, Expr::value(at(now)))
-        .filter(account::Column::Id.eq(id))
-        .filter(account::Column::ConfirmedAt.is_null())
-        .exec(db)
-        .await?;
-    Ok(())
-}
-
-// ------------------------------------------------------------- sessions
-
-/// Store a session token.
-///
-/// # Errors
-///
-/// If the database refuses.
-pub async fn put_token(db: &DatabaseConnection, token: StoredToken) -> Result<()> {
-    let Some(account_id) = uuid(&token.account_id) else {
-        return Ok(());
-    };
-    Sessions::insert(session_token::ActiveModel {
-        token_hash: Set(token.token_hash),
-        account_id: Set(account_id),
-        expires_at: Set(at(token.expires_at)),
-    })
-    .exec(db)
-    .await?;
-    Ok(())
-}
-
 /// Resolve a bearer token to whose session it is, sliding the expiry.
 ///
 /// # Why the renewal is not on every request
@@ -964,25 +718,6 @@ pub async fn sweep_tokens(db: &DatabaseConnection, now: u64) -> Result<u64> {
 
 // -------------------------------------------------------- confirmations
 
-/// Drop every confirmation link for one account.
-///
-/// A fresh link has to invalidate the last one that was mailed, or a resend
-/// would leave two working links behind. Expired links of every account go
-/// in the sweep ([`sweep_confirmations`]).
-///
-/// # Errors
-///
-/// If the database refuses.
-pub async fn clear_confirmations(db: &DatabaseConnection, account_id: &str) -> Result<()> {
-    if let Some(id) = uuid(account_id) {
-        Confirmations::delete_many()
-            .filter(confirmation::Column::AccountId.eq(id))
-            .exec(db)
-            .await?;
-    }
-    Ok(())
-}
-
 /// Remove every expired confirmation link, answering how many went (#293).
 ///
 /// # Errors
@@ -991,54 +726,6 @@ pub async fn clear_confirmations(db: &DatabaseConnection, account_id: &str) -> R
 pub async fn sweep_confirmations(db: &DatabaseConnection, now: u64) -> Result<u64> {
     Ok(baylee_db::confirmations::sweep(db, at(now)).await?)
 }
-
-/// Store a confirmation link.
-///
-/// # Errors
-///
-/// If the database refuses.
-pub async fn put_confirmation(db: &DatabaseConnection, link: Confirmation) -> Result<()> {
-    let Some(account_id) = uuid(&link.account_id) else {
-        return Ok(());
-    };
-    Confirmations::insert(confirmation::ActiveModel {
-        token_hash: Set(link.token_hash),
-        account_id: Set(account_id),
-        expires_at: Set(at(link.expires_at)),
-    })
-    .exec(db)
-    .await?;
-    Ok(())
-}
-
-/// Spend a confirmation link: read it and remove it in one step, so a link
-/// followed twice works once.
-///
-/// # Errors
-///
-/// If the database refuses.
-pub async fn take_confirmation(
-    db: &DatabaseConnection,
-    token_hash: &[u8],
-) -> Result<Option<Confirmation>> {
-    let found = Confirmations::find_by_id(token_hash.to_owned())
-        .one(db)
-        .await?;
-    let Some(found) = found else {
-        return Ok(None);
-    };
-    let removed = Confirmations::delete_by_id(token_hash.to_owned())
-        .exec(db)
-        .await?;
-    // Somebody else spent it between the read and the delete. Answering
-    // `None` is what makes "a link works once" true rather than nearly true.
-    if removed.rows_affected == 0 {
-        return Ok(None);
-    }
-    Ok(Some(found.into()))
-}
-
-// ----------------------------------------------------------------- decks
 
 /// One account's decks, newest first.
 ///
@@ -1354,87 +1041,14 @@ pub async fn accept_terms(db: &DatabaseConnection, account_id: &str, version: &s
 
 // ----------------------------------------------- an admin's acts (beta.8)
 
-/// Every session of `account`, signed out: a reset password or a ban
-/// revokes them (`docs/protocol.md` §"Acting on an account").
+/// Every session of `account`, signed out: a ban revokes them
+/// (`docs/protocol.md` §"Acting on an account").
 async fn drop_sessions_of<C: ConnectionTrait>(db: &C, account: Uuid) -> Result<u64> {
     Ok(Sessions::delete_many()
         .filter(session_token::Column::AccountId.eq(account))
         .exec(db)
         .await?
         .rows_affected)
-}
-
-/// An admin reset a registered account's password to `password_hash`:
-/// the account must choose its own at its next sign-in, and every session
-/// it has is signed out, in one transaction. `false` for no such account,
-/// or a guest's, which has no password to reset.
-///
-/// # Errors
-///
-/// If the database refuses.
-pub async fn reset_password(
-    db: &DatabaseConnection,
-    account_id: &str,
-    password_hash: &str,
-) -> Result<bool> {
-    let Some(id) = uuid(account_id) else {
-        return Ok(false);
-    };
-    let tx = db.begin().await?;
-    let changed = Accounts::update_many()
-        .col_expr(account::Column::PasswordHash, Expr::value(password_hash))
-        .col_expr(account::Column::MustChangePassword, Expr::value(true))
-        .filter(account::Column::Id.eq(id))
-        .filter(account::Column::Guest.eq(false))
-        .exec(&tx)
-        .await?
-        .rows_affected
-        > 0;
-    if changed {
-        tx.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "DELETE FROM central_account_link WHERE account_id = $1 AND central_id IS NULL",
-            [id.into()],
-        ))
-        .await?;
-        drop_sessions_of(&tx, id).await?;
-    }
-    tx.commit().await?;
-    Ok(changed)
-}
-
-/// The account chose a new password, `password_hash`: the admin's reset is
-/// finished, and every session it had is signed out (the caller makes the
-/// one it is answered with), in one transaction.
-///
-/// # Errors
-///
-/// If the database refuses.
-pub async fn set_password(
-    db: &DatabaseConnection,
-    account_id: &str,
-    password_hash: &str,
-) -> Result<()> {
-    let Some(id) = uuid(account_id) else {
-        return Ok(());
-    };
-    let tx = db.begin().await?;
-    Accounts::update_many()
-        .col_expr(account::Column::PasswordHash, Expr::value(password_hash))
-        .col_expr(account::Column::MustChangePassword, Expr::value(false))
-        .filter(account::Column::Id.eq(id))
-        .filter(account::Column::Guest.eq(false))
-        .exec(&tx)
-        .await?;
-    tx.execute_raw(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        "DELETE FROM central_account_link WHERE account_id = $1 AND central_id IS NULL",
-        [id.into()],
-    ))
-    .await?;
-    drop_sessions_of(&tx, id).await?;
-    tx.commit().await?;
-    Ok(())
 }
 
 /// What banning an account found.
@@ -1725,65 +1339,5 @@ mod tests {
     fn a_reordered_list_is_a_different_list() {
         let before = deck_row("Deck", &["4 Lightning Bolt", "4 Brainstorm"], &[], &[]);
         assert!(!before.same_cards(&strings(&["4 Brainstorm", "4 Lightning Bolt"]), &[], &[]));
-    }
-
-    /// **"The address is taken" is a sentence about one error and not about
-    /// every error**, because it is what `create_account` answers a stranger
-    /// with: an `Ok(None)` that the route turns into "that e-mail already
-    /// has an account". Reading an unrelated failure as that one tells a
-    /// registering player their address is spoken for when the database was
-    /// merely unreachable.
-    ///
-    /// Two readings, because sea-orm reports the same refusal two ways:
-    /// `RecordNotInserted` when it noticed, and an execution error carrying
-    /// PostgreSQL's own wording when it did not. The second is a substring
-    /// match on a message, which is what makes it worth writing the
-    /// negatives down beside the positives — a message is not an interface,
-    /// and this is the test that notices when the wording moves.
-    #[test]
-    fn a_unique_violation_is_read_as_taken_and_nothing_else_is() {
-        assert!(is_taken(&sea_orm::DbErr::RecordNotInserted));
-        assert!(is_taken(&sea_orm::DbErr::Custom(
-            "error returned from database: duplicate key value violates \
-             unique constraint \"account_email_key\""
-                .to_string()
-        )));
-
-        for other in [
-            sea_orm::DbErr::RecordNotUpdated,
-            sea_orm::DbErr::RecordNotFound("no such account".to_string()),
-            sea_orm::DbErr::Custom("connection closed".to_string()),
-            sea_orm::DbErr::Custom("deadlock detected".to_string()),
-            sea_orm::DbErr::Custom(
-                "null value in column \"email\" violates not-null constraint".to_string(),
-            ),
-        ] {
-            assert!(
-                !is_taken(&other),
-                "{other:?} is not an address somebody already has"
-            );
-        }
-    }
-
-    /// What the reading does not ask is **which** unique index failed, and
-    /// that is safe rather than lucky: both of the ones this insert can trip
-    /// are the address. The column carries its own, and
-    /// `account_email_lower` is the functional one that makes two addresses
-    /// differing only in case one address. A display name deliberately has
-    /// none — a globally unique name is a race every popular Alice loses,
-    /// and refusing a registration for a taken name says that name exists —
-    /// so there is no second sentence this could be mistaken for.
-    ///
-    /// `create_account` is the only caller, which is the other half of why.
-    #[test]
-    fn both_of_the_unique_indexes_this_can_report_mean_the_same_sentence() {
-        for constraint in ["account_email_key", "account_email_lower"] {
-            assert!(
-                is_taken(&sea_orm::DbErr::Custom(format!(
-                    "duplicate key value violates unique constraint \"{constraint}\""
-                ))),
-                "{constraint} is the address under another name"
-            );
-        }
     }
 }

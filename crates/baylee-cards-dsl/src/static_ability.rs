@@ -653,9 +653,13 @@ pub enum Modifier {
     /// Use it with `Layer::Control`; any other layer would apply it out of
     /// order with respect to the effects that read the controller.
     GainControl,
-    /// The controller can't be targeted by spells or abilities (player
-    /// hexproof, Everybody Lives!).
-    PlayerHexproof,
+    /// These players can't be the target of spells or abilities their
+    /// opponents control (player hexproof): Everybody Lives! gives it to
+    /// `EachPlayer`, "you have hexproof" is `You`.
+    PlayerHexproof {
+        /// Affected players relative to the effect controller.
+        who: crate::PlayerRel,
+    },
     /// Matching creatures can boast twice during this effect's controller's turn.
     /// Multiple instances do not increase the limit beyond two.
     BoastTwice,
@@ -1281,7 +1285,7 @@ impl Modifier {
             | Self::AttacksAsThoughHaste
             | Self::AttacksAloneOnly
             | Self::BoastTwice
-            | Self::PlayerHexproof
+            | Self::PlayerHexproof { .. }
             | Self::SpellsHaveFlash(_)
             | Self::SorceriesHaveFlash
             | Self::ManaIsAnyColor
@@ -1880,7 +1884,9 @@ mod tests {
             Modifier::OpponentsSearchTop(4),
             Modifier::NoMaxHandSize,
             Modifier::ChosenPlayerMaxHandSize(4),
-            Modifier::PlayerHexproof,
+            Modifier::PlayerHexproof {
+                who: crate::PlayerRel::You,
+            },
             Modifier::BoastTwice,
             Modifier::SpellsHaveFlash(None),
             Modifier::SpellsHaveFlash(Some(TypeSet::CREATURE)),

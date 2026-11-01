@@ -1901,7 +1901,7 @@ trigger uses `IfCondition { condition: Condition::CountersOnSelf(counters::FADE,
 the upkeep trigger sacrifices it only when no fade counter can be removed.
 Also `AddCounter`, `AddCounterFilter`,
 `DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`,
-`DelayedManaAtNextFirstMain` (Mana Drain), `SacrificeSelf`,
+`DelayedManaAtNextMain` (Mana Drain), `SacrificeSelf`,
 `PayCostOrLoseLater`, `ExileTargetsCreateTokens`.
 Conditional: `IfKicked { then, otherwise }`, `IfEventPowerAtLeast { n, then,
 otherwise }` (Tribute to the World Tree), and four that run `then` or nothing

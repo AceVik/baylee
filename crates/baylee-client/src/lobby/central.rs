@@ -103,6 +103,15 @@ impl Handle {
         self.call(move |account| account.remember_chat_installation(&device, installation))
     }
 
+    /// The key of the local chat vault with `scope`, from the account's
+    /// master key (`docs/password-vault.md` §"The account key").
+    pub(crate) fn local_vault_key(
+        &self,
+        scope: [u8; 32],
+    ) -> Result<zeroize::Zeroizing<[u8; 32]>, Error> {
+        self.call(move |account| account.local_vault_key(&scope))
+    }
+
     pub(crate) fn upload_chat_history(
         &self,
         device: baylee_account::chat::ChatDevice,
@@ -193,10 +202,13 @@ pub(super) struct State {
     saved_gateways: Vec<String>,
     saving: Option<PendingSave>,
     sync_failed: bool,
-    chat_unlock: Arc<Mutex<Option<crate::social::vault_access::Login>>>,
     /// The gateway that asked for Central sign-in, admitted to once it is
     /// done; `None` when Central was turned on without one.
     bound: Option<String>,
+    /// That gateway's own guest door, and who it lets in new, when it takes
+    /// guests too (`auth_mode` `mixed`): Central's form offers it beside the
+    /// sign-in ([`guest_instead`]).
+    guest_door: Option<Registration>,
     /// A `baylee:` link opened this sign-in (`lobby::links`): `‹` goes back
     /// to the device's gateways, as from a gateway that asked for it.
     linked: bool,
@@ -210,7 +222,6 @@ pub(super) struct Restored {
     handle: Handle,
     gateways: Vec<String>,
     preferences: Preferences,
-    chat_unlock: Option<crate::social::vault_access::Login>,
     /// The sign-in found Central's terms in force unaccepted (and a gateway
     /// account's move, if any, waiting for them).
     terms_pending: bool,
@@ -225,8 +236,8 @@ pub(super) fn enable(state: &mut LobbyState) {
         saved_gateways: Vec::new(),
         saving: None,
         sync_failed: false,
-        chat_unlock: Arc::new(Mutex::new(None)),
         bound: None,
+        guest_door: None,
         linked: false,
         terms_pending: false,
     });
@@ -263,19 +274,53 @@ pub(super) fn from_link(state: &mut LobbyState) {
 }
 
 /// The chosen gateway takes Central sign-ins: the account form becomes
-/// Central's, and the sign-in admits the player to that gateway. Nothing
-/// when Central is on already, or a session on the gateway is.
+/// Central's, and the sign-in admits the player to that gateway. A gateway
+/// that takes guests too keeps its guest door on that form. Nothing when
+/// Central is on already, or a session on the gateway is.
 pub(super) fn bound(state: &mut LobbyState) {
     if state.central.is_some() || !state.gateway_selected || state.lobby.token().is_some() {
         return;
     }
     let gateway = state.gateway.clone();
+    let guest_door = state
+        .lobby
+        .guests_enabled()
+        .then(|| state.lobby.registration());
     let probes = std::mem::take(&mut state.probes);
     enable(state);
     state.probes = probes;
     if let Some(central) = &mut state.central {
         central.bound = Some(gateway);
+        central.guest_door = guest_door;
     }
+    if guest_door.is_some() {
+        state.lobby.set_guests_enabled(true);
+    }
+}
+
+/// Play as guest from Central's form that a gateway taking guests too
+/// asked for: Central is off again, the device's own gateways are back, and
+/// that gateway stays chosen with its guest door as it offered it, so the
+/// guest comes in as on any gateway that takes guests. `false`, and nothing
+/// changed, when the form offers no guest door.
+pub(super) fn guest_instead(state: &mut LobbyState) -> bool {
+    let Some(registration) = state
+        .central
+        .as_ref()
+        .filter(|central| central.handle.is_none() && central.bound.is_some())
+        .and_then(|central| central.guest_door)
+    else {
+        return false;
+    };
+    let Some(central) = state.central.take() else {
+        return false;
+    };
+    state.gateways = central.local_gateways;
+    state.gateway_selected = true;
+    state.lobby.set_gateway_ready(true);
+    state.lobby.set_registration(registration);
+    state.lobby.set_guests_enabled(true);
+    true
 }
 
 /// Back from Central's sign-in that a gateway (or a link) asked for:
@@ -299,6 +344,10 @@ fn close(state: &mut LobbyState) {
     state.gateway_cursor = (!state.gateways.is_empty()).then_some(0);
     state.lobby.set_gateway_ready(false);
 }
+
+/// How many old local chat vaults a Central sign-in tries to open with its
+/// password, one Argon2id run each (`attach_account_keys`).
+const ATTACH_LIMIT: usize = 8;
 
 #[cfg_attr(not(feature = "dev-control"), allow(clippy::unnecessary_wraps))] // The dev override can fail.
 fn endpoint() -> Result<Endpoint, Error> {
@@ -332,16 +381,23 @@ pub(super) fn login(state: &mut LobbyState, mailbox: &Mailbox, username: String,
                     .map_err(|_| Error::Rejected)?
                     .key;
                 let endpoint = endpoint?;
+                let live = endpoint == Endpoint::live();
                 let account =
                     Account::login(endpoint.clone(), username, password.to_string(), gateways)?;
-                // The chat unlock is for the live gateway, and only in a
-                // live sign-in (`legacy_origin` is that test).
-                let chat_unlock = endpoint.legacy_origin().map(|_| {
-                    crate::social::vault_access::Login::central(
-                        gateway_list::PINNED,
-                        password.to_string(),
-                    )
-                });
+                // The password's last use: every old local chat vault it
+                // opens gains the account's wrapper, so no later chat start
+                // needs it (`docs/password-vault.md` §"The account key").
+                // Only the live Central's: a development one would wrap the
+                // device's real vaults under its own issuer's key.
+                if live && let Some(root) = crate::social::config_dir() {
+                    baylee_client_core::social::vault::password::attach_account_keys(
+                        &root,
+                        &password,
+                        |scope| account.local_vault_key(scope.as_bytes()).ok(),
+                        ATTACH_LIMIT,
+                    );
+                }
+                drop(password);
                 let Ok(preferences) = serde_json::from_value(account.data().preferences.clone())
                 else {
                     let _ = account.logout();
@@ -355,7 +411,6 @@ pub(super) fn login(state: &mut LobbyState, mailbox: &Mailbox, username: String,
                     handle: Handle::start(account)?,
                     gateways,
                     preferences,
-                    chat_unlock,
                     terms_pending,
                 })
             })();
@@ -388,7 +443,6 @@ pub(super) fn receive(
             central.saved_gateways.clone_from(&restored.gateways);
             central.handle = Some(restored.handle.clone());
             central.terms_pending = restored.terms_pending;
-            central.chat_unlock = Arc::new(Mutex::new(restored.chat_unlock));
             prefs.attach_central(restored.handle, restored.preferences);
             let lang = state.lobby.lang();
             let username = state.lobby.field(Field::Username).to_string();
@@ -438,7 +492,6 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
         return;
     };
     let gateway = state.gateway.clone();
-    let chat_unlock = state.central.as_ref().map(|s| s.chat_unlock.clone());
     let epoch = state.gateway_epoch;
     let target = mailbox.clone();
     let lang = state.lobby.lang();
@@ -479,15 +532,6 @@ pub(super) fn admit(state: &mut LobbyState, mailbox: &Mailbox) {
                         Box::new(Reply::Terms(super::front::terms::TermsReply::CentralStale)),
                     ));
                 }
-                if let LobbyEvent::LoggedIn { token, .. } = &event
-                    && let Some(mut login) = chat_unlock
-                        .as_ref()
-                        .and_then(|slot| slot.lock().ok().and_then(|mut value| value.take()))
-                        .filter(|login| login.fresh_for(&gateway))
-                {
-                    login.accept(token);
-                    messages.push(Reply::Remote(epoch, Box::new(Reply::VaultLogin(login))));
-                }
                 let landed = matches!(event, LobbyEvent::LoggedIn { .. });
                 messages.push(Reply::Remote(epoch, Box::new(Reply::Event(event))));
                 if landed {
@@ -518,13 +562,6 @@ pub(super) fn sync_gateways(
     let Some(central) = &state.central else {
         return;
     };
-    if let Ok(mut login) = central.chat_unlock.lock()
-        && login
-            .as_ref()
-            .is_some_and(|login| !login.fresh_for(gateway_list::PINNED))
-    {
-        *login = None;
-    }
     let Some(handle) = &central.handle else {
         return;
     };
@@ -646,7 +683,6 @@ pub(super) fn restored_for_test(state: &mut LobbyState, gateways: Vec<String>) {
         },
         gateways,
         preferences: Preferences::default(),
-        chat_unlock: None,
         terms_pending: false,
     };
     receive(
@@ -724,7 +760,6 @@ mod tests {
             },
             gateways: vec![source.clone()],
             preferences: Preferences::default(),
-            chat_unlock: None,
             terms_pending: false,
         };
         receive(
@@ -773,7 +808,6 @@ mod tests {
             },
             gateways: vec![other.clone()],
             preferences: Preferences::default(),
-            chat_unlock: None,
             terms_pending: false,
         };
         receive(
@@ -808,7 +842,6 @@ mod tests {
             },
             gateways: Vec::new(),
             preferences: Preferences::default(),
-            chat_unlock: None,
             terms_pending: true,
         };
         let mailbox = Mailbox::default();
@@ -857,7 +890,6 @@ mod tests {
             },
             gateways: vec![gateway_list::KEYED.into(), other.clone()],
             preferences: Preferences::default(),
-            chat_unlock: None,
             terms_pending: false,
         };
         let mailbox = Mailbox::default();

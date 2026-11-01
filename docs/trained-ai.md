@@ -512,6 +512,44 @@ Evaluation/collection records must preserve the mode and executable/model
 identity. Historical tactical improvements and mislabeled tactical PPO samples
 do not establish raw-policy learning or valid on-policy PPO data.
 
+### Batched GPU inference and FP16 graphs
+
+By default every `eval4` worker owns its sessions and runs one step per
+call: eight workers held eight copies of each depth graph (9 GB on a 12 GB
+card) and kept the GPU busy with small calls while the CPU idled.
+`eval4 --inference-batch N` instead shares one copy of each graph
+(`netplay4::BatchedNet4`): a thread per depth graph takes every step the
+games queued while its previous call ran and pads them into one call of at
+most N rows (and N×512 entity plus candidate tokens), grouping similar
+sizes. Padding is the masking a single step already uses; rows never mix.
+Batched runs are not bitwise reproducible (kernel choice depends on the
+call's shapes); reports record the limits and call counts under
+`inference_batch`, and batched record runs name `inference_batch_rows`.
+
+`export_onnx4.py --precision float16 [--out DIR]` writes a separate
+directory (default `MODEL/fp16`) whose graphs compute in FP16 behind FP32
+inputs and outputs, so the Rust ABI and the recurrent memory handed between
+steps stay FP32. Its metadata says `"precision": "float16"`; the model
+identity carries it, and collection contracts report it, so PPO admission
+keeps refusing anything but FP32 rollouts.
+
+Measured on 31 October with arm a (paired `dev1024`, 16 workers for the
+batched runs; `~/baylee-data/v6/eval/v6p-inference/`):
+
+| Path | Wins | Wall time | VRAM |
+| --- | ---: | ---: | ---: |
+| FP32, one step per call, 8 workers | 354 | 991 s | 9.0 GB |
+| FP32, `--inference-batch 32` | 354, every deal identical | 597 s | 1.4 GB |
+| FP16, `--inference-batch 32` | 352 (2 better, 4 worse) | 392 s | 0.8 GB |
+
+FP16 against FP32: −0.2 pp [−0.7, +0.3]. On real game states
+(`netplay4::batch_tests`, ignored, run with `BAYLEE_TEST_MODEL=DIR` and
+`BAYLEE_TEST_MODEL_FP16=DIR`) batched rows match single steps within
+2.6e-5 and the FP16 export picks the FP32 top choice in all 267 menus. For
+pure net games, FP16 throughput grows with workers until about 64
+(`--threads 64 --inference-batch 64`: 3.7 games per second, about 18 rows
+per call, 1.3 GB).
+
 ### BayleeAI v5 relational pilot
 
 `model5.Config5` / `PlayerNet5` identify the new major family with

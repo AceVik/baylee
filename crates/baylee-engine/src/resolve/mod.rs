@@ -547,6 +547,21 @@ static EARTHBEND_RETURN: &[Effect] = &[Effect::ReturnToBattlefieldTapped {
     target: TargetSpec::EventObject,
 }];
 
+/// The first target's mana value, as the effect asking is entitled to see
+/// it: [`target_chars`]'s, so X counts as chosen on the stack and as 0
+/// anywhere else (CR 202.3e), and a target the resolution has moved is read
+/// as it was where the resolution found it (CR 608.2h).
+///
+/// It used to read the card's own `x_value` for X wherever the card was.
+/// A permanent keeps that number for its enter replacement, so Divine
+/// Offering on a Chalice of the Void cast for one gained two life for a
+/// mana value of zero. Mana Drain asked the projection instead, after its
+/// own first sentence had put the spell in the graveyard, where X is 0: a
+/// spell cast for X paid its printed cost (31.10.2026). One answer for both.
+pub(super) fn target_mana_value(res: &Resolution, state: &GameState) -> u32 {
+    target_chars(res, state).map_or(0, crate::object::Characteristics::mana_value)
+}
+
 /// The first target's characteristics, as the effect asking is entitled to
 /// see them (CR 608.2h).
 ///
@@ -666,21 +681,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::TargetToughness => target_chars(res, state)
             .and_then(|c| c.toughness)
             .map_or(0, |t| t.max(0) as u32),
-        // Deliberately *not* through `target_chars`: the one card that reads
-        // this is Reanimate, whose target is a creature card in a graveyard
-        // and whose mana value is the printed one. A card that never was a
-        // permanent has no last known information on the battlefield to
-        // prefer.
-        Amount::TargetCmc => res
-            .targets
-            .first()
-            .and_then(|t| state.object(*t))
-            .map_or(0, |o| {
-                let chars = o.characteristics();
-                chars
-                    .front_mana_value
-                    .map_or_else(|| chars.mana_cost.with_x(o.x_value).cmc(), u32::from)
-            }),
+        Amount::TargetCmc => target_mana_value(res, state),
         // Off the triggered ability, where stacking it wrote the event's
         // amount.
         Amount::EventManaValue => state

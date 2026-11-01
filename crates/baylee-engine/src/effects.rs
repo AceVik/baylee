@@ -265,7 +265,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PlayerProtectionFromEverything { .. }
         | Modifier::PlayerProtectionFromOpponents { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
-        | Modifier::PlayerHexproof
+        | Modifier::PlayerHexproof { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash
         | Modifier::ManaIsAnyColor
@@ -1791,7 +1791,9 @@ mod tests {
                 who: PlayerRel::EachPlayer,
                 limit: 1,
             },
-            Modifier::PlayerHexproof,
+            Modifier::PlayerHexproof {
+                who: PlayerRel::You,
+            },
             Modifier::BoastTwice,
             Modifier::SpellsHaveFlash(None),
             Modifier::SorceriesHaveFlash,

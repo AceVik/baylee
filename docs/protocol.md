@@ -170,8 +170,13 @@ is no account yet:
 ```json
 {"name":"Baylee EU","version":"…","commit":"…","build":"…","built_at":"…","dirty":false,
  "protocol_version":…,"view_version":…,"source":"https://github.com/AceVik/baylee",
- "registration":"invite","guests":true,"impressum":"https://example.org/impressum"}
+ "registration":"invite","guests":true,"auth_mode":"mixed","impressum":"https://example.org/impressum"}
 ```
+
+- `auth_mode` is who comes in: `guests`, `central` (Baylee Central's
+  accounts, the default) or `mixed`, as the console or `BAYLEE_AUTH_MODE`
+  chose it, and `guests` is whether its door is open
+  (`docs/central-login.md` §"Who a gateway lets in").
 
 - `name` is `BAYLEE_GATEWAY_NAME`, trimmed. It is **absent** when unset, and
   the client names the gateway by its address. It is at most 64 characters,
@@ -1917,7 +1922,7 @@ bound.
 ### Running one
 
 ```bash
-BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) ./target/debug/baylee-gateway
+BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) BAYLEE_AUTH_MODE=guests ./target/debug/baylee-gateway
 BAYLEE_AGENT_TOKEN=<the same> ./target/debug/baylee-agent
 ```
 
@@ -2413,41 +2418,32 @@ wins.
 window, and nothing about the frames changed. A new client needs a gateway
 that sells tickets, which one build (gateway first) guarantees.
 
-What is still in an address: `/auth/confirm?token=` (a mail link, which
-has to be one; single-use, 24 h), and in a browser the page URL a table is
+What is still in an address: in a browser, the page URL a table is
 handed over with from outside the client (`?game=…&token=…`,
 `docs/client.md`), which the static host serving the page and the
 browser's history see. The client's own lobby never builds that URL; it
 hands the seat over in memory. Moving that handover off the address is not
 part of #294.
 
-## Confirming an address, and why it is optional
+## Accounts are Baylee Central's (the cutover)
 
-Since usernames (#269, below) a new account has **no address**: nothing is
-mailed at registration, and an address, confirmed or not, keeps nobody out.
-What is left is for the accounts that registered with an address before: a
-link already mailed still confirms it, and `POST /auth/confirm/resend
-{email}` mails another to an address not yet confirmed. The address stays on
-the account as the way to reach its player, for recovery later.
-`BAYLEE_SMTP_URL` decides whether anything is mailed at all.
-
-Three details are load-bearing:
-
-- **`POST /auth/confirm/resend` answers `{"ok":true}` whatever happened.** A
-  route that said "no such address" would be an address oracle, and this one
-  needs no password to call.
-- **Only the hash of the link's token is stored**, like a session token's: a
-  live link in the store would be a live login. A link lasts 24 hours, a new
-  one invalidates the last, and following one spends it.
-- **`BAYLEE_PUBLIC_URL` is where the link points.** The gateway cannot work
-  out its own public address, and taking it from a request header is how a
-  confirmation link ends up pointing at whatever `Host:` an attacker sent.
-
-The mail is written in the `lang` the account registered with, kept on the
-account, so a resend months later still lands in the language the player
-signed up in. `confirmation_required` is gone from `GET /auth/config` and
-from the registration answer: a client that still reads it finds nothing and
-takes `false`, which is now the truth.
+Since the cutover (owner's decision of 30.10.2026, `docs/central-login.md`
+§"Cutover") nobody registers, signs in with a password, changes or resets a
+password, or confirms an address at a gateway. `POST /auth/register`, `POST
+/auth/login`, `POST /auth/password`, `GET /auth/confirm`, `POST
+/auth/confirm/resend` and the console's `POST /admin/accounts/{id}/password`
+are gone (`404`), and so is the mailer. Whom a gateway lets in is its
+operator's choice (`BAYLEE_AUTH_MODE`: `guests`, `central`, the default, or
+`mixed`; `docs/central-login.md` §"Who a gateway lets in"): a guest through
+`POST /auth/guest`, a Central account through `POST /auth/central/login` where
+the gateway is connected (`BAYLEE_CENTRAL_CONFIG_FILE`). `GET /auth/config`
+says which: `auth_mode`, `central`, `guests_enabled` and
+`registration_enabled`, always `false`, kept for clients from before, which
+draw a sign-up form only where it is true. The
+accounts from before Central keep their game data here: Central signs them in
+from its legacy store, and the gateway links each one at its first admission,
+ending its password and its password sessions. An account's username and
+address stay as data; nothing mails it, and nothing signs in by them here.
 
 **A new key here is safe in one direction only.** A client's config struct
 deserializes the keys it names and ignores the rest, so a key it has never
@@ -2456,15 +2452,16 @@ a property of that struct and not a promise this route makes: a field a
 client is *required* to read breaks every client that predates it while the
 same sentence stays true, and is a version bump rather than a new key.
 
-## Signing in with a username (#269)
+## Usernames (#269)
 
 Online play must not require an e-mail address (the Fan Content Policy
 forbids "email registration" as the price of fan content; `docs/legal.md`
-§2), so a player signs up with a **username** and signs in with it. The
-username is **private**: its owner is shown it (`/me`, the sign-in answer)
-and nobody else ever is. The name other players see stays the display name
-and its tag, below. A public login name would give away half of every
-credential.
+§2), so an account has a **username**. Since the cutover it is Baylee
+Central's, and a gateway signs nobody in by it (§"Accounts are Baylee
+Central's"); an account from before keeps the one it had here, and moved it
+to Central with the account. The username is **private**: its owner is shown
+it (`/me`) and nobody else ever is. The name other players see stays the
+display name and its tag, below.
 
 **The rule** is one function both ends link, `baylee_protocol::names::username`:
 a control character or one that is invisible or turns the text's direction
@@ -2472,33 +2469,8 @@ is refused before anything else (normalisation keeps them, and they are what
 a look-alike is made of); then the name is folded to NFKC (full-width
 `Ａｌｉｃｅ` is `Alice`) and must be ASCII letters, digits and `_ - .`, three
 to twenty-four of them, beginning and ending on a letter or a digit, with no
-two separators side by side. Its **key**, the lower case, is what is unique
-and what sign-in looks up, so `Alice` and `alice` are one name; the name is
-kept as typed, after folding.
-
-- **Registration** takes `{username, display_name, password, lang}` and
-  answers `{"ok":true}`, or `400` (`invalid username`, `invalid display
-  name`, `invalid password`: the password may be neither name, in any case)
-  or `409` `that username is taken`. A taken name is said openly, which an
-  address never was: a username has to be chosen, so a taken one has to be
-  named, and a name that can be chosen can be found. The per-IP limiter
-  (ten tries in five minutes) is what bounds that, and what is found is a
-  login name and no more.
-- **Sign-in** takes `{username, password}` (`email` is accepted as the
-  field's old name) and answers `{token, expires_at, username}`. Until
-  **31.12.2026** an input with an `@` is looked up as an address, so that a
-  player from before usernames is not locked out before learning the name
-  they were given; the answer's `username` is how the client tells them.
-  #280 removes that path.
-- **One account, one budget:** eight tries in five minutes, counted against
-  the account however it was named, by username or address in any case. A
-  name that is nobody's is counted under what was typed. A wrong password
-  and an unknown name are the same `401`.
-- **Accounts from before usernames** were each given one from their
-  address's local part (migration `m20260924_000006_usernames`,
-  `baylee_db::usernames`): folded and made to keep the rule, with the tag in
-  a handle's hex added after a `-` where that part is shorter than three
-  characters or taken (`al-af03`), the older account keeping the plain name.
+two separators side by side. Its **key**, the lower case, is what is unique,
+so `Alice` and `alice` are one name. Central keeps the same key rule.
 
 ## Playing as a guest (#269)
 
@@ -2526,23 +2498,25 @@ so a guest is `Guest#1a2b` to the other players.
   upload a sleeve or a mat** (`403` `guests cannot upload images`): a
   picture from an account anybody gets by asking is one only the gateway
   would answer for. `GET /me` says `"guest": true`.
-- **Bounded twice.** Per address by the limiter registration uses (ten in
+- **Bounded twice.** Per address by the gateway's limiter (ten in
   five minutes), and in all by `BAYLEE_GUEST_CAP` (1000 unless set, `0` for
   no bound, anything else not a count refuses to start the gateway): past
   it `503` `no guest seats free, sign up or try later`. The count is read
   before the write, so a burst at the edge may pass it by as many requests
   as are in flight.
-- **`BAYLEE_GUESTS=off`** closes the door (`403` `this gateway takes no
-  guests`), read the way `BAYLEE_REGISTRATION` is; `GET /auth/config` says
-  `guests_enabled`, so a client offers what the gateway takes. The two
-  switches are independent.
+- **`BAYLEE_AUTH_MODE`** decides whether the door is there: `guests` and
+  `mixed` open it, `central`, the default, keeps it shut (`403` `this gateway
+  takes no guests`); `GET /auth/config` says `guests_enabled`, so a client
+  offers what the gateway takes. It replaces `BAYLEE_GUESTS`, which is read
+  no more. `BAYLEE_REGISTRATION` is a switch of its own.
 - **`central`** in `GET /auth/config` says whether the gateway takes Baylee
-  Central sign-ins (`POST /auth/central/login`, set up by
-  `BAYLEE_CENTRAL_CONFIG_FILE`, `docs/central-login.md`). A native client
-  turns its account form into Central's only where it is `true`; everywhere
-  else it signs in, signs up and seats guests with the gateway's own routes,
-  as the browser client does. A gateway older than the field sends none,
-  which reads as `false`.
+  Central sign-ins (`POST /auth/central/login`): it is connected
+  (`BAYLEE_CENTRAL_CONFIG_FILE`) and its mode is `central` or `mixed`
+  (`docs/central-login.md`). A native client turns its account form into
+  Central's only where it is `true`, with the guest door beside it where
+  `guests_enabled` is too; elsewhere it offers the guest door, where there
+  is one. A gateway older than the field sends none, which reads
+  as `false`.
 - The database holds a guest to all of this (migration
   `m20260925_000007_guests`): a guest has no username, address or password,
   and an account that is not a guest has a password and a username or,
@@ -2553,20 +2527,18 @@ Turning a guest into an account, keeping its decks, is not part of this
 
 ## A closed beta: keys (#317)
 
-`BAYLEE_REGISTRATION=invite` makes a gateway a closed beta: a **new
-account and a new guest each need a key**. A guest coming back with its
-session needs none (the session is the guest), and signing in needs none.
-`off` and unset are as before; `BAYLEE_GUESTS=off` still closes the guest
-door, key or no key.
+`BAYLEE_REGISTRATION=invite` makes a gateway a closed beta: a **new guest
+needs a key** (accounts are Baylee Central's, §"Accounts are Baylee
+Central's"). A guest coming back with its session needs none (the session is
+the guest). `off` and unset are as before; a mode without guests
+(`BAYLEE_AUTH_MODE`) still closes the guest door, key or no key.
 
-- **Where it goes.** `POST /auth/register` and `POST /auth/guest` take an
-  optional `invite_key` beside their other fields. A gateway that is not a
-  closed beta ignores it; a client sends it only where the gateway said
-  `invite`, so an older gateway is sent exactly what it always was.
+- **Where it goes.** `POST /auth/guest` takes an optional `invite_key`
+  beside its other fields. A gateway that is not a closed beta ignores it; a
+  client sends it only where the gateway said `invite`, so an older gateway
+  is sent exactly what it always was.
 - **What the gateway says.** `GET /info` and `GET /auth/config` carry
-  `"registration": "open" | "invite" | "off"`. `/auth/config` keeps
-  `registration_enabled: true` in invite mode, so a client from before #317
-  still draws its sign-up form, and is then told why it failed (below).
+  `"registration": "open" | "invite" | "off"`.
 - **Its shape.** `BAYLEE-XXXX-XXXX-XXXX-XXXX`: sixteen characters of
   Crockford base32, 80 random bits, the prefix and dashes only for the eye.
   The gateway reads a key the way a person copies one: case, spaces, dashes
@@ -2658,7 +2630,6 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `GET /admin/accounts` | a page of accounts, below; `?q=` (part of a username or display name, a `#tag` in hex, or an id; at most 100 characters), `tag=` (exactly one account by its tag: `af03`, `#af03` or a whole handle `Alice#af03`, the name not checked; registered or guest; not a tag `400`; the sender a chat report names, §"Who a report can find"), `kind=all\|registered\|guest`, `sort=newest\|oldest\|name\|games\|active`, `online=true` (only accounts with a lobby socket or a chair), `offset`, `limit` (1–200, default 50); anything else in them `400` |
 | `GET /admin/accounts/{id}` | one account, below; `404` for none, `400` for an id that is not a UUID |
 | `DELETE /admin/accounts/{id}` | deletes the account as `DELETE /account` does; §"Acting on an account" |
-| `POST /admin/accounts/{id}/password` | resets a registered account's password; `200 {"password"}`, the one time it is shown; §"Acting on an account" |
 | `PUT /admin/accounts/{id}/ban` | `{"reason", "until"?}`: bans it; `DELETE` the same path lifts the ban; §"Acting on an account" |
 | `POST /admin/games/{id}/close` | `{"reason"}`: ends a running game through its engine; `202`; §"Acting on a game" |
 | `GET /admin/invites` | `[{"id", "created_at", "note", "uses_left", "expires_at", "revoked_at", "admitted", "state"}]`, newest first; `state` is `active`, `used_up`, `expired` or `revoked`. Never a key: only its hash is stored, so no route can show one again |
@@ -2668,6 +2639,8 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `GET /admin/cards/blocks` | every card block made, newest first: `[{"id", "index", "name", "reason", "created_at", "created_by", "until", "lifted_at", "lifted_by", "state"}]`, `state` `active`, `expired` (its `until` passed) or `lifted` |
 | `POST /admin/cards/blocks` | `{"index", "reason", "until"?}`: blocks a card of the pool. `reason` 1–200 characters after trimming, one line; `until` RFC 3339, in the future and at most ten years ahead, absent or `null` for a block without an end; unknown fields `400`. `201` with the block as listed; `404` for an index the pool has not; `409` when the card already has a block in force (lift it first) |
 | `DELETE /admin/cards/blocks/{id}` | lifts a block in force: `204`; `404` for none, or one lifted or ended already; `400` for an id that is not a UUID. The row stays, lifted |
+| `GET /admin/auth-mode` | `{"mode", "source", "set_at", "set_by", "connected"}`: who comes in (`guests`, `central`, `mixed`), whether the operator's `BAYLEE_AUTH_MODE` (`environment`), an admin (`console`) or nobody (`default`) chose it, and whether the gateway is connected to Baylee Central; `docs/central-login.md` §"Who a gateway lets in" |
+| `PUT /admin/auth-mode` | `{"mode"}`: in force for every sign-in from now on and kept in the database; a session already made goes on. `200` as `GET` answers; `400` for anything but one of the three names (unknown fields too); `409` while `BAYLEE_AUTH_MODE` sets it |
 | `GET /admin/central` | the gateway's link to Baylee Central: `{"source", "token", "central", "check"}`; §"Linking the gateway to Baylee Central" |
 | `PUT /admin/central/token` | `{"token"}`: links the gateway with a gateway token, once Central knows it; `200` as `GET /admin/central`; `400` not a token, `409` the operator's file sets the link, `422` Central does not know it (unknown, revoked or expired), `503` Central did not answer |
 | `DELETE /admin/central/token` | forgets the pasted token and unlinks at once: `204`; `404` for none; `409` as above |
@@ -2692,8 +2665,8 @@ are `action=central.link` with the gateway's id and `action=central.unlink`.
 at `info` (so `RUST_LOG=info` must reach it): `admin=<name>`,
 `action=invite.create` with `count`, `uses`, `expires` and the key `ids`,
 `action=invite.revoke` with the `id`, `action=card.block` with the block's
-`id`, the card's `index` and name and `until`, or `action=card.unblock` with
-the `id`, `index` and name. Never a key, the token, a key's note or a block's
+`id`, the card's `index` and name and `until`, `action=card.unblock` with
+the `id`, `index` and name, or `action=auth_mode.set` with the `mode`. Never a key, the token, a key's note or a block's
 reason, either of which may name a person. Reads are not audited.
 
 **The numbers** (`GET /admin/stats`) are counts and sums only, one SQL
@@ -2705,7 +2678,7 @@ anything per person:
 {
   "at": "2026-10-08T12:00:00Z",
   "gateway": { "name": "Baylee EU", "registration": "invite", "version": "…", "commit": "…", "build": 2648, "built_at": "…", "dirty": false,
-               "uptime_secs": 86400, "terms": true, "mail": false },
+               "uptime_secs": 86400, "terms": true, "central": true, "auth_mode": "central", "auth_mode_source": "default" },
   "accounts": { "registered": 41, "with_email": 3, "confirmed_email": 2, "admitted_by_key": 40,
                 "created": { "today_utc": 1, "last_7d": 6, "last_30d": 41 }, "decks": 77 },
   "guests": { "enabled": true, "live": 7, "cap": 1000, "created": { "today_utc": 2, "last_7d": 5, "last_30d": 7 } },
@@ -2853,33 +2826,13 @@ feedback UI's *Find sender's account* opens the accounts filtered by
 the service as the keyed pseudonym only, and no route of the service turns
 it back into an account (the gateway's operator, who holds the key, can). Every act is a change, so it names its admin
 (`X-Baylee-Admin`) and is an audit line on `baylee_gateway::audit`:
-`action=account.password.reset`, `account.ban` (with `until` and whether
-it is a guest), `account.unban`, `account.delete` or `game.close`, the
-admin and the account's or game's id; **never a password, a token or a
-ban's reason**, which may name a person. A domain refusal is `400`, `404`
+`action=account.ban` (with `until` and whether it is a guest),
+`account.unban`, `account.delete` or `game.close`, the admin and the
+account's or game's id; **never a token or a ban's reason**, which may name a
+person. There is no password to reset: accounts are Baylee Central's. A domain refusal is `400`, `404`
 or `409`, never `403`, which the feedback service reads as its token
 refused.
 
-- **Reset** (`POST /admin/accounts/{id}/password`, no body): a registered
-  account gets a random password, 80 bits as `XXXX-XXXX-XXXX-XXXX` in
-  Crockford's alphabet, answered once as `200 {"password"}` for the admin
-  to hand on, and stored only as its Argon2id hash. The account's
-  `must_change_password` is set and every session it has is deleted in the
-  same transaction; its lobby sockets close (`departed`). A chair it holds
-  is not touched: a seat runs on its seat token. A guest has no password:
-  `409`; no account: `404`.
-- **Choosing the new one** (`POST /auth/password {username, password,
-  new_password}`, public): proves the password as a sign-in does (the same
-  eight tries per account, the same `401`), then checks `new_password` by
-  the registration rule (`400 invalid password`) and that it differs from
-  the one given (`400`). It stores the new hash, clears the flag, deletes
-  every session of the account, closes its lobby sockets, and answers as
-  `POST /auth/login` does (`{token, expires_at, username, terms_stale?}`).
-  Any account may use it to change its password; one that was reset must.
-- **Sign-in with a reset password**: `POST /auth/login` answers `403
-  {"error": "Your password was reset. Choose a new one to sign in.",
-  "password_change": true}` and makes no session. A session that slipped
-  in between (resolved with the flag set) is refused `401`.
 - **Ban** (`PUT /admin/accounts/{id}/ban {"reason", "until"?}`): `reason`
   1–500 characters, one line; `until` an RFC 3339 moment in the future,
   absent or `null` for good (`400` otherwise). Replaces any ban the
@@ -2893,9 +2846,10 @@ refused.
   not renewed, so the guest is purged when it lapses (30 days) unless the
   ban ends first. A guest can of course come back as a new guest; a ban is
   for accounts.
-- **What a banned player is told**: their sign-in (after the right
-  password, so the reason reaches only them), and every request of a
-  banned guest's session, `POST /ws-ticket` and the lobby socket included,
+- **What a banned player is told**: their sign-in here (`POST
+  /auth/central/login`, after Central proved the account), and every
+  request of a banned guest's session, `POST /ws-ticket` and the lobby
+  socket included,
   answer `403 {"error": "This account is banned until
   2026-10-20T18:00:00Z. Reason: …", "ban": {"reason", "until"}}` (`until`
   `null` and "This account is banned. Reason: …" for good). The sentence is
@@ -3716,14 +3670,10 @@ from a curl recipe into a contract:
 | step | call | answer |
 | --- | --- | --- |
 | which gateway this is | `GET /info` | `{name?, version, commit, build, built_at, dirty, protocol_version, view_version, source, registration, guests}` |
-| sign up | `POST /auth/register` `{username, display_name, password, lang, invite_key?}` | `{"ok":true}`; `409` for a taken username; `403` for a missing or refused key on a closed beta |
-| confirm | `GET /auth/confirm?token=…` (the link in the mail) | `{"ok":true}` |
-| send it again | `POST /auth/confirm/resend` `{email}` (an address from before #269) | `{"ok":true}`, always |
-| sign in | `POST /auth/login` `{username, password}` (an address until 31.12.2026) | `{token, expires_at, username}`; `403` with `ban` for a banned account, with `password_change: true` after an admin's reset (§"Acting on an account") |
-| choose a new password | `POST /auth/password` `{username, password, new_password}` | as a sign-in; what an account an admin reset must do first |
+| sign in | `POST /auth/central/login` `{ticket}`: an `admit` ticket Baylee Central issued for this gateway (`docs/central-login.md`) | `{token, expires_at, username, display_name, terms_stale?}`; `403` with `ban` for a banned account |
 | play as a guest | `POST /auth/guest` `{display_name?, lang?, invite_key?}` | `{token, expires_at, guest, handle}`; `403` when off or for a missing or refused key on a closed beta, `503` when full |
 | sign out | `POST /auth/logout` | `204`; a guest is deleted with it |
-| leave for good | `DELETE /account` `{password}` (a guest sends `{}`) | `204`; `403` for a wrong password, `429` past eight tries |
+| leave for good | `DELETE /account` `{}` | `204`; `403` for a banned account |
 | who am I | `GET /me` | `{id, email, username, guest, display_name, tag, handle}` |
 | who is that | `GET /players/{handle}` | `{id, display_name, tag, handle}`, `400` without a `#`, `404` for nobody |
 | decks | `GET /decks` | `[{id, name, format, cards, sideboard, copies, side_copies, identity, commanders, leaders, signature, unplayable, updated_at, sleeve, playmat}]` |
@@ -4396,8 +4346,8 @@ socket: tickets"), in a store of its own:
   that name: marking a delegated seat in `SeatIdentity` would be a new field
   the gateway hands the engine (`GameSetup`) and a view change, so the
   prefix is the mark.
-- **An operator may switch it off**: `BAYLEE_CHAIR_TICKETS=off` (read as
-  `BAYLEE_GUESTS` is) answers both the ask and the redemption `403` `this
+- **An operator may switch it off**: `BAYLEE_CHAIR_TICKETS=off` (`off`,
+  `0` and `false` shut it, as they shut `BAYLEE_REGISTRATION`) answers both the ask and the redemption `403` `this
   gateway hands no chair to a seat bridge`; a host's client then falls back
   to the guest door, where there is one. A host could otherwise hand its
   ticket to a person, who would sit with no account; the prefix makes that

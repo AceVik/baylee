@@ -119,12 +119,12 @@ enum Check {
 }
 #[derive(Subcommand)]
 enum Lane {
+    /// Refused since the cutover (#406): a gateway signs nobody in with a
+    /// password any more.
     Login {
-        user: String,
-        #[arg(long)]
-        gateway_row: Option<String>,
-        #[command(flatten)]
-        credentials: lane::Credentials,
+        /// The old command's arguments, refused unread.
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
+        _old: Vec<String>,
     },
 }
 #[derive(Subcommand)]
@@ -132,13 +132,12 @@ enum Measure {
     Hover,
     Presses,
     Quit {
-        user: String,
         pid: u32,
         /// Local gateway (otherwise `BAYLEE_GATEWAY_URL` or <http://127.0.0.1:28931>).
         #[arg(long)]
         gateway: Option<String>,
         #[command(flatten)]
-        credentials: lane::Credentials,
+        session: measure::Session,
     },
 }
 #[derive(Subcommand)]
@@ -183,13 +182,8 @@ pub fn run(root: &Path, args: &[String]) -> Result<()> {
         Command::Header { out } => screens::header(&d, &out),
         Command::Keys { out } => keys::run(root, &d, &out),
         Command::Lane {
-            command:
-                Lane::Login {
-                    user,
-                    gateway_row,
-                    credentials,
-                },
-        } => lane::login(&d, &user, &credentials.read()?, gateway_row.as_deref()),
+            command: Lane::Login { .. },
+        } => lane::login(),
         Command::Look {
             out,
             screens,
@@ -201,18 +195,16 @@ pub fn run(root: &Path, args: &[String]) -> Result<()> {
             Measure::Hover => measure::hover(&d),
             Measure::Presses => measure::presses(&d),
             Measure::Quit {
-                user,
                 pid,
                 gateway,
-                credentials,
+                session,
             } => measure::quit(
                 &d,
                 &gateway.unwrap_or_else(|| {
                     std::env::var("BAYLEE_GATEWAY_URL")
                         .unwrap_or_else(|_| "http://127.0.0.1:28931".into())
                 }),
-                &user,
-                &credentials.read()?,
+                &session.read()?,
                 pid,
             ),
         },
@@ -246,10 +238,10 @@ fn parse(args: &[String]) -> Result<Option<Args>> {
             error.print()?;
             Ok(None)
         }
-        // An obsolete positional PASSWORD must not be echoed by clap's
-        // "unexpected argument" diagnostic. Do not attach its error text.
+        // A secret given as a positional argument must not be echoed by
+        // clap's "unexpected argument" diagnostic. Do not attach its text.
         Err(_) => anyhow::bail!(
-            "invalid shell arguments; use shell --help (passwords belong in --password-env/file/stdin)"
+            "invalid shell arguments; use shell --help (session tokens belong in --session-env/file/stdin)"
         ),
     }
 }

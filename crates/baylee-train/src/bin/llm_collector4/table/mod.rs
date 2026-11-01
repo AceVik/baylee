@@ -24,6 +24,7 @@ use crate::audit::{
 use crate::schedule::{
     Assignment, DeckInventory, collector_room_setup, derive_cli_decks, parse_deck_inventory,
 };
+use crate::teacher::OwnDatabase;
 use baylee_db::sea_orm::DatabaseConnection;
 
 pub fn gateway_endpoint(base: &str) -> anyhow::Result<()> {
@@ -334,13 +335,7 @@ pub struct SlotAccount {
     pub token: String,
     pub presence: Presence,
     pub uploaded_decks: BTreeMap<String, String>,
-    password: String,
     room_closed: bool,
-}
-
-fn account_username(id: uuid::Uuid) -> String {
-    let suffix = id.simple().to_string();
-    format!("llmt{}", &suffix[12..])
 }
 
 #[derive(Debug)]
@@ -364,15 +359,13 @@ pub fn account_init_retry_safe(error: &anyhow::Error) -> bool {
     error.downcast_ref::<CleanAccountInitFailure>().is_some()
 }
 
-async fn delete_owned_account(
-    client: &GatewayClient,
-    token: &str,
-    password: &str,
-) -> anyhow::Result<()> {
+/// `DELETE /account` with the teacher's own session: since the cutover it
+/// takes `{}`, no password (`docs/protocol.md`).
+async fn delete_owned_account(client: &GatewayClient, token: &str) -> anyhow::Result<()> {
     let url = format!("{}/account", client.base());
     let token = token.to_owned();
-    let body = serde_json::to_vec(&json!({"password": password}))?;
     tokio::task::spawn_blocking(move || {
+        let body = b"{}";
         let agent: ureq::Agent = ureq::Agent::config_builder()
             .proxy(None)
             .max_redirects(0)
@@ -396,56 +389,32 @@ async fn delete_owned_account(
 }
 
 impl SlotAccount {
-    pub async fn init(root: &Path, gateway: &str, slot_id: usize) -> anyhow::Result<Self> {
-        let _ = root; // Credentials are intentionally process-local.
+    /// The slot's teacher, written into the collector's own gateway's
+    /// database ([`crate::teacher`]) and present in the lobby at `gateway`.
+    /// The presence socket's ticket is the first call with its session, and
+    /// what binds `gateway` to that database: a gateway on another database
+    /// does not know the session, and the teacher is deleted again.
+    pub async fn init(own: &OwnDatabase, gateway: &str, slot_id: usize) -> anyhow::Result<Self> {
         let client = GatewayClient::new(gateway, slot_id);
-        let username = account_username(uuid::Uuid::now_v7());
-        let password = format!(
-            "{}{}",
-            uuid::Uuid::now_v7().simple(),
-            uuid::Uuid::now_v7().simple()
-        );
-        client
-            .post_json(
-                "/auth/register",
-                &json!({
-                    "username": username, "display_name": format!("LLM-teacher-{slot_id}"),
-                    "password": password, "lang": "en",
-                }),
-                None,
-                20,
-            )
-            .await?;
-        let val = client
-            .post_json(
-                "/auth/login",
-                &json!({
-                    "username": username, "password": password,
-                }),
-                None,
-                20,
-            )
-            .await?;
-        let token = val
-            .get("token")
-            .and_then(Value::as_str)
-            .context("missing login token")?
-            .to_owned();
-
-        let presence = match Presence::connect(&client, &token).await {
+        let teacher = own.teacher(slot_id).await?;
+        let presence = match Presence::connect(&client, &teacher.token).await {
             Ok(presence) => presence,
             Err(error) => {
-                delete_owned_account(&client, &token, &password).await
-                    .context("Lobby presence initialization failed and account cleanup is unresolved; retry refused")?;
+                // Through the gateway where it knows the teacher, so that
+                // nothing it holds of the session outlives it; straight
+                // from the database where it does not.
+                if delete_owned_account(&client, &teacher.token).await.is_err() {
+                    own.forget(teacher.account).await
+                        .context("Lobby presence initialization failed and account cleanup is unresolved; retry refused")?;
+                }
                 return Err(anyhow::Error::new(CleanAccountInitFailure(error)));
             }
         };
         Ok(Self {
             client,
-            token,
+            token: teacher.token,
             presence,
             uploaded_decks: BTreeMap::new(),
-            password,
             room_closed: true,
         })
     }
@@ -456,7 +425,7 @@ impl SlotAccount {
             self.room_closed,
             "Account retained because owned room closure is unresolved"
         );
-        delete_owned_account(&self.client, &self.token, &self.password).await
+        delete_owned_account(&self.client, &self.token).await
     }
 
     pub async fn ensure_presence(&mut self) -> anyhow::Result<()> {
@@ -1438,6 +1407,7 @@ pub async fn run_attempt(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::teacher::account_username;
     use std::sync::Arc;
     use tokio::net::TcpListener;
 
@@ -1580,8 +1550,18 @@ mod tests {
             .strip_prefix("http://")
             .context("Setup test requires loopback HTTP")?;
         crate::private_bind(authority)?;
-        let dir = crate::audit::tests::TestDir::new("live-setup-only");
-        let mut account = SlotAccount::init(dir.path(), &gateway, 0).await?;
+        // The gateway's admin listener and database, which the teacher is
+        // written into once the gateway proved them its own.
+        let admin = crate::admin_cleanup::AdminCleanup::from_env(
+            &std::env::var("BAYLEE_COLLECTOR_SETUP_TEST_ADMIN").context(
+                "Set BAYLEE_COLLECTOR_SETUP_TEST_ADMIN to that gateway's admin listener",
+            )?,
+        )?;
+        let database = std::env::var("BAYLEE_COLLECTOR_SETUP_TEST_DATABASE")
+            .context("Set BAYLEE_COLLECTOR_SETUP_TEST_DATABASE to that gateway's database")?;
+        let own = crate::teacher::OwnDatabase::prove(&admin, baylee_db::open(&database, 2).await?)
+            .await?;
+        let mut account = SlotAccount::init(&own, &gateway, 0).await?;
         let mut owned_room = None;
         let result: anyhow::Result<()> = async {
             let grant = account

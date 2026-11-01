@@ -423,3 +423,35 @@ fn spell_cast_triggers_and_self_harm_are_refused_when_lethal() {
         "1 damage from City of Brass plus 2 life lost to Night's Whisper is refused at 3 life"
     );
 }
+
+/// The house keeps a land used for more than mana for last, as the client
+/// does: both rank through `manaplan::prioritize` with the registry's
+/// answer (report 30.10.2026). Karakas is listed first and ties a Plains on
+/// colour, so only that answer keeps it up for a one-white spell.
+#[test]
+fn the_house_taps_a_plains_before_a_karakas() {
+    let me = PlayerId::new(0);
+    let karakas = carded(permanent(obj(1), me, 0), "Karakas", TypeSet::LAND);
+    let mut plains = carded(permanent(obj(2), me, 0), "Plains", TypeSet::LAND);
+    plains
+        .subtypes
+        .insert(baylee_core::generated::subtypes::land::PLAINS);
+    let mut v = view(0, &[20, 20], vec![karakas, plains]);
+    v.phase = baylee_view::Phase::FirstMain;
+    v.step = baylee_view::Step::Main;
+    v.hand = vec![hand_card(3, "Savannah Lions")];
+    let pending = Pending::Priority {
+        player: me,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            can_pass: true,
+            abilities: vec![(obj(1), 0)],
+            mana_abilities: vec![obj(2)],
+            ..Default::default()
+        }),
+    };
+    assert_eq!(
+        agent().act(&v, &pending),
+        PlayerAction::ActivateManaAbility { source: obj(2) },
+        "the Plains pays, the Karakas stays up"
+    );
+}

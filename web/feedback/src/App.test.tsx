@@ -15,6 +15,7 @@ const noFacets = {
   priorities: [],
   labels: [],
   channels: [],
+  sources: [],
   total: 0,
 };
 

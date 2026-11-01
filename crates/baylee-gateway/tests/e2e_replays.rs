@@ -26,8 +26,6 @@ use futures_util::SinkExt as _;
 use prost::Message as _;
 use serde_json::{Value, json};
 
-const PASSWORD: &str = "a-very-fine-password";
-
 /// The body of an ordinary tape request from a seat.
 const SEAT: &str = r#"{"perspective":"seat"}"#;
 
@@ -1148,13 +1146,7 @@ async fn a_player_who_left_is_a_former_player_and_the_game_still_replays() {
     let bob = login(port, "bob", "BobStays");
     let game = two_humans_to_the_end(&gw, &alice, &bob).await;
 
-    let (status, body) = http(
-        port,
-        "DELETE",
-        "/account",
-        Some(&alice),
-        &json!({ "password": PASSWORD }).to_string(),
-    );
+    let (status, body) = http(port, "DELETE", "/account", Some(&alice), "{}");
     assert_eq!(status, 204, "{body}");
     // The deleted account's session is no session.
     assert_eq!(http(port, "GET", "/replays", Some(&alice), "").0, 401);
@@ -1931,13 +1923,7 @@ async fn a_player_who_leaves_keeps_the_word_the_seat_gave() {
         1
     );
 
-    let (status, body) = http(
-        port,
-        "DELETE",
-        "/account",
-        Some(&bob),
-        &json!({ "password": PASSWORD }).to_string(),
-    );
+    let (status, body) = http(port, "DELETE", "/account", Some(&bob), "{}");
     assert_eq!(status, 204, "{body}");
 
     // His consent row stays (it belongs to the record); his archive went with

@@ -65,9 +65,12 @@ fn depth(value: &Value) -> Result<Value> {
         .as_object_mut()
         .context("invalid schedule contract")?;
     fields.remove("sha256");
+    // Deterministic CUDA kernels make a rerun bit-identical; the default
+    // sort-based scatters are several times slower. Either choice is bound
+    // into the contract, so a resume keeps the kernels its run started with.
     ensure!(
-        contract["deterministic_algorithms"] == true,
-        "Exact resume requires deterministic algorithms"
+        contract["deterministic_algorithms"].is_boolean(),
+        "The schedule must state whether CUDA kernels are deterministic"
     );
     let mode = contract["mode"].as_str();
     ensure!(
@@ -222,6 +225,19 @@ mod tests {
         let mut fewer = schedule.clone();
         fewer["report_k"] = json!([2]);
         assert_ne!(depth(&fewer)?["sha256"], sealed["sha256"]);
+        let mut fast = schedule.clone();
+        fast["deterministic_algorithms"] = json!(false);
+        let fast_sealed = depth(&fast)?;
+        assert_ne!(fast_sealed["sha256"], sealed["sha256"]);
+        assert!(
+            validate(
+                &json!({"kind":"depth_resume","contract":fast,"saved":{"depth_schedule":sealed}})
+            )
+            .is_err()
+        );
+        let mut unstated = schedule.clone();
+        unstated["deterministic_algorithms"] = json!(1);
+        assert!(depth(&unstated).is_err());
         for report in [
             json!([1, 4]),
             json!([2, 1]),

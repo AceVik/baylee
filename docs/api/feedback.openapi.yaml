@@ -916,6 +916,116 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  /ui/api/admin/auth-mode:
+    get:
+      summary: Who the gateway lets in
+      description: "The gateway's `GET /admin/auth-mode`, passed on with its status: the mode in force (`guests`, `central` or `mixed`), where it comes from, and whether the gateway is connected to Baylee Central."
+      operationId: auth_mode
+      tags:
+      - Console
+      security:
+      - session: []
+      responses:
+        "200":
+          description: The gateway's `GET /admin/auth-mode` answer, as it is
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: "No live session: signed out, or the session lapsed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: >-
+            The gateway refused this service's console token, did not answer within 10
+            seconds, or answered with a status or body this service does not pass on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            The database is unavailable, the gateway's console is shut after too many wrong
+            tokens, or the gateway's own `503`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    put:
+      summary: Choose who the gateway lets in
+      description: "The gateway's `PUT /admin/auth-mode`, passed on with its status: the mode is in force for every sign-in from now on, and a session already made goes on. This service writes an audit row naming the mode."
+      operationId: chooseAuthMode
+      tags:
+      - Console
+      security:
+      - session: []
+        csrf: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthModeChoice"
+        required: true
+      responses:
+        "200":
+          description: In force, as the gateway's `GET /admin/auth-mode` answers
+          content:
+            application/json:
+              schema: {}
+        "400":
+          description: Not a mode, or the gateway's own refusal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: "No live session: signed out, or the session lapsed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: "A cross-site request: no `X-Baylee-CSRF: 1`, an `Origin` that is not this host, or `Sec-Fetch-Site` other than `same-origin`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The gateway's operator sets the mode (`BAYLEE_AUTH_MODE`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: >-
+            The gateway refused this service's console token, did not answer within 10
+            seconds, or answered with a status or body this service does not pass on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            The database is unavailable, the gateway's console is shut after too many wrong
+            tokens, or the gateway's own `503`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   /ui/api/admin/cards/search:
     get:
       summary: Find the pool's cards by name
@@ -2743,6 +2853,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -3049,89 +3165,6 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: The database is unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-  "/ui/api/admin/accounts/{id}/password":
-    post:
-      summary: Reset a registered account's password
-      description: |-
-        The gateway's `POST /admin/accounts/{id}/password`, passed
-        on with its status. Its `200` carries the new password, the one time it
-        is shown; nothing here writes it down, and the audit row names only the
-        account.
-      operationId: reset_password
-      tags:
-      - Moderation
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: The account's id
-        schema:
-          type: string
-          format: uuid
-      security:
-      - session: []
-        csrf: []
-      responses:
-        "200":
-          description: Reset, as the gateway answers
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  password:
-                    type: string
-                    description: The new password
-                required:
-                - password
-        "400":
-          description: Not an account's id
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "401":
-          description: "No live session: signed out, or the session lapsed"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "403":
-          description: "A cross-site request: no `X-Baylee-CSRF: 1`, an `Origin` that is not this host, or `Sec-Fetch-Site` other than `same-origin`"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "404":
-          description: |-
-            - No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
-            - No gateway console is configured, or the gateway has no such account
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "409":
-          description: A guest has no password to reset (the gateway's)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "502":
-          description: >-
-            The gateway refused this service's console token, did not answer within 10
-            seconds, or answered with a status or body this service does not pass on
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "503":
-          description: >-
-            The database is unavailable, the gateway's console is shut after too many wrong
-            tokens, or the gateway's own `503`
           content:
             application/json:
               schema:
@@ -3571,6 +3604,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -3763,6 +3802,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -4329,6 +4374,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -4695,6 +4746,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -5097,6 +5154,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -5337,6 +5400,20 @@ components:
       - action
       - detail
       description: One line of a report's audit.
+    AuthModeChoice:
+      type: object
+      properties:
+        mode:
+          type: string
+          description: "`guests`, `central` or `mixed`."
+          enum:
+          - guests
+          - central
+          - mixed
+      required:
+      - mode
+      additionalProperties: false
+      description: The mode to put in force.
     BanOrder:
       type: object
       properties:
@@ -6014,6 +6091,11 @@ components:
           items:
             $ref: "#/components/schemas/Count"
           description: Per channel.
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Count"
+          description: Per source; `null` for reports without one.
         total:
           type: integer
           format: int64
@@ -6027,6 +6109,7 @@ components:
       - priorities
       - labels
       - channels
+      - sources
       - total
       description: >-
         The counts beside the list, most first, each over the filter without its own
@@ -6538,6 +6621,13 @@ components:
           - gateway
           - client
           - null
+        source:
+          type:
+          - string
+          - "null"
+          description: >-
+            What sent it, as the client's `source` says, at most 64 characters (`llm-seat`
+            for a language-model seat); `null` without one. The client's word, unchecked.
         issue_number:
           type:
           - integer
@@ -6626,6 +6716,7 @@ components:
       - record_bytes
       - channel
       - record_origin
+      - source
       - issue_number
       - issue_url
       - assignee

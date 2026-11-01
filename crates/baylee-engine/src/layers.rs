@@ -1319,7 +1319,7 @@ fn apply(
         | Modifier::CantAttackYou
         | Modifier::AttackTaxLife { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
-        | Modifier::PlayerHexproof
+        | Modifier::PlayerHexproof { .. }
         | Modifier::GrantActivated { .. }
         | Modifier::GrantActivatedDefinition(_)
         | Modifier::GrantActivatedFromLinkedExile(_)

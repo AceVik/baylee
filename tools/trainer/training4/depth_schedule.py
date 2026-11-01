@@ -19,12 +19,12 @@ class DepthSchedule:
         self.to_dict()
 
     @classmethod
-    def from_training(cls, thinking_steps=2, curriculum=False, report_k=(1, 2, 4, 8)):
+    def from_training(cls, thinking_steps=2, curriculum=False, report_k=(1, 2, 4, 8), deterministic=True):
         """Each reported depth is one complete validation pass; selection stays K2."""
-        report_k = tuple(report_k)
+        common = dict(report_k=tuple(report_k), deterministic_algorithms=deterministic)
         if curriculum:
-            return cls(mode="legacy_frame_cycle", positive_k=(1, 2, 4, 8), report_k=report_k)
-        return cls(positive_k=(thinking_steps,), report_k=report_k)
+            return cls(mode="legacy_frame_cycle", positive_k=(1, 2, 4, 8), **common)
+        return cls(positive_k=(thinking_steps,), **common)
 
     def depth(self, step, frame):
         return self.positive_k[(step + frame) % len(self.positive_k)]

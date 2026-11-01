@@ -501,15 +501,20 @@ impl<L: CardLookup> Engine<L> {
         self.discard_empty_trigger_without_effect(id);
     }
 
-    /// Queues delayed actions that fire at the first main phase (Mana
-    /// Drain's mana).
-    pub(crate) fn queue_first_main_delayed(&mut self) {
+    /// Queues the delayed actions that fire as one of the active player's
+    /// main phases begins (Mana Drain's mana).
+    ///
+    /// Either main phase: "your next main phase" is the next one to begin,
+    /// so a Drain resolved in its controller's first main phase pays in that
+    /// turn's second (the card's ruling of 2020-11-10). It used to wait for
+    /// the next first main phase, a turn late.
+    pub(crate) fn queue_main_phase_delayed(&mut self) {
         let active = self.state.turn.active;
         let mut i = 0;
         while i < self.state.delayed.len() {
             let fire = matches!(
                 self.state.delayed[i].when,
-                crate::state::DelayedWhen::NextFirstMain
+                crate::state::DelayedWhen::NextMain
             ) && self.state.delayed[i].controller == active;
             if fire {
                 let trigger = self.state.delayed.remove(i);

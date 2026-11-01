@@ -199,10 +199,14 @@ pub fn integration(config: Option<&Path>, cancel: Option<&Path>, failure: bool) 
         !cancel.is_some_and(Path::exists),
         "fixture cancelled by its owner"
     );
-    let (migrator, runtime) = (crate::secret::hex(32)?, crate::secret::hex(32)?);
+    let (migrator, runtime, legacy) = (
+        crate::secret::hex(32)?,
+        crate::secret::hex(32)?,
+        crate::secret::hex(32)?,
+    );
     with_postgres("baylee-central-e2e", "512m", 268_435_456, failure, |pg| {
         // The secrets are generated hex, never caller-provided SQL.
-        pg.sql(&bootstrap(&migrator, &runtime))?;
+        pg.sql(&bootstrap(&migrator, &runtime, &legacy))?;
         println!(
             "Testing real PostgreSQL {} with isolated migration and runtime roles.",
             pg.version()?
@@ -223,6 +227,7 @@ pub fn integration(config: Option<&Path>, cancel: Option<&Path>, failure: bool) 
             .env("CENTRAL_TEST_PORT", pg.port().to_string())
             .env("CENTRAL_TEST_MIGRATOR_PASSWORD", &migrator)
             .env("CENTRAL_TEST_RUNTIME_PASSWORD", &runtime)
+            .env("CENTRAL_TEST_LEGACY_PASSWORD", &legacy)
             .env("DATABASE_URL", pg.admin_url());
         let done = Owned::spawn(&mut test)?.wait(Duration::from_secs(300), cancel)?;
         println!("{}", done.stdout);
@@ -242,12 +247,13 @@ pub fn integration(config: Option<&Path>, cancel: Option<&Path>, failure: bool) 
 }
 
 /// Central's roles as its own fixture makes them: a migrator owning the two
-/// test databases, a runtime role, and a NOINHERIT member of the migrator the
-/// store must refuse.
-fn bootstrap(migrator: &str, runtime: &str) -> String {
+/// test databases, a runtime role, the legacy store's role, and a NOINHERIT
+/// member of the migrator the store must refuse.
+fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
     let mut sql = format!(
         "CREATE ROLE central_migrator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{migrator}';\n\
          CREATE ROLE central_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{runtime}';\n\
+         CREATE ROLE central_legacy LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{legacy}';\n\
          CREATE ROLE central_inherited LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{runtime}';\n\
          GRANT central_migrator TO central_inherited;\n"
     );
@@ -563,9 +569,10 @@ mod tests {
     }
 
     #[test]
-    fn the_bootstrap_makes_both_roles_and_revokes_public_rights() {
-        let sql = bootstrap("aa", "bb");
+    fn the_bootstrap_makes_the_roles_and_revokes_public_rights() {
+        let sql = bootstrap("aa", "bb", "cc");
         assert!(sql.contains("central_migrator") && sql.contains("PASSWORD 'aa'"));
+        assert!(sql.contains("ROLE central_legacy") && sql.contains("PASSWORD 'cc'"));
         assert_eq!(
             sql.matches("REVOKE CREATE ON SCHEMA public FROM PUBLIC;")
                 .count(),

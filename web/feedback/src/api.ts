@@ -62,6 +62,8 @@ export interface Summary {
   channel: "gateway" | "direct";
   /** Who wrote the record: a gateway, or a client (unverified); null without one. */
   record_origin: "gateway" | "client" | null;
+  /** What sent it, as the client's `source` says (`llm-seat`); its word, unchecked. */
+  source: string | null;
   issue_number: number | null;
   issue_url: string | null;
   /** The admin who looks after it. */
@@ -199,6 +201,8 @@ export interface Facets {
   priorities: Count[];
   labels: Count[];
   channels: Count[];
+  /** `null` counts the reports without a source. */
+  sources: Count[];
   total: number;
 }
 
@@ -249,7 +253,12 @@ export interface Stats {
     built_at?: string;
     uptime_secs?: number;
     terms?: boolean;
-    mail?: boolean;
+    /** Connected to Baylee Central: its sign-ins reach the gateway. */
+    central?: boolean;
+    /** Who comes in: guests, Central's accounts, or both. */
+    auth_mode?: AuthModeName;
+    /** Where that comes from: `BAYLEE_AUTH_MODE`, an admin's choice, or the default. */
+    auth_mode_source?: AuthModeState["source"];
   };
   accounts: {
     registered: number;
@@ -614,6 +623,20 @@ export interface Invite {
   state: InviteState;
 }
 
+/** Who a gateway lets in: guests, Baylee Central's accounts, or both. */
+export type AuthModeName = "guests" | "central" | "mixed";
+
+/** `GET /admin/auth-mode`: the mode in force and where it comes from. */
+export interface AuthModeState {
+  mode: AuthModeName;
+  /** `environment`: the operator's `BAYLEE_AUTH_MODE`, which the console cannot change. */
+  source: "environment" | "console" | "default";
+  set_at: string | null;
+  set_by: string | null;
+  /** Connected to Baylee Central; unconnected and on `central`, nobody comes in. */
+  connected: boolean;
+}
+
 /** The gateway's link to Baylee Central (`GET /admin/central`); never a token, only its last four characters. */
 export interface CentralLink {
   source: "file" | "token" | "none";
@@ -830,6 +853,8 @@ export interface Filter {
   to?: string;
   has_record?: boolean;
   channel?: "gateway" | "direct";
+  /** A source, `none` for reports without one, or either after `!` for all the others. */
+  source?: string;
   /** An admin's name, or `none`. */
   assignee?: string;
   label?: string;
@@ -937,6 +962,7 @@ export function filterQuery(filter: Filter): string {
   put("label", filter.label);
   put("gateway", filter.gateway);
   put("channel", filter.channel);
+  put("source", filter.source);
   put("reporter", filter.reporter);
   put("game_id", filter.game_id);
   put("signature", filter.signature);
@@ -981,6 +1007,18 @@ export function isReportId(text: string): boolean {
   return UUID.test(text);
 }
 
+/** A control character, as Rust's `char::is_control` names them. */
+function isControl(c: string): boolean {
+  const n = c.codePointAt(0) ?? 0;
+  return n <= 0x1f || (n >= 0x7f && n <= 0x9f);
+}
+
+/** A source filter the service takes: 1–64 characters without a control character, after an optional `!`. */
+export function isSourceFilter(text: string): boolean {
+  const chars = [...(text.startsWith("!") ? text.slice(1) : text)];
+  return chars.length >= 1 && chars.length <= 64 && !chars.some(isControl);
+}
+
 /** A filter read back from a query string; anything malformed is dropped. */
 export function parseFilter(search: string): Filter {
   const params = new URLSearchParams(search);
@@ -1003,6 +1041,8 @@ export function parseFilter(search: string): Filter {
   if (original !== null && UUID.test(original)) filter.duplicate_of = original;
   const channel = oneOf(["gateway", "direct"] as const, params.get("channel"));
   if (channel) filter.channel = channel;
+  const source = params.get("source");
+  if (source !== null && isSourceFilter(source)) filter.source = source;
   for (const key of ["from", "to"] as const) {
     const value = params.get(key);
     if (value && DAY.test(value)) filter[key] = value;
@@ -1046,6 +1086,7 @@ function facetsOf(raw: unknown): Facets {
     priorities: counts("priorities"),
     labels: counts("labels"),
     channels: counts("channels"),
+    sources: counts("sources"),
     total: typeof r["total"] === "number" ? r["total"] : 0,
   };
 }
@@ -1153,6 +1194,10 @@ export const api = {
       await request("DELETE", `/ui/api/admin/invites/${encodeURIComponent(id)}`);
     },
     audit: () => json<ConsoleChange[]>("GET", "/ui/api/admin/audit"),
+    authMode: {
+      get: () => json<AuthModeState>("GET", "/ui/api/admin/auth-mode"),
+      choose: (mode: AuthModeName) => json<AuthModeState>("PUT", "/ui/api/admin/auth-mode", { mode }),
+    },
     central: {
       link: () => json<CentralLink>("GET", "/ui/api/admin/central"),
       paste: (token: string) => json<CentralLink>("PUT", "/ui/api/admin/central/token", { token }),

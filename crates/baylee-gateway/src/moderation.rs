@@ -2,16 +2,11 @@
 //! `docs/protocol.md` §"Acting on an account" and §"Acting on a game"), and
 //! the doors those acts close on the public side.
 //!
-//! - **A password reset** (`POST /admin/accounts/{id}/password`): a
-//!   registered account gets a random password, answered once for the
-//!   admin to hand on, and must choose its own at its next sign-in
-//!   (`POST /auth/password`); every session it had is signed out, and its
-//!   lobby sockets close. A game it sits in plays on: a seat runs on its
-//!   seat token, not the session.
 //! - **A ban** (`PUT …/ban`, lifted with `DELETE …/ban`): a reason and an
-//!   end, or none for good. A registered account's sessions are signed out
-//!   and its sign-in refused with the reason; a guest's session, which is
-//!   the guest, stays and is refused with it. Either way its chairs,
+//!   end, or none for good. An account's sessions are signed out and its
+//!   next admission from Baylee Central refused (a bare `403`, as every
+//!   refusal of that route is); a guest's session, which is the guest,
+//!   stays and is refused with the reason. Either way its chairs,
 //!   sockets and chair tickets go at once, as a deleted account's do.
 //! - **A deletion** (`DELETE /admin/accounts/{id}`): what `DELETE /account`
 //!   does, through [`crate::account::depart`].
@@ -20,8 +15,9 @@
 //!   as it ends any other. Never a process killed by hand.
 //!
 //! Every act is an audit line on `baylee_gateway::audit`: the admin, the
-//! act and the account or game, never a password, a token or a ban's
-//! reason, which may name a person.
+//! act and the account or game, never a token or a ban's reason, which may
+//! name a person. There is no password to reset: accounts are Baylee
+//! Central's (`docs/central-login.md`).
 
 use axum::Router;
 use axum::body::Bytes;
@@ -33,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
 use crate::admin::{Actor, Admin, Refusal, iso};
-use crate::{ErrorBody, Shared, auth, db_down, err, err_saying, store};
+use crate::{auth, db_down, err, err_saying, store};
 
 /// The longest ban reason, in characters.
 pub(crate) const MAX_BAN_REASON: usize = 500;
@@ -44,11 +40,6 @@ pub(crate) const MAX_CLOSE_REASON: usize = 200;
 /// How long the gateway waits for an engine told to close its game before
 /// it ends the game itself: an engine from before `CloseGame` passes over it.
 const CLOSE_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
-
-/// The symbols a reset password is written in, Crockford's base 32: the
-/// digits and the letters but `I`, `L`, `O` and `U`, so no letter reads as
-/// a digit when the password is copied by hand.
-const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 /// How a ban reads on a refusal: `{"reason", "until"}`, `until` an RFC 3339
 /// moment in UTC or `null` for good.
@@ -86,21 +77,9 @@ pub(crate) fn ban_refusal(ban: &store::Ban) -> Refusal {
     (status, Json(body))
 }
 
-/// The refusal a sign-in with an admin's reset password is answered:
-/// `403` with `password_change: true`. The client asks for a new password
-/// and sends both to `POST /auth/password`.
-pub(crate) fn password_change_refusal() -> Refusal {
-    let (status, Json(mut body)) = err(
-        StatusCode::FORBIDDEN,
-        "Your password was reset. Choose a new one to sign in.",
-    );
-    body.password_change = true;
-    (status, Json(body))
-}
-
 /// Whether a session may be used: not while its account is banned, and not
-/// while it must choose a new password (a session that slipped in between
-/// the reset and the sessions' end).
+/// while it must choose a new password (an account an admin reset before
+/// the gateway's password routes went; such a session cannot be made since).
 ///
 /// # Errors
 ///
@@ -118,97 +97,12 @@ pub(crate) fn admit(session: &store::Session) -> Result<(), Refusal> {
     Ok(())
 }
 
-/// What `POST /auth/password` takes: the sign-in, and the password to have
-/// from now on. No `Debug`: nothing may print it.
-///
-/// @description What `POST /auth/password` takes: the sign-in, and the
-/// password to have from now on.
-/// @openapi
-#[derive(Deserialize)]
-pub(crate) struct NewPassword {
-    /// @description The account's username, as `POST /auth/login` takes
-    /// it; `email` is read as the same field.
-    /// @internal
-    /// As `POST /auth/login` takes it.
-    #[serde(alias = "email")]
-    username: String,
-    /// @description The password it has now: an admin's reset one, or its
-    /// own.
-    password: String,
-    /// @description The password it chose, under the registration rule
-    /// and other than the one it has.
-    /// @internal
-    /// The one it chose.
-    #[serde(rename = "new_password")]
-    chosen: String,
-}
-
-/// `POST /auth/password {username, password, new_password}`: an account
-/// chooses its password, proving the one it has as a sign-in does (the
-/// same tries, the same refusals). What an account an admin reset must do
-/// before anything else; any account may. Every session it had is signed
-/// out, and it is answered a new one, as a sign-in is.
-///
-/// @route POST /auth/password
-/// @scope public
-/// @summary Choose a new password
-/// @description Proves the account's password as a sign-in does (the same eight tries, the same `401`), stores the new one, signs every session of the account out and answers a new session, as `POST /auth/login` does. What an account whose password an admin reset must do before anything else; any account may use it.
-/// @tag Accounts
-/// @security none
-/// @return 400: `$ErrorBody` "The new password breaks the registration rule (`invalid password`), or is the one the account has"
-/// @return 401: `$ErrorBody` "The name or password is wrong (`invalid credentials`), or the account signs in at Baylee Central (`use central sign-in`)"
-/// @return 403: `$ErrorBody` "The account is banned (`ban`)"
-/// @return 409: `$ErrorBody` "The account was linked to Baylee Central meanwhile"
-/// @return 429: `$ErrorBody` "Eight tries in five minutes are spent, or the gateway is checking too many passwords at once"
-/// @return 500: `$ErrorBody` "A password could not be checked or hashed"
-/// @return 503: `$ErrorBody` "The gateway's database or Baylee Central is unavailable"
-pub(crate) async fn change_password(
-    State(state): State<Shared>,
-    Json(body): Json<NewPassword>,
-) -> Result<Json<crate::routes::signin::SignedIn>, (StatusCode, Json<ErrorBody>)> {
-    let account = crate::routes::signin::proven(&state, &body.username, &body.password).await?;
-    if let Some(ban) = account.ban_in_force(auth::now_secs()) {
-        return Err(ban_refusal(ban));
-    }
-    let username = account.username.clone().unwrap_or_default();
-    if !auth::valid_password(&username, &account.display_name, &body.chosen) {
-        return Err(err(StatusCode::BAD_REQUEST, "invalid password"));
-    }
-    if body.chosen == body.password {
-        return Err(err(
-            StatusCode::BAD_REQUEST,
-            "choose a password other than the one you have",
-        ));
-    }
-    let new_password = body.chosen;
-    let hash = tokio::task::spawn_blocking(move || auth::hash_password(&new_password))
-        .await
-        .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "hashing failed"))?;
-    crate::central::invalidate_password(&state, &account.id)
-        .await
-        .map_err(|status| err(status, "account credential change unavailable"))?;
-    store::set_password(&state.db, &account.id, &hash)
-        .await
-        .map_err(|e| db_down(&e))?;
-    // The sessions are gone; their lobby sockets go too. A game it sits
-    // in plays on.
-    let _ = state.departed.send(account.id.clone());
-    let changed = store::Account {
-        must_change_password: false,
-        ..account
-    };
-    crate::routes::signin::session_for(&state, &changed)
-        .await
-        .map(Json)
-}
-
 // ------------------------------------------------------------ the console
 
 /// The console's routes for acting on an account or a game; merged into
 /// [`crate::admin`]'s router behind its guard.
 pub(crate) fn console_routes() -> Router<Admin> {
     Router::new()
-        .route("/admin/accounts/{id}/password", post(reset_password))
         .route("/admin/accounts/{id}/ban", put(ban).delete(unban))
         .route("/admin/games/{id}/close", post(close_game))
 }
@@ -220,25 +114,6 @@ fn account_id(id: &str) -> Result<String, Refusal> {
         .map_err(|_| err(StatusCode::BAD_REQUEST, "not an account's id"))
 }
 
-/// A fresh password to hand a player: 80 random bits as four groups of four
-/// symbols, `7KQ2-…`.
-fn reset_password_text() -> String {
-    let mut bytes = [0u8; 10];
-    getrandom::fill(&mut bytes).expect("OS RNG available");
-    let bits = bytes
-        .iter()
-        .fold(0u128, |acc, b| (acc << 8) | u128::from(*b));
-    let symbols: String = (0..16)
-        .map(|at| char::from(ALPHABET[usize::try_from((bits >> (at * 5)) & 31).unwrap_or(0)]))
-        .collect();
-    symbols
-        .as_bytes()
-        .chunks(4)
-        .map(|group| std::str::from_utf8(group).unwrap_or_default())
-        .collect::<Vec<_>>()
-        .join("-")
-}
-
 fn audit(actor: &str, action: &str, account: &str) {
     tracing::info!(
         target: "baylee_gateway::audit",
@@ -247,89 +122,6 @@ fn audit(actor: &str, action: &str, account: &str) {
         account = %account,
         "admin console: an account acted on"
     );
-}
-
-/// `POST /admin/accounts/{id}/password`.
-/// @openapi
-#[derive(Serialize)]
-pub(crate) struct ResetPassword {
-    /// @description The new password, `XXXX-XXXX-XXXX-XXXX` in Crockford's
-    /// base 32, for the admin to hand on: shown this once, stored only as
-    /// its hash.
-    password: String,
-}
-
-/// `POST /admin/accounts/{id}/password`: a registered account's password
-/// reset; `200 {"password"}`, the one time it is shown. `404` for no such
-/// account, `409` for a guest's, which has none.
-///
-/// @route POST /admin/accounts/{id}/password
-/// @scope admin
-/// @summary Reset a registered account's password
-/// @description Gives a registered account a random password, answered
-/// once for the admin to hand on. The account must choose its own at its
-/// next sign-in (`POST /auth/password`); every session it had is signed
-/// out and its lobby sockets close. A game it sits in plays on. No body.
-/// @tag Admin
-/// @security `adminToken`
-/// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
-/// @header-param X-Baylee-Admin: String required `pattern=^[\w.-]{1,64}$` "The acting admin's name, for the audit line; ignored when the bearer is a Central admin lease, whose account acts"
-/// @path-param id: String format=uuid "The account's id"
-/// @return 400: `$ErrorBody` "No valid `X-Baylee-Admin`, or an id that is not a UUID"
-/// @return 401: `$ErrorBody` "The bearer token is neither `BAYLEE_ADMIN_TOKEN` nor a live Central admin lease"
-/// @return 403: `$ErrorBody` "A browser's request (`Origin`, `Sec-Fetch-Site` or `Sec-Fetch-Mode`) or a `Host` that is not this machine, refused before the token is read"
-/// @return 404: `$ErrorBody` "No such account"
-/// @return 409: `$ErrorBody` "A guest's account, which has no password, or one linked to Baylee Central"
-/// @return 429: `$ErrorBody` "Ten wrong tokens in five minutes, or 600 requests in a minute; the right token is refused too until the window passes"
-/// @return-header 429 Retry-After: u64 "Seconds to wait: 300"
-/// @return 500: `$ErrorBody` "The password could not be hashed"
-/// @return 503: `$ErrorBody` "The gateway's database or Baylee Central is unavailable, or a move of accounts to Central holds credential changes"
-async fn reset_password(
-    State(console): State<Admin>,
-    axum::Extension(Actor(actor)): axum::Extension<Actor>,
-    Path(id): Path<String>,
-) -> Result<Json<ResetPassword>, Refusal> {
-    let id = account_id(&id)?;
-    let app = &console.app;
-    let _migration_guard = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        app.central_barrier.write(),
-    )
-    .await
-    .map_err(|_| {
-        err(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "account credential change unavailable",
-        )
-    })?;
-    let account = store::account(&app.db, &id)
-        .await
-        .map_err(|e| db_down(&e))?
-        .ok_or_else(|| err(StatusCode::NOT_FOUND, "no such account"))?;
-    if account.guest {
-        return Err(err(
-            StatusCode::CONFLICT,
-            "a guest has no password to reset",
-        ));
-    }
-    let password = reset_password_text();
-    let plain = password.clone();
-    let hash = tokio::task::spawn_blocking(move || auth::hash_password(&plain))
-        .await
-        .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "hashing failed"))?;
-    crate::central::invalidate_password(app, &id)
-        .await
-        .map_err(|status| err(status, "account credential change unavailable"))?;
-    if !store::reset_password(&app.db, &id, &hash)
-        .await
-        .map_err(|e| db_down(&e))?
-    {
-        return Err(err(StatusCode::NOT_FOUND, "no such account"));
-    }
-    // Its sessions are gone; its lobby sockets go with them.
-    let _ = app.departed.send(id.clone());
-    audit(&actor, "account.password.reset", &id);
-    Ok(Json(ResetPassword { password }))
 }
 
 /// What `PUT /admin/accounts/{id}/ban` takes.
@@ -406,9 +198,9 @@ fn until_of(until: Option<&str>, now: u64) -> Result<Option<u64>, Refusal> {
 /// @description Bans an account, registered or guest, for good or until a
 /// moment, replacing any ban it had. It leaves every room and game, its
 /// sockets close and its chair tickets are spent; a registered account's
-/// sessions are signed out. A guest keeps its session, which is refused
-/// while the ban holds. Its sign-in and requests are refused with the
-/// reason.
+/// sessions are signed out, and its admission from Baylee Central is
+/// refused. A guest keeps its session, which is refused with the reason
+/// while the ban holds.
 /// @tag Admin
 /// @security `adminToken`
 /// @server <http://127.0.0.1:28767> "The admin listener (loopback only)"
@@ -650,23 +442,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_reset_password_is_four_groups_a_person_can_copy() {
-        let a = reset_password_text();
-        let b = reset_password_text();
-        assert_ne!(a, b);
-        assert_eq!(a.len(), 19, "{a}");
-        let groups: Vec<&str> = a.split('-').collect();
-        assert_eq!(groups.len(), 4, "{a}");
-        assert!(
-            groups
-                .iter()
-                .all(|g| g.len() == 4 && g.bytes().all(|c| ALPHABET.contains(&c))),
-            "{a}"
-        );
-        assert!(auth::valid_password("someone", "Someone", &a));
-    }
-
-    #[test]
     fn a_reason_is_one_line_of_bounded_text() {
         assert_eq!(reason_of("  spam  ", 10).ok().unwrap(), "spam");
         assert!(reason_of("   ", 10).is_err());
@@ -705,7 +480,6 @@ mod tests {
         );
         assert_eq!(json["ban"]["reason"], "cheating");
         assert_eq!(json["ban"]["until"], "2026-09-21T14:13:20Z");
-        assert!(json.get("password_change").is_none());
         let forever = store::Ban { until: None, ..ban };
         let (_, Json(body)) = ban_refusal(&forever);
         let json = serde_json::to_value(&body).unwrap();

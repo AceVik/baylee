@@ -113,6 +113,20 @@ async fn stub() -> Stub {
                     ("DELETE", path) if path.starts_with("/admin/invites/") => {
                         StatusCode::NO_CONTENT.into_response()
                     }
+                    // As the gateway answers: the mode it was given, in
+                    // force, chosen here.
+                    ("GET" | "PUT", "/admin/auth-mode") => {
+                        let mode = serde_json::from_slice::<serde_json::Value>(&body)
+                            .map_or_else(|_| "central".into(), |order| order["mode"].clone());
+                        axum::Json(serde_json::json!({
+                            "mode": mode,
+                            "source": "console",
+                            "set_at": "2026-10-30T12:00:00Z",
+                            "set_by": NAME,
+                            "connected": false,
+                        }))
+                        .into_response()
+                    }
                     ("GET", "/admin/cards/search") => {
                         axum::Json(serde_json::json!({ "cards": [] })).into_response()
                     }
@@ -367,6 +381,12 @@ async fn nothing_reaches_the_gateway_without_a_session() {
             "/ui/api/admin/cards/blocks",
             Some(r#"{"index":1,"reason":"r"}"#),
         ),
+        ("GET", "/ui/api/admin/auth-mode", None),
+        (
+            "PUT",
+            "/ui/api/admin/auth-mode",
+            Some(r#"{"mode":"guests"}"#),
+        ),
         (
             "DELETE",
             &format!("/ui/api/admin/cards/blocks/{BLOCK_ID}"),
@@ -563,6 +583,107 @@ async fn a_change_wants_the_proof_passes_only_its_fields_and_is_audited_without_
     }
     assert!(!audit.text().contains(KEY), "a key in the audit");
     assert!(!audit.text().contains("for Max"), "a note in the audit");
+    service.close().await;
+    gw.server.abort();
+}
+
+/// Who comes in: a change wants the proof, passes only the mode, and is
+/// audited with it; a refusal of the gateway's (the operator's
+/// `BAYLEE_AUTH_MODE` sets it) is passed on and audited as nothing.
+#[tokio::test(flavor = "multi_thread")]
+async fn choosing_who_comes_in_wants_the_proof_passes_only_the_mode_and_is_audited() {
+    let gw = stub().await;
+    let service = Service::start("authmode", Some(&gw.url)).await;
+    let cookie = service.login().await;
+    let read = service
+        .call(
+            "GET",
+            "/ui/api/admin/auth-mode",
+            &with_cookie(&cookie),
+            None,
+        )
+        .await;
+    assert_eq!(read.status, 200, "{}", read.text());
+    assert_eq!(read.json()["mode"], "central");
+
+    let bare = with_cookie(&cookie);
+    let answer = service
+        .call(
+            "PUT",
+            "/ui/api/admin/auth-mode",
+            &bare,
+            Some(r#"{"mode":"guests"}"#),
+        )
+        .await;
+    assert_eq!(answer.status, 403, "no proof: {}", answer.text());
+    let mut proved = service.proof();
+    proved.push(("cookie", cookie.clone()));
+    for body in [
+        r#"{"mode":"guest"}"#,
+        r#"{"mode":"Mixed"}"#,
+        r#"{"mode":"mixed","admin":"someone"}"#,
+        r#"{"mode":1}"#,
+        "{}",
+        "",
+    ] {
+        let answer = service
+            .call("PUT", "/ui/api/admin/auth-mode", &proved, Some(body))
+            .await;
+        assert_eq!(answer.status, 400, "{body}: {}", answer.text());
+    }
+    assert_eq!(gw.seen().len(), 1, "only the read: {:?}", gw.seen());
+
+    gw.forced.store(409, Ordering::SeqCst);
+    let answer = service
+        .call(
+            "PUT",
+            "/ui/api/admin/auth-mode",
+            &proved,
+            Some(r#"{"mode":"mixed"}"#),
+        )
+        .await;
+    assert_eq!(answer.status, 409, "{}", answer.text());
+    gw.forced.store(0, Ordering::SeqCst);
+    let answer = service
+        .call(
+            "PUT",
+            "/ui/api/admin/auth-mode",
+            &proved,
+            Some(r#"{"mode":"guests"}"#),
+        )
+        .await;
+    assert_eq!(answer.status, 200, "{}", answer.text());
+    assert_eq!(
+        answer.json()["mode"],
+        "guests",
+        "the gateway's answer, as it is"
+    );
+
+    let seen = gw.seen();
+    assert_eq!(seen.len(), 3, "{seen:?}");
+    for request in &seen[1..] {
+        assert_eq!(
+            (request.method.as_str(), request.path.as_str()),
+            ("PUT", "/admin/auth-mode")
+        );
+        assert_eq!(request.header("x-baylee-admin"), Some(NAME));
+        for kept_back in ["cookie", "origin", ui::CSRF_HEADER] {
+            assert_eq!(request.header(kept_back), None, "{kept_back} passed on");
+        }
+    }
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&seen[2].body).unwrap(),
+        serde_json::json!({ "mode": "guests" })
+    );
+    let audit = service
+        .call("GET", "/ui/api/admin/audit", &with_cookie(&cookie), None)
+        .await;
+    let rows = audit.json();
+    let rows = rows.as_array().unwrap();
+    assert_eq!(rows.len(), 1, "the refused change is no row: {rows:?}");
+    assert_eq!(rows[0]["action"], "gateway.auth_mode.set");
+    assert_eq!(rows[0]["actor"], NAME);
+    assert_eq!(rows[0]["detail"], "mode guests");
     service.close().await;
     gw.server.abort();
 }

@@ -133,17 +133,6 @@ fn me(port: u16, session: &str) -> String {
     json_field(&body, "id").to_string()
 }
 
-/// `baylee-gateway invite create` against this gateway's schema: one key.
-fn invite_key(gw: &Gateway) -> String {
-    let out = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
-        .args(["invite", "create"])
-        .env("DATABASE_URL", gw.database_url())
-        .output()
-        .expect("the command runs");
-    assert!(out.status.success(), "{out:?}");
-    String::from_utf8_lossy(&out.stdout).trim().to_string()
-}
-
 /// Waits until the game's record is complete in the store.
 async fn stored(gw: &Gateway, game: &str) {
     for _ in 0..common::WAIT_TRIES {
@@ -170,25 +159,13 @@ async fn a_hosts_bridge_sits_where_no_guest_may_and_the_record_names_the_host() 
         "chair_no_guests",
         &[
             ("BAYLEE_REGISTRATION", "invite".into()),
-            ("BAYLEE_GUESTS", "off".into()),
+            ("BAYLEE_AUTH_MODE", "central".into()),
         ],
     );
     let port = gw.port;
     let _agent = attach_agent(&gw).await;
-    let key = invite_key(&gw);
-    let register = format!(
-        r#"{{"username":"hosta","display_name":"Hosta","password":"a-very-fine-password","invite_key":"{key}"}}"#
-    );
-    assert_eq!(http(port, "POST", "/auth/register", None, &register).0, 200);
-    let (status, body) = http(
-        port,
-        "POST",
-        "/auth/login",
-        None,
-        r#"{"username":"hosta","password":"a-very-fine-password"}"#,
-    );
-    assert_eq!(status, 200, "{body}");
-    let host = json_field(&body, "token").to_string();
+    // An account the closed beta let in, with its session.
+    let host = login(port, "hosta", "Hosta");
     let host_id = me(port, &host);
     // The door a bridge used to need is shut.
     let (status, _) = http(

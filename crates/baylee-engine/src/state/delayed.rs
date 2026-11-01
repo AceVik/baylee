@@ -87,8 +87,9 @@ pub enum DelayedWhen {
     /// At the beginning of the next upkeep, whoever's turn it is
     /// (Archangel Avacyn's delayed transform).
     NextUpkeepOfAnyone,
-    /// At the controller's next first main phase (Mana Drain).
-    NextFirstMain,
+    /// At the beginning of the controller's next main phase, first or
+    /// second, that begins after the watch was made (Mana Drain).
+    NextMain,
     /// At the beginning of the next end step (Venser +2).
     NextEndStep,
     /// At the controller's next end step.

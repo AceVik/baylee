@@ -124,7 +124,12 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                 .map(|face| face.mana_cost)
         })
         .collect();
-    baylee_client_core::manaplan::prioritize(&mut sources, view, &costs);
+    baylee_client_core::manaplan::prioritize(
+        &mut sources,
+        view,
+        &costs,
+        &crate::cardart::taps_beyond_mana,
+    );
     sources
 }
 

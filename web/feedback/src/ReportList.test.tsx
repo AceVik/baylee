@@ -26,7 +26,14 @@ const reports: Summary[] = [
     notes: 2,
     seen: true,
   }),
-  summary({ id: "id-3", text: "Third report", kind: "feedback", status: "resolved", reporter: "cccc" }),
+  summary({
+    id: "id-3",
+    text: "Third report",
+    kind: "feedback",
+    status: "resolved",
+    reporter: "cccc",
+    source: "llm-seat",
+  }),
 ];
 
 const facets = (over: Partial<Facets> = {}): Facets => ({
@@ -54,6 +61,10 @@ const facets = (over: Partial<Facets> = {}): Facets => ({
   ],
   labels: [{ value: "ui", count: 1 }],
   channels: [{ value: "gateway", count: 3 }],
+  sources: [
+    { value: null, count: 2 },
+    { value: "llm-seat", count: 1 },
+  ],
   total: 3,
   ...over,
 });
@@ -182,6 +193,27 @@ describe("the report list", () => {
     await userEvent.click(within(screen.getByRole("list", { name: "Filters" })).getByRole("button", { name: "Clear" }));
     expect(window.location.search).toBe("");
     expect(Object.fromEntries(lastList(calls))).toEqual({ limit: "50" });
+  });
+
+  test("the source filter picks one source, none, or all but one, and a row's source picks it", async () => {
+    const calls = start();
+    render(<Page />);
+    await screen.findAllByRole("row");
+    await openFilters();
+    const select = screen.getByLabelText("Sent by");
+    expect(within(select).getByRole("option", { name: "llm-seat (1)" })).toBeTruthy();
+    expect(within(select).getByRole("option", { name: "no source given (2)" })).toBeTruthy();
+    await userEvent.selectOptions(select, "!llm-seat");
+    expect(window.location.search).toBe("?source=%21llm-seat");
+    expect(lastList(calls).get("source")).toBe("!llm-seat");
+    expect(screen.getByRole("button", { name: "Remove the filter Sent by: all but llm-seat" })).toBeTruthy();
+    await userEvent.selectOptions(select, "none");
+    expect(lastList(calls).get("source")).toBe("none");
+    await userEvent.click(screen.getByRole("button", { name: "Remove the filter Sent by: no source given" }));
+    expect(lastList(calls).get("source")).toBeNull();
+    // A report that names its source says it in its row, and picks it.
+    await userEvent.click(screen.getByRole("button", { name: "llm-seat" }));
+    expect(lastList(calls).get("source")).toBe("llm-seat");
   });
 
   test("the facets count under the filter, and the views each count over their own", async () => {

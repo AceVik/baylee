@@ -388,20 +388,22 @@ sign in again.
 **An account from before beta.8** on Baylee Sanctuary needs no new one: the
 first time you sign in with it in the client, with the same username and
 password, it moves to Baylee Central, and your decks and settings come
-along. You accept Central's terms on the way.
+along. You accept Central's terms on the way. This works until 30 June 2027;
+after that an account that has not moved cannot move any more.
 
 Before the first gateway, the client shows **Baylee Central's terms of
 use**; your acceptance is kept with the account, so another computer does
 not ask again. For now a Baylee account is deleted on request, through the
 contact in the website's legal notice.
 
-**On a gateway that signs its players in itself**, such as one you or a
-friend run, **Create account** asks for a username, a display name and a
-password, and **Play as guest**, where the gateway offers it, only for a
-display name. A guest can build decks and play, but cannot upload sleeves
-or playmats, and is deleted when it signs out or after 30 days without use.
-An account on such a gateway can be deleted from the client at any time;
-everything that belongs to it goes with it.
+**On a gateway that takes guests**, such as one you or a friend run for a
+group, you can **play as a guest**: it asks only for a display name. Its
+operator chooses whom it lets in: guests, Baylee accounts, or both. A
+gateway makes no accounts of its own; accounts are Baylee Central's. A
+guest can build decks and play,
+but cannot upload sleeves or playmats, and is deleted when it signs out or
+after 30 days without use, or from the client at any time; everything that
+belongs to it goes with it.
 
 A gateway may have **terms of use** of its own: you are shown them when you
 first sign in there, and again when they change. Where the operator names a
@@ -683,11 +685,12 @@ does not do yet;
 ## Running your own gateway
 
 A gateway is the server players sign in to. You can run one for your own
-group: everything the public one does, on your own machine, except that
-yours signs its players in itself, with accounts of its own, where Baylee
-Sanctuary uses Baylee Central. A game runs as three kinds of process:
+group: everything the public one does, on your own machine. A gateway
+makes no accounts of its own: yours lets its players in as guests
+(`BAYLEE_AUTH_MODE=guests`), where Baylee Sanctuary uses Baylee Central's
+accounts. A game runs as three kinds of process:
 
-- **`baylee-gateway`** handles accounts, decks, rooms, friends, chat and
+- **`baylee-gateway`** handles players, decks, rooms, friends, chat and
   replays. It runs no rules itself and needs PostgreSQL.
 - **`baylee-agent`** starts one engine process per game when the gateway
   asks for one.
@@ -713,7 +716,7 @@ creates and migrates its tables itself.
 cargo build --release -p baylee-gateway -p baylee-agent -p baylee-engine-server
 
 export BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32)   # shared by gateway and agent
-RUST_LOG=info BAYLEE_GATEWAY_NAME="My table" ./target/release/baylee-gateway   # listens on 0.0.0.0:28766
+RUST_LOG=info BAYLEE_GATEWAY_NAME="My table" BAYLEE_AUTH_MODE=guests ./target/release/baylee-gateway   # listens on 0.0.0.0:28766
 RUST_LOG=info ./target/release/baylee-agent        # finds baylee-engine-server beside itself
 ```
 
@@ -737,13 +740,13 @@ arguments it is an unauthenticated development harness.
 | `PORT` | Port to listen on (default `28766`). |
 | `BAYLEE_AGENT_TOKEN` | The agent's secret. Without it, no agent can connect. |
 | `BAYLEE_GATEWAY_NAME` | The name clients show for the gateway. |
-| `BAYLEE_REGISTRATION` | Unset: open sign-up. `invite`: closed beta, keys needed. `off`: no sign-up. |
-| `BAYLEE_GUESTS=off` | Refuse guest accounts. `BAYLEE_GUEST_CAP` limits live guests (default 1000). |
+| `BAYLEE_REGISTRATION` | Who may come in new as a guest. Unset: anybody. `invite`: closed beta, keys needed. `off`: nobody new. Accounts are Baylee Central's, never the gateway's. |
+| `BAYLEE_AUTH_MODE` | Whom the gateway lets in: `guests`, `central` (Baylee Central's accounts, the default) or `mixed` (both). Unset, the admin console chooses (*Who comes in*); set, it wins and locks that choice. A gateway not connected to Central lets no Central account in yet, so for your own group set `guests`. `BAYLEE_GUEST_CAP` limits live guests (default 1000). |
 | `BAYLEE_TRUSTED_PROXIES` | Address of your reverse proxy, so rate limits see the real client IP. |
 | `BAYLEE_ART_PATH` / `BAYLEE_DECK_IMAGE_PATH` | Where card art is cached and uploaded sleeves/mats are stored (`off` disables them). |
 | `BAYLEE_SOCIAL` / `BAYLEE_SOCIAL_KEEP_DAYS` | Friends and chat (`off` turns them off); how many days an undelivered message is held (1–30, default 14). |
 | `BAYLEE_REPLAY_JOBS` | Replays computed at once (default 4; `0` turns replays off). |
-| `BAYLEE_TERMS_PATH` | Your terms of use: one Markdown file, or a folder of `terms.<lang>.md` files with `terms.en.md` among them. Players accept them at sign-up and after a change. |
+| `BAYLEE_TERMS_PATH` | Your terms of use: one Markdown file, or a folder of `terms.<lang>.md` files with `terms.en.md` among them. Players accept them when they first come in and after a change. |
 | `BAYLEE_IMPRESSUM_URL` | A link to your legal notice (Impressum), which clients show. |
 | `BAYLEE_ENGINE_URL` | Set it when the agent runs on another machine. |
 | `BAYLEE_SOURCE_URL` | Where your build's source is published, if you changed it (AGPL §13). |
@@ -803,9 +806,9 @@ so no further CORS or cookie configuration is needed.
 forward, with a web interface for reading them. The same interface is the
 **admin console** for one gateway, for admins you create with
 `baylee-feedback admin add`: an overview with the server's load, who is
-online and at which table, accounts (reset a password, ban, delete), ending
+online and at which table, accounts (ban, delete), ending
 a running game, blocking a card from play for a while or for good (players
-are told why), beta keys, and the hosted language models (which seat agent
+are told why), beta keys, who comes in (guests, Baylee accounts or both), and the hosted language models (which seat agent
 runs which model, their keys, and which players may seat each). The
 gateway's side of it listens only on the local machine
 (`BAYLEE_ADMIN_TOKEN`, `BAYLEE_ADMIN_BIND`). Setting it up is described in

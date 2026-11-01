@@ -4,45 +4,25 @@
 //! instead of refusing a lease that no longer matches the one it stored. Before
 //! renewal, every Central sign-in, and every game on it, ended 30 minutes in
 //! (beta.8a, 22.10.2026).
-use super::{
-    Account, AccountData, CentralHttp, Credentials, Endpoint, LegacyData, LegacyHttp, common, sdk,
-};
+use super::{Account, Endpoint, PASSWORD, common, cutover};
+use sea_orm::DatabaseConnection;
 use std::time::Duration;
+use tokio::runtime::Runtime;
 
 const USERNAME: &str = "renewing";
-const PASSWORD: &str = "a-very-fine-password";
 
-pub(super) fn run(gateway: &common::Gateway, endpoint: &Endpoint, origin: &str) {
+pub(super) fn run(
+    gateway: &common::Gateway,
+    endpoint: &Endpoint,
+    origin: &str,
+    runtime: &Runtime,
+    operator: &DatabaseConnection,
+) {
     common::login(gateway.port, USERNAME, "Renewing");
-    let legacy = LegacyHttp::development(origin).unwrap();
-    let credentials = Credentials {
-        username: USERNAME.into(),
-        password: PASSWORD.into(),
-    };
-    let enrollment = legacy.enroll(&credentials).unwrap();
-    let source_id = enrollment.snapshot.account_id.clone();
-    let data = AccountData {
-        version: 1,
-        gateways: vec![origin.into()],
-        preferences: enrollment.snapshot.preferences,
-        chat: baylee_account::chat::ChatArchive::default(),
-        legacy: Some(LegacyData {
-            digest: enrollment.snapshot.digest,
-            complete: false,
-            gateway: origin.into(),
-            account_id: source_id.clone(),
-            username: enrollment.snapshot.username,
-            decks: enrollment.snapshot.decks,
-        }),
-    };
-    sdk::enroll(
-        &CentralHttp::new(endpoint.clone()),
-        enrollment.identity,
-        enrollment.ticket,
-        PASSWORD.into(),
-        &data.write().unwrap(),
-    )
-    .unwrap();
+    let source_id = gateway.text(&format!(
+        "SELECT id::text FROM account WHERE username_key = '{USERNAME}'"
+    ));
+    assert_eq!(cutover(gateway, runtime, operator), 1);
     let account = Account::login(
         endpoint.clone(),
         USERNAME.into(),

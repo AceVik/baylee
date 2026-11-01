@@ -78,7 +78,8 @@ impl MarksParams {
 #[must_use]
 pub fn strip_of(object: &baylee_view::PublicObject) -> cardrail::Strip {
     use baylee_client_core::{board, cardcrest, cardplate::Corner};
-    let corner = Corner::of_object(object);
+    let corner =
+        Corner::of_object(object).over_print(board::printed_of(object, crate::cardart::registry()));
     let provenance = board::provenance_of(object, crate::cardart::registry());
     cardrail::Strip::new(
         cardrail::mark_bits(object.keywords),

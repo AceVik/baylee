@@ -7,7 +7,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { ADMIN, PASSWORD, register } from "./harness.ts";
+import { ADMIN, PASSWORD, admitGuest } from "./harness.ts";
 
 interface Size {
   name: string;
@@ -230,8 +230,8 @@ test.describe("keys", () => {
     await expect(page.getByText(keys[0] ?? "no key")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Make keys" })).toBeVisible();
 
-    // A key the console made lets a player in.
-    expect(await register("e2e-first", keys[0] ?? "")).toBe(200);
+    // A key the console made lets a guest in.
+    expect(await admitGuest("e2e-first", keys[0] ?? "")).toBe(200);
 
     // Revoking asks once more, and the gateway then refuses the key.
     const second = items.nth(0);
@@ -241,7 +241,7 @@ test.describe("keys", () => {
     await second.getByRole("button", { name: "Revoke for good" }).click();
     await expect(page.getByText("Key revoked.")).toBeVisible();
     await expect(page.getByTestId("invite").filter({ hasText: "revoked" })).toHaveCount(1);
-    const statuses = [await register("e2e-second", keys[0] ?? ""), await register("e2e-third", keys[1] ?? "")];
+    const statuses = [await admitGuest("e2e-second", keys[0] ?? ""), await admitGuest("e2e-third", keys[1] ?? "")];
     // keys[0] is used up; whichever of the two was revoked, neither admits now.
     expect(statuses).toEqual([403, 403]);
     await expect(page.getByText(/gateway\.invite\.revoke/)).toBeVisible();

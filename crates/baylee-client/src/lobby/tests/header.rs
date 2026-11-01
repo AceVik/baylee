@@ -889,3 +889,24 @@ fn a_toasts_cross_takes_that_toast_away() {
         "a sentence the lobby still holds does not come back"
     );
 }
+
+/// The room scrolls under its header and says so with a bar aimed at its
+/// scroller, where a seat's long list of decks is scrolled (report
+/// 30.10.2026; the bar went with WP3's rebuild, b0dd3c480).
+#[test]
+fn the_room_scrolls_with_a_bar_aimed_at_it() {
+    let mut app = seated();
+    let room = app
+        .world_mut()
+        .query::<(Entity, &Scrollable)>()
+        .iter(app.world())
+        .find(|(_, s)| s.0 == List::Table)
+        .map(|(entity, _)| entity)
+        .expect("the room's scroller");
+    let aimed = app
+        .world_mut()
+        .query::<&bevy::ui_widgets::Scrollbar>()
+        .iter(app.world())
+        .any(|bar| bar.target == room);
+    assert!(aimed, "a bar is aimed at the room's scroller");
+}

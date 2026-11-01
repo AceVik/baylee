@@ -336,6 +336,14 @@ async fn the_numbers_count_what_happened_and_name_nobody() {
     assert_eq!(stats["invites"]["active"], 3, "{stats}");
     assert_eq!(stats["invites"]["uses_left"], 6, "{stats}");
     assert_eq!(stats["gateway"]["registration"], "open", "{stats}");
+    assert_eq!(
+        stats["gateway"]["central"], false,
+        "not connected to Baylee Central: {stats}"
+    );
+    assert!(
+        stats["gateway"].get("mail").is_none(),
+        "a gateway sends no mail: {stats}"
+    );
     assert!(stats["gateway"]["version"].is_string(), "{stats}");
     assert!(
         stats["at"].as_str().is_some_and(|at| at.ends_with('Z')),
@@ -782,18 +790,14 @@ fn keys_made_here_are_the_commands_keys_and_every_change_is_audited() {
         assert!(key.starts_with("BAYLEE-") && key.len() == 26, "{key}");
     }
 
-    // A key the console made lets a player in, once.
-    let register = |name: &str, key: &str| {
-        let body = serde_json::json!({
-            "username": name,
-            "display_name": name,
-            "password": "a-very-fine-password",
-            "invite_key": key,
-        });
-        http(port, "POST", "/auth/register", None, &body.to_string()).0
+    // A key the console made lets a new guest in, once: the one door a key
+    // opens since nobody registers here.
+    let guest = |key: &str| {
+        let body = serde_json::json!({ "display_name": "Visitor", "invite_key": key });
+        http(port, "POST", "/auth/guest", None, &body.to_string()).0
     };
-    assert_eq!(register("carol", &keys[0].1), 200);
-    assert_eq!(register("dave", &keys[0].1), 403, "one use");
+    assert_eq!(guest(&keys[0].1), 200);
+    assert_eq!(guest(&keys[0].1), 403, "one use");
 
     // The command lists the console's keys, and the console the command's.
     let (code, out, err) = cli(&c.gw, &["create", "--note", "from the shell"]);
@@ -835,7 +839,7 @@ fn keys_made_here_are_the_commands_keys_and_every_change_is_audited() {
     );
     let (status, _) = admin(&c, "DELETE", "/admin/invites/not-a-uuid", "");
     assert_eq!(status, 400);
-    assert_eq!(register("erin", &keys[1].1), 403, "revoked");
+    assert_eq!(guest(&keys[1].1), 403, "revoked");
     let (_, table, _) = cli(&c.gw, &["list"]);
     let line = table
         .lines()
@@ -912,6 +916,9 @@ fn a_console_that_could_be_misread_stops_the_start() {
             vec![("BAYLEE_ADMIN_BIND", "127.0.0.1:28767")],
             "BAYLEE_ADMIN_TOKEN is not",
         ),
+        // Not a console's, but refused as early: a typo read as some mode
+        // would open or shut a door nobody meant to.
+        (vec![("BAYLEE_AUTH_MODE", "guest")], "BAYLEE_AUTH_MODE"),
     ] {
         let out = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-gateway"))
             .env_clear()
@@ -924,6 +931,120 @@ fn a_console_that_could_be_misread_stops_the_start() {
         assert!(!out.status.success(), "{env:?} started");
         assert!(stderr.contains(why), "{env:?}: {stderr}");
     }
+}
+
+/// Who comes in, chosen in the console (`docs/central-login.md` §"Who a
+/// gateway lets in"): the default, `central`, until an admin chooses; a
+/// choice is in force at the next sign-in, kept in the database across a
+/// start, and audited; a session made before goes on. Unconnected and on
+/// `central`, the gateway says it lets nobody in.
+#[test]
+#[allow(clippy::too_many_lines)] // one scenario, read top to bottom
+fn the_console_chooses_who_comes_in() {
+    let c = console("authmode", &[("BAYLEE_AUTH_MODE", String::new())]);
+    let read = |c: &Console| -> serde_json::Value {
+        let (status, body) = admin(c, "GET", "/admin/auth-mode", "");
+        assert_eq!(status, 200, "{body}");
+        serde_json::from_str(&body).unwrap()
+    };
+    let guest = |c: &Console| http(c.gw.port, "POST", "/auth/guest", None, "{}");
+    let first = read(&c);
+    assert_eq!(first["mode"], "central", "{first}");
+    assert_eq!(first["source"], "default", "{first}");
+    assert_eq!(first["set_by"], serde_json::Value::Null, "{first}");
+    assert_eq!(first["connected"], false, "nobody comes in: {first}");
+    let (_, stats) = admin(&c, "GET", "/admin/stats", "");
+    let stats: serde_json::Value = serde_json::from_str(&stats).unwrap();
+    assert_eq!(stats["gateway"]["auth_mode"], "central", "{stats}");
+    assert_eq!(stats["gateway"]["auth_mode_source"], "default", "{stats}");
+    assert_eq!(stats["guests"]["enabled"], false, "{stats}");
+    assert_eq!(guest(&c).0, 403);
+
+    for body in [
+        r#"{"mode":"guest"}"#,
+        r#"{"mode":"Mixed"}"#,
+        r#"{"mode":"mixed","admin":"someone"}"#,
+        "{}",
+        "not json",
+    ] {
+        let (status, answer) = admin(&c, "PUT", "/admin/auth-mode", body);
+        assert_eq!(status, 400, "{body}: {answer}");
+    }
+    assert_eq!(
+        c.gw.scalar("SELECT count(*) FROM auth_mode"),
+        0,
+        "nothing chosen"
+    );
+
+    let (status, body) = admin(&c, "PUT", "/admin/auth-mode", r#"{"mode":"guests"}"#);
+    assert_eq!(status, 200, "{body}");
+    let chosen: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(chosen["mode"], "guests", "{chosen}");
+    assert_eq!(chosen["source"], "console", "{chosen}");
+    assert_eq!(chosen["set_by"], ADMIN, "{chosen}");
+    assert!(
+        chosen["set_at"]
+            .as_str()
+            .is_some_and(|at| at.ends_with('Z')),
+        "{chosen}"
+    );
+    let (status, answer) = guest(&c);
+    assert_eq!(status, 200, "in force at the next sign-in: {answer}");
+    let early = common::json_field(&answer, "token").to_owned();
+    let (_, config) = http(c.gw.port, "GET", "/auth/config", None, "");
+    assert!(config.contains("\"auth_mode\":\"guests\""), "{config}");
+
+    // Back to the default: a guest already in stays, the next is refused.
+    let (status, body) = admin(&c, "PUT", "/admin/auth-mode", r#"{"mode":"central"}"#);
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(http(c.gw.port, "GET", "/me", Some(&early), "").0, 200);
+    assert_eq!(guest(&c).0, 403);
+    let (status, body) = admin(&c, "PUT", "/admin/auth-mode", r#"{"mode":"mixed"}"#);
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(c.gw.text("SELECT mode FROM auth_mode"), "mixed");
+    assert_eq!(c.gw.text("SELECT set_by FROM auth_mode"), ADMIN);
+
+    // Read again at the next start, from the same database.
+    let again = console(
+        "authmode_again",
+        &[
+            ("BAYLEE_AUTH_MODE", String::new()),
+            ("DATABASE_URL", c.gw.database_url()),
+        ],
+    );
+    let kept = read(&again);
+    assert_eq!(
+        (kept["mode"].as_str(), kept["source"].as_str()),
+        (Some("mixed"), Some("console"))
+    );
+    assert_eq!(guest(&again).0, 200);
+
+    let logs = plain(&c.gw.logs());
+    let lines: Vec<&str> = logs
+        .lines()
+        .filter(|line| line.contains("action=\"auth_mode.set\""))
+        .collect();
+    assert_eq!(lines.len(), 3, "{logs}");
+    assert!(lines.iter().all(|line| line.contains(ADMIN)), "{lines:?}");
+}
+
+/// The operator's `BAYLEE_AUTH_MODE` wins: the console shows it, and a
+/// choice there is refused and changes nothing.
+#[test]
+fn the_operators_auth_mode_locks_the_console() {
+    let c = console("authmode_env", &[("BAYLEE_AUTH_MODE", "guests".into())]);
+    let (status, body) = admin(&c, "GET", "/admin/auth-mode", "");
+    assert_eq!(status, 200, "{body}");
+    let shown: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(
+        (shown["mode"].as_str(), shown["source"].as_str()),
+        (Some("guests"), Some("environment"))
+    );
+    let (status, body) = admin(&c, "PUT", "/admin/auth-mode", r#"{"mode":"central"}"#);
+    assert_eq!(status, 409, "{body}");
+    assert!(body.contains("BAYLEE_AUTH_MODE"), "{body}");
+    assert_eq!(c.gw.scalar("SELECT count(*) FROM auth_mode"), 0);
+    assert_eq!(http(c.gw.port, "POST", "/auth/guest", None, "{}").0, 200);
 }
 
 /// The terms of use in the console (`docs/protocol.md` §"Terms of use

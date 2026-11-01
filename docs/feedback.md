@@ -175,6 +175,17 @@ but a gateway's token, `413` past the gateway's limits or a record over
 64 MiB. The report is filed under the name its token was configured with,
 whatever the gateway calls itself.
 
+**Public for now (31.10.2026).** The official gateway reaches the intake over
+loopback, under the token name `sanctuary`. Since 31.10.2026 the route is
+also public at `https://feedback.baylee.app/intake/reports`
+(`scripts/server/feedback-direct.caddy`), so a gateway on another machine
+can file reports too: the trainer's private collector gateway, under the
+token name `collector`, sends the reports of its language-model seats
+(`docs/llm-seat.md`). Every request still needs a gateway's token. The proxy
+bounds a body at 512 MiB, and the service's own bound (`MAX_INTAKE_BYTES`,
+about 88 MiB) stops it before that. The owner accepts this as a temporary
+gap and wants it closed again later (#408).
+
 `record_origin` (`"gateway"` when absent) says who wrote the record. A
 client's (`"client"`) is held to a client's bounds and checked for the
 shape of a record before it is kept: at most 4 MiB of gzip that unpacks to
@@ -436,13 +447,20 @@ filters of §"Triage" (`crate::triage::Filter`): `status`, `kind` and
 text or of a crash's message, a piece of the text (`%` and `_` literal) or
 a piece of a report's id; `from` and `to` are days, `YYYY-MM-DD` in UTC,
 both inclusive; `has_record` is `true` or `false`; `channel` is `gateway`
-or `direct`. A report in the trash is listed only under `trash=true`. A
-malformed filter is `400`.
+or `direct`; `source` is a source, `none` for reports without one, or
+either after `!` for all the others (`source=!llm-seat` hides the
+language-model seats' reports, those without a source included), 1–64
+characters without a control character. A report in the trash is listed
+only under `trash=true`. A malformed filter is `400`.
 
 `channel` says how a report came (`gateway`, or `direct`: unauthenticated,
 §"Straight from a client"); `record_origin` who wrote its record
-(`gateway`, or `client`: unverified), `null` without one. The web UI says
-both beside the report.
+(`gateway`, or `client`: unverified), `null` without one; `source` what
+sent it, as the client's `source` says (`llm-seat` for a language-model
+seat, `docs/llm-seat.md`), its first 64 characters, `null` without one. The
+client's word, unchecked: a filter to sort by, never a proof of where a
+report came from. The web UI says all three beside the report, and the
+facets count the sources (`sources`, `null` for none).
 
 ```json
 {
@@ -454,7 +472,7 @@ both beside the report.
     "reporter": "5bdc…", "kind": "bug", "status": "new",
     "text": "…", "game_id": "…",
     "has_record": true, "record_complete": true, "record_bytes": 21606,
-    "channel": "gateway", "record_origin": "gateway",
+    "channel": "gateway", "record_origin": "gateway", "source": null,
     "issue_number": 311,
     "issue_url": "https://github.com/AceVik/baylee/issues/311",
     "assignee": "viktor", "priority": "high", "labels": ["lands", "ui"],
@@ -700,7 +718,6 @@ the browser never sees:
 | `GET /ui/api/admin/accounts` | the gateway's `GET /admin/accounts`; the query is read into `q`, `tag`, `kind`, `sort`, `online`, `offset`, `limit` and written out again (anything else `400`); `tag` is one exact tag, a chat report's sender |
 | `GET /ui/api/admin/accounts/{id}` | the gateway's `GET /admin/accounts/{id}`; `400` for an id that is not a UUID |
 | `DELETE /ui/api/admin/accounts/{id}` | the gateway's `DELETE /admin/accounts/{id}`: the account deleted as its player's own deletion does (beta.8) |
-| `POST /ui/api/admin/accounts/{id}/password` | the gateway's reset: `200 {"password"}`, the one time the new password is shown; nothing here writes it down (beta.8) |
 | `PUT /ui/api/admin/accounts/{id}/ban` | `{"reason", "until"?}`, read into those two fields and written out again; `DELETE` the same path lifts the ban (beta.8) |
 | `POST /ui/api/admin/games/{id}/close` | `{"reason"}`: the gateway ends the running game through its engine; `202` (beta.8) |
 | `GET /ui/api/admin/invites` | its keys, newest first; never a key |
@@ -711,6 +728,8 @@ the browser never sees:
 | `POST /ui/api/admin/cards/blocks` | `{"index", "reason", "until"?}` (`until` RFC 3339; absent for no end); `201` with the block; `409` when the card is blocked already |
 | `DELETE /ui/api/admin/cards/blocks/{id}` | lifts one: `204`, or `404` for no block still in force |
 | `GET /ui/api/admin/audit` | the 50 latest changes made here, `[{"at", "actor", "action", "detail"}]`, newest first |
+| `GET /ui/api/admin/auth-mode` | the gateway's `GET /admin/auth-mode`: who it lets in, where that comes from, whether it is connected to Baylee Central |
+| `PUT /ui/api/admin/auth-mode` | `{"mode"}`, one of `guests`, `central`, `mixed`, read and written out again (anything else `400`); the gateway's answer as it is, `409` while its `BAYLEE_AUTH_MODE` sets the mode; audited as `gateway.auth_mode.set` with the mode |
 
 - **Who.** A live session on every route (`401` without), and on those
   that change something the CSRF rule above too (`403`). The read and admin

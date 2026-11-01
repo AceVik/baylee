@@ -1627,3 +1627,121 @@ fn courser_multi_draw_folds_into_one_public_draw_line_without_reveal_events() {
         );
     }
 }
+
+/// The players the log's `Aimed` line names for the spell or ability
+/// `source`, as `seat` is told it, and the targets `seat`'s view of the stack
+/// shows for it.
+fn aimed_players(
+    engine: &Engine<Registry>,
+    log: &GameLog,
+    seat: PlayerId,
+    from: usize,
+    source: ObjectId,
+) -> (Vec<LogTarget>, Vec<baylee_view::TargetRef>) {
+    let told = told_since(log, seat, from);
+    let aimed = told
+        .iter()
+        .find_map(|e| match e {
+            LogEvent::Aimed {
+                source: LogObject::Known { id, .. },
+                targets,
+                ..
+            } if *id == source => Some(targets.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("seat {seat:?} was told no Aimed line: {told:?}"));
+    let shown = seen_by(engine, seat)
+        .stack
+        .iter()
+        .find(|o| {
+            o.id == source
+                || matches!(
+                    o.stack_item,
+                    Some(baylee_view::StackItem::Ability { source: s, .. }) if s == source
+                )
+        })
+        .map(|o| o.targets.clone())
+        .expect("it is on the stack");
+    (aimed, shown)
+}
+
+/// "Target player" is asked with `ChoosePlayer`, whose answer the engine
+/// keeps in `chosen_player`; the view and the log read only
+/// `target_players`, so Ancestral Recall showed no target on the stack and
+/// its `Aimed` line named nobody. Every seat sees the player now.
+#[test]
+fn a_spell_at_a_chosen_player_shows_its_target() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(2, &["Ancestral Recall"], &["Island"], &[]);
+    let recall = named(&engine, "Ancestral Recall");
+    let from = log.len();
+    tap_lands(&mut engine);
+    engine
+        .apply(me, PlayerAction::CastSpell { card: recall })
+        .expect("casts it");
+    assert!(
+        matches!(engine.pending(), Pending::ChoosePlayer { .. }),
+        "{:?}",
+        engine.pending()
+    );
+    engine
+        .apply(me, PlayerAction::ChoosePlayer(them))
+        .expect("at the other player");
+    log.consume(engine.state());
+    for seat in [me, them] {
+        let (aimed, shown) = aimed_players(&engine, &log, seat, from, recall);
+        assert_eq!(aimed, [LogTarget::Player(them)], "seat {seat:?}");
+        assert_eq!(
+            shown,
+            [baylee_view::TargetRef::Player(them)],
+            "seat {seat:?}"
+        );
+    }
+}
+
+/// The same for a loyalty ability: Ashiok, Dream Render's −1, "Target player
+/// mills four cards", whose stack item a player reported as aimed at nobody.
+#[test]
+fn a_loyalty_ability_at_a_chosen_player_shows_its_target() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let (mut engine, mut log) = a_logged_main_phase(
+        2,
+        &["Ashiok, Dream Render"],
+        &["Island", "Island", "Island", "Swamp", "Swamp"],
+        &[],
+    );
+    let ashiok = named(&engine, "Ashiok, Dream Render");
+    tap_lands(&mut engine);
+    engine
+        .apply(me, PlayerAction::CastSpell { card: ashiok })
+        .expect("casts Ashiok");
+    settle(&mut engine, None);
+    let from = log.len();
+    engine
+        .apply(
+            me,
+            PlayerAction::ActivateAbility {
+                source: ashiok,
+                ability_index: 1,
+            },
+        )
+        .expect("the −1");
+    assert!(
+        matches!(engine.pending(), Pending::ChoosePlayer { .. }),
+        "{:?}",
+        engine.pending()
+    );
+    engine
+        .apply(me, PlayerAction::ChoosePlayer(them))
+        .expect("at the other player");
+    log.consume(engine.state());
+    for seat in [me, them] {
+        let (aimed, shown) = aimed_players(&engine, &log, seat, from, ashiok);
+        assert_eq!(aimed, [LogTarget::Player(them)], "seat {seat:?}");
+        assert_eq!(
+            shown,
+            [baylee_view::TargetRef::Player(them)],
+            "seat {seat:?}"
+        );
+    }
+}

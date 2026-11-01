@@ -190,12 +190,11 @@ fn a_proxy_entry_that_is_not_an_address_is_a_proxy_nobody_vouched_for() {
 
 /// **Three spellings shut the door, and every other value leaves it open.**
 ///
-/// `registration_enabled` is what `/auth/config` tells a client and what
-/// `POST /auth/register` checks, so this is the switch an operator reaches
-/// for when they want a private gateway. `BAYLEE_REGISTRATION=no` leaves it
-/// open. So does `OFF`, so does a variable exported empty, and none of them
-/// says anything at the moment it is set — the operator finds out when
-/// somebody registers. `BAYLEE_GUESTS` reads the same way, through
+/// `BAYLEE_REGISTRATION` decides who may come in new, so this is the switch
+/// an operator reaches for when they want a private gateway.
+/// `BAYLEE_REGISTRATION=no` leaves it open. So does `OFF`, so does a variable
+/// exported empty, and none of them says anything at the moment it is set —
+/// the operator finds out when somebody new comes in. `BAYLEE_CHAIR_TICKETS` reads the same way, through
 /// `switched_on`; `BAYLEE_REGISTRATION` has had a reader of its own since it
 /// learnt `invite` (#317), which answers these words as the switch did.
 ///
