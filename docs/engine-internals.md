@@ -2121,8 +2121,9 @@ stream, so the copy (`simulation::driver::duplicate`) is private and
   naming a removed id; the dealt cards' entries in `printed_pt_cda` and
   `offboard_static_candidates`, which the new objects take afresh; and the
   `effect_text_overrides` of effects whose source the deal removed (parked
-  ones included, collected before the statics are re-synced) or that quote
-  a removed card, as the end of the turn would drop them
+  ones included, collected before the statics are re-synced, and dropped
+  only if the effect is still gone after the sync) or that quote a removed
+  card, as the end of the turn would drop them
   (`prune_damage_sources`) — each names a removed card. No other override
   goes: a phased-out permanent's statics are parked, not gone (CR
   702.26b), and keep theirs.

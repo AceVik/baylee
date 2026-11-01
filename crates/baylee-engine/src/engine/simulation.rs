@@ -221,7 +221,8 @@ impl<L: CardLookup + Clone> Engine<L> {
     /// does an override that quotes a removed card: either is read by nothing
     /// and names the card. No other override goes: a phased-out permanent's
     /// statics are parked, not gone (CR 702.26b), and their overrides come
-    /// back with them.
+    /// back with them. An effect is judged gone after the sync, so an id
+    /// registered again by it keeps its override.
     fn settle_fork(&mut self, removed: &[ObjectId]) {
         let is_removed = |id: ObjectId| removed.binary_search(&id).is_ok();
         let orphaned: Vec<EffectId> = self
@@ -233,6 +234,7 @@ impl<L: CardLookup + Clone> Engine<L> {
             .collect();
         self.state.invalidate_projections();
         self.sync_static_effects();
+        let effects = &self.state.effects;
         self.state.effect_text_overrides.retain(|(id, origin)| {
             let quotes = match *origin {
                 TextOrigin::Live(source) | TextOrigin::Ability { source, .. } => {
@@ -240,7 +242,8 @@ impl<L: CardLookup + Clone> Engine<L> {
                 }
                 TextOrigin::Frozen(_) => false,
             };
-            !orphaned.contains(id) && !quotes
+            let gone = orphaned.contains(id) && !effects.contains(*id);
+            !gone && !quotes
         });
         self.state.refresh_characteristics();
         if let Pending::Priority { player, .. } = self.pending {
