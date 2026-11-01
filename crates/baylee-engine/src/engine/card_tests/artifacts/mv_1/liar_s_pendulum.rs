@@ -6,7 +6,9 @@ fn liar_s_pendulum() -> CardIndex {
     card_index("4f88ddfa-5478-426a-a978-dfc64c687db1")
 }
 
-fn play(guess_in_hand: bool, reveal: bool) -> Engine<RegistryLookup> {
+/// Names `named` with a Forest as the only card in hand, has the opponent
+/// guess, answers the reveal, and says whether the Pendulum drew.
+fn play(named: CardIndex, guess_in_hand: bool, reveal: bool) -> bool {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
     let mut e = Duel::new(SEED, forest())
         .battlefield(0, &[liar_s_pendulum(), island(), island()])
@@ -30,7 +32,7 @@ fn play(guess_in_hand: bool, reveal: bool) -> Engine<RegistryLookup> {
     e.apply(
         p0,
         PlayerAction::ChooseCardName {
-            card: forest(),
+            card: named,
             face: 0,
         },
     )
@@ -47,18 +49,30 @@ fn play(guess_in_hand: bool, reveal: bool) -> Engine<RegistryLookup> {
     let before = library_size(&e, p0);
     e.apply(p0, PlayerAction::YesNo(reveal)).unwrap();
     pass_until(&mut e, stack_is_empty);
-    let expected = if reveal && !guess_in_hand {
-        before - 1
-    } else {
-        before
-    };
-    assert_eq!(library_size(&e, p0), expected);
-    e
+    library_size(&e, p0) < before
 }
 
 #[test]
 fn liar_s_pendulum_draws_only_when_reveal_proves_the_guess_wrong() {
-    play(false, true);
-    play(true, true);
-    play(false, false);
+    assert!(
+        play(forest(), false, true),
+        "named card in hand, guessed not"
+    );
+    assert!(!play(forest(), true, true), "guessed right");
+    assert!(!play(forest(), false, false), "no reveal, no draw");
+}
+
+/// The named card is not in hand, so "in hand" is the wrong guess and
+/// "not in hand" the right one. Every case above names a card that is in
+/// hand, where a wrong guess and a "no" answer are the same thing.
+#[test]
+fn liar_s_pendulum_judges_the_guess_against_a_name_not_in_hand() {
+    assert!(
+        !play(island(), false, true),
+        "guessed 'not in hand' and was right: no draw"
+    );
+    assert!(
+        play(island(), true, true),
+        "guessed 'in hand' and was wrong: draw"
+    );
 }

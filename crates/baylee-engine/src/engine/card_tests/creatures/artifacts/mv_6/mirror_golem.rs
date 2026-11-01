@@ -72,3 +72,59 @@ fn mirror_golem_prevents_combat_damage_from_the_imprinted_creature_type() {
     assert_eq!(e.state().object(golem).unwrap().damage, 0);
     assert!(in_graveyard(&e, p1, gray_ogre()).is_some());
 }
+
+/// "Protection from each of the exiled card's card types": a creature card
+/// imprinted, an instant still hurts. The opponent's Lightning Bolt deals
+/// its 3 to the 3/4 Golem.
+#[test]
+fn mirror_golem_takes_damage_from_a_type_it_did_not_imprint() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[island(); 6])
+        .battlefield(1, &[mountain()])
+        .hand(0, &[mirror_golem(), gray_ogre()])
+        .hand(1, &[lightning_bolt()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let copy = in_hand(&e, p0, gray_ogre()).unwrap();
+    e.dev_state_mut(p0)
+        .unwrap()
+        .move_object(
+            copy,
+            ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    e.refresh_offer();
+    cast_from_hand(&mut e, p0, mirror_golem());
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![copy],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    e.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(copy).unwrap().zone, Zone::Exile);
+
+    let golem = on_battlefield(&e, p0, mirror_golem()).unwrap();
+    reach_their_main_phase(&mut e, p1);
+    cast_from_hand(&mut e, p1, lightning_bolt());
+    e.apply(
+        p1,
+        PlayerAction::ChooseTargets {
+            objects: vec![golem],
+            players: vec![],
+        },
+    )
+    .unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(e.state().object(golem).unwrap().damage, 3);
+}

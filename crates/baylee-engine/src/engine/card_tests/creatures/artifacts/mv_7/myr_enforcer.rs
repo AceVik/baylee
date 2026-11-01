@@ -26,3 +26,24 @@ fn myr_enforcer_costs_zero_with_seven_artifacts() {
     assert!(on_battlefield(&e, p0, myr_enforcer()).is_some());
     assert_eq!(e.state().players[0].mana_pool.total(), 0);
 }
+
+/// "Each artifact you control": the opponent's seven artifacts reduce
+/// nothing, so with no mana of its own p0 cannot cast the Enforcer.
+#[test]
+fn myr_enforcer_ignores_the_opponent_s_artifacts() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(1, &[quiet_artifact(); 7])
+        .hand(0, &[myr_enforcer()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let spell = in_hand(&e, p0, myr_enforcer()).unwrap();
+    let Pending::Priority { legal, .. } = e.pending().clone() else {
+        panic!("expected priority")
+    };
+    assert!(
+        !legal.castable.contains(&spell),
+        "affinity counts only the caster's artifacts"
+    );
+}

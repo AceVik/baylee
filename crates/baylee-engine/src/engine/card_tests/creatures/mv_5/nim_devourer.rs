@@ -59,3 +59,52 @@ fn nim_devourer_returns_during_upkeep_then_sacrifices_a_creature() {
     assert_eq!(pt(&e, returned), (5, 1), "one controlled artifact counts");
     assert!(in_graveyard(&e, p0, gray_ogre()).is_some());
 }
+
+/// "Activate only during your upkeep": with {B}{B} open and the card in the
+/// graveyard, the return is not offered in the opponent's upkeep, and is in
+/// p0's own.
+#[test]
+fn nim_devourer_return_is_refused_in_the_opponent_s_upkeep() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[swamp(), swamp(), gray_ogre()])
+        .hand(0, &[nim_devourer()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let card = in_hand(&e, p0, nim_devourer()).unwrap();
+    let card = e
+        .dev_state_mut(p0)
+        .unwrap()
+        .move_object(
+            card,
+            ZoneLocation::Graveyard(p0),
+            crate::zone::ZonePosition::Top,
+            crate::event::Cause::Effect,
+        )
+        .unwrap();
+    e.refresh_offer();
+    let offered = |e: &Engine<RegistryLookup>| {
+        let Pending::Priority { legal, .. } = e.pending().clone() else {
+            panic!("expected priority")
+        };
+        legal.abilities.contains(&(card, 1))
+    };
+    pass_until(&mut e, |e| {
+        e.state().turn.active == p1
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    // An ability is offered only while its mana is floating, so both
+    // checks are made with p0's Swamps tapped: without it the refusal
+    // would hold for want of mana alone.
+    tap_all_mana(&mut e, p0);
+    assert!(!offered(&e), "not during the opponent's upkeep");
+    pass_until(&mut e, |e| {
+        e.state().turn.active == p0
+            && e.state().turn.step == crate::turn::Step::Upkeep
+            && matches!(e.pending(), Pending::Priority { player, .. } if *player == p0)
+    });
+    tap_all_mana(&mut e, p0);
+    assert!(offered(&e), "the control: offered in p0's own upkeep");
+}

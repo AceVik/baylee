@@ -74,3 +74,34 @@ fn incite_war_entwined_grants_first_strike_and_forces_attack() {
     )
     .unwrap();
 }
+
+/// "Creatures you control gain first strike": the first-strike mode alone
+/// reaches our Ogre and not the opponent's.
+#[test]
+fn incite_war_first_strike_mode_skips_the_opponent_s_creatures() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[gray_ogre(), mountain(), mountain(), mountain()])
+        .battlefield(1, &[gray_ogre()])
+        .hand(0, &[incite_war()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    cast_from_hand(&mut e, p0, incite_war());
+    let Pending::ChooseCastMode { options, .. } = e.pending().clone() else {
+        panic!("expected modes")
+    };
+    // The second printed mode alone, however the offer spells a single mode.
+    let mode = options
+        .iter()
+        .position(|option| {
+            option.kind == CastModeKind::Mode(1) || option.kind == CastModeKind::Modes(0b10)
+        })
+        .expect("the first-strike mode is offered on its own");
+    e.apply(p0, PlayerAction::ChooseMode(mode)).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    let ours = on_battlefield(&e, p0, gray_ogre()).unwrap();
+    let theirs = on_battlefield(&e, p1, gray_ogre()).unwrap();
+    assert!(keywords(&e, ours).contains(KeywordSet::FIRST_STRIKE));
+    assert!(!keywords(&e, theirs).contains(KeywordSet::FIRST_STRIKE));
+}

@@ -64,3 +64,38 @@ fn isochron_scepter_casts_a_copy_and_leaves_the_original_exiled() {
         "the original never moved"
     );
 }
+
+/// "An instant card with mana value 2 or less": a sorcery of mana value 1
+/// and an instant of mana value 3 are not offered for the imprint; the Bolt
+/// beside them is.
+#[test]
+fn isochron_scepter_offers_only_cheap_instants_to_imprint() {
+    use baylee_core::generated::index;
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[island(), island()])
+        .hand(
+            0,
+            &[
+                isochron_scepter(),
+                lightning_bolt(),
+                index::ASSAULT_STROBE,
+                index::OVERRIDE,
+            ],
+        )
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    cast_from_hand(&mut e, p0, isochron_scepter());
+    pass_until(&mut e, |e| matches!(e.pending(), Pending::YesNo { .. }));
+    e.apply(p0, PlayerAction::YesNo(true)).unwrap();
+    let Pending::ChooseCards { options, .. } = e.pending().clone() else {
+        panic!("expected the imprint choice, got {:?}", e.pending())
+    };
+    let bolt = in_hand(&e, p0, lightning_bolt()).unwrap();
+    let sorcery = in_hand(&e, p0, index::ASSAULT_STROBE).unwrap();
+    let expensive = in_hand(&e, p0, index::OVERRIDE).unwrap();
+    assert!(options.contains(&bolt));
+    assert!(!options.contains(&sorcery), "a sorcery is not an instant");
+    assert!(!options.contains(&expensive), "mana value 3 is more than 2");
+}

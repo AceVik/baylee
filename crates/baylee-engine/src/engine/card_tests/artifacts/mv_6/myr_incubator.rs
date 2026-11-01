@@ -60,3 +60,53 @@ fn myr_incubator_creates_one_myr_per_chosen_exiled_artifact() {
         .count();
     assert_eq!(myr, 2);
 }
+
+/// "Any number of artifact cards": in a library of Forests with two Sol
+/// Rings in it, only the two Sol Rings are offered.
+#[test]
+fn myr_incubator_does_not_find_a_non_artifact_card() {
+    let p0 = PlayerId::new(0);
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                myr_incubator(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+                island(),
+            ],
+        )
+        .hand(0, &[quiet_artifact(), quiet_artifact()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let mut rings = Vec::new();
+    for id in e.state().zones.list(ZoneLocation::Hand(p0)).clone() {
+        let moved = e
+            .dev_state_mut(p0)
+            .unwrap()
+            .move_object(
+                id,
+                ZoneLocation::Library(p0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+        rings.push(moved);
+    }
+    e.refresh_offer();
+    tap_all_mana(&mut e, p0);
+    activate(&mut e, p0, myr_incubator(), 0);
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { mut options, .. } = e.pending().clone() else {
+        panic!("expected a library search, got {:?}", e.pending())
+    };
+    options.sort();
+    rings.sort();
+    assert_eq!(options, rings, "no Forest is an artifact card");
+}
