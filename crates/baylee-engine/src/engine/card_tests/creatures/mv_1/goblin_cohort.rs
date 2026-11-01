@@ -10,13 +10,7 @@ fn cohort() -> CardIndex {
 }
 
 fn can_attack_after(spell: Option<CardIndex>) -> bool {
-    let mut e = lk::game(
-        SEED,
-        &[cohort()],
-        &[],
-        spell.as_ref().map_or(&[], std::slice::from_ref),
-        &[],
-    );
+    let mut e = lk::game(SEED, &[cohort()], &[], spell.as_slice(), &[]);
     let cohort = lk::obj(&e, lk::P0, cohort());
     if let Some(spell) = spell {
         lk::float(&mut e, lk::P0, &[(ManaColor::Red, 1)]);
