@@ -2074,9 +2074,15 @@ stream, so the copy (`simulation::driver::duplicate`) is private and
   timestamp 0. The old objects are removed from the fork's arena. Ids are
   handed out in deck-list order at setup, so a kept id would name its card
   to anyone holding the list; new ids are allocated in zone order and say
-  nothing. What the seat knew about a hidden card (a library top it saw, a
-  card revealed from a hand) is lost with it — losing knowledge is
-  accepted, leaking it is not.
+  nothing. What the seat can see now stays out of the deal, the same
+  objects in the same places: a hand revealed by a static (`hand_revealed`:
+  Revelation, Stromgald Spy), the hand of a player the seat controls
+  (`may_inspect_private`, CR 722), and a library top a static reveals
+  (`library_top_revealed`: Courser of Kruphix, Field of Dreams) — dealing
+  those would put a card there the seat knows is not, and with Courser
+  change which lands can be played from the top. What the seat knew earlier
+  about a hidden card (a top it saw, a card revealed from a hand and kept
+  there) is lost with it — losing knowledge is accepted, leaking it is not.
 - **Randomness** comes from the policy seed's `future` stream
   (`GameRng::stream`: the policy seed's ChaCha8 key on a stream named for
   its purpose). The real seed, word position and call count are not in the
@@ -2093,8 +2099,11 @@ stream, so the copy (`simulation::driver::duplicate`) is private and
   each one taken in a library, outside the game or in another player's
   hand — a draw keeps a copy of the card drawn; `per_turn.drawn`,
   `instruction_drawn`, `wand_of_ith_targets` and `ability_fires` entries
-  naming a removed id; and the dealt cards' entries in `printed_pt_cda` and
-  `offboard_static_candidates`, which the new objects take afresh.
+  naming a removed id; the dealt cards' entries in `printed_pt_cda` and
+  `offboard_static_candidates`, which the new objects take afresh; and,
+  after the statics are synced, the `effect_text_overrides` of effects that
+  no longer exist, as the end of the turn would drop them
+  (`prune_damage_sources`) — each one names its source's id.
 - **Settings**: no seat has capabilities; every other seat's standing
   answers and priority holds are the defaults (they are that seat's private
   setting); the forking seat keeps its own.
@@ -2110,6 +2119,18 @@ published precon, a deck the harness chose). `Unknown` is refused until a
 public prior over decks exists. The interned names and the base cache are
 functions of the submitted lists and public play, so a fork keeps them.
 
+Every field of `GameState` is classified in one place,
+`GameState::audit_fork` (`state/fork.rs`), which destructures the state
+without `..` as the snapshot hash does, so a new field does not compile
+until somebody has said what a fork does with it: **carried** (public, or a
+function of the deck lists), **idle** (a continuation that must be empty —
+the entry pipeline, the state-based-action and counter-order choices, a
+graveyard-order batch, the draw, discard, miracle and copy queues, token
+cleanup — or the fork is refused), **rewritten** (by the deal, the journal
+rewrite or the settle), or **checked** for a public record naming a hidden
+card. The driver's fields are classified the same way in
+`simulation::driver`.
+
 **The invariant:** for fixed seat-visible facts and policy seed, the fork's
 hidden zones and future randomness are the same whatever the real hidden
 cards and RNG; forking and advancing the fork leave the real engine's
@@ -2117,6 +2138,17 @@ state, hash and RNG unchanged. `engine/simulation_tests.rs` pins both
 halves against twin games, together with continuation (the same actions
 take source and fork to the same board; a pass already made is kept) and
 every refusal below.
+
+The invariant is about the hidden **arrangement**, not about **history**.
+A public object carries how it got where it is: a card's `version` counts
+every zone change it has made, the hidden ones included — a card put on the
+bottom by a London mulligan, or put back by Brainstorm and drawn again,
+shows more moves than its neighbour once it is public — and the effect
+table's identities and generation count every registration. A fork keeps
+that history as the game has it (a reader of the raw engine can count a
+public card's past moves, which the seat's view does not show); it deals
+the present, where every hidden card is, and does not rewrite what
+happened.
 
 **Refused** (`ForkRefusal`), because v1 cannot deal under them without
 leaking or dropping a rules fact: the opening mulligans (they run on streams
@@ -2131,19 +2163,32 @@ upkeep of turn 1 is refused and a main phase is not); a loop watch
 holding a signature (it hashes the real hidden cards) or breaking a loop;
 any face-down object (CR 708.2) and face-down exile (CR 406.3); a commander
 in a hidden zone; a hidden card with rules state of its own (counters, a
-status, riders, a copy's base, a face other than its front); anything
-public pointing at a hidden card (targets, an event object, an attachment,
-a rider, a play permission, a discovered card, a continuous effect about
-its current incarnation); another seat's standing answer in the journal
-(`AutoAnswered`); an unknown deck.
+status, riders, a copy's base, a face other than its front) — but not a
+stale `kind`: a permanent bounced to a hand is still marked a permanent
+there; a hidden card with a static that works in a hand or a library
+(`ZoneRef::Hand`, `Library`, `NotBattlefield`: Grist, the Hunger Tide),
+because every move between the two registers it again, moving the effect
+table's identities and generation and leaving a text override naming the
+card — a record of where it has been that a deal cannot rewrite; anything
+public pointing at a hidden card — an object's targets, its event object,
+its attachment, the source of the ability it is, what was discarded,
+sacrificed or tapped to pay for it, its riders; a play permission, a
+discovered card, a payment for a card, a delayed trigger's condition or
+action, a continuous effect about the card's current incarnation; another
+seat's standing answer in the journal (`AutoAnswered`; never in `eval4`,
+whose seats send no automation settings); an unknown deck. Every refusal
+depends on what the seat can see — when draws happened, what is public,
+what the pool's multiset is — never on where a hidden card is.
 
 The twin-game test compares the two forks with `Engine::fingerprint` (every
 field) and their whole journals, so a new field or note that carries a real
 hidden card into a fork fails it as soon as the fixture exercises it — that
-is how the `damage_sources` copies were found. It exercises draws, land
-plays, casting and passing; mechanics it does not reach (reveals, searches,
-wishes, cards put back into a library) are covered by the refusals and the
-field-by-field rules above, not by a twin comparison yet.
+is how the `damage_sources` copies were found, and the review's Grist
+override. It exercises draws, land plays, casting and passing, sideboards,
+a card defining its own power and toughness and one with a graveyard
+static; mechanics it does not reach (searches, wishes, cards put back into
+a library) are covered by the refusals and the field-by-field rules above,
+not by a twin comparison yet.
 
 ## Control rotation at a multiplayer table
 
