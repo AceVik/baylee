@@ -455,9 +455,12 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // Wurm and Vigilant Sentry (2 of 2 read by the evaluator).
     // Onslaught (`ons`), Legions (`lgn`), Scourge (`scg`), and Mirrodin (`mrd`)
     // Batch 1 add 15 non-mana activated abilities (13 of 15 read by the evaluator).
-    // Mirrodin (`mrd`) Batch 2 adds 23 non-mana activated abilities (11 of 23
+    // Mirrodin (`mrd`) Batch 2 adds 22 non-mana activated abilities (10 of 22
     // read by the evaluator); the contextual ones remain deliberately unread.
-    assert_eq!((read, of), (2952, 3742), "activated/loyalty reader census");
+    // Jinxed Choker's "put a charge counter on it or remove one" is one
+    // ability (`Effect::ChooseOne`), not an `AddCounter` row (read) and a
+    // `RemoveCounterSelf` row (unread): the choice is unread as a whole.
+    assert_eq!((read, of), (2951, 3741), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,

@@ -35897,8 +35897,8 @@ pub static ABILITY_LINES: &[&[FaceLines]] = &[
     // Jinxed Choker
     &[FaceLines {
         sentences: 3,
-        stackable: 4,
-        lines: &[Some(0), Some(1), Some(2), Some(2)],
+        stackable: 3,
+        lines: &[Some(0), Some(1), Some(2)],
         modes: &[],
         alternatives: &[],
     }],
