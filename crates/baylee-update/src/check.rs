@@ -13,24 +13,38 @@
 //! unpacks it, strips its versioned top folder into `new/`, and records it
 //! as staged. An archive whose signature does not verify is deleted and
 //! never unpacked.
+//!
+//! While it does, [`Checker::run_reporting`] says how far it has got
+//! ([`Stage`]): found, so many bytes of so many, verifying, unpacking. A
+//! [`Sink`] that answers `false` has nobody listening any more, and a
+//! download in progress stops there rather than fetching 150 MB for a
+//! client that has quit.
 
 use crate::apply::{self, Install, Staged, Unplaceable};
 use crate::archive::{self, Format};
 use crate::plan::NEW;
-use crate::release::{self, Offer, Release};
+use crate::progress::{Meter, Stage};
+use crate::release::{self, Asset, Files, Offer, Release};
 use crate::sign::{self, VerifyingKey};
 use semver::Version;
 use sha2::{Digest as _, Sha256};
 use std::fs;
 use std::io::{self, Read as _, Write as _};
 use std::path::Path;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// The releases of this repository, newest first, ten at a time.
 pub const GITHUB_RELEASES: &str = "https://api.github.com/repos/AceVik/baylee/releases?per_page=10";
 
 /// The largest `.sig` or `.sha256` read: both are one short line.
 const SMALL_FILE: u64 = 4096;
+
+/// Where a check's [`Stage`]s go, in order. It answers whether anybody
+/// still listens: `false`, and a download in progress stops.
+pub type Sink<'a> = &'a mut dyn FnMut(Stage) -> bool;
+
+/// Why a download stopped when its [`Sink`] stopped listening.
+const NOBODY_LISTENS: &str = "stopped: nobody is waiting for it any more";
 
 /// What one check found.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -254,6 +268,11 @@ impl Checker {
 
     /// One check: the newest offer for this build, staged if it may be.
     pub fn run(&mut self, context: &Context) -> Outcome {
+        self.run_reporting(context, &mut |_| true)
+    }
+
+    /// [`Self::run`], saying into `report` how far staging has got.
+    pub fn run_reporting(&mut self, context: &Context, report: Sink<'_>) -> Outcome {
         let releases = match self.releases() {
             Ok(releases) => releases,
             Err(err) => return Outcome::Unknown(err.to_string()),
@@ -273,7 +292,7 @@ impl Checker {
             Ok(install) => install,
             Err(why) => return available(Manual::Unplaceable(why.clone())),
         };
-        match self.stage(install, &offer, &context.keys) {
+        match self.stage_reporting(install, &offer, &context.keys, report) {
             Ok(staged) => Outcome::Staged {
                 version: staged.version,
                 page: staged.page,
@@ -292,6 +311,23 @@ impl Checker {
         install: &Install,
         offer: &Offer,
         keys: &[VerifyingKey],
+    ) -> Result<Staged, Manual> {
+        self.stage_reporting(install, offer, keys, &mut |_| true)
+    }
+
+    /// [`Self::stage`], saying into `report` how far it has got: found once
+    /// nothing but the download stands in the way, then the bytes as they
+    /// arrive, then verifying and unpacking.
+    ///
+    /// # Errors
+    ///
+    /// Why it was not staged; nothing unverified is left behind.
+    pub fn stage_reporting(
+        &mut self,
+        install: &Install,
+        offer: &Offer,
+        keys: &[VerifyingKey],
+        report: Sink<'_>,
     ) -> Result<Staged, Manual> {
         let files = offer.files.as_ref().ok_or(Manual::NoArchive)?;
         let signature = files.signature.as_ref().ok_or(Manual::Unsigned)?;
@@ -331,6 +367,14 @@ impl Checker {
         let stage = install.stage();
         clear_staging(&stage);
         let download = |err: &dyn std::fmt::Display| Manual::Download(err.to_string());
+        let found = Stage::Found {
+            version: version.clone(),
+            page: offer.page.clone(),
+            size: files.archive.size,
+        };
+        if !report(found) {
+            return Err(Manual::Download(NOBODY_LISTENS.into()));
+        }
 
         let archive_path = stage.join(&files.archive.name);
         let digest = self
@@ -338,27 +382,13 @@ impl Checker {
                 &files.archive.browser_download_url,
                 &archive_path,
                 files.archive.size,
+                report,
             )
             .map_err(|err| download(&err))?;
-        let refuse = |why: String| {
-            let _ = fs::remove_file(&archive_path);
-            Manual::NotOurs(why)
-        };
-        if let Some(checksum) = &files.checksum {
-            let text = self
-                .small(&checksum.browser_download_url)
-                .map_err(|err| download(&err))?;
-            let text = String::from_utf8_lossy(&text);
-            sign::checksum_matches(&text, &files.archive.name, &digest)
-                .map_err(|err| refuse(err.to_string()))?;
-        }
-        let sig = self
-            .small(&signature.browser_download_url)
-            .map_err(|err| download(&err))?;
-        let bytes = fs::read(&archive_path).map_err(|err| download(&err))?;
-        sign::verify(&bytes, &sig, keys).map_err(|err| refuse(err.to_string()))?;
-        drop(bytes);
+        let _ = report(Stage::Verifying);
+        self.verify(files, signature, &archive_path, &digest, keys)?;
 
+        let _ = report(Stage::Unpacking);
         let unpacked = stage.join("unpack");
         let expected_root = files
             .archive
@@ -391,8 +421,48 @@ impl Checker {
         Ok(staged)
     }
 
-    /// Streams `url` to `to` through a `.part` file, hashing on the way.
-    fn download(&mut self, url: &str, to: &Path, size: u64) -> io::Result<[u8; 32]> {
+    /// Checks the downloaded archive at `archive`: its `.sha256` if the
+    /// release has one, then its signature against `keys`. A refused
+    /// archive is deleted.
+    fn verify(
+        &mut self,
+        files: &Files,
+        signature: &Asset,
+        archive: &Path,
+        digest: &[u8; 32],
+        keys: &[VerifyingKey],
+    ) -> Result<(), Manual> {
+        let download = |err: &dyn std::fmt::Display| Manual::Download(err.to_string());
+        let refuse = |why: String| {
+            let _ = fs::remove_file(archive);
+            Manual::NotOurs(why)
+        };
+        if let Some(checksum) = &files.checksum {
+            let text = self
+                .small(&checksum.browser_download_url)
+                .map_err(|err| download(&err))?;
+            let text = String::from_utf8_lossy(&text);
+            sign::checksum_matches(&text, &files.archive.name, digest)
+                .map_err(|err| refuse(err.to_string()))?;
+        }
+        let sig = self
+            .small(&signature.browser_download_url)
+            .map_err(|err| download(&err))?;
+        let bytes = fs::read(archive).map_err(|err| download(&err))?;
+        sign::verify(&bytes, &sig, keys)
+            .map(|_| ())
+            .map_err(|err| refuse(err.to_string()))
+    }
+
+    /// Streams `url` to `to` through a `.part` file, hashing on the way and
+    /// saying into `report` how much has arrived ([`Meter`]).
+    fn download(
+        &mut self,
+        url: &str,
+        to: &Path,
+        size: u64,
+        report: Sink<'_>,
+    ) -> io::Result<[u8; 32]> {
         let mut response = self
             .get(url)
             .map_err(|err| io::Error::other(err.to_string()))?;
@@ -408,7 +478,14 @@ impl Checker {
         let mut reader = response.body_mut().as_reader().take(size + 1);
         let mut buf = vec![0u8; 64 * 1024];
         let mut total = 0u64;
-        loop {
+        let began = Instant::now();
+        let mut meter = Meter::new(size);
+        let mut say = |at: Duration, total: u64| match meter.feed(at, total) {
+            Some(reading) => report(Stage::Downloading(reading)),
+            None => true,
+        };
+        let mut listened = say(Duration::ZERO, 0);
+        while listened {
             let n = reader.read(&mut buf)?;
             if n == 0 {
                 break;
@@ -416,6 +493,12 @@ impl Checker {
             hash.update(&buf[..n]);
             file.write_all(&buf[..n])?;
             total += n as u64;
+            listened = say(began.elapsed(), total);
+        }
+        if !listened {
+            drop(file);
+            let _ = fs::remove_file(&part);
+            return Err(io::Error::other(NOBODY_LISTENS));
         }
         file.sync_all()?;
         drop(file);

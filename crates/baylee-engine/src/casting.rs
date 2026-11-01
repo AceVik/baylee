@@ -22,9 +22,12 @@ mod additional;
 mod escape;
 mod intrinsic;
 mod lands;
-pub(crate) use additional::{additional_card_enters_graveyard, additional_payment_capacity};
+pub(crate) use additional::{
+    additional_card_enters_graveyard, additional_payment_capacity, additional_payment_capacity_for,
+};
 mod payment;
 mod permissions;
+mod player_locks;
 mod pricing;
 mod source_cost;
 #[cfg(test)]
@@ -368,6 +371,17 @@ pub fn mode_has_a_legal_target(
     }
 }
 
+/// Every mode of `modes` as a bitmask, for entwine (CR 702.42a).
+#[must_use]
+pub fn entwine_set(modes: &[baylee_cards_dsl::SpellMode]) -> u8 {
+    let n = modes.len().min(8);
+    if n == 0 {
+        0
+    } else {
+        u8::try_from((1_u16 << n) - 1).unwrap_or(u8::MAX)
+    }
+}
+
 /// Every set of modes a spell that chooses more than one may be cast with
 /// (CR 700.2a), as a bitmask — bit `i` is mode `i` — in increasing order:
 /// each holds as many modes as `choose` allows, none twice (CR 700.2d).
@@ -528,9 +542,10 @@ pub(crate) fn requirement_is_reachable_for(
     };
     if req.min == 0
         || req.count_is_x
+        || matches!(req.spec, baylee_cards_dsl::TargetSpec::ThisObject)
         || matches!(
             req.spec,
-            baylee_cards_dsl::TargetSpec::Player(_) | baylee_cards_dsl::TargetSpec::ThisObject
+            baylee_cards_dsl::TargetSpec::Player(rel) if rel != baylee_cards_dsl::PlayerRel::You
         )
     {
         return true;
@@ -704,6 +719,9 @@ pub(crate) fn cast_is_forbidden(
                 crate::eval::players(who, state, fx.controller)
                     .is_some_and(|players| players.contains(&player))
                     && state.per_turn.spells_cast_by(player) >= limit
+            }
+            baylee_cards_dsl::Modifier::PlayersCantCast { who, filter } => {
+                player_locks::prevents(state, fx, who, filter, player, obj)
             }
             baylee_cards_dsl::Modifier::OpponentsCantCast(filter) => {
                 state.is_opponent(fx.controller, player)
@@ -1627,7 +1645,8 @@ fn alternative_parts_payable(
         | CostPart::SacrificeX(_)
         | CostPart::SacrificeAll(_)
         | CostPart::PayCommanderColors
-        | CostPart::PayAttachedManaCost => false,
+        | CostPart::PayAttachedManaCost
+        | CostPart::ExileTopOfLibrary(_) => false,
         CostPart::DiscardHand
         | CostPart::TapSelf
         | CostPart::UntapSelf

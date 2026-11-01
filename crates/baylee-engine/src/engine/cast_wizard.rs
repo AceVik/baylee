@@ -384,12 +384,34 @@ pub(crate) const fn paid_as_a_mandatory_additional_cost(part: &CostPart) -> bool
     )
 }
 
+/// The mandatory additional cost parts for `face`, plus entwine's non-mana
+/// cost parts when `option` chooses all modes (CR 702.42a).
+pub(crate) fn wizard_mandatory_parts(
+    face: &'static baylee_cards_dsl::FaceDef,
+    option: Option<CastModeKind>,
+) -> impl Iterator<Item = &'static CostPart> {
+    let entwine_parts = match (option, face.entwine) {
+        (Some(CastModeKind::Modes(_)), Some(entwine)) => entwine.parts,
+        _ => &[],
+    };
+    face.mandatory_additional_costs
+        .iter()
+        .chain(entwine_parts.iter())
+}
+
 /// The parts of a spell's additional cost that ask which permanent pays
 /// them, in printed order: the questions the `Sacrifice` stage puts.
 pub(crate) fn additional_card_costs(
     face: &'static baylee_cards_dsl::FaceDef,
 ) -> impl Iterator<Item = &'static CostPart> {
-    face.mandatory_additional_costs.iter().filter(|p| {
+    additional_card_costs_for(face, None)
+}
+
+pub(crate) fn additional_card_costs_for(
+    face: &'static baylee_cards_dsl::FaceDef,
+    option: Option<CastModeKind>,
+) -> impl Iterator<Item = &'static CostPart> {
+    wizard_mandatory_parts(face, option).filter(|p| {
         matches!(
             p,
             CostPart::Sacrifice(_)
@@ -1732,10 +1754,13 @@ impl<L: CardLookup> Engine<L> {
         &self,
         wizard: &CastWizard,
         total: ManaCost,
-    ) -> (ManaCost, Option<(baylee_core::mana::ManaColor, u32)>) {
+    ) -> (ManaCost, Option<crate::mana_pay::GenericRestriction>) {
         let face = self.wizard_face(wizard);
-        let restricted_color = face.x_mana_color.filter(|_| !wizard.free);
-        if restricted_color.is_none() && face.extra_target_cost == 0 {
+        let restricted_colors = face
+            .x_mana_colors
+            .or_else(|| face.x_mana_color.map(baylee_core::color::ColorSet::of))
+            .filter(|_| !wizard.free);
+        if restricted_colors.is_none() && face.extra_target_cost == 0 {
             return (total, None);
         }
         let reduction = wizard.reduction.map_or(0, |reduction| reduction.total);
@@ -1745,8 +1770,10 @@ impl<L: CardLookup> Engine<L> {
             .min(total.generic_total());
         (
             total,
-            restricted_color
-                .map(|color| (baylee_core::mana::ManaColor::from_color(color), restricted)),
+            restricted_colors.map(|colors| crate::mana_pay::GenericRestriction {
+                types: colors.bits(),
+                amount: restricted,
+            }),
         )
     }
 

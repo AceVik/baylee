@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp RG #20266118]
+1 Advocate of the Beast
+1 Akoum Warrior
+1 Algae Gharial
+1 Archweaver
+1 Balduvian Hydra
+1 Belligerent Guest
+1 Blor the Impervious
+1 Boggart Brute
+1 Boldwyr Aggressor
+1 Bonders' Enclave
+1 Centaur Veteran
+1 Cinder Giant
+1 City of Shadows
+1 Collector's Vault
+1 Commercial District
+1 Craw Giant
+1 Crystal Slipper
+1 Defiant Elf
+1 Devils' Playground
+1 Dwarven Armorer
+1 Dwarven Weaponsmith
+1 Emerald Medallion
+1 Erdwal Ripper
+12 Forest
+1 Frontline War-Rager
+1 Frost Giant
+1 Furious Bellow
+1 Gnottvold Slumbermound
+1 Goblin Rally
+1 Havengul Vampire
+1 Havenwood Wurm
+1 Highland Weald
+1 Hobbit Hole
+1 Hungry Spriggan
+1 Impetuous Sunchaser
+1 Karplusan Giant
+1 Kavu Monarch
+1 Loamdragger Giant
+1 Mana Geode
+1 Maraxus of Keld
+1 Marhault Elsdragon
+1 Markov Blademaster
+14 Mountain
+1 Obscura Storefront
+1 Omashu City
+1 Opal Palace
+1 Ornithopter of Paradise
+1 Pheres-Band Warchief
+1 Prying Blade
+1 Racers' Ring
+1 Rath's Edge
+1 Ravenous Giant
+1 Raze the Effigy
+1 Restless Ridgeline
+1 Rock Hydra
+1 Rootbreaker Wurm
+1 Rubble Reading
+1 Savaen Elves
+1 Savage Mansion
+1 Scaled Wurm
+1 Seer's Lantern
+1 Segmented Wurm
+1 Skyscythe Engulfer
+1 Spire Garden
+1 Sword of the Meek
+1 Tajuru Pathwarden
+1 Temple of Abandon
+1 Triassic Egg
+1 Two-Headed Giant of Foriys
+1 Utvara Scalper
+1 Viridian Zealot
+1 Warriors of Wakanda
+1 Wayward Giant
+1 Wooded Ridgeline
+1 Wrecking Crew
+
+[commander]
+Livonya Silone

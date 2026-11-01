@@ -1,0 +1,82 @@
+# baylee synergistic holdout coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUB #90010016]
+1 A.I.M. Labs
+1 Amateur Hero
+1 Anchovy & Banana Pizza
+1 Ancient Ziggurat
+1 Angel of Mercy
+1 Argivian Archaeologist
+1 Azorius Keyrune
+1 Blood Seeker
+1 Braingeyser
+1 Brotherhood Headquarters
+1 Bucolic Ranch
+1 Captivating Cave
+1 Cavalry Drillmaster
+1 Cloak of Feathers
+1 Conduit Pylons
+1 Creature Bond
+1 Cruel Witness
+1 Deny Entry
+1 Disciple of Malice
+1 Dispel
+1 Duskmantle, House of Shadow
+1 Eclipsed Realms
+1 Edge of the Divinity
+1 Elder Land Wurm
+1 Eldrazi Skyspawner
+1 Enervate
+1 Essence Drain
+1 Essence Flare
+1 Farrel's Mantle
+1 Fevered Strength
+1 Flusterstorm
+1 Forecasting Fortune Teller
+1 Hag of Syphoned Breath
+1 Hardened Tactician
+1 Holy Cow
+1 Hour of Defeat
+1 Incubator Drone
+12 Island
+1 Jwari Scuttler
+1 Keeneye Aven
+1 Mage's Attendant
+1 Memory Drain
+1 Merfolk Traders
+1 Merrow Witsniper
+1 Muse's Encouragement
+1 Nimana Skydancer
+1 Noxious Dragon
+1 Painted Bluffs
+1 Phalanx Vanguard
+6 Plains
+1 Planar Nexus
+1 Plumecreed Escort
+1 Psychic Barrier
+1 Sage's Knowledge
+1 Saltwater Stalwart
+1 Sandbar Merfolk
+1 Seashell Cameo
+1 Seizan, Perverter of Truth
+1 Shineshadow Snarl
+1 Sky Diamond
+1 Sky Theater Strix
+1 Slayer of the Wicked
+1 Soldevi Machinist
+1 Soot Imp
+1 Soul Feast
+1 Sphinx of the Final Word
+6 Swamp
+1 The Seedcore
+1 Throne of Bone
+1 Timetwister
+1 Trusty Packbeast
+1 Turtle Lair
+1 Umara Wizard
+1 Unburden
+1 Unclaimed Territory
+1 Underdome
+1 Vampire Opportunist
+1 Vault of Champions
+1 Zhalfirin Shapecraft

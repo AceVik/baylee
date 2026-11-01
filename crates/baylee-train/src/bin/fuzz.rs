@@ -391,7 +391,7 @@ fn main() -> anyhow::Result<()> {
     });
     let root = repo_root();
     let working = Working::scan(&root).context("reading the engine's test code")?;
-    let pool = deckgen::Pool::new(&working, &BTreeSet::new());
+    let pool = deckgen::pool_for_working(&working, &BTreeSet::new());
     let shapes: Vec<Shape> = args
         .shapes
         .iter()

@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/OGW/desperate-stand.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DesperateStand_OGW.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Desperate Stand (Adapted)]
+2 Allied Reinforcements
+2 Anguished Unmaking
+1 Blighted Fen
+1 Drana's Emissary
+1 Evolving Wilds
+2 Expedition Envoy
+2 Gideon's Reproach
+1 Harsh Sustenance
+2 Ironpaw Aspirant
+2 Kalastria Healer
+2 Kor Entanglers
+2 Kor Scythemaster
+1 Malakir Soothsayer
+2 Ondu War Cleric
+14 Plains
+1 Smite the Monstrous
+2 Spawnbinder Mage
+1 Sunlit Marsh
+9 Swamp
+2 Tar Snare
+2 Vampire Envoy
+4 Vindicate
+2 Zulaport Chainmage

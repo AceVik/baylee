@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/WC98/randy-buehler-draw-go.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RandyBuehlerDrawGo_WC98.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Randy Buehler - Draw, Go (Adapted)]
+4 Counterspell
+4 Dismiss
+2 Dissipate
+3 Dream Fracture
+4 Force Spike
+4 Impulse
+18 Island
+3 Mana Leak
+4 Nevinyrral's Disk
+4 Opt
+4 Quicksand
+1 Rainbow Efreet
+4 Stalking Stones
+1 Unexplained Disappearance

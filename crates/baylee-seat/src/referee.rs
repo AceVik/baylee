@@ -192,6 +192,8 @@ mod tests {
                     attackers: vec![o(5)],
                     defenders: vec![Defender::Player(THEM)],
                     required: Vec::new(),
+                    alone: Vec::new(),
+                    minimum_required: None,
                     limits: Vec::new(),
                 },
                 PlayerAction::DeclareAttackers {

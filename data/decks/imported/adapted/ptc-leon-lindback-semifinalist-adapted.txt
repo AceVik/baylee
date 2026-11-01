@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/PTC/leon-lindback-semifinalist.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LeonLindbackSemifinalist_PTC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Leon Lindback, Semifinalist (Adapted)]
+4 Bottomless Pit
+1 Dark Banishing
+4 Dark Ritual
+1 Douse in Gloom
+4 Drain Life
+2 Ebon Stronghold
+1 Enfeeblement
+4 Hymn to Tourach
+4 Hypnotic Specter
+1 Ivory Tower
+1 Jalum Tome
+3 Knight of Stromgald
+2 Nevinyrral's Disk
+4 Order of the Ebon Hand
+2 Serrated Arrows
+4 Strip Mine
+17 Swamp
+1 Zuran Orb

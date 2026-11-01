@@ -1,4 +1,4 @@
-//! Fifteen original suites, performed by one persistent acoustic/synthetic ensemble.
+//! A public-domain memorial performance and fifteen original duel suites.
 //! Composition is in `manuscript`; arranging is a pure, bounded note scheduler.
 //! Scene/theme changes are admitted on the next
 //! eighth (about 0.18–0.35 seconds). Result cues finish before leaving the result.
@@ -18,6 +18,7 @@ use std::sync::{
 };
 pub(super) mod arrangement;
 mod manuscript;
+pub(in crate::music) mod memorial;
 mod part;
 mod styles;
 mod themes;
@@ -48,9 +49,9 @@ pub struct Position {
     pub samples: SampleSet,
     /// Arrangement currently performed.
     pub movement: Movement,
-    /// Absolute bars completed; never reset by a scene change.
+    /// Absolute bars (four-second observation windows in the memorial); never reset.
     pub bar: u64,
-    /// Bar in this arrangement, including the initial cue for endings.
+    /// Local bar/window in this arrangement, including the initial result cue.
     pub phrase_bar: u32,
 }
 
@@ -59,6 +60,7 @@ pub struct Position {
 pub struct Tune {
     control: Arc<ScoreControl>,
     orchestra: Orchestra,
+    memorial: memorial::Performance,
     position: Position,
     tick: u8,
     until_tick: f64,
@@ -91,6 +93,7 @@ impl Tune {
         Self {
             control,
             orchestra: Orchestra::default(),
+            memorial: memorial::Performance::default(),
             position: Position {
                 theme: request.theme,
                 samples: request.samples,
@@ -127,11 +130,15 @@ impl Tune {
         let urgent = movement.ending() && movement != self.position.movement;
         if !self.started || (!protected || urgent) {
             if movement != self.position.movement || request.theme != self.position.theme {
-                self.orchestra.release_notes();
+                let continuous =
+                    memorial::contains(movement) && memorial::contains(self.position.movement);
+                if !continuous {
+                    self.orchestra.release_notes();
+                    self.position.phrase_bar = 0;
+                    self.tick = 0;
+                }
                 self.position.movement = movement;
                 self.position.theme = request.theme;
-                self.position.phrase_bar = 0;
-                self.tick = 0;
             }
             self.position.samples = request.samples;
             self.target = self.position.theme.eighth(movement);
@@ -156,6 +163,10 @@ impl Tune {
             self.position.phrase_bar = self.position.phrase_bar.saturating_add(1);
         }
         self.admit();
+        if memorial::contains(self.position.movement) {
+            self.until_tick += f64::from(self.memorial.play(&mut self.orchestra));
+            return;
+        }
         let notes = arrangement::notes(
             self.position.theme,
             self.position.movement,
@@ -190,6 +201,10 @@ impl Tune {
         self.until_tick += f64::from(RATE) * self.eighth * swing;
     }
     fn advance(&mut self) {
+        if memorial::contains(self.position.movement) && self.memorial.advance() {
+            self.position.bar += 1;
+            self.position.phrase_bar = self.position.phrase_bar.saturating_add(1);
+        }
         self.eighth += (self.target - self.eighth) / (f64::from(RATE) * 3.0);
         self.until_tick -= 1.0;
     }

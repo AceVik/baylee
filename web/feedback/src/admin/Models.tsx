@@ -222,8 +222,8 @@ export interface DefinitionForm {
   gameCalls?: string;
   priceIn?: string;
   priceOut?: string;
-  /** A profile id, or "" for none. */
-  fallback?: string;
+  /** The fallback chain, in the order its profiles take over; blank entries are none. */
+  fallback?: string[];
   profile: string;
 }
 
@@ -267,12 +267,21 @@ export function readDefinition(form: DefinitionForm): LlmDefinition | Key {
   if (monthTokens !== undefined) caps.month_tokens = Math.floor(monthTokens);
   if (Object.keys(caps).length > 0) definition.caps = caps;
   if (form.canary) definition.canary = true;
-  const fallback = form.fallback?.trim() ?? "";
-  if (fallback !== "") definition.fallback = fallback;
+  // One fallback is written as its id, as it always was; a chain as the list.
+  const chain = [...new Set((form.fallback ?? []).map((id) => id.trim()).filter((id) => id !== ""))];
+  const [only] = chain;
+  if (chain.length === 1 && only !== undefined) definition.fallback = only;
+  else if (chain.length > 1) definition.fallback = chain;
   return definition;
 }
 
-/** Whether the profile's JSON names an agent CLI, which takes no fallback. */
+/** A definition's fallbacks as a chain: one id, a list of them, or none. */
+export function chainOf(fallback: string | string[] | undefined): string[] {
+  if (fallback === undefined) return [];
+  return typeof fallback === "string" ? [fallback] : [...fallback];
+}
+
+/** Whether the profile's JSON names an agent CLI, whose fallbacks play its model behind an API. */
 function playsCli(profile: string): boolean {
   try {
     const parsed: unknown = JSON.parse(profile);
@@ -413,7 +422,7 @@ function Editor({
   const [enabled, setEnabled] = useState(d.enabled ?? true);
   const [canary, setCanary] = useState(d.canary ?? false);
   const [maxGames, setMaxGames] = useState(d.max_games?.toString() ?? "");
-  const [fallback, setFallback] = useState(d.fallback ?? "");
+  const [fallback, setFallback] = useState<string[]>(chainOf(d.fallback));
   const [gameUsd, setGameUsd] = useState(boxed(p["game_usd"]));
   const [gameTokens, setGameTokens] = useState(boxed(p["game_tokens"]));
   const [gameCalls, setGameCalls] = useState(boxed(p["game_calls"]));
@@ -452,8 +461,19 @@ function Editor({
     setProfile(JSON.stringify(next, null, 2));
   };
   const choices = fallbackChoices(hosts, host, id, vendor);
-  const missing = fallback !== "" && !choices.some((c) => c.id === fallback);
-  const elsewhere = hosts.find((h) => h.name === host)?.profiles.some((other) => other.id === fallback) ?? false;
+  const onHost = (fid: string) => hosts.find((h) => h.name === host)?.profiles.some((other) => other.id === fid) ?? false;
+  // One select a fallback of the chain, and one more to add the next; choosing none ends the
+  // chain there.
+  const slots = [...fallback, ""];
+  const choose = (at: number, value: string) => {
+    if (value === "") {
+      setFallback(fallback.slice(0, at));
+      return;
+    }
+    const next = [...fallback];
+    next[at] = value;
+    setFallback(next.filter((other, i) => i <= at || other !== value));
+  };
   const what = `${id} @ ${host}`;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -477,7 +497,7 @@ function Editor({
       gameCalls,
       priceIn,
       priceOut,
-      fallback: cli ? "" : fallback,
+      fallback,
       profile,
     });
     if (typeof read === "string") {
@@ -550,7 +570,7 @@ function Editor({
                   onChange={(e) => {
                     setHost(e.target.value);
                     // A fallback is a profile of the seat agent: another one's is none.
-                    setFallback("");
+                    setFallback([]);
                   }}
                 >
                   {hosts.map((h) => (
@@ -648,27 +668,37 @@ function Editor({
             {field(
               "llm-fallback",
               "llm.fallback",
-              <select
-                id="llm-fallback"
-                value={cli ? "" : fallback}
-                disabled={cli}
-                aria-describedby="llm-fallback-hint"
-                onChange={(e) => {
-                  setFallback(e.target.value);
-                }}
-              >
-                <option value="">{t(lang, "llm.fallbackNone")}</option>
-                {choices.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label} · {c.id}
-                  </option>
-                ))}
-                {missing && !cli && (
-                  <option value={fallback}>
-                    {t(lang, elsewhere ? "llm.fallbackUnfit" : "llm.fallbackMissing", { id: fallback })}
-                  </option>
-                )}
-              </select>,
+              <div className="llm-fallback-chain">
+                {slots.map((chosen, at) => {
+                  // A profile already earlier in the chain is not offered again.
+                  const offered = choices.filter((c) => !fallback.slice(0, at).includes(c.id));
+                  const missing = chosen !== "" && !offered.some((c) => c.id === chosen);
+                  return (
+                    <select
+                      key={at}
+                      id={at === 0 ? "llm-fallback" : `llm-fallback-${at + 1}`}
+                      value={chosen}
+                      aria-label={at === 0 ? undefined : t(lang, "llm.fallbackNext", { n: at + 1 })}
+                      aria-describedby="llm-fallback-hint"
+                      onChange={(e) => {
+                        choose(at, e.target.value);
+                      }}
+                    >
+                      <option value="">{t(lang, "llm.fallbackNone")}</option>
+                      {offered.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.label} · {c.id}
+                        </option>
+                      ))}
+                      {missing && (
+                        <option value={chosen}>
+                          {t(lang, onHost(chosen) ? "llm.fallbackUnfit" : "llm.fallbackMissing", { id: chosen })}
+                        </option>
+                      )}
+                    </select>
+                  );
+                })}
+              </div>,
               cli ? "llm.hint.fallbackCli" : "llm.hint.fallback",
             )}
           </div>
@@ -983,7 +1013,7 @@ function HostRow({
       </dl>
       {p.definition.fallback !== undefined && (
         <p className="muted small llm-fallback-line">
-          {t(lang, "llm.fallbackIs", { id: p.definition.fallback })}
+          {t(lang, "llm.fallbackIs", { id: chainOf(p.definition.fallback).join(" → ") })}
           {p.diverts !== undefined && (
             <>
               {" "}

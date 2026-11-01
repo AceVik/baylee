@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/ULG/phyrexian-assault-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PhyrexianAssaultEnhancedDeck_ULG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Phyrexian Assault - Enhanced Deck (Adapted)]
+2 Avalanche Riders
+3 Bone Shredder
+3 Cinder Marsh
+3 City of Brass
+2 Expunge
+3 Fireslinger
+1 Ghitu Encampment
+3 Ghitu Slinger
+2 Goblin Medics
+1 Lightning Blast
+6 Mountain
+2 Phyrexian Broodlings
+3 Phyrexian Debaser
+3 Phyrexian Defiler
+2 Phyrexian Plaguelord
+2 Phyrexian Reclamation
+1 Polluted Mire
+1 Price of Progress
+3 Reflecting Pool
+1 Rock Hydra
+2 Shock
+1 Smoldering Crater
+1 Spawning Pool
+1 Spinal Villain
+7 Swamp
+1 Viashino Cutthroat

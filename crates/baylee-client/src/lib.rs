@@ -75,6 +75,8 @@ pub mod hud;
 pub mod input;
 pub mod keys;
 pub mod lifeflash;
+/// `baylee:` links from the website: how they reach the client.
+pub mod links;
 pub mod loading;
 pub mod lobby;
 pub mod manasources;
@@ -129,7 +131,7 @@ use baylee_client_core::browser::Placement;
 use baylee_client_core::i18n::{Phrase, Refusal};
 use baylee_client_core::interaction::Interaction;
 use baylee_client_core::layout::{Seat, TableLayout};
-use baylee_client_core::reconnect::{LinkNote, Retry, Window};
+use baylee_client_core::reconnect::{LinkNote, Retry, Window, gave_up};
 use baylee_core::ids::{ObjectId, PlayerId};
 use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_view::{GameStatic, PlayerView};
@@ -822,6 +824,10 @@ pub struct Duel {
     /// form on the next frame (#309). A flag rather than a call, because the
     /// menu's handler holds only the duel.
     pub report_asked: bool,
+    /// The game menu's Settings was pressed: the lobby stands its settings
+    /// screen over the table on the next frame (`lobby::table_settings`),
+    /// for the reason [`Self::report_asked`] is a flag.
+    pub settings_asked: bool,
     /// What has been typed into the creature-type filter.
     ///
     /// It lives here and not on the `Interaction` because the interaction is
@@ -1406,6 +1412,8 @@ fn keep_the_table_connected(
         // not information anyone can act on. Which sentence that is comes
         // from the same place in both arms — see `link_note`.
         LinkState::Connecting => {
+            retry.schedule.hold_for(table);
+            retry.schedule.refusals(host.0.ticket_refusals());
             retry.schedule.stayed_down(time.delta_secs());
             duel.link_note = Some(link_note(&retry.schedule, table, here));
         }
@@ -1420,9 +1428,13 @@ fn keep_the_table_connected(
             }
         }
         LinkState::Down => {
+            // The table's window holds the dials on until it has passed; the
+            // refusals say, when they run out, whether it was the sign-in.
+            retry.schedule.hold_for(table);
+            retry.schedule.refusals(host.0.ticket_refusals());
             retry.schedule.stayed_down(time.delta_secs());
             if retry.schedule.exhausted() {
-                duel.link_note = Some(LinkNote::just(Phrase::LinkGaveUp));
+                duel.link_note = Some(gave_up(&retry.schedule));
                 if !retry.told {
                     retry.told = true;
                     reports.write(DuelReport::Unreachable);

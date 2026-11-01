@@ -27,12 +27,10 @@ fn a_deck_can_be_opened_edited_and_thrown_away_from_the_list() {
     assert!(presses(&mut app).contains(&Press::Decks(DecksPress::Delete(0))));
 }
 
-/// #254: the deckbuilder says which build it is, as the lobby does, on every
-/// frame: beside the brand where there is room (the shell design §2.1, the
-/// short form), and in the gateway's popover — the whole build — everywhere,
-/// a narrow header included.
+/// The builder keeps its brand clear of the build version on every frame;
+/// the gateway's popover still names the whole build, narrow headers included.
 #[test]
-fn the_builder_names_its_build_on_every_frame() {
+fn the_builder_keeps_its_build_in_the_gateway_popover() {
     for width in [1400.0, 390.0] {
         let mut app = headless();
         stocked(&mut app);
@@ -42,13 +40,11 @@ fn the_builder_names_its_build_on_every_frame() {
             .lobby
             .build_deck();
         app.update();
-        if width > 1000.0 {
-            let drawn = labels(&mut app);
-            assert!(
-                drawn.iter().any(|l| l == baylee_build::VERSION),
-                "{width} px: {drawn:?}"
-            );
-        }
+        let drawn = labels(&mut app);
+        assert!(
+            drawn.iter().all(|l| l != baylee_build::VERSION),
+            "{width} px: {drawn:?}"
+        );
         press(&mut app, Press::Header(crate::lobby::HeaderPress::Gateway));
         let drawn = labels(&mut app);
         assert!(
@@ -1442,4 +1438,75 @@ fn window_clip(visible: Rect) -> bevy::ui::CalculatedClip {
     let mut clip = bevy::ui::CalculatedClip::default();
     clip.push_rect(visible, bevy::math::Affine2::IDENTITY);
     clip
+}
+
+#[test]
+fn the_retained_builder_header_tracks_chat_availability() {
+    let mut app = headless();
+    stocked(&mut app);
+    sized(&mut app, 1400.0);
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .build_deck();
+    app.update();
+    assert!(!presses(&mut app).contains(&Press::Header(HeaderPress::Chat)));
+    let (machine, _) = baylee_client_core::social::Social::start(
+        baylee_client_core::social::Me {
+            tag: "test".into(),
+            handle: "Review#test".into(),
+            guest: false,
+            gateway: "http://127.0.0.1:1".into(),
+        },
+        None,
+        None,
+        baylee_client_core::social::ChatPrefs::default(),
+        1000,
+        &mut crate::social::OsEntropy,
+    );
+    app.world_mut()
+        .resource_mut::<crate::social::SocialHost>()
+        .machine = Some(machine);
+    app.update();
+    app.update();
+    assert!(
+        presses(&mut app).contains(&Press::Header(HeaderPress::Chat)),
+        "unlocking chat did not update the retained builder header"
+    );
+    app.world_mut()
+        .resource_mut::<crate::social::SocialHost>()
+        .machine = None;
+    app.update();
+    app.update();
+    assert!(
+        !presses(&mut app).contains(&Press::Header(HeaderPress::Chat)),
+        "locking chat left its old control behind"
+    );
+}
+
+#[test]
+fn draw_seven_requests_reveal_even_when_it_draws_the_same_cards_again() {
+    use baylee_client_core::deckbuilder::Zone;
+    let mut app = headless();
+    stocked(&mut app);
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.build_deck();
+        state.build.tab = crate::buildui::DeckTab::Stats;
+        state.lobby.builder_mut().add(0, Zone::Main);
+    }
+    app.update();
+    for _ in 0..2 {
+        app.world_mut()
+            .resource_mut::<LobbyState>()
+            .build
+            .reveal_hand = false;
+        press(&mut app, Press::Build(BuildPress::DrawSeven));
+        let state = app.world().resource::<LobbyState>();
+        assert_eq!(state.build.hand, vec![0]);
+        assert!(
+            state.build.reveal_hand,
+            "each draw asks to reveal its result"
+        );
+    }
 }

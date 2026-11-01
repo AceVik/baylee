@@ -1,0 +1,33 @@
+# adapted from data/decks/precon/ARC/trample-civilization-underfoot.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TrampleCivilizationUnderfoot_ARC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Trample Civilization Underfoot (Adapted)]
+2 Advent of the Wurm
+1 Altar of Bone
+4 Call of the Conclave
+3 Eladamri's Call
+1 Fog
+10 Forest
+4 Gerrard's Command
+1 Graypelt Refuge
+1 Harmonize
+3 Heroes' Reunion
+1 Khalni Garden
+1 Krosan Verge
+1 Leaf Gilder
+1 Llanowar Reborn
+1 Molimo, Maro-Sorcerer
+1 Mosswort Bridge
+3 Nature's Chant
+1 Path to Exile
+5 Plains
+1 Plummet
+1 Rancor
+1 Razorverge Thicket
+1 Secluded Steppe
+2 Silverglade Pathfinder
+1 Tranquil Thicket
+2 Vitalizing Cascade
+1 Vitu-Ghazi, the City-Tree
+2 Wall of Roots
+1 Watchwolf
+2 Wickerbough Elder

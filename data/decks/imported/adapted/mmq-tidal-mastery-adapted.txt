@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/MMQ/tidal-mastery.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TidalMastery_MMQ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Tidal Mastery (Adapted)]
+4 Absorb
+2 Afterlife
+2 Alabaster Wall
+1 Cloud Sprite
+1 Coastal Piracy
+2 Counterspell
+2 Crossbow Infantry
+1 Customs Depot
+4 Daring Leap
+1 Devout Witness
+2 Disenchant
+2 Drake Hatchling
+16 Island
+1 Offering to Asha
+1 Ojutai's Command
+1 Overrule
+10 Plains
+4 Sphinx's Revelation
+3 Stinging Barrier

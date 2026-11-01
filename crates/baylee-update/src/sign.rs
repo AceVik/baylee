@@ -11,7 +11,7 @@
 //! in. The private half is a 32-byte seed that lives outside this
 //! repository (`cargo run -p xtask -- update-key` writes it, and only to
 //! `~/.config/baylee-release/update-signing.key`) and, base64, in the
-//! repository's Actions secret `BAYLEE_UPDATE_SIGNING_KEY`.
+//! Actions secret `BAYLEE_UPDATE_SIGNING_KEY` of the `release` environment.
 //! `docs/releasing.md` §"Signing" has the rotation path: a new key is added
 //! to the list in one release and signs from the next, and an old key leaves
 //! the list only once no build that trusts only it is still asking.

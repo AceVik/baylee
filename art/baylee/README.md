@@ -1,117 +1,44 @@
-# Baylee · the sanctuary
+# Baylee · in sunlight
 
-Baylee is the owner's cat and the project's namesake. This identity is a
-celebration of her: green eyes, tabby forehead, white muzzle and chest. The
-guardian is alive, curious and welcoming. The owner's permission to use her
-as a mascot was given on 26 September 2026.
+The project is dedicated to Viktor's much-loved cat Baylee, who died on
+26 October 2026. The memorial shows her small, slender and curled up asleep
+on a sunlit cloud, with the garden birds and pigeons she loved watching.
+The world below suggests a future **Baylees World**: an ivory garden city,
+bridges, a turquoise river, coast and mountains beneath a broad cloud horizon.
+This is atmosphere for the existing login/lobby, not a playable open world.
 
-## Assets
+The cloud portrait is the owner's explicitly approved fourth iteration. Its
+PNG is unchanged: subsequent light, breathing and hover decoration are shader
+layers. Both new logos include sleeping Baylee. No external game art was used.
 
-| Runtime asset, under `crates/baylee-client/assets/` | Source and use |
+| Runtime asset under `crates/baylee-client/assets/` | Master / preparation |
 | --- | --- |
-| `brand/baylee-logo.png` | Transparent 1942 × 809 title lockup; generated from the owner's cat reference |
-| `brand/baylee-logo-{48,96,192}.png` | Lanczos downsamples of the lockup (trimmed) at 48, 96 and 192 px high: the shell header's brand mark picks the one nearest its drawn height in physical pixels, so it stays crisp at every scale |
-| `brand/baylee-icon.png` | 1254 × 1254 icon master; generated using the logo as identity reference |
-| `brand/favicon-32.png` | Mechanical downsample for browser tabs |
-| `brand/apple-touch-icon.png` | 180 × 180 browser home-screen icon |
-| `brand/baylee.icns` | Native macOS sizes, the master cut to a rounded square on Apple's grid by `baylee-tools installers art` (through `iconutil`); release packaging installs it |
-| `brand/baylee-window.png` | 128 × 128 rounded window icon for Linux X11, from the same native tool |
-| `scenes/sanctuary-world.png` | Distant landscape with near architecture removed for independent parallax |
-| `scenes/sanctuary-frame.png` | Transparent near arch, lamps, ivy and steps |
-| `scenes/baylee-guardian.png` | Transparent 1086 × 1448 hand-painted petite Baylee, fitted crimson body and slender tapered tail |
-| `scenes/wayfinder-lantern.png` | Transparent 600 × 800 Cycles render of the original Blender lantern |
+| `scenes/baylee-cloud.png` | Approved V4, 1536 × 1024 RGBA, SHA-256 in manifest |
+| `scenes/baylees-world.png` | Generated city/world, 1672 × 941 |
+| `brand/baylee-logo.png` | Generated transparent wordmark with Baylee, 1942 × 809 |
+| `brand/baylee-logo-{48,96,192}.png` | Mechanical downsamples at the named heights |
+| `brand/baylee-icon.png` | Generated sleeping Baylee icon, 1254 × 1254 |
+| Native/browser icons | `baylee-tools installers art`; browser downsamples 32/180 px |
+| `memorial/baylee-{1..5}.jpg` | Owner-supplied photographs, max 1400 px; location/date metadata removed |
 
-The original composition is retained as `art/baylee/sanctuary-master.png`;
-only its separated runtime layers are shipped.
+[Exact image generation calls](memorial/prompts.md) preserve the iteration
+history; [manifest](memorial/assets.json) identifies the selected outputs and
+photo sources. The original photographs remain untouched in Pictures. Their
+use in this local album was explicitly requested by the owner on 26 October.
+The complete owner-approved remembrance is in the client’s German and English
+Fluent files: eight chapters and 37 paragraphs, matching Baylee Central. The
+“Bei uns / With us” date range is the time with the family, not an invented lifespan.
 
-The generated masters and their refinements use the built-in image generation tool. Exact
-prompts are in [prompts.md](prompts.md) and [revisions.md](revisions.md). The supplied photographs remain in
-the owner's Pictures directory; none are copied into the project. No external
-game screenshot, model, texture, logo or font was used as an image input.
+The interactive cloud has warm contour light, engraved botanical arcs, a small
+sun ornament at the pointer, keyboard focus and an accessible button label.
+The book supports independent photo/chapter navigation, a scrollable reading
+column, Escape, a focus trap and return to its opener. Its header reuses the
+approved cloud material; gold ornaments are geometry, independent of fonts. Reduced motion and low ambient quality freeze all idle movement.
+The full-screen world uses one texture with restrained parallax, moving light
+and cloud haze; it is a layered image with shader effects, not a 3D city.
 
-The composition borrows the *idea* of an inviting threshold and cinematic
-depth from the requested Midnight reference. The limestone botanical arch,
-conservatory, streams and Baylee identity are original. The previous geode
-and inward-pointing teeth are completely replaced.
+[Verification](memorial/verification.md) records the live layout/input iterations,
+the motion/still pixel comparison, audio measurements and automated checks.
 
-## Editable Blender source
-
-[wayfinder-lantern.blend](wayfinder-lantern.blend) contains the dedicated
-`Baylee • sanctuary lantern` scene, materials, lights and portrait camera.
-[lantern.json](lantern.json) is the declarative scene source; the native Rust
-command below constructs its portable geometry without a Python runtime.
-[wayfinder-lantern.glb](wayfinder-lantern.glb) exports only the active lantern
-scene's selected meshes, with applied scale and glTF Y-up conversion. It is
-an editing/interchange asset; the runtime uses the transparent render, avoiding
-50 mesh draws for a small foreground prop. The unrelated original Blender
-scene was preserved. The committed `.blend`, GLB and transparent PNG are retained
-unchanged by the Rust tooling migration.
-
-Generate a candidate without overwriting any authored asset:
-
-```sh
-cargo run --profile tools -p baylee-tools -- art lantern --output /tmp/baylee-lantern.glb
-```
-
-Use `--source` for another scene JSON and `--overwrite` to replace an existing
-candidate. The default output is `/tmp/baylee-lantern.glb`. Scene JSON contains
-the original 50 objects, four PBR materials, three disk-light specifications,
-world colour, portrait camera, transparent 600 × 800 render settings, and Cycles/
-AgX settings. Coordinates start Z-up and are converted exactly once to glTF
-Y-up. Names, dimensions, path control points, material factors and emission are
-retained. The camera exports as an orthographic glTF camera.
-
-**Format boundary:** glTF has no disk area lights, Blender world shader, Cycles
-renderer or AgX setting. Their exact authoring specifications are retained in
-`extras.baylee`; each light also has a named transform node with
-`extras.baylee_area_light`. They do not become functioning glTF lights.
-Analytic Rust bevels and transported tube frames approximate Blender's bevel
-modifier, weighted normals and POLY-curve tessellation; the GLB is not promised
-to be vertex-identical or pixel-identical to the Blender render. Closed diamond
-paths share their seam instead of duplicating the coincident endpoint.
-
-The Rust command neither embeds Python nor launches Blender. To edit or render
-the candidate in Blender, import the GLB into a separate scene, use the retained
-`.blend` and JSON as the lighting/render reference, and save a new authoring
-file explicitly. Rebuilding a new `.blend` or a matching Cycles PNG is a
-separate authoring step; this command does not claim to regenerate them.
-
-## Runtime art direction
-
-Champagne gold and warm amber guide the eye; blue-green shadow and silver
-moonlight hold the world. A dark opaque form protects input readability.
-Artwork preserves its aspect ratio. Baylee and the lantern stand on separate
-foreground planes with contact shadows and pointer parallax. Mist, water,
-moonbeams, lamp flicker, fireflies and subtle breathing share virtual time.
-Reduced motion produces a stable still. Narrow screens omit foreground props
-that would collide with controls; the logo retains Baylee's identity.
-
-The arrival curtain retains and waits for all login art before revealing the
-screen. The legal footer blends into the scene through translucent blue mist and remains visible while the form body scrolls. See `docs/legal.md` §10 for the
-source-checked asset audit. Original project materials are distributed under
-AGPL-3.0-only, to the extent rights apply; existing font notices remain intact.
-
-## Inspecting in the client
-
-```sh
-BAYLEE_DEV_CONTROL=28770 BEVY_ASSET_ROOT="$PWD" \
-  cargo run -p baylee-client --features dev-control,dev-reload
-```
-
-Add `BAYLEE_DEV_WINDOW=1280x768` or `390x844` for repeatable logical viewports.
-This override exists only in dev-control builds. `/pause`, `/step`, `/pointer`
-and `/screenshot` support actual renderer checks; do not judge motion solely
-from a still image.
-
-The owner's follow-up replaces the photographic mascot with grouped painted
-fur and moon/lantern lighting. Logo and icon now share a seated Baylee, crescent
-moon and wisteria; the earlier frontal cat-head crest is retired. Exact revised
-prompts are recorded in `painterly-revision.md`.
-
-## Spatial garden follow-up
-
-Login, lobby and deckbuilder now share a hybrid garden: painted architecture,
-ray-intersected 3D water waves and a wind-driven cloud volume rendered in WGSL.
-The moon's light is occluded by that cloud volume. This is not a fully modelled
-3D landscape. No additional third-party assets are introduced. Footer sentences
-are centred symmetrically and its source QR no longer offsets the text block.
+The [previous sanctuary sources](sanctuary.md) remain as historical authoring
+material. Current musical provenance is in [the memorial score](../music/memorial/README.md).

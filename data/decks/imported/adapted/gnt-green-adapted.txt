@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/GNT/green.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Green_GNT.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Green (Adapted)]
+1 An-Havva Inn
+3 Bala Ged Recovery
+4 Chord of Calling
+2 Colossal Dreadmaw
+2 Crushing Canopy
+1 Fade into Antiquity
+25 Forest
+2 Ghastbark Twins
+2 Giant Spider
+1 Gigantosaurus
+1 Jungle Delver
+3 Khalni Ambush
+3 Llanowar Elves
+1 Manalith
+1 Pelakka Wurm
+1 Reclamation Sage
+1 Serpent's Gift
+1 Spoils of Victory
+1 Stampede
+2 Thrashing Brontodon
+1 Vigilant Baloth
+1 Wind Shear

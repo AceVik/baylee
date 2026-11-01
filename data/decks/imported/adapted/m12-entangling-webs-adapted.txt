@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/M12/entangling-webs.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, EntanglingWebs_M12.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Entangling Webs (Adapted)]
+2 Acidic Slime
+4 Colossal Might
+2 Crimson Mage
+1 Fireball
+1 Fling
+18 Forest
+1 Garruk's Companion
+3 Giant Spider
+1 Lightning Elemental
+3 Llanowar Elves
+7 Mountain
+1 Overrun
+3 Rampant Growth
+1 Runeclaw Bear
+2 Savage Twister
+1 Slaughter Cry
+2 Stampeding Rhino
+2 Stingerfling Spider
+1 Stump Stomp
+1 Titanic Growth
+1 Vastwood Gorger
+2 Vulshok Battlegear

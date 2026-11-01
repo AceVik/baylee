@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/PS11/wings-of-light.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WingsOfLight_PS11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Wings of Light (Adapted)]
+2 Angel's Feather
+4 Angelic Blessing
+4 Geist-Honored Monk
+1 Glorious Anthem
+1 Griffin Sentinel
+3 Holy Day
+2 Holy Strength
+1 Honor of the Pure
+1 Luminarch Ascension
+1 Mass Calcify
+1 Metal Fatigue
+24 Plains
+1 Serra Angel
+1 Serra's Embrace
+2 Sevinne's Reclamation
+4 Suntail Hawk
+3 Venerable Monk
+4 Youthful Knight

@@ -6,51 +6,49 @@ use super::*;
 /// "Exile **up to one** target ... you don't control" against a board with
 /// nothing on it to exile.
 ///
-/// The trigger still goes on the stack. CR 603.3d removes a triggered
-/// ability that cannot be given a legal target, and one that requires no
-/// target always can be — so what it must not do is *ask*: with an empty
-/// option list and a minimum of zero, the only answer is the empty list,
-/// and a stop the player cannot influence is not a choice. The engine used
-/// to publish `ChooseTargets { options: [], min: 0, max: 0 }` and wait
-/// there.
+/// CR 603.3d removes a triggered ability that cannot be given a legal target.
+/// The table's empty-optional policy also covers this minimum-zero case: the
+/// empty answer is proved to have no effect, so the trigger leaves without an
+/// empty resolution and without a meaningless question. The journal separates
+/// that removal from a trigger that never fired or resolved normally.
 ///
 /// The second board is what keeps the first honest. A filter that matched
 /// nothing at all would pass the first half and read exactly the same, so
 /// the same Apparition is put down against a creature it *can* exile and
 /// the question has to appear.
 #[test]
-fn up_to_one_target_with_nothing_to_point_at_is_not_a_question() {
+fn up_to_one_target_with_nothing_to_point_at_is_removed_without_a_question() {
     let p0 = PlayerId::new(0);
     let mut engine = a_skyclave_over(&[forest(), forest()]);
-    let mut trigger_stacked = false;
-    for _ in 0..20 {
-        if stack_is_empty(&engine) {
-            break;
-        }
-        // Something on the stack while the Apparition is already standing is
-        // its own enters-trigger: the spell has left, and nothing else at
-        // this table triggers at all. Without this the test would read the
-        // same on a trigger CR 603.3d had *removed* — an exile that finds
-        // nothing to exile does nothing either way, so "nobody was asked" is
-        // only half of what is being claimed.
-        if on_battlefield(&engine, p0, skyclave_apparition()).is_some() {
-            trigger_stacked = true;
-        }
-        match engine.pending().clone() {
-            Pending::Priority { player, .. } => {
-                engine.apply(player, PlayerAction::PassPriority).unwrap();
-            }
-            other => panic!("nothing was legal to exile, so nothing was asked: {other:?}"),
-        }
-    }
+    pass_until(&mut engine, stack_is_empty);
+    let source =
+        on_battlefield(&engine, p0, skyclave_apparition()).expect("the Apparition entered");
+    let trigger = engine
+        .journal()
+        .entries()
+        .iter()
+        .find_map(|entry| match entry.event {
+            GameEvent::AbilityTriggered {
+                object,
+                source: from,
+                ..
+            } if from == source => Some(object),
+            _ => None,
+        })
+        .expect("the Apparition's enters trigger");
     assert!(
-        trigger_stacked,
-        "the trigger went on the stack, with no targets and no question"
+        engine.journal().entries().iter().any(|entry| matches!(
+            entry.event,
+            GameEvent::StackObjectDidNotResolve { object } if object == trigger
+        )),
+        "the empty optional trigger was removed without resolving"
     );
-    assert!(stack_is_empty(&engine), "and then resolved");
     assert!(
-        on_battlefield(&engine, p0, skyclave_apparition()).is_some(),
-        "and the Apparition itself is standing there, trigger and all"
+        !engine.journal().entries().iter().any(|entry| matches!(
+            entry.event,
+            GameEvent::StackObjectResolved { object } if object == trigger
+        )),
+        "and it did not resolve as an empty ability"
     );
 
     let mut engine = a_skyclave_over(&[forest(), ondu_cleric()]);

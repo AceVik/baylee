@@ -133,9 +133,9 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
         | Modifier::AllBasicLandTypes
         | Modifier::AddChosenBasicLandType => &[Field::Subtypes],
         // CR 305.7: the land types, and the keywords its text gave it.
-        Modifier::SetLandType(_) | Modifier::SetLandTypeToChosen => {
-            &[Field::Subtypes, Field::Keywords]
-        }
+        Modifier::SetLandType(_)
+        | Modifier::SetLandTypeToChosen
+        | Modifier::SetLandTypeToSecondChosen => &[Field::Subtypes, Field::Keywords],
         Modifier::AddColor(_) | Modifier::SetColor(_) => &[Field::Colors],
         Modifier::AddKeyword(_)
         | Modifier::RemoveKeyword(_)
@@ -147,8 +147,10 @@ fn touched(ability: &StaticAbility) -> &'static [Field] {
         | Modifier::SwitchPT
         | Modifier::CharacteristicPT { .. }
         | Modifier::ModifyPTPerCount { .. }
+        | Modifier::ModifyPTByAmount { .. }
         | Modifier::ModifyPTByCount(_)
-        | Modifier::ModifyPTHalfCount(_) => PT,
+        | Modifier::ModifyPTHalfCount(_)
+        | Modifier::ReducePTByCount { .. } => PT,
         _ => &[],
     };
     if by_modifier.is_empty()

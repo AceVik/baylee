@@ -1,0 +1,23 @@
+# baylee unseen-card holdout constructed seed=90000012
+# licence: AGPL-3.0-only
+[deck:constructed control BR #90000012]
+2 Ancient Ziggurat
+1 Baxter Building
+1 Dark Fortress
+4 Flame Jet
+2 Grim Tutor
+1 Guildmages' Forum
+1 Interplanar Beacon
+3 Kessig Flamebreather
+2 Lightning Cloud
+2 Maelstrom of the Spirit Dragon
+3 Malakir Rebirth
+2 Mount Doom
+6 Mountain
+2 Night's Whisper
+2 Painful Quandary
+4 Rite of the Dragoncaller
+4 Sarkhan's Unsealing
+4 Screamer-Killer
+4 Soot Imp
+10 Swamp

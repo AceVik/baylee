@@ -617,6 +617,7 @@ impl Effect {
     pub fn branches(&self) -> (&'static [Effect], &'static [Effect]) {
         const NONE: &[Effect] = &[];
         match self {
+            Effect::SacrificeNOrElse { filter: _, count: _, otherwise } => (NONE, otherwise),
             // **Every carrier below binds every one of its fields**, with
             // no `..` in any of these ten arms. That is the second half of
             // the guarantee, and it is deliberate: an exhaustive match over
@@ -637,7 +638,10 @@ impl Effect {
             // A reflexive ability's body is its own stack object later, but
             // it is still what this list can come to do, and every walker
             // has to read it.
-            Effect::ChooseOne { choices: effects }
+            Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { effects }
+            | Effect::GrantTriggeredIfAbsent { target: _, trigger: _, effects, duration: _ }
+            | Effect::AnyPlayerMayPayManaOr { effects, .. }
+            | Effect::ChooseOne { choices: effects }
             | Effect::Sequence(effects)
             | Effect::IfCastFromGraveyard { effects }
             | Effect::MayDo { effects }
@@ -670,8 +674,10 @@ impl Effect {
             | Effect::ScheduleLinkedCounterCleanup { kind: _, effects }
             | Effect::AtNextUpkeep { effects }
             | Effect::AtNextTurnsUpkeep { effects }
+            | Effect::CreateDelayedObserver { effects, .. }
             | Effect::AtNextEndStep { effects }
             | Effect::AtNextEndStepAboutSubject { effects }
+            | Effect::AtNextEndStepForCreatedTokens { effects }
             | Effect::AtNextCleanup { effects }
             | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::WhenSourceDiesThisTurn { effects }
@@ -689,10 +695,14 @@ impl Effect {
             }
             | Effect::WhenTargetAttacksAndIsntBlockedThisTurn { effects }
             | Effect::ForEachMatching { filter: _, effects }
+            | Effect::DestroyAllThenForEachDestroyed { filter: _, no_regen: _, effects }
+            | Effect::ForEachTarget { effects }
+            | Effect::WheneverCombatEventThisTurn { effects, .. }
             | Effect::AtEndOfCombat { about: _, effects }
             | Effect::AtEndOfCombatThisTurn { about: _, effects }
             | Effect::WheneverYouAttackThisTurn { effects } => (effects, NONE),
-            Effect::IfCreaturesDiedAtLeast { n: _, then }
+            Effect::RevealTopByNameThen { otherwise_effects: then, .. }
+            | Effect::IfCreaturesDiedAtLeast { n: _, then }
             | Effect::MayExileFromYourGraveyardThen {
                 count: _,
                 filter: _,
@@ -727,6 +737,7 @@ impl Effect {
                 then,
             } => (then, NONE),
             Effect::PlayerMayPayThenElse { player: _, mana: _, paid: then, unpaid: otherwise }
+            | Effect::PlayerMayPayManaAndLifeEachThenElse { paid: then, unpaid: otherwise, .. }
             | Effect::PlayerMayPayManaEachThenElse {
                 paid: then,
                 unpaid: otherwise,
@@ -797,6 +808,14 @@ impl Effect {
             | Effect::Exile { .. }
             | Effect::Blink { .. }
             | Effect::LookAtTopPick { .. }
+            | Effect::LookAtTopPickThenReorder { .. }
+            | Effect::LookAtTopExileRandom { .. }
+            | Effect::PutFromHandOnTopFor { .. }
+            | Effect::PutHandOnTop { .. }
+            | Effect::SearchLibraryFor { .. }
+            | Effect::RechooseGraveyardCard { .. }
+            | Effect::ExileTop { .. }
+            | Effect::RevealUntilNamed { .. }
             | Effect::LookAtTopFind { .. }
             | Effect::ChooseFromYourGraveyard { .. }
             | Effect::LookAtTopKeepBottomPlay { .. }
@@ -822,19 +841,26 @@ impl Effect {
             | Effect::ModifyEvent { .. }
             | Effect::EmpowerJace { .. }
             | Effect::ModifySource { .. }
+            | Effect::ChooseSourceColor
             | Effect::ChooseColors { .. }
             | Effect::ChooseSourceLandwalk { .. }
+            | Effect::ChooseLandwalk { .. }
             | Effect::SetSourcePTFromTarget { .. }
             | Effect::SetSourceToughness { .. }
             | Effect::AddCounterSource { .. }
             | Effect::PutFromHandOntoBattlefield { .. }
             | Effect::LoseLife { .. }
+            | Effect::DrawThenDiscardDrawn { .. }
+            | Effect::ExileTopFaceDownUntilYourNextEndStep
+            | Effect::ExileDiscardedCardFromYourGraveyard
             | Effect::DrawCards { .. }
             | Effect::DrawCardsFor { .. }
             | Effect::DrawRevealDiscardUnless { .. }
             | Effect::ExileTargetsCreateTokens { .. }
             | Effect::DealDamageToBothTargetInstances { .. }
             | Effect::DealDamage { .. }
+            | Effect::DealDamageWithoutPreventionOrRedirection { .. }
+            | Effect::PreventNextDamageToAttached { .. }
             | Effect::Fight { .. }
             | Effect::DamageEqualToPower { .. }
             | Effect::EventObjectDealsDamageEqualToPower { .. }
@@ -845,6 +871,8 @@ impl Effect {
             | Effect::GrantSpecialActionUntilEndOfTurn { .. }
             | Effect::CopyResolvingSpell { .. }
             | Effect::RedirectTargetSourceDamageThisTurn { .. }
+            | Effect::PreventNextDamageFromSource { .. }
+            | Effect::RedirectCombatDamageToYouThisTurn { .. }
             | Effect::RedirectNextChosenSourceDamageToTarget { .. }
             | Effect::ReflectNextChosenSourceDamage
             | Effect::PreventDamageFromTargetingCausesThisTurn { .. }
@@ -854,10 +882,12 @@ impl Effect {
             | Effect::AttackWithoutTappingWhileSourceUntappedThisCombat
             | Effect::PreventAllCombatDamageThisTurn
             | Effect::ChooseDamageSourcePreventAllThisTurn
+            | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
             | Effect::PreventNextFromChosenSource { .. }
             | Effect::RedirectNextFromChosenSource { .. }
             | Effect::WishToHand { .. }
             | Effect::Destroy { .. }
+            | Effect::DestroyTargetSlots { .. }
             | Effect::DestroyEventThenMayReattach { .. }
             | Effect::SacrificeEvent
             | Effect::SacrificeAmountOrLose { .. }
@@ -869,7 +899,10 @@ impl Effect {
             | Effect::LoseGame
             | Effect::WinGame
             | Effect::DrawGame
+            | Effect::ExchangeBlockersOfTargetAttackers
+            | Effect::PlayerMayGainControl { .. }
             | Effect::ReanimateEnchanted
+            | Effect::ReanimateEnchantedTapped
             | Effect::PutTargetOnBottomOfLibrary
             | Effect::PutOnBottomOfLibraryFromGraveyard { .. }
             | Effect::GrantFlashback
@@ -899,6 +932,9 @@ impl Effect {
             | Effect::UntapSelf
             | Effect::UntapFound
             | Effect::ChooseCardName { .. }
+            | Effect::GuessChosenNameInHand { .. }
+            | Effect::RevealHandForGuess
+            | Effect::DrawIfGuessWrong
             | Effect::RevealTopByName { .. }
             | Effect::RevealRandomDiscardNamed { .. }
             | Effect::ChooseNumber { .. }
@@ -910,6 +946,7 @@ impl Effect {
             | Effect::OwnerPutsOnTopOrBottom { .. }
             | Effect::ExileIfDiesThisTurn { .. }
             | Effect::CantBeRegeneratedThisTurn { .. }
+            | Effect::DamagedThisWayCantBeRegenerated
             | Effect::Discover { .. }
             | Effect::RevealTopOnePerType { .. }
             | Effect::DealDamageDivided { .. }
@@ -939,7 +976,7 @@ impl Effect {
             | Effect::CounterTargetAbility
             | Effect::CounterTargetSpellOrAbility
             | Effect::TargetSourceLosesAbilities { .. }
-            | Effect::DelayedManaAtNextFirstMain { .. }
+            | Effect::DelayedManaAtNextMain { .. }
             | Effect::ChangeTarget { .. }
             | Effect::ChooseNewTargets
             | Effect::ExchangeGreatestManaValue { .. }
@@ -949,6 +986,8 @@ impl Effect {
             | Effect::EqualizePermanents { .. }
             | Effect::EqualizeHands
             | Effect::DiscardForPlayers { .. }
+            | Effect::DiscardAmountForPlayers { .. }
+            | Effect::SacrificeAmountForPlayers { .. }
             | Effect::DiscardEachOrDraw { .. }
             | Effect::DiscardRandom { .. }
             | Effect::DiscardHand { .. }
@@ -956,6 +995,8 @@ impl Effect {
             | Effect::LookAtTopOf { .. }
             | Effect::RevealTopIf { .. }
             | Effect::LookAtChosenHand
+            | Effect::LookAtRandomFromHand { .. }
+            | Effect::LookHandDiscard { .. }
             | Effect::AllGraveyardCreaturesToBattlefield
             | Effect::GraveyardAllToHand { .. }
             | Effect::YourGraveyardToBattlefield { .. }
@@ -1004,6 +1045,7 @@ impl Effect {
             | Effect::GrantSubtype { .. }
             | Effect::AddCounter { .. }
             | Effect::DealDamageWithCappedLifeGain { .. }
+            | Effect::DealDamageWithLimitedLifeGain { .. }
             | Effect::DealDamageEvenly { .. }
             | Effect::DealDamageEvenlyToFilter { .. }
             | Effect::PayManaToPreventDamage { .. }
@@ -1065,6 +1107,7 @@ impl Effect {
             | Effect::CastFaceDownUsingSpentX
             | Effect::ActivateLandsAndTakeMana { .. }
             | Effect::ControlPlayerPlayCard { .. }
+            | Effect::ControlPlayerNextTurn { .. }
             | Effect::BecomeCopyOfTarget { .. }
             | Effect::ChangeTextWord { .. }
             | Effect::CopyThisSpell { .. }
@@ -1108,6 +1151,7 @@ impl Effect {
             | Effect::DiscardRandomMatching { .. }
             | Effect::DestroyEachUnlessAnyPlayerPaysLife { .. }
             | Effect::FlipCoinsDamageTailsRepeatUntilBothHeads { .. }
+            | Effect::FlipCoinLifeExchangeRepeat { .. }
             | Effect::DiscardUpToForPlayers { .. }
             | Effect::ChangeTargetToPlayerIfTargetsYou
             | Effect::TargetDamagedCreaturesCantRegenerateThisTurn
@@ -1115,10 +1159,22 @@ impl Effect {
             | Effect::SwapBlockers
             | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. }
             | Effect::RaidingParty
+            | Effect::PreventNextDamageFromTarget { .. }
+            | Effect::TargetPlayersCreaturesDontUntapNextUntap
+            | Effect::AddManaAmountFor { .. }
+            | Effect::ExchangeControlOfEventAndTarget
+            | Effect::UnattachAllEquipmentFromTarget
+            | Effect::ChoosePhaseToSkipThisTurn
+            | Effect::FlipCoinsUntilLossOrStopCumulative
+            | Effect::AttachedGainControlBy { .. }
+            | Effect::RevealTopPlayerMayPutOntoBattlefield { .. }
+            | Effect::RevealUntilLandDealDamage { .. }
             | Effect::SacrificeSelf
             | Effect::Hideaway(_)
             | Effect::ExileTopFaceDownLinked
+            | Effect::ExileChosenFromHandWithSource(_)
             | Effect::MayPlayLinkedExile
+            | Effect::MayCopyCastLinkedExile
             | Effect::ReturnLinkedExile { .. }
             | Effect::SacrificeObject { .. }
             | Effect::PayCostOrLoseLater { .. }
@@ -1129,6 +1185,11 @@ impl Effect {
             | Effect::SearchLibraryOf { .. }
             | Effect::SearchLibraryUpTo { .. }
             | Effect::SearchOpponentSplits { .. }
+            | Effect::RevealLibrarySearch { .. }
+            | Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { .. }
+            | Effect::ModifyFilter { .. }
+            | Effect::RemoveAllCountersFilter { .. }
+            | Effect::PutTargetOnTopOfLibrary
             | Effect::PumpFilter { .. }
             | Effect::ProtectionFromChosenColor { .. }
             | Effect::Regenerate { .. }
@@ -1179,7 +1240,8 @@ impl Effect {
                 | Effect::PlayerMayPayLifeOr { effect, .. } => {
                     matches!(effect, Effect::SacrificeSelf)
                 }
-                Effect::PlayerMayPayManaEachThenElse { paid, unpaid, .. } => {
+                Effect::PlayerMayPayManaAndLifeEachThenElse { paid, unpaid, .. }
+                | Effect::PlayerMayPayManaEachThenElse { paid, unpaid, .. } => {
                     paid.is_empty() && sacrifice(unpaid)
                 }
                 _ => false,

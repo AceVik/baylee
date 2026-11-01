@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/STH/migraine-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MigraineAdvancedDeck_STH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Migraine - Advanced Deck (Adapted)]
+4 Abyssal Specter
+2 Bottomless Pit
+2 Buried Alive
+2 Custodian of the Trove
+3 Dark Ritual
+3 Darksteel Brute
+1 Dauthi Mindripper
+2 Delirium Skeins
+2 Diabolic Edict
+2 Drain Life
+1 Eviscerate
+1 Infernal Tribute
+4 Megrim
+3 Pit Imp
+4 Quicksand
+2 Static Orb
+2 Stupor
+18 Swamp
+1 Vampiric Tutor
+1 Wasteland

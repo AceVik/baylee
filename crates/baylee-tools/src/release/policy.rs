@@ -11,20 +11,18 @@ pub(super) const TARGETS: [(&str, &str); 6] = [
     ("aarch64-apple-darwin", "zip"),
     ("x86_64-apple-darwin", "zip"),
 ];
-pub(super) const REQUIRED_JOBS: [&str; 13] = [
+pub(super) const REQUIRED_JOBS: [&str; 11] = [
     "fmt",
     "clippy",
     "test",
     "test-release",
-    "features",
+    "shipped-features",
     "validate",
-    "wasm",
     "web-feedback",
     "deny",
     "audit",
     "bench",
     "msrv",
-    "macos-intel",
 ];
 
 pub(super) struct Identity {

@@ -83,7 +83,9 @@ pub(super) fn link(
                 // ground does not end at its letters (owner, 09.10.2026).
                 padding: UiRect::axes(kit.m.px(12.0), px_fixed(0.0)),
                 min_height: px_fixed(kit.m.control * 0.8),
+                flex_grow: 1.0,
                 align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                 ..default()
             },
@@ -220,10 +222,26 @@ pub(super) fn text_row(
             Look::Plain,
             (press, Stop::new(table, id)),
         );
+        if !column && id == "music" {
+            let min_w = music_min_width(kit, lang);
+            commands
+                .entity(item)
+                .entry::<Node>()
+                .and_modify(move |mut node| node.min_width = min_w);
+        }
         items.push(item);
     }
     commands.entity(row).add_children(&items);
     row
+}
+
+fn music_min_width(kit: Kit, lang: Lang) -> Val {
+    let chars = Phrase::MusicPlaying
+        .text(lang)
+        .chars()
+        .count()
+        .max(Phrase::MusicSilent.text(lang).chars().count());
+    px_fixed((chars as f32 * kit.m.small * 0.68 + 2.0 * kit.m.scaled(12.0)).ceil())
 }
 
 /// The one-line colophon (§3), on every face below Wide: the notice in the

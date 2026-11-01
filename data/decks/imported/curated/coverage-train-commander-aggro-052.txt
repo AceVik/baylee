@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro U #20266053]
+1 Air Marshal
+1 Balduvian Conjurer
+1 Balduvian Shaman
+1 Blockade Runner
+1 Boulderborn Dragon
+1 Buoyancy
+1 Cabaretti Courtyard
+1 Chase Inspiration
+1 Coral Commando
+1 Coralhelm Guide
+1 Crafty Pathmage
+1 Cunning
+1 Deeptread Merrow
+1 Desert
+1 Dragonstorm Forecaster
+1 Drifter il-Dal
+1 Fishliver Oil
+1 Freed from the Real
+1 Glintwing Invoker
+1 Grayscaled Gharial
+1 Headwater Sentries
+1 Homarid Warrior
+1 Horizon of Progress
+1 Invisibility
+32 Island
+1 Jeskai Runemark
+1 Jump
+1 Keen Glidemaster
+1 Lumengrid Warden
+1 Merfolk Raiders
+1 Merfolk Seastalkers
+1 Mists of Littjara
+1 Old Man of the Sea
+1 Opal Palace
+1 Piracy Charm
+1 Riptide
+1 River Darter
+1 River Merfolk
+1 Riveteers Overlook
+1 Rootwater Commando
+1 Seasinger
+1 Second Wind
+1 Secret Identity
+1 Sejiri Merfolk
+1 Shoreline Raider
+1 Short Circuit
+1 Silvergill Douser
+1 Sinking Feeling
+1 Sky Weaver
+1 Spectral Cloak
+1 Surgespanner
+1 Svyelunite Priest
+1 Talas Merchant
+1 Temporal Adept
+1 Thalakos Deceiver
+1 The Tabernacle at Pendrell Vale
+1 Tightening Coils
+1 Tolarian Entrancer
+1 Tolarian Scholar
+1 Trickster Mage
+1 Vodalian Illusionist
+1 Vodalian Knights
+1 Wanderwine Distracter
+1 Water Wurm
+1 Wilderness Hypnotist
+1 Wu Infantry
+1 Wu Warship
+1 Zephyr Net
+
+[commander]
+Sakashima of a Thousand Faces

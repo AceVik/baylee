@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/BOK/dark-devotion.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DarkDevotion_BOK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dark Devotion (Adapted)]
+4 Auger Spree
+4 Bedevil
+2 Bile Urchin
+1 Deathcurse Ogre
+4 Delirium
+4 Dreadbore
+2 Frost Ogre
+3 Kaervek's Purge
+1 Mark of the Oni
+10 Mountain
+1 Sokenzan Bruiser
+4 Spontaneous Combustion
+2 Swallowing Plague
+14 Swamp
+3 Terminate
+1 Wrecking Ball

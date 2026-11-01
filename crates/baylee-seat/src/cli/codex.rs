@@ -46,11 +46,13 @@ use super::dialect::{
     Dialect, Event, Outcome, Started, Wire, clipped, conversation_id, entries, first_line_starts,
     sounds_limited, tool_home,
 };
-use crate::llm::{Settings, Usage, json_object, prompt};
+use crate::llm::{Settings, Usage, json_object};
 use baylee_client_core::llmseat::CliTool;
 use serde_json::Value;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+
+mod schema;
 
 /// The file our instructions are written to.
 const INSTRUCTIONS: &str = "instructions.md";
@@ -99,10 +101,10 @@ impl Dialect for Codex {
         CliTool::Codex
     }
 
-    fn files(&self, _settings: &Settings, system: &str) -> Vec<(&'static str, String)> {
+    fn files(&self, settings: &Settings, system: &str) -> Vec<(&'static str, String)> {
         vec![
             (INSTRUCTIONS, system.to_string()),
-            (SCHEMA, prompt::answer_schema().to_string()),
+            (SCHEMA, schema::answer(settings.extras()).to_string()),
         ]
     }
 

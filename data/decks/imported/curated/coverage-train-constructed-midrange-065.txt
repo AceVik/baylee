@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUB #20266066]
+2 Baton of Morale
+2 Crucible of Worlds
+2 Crystal Golem
+2 Glass Golem
+2 Iron Lance
+7 Island
+2 Jade Statue
+2 Kry Shield
+2 Medicine Bag
+2 Millennial Gargoyle
+2 Patagia Golem
+6 Plains
+1 Restless Fortress
+2 Runed Arch
+2 Salt Flats
+2 Sanctuary Raptor
+2 Shambling Vent
+2 Spirit Shield
+2 Stonework Puma
+2 Swamp
+2 Thran Lens
+2 Tower Gargoyle
+2 Ultron, Machine Overlord
+4 Undercity Sewers
+2 Urza's Engine

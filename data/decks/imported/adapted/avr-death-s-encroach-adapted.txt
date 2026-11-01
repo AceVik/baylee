@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/AVR/death-s-encroach.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DeathSEncroach_AVR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Death's Encroach (Adapted)]
+3 Buried Alive
+2 Cast Away Doubt
+1 Delirium Skeins
+4 Diregraf Ghoul
+2 Dismember
+2 Doom Blade
+4 Entreat the Dead
+2 Essence Extraction
+4 Eyeblight's Ending
+3 Feeding Frenzy
+1 Funeral Rites
+3 Go for the Throat
+1 Grim Physician
+3 Last Caress
+24 Swamp
+1 Syphon Soul

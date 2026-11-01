@@ -15,6 +15,40 @@ All levels plan coloured payments through the same renderer-free mana matcher
 as the human client. Simple printed and granted mana abilities count, with one
 source per permanent. The agent does not tap toward an unaffordable spell.
 
+Before announcing a mana-X activation, the house checks that its fixed price
+and any printed minimum X can be reached through the ordinary view-only mana
+planner. A permanent whose cost includes tapping itself cannot also be used
+as a mana source for that same activation. Affordable X=0 remains useful when
+the fixed effect matters, such as Kessig Wolf Run granting trample.
+This closes a repeated rollback found in eight of the 17 capped Sharp-training
+cases: announce Wolf Run, choose X=0, choose a creature, then pass its unpaid
+`{R}{G}` window without the required colors. The engine correctly reverses that incomplete
+activation, but the same unchanged priority offer used to make the house try
+again thousands of times. Real-Session regressions in
+`crates/baylee-gamehost/tests/ai_activation_payment.rs` prove the rollback and
+the affordable activation's actual payment/tap. Card-defined X and printed
+activation reductions remain outside this new precheck; it does not claim a
+complete solver for every non-mana resource cost or all remaining caps. Frozen
+experiment artifacts retain their original house behavior.
+
+An X spell whose required graveyard target has a positive mana-value bound must
+also have enough visible eligible targets at the planned, payable X. This avoids
+repeatedly announcing Stir the Grave with X=1 when every creature in the caster's
+graveyard costs more: the engine rolls that announcement back, and the same
+priority offer otherwise causes another identical attempt. The check reads only
+the seat's public graveyards and treats unknown filter clauses as possible,
+not impossible. The regression is in `baylee-ai/src/tests/x_target_tests.rs`;
+six-seat training seed 891015 now finishes instead of looping on turn 118.
+
+An exact mana-value X target is not monotone in the amount paid. The house
+planner and its subsequent number answer restrict ordinary object-targeting
+X spells to matching visible mana values at or below the payable bound,
+including zero. They do not repeatedly cast Detonate at X=6 when only an
+artifact of mana value 3 is available. Shroud, opposing hexproof and phased-out
+objects are excluded; the engine still makes the authoritative target check.
+`x_target_tests.rs` covers affordable, zero, unaffordable and protected targets.
+The reproduced training fault is duel seed 1400020 (`next-duels-0000019`).
+
 **One source per permanent is a rule with a consequence**, and it is the
 reason a tap's *price* is part of the ranking. Nothing under `manaplan::plan`
 keys on `ObjectId`, so the dedup in `policy::sources` is the only thing
@@ -35,7 +69,10 @@ permanent whose *only* mana ability is priced is untouched, because the dedup
 keeps one entry per permanent whatever the key says: this changes which mode
 survives and never how many. Between permanents the solver ranks the price a
 second time: `manaplan::Source` carries `priced`, and the matcher reaches for
-a priced tap only where no clean one fits the pip (#210).
+a priced tap only where no clean one fits the pip (#210). Among clean taps
+it keeps, as the client does, a creature first, then a permanent used for
+more than mana (Karakas, a creature land: `CardDef::activates_beyond_mana`,
+handed to `manaplan::prioritize`), then the colours its hand needs.
 Command-zone commanders participate in these plans, including their public
 cast-count tax, and so does a graveyard card the view says the seat may
 flash back, at the price it names (`PublicObject::flashback`, #242): the
@@ -59,7 +96,14 @@ counter back for a threat that has not been cast. So a Counterspell is
 traded for a lone Dark Ritual whose caster has nothing left to spend the
 mana on; `a_counterspell_is_not_spent_on_a_spell_that_only_replaces_itself`
 pins that as a limitation.
-Removal needs something opposing on the battlefield, and a deferred pay-or-lose
+Removal needs something opposing on the battlefield, and a permanent this
+seat's own spell or ability on the stack already removes — by destruction,
+exile, tucking, lethal damage or lethal toughness reduction — is nothing to
+aim a second one at (`worth::answered`, the mirror of `doomed`): the house
+used to cast Swords to Plowshares at the commander its own Path to Exile was
+taking, and Path lost its target
+(`removal_is_not_cast_at_what_this_seats_own_removal_is_taking`). A deferred
+pay-or-lose
 obligation (a pact) is cast only as described under "A pact is a counter paid
 for next turn" below. An "unless" price
 paid by naming an object — a sacrifice, a discard, a card exiled from the
@@ -489,6 +533,18 @@ including the two that build a fresh agent for each question
   Walking Ballista died as they arrived, came back and were cast again in
   the same main phase. The X itself was never above what the pool pays:
   `number` plans it against the pool.
+- *A land that costs life is not played out of the graveyard, nor below the
+  payment margin* (`land::pick`, feedback of 28.10.2026). Fastbond deals
+  its controller 1 for each land after the first; with a permission to play
+  lands from the graveyard and Petrified Field returning one to the hand,
+  the house standing in for an absent seat played lands from 27 life to 0
+  in one turn. The view does not say how many lands the seat has played
+  this turn, so every land play is priced at what the triggers would deal
+  if all fired (the seat's own "whenever you play a land, … damage to you",
+  anybody's "whenever a land enters, … to that land's controller": Ankh of
+  Mishra, Zo-Zu the Punisher). A priced land is played from the hand only,
+  and only while life stays above price + 5, the margin `activate::life_ok`
+  keeps; at six life under Fastbond even the free first land waits.
 
 Replaying a seeded sample of 300 of those games (`selfplay --only`, same
 arguments), 300 hit a cap before and 1 after; the others finish, at a median

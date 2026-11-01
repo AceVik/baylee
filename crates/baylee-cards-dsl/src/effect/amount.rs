@@ -109,6 +109,9 @@ pub enum Amount {
     /// the payment wrote it, as [`Self::SacrificedManaValue`] is. A free
     /// cast spent none; a flashback spent its flashback cost.
     ManaSpentToCast,
+    /// Actual units of this mana type assigned to the printed X payment,
+    /// excluding fixed, additional and increased costs. No payment means zero.
+    ManaTypeSpentOnX(baylee_core::mana::ManaColor),
     /// "The tapped creature's power": the power of the permanent a
     /// `CostPart::TapOther` tapped to pay the cost of the ability that is
     /// resolving — station's "put a number of charge counters on this
@@ -154,6 +157,8 @@ pub enum Amount {
     LibrarySize(super::PlayerRel),
     /// Number of cards in the named player's hand.
     HandSize(super::PlayerRel),
+    /// The named player's current life total, floored at zero for a magnitude.
+    LifeTotal(super::PlayerRel),
     /// Number of matching permanents the named player controls.
     ControlledCount {
         /// Controller relative to the resolving ability.
@@ -168,6 +173,15 @@ pub enum Amount {
         /// Magnitude to halve.
         base: &'static Amount,
         /// Round odd values up instead of down.
+        round_up: bool,
+    },
+    /// Divide a magnitude by a positive integer with the printed rounding.
+    Divided {
+        /// Magnitude to divide.
+        base: &'static Amount,
+        /// A zero divisor is unrepresentable.
+        divisor: core::num::NonZeroU32,
+        /// Round a fractional result up instead of down.
         round_up: bool,
     },
     /// Multiply a magnitude by a nonnegative integer, saturating on overflow.
@@ -316,6 +330,11 @@ pub enum ThisWay {
     /// (CR 608.2h): Hellfire's "creatures that died this way". A creature
     /// that was regenerated, or went to exile instead, did not die.
     Died(&'static Filter),
+    /// Permanents destroyed by this resolution that matched the filter as they
+    /// last existed on the battlefield. A replacement changing the destination
+    /// (including exile) still counts; regeneration and indestructibility do not.
+    /// Sacrifice and direct exile are not destruction.
+    Destroyed(&'static Filter),
     /// Permanents exiled from the battlefield that matched the filter as they
     /// last existed there (CR 608.2h): Martyr's Cry's "for each creature
     /// exiled this way, its controller draws a card".
@@ -327,6 +346,14 @@ pub enum ThisWay {
     /// Cards discarded (CR 701.9): Recall's "for each card discarded this
     /// way".
     Discarded,
+    /// Cards discarded this way that match the filter, read in the graveyard.
+    DiscardedMatching(&'static crate::Filter),
+    /// Cards moved from a library to exile earlier in this resolution that
+    /// match the filter as they exist in exile.
+    ExiledFromLibrary(&'static crate::Filter),
+    /// Counters of this kind removed from the resolving source earlier in
+    /// this resolution, including only actual reductions.
+    CountersRemoved(crate::CounterKind),
     /// Cards milled (CR 701.17a: put from a library into a graveyard) that
     /// match the filter as they are in the graveyard: Grist, the Hunger
     /// Tide's "if an Insect card was milled this way".
@@ -349,6 +376,19 @@ pub enum ThisWay {
 }
 
 impl Amount {
+    /// Construct a division, rejecting an invalid divisor before evaluation.
+    ///
+    /// # Panics
+    /// Panics if `divisor` is zero. Static card definitions validate at compile time.
+    #[must_use]
+    pub const fn divided(base: &'static Self, divisor: u32, round_up: bool) -> Self {
+        Self::Divided {
+            base,
+            divisor: core::num::NonZeroU32::new(divisor).expect("amount divisor must be nonzero"),
+            round_up,
+        }
+    }
+
     /// Whether this amount counts **downwards**.
     ///
     /// The one place the question is answered, because it was four places

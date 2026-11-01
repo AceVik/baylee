@@ -1,0 +1,17 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, MarkLePineSpedRed_WC99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Mark Le Pine - Sped Red]
+2 Ancient Tomb
+2 Arc Lightning
+4 Avalanche Riders
+4 Cursed Scroll
+3 Fireslinger
+2 Ghitu Encampment
+3 Hammer of Bogardan
+4 Jackal Pup
+4 Mogg Fanatic
+16 Mountain
+4 Pillage
+4 Shock
+4 Stone Rain
+4 Wasteland

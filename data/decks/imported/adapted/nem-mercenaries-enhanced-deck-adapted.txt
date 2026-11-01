@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/NEM/mercenaries-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MercenariesEnhancedDeck_NEM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Mercenaries - Enhanced Deck (Adapted)]
+4 Cateran Brute
+1 Cateran Enforcer
+1 Cateran Kidnappers
+2 Cateran Persuader
+3 Cateran Summons
+4 Dark Ritual
+2 Duress
+1 Highway Robber
+2 Jovial Evil
+1 Maggot Therapy
+2 Polluted Mire
+1 Primeval Shambler
+2 Rathi Fiend
+4 Reaver Ambush
+2 Seal of Doom
+2 Strongarm Thug
+20 Swamp
+2 Swat
+2 Vicious Hunger
+2 Yawgmoth's Will

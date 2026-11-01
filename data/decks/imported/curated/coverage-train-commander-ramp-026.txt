@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp RG #20266027]
+1 Arena of Glory
+1 Argoth, Sanctum of Nature
+1 Axebane Stag
+1 Axiom Engraver
+1 Ba Sing Se
+1 Barbarian Riftcutter
+1 Bronze Walrus
+1 Cathodion
+1 Cavern Thoctar
+1 Charging Strifeknight
+1 Cliffgate
+1 Craw Giant
+1 Crystal Chimes
+1 Curious Altisaur
+1 Darksteel Relic
+1 Dormant Volcano
+1 Dwarven Hold
+1 Emerald Medallion
+1 Fire Nation Palace
+1 Flowstone Mauler
+19 Forest
+1 Frost Giant
+1 Gang of Elk
+1 Gemrazer
+1 Ghoulcaller's Bell
+1 Goblin Picker
+1 Gruul War Plow
+1 Helm of Awakening
+1 Hollow Trees
+1 Iron Suitcase
+1 Jet Medallion
+1 Krosan Groundshaker
+1 Liquimetal Torque
+1 Livonya Silone
+1 Loamdragger Giant
+1 Mana Geode
+1 Mana Prism
+1 Manakin
+1 Manor Gate
+1 Marhault Elsdragon
+1 Mimic
+7 Mountain
+1 Needleshot Gourna
+1 Otherworld Atlas
+1 Oxidize
+1 Phyrexian Lens
+1 Prismatic Lens
+1 Ranger's Longbow
+1 Raze
+1 Ring of Renewal
+1 Rocky Roads
+1 Salvaged Manaworker
+1 Sandstone Needle
+1 Sapphire Medallion
+1 Savaen Elves
+1 Seer's Lantern
+1 Sensei's Divining Top
+1 Shaleskin Bruiser
+1 Shriekhorn
+1 Spearbreaker Behemoth
+1 Stone Calendar
+1 Tangle Hulk
+1 Teetering Peaks
+1 The Autonomous Furnace
+1 The Lady of the Mountain
+1 The Lonely Mountain
+1 The Shire
+1 Thought Vessel
+1 Thriving Bluff
+1 Titania's Song
+1 Triassic Egg
+1 Tyrranax Rex
+1 Ur-Golem's Eye
+1 Wild Celebrants
+1 Workhorse
+
+[commander]
+Jerrard of the Closed Fist

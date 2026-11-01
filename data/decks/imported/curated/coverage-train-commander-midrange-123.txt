@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BG #20266124]
+1 Algae Gharial
+1 Ant Queen
+1 Ashiok's Reaper
+1 Assassin's Strike
+1 Ba Sing Se
+1 Bog Naughty
+1 Bojuka Bog
+1 Carnage Altar
+1 Collector Ouphe
+1 Corrosive Gale
+1 Deadbridge Shaman
+1 Dingus Staff
+1 Disease Carriers
+1 Dowsing Dagger
+1 Drider
+1 Elvish Doomsayer
+1 Filigree Crawler
+1 Foratog
+14 Forest
+1 Gaea's Anthem
+1 Ghoulflesh
+1 Gilded Pinions
+1 Gingerbread Cabin
+1 Glimmer Bairn
+1 Glimmerlight
+1 Gobbling Ooze
+1 Goldvein Pick
+1 Great Arashin City
+1 Groundshaker Sliver
+1 Guul Draz Mucklord
+1 Hollow Trees
+1 Hornet Harasser
+1 Howlpack Resurgence
+1 Khalni Garden
+1 Kishla Village
+1 Kite Shield
+1 Leechridden Swamp
+1 Manor Gate
+1 Mindslicer
+1 Molting Snakeskin
+1 Mortuary Mire
+1 Nettlecyst
+1 Noxious Toad
+1 Overgrown Armasaur
+1 Panharmonicon
+1 Phyrexian Vault
+1 Planar Gate
+1 Rootwater Alligator
+1 Ruby Medallion
+1 Screeching Buzzard
+1 Serpent Generator
+1 Servant of Volrath
+1 Skittering Invasion
+1 Slayer's Plate
+1 Spitting Spider
+1 Splatter Goblin
+1 Spore Crawler
+1 Spore Flower
+1 Spore Swarm
+1 Sporecrown Thallid
+1 Subterranean Hangar
+1 Susur Secundi, Void Altar
+11 Swamp
+1 Tablet of Epityr
+1 Tangle Asp
+1 Tarpan
+1 Thallid Soothsayer
+1 The Serpent Society
+1 The Shire
+1 Thelonite Druid
+1 Thriving Moor
+1 Titan Forge
+1 Twisted Embrace
+1 Twisted Experiment
+1 Vampire Warlord
+1 Zanarkand, Ancient Metropolis
+
+[commander]
+Rhys the Exiled

@@ -1,7 +1,8 @@
 // Acting on an account or a game (beta.8, `docs/feedback.md` §"The admin
-// console"): reset a password (shown once), ban and lift a ban, delete an
-// account (typed to confirm), and end a running game. Every act asks first,
-// in a dialog, and goes through the service, which logs it with the admin.
+// console"): ban and lift a ban, delete an account (typed to confirm), and
+// end a running game. Every act asks first, in a dialog, and goes through the
+// service, which logs it with the admin. There is no password to reset:
+// accounts sign in at Baylee Central (`docs/central-login.md`).
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
@@ -9,7 +10,7 @@ import { request, type AccountBan } from "../api";
 import { formatWhen, t, type Lang } from "../i18n";
 import { navigate, adminPath } from "../router";
 import { Modal } from "./Models";
-import { Badge, copy, describe } from "./shared";
+import { describe } from "./shared";
 
 /** What the acts need to know about the account. */
 export interface Target {
@@ -17,18 +18,12 @@ export interface Target {
   handle: string;
   guest: boolean;
   ban?: AccountBan | null;
-  reset_pending?: boolean;
 }
 
 const accountPath = (id: string) => `/ui/api/admin/accounts/${encodeURIComponent(id)}`;
 
 /** The service's acts, each one request. */
 export const moderation = {
-  resetPassword: async (id: string): Promise<string> => {
-    const response = await request("POST", `${accountPath(id)}/password`);
-    const body = (await response.json()) as { password: string };
-    return body.password;
-  },
   ban: async (id: string, reason: string, until: string | null): Promise<void> => {
     await request("PUT", `${accountPath(id)}/ban`, until === null ? { reason } : { reason, until });
   },
@@ -111,39 +106,6 @@ function Ask({
         </button>
         <button type="button" disabled={busy} onClick={onClose}>
           {t(lang, "mod.cancel")}
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-/** The reset password, shown this once, with a copy button. */
-function Shown({ lang, who, password, onClose }: { lang: Lang; who: string; password: string; onClose: () => void }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <Modal labelledBy="mod-shown" alert onClose={onClose}>
-      <h3 id="mod-shown">{t(lang, "mod.resetDone", { who })}</h3>
-      <p className="muted small">{t(lang, "mod.resetOnce")}</p>
-      <p>
-        <input
-          className="mono"
-          readOnly
-          value={password}
-          aria-label={t(lang, "mod.resetDone", { who })}
-          onFocus={(event) => event.currentTarget.select()}
-        />
-      </p>
-      <div className="row-actions">
-        <button
-          type="button"
-          onClick={() => {
-            void copy(password).then(setCopied);
-          }}
-        >
-          {copied ? t(lang, "mod.copied") : t(lang, "mod.copy")}
-        </button>
-        <button type="button" onClick={onClose}>
-          {t(lang, "mod.close")}
         </button>
       </div>
     </Modal>
@@ -272,27 +234,17 @@ function DeleteForm({ lang, target, onClose }: { lang: Lang; target: Target; onC
   );
 }
 
-type Open = "reset" | "ban" | "unban" | "delete" | null;
+type Open = "ban" | "unban" | "delete" | null;
 
 /** The acts on one account, under its facts. `onChanged` reads it again. */
 export function AccountActions({ lang, target, onChanged }: { lang: Lang; target: Target; onChanged: () => void }) {
   const [open, setOpen] = useState<Open>(null);
-  const [shown, setShown] = useState<string | null>(null);
   const close = () => setOpen(null);
   return (
     <div className="mod-actions">
       <p className="muted small">{t(lang, "mod.hint")}</p>
       {target.ban != null && <BanLine lang={lang} ban={target.ban} />}
-      {target.reset_pending === true && <Badge tone="warn">{t(lang, "mod.mustChange")}</Badge>}
       <div className="row-actions">
-        <button
-          type="button"
-          disabled={target.guest}
-          title={target.guest ? t(lang, "mod.resetGuest") : undefined}
-          onClick={() => setOpen("reset")}
-        >
-          {t(lang, "mod.reset")}
-        </button>
         {target.ban != null ? (
           <button type="button" onClick={() => setOpen("unban")}>
             {t(lang, "mod.unban")}
@@ -306,19 +258,6 @@ export function AccountActions({ lang, target, onChanged }: { lang: Lang; target
           {t(lang, "mod.delete")}
         </button>
       </div>
-      {open === "reset" && (
-        <Ask
-          lang={lang}
-          id="mod-reset"
-          question={t(lang, "mod.resetAsk", { who: target.handle })}
-          yes={t(lang, "mod.resetYes")}
-          run={async () => {
-            setShown(await moderation.resetPassword(target.id));
-            onChanged();
-          }}
-          onClose={close}
-        />
-      )}
       {open === "ban" && <BanForm lang={lang} target={target} onClose={close} onDone={onChanged} />}
       {open === "unban" && (
         <Ask
@@ -334,7 +273,6 @@ export function AccountActions({ lang, target, onChanged }: { lang: Lang; target
         />
       )}
       {open === "delete" && <DeleteForm lang={lang} target={target} onClose={close} />}
-      {shown !== null && <Shown lang={lang} who={target.handle} password={shown} onClose={() => setShown(null)} />}
     </div>
   );
 }

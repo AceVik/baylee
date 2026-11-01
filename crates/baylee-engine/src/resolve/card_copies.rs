@@ -82,5 +82,5 @@ pub(super) fn exile_and_cast(
         copies.push(state.source_identity(copy).expect("new card copy"));
     }
     state.invalidate_projections();
-    super::hidden_exile::continue_play(state, res, copies)
+    super::hidden_exile::continue_play(state, res, copies, false)
 }

@@ -462,7 +462,7 @@ fn a_copys_own_grant_is_read_off_the_card_it_is() {
         .unwrap()
         .object_mut(effigy)
         .unwrap()
-        .take_abilities(copied.clone());
+        .take_abilities(compose(copied.clone(), &own, 0, &[], None));
     let view = player_view(engine.state(), me, 0, None, &SeatContext::default(), &[]);
     let copy = view.battlefield.iter().find(|o| o.id == effigy).unwrap();
     assert_eq!(
@@ -476,6 +476,19 @@ fn a_copys_own_grant_is_read_off_the_card_it_is() {
         copy.grants.is_empty(),
         "the copied blue ability is not an external modifier grant"
     );
+    let blue = copy
+        .ability_sources
+        .iter()
+        .find(|a| a.index == blue_index)
+        .unwrap();
+    assert_eq!(
+        blue.rules,
+        Some(rules_face(PrintedFace::new(definition.index, 0).unwrap()))
+    );
+    assert_eq!(blue.ability, 0);
+    assert_eq!(blue.copy_modifier, Some(2));
+    assert!(view.cards().any(|card| card == definition.index));
+    assert_copy_sources_hide(&mut engine, me, effigy, &copy.ability_sources);
     let mut state = engine.state().clone();
     let quoted = stacked(&mut state, machine_gods_effigy(), blue_index, copied);
     let Some(baylee_view::StackItem::Ability {
@@ -497,6 +510,51 @@ fn a_copys_own_grant_is_read_off_the_card_it_is() {
         text,
         stack_text(face, 0),
         "the quoted ability names Effigy's clause, not Lantern's"
+    );
+}
+
+/// Face-down copies hide their entire ability provenance for both players.
+fn assert_copy_sources_hide(
+    engine: &mut Engine<Registry>,
+    me: PlayerId,
+    effigy: ObjectId,
+    original: &[baylee_view::AbilitySource],
+) {
+    engine
+        .dev_state_mut(me)
+        .unwrap()
+        .object_mut(effigy)
+        .unwrap()
+        .status
+        .insert(baylee_engine::object::Status::FACE_DOWN);
+    for seat in [me, PlayerId::new(1)] {
+        let hidden = player_view(engine.state(), seat, 0, None, &SeatContext::default(), &[]);
+        assert!(
+            hidden
+                .battlefield
+                .iter()
+                .find(|o| o.id == effigy)
+                .unwrap()
+                .ability_sources
+                .is_empty()
+        );
+    }
+    engine
+        .dev_state_mut(me)
+        .unwrap()
+        .object_mut(effigy)
+        .unwrap()
+        .status
+        .remove(baylee_engine::object::Status::FACE_DOWN);
+    let restored = player_view(engine.state(), me, 0, None, &SeatContext::default(), &[]);
+    assert_eq!(
+        restored
+            .battlefield
+            .iter()
+            .find(|o| o.id == effigy)
+            .unwrap()
+            .ability_sources,
+        original
     );
 }
 

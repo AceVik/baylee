@@ -47,6 +47,8 @@ pub enum ActivationLimit {
     Exhaust,
     /// At most this many activations per turn, per object.
     PerTurn(u8),
+    /// At most the currently evaluated number of activations each turn.
+    PerTurnAmount(crate::Amount),
     /// Boast: this exact creature must have attacked this turn; normally once.
     /// Rules effects may allow a second activation during its controller's turn.
     Boast,
@@ -167,6 +169,14 @@ pub enum Condition {
     OpponentPoisonAtLeast(u16),
     /// An evaluated magnitude meets the printed lower bound.
     AmountAtLeast(crate::Amount, u32),
+    /// The evaluated number is even, including zero.
+    AmountIsEven(crate::Amount),
+    /// This incarnation blocked or became blocked since your previous upkeep.
+    SourceBlockedOrWasBlockedSinceYourLastUpkeep,
+    /// A creature damaged by this source incarnation died this turn.
+    CreatureDamagedBySourceDiedThisTurn,
+    /// At least one eligible defending player controls no matching permanent.
+    SomeDefendingPlayerControlsNone(&'static Filter),
     /// At least one opponent controls at most this many matching permanents.
     OpponentControlCountAtMost(&'static Filter, u32),
     /// An opponent controls more matching permanents than you do.
@@ -225,6 +235,9 @@ pub enum Condition {
     /// permanent of the chosen color"). False with no chosen opponent, or
     /// once that player has left the game.
     ChosenOpponentControls(&'static crate::Filter),
+    /// The chosen color occurs strictly more often than every other color among
+    /// the chosen opponent's matching permanents. Multicolored objects count for each color.
+    ChosenColorIsUniqueMostCommon(&'static crate::Filter),
     /// The resolution's first target is a spell that would destroy a
     /// permanent the filter matches if it resolved now (Equinox: "if it
     /// would destroy a land you control"): one of its own top-level
@@ -288,6 +301,9 @@ pub enum Condition {
     /// threshold below, so the count is a parameter rather than a fixed
     /// nought and nothing here may read the word.
     HandSizeAtMost(u8),
+    /// The active player had at most N cards in hand at the beginning of
+    /// this turn, before any turn-based action or trigger.
+    HandSizeAtTurnStartAtMost(u8),
     /// At least one player still in the game has at most N cards in hand.
     APlayerHandSizeAtMost(u8),
     /// The controller has played at least N lands this turn (CR 305.2).
@@ -526,6 +542,10 @@ pub enum Trigger {
     /// The source becomes the target of a spell or ability (ward,
     /// Phantasmal Image).
     BecomesTarget,
+    /// Enchanted permanent becomes the target of a spell or ability; the
+    /// controller of that spell or ability is recorded as `EventPlayer`
+    /// (Fractured Loyalty).
+    EnchantedBecomesTarget,
     /// This permanent becomes a target of an opponent's spell or ability.
     /// Its implicit resolution subject is that stack object (ward).
     Ward,
@@ -590,6 +610,12 @@ pub enum Trigger {
     /// Damage that was prevented was not dealt, and triggers nothing
     /// (CR 603.2g).
     DealtDamage(&'static Filter),
+    /// A permanent matching the filter is dealt combat damage (Pious Warrior:
+    /// "whenever this creature is dealt combat damage, you gain that much
+    /// life"). Fires once for a step's combat damage to that permanent
+    /// (CR 510.2, 603.2c), with `Amount::EventAmount` carrying the step's
+    /// total combat damage dealt to it.
+    DealtCombatDamage(&'static Filter),
     /// A player the relation names is dealt damage (Living Artifact and
     /// Lich: "whenever you're dealt damage"). The player's sibling of
     /// [`Self::DealtDamage`], one event the same way: all combat damage in
@@ -606,6 +632,9 @@ pub enum Trigger {
     /// the event's object, so `PlayerRel::ControllerOfEvent` is "that
     /// land's controller".
     BecomesTapped(&'static Filter),
+    /// A matching permanent becomes untapped. The permanent is the event's
+    /// object, so `PlayerRel::ControllerOfEvent` is "that permanent's controller".
+    BecomesUntapped(&'static Filter),
     /// Positive combat damage from a matching source to a creature.
     /// The damaged creature is the event object.
     DealsCombatDamageToCreature(&'static Filter),
@@ -823,6 +852,8 @@ pub enum Trigger {
     DealsCombatDamage(&'static Filter),
     /// A player gains life (Professor Dellian Fel).
     GainsLife(crate::effect::PlayerRel),
+    /// The indicated player actually loses life, including paying life costs.
+    LosesLife(crate::effect::PlayerRel),
     /// "Whenever this creature mutates" (Gemrazer, CR 702.140d).
     Mutates,
 }
@@ -1217,12 +1248,10 @@ impl AbilityDef {
             Self::Triggered {
                 trigger: Trigger::TappedForMana { .. },
                 targets: None,
+                second_targets: None,
                 effects,
                 ..
-            } if effects.iter().any(|effect| matches!(
-                effect,
-                crate::effect::Effect::AddMana { .. } | crate::effect::Effect::AddManaFor { .. } | crate::effect::Effect::AddManaLikeEvent { .. } | crate::effect::Effect::ManaForColorsAmong(_)
-            ))
+            } if crate::mana_rule::could_add_mana(effects)
         )
     }
 }

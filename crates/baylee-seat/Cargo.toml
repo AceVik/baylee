@@ -53,6 +53,12 @@ time = { workspace = true, features = ["local-offset"] }
 tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 
+[target.'cfg(unix)'.dependencies]
+# An agent CLI's process in a session of its own, without the bridge's
+# controlling terminal (`cli::launch::detach`): setsid(2), for which `std`
+# has no stable word. Already in the tree (the gateway's metrics use it).
+rustix = { workspace = true, features = ["process"] }
+
 [dev-dependencies]
 # The self-play driver the measurement and the batching test run on: the
 # host's `Session`, fed through the same seat core the socket feeds. Only in
@@ -63,6 +69,8 @@ baylee-client-core = { workspace = true, features = ["test-support"] }
 # table that could not start, a finished room's socket): a ticket, a lobby
 # row and a seat socket that says what the test tells it to.
 axum.workspace = true
+# Deterministic virtual time for reconnect-window tests.
+tokio = { workspace = true, features = ["test-util"] }
 
 [[bin]]
 name = "baylee-seat"

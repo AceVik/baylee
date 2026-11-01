@@ -230,7 +230,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             // ability whose targets all became illegal resolves with an
             // empty list and puts nothing anywhere, which is the same
             // no-subject answer `this_object` gave by returning `None`.
-            if res.targeted {
+            // A player-only target does not redirect an instruction about
+            // the source (Jinxed Choker); an empty optional *object* target
+            // still names nothing (Karn's +1, Yawgmoth's activation), and
+            // neither does an object target that became illegal beside a
+            // legal player (`subjects::names_targets`, CR 608.2b).
+            if subjects::names_targets(state, res) {
                 let plans = res
                     .targets
                     .iter()
@@ -286,6 +291,37 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     n,
                     Some(res.controller),
                 );
+            }
+            None
+        }
+        Effect::RemoveAllCountersFilter { filter, kind } => {
+            let matching: Vec<ObjectId> = state
+                .battlefield_seen()
+                .filter(|&id| {
+                    state.object(id).is_some_and(|object| {
+                        crate::eval::matches_with_context(
+                            filter,
+                            state,
+                            object,
+                            res.controller,
+                            res.rule_context(),
+                        )
+                    })
+                })
+                .collect();
+            for id in matching {
+                let Some(amount) = state.object(id).map(|object| object.counters.get(kind)) else {
+                    continue;
+                };
+                if amount > 0 {
+                    crate::replacement::remove_counters_by(
+                        state,
+                        id,
+                        kind,
+                        amount,
+                        Some(res.controller),
+                    );
+                }
             }
             None
         }
@@ -466,6 +502,49 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     origin: crate::effects::EffectOrigin::Resolution,
                     layer: baylee_cards_dsl::Layer::PtSet,
                     timestamp: ts,
+                    duration,
+                    filter,
+                    modifier,
+                });
+            }
+            None
+        }
+        Effect::ModifyFilter {
+            filter,
+            controlled_by,
+            modifier,
+            duration,
+        } => {
+            let seats = controlled_by.map(|rel| super::players_of(rel, state, you, res));
+            let filters = if matches!(filter, baylee_cards_dsl::Filter::This) {
+                let this = this_to_affect(state, res)?;
+                if seats.as_ref().is_some_and(|seats| {
+                    state
+                        .object(this)
+                        .is_none_or(|object| !seats.contains(&object.controller))
+                }) {
+                    return None;
+                }
+                smallvec::smallvec![crate::effects::EffectFilter::object(state, this)]
+            } else {
+                super::bound_now_with_context(
+                    state,
+                    filter,
+                    &modifier,
+                    you,
+                    res.rule_context(),
+                    seats.as_deref(),
+                )
+            };
+            let timestamp = state.next_timestamp();
+            for filter in filters {
+                state.effects.register(crate::effects::ContinuousEffect {
+                    id: baylee_core::ids::EffectId::new(0),
+                    source: Some(res.source),
+                    controller: you,
+                    origin: crate::effects::EffectOrigin::Resolution,
+                    layer: modifier.layer(),
+                    timestamp,
                     duration,
                     filter,
                     modifier,
@@ -681,6 +760,7 @@ mod pump_tests {
             loot: None,
             draw_watch: None,
             this_way_from: None,
+            coin_stake: None,
         }
     }
 
@@ -923,7 +1003,8 @@ mod pump_tests {
             .map(|fx| match fx.filter {
                 crate::effects::EffectFilter::ObjectIs(id, _) => id,
                 crate::effects::EffectFilter::Dsl(f)
-                | crate::effects::EffectFilter::DslAbout(f, ..) => {
+                | crate::effects::EffectFilter::DslAbout(f, ..)
+                | crate::effects::EffectFilter::DslControlledBy(f, ..) => {
                     panic!("a dynamic filter: {f:?}")
                 }
             })
@@ -979,7 +1060,8 @@ mod pump_tests {
             .map(|fx| match fx.filter {
                 crate::effects::EffectFilter::ObjectIs(id, _) => id,
                 crate::effects::EffectFilter::Dsl(f)
-                | crate::effects::EffectFilter::DslAbout(f, ..) => {
+                | crate::effects::EffectFilter::DslAbout(f, ..)
+                | crate::effects::EffectFilter::DslControlledBy(f, ..) => {
                     panic!("a dynamic filter: {f:?}")
                 }
             })

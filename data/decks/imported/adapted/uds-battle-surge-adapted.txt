@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/UDS/battle-surge.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BattleSurge_UDS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Battle Surge (Adapted)]
+1 Aether Sting
+3 Arc Lightning
+2 Curfew
+1 Ghitu War Cry
+2 Goblin Berserker
+2 Goblin War Buggy
+4 Invoke the Firemind
+9 Island
+3 Kingfisher
+14 Mountain
+1 Parch
+1 Raven Familiar
+3 Rush of Inspiration
+2 Scatter Ray
+2 Thieving Magpie
+1 Thundering Giant
+2 Viashino Cutthroat
+3 Viashino Sandscout
+4 Wild Colos

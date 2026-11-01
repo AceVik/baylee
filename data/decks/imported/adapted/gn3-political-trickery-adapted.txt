@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/GN3/political-trickery.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PoliticalTrickery_GN3.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Political Trickery (Adapted)]
+1 Angler Drake
+1 Angler Turtle
+4 Call to Mind
+2 Cancel
+1 Counterspell
+2 Exclude
+2 Fact or Fiction
+2 Fog Bank
+1 Frantic Search
+2 Impulse
+2 Infuse
+25 Island
+2 Meditate
+3 Murmuring Mystic
+3 Psionic Blast
+1 Pull from Tomorrow
+2 Repulse
+1 Spirit Water Revival
+2 Talrand's Invocation
+1 Tinker

@@ -54,6 +54,8 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
                 attackers: vec![object()],
                 defenders: vec![baylee_core::ids::Defender::Player(PlayerId::new(1))],
                 required: Vec::new(),
+                alone: Vec::new(),
+                minimum_required: None,
                 limits: Vec::new(),
             },
             Some(PlayerAction::DeclareAttackers {
@@ -88,6 +90,40 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
                 cost: baylee_core::mana!("{U}"),
             }),
             no.clone(),
+        ),
+        (
+            yes_no(YesNoPrompt::PayManaAndLife {
+                cost: baylee_core::mana!("{B}"),
+                life: 1,
+            }),
+            no.clone(),
+        ),
+        (
+            yes_no(YesNoPrompt::RemoveCountersInsteadOfUntapping {
+                permanent: object(),
+                kind: baylee_cards_dsl::counters::WIND,
+                count: 3,
+            }),
+            None,
+        ),
+        (
+            yes_no(YesNoPrompt::UseShieldCounter {
+                permanent: object(),
+            }),
+            None,
+        ),
+        (
+            yes_no(YesNoPrompt::UseDamageClearingReplacement {
+                permanent: object(),
+            }),
+            None,
+        ),
+        (
+            yes_no(YesNoPrompt::ApplyAdditionalCountersNext {
+                permanent: object(),
+                additional: 1,
+            }),
+            None,
         ),
         (yes_no(YesNoPrompt::PayLife { amount: 7 }), no.clone()),
         (yes_no(YesNoPrompt::Miracle { card: object() }), no.clone()),
@@ -342,7 +378,7 @@ fn a_timed_out_seat_does_nothing_wherever_the_question_allows_it() {
 }
 
 /// How many kinds [`kind_of`] tells apart.
-const KINDS: usize = 45;
+const KINDS: usize = 50;
 
 /// Which kind of question this is, numbered without gaps. No wildcard
 /// arm: a new `Pending` variant or yes/no prompt does not compile here
@@ -396,7 +432,9 @@ fn kind_of(pending: &Pending) -> usize {
                 YesNoPrompt::Discover { .. } => 12,
                 YesNoPrompt::CastWithoutPaying { .. } => 13,
                 YesNoPrompt::CastPaying { .. } => 14,
+                YesNoPrompt::RemoveCountersInsteadOfUntapping { .. } => 32,
                 YesNoPrompt::PayMana { .. } => 15,
+                YesNoPrompt::PayManaAndLife { .. } => 31,
                 YesNoPrompt::SkipTurn { .. } => 16,
             }
         }
@@ -619,7 +657,9 @@ fn only_the_questions_whose_answer_cannot_go_stale_are_automatable() {
             | YesNoPrompt::Kicker
             | YesNoPrompt::ManaAnyType
             | YesNoPrompt::PayTax { .. }
+            | YesNoPrompt::RemoveCountersInsteadOfUntapping { .. }
             | YesNoPrompt::PayMana { .. }
+            | YesNoPrompt::PayManaAndLife { .. }
             | YesNoPrompt::PayLife { .. }
             | YesNoPrompt::PayPact { .. }
             | YesNoPrompt::Miracle { .. }

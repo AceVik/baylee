@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/BNG/inspiration-struck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, InspirationStruck_BNG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Inspiration-Struck (Adapted)]
+1 Agony Warp
+2 Black Oak of Odunos
+1 Breaching Hippocamp
+4 Consult the Necrosages
+1 Curse of the Swine
+4 Essence Vortex
+1 Felhide Minotaur
+4 Glimpse the Unthinkable
+1 Horizon Scholar
+1 Insatiable Harpy
+15 Island
+4 Notion Rain
+4 Pilfered Plans
+2 Psychic Drain
+1 Sip of Hemlock
+1 Springleaf Drum
+11 Swamp
+1 Thassa's Bounty
+1 Triton Shorethief

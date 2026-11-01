@@ -220,7 +220,7 @@ in both directions.
 |---|---|---|---|
 | PM | `/Users/viktor/Projects/baylee` | `main` | board, integration, this file, the cross-cutting `docs/`, CI/CD (`.github/`, `crates/baylee-dev`), releases and the workspace version |
 | engine | `…/baylee-engine` | `engine` | `baylee-engine`, `baylee-core`, `baylee-cards`, `-cards-dsl`, `-cards-codegen`, `-cards-index`, `baylee-gamehost`, `baylee-engine-server`, `xtask` |
-| client | `…/baylee-client` | `client` | `baylee-client`, `baylee-client-core`, `baylee-client-android`, `scripts/mobile` |
+| client | `…/baylee-client` | `client` | `baylee-client`, `baylee-client-core`, `baylee-client-android`, the mobile tasks of `cargo dev` (`android`, `ios-sim`) |
 | gateway | `…/baylee-gateway` | `gateway` | `baylee-gateway`, `baylee-agent`, `baylee-protocol`, `baylee-db`, `baylee-catalog` |
 | ai | `…/baylee-ai` | `ai` | `baylee-ai`, house-AI scouting, `docs/house-ai.md` |
 

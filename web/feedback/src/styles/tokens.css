@@ -1,0 +1,178 @@
+/* The design tokens: every colour, size, space, radius, shadow and duration
+   the UI uses, and nothing else. Components read only these names, so the
+   look can move with the console (into baylee.app, M5) by carrying this file
+   and `components.css` along. Light and dark follow the system; every text
+   colour holds 4.5:1 and every control border 3:1 against the surfaces it
+   sits on (`src/styles/contrast.test.ts` measures them). */
+
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces, from the page down to what floats over it. */
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface-alt: #f0f2f6;
+  --surface-hover: #f5f7fb;
+  --overlay: rgb(10 14 25 / 45%);
+
+  /* Text. */
+  --text: #121826;
+  --text-muted: #4a5468;
+  --text-subtle: #5b6579;
+
+  /* Lines: dividers, and the edge of a control (3:1). */
+  --border: #e1e5ec;
+  --border-strong: #7a8396;
+
+  /* The accent: links, the primary action, what is current. */
+  --accent: #3a55d4;
+  --accent-hover: #2d45b5;
+  --accent-soft: #ebeffd;
+  --accent-soft-strong: #d9e0fb;
+  --on-accent: #ffffff;
+  --focus: #3a55d4;
+
+  /* Status: a strong tone for text and a soft one to lay under it. */
+  --ok: #17733b;
+  --ok-soft: #e4f3e9;
+  --on-ok: #ffffff;
+  --warn: #8f5100;
+  --warn-soft: #fbf0db;
+  --danger: #bf2830;
+  --danger-soft: #fbeaea;
+  --on-danger: #ffffff;
+  --info: #0d6292;
+  --info-soft: #e3eff8;
+  --neutral-soft: #eceff4;
+
+  /* A report's kind. */
+  --bug: #ab3418;
+  --crash: #9e1b5a;
+  --improvement: #1b5f9c;
+  --feedback: #3a721c;
+  --other: #545e70;
+
+  /* Chart series. */
+  --c1: #3a55d4;
+  --c2: #cf6a0e;
+
+  /* Type: the system's own faces, nothing fetched. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-xs: 0.8572rem; /* 12px: 0.857 would round under it */
+  --fs-sm: 0.929rem; /* 13px */
+  --fs-md: 1rem; /* 14px */
+  --fs-lg: 1.143rem; /* 16px */
+  --fs-xl: 1.286rem; /* 18px */
+  --fs-2xl: 1.571rem; /* 22px */
+  --fs-3xl: 2rem; /* 28px */
+  --lh-tight: 1.25;
+  --lh: 1.5;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --tracking-caps: 0.05em;
+
+  /* Space, on a grid of 4 px. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* Corners. */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-full: 999px;
+
+  /* Depth. */
+  --shadow-xs: 0 1px 2px rgb(16 24 40 / 5%);
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 9%);
+  --shadow-md: 0 4px 12px -2px rgb(16 24 40 / 12%), 0 2px 4px -2px rgb(16 24 40 / 6%);
+  --shadow-lg: 0 18px 40px -8px rgb(16 24 40 / 24%), 0 4px 10px -4px rgb(16 24 40 / 10%);
+
+  /* Motion: short, so the page feels quick; none when the system asks. */
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layout. */
+  --header-h: 56px;
+  --sidebar-w: 224px;
+  --content-max: 1280px;
+  --content-wide: 1600px;
+  --gutter: var(--sp-8);
+  --control-h: 44px;
+  --control-h-sm: 32px;
+
+  /* Stacking. */
+  --z-header: 10;
+  --z-nav: 20;
+  --z-drawer: 30;
+  --z-popover: 40;
+  --z-toast: 50;
+  --z-modal: 60;
+}
+
+/* Dark: the blue hour, a deep slate with the accent turned to its light. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0f19;
+    --surface: #131927;
+    --surface-alt: #1a2133;
+    --surface-hover: #182032;
+    --overlay: rgb(0 0 0 / 60%);
+
+    --text: #e8ebf3;
+    --text-muted: #a5aec2;
+    --text-subtle: #929cb2;
+
+    --border: #262e42;
+    --border-strong: #64708b;
+
+    --accent: #93a6ff;
+    --accent-hover: #adbcff;
+    --accent-soft: #1d2647;
+    --accent-soft-strong: #283360;
+    --on-accent: #0a0e1a;
+    --focus: #93a6ff;
+
+    --ok: #6dd49b;
+    --ok-soft: #13291f;
+    --on-ok: #08190f;
+    --warn: #f0bc60;
+    --warn-soft: #2d2413;
+    --danger: #ff908a;
+    --danger-soft: #351b1f;
+    --on-danger: #1c0a0c;
+    --info: #80c3f2;
+    --info-soft: #13293c;
+    --neutral-soft: #222a3e;
+
+    --bug: #ffa184;
+    --crash: #f59ccb;
+    --improvement: #8fc6f2;
+    --feedback: #a9da8c;
+    --other: #b7bfcd;
+
+    --c1: #6f88f5;
+    --c2: #d98a33;
+
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 30%);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 35%), 0 1px 3px rgb(0 0 0 / 25%);
+    --shadow-md: 0 6px 16px -4px rgb(0 0 0 / 50%);
+    --shadow-lg: 0 20px 44px -10px rgb(0 0 0 / 65%);
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --gutter: var(--sp-4);
+  }
+}

@@ -1,0 +1,83 @@
+# baylee curated commander aggro seed=20261073
+# licence: AGPL-3.0-only
+[deck:commander aggro UBR #20261073]
+1 Abstergo Entertainment
+1 Abyssal Hunter
+1 Acolyte of Xathrid
+1 Ancestral Vision
+1 Audacious Thief
+1 Black Waltz No. 3
+1 Black Widow, Deadly Hunter
+1 Blightspeaker
+1 Brothers of Fire
+1 Bucolic Ranch
+1 Builder's Bane
+1 Cast Away Doubt
+1 City of Brass
+1 Crucible of the Spirit Dragon
+1 Cuombajj Witches
+1 Daily Bugle Building
+1 Death Cultist
+1 Disintegrate
+1 Dismissive Pyromancer
+1 Drowner Initiate
+1 Electrostatic Infantry
+1 Elementalist Adept
+1 Embraal Gear-Smasher
+1 Erebor Flamesmith
+1 Fire Nation Archers
+1 Firebrand Archer
+1 Firemind's Research
+1 Fireslinger
+1 Flame Slash
+1 Forge Devil
+1 Ghitu Fire-Eater
+1 Ghitu Slinger
+1 Gin'tak Charge
+1 Great Hall of the Citadel
+1 Heap Gate
+1 Ishi-Ishi, Akki Crackshot
+1 Jasmine Dragon Tea Shop
+1 Kamahl, Pit Fighter
+1 Kessig Flamebreather
+1 Kris Mage
+1 Lightning Bolt
+1 Madame Hydra
+1 Maga, Traitor to Mortals
+1 Merciless Enforcers
+12 Mountain
+1 Murasa Pyromancer
+1 Murmuring Mystic
+1 Outnumber
+1 Painsmith
+1 Pirate Ship
+1 Planar Nexus
+1 Reckless Air Strike
+1 Reckless Fireweaver
+1 Reclusive Artificer
+1 Repulsor Rays
+1 Rock Slide
+1 Sawblade Scamp
+1 Sell-Sword Brute
+1 Shauku's Minion
+1 Shock
+1 Shocking Sharpshooter
+1 Shower of Sparks
+1 Sliver Hive
+1 Sparkmage Apprentice
+1 Stormfist Crusader
+1 Strangle
+1 Surveillance Room
+12 Swamp
+1 The Mycosynth Gardens
+1 Thran Quarry
+1 Traumatic Critique
+1 Turtle Lair
+1 Vampiric Tutor
+1 Vulshok Sorcerer
+1 Walking Ballista
+1 Weaver of Lightning
+1 Zuko's Offense
+
+[commander]
+Tetsuo Umezawa

@@ -1,0 +1,33 @@
+# adapted from data/decks/precon/DDC/demonic.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Demonic_DDC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Demonic (Adapted)]
+1 Abyssal Gatekeeper
+1 Abyssal Specter
+2 Barren Moor
+2 Breeding Pit
+1 Buried Alive
+1 Cackling Imp
+1 Corrupt
+1 Dark Banishing
+2 Dark Ritual
+1 Demon's Horn
+1 Demonic Tutor
+1 Diresight
+1 Dismember
+1 Duress
+2 Dusk Imp
+1 Fallen Angel
+1 Feral Shadow
+1 Foul Imp
+1 Gruesome Fate
+1 Howling Fury
+1 Kuro, Pitlord
+1 Lord of the Pit
+2 Overeager Apprentice
+1 Overkill
+1 Rend Flesh
+1 Souldrinker
+24 Swamp
+1 Syphon Soul
+2 Unhinge
+2 Unholy Strength

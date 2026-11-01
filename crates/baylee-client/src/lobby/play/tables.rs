@@ -553,8 +553,10 @@ fn table_row(
         commands.entity(counts).add_child(ai);
     }
     discovery::seat_marks(commands, counts, kit, game);
-    // The one action that applies.
+    // The one action that applies. "Return to game" is the compact exception
+    // to the wide rows' ordinary 132-pixel action width.
     let mine = game.seated() || game.yours;
+    let mut compact_action = None;
     if phone
         && !mine
         && model::format_warning(lang, mine_format, game).is_some()
@@ -594,15 +596,16 @@ fn table_row(
         *walked += 1;
         commands.entity(top).add_child(again);
     } else if mine {
-        let back = controls::button(
+        let back = controls::button_compact(
             commands,
             kit,
+            None,
             Phrase::ShellReturnToGame.text(lang),
             Weight::Gold,
             Live::Yes,
-            None,
             Press::Play(PlayPress::Return),
         );
+        compact_action = Some(back);
         orders::item(commands, back, &orders::PLAY, "tables", *walked);
         *walked += 1;
         commands.entity(top).add_child(back);
@@ -654,7 +657,18 @@ fn table_row(
     }
     if wide {
         let action_width = kit.m.px(132.0);
+        let compact_padding = kit.m.px(6.0);
         commands.queue(move |world: &mut World| {
+            if let Some(back) = compact_action {
+                let face = world
+                    .get::<Children>(back)
+                    .and_then(|children| children.iter().next());
+                if let Some(face) = face
+                    && let Some(mut node) = world.get_mut::<Node>(face)
+                {
+                    node.padding = UiRect::axes(compact_padding, px_fixed(0.0));
+                }
+            }
             let actions: Vec<_> = world
                 .get::<Children>(top)
                 .map(|children| {
@@ -665,6 +679,9 @@ fn table_row(
                 })
                 .unwrap_or_default();
             for action in actions {
+                if Some(action) == compact_action {
+                    continue;
+                }
                 if let Some(mut node) = world.get_mut::<Node>(action) {
                     node.width = action_width;
                     node.flex_shrink = 0.0;

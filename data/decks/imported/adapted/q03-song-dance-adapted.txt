@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/Q03/song-dance.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SongDance_Q03.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Song Dance (Adapted)]
+4 Arrows of Justice
+4 Burning Prophet
+4 Defiant Strike
+2 Energy Bolt
+4 Lightning Helix
+4 Martial Glory
+6 Mountain
+8 Plains
+2 Sacred Foundry
+4 Samut's Sprint
+4 Shock
+4 Spirit Summoning
+4 Temple of Triumph
+2 Warleader's Helix
+4 Wind-Scarred Crag

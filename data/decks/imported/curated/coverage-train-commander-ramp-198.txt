@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUBG #20266199]
+1 Ajani's Welcome
+1 Ancient Ziggurat
+1 Architects of Will
+1 Armistice
+1 Badgey, Malicious Glitch
+1 Baleful Strix
+1 Capital City
+1 Cavern of Souls
+1 Centaur Nurturer
+1 Certain Death
+1 Cogwork Wrestler
+1 Commander Greven il-Vec
+1 Corrupted Crossroads
+1 Cruel Truths
+1 Dark Heart of the Wood
+1 Delusions of Mediocrity
+1 Dimir Cluestone
+1 Doom's Servo-Guards
+1 Dromoka Monument
+1 Eclipsed Realms
+1 Emerge from the Cocoon
+1 Etched Familiar
+1 Eviscerator
+1 Eye of Ramos
+4 Forest
+1 Gene Pollinator
+1 Glidedive Duo
+1 Glyph of Life
+1 Golden Egg
+1 Great Hall of the Biblioplex
+1 Grim Feast
+1 Griselbrand
+1 Healer of the Glade
+1 Hierophant's Chalice
+1 Honey Mammoth
+1 Horn of Ramos
+2 Island
+1 Jasmine Dragon Tea Shop
+1 Kiss of the Amesha
+1 Malcator's Watcher
+1 Mandible Justiciar
+1 Midnight Charm
+1 Mindful Biomancer
+1 Mossbeard Ancient
+1 Nature's Claim
+1 Nykthos, Shrine to Nyx
+1 Obelisk of Bant
+1 Ondu Cleric
+1 Pillar of the Paruns
+3 Plains
+1 Professor Dellian Fel
+1 Psychic Symbiont
+1 Quicksilver Fisher
+1 Rejuvenate
+1 S.H.I.E.L.D. Deployment Drone
+1 Secret Base
+1 Selesnya Keyrune
+1 Shattered Angel
+1 Shimmering Grotto
+1 Siege Rhino
+1 Simulacrum
+1 Sphinx of the Steel Wind
+1 Swallowing Plague
+17 Swamp
+1 Tamiyo's Safekeeping
+1 Tatyova, Benthic Druid
+1 The Mycosynth Gardens
+1 Throne of Makindi
+1 Turtle Lair
+1 Vampiric Feast
+1 Vault Skirge
+1 Vicious Hunger
+1 Villainous Hideout
+1 Voldaren Estate
+1 Windgrace Acolyte
+1 Witch Engine
+1 Zof Consumption
+
+[commander]
+Atraxa, Grand Unifier

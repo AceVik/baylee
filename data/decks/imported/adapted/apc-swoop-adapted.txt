@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/APC/swoop.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Swoop_APC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Swoop (Adapted)]
+2 Alpha Tyrranax
+2 Ana Disciple
+2 Chromatic Sphere
+2 Coastal Drake
+1 Essence Vortex
+13 Forest
+3 Gaea's Skyfolk
+9 Island
+2 Jungle Barrier
+1 Lay of the Land
+2 Living Airship
+2 Majestic Metamorphosis
+1 Mystic Snake
+2 Perish
+1 Refute
+1 Rend Flesh
+1 Renegade's Getaway
+1 Repulse
+4 Sultai Charm
+1 Sylvan Library
+1 Thornado
+2 Urborg Elf
+1 Vanquish the Weak
+1 Wind Shear
+1 Woodcutter's Grit
+1 Yavimaya's Embrace

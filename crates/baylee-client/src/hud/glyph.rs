@@ -162,5 +162,7 @@ pub const LOCK: char = '\u{f023}';
 pub const FRIENDS: char = '\u{f500}';
 /// Paper plane: send.
 pub const SEND: char = '\u{f1d8}';
+/// Shield: the block list's blockers (the glyph commander damage wears).
+pub const SHIELD: char = COMMANDER_DAMAGE;
 /// Ellipsis: a row's menu.
 pub const MORE: char = '\u{f141}';

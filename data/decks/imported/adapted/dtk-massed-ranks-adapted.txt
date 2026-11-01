@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/DTK/massed-ranks.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MassedRanks_DTK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Massed Ranks (Adapted)]
+4 Advent of the Wurm
+2 Call of the Conclave
+2 Champion of Arashin
+1 Dromoka Dunecaster
+1 Dromoka Monument
+2 Dromoka Warrior
+4 Eladamri's Call
+1 Evolving Wilds
+11 Forest
+1 Gerrard's Command
+4 Heroes' Reunion
+4 Nature's Chant
+2 Pacifism
+13 Plains
+2 Salt Road Quartermasters
+1 Secure the Wastes
+1 Territorial Roc
+4 Vitalizing Cascade

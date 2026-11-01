@@ -1,0 +1,26 @@
+# baylee synergistic holdout coverage constructed control
+# licence: AGPL-3.0-only
+[deck:constructed control WBR #90010009]
+2 Attrition
+2 Blood-Cursed Knight
+2 Chandler
+2 Deviant Glee
+2 Disciple of Malice
+2 Earthblighter
+2 Edge of the Divinity
+2 Execute
+2 Goblin Assault Team
+2 Hagra Mauling
+2 Iona's Judgment
+2 Knight of Dusk
+2 Manaforge Cinder
+2 Mikaeus, the Unhallowed
+4 Mountain
+3 Sacred Peaks
+2 Shattering Blow
+2 Sundown Pass
+12 Swamp
+2 Temple of Silence
+2 Truefire Paladin
+2 Unburden
+3 Vault of Champions

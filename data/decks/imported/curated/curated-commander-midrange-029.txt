@@ -1,0 +1,83 @@
+# baylee curated commander midrange seed=20261052
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20261052]
+1 Aang and Katara
+1 Abundant Countryside
+1 Afterlife
+1 An Offer You Can't Refuse
+1 Attended Knight
+1 Aviation Pioneer
+1 Awaken the Woods
+1 Bishop of Wings
+1 Briarbridge Tracker
+1 Byway Courier
+1 Captain of the Watch
+1 Cascading Cataracts
+1 Cave of Temptation
+1 Corsair Captain
+1 Delney, Streetwise Lookout
+1 Deranged Outcast
+1 Doomed Traveler
+1 Drogskol Cavalry
+1 Drownyard Explorers
+1 Dwarven Castle Guard
+1 Elspeth, Storm Slayer
+1 Enlightened Maniac
+1 Experimental Aviator
+9 Forest
+1 Gallant Cavalry
+1 Growth Spasm
+1 Henge of Ramos
+1 Holdout Settlement
+1 Honored Knight-Captain
+1 Hunted Witness
+1 Interplanar Beacon
+1 Invasion Reinforcements
+3 Island
+1 Jade Mage
+1 Jeskai Sage
+1 Katara, the Fearless
+1 Knight-Captain of Eos
+1 Lossarnach Captain
+1 Magus of the Order
+1 Maja, Bretagard Protector
+1 Maul Splicer
+1 Mausoleum Guard
+1 Monastery Mentor
+1 Myrsmith
+1 Novice Inspector
+1 Oltec Cloud Guard
+1 Orochi Hatchery
+1 Painted Bluffs
+1 Pawpatch Formation
+13 Plains
+1 Planar Nexus
+1 Plaza of Heroes
+1 Protector of Gondor
+1 Renowned Weaver
+1 Resolute Reinforcements
+1 Return from the Wilds
+1 Rinoa Heartilly
+1 Root Out
+1 Sailor of Means
+1 Sanctifier of Souls
+1 School of the Unseen
+1 Selesnya Charm
+1 Seller of Songbirds
+1 Sliver Hive
+1 Surveillance Room
+1 Swan Song
+1 Tarnished Citadel
+1 They Went This Way
+1 Thraben Inspector
+1 Three Steps Ahead
+1 Tura Kennerüd, Skyknight
+1 Turtle Lair
+1 Urbis Protector
+1 Villainous Hideout
+1 Vital Splicer
+1 Wakandan Shield Guard
+1 Worthy Knight
+
+[commander]
+Phelddagrif

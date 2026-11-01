@@ -396,3 +396,135 @@ fn its_controllers_own_draws_trigger_nothing() {
 
     assert_eq!(triggered(&engine, bowmaster), 0);
 }
+
+/// A trigger whose only target-dependent half is declined still performs
+/// every untargeted half. Removing empty optional triggers must never turn
+/// into removing the whole ability merely because it has a target.
+#[test]
+fn an_empty_optional_target_keeps_every_untargeted_effect() {
+    const OPTIONAL: u32 = 7110;
+    static ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::triggered!(
+        Trigger::ETB,
+        &[
+            Effect::destroy(TargetSpec::Object(&Filter::Any)),
+            Effect::draw(1),
+        ],
+        targets = Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::Any)))
+    )];
+    let optional = super::super::synthetic::land(OPTIONAL, "Optional", ABILITIES);
+    let mut engine = bench(
+        7110,
+        vec![optional],
+        [Seat::default().holding(&[OPTIONAL]), Seat::default()],
+    );
+    to_main(&mut engine, me());
+    let card = the(&engine, ZoneLocation::Hand(me()), OPTIONAL);
+    engine
+        .apply(me(), PlayerAction::PlayLand { card })
+        .expect("the land is offered");
+    let Pending::ChooseTargets { min, .. } = engine.pending().clone() else {
+        panic!("the optional target is asked: {:?}", engine.pending())
+    };
+    assert_eq!(min, 0);
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: Vec::new(),
+                players: Vec::new(),
+            },
+        )
+        .expect("the empty answer is legal");
+    settle(&mut engine, me());
+    assert_eq!(
+        engine.state().zones.list(ZoneLocation::Hand(me())).len(),
+        1,
+        "the untargeted draw still happened"
+    );
+    let source = the(&engine, ZoneLocation::Battlefield, OPTIONAL);
+    let ability = engine
+        .journal()
+        .entries()
+        .iter()
+        .find_map(|entry| match entry.event {
+            GameEvent::AbilityTriggered {
+                object,
+                source: from,
+                ..
+            } if from == source => Some(object),
+            _ => None,
+        })
+        .expect("the optional trigger went on the stack");
+    assert!(
+        engine.journal().entries().iter().any(|entry| matches!(
+            entry.event,
+            GameEvent::StackObjectResolved { object } if object == ability
+        )),
+        "the ability with an untargeted effect resolved normally"
+    );
+}
+
+/// An effect that only writes an event is still an effect. Revealing a hand
+/// changes no field the snapshot hash reads, so the probe must also count
+/// the journal; otherwise the declined target would take the reveal with it.
+#[test]
+fn an_empty_optional_target_keeps_an_event_only_effect() {
+    const REVEALER: u32 = 7111;
+    static ABILITIES: &[AbilityDef] = &[baylee_cards_dsl::triggered!(
+        Trigger::ETB,
+        &[
+            Effect::destroy(TargetSpec::Object(&Filter::Any)),
+            Effect::RevealHand {
+                who: PlayerRel::You,
+            },
+        ],
+        targets = Some(TargetReq::up_to_one(TargetSpec::Object(&Filter::Any)))
+    )];
+    let revealer = super::super::synthetic::land(REVEALER, "Revealer", ABILITIES);
+    let mut engine = bench(
+        7111,
+        vec![revealer],
+        [Seat::default().holding(&[REVEALER]), Seat::default()],
+    );
+    to_main(&mut engine, me());
+    let card = the(&engine, ZoneLocation::Hand(me()), REVEALER);
+    engine
+        .apply(me(), PlayerAction::PlayLand { card })
+        .expect("the land is offered");
+    assert!(
+        matches!(engine.pending(), Pending::ChooseTargets { min: 0, .. }),
+        "the optional target is asked: {:?}",
+        engine.pending()
+    );
+    let before = engine.journal().len();
+    engine
+        .apply(
+            me(),
+            PlayerAction::ChooseTargets {
+                objects: Vec::new(),
+                players: Vec::new(),
+            },
+        )
+        .expect("the empty answer is legal");
+    settle(&mut engine, me());
+    let after = &engine.journal().entries()[before..];
+    assert!(
+        after.iter().any(|entry| matches!(
+            entry.event,
+            GameEvent::Revealed { player, .. } if player == me()
+        )),
+        "the untargeted reveal still happened"
+    );
+    assert!(
+        after
+            .iter()
+            .any(|entry| matches!(entry.event, GameEvent::StackObjectResolved { .. })),
+        "the ability resolved instead of being discarded"
+    );
+    assert!(
+        !after
+            .iter()
+            .any(|entry| matches!(entry.event, GameEvent::StackObjectDidNotResolve { .. })),
+        "nothing was discarded"
+    );
+}

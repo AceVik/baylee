@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/M12/mystical-might.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MysticalMight_M12.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Mystical Might (Adapted)]
+3 Absorb
+1 Aether Adept
+2 Benalish Veteran
+2 Cancel
+3 Coral Merfolk
+4 Daring Leap
+2 Ghost Ship
+14 Island
+1 Levitation
+1 Lord of the Unreal
+1 Mind Control
+3 Nebelgast Herald
+1 Negate
+10 Plains
+2 Rusted Sentinel
+1 Serra Angel
+1 Siege Mastodon
+4 Sphinx's Revelation
+2 Stormfront Pegasus
+2 Unsummon

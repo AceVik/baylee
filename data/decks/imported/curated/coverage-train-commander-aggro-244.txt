@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro UB #20266245]
+1 Aeronaut Tinkerer
+1 Assassin's Strike
+1 Avengers Tower
+1 Baldur's Gate
+1 Balduvian Conjurer
+1 Balduvian Frostwaker
+1 Balduvian Shaman
+1 Blackbloom Rogue
+1 Boulderborn Dragon
+1 Brotherhood Spy
+1 Cabal Evangel
+1 Cabal Trainee
+1 Cast Down
+1 Cavern of Souls
+1 Charity Extractor
+1 Deathcult Rogue
+1 Deathmark
+1 Dhund Operative
+1 Dragonstorm Forecaster
+1 Drifter il-Dal
+1 Embraal Bruiser
+1 Emeritus of Ideation
+1 Fatal Blow
+1 Fire Nation Ambushers
+1 Flash Flood
+1 Fleshgrafter
+1 Fugitive Wizard
+1 Gloomlake Verge
+1 Gravblade Heavy
+1 Harbor Bandit
+1 Hired Poisoner
+1 Human Frailty
+1 Index
+1 Inkrise Infiltrator
+10 Island
+1 Kaervek, the Spiteful
+1 Keen Glidemaster
+1 Lazotep Quarry
+1 Learn from the Past
+1 Lumengrid Warden
+1 Mana Confluence
+1 Masked Blackguard
+1 Mind Ravel
+1 Nezumi Shadow-Watcher
+1 Nimble Pilferer
+1 Opposition Agent
+1 Painted Bluffs
+1 Planar Nexus
+1 Poison-Blade Mentor
+1 Pristine Talisman
+1 Puppeteer
+1 Rathi Trapper
+1 Ravine Raider
+1 Rimewind Taskmage
+1 Scarblade Elite
+1 Shimmering Grotto
+1 Sindbad
+1 Sliver Hive
+1 Stronghold Zeppelin
+14 Swamp
+1 Talas Merchant
+1 Tarnished Citadel
+1 Temporal Adept
+1 The Mycosynth Gardens
+1 Three Tree City
+1 Tolarian Entrancer
+1 Tolarian Scholar
+1 Touch of Brilliance
+1 Trespasser il-Vec
+1 Trickster Mage
+1 Turtle Lair
+1 Unhinge
+1 Victim of Night
+1 Vile Deacon
+1 Wei Ambush Force
+1 Wu Infantry
+1 Zuran Enchanter
+
+[commander]
+Nebuchadnezzar

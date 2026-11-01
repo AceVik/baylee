@@ -1,0 +1,81 @@
+# baylee curated commander control seed=20261055
+# licence: AGPL-3.0-only
+[deck:commander control WRG #20261055]
+1 Aether Sting
+1 An-Havva Township
+1 Baldur's Gate
+1 Blood Rites
+1 Bolt of Keranos
+1 Captivating Cave
+1 Castle Doom
+1 Conduit Pylons
+1 Cosmium Blast
+1 Daily Bugle Building
+1 Deadly Riposte
+1 Direct Hit
+1 Disintegrate
+1 Earthshaker
+1 Eidolon of the Great Revel
+1 Electrostatic Field
+1 Emrakul's Influence
+1 Fateful End
+1 Firespitter Whelp
+1 Flick a Coin
+5 Forest
+1 Gemstone Mine
+1 Gremlin Infestation
+1 Guttersnipe
+1 Havoc
+1 Henge of Ramos
+1 Hidden Grotto
+1 Jaya's Greeting
+1 Joust Through
+1 Khalni Ambush
+1 Lava Hounds
+1 Leaf Arrow
+1 Lifecrafter's Bestiary
+1 Magma Jet
+1 Manamorphose
+1 Mindsparker
+1 Mirrodin's Core
+1 Molten Blast
+1 Molten Nursery
+1 Monsoon
+19 Mountain
+1 Mox Pearl
+1 Naya Charm
+1 Orcish Cannonade
+1 Ore Gorger
+1 Oyobi, Who Split the Heavens
+1 Path of Annihilation
+3 Plains
+1 Playful Shove
+1 Presence of the Master
+1 Primal Order
+1 Primeval Bounty
+1 Rage of Purphoros
+1 Repulsor Rays
+1 Rite of the Dragoncaller
+1 Ruric Thar, the Unbowed
+1 Sarkhan's Unsealing
+1 Scorching Dragonfire
+1 Screamer-Killer
+1 Shimmering Grotto
+1 Sigil of the Empty Throne
+1 Soul of Magma
+1 Spark Jolt
+1 Spitting Earth
+1 Survivors' Encampment
+1 Sythis, Harvest's Hand
+1 Talon Gates of Madara
+1 Tangleroot
+1 The Immortal Weapons
+1 Thran Quarry
+1 Throne of Makindi
+1 Tinder Wall
+1 Ultimate Alliance
+1 Underdome
+1 Where Ancients Tread
+
+[commander]
+Rin and Seri, Inseparable

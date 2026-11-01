@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/WC03/daniel-zink-white-blue-green-wake.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DanielZinkWhiteBlueGreenWake_WC03.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Daniel Zink - White-Blue-Green Wake (Adapted)]
+3 Compulsion
+2 Elfhame Palace
+2 Flooded Strand
+4 Forest
+3 Gaea's Bounty
+2 Harrow
+7 Island
+4 Krosan Verge
+4 Mana Leak
+4 Plains
+2 Shredding Winds
+4 Skycloud Expanse
+3 Spoils of Victory
+1 Sungold Barrage
+3 Tempest of Light
+4 Treva's Charm
+4 Wargate
+4 Wrath of God

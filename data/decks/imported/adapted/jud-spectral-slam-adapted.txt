@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/JUD/spectral-slam.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SpectralSlam_JUD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Spectral Slam (Adapted)]
+2 Blessed Orator
+4 Call of the Conclave
+4 Eladamri's Call
+2 Elephant Guide
+12 Forest
+2 Gerrard's Command
+1 Guided Strike
+2 Ironshell Beetle
+1 Krosan Verge
+4 Nature's Chant
+1 Patrol Hound
+12 Plains
+1 Razorverge Thicket
+2 Reknit
+2 Second Thoughts
+4 Selesnya Charm
+4 Vitalizing Cascade

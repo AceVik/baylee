@@ -73,74 +73,7 @@ fn a_counter_names_the_spell_aimed_at_this_seat() {
     }
 }
 
-/// Which of the pool's spells the counter gate lets resolve (#226), by
-/// name. The predicate is a positive list over effects, so a card written
-/// later with only those effects joins it without anybody deciding it
-/// should, and this list moves. Ancestral Recall (it draws three), Night's
-/// Whisper (it costs life) and every permanent spell stay out.
-///
-/// Open Communications still only draws: its unsupported additional clause
-/// keeps it on this list until that clause is implemented. Borne Upon a Wind
-/// and Gitaxian Probe now have their additional effects and leave it.
-/// Index only reorders the library: the existing predicate also deliberately
-/// permits pure selection spells without spending a counterspell.
-/// The full corpus (2026-10-14) adds seven more of exactly those shapes:
-/// Consider, Deliberate, Introduction to Prophecy and Preordain (look or
-/// scry, then draw), Curate, Contingency Plan and Taigam's Scheming (look or
-/// surveil into the graveyard, no draw).
-#[test]
-fn the_counter_gate_lets_only_a_cantrip_resolve() {
-    let mut held: Vec<&str> = baylee_cards::all()
-        .filter(|def| {
-            let mut o = permanent(obj(1), PlayerId::new(1), 0);
-            o.card = Some(baylee_view::CardIdentity {
-                index: def.index,
-                print: baylee_core::ids::PrintRef::new(0),
-                face: 0,
-            });
-            o.types = def.faces[0].types;
-            crate::tactics::only_replaces_itself(&o)
-        })
-        .map(baylee_cards_dsl::CardDef::name)
-        .collect();
-    held.sort_unstable();
-
-    // An ability on the stack arrives with no types and its source's
-    // card: Opt's card with an ability's blank base is not Opt.
-    let mut ability = permanent(obj(1), PlayerId::new(1), 0);
-    ability.card = Some(hand_card(1, "Opt").card);
-    ability.types = TypeSet::EMPTY;
-    ability.stack_item = Some(baylee_view::StackItem::Ability {
-        token: None,
-        source: obj(2),
-        ability: None,
-        text: None,
-        rules: None,
-    });
-    assert!(
-        !crate::tactics::only_replaces_itself(&ability),
-        "an ability was read as the spell its source card prints"
-    );
-
-    assert_eq!(
-        held,
-        [
-            "Brainstorm",
-            "Consider",
-            "Contingency Plan",
-            "Curate",
-            "Deliberate",
-            "Index",
-            "Introduction to Prophecy",
-            "Open Communications",
-            "Opt",
-            "Preordain",
-            "Reach Through Mists",
-            "Serum Visions",
-            "Taigam's Scheming",
-        ]
-    );
-}
+mod counter_gate;
 
 /// One object named, as a target answer.
 fn named(id: ObjectId) -> PlayerAction {
@@ -473,4 +406,155 @@ fn search_is_repeatable_bounded_and_preserves_unseen_identities() {
         before,
         search::attackers(&v, &squad, victim, AIProfile::EXPERT).attackers
     );
+}
+
+/// A second removal spell at a permanent this seat's own removal on the
+/// stack is already taking is a card thrown away: the house cast Path to
+/// Exile at an opponent's commander, was asked again as its caster, and
+/// cast Swords to Plowshares at the same commander. Swords resolved and
+/// Path had no target left (22.10.2026). The agent passes instead, and
+/// with its own Path gone from the stack it casts Swords as before.
+#[test]
+fn removal_is_not_cast_at_what_this_seats_own_removal_is_taking() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let mut v = view(0, &[20, 20], vec![permanent(obj(7), them, 5)]);
+    v.phase = baylee_view::Phase::FirstMain;
+    v.seats[0].mana_pool.white = 1;
+    v.hand = vec![hand_card(1, "Swords to Plowshares")];
+    let pending = Pending::Priority {
+        player: me,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            can_pass: true,
+            castable: vec![obj(1)],
+            ..Default::default()
+        }),
+    };
+    for (name, profile) in EVERY_PROFILE {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &pending),
+            PlayerAction::CastSpell { card: obj(1) },
+            "{name}: the 5/5 is worth Swords while nothing is aimed at it"
+        );
+    }
+    v.stack = vec![stack_spell(6, "Path to Exile", me, obj(7))];
+    baylee_client_core::test_support::project_current_targets(&mut v);
+    for (name, profile) in EVERY_PROFILE {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &pending),
+            PlayerAction::PassPriority,
+            "{name}: its own Path is already taking the 5/5"
+        );
+    }
+}
+
+#[test]
+fn removal_is_not_cast_or_aimed_at_what_this_seats_ability_or_burn_is_taking() {
+    use baylee_cards_dsl::{Effect, Filter, TargetSpec};
+    use baylee_engine::engine::DecisionContext;
+
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let chupacabra = carded(
+        permanent(obj(20), me, 2),
+        "Ravenous Chupacabra",
+        TypeSet::CREATURE,
+    );
+    let mut trigger = permanent(obj(6), me, 0);
+    trigger.types = TypeSet::EMPTY;
+    trigger.stack_item = Some(baylee_view::StackItem::Ability {
+        token: None,
+        source: obj(20),
+        ability: chupacabra
+            .rules
+            .map(|r| baylee_core::ids::AbilityRef::new(r.card, 0)),
+        text: None,
+        rules: chupacabra.rules,
+    });
+    trigger.targets = vec![baylee_client_core::test_support::target(obj(7))];
+
+    let mut v = view(0, &[20, 20], vec![chupacabra, permanent(obj(7), them, 3)]);
+    v.phase = baylee_view::Phase::FirstMain;
+    v.seats[0].mana_pool.white = 1;
+    v.hand = vec![hand_card(1, "Swords to Plowshares")];
+    v.stack = vec![trigger];
+    baylee_client_core::test_support::project_current_targets(&mut v);
+    let pending = Pending::Priority {
+        player: me,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            can_pass: true,
+            castable: vec![obj(1)],
+            ..Default::default()
+        }),
+    };
+    for (name, profile) in EVERY_PROFILE {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &pending),
+            PlayerAction::PassPriority,
+            "{name}: Chupacabra's trigger on the stack is already destroying the 3/3"
+        );
+    }
+
+    // Lethal burn on the stack also marks the 3/3 as answered, so a second
+    // removal effect aims at the unanswered 2/2 instead of piling onto obj(7).
+    v.battlefield.push(permanent(obj(8), them, 2));
+    v.stack = vec![stack_spell(6, "Lightning Bolt", me, obj(7))];
+    baylee_client_core::test_support::project_current_targets(&mut v);
+    let effects = [Effect::Exile {
+        target: TargetSpec::Object(&Filter::CREATURE),
+    }];
+    let context = DecisionContext {
+        effects: &effects,
+        ..Default::default()
+    };
+    let choose = Pending::ChooseTargets {
+        player: me,
+        options: vec![obj(7), obj(8)],
+        player_options: vec![],
+        min: 1,
+        max: 1,
+        reason: baylee_engine::choice::TargetPrompt::Targets,
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &choose, &context),
+        PlayerAction::ChooseTargets {
+            objects: vec![obj(8)],
+            players: vec![],
+        },
+        "the unanswered 2/2 is chosen over the 3/3 already dying to Lightning Bolt"
+    );
+}
+
+#[test]
+fn harmful_targeted_spells_are_held_when_only_friendly_creatures_are_on_the_board() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    for spell_name in ["Disfigure", "Flame Slash", "Unsummon"] {
+        let mut v = view(0, &[20, 20], vec![permanent(obj(2), me, 2)]);
+        v.phase = baylee_view::Phase::FirstMain;
+        v.seats[0].mana_pool.black = 1;
+        v.seats[0].mana_pool.red = 1;
+        v.seats[0].mana_pool.blue = 1;
+        v.hand = vec![hand_card(1, spell_name)];
+        let pending = Pending::Priority {
+            player: me,
+            legal: Box::new(baylee_engine::choice::LegalActions {
+                can_pass: true,
+                castable: vec![obj(1)],
+                ..Default::default()
+            }),
+        };
+        for (name, profile) in EVERY_PROFILE {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::PassPriority,
+                "{name} cast {spell_name} with only its own creature on the table"
+            );
+        }
+        v.battlefield.push(permanent(obj(3), them, 2));
+        for (name, profile) in EVERY_PROFILE {
+            assert_eq!(
+                HeuristicAgent::new(profile).act(&v, &pending),
+                PlayerAction::CastSpell { card: obj(1) },
+                "{name} held {spell_name} when an opposing creature arrived"
+            );
+        }
+    }
 }

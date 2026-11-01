@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/Q06/lotus-field-combo.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LotusFieldCombo_Q06.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Lotus Field Combo (Adapted)]
+4 Auroral Procession
+2 Dig Through Time
+4 Double Major
+6 Forest
+4 Hydroform
+4 Island
+4 Lotus Field
+4 Neoform
+4 Opt
+2 Spoils of Victory
+4 Square Up
+4 Sylvan Scrying
+2 Temple of Mystery
+4 Thespian's Stage
+4 Woodcutter's Grit
+4 Yavimaya Coast

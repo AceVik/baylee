@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/RTR/selesnya-surge.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SelesnyaSurge_RTR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Selesnya Surge (Adapted)]
+1 Arbor Elf
+1 Axebane Stag
+2 Bountiful Harvest
+1 Brushstrider
+4 Call of the Conclave
+3 Centaur Courser
+1 Centaur Healer
+2 Centaur's Herald
+2 Chorus of Might
+1 Eladamri's Call
+12 Forest
+4 Gerrard's Command
+1 Grove of the Guardian
+1 Healer of the Pride
+1 Heroes' Reunion
+1 Phantom General
+11 Plains
+1 Rockcaster Platoon
+2 Selesnya Charm
+1 Selesnya Guildgate
+2 Selesnya Keyrune
+3 Seller of Songbirds
+1 Veldt
+1 Vitalizing Cascade

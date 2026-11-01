@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/DOM/the-sun-empire.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSunEmpire_DOM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Sun Empire (Adapted)]
+1 Abrade
+1 Bargain
+2 Bestow Greatness
+1 Charging Monstrosaur
+1 Drover of the Mighty
+2 Evaporate
+10 Forest
+1 Hashep Oasis
+4 Incandescent Aria
+1 Lightning Blast
+1 Lightning Strike
+9 Mountain
+4 Naya Charm
+2 Needletooth Raptor
+2 Raging Regisaur
+1 Raptor Hatchling
+4 Rith's Charm
+1 Samut, Voice of Dissent
+1 Shake the Foundations
+1 Snapping Sailback
+2 Sweltering Suns
+1 Thrashing Brontodon
+1 Thundering Spineback
+4 Timber Gorge
+1 Unclaimed Territory
+1 Unsubtle Mockery

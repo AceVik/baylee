@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266105]
+1 Abundant Countryside
+1 Aegis Automaton
+1 Aura of Silence
+1 Avacyn's Memorial
+1 Bastion Mastodon
+1 Bladed Sentinel
+1 Bucolic Ranch
+1 Chrome Prowler
+1 Clockwork Drawbridge
+1 Command Beacon
+1 Commander's Sphere
+1 Corridor Monitor
+1 Cumber Stone
+1 Daily Bugle Building
+1 Diamond Valley
+1 Dimir Keyrune
+1 Drake-Skull Cameo
+1 Dread Statuary
+1 Dross Ripper
+1 Ensoul Artifact
+1 Escaped Experiment
+1 Esper Battlemage
+1 Etherium Astrolabe
+1 Ethersworn Adjudicator
+1 Exocomp
+1 Explosive Apparatus
+1 Filigree Sages
+1 Flamecast Wheel
+1 Foundry of the Consuls
+1 Geistcatcher's Rig
+1 Grapeshot Catapult
+1 Grasping Dunes
+1 Halls of Mist
+1 Hedron Archive
+1 Inkwell Leviathan
+11 Island
+1 Kami of the Crescent Moon
+1 Mage-Ring Network
+1 Metallurgeon
+1 Mishra's Foundry
+1 Monoskelion
+1 Necrologia
+1 Network Terminal
+1 Nine-Tail White Fox
+1 Numbing Dose
+1 Obelisk of Esper
+1 Ojutai Monument
+1 Padeem, Consul of Innovation
+1 Pewter Golem
+1 Phyrexian Metamorph
+1 Phyrexian Walker
+1 Pierce Strider
+8 Plains
+1 Polluted Delta
+1 Scepter of Fugue
+1 Shoreline Salvager
+1 Silumgar Monument
+1 Soldier Replica
+1 Soliton
+1 Sphinx of the Steel Wind
+1 Sundial, Dawn Tyrant
+1 Sunscorched Desert
+1 Surgical Metamorph
+8 Swamp
+1 Swooping Lookout
+1 Sword of the Ages
+1 The Biblioplex
+1 Thrór's Map
+1 Titanium Golem
+1 Unbender Tine
+1 Unholy Citadel
+1 Urza's Tower
+1 Vedalken Outlander
+1 Warp Artifact
+1 Watchful Automaton
+
+[commander]
+Aminatou, the Fateshifter

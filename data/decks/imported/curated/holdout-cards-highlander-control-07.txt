@@ -1,0 +1,79 @@
+# baylee unseen-card holdout highlander seed=90000013
+# licence: AGPL-3.0-only
+[deck:highlander control UBG #90000013]
+1 Abduction
+1 An Offer You Can't Refuse
+1 Archaeological Dig
+1 Blistergrub
+1 Bloodflow Connoisseur
+1 Body Snatcher
+1 Bone Devourer
+1 Brotherhood Headquarters
+1 Brotherhood Patriarch
+1 Capital City
+1 Centaur's Herald
+1 Corrupted Crossroads
+1 Corrupted Harvester
+1 Creakwood Liege
+1 Crystal Grotto
+1 Deathcurse Ogre
+1 Deathknell Berserker
+1 Decomposition
+1 Deranged Hermit
+1 Doubling Season
+1 Dross Harvester
+1 Drowner of Hope
+1 Elderfang Ritualist
+1 Elderfang Venom
+1 Elvish Farmer
+1 Emergency Weld
+1 Eyeblight Cullers
+1 Fate Foretold
+1 Fists of Ironwood
+8 Forest
+1 Glimmerburst
+1 Glimmervoid
+1 Glissa, the Traitor
+1 Golgari Guildmage
+1 Grim Feast
+1 Grist, the Hunger Tide
+1 Hall of Oracles
+1 Haunt the Network
+1 Homarid Spawning Bed
+1 Imperious Perfect
+1 Infestation Sage
+8 Island
+1 Jasmine Dragon Tea Shop
+1 Llanowar Mentor
+1 Maelstrom of the Spirit Dragon
+1 Mintstrosity
+1 Morcant's Loyalist
+1 Mox Jet
+1 Nykthos, Shrine to Nyx
+1 Poison-Tip Archer
+1 Prowess of the Fair
+1 Puppet Master
+1 Quest for the Gravelord
+1 Rancor
+1 Recurring Nightmare
+1 Robotics Mastery
+1 Rumble Arena
+1 Sadistic Glee
+1 Secret Base
+1 Skeletal Vampire
+1 Skemfar Avenger
+1 Slimefoot, the Stowaway
+1 Surveillance Room
+11 Swamp
+1 Tarnished Citadel
+1 Thranduil the Strategist
+1 Thundering Spineback
+1 Tireless Provisioner
+1 Turtle Lair
+1 Undercity Dire Rat
+1 Urza, Lord High Artificer
+1 Violet Pall
+1 Voldaren Estate
+1 Wolfwillow Haven
+1 Wretched Throng
+1 Zendikar's Roil

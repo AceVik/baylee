@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/DST/swarm-slam.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SwarmSlam_DST.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Swarm & Slam (Adapted)]
+1 Advent of the Wurm
+4 Call of the Conclave
+2 Eladamri's Call
+16 Forest
+3 Gerrard's Command
+4 Gold Myr
+2 Infested Roothold
+1 Myr Matrix
+1 Nature's Chant
+8 Plains
+2 Pteron Ghost
+2 Raise the Alarm
+2 Selesnya Charm
+2 Spawning Pit
+2 Tangle Spider
+1 Tel-Jilad Archers
+2 Tel-Jilad Outrider
+2 Viridian Shaman
+3 Vitalizing Cascade

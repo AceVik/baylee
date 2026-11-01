@@ -1,0 +1,36 @@
+# adapted from data/decks/precon/DDF/elspeth.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Elspeth_DDF.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Elspeth (Adapted)]
+1 Aerial Assault
+1 Afterlife
+2 Army of Allah
+2 Bargain
+1 Blinding Light
+1 Bring to Trial
+1 Crusade
+1 Daru Encampment
+2 Elite Vanguard
+1 Flawless Maneuver
+1 Forsake the Worldly
+1 Glory Seeker
+1 Goldmeadow Harrier
+1 Guiding Bolt
+1 Holy Light
+1 Kabira Crossroads
+2 Kor Skyfisher
+1 Master's Call
+1 Metal Fatigue
+1 Mighty Leap
+1 Morale
+22 Plains
+2 Raise the Alarm
+1 Resolute Watchdog
+1 Rustic Clachan
+1 Saltblast
+1 Seasoned Marshal
+1 Slith Ascendant
+1 Split Up
+1 Sunlance
+2 Swords to Plowshares
+1 Sworn Companions
+1 Temple Acolyte

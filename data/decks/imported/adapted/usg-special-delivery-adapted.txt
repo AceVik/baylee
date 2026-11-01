@@ -1,0 +1,32 @@
+# adapted from data/decks/precon/USG/special-delivery.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SpecialDelivery_USG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Special Delivery (Adapted)]
+2 Acridian
+1 Anaconda
+3 Arc Lightning
+1 Bull Hippo
+1 Colossal Might
+2 Cradle Guard
+1 Fiery Mantle
+10 Forest
+2 Goblin Patrol
+2 Goblin War Buggy
+1 Heat Ray
+1 Helm of Chatzuk
+1 Hidden Ancients
+1 Hidden Spider
+1 Hush
+11 Mountain
+1 Pouncing Jaguar
+1 Scrap
+1 Shiv's Embrace
+2 Shivan Raptor
+1 Shower of Sparks
+2 Smoldering Crater
+1 Stump Stomp
+1 Symbiosis
+2 Thundering Giant
+1 Torch Song
+2 Tranquil Thicket
+3 Wild Dogs
+1 World Shaper

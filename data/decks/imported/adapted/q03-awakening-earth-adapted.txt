@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/Q03/awakening-earth.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AwakeningEarth_Q03.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Awakening Earth (Adapted)]
+4 Auroral Procession
+1 Breeding Pool
+4 Double Major
+8 Forest
+4 Frilled Mystic
+2 Growth Spasm
+4 Hydroform
+9 Island
+4 Maraleaf Pixie
+4 Neoform
+4 Paradise Druid
+4 Square Up
+4 Temple of Mystery
+4 Thornwood Falls

@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/NEM/eruption-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, EruptionEnhancedDeck_NEM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Eruption - Enhanced Deck (Adapted)]
+2 Arc Lightning
+1 Armageddon
+4 Arrows of Justice
+2 Expendable Troops
+1 Frontline Rush
+4 Goblin Patrol
+1 Hammer of Bogardan
+1 Healing Salve
+1 Lightning Helix
+3 Martial Glory
+13 Mountain
+1 Pillage
+9 Plains
+2 Ring of Gix
+2 Seal of Cleansing
+4 Seal of Fire
+4 Shock
+4 Spirit Summoning
+1 Terashi's Verdict

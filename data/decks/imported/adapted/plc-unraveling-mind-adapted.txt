@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/PLC/unraveling-mind.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, UnravelingMind_PLC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Unraveling Mind (Adapted)]
+4 Auger Spree
+4 Bedevil
+4 Delirium
+1 Disintegrate
+4 Kaervek's Purge
+7 Mountain
+1 Plaguebearer
+1 Ridged Kusite
+4 Shambling Goblin
+4 Spontaneous Combustion
+14 Swamp
+3 Terminate
+3 Terramorphic Expanse
+3 Trespasser il-Vec
+3 Undertaker

@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/WOE/day-of-the-dragon.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DayOfTheDragon_WOE.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Day of the Dragon (Adapted)]
+1 Aether Channeler
+4 Broadside Barrage
+3 Dragon Whelp
+1 Fire
+4 Invoke the Firemind
+11 Island
+4 Izzet Charm
+3 Lightning Strike
+11 Mountain
+2 Quick Study
+2 Roc Hunter
+4 Rush of Inspiration
+1 Shivan Devastator
+4 Stormkeld Prowler
+4 Swiftwater Cliffs
+1 Traumatic Critique

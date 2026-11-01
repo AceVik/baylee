@@ -15,6 +15,7 @@ mod land;
 mod mobile;
 mod run;
 mod secret;
+mod shipping;
 
 use clap::{Parser, Subcommand};
 use std::{path::PathBuf, process::ExitCode};
@@ -33,7 +34,7 @@ enum Task {
         #[command(subcommand)]
         which: Option<Gate>,
     },
-    /// The three local gates, then a fast-forward push to main.
+    /// The full and desktop feature gates, then a fast-forward push to main.
     Land {
         /// Gate HEAD as it is and push nothing.
         #[arg(long)]
@@ -164,9 +165,11 @@ enum Gate {
         /// Compare with this revision instead of the working tree.
         since: Option<String>,
     },
-    /// The non-default features `--workspace` never builds.
+    /// Local-only development features `--workspace` never builds.
     Features,
-    /// The browser crates for wasm32.
+    /// Ensures verification hooks are absent from shipped feature graphs.
+    ShippedFeatures,
+    /// Experimental browser crates for wasm32 (coming soon; not a landing gate).
     Wasm,
 }
 
@@ -185,6 +188,9 @@ fn main() -> ExitCode {
             Task::Gate {
                 which: Some(Gate::Features),
             } => ("gate features", Ok(features::run())),
+            Task::Gate {
+                which: Some(Gate::ShippedFeatures),
+            } => ("gate shipped-features", Ok(shipping::run())),
             Task::Gate {
                 which: Some(Gate::Wasm),
             } => ("gate wasm", Ok(gate::wasm())),

@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp R #20266256]
+1 Aether Flash
+1 Bant Panorama
+1 Bedlam
+1 Blazing Volley
+1 Blood Mist
+1 Bloodshed Fever
+1 Break Through the Line
+1 Brimstone Dragon
+1 Captive Flame
+1 Chaosphere
+1 Crevasse
+1 Crimson Kobolds
+1 Crimson Roc
+1 Crown of Flames
+1 Desert Sandstorm
+1 Devastation
+1 Duct Crawler
+1 Dwarven Catapult
+1 Emblem of the Warmind
+1 Ferocity of the Wilds
+1 Fire Ants
+1 Fire Nation's Conquest
+1 Fire-Rim Form
+1 Firefly
+1 Firestorm Phoenix
+1 Flameborn Viron
+1 Flaming Sword
+1 Flowstone Blade
+1 Flowstone Wyvern
+1 Ghitu War Cry
+1 Goblin Kites
+1 Granite Grip
+1 Gravity Sphere
+1 Hellkite Punisher
+1 Hurly-Burly
+1 Impending Disaster
+1 Miner's Bane
+1 Miren, the Moaning Well
+35 Mountain
+1 Mudslide
+1 Nalathni Dragon
+1 Northampton Farm
+1 Orcish Oriflamme
+1 Orcish Spy
+1 Orgg
+1 Raging River
+1 Ripscale Predator
+1 Sabertooth Wyvern
+1 Shatterskull Recruit
+1 Shatterstorm
+1 Shire Terrace
+1 Skyship Stalker
+1 Slash Panther
+1 Slith Firewalker
+1 Smoke
+1 Spawning Bed
+1 Sunscorched Desert
+1 Total War
+1 Trained Orgg
+1 Two-Headed Giant of Foriys
+1 Underworld Breach
+1 Urza's Workshop
+1 Vance's Blasting Cannons
+1 Veteran's Voice
+1 Wayward Giant
+
+[commander]
+Rorix Bladewing

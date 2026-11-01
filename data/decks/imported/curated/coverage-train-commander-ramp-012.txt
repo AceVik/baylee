@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WRG #20266013]
+1 Asgardian Citadel
+1 Birnin Zana Plaza
+1 Bountiful Promenade
+1 Burrowing
+1 Collective Blessing
+1 Conclave Naturalists
+1 Consecrate Land
+1 Conservatory
+1 Delighted Halfling
+1 Divine Intervention
+1 Dosan's Oldest Chant
+1 Druid of the Anima
+1 Elvish Spirit Guide
+1 Fang Guardian
+1 Fields of Strife
+17 Forest
+1 Furycalm Snarl
+1 Game Trail
+1 Gigantomancer
+1 Glittering Massif
+1 Gongaga, Reactor Town
+1 Great Divide Guide
+1 Head of the Homestead
+1 Heal
+1 Hidden Path
+1 Holy Armor
+1 Improvised Armor
+1 Intrepid Stablemaster
+1 Kitchen Finks
+1 Kyoshi Village
+1 Lifeblood
+1 Loam Dryad
+1 Lord Magnus
+1 Magus of the Wheel
+1 Mirri's Guile
+1 Nature's Claim
+1 Nexus Wardens
+1 Nightshade Dryad
+1 Ogre Arsonist
+1 Ogre Gatecrasher
+1 Overgrowth
+1 Peace of Mind
+9 Plains
+1 Pyknite
+1 Rashida Scalebane
+1 Raucous Carnival
+1 Ravenous Lindwurm
+1 Rejuvenate
+1 Restless Bivouac
+1 Rhox Meditant
+1 Ritual of Steel
+1 Roving Harper
+1 Rune of Protection: Artifacts
+1 Rune of Protection: Black
+1 Rune of Protection: Green
+1 Rune of Protection: Lands
+1 Rune of Protection: Red
+1 Rune of Protection: White
+1 Saltcrusted Steppe
+1 Sanctimony
+1 Sanctum Weaver
+1 Saruli Caretaker
+1 Savage Mansion
+1 Sir Shandlar of Eberyn
+1 Solitude
+1 Spawning Grounds
+1 Spiritual Sanctuary
+1 Sunpetal Grove
+1 Tanglespan Lookout
+1 True Love's Kiss
+1 Turbulent Steppe
+1 Winter's Night
+1 Witty Roastmaster
+1 Wose Pathfinder
+1 Wylie Duke, Atiin Hero
+
+[commander]
+Johan

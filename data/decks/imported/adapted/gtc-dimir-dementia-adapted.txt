@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/GTC/dimir-dementia.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DimirDementia_GTC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dimir Dementia (Adapted)]
+4 Consult the Necrosages
+2 Countersquall
+2 Deathcult Rogue
+1 Dimir Guildgate
+2 Dimir Keyrune
+4 Essence Vortex
+3 Glimpse the Unthinkable
+3 Gutter Skulk
+12 Island
+1 Mindeye Drake
+4 Notion Rain
+4 Pilfered Plans
+1 Psychic Drain
+1 Sage's Row Denizen
+13 Swamp
+1 Tyrant's Scorn
+1 Vedalken Entrancer
+1 Welkin Tern

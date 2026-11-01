@@ -234,10 +234,11 @@ fn start(
     let Some(gateway) = &wanted.gateway else {
         return Started::Nothing;
     };
-    let Some(index) = state.gateways.iter().position(|g| g == gateway) else {
+    let Some(index) = row_of(&state.gateways, gateway) else {
         state.lobby.tell(Phrase::ResumeFailed, &[]);
         return Started::Nothing;
     };
+    let gateway = &state.gateways[index].clone();
     keyboard::choose_gateway(state, prefs, mailbox, index);
     let request = match (&wanted.account, &resuming.session) {
         (Some(Account { guest: true, .. }), _) => state
@@ -266,6 +267,15 @@ fn start(
     }
     http::dispatch(state, mailbox, request);
     Started::Lobby
+}
+
+/// The row of the gateway a restart named, by `gateway_list::same`: one the
+/// client this update replaced named by the live gateway's former address
+/// is the live gateway's row.
+fn row_of(gateways: &[String], gateway: &str) -> Option<usize> {
+    gateways
+        .iter()
+        .position(|row| baylee_client_core::lobby::gateway_list::same(row, gateway))
 }
 
 /// The house's game, rebuilt from its kept record and held to the hash the
@@ -556,5 +566,23 @@ fn snapshot(
         },
         game,
         table,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::row_of;
+    use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
+
+    /// A restart into the update that moved the live gateway: `resume.json`
+    /// names its former address, and the live gateway's row is found.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn a_restart_named_by_the_former_address_finds_the_live_gateway() {
+        let gateways = vec!["http://10.0.0.2:28766".to_string(), PINNED.to_string()];
+        assert_eq!(row_of(&gateways, KEYED), Some(1));
+        assert_eq!(row_of(&gateways, PINNED), Some(1));
+        assert_eq!(row_of(&gateways, "http://10.0.0.2:28766/"), Some(0));
+        assert_eq!(row_of(&gateways, "https://elsewhere.invalid"), None);
     }
 }

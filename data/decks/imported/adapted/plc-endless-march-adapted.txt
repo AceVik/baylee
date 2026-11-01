@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/PLC/endless-march.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, EndlessMarch_PLC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Endless March (Adapted)]
+4 Arrows of Justice
+1 Avalanche Riders
+2 Brute Force
+2 Double Cleave
+2 Energy Bolt
+2 Errant Doomsayers
+2 Frontline Rush
+2 Icatian Javelineers
+2 Legion Leadership
+4 Lightning Helix
+10 Mountain
+11 Plains
+1 Soltari Priest
+4 Spirit Summoning
+1 Sunlance
+3 Terramorphic Expanse
+4 Warleader's Helix
+3 Whitemane Lion

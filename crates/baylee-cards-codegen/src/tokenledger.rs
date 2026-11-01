@@ -251,10 +251,9 @@ pub fn assign(
     // without anybody touching this file.
     let mut known: BTreeSet<String> = out.iter().map(|e| e.constant.clone()).collect();
 
-    // A token that is already in the table keeps its id and its body. What it
-    // does *not* keep is a body that has since been withdrawn: a reader that
-    // no longer produces an entry leaves it here with nothing to compile, and
-    // the run says so instead of writing a file that does not build.
+    // A token that is already in the table keeps its id. A generated entry
+    // may become hand-written to choose its art; a hand-written one whose
+    // definition was withdrawn is an orphan and stops the run instead.
     for entry in &out {
         if matches!(entry.body, Body::HandWritten) && !hand.contains(&entry.constant) {
             return Err(LedgerError::Orphan(entry.constant.clone()));
@@ -267,6 +266,8 @@ pub fn assign(
                 constant: name.clone(),
                 body: Body::HandWritten,
             });
+        } else if let Some(entry) = out.iter_mut().find(|entry| entry.constant == *name) {
+            entry.body = Body::HandWritten;
         }
     }
     for body in generated {
@@ -545,6 +546,26 @@ mod tests {
                 "BIRD_1_1_WHITE_FLYING"
             ]
         );
+    }
+
+    /// A generated token may become hand-written to choose its art without
+    /// moving the id already dealt into a game.
+    #[test]
+    fn a_generated_token_can_become_hand_written_without_moving_its_id() {
+        let existing = vec![Entry {
+            constant: "ZOMBIE_2_2_BLACK".into(),
+            body: Body::Generated {
+                doc: "2/2 black Zombie.".into(),
+                literal: "TokenDef { z }".into(),
+                modules: vec!["creature".into()],
+            },
+        }];
+        let hand = ["ZOMBIE_2_2_BLACK".to_string()];
+        let generated = [generated("ZOMBIE_2_2_BLACK", "TokenDef { z }")];
+        let out = assign(existing, &hand, &generated).expect("the definition may change hands");
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].constant, "ZOMBIE_2_2_BLACK");
+        assert!(matches!(out[0].body, Body::HandWritten));
     }
 
     /// Two scripts describing the **same** token are one row, not two.

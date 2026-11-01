@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/BFZ/eldrazi-assault.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, EldraziAssault_BFZ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Eldrazi Assault (Adapted)]
+4 Auger Spree
+4 Bedevil
+1 Blighted Fen
+2 Blighted Gorge
+1 Complete Disregard
+4 Delirium
+4 Dreadbore
+2 Evolving Wilds
+2 Forerunner of Slaughter
+4 Kaervek's Purge
+2 Kozilek's Sentinel
+2 Molten Nursery
+10 Mountain
+4 Spontaneous Combustion
+10 Swamp
+3 Vestige of Emrakul
+1 Wrecking Ball

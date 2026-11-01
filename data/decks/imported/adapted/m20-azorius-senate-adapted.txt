@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/M20/azorius-senate.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AzoriusSenate_M20.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Azorius Senate (Adapted)]
+4 Absorb
+4 Azorius Guildgate
+2 Azorius Skyguard
+4 Daring Leap
+2 Elite Guardmage
+1 Empyrean Eagle
+4 Energy Arc
+1 Hallowed Fountain
+10 Island
+4 Ojutai's Command
+4 Overrule
+10 Plains
+1 Raise the Alarm
+2 Senate Griffin
+2 Senate Guildmage
+4 Sphinx's Revelation
+1 Time Wipe

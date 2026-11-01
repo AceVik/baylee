@@ -1,4 +1,4 @@
-/* Baylee — the landing page at https://baylee.acevik.de/.
+/* Baylee — the landing page at https://gateway.baylee.app/.
    The blue hour again (web/play-soon): our own painting in layers that move
    at their own pace as the page scrolls, wisteria petals falling past the
    moon, then a calm page in two fonts that comes up as it is read. Nothing
@@ -563,14 +563,9 @@ h1 .glow {
 .shots li { overflow: hidden; }
 .shots li:hover { transform: translateY(-5px); box-shadow: var(--shadow-lift); }
 .shot-link { display: block; position: relative; overflow: hidden; border-radius: 18px 18px 0 0; cursor: zoom-in; }
-.shot-link img { aspect-ratio: 1200 / 703; object-fit: cover; width: 100%; transition: transform 700ms var(--ease), filter 400ms ease; }
-.shots li:hover .shot-link img { transform: scale(1.05); filter: saturate(1.1); }
-.shot-link::after {
-  content: ""; position: absolute; right: 0.7rem; bottom: 0.7rem; width: 2.2rem; height: 2.2rem; border-radius: 50%;
-  background: rgba(8, 14, 28, 0.7) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23f6dfa6' d='M10 4a6 6 0 1 0 3.7 10.7l4.8 4.8 1.4-1.4-4.8-4.8A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm-1 1.5v1.5H7.5v2H9v1.5h2V11h1.5V9H11V7.5z'/%3E%3C/svg%3E") center / 60% no-repeat;
-  opacity: 0; transform: scale(0.7); transition: opacity 260ms ease, transform 260ms var(--ease-spring);
-}
-.shots li:hover .shot-link::after, .shot-link:focus-visible::after { opacity: 1; transform: scale(1); }
+/* The recordings show card images (Scryfall, © Wizards of the Coast): shown
+   whole, never filtered, zoomed past the frame or covered (docs/legal.md §3). */
+.shot-link img { aspect-ratio: 1200 / 703; object-fit: contain; width: 100%; }
 .shots figcaption { padding: 0.8rem 1rem 1rem; font-family: var(--sans); font-size: 0.92rem; color: var(--ink-soft); line-height: 1.45; }
 @media (max-width: 1000px) { .shots { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 600px) { .shots { grid-template-columns: 1fr; } }
@@ -585,6 +580,8 @@ h1 .glow {
 .lightbox[open]::backdrop { animation: fade-in 300ms ease; }
 .lightbox img { width: 100%; max-height: 82vh; object-fit: contain; border-radius: 14px; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.8); }
 .lightbox-cap { font-family: var(--sans); color: #e9edf5; text-align: center; margin: 0.8rem 3.5rem 0; font-size: 0.95rem; }
+.lightbox-credit { font-family: var(--sans); color: #b9c2d3; text-align: center; margin: 0.3rem 3.5rem 0; font-size: 0.8rem; }
+.shots-credit { text-align: center; margin: 1.2rem 0 0; }
 .lightbox-close, .lightbox-step {
   position: absolute; width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.3);
   background: rgba(8, 14, 28, 0.75); color: #fff; cursor: pointer; font: 600 1.4rem/1 var(--sans);

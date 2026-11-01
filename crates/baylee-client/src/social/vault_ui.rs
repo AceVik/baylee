@@ -299,7 +299,16 @@ fn draw(
     settings: Option<Res<crate::settings::ClientSettings>>,
     roots: Query<Entity, With<Root>>,
     mut drawn: Local<String>,
+    phase: Option<Res<State<crate::DuelPhase>>>,
+    windows: Query<&Window>,
+    captions: Query<
+        (&ComputedNode, &UiGlobalTransform),
+        With<crate::lobby::memorial::MemorialCaption>,
+    >,
 ) {
+    let at_table = phase.is_some_and(|p| *p.get() != crate::DuelPhase::Closed);
+    let window_h = windows.iter().next().map_or(720.0, Window::height);
+    let left = super::window::pill_left(&captions, window_h);
     let session = host
         .session
         .as_ref()
@@ -331,13 +340,15 @@ fn draw(
         form.focus
     );
     let key = format!(
-        "{key}:{}:{}:{}",
+        "{key}:{}:{}:{}:{}:{}",
         form.create_armed,
         form.again.text().chars().count(),
-        form.mismatch
+        form.mismatch,
+        ui.open,
+        ui.minimised
     );
     let key = format!(
-        "{key}:{:?}",
+        "{key}:{:?}:{at_table}:{left:?}",
         host.session.as_ref().map(|s| (&s.gateway, &s.handle))
     );
     if *drawn == key && !roots.is_empty() {
@@ -350,30 +361,46 @@ fn draw(
     if !visible || (host.active() && host.vault.is_central()) {
         return;
     }
+    // Unlocked, the chat is locked from its composer, which carries the
+    // lock; nothing floats. A "Lock chat" pill stood free at 42 % of the
+    // width over the lobby and over the hand at a table whenever the window
+    // was shut (observed-faults, beta.8b pictures; played again 29.10.2026).
+    if host.active() {
+        return;
+    }
     if !ui.vault_open {
-        let label = if host.active() {
-            ChatPhrase::VaultLock
-        } else {
-            ChatPhrase::VaultOpen
-        };
-        let press = if host.active() {
-            Press::Lock
-        } else {
-            Press::Open
-        };
-        let root = button(&mut commands, &fonts, label.text(lang), press, false);
-        commands.entity(root).insert((
-            Root,
+        let root = button(
+            &mut commands,
+            &fonts,
+            ChatPhrase::VaultOpen.text(lang),
+            Press::Open,
+            false,
+        );
+        // Locked, the way back in stands where the chat's pill would: the
+        // lobby's bottom-left corner, clear of the memorial's caption, and
+        // at a table under the arrangement pill, off the hand.
+        let place = if at_table {
             Node {
                 position_type: PositionType::Absolute,
-                bottom: px(10.0),
-                left: Val::Percent(42.0),
+                top: px(60.0),
+                left: px(16.0),
                 min_height: px(44.0),
                 padding: UiRect::all(px(10.0)),
                 ..default()
-            },
-            super::window::stacked(51),
-        ));
+            }
+        } else {
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: px(12.0),
+                left: left.unwrap_or(px(12.0)),
+                min_height: px(44.0),
+                padding: UiRect::all(px(10.0)),
+                ..default()
+            }
+        };
+        commands
+            .entity(root)
+            .insert((Root, place, super::window::stacked(51)));
         return;
     }
     let root = commands

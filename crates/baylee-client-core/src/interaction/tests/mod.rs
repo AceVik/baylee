@@ -31,6 +31,8 @@ fn seat(id: u8) -> Defender {
 /// The attacker choice with a given list of legal attackers and defenders.
 fn attack_choice(attackers: Vec<ObjectId>, defenders: Vec<Defender>) -> Pending {
     Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: me(),
         attackers,
         defenders,

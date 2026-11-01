@@ -1,0 +1,80 @@
+# baylee curated highlander midrange seed=20261123
+# licence: AGPL-3.0-only
+[deck:highlander midrange WU #20261123]
+1 Abstergo Entertainment
+1 Agent of Atlas
+1 Ally Encampment
+1 Ancestral Recall
+1 Ancestral Vision
+1 Bygone Bishop
+1 Capital City
+1 Captain's Defense
+1 Cascading Cataracts
+1 Crucible of the Spirit Dragon
+1 Cunning Breezedancer
+1 Customs Depot
+1 Dawnhart Geist
+1 Deeproot Waters
+1 Dragon Bell Monk
+1 Efficient Construction
+1 Enlightened Tutor
+1 Equilibrium
+1 Forbidden Orchard
+1 Forced Fruition
+1 Gitaxian Probe
+1 Gleaming Bastion
+1 Guardian of Solitude
+1 Guided Strike
+1 Halcyon Glaze
+1 Hesitation
+1 Hisoka's Defiance
+1 Holdout Settlement
+1 Horizon Seed
+1 In the Eye of Chaos
+1 Invoke Prejudice
+20 Island
+1 Jinx
+1 Kami of Tattered Shoji
+1 Kor Firewalker
+1 Kree Commandos
+1 Kulrath Mystic
+1 Lotus Vale
+1 Lunar Mystic
+1 Merrow Reejerey
+1 Mistfire Adept
+1 Murmuring Mystic
+1 Niblis of Dusk
+1 Nimbus Maze
+1 Pact of Negation
+1 Painted Bluffs
+5 Plains
+1 Presence of the Master
+1 Primal Amulet
+1 Ramosian Commander
+1 Reach Through Mists
+1 Riverwheel Aerialists
+1 Shimmering Grotto
+1 Shocking Grasp
+1 Slip Through Space
+1 Spell Snip
+1 Sram, Senior Edificer
+1 Stand Firm
+1 Storyteller Pixie
+1 Sunscorch Regent
+1 TVA Bureaucrat
+1 Talon Gates of Madara
+1 Talrand, Sky Summoner
+1 Teller of Tales
+1 Thistledown Duo
+1 Tidespout Tyrant
+1 Trail of Evidence
+1 Turtle Lair
+1 Umara Entangler
+1 Vedalken Archmage
+1 Vedalken Blademaster
+1 Veil of Birds
+1 Veiled Apparition
+1 Voldaren Estate
+1 Whirlwind Adept
+1 Wing Commando
+1 Wipe Clean

@@ -85,6 +85,10 @@ fn deathtouch(o: &PublicObject) -> bool {
     o.keywords & KeywordSet::DEATHTOUCH.bits() != 0
 }
 
+fn indestructible(o: &PublicObject) -> bool {
+    o.keywords & KeywordSet::INDESTRUCTIBLE.bits() != 0
+}
+
 /// How much is left to take before `o` is gone: a creature's toughness less
 /// its damage, a planeswalker's loyalty (CR 306.8).
 fn left(o: &PublicObject) -> Option<i16> {
@@ -114,10 +118,15 @@ impl HeuristicAgent {
             .remaining_toughness()
             .unwrap_or(0)
             .saturating_add(brawl.pump.1);
-        let kills = power > 0 && (deathtouch(fighter) || left(foe).is_some_and(|l| power >= l));
+        let kills = !indestructible(foe)
+            && !Self::answered(view, foe)
+            && power > 0
+            && (deathtouch(fighter) || left(foe).is_some_and(|l| power >= l));
         let hits_back = foe.power.unwrap_or(0);
-        let survives =
-            !brawl.both_ways || hits_back <= 0 || (!deathtouch(foe) && hits_back < toughness_left);
+        let survives = !brawl.both_ways
+            || indestructible(fighter)
+            || hits_back <= 0
+            || (!deathtouch(foe) && hits_back < toughness_left);
         match (kills, survives) {
             (true, true) => 10_000 + material(foe),
             (true, false) => material(foe) - material(fighter),

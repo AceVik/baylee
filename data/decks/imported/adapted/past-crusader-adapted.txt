@@ -1,0 +1,16 @@
+# adapted from data/decks/precon/PAST/crusader.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Crusader_PAST.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Crusader (Adapted)]
+2 Battering Ram
+4 Benalish Hero
+4 Castle
+4 Crusade
+2 Dancing Scimitar
+2 Disenchant
+4 Eye for an Eye
+2 Morale
+4 Pikemen
+22 Plains
+4 Ray of Dissolution
+4 Swords to Plowshares
+4 White Knight

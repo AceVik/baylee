@@ -1,0 +1,25 @@
+//! Mortivore — {2}{B}{B} — Creature — Lhurgoyf
+//! Oracle: Mortivore's power and toughness are each equal to the number of creature cards in all graveyards.
+//! Oracle: {B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)
+//! Set: CM2 #69 — Commander Anthology Volume II | Scryfall ID: beeaaef1-5cd9-402a-982e-2cb4e69cfaca | Oracle ID: 2f554218-2072-4d9b-b4d4-34f161f1f2a9
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+use baylee_core::generated::subtypes;
+
+card!(
+    index = index::MORTIVORE,
+    oracle_id = "2f554218-2072-4d9b-b4d4-34f161f1f2a9",
+    scryfall_id = "beeaaef1-5cd9-402a-982e-2cb4e69cfaca",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    faces = &[face!(
+        name = "Mortivore",
+        mana_cost = mana!("{2}{B}{B}"),
+        types = TypeSet::CREATURE,
+        subtypes = &[subtypes::creature::LHURGOYF],
+        power = Some(0),
+        toughness = Some(0),
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

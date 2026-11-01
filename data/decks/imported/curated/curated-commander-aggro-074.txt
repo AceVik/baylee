@@ -1,0 +1,74 @@
+# baylee curated commander aggro seed=20261097
+# licence: AGPL-3.0-only
+[deck:commander aggro R #20261097]
+1 Abstergo Entertainment
+1 Akki Avalanchers
+1 Akki Rockspeaker
+1 Arms Dealer
+1 Beetleback Chief
+1 Blisterstick Shaman
+1 Castle Doom
+1 Corrupted Crossroads
+1 Crystal Grotto
+1 Dori, Bearer of Friends
+1 Elder Auntie
+1 Ember Hauler
+1 Fanatical Firebrand
+1 Flame Slash
+1 Flame-Blessed Bolt
+1 Flametongue Kavu
+1 Flare
+1 Forge Devil
+1 Foundry Street Denizen
+1 Gimli of the Glittering Caves
+1 Goblin Arsonist
+1 Goblin Chainwhirler
+1 Goblin Chirurgeon
+1 Goblin Engineer
+1 Goblin Instigator
+1 Goblin Recruiter
+1 Goblin Sledder
+1 Goblin Warrens
+1 Guttersnipe
+1 HYDRA Assault Robot
+1 Ishi-Ishi, Akki Crackshot
+1 Junktown
+1 Klingon Strike Force
+1 Legion Extruder
+1 Lotus Vale
+1 Mana Crypt
+1 Meticulous Artisan
+1 Mogg Bombers
+1 Mogg Fanatic
+32 Mountain
+1 Mox Ruby
+1 Mudbutton Torchrunner
+1 Munitions Enthusiast
+1 Orcish Vandal
+1 Pashalik Mons
+1 Pyrite Spellbomb
+1 Ral's Reinforcements
+1 Raphael, Tough Turtle
+1 Reckless Fireweaver
+1 Reckless Lackey
+1 Redcap Thief
+1 Rite of the Dragoncaller
+1 Sardian Avenger
+1 Shredded Sails
+1 Siege-Gang Commander
+1 Skirk Prospector
+1 Spark Spray
+1 Spear Spewer
+1 Subterranean Scout
+1 Tuktuk Scrapper
+1 Underfoot Underdogs
+1 Voldaren Epicure
+1 Volley Veteran
+1 War-Torch Goblin
+1 Weaponize the Monsters
+1 Wily Goblin
+1 Zo-Zu the Punisher
+1 Zuko's Offense
+
+[commander]
+Tyrox, Saurid Tyrant

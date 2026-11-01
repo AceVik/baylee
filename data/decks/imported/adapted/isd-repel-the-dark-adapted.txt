@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/ISD/repel-the-dark.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RepelTheDark_ISD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Repel the Dark (Adapted)]
+3 Advent of the Wurm
+2 Altar of Bone
+2 Avacyn's Pilgrim
+2 Avacynian Priest
+1 Benalish Veteran
+1 Bramblecrush
+1 Butcher's Cleaver
+2 Call of the Conclave
+1 Elder of Laurels
+1 Elite Vanguard
+10 Forest
+1 Imperial Aerosaur
+2 Jade Mage
+1 Nature's Chant
+1 Overrun
+14 Plains
+1 Selesnya Charm
+1 Sharpened Pitchfork
+1 Silver-Inlaid Dagger
+2 Smite the Monstrous
+2 Thraben Purebloods
+2 Titanic Growth
+3 Unruly Mob
+3 Vitalizing Cascade

@@ -1,0 +1,82 @@
+# baylee curated commander midrange seed=20261112
+# licence: AGPL-3.0-only
+[deck:commander midrange RG #20261112]
+1 Abundant Countryside
+1 Akki Rockspeaker
+1 Anarchist
+1 Ardent Elementalist
+1 Atalan Jackal
+1 Avalanche Riders
+1 Balduvian Horde
+1 Bequeathal
+1 Bugenhagen, Wise Elder
+1 Burning-Tree Emissary
+1 Burning-Yard Trainer
+1 Capital City
+1 City of Brass
+1 Conduit Pylons
+1 Crystal Grotto
+1 Dawnhart Disciple
+1 Dawnhart Rejuvenator
+1 Dragon Trainer
+1 Dualcaster Mage
+1 Eternal Witness
+1 Fire-Lit Thicket
+1 Firefist Adept
+1 Flamekin Harbinger
+1 Flametongue Kavu
+1 Fleshpulper Giant
+13 Forest
+1 Foundry Street Denizen
+1 Gallifrey Council Chamber
+1 Ghirapur Gearcrafter
+1 Ghitu Slinger
+1 Gladiolus Amicitia
+1 Graypelt Hunter
+1 Hall of Oracles
+1 Holdout Settlement
+1 Hornet Queen
+1 Huntmaster of the Fells
+1 Hyrax Tower Scout
+1 Jade Bearer
+1 Kronch Wrangler
+1 Lotus Vale
+1 Magus of the Wheel
+1 Mana Crypt
+1 Manic Vandal
+1 Mawloc
+1 Mossfire Egg
+12 Mountain
+1 Murasa Pyromancer
+1 Murasa Ranger
+1 Oashra Cultivator
+1 Oran-Rief Survivalist
+1 Perimeter Patrol
+1 Pia, Determined Rebuilder
+1 Priest of Urabrask
+1 Rhox Oracle
+1 Rogue Elephant
+1 School of the Unseen
+1 Secret Base
+1 Setessan Champion
+1 Setessan Skirmisher
+1 Setessan Starbreaker
+1 Shocking Sharpshooter
+1 Social Climber
+1 Spider-Man, Hometown Hero
+1 Stingcaster Mage
+1 Stoic Builder
+1 Sunset Strikemaster
+1 Sunshower Druid
+1 The Mycosynth Gardens
+1 Timberland Guide
+1 Timberline Ridge
+1 Valley Mightcaller
+1 Voldaren Estate
+1 Vulshok Heartstoker
+1 Wall of Blossoms
+1 Wartime Protestors
+1 Zhur-Taa Druid
+
+[commander]
+Jerrard of the Closed Fist

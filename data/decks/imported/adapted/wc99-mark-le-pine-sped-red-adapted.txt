@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/WC99/mark-le-pine-sped-red.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MarkLePineSpedRed_WC99.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Mark Le Pine - Sped Red (Adapted)]
+2 Ancient Tomb
+4 Fateful End
+2 Fiery Cannonade
+3 Fireslinger
+2 Ghitu Encampment
+4 Mogg Fanatic
+16 Mountain
+4 Pillage
+3 Sarkhan's Triumph
+4 Shock
+4 Slagstorm
+4 Steam Blast
+4 Stone Rain
+4 Wasteland

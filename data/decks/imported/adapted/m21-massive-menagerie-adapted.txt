@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/M21/massive-menagerie.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MassiveMenagerie_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Massive Menagerie (Adapted)]
+2 Almighty Brushwagg
+4 Auroral Procession
+2 Cultivate
+3 Double Major
+11 Forest
+4 Hydroform
+10 Island
+2 Llanowar Visionary
+3 Maraleaf Pixie
+4 Neoform
+1 Serpent of Yawning Depths
+1 Square Up
+1 Temple of Mystery
+4 Thornwood Falls
+3 Thunderous Snapper
+2 Witching Well
+3 Wolfwillow Haven

@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/M15/price-of-glory.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PriceOfGlory_M15.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Price Of Glory (Adapted)]
+4 Anguished Unmaking
+1 Blood Host
+2 Child of Night
+1 Colorful Feiyi Sparrow
+1 Divine Favor
+1 Geist of the Moors
+1 Kinsbaile Skirmisher
+3 Leonin Elder
+1 Mass Calcify
+2 Mortify
+1 Pillar of Light
+12 Plains
+2 Shadowcloak Vampire
+3 Sign in Blood
+1 Solemn Offering
+2 Sungrace Pegasus
+13 Swamp
+1 Tireless Missionaries
+2 Ulcerate
+4 Vindicate
+2 Witch's Familiar

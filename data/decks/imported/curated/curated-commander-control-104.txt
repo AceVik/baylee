@@ -1,0 +1,80 @@
+# baylee curated commander control seed=20261127
+# licence: AGPL-3.0-only
+[deck:commander control WU #20261127]
+1 Aeronaut Cavalry
+1 Aether Hub
+1 Ally Encampment
+1 Ancient Ziggurat
+1 Aven Fateshaper
+1 Azorius Cluestone
+1 Azorius Locket
+1 Bazaar Trademage
+1 Bulwark Giant
+1 Capashen Standard
+1 Cavern of Souls
+1 Cloistered Telepath
+1 Cloudblazer
+1 Cloudchaser Eagle
+1 Corsair Captain
+1 Crucible of the Spirit Dragon
+1 Daysquad Marshal
+1 Deputy of Acquittals
+1 Drogskol Cavalry
+1 Eclipsed Realms
+1 Elite Guardmage
+1 Elite Instructor
+1 Enlightened Ascetic
+1 Esper Sentinel
+1 Falcon, Winged Wonder
+1 Forbidden Orchard
+1 Gallant Strike
+1 Geist-Honored Monk
+1 Hada Freeblade
+1 Heap Gate
+1 Helpful Hunter
+1 Henge of Ramos
+1 Herald of the Fair
+1 Holdout Settlement
+1 Humbling Elder
+1 Iceberg
+1 Inspiring Commander
+1 Ironpaw Aspirant
+11 Island
+1 Kazandu Blademaster
+1 Knight of the Mists
+1 Kor Entanglers
+1 Loran of the Third Path
+1 Mana Crypt
+1 Monk Realist
+1 Mystic Gate
+1 Nighthawk, Dark Defender
+1 Nimble Innovator
+1 Omenspeaker
+1 Palace Jailer
+1 Pious Wayfarer
+16 Plains
+1 Radiant's Dragoons
+1 Recruiter of the Guard
+1 Scholar of Stars
+1 Secret Base
+1 Separatist Voidmage
+1 Settlement Blacksmith
+1 Shimmering Grotto
+1 Shu Grain Caravan
+1 Spirited Companion
+1 Springjack Pasture
+1 Sunblast Angel
+1 Teroh's Faithful
+1 Tundra
+1 Ultimecia, Temporal Threat
+1 Voidwielder
+1 Wall of Omens
+1 War Priest of Thune
+1 Weldfast Wingsmith
+1 White Lotus Hideout
+1 Witch Enchanter
+1 Wizard Class
+1 Zhalfirin Lancer
+
+[commander]
+Tidus, Blitzball Star

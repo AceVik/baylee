@@ -1,0 +1,30 @@
+# adapted from data/decks/precon/UDS/fiendish-nature.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FiendishNature_UDS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fiendish Nature (Adapted)]
+1 Ancient Silverback
+1 Braidwood Cup
+1 Chime of Night
+1 Cradle Guard
+2 Elvish Lyrist
+2 Expunge
+1 Fevered Convulsions
+13 Forest
+4 Gaze of Granite
+1 Goliath Beetle
+1 Haunting Wind
+3 Heart Warden
+2 Hungry Mist
+2 Maelstrom Pulse
+1 Marker Beetles
+3 Pest Summoning
+1 Phyrexian Monitor
+1 Phyrexian Reclamation
+3 Plated Spider
+1 Polluted Mire
+1 Rancor
+6 Swamp
+2 Symbiosis
+2 Tranquil Thicket
+2 Twisted Experiment
+1 Victimize
+1 Winding Wurm

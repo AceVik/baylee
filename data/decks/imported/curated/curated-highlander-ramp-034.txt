@@ -1,0 +1,79 @@
+# baylee curated highlander ramp seed=20261057
+# licence: AGPL-3.0-only
+[deck:highlander ramp WU #20261057]
+1 Abstergo Entertainment
+1 Ancestral Vision
+1 Angel of the God-Pharaoh
+1 Archaeological Dig
+1 Aven Fateshaper
+1 Azorius Locket
+1 Calciform Pools
+1 Captain of the Watch
+1 Cave of Temptation
+1 City of Brass
+1 Clear
+1 Cloudblazer
+1 Conduit Pylons
+1 Constricting Tendrils
+1 Deduce
+1 Deliberate
+1 Disrupt
+1 Efficient Construction
+1 Elite Archers
+1 Forced Fruition
+1 Hall of Oracles
+1 Henge of Ramos
+1 Hithlain Knots
+17 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Jeskai Sage
+1 Jeskai Student
+1 Jhessian Thief
+1 Jin-Gitaxias, Progress Tyrant
+1 Kozilek's Unsealing
+1 Luminous Angel
+1 Mana Confluence
+1 Marble Gargoyle
+1 Mesa Enchantress
+1 Meteorite
+1 Micromancer
+1 Mirrodin's Core
+1 Miscalculation
+1 Mistfire Adept
+1 Ojer Pakpatiq, Deepest Epoch
+1 Omen
+1 Ominous Parcel
+1 Opt
+9 Plains
+1 Ponder
+1 Pondering Mage
+1 Power Taint
+1 Preordain
+1 Primoc Escapee
+1 Rasputin Dreamweaver
+1 Ray of Erasure
+1 Rebellious Strike
+1 Recruiter of the Guard
+1 Refute
+1 Rumble Arena
+1 Serum Visions
+1 Shipwreck Dowser
+1 Stormkeld Prowler
+1 Student of Ojutai
+1 Surveillance Room
+1 Survivors' Encampment
+1 Talisman of Progress
+1 Tanufel Rimespeaker
+1 Tarnished Citadel
+1 The Mechanist, Aerial Artisan
+1 Thought Monitor
+1 Thought Scour
+1 Three Steps Ahead
+1 Tidespout Tyrant
+1 Trigon of Thought
+1 Tura Kennerüd, Skyknight
+1 Underdome
+1 Undiscovered Paradise
+1 Vedalken Archmage
+1 Whirlwind Adept
+1 Winged Shepherd

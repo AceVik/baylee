@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/ORI/assemble-victory.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AssembleVictory_ORI.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Assemble Victory (Adapted)]
+2 Aspiring Aeronaut
+1 Bellows Lizard
+4 Broadside Barrage
+1 Disperse
+1 Evolving Wilds
+4 Fire
+2 Ghirapur Gearcrafter
+2 Guardian Automaton
+4 Invoke the Firemind
+10 Island
+4 Izzet Charm
+1 Maritime Guard
+1 Meteorite
+13 Mountain
+1 Pia and Kiran Nalaar
+2 Reclusive Artificer
+1 Runed Servitor
+4 Rush of Inspiration
+1 Separatist Voidmage
+1 Subterranean Scout

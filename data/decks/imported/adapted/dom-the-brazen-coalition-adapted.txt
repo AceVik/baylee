@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/DOM/the-brazen-coalition.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheBrazenCoalition_DOM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Brazen Coalition (Adapted)]
+1 Abrade
+4 Auger Spree
+4 Bedevil
+1 Buccaneer's Bravado
+2 Cinder Barrens
+4 Delirium
+2 Dire Fleet Captain
+2 Dire Fleet Neckbreaker
+1 Dire Fleet Poisoner
+2 Fanatical Firebrand
+1 Fathom Fleet Firebrand
+2 Fiery Cannonade
+1 Goblin Trailblazer
+2 Grasping Scoundrel
+1 Lightning Blast
+1 Lightning Strike
+2 Magma Spray
+12 Mountain
+1 Reaver Ambush
+4 Spontaneous Combustion
+9 Swamp
+1 Walk the Plank

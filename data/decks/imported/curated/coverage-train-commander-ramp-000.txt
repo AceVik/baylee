@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUBRG #20266001]
+1 Ancestral Statue
+1 Archway Commons
+1 Arcum's Astrolabe
+1 Avacyn's Memorial
+1 Base Camp
+1 Beast of Burden
+1 Bog Wreckage
+1 Boros Cluestone
+1 Boros Locket
+1 Broodmate Dragon
+1 Charcoal Diamond
+1 Coal Golem
+1 Command Bridge
+1 Composite Golem
+1 Courier's Briefcase
+1 Crosis's Attendant
+1 Crystal Quarry
+1 Dalek Drone
+1 Darigaaz's Attendant
+1 Diamond Kaleidoscope
+1 Dromar's Attendant
+1 Etched Monstrosity
+1 Font of Progress
+1 Galazeth Prismari
+1 Gateway Plaza
+1 Gauntlet of Might
+1 Gemstone Array
+1 Glassdust Hulk
+1 Golgari Cluestone
+1 Grand Coliseum
+1 Gruul Locket
+1 Hexplate Golem
+1 Indatha Crystal
+1 Kaleidostone
+1 Ketria Crystal
+1 Lightning-Core Excavator
+1 Limestone Golem
+1 Maelstrom Wanderer
+1 Malachite Golem
+1 Mask of Riddles
+1 Mox Diamond
+1 Nearby Planet
+1 Necrogen Spellbomb
+1 Oasis Gardener
+1 Omnath, Locus of Creation
+1 Orzhov Signet
+1 Power Depot
+1 Primal Beyond
+1 Public Thoroughfare
+1 Raugrin Crystal
+1 Ravaged Highlands
+1 Relic of Sauron
+1 Retrofitter Foundry
+1 Rith's Attendant
+1 Savai Crystal
+1 Selesnya Cluestone
+6 Snow-Covered Forest
+5 Snow-Covered Island
+3 Snow-Covered Mountain
+4 Snow-Covered Plains
+8 Snow-Covered Swamp
+1 Starting Town
+1 Straw Golem
+1 Talisman of Conviction
+1 Talisman of Creativity
+1 Talisman of Hierarchy
+1 Talisman of Resilience
+1 Talisman of Unity
+1 The Reaper, King No More
+1 The World Tree
+1 Time Sieve
+1 Transguild Promenade
+1 Treva's Attendant
+1 Tribal Golem
+1 Vivid Marsh
+1 Walking Archive
+1 Wreckage Wickerfolk
+1 Zagoth Crystal
+
+[commander]
+Reaper King

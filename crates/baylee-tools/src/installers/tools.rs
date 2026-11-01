@@ -113,18 +113,22 @@ pub fn fetch(dir: &Path, target: &str) -> Result<()> {
 }
 
 /// Downloads a pinned file; a checksum that differs is fatal and the file
-/// is not kept.
+/// is not kept. A connection that fails, before or during the body, is tried
+/// three times.
 fn download(url: &str, sha256: &str, to: &PathBuf) -> Result<()> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(300)))
         .build()
         .into();
-    let mut last = None;
+    let mut last: Option<anyhow::Error> = None;
     for _ in 0..3 {
         match agent.get(url).call() {
             Ok(mut response) => {
                 let mut bytes = Vec::new();
-                response.body_mut().as_reader().read_to_end(&mut bytes)?;
+                if let Err(error) = response.body_mut().as_reader().read_to_end(&mut bytes) {
+                    last = Some(error.into());
+                    continue;
+                }
                 let got = Sha256::digest(&bytes)
                     .iter()
                     .fold(String::new(), |mut s, b| {
@@ -135,12 +139,12 @@ fn download(url: &str, sha256: &str, to: &PathBuf) -> Result<()> {
                 fs::write(to, &bytes)?;
                 return Ok(());
             }
-            Err(error) => last = Some(error),
+            Err(error) => last = Some(error.into()),
         }
     }
     Err(last.map_or_else(
         || anyhow::anyhow!("download {url}"),
-        |e| anyhow::Error::new(e).context(format!("download {url}")),
+        |e| e.context(format!("download {url}")),
     ))
 }
 

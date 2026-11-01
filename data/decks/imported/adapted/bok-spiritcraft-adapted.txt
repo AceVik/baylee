@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/BOK/spiritcraft.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Spiritcraft_BOK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Spiritcraft (Adapted)]
+2 Advent of the Wurm
+2 Altar of Bone
+2 Baloth Woodcrasher
+4 Call of the Conclave
+4 Eladamri's Call
+14 Forest
+2 Heroes' Reunion
+2 Horizon Seed
+1 Kami of Tattered Shoji
+3 Kami of the Hunt
+2 Lantern Kami
+1 Orbweaver Kumo
+1 Oyobi, Who Split the Heavens
+10 Plains
+4 Selesnya Charm
+2 Terashi's Verdict
+4 Vitalizing Cascade

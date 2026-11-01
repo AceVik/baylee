@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/FRF/grave-advantage.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GraveAdvantage_FRF.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Grave Advantage (Adapted)]
+3 Abrupt Decay
+2 Archers' Parapet
+3 Assassin's Trophy
+1 Carrion Crow
+10 Forest
+4 Gaze of Granite
+1 Gravedigger
+1 Highland Game
+1 Hornet Queen
+3 Jungle Hollow
+2 Kheru Bloodsucker
+4 Maelstrom Pulse
+4 Pest Summoning
+1 Rakshasa's Secret
+2 Sibsig Host
+1 Sultai Flayer
+13 Swamp
+2 Tear Asunder
+1 Wall of Mulch
+1 Weed-Pruner Poplar

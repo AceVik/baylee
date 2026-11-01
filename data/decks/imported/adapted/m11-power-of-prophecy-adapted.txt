@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/M11/power-of-prophecy.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PowerOfProphecy_M11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Power of Prophecy (Adapted)]
+3 Absorb
+2 Aether Adept
+2 Air Servant
+1 Armored Cancrix
+2 Augury Owl
+1 Azure Drake
+1 Blinding Mage
+2 Cloud Elemental
+1 Crystal Ball
+3 Daring Leap
+2 Foresee
+16 Island
+2 Jace's Ingenuity
+2 Maritime Guard
+1 Mighty Leap
+1 Mind Control
+2 Negate
+1 Pacifism
+9 Plains
+1 Scroll Thief
+1 Solemn Offering
+2 Sphinx's Revelation
+2 Water Servant

@@ -1,0 +1,409 @@
+/* The frame around every page: the bar along the top, the console's
+   sections (a sidebar on a wide screen, a tab bar under the thumb on a
+   phone), the page's own column, and the sign-in card. */
+
+/* ------------------------------------------------------------------ bar */
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: calc(var(--header-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(var(--gutter), env(safe-area-inset-right)) 0
+    max(var(--gutter), env(safe-area-inset-left));
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(12px);
+  transition: box-shadow var(--dur) var(--ease);
+}
+
+/* Scrolled: the bar lifts off the page. */
+.bar.folded {
+  box-shadow: var(--shadow-sm);
+}
+
+/* The bar's links and buttons are finger-sized everywhere: the bar is the
+   one part of every page a phone and a desktop share. */
+.bar .brand,
+.bar button,
+.tabs a {
+  min-height: var(--control-h);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-right: var(--sp-4);
+  color: var(--text);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.brand:hover {
+  color: var(--text);
+}
+
+.brand-mark {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.brand-short {
+  display: none;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.tabs a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.tabs a:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.tabs a[aria-current="page"] {
+  color: var(--text);
+  font-weight: var(--fw-semibold);
+}
+
+/* The current page's mark sits on the bar's lower edge. */
+.tabs a[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: var(--sp-3);
+  right: var(--sp-3);
+  bottom: calc((var(--header-h) - var(--control-h)) / -2 - 1px);
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+}
+
+.who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+}
+
+.who-label {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------- the console */
+
+/* The sidebar's surface and edge are drawn by the shell, so they reach the
+   foot of a long page too. */
+.admin-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  min-height: calc(100vh - var(--header-h));
+  background: linear-gradient(
+    to right,
+    var(--surface) calc(var(--sidebar-w) - 1px),
+    var(--border) calc(var(--sidebar-w) - 1px) var(--sidebar-w),
+    transparent var(--sidebar-w)
+  );
+}
+
+.sections {
+  position: sticky;
+  top: var(--header-h);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: calc(100vh - var(--header-h));
+  overflow-y: auto;
+  padding: var(--sp-4) var(--sp-3) var(--sp-4) max(var(--sp-3), env(safe-area-inset-left));
+}
+
+.sections a {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--control-h);
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-md);
+  color: var(--text-muted);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.sections a svg {
+  flex: none;
+}
+
+.sections a:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.sections a[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+}
+
+/* ------------------------------------------------------ a page's column */
+
+.admin-page,
+.list-page,
+.detail-page {
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-8) max(var(--gutter), env(safe-area-inset-right)) max(var(--sp-12), env(safe-area-inset-bottom))
+    max(var(--gutter), env(safe-area-inset-left));
+}
+
+.admin-page {
+  overflow-wrap: anywhere;
+}
+
+/* The console holds every control a finger can hit, wherever it is used. */
+.admin-page button,
+.admin-page input,
+.admin-page select {
+  min-height: var(--control-h);
+}
+
+/* The list is the widest page: the table and its drawer side by side. */
+.list-page {
+  max-width: var(--content-wide);
+}
+
+/* ---------------------------------------------------------------- sign in */
+
+.login {
+  display: grid;
+  gap: var(--sp-2);
+  width: min(24rem, 100%);
+  padding: var(--sp-8);
+  box-shadow: var(--shadow-md);
+}
+
+.login .brand-mark {
+  width: 40px;
+  height: 40px;
+  margin-bottom: var(--sp-2);
+}
+
+.login h1 {
+  margin: 0;
+  font-size: var(--fs-2xl);
+}
+
+.login > p.muted {
+  margin: 0 0 var(--sp-3);
+}
+
+.login label {
+  margin-top: var(--sp-2);
+}
+
+.login input {
+  width: 100%;
+}
+
+.login button {
+  width: 100%;
+  margin-top: var(--sp-4);
+}
+
+.login .error[role="alert"]:not(.small) {
+  margin: var(--sp-2) 0 0;
+}
+
+/* ------------------------------------------------- a tablet and a phone */
+
+/* A tablet: the sections become a bar along the bottom, under the thumb. */
+@media (max-width: 899px) {
+  .admin-shell {
+    display: block;
+    background: none;
+  }
+  .sections {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: var(--z-nav);
+    flex-direction: row;
+    gap: 0;
+    height: auto;
+    overflow: visible;
+    padding: 0 max(var(--sp-1), env(safe-area-inset-right)) env(safe-area-inset-bottom)
+      max(var(--sp-1), env(safe-area-inset-left));
+    border-top: 1px solid var(--border);
+    border-right: 0;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: saturate(1.4) blur(12px);
+    box-shadow: 0 -1px 8px rgb(0 0 0 / 6%);
+  }
+  .sections a {
+    position: relative;
+    flex: 1 1 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    min-height: 56px;
+    padding: var(--sp-1) 2px;
+    border-radius: 0;
+    font-size: var(--fs-xs);
+    text-align: center;
+  }
+  .sections a span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sections a:hover {
+    background: transparent;
+  }
+  .sections a[aria-current="page"] {
+    background: transparent;
+  }
+  .sections a[aria-current="page"]::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: 22%;
+    right: 22%;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: var(--accent);
+  }
+  .admin-shell .admin-page {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* A narrow phone: eight words do not fit under eight icons, so the icons
+   stand alone (each link keeps its word for a screen reader). */
+@media (max-width: 480px) {
+  .sections a span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .sections a svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-page,
+  .list-page,
+  .detail-page {
+    padding-top: var(--sp-5);
+  }
+  .page-head {
+    margin-bottom: var(--sp-4);
+  }
+  /* The page's actions stay beside its title while they fit. */
+  .page-head > :first-child {
+    flex-basis: 10rem;
+  }
+  .page-head h1 {
+    font-size: var(--fs-xl);
+  }
+}
+
+@media (max-width: 600px) {
+  .brand-long {
+    display: none;
+  }
+  .brand-short {
+    display: inline;
+  }
+  .bar {
+    gap: var(--sp-1);
+  }
+  .who {
+    display: none;
+  }
+  /* With the tabs there, "Reports" is the way home: the brand steps aside. */
+  .bar:has(.tabs) .brand {
+    display: none;
+  }
+  .tabs a {
+    padding: 0 var(--sp-2);
+  }
+  .bar > button {
+    padding: 0 var(--sp-3);
+  }
+  .tabs a[aria-current="page"]::after {
+    left: var(--sp-2);
+    right: var(--sp-2);
+  }
+}
+
+/* The narrowest phones (320 px): the bar's words sit closer. */
+@media (max-width: 380px) {
+  .bar {
+    gap: 0;
+    padding-right: max(var(--sp-2), env(safe-area-inset-right));
+    padding-left: max(var(--sp-2), env(safe-area-inset-left));
+  }
+  .tabs a {
+    padding: 0 var(--sp-2);
+  }
+  .bar > button {
+    padding: 0 var(--sp-2);
+  }
+}

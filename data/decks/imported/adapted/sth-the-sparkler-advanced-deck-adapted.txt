@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/STH/the-sparkler-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSparklerAdvancedDeck_STH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Sparkler - Advanced Deck (Adapted)]
+1 Apocalypse
+2 Chant of the Skifsang
+1 Coral Atoll
+4 Counterspell
+1 Dismiss
+2 Disrupt
+1 Dissipate
+1 Dwarven Ruins
+1 Earthquake
+4 Impulse
+4 Iroh's Demonstration
+13 Island
+3 Mana Leak
+9 Mountain
+1 Opt
+1 Portent
+1 Power Sink
+4 Quicksand
+2 Regress
+1 Scorching Dragonfire
+2 Shock
+1 Strangle

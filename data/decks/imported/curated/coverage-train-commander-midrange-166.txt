@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUB #20266167]
+1 Aegis of the Meek
+1 Aeronaut's Wings
+1 Alchor's Tomb
+1 Ancient Ziggurat
+1 Angel's Tomb
+1 Baton of Morale
+1 Bladed Pinions
+1 Bloodtallow Candle
+1 Bone Flute
+1 Clockwork Gnomes
+1 Clockwork Steed
+1 Clockwork Swarm
+1 Contaminated Landscape
+1 Corrupted Crossroads
+1 Crystal Ball
+1 Dovin's Automaton
+1 Draconian Cylix
+1 Dragonloft Idol
+1 Dromar's Cavern
+1 Elven Lyre
+1 Extruder
+1 Floodwater Dam
+1 Flowstone Thopter
+1 Forbidden Orchard
+1 Forcefield
+1 Fyndhorn Bow
+1 Galvanic Key
+1 Glimmervoid
+1 Guardian Automaton
+1 Hall of Oracles
+1 Imi Statue
+1 Iron Suitcase
+8 Island
+1 Lodestone Myr
+1 Marble Priest
+1 Medicine Bag
+1 Millennial Gargoyle
+1 Needlebug
+1 Pitiless Pontiff
+9 Plains
+1 Power Matrix
+1 Primal Clay
+1 Relic Barrier
+1 Rusted Slasher
+1 Saheeli's Silverwing
+1 Scarecrow
+1 School of the Unseen
+1 Scornful Aether-Lich
+1 Sculpting Steel
+1 Secluded Courtyard
+1 Secret Base
+1 Sentinel
+1 Shuko
+1 Skateboard
+1 Slagwurm Armor
+1 Soldevi Steam Beast
+1 Springjack Pasture
+1 Staff of Zegon
+1 Sunstone
+1 Surveillance Room
+8 Swamp
+1 Sword of the Chosen
+1 Tawnos's Weaponry
+1 Tek
+1 Telethopter
+1 Tower Gargoyle
+1 Tumble Magnet
+1 Ultron, Machine Overlord
+1 Underdome
+1 Undiscovered Paradise
+1 Urza's Engine
+1 Vanguard's Shield
+1 Venser's Sliver
+1 Voldaren Estate
+1 War Chariot
+1 Whetstone
+1 Zelyon Sword
+
+[commander]
+Sharuum the Hegemon

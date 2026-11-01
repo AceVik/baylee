@@ -32,6 +32,7 @@ fn guards(
     let context = RuleContext {
         source: effect.source.unwrap_or(object.id),
         text: state.effect_text(effect),
+        resolved_name: None,
         reference: None,
     };
     // Status can change between two instructions before the normal static sweep.
@@ -63,6 +64,17 @@ fn guards(
             controller,
             context,
         ),
+        EffectFilter::DslControlledBy(filter, seats) => {
+            seats.contains(object.controller)
+                && crate::eval::matches_projected_with_context(
+                    filter,
+                    state,
+                    object,
+                    characteristics,
+                    controller,
+                    context,
+                )
+        }
         EffectFilter::DslAbout(filter, id, version) => crate::eval::matches_projected_with_context(
             filter,
             state,
@@ -70,6 +82,8 @@ fn guards(
             characteristics,
             controller,
             crate::text_changes::RuleContext {
+                resolved_name: None,
+
                 reference: crate::effects::still_the_object(state, id, version),
                 ..context
             },
@@ -151,6 +165,8 @@ pub(crate) fn permits_resolution_effect(
             object.version == version && can_gain_control(state, id, controller)
         }),
         // Control-changing resolution effects must have frozen their recipient set.
-        EffectFilter::Dsl(_) | EffectFilter::DslAbout(..) => false,
+        EffectFilter::Dsl(_) | EffectFilter::DslAbout(..) | EffectFilter::DslControlledBy(..) => {
+            false
+        }
     }
 }

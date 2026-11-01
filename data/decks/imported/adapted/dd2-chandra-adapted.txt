@@ -1,0 +1,28 @@
+# adapted from data/decks/precon/DD2/chandra.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Chandra_DD2.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Chandra (Adapted)]
+1 Arc Lightning
+2 Bathe in Dragonfire
+1 Battle Frenzy
+2 Disharmony
+1 Fateful End
+2 Fiery Cannonade
+2 Fireball
+1 Fireslinger
+1 Flame Javelin
+2 Flamekin Brawler
+1 Flametongue Kavu
+2 Furnace Whelp
+2 Iroh's Demonstration
+1 Keldon Necropolis
+1 Magma Jet
+1 Molten Blast
+24 Mountain
+1 Pyre Charger
+2 Pyrokinesis
+2 Seal of Fire
+2 Slagstorm
+2 Slith Firewalker
+1 Stonefury
+1 Sweltering Suns
+2 Valakut Awakening

@@ -1,6 +1,9 @@
 use super::*;
 use crate::engine::synthetic::{SyntheticLookup, preset};
 
+mod fractions;
+mod target_groups;
+
 fn me() -> PlayerId {
     PlayerId::new(0)
 }
@@ -50,6 +53,7 @@ fn mine(effect: Effect) -> Resolution {
         loot: None,
         draw_watch: None,
         this_way_from: None,
+        coin_stake: None,
     }
 }
 

@@ -19,6 +19,8 @@ mod blocks_tests;
 mod choices_tests;
 mod combat_tests;
 mod counters_tests;
+mod ice_consumers_tests;
+mod land_tests;
 mod mana_tests;
 mod modes_tests;
 mod optional_tests;
@@ -26,6 +28,7 @@ mod payment_tests;
 mod planning_tests;
 mod stack_tests;
 mod targets_tests;
+mod x_target_tests;
 
 fn obj(slot: u32) -> ObjectId {
     ObjectId::new(slot, 0)
@@ -124,6 +127,7 @@ fn permanent(id: ObjectId, controller: PlayerId, power: i16) -> PublicObject {
         board_mana: None,
         flashback: None,
         grants: Vec::new(),
+        ability_sources: Vec::new(),
         word_changes: Vec::new(),
     }
 }
@@ -272,6 +276,8 @@ fn view(seat: u8, lives: &[i32], battlefield: Vec<PublicObject>) -> PlayerView {
         owed: None,
         targeting: None,
         casting: None,
+        announced_cast: None,
+        announced_x: None,
         sorcery_lock: None,
         sorceries_have_flash: false,
     }

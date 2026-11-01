@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/BNG/gifts-of-the-gods.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GiftsOfTheGods_BNG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Gifts of the Gods (Adapted)]
+4 Absorb
+4 Daring Leap
+1 Divination
+4 Energy Arc
+1 Eternity Snare
+1 Excoriate
+2 Great Hart
+2 Griffin Dreamfinder
+1 Hold at Bay
+10 Island
+1 Lagonna-Band Elder
+4 Ojutai's Command
+16 Plains
+1 Silent Sentinel
+4 Sphinx's Revelation
+2 Traveling Philosopher
+1 Vanquish the Foul
+1 Yoked Ox

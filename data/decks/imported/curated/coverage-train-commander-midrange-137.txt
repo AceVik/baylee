@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266138]
+1 Alabaster Kirin
+1 Alarum
+1 Alley Evasion
+1 Always Watching
+1 Arborea Pegasus
+1 Archon of Emeria
+1 Asha's Favor
+1 Assault Griffin
+1 Aven Redeemer
+1 Aven Trooper
+1 Avian Changeling
+1 Battle Mastery
+1 Brave the Sands
+1 Builder's Blessing
+1 Castle Raptors
+1 Charging Griffin
+1 Circle of Protection: Red
+1 Circle of Protection: White
+1 Combat Professor
+1 Crystal Grotto
+1 Dawnglare Invoker
+1 Day of Destiny
+1 Emergence Zone
+1 Ephara's Radiance
+1 Exalted Dragon
+1 Fortified Area
+1 Ghostly Sentinel
+1 Gossamer Chains
+1 HELIOS One
+1 Heavenly Qilin
+1 Hypochondria
+1 Indomitable Will
+1 Invasion of Belenon
+1 Jihad
+1 Jund Panorama
+1 Knighthood
+1 Mageta's Boon
+1 Mask of Law and Grace
+1 Melesse Spirit
+1 Mesa Pegasus
+1 Mistral Charger
+1 Moonwing Moth
+1 Nimbus Wings
+1 Phyrexian Pegasus
+34 Plains
+1 Polluted Delta
+1 Prismatic Ward
+1 Restoration Angel
+1 Righteous Aura
+1 Rolling Stones
+1 Sandstorm Verge
+1 Serra's Boon
+1 Shepherd of the Lost
+1 Soulbound Guardians
+1 Spirit of the Spires
+1 Starlit Angel
+1 Steeple Roc
+1 Stormfront Pegasus
+1 Sunmane Pegasus
+1 Swift Justice
+1 Terra Eternal
+1 Triclopean Sight
+1 Trusted Pegasus
+1 Unyaro Griffin
+1 Voice of Reason
+1 You're Ambushed on the Road
+
+[commander]
+Radiant, Archangel

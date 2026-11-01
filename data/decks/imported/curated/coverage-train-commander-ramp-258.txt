@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp B #20266259]
+1 A.I.M. Synthoids
+1 Alpha Myr
+1 Altar of Dementia
+1 Arcum's Sleigh
+1 Basalt Monolith
+1 Boulderborn Dragon
+1 Chardalyn Dragon
+1 Coastal Bulwark
+1 Consume the Meek
+1 Damnation
+1 Dark Sphere
+1 Darksteel Gargoyle
+1 Darksteel Pendant
+1 Didgeridoo
+1 Ebony Rhino
+1 Epic Downfall
+1 Feldon's Cane
+1 Final Reward
+1 Firdoch Core
+1 Font of Mythos
+1 Fool's Tome
+1 Ghoulcaller's Bell
+1 Glass Golem
+1 Glasses of Urza
+1 Graaz, Unstoppable Juggernaut
+1 Guildmages' Forum
+1 Hair-Strung Koto
+1 Helm of Awakening
+1 Henge Guardian
+1 Jabari's Banner
+1 Jhoira's Toolbox
+1 Kaervek's Hex
+1 Lumengrid Gargoyle
+1 Maelstrom of the Spirit Dragon
+1 Maestros Theater
+1 Manhole Cover
+1 Mantis Engine
+1 Nim Replica
+1 Opaline Unicorn
+1 Pardic Wanderer
+1 Pilgrim of the Fires
+1 Powerstone Shard
+1 Prakhata Pillar-Bug
+1 Relic of Legends
+1 Ring of the Lucii
+1 Scarab of the Unseen
+1 Secret Tunnel
+1 Shoreline Salvager
+1 Skull of Orm
+1 Spawning Bed
+1 Standing Stones
+1 Stone Golem
+35 Swamp
+1 Teeka's Dragon
+1 Teferi's Sentinel
+1 Tek
+1 Terminal Moraine
+1 The Fallen
+1 The Tabernacle at Pendrell Vale
+1 Time Vault
+1 Universal Solvent
+1 Urza's Avenger
+1 Welding Jar
+1 Witches' Eye
+1 Worn Powerstone
+
+[commander]
+Ihsan's Shade

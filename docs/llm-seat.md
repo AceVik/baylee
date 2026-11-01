@@ -13,6 +13,10 @@ decision tells the model and what its answer may say (plans, `until`,
 `react`, the deck as the provider reads it, the cache) is
 `docs/llm-protocol.md`.
 
+Both hosted and local language-model seats can accept or reject another
+player's draw offer. The offer is a fresh decision with explicit yes/no
+options, interrupting queued card choices. It never counts as conceding.
+
 **No player is named to a model** (owner, 13.10.2026). Every bridge, a
 hosted one on the operator's machine and a player's own `baylee-seat` on
 their device, with every provider (an API or an agent CLI), names the
@@ -24,7 +28,8 @@ There is no option that names them: `GameContext` carries no names, and
 the narrator's roster for the log writes `P2`
 (`baylee_seat::narrator`). The people at the table did not choose the
 provider, and the terms say so. What the requests carry besides the game
-text: the API's own fields (`model`, `messages`/`system`, `max_tokens`,
+text: the API's own fields (`model`, `messages`/`system`, `max_tokens`
+or, for `OpenAI`'s own API, `max_completion_tokens`,
 `tools`/`tool_choice`, `response_format`, `reasoning_effort`,
 `output_config`, `cache_control`), never an OpenAI `user` or an
 Anthropic `metadata`; the headers `content-type`, `anthropic-version`,
@@ -104,7 +109,7 @@ the profile: a file is played as written or not at all.
 | `effort` | A word such as `low`, `medium`, `high` (default medium on Anthropic, the endpoint's or the CLI's own elsewhere). |
 | `answer` | `tools`, `json` or `json_schema` (the last two for OpenAI-compatible endpoints and CLIs; a CLI answers only these, `json_schema` by default). `json` asks the endpoint for a JSON object (`response_format` `json_object`, which `DeepSeek` takes); `json_schema` for one held to the answer's schema (`json_schema`, for an endpoint that refuses a bare object, such as LM Studio). Either way the model is told the answer's fields in its instructions, and when an endpoint turns the one mode down, the error says to try the other. |
 | `session_api` | Optional boolean, disabled by default. OpenAI-compatible servers implementing the managed-session extension only; see below. The same profile works in a local bridge and a hosted seat agent. |
-| `max_tokens` | The most one reply may take (default 16000 Anthropic, 8000 OpenAI-compatible). A CLI takes no such limit: for one it is only what a call is held at for its reply (default 16000). |
+| `max_tokens` | The most one reply may take (default 16000 Anthropic, 8000 OpenAI-compatible). Sent as `max_tokens`, except to `OpenAI`'s own API (`base_url` on `api.openai.com`), whose current models refuse it and take `max_completion_tokens` (`llm::openai::reply_limit`); DeepSeek, Google's OpenAI-compatible endpoint and local servers take `max_tokens`. A CLI takes no such limit: for one it is only what a call is held at for its reply (default 16000). |
 | `price` | `{"input": …, "output": …}`, US dollars per million tokens: the price of a model this build has none for, or a better one. It applies to the profile's own model only. A cache write is billed at 1.25× the input price for five minutes' entry and 2× for an hour's (the API path caches the game's constant head for an hour, `docs/llm-protocol.md` §"The cache"), a cache read at the input price unless the build knows better. |
 | `game_usd` | The most one game may spend in dollars (default $5); only for a model with a price. |
 | `game_tokens` | The most one game may spend in tokens, in and out (default 5,000,000; 20,000,000 for `cli`); the limit of a model without a price. |
@@ -113,6 +118,8 @@ the profile: a file is played as written or not at all.
 | `key_env` | The environment variable the key is read from (default `ANTHROPIC_API_KEY`, or `BAYLEE_LLM_API_KEY` for `openai`), and, with the address's host, the name a key is kept under in this machine's credential store ([below](#where-a-key-is-kept)). Not for `cli`. |
 | `base_url` | Where the API is: `https://`, or `http://` on loopback only. Not for `cli`. |
 | `command` | `cli` only: the tool's program, a whole path; default: the tool's name on the bridge's `PATH`. Name a version's own file to play that version (`/Users/<you>/.local/share/claude/versions/<version>`, [below](#a-cli-as-the-model)). |
+| `lookup` | Optional, `scryfall` or absent (the default). Every seat may look a card up in this build's card text and its gateway's catalog; `scryfall` lets its lookups also bring a card's Scryfall rulings and the text of a card neither knows ([below](#reports-and-lookups)). The settings panel shows no box for it and keeps it as the file has it. |
+| `fallback` | Optional: the profiles of this file that take a game over when this model is rate limited, out of its quota or failing, first to last: one name (`"backup"`) or a list (`["opus-api", "deepseek"]`), each behind an API ([below](#a-fallback-profile)). A bridge plays this chain unless `--fallback-profile` names another or `--no-fallback` none; a name a command line cannot carry is refused, and one that is no profile of the file, plays an agent CLI or is the profile itself is left out as the chair sits down. A hosted profile names its fallbacks in its definition instead. The settings panel shows no box for it and keeps it as the file has it. |
 
 A model without a price in this build plays only with a `price` or a
 `game_tokens`, as `--spend-tokens` on the command line (`join --help`);
@@ -246,61 +253,94 @@ A flag beats the profile, and the profile beats the build.
 
 ## A fallback profile
 
-A model behind an API can hand a game to another profile when it cannot
-answer, rather than to the house: when its provider says it is rate
-limited or busy, or when it fails otherwise (owner, 13.10.2026: the house
-plays only in an emergency; the staging acceptance's `502` mid-game is
-none). `baylee-seat join … --profile primary --fallback-profile backup`
-(a hosted seat gets it from its profile's `fallback`,
-[below](#a-hosted-seat)). The house plays only where the fallback cannot.
+A language model, behind an API or an agent CLI, can hand a game to other
+profiles when it cannot answer, rather than to the house: when its
+provider says it is rate limited, busy or out of its quota, or when its
+subscription's window is spent, or when it fails otherwise (owner,
+13.10.2026: the house plays only in an emergency; the staging acceptance's
+`502` mid-game is none; owner, 31.10.2026: a game stays playable when a
+quota or subscription runs out, on the same model elsewhere first and then
+on the next most suitable one). The fallbacks are a **chain**, tried in
+order. The house plays only where the whole chain cannot.
 
+- **Where the chain comes from.** A profile names it in the settings file:
+  `"fallback": "backup"` (one, as it always could) or `"fallback":
+  ["opus-api", "deepseek"]` (several, in the order they take over), each a
+  profile of the same file ([The file](#the-file)). `baylee-seat join`
+  plays that chain unless `--fallback-profile` is given, once for each
+  fallback in order (`--profile primary --fallback-profile opus-api
+  --fallback-profile deepseek`), which replaces it; `--no-fallback` plays
+  none. A hosted seat gets it from its definition's `fallback`
+  ([below](#a-hosted-seat)), and the collector names its profile's chain
+  explicitly. A fallback's own `fallback` is never followed.
 - **What it takes over on.** A limit: HTTP 429, or an error whose `code`
   or `type` (in the body's `error`, or at its top) is `rate_limited` or
   `busy`, whatever the status; a `Retry-After` in seconds is kept as when
-  it lifts (`MindError::Limited`, `llm::limited_by`). And every other
-  failure, the model unavailable: a network error, a 5xx without such a
-  code (`502 server_error`), a refused key, a task that died
+  it lifts (`MindError::Limited`, `llm::limited_by`); an agent CLI's rate
+  limit or spent quota, as its dialect reads it (`Outcome::RateLimited`),
+  is the same limit. And every other failure, the model unavailable: a
+  network error, a 5xx without such a code (`502 server_error`), a refused
+  key, a task that died, a CLI process that died or broke its lockdown
   (`MindError::Unavailable`). A model that declines a kind of question
   (`MindError::Declined`) is not down: the house answers that question and
-  the fallback stands by. Without a fallback, a limit and a failure are the
-  model unavailable, as before: the house answers, and a run of them takes
-  the mind off the table.
-- **The same question, at once.** The question the model could not answer
-  is asked of the fallback within what is left of that question's budget
-  (`think_secs`, else 60 s): the table does not wait longer, the house does
-  not answer it, and the failure does not count towards taking the mind off
-  the table (`bridge::Standby`). From then on the fallback plays the rest of
-  the game. It never hands the game back: a game that switched stays on the
-  fallback, however soon the model is back (v1).
-- **Its own settings and its own book.** The fallback plays its own
+  the chain stands by. Past the end of the chain, or with none, a limit
+  hands the rest of the game to the house at once: it answers that
+  question and every one after it, no model is asked anything more, the
+  seat stays at the table, and the house is declared to it
+  (`SeatCore::limited`, owner after the feedback of 28.10.2026). It used to
+  count as the model unavailable, and the third in a row took the mind off
+  the table: the table held the chair as away for its whole reconnect
+  window, three minutes, before its stand-in played, and the mind came
+  back to be limited again. A failure is still the model unavailable: the
+  house answers, and a run of three takes the mind off the table.
+- **The same question, at once, down the chain.** The question the model
+  could not answer is asked of the first fallback within what is left of
+  that question's budget (`think_secs`, else 60 s): the table does not wait
+  longer, the house does not answer it, and the failure does not count
+  towards taking the mind off the table (`bridge::Standby`). From then on
+  that fallback plays, until it cannot answer either: then the next one
+  takes over in the same way, the same question again if that is where it
+  failed. A game never hands back to a mind that played before it, however
+  soon that one is back (v1).
+- **Its own settings and its own book.** Each fallback plays its own
   profile whole: its model, address, key variable, answer mode, effort,
   `max_tokens`, `think_secs`, price and budgets, never the model's, and no
-  flag of the command line tunes it. `--fallback-config` names its settings
-  file (default: the model's), `--fallback-ledger` its spend book (default:
-  the model's `--ledger` where both are in one file, else the book beside
-  its file). At sit-down its file is read and its key looked for, which
-  costs nothing; the game is reserved in its book only when it takes over,
-  under its file's caps. A book that refuses (a cap reached) or a key
-  that is missing leaves no fallback: the house answers, as without one,
-  and the bridge says why (`no fallback stands by: …` at sit-down, `the
-  fallback … could not take over in turn N: …` at the limit or failure,
-  and the transcript's `fallback_refused`). The model's own reservation
-  settles at the game's end as always, and the fallback's beside it.
-- **Only an API.** The model and its fallback both play behind an API: a
-  CLI takes no fallback and is none. A fallback's own fallback is never
-  followed.
-- **Said.** At sit-down `the fallback backup stands by: …`; at a
-  limit `the fallback backup answers from turn 3: the primary is
-  rate limited (it lifts in 120 s)` (the words a seat agent reads to hold
-  the profile back from new games, `bridge::LIMITED`), at another failure
-  `the fallback backup answers from turn 3: the primary failed: 502: …`
-  (which holds nothing back); in the transcript `{"fallback": {"profile",
-  "turn", "cause", "why"}}`, `cause` `limited` or `failed`; to the table a
-  new declaration of the fallback's model before its first answer, so the
-  game's record names the model that made each action ([below](#what-the-games-record-says-played));
-  in the closing line, after everything it said before, `; the fallback
-  (backup) answered 12 from turn 3` (its answers are also among the
-  mind's), and its tokens and money on a line of their own.
+  flag of the command line tunes it. `--fallback-config` names the
+  settings file the fallbacks are in, and `--fallback-ledger` their spend
+  book: each once for all of them, or once for each `--fallback-profile`
+  in the same order; any other count refuses the chair before it reserves
+  anything. By default a fallback's file is the model's, and its book the
+  model's `--ledger` where both are in one file, else the book beside its
+  file. At sit-down each file is read and each key looked for, which costs
+  nothing; a game is reserved in a fallback's book only when it takes over,
+  under its file's caps. A fallback that cannot stand by (a profile the
+  file lacks, one that plays an agent CLI, a key that is missing, the
+  chair's own profile, a name given twice) is left out of the chain at
+  sit-down, the bridge saying why (`the fallback … does not stand by: …`);
+  one whose book refuses when it is to take over (a cap reached) is passed
+  over for the next (`the fallback … could not take over in turn N: …`, and
+  the transcript's `fallback_refused`). The model's own reservation settles
+  at the game's end as always, and each fallback's beside it.
+- **Only an API takes over.** The model may play behind an API or an agent
+  CLI; each fallback plays behind an API: a CLI is none.
+- **Said.** At sit-down `the fallback backup stands by: …`, or `the
+  fallbacks opus-api, deepseek stand by, in this order: …`; at a limit
+  `the fallback opus-api answers from turn 3: the primary is rate limited
+  (it lifts in 120 s)` (the words a seat agent reads to hold the profile
+  back from new games, `bridge::LIMITED`), and when a fallback that took
+  over is limited in its turn `the fallback deepseek answers from turn 9:
+  the fallback opus-api is rate limited` (`bridge::fallback_limited`, which
+  holds that fallback back); at another failure `… : the primary failed:
+  502: …` or `… : the fallback opus-api failed: …` (which holds nothing
+  back); in the transcript `{"fallback": {"profile", "turn", "cause",
+  "why"}}` for each that takes over, `cause` `limited` or `failed`, and at
+  the end `{"fell_back": [{"label", "turn", "answered"}, …]}`; to the table
+  a new declaration of each fallback's model before its first answer, so
+  the game's record names the model that made each action
+  ([below](#what-the-games-record-says-played)); in the closing line, after
+  everything it said before, `; the fallback (opus-api) answered 12 from
+  turn 3` for each that played, in order (their answers are also among
+  the mind's), and each one's tokens and money on a line of its own.
 
 ## Models and efforts
 
@@ -356,9 +396,12 @@ before playing.
   work this way: they take each message as a line on the stdin of one
   long-lived process, and that process is the session. Claude Code's own
   `--resume` would need the session kept on disk, which
-  `--no-session-persistence` forbids. (`agy` takes no system prompt as a
-  flag, so ours rides ahead of the prefix in the first message.) Codex,
-  opencode and Junie answer one message a process (`Dialect::one_shot`):
+  `--no-session-persistence` forbids. (`agy` reads our instructions from
+  the private `baylee-seat` agent selected at startup.) Junie works this
+  way too, in its ACP mode: one process holds one session of the Agent
+  Client Protocol for the game, each message a `session/prompt` in it
+  (`cli::acp`; §"The tools"). Codex and
+  opencode answer one message a process (`Dialect::one_shot`):
   a process whose stdin is closed after the message. Each goes on with
   its conversation by the id its first process named (`Dialect::resumes`;
   §"The tools"), so each later question sends only what is new, as to a
@@ -399,12 +442,21 @@ before playing.
   (`/Users/<you>/.local/share/claude/versions/2.1.284`), and change it by
   hand after an update. The bridge gives the process
   `DISABLE_AUTOUPDATER=1`, so a game never updates the tool itself.
-- **Locked down.** The working directory is a fresh, empty directory under
+- **Locked down.** The working directory is a fresh directory under
   the OS's temp directory, readable by this user alone and removed with
   the process, so no project's `CLAUDE.md` or settings are found. It is
-  named `baylee-cli-<seat>-<random>` (a resuming tool's store
-  `baylee-cli-store-<seat>-<random>`, 122 random bits), never after the
-  game: a tool may tell its provider the directory it runs in. The
+  empty except for agy's own `.agents/agents/baylee-seat.md` (below). It is
+  named `baylee-cli-<seat>-<random>` (the store of a tool that keeps its
+  conversations on disk `baylee-cli-store-<seat>-<random>`, 122 random
+  bits), never after the game: a tool may tell its provider the directory
+  it runs in. The process runs in the bridge's process group, so a
+  signal to that group (a collector stopping its seat, `SIGKILL`
+  included) ends it with the bridge. Junie's alone runs in a session of
+  its own, without the bridge's controlling terminal (`setsid`,
+  `cli::launch::detach`, `Dialect::detaches`): nothing it starts can read
+  the terminal the bridge was started from (below, Junie's
+  `systemd-inhibit`). Every tool ends with the bridge: its stdin closes,
+  and the bridge kills it when its session drops. The
   environment is cleared and given only `PATH`, `HOME`, `USER`, `LOGNAME`,
   `TMPDIR` (the session's own), `LANG`/`LC_ALL=C.UTF-8`, `TERM=dumb`,
   `NO_COLOR=1`, the tool's own login variables where set
@@ -420,6 +472,9 @@ before playing.
   as a path (Codex's instructions and schema, opencode's configuration,
   Junie's empty guidelines) is written, for this user alone, into a
   `support` directory beside the working directory, never into it.
+  agy's agent is the exception: its discovery requires the file under
+  the working directory. That file is `0600`, its directories `0700` on
+  Unix, and it contains only our fixed instructions, no game or player data.
   `HOME` is the user's own, because Claude Code reads its login from
   `~/.claude` (or `CLAUDE_CONFIG_DIR`); so with any tool that reads files
   the model could read `~/.ssh` or `~/.aws` too. `--tools ""` is that
@@ -450,7 +505,11 @@ before playing.
   names nothing at its start, its first line is the start, and any line
   that shows the model used a tool (a command, a file, an MCP or web
   call) takes the mind off the table in the same way
-  (`dialect::Event::Breach`).
+  (`dialect::Event::Breach`). Where a tool asks the seat first (Junie's
+  permission requests), the seat always says no before anything runs:
+  that is no breach, but counted (`tools the model asked for and was
+  refused: 2` in the summary) and written to the transcript
+  (`cli_refused`), and the model goes on (`dialect::Event::Refused`).
 - **Spend.** A subscription has no price: a game's limits are its tokens,
   as the tool counts them, and its calls. Cache reads count, and the tool
   reads the whole conversation again at every decision (up to its size of
@@ -467,8 +526,12 @@ before playing.
   (`Dialect::usage_is_cumulative`). Codex's count is its thread's, which
   a resumed process reads back from the rollout, so it is booked as the
   difference across the processes of one conversation
-  (`Dialect::usage_spans_resumes`); Junie's result counts its task (one a
-  process, booked whole), and opencode's `step_finish` counts its own
+  (`Dialect::usage_spans_resumes`); Junie's prompt result counts its own
+  turn (measured: a second turn of one session read 18,645 input tokens
+  after a first of 17,723), booked so that its whole is Junie's own
+  `totalTokens`, and the session's running cost Junie reports
+  (`usage_update`) is written to the transcript at the end of each turn
+  (`cli_turn`); opencode's `step_finish` counts its own
   step. Under the caps a cli game reserves its `game_tokens` against
   `day_tokens` and `month_tokens`, so a day's cap of 20,000,000 holds one
   game; raise the cap, or lower `game_tokens`. `game_calls` (500 by
@@ -477,29 +540,142 @@ before playing.
   worst; a process that ended without a word (a session not found, a
   crash before its start) reached no model, and is a failed call at no
   cost.
-- **Rate limits.** A rate limit or a spent quota is unavailable, unbilled:
-  the house answers, and the mind cools down for the time the tool names
-  when that is some time and at most fifteen minutes, else a minute,
-  doubling to fifteen. It plays again once that has passed
+- **Rate limits.** A rate limit or a spent quota is unbilled and is the
+  mind limited (`MindError::Limited`), as a model behind an API is: the
+  profile's fallbacks take the game over where it names any (the same
+  model behind an API is the natural first), and else the house plays
+  the rest of that game ([above](#a-fallback-profile)). Until 31.10.2026
+  it was the mind unavailable, so the house answered and the mind came
+  back after its cooldown. The mind cools down for the
+  time the tool names when that is some time and at most fifteen minutes,
+  else a minute, doubling to fifteen. It plays a game again once that has
+  passed
   and the tool's login check (which calls no model) passes: `claude auth
   status --json` says `"loggedIn": true`; `codex login status` says
   `Logged in using …` on stderr, not with an API key; `opencode auth list`
   names an `oauth` credential, not a stored key. Output it cannot read
   counts as signed out. `agy` and Junie have no such check: their
-  `--version` shows only that the program runs.
+  `--version` shows only that the program runs. Junie's spent balance
+  ("Insufficient account balance. All tokens in your account have been
+  spent.") and its provider's rate limiting are limits; a session it
+  cannot open because it is not signed in is unavailable for that
+  question, never a lockout.
 - **Tests.** Only against `examples/fake-agent-cli.rs`, a stand-in that
-  speaks Claude Code's stream-json, `agy`'s, and each one-shot tool's
-  output, and logs what it was started with and every message it read
-  (`tests/cli_mind.rs`: one process across turns with the prefix sent
+  speaks Claude Code's stream-json, `agy`'s, each one-shot tool's output
+  and Junie's ACP, and logs what it was started with and every message it
+  read (`tests/cli_mind.rs`: one process across turns with the prefix sent
   once, a process that died between turns or mid-question begun again
   with the prefix; a one-shot tool's process a question, a tool used
-  taking the mind off the table). Each dialect's arguments are golden and
-  its lines are read from fixtures written from its documentation or
-  source (`cli/dialect_tests.rs`); no dialect may pass an approving flag
-  or a credential in its arguments. No test starts a real CLI or reaches a
+  taking the mind off the table; Junie's session opened with brave mode
+  off before any prompt, a permission refused and played on, a tool that
+  ran or brave mode kept on taking the mind off the table). Each
+  dialect's arguments are golden and its lines are read from fixtures
+  written from its documentation, its source or its recorded output
+  (`cli/dialect_tests.rs`); no dialect may pass an approving flag or a
+  credential in its arguments. No test starts a real CLI or reaches a
   model.
 
 ### The tools
+
+The agy disconnect reported on 24.10.2026 was reproduced locally: the
+default coding agent attempted `run_command` during a game decision, the
+adapter permanently locked it out, and three unavailable answers caused
+the bridge to disconnect. The same bridge serves client and gateway seats.
+The fix selects an agent whose only capability is the output function
+`finish`, rather than relying on the prompt to suppress tools. The
+[agent format](https://antigravity.google/docs/subagents?tab=cli) and
+[CLI flag](https://antigravity.google/docs/cli/reference/) are documented by
+Google. Live agy 1.4.7 checks showed that `tools: []` inherits tools, whereas
+`tools: [finish]` refused an explicitly requested shell command. Its init
+still lists the global tool inventory; the adapter checks the selected
+agent and continues rejecting every external tool event. A CLI that does
+not confirm the selected agent fails before its first answer.
+
+The same seed that failed on its first model call then played 500 game
+actions through turn 21: 27 CLI calls, 61 mind answers including plans,
+no fallback, no restart and no disconnection. A second seed played to
+game end at turn 17 (524 actions, 50 CLI calls, 109 mind answers), also
+without fallback, restart or disconnection. Both used
+`agy:gemini-3.8-flash-low` with low effort. Automated regressions use
+only the fake CLI: 20 decisions across turns, output-only tool events,
+rejection of external tools and wrong/missing agent selection, private
+configuration permissions and process-directory cleanup.
+
+The Codex 0.164.0 live check on the same date found a separate startup
+failure: `--output-schema` is sent in strict mode, so the API rejected the
+common answer schema before the first answer. Codex now receives a strict
+variant: every object is closed with `additionalProperties: false`, all
+properties are required, and otherwise optional fields accept null.
+This includes objects inside attacks, blocks and prevention arrays and
+the nested targets/stops objects. The common schema for other transports
+stays compact. The requirements are in OpenAI's
+[structured-outputs guide](https://developers.openai.com/api/docs/guides/structured-outputs).
+Regressions check the complete schema and that unused null fields preserve
+ordinary decisions, attacks and concessions. With this correction, Codex
+with `gpt-6-luna` and low effort played to game end at turn 15: 442 actions,
+54 model calls, 112 mind answers, no failure, fallback or restart. Its
+conversation resumed across all 54 CLI processes without a disconnect.
+
+opencode 1.19.4 with `deepseek/deepseek-flash` played a complete game
+through turn 14 (508 actions, 73 calls) in the live check. One call exceeded
+the probe's 58-second reply allowance; the existing recovery restarted the
+conversation and play continued to game end without `mind_down` or a
+disconnect. No opencode code change was needed for that run.
+
+Junie 26.10.27 (build 3893.6) is played through its ACP mode since
+31.10.2026. Measured that day on a signed-in machine: in non-interactive
+mode (`--input-format=json`, the dialect before) Junie approves every
+terminal command itself. `touch <file>` and `ls -la ~/.junie` (which lists
+its credential file) ran, `~/.junie/allowlist.json` with
+`defaultBehavior: ask` and `allowReadonlyCommands: false` was ignored,
+`--act-as-interactive` did not help, and `--agent-mode=chat` (no tools) is
+refused by the released build ("The chat agent mode is not available in
+this version. Please use the Nightly build."). In live games Junie Lite
+ran `echo …` and Gemini 3.7 Flash ran `ls -la ~/.junie/` on their own; the
+seat saw each step only after it had run. In ACP mode (`--acp=true`) with
+the session's `brave_mode` set `off` Junie asks its client before every
+terminal command, even `ls` (`session/request_permission`, with
+`reject_once`/`reject_always` options), and a refusal keeps the command
+from running. The seat now opens one ACP session per process and game,
+offers no file system, terminal or MCP server, asks for `brave_mode`
+`off` and sends no prompt before Junie confirmed it, refuses every
+permission (once), and counts each refusal instead of leaving the table.
+Through the seat's own code against `gemini-3.7-flash` at low effort,
+three sessions of two turns each: a game question that also asked for
+`ls` and `touch` was answered as a game question by Junie's answering
+agent, with no tool attempted; a bare "run this exact terminal command:
+touch <file>" was asked of the seat, refused, the file never made, and
+the same session answered the next question with its JSON object.
+The model the profile names must be the session's model: Junie's ACP
+session ignores `--model` for a model it does not offer and plays its
+default instead (Junie Lite, 31.10.2026: the session said
+`v1:12:jetbrains-ai:gemini-3.7-flash`). Junie names its models by a full
+id (`v1:12:jetbrains-ai:claude-opus-5-5`); the seat sets the one whose
+last `:` part is the profile's model, and a session that holds another
+is the model unavailable (a fallback may take the game), never played
+under the declared name. Its ACP list offers no Junie Lite and none of
+the CLI's aliases (`opus`, `sonnet`, …).
+`--system-prompt` is honoured in ACP mode (its text is in Junie's log),
+`--model` and `--effort` select the session's model and effort (the
+session names the model `v1:12:jetbrains-ai:gemini-3.7-flash`), each
+prompt result counts its own turn, Junie exits when its stdin closes, and
+the seat removed its session directory when the mind was done with it.
+A turn costs about 17,000 to 19,000 input tokens (Junie's own prompt and
+router), and about 1.2 US cents, by Junie's own running cost.
+
+One hazard of the old runs stays worth knowing: while it works Junie
+starts `systemd-inhibit --what=sleep … cat` (its `keepAwakeMode` setting,
+`Off` or `WhileTaskRunning`). From a login without an active desktop seat
+polkit asks through `pkttyagent`, which reads the controlling terminal; a
+bridge started in the background of a shell then got `SIGTTIN`, which
+stopped its whole process group (state `T`), the seat's own timeouts
+included. The seat now starts Junie in a session of its own without a
+controlling terminal (`setsid`, `Dialect::detaches`), so that agent fails
+at once and the tool goes on; `"keepAwakeMode": "Off"` in
+`~/.junie/settings.json` keeps Junie from starting it at all. Only Junie:
+a process in a session of its own also leaves the bridge's process group,
+which a collector stops with `SIGTERM` and then `SIGKILL`, so every other
+CLI stays in that group and ends with it however the bridge ends.
 
 What each dialect passes to take the tool's own agent away, how it holds
 a conversation, and how its usage is booked. **Docs** marks what the
@@ -513,10 +689,10 @@ table (no program is asked).
 | CLI | Flags and files that strip its overhead | Conversation | Usage | Lockdown check | Confirmed |
 |---|---|---|---|---|---|
 | Claude Code `claude` (2.1.290) | `-p`, stream-json both ways, `--restricted --safe-mode --tools "" --strict-mcp-config --disable-slash-commands --setting-sources "" --permission-prompts none --permission-mode manual --no-session-persistence --system-prompt <ours> --json-schema <answer>`, `--model`, `--effort`; `DISABLE_AUTOUPDATER=1` | one process across turns, stdin lines (not `--resume`: transcripts and the login share `CLAUDE_CONFIG_DIR`) | per turn (`result.usage`) | `init`: tools only `StructuredOutput`, no MCP server, no slash command, key source named and not a variable | docs (help, Agent SDK) |
-| Antigravity `agy` (1.2.17) | stream-json both ways, `--disable-slash-commands`, `--json-schema`, `--model`, `--effort`; ours ahead of the first message (no system-prompt flag). It has **no** flag that removes tools, MCP servers or its user rules (`~/.gemini`); print mode soft-denies what asks approval | one process across turns, stdin lines (its sessions under `~/.gemini/antigravity-cli` cannot be moved) | running count per process, booked as differences | `init` must name its tools and connect no MCP server; a `tool` step is a breach | flags: docs; cumulative usage: recorded games |
+| Antigravity `agy` (1.4.7) | stream-json both ways, `--disable-slash-commands`, `--agent baylee-seat`, `--json-schema`, `--model`, `--effort`; private `.agents/agents/baylee-seat.md` carries ours and `tools: [finish]`, `subagent: false`, `commandExecutionPolicy: off`, empty MCP/skills/plugins lists. User rules under `~/.gemini` remain the CLI's | one process across turns, stdin lines (its sessions under `~/.gemini/antigravity-cli` cannot be moved) | running count per process, booked as differences | `init` must confirm `agent: baylee-seat`, name its tool inventory and connect no MCP server; every tool event except the output-only `finish` is a breach | flags and agent format: docs; capability filtering and multiple turns: live 1.4.7 check, 24.10.2026 |
 | Codex `codex` (0.160.0) | `exec --json --ignore-user-config --ignore-rules --skip-git-repo-check --sandbox read-only --output-schema <file>`; `-c model_instructions_file=<ours> project_doc_max_bytes=0 mcp_servers={} notify=[] web_search="disabled" tools.view_image=false history.persistence="none" analytics.enabled=false feedback.enabled=false otel.exporter="none" check_for_update_on_startup=false include_*_instructions/context=false model_reasoning_summary="none" [model_reasoning_effort]`; `--disable` each tool feature (shell, exec, image, plugins, apps, hooks, skills, sub-agents, memories, browser, computer use, …); `--model`; prompt on stdin (`-`); going on: the same, then `resume <thread uuid> -`. `$CODEX_HOME/AGENTS.md` is still read (the bridge warns where one is) | one process a question, going on by `exec … resume <id>`; sessions in `$CODEX_HOME/sessions` beside the login, the seat's own removed | thread total, read back on resume: booked as differences across the conversation | none at start (`thread.started`); any item but the answer, reasoning or a warning is a breach | flags: docs and source (main, 06.10.); features list and AGENTS.md: source, not the 0.160 tag; **assumed**: `-c` keys 0.160 does not know are ignored; that `exec`'s `--sandbox` and `--color` ahead of `resume` hold for it (source: global flags) |
 | opencode `opencode` (1.18.34) | `run --pure --format json --agent seat --title seat [--model p/m] [--variant v]`, message on stdin; `OPENCODE_CONFIG` = a file denying every tool (`permission {"*":"deny"}`, also on the agent), `mcp {}`, no instructions, share/snapshot/formatter/compaction/autoupdate off, agent `seat` whose prompt is ours; `XDG_CONFIG_HOME` = an empty directory; `OPENCODE_DB` = a file in the seat's store; `OPENCODE_DISABLE_PROJECT_CONFIG`, `_CLAUDE_CODE`, `_EXTERNAL_SKILLS`, `_AUTOUPDATE`, `_AUTOCOMPACT`, `_LSP_DOWNLOAD`. opencode still adds its environment block (model, directory, date) | one process a question, going on by `--session <id>` from the seat's store: only what is new is sent | per step (`step_finish.tokens`) | none at start (its first line is the start); a `tool_use` line is a breach | source (v1.18.34 tag, `dev` for the schema); **assumed**: built-in plugins left on (they carry the logins); that a resumed `run` reads its history whole (source: `dev`) |
-| Junie `junie` (26.9.22) | `--input-format=json --output-format=json-stream --skip-update-check --share-anonymous-statistics=false --config-default-locations=false --mcp-default-locations=false --skill-default-locations=false --command-default-location=false --agent-default-location=false --model-default-locations=false --agent-mode=chat --extensions-default-location=<empty> --guidelines-filename=<empty file> --cache-dir=<session's> --system-prompt=<ours>` (added to Junie's, not replacing it), `--model`, `--effort`; task as `{"task": …}` on stdin; going on: the same and `--session-id=<id>` (never `--resume` alone) | one process a question, following up by `--session-id`; sessions in `~/.junie/sessions` beside its settings, the seat's own removed | the task's per-model records, summed, booked whole (a follow-up is a new task) | none at start (`session`); any step but `TASK RESULT` is a breach | flags: help; output shape: a JetBrains fixture and action; **assumed**: that a signed-in account plays headless without `--auth`, what chat mode does, that no tool step appears in a plain answer, that `--session-id` alone follows a session up (help: "the previously executed session to follow up") |
+| Junie `junie` (26.10.27) | `--acp=true --skip-update-check --share-anonymous-statistics=false --config-default-locations=false --mcp-default-locations=false --skill-default-locations=false --command-default-location=false --agent-default-location=false --model-default-locations=false --extensions-default-location=<empty> --guidelines-filename=<empty file> --cache-dir=<session's> --system-prompt=<ours>` (added to Junie's, not replacing it), `--model`, `--effort`; ACP: `initialize` with no file system and no terminal, `session/new` in the empty working directory with no MCP server, `session/set_config_option` `brave_mode` `off` (and `model`/`effort` where the flags left another value Junie offers), each message a `session/prompt`. Never `--brave`, `--auth` or a key | one process across turns, one ACP session; sessions in `~/.junie/sessions` beside its settings, the seat's own removed | per turn (the prompt result's `usage`), booked to its `totalTokens`; the session's running cost to the transcript | none at start (its first message); no prompt before `brave_mode` `off` is confirmed, else a breach, as is a later change; every permission request refused (counted, transcript, no breach); a tool call that completed, failed unrefused or is still open at its turn's end is a breach | flags: help; protocol, permission requests, brave mode, `--system-prompt`, `--model`, `--effort`, per-turn usage and the refusal: live 26.10.27 checks, 31.10.2026; **assumed**: how a spent balance and a missing sign-in look on the wire (the strings are from its jar; the fake replays them) |
 
 A tool that answers one message a process goes on with its conversation
 by the id the tool's own output named for this seat, never "the most
@@ -546,7 +722,10 @@ and by its size, as a process's is.
   they are kept where the user's are (owner, 06.10.2026): Codex's rollout
   `$CODEX_HOME/sessions/YYYY/MM/DD/rollout-<time>-<uuid>.jsonl` (no
   `--ephemeral`, which would keep nothing to resume), Junie's
-  `$JUNIE_HOME/sessions/<id>/`. When the conversation is over the seat
+  `$JUNIE_HOME/sessions/<id>/`. Junie no longer resumes: its ACP process
+  holds the session for the game, and the session it kept on disk is only
+  removed (a dead process's conversation begins again with the prefix,
+  as Claude Code's does). When the conversation is over the seat
   removes exactly the files named for the ids its own processes named
   (one that strayed included), matched by the tool's own file naming,
   never through a link; the store notes those ids, so the sweep after a
@@ -554,10 +733,7 @@ and by its size, as a process's is.
   Codex's thread row in its own state database and the line Junie's
   `sessions/index.jsonl` holds for the session stay. No session file is
   read: Codex's `turn.completed` already carries the thread's count, and
-  Junie's result its task's. Junie may begin a new session silently for
-  one it does not find, which its `session` line then names: that is a
-  process that strayed. One it begins anew under the very id asked for
-  could not be told from a kept one without reading its files.
+  Junie's prompt result its turn's.
 - **Claude Code**, **agy**: one process holds the conversation already;
   a resume would need transcripts on disk beside the login. agy's usage
   is cumulative over its session, as the differences booking assumes.
@@ -578,6 +754,141 @@ Not spoken, and why:
   keys and a paid plan; its stream-json input is documented as "under
   construction".
 - **Aider**: no structured output, and keys only.
+
+## Reports and lookups
+
+Every language-model seat, API or CLI, may report a rules or engine error
+it notices and look a card up before it answers (owner, 31.10.2026: "better
+a false report than a wrongly accepted bug"). What the model is told and
+how its answer carries them is `docs/llm-protocol.md` §"Reports and
+lookups"; this is what the bridge does with them.
+
+**Reports** (`baylee_seat::reports`). Each one is filed as it is read, in
+the answer that carried it whether or not that answer could be taken:
+
+- one JSON line in `reports.jsonl` (the game, the seat, the
+  question, the turn, the model, the profile, `what`, `expected`,
+  `evidence`, `references`, the lookups made for that question, the time),
+  written as it is filed, so a report the gateway never takes (a refusal,
+  `429` or `503`, no answer within 15 s, a link that never came back) is
+  still on the machine that played. Every language-model seat has the
+  file (`config::Paths::reports`): in `join --reports-dir` where it is
+  given, else in the `--transcripts` directory, else in `llm-reports/`
+  beside the settings file, where its spend book is (a seat the desktop
+  client starts: `~/.config/baylee/llm-reports/` on Linux; a named
+  `--config` elsewhere keeps the player's config directory out of it). A
+  fallback that takes over writes to the model's. A seat agent hands its
+  bridges `--reports-dir <state>/reports`. The bridge never reads the
+  file back, sends it or cuts it short: at most 25 lines a game, until
+  whoever owns the machine removes it (`docs/privacy.md`). The seats of a
+  table may share the directory; each line is one write.
+- when the game ends (won, lost, conceded, or the room closed under the
+  seat), one bug report a game to the gateway's `POST /reports`
+  (`docs/feedback.md`) under the seat's own session: `kind: "bug"`, the
+  game's id (the gateway attaches its record), a text that says the
+  reports are a model's and lists them, cards written `[Card Name]`, and
+  `client: {"source": "llm-seat", "model", "profile", "seat", "reports",
+  "refs", "log", "log_omitted"}`, the references resolved from the seat's
+  own view and this build's pool only. `model` and `profile` are the mind
+  that filed the first report; after a fallback took over, each entry of
+  `reports` names its own, and the text names every mind in order and the
+  seat as its log and its model do (`P2`; `seat` is the view's number,
+  from 0). Triage reads it as a player's
+  report: the model's claim, never an instruction. Each `what` is filed
+  once a game, at most 25 of them, each field held to 2,000 characters
+  and the text to 20,000.
+- **the seat's own game log** rides with them as `client.log` (since
+  31.10.2026, `reports::game_log`): the desktop client's "your game log"
+  attachment in its shape (`{seat, roster: [{seat, name, is_ai, team}],
+  lines: [{turn, at, text}]}`), written by the client's own code
+  (`bugreport::seat_log_with`) out of the log the table told this seat,
+  which the core keeps in the client's own book (`TableMemory::book`). So
+  it holds only what the seat was told (another seat's hidden draw is "P1
+  drew 1 card", a face-down card stays face-down), never its view, a hand
+  or a library, and nobody's name: lines in English, the seat "You" and
+  every other seat `P1…Pn` as its model knew them
+  (`Placeholders::Seats`; a person's report says "Player A", "Player B").
+  The whole game, up to its end; where `client` would pass 2,000,000
+  bytes (the client's reading of the gateway's 2 MiB) the oldest lines
+  are left out, the newest kept, and `client.log_omitted` and the text
+  say how many (0: none). Each report says after which line of the log as
+  sent it was made: `log_line` in `client.reports` (from 1, as the
+  feedback service lists the lines; 0 before the first) and "q12, turn 4,
+  after log line 57" in the text. A seat told no line yet sends no log.
+- before it goes, the body is sealed as a person's report is
+  (`bugreport::seal`): one that holds the seat's session or seat token
+  anywhere is not sent, and `why` names which token, never its value.
+- the seat transcript's `llm_reports` line says what became of it
+  (`count`, `sent`, `report_id`, `why`, and `route`: `"reports"` or
+  `"chair"`, below). A gateway without a feedback service, a refusal or no
+  answer within 15 s is said there and in the log, never in the game; the
+  reports file keeps them either way.
+
+Which chairs send how, and with which record (`link::Reporter`):
+
+- a seat with its own account, and a host's own chair handed to the
+  bridge (`--host-chair`: the account's person's chair, played over its
+  seat token), send under that account's session (`POST /reports`, route
+  `"reports"`). The account sits at that chair in the game's record
+  (`game_record_seat.account_id`), so the gateway attaches the record as
+  it does to a player's report.
+- a chair taken on its host's ticket (`--chair-ticket`, a host's own
+  bridge or a hosted model) has no session: it sends the same body on its
+  seat token (`POST /lobby/games/{id}/chair/report`, route `"chair"`,
+  owner, 31.10.2026). The gateway files it under the pseudonym of the host
+  who answers for the chair, against the host's 64 an hour, with that
+  game's record, which the chair played (`delegated_by`); once a chair a
+  game, and only about that game (`docs/feedback.md`). A gateway from
+  before the route answers `404`, which `why` says.
+
+`join --no-send-reports` sends none either way and still writes the file:
+a collector that has filed enough for its run passes it.
+
+**Lookups** (`baylee_seat::lookup`). An answer of only `ask` and `lookup`
+asks for a card; the seat answers with its text and asks the same
+question again, which costs none of the question's two tries. An answer
+that also answers (`pick`, `attacks`, `blocks`, `prevention`, `number`,
+`piles`, `name` or a concession, `Decision::answers`) is taken as it is,
+and its lookup is passed over: not made, not counted, and a
+`lookup_passed_over` line of the mind's transcript. At most 3
+lookups a question and 30 a game a seat, and none with less than 13 s of
+the question left; past them the field is passed over (an answer that also
+answers is taken, else it is asked again, "no lookups left …"). A name is
+read to its first 200 characters (`lookup::NAME_CHARS`). The text
+comes from the nearest source that has it, under its name:
+
+1. **Baylee card text**: the English Oracle compiled into this build, every
+   face's name, mana cost, type line, power and toughness or loyalty. No
+   network.
+2. **gateway catalog**: for a card this build does not play, `GET
+   /catalog/search` and `GET /catalog/text` (`docs/protocol.md` §"Card
+   text") under the seat's own session; a chair without one skips it.
+3. **Scryfall**, only with `"lookup": "scryfall"`: the card's rulings (at
+   most ten), and the text of a card neither of the others knows. A
+   lookup asks `GET https://api.scryfall.com/cards/named?fuzzy=<name>` and
+   then the card's `rulings_uri`, which is followed only when it is on
+   `api.scryfall.com`; no redirect is followed. The requests carry the
+   card's name and nothing else, under `User-Agent: baylee-seat/<version>`
+   and `Accept: application/json;q=0.9,*/*;q=0.8`, one at a time and
+   100 ms apart (`docs/legal.md` §3: at most ten a second) for every
+   seat of the machine: within a process under a lock in memory, and
+   across the processes that keep the same cache directory (a collector's
+   seats) under an exclusive lock on `scryfall/.requests.lock` there,
+   which holds when the last request ended (`lookup::scryfall::Turn`). A
+   request waits for that lock at most its own time (≤ 10 s) and then
+   fails the lookup, never longer; where the file cannot be opened or
+   locked the spacing holds within the process only. What was fetched is
+   kept a week (at least the day Scryfall
+   asks for) in memory and in `scryfall/` of the user's cache directory
+   (`~/.cache/baylee/scryfall` on Linux), one file a card written through
+   a temporary file, for this machine's seats only; "not found" is kept
+   in memory only (a model's made-up names never fill the directory), a
+   failure not at all.
+
+A failed source is a sentence in the text (`lookup failed: …`), never the
+mind's error. Each lookup, with the text the model was told, is a line of
+the mind's transcript (`lookup`: the name, the sources, the text, its
+count in the question and in the game).
 
 ## The spend book
 
@@ -728,7 +1039,7 @@ holds the processes).
   never a log. The bridge redeems it with its name (`LLM-…`) and its deck
   and sits in the chair as the host's delegate, with no account of its
   own, so it gets in where the gateway takes no guests
-  (`BAYLEE_GUESTS=off`), its guest cap is reached, or it is a closed beta
+  (`BAYLEE_AUTH_MODE=central`, the default), its guest cap is reached, or it is a closed beta
   (`BAYLEE_REGISTRATION=invite`). The room lists the chair under the
   bridge's name with the host's handle (`delegated_by`), and the game's
   record names the host as the one who answers for it
@@ -738,6 +1049,26 @@ holds the processes).
   guests, and the chair's card says why not where it takes none. So does
   an older gateway that sells no tickets (`404`): the guest door, where
   there is one.
+- **An already occupied account chair (local supervision).** A controller
+  whose regular account already holds a chair of a waiting room (the
+  host's chair 0 of the room it opened, or a chair it joined) may hand that
+  same chair to `baylee-seat join <room> --chair <n> --tethered
+  --host-chair`. Its first stdin line is JSON with `game_id`, `seat` (the
+  `--chair`), `seat_token` and `session_token`; the remaining stdin still
+  holds the tether. Never put that line in arguments, environment, logs or
+  files. The bridge checks that the session owns that occupied human chair
+  of that waiting room, then uses the same session and chair for ready,
+  waiting and its socket. A chair ticket seats only a language model
+  (`LLM-…`), so this is how the house (`--mind house`) takes a chair at a
+  table it does not host: in an account named `HOUSE-…` (the LLM
+  collector's `house:<level>` seats). It creates no guest, uploads no second deck and
+  never starts the room; the controller does that once all chairs are
+  ready. The account's displayed name and uploaded deck must already
+  match the chosen mind's disclosed name and configured deck. This is the
+  account's own chair, not a delegated chair ticket: the normal account
+  identity remains in the gateway's record until its ordinary anonymized
+  export. Only a trusted local supervisor should hand over this session,
+  which retains the account's authority. `--chair-ticket` is incompatible.
 - **Ready once the model answers.** Sitting is not ready. The bridge first
   asks its mind the cheapest question its provider takes (`Mind::check`:
   the model's entry for Anthropic, the model list for an OpenAI-compatible
@@ -763,8 +1094,22 @@ holds the processes).
   …/seats/{seat}` with a `kind`), which ends its seat token; a host who
   leaves the room, hands it on or deletes its account takes its bridges'
   chairs and its unspent tickets with it.
-- **Limits.** A blitz table (30 seconds or less a decision) is refused by
-  the bridge, as from a terminal. The chair keeps the house level `steady`
+- **Refused for a while.** The gateway answers `401` to a delegate's seat
+  token when the chair was taken back, when the host's sign-in it was
+  minted under ended (a Central session lives 30 minutes, never renewed:
+  `docs/central-login.md`), and when it could not make the check at all (a
+  failed Central check is a `401` too, every five seconds on every
+  socket). A delegate counts its room closed to it only once the refusals
+  of its chair (`GET …/chair`) have lasted `link::REFUSAL_PATIENCE` (45 s);
+  until then a refused ticket is dialled again on the client's schedule
+  and a refused chair read is asked again. A room that is gone (`404`)
+  closes it at once. Until 22.10.2026 the first `401` ended the seat for
+  good (owner: the local LLM agent "keeps losing its connection").
+- **Limits.** A positive decision clock of 30 seconds or less is refused by
+  the bridge, as from a terminal, unless `--allow-blitz` is explicit.
+  `decide_secs: 0` and an absent decision clock mean untimed and need no
+  override: guest rooms, delegated tickets, host handoffs and the socket
+  seat all use this rule. The chair keeps the house level `steady`
   for its fallbacks (a plan's end, a cap reached).
 
 ## Changing a chair during the game
@@ -812,9 +1157,11 @@ describes it.
   when absent: `max_games` (games at once), `caps` (the settings file's
   four caps, kept in the profile's **own** spend book,
   `spend/<id>.json`, so one profile's spend never stops another),
-  `canary` (a paid check, below) and `fallback` (another API profile of
-  the same seat agent and vendor, [above](#a-fallback-profile) and
-  below). Which profiles a seat agent runs is
+  `canary` (a paid check, below) and `fallback` (other API profiles of the
+  same seat agent and vendor, one id or a list in the order they take
+  over, [above](#a-fallback-profile) and below; an agent CLI's profile may
+  name them too; they are named here, never in `profile`). Which
+  profiles a seat agent runs is
   written through the admin console (`PUT /admin/llm/seathosts/{name}/
   profiles/{id}`), which the gateway passes to that seat agent and keeps
   nowhere; the file may also be edited by hand, read at start. Every
@@ -834,24 +1181,30 @@ describes it.
   `baylee-seat join <room> --chair <n> --chair-ticket --tethered
   --config … --profile <id> --ledger spend/<id>.json --name <label>` with
   the gateway's chair ticket as stdin's first line. A profile whose
-  definition names a `fallback` ([above](#a-fallback-profile)) gets a
-  second settings file holding the fallback alone, with its own caps, and
-  `--fallback-profile <fallback> --fallback-config … --fallback-ledger
-  spend/<fallback>.json`. No key travels with either: the bridge reads both
-  from the seat agent's key store, each under its own profile's entry, and
-  its environment is the seat agent's allowlist as before.
-- **New games on the fallback.** While a profile is not available for
-  any reason (at its `max_games`; limited, its book at a cap or the
-  provider's limit, which the seat agent also hears from a bridge's `the
-  primary is rate limited` line; failing its check; signed out; being
-  checked; switched off) and its fallback is available, a new game starts
-  on the fallback outright and
-  plays it whole: the fallback's settings file and book alone, no further
-  fallback, so the provider's cache is the same endpoint's from the first
-  question. The chair keeps the ordered profile's name, the gateway's
-  order and status are the ordered profile's, and the game counts in the
-  fallback's games (its `max_games` holds it). The profile is reported
-  `available`, with `diverts` naming the fallback, and the operator's log
+  definition names fallbacks ([above](#a-fallback-profile)) gets a
+  settings file for each that is usable (a profile of the seat agent,
+  behind an API, of the same vendor, switched on), holding it alone with
+  its own caps (`llm-seat-fallback-1.json`, `-2`, …, named by place, never
+  by id), and for each, in order, `--fallback-profile <fallback>
+  --fallback-config … --fallback-ledger spend/<fallback>.json`. No key
+  travels with any: the bridge reads each from the seat agent's key store,
+  each under its own profile's entry, and its environment is the seat
+  agent's allowlist as before.
+- **New games on a fallback.** While a profile is not available for any
+  reason (at its `max_games`; limited, its book at a cap or the provider's
+  limit, which the seat agent also hears from a bridge's `the primary is
+  rate limited` line; failing its check; signed out; being checked;
+  switched off) and one of its fallbacks is available, a new game starts
+  outright on the first of the chain that is: that fallback's settings
+  file and book, so the provider's cache is the same endpoint's from the
+  first question, with the fallbacks after it in the chain standing by as
+  they would behind the profile. A fallback a bridge heard limited in its
+  turn (`the fallback <id> is rate limited`) is held back from new games
+  in the same way. The chair keeps the ordered profile's name, the
+  gateway's order and status are the ordered profile's, and the game
+  counts in that fallback's games (its `max_games` holds it). The profile
+  is reported `available`, with `diverts` naming that fallback, and the
+  operator's log
   says which profile the game got and why (`primary at max_games 5/5`,
   `primary failing: …`,
   `primary limited for another 300 s`). Like every bridge it
@@ -925,8 +1278,9 @@ chosen above, flags over profile over build (`baylee_seat::declare`):
 - a model behind a CLI: `llm_cli`, the tool (`claude`, `codex`, …), the
   model it names (empty for the tool's own default) and the effort.
 
-A fallback that takes over ([above](#a-fallback-profile)) declares its
-own model before its first answer, so the record names it from there on.
+Each fallback that takes over ([above](#a-fallback-profile)) declares its
+own model before its first answer, so the record names it from there on,
+and the next one's from where that one took over.
 Never the profile's name, its `base_url`, its key variable, a key or any
 prompt: the declaration has no field for them, and the engine refuses one
 whose text is shaped like a key or an address. It is sent on every socket
@@ -943,7 +1297,10 @@ as the seat's answers, like the model's. Which of them made each answer is
 in the bridge's transcript (`--transcripts`: an `answered` event's `by`), and the
 counts in its closing line. A mind taken off the table (`down_after`
 failures) leaves the socket, and the table's own stand-in, recorded as a
-`chair` line, plays until it is back.
+`chair` line, plays until it is back. A limited mind is never taken off
+the table: the bridge declares the house (`kind: house` and its level) and
+its house plays the rest of the game on the same socket, so the record
+names the house from that answer on.
 
 ## The AI log (debug builds only)
 

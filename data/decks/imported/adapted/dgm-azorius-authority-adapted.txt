@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/DGM/azorius-authority.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AzoriusAuthority_DGM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Azorius Authority (Adapted)]
+4 Absorb
+2 Ascended Lawmage
+2 Azorius Cluestone
+4 Azorius Guildgate
+4 Daring Leap
+3 Energy Arc
+10 Island
+2 Loran, Disciple of History
+4 Ojutai's Command
+1 Overrule
+12 Plains
+3 Silvercoat Lion
+4 Sphinx's Revelation
+2 Stealer of Secrets
+3 Wind Drake

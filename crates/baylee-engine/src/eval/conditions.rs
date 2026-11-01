@@ -58,6 +58,15 @@ pub fn condition_holds_with_context(
 ) -> bool {
     let source = context.source;
     match condition {
+        Condition::SourceBlockedOrWasBlockedSinceYourLastUpkeep => {
+            super::upkeep_history::blocked_since_last_upkeep(state, you, source)
+        }
+        Condition::SomeDefendingPlayerControlsNone(filter) => {
+            super::defender_conditions::some_defender_controls_none(state, you, context, filter)
+        }
+        Condition::CreatureDamagedBySourceDiedThisTurn => state
+            .source_identity(source)
+            .is_some_and(|source| state.source_damage_caused_death(source)),
         Condition::DescendedThisTurn => state
             .per_turn
             .descended
@@ -113,6 +122,37 @@ pub fn condition_holds_with_context(
                     })
                 })
             }),
+        Condition::ChosenColorIsUniqueMostCommon(filter) => {
+            let Some(object) = state.object(source) else {
+                return false;
+            };
+            let (Some(opponent), Some(color)) = (object.chosen_opponent(), object.chosen_color)
+            else {
+                return false;
+            };
+            if state.has_left(opponent) || color == baylee_core::mana::ManaColor::Colorless {
+                return false;
+            }
+            let mut counts = [0usize; 5];
+            for object in state.battlefield_seen().filter_map(|id| state.object(id)) {
+                if object.controller != opponent
+                    || !matches_with_context(filter, state, object, you, context)
+                {
+                    continue;
+                }
+                for candidate in baylee_core::color::Color::ALL {
+                    if object.characteristics().colors.contains(candidate) {
+                        counts[candidate as usize] += 1;
+                    }
+                }
+            }
+            let chosen = color.index();
+            counts[chosen] > 0
+                && counts
+                    .iter()
+                    .enumerate()
+                    .all(|(index, count)| index == chosen || *count < counts[chosen])
+        }
         Condition::AfterCombat => matches!(
             state.turn.phase,
             crate::turn::Phase::SecondMain | crate::turn::Phase::Ending
@@ -190,6 +230,9 @@ pub fn condition_holds_with_context(
             .players
             .iter()
             .any(|player| state.is_opponent(player.id, you) && player.poison >= minimum),
+        Condition::AmountIsEven(amount) => {
+            amount_with_context(&amount, state, you, context, None).is_multiple_of(2)
+        }
         Condition::AmountAtLeast(amount, minimum) => {
             amount_with_context(&amount, state, you, context, None) >= minimum
         }
@@ -373,6 +416,9 @@ pub fn condition_holds_with_context(
             .is_some_and(|p| p.lands_played_this_turn >= n),
         Condition::HandSizeAtMost(max) => {
             state.zones.list(ZoneLocation::Hand(you)).len() <= max as usize
+        }
+        Condition::HandSizeAtTurnStartAtMost(max) => {
+            state.per_turn.hand_size_at_start <= u32::from(max)
         }
         Condition::APlayerHandSizeAtMost(n) => (0..state.players.len())
             .map(|seat| PlayerId::new(seat as u8))
@@ -614,6 +660,14 @@ pub(crate) fn intervening_if_for_incarnation(
             attachment,
             event,
         ),
+        Some(Condition::CreatureDamagedBySourceDiedThisTurn) => version
+            .or_else(|| state.object(source).map(|object| object.version))
+            .is_some_and(|version| {
+                state.source_damage_caused_death(baylee_core::ids::DamageSourceRef {
+                    object: source,
+                    version,
+                })
+            }),
         Some(Condition::SourceWasCastByYou) => state
             .damage_source(source, version)
             .is_some_and(|object| object.cast_history.caster() == Some(you)),

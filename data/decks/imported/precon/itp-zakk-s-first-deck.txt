@@ -1,0 +1,18 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, ZakkSFirstDeck_ITP.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Zakk's First Deck]
+2 Alabaster Potion
+2 Bog Imp
+1 Bog Wraith
+1 Durkwood Boars
+1 Elven Riders
+4 Forest
+1 Grizzly Bears
+2 Healing Salve
+2 Pearled Unicorn
+4 Plains
+1 Raise Dead
+2 Scryb Sprites
+4 Swamp
+2 Terror
+1 Untamed Wilds

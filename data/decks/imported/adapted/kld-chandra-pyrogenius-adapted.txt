@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/KLD/chandra-pyrogenius.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ChandraPyrogenius_KLD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Chandra, Pyrogenius (Adapted)]
+2 Aerial Responder
+4 Arrows of Justice
+1 Brazen Scourge
+4 Energy Bolt
+4 Flame Lash
+4 Lightning Helix
+4 Martial Glory
+11 Mountain
+10 Plains
+3 Renegade Firebrand
+1 Skyswirl Harrier
+1 Snare Thopter
+2 Spireside Infiltrator
+4 Spirit Summoning
+4 Stone Quarry
+1 Weldfast Monitor

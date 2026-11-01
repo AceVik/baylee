@@ -1,0 +1,21 @@
+# baylee curated constructed ramp seed=20261080
+# licence: AGPL-3.0-only
+[deck:constructed ramp UG #20261080]
+2 Abstergo Entertainment
+4 Ancestral Vision
+1 Elementalist Adept
+3 Forest
+3 Great Hall of the Citadel
+1 Hall of Oracles
+12 Island
+2 Jeskai Sage
+3 Pelakka Wurm
+4 Prescient Chimera
+2 Primal Amulet
+4 Riverwheel Aerialists
+2 School of the Unseen
+3 Stymied Hopes
+4 Tangleroot
+4 Three Steps Ahead
+4 Tidespout Tyrant
+2 Villainous Hideout

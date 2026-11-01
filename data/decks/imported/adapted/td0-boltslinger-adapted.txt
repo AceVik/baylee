@@ -1,0 +1,15 @@
+# adapted from data/decks/precon/TD0/boltslinger.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Boltslinger_TD0.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Boltslinger (Adapted)]
+4 Chain Lightning
+3 Hammer of Bogardan
+4 Lightning Bolt
+4 Magma Jet
+4 Massive Raid
+20 Mountain
+1 Price of Progress
+4 Pyrokinesis
+4 Sundering Eruption
+4 Sweltering Suns
+4 Unsubtle Mockery
+4 Wheel of Fortune

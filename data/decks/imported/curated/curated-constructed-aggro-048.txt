@@ -1,0 +1,25 @@
+# baylee curated constructed aggro seed=20261071
+# licence: AGPL-3.0-only
+[deck:constructed aggro BR #20261071]
+4 Aether Sting
+1 Bucolic Ranch
+4 Crackling Cyclops
+2 Eidolon of the Great Revel
+3 Electrostatic Field
+2 Firespitter Whelp
+3 Graven Cairns
+2 Ishi-Ishi, Akki Crackshot
+2 Lazotep Quarry
+4 Malakir Rebirth
+2 Monastery Swiftspear
+16 Mountain
+4 Nimble-Blade Khenra
+2 Profane Tutor
+2 Rumble Arena
+4 Sanguinary Mage
+3 Sawblade Scamp
+1 Secret Base
+3 Soul of Magma
+4 Spark Spray
+1 Survivors' Encampment
+1 Swamp

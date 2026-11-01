@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control R #20266047]
+1 An-Zerrin Ruins
+1 Aspect of Manticore
+1 Avalanche
+1 Avishkar Raceway
+1 Balduvian War-Makers
+1 Barreling Attack
+1 Boiling Seas
+1 Bravado
+1 Bull Rush
+1 Caverns of Despair
+1 Char-Rumbler
+1 Cinder Cloud
+1 Crimson Kobolds
+1 Diamond City
+1 Dwarven Song
+1 Epiphany Storm
+1 Fervent Strike
+1 Fighting Chance
+1 Fire Nation Soldier
+1 Fists of the Anvil
+1 Flame-Chain Mauler
+1 Flaming Sword
+1 Flowstone Strike
+1 Fork
+1 Frantic Confrontation
+1 Frenzied Devils
+1 Frontline Rebel
+1 Furious Resistance
+1 Gemstone Caverns
+1 Gnat Alley Creeper
+1 Goblin War Paint
+1 Granite Grip
+1 Haradrim Spearmaster
+1 Ice Floe
+1 Igneous Cur
+1 Karplusan Yeti
+1 Keldon Berserker
+1 Keldon Warlord
+1 Lava Flow
+1 Lavakin Brawler
+1 Magus of the Moon
+1 Miner's Bane
+36 Mountain
+1 Mountain Stronghold
+1 Mudslide
+1 Pedal to the Metal
+1 Perils of the Past
+1 Precise Strike
+1 Red Elemental Blast
+1 Renegade Warlord
+1 Sandstorm Verge
+1 Screaming Fury
+1 Smaug's Fury
+1 Stingmoggie
+1 Sunder from Within
+1 Talons of Falkenrath
+1 Tin Street Market
+1 Trained Orgg
+1 Tuktuk Rubblefort
+1 Uncanny Speed
+1 Volcanic Upheaval
+1 Vulshok Refugee
+1 Whirling Strike
+1 Zhalfirin Void
+
+[commander]
+Eron the Relentless

@@ -1,0 +1,722 @@
+{
+  "answer_schema": {
+    "properties": {
+      "ask": {
+        "description": "The question id, such as q12.",
+        "type": "string"
+      },
+      "attacks": {
+        "items": {
+          "properties": {
+            "at": {
+              "description": "A player id or a planeswalker's id.",
+              "type": "string"
+            },
+            "attacker": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "attacker",
+            "at"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "blocks": {
+        "items": {
+          "properties": {
+            "attacker": {
+              "type": "string"
+            },
+            "blocker": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "blocker",
+            "attacker"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "board": {
+        "description": "Show the whole board in the next message.",
+        "enum": [
+          "full"
+        ],
+        "type": "string"
+      },
+      "concede": {
+        "description": "Concede instead, with the reason: only when you are certain to lose.",
+        "type": "string"
+      },
+      "name": {
+        "description": "A creature type or a card name.",
+        "type": "string"
+      },
+      "number": {
+        "type": "integer"
+      },
+      "pick": {
+        "description": "Option ids (a1, p, keep, y, m1), object ids (#45) or player ids (P2).",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "piles": {
+        "items": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": "array"
+      },
+      "plan": {
+        "description": "The steps that answer the questions after this one, in order: play #id | cast #id [-> targets] | activate #id[:n] [-> targets] | choose <card name or #id>[, …] | yes | no | color W/U/B/R/G | mode m<n> | n <number> | attack none | attack #id@P<n> … | pass.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "prevention": {
+        "items": {
+          "properties": {
+            "amount": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "part": {
+              "description": "Offered damage-part id, e.g. d7.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "part",
+            "amount"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "react": {
+        "description": "While until holds: which opposing spells or abilities on the stack wake you.",
+        "enum": [
+          "all",
+          "targets_me",
+          "none"
+        ],
+        "type": "string"
+      },
+      "say": {
+        "description": "One short sentence for the people watching.",
+        "type": "string"
+      },
+      "stops": {
+        "description": "The phases or steps you want to be woken in on your turns and theirs (e.g. [\"main1\", \"attackers\", \"end_step\"]).",
+        "properties": {
+          "mine": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "theirs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "description": "Targets for the spell or ability this pick casts or activates.",
+        "properties": {
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "until": {
+        "description": "Go on passing until then; you are still asked every other question.",
+        "enum": [
+          "my_turn",
+          "my_main2",
+          "my_end",
+          "end_of_turn",
+          "none"
+        ],
+        "type": "string"
+      }
+    },
+    "required": [
+      "ask"
+    ],
+    "type": "object"
+  },
+  "anthropic_tools": [
+    {
+      "description": "Answer the current decision. Fill ask, and the one field the question asks for: pick, attacks, blocks, number, piles or name.",
+      "input_schema": {
+        "properties": {
+          "ask": {
+            "description": "The question id, such as q12.",
+            "type": "string"
+          },
+          "attacks": {
+            "items": {
+              "properties": {
+                "at": {
+                  "description": "A player id or a planeswalker's id.",
+                  "type": "string"
+                },
+                "attacker": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "attacker",
+                "at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "blocks": {
+            "items": {
+              "properties": {
+                "attacker": {
+                  "type": "string"
+                },
+                "blocker": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "blocker",
+                "attacker"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "board": {
+            "description": "Show the whole board in the next message.",
+            "enum": [
+              "full"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "description": "A creature type or a card name.",
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          },
+          "pick": {
+            "description": "Option ids (a1, p, keep, y, m1), object ids (#45) or player ids (P2).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "piles": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "plan": {
+            "description": "The steps that answer the questions after this one, in order: play #id | cast #id [-> targets] | activate #id[:n] [-> targets] | choose <card name or #id>[, …] | yes | no | color W/U/B/R/G | mode m<n> | n <number> | attack none | attack #id@P<n> … | pass.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "prevention": {
+            "items": {
+              "properties": {
+                "amount": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "part": {
+                  "description": "Offered damage-part id, e.g. d7.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "part",
+                "amount"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "react": {
+            "description": "While until holds: which opposing spells or abilities on the stack wake you.",
+            "enum": [
+              "all",
+              "targets_me",
+              "none"
+            ],
+            "type": "string"
+          },
+          "say": {
+            "description": "One short sentence for the people watching.",
+            "type": "string"
+          },
+          "stops": {
+            "description": "The phases or steps you want to be woken in on your turns and theirs (e.g. [\"main1\", \"attackers\", \"end_step\"]).",
+            "properties": {
+              "mine": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "theirs": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "description": "Targets for the spell or ability this pick casts or activates.",
+            "properties": {
+              "targets": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "until": {
+            "description": "Go on passing until then; you are still asked every other question.",
+            "enum": [
+              "my_turn",
+              "my_main2",
+              "my_end",
+              "end_of_turn",
+              "none"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "ask"
+        ],
+        "type": "object"
+      },
+      "name": "decide"
+    },
+    {
+      "description": "Concede the game: you lose it at once (CR 104.3a). Only when you are certain to lose.",
+      "input_schema": {
+        "properties": {
+          "ask": {
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why, in one sentence.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ask",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "name": "concede"
+    }
+  ],
+  "concede_schema": {
+    "properties": {
+      "ask": {
+        "type": "string"
+      },
+      "reason": {
+        "description": "Why, in one sentence.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "ask",
+      "reason"
+    ],
+    "type": "object"
+  },
+  "decide_schema": {
+    "properties": {
+      "ask": {
+        "description": "The question id, such as q12.",
+        "type": "string"
+      },
+      "attacks": {
+        "items": {
+          "properties": {
+            "at": {
+              "description": "A player id or a planeswalker's id.",
+              "type": "string"
+            },
+            "attacker": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "attacker",
+            "at"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "blocks": {
+        "items": {
+          "properties": {
+            "attacker": {
+              "type": "string"
+            },
+            "blocker": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "blocker",
+            "attacker"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "board": {
+        "description": "Show the whole board in the next message.",
+        "enum": [
+          "full"
+        ],
+        "type": "string"
+      },
+      "name": {
+        "description": "A creature type or a card name.",
+        "type": "string"
+      },
+      "number": {
+        "type": "integer"
+      },
+      "pick": {
+        "description": "Option ids (a1, p, keep, y, m1), object ids (#45) or player ids (P2).",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "piles": {
+        "items": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": "array"
+      },
+      "plan": {
+        "description": "The steps that answer the questions after this one, in order: play #id | cast #id [-> targets] | activate #id[:n] [-> targets] | choose <card name or #id>[, …] | yes | no | color W/U/B/R/G | mode m<n> | n <number> | attack none | attack #id@P<n> … | pass.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "prevention": {
+        "items": {
+          "properties": {
+            "amount": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "part": {
+              "description": "Offered damage-part id, e.g. d7.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "part",
+            "amount"
+          ],
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "react": {
+        "description": "While until holds: which opposing spells or abilities on the stack wake you.",
+        "enum": [
+          "all",
+          "targets_me",
+          "none"
+        ],
+        "type": "string"
+      },
+      "say": {
+        "description": "One short sentence for the people watching.",
+        "type": "string"
+      },
+      "stops": {
+        "description": "The phases or steps you want to be woken in on your turns and theirs (e.g. [\"main1\", \"attackers\", \"end_step\"]).",
+        "properties": {
+          "mine": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "theirs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "description": "Targets for the spell or ability this pick casts or activates.",
+        "properties": {
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "until": {
+        "description": "Go on passing until then; you are still asked every other question.",
+        "enum": [
+          "my_turn",
+          "my_main2",
+          "my_end",
+          "end_of_turn",
+          "none"
+        ],
+        "type": "string"
+      }
+    },
+    "required": [
+      "ask"
+    ],
+    "type": "object"
+  },
+  "json_mode": "\n\nANSWERING IN JSON\nYou have no tools. Answer every decision with one JSON object and nothing else: the fields of the decide tool, {\"ask\": \"q12\", \"pick\": [\"a1\"], \"say\": \"...\"} and so on, or {\"ask\": \"q12\", \"concede\": \"<reason>\"} to concede.",
+  "openai_tools": [
+    {
+      "function": {
+        "description": "Answer the current decision. Fill ask, and the one field the question asks for: pick, attacks, blocks, number, piles or name.",
+        "name": "decide",
+        "parameters": {
+          "properties": {
+            "ask": {
+              "description": "The question id, such as q12.",
+              "type": "string"
+            },
+            "attacks": {
+              "items": {
+                "properties": {
+                  "at": {
+                    "description": "A player id or a planeswalker's id.",
+                    "type": "string"
+                  },
+                  "attacker": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "attacker",
+                  "at"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "blocks": {
+              "items": {
+                "properties": {
+                  "attacker": {
+                    "type": "string"
+                  },
+                  "blocker": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "blocker",
+                  "attacker"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "board": {
+              "description": "Show the whole board in the next message.",
+              "enum": [
+                "full"
+              ],
+              "type": "string"
+            },
+            "name": {
+              "description": "A creature type or a card name.",
+              "type": "string"
+            },
+            "number": {
+              "type": "integer"
+            },
+            "pick": {
+              "description": "Option ids (a1, p, keep, y, m1), object ids (#45) or player ids (P2).",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "piles": {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "plan": {
+              "description": "The steps that answer the questions after this one, in order: play #id | cast #id [-> targets] | activate #id[:n] [-> targets] | choose <card name or #id>[, …] | yes | no | color W/U/B/R/G | mode m<n> | n <number> | attack none | attack #id@P<n> … | pass.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "prevention": {
+              "items": {
+                "properties": {
+                  "amount": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "part": {
+                    "description": "Offered damage-part id, e.g. d7.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "part",
+                  "amount"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "react": {
+              "description": "While until holds: which opposing spells or abilities on the stack wake you.",
+              "enum": [
+                "all",
+                "targets_me",
+                "none"
+              ],
+              "type": "string"
+            },
+            "say": {
+              "description": "One short sentence for the people watching.",
+              "type": "string"
+            },
+            "stops": {
+              "description": "The phases or steps you want to be woken in on your turns and theirs (e.g. [\"main1\", \"attackers\", \"end_step\"]).",
+              "properties": {
+                "mine": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "theirs": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "description": "Targets for the spell or ability this pick casts or activates.",
+              "properties": {
+                "targets": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "until": {
+              "description": "Go on passing until then; you are still asked every other question.",
+              "enum": [
+                "my_turn",
+                "my_main2",
+                "my_end",
+                "end_of_turn",
+                "none"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "ask"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    },
+    {
+      "function": {
+        "description": "Concede the game: you lose it at once (CR 104.3a). Only when you are certain to lose.",
+        "name": "concede",
+        "parameters": {
+          "properties": {
+            "ask": {
+              "type": "string"
+            },
+            "reason": {
+              "description": "Why, in one sentence.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "ask",
+            "reason"
+          ],
+          "type": "object"
+        }
+      },
+      "type": "function"
+    }
+  ],
+  "system": "You are playing a game of Magic: The Gathering in one seat at a Baylee table, against other players, people or programs. Play to win. The table enforces the rules and offers only legal choices.\n\nHOW A DECISION ARRIVES\nEach message is one decision. It shows, in order: a header (the question id such as q12, the turn, whose turn it is, the step, and the time you have); every player's life and card counts; the battlefield, the stack, your hand and the public zones; what happened since your last decision; the full text of cards you have not been shown yet; and the QUESTION with its options. The first message of a turn shows the whole board. A later one may show only what changed since the last whole board: \"Board as at q12, except:\", then each part that changed, either whole or as its changed lines and the objects no longer in it; every part it does not name is as in q12. At the start of a new conversation, the game setup and your deck are repeated, together with any saved notes. Decide from the current message and the conversation you can see.\n\nHOW TO ANSWER\nAnswer every decision with exactly one call of the decide tool, naming the question in ask (for example ask=\"q12\"). Choose from the QUESTION's list with pick (option ids such as a1 or p, object ids such as #45, player ids such as P2); a question that takes another field says so in its Answer line: attacks, blocks, number, piles or name. Use only ids the current question lists.\nAn option that says \"(taps ...)\" taps those sources for you and then casts; you never tap lands yourself. When you cast a spell or activate an ability that will ask for targets, you may add then={\"targets\": [ids]} to name them at once; if they are not legal then, you are asked.\nAdd say: one short sentence for the people watching, about your plan. Keep it to the game.\nTo change when you are asked, add stops: {\"mine\": [\"main1\", \"main2\", \"attackers\"], \"theirs\": [\"upkeep\", \"attackers\", \"end_step\"]}.\nTo see the whole board in the next message rather than what changed, add board: \"full\".\nIf the table refuses an answer, the tool result says why: answer the same question again.\nWhen another player offers a draw, answer that question with pick=[\"y\"] to accept or pick=[\"n\"] to reject and play on. Acceptance agrees to end the game in a draw if everyone accepts; it is not a concession or an instruction to draw cards.\nCall concede instead only when you are certain to lose and want the game to end.\n\nPLANS: SEVERAL STEPS IN ONE ANSWER\nWhen you know what comes next, add plan: the steps that answer the questions after this one, in order, one string each: play #id | cast #id [-> targets] | activate #id[:n] [-> targets] (n: the ability's number, when the object has several) | choose <card name or #id>[, …] | yes | no | color W/U/B/R/G | mode m<n> | n <number> | attack none | attack #id@P<n> … | pass. Each step answers exactly one question. pass passes priority once: the stack resolves, or with the stack empty the game moves on. While only your own spells and abilities are on the stack, a step that answers what they will ask waits for them; an attack step waits through your main phase. The table runs the plan without asking you, and stops it and asks you at anything it does not answer exactly: another question, a draw offer (even with yes or no queued), an id that is gone, an opponent's spell or ability on the stack, a payment, the end of the turn. The next message says what ran and why it stopped.\nTo go on passing afterwards, add until: my_turn, my_main2, my_end, or end_of_turn (this turn's); an answer without until ends it. You are still asked every other question, every attack or block with something to declare, and every payment. Add react for an opponent's spell or ability on the stack meanwhile: all (you are asked; the default), targets_me (only when it targets you, a permanent you control or your commander), none.\nExample, a fetchland main phase: {\"ask\": \"q38\", \"pick\": [\"a2\"], \"plan\": [\"activate #209\", \"choose Swamp\", \"cast #141 -> P2\", \"pass\"], \"until\": \"my_turn\", \"react\": \"targets_me\", \"say\": \"Fetch a Swamp, then the Shaman.\"}\n\nTHINGS TO KNOW\n- Objects are #N. A card that moves from one zone to another becomes a new object with a new id (CR 400.7): use the ids in the current message.\n- Players are P1, P2 and so on (seat order); the header and the seat lines say which one is you. No player is named in any other way.\n- Unspent mana empties as each step and phase ends (CR 500.5); options tap only what they need.\n- You are asked only when there is a real choice: a priority with nothing to do is passed for you.\n- Time is limited. Think as long as the decision deserves and answer within the time the header gives; if you run out, a simple house player answers that question for you.\n- Card text is the English Oracle text. What is hidden is a count: you do not know an opponent's hand or any library."
+}

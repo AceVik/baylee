@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/WTH/gatecrasher.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Gatecrasher_WTH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Gatecrasher (Adapted)]
+3 Arctic Wolves
+1 Bogardan Firefiend
+1 Coming In Hot
+1 Creeping Mold
+2 Dragon Mask
+2 Fire Whip
+15 Forest
+2 Granger Guildmage
+2 Iroh's Demonstration
+1 Llanowar Behemoth
+3 Llanowar Sentinel
+1 Maraxus of Keld
+7 Mountain
+1 Orbweaver Kumo
+3 Rampant Growth
+2 Redwood Treefolk
+1 Savage Twister
+2 Stampeding Wildebeests
+2 Stonefury
+2 Striped Bears
+2 Uktabi Efreet
+1 Uktabi Orangutan
+3 Wall of Roots

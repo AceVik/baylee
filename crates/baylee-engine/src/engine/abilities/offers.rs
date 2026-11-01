@@ -38,6 +38,7 @@ impl<L: CardLookup> Engine<L> {
                 matches!(
                     fx.modifier,
                     baylee_cards_dsl::Modifier::SpellsCostMore(_)
+                        | baylee_cards_dsl::Modifier::SpellsCostMorePerControlled(_)
                         | baylee_cards_dsl::Modifier::SpellsCostMoreMana(_)
                 )
             })
@@ -403,7 +404,7 @@ impl<L: CardLookup> Engine<L> {
                         if !self.source_cost_parts_ready(id, cost) {
                             continue;
                         }
-                        let cost = self.activation_price(player, id, cost, *cost_reduction);
+                        let cost = self.activation_price(player, id, i, cost, *cost_reduction);
                         let payable = self.activation_affordable(
                             player,
                             id,
@@ -464,7 +465,7 @@ impl<L: CardLookup> Engine<L> {
                         ) {
                             continue;
                         }
-                        let cost = self.activation_price(player, id, cost, *cost_reduction);
+                        let cost = self.activation_price(player, id, i, cost, *cost_reduction);
                         let payable = self.activation_affordable(
                             player,
                             id,
@@ -497,7 +498,7 @@ impl<L: CardLookup> Engine<L> {
                         {
                             continue;
                         }
-                        let price = self.activation_price(player, id, &Cost::FREE, None);
+                        let price = self.activation_price(player, id, i, &Cost::FREE, None);
                         if !self.activation_affordable(player, id, &price, &[], 0) {
                             continue;
                         }
@@ -582,7 +583,13 @@ impl<L: CardLookup> Engine<L> {
                             // with no creature and then refused with "no legal
                             // targets". The source is the card in hand, so a
                             // filter saying "another" still reads it right.
-                            let cost = self.activation_price(player, card, cost, *cost_reduction);
+                            let cost = self.activation_price(
+                                player,
+                                card,
+                                i as u32,
+                                cost,
+                                *cost_reduction,
+                            );
                             if self.activation_affordable(
                                 player,
                                 card,
@@ -634,7 +641,13 @@ impl<L: CardLookup> Engine<L> {
                             ) {
                                 continue;
                             }
-                            let cost = self.activation_price(player, card, cost, *cost_reduction);
+                            let cost = self.activation_price(
+                                player,
+                                card,
+                                i as u32,
+                                cost,
+                                *cost_reduction,
+                            );
                             if self.activation_affordable(
                                 player,
                                 card,

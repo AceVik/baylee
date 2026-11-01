@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUG #20266171]
+2 Automatic Librarian
+2 Aysen Abbey
+2 Clockwork Swarm
+2 Dragon Mask
+2 Elixir of Vitality
+2 Forcefield
+5 Forest
+2 Haywire Mite
+1 Island
+2 Marble Priest
+2 Night Market Guard
+2 Patchwork Gnomes
+9 Plains
+2 Potion of Healing
+2 Rhox War Monk
+2 Skullmead Cauldron
+2 Soldevi Steam Beast
+3 Spara's Headquarters
+2 Sunglasses of Urza
+2 Tower of Eons
+2 Tranquil Landscape
+2 Treva's Ruins
+2 Tyrant's Machine
+2 Urza's Engine
+2 Vanguard's Shield

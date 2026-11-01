@@ -143,8 +143,10 @@ describe("the server on the live page", () => {
     expect(game.textContent).toContain("150 MB");
     // The pool is on the page too, with the sets still open first.
     const pool = within(screen.getByRole("region", { name: "Pool progress" }));
-    expect((await pool.findByTestId("pool-implemented")).textContent).toContain("300");
-    expect(pool.getByTestId("pool-implemented").textContent).toContain("of 1,000 cards implemented (30.0 %)");
+    // Playable is implemented + generated (owner, 21.10.2026), then the parts.
+    expect((await pool.findByTestId("pool-playable")).textContent).toContain("320");
+    expect(pool.getByTestId("pool-playable").textContent).toContain("of 1,000 cards playable (32.0 %)");
+    expect(pool.getByTestId("pool-parts").textContent).toBe("300 implemented + 20 generated");
     expect(pool.getAllByRole("link").map((a) => a.textContent)).toEqual(["All sets →", "LEA", "ARN"]);
   });
 
@@ -203,8 +205,8 @@ describe("the pool's progress", () => {
     expect(screen.getByRole("columnheader", { name: "Generated (untested)" })).toBeTruthy();
     const arn = rows.find((r) => within(r).getByRole("link").textContent === "ARN") as HTMLElement;
     const cells = within(arn).getAllByRole("cell").map((c) => c.textContent);
-    // #, set, cards, implemented, generated, partial, stub, absent.
-    expect(cells.slice(2, 8)).toEqual(["78", "3", "5", "0", "0", "70"]);
+    // #, set, cards, playable (implemented + generated), implemented, generated, partial, stub, absent.
+    expect(cells.slice(2, 9)).toEqual(["78", "8", "3", "5", "0", "0", "70"]);
   });
 
   test("a gateway without the generated count reads as zero", async () => {
@@ -221,7 +223,9 @@ describe("the pool's progress", () => {
     render(<Admin lang="en" section="sets" />);
     const rows = await screen.findAllByTestId("set");
     const lea = within(rows[0] as HTMLElement).getAllByRole("cell").map((c) => c.textContent);
-    expect(lea[4]).toBe("0");
+    // The generated column, and playable is implemented alone.
+    expect(lea[5]).toBe("0");
+    expect(lea[3]).toBe("290");
   });
 
   test("one set lists its cards as chips with how far each is", async () => {

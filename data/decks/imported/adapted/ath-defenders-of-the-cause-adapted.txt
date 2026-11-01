@@ -1,0 +1,44 @@
+# adapted from data/decks/precon/ATH/defenders-of-the-cause.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DefendersOfTheCause_ATH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Defenders of the Cause (Adapted)]
+1 Armageddon
+1 Armored Pegasus
+1 Brushland
+1 Canopy Spider
+1 Carnivorous Plant
+1 Combat Medic
+1 Disenchant
+1 Drifting Meadow
+1 Erhnam Djinn
+10 Forest
+1 Freewind Falcon
+1 Giant Growth
+1 Giant Spider
+1 Gorilla Chieftain
+1 Hurricane
+1 Icatian Javelineers
+1 Jalum Tome
+1 Llanowar Elves
+1 Mirri, Cat Warrior
+1 Monastery Mentor
+1 Order of the White Shield
+1 Overrun
+1 Pacifism
+1 Pegasus Charger
+11 Plains
+1 Raise the Alarm
+1 Ranger en-Vec
+1 Resolute Watchdog
+1 Sacred Mesa
+1 Samite Healer
+1 Scavenger Folk
+1 Serra Angel
+1 Serrated Arrows
+1 Shifting Woodland
+1 Spectral Bears
+1 Swords to Plowshares
+1 Tranquil Thicket
+1 Warrior's Honor
+1 White Knight
+1 Woolly Spider
+1 Youthful Knight

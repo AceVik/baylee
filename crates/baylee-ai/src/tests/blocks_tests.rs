@@ -121,6 +121,8 @@ fn swing_back_board(
     board.push(giant);
     let v = view(0, &lives, board);
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: v.seat,
         attackers: (1..=8).map(obj).collect(),
         defenders: vec![Defender::Player(PlayerId::new(1))],
@@ -881,4 +883,182 @@ fn every_profile_holds_its_blocks_to_the_bounds_the_question_states() {
         },
         "three life against four power: both block"
     );
+}
+
+#[test]
+fn a_chump_block_uses_the_smallest_blocker() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let mut big = permanent(obj(10), me, 6);
+    big.mana_value = 6;
+    let mut small = permanent(obj(11), me, 1);
+    small.mana_value = 1;
+    let mut giant = permanent(obj(1), them, 75);
+    giant.keywords = baylee_cards_dsl::KeywordSet::FIRST_STRIKE.bits();
+    let mut v = view(0, &[20, 20], vec![big, small, giant]);
+    v.active = them;
+    v.step = baylee_view::Step::DeclareBlockers;
+    v.combat.attackers = vec![baylee_view::AttackerView {
+        creature: obj(1),
+        defending: Defender::Player(me),
+        blocked: false,
+    }];
+    let pending = Pending::ChooseBlockers {
+        demands: Vec::new(),
+        player: me,
+        attacker: them,
+        blockers: vec![
+            baylee_engine::choice::BlockOption {
+                blocker: obj(10),
+                attackers: vec![obj(1)],
+            },
+            baylee_engine::choice::BlockOption {
+                blocker: obj(11),
+                attackers: vec![obj(1)],
+            },
+        ],
+        capacity: Vec::new(),
+        obeying: Vec::new(),
+        bounds: Vec::new(),
+    };
+    for (name, profile) in PROFILES {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &pending),
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(obj(11), obj(1))]
+            },
+            "{name} chumped with its 6/6 instead of its 1/1"
+        );
+    }
+}
+
+#[test]
+fn survival_outranks_a_free_eat_until_a_second_blocker_covers_the_rest() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    // At 4 life facing a 4/4 and a 2/2 with only a 3/3 blocker.
+    // Blocking the 2/2 is a free kill that loses the game to the unblocked 4/4;
+    // blocking the 4/4 survives at 2 life.
+    let mut v = view(
+        0,
+        &[4, 20],
+        vec![
+            permanent(obj(1), them, 4),
+            permanent(obj(2), them, 2),
+            permanent(obj(10), me, 3),
+        ],
+    );
+    v.active = them;
+    v.step = baylee_view::Step::DeclareBlockers;
+    v.combat.attackers = vec![
+        baylee_view::AttackerView {
+            creature: obj(1),
+            defending: Defender::Player(me),
+            blocked: false,
+        },
+        baylee_view::AttackerView {
+            creature: obj(2),
+            defending: Defender::Player(me),
+            blocked: false,
+        },
+    ];
+    let lone_pending = Pending::ChooseBlockers {
+        demands: Vec::new(),
+        player: me,
+        attacker: them,
+        blockers: vec![baylee_engine::choice::BlockOption {
+            blocker: obj(10),
+            attackers: vec![obj(1), obj(2)],
+        }],
+        capacity: Vec::new(),
+        obeying: Vec::new(),
+        bounds: Vec::new(),
+    };
+    for (name, profile) in PROFILES {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &lone_pending),
+            PlayerAction::DeclareBlockers {
+                blockers: vec![(obj(10), obj(1))]
+            },
+            "{name} ate the 2/2 and died to the 4/4"
+        );
+    }
+
+    // Add a 1/1 beside the 3/3. Now the 3/3 can eat the 2/2 for free
+    // while the 1/1 chumps the 4/4.
+    v.battlefield.push(permanent(obj(11), me, 1));
+    let pair_pending = Pending::ChooseBlockers {
+        demands: Vec::new(),
+        player: me,
+        attacker: them,
+        blockers: vec![
+            baylee_engine::choice::BlockOption {
+                blocker: obj(10),
+                attackers: vec![obj(1), obj(2)],
+            },
+            baylee_engine::choice::BlockOption {
+                blocker: obj(11),
+                attackers: vec![obj(1), obj(2)],
+            },
+        ],
+        capacity: Vec::new(),
+        obeying: Vec::new(),
+        bounds: Vec::new(),
+    };
+    for (name, profile) in PROFILES {
+        let PlayerAction::DeclareBlockers { mut blockers } =
+            HeuristicAgent::new(profile).act(&v, &pair_pending)
+        else {
+            panic!("{name}: expected DeclareBlockers");
+        };
+        blockers.sort_unstable();
+        assert_eq!(
+            blockers,
+            vec![(obj(10), obj(2)), (obj(11), obj(1))],
+            "{name} failed to eat the 2/2 with the 3/3 and chump the 4/4 with the 1/1"
+        );
+    }
+}
+
+#[test]
+fn gang_block_search_orders_blockers_most_valuable_first_for_attacker_damage() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let mut attacker = permanent(obj(1), them, 3);
+    attacker.toughness = Some(4);
+    attacker.mana_value = 3;
+    let mut token = permanent(obj(2), me, 1);
+    token.mana_value = 0;
+    let mut lord = permanent(obj(3), me, 3);
+    lord.mana_value = 5;
+    let mut v = view(0, &[20, 20], vec![attacker, token, lord]);
+    v.active = them;
+    v.step = baylee_view::Step::DeclareBlockers;
+    v.combat.attackers = vec![baylee_view::AttackerView {
+        creature: obj(1),
+        defending: Defender::Player(me),
+        blocked: false,
+    }];
+    let pending = Pending::ChooseBlockers {
+        demands: Vec::new(),
+        player: me,
+        attacker: them,
+        blockers: vec![
+            baylee_engine::choice::BlockOption {
+                blocker: obj(2),
+                attackers: vec![obj(1)],
+            },
+            baylee_engine::choice::BlockOption {
+                blocker: obj(3),
+                attackers: vec![obj(1)],
+            },
+        ],
+        capacity: Vec::new(),
+        obeying: Vec::new(),
+        bounds: Vec::new(),
+    };
+    for profile in [AIProfile::SHARP, AIProfile::EXPERT] {
+        assert_eq!(
+            HeuristicAgent::new(profile).act(&v, &pending),
+            PlayerAction::DeclareBlockers { blockers: vec![] },
+            "the 3/4 attacker kills the 5-mana 3/3 in a gang block, not the 1/1 token"
+        );
+    }
 }

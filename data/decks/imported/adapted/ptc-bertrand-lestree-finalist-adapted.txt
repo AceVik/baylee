@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/PTC/bertrand-lestree-finalist.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BertrandLestreeFinalist_PTC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Bertrand Lestree, Finalist (Adapted)]
+3 Armageddon
+1 Balance
+4 Brushland
+4 Disenchant
+4 Erhnam Djinn
+2 Fellwar Stone
+6 Forest
+2 Fyndhorn Elves
+1 Havenwood Battleground
+2 Icy Manipulator
+1 Ivory Tower
+2 Land Tax
+2 Llanowar Elves
+2 Order of Leitbur
+6 Plains
+1 Ruins of Trokair
+1 Serra Angel
+1 Skysnare Spider
+2 Spectral Bears
+4 Strip Mine
+4 Swords to Plowshares
+2 Sylvan Library
+2 Wrath of God
+1 Zuran Orb

@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/DST/master-blaster.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MasterBlaster_DST.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Master Blaster (Adapted)]
+1 Arc Lightning
+1 Battle Frenzy
+2 Bolt of Keranos
+2 Darksteel Brute
+3 Darksteel Citadel
+1 Detonate
+3 Disharmony
+2 Fateful End
+1 Fireball
+1 Goblin Replica
+3 Great Furnace
+2 Hematite Golem
+2 Iron Myr
+1 Krark-Clan Grunt
+3 Krark-Clan Stoker
+1 Make Mischief
+3 Molten Blast
+18 Mountain
+2 Pyrite Spellbomb
+2 Rack and Ruin
+1 Seismic Rupture
+2 Steel Wall
+1 Sundering Eruption
+2 Vulshok War Boar

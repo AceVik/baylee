@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WR #20266124]
+1 Artifact Ward
+1 Aven Skirmisher
+1 Bloodfire Dwarf
+1 Blue Ward
+1 Boros Garrison
+1 Brainwash
+1 Bulwark
+1 Burning Earth
+1 Burning Palm Efreet
+1 Cinder Wall
+1 Concentrated Fire
+1 Crimson Kobolds
+1 Delete
+1 Dimension X
+1 Dogpile
+1 Duskrider Falcon
+1 Dwarven Demolition Team
+1 Dwarven Miner
+1 Dwarven Sea Clan
+1 Dwarven Vigilantes
+1 Earth Tremor
+1 Eidolon of Inspiration
+1 Eidolon of Rhetoric
+1 Electrify
+1 Engulfing Eruption
+1 Enslaved Dwarf
+1 Eternal Flame
+1 Festival Crasher
+1 Freewind Falcon
+1 Frenzied Devils
+1 Golden-Tail Disciple
+1 Hall
+1 Harrier Griffin
+1 Healer's Flock
+1 High Noon
+1 Honden of Infinite Rage
+1 Inspiring Vantage
+1 Iron Hills
+1 Kami of Ancient Law
+1 Karplusan Hound
+1 Karplusan Yeti
+1 Land's Edge
+1 Lightning Visionary
+1 Lorehold Campus
+1 Mothrider Patrol
+11 Mountain
+1 Nahiri's Machinations
+1 Needleverge Pathway
+1 Nyx-Fleece Ram
+1 Nyxborn Courser
+13 Plains
+1 Ragefire
+1 Rain of Embers
+1 Ready to Rumble
+1 Retromancer
+1 Ruinous Gremlin
+1 Rumbling Rockslide
+1 Runebound Wolf
+1 Sacred Foundry
+1 Scabland
+1 Segovian Angel
+1 Shimmering Barrier
+1 Silverchase Fox
+1 Skyshroud Falcon
+1 Slayers' Stronghold
+1 Sledding Otter-Penguin
+1 Spinal Villain
+1 Straw Golem
+1 Sun-Blessed Peak
+1 Sunbaked Canyon
+1 Sunscorched Divide
+1 Temple of Triumph
+1 Tethered Griffin
+1 Thorin Oakenshield
+1 Vigilante Justice
+1 Voiceless Spirit
+1 Wall of Resistance
+
+[commander]
+Dáin of the Ancient Halls

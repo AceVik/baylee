@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/M20/selesnya-conclave.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SelesnyaConclave_M20.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Selesnya Conclave (Adapted)]
+1 Advent of the Wurm
+4 Call of the Conclave
+2 Centaur Peacemaker
+3 Conclave Cavalier
+4 Eladamri's Call
+1 Emmara, Soul of the Accord
+10 Forest
+1 Gerrard's Command
+3 Healer's Hawk
+1 Heroes' Reunion
+3 Hunted Witness
+2 Might of the Masses
+3 Paradise Druid
+10 Plains
+1 Reknit
+4 Selesnya Charm
+4 Selesnya Guildgate
+2 Take Heart
+1 Temple Garden

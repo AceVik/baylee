@@ -1,0 +1,28 @@
+# adapted from data/decks/precon/OGW/concerted-effort.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ConcertedEffort_OGW.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Concerted Effort (Adapted)]
+2 Advent of the Wurm
+1 Allied Reinforcements
+1 Altar of Bone
+1 Angel of Renewal
+4 Call of the Conclave
+2 Eladamri's Call
+1 Evolving Wilds
+2 Expedition Envoy
+7 Forest
+1 Gerrard's Command
+2 Heroes' Reunion
+1 Immolating Glare
+1 Iona's Blessing
+2 Ironpaw Aspirant
+2 Kitesail Scout
+2 Kor Sky Climber
+2 Makindi Aeronaut
+1 Mighty Leap
+1 Nature's Chant
+1 Oran-Rief Invoker
+1 Overgrown Farmland
+15 Plains
+2 Selesnya Charm
+2 Shadow Glider
+3 Vitalizing Cascade

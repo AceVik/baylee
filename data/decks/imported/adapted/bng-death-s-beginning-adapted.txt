@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/BNG/death-s-beginning.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DeathSBeginning_BNG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Death's Beginning (Adapted)]
+4 Abrupt Decay
+2 Asphyxiate
+2 Assassin's Trophy
+1 Felhide Minotaur
+11 Forest
+2 Forsaken Drifters
+4 Gaze of Granite
+4 Maelstrom Pulse
+2 Mortal's Resolve
+4 Pest Summoning
+1 Pharika's Mender
+1 Pheres-Band Centaurs
+2 Returned Centaur
+15 Swamp
+3 Tear Asunder
+2 Weight of the Underworld

@@ -35,7 +35,32 @@ information is unrepresentable in a view, and the gateway runs no rules.
 
 ## Hidden information and seats
 
+- New offline neural consumers can opt into `Session::view_for_with_context`
+  and `observe_view_with_context`: the ordinary authorized agent view plus
+  the same owner-only casting/target context that sockets receive. These add
+  no clock, teammate sharing or hidden-state access. Existing view methods
+  remain unchanged for archived model/data contracts.
+- Payment-context consumers separately opt into
+  `Session::view_for_with_payment_context` and
+  `observe_view_with_payment_context`. Their optional owner-only
+  `PlayerView.announced_cast` names the in-progress spell through X/payment
+  and nested mana-color choices, including suspended miracle payment. It is
+  observation, not cancellation permission: `casting` retains its existing
+  meaning and `CancelCast` can remain illegal during a nested question.
+  Default, socket and existing `with_context` projections leave the new field
+  absent (`None`, omitted from serialization), preserving archived Encoder-7
+  bytes. Encoder 8 consumes this opt-in context offline; live seats must wait
+  for an explicit wire capability rather than infer it from `casting`.
 - The view carries projected characteristics; clients never run layers.
+- Experimental native announcement consumers separately opt into
+  `Session::view_for_with_announcement_context` and
+  `observe_view_with_announcement_context`. These extend payment context with
+  `announced_x`: absent before the X choice, `Some(0)` for settled zero. The
+  resource owner and its authorized CR 722 controller may observe it; unrelated
+  seats may not. The read-only projection follows active and suspended casts,
+  including miracle and nested mana choices, without granting cancellation.
+  Default, socket, Encoder-7 and Encoder-8 projections remain unchanged. No
+  encoder or model consumes this experimental field yet.
 - Hidden information is unrepresentable: libraries and other hands are counts; a face-down `card` is `None` unless entitled. `crates/baylee-gamehost/src/view/tests/hidden.rs` (and its siblings) tests each guarantee; add one per new one. One deliberate exception: in debug builds only (`cfg(debug_assertions)`), an LLM seat's reasoning (`AiLog`) is forwarded to every seat at the table as a sparring tool (owner, 06.10.2026; `docs/protocol.md` §"An AI seat's reasoning"); release builds drop it.
 - Bump `VIEW_VERSION` (`crates/baylee-view/src/lib.rs`) on any breaking view change; never restate its value.
 - The game log (`crates/baylee-gamehost/src/log.rs`) tells each seat its own lines, naming an object only as that seat's view would; an object the log never saw is `Hidden` to all. Every `StateDelta` carries a view and a `LogTail { from, entries }` in `log_json`; several frames may repeat a view and `seq`, so clients read the log from every frame and append by `from`. Each entry carries the host's time, which the caller sets (`Session::tell_time`, `EngineRunner::tell_time`). The Session reads no clock, because gamehost also runs in the client's `LocalHost`, on wasm too. AI agents are never handed it. `docs/protocol.md` §"The game log".
@@ -54,6 +79,7 @@ information is unrepresentable in a view, and the gateway runs no rules.
 `docs/protocol.md` is normative.
 
 - An agent spawns one `baylee-engine-server` per game, which dials the gateway. gateway→agent `StartEngine`; engine→gateway `EngineHello`/`SeatFrame`/`GameEnded`/`GameRecordChunk`/`RecordFlushed`; gateway→engine `GameSetup`/`SeatAttached`/`SeatFrame`/`FlushRecord`; seat sockets forwarded byte for byte.
+- An engine must attach within 30 seconds. Failed setup, pre-hello exit and lost agent ownership close the exact assignment. An agent control connection has a 90-second silence deadline; on disconnect or SIGTERM/Ctrl-C the agent stops and reaps its own engines before redialling/exiting. Player socket disconnects retain their separate reconnect/hold semantics.
 - The gateway links neither `baylee-engine` nor `baylee-gamehost`; its e2e tests pull `baylee-engine`, `baylee-engine-server`, `baylee-gamehost` (to replay a record), `baylee-client-core` (to build a report as the client does), `baylee-view` and `baylee-feedback` as dev-dependencies only. No agent → `POST /lobby/games` is 503.
 - `SeatFrame { seat, envelope }` nests an encoded player `Envelope` the gateway never decodes; keep that shape.
 - A replay is an engine job, not a game (`replays.rs`, `docs/protocol.md` §"Replays"): `StartEngine` with a `replay-…` id, then `ProjectRecord` (the stored record, which goes only to that engine) and `TapeChunk`s back. `records::for_projection` has one caller (`replays.rs`), `for_seated` one (`report.rs`); the seat comes from `game_record_seat`, never the request.

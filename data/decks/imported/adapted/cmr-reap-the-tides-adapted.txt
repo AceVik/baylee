@@ -1,0 +1,77 @@
+# adapted from data/decks/precon/CMR/reap-the-tides.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ReapTheTides_CMR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Reap the Tides (Adapted)]
+1 Acidic Slime
+1 Auroral Procession
+1 Blighted Woodland
+1 Broken Wings
+1 Chord of Calling
+1 Coiling Oracle
+1 Command Tower
+1 Confidence from Strength
+1 Coral Atoll
+1 Counterspell
+1 Crushing Canopy
+1 Cultivate
+1 Depths of Desire
+1 Dissipate
+1 Double Major
+1 Eternal Witness
+1 Evolving Wilds
+1 Fabricate
+1 Fact or Fiction
+15 Forest
+1 Frantic Search
+1 Harmonize
+1 Hydroform
+1 Ior Ruin Expedition
+15 Island
+1 Jungle Basin
+1 Kodama's Reach
+1 Lace with Moonglove
+1 Meditate
+1 Meloku the Clouded Mirror
+1 Memorial to Genius
+1 Meteor Golem
+1 Miscalculation
+1 Molimo, Maro-Sorcerer
+1 Mulldrifter
+1 Natural Connection
+1 Neoform
+1 Neutralize
+1 Pulse of Murasa
+1 Rampaging Baloths
+1 Rampant Growth
+1 Ramunap Excavator
+1 Reclamation Sage
+1 Reliquary Tower
+1 Rescind
+1 Retreat to Kazandu
+1 Root Out
+1 Seer's Sundial
+1 Silundi Vision
+1 Simic Growth Chamber
+1 Simic Guildgate
+1 Simic Signet
+1 Simic Sky Swallower
+1 Sol Ring
+1 Spoils of Victory
+1 Sporemound
+1 Square Up
+1 Stroke of Genius
+1 Swiftfoot Boots
+1 Terramorphic Expanse
+1 They Went This Way
+1 Thornado
+1 Thornwood Falls
+1 Tranquility
+1 Typhoon
+1 Vivid Creek
+1 Vivid Grove
+1 Wickerbough Elder
+1 Wistful Thinking
+1 Woodcutter's Grit
+1 Woodland Stream
+
+[commander]
+Aesi, Tyrant of Gyre Strait

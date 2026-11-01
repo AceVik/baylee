@@ -416,6 +416,18 @@ impl<L: CardLookup> Engine<L> {
                         .rev()
                         .find(|entry| entry.player == actor)
                         .map(|entry| (entry.controller, entry.player))
+                })
+                .or_else(|| {
+                    // The last one created is the one that works (CR 722.1a),
+                    // and only during the turn it was stamped with.
+                    self.state
+                        .turn_controls
+                        .iter()
+                        .rev()
+                        .find(|entry| {
+                            entry.player == actor && entry.began == Some(self.state.turn.number)
+                        })
+                        .map(|entry| (entry.controller, entry.player))
                 });
             let Some((controller, _)) = control else {
                 break;
@@ -499,7 +511,42 @@ impl<L: CardLookup> Engine<L> {
             .retain(|entry| entry.source.object != card);
     }
 
+    /// A turn has just begun (`begin_turn`, with its number and active player
+    /// set): a control that covered the turn before ends, since it lasts
+    /// "until the beginning of the next turn", whoever takes it, and one
+    /// waiting for the active player's next actual turn begins it (CR 722.1).
+    /// A skipped turn never begins, so the control waits on past it
+    /// (CR 722.1b), and another player's turn, extra or not, leaves it
+    /// waiting.
+    pub(super) fn begin_turn_controls(&mut self) {
+        let number = self.state.turn.number;
+        let active = self.state.turn.active;
+        self.state
+            .turn_controls
+            .retain(|entry| entry.began.is_none_or(|began| began == number));
+        for entry in &mut self.state.turn_controls {
+            if entry.began.is_none() && entry.player == active && entry.turn <= number {
+                entry.began = Some(number);
+            }
+        }
+    }
+
     pub(super) fn prune_player_control(&mut self) {
+        let turn = self.state.turn.number;
+        let alive: baylee_core::ids::SeatSet = self
+            .state
+            .players
+            .iter()
+            .filter(|player| !player.has_lost())
+            .map(|player| player.id)
+            .collect();
+        self.state.turn_controls.retain(|entry| {
+            // Waiting, or in the turn it controls; one whose turn is over
+            // went as the next turn began (`begin_turn_controls`).
+            entry.began.is_none_or(|began| began == turn)
+                && alive.contains(entry.controller)
+                && alive.contains(entry.player)
+        });
         self.player_control.waiting.retain(|entry| {
             self.state
                 .object(entry.source.object)

@@ -9,6 +9,7 @@
 
 use super::{Style, Table, board, tag, words};
 use crate::mind::Request;
+use crate::reports::Report;
 use crate::wake::{Reach, ReachFrom, reachable};
 use baylee_cards_dsl::AbilityDef;
 use baylee_client_core::manaplan::{self, Tap};
@@ -67,6 +68,7 @@ enum Ask {
     Attack {
         attackers: Vec<ObjectId>,
         defenders: Vec<Defender>,
+        pending: Box<Pending>,
     },
     /// A block declaration.
     Block { options: Vec<BlockOption> },
@@ -211,6 +213,12 @@ pub struct Decision {
     pub board: Option<String>,
     /// A concession, with its reason.
     pub concede: Option<String>,
+    /// A rules or engine error the model reports beside its answer
+    /// ([`crate::reports`]).
+    pub report: Option<Report>,
+    /// A card the model wants to read before it answers
+    /// ([`crate::lookup`]).
+    pub lookup: Option<String>,
 }
 
 /// The phases or steps the model wants to be woken in.
@@ -276,7 +284,29 @@ impl Decision {
             react: text("react"),
             board: text("board"),
             concede: None,
+            report: map.get("report").and_then(Report::read),
+            lookup: text("lookup")
+                .filter(|name| !name.is_empty())
+                .map(|name| name.chars().take(crate::lookup::NAME_CHARS).collect()),
         })
+    }
+
+    /// Whether it carries an answer to its question beside `ask`: a pick,
+    /// attacks, blocks, a prevention, a number, piles, a name or a
+    /// concession. One that does is taken as it is; only one that does not
+    /// asks for its `lookup` (`docs/llm-protocol.md` §"Reports and
+    /// lookups").
+    #[must_use]
+    pub fn answers(&self) -> bool {
+        let given = |text: &Option<String>| text.as_deref().is_some_and(|t| !t.is_empty());
+        self.concede.is_some()
+            || !self.pick.is_empty()
+            || !self.attacks.is_empty()
+            || !self.blocks.is_empty()
+            || !self.prevention.is_empty()
+            || given(&self.number)
+            || !self.piles.is_empty()
+            || given(&self.name)
     }
 
     /// Reads the input of a `concede` call.
@@ -405,7 +435,8 @@ impl Menu {
             Ask::Attack {
                 attackers,
                 defenders,
-            } => self.attack(decision, attackers, defenders),
+                pending,
+            } => self.attack(decision, attackers, defenders, pending),
             Ask::Block { options } => Self::block(decision, options),
             Ask::Number { min, max } => Self::number(decision, *min, *max),
             Ask::Subtype { options } => {
@@ -621,6 +652,7 @@ impl Menu {
         decision: &Decision,
         attackers: &[ObjectId],
         defenders: &[Defender],
+        pending: &Pending,
     ) -> Result<Resolved, String> {
         let mut declared = Vec::new();
         for (attacker, at) in &decision.attacks {
@@ -657,12 +689,13 @@ impl Menu {
                 .collect();
             format!("attack: {}", pairs.join(", "))
         };
-        Ok(now(
-            PlayerAction::DeclareAttackers {
-                attackers: declared,
-            },
-            label,
-        ))
+        let answer = PlayerAction::DeclareAttackers {
+            attackers: declared,
+        };
+        if let Some(fault) = pending.answer_fault(&answer) {
+            return Err(fault.reason().to_owned());
+        }
+        Ok(now(answer, label))
     }
 
     fn block(decision: &Decision, options: &[BlockOption]) -> Result<Resolved, String> {
@@ -951,6 +984,12 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             format!("pay {cost}"),
             "don't pay".into(),
         ),
+        YesNoPrompt::PayManaAndLife { cost, life } => mixed_payment_words(cost, *life),
+        YesNoPrompt::RemoveCountersInsteadOfUntapping {
+            permanent,
+            kind,
+            count,
+        } => counter_untap_words(table, *permanent, *kind, *count),
         YesNoPrompt::PayPact { cost } => pact_words(cost),
         YesNoPrompt::PayEnergy { amount } => (
             format!("Pay {amount} energy counters?"),
@@ -990,11 +1029,7 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
             "cast it and pay".into(),
             "don't cast it".into(),
         ),
-        YesNoPrompt::MayDo => (
-            "Do what the ability says you may do?".into(),
-            "do it".into(),
-            "don't".into(),
-        ),
+        YesNoPrompt::MayDo => may_do_words(),
         YesNoPrompt::TopOfLibrary { card } => (
             format!(
                 "Put {} on the top of its owner's library? (No puts it on the bottom.)",
@@ -1018,6 +1053,43 @@ fn yes_no_words(table: &Table<'_>, prompt: &YesNoPrompt) -> (String, String, Str
         ),
         YesNoPrompt::Generic => ("Yes or no?".into(), "yes".into(), "no".into()),
     }
+}
+
+fn may_do_words() -> (String, String, String) {
+    (
+        "Do what the ability says you may do?".into(),
+        "do it".into(),
+        "don't".into(),
+    )
+}
+
+fn mixed_payment_words(cost: &ManaCost, life: u32) -> (String, String, String) {
+    (
+        format!("Pay {cost} and {life} life as one price?"),
+        format!("pay {cost} and {life} life"),
+        "pay neither part".into(),
+    )
+}
+
+fn counter_untap_words(
+    table: &Table<'_>,
+    permanent: ObjectId,
+    kind: baylee_cards_dsl::CounterKind,
+    count: u16,
+) -> (String, String, String) {
+    let counters = baylee_client_core::interaction::counter_label_counted(
+        kind,
+        baylee_client_core::Lang::En,
+        usize::from(count),
+    );
+    (
+        format!(
+            "Remove {count} {counters} from {} instead of untapping?",
+            table.named(permanent)
+        ),
+        format!("remove {count} {counters} and leave it tapped"),
+        "choose another applicable untap replacement; this does not untap it".into(),
+    )
 }
 
 fn pact_words(cost: &baylee_core::mana::ManaCost) -> (String, String, String) {

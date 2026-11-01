@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/M15/fate-and-fury.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FateAndFury_M15.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fate and Fury (Adapted)]
+4 Auroral Procession
+1 Courser of Kruphix
+1 Curse of the Swine
+2 Divination
+2 Double Major
+1 Font of Fertility
+16 Forest
+4 Hydroform
+7 Island
+2 Jace's Ingenuity
+4 Neoform
+1 Nessian Courser
+1 Nykthos, Shrine to Nyx
+4 Orochi Leafcaller
+3 Pterafractyl
+4 Square Up
+1 Temple of Mystery
+2 Voyaging Satyr

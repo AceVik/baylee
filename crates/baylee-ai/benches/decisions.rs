@@ -15,6 +15,8 @@ fn combat(c: &mut Criterion) {
         .build();
     let squad: Vec<_> = (0..6).map(|i| ObjectId::new(i, 0)).collect();
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: view.seat,
         attackers: squad.clone(),
         defenders: vec![Defender::Player(PlayerId::new(1))],
@@ -38,6 +40,8 @@ fn combat(c: &mut Criterion) {
         .build();
     let squad: Vec<_> = (0..8).map(|i| ObjectId::new(i, 0)).collect();
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: crowded.seat,
         attackers: squad.clone(),
         defenders: vec![Defender::Player(PlayerId::new(1))],
@@ -86,6 +90,8 @@ fn token_army(c: &mut Criterion) {
         .with_battlefield(1, few(1).chain([walker(20, 1, 3)]))
         .build();
     let attack = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: view.seat,
         attackers: (100..100 + ARMY).map(|i| ObjectId::new(i, 0)).collect(),
         defenders: vec![
@@ -101,6 +107,8 @@ fn token_army(c: &mut Criterion) {
         .with_battlefield(1, army(1))
         .build();
     let attack_into = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: into.seat,
         attackers: (10..14).map(|i| ObjectId::new(i, 0)).collect(),
         defenders: vec![Defender::Player(PlayerId::new(1))],

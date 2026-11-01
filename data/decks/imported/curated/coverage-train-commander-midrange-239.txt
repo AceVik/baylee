@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266240]
+1 Abbey Griffin
+1 Abstergo Entertainment
+1 Aether Hub
+1 Almost Perfect
+1 Armor of Faith
+1 Armored Griffin
+1 Assault Griffin
+1 Aurora Griffin
+1 Back to Nature
+1 Battle Mastery
+1 Blue Scarab
+1 Bucolic Ranch
+1 Cave of Temptation
+1 Cavern of Souls
+1 Charging Griffin
+1 Concordia Pegasus
+1 Conduit Pylons
+1 Daraja Griffin
+1 Demystify
+1 Divine Favor
+1 Diving Griffin
+1 Ekundu Griffin
+1 Enforcer Griffin
+1 Faeburrow Elder
+1 Farewell
+5 Forest
+1 Fortified Area
+1 Gaelicat
+1 Garrison Griffin
+1 Guard Duty
+1 Guildmages' Forum
+1 Harrier Griffin
+1 Indomitable Will
+1 Lance
+1 Makindi Griffin
+1 Mantle of Webs
+1 Mass Calcify
+1 Mesa Pegasus
+1 Mirrex
+1 Mistral Charger
+1 Peace of Mind
+1 Pegasus Charger
+1 Peregrine Griffin
+1 Phyrexian Pegasus
+20 Plains
+1 Planar Collapse
+1 Planar Nexus
+1 Prized Griffin
+1 Remove Enchantments
+1 Setessan Griffin
+1 Shimmering Grotto
+1 Silverbeak Griffin
+1 Silverclaw Griffin
+1 Skyhunter Prowler
+1 Spotted Griffin
+1 Stormfront Pegasus
+1 Study Hall
+1 Sungrace Pegasus
+1 Sunspire Griffin
+1 Take Up the Shield
+1 Tarnished Citadel
+1 Temur Runemark
+1 Teremko Griffin
+1 Tethered Griffin
+1 Throne of Makindi
+1 Tranquil Domain
+1 Tropical Storm
+1 Trusted Pegasus
+1 Turtle Lair
+1 Tyrranax Rex
+1 Unyaro Griffin
+1 Villainous Hideout
+1 Wild Griffin
+1 Withstand
+1 Zeriam, Golden Wind
+1 Zuberi, Golden Feather
+
+[commander]
+Bast, Panther Goddess

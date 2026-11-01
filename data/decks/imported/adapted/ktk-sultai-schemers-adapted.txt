@@ -1,0 +1,35 @@
+# adapted from data/decks/precon/KTK/sultai-schemers.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SultaiSchemers_KTK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sultai Schemers (Adapted)]
+1 Afflict
+1 Black Cat
+2 Bridgeworks Battle
+1 Debilitating Injury
+2 Diresight
+1 Dismal Backwater
+2 Dissipate
+8 Forest
+1 Frantic Search
+1 Gravedigger
+1 Grim Tutor
+6 Island
+1 Jungle Hollow
+1 Mystic Denial
+2 Necromancer's Assistant
+2 Opulent Palace
+1 Rakshasa's Secret
+1 Regress
+1 Rescind
+1 Research Assistant
+2 Root Out
+1 Sultai Banner
+4 Sultai Charm
+7 Swamp
+2 Taigam's Scheming
+1 Teleport
+1 Thornwood Falls
+1 Throttle
+1 Treasure Cruise
+1 Typhoid Rats
+1 Walking Corpse
+1 Wall of Mulch

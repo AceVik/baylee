@@ -1,0 +1,28 @@
+# adapted from data/decks/precon/GN3/draconic-fury.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DraconicFury_GN3.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Draconic Fury (Adapted)]
+2 Abrade
+2 Blaze
+1 Boiling Blood
+1 Char
+1 Crucible of Fire
+1 Disharmony
+1 Dragon Egg
+2 Dragon Hatchling
+1 Dragon Mage
+1 Evaporate
+1 Flametongue Kavu
+2 Furnace Whelp
+1 Goblin Motivator
+1 Goblin Offensive
+3 Kargan Dragonrider
+2 Lightning Bolt
+1 Make Mischief
+1 Mana Geyser
+2 Molten Blast
+25 Mountain
+3 Open Fire
+1 Orcish Cannonade
+2 Rapacious Dragon
+1 Seismic Rupture
+1 Shivan Dragon

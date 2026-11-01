@@ -7,23 +7,36 @@ read its document. `CLAUDE.md` imports this file.
 
 Baylee plays Magic: The Gathering: a deterministic rules engine, the servers
 that host it (gateway, agent, one engine process per game, a feedback
-service) and a Bevy client for desktop, mobile and the browser. Accounts live
+service) and a Bevy desktop client. Android, iOS and browser/wasm support are
+coming soon and are not current release targets. Accounts live
 in Baylee Central, a separate repository (`docs/central-login.md`). It is an
 unofficial, non-commercial fan project.
 
 ## Always
 
-- **Gate before you push.** `cargo dev gate`, `cargo dev gate features` and
-  `cargo dev gate wasm` (with `DATABASE_URL`); `cargo dev land` runs all
-  three and fast-forwards `main`. A change lands after the local gates, not
+- **Implementation language (owner, 29.10.2026; all agents).** Everything that
+  can be implemented in Rust must be implemented in clean Rust. No shell or
+  Python substitutes for automation, orchestration, data preparation, evaluation,
+  monitoring or helper programs. Python is allowed only for PyTorch code and
+  its directly associated tests; TypeScript only for web applications and their
+  web-specific tooling. A Rust replacement also replaces its callers and tests.
+  Existing CLI tools may be invoked directly; do not hide new program logic in
+  shell pipelines or interpreter one-liners.
+- **Gate before you push.** `cargo dev gate` and `cargo dev gate features`
+  (with `DATABASE_URL`); `cargo dev land` runs both desktop gates and
+  fast-forwards `main`. Wasm is an optional experimental check until browser
+  support ships. A change lands after the local gates, not
   after CI (`docs/dev/commands.md`, `docs/releasing.md` §"CI").
+- **Development features are local-only.** CI runs no dev-feature matrix;
+  `shipped-features` only verifies that test hooks cannot reach shipped builds.
 - **Determinism.** The engine and core use the seeded RNG only; no
   `std::time`, `std::random`, `algebraic_*` floats or `HashMap` iteration in
   hot paths; the engine is synchronous (`docs/dev/conventions.md`).
 - **Hidden information is unrepresentable** in a view, and the gateway runs
   no rules (`docs/architecture.md`, `docs/protocol.md`).
 - **Legal guardrails** bind every change to what a player sees: never copy
-  the card-script corpus, no WotC assets, check the rules we depend on, and
+  the card-script corpus, no WotC assets (recordings of the game showing its
+  card images are the one exception), check the rules we depend on, and
   stop and say so when something is clearly forbidden
   (`docs/legal.md` §"Guardrails for every change").
 - **Never run full `codegen` without the corpus**: it rewrites every
@@ -51,6 +64,7 @@ unofficial, non-commercial fan project.
 | PostgreSQL, the gateway's store, the card catalog | `docs/dev/database.md` |
 | How code is written and committed here | `docs/dev/conventions.md` |
 | Development and release tools (`cargo dev`, `cargo tools`) | `docs/dev-tools.md` |
+| Local PC/GPU monitoring dashboard (Baylee Pulse) | `docs/workstation-monitor.md` |
 | Crates, engine, hidden information and seats, the gateway | `docs/architecture.md` |
 | Words that mean one thing here | `docs/dictionary.md` |
 | The engine's internals (normative) | `docs/engine-internals.md`, `docs/mana-notation.md`, `docs/pending-constraints.md`, `docs/cost-model.md` |
@@ -60,6 +74,7 @@ unofficial, non-commercial fan project.
 | Card batches: progress, held back, learnings | `docs/set-progress.md`, `docs/generated-held-back.md`, `docs/llm-learnings.md` |
 | Decks, precons, formats | `docs/deck-format.md`, `docs/precons.md`, `docs/banlists-and-formats.md` |
 | The house AI, the trained AI, language-model seats | `docs/house-ai.md`, `docs/trained-ai.md`, `docs/ai-coverage-todo.md`, `docs/llm-seat.md`, `docs/llm-protocol.md` |
+| Training operations, current run pointers, research findings and agent takeover | `docs/training-runbook.md` |
 | The wire protocol and every server route (normative) | `docs/protocol.md` |
 | The same routes and sockets as OpenAPI and AsyncAPI, generated (`cargo dev api`, `cargo dev api serve`) | `docs/api/`, `docs/dev/commands.md` |
 | Bug reports, the feedback service and its UI | `docs/feedback.md`, `web/feedback/README.md` |

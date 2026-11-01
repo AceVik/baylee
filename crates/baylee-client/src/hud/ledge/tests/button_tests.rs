@@ -127,6 +127,8 @@ fn the_combat_row_offers_the_commit_only_once_something_is_declared() {
     use baylee_engine::choice::Pending;
 
     let question = || Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: baylee_core::ids::PlayerId::new(0),
         attackers: vec![baylee_core::ids::ObjectId::new(3, 0)],
         defenders: vec![Defender::Player(baylee_core::ids::PlayerId::new(1))],
@@ -149,11 +151,9 @@ fn the_combat_row_offers_the_commit_only_once_something_is_declared() {
     };
     assert_eq!(
         says(&duel),
-        vec![
-            Says::Answer(PromptAction::AimNext),
-            Says::Answer(PromptAction::DeclareNothing),
-        ],
-        "with nothing declared the bar offers aiming and declining, and no key for a third"
+        vec![Says::Answer(PromptAction::DeclareNothing)],
+        "with nothing declared and one defender the bar offers declining, and no key \
+         for a commit or an aim that would do nothing"
     );
 
     assert!(
@@ -168,11 +168,44 @@ fn the_combat_row_offers_the_commit_only_once_something_is_declared() {
     assert_eq!(
         says(&duel),
         vec![
-            Says::Answer(PromptAction::AimNext),
             Says::Answer(PromptAction::Confirm),
             Says::Answer(PromptAction::DeclareNothing),
         ],
-        "a declaration standing is what the commit button is for"
+        "a declaration standing is what the commit button is for, and it leads"
+    );
+
+    // Two defenders: the aim has somewhere to go, and says so after the
+    // commit, which keeps the candle.
+    let mut two = question();
+    if let Pending::ChooseAttackers { defenders, .. } = &mut two {
+        defenders.push(Defender::Player(baylee_core::ids::PlayerId::new(2)));
+    }
+    duel.interaction = Some(baylee_client_core::interaction::Interaction::new(
+        two,
+        baylee_core::ids::PlayerId::new(0),
+    ));
+    assert_eq!(
+        says(&duel),
+        vec![
+            Says::Answer(PromptAction::AimNext),
+            Says::Answer(PromptAction::DeclareNothing),
+        ]
+    );
+    assert!(
+        duel.interaction
+            .as_mut()
+            .is_some_and(|i| i.declare_attacker(
+                baylee_core::ids::ObjectId::new(3, 0),
+                Defender::Player(baylee_core::ids::PlayerId::new(2))
+            ))
+    );
+    assert_eq!(
+        says(&duel),
+        vec![
+            Says::Answer(PromptAction::Confirm),
+            Says::Answer(PromptAction::AimNext),
+            Says::Answer(PromptAction::DeclareNothing),
+        ]
     );
 }
 
@@ -254,6 +287,8 @@ fn the_countdown_stands_in_the_button_the_clock_presses() {
         ),
         (
             Pending::ChooseAttackers {
+                alone: Vec::new(),
+                minimum_required: None,
                 player: me,
                 attackers: vec![ObjectId::new(3, 0)],
                 defenders: vec![Defender::Player(PlayerId::new(1))],

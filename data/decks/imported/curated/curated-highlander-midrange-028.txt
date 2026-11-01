@@ -1,0 +1,80 @@
+# baylee curated highlander midrange seed=20261051
+# licence: AGPL-3.0-only
+[deck:highlander midrange WU #20261051]
+1 Ancient Ziggurat
+1 Auspicious Ancestor
+1 Azorius Skyguard
+1 Brotherhood Headquarters
+1 Capital City
+1 Captivating Cave
+1 Censor
+1 Cloudcrest Lake
+1 Constricting Tendrils
+1 Customs Depot
+1 Deduce
+1 Defiant Strike
+1 Dragon Bell Monk
+1 Drowned Secrets
+1 Drowner Initiate
+1 Efficient Construction
+1 Etherium Spinner
+1 Falcon, Winged Wonder
+1 Gallant Strike
+1 Hall of Oracles
+1 Hesitation
+1 In the Eye of Chaos
+1 Inspiring Commander
+1 Invoke Prejudice
+1 Iron Will
+20 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Jeskai Sage
+1 Jhessian Thief
+1 Jin-Gitaxias, Progress Tyrant
+1 Knight-Captain of Eos
+1 Lake-town Lookout
+1 Lightshield Parry
+1 Lunar Mystic
+1 Mana Confluence
+1 Mana Vortex
+1 Mesa Enchantress
+1 Miscalculation
+1 Mistfire Adept
+1 Monastery Mentor
+1 Murmuring Mystic
+1 Myrsmith
+1 Mystic Gate
+1 Mystic Remora
+1 Opal Archangel
+1 Opal Champion
+1 Opal Gargoyle
+1 Oyobi, Who Split the Heavens
+5 Plains
+1 Presence of the Master
+1 Rasputin Dreamweaver
+1 Reflections of Littjara
+1 Rhystic Study
+1 Sacred Mesa
+1 Seeker of the Way
+1 Shimmering Grotto
+1 Shocking Grasp
+1 Soul Barrier
+1 Stormkeld Prowler
+1 Storyteller Pixie
+1 Student of Ojutai
+1 Study Hall
+1 Survivors' Encampment
+1 Talrand, Sky Summoner
+1 Tanufel Rimespeaker
+1 Teller of Tales
+1 The Mechanist, Aerial Artisan
+1 Trail of Evidence
+1 Tura Kennerüd, Skyknight
+1 Unclaimed Territory
+1 Undiscovered Paradise
+1 Unifying Theory
+1 Unknown Shores
+1 Veiled Sentry
+1 Villainous Hideout
+1 Wing Commando
+1 Worthy Knight

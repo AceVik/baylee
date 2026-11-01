@@ -100,6 +100,31 @@ fn spending_permissions_do_not_turn_generic_credits_into_colored_mana() {
 #[test]
 fn actual_type_reservations_remain_disjoint_from_generic_only_credits() {
     use ManaColor::{Blue, Red};
+    // A red cost credit is not actual red mana for X, even if blue may
+    // pay the fixed red pip through an independent spending permission.
+    for spending in [
+        ManaSpending::EXACT,
+        ManaSpending::ANY_COLOR,
+        ManaSpending::ANY_TYPE,
+    ] {
+        let ordinary = if spending == ManaSpending::EXACT {
+            Red
+        } else {
+            Blue
+        };
+        assert!(
+            payment_with_generic_credits(
+                &pool(&[(ordinary, 1, false)]),
+                &ManaCost::parse("{1}{R}"),
+                spending,
+                [0; 6],
+                Some((Red, 1).into()),
+                [0; 6],
+                credit(Red, 1, 1),
+            )
+            .is_none()
+        );
+    }
     let credits = credit(Blue, 1, 1);
     assert!(
         payment_with_generic_credits(
@@ -107,7 +132,7 @@ fn actual_type_reservations_remain_disjoint_from_generic_only_credits() {
             &ManaCost::parse("{1}{R}"),
             ManaSpending::ANY_COLOR,
             [0; 6],
-            Some((Red, 1)),
+            Some((Red, 1).into()),
             [0; 6],
             credits,
         )
@@ -118,7 +143,7 @@ fn actual_type_reservations_remain_disjoint_from_generic_only_credits() {
         &ManaCost::parse("{2}{S}"),
         ManaSpending::EXACT,
         [0; 6],
-        Some((Red, 1)),
+        Some((Red, 1).into()),
         [0; 6],
         credits,
     )

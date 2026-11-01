@@ -2,25 +2,15 @@
 //! (`date` for the hour, `curl`, `systemctl`, `logger`), the pending file's
 //! age set on the file itself and a running deploy holding the real lock: a
 //! pending reboot happens only inside the night window and
-//! only while no game of this machine runs; after the drain delay the agent
-//! is stopped instead, and started again when the window closes first.
+//! only while admission is held and no game of this machine runs. The owner
+//! stays alive during draining; closing the window releases only our hold.
 
 #![cfg(unix)]
 
-use std::os::unix::fs::PermissionsExt as _;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-/// A stand-in command that appends its name and arguments to `calls` and
-/// then runs `body`.
-fn stub(dir: &Path, name: &str, body: &str) {
-    let path = dir.join(name);
-    std::fs::write(
-        &path,
-        format!("#!/usr/bin/env bash\necho \"{name} $*\" >> \"$REBOOT_CALLS\"\n{body}\n"),
-    )
-    .unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-}
+#[path = "support/native_command.rs"]
+mod native_command;
 
 /// One server state the script is run against.
 #[derive(Clone, Copy, Debug)]
@@ -33,10 +23,14 @@ struct Server {
     days_pending: u64,
     /// `/health`'s `(local_running, waiting)`, or `None` when it does not answer.
     health: Option<(u32, u32)>,
-    /// Whether an earlier run already stopped the agent.
+    /// Whether an earlier run already held admission.
     drained: bool,
     /// Whether a deploy holds its lock.
     deploying: bool,
+    /// What the gateway reports after the hold is created.
+    admission: &'static str,
+    health_after_hold: Option<(u32, u32)>,
+    foreign_hold: Option<&'static str>,
 }
 
 const QUIET_NIGHT: Server = Server {
@@ -46,12 +40,16 @@ const QUIET_NIGHT: Server = Server {
     health: Some((0, 0)),
     drained: false,
     deploying: false,
+    admission: "held",
+    health_after_hold: None,
+    foreign_hold: None,
 };
 
 /// What one run did: the commands it ran and whether it left the drain mark.
 struct Run {
     calls: String,
     drained_after: bool,
+    hold_after: Option<String>,
 }
 
 impl Run {
@@ -81,7 +79,10 @@ fn run(server: Server) -> Run {
     }
     std::fs::write(
         etc.join("gateway.env"),
-        "BAYLEE_UNIX_SOCKET=/run/baylee/gateway.sock\n",
+        format!(
+            "BAYLEE_UNIX_SOCKET=/run/baylee/gateway.sock\nBAYLEE_ADMISSION_HOLD={}\n",
+            runtime.join("admission-hold").display()
+        ),
     )
     .unwrap();
     if server.pending {
@@ -101,32 +102,32 @@ fn run(server: Server) -> Run {
     }
     if server.drained {
         std::fs::write(runtime.join("baylee-reboot.drained"), "").unwrap();
+        std::fs::write(
+            runtime.join("admission-hold"),
+            "baylee-reboot admission hold\n",
+        )
+        .unwrap();
+    }
+    if let Some(contents) = server.foreign_hold {
+        std::fs::write(runtime.join("admission-hold"), contents).unwrap();
     }
     let lock = scratch.join("lock");
     std::fs::write(&lock, "").unwrap();
     let calls: PathBuf = scratch.join("calls");
 
-    stub(
-        &stubs,
-        "date",
-        &format!(
-            r#"[ "$1" = +%H ] && printf '%02d\n' {}; exit 0"#,
-            server.hour
-        ),
-    );
-    stub(
-        &stubs,
-        "curl",
-        &match server.health {
-            Some((running, waiting)) => format!(
-                r#"echo '{{"games":{{"running":{},"local_running":{running},"waiting":{waiting}}}}}'"#,
-                running + 5
-            ),
-            None => "exit 7".to_owned(),
-        },
-    );
-    stub(&stubs, "systemctl", "exit 0");
-    stub(&stubs, "logger", "exit 0");
+    native_command::install(&stubs, &["date", "curl", "systemctl", "logger"]);
+    let state = scratch.join("native-command-state.json");
+    std::fs::write(
+        &state,
+        serde_json::to_vec(&serde_json::json!({
+            "hour": server.hour,
+            "health": server.health,
+            "admission": server.admission,
+            "health_after_hold": server.health_after_hold,
+        }))
+        .unwrap(),
+    )
+    .unwrap();
     // A deploy holds its lock for its whole run: this test process holds it
     // while the reboot command looks.
     let held = std::fs::File::open(&lock).unwrap();
@@ -137,7 +138,9 @@ fn run(server: Server) -> Run {
     let path = format!("{}:{}", stubs.display(), std::env::var("PATH").unwrap());
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_baylee-reboot"))
         .env("PATH", path)
-        .env("REBOOT_CALLS", &calls)
+        .env("OPS_FAKE_CALLS", &calls)
+        .env("OPS_FAKE_STATE", &state)
+        .env_remove("OPS_FAKE_HEALTH")
         .env("BAYLEE_REBOOT_RUN", &runtime)
         .env("BAYLEE_REBOOT_ETC", &etc)
         .env("BAYLEE_REBOOT_DEPLOY_LOCK", &lock)
@@ -151,6 +154,7 @@ fn run(server: Server) -> Run {
     let run = Run {
         calls: std::fs::read_to_string(&calls).unwrap_or_default(),
         drained_after: runtime.join("baylee-reboot.drained").exists(),
+        hold_after: std::fs::read_to_string(runtime.join("admission-hold")).ok(),
     };
     let _ = std::fs::remove_dir_all(&scratch);
     run
@@ -275,7 +279,7 @@ fn a_running_deploy_is_waited_for() {
 }
 
 #[test]
-fn after_the_drain_delay_the_agent_stops_and_no_game_ends() {
+fn after_the_drain_delay_admission_closes_and_owner_stays_alive() {
     let early = run(Server {
         health: Some((2, 0)),
         days_pending: 2,
@@ -289,8 +293,9 @@ fn after_the_drain_delay_the_agent_stops_and_no_game_ends() {
         days_pending: 3,
         ..QUIET_NIGHT
     });
-    assert!(due.ran("systemctl stop baylee-agent"));
+    assert!(!due.ran("systemctl stop baylee-agent"));
     assert!(due.drained_after);
+    assert!(due.hold_after.is_some());
     assert!(!due.rebooted());
 }
 
@@ -306,15 +311,16 @@ fn a_drained_night_reboots_once_the_last_game_ends() {
 }
 
 #[test]
-fn a_window_that_closes_while_drained_starts_the_agent_again() {
+fn a_window_that_closes_releases_admission_without_restarting_owner() {
     let day = run(Server {
         drained: true,
         hour: 8,
         health: Some((1, 0)),
         ..QUIET_NIGHT
     });
-    assert!(day.ran("systemctl start baylee-agent"));
+    assert!(!day.ran("systemctl start baylee-agent"));
     assert!(!day.drained_after);
+    assert!(day.hold_after.is_none());
     assert!(!day.rebooted());
 
     // Also when the reboot stopped being pending (someone rebooted by hand).
@@ -323,6 +329,48 @@ fn a_window_that_closes_while_drained_starts_the_agent_again() {
         pending: false,
         ..QUIET_NIGHT
     });
-    assert!(gone.ran("systemctl start baylee-agent"));
+    assert!(!gone.ran("systemctl start baylee-agent"));
     assert!(!gone.drained_after);
+}
+
+#[test]
+fn unverified_admission_never_reboots_or_stops_owner_even_at_zero_games() {
+    for admission in ["open", "missing", "down"] {
+        let result = run(Server {
+            admission,
+            ..QUIET_NIGHT
+        });
+        assert!(!result.rebooted(), "{admission}");
+        assert!(!result.ran("systemctl stop baylee-agent"));
+    }
+}
+
+#[test]
+fn a_game_started_before_hold_is_seen_in_the_fresh_count() {
+    let result = run(Server {
+        health_after_hold: Some((1, 0)),
+        ..QUIET_NIGHT
+    });
+    assert!(!result.rebooted());
+    assert!(!result.ran("systemctl stop baylee-agent"));
+    assert!(
+        !result.drained_after,
+        "before the drain delay, keep allowing games"
+    );
+    assert!(result.hold_after.is_none());
+}
+
+#[test]
+fn foreign_holds_block_reboot_and_survive_window_cleanup() {
+    for hour in [4, 8] {
+        let result = run(Server {
+            hour,
+            foreign_hold: Some("deploy owns this\n"),
+            drained: true,
+            ..QUIET_NIGHT
+        });
+        assert!(!result.rebooted());
+        assert_eq!(result.hold_after.as_deref(), Some("deploy owns this\n"));
+        assert!(!result.ran("systemctl start baylee-agent"));
+    }
 }

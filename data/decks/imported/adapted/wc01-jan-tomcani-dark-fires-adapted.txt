@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/WC01/jan-tomcani-dark-fires.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JanTomcaniDarkFires_WC01.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Jan Tomcani - Dark Fires (Adapted)]
+4 Birds of Paradise
+2 City of Brass
+2 Eldritch Evolution
+4 Fire
+4 Fires of Yavimaya
+2 Flametongue Kavu
+8 Forest
+4 Jovial Evil
+3 Karplusan Forest
+4 Llanowar Elves
+2 Llanowar Wastes
+3 Mountain
+2 Perish
+4 Rishadan Port
+4 Shower of Arrows
+2 Stroke of Genius
+2 Sulfurous Springs
+4 Sweltering Suns

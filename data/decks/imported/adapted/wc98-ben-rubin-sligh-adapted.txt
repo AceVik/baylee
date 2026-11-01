@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/WC98/ben-rubin-sligh.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BenRubinSligh_WC98.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ben Rubin - Sligh (Adapted)]
+4 Ball Lightning
+2 Burning-Fist Minotaur
+4 Cursed Scroll
+2 Goblin Vandal
+2 Hammer of Bogardan
+4 Iroh's Demonstration
+4 Ironclaw Orcs
+4 Jackal Pup
+4 Mogg Fanatic
+17 Mountain
+4 Pyrokinesis
+4 Shock
+1 Sundering Eruption
+4 Wasteland

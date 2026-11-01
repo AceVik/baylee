@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed control
+# licence: AGPL-3.0-only
+[deck:constructed control WUR #20266171]
+2 Ambush
+2 Brassclaw Orcs
+3 Castle Doom
+2 Chained Brute
+2 Clever Concealment
+2 Indicate
+2 Ironclaw Buzzardiers
+7 Island
+2 Jeskai Brushmaster
+2 Juxtapose
+2 Kolinahr Priest
+4 Mountain
+2 Oggyar Battle-Seer
+2 Orcish Veteran
+5 Plains
+2 Reverberation
+2 Scouring Sands
+3 Shimmering Grotto
+3 Sliver Hive
+2 Stymied Hopes
+1 Thran Quarry
+2 Venser, the Sojourner
+2 Viashino Sandscout
+2 Zodiac Goat

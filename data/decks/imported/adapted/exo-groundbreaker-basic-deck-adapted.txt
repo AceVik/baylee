@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/EXO/groundbreaker-basic-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GroundbreakerBasicDeck_EXO.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Groundbreaker - Basic Deck (Adapted)]
+2 Aftershock
+3 Anarchist
+1 Crushing Disappointment
+2 Dauthi Jackal
+2 Dauthi Voidwalker
+3 Diabolic Edict
+1 Machinesmith Automaton
+12 Mountain
+1 Nausea
+1 Necrologia
+1 Necromantic Thirst
+1 Plaguebearer
+3 Rain of Tears
+3 Shock
+1 Spontaneous Combustion
+4 Stone Rain
+1 Strangle
+12 Swamp
+1 Thopter Squadron
+2 Vampire Hounds
+3 Violent Impact

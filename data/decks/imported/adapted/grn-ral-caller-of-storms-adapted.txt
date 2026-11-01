@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/GRN/ral-caller-of-storms.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RalCallerOfStorms_GRN.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ral, Caller of Storms (Adapted)]
+4 Broadside Barrage
+2 Command the Storm
+3 Fearless Halberdier
+2 Fire
+2 Fire Urchin
+4 Invoke the Firemind
+10 Island
+3 Izzet Charm
+4 Izzet Guildgate
+12 Mountain
+1 Muse Drake
+1 Passwall Adept
+4 Precision Bolt
+1 Rubblebelt Boar
+4 Rush of Inspiration
+1 Vedalken Mesmerist
+2 Wee Dragonauts

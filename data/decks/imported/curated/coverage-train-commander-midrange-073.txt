@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266074]
+1 Ancient Spider
+1 Angelic Renewal
+1 Armored Wolf-Rider
+1 Atzocan Seer
+1 Aura Fracture
+1 Battle Hurda
+1 Big Apple, 3 a.m.
+1 Cactus Preserve
+1 Cathedral of War
+1 Collision Course
+1 Conifer Strider
+1 Crumbling Vestige
+1 Devout Decree
+1 Dungeon Descent
+1 Edgewall Inn
+1 Emerald Oryx
+1 Endangered Armodon
+1 Enraged Ceratok
+1 Finale of Devastation
+17 Forest
+1 Forsaken Crossroads
+1 Gibbering Hyenas
+1 Golden Bear
+1 Great-Horn Krushok
+1 Guildless Commons
+1 Impeccable Timing
+1 Imperial Oath
+1 Kami of Old Stone
+1 Kessig Recluse
+1 Lay of the Land
+1 Mammoth Spider
+1 Marble Titan
+1 Mirage Mesa
+1 Moss Monster
+1 Nature's Lore
+1 Nettle Swine
+1 Night Market
+1 Ordinary Bear
+1 Pierce the Sky
+1 Pit of Offerings
+8 Plains
+1 Plated Wurm
+1 Predatory Hunger
+1 Rampaging Hippo
+1 Raven's Run Dragoon
+1 Reroute Systems
+1 Ritual of Restoration
+1 River Bear
+1 Rockcaster Platoon
+1 Rocky Tar Pit
+1 Rubbleback Rhino
+1 Safewright Quest
+1 Satyr Enchanter
+1 Selesnya Sagittars
+1 Shared Roots
+1 Sheltering Light
+1 Shimmerdrift Vale
+1 Shower of Arrows
+1 Silverback Ape
+1 Skywhaler's Shot
+1 Southern Elephant
+1 Swift Spinner
+1 Tarnation Vista
+1 Temple of the Dragon Queen
+1 Thornling
+1 Vine Mare
+1 Viridian Scout
+1 Wall of Pine Needles
+1 Wardscale Crocodile
+1 Warthog
+1 Wary Okapi
+1 Wild Ox
+1 Wildwood Rebirth
+1 Wrenn and Realmbreaker
+1 Zodiac Horse
+1 Zodiac Ox
+
+[commander]
+Lady Caleria

@@ -1,0 +1,30 @@
+# adapted from data/decks/precon/UDS/enchanter.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Enchanter_UDS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Enchanter (Adapted)]
+3 Absorb
+2 Brilliant Halo
+1 Capashen Standard
+1 Confiscate
+3 Daring Leap
+1 Disenchant
+2 Drifting Meadow
+3 Fledgling Osprey
+1 Flickering Ward
+1 Hermetic Study
+1 Horseshoe Crab
+1 Humble
+13 Island
+1 Mask of Law and Grace
+2 Miscalculation
+1 Monk Realist
+1 Mother of Runes
+1 Opportunity
+7 Plains
+1 Radiant's Judgment
+2 Remote Isle
+3 Sphinx's Revelation
+2 Thieving Magpie
+2 Thornwind Faeries
+2 Tormented Angel
+1 Vigilant Drake
+1 Zephid's Embrace

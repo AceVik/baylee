@@ -43,26 +43,33 @@ Two rows are part-answered, and they say so in their own cell.
 | Transformation and alternate zones | 120 compiled two-face cards (see #115), of which 82 print a land behind a non-land front; 2 adventure, 1 disturb; 3 granting flashback, 13 entering as a copy (24.09.2026) | Part-answered (#76, #227). The **land** face is read: `policy::plays_as_land` asks the engine's own rule for the land drop (`CardDef::land_faces_from_hand`: a modal back, CR 712.12, never a transforming one, CR 712.8a) rather than the face that is up, so a hand of modal double-faced cards is no longer mulliganed as landless and one is no longer discarded as a spare spell. The **cast** faces are not: `filter::cast_mode` takes the `Normal` option whenever one is offered, so an adventure or an MDFC back is cast only when the engine offers nothing else — pinned by `an_adventure_is_offered_and_the_agent_takes_the_printed_front`, because choosing between them needs a value model this crate has not got. A **clone** copies the candidate with the most copiable value, whoever controls it, and not a legendary one of its own unless the copy stops being legendary (#227, `a_clone_copies_what_is_worth_having_twice`); lands tie on that value. A copy's abilities are read off `rules` and priced as the original's (29.09.2026, `sea_gate_loremaster_draws_one_for_each_ally_and_so_does_its_copy`: Sakashima of a Thousand Faces, Machine God's Effigy or Phantasmal Image as a Sea Gate Loremaster). A card **given** flashback is tapped for and cast from the graveyard, at the price `PublicObject::flashback` names (#242, `a_graveyard_card_with_flashback_is_tapped_for_and_cast`). Open: each playable face chosen on purpose, and with it Dash over a Normal cast (Ragavan) and Escape beside another graveyard permission (Uro under Muldrotha, cast for its mana cost and then sacrificed), both arriving with `c42/cards-library` and both taken as `Normal` because `filter::cast_mode` takes `Normal` whenever it is offered; disturb, printed flashback (no face has it written: `no_face_that_prints_flashback_has_it_written_yet`), which card a grant goes to, madness, meld and copied abilities, once available in the relevant deck. |
 | Full-game lookahead | not a card shape | Responses, combat triggers, replacements, alternative wins and combo sequencing. The current bounded combat search does not simulate these. |
 
-**Priced granted mana remains an AI limitation (14.10.2026).** Basal
+**Priced granted mana remains an AI limitation (23.10.2026).** Basal
 Sliver grants every Sliver "Sacrifice this permanent: Add {B}{B}." The
 recipient is the permanent sacrificed; the grantor need not be sacrificed,
 and there is no tap cost. Forgotten Monument grants other Caves you control
-"{T}, Pay 1 life: Add one mana of any color." Both are valid mana abilities,
-but neither is free output for a tap. `PublicObject::granted_mana` and
-`GrantSource::mana` deliberately withhold both under `tap_only`, because
-`GrantedMana` cannot carry either price. The legal paid activation remains
-available to the player. The AI's `policy::sources` and
-`policy::remaining_sources` cannot plan these grants: without projected mana,
-the donor lookup reaches a static ability, not an activated mana definition.
-Supporting them still needs a price-aware projection and planner; naming them
-in the guard does not close that debt or promote Basal Sliver's `Generated`
-coverage. `view::tests::grants::granted_mana_refuses_a_priced_grant` builds
-both boards, checks both projection fields and the legal offers, then pays
-the structurally discovered sacrifice grant on another creature: only that
-recipient leaves, its grantor stays, and exactly two black mana arrive with
-no stack item. `no_granted_mana_ability_charges_more_than_the_tap` pins exactly
-Basal Sliver and Forgotten Monument; every additional name owes the same
-board proof and a documented limitation.
+"{T}, Pay 1 life: Add one mana of any color." Rain of Filth temporarily grants
+lands you control "Sacrifice this land: Add {B}." All three are valid mana
+abilities with a price beyond a tap. `PublicObject::granted_mana` and
+`GrantSource::mana` deliberately withhold them under `tap_only`, because
+`GrantedMana` cannot carry those prices. The legal paid activation remains
+available to the player. Without projected mana, the AI's `policy::sources`
+and `policy::remaining_sources` cannot plan these grants. Supporting them
+still needs a price-aware projection and planner; naming them in the guard
+does not close that debt or promote Basal Sliver's `Generated` coverage.
+`view::tests::grants::granted_mana_refuses_a_priced_grant` builds the Basal
+Sliver and Forgotten Monument boards, checks both projection fields and the
+legal offers, then pays the structurally discovered sacrifice grant on
+another creature: only that recipient leaves, its grantor stays, and exactly
+two black mana arrive with no stack item. The existing engine card test
+`engine::card_tests::instants::mv_1::rain_of_filth::rain_of_filth_grants_each_existing_controlled_land_a_temporary_sacrifice_mana_ability`
+in `crates/baylee-engine/src/engine/card_tests/instants/mv_1/rain_of_filth.rs`
+provides Rain of Filth's board evidence: a granted land is sacrificed for
+exactly one black mana with no stack item, opposing and later lands receive
+no grant, and the remaining grant expires. This engine test covers the paid
+activation, not the gamehost projection. The exact membership guard
+`no_granted_mana_ability_charges_more_than_the_tap` now names Basal Sliver,
+Forgotten Monument and Rain of Filth; every additional name owes real-board
+paid-activation evidence and a documented limitation.
 
 Three mechanics the table names have **no figure and can never get one from
 this pool**, and the reason is the DSL rather than the card list: there is no

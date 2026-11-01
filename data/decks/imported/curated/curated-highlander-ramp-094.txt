@@ -1,0 +1,79 @@
+# baylee curated highlander ramp seed=20261117
+# licence: AGPL-3.0-only
+[deck:highlander ramp WU #20261117]
+1 Adarkar Wastes
+1 Aeronaut Cavalry
+1 Ancient Ziggurat
+1 Angel of Renewal
+1 Avatar Enthusiasts
+1 Aven Fateshaper
+1 Azorius Skyguard
+1 Brinebarrow Intruder
+1 Brotherhood Headquarters
+1 Bucolic Ranch
+1 Bulwark Giant
+1 Champion of the Parish
+1 Cloistered Telepath
+1 Cloud of Faeries
+1 Cloudblazer
+1 Conduit Pylons
+1 Crystal Grotto
+1 Daily Bugle Building
+1 Deputy of Acquittals
+1 Dimir Informant
+1 Drogskol Cavalry
+1 Drownyard Explorers
+1 Eclipsed Realms
+1 Elite Guardmage
+1 Esper Sentinel
+1 Favored of Iroas
+1 Geist-Honored Monk
+1 Gemstone Mine
+1 Gosta Dirk
+1 Great Whale
+1 Hada Freeblade
+1 Heavy Infantry
+1 Herald of the Fair
+1 Humbling Elder
+1 Iron Man, Futurist Paragon
+13 Island
+1 Jeong Jeong's Deserters
+1 Kindly Customer
+1 Knight of the Mists
+1 Kyoshi Warriors
+1 Mana Crypt
+1 Merchant of Secrets
+1 Mirrex
+1 Monk Realist
+1 Moonlit Scavengers
+1 Mystic Gate
+1 Nighthawk, Dark Defender
+1 Painted Bluffs
+1 Palace Jailer
+1 Palinchron
+1 Pelargir Survivor
+1 Pillar of the Paruns
+1 Pious Wayfarer
+13 Plains
+1 Prosperous Pirates
+1 Ramosian Sergeant
+1 Rasputin Dreamweaver
+1 Sage of Mysteries
+1 Sailor of Means
+1 Sanctifier of Souls
+1 Secret Base
+1 Separatist Voidmage
+1 Skycloud Egg
+1 Slumbering Keepguard
+1 Snapcaster Mage
+1 Springjack Pasture
+1 Staunch Defenders
+1 Stern Proctor
+1 Talon Gates of Madara
+1 Tenth District Guard
+1 Thought Monitor
+1 Thraben Inspector
+1 Tireless Missionaries
+1 Tivadar of Thorn
+1 Urbis Protector
+1 War Priest of Thune

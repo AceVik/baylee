@@ -12,6 +12,7 @@ pub(crate) mod bird_entry;
 mod discarded;
 mod event_groups;
 mod events;
+mod flanking;
 mod matching;
 mod radiation;
 mod return_keywords;
@@ -162,6 +163,7 @@ fn ability_context(
     RuleContext {
         source: object.id,
         text: list.base_text(index).then(object_text(state, object)),
+        resolved_name: None,
         reference: None,
     }
 }
@@ -798,6 +800,9 @@ fn collect_for_objects(
     let batch_has_spells_cast = events
         .iter()
         .any(|entry| matches!(entry.event, GameEvent::SpellCast { .. }));
+    let batch_has_blocks = events
+        .iter()
+        .any(|entry| matches!(entry.event, GameEvent::BecameBlocker { .. }));
     for permanent in objects {
         // The look-back applies only to sources that left during this
         // event batch. A card already in a graveyard has no battlefield
@@ -882,6 +887,7 @@ fn collect_for_objects(
                 }
             }
         }
+        flanking::collect(state, obj, events, &moves, batch_has_blocks, triggers);
         if !all_kinds {
             return_keywords::collect(state, obj, events, triggers);
         }
@@ -918,6 +924,7 @@ fn collect_for_objects(
             let context = RuleContext {
                 source: permanent,
                 text,
+                resolved_name: None,
                 reference: None,
             };
             let look_back = matches!(
@@ -1130,6 +1137,7 @@ fn collect_for_objects(
             let obj_context = RuleContext {
                 source: obj.id,
                 text: list.base_text(index).then(current_text),
+                resolved_name: None,
                 reference: None,
             };
             let condition_reads_event = firing.condition.is_some_and(eval::condition_reads_event);
@@ -1311,3 +1319,6 @@ fn activated_stack_ability(event: &GameEvent) -> Option<baylee_core::ids::Damage
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod life_loss_tests;

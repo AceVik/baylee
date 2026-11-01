@@ -1,0 +1,72 @@
+# baylee curated highlander aggro seed=20261048
+# licence: AGPL-3.0-only
+[deck:highlander aggro B #20261048]
+1 Agents of HYDRA
+1 Bastion of Remembrance
+1 Blood Artist
+1 Bloodflow Connoisseur
+1 Bone Devourer
+1 Callous Inspector
+1 Carrier Thrall
+1 Carrion Feeder
+1 Champion of the Perished
+1 City of Brass
+1 Claws of Gix
+1 Common Crook
+1 Criminal Enterprise
+1 Dauthi Ghoul
+1 Death Watch
+1 Deathgreeter
+1 Disciple of the Vault
+1 Discordant Piper
+1 Fear of Lost Teeth
+1 Festering Goblin
+1 Gavony Unhallowed
+1 Greedy Freebooter
+1 Grim Physician
+1 Gutless Ghoul
+1 Hopeless Nightmare
+1 Hostile Hostel
+1 Hungry Ghoul
+1 Infectious Host
+1 Jasmine Dragon Tea Shop
+1 Kalastria Highborn
+1 Kheru Bloodsucker
+1 Lead Pipe
+1 Locthwain Lancer
+1 Mana Confluence
+1 Marionette Apprentice
+1 Master of Dark Rites
+1 Midnight Reaper
+1 Minotaur, Roxxon CEO
+1 Mintstrosity
+1 Ogre Slumlord
+1 Pawn of Ulamog
+1 Quest for the Gravelord
+1 Rotlung Reanimator
+1 Sanguinary Priest
+1 Sarcomancy
+1 Serrated Scorpion
+1 Shambling Goblin
+1 Skirk Ridge Exhumer
+32 Snow-Covered Swamp
+1 Soldevi Adnate
+1 Stitcher's Supplier
+1 Strands of Night
+1 Tattered Mummy
+1 Thanos, Death's Consort
+1 The Meathook Massacre
+1 Tourach's Gate
+1 Undead Augur
+1 Undercity Dire Rat
+1 Underdome
+1 Vampiric Rites
+1 Vengeful Bloodwitch
+1 Vengeful Dead
+1 Vermin Gorger
+1 Villainous Hideout
+1 Warren Soultrader
+1 Witch's Cauldron
+1 Yahenni, Undying Partisan
+1 Zulaport Cutthroat
+1 Zuran Orb

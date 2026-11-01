@@ -1,12 +1,18 @@
 # Native development tools
 
+The independent PC/GPU dashboard is documented in
+[`workstation-monitor.md`](workstation-monitor.md). It runs alongside training
+with low scheduling priority and serves live metrics to desktop/mobile browsers.
+
 `baylee-tools` contains the repository's maintenance tools in Rust. It is a
 small workspace binary, independent of the engine, card pool and renderer.
 The `tools` profile optimises image/audio kernels and keeps panic unwinding
 for native mount cleanup. It does not change the game's build profiles.
-Python remains only in `tools/trainer`, whose PyTorch models and training
-pipeline are intentionally unchanged; the developer tasks that were shell
-scripts are `cargo dev` (below).
+Python remains only for PyTorch models, tensor execution and their direct tests
+in `tools/trainer`. Training orchestration, packing, admission, monitoring and
+other operational work use `baylee-train-ops` in Rust (see
+[`trained-ai.md`](trained-ai.md#native-experiment-control-and-ppo-admission));
+the developer tasks that were shell scripts are `cargo dev` (below).
 
 ```bash
 cargo build --locked --profile tools -p baylee-tools
@@ -33,10 +39,12 @@ contact production or run a release.
 | `scripts/site/card_status.py`, `stamp.py`, `impressum_blob.py` | `cargo tools site card-status`, `stamp`, `impressum-blob`, `check` |
 | `scripts/forge/*.py` | `cargo tools forge read-adventure-save`, `parse-friend-list`, `resolve-printings`, `to-deck-rows` |
 | `.claude/hooks/*.py` | `cargo tools hooks card-test-debt`, `require-card-tests` |
+| `art/music/memorial/prepare.py`, `prepare_bank.py` | `cargo tools art memorial score`, `bank` (see `art/music/memorial/README.md`) |
 | `art/music/prepare.py`, `originality.py` | `cargo tools art prepare`, `originality` |
 | `art/baylee/lantern.py` | `cargo tools art lantern` (native glTF generation) |
 | `scripts/server/baylee-deploy`, `baylee-invite`, `baylee-reboot` and their JSON reader | `baylee-deploy`, `baylee-invite`, `baylee-reboot` (crate baylee-ops) |
-| `scripts/gate*.sh`, `land.sh`, `ci-changes.sh`, `deploy.sh` | `cargo dev gate [rules\|touched\|features\|wasm]`, `land`, `ci-changes`, `deploy` |
+| `scripts/macos-runner/runner.sh` | `baylee-macos-runner` (crate baylee-runner) |
+| `scripts/gate*.sh`, `land.sh`, `ci-changes.sh`, `deploy.sh` | `cargo dev gate [rules\|touched\|features\|shipped-features\|wasm]`, `land`, `ci-changes`, `deploy` |
 | `scripts/mobile/*.sh` | `cargo dev android [env]`, `ios-sim`, `serve-lan` |
 | `scripts/test-keyring-linux.sh`, `test-central-*.ps1` | `cargo dev keyring-linux`, `central db\|integration\|client` |
 
@@ -47,6 +55,13 @@ were removed on 20.10.2026; cards are written by the batch's author model and
 reviewed by another (`docs/cards.md`). Python remains only in `tools/trainer`.
 Historical reports retain original command names as evidence of how their
 measurements were made; they are not current instructions.
+
+Current landing runs the full and desktop/server feature gates. Android,
+iOS and browser/wasm support are coming soon: mobile commands and
+`cargo dev gate wasm` remain opt-in experiments outside CI and release
+requirements (`docs/releasing.md`). Development features run only locally;
+CI's `cargo dev gate shipped-features` only checks that test hooks cannot
+reach shipped feature graphs.
 
 ## Dev-control
 

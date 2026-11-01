@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/MOR/shamanism.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Shamanism_MOR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Shamanism (Adapted)]
+1 Anguished Unmaking
+3 Arasta of the Endless Web
+1 Confidence from Strength
+1 Eyeblight's Ending
+2 Fade into Antiquity
+15 Forest
+1 Ghostly Visit
+2 Gilt-Leaf Seer
+3 Gruesome Fate
+1 Guardian of Cloverdell
+1 Guiding Bolt
+2 Legion's Judgment
+1 Moonglove Changeling
+2 Plains
+1 Rend Flesh
+1 Reverent Howl
+1 Succumb to Temptation
+5 Swamp
+1 Tempest of Light
+1 Thorntooth Witch
+2 Touch of Death
+2 Vivid Grove
+2 Wanderer's Twig
+3 Wildsize
+3 Woodcutter's Grit
+2 Woodland Changeling

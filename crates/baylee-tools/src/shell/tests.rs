@@ -27,6 +27,30 @@ fn text(depth: usize, words: &str, x: f64, y: f64, w: f64, h: f64) -> Value {
     json!({"d":depth,"t":words,"x":x,"y":y,"w":w,"h":h})
 }
 #[test]
+fn lane_login_refuses_unread_and_names_the_ways_in_that_are_left() {
+    // An old invocation still parses, so it reaches the refusal instead of
+    // a usage error, a password given in plain text among its arguments.
+    for args in [
+        &[
+            "shell",
+            "lane",
+            "login",
+            "lane",
+            "--password-env",
+            "LANE_SECRET",
+        ][..],
+        &["shell", "lane", "login", "lane", "plaintext-password"],
+    ] {
+        assert!(Args::try_parse_from(args).is_ok(), "{args:?}");
+    }
+    let refused = super::lane::login().unwrap_err().to_string();
+    assert_eq!(refused, super::lane::REFUSED);
+    for named in ["password", "Central", "guest", "issues/406"] {
+        assert!(refused.contains(named), "{named}: {refused}");
+    }
+    assert!(!refused.contains("plaintext-password"));
+}
+#[test]
 fn cli_covers_every_legacy_entry_point_without_reading_credentials_or_network() {
     let cases: &[&[&str]] = &[
         &["check", "gallery", "/tmp/out"],
@@ -48,7 +72,7 @@ fn cli_covers_every_legacy_entry_point_without_reading_credentials_or_network() 
         ],
         &["measure", "hover"],
         &["measure", "presses"],
-        &["measure", "quit", "lane", "123", "--password-stdin"],
+        &["measure", "quit", "123", "--session-stdin"],
         &[
             "probe",
             "play",
@@ -71,21 +95,30 @@ fn cli_covers_every_legacy_entry_point_without_reading_credentials_or_network() 
             "{args:?}"
         );
     }
-    assert!(
-        Args::try_parse_from(["shell", "lane", "login", "lane", "plaintext-password"]).is_err()
-    );
-    assert!(
-        Args::try_parse_from([
+    // The session token is never positional, and no password is taken for
+    // a measurement: the gateway signs nobody in with one.
+    for args in [
+        &["shell", "measure", "quit", "123", "plaintext-token"][..],
+        &[
             "shell",
+            "measure",
+            "quit",
             "lane",
-            "login",
-            "lane",
-            "--password-env",
+            "123",
+            "--password-stdin",
+        ],
+        &[
+            "shell",
+            "measure",
+            "quit",
+            "123",
+            "--session-env",
             "A",
-            "--password-stdin"
-        ])
-        .is_err()
-    );
+            "--session-stdin",
+        ],
+    ] {
+        assert!(Args::try_parse_from(args).is_err(), "{args:?}");
+    }
     assert!(
         Args::try_parse_from([
             "shell", "probe", "play", "844x390", "de", "touch", "unknown"
@@ -609,12 +642,19 @@ fn waits_are_bounded_and_missing_conditions_do_not_succeed() {
 }
 
 #[test]
-fn obsolete_password_argument_is_rejected_without_echoing_it() {
-    let args = ["lane", "login", "lane", "do-not-echo-this-password"].map(str::to_owned);
+fn obsolete_secret_argument_is_rejected_without_echoing_it() {
+    let args = ["measure", "quit", "123", "do-not-echo-this-token"].map(str::to_owned);
     let err = super::run(std::path::Path::new("."), &args)
         .unwrap_err()
         .to_string();
     assert!(err.contains("invalid shell arguments"));
+    assert!(!err.contains("do-not-echo-this-token"));
+    // `lane login` takes the old arguments and refuses them unread (#406).
+    let args = ["lane", "login", "lane", "do-not-echo-this-password"].map(str::to_owned);
+    let err = super::run(std::path::Path::new("."), &args)
+        .unwrap_err()
+        .to_string();
+    assert_eq!(err, super::lane::REFUSED);
     assert!(!err.contains("do-not-echo-this-password"));
 }
 

@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266198]
+1 Abundant Countryside
+1 Akki War Paint
+1 Angelic Gift
+1 Aphelia, Viper Whisperer
+1 Arahbo, the First Fang
+1 Baldur's Gate
+1 Battle Sliver
+1 Baxter Building
+1 Belligerent Sliver
+1 Blade Sliver
+1 Blood Petal Celebrant
+1 Blur Sliver
+1 Bonescythe Sliver
+1 Bonesplitter Sliver
+1 Brotherhood Headquarters
+1 Burrowing
+1 Cavern of Souls
+1 Cleaving Sliver
+1 Cloudshredder Sliver
+1 Clout of the Dominus
+1 Concordant Crossroads
+1 Consuming Ferocity
+1 Crackling Club
+1 Creakwood Liege
+1 Crystalline Sliver
+1 Darling of the Masses
+1 Diregraf Captain
+1 Eclipsed Realms
+10 Forest
+1 Fortifying Provisions
+1 Foul Play
+1 Fury Sliver
+1 Galerider Sliver
+1 Gemhide Sliver
+1 Ghoulflesh
+1 Go-Shintai of Life's Origin
+1 Heart Sliver
+1 Hidden Grotto
+1 Horned Sliver
+1 Interplanar Beacon
+1 Lancer Sliver
+1 Leshrac's Rite
+1 Lifelink
+1 Lord of the Undead
+1 Manaweft Sliver
+1 Megantic Sliver
+1 Might Sliver
+1 Mobilization
+1 Molting Snakeskin
+1 Morcant's Loyalist
+2 Mountain
+1 Nykthos, Shrine to Nyx
+2 Plains
+1 Plated Sliver
+1 Predatory Sliver
+1 Red Scarab
+1 Reflex Sliver
+1 Sentinel Sliver
+1 Shadow Sliver
+1 Sidequest: Catch a Fish
+1 Sinew Sliver
+1 Spinneret Sliver
+1 Squire's Devotion
+1 Steelform Sliver
+1 Striking Sliver
+1 Surveillance Room
+1 Survivors' Encampment
+10 Swamp
+1 Synchronous Sliver
+1 Syphon Sliver
+1 Talon Sliver
+1 Thran Quarry
+1 Two-Headed Sliver
+1 Unclaimed Territory
+1 Unforgiving Aim
+1 Venom Sliver
+1 Voldaren Stinger
+1 Watcher Sliver
+1 White Lotus Hideout
+
+[commander]
+Sliver Hivelord

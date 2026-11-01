@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/ACR/brotherhood-agents.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BrotherhoodAgents_ACR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Brotherhood Agents (Adapted)]
+2 Bone Devourer
+3 Brotherhood Spy
+4 Consult the Necrosages
+4 Essence Vortex
+1 Ezio, Blade of Vengeance
+3 Hired Blade
+11 Island
+2 Murder
+4 Notion Rain
+4 Pilfered Plans
+2 Poison-Blade Mentor
+4 Psychic Drain
+3 Submerged Boneyard
+11 Swamp
+1 Towering Viewpoint
+1 Urza's Guilt

@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro W #20266057]
+1 Affa Guard Hound
+1 Akroan Mastiff
+1 Arctic Foxes
+1 Armored Warhorse
+1 Asha's Favor
+1 Blaze of Glory
+1 Camel
+1 Candlelight Vigil
+1 Captivating Unicorn
+1 Cliff Threader
+1 Cliffhaven Sell-Sword
+1 Dazzling Ramparts
+1 Death Ward
+1 Elvish Healer
+1 Encroaching Wastes
+1 Enter the Avatar State
+1 Ephemerate
+1 Equinox
+1 Festival
+1 Flicker
+1 Fomori Vault
+1 Fortified Rampart
+1 Ghost Town
+1 Goldmeadow Dodger
+1 Green Ward
+1 Guardian Angel
+1 Head of Security
+1 Hillcomber Giant
+1 Holy Mantle
+1 Icatian Skirmishers
+1 Impostor of the Sixth Pride
+1 Indestructibility
+1 Isamaru, Hound of Konda
+1 Karn's Bastion
+1 Keen-Eyed Archers
+1 Kithkin Billyrider
+1 Kithkin Healer
+1 Kitsune Riftwalker
+1 Light of Day
+1 Loxodon Line Breaker
+1 Loxodon Wayfarer
+1 Makindi Ox
+1 Maned Serval
+1 Marked by Honor
+1 Marsh Threader
+1 Mending Hands
+1 Naya Panorama
+1 Order of the Golden Cricket
+32 Plains
+1 Purelace
+1 Regal Unicorn
+1 Rimefur Reindeer
+1 Saheeli's Silverwing
+1 Sanctuary Cat
+1 Savai Sabertooth
+1 Shieldmate's Blessing
+1 Snow Hound
+1 Starfleet Crew
+1 Sterling Hound
+1 Stoneskin
+1 Tasseled Dromedary
+1 Thaumaturge's Familiar
+1 Tundra Wall
+1 Tyrite Sanctum
+1 Wall of Caltrops
+1 Wall of Light
+1 Wanderbrine Trapper
+1 Warded Battlements
+
+[commander]
+Worf, Chief Tactical Officer

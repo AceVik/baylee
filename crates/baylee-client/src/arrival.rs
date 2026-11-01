@@ -321,6 +321,15 @@ fn fonts_ready(fonts: &UiFonts, assets: &AssetServer) -> Result<bool, ()> {
     Ok(ready)
 }
 
+/// A game can end while its table is still arriving. Completing that visual
+/// passage must not reopen play and tear down the result that already won the
+/// state race. A replay seek back clears `ending`, so it still opens normally.
+fn play_after_table_arrival(duel: &Duel, next: &mut NextState<DuelPhase>) {
+    if duel.ending().is_none() {
+        next.set(DuelPhase::Playing);
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_lines)] // startup readiness includes fonts, login art and destination assets
 fn prepare(
@@ -445,7 +454,7 @@ fn prepare(
         && (journey.destination == Destination::Login || duel.curtain_up)
     {
         if journey.destination == Destination::Table {
-            next.set(DuelPhase::Playing);
+            play_after_table_arrival(&duel, &mut next);
         }
         journey.destination = Destination::Hidden;
         prepared.reset();
@@ -757,6 +766,29 @@ mod tests {
             vec![kept.id()],
             "what is still there is still waited on"
         );
+    }
+
+    /// Reproduces the replay end arriving before the table's loading passage
+    /// finished: the passage must hide itself, not reopen the finished game.
+    #[test]
+    fn arrival_does_not_reopen_a_game_that_already_ended() {
+        use baylee_engine::win::{EndReason, GameResult};
+
+        let mut duel = Duel::default();
+        duel.receive_choice(baylee_engine::choice::Pending::GameOver(GameResult {
+            winner: None,
+            reason: EndReason::LastPlayerStanding,
+        }));
+        let mut next = NextState::default();
+        next.set(DuelPhase::Finished);
+        play_after_table_arrival(&duel, &mut next);
+        assert!(matches!(next, NextState::Pending(DuelPhase::Finished)));
+
+        duel.interaction = None;
+        let mut next = NextState::default();
+        next.set(DuelPhase::Finished);
+        play_after_table_arrival(&duel, &mut next);
+        assert!(matches!(next, NextState::Pending(DuelPhase::Playing)));
     }
 
     #[test]

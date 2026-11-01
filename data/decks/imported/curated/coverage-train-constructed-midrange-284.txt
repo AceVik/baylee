@@ -1,0 +1,31 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUG #20266285]
+2 Ally Encampment
+2 Avian Changeling
+2 Burrowguard Mentor
+2 Capital City
+2 Dawn Gryff
+2 Eel-Hounds
+1 Forbidden Orchard
+3 Forest
+2 Gaea's Skyfolk
+2 Glimmerdust Nap
+1 Heap Gate
+2 Iron Tusk Elephant
+5 Island
+1 Mirrodin's Core
+2 Nature's Blessing
+2 Needlethorn Drake
+2 Nimbus Swimmer
+2 Noble Elephant
+2 Pay No Heed
+7 Plains
+1 Secluded Courtyard
+2 Serra Sphinx
+2 Stoic Angel
+2 Strength of the Harvest
+2 Sunweb
+1 Tarnished Citadel
+2 Wall of Denial
+2 Winged Coatl

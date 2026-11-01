@@ -1,0 +1,17 @@
+# baylee curated constructed midrange seed=20261086
+# licence: AGPL-3.0-only
+[deck:constructed midrange W #20261086]
+2 Amrou Scout
+4 Avacyn, Angel of Hope
+3 Blade Splicer
+3 Defiant Falcon
+2 Forbidden Orchard
+4 Knight of Doves
+4 Knight-Captain of Eos
+2 Lupinflower Village
+3 Orochi Hatchery
+20 Plains
+3 Ramosian Commander
+3 Ramosian Lieutenant
+4 Siege Veteran
+3 The One Ring

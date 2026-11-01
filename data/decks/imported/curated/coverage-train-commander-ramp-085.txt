@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUG #20266086]
+1 Academy Ruins
+1 Axebane Guardian
+1 Azami, Lady of Scrolls
+1 Blighted Steppe
+1 Cathartic Adept
+1 Cephalid Coliseum
+1 Charming Prince
+1 Citanul Hierophants
+1 Compassionate Healer
+1 Crowd Favorites
+1 Dimir Informant
+1 Disciple of Law
+1 Eiganjo Castle
+1 Eiganjo, Seat of the Empire
+1 Farrelite Priest
+1 Flagstones of Trokair
+12 Forest
+1 Gallant Citizen
+1 Gigantomancer
+1 Gosta Dirk
+1 Great Divide Guide
+1 Groundskeeper
+1 Haazda Exonerator
+1 Hall of Heliod's Generosity
+1 Hapless Researcher
+1 Harabaz Druid
+1 Helionaut
+1 Historian of Zhalfir
+1 Hunding Gjornersen
+1 Intrepid Stablemaster
+1 Iron Man, Futurist Paragon
+1 Irrigation Ditch
+9 Island
+1 Karakas
+1 Kjeldoran Phalanx
+1 Knight of the Tusk
+1 Lilypad Village
+1 Loran, Disciple of History
+1 Lord Magnus
+1 Lossarnach Captain
+1 Lupinflower Village
+1 Magus of the Bazaar
+1 Noble Hierarch
+5 Plains
+1 Rashida Scalebane
+1 Research Assistant
+1 Riptide Laboratory
+1 Salvage Scout
+1 Seahunter
+1 Seaside Citadel
+1 Senate Guildmage
+1 Serra's Sanctum
+1 Silkwing Scout
+1 Sir Shandlar of Eberyn
+1 Slice in Twain
+1 Soldevi Excavations
+1 Somberwald Sage
+1 Spock, Logical Choice
+1 Staunch Defenders
+1 Steelshaper Apprentice
+1 Steward of Valeron
+1 Stoic Builder
+1 Sunseed Nurturer
+1 Swampbenders
+1 Tatyova, Benthic Druid
+1 Third Path Savant
+1 Torsten Von Ursus
+1 Tragic Poet
+1 Urban Retreat
+1 Voidwielder
+1 Whisperer of the Wilds
+1 Wose Pathfinder
+1 Wylie Duke, Atiin Hero
+1 Yotian Dissident
+1 Youthful Scholar
+1 Zhou Yu, Chief Commander
+
+[commander]
+Arcades Sabboth

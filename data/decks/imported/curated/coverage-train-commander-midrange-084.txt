@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266085]
+1 Aclazotz, Deepest Betrayal
+1 Ally Encampment
+1 Ancestors' Aid
+1 Aragorn, the Uniter
+1 Ardent Elementalist
+1 Arenson's Aura
+1 Avengers Tower
+1 Awaken the Woods
+1 Behemoth's Herald
+1 Blazing Effigy
+1 Blazing Hellhound
+1 Bogardan Firefiend
+1 Brine Shaman
+1 Brotherhood Headquarters
+1 Careless Celebrant
+1 Cavern of Souls
+1 Crucible of the Spirit Dragon
+1 Cunning Maneuver
+1 Daily Bugle Building
+1 Deadapult
+1 Doubling Season
+1 Dragon's Herald
+1 Dragonlair Spider
+1 Elvish Doomsayer
+1 Errand of Duty
+1 Failed Conversion
+1 Floodhound
+1 Forbidden Orchard
+5 Forest
+1 Ghen, Arcanum Weaver
+1 Goblin Chirurgeon
+1 Goblin Clearcutter
+1 Goblin Soothsayer
+1 Goblin Trenches
+1 Godsire
+1 Golgari Germination
+1 Hard Evidence
+1 Heartwood Giant
+1 Hellkite Overlord
+1 Hurloon Shaman
+10 Island
+1 Jace's Scrutiny
+1 Journey to Eternity
+1 Jund Battlemage
+1 Kiki-Jiki, Mirror Breaker
+1 Krark-Clan Stoker
+1 Late to Dinner
+1 Lazotep Quarry
+1 Legion's Landing
+1 Living Lightning
+1 Maelstrom Wanderer
+1 Mana Confluence
+1 Morselhoarder
+10 Mountain
+1 Mouser Attack!
+1 Orcish Bloodpainter
+1 Painted Bluffs
+1 Plaza of Heroes
+1 Puppet Master
+1 Rakka Mar
+1 Reckless Ransacking
+1 Savor
+1 School of the Unseen
+1 Sek'Kuar, Deathkeeper
+1 Servo Exhibition
+1 Shivan Harvest
+1 Sokka, Tenacious Tactician
+1 Soulreaper of Mogis
+1 Stimulus Package
+1 Storm God's Oracle
+1 Sudden Breakthrough
+1 Talon Gates of Madara
+1 Tendo Ice Bridge
+1 The Mycosynth Gardens
+1 Thorntooth Witch
+1 Tooth and Claw
+1 Wretched Throng
+
+[commander]
+Go-Shintai of Life's Origin

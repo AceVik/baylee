@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro R #20266049]
+1 About Face
+1 Aerathi Berserker
+1 Akki Drillmaster
+1 Anaba Ancestor
+1 Backdraft
+1 Blast Zone
+1 Blasted Landscape
+1 Boggart Sprite-Chaser
+1 Caterwauling Boggart
+1 Chaoslace
+1 Clive's Hideaway
+1 Crazed Goblin
+1 Crookshank Kobolds
+1 Cursed Totem
+1 Defense Force Aggressor
+1 Defiant Khenra
+1 Dwarven Warriors
+1 Elven Lyre
+1 Enslaved Scout
+1 False Orders
+1 Falter
+1 Feint
+1 Flashfires
+1 Flowstone Infusion
+1 Forgotten Monument
+1 Foundry of the Consuls
+1 Furnace Spirit
+1 Goblin Bird-Grabber
+1 Goblin Bully
+1 Goblin Cadets
+1 Goblin Cavaliers
+1 Goblin Chariot
+1 Goblin Flotilla
+1 Goblin Lackey
+1 Goblin Mountaineer
+1 Goblin Ski Patrol
+1 Goblin Striker
+1 Goblin Tomb Raider
+1 Goblins of the Flarg
+1 Hostile Desert
+1 Joven's Tools
+1 Lathnu Sailback
+1 Lavastep Raider
+1 Lizard Warrior
+1 Mana Clash
+1 Minotaur Sureshot
+1 Minotaur Tactician
+1 Minotaur Warrior
+1 Mogg Squad
+32 Mountain
+1 Márton Stromgald
+1 Null Brooch
+1 Ogre Sentry
+1 Rage Weaver
+1 Raging Redcap
+1 Rampaging Classmate
+1 Sigiled Skink
+1 Skirk Outrider
+1 Skirk Shaman
+1 Slavering Nulls
+1 Sneaking Guide
+1 Spiteful Motives
+1 Ticked Off
+1 Toxic Iguanar
+1 Unnatural Speed
+1 Veteran's Voice
+1 Viashino Spearhunter
+1 Viashino Weaponsmith
+
+[commander]
+Hivis of the Scale

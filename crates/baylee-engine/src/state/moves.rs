@@ -4,6 +4,8 @@
 use super::*;
 use crate::object::Status;
 
+mod sacrifice;
+
 impl GameState {
     /// Returns every exiled card whose link `ends` says has ended to the
     /// battlefield, under its owner's control, and forgets the link.
@@ -380,7 +382,18 @@ impl GameState {
     /// Whether continuous rules reveal this player's entire hand publicly.
     #[must_use]
     pub fn hand_revealed(&self, player: PlayerId) -> bool {
-        !self.has_left(player) && self.hands_revealed()
+        !self.has_left(player)
+            && (self.hands_revealed()
+                || self.effects.iter().any(|fx| {
+                    fx.controller == player
+                        && matches!(fx.modifier, baylee_cards_dsl::Modifier::RevealYourHand)
+                        && fx.source.is_none_or(|source| {
+                            self.object(source).is_some_and(|o| {
+                                o.zone == Zone::Battlefield
+                                    && !o.status.contains(Status::PHASED_OUT)
+                            })
+                        })
+                }))
     }
 
     /// Whether an individual card in a hand is revealed by an effect on it
@@ -454,40 +467,6 @@ impl GameState {
         cause: Cause,
     ) -> Result<ObjectId, StateError> {
         self.move_object_with_departure(id, to, pos, cause, None)
-    }
-
-    /// Sacrifice provenance is independent of whether the operation pays a cost.
-    pub(crate) fn sacrifice_object(
-        &mut self,
-        id: ObjectId,
-        cause: Cause,
-    ) -> Result<ObjectId, StateError> {
-        self.sacrifice_object_with_departure(id, cause, None)
-    }
-
-    /// Preserve the pre-event snapshot when several permanents are sacrificed together.
-    pub(crate) fn sacrifice_object_with_departure(
-        &mut self,
-        id: ObjectId,
-        cause: Cause,
-        departure: Option<crate::damage_history::BattlefieldDeparture>,
-    ) -> Result<ObjectId, StateError> {
-        let object = self.object(id).ok_or(StateError::NoSuchObject(id))?;
-        if object.zone != Zone::Battlefield {
-            return Ok(id);
-        }
-        let owner = object.owner;
-        let mut departure = departure.or_else(|| self.departure_snapshot(id));
-        if let Some(departure) = &mut departure {
-            departure.event.sacrificed = true;
-        }
-        self.move_object_with_departure(
-            id,
-            ZoneLocation::Graveyard(owner),
-            ZonePosition::Top,
-            cause,
-            departure,
-        )
     }
 
     /// A batch move supplies the battlefield information captured before any
@@ -571,6 +550,7 @@ impl GameState {
         // headed for. The answer was taken before the effect ran; all that
         // is left is to spend it.
         let to = self.flashback_destination(id, from_zone, to);
+        let to = crate::replacement::departure::destination(self, id, to);
         let requested = to;
         let to = self.take_commander_redirect(id, to);
         let commander_redirected = to != requested;
@@ -738,6 +718,7 @@ impl GameState {
                 obj.deathtouched = false;
                 obj.regeneration_shields = 0;
                 obj.attached_to = None;
+                obj.chosen_color = None;
                 for rider in &obj.riders {
                     if let crate::object::Rider::MergedComponent(comp) = *rider {
                         merged_components.push(comp);
@@ -753,6 +734,7 @@ impl GameState {
                             | crate::object::Rider::Saddled
                             | crate::object::Rider::ExhaustedAbility(_)
                             | crate::object::Rider::EntrySacrifices(_)
+                            | crate::object::Rider::SecondChosenSubtype(_)
                             | crate::object::Rider::ChosenNumber { .. }
                             | crate::object::Rider::ChosenName { .. }
                             | crate::object::Rider::EntryTappingApplied
@@ -954,6 +936,9 @@ impl GameState {
         // Ghoul's corpse counters).
         if dies_as_a_creature {
             self.per_turn.creatures_died = self.per_turn.creatures_died.saturating_add(1);
+            if let Some(victim) = previous_source {
+                self.record_damaged_creature_death(victim);
+            }
         }
         // The projected set just changed, and the generation compare that
         // guards a refresh counts *effects* — so nothing would have
@@ -1024,11 +1009,14 @@ impl GameState {
         // new object (CR 400.7) that the effect never named.
         if from_zone == Zone::Battlefield {
             self.effects.remove_where(|fx| {
-                matches!(
+                (matches!(
                     fx.duration,
                     baylee_cards_dsl::Duration::WhileYouControlSource
                         | baylee_cards_dsl::Duration::WhileSourceTapped { .. }
-                ) && fx.source == Some(id)
+                ) || (fx.duration == baylee_cards_dsl::Duration::WhileSourceOnBattlefield
+                    && fx.origin == crate::effects::EffectOrigin::Resolution
+                    && fx.modifier == baylee_cards_dsl::Modifier::GainControl))
+                    && fx.source == Some(id)
             });
         }
         if to.zone() == Zone::Graveyard {
@@ -1226,6 +1214,7 @@ impl GameState {
                 drawn.push(top);
                 if let Some(version) = self.object(top).map(|o| o.version) {
                     self.per_turn.drawn.push((top, version));
+                    self.per_turn.instruction_drawn.push((top, version));
                 }
             }
         }

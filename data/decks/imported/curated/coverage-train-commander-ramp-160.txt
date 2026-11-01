@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUBRG #20266161]
+1 Abstergo Entertainment
+1 Abundant Countryside
+1 Adult Gold Dragon
+1 Assault Intercessor
+1 Baxter Building
+1 Bucolic Ranch
+1 Cavern Thoctar
+1 Ceta Disciple
+1 Corrupted Crossroads
+1 Creeping Trailblazer
+1 Crucible of the Spirit Dragon
+1 Deepchannel Duelist
+1 Dralnu's Crusade
+1 Drowner of Truth
+1 Drunau Corpse Trawler
+1 Elemental Augury
+1 Emberstrike Duo
+1 Emberwilde Caliph
+1 Favor of the Overbeing
+10 Forest
+1 Glaciers
+1 Great Hall of the Citadel
+1 Gruul War Chant
+1 Head of the Homestead
+1 Henge of Ramos
+1 Heroism
+1 Inspirit, Flagship Vessel
+2 Island
+1 Jasmine Dragon Tea Shop
+1 Jeskai Shrinekeeper
+1 Kjeldoran Pride
+1 Knotvine Mystic
+1 Magefire Wings
+1 Merfolk of the Depths
+1 Morgue Toad
+1 Mountain
+1 Narset's Rebuke
+1 Natural Emergence
+1 Necra Disciple
+1 Necromaster Dragon
+1 Nightscape Master
+1 Overgrown Estate
+9 Plains
+1 Planar Nexus
+1 Plaza of Heroes
+1 Privileged Position
+1 Pursuit of Flight
+1 Rakdos Ringleader
+1 Reckless Assault
+1 Runes of the Deus
+1 Sangrite Backlash
+1 Scaldkin
+1 Secret Identity
+1 Shadow Lance
+1 Shimmering Grotto
+1 Siege Rhino
+1 Skirmish Rhino
+1 Spiteflame Witch
+1 Storm the Vault
+1 Stormcloud Djinn
+1 Survivors' Encampment
+4 Swamp
+1 Tarnished Citadel
+1 Temur Ascendancy
+1 Temur Devotee
+1 Temur Tawnyback
+1 Timeless Lotus
+1 Two-Headed Hellkite
+1 Unflinching Courage
+1 Viashivan Dragon
+1 Villainous Hideout
+1 Voldaren Estate
+1 Whirlwind of Thought
+1 Wild Research
+1 Wings of Aesthir
+1 Wings of Hope
+1 Winter's Night
+1 Woodwraith Corrupter
+
+[commander]
+Kenrith, the Returned King

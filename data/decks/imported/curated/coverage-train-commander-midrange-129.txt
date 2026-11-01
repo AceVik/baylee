@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266130]
+1 Angelic Voices
+1 Animate Wall
+1 Anthem of Champions
+1 Arboria
+1 Arch of Orazca
+1 Aura Shards
+1 Awakening
+1 Barbed Foliage
+1 Bazaar of Baghdad
+1 Bower Passage
+1 Brambleweft Behemoth
+1 Broken Fall
+1 Choke
+1 Circle of Protection: White
+1 Conversion
+1 Crackdown
+1 Crawling Barrens
+1 Damping Field
+1 Day of Destiny
+1 Deadfall
+1 Deathless Angel
+1 Dense Foliage
+1 Downdraft
+1 Dromad Purebred
+1 Eden, Seat of the Sanctum
+1 Elvish Hexhunter
+1 Ephara's Radiance
+1 Esper Panorama
+13 Forest
+1 Gemstone Caverns
+1 Gossamer Chains
+1 Great Wall
+1 Grixis Panorama
+1 Grounded
+1 Humility
+1 Hypochondria
+1 Intangible Virtue
+1 Island Sanctuary
+1 Isolated Watchtower
+1 Ivy Elemental
+1 Kjeldoran Frostbeast
+1 Kudzu
+1 Lifegift
+1 Light of Day
+1 Living Lands
+1 Living Plane
+1 Lucent Liminid
+1 Mask of Law and Grace
+1 Mesa Unicorn
+1 Might of the Ancestors
+1 Opal Avenger
+12 Plains
+1 Planar Collapse
+1 Powerleech
+1 Retaliation
+1 Righteous Aura
+1 Rolling Stones
+1 Roots of Life
+1 Rule of Law
+1 Safeguard
+1 Shrine of the Forsaken Gods
+1 Still Life
+1 Swarmyard
+1 The Monumental Facade
+1 Thicket Basilisk
+1 Thoughtleech
+1 Tomb of the Spirit Dragon
+1 Trolls of Tel-Jilad
+1 Urza's Workshop
+1 Vagrant Plowbeasts
+1 Venom
+1 Verdant Catacombs
+1 Volrath's Gardens
+1 Worship
+1 Zebra Unicorn
+1 Zhalfirin Void
+
+[commander]
+Jasmine Boreal

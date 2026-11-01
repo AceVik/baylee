@@ -18,8 +18,9 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     let uv = (in.uv - vec2<f32>(0.5, 0.44)) * vec2<f32>(aspect, 1.0);
     let screen_r = length(uv);
     let aa = max(fwidth(screen_r), 0.0004);
-    let reveal = smoothstep(0.48, 1.0, flight) * length(vec2<f32>(aspect, 1.0));
-    let alpha = select(select(1.0, smoothstep(reveal - 0.025, reveal + 0.018, screen_r), flight > 0.48), 1.0 - flight, still > 0.5);
+    let max_r = length(vec2<f32>(0.5 * aspect, 0.56)) + 0.04;
+    let reveal = smoothstep(0.42, 1.0, flight) * max_r;
+    let alpha = select(select(1.0, smoothstep(reveal - 0.03, reveal + 0.02, screen_r), flight > 0.42), 1.0 - flight, still > 0.5);
     if (alpha < 0.002) { return vec4<f32>(0.0); }
     let zoom = 1.0 + pow(flight, 2.7) * 13.0 * (1.0 - still);
     let q = uv / zoom;
@@ -97,7 +98,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         let lit = select(0.16, 1.0, p.state.x > fi);
         c += light * (exp(-d * 450.0) * 0.4 + (1.0 - smoothstep(0.0015, 0.0025, d))) * lit;
     }
-    c += light * exp(-abs(screen_r - reveal) * 85.0) * smoothstep(0.48, 0.60, flight) * 0.45;
+    c += light * exp(-abs(screen_r - reveal) * 85.0) * smoothstep(0.42, 0.56, flight) * 0.45;
     // Dither only the original backdrop, never the table being revealed.
     c += (hash(dot(in.position.xy, vec2<f32>(0.067, 0.113))) - 0.5) / 255.0;
     return vec4<f32>(c, alpha);

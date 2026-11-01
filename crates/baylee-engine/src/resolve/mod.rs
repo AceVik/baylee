@@ -29,12 +29,23 @@ mod names;
 pub use names::resume_name;
 mod chosen;
 mod colors;
+mod conditional_grants;
+mod continuous_subjects;
 mod control;
+mod control_choice;
+mod control_observers;
 mod copying;
+mod damage_returns;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
+mod coin;
+pub mod coin_stakes;
+#[cfg(test)]
+mod coin_stakes_tests;
+mod combat_watches;
 mod counters;
 mod delayed_returns;
+mod destruction_receipts;
 mod draw_debts;
 mod equalize;
 mod explore;
@@ -42,8 +53,10 @@ mod future_attacks;
 mod graveyard_choice;
 mod greatest_exchange;
 mod landwalk;
+mod target_groups;
 mod untap_suppression;
 pub use landwalk::resume_with_subtype;
+mod any_player_payment;
 mod attacking_tokens;
 mod blocked_returns;
 mod half_damage;
@@ -51,11 +64,14 @@ mod life;
 pub(crate) mod linked_counters;
 pub mod loot;
 mod mana;
+pub(crate) mod mana_life_payment;
 mod milling;
 mod reanimation;
 mod reflexive;
+mod regeneration;
 mod retarget;
 mod reveal_put;
+mod source_color;
 pub(crate) mod subjects;
 mod this_way;
 mod token_choices;
@@ -77,16 +93,31 @@ mod river;
 pub use discard::{DiscardReveal, DiscardThen};
 use discard::{discard_or_ask, resume_discard_destination};
 mod counter_move;
+mod directed_search;
+#[cfg(test)]
+mod directed_search_tests;
 mod discard_any;
 pub mod dungeon;
 mod event_actions;
+mod hand_transfer;
 mod immediate;
 pub(crate) mod linked_reanimation;
 mod meld;
 pub(crate) mod mutate;
 mod permissions;
 mod piles;
+mod private_hand;
+#[cfg(test)]
+mod private_hand_tests;
+mod private_library;
+#[cfg(test)]
+mod private_library_tests;
 pub mod proliferate;
+mod repeated_graveyard_choice;
+#[cfg(test)]
+mod repeated_graveyard_tests;
+#[cfg(test)]
+mod reveal_search_tests;
 pub mod tap_energy;
 pub(crate) mod tap_group;
 use permissions::grant_play;
@@ -157,9 +188,13 @@ mod counted_choice_tests;
 
 #[cfg(test)]
 mod controller_of_target_tests;
+#[cfg(test)]
+mod ice_combat_tests;
 
 #[cfg(test)]
 mod copied_decisions_tests;
+#[cfg(test)]
+mod protection_color_tests;
 
 pub use control::resume_control_choice;
 pub(crate) use life::{refresh_damage, resume_damage};
@@ -275,14 +310,13 @@ pub struct Resolution {
     /// what the nested list has left and moves everything after it; what
     /// is left after the point stays exactly what it was.
     ///
-    /// `target_lki` is taken of the first instance only. The pool's one
-    /// such spell, Three Steps Ahead, reads no last known information in
-    /// its second targeting mode — a token copy reads the permanent's
-    /// copiable values while it is there — so nothing would read a snapshot
-    /// of the second.
+    /// `target_lki` includes both groups, so later instructions can still
+    /// identify each targeted object's original incarnation and controller.
     pub retarget_left: Option<usize>,
     /// Connive/recruit state held while their draws may be replaced.
     pub loot: Option<Box<loot::Loot>>,
+    /// Multi-stage coin contest, retained through life-gain draw replacements.
+    pub coin_stake: Option<Box<coin_stakes::CoinStake>>,
     /// An instruction that does something to "the card drawn" whose draw
     /// had to wait for its replacements (`GameState::draws_to_offer`): how
     /// many cards had been drawn this turn and how many waiting draws had
@@ -330,6 +364,11 @@ impl Resolution {
         hash = hash
             .wrapping_mul(31)
             .wrapping_add(self.subject.fingerprint());
+        if let Some(contest) = &self.coin_stake {
+            hash = hash
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(contest));
+        }
         if let Some(targets) = &self.target_lki {
             hash = hash.wrapping_mul(31).wrapping_add(1);
             for target in targets {
@@ -370,6 +409,9 @@ pub struct TargetLki {
 
 /// Identity and departure power retained for the triggering event's object.
 fn event_object_identity(state: &GameState, res: &Resolution) -> Option<(u32, i16)> {
+    if let Some((reference, power)) = res.subject.event_identity() {
+        return Some((reference.version, power));
+    }
     state
         .object(res.on_stack)?
         .riders
@@ -382,6 +424,9 @@ fn event_object_identity(state: &GameState, res: &Resolution) -> Option<(u32, i1
 
 /// The source incarnation an ability captured, independent of later moves.
 pub(crate) fn source_version(state: &GameState, res: &Resolution) -> Option<u32> {
+    if let Some(version) = res.subject.source_version {
+        return Some(version);
+    }
     state
         .object(res.on_stack)?
         .riders
@@ -502,6 +547,21 @@ static EARTHBEND_RETURN: &[Effect] = &[Effect::ReturnToBattlefieldTapped {
     target: TargetSpec::EventObject,
 }];
 
+/// The first target's mana value, as the effect asking is entitled to see
+/// it: [`target_chars`]'s, so X counts as chosen on the stack and as 0
+/// anywhere else (CR 202.3e), and a target the resolution has moved is read
+/// as it was where the resolution found it (CR 608.2h).
+///
+/// It used to read the card's own `x_value` for X wherever the card was.
+/// A permanent keeps that number for its enter replacement, so Divine
+/// Offering on a Chalice of the Void cast for one gained two life for a
+/// mana value of zero. Mana Drain asked the projection instead, after its
+/// own first sentence had put the spell in the graveyard, where X is 0: a
+/// spell cast for X paid its printed cost (31.10.2026). One answer for both.
+pub(super) fn target_mana_value(res: &Resolution, state: &GameState) -> u32 {
+    target_chars(res, state).map_or(0, crate::object::Characteristics::mana_value)
+}
+
 /// The first target's characteristics, as the effect asking is entitled to
 /// see them (CR 608.2h).
 ///
@@ -540,6 +600,7 @@ impl Resolution {
         crate::text_changes::RuleContext {
             source: self.source,
             text: self.text,
+            resolved_name: self.subject.named.map(|(_, name)| name),
             // A relational filter's object: the first target, else the
             // triggering event's object (Glyph of Doom's delayed trigger
             // remembers its Wall as that).
@@ -577,12 +638,9 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .damage_source(res.source, source_version(state, res))
             .map_or(0, |object| u32::from(object.counters.get(*kind))),
         Amount::SourcePower => state
-            .object(res.on_stack)
-            .and_then(|o| o.source_power_lki)
-            .map_or_else(
-                || eval::amount_with_context(amount, state, you, res.rule_context(), res.x),
-                |p| p.max(0) as u32,
-            ),
+            .damage_source(res.source, source_version(state, res))
+            .and_then(|source| source.characteristics().power)
+            .map_or(0, |power| power.max(0) as u32),
         Amount::EventPower => {
             let Some(source) = res.event_object else {
                 return 0;
@@ -623,16 +681,7 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::TargetToughness => target_chars(res, state)
             .and_then(|c| c.toughness)
             .map_or(0, |t| t.max(0) as u32),
-        // Deliberately *not* through `target_chars`: the one card that reads
-        // this is Reanimate, whose target is a creature card in a graveyard
-        // and whose mana value is the printed one. A card that never was a
-        // permanent has no last known information on the battlefield to
-        // prefer.
-        Amount::TargetCmc => res
-            .targets
-            .first()
-            .and_then(|t| state.object(*t))
-            .map_or(0, |o| o.characteristics().mana_value()),
+        Amount::TargetCmc => target_mana_value(res, state),
         // Off the triggered ability, where stacking it wrote the event's
         // amount.
         Amount::EventManaValue => state
@@ -659,6 +708,10 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
             .map_or(0, |p| p.mana_spent),
+        Amount::ManaTypeSpentOnX(color) => state
+            .object(res.on_stack)
+            .and_then(|o| o.paid.as_ref())
+            .map_or(0, |p| p.mana_types_spent_on_x[color.index()]),
         Amount::SacrificedTotalPower => state
             .object(res.on_stack)
             .and_then(|o| o.paid.as_ref())
@@ -700,6 +753,9 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::HandSize(who) => players_of(*who, state, you, res).first().map_or(0, |p| {
             u32::try_from(state.zones.list(ZoneLocation::Hand(*p)).len()).unwrap_or(u32::MAX)
         }),
+        Amount::LifeTotal(who) => players_of(*who, state, you, res).first().map_or(0, |p| {
+            u32::try_from(state.players[usize::from(p.get())].life).unwrap_or(0)
+        }),
         Amount::ControlledCount { who, filter } => players_of(*who, state, you, res)
             .first()
             .map_or(0, |controller| {
@@ -711,6 +767,18 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
         Amount::Half { base, round_up } => {
             let n = amount2(base, state, you, res);
             if *round_up { n.div_ceil(2) } else { n / 2 }
+        }
+        Amount::Divided {
+            base,
+            divisor,
+            round_up,
+        } => {
+            let n = amount2(base, state, you, res);
+            if *round_up {
+                n.div_ceil(divisor.get())
+            } else {
+                n / divisor.get()
+            }
         }
         Amount::Times { base, factor } => amount2(base, state, you, res).saturating_mul(*factor),
         Amount::Sum { left, right } => {
@@ -736,6 +804,13 @@ pub(super) fn amount2(amount: &Amount, state: &GameState, you: PlayerId, res: &R
             .len(),
         )
         .unwrap_or(u32::MAX),
+        Amount::CountOf {
+            filter,
+            zone: baylee_cards_dsl::ZoneSel::GraveyardOf(who),
+        } => players_of(*who, state, you, res)
+            .into_iter()
+            .map(|player| target_groups::graveyard_count(state, res, player, filter))
+            .fold(0, u32::saturating_add),
         Amount::CountOf {
             filter,
             zone: baylee_cards_dsl::ZoneSel::HandChosen,
@@ -770,6 +845,10 @@ pub(super) fn amount_for_player(
 ) -> u32 {
     let each = |inner: &Amount| amount_for_player(inner, state, you, res, player);
     match amount {
+        Amount::CountOf {
+            filter,
+            zone: baylee_cards_dsl::ZoneSel::GraveyardOf(PlayerRel::Recipient),
+        } => target_groups::graveyard_count(state, res, player, filter),
         Amount::ThisWayBy {
             what,
             who: PlayerRel::Recipient,
@@ -781,6 +860,9 @@ pub(super) fn amount_for_player(
         Amount::HandSize(PlayerRel::Recipient) => {
             u32::try_from(state.zones.list(ZoneLocation::Hand(player)).len()).unwrap_or(u32::MAX)
         }
+        Amount::LifeTotal(PlayerRel::Recipient) => {
+            u32::try_from(state.players[usize::from(player.get())].life).unwrap_or(0)
+        }
         Amount::LibrarySize(PlayerRel::Recipient) => {
             u32::try_from(state.zones.list(ZoneLocation::Library(player)).len()).unwrap_or(u32::MAX)
         }
@@ -791,6 +873,18 @@ pub(super) fn amount_for_player(
         Amount::Half { base, round_up } => {
             let n = each(base);
             if *round_up { n.div_ceil(2) } else { n / 2 }
+        }
+        Amount::Divided {
+            base,
+            divisor,
+            round_up,
+        } => {
+            let n = each(base);
+            if *round_up {
+                n.div_ceil(divisor.get())
+            } else {
+                n / divisor.get()
+            }
         }
         Amount::Times { base, factor } => each(base).saturating_mul(*factor),
         Amount::Sum { left, right } => each(left).saturating_add(each(right)),
@@ -869,11 +963,15 @@ pub(super) fn bound_now_with_context(
             .collect();
     }
     if !crate::effects::locks_its_set(modifier) {
-        debug_assert!(
-            only.is_none(),
-            "a dynamic effect cannot carry the seat its card named",
+        return only.map_or_else(
+            || smallvec::smallvec![crate::effects::EffectFilter::Dsl(filter)],
+            |seats| {
+                smallvec::smallvec![crate::effects::EffectFilter::DslControlledBy(
+                    filter,
+                    seats.iter().copied().collect(),
+                )]
+            },
         );
-        return smallvec::smallvec![crate::effects::EffectFilter::Dsl(filter)];
     }
     let matches = |o: &crate::object::GameObject| {
         !o.status.contains(crate::object::Status::PHASED_OUT)
@@ -926,6 +1024,9 @@ pub(super) fn players_of(
         // Only an instruction applying to each player names one, and it
         // reads its amounts through `amount_for_player`.
         PlayerRel::Recipient => Vec::new(),
+        PlayerRel::SecondTargetPlayerOrController => target_groups::second_player(state, res)
+            .into_iter()
+            .collect(),
         // A card has its owner wherever it is (CR 108.3).
         PlayerRel::OwnerOfEvent => res
             .event_object
@@ -934,10 +1035,12 @@ pub(super) fn players_of(
             .filter(|p| !state.has_left(*p))
             .into_iter()
             .collect(),
-        // Of the source's own attack (CR 508.5).
-        PlayerRel::DefendingPlayer => eval::defending_player_of(state, res.source, you)
-            .into_iter()
-            .collect(),
+        // Of the triggering attacker, or the source for a nontriggered instruction (CR 508.5).
+        PlayerRel::DefendingPlayer => {
+            eval::defending_player_of(state, res.event_object.unwrap_or(res.source), you)
+                .into_iter()
+                .collect()
+        }
         // Last known first (CR 608.2h), for the same reason as the event's
         // below: "Exile target creature. Its controller gains life …" reads
         // its second sentence after the first has moved the creature, and
@@ -1082,6 +1185,7 @@ pub fn run(state: &mut GameState, res: &mut Resolution) -> Flow {
         res.target_lki = Some(
             res.targets
                 .iter()
+                .chain(res.second_targets.iter())
                 .filter_map(|&id| {
                     state.object(id).map(|o| TargetLki {
                         id,
@@ -1248,6 +1352,7 @@ pub(crate) fn resume_entries(state: &mut GameState, res: &mut Resolution) -> Flo
 /// Counted copies retain one instruction across every target-choice suspension.
 fn advance_program(res: &mut Resolution) {
     if res.loot.is_none()
+        && res.coin_stake.is_none()
         && res.draw_watch.is_none()
         && !matches!(res.awaiting, Some(AwaitingOp::Entry { after: Some(_), .. }))
         && !matches!(res.effects.get(res.pc), Some(Effect::CopyThisSpell { amount: Amount::Fixed(n) }) if *n > 0)
@@ -1354,9 +1459,13 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::EachPlayerMayPutFromHandOntoBattlefieldRepeatUntilNone { .. }
         | Effect::PlayerMayMillOr { .. }
         | Effect::RaidingParty
+        | Effect::ChoosePhaseToSkipThisTurn
         | Effect::ChooseOne { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
+        | Effect::GuessChosenNameInHand { .. }
+        | Effect::RevealHandForGuess
+        | Effect::DrawIfGuessWrong
         | Effect::ChooseNumber { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::ExchangeGreatestManaValue { .. }
@@ -1515,6 +1624,7 @@ fn run_nested_with(
         loot: None,
         draw_watch: None,
         this_way_from: res.this_way_from,
+        coin_stake: None,
     };
     let flow = run(state, &mut nested);
     res.subject = nested.subject.clone();
@@ -1523,6 +1633,7 @@ fn run_nested_with(
         Flow::Enter => {
             res.awaiting = nested.awaiting;
             res.loot = nested.loot;
+            res.coin_stake = nested.coin_stake;
             res.draw_watch = nested.draw_watch;
             let tail = nested.effects.split_off(nested.pc);
             // No public question was emitted, so the outer instruction still
@@ -1534,6 +1645,7 @@ fn run_nested_with(
         Flow::Wait(pending) => {
             res.awaiting = nested.awaiting;
             res.loot = nested.loot;
+            res.coin_stake = nested.coin_stake;
             res.draw_watch = nested.draw_watch;
             let tail = nested.effects.split_off(nested.pc);
             res.effects.splice(res.pc..=res.pc, tail);
@@ -1675,10 +1787,6 @@ fn tap(state: &mut GameState, id: ObjectId) -> bool {
 /// Summoning sickness restarts where control moved (CR 302.6), as the
 /// projection moves it; the journal says who has each object now.
 pub(super) fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId)]) {
-    let before: Vec<(ObjectId, PlayerId)> = changes
-        .iter()
-        .filter_map(|&(id, _)| state.object(id).map(|o| (id, o.controller)))
-        .collect();
     let timestamp = state.next_timestamp();
     for &(id, player) in changes {
         if state.has_left(player) || !crate::permanent_guards::can_gain_control(state, id, player) {
@@ -1708,14 +1816,4 @@ pub(super) fn gain_control(state: &mut GameState, changes: &[(ObjectId, PlayerId
         });
     }
     state.refresh_characteristics();
-    for (object, old) in before {
-        let Some(new) = state.object(object).map(|o| o.controller) else {
-            continue;
-        };
-        if new != old {
-            state
-                .journal
-                .record(GameEvent::ControllerChanged { object, old, new });
-        }
-    }
 }

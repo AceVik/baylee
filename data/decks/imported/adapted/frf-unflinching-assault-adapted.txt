@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/FRF/unflinching-assault.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, UnflinchingAssault_FRF.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Unflinching Assault (Adapted)]
+4 Anguished Unmaking
+2 Aven Skirmisher
+1 Battle Brawler
+1 Chief of the Edge
+1 Chief of the Scale
+2 Debilitating Injury
+1 Gravedigger
+4 Harsh Sustenance
+2 Mardu Hateblade
+1 Mortify
+3 Oreskos Swiftclaw
+13 Plains
+1 Razorfoot Griffin
+1 Sandblast
+3 Scoured Barrens
+9 Swamp
+1 Take Up Arms
+1 Throttle
+4 Unmake
+1 Unyielding Krumar
+4 Vindicate

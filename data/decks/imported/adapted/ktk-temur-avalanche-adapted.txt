@@ -1,0 +1,33 @@
+# adapted from data/decks/precon/KTK/temur-avalanche.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TemurAvalanche_KTK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Temur Avalanche (Adapted)]
+2 Alpine Grizzly
+2 Brotherhood's End
+1 Divination
+8 Forest
+2 Frontier Bivouac
+3 Goblin Offensive
+2 Growth Spasm
+2 Heir of the Wilds
+5 Island
+1 Lightning Strike
+7 Mountain
+1 Orcish Cannonade
+2 Orochi Leafcaller
+1 Refute
+1 Rugged Highlands
+2 Runeclaw Bear
+2 Seismic Rupture
+1 Solve the Equation
+2 Stone Rain
+2 Summit Prowler
+1 Sweltering Suns
+1 Swiftwater Cliffs
+2 Temur Banner
+1 Temur Tawnyback
+1 Thornwood Falls
+1 Thundering Giant
+1 Titanic Growth
+1 Tusked Colossodon
+1 Windstorm
+1 Winter's Grasp

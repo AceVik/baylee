@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed control
+# licence: AGPL-3.0-only
+[deck:constructed control WBG #20266183]
+2 Apes of Rath
+2 Colossapede
+2 Dread Rider
+2 Elvish Pathcutter
+8 Forest
+2 Giant Mantis
+2 Gloom Pangolin
+2 Golgari Longlegs
+2 Gorilla Chieftain
+2 Greater Basilisk
+2 Kami of Old Stone
+2 Pillar of the Paruns
+2 Pitiless Gorgon
+3 Plains
+2 Raven's Run Dragoon
+3 Sandsteppe Citadel
+2 Shredder's Revenge
+2 Steelshaper's Gift
+5 Swamp
+2 Sylvan Scrying
+3 Three Tree City
+2 Throne of Makindi
+2 Trestle Troll
+2 Witch's Familiar

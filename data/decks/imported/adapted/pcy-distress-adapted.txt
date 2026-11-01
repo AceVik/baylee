@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/PCY/distress.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Distress_PCY.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Distress (Adapted)]
+1 Afterlife
+1 Agent of Shauku
+4 Anguished Unmaking
+1 Belbe's Percher
+1 Chilling Apparition
+2 Dark Ritual
+3 Despoil
+1 Disenchant
+2 Excise
+2 Fresh Volunteers
+4 Inkling Summoning
+1 Maggot Therapy
+4 Mortify
+1 Peat Bog
+9 Plains
+2 Rain of Tears
+1 Seal of Cleansing
+1 Seal of Doom
+11 Swamp
+4 Unmake
+4 Vindicate

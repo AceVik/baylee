@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/WC98/brian-selden-cali-nightmare.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BrianSeldenCaliNightmare_WC98.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Brian Selden - Cali Nightmare (Adapted)]
+4 Birds of Paradise
+2 Builder's Bane
+3 City of Brass
+1 Cloudchaser Eagle
+1 Dauthi Voidwalker
+8 Forest
+1 Gemstone Mine
+2 Hivestone
+2 Karplusan Forest
+1 Man-o'-War
+2 Nekrataal
+1 Orcish Settlers
+4 Recurring Nightmare
+2 Reflecting Pool
+2 Spike Feeder
+1 Spike Weaver
+1 Spirit of the Night
+4 Survival of the Fittest
+1 Swamp
+1 Tradewind Rider
+2 Uktabi Orangutan
+2 Underground River
+2 Undiscovered Paradise
+1 Verdant Force
+1 Volrath's Stronghold
+4 Wall of Blossoms
+2 Wall of Roots
+2 Waterlogged Teachings

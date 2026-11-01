@@ -32,7 +32,7 @@ use crate::HeuristicAgent;
 
 /// What the mana `effects` add may be spent on, when it is restricted. A
 /// rider alone restricts nothing (#232): that source is an ordinary one.
-pub(crate) fn only_for(effects: &[Effect]) -> Option<&'static Filter> {
+pub fn only_for(effects: &[Effect]) -> Option<&'static Filter> {
     effects.iter().find_map(|effect| match effect {
         Effect::AddMana {
             restriction: Some(restriction),
@@ -45,7 +45,7 @@ pub(crate) fn only_for(effects: &[Effect]) -> Option<&'static Filter> {
 impl HeuristicAgent {
     /// Whether mana `source` makes under `filter` may pay for the spell
     /// `spell`, as far as the view can tell.
-    pub(crate) fn admits(
+    pub fn admits(
         &self,
         view: &PlayerView,
         filter: &Filter,
@@ -54,6 +54,20 @@ impl HeuristicAgent {
     ) -> bool {
         spell_object(view, spell).is_some_and(|object| {
             self.filter_matches(filter, view, &object, ZoneRef::Stack, source) == Some(true)
+        })
+    }
+
+    /// Whether the same restricted mana may activate `activated`, an Ally
+    /// source or another permanent whose current characteristics match.
+    pub fn admits_activation(
+        &self,
+        view: &PlayerView,
+        filter: &Filter,
+        source: Option<ObjectId>,
+        activated: ObjectId,
+    ) -> bool {
+        view.object(activated).is_some_and(|object| {
+            self.filter_matches(filter, view, object, ZoneRef::Battlefield, source) == Some(true)
         })
     }
 }
@@ -115,6 +129,7 @@ fn spell_object(view: &PlayerView, id: ObjectId) -> Option<Cow<'_, PublicObject>
         board_mana: None,
         flashback: None,
         grants: Vec::new(),
+        ability_sources: Vec::new(),
         word_changes: Vec::new(),
     }))
 }

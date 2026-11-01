@@ -1,0 +1,79 @@
+# baylee curated highlander control seed=20261066
+# licence: AGPL-3.0-only
+[deck:highlander control UBG #20261066]
+1 Ancient Ziggurat
+1 Architects of Will
+1 Audacity
+1 Baxter Building
+1 Bellowing Crier
+1 Castle Doom
+1 Cat-Gator
+1 Caustic Crawler
+1 Coiling Oracle
+1 Conduit Pylons
+1 Crucible of the Spirit Dragon
+1 Crushing Disappointment
+1 Crystal Grotto
+1 Daily Bugle Building
+1 Dark Prophecy
+1 Dimir Locket
+1 Disciple of Freyalise
+1 Dread Reaper
+1 Dream Beavers
+1 Eclipsed Realms
+1 Elvish Visionary
+1 Five Hundred Year Diary
+8 Forest
+1 Garruk's Packleader
+1 Golgari Findbroker
+1 Golgari Locket
+1 Great Hall of the Citadel
+1 Guardian of Cloverdell
+1 Guildmages' Forum
+1 Hagra Diabolist
+1 Harrowing Journey
+1 Heart Warden
+1 Infernal Idol
+4 Island
+1 Joraga Visionary
+1 Lead Pipe
+1 Llanowar Visionary
+1 Maggot Carrier
+1 Massacre Wurm
+1 Merchant of Secrets
+1 Metalspinner's Puzzleknot
+1 Micromancer
+1 Moldervine Reclamation
+1 Mox Emerald
+1 Mox Sapphire
+1 Multani's Acolyte
+1 Phyrexian Arena
+1 Phyrexian Gargantua
+1 Phyrexian Rager
+1 Pointed Discussion
+1 Pond Prophet
+1 Power Taint
+1 Professor Dellian Fel
+1 Quirion Sentinel
+1 Rathi Fiend
+1 Scholar of Stars
+1 School of the Unseen
+1 Secluded Courtyard
+1 Shaman of Spring
+1 Sleeper Agent
+1 Spire of Industry
+1 Sultai Banner
+15 Swamp
+1 Talisman of Curiosity
+1 Talon Gates of Madara
+1 Tarnished Citadel
+1 Thragtusk
+1 Totem Speaker
+1 Underdome
+1 Wall of Blossoms
+1 Wirewood Hivemaster
+1 Wirewood Savage
+1 Witch's Cauldron
+1 Woodland Liege
+1 Wretched Anurid
+1 Yavimaya Granger

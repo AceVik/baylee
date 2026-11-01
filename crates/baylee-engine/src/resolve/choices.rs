@@ -21,6 +21,44 @@ pub(super) fn exec_choice(
             res.awaiting = Some(AwaitingOp::ChooseCardName { remember });
             Some(Pending::ChooseCardName { player, types })
         }
+        Effect::GuessChosenNameInHand { who, guesser } => {
+            let hand_owner = players_of(who, state, you, res).first().copied()?;
+            let guesser = players_of(guesser, state, you, res).first().copied()?;
+            let (_, name) = res.subject.named?;
+            let actual = state
+                .zones
+                .list(ZoneLocation::Hand(hand_owner))
+                .iter()
+                .filter_map(|&card| state.object(card))
+                .any(|card| card.characteristics().name == name);
+            res.awaiting = Some(AwaitingOp::GuessNamedCardInHand { actual });
+            Some(Pending::YesNo {
+                player: guesser,
+                prompt: YesNoPrompt::Generic,
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::RevealHandForGuess => {
+            res.subject.guess.as_mut()?.revealed = true;
+            zones::exec(
+                state,
+                res,
+                Effect::RevealHand {
+                    who: PlayerRel::You,
+                },
+            )
+        }
+        Effect::DrawIfGuessWrong => {
+            static DRAW: &[Effect] = &[Effect::draw(1)];
+            if res
+                .subject
+                .guess
+                .is_some_and(|guess| guess.revealed && guess.actual != guess.claimed)
+            {
+                return super::run_nested(state, res, DRAW);
+            }
+            None
+        }
         Effect::ChooseNumber { min, max } => {
             res.awaiting = Some(AwaitingOp::ChooseNumber);
             Some(Pending::ChooseNumber {
@@ -320,13 +358,13 @@ pub(super) fn exec_choice(
             })
         }
         Effect::PlayerMayPayOr {
-            player,
+            player: rel,
             mana,
             effect,
         } => {
             // `players_of`, not `eval::players`: ward names the *caster*
             // (`ControllerOfTarget`), which the state alone cannot answer.
-            let player = players_of(player, state, you, res).first().copied()?;
+            let player = payment_player(state, res, rel, op)?;
             // Evaluated here rather than written into the card, because
             // Esper Sentinel's tax is its own power and a creature's power
             // is not known until the ability resolves. `u16` is what the
@@ -960,6 +998,18 @@ pub(super) fn exec_choice(
                 eval::players(PlayerRel::EachPlayer, state, state.turn.active).unwrap_or_default();
             advance_raiding_party(state, res, remaining, Vec::new())
         }
+        Effect::ChoosePhaseToSkipThisTurn => {
+            let player = players_of(PlayerRel::EventPlayer, state, you, res)
+                .first()
+                .copied()?;
+            res.awaiting = Some(AwaitingOp::ChoosePhaseToSkipThisTurn);
+            Some(Pending::ChooseNumber {
+                player,
+                min: 0,
+                max: 2,
+                reason: crate::choice::NumberPrompt::Choice,
+            })
+        }
         _ => unreachable!("not a choice op"),
     }
 }
@@ -1091,3 +1141,73 @@ pub(super) fn advance_eureka(
         }
     }
 }
+
+/// A group keeps its own queue across suspended nested fallback instructions.
+/// The enclosing operation includes its fallback, so a finite nested operation
+/// is distinct from its parent. A final continuation restores the outer event.
+#[derive(Clone, Debug, Hash)]
+pub(super) struct PaymentBatch {
+    operation: Effect,
+    remaining: Vec<PlayerId>,
+    previous_player: Option<PlayerId>,
+}
+
+fn payment_player(
+    state: &GameState,
+    res: &mut Resolution,
+    relation: PlayerRel,
+    operation: Effect,
+) -> Option<PlayerId> {
+    if !matches!(
+        relation,
+        PlayerRel::EachOpponent | PlayerRel::EachPlayer | PlayerRel::EachOtherPlayer
+    ) {
+        return players_of(relation, state, res.controller, res)
+            .first()
+            .copied();
+    }
+    if res
+        .subject
+        .payment_batches
+        .last()
+        .is_none_or(|batch| batch.operation != operation)
+    {
+        let mut remaining = players_of(relation, state, res.controller, res);
+        let seats = state.players.len();
+        let active = usize::from(state.turn.active.get());
+        // CR 101.4: active player first, then the other players in turn order.
+        remaining.sort_by_key(|player| (usize::from(player.get()) + seats - active) % seats);
+        remaining.reverse();
+        let previous_player = res.subject.event_player();
+        res.subject.payment_batches.push(PaymentBatch {
+            operation,
+            remaining,
+            previous_player,
+        });
+    }
+    let batch = res
+        .subject
+        .payment_batches
+        .last_mut()
+        .expect("batch initialized");
+    while let Some(player) = batch.remaining.pop() {
+        if state.has_left(player) {
+            continue;
+        }
+        res.subject.set_event_player(Some(player));
+        // Also schedule the final empty continuation: the last fallback may
+        // suspend, and its event context must last until it has finished.
+        res.effects.insert(res.pc + 1, operation);
+        return Some(player);
+    }
+    let batch = res
+        .subject
+        .payment_batches
+        .pop()
+        .expect("batch initialized");
+    res.subject.set_event_player(batch.previous_player);
+    None
+}
+
+#[cfg(test)]
+mod payment_group_tests;

@@ -3,42 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-mod akroma_s_vengeance;
-mod amnesia;
-mod assassin_s_strike;
-mod austere_command;
-mod bad_deal;
-mod boon_of_the_wish_giver;
-mod certain_death;
-mod crisis_of_conscience;
-mod dark_offering;
-mod defibrillating_current;
-mod desert_twister;
-mod devils_playground;
-mod essence_feed;
-mod extinguish_all_hope;
-mod farewell;
-mod fiery_finish;
-mod grisly_ritual;
-mod guan_yu_s_1_000_li_march;
-mod icatian_town;
-mod imperial_oath;
-mod jokulhaups;
-mod kiss_of_the_amesha;
-mod mass_production;
-mod mindculling;
-mod planar_cleansing;
-mod poison_arrow;
-mod rapturous_moment;
-mod rise_of_eagles;
-mod sangrite_surge;
-mod sip_of_hemlock;
-mod spectral_procession;
-mod thassa_s_bounty;
-mod their_name_is_death;
-mod vanquish_the_foul;
-mod zof_consumption;
-
 // ---- Helpers shared by the tests of this directory -------------------------
 //
 // A sibling module reaches nothing of this file's neighbours, so the few verbs
@@ -346,3 +310,45 @@ fn look_and_send(engine: &mut Engine<RegistryLookup>, away: usize) -> Vec<Object
 fn battlefield_len(engine: &Engine<RegistryLookup>) -> usize {
     engine.state().zones.list(ZoneLocation::Battlefield).len()
 }
+mod akroma_s_vengeance;
+mod amnesia;
+mod assassin_s_strike;
+mod austere_command;
+mod bad_deal;
+mod boon_of_the_wish_giver;
+mod catastrophe;
+mod certain_death;
+mod collective_unconscious;
+mod corrupt;
+mod crisis_of_conscience;
+mod dark_offering;
+mod defibrillating_current;
+mod desert_twister;
+mod devils_playground;
+mod essence_feed;
+mod extinguish_all_hope;
+mod farewell;
+mod fiery_finish;
+mod grisly_ritual;
+mod guan_yu_s_1_000_li_march;
+mod icatian_town;
+mod imperial_oath;
+mod jokulhaups;
+mod kirtar_s_wrath;
+mod kiss_of_the_amesha;
+mod mass_production;
+mod mindculling;
+mod one_dozen_eyes;
+mod planar_cleansing;
+mod poison_arrow;
+mod pulverize;
+mod rapturous_moment;
+mod rise_of_eagles;
+mod sangrite_surge;
+mod sip_of_hemlock;
+mod spectral_procession;
+mod thassa_s_bounty;
+mod their_name_is_death;
+mod time_spiral;
+mod vanquish_the_foul;
+mod zof_consumption;

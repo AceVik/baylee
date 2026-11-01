@@ -107,7 +107,7 @@ impl Tx<'_> {
             let Some(target) = target else {
                 return self.deny("a `DamageDoneOnce` trigger with no `ValidTarget$`".to_string());
             };
-            if source.is_some() || combat {
+            if source.is_some() {
                 return self.deny("a `DamageDoneOnce` trigger naming its source".to_string());
             }
             if target
@@ -117,7 +117,12 @@ impl Tx<'_> {
                 return self.deny(format!("damage dealt to `{target}` at once"));
             }
             let filter = filter_of(self, &target)?;
-            return Some(format!("Trigger::DealtDamage({filter})"));
+            let kind = if combat {
+                "DealtCombatDamage"
+            } else {
+                "DealtDamage"
+            };
+            return Some(format!("Trigger::{kind}({filter})"));
         }
         let Some(source) = source else {
             return self.deny("a `DamageDone` trigger with no `ValidSource$`".to_string());
@@ -125,6 +130,9 @@ impl Tx<'_> {
         let filter = filter_of(self, &source)?;
         match (target.as_deref(), combat) {
             (Some("Player"), true) => Some(format!("Trigger::DealsCombatDamageToPlayer({filter})")),
+            (Some("Creature"), true) => {
+                Some(format!("Trigger::DealsCombatDamageToCreature({filter})"))
+            }
             (Some("Opponent" | "Player.Opponent"), true) => {
                 Some(format!("Trigger::DealsCombatDamageToOpponent({filter})"))
             }
@@ -137,6 +145,35 @@ impl Tx<'_> {
                 if combat { " in combat" } else { "" }
             )),
         }
+    }
+
+    /// `T:Mode$ DamageDealtOnce` — "whenever a creature you control deals
+    /// combat damage" (Noble Purpose) or "whenever [this] deals damage"
+    /// (El-Hajjâj): once per damage event or combat-damage step per source.
+    pub(super) fn damage_dealt_once_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let combat = match p.take("CombatDamage").as_deref() {
+            None | Some("False") => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`CombatDamage$ {other}`")),
+        };
+        if let Some(target) = p.take("ValidTarget") {
+            return self.deny(format!("`DamageDealtOnce` naming `ValidTarget$ {target}`"));
+        }
+        let Some(source) = p.take("ValidSource") else {
+            return self.deny("a `DamageDealtOnce` trigger with no `ValidSource$`".to_string());
+        };
+        let filter = if source == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&source)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        let kind = if combat {
+            "DealsCombatDamage"
+        } else {
+            "DealsDamage"
+        };
+        Some(format!("Trigger::{kind}({filter})"))
     }
 
     /// `T:Mode$ TapsForMana` — "whenever a Mountain is tapped for mana"
@@ -195,37 +232,8 @@ impl Tx<'_> {
         }
         match mode {
             "AttackerBlockedByCreature" => self.block_trigger(p),
-            "ChangesZone" => {
-                let origin = p.take("Origin");
-                let dest = p.take("Destination");
-                let valid = p.take("ValidCard");
-                let (Some(origin), Some(dest), Some(valid)) = (origin, dest, valid) else {
-                    return self
-                        .deny("a `ChangesZone` trigger missing one of its three keys".to_string());
-                };
-                let filter = if valid == "Card.Self" {
-                    "&Filter::This".to_string()
-                } else {
-                    let expr = self.filter_expr(&valid)?;
-                    format!("&{}", self.body.filter_static("TRIGGER", &expr))
-                };
-                match (origin.as_str(), dest.as_str()) {
-                    // `Trigger::ETB` is the same bytes as the variant with
-                    // `&Filter::This` in it, and is what the DSL carries the
-                    // constant for: ninety-nine of the pool's hundred and ten
-                    // enter-triggers point at the source, so the long form is
-                    // the rare one and deserves to look rare.
-                    ("Any", "Battlefield") if filter == "&Filter::This" => {
-                        Some("Trigger::ETB".to_string())
-                    }
-                    ("Any", "Battlefield") => Some(format!("Trigger::EntersBattlefield({filter})")),
-                    ("Battlefield", "Graveyard") => Some(format!("Trigger::Dies({filter})")),
-                    ("Graveyard", "Battlefield") if filter == "&Filter::This" => {
-                        Some("Trigger::EnteredThisFrom(ZoneRef::Graveyard)".to_string())
-                    }
-                    _ => self.deny(format!("trigger on a move from {origin} to {dest}")),
-                }
-            }
+            "AttackerBlocked" => self.attacker_blocked_trigger(p),
+            "ChangesZone" => self.changes_zone_trigger(p),
             "Phase" => {
                 let Some(phase) = p.take("Phase") else {
                     return self.deny("a `Phase` trigger with no `Phase$`".to_string());
@@ -233,6 +241,7 @@ impl Tx<'_> {
                 let step = match phase.as_str() {
                     "Upkeep" => "StepKind::Upkeep",
                     "Draw" => "StepKind::Draw",
+                    "Main1" => "StepKind::FirstMain",
                     "BeginCombat" => "StepKind::CombatBegin",
                     "End of Turn" => "StepKind::End",
                     other => return self.deny(format!("trigger at step `{other}`")),
@@ -246,6 +255,16 @@ impl Tx<'_> {
                 let valid = p.take("ValidPlayer");
                 let whose = match valid.as_deref() {
                     None => Some("PlayerRel::EachPlayer"),
+                    Some("You") if step == "StepKind::End" => {
+                        let lower = self.oracle.to_ascii_lowercase();
+                        if lower.contains("at the beginning of the end step")
+                            && !lower.contains("your end step")
+                        {
+                            Some("PlayerRel::EachPlayer")
+                        } else {
+                            Some("PlayerRel::You")
+                        }
+                    }
                     Some(who) => self.player_rel(Some(who)),
                 };
                 let Some(whose) = whose else {
@@ -258,37 +277,182 @@ impl Tx<'_> {
                     "Trigger::StepBegin {{ step: {step}, whose: {whose} }}"
                 ))
             }
-            "Attacks" => {
-                let Some(valid) = p.take("ValidCard") else {
-                    return self.deny("an `Attacks` trigger with no `ValidCard$`".to_string());
-                };
-                let filter = if valid == "Card.Self" {
-                    "&Filter::This".to_string()
-                } else {
-                    let expr = self.filter_expr(&valid)?;
-                    format!("&{}", self.body.filter_static("TRIGGER", &expr))
-                };
-                Some(format!("Trigger::Attacks({filter})"))
-            }
+            "Attacks" => self.attacks_trigger(p),
+            "Blocks" => self.blocks_trigger(p),
+            "BecomesTarget" => self.becomes_target_trigger(p),
             "SpellCast" => self.spell_cast_trigger(p, zones.is_some()),
             "TapsForMana" => self.taps_for_mana_trigger(p),
             "DamageDone" => self.damage_trigger(p, false),
             "DamageDoneOnce" => self.damage_trigger(p, true),
+            "DamageDealtOnce" => self.damage_dealt_once_trigger(p),
             // "Whenever [a permanent] becomes tapped": the source (City of
             // Brass), or any permanent the filter matches (Lifetap).
-            "Taps" => {
+            "Taps" | "Untaps" => {
+                let untap = mode == "Untaps";
                 let Some(valid) = p.take("ValidCard") else {
-                    return self.deny("a `Taps` trigger with no `ValidCard$`".to_string());
+                    return self.deny("a tap-state trigger with no `ValidCard$`".to_string());
                 };
                 if valid == "Card.Self" {
-                    return Some("Trigger::BecomesTapped(&Filter::This)".to_string());
+                    return Some(if untap {
+                        "Trigger::BecomesUntapped(&Filter::This)".to_string()
+                    } else {
+                        "Trigger::BecomesTapped(&Filter::This)".to_string()
+                    });
                 }
                 let expr = self.filter_expr(&valid)?;
                 let filter = self.body.filter_static("TRIGGER", &expr);
-                Some(format!("Trigger::BecomesTapped(&{filter})"))
+                let variant = if untap {
+                    "BecomesUntapped"
+                } else {
+                    "BecomesTapped"
+                };
+                Some(format!("Trigger::{variant}(&{filter})"))
             }
+            "LandPlayed" => self.land_played_trigger(p),
+            "Drawn" => self.drawn_trigger(p, zones.is_some()),
             other => self.deny(format!("trigger mode `{other}`")),
         }
+    }
+
+    fn becomes_target_trigger(&mut self, p: &mut Params) -> Option<String> {
+        if p.take("ValidTarget").as_deref() != Some("Card.Self") {
+            return self.deny("a `BecomesTarget` trigger not on `Card.Self`".to_string());
+        }
+        match p.take("ValidSource").as_deref() {
+            None => Some("Trigger::BecomesTarget".to_string()),
+            Some("SpellAbility.OppCtrl") => Some(
+                "Trigger::TargetedByOpponent { filter: &Filter::This, you: false }".to_string(),
+            ),
+            Some(other) => self.deny(format!("`BecomesTarget` with `ValidSource$ {other}`")),
+        }
+    }
+
+    fn changes_zone_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let origin = p
+            .take("Origin")
+            .or_else(|| (p.peek("Destination") == Some("Battlefield")).then(|| "Any".to_string()));
+        let dest = p.take("Destination");
+        let valid = p.take("ValidCard");
+        let (Some(origin), Some(dest), Some(valid)) = (origin, dest, valid) else {
+            return self.deny("a `ChangesZone` trigger missing one of its three keys".to_string());
+        };
+        if origin == "Battlefield" && dest == "Graveyard" && valid == "Creature.DamagedBy" {
+            return Some("Trigger::DiesAfterDamageByThis(&Filter::CREATURE)".to_string());
+        }
+        let filter = if valid == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&valid)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        match (origin.as_str(), dest.as_str()) {
+            // `Trigger::ETB` is the same bytes as the variant with
+            // `&Filter::This` in it, and is what the DSL carries the
+            // constant for: ninety-nine of the pool's hundred and ten
+            // enter-triggers point at the source, so the long form is
+            // the rare one and deserves to look rare.
+            ("Any", "Battlefield") if filter == "&Filter::This" => Some("Trigger::ETB".to_string()),
+            ("Any", "Battlefield") => Some(format!("Trigger::EntersBattlefield({filter})")),
+            ("Battlefield", "Graveyard") => Some(format!("Trigger::Dies({filter})")),
+            ("Graveyard", "Battlefield") if filter == "&Filter::This" => {
+                Some("Trigger::EnteredThisFrom(ZoneRef::Graveyard)".to_string())
+            }
+            ("Battlefield", "Any") if filter == "&Filter::This" => {
+                Some("Trigger::LeavesBattlefield(&Filter::This)".to_string())
+            }
+            _ => self.deny(format!("trigger on a move from {origin} to {dest}")),
+        }
+    }
+
+    fn drawn_trigger(&mut self, p: &mut Params, zoned: bool) -> Option<String> {
+        if !zoned {
+            return self.deny("a `Drawn` trigger with no `TriggerZones$`".to_string());
+        }
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `Drawn` trigger with no `ValidCard$`".to_string());
+        };
+        match valid.as_str() {
+            "Card" => Some("Trigger::Draws(PlayerRel::EachPlayer)".to_string()),
+            "Card.YouCtrl" => Some("Trigger::Draws(PlayerRel::You)".to_string()),
+            "Card.OppCtrl" => Some("Trigger::Draws(PlayerRel::Opponent)".to_string()),
+            "Card.OppOwn" => Some("Trigger::Draws(PlayerRel::EachOpponent)".to_string()),
+            other => self.deny(format!("`Drawn` on `{other}`")),
+        }
+    }
+
+    fn land_played_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `LandPlayed` trigger with no `ValidCard$`".to_string());
+        };
+        match valid.as_str() {
+            "Land" => Some("Trigger::PlaysLand(PlayerRel::EachPlayer)".to_string()),
+            "Land.YouCtrl" => Some("Trigger::PlaysLand(PlayerRel::You)".to_string()),
+            "Land.OppCtrl" => Some("Trigger::PlaysLand(PlayerRel::EachOpponent)".to_string()),
+            "Land.Other+YouCtrl" => Some("Trigger::PlaysAnotherLand".to_string()),
+            other => self.deny(format!("`LandPlayed` on `{other}`")),
+        }
+    }
+
+    fn attacker_blocked_trigger(&mut self, p: &mut Params) -> Option<String> {
+        if p.take("ValidCard").as_deref() != Some("Card.Self") {
+            return self.deny("an `AttackerBlocked` trigger not on `Card.Self`".to_string());
+        }
+        match p.take("ValidBlocker") {
+            None => Some("Trigger::BecomesBlocked".to_string()),
+            Some(blocker) => {
+                let expr = self.filter_expr(&blocker)?;
+                let filter = self.body.filter_static("TRIGGER", &expr);
+                Some(format!("Trigger::BecomesBlockedBy(&{filter})"))
+            }
+        }
+    }
+
+    fn attacks_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("an `Attacks` trigger with no `ValidCard$`".to_string());
+        };
+        let alone = match p.take("Alone").as_deref() {
+            None => false,
+            Some("True") => true,
+            Some(other) => return self.deny(format!("`Alone$ {other}`")),
+        };
+        let valid = match p.take("Attacked").as_deref() {
+            None => valid,
+            Some("You") if valid != "Card.Self" && !alone => valid
+                .split(',')
+                .map(|alt| format!("{alt}.attackingYou"))
+                .collect::<Vec<_>>()
+                .join(","),
+            Some(other) => return self.deny(format!("an attack against `{other}`")),
+        };
+        let filter = if valid == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&valid)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        if alone {
+            Some(format!("Trigger::AttacksAlone({filter})"))
+        } else {
+            Some(format!("Trigger::Attacks({filter})"))
+        }
+    }
+
+    fn blocks_trigger(&mut self, p: &mut Params) -> Option<String> {
+        let Some(valid) = p.take("ValidCard") else {
+            return self.deny("a `Blocks` trigger with no `ValidCard$`".to_string());
+        };
+        match p.take("Secondary").as_deref() {
+            None | Some("True") => {}
+            Some(other) => return self.deny(format!("`Secondary$ {other}`")),
+        }
+        let filter = if valid == "Card.Self" {
+            "&Filter::This".to_string()
+        } else {
+            let expr = self.filter_expr(&valid)?;
+            format!("&{}", self.body.filter_static("TRIGGER", &expr))
+        };
+        Some(format!("Trigger::Blocks({filter})"))
     }
 
     /// One `K:` line, as whichever of the four things it is.
@@ -481,6 +645,38 @@ impl Tx<'_> {
         Some(format!("Trigger::State(&{name})"))
     }
 
+    /// Static cleanup triggers for imprint links have no runtime ability:
+    /// versioned riders already end on the relevant zone changes (CR 400.7,
+    /// 406.6). Accept only the exact cleanup forms, never an arbitrary no-op.
+    fn is_link_cleanup_trigger(&self, mode: &str, p: &Params) -> bool {
+        if mode != "ChangesZone"
+            || p.peek("Static") != Some("True")
+            || !p.entries.iter().all(|(key, _)| {
+                matches!(
+                    key.as_str(),
+                    "Origin" | "Destination" | "ValidCard" | "Static" | "Execute"
+                )
+            })
+        {
+            return false;
+        }
+        let Some((api, mut child)) = p
+            .peek("Execute")
+            .and_then(|name| self.svars.get(name))
+            .and_then(|body| Params::parse(body))
+        else {
+            return false;
+        };
+        match api.as_str() {
+            "Cleanup" => {
+                child.take("ClearImprinted").as_deref() == Some("True") && child.exhausted()
+            }
+            "Pump" => child.take("ForgetImprinted").is_some() && child.exhausted(),
+            _ => false,
+        }
+    }
+
+    #[allow(clippy::too_many_lines)]
     pub(super) fn triggered(&mut self, spec: &str) -> Option<()> {
         let Some((mode, mut p)) = Params::parse(spec) else {
             return self.deny("a `T:` line with no `$` in it".to_string());
@@ -502,11 +698,18 @@ impl Tx<'_> {
         {
             return self.cast_self_protection_trigger(&mode, p);
         }
+        let prose_may = p
+            .peek("TriggerDescription")
+            .is_some_and(|d| d.to_ascii_lowercase().contains(", you may have target "));
         p.drop_prose();
         self.trigger_mode = Some(mode.clone());
+        if self.is_link_cleanup_trigger(&mode, &p) {
+            return Some(());
+        }
         if self.is_imprison_clause(&mode, &p) {
             return self.imprison_clause(&mode, p);
         }
+        let zone = Self::take_trigger_zone(&mode, &mut p);
         let (trigger, condition) = if mode == "Always" {
             (self.state_trigger(&mut p)?, String::new())
         } else {
@@ -529,8 +732,14 @@ impl Tx<'_> {
         // no effect here can ask them, so they are refused by name rather
         // than quietly asked of the wrong player.
         let may = match p.take("OptionalDecider").as_deref() {
-            None => false,
+            None => prose_may,
             Some("You") => true,
+            Some("TriggeredCardController")
+                if (trigger == "Trigger::ETB" || trigger.contains("&Filter::This"))
+                    && self.oracle.to_ascii_lowercase().contains("you may") =>
+            {
+                true
+            }
             Some(other) => return self.deny(format!("a `may` decided by `{other}`")),
         };
         if !p.exhausted() {
@@ -549,18 +758,31 @@ impl Tx<'_> {
         // the `MayDo` rather than sitting inside it, which would ask twice.
         // Generic mana only: a coloured price or a non-mana cost is another
         // payment the effect cannot take, and stays unclaimed.
-        let (body, price) = match Self::optional_price(&body, may) {
+        let (body, price) = match Self::optional_price(&body) {
             Some((stripped, price)) => (stripped, Some(price)),
             None => (body, None),
         };
         let mut chain = Chain::default();
-        self.chain(&body, &mut chain)?;
+        self.trigger_is_self = trigger == "Trigger::ETB" || trigger.contains("&Filter::This");
+        let chain_ok = self.chain(&body, &mut chain);
+        self.trigger_is_self = false;
+        chain_ok?;
         if chain.effects.is_empty() {
             return self.deny("a trigger that reads as no effect at all".to_string());
         }
         let targets = chain
             .target
-            .map(|t| format!(", targets = Some(TargetReq::one({t}))"))
+            .map(|t| {
+                if let Some(max) = chain.target_up_to {
+                    if max == 1 {
+                        format!(", targets = Some(TargetReq::up_to_one({t}))")
+                    } else {
+                        format!(", targets = Some(TargetReq::up_to({t}, {max}))")
+                    }
+                } else {
+                    format!(", targets = Some(TargetReq::one({t}))")
+                }
+            })
             .unwrap_or_default();
         let second = chain
             .second_target
@@ -591,7 +813,8 @@ impl Tx<'_> {
             None if may => format!("Effect::MayDo {{ effects: &[{effects}] }}"),
             None => effects,
         };
-        let ability = format!("triggered!({trigger}, &[{effects}]{targets}{second}{condition})");
+        let ability =
+            format!("triggered!({trigger}, &[{effects}]{zone}{targets}{second}{condition})");
         if let Some((role, other, secondary)) = self.block_line.take() {
             return self.pair_block_half(role, other, secondary, ability);
         }
@@ -690,19 +913,32 @@ impl Tx<'_> {
         }
     }
 
-    /// Refuses a script that ended with one half of a "blocks or becomes
-    /// blocked by" trigger read and its mirror never met.
-    pub(super) fn block_halves_paired(&self) -> Option<()> {
-        match &self.block_half {
-            None => Some(()),
-            Some(half) => self.deny(format!(
-                "a `{}` trigger without its mirror",
-                match half.role {
-                    BlockRole::Blocks => "blocks",
-                    BlockRole::Blocked => "becomes blocked by",
-                }
-            )),
+    /// A lone "becomes blocked by" half has its own exact trigger. A lone
+    /// "blocks" half is not the paired trigger and stays refused.
+    pub(super) fn block_halves_paired(&mut self) -> Option<()> {
+        let Some(half) = self.block_half.take() else {
+            return Some(());
+        };
+        if half.role == BlockRole::Blocked && !half.secondary {
+            let ability = self
+                .body
+                .abilities
+                .iter_mut()
+                .find(|ability| **ability == half.ability)?;
+            *ability = ability.replacen(
+                "Trigger::BlocksOrBecomesBlockedBy",
+                "Trigger::BecomesBlockedBy",
+                1,
+            );
+            return Some(());
         }
+        self.deny(format!(
+            "a `{}` trigger without its mirror",
+            match half.role {
+                BlockRole::Blocks => "blocks",
+                BlockRole::Blocked => "becomes blocked by",
+            }
+        ))
     }
 
     /// `DB$ DelayedTrigger | Mode$ Phase | Phase$ EndCombat` — "destroy that
@@ -743,26 +979,9 @@ impl Tx<'_> {
             if targets_here {
                 return self.deny("a delayed trigger on a line that targets".to_string());
             }
-            let Some(execute) = p.take("Execute") else {
-                return self.deny("a delayed trigger with no `Execute$`".to_string());
-            };
-            let Some(body) = self.svars.get(&execute).cloned() else {
-                return self.deny(format!("`Execute$ {execute}` names no SVar"));
-            };
-            let mut inner = super::Chain::default();
-            let outer = std::mem::replace(&mut self.in_delayed, true);
-            let read = self.chain(&body, &mut inner);
-            self.in_delayed = outer;
-            read?;
-            if inner.target.is_some() {
-                return self.deny("a delayed trigger that targets".to_string());
-            }
-            if inner.effects.is_empty() {
-                return self.deny("a delayed trigger that reads as no effect".to_string());
-            }
+            let effects = self.delayed_execute_effects(p)?;
             return Some(format!(
-                "Effect::AtNextTurnsUpkeep {{ effects: &[{}] }}",
-                inner.effects.join(", ")
+                "Effect::AtNextTurnsUpkeep {{ effects: &[{effects}] }}"
             ));
         }
         if mode != "Phase" || phase != "EndCombat" {
@@ -775,21 +994,39 @@ impl Tx<'_> {
             }
         }
         let remembered = p.take("RememberObjects").unwrap_or_default();
-        let other_side = match self.block_line.as_ref().map(|(role, ..)| *role) {
-            Some(BlockRole::Blocks) => "TriggeredAttacker",
-            Some(BlockRole::Blocked) => "TriggeredBlocker",
-            None => {
-                return self.deny(format!(
-                    "a delayed trigger remembering `{remembered}` outside a block trigger"
-                ));
+        let self_combat = remembered.is_empty()
+            && self.block_line.is_none()
+            && matches!(self.trigger_mode.as_deref(), Some("Attacks" | "Blocks"));
+        let damage_done_target = self.block_line.is_none()
+            && self.trigger_mode.as_deref() == Some("DamageDone")
+            && matches!(
+                remembered.as_str(),
+                "TriggeredTargetLKICopy" | "TriggeredTarget"
+            );
+        if !self_combat && !damage_done_target {
+            let other_side = match self.block_line.as_ref().map(|(role, ..)| *role) {
+                Some(BlockRole::Blocks) => "TriggeredAttacker",
+                Some(BlockRole::Blocked) => "TriggeredBlocker",
+                None => {
+                    return self.deny(format!(
+                        "a delayed trigger remembering `{remembered}` outside a block trigger"
+                    ));
+                }
+            };
+            if remembered.strip_suffix("LKICopy").unwrap_or(&remembered) != other_side {
+                return self.deny(format!("a delayed trigger remembering `{remembered}`"));
             }
-        };
-        if remembered.strip_suffix("LKICopy").unwrap_or(&remembered) != other_side {
-            return self.deny(format!("a delayed trigger remembering `{remembered}`"));
         }
         if target.is_some() {
             return self.deny("a delayed trigger on a line that targets".to_string());
         }
+        let effects = self.delayed_execute_effects(p)?;
+        Some(format!(
+            "Effect::AtEndOfCombat {{ about: TargetSpec::EventObject, effects: &[{effects}] }}"
+        ))
+    }
+
+    fn delayed_execute_effects(&mut self, p: &mut Params) -> Option<String> {
         let Some(execute) = p.take("Execute") else {
             return self.deny("a delayed trigger with no `Execute$`".to_string());
         };
@@ -807,9 +1044,18 @@ impl Tx<'_> {
         if inner.effects.is_empty() {
             return self.deny("a delayed trigger that reads as no effect".to_string());
         }
-        Some(format!(
-            "Effect::AtEndOfCombat {{ about: TargetSpec::EventObject, effects: &[{}] }}",
-            inner.effects.join(", ")
-        ))
+        Some(inner.effects.join(", "))
+    }
+
+    fn take_trigger_zone(mode: &str, p: &mut Params) -> &'static str {
+        if mode == "Phase"
+            && p.peek("Phase") == Some("Upkeep")
+            && p.peek("TriggerZones") == Some("Graveyard")
+        {
+            p.take("TriggerZones");
+            ", zone = TriggerZone::Graveyard"
+        } else {
+            ""
+        }
     }
 }

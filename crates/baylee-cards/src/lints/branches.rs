@@ -155,6 +155,17 @@ pub(super) fn printed_branches(ability: &AbilityDef) -> Vec<Branch> {
 /// and a sweep inside a `Sequence` by only one of them.
 pub(super) fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
     match effect {
+        Effect::DestroyAllThenForEachDestroyed {
+            filter, effects, ..
+        } => {
+            let mut filters = if matches!(filter, Filter::This) {
+                Vec::new()
+            } else {
+                vec![*filter]
+            };
+            filters.extend(effects.iter().flat_map(swept_filters));
+            filters
+        }
         Effect::DestroyAll { filter, .. }
         | Effect::ReturnAllToHand { filter, .. }
         | Effect::SetPTFilter { filter, .. }
@@ -162,6 +173,7 @@ pub(super) fn swept_filters(effect: &Effect) -> Vec<&'static Filter> {
         | Effect::DoubleCountersFilter { filter, .. }
         | Effect::PumpFilter { filter, .. }
         | Effect::SacrificeFilter { filter, .. }
+        | Effect::SacrificeAmountForPlayers { filter, .. }
         | Effect::EqualizePermanents { filter }
         | Effect::DealDamageEach { filter, .. }
         | Effect::CreateContinuousEffect { filter, .. } => {

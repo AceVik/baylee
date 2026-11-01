@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/Q05/mono-green-stompy.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MonoGreenStompy_Q05.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Mono-Green Stompy (Adapted)]
+3 An-Havva Inn
+4 Broken Wings
+4 Chord of Calling
+2 Crushing Canopy
+1 Deconstruct
+4 Fade into Antiquity
+19 Forest
+2 Gemrazer
+2 Hail Storm
+3 Kazandu Mammoth
+4 Khalni Ambush
+2 Scavenging Ooze
+2 Snakeskin Veil
+3 Thrashing Brontodon
+2 Turntimber Symbiosis
+1 Untamed Wilds
+2 Wind Shear

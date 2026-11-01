@@ -1,0 +1,80 @@
+# adapted from data/decks/precon/TD0/enchantress-rubinia.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, EnchantressRubinia_TD0.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Enchantress Rubinia (Adapted)]
+1 Absorb
+1 An-Havva Inn
+1 Aysen Abbey
+1 Azorius Chancery
+1 Azorius Signet
+1 Bant Panorama
+1 Bargain
+1 Befuddle
+1 Blinding Light
+1 Bridgeworks Battle
+1 Bring to Trial
+1 Coastal Tower
+1 Coiling Oracle
+1 Concordant Crossroads
+1 Confiscate
+1 Copy Enchantment
+1 Daring Leap
+1 Dream Fracture
+1 Eldritch Evolution
+1 Elfhame Palace
+1 Elvish Visionary
+1 Enlightened Tutor
+1 Fact or Fiction
+1 Fade into Antiquity
+10 Forest
+1 Gaea's Bounty
+1 Glider Kids
+1 Hop to It
+1 I Am Iron Man
+1 Illusionary Mask
+1 Ironwright's Cleansing
+9 Island
+1 Jungle Barrier
+1 Kami of Ancient Law
+1 Looter il-Kor
+1 Majestic Metamorphosis
+1 Man-o'-War
+1 Merfolk Looter
+1 Midnight Haunting
+1 Miren, the Moaning Well
+1 Mulldrifter
+1 Needle Storm
+1 Pillar of Light
+9 Plains
+1 Rampant Growth
+1 Raven Familiar
+1 Regress
+1 Resurrection
+1 Rhystic Study
+1 Rupture Spire
+1 Seal of Cleansing
+1 Seaside Citadel
+1 Selesnya Sanctuary
+1 Selesnya Signet
+1 Silverglade Pathfinder
+1 Simic Growth Chamber
+1 Simic Signet
+1 Spell Snip
+1 Spoils of Victory
+1 Sterling Grove
+1 Sungold Barrage
+1 Swords to Plowshares
+1 Sylvan Library
+1 Terramorphic Expanse
+1 Thornado
+1 Tinker
+1 Tivadar's Crusade
+1 Treva's Charm
+1 Treva's Ruins
+1 Twinblade Blessing
+1 Typhoon
+1 Wargate
+1 Whir of Invention
+1 Wood Elves
+
+[commander]
+Rubinia Soulsinger

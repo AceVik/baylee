@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/APC/pandemonium.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Pandemonium_APC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Pandemonium (Adapted)]
+2 Befuddle
+1 Deluge
+2 Evasive Action
+12 Forest
+3 Harrow
+1 Helionaut
+1 Hornswoggle
+1 Inquisition
+3 Island
+3 Lay of the Land
+2 Mountain
+1 Nomadic Elf
+3 Plains
+2 Quirion Elves
+1 Rack and Ruin
+1 Refute
+3 Renewal
+1 Skywhaler's Shot
+2 Spin Out
+3 Stealth Mission
+2 Sungold Barrage
+3 Swamp
+2 Sylvan Library
+2 Urborg Elf
+1 Winter's Grasp
+2 Wistful Thinking

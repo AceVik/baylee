@@ -15,9 +15,21 @@ card art, symbols, fonts, music or other third-party assets. Existing asset and
 Scryfall requirements below still apply; the API page returned HTTP 403 during
 this check, so no claim of newly verified Scryfall wording is made here.
 
+Desktop feedback review (25 October 2026, PRs #395/#396): the
+[Wizards Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy)
+was checked, including “Tell the Community it’s unofficial.” The retained
+headers keep the existing notice and access to About. The changes use existing
+licensed icon fonts and procedural surfaces; no third-party assets or corpus
+files were added. The Zombie token UUID resolves through Scryfall to the black
+2/2 Zombie from tm20, collector number 6. Scryfall’s API documentation returned
+HTTP 403 during this review; the existing image terms and recorded decisions
+below remain the basis for runtime card images and finishes.
+
 ## Guardrails for every change
 
-- Unofficial non-commercial fan project. No WotC assets in the repo.
+- Unofficial non-commercial fan project. No WotC assets in the repo, except
+  the card images inside recordings of the game (§3, "Recordings of the game
+  show its card images").
 - The card-script reference is an external, GPL-licensed corpus that codegen
   may read as an automated lookup from a local checkout. No file of it is
   ever copied into this repository or distributed with it. `NOTICE` names it
@@ -47,11 +59,17 @@ this check, so no claim of newly verified Scryfall wording is made here.
 2. **WotC Fan Content Policy:** the service is and stays completely free
    (no paywall, no paid features), and asks for no e-mail address, which
    the policy names beside payment as a price fan content may not charge:
-   an account is a username and a password, and a guest is a display name
-   and nothing else (#269; `docs/protocol.md` §"Signing in with a
-   username", §"Playing as a guest"). A guest may not upload a sleeve or a
-   mat: an account anybody gets by asking cannot answer for a picture put on
-   the gateway, so only a registered one may; clients show "unofficial fan content,
+   an account is Baylee Central's, a username and a password, with no
+   address asked for, and a guest is a display name and nothing else
+   (#269; `docs/protocol.md` §"Usernames", §"Playing as a guest"). Since
+   30.10.2026 each gateway's operator chooses whom it lets in: guests,
+   Central's accounts (the default) or both (`BAYLEE_AUTH_MODE`,
+   `docs/central-login.md` §"Who a gateway lets in"), so guests are no
+   longer offered everywhere; offline play needs neither, and Central asks
+   for no address (the Fan Content Policy check of 30.10.2026 found guests
+   not required). A guest may not upload a sleeve
+   or a mat: an account anybody gets by asking cannot answer for a picture
+   put on the gateway, so only an account may; clients show "unofficial fan content,
    not affiliated with Wizards of the Coast"; no WotC logos, no
    "Magic: The Gathering" in branding; no WotC asset is shipped or fetched
    except a card image under clause 3, and the symbols a client draws are
@@ -224,6 +242,38 @@ this check, so no claim of newly verified Scryfall wording is made here.
    credited, on a free page. A public page is a new surface: the PM routes
    this entry to the owner for the okay.
 
+   **Recordings of the game show its card images** (owner, 23.10.2026).
+   The README's loops and the website's screenshot section are recordings
+   of the client as it plays, card images included; until then they used the
+   text view. The rule above, "No card images are committed to the repo",
+   was written against shipping an image as an asset (the card back); a
+   recording of the game is community content, which both rules name:
+   Wizards' Fan Content Policy ("You can use Wizards' IP (except for the
+   restrictions listed in #3) to make Fan Content"; Wizards IP includes
+   "cards, … pictures, … artwork", and Fan Content "fan art, videos, …
+   websites"; it excludes only "the verbatim copying and reposting of
+   Wizards' IP") and Scryfall ("Scryfall provides our card data and image
+   database free of charge for the primary purpose of creating additional
+   Magic software, performing research, or creating community content (such
+   as videos, streams, podcasts, etc.)"; its image page calls the PNG "the
+   best image to use for videos or other high-quality content"), both read
+   on 23.10.2026. The conditions, each from those pages: a recording shows
+   cards as the client draws them, scaled uniformly and never in a passing
+   dimmed or tinted state ("Do not blur, sharpen, desaturate, or color-shift
+   card images", "Do not distort, skew, or stretch card images"), with
+   framings that keep each card's artist and copyright line ("Do not cover,
+   crop, or clip off the copyright or artist name on card images"), and
+   nothing of ours on a card ("Do not add your own watermarks, stamps, or
+   logos to card images"); no Universes Beyond card appears (above: their
+   properties are not Wizards' to permit); every place that shows them
+   credits "Card images: Scryfall · © Wizards of the Coast" next to them and
+   stays free with the unofficial-fan-content notice ("Portions of the
+   materials used are property of Wizards of the Coast."); and
+   `docs/images/readme/` and `web/site/img/` say that the card images in
+   their files are Wizards of the Coast's, provided by Scryfall, and not
+   under this repository's licence. No card image is committed as an asset
+   of its own.
+
    **Nothing we paint lies on a card image** (#274). Scryfall asks that an
    image is not covered, cropped, blurred, sharpened, desaturated, colour-shifted
    or stamped, and the artist's name
@@ -325,6 +375,25 @@ this check, so no claim of newly verified Scryfall wording is made here.
    above allows that one term and no other, so a lasting stamp, a keyword
    for instance, is still refused there. A keyword lasts as long as the
    keyword, so its border stays off the print (the shell's mask, above).
+
+   **A language-model seat asks Scryfall's API only for a profile that
+   says so** (31.10.2026, `docs/llm-seat.md` §"Reports and lookups"). A
+   seat's card lookups read this build's compiled Oracle first and its
+   gateway's catalog under its own session second; only a profile with
+   `"lookup": "scryfall"` asks `api.scryfall.com`, for a card's rulings and
+   for a card neither knows. It keeps the requirements recorded above: at
+   most ten requests a second (one at a time, 100 ms apart, for every
+   seat of this machine that keeps the same cache directory: its processes
+   take turns under a lock file there), what it fetched kept (a week, in
+   the user's cache directory,
+   for this machine's seats alone: no mirror, no proxy), and it names
+   itself (`User-Agent: baylee-seat/<version>`, `Accept:
+   application/json;q=0.9,*/*;q=0.8`). A request carries the card's name
+   and nothing about the game or the player; the rulings' address is
+   followed only on `api.scryfall.com`. The text a model is told names
+   Scryfall as its source. Scryfall's API documentation answered HTTP 403
+   to this check as well, so no newly verified wording is claimed here;
+   the headers are the project's brief.
 4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint (`DELETE /account`, `docs/protocol.md` §"Deleting an account
    (#292)"); no tracking.
@@ -1265,3 +1334,52 @@ were reread: “Tell the Community it’s unofficial.” The existing notice rem
 The [Scryfall API/image terms](https://scryfall.com/docs/api) returned HTTP 403
 in this check; no new image usage or distribution is introduced, and the
 existing decisions above continue to apply.
+
+### 2026-10-24 — Shared translucent navbar and compact deck controls
+
+The navbar and deck controls use original UI geometry and the existing
+unmodified Font Awesome font for action icons, under the bundled SIL OFL 1.1
+(`crates/baylee-client/assets/fonts/licenses/OFL-FontAwesome.txt`, `NOTICE`).
+No artwork, card-image treatment, corpus source or font asset is added.
+The [Fan Content Policy and FAQ](https://company.wizards.com/en/legal/fancontentpolicy)
+were reread: “Tell the Community it’s unofficial.” Existing notices and credits
+remain. The [Scryfall API/image terms](https://scryfall.com/docs/api) returned
+HTTP 403 during this check; this change introduces no new image or API usage,
+and the existing licensing decisions above remain applicable.
+
+### Baylee memorial · 26 October 2026
+
+The owner explicitly requested freely usable repertoire and a memorial album
+using his five supplied cat photographs. The revised menu performance uses
+complete **public-domain Mutopia editions** of Debussy's *Clair de lune*
+(Keith OHara, after E. Fromont 1905) and Satie's *Gymnopédie No. 1* (Evin
+Robertson). Edition pages and source hashes are in `art/music/memorial/`.
+The [Debussy edition](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1778),
+[Satie edition](https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=37), and
+[Mutopia terms](https://www.mutopiaproject.org/legal.html) identify these
+particular editions as public domain; checked 26.10.2026. This is the owner's
+documented exception to the original-only tune rule. The earlier OpenScore
+Lieder arrangement and its source files have been removed. No Yiruma melody
+or recording is used; the reference described the desired mood.
+
+New grand-piano samples are **Osiris Piano**, Versilian Studios/Karoryfer,
+[Yamaha C2, CC0](https://shop.karoryfer.com/pages/free-osiris-piano). The
+[publisher's sample policy](https://shop.karoryfer.com/pages/free-samples)
+confirms CC0; checked 26.10.2026. Files are pinned to
+`sfzinstruments/Osiris_Piano@18c6afccb60cff458edbf7c394571783e074e1e9`.
+Full stereo solo-violin/cello recordings use the existing approved
+`sgossner/VSCO-2-CE@440300901dfe9275fd84e0b7763af1f8443ae62e` CC0 collection;
+its [publisher page](https://versilian-studios.com/vsco-community/) was rechecked.
+Both unmodified legal texts are shipped in `assets/chamber/`; recording credits
+remain in NOTICE. The preparation manifest pins every original hash, output
+hash, source rate and velocity layer. Python soxr (LGPL-2.1-or-later) is an
+offline authoring dependency only; no soxr code or binary is shipped in Baylee.
+The runtime newly performs notes from the scores; it does not copy a finished
+performance. All game compositions and their sample-bank licences are unchanged.
+
+The [Wizards Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy)
+was rechecked the same day. Existing fan-content notices remain. The new images derive from the
+owner's authorized references and original image-generation calls. No Wizards
+artwork/audio, third-party game art or new Scryfall request is introduced.
+Photograph derivatives omit location and capture metadata. Existing fan-content
+and source notices remain visible and unchanged.

@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/TSP/hope-s-crusaders.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, HopeSCrusaders_TSP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Hope's Crusaders (Adapted)]
+3 Aerial Assault
+1 Army of Allah
+4 Bring to Trial
+1 Cloudchaser Kestrel
+2 D'Avenant Healer
+1 Dragon's Presence
+2 Errant Doomsayers
+1 Expose to Daylight
+1 Flawless Maneuver
+2 Foriysian Interceptor
+1 Icatian Crier
+3 Icatian Javelineers
+1 Narrow Escape
+23 Plains
+3 Queen's Commission
+1 Radiant's Judgment
+2 Sworn Companions
+2 Thunder Totem
+4 Warrior's Honor
+2 Zhalfirin Commander

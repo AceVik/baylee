@@ -40,9 +40,136 @@ pub enum DamageRedirectTo {
     DamagingSourceController,
 }
 
+/// The future event observed by an independent one-shot delayed ability.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DelayedObservation {
+    /// The watched permanent leaves the battlefield or becomes untapped.
+    LeavesBattlefieldOrUntaps,
+    /// The ability's controller loses control of the watched permanent,
+    /// including its departure while that player controls it.
+    YouLoseControl,
+}
+
+/// Combat events supported by recurring, resolution-created observers.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CombatWatchEvent {
+    /// A creature becomes a blocker, once per declaration rather than per pair.
+    Blocks,
+    /// An attacking creature becomes unblocked after blockers are declared.
+    AttacksAndIsntBlocked,
+}
+
 /// A single effect operation.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Effect {
+    /// Execute instructions for each exact graveyard card left by a creature
+    /// this source damaged that died this turn, naming it as `EventObject`.
+    ForEachCreatureDamagedBySourceThatDiedThisTurn {
+        /// Instructions for each still-present graveyard incarnation.
+        effects: &'static [Effect],
+    },
+    /// Grant this non-targeting triggered ability only if it is absent.
+    GrantTriggeredIfAbsent {
+        /// Affected permanent.
+        target: TargetSpec,
+        /// Trigger event of the granted ability.
+        trigger: crate::Trigger,
+        /// Instructions of the granted ability.
+        effects: &'static [Effect],
+        /// Lifetime of the grant.
+        duration: crate::Duration,
+    },
+    /// The named player may choose a matching permanent and gain control of it.
+    PlayerMayGainControl {
+        /// Player choosing and receiving control.
+        player: PlayerRel,
+        /// Permitted objects, evaluated from this ability's controller.
+        filter: &'static Filter,
+        /// Lifetime of the control effect.
+        duration: crate::Duration,
+    },
+    /// Sacrifice the required number, or all available if fewer exist, then
+    /// execute the fallback only when the full number could not be sacrificed.
+    SacrificeNOrElse {
+        /// Permanents the resolving player may sacrifice.
+        filter: &'static Filter,
+        /// Required number.
+        count: u8,
+        /// Instructions after an incomplete sacrifice.
+        otherwise: &'static [Effect],
+    },
+    /// Deal damage whose matching current recipients cannot prevent or redirect it.
+    DealDamageWithoutPreventionOrRedirection {
+        /// Damage amount.
+        amount: Amount,
+        /// Initial damage recipients.
+        target: TargetSpec,
+        /// Criterion reread against the recipient after every redirection.
+        recipients: &'static Filter,
+    },
+    /// Prevent damage to this Aura's exact enchanted permanent without targeting it.
+    PreventNextDamageToAttached {
+        /// Finite shield capacity, until cleanup.
+        amount: Amount,
+    },
+    /// Observe matching future combat events repeatedly for the current turn.
+    WheneverCombatEventThisTurn {
+        /// Event being observed.
+        event: CombatWatchEvent,
+        /// Creatures that cause the trigger, read when the event occurs.
+        filter: &'static Filter,
+        /// End the observer when the current combat ends, rather than at cleanup.
+        this_combat_only: bool,
+        /// Targets announced separately for each delayed trigger.
+        targets: Option<TargetReq>,
+        /// Instructions of each delayed trigger.
+        effects: &'static [Effect],
+    },
+    /// Execute instructions separately for every surviving exact target.
+    ForEachTarget {
+        /// The current target is `EventObject` and its controller is `EventPlayer`.
+        effects: &'static [Effect],
+    },
+    /// Draw cards, then discard only cards actually drawn by this instruction (CR 614.11b).
+    DrawThenDiscardDrawn {
+        /// Number of individual draws.
+        draw: Amount,
+        /// Number to discard, or all eligible cards if fewer remain.
+        discard: u8,
+    },
+    /// Exile the top card unseen, then return that exact card at your next end step.
+    ExileTopFaceDownUntilYourNextEndStep,
+    /// Exile the triggering discard's exact successor only from your graveyard.
+    ExileDiscardedCardFromYourGraveyard,
+
+    /// Exchange the groups of creatures blocking two targeted attackers.
+    ExchangeBlockersOfTargetAttackers,
+    /// Register a prospective one-shot trigger, with separate exact watched
+    /// and affected battlefield objects (CR 603.7).
+    CreateDelayedObserver {
+        /// Object whose future events are observed.
+        watch: TargetSpec,
+        /// Event that triggers the delayed ability.
+        when: DelayedObservation,
+        /// Object named by `EventObject` when the delayed ability resolves.
+        about: TargetSpec,
+        /// Instructions of the delayed ability.
+        effects: &'static [Effect],
+    },
+    /// Prevent this ability source's next damage event to each indicated player this turn.
+    PreventNextDamageFromSource {
+        /// Protected players, bound when this resolves.
+        to: PlayerRel,
+        /// Restrict prevention to combat damage.
+        combat_only: bool,
+    },
+    /// Redirect matching combat damage to you for the rest of this turn.
+    RedirectCombatDamageToYouThisTurn {
+        /// Sources read when damage occurs.
+        by: &'static Filter,
+        /// New damage recipient, bound when this resolves if a permanent.
+        to: DamageRedirectTo,
+    },
     /// Deal damage simultaneously to both independently announced target groups.
     DealDamageToBothTargetInstances {
         /// Damage dealt to every recipient of either group.
@@ -132,12 +259,26 @@ pub enum Effect {
         play: ExilePlay,
     },
     /// Choose one or more colors during resolution and replace the recipient's colors.
+    /// Record a chosen color on this source without changing its characteristics.
+    ChooseSourceColor,
+    /// Choose actual colors for the selected objects.
     ChooseColors {
         /// Which permanent changes.
         subject: ColorSubject,
         /// At most this many of the five colors, and at least one (CR 105.4).
         max: u8,
         /// How long the chosen colors replace the old ones.
+        duration: super::Duration,
+    },
+    /// Choose a land subtype and grant the corresponding landwalk.
+    ChooseLandwalk {
+        /// Additional properties required of the defending player's land.
+        lands: &'static Filter,
+        /// Recipients, fixed before the choice.
+        target: TargetSpec,
+        /// Restrict the choice to the five basic land types.
+        basic_only: bool,
+        /// Duration of the granted ability.
         duration: super::Duration,
     },
     /// Choose a basic land type now; this exact source gains that landwalk.
@@ -356,6 +497,12 @@ pub enum Effect {
         /// Player whose hand and resources are used.
         player: PlayerRel,
     },
+    /// Control a player during the next turn that player actually takes
+    /// (CR 722.1): the whole turn, until the next one begins.
+    ControlPlayerNextTurn {
+        /// The player to control.
+        player: PlayerRel,
+    },
     /// Instruct a player to activate one mana ability of each land they control,
     /// then move all their unspent mana to this effect's controller.
     ActivateLandsAndTakeMana {
@@ -394,6 +541,14 @@ pub enum Effect {
     DealDamageWithCappedLifeGain {
         /// Damage requested before prevention and replacement effects.
         amount: Amount,
+    },
+    /// Deal damage with the target's life/loyalty/toughness cap and an
+    /// additional computed maximum on the resulting life gain.
+    DealDamageWithLimitedLifeGain {
+        /// Damage requested before prevention and replacement effects.
+        amount: Amount,
+        /// Maximum life gain, evaluated before the damage is dealt.
+        life_limit: Amount,
     },
     /// Run operations in order.
     Sequence(&'static [Effect]),
@@ -476,6 +631,83 @@ pub enum Effect {
         /// "In a random order": the rest are shuffled onto the bottom and
         /// nobody is asked.
         random: bool,
+    },
+    /// Privately keep cards in hand and return the rest to the top in any order.
+    LookAtTopPickThenReorder {
+        /// Number of top cards inspected.
+        count: Amount,
+        /// Number moved to hand, or all available if fewer.
+        pick: u8,
+    },
+    /// Inspect top cards, exile a random subset, and order the rest on top.
+    LookAtTopExileRandom {
+        /// Maximum number inspected.
+        count: u8,
+        /// Number exiled, or all inspected if fewer.
+        exile: u8,
+    },
+    /// Move top cards to public exile without revealing them first.
+    ExileTop {
+        /// Affected library.
+        who: PlayerRel,
+        /// Number moved, limited by the library's size.
+        count: Amount,
+    },
+    /// Reveal down to the first named card; every miss moves to `otherwise`.
+    RevealUntilNamed {
+        /// Affected library.
+        player: PlayerRel,
+        /// Destination for the matching card.
+        matched: SearchDest,
+        /// Destination for each nonmatching card.
+        otherwise: SearchDest,
+    },
+    /// Reveal one card by name, running the failure branch only on a mismatch.
+    RevealTopByNameThen {
+        /// Affected library.
+        player: PlayerRel,
+        /// Destination for the matching card.
+        matched: SearchDest,
+        /// Destination for a nonmatching card.
+        otherwise: SearchDest,
+        /// Runs for a mismatch, even if its movement is replaced; never for an empty library.
+        otherwise_effects: &'static [Effect],
+    },
+    /// That player chooses and orders cards from their hand onto their library.
+    PutFromHandOnTopFor {
+        /// Hand owner, who chooses and orders.
+        player: PlayerRel,
+        /// Number moved, or the whole hand if fewer.
+        count: u8,
+    },
+    /// The hand's owner puts their whole hand on top in an order they choose.
+    PutHandOnTop {
+        /// Owner of the hand and library.
+        player: PlayerRel,
+    },
+    /// The controller searches a library for a dynamic number of cards for a separate recipient.
+    SearchLibraryFor {
+        /// Library searched by the resolving controller.
+        library: PlayerRel,
+        /// Recipient of cards put into a hand or onto the battlefield.
+        receiver: PlayerRel,
+        /// Maximum number of matching cards, read once at the search's start.
+        count: Amount,
+        /// Search quality; a qualified search may fail to find.
+        filter: &'static Filter,
+        /// Destination and entry details applied to each selected card.
+        find: &'static Find,
+        /// Whether fewer than the maximum may be selected in an unrestricted search.
+        optional: bool,
+    },
+    /// Another player chooses a graveyard card; paying mana repeats with an unchosen card.
+    RechooseGraveyardCard {
+        /// Graveyard owner and recipient of the final selection.
+        owner: PlayerRel,
+        /// Player who chooses a card on each pass.
+        chooser: PlayerRel,
+        /// Mana the resolving controller may pay for another pass.
+        cost: ManaCost,
     },
     /// Look at the top `count` cards of your library; put one of them into
     /// your hand, one on the bottom of your library, and exile the rest —
@@ -840,6 +1072,9 @@ pub enum Effect {
     AttackWithoutTappingWhileSourceUntappedThisCombat,
     /// Choose a damage source and prevent all its damage to every recipient this turn.
     ChooseDamageSourcePreventAllThisTurn,
+    /// Choose a damage source matching a filter and prevent all its damage
+    /// to every recipient this turn.
+    ChooseDamageSourcePreventAllThisTurnMatching(&'static Filter),
     /// "The next time a red source of your choice would deal damage to you
     /// this turn, prevent that damage" (Circle of Protection: Red; CR 609.7,
     /// 615.8): the controller chooses a source as this resolves, and a
@@ -880,6 +1115,13 @@ pub enum Effect {
     WishToHand {
         /// Which cards qualify.
         filter: &'static Filter,
+    },
+    /// Destroy the permanents in the named target groups simultaneously.
+    DestroyTargetSlots {
+        /// Which target groups, or the exact source incarnation.
+        targets: &'static [TargetSlot],
+        /// Prohibit regeneration from this destruction event.
+        no_regen: bool,
     },
     /// Destroy a target permanent (CR 701.8a).
     Destroy {
@@ -955,6 +1197,10 @@ pub enum Effect {
     /// is made once the card has entered, so replacement and copy choices
     /// as it enters come first.
     ReanimateEnchanted,
+    /// As `ReanimateEnchanted`, with the creature entering tapped.
+    ReanimateEnchantedTapped,
+    /// Put each target on top of its owner's library.
+    PutTargetOnTopOfLibrary,
     /// Put each target on the bottom of its owner's library (Banishing
     /// Stroke).
     PutTargetOnBottomOfLibrary,
@@ -1092,6 +1338,19 @@ pub enum Effect {
         /// Retain the choice on the source permanent for its linked abilities.
         remember: bool,
     },
+    /// A chosen player guesses whether the previously named card is in the
+    /// named player's hand.
+    GuessChosenNameInHand {
+        /// Whose hand the guess is about.
+        who: PlayerRel,
+        /// Who makes the guess without seeing that hand.
+        guesser: PlayerRel,
+    },
+    /// Reveal the controller's hand and record it as proof for a later
+    /// wrong-guess reward. Usually nested in `Effect::MayDo`.
+    RevealHandForGuess,
+    /// Draw a card only if the hand was revealed and the guess was wrong.
+    DrawIfGuessWrong,
     /// Reveal the named player's top card and move it according to its name.
     RevealTopByName {
         /// Library inspected and recipient of a matching card.
@@ -1171,6 +1430,12 @@ pub enum Effect {
         /// What the delayed trigger does.
         effects: &'static [Effect],
     },
+    /// For each token created earlier in this resolution, register the same
+    /// one-shot delayed trigger at the next end step about that exact token.
+    AtNextEndStepForCreatedTokens {
+        /// What each delayed trigger does to its token as `EventObject`.
+        effects: &'static [Effect],
+    },
     /// "When that creature dies this turn, [effects]" (Sandals of Abdallah:
     /// "destroy this artifact"): a delayed triggered ability (CR 603.7)
     /// created as this resolves, with this ability's source and controller
@@ -1241,6 +1506,9 @@ pub enum Effect {
         /// Which permanent.
         target: TargetSpec,
     },
+    /// Creatures actually dealt damage by this resolving source so far
+    /// cannot be regenerated this turn, including redirected recipients.
+    DamagedThisWayCantBeRegenerated,
     /// Discover N (CR 701.57a): "Exile cards from the top of your library
     /// until you exile a nonland card with mana value N or less. You may
     /// cast that card without paying its mana cost if the resulting spell's
@@ -1303,9 +1571,10 @@ pub enum Effect {
         /// Which permanents the rider reaches.
         source_filter: &'static Filter,
     },
-    /// Register delayed mana at the controller's next first main phase
-    /// (Mana Drain): colorless mana equal to the first target's cmc.
-    DelayedManaAtNextFirstMain {
+    /// Register delayed mana at the beginning of the controller's next main
+    /// phase, first or second (Mana Drain): mana equal to the first target's
+    /// mana value.
+    DelayedManaAtNextMain {
         /// Color of the mana.
         color: ManaColor,
     },
@@ -1368,6 +1637,24 @@ pub enum Effect {
         /// How many cards.
         count: u8,
     },
+    /// Each named player discards a computed number of cards. All choices
+    /// precede the simultaneous discard; `Recipient` is that player.
+    DiscardAmountForPlayers {
+        /// Players who discard.
+        who: PlayerRel,
+        /// Amount evaluated for each player as this instruction begins.
+        amount: Amount,
+    },
+    /// Each named player sacrifices a computed number of matching permanents.
+    /// Choices are made in APNAP order before any permanent is sacrificed.
+    SacrificeAmountForPlayers {
+        /// Players who sacrifice their own permanents.
+        who: PlayerRel,
+        /// Eligible permanents.
+        filter: &'static Filter,
+        /// Amount evaluated for each player as this instruction begins.
+        amount: Amount,
+    },
     /// Each named player discards one card; you draw for each who cannot.
     /// All discard selections precede the simultaneous discards (CR 101.4).
     DiscardEachOrDraw {
@@ -1384,6 +1671,22 @@ pub enum Effect {
     /// The resolving controller privately looks at the chosen player's hand.
     /// Nothing is revealed to the other players and no card changes zones.
     LookAtChosenHand,
+    /// Privately inspect a seeded random subset of a player's hand.
+    LookAtRandomFromHand {
+        /// Owner of the hand; the resolving controller looks.
+        who: PlayerRel,
+        /// Maximum number of distinct cards inspected.
+        count: Amount,
+    },
+    /// Privately inspect a hand, then choose matching cards for its owner to discard.
+    LookHandDiscard {
+        /// Owner of the inspected hand.
+        player: PlayerRel,
+        /// Number chosen, limited by the available matching cards.
+        count: Amount,
+        /// Selectable cards; the controller still inspects the entire hand.
+        filter: &'static Filter,
+    },
     /// Privately inspect the top cards without moving or reordering them.
     LookAtTopOf {
         /// Library to inspect; the resolving controller is the viewer.
@@ -1748,6 +2051,17 @@ pub enum Effect {
     /// seeded generator, and the one branch the flip names runs (CR 705.2:
     /// the flip is won or lost only by the player who flipped). Either list
     /// may be empty: Mijae Djinn does nothing when it wins.
+    /// Flip a coin for opposite life changes; the winner decides whether to repeat
+    /// with the stake multiplied. The entire contest is one resolving instruction.
+    FlipCoinLifeExchangeRepeat {
+        /// The other player in the contest.
+        opponent: PlayerRel,
+        /// Life gained and lost on the first flip.
+        initial: Amount,
+        /// Factor applied before each repeated flip.
+        multiplier: u32,
+    },
+    /// Flip once and run the corresponding win or loss branch.
     FlipCoin {
         /// Effects when the controller wins the flip.
         won: &'static [Effect],
@@ -1912,6 +2226,22 @@ pub enum Effect {
         finds: &'static [Find],
         /// Whether you may find fewer than `finds.len()` ("up to", "you may").
         optional: bool,
+    },
+    /// Search your library for one matching card and reveal it without
+    /// moving it or shuffling. Later instructions can use its name.
+    RevealLibrarySearch {
+        /// What to find.
+        filter: &'static Filter,
+        /// Whether finding no card is allowed.
+        optional: bool,
+    },
+    /// Each player in the relation who cast a spell this turn with the same
+    /// name as a card revealed earlier in this resolution loses life once.
+    PlayersWhoCastRevealedNameThisTurnLoseLife {
+        /// Which players are checked.
+        who: PlayerRel,
+        /// Life lost by each qualifying player.
+        amount: Amount,
     },
     /// Find up to two basic lands sharing a land subtype, enter them tapped,
     /// then shuffle. A single basic land may be found by itself.
@@ -2143,6 +2473,10 @@ pub enum Effect {
     ExileAll {
         /// What.
         filter: &'static Filter,
+        /// Whether each permanent is exiled with a link to this source, so a
+        /// later ability can return those cards (Worldgorger Dragon). Ordinary
+        /// exile sweeps leave this false and create no such relationship.
+        linked: bool,
     },
     /// "Choose a creature you control. It gains indestructible until end of
     /// turn." (Final Showdown): as this resolves its controller chooses one
@@ -2163,6 +2497,17 @@ pub enum Effect {
         then: &'static [Effect],
     },
     /// Destroy all objects matching a filter (wraths).
+    DestroyAllThenForEachDestroyed {
+        /// Permanents destroyed simultaneously.
+        filter: &'static Filter,
+        /// Whether regeneration is prohibited for this destruction.
+        no_regen: bool,
+        /// Run once per successful destruction after all destruction
+        /// replacements settle. `EventPlayer` is that permanent's original
+        /// controller; `EventObject` retains its battlefield identity.
+        effects: &'static [Effect],
+    },
+    /// Destroy every permanent matching the filter.
     DestroyAll {
         /// What.
         filter: &'static Filter,
@@ -2631,6 +2976,28 @@ pub enum Effect {
     /// on it. If you pay, …" (Cyclone): [`Effect::PlayerMayPayThenElse`]
     /// with a coloured price repeated `times` (evaluated as this resolves),
     /// the whole of it paid at once. A price of nothing (`times` 0) is paid.
+    PlayerMayPayManaAndLifeEachThenElse {
+        /// Player offered the complete price.
+        player: PlayerRel,
+        /// Mana paid for each repetition.
+        mana: ManaCost,
+        /// Life paid for each repetition.
+        life: u32,
+        /// Number of repetitions, determined at resolution.
+        times: Amount,
+        /// Consequence after complete payment.
+        paid: &'static [Effect],
+        /// Consequence after refusal or inability to pay.
+        unpaid: &'static [Effect],
+    },
+    /// Offer a mana price in APNAP order; the first payment prevents the effects.
+    AnyPlayerMayPayManaOr {
+        /// Full price offered independently to each player.
+        cost: ManaCost,
+        /// Consequence if nobody pays.
+        effects: &'static [Effect],
+    },
+    /// A repeated mana-only price, paid as one payment.
     PlayerMayPayManaEachThenElse {
         /// Player offered the payment.
         player: PlayerRel,
@@ -2767,6 +3134,9 @@ pub enum Effect {
     /// keeps it apart from [`Effect::ExileLinked`]'s "until …" exile and its
     /// rider, which a leaving host and a new monarch both read.
     ExileTargetsWithSource,
+    /// Choose a matching card from your hand and exile it with a link to
+    /// this source (CR 406.6, 607.2a).
+    ExileChosenFromHandWithSource(&'static Filter),
     /// Return everything exiled with a link to the source to the
     /// battlefield under its owner's control.
     ReturnLinkedToBattlefield,
@@ -2795,6 +3165,9 @@ pub enum Effect {
     ExileTopFaceDownLinked,
     /// Play each card exiled by the linked ability now, without its mana cost (CR 607.3).
     MayPlayLinkedExile,
+    /// Copy a card exiled with this source and cast the copy without paying
+    /// its mana cost; the original stays in exile (CR 607.2a, 707.12).
+    MayCopyCastLinkedExile,
     /// Return linked exiled cards to their owners' named zone.
     ReturnLinkedExile {
         /// Hand or graveyard; the owner of each card receives it.
@@ -2918,6 +3291,19 @@ pub enum Effect {
         up_to: u8,
         /// How many of those the opponent sends to the graveyard.
         chosen: u8,
+    },
+    /// Apply one continuous modifier to the current set of objects matching
+    /// a filter, optionally narrowed to permanents of a player chosen by the
+    /// spell or ability. The set is bound now (CR 611.2c).
+    ModifyFilter {
+        /// Which objects are affected.
+        filter: &'static Filter,
+        /// Whose permanents, when the sentence names a player.
+        controlled_by: Option<PlayerRel>,
+        /// Characteristic or rule change applied to each member.
+        modifier: super::Modifier,
+        /// How long the change lasts.
+        duration: super::Duration,
     },
     /// All objects matching a filter get computed P/T modifiers, and
     /// optionally keywords, until a duration ends (Toxic Deluge: `-X/-X`
@@ -3250,6 +3636,13 @@ pub enum Effect {
     /// this resolution, and for nothing it only aimed at. A target whose
     /// damage was prevented was not dealt damage (CR 615.1).
     ExileDamagedThisWayIfDies,
+    /// Remove all counters of one kind from every permanent matching a filter.
+    RemoveAllCountersFilter {
+        /// Which permanents lose counters.
+        filter: &'static Filter,
+        /// Which counter kind is removed completely.
+        kind: CounterKind,
+    },
     /// "Remove all counters from target permanent" (Vampire Hexmage): removes
     /// every counter of every kind from each target.
     RemoveAllCountersTarget,
@@ -3571,6 +3964,63 @@ pub enum Effect {
     /// chooses up to two Plains for each creature tapped this way, then
     /// destroys all Plains not chosen this way by any player (Raiding Party).
     RaidingParty,
+    /// The next time the first target creature would deal damage this turn,
+    /// prevent that damage; if `gain_life` is true, you gain life equal to the
+    /// damage prevented this way (Awe Strike).
+    PreventNextDamageFromTarget {
+        /// Whether you gain life equal to the damage prevented this way.
+        gain_life: bool,
+    },
+    /// Creatures target player controls don't untap during that player's next
+    /// untap step (Blinding Beam).
+    TargetPlayersCreaturesDontUntapNextUntap,
+    /// Each player matching `who` adds `amount` of `color` mana (Blinkmoth Urn).
+    AddManaAmountFor {
+        /// Who receives the mana.
+        who: PlayerRel,
+        /// Mana color added.
+        color: ManaColor,
+        /// Amount of mana added (evaluated per player when `who` is relative).
+        amount: Amount,
+    },
+    /// Exchange control of the triggering event object and the first target
+    /// permanent (Confusion in the Ranks).
+    ExchangeControlOfEventAndTarget,
+    /// Unattach all Equipment from the first target creature (Disarm).
+    UnattachAllEquipmentFromTarget,
+    /// Target/event player chooses draw step, main phase, or combat phase and
+    /// skips each instance of the chosen step or phase this turn (Fatespinner).
+    ChoosePhaseToSkipThisTurn,
+    /// Flip a coin until you lose a flip or choose to stop; if you lose a flip,
+    /// this spell has no effect; if you win one or more flips, deal 3 damage to
+    /// target creature; if you win two or more flips, deal 6 damage to each
+    /// opponent; if you win three or more flips, draw nine cards and untap all
+    /// lands you control (Fiery Gambit).
+    FlipCoinsUntilLossOrStopCumulative,
+    /// `new_controller` gains control of the permanent this Aura is attached to
+    /// indefinitely (Fractured Loyalty).
+    AttachedGainControlBy {
+        /// Who gains control of the enchanted permanent.
+        new_controller: PlayerRel,
+    },
+    /// Each player matching `player` reveals the top card of their library; if
+    /// it matches `filter`, that player may put it onto the battlefield (Gate
+    /// to the Aether).
+    RevealTopPlayerMayPutOntoBattlefield {
+        /// Whose library is revealed and who may put the card onto the battlefield.
+        player: PlayerRel,
+        /// Filter the revealed top card must match to be put onto the battlefield.
+        filter: &'static Filter,
+    },
+    /// Reveal cards from the top of your library until you reveal a land card;
+    /// this source deals damage equal to the number of nonland cards revealed
+    /// this way to `target` (doubled if the revealed land card was a Mountain);
+    /// put the revealed cards on the bottom of your library in any order
+    /// (Goblin Charbelcher).
+    RevealUntilLandDealDamage {
+        /// Who or what receives the damage.
+        target: TargetSpec,
+    },
 }
 
 #[cfg(test)]

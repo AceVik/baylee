@@ -105,6 +105,37 @@ impl HouseDeck {
         })
     }
 
+    /// Parses either a `[deck:Name]` house deck file or any format recognized
+    /// by `baylee_deckio::import` (such as `# baylee deck export v1`).
+    ///
+    /// # Errors
+    /// When the text cannot be parsed or names an unknown card/commander.
+    pub fn parse_any(key: &str, text: &str) -> anyhow::Result<Self> {
+        if text.lines().any(|l| l.trim_start().starts_with("[deck:")) {
+            return Self::parse(key, text);
+        }
+        let imported = baylee_deckio::import(text)
+            .map_err(|e| anyhow::anyhow!("deckio import failed for {key}: {e}"))?;
+        let baylee_deckio::Import::Read { read, .. } = imported else {
+            bail!("{key}: expected deck text, not a URL");
+        };
+        let stored = read.document.stored();
+        let name = stored.name.unwrap_or_else(|| key.to_owned());
+        let main: Vec<String> = stored.cards.iter().map(ToString::to_string).collect();
+        let side: Vec<String> = stored.sideboard.iter().map(ToString::to_string).collect();
+        for cmd in &stored.commanders {
+            if baylee_cards::decks::by_name(cmd).is_none() {
+                bail!("unknown commander: {cmd}");
+            }
+        }
+        let deck =
+            from_lines(&name, &main, &side, &stored.commanders).map_err(anyhow::Error::msg)?;
+        Ok(Self {
+            key: key.to_owned(),
+            deck,
+        })
+    }
+
     /// Every card the deck can put into a game: library, sideboard and
     /// command zone.
     pub fn cards(&self) -> impl Iterator<Item = CardIndex> + '_ {

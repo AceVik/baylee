@@ -1,9 +1,7 @@
 //! Writes or checks the API documents in `docs/api/` from the servers'
-//! sources: `write` (the default) rewrites the documents that changed,
-//! `check` writes nothing and fails on a stale or missing one, and `gate`
-//! is `check` that only reports a stale document: while oas-forge is linked
-//! by path, every commit to that checkout changes the output, and a gate
-//! failing on that would go red by itself. `serve [--port N]` shows them in
+//! sources: `write` (the default) rewrites the documents that changed, and
+//! `check` writes nothing and fails on a stale or missing one (the gate's
+//! `api` step and CI's `validate` job). `serve [--port N]` shows them in
 //! Swagger UI on this machine ([`serve`]). Writing or checking, either way
 //! every route a service's routers register must be in one of its documents,
 //! and nothing else ([`routes`]). The repository root is the working directory
@@ -92,7 +90,6 @@ fn main() -> ExitCode {
     let task = match args.first().map(String::as_str) {
         None | Some("write") => Task::Write,
         Some("check") => Task::Check,
-        Some("gate") => Task::Gate,
         Some("serve") => {
             let port = match args.get(1..).unwrap_or_default() {
                 [] => serve::PORT,
@@ -117,7 +114,7 @@ fn main() -> ExitCode {
             };
         }
         Some(other) => {
-            eprintln!("api-docs: unknown task `{other}` (write, check, gate, serve)");
+            eprintln!("api-docs: unknown task `{other}` (write, check, serve)");
             return ExitCode::from(2);
         }
     };
@@ -136,7 +133,6 @@ fn main() -> ExitCode {
 enum Task {
     Write,
     Check,
-    Gate,
 }
 
 /// Builds every document and writes or checks them; `false` when one has
@@ -183,7 +179,7 @@ fn run(task: Task) -> Result<bool, Box<dyn std::error::Error>> {
     for service in SERVICES {
         complete &= every_route_documented(service)?;
     }
-    Ok(complete && (fresh || task == Task::Gate))
+    Ok(complete && fresh)
 }
 
 /// Whether a service's documents together hold exactly the operations its

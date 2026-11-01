@@ -1,0 +1,32 @@
+# adapted from data/decks/precon/PD2/fire-and-lightning.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FireAndLightning_PD2.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fire and Lightning (Adapted)]
+1 Arc Lightning
+1 Ball Lightning
+1 Boiling Blood
+2 Burning-Fist Minotaur
+1 Chain Lightning
+1 Fireball
+1 Ghitu Encampment
+1 Goblin Offensive
+2 Hammer of Bogardan
+2 Hordeling Outburst
+2 Jackal Pup
+4 Lightning Bolt
+1 Make Mischief
+2 Mogg Fanatic
+21 Mountain
+2 Orcish Cannonade
+1 Pillage
+1 Price of Progress
+1 Pyrokinesis
+1 Shivan Gorge
+1 Steam Blast
+1 Sudden Impact
+2 Sweltering Suns
+2 Teetering Peaks
+1 Thunderbolt
+1 Uncaged Fury
+1 Unsubtle Mockery
+1 Vulshok Sorcerer
+1 Wheel of Fortune

@@ -482,6 +482,29 @@ mod tests {
         assert!(!strip.can_leave());
     }
 
+    /// The gateway removes an ended game from the next feed page. When that
+    /// page arrives, the client must stop offering a return to it; a stale
+    /// row explicitly saying `over` is not a way back either.
+    #[test]
+    fn a_finished_game_drops_the_return_offer_with_its_listing() {
+        let row = |state: &str| {
+            game(
+                "g",
+                "Finished table",
+                state,
+                vec![seat(0, true, true, true), seat(1, true, false, true)],
+            )
+        };
+        let mut lobby = signed_in(vec![row("playing")]);
+        assert!(matches!(strip(&lobby), Some(Strip::Playing { .. })));
+
+        lobby.apply(LobbyEvent::Games(GameListing::default()));
+        assert_eq!(strip(&lobby), None, "the ended table left the feed");
+
+        lobby.apply(LobbyEvent::Games(GameListing::of(vec![row("over")])));
+        assert_eq!(strip(&lobby), None, "nor does an old `over` row return");
+    }
+
     #[test]
     fn nobody_seated_no_strip_and_never_on_the_front_door() {
         let lobby = signed_in(vec![game(

@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/MIR/ride-like-the-wind.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RideLikeTheWind_MIR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ride Like the Wind (Adapted)]
+1 Agility
+1 Alarum
+2 Aleatory
+2 Blistering Barrier
+3 Burning Shield Askari
+1 Crimson Roc
+1 Deadly Riposte
+3 Femeref Knight
+2 Hero's Resolve
+1 Iron Tusk Elephant
+1 Melesse Spirit
+12 Mountain
+12 Plains
+3 Searing Spear Askari
+1 Serra Zealot
+1 Sidar Jabari
+2 Spitting Earth
+1 Telim'Tor
+2 Telim'Tor's Darts
+3 Tireless Tribe
+2 Zhalfirin Commander
+3 Zhalfirin Knight

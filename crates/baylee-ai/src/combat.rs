@@ -174,6 +174,7 @@ fn attacking(view: &PlayerView, options: &[BlockOption]) -> Vec<ObjectId> {
 /// one exception is not a judgement but a legality — menace takes two
 /// blockers or none, and [`enforce_menace`] settles that against the finished
 /// declaration rather than while it is being built.
+#[allow(clippy::too_many_lines)] // two-pass block assignment stays in one auditable loop
 pub(crate) fn choose_blocks(
     board: &Board,
     options: &[BlockOption],
@@ -212,105 +213,207 @@ pub(crate) fn choose_blocks(
     // The engine offers a pairing per blocker; a creature with nothing it
     // may legally block is not a decision.
     let mut free: Vec<&BlockOption> = options.iter().filter(|o| !o.attackers.is_empty()).collect();
-    // Biggest blockers first, so the creature that can actually kill
-    // something is not spent chumping.
-    free.sort_by_key(|o| {
-        let f = board.fighter(o.blocker);
-        (
-            -f.map_or(0, |f| f.power),
-            -f.map_or(0, |f| f.toughness),
-            o.blocker.slot(),
-        )
-    });
 
     let mut pairs: Vec<(ObjectId, ObjectId)> = Vec::new();
+    let mut used_blockers: BTreeSet<ObjectId> = BTreeSet::new();
     let mut taken: BTreeSet<ObjectId> = BTreeSet::new();
     let mut still_coming = incoming;
 
-    for option in free {
-        let Some(blocker) = board.fighter(option.blocker) else {
-            continue;
-        };
-        // Read before the pairing, because an attacker nobody can describe
-        // is what makes it true in the case this exists for.
-        let lethal = !unread.is_empty() || still_coming >= life;
-        // Of the attackers this creature may block, the one where the
-        // exchange is best — and among equals, the one that hits hardest.
-        let best = option
-            .attackers
-            .iter()
-            .filter(|id| !taken.contains(id))
-            .filter_map(|id| board.fighter(*id).map(|f| (*id, f)))
-            .max_by_key(|(id, attacker)| {
-                let e = exchange(*attacker, blocker);
-                let saved = attacker.power - spillover(*attacker, blocker);
-                // `false < true`, so this reads as a preference order: the
-                // block the seat needs (its life while it is dying, else a
-                // walker it can keep), then our creature surviving, then
-                // theirs dying, then the hardest hitter, then the lowest slot
-                // to break ties without consulting a clock.
+    // Pass 1 (`chump_pass = false`, biggest blockers first) takes free blocks
+    // and profitable trades, so a large blocker is not spent chumping while a
+    // smaller creature beside it could chump instead. Pass 2 (`chump_pass =
+    // true`, cheapest blockers first) spends the smallest remaining blockers
+    // needed to survive lethal damage or rescue a planeswalker.
+    for chump_pass in [false, true] {
+        if chump_pass {
+            free.sort_by_key(|o| {
+                let f = board.fighter(o.blocker);
                 (
-                    if lethal {
-                        aimed(*id) == me
-                    } else {
-                        rescues(&walkers, aimed(*id), saved, blocker)
-                    },
-                    !e.blocker_dies,
-                    e.attacker_dies,
-                    attacker.power,
-                    std::cmp::Reverse(id.slot()),
+                    f.map_or(0, |f| f.worth),
+                    f.map_or(0, |f| f.power),
+                    f.map_or(0, |f| f.toughness),
+                    o.blocker.slot(),
                 )
             });
-        let Some((attacker_id, attacker)) = best else {
-            // Nothing readable left to pair with. An unreadable attacker is
-            // still an attacker, and a seat that cannot prove it survives
-            // chumps: the creature costs one card, and the alternative is
-            // the game. It is not offered a *choice* between unreadables —
-            // there is nothing to choose on — so it takes the first.
-            if lethal
-                && let Some(i) = unread
-                    .iter()
-                    .position(|id| option.attackers.contains(id) && !taken.contains(id))
-            {
-                let attacker_id = unread.remove(i);
-                pairs.push((option.blocker, attacker_id));
-                taken.insert(attacker_id);
-            }
-            continue;
-        };
-        let e = exchange(attacker, blocker);
-        // What the block actually saves: the attacker's damage, less
-        // whatever tramples through anyway.
-        let saved = attacker.power - spillover(attacker, blocker);
-        let at_me = aimed(attacker_id) == me;
-        let worth_it = if lethal && at_me {
-            // Rule 1. Any block that stops damage is worth making, and a
-            // creature that dies for it has done its job.
-            saved > 0
-        } else if !lethal && rescues(&walkers, aimed(attacker_id), saved, blocker) {
-            // Rule 1b.
-            true
-        } else if !e.blocker_dies {
-            // Rule 2a. Free: nothing of ours dies.
-            e.attacker_dies || saved > 0
         } else {
-            // Rule 2b. A trade, judged by what each side costs.
-            e.attacker_dies && attacker.worth >= blocker.worth
-        };
-        if worth_it {
-            pairs.push((option.blocker, attacker_id));
-            taken.insert(attacker_id);
-            if at_me {
-                still_coming -= saved;
-            } else if let Defender::Planeswalker(walker) = aimed(attacker_id)
-                && let Some(entry) = walkers.iter_mut().find(|w| w.id == walker)
-            {
-                entry.coming -= saved;
+            free.sort_by_key(|o| {
+                let f = board.fighter(o.blocker);
+                (
+                    -f.map_or(0, |f| f.power),
+                    -f.map_or(0, |f| f.toughness),
+                    o.blocker.slot(),
+                )
+            });
+        }
+
+        for option in &free {
+            if used_blockers.contains(&option.blocker) {
+                continue;
+            }
+            let Some(blocker) = board.fighter(option.blocker) else {
+                continue;
+            };
+            // Read before the pairing, because an attacker nobody can describe
+            // is what makes it true in the case this exists for.
+            let lethal = !unread.is_empty() || still_coming >= life;
+            let survives = |chosen_id: ObjectId, me_saved: i32| {
+                survives_with(
+                    board,
+                    &free,
+                    &used_blockers,
+                    &taken,
+                    &attacking,
+                    option.blocker,
+                    chosen_id,
+                    still_coming - me_saved,
+                    life,
+                )
+            };
+            // Of the attackers this creature may block, the one where the
+            // exchange is best — and among equals, the one that hits hardest.
+            let best = option
+                .attackers
+                .iter()
+                .filter(|id| !taken.contains(id))
+                .filter_map(|id| board.fighter(*id).map(|f| (*id, f)))
+                .filter(|(id, attacker)| {
+                    if chump_pass {
+                        return true;
+                    }
+                    let e = exchange(*attacker, blocker);
+                    let saved = attacker.power - spillover(*attacker, blocker);
+                    let productive = if e.blocker_dies {
+                        e.attacker_dies && attacker.worth >= blocker.worth
+                    } else {
+                        e.attacker_dies || saved > 0
+                    };
+                    let me_saved = if aimed(*id) == me { saved } else { 0 };
+                    productive && (still_coming < life || survives(*id, me_saved))
+                })
+                .max_by_key(|(id, attacker)| {
+                    let e = exchange(*attacker, blocker);
+                    let saved = attacker.power - spillover(*attacker, blocker);
+                    let at_me = aimed(*id) == me;
+                    let me_saved = if at_me { saved } else { 0 };
+                    // `false < true`, so this reads as a preference order: a
+                    // block that keeps this seat alive when dying, then the
+                    // block the seat needs (its life while it is dying, else a
+                    // walker it can keep), then our creature surviving, then
+                    // theirs dying, then the hardest hitter, then the lowest
+                    // slot to break ties without consulting a clock.
+                    (
+                        still_coming >= life && at_me && survives(*id, me_saved),
+                        if lethal {
+                            at_me
+                        } else {
+                            rescues(&walkers, aimed(*id), saved, blocker)
+                        },
+                        !e.blocker_dies,
+                        e.attacker_dies,
+                        attacker.power,
+                        std::cmp::Reverse(id.slot()),
+                    )
+                });
+            let Some((attacker_id, attacker)) = best else {
+                // Nothing readable left to pair with. An unreadable attacker is
+                // still an attacker, and a seat that cannot prove it survives
+                // chumps: the creature costs one card, and the alternative is
+                // the game. It is not offered a *choice* between unreadables —
+                // there is nothing to choose on — so it takes the first.
+                if chump_pass
+                    && lethal
+                    && let Some(i) = unread
+                        .iter()
+                        .position(|id| option.attackers.contains(id) && !taken.contains(id))
+                {
+                    let attacker_id = unread.remove(i);
+                    pairs.push((option.blocker, attacker_id));
+                    used_blockers.insert(option.blocker);
+                    taken.insert(attacker_id);
+                }
+                continue;
+            };
+            let e = exchange(attacker, blocker);
+            // What the block actually saves: the attacker's damage, less
+            // whatever tramples through anyway.
+            let saved = attacker.power - spillover(attacker, blocker);
+            let at_me = aimed(attacker_id) == me;
+            let worth_it = if lethal && at_me {
+                // Rule 1. Any block that stops damage is worth making, and a
+                // creature that dies for it has done its job.
+                saved > 0
+            } else if !lethal && rescues(&walkers, aimed(attacker_id), saved, blocker) {
+                // Rule 1b.
+                true
+            } else if !e.blocker_dies {
+                // Rule 2a. Free: nothing of ours dies.
+                e.attacker_dies || saved > 0
+            } else {
+                // Rule 2b. A trade, judged by what each side costs.
+                e.attacker_dies && attacker.worth >= blocker.worth
+            };
+            if worth_it {
+                pairs.push((option.blocker, attacker_id));
+                used_blockers.insert(option.blocker);
+                taken.insert(attacker_id);
+                if at_me {
+                    still_coming -= saved;
+                } else if let Defender::Planeswalker(walker) = aimed(attacker_id)
+                    && let Some(entry) = walkers.iter_mut().find(|w| w.id == walker)
+                {
+                    entry.coming -= saved;
+                }
             }
         }
     }
     enforce_menace(board, options, &mut pairs);
     pairs
+}
+
+/// Whether this seat can survive `remaining` incoming damage after
+/// `current_blocker` blocks `chosen_id`, using the other unused blockers in
+/// `free` against the remaining attackers aimed at this seat.
+#[allow(clippy::too_many_arguments)]
+fn survives_with(
+    board: &Board,
+    free: &[&BlockOption],
+    used_blockers: &BTreeSet<ObjectId>,
+    taken: &BTreeSet<ObjectId>,
+    attacking: &[ObjectId],
+    current_blocker: ObjectId,
+    chosen_id: ObjectId,
+    remaining: i32,
+    life: i32,
+) -> bool {
+    if remaining < life {
+        return true;
+    }
+    let other_blockers = free
+        .iter()
+        .filter(|b| b.blocker != current_blocker && !used_blockers.contains(&b.blocker))
+        .count();
+    if other_blockers == 0 {
+        return false;
+    }
+    let me = Defender::Player(board.view.seat);
+    let mut other_saved: Vec<i32> = attacking
+        .iter()
+        .copied()
+        .filter(|&other_id| {
+            other_id != chosen_id
+                && !taken.contains(&other_id)
+                && aimed(board, other_id) == me
+                && free.iter().any(|b| {
+                    b.blocker != current_blocker
+                        && !used_blockers.contains(&b.blocker)
+                        && b.attackers.contains(&other_id)
+                })
+        })
+        .filter_map(|other_id| board.fighter(other_id).map(|f| f.power))
+        .collect();
+    other_saved.sort_unstable_by_key(|&p| std::cmp::Reverse(p));
+    let max_other: i32 = other_saved.into_iter().take(other_blockers).sum();
+    remaining - max_other < life
 }
 
 /// What an attacker is aimed at (CR 508.1b). One the view does not describe
@@ -907,6 +1010,8 @@ fn through(attackers: &[Fighter], blockers: &[Fighter]) -> i32 {
 pub(crate) fn obey_attack_rules(
     mut chosen: Vec<(ObjectId, Defender)>,
     required: &[ObjectId],
+    alone: &[ObjectId],
+    minimum_required: Option<u32>,
     limits: &[baylee_engine::choice::AttackLimit],
     defenders: &[Defender],
 ) -> Vec<(ObjectId, Defender)> {
@@ -916,6 +1021,22 @@ pub(crate) fn obey_attack_rules(
             .find(|l| l.creature == creature)
             .map_or(defenders, |l| l.defenders.as_slice())
     };
+    let minimum = minimum_required.map_or(required.len(), |n| n as usize);
+    // A solo attack may satisfy the whole requirement, but can never be
+    // combined with another creature merely because both are mandatory.
+    if let Some(&(creature, defender)) = chosen.first()
+        && alone.contains(&creature)
+        && minimum <= usize::from(required.contains(&creature))
+    {
+        return allowed(creature)
+            .iter()
+            .copied()
+            .find(|at| *at == defender)
+            .or_else(|| allowed(creature).first().copied())
+            .map(|at| vec![(creature, at)])
+            .unwrap_or_default();
+    }
+    chosen.retain(|(creature, _)| !alone.contains(creature));
     for (creature, defender) in &mut chosen {
         let may = allowed(*creature);
         if !may.contains(defender)
@@ -926,6 +1047,17 @@ pub(crate) fn obey_attack_rules(
     }
     let aimed = chosen.first().map(|(_, d)| *d);
     for &creature in required {
+        if chosen
+            .iter()
+            .filter(|(id, _)| required.contains(id))
+            .count()
+            >= minimum
+        {
+            break;
+        }
+        if alone.contains(&creature) {
+            continue;
+        }
         if chosen.iter().any(|(c, _)| *c == creature) {
             continue;
         }
@@ -936,6 +1068,18 @@ pub(crate) fn obey_attack_rules(
         if let Some(defender) = at {
             chosen.push((creature, defender));
         }
+    }
+    if chosen
+        .iter()
+        .filter(|(id, _)| required.contains(id))
+        .count()
+        < minimum
+    {
+        return required
+            .iter()
+            .find(|id| alone.contains(id))
+            .and_then(|&id| allowed(id).first().map(|&at| vec![(id, at)]))
+            .unwrap_or_default();
     }
     chosen
 }

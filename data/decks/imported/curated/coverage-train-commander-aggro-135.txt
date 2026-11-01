@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WG #20266136]
+1 Aegis of the Heavens
+1 Alley Evasion
+1 Armory Guard
+1 Ashaya, Soul of the Wild
+1 Big Apple, 3 a.m.
+1 Blossoming Defense
+1 Bramble Creeper
+1 Brown Ouphe
+1 Cactus Preserve
+1 Cenn's Heir
+1 Chub Toad
+1 Crossroads Village
+1 Cryptic Spires circles=WG
+1 Darkthicket Wolf
+1 Dire Wolf Prowler
+1 Dire Wolves
+1 Druid of the Spade
+1 Edgewall Inn
+1 Feroz's Ban
+1 Flutterfox
+18 Forest
+1 Forsaken Crossroads
+1 Frilled Sandwalla
+1 Get a Leg Up
+1 Ghost Warden
+1 Giant Turtle
+1 Gift of Strength
+1 Gigantoad
+1 Graceful Cat
+1 Guardian of the Great Conduit
+1 Guildless Commons
+1 Hedge Troll
+1 Interjection
+1 Joven's Ferrets
+1 Kithkin Shielddare
+1 Larger Than Life
+1 Legolas's Quick Reflexes
+1 Loam Lion
+1 Loxodon Stalwart
+1 Massive Might
+1 Maze's End
+1 Might of Oaks
+1 Monstrous Growth
+1 Mountain Valley
+1 Mutagenic Growth
+1 Myriad Landscape
+1 Noose Constrictor
+1 Ornery Dilophosaur
+1 Orthodoxy Enforcer
+1 Overprotect
+6 Plains
+1 Primal Bellow
+1 Prized Elephant
+1 Pygmy Troll
+1 Radiant Essence
+1 Regal Bunnicorn
+1 Scurrid Colony
+1 Shape the Sands
+1 Snarling Wolf
+1 Soltari Crusader
+1 Soltari Trooper
+1 Stalking Drone
+1 Stone Haven Pilgrim
+1 Sunken Citadel
+1 Tarnation Vista
+1 Treefolk Seedlings
+1 Tyvar's Stand
+1 Uncharted Haven
+1 Vintara Snapper
+1 Vivien's Crocodile
+1 Wayward Swordtooth
+1 Whippoorwill
+1 Wielding the Green Dragon
+1 Wintermoon Mesa
+1 Wood Elemental
+1 Woolly Mammoths
+1 Wyluli Wolf
+
+[commander]
+Kudo, King Among Bears

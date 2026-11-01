@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/USG/sleeper-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SleeperEnhancedDeck_USG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sleeper - Enhanced Deck (Adapted)]
+4 Argothian Enchantress
+3 Brilliant Halo
+2 Citanul Centaurs
+2 Clear
+1 Disenchant
+4 Drifting Meadow
+4 Endless Wurm
+10 Forest
+1 Fortitude
+2 Harrow
+1 Hidden Ancients
+1 Hidden Guerrillas
+2 Hidden Predators
+3 Humble
+1 Hurricane
+3 Pariah
+6 Plains
+1 Rumbling Baloth
+1 Serenity
+2 Sylvan Library
+4 Tranquil Thicket
+1 Wild Growth
+1 Worship

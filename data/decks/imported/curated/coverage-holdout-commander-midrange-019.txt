@@ -1,0 +1,82 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WR #90010020]
+1 Abstergo Entertainment
+1 Aether Sting
+1 Archaeological Dig
+1 Ashen Monstrosity
+1 Baldur's Gate
+1 Barbed Sliver
+1 Battlegate Mimic
+1 Blood Lust
+1 Blood Moon
+1 Castle Doom
+1 Cavern of Souls
+1 Chandler
+1 Conquer
+1 Defiant Strike
+1 Duergar Assailant
+1 Earthshaker
+1 Eidolon of the Great Revel
+1 Embersmith
+1 Firebrand Archer
+1 Flare
+1 Flick a Coin
+1 Flowstone Overseer
+1 Fomori Nomad
+1 Goblin Spelunkers
+1 Goblin Wizard
+1 Great Hall of the Biblioplex
+1 Greater Forgeling
+1 Gremlin Infestation
+1 Havoc
+1 Hyena Pack
+1 Improvised Weaponry
+1 Jaya's Greeting
+1 Jokulhaups
+1 Karsus Depthguard
+1 Kessig Flamebreather
+1 Koth's Courier
+1 Lightning Cloud
+1 Lightshield Parry
+1 Magnetic Mountain
+1 Mana Crypt
+1 Mesa Enchantress
+1 Molten Nursery
+20 Mountain
+1 Mox Pearl
+1 Ogre Resister
+1 Opal Caryatid
+1 Painted Bluffs
+1 Pathmaker Initiate
+1 Pia and Kiran Nalaar
+5 Plains
+1 Plateau
+1 Playful Shove
+1 Presence of the Master
+1 Rainbow Vale
+1 Rearing Embermare
+1 Rite of the Dragoncaller
+1 Rockslide Sorcerer
+1 Sacred Peaks
+1 Secluded Courtyard
+1 Shadowstorm
+1 Shattering Blow
+1 Shredded Sails
+1 Spark Jolt
+1 Spellshock
+1 Sphinx-Bone Wand
+1 Sundown Pass
+1 Talruum Minotaur
+1 Three Tree City
+1 Truefire Paladin
+1 Underdome
+1 Vertigo
+1 Villainous Hideout
+1 Wall of Heat
+1 Wall of Lava
+1 Winter Sky
+1 Young Pyromancer
+
+[commander]
+Archangel Avacyn

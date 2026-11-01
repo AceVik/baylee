@@ -262,3 +262,61 @@ pub(super) fn run(root: &Path, args: Args) -> Result<()> {
     println!("{}", serde_json::to_string(&totals)?);
     Ok(())
 }
+
+/// Whether the committed card status (`web/site/data/sets.json`) still
+/// describes `revision`: it was measured at an ancestor of it, and nothing
+/// the status is measured from ([`catalog::INPUTS`]) changed since. A release
+/// tag must pass this, so the site's numbers are those of the client the
+/// same release ships (`docs/releasing.md`).
+///
+/// # Errors
+/// When the status is missing, unreadable, measured elsewhere, or stale.
+pub(super) fn fresh(root: &Path, revision: &str) -> Result<()> {
+    let sets = root.join("web/site/data/sets.json");
+    let doc: Value = serde_json::from_str(
+        &fs::read_to_string(&sets).context("web/site/data/sets.json cannot be read")?,
+    )
+    .context("web/site/data/sets.json is not JSON")?;
+    let measured = doc
+        .get("rev")
+        .and_then(Value::as_str)
+        .context("web/site/data/sets.json names no `rev`")?;
+    let git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .current_dir(root)
+            .args(args)
+            .output()
+    };
+    let head = git(&[
+        "rev-parse",
+        "--verify",
+        "--end-of-options",
+        &format!("{revision}^{{commit}}"),
+    ])?;
+    ensure!(head.status.success(), "cannot resolve {revision}");
+    let head = String::from_utf8(head.stdout)?.trim().to_owned();
+    let ancestor = git(&["merge-base", "--is-ancestor", measured, &head])?;
+    ensure!(
+        ancestor.status.success(),
+        "the card status was measured at {measured}, which is not an ancestor of {head}; \
+         run `cargo tools site card-status` and commit web/site/data"
+    );
+    let mut diff = vec!["diff", "--name-only", measured, head.as_str(), "--"];
+    diff.extend(catalog::INPUTS);
+    let changed = git(&diff)?;
+    ensure!(
+        changed.status.success(),
+        "cannot compare {measured} with {head}"
+    );
+    let changed = String::from_utf8(changed.stdout)?;
+    let files: Vec<&str> = changed.lines().collect();
+    ensure!(
+        files.is_empty(),
+        "the card status was measured at {measured}, and {} card file(s) changed since \
+         (first: {}); run `cargo tools site card-status` and commit web/site/data",
+        files.len(),
+        files.first().copied().unwrap_or_default()
+    );
+    println!("card status measured at {measured}: the pool of {head} is the same");
+    Ok(())
+}

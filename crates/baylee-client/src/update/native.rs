@@ -8,29 +8,42 @@
 //! installation. When the program ends (the `Drop` of its resource), a
 //! staged update replaces it. `docs/client.md` §"Updating" is the whole story.
 //!
+//! All of that starts as early as the client can ([`begin`]): before its
+//! window, renderer and lobby are built, so the first check has left long
+//! before the lobby draws its first frame. The thread reports as it goes
+//! ([`Report`]), and [`take`] turns each report into the card.
+//!
 //! A build that did not come out of the release workflow is a development
 //! build: it checks and shows what it found, and never replaces itself,
 //! because the folder it runs from is `target/release`, not an installation
 //! (the notice says so). The release workflow marks its builds with
 //! `BAYLEE_RELEASE_BUILD=1`.
 
+#[cfg(feature = "dev-control")]
+mod dev;
+#[cfg(feature = "dev-control")]
+pub(crate) use dev::feed as dev_feed;
+
 use super::{
-    Asked, MoveTo, Shown, UpdateNotice, UpdatePlace, UpdatePlugin, UpdatePrefs, UpdateRequest, Why,
+    Asked, Fetch, MoveTo, Progress, Shown, UpdateNotice, UpdatePlace, UpdatePlugin, UpdatePrefs,
+    UpdateRequest, Why,
 };
 use baylee_client_core::i18n::{Lang, Phrase};
 use baylee_update::apply::{self, Install, Recovery, Unplaceable};
 use baylee_update::check::{Context, GITHUB_RELEASES, Manual, Outcome};
 use baylee_update::launch::{self, Blocked};
 use baylee_update::plan::Os;
+use baylee_update::progress::Stage;
 use baylee_update::relaunch;
 use baylee_update::relocate::{self, Destination, Moved, SystemTrash, Trash};
-use baylee_update::service::{self, Command, Service, Settings};
+use baylee_update::service::{self, Command, Report, Service, Settings};
 use baylee_update::{VerifyingKey, Version, sign};
 use bevy::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
 /// Whether this build may replace itself: built by the release workflow,
 /// with optimisations, from a clean commit.
@@ -62,7 +75,7 @@ pub struct Build {
 impl Build {
     /// This process. `None` for a target the updater knows no archive for.
     #[must_use]
-    pub fn this() -> Option<Self> {
+    pub fn this(notes: &mut Notes) -> Option<Self> {
         let os = Os::of_target(baylee_build::TARGET)?;
         let exe = std::env::current_exe().ok()?;
         let mut build = Self {
@@ -73,7 +86,7 @@ impl Build {
             dev: !is_release_build(),
             install: Install::around(&exe, os),
         };
-        build.overrides();
+        build.overrides(notes);
         Some(build)
     }
 
@@ -83,30 +96,32 @@ impl Build {
     /// `BAYLEE_UPDATE_KEY` (one more key to trust). A shipped build never
     /// has the feature, and so reads none of these.
     #[cfg(feature = "dev-control")]
-    fn overrides(&mut self) {
+    fn overrides(&mut self, notes: &mut Notes) {
         if let Ok(api) = std::env::var("BAYLEE_UPDATE_API") {
-            warn!("updates: asking {api} (BAYLEE_UPDATE_API)");
+            notes.warn(format!("updates: asking {api} (BAYLEE_UPDATE_API)"));
             self.api = api;
         }
         if let Some(version) = std::env::var("BAYLEE_UPDATE_VERSION")
             .ok()
             .and_then(|v| Version::parse(&v).ok())
         {
-            warn!("updates: pretending to be {version} (BAYLEE_UPDATE_VERSION)");
+            notes.warn(format!(
+                "updates: pretending to be {version} (BAYLEE_UPDATE_VERSION)"
+            ));
             self.version = version;
         }
         if let Some(key) = std::env::var("BAYLEE_UPDATE_KEY")
             .ok()
             .and_then(|k| sign::public_key(&k).ok())
         {
-            warn!("updates: also trusting a test key (BAYLEE_UPDATE_KEY)");
+            notes.warn("updates: also trusting a test key (BAYLEE_UPDATE_KEY)".into());
             self.keys.push(key);
         }
     }
 
     #[cfg(not(feature = "dev-control"))]
     #[allow(clippy::unused_self)] // the feature's twin takes it
-    fn overrides(&mut self) {}
+    fn overrides(&mut self, _notes: &mut Notes) {}
 }
 
 // Statics live until OS process teardown: clearing Bevy's world must not
@@ -117,6 +132,16 @@ static CLIENT_LEASE: OnceLock<launch::ClientLease> = OnceLock::new();
 /// original package is: what "Restart now" starts again. Unset for a
 /// runtime started without a launcher.
 static LAUNCHED: OnceLock<(Install, Option<PathBuf>)> = OnceLock::new();
+
+/// The state directory of the installation whose launcher started this
+/// runtime, writable or not: its link door is named after it
+/// (`crate::links`). Unset for a runtime started without a launcher.
+static STAGE: OnceLock<PathBuf> = OnceLock::new();
+
+/// The installation's state directory, when a launcher started this runtime.
+pub(crate) fn launched_stage() -> Option<&'static Path> {
+    STAGE.get().map(PathBuf::as_path)
+}
 
 /// The relaunch helper's pipe, for the same reason as the lease: it must
 /// stay open until the process ends, after the update is installed on the
@@ -178,98 +203,219 @@ struct Updater {
     allowed: AtomicBool,
 }
 
-/// The updater, on a desktop build.
-pub struct NativeUpdatePlugin;
+/// What the updater says before Bevy's logger exists: [`begin`] runs before
+/// `LogPlugin` is built, which drops every `info!` and `warn!` until then.
+/// Kept, and said once the plugin is built.
+#[derive(Default)]
+pub struct Notes(Vec<(bool, String)>);
+
+impl Notes {
+    fn info(&mut self, line: String) {
+        self.0.push((false, line));
+    }
+
+    fn warn(&mut self, line: String) {
+        self.0.push((true, line));
+    }
+
+    /// Says what was kept.
+    fn say(self) {
+        for (warned, line) in self.0 {
+            if warned {
+                warn!("{line}");
+            } else {
+                info!("{line}");
+            }
+        }
+    }
+}
+
+/// When this process started, as near as the client can tell: the first
+/// thing `main` does is [`mark_start`]. What the first check's time is
+/// measured from.
+static STARTED: OnceLock<Instant> = OnceLock::new();
+
+/// Marks the process's start. `main`'s first line; later calls change
+/// nothing.
+pub fn mark_start() {
+    let _ = STARTED.set(Instant::now());
+}
+
+/// How long ago, in milliseconds, `at` was after the process's start.
+fn after_start(at: Instant) -> Option<u128> {
+    STARTED
+        .get()
+        .map(|started| at.saturating_duration_since(*started).as_millis())
+}
+
+/// Everything the updater sets up before the app exists, ready for the
+/// plugin to hand to the app.
+struct Running {
+    place: UpdatePlace,
+    mover: Mover,
+    notice: UpdateNotice,
+    updater: Updater,
+}
+
+/// The updater as [`begin`] left it.
+struct Begun {
+    notes: Notes,
+    running: Option<Running>,
+}
+
+/// The updater, on a desktop build: what [`begin`] started, given to the
+/// app. Added without [`begin`] (an app that embeds the client), it begins
+/// when it is built.
+#[derive(Default)]
+pub struct NativeUpdatePlugin {
+    begun: Mutex<Option<Begun>>,
+}
+
+/// Starts the updater as early as the client can: before the window, the
+/// renderer and the lobby are built, right after the settings store is
+/// open (the switches are read from it). Joins the launcher's session,
+/// finishes or undoes an interrupted update, and starts the thread, whose
+/// first check (unless checks are off) leaves at once.
+#[must_use]
+pub fn begin() -> NativeUpdatePlugin {
+    NativeUpdatePlugin {
+        begun: Mutex::new(Some(begun())),
+    }
+}
+
+fn begun() -> Begun {
+    let mut notes = Notes::default();
+    let Some(mut build) = Build::this(&mut notes) else {
+        notes.warn(format!(
+            "updates: no archive exists for {}",
+            baylee_build::TARGET
+        ));
+        return Begun {
+            notes,
+            running: None,
+        };
+    };
+    let lease = match launch::join() {
+        Ok(Some((install, lease))) => {
+            let _ = STAGE.set(install.stage());
+            build.install = if lease.writable() {
+                Ok(install)
+            } else if lease.blocked() == Some(&Blocked::Translocated) {
+                Err(Unplaceable::Translocated)
+            } else {
+                Err(Unplaceable::ReadOnly)
+            };
+            Some(lease)
+        }
+        Ok(None) => {
+            build.install = Err(Unplaceable::NotLaunched);
+            None
+        }
+        Err(err) => {
+            // A child of a killed launcher may have been superseded.
+            // It must stop before touching installation state.
+            baylee_client_core::say_err!("updates: cannot join the launcher session: {err}");
+            std::process::exit(1);
+        }
+    };
+    let exe = std::env::current_exe().ok();
+    let running = exe.as_deref().and_then(relocate::bundle_of);
+    let seen = lease.as_ref().map(Seen::of);
+    let mover = Mover {
+        trash: Box::new(SystemTrash),
+        source: running.clone(),
+        original: lease
+            .as_ref()
+            .and_then(|l| l.original().map(Path::to_path_buf)),
+        home: std::env::var_os("HOME").map(PathBuf::from),
+    };
+    let mut place = place_of(
+        seen.as_ref(),
+        running.is_some() && cfg!(target_os = "macos"),
+        || relocate::can_write(&Destination::System.folder(Path::new("/"))),
+    );
+    place.moved = moved_here(mover.here().as_deref());
+    if let Some(lease) = lease {
+        if let Ok(install) = &build.install {
+            let original = lease.original().map(Path::to_path_buf);
+            let _ = LAUNCHED.set((install.clone(), original));
+        }
+        let _ = CLIENT_LEASE.set(lease);
+    }
+    let prefs = UpdatePrefs::load();
+    // The interrupted update first: a check staging into a directory whose
+    // recovery has not finished is refused.
+    let notice = on_start(&build, &mut notes);
+    let service = start(&build, prefs, &mut notes);
+    if let Some(ms) = after_start(Instant::now()) {
+        notes.info(format!("updates: begun {ms} ms after the process started"));
+    }
+    let updater = Updater {
+        service: Mutex::new(service),
+        install: build.install.ok(),
+        version: build.version.to_string(),
+        dev: build.dev,
+        allowed: AtomicBool::new(prefs.install),
+    };
+    Begun {
+        notes,
+        running: Some(Running {
+            place,
+            mover,
+            notice,
+            updater,
+        }),
+    }
+}
 
 impl Plugin for NativeUpdatePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(UpdatePlugin);
-        let Some(mut build) = Build::this() else {
-            warn!("updates: no archive exists for {}", baylee_build::TARGET);
+        let begun = self
+            .begun
+            .lock()
+            .ok()
+            .and_then(|mut begun| begun.take())
+            .unwrap_or_else(begun);
+        begun.notes.say();
+        if let Some(ms) = after_start(Instant::now()) {
+            info!("updates: built into the app {ms} ms after the process started");
+        }
+        let Some(running) = begun.running else {
             return;
         };
-        let lease = match launch::join() {
-            Ok(Some((install, lease))) => {
-                build.install = if lease.writable() {
-                    Ok(install)
-                } else if lease.blocked() == Some(&Blocked::Translocated) {
-                    Err(Unplaceable::Translocated)
-                } else {
-                    Err(Unplaceable::ReadOnly)
-                };
-                Some(lease)
-            }
-            Ok(None) => {
-                build.install = Err(Unplaceable::NotLaunched);
-                None
-            }
-            Err(err) => {
-                // A child of a killed launcher may have been superseded.
-                // It must stop before touching installation state.
-                baylee_client_core::say_err!("updates: cannot join the launcher session: {err}");
-                std::process::exit(1);
-            }
-        };
-        let exe = std::env::current_exe().ok();
-        let running = exe.as_deref().and_then(relocate::bundle_of);
-        let seen = lease.as_ref().map(Seen::of);
-        let mover = Mover {
-            trash: Box::new(SystemTrash),
-            source: running.clone(),
-            original: lease
-                .as_ref()
-                .and_then(|l| l.original().map(Path::to_path_buf)),
-            home: std::env::var_os("HOME").map(PathBuf::from),
-        };
-        let mut place = place_of(
-            seen.as_ref(),
-            running.is_some() && cfg!(target_os = "macos"),
-            || relocate::can_write(&Destination::System.folder(Path::new("/"))),
-        );
-        place.moved = moved_here(mover.here().as_deref());
-        app.insert_resource(place)
-            .insert_resource(mover)
-            .add_systems(Update, relocate_on_request);
-        if let Some(lease) = lease {
-            if let Ok(install) = &build.install {
-                let original = lease.original().map(Path::to_path_buf);
-                let _ = LAUNCHED.set((install.clone(), original));
-            }
-            let _ = CLIENT_LEASE.set(lease);
-        }
-        let prefs = *app.world().resource::<UpdatePrefs>();
-        let notice = on_start(&build);
-        app.insert_resource(notice);
-        let service = start(&build, prefs);
-        app.insert_resource(Updater {
-            service: Mutex::new(service),
-            install: build.install.ok(),
-            version: build.version.to_string(),
-            dev: build.dev,
-            allowed: AtomicBool::new(prefs.install),
-        })
-        .add_systems(Update, (forward, receive).chain());
+        app.insert_resource(running.place)
+            .insert_resource(running.mover)
+            .insert_resource(running.notice)
+            .insert_resource(running.updater)
+            .add_systems(Update, relocate_on_request)
+            .add_systems(Update, (forward, receive).chain());
+        #[cfg(feature = "dev-control")]
+        app.add_systems(Update, dev::apply_direct);
     }
 }
 
 /// The start: finish or undo an interrupted update, announce a finished
 /// one once, and say so if one is staged already.
 #[must_use]
-pub fn on_start(build: &Build) -> UpdateNotice {
+pub fn on_start(build: &Build, notes: &mut Notes) -> UpdateNotice {
     let mut notice = UpdateNotice::default();
     let Ok(install) = &build.install else {
         return notice;
     };
     match apply::recover(install) {
         Recovery::Deferred => {
-            warn!("updates: legacy recovery deferred; keeping its journal and files");
+            notes.warn("updates: legacy recovery deferred; keeping its journal and files".into());
             return notice;
         }
         Recovery::Nothing => {}
         Recovery::Finished(applied) => {
-            info!("updates: finished the interrupted update to {}", applied.to);
+            notes.info(format!(
+                "updates: finished the interrupted update to {}",
+                applied.to
+            ));
         }
-        Recovery::RolledBack => warn!("updates: undid an interrupted update"),
+        Recovery::RolledBack => notes.warn("updates: undid an interrupted update".into()),
     }
     if let Ok(Some(version)) = launch::take_updated(install) {
         notice.shown = Some(Shown::Updated {
@@ -278,7 +424,10 @@ pub fn on_start(build: &Build) -> UpdateNotice {
         });
     }
     if let Some(applied) = apply::take_applied(install) {
-        info!("updates: updated from {} to {}", applied.from, applied.to);
+        notes.info(format!(
+            "updates: updated from {} to {}",
+            applied.from, applied.to
+        ));
         notice.shown = Some(Shown::Updated {
             page: Some(release_page(&applied.to)),
             version: applied.to,
@@ -308,7 +457,7 @@ fn release_page(version: &str) -> String {
     format!("https://github.com/AceVik/baylee/releases/tag/v{version}")
 }
 
-fn start(build: &Build, prefs: UpdatePrefs) -> Option<Service> {
+fn start(build: &Build, prefs: UpdatePrefs, notes: &mut Notes) -> Option<Service> {
     let context = Context {
         current: build.version.clone(),
         target: build.target.clone(),
@@ -325,7 +474,7 @@ fn start(build: &Build, prefs: UpdatePrefs) -> Option<Service> {
     ) {
         Ok(service) => Some(service),
         Err(err) => {
-            warn!("updates: no thread to check on: {err}");
+            notes.warn(format!("updates: no thread to check on: {err}"));
             None
         }
     }
@@ -363,21 +512,87 @@ fn forward(mut requests: MessageReader<UpdateRequest>, updater: Res<Updater>) {
     }
 }
 
-/// Reads what the thread found into the notice.
-fn receive(updater: Res<Updater>, mut notice: ResMut<UpdateNotice>) {
-    let Ok(service) = updater.service.lock() else {
-        return;
-    };
-    let Some(service) = service.as_ref() else {
-        return;
-    };
-    while let Ok(outcome) = service.outcomes.try_recv() {
-        take(&mut notice, outcome);
+/// Reads what the thread says into the notice, and in a `dev-control` build
+/// what the harness feeds it (`dev`), by the same path. The first check's
+/// start is logged against the process's: how soon the client asked.
+fn receive(updater: Res<Updater>, mut notice: ResMut<UpdateNotice>, mut timed: Local<bool>) {
+    let mut reports: Vec<Report> = Vec::new();
+    if let Ok(service) = updater.service.lock()
+        && let Some(service) = service.as_ref()
+    {
+        reports.extend(service.reports.try_iter());
+    }
+    #[cfg(feature = "dev-control")]
+    reports.extend(dev::fed());
+    for report in reports {
+        if let Report::Checking { at } = &report
+            && !*timed
+        {
+            *timed = true;
+            if let Some(ms) = after_start(*at) {
+                info!("updates: first check asked {ms} ms after the process started");
+            }
+        }
+        take(&mut notice, report);
     }
 }
 
-/// One outcome into the notice.
-pub(crate) fn take(notice: &mut UpdateNotice, outcome: Outcome) {
+/// One report into the notice: a download's stages into
+/// [`Shown::Fetching`] and its readings into [`UpdateNotice::progress`],
+/// the check's end through [`finish`].
+pub(crate) fn take(notice: &mut UpdateNotice, report: Report) {
+    match report {
+        Report::Checking { .. } => {}
+        Report::Stage(Stage::Found {
+            version,
+            page,
+            size,
+        }) => {
+            info!("updates: downloading {version} ({size} bytes)");
+            notice.show(Shown::Fetching {
+                version,
+                page,
+                stage: Fetch::Downloading,
+            });
+            notice.progress = Some(Progress {
+                received: 0,
+                total: size,
+                rate: None,
+                left: None,
+            });
+        }
+        Report::Stage(Stage::Downloading(reading)) => {
+            let reading = Progress {
+                received: reading.received,
+                total: reading.total,
+                rate: reading.rate,
+                left: reading.left,
+            };
+            if notice.progress != Some(reading) {
+                notice.progress = Some(reading);
+            }
+        }
+        Report::Stage(Stage::Verifying) => onto(notice, Fetch::Verifying),
+        Report::Stage(Stage::Unpacking) => onto(notice, Fetch::Unpacking),
+        Report::Done(outcome) => finish(notice, outcome),
+    }
+}
+
+/// A download moves on to its next stage.
+fn onto(notice: &mut UpdateNotice, stage: Fetch) {
+    if let Some(Shown::Fetching { version, page, .. }) = notice.shown.clone() {
+        notice.show(Shown::Fetching {
+            version,
+            page,
+            stage,
+        });
+    }
+}
+
+/// A check's end into the notice: what it found, and how the check the
+/// player asked for went. A failed download is said as one, and the next
+/// check tries it again.
+pub(crate) fn finish(notice: &mut UpdateNotice, outcome: Outcome) {
     let asked = notice.asked == Some(Asked::Checking);
     let found = match outcome {
         Outcome::UpToDate => {
@@ -397,6 +612,18 @@ pub(crate) fn take(notice: &mut UpdateNotice, outcome: Outcome) {
             info!("updates: {version} is staged and installs on exit");
             Shown::Ready { version, page }
         }
+        Outcome::Available {
+            version,
+            page,
+            why: Manual::Download(reason),
+        } => {
+            warn!("updates: {version} did not download: {reason}");
+            Shown::Failed {
+                version,
+                page,
+                reason,
+            }
+        }
         Outcome::Available { version, page, why } => {
             info!("updates: {version} is available, not installed: {why:?}");
             Shown::Available {
@@ -409,10 +636,7 @@ pub(crate) fn take(notice: &mut UpdateNotice, outcome: Outcome) {
     if asked {
         notice.asked = Some(Asked::Found);
     }
-    if notice.shown.as_ref() != Some(&found) {
-        notice.shown = Some(found);
-        notice.hidden = false;
-    }
+    notice.show(found);
 }
 
 fn why_of(manual: &Manual) -> Why {

@@ -177,7 +177,7 @@ impl<L: CardLookup> Engine<L> {
                 return Err(EngineError::IllegalAction("no legal targets"));
             }
         }
-        let price = self.activation_price(player, source, &Cost::FREE, None);
+        let price = self.activation_price(player, source, ability_index, &Cost::FREE, None);
         self.loyalty_paid = Some(self.pay_priced_cost(player, source, &price, &[], 0)?);
         if cost >= 0 {
             crate::replacement::record_counters_by(

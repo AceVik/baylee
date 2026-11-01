@@ -45,10 +45,11 @@ pub use build::{
 };
 pub use cost::{AltCondition, AlternativeCost, Cost, CostPart, CostReduction};
 pub use effect::{
-    Amount, ColorSubject, CounterKind, DamageRedirectTo, DamageTo, DivisionAmount, Effect,
-    ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource, ManaUse,
-    ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider,
-    TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
+    Amount, ColorSubject, CombatWatchEvent, CounterKind, DamageRedirectTo, DamageTo,
+    DelayedObservation, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
+    ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+    PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetChooser, TargetReq,
+    TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
 };
 pub use filter::{Filter, OriginalExpansion, ZoneRef};
 pub use manaread::{
@@ -154,6 +155,34 @@ impl CardDef {
         } else {
             self.faces[face.min(self.faces.len() - 1)].abilities
         }
+    }
+
+    /// Whether `face` has an ability its controller activates on the
+    /// battlefield that is not a mana ability (CR 605.1a): Karakas's bounce,
+    /// a creature land's animation, Mind Stone's draw. A permanent like that
+    /// is used for more than mana, so a mana planner taps it last
+    /// (`manaplan::prioritize`). Statics (Urborg) and abilities activated
+    /// from elsewhere (cycling) do not count: tapping for mana costs them
+    /// nothing.
+    #[must_use]
+    pub fn activates_beyond_mana(&self, face: usize) -> bool {
+        use crate::ability::{AbilityDef, ActivationZone};
+        self.abilities_for_face(face).iter().any(|ability| {
+            !ability.is_mana_ability()
+                && matches!(
+                    ability,
+                    AbilityDef::Activated {
+                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                        ..
+                    } | AbilityDef::ActivatedConditional {
+                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                        ..
+                    } | AbilityDef::ModalActivated {
+                        zone: ActivationZone::Battlefield | ActivationZone::BattlefieldOwner,
+                        ..
+                    }
+                )
+        })
     }
 
     /// Whether this is a split card with one shared type line (CR 709.5), a
@@ -323,6 +352,8 @@ pub struct FaceDef {
     /// Only actual mana of this color may pay the X portion. Cost
     /// reductions still reduce that generic portion before mana is paid.
     pub x_mana_color: Option<baylee_core::color::Color>,
+    /// Only these actual mana colors may pay the X component.
+    pub x_mana_colors: Option<baylee_core::color::ColorSet>,
     /// Additional generic mana for each chosen target beyond the first.
     /// This changes the casting cost, never the spell's mana value.
     pub extra_target_cost: u32,
@@ -445,6 +476,8 @@ pub struct FaceDef {
     pub morph: Option<ManaCost>,
     /// Mutate cost to cast this creature spell merging with a non-Human creature you own (CR 702.140).
     pub mutate: Option<ManaCost>,
+    /// Entwine cost to choose all modes of this modal spell (CR 702.42).
+    pub entwine: Option<crate::cost::Cost>,
 }
 
 impl FaceDef {
@@ -462,6 +495,7 @@ impl FaceDef {
         disguise: None,
         replicate: None,
         x_mana_color: None,
+        x_mana_colors: None,
         extra_target_cost: 0,
         name: "",
         mana_cost: ManaCost::ZERO,
@@ -497,6 +531,7 @@ impl FaceDef {
         behold_or_pay: None,
         morph: None,
         mutate: None,
+        entwine: None,
     };
 }
 
@@ -645,6 +680,10 @@ pub enum EnterModifier {
     /// of the five CR 205.3i names, kept where [`Self::ChooseSubtype`] keeps
     /// its answer, and read back by [`crate::Modifier::SetLandTypeToChosen`].
     ChooseBasicLandType,
+    /// Choose an ordered pair of basic land types. The same type may be
+    /// chosen twice; the first is read by `MatchesChosenTypeOfSource`, the
+    /// second by `SetLandTypeToSecondChosen`.
+    ChooseTwoBasicLandTypes,
     /// "As this enters, choose a card name" (Pithing Needle).
     ///
     /// Any card's name, and of any of its faces (CR 201.4, 201.4b–f); the

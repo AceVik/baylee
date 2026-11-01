@@ -18,7 +18,9 @@ pub(crate) const fn animates(modifier: Modifier) -> bool {
 }
 
 pub(crate) fn continues_in(modifier: Modifier, layer: Layer) -> bool {
-    (layer == Layer::PtSet && animates(modifier)) || (layer == Layer::Ability && modifier == SONG)
+    (layer == Layer::PtSet
+        && (animates(modifier) || modifier == Modifier::CopyLastExiledCreaturePTAndSubtypes))
+        || (layer == Layer::Ability && modifier == SONG)
 }
 
 /// This is a continuing static effect, not a leave trigger or a resolving
@@ -98,6 +100,7 @@ fn printed_effects(state: &GameState, source: ObjectId) -> Vec<(ContinuousEffect
             let context = RuleContext {
                 source,
                 text: origin.resolve(&state.text_changes),
+                resolved_name: None,
                 reference: None,
             };
             if ability.condition.is_some_and(|condition| {

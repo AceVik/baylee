@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/PCY/pummel.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Pummel_PCY.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Pummel (Adapted)]
+1 An-Havva Inn
+2 Animate Land
+4 Chord of Calling
+2 Crack Open
+2 Darba
+1 Eldritch Evolution
+1 Fade into Antiquity
+20 Forest
+2 Hickory Woodlot
+1 Jolrael's Favor
+2 Khalni Ambush
+1 Lumbering Satyr
+2 Pygmy Razorback
+2 Recollect
+2 Renewal
+1 Seal of Strength
+3 Shattered Wings
+3 Shredding Winds
+1 Spitting Spider
+2 Spore Frog
+1 Stampede
+1 Tranquility
+2 Vine Trellis
+1 Woodcutter's Grit

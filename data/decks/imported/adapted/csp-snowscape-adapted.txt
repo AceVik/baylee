@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/CSP/snowscape.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Snowscape_CSP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Snowscape (Adapted)]
+2 Apathy
+1 Balduvian Frostwaker
+1 Bonds of Quicksilver
+1 Coldsteel Heart
+4 Consult the Necrosages
+2 Drift of the Dead
+4 Essence Vortex
+1 Frost Marsh
+1 Gangrenous Zombies
+1 Heidar, Rimewind Master
+1 Iceberg
+2 Legions of Lim-Dûl
+2 Mistfolk
+1 Monoskelion
+4 Notion Rain
+1 Phantasmal Fiend
+1 Pilfered Plans
+3 Rimewind Taskmage
+1 Ronom Serpent
+2 Snow Devil
+12 Snow-Covered Island
+11 Snow-Covered Swamp
+1 Viscerid Drone

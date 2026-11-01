@@ -1,0 +1,74 @@
+# baylee curated commander aggro seed=20261121
+# licence: AGPL-3.0-only
+[deck:commander aggro G #20261121]
+1 Advocate of the Beast
+1 Aggressive Urge
+1 Ajani's Comrade
+1 Argothian Enchantress
+1 Battlewand Oak
+1 Big Bertha
+1 Bog Gnarr
+1 Bond Beetle
+1 Briarknit Kami
+1 Castle Doom
+1 Charge Through
+1 City of Brass
+1 Deeproot Champion
+1 Deeproot Elite
+1 Elvish Farmer
+1 Elvish Handservant
+1 Femeref Archers
+32 Forest
+1 Generous Visitor
+1 Gilded Goose
+1 Glissa's Scorn
+1 Hidden Ancients
+1 Hidden Gibbons
+1 Hidden Spider
+1 Hornet Sting
+1 Hurricane
+1 Ifh-Bíff Efreet
+1 Ironshell Beetle
+1 Jackalope Herd
+1 Jungle Delver
+1 Kami of the Hunt
+1 Kronch Wrangler
+1 Leaf Arrow
+1 Leaf-Crowned Visionary
+1 Lifecrafter's Bestiary
+1 Lurking Lizards
+1 Lys Alana Bowmaster
+1 Machine Man, Model X-51
+1 Managorger Hydra
+1 Mirrex
+1 Mold Adder
+1 Nasty Little Rabbit
+1 Orbweaver Kumo
+1 Origin of Metalbending
+1 Poison the Blade
+1 Predatory Hunger
+1 Provoke
+1 Quirion Dryad
+1 School of the Unseen
+1 Shield Sphere
+1 Shimmering Grotto
+1 Shredding Winds
+1 Skybeast Tracker
+1 Skyway Sniper
+1 Soilshaper
+1 Spike Breeder
+1 Squall Line
+1 Straw Golem
+1 Take Down
+1 Tangletrap
+1 Territorial Scythecat
+1 Thorn Thallid
+1 Three Tree City
+1 Titania's Chosen
+1 Unyaro Bees
+1 Viridian Scout
+1 Walking Ballista
+1 Winter Blast
+
+[commander]
+Medusa, Inhuman Queen

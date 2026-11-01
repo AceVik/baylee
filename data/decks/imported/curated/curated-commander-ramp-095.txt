@@ -1,0 +1,71 @@
+# baylee curated commander ramp seed=20261118
+# licence: AGPL-3.0-only
+[deck:commander ramp B #20261118]
+1 Akroma's Memorial
+1 Anodet Lurker
+1 Arcum's Astrolabe
+1 Black Mana Battery
+1 Blood Servitor
+1 Brass Man
+1 Brass Secretary
+1 Charcoal Diamond
+1 Chromatic Star
+1 Commander's Sphere
+1 Dalek Drone
+1 Diabolic Machine
+1 Dreamstone Hedron
+1 Empowered Autogenerator
+1 Energy Refractor
+1 Failed Conversion
+1 Forbidden Orchard
+1 Gallifrey Council Chamber
+1 Giant's Boulder
+1 Golden Egg
+1 Heap Gate
+1 Hedron Archive
+1 Hedron Crawler
+1 Infernal Idol
+1 Leaden Myr
+1 Liliana's Mastery
+1 Limestone Golem
+1 Mana Vault
+1 Meteor Golem
+1 Mind Stone
+1 Mindless Automaton
+1 Moriok Replica
+1 Mox Opal
+1 Myr Moonvessel
+1 Necrogen Spellbomb
+1 Open the Graves
+1 Paradise Mantle
+1 Pentavus
+1 Phyrexian Tower
+1 Planar Nexus
+1 Plaza of Heroes
+1 Prizefighter Construct
+1 Prophetic Prism
+1 Razorfield Thresher
+1 Runed Servitor
+1 Salvaged Manaworker
+1 Sanitation Automaton
+1 Scrap Trawler
+1 Skull of Ramos
+1 Slayer's Plate
+35 Snow-Covered Swamp
+1 Solemn Simulacrum
+1 Sparring Construct
+1 Springleaf Drum
+1 Staff of Nin
+1 Strands of Night
+1 Su-Chi
+1 Tarrian's Journal
+1 Terrarion
+1 Tetravus
+1 The Hive
+1 Triskelavus
+1 Triskelion
+1 Unholy Grotto
+1 Voltaic Servant
+
+[commander]
+Borg Queen, Perfection Manifest

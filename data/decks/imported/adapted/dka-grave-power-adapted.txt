@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/DKA/grave-power.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GravePower_DKA.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Grave Power (Adapted)]
+1 Acidic Slime
+1 Aether Adept
+2 Ambush Viper
+3 Armored Skaab
+4 Auroral Procession
+1 Brindle Boar
+2 Chasm Drake
+3 Dawntreader Elk
+4 Double Major
+14 Forest
+2 Hollowhenge Beast
+2 Hydroform
+10 Island
+2 Moon Heron
+2 Mulch
+2 Mutant Town
+4 Neoform
+1 Square Up

@@ -256,12 +256,60 @@ impl Tx<'_> {
     /// The definition is passed in rather than the `SVar` name so that the
     /// caller decides what an *undefined* name is called as well.
     pub(super) fn count_expr(&mut self, def: &str) -> Option<String> {
+        if def.trim() == "TriggerCount$DamageAmount"
+            && matches!(
+                self.trigger_mode.as_deref(),
+                Some("DamageDone" | "DamageDoneOnce" | "DamageDealtOnce")
+            )
+        {
+            return Some("Amount::EventAmount".to_string());
+        }
+        if def.trim() == "Targeted$CardToughness" {
+            return Some("Amount::TargetToughness".to_string());
+        }
+        if def.trim() == "Targeted$CardPower" {
+            return Some("Amount::TargetPower".to_string());
+        }
+        if (def.trim() == "Count$CardPower"
+            || (def.trim() == "Sacrificed$CardPower" && self.cost_sacrifices_self))
+            && !self.on_a_spell
+        {
+            return Some("Amount::SourcePower".to_string());
+        }
+        if def.trim() == "Sacrificed$CardPower" && self.cost_sacrifices_other && !self.on_a_spell {
+            return Some("Amount::SacrificedPower".to_string());
+        }
+        if def.trim() == "Sacrificed$CardManaCost" && self.cost_sacrifices_other {
+            return Some("Amount::SacrificedManaValue".to_string());
+        }
+        if def.trim() == "Count$ValidGraveyard Card.YouOwn" {
+            return Some(
+                "Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::GraveyardOf(PlayerRel::You) }"
+                    .to_string(),
+            );
+        }
+        if let Some(valid) = def.trim().strip_prefix("Count$ValidGraveyard ")
+            && !valid.contains("Ctrl")
+            && !valid.contains("Own")
+        {
+            let expr = self.filter_expr(valid)?;
+            let name = self.body.filter_static("COUNT", &expr);
+            return Some(format!(
+                "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::GraveyardAll }}"
+            ));
+        }
         let valid = def.trim().strip_prefix("Count$Valid ")?;
+        let (valid, factor) = match valid.split_once("/Times.") {
+            None => (valid, None),
+            Some((v, f)) => (v, Some(f.trim().parse::<u32>().ok()?)),
+        };
         let expr = self.filter_expr(valid)?;
         let name = self.body.filter_static("COUNT", &expr);
-        Some(format!(
-            "Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}"
-        ))
+        let base = format!("Amount::CountOf {{ filter: &{name}, zone: ZoneSel::Battlefield }}");
+        Some(match factor {
+            None => base,
+            Some(factor) => format!("Amount::Times {{ base: &{base}, factor: {factor} }}"),
+        })
     }
 
     /// The atoms that are one word of printed text each, and the filter each
@@ -339,6 +387,36 @@ impl Tx<'_> {
             return Some(n);
         }
         let def = self.svars.get(raw.trim())?.clone();
+        if matches!(def.trim(), "Remembered$Amount" | "Count$RememberedSize") {
+            let mut removals = self.svars.values().filter_map(|body| {
+                let (api, mut p) = Params::parse(body)?;
+                if api != "RemoveCounter"
+                    || p.take("CounterNum").as_deref() != Some("All")
+                    || p.take("RememberRemoved").as_deref() != Some("True")
+                {
+                    return None;
+                }
+                counter_kind(&p.take("CounterType")?)
+            });
+            if let Some(kind) = removals.next() {
+                if removals.next().is_some() {
+                    return self.deny("more than one remembered all-counter removal".to_string());
+                }
+                return Some(format!("Amount::ThisWay(ThisWay::CountersRemoved({kind}))"));
+            }
+            if let Some(valid) = self
+                .svars
+                .get("X")
+                .and_then(|definition| definition.strip_prefix("Count$ValidLibrary "))
+            {
+                let expr = self.filter_expr(valid)?;
+                let filter = self.body.filter_static("EXILED", &expr);
+                return Some(format!(
+                    "Amount::ThisWay(ThisWay::ExiledFromLibrary(&{filter}))"
+                ));
+            }
+            return None;
+        }
         self.count_expr(&def)
     }
 
@@ -391,6 +469,8 @@ impl Tx<'_> {
                 parts.push("UntapSelf".to_string());
             } else if token.starts_with("Sac<1/CARDNAME") {
                 parts.push("SacrificeSelf".to_string());
+            } else if token == "Exile<1/CARDNAME>" || token.starts_with("Exile<1/CARDNAME/") {
+                parts.push("ExileSelf".to_string());
             } else if let Some((n, kind)) = token
                 .strip_prefix("AddCounter<")
                 .and_then(|t| t.strip_suffix('>'))
@@ -435,7 +515,7 @@ impl Tx<'_> {
                 };
                 parts.push(format!("RemoveCounterSelf {{ kind: {kind}, n: {n} }}"));
             } else if let Some((kind, body)) = object_cost(token) {
-                parts.push(self.object_cost_part(kind, body, token)?);
+                parts.extend(self.object_cost_part(kind, body, token)?);
             } else if let Some(n) = token
                 .strip_prefix("PayLife<")
                 .and_then(|t| t.strip_suffix('>'))
@@ -444,6 +524,10 @@ impl Tx<'_> {
                 parts.push(format!("PayLife({n})"));
             } else if token.chars().all(|c| c.is_ascii_digit())
                 || matches!(token, "W" | "U" | "B" | "R" | "G" | "C")
+                || (token == "X"
+                    && self.has_x
+                    && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+                    && !self.oracle.to_ascii_lowercase().contains("x is "))
             {
                 mana.push('{');
                 mana.push_str(token);
@@ -500,19 +584,33 @@ impl Tx<'_> {
         kind: &str,
         body: &str,
         token: &str,
-    ) -> Option<String> {
+    ) -> Option<Vec<String>> {
         let mut fields = body.splitn(3, '/');
         let (Some(n), Some(spec)) = (fields.next(), fields.next()) else {
             return self.deny(format!("cost `{token}`"));
         };
-        if n != "1" {
+        let sac_x = kind == "Sac"
+            && n == "X"
+            && self.has_x
+            && self.svars.get("X").map(String::as_str) == Some("Count$xPaid")
+            && !self.oracle.to_ascii_lowercase().contains("x is ");
+        let multi_parts = matches!(kind, "Sac" | "Discard" | "ExileFromGrave")
+            && matches!(n, "2" | "3")
+            && spec != "CARDNAME";
+        if n != "1" && !sac_x && !multi_parts {
             return self.deny(format!("a cost naming `{n}` objects"));
         }
+        let part_count = if multi_parts {
+            n.parse::<usize>().unwrap_or(1)
+        } else {
+            1
+        };
         let (variant, controlled) = match kind {
             "Sac" => ("Sacrifice", true),
             "Discard" => ("Discard", false),
             "tapXType" => ("TapOther", true),
             "ExileFromGrave" => ("ExileFromGraveyard", false),
+            "Exile" => ("ExilePermanent", true),
             _ => ("ReturnToHand", true),
         };
         if spec == "CARDNAME" {
@@ -520,18 +618,18 @@ impl Tx<'_> {
             // no question. `Sac<1/CARDNAME>` never reaches here (it is
             // matched one branch up), so this is the return's own case.
             return Some(match variant {
-                "ReturnToHand" => "ReturnSelfToHand".to_string(),
+                "ReturnToHand" => vec!["ReturnSelfToHand".to_string()],
                 _ => return self.deny(format!("cost `{token}` naming itself")),
             });
         }
         if variant == "Discard" && spec == "Random" {
-            return Some("DiscardRandom".to_string());
+            return Some(vec!["DiscardRandom".to_string(); part_count]);
         }
         let spec = if controlled {
             // Appended per alternative, because a valid-string's commas are
             // `Or` and a clause glued to the end would narrow only the last
             // branch.
-            spec.split(',')
+            spec.split([',', ';'])
                 .map(|alt| {
                     if alt.contains("YouCtrl") {
                         alt.to_string()
@@ -544,10 +642,14 @@ impl Tx<'_> {
                 .collect::<Vec<_>>()
                 .join(",")
         } else {
-            spec.to_string()
+            spec.replace(';', ",")
         };
         let expr = self.filter_expr(&spec)?;
         let name = self.body.filter_static("COST", &expr);
-        Some(format!("{variant}(&{name})"))
+        Some(if sac_x {
+            vec![format!("SacrificeX(&{name})")]
+        } else {
+            vec![format!("{variant}(&{name})"); part_count]
+        })
     }
 }

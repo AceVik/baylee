@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/M21/back-for-more.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BackForMore_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Back for More (Adapted)]
+3 Abrupt Decay
+1 Arasta of the Endless Web
+2 Assassin's Trophy
+3 Blightsoil Druid
+3 Dead Weight
+10 Forest
+4 Gaze of Granite
+4 Jungle Hollow
+3 Llanowar Visionary
+4 Maelstrom Pulse
+3 Mire Triton
+1 Murderous Rider
+4 Pest Summoning
+10 Swamp
+4 Tear Asunder
+1 Temple of Malady

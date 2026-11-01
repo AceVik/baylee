@@ -1,0 +1,80 @@
+# baylee curated highlander midrange seed=20261063
+# licence: AGPL-3.0-only
+[deck:highlander midrange UR #20261063]
+1 Ancestral Vision
+1 Archaeological Dig
+1 Aven Wind Mage
+1 Avengers Tower
+1 Baxter Building
+1 Bria, Riptide Rogue
+1 Broadside Barrage
+1 Burning Prophet
+1 Capital City
+1 Chain Lightning
+1 Chandra's Emberling
+1 Choco-Comet
+1 Crackling Cyclops
+1 Efficient Construction
+1 Eidolon of the Great Revel
+1 Electrostatic Infantry
+1 Energy Vortex
+1 Enraged Flamecaster
+1 Erebor Flamesmith
+1 Ferrous Lake
+1 Fever Charm
+1 Firemind's Research
+1 Flame Jet
+1 Flame Rift
+1 Gallifrey Council Chamber
+1 Great Hall of the Biblioplex
+1 Great Hall of the Citadel
+1 Henge of Ramos
+1 Hidden Grotto
+1 Invoke Prejudice
+1 Invoke the Firemind
+15 Island
+1 Izzet Charm
+1 Kiln Fiend
+1 Lightning Bolt
+1 Magmatic Force
+1 Mercurial Geists
+1 Meticulous Artisan
+1 Mindsparker
+1 Monastery Swiftspear
+10 Mountain
+1 Niblis of Dusk
+1 Ophidian Eye
+1 Pact of Negation
+1 Plaza of Heroes
+1 Pyre Hound
+1 Pyroceratops
+1 Pyrostatic Pillar
+1 Rhystic Study
+1 Rite of the Dragoncaller
+1 Riverpyre Verge
+1 Riverwheel Aerialists
+1 Rock Slide
+1 Rockslide Sorcerer
+1 Sarkhan's Unsealing
+1 Screamer-Killer
+1 Sear
+1 Shock
+1 Soul Barrier
+1 Soul of Magma
+1 Spark Spray
+1 Sprite Dragon
+1 Stormchaser Mage
+1 Strafe
+1 Strangle
+1 Survivors' Encampment
+1 Talrand, Sky Summoner
+1 Tanufel Rimespeaker
+1 Teller of Tales
+1 Tempest Angler
+1 Tendo Ice Bridge
+1 Thran Quarry
+1 Tidespout Tyrant
+1 Traumatic Critique
+1 Umara Mystic
+1 Vedalken Archmage
+1 Wee Dragonauts

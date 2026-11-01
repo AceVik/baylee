@@ -1,1 +1,1 @@
-{"cards":[{"name":"Paradox Engine","oracle_id":"d38937a6-ab1c-4de8-a278-d81a6ce0d921","status":"absent"},{"img":"30879758-841c-46a9-a0b6-179ac163f0ac","name":"Planar Bridge","oracle_id":"853c6cc0-ed2b-4d65-add1-2449ade8cf68","status":"generated"}],"code":"mps"}
+{"cards":[{"name":"Paradox Engine","oracle_id":"d38937a6-ab1c-4de8-a278-d81a6ce0d921","status":"absent"},{"img":"30879758-841c-46a9-a0b6-179ac163f0ac","name":"Planar Bridge","oracle_id":"853c6cc0-ed2b-4d65-add1-2449ade8cf68","status":"implemented"}],"code":"mps"}

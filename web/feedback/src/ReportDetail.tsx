@@ -83,7 +83,7 @@ export function ReportDetail({ id, lang = "en", me = "" }: { id: string; lang?: 
   }, [around, back]);
 
   return (
-    <main className="detail-page">
+    <main className="detail-page" id="main">
       <nav className="detail-nav" aria-label={t(lang, "rep.key.neighbours")}>
         <a
           href={back}

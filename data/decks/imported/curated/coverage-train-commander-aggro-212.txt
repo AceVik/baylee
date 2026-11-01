@@ -1,0 +1,89 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WRG #20266213]
+1 Aggressive Urge
+1 Ambrosia Whiteheart
+1 Baldur's Gate
+1 Baloth Woodcrasher
+1 Bandage
+1 Battlefield Promotion
+1 Brand
+1 Brotherhood Headquarters
+1 Bucolic Ranch
+1 Capital City
+1 Carrier Pigeons
+1 Cave of Temptation
+1 Cavern of Souls
+1 Centaur Peacemaker
+1 Charge Through
+1 Cloudchaser Kestrel
+1 Daily Bugle Building
+1 Delighted Halfling
+1 Drill Too Deep
+1 Eager Glyphmage
+1 Emmara, Soul of the Accord
+1 Emrakul's Hatcher
+1 Envoy of Okinec Ahau
+1 Expedite
+1 Feral Prowler
+1 Ferocious Pup
+1 Festival of the Guildpact
+1 Fierce Witchstalker
+1 Fleetfoot Panther
+5 Forest
+1 Gallifrey Council Chamber
+1 Gemstone Mine
+1 Glaring Fleshraker
+1 Godtracker of Jund
+1 Gorilla War Cry
+1 Heal
+1 Impolite Entrance
+1 Interplanar Beacon
+1 Jasmine Dragon Tea Shop
+1 King of the Pride
+1 Kor Firewalker
+1 Kozilek's Sentinel
+1 Leonin Abunas
+1 Lifecreed Duo
+1 Lightfoot Technique
+1 Lightning Blow
+1 Lone Missionary
+1 Machinesmith Automaton
+1 Makindi Sliderunner
+1 Mana Confluence
+1 Mechanized Ninja Cavalry
+1 Mighty Mutanimals
+1 Mirrex
+1 Momo, Rambunctious Rascal
+1 Mountain
+1 Panic
+1 Patagia Tiger
+13 Plains
+1 Plundering Pirate
+1 Prideful Parent
+1 Provoke
+1 Prowling Felidar
+1 Qasali Slingers
+1 Ragavan, Nimble Pilferer
+1 Regal Caracal
+1 Sanguine Glorifier
+1 Scion Summoner
+1 Shimmering Grotto
+1 Solarium Sentry
+1 Spike Drone
+1 Study Hall
+1 Stun
+1 The Mycosynth Gardens
+1 Thran Quarry
+1 Tibalt's Rager
+1 Torch Song
+1 Tuktuk Scrapper
+1 Undergrowth Leopard
+1 Undiscovered Paradise
+1 Unholy Officiant
+1 Voldaren Estate
+1 Winds of Change
+1 Witty Roastmaster
+
+[commander]
+Jetmir, Nexus of Revels

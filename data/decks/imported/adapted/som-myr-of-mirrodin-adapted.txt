@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/SOM/myr-of-mirrodin.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MyrOfMirrodin_SOM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Myr of Mirrodin (Adapted)]
+3 Afterlife
+4 Bring to Trial
+2 Darksteel Myr
+1 Darksteel Sentinel
+3 Gold Myr
+1 Morale
+2 Myrsmith
+2 Palladium Myr
+2 Perilous Myr
+24 Plains
+2 Reviving Dose
+3 Revoke Existence
+1 Ritual of Rejuvenation
+2 Seize the Initiative
+2 Slith Ascendant
+1 Sunblast Angel
+1 Survive the Night
+3 Warrior's Honor
+1 Withstand

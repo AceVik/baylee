@@ -347,6 +347,8 @@ mod tests {
                 can_take: true,
             },
             Pending::ChooseAttackers {
+                alone: Vec::new(),
+                minimum_required: None,
                 player: me,
                 attackers: vec![creature],
                 defenders: vec![Defender::Player(PlayerId::new(1))],

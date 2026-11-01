@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266071]
+1 Air Nomad Legacy
+1 Archaeological Dig
+1 Arlinn's Wolf
+1 Bequeathal
+1 Boartusk Liege
+1 Bouncing Beebles
+1 Breathstealer
+1 Brokers Initiate
+1 Bubbling Beebles
+1 Call the Bloodline
+1 Cartouche of Solidarity
+1 Cascading Cataracts
+1 Castle Doom
+1 Cave of Temptation
+1 City of Brass
+1 Courier's Briefcase
+1 Crackling Club
+1 Crystal Quarry
+1 Dance of Many
+1 Decomposition
+1 Dirtwater Wraith
+1 Dragonback Assault
+1 Dreamwinder
+1 Drowned Rusalka
+1 Fen Stalker
+1 Fledgling Imp
+8 Forest
+1 Ghosts of the Damned
+1 Gigantoad
+1 Goblin Bomb
+1 Great Hall of the Biblioplex
+1 Grizzled Wolverine
+1 Haunted Library
+1 Havoc Sower
+1 Heart Wolf
+1 Holdout Settlement
+1 Homarid Spawning Bed
+1 Hornet Cobra
+1 Interplanar Beacon
+1 Intruding Soulrager
+5 Island
+1 Jorubai Murk Lurker
+1 Jungle Wurm
+1 Kessig Wolf
+1 Kozilek's Shrieker
+1 Loch Korrigan
+1 Mana Leech
+1 Mindwarper
+1 Mirrodin's Core
+7 Mountain
+1 Mtenda Lion
+1 Naga Eternal
+1 Norn's Wellspring
+1 Noxious Groodion
+1 Omen of the Dead
+1 Orthodoxy Enforcer
+1 Planar Nexus
+1 Quarum Trench Gnomes
+1 Rabid Wombat
+1 Raging Bull
+1 Reckless Ogre
+1 Rib Cage Spider
+1 Root Spider
+1 Ryusei, the Falling Star
+1 Sedge Troll
+1 Serpent of the Endless Sea
+1 Shore Snapper
+1 Sliver Hive
+1 Steam Spitter
+1 Steeple Creeper
+1 Study Hall
+4 Swamp
+1 Talisman of Resilience
+1 Thistledown Players
+1 Thopter Foundry
+1 Trestle Troll
+1 Unraveling Mummy
+1 Whiptongue Frog
+1 White Lotus Hideout
+
+[commander]
+Child of Alara

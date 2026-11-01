@@ -686,6 +686,7 @@ fn each_row_stands_in_sections() {
     let utility = |face: RulesFace| face.card == CardIndex::new(u32::from(TOWER));
     let reg = Registry {
         utility_land: &utility,
+        printed_body: &|_| None,
         ..Registry::none()
     };
     let m = BoardModel::from_view(&view, Openings::none(), &[], reg);

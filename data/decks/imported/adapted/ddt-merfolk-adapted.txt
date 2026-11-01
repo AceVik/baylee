@@ -1,0 +1,30 @@
+# adapted from data/decks/precon/DDT/merfolk.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Merfolk_DDT.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Merfolk (Adapted)]
+1 Blighted Cataract
+2 Claustrophobia
+1 Concentrate
+1 Dream Fracture
+2 Essence Scatter
+1 Infuse
+1 Inkfathom Divers
+21 Island
+2 Launch Mishap
+2 Lonely Sandbar
+1 Master of the Pearl Trident
+1 Merfolk Looter
+1 Merfolk Sovereign
+1 Merrow Reejerey
+1 Mind Spring
+1 Misdirection
+1 Mystic Denial
+4 Psionic Blast
+1 Relearn
+1 Rescind
+2 Rootwater Hunter
+1 Runeboggle
+2 Scroll Thief
+3 Streambed Aquitects
+2 Stroke of Genius
+2 Tidal Warrior
+1 Tinker

@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/RNA/domri-city-smasher.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DomriCitySmasher_RNA.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Domri, City Smasher (Adapted)]
+1 Axebane Beast
+3 Charging War Boar
+4 Colossal Might
+2 Feral Maaka
+11 Forest
+2 Gravel-Hide Goblin
+1 Ground Assault
+4 Gruul Guildgate
+4 Manamorphose
+11 Mountain
+4 Ragefire
+4 Savage Twister
+4 Stump Stomp
+3 Surge of Strength
+2 Sylvan Brushstrider

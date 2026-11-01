@@ -366,6 +366,28 @@ fn installer_table_requires_all_eight_verified_checksums() {
     );
 }
 
+fn rust_sources(directory: &Path, files: &mut Vec<std::path::PathBuf>) {
+    for entry in fs::read_dir(directory).into_iter().flatten().flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            rust_sources(&path, files);
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            files.push(path);
+        }
+    }
+}
+
+/// One alias's command line from `.cargo/config.toml`.
+fn cargo_alias(root: &Path, name: &str) -> String {
+    let config = fs::read_to_string(root.join(".cargo/config.toml")).unwrap();
+    let prefix = format!("{name} = \"");
+    config
+        .lines()
+        .find_map(|line| line.strip_prefix(&prefix)?.strip_suffix('"'))
+        .unwrap_or_else(|| panic!("no cargo alias {name}"))
+        .to_owned()
+}
+
 #[cfg(unix)]
 /// The packaging itself is `package`'s test; here, that every release build
 /// makes the seat bridge it then packs (beta.6 shipped without it).
@@ -376,8 +398,99 @@ fn every_release_build_makes_the_seat_bridge() {
     assert!(
         workflow
             .lines()
-            .any(|l| l.contains("cargo build ") && l.contains("--bin baylee-seat"))
+            .any(|l| l.contains("cargo build-client ") && l.contains("--profile dist"))
     );
+    assert!(cargo_alias(&root, "build-client").contains("--bin baylee-seat"));
+}
+
+/// `cargo check-client` checks every target of the shipped client's crates on
+/// every platform, since the servers and tools are built for Linux `x86_64`
+/// only. A client crate that carries a platform `cfg` and is missing from the
+/// alias would have its tests meet only that one platform. Pointer width is
+/// not a platform difference here: every target is 64-bit.
+#[test]
+fn client_check_covers_every_platform_cfg() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let check = cargo_alias(&root, "check-client");
+    let words: Vec<_> = check.split_whitespace().collect();
+    let checked: BTreeSet<_> = words
+        .windows(2)
+        .filter(|pair| pair[0] == "-p")
+        .map(|pair| pair[1].to_owned())
+        .collect();
+
+    // The workspace crates the shipped binaries link, through every normal
+    // dependency table, target-specific ones included.
+    let dependencies = |name: &str| -> Vec<String> {
+        let manifest = fs::read_to_string(root.join("crates").join(name).join("Cargo.toml"))
+            .unwrap_or_default();
+        let mut normal = false;
+        let mut found = Vec::new();
+        for line in manifest.lines() {
+            if line.starts_with('[') {
+                normal = line.ends_with("dependencies]")
+                    && !line.contains("dev-dependencies")
+                    && !line.contains("build-dependencies");
+            } else if normal {
+                // A renamed dependency names its crate in `package`, as
+                // `keyring = { package = "baylee-keyring", ... }` does.
+                let renamed = line
+                    .split_once("package = \"")
+                    .and_then(|(_, rest)| rest.split_once('"'))
+                    .map(|(crate_name, _)| crate_name);
+                let key = line.split(['.', ' ', '=']).next().unwrap_or_default();
+                let name = renamed.unwrap_or(key);
+                if name.starts_with("baylee-") {
+                    found.push(name.to_owned());
+                }
+            }
+        }
+        found
+    };
+    let mut client = BTreeSet::new();
+    let mut queue: VecDeque<String> = ["baylee-client", "baylee-update", "baylee-seat"]
+        .map(str::to_owned)
+        .into();
+    while let Some(name) = queue.pop_front() {
+        if client.insert(name.clone()) {
+            queue.extend(dependencies(&name));
+        }
+    }
+    assert!(
+        client.contains("baylee-engine"),
+        "the walk found {client:?}"
+    );
+
+    // `cfg`, `cfg!` and `cfg_attr`, over line breaks inside the brackets;
+    // a manifest's `[target.'cfg(…)'.dependencies]` counts as well.
+    let platform = regex::Regex::new(
+        r"(?s)cfg(?:_attr)?!?\([^\]]{0,300}?\b(target_os|target_arch|target_family|target_env|target_vendor|windows|unix)\b",
+    )
+    .unwrap();
+    let mut needed = BTreeSet::new();
+    for name in &client {
+        let mut files = Vec::new();
+        rust_sources(&root.join("crates").join(name), &mut files);
+        let manifest = fs::read_to_string(root.join("crates").join(name).join("Cargo.toml"))
+            .unwrap_or_default();
+        if manifest
+            .lines()
+            .any(|line| line.starts_with("[target.'cfg("))
+            || files
+                .iter()
+                .any(|file| platform.is_match(&fs::read_to_string(file).unwrap_or_default()))
+        {
+            needed.insert(name.clone());
+        }
+    }
+    assert!(
+        needed.contains("baylee-keyring"),
+        "the scan found {needed:?}"
+    );
+    let missing: Vec<_> = needed.difference(&checked).collect();
+    assert!(missing.is_empty(), "add to check-client: {missing:?}");
+    let foreign: Vec<_> = checked.difference(&client).collect();
+    assert!(foreign.is_empty(), "not part of the client: {foreign:?}");
 }
 
 #[test]
@@ -389,4 +502,38 @@ fn help_aliases_succeed_without_ci_environment_or_package_files() {
     }
     assert!(!missing_root.exists());
     assert!(super::run(&missing_root, &["unknown-command".into()]).is_err());
+}
+
+/// `cargo deny` and `cargo audit` ignore the same advisories. The audit
+/// action reads no `deny.toml`, so the list is written twice, and it drifted
+/// once: RUSTSEC-2026-0387 reached `audit` only after it had failed a run.
+#[test]
+fn deny_and_audit_ignore_the_same_advisories() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let ids = |text: &str| -> BTreeSet<String> {
+        regex::Regex::new(r"RUSTSEC-\d{4}-\d{4}")
+            .unwrap()
+            .find_iter(text)
+            .map(|m| m.as_str().to_owned())
+            .collect()
+    };
+    let deny = fs::read_to_string(root.join("deny.toml")).unwrap();
+    let ignored = deny
+        .split_once("ignore = [")
+        .and_then(|(_, rest)| rest.split_once(']'))
+        .map(|(list, _)| list)
+        .expect("deny.toml has an advisories ignore list");
+    // Only the quoted entries, not the ids the comments mention.
+    let deny_ids: BTreeSet<String> = ignored
+        .lines()
+        .filter(|line| line.trim_start().starts_with('"'))
+        .flat_map(ids)
+        .collect();
+    let workflow = fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
+    let audit_line = workflow
+        .lines()
+        .find(|line| line.trim_start().starts_with("ignore: RUSTSEC-"))
+        .expect("the audit job lists what it ignores");
+    assert!(!deny_ids.is_empty());
+    assert_eq!(ids(audit_line), deny_ids);
 }

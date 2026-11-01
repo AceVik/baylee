@@ -1,0 +1,39 @@
+# adapted from data/decks/precon/DDE/the-coalition.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheCoalition_DDE.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Coalition (Adapted)]
+1 Befuddle
+1 Cast Away Doubt
+1 Charging Troll
+2 Confidence from Strength
+1 Darigaaz's Charm
+1 Eerie Interlude
+1 Elfhame Palace
+1 Evasive Action
+10 Forest
+1 Gerrard's Command
+2 Harrow
+1 Howling Fury
+1 Island
+2 Jovial Evil
+4 Mountain
+1 Narrow Escape
+2 Nomadic Elf
+1 Notion Rain
+4 Plains
+1 Power Armor
+1 Pulse of Murasa
+1 Quirion Elves
+2 Read the Bones
+1 Rith's Charm
+1 Scrap
+1 Shivan Oasis
+1 Spin Out
+1 Swamp
+2 Sylvan Library
+3 Terramorphic Expanse
+2 Thornscape Apprentice
+1 Tranquility
+1 Treva's Charm
+1 Vindicate
+1 Wildsize
+1 Wistful Thinking

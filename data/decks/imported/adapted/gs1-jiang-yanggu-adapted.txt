@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/GS1/jiang-yanggu.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JiangYanggu_GS1.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Jiang Yanggu (Adapted)]
+2 Breath of Fire
+2 Cleansing Screech
+2 Confidence from Strength
+2 Earthshaking Si
+3 Feiyi Snake
+3 Ferocious Zheng
+12 Forest
+2 Giant Spider
+2 Ground Assault
+2 Hardened-Scale Armor
+2 Leopard-Spotted Jiao
+9 Mountain
+4 Reckless Pangolin
+3 Sacred White Deer
+2 Shatterskull Recruit
+3 Stump Stomp
+1 Surge of Strength
+4 Timber Gorge

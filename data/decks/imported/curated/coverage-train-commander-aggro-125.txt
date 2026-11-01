@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro UR #20266126]
+1 Agna Qel'a
+1 Aven Envoy
+1 Aven Reedstalker
+1 Aven Smokeweaver
+1 Bay Falcon
+1 Blazing Volley
+1 Cloud Dragon
+1 Cloud Manta
+1 Cloudsculpt Technician
+1 Coast Watcher
+1 Coral Atoll
+1 Crimson Manticore
+1 Crush
+1 Deface
+1 Desert of the Mindful
+1 Electric Eel
+1 Emberwilde Caliph
+1 Ethereal Whiskergill
+1 Firestorm Hellkite
+1 Floodbringer
+1 Flying Dolphin-Fish
+1 Fog Elemental
+1 Gitaxian Raptor
+1 Glimmerbell
+1 Goblin Rock Sled
+1 Halimar Depths
+1 Hydroblast
+14 Island
+1 Kavaron, Memorial World
+1 Krovikan Mist
+1 Lightning Stormkin
+1 Living Tempest
+1 Living Tsunami
+1 Lonely Sandbar
+1 Magosi, the Waterveil
+1 Meltdown
+1 Mimic
+10 Mountain
+1 Oboro Breezecaller
+1 Piranha Fly
+1 Pseudodragon Familiar
+1 Pyroblast
+1 Raze
+1 Razorfin Hunter
+1 Red Elemental Blast
+1 Riverfall Mimic
+1 Roc of Kher Ridges
+1 Sand Silos
+1 Saprazzan Cove
+1 Satyr Rambler
+1 Scaldkin
+1 Sea Eagle
+1 Sea Gate
+1 Shimmering Wings
+1 Shore Keeper
+1 Skyshroud Condor
+1 Sleep Magic
+1 Soaring Seacliff
+1 Soratami Rainshaper
+1 Stampede Rider
+1 Startling Development
+1 Storm Crow
+1 Stormcloud Djinn
+1 Subtlety
+1 Sunken Palace
+1 Symbol of Unsummoning
+1 Talonrend
+1 Teferi's Isle
+1 Thriving Isle
+1 Thunder Wall
+1 Trained Condor
+1 Tremor
+1 Updraft Elemental
+1 Vanishing
+1 Vaporkin
+1 Vexing Gull
+1 Volcanic Eruption
+
+[commander]
+Mm'menon, Uthros Exile

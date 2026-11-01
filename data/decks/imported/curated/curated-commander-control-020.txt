@@ -1,0 +1,80 @@
+# baylee curated commander control seed=20261043
+# licence: AGPL-3.0-only
+[deck:commander control RG #20261043]
+1 Abstergo Entertainment
+1 Archaeological Dig
+1 Argothian Enchantress
+1 Brazen Freebooter
+1 Capital City
+1 Choco-Comet
+1 Conduit Pylons
+1 Dismissive Pyromancer
+1 Draconic Disciple
+1 Dragon Trainer
+1 Dragon-Style Twins
+1 Elturgard Ranger
+1 Embersmith
+1 Faithless Looting
+1 Fell the Pheasant
+1 Fire Nation Archers
+1 Firebrand Archer
+1 Firefist Adept
+1 Flame Jet
+1 Flare
+1 Flick a Coin
+7 Forest
+1 Ghitu Slinger
+1 Haven of the Spirit Dragon
+1 Havoc
+1 Imperial Recruiter
+1 Improvised Weaponry
+1 Iron Man, Tony Stark
+1 Jungle Patrol
+1 Kamahl, Pit Fighter
+1 Karplusan Forest
+1 Kessig Flamebreather
+1 Kessig Wolf Run
+1 Lazotep Quarry
+1 Lotus Vale
+1 Magus of the Order
+1 Make Mischief
+1 Mana Confluence
+1 Mana Crypt
+1 Many Partings
+1 Mech Hangar
+1 Molten Nursery
+20 Mountain
+1 Mox Ruby
+1 Murasa Pyromancer
+1 Murasa Ranger
+1 Omnath, Locus of Rage
+1 Orcish Cannonade
+1 Path of Annihilation
+1 Pia and Kiran Nalaar
+1 Primeval Bounty
+1 Reckless Fireweaver
+1 Rockslide Sorcerer
+1 Sawblade Scamp
+1 School of the Unseen
+1 Secluded Courtyard
+1 Setessan Champion
+1 Shocking Sharpshooter
+1 Shredded Sails
+1 Skirsdag Cultist
+1 Skybeast Tracker
+1 Spark Spray
+1 Spellshock
+1 Stangg
+1 Stomping Ground
+1 Study Hall
+1 The Immortal Weapons
+1 Underdome
+1 Verduran Enchantress
+1 Vertigo
+1 Weaver of Lightning
+1 Winter Sky
+1 Young Pyromancer
+1 Zuko, Avatar Hunter
+
+[commander]
+Tuknir Deathlock

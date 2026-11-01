@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUG #20266006]
+1 Abandoned Campground
+1 Arnjlot's Ascent
+1 Aven Archer
+1 Bandage
+1 Battlefield Promotion
+1 Canopy Dragon
+1 Canopy Vista
+1 Centaur Glade
+1 Clairvoyance
+1 Cloud Dragon
+1 Defense of the Heart
+1 Elder Spawn
+1 Exalted Dragon
+1 Farseek
+1 Finale of Devastation
+15 Forest
+1 Fungus Elemental
+1 Fyndhorn Pollen
+1 Gleaming Bastion
+1 Glyph of Delusion
+1 Goliath Sphinx
+1 Helionaut
+1 High Tide
+1 Horizon Canopy
+1 Iguana Parrot
+1 Illusionary Forces
+1 Illusionary Wall
+10 Island
+1 Judge's Familiar
+1 Juju Bubble
+1 Karn, the Great Creator
+1 Leap
+1 Lightfoot Technique
+1 Meditation Pools
+1 Mind Bomb
+1 Mindbender Spores
+1 Nature's Blessing
+1 Neverwinter Dryad
+1 Oath of the Ancient Wood
+1 Omen of the Sun
+1 Overflowing Basin
+1 Pearl Dragon
+1 Pirate's Prize
+1 Plains
+1 Prahv, Spires of Order
+1 Prismatic Circle
+1 Psychic Allergy
+1 Pym Technologies
+1 Quandrix Campus
+1 Reshape
+1 Riftstone Portal
+1 Rushwood Elemental
+1 Sab-Sunen, Luxa Embodied
+1 Shared Roots
+1 Silkwing Scout
+1 Sphinx of Magosi
+1 Spike Hatcher
+1 Storm Spirit
+1 Take Up the Shield
+1 Teyo's Lightshield
+1 Thornglint Bridge
+1 Tidal Influence
+1 Time of Need
+1 Titania's Boon
+1 Trade Caravan
+1 Tranquil Garden
+1 Trapmaker's Snare
+1 Trigon of Mending
+1 Tropical Island
+1 Veiled Apparition
+1 Veldt
+1 Volunteer Reserves
+1 Wall of Resistance
+1 Willowrush Verge
+1 Windurst, Federation Center
+1 Zephid
+
+[commander]
+Arcades Sabboth

@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/WC04/julien-nuijten-green-white-astral-slide.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JulienNuijtenGreenWhiteAstralSlide_WC04.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Julien Nuijten - Green-White Astral Slide (Adapted)]
+4 Advent of the Wurm
+2 Akroma's Vengeance
+3 Eladamri's Call
+4 Eternal Witness
+7 Forest
+2 Heroes' Reunion
+4 Nature's Chant
+6 Plains
+4 Rampant Growth
+4 Secluded Steppe
+4 Tranquil Thicket
+4 Viridian Shaman
+4 Vitalizing Cascade
+4 Windswept Heath
+4 Wrath of God

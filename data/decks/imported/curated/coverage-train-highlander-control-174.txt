@@ -1,0 +1,79 @@
+# baylee synergistic coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WRG #20266175]
+1 Abstergo Entertainment
+1 Ally Encampment
+1 Anaba Bodyguard
+1 Argothian Pixies
+1 Beacon Behemoth
+1 Boros Recruit
+1 Breakneck Berserker
+1 Cabaretti Initiate
+1 Canyon Wildcat
+1 Capital City
+1 Cave of Temptation
+1 Cavern of Souls
+1 Changeling Sentinel
+1 City of Brass
+1 Crucible of the Spirit Dragon
+1 Crystal Grotto
+1 Deer-Dog
+1 Falkenrath Reaver
+1 Feral Krushok
+1 Feral Maaka
+1 Flowstone Charger
+1 Flowstone Hellion
+10 Forest
+1 Furnace Strider
+1 Gallifrey Council Chamber
+1 Glissa's Courier
+1 Goblin Berserker
+1 Goblin Bird-Grabber
+1 Gray Ogre
+1 Great Hall of the Biblioplex
+1 Great-Horn Krushok
+1 Guma
+1 Heart Wolf
+1 Hollowhenge Beast
+1 Hurloon Minotaur
+1 Impostor of the Sixth Pride
+1 Karoo Meerkat
+1 Kessig Wolf
+1 King Cheetah
+1 Lotus Vale
+1 Loxodon Gatekeeper
+1 Marisi's Twinclaws
+1 Minotaur Warrior
+1 Mist Leopard
+1 Mizzix's Mastery
+12 Mountain
+1 Noble Panther
+1 Painted Bluffs
+1 Panther Warriors
+1 Pearled Unicorn
+5 Plains
+1 Planar Nexus
+1 Raging Cougar
+1 Raging Redcap
+1 Rakeclaw Gargantuan
+1 Ravenous Bloodseeker
+1 Regal Unicorn
+1 Rith's Grove
+1 Rubblebelt Recluse
+1 Russet Wolves
+1 Sabretooth Tiger
+1 Scion of the Wild
+1 Scragnoth
+1 Sedge Scorpion
+1 Surveillance Room
+1 Swab Goblin
+1 Telim'Tor's Edict
+1 Tendo Ice Bridge
+1 Towering Indrik
+1 Turn to Dust
+1 Victual Sliver
+1 Wall of Brambles
+1 Wall of Ice
+1 Wall of Razors
+1 Wild Jhovall
+1 Woodland Changeling

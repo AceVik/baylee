@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/PAST/kiska-ra.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, KiskaRa_PAST.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Kiska-Ra (Adapted)]
+1 Ancestral Recall
+2 Birds of Paradise
+2 Control Magic
+2 Desert Twister
+2 Elvish Archers
+6 Forest
+3 Giant Growth
+2 Giant Tortoise
+3 Holy Strength
+1 Infuse
+6 Island
+1 Mox Emerald
+1 Mox Pearl
+1 Mox Sapphire
+2 Pikemen
+6 Plains
+1 Pull from Tomorrow
+1 Regrowth
+2 Samite Healer
+2 Savannah Lions
+2 Scryb Sprites
+4 Tawnos's Weaponry
+2 Timber Wolves
+1 Time Walk
+2 Tundra Wolves
+3 Unstable Mutation
+3 Wargate
+2 Zephyr Falcon

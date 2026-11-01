@@ -178,6 +178,8 @@ fn walker_board(count: u32, power: i16, life: i32, blockers: u32) -> (PlayerView
     board.push(walker(obj(200), victim, 3));
     let v = view(0, &[20, life], board);
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: v.seat,
         attackers: (1..=count).map(obj).collect(),
         defenders: vec![Defender::Player(victim), Defender::Planeswalker(obj(200))],
@@ -430,6 +432,8 @@ fn only_the_creature_that_survives_the_block_attacks() {
     let wall = permanent(obj(3), PlayerId::new(1), 3);
     let v = view(0, &[20, 20], vec![small, big, wall]);
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: PlayerId::new(0),
         attackers: vec![obj(1), obj(2)],
         defenders: vec![Defender::Player(PlayerId::new(1))],

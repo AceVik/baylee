@@ -1,0 +1,82 @@
+# adapted from data/decks/precon/WOC/fae-dominion.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FaeDominion_WOC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fae Dominion (Adapted)]
+1 Agony Warp
+1 Arcane Signet
+1 Bojuka Bog
+1 Brazen Borrower
+1 Choked Estuary
+1 Cloud of Faeries
+1 Command Tower
+1 Complete Disregard
+1 Consider
+1 Consult the Necrosages
+1 Countersquall
+1 Darkwater Catacombs
+1 Depths of Desire
+1 Dig Through Time
+1 Dimir Aqueduct
+1 Dimir Signet
+1 Dream Fracture
+1 Eerie Procession
+1 Essence Vortex
+1 Exclude
+1 Exotic Orchard
+1 Eyeblight's Ending
+1 Fact or Fiction
+1 Faerie Conclave
+1 Faerie Formation
+1 Faerie Seer
+1 Feeding Frenzy
+1 Fellwar Stone
+1 Fierce Guardianship
+1 Frantic Search
+1 Frost Marsh
+1 Funeral Rites
+1 Glen Elendra Liege
+1 Glimpse the Unthinkable
+1 Haunt the Network
+13 Island
+1 Mind Stone
+1 Miscalculation
+1 Myriad Landscape
+1 Mystic Denial
+1 Nightveil Sprite
+1 Notion Rain
+1 Obyra, Dreaming Duelist
+1 Opt
+1 Path of Ancestry
+1 Pelakka Predation
+1 Perish
+1 Pilfered Plans
+1 Psionic Blast
+1 Psychic Drain
+1 Rakshasa's Secret
+1 Reckless Spite
+1 Reconnaissance Mission
+1 Reflections of Littjara
+1 Repulse
+1 Rescind
+1 Scion of Oona
+1 Secluded Glen
+1 Slay
+1 Snap
+1 Sol Ring
+1 Sunken Hollow
+12 Swamp
+1 Syphon Soul
+1 Tainted Isle
+1 Talisman of Dominance
+1 Temple of Deceit
+1 Temple of the False God
+1 Tinker
+1 Touch of Death
+1 Tyrant's Scorn
+1 Unhinge
+1 Urza's Guilt
+1 Vanquish the Weak
+1 Waterlogged Teachings
+1 Wayfarer's Bauble
+
+[commander]
+Tegwyll, Duke of Splendor

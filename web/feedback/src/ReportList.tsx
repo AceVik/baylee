@@ -20,6 +20,7 @@ import {
   api,
   DONE_STATUSES,
   filterQuery,
+  isSourceName,
   OPEN_STATUSES,
   PAGE_SIZE,
   PAGE_SIZES,
@@ -123,6 +124,7 @@ function panelFilters(filter: Filter, view: ViewId | "custom"): number {
       filter.label,
       filter.gateway,
       filter.channel,
+      filter.source,
       filter.reporter,
       filter.from,
       filter.to,
@@ -674,8 +676,9 @@ export function ReportList({ search, lang = "en", me = "" }: { search: string; l
   };
 
   return (
-    <main className={`list-page${drawer !== null ? " with-drawer" : ""}`}>
+    <main className={`list-page${drawer !== null ? " with-drawer" : ""}`} id="main">
       <div className="list-main">
+        <h1 className="sr-only">{t(lang, "nav.reports")}</h1>
         <div className="list-toolbar">
           <fieldset className="views segmented">
             <legend className="sr-only">{t(lang, "rep.views")}</legend>
@@ -995,7 +998,30 @@ export function ReportList({ search, lang = "en", me = "" }: { search: string; l
                             </button>
                           )}
                         </td>
-                        <td>{report.channel === "direct" ? "direct" : report.gateway}</td>
+                        <td>
+                          {report.channel === "direct" ? "direct" : report.gateway}
+                          {report.source !== null && (
+                            <>
+                              {" "}
+                              {isSourceName(report.source) ? (
+                                <button
+                                  type="button"
+                                  className="tag link"
+                                  title={t(lang, "rep.sourceTitle")}
+                                  onClick={() => {
+                                    set({ source: report.source ?? undefined });
+                                  }}
+                                >
+                                  {report.source}
+                                </button>
+                              ) : (
+                                <span className="tag" title={t(lang, "rep.sourceTitle")}>
+                                  {report.source}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </td>
                         <td>
                           <Reporter
                             lang={lang}

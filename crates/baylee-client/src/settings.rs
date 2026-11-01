@@ -42,6 +42,15 @@ pub fn store_is_open() -> bool {
     OPEN.load(Ordering::Acquire)
 }
 
+/// The lobby chat window's size in unscaled interface pixels.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ChatWindowSize {
+    /// Horizontal size.
+    pub width: f32,
+    /// Vertical size.
+    pub height: f32,
+}
+
 /// Everything the client remembers.
 #[derive(Resource, Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -80,6 +89,9 @@ pub struct ClientSettings {
     /// language and their address with it.
     #[serde(default)]
     pub zone_view: baylee_client_core::browser::ViewMode,
+    /// The lobby chat window's size on this device; `None` keeps its responsive default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat_window: Option<ChatWindowSize>,
     /// The address that last signed in here, to fill the sign-in box with.
     ///
     /// Here for the reason the zone browser above is, said from the other
@@ -159,12 +171,20 @@ pub struct ClientSettings {
     /// A file from before it allows nothing and has not been asked.
     #[serde(default)]
     pub reports: baylee_client_core::bugreport::Consent,
-    /// The feedback service a report goes straight to when the client is
-    /// signed in nowhere, over the one this build was given
-    /// (`BAYLEE_FEEDBACK_PUBLIC_URL`); `""` turns direct reports off.
-    /// `bugreport::feedback_service` says which addresses count.
+    /// The feedback service, over the one this build was given
+    /// (`BAYLEE_FEEDBACK_PUBLIC_URL`): the offline count goes there, and a
+    /// report signed in nowhere too when no report address is known;
+    /// `""` turns both off. `bugreport::feedback_service` says which
+    /// addresses count.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feedback_url: Option<String>,
+    /// Where a report goes straight when the client is signed in nowhere,
+    /// over the address this build was given (`BAYLEE_REPORT_PUBLIC_URL`);
+    /// without either, the feedback service's; `""` turns direct reports
+    /// off, and so does `feedback_url = ""` while this is unset, as it did
+    /// before this was here (`bugreport::report_address`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report_url: Option<String>,
     /// The random id this device sends direct reports under, made with the
     /// first one (`bugreport::kept_device_id`). Never sent to a gateway.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -205,6 +225,7 @@ impl Default for ClientSettings {
             prefer_text_view: false,
             zone_browser: None,
             zone_view: baylee_client_core::browser::ViewMode::default(),
+            chat_window: None,
             last_username: String::new(),
             gateways: Vec::new(),
             gateway_uses: baylee_client_core::lobby::gateway_use::GatewayUses::default(),
@@ -216,6 +237,7 @@ impl Default for ClientSettings {
             text_size: crate::shellkit::TextSize::default(),
             reports: baylee_client_core::bugreport::Consent::default(),
             feedback_url: None,
+            report_url: None,
             report_device: None,
             terms: std::collections::BTreeMap::new(),
             report_attachments_closed: false,
@@ -365,8 +387,25 @@ impl ClientSettings {
     #[must_use]
     pub fn load() -> Self {
         store::read()
-            .and_then(|text| serde_json::from_str(&text).ok())
+            .and_then(|text| serde_json::from_str::<Self>(&text).ok())
+            .map(Self::moved)
             .unwrap_or_default()
+    }
+
+    /// The settings with what a client from before the live gateway's move
+    /// (30.10.2026) kept under its former address kept under the new one
+    /// (`gateway_list::moved`): the list, the uses, the guest and the
+    /// accepted terms. The next [`save`](Self::save) writes it so; running
+    /// it again changes nothing. A guest kept under both addresses keeps
+    /// both entries: neither token is overwritten.
+    #[must_use]
+    pub fn moved(mut self) -> Self {
+        use baylee_client_core::lobby::gateway_list;
+        self.gateways = gateway_list::renamed(std::mem::take(&mut self.gateways));
+        self.gateway_uses.moved();
+        gateway_list::rekeyed(&mut self.guests);
+        gateway_list::rekeyed(&mut self.terms);
+        self
     }
 
     /// Persists the settings (best-effort; neither a read-only home dir nor a
@@ -686,6 +725,55 @@ mod tests {
         assert!(odd.tours.lobby);
     }
 
+    /// A settings file as a client from before the live gateway's move
+    /// (30.10.2026) wrote it: everything it kept under the former address
+    /// is kept under the new one after [`ClientSettings::load`]'s
+    /// [`ClientSettings::moved`] (the guest's token above all, its only
+    /// credential), the other gateway's entries stay, and a second pass
+    /// changes nothing.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn a_file_from_before_the_move_keeps_everything_under_the_new_address() {
+        use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
+        let old = KEYED;
+        let own = "http://10.0.0.2:28766";
+        let text = format!(
+            r#"{{"gateways":["{own}","{old}"],
+                "gateway_uses":{{"{old}":{{"count":5,"last":7}},"{own}":{{"count":1,"last":2}}}},
+                "guests":{{"{old}":{{"token":"guest-token","handle":"Guest#1a2b"}}}},
+                "terms":{{"{old}":"2026-10-01"}}}}"#
+        );
+        let read = serde_json::from_str::<ClientSettings>(&text)
+            .expect("an old file decodes")
+            .moved();
+        assert_eq!(read.gateways, vec![own.to_string(), PINNED.to_string()]);
+        assert_eq!(read.gateway_uses.of(PINNED).count, 5);
+        assert_eq!(read.gateway_uses.of(PINNED).last, 7);
+        assert_eq!(read.gateway_uses.of(own).count, 1);
+        assert!(!read.gateway_uses.0.contains_key(old));
+        let guest = read.guests.get(PINNED).expect("the guest came over");
+        assert_eq!(guest.token, "guest-token");
+        assert_eq!(guest.handle, "Guest#1a2b");
+        assert!(!read.guests.contains_key(old));
+        assert_eq!(
+            read.terms.get(PINNED).map(String::as_str),
+            Some("2026-10-01")
+        );
+        assert!(!read.terms.contains_key(old));
+        let text = serde_json::to_string(&read).expect("encodes");
+        assert!(
+            !text.contains(old),
+            "nothing is written under the old address"
+        );
+        let again = serde_json::from_str::<ClientSettings>(&text)
+            .expect("decodes")
+            .moved();
+        assert_eq!(again.gateways, read.gateways);
+        assert_eq!(again.gateway_uses, read.gateway_uses);
+        assert_eq!(again.guests, read.guests);
+        assert_eq!(again.terms, read.terms);
+    }
+
     #[test]
     #[allow(clippy::too_many_lines)] // one literal naming every field, then one read of each
     fn settings_round_trip_through_json() {
@@ -703,7 +791,11 @@ mod tests {
                 height: 380.0,
             }),
             zone_view: baylee_client_core::browser::ViewMode::Grid,
-            last_username: "mail@acevik.de".to_string(),
+            chat_window: Some(super::ChatWindowSize {
+                width: 640.0,
+                height: 420.0,
+            }),
+            last_username: "player@example.invalid".to_string(),
             gateway_uses: {
                 let mut uses = baylee_client_core::lobby::gateway_use::GatewayUses::default();
                 uses.record("https://example.test");
@@ -749,6 +841,7 @@ mod tests {
                 ..baylee_client_core::bugreport::Consent::default()
             },
             feedback_url: Some("https://feedback.example.test".into()),
+            report_url: Some("https://gateway.example.test".into()),
             report_device: Some("0123456789abcdef0123456789abcdef".into()),
             text_size: crate::shellkit::TextSize::Xl,
             report_attachments_closed: true,
@@ -767,7 +860,9 @@ mod tests {
         assert_eq!(read.graphics, written.graphics);
         assert_eq!(read.audio, written.audio);
         assert_eq!(read.table, written.table);
+        assert_eq!(read.chat_window, written.chat_window);
         assert_eq!(read.feedback_url, written.feedback_url);
+        assert_eq!(read.report_url, written.report_url);
         assert_eq!(read.report_device, written.report_device);
         assert_eq!(read.text_size, crate::shellkit::TextSize::Xl);
         assert_eq!(read.tours, written.tours, "the tours' switches and marks");
@@ -788,7 +883,7 @@ mod tests {
             "the view the player chose has to come back, or the buttons are a setting that \
              resets every launch"
         );
-        assert_eq!(read.last_username, "mail@acevik.de");
+        assert_eq!(read.last_username, "player@example.invalid");
         assert_eq!(read.gateway_uses, written.gateway_uses);
         assert_eq!(
             read.music, written.music,
@@ -808,8 +903,9 @@ mod tests {
     #[test]
     fn the_address_remembered_before_usernames_is_still_read() {
         let settings: ClientSettings =
-            serde_json::from_str(r#"{"last_email":"mail@acevik.de"}"#).expect("still decodes");
-        assert_eq!(settings.last_username, "mail@acevik.de");
+            serde_json::from_str(r#"{"last_email":"player@example.invalid"}"#)
+                .expect("still decodes");
+        assert_eq!(settings.last_username, "player@example.invalid");
     }
 
     /// A settings file naming a view mode this build has never heard of loads

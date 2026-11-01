@@ -183,6 +183,14 @@ fn words(text: &str) -> (String, Piece) {
     (text.into(), Piece::Words)
 }
 
+fn link(card: u32) -> Piece {
+    Piece::Link(rows::ChatCardLink {
+        card,
+        face: 0,
+        print: None,
+    })
+}
+
 /// The pieces always read back as the whole text.
 fn rejoined(pieces: &[(String, Piece)]) -> String {
     pieces.iter().map(|(t, _)| t.as_str()).collect()
@@ -206,11 +214,7 @@ fn a_link_cuts_the_text_around_it() {
     let b = body("cast [Opt] now", &[[5, 10]], &[]);
     assert_eq!(
         rows::pieces(&b),
-        [
-            words("cast "),
-            ("[Opt]".into(), Piece::Link(100, 0)),
-            words(" now"),
-        ]
+        [words("cast "), ("[Opt]".into(), link(100)), words(" now"),]
     );
 }
 
@@ -224,7 +228,7 @@ fn marks_are_cut_in_text_order_whatever_order_they_come_in() {
         [
             ("[@Bob#0012]".into(), Piece::Mention),
             words(" sees "),
-            ("[Opt]".into(), Piece::Link(100, 0)),
+            ("[Opt]".into(), link(100)),
         ]
     );
     assert_eq!(rejoined(&p), b.text);
@@ -239,7 +243,7 @@ fn spans_count_characters_not_bytes() {
         p,
         [
             words("Grüße "),
-            ("[Lötus]".into(), Piece::Link(100, 0)),
+            ("[Lötus]".into(), link(100)),
             words(" 日本"),
         ]
     );
@@ -250,7 +254,7 @@ fn spans_count_characters_not_bytes() {
 fn a_mark_in_the_last_characters_leaves_no_trailing_words() {
     let b = body("see 日本[X]", &[[6, 9]], &[]);
     let p = rows::pieces(&b);
-    assert_eq!(p.last(), Some(&("[X]".into(), Piece::Link(100, 0))));
+    assert_eq!(p.last(), Some(&("[X]".into(), link(100))));
     assert_eq!(rejoined(&p), b.text);
 }
 
@@ -270,14 +274,7 @@ fn an_empty_or_backwards_span_is_ignored() {
 fn of_two_overlapping_spans_the_earlier_wins() {
     let b = body("abcdefgh", &[[1, 5]], &[[3, 7]]);
     let p = rows::pieces(&b);
-    assert_eq!(
-        p,
-        [
-            words("a"),
-            ("bcde".into(), Piece::Link(100, 0)),
-            words("fgh"),
-        ]
-    );
+    assert_eq!(p, [words("a"), ("bcde".into(), link(100)), words("fgh"),]);
     assert_eq!(rejoined(&p), b.text, "nothing drawn twice, nothing lost");
 }
 
@@ -286,10 +283,7 @@ fn neighbouring_spans_leave_no_empty_run_between_them() {
     let b = body("abcdef", &[[0, 3]], &[[3, 6]]);
     assert_eq!(
         rows::pieces(&b),
-        [
-            ("abc".into(), Piece::Link(100, 0)),
-            ("def".into(), Piece::Mention),
-        ]
+        [("abc".into(), link(100)), ("def".into(), Piece::Mention),]
     );
 }
 
@@ -2191,6 +2185,7 @@ mod pane {
             .spawn(ChatCardLink {
                 card: 4242,
                 face: 0,
+                print: None,
             })
             .id();
         rig.frames(2);
@@ -2785,5 +2780,78 @@ mod lane {
         rig.ui().drawer = true;
         rig.frames(5);
         assert_eq!(where_is(&rig, hanging), (Val::Px(8.0), Val::Auto));
+    }
+}
+
+/// The settings standing over the table have every key
+/// (`lobby::table_settings`): none of the chat's three doors — a `/` typed
+/// into their search, `R`, the platform's `Ctrl`/`Cmd`+`Enter` — opens the
+/// composer under them. Put away, each opens it.
+#[test]
+fn the_settings_over_the_table_keep_the_chat_s_doors_shut() {
+    use bevy::ecs::message::Messages;
+    use bevy::input::ButtonState;
+    use bevy::input::keyboard::{Key, KeyboardInput};
+
+    #[derive(Clone, Copy, Debug)]
+    enum Door {
+        Slash,
+        Reply,
+        Open,
+    }
+    // The platform's own "send" modifier (`prefs`' default for `ChatOpen`).
+    let send = if cfg!(target_os = "macos") {
+        KeyCode::SuperLeft
+    } else {
+        KeyCode::ControlLeft
+    };
+    for door in [Door::Slash, Door::Reply, Door::Open] {
+        for over in [false, true] {
+            let mut lobby = crate::LobbyState::new();
+            crate::lobby::table_settings::stand_over_table(&mut lobby);
+            if !over {
+                crate::lobby::table_settings::close(&mut lobby);
+            }
+            let mut app = App::new();
+            app.add_plugins(bevy::state::app::StatesPlugin)
+                .insert_state(crate::DuelPhase::Playing)
+                .init_resource::<ButtonInput<KeyCode>>()
+                .init_resource::<Time>()
+                .init_resource::<crate::prefs::Prefs>()
+                .insert_resource(host_with_machine())
+                .insert_resource(ChatUi::default())
+                .insert_resource(crate::Duel::default())
+                .insert_resource(lobby);
+            crate::social::keys::install(&mut app);
+            match door {
+                Door::Slash => {
+                    app.world_mut()
+                        .resource_mut::<Messages<KeyboardInput>>()
+                        .write(KeyboardInput {
+                            key_code: KeyCode::Slash,
+                            logical_key: Key::Character("/".into()),
+                            state: ButtonState::Pressed,
+                            text: Some("/".into()),
+                            repeat: false,
+                            window: Entity::PLACEHOLDER,
+                        });
+                }
+                Door::Reply => app
+                    .world_mut()
+                    .resource_mut::<ButtonInput<KeyCode>>()
+                    .press(KeyCode::KeyR),
+                Door::Open => {
+                    let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+                    keys.press(send);
+                    keys.press(KeyCode::Enter);
+                }
+            }
+            app.world_mut().run_schedule(Update);
+            assert_eq!(
+                app.world().resource::<ChatUi>().typing,
+                !over,
+                "{door:?}, settings over the table: {over}"
+            );
+        }
     }
 }

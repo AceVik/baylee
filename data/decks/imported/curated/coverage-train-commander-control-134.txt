@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WG #20266135]
+1 Altar's Light
+1 Angelic Edict
+1 Arcane Signet
+1 Arid Archway
+1 Bad River
+1 Basalt Monolith
+1 Blade Banish
+1 Blessed Light
+1 Boseiju, Who Shelters All
+1 Bramblecrush
+1 Canopy Dragon
+1 Celestial Purge
+1 Cleansing Ray
+1 Cloudpost
+1 Crazed Armodon
+1 Crumbling Vestige
+1 Despotic Scepter
+1 Dispatch
+1 Exalted Dragon
+1 Excise
+1 Field of the Dead
+1 Floral Spuzzem
+1 Font of Mythos
+1 Fool's Tome
+13 Forest
+1 Fountain of Ichor
+1 Glare of Heresy
+1 Goliath Spider
+1 Grasslands
+1 Grindclock
+1 Herbal Poultice
+1 Hidden Hideout
+1 Iron Tusk Elephant
+1 Isolate
+1 Kavu Mauler
+1 Loxodon Battle Priest
+1 Marble Gargoyle
+1 Matzalantli, the Great Door
+1 Mirrorpool
+1 Neck Snap
+1 Not on My Watch
+1 Path of Ancestry
+1 Pearl Dragon
+1 Phyrexian Lens
+14 Plains
+1 Powerstone Shard
+1 Prismatic Ending
+1 Puncturing Light
+1 Reclaiming Vines
+1 Repel Calamity
+1 Return to the Earth
+1 Rocky Tar Pit
+1 Ruins of Oran-Rief
+1 Scepter of Dominance
+1 Shimmerdrift Vale
+1 Shoot Down
+1 Snapping Sailback
+1 Spinning Wheel
+1 Standing Stones
+1 Steelbane Hydra
+1 Sudden Strike
+1 Supply Drop
+1 Surge Node
+1 Tangle Asp
+1 Teeka's Dragon
+1 Temple Bell
+1 Thawing Glaciers
+1 Thran Portal
+1 Titanium Golem
+1 Untaidake, the Cloud Keeper
+1 Voracious Varmint
+1 Welding Jar
+1 Well of Knowledge
+1 Wing Snare
+
+[commander]
+Trostani, Three Whispers

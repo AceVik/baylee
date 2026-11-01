@@ -1,0 +1,80 @@
+# baylee synergistic holdout coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange BRG #90010007]
+1 Ashen Monstrosity
+1 Ayula's Influence
+1 Barbarian Ring
+1 Birthing Hulk
+1 Blackcleave Cliffs
+1 Blood Seeker
+1 Bloodline Necromancer
+1 Break Asunder
+1 Carbonize
+1 Castle Embereth
+1 Cavern of Souls
+1 Coercion
+1 Colossodon Yearling
+1 Corrupt Eunuchs
+1 Crackling Perimeter
+1 Cunning Lethemancer
+1 Darkheart Sliver
+1 Dauthi Slayer
+1 Davvol, Evincar of Rath
+1 Desert Cerodon
+1 Deviant Glee
+1 Essence Drain
+1 Essence Warden
+1 Eumidian Hatchery
+15 Forest
+1 Gateway Shade
+1 Gemstone Mine
+1 Ghor-Clan Bloodscale
+1 Giant Solifuge
+1 Glade Gnarr
+1 Gorilla Warrior
+1 Greater Good
+1 Growing Rites of Itlimoc
+1 Gruul Signet
+1 Hidden Grotto
+1 Hour of Defeat
+1 Inferno Fist
+1 Keldon Megaliths
+1 Lake of the Dead
+1 Leaf Dancer
+1 Looming Spires
+1 Manor Skeleton
+1 Midgar, City of Mako
+1 Mindlash Sliver
+1 Nacatl Outlander
+1 Natural Selection
+1 Nature's Ruin
+1 Open the Gates
+1 Puncturing Blow
+1 Razortooth Rats
+1 Reality Hemorrhage
+1 Reclusive Wight
+1 Riot Spikes
+1 Scaled Hulk
+1 Secret Base
+1 Seizan, Perverter of Truth
+1 Simian Grunts
+1 Skull Prophet
+1 Sliver Hive
+1 Somberwald Dryad
+1 Soul Feast
+1 Spicy Oatmeal Pizza
+1 Spined Karok
+1 Springjack Pasture
+1 Stalker Hag
+1 Storm World
+1 Stronghold Rats
+10 Swamp
+1 The Chase Is On
+1 The Wretched
+1 Thorned Moloch
+1 Three Tree City
+1 Three Visits
+1 Vampire Opportunist
+1 Vessel of Volatility
+1 Volcanic Submersion
+1 Wandering Wolf

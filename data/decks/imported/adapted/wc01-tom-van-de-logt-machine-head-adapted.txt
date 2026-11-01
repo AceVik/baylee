@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/WC01/tom-van-de-logt-machine-head.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TomVanDeLogtMachineHead_WC01.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Tom van de Logt - Machine Head (Adapted)]
+4 Bedevil
+4 Blazing Specter
+2 Crypt Angel
+4 Dark Ritual
+4 Delirium
+4 Duress
+2 Flametongue Kavu
+6 Mountain
+4 Plague Spitter
+4 Rishadan Port
+4 Spontaneous Combustion
+4 Sulfurous Springs
+6 Swamp
+4 Terminate
+4 Urborg Volcano

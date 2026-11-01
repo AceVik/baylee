@@ -196,15 +196,20 @@ pub(super) fn tours(
         }
         return;
     }
+    let here = place(&state);
+    let top_inset = if here == Some(Place::Room) {
+        m.header + m.scaled(68.0)
+    } else {
+        m.header
+    };
     let setting = Setting {
-        top: m.header,
+        top: top_inset,
         phone,
         ..Setting::default()
     };
     if desk.setting != setting {
         desk.setting = setting;
     }
-    let here = place(&state);
     let covered = covered(
         &state,
         &entrance,

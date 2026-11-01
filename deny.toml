@@ -22,6 +22,14 @@ ignore = [
     # and 0.20 both ask `ruzstd = "0.8.0"` (checked at the 0.20 upgrade);
     # drop this line with the bevy release that moves (accepted 13.10.2026).
     "RUSTSEC-2026-0344",
+    # crypto-bigint's timing advisory is unreachable in the reviewed Central
+    # Ristretto255/SHA-512 suite: OPRF and DH use curve25519-dalek arithmetic;
+    # the elliptic-curve helper reached here only expands hashes into bytes.
+    # This is restricted to the exact SDK pin, upstream versions and reverse
+    # dependency graph documented in docs/central-login.md. The mandatory
+    # shipped-features job rejects changes to that scope. elliptic-curve0.13
+    # requires bigint0.5; the upstream fix>=0.7.6 needs a compatible SDK update.
+    "RUSTSEC-2026-0387",
 ]
 
 [licenses]
@@ -39,14 +47,11 @@ allow = [
     "Zlib",
     "MPL-2.0",
     "CC0-1.0",
-    # `quoted_printable`, which lettre uses to encode a mail body. Zero-clause
-    # BSD: permissive with no attribution requirement at all.
-    "0BSD",
     # `encase`, `encase_derive`, `encase_derive_impl` — wgpu's uniform-buffer
     # layout crates, reached through bevy's renderer. MIT No Attribution is
     # MIT with the attribution clause struck, so it is strictly weaker than
-    # the `MIT` already above it and stands here for the same reason `0BSD`
-    # does: an allowlist says what was read, not what was convenient.
+    # the `MIT` already above it, and stands here because an allowlist says
+    # what was read, not what was convenient.
     "MIT-0",
     # `webpki-root-certs` and both `webpki-roots`, the Mozilla CA bundle
     # `ureq` verifies TLS against. A *data* licence rather than a code one,
@@ -67,5 +72,13 @@ allow = [
 ]
 
 [bans]
+
+# Crates come from crates.io, and the only git source is Baylee Central,
+# pinned by rev in the root `Cargo.toml` (29.10.2026). A new registry or git
+# repository is a new party to trust and fails here until it is named.
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = ["https://github.com/AceVik/baylee-central.git"]
 
 [output]

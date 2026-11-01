@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20266258]
+1 Aerial Guide
+1 Air Servant
+1 Alexi's Cloak
+1 Azimaet Drake
+1 Azure Drake
+1 Cerulean Wyvern
+1 Chasm Drake
+1 Coastal Drake
+1 Copy Enchantment
+1 Copy Land
+1 Cradle of Safety
+1 Defensive Stance
+1 Diplomatic Immunity
+1 Drake Hatchling
+1 Drannith Ruins
+1 Dream Coat
+1 Dunes of the Dead
+1 Encase in Ice
+1 Erosion
+1 Escape Routes
+1 Ethereal Whiskergill
+1 Eye of Ugin
+1 Faerie Swarm
+1 Fighting Drake
+1 Fishliver Oil
+1 Fleeting Image
+1 Flight of Fancy
+1 Fog Elemental
+1 Frozen Aether
+1 Glimmerbell
+1 HELIOS One
+1 Harmattan Efreet
+1 Hisoka's Defiance
+1 Hover Barrier
+1 Intruder Alarm
+34 Island
+1 Krovikan Mist
+1 Living Tsunami
+1 Mistfolk
+1 Nimbus of the Isles
+1 Oko's Accomplices
+1 Phantasmal Forces
+1 Phantasmal Mount
+1 Rhystic Deluge
+1 Riptide Chimera
+1 Scrapskin Drake
+1 Seacoast Drake
+1 Sensory Deprivation
+1 Sentinels of Glen Elendra
+1 Serum Raker
+1 Sky Ruin Drake
+1 Snow Devil
+1 Soaring Drake
+1 Soul of the Rapids
+1 Spire Monitor
+1 Starlit Mantle
+1 Thunder Wall
+1 Treetop Sentinel
+1 Undertow
+1 Updraft Elemental
+1 Urza's Cave
+1 Urza's Saga
+1 Vaporkin
+1 Veiled Crocodile
+1 Walking Dream
+1 Wall of Air
+
+[commander]
+Taniwha

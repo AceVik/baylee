@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control W #20266279]
+1 Ageless Guardian
+1 Alaborn Grenadier
+1 Alaborn Musketeer
+1 Alaborn Trooper
+1 Alert Shu Infantry
+1 Ancient Den
+1 Argivian Blacksmith
+1 Battle Mastery
+1 Bladed Ambassador
+1 Blighted Steppe
+1 Border Guard
+1 Border Patrol
+1 Call the Cavalry
+1 Candlelight Vigil
+1 Captain's Call
+1 Castle
+1 Combat Medic
+1 Daru Encampment
+1 Eiganjo Castle
+1 Equinox
+1 Farbog Explorer
+1 Femeref Scouts
+1 Field Surgeon
+1 Flagstones of Trokair
+1 Fleet-Footed Monk
+1 Foot Soldiers
+1 Foriysian Brigade
+1 Foriysian Interceptor
+1 Gallows Warden
+1 Glorifier of Dusk
+1 Haazda Shield Mate
+1 Heaven's Gate
+1 Holy Mantle
+1 Humility
+1 Indestructibility
+1 Indestructible Aura
+1 Join the Ranks
+1 Kjeldoran Escort
+1 Knights of Thorn
+1 Loxodon Line Breaker
+1 Mantle of Leadership
+1 Master Apothecary
+1 Mounted Archers
+1 Nomad Stadium
+36 Plains
+1 Plover Knights
+1 Prismatic Ward
+1 Pterodon Knight
+1 Qilin's Blessing
+1 Saltfield Recluse
+1 Seeker
+1 Serra Aviary
+1 Serra Paladin
+1 Shackles
+1 Shefet Dunes
+1 Shrine Keeper
+1 Silence
+1 Soltari Emissary
+1 Soltari Foot Soldier
+1 Soulbound Guardians
+1 Split-Tail Miko
+1 Sword Dancer
+1 Traveling Philosopher
+1 Zhalfirin Knight
+
+[commander]
+Sokka, Wolf Cove's Protector

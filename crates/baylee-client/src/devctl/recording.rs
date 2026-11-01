@@ -146,9 +146,19 @@ impl Options {
 }
 
 #[derive(Default, Resource)]
-struct Recorder {
+pub(super) struct Recorder {
     run: Option<Run>,
     jobs: Vec<Job>,
+}
+
+impl Recorder {
+    /// Whether a recording is taking frames now, the time the window has to
+    /// be drawn (`window::lift_while_capturing`).
+    pub(super) fn capturing(&self) -> bool {
+        self.run
+            .as_ref()
+            .is_some_and(|run| run.summary.phase == "capturing")
+    }
 }
 
 struct Run {

@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/M19/vivien.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Vivien_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Vivien (Adapted)]
+1 Aggressive Mammoth
+4 Chord of Calling
+2 Colossal Dreadmaw
+1 Colossal Majesty
+2 Crushing Canopy
+2 Deconstruct
+2 Druid of the Cowl
+26 Forest
+1 Ghastbark Twins
+4 Khalni Ambush
+2 Meteor Golem
+1 Oakenform
+1 Pelakka Wurm
+2 Plummet
+1 Reclamation Sage
+2 Spoils of Victory
+1 Thornado
+1 Thornhide Wolves
+2 Titanic Growth
+2 Tranquility

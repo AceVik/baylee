@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/EVE/life-drain.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LifeDrain_EVE.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Life Drain (Adapted)]
+4 Anguished Unmaking
+1 Archon of Justice
+2 Death Grasp
+4 Harsh Sustenance
+4 Inkling Summoning
+4 Mortify
+3 Nip Gwyllion
+1 Pest Control
+14 Plains
+1 Purge the Profane
+1 Resplendent Mentor
+2 Safehold Sentry
+1 Suture Spirit
+10 Swamp
+4 Unmake
+4 Vindicate

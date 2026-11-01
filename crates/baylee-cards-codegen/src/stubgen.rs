@@ -13,6 +13,9 @@ use baylee_core::mana::ManaCost;
 use baylee_core::types::{SupertypeSet, TypeSet};
 use heck::ToSnakeCase;
 
+mod render;
+pub use render::{render_stub, render_unimplemented};
+
 /// The marker a card file carries while nobody has finished it.
 ///
 /// It says "unimplemented", which is a different question from who owns the
@@ -179,6 +182,23 @@ pub fn slug(name: &str) -> String {
         return format!("c_{out}");
     }
     out
+}
+
+/// Rust source identifier for a module slug. File names keep the plain slug;
+/// only declarations and references need Rust's keyword escaping.
+#[must_use]
+pub fn module_ident(slug: &str) -> String {
+    match slug {
+        // These four names are not legal even after `r#`.
+        "crate" | "self" | "Self" | "super" => format!("c_{slug}"),
+        "as" | "async" | "await" | "break" | "const" | "continue" | "dyn" | "else" | "enum"
+        | "extern" | "false" | "fn" | "for" | "gen" | "if" | "impl" | "in" | "let" | "loop"
+        | "match" | "mod" | "move" | "mut" | "pub" | "ref" | "return" | "static" | "struct"
+        | "trait" | "true" | "type" | "unsafe" | "use" | "where" | "while" | "abstract"
+        | "become" | "box" | "do" | "final" | "macro" | "override" | "priv" | "typeof"
+        | "unsized" | "virtual" | "yield" => format!("r#{slug}"),
+        _ => slug.to_owned(),
+    }
 }
 
 struct FaceData {
@@ -466,7 +486,10 @@ fn color_indicator_expr(card_name: &str, f: &FaceData) -> Result<String, Codegen
 }
 
 fn commander_rule(faces: &[FaceData]) -> &'static str {
-    let type_line = faces.first().map_or("", |f| f.type_line.as_str());
+    let front = faces.first();
+    let type_line = front.map_or("", |f| f.type_line.as_str());
+    let front_oracle = front.map_or("", |f| f.oracle_text.as_str());
+    let has_pt = front.is_some_and(|f| f.power.is_some() && f.toughness.is_some());
     let oracle = faces
         .iter()
         .map(|f| f.oracle_text.as_str())
@@ -474,7 +497,13 @@ fn commander_rule(faces: &[FaceData]) -> &'static str {
         .join("\n");
     if oracle.contains("can be your commander") {
         "CommanderRule::ExplicitlyAllowed"
-    } else if type_line.contains("Legendary") && type_line.contains("Creature") {
+    } else if type_line.contains("Legendary")
+        && (type_line.contains("Creature")
+            || front_oracle.contains(
+                "isn't on the battlefield, it's a 1/1 Insect creature in addition to its other types",
+            )
+            || ((type_line.contains("Vehicle") || type_line.contains("Spacecraft")) && has_pt))
+    {
         "CommanderRule::Legendary"
     } else {
         "CommanderRule::NotEligible"
@@ -552,11 +581,15 @@ fn doc_lines(out: &mut String, prefix: &str, text: &str) {
 /// written out; the rest come from the struct-update tail. A stub therefore
 /// says exactly what is printed on the face and nothing else, and a new
 /// `FaceDef` field does not have to be back-filled into every card file.
+#[allow(clippy::too_many_arguments)]
 fn render_face(
     card_name: &str,
     f: &FaceData,
     cats: &SubtypeCatalogs,
     enter_modifiers: &[String],
+    flashback: Option<&str>,
+    cost_reduction: Option<&str>,
+    entwine: Option<&str>,
     is_back: bool,
     layout: Option<&str>,
 ) -> Result<String, CodegenError> {
@@ -602,6 +635,15 @@ fn render_face(
             "enter_modifiers = &[{}]",
             enter_modifiers.join(", ")
         ));
+    }
+    if let Some(fb) = flashback {
+        fields.push(format!("flashback = {fb}"));
+    }
+    if let Some(cr) = cost_reduction {
+        fields.push(format!("cost_reduction = {cr}"));
+    }
+    if let Some(e) = entwine {
+        fields.push(format!("entwine = {e}"));
     }
     // CR 712.2 vs. 712.4a: an MDFC's back is castable or playable from hand,
     // a nonmodal (transforming) one's back is not — in hand the card has
@@ -803,184 +845,6 @@ fn transcode_card(
     Some(body)
 }
 
-/// Renders one stub file, and says where under `cards/` it belongs.
-///
-/// `tested` answers whether a card test exists at a path relative to
-/// `cards/` (the same relative path under `card_tests/`); it decides
-/// between `Implemented` and `Generated` for a card read in full.
-///
-/// # Errors
-/// [`CodegenError::Mana`] when a mana cost fails validation.
-// One card written out end to end, with the reason for each field beside it.
-#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
-pub fn render_stub(
-    card: &ScryfallCard,
-    row: &LedgerEntry,
-    ledger: &IndexLedger,
-    cats: &SubtypeCatalogs,
-    scripts: Option<&crate::scriptgen::ScriptLookup>,
-    tokens: Option<&crate::tokengen::TokenLookup>,
-    cycles: &crate::layout::LandCycles,
-    tested: &dyn Fn(&str) -> bool,
-) -> Result<(StubInfo, String), CodegenError> {
-    // Multi-face cards slug by their front face ("Brightclimb Pathway // …"
-    // → "brightclimb_pathway").
-    let slug = slug(card.name.split(" // ").next().unwrap_or(&card.name));
-    let faces = faces_of(card);
-    let oracle_id = card.oracle_id.clone().unwrap_or_default();
-    // A card is written out finished only when a reader understood the whole
-    // of it; one clause left over and it stays an ordinary stub. Its own
-    // printed text is tried first, because a land's intrinsic mana comes from
-    // its type line (CR 305.6) and no reference script restates it.
-    let land = crate::landgen::recognize(card, cats)
-        .or_else(|| {
-            let script = scripts?.script(&card.name)?;
-            transcode_card(&script, &faces[0].type_line, cats, tokens)
-        })
-        .or_else(|| vanilla(&faces, &scripts?.script(&card.name)?));
-
-    let path = crate::layout::path_for(card, &slug, cycles);
-    let mut out = String::with_capacity(4096);
-    // Human-verifiable header (docs/card-dsl.md).
-    out.push_str(&format!("//! {} \u{2014} ", card.name));
-    // The front face's cost, not the card's: a modal double-faced card
-    // carries no top-level `mana_cost`, so reading it there printed
-    // "(no cost)" over a `FaceDef` that plainly had one — which `xtask
-    // validate` compares, and which stayed invisible while the pool held no
-    // two-faced cards.
-    let front_cost = faces.first().map_or("", |f| f.mana_cost.as_str());
-    out.push_str(if front_cost.is_empty() {
-        "(no cost)"
-    } else {
-        front_cost
-    });
-    out.push_str(&format!(
-        " \u{2014} {}\n",
-        card.type_line.as_deref().unwrap_or("")
-    ));
-    // Every face's printed text, not the card's. Scryfall carries no
-    // top-level `oracle_text` for a double-faced card — it is per face —
-    // so reading it there left the Oracle header of all 96 two-faced files
-    // *empty*, which is the human-verification surface missing on exactly
-    // the cards that are hardest to check by eye. The faces are joined in
-    // printed order, which is the order `xtask validate` compares against.
-    let oracle = faces
-        .iter()
-        .map(|f| f.oracle_text.trim())
-        .filter(|t| !t.is_empty())
-        .collect::<Vec<_>>()
-        .join("\n");
-    doc_lines(&mut out, "Oracle: ", &oracle);
-    out.push_str(&set_line(
-        card.set.as_deref().unwrap_or("?"),
-        card.collector_number.as_deref().unwrap_or("?"),
-        card.set_name.as_deref().unwrap_or("?"),
-        &card.id,
-        &oracle_id,
-    ));
-    if faces.len() > 1 {
-        for f in &faces {
-            out.push_str(&format!(
-                "//! Face: {} \u{2014} {} \u{2014} {}\n",
-                f.name, f.mana_cost, f.type_line
-            ));
-        }
-    }
-    if let Some(body) = &land {
-        let mut notes = body.notes.clone();
-        notes.dedup();
-        out.push_str(&format!(
-            "{OWNED_MARKER}: {}.\n\n",
-            if notes.is_empty() {
-                "printed abilities".to_string()
-            } else {
-                notes.join(", ")
-            }
-        ));
-    } else {
-        out.push_str(&format!(
-            "{STUB_MARKER} \u{2014} implement abilities + tests, see docs/card-dsl.md.\n\n"
-        ));
-    }
-    // One import, not six. The old list was the same for every card whether
-    // or not the card used it, which is why every stub also had to carry
-    // `#![allow(unused_imports)]` — an allow that then hid two dozen genuinely
-    // dead imports in hand-finished files for as long as it existed.
-    out.push_str("use baylee_cards_dsl::prelude::*;\n");
-
-    let mut face_defs = String::new();
-    for (i, f) in faces.iter().enumerate() {
-        // Enter modifiers are printed on the front face, which is where both
-        // readers mean them: a recognised land is single-faced by
-        // construction, and a script's `K:etbCounter` is said about the card
-        // rather than about one of its sides — a two-faced one is refused
-        // earlier anyway, over the `AlternateMode:` line its reference script
-        // opens with.
-        let enters = match (&land, i) {
-            (Some(body), 0) => body.enter_modifiers.as_slice(),
-            _ => &[],
-        };
-        face_defs.push_str(&render_face(
-            &card.name,
-            f,
-            cats,
-            enters,
-            i > 0,
-            card.layout.as_deref(),
-        )?);
-    }
-    let literal = render_card_literal(
-        card,
-        &row.constant,
-        &oracle_id,
-        &faces,
-        &face_defs,
-        land.as_ref(),
-        ledger,
-        land.is_some() && tested(&path),
-    )?;
-    let statics = land.as_ref().map_or("", |b| b.statics.as_str());
-    // Only when something names one: an unused import is a warning now that
-    // the stub no longer carries a blanket `allow`. The card literal counts
-    // too — `Modifier::AddSubtype` puts a subtype inside an ability, where
-    // neither the faces nor the hoisted filters would see it.
-    if face_defs.contains("subtypes::")
-        || statics.contains("subtypes::")
-        || literal.contains("subtypes::")
-    {
-        out.push_str("use baylee_core::generated::subtypes;\n");
-    }
-    // The token ledger, on the same terms and for the same reason: a card
-    // that creates one names the constant it was filed under, and the module
-    // is the one door to both halves of the table.
-    if statics.contains("generated_tokens::") || literal.contains("generated_tokens::") {
-        out.push_str("use crate::generated_tokens;\n");
-    }
-    out.push('\n');
-    out.push_str(statics);
-    out.push_str(&literal);
-    // No test module. A card file is data, and a test that reads the literal
-    // it sits under proves nothing — every one of the 194 hand-written cards
-    // left the module empty, and the generated cards that filled it produced
-    // assertions like `assert_eq!(*filter, BASIC_LAND_FILTER)`, which compares
-    // the filter with itself. Behaviour is tested in baylee-engine, and a rule
-    // that must hold for *every* card belongs in the cross-cutting tests at
-    // the foot of baylee-cards/src/lib.rs.
-    if land.is_none() {
-        out.push_str("// TODO(card): implement abilities, see docs/card-dsl.md.\n");
-    }
-
-    Ok((
-        StubInfo {
-            path,
-            slug,
-            oracle_id,
-            index: row.index,
-        },
-        out,
-    ))
-}
-
 /// Renders `crates/baylee-cards/src/cards/mod.rs`.
 #[must_use]
 pub fn render_cards_mod(stubs: &[StubInfo]) -> String {
@@ -1011,10 +875,11 @@ pub fn render_cards_mod(stubs: &[StubInfo]) -> String {
         // A file directly in `cards/` needs no attribute; anything nested
         // does, and stating it only where it is load-bearing keeps the diff
         // of a re-filed card to the one line that moved.
+        let ident = module_ident(slug);
         if path == format!("{slug}.rs") {
-            out.push_str(&format!("pub mod {slug};\n"));
+            out.push_str(&format!("pub mod {ident};\n"));
         } else {
-            out.push_str(&format!("#[path = \"{path}\"]\npub mod {slug};\n"));
+            out.push_str(&format!("#[path = \"{path}\"]\npub mod {ident};\n"));
         }
     }
     out
@@ -1061,7 +926,8 @@ pub fn render_registry(stubs: &[StubInfo], slots: usize) -> String {
     for s in &by_oracle {
         out.push_str(&format!(
             "    ({:?}, &crate::cards::{}::CARD),\n",
-            s.oracle_id, s.slug
+            s.oracle_id,
+            module_ident(&s.slug)
         ));
     }
     out.push_str(
@@ -1069,7 +935,10 @@ pub fn render_registry(stubs: &[StubInfo], slots: usize) -> String {
     );
     for s in &slot {
         match s {
-            Some(s) => out.push_str(&format!("    Some(&crate::cards::{}::CARD),\n", s.slug)),
+            Some(s) => out.push_str(&format!(
+                "    Some(&crate::cards::{}::CARD),\n",
+                module_ident(&s.slug)
+            )),
             None => out.push_str("    None,\n"),
         }
     }
@@ -1185,6 +1054,26 @@ mod tests {
             slug("Jin-Gitaxias, Progress Tyrant"),
             "jin_gitaxias_progress_tyrant"
         );
+    }
+
+    #[test]
+    fn rust_keywords_are_escaped_in_module_declarations_and_references() {
+        assert_eq!(module_ident("override"), "r#override");
+        assert_eq!(module_ident("gen"), "r#gen");
+        assert_eq!(module_ident("self"), "c_self");
+        assert_eq!(module_ident("lightning_bolt"), "lightning_bolt");
+
+        let stubs = vec![StubInfo {
+            slug: "override".into(),
+            oracle_id: "oracle-o".into(),
+            index: 0,
+            path: "instants/mv_3/override.rs".into(),
+        }];
+        assert!(
+            render_cards_mod(&stubs)
+                .contains("#[path = \"instants/mv_3/override.rs\"]\npub mod r#override;")
+        );
+        assert!(render_registry(&stubs, 1).contains("crate::cards::r#override::CARD"));
     }
 
     /// Ninety cards in the corpus print an accented letter, and dropping it

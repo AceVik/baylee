@@ -3,42 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-mod annihilate;
-mod blessed_light;
-mod breath_of_malfegor;
-mod bright_reprisal;
-mod command_the_storm;
-mod confirm_suspicions;
-mod consume_the_meek;
-mod contradict;
-mod dark_nourishment;
-mod enhanced_awareness;
-mod fall_of_the_gavel;
-mod final_death;
-mod final_reward;
-mod finishing_blow;
-mod fire_and_brimstone;
-mod fissure;
-mod flesh_to_dust;
-mod get_the_point;
-mod humble_the_brute;
-mod jace_s_ingenuity;
-mod lash_of_the_whip;
-mod live_or_die;
-mod misdirection;
-mod muse_s_encouragement;
-mod narset_s_rebuke;
-mod second_thoughts;
-mod stonefury;
-mod strength_of_cedars;
-mod syphon_fuel;
-mod take_up_arms;
-mod thoughtflare;
-mod throttle;
-mod tidy_conclusion;
-mod unfathomable_truths;
-mod unfriendly_fire;
-
 // ---- Helpers shared by the tests of this directory -------------------------
 //
 // A sibling module reaches nothing of this file's neighbours, so the few verbs
@@ -304,3 +268,53 @@ fn cast_in_mode(engine: &mut Engine<RegistryLookup>, spell: CardIndex, mode: usi
         .unwrap_or_else(|| panic!("mode {mode} was not offered: {options:?}"));
     engine.apply(me(), PlayerAction::ChooseMode(slot)).unwrap();
 }
+mod annihilate;
+mod blessed_light;
+mod breath_of_malfegor;
+mod bright_reprisal;
+mod broken_visage;
+mod cinder_cloud;
+mod command_the_storm;
+mod confirm_suspicions;
+mod consume_the_meek;
+mod contagion;
+mod contradict;
+mod dark_nourishment;
+mod dark_triumph;
+mod desertion;
+mod enhanced_awareness;
+mod evacuation;
+mod fall_of_the_gavel;
+mod final_death;
+mod final_reward;
+mod finishing_blow;
+mod fire_and_brimstone;
+mod fissure;
+mod flesh_to_dust;
+mod force_of_will;
+mod forge_armor;
+mod get_the_point;
+mod gush;
+mod hatred;
+mod humble_the_brute;
+mod jace_s_ingenuity;
+mod lash_of_the_whip;
+mod lava_storm;
+mod live_or_die;
+mod miraculous_recovery;
+mod misdirection;
+mod muse_s_encouragement;
+mod narset_s_rebuke;
+mod necrologia;
+mod scars_of_the_veteran;
+mod second_thoughts;
+mod stonefury;
+mod strength_of_cedars;
+mod sunder;
+mod syphon_fuel;
+mod take_up_arms;
+mod thoughtflare;
+mod throttle;
+mod tidy_conclusion;
+mod unfathomable_truths;
+mod unfriendly_fire;

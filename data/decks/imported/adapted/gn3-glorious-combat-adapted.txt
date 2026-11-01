@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/GN3/glorious-combat.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GloriousCombat_GN3.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Glorious Combat (Adapted)]
+1 Afterlife
+2 Army of Allah
+1 Captain of the Watch
+1 Colossus Hammer
+1 Exile
+1 Fate Forgotten
+1 Flawless Maneuver
+1 Hop to It
+2 Make Your Move
+1 Path to Exile
+1 Piety
+26 Plains
+4 Sandblast
+2 Serra Angel
+2 Solemn Offering
+2 Survive the Night
+1 Sword of Vengeance
+1 Swords to Plowshares
+2 Trusty Machete
+2 Valorous Stance
+1 Vulshok Battlegear
+2 Withstand
+2 Yare

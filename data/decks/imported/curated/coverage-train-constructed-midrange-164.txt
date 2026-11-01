@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUR #20266165]
+2 About Face
+2 Alabaster Kirin
+2 Cloaked Siren
+2 Death Ward
+2 Flowstone Strike
+2 Fork
+2 Glimmering Angel
+2 Hobgoblin Dragoon
+7 Island
+2 Lightning Angel
+2 Mountain
+3 Mystic Monastery
+2 Perilous Landscape
+6 Plains
+2 Plumeveil
+4 Raugrin Triome
+2 Reality Ripple
+2 Shinechaser
+2 Silhouette
+2 Silkbind Faerie
+2 Sunder
+2 Suppression Ray
+2 Thunderclap Wyvern
+2 Tower Drake

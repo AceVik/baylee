@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/MBS/doom-inevitable.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DoomInevitable_MBS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Doom Inevitable (Adapted)]
+1 Armored Cancrix
+1 Barony Vampire
+1 Caustic Hound
+4 Consult the Necrosages
+1 Disentomb
+1 Doom Blade
+4 Essence Vortex
+4 Glimpse the Unthinkable
+1 Horrifying Revelation
+13 Island
+1 Mind Control
+2 Myr Sire
+4 Notion Rain
+2 Phyrexian Rager
+2 Pierce Strider
+4 Pilfered Plans
+1 Psychic Drain
+1 Steel Sabotage
+12 Swamp

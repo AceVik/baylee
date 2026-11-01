@@ -71,10 +71,8 @@ use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// The seconds a question gets at a `blitz` table, the fastest preset: too
-/// few for a model that thinks, so the bridge refuses such a table unless
-/// told otherwise ([`BridgeConfig::allow_blitz`]).
-pub const BLITZ_SECS: u32 = 30;
+mod clock;
+pub use clock::{BLITZ_SECS, is_blitz_clock};
 
 /// How the bridge treats its mind.
 #[derive(Clone, Debug)]
@@ -91,7 +89,7 @@ pub struct BridgeConfig {
     /// Answers in a row the mind fails to give (unavailable, out of budget)
     /// before the bridge takes it off the table: [`Step::MindDown`].
     pub down_after: u32,
-    /// Sit at a table that gives a question [`BLITZ_SECS`] or fewer.
+    /// Sit at a table with a positive clock of [`BLITZ_SECS`] or fewer.
     pub allow_blitz: bool,
     /// The windows the standing orders stop at, when the seat could do
     /// something there ([`crate::wake::MIND_STOPS`] by default).
@@ -200,6 +198,9 @@ pub struct Stats {
     pub model_ms: u64,
     /// Times the mind was taken off the table.
     pub mind_down: u32,
+    /// Whether the house took the rest of the game over from a limited mind
+    /// (rate limited, or out of its quota, with no fallback).
+    pub housed: bool,
     /// The last turn this seat saw.
     pub turns: u32,
     /// How the game ended for this seat, once it has.
@@ -361,6 +362,20 @@ enum Life {
     Left,
 }
 
+/// Who the seat asks a question it does not answer by its standing orders.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Asking {
+    /// The mind.
+    Mind,
+    /// The house: the mind failed [`BridgeConfig::down_after`] times in a
+    /// row and is off the table until a new socket ([`SeatCore::resumed`]).
+    Down,
+    /// The house, for the rest of the game, on this socket and any after
+    /// it: the mind was limited with no fallback to take over
+    /// ([`SeatCore`]'s `limited`).
+    Housed,
+}
+
 /// The seat, without its socket or its mind.
 pub struct SeatCore {
     config: BridgeConfig,
@@ -380,7 +395,7 @@ pub struct SeatCore {
     /// sent on every socket before its ready; `None` sends nothing.
     mind: Option<v1::SeatMind>,
     checked: bool,
-    down: bool,
+    asking: Asking,
     failures: u32,
     life: Life,
     stats: Stats,
@@ -405,7 +420,7 @@ impl SeatCore {
             ready_sent: false,
             mind: None,
             checked: false,
-            down: false,
+            asking: Asking::Mind,
             failures: 0,
             life: Life::Playing,
             stats: Stats::default(),
@@ -530,11 +545,15 @@ impl SeatCore {
                         self.stats.fallbacks.declined += 1;
                         self.fall_back(By::House)
                     }
-                    // A limit the bridge's fallback did not take over
-                    // (`bridge::Standby`) is the mind unavailable.
-                    MindError::Unavailable(_) | MindError::Limited { .. } => {
+                    MindError::Unavailable(_) => {
                         self.stats.fallbacks.unavailable += 1;
                         self.failed()
+                    }
+                    // A limit the bridge's fallback did not take over
+                    // (`bridge::Standby`).
+                    MindError::Limited { .. } => {
+                        self.stats.fallbacks.unavailable += 1;
+                        self.limited()
                     }
                 }
             }
@@ -556,7 +575,9 @@ impl SeatCore {
     /// and a mind that was down is on again.
     pub fn resumed(&mut self) -> Vec<Step> {
         self.ready_sent = false;
-        self.down = false;
+        if self.asking == Asking::Down {
+            self.asking = Asking::Mind;
+        }
         self.failures = 0;
         self.refused = None;
         // Only an answer already sent can have gone down with the old
@@ -673,7 +694,7 @@ impl SeatCore {
                 );
                 return self.leave(why);
             }
-            if let Some(secs) = statics.decision_secs.filter(|s| *s <= BLITZ_SECS)
+            if let Some(secs) = statics.decision_secs.filter(|s| is_blitz_clock(*s))
                 && !self.config.allow_blitz
             {
                 return self.leave(format!(
@@ -885,7 +906,7 @@ impl SeatCore {
 
     /// Hands the current question to the mind.
     fn ask(&mut self, retry: Option<Refusal>) -> Vec<Step> {
-        if self.down {
+        if self.asking != Asking::Mind {
             self.stats.fallbacks.down += 1;
             return self.fall_back(By::House);
         }
@@ -951,12 +972,44 @@ impl SeatCore {
     fn failed(&mut self) -> Vec<Step> {
         self.failures += 1;
         let mut steps = self.fall_back(By::House);
-        if self.failures >= self.config.down_after && !self.down {
-            self.down = true;
+        if self.failures >= self.config.down_after && self.asking == Asking::Mind {
+            self.asking = Asking::Down;
             self.stats.mind_down += 1;
             self.note(self.questions, Event::MindDown);
             steps.push(Step::MindDown);
         }
+        steps
+    }
+
+    /// The mind is rate limited or out of its quota, and no fallback took
+    /// the seat over: the house answers this question and every one after
+    /// it to the end of the game, and the seat stays at the table (owner,
+    /// feedback of 28.10.2026).
+    ///
+    /// A limit used to count as the mind unavailable, and the third in a row
+    /// took it off the table ([`Self::failed`]): the bridge left the socket,
+    /// the table held the chair as away for its whole reconnect window (three
+    /// minutes by default) before its stand-in played, the mind came back
+    /// once it had cooled down, and the next limit began it again. A quota
+    /// does not come back within a game, and a rate limit that does is not
+    /// worth three minutes of everybody's time each round: as after a
+    /// fallback profile takes over (`docs/llm-seat.md` §"A fallback
+    /// profile"), the game is never handed back. The house is declared to
+    /// the table first, so the game's record names who made the answers
+    /// from here on.
+    fn limited(&mut self) -> Vec<Step> {
+        let mut steps = Vec::new();
+        if self.asking != Asking::Housed {
+            self.asking = Asking::Housed;
+            self.stats.housed = true;
+            self.note(self.questions, Event::Housed);
+            let level = AIProfile::NAMED
+                .iter()
+                .find(|(_, profile)| *profile == self.config.house)
+                .map_or("", |(name, _)| name);
+            steps.extend(self.declare(crate::declare::house(level)));
+        }
+        steps.extend(self.fall_back(By::House));
         steps
     }
 

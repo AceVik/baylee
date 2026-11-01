@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/NPH/war-of-attrition.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WarOfAttrition_NPH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:War of Attrition (Adapted)]
+4 Afterlife
+2 Army of Allah
+1 Darksteel Axe
+2 Dread Statuary
+4 Elite Vanguard
+1 Idyllic Tutor
+4 Leonin Skyhunter
+4 Make Your Move
+4 Metal Fatigue
+1 Mirran Crusader
+21 Plains
+4 Porcelain Legionnaire
+2 Rebuke
+2 Repentance
+2 Solemn Offering
+1 Sword of Vengeance
+1 Tempest of Light

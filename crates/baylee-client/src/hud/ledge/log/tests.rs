@@ -709,9 +709,11 @@ fn a_line_wears_the_colour_of_the_seat_it_is_about() {
 
 fn rows(app: &mut App) -> Vec<Entity> {
     let mut lists = app.world_mut().query_filtered::<&Children, With<LogList>>();
+    let world = app.world();
     lists
-        .iter(app.world())
+        .iter(world)
         .flat_map(|kids| kids.iter().collect::<Vec<_>>())
+        .filter(|entity| world.get::<virtual_list::LogSpacer>(*entity).is_none())
         .collect()
 }
 

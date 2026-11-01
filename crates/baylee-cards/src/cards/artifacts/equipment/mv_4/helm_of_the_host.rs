@@ -18,7 +18,6 @@ card!(
         supertypes = SupertypeSet::LEGENDARY,
         subtypes = &[artifact::EQUIPMENT],
     )],
-    commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[
         triggered!(

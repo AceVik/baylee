@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/SOS/lifegain.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Lifegain_SOS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Lifegain (Adapted)]
+4 Anguished Unmaking
+2 Call to the Feast
+2 Forum of Amity
+3 Fracture
+4 Harsh Sustenance
+4 Inkling Summoning
+4 Mortify
+1 Mudflat Village
+9 Plains
+4 Salt Flats
+4 Scoured Barrens
+8 Swamp
+4 Unmake
+3 Vanishing Verse
+4 Vindicate

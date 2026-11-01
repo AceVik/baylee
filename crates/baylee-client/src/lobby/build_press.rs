@@ -536,8 +536,18 @@ impl BuildPress {
                     settings: cx_settings,
                 });
             }
-            BuildPress::ToggleRail => state.build.rail = !state.build.rail,
-            BuildPress::ToggleSyntax => state.build.syntax = !state.build.syntax,
+            BuildPress::ToggleRail => {
+                state.build.rail = !state.build.rail;
+                if state.build.rail {
+                    state.build.syntax = false;
+                }
+            }
+            BuildPress::ToggleSyntax => {
+                state.build.syntax = !state.build.syntax;
+                if state.build.syntax {
+                    state.build.rail = false;
+                }
+            }
             BuildPress::InsertSyntax(at) => {
                 if let Some((example, _)) = crate::buildui::pool::SYNTAX.get(at) {
                     let deck = state.lobby.builder_mut();
@@ -564,6 +574,7 @@ impl BuildPress {
             }
             BuildPress::DrawSeven => {
                 state.build.hand = state.lobby.builder().sample_hand(crate::host::fresh_seed());
+                state.build.reveal_hand = true;
             }
             BuildPress::OpenStatsSheet => state.build.stats_sheet = true,
             BuildPress::CloseStatsSheet => {

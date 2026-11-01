@@ -1,0 +1,39 @@
+# adapted from data/decks/precon/PLS/scout.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Scout_PLS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Scout (Adapted)]
+2 Agadeem's Awakening
+1 Aurora Griffin
+1 Broadside Barrage
+2 Broken Wings
+2 Dismember
+1 Eladamri's Call
+1 Elfhame Palace
+1 Esper Charm
+1 Fleetfoot Panther
+11 Forest
+1 Geothermal Crevice
+2 Gerrard's Command
+1 Harrow
+1 Horned Kavu
+1 Irrigation Ditch
+2 Jovial Evil
+2 Mountain
+1 Nomadic Elf
+1 Pest Summoning
+3 Plains
+1 Quirion Elves
+1 Read the Bones
+1 Rend Spirit
+1 Rith's Charm
+2 Rith's Grove
+1 Shivan Oasis
+1 Slingshot Goblin
+1 Steel Leaf Paladin
+3 Stone Kavu
+1 Sweltering Suns
+2 Sylvan Library
+1 Thornscape Apprentice
+2 Tranquility
+1 Viashino Grappler
+2 Vindicate
+1 Yare

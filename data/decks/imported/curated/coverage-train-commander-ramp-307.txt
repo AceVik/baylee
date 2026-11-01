@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp RG #20266308]
+1 Acidic Dagger
+1 Aether Hub
+1 Alchor's Tomb
+1 Amber Prison
+1 Anaba Bodyguard
+1 Apes of Rath
+1 Brazen Scourge
+1 Broodhunter Wurm
+1 Bull Hippo
+1 Capital City
+1 Cascading Cataracts
+1 Cavern of Souls
+1 Citanul Centaurs
+1 City of Brass
+1 Conifer Strider
+1 Cragcrown Pathway
+1 Cursed Rack
+1 Cyclops of One-Eyed Pass
+1 Daggerback Basilisk
+1 Earth Elemental
+1 Eclipsed Realms
+1 Emerald Oryx
+1 Enraged Ceratok
+13 Forest
+1 Furnace Brood
+1 Gibbering Hyenas
+1 Goblin Berserker
+1 Golden Bear
+1 Gore Swine
+1 Hall of Oracles
+1 Haven of the Spirit Dragon
+1 Hornet Cobra
+1 Jungle Troll
+1 Krosan Constrictor
+1 Lazotep Quarry
+1 Life Chisel
+1 Lotus Vale
+1 Maw of Kozilek
+1 Mijae Djinn
+13 Mountain
+1 Mountain Yeti
+1 Mungha Wurm
+1 Nema Siltlurker
+1 Nettle Swine
+1 Ordinary Bear
+1 Outland Boar
+1 Radjan Spirit
+1 Raging Minotaur
+1 Raging Poltergeist
+1 Rampart Smasher
+1 Reflecting Mirror
+1 River Bear
+1 Rubbleback Rhino
+1 School of the Unseen
+1 Scoria Elemental
+1 Scoria Wurm
+1 Shield of Kaldra
+1 Skyshroud Troll
+1 Spire of Industry
+1 Stone Spirit
+1 Streetbreaker Wurm
+1 Summit Prowler
+1 Talruum Piper
+1 Terror of the Fairgrounds
+1 Thornspire Verge
+1 Tor Giant
+1 Tower of Champions
+1 Tower of Murmurs
+1 Turtle Lair
+1 Underdome
+1 War-Spike Changeling
+1 Wild Ceratok
+1 Winding Wurm
+1 Zodiac Horse
+1 Zodiac Ox
+
+[commander]
+Stangg

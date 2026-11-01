@@ -1,0 +1,70 @@
+# baylee curated commander control seed=20261067
+# licence: AGPL-3.0-only
+[deck:commander control B #20261067]
+1 Abstergo Entertainment
+1 Abundant Countryside
+1 Ancient Craving
+1 Atrocious Experiment
+1 Audacious Thief
+1 Bad Deal
+1 Bishop of the Bloodstained
+1 Black Widow, Deadly Hunter
+1 Blightcaster
+1 Blood Pact
+1 Carnival of Souls
+1 Cast Away Doubt
+1 Certain Death
+1 Consuming Corruption
+1 Cruel Truths
+1 Crushing Disappointment
+1 Damnable Pact
+1 Dark Nourishment
+1 Demon's Due
+1 Dread Reaper
+1 Dusk Legion Zealot
+1 Essence Extraction
+1 Forbidden Ritual
+1 Foul-Tongue Shriek
+1 Funeral Rites
+1 Grim Tutor
+1 Imperial Seal
+1 Infernal Idol
+1 Isolation Cell
+1 Last Caress
+1 Lotus Vale
+1 Mai, Scornful Striker
+1 Malakir Soothsayer
+1 Mana Crypt
+1 Metalspinner's Puzzleknot
+1 Midnight Charm
+1 Nether Void
+1 Painful Quandary
+1 Painsmith
+1 Pharika's Cure
+1 Planar Nexus
+1 Profane Tutor
+1 Putrefaction
+1 Quill-Slinger Boggart
+1 Rabid Bloodsucker
+1 Reanimate
+1 Risky Shortcut
+1 School of the Unseen
+1 Shauku, Endbringer
+1 Shizo, Death's Storehouse
+1 Shredder's Revenge
+1 Sign in Blood
+1 Sneering Shadewriter
+1 Sovereign's Bite
+1 Swallowing Plague
+36 Swamp
+1 Tithebearer Giant
+1 Touch of Death
+1 Ulcerate
+1 Vampiric Feast
+1 Vampiric Tutor
+1 Volrath's Stronghold
+1 Winter's Intervention
+1 Yawgmoth's Edict
+
+[commander]
+Irini Sengir

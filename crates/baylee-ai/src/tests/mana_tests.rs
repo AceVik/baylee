@@ -276,3 +276,182 @@ fn a_historical_target_does_not_threaten_a_returned_permanent() {
         .is_current = false;
     assert_eq!(agent().aimed_at_this_seat(&v, &spell), 0);
 }
+
+#[test]
+fn pain_mana_sources_order_by_self_harm_and_refuse_lethal_taps() {
+    let me = PlayerId::new(0);
+    let citadel = carded(
+        permanent(obj(10), me, 0),
+        "Tarnished Citadel",
+        TypeSet::LAND,
+    );
+    let brass = carded(permanent(obj(11), me, 0), "City of Brass", TypeSet::LAND);
+    let enemy = permanent(obj(20), PlayerId::new(1), 2);
+    let mut v = view(0, &[20, 20], vec![citadel, brass, enemy]);
+    v.phase = baylee_view::Phase::FirstMain;
+    v.step = baylee_view::Step::Main;
+    v.hand = vec![hand_card(1, "Lightning Bolt")];
+    let legal = baylee_engine::choice::LegalActions {
+        can_pass: true,
+        abilities: vec![(obj(10), 0), (obj(10), 1), (obj(11), 1)],
+        ..Default::default()
+    };
+
+    // Tarnished Citadel's colored ability deals 3 damage; City of Brass deals 1.
+    // Even though Tarnished Citadel is listed first, the 1-damage tap wins.
+    assert_eq!(
+        agent().act(
+            &v,
+            &Pending::Priority {
+                player: me,
+                legal: Box::new(legal.clone()),
+            }
+        ),
+        PlayerAction::ActivateAbility {
+            source: obj(11),
+            ability_index: 1,
+        },
+        "1-damage City of Brass is tapped ahead of 3-damage Tarnished Citadel"
+    );
+
+    // At 1 life, City of Brass's 1 damage is lethal and Tarnished Citadel's 3
+    // damage is lethal, so neither colored tap is taken for {R}.
+    v.seats[0].life = 1;
+    assert_eq!(
+        agent().act(
+            &v,
+            &Pending::Priority {
+                player: me,
+                legal: Box::new(legal),
+            }
+        ),
+        PlayerAction::PassPriority,
+        "lethal pain taps are refused at 1 life"
+    );
+
+    // At 2 life with two Cities of Brass and a 2-mana spell, each tap alone is
+    // non-lethal (1 < 2), but the 2-tap plan deals 2 damage and is refused
+    // before the first land is tapped.
+    let brass_a = carded(permanent(obj(11), me, 0), "City of Brass", TypeSet::LAND);
+    let brass_b = carded(permanent(obj(12), me, 0), "City of Brass", TypeSet::LAND);
+    let mut v2 = view(0, &[2, 20], vec![brass_a, brass_b]);
+    v2.phase = baylee_view::Phase::FirstMain;
+    v2.step = baylee_view::Step::Main;
+    v2.hand = vec![hand_card(1, "Grizzly Bears")];
+    let legal2 = baylee_engine::choice::LegalActions {
+        can_pass: true,
+        abilities: vec![(obj(11), 1), (obj(12), 1)],
+        ..Default::default()
+    };
+    assert_eq!(
+        agent().act(
+            &v2,
+            &Pending::Priority {
+                player: me,
+                legal: Box::new(legal2),
+            }
+        ),
+        PlayerAction::PassPriority,
+        "cumulative two-painland plan is refused at 2 life"
+    );
+}
+
+#[test]
+fn spell_cast_triggers_and_self_harm_are_refused_when_lethal() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let spellshock = carded(
+        permanent(obj(10), them, 0),
+        "Spellshock",
+        TypeSet::ENCHANTMENT,
+    );
+    let bears = hand_card(1, "Grizzly Bears");
+    let whisper = hand_card(2, "Night's Whisper");
+
+    // Spellshock deals 2 damage when any player casts a spell, resolving
+    // before the spell itself.
+    let mut v = view(0, &[2, 20], vec![spellshock]);
+    v.hand = vec![bears.clone()];
+    assert!(
+        agent().spell_score(&v, bears.card) < 0,
+        "casting into Spellshock at 2 life is lethal"
+    );
+    v.seats[0].life = 3;
+    assert!(
+        agent().spell_score(&v, bears.card) > 0,
+        "casting into Spellshock at 3 life survives"
+    );
+
+    // Night's Whisper loses 2 life on resolution: refused at 2 life, castable
+    // at 3 life from painless mana, and refused at 3 life when the only black
+    // mana source deals 1 damage.
+    let mut v2 = view(0, &[2, 20], vec![]);
+    v2.hand = vec![whisper.clone()];
+    assert!(
+        agent().spell_score(&v2, whisper.card) < 0,
+        "Night's Whisper is lethal at 2 life"
+    );
+    v2.seats[0].life = 3;
+    assert!(
+        agent().spell_score(&v2, whisper.card) > 0,
+        "Night's Whisper survives at 3 life"
+    );
+    v2.phase = baylee_view::Phase::FirstMain;
+    v2.step = baylee_view::Step::Main;
+    let mut plains = carded(permanent(obj(12), me, 0), "Plains", TypeSet::LAND);
+    plains
+        .subtypes
+        .insert(baylee_core::generated::subtypes::land::PLAINS);
+    v2.battlefield = vec![
+        carded(permanent(obj(11), me, 0), "City of Brass", TypeSet::LAND),
+        plains,
+    ];
+    let legal = baylee_engine::choice::LegalActions {
+        can_pass: true,
+        mana_abilities: vec![obj(12)],
+        abilities: vec![(obj(11), 1)],
+        ..Default::default()
+    };
+    assert_eq!(
+        agent().act(
+            &v2,
+            &Pending::Priority {
+                player: me,
+                legal: Box::new(legal),
+            }
+        ),
+        PlayerAction::PassPriority,
+        "1 damage from City of Brass plus 2 life lost to Night's Whisper is refused at 3 life"
+    );
+}
+
+/// The house keeps a land used for more than mana for last, as the client
+/// does: both rank through `manaplan::prioritize` with the registry's
+/// answer (report 30.10.2026). Karakas is listed first and ties a Plains on
+/// colour, so only that answer keeps it up for a one-white spell.
+#[test]
+fn the_house_taps_a_plains_before_a_karakas() {
+    let me = PlayerId::new(0);
+    let karakas = carded(permanent(obj(1), me, 0), "Karakas", TypeSet::LAND);
+    let mut plains = carded(permanent(obj(2), me, 0), "Plains", TypeSet::LAND);
+    plains
+        .subtypes
+        .insert(baylee_core::generated::subtypes::land::PLAINS);
+    let mut v = view(0, &[20, 20], vec![karakas, plains]);
+    v.phase = baylee_view::Phase::FirstMain;
+    v.step = baylee_view::Step::Main;
+    v.hand = vec![hand_card(3, "Savannah Lions")];
+    let pending = Pending::Priority {
+        player: me,
+        legal: Box::new(baylee_engine::choice::LegalActions {
+            can_pass: true,
+            abilities: vec![(obj(1), 0)],
+            mana_abilities: vec![obj(2)],
+            ..Default::default()
+        }),
+    };
+    assert_eq!(
+        agent().act(&v, &pending),
+        PlayerAction::ActivateManaAbility { source: obj(2) },
+        "the Plains pays, the Karakas stays up"
+    );
+}

@@ -533,6 +533,7 @@ impl<L: CardLookup> Engine<L> {
                                 | resolve::AwaitingOp::DamagePayment { .. }
                                 | resolve::AwaitingOp::TextReplacement { .. }
                                 | resolve::AwaitingOp::RemoveCountersSelfCreateTokens { .. }
+                                | resolve::AwaitingOp::ChoosePhaseToSkipThisTurn
                         )
                     )
                 }) {
@@ -620,6 +621,19 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChoosePlayer { player: p, .. }, PlayerAction::ChoosePlayer(chosen))
                 if *p == player =>
             {
+                if self.resolution.as_ref().is_some_and(|res| {
+                    matches!(
+                        res.awaiting,
+                        Some(resolve::AwaitingOp::ChooseCoinRepeatPlayer(_))
+                    )
+                }) {
+                    let mut res = self.resolution.take().expect("coin replacement choice");
+                    self.pending =
+                        resolve::coin_stakes::choose_player(&self.state, &mut res, chosen);
+                    self.resolution = Some(res);
+                    self.awaiting_answer = true;
+                    return Ok(());
+                }
                 if let Some(PlanKind::EntryBattleProtector { battle }) = self.pending_plan {
                     let valid = self.state.object(battle.object).is_some_and(|object| {
                         object.version == battle.version
@@ -651,6 +665,7 @@ impl<L: CardLookup> Engine<L> {
                     if let Some(obj) = self.state.object_mut(object) {
                         obj.set_chosen_opponent(Some(chosen));
                     }
+                    self.state.invalidate_projections();
                     return Ok(());
                 }
                 if matches!(
@@ -1068,7 +1083,9 @@ impl<L: CardLookup> Engine<L> {
                     // determination is not targeting at all (CR 115.1), and
                     // the step it belongs to grants nobody priority to cast
                     // anything that could be.
-                    PlanKind::UntapChoice | PlanKind::UntapLimit { .. } => {
+                    PlanKind::UntapChoice
+                    | PlanKind::UntapLimit { .. }
+                    | PlanKind::UntapReplacements(_) => {
                         self.pending_plan = Some(plan);
                         return Err(EngineError::IllegalAction(
                             "the untap determination is not a target choice",
@@ -1093,6 +1110,7 @@ impl<L: CardLookup> Engine<L> {
                                     |trigger| crate::text_changes::RuleContext {
                                         source,
                                         text: trigger.text,
+                                        resolved_name: None,
                                         reference: None,
                                     },
                                 );
@@ -1138,7 +1156,8 @@ impl<L: CardLookup> Engine<L> {
                         if let Some(t) = queued.as_ref() {
                             self.hand_over_trigger_abilities(t);
                         }
-                        self.push_ability_to_stack(controller, source, ability_index, targets);
+                        let top =
+                            self.push_ability_to_stack(controller, source, ability_index, targets);
                         self.set_top_mode(mode);
                         if let Some(t) = &queued {
                             self.bind_top_trigger(t);
@@ -1154,8 +1173,6 @@ impl<L: CardLookup> Engine<L> {
                         // `PlayerRel::Chosen` reads back, which exists only
                         // when exactly one was named.
                         if !players.is_empty()
-                            && let Some(top) =
-                                self.state.zones.list(ZoneLocation::Stack).last().copied()
                             && let Some(obj) = self.state.object_mut(top)
                         {
                             obj.target_players = players.iter().copied().collect();
@@ -1165,8 +1182,12 @@ impl<L: CardLookup> Engine<L> {
                         }
                         // A second instance of "target" is asked now that the
                         // first is on the stack object it binds against, and
-                        // a division once the targets are known.
-                        if !self.ask_trigger_second_target() {
+                        // a division once the targets are known. An empty
+                        // optional trigger goes only when its probe resolves
+                        // without any effect or follow-up question.
+                        if !self.discard_empty_trigger_without_effect(top)
+                            && !self.ask_trigger_second_target()
+                        {
                             self.ask_trigger_division();
                         }
                     }
@@ -1244,6 +1265,7 @@ impl<L: CardLookup> Engine<L> {
                                     crate::text_changes::RuleContext {
                                         source: trigger.source,
                                         text: trigger.text,
+                                        resolved_name: None,
                                         reference: None,
                                     },
                                     self.trigger_wall_only(&trigger),
@@ -1276,7 +1298,7 @@ impl<L: CardLookup> Engine<L> {
                             "mandatory battle protector plans are answered via ChoosePlayer"
                         )
                     }
-                    PlanKind::ChooseSubtype { .. } => {
+                    PlanKind::ChooseSubtype { .. } | PlanKind::ChooseTwoBasicLandTypes { .. } => {
                         unreachable!("subtype plans are answered via ChooseSubtype")
                     }
                     PlanKind::ChooseCardName { .. } => {
@@ -1344,6 +1366,9 @@ impl<L: CardLookup> Engine<L> {
             (Pending::ChooseSubtype { player: p, .. }, PlayerAction::ChooseSubtype(subtype))
                 if *p == player =>
             {
+                if self.answer_two_land_types(subtype) {
+                    return Ok(());
+                }
                 let Some(PlanKind::ChooseSubtype { object }) = self.pending_plan.take() else {
                     return Err(EngineError::IllegalAction("no subtype choice pending"));
                 };
@@ -1510,6 +1535,15 @@ impl<L: CardLookup> Engine<L> {
                 Ok(())
             }
             (Pending::YesNo { player: p, .. }, PlayerAction::YesNo(answer)) if *p == player => {
+                if matches!(self.pending_plan, Some(PlanKind::UntapReplacements(_))) {
+                    let Some(PlanKind::UntapReplacements(mut batch)) = self.pending_plan.take()
+                    else {
+                        unreachable!()
+                    };
+                    batch.answer(answer);
+                    self.commit_untap_batch(batch);
+                    return Ok(());
+                }
                 // An activation's Phyrexian symbol: yes is 2 life, no is its
                 // mana (CR 107.4f). Nothing is paid yet; the answer is kept
                 // and the activation goes on to its next question.

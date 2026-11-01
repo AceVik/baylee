@@ -266,7 +266,7 @@ fn joining_a_group_adds_it_and_answers_its_invite() {
         group_invites: vec![group_invite("g1"), group_invite("g2")],
         ..Contacts::default()
     };
-    c.group_event(GroupEvent::Joined, &group("g1", "One"));
+    c.group_event(GroupEvent::Joined, &group("g1", "One"), None, 0);
     assert_eq!(c.groups.len(), 1);
     assert_eq!(c.groups[0].id, "g1");
     assert_eq!(
@@ -281,9 +281,9 @@ fn joining_a_group_adds_it_and_answers_its_invite() {
 #[test]
 fn an_updated_group_replaces_its_row_in_place() {
     let mut c = Contacts::default();
-    c.group_event(GroupEvent::Joined, &group("g1", "One"));
-    c.group_event(GroupEvent::Joined, &group("g2", "Two"));
-    c.group_event(GroupEvent::Updated, &group("g1", "Uno"));
+    c.group_event(GroupEvent::Joined, &group("g1", "One"), None, 0);
+    c.group_event(GroupEvent::Joined, &group("g2", "Two"), None, 0);
+    c.group_event(GroupEvent::Updated, &group("g1", "Uno"), None, 0);
     let names: Vec<&str> = c.groups.iter().map(|g| g.name.as_str()).collect();
     assert_eq!(names, ["Uno", "Two"], "order is the drawer's, kept");
 }
@@ -291,7 +291,7 @@ fn an_updated_group_replaces_its_row_in_place() {
 #[test]
 fn an_update_for_an_unknown_group_adds_it() {
     let mut c = Contacts::default();
-    c.group_event(GroupEvent::Updated, &group("g1", "One"));
+    c.group_event(GroupEvent::Updated, &group("g1", "One"), None, 0);
     assert_eq!(c.groups.len(), 1);
 }
 
@@ -299,10 +299,10 @@ fn an_update_for_an_unknown_group_adds_it() {
 fn leaving_or_deleting_a_group_removes_it_and_its_invite() {
     for event in [GroupEvent::Left, GroupEvent::Deleted] {
         let mut c = Contacts::default();
-        c.group_event(GroupEvent::Joined, &group("g1", "One"));
-        c.group_event(GroupEvent::Joined, &group("g2", "Two"));
+        c.group_event(GroupEvent::Joined, &group("g1", "One"), None, 0);
+        c.group_event(GroupEvent::Joined, &group("g2", "Two"), None, 0);
         c.group_invites = vec![group_invite("g1"), group_invite("g3")];
-        c.group_event(event, &group("g1", "One"));
+        c.group_event(event, &group("g1", "One"), None, 0);
         assert_eq!(c.groups.len(), 1, "{event:?}");
         assert_eq!(c.groups[0].id, "g2", "{event:?}");
         assert_eq!(c.group_invites.len(), 1, "{event:?}");
@@ -313,9 +313,9 @@ fn leaving_or_deleting_a_group_removes_it_and_its_invite() {
 #[test]
 fn an_invite_gone_removes_the_invite_and_keeps_the_group() {
     let mut c = Contacts::default();
-    c.group_event(GroupEvent::Joined, &group("g1", "One"));
+    c.group_event(GroupEvent::Joined, &group("g1", "One"), None, 0);
     c.group_invites = vec![group_invite("g1"), group_invite("g2")];
-    c.group_event(GroupEvent::InviteGone, &group("g1", "One"));
+    c.group_event(GroupEvent::InviteGone, &group("g1", "One"), None, 0);
     assert_eq!(c.groups.len(), 1);
     assert_eq!(c.group_invites.len(), 1);
     assert_eq!(c.group_invites[0].group, "g2");
@@ -327,7 +327,7 @@ fn an_invited_event_changes_nothing_until_the_next_snapshot() {
         group_invites: vec![group_invite("g2")],
         ..Contacts::default()
     };
-    c.group_event(GroupEvent::Invited, &group("g1", "One"));
+    c.group_event(GroupEvent::Invited, &group("g1", "One"), None, 0);
     assert!(c.groups.is_empty());
     assert_eq!(c.group_invites.len(), 1);
 }
@@ -339,13 +339,16 @@ fn table_invites_lapse_at_their_time() {
         ..Snapshot::default()
     };
     let mut c = Contacts::from_snapshot(&snapshot, 0);
-    assert!(!c.expire_invites(9_999), "nothing lapsed yet");
+    assert!(c.expire_invites(9_999).is_empty(), "nothing lapsed yet");
     assert_eq!(c.invites.len(), 2);
-    assert!(c.expire_invites(10_000), "exactly at its time it is gone");
+    assert!(
+        !c.expire_invites(10_000).is_empty(),
+        "exactly at its time it is gone"
+    );
     assert_eq!(c.invites.len(), 1);
     assert_eq!(c.invites[0].invite.id, "long");
-    assert!(!c.expire_invites(10_001));
-    assert!(c.expire_invites(600_000));
+    assert!(c.expire_invites(10_001).is_empty());
+    assert!(!c.expire_invites(600_000).is_empty());
     assert!(c.invites.is_empty());
 }
 

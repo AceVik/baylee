@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266204]
+1 Aether Hub
+1 Archaeological Dig
+1 Ascendant Evincar
+1 Avaricious Dragon
+1 Battle Hymn
+1 Bishop of the Bloodstained
+1 Blood Host
+1 Bloodstone Cameo
+1 Boggart Birth Rite
+1 Bogwater Lumaret
+1 Boltwing Marauder
+1 Bone Pit Brute
+1 Brass's Tunnel-Grinder
+1 Brightstone Ritual
+1 Bubbling Muck
+1 Burnt Offering
+1 Cadaver Imp
+1 Carven Caryatid
+1 Castle Doom
+1 Charnelhoard Wurm
+1 Conduit Pylons
+1 Desperate Bloodseeker
+1 Dragon Tyrant
+1 Ebon Dragon
+1 Falkenrath Celebrants
+1 Falkenrath Exterminator
+1 Fire Imp
+1 Fire Sprites
+1 Forbidden Orchard
+7 Forest
+1 Gauntlet of Might
+1 Gemstone Mine
+1 Great Hall of the Biblioplex
+1 Hellkite Igniter
+1 Hill Giant Herdgorger
+1 Howling Banshee
+1 Insolent Neonate
+1 Koskun Keep
+1 Lotus Vale
+1 Markov Dreadknight
+1 Mind Drain
+1 Mirrodin's Core
+1 Mold Demon
+6 Mountain
+1 Nirkana Revenant
+1 Obelisk of Jund
+1 Painted Bluffs
+1 Primeval Titan
+1 Pyretic Ritual
+1 Rabid Bloodsucker
+1 Ravenous Lindwurm
+1 Reckless Barbarian
+1 Rite of Flame
+1 Rune-Scarred Demon
+1 Scarblade Scout
+1 Scourge of the Undercity
+1 Shake the Foundations
+1 Skirge Familiar
+1 Snarling Gorehound
+1 Spire of Industry
+1 Striped Bears
+1 Stromkirk Mentor
+1 Stromkirk Noble
+1 Surveillance Room
+13 Swamp
+1 Tendo Ice Bridge
+1 The Mycosynth Gardens
+1 Thief of Blood
+1 Thundermaw Hellkite
+1 Trigon of Rage
+1 Underdome
+1 Vampiric Spirit
+1 Violent Impact
+1 Voracious Vampire
+1 Wreckage Wickerfolk
+1 Yahenni, Undying Partisan
+
+[commander]
+Vaevictis Asmadi

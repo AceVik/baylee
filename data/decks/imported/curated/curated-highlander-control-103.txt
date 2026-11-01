@@ -1,0 +1,78 @@
+# baylee curated highlander control seed=20261126
+# licence: AGPL-3.0-only
+[deck:highlander control UG #20261126]
+1 Abstruse Interference
+1 Ally Encampment
+1 Aspiring Aeronaut
+1 Baldur's Gate
+1 Barkchannel Pathway
+1 Cephalid Scout
+1 City of Brass
+1 Confirm Suspicions
+1 Contradict
+1 Crack Open
+1 Dance of Many
+1 Deduce
+1 Deeproot Waters
+1 Dream Fracture
+1 Drowner of Hope
+1 Elephant Guide
+1 Elvish Clancaller
+1 Fable of Wolf and Owl
+1 Faerie Formation
+1 Falcon, Winged Wonder
+1 Fanatic of Rhonas
+1 Fists of Ironwood
+1 Floodhound
+12 Forest
+1 From Beyond
+1 Geist Snatch
+1 Glimmerburst
+1 Hard Evidence
+1 Haven of the Spirit Dragon
+1 Homarid Spawning Bed
+1 Hornswoggle
+1 Icewind Elemental
+15 Island
+1 Jeskai Sage
+1 Launch Mishap
+1 Lazotep Quarry
+1 Llanowar Sentinel
+1 Lotus Vale
+1 Mana Confluence
+1 Many Partings
+1 Maul Splicer
+1 Mech Hangar
+1 Meloku the Clouded Mirror
+1 Mirrodin's Core
+1 Mongrel Pack
+1 Night Soil
+1 Orochi Hatchery
+1 Pirate's Prize
+1 Reach for the Sky
+1 Revive the Shire
+1 Rise of Eagles
+1 Root Out
+1 Secluded Courtyard
+1 Seshiro the Anointed
+1 Sliver Hive
+1 Spore Swarm
+1 Sprout
+1 Summoner's Bane
+1 Sustenance
+1 Swan Song
+1 Syphon Essence
+1 Tarnished Citadel
+1 Tatyova, Benthic Druid
+1 The Theorist, Jace Beleren
+1 Thran Quarry
+1 Three Steps Ahead
+1 Unclaimed Territory
+1 Verdant Force
+1 Villainous Hideout
+1 Vodalian Hexcatcher
+1 Welcome to . . .
+1 Wistful Selkie
+1 Wretched Throng
+1 Wurmweaver Coil
+1 You Find the Villains' Lair

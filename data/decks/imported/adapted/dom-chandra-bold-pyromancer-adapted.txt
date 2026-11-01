@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/DOM/chandra-bold-pyromancer.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ChandraBoldPyromancer_DOM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Chandra, Bold Pyromancer (Adapted)]
+4 Colossal Might
+1 Fiery Intervention
+3 Fire Elemental
+11 Forest
+1 Gilded Lotus
+3 Ground Assault
+3 Karplusan Hound
+2 Llanowar Elves
+2 Manamorphose
+11 Mountain
+1 Pierce the Sky
+1 Primordial Wurm
+4 Pyromantic Pilgrim
+4 Savage Twister
+4 Stump Stomp
+1 Surge of Strength
+4 Timber Gorge

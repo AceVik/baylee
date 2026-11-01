@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/PAST/elementalist.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Elementalist_PAST.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Elementalist (Adapted)]
+3 Air Elemental
+4 Drain Power
+3 Earth Elemental
+3 Earthquake
+2 Energy Flux
+3 Fire Elemental
+3 Fireball
+2 Invoke the Firemind
+12 Island
+2 Lightning Bolt
+2 Mana Vault
+12 Mountain
+2 Unstable Mutation
+1 Wall of Air
+1 Wall of Fire
+1 Wall of Stone
+1 Wall of Water
+3 Water Elemental

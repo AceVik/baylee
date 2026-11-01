@@ -15,82 +15,46 @@
 //! recorded that no deck showed, and the ones a deletion let go of when the
 //! gateway stopped before their files were gone.
 
-use crate::{ErrorBody, Shared, auth, db_down, err, store};
+use crate::{ErrorBody, Shared, auth, db_down, store};
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Json;
 use serde::Deserialize;
 
-/// What `DELETE /account` takes.
+/// What `DELETE /account` takes: `{}`. A password, which a client from
+/// before the cutover sends, is ignored: no account here signs in with one
+/// (`docs/central-login.md` §"Cutover").
 /// @openapi
 #[derive(Deserialize, Default)]
-pub struct Farewell {
-    /// @description The account's password, asked again of a registered
-    /// account; a guest, or a session of Baylee Central, sends `{}`.
-    /// @internal
-    /// The account's password, asked again: a session left signed in on
-    /// somebody else's machine must not be enough to delete the account. A
-    /// guest has none and sends none.
-    #[serde(default)]
-    password: Option<String>,
-}
+pub struct Farewell {}
 
 /// `DELETE /account`: deletes the caller's account and everything it owns,
 /// answering 204.
 ///
-/// A registered account names its password again, counted against the same
-/// eight tries a sign-in is ([`crate::AppState::sign_in_limiter`]), and a
-/// wrong one is 403, not 401: a 401 tells a client its session is spent, and
-/// this one is not.
+/// A guest's session and a session of Baylee Central, the only ones there
+/// are since the cutover, delete without more: Central checked the latter
+/// live as the request came in.
 ///
 /// @route DELETE /account
 /// @scope public
 /// @summary Delete one's own account
 /// @description Deletes the caller's account here and everything it owns:
 /// its sessions, decks and their history, preferences and the pictures no
-/// other account claims; its chairs and sockets close. A registered account
-/// names its password again, counted against the sign-in's eight tries; a
-/// guest, or a session of Baylee Central, sends `{}`. Open to a session that
-/// has not accepted the terms in force.
+/// other account claims; its chairs and sockets close. The body is `{}`.
+/// Open to a session that has not accepted the terms in force.
 /// @tag Accounts
 /// @security bearer
 /// @insert `SessionRefusalsAnyTerms`
 /// @return 204: "The account is deleted"
-/// @return 403: `$ErrorBody` "The password is wrong (`wrong password`), or the account is banned (`ban`)"
-/// @return 429: `$ErrorBody` "Eight tries in five minutes are spent"
-/// @return 500: `$ErrorBody` "The password could not be checked"
+/// @return 403: `$ErrorBody` "The account is banned (`ban`)"
 pub async fn delete_account(
     State(state): State<Shared>,
     headers: HeaderMap,
-    Json(farewell): Json<Farewell>,
+    Json(Farewell {}): Json<Farewell>,
 ) -> Result<StatusCode, (StatusCode, Json<ErrorBody>)> {
     // Open to a session that has not accepted the terms in force: deleting
     // one's data here is one of the three answers the terms sheet offers.
     let session = crate::authed_session_any_terms(&state, &headers).await?;
-    // A Central-bound session was just checked live at Baylee Central, and
-    // its account has no password here to name again.
-    if !session.guest && !session.central {
-        let account = store::account(&state.db, &session.account_id)
-            .await
-            .map_err(|e| db_down(&e))?
-            .ok_or_else(|| err(StatusCode::UNAUTHORIZED, "invalid or expired token"))?;
-        let budget = format!("account:{}", account.id);
-        if !state.sign_in_limiter.allow(&budget) {
-            return Err(err(StatusCode::TOO_MANY_REQUESTS, "too many attempts"));
-        }
-        let stored_hash = account.password_hash.clone();
-        let password = farewell.password.unwrap_or_default();
-        let ok = tokio::task::spawn_blocking(move || {
-            auth::verify_password(stored_hash.as_deref(), &password)
-        })
-        .await
-        .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "verify failed"))?;
-        if !ok {
-            return Err(err(StatusCode::FORBIDDEN, "wrong password"));
-        }
-        // The count names the account, and the account is about to go.
-        state.sign_in_limiter.forget(&budget);
-    }
     depart(
         &state,
         store::delete_account(&state.db, &session.account_id),

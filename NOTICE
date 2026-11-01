@@ -37,7 +37,10 @@ Content Policy. It is not approved, endorsed, sponsored, or affiliated with
 Wizards of the Coast. Portions of the materials used (card names, rules text,
 and imagery when displayed by clients) are property of Wizards of the Coast,
 © Wizards of the Coast LLC. No Wizards of the Coast assets are distributed
-in this repository.
+in this repository, with one exception: the recordings of the game in
+docs/images/readme/ and web/site/img/ show card images as the client draws
+them. Those card images are © Wizards of the Coast, provided by Scryfall,
+and are not covered by this repository's licence (docs/legal.md §3).
 
 Card data and images are provided by Scryfall (https://scryfall.com) under
 its API terms. This project honors Scryfall's rate limits and caches images
@@ -120,3 +123,23 @@ credential-provider dependency inventory.
 baylee source code is licensed under the GNU Affero General Public License
 v3.0 only (see LICENSE). The project is free and non-commercial; no feature
 will ever be placed behind payment.
+
+Baylee memorial (26 October 2026): the login/lobby performs Claude Debussy's
+Clair de lune and Erik Satie's Gymnopédie No. 1. These public-domain works use
+public-domain Mutopia editions by Keith OHara and Evin Robertson, respectively.
+Exact source files, edition links and hashes are in art/music/memorial/.
+The program renders a new performance; no third-party performance is copied.
+
+The memorial's Yamaha C2 grand-piano recordings are Osiris Piano, by Versilian
+Studios and Karoryfer Samples, CC0 1.0 Universal:
+https://shop.karoryfer.com/pages/free-osiris-piano
+https://github.com/sfzinstruments/Osiris_Piano
+Revision: 18c6afccb60cff458edbf7c394571783e074e1e9.
+Solo violin and cello recordings are VSCO 2 Community Edition (credits above),
+revision 440300901dfe9275fd84e0b7763af1f8443ae62e, also CC0 1.0 Universal.
+Unmodified legal texts are in crates/baylee-client-core/assets/chamber/;
+source/PCM hashes, stereo preparation and licensing details are documented in
+art/music/memorial/instruments.json and README.md.
+The memorial photographs were supplied and authorized for this album by
+Baylee's owner. Generated memorial scenery and both Baylee logos use those
+references; see art/baylee/README.md for provenance.

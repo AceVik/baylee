@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/RNA/dovin-architect-of-law.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DovinArchitectOfLaw_RNA.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dovin, Architect of Law (Adapted)]
+4 Absorb
+4 Azorius Guildgate
+3 Concordia Pegasus
+4 Daring Leap
+3 Dovin's Automaton
+4 Elite Arrester
+2 Energy Arc
+10 Island
+1 Ojutai's Command
+12 Plains
+2 Prowling Caracal
+2 Senate Courier
+4 Sphinx's Revelation
+2 Spirit of the Spires
+1 Tenth District Veteran
+2 Windstorm Drake

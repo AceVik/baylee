@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266282]
+1 Abbey Gargoyles
+1 Aegis of the Heavens
+1 Alabaster Kirin
+1 Alabaster Wall
+1 Archon of Emeria
+1 Avian Changeling
+1 Beaming Defiance
+1 Blaze of Glory
+1 Blighted Steppe
+1 Blood of the Martyr
+1 Clever Concealment
+1 Cliffhaven Sell-Sword
+1 Combat Professor
+1 Dawn Gryff
+1 Dazzling Ramparts
+1 Death Ward
+1 Eerie Interlude
+1 Eiganjo, Seat of the Empire
+1 Ephemerate
+1 Everybody Lives!
+1 Eye for an Eye
+1 Festival
+1 Flagstones of Trokair
+1 Flicker
+1 Fortified Rampart
+1 Gaelicat
+1 Guardian Angel
+1 Heavenly Qilin
+1 Hold at Bay
+1 Holy Day
+1 Hope and Glory
+1 Impostor of the Sixth Pride
+1 Iron Tusk Elephant
+1 Karakas
+1 Kor Haven
+1 Majestic Heliopterus
+1 Mending Hands
+1 Moonwing Moth
+1 Noble Elephant
+1 Nomad Stadium
+1 Pay No Heed
+34 Plains
+1 Prowling Caracal
+1 Purelace
+1 Rally
+1 Rapid Fire
+1 Redeem
+1 Release the Dogs
+1 Reverse Damage
+1 Savai Sabertooth
+1 Scapegoat
+1 Shieldmate's Blessing
+1 Shining Aerosaur
+1 Skyswirl Harrier
+1 Spirit of the Spires
+1 Steeple Roc
+1 Sunmane Pegasus
+1 Sunweb
+1 Teferi's Protection
+1 Tributary Vaulter
+1 Tundra Wall
+1 Wall of Caltrops
+1 Wall of Faith
+1 Wall of Light
+1 Wall of Swords
+1 Zealous Strike
+
+[commander]
+Worf, Chief Tactical Officer

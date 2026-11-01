@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/M11/stampede-of-beasts.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, StampedeOfBeasts_M11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Stampede of Beasts (Adapted)]
+1 Back to Nature
+4 Colossal Might
+1 Cultivate
+2 Duskdale Wurm
+1 Fireball
+1 Fling
+16 Forest
+2 Garruk's Packleader
+2 Giant Growth
+2 Giant Spider
+1 Greater Basilisk
+2 Ground Assault
+1 Lightning Bolt
+2 Llanowar Elves
+8 Mountain
+1 Nature's Spiral
+1 Plummet
+2 Runeclaw Bear
+1 Sacred Wolf
+2 Savage Twister
+1 Spined Wurm
+4 Stump Stomp
+2 Yavimaya Wurm

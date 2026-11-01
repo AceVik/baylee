@@ -120,7 +120,7 @@ fn new_arrangements_stay_consonant_and_inside_the_instrument_and_event_budgets()
 #[test]
 fn swing_changes_pulse_lengths_but_not_bar_length_or_response_bound() {
     let control = Arc::new(ScoreControl::default());
-    control.set(Movement::Title.request(Theme::Lantern));
+    control.set(Movement::Standard.request(Theme::Lantern));
     let mut tune = Tune::with_control(control);
     let mut pulses = Vec::new();
     let mut last_tick = tune.tick;
@@ -132,7 +132,7 @@ fn swing_changes_pulse_lengths_but_not_bar_length_or_response_bound() {
         }
     }
     assert!(pulses[1] - pulses[0] > pulses[2] - pulses[1]);
-    let expected = 6.0 * 30.0 / 138.0 * f64::from(RATE);
+    let expected = 6.0 * Theme::Lantern.eighth(Movement::Standard) * f64::from(RATE);
     assert!((f64::from(pulses[6]) - expected).abs() < 2.0);
     assert!(pulses.windows(2).all(|p| p[1] - p[0] < RATE / 2));
 }
@@ -141,7 +141,7 @@ fn synthetic_only_scores_are_bank_independent_and_acoustic_scores_are_not() {
     for (theme, same) in [(Theme::Circuit, true), (Theme::Copper, false)] {
         let render = |samples| {
             let control = Arc::new(ScoreControl::default());
-            let mut request = Movement::Title.request(theme);
+            let mut request = Movement::Standard.request(theme);
             request.samples = samples;
             control.set(request);
             let mut tune = Tune::with_control(control);

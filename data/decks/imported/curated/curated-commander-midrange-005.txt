@@ -1,0 +1,72 @@
+# baylee curated commander midrange seed=20261028
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20261028]
+1 April O'Neil, Kunoichi Trainee
+1 Attended Knight
+1 Avatar Enthusiasts
+1 Backup Agent
+1 Bishop of Wings
+1 Blade Splicer
+1 Captain of the Watch
+1 Cathedral Sanctifier
+1 Cave of Temptation
+1 Champion of the Parish
+1 Clarion Cathars
+1 Daysquad Marshal
+1 Doomed Traveler
+1 Drogskol Cavalry
+1 Elspeth, Storm Slayer
+1 Extraction Specialist
+1 Geist-Honored Monk
+1 Glider Kids
+1 Glimmervoid
+1 Guarded Heir
+1 Hada Freeblade
+1 Heavy Infantry
+1 Henge of Ramos
+1 Honored Knight-Captain
+1 Invasion Reinforcements
+1 Ironclad Slayer
+1 Jeong Jeong's Deserters
+1 Kazandu Blademaster
+1 Kindly Customer
+1 Kjeldoran Home Guard
+1 Kyoshi Warriors
+1 Loran of the Third Path
+1 Mandroid Squadron
+1 Master Splicer
+1 Monk Realist
+1 Mox Pearl
+1 Nighthawk, Dark Defender
+1 Novice Inspector
+1 Nykthos, Shrine to Nyx
+1 Oltec Cloud Guard
+1 Operations Officer
+1 Palace Jailer
+34 Plains
+1 Protector of Gondor
+1 Recruiter of the Guard
+1 Resolute Reinforcements
+1 Sanctifier of Souls
+1 Seller of Songbirds
+1 Sensor Splicer
+1 Serra's Sanctum
+1 Settlement Blacksmith
+1 Shimmering Grotto
+1 Shu Grain Caravan
+1 Shu Soldier-Farmers
+1 Siege Veteran
+1 Slumbering Keepguard
+1 Soul Warden
+1 Soul's Attendant
+1 Temple Acolyte
+1 Thraben Inspector
+1 Tivadar of Thorn
+1 Treasure Hunter
+1 Venerable Monk
+1 Wakandan Shield Guard
+1 War Priest of Thune
+1 Zuran Orb
+
+[commander]
+Sokka, Wolf Cove's Protector

@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WR #20266041]
+1 Abraded Bluffs
+1 Alpine Meadow
+1 Anarchy
+1 Ancient Amphitheater
+1 Aviary Mechanic
+1 Bird Maiden
+1 Blazing Volley
+1 Bloodfire Dwarf
+1 Bloodlust Inciter
+1 Breakneck Berserker
+1 Capital Guard
+1 Checkpoint Officer
+1 Cinder Giant
+1 Devoted Hero
+1 Dimension X
+1 Dwarven Berserker
+1 Dwarven Bloodboiler
+1 Dwarven Catapult
+1 Dwarven Demolition Team
+1 Dwarven Grunt
+1 Dwarven Lieutenant
+1 Dwarven Miner
+1 Dwarven Nomad
+1 Dwarven Soldier
+1 Dwarven Thaumaturgist
+1 Dwarven Trader
+1 Dwarven Weaponsmith
+1 Eager Cadet
+1 Fearful Villager
+1 Fire Ants
+1 Fire Nation's Conquest
+1 Firestorm Phoenix
+1 Frontline War-Rager
+1 Furious Strength
+1 Gavony Trapper
+1 Glittering Massif
+1 Granulate
+1 Hall
+1 Happy Hogan, Dauntless Driver
+1 Harvesttide Infiltrator
+1 Heroism
+1 Hurly-Burly
+1 Impetuous Sunchaser
+1 Inspiring Vantage
+1 Inventor's Apprentice
+1 Iron Hills
+1 Kinsbaile Balloonist
+1 Lava Storm
+1 Liberated Dwarf
+1 Lorehold Campus
+1 Magmaquake
+1 Mardu Runemark
+1 Meltdown
+21 Mountain
+1 Mountain Bandit
+1 Path of Mettle
+3 Plains
+1 Radiant Summit
+1 Raucous Carnival
+1 Restless Bivouac
+1 Rhox Pikemaster
+1 Rustvale Bridge
+1 Seismic Shudder
+1 Shard Phoenix
+1 Shatterstorm
+1 Shocker
+1 Soldier of Fortune
+1 Soltari Emissary
+1 Squire
+1 Staunch Shieldmate
+1 Storm's Wrath
+1 Suleiman's Legacy
+1 Tremor
+1 Turbulent Steppe
+1 Weapons Trainer
+1 Wrecking Crew
+1 Zhao, the Seething Flame
+
+[commander]
+Nori, Teller of Tales

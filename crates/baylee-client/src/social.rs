@@ -23,13 +23,14 @@ use std::collections::VecDeque;
 
 use baylee_client_core::social::{
     self, ChatCue, ChatTab, ChatToast, ConvId, Effect, Entropy, Intent, Me, Social, SocialLink,
-    TableContext,
+    TableContext, ToastAbout,
 };
 use bevy::prelude::*;
 
 use crate::lobby::LobbyState;
 
 pub(crate) mod drawer;
+pub(crate) mod glass;
 pub(crate) mod keys;
 pub(crate) mod menu;
 pub(crate) mod rows;
@@ -128,6 +129,9 @@ pub struct SocialHost {
     table: Option<Option<TableContext>>,
     /// Toasts to show, newest last.
     pub(crate) toasts: VecDeque<ChatToast>,
+    /// What standing toasts asked about and is answered or gone since
+    /// (`Effect::Withdraw`), for `toasts::take` to take away.
+    pub(crate) withdrawn: Vec<ToastAbout>,
     /// Cues to play.
     pub(crate) sounds: Vec<ChatCue>,
     /// What the machine asked of the shell.
@@ -283,6 +287,11 @@ impl SocialHost {
                     self.toasts.pop_front();
                 }
             }
+            Effect::Withdraw(about) => {
+                self.toasts
+                    .retain(|toast| toast.about.as_ref() != Some(&about));
+                self.withdrawn.push(about);
+            }
             Effect::Sound(cue) => self.sounds.push(cue),
             Effect::OpenConversation(conv) => self.asks.push(UiAsk::Open(conv)),
             Effect::JoinTable { game, invite } => self.asks.push(UiAsk::Join { game, invite }),
@@ -361,7 +370,7 @@ type ChatHome = Box<dyn social::disk::ChatDisk + Send + Sync>;
 /// The client's config directory, where the chat folder lives; `None` in a
 /// process that never opened the store (a test).
 #[cfg(not(target_arch = "wasm32"))]
-fn config_dir() -> Option<std::path::PathBuf> {
+pub(crate) fn config_dir() -> Option<std::path::PathBuf> {
     use baylee_client_core::userdirs::{Kind, Os, real_env, user_dir};
     if !crate::settings::store_is_open() {
         return None;
@@ -711,6 +720,7 @@ pub(crate) fn install(app: &mut App) {
                 .chain(),
         );
     window::install(app);
+    glass::install(app);
     keys::install(app);
     menu::install(app);
     drawer::install(app);

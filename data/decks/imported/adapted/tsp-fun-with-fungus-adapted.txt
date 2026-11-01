@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/TSP/fun-with-fungus.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FunWithFungus_TSP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fun With Fungus (Adapted)]
+4 Abrupt Decay
+1 Assassin's Trophy
+1 Assassinate
+1 Claws of Gix
+1 Feebleness
+13 Forest
+4 Gaze of Granite
+2 Golgari Guildgate
+1 Grim Backwoods
+2 Herd Gnarr
+4 Maelstrom Pulse
+4 Pest Summoning
+1 Shifting Woodland
+2 Sprout
+2 Strength in Numbers
+10 Swamp
+3 Tear Asunder
+2 Thallid
+1 Thermokarst
+1 Wormwood Dryad

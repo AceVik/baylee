@@ -136,6 +136,9 @@ pub enum Filter {
     /// A blocking creature (CR 509.1g): declared as a blocker this combat
     /// and not removed from it since.
     Blocking,
+    /// A blocked creature (CR 509.1h): attacking, with blockers declared
+    /// and at least one declared for it (or made blocked by an effect).
+    Blocked,
     /// An unblocked creature (CR 509.1h): attacking, with blockers declared
     /// and none declared for it. Before blockers are declared an attacking
     /// creature is neither blocked nor unblocked, and this is false.
@@ -190,6 +193,8 @@ pub enum Filter {
     HasCumulativeUpkeep,
     /// Has an Aura attached to it. Equipment alone does not count.
     Enchanted,
+    /// Has an Equipment attached to it (CR 301.5c). Auras alone do not count.
+    Equipped,
     /// Is blocking the source creature.
     BlockingSource,
     /// Is blocked by the source creature.
@@ -344,6 +349,9 @@ pub enum Filter {
     /// the battlefield, and is the same object that dealt it (Brine Hag:
     /// "all creatures that dealt damage to it this turn").
     DealtDamageToSourceThisTurn,
+    /// Was dealt positive damage by this source this turn; both objects
+    /// must retain the battlefield incarnations involved in that damage.
+    DealtDamageBySourceThisTurn,
     /// Currently blocked by the reference object (Sewers of Estark:
     /// "if it's blocking, creatures blocked by it").
     BlockedByReference,
@@ -370,6 +378,27 @@ pub enum Filter {
     /// Was tapped this turn to pay an activation cost of the source permanent
     /// (Vodalian War Machine: "each Merfolk tapped this turn to pay its cost").
     TappedToPayForSourceThisTurn,
+    /// Mana value equals the number of counters of this kind on the source
+    /// permanent (Chalice of the Void: "a spell with mana value equal to the
+    /// number of charge counters on this artifact").
+    CmcEqualsCountersOnSource(crate::CounterKind),
+    /// Not controlled by the reference object's controller (Confusion in the
+    /// Ranks: "target [type] its controller doesn't control").
+    NotControlledByReferenceController,
+    /// Has the lowest mana value or is tied for the lowest mana value among
+    /// permanents on the battlefield matching the inner filter (Culling Scales:
+    /// "target nonland permanent with the lowest mana value").
+    LowestManaValueOnBattlefield(&'static Filter),
+    /// Has the same name as a card in exile linked to the source permanent
+    /// (Extraplanar Lens: "a land with the same name as the exiled card").
+    SameNameAsLinkedExile,
+    /// Shares at least one color with a card exiled with the source
+    /// permanent (CR 406.6).
+    SharesColorWithExiledWithSource,
+    /// Mana value equals the amount of unspent mana in `you`'s mana pool
+    /// (Glissa Sunseeker: "if its mana value is equal to the amount of mana in
+    /// your mana pool").
+    CmcEqualsYourUnspentMana,
 }
 
 /// Zone references for filters (engine zones, DSL view).

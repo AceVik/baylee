@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WU #20266223]
+1 Aang, Air Nomad
+1 Abandoned Air Temple
+1 Ambassador Laquatus
+1 Arenson's Aura
+1 Argivian Restoration
+1 Attentive Sunscribe
+1 Bag End Banquet
+1 Banishing Betrayal
+1 Barrin, Master Wizard
+1 Capture of Jingzhou
+1 Cathartic Adept
+1 Chronic Flooding
+1 Citadel Gate
+1 Codex Shredder
+1 Confirm Suspicions
+1 Contingency Plan
+1 Dispersing Orb
+1 Drannith Magistrate
+1 Drowner of Secrets
+1 Déjà Vu
+1 Eye of Malcator
+1 False Defeat
+1 Geist Snatch
+1 Giant Shark
+1 Halimar Depths
+1 Hall of Storm Giants
+1 Hanna, Ship's Navigator
+1 Hidden Cataract
+1 Il Mheg Pixie
+20 Island
+1 Ivory Guardians
+1 Karoo
+1 Lonely Sandbar
+1 Memorial to Glory
+1 Merfolk Coralsmith
+1 Merfolk Mesmerist
+1 Minas Tirith
+1 Mind Sculpt
+1 Mindeye Drake
+1 Monumental Henge
+1 Moonfolk Puzzlemaker
+1 Moonring Island
+1 Mox Diamond
+6 Plains
+1 Precognition
+1 Reef Roads
+1 Remote Farm
+1 Resurrection
+1 Rootwater Diver
+1 Rootwater Mystic
+1 Rummaging Wizard
+1 Sandstone Bridge
+1 Scribe of the Mindful
+1 Search for Azcanta
+1 Seer's Lantern
+1 Sejiri Steppe
+1 Select for Inspection
+1 Sinister Sabotage
+1 Soratami Mindsweeper
+1 Spined Megalodon
+1 Spirit Away
+1 Stonehorn Chanter
+1 Taigam's Scheming
+1 Tamiyo's Epiphany
+1 Temporal Mastery
+1 The Surgical Bay
+1 Tome Scour
+1 Unauthorized Exit
+1 Unexplained Disappearance
+1 Vedalken Entrancer
+1 Vigilance
+1 Windrider Patrol
+1 Winds of Rebuke
+1 Wizard Replica
+1 Workhorse
+
+[commander]
+Absolute Virtue

@@ -661,6 +661,7 @@ fn resolve(
         loot: None,
         draw_watch: None,
         this_way_from: None,
+        coin_stake: None,
     };
     if let crate::resolve::Flow::Wait(pending) = crate::resolve::run(state, &mut res) {
         return Err(format!(

@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WR #20266236]
+1 Accelerate
+1 Aftershock
+1 Akoum Warrior
+1 Ally Encampment
+1 Aven Skirmisher
+1 Avengers Tower
+1 Balduvian Hydra
+1 Battlefield Forge
+1 Bloodcrazed Neonate
+1 Boggart Brute
+1 Capital City
+1 Cascading Cataracts
+1 Cave of Temptation
+1 Cavern of Souls
+1 Charging Strifeknight
+1 Conduit Pylons
+1 Crash and Burn
+1 Dangerous Wager
+1 Duergar Hedge-Mage
+1 Dwarven Armorer
+1 Dáin of the Ancient Halls
+1 Eidolon of Inspiration
+1 Eidolon of Rhetoric
+1 Electrify
+1 Erdwal Ripper
+1 Fear of Surveillance
+1 Festival Crasher
+1 Fighting Chance
+1 Frantic Confrontation
+1 Frenzied Devils
+1 Furious Bellow
+1 Glyph of Destruction
+1 Goblin Legionnaire
+1 Goblin Picker
+1 Golden-Tail Disciple
+1 Gorilla Shaman
+1 Heaven's Gate
+1 High Noon
+1 Jasmine Dragon Tea Shop
+1 Karma
+1 Kitesail Scout
+1 Lantern Kami
+1 Lightning Visionary
+1 Lotus Vale
+1 Machine Man, Model X-51
+1 Manakin
+1 Markov Blademaster
+1 Minotaur Skullcleaver
+1 Mothrider Patrol
+14 Mountain
+1 Mutant Town Musicians
+1 Nahiri's Machinations
+1 Nyx-Fleece Ram
+1 Nyxborn Courser
+10 Plains
+1 Pteron Ghost
+1 Pyrogoyf
+1 Pyrohemia
+1 Raze the Effigy
+1 Righteousness
+1 Runebound Wolf
+1 Segovian Angel
+1 Sentinel of the Eternal Watch
+1 Spire of Industry
+1 Sudden Impact
+1 Sustaining Spirit
+1 Tendo Ice Bridge
+1 Thor Odinson
+1 Thorin Oakenshield
+1 Three Tree City
+1 Tributary Vaulter
+1 Viashino Firstblade
+1 Vigilante Justice
+1 Voldaren Estate
+1 Wall of Resistance
+1 Warleader's Call
+1 Welder Automaton
+
+[commander]
+Eivor, Battle-Ready

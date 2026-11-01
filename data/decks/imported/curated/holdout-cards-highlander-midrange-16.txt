@@ -1,0 +1,80 @@
+# baylee unseen-card holdout highlander seed=90000026
+# licence: AGPL-3.0-only
+[deck:highlander midrange UG #90000026]
+1 Abundant Countryside
+1 Ancient Ziggurat
+1 Arcane Flight
+1 Archaeological Dig
+1 Archdruid's Charm
+1 Artificer's Intuition
+1 Aviation Pioneer
+1 Ayula's Influence
+1 Barkchannel Pathway
+1 Blisterpod
+1 Blizzard
+1 Brood Monitor
+1 Conduit Pylons
+1 Cyclone
+1 Dance of Many
+1 Defense of the Heart
+1 Dragoon's Wyvern
+1 Drowned Rusalka
+1 Drowner of Hope
+1 Eldrazi Skyspawner
+1 Energy Vortex
+1 Eyeless Watcher
+1 Faerie Formation
+1 Fastbond
+1 Fecundity
+1 Floodhound
+1 Font of Fertility
+1 Forecasting Fortune Teller
+16 Forest
+1 Forsaken City
+1 Fungal Bloom
+1 Garruk's Uprising
+1 Gilded Goose
+1 Glimmervoid
+1 Greater Good
+1 Greensleeves, Maro-Sorcerer
+1 Hatching Plans
+1 Henge of Ramos
+1 Homarid Spawning Bed
+1 Iceberg
+1 Incubator Drone
+1 Innkeeper's Talent
+1 Ior Ruin Expedition
+9 Island
+1 Jewel-Eyed Cobra
+1 Kingfisher
+1 Knightfisher
+1 Kozilek's Predator
+1 Malcator's Watcher
+1 Mongrel Pack
+1 Most Wanted
+1 Nest Invader
+1 Novijen, Heart of Progress
+1 Orochi Hatchery
+1 Preening Champion
+1 Runewing
+1 S.H.I.E.L.D. Deployment Drone
+1 Secluded Courtyard
+1 Shimmering Grotto
+1 Silver Raven
+1 Sliver Hive
+1 Soul of the Harvest
+1 Spike Breeder
+1 Sporemound
+1 Springjack Pasture
+1 Survival of the Fittest
+1 Survivors' Encampment
+1 Trade Routes
+1 Tunnel Surveyor
+1 Verdant Force
+1 Viscerid Drone
+1 Walking Ballista
+1 Waterlogged Grove
+1 Welcome to . . .
+1 Wizard Class
+1 Yavimaya Sapherd
+1 Yavimaya's Embrace

@@ -3,12 +3,12 @@
 //! on a game"): a real gateway with `BAYLEE_ADMIN_TOKEN`, asked the way the
 //! feedback service asks it, and the public doors those acts close.
 //!
-//! What they hold: a reset password is shown once, signs every session out
-//! and can be used only to choose a new one; a ban refuses a registered
-//! account's sign-in (with its reason, only to the one who proved the
-//! password) and a guest's session; lifting it and deleting an account work;
-//! the console rows say who is banned and by whom; ending a game tells every
-//! seat why and ends it; and no audit line carries a password or a reason.
+//! What they hold: a ban signs a registered account's sessions out and
+//! refuses any session of it with its reason, a guest's included; lifting it
+//! and deleting an account work; the console rows say who is banned and by
+//! whom; ending a game tells every seat why and ends it; the password reset
+//! went with the gateway's own passwords (`docs/central-login.md`
+//! §"Cutover"); and no audit line carries a token or a reason.
 
 #![allow(clippy::missing_docs_in_private_items)]
 
@@ -22,9 +22,6 @@ const TOKEN: &str = "e2e-admin-token-0123456789abcdef0123456789";
 
 /// The admin the feedback service would name.
 const ADMIN: &str = "viktor";
-
-/// The password `common::login` registers every account with.
-const PASSWORD: &str = "a-very-fine-password";
 
 /// A gateway and its console's port.
 struct Console {
@@ -139,133 +136,70 @@ fn a_guest(c: &Console) -> (String, String) {
     (id, token)
 }
 
-/// `POST /auth/login` with `username` and `password`.
-fn sign_in(c: &Console, username: &str, password: &str) -> (u16, serde_json::Value) {
-    let creds = serde_json::json!({ "username": username, "password": password }).to_string();
-    let (status, body) = http(c.gw.port, "POST", "/auth/login", None, &creds);
+/// A new session for an account `common::login` made: its bearer token.
+///
+/// Written into the table as `common::login` writes the first, because no
+/// route here makes one: Baylee Central's sign-in does, and refuses a banned
+/// account. So this is the session that would slip in beside a ban, and
+/// what a ban does to a session is seen on it. An account that is not there
+/// fails the insert rather than the test's next assertion.
+fn another_session(c: &Console, username: &str) -> String {
+    use sha2::Digest as _;
+    use std::fmt::Write as _;
+    let hex = |bytes: &[u8]| {
+        bytes.iter().fold(String::new(), |mut out, b| {
+            write!(out, "{b:02x}").expect("writing to a String");
+            out
+        })
+    };
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes).expect("OS randomness");
+    let token = hex(&bytes);
+    let digest = hex(&sha2::Sha256::digest(token.as_bytes()));
+    c.gw.sql(&format!(
+        "INSERT INTO session_token (token_hash, account_id, expires_at)
+         VALUES (decode('{digest}', 'hex'),
+                 (SELECT id FROM account WHERE username_key = '{}'),
+                 clock_timestamp() + interval '12 hours')",
+        username.to_ascii_lowercase()
+    ));
+    token
+}
+
+/// `GET /me` with `token`: status and body.
+fn me(c: &Console, token: &str) -> (u16, serde_json::Value) {
+    let (status, body) = http(c.gw.port, "GET", "/me", Some(token), "");
     (status, json(&body))
 }
 
 fn me_status(c: &Console, token: &str) -> u16 {
-    http(c.gw.port, "GET", "/me", Some(token), "").0
+    me(c, token).0
 }
 
+/// The reset went with the gateway's own passwords: on the console it is no
+/// route, for an account that exists as for one that does not, and the
+/// public port never had it.
 #[test]
-fn a_reset_password_is_shown_once_and_only_buys_a_new_one() {
-    let c = console("mod_reset");
-    let port = c.gw.port;
-    let session = login(port, "alice", "Alice");
+fn a_password_reset_is_no_route() {
+    let c = console("mod_reset_gone");
+    let _ = login(c.gw.port, "alice", "Alice");
     let id = id_of(&c, "alice");
-    assert_eq!(me_status(&c, &session), 200);
-
-    let (status, body) = admin(&c, "POST", &format!("/admin/accounts/{id}/password"), "");
-    assert_eq!(status, 200, "{body}");
-    let reset = json(&body)["password"].as_str().unwrap().to_owned();
-    let groups: Vec<&str> = reset.split('-').collect();
-    assert_eq!(groups.len(), 4, "four groups of four: {reset}");
-    assert!(groups.iter().all(|g| g.len() == 4), "{reset}");
-    assert_ne!(reset, PASSWORD);
-
-    // Every session it had is gone.
-    assert_eq!(
-        me_status(&c, &session),
-        401,
-        "the old session is signed out"
-    );
-    // The old password no longer opens it; the new one only asks for another.
-    let (status, _) = sign_in(&c, "alice", PASSWORD);
-    assert_eq!(status, 401);
-    let (status, answer) = sign_in(&c, "alice", &reset);
-    assert_eq!(status, 403, "{answer}");
-    assert_eq!(answer["password_change"], true, "{answer}");
-    assert!(answer["token"].is_null(), "no token: {answer}");
-
-    // The console says it is waiting for the new password.
-    let (_, body) = admin(&c, "GET", &format!("/admin/accounts/{id}"), "");
-    assert_eq!(json(&body)["reset_pending"], true, "{body}");
-
-    // Choosing one: the weak, and the same as the reset, are refused.
-    let change = |new: &str| {
-        let body = serde_json::json!({
-            "username": "alice", "password": reset, "new_password": new
-        })
-        .to_string();
-        http(port, "POST", "/auth/password", None, &body)
-    };
-    let (status, body) = change("short");
-    assert_eq!(status, 400, "{body}");
-    assert!(body.contains("invalid password"), "{body}");
-    let (status, body) = change(&reset);
-    assert_eq!(status, 400, "the one it has is no choice: {body}");
-    // A wrong current password is a sign-in's refusal.
-    let wrong = serde_json::json!({
-        "username": "alice", "password": "not-the-password-0", "new_password": "a-brand-new-password"
-    })
-    .to_string();
-    let (status, _) = http(port, "POST", "/auth/password", None, &wrong);
-    assert_eq!(status, 401);
-
-    let (status, body) = change("a-brand-new-password");
-    assert_eq!(status, 200, "{body}");
-    assert_eq!(json(&body)["username"], "alice", "{body}");
-    let token = json_field(&body, "token").to_owned();
-    assert_eq!(me_status(&c, &token), 200, "the answer is a session");
-
-    // Its own password signs in from now on; the admin's is spent.
-    let (status, answer) = sign_in(&c, "alice", "a-brand-new-password");
-    assert_eq!(status, 200, "{answer}");
-    let (status, _) = sign_in(&c, "alice", &reset);
-    assert_eq!(status, 401, "the reset password is spent");
+    for account in [id.as_str(), "0199aaaa-0000-7000-8000-000000000001"] {
+        let path = format!("/admin/accounts/{account}/password");
+        let (status, body) = admin(&c, "POST", &path, "");
+        assert_eq!(status, 404, "{path}: {body}");
+        assert_eq!(json(&body)["error"], "no such route", "{body}");
+        let (status, _) = http(c.gw.port, "POST", &path, None, "");
+        assert_eq!(status, 404, "the public port: {path}");
+    }
     let (_, body) = admin(&c, "GET", &format!("/admin/accounts/{id}"), "");
     assert_eq!(json(&body)["reset_pending"], false, "{body}");
 }
 
 #[test]
-fn a_password_can_be_chosen_without_an_admin_and_signs_the_old_sessions_out() {
-    let c = console("mod_choose");
-    let session = login(c.gw.port, "bea", "Bea");
-    let body = serde_json::json!({
-        "username": "bea", "password": PASSWORD, "new_password": "another-fine-password"
-    })
-    .to_string();
-    let (status, answer) = http(c.gw.port, "POST", "/auth/password", None, &body);
-    assert_eq!(status, 200, "{answer}");
-    assert_eq!(me_status(&c, &session), 401, "the old session is gone");
-    assert_eq!(sign_in(&c, "bea", PASSWORD).0, 401);
-    assert_eq!(sign_in(&c, "bea", "another-fine-password").0, 200);
-}
-
-#[test]
-fn a_reset_refuses_a_guest_and_a_stranger() {
-    let c = console("mod_reset_refused");
-    let (guest, _) = a_guest(&c);
-    let (status, body) = admin(&c, "POST", &format!("/admin/accounts/{guest}/password"), "");
-    assert_eq!(status, 409, "a guest has no password: {body}");
-    let (status, body) = admin(
-        &c,
-        "POST",
-        "/admin/accounts/0199aaaa-0000-7000-8000-000000000001/password",
-        "",
-    );
-    assert_eq!(status, 404, "{body}");
-    let (status, _) = admin(&c, "POST", "/admin/accounts/nobody/password", "");
-    assert_eq!(status, 400);
-    // Not the public port's business.
-    let (status, _) = http(
-        c.gw.port,
-        "POST",
-        &format!("/admin/accounts/{guest}/password"),
-        None,
-        "",
-    );
-    assert_eq!(status, 404);
-}
-
-#[test]
-fn a_banned_account_is_told_why_only_by_the_one_who_proves_the_password() {
+fn a_banned_account_is_signed_out_and_any_session_of_it_is_told_why() {
     let c = console("mod_ban");
-    let port = c.gw.port;
-    let session = login(port, "carl", "Carl");
+    let session = login(c.gw.port, "carl", "Carl");
     let id = id_of(&c, "carl");
 
     let order = r#"{"reason":"cheating at the table","until":"2999-01-01T00:00:00Z"}"#;
@@ -276,35 +210,17 @@ fn a_banned_account_is_told_why_only_by_the_one_who_proves_the_password() {
     assert_eq!(ban["until"], "2999-01-01T00:00:00Z", "{body}");
 
     assert_eq!(me_status(&c, &session), 401, "its sessions are signed out");
-    let (status, answer) = sign_in(&c, "carl", PASSWORD);
+    // A session that slipped in beside the ban is refused with its reason.
+    let slipped = another_session(&c, "carl");
+    let (status, answer) = me(&c, &slipped);
     assert_eq!(status, 403, "{answer}");
-    assert!(
-        answer["error"]
-            .as_str()
-            .unwrap()
-            .starts_with("This account is banned"),
+    assert_eq!(
+        answer["error"],
+        "This account is banned until 2999-01-01T00:00:00Z. Reason: cheating at the table",
         "{answer}"
     );
     assert_eq!(answer["ban"]["reason"], "cheating at the table", "{answer}");
     assert_eq!(answer["ban"]["until"], "2999-01-01T00:00:00Z", "{answer}");
-    assert!(answer["token"].is_null(), "{answer}");
-    // Choosing a password is no way round it.
-    let change = serde_json::json!({
-        "username": "carl", "password": PASSWORD, "new_password": "a-brand-new-password"
-    })
-    .to_string();
-    let (status, body) = http(port, "POST", "/auth/password", None, &change);
-    assert_eq!(status, 403, "{body}");
-    assert!(body.contains("cheating at the table"), "{body}");
-
-    // A stranger with the wrong password learns nothing of it.
-    let (status, answer) = sign_in(&c, "carl", "not-the-password-0");
-    assert_eq!(status, 401, "{answer}");
-    assert!(
-        answer.get("ban").is_none_or(serde_json::Value::is_null),
-        "{answer}"
-    );
-    assert!(!answer.to_string().contains("cheating"), "{answer}");
 
     // The console shows who, why and until when.
     let (_, body) = admin(&c, "GET", &format!("/admin/accounts/{id}"), "");
@@ -321,10 +237,10 @@ fn a_banned_account_is_told_why_only_by_the_one_who_proves_the_password() {
         "{body}"
     );
 
-    // Lifted: it signs in again.
+    // Lifted: the same session is the account again.
     let (status, _) = admin(&c, "DELETE", &format!("/admin/accounts/{id}/ban"), "");
     assert_eq!(status, 204);
-    let (status, answer) = sign_in(&c, "carl", PASSWORD);
+    let (status, answer) = me(&c, &slipped);
     assert_eq!(status, 200, "{answer}");
     let (_, body) = admin(&c, "GET", &format!("/admin/accounts/{id}"), "");
     assert!(json(&body)["ban"].is_null(), "{body}");
@@ -345,8 +261,13 @@ fn a_permanent_ban_has_no_end_and_a_lapsed_one_is_none() {
     );
     assert_eq!(status, 200, "{body}");
     assert!(json(&body)["ban"]["until"].is_null(), "{body}");
-    let (status, answer) = sign_in(&c, "dora", PASSWORD);
+    let session = another_session(&c, "dora");
+    let (status, answer) = me(&c, &session);
     assert_eq!(status, 403, "{answer}");
+    assert_eq!(
+        answer["error"], "This account is banned. Reason: for good",
+        "{answer}"
+    );
     assert!(answer["ban"]["until"].is_null(), "{answer}");
 
     // Replaced by a ban that ended an hour ago (set in the schema: the
@@ -354,7 +275,7 @@ fn a_permanent_ban_has_no_end_and_a_lapsed_one_is_none() {
     c.gw.sql(&format!(
         "UPDATE account SET banned_until = now() - interval '1 hour' WHERE id = '{id}'"
     ));
-    let (status, answer) = sign_in(&c, "dora", PASSWORD);
+    let (status, answer) = me(&c, &session);
     assert_eq!(status, 200, "a lapsed ban is no ban: {answer}");
     let (_, body) = admin(&c, "GET", &format!("/admin/accounts/{id}"), "");
     assert!(json(&body)["ban"].is_null(), "{body}");
@@ -363,7 +284,7 @@ fn a_permanent_ban_has_no_end_and_a_lapsed_one_is_none() {
 #[test]
 fn a_ban_order_that_is_not_one_is_refused() {
     let c = console("mod_ban_refused");
-    let _ = login(c.gw.port, "emil", "Emil");
+    let session = login(c.gw.port, "emil", "Emil");
     let id = id_of(&c, "emil");
     let long = format!(r#"{{"reason":"{}"}}"#, "x".repeat(501));
     let on_the_limit = format!(r#"{{"reason":"{}"}}"#, "y".repeat(500));
@@ -393,7 +314,7 @@ fn a_ban_order_that_is_not_one_is_refused() {
         let (status, body) = admin(&c, "PUT", &format!("/admin/accounts/{id}/ban"), &order);
         assert_eq!(status, 400, "{why}: {body}");
     }
-    assert_eq!(sign_in(&c, "emil", PASSWORD).0, 200, "nothing was banned");
+    assert_eq!(me_status(&c, &session), 200, "nothing was banned");
     let (status, body) = admin(
         &c,
         "PUT",
@@ -447,7 +368,6 @@ fn a_deleted_account_is_gone_and_a_second_delete_finds_nobody() {
     let id = id_of(&c, "fred");
     let (status, body) = admin(&c, "DELETE", &format!("/admin/accounts/{id}"), "");
     assert_eq!(status, 204, "{body}");
-    assert_eq!(sign_in(&c, "fred", PASSWORD).0, 401);
     assert_eq!(me_status(&c, &session), 401);
     let (status, _) = admin(&c, "GET", &format!("/admin/accounts/{id}"), "");
     assert_eq!(status, 404);
@@ -576,18 +496,14 @@ async fn an_ended_game_tells_every_seat_why_and_is_over() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn every_act_is_audited_without_the_password_or_the_reason() {
+async fn every_act_is_audited_without_a_token_or_the_reason() {
     let c = console("mod_audit");
     let port = c.gw.port;
     let _agent = attach_agent(&c.gw).await;
-    let player = login(port, "jule", "Jule");
     let kept = login(port, "kurt", "Kurt");
     let doomed = login(port, "lena", "Lena");
-    let _ = (kept, doomed);
-    let (jule, kurt, lena) = (id_of(&c, "jule"), id_of(&c, "kurt"), id_of(&c, "lena"));
+    let (kurt, lena) = (id_of(&c, "kurt"), id_of(&c, "lena"));
 
-    let (_, body) = admin(&c, "POST", &format!("/admin/accounts/{jule}/password"), "");
-    let reset = json(&body)["password"].as_str().unwrap().to_owned();
     let (status, _) = admin(
         &c,
         "PUT",
@@ -613,11 +529,9 @@ async fn every_act_is_audited_without_the_password_or_the_reason() {
         r#"{"reason":"a reason naming Mona"}"#,
     );
     assert_eq!(status, 202);
-    let _ = player;
 
     let logs = plain(&c.gw.logs());
     for (action, id) in [
-        ("account.password.reset", &jule),
         ("account.ban", &kurt),
         ("account.unban", &kurt),
         ("account.delete", &lena),
@@ -635,11 +549,13 @@ async fn every_act_is_audited_without_the_password_or_the_reason() {
         assert!(line.contains(id.as_str()), "{action} names {id}: {line}");
     }
     for secret in [
-        reset.as_str(),
         "a private grievance",
         "a reason naming Mona",
         TOKEN,
-        PASSWORD,
+        kept.as_str(),
+        doomed.as_str(),
+        player2.as_str(),
+        seat_token.as_str(),
     ] {
         assert!(!logs.contains(secret), "{secret} in the log:\n{logs}");
     }

@@ -1,0 +1,79 @@
+# baylee curated highlander control seed=20261030
+# licence: AGPL-3.0-only
+[deck:highlander control WUB #20261030]
+1 Abstergo Entertainment
+1 Al Bhed Salvagers
+1 Ancestral Vision
+1 Attended Knight
+1 Auspicious Ancestor
+1 Barrow Witches
+1 Bishop of Wings
+1 Blade Splicer
+1 Bog Glider
+1 Brotherhood Headquarters
+1 Callous Inspector
+1 Cascading Cataracts
+1 Cave of Temptation
+1 City of Brass
+1 Clarion Cathars
+1 Cloudblazer
+1 Commissar Severina Raine
+1 Contaminated Landscape
+1 Corsair Captain
+1 Crucible of the Spirit Dragon
+1 Daily Bugle Building
+1 Dedicated Martyr
+1 Dire Fleet Hoarder
+1 Disciple of the Vault
+1 Drogskol Cavalry
+1 Elgaud Inquisitor
+1 Essence Feed
+1 Geist-Honored Monk
+1 Great Hall of the Biblioplex
+1 Greedy Freebooter
+1 Guarded Heir
+1 Heap Gate
+1 Hero of the Dunes
+1 Highway Robber
+1 Holdout Settlement
+1 Honored Knight-Captain
+1 Inspiring Commander
+3 Island
+1 Jeskai Sage
+1 Kambal, Consul of Allocation
+1 Knight-Captain of Eos
+1 Lake-town Lookout
+1 Locthwain Lancer
+1 Mana Confluence
+1 Marionette Apprentice
+1 Master Splicer
+1 Midnight Entourage
+1 Mirrex
+1 Monastery Mentor
+1 Myrsmith
+1 Neva, Stalked by Nightmares
+1 Novice Occultist
+1 Operations Officer
+1 Outlaw Medic
+14 Plains
+1 Pretending Poxbearers
+1 Profane Tutor
+1 Prosperous Pirates
+1 Riven Turnbull
+1 School of the Unseen
+1 Sengir Autocrat
+1 Shadow-Rite Priest
+1 Shimmering Grotto
+1 Siege Veteran
+10 Swamp
+1 Sweettooth Witch
+1 Tempting Witch
+1 Thraben Inspector
+1 Ultimecia, Temporal Threat
+1 Underworld Coinsmith
+1 Urbis Protector
+1 Vault Plunderer
+1 Voldaren Estate
+1 Wing Splicer
+1 Worthy Knight
+1 Zulaport Cutthroat

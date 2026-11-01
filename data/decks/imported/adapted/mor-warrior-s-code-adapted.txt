@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/MOR/warrior-s-code.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WarriorSCode_MOR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Warrior's Code (Adapted)]
+2 Ambassador Oak
+1 Axegrinder Giant
+1 Boldwyr Intimidator
+2 Cloudcrown Oak
+4 Colossal Might
+2 Elvish Warrior
+14 Forest
+4 Ground Assault
+2 Guttural Response
+2 Kindled Fury
+4 Manamorphose
+10 Mountain
+4 Savage Twister
+4 Stump Stomp
+4 Surge of Strength

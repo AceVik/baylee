@@ -657,3 +657,195 @@ yet**: the 121 newly Implemented cards sit at L2 (validate-clean, no engine
 test names them yet) and the 46 inherited ones keep their prior level. The
 ARN (21) and ATQ (30) passes are the template. Nothing in this set was
 demoted by testing because testing has not run.
+
+## Ice Age, Homelands, and Alliances — release-order batches (2026-10-22)
+
+The figures in this section are the original authoring snapshot, before the
+independent PR #394 review. They are superseded by the 23 October review
+snapshot below; in particular, the old Partial totals include cards since
+held as unimplemented.
+
+Implemented in 25-card batches with per-card played engine tests under the
+no-engine-change contract:
+
+- **Ice Age (`ice`)** — 346 first-printing Oracle identities: **258
+  Implemented, 86 Partial, 2 excluded/held-back** (`Amulet of Quoz` ante,
+  `Drudge Spell` token identity clash in `docs/generated-held-back.md`).
+- **Homelands (`hml`)** — 115 first-printing Oracle identities: **90
+  Implemented, 23 Partial, 2 excluded/held-back** (`Timmerian Fiends` ante,
+  `Koskun Falls` world enchantment upkeep tax).
+- **Alliances (`all`)** — 144 first-printing Oracle identities: **83
+  Implemented, 61 Partial, 0 excluded**. Every card in all 5 batches has a
+  dedicated played test under `crates/baylee-engine/src/engine/card_tests/`.
+- **Mirage (`mir`)** — completed across 9 batches (**123 Implemented, 90 Partial** across the 213 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Abyssal Hunter` to `Brushwagg`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 2 (`Builder's Bane` to `Dazzling Beauty`, 25 cards): **16 Implemented, 9 Partial**.
+  - Batch 3 (`Decomposition` to `Forbidden Crypt`, 25 cards): **13 Implemented, 12 Partial**.
+  - Batch 4 (`Forsaken Wastes` to `Jungle Wurm`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 5 (`Kaervek's Purge` to `Natural Balance`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 6 (`Nocturnal Raid` to `Reckless Embermage`, 25 cards): **14 Implemented, 11 Partial**.
+  - Batch 7 (`Reflect Damage` to `Soul Echo`, 25 cards): **10 Implemented, 15 Partial**.
+  - Batch 8 (`Soul Rend` to `Waiting in the Weeds`, 25 cards): **16 Implemented, 9 Partial**.
+  - Batch 9 (`Wall of Corpses` to `Zombie Mob`, 13 cards): **9 Implemented, 4 Partial**.
+- **Visions (`vis`)** — completed across 5 batches (**50 Implemented, 54 Partial** across the 104 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Aku Djinn` to `Feral Instinct`, 25 cards): **11 Implemented, 14 Partial**.
+  - Batch 2 (`Fireblast` to `Kookus`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 3 (`Lead-Belly Chimera` to `Sands of Time`, 25 cards): **9 Implemented, 16 Partial**.
+  - Batch 4 (`Shimmering Efreet` to `Vision Charm`, 25 cards): **13 Implemented, 12 Partial**.
+  - Batch 5 (`Wand of Denial` to `Zhalfirin Crusader`, 4 cards): **2 Implemented, 2 Partial**.
+- **Weatherlight (`wth`)** — completed across 5 batches (**65 Implemented, 50 Partial** across the 115 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Abduction` to `Call of the Wild`, 25 cards): **13 Implemented, 12 Partial**.
+  - Batch 2 (`Chimeric Sphere` to `Gerrard's Wisdom`, 25 cards): **13 Implemented, 12 Partial**.
+  - Batch 3 (`Goblin Bomb` to `Necratog`, 25 cards): **13 Implemented, 12 Partial**.
+  - Batch 4 (`Noble Benefactor` to `Thunderbolt`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 5 (`Timid Drake` to `Zombie Scavengers`, 15 cards): **11 Implemented, 4 Partial**.
+- **Tempest (`tmp`)** — completed across 7 batches (**86 Implemented, 75 Partial** across the 161 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Abandon Hope` to `Cursed Scroll`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 2 (`Dauthi Ghoul` to `Flailing Drake`, 25 cards): **10 Implemented, 15 Partial**.
+  - Batch 3 (`Flickering Ward` to `Leeching Licid`, 25 cards): **13 Implemented, 12 Partial**.
+  - Batch 4 (`Legacy's Allure` to `Phyrexian Splicer`, 25 cards): **10 Implemented, 15 Partial**.
+  - Batch 5 (`Precognition` to `Segmented Wurm`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 6 (`Selenia, Dark Angel` to `Unstable Shapeshifter`, 25 cards): **19 Implemented, 6 Partial**.
+  - Batch 7 (`Intuition` and `Vhati il-Dal` to `Worthy Cause`, 11 cards): **4 Implemented, 7 Partial**.
+- **Stronghold (`sth`)** — completed across 4 batches (**35 Implemented, 49 Partial** across the 84 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Acidic Sliver` to `Fling`, 25 cards): **11 Implemented, 14 Partial**.
+  - Batch 2 (`Gliding Licid` to `Mogg Maniac`, 25 cards): **12 Implemented, 13 Partial**.
+  - Batch 3 (`Mortuary` to `Verdant Touch`, 25 cards): **8 Implemented, 17 Partial**.
+  - Batch 4 (`Volrath's Gardens` to `Warrior en-Kor`, 9 cards): **4 Implemented, 5 Partial**.
+- **Exodus (`exo`)** — completed across 4 batches (**43 Implemented, 50 Partial** across the 93 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Aether Tide` to `Fighting Chance`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 2 (`Flowstone Flood` to `Oath of Ghouls`, 25 cards): **8 Implemented, 17 Partial**.
+  - Batch 3 (`Oath of Lieges` to `Skyshaper`, 25 cards): **12 Implemented, 13 Partial**.
+  - Batch 4 (`Skyshroud Elite` to `Zealots en-Dal`, 18 cards): **8 Implemented, 10 Partial**.
+- **Urza's Saga (`usg`)** — completed across 7 batches (**109 Implemented, 63 Partial** across the 172 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Abundance` to `Congregate`, 25 cards): **20 Implemented, 5 Partial**.
+  - Batch 2 (`Contamination` to `Fire Ants`, 25 cards): **16 Implemented, 9 Partial**.
+  - Batch 3 (`Flesh Reaver` to `Imaginary Pet`, 25 cards): **20 Implemented, 5 Partial**.
+  - Batch 4 (`Karn, Silver Golem` to `Persecute`, 25 cards): **17 Implemented, 8 Partial**.
+  - Batch 5 (`Phyrexian Colossus` to `Shower of Sparks`, 25 cards): **10 Implemented, 15 Partial**.
+  - Batch 6 (`Sleeper Agent` to `Vampiric Embrace`, 25 cards): **12 Implemented, 13 Partial**.
+  - Batch 7 (`Vebulid` to `Worship`, 22 cards): **14 Implemented, 8 Partial**.
+- **Urza's Legacy (`ulg`)** — completed across 4 batches (**64 Implemented, 21 Partial** across the 85 newly implemented cards, every card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`About Face` to `Hidden Gibbons`, 25 cards): **19 Implemented, 6 Partial**.
+  - Batch 2 (`Hope and Glory` to `Rack and Ruin`, 25 cards): **16 Implemented, 9 Partial**.
+  - Batch 3 (`Radiant's Dragoons` to `Treacherous Link`, 25 cards): **21 Implemented, 4 Partial**.
+  - Batch 4 (`Treefolk Mystic` to `Yavimaya Granger`, 10 cards): **8 Implemented, 2 Partial**.
+- **Urza's Destiny (`uds`)** — completed across 4 batches (**46 Implemented, 22 Partial, 17 Unimplemented (held back/stubs)** across the 85 newly added cards, every implemented/partial card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Apprentice Necromancer` to `Gamekeeper`, 25 cards): **15 Implemented, 10 Partial**.
+  - Batch 2 (`Goblin Festival` to `Phyrexian Negator`, 25 cards): **15 Implemented, 4 Partial, 6 Unimplemented (held back)**.
+  - Batch 3 (`Plague Dogs` to `Telepathic Spies`, 25 cards): **9 Implemented, 7 Partial, 9 Unimplemented (held back)**.
+  - Batch 4 (`Thorn Elemental` to `Yawgmoth's Bargain`, 10 cards): **7 Implemented, 1 Partial, 2 Unimplemented (held back)**.
+- **Mercadian Masques (`mmq`)** — completed across 8 batches (**101 Implemented, 22 Partial, 63 Unimplemented (held back/stubs)** across the 186 newly added cards, every implemented/partial card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Aerial Caravan` to `Cho-Arrim Bruiser`, 25 cards): **14 Implemented, 2 Partial, 9 Unimplemented (held back/stubs)** (`8 Implemented` machine-owned via `scriptgen`, `6 Implemented` + `2 Partial` hand-owned, and `9 Unimplemented` stubs).
+  - Batch 2 (`Cho-Arrim Legate` to `Distorting Lens`, 25 cards): **10 Implemented, 5 Partial, 10 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `5 Partial` hand-owned, and `10 Unimplemented` stubs).
+  - Batch 3 (`Enslaved Horror` to `Instigator`, 25 cards): **10 Implemented, 4 Partial, 11 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `4 Partial` hand-owned, and `11 Unimplemented` stubs).
+  - Batch 4 (`Insubordination` to `Pangosaur`, 25 cards): **14 Implemented, 3 Partial, 8 Unimplemented (held back/stubs)** (`10 Implemented` machine-owned via `scriptgen`, `4 Implemented` + `3 Partial` hand-owned, and `8 Unimplemented` stubs).
+  - Batch 5 (`Invigorate` to `Rishadan Footpad`, 25 cards): **12 Implemented, 3 Partial, 10 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `3 Implemented` + `3 Partial` hand-owned, and `10 Unimplemented` stubs).
+  - Batch 6 (`Rampart Crawler` to `Two-Headed Dragon`, 25 cards): **15 Implemented, 3 Partial, 7 Unimplemented (held back/stubs)**.
+  - Batch 7 (`Ogre Taskmaster` to `Wall of Distortion`, 25 cards): **21 Implemented, 0 Partial, 4 Unimplemented (held back/stubs)**.
+  - Batch 8 (`War Cadence` to `Wishmonger`, 11 cards): **5 Implemented, 2 Partial, 4 Unimplemented (held back/stubs)**.
+- **Nemesis (`nem`)** — completed across 4 batches (**55 Implemented, 13 Partial, 32 Unimplemented (held back/stubs)** across the 100 newly added cards, every implemented/partial card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Accumulated Knowledge` to `Eye of Yawgmoth`, 25 cards): **15 Implemented, 4 Partial, 6 Unimplemented (held back/stubs)** (`11 Implemented` machine-owned via `scriptgen`, `4 Implemented` + `4 Partial` hand-owned, and `6 Unimplemented` stubs).
+  - Batch 2 (`Flint Golem` to `Netter en-Dal`, 25 cards): **13 Implemented, 4 Partial, 8 Unimplemented (held back/stubs)** (`12 Implemented` machine-owned via `scriptgen`, `1 Implemented` + `4 Partial` hand-owned, and `8 Unimplemented` stubs).
+  - Batch 3 (`Noble Stand` to `Shrieking Mogg`, 25 cards): **11 Implemented, 4 Partial, 10 Unimplemented (held back/stubs)** (`11 Implemented` machine-owned via `scriptgen`, `4 Partial` hand-owned, and `10 Unimplemented` stubs).
+  - Batch 4 (`Silkenfist Fighter` to `Woodripper`, 25 cards): **16 Implemented, 1 Partial, 8 Unimplemented (held back/stubs)** (`16 Implemented` machine-owned via `scriptgen`, `1 Partial` hand-owned, and `8 Unimplemented` stubs).
+- **Prophecy (`pcy`)** — completed across 4 batches (full set 142/142 in pool: **83 Implemented, 7 Partial, 52 Unimplemented (held back/stubs)**, every implemented/partial card tested with a dedicated played engine test under `crates/baylee-engine/src/engine/card_tests/`):
+  - Batch 1 (`Abolish` to `Fickle Efreet`, 25 cards): **9 Implemented, 6 Partial, 10 Unimplemented (held back/stubs)** (`9 Implemented` machine-owned via `scriptgen`, `6 Partial` hand-owned, and `10 Unimplemented` stubs).
+  - Batch 2 (`Flameshot` to `Mercenary Informer`, 25 cards): **7 Implemented, 2 Partial, 16 Unimplemented (held back/stubs)** (`7 Implemented` machine-owned via `scriptgen`, `2 Partial` hand-owned, and `16 Unimplemented` stubs).
+  - Batch 3 (`Mine Bearer` to `Shrouded Serpent`, 25 cards): **10 Implemented, 0 Partial, 15 Unimplemented (held back/stubs)** (`10 Implemented` machine-owned via `scriptgen` and `15 Unimplemented` stubs).
+  - Batch 4 (`Snag` to `Zerapa Minotaur`, 22 cards): **11 Implemented, 0 Partial, 11 Unimplemented (held back/stubs)** (`11 Implemented` machine-owned via `scriptgen` and `11 Unimplemented` stubs).
+- **Invasion (`inv`)** — completed across 8 batches (full set 309/309 in pool: **162 Implemented, 0 Partial, 147 Unimplemented (held back/stubs)**):
+  - Batch 1 (`Addle` to `Breath of Darigaaz`, 25 cards): **9 Implemented, 0 Partial, 16 Unimplemented (held back/stubs)**.
+  - Batch 2 (`Callous Giant` to `Dredge`, 25 cards): **9 Implemented, 0 Partial, 16 Unimplemented (held back/stubs)**.
+  - Batch 3 (`Dromar, the Banisher` to `Kavu Chameleon`, 25 cards): **7 Implemented, 0 Partial, 18 Unimplemented (held back/stubs)**.
+  - Batch 4 (`Kavu Runner` to `Phyrexian Reaper`, 25 cards): **6 Implemented, 0 Partial, 19 Unimplemented (held back/stubs)**.
+  - Batches 5–8 (`Phyrexian Slayer` to `Zanam Djinn`, 84 cards): **23 Implemented, 0 Partial, 61 Unimplemented (held back/stubs)**.
+- **Planeshift (`pls`)** — completed across 4 batches (full set 141/141 in pool: **79 Implemented, 0 Partial, 62 Unimplemented (held back/stubs)**).
+- **Apocalypse (`apc`)** — completed across 4 batches (full set 141/141 in pool: **70 Implemented, 0 Partial, 71 Unimplemented (held back/stubs)**).
+- **Odyssey (`ody`)** — completed across 9 batches (full set 320/320 in pool: **157 Implemented, 0 Partial, 163 Unimplemented (held back/stubs)**).
+- **Torment (`tor`)** — completed across 4 batches (full set 141/141 in pool: **61 Implemented, 0 Partial, 80 Unimplemented (held back/stubs)**).
+- **Judgment (`jud`)** — completed across 4 batches (full set 140/140 in pool: **66 Implemented, 0 Partial, 74 Unimplemented (held back/stubs)**).
+- **Onslaught (`ons`)** — completed across 3 batches (full set 319/319 in pool: **129 Implemented, 0 Partial, 190 Unimplemented (held back/stubs)**).
+- **Legions (`lgn`)** — completed across 2 batches (full set 141/141 in pool: **55 Implemented, 0 Partial, 86 Unimplemented (held back/stubs)**).
+- **Scourge (`scg`)** — completed across 2 batches (full set 140/140 in pool: **49 Implemented, 0 Partial, 91 Unimplemented (held back/stubs)**).
+- **Mirrodin (`mrd`)** — in progress (267 first-printing identities in `set_mrd.rs`: **214 Implemented, 0 Partial, 1 Unimplemented, 52 Absent**):
+  - Batch 1 (`Aether Spellbomb` to `Grip of Chaos`, 50 cards): **50 Implemented, 0 Partial, 0 Unimplemented** (`19 Implemented` machine-owned via `scriptgen` and `31 Implemented` hand-owned with full engine support for Entwine, Imprint, Affinity, and Mirrodin Batch 1 mechanics).
+  - Batch 2 (`Granite Shard` to `Platinum Angel`, 50 cards): **50 Implemented, 0 Partial, 0 Unimplemented** (all machine-owned via `scriptgen`, with reusable engine support for turn control, coin-flip replacement, linked-exile copies and protection, dynamic artifact costs, and win/loss restrictions).
+
+## PR #394 review snapshot (2026-10-23)
+
+Measured from revision `4975f5442` by the native `site card-status` tool,
+which validates the committed ledger, pool, exclusions and core index before
+counting. This table counts **all first-printing identities in each set**,
+including implementations inherited from before the reviewed batches. It is
+not a sum of the author's individual batch claims. The dated review report
+records test evidence and the three required local landing gates.
+
+| First-print set | Total | Implemented | Partial | Unimplemented | Absent | Excluded |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| ice | 346 | 257 | 57 | 31 | 0 | 1 |
+| hml | 115 | 93 | 9 | 11 | 1 | 1 |
+| all | 144 | 86 | 29 | 29 | 0 | 0 |
+| mir | 313 | 224 | 31 | 58 | 0 | 0 |
+| vis | 154 | 107 | 25 | 22 | 0 | 0 |
+| wth | 161 | 112 | 23 | 26 | 0 | 0 |
+| tmp | 298 | 232 | 40 | 26 | 0 | 0 |
+| sth | 136 | 89 | 29 | 18 | 0 | 0 |
+| exo | 137 | 91 | 25 | 21 | 0 | 0 |
+| usg | 306 | 247 | 17 | 42 | 0 | 0 |
+| ulg | 139 | 119 | 5 | 15 | 0 | 0 |
+| uds | 141 | 73 | 4 | 4 | 60 | 0 |
+
+Within the 1,350 reviewed identities: **793 Implemented, 260 Partial,
+297 Unimplemented**. Whole pool: **10,693 definitions** — 10,058 Implemented,
+294 Partial, 341 Unimplemented; no Generated cards. The remaining corpus is
+22,986 Absent and 15 Excluded. Full findings and final verification belong to
+`docs/history/2026-10-23-argon-review.md`.
+
+## Partial completion, first batch (2026-10-25)
+
+Eight Ice Age cards are fully implemented in this batch:
+Arcum's Weathervane, Bone Shaman, Energy Storm, Fire Covenant, Incinerate,
+Lhurgoyf, Lost Order of Jarkeld and Shyft. The 48 focused card/rule tests and
+initial table-generation pipeline pass. Four generic reader forms pass all
+382 codegen tests (191 scriptgen), and selective reclaim passes 98 xtask tests.
+Fresh post-reclaim source/native measurements and table/hook checks pass.
+The final rules gate passes (20,872 tests, 17 skipped), including the corrected
+modifier population. Full `cargo dev gate` passes (23,109 workspace tests,
+25 skipped, plus 4 API tests); both commands exit 0. Feature gate was not run,
+and no push or land was performed.
+
+At that first-batch checkpoint, the read-only join of all 346 first-printing Ice Age identities to
+source coverage and exclusions measures **265 Implemented, 49 Partial,
+31 Unimplemented, 0 Absent and 1 Excluded**. Whole-pool coverage then was
+**10,066 Implemented, 286 Partial and 341 Unimplemented** (10,693 definitions).
+Pre-reclaim validation measured 2,582 hand-owned, 7,770 machine-owned and 341
+stubs. The four completed, fully read Arcum/Bone Shaman/Energy Storm/Incinerate
+definitions return to generator ownership; fresh source measurement and native
+validation confirm 2,578/7,774/341. Coverage is preserved by these ownership transfers;
+no additional reader-driven promotion is claimed. The remaining Partial
+backlog was open; the 49 remaining Ice Age Partials were then inventoried.
+See `docs/history/2026-10-25-partial-completion.md` for the batch boundaries
+and validation evidence. The older dated snapshots above remain historical.
+
+## Bounded Ice Age continuation (2026-10-26)
+
+The completed branch changes **18 existing Partial definitions to Implemented**
+against `origin/main`: the initial eight above, Cloak of Confusion and Staff of
+the Ages, then Dance of the Dead, Magus of the Unseen, Ray of Command, Lava Burst,
+Meteor Shower, Fiery Justice, Soul Burn and Fumarole.
+
+Current first-printing Ice Age coverage (346 Oracle IDs) is **275 Implemented,
+39 Partial, 31 Unimplemented, 0 Absent and 1 Excluded**. The full printed set has
+383 printing rows but 373 Oracle IDs: **302 Implemented, 39 Partial,
+31 Unimplemented and 1 Excluded**. All 27 reprint Oracle IDs are implemented;
+ten additional printing rows are basic-land art variants. **70 cards remain
+unfinished**, so this is a bounded completion, not full-set completion.
+
+Rules gate: **21,050 passed, 17 skipped, exit 0**.
+Full desktop gate: **23,301 passed, 25 skipped; four API tests passed; exit 0**.
+Formatting, Clippy, tests, cache, validation and API checks all passed.
+Feature gate: **Passed, exit 0**. Client: 2,290 passed, including 39 devctl
+checks. Gateway devtable Clippy/tests, dev-dylink, test-support, train without
+play, fuzz, mutate, verification-hooks-shipped and crypto-bigint-scope all passed.
+See `docs/history/2026-10-25-bounded-ice-continuation.md` for the exact scope.

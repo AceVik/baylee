@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUB #20266286]
+1 Ally Encampment
+1 Alpha Myr
+1 Ancient Ziggurat
+1 Angel's Tomb
+1 Arena of the Ancients
+1 Bloodtallow Candle
+1 Bronze Sable
+1 Brotherhood Headquarters
+1 Castle Doom
+1 Clockwork Swarm
+1 Coiled Tinviper
+1 Contaminated Landscape
+1 Corrupted Crossroads
+1 Darklit Gargoyle
+1 Darksteel Myr
+1 Draconian Cylix
+1 Dragonloft Idol
+1 Endoskeleton
+1 Greataxe
+1 Heap Gate
+1 Henge Guardian
+1 Honed Khopesh
+1 Horrible Hordes
+1 Iron Lance
+7 Island
+1 Jangling Automaton
+1 Jhoira's Toolbox
+1 Juntu Stakes
+1 Kry Shield
+1 Life Matrix
+1 Lodestone Myr
+1 Maelstrom of the Spirit Dragon
+1 Mana Confluence
+1 Mantis Engine
+1 Marble Priest
+1 Medicine Bag
+1 Millennial Gargoyle
+1 Myr Landshaper
+1 Needlebug
+1 Omega Myr
+1 Peregrine Mask
+12 Plains
+1 Primal Clay
+1 Runed Arch
+1 Sacred Armory
+1 Scornful Aether-Lich
+1 Sentinel
+1 Short Sword
+1 Slagwurm Armor
+1 Snare Thopter
+1 Spirit Shield
+1 Springjack Pasture
+1 Static Orb
+1 Stonework Puma
+1 Sunglasses of Urza
+6 Swamp
+1 Sword of the Chosen
+1 Tarnished Citadel
+1 Tawnos's Weaponry
+1 Telethopter
+1 Thran Lens
+1 Three Tree City
+1 Throne of Makindi
+1 Tower Gargoyle
+1 Tower of Coireall
+1 Umbral Mantle
+1 Unknown Shores
+1 Urza's Engine
+1 Vanquisher's Axe
+1 Venser's Sliver
+1 Vibranium Energy Daggers
+1 Voldaren Estate
+1 Walking Wall
+1 Wall of Junk
+1 Whalebone Glider
+1 Winter Orb
+1 Wirecat
+1 Zelyon Sword

@@ -1,0 +1,11 @@
+# Fixed synthetic acceptance record for the seen golden tests
+
+`acceptance-seed3.jsonl` was captured from `record::tests::played(3)` on origin/main commit `49c9a4d8f941be56958c779e4d23c4daa95f9b78`. The original finished-table golden assertion passed before the public-table export. Its 40th input also carries the original `30b17ab8dd2e7087` seen value; the final table carries `deb49d0b74b15d90`.
+
+Original capture SHA256: `27bebb34b190759683b4823f52db6ba16f3de018e2e2bb0c398f4def7142be70`.
+
+Current SHA256: `3ceb3ca9a7d74c25fbd8dea338332ebdf9ff615e5653535596338d558ff59bbc`. During the PR #399 review, the internal `hash` fields were refreshed after the engine state encoding changed (previous SHA256 `4205ef611c9b4308ca66e063581922f95fe95c6d88bec499c43e7a916615e9f5`). On 31.10.2026 they were refreshed again, for the 22 inputs from 358 on while the game's Everybody Lives! is in effect: `Modifier::PlayerHexproof` gained a `who` field, which the effect's hash writes. They were refreshed a third time in the review of Mirrodin batch 2, whose state gained `turn_controls` and `hand_size_at_start`. Each time all lines kept identical actions, metadata and `seen` values; replay checked every public digest and the finished game before the fixture was replaced, and only the 16-hex `hash` values changed.
+
+Its header names the build `test`. A build-aware `record::replay` holds a record of another build to `seen` where an engine hash moved, so the tests here replay it with `replay_exact`: an engine hash that no longer matches is a failure, not a fallback.
+
+The game and names are synthetic repository test data, not a player record. The fixture holds the original preset and executed inputs so future House policy decisions cannot redefine either golden table. Encoding and both golden literals remain unchanged. Gameplay replay still checks every exact engine hash and real completion. If an intentional engine change makes those historical inputs obsolete, isolate the captured public-table encoding fixture; do not regenerate a new golden from the current House AI.

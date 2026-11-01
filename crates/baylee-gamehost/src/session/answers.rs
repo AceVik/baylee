@@ -62,6 +62,36 @@ impl Session {
         Some((pending, view))
     }
 
+    /// What an agent seated at `seat` is entitled to observe of the table at
+    /// this moment, whether `seat` is currently being asked a question or is
+    /// passively watching another seat's turn.
+    ///
+    /// Uses `information_pending_for(seat)` so a passive observer is never
+    /// shown cards revealed only to the deciding seat, and carries no clock,
+    /// policy acts, or shared teammate hand.
+    #[must_use]
+    pub fn observe_view(&self, seat: PlayerId) -> PlayerView {
+        crate::view::player_view(
+            self.engine.state(),
+            seat,
+            self.seq,
+            self.engine.information_pending_for(seat),
+            &crate::view::SeatContext {
+                awaiting: crate::view::awaiting_for(&self.engine, seat),
+                decision_player: crate::view::decision_player_for(&self.engine, seat),
+                controlled_players: self.engine.controlled_players(seat),
+                deciding: self.deciding(),
+                held: self.engine.automation(seat).hold.suppresses(),
+                owed: crate::view::owed_payment(&self.engine),
+                library_reveal_blocked: self.engine.library_reveal_blocked(),
+                inspected_cards: self.engine.inspected_cards(),
+                decision_remaining_ms: None,
+                policy_acts: &[],
+            },
+            &self.house_answered,
+        )
+    }
+
     /// The sequence number a client should report back when it resumes.
     #[must_use]
     pub const fn seq(&self) -> u64 {
@@ -280,7 +310,10 @@ impl Session {
             Source::Seat
         };
         let kept = self.record.is_some().then(|| action.clone());
-        if self.engine.apply(player, action).is_err() {
+        self.last_attempt = Some((player, source, action.clone()));
+        let applied = self.engine.apply(player, action);
+        self.last_attempt = None;
+        if applied.is_err() {
             return Err("illegal action for your seat".to_string());
         }
         if let Some(action) = kept {

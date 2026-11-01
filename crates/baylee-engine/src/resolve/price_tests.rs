@@ -94,6 +94,7 @@ fn resolving(effects: &'static [Effect], floating: ManaColor) -> (GameState, Res
         loot: None,
         draw_watch: None,
         this_way_from: None,
+        coin_stake: None,
     };
     (state, res)
 }
@@ -214,5 +215,64 @@ fn directed_spending_pays_resolution_prices_and_taxes() {
         let _ = resume_tax_choice(&mut state, &mut res, true);
         assert_eq!(life(&state), before + gain);
         assert!(state.players[0].mana_pool.is_empty());
+    }
+}
+
+#[test]
+fn repeated_mana_and_life_is_one_atomic_optional_payment() {
+    static PRICE: &[Effect] = &[Effect::PlayerMayPayManaAndLifeEachThenElse {
+        player: PlayerRel::You,
+        mana: baylee_core::mana!("{B}"),
+        life: 2,
+        times: Amount::Fixed(2),
+        paid: &[],
+        unpaid: &[Effect::GainLife {
+            amount: Amount::Fixed(7),
+        }],
+    }];
+    for (life, answer, expected_life, expected_mana) in
+        [(10, true, 6, 0), (3, false, 10, 2), (10, false, 17, 2)]
+    {
+        let (mut state, mut res) = resolving(PRICE, ManaColor::Black);
+        state.players[0].life = life;
+        state.players[0].mana_pool.add(ManaColor::Black, 1);
+        assert!(
+            matches!(run(&mut state, &mut res), Flow::Wait(Pending::YesNo {
+            prompt: YesNoPrompt::PayManaAndLife { cost, life: 4 }, ..
+        }) if cost == baylee_core::mana!("{B}{B}"))
+        );
+        assert!(matches!(
+            resume_tax_choice(&mut state, &mut res, answer),
+            Flow::Complete
+        ));
+        assert_eq!(state.players[0].life, expected_life);
+        assert_eq!(state.players[0].mana_pool.total(), expected_mana);
+    }
+}
+
+#[test]
+fn any_player_payment_stops_at_the_first_payer_and_runs_fallback_once() {
+    static TAX: &[Effect] = &[Effect::AnyPlayerMayPayManaOr {
+        cost: baylee_core::mana!("{1}"),
+        effects: &[Effect::GainLife {
+            amount: Amount::Fixed(7),
+        }],
+    }];
+    for second_pays in [false, true] {
+        let (mut state, mut res) = resolving(TAX, ManaColor::Blue);
+        state.players[1].mana_pool.add(ManaColor::Red, 1);
+        assert!(
+            matches!(run(&mut state, &mut res), Flow::Wait(Pending::YesNo { player, .. }) if player == me())
+        );
+        assert!(
+            matches!(resume_tax_choice(&mut state, &mut res, false), Flow::Wait(Pending::YesNo { player, .. }) if player == PlayerId::new(1))
+        );
+        assert!(matches!(
+            resume_tax_choice(&mut state, &mut res, second_pays),
+            Flow::Complete
+        ));
+        assert_eq!(state.players[0].life, if second_pays { 20 } else { 27 });
+        assert_eq!(state.players[0].mana_pool.total(), 1);
+        assert_eq!(state.players[1].mana_pool.total(), u64::from(!second_pays));
     }
 }

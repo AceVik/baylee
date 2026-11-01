@@ -106,6 +106,44 @@ pub enum SheetWidth {
     Large,
 }
 
+/// The footer of a sheet drawn by [`sheet_box_with_footer`].
+pub struct SheetFooter<'a> {
+    entities: &'a [Entity],
+    retained: bool,
+    compact: bool,
+}
+
+impl<'a> SheetFooter<'a> {
+    /// The usual padded footer, built from `entities`.
+    #[must_use]
+    pub fn regular(entities: &'a [Entity]) -> Self {
+        Self {
+            entities,
+            retained: false,
+            compact: false,
+        }
+    }
+
+    /// A footer with compact padding and gaps for compact controls.
+    #[must_use]
+    pub fn compact(entities: &'a [Entity]) -> Self {
+        Self {
+            compact: true,
+            ..Self::regular(entities)
+        }
+    }
+
+    /// No footer: the caller keeps the one it had and attaches it with
+    /// [`super::retain::Kept::attach`] once the box stands under its scrim.
+    /// Attached here, before the box has its parent, the footer went
+    /// undrawn on every rebuild's frame (`Kept::attach` says why).
+    #[must_use]
+    pub fn retained(mut self) -> Self {
+        self.retained = true;
+        self
+    }
+}
+
 /// A sheet's box: a head, a body that scrolls, and a footer that stays —
 /// sticky above the gesture and keyboard insets on a phone, so the primary
 /// is visible without scrolling (C3-9). Opaque. [`sheet`] stands it over a
@@ -132,6 +170,80 @@ pub fn sheet_box_with(
     body: &[Entity],
     footer: &[Entity],
     marker: impl Bundle,
+) -> Entity {
+    sheet_box_with_footer(
+        commands,
+        kit,
+        width,
+        title,
+        body,
+        SheetFooter::regular(footer),
+        marker,
+        (),
+    )
+}
+
+/// A [`sheet_box_with`] whose body, a list that may run past the sheet,
+/// has a scrollbar beside it, shown while it does: where the client's other
+/// bars stand. `marker` should make the body a lobby `Scrollable`, or the
+/// wheel moves nothing (Play's deck picker had neither, report 30.10.2026).
+pub fn sheet_box_listed(
+    commands: &mut Commands,
+    kit: Kit,
+    width: SheetWidth,
+    title: &str,
+    body: &[Entity],
+    footer: &[Entity],
+    marker: impl Bundle,
+) -> Entity {
+    sheet_box_parts(
+        commands,
+        kit,
+        width,
+        title,
+        body,
+        SheetFooter::regular(footer),
+        (marker, ()),
+        true,
+    )
+}
+
+/// A [`sheet_box_with`] with a compact and optionally retained footer.
+#[allow(clippy::too_many_arguments)] // the sheet's three bands and their markers
+pub fn sheet_box_with_footer(
+    commands: &mut Commands,
+    kit: Kit,
+    width: SheetWidth,
+    title: &str,
+    body: &[Entity],
+    footer: SheetFooter,
+    marker: impl Bundle,
+    footer_marker: impl Bundle,
+) -> Entity {
+    sheet_box_parts(
+        commands,
+        kit,
+        width,
+        title,
+        body,
+        footer,
+        (marker, footer_marker),
+        false,
+    )
+}
+
+/// The sheet's three bands: head, body (with its bar where `bar`) and foot.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+// the three sheet bands and both footer paths
+fn sheet_box_parts(
+    commands: &mut Commands,
+    kit: Kit,
+    width: SheetWidth,
+    title: &str,
+    body: &[Entity],
+    footer: SheetFooter,
+    (marker, footer_marker): (impl Bundle, impl Bundle),
+    bar: bool,
 ) -> Entity {
     let phone = kit.m.frame == super::Frame::Phone;
     let wide = match width {
@@ -186,16 +298,66 @@ pub fn sheet_box_with(
         .insert(marker)
         .id();
     commands.entity(scroller).add_children(body);
+    let band = if bar {
+        let track = crate::lobby::scrollbars::track(commands, scroller, phone);
+        commands.entity(track).insert((
+            crate::lobby::scrollbars::OnlyWhenNeeded,
+            // Shown once the list is laid out and found to run over.
+            Node {
+                width: px_fixed(if phone { 16.0 } else { 12.0 }),
+                height: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                display: Display::None,
+                border_radius: BorderRadius::all(px_fixed(6.0)),
+                ..default()
+            },
+        ));
+        commands
+            .entity(scroller)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.flex_grow = 1.0;
+                node.flex_basis = px_fixed(0.0);
+                node.min_width = px_fixed(0.0);
+            });
+        let host = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    flex_shrink: 1.0,
+                    min_height: px_fixed(0.0),
+                    column_gap: px_fixed(6.0),
+                    padding: UiRect::right(px_fixed(6.0)),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(host).add_children(&[scroller, track]);
+        host
+    } else {
+        scroller
+    };
+    commands.entity(surface).add_children(&[head, band]);
+    if footer.retained {
+        return surface;
+    }
+    let (padding, gap) = if footer.compact {
+        (UiRect::axes(kit.m.px(12.0), kit.m.px(6.0)), kit.m.px(6.0))
+    } else {
+        (UiRect::all(px_fixed(kit.m.pad)), px_fixed(kit.m.gap))
+    };
     let foot = commands
         .spawn((
+            footer_marker,
             Node {
-                padding: UiRect::all(px_fixed(kit.m.pad)),
-                column_gap: px_fixed(kit.m.gap),
+                padding,
+                column_gap: gap,
                 // More actions than a narrow sheet holds in a row (the report's
                 // four in German, window B) go onto a second row, never out of
                 // the sheet.
                 flex_wrap: FlexWrap::Wrap,
-                row_gap: px_fixed(kit.m.gap),
+                row_gap: gap,
                 justify_content: JustifyContent::FlexEnd,
                 flex_shrink: 0.0,
                 border: UiRect::top(px_fixed(1.0)),
@@ -205,10 +367,8 @@ pub fn sheet_box_with(
             Pickable::IGNORE,
         ))
         .id();
-    commands.entity(foot).add_children(footer);
-    commands
-        .entity(surface)
-        .add_children(&[head, scroller, foot]);
+    commands.entity(foot).add_children(footer.entities);
+    commands.entity(surface).add_child(foot);
     surface
 }
 

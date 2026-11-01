@@ -1,0 +1,25 @@
+# baylee synergistic coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WUB #20266312]
+2 Barrenton Cragtreads
+1 Capital City
+3 Eclipsed Realms
+2 Great Hart
+3 Guildmages' Forum
+1 Henge of Ramos
+3 Infernal Idol
+2 Looming Altisaur
+2 Loxodon Anchorite
+2 Metalspinner's Puzzleknot
+4 Moriok Replica
+2 Petra Sphinx
+12 Plains
+4 Skycloud Egg
+3 Swamp
+3 Talisman of Dominance
+1 Talisman of Progress
+1 Tendo Ice Bridge
+3 Thought Monitor
+3 Tithebearer Giant
+2 Unyielding Krumar
+1 Villainous Hideout

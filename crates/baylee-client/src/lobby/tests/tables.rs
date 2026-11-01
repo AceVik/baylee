@@ -101,6 +101,99 @@ fn the_table_screen_builds_once_there_is_a_deck() {
     }
 }
 
+/// A running table with this player's chair, laid out with the shipped fonts.
+fn returning_game(width: f32, height: f32, lang: &str) -> App {
+    let (mut app, fonts) = crate::face::tests::layout_app();
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<bevy::mesh::skinning::SkinnedMeshInverseBindposes>>()
+        .init_asset::<bevy::shader::Shader>()
+        .add_plugins(bevy::camera::visibility::VisibilityPlugin)
+        .add_plugins(bevy::state::app::StatesPlugin)
+        .init_state::<DuelPhase>()
+        .add_message::<DuelCommand>()
+        .add_message::<KeyboardInput>()
+        .add_message::<PointerClick>()
+        .add_message::<PointerScroll>()
+        .add_message::<PointerDrag>()
+        .add_message::<PointerDragEnd>()
+        .insert_resource(fonts)
+        .init_resource::<ButtonInput<KeyCode>>()
+        .add_plugins(LobbyPlugin);
+    {
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings {
+            lang: lang.to_string(),
+            ..crate::settings::ClientSettings::default()
+        });
+        state.gateway.clear();
+        state.gateway_selected = true;
+        state.lobby.set_gateway_ready(true);
+        state.lobby.set_registration(Registration::Open);
+        state.probes.insert(
+            baylee_client_core::lobby::gateway_list::PINNED.to_string(),
+            Probe::Asking,
+        );
+        state.lobby.apply(LobbyEvent::LoggedIn {
+            token: "tok".into(),
+            username: None,
+        });
+        state.lobby.apply(LobbyEvent::Decks(vec![DeckSummary {
+            id: "d1".into(),
+            name: "Deck".into(),
+            ..Default::default()
+        }]));
+        state
+            .lobby
+            .apply(LobbyEvent::Games(GameListing::of(vec![GameSummary {
+                id: "g".into(),
+                state: "playing".into(),
+                seats: vec![GameSeat {
+                    seat: 0,
+                    taken: true,
+                    you: true,
+                    ready: true,
+                    ..GameSeat::default()
+                }],
+                ..GameSummary::default()
+            }])));
+        *app.world_mut().resource_mut::<LobbyState>() = state;
+    }
+    let mut window = Window::default();
+    window.resolution.set(width, height);
+    app.world_mut().spawn(window);
+    app.update();
+    app.update();
+    app
+}
+
+/// Report `01a16cc3`: the way back to a running game is a compact action in
+/// the row, not a separate 132-pixel block. Its hit area stays at least 44 px.
+#[test]
+fn return_to_game_is_compact_in_both_languages_and_desktop_sizes() {
+    for lang in ["en", "de"] {
+        for (width, height) in [(960.0, 584.0), (1728.0, 1052.0)] {
+            let mut app = returning_game(width, height, lang);
+            let mut query = app.world_mut().query::<(&Press, &Node, &ComputedNode)>();
+            let (node, computed) = query
+                .iter(app.world())
+                .find_map(|(press, node, computed)| {
+                    matches!(press, Press::Play(PlayPress::Return)).then_some((node, computed))
+                })
+                .expect("the running table offers its way back");
+            assert_eq!(node.width, Val::Auto, "the wide action width returned");
+            let logical = computed.size() * computed.inverse_scale_factor();
+            assert!(
+                logical.x < 132.0,
+                "{lang} at {width}x{height}: {} px wide",
+                logical.x
+            );
+            assert!(
+                logical.x >= 44.0 && logical.y >= 44.0,
+                "{lang} at {width}x{height}: hit area shrank to {logical}"
+            );
+        }
+    }
+}
+
 /// Offline play, pressed all the way through to a table.
 ///
 /// Every decision in this sequence has a test of its own — the lobby's
@@ -894,4 +987,47 @@ fn discovery_sidebar_restores_its_own_scroll_after_search_rebuilds() {
         .expect("scrollable gateway sidebar");
     assert!((sidebar.1.y - 80.0).abs() < f32::EPSILON);
     assert!((app.world().resource::<Scrolled>().get(List::Games) - 112.0).abs() < f32::EPSILON);
+}
+
+/// Play's deck picker scrolls a long shelf: its body is a `Scrollable` the
+/// wheel moves, and a bar stands beside it aimed at that body (report
+/// 30.10.2026: the body was only clipped, so the wheel moved nothing and
+/// no bar said there was more).
+#[test]
+fn the_deck_picker_scrolls_and_has_its_bar() {
+    let mut app = headless();
+    {
+        let mut state = app.world_mut().resource_mut::<LobbyState>();
+        state.lobby.apply(LobbyEvent::LoggedIn {
+            token: "tok".to_string(),
+            username: None,
+        });
+        state.lobby.apply(LobbyEvent::Decks(
+            (0..24)
+                .map(|n| DeckSummary {
+                    id: format!("d{n}"),
+                    name: format!("Deck {n}"),
+                    cards: 60,
+                    copies: 60,
+                    ..Default::default()
+                })
+                .collect(),
+        ));
+        state.lobby.apply(LobbyEvent::Games(GameListing::default()));
+        state.play.picker = true;
+    }
+    app.update();
+    let picker = app
+        .world_mut()
+        .query::<(Entity, &Scrollable)>()
+        .iter(app.world())
+        .find(|(_, s)| s.0 == List::DeckPicker)
+        .map(|(entity, _)| entity)
+        .expect("the picker's body scrolls to the wheel");
+    let aimed = app
+        .world_mut()
+        .query::<&bevy::ui_widgets::Scrollbar>()
+        .iter(app.world())
+        .any(|bar| bar.target == picker);
+    assert!(aimed, "and a bar is aimed at it");
 }

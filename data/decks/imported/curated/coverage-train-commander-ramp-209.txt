@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBG #20266210]
+1 Abstergo Entertainment
+1 Abundant Countryside
+1 Aether Hub
+1 Anurid Murkdiver
+1 Apprentice Necromancer
+1 Avengers Tower
+1 Black Cat
+1 Brood Butcher
+1 Castle Doom
+1 Catacomb Sifter
+1 Citywatch Sphinx
+1 Corpse Blockade
+1 Corrupted Harvester
+1 Cyclopean Mummy
+1 Despondency
+1 Drowner of Truth
+1 Drownyard Amalgam
+1 Drunau Corpse Trawler
+1 Embodiment of Spring
+1 Festerleech
+1 Foreboding Landscape
+10 Forest
+1 Forsaken Drifters
+1 Glimmerburst
+1 Glissa, the Traitor
+1 Golgari Rotwurm
+1 Gristle Grinner
+1 Haven of the Spirit Dragon
+1 Havengul Skaab
+1 Heap Gate
+1 Heartwood Giant
+1 Hidden Grotto
+3 Island
+1 Jasmine Dragon Tea Shop
+1 Journey to Eternity
+1 Keeper of Tresserhorn
+1 Kozilek's Predator
+1 Laboratory Brute
+1 Launch
+1 Llanowar Mentor
+1 Loam Dryad
+1 Maelstrom of the Spirit Dragon
+1 Mana Confluence
+1 Marjhan
+1 Mintstrosity
+1 Mirrodin's Core
+1 Nantuko Husk
+1 Nykthos, Shrine to Nyx
+1 Pirate's Prize
+1 Polluted Dead
+1 Quagmire Druid
+1 Reconstruction
+1 Returned Reveler
+1 Rotcrown Ghoul
+1 Rottenheart Ghoul
+1 Sachi, Daughter of Seshiro
+1 Screeching Skaab
+1 Secluded Courtyard
+1 Sepulcher Ghoul
+1 Skirk Ridge Exhumer
+1 Slipstream Eel
+1 Smog Elemental
+1 Soulreaper of Mogis
+1 Spawning Kraken
+1 Stronghold Assassin
+1 Sultai Devotee
+1 Summit Sentinel
+13 Swamp
+1 Throne of Makindi
+1 Time Elemental
+1 Tolarian Serpent
+1 Undead Executioner
+1 Unfathomable Truths
+1 Vesper Ghoul
+1 Wailing Ghoul
+1 Woebearer
+
+[commander]
+Muldrotha, the Gravetide

@@ -199,7 +199,7 @@ pub(super) fn teardown(
 
 /// What the kit and the settings screen read beside the lobby (one
 /// parameter, under Bevy's sixteen).
-type KitInputs<'w, 's> = (
+pub(super) type KitInputs<'w, 's> = (
     Res<'w, crate::shellkit::InputClass>,
     Option<Res<'w, crate::settings::ClientSettings>>,
     Option<Res<'w, crate::quality::InUse>>,
@@ -233,7 +233,16 @@ fn eighths(scale: f32) -> u8 {
 
 type LobbyRoots<'w, 's> = (
     Query<'w, 's, Entity, With<LobbyRoot>>,
-    Query<'w, 's, (Entity, &'static super::header::RetainedHeader)>,
+    Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static super::header::RetainedHeader,
+            Option<&'static bevy::app::Inherited<bevy::ui::ComputedUiTargetCamera>>,
+            Option<&'static bevy::app::Inherited<bevy::ui::ComputedUiRenderTargetInfo>>,
+        ),
+    >,
 );
 
 /// Rebuilds the node tree when the lobby changed, or when the window crossed
@@ -253,7 +262,10 @@ pub(super) fn ui(
     roots: LobbyRoots<'_, '_>,
     // Only the printing picker draws a remote image, and a headless test has
     // no asset server {2014} nor should it reach the CDN to build a tree.
-    assets: Option<Res<AssetServer>>,
+    (assets, cloud): (
+        Option<Res<AssetServer>>,
+        Option<Res<super::memorial::CloudArt>>,
+    ),
     ui_materials: Option<ResMut<UiCardMaterials>>,
     material_assets: Option<ResMut<Assets<CardUiMaterial>>>,
     prefs: Res<crate::prefs::Prefs>,
@@ -397,11 +409,17 @@ pub(super) fn ui(
     rebuilds.frame += u64::from(root.is_empty() || drawn.0 != Some(metrics.frame) || !kit_same);
     *builder_drawn = None;
     let header_key = super::header::identity(&state, kit);
+    // Kept with what it inherited where it stood, which its new parent is
+    // given before it is attached: moved under a parent built this frame, a
+    // bar went undrawn but for its own panel for a frame, on nearly every
+    // click (`shellkit::retain`).
     let retained_header = headers
         .iter()
-        .find(|(_, stored)| stored.0 == header_key)
-        .map(|(entity, _)| entity);
-    for (entity, _) in &headers {
+        .find(|(_, stored, _, _)| stored.0 == header_key)
+        .map(|(entity, _, camera, target)| {
+            crate::shellkit::retain::Kept::of(entity, camera, target)
+        });
+    for (entity, ..) in &headers {
         commands.entity(entity).remove::<ChildOf>();
     }
     for entity in &root {
@@ -449,6 +467,12 @@ pub(super) fn ui(
             // camera's clear colour is the same `BACKDROP`, which is what the
             // surface is drawn over — a solid fill here would hide it.
             BackgroundColor(Color::NONE),
+            // Blank space is transparent to the cloud beneath this root.
+            // Panel/control nodes still own their own hit regions.
+            Pickable {
+                should_block_lower: false,
+                ..default()
+            },
         ))
         .id();
 
@@ -456,7 +480,14 @@ pub(super) fn ui(
     // account's, not the gateway's, and coming back has to land exactly where
     // the player left — including halfway through a deck.
     if state.settings.is_open() {
-        super::header::draw(&mut commands, root, &state, kit, metrics, retained_header);
+        super::header::draw(
+            &mut commands,
+            root,
+            &state,
+            kit,
+            metrics,
+            retained_header.as_ref(),
+        );
         let (_, _, in_use, trial, monitors) = &kit_inputs;
         let settings = kit_inputs.1.as_deref();
         let view = crate::settingsui::View {
@@ -508,12 +539,19 @@ pub(super) fn ui(
             &scrolled_to,
             kit,
             prefs.all(),
-            retained_header,
+            retained_header.as_ref(),
         ),
         Screen::Build => {
             // The builder keeps its own header; the seated strip stands
             // above it.
-            super::header::draw(&mut commands, root, &state, kit, metrics, retained_header);
+            super::header::draw(
+                &mut commands,
+                root,
+                &state,
+                kit,
+                metrics,
+                retained_header.as_ref(),
+            );
             *builder_drawn = Some(crate::buildui::builder(
                 &mut commands,
                 root,
@@ -550,6 +588,18 @@ pub(super) fn ui(
             &scrolled_to,
         );
         commands.entity(root).add_child(dialog);
+    }
+    super::memorial::draw(
+        &mut commands,
+        root,
+        &state,
+        kit,
+        assets.as_deref(),
+        cloud.as_deref(),
+        &scrolled_to,
+    );
+    if state.memorial.open {
+        *builder_drawn = None;
     }
     super::confirm::draw(&mut commands, root, &state, &fonts, metrics);
     if state.confirmation.is_some() {

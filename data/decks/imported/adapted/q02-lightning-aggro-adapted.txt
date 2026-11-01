@@ -1,0 +1,16 @@
+# adapted from data/decks/precon/Q02/lightning-aggro.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LightningAggro_Q02.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Lightning Aggro (Adapted)]
+4 Acidic Soil
+1 Arc Lightning
+4 Breath Weapon
+4 Fanatical Firebrand
+4 Goblin Chainwhirler
+2 Lava Coil
+4 Lightning Strike
+1 Make Mischief
+22 Mountain
+4 Seismic Rupture
+4 Shock
+4 Valakut Awakening
+2 Wheel of Fortune

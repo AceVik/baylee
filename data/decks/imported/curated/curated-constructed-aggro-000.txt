@@ -1,0 +1,18 @@
+# baylee curated constructed aggro seed=20261023
+# licence: AGPL-3.0-only
+[deck:constructed aggro U #20261023]
+2 Cephalid Scout
+3 Chromatic Star
+1 Corrupted Crossroads
+4 Deduce
+2 Etherium Spinner
+19 Island
+3 Merfolk Coralsmith
+3 Merfolk Seer
+2 Painted Bluffs
+4 Pestered Wellguard
+4 Rootwater Diver
+1 School of the Unseen
+4 Thalakos Seer
+4 Three Steps Ahead
+4 Vodalian Hexcatcher

@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/GN3/dark-sacrifice.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DarkSacrifice_GN3.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dark Sacrifice (Adapted)]
+1 Cast Away Doubt
+2 Cruel Finality
+3 Diresight
+3 Doom Blade
+2 Doomed Dissenter
+1 Dusk Legion Zealot
+1 Eyeblight's Ending
+1 Funeral Rites
+2 Gavony Unhallowed
+2 Gifted Aetherborn
+1 Howling Fury
+1 Icequake
+1 Last Caress
+1 Liliana's Mastery
+1 Maalfeld Twins
+1 Ravenous Chupacabra
+1 Read the Bones
+2 Reckless Spite
+3 Risky Shortcut
+2 Sign in Blood
+1 Spin Out
+26 Swamp
+1 Syphon Soul

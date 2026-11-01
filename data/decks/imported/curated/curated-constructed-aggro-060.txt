@@ -1,0 +1,21 @@
+# baylee curated constructed aggro seed=20261083
+# licence: AGPL-3.0-only
+[deck:constructed aggro RG #20261083]
+3 Abundant Countryside
+4 Blisterstick Shaman
+4 Fire Whip
+2 Flamekin Harbinger
+2 Forest
+4 Forge Devil
+4 Foundry Street Denizen
+2 Gemstone Mine
+1 Hall of Oracles
+1 Kessig Wolf Run
+4 Llanowar Stalker
+4 Mawloc
+12 Mountain
+3 Shocking Sharpshooter
+1 Timberline Ridge
+1 Villainous Hideout
+4 Volley Veteran
+4 Zo-Zu the Punisher

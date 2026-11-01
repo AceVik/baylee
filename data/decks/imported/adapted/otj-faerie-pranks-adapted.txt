@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/OTJ/faerie-pranks.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FaeriePranks_OTJ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Faerie Pranks (Adapted)]
+2 Agony Warp
+1 Anvilwrought Raptor
+4 Consult the Necrosages
+2 Deduce
+4 Essence Vortex
+2 Glimpse the Unthinkable
+13 Island
+4 Notion Rain
+2 Obyra, Dreaming Duelist
+4 Pilfered Plans
+2 Psychic Drain
+3 Quick Study
+4 Soured Springs
+7 Swamp
+1 Three Steps Ahead
+4 Tyrant's Scorn
+1 Undercity Sewers

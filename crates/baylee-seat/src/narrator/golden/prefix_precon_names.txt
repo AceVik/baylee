@@ -10,6 +10,7 @@ Commander:
   1× Aesi, Tyrant of Gyre Strait
 Main deck:
   1× Acidic Slime
+  1× Arcane Denial
   1× Blighted Woodland
   1× Coiling Oracle
   1× Command Tower
@@ -50,6 +51,7 @@ Main deck:
   1× Vivid Grove
   1× Wickerbough Elder
   1× Woodland Stream
+  1× Yavimaya Elder
   1× Abundant Countryside
   1× Ancient Ziggurat
   1× Arcane Signet
@@ -59,6 +61,7 @@ Main deck:
   1× Exotic Orchard
   1× Faeburrow Elder
   1× Fellwar Stone
+  1× Fertile Ground
   1× Flamekin Village
   1× Frontier Bivouac
   1× Fury
@@ -88,6 +91,3 @@ Main deck:
   1× Thriving Heath
   1× Thriving Isle
   1× Thriving Moor
-  1× Timeless Lotus
-  1× Unclaimed Territory
-  1× Arcane Lighthouse

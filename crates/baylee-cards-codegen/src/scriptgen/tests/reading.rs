@@ -1414,3 +1414,482 @@ fn pump_all_and_nonbasic_landwalk_and_graveyard_gain_control_read() {
         reanimate.abilities[0]
     );
 }
+
+#[test]
+fn echo_keyword_defined_graveyard_controller_and_each_end_step_oracle_read() {
+    let echo = read("K:Echo:2 R R");
+    assert_eq!(
+        echo.abilities,
+        ["AbilityDef::Echo { cost: mana!(\"{2}{R}{R}\") }"]
+    );
+    assert!(refused("K:Echo:PayLife<2>"));
+
+    let diver = read(
+        "T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigReturn\n\
+         SVar:TrigReturn:DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Artifact.Other | TargetsWithDefinedController$ TriggeredCardController\n\
+         Oracle:When this creature dies, return another target artifact card from your graveyard to your hand.",
+    );
+    assert!(
+        diver.abilities[0].contains("TargetSpec::CardInGraveyard(&TARGET1, PlayerRel::You)"),
+        "{}",
+        diver.abilities[0]
+    );
+    assert!(refused(
+        "T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigReturn\n\
+         SVar:TrigReturn:DB$ ChangeZone | Origin$ Graveyard | Destination$ Hand | ValidTgts$ Artifact.Other | TargetsWithDefinedController$ TriggeredCardController\n\
+         Oracle:When this creature dies, return another target artifact card from a graveyard to your hand.",
+    ));
+
+    let mark = read(
+        "T:Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigBounce\n\
+         SVar:TrigBounce:DB$ ChangeZone | Origin$ Battlefield | Destination$ Hand | Defined$ Self\n\
+         Oracle:At the beginning of the end step, return this Aura to its owner's hand.",
+    );
+    assert!(
+        mark.abilities[0]
+            .contains("Trigger::StepBegin { step: StepKind::End, whose: PlayerRel::EachPlayer }"),
+        "{}",
+        mark.abilities[0]
+    );
+
+    let keg = read(
+        "A:AB$ DestroyAll | Cost$ T Sac<1/CARDNAME> | ValidCards$ Artifact.cmcEQX,Creature.cmcEQX\n\
+         SVar:X:Count$CardCounters.FUSE",
+    );
+    assert!(
+        keg.abilities[0].contains("Effect::DestroyAllWithManaValue")
+            && keg.abilities[0].contains("Amount::CountersOnSource(counters::FUSE)"),
+        "{}",
+        keg.abilities[0]
+    );
+
+    let taunting = read("K:All creatures able to block CARDNAME do so.");
+    assert_eq!(
+        taunting.abilities,
+        ["static_ability!(Filter::This, Modifier::MustBeBlockedByAllAble)"]
+    );
+
+    let golem = read(
+        "S:Mode$ Continuous | Affected$ Card.Self+enchanted | AddPower$ 2 | AddToughness$ 2 | AddKeyword$ Flying",
+    );
+    assert!(
+        golem
+            .abilities
+            .join("\n")
+            .contains("Filter::And(&[Filter::This, Filter::Enchanted])"),
+        "{:?}",
+        golem.abilities
+    );
+
+    let glare = read("S:Mode$ Continuous | Affected$ Card.Self | CanBlockAny$ True");
+    assert_eq!(
+        glare.abilities,
+        ["static_ability!(Filter::This, Modifier::CanBlockAnyNumber)"]
+    );
+
+    let elder = read(
+        "T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self | Execute$ TrigFetch | OptionalDecider$ TriggeredCardController\n\
+         SVar:TrigFetch:DB$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Land.Basic | ChangeNum$ 2 | ShuffleNonMandatory$ True\n\
+         Oracle:When Yavimaya Elder dies, you may search your library for up to two basic land cards, reveal them, put them into your hand, then shuffle.",
+    );
+    assert!(
+        elder
+            .abilities
+            .join("")
+            .contains("finds: &[Find::HAND, Find::HAND], optional: true"),
+        "{:?}",
+        elder.abilities
+    );
+
+    let foundry = read(
+        "A:AB$ ChangeZoneAll | Cost$ 1 T Exile<1/CARDNAME> | Origin$ Graveyard | Destination$ Library | ValidTgts$ Player | ChangeType$ Card | Shuffle$ True",
+    );
+    assert!(
+        foundry.abilities[0].contains("cost!(\"{1}\", TapSelf, ExileSelf)"),
+        "{}",
+        foundry.abilities[0]
+    );
+
+    let enchantress = read(
+        "S:Mode$ Continuous | AffectedDefined$ Self | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$Valid Enchantment",
+    );
+    assert_eq!(
+        enchantress.abilities,
+        [
+            "static_ability!(Filter::This, Modifier::ModifyPTByCount(PtCount::OnBattlefield(&Filter::ENCHANTMENT)))"
+        ]
+    );
+}
+
+#[test]
+fn attacker_blocked_attacked_you_times_count_arrest_and_event_player_targets_transcode() {
+    let grifters = read(
+        "T:Mode$ AttackerBlocked | ValidCard$ Card.Self | Execute$ TrigDiscard\n\
+         SVar:TrigDiscard:DB$ Discard | Defined$ TriggeredDefendingPlayer | Mode$ TgtChoose",
+    );
+    assert_eq!(
+        grifters.abilities,
+        [
+            "triggered!(Trigger::BecomesBlocked, &[Effect::DiscardForPlayers { who: PlayerRel::DefendingPlayer, count: 1 }])"
+        ]
+    );
+
+    let mask = read(
+        "K:Enchant:Creature\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature | AddPower$ X | AddToughness$ X\n\
+         SVar:X:Count$Valid Enchantment.Other/Times.2",
+    );
+    assert_eq!(mask.abilities.len(), 3, "{:?}", mask.abilities);
+    assert_eq!(mask.abilities[1], mask.abilities[2]);
+
+    let arrest = read(
+        "K:Enchant:Creature\n\
+         S:Mode$ CantAttack,CantBlock,CantBeActivated | ValidCard$ Creature.EnchantedBy",
+    );
+    assert_eq!(
+        arrest.abilities,
+        [
+            "spell!(&[Effect::AttachSelf { target: TargetSpec::Object(&Filter::CREATURE) }], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))",
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]), Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK)))",
+            "static_ability!(Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]), Modifier::CantActivate)"
+        ]
+    );
+
+    let ballista = read(
+        "A:AB$ DealDamage | Cost$ X W T | ValidTgts$ Creature.attacking,Creature.blocking | NumDmg$ X\n\
+         SVar:X:Count$xPaid\n\
+         Oracle:{X}{W}, {T}: Ballista Squad deals X damage to target attacking or blocking creature.",
+    );
+    assert!(
+        ballista.abilities[0].contains("cost!(\"{X}{W}\", TapSelf)"),
+        "{}",
+        ballista.abilities[0]
+    );
+
+    let briar = read(
+        "T:Mode$ Attacks | ValidCard$ Creature | Attacked$ You | TriggerZones$ Battlefield | Execute$ TrigPump\n\
+         SVar:TrigPump:DB$ Pump | Defined$ TriggeredAttackerLKICopy | NumAtt$ -1",
+    );
+    assert!(
+        briar.statics.contains("Filter::AttackingYou"),
+        "{}",
+        briar.statics
+    );
+    assert!(
+        briar.abilities[0].contains("Effect::PumpFilter { filter: &Filter::Reference"),
+        "{}",
+        briar.abilities[0]
+    );
+
+    let wasps = read(
+        "T:Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | Execute$ TrigDestroy | CombatDamage$ True | OptionalDecider$ You\n\
+         SVar:TrigDestroy:DB$ Destroy | ValidTgts$ Artifact.ControlledBy TriggeredTarget",
+    );
+    assert!(
+        wasps.abilities[0].contains("TargetSpec::ObjectOfEventPlayer(&Filter::ARTIFACT)"),
+        "{}",
+        wasps.abilities[0]
+    );
+}
+
+#[test]
+fn chosen_color_protection_prevent_all_damage_draw_count_and_choose_color_animate_transcode() {
+    let blessing = read(
+        "K:Flash\n\
+         K:Enchant:Creature\n\
+         K:ETBReplacement:Other:ChooseColor\n\
+         SVar:ChooseColor:DB$ ChooseColor | Defined$ You | AILogic$ MostProminentInHumanDeck | SpellDescription$ As CARDNAME enters, choose a color.\n\
+         S:Mode$ Continuous | AffectedDefined$ Enchanted | Affected$ Creature | AddKeyword$ Protection:Card.ChosenColor:chosenColor:Card.CardUID_HostCardUID",
+    );
+    assert_eq!(blessing.enter_modifiers, ["EnterModifier::ChooseColor"]);
+    assert!(
+        blessing.abilities[1]
+            .contains("Filter::And(&[Filter::OfSourceChosenColor, Filter::Not(&Filter::This)])"),
+        "{}",
+        blessing.abilities[1]
+    );
+
+    let cho_manno = read("K:Prevent all damage that would be dealt to CARDNAME.");
+    assert_eq!(
+        cho_manno.abilities,
+        ["static_ability!(Filter::This, Modifier::PreventDamageFrom(&Filter::Any))"]
+    );
+
+    let cinder = read(
+        "A:AB$ DealDamage | Cost$ X R T Sac<1/CARDNAME> | ValidTgts$ Any | NumDmg$ X | AITgts$ BetterThanSource\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        cinder.abilities[0].contains("cost!(\"{X}{R}\", TapSelf, SacrificeSelf)"),
+        "{}",
+        cinder.abilities[0]
+    );
+
+    let collective = read(
+        "A:SP$ Draw | NumCards$ X\n\
+         SVar:X:Count$Valid Creature.YouCtrl",
+    );
+    assert_eq!(
+        collective.abilities,
+        [
+            "spell!(&[Effect::DrawCards { amount: Amount::CountOf { filter: &Filter::YOUR_CREATURE, zone: ZoneSel::Battlefield } }])"
+        ]
+    );
+
+    let merfolk = read(
+        "A:AB$ ChangeZone | Cost$ U | Origin$ Battlefield | Destination$ Hand | SpellDescription$ Return CARDNAME to its owner's hand.",
+    );
+    assert_eq!(
+        merfolk.abilities,
+        ["activated!(cost!(\"{U}\"), &[Effect::bounce(TargetSpec::ThisObject)])"]
+    );
+
+    let lens = read(
+        "A:AB$ ChooseColor | Cost$ T | Defined$ You | SubAbility$ Animate\n\
+         SVar:Animate:DB$ Animate | ValidTgts$ Permanent | Colors$ ChosenColor | OverwriteColors$ True",
+    );
+    assert_eq!(
+        lens.abilities,
+        [
+            "activated!(Cost::TAP, &[Effect::ChooseColors { subject: ColorSubject::Target, max: 1, duration: Duration::UntilEndOfTurn }], target = Some(TargetSpec::Object(&Filter::Any)))"
+        ]
+    );
+}
+
+#[test]
+fn fading_graveyard_name_count_sacrifice_all_and_dominate_transcode() {
+    let hydra = read(
+        "K:Fading:5\n\
+         A:AB$ DealDamage | Cost$ 1 SubCounter<1/FADE> | ValidTgts$ Any | NumDmg$ 1",
+    );
+    assert_eq!(
+        hydra.enter_modifiers,
+        ["EnterModifier::WithCounters { kind: counters::FADE, amount: Amount::Fixed(5) }"]
+    );
+    assert_eq!(
+        hydra.abilities,
+        [
+            "triggered!(Trigger::StepBegin { step: StepKind::Upkeep, whose: PlayerRel::You }, &[Effect::IfCondition { condition: Condition::CountersOnSelf(counters::FADE, 1), then: &[Effect::RemoveCounterSelf { kind: counters::FADE, n: 1 }], otherwise: &[Effect::SacrificeSelf] }])",
+            "activated!(cost!(\"{1}\", RemoveCounterSelf { kind: counters::FADE, n: 1 }), &[Effect::DealDamage { amount: Amount::Fixed(1), target: TargetSpec::AnyTarget }], target = Some(TargetSpec::AnyTarget))"
+        ]
+    );
+
+    let ak = read(
+        "A:SP$ Draw | Defined$ You | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ X\n\
+         SVar:X:Count$ValidGraveyard Card.namedAccumulated Knowledge",
+    );
+    assert!(
+        ak.abilities[0].contains("ZoneSel::GraveyardAll")
+            && ak
+                .statics
+                .contains("Filter::Named(\"Accumulated Knowledge\")"),
+        "{:?} / {}",
+        ak.abilities,
+        ak.statics
+    );
+
+    let offering = read(
+        "T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigSacAll\n\
+         SVar:TrigSacAll:DB$ SacrificeAll | ValidCards$ Creature.YouCtrl",
+    );
+    assert_eq!(
+        offering.abilities,
+        ["triggered!(Trigger::ETB, &[Effect::SacrificeAll { filter: &Filter::YOUR_CREATURE }])"]
+    );
+
+    let dominate = read(
+        "A:SP$ GainControl | ValidTgts$ Creature.cmcLEX | SVar:X:Count$xPaid\n\
+         SVar:X:Count$xPaid",
+    );
+    assert!(
+        dominate.abilities[0].contains("Modifier::GainControl")
+            && dominate.abilities[0].contains("Duration::Indefinitely"),
+        "{:?}",
+        dominate.abilities
+    );
+}
+
+#[test]
+fn laccoliths_flowstone_armor_lin_sivvi_and_mossdog_transcode() {
+    let laccolith = read(
+        "T:Mode$ AttackerBlocked | ValidCard$ Card.Self | Execute$ TrigDamage | OptionalDecider$ You\n\
+         SVar:TrigDamage:DB$ DealDamage | ValidTgts$ Creature | NumDmg$ X | SubAbility$ DBNoCombatDamage\n\
+         SVar:DBNoCombatDamage:DB$ Effect | StaticAbilities$ SNoCombatDamage | Duration$ UntilHostLeavesPlayOrEOT\n\
+         SVar:SNoCombatDamage:Mode$ AssignNoCombatDamage | ValidCard$ Card.EffectSource\n\
+         SVar:X:Count$CardPower",
+    );
+    assert_eq!(
+        laccolith.abilities,
+        [
+            "triggered!(Trigger::BecomesBlocked, &[Effect::MayDo { effects: &[Effect::DealDamage { amount: Amount::SourcePower, target: TargetSpec::Object(&Filter::CREATURE) }, Effect::ModifySource { modifier: Modifier::AssignsNoCombatDamage, duration: Duration::UntilEndOfTurn }] }], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ]
+    );
+
+    let armor = read(
+        "A:AB$ Pump | Cost$ 3 T | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ -1 | Duration$ UntilUntaps",
+    );
+    assert_eq!(
+        armor.abilities,
+        [
+            "activated!(cost!(\"{3}\", TapSelf), &[Effect::PumpTarget { power: Amount::Fixed(1), toughness: Amount::NegXFixed(1), keywords: KeywordSet::EMPTY, duration: Duration::WhileSourceTapped { control: false, power_limited: false } }], target = Some(TargetSpec::Object(&Filter::CREATURE)))"
+        ]
+    );
+
+    let sivvi = read(
+        "A:AB$ ChangeZone | Cost$ 3 | ValidTgts$ Card.YouCtrl | Origin$ Graveyard | Destination$ Library | LibraryPosition$ -1",
+    );
+    assert!(
+        sivvi.abilities[0].contains("Effect::PutOnBottomOfLibraryFromGraveyard"),
+        "{:?}",
+        sivvi.abilities
+    );
+
+    let mossdog = read(
+        "T:Mode$ BecomesTarget | ValidTarget$ Card.Self | ValidSource$ SpellAbility.OppCtrl | Execute$ TrigPutCounter\n\
+         SVar:TrigPutCounter:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1",
+    );
+    assert_eq!(
+        mossdog.abilities,
+        [
+            "triggered!(Trigger::TargetedByOpponent { filter: &Filter::This, you: false }, &[Effect::AddCounter { kind: CounterKind::P1P1, amount: Amount::Fixed(1) }])"
+        ]
+    );
+}
+
+#[test]
+fn off_balance_parallax_wave_rackling_and_rusting_golem_transcode() {
+    let off_balance =
+        read("A:SP$ Pump | ValidTgts$ Creature | KW$ HIDDEN CARDNAME can't attack or block.");
+    assert_eq!(
+        off_balance.abilities,
+        [
+            "spell!(&[Effect::PumpTarget { power: Amount::Fixed(0), toughness: Amount::Fixed(0), keywords: KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK), duration: Duration::UntilEndOfTurn }], targets = Some(TargetReq::one(TargetSpec::Object(&Filter::CREATURE))))"
+        ]
+    );
+
+    let wave = read(
+        "K:Fading:5\n\
+         A:AB$ ChangeZone | Cost$ SubCounter<1/FADE> | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile\n\
+         T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self | Execute$ TrigReturn\n\
+         SVar:TrigReturn:DB$ ChangeZone | Defined$ ExiledWith | Origin$ Exile | Destination$ Battlefield",
+    );
+    assert!(
+        wave.abilities[1].contains("Effect::exile_linked(TargetSpec::Object(&Filter::CREATURE))")
+            && wave.abilities[2].contains("Trigger::LeavesBattlefield(&Filter::This)")
+            && wave.abilities[2].contains("Effect::ReturnLinkedToBattlefield"),
+        "{:?}",
+        wave.abilities
+    );
+
+    let rackling = read(
+        "T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player.Opponent | TriggerZones$ Battlefield | Execute$ TrigDamage\n\
+         SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ X\n\
+         SVar:X:TriggeredPlayer$CardsInHand/NMinus.3",
+    );
+    assert!(
+        rackling.abilities[0].contains("Amount::Difference")
+            && rackling.abilities[0].contains("ZoneSel::HandActivePlayer"),
+        "{:?}",
+        rackling.abilities
+    );
+
+    let golem = read(
+        "K:Fading:5\n\
+         S:Mode$ Continuous | CharacteristicDefining$ True | SetPower$ X | SetToughness$ X\n\
+         SVar:X:Count$CardCounters.FADE",
+    );
+    assert!(
+        golem.abilities[1].contains("PtCount::CountersOnThis(counters::FADE)"),
+        "{:?}",
+        golem.abilities
+    );
+}
+
+#[test]
+fn silkenfist_skyshroud_claim_stronghold_biologist_discipline_viseling_and_wandering_eye_transcode()
+{
+    let silkenfist = read(
+        "T:Mode$ AttackerBlocked | ValidCard$ Card.Self | Execute$ TrigUntap\n\
+         SVar:TrigUntap:DB$ Untap | Defined$ Self",
+    );
+    assert_eq!(
+        silkenfist.abilities,
+        ["triggered!(Trigger::BecomesBlocked, &[Effect::UntapSelf])"]
+    );
+
+    let claim = read(
+        "A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Forest | ChangeNum$ 2\n\
+         Oracle:Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.",
+    );
+    assert!(
+        claim.abilities[0].contains("optional: true"),
+        "{:?}",
+        claim.abilities
+    );
+
+    let biologist = read(
+        "A:AB$ Counter | Cost$ U U T Discard<1/Card> | TargetType$ Spell | ValidTgts$ Card.Creature",
+    );
+    assert!(
+        biologist.abilities[0].contains("TargetSpec::Spell(&Filter::CREATURE)"),
+        "{:?}",
+        biologist.abilities
+    );
+
+    let discipline = read(
+        "A:SP$ RepeatEach | RepeatPlayers$ Player | RepeatSubAbility$ DBLoseLife\n\
+         SVar:DBLoseLife:DB$ LoseLife | Defined$ Player.IsRemembered | LifeAmount$ X\n\
+         SVar:X:Count$Valid Creature.RememberedPlayerCtrl",
+    );
+    assert_eq!(
+        discipline.abilities,
+        [
+            "spell!(&[Effect::LoseLife { amount: Amount::ControlledCount { who: PlayerRel::Recipient, filter: &Filter::CREATURE }, target: PlayerRel::EachPlayer }])"
+        ]
+    );
+
+    let viseling = read(
+        "T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player.Opponent | TriggerZones$ Battlefield | Execute$ TrigDamage\n\
+         SVar:TrigDamage:DB$ DealDamage | Defined$ TriggeredPlayer | NumDmg$ X\n\
+         SVar:X:TriggeredPlayer$CardsInHand/Minus.4",
+    );
+    assert!(
+        viseling.abilities[0].contains("Amount::Difference { left: &Amount::CountOf")
+            && viseling.abilities[0].contains("right: &Amount::Fixed(4)"),
+        "{:?}",
+        viseling.abilities
+    );
+
+    let eye = read(
+        "S:Mode$ Continuous | AffectedZone$ Hand | MayLookAt$ Player | Description$ Players play with their hands revealed.",
+    );
+    assert_eq!(
+        eye.abilities,
+        ["static_ability!(Filter::Any, Modifier::RevealAllHands)"]
+    );
+
+    let convalescent = read(
+        "T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield | LifeTotal$ You | LifeAmount$ LE5 | Execute$ TrigGainLife\n\
+         SVar:TrigGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 3 | SubAbility$ DBDraw\n\
+         SVar:DBDraw:DB$ Draw",
+    );
+    assert!(
+        convalescent.abilities[0].contains("Condition::LifeAtMost(5)"),
+        "{:?}",
+        convalescent.abilities
+    );
+
+    let gustcloak = read(
+        "T:Mode$ AttackerBlocked | ValidCard$ Card.Self | OptionalDecider$ You | Execute$ TrigUntap\n\
+         SVar:TrigUntap:DB$ Untap | Defined$ Self | SubAbility$ RemCombat\n\
+         SVar:RemCombat:DB$ RemoveFromCombat | Defined$ Self",
+    );
+    assert!(
+        gustcloak.abilities[0].contains("Effect::UntapSelf")
+            && gustcloak.abilities[0].contains("Effect::RemoveTargetFromCombat { unblock: false }"),
+        "{:?}",
+        gustcloak.abilities
+    );
+}

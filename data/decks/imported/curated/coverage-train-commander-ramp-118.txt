@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BR #20266119]
+1 All Hallow's Eve
+1 Army Ants
+1 Ashiok's Reaper
+1 Berserkers' Onslaught
+1 Black Cat
+1 Blood Bairn
+1 Boiling Rock Prison
+1 Boris Devilboon
+1 Branch of Vitu-Ghazi
+1 Captain's Tutelage
+1 Carnage Altar
+1 Clickslither
+1 Corpse Blockade
+1 Corpsehatch
+1 Cyclopean Mummy
+1 Deadbridge Shaman
+1 Disease Carriers
+1 Dowsing Dagger
+1 Drainpipe Vermin
+1 Drider
+1 Eat to Extinction
+1 Echoing Deeps
+1 Emrakul's Hatcher
+1 Fallen Angel
+1 Fault Riders
+1 Feast or Famine
+1 Geothermal Bog
+1 Get the Point
+1 Gilded Pinions
+1 Gold Pan
+1 Goldvein Pick
+1 Grim Bounty
+1 Grinding Station
+1 Haunted Ridge
+1 Hell's Kitchen
+1 Homeward Path
+1 Hurler Cyclops
+1 Insidious Bookworms
+1 Kobolds of Kher Keep
+1 Lavaclaw Reaches
+1 Liquimetal Torque
+1 Mahadi, Emporium Master
+1 Marsh Flats
+1 Mishra's Foundry
+1 Molting Snakeskin
+12 Mountain
+1 Myr Retriever
+1 Noxious Toad
+1 Ominous Asylum
+1 Panharmonicon
+1 Phyrexian Vault
+1 Rage Reflection
+1 Restless Vents
+1 Rohgahh of Kher Keep
+1 Rottenheart Ghoul
+1 Sepulcher Ghoul
+1 Skeletal Kathari
+1 Skittering Invasion
+1 Slayer's Plate
+1 Spirit of the Night
+14 Swamp
+1 Sylvok Lifestaff
+1 Tablet of Epityr
+1 Thallid Soothsayer
+1 Thanos, Death's Consort
+1 Thrull Retainer
+1 Tresserhorn Sinks
+1 Twisted Experiment
+1 Undead Executioner
+1 Urborg Panther
+1 Vampire Aristocrat
+1 Vibrant Cityscape
+1 Violet Pall
+1 Winding Canyons
+1 Yavimaya, Cradle of Growth
+
+[commander]
+Pavel Maliki

@@ -1,0 +1,28 @@
+# adapted from data/decks/precon/ULG/crusher-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CrusherEnhancedDeck_ULG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Crusher - Enhanced Deck (Adapted)]
+4 Armageddon
+4 Brushland
+2 City of Brass
+1 Clear
+2 Cradle Guard
+1 Darkwatch Elves
+1 Disenchant
+1 Eladamri, Lord of Leaves
+2 Elvish Lyrist
+11 Forest
+2 Gaea's Cradle
+1 Harrow
+2 Humble
+2 Hurricane
+4 Llanowar Elves
+1 Might of Oaks
+1 Overrun
+4 Plains
+2 Priest of Titania
+2 Rumbling Baloth
+1 Scragnoth
+2 Spike Feeder
+1 Symbiosis
+2 Wall of Blossoms
+4 Weatherseed Treefolk

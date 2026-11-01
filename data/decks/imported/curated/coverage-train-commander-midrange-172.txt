@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BRG #20266173]
+1 Arena of the Ancients
+1 Arlinn's Wolf
+1 Avengers Tower
+1 Baldur's Gate
+1 Barbed-Back Wurm
+1 Barl's Cage
+1 Bounding Wolf
+1 Brazen Wolves
+1 Bronze Sword
+1 Brotherhood Headquarters
+1 Bubble Matrix
+1 Chimeric Idol
+1 Conqueror's Galleon
+1 Conservator
+1 Coral Helm
+1 Corrupted Crossroads
+1 Crimson Muckwader
+1 Cultist's Staff
+1 Darigaaz's Caldera
+1 Desolation Prowler
+1 Dragon Mask
+1 Dwarven Grunt
+1 Ember-Eye Wolf
+1 Fireshrieker
+1 Fleetfeather Sandals
+11 Forest
+1 Gauntlets of Chaos
+1 Gilacorn
+1 Gorgon Flail
+1 Gravel-Hide Goblin
+1 Helm of Possession
+1 Helm of the Host
+1 Hidden Grotto
+1 Holdout Settlement
+1 Jade Monolith
+1 Jade Statue
+1 Jungle Wurm
+1 Large Bear
+1 Life Matrix
+1 Living Armor
+1 Marauder's Axe
+1 Mightstone
+1 Mirrodin's Core
+1 Morgue Thrull
+5 Mountain
+1 Mystic Compass
+1 North Star
+1 Odious Trow
+1 Painted Bluffs
+1 Pestilent Wolf
+1 Phyrexian Fleshgorger
+1 Plated Rootwalla
+1 Plated Wurm
+1 Rakshasa Deathdealer
+1 Reflecting Mirror
+1 Runed Arch
+1 Sacred Wolf
+1 Scarland Thrinax
+1 Secret Base
+1 Sedge Troll
+1 Shadowblood Egg
+1 Shimmering Grotto
+1 Spire of Industry
+1 Springjack Pasture
+1 Study Hall
+1 Sunglasses of Urza
+9 Swamp
+1 Talisman of Resilience
+1 Three Tree City
+1 Time Vault
+1 True-Faith Censer
+1 Ulrich's Kindred
+1 Umbilicus
+1 Veteran's Sidearm
+1 War Horn
+1 Weakstone
+1 Winding Wurm
+
+[commander]
+The Reaper, King No More

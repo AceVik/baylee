@@ -9,8 +9,9 @@ their own gateway.
 | `gateway-terms.de.md`, `gateway-terms.en.md` | default terms of use, usable as they are: they name the operator only through the gateway's legal notice |
 | `gateway-privacy-template.de.md`, `gateway-privacy-template.en.md` | a privacy notice template: it states what the gateway software processes out of the box, and the operator fills in the parts in square brackets (who they are, hosting, how long they keep records, logs and backups) and adds what they do on top |
 
-The default terms describe the software as it ships: chat is end-to-end
-encrypted and the gateway cannot read it, every game is recorded in full and
+The default terms describe the software as it ships: chat with friends,
+groups and at the table is end-to-end encrypted and the gateway cannot read
+it, the lobby chat is public and not encrypted, every game is recorded in full and
 the software deletes no record by itself, players choose per game whether
 others see their hidden cards in replays.
 An operator who adds a purpose (training a computer opponent, language-model

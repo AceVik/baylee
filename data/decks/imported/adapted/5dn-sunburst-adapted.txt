@@ -1,0 +1,30 @@
+# adapted from data/decks/precon/5DN/sunburst.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Sunburst_5DN.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sunburst (Adapted)]
+2 Char
+2 Chromatic Sphere
+3 Darksteel Ingot
+2 Darksteel Pendant
+3 Deflecting Swat
+2 Dream Fracture
+2 Eyeblight's Ending
+1 Fate Forgotten
+9 Forest
+3 Foxfire
+1 Grotesque Demise
+1 Growth Spasm
+1 Hammer of Bogardan
+3 Island
+1 Joiner Adept
+2 Mirrodin's Core
+3 Mountain
+3 Plains
+2 Renewal
+2 Rescind
+3 Swamp
+2 Tel-Jilad Justice
+2 Valakut Awakening
+1 Viridian Acolyte
+1 Wayfarer's Bauble
+2 Whir of Invention
+1 Yare

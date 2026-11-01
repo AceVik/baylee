@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/WC99/jakub-slemr-mono-black-control.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JakubŠlemrMonoBlackControl_WC99.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Jakub Šlemr - Mono-Black Control (Adapted)]
+4 Assassinate
+1 Bottle Gnomes
+1 Cruel Finality
+3 Cursed Scroll
+4 Dark Ritual
+4 Diabolic Edict
+4 Duress
+1 Howling Fury
+3 Phyrexian Plaguelord
+3 Ravenous Rats
+2 Spawning Pool
+2 Stupor
+15 Swamp
+2 Ticking Gnomes
+1 Vampiric Tutor
+1 Victimize
+1 Volrath's Stronghold
+4 Wasteland
+4 Yawgmoth's Will

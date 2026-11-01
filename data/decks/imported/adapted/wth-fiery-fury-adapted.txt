@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/WTH/fiery-fury.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FieryFury_WTH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fiery Fury (Adapted)]
+3 Bloodrock Cyclops
+1 Builder's Bane
+2 Coming In Hot
+1 Crystal Vein
+3 Goblin Vandal
+1 Gremlin Infestation
+1 Hulking Cyclops
+3 Iroh's Demonstration
+3 Lava Hounds
+2 Mad Prophet
+3 Mind Stone
+23 Mountain
+2 Pyrokinesis
+2 Roc Hatchling
+2 Spitting Earth
+3 Stonefury
+2 Sundering Eruption
+1 Suq'Ata Lancer
+1 Thunderbolt
+1 Wildfire Emissary

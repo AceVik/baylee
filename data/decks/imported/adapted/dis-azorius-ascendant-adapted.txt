@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/DIS/azorius-ascendant.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AzoriusAscendant_DIS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Azorius Ascendant (Adapted)]
+4 Absorb
+2 Azorius Chancery
+2 Azorius First-Wing
+3 Beacon Hawk
+2 Benevolent Ancestor
+4 Daring Leap
+3 Energy Arc
+1 Halcyon Glaze
+9 Island
+2 Minister of Impediments
+2 Mistral Charger
+2 Ocular Halo
+4 Ojutai's Command
+12 Plains
+1 Prahv, Spires of Order
+3 Soulsworn Jury
+4 Sphinx's Revelation

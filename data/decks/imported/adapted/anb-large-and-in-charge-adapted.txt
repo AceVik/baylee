@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/ANB/large-and-in-charge.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LargeAndInCharge_ANB.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Large and in Charge (Adapted)]
+1 Chord of Calling
+2 Colossal Majesty
+1 Epic Proportions
+25 Forest
+2 Gigantosaurus
+3 Jungle Delver
+3 Khalni Ambush
+2 Overgrown Battlement
+2 Rampaging Brontodon
+2 Rumbling Baloth
+2 Sentinel Spider
+4 Serpent's Gift
+2 Verdigris
+2 Wildsize
+2 Wildwood Patrol
+4 Woodcutter's Grit
+1 World Shaper

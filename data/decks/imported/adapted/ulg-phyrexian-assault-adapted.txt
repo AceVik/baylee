@@ -1,0 +1,35 @@
+# adapted from data/decks/precon/ULG/phyrexian-assault.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PhyrexianAssault_ULG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Phyrexian Assault (Adapted)]
+2 Arc Lightning
+1 Avalanche Riders
+2 Bone Shredder
+1 Corrupt
+1 Dark Favor
+2 Defender of Chaos
+1 Engineered Plague
+2 Expunge
+1 Fog of Gnats
+1 Ghitu Encampment
+2 Ghitu Slinger
+1 Giant Cockroach
+2 Goblin Medics
+1 Headlong Rush
+1 Heat Ray
+1 Looming Shade
+10 Mountain
+1 Phyrexian Broodlings
+2 Phyrexian Debaser
+2 Phyrexian Defiler
+1 Phyrexian Denouncer
+1 Phyrexian Plaguelord
+1 Phyrexian Reclamation
+1 Polluted Mire
+1 Rock Hydra
+1 Smoldering Crater
+1 Spawning Pool
+1 Spinal Villain
+12 Swamp
+1 Tethered Skirge
+1 Viashino Cutthroat
+1 Viashino Runner

@@ -293,14 +293,17 @@ impl Pending {
                     attackers,
                     defenders,
                     required,
+                    alone,
+                    minimum_required,
                     limits,
                     ..
                 },
                 A::DeclareAttackers {
                     attackers: declared,
                 },
-            ) => attack_fault(attackers, defenders, declared)
-                .or_else(|| attack_rules_fault(required, limits, declared)),
+            ) => attack_fault(attackers, defenders, declared).or_else(|| {
+                attack_rules_fault(required, alone, *minimum_required, limits, declared)
+            }),
             (
                 Self::ChooseBlockers {
                     blockers,
@@ -512,9 +515,11 @@ fn attack_fault(
 
 /// A declaration of attackers against the rules the question states about
 /// it: each creature named in `limits` attacks one of its defenders
-/// (CR 508.1c), and every creature in `required` attacks (CR 508.1d).
+/// (CR 508.1c), and the maximal satisfiable number of requirements is met (CR 508.1d).
 fn attack_rules_fault(
     required: &[ObjectId],
+    alone: &[ObjectId],
+    minimum_required: Option<u32>,
     limits: &[AttackLimit],
     declared: &[(ObjectId, baylee_core::ids::Defender)],
 ) -> Option<AnswerFault> {
@@ -523,13 +528,16 @@ fn attack_rules_fault(
             .iter()
             .any(|l| l.creature == *creature && !l.defenders.contains(defender))
     });
-    if limited {
+    if limited || (declared.len() > 1 && declared.iter().any(|(id, _)| alone.contains(id))) {
         return Some(AnswerFault::NotOffered);
     }
     let named: std::collections::BTreeSet<ObjectId> = declared.iter().map(|(c, _)| *c).collect();
-    required
+    let minimum = minimum_required.map_or(required.len(), |n| n as usize);
+    (required
         .iter()
-        .any(|creature| !named.contains(creature))
+        .filter(|creature| named.contains(creature))
+        .count()
+        < minimum)
         .then_some(AnswerFault::MustAttack)
 }
 
@@ -641,12 +649,18 @@ pub fn timeout_answer(pending: &Pending) -> Option<PlayerAction> {
         Pending::Mulligan { .. } => Some(PlayerAction::MulliganKeep),
         Pending::ChooseAttackers {
             required,
+            alone,
+            minimum_required,
             limits,
             defenders,
             ..
         } => Some(PlayerAction::DeclareAttackers {
             attackers: required
                 .iter()
+                .filter(|creature| {
+                    !alone.contains(creature) || !required.iter().any(|id| !alone.contains(id))
+                })
+                .take(minimum_required.map_or(required.len(), |n| n as usize))
                 .filter_map(|creature| {
                     let allowed = limits
                         .iter()

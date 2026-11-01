@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUB #20266107]
+1 Absolute Law
+1 Attunement
+1 Aura of Silence
+1 Backfire
+1 Bigfin Bouncer
+1 Bleachbone Verge
+1 Brightclimb Pathway
+1 Circle of Protection: Blue
+1 Circle of Protection: Red
+1 Darkest Hour
+1 Darkwater Catacombs
+1 Dictate of Kruphix
+1 Dispersal Technician
+1 Divine Intervention
+1 Donatello, Turtle Techie
+1 Eidolon of Astral Winds
+1 Erratic Visionary
+1 Eviscerator
+1 Favored of Iroas
+1 Festering Evil
+1 Flood
+1 Font of Fortunes
+1 Future Flight
+1 Great Whale
+1 Hecatomb
+1 Hengegate Pathway
+1 Hidden Lair
+1 Ice Tunnel
+1 Imprison
+17 Island
+1 Karma
+1 Mental Discipline
+1 Mind Over Matter
+1 Mind Whip
+1 Noble Steeds
+1 Obelisk of Esper
+1 Opal Lake Gatekeepers
+1 Orzhov Basilica
+1 Pillar Tombs of Aku
+9 Plains
+1 Rambunctious Mutt
+1 Reconnaissance
+1 Reconnaissance Mission
+1 River of Tears
+1 Rune of Protection: Artifacts
+1 Rune of Protection: Black
+1 Rune of Protection: Green
+1 Rune of Protection: Lands
+1 Rune of Protection: Red
+1 Rune of Protection: White
+1 Scampering Surveyor
+1 Scavenged Weaponry
+1 Screams of the Damned
+1 Scrubland
+1 Serpent's Pass
+1 Shadowmage Infiltrator
+1 Soothsayer Adept
+1 Spreading Seas
+1 Starlit Sanctum
+1 Storm of Saruman
+1 Sunlit Marsh
+1 Swamp
+1 Tidal Flats
+1 Time Spiral
+1 Tourach's Chant
+1 Trade Routes
+1 Treno, Dark City
+1 Underground Sea
+1 Urn of Godfire
+1 Vault of the Archangel
+1 Venser, Shaper Savant
+1 Voracious Greatshark
+1 Watery Grave
+1 Web of Inertia
+1 Whitewater Naiads
+
+[commander]
+Aminatou, the Fateshifter

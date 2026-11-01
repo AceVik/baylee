@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UG #20266241]
+1 Abundant Countryside
+1 Ally Encampment
+1 Aspect of Wolf
+1 Avoid Fate
+1 Back to Basics
+1 Baxter Building
+1 Bigfin Bouncer
+1 Blue Elemental Blast
+1 Bower Passage
+1 Breaching Hippocamp
+1 Breeding Pool
+1 Briarpack Alpha
+1 Cavern of Souls
+1 Cephalid Broker
+1 Cockatrice
+1 Coma Veil
+1 Corrosive Gale
+1 Crossroads Watcher
+1 Dispersal Technician
+1 Fallow Wurm
+1 Fang Guardian
+1 Flight
+1 Flooded Shoreline
+1 Forbidden Orchard
+12 Forest
+1 Gainsay
+1 Glowing Anemone
+1 Gulf Squid
+1 Gyre Engineer
+1 Heap Gate
+1 Henge of Ramos
+1 Hydroelectric Specimen
+1 Invasive Species
+13 Island
+1 Jwari Disruption
+1 Kazandu Mammoth
+1 Lazotep Quarry
+1 Leafdrake Roost
+1 Lingering Mirage
+1 Loporrit Scout
+1 Lotus Vale
+1 Majestic Metamorphosis
+1 Mirrex
+1 Nature's Revolt
+1 Nature's Wrath
+1 Nivix Barrier
+1 Octoprophet
+1 Prodigious Growth
+1 Retaliation
+1 Root Cage
+1 Root Maze
+1 Runner's Bane
+1 Seal of Removal
+1 Selhoff Entomber
+1 Selkie Hedge-Mage
+1 Shore Keeper
+1 Silvergill Peddler
+1 Song of Serenity
+1 Storm Front
+1 Survivors' Encampment
+1 Tendo Ice Bridge
+1 Territorial Boar
+1 Thundering Wurm
+1 Timid Drake
+1 Treeguard Duo
+1 Vedalken Heretic
+1 Venom
+1 Viscerid Armor
+1 Vision Skeins
+1 Void Grafter
+1 Waterlogged Grove
+1 Windrider Eel
+1 Wrath of Marit Lage
+1 Yavimaya Coast
+1 Yavimaya Wurm
+1 Yavimaya's Embrace
+
+[commander]
+Eutropia the Twice-Favored

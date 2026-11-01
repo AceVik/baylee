@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed control
+# licence: AGPL-3.0-only
+[deck:constructed control WUG #20266195]
+2 Adaptive Shimmerer
+2 Aggressive Urge
+2 Bone to Ash
+2 Eerie Procession
+2 Equilibrium
+2 Force of Negation
+4 Forest
+2 Glaring Fleshraker
+3 Glimmervoid
+2 Halcyon Glaze
+9 Island
+2 Jinx
+2 Lurking Lizards
+2 Merchant Scroll
+2 Open Communications
+2 Prosperity
+1 Rhystic Cave
+2 Satyr Enchanter
+2 Spell Snare
+3 Throne of the High City
+2 Thunderous Snapper
+4 Unknown Shores
+2 Veiled Apparition
+2 Verdant Catacombs

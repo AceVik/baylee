@@ -118,6 +118,30 @@ pub fn link_note(schedule: &Retry, table: Window, others_here: Option<bool>) -> 
     }
 }
 
+/// What the bar says once the schedule has run out ([`Retry::exhausted`]).
+///
+/// `LinkGaveUp` when the table could not be reached; `LinkSignInEnded` when
+/// it was reached on every dial and refused the seat's ticket on every one
+/// (`401`): the seat token no longer admits this client, because the
+/// sign-in behind it ended (a Central session lives 30 minutes, never
+/// renewed: `docs/central-login.md`) or the chair was taken up on another
+/// device. Telling a player who can do something about it — sign in again,
+/// and the lobby offers the chair back — that the table cannot be reached
+/// sent them looking for a network fault (owner, 22.10.2026).
+///
+/// Every dial and not the last one, because the gateway also refuses a
+/// ticket while it cannot ask Central (`401` on a failed check, never a
+/// `503`): one refusal among failures to connect says nothing, and a dial
+/// that was refused and the next that reached nothing are an outage.
+#[must_use]
+pub fn gave_up(schedule: &Retry) -> LinkNote {
+    if schedule.attempts > 0 && schedule.refused >= schedule.attempts {
+        LinkNote::just(Phrase::LinkSignInEnded)
+    } else {
+        LinkNote::just(Phrase::LinkGaveUp)
+    }
+}
+
 /// How long the table holds a seat whose player is gone, as far as this
 /// client knows.
 ///
@@ -189,6 +213,12 @@ pub struct Retry {
     /// separates them — thirty seconds inside `Connecting` moves this and
     /// moves nothing else.
     down: f32,
+    /// The table's window ([`Retry::hold_for`]): the dials go on at least
+    /// until it has passed.
+    window: Window,
+    /// Dials whose ticket the table refused (`401`), as the host counts them
+    /// since the link was last up ([`Retry::refusals`]).
+    refused: u32,
 }
 
 impl Default for Retry {
@@ -207,13 +237,19 @@ impl Retry {
     /// is about as long as "it is still trying" stays believable.
     pub const CAP: f32 = 15.0;
 
-    /// How many dials before the table gives up and says so.
+    /// How many dials before the table gives up and says so, at the least:
+    /// at a table whose window this client was told, the dials also go on
+    /// until that window has passed ([`Retry::exhausted`]).
     ///
     /// The loop has to end somewhere. "That game no longer exists" reaches a
     /// client as an ordinary refusal string from the gateway and not as a
     /// state it can match on, so a client that retried forever would sit
     /// redialling a finished game until the player closed the window. Twelve
-    /// dials on this schedule is a little over two minutes.
+    /// dials on this schedule is a little over two minutes, which was longer
+    /// than every window when it was chosen; since 10.10.2026 a table waits
+    /// 180 s by default, and a client that stopped at two minutes gave up a
+    /// chair the table was still holding for it (owner, 22.10.2026: "the
+    /// connection was lost and is not restored by itself").
     pub const GIVE_UP: u32 = 12;
 
     /// The longest a drop is dressed up as a hiccup, in seconds.
@@ -253,7 +289,23 @@ impl Retry {
             step: Self::FIRST,
             attempts: 0,
             down: 0.0,
+            window: Window::Unknown,
+            refused: 0,
         }
+    }
+
+    /// The table's window, as far as this client knows it: the dials go on
+    /// at least until it has passed. Read off the table on every frame the
+    /// link is not up; a schedule never told keeps to [`Retry::GIVE_UP`].
+    pub const fn hold_for(&mut self, window: Window) {
+        self.window = window;
+    }
+
+    /// How many of the dials since the link was last up the table refused
+    /// (`POST /ws-ticket` answering `401`): the host counts them, this
+    /// remembers the count for [`gave_up`].
+    pub const fn refusals(&mut self, refused: u32) {
+        self.refused = refused;
     }
 
     /// The link is up: forget everything about having been down.
@@ -262,6 +314,9 @@ impl Retry {
     }
 
     /// Whether the schedule is already settled at its initial state.
+    ///
+    /// The window and the refusals are what the table said, not where the
+    /// schedule stands, and are left out.
     #[must_use]
     pub const fn is_settled(&self) -> bool {
         self.attempts == 0
@@ -328,10 +383,23 @@ impl Retry {
         }
     }
 
-    /// Whether the schedule has run out and the player has to be told.
+    /// Whether the schedule has run out and the player has to be told: the
+    /// dials of [`Retry::GIVE_UP`] are spent, and the table's window, if it
+    /// has one this client was told, has passed with the player away.
+    ///
+    /// Not before the window: until then the chair is the player's, and a
+    /// link back within it is a game taken up where it was left. Past it the
+    /// house answers for the chair until the player is back, so a dial
+    /// still returns it, and stopping is about not dialling a game that may
+    /// be over.
     #[must_use]
-    pub const fn exhausted(&self) -> bool {
+    pub fn exhausted(&self) -> bool {
         self.attempts >= Self::GIVE_UP
+            && match self.window {
+                // In `f64`, as `brief` compares: every `u32` is exact there.
+                Window::Secs(secs) => f64::from(self.down) >= f64::from(secs.get()),
+                Window::Unknown | Window::Forever => true,
+            }
     }
 
     /// Dials made since the link was last up.
@@ -532,6 +600,101 @@ mod tests {
         assert_eq!(dials, Retry::GIVE_UP, "it stopped where it said it would");
         assert!(retry.exhausted());
         assert!(!retry.tick(100.0), "and stays stopped");
+    }
+
+    /// The dials go on until the table's window has passed (owner,
+    /// 22.10.2026, "the connection was lost and is not restored by
+    /// itself"): twelve dials are about two minutes, and a table waits 180 s
+    /// by default, so a link back at two and a half minutes found a client
+    /// that had stopped. With the window it dials through to the end of it,
+    /// and then stops as before.
+    #[test]
+    fn the_dials_go_on_until_the_tables_window_has_passed() {
+        let mut retry = Retry::new();
+        let mut dials = 0;
+        let mut after = 0;
+        let mut t = 0.0_f32;
+        while t < 600.0 {
+            retry.hold_for(Window::secs(180));
+            retry.stayed_down(0.5);
+            t += 0.5;
+            if t < 180.0 {
+                assert!(!retry.exhausted(), "stopped {t}s into a 180 s window");
+            }
+            if retry.tick(0.5) {
+                dials += 1;
+                if t > 121.0 {
+                    after += 1;
+                }
+            }
+        }
+        assert!(retry.exhausted(), "and it does stop");
+        assert!(
+            dials > Retry::GIVE_UP && after > 0,
+            "dialled on past two minutes: {dials} dials, {after} after 121 s"
+        );
+        assert!(
+            dials <= Retry::GIVE_UP + 5,
+            "no more than the window asks for: {dials}"
+        );
+        // A window shorter than the schedule changes nothing.
+        let mut short = Retry::new();
+        short.hold_for(Window::secs(30));
+        let mut dials = 0;
+        for _ in 0..2000 {
+            short.stayed_down(0.5);
+            if short.tick(0.5) {
+                dials += 1;
+            }
+        }
+        assert_eq!(dials, Retry::GIVE_UP);
+    }
+
+    /// Run out with the table refusing the seat's ticket on every dial, the
+    /// bar says the sign-in ended rather than that the table cannot be
+    /// reached; a single dial that reached nothing makes it an outage again.
+    #[test]
+    fn a_table_that_refused_every_dial_says_the_sign_in_ended() {
+        assert_eq!(
+            gave_up(&Retry::new()).phrase,
+            Phrase::LinkGaveUp,
+            "no dial at all"
+        );
+        let mut retry = Retry::new();
+        for _ in 0..Retry::GIVE_UP {
+            retry.tick(100.0);
+        }
+        assert!(retry.exhausted());
+        assert_eq!(
+            gave_up(&retry).phrase,
+            Phrase::LinkGaveUp,
+            "nothing refused"
+        );
+        retry.refusals(Retry::GIVE_UP - 1);
+        assert_eq!(
+            gave_up(&retry).phrase,
+            Phrase::LinkGaveUp,
+            "one dial reached nothing"
+        );
+        retry.refusals(Retry::GIVE_UP);
+        let note = gave_up(&retry);
+        assert_eq!(note.phrase, Phrase::LinkSignInEnded);
+        assert!(
+            note.text(Lang::En).contains("Sign in again"),
+            "{}",
+            note.text(Lang::En)
+        );
+        assert!(
+            note.text(Lang::De).contains("Melde dich"),
+            "{}",
+            note.text(Lang::De)
+        );
+        retry.settle();
+        assert_eq!(
+            gave_up(&retry).phrase,
+            Phrase::LinkGaveUp,
+            "a link back forgets them"
+        );
     }
 
     /// Time is the only thing that moves the schedule: a frame in which no

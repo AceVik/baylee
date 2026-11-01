@@ -16,6 +16,7 @@ pub(crate) struct SourceCredits {
 pub(crate) struct SourcePayment {
     pub remaining: ManaPool,
     pub restricted_remaining: ManaPool,
+    pub restricted_generic_paid: [u32; 6],
 }
 
 /// Exact obligated snow/plain subsets, in addition to per-type unit minima.
@@ -35,7 +36,7 @@ struct Assignment {
     spending: ManaSpending,
     quota: u32,
     constrained: bool,
-    restriction: Option<(ManaColor, u32)>,
+    restriction: Option<crate::mana_pay::GenericRestriction>,
 }
 
 pub(crate) fn payment_with_source_credits(
@@ -43,7 +44,7 @@ pub(crate) fn payment_with_source_credits(
     cost: &ManaCost,
     spending: ManaSpending,
     prefer: [u32; 6],
-    restriction: Option<(ManaColor, u32)>,
+    restriction: Option<crate::mana_pay::GenericRestriction>,
     required: [u32; 6],
     credits: SourceCredits,
 ) -> Option<SourcePayment> {
@@ -65,7 +66,7 @@ pub(crate) fn payment_with_source_receipts(
     cost: &ManaCost,
     spending: ManaSpending,
     prefer: [u32; 6],
-    restriction: Option<(ManaColor, u32)>,
+    restriction: Option<crate::mana_pay::GenericRestriction>,
     required: [u32; 6],
     credits: SourceCredits,
     receipts: [ReceiptRequirement; 2],
@@ -263,14 +264,28 @@ impl Assignment {
                 }),
             }
         });
-        let allocation = generic::allocate_restricting(
+        let allocation = generic::allocate_restricting_types(
             resources[0],
             resources[1],
             amount,
             self.quota.saturating_add(extra_quota),
             prefer,
-            self.restriction,
+            self.restriction.map(|r| (r.types, r.amount, true)),
         )?;
+        let mut restricted_generic_paid = [0; 6];
+        if let Some(restriction) = self.restriction {
+            let mut remaining = restriction.amount;
+            for (i, paid) in restricted_generic_paid.iter_mut().enumerate() {
+                if restriction.types & (1 << i) != 0 {
+                    let take = allocation.ordinary[i]
+                        .saturating_add(allocation.restricted[i])
+                        .min(remaining);
+                    *paid = take;
+                    remaining -= take;
+                }
+            }
+            debug_assert_eq!(remaining, 0);
+        }
         for (class, payment) in [allocation.ordinary, allocation.restricted]
             .into_iter()
             .enumerate()
@@ -311,6 +326,7 @@ impl Assignment {
         Some(SourcePayment {
             remaining,
             restricted_remaining,
+            restricted_generic_paid,
         })
     }
 }

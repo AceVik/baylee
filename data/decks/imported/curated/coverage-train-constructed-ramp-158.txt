@@ -1,0 +1,32 @@
+# baylee synergistic coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WUBRG #20266159]
+2 Angler Turtle
+2 Ceta Disciple
+1 Crystal Quarry
+2 Diplomatic Immunity
+3 Dromar's Cavern
+2 Fishliver Oil
+3 Forest
+2 Island
+2 Jeskai Shrinekeeper
+4 Mountain
+2 Narset's Rebuke
+2 Nearby Planet
+2 Necra Disciple
+3 Plains
+1 Primal Visitation
+2 Siege Rhino
+2 Skirmish Rhino
+2 Slimebind
+2 Storm the Vault
+3 Swamp
+2 Temur Ascendancy
+2 Temur Devotee
+2 Temur Tawnyback
+2 The World Tree
+1 Treva's Ruins
+2 Two-Headed Hellkite
+2 Whirlwind of Thought
+2 Winter's Night
+1 Wizards' School

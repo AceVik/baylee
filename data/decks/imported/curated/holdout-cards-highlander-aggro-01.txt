@@ -1,0 +1,82 @@
+# baylee unseen-card holdout highlander seed=90000007
+# licence: AGPL-3.0-only
+[deck:highlander aggro WBR #90000007]
+1 Abrade
+1 Avalanche
+1 Baldur's Gate
+1 Battlegate Mimic
+1 Baxter Building
+1 Blaze
+1 Blessed Spirits
+1 Bloodfire Expert
+1 Bucolic Ranch
+1 Cascading Cataracts
+1 Coming In Hot
+1 Corrupted Crossroads
+1 Delirium
+1 Duergar Assailant
+1 Eidolon of the Great Revel
+1 Electrostatic Field
+1 Emberstrike Duo
+1 Enraged Flamecaster
+1 Erebor Flamesmith
+1 Fanatical Firebrand
+1 Festival Crasher
+1 Fire Urchin
+1 Firebrand Archer
+1 Foundry Champion
+1 Frenzied Devils
+1 God-Pharaoh's Faithful
+1 Great Hall of the Biblioplex
+1 Guildmages' Forum
+1 Haven of the Spirit Dragon
+1 Heat Ray
+1 Icatian Moneychanger
+1 Ishi-Ishi, Akki Crackshot
+1 Kambal, Consul of Allocation
+1 Kree Commandos
+1 Lightning Cloud
+1 Lightning Visionary
+1 Lim-Dûl's Paladin
+1 Mage-Ring Bully
+1 Mana Confluence
+1 Mindsparker
+1 Mogg Sentry
+1 Monastery Swiftspear
+14 Mountain
+1 Nightsky Mimic
+1 Nimble-Blade Khenra
+1 Outflank
+1 Piercing Light
+2 Plains
+1 Profane Tutor
+1 Purraj of Urborg
+1 Pyroceratops
+1 Pyrostatic Pillar
+1 Quill-Slinger Boggart
+1 Reality Hemorrhage
+1 Reroute Systems
+1 Reverent Howl
+1 Righteous Blow
+1 Rockslide Ambush
+1 Rumble Arena
+1 Sarpadian Simulacrum
+1 Sawblade Scamp
+1 Skittering Horror
+1 Skittering Skirge
+1 Sky Scourer
+1 Soot Imp
+1 Spear Spewer
+1 Spellgorger Weird
+1 Succumb to Temptation
+1 Sunlance
+1 Surveillance Room
+8 Swamp
+1 Tarnished Citadel
+1 Taurean Mauler
+1 The Seedcore
+1 The Vision and Scarlet Witch
+1 Thorntooth Witch
+1 Tournament Grounds
+1 Ultimate Alliance
+1 Walking Ballista

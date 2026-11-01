@@ -8,6 +8,17 @@ use crate::{
 };
 use baylee_core::ids::DamageSourceRef;
 
+/// The answer and proof state of a named-card guess.
+#[derive(Clone, Copy, Debug, Hash)]
+pub struct GuessOutcome {
+    /// Whether a card with the chosen name was actually in the hand.
+    pub actual: bool,
+    /// What the guessing player claimed.
+    pub claimed: bool,
+    /// Whether the hand was revealed as proof.
+    pub revealed: bool,
+}
+
 /// Public-zone objects found through earlier instructions of this resolution.
 #[derive(Clone, Debug, Default)]
 pub struct SubjectContext {
@@ -16,13 +27,19 @@ pub struct SubjectContext {
     pub(super) reanimation_links: Vec<super::linked_reanimation::PendingLink>,
     /// Exact future/current battlefield incarnations from the latest search.
     pub(super) found: Vec<DamageSourceRef>,
+    pub(super) guess: Option<GuessOutcome>,
     pub(super) named: Option<(crate::object::PrintedFace, baylee_core::ids::NameRef)>,
     pub(super) sacrificed: Option<crate::object::SacrificedLki>,
     circled_colors: baylee_core::color::ColorSet,
     acquisition: Option<u64>,
+    /// Original ability source, separate from any successor found by its costs.
+    pub(super) source_version: Option<u32>,
     mana_tap_source: Option<DamageSourceRef>,
     event_player: Option<baylee_core::ids::PlayerId>,
+    event_identity: Option<(DamageSourceRef, i16)>,
     pub(super) for_each_remaining: Option<Vec<DamageSourceRef>>,
+    pub(super) destruction_batches: Vec<super::destruction_receipts::Batch>,
+    pub(super) payment_batches: Vec<super::choices::PaymentBatch>,
     checkpoint: Option<(Vec<DamageSourceRef>, u64)>,
 }
 impl SubjectContext {
@@ -44,13 +61,18 @@ impl SubjectContext {
             followed: paid.source_after_cost.into_iter().collect(),
             reanimation_links: Vec::new(),
             found: Vec::new(),
+            guess: None,
             named: None,
             sacrificed: paid.sacrificed_lki,
             circled_colors: baylee_core::color::ColorSet::EMPTY,
             acquisition: None,
+            source_version: None,
             mana_tap_source: None,
             event_player: None,
+            event_identity: None,
             for_each_remaining: None,
+            destruction_batches: Vec::new(),
+            payment_batches: Vec::new(),
             checkpoint: None,
         }
     }
@@ -68,6 +90,12 @@ impl SubjectContext {
     /// Immediate mana resolutions retain their linked family without a stack object.
     pub(crate) fn with_acquisition(mut self, acquisition: u64) -> Self {
         self.acquisition = Some(acquisition);
+        self
+    }
+
+    /// Immediate mana abilities have no stack object to retain their source version.
+    pub(crate) fn with_source_version(mut self, version: Option<u32>) -> Self {
+        self.source_version = version;
         self
     }
 
@@ -90,6 +118,28 @@ impl SubjectContext {
         self.event_player
     }
 
+    /// Preserve the exact event object when an immediate ability has no stack object.
+    pub(crate) fn with_event_identity(mut self, identity: Option<(DamageSourceRef, i16)>) -> Self {
+        self.event_identity = identity;
+        self
+    }
+
+    pub(super) fn set_event_identity(&mut self, identity: Option<(DamageSourceRef, i16)>) {
+        self.event_identity = identity;
+    }
+
+    pub(super) const fn event_identity(&self) -> Option<(DamageSourceRef, i16)> {
+        self.event_identity
+    }
+
+    pub(crate) fn destruction_progress(&self) -> u64 {
+        if self.destruction_batches.is_empty() {
+            0
+        } else {
+            crate::state::structural_fingerprint(&self.destruction_batches)
+        }
+    }
+
     pub(crate) fn fingerprint(&self) -> u64 {
         let links = crate::state::structural_fingerprint(&(
             &self.reanimation_links,
@@ -106,6 +156,9 @@ impl SubjectContext {
             .wrapping_add(crate::state::structural_fingerprint(&self.acquisition));
         h = h
             .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.source_version));
+        h = h
+            .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.mana_tap_source));
         h = h
             .wrapping_mul(31)
@@ -115,6 +168,17 @@ impl SubjectContext {
             .wrapping_add(crate::state::structural_fingerprint(
                 &self.for_each_remaining,
             ));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(
+                &self.destruction_batches,
+            ));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.event_identity));
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.payment_batches));
         for r in &self.followed {
             h = h.wrapping_mul(31).wrapping_add(u64::from(r.object.slot()));
             h = h
@@ -130,6 +194,9 @@ impl SubjectContext {
                 .wrapping_add(u64::from(r.object.generation()));
             h = h.wrapping_mul(31).wrapping_add(u64::from(r.version));
         }
+        h = h
+            .wrapping_mul(31)
+            .wrapping_add(crate::state::structural_fingerprint(&self.guess));
         h = h
             .wrapping_mul(31)
             .wrapping_add(crate::state::structural_fingerprint(&self.named));
@@ -217,7 +284,11 @@ fn aura_successor(state: &GameState, res: &Resolution) -> Option<DamageSourceRef
 
 /// Event incarnation, or its successful public successor in this resolution.
 pub(super) fn event(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
-    let object = res.event_object?;
+    let object = res
+        .subject
+        .event_identity
+        .map(|(reference, _)| reference.object)
+        .or(res.event_object)?;
     res.subject
         .followed
         .iter()
@@ -247,12 +318,16 @@ pub(super) fn target(
         .or_else(|| {
             let stack = state.object(res.on_stack)?;
             if res.event_object != Some(object)
-                || !stack.target_req.is_some_and(|req| {
-                    matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject)
-                })
+                || (res.targeted
+                    && !stack.target_req.is_some_and(|req| {
+                        matches!(req.spec, baylee_cards_dsl::TargetSpec::EventObject)
+                    }))
             {
                 return None;
             }
+            // Synthetic untargeted abilities can carry an implicit event
+            // subject too. It remains the incarnation that caused the
+            // trigger, even when the same card leaves and returns.
             let (version, _) = super::event_object_identity(state, res)?;
             Some(DamageSourceRef { object, version })
         })
@@ -270,13 +345,37 @@ pub(super) fn target(
 }
 
 pub(super) fn this(state: &GameState, res: &Resolution) -> Option<DamageSourceRef> {
-    if let Some(&object) = res.targets.first() {
-        target(state, res, object)
-    } else if res.targeted {
-        None
+    if names_targets(state, res) {
+        res.targets
+            .first()
+            .and_then(|&object| target(state, res, object))
     } else {
         source(state, res)
     }
+}
+
+/// Whether "this" in the resolving instruction is its object target rather
+/// than its source.
+///
+/// It is the target when the ability said "target" about an object, and
+/// that is read off what was announced, which the stack object keeps, and
+/// not off what is still legal: an object target that became illegal is
+/// not affected (CR 608.2b), and the source does not stand in for it, even
+/// while a player chosen beside it is still a legal target. It is also the
+/// target, and so nothing, when the ability said "target" and nothing at
+/// all was chosen (an "up to one" left empty: Karn's +1). Only a target that
+/// is a player and nothing else (Jinxed Choker's "target opponent gains
+/// control of this artifact and puts a charge counter on it") leaves "this"
+/// the source.
+pub(super) fn names_targets(state: &GameState, res: &Resolution) -> bool {
+    if !res.targets.is_empty() {
+        return true;
+    }
+    res.targeted
+        && (res.target_players.is_empty()
+            || state
+                .object(res.on_stack)
+                .is_some_and(|announced| !announced.targets.is_empty()))
 }
 /// The creature the resolving trigger is about besides its event object
 /// (`Rider::EventSubject`), as it was when the trigger fired.
@@ -320,6 +419,7 @@ pub(super) fn before(state: &GameState, res: &Resolution) -> (Vec<DamageSourceRe
             version: t.version,
         }));
     }
+    refs.extend(res.subject.event_identity.map(|(reference, _)| reference));
     refs.extend(res.subject.followed.iter().copied());
     refs.retain(|r| state.source_identity(r.object) == Some(*r));
     refs.sort_unstable();

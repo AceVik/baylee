@@ -189,7 +189,8 @@ impl Plugin for AmbiencePlugin {
         // The button animation is arithmetic over components and runs
         // anywhere, including in the headless tests that build the lobby's
         // node tree without a renderer.
-        app.add_systems(Update, (breathe, feel));
+        app.add_systems(Update, feel)
+            .add_systems(PostUpdate, breathe.after(bevy::ui::UiSystems::Layout));
         // The surface is not: embedding a shader needs an asset server, and a
         // UI material needs a render world. A test app has neither, and
         // adding them regardless is a panic in every lobby test rather than
@@ -200,6 +201,7 @@ impl Plugin for AmbiencePlugin {
         embedded_asset!(app, "shaders/ambience.wesl");
         // The shell kit's primary-button light (`shellkit::sheen`).
         embedded_asset!(app, "shaders/kit_sheen.wesl");
+        embedded_asset!(app, "shaders/chat_glass.wesl");
         app.add_plugins(UiMaterialPlugin::<AmbienceMaterial>::default());
     }
 }

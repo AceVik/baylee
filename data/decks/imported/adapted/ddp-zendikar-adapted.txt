@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/DDP/zendikar.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Zendikar_DDP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Zendikar (Adapted)]
+3 Advent of the Wurm
+1 Affa Guard Hound
+2 Call of the Conclave
+1 Daggerback Basilisk
+1 Eladamri's Call
+1 Elf Replica
+2 Evolving Wilds
+10 Forest
+1 Frontier Guide
+3 Gerrard's Command
+2 Graypelt Hunter
+2 Graypelt Refuge
+1 Grazing Gladehart
+1 Harrow
+3 Heroes' Reunion
+1 Makindi Griffin
+4 Nature's Chant
+9 Plains
+1 Retreat to Kazandu
+1 Scute Mob
+1 Seer's Sundial
+1 Stirring Wildwood
+1 Stonework Puma
+2 Territorial Baloth
+2 Turntimber Grove
+1 Vitalizing Cascade
+1 Wildheart Invoker
+1 Wooded Bastion

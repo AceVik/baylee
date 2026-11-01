@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro WUBRG #20266289]
+1 Adarkar Unicorn
+1 Agent of Horizons
+1 Ali from Cairo
+1 An-Havva Township
+1 Aysen Abbey
+1 Balloon Peddler
+1 Bant Battlemage
+1 Beast Walkers
+1 Boros Guildmage
+1 Boros Recruit
+1 Bountiful Landscape
+1 Buoyancy
+1 Castle Sengir
+1 Centaur Archer
+1 Coerced to Kill
+1 Crosis's Catacombs
+1 Crystal Quarry
+1 Damn
+1 Deft Duelist
+1 Dega Disciple
+1 Despark
+1 Disciple of the Old Ways
+1 Dromar's Cavern
+1 Elite Arrester
+1 Enter the Avatar State
+1 Fleshformer
+1 Fulminator Mage
+1 Harbor Bandit
+1 Hussar Patrol
+1 Imperial Outrider
+1 Infiltrate
+1 Jhessian Balmgiver
+1 Keldon Mantle
+1 Krovikan Elementalist
+1 Leaping Master
+1 Llanowar Cavalry
+1 Magefire Wings
+1 Magical Hack
+1 Mantis Rider
+1 Minister of Impediments
+2 Mountain
+1 Naya Battlemage
+1 Nearby Planet
+11 Plains
+1 Rakdos Shred-Freak
+1 Ranger en-Vec
+1 Relentless Hunter
+1 Relic's Roar
+1 Resolute Rider
+1 Retrieval Agent
+1 Rip-Clan Crasher
+1 Rith's Grove
+1 Rubble Slinger
+1 Sangrite Backlash
+1 Sawback Manticore
+1 Seething Landscape
+1 Shambling Strider
+1 Sleight of Mind
+1 Stormcaller of Keranos
+11 Swamp
+1 Talas Merchant
+1 Tavern Ruffian
+1 Teferi's Honor Guard
+1 The World Tree
+1 Time Wipe
+1 Tournament Grounds
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Valeron Outlander
+1 Vanishing Verse
+1 Vernadi Shieldmate
+1 Veteran Cathar
+1 Votary of the Conclave
+1 Vulshok Berserker
+1 Wandering Mage
+1 Wu Infantry
+1 Yotian Tactician
+1 Zealous Guardian
+1 Zuran Enchanter

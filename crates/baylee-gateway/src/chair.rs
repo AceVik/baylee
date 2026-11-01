@@ -2,7 +2,7 @@
 //! (`docs/protocol.md` §"A host's chair for a seat bridge").
 //!
 //! A seat bridge (`baylee-seat join`) used to sit down as a guest, so a
-//! gateway that takes no guests (`BAYLEE_GUESTS=off`), one whose guest cap
+//! gateway that takes no guests (auth mode `central`), one whose guest cap
 //! is reached, and a closed beta whose guest door needs a key seated none.
 //! Now the host's client asks for a **chair ticket** for one open chair of
 //! the room it hosts, and hands it to the bridge it starts on the bridge's
@@ -40,7 +40,9 @@
 //! The bridge then has a seat token and nothing else, so its other calls
 //! take that: [`ready`] (its mind answered its check, so the chair may
 //! play; the room does not start before), [`status`] (is the game on, at
-//! what pace) and [`leave`] (give the chair back before the game). The host takes the chair back
+//! what pace), [`leave`] (give the chair back before the game) and its
+//! game's bug report (`report::post_chair_report`, under the host's
+//! pseudonym, with that game's record). The host takes the chair back
 //! the way it arranges any chair (`POST …/seats/{seat}`, `kind`), which
 //! empties it and ends its seat token.
 
@@ -404,6 +406,7 @@ pub(crate) async fn redeem(
             name: body.display_name,
             // Not before the bridge says its mind answered (`ready`).
             ready: false,
+            reported: false,
         });
         // The host may have chosen a saved deck while this bridge was
         // starting. Its ticket hands over that chair, including that deck;
@@ -457,7 +460,7 @@ fn delegated_deck(host: &str, body: DeckBody) -> store::Deck {
 
 /// The chair a request's seat token holds at `id`: the game's lobby entry
 /// and the chair's number.
-fn by_seat_token<'a>(
+pub(crate) fn by_seat_token<'a>(
     lobby: &'a mut lobby::Lobby,
     id: &str,
     headers: &HeaderMap,

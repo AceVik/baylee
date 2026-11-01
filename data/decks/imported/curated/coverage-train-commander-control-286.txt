@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUBRG #20266287]
+1 Alexi's Cloak
+1 An-Havva Township
+1 Angelic Shield
+1 Boartusk Liege
+1 Bountiful Landscape
+1 Call to the Feast
+1 Castle Sengir
+1 Clout of the Dominus
+1 Contaminated Landscape
+1 Crackling Triton
+1 Creeping Trailblazer
+1 Crosis's Catacombs
+1 Crystal Quarry
+1 Deceptive Landscape
+1 Discordant Spirit
+1 Dragon's Herald
+1 Drogskol Captain
+1 Dromar's Cavern
+1 Earthlink
+1 Elemental Augury
+1 Elemental Summoning
+1 Emberwilde Caliph
+1 Enchanted Evening
+1 Erdwal Ripper
+12 Forest
+1 Foxfire Oak
+1 Fusion Elemental
+1 Glaciers
+1 Goblin Deathraiders
+1 Gruul War Chant
+1 Hellkite Overlord
+1 Heroism
+3 Island
+1 Kjeldoran Pride
+1 Lotleth Troll
+1 Martyrs' Tomb
+1 Merfolk of the Depths
+1 Monsoon
+11 Mountain
+1 Natural Emergence
+1 Nearby Planet
+1 Overgrown Estate
+1 Pitiless Pontiff
+1 Plains
+1 Primal Visitation
+1 Profane Procession
+1 Pursuit of Flight
+1 Rakdos Trumpeter
+1 Revitalizing Repast
+1 Righteous War
+1 Rumbling Slum
+1 Runner's Bane
+1 Scaldkin
+1 Scarland Thrinax
+1 Seething Landscape
+1 Segmented Wurm
+1 Shadow Lance
+1 Shattered Landscape
+1 Simic Sky Swallower
+1 Soulherder
+1 Storm the Vault
+1 Stormbind
+1 Stormcloud Djinn
+1 Sultai Ascendancy
+1 Temur Ascendancy
+1 The World Tree
+1 Tournament Grounds
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Twisted Landscape
+1 Wild Research
+1 Wings of Aesthir
+1 Wings of Hope
+1 Winter's Night
+1 Wormwood Dryad
+1 Wormwood Treefolk
+
+[commander]
+Child of Alara

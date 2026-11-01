@@ -1,0 +1,43 @@
+# adapted from data/decks/precon/H09/slivers.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Slivers_H09.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Slivers (Adapted)]
+1 Acidic Sliver
+2 Ancient Ziggurat
+1 Armor Sliver
+1 Blinding Light
+1 Clot Sliver
+1 Crystalline Sliver
+2 Dismember
+1 Déjà Vu
+1 Eyeblight's Ending
+1 Flowstone Channeler
+5 Forest
+1 Fury Sliver
+2 Gemhide Sliver
+1 Harsh Sustenance
+1 Heart Sliver
+1 Heartstone
+1 Hibernation Sliver
+1 I Am Iron Man
+2 Island
+2 Metallic Sliver
+1 Meteorite
+1 Might Sliver
+3 Mountain
+2 Muscle Sliver
+2 Plains
+1 Rend Flesh
+2 Repulse
+1 Reviving Dose
+1 Rootbound Crag
+2 Rupture Spire
+1 Scarwood Goblins
+1 Serpent's Gift
+2 Spectral Sliver
+1 Sungold Barrage
+2 Swamp
+2 Terramorphic Expanse
+1 Victual Sliver
+2 Vivid Creek
+2 Vivid Grove
+1 Winged Sliver

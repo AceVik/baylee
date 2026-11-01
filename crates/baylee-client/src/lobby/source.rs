@@ -23,6 +23,10 @@ use qrcodegen::{QrCode, QrCodeEcc};
 /// front door's top-right tile as a code and as text, opened on a click.
 pub(crate) const DISCORD_URL: &str = "https://discord.gg/4pP3uAwgY";
 
+/// Where a Baylee account is made: the website's registration page, which
+/// Central's sign-in form links to (baylee-central `docs/web-accounts.md`).
+pub(crate) const CENTRAL_REGISTER_URL: &str = "https://baylee.app/register";
+
 /// The light round a code, in modules: the standard's quiet zone.
 const QUIET: i32 = 4;
 
@@ -135,6 +139,7 @@ pub(crate) fn address_of(press: super::front::FrontPress, state: &LobbyState) ->
     match press {
         FrontPress::OpenSource => web_address(super::front::source_address(state)),
         FrontPress::OpenDiscord => web_address(DISCORD_URL),
+        FrontPress::OpenCentralRegister => web_address(CENTRAL_REGISTER_URL),
         FrontPress::OpenImpressum => super::front::impressum_link(state).map(|(url, _)| url),
         _ => None,
     }

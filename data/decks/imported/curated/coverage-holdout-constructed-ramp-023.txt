@@ -1,0 +1,22 @@
+# baylee synergistic holdout coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp UBR #90010024]
+4 Ancestral Vision
+2 Blackcleave Cliffs
+1 Crucible of the Spirit Dragon
+3 Firemind's Research
+4 Guttersnipe
+4 Imperial Seal
+3 Island
+3 Izzet Charm
+2 Jin-Gitaxias, Progress Tyrant
+3 Molten Tributary
+1 Mountain
+3 Peculiar Lighthouse
+4 Purraj of Urborg
+3 Quill-Slinger Boggart
+2 Screamer-Killer
+3 Sire of the Storm
+10 Swamp
+2 Tarnished Citadel
+3 Vampiric Tutor

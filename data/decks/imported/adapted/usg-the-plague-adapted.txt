@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/USG/the-plague.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ThePlague_USG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Plague (Adapted)]
+1 Befoul
+1 Blister Beetle
+1 Blood Vassal
+1 Corrupt
+3 Disciple of Grace
+2 Disenchant
+3 Drifting Meadow
+2 Expunge
+2 Humble
+1 Pariah
+4 Pestilence
+7 Plains
+2 Planar Bridge
+2 Polluted Mire
+2 Rune of Protection: Black
+1 Sicken
+1 Silent Attendant
+12 Swamp
+1 Tattoo Ward
+3 Unworthy Dead
+3 Voice of Grace
+3 Wall of Junk
+1 Worship
+1 Yotian Medic

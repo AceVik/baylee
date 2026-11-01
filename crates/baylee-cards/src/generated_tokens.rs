@@ -24,8 +24,8 @@
 
 use crate::tokens;
 pub use crate::tokens::{
-    ALLY_1_1_WHITE, ANGEL_4_4_WHITE_FLYING, ARMY_0_0_BLACK, BIRD_1_1_WHITE_FLYING, BLOOD,
-    BOAR_2_2_GREEN, CLUE, CONSTRUCT_ARTIFACT_0_0, ELEMENTAL_X_X_GREEN_WHITE, FOOD,
+    ALLY_1_1_WHITE, ANGEL_4_4_WHITE_FLYING, ARMY_0_0_BLACK, BEAST_5_5_GREEN, BIRD_1_1_WHITE_FLYING,
+    BLOOD, BOAR_2_2_GREEN, CLUE, CONSTRUCT_ARTIFACT_0_0, ELEMENTAL_X_X_GREEN_WHITE, FOOD,
     GNOME_SOLDIER_WHITE_DYNAMIC, GOBLIN_SHAMAN_2_2_RED, HANWEIR_THE_WRITHING_TOWNSHIP,
     HUMAN_SOLDIER_1_1_WHITE, ILLUSION_X_BLUE, JACE_PLANESWALKER_BLUE, JUNK,
     KNIGHT_2_2_WHITE_BLUE_VIGILANCE, MAP, PHYREXIAN_GERM_0_0_BLACK, PHYREXIAN_MITE_1_1,
@@ -33,7 +33,7 @@ pub use crate::tokens::{
     SHAPESHIFTER_2_2_BLUE_CHANGELING, SNAKE_1_1_ARTIFACT_POISON, SOLDIER_1_1_WHITE,
     SPIRIT_1_1_COLORLESS, SPIRIT_1_1_COLORLESS_SPIRIT_COMBAT,
     TETRAVITE_1_1_COLORLESS_ARTIFACT_FLYING, TREASURE, VIBRANIUM, WIZARD_0_1_BLACK,
-    WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF,
+    WOLVES_OF_THE_HUNT_1_1_GREEN_WOLF, ZOMBIE_2_2_BLACK,
 };
 use baylee_cards_dsl::KeywordSet;
 use baylee_cards_dsl::TokenDef;
@@ -74,17 +74,6 @@ pub static RAT_1_1_BLACK: TokenDef = TokenDef {
     subtypes: &[creature::RAT],
     power: Some(1),
     toughness: Some(1),
-    ..TokenDef::DEFAULT
-};
-
-/// 2/2 black Zombie.
-pub static ZOMBIE_2_2_BLACK: TokenDef = TokenDef {
-    name: "Zombie",
-    colors: ColorSet::from_slice(&[Color::Black]),
-    types: TypeSet::CREATURE,
-    subtypes: &[creature::ZOMBIE],
-    power: Some(2),
-    toughness: Some(2),
     ..TokenDef::DEFAULT
 };
 
@@ -2355,6 +2344,275 @@ pub static CAMARID_1_1_BLUE: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 0/1 black Serf.
+pub static SERF_0_1_BLACK: TokenDef = TokenDef {
+    name: "Serf",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SERF],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 0/1 white Deserter.
+pub static DESERTER_0_1_WHITE: TokenDef = TokenDef {
+    name: "Deserter",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DESERTER],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Hippo.
+pub static HIPPO_1_1_GREEN: TokenDef = TokenDef {
+    name: "Hippo",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::HIPPO],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 0/1 blue Starfish.
+pub static STARFISH_0_1_BLUE: TokenDef = TokenDef {
+    name: "Starfish",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::STARFISH],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Survivor.
+pub static SURVIVOR_1_1_RED: TokenDef = TokenDef {
+    name: "Survivor",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::SURVIVOR],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 0/2 colorless artifact Wall with defender.
+pub static WALL_ARTIFACT_0_2_DEFENDER: TokenDef = TokenDef {
+    name: "Wall",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::WALL],
+    power: Some(0),
+    toughness: Some(2),
+    keywords: KeywordSet::DEFENDER,
+    ..TokenDef::DEFAULT
+};
+
+/// 0/1 black Insect.
+pub static INSECT_0_1_BLACK: TokenDef = TokenDef {
+    name: "Insect",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::INSECT],
+    power: Some(0),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 black Tombspawn with haste.
+pub static TOMBSPAWN_2_2_BLACK_HASTE: TokenDef = TokenDef {
+    name: "Tombspawn",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ZOMBIE],
+    power: Some(2),
+    toughness: Some(2),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 5/5 blue Wall with defender.
+pub static WALL_5_5_BLUE_DEFENDER: TokenDef = TokenDef {
+    name: "Wall",
+    colors: ColorSet::from_slice(&[Color::Blue]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WALL],
+    power: Some(5),
+    toughness: Some(5),
+    keywords: KeywordSet::DEFENDER,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Butterfly with flying.
+pub static BUTTERFLY_1_1_GREEN_FLYING: TokenDef = TokenDef {
+    name: "Butterfly",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::INSECT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 green Dog.
+pub static DOG_1_1_GREEN: TokenDef = TokenDef {
+    name: "Dog",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::DOG],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/1 red Carnivore.
+pub static CARNIVORE_3_1_RED: TokenDef = TokenDef {
+    name: "Carnivore",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BEAST],
+    power: Some(3),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 colorless artifact Hornet with flying and haste.
+pub static HORNET_ARTIFACT_1_1_FLYING_HASTE: TokenDef = TokenDef {
+    name: "Hornet",
+    types: TypeSet::ARTIFACT.union(TypeSet::CREATURE),
+    subtypes: &[creature::INSECT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::FLYING.union(KeywordSet::HASTE),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 colorless ChosenType.
+pub static CHOSENTYPE_2_2: TokenDef = TokenDef {
+    name: "ChosenType",
+    types: TypeSet::CREATURE,
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 green Beast.
+pub static BEAST_2_2_GREEN: TokenDef = TokenDef {
+    name: "Beast",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BEAST],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 white Knight.
+pub static KNIGHT_2_2_WHITE: TokenDef = TokenDef {
+    name: "Knight",
+    colors: ColorSet::from_slice(&[Color::White]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KNIGHT],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 green Monkey.
+pub static MONKEY_2_2_GREEN: TokenDef = TokenDef {
+    name: "Monkey",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::MONKEY],
+    power: Some(2),
+    toughness: Some(2),
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 black Minion.
+pub static MINION_1_1_BLACK: TokenDef = TokenDef {
+    name: "Minion",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::MINION],
+    power: Some(1),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 2/1 black Cat.
+pub static CAT_2_1_BLACK: TokenDef = TokenDef {
+    name: "Cat",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::CAT],
+    power: Some(2),
+    toughness: Some(1),
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 black Angel with flying.
+pub static ANGEL_3_3_BLACK_FLYING: TokenDef = TokenDef {
+    name: "Angel",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ANGEL],
+    power: Some(3),
+    toughness: Some(3),
+    keywords: KeywordSet::FLYING,
+    ..TokenDef::DEFAULT
+};
+
+/// 3/3 black Kavu.
+pub static KAVU_3_3_BLACK: TokenDef = TokenDef {
+    name: "Kavu",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::KAVU],
+    power: Some(3),
+    toughness: Some(3),
+    ..TokenDef::DEFAULT
+};
+
+/// 6/6 black Wurm with trample.
+pub static WURM_6_6_BLACK_TRAMPLE: TokenDef = TokenDef {
+    name: "Wurm",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::WURM],
+    power: Some(6),
+    toughness: Some(6),
+    keywords: KeywordSet::TRAMPLE,
+    ..TokenDef::DEFAULT
+};
+
+/// 1/1 red Elemental Cat with haste.
+pub static ELEMENTAL_CAT_1_1_RED_HASTE: TokenDef = TokenDef {
+    name: "Elemental Cat",
+    colors: ColorSet::from_slice(&[Color::Red]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL, creature::CAT],
+    power: Some(1),
+    toughness: Some(1),
+    keywords: KeywordSet::HASTE,
+    ..TokenDef::DEFAULT
+};
+
+/// 7/7 green Elemental with trample.
+pub static ELEMENTAL_7_7_GREEN_TRAMPLE: TokenDef = TokenDef {
+    name: "Elemental",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ELEMENTAL],
+    power: Some(7),
+    toughness: Some(7),
+    keywords: KeywordSet::TRAMPLE,
+    ..TokenDef::DEFAULT
+};
+
 /// Every token there is, in the order ids were assigned.
 pub static ALL: &[&TokenDef] = &[
     &tokens::ALLY_1_1_WHITE,
@@ -2374,7 +2632,7 @@ pub static ALL: &[&TokenDef] = &[
     &BAT_1_1_BLACK_FLYING,
     &INSECT_1_1_BLACK_FLYING,
     &RAT_1_1_BLACK,
-    &ZOMBIE_2_2_BLACK,
+    &tokens::ZOMBIE_2_2_BLACK,
     &INSECT_1_1_BLACK_GREEN,
     &THOPTER_ARTIFACT_1_1_FLYING,
     &HERO_1_1,
@@ -2590,6 +2848,31 @@ pub static ALL: &[&TokenDef] = &[
     &tokens::HANWEIR_THE_WRITHING_TOWNSHIP,
     &HUMAN_1_1_RED,
     &CAMARID_1_1_BLUE,
+    &SERF_0_1_BLACK,
+    &DESERTER_0_1_WHITE,
+    &HIPPO_1_1_GREEN,
+    &STARFISH_0_1_BLUE,
+    &SURVIVOR_1_1_RED,
+    &WALL_ARTIFACT_0_2_DEFENDER,
+    &INSECT_0_1_BLACK,
+    &TOMBSPAWN_2_2_BLACK_HASTE,
+    &WALL_5_5_BLUE_DEFENDER,
+    &BUTTERFLY_1_1_GREEN_FLYING,
+    &DOG_1_1_GREEN,
+    &CARNIVORE_3_1_RED,
+    &HORNET_ARTIFACT_1_1_FLYING_HASTE,
+    &CHOSENTYPE_2_2,
+    &BEAST_2_2_GREEN,
+    &KNIGHT_2_2_WHITE,
+    &MONKEY_2_2_GREEN,
+    &MINION_1_1_BLACK,
+    &CAT_2_1_BLACK,
+    &ANGEL_3_3_BLACK_FLYING,
+    &KAVU_3_3_BLACK,
+    &WURM_6_6_BLACK_TRAMPLE,
+    &ELEMENTAL_CAT_1_1_RED_HASTE,
+    &ELEMENTAL_7_7_GREEN_TRAMPLE,
+    &tokens::BEAST_5_5_GREEN,
 ];
 
 /// The entries a reader wrote, as a subset of [`ALL`] — never a second
@@ -2598,7 +2881,6 @@ pub static GENERATED: &[&TokenDef] = &[
     &BAT_1_1_BLACK_FLYING,
     &INSECT_1_1_BLACK_FLYING,
     &RAT_1_1_BLACK,
-    &ZOMBIE_2_2_BLACK,
     &INSECT_1_1_BLACK_GREEN,
     &THOPTER_ARTIFACT_1_1_FLYING,
     &HERO_1_1,
@@ -2793,4 +3075,28 @@ pub static GENERATED: &[&TokenDef] = &[
     &ILLUSION_1_1_BLUE,
     &HUMAN_1_1_RED,
     &CAMARID_1_1_BLUE,
+    &SERF_0_1_BLACK,
+    &DESERTER_0_1_WHITE,
+    &HIPPO_1_1_GREEN,
+    &STARFISH_0_1_BLUE,
+    &SURVIVOR_1_1_RED,
+    &WALL_ARTIFACT_0_2_DEFENDER,
+    &INSECT_0_1_BLACK,
+    &TOMBSPAWN_2_2_BLACK_HASTE,
+    &WALL_5_5_BLUE_DEFENDER,
+    &BUTTERFLY_1_1_GREEN_FLYING,
+    &DOG_1_1_GREEN,
+    &CARNIVORE_3_1_RED,
+    &HORNET_ARTIFACT_1_1_FLYING_HASTE,
+    &CHOSENTYPE_2_2,
+    &BEAST_2_2_GREEN,
+    &KNIGHT_2_2_WHITE,
+    &MONKEY_2_2_GREEN,
+    &MINION_1_1_BLACK,
+    &CAT_2_1_BLACK,
+    &ANGEL_3_3_BLACK_FLYING,
+    &KAVU_3_3_BLACK,
+    &WURM_6_6_BLACK_TRAMPLE,
+    &ELEMENTAL_CAT_1_1_RED_HASTE,
+    &ELEMENTAL_7_7_GREEN_TRAMPLE,
 ];

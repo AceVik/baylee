@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/PS11/relics-of-doom.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RelicsOfDoom_PS11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Relics of Doom (Adapted)]
+2 Alpha Myr
+2 Bottle Gnomes
+2 Cancel
+2 Consult the Necrosages
+1 Demon's Horn
+4 Essence Vortex
+1 Font of Mythos
+4 Glaze Fiend
+1 Howling Mine
+13 Island
+1 Kraken's Eye
+2 Leonin Scimitar
+2 Notion Rain
+2 Onyx Goblet
+2 Ornithopter
+1 Parasitic Strix
+1 Razormane Masticore
+11 Swamp
+4 Tidehollow Strix
+2 Trusty Machete

@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/SNC/strength-in-numbers.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, StrengthInNumbers_SNC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Strength in Numbers (Adapted)]
+4 Advent of the Wurm
+3 Altar of Bone
+4 Blossoming Sands
+2 Botanical Plaza
+3 Call of the Conclave
+3 Celebrity Fencer
+2 Darling of the Masses
+4 Eladamri's Call
+9 Forest
+4 Gerrard's Command
+4 Heroes' Reunion
+2 Luxurious Libation
+1 Overgrown Farmland
+9 Plains
+2 Selesnya Charm
+4 Vitalizing Cascade

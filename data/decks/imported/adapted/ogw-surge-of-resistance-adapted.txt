@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/OGW/surge-of-resistance.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SurgeOfResistance_OGW.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Surge of Resistance (Adapted)]
+1 Blighted Gorge
+4 Broadside Barrage
+2 Cloud Manta
+1 Evolving Wilds
+2 Expedite
+1 Expressive Iteration
+4 Fire
+4 Invoke the Firemind
+11 Island
+2 Izzet Boilerworks
+2 Izzet Charm
+3 Lavastep Raider
+12 Mountain
+1 Rolling Thunder
+4 Rush of Inspiration
+2 Stormchaser Mage
+3 Umara Entangler
+1 Windrider Patrol

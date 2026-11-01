@@ -12,6 +12,8 @@ mod boots_of_speed;
 mod bronze_sword;
 mod colossus_hammer;
 mod darksteel_axe;
+mod dead_iron_sledge;
+mod golem_skin_gauntlets;
 mod gorgon_s_head;
 mod greataxe;
 mod hedgewitch_s_mask;

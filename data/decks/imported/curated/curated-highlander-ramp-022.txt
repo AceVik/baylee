@@ -1,0 +1,79 @@
+# baylee curated highlander ramp seed=20261045
+# licence: AGPL-3.0-only
+[deck:highlander ramp RG #20261045]
+1 Abstergo Entertainment
+1 Aether Sting
+1 Agate Assault
+1 Archaeological Dig
+1 Birgi, God of Storytelling
+1 Castle Doom
+1 Coming In Hot
+1 Dragon's Rage Channeler
+1 Dragon-Style Twins
+1 Dragonlair Spider
+1 Earthshaker
+1 Eidolon of the Great Revel
+1 Emrakul's Influence
+1 Enraged Flamecaster
+1 Faithless Looting
+1 Feral Instinct
+1 Fire Dragon
+1 Firespitter Whelp
+1 Forbidden Orchard
+6 Forest
+1 Go Forth
+1 Growth Spasm
+1 Hall of Oracles
+1 Hearthcage Giant
+1 Henge of Ramos
+1 Hidden Grotto
+1 Holdout Settlement
+1 Inordinate Rage
+1 Iron Man, Tony Stark
+1 Ishi-Ishi, Akki Crackshot
+1 Jaya's Greeting
+1 Jungle Patrol
+1 Kindled Heroism
+1 Kurgadon
+1 Magma Jet
+1 Mana Crypt
+1 Manamorphose
+1 Maul Splicer
+1 Mech Hangar
+1 Mogg Hollows
+1 Mold Adder
+1 Molten Nursery
+20 Mountain
+1 Nebula Dragon
+1 Nykthos, Shrine to Nyx
+1 Omnath, Locus of Rage
+1 Orbweaver Kumo
+1 Orcish Cannonade
+1 Ore Gorger
+1 Path of Annihilation
+1 Pia and Kiran Nalaar
+1 Pinecrest Ridge
+1 Playful Shove
+1 Primeval Bounty
+1 Primordial Sage
+1 Pyrostatic Pillar
+1 Red Dragon
+1 Ruric Thar, the Unbowed
+1 Samut's Sprint
+1 Sarkhan's Unsealing
+1 Sawblade Scamp
+1 Shivan Hellkite
+1 Shredded Sails
+1 Snake Pit
+1 Soul of Magma
+1 Spark Jolt
+1 Spawning Breath
+1 Surveillance Room
+1 Taiga
+1 Tarnished Citadel
+1 Tattermunge Duo
+1 The Immortal Weapons
+1 Vertigo
+1 Villainous Hideout
+1 Young Pyromancer
+1 Zuko, Avatar Hunter

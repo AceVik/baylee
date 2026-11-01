@@ -70,16 +70,15 @@ impl DamageWork {
                             to: DamageTarget::Player(to),
                         }
                     }
-                    _ => match super::batch57::shield_kind(state, part, shield.kind) {
+                    _ => match super::batch57::shield_kind(state, part, shield.kind)
+                        .or_else(|| super::ice_combat::shield_kind(state, part, *shield))
+                    {
                         Some(kind) => kind,
                         None => continue,
                     },
                 };
                 if matches!(kind, Kind::Redirect { .. } | Kind::RedirectNext { .. })
-                    && super::recipient_forbids_prevention_or_redirection(
-                        state,
-                        part.view.recipient,
-                    )
+                    && self.recipient_locked(state, part.view.recipient)
                 {
                     continue;
                 }
@@ -176,9 +175,26 @@ impl DamageWork {
                         crate::text_changes::RuleContext {
                             source: fx.source.unwrap_or(object.id),
                             text: state.effect_text(fx),
+                            resolved_name: None,
                             reference: None,
                         },
                     ) {
+                        continue;
+                    }
+                    Kind::Protection
+                }
+                Modifier::ProtectionFromExiledWithSourceTypes => {
+                    let DamageTarget::Object(target) = part.view.recipient else {
+                        continue;
+                    };
+                    let Some(object) = state.object(target) else {
+                        continue;
+                    };
+                    let Some(source) = state.damage_source(part.view.source, part.source_version)
+                    else {
+                        continue;
+                    };
+                    if !crate::eval::protection_from_exiled_types(state, fx, object, source) {
                         continue;
                     }
                     Kind::Protection
@@ -212,6 +228,7 @@ impl DamageWork {
                         crate::text_changes::RuleContext {
                             source: fx.source.unwrap_or(object.id),
                             text: state.effect_text(fx),
+                            resolved_name: None,
                             reference: None,
                         },
                     ) {
@@ -243,6 +260,7 @@ impl DamageWork {
                         crate::text_changes::RuleContext {
                             source: fx.source.unwrap_or(source.id),
                             text: state.effect_text(fx),
+                            resolved_name: None,
                             reference: None,
                         },
                     ) {
@@ -291,10 +309,7 @@ impl DamageWork {
                         continue;
                     };
                     if state.has_left(fx.controller)
-                        || super::recipient_forbids_prevention_or_redirection(
-                            state,
-                            part.view.recipient,
-                        )
+                        || self.recipient_locked(state, part.view.recipient)
                         || !state.object(target).is_some_and(|o| {
                             o.characteristics()
                                 .types
@@ -330,6 +345,7 @@ impl DamageWork {
                         crate::text_changes::RuleContext {
                             source: this,
                             text: state.effect_text(fx),
+                            resolved_name: None,
                             reference: None,
                         },
                     );
@@ -350,6 +366,11 @@ impl DamageWork {
                 }
                 _ => continue,
             };
+            if matches!(kind, Kind::Redirect { .. } | Kind::RedirectNext { .. })
+                && self.recipient_locked(state, part.view.recipient)
+            {
+                continue;
+            }
             let origin = fx.source.map(|source| ShieldOrigin {
                 source,
                 ability: None,

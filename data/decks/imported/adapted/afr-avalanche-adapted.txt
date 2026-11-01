@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/AFR/avalanche.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Avalanche_AFR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Avalanche! (Adapted)]
+1 Ashaya, Soul of the Wild
+4 Auroral Procession
+1 Avalanche Caller
+1 Awaken the Bear
+1 Barkchannel Pathway
+4 Double Major
+2 Fabricate
+4 Hydroform
+1 Lotus Cobra
+4 Neoform
+3 Pulse of Murasa
+4 Rimewood Falls
+3 Sculptor of Winter
+11 Snow-Covered Forest
+10 Snow-Covered Island
+4 Square Up
+2 Stroke of Genius

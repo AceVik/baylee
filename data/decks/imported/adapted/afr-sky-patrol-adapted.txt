@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/AFR/sky-patrol.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SkyPatrol_AFR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sky Patrol (Adapted)]
+4 Absorb
+4 Daring Leap
+4 Dramatic Rescue
+4 Energy Arc
+3 Expel
+4 Glacial Floodplain
+1 Hengegate Pathway
+9 Island
+1 Luminarch Aspirant
+4 Offering to Asha
+4 Ojutai's Command
+3 Overrule
+11 Plains
+4 Sphinx's Revelation

@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/TSP/reality-fracture.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RealityFracture_TSP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Reality Fracture (Adapted)]
+1 Arc Lightning
+3 Cast Away Doubt
+2 Claws of Gix
+4 Crosis's Charm
+4 Drastic Revelation
+1 Dreadship Reef
+1 Hammer of Bogardan
+12 Island
+4 Massive Raid
+11 Mountain
+2 Nephalia Seakite
+1 Opt
+1 Perish
+1 Precision Bolt
+1 Sage of Epityr
+1 Serrated Arrows
+1 Stealth Mission
+4 Swat
+2 Valakut Awakening
+3 Vanquish the Weak

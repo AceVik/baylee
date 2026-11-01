@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUG #20266099]
+1 Aardvark Sloth
+1 Aerial Predation
+1 Ajani's Sunstriker
+1 Alabaster Host Sanctifier
+1 Angel's Mercy
+1 Beloved Princess
+1 Blossoming Wreath
+1 Blunt the Assault
+1 Bountiful Harvest
+1 Brad Boimler, Eager Ensign
+1 Brightblade Stoat
+1 Caravan Hurda
+1 Cavernous Maw
+1 City of Traitors
+1 Congregate
+1 Court Cleric
+1 Dawnstrike Paladin
+1 Daybreak Chaplain
+1 Deserted Beach
+1 Divine Offering
+1 Drannith Ruins
+1 Dune Diviner
+1 Eriette's Lullaby
+1 Flight-Deck Coordinator
+9 Forest
+1 Fruition
+1 Glacial Floodplain
+1 Glyph of Life
+1 Grasping Longneck
+1 Haunted Fengraf
+1 Hope Charm
+1 Hostile Desert
+1 Invoke the Divine
+1 Irrigated Farmland
+1 Kiss of the Amesha
+1 Kitchen Finks
+1 Last Breath
+1 Lifegift
+1 Linden, the Steadfast Queen
+1 Lucky Offering
+1 Merchant Ship
+1 Moonlit Wake
+1 Natural Spring
+1 Nature's Claim
+1 North Pole Gates
+1 Ondu War Cleric
+16 Plains
+1 Radiant Strike
+1 Ravenous Baloth
+1 Ravenous Daggertooth
+1 Razortide Bridge
+1 Righteous Cause
+1 River Hoopoe
+1 Roots of Life
+1 Seafarer's Quay
+1 Selkie Hedge-Mage
+1 Sequestered Stash
+1 Serene Offering
+1 Silent Attendant
+1 Silverstrike
+1 Soul Shepherd
+1 Springsage Ritual
+1 Stone Haven Medic
+1 Surge of Righteousness
+1 Tamiyo's Safekeeping
+1 The Great Mound
+1 Thermokarst
+1 Tonic Peddler
+1 Triumphant Surge
+1 Turntimber Ascetic
+1 Wanderbrine Preacher
+1 White Lotus Hideout
+1 Witch's Clinic
+1 Yotian Medic
+1 Zarichi Tiger
+1 Zealots en-Dal
+
+[commander]
+Phelddagrif

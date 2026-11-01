@@ -124,8 +124,167 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
                 .map(|face| face.mana_cost)
         })
         .collect();
-    baylee_client_core::manaplan::prioritize(&mut sources, view, &costs);
+    baylee_client_core::manaplan::prioritize(
+        &mut sources,
+        view,
+        &costs,
+        &crate::cardart::taps_beyond_mana,
+    );
     sources
+}
+
+/// Restricted taps with the filter their mana may pay for (CR 106.6).
+fn restricted_sources(
+    view: &PlayerView,
+    legal: &LegalActions,
+) -> Vec<(Source, &'static baylee_cards_dsl::Filter)> {
+    let mut out = Vec::new();
+    for &(id, index) in &legal.abilities {
+        if legal.activation_increase(id) > 0 {
+            continue;
+        }
+        let Some(ability) = ability_at(view, id, index) else {
+            continue;
+        };
+        let (AbilityDef::Activated {
+            cost,
+            effects,
+            mana_ability: true,
+            ..
+        }
+        | AbilityDef::ActivatedConditional {
+            cost,
+            effects,
+            mana_ability: true,
+            ..
+        }) = ability
+        else {
+            continue;
+        };
+        if baylee_cards_dsl::mana_with_riders(cost, effects).is_none() {
+            continue;
+        }
+        let Some(only_for) = baylee_ai::mana_restriction(effects) else {
+            continue;
+        };
+        let Some(mut source) = read_mana_ability_with_restrictions(
+            view,
+            id,
+            index,
+            ability,
+            true,
+            |colors, amount, bundle, priced| Source {
+                id,
+                tap: Tap::Ability(index),
+                colors: colors.into_owned(),
+                amount,
+                bundle,
+                priced,
+                preserve: 0,
+                dear: None,
+            },
+        ) else {
+            continue;
+        };
+        if view.object(id).is_some_and(taps_set_off_a_trigger) {
+            source.priced = true;
+        }
+        out.push((source, only_for));
+    }
+    out
+}
+
+/// The ordinary sources plus the best restricted tap whose filter admits
+/// `subject`. It goes last: once it floats, the engine's own merge can make
+/// the cast legal without this planner ever evaluating restricted pool mana.
+fn with_one_restricted(
+    view: &PlayerView,
+    legal: &LegalActions,
+    subject: baylee_core::ids::ObjectId,
+    activation: bool,
+) -> Option<Vec<Source>> {
+    let agent = baylee_ai::HeuristicAgent::new(baylee_ai::AIProfile::default());
+    let best = restricted_sources(view, legal)
+        .into_iter()
+        .filter(|(source, filter)| {
+            if activation {
+                agent.admits_activation(view, filter, Some(source.id), subject)
+            } else {
+                agent.admits(view, filter, Some(source.id), subject)
+            }
+        })
+        .map(|(source, _)| source)
+        .min_by_key(|source| {
+            (
+                source.priced,
+                std::cmp::Reverse(source.amount),
+                std::cmp::Reverse(source.colors.len()),
+                source.id,
+            )
+        })?;
+    let mut sources: Vec<Source> = sources(view, legal)
+        .into_iter()
+        .filter(|source| source.id != best.id)
+        .collect();
+    sources.push(best);
+    Some(sources)
+}
+
+/// The ordinary plan first, then one restricted tap whose filter admits the
+/// spell. A non-Ally spell can never borrow the Tea Shop's coloured Ally mana.
+#[must_use]
+pub fn plan_for_spell(
+    cost: &ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    view: &PlayerView,
+    legal: &LegalActions,
+    spell: baylee_core::ids::ObjectId,
+) -> Option<baylee_client_core::manaplan::Plan> {
+    let plain = sources(view, legal);
+    baylee_client_core::manaplan::plan(cost, pool, &plain).or_else(|| {
+        let sources = with_one_restricted(view, legal, spell, false)?;
+        baylee_client_core::manaplan::plan(cost, pool, &sources)
+    })
+}
+
+/// [`plan_for_spell`], also allowing the existing Phyrexian-life fallback
+/// before and after the restricted source is considered.
+#[must_use]
+pub fn plan_with_life_for_spell(
+    cost: &ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    view: &PlayerView,
+    legal: &LegalActions,
+    spell: baylee_core::ids::ObjectId,
+    life: i32,
+) -> Option<baylee_client_core::manaplan::Plan> {
+    let plain = sources(view, legal);
+    baylee_client_core::manaplan::plan_with_life(cost, pool, &plain, life).or_else(|| {
+        let sources = with_one_restricted(view, legal, spell, false)?;
+        baylee_client_core::manaplan::plan_with_life(cost, pool, &sources, life)
+    })
+}
+
+/// The mana for `source`'s own activation. The source itself stays reserved,
+/// and a restricted tap is admitted only if this permanent's characteristics
+/// satisfy its filter (an Ally source, for example).
+#[must_use]
+pub fn plan_for_activation(
+    cost: &ManaCost,
+    pool: &baylee_view::ManaPoolView,
+    view: &PlayerView,
+    legal: &LegalActions,
+    source: baylee_core::ids::ObjectId,
+) -> Option<baylee_client_core::manaplan::Plan> {
+    let plain: Vec<Source> = sources(view, legal)
+        .into_iter()
+        .filter(|candidate| candidate.id != source)
+        .collect();
+    baylee_client_core::manaplan::plan(cost, pool, &plain).or_else(|| {
+        let mut sources = with_one_restricted(view, legal, source, true)?;
+        sources.retain(|candidate| candidate.id != source);
+        baylee_client_core::manaplan::plan(cost, pool, &sources)
+    })
 }
 
 /// Whether `object` prints "whenever this becomes tapped": City of Brass.
@@ -354,6 +513,19 @@ fn read_mana_ability<T>(
     ability: &'static AbilityDef,
     read: impl FnOnce(Cow<'_, [ManaColor]>, u8, bool, bool) -> T,
 ) -> Option<T> {
+    read_mana_ability_with_restrictions(view, id, index, ability, false, read)
+}
+
+/// The same reading, with restricted mana admitted only when the caller can
+/// prove its purpose is legal. Context-free planning keeps the refusal above.
+fn read_mana_ability_with_restrictions<T>(
+    view: &PlayerView,
+    id: baylee_core::ids::ObjectId,
+    index: u32,
+    ability: &'static AbilityDef,
+    allow_restricted: bool,
+    read: impl FnOnce(Cow<'_, [ManaColor]>, u8, bool, bool) -> T,
+) -> Option<T> {
     // `ActivatedConditional` belongs here beside `Activated`, and the
     // condition is deliberately not re-checked: this list is built from
     // `LegalActions` and nothing else, and the engine offers a conditional
@@ -394,11 +566,10 @@ fn read_mana_ability<T>(
             priced(cost, effects),
         ));
     };
-    // Still refused, and for the reason `simple_mana` refused it: what a
-    // Cavern of Souls' mana may be spent on is a rules question, and
-    // answering it this side of the wire is the guess the reading exists to
-    // avoid. Path of Ancestry is the one in the owner's deck.
-    if restricted {
+    // Context-free planning still refuses restricted mana: what a Cavern of
+    // Souls' mana may pay for is a rules question. The purpose-specific
+    // caller below proves it before admitting this source.
+    if restricted && !allow_restricted {
         return None;
     }
     // An amount only the board can count is read off the board, where the
@@ -1713,5 +1884,130 @@ mod tests {
                 "{color:?} is {tally:?}"
             );
         }
+    }
+
+    fn hand_card(
+        slot: u32,
+        name: &str,
+        mana_value: u32,
+        colors: &[baylee_core::color::Color],
+    ) -> baylee_view::HandObject {
+        let index = baylee_cards::decks::by_name(name).expect("a card in the registry");
+        baylee_view::HandObject {
+            id: ObjectId::new(slot, 0),
+            card: baylee_view::CardIdentity {
+                index,
+                print: baylee_core::ids::PrintRef::new(slot as u16),
+                face: 0,
+            },
+            name: name.to_string(),
+            mana_value,
+            colors: baylee_core::color::ColorSet::from_slice(colors),
+            types: baylee_core::types::TypeSet::CREATURE,
+            commander: false,
+        }
+    }
+
+    /// Jasmine Dragon Tea Shop and a Mountain, with an Ally and a non-Ally in
+    /// hand. The restricted ability is offered at index 1; the Mountain's
+    /// intrinsic tap is the only other coloured source.
+    fn jasmine_mana_board() -> (PlayerView, LegalActions) {
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(
+                0,
+                [
+                    card(1, 0, "Jasmine Dragon Tea Shop"),
+                    card(2, 0, "Mountain"),
+                    card(20, 0, "Ondu Cleric"),
+                ],
+            )
+            .build();
+        view.hand = vec![
+            hand_card(10, "Ondu Cleric", 2, &[baylee_core::color::Color::White]),
+            hand_card(11, "Savannah Lions", 1, &[baylee_core::color::Color::White]),
+        ];
+        let legal = LegalActions {
+            mana_abilities: vec![ObjectId::new(2, 0)],
+            abilities: vec![(ObjectId::new(1, 0), 0), (ObjectId::new(1, 0), 1)],
+            ..LegalActions::default()
+        };
+        (view, legal)
+    }
+
+    #[test]
+    fn restricted_ally_mana_pays_an_ally_spell_last_and_nothing_else() {
+        let (view, legal) = jasmine_mana_board();
+        let pool = baylee_view::ManaPoolView::default();
+        assert_eq!(sources(&view, &legal).len(), 2, "only the free taps");
+
+        let ally = ObjectId::new(10, 0);
+        let plan = plan_for_spell(&mana_cost("{1}{W}"), &pool, &view, &legal, ally)
+            .expect("the Mountain pays generic and the Tea Shop pays white");
+        assert_eq!(plan.steps.len(), 2, "{plan:?}");
+        let last = plan.steps.last().expect("the restricted tap is last");
+        assert_eq!(last.source, ObjectId::new(1, 0));
+        assert_eq!(last.tap, Tap::Ability(1));
+        assert_eq!(last.color, Some(ManaColor::White));
+
+        let lions = ObjectId::new(11, 0);
+        assert!(
+            plan_for_spell(&mana_cost("{W}"), &pool, &view, &legal, lions).is_none(),
+            "a non-Ally creature cannot spend the Ally-only mana"
+        );
+        assert!(
+            plan_with_life_for_spell(&mana_cost("{1}{W}"), &pool, &view, &legal, ally, 20)
+                .is_some(),
+            "the cast-mode planner uses the same restricted fallback"
+        );
+    }
+
+    #[test]
+    fn restricted_ally_mana_also_activates_an_ally_source() {
+        let (view, legal) = jasmine_mana_board();
+        let pool = baylee_view::ManaPoolView::default();
+        let plan = plan_for_activation(
+            &mana_cost("{W}"),
+            &pool,
+            &view,
+            &legal,
+            ObjectId::new(20, 0),
+        )
+        .expect("Ondu Cleric is an Ally source");
+        assert_eq!(
+            plan.steps.last().map(|step| step.tap),
+            Some(Tap::Ability(1))
+        );
+        assert!(
+            plan_for_activation(&mana_cost("{W}"), &pool, &view, &legal, ObjectId::new(2, 0))
+                .is_none(),
+            "a Mountain is not an Ally source"
+        );
+    }
+
+    #[test]
+    fn a_restricted_source_is_enough_when_no_other_source_can_pay() {
+        let mut view = ViewBuilder::new(2)
+            .with_battlefield(0, [card(1, 0, "Jasmine Dragon Tea Shop")])
+            .build();
+        view.hand = vec![hand_card(
+            10,
+            "Ondu Cleric",
+            2,
+            &[baylee_core::color::Color::White],
+        )];
+        let legal = LegalActions {
+            abilities: vec![(ObjectId::new(1, 0), 0), (ObjectId::new(1, 0), 1)],
+            ..LegalActions::default()
+        };
+        let plan = plan_for_spell(
+            &mana_cost("{W}"),
+            &baylee_view::ManaPoolView::default(),
+            &view,
+            &legal,
+            ObjectId::new(10, 0),
+        )
+        .expect("the only coloured tap is the restricted Ally tap");
+        assert_eq!(plan.steps.len(), 1);
+        assert_eq!(plan.steps[0].tap, Tap::Ability(1));
     }
 }

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*", "xtask"]
 
 [workspace.package]
-version = "0.1.0-beta.7b"
+version = "0.1.1-beta.9b"
 edition = "2024"
 # Central's reviewed native authentication SDK requires Rust 1.99.
 # CI reads this version rather than repeating a lower renderer-only floor.
@@ -28,8 +28,8 @@ fluent-bundle = "0.16"
 fluent-syntax = "0.12"
 unic-langid = "0.9"
 baylee-account = { path = "crates/baylee-account" }
-central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "b1f9292e4b6795600bf87e67c434a3832546fdb6" }
-central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "b1f9292e4b6795600bf87e67c434a3832546fdb6" }
+central-api = { git = "https://github.com/AceVik/baylee-central.git", rev = "0a941953f8c0d5573e82e0979e7faf1fb9e40299" }
+central-client = { git = "https://github.com/AceVik/baylee-central.git", rev = "0a941953f8c0d5573e82e0979e7faf1fb9e40299" }
 baylee-core = { path = "crates/baylee-core" }
 baylee-cardtext = { path = "crates/baylee-cardtext" }
 baylee-deckio = { path = "crates/baylee-deckio" }
@@ -44,7 +44,6 @@ baylee-cards-codegen = { path = "crates/baylee-cards-codegen" }
 baylee-cards-index = { path = "crates/baylee-cards-index" }
 baylee-ai = { path = "crates/baylee-ai" }
 baylee-gamehost = { path = "crates/baylee-gamehost" }
-baylee-gateway = { path = "crates/baylee-gateway" }
 baylee-engine-server = { path = "crates/baylee-engine-server" }
 baylee-agent = { path = "crates/baylee-agent" }
 baylee-catalog = { path = "crates/baylee-catalog" }
@@ -90,6 +89,8 @@ syn = { version = "3", features = ["full", "visit"] }
 proc-macro2 = { version = "1", features = ["span-locations"] }
 # Native maintenance/asset tools, independent of the renderer.
 regex = "1"
+icu_casemap = "=2.3.0"
+csv = "1"
 ctrlc = "3"
 tempfile = "3"
 ab_glyph = "0.2.32"
@@ -107,6 +108,10 @@ parking_lot = "0.12"
 # (`statvfs`) and the clock ticks a `/proc/<pid>/stat` counts in.
 rustix = { version = "1", features = ["fs", "param"] }
 axum = { version = "0.8", features = ["ws"] }
+# The optional workstation monitor: no GPU context, no process commands,
+# and no parallel process scan competing with the training workers.
+sysinfo = { version = "0.39.6", default-features = false, features = ["system", "disk", "network", "component"] }
+nvml-wrapper = "0.13"
 argon2 = "0.6"
 getrandom = "0.4"
 # PNG encoding for the dev-control screenshot endpoint (`dev-control`
@@ -137,12 +142,6 @@ half = "2.7"
 web-sys = "0.3"
 wasm-bindgen = "0.2"
 sha2 = "0.11"
-# Confirmation mail from the gateway. rustls only — no OpenSSL on the build
-# host, and `webpki-roots` so a container needs no CA bundle of its own.
-lettre = { version = "0.11", default-features = false, features = [
-    "builder", "smtp-transport", "hostname", "tokio1", "tokio1-rustls", "ring",
-    "webpki-roots",
-] }
 subtle = "2"
 tokio-tungstenite = "0.30"
 # Persistence, gateway side only. The engine never sees a database: the

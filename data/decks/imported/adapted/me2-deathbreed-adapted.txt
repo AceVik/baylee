@@ -1,0 +1,28 @@
+# adapted from data/decks/precon/ME2/deathbreed.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Deathbreed_ME2.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Deathbreed (Adapted)]
+3 Armor Thrull
+2 Ashen Ghoul
+1 Basal Thrull
+3 Breeding Pit
+1 Cuombajj Witches
+1 Dark Banishing
+1 Derelor
+3 Drift of the Dead
+1 Ebon Praetor
+1 Feast or Famine
+2 Gangrenous Zombies
+1 Hymn to Tourach
+1 Kjeldoran Dead
+1 Knight of Stromgald
+2 Mindstab Thrull
+1 Minion of Leshrac
+2 Necrite
+2 Nether Shadow
+1 Oubliette
+1 Phyrexian Boon
+1 Ritual of the Machine
+1 Sleeper's Guile
+24 Snow-Covered Swamp
+2 Soul Exchange
+1 Thrull Retainer

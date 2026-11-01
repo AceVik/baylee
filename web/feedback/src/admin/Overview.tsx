@@ -4,7 +4,7 @@
 // and this service answer, refreshed every 15 seconds while the page is
 // visible.
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
 import {
   api,
@@ -26,6 +26,7 @@ import {
   type Lang,
 } from "../i18n";
 import { adminPath } from "../router";
+import { AUTH_MODE_WORDS, NobodyComesIn, nobodyComesIn } from "./Access";
 import { DayChart, type DayOf } from "./Chart";
 import {
   Badge,
@@ -39,6 +40,7 @@ import {
   useVisibleInterval,
 } from "./shared";
 import { TableCard } from "./Live";
+import { releasesUrl } from "./releases";
 
 /** The kinds the error-rate chart counts as a defect. */
 const DEFECTS = new Set(["bug", "crash"]);
@@ -145,6 +147,13 @@ function Services({
           <p className="mono small build" data-testid="feedback-version">
             {health.version}
           </p>
+          {releasesUrl(health.source) !== null && (
+            <p className="small">
+              <a href={releasesUrl(health.source) ?? undefined} target="_blank" rel="noreferrer noopener">
+                {t(lang, "sets.latestClient")} ↗
+              </a>
+            </p>
+          )}
         </>
       )}
     </Panel>
@@ -337,7 +346,7 @@ function Details({
       ? t(lang, "stats.noCap")
       : t(lang, "stats.guestCap", { cap: n(stats.guests.cap) });
   return (
-    <div className="panels">
+    <div className="panels stat-panels">
       <Panel id="st-players" title={t(lang, "stats.players")}>
         <p className="big" data-testid="registered">
           <span className="big-number">{n(stats.accounts.registered)}</span>{" "}
@@ -417,7 +426,17 @@ function Details({
             ],
             [t(lang, "stats.agentGames"), n(stats.agents.games)],
             [t(lang, "stats.registration"), stats.gateway.registration],
-            [t(lang, "stats.mail"), onOff(stats.gateway.mail)],
+            [t(lang, "stats.central"), onOff(stats.gateway.central)],
+            ...(stats.gateway.auth_mode === undefined
+              ? []
+              : [
+                  [
+                    t(lang, "stats.authMode"),
+                    <Link key="mode" to={adminPath("access")}>
+                      {t(lang, AUTH_MODE_WORDS[stats.gateway.auth_mode])}
+                    </Link>,
+                  ] as [string, ReactNode],
+                ]),
             [t(lang, "stats.terms"), onOff(stats.gateway.terms)],
             ...(stats.gateway.uptime_secs === undefined
               ? []
@@ -573,6 +592,7 @@ export function Overview({ lang }: { lang: Lang }) {
       )}
       {stats !== null && (
         <>
+          {nobodyComesIn(stats.gateway.auth_mode, stats.gateway.central) && <NobodyComesIn lang={lang} />}
           <Headline lang={lang} stats={stats} facets={facets} live={live} offline={offline} />
           <Charts lang={lang} stats={stats} reports={reports} />
           {open.length > 0 && (

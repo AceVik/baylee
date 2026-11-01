@@ -113,7 +113,7 @@ fn compare(
             ManaSpending::EXACT
         },
         [0; 6],
-        restriction,
+        restriction.map(Into::into),
         required[0],
         SourceCredits {
             pool: restricted.clone(),

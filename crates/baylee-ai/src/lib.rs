@@ -20,6 +20,7 @@ mod filter;
 mod granted;
 mod held;
 pub mod intelligence;
+mod land;
 mod optional;
 mod policy;
 mod proliferate;
@@ -28,6 +29,7 @@ mod restricted;
 pub mod search;
 mod tactics;
 mod worth;
+pub use restricted::only_for as mana_restriction;
 pub use worth::mana_poured;
 
 use baylee_core::ids::{Defender, ObjectId, PlayerId};
@@ -318,8 +320,9 @@ impl HeuristicAgent {
             }
             return PlayerAction::PassPriority;
         }
-        // 1. Play a land.
-        if let Some(&card) = legal.lands.first() {
+        // 1. Play a land, unless playing it costs more life than the seat
+        //    can spare (`land`).
+        if let Some(card) = land::pick(view, legal) {
             return PlayerAction::PlayLand { card };
         }
         // 2. Crack a fetchland.
@@ -372,7 +375,8 @@ impl HeuristicAgent {
         match pending {
             Pending::ChooseManaAbility {
                 choice, options, ..
-            } => constrained::mana_choice(choice, &options).unwrap_or(PlayerAction::PassPriority),
+            } => constrained::mana_choice(view, choice, &options)
+                .unwrap_or(PlayerAction::PassPriority),
             ref pending @ (Pending::ChooseDamageSource { .. }
             | Pending::ChooseDamageEffect { .. }
             | Pending::AllocatePrevention { .. }) => {
@@ -400,12 +404,21 @@ impl HeuristicAgent {
                 attackers: squad,
                 defenders,
                 required,
+                alone,
+                minimum_required,
                 limits,
                 ..
             } => {
                 let chosen = self.attack(view, &squad, &defenders);
                 PlayerAction::DeclareAttackers {
-                    attackers: combat::obey_attack_rules(chosen, &required, &limits, &defenders),
+                    attackers: combat::obey_attack_rules(
+                        chosen,
+                        &required,
+                        &alone,
+                        minimum_required,
+                        &limits,
+                        &defenders,
+                    ),
                 }
             }
             Pending::ChooseBlockers {
@@ -833,6 +846,10 @@ impl HeuristicAgent {
                 YesNoPrompt::PayMana { cost } => {
                     PlayerAction::YesNo(policy::pays_tax(view, cost, context))
                 }
+                YesNoPrompt::PayManaAndLife { cost, life } => PlayerAction::YesNo(
+                    view.seat(player).is_some_and(|seat| i64::from(seat.life) > i64::from(life) + 5)
+                        && policy::pays_tax(view, cost, context),
+                ),
                 // Kicker and "you may waterbend" alike: paid when the pool
                 // already covers it, because the engine pays from the pool
                 // alone and a short one loses the whole cast.
@@ -879,6 +896,9 @@ impl HeuristicAgent {
                 // Clear damage without tapping or removing the permanent from
                 // combat; preserve any competing regeneration/shield resource.
                 | YesNoPrompt::UseDamageClearingReplacement { .. }
+                // This selects one mandatory untap replacement; declining
+                // only offers another replacement, never a free untap.
+                | YesNoPrompt::RemoveCountersInsteadOfUntapping { .. }
                 // A pact: attempt payment; the owed-mana planner handles the
                 // window.
                 | YesNoPrompt::PayPact { .. } => PlayerAction::YesNo(true),

@@ -1,13 +1,14 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type MouseEvent } from "react";
 
+import { BRAND, BrandMark } from "./Brand";
 import { ContactList, ContactPage } from "./Contact";
 import { api, onSignedOut } from "./api";
-import { browserLang, t } from "./i18n";
+import { browserLang, t, type Lang } from "./i18n";
 import { Login } from "./Login";
 import { ReportDetail } from "./ReportDetail";
 import { ReportList } from "./ReportList";
 import { Toasts } from "./reports/pieces";
-import { listPath, navigate, useRoute } from "./router";
+import { listPath, navigate, useRoute, type Route } from "./router";
 
 // The admin console is most of the code and the fewest visits: it loads
 // when it is first opened, so the reports come up sooner.
@@ -38,11 +39,46 @@ function useScrolled(): boolean {
   return scrolled;
 }
 
+/** The page's own name in the window's title; the console names its sections itself. */
+function pageTitle(lang: Lang, route: Route): string | null {
+  switch (route.page) {
+    case "admin":
+      return null;
+    case "contact":
+      return t(lang, "contact.title");
+    case "report":
+      return `${route.id.slice(0, 8)} · ${t(lang, "nav.reports")}`;
+    default:
+      return t(lang, "nav.reports");
+  }
+}
+
+
+/** Where the skip link lands: the page's own `<main>`. */
+function mainId(route: Route, console: boolean): string {
+  if (route.page === "admin" && console) return "admin-main";
+  if (route.page === "contact") return "contact-main";
+  return "main";
+}
+
 export function App() {
   const [auth, setAuth] = useState<Auth>({ state: "checking" });
   const route = useRoute();
   const scrolled = useScrolled();
   const lang = browserLang();
+  const signedIn = auth.state === "in";
+
+  // The page says which language it is in (WCAG 3.1.1): the sign-in form is
+  // English only, the rest the browser's.
+  useEffect(() => {
+    document.documentElement.lang = signedIn ? lang : "en";
+  }, [lang, signedIn]);
+
+  const title = signedIn ? pageTitle(lang, route) : null;
+  useEffect(() => {
+    if (!signedIn) document.title = BRAND;
+    else if (title !== null) document.title = `${title} · ${BRAND}`;
+  }, [signedIn, title]);
 
   useEffect(() => {
     let live = true;
@@ -104,9 +140,13 @@ export function App() {
   const onReports = !onAdmin && !onContact;
   return (
     <>
+      <a className="skip-link" href={`#${mainId(route, auth.console)}`}>
+        {t(lang, "nav.skip")}
+      </a>
       <header className={scrolled ? "bar folded" : "bar"}>
         <a className="brand" href="/" onClick={go("/")}>
-          <span className="brand-long">Baylee reports</span>
+          <BrandMark />
+          <span className="brand-long">{BRAND}</span>
           <span className="brand-short" aria-hidden="true">
             Baylee
           </span>
@@ -125,8 +165,11 @@ export function App() {
           )}
         </nav>
         <span className="spacer" />
-        <span className="muted who" title="Signed in as">
-          {auth.name}
+        <span className="who" title={t(lang, "nav.signedIn", { name: auth.name })}>
+          <span className="avatar" aria-hidden="true">
+            {[...auth.name][0] ?? "?"}
+          </span>
+          <span className="who-label">{auth.name}</span>
         </span>
         <button type="button" className="quiet" onClick={() => void signOut()}>
           {t(lang, "nav.signOut")}

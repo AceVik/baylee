@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/TOR/waking-nightmares.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WakingNightmares_TOR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Waking Nightmares (Adapted)]
+4 Auger Spree
+3 Barbarian Outcast
+4 Bedevil
+4 Delirium
+1 Demolish
+4 Dreadbore
+1 Enslaved Dwarf
+3 Kaervek's Purge
+1 Malevolent Awakening
+9 Mountain
+2 Pardic Collaborator
+4 Spontaneous Combustion
+12 Swamp
+2 Tainted Peak
+2 Terminate
+4 Wrecking Ball

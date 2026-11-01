@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro W #20266273]
+1 Advance Scout
+1 Alabaster Mage
+1 Alaborn Trooper
+1 Alert Shu Infantry
+1 Asha's Favor
+1 Banishing Stroke
+1 Beloved Chaplain
+1 Black Scarab
+1 Brainwash
+1 Branch of Vitu-Ghazi
+1 City of Shadows
+1 Clergy of the Holy Nimbus
+1 Combat Medic
+1 Dragon's Eye Sentry
+1 Dromoka Warrior
+1 Eager Cadet
+1 Earth Kingdom Protectors
+1 Enchanted Being
+1 Equinox
+1 Expedition Envoy
+1 Farmstead
+1 Femeref Healer
+1 Fleet-Footed Monk
+1 Flickering Ward
+1 Foot Soldiers
+1 Foriysian Brigade
+1 Glory Seeker
+1 Griffin Canyon
+1 Haazda Shield Mate
+1 Icatian Phalanx
+1 Icatian Scout
+1 Imperial Outrider
+1 Kelsinko Ranger
+1 Kjeldoran Escort
+1 Knight Errant
+1 Knight of New Benalia
+1 Knight of the Keep
+1 Knights of Thorn
+1 Kyoshi Warrior Guard
+1 Mantle of Leadership
+1 Martyrs of Korlis
+1 Master Healer
+1 Militant Monk
+1 Nightguard Patrol
+32 Plains
+1 Prismatic Ward
+1 Rhox Pikemaster
+1 Righteous Avengers
+1 Sacred Knight
+1 Saltfield Recluse
+1 Shield Bearer
+1 Shu Foot Soldiers
+1 Silver Knight
+1 Skyline Scout
+1 Sokka, Wolf Cove's Protector
+1 Squire
+1 Standing Troops
+1 Steadfast Guard
+1 Sun Sentinel
+1 Sword Dancer
+1 Thespian's Stage
+1 Thraben Valiant
+1 Trokin High Guard
+1 Valiant Guard
+1 Veteran Cavalier
+1 Windswept Heath
+1 Wolf Cove Villager
+1 Wooded Foothills
+
+[commander]
+Hawkeye, Clint Barton

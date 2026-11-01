@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/WOE/backup-beatdown.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BackupBeatdown_WOE.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Backup Beatdown (Adapted)]
+4 Advent of the Wurm
+4 Blossoming Sands
+2 Broken Wings
+4 Call of the Conclave
+3 Diving Griffin
+12 Forest
+1 Gerrard's Command
+1 Giant Growth
+4 Heroes' Reunion
+2 Iridescent Blademaster
+2 Magnigoth Sentry
+10 Plains
+2 Samite Herbalist
+4 Selesnya Charm
+1 Siege Veteran
+1 Titanic Growth
+3 Vitalizing Cascade

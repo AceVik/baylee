@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange BRG #20266306]
+2 Acidic Sliver
+1 Ally Encampment
+2 Alpha Kavu
+2 Bog Tatters
+3 Brotherhood Headquarters
+2 Crowd of Cinders
+2 Crypt Ripper
+2 Deathbellow Raider
+2 Dirtwater Wraith
+2 Drift of the Dead
+2 Ebony Treefolk
+2 Firescreamer
+2 Forerunner of Slaughter
+1 Forest
+2 Ghostly Changeling
+2 Henge of Ramos
+2 Hooded Kavu
+4 Mountain
+2 Raging Kavu
+2 Sedge Troll
+2 Serpentine Kavu
+2 Skeletal Changeling
+3 Springjack Pasture
+10 Swamp
+2 Vicious Kavu

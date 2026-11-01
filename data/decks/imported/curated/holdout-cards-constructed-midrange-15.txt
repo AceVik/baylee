@@ -1,0 +1,20 @@
+# baylee unseen-card holdout constructed seed=90000025
+# licence: AGPL-3.0-only
+[deck:constructed midrange WB #90000025]
+3 Bishop of Wings
+1 Captivating Cave
+2 Conduit Pylons
+3 Desolate Mire
+4 Hero of the Dunes
+2 Honored Knight-Captain
+2 Icatian Moneychanger
+2 Liliana the Repentant
+4 Loran, Disciple of History
+4 Metamorphosis Fanatic
+3 Neva, Stalked by Nightmares
+11 Plains
+3 Secret Base
+4 Shinra Reinforcements
+4 Slumbering Keepguard
+4 Swamp
+4 Undead Slayer

@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/RTR/golgari-growth.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GolgariGrowth_RTR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Golgari Growth (Adapted)]
+3 Abrupt Decay
+1 Acidic Slime
+1 Aerial Predation
+2 Daggerdrome Imp
+1 Disentomb
+2 Drain the Well
+12 Forest
+4 Gaze of Granite
+1 Gobbling Ooze
+1 Golgari Guildgate
+2 Golgari Keyrune
+2 Golgari Longlegs
+4 Maelstrom Pulse
+1 Murder
+4 Pest Summoning
+1 Serpent's Gift
+1 Stonefare Crocodile
+12 Swamp
+2 Tear Asunder
+3 Walking Corpse

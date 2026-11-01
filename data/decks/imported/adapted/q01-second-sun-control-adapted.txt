@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/Q01/second-sun-control.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SecondSunControl_Q01.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Second Sun Control (Adapted)]
+4 Absorb
+4 Censor
+4 Daring Leap
+2 Dramatic Rescue
+4 Energy Arc
+2 Field of Ruin
+2 Ipnu Rivulet
+4 Irrigated Farmland
+10 Island
+4 Offering to Asha
+4 Ojutai's Command
+4 Opt
+8 Plains
+4 Sphinx's Revelation

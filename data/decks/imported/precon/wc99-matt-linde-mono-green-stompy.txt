@@ -1,0 +1,16 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, MattLindeMonoGreenStompy_WC99.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Matt Linde - Mono-Green Stompy]
+4 Albino Troll
+4 Cursed Scroll
+4 Elvish Lyrist
+14 Forest
+4 Gaea's Cradle
+4 Giant Growth
+4 Llanowar Elves
+4 Pouncing Jaguar
+4 Rancor
+4 River Boa
+4 Treetop Village
+2 Uktabi Orangutan
+4 Wild Dogs

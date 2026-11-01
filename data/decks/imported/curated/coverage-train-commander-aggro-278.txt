@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro U #20266279]
+1 Ancient Crab
+1 Anti-Magic Aura
+1 Aura Thief
+1 Blind Phantasm
+1 Buoyancy
+1 Cathedral of War
+1 Cephalid Inkshrouder
+1 Cephalid Retainer
+1 Chronatog
+1 Cloud Manta
+1 Convincing Mirage
+1 Coral Eel
+1 Crossroads Village
+1 Crumbling Vestige
+1 Curio Vendor
+1 Dandân
+1 Devouring Deep
+1 Drafna's Restoration
+1 Dream Prowler
+1 Edgewall Inn
+1 Elvenking's Harper
+1 Enchantment Alteration
+1 Forsaken Crossroads
+1 Fortress Crab
+1 Freed from the Real
+1 Giant Crab
+1 Giant Octopus
+1 Hammerhead Shark
+1 Homarid Shaman
+1 Horseshoe Crab
+1 Infiltrate
+32 Island
+1 Mana Short
+1 Manta Ray
+1 Merfolk Seastalkers
+1 Mirror Image
+1 Mnemonic Sliver
+1 Moat Piranhas
+1 Morphling
+1 Naga Eternal
+1 Oraxid
+1 Phantasmal Image
+1 Phase Dolphin
+1 Pin to the Earth
+1 Relic's Roar
+1 Reset
+1 School of Piranha
+1 Scion of Glaciers
+1 Seagraf Skaab
+1 Second Wind
+1 Sinking Feeling
+1 Slimebind
+1 So Shiny
+1 Somnophore
+1 Spark Double
+1 Telekinesis
+1 Tendo Ice Bridge
+1 Thalakos Mistfolk
+1 Thirst
+1 Thoughtlace
+1 Tightening Coils
+1 Treachery
+1 Walking Sponge
+1 Water Elemental
+1 Watercourser
+1 Wave Elemental
+1 Wetland Sambar
+1 You See a Guard Approach
+
+[commander]
+Caelorna, Coral Tyrant

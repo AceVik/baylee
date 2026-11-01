@@ -29,9 +29,11 @@ pub struct SecretSlot {
 
 impl SecretSlot {
     /// The entry for the account `tag` on the gateway at `gateway` (a base
-    /// URL; its scheme and path are not part of the entry).
+    /// URL; its scheme and path are not part of the entry). The live gateway
+    /// is named by the address its keys are bound to (`gateway_list::keyed`).
     #[must_use]
     pub fn new(tag: &str, gateway: &str) -> Self {
+        let gateway = crate::lobby::gateway_list::keyed(gateway.trim());
         Self {
             service: SERVICE,
             account: format!("{tag}@{}", host_of(gateway)),

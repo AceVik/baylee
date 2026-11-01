@@ -1,0 +1,83 @@
+# adapted from data/decks/precon/TD0/deathdancer-xira.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DeathdancerXira_TD0.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Deathdancer Xira (Adapted)]
+1 Abyssal Gatekeeper
+1 All Hallow's Eve
+1 Anarchist
+1 Animate Dead
+1 Ashes to Ashes
+1 Atrocious Experiment
+1 Awaken the Bear
+1 Barren Moor
+1 Bolt of Keranos
+1 Buried Alive
+1 Call the Scions
+1 Carrion Feeder
+1 Cast Away Doubt
+1 Chain Lightning
+1 Chord of Calling
+1 Complete Disregard
+1 Confidence from Strength
+1 Cultivate
+1 Darigaaz's Caldera
+1 Darigaaz's Charm
+1 Eldritch Evolution
+1 Elven Cache
+1 Elvish Visionary
+1 Eternal Witness
+1 Fiery Cannonade
+1 Fires of Yavimaya
+1 Flametongue Kavu
+10 Forest
+1 Forgotten Cave
+1 Gaea's Bounty
+1 Gaze of Granite
+1 Ghost Quarter
+1 Golgari Rot Farm
+1 Golgari Signet
+1 Golgari Thug
+1 Growth Spasm
+1 Gruul Turf
+1 Hammer of Bogardan
+1 Harmonize
+1 Hideous End
+1 Infernal Contract
+1 Jund Panorama
+1 Kodama's Reach
+1 Lightning Bolt
+1 Lightning Greaves
+1 Maelstrom Pulse
+7 Mountain
+1 Ob Nixilis's Cruelty
+1 Pest Summoning
+1 Phyrexian Arena
+1 Phyrexian Tribute
+1 Plummet
+1 Pointed Discussion
+1 Pulse of Murasa
+1 Rakdos Carnarium
+1 Rakdos Signet
+1 Rakshasa's Secret
+1 Recollect
+1 Recover
+1 Renewal
+1 Rootbreaker Wurm
+1 Rupture Spire
+1 Savage Lands
+1 Silverglade Pathfinder
+1 Skullclamp
+1 Slagstorm
+8 Swamp
+1 Swat
+1 Sweltering Suns
+1 Talisman of Impulse
+1 Terminate
+1 Terramorphic Expanse
+1 Terror
+1 Tranquil Thicket
+1 Uncaged Fury
+1 Wickerbough Elder
+1 Wind Shear
+
+[commander]
+Xira Arien

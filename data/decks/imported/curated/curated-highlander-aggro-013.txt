@@ -1,0 +1,81 @@
+# baylee curated highlander aggro seed=20261036
+# licence: AGPL-3.0-only
+[deck:highlander aggro BG #20261036]
+1 Acolyte of Xathrid
+1 Al Bhed Salvagers
+1 Argothian Enchantress
+1 Arnyn, Deathbloom Botanist
+1 Atrocious Experiment
+1 Ayara, First of Locthwain
+1 Baldur's Gate
+1 Battlewand Oak
+1 Beast Whisperer
+1 Bitterbloom Bearer
+1 Blightcaster
+1 Boomerang, Blade Flinger
+1 Cabal Archon
+1 Callous Inspector
+1 Cascading Cataracts
+1 Crucible of the Spirit Dragon
+1 Damnable Pact
+1 Death Cultist
+1 Deathgreeter
+1 Deathrite Shaman
+1 Deeproot Champion
+1 Disciple of the Vault
+1 Doomed Dissenter
+1 Dream Beavers
+1 Elvish Handservant
+1 Fear of Lost Teeth
+1 Fell the Pheasant
+6 Forest
+1 Foul-Tongue Shriek
+1 Generous Visitor
+1 Greedy Freebooter
+1 Grim Tutor
+1 Henge of Ramos
+1 Hidden Grotto
+1 Holdout Settlement
+1 Imperial Seal
+1 Jasmine Dragon Tea Shop
+1 Kami of the Waning Moon
+1 Leaf-Crowned Visionary
+1 Lys Alana Bowmaster
+1 Lys Alana Huntmaster
+1 Mai, Scornful Striker
+1 Mana Confluence
+1 Marionette Apprentice
+1 Medusa, Inhuman Queen
+1 Mirrex
+1 Misery Charm
+1 Mold Adder
+1 Night Market Lookout
+1 Night's Whisper
+1 Nightshade Harvester
+1 Novice Occultist
+1 Painful Quandary
+1 Painsmith
+1 Painted Bluffs
+1 Quill-Slinger Boggart
+1 Quirion Dryad
+1 Read the Bones
+1 Reanimate
+1 Sewers of Estark
+1 Shattered Crypt
+1 Skirsdag Supplicant
+1 Soilshaper
+1 Survivors' Encampment
+18 Swamp
+1 Three Tree City
+1 Titania's Chosen
+1 Touch of Death
+1 Ulcerate
+1 Vampire's Kiss
+1 Vampiric Tutor
+1 Verduran Enchantress
+1 Voldaren Estate
+1 Walking Ballista
+1 White Lotus Hideout
+1 Yawgmoth's Edict
+1 Zulaport Cutthroat
+1 Zuran Orb

@@ -2,8 +2,8 @@
 // in the query string, so a filtered view can be linked), one report at
 // `/r/{id}`, and the admin console under `/admin`: its overview, the live
 // tables, the accounts (searched in the query string), one account, the
-// pool's progress by set and one set, the blocked cards, and the
-// closed-beta keys; and the landing page's contact messages at `/contact`
+// pool's progress by set and one set, the blocked cards, the closed-beta
+// keys, and who comes in; and the landing page's contact messages at `/contact`
 // (filtered in the query string) and one at `/contact/{id}`.
 
 import { useEffect, useState } from "react";
@@ -14,7 +14,7 @@ export type Route =
   | { page: "contact"; search: string; id?: string }
   | { page: "admin"; section: AdminSection; id?: string; search?: string };
 
-export const ADMIN_SECTIONS = ["overview", "live", "accounts", "sets", "cards", "keys", "models"] as const;
+export const ADMIN_SECTIONS = ["overview", "live", "accounts", "sets", "cards", "keys", "models", "access", "central"] as const;
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
 
 export function adminPath(section: AdminSection, id?: string): string {
@@ -33,7 +33,7 @@ export function parseRoute(pathname: string, search: string): Route {
   const contact = /^\/contact\/([^/]+)\/?$/.exec(pathname);
   if (contact?.[1] !== undefined) return { page: "contact", search: "", id: decodeURIComponent(contact[1]) };
   if (/^\/admin\/?$/.test(pathname)) return { page: "admin", section: "overview" };
-  const admin = /^\/admin\/(live|accounts|sets|cards|keys|models)(?:\/([^/]+))?\/?$/.exec(pathname);
+  const admin = /^\/admin\/(live|accounts|sets|cards|keys|models|access|central)(?:\/([^/]+))?\/?$/.exec(pathname);
   if (admin) {
     const section = admin[1] as AdminSection;
     const id = admin[2];

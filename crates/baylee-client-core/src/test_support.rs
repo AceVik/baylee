@@ -64,6 +64,7 @@ pub fn project_current_targets(view: &mut PlayerView) {
 pub fn token(slot: u32, controller: u8, name: &str, power: i16, toughness: i16) -> PublicObject {
     PublicObject {
         battle_protector: None,
+        ability_sources: Vec::new(),
         word_changes: Vec::new(),
         mana_value: 0,
         id: ObjectId::new(slot, 0),
@@ -184,6 +185,8 @@ impl ViewBuilder {
                 owed: None,
                 targeting: None,
                 casting: None,
+                announced_cast: None,
+                announced_x: None,
                 sorcery_lock: None,
                 sorceries_have_flash: false,
             },

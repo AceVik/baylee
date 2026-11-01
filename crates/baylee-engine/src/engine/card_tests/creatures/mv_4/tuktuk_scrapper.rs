@@ -135,3 +135,81 @@ fn tuktuk_scrapper_destroys_an_artifact_and_burns_its_controller_for_each_ally()
         "the Scrapper outlives its own trigger"
     );
 }
+
+/// The trigger object whose source is the Scrapper, and the proof it was
+/// removed rather than resolved with an empty effect list.
+fn assert_removed_without_resolving(engine: &Engine<RegistryLookup>, source: ObjectId) {
+    let object = engine
+        .journal()
+        .entries()
+        .iter()
+        .find_map(|entry| match entry.event {
+            GameEvent::AbilityTriggered {
+                object,
+                source: from,
+                ..
+            } if from == source => Some(object),
+            _ => None,
+        })
+        .expect("the Scrapper's rally trigger");
+    assert!(
+        engine.journal().entries().iter().any(|entry| matches!(
+            entry.event,
+            GameEvent::StackObjectDidNotResolve { object: gone } if gone == object
+        )),
+        "an empty optional target removes the trigger without resolving it"
+    );
+    assert!(
+        !engine.journal().entries().iter().any(|entry| matches!(
+            entry.event,
+            GameEvent::StackObjectResolved { object: done } if done == object
+        )),
+        "and it never resolves as an empty ability"
+    );
+}
+
+/// Declining the up-to-one target is not a request to put an empty trigger
+/// on the stack. The artifact is present so the target question is real.
+#[test]
+fn tuktuk_scrapper_declining_its_target_removes_the_trigger() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+        .hand(0, &[tuktuk_scrapper()])
+        .battlefield(1, &[quiet_artifact()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    cast_from_hand(&mut engine, p0, tuktuk_scrapper());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseTargets {
+                objects: Vec::new(),
+                players: Vec::new(),
+            },
+        )
+        .expect("up to one permits the empty answer");
+    pass_until(&mut engine, stack_is_empty);
+    let source = on_battlefield(&engine, p0, tuktuk_scrapper()).expect("the Scrapper entered");
+    assert_removed_without_resolving(&engine, source);
+}
+
+/// With no legal object at all, the same removal happens without a question.
+#[test]
+fn tuktuk_scrapper_with_no_artifact_never_stacks_an_empty_trigger() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, mountain())
+        .battlefield(0, &[mountain(), mountain(), mountain(), mountain()])
+        .hand(0, &[tuktuk_scrapper()])
+        .start();
+    keep_mulligans(&mut engine);
+    assert!(walk_to_own_main(&mut engine, p0), "p0 reaches its own main");
+    cast_from_hand(&mut engine, p0, tuktuk_scrapper());
+    pass_until(&mut engine, stack_is_empty);
+    let source = on_battlefield(&engine, p0, tuktuk_scrapper()).expect("the Scrapper entered");
+    assert_removed_without_resolving(&engine, source);
+}

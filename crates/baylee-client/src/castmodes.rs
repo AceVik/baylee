@@ -66,7 +66,7 @@
 //! nothing else, so here there is no tax to add rather than one left unread.
 
 use baylee_cards_dsl::{AltCondition, CostPart, Filter};
-use baylee_client_core::manaplan::{self, Plan};
+use baylee_client_core::manaplan::Plan;
 use baylee_core::ids::ObjectId;
 use baylee_core::mana::ManaCost;
 use baylee_engine::choice::{CastModeKind, LegalActions};
@@ -127,11 +127,12 @@ pub fn reachable_modes(
     else {
         return Vec::new();
     };
-    let sources = crate::manasources::sources(view, legal);
     let mut out = Vec::new();
     let mut offer = |kind, cost: ManaCost| {
         let cost = cost.with_more_generic(legal.spell_increase(card, kind));
-        if let Some(plan) = manaplan::plan_with_life(&cost, &pool, &sources, life) {
+        if let Some(plan) =
+            crate::manasources::plan_with_life_for_spell(&cost, &pool, view, legal, card, life)
+        {
             out.push(ReachableMode { kind, cost, plan });
         }
     };
@@ -298,6 +299,7 @@ fn parts_payable(view: &PlayerView, card: ObjectId, parts: &[CostPart]) -> bool 
         | CostPart::SacrificeAll(_)
         | CostPart::PutCounterOnOther { .. }
         | CostPart::ExileFromSingleGraveyard { .. }
+        | CostPart::ExileTopOfLibrary(_)
         | CostPart::PayAttachedManaCost => false,
     })
 }

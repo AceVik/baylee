@@ -1,0 +1,80 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WRG #20266070]
+1 Arc Runner
+1 Argothian Treefolk
+1 Asgardian Citadel
+1 Blanchwood Treefolk
+1 Bleeding Woods
+1 Bristling Backwoods
+1 Champion's Helm
+1 Changeling Sentinel
+1 Chariot of Victory
+1 Chimeric Staff
+1 Cinder Glade
+1 Cursed Rack
+1 Daggerback Basilisk
+1 Eldrazi Devastator
+1 Forcefield
+13 Forest
+1 Foundry Champion
+1 Fyndhorn Brownie
+1 Game Trail
+1 Gangly Stompling
+1 Garrison Sergeant
+1 Giant Badger
+1 Glorifier of Dusk
+1 Gnarled Mass
+1 Gnottvold Slumbermound
+1 Gongaga, Reactor Town
+1 Guardian Lions
+1 Haunted Cloak
+1 Heartwood Treefolk
+1 Highland Forest
+1 Highland Weald
+1 Hollowhead Sliver
+1 Indomitable Ancients
+1 Iroas's Champion
+1 Lagac Lizard
+1 Land Leeches
+1 Leaping Lizard
+1 Lightning Spear
+1 Los Diablos Missile Base
+1 Loxodon Anchorite
+1 Loxodon Convert
+1 Loxodon Gatekeeper
+1 Marisi's Twinclaws
+1 Mossfire Egg
+1 Nema Siltlurker
+1 Nemesis Mask
+1 Niall Silvain
+1 North Star
+1 Omashu City
+12 Plains
+1 Power Matrix
+1 Quicksilver Amulet
+1 Rabanastre, Royal City
+1 Racers' Ring
+1 Reflecting Mirror
+1 Riot Devils
+1 Rowan Treefolk
+1 Savage Mansion
+1 Scarwood Treefolk
+1 Selesnya Sentry
+1 Shield of Kaldra
+1 Skycrash
+1 Slagwoods Bridge
+1 Stone Spirit
+1 Sunglasses of Urza
+1 Sungrass Egg
+1 Talisman of Conviction
+1 Talisman of Unity
+1 Tawnos's Coffin
+1 Thran Weaponry
+1 Towering Thunderfist
+1 Umbilicus
+1 Viashino Outrider
+1 Viashino Sandswimmer
+1 Worldly Tutor
+1 Yavimaya Scion
+1 Zodiac Dog

@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro UG #20266129]
+1 Accelerated Evolution
+1 Alexi's Cloak
+1 Ambassador Laquatus
+1 Apathy
+1 Arid Mesa
+1 Aura Thief
+1 Blue Elemental Blast
+1 Buoyancy
+1 Chill
+1 Cloud Dragon
+1 Drifter il-Dal
+1 Drowner of Secrets
+1 Drownyard Temple
+1 Elvish Scrapper
+1 Emeritus of Ideation
+1 Faerie Invaders
+1 Faerie Noble
+1 Faerie Swarm
+1 Field of Dreams
+1 Flash Flood
+1 Fleeting Image
+1 Floodbringer
+1 Flying Dolphin-Fish
+4 Forest
+1 Forgotten Monument
+1 Fugitive Wizard
+1 Gaea's Skyfolk
+1 Gyre Engineer
+1 Hedge Maze
+1 Hinterland Harbor
+1 Hover Barrier
+1 Indigo Faerie
+20 Island
+1 Krovikan Mist
+1 Lush Oasis
+1 Mage's Guile
+1 Majestic Metamorphosis
+1 Metropolis Sprite
+1 Mistfolk
+1 Nature's Chosen
+1 Oboro Breezecaller
+1 Oboro Envoy
+1 Oko's Accomplices
+1 Phantasmal Mount
+1 Pixie Queen
+1 Promising Vein
+1 Pseudodragon Familiar
+1 Rain-Slicked Copse
+1 Rejuvenating Springs
+1 Rootwater Mystic
+1 Scattershot Archer
+1 Sea Sprite
+1 Sea's Claim
+1 Sentinels of Glen Elendra
+1 Serendib Djinn
+1 Serendib Efreet
+1 Simic Growth Chamber
+1 Simic Guildgate
+1 Skyshroud Forest
+1 Sleep Magic
+1 Snow Devil
+1 Soratami Mirror-Guard
+1 Soratami Rainshaper
+1 Tangle Kelp
+1 Thassa's Ire
+1 Tropical Storm
+1 Urza's Factory
+1 Urza's Saga
+1 Vaporkin
+1 Vedalken Heretic
+1 Weatherseed Faeries
+1 Wind Dancer
+1 Wind Strider
+1 Windrider Patrol
+1 Zephid
+1 Zephyr Net
+1 Zephyr Sprite
+
+[commander]
+Tamiyo, Inquisitive Student

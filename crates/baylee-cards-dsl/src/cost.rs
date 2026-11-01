@@ -274,6 +274,9 @@ pub enum CostPart {
     /// (Merseine: "Enchanted creature's controller may pay enchanted
     /// creature's mana cost").
     PayAttachedManaCost,
+    /// Exile the top N cards of your library (Arc-Slogger: "Exile the top ten
+    /// cards of your library").
+    ExileTopOfLibrary(u8),
 }
 
 /// A cost reduction printed on a card (Surgical Metamorph) or on one of its

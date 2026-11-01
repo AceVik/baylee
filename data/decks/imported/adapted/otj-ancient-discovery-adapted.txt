@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/OTJ/ancient-discovery.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AncientDiscovery_OTJ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ancient Discovery (Adapted)]
+4 Abraded Bluffs
+4 Arrows of Justice
+2 Attentive Sunscribe
+2 Double Cleave
+4 Energy Bolt
+2 Hidden Courtyard
+2 Hidden Volcano
+1 Inspiring Vantage
+4 Legion Leadership
+4 Lightning Helix
+4 Martial Glory
+8 Mountain
+2 Oltec Cloud Guard
+8 Plains
+2 Rip Apart
+4 Spirit Summoning
+2 Tinker's Tote
+1 Warleader's Call

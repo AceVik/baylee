@@ -1,0 +1,86 @@
+# baylee unseen-card holdout commander seed=90000008
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #90000008]
+1 Abu Ja'far
+1 Aether Hub
+1 Ancestral Vision
+1 Baldur's Gate
+1 Bear's Companion
+1 Behemoth's Herald
+1 Beskir Shieldmate
+1 Brazen Freebooter
+1 Callous Inspector
+1 Captivating Cave
+1 Caregiver
+1 Cartouche of Solidarity
+1 City of Brass
+1 Claws of Gix
+1 Common Crook
+1 Conscripted Infantry
+1 Crystal Quarry
+1 Deathknell Berserker
+1 Decomposition
+1 Delney, Streetwise Lookout
+1 Diregraf Captain
+1 Doomed Dissenter
+1 Doomed Traveler
+1 Dragonmaster Outcast
+1 Dwarven Castle Guard
+1 Festering Goblin
+1 Flamewright
+1 Forecasting Fortune Teller
+6 Forest
+1 Forsaken City
+1 Glimmervoid
+1 Glissa, the Traitor
+1 Gnawing Zombie
+1 Goblin Bombardment
+1 Godsire
+1 Greedy Freebooter
+1 Grim Guardian
+1 Grim Physician
+1 Hanweir Garrison
+1 Hapatra, Vizier of Poisons
+1 Headless Rider
+1 Hidden Grotto
+1 Hunted Witness
+1 Infestation Sage
+1 Inheritance
+1 Inquisitor Greyfax
+1 Intruding Soulrager
+4 Island
+1 Jasmine Dragon Tea Shop
+1 Judith, the Scourge Diva
+1 Jund Battlemage
+1 Lazotep Quarry
+1 Llanowar Mentor
+1 Marionette Apprentice
+1 Martyr of Dusk
+1 Mountain
+1 Orochi Hatchery
+1 Pillar of the Paruns
+10 Plains
+1 Planar Nexus
+1 Precinct Captain
+1 Pretending Poxbearers
+1 Rinoa Heartilly
+1 Rufus Shinra
+1 Shambling Goblin
+1 Skemfar Avenger
+1 Spectral Procession
+1 Stark Industries Executive
+1 Sunspire Gatekeepers
+3 Swamp
+1 Tarnished Citadel
+1 Third Path Iconoclast
+1 Thraben Standard Bearer
+1 Three Tree City
+1 Treetop Freedom Fighters
+1 Tunnel Surveyor
+1 Urza, Lord High Artificer
+1 Venerable Knight
+1 Village Elder
+1 Wretched Throng
+
+[commander]
+Go-Shintai of Life's Origin

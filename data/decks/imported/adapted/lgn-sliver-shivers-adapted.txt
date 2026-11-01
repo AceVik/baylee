@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/LGN/sliver-shivers.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SliverShivers_LGN.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sliver Shivers (Adapted)]
+7 Forest
+3 Gaea's Bounty
+5 Island
+2 Lonely Sandbar
+2 Mage's Guile
+4 Pacifism
+9 Plains
+4 Plated Sliver
+2 Repentance
+4 Secluded Steppe
+4 Serpent's Gift
+3 Shifting Sliver
+2 Thornado
+4 Treva's Charm
+4 Wargate
+1 Withstand

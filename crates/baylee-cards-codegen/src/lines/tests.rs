@@ -1,7 +1,11 @@
+mod modal_subsets;
+mod spell_grants;
+mod targeted_mana;
+
 use super::*;
 use baylee_cards_dsl::effect::{Amount, Effect};
 use baylee_cards_dsl::filter::Filter;
-use baylee_cards_dsl::loyalty;
+use baylee_cards_dsl::{SpellMode, loyalty};
 
 #[test]
 fn modal_activation_keeps_its_shared_cost_and_refuses_a_different_cost() {
@@ -546,6 +550,16 @@ fn a_keyword_whose_reminder_spells_out_an_ability_is_an_activated_one() {
         !reminder_spells_out_an_ability("Trample"),
         "a keyword printed with no reminder at all spells out nothing",
     );
+}
+
+#[test]
+fn a_life_cost_equip_line_keeps_its_printed_sentence() {
+    let equip = "Equip—Pay 3 life. (Pay 3 life: Attach to target creature you control. \
+                 Equip only as a sorcery.)";
+    let ability = baylee_cards_dsl::equip!(baylee_cards_dsl::cost!(PayLife(3)));
+    let oracle = format!("Equipped creature gets +1/+1 for each Swamp you control.\n{equip}");
+    assert_eq!(line_shape(equip), LineShape::Activated);
+    assert_eq!(map(&[ability], &oracle).lines, [Some(1)]);
 }
 
 /// Three loyalty abilities, printed the way a walker prints them.
@@ -1167,4 +1181,41 @@ fn exert_payment_distinguishes_otherwise_identical_activation_costs() {
     assert!(!cost_fits(&exert, "{R}, {T}: Add {R}{R}."));
     assert!(parts_fit(exert.parts, "exert this land"));
     assert!(!parts_fit(exert.parts, "tap this land"));
+}
+
+#[test]
+fn a_self_trigger_narrowed_by_a_condition_keeps_its_own_sentence() {
+    use baylee_cards_dsl::{Trigger, counters, triggered};
+    static RETURNS: Filter = Filter::And(&[
+        Filter::This,
+        Filter::Not(&Filter::HasCounter(counters::DEATH)),
+    ]);
+    static EXILES: Filter = Filter::And(&[Filter::This, Filter::HasCounter(counters::DEATH)]);
+    let returns = triggered!(Trigger::Dies(&RETURNS), &[Effect::ExileSource]);
+    let exiles = triggered!(Trigger::Dies(&EXILES), &[Effect::ExileSource]);
+    let text = "Flying\nWhen this creature dies, exile it if it had a death counter on it. Otherwise, return it to the battlefield under your control and put a death counter on it.";
+    assert_eq!(map(&[returns, exiles], text).lines, [Some(1), Some(1)]);
+}
+
+#[test]
+fn life_loss_trigger_lines_keep_their_event_and_player_relation() {
+    use baylee_cards_dsl::{PlayerRel, Trigger, triggered};
+    let ability = triggered!(Trigger::LosesLife(PlayerRel::You), &[]);
+    assert!(content_fits(
+        &ability,
+        "Whenever you lose life, draw a card."
+    ));
+    assert!(!content_fits(
+        &ability,
+        "Whenever you gain life, draw a card."
+    ));
+    assert!(!content_fits(
+        &ability,
+        "Whenever an opponent loses life, draw a card."
+    ));
+    let opponent = triggered!(Trigger::LosesLife(PlayerRel::Opponent), &[]);
+    assert!(content_fits(
+        &opponent,
+        "Whenever an opponent loses life, draw a card."
+    ));
 }

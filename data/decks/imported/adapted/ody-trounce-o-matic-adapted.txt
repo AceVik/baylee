@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/ODY/trounce-o-matic.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TrounceOMatic_ODY.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Trounce-O-Matic (Adapted)]
+1 Airship Crash
+4 Auroral Procession
+2 Bridgeworks Battle
+2 Careful Study
+2 Cephalid Looter
+2 Cultivate
+1 Deluge
+4 Double Major
+13 Forest
+4 Hydroform
+9 Island
+1 Ivy Elemental
+2 Muscle Burst
+4 Neoform
+1 Overrun
+1 Seafloor Debris
+4 Square Up
+1 Timberland Ruins
+1 Typhoon
+1 Woodcutter's Grit

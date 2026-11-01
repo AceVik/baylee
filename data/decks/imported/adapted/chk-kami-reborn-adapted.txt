@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/CHK/kami-reborn.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, KamiReborn_CHK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Kami Reborn (Adapted)]
+4 Abrupt Decay
+2 Assassin's Trophy
+2 Drain the Well
+12 Forest
+4 Gaze of Granite
+2 Hana Kami
+2 Kami of the Hunt
+2 Kodama's Reach
+4 Maelstrom Pulse
+4 Pest Summoning
+2 Pull Under
+2 Soilshaper
+2 Swallowing Plague
+12 Swamp
+4 Tear Asunder

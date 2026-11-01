@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/DDP/eldrazi.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Eldrazi_DDP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Eldrazi (Adapted)]
+3 Akoum Refuge
+3 Auger Spree
+4 Bedevil
+1 Bloodrite Invoker
+1 Bloodthrone Vampire
+1 Cadaver Imp
+1 Consume the Meek
+1 Corpsehatch
+4 Delirium
+1 Eldrazi Temple
+3 Emrakul's Hatcher
+1 Forerunner of Slaughter
+1 Kookus
+2 Mind Stone
+7 Mountain
+1 Pawn of Ulamog
+2 Read the Bones
+2 Rocky Tar Pit
+2 Runed Servitor
+1 Smother
+4 Spontaneous Combustion
+13 Swamp
+1 Vampire Nighthawk

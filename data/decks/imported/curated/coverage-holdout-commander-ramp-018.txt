@@ -1,0 +1,81 @@
+# baylee synergistic holdout coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WG #90010019]
+1 Affa Protector
+1 Akron Legionnaire
+1 Al-abara's Carpet
+1 Alpine Watchdog
+1 Amrou Kithkin
+1 Arachnoid
+1 Branchloft Pathway
+1 Captain of the Watch
+1 Captivating Cave
+1 Cascading Cataracts
+1 Chromatic Lantern
+1 Citywide Bust
+1 Colossodon Yearling
+1 Copper Tablet
+1 Corrupted Crossroads
+1 Crash of Rhinos
+1 Crushing Vines
+1 Crystal Grotto
+1 Disrupting Scepter
+1 Divine Transformation
+1 Dust to Dust
+1 Elite Inquisitor
+1 Fanatical Strength
+12 Forest
+1 Gearsmith Guardian
+1 Gilded Goose
+1 Gorilla Warrior
+1 Greatsword
+1 Grim Monolith
+1 Heavy Mattock
+1 Horn of Greed
+1 Hovermyr
+1 Igneous Golem
+1 Inspiring Commander
+1 Iona's Judgment
+1 Jasmine Dragon Tea Shop
+1 Keepers of the Faith
+1 Knowledge Vault
+1 Kor Castigator
+1 Kor Line-Slinger
+1 Krosan Grip
+1 Leaf Dancer
+1 Lumra, Bellow of the Woods
+1 Lunatic Pandora
+1 Maelstrom of the Spirit Dragon
+1 Many Partings
+1 Maul Splicer
+1 Mech Hangar
+1 Mirrex
+1 Mirrodin's Core
+1 Nantuko Monastery
+1 Narstad Scrapper
+1 Orim, Samite Healer
+1 Oversoul of Dusk
+14 Plains
+1 Rainbow Vale
+1 Risen Sanctuary
+1 Saltcrusted Steppe
+1 Shanodin Dryads
+1 Silent Artisan
+1 Simian Grunts
+1 Somberwald Dryad
+1 Spined Karok
+1 Sun Titan
+1 Sungrass Egg
+1 Thran Forge
+1 Turtle Lair
+1 Vec Townships
+1 Veldt
+1 Wand of Ith
+1 Wandering Wolf
+1 White Mana Battery
+1 Withstand Death
+1 Worry Beads
+1 Zendikar Farguide
+
+[commander]
+Gabriel Angelfire

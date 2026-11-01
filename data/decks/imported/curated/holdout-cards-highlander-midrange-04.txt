@@ -1,0 +1,80 @@
+# baylee unseen-card holdout highlander seed=90000010
+# licence: AGPL-3.0-only
+[deck:highlander midrange UR #90000010]
+1 Abstergo Entertainment
+1 Agate Assault
+1 Ancestral Vision
+1 Arc Lightning
+1 Blaze
+1 Bloodshot Cyclops
+1 Bria, Riptide Rogue
+1 Broadside Barrage
+1 Builder's Bane
+1 Cascading Cataracts
+1 City of Brass
+1 Conduit Pylons
+1 Corrupt Eunuchs
+1 Earthshaker
+1 Eidolon of Philosophy
+1 Electrostatic Infantry
+1 Elusive Spellfist
+1 Equilibrium
+1 Ferrous Lake
+1 Firemind's Research
+1 Flame Jet
+1 Flame-Blessed Bolt
+1 Frenzied Devils
+1 Great Hall of the Biblioplex
+1 Halcyon Glaze
+1 Hammer of Bogardan
+1 Heap Gate
+1 Intruding Soulrager
+1 Invoke the Firemind
+11 Island
+1 Izzet Charm
+1 Lazotep Quarry
+1 Lightning Cloud
+1 Lightshell Duo
+1 Lost in a Labyrinth
+1 Lotus Path Djinn
+1 Mage-Ring Bully
+1 Mana Confluence
+1 Mana Drain
+1 Mercurial Geists
+1 Merrow Reejerey
+1 Meticulous Artisan
+1 Molten Blast
+14 Mountain
+1 Onslaught
+1 Pinnacle Monk
+1 Reckless Air Strike
+1 Ringwarden Owl
+1 Sanguinary Mage
+1 Sarkhan's Unsealing
+1 School of the Unseen
+1 Secluded Courtyard
+1 Shimmering Grotto
+1 Shipwreck Dowser
+1 Shivan Hellkite
+1 Sibilant Spirit
+1 Skycrash
+1 Soul Barrier
+1 Soul of Magma
+1 Spark Spray
+1 Spellshock
+1 Spitting Earth
+1 Stormchaser Mage
+1 Sundering Eruption
+1 Tarnished Citadel
+1 Tempest Angler
+1 The Seedcore
+1 Third Path Iconoclast
+1 Thorned Moloch
+1 Tibor and Lumia
+1 Traumatic Critique
+1 Umara Mystic
+1 Umara Wizard
+1 Undiscovered Paradise
+1 Urza, Lord High Artificer
+1 Vedalken Blademaster
+1 Volcanic Geyser

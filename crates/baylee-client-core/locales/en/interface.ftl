@@ -468,6 +468,39 @@ GatewaySaved = Saved { $url }.
 # Arguments: url
 GatewayNotFound = No Baylee gateway answered at { $url }. Check the address, or try again once it is up.
 
+# A `baylee:` link proposes a gateway (`docs/client.md` §"Links from the
+# website"): the question over the lobby. `$url` is the address in full, as
+# it would be saved.
+# Arguments: url
+LinkGatewayQuestion = Add { $url } to your gateways?
+
+# Under that question: what a gateway is, and what it is never given.
+LinkGatewayHint = A link asks for it. Gateways are run by other people: add one only if you know who runs it. Your Baylee Central password never goes to a gateway; a gateway that asks for a password asks for its own.
+
+# Under the hint, signed in at Baylee Central: which list it joins.
+LinkGatewayJoinsAccount = It joins your account's gateways.
+
+# Under the hint, not signed in at Baylee Central: which list it joins.
+LinkGatewayJoinsDevice = It joins this device's gateways.
+
+# The question's yes.
+LinkGatewayAdd = Add gateway
+
+# The question's no, which is also what Esc does.
+LinkNotNow = Not now
+
+# A gateway link found nobody signed in: under Baylee Central's sign-in,
+# why it is up, and what going back does instead.
+# Arguments: url
+LinkGatewaySignInFirst = Sign in, and Baylee asks whether to add { $url } to your account. Or go back to add it to this device.
+
+# A link proposed a gateway the list already has.
+# Arguments: url
+LinkGatewayKnown = { $url } is already in your gateways.
+
+# A link proposed a gateway, and the account's list is full.
+LinkGatewayListFull = Your account holds as many gateways as it can. Remove one before you add another.
+
 # Gateway row, beside its address, while it is being asked.
 GatewayCheckingShort = checking…
 
@@ -816,15 +849,13 @@ UpdateWhyOther = This update cannot be installed automatically.
 # Opens the release page.
 ReleaseNotes = Release notes
 
-# Puts the notice away for this session.
-UpdateHide = Hide
-
-# The ready update's offer, under its headline (beta.6): a restart
-# installs it and comes back to where the player is.
-UpdateRestartOffer = Update ready – restart now and continue where you are.
+# The ready update's offer, under its title (beta.6): a restart
+# installs it and comes back to where the player is; else it installs
+# when the player quits.
+UpdateRestartOffer = Restart now and carry on right where you are – or later: it installs when you quit.
 
 # The ready update's button: restart into it now.
-UpdateRestartNow = Restart now
+UpdateRestartNow = Restart to update
 
 # The ready update's other button: not now, for this session.
 UpdateLater = Later
@@ -870,6 +901,87 @@ UpdateUpToDate = Baylee is up to date.
 
 # A check that could not ask (offline, rate limited).
 UpdateCheckFailed = Could not check for updates.
+
+# The update card's title while an update downloads, verifies or
+# unpacks, or after its download failed. `$version` its version.
+# Arguments: version
+UpdateCardTitle = Update { $version }
+
+# The update card's title once the update is downloaded, verified and
+# waiting to be installed.
+# Arguments: version
+UpdateCardReady = Update { $version } is ready
+
+# The update card's title for an update that does not install itself.
+# Arguments: version
+UpdateCardAvailable = Update { $version } available
+
+# Above the card's bar: the update's archive is arriving.
+UpdateDownloading = Downloading…
+
+# Above the full bar: its checksum and signature are being checked.
+UpdateVerifying = Verifying…
+
+# Above the full bar: it is being unpacked beside the installation.
+UpdateUnpacking = Unpacking…
+
+# Under the bar: how much has arrived of how much. `$received` a number,
+# `$total` a number and its unit ("150 MB").
+# Arguments: received, total
+UpdateBytesOf = { $received } of { $total }
+
+# Beside the stage, above the bar: how much has arrived, `$percent`
+# whole percent.
+# Arguments: percent
+UpdatePercent = { $percent }%
+
+# Under the bar: the time left, under a minute. `$count` seconds, in
+# steps of five; "s" is the unit, so it has no plural.
+# Arguments: count
+UpdateLeftSeconds = about { $count } s left
+
+# Under the bar: the time left, in whole minutes ("min", no plural).
+# Arguments: count
+UpdateLeftMinutes = about { $count } min left
+
+# Under the bar: hardly any time left.
+UpdateLeftMoment = a few seconds left
+
+# Under the bar: an hour or more left.
+UpdateLeftHours = more than an hour left
+
+# Under the full bar while it verifies. `$size` a number and its unit.
+# Arguments: size
+UpdateDownloaded = { $size } downloaded
+
+# Under the full bar while it unpacks.
+UpdateSignatureVerified = Signature verified
+
+# The table menu's line and the settings' status while the update
+# downloads. `$version` its version.
+# Arguments: version
+UpdateDownloadingLine = Downloading update { $version }
+
+# The same while it verifies.
+# Arguments: version
+UpdateVerifyingLine = Verifying update { $version }…
+
+# The same while it unpacks.
+# Arguments: version
+UpdateUnpackingLine = Unpacking update { $version }…
+
+# The table menu's line and the settings' status after the download
+# failed. `$version` its version.
+# Arguments: version
+UpdateFailedLine = Update { $version } did not download – tried again at the next check
+
+# The update card's line after the download failed. `$error` what went
+# wrong, as the system said it.
+# Arguments: error
+UpdateFailedWhy = The download stopped ({ $error }). Baylee tries again at the next check.
+
+# The failed card's button: check, and download, again now.
+UpdateTryAgain = Try again
 
 # Leaves the account.
 SignOut = Sign out
@@ -1662,6 +1774,12 @@ PriorityCueOn = Priority sound: on
 
 # …and off
 PriorityCueOff = Priority sound: off
+
+# The game menu's switch for the table following the turn, on
+FollowTurnOn = Table follows the turn: on
+
+# …and off
+FollowTurnOff = Table follows the turn: off
 
 # The priority-sound row (DESIGN-v7 D22)
 RowPriorityCue = Priority sound
@@ -2703,6 +2821,10 @@ AttackWithdraw = Withdraw: { $card } → { $defender }
 # Instructions for the reversible draft.
 AttackDraftHint = Choose a defender, then creatures. Withdraw an attacker here to reassign it. Confirm when ready.
 
+# Shared page of the defender and creature lists.
+# Arguments: page, total
+AttackPage = Page { $page } of { $total }
+
 # Declare blockers
 DeclareBlockers = Declare blockers
 
@@ -3129,6 +3251,9 @@ ChooseCreatureType = Choose a creature type
 # Choose a basic land type (Phantasmal Terrain)
 ChooseBasicLandType = Choose a basic land type
 
+# Choose a land type, including nonbasic land subtypes
+ChooseLandType = Choose a land type
+
 # Choose a card name (Pithing Needle)
 ChooseCardName = Choose a card name
 
@@ -3296,6 +3421,14 @@ PayTax = Pay {"{"}{ $mana }{"}"}?
 # Arguments: cost
 PayMana = Pay { $cost }?
 
+# Pay both parts of one optional price.
+# Arguments: cost, life
+PayManaAndLife = Pay { $cost } and { $life } life?
+
+# Choose one replacement; declining does not permit untapping.
+# Arguments: count, counters
+RemoveCountersInsteadOfUntapping = Remove { $count } { $counters } instead of untapping? No chooses another replacement.
+
 # The player may activate mana abilities before paying a pact.
 # Arguments: cost
 PayPact = Pact: pay { $cost }. Make mana now? If you decline or finish without enough mana, you lose the game.
@@ -3398,11 +3531,15 @@ LeaveTable = Leave the table
 # The lobby's note after a player left a running table from its menu.
 LeftTheTable = You left the table
 
-# Leaving a networked table, armed: the house plays the chair on.
-LeaveTableConfirm = Leave? The house plays on for you. Press again
+# Leaving the table, armed: the second press leaves. As short as
+# `ConcedeConfirm`; what leaving does stands under it.
+LeaveTableConfirm = Leave? Press again
 
-# Leaving a game this client hosts offline, armed: it ends with it.
-LeaveTableConfirmOffline = Leave? This game ends. Press again
+# Under it at a networked table: the house plays the chair on.
+LeaveTableCost = The house plays on for you.
+
+# Under it in a game this client hosts offline: it ends with it.
+LeaveTableCostOffline = This game ends.
 
 # The game log panel's title (#262). Not a `Log…` phrase: those are the
 # book's own sentences, which `gamelog` writes; these are the panel's.
@@ -3417,6 +3554,14 @@ GameLogNewBelow = New lines below
 # The same pill on a list scrolled well up with nothing new under it:
 # pressing it goes back to the newest line.
 GameLogLatest = Back to the latest
+
+# A folded turn's heading in the game log says how many lines the turn
+# holds (feedback of 24.10.2026); a press on it opens the turn.
+# Arguments: count
+GameLogTurnLines = { $count ->
+        [one] { $count } line
+       *[other] { $count } lines
+    }
 
 # The head of the sheet that holds up cards another seat revealed.
 # `$player` is the seat's name. Present tense, unlike the log's line: the
@@ -3549,6 +3694,12 @@ TargetingSelected = Selected: { $targets }
 
 # Clear the target list's controller filter.
 TargetingAllSeats = All players
+
+# Caption over the target list's controller filter, where it is shown.
+TargetingShowFrom = Show the targets of
+
+# Caption over the target list itself, under the controller filter.
+TargetingTargets = Targets
 
 # Current page and total legal choices in the filtered list.
 # Arguments: first, last, total
@@ -3702,9 +3853,9 @@ AimedAt = Aimed at { $target } ({ $position } of { $total })
 # Arguments: count
 DeclaredCount = { $count } declared
 
-# $defender: $count attacking, $unblocked unblocked
+# $defender: $count attacking, $unblocked damage unblocked (power, not creatures)
 # Arguments: defender, count, unblocked
-IncomingAt = { $defender }: { $count } attacking, { $unblocked } unblocked
+IncomingAt = { $defender }: { $count } attacking, { $unblocked } damage unblocked
 
 # you
 IncomingYou = you
@@ -3798,6 +3949,11 @@ LostHousePlays = The house AI plays for { $player }
 # a client as a refusal string rather than as a state it can match on, so
 # this is what a client says when it cannot tell the two apart.
 LinkGaveUp = The table cannot be reached. Rejoin from the lobby.
+
+# After the retry schedule runs out with the table refusing this seat's
+# ticket on every dial: the sign-in behind the seat ended, or the chair was
+# taken up on another device. Signing in again offers the chair back.
+LinkSignInEnded = The table no longer takes this seat from here: your sign-in ended, or the seat was taken up on another device. Sign in again in the lobby to return.
 
 # The table refused this client's protocol, and speaks a newer one
 # (#271). No numbers: the log has both, and the player can act only on
@@ -5318,10 +5474,10 @@ ReportShotSize = { $width } × { $height }, { $kilobytes } KB
 ReportCrashesBox = Send crash reports automatically
 
 # Opens the preview.
-ReportPreviewShow = Show what is sent
+ReportPreviewShow = What is sent
 
 # Closes it.
-ReportPreviewHide = Hide what is sent
+ReportPreviewHide = Hide preview
 
 # Sends.
 ReportSend = Send
@@ -5331,6 +5487,9 @@ ReportClose = Close
 
 # While it goes.
 ReportSending = Sending …
+
+# While a local game's record is compressed in the background.
+ReportPreparing = Preparing attachments …
 
 # Received. `$id` is the report's id.
 # Arguments: id
@@ -5357,19 +5516,20 @@ ReportNotPassedOn = The gateway could not pass the report on. Your report is sti
 # Any other answer.
 ReportFailed = The report could not be sent. Try again later.
 
-# No session to send it with, and no feedback service to send it to.
-ReportNeedsSession = Sign in to a gateway to send a report. This client knows no feedback service to send it to otherwise.
+# No session to send it with, and no address to send it to otherwise.
+ReportNeedsSession = Sign in to a gateway to send a report. This client knows no other address to send it to.
 
-# Signed in nowhere, the report goes straight to the service. `$url` is
-# its address.
+# Signed in nowhere, the report goes straight to the address this build or
+# the settings name for that (Baylee's own gateway in a release, else the
+# feedback service). `$url` is its address.
 # Arguments: url
-ReportGoesDirect = You are not signed in, so this report goes straight to the Baylee feedback service at { $url }.
+ReportGoesDirect = You are not signed in, so this report goes straight to Baylee at { $url }, without an account.
 
-# 503 from the service itself.
-ReportsDirectUnavailable = The feedback service takes no reports straight from a client right now. Sign in to a gateway to send it.
+# 503 from the report address itself.
+ReportsDirectUnavailable = Reports straight from a client are not taken there right now. Sign in to a gateway to send it.
 
-# No answer from the service.
-ReportDirectUnreachable = The feedback service could not be reached. Your report is still here.
+# No answer from the report address.
+ReportDirectUnreachable = The report address could not be reached. Your report is still here.
 
 # The box for a local game's record, ticked per report.
 ReportRecordBox = Attach the whole record of this game
@@ -5880,6 +6040,13 @@ TourMenuRow = Tour
 # The game menu's row at a networked table, where it is off.
 TourMenuRowAway = Tour (practice game only)
 
+# The game menu's row that stands the settings over the table.
+SettingsMenuRow = Settings
+
+# The same row in a client seated straight into its game, which has no
+# lobby to draw the settings.
+SettingsMenuRowAway = Settings (in the lobby only)
+
 # Settings › Display: the lobby & room tour.
 RowTourLobby = Lobby & room
 
@@ -6290,7 +6457,7 @@ TourT22Body = Click a chip at the bottom left or press F, and the camera swings 
 TourT23Title = Following the turn
 
 # Tour step T23's words (TOURS.md §2).
-TourT23Body = By itself the camera follows only your turn and your combat questions. If you want it to swing to whoever is on turn, switch on Table follows the turn under Settings › Graphics. It never swings while a question is open for you or your pointer rests on the table.
+TourT23Body = The camera swings to whoever is on turn and comes back to you on your turn and your combat questions, but never while a question is open for you or your pointer rests on the table. Switch the swing off in the menu (Table follows the turn) or under Settings › Graphics.
 
 # Tour step T24's title (TOURS.md §2).
 TourT24Title = On a phone
@@ -6326,7 +6493,7 @@ TourT28Body = ? shows you every key that works at the table right now. F8 report
 TourT29Title = The menu
 
 # Tour step T29's words (TOURS.md §2).
-TourT29Body = The menu at the bottom right holds everything you need during a game: Offer a draw, Concede, Arrangement, Priority sound, Music, Report a problem and Tour. There are no other settings at the table; those wait in the lobby.
+TourT29Body = The menu at the bottom right holds everything you need during a game: Offer a draw, Concede, Arrangement, Report a problem, Tour, Settings, Music, Priority sound, Card view and Table follows the turn. Settings opens the rest over the table.
 
 # Tour step T30's title (TOURS.md §2).
 TourT30Title = Conceding and the end
@@ -6350,7 +6517,7 @@ TourT32Body = Every row under Attachments is a choice your device remembers: sys
 TourT33Title = Where it goes
 
 # Tour step T33's words (TOURS.md §2).
-TourT33Body = Your report goes to the gateway you are signed in to. Signed in nowhere, it goes to this build's feedback service; if there is none, you can only Copy. With a record, a window asks you once more. At a gateway your clock keeps running meanwhile, so better report after the question.
+TourT33Body = Your report goes to the gateway you are signed in to. Signed in nowhere, it goes straight to Baylee's report address; if this build knows none, you can only Copy. With a record, a window asks you once more. At a gateway your clock keeps running meanwhile, so better report after the question.
 
 # Tour step T34's title (TOURS.md §2).
 TourT34Title = Done
@@ -7810,10 +7977,10 @@ HelpMaster = Every sound, the music included
 RowMusic = Music
 
 # Audio: the music's theme.
-RowMusicTheme = Music theme
+RowMusicTheme = Music theme during games
 
 # Audio: fifteen complete original suites and automatic rotation.
-HelpMusicTheme = Fifteen original suites: five in Bb Dorian and ten contrasting styles. Rotating picks a different suite each game. Transitions flow into the next musical pulse
+HelpMusicTheme = Fifteen original suites for your games. Rotating chooses a different suite each game. Login and lobby share Baylee’s remembrance: Clair de lune and Gymnopédie No. 1, with grand piano, violin and cello.
 
 # Audio: suite one.
 MusicThemeEmber = Ember Path
@@ -7894,7 +8061,7 @@ MusicThemeStar = Starfall
 RowMusicSamples = Instrument sound
 
 # Source and playback rates of the banks.
-HelpMusicSamples = Both banks use CC0 recordings made at 44.1 kHz. Studio prepares a high-quality 48 kHz bank; the alternative plays the original bank. Our synthesizers always run at 48 kHz
+HelpMusicSamples = For game music, Studio prepares the CC0 recordings for 48 kHz; Original uses the 44.1 kHz bank. Baylee’s remembrance always uses its stereo piano and strings at 48 kHz.
 
 # Prepared 48-kHz sound.
 MusicSamplesStudio = Studio
@@ -8241,6 +8408,10 @@ HandOrderType = Type
 # The hand toolbar's order button: by colour.
 HandOrderColor = Color
 
+# The Central sign-in form's link to the website, where a Baylee account is
+# made (registration is not in the client yet).
+CentralRegister = No account yet? Create one at baylee.app
+
 # Central sign-in or a restored Central session failed.
 CentralSignInFailed = Sign-in or restore failed. Please check your credentials and connection.
 
@@ -8267,3 +8438,124 @@ PickerHint = Hold Shift: reverse side · ← → change artwork
 
 # The print picker's set search field.
 PickerSetSearch = Set · search code or name
+
+# Table status and device display switches.
+SeatEliminated = You are out of the game · The table plays on
+CardViewText = Card view: Text
+CardViewArt = Card view: Art
+
+# Baylee's local memorial and photo album.
+MemorialOpen = Open Baylee’s memories
+MemorialInvitation = Baylee · Forever loved
+MemorialDedication = This world is dedicated to a little cat who was loved so very much. Rest peacefully in the sunshine, Baylee. · 26 October 2026
+MemorialPrevious = Previous
+MemorialNext = Next
+
+# Baylee’s story, approved by her family on 27 October 2026.
+MemorialStoryTitle = For Baylee. Forever in the sunlight.
+MemorialTogether = With us · 17 November 2025 – 26 October 2026
+MemorialChapters = Her story
+MemorialChapterPrevious = Previous chapter
+MemorialChapterNext = Next chapter
+MemorialPhotos = Our memories
+MemorialRead = Scroll to read
+
+MemorialChapter1Title = A home for Baylee
+MemorialChapter1Body =
+    Baylee came home to us on 17 November 2025.
+
+    My wife and I had adopted her from the animal shelter in Krefeld. She was estimated to be about thirteen years old. She had malignant mammary tumours, and the cancer had already spread to her liver. Baylee was a palliative-care cat. We knew our time together would be limited. With us, she was to have a home where she was loved.
+
+    She soon showed us just how quickly she would claim that home as her own.
+
+    On her very first day, she slipped onto my lap while I was working. And on her first night, she tore a hole in a bag of cat food I had ordered for my parents’ cats and helped herself. Of course she had been given her own food and had eaten well that evening. But Baylee had apparently decided that this supply still deserved a closer investigation.
+
+    Our little mouse had an astonishing appetite – and an incredible amount of energy.
+
+MemorialChapter2Title = Growing trust
+MemorialChapter2Body =
+    When we noticed that she was drinking a lot of water, we took her to the vet. A blood test revealed a thyroid condition, which also explained her great hunger and lively nature. She was given thyroid medication and a temporary course of antibiotics because her inflammation markers were elevated.
+
+    When she suddenly began rubbing herself against everything, meowing a lot and becoming unusually cuddly and attached to us, we initially worried that she was reacting badly to one of her new medicines. Another examination revealed the explanation: our little darling was in heat. She had not been spayed.
+
+    We got through that time together, too. Baylee trusted us more and more, and we grew ever closer to one another.
+
+MemorialChapter3Title = Our little princess
+MemorialChapter3Body =
+    I still remember exactly how happy she was when she got her cat tree. She immediately sat on the very top perch and looked contentedly around the flat. Strangely enough, she never used that particular spot again. Why remained her secret.
+
+    Other places were rarely left unoccupied: my lap, my legs and our bed. There she usually slept on me or on my wife. Best of all was managing to lie on both of us at once.
+
+    She strutted through the flat with her tail held high, as though she knew perfectly well that she was the princess here. She had spirit and knew how to make her boundaries clear. With us, she could be entirely herself. Her quirks, her demands and her little stubborn streak were all loved, too.
+
+    I had never formed such a deep bond with an animal before. Baylee found a place very deep in both my wife’s heart and mine.
+
+MemorialChapter4Title = Hours in the sunshine
+MemorialChapter4Body =
+    When the weather grew warmer, she discovered the balcony. She loved feeling the day’s first rays of sunshine in her fur. Before long, she was spending almost the entire day out there.
+
+    The pigeons and garden birds were a particular fascination. She watched them intently, lay in wait and repeatedly tried to startle them. Between sunbathing and birdwatching, our little princess had a very full daily schedule.
+
+MemorialChapter5Title = Her own little mind
+MemorialChapter5Body =
+    Meanwhile, her illness continued to progress.
+
+    The tumour became inflamed, and Baylee kept licking the affected area open. At the vet’s she was given her first recovery suit, a red one. From then on, she had to wear one every day to keep her from injuring the wound further.
+
+    She quickly got used to wearing it. Having it put on, however, was something she disliked right up to her last day. Even a bowl of food could only do so much to coax her out then. Big as her appetite was, her opinion of the suit was unmistakable.
+
+    The wound grew worse. It discharged pus, eventually began to bleed and developed an unpleasant smell. At the same time, Baylee kept showing us how much joy she still found in her everyday life. She played, ate, explored her surroundings and climbed her scratching board and the cupboards.
+
+    Sometimes she lay for hours on the edge of the bed beside us, waiting for us to finally wake up and make her breakfast. If that took too long, she simply climbed over us. Our faces were no obstacle.
+
+    She had very definite ideas about food. Her taste was rather in the “frozen pizza” camp: after a while, high-quality cat food could no longer excite her, and variety was essential. The same food twice in a row was out of the question. Chicken with liver, anything with cheese, tuna or salmon – those were things that made her happy.
+
+MemorialChapter6Title = With her tail held high
+MemorialChapter6Body =
+    The tumour grew larger and wept increasingly. Baylee was visibly in pain. When the pain eased, she was once again our little cat, moving through the rooms with her tail held high and claiming her people for herself.
+
+    We could see her strength slowly fading. But her appetite, her curiosity, her affectionate nature and her loud purr were still there.
+
+MemorialChapter7Title = Saying goodbye
+MemorialChapter7Body =
+    On Friday evening, 23 October 2026, she developed symptoms that at first seemed like a cold. Her nose was running, and her breathing was deep and laboured, as though she were struggling for air.
+
+    On Saturday she seemed livelier again. The unusual breathing and runny nose remained, but she once more showed the energy and love of life we knew so well.
+
+    Sunday morning was difficult. Her eyes were watering, she was struggling to breathe and she was in pain. I gave her pain medication. After about an hour she felt better again, but her breathing remained different. We knew we needed to take her to the vet.
+
+    On Monday morning her condition worsened again. Fortunately, my wife had the day off. We called the practice, made an appointment and took Baylee there.
+
+    The X-ray showed how far the cancer had spread. We were told that only about a third of her lungs remained available for breathing. Letting her continue to live would have meant that she would get less and less air.
+
+    We had to say goodbye.
+
+    On Monday, 26 October 2026, at around noon, our dearest Baylee was put to sleep.
+
+MemorialChapter8Title = Forever in the sunlight
+MemorialChapter8Body =
+    She was with us for just under a year. In that time, she had become part of our family and a very close friend. She belonged to our working days, our nights and our waking up in the morning. To sunny hours on the balcony and to the little habits that make up a life together.
+
+    Now she is missing from all those moments.
+
+    The emptiness is still fresh and deep. We miss her purr, her weight on our legs, her upright tail and her unquestioning expectation that we would finally see to her breakfast.
+
+    If there is something after this life, whatever it may be, then I wish to meet that soul again one day.
+
+    Until then, we will carry our little mouse in our hearts forever.
+
+    That is why this hobby project is dedicated to Baylee. To her spirit, her closeness, her joy in the sun and the birds. And to the love that grew during our time together.
+
+    Here she may sleep peacefully on her cloud, in the warm sunshine, surrounded by flowers, pigeons and garden birds.
+
+    Rest in peace, my dearest Baylee.
+
+MemorialFirstChapter = You are at the beginning of her story.
+MemorialLastChapter = You are at the end of her story.
+
+MemorialPhotoOpen = View full photograph
+MemorialZoomIn = Zoom in
+MemorialZoomOut = Zoom out
+MemorialFit = Fit
+MemorialZoomMinimum = The entire photograph is visible.
+MemorialZoomMaximum = Maximum zoom reached.

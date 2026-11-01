@@ -26,8 +26,15 @@ fn reads_amount(value: Amount) -> bool {
         Amount::Sum { left, right } | Amount::Difference { left, right } => {
             reads_amount(*left) || reads_amount(*right)
         }
-        Amount::Players(who) | Amount::LibrarySize(who) => reads_player(who),
+        Amount::Players(who) | Amount::LibrarySize(who) | Amount::LifeTotal(who) => {
+            reads_player(who)
+        }
+        Amount::CountOf {
+            zone: baylee_cards_dsl::ZoneSel::GraveyardOf(who),
+            ..
+        } => reads_player(who),
         Amount::Half { base, .. }
+        | Amount::Divided { base, .. }
         | Amount::Times { base, .. }
         | Amount::Plus { base, .. }
         | Amount::Negated(base)
@@ -39,6 +46,9 @@ fn reads_amount(value: Amount) -> bool {
 #[allow(clippy::too_many_lines)]
 fn reads_event(effect: &Effect) -> bool {
     match effect {
+        Effect::DealDamageWithLimitedLifeGain { amount, life_limit } => {
+            reads_amount(*amount) || reads_amount(*life_limit)
+        }
         Effect::TapEventObject
         | Effect::EventObjectDealsDamageEqualToPower { .. }
         | Effect::EventObjectDealsDamage { .. }
@@ -51,9 +61,14 @@ fn reads_event(effect: &Effect) -> bool {
             reads_target(*source)
                 || matches!(to, baylee_cards_dsl::DamageRedirectTo::Target(target) if reads_target(*target))
         }
+        Effect::PreventNextDamageFromSource { to, .. } => reads_player(*to),
+        Effect::RedirectCombatDamageToYouThisTurn { to, .. } => {
+            matches!(to, baylee_cards_dsl::DamageRedirectTo::Target(target) if reads_target(*target))
+        }
         Effect::CopyResolvingSpell { controller } => reads_player(*controller),
         Effect::DealDamageEvenly { amount, target, .. }
-        | Effect::DealDamage { amount, target, .. } => {
+        | Effect::DealDamage { amount, target, .. }
+        | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. } => {
             reads_amount(*amount) || reads_target(*target)
         }
         Effect::PayManaToPreventDamage { player, amount, .. }
@@ -72,7 +87,8 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::PlayerMayPayManaOr { player, .. }
         | Effect::PlayerMayPayManaThen { player, .. }
         | Effect::OptionalBasicLandSearchFor { player, .. } => reads_player(*player),
-        Effect::DealDamageToBothTargetInstances { amount }
+        Effect::PreventNextDamageToAttached { amount }
+        | Effect::DealDamageToBothTargetInstances { amount }
         | Effect::DealDamageWithCappedLifeGain { amount, .. }
         | Effect::GainLife { amount, .. }
         | Effect::DrawCards { amount, .. }
@@ -89,9 +105,12 @@ fn reads_event(effect: &Effect) -> bool {
         | Effect::CreateTokenThenCounters { amount, .. }
         | Effect::CreateTokenN { amount, .. } => reads_amount(*amount),
         Effect::Poison { amount, who }
+        | Effect::DiscardAmountForPlayers { amount, who }
+        | Effect::SacrificeAmountForPlayers { amount, who, .. }
         | Effect::GainLifeFor { amount, who, .. }
         | Effect::DrawCardsFor { amount, who, .. } => reads_amount(*amount) || reads_player(*who),
-        Effect::RedirectNextChosenSourceDamageToTarget { target }
+        Effect::ChooseLandwalk { target, .. }
+        | Effect::RedirectNextChosenSourceDamageToTarget { target }
         | Effect::PreventDamageFromTargetingCausesThisTurn { target }
         | Effect::CantAttackDuringNextControllerTurn { target }
         | Effect::SuppressUntap { target, .. }

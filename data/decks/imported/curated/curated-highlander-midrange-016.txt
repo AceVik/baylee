@@ -1,0 +1,80 @@
+# baylee curated highlander midrange seed=20261039
+# licence: AGPL-3.0-only
+[deck:highlander midrange UG #20261039]
+1 Aether Hub
+1 Ancestral Vision
+1 Archaeological Dig
+1 Attended Socialite
+1 Bristly Bill, Spine Sower
+1 Brood Monitor
+1 Brotherhood Headquarters
+1 Castle Doom
+1 Centaur's Herald
+1 Coiling Oracle
+1 Dauntless Survivor
+1 Deduce
+1 Disciple of Freyalise
+1 Elderleaf Mentor
+1 Elegant Entourage
+1 Elturgard Ranger
+1 Elvish Clancaller
+1 Elvish Farmer
+1 Elvish Handservant
+1 Elvish Regrower
+1 Elvish Skysweeper
+1 Elvish Vanguard
+1 Elvish Visionary
+16 Forest
+1 Frilled Mystic
+1 Great Hall of the Biblioplex
+1 Haven of the Spirit Dragon
+1 Hidden Grotto
+1 Homarid Spawning Bed
+1 Howling Giant
+1 Illusions of Grandeur
+1 Imperious Perfect
+9 Island
+1 Jasmine Dragon Tea Shop
+1 Joraga Visionary
+1 Kingfisher
+1 Kozilek's Unsealing
+1 Leaf-Crowned Visionary
+1 Legolas Greenleaf
+1 Llanowar Mentor
+1 Llanowar Sentinel
+1 Llanowar Stalker
+1 Llanowar Visionary
+1 Mantle of the Wolf
+1 Multani's Acolyte
+1 Nissa, Resurgent Animist
+1 Nykthos, Shrine to Nyx
+1 Pawpatch Formation
+1 Quirion Sentinel
+1 Reclamation Sage
+1 Rishkar, Peema Renegade
+1 School of the Unseen
+1 Secret Base
+1 Shaman of Spring
+1 Study Hall
+1 Sunshower Druid
+1 Swan Song
+1 Tarnished Citadel
+1 The Theorist, Jace Beleren
+1 They Went This Way
+1 Thranduil the Strategist
+1 Three Steps Ahead
+1 Totem Speaker
+1 Turntimber Ranger
+1 Turtle Lair
+1 Unclaimed Territory
+1 Unfathomable Truths
+1 Viridian Shaman
+1 Virtue of Knowledge
+1 Wan Shi Tong, Librarian
+1 Wild Wanderer
+1 Wirewood Hivemaster
+1 Wirewood Savage
+1 Wood Elves
+1 Woodland Liege
+1 Yavimaya Granger
+1 Yeva's Forcemage

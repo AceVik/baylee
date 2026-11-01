@@ -17,6 +17,9 @@ use anyhow::{Context as _, anyhow, bail};
 use serde::Deserialize;
 use std::time::Duration;
 
+#[path = "lobby_presence.rs"]
+mod presence;
+
 /// A gateway, by its HTTP address (`http://…` or `https://…`).
 #[derive(Clone)]
 pub struct Lobby {
@@ -47,6 +50,9 @@ impl std::fmt::Debug for Chair {
 /// A room as the listing shows it: what the bridge checks before it sits.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Room {
+    /// Whether the signed-in caller currently hosts this room.
+    #[serde(default)]
+    pub yours: bool,
     /// The room's id, which is the game's.
     pub id: String,
     /// `waiting`, `playing` or `over`.
@@ -138,6 +144,11 @@ impl Session {
     pub const fn from_token(token: String) -> Self {
         Self { token }
     }
+
+    /// The token, for a request's `Authorization` and nothing else.
+    pub(crate) fn bearer(&self) -> &str {
+        &self.token
+    }
 }
 
 /// A chair ticket: the host's word that this bridge may sit in one chair of
@@ -188,6 +199,21 @@ pub struct ChairStatus {
     /// Seconds a question gets; `None` for an untimed table.
     #[serde(default)]
     pub decide_secs: Option<u32>,
+}
+
+/// What the gateway said when a chair's holder asked after it.
+#[derive(Clone, Debug)]
+pub enum ChairAnswer {
+    /// The chair's room, as its holder sees it.
+    Status(Box<ChairStatus>),
+    /// The room is gone (`404`).
+    Gone,
+    /// The gateway does not take the chair's token now (`401`). That is the
+    /// host having taken the chair back, the host's sign-in having ended
+    /// (the chair was minted under it), and also a check the gateway could
+    /// not make: it answers a failed Central check `401` too, so one is not
+    /// yet the end of anything.
+    Refused,
 }
 
 /// The name a mind sits under: `prefix` + `name`, held to the gateway's
@@ -265,6 +291,25 @@ impl Lobby {
         answer
             .expect_ok(&format!("store the deck {}", deck.name))?
             .string("deck_id")
+    }
+
+    /// Files a bug report under the session (`POST /reports`,
+    /// `docs/feedback.md`): the service's id for it.
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached, or does not take it (no
+    /// feedback service, a limit, a body it refuses).
+    pub async fn report(
+        &self,
+        session: &Session,
+        body: serde_json::Value,
+    ) -> anyhow::Result<String> {
+        let answer = self
+            .call("POST", "/reports", Some(&session.token), Some(body))
+            .await?;
+        answer
+            .expect_ok("file the game's reports")?
+            .string("report_id")
     }
 
     /// The room `game_id`, as the listing shows it to this session.
@@ -481,22 +526,37 @@ impl Lobby {
     /// The chair's room as the gateway tells the chair's holder
     /// (`GET …/chair`, the seat token as `Authorization`); `None` when the
     /// room is gone or no longer takes the token (the host took the chair
-    /// back, or left).
+    /// back, or left). [`Lobby::chair`] keeps the two apart.
     ///
     /// # Errors
     /// When the gateway cannot be reached or answers otherwise.
     pub async fn chair_status(&self, chair: &Chair) -> anyhow::Result<Option<ChairStatus>> {
+        Ok(match self.chair(chair).await? {
+            ChairAnswer::Status(status) => Some(*status),
+            ChairAnswer::Gone | ChairAnswer::Refused => None,
+        })
+    }
+
+    /// The chair's room as the gateway tells the chair's holder, with a
+    /// room that is gone (`404`) kept apart from a token it does not take
+    /// now (`401`).
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached or answers otherwise.
+    pub async fn chair(&self, chair: &Chair) -> anyhow::Result<ChairAnswer> {
         let path = format!("/lobby/games/{}/chair", escape(&chair.game_id));
         let answer = self
             .call("GET", &path, Some(&chair.seat_token), None)
             .await?;
-        if matches!(answer.status, 401 | 404) {
-            return Ok(None);
+        match answer.status {
+            404 => return Ok(ChairAnswer::Gone),
+            401 => return Ok(ChairAnswer::Refused),
+            _ => {}
         }
         let status = answer.expect_ok("ask after the chair")?.body;
-        Ok(Some(
+        Ok(ChairAnswer::Status(Box::new(
             serde_json::from_value(status).context("an unreadable chair status")?,
-        ))
+        )))
     }
 
     /// Says a chair taken on a host's ticket may play (`POST …/chair/ready`,
@@ -533,6 +593,29 @@ impl Lobby {
         .await?
         .expect_ok("leave the chair")?;
         Ok(())
+    }
+
+    /// Files the bug report of a chair taken on a host's ticket, about its
+    /// own game (`POST …/chair/report`, the seat token as `Authorization`,
+    /// `docs/feedback.md`): the service's id for it. The gateway files it
+    /// under the host's pseudonym, once a chair.
+    ///
+    /// # Errors
+    /// When the gateway cannot be reached, or does not take it (no
+    /// feedback service, a limit, a report already sent, a body it
+    /// refuses).
+    pub async fn chair_report(
+        &self,
+        chair: &Chair,
+        body: serde_json::Value,
+    ) -> anyhow::Result<String> {
+        let path = format!("/lobby/games/{}/chair/report", escape(&chair.game_id));
+        let answer = self
+            .call("POST", &path, Some(&chair.seat_token), Some(body))
+            .await?;
+        answer
+            .expect_ok("file the game's reports")?
+            .string("report_id")
     }
 
     /// [`Lobby::wait_for_start`] for a chair taken on a host's ticket,
@@ -670,9 +753,10 @@ impl Answer {
     }
 }
 
-/// A room id as a path segment or a query value: ids are the gateway's own
-/// and plain, but one typed at a command line need not be.
-fn escape(text: &str) -> String {
+/// A room id or a card's name as a path segment or a query value: ids are
+/// the gateway's own and plain, but one typed at a command line, or a name
+/// a model wrote, need not be.
+pub(crate) fn escape(text: &str) -> String {
     text.bytes()
         .map(|b| {
             if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {

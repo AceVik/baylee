@@ -1,0 +1,78 @@
+# baylee curated highlander control seed=20261114
+# licence: AGPL-3.0-only
+[deck:highlander control UG #20261114]
+1 Abstruse Interference
+1 Ally Encampment
+1 Ancient Ziggurat
+1 Arasta of the Endless Web
+1 Baldur's Gate
+1 Bog Gnarr
+1 Breeding Pool
+1 Briarknit Kami
+1 Brotherhood Headquarters
+1 Chain to Memory
+1 Compelling Argument
+1 Condescend
+1 Contingency Plan
+1 Curate
+1 Deeproot Waters
+1 Disrupt
+1 Drowned Secrets
+1 Eclipsed Realms
+1 Efficient Construction
+1 Equilibrium
+1 Evolution Charm
+1 Eyes of the Watcher
+1 Fable of Wolf and Owl
+1 Fleeting Distraction
+1 Forced Fruition
+10 Forest
+1 From Beyond
+1 Go Forth
+1 Guildmages' Forum
+1 Halcyon Glaze
+1 Haven of the Spirit Dragon
+1 Heap Gate
+1 Hesitation
+1 Hidden Guerrillas
+1 Hithlain Knots
+1 Hornswoggle
+1 Hydroblast
+1 In the Eye of Chaos
+1 Infested Roothold
+1 Invoke Prejudice
+17 Island
+1 Jackalope Herd
+1 Jin-Gitaxias, Progress Tyrant
+1 Launch Mishap
+1 Mana Vortex
+1 Maul Splicer
+1 Ojer Pakpatiq, Deepest Epoch
+1 Orbweaver Kumo
+1 Path of Annihilation
+1 Predatory Hunger
+1 Prescient Chimera
+1 Reflections of Littjara
+1 Rhystic Study
+1 Riddleform
+1 Secluded Courtyard
+1 Shimmering Grotto
+1 Skybeast Tracker
+1 Snake Pit
+1 Soilshaper
+1 Study Hall
+1 Stymied Hopes
+1 Syphon Essence
+1 Tel-Jilad Justice
+1 Teller of Tales
+1 Thran Quarry
+1 Throne of Makindi
+1 Thunderous Snapper
+1 Tidespout Tyrant
+1 Trail of Evidence
+1 Tropical Island
+1 Unauthorized Exit
+1 Veiled Apparition
+1 Veiled Serpent
+1 Whirlwind Adept
+1 Yavimaya Coast

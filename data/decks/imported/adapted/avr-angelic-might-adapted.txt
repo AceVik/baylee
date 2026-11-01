@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/AVR/angelic-might.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AngelicMight_AVR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Angelic Might (Adapted)]
+1 Altar of Bone
+2 Angel's Tomb
+2 Angelic Wall
+1 Archangel
+1 Bladed Bracers
+1 Builder's Blessing
+2 Call of the Conclave
+2 Cathedral Sanctifier
+2 Eladamri's Call
+2 Emancipation Angel
+11 Forest
+1 Gerrard's Command
+2 Gideon's Lawkeeper
+1 Nature's Chant
+13 Plains
+2 Rampant Growth
+2 Righteous Blow
+3 Scattered Groves
+1 Seraph Sanctuary
+2 Seraph of Dawn
+2 Serra Angel
+1 Timberland Guide
+2 Vitalizing Cascade
+1 Voice of the Provinces

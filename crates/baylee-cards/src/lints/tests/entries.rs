@@ -325,11 +325,13 @@ fn every_custom_counter_in_the_pool_is_an_assigned_id() {
     // honestly outgrows it. The full corpus (2026-10-14) measured 67, and
     // Fallen Empires (`fem`, 2026-10-19) brings it to 86 (spore, tide,
     // storage, depletion, javelin, credit, cube, net, vitality, matrix,
-    // sleep), and Ice Age (`ice`, 2026-10-20) adds age, ice, wind,
-    // healing, sleight and paralyzation counters (the last three, and
-    // music, new ids), every id assigned (the assertion above).
+    // sleep), Ice Age (`ice`, 2026-10-20) adds age, ice, wind,
+    // healing, sleight, paralyzation, music, arrowhead, currency and
+    // velocity counters, Alliances (`all`, 2026-10-22) adds infection and
+    // wage counters, and Mirage (`mir`, 2026-10-22) adds vortex counters,
+    // every id assigned (the assertion above).
     assert!(
-        (60..=130).contains(&carriers),
+        (60..=200).contains(&carriers),
         "{carriers} definitions carry a custom counter; the reader is not \
          reading the pool's counters"
     );
@@ -373,7 +375,7 @@ fn no_card_file_spells_a_counter_id_as_a_number() {
     // the sweep above has them: a stripper that took everything would
     // find nothing, and one that took nothing would count the comments.
     assert!(
-        (34..=130).contains(&naming),
+        (34..=200).contains(&naming),
         "{naming} card files say `counters::` outside a comment; the \
          reader is not reading the pool's cards"
     );
@@ -485,7 +487,7 @@ fn every_station_is_the_ability_its_keyword_spells() {
 /// A printed ability with no known sentence is a finding, not a skip,
 /// and the count has a floor and a ceiling: seven, over six cards,
 /// counted 2026-09-30 (fifteen over thirteen before the eight stand-ins
-/// became transforms).
+/// became transforms). Nim Devourer raises the pool ceiling to seventeen.
 #[test]
 fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
     let mut wrong = Vec::new();
@@ -522,7 +524,7 @@ fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
                                         "{who}: owner_control {owner_control}, prints {text:?}"
                                     ));
                                 }
-                                if !text.contains("return") {
+                                if !text.contains("return") && !text.contains("Return") {
                                     wrong.push(format!(
                                         "{who}: prints no return, so it is \
                                          Effect::TransformSource: {text:?}"
@@ -549,7 +551,7 @@ fn every_self_return_comes_back_under_the_control_its_sentence_prints() {
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert!(
-        (7..=14).contains(&checked),
-        "read {checked} self-returns out of the pool, and seven were written"
+        (7..=17).contains(&checked),
+        "read {checked} self-returns out of the pool; expected the range 7–17"
     );
 }

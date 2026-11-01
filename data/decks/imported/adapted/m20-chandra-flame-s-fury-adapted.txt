@@ -1,0 +1,16 @@
+# adapted from data/decks/precon/M20/chandra-flame-s-fury.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ChandraFlameSFury_M20.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Chandra, Flame's Fury (Adapted)]
+4 Bathe in Dragonfire
+4 Boiling Blood
+3 Ember Hauler
+3 Improvised Weaponry
+2 Infuriate
+1 Make Mischief
+3 Molten Blast
+25 Mountain
+3 Pyroclastic Elemental
+4 Seismic Rupture
+1 Shivan Dragon
+4 Shock
+3 Sweltering Suns

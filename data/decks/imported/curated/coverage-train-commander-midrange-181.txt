@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WURG #20266182]
+1 Aang and Katara
+1 Abstergo Entertainment
+1 Abu Ja'far
+1 Aether Channeler
+1 Ancestors' Aid
+1 Angel's Herald
+1 Avatar Enthusiasts
+1 Bountiful Landscape
+1 Brazen Freebooter
+1 Butterbur, Bree Innkeeper
+1 Captain Storm, Cosmium Raider
+1 Cave of Temptation
+1 Cavern of Souls
+1 Conduit Pylons
+1 Doubling Season
+1 Dragonback Assault
+1 Dragonmaster Outcast
+1 Eclipsed Realms
+1 Fable of Wolf and Owl
+1 Femeref Enchantress
+1 Firefist Adept
+1 Flamewright
+7 Forest
+1 From Beyond
+1 Frontier Bivouac
+1 Gallant Citizen
+1 Gemstone Mine
+1 Hard Evidence
+1 Haunted Library
+1 Homarid Spawning Bed
+1 Hornswoggle
+1 Huntmaster of the Fells
+1 Icatian Crier
+7 Island
+1 Izzet Chronarch
+1 Katara, the Fearless
+1 Ketria Triome
+1 Knight of Doves
+1 Kykar, Wind's Fury
+1 Kyoshi Warriors
+1 Loran, Disciple of History
+1 Lossarnach Captain
+1 Maelstrom of the Spirit Dragon
+1 Nykthos, Shrine to Nyx
+1 Odric's Outrider
+1 Oran-Rief Survivalist
+1 Pia, Determined Rebuilder
+11 Plains
+1 Priest of Urabrask
+1 Prosperous Pirates
+1 Reckless Ransacking
+1 Renegade Rallier
+1 Rising Populace
+1 Sage of Lat-Nam
+1 Sailor of Means
+1 Scoria Wurm
+1 Secure the Wastes
+1 Sell-Sword Brute
+1 Servo Exhibition
+1 Sliver Hive
+1 Sokka's Sword Training
+1 Sokka, Tenacious Tactician
+1 Sprout
+1 Stark Industries Executive
+1 Stoic Builder
+1 Storm God's Oracle
+1 Streetbreaker Wurm
+1 Syphon Essence
+1 Throne of Makindi
+1 Treetop Freedom Fighters
+1 Trostani's Summoner
+1 Tunnel Surveyor
+1 Turtle Lair
+1 Unknown Shores
+1 Vitality Charm
+1 Wing Splicer
+1 Yotian Dissident
+
+[commander]
+Aragorn, the Uniter

@@ -15,17 +15,49 @@
 //! still opens and is then held without a frame until the gateway gives up
 //! on its engine, so a dial alone never learns the game is gone: the lobby
 //! is asked ([`SeatLink::room_closed`]) whenever a dial fails.
+//!
+//! A chair taken on its host's ticket has no session to trade a refused
+//! token with, and the gateway answers `401` both when it will not have the
+//! chair any more (the host took it back, the host's sign-in ended) and when
+//! it could not check (a failed Central check). Such a chair leaves only
+//! once the refusal has lasted [`REFUSAL_PATIENCE`]; until then it is asked
+//! after and dialled again like a table that did not answer. Before
+//! 22.10.2026 the first refusal ended the seat for good, and with the 5-s
+//! check behind every socket a host's LLM seat "keeps losing its
+//! connection" (owner).
 
-use crate::lobby::{Chair, Lobby, Session};
+use crate::lobby::{Chair, ChairAnswer, Lobby, Session};
 use anyhow::{anyhow, bail};
-use baylee_client_core::reconnect::Retry;
+use baylee_client_core::reconnect::{Retry, Window};
 use baylee_client_core::wsticket::{Step as DialStep, TicketDial};
 use std::time::Duration;
 use tokio::net::TcpStream;
+use tokio::time::Instant;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 
 /// An open seat socket.
 pub type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
+
+/// How a seat files its game's bug report ([`SeatLink::reporter`]).
+#[derive(Clone, Copy)]
+pub(crate) enum Reporter<'a> {
+    /// Under its own session, as a player does (`POST /reports`).
+    Session(&'a Lobby, &'a Session),
+    /// On its chair's seat token, the chair taken on its host's ticket
+    /// (`POST /lobby/games/{id}/chair/report`): the gateway files it under
+    /// the host's pseudonym.
+    Chair(&'a Lobby, &'a Chair),
+}
+
+/// How long a chair taken on its host's ticket goes on being refused (`401`)
+/// before it counts its room as closed to it.
+///
+/// Long enough to ride over a check the gateway could not make for a while:
+/// it checks every socket every five seconds and answers a failed check
+/// `401`, so this spans nine of them. Short enough that a chair its host took
+/// back, or whose host's sign-in ended, does not linger long: well inside a
+/// table's window (180 s by default), after which the house plays the seat.
+pub const REFUSAL_PATIENCE: Duration = Duration::from_secs(45);
 
 /// Why one dial did not open.
 #[derive(Debug)]
@@ -33,6 +65,11 @@ enum Missed {
     /// The table does not take this seat's token, and it could not be
     /// traded for one it takes.
     Refused(String),
+    /// The table did not take the token of a chair taken on its host's
+    /// ticket, which has nothing to trade it with: dialled again like
+    /// [`Missed::Unreachable`] while [`SeatLink::room_closed`] says the room
+    /// is still open to it.
+    NotAdmitted,
     /// Nothing answered, or it answered with something else: worth another
     /// dial later.
     Unreachable(String),
@@ -44,6 +81,13 @@ pub struct SeatLink {
     chair: Chair,
     session: Option<Session>,
     dials: u32,
+    /// Since when the gateway has refused this chair's token, without a
+    /// word from it since that took it.
+    refused_since: Option<Instant>,
+    /// [`REFUSAL_PATIENCE`], or a test's.
+    patience: Duration,
+    /// The table's reconnect window, once `GameStatic` has said it.
+    window: Window,
 }
 
 impl SeatLink {
@@ -56,7 +100,23 @@ impl SeatLink {
             chair,
             session,
             dials: 0,
+            refused_since: None,
+            patience: REFUSAL_PATIENCE,
+            window: Window::Unknown,
         }
+    }
+
+    /// The same link, leaving after `patience` of refusals rather than
+    /// [`REFUSAL_PATIENCE`]: for a test that cannot wait that long.
+    #[must_use]
+    pub const fn with_refusal_patience(mut self, patience: Duration) -> Self {
+        self.patience = patience;
+        self
+    }
+
+    /// Holds reconnection open at least until the table's window has passed.
+    pub const fn hold_for(&mut self, window: Window) {
+        self.window = window;
     }
 
     /// The chair this link opens.
@@ -83,6 +143,16 @@ impl SeatLink {
         Ok(Some(deck.list))
     }
 
+    /// Where the game's reports are filed, and with what: the seat's own
+    /// session where it has one, else, for a chair taken on its host's
+    /// ticket, the chair's seat token.
+    pub(crate) const fn reporter(&self) -> Reporter<'_> {
+        match &self.session {
+            Some(session) => Reporter::Session(&self.lobby, session),
+            None => Reporter::Chair(&self.lobby, &self.chair),
+        }
+    }
+
     /// Sockets opened so far.
     #[must_use]
     pub const fn dials(&self) -> u32 {
@@ -93,19 +163,31 @@ impl SeatLink {
     /// opens or the schedule gives up; `None` when the room closed.
     ///
     /// # Errors
-    /// When the seat's token is refused and cannot be replaced, or after
-    /// [`Retry::GIVE_UP`] dials that reached nothing.
+    /// When the seat's token is refused and cannot be traded with the
+    /// session for one it takes, or after [`Retry::GIVE_UP`] dials and, once
+    /// known, the table's window. A chair taken on its host's ticket ends on
+    /// a refusal only through [`SeatLink::room_closed`].
     pub async fn connect(&mut self) -> anyhow::Result<Option<Socket>> {
         let mut retry = Retry::new();
+        retry.hold_for(self.window);
+        let mut since = Instant::now();
         loop {
             match self.dial().await {
                 Ok(socket) => {
                     self.dials += 1;
+                    self.refused_since = None;
                     return Ok(Some(socket));
                 }
                 Err(_) if self.room_closed().await => return Ok(None),
                 Err(Missed::Refused(why)) => bail!("the table refused this seat: {why}"),
-                Err(Missed::Unreachable(why)) => {
+                Err(miss) => {
+                    let why = match miss {
+                        Missed::Unreachable(why) | Missed::Refused(why) => why,
+                        Missed::NotAdmitted => "the table did not take the seat's token".to_owned(),
+                    };
+                    let now = Instant::now();
+                    retry.stayed_down(now.duration_since(since).as_secs_f32());
+                    since = now;
                     if retry.exhausted() {
                         bail!(
                             "the table could not be reached after {} dials: {why}",
@@ -129,19 +211,25 @@ impl SeatLink {
     /// longer takes the token, is closed to it.
     ///
     /// `false` when that cannot be told (a lobby that did not answer): a
-    /// seat does not leave a table on a guess.
-    pub async fn room_closed(&self) -> bool {
+    /// seat does not leave a table on a guess. Nor on one refusal of a chair
+    /// taken on its host's ticket: only once refusals have lasted the
+    /// link's patience ([`REFUSAL_PATIENCE`]).
+    pub async fn room_closed(&mut self) -> bool {
         let closed = match self.session.as_ref() {
             Some(session) => self
                 .lobby
                 .room(session, &self.chair.game_id)
                 .await
                 .map(|room| room.is_none_or(|room| !room.playing())),
-            None => self
-                .lobby
-                .chair_status(&self.chair)
-                .await
-                .map(|status| status.is_none_or(|status| status.state != "playing")),
+            None => match self.lobby.chair(&self.chair).await {
+                Ok(ChairAnswer::Status(status)) => {
+                    self.refused_since = None;
+                    Ok(status.state != "playing")
+                }
+                Ok(ChairAnswer::Gone) => Ok(true),
+                Ok(ChairAnswer::Refused) => Ok(self.refused_too_long()),
+                Err(e) => Err(e),
+            },
         };
         match closed {
             Ok(closed) => closed,
@@ -153,6 +241,26 @@ impl SeatLink {
                 false
             }
         }
+    }
+
+    /// One more refusal of this chair's token; whether they have lasted the
+    /// link's patience, and the room is to be counted closed to it.
+    fn refused_too_long(&mut self) -> bool {
+        let since = *self.refused_since.get_or_insert_with(Instant::now);
+        let lasted = since.elapsed();
+        if lasted < self.patience {
+            tracing::info!(
+                refused_s = lasted.as_secs(),
+                "the gateway refused this chair's token; asking again"
+            );
+            return false;
+        }
+        tracing::warn!(
+            refused_s = lasted.as_secs(),
+            "the gateway has refused this chair's token all this time: \
+             the host took the chair back, or the host's sign-in ended"
+        );
+        true
     }
 
     /// One dial, from the first ticket to an open socket or a refusal.
@@ -180,6 +288,9 @@ impl SeatLink {
                     }
                 }
                 DialStep::Unauthorized => {
+                    if self.session.is_none() {
+                        return Err(Missed::NotAdmitted);
+                    }
                     let Some(session) = self.session.as_ref().filter(|_| !retaken) else {
                         return Err(Missed::Refused(
                             "the seat token is no longer good for this table".into(),

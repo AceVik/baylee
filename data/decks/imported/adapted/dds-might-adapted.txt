@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/DDS/might.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Might_DDS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Might (Adapted)]
+2 Ambassador Oak
+1 Boldwyr Intimidator
+2 Burning-Tree Emissary
+2 Cloudcrown Oak
+4 Colossal Might
+10 Forest
+1 Ground Assault
+1 Guttural Response
+1 Harmonize
+1 Kamahl, Pit Fighter
+2 Kruin Striker
+1 Lovisa Coldeyes
+2 Manamorphose
+1 Meteorite
+11 Mountain
+1 Radha, Heir to Keld
+2 Rampant Growth
+1 Relentless Hunter
+4 Rugged Highlands
+4 Savage Twister
+4 Stump Stomp
+1 Surge of Strength
+1 Zo-Zu the Punisher

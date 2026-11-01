@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/DDI/koth.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Koth_DDI.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Koth (Adapted)]
+1 Acidic Soil
+1 Arc Lightning
+1 Bathe in Dragonfire
+1 Battle Frenzy
+1 Bloodfire Colossus
+1 Bloodfire Kavu
+1 Desert Sandstorm
+1 Disharmony
+3 Fateful End
+1 Fiery Cannonade
+2 Fiery Hellhound
+1 Geyser Glider
+1 Journeyer's Kite
+1 Lithophage
+1 Massive Raid
+25 Mountain
+1 Pygmy Pyrosaur
+1 Rage of Purphoros
+2 Seismic Strike
+2 Sparkmage Apprentice
+1 Stone Giant
+2 Stone Rain
+2 Valakut Awakening
+1 Vulshok Battlegear
+1 Vulshok Berserker
+1 Vulshok Morningstar
+1 Vulshok Sorcerer
+2 Wayfarer's Bauble

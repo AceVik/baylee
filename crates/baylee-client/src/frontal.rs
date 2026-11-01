@@ -419,7 +419,7 @@ impl Plugin for FrontalPlugin {
         bevy::shader::load_shader_library!(app, "shaders/noise.wesl");
         embedded_asset!(app, "shaders/frontal.wesl");
         app.add_plugins(UiMaterialPlugin::<FrontalMaterial>::default())
-            .add_systems(Update, hang);
+            .add_systems(PostUpdate, hang.after(bevy::ui::UiSystems::Layout));
     }
 }
 

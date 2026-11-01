@@ -1,0 +1,18 @@
+# baylee curated constructed midrange seed=20261110
+# licence: AGPL-3.0-only
+[deck:constructed midrange W #20261110]
+3 Arahbo, the First Fang
+3 Attended Knight
+3 Blade Splicer
+3 Captain of the Watch
+1 Corrupted Crossroads
+4 Daysquad Marshal
+3 Eager Glyphmage
+2 Honored Knight-Captain
+20 Plains
+2 Regal Caracal
+3 Spirited Companion
+4 Thraben Inspector
+3 Three Tree City
+4 Triclopean Sight
+2 Walking Ballista

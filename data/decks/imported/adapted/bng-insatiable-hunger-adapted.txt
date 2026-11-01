@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/BNG/insatiable-hunger.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, InsatiableHunger_BNG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Insatiable Hunger (Adapted)]
+4 Colossal Might
+2 Cyclops of One-Eyed Pass
+14 Forest
+2 Ground Assault
+2 Lightning Strike
+2 Manamorphose
+1 Messenger's Speed
+2 Mortal's Resolve
+12 Mountain
+1 Nessian Courser
+1 Opaline Unicorn
+2 Reckless Reveler
+4 Savage Twister
+1 Setessan Starbreaker
+4 Stump Stomp
+2 Surge of Strength
+2 Swordwise Centaur
+2 Voyaging Satyr

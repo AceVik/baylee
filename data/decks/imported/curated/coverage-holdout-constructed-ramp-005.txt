@@ -1,0 +1,29 @@
+# baylee synergistic holdout coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WUBRG #90010006]
+2 Azorius Keyrune
+3 Blackcleave Cliffs
+2 Channel the Suns
+2 Culling Sun
+2 Darkwater Egg
+3 Duskmantle, House of Shadow
+2 Felhide Petrifier
+1 Fomori Nomad
+6 Forest
+2 Gruul Signet
+2 Hardened Tactician
+3 Island
+2 Izzet Signet
+2 Kin-Tree Severance
+2 Kiora's Follower
+2 Manaforge Cinder
+2 Mist Dragon
+3 Mountain
+2 Munitions Expert
+3 Plains
+2 Riot Spikes
+2 Saltwater Stalwart
+2 Seashell Cameo
+2 Shineshadow Snarl
+2 Temple of Silence
+2 Unfulfilled Desires

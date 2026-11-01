@@ -1,4 +1,5 @@
-//! Every feature this workspace declares and `--workspace` never builds.
+//! The development-feature matrix for current desktop and server support.
+//! This matrix runs locally before landing; CI checks only shipped graphs.
 //!
 //! `clippy --workspace` and `test --workspace` compile each crate with its
 //! default features, so the non-default ones were compiled by nobody:
@@ -6,15 +7,16 @@
 //! | crate | features |
 //! | --- | --- |
 //! | `baylee-client` | `dev-control`, `dev-reload`, `dev-dylink` |
-//! | `baylee-client-android` | `dev-control` |
 //! | `baylee-gateway` | `dev-table` |
 //! | `baylee-client-core` | `test-support` |
 //! | `baylee-engine` | `fuzz` |
 //! | `baylee-cards` | `mutate` |
+//! | `baylee-train` | `llm-collector` |
 //!
 //! plus one default switched off, `baylee-train` without `play`, which is how
 //! `xtask` links it (`onnx` is trainer-only and in no gate: it downloads ONNX
-//! Runtime when it builds).
+//! Runtime when it builds; so do `llm` and `live-seat`, which pull it in, and
+//! they stay out for the same reason).
 //!
 //! It fails in both directions. A feature adds code the default build never
 //! sees (`devctl.rs` broke on `Option<Refusal>` with the whole gate green,
@@ -43,18 +45,21 @@ const CLIENT_FEATURES: &str = "dev-control,dev-reload";
 /// The checks that only have to pass, in the order they run. Each one's
 /// shape is the check its feature earns:
 ///
+/// Android and iOS are coming soon and have no feature-gate checks yet.
+///
 /// - `dev-dylink` gates no source at all (`["bevy/dynamic_linking"]`), so the
 ///   only thing it can break is the feature graph, which `cargo tree` answers
 ///   in half a second; forwarding to a `dynamic_linking_NOPE` exits 101. A
 ///   resolver error here once came from a year-stale local index cache
 ///   (`crates/baylee-client/Cargo.toml` tells it); suspect that first.
-/// - Off Android the shim has no dependencies; what its check earns is that
-///   `dev-control = ["baylee-client/dev-control"]` still resolves.
 /// - `test-support`, `fuzz` and `mutate` are `cfg(any(test, feature = …))`,
 ///   so `--all-targets` compiles them through `test` anyway; `--lib` checks
 ///   the shape every consumer builds: the feature on, `cfg(test)` off.
 /// - `baylee-train` without `play` is how every `cargo run -p xtask` links it,
 ///   which the workspace build never does.
+/// - `llm-collector` builds the language-model replay collector, a binary
+///   no default feature reaches; it needs no ONNX Runtime, so it is checked
+///   whole, tests included, in [`LINUX_CHECKS`].
 const CHECKS: &[(&str, &[&str])] = &[
     (
         "dev-dylink-resolves",
@@ -66,20 +71,6 @@ const CHECKS: &[(&str, &[&str])] = &[
             "dev-dylink",
             "-e",
             "features",
-        ],
-    ),
-    (
-        "android-dev-control",
-        &[
-            "clippy",
-            "-p",
-            "baylee-client-android",
-            "--features",
-            "dev-control",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings",
         ],
     ),
     (
@@ -138,6 +129,23 @@ const CHECKS: &[(&str, &[&str])] = &[
         ],
     ),
 ];
+
+/// The LLM collector runs its seats as process groups it reads through
+/// `/proc` (`baylee_train_ops::process`), so it builds on Linux only.
+const LINUX_CHECKS: &[(&str, &[&str])] = &[(
+    "train-llm-collector",
+    &[
+        "clippy",
+        "-p",
+        "baylee-train",
+        "--features",
+        "llm-collector",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings",
+    ],
+)];
 
 /// The gateway's seated dev table: `main.rs` carries both
 /// `cfg(feature = "dev-table")` and its negation, so the default gate compiles
@@ -201,7 +209,16 @@ pub fn run() -> i32 {
     for (label, args) in CHECKS {
         quiet_step(&mut steps, label, &mut cargo_with(*args));
     }
-    verification_hooks_unshipped(&mut steps);
+    if cfg!(target_os = "linux") {
+        for (label, args) in LINUX_CHECKS {
+            quiet_step(&mut steps, label, &mut cargo_with(*args));
+        }
+    } else {
+        for (label, _) in LINUX_CHECKS {
+            println!("STEP {label} SKIPPED - Linux only (it reads process groups through /proc)");
+        }
+    }
+    crate::shipping::check(&mut steps);
     steps.finish()
 }
 
@@ -287,72 +304,6 @@ fn count_tests(log: &str) -> (usize, usize) {
         .filter(|l| l.starts_with("test devctl::") && l.trim_end().ends_with("... ok"))
         .count();
     (passed, devctl)
-}
-
-/// Neither verification hook may reach a build that ships. `mutate` is
-/// enabled by `baylee-engine`'s dev-dependencies alone and `fuzz` by nothing,
-/// so the feature graph without dev edges names neither. The engine's graph
-/// with dev edges must name `mutate`: the control that proves the pattern
-/// matches what `cargo tree` prints, without which a renamed feature would
-/// count zero leaks forever. `--target all`, so a dependency declared for one
-/// platform cannot switch a hook on where this host never looks.
-fn verification_hooks_unshipped(steps: &mut Steps) {
-    let started = Instant::now();
-    let shipped = run::captured(&mut cargo_with([
-        "tree",
-        "--workspace",
-        "--target",
-        "all",
-        "-e",
-        "features,normal,build",
-    ]));
-    let engine = run::captured(&mut cargo_with([
-        "tree",
-        "-p",
-        "baylee-engine",
-        "--target",
-        "all",
-        "-e",
-        "features",
-    ]));
-    let secs = started.elapsed().as_secs();
-    match (shipped, engine) {
-        (Some(shipped), Some(engine)) if shipped.status.success() && engine.status.success() => {
-            let leaks = String::from_utf8_lossy(&shipped.stdout)
-                .lines()
-                .filter(|l| l.contains("feature \"mutate\"") || l.contains("feature \"fuzz\""))
-                .count();
-            let control = String::from_utf8_lossy(&engine.stdout)
-                .lines()
-                .filter(|l| l.contains("baylee-cards feature \"mutate\""))
-                .count();
-            if leaks == 0 && control > 0 {
-                println!(
-                    "STEP verification-hooks-shipped ok (0 in the shipped graph, {control} in the engine's dev graph, {secs}s)"
-                );
-                steps.record(true);
-            } else {
-                println!(
-                    "STEP verification-hooks-shipped FAILED - {leaks} mentions of mutate/fuzz in the graph"
-                );
-                println!(
-                    "  without dev edges (must be 0), {control} of mutate in baylee-engine's dev graph (must be >0)"
-                );
-                steps.record(false);
-            }
-        }
-        (shipped, engine) => {
-            println!("STEP verification-hooks-shipped FAILED - cargo tree did not run");
-            for out in [shipped, engine]
-                .into_iter()
-                .flatten()
-                .filter(|o| !o.status.success())
-            {
-                println!("{}", run::tail(&run::text(&out), 40));
-            }
-            steps.record(false);
-        }
-    }
 }
 
 #[cfg(test)]

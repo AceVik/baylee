@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/AKH/liliana-death-wielder.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LilianaDeathWielder_AKH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Liliana, Death Wielder (Adapted)]
+3 Abrupt Decay
+4 Assassin's Trophy
+3 Desiccated Naga
+1 Drain the Well
+2 Dune Beetle
+9 Forest
+4 Foul Orchard
+4 Gaze of Granite
+2 Giant Spider
+1 Grasping Dunes
+2 Gravedigger
+4 Maelstrom Pulse
+4 Pest Summoning
+11 Swamp
+4 Tattered Mummy
+2 Tear Asunder

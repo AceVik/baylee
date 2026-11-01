@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/SCG/pulverize.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Pulverize_SCG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Pulverize (Adapted)]
+1 Aven Fateshaper
+4 Broadside Barrage
+2 Elemental Summoning
+4 Expressive Iteration
+4 Fire
+2 Flare
+4 Invoke the Firemind
+12 Island
+4 Izzet Charm
+1 Macetail Hystrodon
+12 Mountain
+2 Pyrostatic Pillar
+4 Rush of Inspiration
+4 Traumatic Critique

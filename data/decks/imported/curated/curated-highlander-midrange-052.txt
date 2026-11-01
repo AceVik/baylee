@@ -1,0 +1,80 @@
+# baylee curated highlander midrange seed=20261075
+# licence: AGPL-3.0-only
+[deck:highlander midrange UG #20261075]
+1 Aether Spellbomb
+1 Alchemist's Refuge
+1 Baxter Building
+1 Birthing Pod
+1 Blue Mana Battery
+1 Bugenhagen, Wise Elder
+1 Buzz Bots
+1 Capital City
+1 Cavern of Souls
+1 Claws of Wirewood
+1 Copper Myr
+1 Corridor Monitor
+1 Council of Advisors
+1 Courier's Capsule
+1 Drowner of Hope
+1 Drumhunter
+1 Elite Instructor
+1 Five Hundred Year Diary
+1 Flooded Grove
+6 Forest
+1 Futurist Forge
+1 Garruk's Packleader
+1 Gilded Goose
+1 Gladewalker Ritualist
+1 Glimmervoid
+1 Goggles of Night
+1 Great Hall of the Biblioplex
+1 Green Mana Battery
+1 Gryff Vanguard
+1 Harrier Strix
+1 Heap Gate
+1 Horn of Ramos
+1 Implement of Examination
+1 Insight Engine
+19 Island
+1 Lazotep Quarry
+1 Lifecrafter's Bestiary
+1 Lifespark Spellbomb
+1 Machine God's Effigy
+1 Malcator's Watcher
+1 Mech Hangar
+1 Mechan Navigator
+1 Mightstone's Animation
+1 Migrating Ketradon
+1 Moss Diamond
+1 Mox Emerald
+1 Mox Sapphire
+1 Network Disruptor
+1 Ominous Parcel
+1 Owlbear
+1 Parasitic Strix
+1 Parcel Myr
+1 Pillar of the Paruns
+1 Pond Prophet
+1 S.H.I.E.L.D. Deployment Drone
+1 Sarcomite Myr
+1 Scepter of Insight
+1 Shaman of Spring
+1 Silver Myr
+1 Simic Cluestone
+1 Simic Locket
+1 Sky-Eel School
+1 Survivors' Encampment
+1 Talisman of Curiosity
+1 The Everflowing Well
+1 The Theorist, Jace Beleren
+1 Thought Monitor
+1 Three Steps Ahead
+1 Thundering Tanadon
+1 Trigon of Thought
+1 Ultimecia, Temporal Threat
+1 Unclaimed Territory
+1 Undiscovered Paradise
+1 Unknown Shores
+1 Wan Shi Tong, Librarian
+1 Whir of Invention
+1 Witching Well

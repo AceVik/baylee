@@ -109,6 +109,20 @@ pub static ARMY_0_0_BLACK: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 5/5 green Beast (One Dozen Eyes). The printing used for art also has
+/// trample, which One Dozen Eyes does not grant.
+pub static BEAST_5_5_GREEN: TokenDef = TokenDef {
+    name: "Beast",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BEAST],
+    power: Some(5),
+    toughness: Some(5),
+    // C18 #14 — the only 5/5 Beast token printing Scryfall indexes.
+    scryfall_id: "44675b6a-ea5a-44f1-9f2c-3725cdfcc814",
+    ..TokenDef::DEFAULT
+};
+
 /// 1/1 white Bird with flying (Aether Channeler).
 pub static BIRD_1_1_WHITE_FLYING: TokenDef = TokenDef {
     name: "Bird",
@@ -517,6 +531,19 @@ pub static JACE_PLANESWALKER_BLUE: TokenDef = TokenDef {
         baylee_cards_dsl::loyalty!(-1, &[Effect::surveil(1)]),
         baylee_cards_dsl::loyalty!(-3, &[Effect::draw(1)]),
     ],
+    ..TokenDef::DEFAULT
+};
+
+/// 2/2 black Zombie, M20 #6 — the ordinary token made by Field of the Dead
+/// and by every later effect with the same body, not a card-specific variant.
+pub static ZOMBIE_2_2_BLACK: TokenDef = TokenDef {
+    name: "Zombie",
+    colors: ColorSet::from_slice(&[Color::Black]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::ZOMBIE],
+    power: Some(2),
+    toughness: Some(2),
+    scryfall_id: "18f0436e-9328-4266-9cf8-80b557a0c17c",
     ..TokenDef::DEFAULT
 };
 

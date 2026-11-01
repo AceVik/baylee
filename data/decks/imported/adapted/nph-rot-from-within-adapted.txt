@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/NPH/rot-from-within.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RotFromWithin_NPH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Rot from Within (Adapted)]
+1 Beneath the Sands
+4 Call the Scions
+4 Chord of Calling
+2 Confidence from Strength
+4 Deconstruct
+22 Forest
+4 Gaea's Bounty
+1 Green Sun's Zenith
+1 Inkmoth Nexus
+4 Mutagenic Growth
+4 Overgrown Battlement
+4 Primal Bellow
+3 Squall
+2 Wildsize

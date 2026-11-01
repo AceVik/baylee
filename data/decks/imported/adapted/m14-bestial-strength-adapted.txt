@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/M14/bestial-strength.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BestialStrength_M14.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Bestial Strength (Adapted)]
+1 Advocate of the Beast
+2 Briarpack Alpha
+2 Brindle Boar
+2 Deadly Recluse
+2 Doom Blade
+1 Fog
+17 Forest
+3 Gaze of Granite
+2 Giant Growth
+2 Giant Spider
+2 Kalonian Tusker
+4 Maelstrom Pulse
+1 Mind Rot
+1 Orochi Leafcaller
+1 Plummet
+2 Rootwalla
+2 Rumbling Baloth
+9 Swamp
+2 Vial of Poison
+2 Woodborn Behemoth

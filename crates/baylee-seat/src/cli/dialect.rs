@@ -20,7 +20,14 @@
 //! the conversation the last one left, in a store the seat owns or, where
 //! the tool keeps its sessions beside its login, under the user's home
 //! ([`Dialect::sessions_root`]), from where the seat removes exactly its
-//! own ([`Dialect::session_files`]).
+//! own ([`Dialect::session_files`]). A tool that speaks a protocol of
+//! requests and replies (Junie's ACP, [`super::acp`]) holds its
+//! conversation in one process as well: its dialect writes the greeting
+//! that opens it ([`Dialect::opening`]), holds a message the protocol is
+//! not ready for, and answers the tool's own requests (a permission, always
+//! refused) through the [`Wire`]; a tool that keeps that conversation
+//! beside its login without resuming it has the seat remove it all the
+//! same.
 //!
 //! Which tools this build speaks, and how each is locked down, is
 //! `docs/llm-seat.md` §"A CLI as the model".
@@ -42,6 +49,12 @@ pub(crate) trait Dialect: Send + Sync {
     /// its working directory, which stays empty) before the process
     /// starts. A schema or instructions a flag takes only as a path.
     fn files(&self, _settings: &Settings, _system: &str) -> Vec<(&'static str, String)> {
+        Vec::new()
+    }
+
+    /// Configuration a tool discovers only in its working directory.
+    /// Paths are fixed by the dialect, never supplied by a model or player.
+    fn workspace_files(&self, _system: &str) -> Vec<(&'static str, String)> {
         Vec::new()
     }
 
@@ -91,6 +104,17 @@ pub(crate) trait Dialect: Send + Sync {
         false
     }
 
+    /// Whether its processes run in a session of their own, without the
+    /// bridge's controlling terminal ([`super::launch::detach`]): only a
+    /// tool that starts something that reads the terminal (Junie's
+    /// `systemd-inhibit`). Every other tool stays in the bridge's process
+    /// group, so whatever stops that group (a collector's `SIGTERM`, then
+    /// `SIGKILL`, to its seat's group) stops the tool with the bridge, even
+    /// where the bridge is killed before it can end it.
+    fn detaches(&self) -> bool {
+        false
+    }
+
     /// Whether a running count of usage ([`Self::usage_is_cumulative`])
     /// runs on across the processes that resume one conversation (it is
     /// the conversation's, read back with it), rather than starting again
@@ -136,22 +160,26 @@ pub(crate) trait Dialect: Send + Sync {
     }
 
     /// The lines written as the process starts, before any message: a
-    /// protocol's greeting and the conversation it opens.
+    /// protocol's greeting, which opens its conversation in `work`, the
+    /// process's working directory.
     fn opening(
         &self,
         _settings: &Settings,
         _model: Option<&str>,
-        _system: &str,
+        _work: &Path,
         _wire: &mut Wire,
     ) -> Vec<String> {
         Vec::new()
     }
 
-    /// The line that sends `text` as the conversation's next message.
+    /// The line that sends `text` as the conversation's next message; for
+    /// a protocol that frames it with what its conversation keeps (an id),
+    /// what of that line `text` makes, which [`Self::message`] frames.
     fn stdin_line(&self, text: &str) -> String;
 
     /// The lines that send `text` as the conversation's next message: by
-    /// default its [`Self::stdin_line`].
+    /// default its [`Self::stdin_line`]. None while the protocol holds it
+    /// (its conversation is not open yet, or a reply is still coming).
     fn message(&self, text: &str, _wire: &mut Wire) -> Vec<String> {
         vec![self.stdin_line(text)]
     }
@@ -211,6 +239,17 @@ pub(crate) struct Wire {
     /// The conversation the process was asked to go on with
     /// ([`Dialect::resume`]): one that names another has begun a new one.
     pub(crate) asked: Option<String>,
+    /// What the tool said that belongs in the seat's transcript and
+    /// nowhere else (the options a session plays with, what it has cost so
+    /// far by the tool's own word): written there as the line is read.
+    pub(crate) notes: Vec<Value>,
+    /// Whether the conversation cannot go on (a protocol's opening failed):
+    /// nothing more is read from the process, as at the end of its output,
+    /// and the next question starts another.
+    pub(crate) over: bool,
+    /// The Agent Client Protocol's side of the conversation, for a tool
+    /// that speaks it ([`super::acp`]).
+    pub(crate) acp: super::acp::Acp,
 }
 
 impl Wire {
@@ -247,6 +286,10 @@ pub(crate) enum Event {
     /// command, a file): why. The mind is taken off the table, as for a
     /// start that offers it.
     Breach(String),
+    /// The model asked for a tool and the seat refused it before it ran
+    /// (a permission the tool asked for): what it asked for. Counted and
+    /// written to the transcript; no breach, for nothing ran.
+    Refused(String),
     /// Anything else: the model's own messages, progress.
     Other,
 }

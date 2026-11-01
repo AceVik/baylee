@@ -96,6 +96,70 @@ fn basic_landwalk_prevents_blocking(
     !walks.is_empty()
 }
 
+/// All landwalk restrictions, including chosen subtypes and as-though permissions.
+fn landwalk_prevents_blocking(state: &GameState, a: &GameObject, defending: PlayerId) -> bool {
+    let attacker = a.id;
+    let ignore_landwalk = state.effects.iter().any(|effect| {
+        matches!(
+            effect.modifier,
+            baylee_cards_dsl::Modifier::BlockableWithoutAnyLandwalk
+        ) && crate::effects::applies_to(state, effect, a)
+    });
+    // Landwalk (CR 702.14c): unblockable while the *defending* player
+    // controls a land of that type — that player's lands and nobody
+    // else's, read as they are now (a land an effect made an Island is
+    // one).
+    if !ignore_landwalk && basic_landwalk_prevents_blocking(state, a, defending) {
+        return true;
+    }
+    // The rest of the family (desertwalk, CR 702.14c): a land the effect's
+    // filter describes, among the defending player's.
+    !ignore_landwalk
+        && state.effects.iter().any(|fx| {
+            if let baylee_cards_dsl::Modifier::LandwalkOfSubtype { subtype, lands } = fx.modifier {
+                return crate::effects::applies_to(state, fx, a)
+                    && !landwalk_removed(state, a, fx.timestamp)
+                    && state.battlefield_seen().any(|id| {
+                        state.object(id).is_some_and(|land| {
+                            land.controller == defending
+                                && land.characteristics().types.contains(TypeSet::LAND)
+                                && land.characteristics().subtypes.contains(subtype)
+                                && crate::eval::matches_with_context(
+                                    lands,
+                                    state,
+                                    land,
+                                    fx.controller,
+                                    crate::text_changes::RuleContext {
+                                        source: fx.source.unwrap_or(attacker),
+                                        text: state.effect_text(fx),
+                                        resolved_name: None,
+                                        reference: None,
+                                    },
+                                )
+                        })
+                    });
+            }
+            let baylee_cards_dsl::Modifier::LandwalkMatching(filter) = fx.modifier else {
+                return false;
+            };
+            crate::effects::applies_to(state, fx, a)
+                && !landwalk_removed(state, a, fx.timestamp)
+                && state.battlefield_seen().any(|id| {
+                    state.object(id).is_some_and(|land| {
+                        land.controller == defending
+                            && land.characteristics().types.contains(TypeSet::LAND)
+                            && crate::eval::matches(
+                                filter,
+                                state,
+                                land,
+                                fx.controller,
+                                fx.source.unwrap_or(attacker),
+                            )
+                    })
+                })
+        })
+}
+
 /// Whether `defending` may block `attacker` with `blocker` (keyword
 /// restrictions included): only a creature attacking that player or one of
 /// their planeswalkers (CR 509.1a, 802.4a).
@@ -163,35 +227,7 @@ pub fn can_block(
             return false;
         }
     }
-    // Landwalk (CR 702.14c): unblockable while the *defending* player
-    // controls a land of that type — that player's lands and nobody
-    // else's, read as they are now (a land an effect made an Island is
-    // one).
-    if basic_landwalk_prevents_blocking(state, a, defending) {
-        return false;
-    }
-    // The rest of the family (desertwalk, CR 702.14c): a land the effect's
-    // filter describes, among the defending player's.
-    if state.effects.iter().any(|fx| {
-        let baylee_cards_dsl::Modifier::LandwalkMatching(filter) = fx.modifier else {
-            return false;
-        };
-        crate::effects::applies_to(state, fx, a)
-            && !landwalk_removed(state, a, fx.timestamp)
-            && state.battlefield_seen().any(|id| {
-                state.object(id).is_some_and(|land| {
-                    land.controller == defending
-                        && land.characteristics().types.contains(TypeSet::LAND)
-                        && crate::eval::matches(
-                            filter,
-                            state,
-                            land,
-                            fx.controller,
-                            fx.source.unwrap_or(attacker),
-                        )
-                })
-            })
-    }) {
+    if landwalk_prevents_blocking(state, a, defending) {
         return false;
     }
     // Menace is deliberately *not* asked here. CR 702.111b restricts the
@@ -332,8 +368,16 @@ pub fn block_bound(state: &GameState, attacker: ObjectId) -> Option<crate::choic
 /// requirements that could be obeyed without disobeying any restrictions"
 /// (CR 509.1c) is a maximum over declarations made of these pairs.
 #[must_use]
-pub fn block_options(state: &GameState, defending: PlayerId) -> Vec<crate::choice::BlockOption> {
-    let candidates = ready_blockers(state, defending);
+pub fn block_options(
+    state: &GameState,
+    defending: PlayerId,
+    mana_reach: u64,
+) -> Vec<crate::choice::BlockOption> {
+    let rules = BlockRules::new(state).reaching(mana_reach);
+    let candidates: Vec<ObjectId> = ready_blockers(state, defending)
+        .into_iter()
+        .filter(|blocker| rules.can_pay_mana(*blocker))
+        .collect();
     let blockable: Vec<ObjectId> = state
         .combat
         .attackers()
@@ -388,13 +432,23 @@ pub fn block_options(state: &GameState, defending: PlayerId) -> Vec<crate::choic
 /// declaration and not necessarily the best: its count can fall short of
 /// the maximum, and a declaration between the two is accepted. It never
 /// refuses a legal declaration, since `obeying`'s own is always one.
+///
+/// A blocker that costs mana to block with counts for nothing, on either
+/// side: "that player is not required to pay that cost, even if blocking
+/// with that creature would increase the number of requirements being
+/// obeyed" (CR 509.1c). [`BlockRules::demands`] asks nothing of it, so the
+/// maximum is the one the other blockers can reach, and blocking with it
+/// obeys none of them in their place.
 pub struct BlockRules<'a> {
     state: &'a GameState,
     additional: Vec<&'a crate::effects::ContinuousEffect>,
     any_number: Vec<&'a crate::effects::ContinuousEffect>,
     lures: Vec<&'a crate::effects::ContinuousEffect>,
     each: Vec<&'a crate::effects::ContinuousEffect>,
+    unless_pay_mana: Vec<&'a crate::effects::ContinuousEffect>,
     max_blockers: Option<usize>,
+    /// Mana the defending player could still make in the payment window.
+    mana_reach: u64,
 }
 
 impl<'a> BlockRules<'a> {
@@ -408,10 +462,13 @@ impl<'a> BlockRules<'a> {
             any_number: Vec::new(),
             lures: Vec::new(),
             each: Vec::new(),
+            unless_pay_mana: Vec::new(),
             max_blockers: None,
+            mana_reach: 0,
         };
         for fx in state.effects.iter() {
             match fx.modifier {
+                Modifier::CantBlockUnlessPayManaPerCounter(_) => rules.unless_pay_mana.push(fx),
                 Modifier::CanBlockAdditional(_) => rules.additional.push(fx),
                 Modifier::CanBlockAnyNumber => rules.any_number.push(fx),
                 Modifier::MustBeBlockedByAllAble | Modifier::MustBeBlockedByAllAbleMatching(_) => {
@@ -430,6 +487,40 @@ impl<'a> BlockRules<'a> {
         rules
     }
 
+    /// Whether any block costs mana, so finding the defender's mana reach is
+    /// worth it. Each blocker is offered against the whole reach; the total
+    /// cost of several blockers is still checked once, at declaration.
+    #[must_use]
+    pub fn has_mana_tax(&self) -> bool {
+        !self.unless_pay_mana.is_empty()
+    }
+
+    /// The same rules with up to `mana` more mana available in the payment
+    /// window (CR 509.1d–f).
+    #[must_use]
+    pub const fn reaching(mut self, mana: u64) -> Self {
+        self.mana_reach = mana;
+        self
+    }
+
+    /// Whether `blocker`'s own tax can be paid from its controller's pool or
+    /// the sources the payment window offers.
+    #[must_use]
+    fn can_pay_mana(&self, blocker: ObjectId) -> bool {
+        let tax = self.mana_tax(blocker);
+        if tax == 0 {
+            return true;
+        }
+        let Some(object) = self.state.object(blocker) else {
+            return false;
+        };
+        let pool = &self.state.players[usize::from(object.controller.get())].mana_pool;
+        crate::mana_pay::can_pay(
+            pool,
+            &baylee_core::mana::ManaCost::ZERO.with_more_generic(tax),
+        ) || pool.total().saturating_add(self.mana_reach) >= u64::from(tax)
+    }
+
     /// Maximum number of creatures that may block this combat, if capped.
     #[must_use]
     pub const fn max_blockers(&self) -> Option<usize> {
@@ -441,6 +532,27 @@ impl<'a> BlockRules<'a> {
     #[must_use]
     pub fn has_requirements(&self) -> bool {
         !self.lures.is_empty() || !self.each.is_empty()
+    }
+
+    /// Total generic mana cost `blocker`'s controller must pay to declare it
+    /// blocking (CR 509.1d–f).
+    #[must_use]
+    pub fn mana_tax(&self, blocker: ObjectId) -> u32 {
+        let Some(obj) = self.state.object(blocker) else {
+            return 0;
+        };
+        self.unless_pay_mana
+            .iter()
+            .filter_map(|fx| {
+                let baylee_cards_dsl::Modifier::CantBlockUnlessPayManaPerCounter(kind) =
+                    fx.modifier
+                else {
+                    return None;
+                };
+                crate::effects::applies_to(self.state, fx, obj)
+                    .then_some(u32::from(obj.counters.get(kind)))
+            })
+            .fold(0_u32, u32::saturating_add)
     }
 
     /// How many attackers `blocker` may block (CR 509.1a): one, one more
@@ -474,8 +586,19 @@ impl<'a> BlockRules<'a> {
     /// on the attacker and each "blocks each attacking creature" on the
     /// blocker. Asked only of a pair [`block_options`] offers, which is
     /// what "able to block" means.
+    ///
+    /// None for a blocker that can't block unless its controller pays a cost
+    /// (Myr Prototype): "that player is not required to pay that cost, even
+    /// if blocking with that creature would increase the number of
+    /// requirements being obeyed" (CR 509.1c). Such a blocker is still
+    /// offered, and may be declared and paid for, but the declaration is
+    /// held to the requirements of the others alone, as an attack is
+    /// (`attack_question`, CR 508.1d).
     #[must_use]
     pub fn demands(&self, blocker: ObjectId, attacker: ObjectId) -> usize {
+        if self.mana_tax(blocker) > 0 {
+            return 0;
+        }
         let state = self.state;
         let on = |effects: &[&crate::effects::ContinuousEffect], id: ObjectId| {
             state.object(id).map_or(0, |obj| {
@@ -584,8 +707,11 @@ impl<'a> BlockRules<'a> {
             let (Some(&(lone, _)), None) = (on_it.next(), on_it.next()) else {
                 continue;
             };
+            // Never a blocker that costs mana: `obeying` is a declaration
+            // nobody has to pay for (CR 509.1c), and the clock answers with it.
             let helper = options.iter().find(|o| {
                 o.blocker != lone
+                    && self.mana_tax(o.blocker) == 0
                     && can_add_blocker(&distinct_blockers, o.blocker)
                     && o.attackers.contains(&attacker)
                     && chosen.iter().filter(|(b, _)| *b == o.blocker).count() < room(o.blocker)
@@ -619,6 +745,7 @@ impl GameState {
             return;
         };
         self.combat.declare_block(blocker_ref, attacker_ref);
+        self.record_blocked_or_blocking(blocker_ref, attacker_ref);
         if let Some(controller) = self.object(attacker).map(|o| o.controller) {
             self.per_turn.blocks.push(crate::state::BlockRecord {
                 blocker: blocker_ref,

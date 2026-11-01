@@ -1,0 +1,25 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, WingedStallion_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Winged Stallion]
+1 Conversion
+2 Counterspell
+2 Dancing Scimitar
+1 Disenchant
+3 Holy Armor
+3 Holy Strength
+3 Howling Mine
+12 Island
+3 Island Sanctuary
+2 Karma
+2 Lifetap
+4 Magical Hack
+4 Mesa Pegasus
+2 Phantasmal Forces
+12 Plains
+4 Psionic Entity
+2 Segovian Leviathan
+2 Serra Angel
+
+[sideboard]
+2 Conversion
+2 Counterspell

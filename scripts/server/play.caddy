@@ -14,7 +14,7 @@
 # it first and put the proxy in a `handle` of its own, so the two never both
 # answer one request:
 #
-#   baylee.acevik.de {
+#   gateway.baylee.app {
 #       import /etc/caddy/baylee-play.caddy
 #       handle {
 #           reverse_proxy 127.0.0.1:28766

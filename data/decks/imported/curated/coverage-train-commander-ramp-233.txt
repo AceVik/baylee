@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BR #20266234]
+1 Anaba Spirit Crafter
+1 Badlands
+1 Berserkers' Onslaught
+1 Blazemire Verge
+1 Blightstep Pathway
+1 Blood Crypt
+1 Bloodmark Mentor
+1 Boggart Arsonists
+1 Boggart Loggers
+1 Boldwyr Aggressor
+1 Caterwauling Boggart
+1 Cave Sense
+1 Chaosphere
+1 Cinder Marsh
+1 Clutch of Undeath
+1 Crucible of Fire
+1 Daring Demolition
+1 Dark Fortress
+1 Darkest Hour
+1 Death Pits of Rath
+1 Dralnu's Crusade
+1 Fervor
+1 Fire Nation's Conquest
+1 Flowstone Surge
+1 Frenzied Rage
+1 Gate to Phyrexia
+1 Goblin Chieftain
+1 Goblin Digging Team
+1 Goblin King
+1 Goblin Oriflamme
+1 Goblin Rabblemaster
+1 Goblin Sappers
+1 Goblin Settler
+1 Goblin Swine-Rider
+1 Goblin War Drums
+1 Goblin War Paint
+1 Graven Cairns
+1 Intimidation
+1 Jagged Barrens
+1 Kobold Overlord
+1 Kobold Taskmaster
+1 Kobolds of Kher Keep
+1 Larceny
+1 Lava Tubes
+1 Mad Auntie
+1 Molten Slagheap
+1 Molting Snakeskin
+1 Mount Doom
+14 Mountain
+1 Night of Souls' Betrayal
+1 Orcish Oriflamme
+1 Paragon of Fierce Defiance
+1 Paragon of Open Graves
+1 Power Boost
+1 Pride of the Perfect
+1 Prophetic Ravings
+1 Rakdos Ringleader
+1 Raptor Hatchling
+1 Rising of the Day
+1 Rix Maadi, Dungeon Palace
+1 Shadowblood Ridge
+1 Starke of Rath
+1 Stensia Bloodhall
+1 Stronghold Taskmaster
+1 Sulfurous Springs
+1 Super Speed
+12 Swamp
+1 Tainted Peak
+1 Tainted Well
+1 Thrull Champion
+1 Vault Robber
+1 Virulent Plague
+1 Volcanic Strength
+1 Weaselback Redcap
+1 Worms of the Earth
+
+[commander]
+Rohgahh of Kher Keep

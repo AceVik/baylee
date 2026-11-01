@@ -1,0 +1,86 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WRG #20266304]
+1 Abstergo Entertainment
+1 Akki Drillmaster
+1 Ancient Spider
+1 Arc Runner
+1 Argothian Treefolk
+1 Baxter Building
+1 Blanchwood Treefolk
+1 Blossom Dryad
+1 Bronzebeak Moa
+1 Brotherhood Headquarters
+1 Capital City
+1 Chained Brute
+1 Daily Bugle Building
+1 Dungrove Elder
+1 Elvish Bard
+1 Elvish Pathcutter
+1 Elvish Ranger
+1 Endless One
+1 Enslaved Scout
+1 Forbidden Orchard
+12 Forest
+1 Giant Badger
+1 Gloomwidow
+1 Gnottvold Recluse
+1 Goblin Cavaliers
+1 Goblin Hero
+1 Great Hall of the Citadel
+1 Haven of the Spirit Dragon
+1 Heap Gate
+1 Heartwood Treefolk
+1 Hitchclaw Recluse
+1 Indomitable Ancients
+1 Ironroot Treefolk
+1 Kessig Recluse
+1 Kird Chieftain
+1 Kitsune Riftwalker
+1 Lagac Lizard
+1 Lazotep Quarry
+1 Leaping Lizard
+1 Lotus Vale
+1 Magnigoth Sentry
+1 Mammoth Spider
+1 Mirrodin's Core
+3 Mountain
+1 Needlepeak Spider
+1 Orazca Raptor
+1 Pearled Unicorn
+1 Pillarfield Ox
+5 Plains
+1 Planar Nexus
+1 Plated Rootwalla
+1 Plated Wurm
+1 Rabid Wombat
+1 Raging Bull
+1 Raging Redcap
+1 Raven's Run Dragoon
+1 Reckless Pangolin
+1 Regal Unicorn
+1 Riot Devils
+1 Rith's Grove
+1 Rowan Treefolk
+1 Scarwood Treefolk
+1 Secluded Courtyard
+1 Sentinel Spider
+1 Shivan Raptor
+1 Sliver Hive
+1 Spatial Contortion
+1 Sporecap Spider
+1 Steam Spitter
+1 Survivors' Encampment
+1 Swift Spinner
+1 Tendo Ice Bridge
+1 Territorial Hammerskull
+1 Thran Quarry
+1 Unclaimed Territory
+1 Viashino Grappler
+1 Wary Okapi
+1 Watcher in the Web
+1 Wild Ox
+1 Willow Satyr
+1 Yavimaya Ancients
+1 Yavimaya Barbarian
+1 Yavimaya Scion

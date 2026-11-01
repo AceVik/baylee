@@ -28,6 +28,7 @@ pub use counters::{
 
 mod counter_effects;
 pub(crate) mod counter_limits;
+pub(crate) mod departure;
 
 use crate::eval;
 #[cfg(test)]

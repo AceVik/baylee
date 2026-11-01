@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/PSAL/wizards.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Wizards_PSAL.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Wizards (Adapted)]
+1 Azami, Lady of Scrolls
+2 Boomerang
+2 Call to Mind
+2 Dehydration
+1 Depths of Desire
+2 Dissipate
+2 Frantic Search
+1 Hair-Strung Koto
+2 I Am Iron Man
+24 Island
+3 Launch Mishap
+1 Mirror Universe
+2 Puppeteer
+2 Riptide Laboratory
+3 Soratami Mindsweeper
+2 Soratami Rainshaper
+1 Stroke of Genius
+1 Tower of Murmurs
+4 Vedalken Entrancer
+1 Vedalken Mastermind
+1 Wizard Replica

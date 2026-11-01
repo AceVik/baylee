@@ -1,0 +1,16 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, AmonkhetWelcomeDeckBlack_W17.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Amonkhet Welcome Deck - Black]
+1 Alley Strangler
+2 Bloodhunter Bat
+2 Certain Death
+1 Cursed Minotaur
+1 Dune Beetle
+2 Essence Extraction
+1 Gravedigger
+1 Nightmare
+1 Raise Dead
+1 Sengir Vampire
+13 Swamp
+2 Tattered Mummy
+2 Untamed Hunger

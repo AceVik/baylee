@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266084]
+1 Alela, Artful Provocateur
+1 Allied Teamwork
+1 Battering Sliver
+1 Battle Sliver
+1 Belligerent Sliver
+1 Blade Sliver
+1 Blur Sliver
+1 Bonescythe Sliver
+1 Bonesplitter Sliver
+1 Bountiful Promenade
+1 Cartouche of Knowledge
+1 Cleaving Sliver
+1 Cloak of Invisibility
+1 Cloudshredder Sliver
+1 Clout of the Dominus
+1 Creakwood Liege
+1 Crystal Quarry
+1 Crystalline Sliver
+1 Dark Favor
+1 Defensive Stance
+1 Dimir Guildgate
+1 Diregraf Captain
+1 Footlight Fiend
+10 Forest
+1 Fortifying Provisions
+1 Frog Tongue
+1 Frost Marsh
+1 Galerider Sliver
+1 Gemhide Sliver
+1 Goblin Shrine
+1 Grisly Ritual
+1 Heart Sliver
+1 Holy Armor
+1 Horned Sliver
+1 Lancer Sliver
+1 Leshrac's Rite
+1 Library
+1 Lord of the Undead
+1 Luxury Suite
+1 Manaweft Sliver
+1 Martyr of Dusk
+1 Master Trinketeer
+1 Messenger's Speed
+1 Might Sliver
+1 Mobilization
+5 Mountain
+1 Nearby Planet
+1 Patrol Signaler
+3 Plains
+1 Plated Sliver
+1 Predatory Sliver
+1 Ragavan, Nimble Pilferer
+1 Reflex Sliver
+1 Reflexes
+1 Restless Bivouac
+1 Sentinel Sliver
+1 Setessan Training
+1 Shadow Sliver
+1 Sheltered Thicket
+1 Sinew Sliver
+1 Sleeper's Robe
+1 Smaug the Magnificent
+1 Spinneret Sliver
+1 Steelform Sliver
+1 Striking Sliver
+1 Sulfurous Mire
+6 Swamp
+1 Synchronous Sliver
+1 Syphon Sliver
+1 Talon Sliver
+1 The World Tree
+1 Tresserhorn Sinks
+1 Two-Headed Sliver
+1 Undercity Sewers
+1 Unforgiving Aim
+1 Venom Sliver
+1 Voldaren Stinger
+1 Watcher Sliver
+1 Woodland Chasm
+
+[commander]
+Sliver Hivelord

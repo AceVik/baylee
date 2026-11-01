@@ -42,9 +42,9 @@ card!(
                     modifier: Modifier::AddKeyword(KeywordSet::SHROUD),
                     duration: Duration::UntilEndOfTurn,
                 },
-                Effect::SuppressUntap {
-                    target: TargetSpec::ThisObject,
-                    steps: 1,
+                Effect::ModifySource {
+                    modifier: Modifier::DoesNotUntap,
+                    duration: Duration::UntilYourNextUntapStep,
                 },
                 Effect::TapSelf,
             ],

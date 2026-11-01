@@ -1,0 +1,20 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, SedgeBeast_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sedge Beast]
+4 Blight
+4 Cyclopean Mummy
+2 Dancing Scimitar
+2 Diabolic Machine
+4 Erg Raiders
+4 Fissure
+2 Immolation
+4 Ironclaw Orcs
+10 Mountain
+4 Stone Rain
+4 Strip Mine
+10 Swamp
+4 Uthden Troll
+2 Weakness
+
+[sideboard]
+2 Hurr Jackal

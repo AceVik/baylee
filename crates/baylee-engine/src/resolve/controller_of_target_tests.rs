@@ -36,6 +36,7 @@ fn resolve(state: &mut GameState, targets: &[ObjectId], effects: Vec<Effect>) {
         mana_ability: false,
         countered_source: None,
         this_way_from: None,
+        coin_stake: None,
     };
     assert!(matches!(run(state, &mut res), Flow::Complete));
     state.refresh_characteristics();
@@ -159,6 +160,7 @@ fn chosen_player_may_accept_control_without_becoming_effect_controller() {
             mana_ability: false,
             countered_source: None,
             this_way_from: None,
+            coin_stake: None,
         };
         assert!(
             matches!(run(&mut state, &mut res), Flow::Wait(Pending::YesNo { player, .. }) if player == them())
@@ -281,6 +283,7 @@ fn greatest_exchange_ties_are_chosen_in_active_player_order() {
         mana_ability: false,
         countered_source: None,
         this_way_from: None,
+        coin_stake: None,
     };
 
     let Flow::Wait(Pending::ChooseCards {

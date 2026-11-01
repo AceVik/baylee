@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/PS11/eyes-of-shadow.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, EyesOfShadow_PS11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Eyes of Shadow (Adapted)]
+2 Abyssal Specter
+1 Ascendant Evincar
+1 Crowd of Cinders
+2 Demon's Horn
+3 Drudge Skeletons
+2 Dusk Imp
+1 Ghostly Visit
+2 Megrim
+4 Mind Rot
+1 Mind Shatter
+3 Ravenous Rats
+2 Rend Flesh
+1 Sengir Vampire
+2 Severed Legion
+25 Swamp
+4 Terror
+1 The Rack
+1 Underworld Dreams
+2 Unholy Strength

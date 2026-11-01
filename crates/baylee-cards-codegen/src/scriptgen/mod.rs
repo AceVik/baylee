@@ -38,10 +38,12 @@ use crate::tokengen::TokenLookup;
 use std::collections::BTreeMap;
 
 mod activated;
+mod animation;
 mod archon_kismet;
 mod atoms;
 mod chains;
 mod constants;
+mod divided_damage;
 mod effects;
 mod final_portals;
 mod gond_gate;
@@ -50,7 +52,9 @@ mod horse_johan;
 mod imprison;
 mod keywords;
 mod mana;
+mod prevention;
 mod protection52;
+mod regeneration;
 mod riftstone_portal;
 mod song52;
 mod statics;
@@ -162,6 +166,7 @@ const PROSE_KEYS: &[&str] = &[
     // Basalt Monolith prints it beside `AILogic`, not to move a number.
     "AIManaPref",
     "AICurse",
+    "AITgts",
     "PrecostDesc",
     "CostDesc",
     "References",
@@ -254,9 +259,14 @@ impl Params {
 
 /// A chain of effects and its independently announced target instances.
 #[derive(Debug, Default)]
+#[allow(clippy::struct_excessive_bools)]
 struct Chain {
     effects: Vec<String>,
     target: Option<String>,
+    target_is_x: bool,
+    target_up_to: Option<u8>,
+    target_exact: Option<u8>,
+    target_unique: bool,
     second_target: Option<String>,
     could_add_mana: bool,
     moves_library: bool,
@@ -270,6 +280,9 @@ struct Unless {
     /// `UnlessSwitched$ True`: the line's effect is what paying *buys*
     /// ("you may pay {1}. If you do, …"), not what refusing costs.
     switched: bool,
+    /// `UnlessResolveSubs$ WhenNotPaid`: the line's `SubAbility$` chain is
+    /// also gated behind the same refusal.
+    resolve_subs: bool,
 }
 
 /// A price a player may pay as an ability resolves, in the shape the effect
@@ -307,6 +320,7 @@ struct BlockHalf {
     ability: String,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 struct Tx<'a> {
     svars: &'a BTreeMap<String, String>,
     oracle: &'a str,
@@ -345,6 +359,12 @@ struct Tx<'a> {
     /// Whether the chain being read is a delayed trigger's `Execute$`, where
     /// `Defined$ DelayTriggerRememberedLKI` is the object it remembers.
     in_delayed: bool,
+    /// Whether the activated ability being read sacrifices `CARDNAME` in its cost.
+    cost_sacrifices_self: bool,
+    /// Whether the activated ability being read sacrifices another object in its cost.
+    cost_sacrifices_other: bool,
+    /// Whether the triggered ability being read triggers on `Card.Self`.
+    trigger_is_self: bool,
     body: CardBody,
     /// The first `Api.Key` no rule claimed, if that is why this
     /// script was refused. Recorded rather than derived, because a
@@ -503,6 +523,9 @@ pub fn transcode(
         block_line: None,
         block_half: None,
         in_delayed: false,
+        cost_sacrifices_self: false,
+        cost_sacrifices_other: false,
+        trigger_is_self: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };

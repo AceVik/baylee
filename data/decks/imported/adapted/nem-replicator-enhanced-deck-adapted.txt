@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/NEM/replicator-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ReplicatorEnhancedDeck_NEM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Replicator - Enhanced Deck (Adapted)]
+1 Arc Lightning
+4 Colossal Might
+2 Earthquake
+14 Forest
+4 Ground Assault
+2 Manamorphose
+1 Mercadian Bazaar
+3 Mountain
+4 Poison the Blade
+3 Rancor
+2 Revive
+4 Savage Twister
+3 Skyshroud Troll
+4 Smoldering Crater
+4 Stump Stomp
+2 Treetop Village
+3 Vine Trellis

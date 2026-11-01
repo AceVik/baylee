@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp B #20266048]
+1 Akroma's Memorial
+1 Aladdin's Lamp
+1 Altar of the Brood
+1 Arch of Orazca
+1 Automatic Librarian
+1 Blister Beetle
+1 Bog Smugglers
+1 Bronze Horse
+1 Brutal Nightstalker
+1 Burglar Rat
+1 Cabal Evangel
+1 Cabal Trainee
+1 Cackling Fiend
+1 Carnophage
+1 Catacomb Dragon
+1 Chardalyn Dragon
+1 Death Wind
+1 Duskmantle Operative
+1 Earsplitting Rats
+1 Elephant-Rat
+1 Eyes of the Beholder
+1 Fire Nation Ambushers
+1 Flowstone Thopter
+1 Greel's Caress
+1 Grinding Station
+1 Kite Shield
+1 Krovikan Scoundrel
+1 Lazotep Behemoth
+1 Leonin Bladetrap
+1 Liliana's Specter
+1 Maestros Theater
+1 Mass of Ghouls
+1 Melancholy
+1 Muraganda Raceway
+1 Mycosynth Lattice
+1 Nimble Pilferer
+1 Ominous Cemetery
+1 One with Nothing
+1 Opposition Agent
+1 Orc Sureshot
+1 Pardic Wanderer
+1 Pilgrim of the Fires
+1 Plasmancer
+1 Predator, Flagship
+1 Promising Vein
+1 Prophet of the Peak
+1 Rain of Filth
+1 Rank and File
+1 Rathi Trapper
+1 Ring of Immortals
+1 Rustspore Ram
+1 Secluded Starforge
+1 Sequestered Stash
+1 Signpost Scarecrow
+1 Soulshriek
+1 Spined Fluke
+35 Swamp
+1 Teeka's Dragon
+1 The Fallen
+1 Time Vault
+1 Touch of Darkness
+1 Vanquisher's Axe
+1 Watcher of the Wayside
+1 Wei Infantry
+1 Worldslayer
+
+[commander]
+Grandmother Sengir

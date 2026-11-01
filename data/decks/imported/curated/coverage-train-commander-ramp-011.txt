@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUB #20266012]
+1 Aquatic Incursion
+1 Arenson's Aura
+1 Argivian Restoration
+1 Ashiok, Dream Render
+1 Banishing Betrayal
+1 Cathartic Adept
+1 Chronic Flooding
+1 Contaminated Aquifer
+1 Contingency Plan
+1 Creeping Tar Pit
+1 Deadly Visit
+1 Dimir Guildgate
+1 Dispersing Orb
+1 Drowner of Secrets
+1 Emry, Lurker of the Loch
+1 Fate Foretold
+1 Fill with Fright
+1 Gates of Istfell
+1 Geist of Saint Thalia
+1 Gosta Dirk
+1 Grassland Crusader
+1 Hanna, Ship's Navigator
+1 Hatching Plans
+1 He's Dead, Jim
+1 Hell's Caretaker
+1 High Priest of Penance
+1 Humble the Brute
+1 Hunding Gjornersen
+1 Index
+1 Insomnia, Crown City
+18 Island
+1 Jedit Ojanen
+1 Kasimir the Lone Wolf
+1 Kjeldoran Phalanx
+1 Knight of the Tusk
+1 Lord of the Undead
+1 Merfolk Coralsmith
+1 Merfolk Mesmerist
+1 Mindeye Drake
+1 Misty Palms Oasis
+1 Mnemonic Wall
+1 Morphic Pool
+1 Mox Jasper
+1 Mtenda Griffin
+1 North Pole Gates
+1 Obsessive Stitcher
+1 Plains
+1 Port Town
+1 Prairie Stream
+1 Puppet Master
+1 Ramirez DePietro
+1 Razortide Bridge
+1 Restless Fortress
+1 Rootwater Mystic
+1 Rotcrown Ghoul
+1 Rummaging Wizard
+1 Sage's Row Denizen
+1 Scribe of the Mindful
+1 Search for Azcanta
+1 Select for Inspection
+1 Serpent's Pass
+1 Sharlayan, Nation of Scholars
+1 Sonic Screwdriver
+1 Sphinx's Herald
+1 Starfighter Pilot
+7 Swamp
+1 Teferi's Care
+1 Temporal Mastery
+1 Thalakos Seer
+1 Turbulent Moor
+1 Unauthorized Exit
+1 Wanderwine Hub
+1 Windrider Patrol
+1 Woebearer
+1 Zhang Liao, Hero of Hefei
+1 Zhou Yu, Chief Commander
+
+[commander]
+Dakkon Blackblade

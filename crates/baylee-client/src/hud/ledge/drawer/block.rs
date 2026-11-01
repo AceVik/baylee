@@ -1,7 +1,7 @@
 //! The block declaration as a named list (report 31): every attacker, and the
 //! creatures that may block the one in aim, each a row the table's own click
 //! answers ([`baylee_client_core::interaction::BlockRow`]).
-use super::{Duel, HINT_PT, Lang, Line, Phrase, palette};
+use super::{Duel, HINT_PT, Lang, Line, Phrase, glyph, palette};
 use baylee_client_core::{interaction::BlockRow, targeting};
 
 pub(super) fn reading(
@@ -37,61 +37,69 @@ pub(super) fn reading(
         .iter()
         .take_while(|o| matches!(o, BlockRow::Aim(_)))
         .count();
-    let creatures = options.len() - controls;
-    let start = duel
-        .target_page
-        .min(creatures.saturating_sub(1) / targeting::PAGE_SIZE)
-        * targeting::PAGE_SIZE;
-    let end = (start + targeting::PAGE_SIZE).min(creatures);
+    let page = crate::choices::Page::of(
+        options.len() - controls,
+        duel.target_page,
+        targeting::PAGE_SIZE,
+    );
     *rows = options
         .iter()
         .enumerate()
         .filter(|(index, _)| {
-            *index < controls || (controls + start..controls + end).contains(index)
+            *index < controls || (controls + page.start..controls + page.end).contains(index)
         })
-        .map(|(index, row)| {
-            let label = match *row {
-                BlockRow::Aim(attacker) => {
-                    let count = options
-                        .iter()
-                        .filter(|o| {
-                            matches!(o, BlockRow::Toggle(b) if i.blocking(*b) == Some(attacker))
-                        })
-                        .count();
-                    format!(
-                        "{}{}",
-                        if attacker == aim { "[x] " } else { "" },
-                        Phrase::BlockAim.fill(lang, &[&card(attacker), &count.to_string()])
+        .map(|(index, row)| match *row {
+            BlockRow::Aim(attacker) => {
+                let count = options
+                    .iter()
+                    .filter(
+                        |o| matches!(o, BlockRow::Toggle(b) if i.blocking(*b) == Some(attacker)),
                     )
-                }
-                BlockRow::Toggle(blocker) => match i.blocking(blocker) {
+                    .count();
+                crate::choices::ChoiceOption::text(
+                    index,
+                    Phrase::BlockAim.fill(lang, &[&card(attacker), &count.to_string()]),
+                )
+                .chosen(attacker == aim)
+            }
+            BlockRow::Toggle(blocker) => crate::choices::ChoiceOption::text(
+                index,
+                match i.blocking(blocker) {
                     Some(attacker) => {
                         Phrase::BlockWithdraw.fill(lang, &[&card(blocker), &card(attacker)])
                     }
                     None => Phrase::BlockSend.fill(lang, &[&card(blocker), &card(aim)]),
                 },
-            };
-            crate::choices::ChoiceOption {
-                index,
-                label,
-                pip: None,
-                cost: None,
-            }
+            ),
         })
         .collect();
-    for (show, index, label) in [
-        (start > 0, targeting::PREVIOUS, "←"),
-        (end < creatures, targeting::NEXT, "→"),
-    ] {
-        if show {
-            rows.push(crate::choices::ChoiceOption {
-                index,
-                label: label.into(),
-                pip: None,
-                cost: None,
-            });
-        }
+    // Grouped as the attack list is: the attackers, then the creatures that
+    // may block the one in aim, each under its caption (they ran on in one
+    // wrap, an attacker beside a blocker).
+    if let Some(first) = rows.first_mut() {
+        first.heading = Some(crate::choices::ChoiceHeading {
+            label: Phrase::RailAttackers.text(lang).into(),
+            icon: glyph::SEND,
+        });
     }
+    let blockers = options.len() - controls;
+    if let Some(first) = rows.get_mut(controls) {
+        first.heading = Some(crate::choices::ChoiceHeading {
+            label: if page.count > 1 {
+                format!(
+                    "{} · {}–{}/{}",
+                    Phrase::RailBlockers.text(lang),
+                    page.start + 1,
+                    page.end,
+                    blockers
+                )
+            } else {
+                Phrase::RailBlockers.text(lang).to_string()
+            },
+            icon: glyph::SHIELD,
+        });
+    }
+    crate::choices::page_arrows(rows, lang, page.earlier(), page.later());
 }
 
 #[cfg(test)]
@@ -174,8 +182,20 @@ mod tests {
         rows
     }
 
+    /// The rows as read, a chosen one marked `[x] ` here (it is drawn taken,
+    /// never written so).
     fn labels(duel: &Duel) -> Vec<String> {
-        rows(duel, Lang::En).into_iter().map(|r| r.label).collect()
+        rows(duel, Lang::En)
+            .into_iter()
+            .map(|r| {
+                assert!(!r.label.starts_with("[x]"), "the mark is in the words");
+                if r.chosen {
+                    format!("[x] {}", r.label)
+                } else {
+                    r.label
+                }
+            })
+            .collect()
     }
 
     /// The list is what the player reads: every attacker with the aimed one
@@ -204,6 +224,20 @@ mod tests {
         assert_eq!(
             rows(&duel, Lang::De)[2].label,
             "Blocken: Wall → Earth Elemental"
+        );
+        let captions: Vec<Option<String>> = rows(&duel, Lang::En)
+            .into_iter()
+            .map(|r| r.heading.map(|h| h.label))
+            .collect();
+        assert_eq!(
+            captions,
+            [
+                Some("Attackers".into()),
+                None,
+                Some("Blockers".into()),
+                None
+            ],
+            "the attackers and the blockers each open under their caption"
         );
     }
 

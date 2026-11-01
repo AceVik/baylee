@@ -561,6 +561,21 @@ fn matches(
                     .object(*dealt)
                     .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
         }
+        (
+            Trigger::DealtCombatDamage(filter),
+            GameEvent::DamageDealt {
+                target: crate::event::DamageTarget::Object(dealt),
+                amount,
+                is_combat: true,
+                ..
+            },
+        ) => {
+            *amount > 0
+                && first_combat_damage_to(event, batch, crate::event::DamageTarget::Object(*dealt))
+                && state
+                    .object(*dealt)
+                    .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context))
+        }
         // The player's side of the arm above: once for a step's combat
         // damage to that player, once for every other damage event.
         (
@@ -692,7 +707,8 @@ fn matches(
                         .contains(baylee_core::types::TypeSet::CREATURE)
                 })
         }
-        (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => state
+        (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. })
+        | (Trigger::BecomesUntapped(filter), GameEvent::ObjectUntapped { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         (
@@ -753,21 +769,28 @@ fn matches(
                 object,
                 version,
                 player,
-                known: true,
+                known,
                 ..
             },
         ) => {
             eval::players(*who, state, you).is_some_and(|players| players.contains(player))
-                && state
-                    .source_object(baylee_core::ids::DamageSourceRef {
-                        object: *object,
-                        version: *version,
-                    })
-                    .is_some_and(|card| {
-                        eval::matches_with_context(filter, state, card, you, context)
-                    })
+                && (matches!(filter, baylee_cards_dsl::Filter::Any)
+                    || (*known
+                        && state
+                            .source_object(baylee_core::ids::DamageSourceRef {
+                                object: *object,
+                                version: *version,
+                            })
+                            .is_some_and(|card| {
+                                eval::matches_with_context(filter, state, card, you, context)
+                            })))
         }
         (Trigger::BecomesTarget, _) => targeting(event, state, source).is_some(),
+        (Trigger::EnchantedBecomesTarget, _) => state
+            .object(source)
+            .and_then(|o| o.attached_to)
+            .and_then(|host| targeting(event, state, host))
+            .is_some(),
         (Trigger::Ward, _) => targeting(event, state, source)
             .is_some_and(|(_, controller)| state.is_opponent(controller, you)),
         (
@@ -998,25 +1021,37 @@ fn matches(
             }
             match whose {
                 PlayerRel::You => *active == you,
-                PlayerRel::Opponent => state.is_opponent(*active, you),
+                // "Each opponent's upkeep" is the upkeep of whichever
+                // opponent is active, which is what "an opponent's" says.
+                PlayerRel::Opponent | PlayerRel::EachOpponent => state.is_opponent(*active, you),
                 // "At the beginning of the upkeep of enchanted land's
                 // controller" (Cursed Land): that controller's step only.
                 PlayerRel::ControllerOfAttached => {
                     crate::eval::controller_of_attached(state, source) == Some(*active)
                 }
-                _ => true,
+                PlayerRel::EachPlayer | PlayerRel::ActivePlayer => true,
+                // Every other relation names no step's player. This was a
+                // `_ => true`, and Miser's Cage's "each opponent's upkeep"
+                // fired in its controller's own upkeep too;
+                // `every_step_trigger_names_a_player_the_matcher_reads`
+                // keeps the pool off this arm.
+                _ => false,
             }
         }
         (Trigger::SearchesLibrary(rel), GameEvent::LibrarySearched { player }) => {
             eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
         }
         (
-            Trigger::GainsLife(rel),
+            Trigger::GainsLife(rel) | Trigger::LosesLife(rel),
             GameEvent::LifeChanged {
                 player, old, new, ..
             },
         ) => {
-            new > old && eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
+            (if matches!(trigger, Trigger::LosesLife(_)) {
+                new < old
+            } else {
+                new > old
+            }) && eval::players(*rel, state, you).is_some_and(|seats| seats.contains(player))
         }
         (
             Trigger::DealsCombatDamage(filter),

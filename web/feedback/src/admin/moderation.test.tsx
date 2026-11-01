@@ -11,7 +11,6 @@ import { AccountActions, EndGame, untilOf, type Target } from "./Moderation";
 vi.setConfig({ testTimeout: 20_000 });
 
 const ID = "0199cccc-0000-7000-8000-000000000001";
-const PASSWORD = "7KQ2-M9XP-4TRW-C8HD";
 
 const alice: Target = { id: ID, handle: "Alice#0001", guest: false };
 const BAN: AccountBan = {
@@ -26,7 +25,6 @@ const changes = (calls: Call[]) => calls.filter((c) => c.method !== "GET");
 /** A service that accepts every act. */
 function accepting(): Call[] {
   return serve((call) => {
-    if (call.url.endsWith("/password")) return { body: { password: PASSWORD } };
     if (call.url.endsWith("/ban") && call.method === "PUT") return { body: { ban: { reason: "x", until: null } } };
     if (call.url.endsWith("/close")) return { status: 202 };
     if (call.method === "DELETE") return { status: 204 };
@@ -48,62 +46,6 @@ describe("the end of a ban", () => {
     const local = new Date(2999, 0, 1, 12, 30);
     expect(untilOf("2999-01-01T12:30")).toBe(local.toISOString().replace(".000Z", "Z"));
     expect(untilOf("2999-01-01T12:30")).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:00Z$/);
-  });
-});
-
-describe("resetting a password", () => {
-  test("asks first; no sends nothing", async () => {
-    const calls = accepting();
-    const user = userEvent.setup();
-    render(<AccountActions lang="en" target={alice} onChanged={() => undefined} />);
-    await user.click(screen.getByRole("button", { name: "Reset password" }));
-    const dialog = screen.getByRole("alertdialog");
-    expect(dialog.textContent).toContain("Reset the password of Alice#0001?");
-    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("alertdialog")).toBeNull();
-    expect(calls).toEqual([]);
-  });
-
-  test("yes posts, then shows the password once, with a Copy button that copies it", async () => {
-    const calls = accepting();
-    const changed = vi.fn<() => void>();
-    const user = userEvent.setup();
-    render(<AccountActions lang="en" target={alice} onChanged={changed} />);
-    await user.click(screen.getByRole("button", { name: "Reset password" }));
-    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Reset password" }));
-
-    const shown = await screen.findByDisplayValue(PASSWORD);
-    expect(shown.hasAttribute("readonly")).toBe(true);
-    expect(changes(calls)).toEqual([
-      expect.objectContaining({ method: "POST", url: `/ui/api/admin/accounts/${ID}/password`, body: undefined }),
-    ]);
-    expect(changes(calls)[0]?.headers["x-baylee-csrf"]).toBe("1");
-    expect(changed).toHaveBeenCalledTimes(1);
-
-    await user.click(screen.getByRole("button", { name: "Copy" }));
-    await screen.findByRole("button", { name: "Copied" });
-    expect(await navigator.clipboard.readText()).toBe(PASSWORD);
-
-    // Shown this once: closed, it is nowhere on the page.
-    await user.click(screen.getByRole("button", { name: "Close" }));
-    expect(screen.queryByDisplayValue(PASSWORD)).toBeNull();
-    expect(document.body.innerHTML).not.toContain(PASSWORD);
-  });
-
-  test("a refusal is shown in the dialog and no password appears", async () => {
-    serve(() => ({ status: 409, body: { error: "a guest has no password to reset" } }));
-    const user = userEvent.setup();
-    render(<AccountActions lang="en" target={alice} onChanged={() => undefined} />);
-    await user.click(screen.getByRole("button", { name: "Reset password" }));
-    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Reset password" }));
-    expect((await screen.findByRole("alert")).textContent).toBe("a guest has no password to reset");
-    expect(screen.queryByDisplayValue(PASSWORD)).toBeNull();
-  });
-
-  test("a guest has no password to reset", () => {
-    render(<AccountActions lang="en" target={{ ...alice, guest: true }} onChanged={() => undefined} />);
-    const button = screen.getByRole("button", { name: "Reset password" }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
   });
 });
 
@@ -222,18 +164,6 @@ describe("banning", () => {
     );
     const line = screen.getByText(/^Banned until .* by viktor: spam in names$/);
     expect(line.textContent).toContain("2999");
-  });
-
-  test("an account that must choose a new password says so", () => {
-    serve(() => undefined);
-    render(<AccountActions lang="en" target={{ ...alice, reset_pending: true }} onChanged={() => undefined} />);
-    expect(screen.getByText("must choose a new password")).toBeTruthy();
-  });
-
-  test("an account that chose its own does not", () => {
-    serve(() => undefined);
-    render(<AccountActions lang="en" target={{ ...alice, reset_pending: false }} onChanged={() => undefined} />);
-    expect(screen.queryByText("must choose a new password")).toBeNull();
   });
 });
 

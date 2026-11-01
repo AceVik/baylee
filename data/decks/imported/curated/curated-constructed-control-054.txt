@@ -1,0 +1,21 @@
+# baylee curated constructed control seed=20261077
+# licence: AGPL-3.0-only
+[deck:constructed control WU #20261077]
+2 Abundant Countryside
+2 Aven Cloudchaser
+3 Claws of Gix
+2 Gemstone Mine
+4 Harrier Strix
+3 Illusions of Grandeur
+12 Island
+2 Mana Confluence
+2 Nesting Dovehawk
+4 Owl Familiar
+4 Plains
+4 Soaring Drake
+4 Soaring Show-Off
+3 Spire of Industry
+2 Sterling Supplier
+1 Underdome
+2 Wan Shi Tong, Librarian
+4 Welkin Hawk

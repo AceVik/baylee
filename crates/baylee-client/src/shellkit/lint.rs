@@ -28,6 +28,8 @@ pub const SHELL_MODULES: &[&str] = &[
     "buildui/draft",
     "buildui/retained",
     "buildui/virtual_rows",
+    // The update card (#326), drawn on the kit.
+    "update/card",
 ];
 
 /// The lines (1-based) of `source` that write a bare numeric `px(`.

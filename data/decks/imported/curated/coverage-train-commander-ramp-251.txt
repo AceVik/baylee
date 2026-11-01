@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp W #20266252]
+1 Angel of Light
+1 Angel of Retribution
+1 Angelic Overseer
+1 Angelic Protector
+1 Archangel
+1 Arena
+1 Beacon Hawk
+1 Black Ward
+1 Brokers Hideout
+1 Burden of Guilt
+1 Call to Serve
+1 Chapel Geist
+1 Cleansing Nova
+1 Consecrate Land
+1 Dawnglare Invoker
+1 Deathless Angel
+1 Eagle of the Great Shelf
+1 Exalted Dragon
+1 Gerrard's Battle Cry
+1 Ghost Quarter
+1 Gossamer Chains
+1 Great Wall
+1 Green Ward
+1 Hallowed Ground
+1 Halls of Mist
+1 Herald of Faith
+1 Herald of Serra
+1 Hobbit Hole
+1 Intangible Virtue
+1 Knighthood
+1 Makindi Aeronaut
+1 Malach of the Dawn
+1 Melesse Spirit
+1 Moonwing Moth
+1 Nimbus Wings
+1 Pearl Dragon
+1 Radiant, Archangel
+1 Rolling Stones
+1 Sanctimony
+1 Security Detail
+1 Serra Advocate
+1 Shepherd of the Lost
+1 Shrike Force
+35 Snow-Covered Plains
+1 Squall Drifter
+1 Starlit Angel
+1 Stoneskin
+1 Sun Clasp
+1 Sustainer of the Realm
+1 The Grey Havens
+1 Thraben Watcher
+1 Tivadar's Crusade
+1 Tormented Angel
+1 Triclopean Sight
+1 Unlikely Alliance
+1 Venerable Lammasu
+1 Vibrant Cityscape
+1 Voice of Duty
+1 Voice of Grace
+1 Voice of Law
+1 Voice of Reason
+1 Voice of Truth
+1 White Scarab
+1 White Ward
+1 Wild Aesthir
+
+[commander]
+Zetalpa, Primal Dawn

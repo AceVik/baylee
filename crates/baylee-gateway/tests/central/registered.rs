@@ -1,5 +1,6 @@
 //! Real registered-gateway admission, live revocation and separated admin authority.
-use super::{CentralHttp, Endpoint, TicketPurpose, common, config_file, sdk};
+use super::{CentralHttp, Endpoint, common, config_file, sdk};
+use baylee_account::wire::TicketPurpose;
 use baylee_account::{gateway::GatewayMetadata, wire::Discovery};
 use futures_util::StreamExt as _;
 use sea_orm::{ConnectionTrait as _, DatabaseConnection, DbBackend, Statement};
@@ -44,7 +45,7 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
     let Discovery::Central { identity } = sdk::discover(&http, "synthetic".into()).unwrap() else {
         panic!("completed migration must be discoverable");
     };
-    let mut owner = sdk::login(&http, identity, "a-very-fine-password".into()).unwrap();
+    let mut owner = sdk::login(&http, identity, super::PASSWORD.into()).unwrap();
     owner.confirm_restored(&http).unwrap();
     // The origin is an operator-approved synthetic audience. Requests below address
     // the real adapter port directly so the fixture never needs to reserve/release
@@ -58,9 +59,18 @@ pub(super) fn run(runtime: &Runtime, operator: &DatabaseConnection, endpoint: &E
     let registered = owner
         .register_gateway(&http, origin.into(), metadata.clone())
         .unwrap();
+    // Approval is for the public list only (Central #51): a registered gateway
+    // admits players while it waits, but the list does not show it yet.
     assert!(
-        owner.gateway_ticket(&http, origin.into()).is_err(),
-        "registration alone cannot approve an origin"
+        owner.gateway_ticket(&http, origin.into()).is_ok(),
+        "a gateway awaiting approval admits players"
+    );
+    assert!(
+        !sdk::gateway_directory(&http, None)
+            .unwrap()
+            .iter()
+            .any(|entry| entry.origin == origin),
+        "registration alone does not list an origin"
     );
     runtime.block_on(async {
         operator
@@ -139,10 +149,6 @@ fn check_access(
     registered: [u8; 16],
 ) -> String {
     common::login(gateway.port, "synthetic", "LocalName");
-    gateway.sql("INSERT INTO central_account_link (account_id, snapshot_digest, source_credential_hash) SELECT id, decode(repeat('00',32),'hex'), password_hash FROM account WHERE username_key = 'synthetic'");
-    assert_eq!(common::http(gateway.port, "POST", "/auth/password", None,
-        r#"{"username":"synthetic","password":"a-very-fine-password","new_password":"new-synthetic-password"}"#).0, 503,
-        "a prepared migration requires its official bridge before changing credentials");
     let player = admit(gateway.port, owner, http, origin, false);
     assert_eq!(
         gateway.scalar("SELECT count(*) FROM account WHERE NOT guest"),
@@ -240,7 +246,7 @@ fn check_revocation(
     let (mut socket, _) = runtime
         .block_on(tokio_tungstenite::connect_async(lobby_url))
         .unwrap();
-    let mut newer = sdk::login(http, identity, "a-very-fine-password".into()).unwrap();
+    let mut newer = sdk::login(http, identity, super::PASSWORD.into()).unwrap();
     newer.confirm_restored(http).unwrap();
     // Do not wait for the old socket's periodic check first: a replacement
     // installation must attach while that old connection is still winding down.

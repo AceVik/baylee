@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/WTH/dead-and-alive.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DeadAndAlive_WTH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dead and Alive (Adapted)]
+2 Buried Alive
+2 Dark Banishing
+2 Drain Life
+2 Fallen Askari
+2 Funeral March
+1 Hidden Horror
+1 Infernal Tribute
+1 Malakir Cullblade
+1 Mischievous Poltergeist
+3 Moaning Wall
+1 Morinfen
+2 Nekrataal
+2 Novice Occultist
+3 Sedraxis Alchemist
+2 Sewer Rats
+2 Shadow Rider
+1 Shattered Crypt
+1 Skulking Ghost
+1 Strands of Night
+24 Swamp
+1 Syphon Sliver
+2 Void Helix
+1 Zodiac Rat

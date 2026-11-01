@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/DPA/hands-of-flame.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, HandsOfFlame_DPA.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Hands of Flame (Adapted)]
+4 Arc Lightning
+1 Blaze
+1 Bloodmark Mentor
+2 Dragon's Claw
+1 Dwarven Armory
+2 Earth Elemental
+1 Enrage
+4 Goblin Piker
+2 Goblin Sky Raider
+4 Hill Giant
+3 Iroh's Demonstration
+1 Kamahl, Pit Fighter
+4 Lightning Elemental
+1 Make Mischief
+24 Mountain
+1 Prodigal Pyromancer
+1 Rage Reflection
+1 Shivan Dragon
+2 Shock

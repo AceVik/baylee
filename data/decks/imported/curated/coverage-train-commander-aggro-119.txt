@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WB #20266120]
+1 Ajani's Mantra
+1 Banehound
+1 Baneslayer Angel
+1 Barad-dûr
+1 Basilica Bell-Haunt
+1 Bishop's Soldier
+1 Blood Bairn
+1 Blood Glutton
+1 Bog Wreckage
+1 Carrion Beetles
+1 Champion of Arashin
+1 Convalescence
+1 Courier Griffin
+1 Crisis of Conscience
+1 Cruel Celebrant
+1 Deathgrip
+1 Desert of the Glorified
+1 Desert of the True
+1 Desperate Lunge
+1 Dromad Purebred
+1 Ebon Stronghold
+1 Everglades
+1 Fountain of Cho
+1 Gerrard's Wisdom
+1 Golden Urn
+1 Grollub
+1 Hag of Death's Legion
+1 Healer's Flock
+1 Hidden Courtyard
+1 Howltooth Hollow
+1 Icatian Store
+1 Illumination
+1 Insidious Bookworms
+1 Instant Ramen
+1 Irini Sengir
+1 Judge of Currents
+1 Knight of Meadowgrain
+1 Koala-Sheep
+1 Leonin Vanguard
+1 Lifeblood
+1 Markov Patrician
+1 Mesa Unicorn
+1 Midnight Assassin
+1 Minas Morgul, Dark Fortress
+1 Mistmeadow Skulk
+1 Moonrise Cleric
+1 Mournful Zombie
+1 Nezumi Shadow-Watcher
+1 Nightsky Mimic
+1 Nip Gwyllion
+1 Pitiless Pontiff
+17 Plains
+1 Prideful Feastling
+1 Pristine Talisman
+1 Recuperate
+1 Reverse Polarity
+1 Sandstone Bridge
+1 Searing Light
+1 Seraph of Dawn
+1 Shimmering Barrier
+1 Sickbay Orderly
+1 Skyblade of the Legion
+1 Spiritual Guardian
+1 Spiritual Sanctuary
+1 Staff of Domination
+1 Story Seeker
+7 Swamp
+1 Tanglebloom
+1 Tethered Griffin
+1 Thirsting Shade
+1 Thriving Heath
+1 Vampire Aristocrat
+1 Vampire Envoy
+1 Vizkopa Vampire
+1 Well-Worn Spatula
+1 Whitesun's Passage
+1 Windbrisk Heights
+
+[commander]
+Arvad the Cursed

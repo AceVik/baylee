@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUBRG #20266195]
+1 Aether Hub
+1 Ally Encampment
+1 Arcum's Astrolabe
+1 Azorius Signet
+1 Barrels of Blasting Jelly
+1 Black Mana Battery
+1 Boros Keyrune
+1 Chromatic Star
+1 City of Brass
+1 Coal Golem
+1 Cobalt Golem
+1 Composite Golem
+1 Courier's Briefcase
+1 Crosis's Attendant
+1 Crucible of the Spirit Dragon
+1 Darigaaz's Attendant
+1 Darksteel Sentinel
+1 Dimir Signet
+1 Dromar's Attendant
+1 Energy Refractor
+1 Etched Monstrosity
+1 Font of Progress
+1 Giant's Boulder
+1 Glassdust Hulk
+1 Golden Guardian
+1 Golgari Signet
+1 Hall of Oracles
+1 Haven of the Spirit Dragon
+1 Hedron Archive
+1 Hematite Golem
+1 Hexplate Golem
+1 Inkwell Leviathan
+1 Interplanar Beacon
+1 Iron Bully
+1 Jeskai Banner
+1 Kaleidostone
+1 Ketria Crystal
+1 Lazotep Quarry
+1 Lightning-Core Excavator
+1 Limestone Golem
+1 Lotus Petal
+1 Machine God's Effigy
+1 Maelstrom of the Spirit Dragon
+1 Malachite Golem
+1 Marble Diamond
+1 Mask of Riddles
+1 Mirrex
+1 Obsianus Golem
+1 Paradise Mantle
+1 Phyrexian Hulk
+1 Pilgrim of the Fires
+1 Prismite
+1 Prophetic Prism
+1 Raugrin Crystal
+1 Relic of Sauron
+1 Rith's Attendant
+1 Rumble Arena
+1 Simic Cluestone
+1 Simic Locket
+1 Simic Signet
+7 Snow-Covered Forest
+9 Snow-Covered Island
+3 Snow-Covered Mountain
+3 Snow-Covered Plains
+4 Snow-Covered Swamp
+1 Spire of Industry
+1 Springjack Pasture
+1 Staff of Nin
+1 Straw Golem
+1 Sultai Banner
+1 Surveillance Room
+1 Temur Banner
+1 Tendo Ice Bridge
+1 Treva's Attendant
+1 Tribal Golem
+1 Unknown Shores
+1 Walking Archive
+1 Zagoth Crystal
+
+[commander]
+Reaper King

@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/ANB/aerial-domination.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AerialDomination_ANB.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Aerial Domination (Adapted)]
+3 Cloudkin Seer
+1 Frilled Sea Serpent
+2 Glint
+25 Island
+1 Meditate
+2 Octoprophet
+3 Otawara, Soaring City
+1 Overflowing Insight
+2 Relearn
+2 Riddlemaster Sphinx
+2 Sworn Guardian
+2 Tinker
+3 Unsummon
+2 Wall of Runes
+3 Waterkin Shaman
+3 Waterknot
+1 Windreader Sphinx
+2 Windstorm Drake

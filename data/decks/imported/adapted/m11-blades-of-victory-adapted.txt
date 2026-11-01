@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/M11/blades-of-victory.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BladesOfVictory_M11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Blades of Victory (Adapted)]
+1 Ajani's Mantra
+4 Anguished Unmaking
+1 Assassinate
+2 Cloud Crusader
+1 Doom Blade
+1 Duress
+2 Elite Vanguard
+1 Mighty Leap
+1 Mind Rot
+1 Mortify
+2 Pacifism
+16 Plains
+2 Resolute Watchdog
+2 Serra Angel
+2 Siege Mastodon
+1 Silvercoat Lion
+9 Swamp
+4 Unmake
+4 Vindicate
+1 War Priest of Thune
+1 Warlord's Axe
+1 White Knight

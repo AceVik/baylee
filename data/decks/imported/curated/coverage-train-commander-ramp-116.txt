@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp RG #20266117]
+1 Agility
+1 Ancient Brontodon
+1 Ancient Runes
+1 Asceticism
+1 Ashnod's Altar
+1 Axebane Stag
+1 Barkhide Mauler
+1 Bleeding Woods
+1 Bristling Backwoods
+1 Burgeoning
+1 Chaosphere
+1 Charging Strifeknight
+1 Child of Gaea
+1 Cinder Glade
+1 Copperline Gorge
+1 Crosswinds
+1 Crucible of Fire
+1 Curious Altisaur
+1 Dining Room
+1 Fire Snake
+1 Flaming Sword
+1 Flurry of Horns
+1 Frantic Strength
+1 Frog Butler
+1 Game Trail
+1 Gnathosaur
+1 Goblin War Paint
+1 Goblin Wizardry
+1 Golden Hind
+1 Gongaga, Reactor Town
+1 Greensleeves, Maro-Sorcerer
+1 Gruul Turf
+1 Hidden Path
+1 Highland Forest
+1 Kazandu Refuge
+1 Kindercatch
+1 Los Diablos Missile Base
+1 Magmasaur
+1 Manaweft Sliver
+1 Mardu Runemark
+1 Marker Beetles
+1 Mythic Proportions
+1 Nightshade Dryad
+1 Ohran Frostfang
+1 Overgrown Armasaur
+1 Poison Dart Frog
+1 Primal Rage
+1 Prodigious Growth
+1 Pyroclastic Elemental
+1 Pyrohemia
+1 Quakestrider Ceratops
+1 Raging Ravine
+1 Raging Regisaur
+1 Reflexes
+1 Ripjaw Raptor
+1 Ripscale Predator
+1 Rockslide Elemental
+1 Rootbound Crag
+1 Rootrider Faun
+1 Searing Wind
+1 Sheltered Thicket
+1 Shivan Oasis
+1 Slagwoods Bridge
+19 Snow-Covered Forest
+7 Snow-Covered Mountain
+1 Spidersilk Armor
+1 Spike Breeder
+1 Spore Swarm
+1 Storm Front
+1 Super Speed
+1 Sylvan Caryatid
+1 Tectonic Hazard
+1 Titan's Strength
+1 Touch of Vitae
+1 Volcanic Strength
+
+[commander]
+Jerrard of the Closed Fist

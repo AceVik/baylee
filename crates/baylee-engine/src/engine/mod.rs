@@ -68,9 +68,15 @@ enum CombatDeclared {
     Attackers,
     /// A declaration whose mana tax was left unpaid in its payment window
     /// was undone (CR 508.1i, CR 732.1). The step asks again, offering only
-    /// the attacks the pool already pays, so a seat that will not pay is not
-    /// walked round the same window twice.
-    TaxDeclined,
+    /// what the pool already pays, so a seat that will not pay is not walked
+    /// round the same window twice.
+    TaxDeclined {
+        /// For blocks, the last defending player whose blocks stand
+        /// (`BlockersBy`'s seat), so the one asked again is the one who
+        /// declined and not the first defending player (CR 802.4); `None`
+        /// for attacks and for the first defending player.
+        after: Option<PlayerId>,
+    },
     /// The blocks of every defending player up to and including this one,
     /// in APNAP order, are declared, and more defending players are still
     /// to declare (CR 802.4).
@@ -190,6 +196,18 @@ enum PaymentContinuation {
         /// What closing without the declaration gives back (CR 732.1).
         opened: Box<WindowStart>,
     },
+    /// A declaration of blockers whose mana tax the pool did not cover
+    /// (CR 509.1d–f), with the same payment-window reversal semantics.
+    BlockTax {
+        /// The defending player making the declaration.
+        defending: PlayerId,
+        /// The declaration, as the seat made it.
+        blockers: Vec<(ObjectId, ObjectId)>,
+        /// The total tax, which is what the window shows as owed.
+        cost: baylee_core::mana::ManaCost,
+        /// What closing without the declaration gives back (CR 732.1).
+        opened: Box<WindowStart>,
+    },
 }
 
 /// The board a `Miracle` or `Cast` payment window was opened on, as far as
@@ -260,6 +278,16 @@ impl PaymentContinuation {
                 cost,
                 opened,
             } => crate::state::structural_fingerprint(attackers)
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::mana_cost_fingerprint(cost))
+                .wrapping_mul(31)
+                .wrapping_add(opened.fingerprint()),
+            Self::BlockTax {
+                defending,
+                blockers,
+                cost,
+                opened,
+            } => crate::state::structural_fingerprint(&(defending, blockers))
                 .wrapping_mul(31)
                 .wrapping_add(crate::state::mana_cost_fingerprint(cost))
                 .wrapping_mul(31)
@@ -712,6 +740,11 @@ enum PlanKind {
         /// The entering permanent.
         object: ObjectId,
     },
+    /// Ordered entry choices, with the first answer retained for the second.
+    ChooseTwoBasicLandTypes {
+        object: ObjectId,
+        first: Option<baylee_core::ids::SubtypeId>,
+    },
     /// Choosing an opponent as a permanent enters (Black Vise).
     ChooseOpponent {
         /// The entering permanent.
@@ -797,6 +830,8 @@ enum PlanKind {
     /// The one plan with no fields: what it is about is the step the game
     /// is in, and the step cannot have moved on while the question stands.
     UntapChoice,
+    /// Replacement decisions for the already determined simultaneous untap.
+    UntapReplacements(progress::untap_replacements::UntapBatch),
     /// The same determination under untap limits (`Modifier::UntapAtMost`),
     /// waiting for the active player to name what untaps
     /// (`ChoicePrompt::Untap`), one answer at a time.
@@ -1058,7 +1093,8 @@ impl<L: CardLookup> Engine<L> {
             .map(resolve::AwaitingOp::search_operation)
         {
             Some(
-                resolve::AwaitingOp::SearchLibrary { inspected, .. }
+                resolve::AwaitingOp::PrivateHandDiscard { inspected, .. }
+                | resolve::AwaitingOp::SearchLibrary { inspected, .. }
                 | resolve::AwaitingOp::SearchTakeover { inspected, .. },
             ) => inspected,
             Some(resolve::AwaitingOp::DigRest { rest, .. }) => rest,
@@ -1109,7 +1145,8 @@ impl<L: CardLookup> Engine<L> {
             | PaymentContinuation::GrantedAction { cost, .. }
             | PaymentContinuation::Cast { cost, .. }
             | PaymentContinuation::Miracle { cost, .. }
-            | PaymentContinuation::AttackTax { cost, .. } => {
+            | PaymentContinuation::AttackTax { cost, .. }
+            | PaymentContinuation::BlockTax { cost, .. } => {
                 Some((window.player, ManaPayment::Fixed(*cost)))
             }
             PaymentContinuation::Activation(payment) => {
@@ -1217,6 +1254,13 @@ impl<L: CardLookup> Engine<L> {
     pub fn snapshot_hash(&self) -> u64 {
         let base = self.state.snapshot_hash();
         let mut extra = self.trigger_scan_seq;
+        if let Some(PlanKind::ChooseTwoBasicLandTypes { object, first }) =
+            self.pending_plan.as_ref()
+        {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(object, first)));
+        }
         if let Some(wizard) = &self.cast_wizard {
             extra = extra
                 .wrapping_mul(31)
@@ -1337,6 +1381,12 @@ impl<L: CardLookup> Engine<L> {
             extra = extra.wrapping_mul(31).wrapping_add(parent.fingerprint());
         }
         if let Some(r) = &self.resolution {
+            extra = extra
+                .wrapping_mul(31)
+                .wrapping_add(crate::state::structural_fingerprint(&(
+                    &r.loot,
+                    r.draw_watch,
+                )));
             extra = extra.wrapping_mul(31).wrapping_add(r.subject.fingerprint());
             extra = extra.wrapping_mul(31).wrapping_add(
                 r.awaiting
@@ -1438,6 +1488,13 @@ impl<L: CardLookup> Engine<L> {
                     .wrapping_add(u64::from(ability.index))
                     .wrapping_add(u64::from(answer.as_bool()));
             }
+        }
+        // This setting changes which question comes next even with an
+        // otherwise identical board, so it belongs in the continuation hash.
+        // Folded in only when on: a record from before the setting reads it
+        // as off and must keep every hash it recorded.
+        if self.house_rules.auto_discard_empty_optional_triggers {
+            extra = extra.wrapping_mul(31).wrapping_add(1);
         }
         base ^ extra.rotate_left(17)
     }
@@ -1706,6 +1763,16 @@ impl<L: CardLookup> Engine<L> {
         }
         let signature = self.action_loops.wants_sample().then(|| {
             self.state.loop_signature()
+                ^ self
+                    .resolution
+                    .as_ref()
+                    .map_or(0, |res| resolve::loot::loop_progress(&self.state, res))
+                    .rotate_left(17)
+                ^ self
+                    .resolution
+                    .as_ref()
+                    .map_or(0, |res| res.subject.destruction_progress())
+                    .rotate_left(23)
                 ^ u64::from(player.get()).rotate_left(37)
                 ^ u64::from(self.passes).rotate_left(53)
         });
@@ -1820,6 +1887,7 @@ impl<L: CardLookup> Engine<L> {
                         | PlanKind::EntryReveal { .. }
                         | PlanKind::CopyOnEnter { .. }
                         | PlanKind::ChooseSubtype { .. }
+                        | PlanKind::ChooseTwoBasicLandTypes { .. }
                         | PlanKind::ChooseCardName { .. }
                         | PlanKind::ChooseColor { .. }
                         | PlanKind::ChooseOpponent { .. }
@@ -1867,6 +1935,7 @@ mod storied;
 mod targeting;
 pub use decision::DecisionContext;
 mod actions;
+mod announcement_context;
 mod cancel_cast;
 pub(crate) mod cast_wizard;
 mod checkpoint;
@@ -1876,7 +1945,10 @@ mod constrained_mana;
 pub(crate) mod cost_wizard;
 mod effect_play;
 mod granted;
+mod land_type_choices;
 mod leave;
+#[cfg(test)]
+mod lost_target_tests;
 mod mulligan;
 mod payment_window;
 mod player_control;
@@ -1959,6 +2031,8 @@ mod entry_counter_transaction_tests;
 #[cfg(test)]
 mod fight_tests;
 #[cfg(test)]
+mod flanking_tests;
+#[cfg(test)]
 mod flashback_tests;
 #[cfg(test)]
 mod graveyard_order_tests;
@@ -1972,13 +2046,19 @@ mod requirements_tests;
 mod state_trigger_tests;
 #[cfg(test)]
 mod timing_window_tests;
+#[cfg(test)]
+mod upkeep_permission_tests;
 
 #[cfg(test)]
 mod cancel_cast_tests;
 #[cfg(test)]
+mod coin_replacement_tests;
+#[cfg(test)]
 mod end_step_tests;
 #[cfg(test)]
 mod enter_zone_tests;
+#[cfg(test)]
+mod event_object_damage_tests;
 #[cfg(test)]
 mod event_player_tests;
 #[cfg(test)]
@@ -2084,6 +2164,8 @@ pub(crate) mod synthetic;
 #[cfg(test)]
 mod target_tests;
 #[cfg(test)]
+mod tax_window_tests;
+#[cfg(test)]
 mod team_tests;
 #[cfg(test)]
 pub(crate) mod testkit;
@@ -2133,10 +2215,16 @@ mod dauthi_tests;
 mod variable_payment_tests;
 
 #[cfg(test)]
+mod self_target_tests;
+
+#[cfg(test)]
 mod damage_resume_tests;
 
 #[cfg(test)]
 mod source_resume_tests;
+
+#[cfg(test)]
+mod cost_source_lki_tests;
 
 #[cfg(test)]
 mod trigger_source_tests;
@@ -2149,3 +2237,6 @@ mod granted_tests;
 
 #[cfg(test)]
 mod dungeon_tests;
+
+#[cfg(test)]
+mod ice_dynamic_limit_tests;

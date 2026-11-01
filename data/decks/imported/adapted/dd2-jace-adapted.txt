@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/DD2/jace.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Jace_DD2.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Jace (Adapted)]
+1 Air Elemental
+1 Ancestral Vision
+1 Bewilder
+1 Bottle Gnomes
+4 Call to Mind
+1 Catalog
+2 Clear the Mind
+2 Condescend
+2 Counterspell
+1 Dissipate
+1 Fact or Fiction
+1 Frantic Search
+1 Galestrike
+1 I Am Iron Man
+23 Island
+2 Man-o'-War
+3 Meditate
+1 Mind Stone
+2 Mulldrifter
+1 Mystic Denial
+1 Ophidian
+2 Psionic Blast
+2 Repulse
+1 Silent Observer
+1 Stealth Mission
+1 Terrain Generator

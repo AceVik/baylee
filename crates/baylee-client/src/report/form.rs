@@ -1,13 +1,14 @@
 //! The report sheet, drawn over whatever screen is up, and its keys (window
 //! B, `windows-b6/DESIGN.md` §B.3).
 //!
-//! One retained tree under [`DeskRoot`], rebuilt whenever what it shows
-//! changes (a keystroke, an answer, the suggestions), the way the lobby draws
-//! its modals; a tick or a kind is redrawn in place ([`retick`]). The tree is
-//! the kit's: a medium sheet (`shellkit::surfaces::sheet_box_with`) with the
-//! kind as a segmented control, the text field, one small line under it, the
-//! route, the Attachments disclosure and a sticky footer. Its focus order is
-//! [`REPORT`] (and [`REPORT_CONFIRM`] on the confirmation page).
+//! One tree under [`DeskRoot`], rebuilt whenever what it shows changes (a
+//! keystroke, an answer, the suggestions); a tick or a kind is redrawn in
+//! place ([`retick`]). Its compact sticky footer moves across those rebuilds
+//! and is patched by [`sync_footer`]. The tree is the kit's: a medium sheet
+//! (`shellkit::surfaces::sheet_box_with_footer`) with the kind as a segmented
+//! control, the text field, one small line under it, the route, the
+//! Attachments disclosure and that footer. Its focus order is [`REPORT`] (and
+//! [`REPORT_CONFIRM`] on the confirmation page).
 //!
 //! The one kit sheet sized by the lobby's fixed step rather than the text
 //! step (Q-B5): it stands over the table too, whose own interface follows no
@@ -27,20 +28,27 @@ use baylee_client_core::bugreport::{
     Via,
 };
 use baylee_client_core::i18n::{Lang, Phrase};
+use bevy::app::Inherited;
 use bevy::prelude::*;
-use bevy::ui::FocusPolicy;
+use bevy::ui::{ComputedUiRenderTargetInfo, ComputedUiTargetCamera, FocusPolicy};
 
 use super::ReportDesk;
 use super::field::{chip_row, text_box};
 use crate::hud::{UiFonts, icon_tf, tf, tf_bold};
 use crate::lobby::LobbyState;
 use crate::settings::ClientSettings;
-use crate::shellkit::controls::{self, Kit, Live, Weight};
+use crate::shellkit::controls::{self, Disabled, Kit, Live, Tooltip, Weight};
 use crate::shellkit::focus::{Current, Stop, TabOrder};
 use crate::shellkit::metrics::px_fixed;
-use crate::shellkit::surfaces::{self, SheetWidth};
-use crate::shellkit::tokens::{self, RADIUS_CONTROL};
+use crate::shellkit::surfaces::{self, SheetFooter, SheetWidth};
+use crate::shellkit::tokens::{self, RADIUS_CONTROL, RADIUS_PILL};
 use crate::shellkit::{Frame, InputClass, Platform, Role, ShellMetrics, TextSize, Viewport};
+
+mod footer;
+use footer::form_foot;
+#[cfg(test)]
+pub(crate) use footer::send_keys;
+pub(super) use footer::{lock_while_sending, sync_footer, sync_touch_reason};
 
 /// The sheet's focus order (`KEYBOARD.md` §7.11, "Report sheet"): the kind,
 /// the text (focused first: the form's one purpose), the disclosure and its
@@ -82,6 +90,34 @@ pub(crate) struct DeskRoot;
 /// The sheet's scrolling body.
 #[derive(Component)]
 pub(crate) struct DeskScroll;
+
+/// The report's own sticky footer, never another sheet's.
+#[derive(Component)]
+pub(crate) struct DeskFoot;
+
+/// The retained Send button and the disabled reason it currently shows.
+#[derive(Component)]
+pub(super) struct SendButton {
+    reason: Option<String>,
+}
+
+/// The retained Send button's mutable parts.
+#[derive(Component)]
+pub(super) struct SendFace;
+#[derive(Component)]
+pub(super) struct SendWords;
+#[derive(Component)]
+pub(super) struct SendMark;
+#[derive(Component)]
+pub(crate) struct SendSpinner;
+#[derive(Component)]
+pub(super) struct SendTouchReason;
+
+/// The retained disclosure's mutable parts.
+#[derive(Component)]
+pub(super) struct PreviewWords;
+#[derive(Component)]
+pub(super) struct PreviewMark;
 
 /// The nodes the tours anchor to (`TOURS.md` §3.1: `report_form`,
 /// `report_attachments`, `report_record_row`, `report_route`), until the
@@ -146,6 +182,24 @@ pub(crate) enum DeskPress {
     CopyText,
 }
 
+impl DeskPress {
+    /// Whether this press changes the report and is therefore locked in flight.
+    pub(super) const fn locked_while_sending(self) -> bool {
+        matches!(
+            self,
+            Self::Kind(_)
+                | Self::Toggle(_)
+                | Self::Crashes
+                | Self::Send
+                | Self::Record
+                | Self::RecordNever
+                | Self::ConfirmSend
+                | Self::ConfirmBack
+                | Self::Take(_)
+        )
+    }
+}
+
 /// What the preview names the device id by before this device has one:
 /// it is made the moment a direct report is first sent.
 const DEVICE_TO_BE_MADE: &str = "(made for the first direct report)";
@@ -154,9 +208,6 @@ const DEVICE_TO_BE_MADE: &str = "(made for the first direct report)";
 /// what is sent; a view of a busy board runs to hundreds of kilobytes, and a
 /// text node that size costs a frame to lay out on every keystroke.
 const PREVIEW_CHARS: usize = 20_000;
-
-/// Frames the form waits for its screenshot before drawing anyway.
-const SHOT_PATIENCE: u32 = 30;
 
 /// The [`REPORT`] stop of a box.
 const fn category_stop(category: Category) -> &'static str {
@@ -269,8 +320,29 @@ fn signature(
     hash.finish()
 }
 
-/// Rebuilds the form when anything it shows has changed.
-#[allow(clippy::too_many_arguments)] // one reader per thing the form shows
+/// Only what requires a new footer rather than patching the retained one.
+fn footer_signature(
+    settings: &ClientSettings,
+    route: &Route,
+    window: Vec2,
+    input: InputClass,
+    ui: f32,
+) -> u64 {
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    format!("{route:?}").hash(&mut hash);
+    settings.lang.hash(&mut hash);
+    (window.x as u32, window.y as u32).hash(&mut hash);
+    ui.to_bits().hash(&mut hash);
+    (input == InputClass::Touch).hash(&mut hash);
+    hash.finish()
+}
+
+/// Rebuilds the body when anything it shows has changed, retaining the footer.
+#[allow(
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::too_many_lines
+)] // the form and its retained UI target
 pub(super) fn draw(
     mut commands: Commands,
     mut desk: ResMut<ReportDesk>,
@@ -281,24 +353,30 @@ pub(super) fn draw(
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     ui: Option<Res<UiScale>>,
     roots: Query<Entity, With<DeskRoot>>,
+    foots: Query<
+        (
+            Entity,
+            Option<&Inherited<ComputedUiTargetCamera>>,
+            Option<&Inherited<ComputedUiRenderTargetInfo>>,
+        ),
+        With<DeskFoot>,
+    >,
     column: Query<&ScrollPosition, With<DeskScroll>>,
     mut last: Local<Option<u64>>,
+    mut last_foot: Local<Option<u64>>,
 ) {
+    if super::shot::awaiting_frame(&mut commands, &mut desk) {
+        return;
+    }
     let Some(fonts) = fonts else {
         return;
     };
-    // The picture is taken of the frame the form opened on; drawn on that
-    // frame, the form would be in it. A few frames at most, and a capture
-    // that never comes holds the form back no longer than half a second.
-    if desk.open && desk.shooting && desk.waited < SHOT_PATIENCE {
-        desk.waited += 1;
-        return;
-    }
     // Closed, asking nothing and with nothing left up to take down: the
     // frame has no work here. This runs every frame of every screen, and
     // the route and the signature below allocate, so most frames stop here.
     if !(desk.open || desk.asking) && roots.is_empty() {
         *last = None;
+        *last_foot = None;
         return;
     }
     let route = super::route(lobby.as_deref(), &settings);
@@ -306,14 +384,8 @@ pub(super) fn draw(
         Vec2::new(w.width(), w.height())
     });
     let input = input.as_deref().copied().unwrap_or(InputClass::Pointer);
-    let now = signature(
-        &desk,
-        &settings,
-        &route,
-        window,
-        input,
-        ui.as_deref().map_or(1.0, |ui| ui.0),
-    );
+    let ui_scale = ui.as_deref().map_or(1.0, |ui| ui.0);
+    let now = signature(&desk, &settings, &route, window, input, ui_scale);
     if *last == Some(now) && (roots.iter().next().is_some() || !(desk.open || desk.asking)) {
         return;
     }
@@ -323,19 +395,28 @@ pub(super) fn draw(
     {
         desk.panel_scroll = scrolled.y;
     }
+    let foot_now = footer_signature(&settings, &route, window, input, ui_scale);
+    let keep_foot =
+        desk.drawn_form && desk.open && !desk.form.confirming && *last_foot == Some(foot_now);
+    let retained = keep_foot.then(|| {
+        foots.iter().next().map(|(entity, camera, target)| {
+            crate::shellkit::retain::Kept::of(entity, camera, target)
+        })
+    });
+    let retained = retained.flatten();
+    if retained.is_some() {
+        for (entity, ..) in &foots {
+            commands.entity(entity).remove::<ChildOf>();
+        }
+    }
     for root in &roots {
         commands.entity(root).despawn();
     }
     desk.redraws += 1;
     desk.drawn_form = desk.open && !desk.form.confirming;
+    *last_foot = desk.drawn_form.then_some(foot_now);
     let lang = Lang::of(&settings.lang);
-    let kit = kit_for(
-        &fonts,
-        window,
-        input,
-        lang,
-        ui.as_deref().map_or(1.0, |ui| ui.0),
-    );
+    let kit = kit_for(&fonts, window, input, lang, ui_scale);
     let surface = if desk.asking && !desk.open {
         Some(crash_question(&mut commands, kit, lang))
     } else if desk.open && desk.form.confirming {
@@ -348,12 +429,27 @@ pub(super) fn draw(
             lang,
         ))
     } else if desk.open {
-        Some(form(&mut commands, &desk, &settings, &route, kit, lang))
+        Some(form(
+            &mut commands,
+            &desk,
+            &settings,
+            &route,
+            kit,
+            lang,
+            retained.is_some(),
+        ))
     } else {
         None
     };
     if let Some(surface) = surface {
         scrim(&mut commands, kit, surface);
+        // Only now that the sheet stands under its scrim: attached before,
+        // the footer lost the camera it is drawn by for the frame, so the
+        // buttons under the text blinked out at every keystroke (feedback
+        // of 28.10.2026; `Kept::attach`).
+        if let Some(kept) = &retained {
+            kept.attach(&mut commands, surface);
+        }
     }
 }
 
@@ -625,6 +721,7 @@ fn form(
     route: &Route,
     kit: Kit,
     lang: Lang,
+    retained: bool,
 ) -> Entity {
     let mut body = Vec::new();
     let selected = Kind::OFFERED
@@ -685,19 +782,26 @@ fn form(
     if desk.form.preview {
         body.push(preview_pane(commands, desk, settings, route, kit, lang));
     }
-    let footer = form_foot(commands, desk, route, kit, lang);
-    surfaces::sheet_box_with(
+    let footer = if retained {
+        Vec::default()
+    } else {
+        form_foot(commands, desk, route, kit, lang)
+    };
+    let footer = SheetFooter::compact(&footer);
+    let footer = if retained { footer.retained() } else { footer };
+    surfaces::sheet_box_with_footer(
         commands,
         kit,
         SheetWidth::Medium,
         Phrase::ReportButton.text(lang),
         &body,
-        &footer,
+        footer,
         (
             DeskScroll,
             Role::Scroll,
             ScrollPosition(Vec2::new(0.0, desk.panel_scroll)),
         ),
+        DeskFoot,
     )
 }
 
@@ -869,91 +973,6 @@ fn status_lines(commands: &mut Commands, desk: &ReportDesk, kit: Kit, lang: Lang
         ));
     }
     lines
-}
-
-/// The footer: What is sent (a ghost, left), Copy as text where a report
-/// can go nowhere, Close and Send.
-fn form_foot(
-    commands: &mut Commands,
-    desk: &ReportDesk,
-    route: &Route,
-    kit: Kit,
-    lang: Lang,
-) -> Vec<Entity> {
-    let what = controls::button(
-        commands,
-        kit,
-        Phrase::ReportWhatIsSent.text(lang),
-        Weight::Ghost,
-        Live::Yes,
-        None,
-        (DeskPress::Preview, Stop::new(REPORT.name, "what-is-sent")),
-    );
-    // Left, in a stretch that takes the row's slack, the rest at the right.
-    // (An auto margin on the button itself let a wrapping row run out of
-    // the sheet.)
-    let left = commands
-        .spawn((
-            Node {
-                flex_grow: 1.0,
-                justify_content: JustifyContent::FlexStart,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(left).add_child(what);
-    let mut footer = vec![left];
-    if matches!(route, Route::Nowhere) {
-        footer.push(controls::button(
-            commands,
-            kit,
-            Phrase::CopyAsText.text(lang),
-            Weight::Secondary,
-            Live::Yes,
-            None,
-            (DeskPress::CopyText, Stop::new(REPORT.name, "copy")),
-        ));
-    }
-    footer.push(controls::button(
-        commands,
-        kit,
-        Phrase::ReportClose.text(lang),
-        Weight::Secondary,
-        Live::Yes,
-        Some("Esc"),
-        (DeskPress::Close, Stop::new(REPORT.name, "close")),
-    ));
-    let reason = match route {
-        // The route line says the whole of it; under a finger this short
-        // reason stands under the button.
-        Route::Nowhere => Some(Phrase::ReportNowhere.text(lang).to_string()),
-        _ if desk.form.status == Status::Sending => {
-            Some(Phrase::ReportSending.text(lang).to_string())
-        }
-        _ if desk.form.over_limit() => {
-            Some(Phrase::ReportTextTooLong.fill(lang, &[&MAX_TEXT_CHARS.to_string()]))
-        }
-        _ if desk.form.text.text().trim().is_empty() => {
-            Some(Phrase::ReportTextHint.text(lang).to_string())
-        }
-        _ => None,
-    };
-    let send_keys = if crate::shellkit::keys::mac() {
-        "\u{2318}\u{21b5}"
-    } else {
-        "Ctrl \u{21b5}"
-    };
-    footer.push(controls::button(
-        commands,
-        kit,
-        Phrase::ReportSend.text(lang),
-        Weight::Primary,
-        reason.as_deref().map_or(Live::Yes, Live::No),
-        Some(send_keys),
-        (DeskPress::Send, Stop::new(REPORT.name, "send")),
-    ));
-    footer
 }
 
 /// Exactly what is sent, as the preview shows it: what always goes, in a

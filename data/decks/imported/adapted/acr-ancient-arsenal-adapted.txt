@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/ACR/ancient-arsenal.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AncientArsenal_ACR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ancient Arsenal (Adapted)]
+4 Arrows of Justice
+1 Eivor, Battle-Ready
+4 Energy Bolt
+3 Keen-Eyed Raven
+4 Legion Leadership
+4 Lightning Helix
+4 Martial Glory
+11 Mountain
+11 Plains
+1 Rip Apart
+3 Settlement Blacksmith
+4 Spirit Summoning
+3 Stone Quarry
+2 Towering Viewpoint
+1 Warleader's Helix

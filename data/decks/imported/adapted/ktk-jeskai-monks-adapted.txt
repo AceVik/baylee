@@ -1,0 +1,37 @@
+# adapted from data/decks/precon/KTK/jeskai-monks.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JeskaiMonks_KTK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Jeskai Monks (Adapted)]
+1 Alabaster Kirin
+2 Bloodfire Expert
+1 Bloodfire Mentor
+1 Divination
+1 Flick a Coin
+1 Hammer of Bogardan
+1 Highspire Mantis
+8 Island
+2 Jeskai Banner
+1 Jeskai Student
+2 Jeskai Windscout
+1 Leaping Master
+1 Lightning Strike
+1 Monastery Swiftspear
+6 Mountain
+2 Mystic Monastery
+4 Narset's Rebuke
+7 Plains
+1 Repentance
+1 Repulse
+1 Riverwheel Aerialists
+2 Seeker of the Way
+1 Serra Angel
+1 Smite the Monstrous
+1 Solemn Offering
+1 Sphinx's Revelation
+1 Spirit Summoning
+1 Swiftwater Cliffs
+1 Tireless Missionaries
+1 Tranquil Cove
+1 Void Snare
+1 Weave Fate
+1 Whirlwind Adept
+1 Wind-Scarred Crag

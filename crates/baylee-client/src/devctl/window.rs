@@ -17,9 +17,58 @@ struct HidePointer;
 pub(super) fn install(app: &mut App) {
     app.add_systems(RestorePointer, restore_pointer)
         .add_systems(HidePointer, hide_pointer);
+    if super::passive() {
+        app.add_systems(Update, lift_while_capturing);
+    }
     let mut order = app.world_mut().resource_mut::<MainScheduleOrder>();
     order.insert_before(PreUpdate, RestorePointer);
     order.insert_before(Last, HidePointer);
+}
+
+/// How long a passive window stays above the others after its last capture:
+/// a check takes its screenshots a few at a time, and a window that went
+/// down between them would have to come up and be drawn afresh for each.
+const LIFT_LINGER: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// Whether the window is lifted now, and when a capture was last seen.
+fn lifted(
+    capturing: bool,
+    last: Option<std::time::Duration>,
+    now: std::time::Duration,
+) -> (bool, Option<std::time::Duration>) {
+    let last = if capturing { Some(now) } else { last };
+    let lift = last.is_some_and(|at| now.saturating_sub(at) < LIFT_LINGER);
+    (lift, last)
+}
+
+/// Lifts a passive window above the others only while something is captured
+/// from it, and lets it sink back a moment after. It no longer stays on top
+/// for the whole run (owner, 29.10.2026), but wgpu acquires no drawable for a
+/// window macOS reports occluded, so a covered window would capture nothing
+/// but black: while a screenshot is pending or a recording takes frames, it
+/// stands above the others, still without the focus and still letting the
+/// pointer through. A screenshot asked of a covered window is answered from
+/// the first frame drawn after it came up.
+fn lift_while_capturing(
+    shots: Query<(), With<bevy::render::view::screenshot::Screenshot>>,
+    recorder: Option<Res<super::recording::Recorder>>,
+    time: Res<Time<Real>>,
+    mut last: Local<Option<std::time::Duration>>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    let capturing = !shots.is_empty() || recorder.is_some_and(|recorder| recorder.capturing());
+    let (lift, seen) = lifted(capturing, *last, time.elapsed());
+    *last = seen;
+    let level = if lift {
+        bevy::window::WindowLevel::AlwaysOnTop
+    } else {
+        bevy::window::WindowLevel::Normal
+    };
+    if let Ok(mut window) = windows.single_mut()
+        && window.window_level != level
+    {
+        window.window_level = level;
+    }
 }
 
 fn restore_pointer(control: Res<DevControl>, mut windows: Query<&mut Window, With<PrimaryWindow>>) {
@@ -129,6 +178,48 @@ pub(super) fn monitors_json(monitors: Option<&WinitMonitors>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_window_is_lifted_while_capturing_and_sinks_a_moment_after() {
+        let at = std::time::Duration::from_secs;
+        let ms = std::time::Duration::from_millis;
+        // Never captured: it stays where the owner's windows put it.
+        assert_eq!(lifted(false, None, at(5)), (false, None));
+        // A capture lifts it at once.
+        assert_eq!(lifted(true, None, at(5)), (true, Some(at(5))));
+        // It lingers a moment for the next screenshot of a run...
+        assert_eq!(
+            lifted(false, Some(at(5)), at(5) + ms(900)),
+            (true, Some(at(5)))
+        );
+        // ...and then sinks back behind the owner's windows.
+        assert_eq!(
+            lifted(false, Some(at(5)), at(5) + LIFT_LINGER),
+            (false, Some(at(5)))
+        );
+    }
+
+    /// The system, not just the rule: a pending screenshot lifts the window
+    /// in the frame it is asked for, and an empty queue leaves a fresh window
+    /// at the normal level.
+    #[test]
+    fn a_pending_screenshot_lifts_the_window_and_nothing_else_does() {
+        let (mut app, _tx) = super::super::tests::harness();
+        app.init_resource::<Time<Real>>()
+            .add_systems(Update, lift_while_capturing);
+        let level = |app: &mut App| {
+            let mut windows = app
+                .world_mut()
+                .query_filtered::<&Window, With<PrimaryWindow>>();
+            windows.single(app.world()).unwrap().window_level
+        };
+        app.update();
+        assert_eq!(level(&mut app), bevy::window::WindowLevel::Normal);
+        app.world_mut()
+            .spawn(bevy::render::view::screenshot::Screenshot::primary_window());
+        app.update();
+        assert_eq!(level(&mut app), bevy::window::WindowLevel::AlwaysOnTop);
+    }
 
     #[test]
     fn monitor_selection_is_explicit() {

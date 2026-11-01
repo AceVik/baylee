@@ -1,0 +1,19 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, WarMage_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:War Mage]
+2 Aladdin's Ring
+4 Ball Lightning
+3 Detonate
+4 Disintegrate
+4 Earthquake
+2 Fellwar Stone
+4 Fireball
+4 Lightning Bolt
+4 Mana Flare
+4 Mana Vault
+23 Mountain
+2 Smoke
+
+[sideboard]
+1 Celestial Prism
+1 Red Elemental Blast

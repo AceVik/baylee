@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/SHM/aura-mastery.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AuraMastery_SHM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Aura Mastery (Adapted)]
+4 Absorb
+1 Barrenton Medic
+2 Curse of Chains
+4 Daring Leap
+3 Energy Arc
+10 Island
+1 Kithkin Rabble
+4 Ojutai's Command
+1 Overrule
+2 Parapet Watchers
+14 Plains
+1 Silkbind Faerie
+2 Somnomancer
+4 Sphinx's Revelation
+2 Thistledown Duo
+1 Thistledown Liege
+1 Watchwing Scarecrow
+3 Zealous Guardian

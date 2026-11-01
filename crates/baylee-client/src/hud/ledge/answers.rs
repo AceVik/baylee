@@ -35,27 +35,35 @@ pub(in crate::hud) enum Says {
 ///
 /// What did not come from `sync_overlay` is the middle button of a priority,
 /// which had no button at all before the shelf: see [`Says`].
-/// The three answers to a combat declaration, with `commit` named for the
-/// side of it this seat is on.
+/// The answers to a combat declaration, with `commit` named for the side of
+/// it this seat is on: the commit once something is declared, the aim's next
+/// target where there is more than one, and declaring nothing.
 ///
 /// Its own function because both arms of [`answers_for`] need the same
 /// guard and differ only in one word. The guard is
 /// [`crate::input::empty_combat_declaration`] rather than a second reading
 /// of the same two fields, so the button and the key cannot disagree about
 /// when the answer exists.
+///
+/// The commit leads, so the candle is on it: "Aim next" led and wore the
+/// candle, the shelf's invitation, also where one defender or one attacker
+/// left it nothing to aim at (played 30.10.2026). Its key `C` still moves
+/// the aim wherever there is one.
 fn combat_row(duel: &Duel, lang: Lang, commit: Phrase) -> Vec<(Says, String)> {
-    let mut row = vec![(
-        Says::Answer(PromptAction::AimNext),
-        Phrase::AimNext.text(lang).to_string(),
-    )];
-    if !duel
-        .interaction
-        .as_ref()
-        .is_some_and(crate::input::empty_combat_declaration)
-    {
+    let mut row = Vec::new();
+    let Some(i) = duel.interaction.as_ref() else {
+        return row;
+    };
+    if !crate::input::empty_combat_declaration(i) {
         row.push((
             Says::Answer(PromptAction::Confirm),
             commit.text(lang).to_string(),
+        ));
+    }
+    if aims(i) > 1 {
+        row.push((
+            Says::Answer(PromptAction::AimNext),
+            Phrase::AimNext.text(lang).to_string(),
         ));
     }
     row.push((
@@ -63,6 +71,26 @@ fn combat_row(duel: &Duel, lang: Lang, commit: Phrase) -> Vec<(Says, String)> {
         Phrase::DeclareNone.text(lang).to_string(),
     ));
     row
+}
+
+/// How many things a combat declaration can aim at: the defenders an attack
+/// may choose between, the attackers a block may.
+fn aims(i: &baylee_client_core::Interaction) -> usize {
+    use baylee_client_core::interaction::{AttackOption, BlockRow};
+    use baylee_engine::choice::Pending;
+    match i.pending() {
+        Pending::ChooseAttackers { .. } => i
+            .attack_options()
+            .iter()
+            .filter(|o| matches!(o, AttackOption::Aim(_)))
+            .count(),
+        Pending::ChooseBlockers { .. } => i
+            .block_rows()
+            .iter()
+            .filter(|o| matches!(o, BlockRow::Aim(_)))
+            .count(),
+        _ => 0,
+    }
 }
 
 /// The answers to a payment window (CR 605.3a): Go or "Pay now", take the
@@ -132,6 +160,12 @@ pub(super) fn answers_for(
         return vec![(
             Says::Command(super::MenuAction::ReleaseHold),
             Phrase::HoldRelease.text(lang).to_string(),
+        )];
+    }
+    if !over && duel.my_seat_eliminated() {
+        return vec![(
+            Says::Command(super::MenuAction::LeaveGame),
+            Phrase::LeaveTable.text(lang).to_string(),
         )];
     }
     if over || waiting {

@@ -1,0 +1,81 @@
+# baylee curated highlander aggro seed=20261072
+# licence: AGPL-3.0-only
+[deck:highlander aggro WG #20261072]
+1 April O'Neil, Kunoichi Trainee
+1 Arashin Cleric
+1 Archaeological Dig
+1 Baldur's Gate
+1 Beloved Princess
+1 Brotherhood Headquarters
+1 Castle Doom
+1 Cathedral Sanctifier
+1 Centaur Peacemaker
+1 Champion of the Parish
+1 City of Brass
+1 Dawnhart Rejuvenator
+1 Dedicated Martyr
+1 Delif's Cone
+1 Dwarven Priest
+1 Eclipsed Realms
+1 Extraction Specialist
+7 Forest
+1 Gallant Citizen
+1 Guildmages' Forum
+1 Hada Freeblade
+1 Healer of the Glade
+1 Healer of the Pride
+1 Healing Salve
+1 Hushwood Verge
+1 Impassioned Orator
+1 Implement of Improvement
+1 Inspiring Cleric
+1 Ironclad Slayer
+1 Jaddi Offshoot
+1 Kindly Customer
+1 Leonin Elder
+1 Lone Missionary
+1 Lotus Vale
+1 Mandible Justiciar
+1 Mandroid Squadron
+1 Mindful Biomancer
+1 Monk Realist
+1 Mox Emerald
+1 Novice Inspector
+1 Ondu Cleric
+1 Perimeter Patrol
+1 Pious Wayfarer
+17 Plains
+1 Potion of Healing
+1 Recruiter of the Guard
+1 Renegade Rallier
+1 Sanctify
+1 Savannah
+1 Savannah Sage
+1 Setessan Skirmisher
+1 Setessan Starbreaker
+1 Settlement Blacksmith
+1 Shu Grain Caravan
+1 Skyclave Cleric
+1 Slumbering Keepguard
+1 Social Climber
+1 Soul Warden
+1 Soul's Attendant
+1 Sunbeam Spellbomb
+1 Sunshower Druid
+1 Surveillance Room
+1 Suture Priest
+1 Talon Gates of Madara
+1 Tamiyo's Safekeeping
+1 Temple Acolyte
+1 Tenth District Guard
+1 Teroh's Faithful
+1 Thraben Inspector
+1 Tivadar of Thorn
+1 Totem Speaker
+1 Turntimber Ascetic
+1 Turtle Lair
+1 Venerable Monk
+1 War Priest of Thune
+1 Werefox Bodyguard
+1 Witch Enchanter
+1 Wooded Bastion

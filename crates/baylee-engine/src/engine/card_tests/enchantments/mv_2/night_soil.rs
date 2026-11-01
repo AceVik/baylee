@@ -143,3 +143,5 @@ fn night_soil_needs_two_creature_cards() {
     let soil = on_battlefield(&e, P0, soil_card()).expect("Night Soil");
     assert!(!priority_offer(&e).abilities.contains(&(soil, 0)));
 }
+
+mod selection;

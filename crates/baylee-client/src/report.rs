@@ -43,7 +43,7 @@ use crate::settings::ClientSettings;
 
 mod corner;
 mod field;
-mod form;
+pub(crate) mod form;
 mod keys;
 mod refs;
 mod shot;
@@ -57,7 +57,7 @@ pub(crate) use form::DeskPress;
 #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub(crate) use form::DeskRoot;
 #[cfg(test)]
-pub(crate) use form::DeskScroll;
+pub(crate) use form::{DeskScroll, SendSpinner};
 pub(crate) use form::{REPORT, REPORT_CONFIRM, ReportAnchor};
 #[cfg(any(test, all(feature = "dev-control", not(target_arch = "wasm32"))))]
 pub(crate) use refs::ReportPreview;
@@ -93,11 +93,16 @@ pub struct ReportDesk {
     form: ReportForm,
     /// What the form may attach, collected when it opened.
     gathered: Gathered,
-    /// Whether the screenshot is still being taken.
+    /// Whether the screenshot is still being taken or encoded.
     shooting: bool,
-    /// Frames the form has waited for the screenshot before drawing itself,
-    /// so the picture is of the screen and not of the form.
-    waited: u32,
+    /// Readback must finish before the dialog may enter the captured frame.
+    capture: Option<shot::Capture>,
+    /// The screenshot's CPU-side encoding, off the render thread.
+    shot_encoding: Option<bevy::tasks::Task<(u64, Option<bugreport::Screenshot>)>>,
+    /// The local record's compression, off the render thread.
+    record_packing: Option<bevy::tasks::Task<(u64, Option<LocalRecord>)>>,
+    /// Which opening a background attachment belongs to.
+    opening: u64,
     /// The crash found at start, while it waits for a session or an answer.
     crash: Option<CrashFile>,
     /// Whether the player is being asked about crash reports.
@@ -142,6 +147,10 @@ pub struct ReportDesk {
 }
 
 impl ReportDesk {
+    fn preparing(&self, consent: &Consent) -> bool {
+        self.record_packing.is_some() || (self.shooting && consent.allows(Category::Screenshot))
+    }
+
     /// Whether the keyboard belongs to the form (or the crash question)
     /// this frame. Every other key handler asks this first.
     #[must_use]
@@ -221,6 +230,9 @@ impl ReportDesk {
     pub(crate) fn gathered_refs_len(&self) -> usize {
         self.gathered.refs.cards.len()
     }
+    pub(crate) fn record_pending(&self) -> bool {
+        self.record_packing.is_some()
+    }
     pub(crate) fn asking(&self) -> bool {
         self.asking
     }
@@ -287,6 +299,7 @@ pub(crate) fn install(app: &mut App) {
             (
                 corner::keep_the_corner,
                 open_when_asked,
+                finish_preparing,
                 remember_the_gateway,
                 answers,
                 activate_by_key,
@@ -294,6 +307,9 @@ pub(crate) fn install(app: &mut App) {
                 send_the_crash,
                 refs::fill_the_pool,
                 form::draw,
+                form::lock_while_sending,
+                form::sync_footer,
+                form::sync_touch_reason,
                 form::retick,
                 keys::scroll,
                 field::blink,
@@ -419,6 +435,9 @@ fn open_when_asked(
     }
     desk.asked = false;
     desk.open = true;
+    desk.opening = desk.opening.wrapping_add(1);
+    desk.shot_encoding = None;
+    desk.record_packing = None;
     desk.form.status = Status::Editing;
     desk.form.preview = false;
     desk.form.opened();
@@ -448,10 +467,44 @@ fn open_when_asked(
         })
         .unwrap_or_default();
     desk.gathered.refs = references(duel, texts.as_deref(), lobby.as_deref());
-    // Taken before the form is drawn over it, and whether or not the box is
-    // ticked: it stays on this machine unless it is.
-    desk.shooting = shot::take(&mut commands);
-    desk.waited = 0;
+    let record = host
+        .as_deref()
+        .and_then(|h| h.0.local_record())
+        .map(<[u8]>::to_vec);
+    let opening = desk.opening;
+    desk.record_packing = record.map(|jsonl| {
+        bevy::tasks::AsyncComputeTaskPool::get()
+            .spawn(async move { (opening, LocalRecord::pack(&jsonl)) })
+    });
+    shot::cancel(&mut commands, &mut desk);
+    desk.capture = shot::take(&mut commands, opening);
+    desk.shooting = desk.capture.is_some();
+}
+
+/// Installs attachments whose CPU-side preparation finished, but never one
+/// left over from an earlier opening of the form.
+fn finish_preparing(mut desk: ResMut<ReportDesk>) {
+    let shot = desk
+        .shot_encoding
+        .as_mut()
+        .and_then(|task| bevy::tasks::block_on(bevy::tasks::futures_lite::future::poll_once(task)));
+    if let Some((opening, image)) = shot {
+        desk.shot_encoding = None;
+        if desk.open && desk.opening == opening {
+            desk.shooting = false;
+            desk.gathered.screenshot = image;
+        }
+    }
+    let record = desk
+        .record_packing
+        .as_mut()
+        .and_then(|task| bevy::tasks::block_on(bevy::tasks::futures_lite::future::poll_once(task)));
+    if let Some((opening, record)) = record {
+        desk.record_packing = None;
+        if desk.open && desk.opening == opening {
+            desk.gathered.local_record = record;
+        }
+    }
 }
 
 /// What the report's text may name, read when the form opens: at a table
@@ -568,11 +621,7 @@ fn gather(
             preferences: prefs.and_then(|p| serde_json::from_str(&p.all().to_json()).ok()),
         }),
         screenshot: None,
-        // Packed here, once per opening, and not per keystroke: the form
-        // rebuilds its body on every change it shows.
-        local_record: host
-            .and_then(|h| h.0.local_record())
-            .and_then(LocalRecord::pack),
+        local_record: None,
         refs: bugreport::Candidates::default(),
     }
 }
@@ -582,7 +631,7 @@ fn gather(
 #[allow(clippy::too_many_arguments)] // a Bevy system: one reader per thing a press may change
 fn activate_by_key(
     mut activated: MessageReader<crate::shellkit::focus::Activated>,
-    presses: Query<&form::DeskPress>,
+    presses: Query<&form::DeskPress, Without<crate::shellkit::controls::Disabled>>,
     mut desk: ResMut<ReportDesk>,
     mut settings: ResMut<ClientSettings>,
     holders: Holders,
@@ -680,13 +729,23 @@ fn system(
 /// The feedback service this build was given, if any.
 const BUILT_FEEDBACK_URL: Option<&str> = option_env!("BAYLEE_FEEDBACK_PUBLIC_URL");
 
+/// The address this build was given for reports signed in nowhere, if any.
+const BUILT_REPORT_URL: Option<&str> = option_env!("BAYLEE_REPORT_PUBLIC_URL");
+
 /// Where a report goes now: the gateway the lobby is signed in to, else
-/// the feedback service the settings or the build name, else nowhere.
+/// the report address the settings or the build name (or the feedback
+/// service), else nowhere.
 pub(crate) fn route(lobby: Option<&LobbyState>, settings: &ClientSettings) -> Route {
     let service = bugreport::feedback_service(settings.feedback_url.as_deref(), BUILT_FEEDBACK_URL);
+    let direct = bugreport::report_address(
+        settings.report_url.as_deref(),
+        BUILT_REPORT_URL,
+        settings.feedback_url.as_deref(),
+        service.as_deref(),
+    );
     bugreport::route(
         session(lobby).map(|(gateway, _)| gateway).as_deref(),
-        service.as_deref(),
+        direct.as_deref(),
     )
 }
 
@@ -824,7 +883,7 @@ fn ask_to_send(
     answers: &Answers,
 ) {
     let route = route(holders.lobby.as_deref(), settings);
-    if !route.sends() {
+    if desk.preparing(&settings.reports) || !route.sends() {
         return;
     }
     let device = settings.report_device.clone().unwrap_or_default();
@@ -865,6 +924,9 @@ fn send(
     settings: &mut ClientSettings,
     answers: &Answers,
 ) {
+    if desk.preparing(&settings.reports) {
+        return;
+    }
     let keyring = holders.keyring(settings);
     let gathered = desk.gathered.clone();
     match route(holders.lobby.as_deref(), settings) {

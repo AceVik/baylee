@@ -19,6 +19,7 @@ use crate::record::{Mind, MindKind, Recorder, Source};
 
 mod answers;
 mod chairs;
+mod choice_context;
 mod clocks;
 mod frames;
 pub mod project;
@@ -247,6 +248,14 @@ pub struct Session {
     declarations: Vec<u32>,
     /// What the spectators have been told, together (`spectators.rs`).
     gallery: spectators::Gallery,
+    /// When true, clamp AI scouting requests so even `sharp` and `expert`
+    /// teachers only see their own decklist and never peek at opponent decks,
+    /// opponent hands, or library order (used for fair imitation learning).
+    fair_scouting: bool,
+    /// The action currently being applied by the engine, kept across the
+    /// `engine.apply` call so a panic handler can record the exact triggering
+    /// `(seat, source, action)` in a fault bundle.
+    last_attempt: Option<(PlayerId, Source, PlayerAction)>,
 }
 
 /// The most declared minds one seat's record holds: a client that changes
@@ -324,7 +333,33 @@ impl Session {
                 revealed: vec![false; preset.prints.len()],
                 ..spectators::Gallery::default()
             },
+            fair_scouting: false,
+            last_attempt: None,
         })
+    }
+
+    /// Enables or disables fair-scouting mode for AI seats.
+    ///
+    /// When `fair` is `true`, [`HeuristicAgent`] seats still receive their own
+    /// decklist intelligence and full combat/heuristic search (`sharp`,
+    /// `expert`), but requests for opponent decklists, opponent hands, and
+    /// upcoming library order are clamped off so teacher trajectories never
+    /// depend on hidden information.
+    pub fn set_fair_scouting(&mut self, fair: bool) {
+        self.fair_scouting = fair;
+    }
+
+    /// Whether fair-scouting mode is active on this session.
+    #[must_use]
+    pub const fn fair_scouting(&self) -> bool {
+        self.fair_scouting
+    }
+
+    /// The `(seat, source, action)` that was in flight if [`Engine::apply`]
+    /// panicked before returning.
+    #[must_use]
+    pub const fn last_attempt(&self) -> Option<&(PlayerId, Source, PlayerAction)> {
+        self.last_attempt.as_ref()
     }
 
     /// [`Session::new`], keeping the game's record (#315) as it goes: every

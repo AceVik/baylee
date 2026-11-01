@@ -1,0 +1,27 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WBG #20266180]
+2 Crumble
+2 Daggerback Basilisk
+3 Deceptive Landscape
+10 Forest
+2 Grave Bramble
+2 Grizzly Ghoul
+2 Headstone
+3 Indatha Triome
+2 Jolrael's Centaur
+2 Moldering Karok
+2 Mosstodon
+3 Murmuring Bosk
+2 Noxious Groodion
+2 Orchard Spirit
+2 Pale Bears
+2 Petra Sphinx
+4 Plains
+2 River Bear
+2 Shared Roots
+2 Singing Tree
+1 Swamp
+2 Wall of Pine Needles
+2 Wardscale Crocodile
+2 Woodwraith Strangler

@@ -1,0 +1,20 @@
+# baylee curated constructed midrange seed=20261050
+# licence: AGPL-3.0-only
+[deck:constructed midrange WB #20261050]
+2 Damnable Pact
+3 Inspiring Commander
+4 Kambal, Consul of Allocation
+2 Lazotep Quarry
+4 Lotus-Eye Mystics
+3 Mai, Scornful Striker
+4 Mesa Enchantress
+2 Night's Whisper
+4 Painful Quandary
+7 Plains
+3 Presence of the Master
+4 Righteousness
+3 Sign in Blood
+8 Swamp
+2 Three Tree City
+2 Undiscovered Paradise
+3 Villainous Hideout

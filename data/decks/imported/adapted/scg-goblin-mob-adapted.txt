@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/SCG/goblin-mob.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GoblinMob_SCG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Goblin Mob (Adapted)]
+2 Arc Lightning
+1 Enrage
+2 Flare
+2 Forgotten Cave
+3 Goblin Brigand
+2 Goblin Burrows
+2 Goblin Sky Raider
+2 Goblin Sledder
+2 Hordeling Outburst
+2 Improvised Weaponry
+4 Make Mischief
+20 Mountain
+1 Reckless One
+1 Seismic Strike
+1 Siege-Gang Commander
+4 Smash
+1 Sparksmith
+2 Start from Scratch
+2 Sundering Eruption
+2 Unsubtle Mockery
+2 Wheel of Fortune

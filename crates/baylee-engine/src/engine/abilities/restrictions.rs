@@ -39,18 +39,34 @@ impl<L: CardLookup> Engine<L> {
     /// The intrinsic CR 305.6 mana of `legal.mana_abilities` is mana too.
     pub(super) fn narrow_under_chosen_names(&self, legal: &mut LegalActions) {
         let locked = self.names_locked_from_activating();
-        if locked.is_empty() {
+        let has_non_mana_lock =
+            self.state.effects.may_change_or_forbid_abilities()
+                && self.state.effects.iter().any(|fx| {
+                    matches!(fx.modifier, baylee_cards_dsl::Modifier::CantActivateNonMana)
+                });
+        if locked.is_empty() && !has_non_mana_lock {
             return;
         }
         legal.abilities.retain(|&(source, index)| {
             crate::choice::is_special_action(index)
                 || index == crate::choice::PREPARED_CAST
                 || self.is_mana_offer(source, index)
-                || !self
+                || (!self
                     .state
                     .object(source)
                     .is_some_and(|obj| locked.contains(&obj.characteristics().name))
+                    && !self.non_mana_activations_are_locked(source))
         });
+    }
+
+    pub(crate) fn non_mana_activations_are_locked(&self, id: ObjectId) -> bool {
+        self.state.effects.may_change_or_forbid_abilities()
+            && self.state.object(id).is_some_and(|obj| {
+                self.state.effects.iter().any(|fx| {
+                    matches!(fx.modifier, baylee_cards_dsl::Modifier::CantActivateNonMana)
+                        && crate::effects::applies_to(&self.state, fx, obj)
+                })
+            })
     }
 
     /// The names every `Modifier::ChosenNameCantActivate` in force has
@@ -241,6 +257,7 @@ impl<L: CardLookup> Engine<L> {
             return crate::text_changes::RuleContext {
                 source,
                 text: granted.text,
+                resolved_name: None,
                 reference: None,
             };
         }
@@ -255,6 +272,7 @@ impl<L: CardLookup> Engine<L> {
         crate::text_changes::RuleContext {
             source,
             text,
+            resolved_name: None,
             reference: None,
         }
     }
@@ -319,6 +337,8 @@ impl<L: CardLookup> Engine<L> {
                     &self.state,
                     player,
                     crate::text_changes::RuleContext {
+                        resolved_name: None,
+
                         reference: Some(reference),
                         ..context
                     },

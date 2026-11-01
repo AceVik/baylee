@@ -1,0 +1,18 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, ApeLord_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ape Lord]
+4 Birds of Paradise
+2 Craw Wurm
+1 Detonate
+3 Disintegrate
+2 Dragon Engine
+3 Fireball
+4 Firebreathing
+12 Forest
+4 Killer Bees
+4 Llanowar Elves
+2 Mana Vault
+10 Mountain
+2 Shivan Dragon
+3 Stream of Life
+4 Winter Blast

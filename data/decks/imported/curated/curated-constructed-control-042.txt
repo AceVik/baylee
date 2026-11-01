@@ -1,0 +1,20 @@
+# baylee curated constructed control seed=20261065
+# licence: AGPL-3.0-only
+[deck:constructed control WU #20261065]
+4 Azorius Cluestone
+1 City of Brass
+2 Crucible of the Spirit Dragon
+4 Farrel's Zealot
+4 Five Hundred Year Diary
+2 Gold Myr
+2 Great Hall of the Biblioplex
+3 Hengegate Pathway
+4 Island
+2 Land Cap
+3 Mox Sapphire
+12 Plains
+3 Power Taint
+2 Skycloud Egg
+4 Talisman of Progress
+4 Thought Monitor
+4 Trigon of Thought

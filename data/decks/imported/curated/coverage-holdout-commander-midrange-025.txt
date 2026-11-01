@@ -1,0 +1,83 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BR #90010026]
+1 Agents of HYDRA
+1 Al Bhed Salvagers
+1 Badlands
+1 Blackcleave Cliffs
+1 Blazemire Verge
+1 Blightspeaker
+1 Blightstep Pathway
+1 Blood Crypt
+1 Bog Glider
+1 Brazen Freebooter
+1 Callous Inspector
+1 Cinder Marsh
+1 Common Crook
+1 Conscripted Infantry
+1 Dark Fortress
+1 Deathgreeter
+1 Dire Fleet Hoarder
+1 Disciple of the Vault
+1 Doomed Dissenter
+1 Dragon Trainer
+1 Dragonmaster Outcast
+1 Embraal Gear-Smasher
+1 Essence Feed
+1 Fire Nation Archers
+1 Firefist Adept
+1 Flick a Coin
+1 Garna, the Bloodflame
+1 Ghirapur Gearcrafter
+1 Greedy Freebooter
+1 Gremlin Infestation
+1 Hearthcage Giant
+1 Iron Man, Tony Stark
+1 Judith, the Scourge Diva
+1 Kamahl, Pit Fighter
+1 Lantern-Lit Graveyard
+1 Lava Tubes
+1 Lead Pipe
+1 Liliana the Repentant
+1 Locthwain Lancer
+1 Madame Hydra
+1 Marionette Apprentice
+1 Molten Slagheap
+1 Mount Doom
+12 Mountain
+1 Murasa Pyromancer
+1 Novice Occultist
+1 Ophiomancer
+1 Pia and Kiran Nalaar
+1 Pia, Determined Rebuilder
+1 Pitiless Plunderer
+1 Priest of Yawgmoth
+1 Profane Tutor
+1 Quest for the Gravelord
+1 Rakka Mar
+1 Sell-Sword Brute
+1 Sengir Autocrat
+1 Shadow-Rite Priest
+1 Shadowblood Ridge
+1 Skirsdag Cultist
+1 Spawning Breath
+1 Stark Industries Executive
+1 Stensia Bloodhall
+1 Sulfurous Springs
+1 Sunset Strikemaster
+12 Swamp
+1 Sweettooth Witch
+1 Tainted Peak
+1 Temple of Malice
+1 Tempting Witch
+1 The Balrog of Moria
+1 Treasure Dredger
+1 Treetop Freedom Fighters
+1 Vault Plunderer
+1 Yawgmoth, Thran Physician
+1 Young Pyromancer
+1 Zuko, Avatar Hunter
+1 Zulaport Cutthroat
+
+[commander]
+Mahadi, Emporium Master

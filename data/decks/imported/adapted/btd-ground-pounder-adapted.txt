@@ -1,0 +1,44 @@
+# adapted from data/decks/precon/BTD/ground-pounder.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GroundPounder_BTD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ground Pounder (Adapted)]
+1 Balduvian Horde
+1 Ball Lightning
+1 Bloodrock Cyclops
+1 Boa Constrictor
+1 Clockwork Beast
+1 Colossal Might
+1 Copper Host Crusher
+1 Deadly Insect
+1 Dwarven Ruins
+1 Erhnam Djinn
+1 Fireball
+1 Fit of Rage
+1 Fog
+1 Force of Nature
+11 Forest
+1 Giant Growth
+1 Havenwood Battleground
+1 Hulking Cyclops
+1 Kird Ape
+1 Lightning Bolt
+1 Llanowar Elves
+1 Lowland Giant
+1 Mad Prophet
+11 Mountain
+1 Plated Spider
+1 Quirion Elves
+1 Raging Goblin
+1 Rampant Growth
+1 Scaled Wurm
+1 Segmented Wurm
+1 Shambling Strider
+1 Shivan Dragon
+1 Shock
+1 Smoldering Crater
+1 Thunderbolt
+1 Thundering Giant
+1 Tranquil Thicket
+1 Viashino Warrior
+1 Wild Growth
+1 Woolly Spider
+1 Yavimaya Wurm

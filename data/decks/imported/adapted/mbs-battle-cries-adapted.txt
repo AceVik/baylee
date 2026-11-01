@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/MBS/battle-cries.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BattleCries_MBS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Battle Cries (Adapted)]
+4 Arrows of Justice
+2 Double Cleave
+4 Energy Bolt
+1 Gold Myr
+2 Iron Myr
+1 Leonin Skyhunter
+4 Lightning Helix
+3 Martial Glory
+3 Master's Call
+2 Memnite
+8 Mountain
+1 Myrsmith
+2 Peace Strider
+16 Plains
+1 Siege Mastodon
+1 Silvercoat Lion
+4 Spirit Summoning
+1 Viridian Claw

@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/PAST/alt-a-kesh.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AltAKesh_PAST.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Alt-A-Kesh (Adapted)]
+1 Ancestral Recall
+2 Birds of Paradise
+2 Bog Imp
+2 Cockatrice
+2 Energy Flux
+7 Forest
+1 Infuse
+7 Island
+2 Junún Efreet
+2 Lord of the Pit
+2 Mahamoti Djinn
+2 Phantasmal Forces
+2 Phantom Monster
+2 Scryb Sprites
+2 Stream of Life
+4 Sultai Charm
+7 Swamp
+1 Time Walk
+2 Untamed Wilds
+2 Vampire Bats
+2 Wall of Air
+2 Wall of Ice
+2 Zephyr Falcon
+2 Zodiac Snake

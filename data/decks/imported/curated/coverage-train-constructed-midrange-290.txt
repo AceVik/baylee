@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUG #20266291]
+2 Cliffrunner Behemoth
+2 Ember Weaver
+11 Forest
+2 Ghost Warden
+2 Giant Turtle
+2 Graceful Cat
+2 Great Hall of the Biblioplex
+1 Hall of Oracles
+1 Island
+2 Loam Lion
+3 Plains
+2 Rabid Wolverines
+2 Radiant Essence
+2 Rhox War Monk
+2 Root Spider
+2 Scurrid Colony
+2 Sea Spirit
+2 Shieldmate's Blessing
+2 Stalking Drone
+3 Talon Gates of Madara
+3 Three Tree City
+2 Timbermaw Larva
+2 Vintara Snapper
+2 Vivien's Crocodile
+2 Wall of Faith

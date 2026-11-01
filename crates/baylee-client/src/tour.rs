@@ -391,6 +391,17 @@ fn settled(settings: Option<Res<crate::settings::ClientSettings>>, desk: Res<Tou
     settings.is_some() && !desk.disabled
 }
 
+/// System sets for the guided tour, so screen controllers (`lobby::touring`)
+/// can read `TourDesk::asked` after input and rebuild the screen before the
+/// tour layer draws.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum TourSystems {
+    /// Reads tour keys and button presses.
+    Input,
+    /// Follows the active context and draws the tour layer.
+    Draw,
+}
+
 /// Installs the desk, its keys and presses, and its drawing.
 pub(crate) fn install(app: &mut App) {
     if app.world().contains_resource::<TourDesk>() {
@@ -398,6 +409,7 @@ pub(crate) fn install(app: &mut App) {
     }
     app.init_resource::<TourDesk>()
         .init_resource::<draw::Spotlight>()
+        .configure_sets(Update, TourSystems::Draw.after(TourSystems::Input))
         .add_systems(
             Update,
             (
@@ -411,11 +423,16 @@ pub(crate) fn install(app: &mut App) {
                     .run_if(in_state(crate::DuelPhase::Playing)),
                 keys,
                 presses,
-                follow,
-                draw::draw,
-                draw::lift_tips,
             )
                 .chain()
+                .in_set(TourSystems::Input)
+                .run_if(settled),
+        )
+        .add_systems(
+            Update,
+            (follow, draw::draw, draw::lift_tips)
+                .chain()
+                .in_set(TourSystems::Draw)
                 .run_if(settled),
         )
         .add_systems(OnEnter(crate::DuelPhase::Closed), table::leave)
@@ -423,6 +440,7 @@ pub(crate) fn install(app: &mut App) {
             PostUpdate,
             draw::place
                 .after(bevy::ui::UiSystems::Layout)
+                .before(bevy::ui::UiSystems::PostLayout)
                 .run_if(settled),
         );
     #[cfg(not(target_arch = "wasm32"))]

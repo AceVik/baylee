@@ -5,6 +5,7 @@ use baylee_core::ids::EffectId;
 use baylee_core::types::TypeSet;
 
 mod battle_characteristics;
+mod characteristic_extensions;
 mod indexed;
 
 static ANY_F: Filter = Filter::Any;
@@ -881,6 +882,7 @@ fn text_filter_snapshot_uses_the_ability_words_after_source_changes_again() {
     let captured = RuleContext {
         source,
         text: state.text_changes.get(identity),
+        resolved_name: None,
         reference: None,
     };
     assert!(state.text_changes.replace(

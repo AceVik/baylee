@@ -290,6 +290,9 @@ impl ReportForm {
     /// Takes suggestion `row` (`None`: the one the keys are on): its name in
     /// brackets and a space over the typed run, the caret after them.
     pub fn take(&mut self, candidates: &Candidates, row: Option<usize>) {
+        if self.status == Status::Sending {
+            return;
+        }
         let Some(suggestions) = self.suggestions(candidates) else {
             return;
         };
@@ -436,6 +439,9 @@ impl ReportForm {
     /// is thousands of characters at once, and a paste that overshot would
     /// leave the player to find and delete the excess by hand.
     pub fn paste(&mut self, text: &str) -> usize {
+        if self.status == Status::Sending {
+            return 0;
+        }
         let normal = text.replace("\r\n", "\n").replace('\r', "\n");
         let selected = self
             .text
@@ -609,6 +615,12 @@ mod tests {
         assert!(json.is_some());
         assert_eq!(form.status, Status::Sending);
         assert!(!form.can_send(true), "one report at a time");
+        assert!(
+            form.prepare(&Gathered::default(), &Consent::default(), &[], Via::Gateway)
+                .is_none(),
+            "a second press cannot produce a second request body"
+        );
+        assert_eq!(form.paste("changed"), 0, "the in-flight text is locked");
         form.answered(429, "");
         assert_eq!(form.text.text(), "the stack ate my spell");
         assert!(form.can_send(true));

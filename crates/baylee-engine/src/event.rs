@@ -37,6 +37,10 @@ pub enum Cause {
     DevCommand,
     /// Life lost to the inherent radiation trigger (CR 728.1a).
     Radiation,
+    /// A destruction that reached its zone move, even if its destination
+    /// was replaced. Regeneration, shield counters and indestructibility
+    /// never produce this cause (CR 701.8).
+    Destroy,
 }
 
 /// What damage was dealt to.

@@ -16,6 +16,16 @@ pub(super) fn resume_with_number_inner(
     res: &mut Resolution,
     number: u32,
 ) -> Flow {
+    if matches!(res.awaiting, Some(AwaitingOp::ChoosePhaseToSkipThisTurn)) {
+        match number {
+            0 => state.per_turn.skip_draw_step = true,
+            1 => state.per_turn.skip_main_phases = true,
+            _ => state.per_turn.skip_combat_phases = true,
+        }
+        res.awaiting = None;
+        res.pc += 1;
+        return run(state, res);
+    }
     if matches!(res.awaiting, Some(AwaitingOp::ChooseNumber)) {
         if let Some(source) =
             subjects::source(state, res).filter(|source| subjects::on_battlefield(state, *source))
@@ -160,6 +170,11 @@ pub(super) fn resume_with_color_inner(
     color: ManaColor,
 ) -> Flow {
     let awaiting = res.awaiting.take().expect("resume without awaiting op");
+    if let AwaitingOp::SourceColor { source } = awaiting {
+        super::source_color::remember(state, source, color);
+        res.pc += 1;
+        return run(state, res);
+    }
     if let AwaitingOp::ManaUnlessPaidColor { amount, cost } = awaiting {
         if let Some(pending) = mana::offer_prevention(state, res, color, amount, cost, 0) {
             return Flow::Wait(pending);
@@ -543,7 +558,8 @@ pub(super) fn resume_yes_no_inner(
     res: &mut Resolution,
     answer: bool,
 ) -> Flow {
-    if let Some(flow) = super::search::resume_consent(state, res, answer)
+    if let Some(flow) = super::coin_stakes::answer(state, res, answer)
+        .or_else(|| super::search::resume_consent(state, res, answer))
         .or_else(|| resume_selected_commander(state, res, answer))
         .or_else(|| graveyard_choice::resume_commander(state, res, answer))
         .or_else(|| resume_cast_question(state, res, answer))
@@ -734,6 +750,99 @@ pub(super) fn resume_yes_no_inner(
         res.pc += 1;
         return run(state, res);
     }
+    if let Some(AwaitingOp::RevealTopPlayerMayPut { player, card }) = res.awaiting {
+        res.awaiting = None;
+        let since = state.journal.last_seq();
+        if answer
+            && state
+                .zones
+                .list(ZoneLocation::Library(player))
+                .contains(&card)
+        {
+            super::search::put_found(state, player, card, SearchDest::Battlefield);
+        }
+        return finish_choice(state, res, since);
+    }
+    if let Some(AwaitingOp::GuessNamedCardInHand { actual }) = res.awaiting {
+        res.awaiting = None;
+        res.subject.guess = Some(super::subjects::GuessOutcome {
+            actual,
+            claimed: answer,
+            revealed: false,
+        });
+        res.pc += 1;
+        return run(state, res);
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::CoinFlipIgnore { .. })) {
+        return super::coin::resume(state, res, answer);
+    }
+    if let Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative { wins }) = res.awaiting {
+        const WIN_1: &[Effect] = &[Effect::DealDamage {
+            target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
+            amount: Amount::Fixed(3),
+        }];
+        const WIN_2: &[Effect] = &[
+            Effect::DealDamage {
+                target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
+                amount: Amount::Fixed(3),
+            },
+            Effect::DealDamage {
+                target: TargetSpec::Player(PlayerRel::EachOpponent),
+                amount: Amount::Fixed(6),
+            },
+        ];
+        const WIN_3: &[Effect] = &[
+            Effect::DealDamage {
+                target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
+                amount: Amount::Fixed(3),
+            },
+            Effect::DealDamage {
+                target: TargetSpec::Player(PlayerRel::EachOpponent),
+                amount: Amount::Fixed(6),
+            },
+            Effect::DrawCards {
+                amount: Amount::Fixed(9),
+            },
+            Effect::UntapAll {
+                filter: &baylee_cards_dsl::Filter::YOUR_LAND,
+            },
+        ];
+        res.awaiting = None;
+        let you = res.controller;
+        if answer {
+            match super::coin::flip(
+                state,
+                res,
+                you,
+                super::CoinContinuation::UntilLossOrStop {
+                    wins: wins.saturating_add(1),
+                },
+            ) {
+                super::coin::Flip::Outcome(won) => {
+                    if !won {
+                        res.pc += 1;
+                        return run(state, res);
+                    }
+                    res.awaiting = Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative {
+                        wins: wins.saturating_add(1),
+                    });
+                    return Flow::Wait(Pending::YesNo {
+                        player: you,
+                        prompt: YesNoPrompt::MayDo,
+                        source: resolving_ability(state, res),
+                    });
+                }
+                super::coin::Flip::Wait(pending) => return Flow::Wait(*pending),
+            }
+        }
+        let effects = match wins {
+            0 => &[][..],
+            1 => WIN_1,
+            2 => WIN_2,
+            _ => WIN_3,
+        };
+        return run_fallback(state, res, effects);
+    }
     let AwaitingOp::PayLifeOrTapSelf { amount } =
         res.awaiting.take().expect("resume without awaiting op")
     else {
@@ -827,6 +936,10 @@ pub fn resume_arranged(
     flow
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "dispatch each suspended arrangement without hiding variants"
+)]
 pub(super) fn resume_arranged_inner(
     state: &mut GameState,
     res: &mut Resolution,
@@ -859,6 +972,11 @@ pub(super) fn resume_arranged_inner(
         (AwaitingOp::GraveyardToTopOrder { player }, [top]) => {
             if let Some(question) = graveyard_top::place(state, res, player, top.clone()) {
                 return next_choice(state, res, since, question);
+            }
+        }
+        (AwaitingOp::HandToTop { player }, [top]) => {
+            if let Some(pending) = hand_transfer::place(state, res, player, top) {
+                return next_choice(state, res, since, pending);
             }
         }
         (AwaitingOp::ReorderTopLibrary { player }, [top]) => {
@@ -978,10 +1096,45 @@ pub(super) fn resume_tax_choice_inner(
     // which is not evaluated in release. A failed payment takes the
     // not-paid fallback, exactly as if the player had declined.
     let what = super::payment_for(state, res);
-    let actually_paid = paid && crate::casting::pay_mana_for(state, player, what, &cost).is_some();
+    let life = match &outcome {
+        ManaPaymentOutcome::ManaAndLife { life, .. } => *life,
+        _ => 0,
+    };
+    let actually_paid = paid
+        && super::mana_life_payment::life_payable(state, player, life)
+        && crate::casting::pay_mana_for(state, player, what, &cost).is_some();
+    if actually_paid && life != 0 {
+        state.change_life(
+            player,
+            -i32::try_from(life).expect("payable life"),
+            Cause::Cost,
+        );
+    }
     debug_assert!(!paid || actually_paid, "tax was offered as payable");
     let (effects, on_payment) = match outcome {
-        ManaPaymentOutcome::Branches { paid, unpaid } => {
+        ManaPaymentOutcome::AnyPlayer { unpaid, next } => {
+            if !actually_paid {
+                let since = state.journal.last_seq();
+                if let Some(pending) =
+                    super::any_player_payment::offer(state, res, cost, unpaid, next)
+                {
+                    return next_choice(state, res, since, pending);
+                }
+            }
+            res.pc += 1;
+            return run(state, res);
+        }
+        ManaPaymentOutcome::RepeatGraveyardChoice(selection) => {
+            let since = state.journal.last_seq();
+            if let Some(pending) =
+                repeated_graveyard_choice::paid(state, res, *selection, actually_paid)
+            {
+                return next_choice(state, res, since, pending);
+            }
+            return finish_choice(state, res, since);
+        }
+        ManaPaymentOutcome::ManaAndLife { paid, unpaid, .. }
+        | ManaPaymentOutcome::Branches { paid, unpaid } => {
             return run_fallback(state, res, if actually_paid { paid } else { unpaid });
         }
         ManaPaymentOutcome::Effects {

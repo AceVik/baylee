@@ -279,6 +279,26 @@ impl AnswerMode {
     }
 }
 
+/// Where a seat's card lookups may go beyond the card text this build and
+/// its gateway hold (`docs/llm-seat.md` §"Reports and lookups").
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LookupSource {
+    /// Scryfall's API: a card's rulings, and the text of a card neither
+    /// this build nor the gateway knows.
+    Scryfall,
+}
+
+impl LookupSource {
+    /// The name the file spells it with.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Scryfall => "scryfall",
+        }
+    }
+}
+
 /// A model's price per million tokens, in US dollars.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Price {
@@ -347,6 +367,20 @@ pub const PRICED: &[(Provider, &str, Price)] = &[
             cache_write: 5.0,
             cache_write_hour: 8.0,
             cache_read: 0.2,
+        },
+    ),
+    // The rate for a prompt of at most 100K tokens. Anthropic bills a
+    // longer one at five times this, which a seat's request, tens of
+    // kilobytes, does not reach.
+    (
+        Provider::Anthropic,
+        "claude-haiku-5-5",
+        Price {
+            input: 0.1,
+            output: 0.5,
+            cache_write: 0.125,
+            cache_write_hour: 0.2,
+            cache_read: 0.01,
         },
     ),
 ];
@@ -468,6 +502,60 @@ pub struct Profile {
     /// shell, so a shell function or alias of the same name is not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub command: Option<String>,
+    /// Where the seat's card lookups may also go: `scryfall` for a card's
+    /// rulings and for a card neither this build nor the gateway knows
+    /// [default: none; the card text of this build and the gateway only].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lookup: Option<LookupSource>,
+    /// The profiles of the same file that take a game over, first to last,
+    /// when the model is rate limited, out of its quota or unavailable
+    /// (`docs/llm-seat.md` §"A fallback profile"): one name, or a list of
+    /// them in order. Each must play a model behind an API, which the
+    /// bridge checks as the chair sits down; a fallback's own `fallback` is
+    /// never followed. Written as one name where it holds one, so a file
+    /// with one fallback reads as it always did.
+    #[serde(default, skip_serializing_if = "Vec::is_empty", with = "one_or_more")]
+    pub fallback: Vec<String>,
+}
+
+/// A [`Profile::fallback`]: one name, or a list of names.
+mod one_or_more {
+    use serde::de::{SeqAccess, Visitor};
+    use serde::{Deserializer, Serializer};
+
+    /// One name as itself, several (or none) as a list.
+    pub fn serialize<S: Serializer>(names: &[String], to: S) -> Result<S::Ok, S::Error> {
+        match names {
+            [one] => to.serialize_str(one),
+            more => to.collect_seq(more),
+        }
+    }
+
+    /// A name, or a list of names.
+    pub fn deserialize<'de, D: Deserializer<'de>>(from: D) -> Result<Vec<String>, D::Error> {
+        /// What a fallback reads as.
+        struct Names;
+        impl<'de> Visitor<'de> for Names {
+            type Value = Vec<String>;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a profile's name, or a list of profiles' names")
+            }
+
+            fn visit_str<E: serde::de::Error>(self, name: &str) -> Result<Self::Value, E> {
+                Ok(vec![name.to_owned()])
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                let mut names = Vec::new();
+                while let Some(name) = seq.next_element::<String>()? {
+                    names.push(name);
+                }
+                Ok(names)
+            }
+        }
+        from.deserialize_any(Names)
+    }
 }
 
 impl Profile {
@@ -489,6 +577,8 @@ impl Profile {
             key_env: None,
             base_url: None,
             command: None,
+            lookup: None,
+            fallback: Vec::new(),
         }
     }
 
@@ -614,11 +704,28 @@ impl Profile {
         if let Some((why, sentence)) = self.command_fault() {
             say(Field::Command, why, sentence);
         }
+        if let Some(sentence) = self.fallback_fault() {
+            say(Field::Fallback, Why::NotAName, sentence);
+        }
         out
     }
 }
 
 impl Profile {
+    /// Why its `fallback` names something that is no profile's name, or
+    /// `None`. Whether each is a profile of the file, and one behind an
+    /// API, is for the bridge to say as the chair sits down.
+    fn fallback_fault(&self) -> Option<String> {
+        let name = self
+            .fallback
+            .iter()
+            .find(|name| !profile_name_is_a_name(name))?;
+        Some(format!(
+            "fallback names profiles of this file, and «{}» is not a profile name",
+            clip(name)
+        ))
+    }
+
     /// An API profile's price and dollar budget: amounts, and a dollar
     /// budget only where the model has a price.
     fn money_faults(&self, say: &mut impl FnMut(Field, Why, String)) {
@@ -779,11 +886,15 @@ pub enum Field {
     BaseUrl,
     /// `command`.
     Command,
+    /// `lookup`.
+    Lookup,
+    /// `fallback`.
+    Fallback,
 }
 
 impl Field {
     /// Every field, in the order a profile writes them.
-    pub const ALL: [Self; 15] = [
+    pub const ALL: [Self; 17] = [
         Self::Provider,
         Self::Model,
         Self::Effort,
@@ -799,6 +910,8 @@ impl Field {
         Self::KeyEnv,
         Self::BaseUrl,
         Self::Command,
+        Self::Lookup,
+        Self::Fallback,
     ];
 
     /// Its path in a profile, as the file spells it: a price's two amounts
@@ -821,6 +934,8 @@ impl Field {
             Self::KeyEnv => &["key_env"],
             Self::BaseUrl => &["base_url"],
             Self::Command => &["command"],
+            Self::Lookup => &["lookup"],
+            Self::Fallback => &["fallback"],
         }
     }
 

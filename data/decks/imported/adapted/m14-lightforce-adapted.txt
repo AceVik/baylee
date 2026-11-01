@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/M14/lightforce.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Lightforce_M14.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Lightforce (Adapted)]
+2 Advent of the Wurm
+2 Call of the Conclave
+2 Capashen Knight
+1 Charging Griffin
+1 Congregate
+2 Dawnstrike Paladin
+1 Divine Favor
+9 Forest
+1 Glider Kids
+1 Indestructibility
+2 Leonin Elder
+1 Nature's Chant
+3 Pacifism
+3 Pillarfield Ox
+16 Plains
+2 Reknit
+2 Selesnya Charm
+2 Serra Angel
+3 Trollhide
+4 Vitalizing Cascade

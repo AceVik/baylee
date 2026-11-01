@@ -86,9 +86,17 @@ fn render(
     }
     out.flush()?;
     let rms_db = 20.0 * (power / f64::from(frames * 2)).sqrt().log10();
+    let source_rates: &[u32] = if script
+        .iter()
+        .any(|(_, movement)| matches!(movement, Movement::Title | Movement::Lobby))
+    {
+        &[44_100, 48_000]
+    } else {
+        &[44_100]
+    };
     eprintln!("{filename}: peak={peak:.3}, rms={rms_db:.1} dBFS, max-step={jump:.3}");
     Ok(
-        serde_json::json!({"file":filename,"samples":samples,"recorded_source_rate":44100,"synthesis_rate":48000,"rate":RATE,"bits":24,"seconds":seconds,
+        serde_json::json!({"file":filename,"samples":samples,"recorded_source_rates":source_rates,"synthesis_rate":48000,"rate":RATE,"bits":24,"seconds":seconds,
         "render_seconds":started.elapsed().as_secs_f64(),"peak":peak,"rms_db":rms_db,"max_step":jump,"transitions":changes,"last_position":tune.position()}),
     )
 }
@@ -99,9 +107,31 @@ fn main() -> io::Result<()> {
         .get(2)
         .and_then(|v| v.parse::<u32>().ok())
         .unwrap_or(96)
-        .clamp(4, 180);
+        .clamp(
+            4,
+            if args.get(3).is_some_and(|s| s == "memorial") {
+                720
+            } else {
+                180
+            },
+        );
     std::fs::create_dir_all(dir)?;
     let mut report = Vec::new();
+    if args.get(3).is_some_and(|s| s == "memorial") {
+        report.push(render(
+            dir,
+            SampleSet::Studio48,
+            Theme::Glass,
+            "memorial",
+            seconds,
+            &[(0.0, Movement::Title), (31.13, Movement::Lobby)],
+        )?);
+        std::fs::write(
+            dir.join("measurements.json"),
+            serde_json::to_string_pretty(&report)?,
+        )?;
+        return Ok(());
+    }
     for samples in SampleSet::ALL {
         let dir = &dir.join(samples.name());
         std::fs::create_dir_all(dir)?;

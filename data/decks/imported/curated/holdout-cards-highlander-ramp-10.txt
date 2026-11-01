@@ -1,0 +1,79 @@
+# baylee unseen-card holdout highlander seed=90000016
+# licence: AGPL-3.0-only
+[deck:highlander ramp WU #90000016]
+1 Adarkar Wastes
+1 Aegis of the Heavens
+1 Ancestral Vision
+1 Archaeological Dig
+1 Aven Wind Mage
+1 Baxter Building
+1 Blessed Spirits
+1 Captain of the Watch
+1 Cathar's Companion
+1 Cloudcrest Lake
+1 Compelling Argument
+1 Condescend
+1 Cruel Witness
+1 Cunning Breezedancer
+1 Dawnhart Geist
+1 Delusions of Mediocrity
+1 Enlightened Tutor
+1 Erode
+1 Forced Fruition
+1 Gallantry
+1 God-Pharaoh's Faithful
+1 Guardian of Solitude
+1 Hallowed Fountain
+1 Hengegate Pathway
+1 Horizon Seed
+1 Iguana Parrot
+1 Invoke Prejudice
+22 Island
+1 Jasmine Dragon Tea Shop
+1 Jin-Gitaxias, Progress Tyrant
+1 Jinx
+1 Lightshell Duo
+1 Lotus Path Djinn
+1 Mana Confluence
+1 Mana Drain
+1 Mirrex
+1 Mirrodin's Core
+1 Mistral Singer
+1 Moorland Haunt
+1 Open Communications
+1 Open the Armory
+1 Oyobi, Who Split the Heavens
+1 Pact of Negation
+1 Piercing Light
+1 Pileated Provisioner
+4 Plains
+1 Planar Nexus
+1 Portent
+1 Prescient Chimera
+1 Rasputin Dreamweaver
+1 Refocus
+1 Reya Dawnbringer
+1 Ringwarden Owl
+1 Riverwheel Aerialists
+1 Sibilant Spirit
+1 Sigil of the Empty Throne
+1 Sire of the Storm
+1 Slip Through Space
+1 Solve the Equation
+1 Spell Snip
+1 Sphinx Mindbreaker
+1 Sphinx of Magosi
+1 Stand Firm
+1 Storyteller Pixie
+1 The Theorist, Jace Beleren
+1 The Unspeakable
+1 Transmute Artifact
+1 Tura Kennerüd, Skyknight
+1 Turtle Lair
+1 Umara Wizard
+1 Underdome
+1 Undiscovered Paradise
+1 Veiled Apparition
+1 Villainous Hideout
+1 Windreader Sphinx
+1 Wing Commando

@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BRG #20266090]
+1 Arbor Armament
+1 Badgermole Cub
+1 Blighted Fen
+1 Blizzard
+1 Blood Host
+1 Bloodstone Cameo
+1 Bone Pit Brute
+1 Borg Queen, Perfection Manifest
+1 Cabal Coffers
+1 Carven Caryatid
+1 Dalek Drone
+1 Darigaaz's Caldera
+1 Deeproot Elite
+1 Ebon Praetor
+1 Falkenrath Celebrants
+1 Falkenrath Exterminator
+1 Fleshpulper Giant
+14 Forest
+1 Geothermal Crevice
+1 Glidedive Duo
+1 Godtracker of Jund
+1 Golgari Keyrune
+1 Goobbue Gardener
+1 Guardian Gladewalker
+1 Havengul Laboratory
+1 Hill Giant Herdgorger
+1 Hobblefiend
+1 Hostile Hostel
+1 Icecave Crasher
+1 Insolent Neonate
+1 Karn, the Great Creator
+1 Kazarov, Sengir Pureblood
+1 Keen Sense
+1 Keening Banshee
+1 Koskun Keep
+1 Leyline Prowler
+1 Lightning Reaver
+1 Lotus Cobra
+1 Machinesmith Automaton
+1 Makindi Sliderunner
+1 Markov Dreadknight
+1 Maximum Overdrive
+1 Moonglove Extractor
+7 Mountain
+1 Mudflat Village
+1 Obelisk of Jund
+1 Oxidda Scrapmelter
+1 Phyrexian Tower
+1 Plated Crusher
+1 Primeval Titan
+1 Professor Dellian Fel
+1 Rabid Bloodsucker
+1 Revitalizing Repast
+1 Ridge Rannet
+1 Rite of Flame
+1 Rustvine Cultivator
+1 Savage Lands
+1 Seshiro the Anointed
+1 Shaleskin Bruiser
+1 Snapping Gnarlid
+1 Spirit Shackle
+1 Stromkirk Mentor
+1 Stromkirk Noble
+5 Swamp
+1 Sylvan Brushstrider
+1 Takenuma, Abandoned Mire
+1 Takklemaggot
+1 The Black Gate
+1 Thief of Blood
+1 Twisted Landscape
+1 Unholy Grotto
+1 Vampiric Spirit
+1 Vinelasher Kudzu
+1 Voracious Vampire
+1 Witherbloom Campus
+1 Ziatora's Proving Ground
+
+[commander]
+Vaevictis Asmadi

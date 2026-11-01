@@ -15,6 +15,9 @@ use baylee_core::preset::{
     SeatSpec,
 };
 
+mod main_phase;
+pub use main_phase::walk_to_own_main;
+
 /// Registry lookup backed by the compiled card pool.
 pub struct RegistryLookup;
 impl CardLookup for RegistryLookup {
@@ -200,7 +203,10 @@ impl Duel {
             rules: baylee_core::card_metadata::RulesMetadata::default(),
             format: FormatId::Freeform,
             seed: self.seed,
-            house_rules: HouseRules::default(),
+            house_rules: HouseRules {
+                starting_player: Some(0),
+                ..HouseRules::default()
+            },
             modifiers: vec![],
             prints: vec![PrintInfo {
                 scryfall_id: uuid::Uuid::nil(),
@@ -269,18 +275,27 @@ pub fn pass_until(
         if pred(engine) {
             return;
         }
+        let actor = engine.decision_actor();
         match engine.pending().clone() {
             Pending::Priority { player, .. } => {
-                engine.apply(player, PlayerAction::PassPriority).unwrap();
+                engine
+                    .apply(actor.unwrap_or(player), PlayerAction::PassPriority)
+                    .unwrap();
             }
             Pending::ChooseAttackers { player, .. } => {
                 engine
-                    .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
+                    .apply(
+                        actor.unwrap_or(player),
+                        PlayerAction::DeclareAttackers { attackers: vec![] },
+                    )
                     .unwrap();
             }
             Pending::ChooseBlockers { player, .. } => {
                 engine
-                    .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
+                    .apply(
+                        actor.unwrap_or(player),
+                        PlayerAction::DeclareBlockers { blockers: vec![] },
+                    )
                     .unwrap();
             }
             // "You may …" on the way past. Yes, because that is what these
@@ -292,7 +307,9 @@ pub fn pass_until(
                 prompt: crate::choice::YesNoPrompt::MayDo,
                 ..
             } => {
-                engine.apply(player, PlayerAction::YesNo(true)).unwrap();
+                engine
+                    .apply(actor.unwrap_or(player), PlayerAction::YesNo(true))
+                    .unwrap();
             }
             // The untap step's determination, and a surveil, answered by
             // taking the option that moves nothing — the same reading as
@@ -315,7 +332,10 @@ pub fn pass_until(
                 ..
             } => {
                 engine
-                    .apply(player, PlayerAction::ChooseObjects { objects: vec![] })
+                    .apply(
+                        actor.unwrap_or(player),
+                        PlayerAction::ChooseObjects { objects: vec![] },
+                    )
                     .unwrap();
             }
             // Under an untap limit the answer is what untaps: as many as
@@ -329,7 +349,10 @@ pub fn pass_until(
             } => {
                 let objects = options.into_iter().take(usize::from(max)).collect();
                 engine
-                    .apply(player, PlayerAction::ChooseObjects { objects })
+                    .apply(
+                        actor.unwrap_or(player),
+                        PlayerAction::ChooseObjects { objects },
+                    )
                     .unwrap();
             }
             Pending::Arrange {
@@ -338,7 +361,9 @@ pub fn pass_until(
                 prompt: crate::choice::ArrangePrompt::Surveil,
                 ..
             } => {
-                engine.apply(player, look_answer(&cards, &[])).unwrap();
+                engine
+                    .apply(actor.unwrap_or(player), look_answer(&cards, &[]))
+                    .unwrap();
             }
             other => panic!("unexpected while passing: {other:?}"),
         }
@@ -1136,107 +1161,6 @@ pub fn is_permanent(def: &baylee_cards_dsl::CardDef) -> bool {
             || f.types.contains(TypeSet::ENCHANTMENT)
             || f.types.contains(TypeSet::PLANESWALKER)
     })
-}
-
-/// Answers mulligans, priorities and empty combat declarations until `seat`
-/// holds priority in its own first main phase.
-///
-/// Tolerant where [`reach_main_phase`] panics: this walker is *setup* for
-/// hundreds of unrelated cards, and a board that asks a question it does not
-/// know how to answer on the way is a card the caller cannot probe rather
-/// than a failure. The distinction is kept honest by a *counted floor* in
-/// whichever sweep calls this, which notices when "cannot probe" starts
-/// meaning "most of the pool". Every caller owes one.
-///
-/// Three of those questions are asked by a permanent *on the way in*, and
-/// the walker answers them rather than abandoning the board — twenty-three
-/// implemented cards, the ten shocklands among them, had no probe at all
-/// until it did. What it must not do is answer them the way
-/// [`drive_to_rest`] does: the driver is exercising an effect and takes an
-/// option wherever one is offered, and this is setup, which wants the card
-/// the pool prints. So an optional choice is **declined** — exactly `min`
-/// targets, which is none of them for the copy clause on Phantasmal Image
-/// and its relatives, because a Cursed Mirror that entered as a copy of
-/// something else is not the card the caller came to probe.
-///
-/// The shockland's question is the one that has no "decline": both answers
-/// are legal and one of them puts the land onto the battlefield tapped,
-/// where it offers nothing and the probe is pointless. It is answered yes,
-/// which is also the answer that leaves the land in the state every other
-/// land on this board is already in.
-pub fn walk_to_own_main(engine: &mut Engine<RegistryLookup>, seat: PlayerId) -> bool {
-    for _ in 0..60 {
-        if matches!(engine.state().turn.phase, Phase::FirstMain)
-            && engine.state().turn.active == seat
-            && matches!(engine.pending(), Pending::Priority { player, .. } if *player == seat)
-        {
-            return true;
-        }
-        let refused = match engine.pending().clone() {
-            Pending::Mulligan { player, .. } => {
-                engine.apply(player, PlayerAction::MulliganKeep).is_err()
-            }
-            Pending::Priority { player, .. } => {
-                engine.apply(player, PlayerAction::PassPriority).is_err()
-            }
-            Pending::ChooseAttackers { player, .. } => engine
-                .apply(player, PlayerAction::DeclareAttackers { attackers: vec![] })
-                .is_err(),
-            Pending::ChooseBlockers { player, .. } => engine
-                .apply(player, PlayerAction::DeclareBlockers { blockers: vec![] })
-                .is_err(),
-            Pending::ChooseTargets {
-                player,
-                options,
-                min,
-                ..
-            } => engine
-                .apply(
-                    player,
-                    PlayerAction::ChooseTargets {
-                        objects: options
-                            .into_iter()
-                            .take(usize::try_from(min).unwrap())
-                            .collect(),
-                        players: Vec::new(),
-                    },
-                )
-                .is_err(),
-            Pending::ChooseSubtype { player, options } => match options.first().copied() {
-                Some(first) => engine
-                    .apply(player, PlayerAction::ChooseSubtype(first))
-                    .is_err(),
-                None => return false,
-            },
-            Pending::ChooseColor { player, options } => match options.first().copied() {
-                Some(first) => engine
-                    .apply(player, PlayerAction::ChooseColor(first))
-                    .is_err(),
-                None => return false,
-            },
-            Pending::YesNo {
-                player,
-                prompt: crate::choice::YesNoPrompt::PayLifeOrEnterTapped { .. },
-                ..
-            } => engine.apply(player, PlayerAction::YesNo(true)).is_err(),
-            // Mana Vault's upkeep "you may pay {4}. If you do, untap this
-            // artifact": declined, which for a price is the answer that
-            // moves nothing. A tax declined does what its card says, and
-            // whatever reads the board afterwards reads that.
-            Pending::YesNo {
-                player,
-                prompt:
-                    crate::choice::YesNoPrompt::PayTax { .. }
-                    | crate::choice::YesNoPrompt::PayMana { .. },
-                ..
-            } => engine.apply(player, PlayerAction::YesNo(false)).is_err(),
-            _ => return false,
-        };
-        if refused {
-            return false;
-        }
-    }
-    false
 }
 
 /// Every *activation* `legal` offers on `objects`, each named by its

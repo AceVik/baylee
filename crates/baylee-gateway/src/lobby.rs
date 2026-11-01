@@ -151,6 +151,9 @@ pub struct Delegate {
     /// as a person's `said_ready` is: it says the model can play, and the
     /// host says yes to the table by pressing Start.
     pub ready: bool,
+    /// Whether the bridge sent its game's report (`POST …/chair/report`,
+    /// `report.rs`): one a chair a game, given back when it did not go.
+    pub reported: bool,
 }
 
 impl LobbySeat {
@@ -310,8 +313,8 @@ pub struct LobbyGame {
     pub agent_id: Option<String>,
     /// Whether that agent came in on this machine's unix socket
     /// (`BAYLEE_UNIX_SOCKET`). Kept on the game rather than read off the
-    /// agent, because a deploy stops the agent first and still has to know
-    /// which of the games that go on were this machine's.
+    /// agent so assignment provenance survives connection cleanup. A graceful
+    /// deploy drains these games before stopping their owner.
     pub engine_local: bool,
     /// The engine process, once it has dialled in.
     pub engine: Option<EngineLink>,

@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/Q05/dimir-rogue.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DimirRogue_Q05.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dimir Rogue (Adapted)]
+2 Blackbloom Rogue
+4 Consult the Necrosages
+4 Dismal Backwater
+2 Eliminate
+4 Essence Vortex
+4 Glimpse the Unthinkable
+8 Island
+1 Malakir Rebirth
+4 Notion Rain
+4 Pilfered Plans
+4 Psychic Drain
+9 Swamp
+4 Temple of Deceit
+4 Tyrant's Scorn
+2 Urza's Guilt

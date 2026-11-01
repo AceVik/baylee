@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/NPH/artful-destruction.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ArtfulDestruction_NPH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Artful Destruction (Adapted)]
+1 Blade Splicer
+4 Call of the Conclave
+3 Copper Myr
+2 Cultivate
+12 Forest
+1 Garruk's Packleader
+1 Giant Growth
+1 Glissa's Scorn
+3 Gold Myr
+2 Heroes' Reunion
+3 Master Splicer
+1 Maul Splicer
+1 Mighty Leap
+1 Nature's Chant
+2 Palladium Myr
+1 Phyrexian Hulk
+12 Plains
+2 Sensor Splicer
+1 Stone Golem
+2 Suture Priest
+1 Viridian Harvest
+2 Vital Splicer
+1 Vitalizing Cascade

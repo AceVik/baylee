@@ -1,0 +1,16 @@
+# adapted from data/decks/precon/WC02/raphael-levy-le-wonder-goose.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RaphaelLevyLeWonderGoose_WC02.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Raphael Levy - Le Wonder Goose (Adapted)]
+4 Auroral Procession
+4 Bridgeworks Battle
+4 Careful Study
+4 Cultivate
+4 Double Major
+8 Forest
+4 Hydroform
+10 Island
+4 Mental Note
+4 Neoform
+4 Square Up
+2 They Went This Way
+4 Yavimaya Coast

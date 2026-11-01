@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266004]
+1 Air Bladder
+1 Akki War Paint
+1 Aphelia, Viper Whisperer
+1 Arcane Sanctum
+1 Armor of Faith
+1 Basal Sliver
+1 Base Camp
+1 Battering Sliver
+1 Battle Sliver
+1 Belligerent Sliver
+1 Blade Sliver
+1 Blood Petal Celebrant
+1 Bonescythe Sliver
+1 Bonesplitter Sliver
+1 Call the Bloodline
+1 Cleaving Sliver
+1 Cloak of Invisibility
+1 Cloudshredder Sliver
+1 Consuming Ferocity
+1 Crystal Quarry
+1 Daredevil's Billy Club
+1 Dark Privilege
+1 Dragon Egg
+1 Fable of the Mirror-Breaker
+1 Galerider Sliver
+1 Go-Shintai of Life's Origin
+1 Goblin Artisans
+1 Goblin Shrine
+1 Horned Sliver
+1 Hullbreacher
+1 Illness in the Ranks
+1 Imposing Visage
+1 Indatha Triome
+6 Island
+1 Jetmir's Garden
+1 Ketria Triome
+1 Lancer Sliver
+1 Launch
+1 Manaweft Sliver
+1 Master Trinketeer
+1 Megantic Sliver
+13 Mountain
+1 Murmuring Bosk
+1 Nest Invader
+1 Piggy Bank
+2 Plains
+1 Plated Sliver
+1 Plundering Pirate
+1 Predatory Sliver
+1 Raffine's Tower
+1 Ragavan, Nimble Pilferer
+1 Raugrin Triome
+1 Red Scarab
+1 Reflex Sliver
+1 River's Favor
+1 Rotwidow Pack
+1 Sentinel Sliver
+1 Setessan Training
+1 Shadow Sliver
+1 Sidequest: Catch a Fish
+1 Sinew Sliver
+1 Spara's Headquarters
+1 Spinneret Sliver
+1 Spitting Sliver
+1 Steelform Sliver
+1 Striking Sliver
+1 Summoner's Bane
+3 Swamp
+1 Synchronous Sliver
+1 Talon Sliver
+1 Tinder Farm
+1 Two-Headed Sliver
+1 Urban Retreat
+1 Vault Robber
+1 Venom Sliver
+1 Voldaren Stinger
+1 Watcher Sliver
+1 Zagoth Triome
+1 Ziatora's Proving Ground
+
+[commander]
+Sliver Hivelord

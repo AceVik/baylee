@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266043]
+1 Abbey Gargoyles
+1 Access Tunnel
+1 Ageless Guardian
+1 Alley Evasion
+1 Angelic Overseer
+1 Arborea Pegasus
+1 Archon of Emeria
+1 Ark of Blight
+1 Avian Changeling
+1 Basalt Monolith
+1 City in a Bottle
+1 Conviction
+1 Darksteel Forge
+1 Darksteel Gargoyle
+1 Dawn Gryff
+1 Dawnglare Invoker
+1 Defense Grid
+1 Feroz's Ban
+1 Friendly Ghost
+1 Gaelicat
+1 Ghostly Sentinel
+1 Glacial Chasm
+1 Goblin Firebomb
+1 Heaven's Gate
+1 Herald of Serra
+1 Herbal Poultice
+1 Hope and Glory
+1 Island of Wak-Wak
+1 Ivory Charm
+1 Juntu Stakes
+1 Kabuto Moth
+1 Kami of False Hope
+1 Magistrate's Scepter
+1 Majestic Heliopterus
+1 Malach of the Dawn
+1 Matzalantli, the Great Door
+1 Moonwing Moth
+1 Patriar's Seal
+1 Pit Trap
+1 Pithing Needle
+34 Plains
+1 Planar Bridge
+1 Planar Portal
+1 Red Ward
+1 Relic of Legends
+1 Restoration Angel
+1 Seafarer's Quay
+1 Shepherd of the Lost
+1 Shield Wall
+1 Shrine of the Forsaken Gods
+1 Soulbound Guardians
+1 Sphere of Resistance
+1 Spinning Wheel
+1 Starlit Angel
+1 Stormfront Pegasus
+1 Sunmane Pegasus
+1 Sunweb
+1 Swift Justice
+1 Three Tree Mascot
+1 Thunder Spirit
+1 Underdark Rift
+1 Unlicensed Hearse
+1 Voice of Duty
+1 Voice of Law
+1 Voice of Reason
+1 Voice of Truth
+
+[commander]
+Radiant, Archangel

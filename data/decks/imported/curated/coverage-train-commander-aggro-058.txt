@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro B #20266059]
+1 Aeronaut's Wings
+1 Archdemon of Paliano
+1 Balm of Restoration
+1 Black Carriage
+1 Bloodtallow Candle
+1 Crazed Skirge
+1 Crooked Custodian
+1 Crypt Ripper
+1 Dakmor Bat
+1 Dakmor Scorpion
+1 Desolation Prowler
+1 Doom Whisperer
+1 Dread Shade
+1 Drudge Reavers
+1 Foundry Screecher
+1 Ghost Hounds
+1 Gloomhunter
+1 Gorgon Flail
+1 Hall of the Bandit Lord
+1 Hand of Silumgar
+1 Hoar Shade
+1 Honed Khopesh
+1 Iron-Shield Elf
+1 Jagwasp Swarm
+1 Kelinore Bat
+1 Lurking Nightstalker
+1 Maze's End
+1 Mirrorpool
+1 Moaning Spirit
+1 Morgue Thrull
+1 Muck Rats
+1 Nantuko Shade
+1 Nath's Buffoon
+1 Neurok Hoversail
+1 Ogre Jailbreaker
+1 Pacification Array
+1 Peregrine Mask
+1 Perilous Shadow
+1 Pestilence Rats
+1 Phyrexian Gremlins
+1 Plague Rats
+1 Python
+1 Rabid Rats
+1 Raiding Nightstalker
+1 Restless Bones
+1 Ruins of Oran-Rief
+1 Searchlight Geist
+1 Sinister Starfish
+1 Skeletal Snake
+1 Skittering Heartstopper
+1 Skull Collector
+1 Slaughter Drone
+1 Snarling Warg
+1 Squirrelanoids
+1 Stone-Throwing Devils
+32 Swamp
+1 Sword of the Chosen
+1 Tanglebloom
+1 Tattered Apparition
+1 Transmutation
+1 Untaidake, the Cloud Keeper
+1 Unworthy Dead
+1 Veiled Shade
+1 Viscid Lemures
+1 Wall of Blood
+1 Wall of Tombstones
+1 Wintermoon Mesa
+1 Word of Command
+
+[commander]
+Tinybones, the Pickpocket

@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/M19/arcane-inventions.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ArcaneInventions_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Arcane Inventions (Adapted)]
+3 Air Elemental
+1 Arcane Encyclopedia
+2 Aven Wind Mage
+3 Aviation Pioneer
+1 Befuddle
+2 Darksteel Juggernaut
+2 Disperse
+1 Divination
+2 Exclude
+1 Fabricate
+4 Field Creeper
+1 Frantic Search
+3 Gearsmith Prodigy
+2 Gilded Sentinel
+25 Island
+1 Meteor Golem
+1 Riddlemaster Sphinx
+2 Scholar of Stars
+3 Waterknot

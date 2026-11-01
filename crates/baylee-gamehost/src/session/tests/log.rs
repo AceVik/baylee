@@ -346,6 +346,8 @@ fn every_answer_that_does_nothing_is_logged_by_name() {
                 attackers: Vec::new(),
                 defenders: Vec::new(),
                 required: Vec::new(),
+                alone: Vec::new(),
+                minimum_required: None,
                 limits: Vec::new(),
             },
             ClockAnswer::NoAttackers,

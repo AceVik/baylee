@@ -1,9 +1,10 @@
 # The API documents' generator (`docs/api/`), run as `cargo dev api`.
 #
-# A workspace of its own, outside the main one: until oas-forge 0.2 is on
-# crates.io it links a sibling checkout by path, and a path that CI cannot
-# see would leave the whole workspace unresolvable. Once 0.2 is published it
-# becomes `oas-forge = "0.2"` and this crate can join the workspace.
+# A workspace of its own, outside the main one: oas-forge turns on
+# serde_json's `preserve_order`, and as a member it would reach every
+# `--workspace` build by feature unification, so a `serde_json::Value` would
+# keep insertion order in the tests and sorted order in a binary built alone
+# (and grow past clippy's `large_enum_variant`).
 [package]
 name = "baylee-api-docs"
 version = "0.1.0"
@@ -15,4 +16,4 @@ publish = false
 [workspace]
 
 [dependencies]
-oas-forge = { path = "../../../openapi-extract" }
+oas-forge = "0.2.0"

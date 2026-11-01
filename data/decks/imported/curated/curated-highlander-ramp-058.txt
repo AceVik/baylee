@@ -1,0 +1,69 @@
+# baylee curated highlander ramp seed=20261081
+# licence: AGPL-3.0-only
+[deck:highlander ramp G #20261081]
+1 Ancient Ziggurat
+1 Ant Queen
+1 Audacity
+1 Blisterpod
+1 Brood Monitor
+1 Bugenhagen, Wise Elder
+1 Byway Courier
+1 Call the Scions
+1 Crack Open
+1 Crucible of the Spirit Dragon
+1 Dawnhart Rejuvenator
+1 Destructor Dragon
+1 Elfsworn Giant
+1 Elvish Clancaller
+1 Elvish Skysweeper
+1 Enduring Vitality
+1 Evolution Charm
+1 Fanatic of Rhonas
+1 Fangren Marauder
+1 Fecundity
+1 Font of Fertility
+35 Forest
+1 Fortitude
+1 From Beyond
+1 Giant Caterpillar
+1 Glimmervoid
+1 Glittermonger
+1 Great Hall of the Biblioplex
+1 Greater Sandwurm
+1 Guardian of Cloverdell
+1 Haywire Mite
+1 Heart Warden
+1 Hornet Queen
+1 Howling Giant
+1 Hundroog
+1 Infested Roothold
+1 Jade Mage
+1 Jewel-Eyed Cobra
+1 Jungleborn Pioneer
+1 Lumra, Bellow of the Woods
+1 Magus of the Order
+1 Many Partings
+1 Mech Hangar
+1 Midsummer Revel
+1 Mongrel Pack
+1 Most Wanted
+1 Nylea's Intervention
+1 Ojer Kaslem, Deepest Growth
+1 Orochi Hatchery
+1 Pawpatch Formation
+1 Pelakka Wurm
+1 Portcullis Vine
+1 Professor of Zoomancy
+1 Rampaging Baloths
+1 Rancor
+1 Renowned Weaver
+1 Revive the Shire
+1 Soul of the Harvest
+1 Sprout
+1 Study Hall
+1 Thallid
+1 Thragtusk
+1 Thran Quarry
+1 Wolfkin Bond
+1 Wolfwillow Haven
+1 Wurmweaver Coil

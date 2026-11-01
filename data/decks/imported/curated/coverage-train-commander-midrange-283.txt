@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUR #20266284]
+1 Abbey Gargoyles
+1 Ally Encampment
+1 Angelic Captain
+1 Archon of Emeria
+1 Arctic Aven
+1 Ascended Lawmage
+1 Assault Strobe
+1 Aven Redeemer
+1 Aven Sentry
+1 Azorius First-Wing
+1 Baldur's Gate
+1 Baxter Building
+1 Beaming Defiance
+1 Brotherhood Headquarters
+1 Cat-Owl
+1 City of Brass
+1 Crystal Grotto
+1 Empyrean Eagle
+1 Enter the Avatar State
+1 Ephemerate
+1 Fall of the Gavel
+1 Falter
+1 Fatehold Chronologist
+1 Festival
+1 Flicker
+1 Flowstone Strike
+1 Fork
+1 Frenetic Efreet
+1 Glimmering Angel
+1 Great Hall of the Citadel
+1 Guardian Angel
+1 Hazerider Drake
+1 Headlong Rush
+1 Heavenly Qilin
+1 Hidden Grotto
+1 Inspirit, Flagship Vessel
+10 Island
+1 Leering Gargoyle
+1 Lightning Angel
+1 Majestic Heliopterus
+1 Mana Clash
+1 Mech Hangar
+2 Mountain
+13 Plains
+1 Plaza of Heroes
+1 Plumeveil
+1 Reality Ripple
+1 Redeem
+1 Rumble Arena
+1 Secret Identity
+1 Seedpod Squire
+1 Sejiri Shelter
+1 Shimmering Grotto
+1 Shinechaser
+1 Shining Aerosaur
+1 Silkbind Faerie
+1 Silver Drake
+1 Sky Terror
+1 Skyswirl Harrier
+1 Slow Motion
+1 Smaug's Fury
+1 Soulsworn Jury
+1 Spectral Shepherd
+1 Steeple Roc
+1 Supreme Verdict
+1 Swift Justice
+1 Talonrend
+1 Tempest Drake
+1 The Mycosynth Gardens
+1 Three Tree City
+1 Thunderclap Wyvern
+1 Time Wipe
+1 Torch Drake
+1 Tower Drake
+1 Twining Twins
+1 Voldaren Estate
+1 Water Wings
+
+[commander]
+Sokka, Tenacious Tactician

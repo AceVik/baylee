@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/E02/sun-empire.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SunEmpire_E02.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sun Empire (Adapted)]
+1 Ancient Brontodon
+1 Charging Monstrosaur
+2 Drover of the Mighty
+9 Forest
+1 Frenzied Raptor
+2 Imperial Aerosaur
+4 Incandescent Aria
+4 Jungle Shrine
+1 Lightning Helix
+7 Mountain
+3 Naya Charm
+2 Nest Robber
+1 Path to Exile
+6 Plains
+2 Prismatic Lens
+1 Quicksilver Amulet
+2 Raptor Companion
+1 Raptor Hatchling
+1 Ravenous Daggertooth
+4 Rith's Charm
+2 Rith's Grove
+2 Sheltering Light
+1 Thundering Spineback

@@ -5,6 +5,7 @@ use baylee_client_core::lobby::gateway_info::Warning;
 use baylee_client_core::lobby::gateway_list;
 
 /// Accept only an HTTP(S) origin/base path, with no embedded credentials.
+/// The live gateway's former address is today's (`gateway_list::moved`).
 pub(super) fn normalize(value: &str) -> Option<String> {
     let url = url::Url::parse(value.trim()).ok()?;
     if !matches!(url.scheme(), "http" | "https")
@@ -16,7 +17,7 @@ pub(super) fn normalize(value: &str) -> Option<String> {
     {
         return None;
     }
-    Some(url.as_str().trim_end_matches('/').to_string())
+    Some(gateway_list::moved(url.as_str().trim_end_matches('/')).to_string())
 }
 
 impl LobbyState {
@@ -35,12 +36,15 @@ impl LobbyState {
         // convenience the sign-in form has was gone the moment a gateway was
         // chosen, which is now always before the form is seen.
         let username = self.lobby.field(Field::Username).to_string();
+        let gateway_field = self.lobby.field(Field::Gateway).to_string();
         self.lobby = Lobby::new();
         self.lobby.set_lang(lang);
         self.lobby.set_field(Field::Username, &username);
+        self.lobby.set_field(Field::Gateway, &gateway_field);
         self.art_cache = false;
         self.gateway = url;
         self.gateway_selected = true;
+        self.left_central_bound = false;
         self.gateway_cursor = None;
         self.front_menu = false;
         self.lobby
@@ -50,17 +54,44 @@ impl LobbyState {
         true
     }
 
+    /// What the chosen gateway's `GET /auth/config` said about who it lets
+    /// in. One that takes Baylee Central sign-ins turns a native client's
+    /// account form into Central's (`central::bound`); every other gateway
+    /// keeps its own, with the sign-up and guest doors it offers.
+    pub(super) fn auth_config(
+        &mut self,
+        registration: Registration,
+        art_cache: bool,
+        guests: bool,
+        central: bool,
+    ) {
+        self.lobby.set_registration(registration);
+        self.lobby.set_guests_enabled(guests);
+        self.art_cache = art_cache;
+        #[cfg(not(target_arch = "wasm32"))]
+        if central {
+            super::central::bound(self);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = central;
+    }
+
     /// Back from the account form to the gateway form.
     ///
     /// The epoch moves as it does on a new choice, so nothing the gateway
     /// left behind still answers into the form. Choosing the same gateway
     /// again is one tap, and the address typed into the form survives it.
+    /// From Central's sign-in, which a gateway asked for, it is the way back
+    /// to the device's own gateways (`central::leave`).
     pub(super) fn leave_gateway(&mut self) {
         if self.central_pending() {
+            #[cfg(not(target_arch = "wasm32"))]
+            super::central::leave(self);
             return;
         }
         self.gateway_epoch = self.gateway_epoch.wrapping_add(1);
         self.gateway_selected = false;
+        self.left_central_bound = false;
         self.front_menu = false;
         self.lobby.set_gateway_ready(false);
         // The list is off screen until now, so this is when a sign-in made
@@ -116,6 +147,17 @@ impl LobbyState {
             self.lobby.tell_refusal(Phrase::GatewayUrlInvalid, &[]);
             return None;
         };
+        self.ask_gateway(url)
+    }
+
+    /// Starts asking an address about itself, typed or proposed by a link
+    /// the player said yes to (`links`): the same question, the same
+    /// answer, saved by [`Self::gateway_answered`] only when a gateway
+    /// answered. Nothing while another answer is owed.
+    pub(super) fn ask_gateway(&mut self, url: String) -> Option<String> {
+        if self.adding.is_some() {
+            return None;
+        }
         self.lobby.tell(Phrase::GatewayChecking, &[&url]);
         self.probes.insert(url.clone(), Probe::Asking);
         self.adding = Some(url.clone());
@@ -138,7 +180,11 @@ impl LobbyState {
             return false;
         }
         self.lobby.tell(Phrase::GatewaySaved, &[&url]);
-        self.lobby.set_field(Field::Gateway, "");
+        // Emptied when it held this address; a link's gateway leaves what
+        // the player was typing alone.
+        if normalize(self.lobby.field(Field::Gateway)).as_ref() == Some(&url) {
+            self.lobby.set_field(Field::Gateway, "");
+        }
         if self.gateways.contains(&url) {
             return false;
         }
@@ -282,10 +328,11 @@ pub(super) fn list(
     metrics: Metrics,
     scrolled_to: &Scrolled,
 ) -> Entity {
+    let gateways = state.displayed_gateways();
     let row = row_height(metrics);
     let in_sight = ROWS_IN_SIGHT as f32;
     let height = in_sight * row + (in_sight - 1.0) * ROW_GAP;
-    let scrolls = state.gateways.len() > ROWS_IN_SIGHT;
+    let scrolls = gateways.len() > ROWS_IN_SIGHT;
     let offset = in_view(
         scrolled_to.get(List::Gateways),
         state.gateway_cursor,
@@ -307,7 +354,7 @@ pub(super) fn list(
             },
         ))
         .id();
-    for (index, url) in state.gateways.iter().enumerate() {
+    for (index, url) in gateways.iter().enumerate() {
         let row = gateway_row(commands, state, fonts, metrics, index, url);
         commands.entity(list).add_child(row);
     }
@@ -665,5 +712,12 @@ mod tests {
         ] {
             assert_eq!(normalize(bad), None);
         }
+    }
+
+    /// The live gateway's former address, typed, is saved by today's.
+    #[test]
+    fn a_typed_former_address_is_the_live_gateway_s() {
+        use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
+        assert_eq!(normalize(&format!("{KEYED}/")), Some(PINNED.to_string()));
     }
 }

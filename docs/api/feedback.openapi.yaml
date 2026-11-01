@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: Baylee feedback service
-  version: 0.1.0-beta.7b
+  version: 0.1.1-beta.9b
   description: "The service that keeps what players report: gateways pass reports on with their intake tokens, clients signed in nowhere send their own, and admins read and triage them, with tokens or in the service's web UI. The UI's admin pages also reach one gateway's admin console through it, and the landing page posts its contact form and fetches its Impressum here. Every JSON answer is `Cache-Control: no-store`; a refusal is an `ErrorBody`."
   license:
     name: AGPL-3.0-only
@@ -680,6 +680,177 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  /ui/api/admin/central:
+    get:
+      summary: The gateway's link to Baylee Central
+      description: "The gateway's `GET /admin/central`, passed on with its status: where its link to Baylee Central comes from and, for a pasted token, what Central says about it; never the token, only its last four characters."
+      operationId: central
+      tags:
+      - Console
+      security:
+      - session: []
+      responses:
+        "200":
+          description: The gateway's `GET /admin/central` answer, as it is
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: "No live session: signed out, or the session lapsed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: >-
+            The gateway refused this service's console token, did not answer within 10
+            seconds, or answered with a status or body this service does not pass on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            The database is unavailable, the gateway's console is shut after too many wrong
+            tokens, or the gateway's own `503`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /ui/api/admin/central/token:
+    put:
+      summary: Link the gateway to Baylee Central with a token
+      description: "The gateway's `PUT /admin/central/token`, passed on with its status: the gateway asks Baylee Central about the token, keeps it and uses it at once. This service writes an audit row without the token."
+      operationId: linkCentral
+      tags:
+      - Console
+      security:
+      - session: []
+        csrf: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CentralToken"
+        required: true
+      responses:
+        "200":
+          description: Linked, as the gateway's `GET /admin/central` answers
+          content:
+            application/json:
+              schema: {}
+        "400":
+          description: Not a token, or the gateway's own refusal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: "No live session: signed out, or the session lapsed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: "A cross-site request: no `X-Baylee-CSRF: 1`, an `Origin` that is not this host, or `Sec-Fetch-Site` other than `same-origin`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The gateway's operator file sets the link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "422":
+          description: Baylee Central does not know the token, or it was revoked or has expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: >-
+            The gateway refused this service's console token, did not answer within 10
+            seconds, or answered with a status or body this service does not pass on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            The database is unavailable, the gateway's console is shut after too many wrong
+            tokens, or the gateway's own `503`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    delete:
+      summary: Remove the gateway's pasted token
+      description: "The gateway's `DELETE /admin/central/token`, passed on with its status: the gateway forgets the token and is unlinked from Baylee Central at once."
+      operationId: unlinkCentral
+      tags:
+      - Console
+      security:
+      - session: []
+        csrf: []
+      responses:
+        "204":
+          description: Unlinked
+        "401":
+          description: "No live session: signed out, or the session lapsed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: "A cross-site request: no `X-Baylee-CSRF: 1`, an `Origin` that is not this host, or `Sec-Fetch-Site` other than `same-origin`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: |-
+            - No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
+            - No token is pasted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The gateway's operator file sets the link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: >-
+            The gateway refused this service's console token, did not answer within 10
+            seconds, or answered with a status or body this service does not pass on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            The database is unavailable, the gateway's console is shut after too many wrong
+            tokens, or the gateway's own `503`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   "/ui/api/admin/invites/{id}":
     delete:
       summary: Revoke a beta key
@@ -725,6 +896,116 @@ paths:
           description: |-
             - No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
             - No gateway console is configured, or the gateway has no such key, or it is revoked already
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: >-
+            The gateway refused this service's console token, did not answer within 10
+            seconds, or answered with a status or body this service does not pass on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            The database is unavailable, the gateway's console is shut after too many wrong
+            tokens, or the gateway's own `503`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+  /ui/api/admin/auth-mode:
+    get:
+      summary: Who the gateway lets in
+      description: "The gateway's `GET /admin/auth-mode`, passed on with its status: the mode in force (`guests`, `central` or `mixed`), where it comes from, and whether the gateway is connected to Baylee Central."
+      operationId: auth_mode
+      tags:
+      - Console
+      security:
+      - session: []
+      responses:
+        "200":
+          description: The gateway's `GET /admin/auth-mode` answer, as it is
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: "No live session: signed out, or the session lapsed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: >-
+            The gateway refused this service's console token, did not answer within 10
+            seconds, or answered with a status or body this service does not pass on
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            The database is unavailable, the gateway's console is shut after too many wrong
+            tokens, or the gateway's own `503`
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+    put:
+      summary: Choose who the gateway lets in
+      description: "The gateway's `PUT /admin/auth-mode`, passed on with its status: the mode is in force for every sign-in from now on, and a session already made goes on. This service writes an audit row naming the mode."
+      operationId: chooseAuthMode
+      tags:
+      - Console
+      security:
+      - session: []
+        csrf: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthModeChoice"
+        required: true
+      responses:
+        "200":
+          description: In force, as the gateway's `GET /admin/auth-mode` answers
+          content:
+            application/json:
+              schema: {}
+        "400":
+          description: Not a mode, or the gateway's own refusal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: "No live session: signed out, or the session lapsed"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "403":
+          description: "A cross-site request: no `X-Baylee-CSRF: 1`, an `Origin` that is not this host, or `Sec-Fetch-Site` other than `same-origin`"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "404":
+          description: No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "409":
+          description: The gateway's operator sets the mode (`BAYLEE_AUTH_MODE`)
           content:
             application/json:
               schema:
@@ -2476,16 +2757,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "413":
-          description: |-
-            - The text is over 20000 characters, `client` over 2 MiB, or the record over its bound
-            - The text, `client` or the record is over its bound (an `ErrorBody`), or the whole body is over the route's limit, which is refused in plain text before it is read
+          description: >-
+            The text is over 20000 characters, `client` over 2 MiB, the record over its
+            bound, or the whole body over the route's limit
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
-            text/plain:
-              schema:
-                type: string
         "503":
           description: The database is unavailable
           content:
@@ -2572,6 +2850,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -2878,89 +3162,6 @@ paths:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: The database is unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-  "/ui/api/admin/accounts/{id}/password":
-    post:
-      summary: Reset a registered account's password
-      description: |-
-        The gateway's `POST /admin/accounts/{id}/password`, passed
-        on with its status. Its `200` carries the new password, the one time it
-        is shown; nothing here writes it down, and the audit row names only the
-        account.
-      operationId: reset_password
-      tags:
-      - Moderation
-      parameters:
-      - name: id
-        in: path
-        required: true
-        description: The account's id
-        schema:
-          type: string
-          format: uuid
-      security:
-      - session: []
-        csrf: []
-      responses:
-        "200":
-          description: Reset, as the gateway answers
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  password:
-                    type: string
-                    description: The new password
-                required:
-                - password
-        "400":
-          description: Not an account's id
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "401":
-          description: "No live session: signed out, or the session lapsed"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "403":
-          description: "A cross-site request: no `X-Baylee-CSRF: 1`, an `Origin` that is not this host, or `Sec-Fetch-Site` other than `same-origin`"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "404":
-          description: |-
-            - No gateway console is configured for this service (`FEEDBACK_GATEWAY_ADMIN_URL`)
-            - No gateway console is configured, or the gateway has no such account
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "409":
-          description: A guest has no password to reset (the gateway's)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "502":
-          description: >-
-            The gateway refused this service's console token, did not answer within 10
-            seconds, or answered with a status or body this service does not pass on
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorBody"
-        "503":
-          description: >-
-            The database is unavailable, the gateway's console is shut after too many wrong
-            tokens, or the gateway's own `503`
           content:
             application/json:
               schema:
@@ -3400,6 +3601,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -3592,6 +3799,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -4158,6 +4371,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -4524,6 +4743,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -4926,6 +5151,12 @@ paths:
           enum:
           - gateway
           - direct
+      - name: source
+        in: query
+        required: false
+        description: "What sent the reports, as the client's `source` says (`llm-seat` for a language-model seat): a source, `none` for reports without one, or either after `!` for all the others. 1–64 characters, no control character."
+        schema:
+          type: string
       - name: assignee
         in: query
         required: false
@@ -5166,6 +5397,20 @@ components:
       - action
       - detail
       description: One line of a report's audit.
+    AuthModeChoice:
+      type: object
+      properties:
+        mode:
+          type: string
+          description: "`guests`, `central` or `mixed`."
+          enum:
+          - guests
+          - central
+          - mixed
+      required:
+      - mode
+      additionalProperties: false
+      description: The mode to put in force.
     BanOrder:
       type: object
       properties:
@@ -5315,6 +5560,16 @@ components:
       required:
       - changed
       description: What a bulk request did.
+    CentralToken:
+      type: object
+      properties:
+        token:
+          type: string
+          description: "`bgt_` and 64 lowercase hex digits."
+      required:
+      - token
+      additionalProperties: false
+      description: A gateway token, as the website showed it.
     Challenge:
       type: object
       properties:
@@ -5833,6 +6088,11 @@ components:
           items:
             $ref: "#/components/schemas/Count"
           description: Per channel.
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Count"
+          description: Per source; `null` for reports without one.
         total:
           type: integer
           format: int64
@@ -5846,6 +6106,7 @@ components:
       - priorities
       - labels
       - channels
+      - sources
       - total
       description: >-
         The counts beside the list, most first, each over the filter without its own
@@ -5986,12 +6247,10 @@ components:
           - "null"
           description: Whether it is a canary.
         fallback:
-          type:
-          - string
-          - "null"
-          description: >-
-            Another profile of the same seat agent, by id (1–64 of `A-Za-z0-9._-`), that
-            new games start on past `max_games`; the seat agent says whether it may be one.
+          anyOf:
+          - $ref: "#/components/schemas/LlmFallbacks"
+          - type: "null"
+          description: "Other profiles of the same seat agent, by id (each 1–64 of `A-Za-z0-9._-`): one, or a list in the order they take over, that take a game over and that new games start on past `max_games`; the seat agent says whether each may be one."
         profile:
           description: The rest of the profile, in the seat settings file's format.
       required:
@@ -6012,6 +6271,15 @@ components:
       - enabled
       additionalProperties: false
       description: "`POST …/profiles/{id}/enabled`."
+    LlmFallbacks:
+      anyOf:
+      - type: string
+        description: One profile's id.
+      - type: array
+        items:
+          type: string
+        description: Profiles' ids, in the order they take over.
+      description: One profile's id, or a list of them in the order they take over.
     LlmKey:
       type: object
       properties:
@@ -6357,6 +6625,13 @@ components:
           - gateway
           - client
           - null
+        source:
+          type:
+          - string
+          - "null"
+          description: >-
+            What sent it, as the client's `source` says, at most 64 characters (`llm-seat`
+            for a language-model seat); `null` without one. The client's word, unchecked.
         issue_number:
           type:
           - integer
@@ -6445,6 +6720,7 @@ components:
       - record_bytes
       - channel
       - record_origin
+      - source
       - issue_number
       - issue_url
       - assignee

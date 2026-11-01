@@ -1,0 +1,82 @@
+# baylee curated commander midrange seed=20261100
+# licence: AGPL-3.0-only
+[deck:commander midrange BG #20261100]
+1 Atrocious Experiment
+1 Ayara, First of Locthwain
+1 Baleful Force
+1 Bayou
+1 Body Snatcher
+1 Cabal Archon
+1 Callous Inspector
+1 Crucible of the Spirit Dragon
+1 Cruel Truths
+1 Deathrite Shaman
+1 Dross Harvester
+1 Eclipsed Realms
+1 Elderfang Ritualist
+1 Elderfang Venom
+1 Elvish Farmer
+1 Enduring Vitality
+1 Evolution Charm
+1 Eyeblight Cullers
+7 Forest
+1 Forsaken Drifters
+1 Gallifrey Council Chamber
+1 Glissa, the Traitor
+1 Golgari Findbroker
+1 Golgari Germination
+1 Golgari Guildmage
+1 Golgari Rotwurm
+1 Gravedigger
+1 Greedy Freebooter
+1 Hall of Oracles
+1 Interplanar Beacon
+1 Journey to Eternity
+1 Knucklebone Witch
+1 Koma's Faithful
+1 Lampad of Death's Vigil
+1 Lazotep Quarry
+1 Lumra, Bellow of the Woods
+1 Maalfeld Twins
+1 Malevolent Awakening
+1 Moldervine Reclamation
+1 Morcant's Loyalist
+1 Nykthos, Shrine to Nyx
+1 Overgrown Tomb
+1 Paleoloth
+1 Phyrexian Reclamation
+1 Phyrexian Vivisector
+1 Plaza of Heroes
+1 Prowess of the Fair
+1 Read the Bones
+1 Recurring Nightmare
+1 Returned Reveler
+1 Revive the Shire
+1 Sanguinary Priest
+1 Scarblade Scout
+1 Secluded Courtyard
+1 Secret Base
+1 Serrated Scorpion
+1 Shattered Crypt
+1 Silverback Shaman
+1 Soul Exchange
+1 Spirit of Malevolence
+1 Sultai Flayer
+1 Svogthos, the Restless Tomb
+18 Swamp
+1 Takklemaggot
+1 Tarpan
+1 Tel-Jilad Lifebreather
+1 Titania, Protector of Argoth
+1 Twilight Mire
+1 Undertaker
+1 Viridian Harvest
+1 Warteye Witch
+1 Weirding Shaman
+1 White Lotus Hideout
+1 Wolfwillow Haven
+1 World Shaper
+1 Zuran Orb
+
+[commander]
+Grist, the Hunger Tide

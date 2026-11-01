@@ -73,6 +73,7 @@ fn execute(
         loot: None,
         draw_watch: None,
         this_way_from: None,
+        coin_stake: None,
     };
     assert!(matches!(
         crate::resolve::run(&mut e.state, &mut res),

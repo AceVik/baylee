@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/ONE/vivien-s-hunt.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, VivienSHunt_ONE.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Vivien's Hunt (Adapted)]
+1 Bala Ged Recovery
+2 Chord of Calling
+2 Confidence from Strength
+1 Crack Open
+3 Dawnhart Rejuvenator
+2 Deathbloom Gardener
+3 Elfhame Wurm
+1 Fade into Antiquity
+2 Fang of Shigeki
+26 Forest
+3 Giant Growth
+1 Graaz, Unstoppable Juggernaut
+1 Growth Spasm
+1 Inner Calm, Outer Strength
+3 Jewel Thief
+1 Khalni Ambush
+1 Shredding Winds
+1 Squall
+2 Thornado
+3 Verdigris

@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/AFR/savage-lands.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SavageLands_AFR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Savage Lands (Adapted)]
+3 Akoum Hellhound
+3 Brushfire Elemental
+4 Colossal Might
+1 Cragcrown Pathway
+4 Evolving Wilds
+8 Forest
+4 Ground Assault
+4 Highland Forest
+3 Hulking Bugbear
+1 Kazandu Mammoth
+1 Manamorphose
+9 Mountain
+3 Owlbear
+4 Savage Twister
+4 Stump Stomp
+4 Surge of Strength

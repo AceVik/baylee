@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUB #20266025]
+1 Aang, Air Nomad
+1 Aeronaut Admiral
+1 Agna Qel'a
+1 Angry Mob
+1 Ant-Man, Scott Lang
+1 Archway of Innovation
+1 Avacyn's Collar
+1 Aven Envoy
+1 Barrin, Master Wizard
+1 Blackbloom Rogue
+1 Bounty Agent
+1 Cloud Pirates
+1 Coast Watcher
+1 Cogworker's Puzzleknot
+1 Collector's Vault
+1 Daily Bugle Newspaper
+1 Daring Mechanic
+1 Desert of the Glorified
+1 Desert of the True
+1 Dogged Hunter
+1 Drogskol Captain
+1 Earth Kingdom Protectors
+1 Emeritus of Ideation
+1 Esper Battlemage
+1 Exorcist
+1 Flying Men
+1 Fountain Watch
+1 Glamorous Grapplers
+1 Guard Duty
+1 Guild Thief
+1 Hedgewitch's Mask
+1 Hidden Cataract
+1 Hired Poisoner
+1 Honor Guard
+1 Inspired Insurgent
+1 Intrepid Hero
+1 Invasion of Belenon
+3 Island
+1 Juniper Order Advocate
+1 Karoo
+1 Kjeldoran Knight
+1 Kjeldoran Skyknight
+1 Kor Halberd
+1 Law-Rune Enforcer
+1 Marshal of Zhalfir
+1 Metallurgeon
+1 Minas Tirith
+1 Mistveil Plains
+1 Mockingbird, Bobbi Morse
+1 Moonring Island
+1 Northern Paladin
+1 Oathsworn Giant
+16 Plains
+1 Ravine Raider
+1 Reliquary Monk
+1 Rishadan Airship
+1 Rosa, Resolute White Mage
+1 Saprazzan Cove
+1 Sea Gate
+1 Shield Mate
+1 Skyspear Cavalry
+1 Sokka's Sword Training
+1 Southern Paladin
+1 Stalwart Shield-Bearers
+1 Starry-Eyed Skyrider
+1 Suq'Ata Assassin
+5 Swamp
+1 Swooping Lookout
+1 Talas Air Ship
+1 Talas Scout
+1 Thriving Isle
+1 Tolarian Sentinel
+1 Tomb Fortress
+1 Troubled Healer
+1 Undead Slayer
+1 Veteran Armorer
+1 Western Paladin
+1 Witch's Cottage
+
+[commander]
+Lady Evangela

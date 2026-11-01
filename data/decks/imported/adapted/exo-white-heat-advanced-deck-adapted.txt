@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/EXO/white-heat-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteHeatAdvancedDeck_EXO.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:White Heat - Advanced Deck (Adapted)]
+2 Armageddon
+2 City of Brass
+2 Disenchant
+3 Gemstone Mine
+4 Iroh's Demonstration
+4 Kindle
+2 Monastery Mentor
+4 Mountain
+4 Order of the White Shield
+7 Plains
+2 Resolute Watchdog
+4 Serra Zealot
+3 Shock
+4 Soltari Foot Soldier
+2 Soltari Priest
+2 Tithe
+3 Undiscovered Paradise
+4 Welkin Hawk
+2 White Knight

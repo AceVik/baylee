@@ -1,0 +1,72 @@
+# baylee curated commander midrange seed=20261040
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20261040]
+1 Academy Ruins
+1 Alchemist's Apprentice
+1 Ancestral Vision
+1 Archaeomancer
+1 Archaeomender
+1 Aspiring Aeronaut
+1 Aven Fateshaper
+1 Azure Mage
+1 Bazaar Trademage
+1 Brinebarrow Intruder
+1 Brotherhood Headquarters
+1 Censor
+1 Cloudkin Seer
+1 Council of Advisors
+1 Disrupt
+1 Drownyard Explorers
+1 Elite Instructor
+1 Enlightened Maniac
+1 Erratic Visionary
+1 Facet Reader
+1 Faerie Seer
+1 Forced Fruition
+1 Gryff Vanguard
+1 Halimar Excavator
+1 Horizon Scholar
+1 Humbling Elder
+34 Island
+1 Jace, the Mind Sculptor
+1 Jeskai Sage
+1 Jhessian Thief
+1 Knight of the Mists
+1 Merchant of Secrets
+1 Micromancer
+1 Mirrex
+1 Omenspeaker
+1 Overwhelmed Apprentice
+1 Pelargir Survivor
+1 Pondering Mage
+1 Preordain
+1 Prosperous Pirates
+1 Refute
+1 Rumble Arena
+1 Sage of Epityr
+1 Sage of Lat-Nam
+1 Sage of Mysteries
+1 Sage's Row Savant
+1 Sailor of Means
+1 Scholar of Stars
+1 Scrivener
+1 Seat of the Synod
+1 Serum Visionary
+1 Shipwreck Dowser
+1 Snapcaster Mage
+1 Spellseeker
+1 Sphinx Mindbreaker
+1 Sphinx of Enlightenment
+1 Spire of Industry
+1 Stern Proctor
+1 Storyteller Pixie
+1 Three Steps Ahead
+1 Tishana's Tidebinder
+1 Ultimecia, Temporal Threat
+1 Vendilion Clique
+1 Vodalian Merchant
+1 Weldfast Wingsmith
+1 Wing Splicer
+
+[commander]
+Spock, Logical Choice

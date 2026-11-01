@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/DDR/nissa.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Nissa_DDR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Nissa (Adapted)]
+1 An-Havva Inn
+2 Awaken the Bear
+1 Bala Ged Recovery
+2 Bridgeworks Battle
+4 Chord of Calling
+1 Confidence from Strength
+1 Crop Rotation
+2 Deconstruct
+2 Elvish Visionary
+2 Ferocious Charge
+2 Fertile Thicket
+18 Forest
+1 Gift of Strands
+2 Gilt-Leaf Seer
+2 Khalni Garden
+1 Mosswort Bridge
+1 Natural Connection
+1 Oakgnarl Warrior
+1 Oran-Rief Invoker
+1 Reincarnation
+2 Scythe Leopard
+1 Shattered Wings
+1 Tel-Jilad Justice
+2 Thornweald Archer
+1 Treetop Village
+1 Wood Elves
+2 Woodborn Behemoth
+2 Woodcutter's Grit

@@ -144,3 +144,58 @@ fn spell_copy_keeps_damage_division_and_nonmana_cost_information_but_spends_no_m
         vec![(crate::choice::TargetRef::Object(target_ref), 4)]
     );
 }
+
+#[test]
+fn mana_paid_on_x_effect_reads_zero_on_a_copy_and_an_unpaid_spell() {
+    let mut state =
+        GameState::from_preset(&preset(414, &[]), &SyntheticLookup::new(vec![])).unwrap();
+    let caster = PlayerId::new(0);
+    let name = state.names.intern("payment receipt probe");
+    let original = state.create_bare(caster, ObjectKind::Spell, name, ZoneLocation::Stack);
+    let unpaid = state.create_bare(caster, ObjectKind::Spell, name, ZoneLocation::Stack);
+    let mut receipt = PaidRecord::default();
+    receipt.mana_types_spent_on_x[ManaColor::Black.index()] = 3;
+    receipt.mana_types_spent[ManaColor::Black.index()] = 4;
+    state.object_mut(original).unwrap().paid = Some(Box::new(receipt));
+    let reference = state.source_identity(original).unwrap();
+    let copy = copy_spell(
+        &mut state,
+        reference,
+        caster,
+        &[],
+        crate::text_changes::TextChangeMap::IDENTITY,
+    )
+    .unwrap();
+    for (spell, expected) in [(copy, 20), (unpaid, 20), (original, 23)] {
+        let mut res = Resolution {
+            source: spell,
+            on_stack: spell,
+            controller: caster,
+            effects: vec![Effect::GainLife {
+                amount: Amount::ManaTypeSpentOnX(ManaColor::Black),
+            }],
+            pc: 0,
+            targets: SmallVec::new(),
+            second_targets: SmallVec::new(),
+            x: Some(3),
+            chosen_player: None,
+            target_players: baylee_core::ids::SeatSet::new(),
+            event_object: None,
+            event_mana: None,
+            awaiting: None,
+            targeted: false,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+            subject: SubjectContext::default(),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
+            retarget_left: None,
+            loot: None,
+            coin_stake: None,
+            draw_watch: None,
+            this_way_from: None,
+        };
+        assert!(matches!(run(&mut state, &mut res), Flow::Complete));
+        assert_eq!(state.players[0].life, expected);
+    }
+}

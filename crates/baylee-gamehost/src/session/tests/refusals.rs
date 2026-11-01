@@ -87,7 +87,8 @@ fn a_refused_house_proposal_leaves_a_record_that_replays() {
         entry.card = mastery;
     }
     let mastery_seat = PlayerId::new(1);
-    let mut session = Session::new_recorded(&preset, "test").expect("the table builds");
+    let mut session =
+        Session::new_recorded(&preset, crate::record::this_build()).expect("the table builds");
     session.tell_time(1_000);
     session.pump();
     let mut refusals = 0;
@@ -164,7 +165,8 @@ fn a_refused_house_proposal_is_followed_by_the_answer_that_does_nothing() {
     let mut preset = test_preset();
     preset.seats[0].controller = SeatController::Open;
     preset.seats[1].controller = SeatController::Open;
-    let mut session = Session::new_recorded(&preset, "test").expect("the table builds");
+    let mut session =
+        Session::new_recorded(&preset, crate::record::this_build()).expect("the table builds");
     session.tell_time(1_000);
     session.pump();
     for step in 0..300_u64 {
@@ -199,4 +201,81 @@ fn a_refused_house_proposal_is_followed_by_the_answer_that_does_nothing() {
             .expect("the house's answer stands");
     }
     panic!("the house never played a land");
+}
+
+/// The house concedes for every chair it holds once nobody is left at the
+/// table, one chair after the other, and the first concession of a duel
+/// ends it (CR 104.2a). The second was then put to a game that was over:
+/// the engine refused it, the seat was asked nothing, and the `expect`
+/// after a refusal aborted the engine process (a hosted duel on
+/// 22.10.2026, whose seat bridge had lost its connection and whose chair
+/// the house held when its opponent left too).
+#[test]
+fn the_house_concedes_for_two_away_chairs_of_a_duel_once() {
+    let mut preset = test_preset();
+    preset.seats[1].controller = SeatController::Open;
+    let mut session =
+        Session::new_recorded(&preset, crate::record::this_build()).expect("the table builds");
+    let _ = session.pump();
+    let (first, second) = (PlayerId::new(0), PlayerId::new(1));
+    assert!(session.stand_in(second), "the bridge's chair is held");
+    assert!(session.stand_in(first), "and then its opponent's");
+    assert!(session.concede_for_absent(first).is_some());
+    assert!(
+        matches!(session.pending(), Pending::GameOver(_)),
+        "the first concession ended the duel"
+    );
+    assert!(
+        session.concede_for_absent(second).is_none(),
+        "a game that is over has nobody left to concede for"
+    );
+    assert!(!session.has_left(second), "the winner is still the winner");
+    let record = session.take_record();
+    let concessions: Vec<_> = record
+        .split(|&b| b == b'\n')
+        .filter(|l| !l.is_empty())
+        .filter_map(|l| serde_json::from_slice::<crate::record::Line>(l).ok())
+        .filter_map(|line| match line {
+            crate::record::Line::Input {
+                seat,
+                by,
+                action: PlayerAction::Concede,
+                ..
+            } => Some((seat, by)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        concessions,
+        [(0, crate::record::Source::StandIn)],
+        "one concession, the house's, for the chair that left"
+    );
+    let replayed = crate::record::replay(&record).expect("the record replays");
+    assert_eq!(replayed.engine.snapshot_hash(), session.snapshot_hash());
+}
+
+/// The fallback under that guard: a house answer for a seat that is asked
+/// nothing is refused, and with no question standing there is nothing to
+/// fall back to and nobody waiting. It is dropped, and the engine process
+/// goes on with the game as it was.
+#[test]
+fn a_refused_answer_for_a_seat_asked_nothing_is_dropped() {
+    let mut preset = test_preset();
+    preset.seats[1].controller = SeatController::Open;
+    let mut session =
+        Session::new_recorded(&preset, crate::record::this_build()).expect("the table builds");
+    let _ = session.pump();
+    let (first, second) = (PlayerId::new(0), PlayerId::new(1));
+    assert!(session.stand_in(first));
+    assert!(session.concede_for_absent(first).is_some());
+    assert!(matches!(session.pending(), Pending::GameOver(_)));
+    let before = session.snapshot_hash();
+    let _ = session.take_record();
+    assert!(
+        !session.apply_house_action(second, PlayerAction::Concede),
+        "a refused answer to nothing moves nothing"
+    );
+    assert!(matches!(session.pending(), Pending::GameOver(_)));
+    assert_eq!(session.snapshot_hash(), before);
+    assert!(session.take_record().is_empty(), "and records nothing");
 }

@@ -8,7 +8,8 @@ fn declarations() -> &'static str {
         include_str!("../counters.rs"),
         include_str!("../status.rs"),
         include_str!("../game_static.rs"),
-        include_str!("../objects.rs"),
+        include_str!("../objects/mod.rs"),
+        include_str!("../objects/ability.rs"),
         include_str!("../seats.rs"),
         include_str!("../combat.rs"),
         include_str!("../player_view.rs"),
@@ -331,7 +332,13 @@ fn the_shape_on_the_wire_and_the_number_that_names_it_move_together() {
     // 80: imported damage-clearing replacement prompt; local view shape unchanged.
     // 81: Battle defender/Defense counter variants and public battle protector.
     // 82: imported dungeon and mutate choices and physical-card/token status bits.
-    const RECORDED: (u32, u64) = (82, 6_787_793_169_872_021_519);
+    // Composed ability sources: additive, default-empty and omitted when empty.
+    // `announced_cast`: additive owner-only opt-in context, default None and
+    // omitted when absent. Existing/default wire payloads remain identical;
+    // old readers ignore the field, so this does not require a version bump.
+    // `announced_x` has the same default/omission compatibility, and is only
+    // populated by a separate experimental native projection, never sockets.
+    const RECORDED: (u32, u64) = (82, 17_593_544_635_232_560_164);
 
     let samples = core_samples();
     let sampled: std::collections::BTreeSet<String> =

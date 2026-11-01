@@ -149,10 +149,7 @@ impl Prompt {
             // mana abilities with nothing castable is also every quiet
             // window in the game.
             Self::Priority { .. } if owing => Phrase::PayOrPass.text(lang).to_string(),
-            Self::Priority { .. } => match turn {
-                Turn::Mine => Phrase::YourMove.text(lang).to_string(),
-                Turn::Theirs => Phrase::YouMayRespond.text(lang).to_string(),
-            },
+            Self::Priority { .. } => priority_line(lang, turn),
             Self::DeclareAttackers => Phrase::DeclareAttackers.text(lang).to_string(),
             Self::DeclareBlockers { .. } => Phrase::DeclareBlockers.text(lang).to_string(),
             Self::Discard { count } => {
@@ -195,8 +192,8 @@ impl Prompt {
             Self::ChooseTargets { reason, min, max } => {
                 targets_line(lang, reason, *min, *max, statics, target_name)
             }
-            // "Choose a basic land type" offers the five (CR 205.3i) and
-            // nothing else; every other subtype question names creatures.
+            // Landwalk choices may offer nonbasic land subtypes too. Keep
+            // their question distinct from creature-type choices.
             Self::ChooseSubtype { options }
                 if !options.is_empty()
                     && options
@@ -204,6 +201,14 @@ impl Prompt {
                         .all(|s| baylee_core::types::SubtypeSet::BASIC_LANDS.contains(*s)) =>
             {
                 Phrase::ChooseBasicLandType.text(lang).to_string()
+            }
+            Self::ChooseSubtype { options }
+                if !options.is_empty()
+                    && options
+                        .iter()
+                        .all(|s| baylee_core::generated::subtypes::ALL_LAND_TYPES.contains(*s)) =>
+            {
+                Phrase::ChooseLandType.text(lang).to_string()
             }
             Self::ChooseSubtype { .. } => Phrase::ChooseCreatureType.text(lang).to_string(),
             Self::ChooseCardName { .. } => Phrase::ChooseCardName.text(lang).to_string(),
@@ -699,6 +704,9 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         YesNoPrompt::PayLife { amount } => Phrase::PayLife.fill(lang, &[&amount.to_string()]),
         YesNoPrompt::PayTax { mana } => Phrase::PayTax.fill(lang, &[&mana.to_string()]),
         YesNoPrompt::PayMana { cost } => Phrase::PayMana.fill(lang, &[&cost.to_string()]),
+        YesNoPrompt::PayManaAndLife { cost, life } => {
+            Phrase::PayManaAndLife.fill(lang, &[&cost.to_string(), &life.to_string()])
+        }
         YesNoPrompt::PayPact { cost } => Phrase::PayPact.fill(lang, &[&cost.to_string()]),
         YesNoPrompt::Miracle { .. } => Phrase::CastForMiracle.text(lang).to_string(),
         YesNoPrompt::CastWithoutPaying { .. } => Phrase::CastWithoutPaying.text(lang).to_string(),
@@ -730,6 +738,15 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         YesNoPrompt::UseDamageClearingReplacement { .. } => {
             Phrase::UseDamageClearingReplacement.text(lang).to_string()
         }
+        YesNoPrompt::RemoveCountersInsteadOfUntapping { kind, count, .. } => {
+            Phrase::RemoveCountersInsteadOfUntapping.fill(
+                lang,
+                &[
+                    &count.to_string(),
+                    &counter_label_counted(kind, lang, usize::from(count)),
+                ],
+            )
+        }
         YesNoPrompt::ApplyAdditionalCountersNext { additional, .. } => {
             Phrase::ApplyAdditionalCountersNext.fill(lang, &[&additional.to_string()])
         }
@@ -742,5 +759,12 @@ fn yes_no_line(lang: Lang, question: YesNoPrompt, statics: Option<&GameStatic>) 
         YesNoPrompt::Discover { .. } => Phrase::CastDiscovered.text(lang).to_string(),
         YesNoPrompt::SkipTurn { .. } => Phrase::SkipTurnToUntap.text(lang).to_string(),
         YesNoPrompt::Generic => Phrase::YesOrNo.text(lang).to_string(),
+    }
+}
+
+fn priority_line(lang: Lang, turn: Turn) -> String {
+    match turn {
+        Turn::Mine => Phrase::YourMove.text(lang).to_string(),
+        Turn::Theirs => Phrase::YouMayRespond.text(lang).to_string(),
     }
 }

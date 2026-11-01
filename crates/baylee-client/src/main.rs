@@ -20,8 +20,12 @@ fn main() {
     // the client again once this one has ended; that process is nothing
     // else, so it returns before the client opens anything.
     #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
-    if baylee_client::update::native::helper_if_asked() {
-        return;
+    {
+        // What the updater's first check is timed from.
+        baylee_client::update::native::mark_start();
+        if baylee_client::update::native::helper_if_asked() {
+            return;
+        }
     }
     baylee_client::console::open_if_asked();
     baylee_client::standalone::run();

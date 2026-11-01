@@ -1,0 +1,16 @@
+# adapted from data/decks/precon/JOU/wrath-of-the-mortals.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WrathOfTheMortals_JOU.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Wrath of the Mortals (Adapted)]
+4 Broadside Barrage
+2 Divination
+4 Fire
+3 Guttersnipe
+4 Invoke the Firemind
+9 Island
+4 Izzet Charm
+4 Izzet Guildgate
+4 Lightning Strike
+3 Magma Jet
+12 Mountain
+4 Rush of Inspiration
+3 Young Pyromancer

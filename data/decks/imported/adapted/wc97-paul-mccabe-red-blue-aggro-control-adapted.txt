@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/WC97/paul-mccabe-red-blue-aggro-control.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PaulMccabeRedBlueAggroControl_WC97.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Paul McCabe - Red-Blue Aggro Control (Adapted)]
+2 Abduction
+2 City of Brass
+4 Cloud Elemental
+4 Counterspell
+1 Disintegrate
+2 Disrupt
+4 Force of Will
+2 Frenetic Efreet
+4 Iroh's Demonstration
+10 Island
+4 Man-o'-War
+3 Mind Stone
+6 Mountain
+4 Ophidian
+2 Pyrokinesis
+3 Suq'Ata Lancer
+2 Undiscovered Paradise
+1 Wildfire Emissary

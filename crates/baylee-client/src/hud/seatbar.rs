@@ -321,6 +321,9 @@ pub struct BarRevision {
     lang: Option<Lang>,
     /// The text step, which the plates are drawn at.
     step: Option<crate::shellkit::TextSize>,
+    /// The step the table's pace shows ([`super::StepPace`]), which the
+    /// bars draw rather than the view's.
+    shown: Option<baylee_client_core::phasepace::Shown>,
 }
 
 /// Measures every seat's shelf through the rig the camera was set from.
@@ -466,6 +469,7 @@ pub fn sync_seat_bars(
     prefs: Res<crate::prefs::Prefs>,
     mut cloth: Option<ResMut<crate::frontal::Cloth>>,
     mut materials: Option<ResMut<Assets<crate::frontal::FrontalMaterial>>>,
+    pace: Option<Res<super::StepPace>>,
 ) {
     let lang = Lang::of(&settings.lang);
     let orders = prefs.orders().clone();
@@ -501,11 +505,17 @@ pub fn sync_seat_bars(
         designated,
         lang: Some(lang),
         step: Some(settings.text_size),
+        shown: pace.as_ref().and_then(|p| p.0.shown()),
     };
     if *revision == fresh && !existing.is_empty() {
         return;
     }
     *revision = fresh;
+    // Built in the step, turn and active seat the table's pace shows, so
+    // the tiles, their caption and the turn's marks walk the turn at a pace
+    // a person can follow (owner, 29.10.2026).
+    let paced = pace.as_ref().and_then(|p| super::rail::paced(view, p));
+    let view = paced.as_ref().unwrap_or(view);
 
     for entity in &existing {
         commands.entity(entity).despawn();
@@ -1358,6 +1368,7 @@ fn steps(
                 density,
                 tile_w * span,
                 TileState {
+                    player: seat.player,
                     side,
                     row: step,
                     skipped: skipped(step),
@@ -1388,6 +1399,8 @@ fn steps(
 #[derive(Clone, Copy)]
 #[allow(clippy::struct_excessive_bools)] // four independent facts about one tile
 struct TileState {
+    /// The bar's seat, which the step light is kept by.
+    player: PlayerId,
     side: RailSide,
     row: RailRow,
     /// Whether the standing order says to skip this step.
@@ -1425,16 +1438,20 @@ fn spawn_tile(
     let (icon, short) = row_visual(state.row);
     let dead = !state.live || state.lost;
     let here = state.now && state.gold && state.live;
-    let ink = if here {
-        palette::PARCHMENT_INK
-    } else if dead {
+    // What the glyph, label and stop accent wear off the gold, which the
+    // step light eases them away from as it comes on.
+    let rest = if dead {
         palette::PARCHMENT.with_alpha(DEAD_INK)
     } else if state.skipped {
         palette::PARCHMENT.with_alpha(SKIP_INK)
     } else {
         palette::PARCHMENT
     };
-    let fill = if here { palette::ACTIVE } else { Color::NONE };
+    let ink = if here { palette::PARCHMENT_INK } else { rest };
+    // The tile's own ground is clear, and `Feel` owns it; the gold of the
+    // step the table shows lies on a child under the glyph
+    // ([`StepFill`]), which `rail::glow_the_steps` fades across rebuilds.
+    let fill = Color::NONE;
     // A frame is the shape of a control, so it is drawn exactly when one is
     // being operated, independently of the stop accent and current-step fill.
     let frame = if state.selected && state.live {
@@ -1473,15 +1490,39 @@ fn spawn_tile(
         ))
         .id();
 
-    if state.now && state.gold {
-        commands.entity(tile).insert((
-            PhaseNow::default(),
-            BoxShadow(vec![ShadowStyle {
-                color: Color::NONE,
+    // Every tile wears the step light, which `rail::glow_the_steps` keeps
+    // across rebuilds by seat and step: the light fades off the step the
+    // table left as it comes onto the one it shows. Spawned as the light
+    // stands when settled, so a tile is right before the light first runs.
+    let key = (state.player, state.row);
+    commands.entity(tile).insert((
+        StepGlow {
+            player: state.player,
+            row: state.row,
+            frame,
+        },
+        BoxShadow(vec![ShadowStyle {
+            color: Color::NONE,
+            ..default()
+        }]),
+    ));
+    let gold = commands
+        .spawn((
+            StepFill(key),
+            Node {
+                position_type: PositionType::Absolute,
+                left: px(0),
+                right: px(0),
+                top: px(0),
+                bottom: px(0),
+                border_radius: BorderRadius::all(px(TILE_RADIUS)),
                 ..default()
-            }]),
-        ));
-    }
+            },
+            BackgroundColor(if here { palette::ACTIVE } else { Color::NONE }),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(tile).add_child(gold);
 
     if density.tiles_have_glyphs() {
         let glyph = commands
@@ -1489,6 +1530,7 @@ fn spawn_tile(
                 Text::new(icon.to_string()),
                 table_icon_tf(fonts, icon, 13.0),
                 TextColor(ink),
+                StepInk { key, rest },
                 Pickable::IGNORE,
             ))
             .id();
@@ -1500,6 +1542,7 @@ fn spawn_tile(
                     tf_bold(fonts, if density.is_split() { 10.5 } else { 10.0 }),
                     TextLayout::linebreak(bevy::text::LineBreak::NoWrap),
                     TextColor(ink),
+                    StepInk { key, rest },
                     Pickable::IGNORE,
                 ))
                 .id();
@@ -1532,6 +1575,10 @@ fn spawn_tile(
                 } else {
                     palette::SEAT_STOP
                 }),
+                StepInk {
+                    key,
+                    rest: palette::SEAT_STOP,
+                },
                 Pickable::IGNORE,
             ))
             .id();
@@ -1539,19 +1586,15 @@ fn spawn_tile(
     }
 
     if state.live {
-        // Transparent tiles need an explicit hover target: `Feel` preserves
-        // alpha. The wash is pointer feedback, not a preview of a stop.
-        let feel = if fill == Color::NONE {
-            Feel::rising_to(fill, palette::SEAT_STEP_HOVER)
-        } else {
-            Feel::new(fill)
-        };
+        // A clear tile needs an explicit hover target: `Feel` preserves
+        // alpha. The wash is pointer feedback, not a preview of a stop, and
+        // on the step shown it lies under the gold.
         commands.entity(tile).insert((
             SeatStep {
                 side: state.side,
                 row: state.row,
             },
-            feel,
+            Feel::rising_to(fill, palette::SEAT_STEP_HOVER),
         ));
     } else {
         commands.entity(tile).insert(Pickable::IGNORE);

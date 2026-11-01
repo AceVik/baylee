@@ -34,6 +34,7 @@ pub mod alive;
 pub mod console;
 pub mod contact;
 pub mod direct;
+pub mod export;
 pub mod impressum;
 pub mod migration;
 pub mod moderation;
@@ -425,10 +426,8 @@ pub fn app_with(state: Arc<AppState>, ui: ui::Ui) -> Router {
     };
     let router = Router::new()
         .route("/health", get(health))
-        .route(
-            "/intake/reports",
-            post(intake).layer(axum::extract::DefaultBodyLimit::max(MAX_INTAKE_BYTES)),
-        )
+        // The intake bounds its body itself, after the token (`intake`).
+        .route("/intake/reports", post(intake))
         .route(
             "/client/reports",
             post(direct::post)
@@ -826,17 +825,22 @@ fn fits(value: Option<&str>, chars: usize) -> bool {
 /// @return 201: `$Created` "Taken"
 /// @return 400: `$ErrorBody` "Not a report: malformed JSON, an unknown `kind`, `client` not an object, a malformed field, a record that is not base64, or a client's record that is not a game record"
 /// @return 401: `$ErrorBody` "Not a gateway's intake token"
-/// @return 413: `$ErrorBody` "The text is over 20000 characters, `client` over 2 MiB, or the record over its bound"
-/// @return 413: String text/plain "The text, `client` or the record is over its bound (an `ErrorBody`), or the whole body is over the route's limit, which is refused in plain text before it is read"
+/// @return 413: `$ErrorBody` "The text is over 20000 characters, `client` over 2 MiB, the record over its bound, or the whole body over the route's limit"
 /// @return 503: `$ErrorBody` "The database is unavailable"
+/// @internal The route is public behind the proxy (#408), so the token is
+/// checked before the body is read: a request without one costs only its
+/// headers, never up to `MAX_INTAKE_BYTES` of memory.
 async fn intake(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    body: Bytes,
+    body: axum::body::Body,
 ) -> Result<(StatusCode, Json<Created>), Refusal> {
     let Some(gateway) = state.config.gateway(bearer(&headers).unwrap_or_default()) else {
         return Err(refuse(StatusCode::UNAUTHORIZED, "not a known gateway"));
     };
+    let body = axum::body::to_bytes(body, MAX_INTAKE_BYTES)
+        .await
+        .map_err(|_| refuse(StatusCode::PAYLOAD_TOO_LARGE, "the report is too large"))?;
     let bad = |why| refuse(StatusCode::BAD_REQUEST, why);
     let report: Intake = serde_json::from_slice(&body).map_err(|_| bad("not a report"))?;
     if !report.client.is_object() {

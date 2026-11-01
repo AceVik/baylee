@@ -57,10 +57,10 @@ pub struct LostSeat {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct PlayerView {
     /// The player whose choices and resources the actor in `awaiting` controls.
-    /// This may differ from the viewing seat under CR 720.
+    /// This may differ from the viewing seat under CR 722.
     #[serde(default)]
     pub decision_player: Option<PlayerId>,
-    /// Hands inspected through current control of another player (CR 720.4).
+    /// Hands inspected through current control of another player (CR 722.4).
     /// Separate from voluntary team sharing; rebuilt for every decision.
     #[serde(default)]
     pub controlled_hands: Vec<SharedHand>,
@@ -82,6 +82,16 @@ pub struct PlayerView {
     /// `None` in every other, and while a mana ability asks its colour.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub casting: Option<ObjectId>,
+    /// The spell this seat is currently announcing, including while a nested
+    /// mana ability asks a color. Owner-only opt-in payment context; this does
+    /// not grant permission to cancel. Archived/default views leave it absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub announced_cast: Option<ObjectId>,
+    /// Settled X of the authorized in-progress announcement, supplied only by
+    /// the experimental announcement-context projection. Absent before the X
+    /// choice; `Some(0)` distinguishes a settled zero. No encoder consumes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub announced_x: Option<u32>,
     /// Monotonic sequence number; a client drops out-of-order snapshots.
     pub seq: u64,
     /// The seat this view was built for.
@@ -398,6 +408,12 @@ impl PlayerView {
                 .chain(ability)
                 .chain(object.prepared_spell)
                 .chain(granted)
+                .chain(
+                    object
+                        .ability_sources
+                        .iter()
+                        .filter_map(|source| source.rules),
+                )
                 .map(|r| r.card)
         });
         self.identities()

@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/TMT/raphael.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Raphael_TMT.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Raphael (Adapted)]
+4 Arrows of Justice
+2 Double Cleave
+3 Energy Bolt
+1 Frontline Rush
+4 Lightning Helix
+2 Mechanized Ninja Cavalry
+3 Monster Mashup
+24 Mountain
+2 Mouser Attack!
+2 Mutant Town Musicians
+1 Raphael, Tough Turtle
+1 Rip Apart
+1 Skateboard
+4 Spirit Summoning
+2 Ticked Off
+3 Warleader's Helix
+1 Weldfast Monitor

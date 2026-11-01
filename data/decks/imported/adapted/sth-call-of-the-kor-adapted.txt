@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/STH/call-of-the-kor.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CallOfTheKor_STH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Call of the Kor (Adapted)]
+1 Cloudchaser Eagle
+3 Corrupted Roots
+2 Crushing Disappointment
+1 Dark Banishing
+1 Darkling Stalker
+1 Death Stroke
+1 Disenchant
+3 Doomed Traveler
+2 Enfeeblement
+1 Flickering Ward
+2 Fungal Infection
+2 Gravedigger
+1 Gutless Ghoul
+4 Imperial Aerosaur
+2 Karmic Guide
+2 Kithkin Greatheart
+2 Knight of Dawn
+13 Plains
+1 Revered Dead
+1 Screeching Harpy
+1 Smite
+1 Soltari Champion
+11 Swamp
+1 Urgent Exorcism

@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander ramp
+# licence: AGPL-3.0-only
+[deck:highlander ramp WUBRG #20266286]
+1 Ancestral Statue
+1 Angel's Tomb
+1 Balm of Restoration
+1 Bountiful Landscape
+1 Castle Sengir
+1 Cavern Thoctar
+1 Ceta Disciple
+1 Colossus Hammer
+1 Composite Golem
+1 Crosis's Attendant
+1 Crypt of the Eternals
+1 Crystal Golem
+1 Crystal Quarry
+1 Cyclopean Snare
+1 Darigaaz's Attendant
+1 Darklit Gargoyle
+1 Darksteel Axe
+1 Darksteel Brute
+1 Defibrillating Current
+1 Dromar's Attendant
+1 Echo Circlet
+1 Esper Battlemage
+1 Etched Monstrosity
+1 Ethersworn Adjudicator
+1 Foreboding Landscape
+5 Forest
+1 Gruul Nodorog
+1 Gruul War Plow
+1 Guardians of Meletis
+1 Harbor Guardian
+1 Helm of Possession
+1 Ignoble Hierarch
+1 Inspirit, Flagship Vessel
+1 Iron Suitcase
+5 Island
+1 Jandor's Saddlebags
+1 Koskun Keep
+1 Millstone
+3 Mountain
+1 Nearby Planet
+1 Necra Disciple
+1 Nightscape Master
+1 Obelisk of Bant
+1 Obelisk of Jund
+1 Obelisk of Naya
+1 Obzedat's Aid
+6 Plains
+1 Razorfin Hunter
+1 Riptide Crab
+1 Rith's Attendant
+1 Rith's Grove
+1 Scornful Aether-Lich
+1 Scrapheap
+1 Seething Landscape
+1 Shadowspear
+1 Sheltering Landscape
+1 Silver-Inlaid Dagger
+1 Skyshaper
+1 Slagwurm Armor
+1 Soldevi Golem
+1 Sphinx of the Steel Wind
+7 Swamp
+1 Temur Devotee
+1 Temur Tawnyback
+1 The World Tree
+1 Thunderscape Apprentice
+1 Touchstone
+1 Tournament Grounds
+1 Tower Gargoyle
+1 Tower of Coireall
+1 Tranquil Landscape
+1 Treva's Attendant
+1 Treva's Ruins
+1 Twisted Landscape
+1 Tyrant's Machine
+1 Umbral Mantle
+1 Vedalken Heretic
+1 Whetstone
+1 Wizards' School

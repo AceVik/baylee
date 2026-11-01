@@ -1,0 +1,72 @@
+# baylee synergistic holdout coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange R #90010019]
+1 Aggression
+1 Barbed Sliver
+1 Blighted Gorge
+1 Blood Lust
+1 Blood Moon
+1 Bold Impaler
+1 Conquer
+1 Disrupting Scepter
+1 Eidolon of the Great Revel
+1 Energizer
+1 Farmstead Gleaner
+1 Fire-Omen Crane
+1 Flame Jet
+1 Flowstone Overseer
+1 Fomori Nomad
+1 Forsaken City
+1 Gearsmith Guardian
+1 Goblin Engineer
+1 Goblin Spelunkers
+1 Goblin Wizard
+1 Greater Forgeling
+1 Greatsword
+1 Havoc
+1 Heavy Mattock
+1 Horn of Greed
+1 Hovermyr
+1 Hyena Pack
+1 Igneous Golem
+1 Ishi-Ishi, Akki Crackshot
+1 Jokulhaups
+1 Karsus Depthguard
+1 Koth's Courier
+1 Krark-Clan Shaman
+1 Legion Extruder
+1 Magnetic Mountain
+1 Mariposa Military Base
+34 Mountain
+1 Mox Ruby
+1 Narstad Scrapper
+1 Ogre Resister
+1 Pathmaker Initiate
+1 Plated Geopede
+1 Playful Shove
+1 Pyrite Spellbomb
+1 Pyrostatic Pillar
+1 Rearing Embermare
+1 Sarkhan's Unsealing
+1 Sawblade Scamp
+1 Scene of the Crime
+1 Shadowstorm
+1 Shredded Sails
+1 Skyclave Geopede
+1 Spark Spray
+1 Spire Barrage
+1 Stonehands
+1 Talruum Minotaur
+1 Thran Forge
+1 Torch Courier
+1 Treasure Vault
+1 Valgavoth's Lair
+1 Viashino Heretic
+1 Wall of Heat
+1 Wall of Lava
+1 Wand of Ith
+1 Winter Sky
+1 Worry Beads
+
+[commander]
+Chandler

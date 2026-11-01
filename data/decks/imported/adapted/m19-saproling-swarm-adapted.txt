@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/M19/saproling-swarm.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SaprolingSwarm_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Saproling Swarm (Adapted)]
+4 Abrupt Decay
+3 Doomed Dissenter
+1 Drain the Well
+10 Forest
+4 Foul Orchard
+3 Fungal Infection
+4 Gaze of Granite
+4 Maelstrom Pulse
+4 Pest Summoning
+3 Poison-Tip Archer
+1 Slimefoot, the Stowaway
+2 Spore Swarm
+10 Swamp
+2 Tear Asunder
+1 Verdant Force
+1 Woodland Cemetery
+3 Yavimaya Sapherd

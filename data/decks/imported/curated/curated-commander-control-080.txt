@@ -1,0 +1,80 @@
+# baylee curated commander control seed=20261103
+# licence: AGPL-3.0-only
+[deck:commander control UB #20261103]
+1 Aether Hub
+1 Ally Encampment
+1 Ambition's Cost
+1 Ancestral Vision
+1 Ancient Craving
+1 Audacious Thief
+1 Bad Deal
+1 Blightspeaker
+1 Boomerang, Blade Flinger
+1 Capital City
+1 Clearwater Pathway
+1 Conduit Pylons
+1 Consuming Corruption
+1 Corrupted Roots
+1 Crucible of the Spirit Dragon
+1 Crushing Disappointment
+1 Delusions of Mediocrity
+1 Dogged Pursuit
+1 Dusk Legion Zealot
+1 Efficient Construction
+1 Eternity Snare
+1 Foul Imp
+1 Hall of Oracles
+1 Harrowing Journey
+1 Haunt the Network
+1 Hidden Grotto
+1 Hidden Lair
+1 Highway Robber
+1 Holdout Settlement
+1 Illusions of Grandeur
+1 Infernal Contract
+1 Insight
+1 Invoke Prejudice
+12 Island
+1 Jhessian Thief
+1 Last Caress
+1 Mai, Scornful Striker
+1 Malakir Rebirth
+1 Malakir Soothsayer
+1 Micromancer
+1 Northern Air Temple
+1 Novice Occultist
+1 Numbing Dose
+1 Painful Lesson
+1 Painful Quandary
+1 Pharika's Cure
+1 Profane Tutor
+1 Pulse Tracker
+1 Putrefaction
+1 Read the Bones
+1 Reverent Howl
+1 Riddleform
+1 Risky Shortcut
+1 River Delta
+1 Secluded Courtyard
+1 Shredder's Revenge
+1 Simulacrum
+1 Sire of the Storm
+1 Soul Barrier
+1 Sovereign's Bite
+1 Succumb to Temptation
+15 Swamp
+1 Tainted Isle
+1 Tarnished Citadel
+1 Thoughtseize
+1 Unifying Theory
+1 Vampire Sovereign
+1 Vampiric Feast
+1 Veil of Birds
+1 Veiled Sentry
+1 Veiled Serpent
+1 Waterveil Cavern
+1 Watery Grave
+1 Yawgmoth's Edict
+
+[commander]
+Sivitri Scarzam

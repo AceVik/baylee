@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/Q06/azorius-spirits.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AzoriusSpirits_Q06.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Azorius Spirits (Adapted)]
+4 Absorb
+1 Brazen Borrower
+4 Daring Leap
+4 Empyrean Eagle
+3 Energy Arc
+2 Glacial Fortress
+10 Island
+3 Ojutai's Command
+4 Overrule
+7 Plains
+4 Spectral Sailor
+2 Spell Pierce
+4 Sphinx's Revelation
+4 Supreme Phantom
+4 Temple of Enlightenment

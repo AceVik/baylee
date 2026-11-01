@@ -14,6 +14,9 @@ Main deck:
   1× Acidic Slime {3}{G}{G} · Creature — Ooze · 2/2
     Deathtouch
     When this creature enters, destroy target artifact, enchantment, or land.
+  1× Arcane Denial {1}{U} · Instant
+    Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep.
+    You draw a card at the beginning of the next turn's upkeep.
   1× Blighted Woodland · Land
     {T}: Add {C}.
     {3}{G}, {T}, Sacrifice this land: Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.
@@ -121,6 +124,9 @@ Main deck:
   1× Woodland Stream · Land
     This land enters tapped.
     {T}: Add {G} or {U}.
+  1× Yavimaya Elder {1}{G}{G} · Creature — Human Druid · 2/1
+    When this creature dies, you may search your library for up to two basic land cards, reveal them, put them into your hand, then shuffle.
+    {2}, Sacrifice this creature: Draw a card.
   1× Abundant Countryside · Land
     {T}: Add {C}.
     {T}: Add one mana of any color. Spend this mana only to cast a creature spell.
@@ -148,6 +154,9 @@ Main deck:
     {T}: For each color among permanents you control, add one mana of that color.
   1× Fellwar Stone {2} · Artifact
     {T}: Add one mana of any color that a land an opponent controls could produce.
+  1× Fertile Ground {1}{G} · Enchantment — Aura
+    Enchant land
+    Whenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.
   1× Flamekin Village · Land
     As this land enters, you may reveal an Elemental card from your hand. If you don't, this land enters tapped.
     {T}: Add {R}.
@@ -231,13 +240,3 @@ Main deck:
   1× Thriving Moor · Land
     This land enters tapped. As it enters, choose a color other than black.
     {T}: Add {B} or one mana of the chosen color.
-  1× Timeless Lotus {5} · Legendary Artifact
-    Timeless Lotus enters tapped.
-    {T}: Add {W}{U}{B}{R}{G}.
-  1× Unclaimed Territory · Land
-    As this land enters, choose a creature type.
-    {T}: Add {C}.
-    {T}: Add one mana of any color. Spend this mana only to cast a creature spell of the chosen type.
-  1× Arcane Lighthouse · Land
-    {T}: Add {C}.
-    {1}, {T}: Until end of turn, creatures your opponents control lose hexproof and shroud and can't have hexproof or shroud.

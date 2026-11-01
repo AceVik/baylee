@@ -171,6 +171,87 @@ pub const PARALYZATION: CounterKind = CounterKind::Custom(41);
 /// Music counters (Musician).
 pub const MUSIC: CounterKind = CounterKind::Custom(42);
 
+/// Arrowhead counters (Serrated Arrows).
+pub const ARROWHEAD: CounterKind = CounterKind::Custom(43);
+
+/// Currency counters (Trade Caravan).
+pub const CURRENCY: CounterKind = CounterKind::Custom(44);
+
+/// Infection counters (Diseased Vermin).
+pub const INFECTION: CounterKind = CounterKind::Custom(45);
+
+/// Wage counters (Rogue Skycaptain).
+pub const WAGE: CounterKind = CounterKind::Custom(46);
+
+/// Velocity counters (Tornado).
+pub const VELOCITY: CounterKind = CounterKind::Custom(47);
+
+/// Vortex counters (Energy Vortex).
+pub const VORTEX: CounterKind = CounterKind::Custom(48);
+
+/// Growth counters (Malignant Growth).
+pub const GROWTH: CounterKind = CounterKind::Custom(49);
+
+/// Fungus counters (Mindbender Spores).
+pub const FUNGUS: CounterKind = CounterKind::Custom(50);
+
+/// Echo counters (Soul Echo).
+pub const ECHO: CounterKind = CounterKind::Custom(51);
+
+/// Death counters (Bogardan Phoenix).
+pub const DEATH: CounterKind = CounterKind::Custom(52);
+
+/// Rust counters (Corrosion).
+pub const RUST: CounterKind = CounterKind::Custom(53);
+
+/// Fuse counters (Goblin Bomb).
+pub const FUSE: CounterKind = CounterKind::Custom(54);
+
+/// Shell counters (Roc Hatchling).
+pub const SHELL: CounterKind = CounterKind::Custom(55);
+
+/// Bounty counters (Bounty Hunter).
+pub const BOUNTY: CounterKind = CounterKind::Custom(56);
+
+/// Elixir counters (Essence Bottle).
+pub const ELIXIR: CounterKind = CounterKind::Custom(57);
+
+/// Treasure counters (Legacy's Allure).
+pub const TREASURE: CounterKind = CounterKind::Custom(58);
+
+/// Magnet counters (Magnetic Web).
+pub const MAGNET: CounterKind = CounterKind::Custom(59);
+
+/// Pain counters (Torture Chamber).
+pub const PAIN: CounterKind = CounterKind::Custom(60);
+
+/// Study counters (Pursuit of Knowledge).
+pub const STUDY: CounterKind = CounterKind::Custom(61);
+
+/// Page counters (Barrin's Codex).
+pub const PAGE: CounterKind = CounterKind::Custom(62);
+
+/// Verse counters (Discordant Dirge, Serra's Hymn, Recantation, …).
+pub const VERSE: CounterKind = CounterKind::Custom(63);
+
+/// Petal counters (Lotus Blossom).
+pub const PETAL: CounterKind = CounterKind::Custom(64);
+
+/// Soot counters (Smokestack).
+pub const SOOT: CounterKind = CounterKind::Custom(65);
+
+/// Arrow counters (Archery Training).
+pub const ARROW: CounterKind = CounterKind::Custom(66);
+
+/// Fade counters (Fading N, CR 702.32a).
+pub const FADE: CounterKind = CounterKind::Custom(67);
+
+/// Feather counters (Soulcatchers' Aerie).
+pub const FEATHER: CounterKind = CounterKind::Custom(68);
+
+/// Fate counters (Oblivion Stone).
+pub const FATE: CounterKind = CounterKind::Custom(69);
+
 /// Every id this module assigns, with the word it stands for.
 ///
 /// It exists so the ids can be checked rather than trusted, which is the
@@ -219,6 +300,33 @@ pub const ASSIGNED: &[(&str, CounterKind)] = &[
     ("sleight", SLEIGHT),
     ("paralyzation", PARALYZATION),
     ("music", MUSIC),
+    ("arrowhead", ARROWHEAD),
+    ("currency", CURRENCY),
+    ("infection", INFECTION),
+    ("wage", WAGE),
+    ("velocity", VELOCITY),
+    ("vortex", VORTEX),
+    ("growth", GROWTH),
+    ("fungus", FUNGUS),
+    ("echo", ECHO),
+    ("death", DEATH),
+    ("rust", RUST),
+    ("fuse", FUSE),
+    ("shell", SHELL),
+    ("bounty", BOUNTY),
+    ("elixir", ELIXIR),
+    ("treasure", TREASURE),
+    ("magnet", MAGNET),
+    ("pain", PAIN),
+    ("study", STUDY),
+    ("page", PAGE),
+    ("verse", VERSE),
+    ("petal", PETAL),
+    ("soot", SOOT),
+    ("arrow", ARROW),
+    ("fade", FADE),
+    ("feather", FEATHER),
+    ("fate", FATE),
 ];
 
 #[cfg(test)]

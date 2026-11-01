@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/STH/the-spikes.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSpikes_STH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Spikes (Adapted)]
+1 Bayou Dragonfly
+1 Canopy Spider
+1 Eager Trufflesnout
+1 Elf Replica
+1 Elvish Visionary
+12 Forest
+2 Heartstone
+4 Kindle
+3 Managorger Hydra
+9 Mountain
+1 Origin of Metalbending
+2 Pincher Beetles
+2 Rampant Growth
+1 Scorching Dragonfire
+1 Serene Heart
+2 Shock
+4 Skyshroud Elf
+1 Spike Breeder
+2 Spike Colony
+4 Spike Drone
+2 Spike Feeder
+2 Spike Soldier
+1 Tranquility

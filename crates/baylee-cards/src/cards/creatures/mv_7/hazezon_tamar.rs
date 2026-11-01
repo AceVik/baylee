@@ -31,7 +31,8 @@ card!(
                 filter: &Filter::And(&[
                     Filter::HasSubtype(subtypes::creature::SAND),
                     Filter::HasSubtype(subtypes::creature::WARRIOR)
-                ])
+                ]),
+                linked: false,
             }]
         ),
         triggered!(

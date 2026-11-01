@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/ULG/time-drain-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TimeDrainEnhancedDeck_ULG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Time Drain - Enhanced Deck (Adapted)]
+3 Armageddon
+3 Birds of Paradise
+2 Brushland
+2 Chant of the Skifsang
+2 City of Brass
+3 Cloud of Faeries
+2 Counterspell
+3 Disenchant
+1 Drifting Meadow
+2 Favorable Winds
+6 Forest
+4 Island
+2 Miscalculation
+3 Opt
+1 Palinchron
+3 Peregrine Drake
+2 Plains
+2 Reflecting Pool
+1 Remote Isle
+1 Rewind
+2 Skyshroud Forest
+1 Snap
+1 Swan Song
+2 Swift Warden
+3 Tradewind Rider
+3 Wall of Blossoms

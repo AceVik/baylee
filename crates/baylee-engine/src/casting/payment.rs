@@ -579,7 +579,7 @@ pub(crate) fn pay_mana_restricting_generic(
     player: PlayerId,
     what: SpendFor,
     cost: &ManaCost,
-    restriction: Option<(ManaColor, u32)>,
+    restriction: Option<crate::mana_pay::GenericRestriction>,
 ) -> Option<ManaEntries> {
     let allowance = if super::source_cost::has_source_credits(
         state,
@@ -597,10 +597,24 @@ pub(crate) fn pay_mana_scoped(
     player: PlayerId,
     what: SpendFor,
     cost: &ManaCost,
-    restriction: Option<(ManaColor, u32)>,
+    restriction: Option<crate::mana_pay::GenericRestriction>,
     allowance: SourceAllowance,
 ) -> Option<ManaEntries> {
-    let (pool, spent) = plan_mana_scoped(state, player, what, cost, restriction, allowance)?;
+    pay_mana_scoped_recording_x(state, player, what, cost, restriction, allowance)
+        .map(|(spent, _)| spent)
+}
+
+/// The payment assignment records which actual units paid the restricted X.
+pub(crate) fn pay_mana_scoped_recording_x(
+    state: &mut GameState,
+    player: PlayerId,
+    what: SpendFor,
+    cost: &ManaCost,
+    restriction: Option<crate::mana_pay::GenericRestriction>,
+    allowance: SourceAllowance,
+) -> Option<(ManaEntries, [u32; 6])> {
+    let (pool, spent, x_paid) =
+        plan_mana_scoped_with_x(state, player, what, cost, restriction, allowance)?;
     let obligation = state.constrained_payment(player).cloned();
     commit_mana_payment(
         state,
@@ -609,7 +623,7 @@ pub(crate) fn pay_mana_scoped(
         selected_obligation(state, player, what),
         obligation.as_ref().filter(|_| !what.is_other()),
     )?;
-    Some(spent)
+    Some((spent, x_paid))
 }
 
 /// Pure preview retains exact restricted identities, including mandatory units.
@@ -618,9 +632,21 @@ pub(crate) fn plan_mana_scoped(
     player: PlayerId,
     what: SpendFor,
     cost: &ManaCost,
-    restriction: Option<(ManaColor, u32)>,
+    restriction: Option<crate::mana_pay::GenericRestriction>,
     allowance: SourceAllowance,
 ) -> Option<(ManaPool, ManaEntries)> {
+    plan_mana_scoped_with_x(state, player, what, cost, restriction, allowance)
+        .map(|(pool, spent, _)| (pool, spent))
+}
+
+fn plan_mana_scoped_with_x(
+    state: &GameState,
+    player: PlayerId,
+    what: SpendFor,
+    cost: &ManaCost,
+    restriction: Option<crate::mana_pay::GenericRestriction>,
+    allowance: SourceAllowance,
+) -> Option<(ManaPool, ManaEntries, [u32; 6])> {
     let obligation = state.constrained_payment(player).cloned();
     let is_selected_spell = selected_obligation(state, player, what);
     let spending = payment_spending(state, player, what);
@@ -656,7 +682,7 @@ pub(crate) fn plan_mana_scoped(
                 .any(|unit| unit.restriction == mana.restriction)
         });
     }
-    let (mut pool, spent) = source_pool::Payment {
+    let (mut pool, spent, x_paid) = source_pool::Payment {
         state,
         real,
         entries,
@@ -679,7 +705,7 @@ pub(crate) fn plan_mana_scoped(
             return None;
         }
     }
-    Some((pool, spent))
+    Some((pool, spent, x_paid))
 }
 
 fn selected_obligation(state: &GameState, player: PlayerId, what: SpendFor) -> bool {

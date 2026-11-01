@@ -1,0 +1,28 @@
+# baylee synergistic coverage constructed control
+# licence: AGPL-3.0-only
+[deck:constructed control WUBRG #20266063]
+2 Armored Galleon
+2 Beetleform Mage
+2 Blade Historian
+1 Dark Fortress
+2 Desolate Mire
+2 Disciple of the Old Ways
+2 Fetid Heath
+2 Fields of Strife
+2 Fireborn Knight
+2 Fleshformer
+2 Foot Elite
+2 Forest
+2 Foriysian Brigade
+2 Harbor Bandit
+2 Humble Budoka
+2 Krovikan Elementalist
+2 Might Weaver
+7 Mountain
+2 Mounted Archers
+2 Naya Battlemage
+2 Paragon of the Amesha
+7 Plains
+2 Red Cliffs Armada
+3 Rix Maadi, Dungeon Palace
+2 Wandering Mage

@@ -26,6 +26,8 @@
 //!   card on the gateway, for good or until a moment.
 //! - `DELETE /ui/api/admin/cards/blocks/{id}`: lifts a block.
 //! - `GET /ui/api/admin/audit`: the latest changes made through here.
+//! - `GET /ui/api/admin/auth-mode`, `PUT` the same `{mode}`: who the
+//!   gateway lets in (guests, Central's accounts, or both), and choosing it.
 //! - `GET /ui/api/admin/offline`: offline games going now, this service's
 //!   own anonymous count (`crate::alive`); needs no gateway.
 //! - `/ui/api/admin/llm/…`: the hosted models (seat agents, their profiles,
@@ -140,6 +142,11 @@ pub(crate) fn routes() -> Router<Shared> {
             get(account).delete(crate::moderation::delete_account),
         )
         .route("/ui/api/admin/invites", get(invites).post(create))
+        .route("/ui/api/admin/central", get(central))
+        .route(
+            "/ui/api/admin/central/token",
+            put(central_paste).delete(central_remove),
+        )
         .route("/ui/api/admin/invites/{id}", delete(revoke))
         .route("/ui/api/admin/cards/search", get(search_cards))
         .route(
@@ -148,6 +155,10 @@ pub(crate) fn routes() -> Router<Shared> {
         )
         .route("/ui/api/admin/cards/blocks/{id}", delete(unblock_card))
         .route("/ui/api/admin/audit", get(audit))
+        .route(
+            "/ui/api/admin/auth-mode",
+            get(auth_mode).put(choose_auth_mode),
+        )
         .route("/ui/api/admin/offline", get(offline))
         .route("/ui/api/admin/llm/seathosts", get(llm_seathosts))
         .route("/ui/api/admin/llm/profiles", get(llm_profiles))
@@ -621,6 +632,114 @@ struct Order {
     count: Option<u32>,
 }
 
+/// @route GET /ui/api/admin/central
+/// @scope feedback
+/// @summary The gateway's link to Baylee Central
+/// @description The gateway's `GET /admin/central`, passed on with its status: where its link to Baylee Central comes from and, for a pasted token, what Central says about it; never the token, only its last four characters.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/central` answer, as it is"
+async fn central(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    ask(&gateway, "GET", "/admin/central".into(), &admin, None)
+        .await
+        .map(answer)
+}
+
+/// What `PUT /ui/api/admin/central/token` takes, and all it passes on.
+///
+/// @description A gateway token, as the website showed it.
+/// @openapi
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct CentralToken {
+    /// @description `bgt_` and 64 lowercase hex digits.
+    token: String,
+}
+
+/// @route PUT /ui/api/admin/central/token
+/// @scope feedback
+/// @summary Link the gateway to Baylee Central with a token
+/// @description The gateway's `PUT /admin/central/token`, passed on with its status: the gateway asks Baylee Central about the token, keeps it and uses it at once. This service writes an audit row without the token.
+/// @tag Console
+/// @operation-id `linkCentral`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @body `$CentralToken`
+/// @return 200: {} "Linked, as the gateway's `GET /admin/central` answers"
+/// @return 400: `$ErrorBody` "Not a token, or the gateway's own refusal"
+/// @return 409: `$ErrorBody` "The gateway's operator file sets the link"
+/// @return 422: `$ErrorBody` "Baylee Central does not know the token, or it was revoked or has expired"
+async fn central_paste(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let token: CentralToken = serde_json::from_slice(&body)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a gateway token"))?;
+    let body = serde_json::to_vec(&token)
+        .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a gateway token"))?;
+    drop(token);
+    let done = ask(
+        &gateway,
+        "PUT",
+        "/admin/central/token".into(),
+        &admin,
+        Some(body),
+    )
+    .await?;
+    if done.status == 200 {
+        let detail = format!(
+            "gateway {}",
+            done.json["central"]["gateway"]
+                .as_str()
+                .unwrap_or("unknown")
+        );
+        tracing::info!(admin, action = "gateway.central.link", %detail, "admin console");
+        if let Err(e) = note(&shared, &admin, "gateway.central.link", &detail).await {
+            tracing::error!("admin console: the audit row was not written: {e}");
+        }
+    }
+    Ok(answer(done))
+}
+
+/// @route DELETE /ui/api/admin/central/token
+/// @scope feedback
+/// @summary Remove the gateway's pasted token
+/// @description The gateway's `DELETE /admin/central/token`, passed on with its status: the gateway forgets the token and is unlinked from Baylee Central at once.
+/// @tag Console
+/// @operation-id `unlinkCentral`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @return 204: "Unlinked"
+/// @return 404: `$ErrorBody` "No token is pasted"
+/// @return 409: `$ErrorBody` "The gateway's operator file sets the link"
+async fn central_remove(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let done = ask(
+        &gateway,
+        "DELETE",
+        "/admin/central/token".into(),
+        &admin,
+        None,
+    )
+    .await?;
+    if done.status == 204 {
+        tracing::info!(admin, action = "gateway.central.unlink", "admin console");
+        if let Err(e) = note(&shared, &admin, "gateway.central.unlink", "").await {
+            tracing::error!("admin console: the audit row was not written: {e}");
+        }
+    }
+    Ok(answer(done))
+}
+
 /// One line for the audit: what was made, never a key or the note.
 fn made_detail(made: &serde_json::Value) -> String {
     let ids: Vec<&str> = made["keys"]
@@ -712,6 +831,80 @@ async fn revoke(
         let detail = format!("key {id}");
         tracing::info!(admin, action = "gateway.invite.revoke", %detail, "admin console");
         if let Err(e) = note(&shared, &admin, "gateway.invite.revoke", &detail).await {
+            tracing::error!("admin console: the audit row was not written: {e}");
+        }
+    }
+    Ok(answer(done))
+}
+
+// ------------------------------------------------------------ who comes in
+
+/// @route GET /ui/api/admin/auth-mode
+/// @scope feedback
+/// @summary Who the gateway lets in
+/// @description The gateway's `GET /admin/auth-mode`, passed on with its status: the mode in force (`guests`, `central` or `mixed`), where it comes from, and whether the gateway is connected to Baylee Central.
+/// @tag Console
+/// @security session
+/// @insert `ConsoleRefusals`
+/// @return 200: {} "The gateway's `GET /admin/auth-mode` answer, as it is"
+async fn auth_mode(State(shared): State<Shared>, headers: HeaderMap) -> Result<Response, Refusal> {
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    ask(&gateway, "GET", "/admin/auth-mode".into(), &admin, None)
+        .await
+        .map(answer)
+}
+
+/// What `PUT /ui/api/admin/auth-mode` takes, and all it passes on.
+///
+/// @description The mode to put in force.
+/// @openapi
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct AuthModeChoice {
+    /// @description `guests`, `central` or `mixed`.
+    /// @openapi enum: [guests, central, mixed]
+    mode: String,
+}
+
+/// @route PUT /ui/api/admin/auth-mode
+/// @scope feedback
+/// @summary Choose who the gateway lets in
+/// @description The gateway's `PUT /admin/auth-mode`, passed on with its status: the mode is in force for every sign-in from now on, and a session already made goes on. This service writes an audit row naming the mode.
+/// @tag Console
+/// @operation-id `chooseAuthMode`
+/// @security session + csrf
+/// @insert `ConsoleChangeRefusals`
+/// @body `$AuthModeChoice`
+/// @return 200: {} "In force, as the gateway's `GET /admin/auth-mode` answers"
+/// @return 400: `$ErrorBody` "Not a mode, or the gateway's own refusal"
+/// @return 409: `$ErrorBody` "The gateway's operator sets the mode (`BAYLEE_AUTH_MODE`)"
+async fn choose_auth_mode(
+    State(shared): State<Shared>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, Refusal> {
+    same_origin(&headers)?;
+    let (admin, gateway) = signed_in(&shared, &headers).await?;
+    let choice: AuthModeChoice = serde_json::from_slice(&body)
+        .ok()
+        .filter(|choice: &AuthModeChoice| {
+            matches!(choice.mode.as_str(), "guests" | "central" | "mixed")
+        })
+        .ok_or_else(|| refuse(StatusCode::BAD_REQUEST, "not a mode"))?;
+    let body =
+        serde_json::to_vec(&choice).map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a mode"))?;
+    let done = ask(
+        &gateway,
+        "PUT",
+        "/admin/auth-mode".into(),
+        &admin,
+        Some(body),
+    )
+    .await?;
+    if done.status == 200 {
+        let detail = format!("mode {}", choice.mode);
+        tracing::info!(admin, action = "gateway.auth_mode.set", %detail, "admin console");
+        if let Err(e) = note(&shared, &admin, "gateway.auth_mode.set", &detail).await {
             tracing::error!("admin console: the audit row was not written: {e}");
         }
     }
@@ -981,17 +1174,43 @@ struct LlmDefinition {
     /// @description Whether it is a canary.
     #[serde(skip_serializing_if = "Option::is_none")]
     canary: Option<bool>,
-    /// @description Another profile of the same seat agent, by id (1–64 of
-    /// `A-Za-z0-9._-`), that new games start on past `max_games`; the seat
-    /// agent says whether it may be one.
+    /// @description Other profiles of the same seat agent, by id (each 1–64
+    /// of `A-Za-z0-9._-`): one, or a list in the order they take over, that
+    /// take a game over and that new games start on past `max_games`; the
+    /// seat agent says whether each may be one.
     /// @internal
-    /// Another profile of the same seat agent, by id (`llm_name`): the seat
-    /// agent says whether it may be one.
+    /// Other profiles of the same seat agent, by id (`llm_name`), one or a
+    /// chain: the seat agent says whether each may be one.
     #[serde(skip_serializing_if = "Option::is_none")]
-    fallback: Option<String>,
+    fallback: Option<LlmFallbacks>,
     /// @description The rest of the profile, in the seat settings file's
     /// format.
     profile: serde_json::Value,
+}
+
+/// A hosted profile's fallbacks, as the gateway takes them: one id, as a
+/// definition with one fallback has always said it, or a list in order.
+///
+/// @description One profile's id, or a list of them in the order they take
+/// over.
+/// @openapi
+#[derive(Deserialize, Serialize)]
+#[serde(untagged)]
+enum LlmFallbacks {
+    /// @description One profile's id.
+    One(String),
+    /// @description Profiles' ids, in the order they take over.
+    Chain(Vec<String>),
+}
+
+impl LlmFallbacks {
+    /// The ids, in order.
+    fn ids(&self) -> &[String] {
+        match self {
+            Self::One(id) => std::slice::from_ref(id),
+            Self::Chain(ids) => ids,
+        }
+    }
 }
 
 /// A change that succeeded, noted: the action and `<host>/<id>`, nothing
@@ -1030,7 +1249,11 @@ async fn llm_write(
     let path = llm_path(&host, &id)?;
     let definition: LlmDefinition = serde_json::from_slice(&body)
         .map_err(|_| refuse(StatusCode::BAD_REQUEST, "not a profile's definition"))?;
-    if definition.fallback.as_deref().is_some_and(|f| !llm_name(f)) {
+    if definition
+        .fallback
+        .as_ref()
+        .is_some_and(|fallbacks| !fallbacks.ids().iter().all(|id| llm_name(id)))
+    {
         return Err(refuse(
             StatusCode::BAD_REQUEST,
             "a fallback is a profile's id: 1-64 of A-Z a-z 0-9 . - _",

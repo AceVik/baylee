@@ -1,0 +1,32 @@
+# adapted from data/decks/precon/ME2/band-together.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BandTogether_ME2.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Band Together (Adapted)]
+1 Adagia, Windswept Bastion
+1 Adarkar Sentinel
+2 Aeolipile
+1 Angel of Light
+2 Aysen Crusader
+2 Benalish Hero
+2 Combat Medic
+2 Disenchant
+1 Exile
+1 Exorcise
+2 Icatian Javelineers
+2 Icatian Lieutenant
+1 Icatian Phalanx
+1 Icatian Scout
+1 Inheritance
+1 Kjeldoran Elite Guard
+2 Kjeldoran Home Guard
+1 Kjeldoran Skycaptain
+1 Mishra's Factory
+1 Order of the White Shield
+21 Plains
+1 Repentance
+1 Ruins of Trokair
+1 Saltblast
+2 Shield Bearer
+2 Soldevi Simulacrum
+1 Spiritual Asylum
+1 Survive the Night
+2 Swords to Plowshares

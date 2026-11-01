@@ -29,6 +29,11 @@ impl GameState {
             _ => 20,
         };
         let seats = preset.seats.len() as u8;
+        let mut rng = GameRng::new(preset.seed);
+        let starting_player = preset.house_rules.starting_player.map_or_else(
+            || PlayerId::new(rng.below(u64::from(seats)) as u8),
+            PlayerId::new,
+        );
         let mut state = Self {
             format: preset.format,
             arena: Arena::with_capacity(512),
@@ -53,6 +58,8 @@ impl GameState {
                     turns_started: 0,
                     turns_to_skip: 0,
                     last_turn_attackers: Vec::new(),
+                    blocked_since_upkeep: Vec::new(),
+                    blocked_before_upkeep: Vec::new(),
                     last_turn_acted: false,
                     tried_empty_draw: false,
                     commander_damage: Vec::new(),
@@ -63,7 +70,7 @@ impl GameState {
                     dungeons_completed: 0,
                 })
                 .collect(),
-            turn: TurnInfo::new(PlayerId::new(0)),
+            turn: TurnInfo::new(starting_player),
             combat: crate::combat::CombatState::default(),
             per_turn: PerTurn::new(preset.seats.len()),
             play_permissions: Vec::new(),
@@ -86,6 +93,7 @@ impl GameState {
             discard_answers: Vec::new(),
             discards_on_top: Vec::new(),
             extra_turns: std::collections::VecDeque::new(),
+            turn_controls: Vec::new(),
             resume_after: None,
             skip_followups: Vec::new(),
             reanimated_auras: Vec::new(),
@@ -113,9 +121,9 @@ impl GameState {
             game_end: None,
             day_night: None,
             previous_turn: None,
-            starting_player: PlayerId::new(0),
+            starting_player,
             ability_fires: rustc_hash::FxHashMap::default(),
-            rng: GameRng::new(preset.seed),
+            rng,
             journal: Journal::default(),
             names: Names::default(),
             bases: Arc::default(),

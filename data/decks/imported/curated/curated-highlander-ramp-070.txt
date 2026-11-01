@@ -1,0 +1,79 @@
+# baylee curated highlander ramp seed=20261093
+# licence: AGPL-3.0-only
+[deck:highlander ramp BR #20261093]
+1 Axelrod Gunnarson
+1 Bad Deal
+1 Baleful Force
+1 Barrage Ogre
+1 Barrage of Expendables
+1 Black Waltz No. 3
+1 Blood Crypt
+1 Borg Queen, Perfection Manifest
+1 Carnival of Souls
+1 Castle Doom
+1 Choco-Comet
+1 Cruel Truths
+1 Crystal Grotto
+1 Dread Reaper
+1 Essence Feed
+1 Flick a Coin
+1 Forbidden Orchard
+1 Fury
+1 Gin'tak Charge
+1 Goblin Commando
+1 Goblin Instigator
+1 Gremlin Infestation
+1 Grim Tutor
+1 HYDRA Assault Robot
+1 Hall of Oracles
+1 Harrowing Journey
+1 Hearthcage Giant
+1 Imperial Seal
+1 Infernal Idol
+1 Kazarov, Sengir Pureblood
+1 Lantern-Lit Graveyard
+1 Legion Extruder
+1 Magmatic Force
+1 Make Mischief
+1 Mana Crypt
+1 Mech Hangar
+1 Metalspinner's Puzzleknot
+1 Minion of Tevesh Szat
+1 Moriok Replica
+14 Mountain
+1 Ob Nixilis, the Fallen
+1 Orcish Vandal
+1 Painted Bluffs
+1 Pinnacle Monk
+1 Plasmancer
+1 Plaza of Heroes
+1 Pointed Discussion
+1 Pyre Spawn
+1 Pyrite Spellbomb
+1 Rakdos Cluestone
+1 Rakdos Locket
+1 Red Mana Battery
+1 Rite of the Dragoncaller
+1 Shadowblood Egg
+1 Siege-Gang Commander
+1 Skirk Prospector
+1 Sling-Gang Lieutenant
+1 Smoldering Efreet
+1 Sparkmage Apprentice
+1 Surveillance Room
+1 Survivors' Encampment
+12 Swamp
+1 Tainted Peak
+1 Talisman of Indulgence
+1 Tarrian's Journal
+1 The Balrog of Moria
+1 Three Tree City
+1 Throne of Makindi
+1 Tithebearer Giant
+1 Unearth
+1 Vampire's Kiss
+1 Villainous Hideout
+1 Voldaren Epicure
+1 Volley Veteran
+1 Weaponize the Monsters
+1 White Lotus Hideout

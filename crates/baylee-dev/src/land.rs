@@ -1,4 +1,4 @@
-//! Lands the checked-out commit on main: the three local gates, then a
+//! Lands the checked-out commit on main: the two desktop gates, then a
 //! fast-forward push of exactly the commit they passed. The rule since
 //! 08.10.2026 (`docs/releasing.md` §"Landing on main"): a change lands after
 //! the local gates and does not wait for CI; CI runs on the main push, and a
@@ -13,9 +13,10 @@
 //! under the machine's cargo lock (`BAYLEE_CARGO_LOCK`, default
 //! `~/.baylee-locks/with-cargo-lock.sh`): once the lock is ours, `origin/main`
 //! is fetched again and, if it moved while we waited, merged into HEAD (a
-//! merge commit; a conflict aborts and stops). The gates run on that commit
-//! and it is pushed, still under the lock, so the next lander gates on top of
-//! this push instead of racing it. A push from outside moving main during the
+//! merge commit; a conflict aborts and stops). After a merge `cargo dev` is
+//! rebuilt from the merged tree, so main's gate steps judge it, not the
+//! branch's. The gates run on that commit and it is pushed, still under the
+//! lock, so the next lander gates on top of this push instead of racing it. A push from outside moving main during the
 //! gates makes git refuse ours (never `--force`). `--check` never merges.
 use crate::{features, gate, run};
 use anyhow::{Result, bail};
@@ -91,6 +92,15 @@ fn under_lock(push: bool, branch: &str) -> Result<i32> {
             "land: merged origin/main ({}) into {branch}",
             short("origin/main")?
         );
+        // The gates are this binary, built from HEAD before the merge, so a
+        // check main changed since (a reviewed pin, a new step) would judge
+        // the merged tree in its old form: on 31.10.2026 a trainer land went
+        // red on main's Central pin. Rebuild the tool from the merged tree
+        // and gate from there; the lock stays ours.
+        println!("land: rebuilding cargo dev from the merged tree");
+        return Ok(run::code(run::status(&mut run::cargo_with([
+            "dev", "land", "--locked",
+        ]))));
     }
     let head = rev("HEAD")?;
     if head == rev("origin/main")? {
@@ -122,7 +132,7 @@ fn under_lock(push: bool, branch: &str) -> Result<i32> {
     Ok(0)
 }
 
-/// The three gates; all run even when one fails, so one run reports every red.
+/// Both desktop gates run even when one fails, so one run reports every red.
 fn gates() -> Result<bool> {
     let timed = |name: &str, rc: i32, started: Instant| {
         println!("LAND {name} rc={rc} {}s", started.elapsed().as_secs());
@@ -132,9 +142,7 @@ fn gates() -> Result<bool> {
     let full = timed("gate", gate::full()?, started);
     let started = Instant::now();
     let features = timed("gate features", features::run(), started);
-    let started = Instant::now();
-    let wasm = timed("gate wasm", gate::wasm(), started);
-    Ok(full && features && wasm)
+    Ok(full && features)
 }
 
 fn lock_script() -> Option<PathBuf> {

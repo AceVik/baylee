@@ -47,6 +47,7 @@ impl Social {
                             conv: None,
                             actions: Vec::new(),
                             until_answered: true,
+                            about: None,
                         }));
                     }
                 }

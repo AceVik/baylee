@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro WBG #20266081]
+2 Aphelia, Viper Whisperer
+2 Bandage
+2 Blooming Marsh
+2 Catacomb Sifter
+2 Charge Through
+2 Darling of the Masses
+1 Dwarven Castle Guard
+2 Farseek
+3 Forest
+2 Gilt-Leaf Palace
+2 Illegitimate Business
+2 Jewel-Eyed Cobra
+2 Liturgy of Blood
+2 Morcant's Loyalist
+2 Nest Invader
+2 Pitiless Gorgon
+9 Plains
+2 Portcullis Vine
+2 Sifter of Skulls
+3 Skemfar Elderhall
+2 Swamp
+2 Time of Need
+2 True Love's Kiss
+2 Visara the Dreadful
+2 Voice of Resurgence
+2 Wriggling Grub

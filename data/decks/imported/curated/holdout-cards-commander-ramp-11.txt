@@ -1,0 +1,71 @@
+# baylee unseen-card holdout commander seed=90000017
+# licence: AGPL-3.0-only
+[deck:commander ramp U #90000017]
+1 Aether Channeler
+1 Angler Drake
+1 Archaeomancer
+1 Aven Fateshaper
+1 Baldur's Gate
+1 Bazaar Trademage
+1 Cave of Temptation
+1 Cephalid Scout
+1 City of Brass
+1 Citywatch Sphinx
+1 Cloudreader Sphinx
+1 Crystal Grotto
+1 Dragoon's Wyvern
+1 Drowned Rusalka
+1 Faerie Seer
+1 Forsaken City
+1 Glimmerburst
+1 Hapless Researcher
+1 Henge of Ramos
+1 Horizon Scholar
+1 Hydro-Channeler
+1 Iceberg
+35 Island
+1 Lay Claim
+1 Lotus Vale
+1 Mana Drain
+1 Merfolk Traders
+1 Micromancer
+1 Moonlit Scavengers
+1 Mox Sapphire
+1 Muse Drake
+1 Nimble Innovator
+1 Pondering Mage
+1 Primoc Escapee
+1 Quicksilver Fisher
+1 Sage Aven
+1 Sage of Epityr
+1 Sage's Row Savant
+1 Salvager of Secrets
+1 Screeching Drake
+1 Serum Visionary
+1 Shipwreck Dowser
+1 Sibilant Spirit
+1 Slipstream Eel
+1 Spellseeker
+1 Sphinx Mindbreaker
+1 Sphinx of Enlightenment
+1 Sphinx of Magosi
+1 Super Intelligence
+1 Terrarion
+1 Thalakos Seer
+1 The Unspeakable
+1 Three Steps Ahead
+1 Tishana's Tidebinder
+1 Tome Raider
+1 Unfathomable Truths
+1 Vendilion Clique
+1 Virtue of Knowledge
+1 Vodalian Hexcatcher
+1 Vodalian Merchant
+1 Voracious Greatshark
+1 Wan Shi Tong, Librarian
+1 Wave-Wing Elemental
+1 Witching Well
+1 Wizard Class
+
+[commander]
+Kami of the Crescent Moon

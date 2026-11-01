@@ -60,6 +60,10 @@ pub(crate) enum TermsReply {
     /// them accepted (and may ask for the gateway's own next).
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     Readmit,
+    /// Central's terms accepted, but the gateway account's move that waited
+    /// for them failed: signed out of Central, as a failed sign-in is.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    MigrationFailed,
     /// `GET /terms`, to a question asked in `asked`.
     Doc {
         /// The language the text was asked in (not the one it came in: a
@@ -316,11 +320,17 @@ fn accept_at_central(state: &LobbyState, version: &str, mailbox: &Mailbox) {
         version: version.to_string(),
         digest,
     };
+    let central = matches!(subject, baylee_account::terms::TermsSubject::Central);
     let epoch = state.gateway_epoch;
     let target = mailbox.clone();
     let version = version.to_string();
     let asked = handle.submit(move |account| {
         let replies = match account.accept_terms(subject, &accepted) {
+            // A gateway account's move that waited for Central's own terms
+            // goes on now (nothing when none waits).
+            Ok(()) if central && account.finish_migration().is_err() => {
+                vec![TermsReply::Accepted(version), TermsReply::MigrationFailed]
+            }
             Ok(()) => vec![TermsReply::Accepted(version), TermsReply::Readmit],
             Err(baylee_account::Error::Conflict) => vec![TermsReply::Changed],
             Err(_) => vec![TermsReply::SendFailed(
@@ -355,12 +365,43 @@ fn accept_at_central(state: &LobbyState, _version: &str, mailbox: &Mailbox) {
 #[cfg(not(target_arch = "wasm32"))]
 fn readmit(state: &mut LobbyState, mailbox: &Mailbox) {
     state.retry_feed = true;
-    super::super::central::admit(state, mailbox);
+    super::super::central::readmit(state, mailbox);
 }
 
 #[cfg(target_arch = "wasm32")]
 fn readmit(state: &mut LobbyState, _mailbox: &Mailbox) {
     state.retry_feed = true;
+}
+
+/// Central's own terms accepted: nothing waits for them any more (the
+/// sheet stays down, the account's list syncs again).
+#[cfg(not(target_arch = "wasm32"))]
+fn central_accepted(state: &mut LobbyState) {
+    super::super::central::terms_accepted(state);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn central_accepted(_state: &mut LobbyState) {}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn migration_failed(state: &mut LobbyState, prefs: &mut crate::prefs::Prefs) {
+    super::super::central::migration_failed(state, prefs);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn migration_failed(_state: &mut LobbyState, _prefs: &mut crate::prefs::Prefs) {}
+
+/// Central's own terms wait before any gateway session (the sign-in found
+/// them unaccepted): later ends that Central sign-in, the one session there
+/// is.
+#[cfg(not(target_arch = "wasm32"))]
+fn central_first(state: &LobbyState) -> bool {
+    super::super::central::terms_pending(state) && state.lobby.token().is_none()
+}
+
+#[cfg(target_arch = "wasm32")]
+const fn central_first(_state: &LobbyState) -> bool {
+    false
 }
 
 /// `GET /terms?lang=` (public), in the interface's language.
@@ -433,6 +474,11 @@ pub(in crate::lobby) fn perform(
             ask_for(state, lang, mailbox);
         }
         Ask::Accept(version) => send_acceptance(state, &version, mailbox),
+        Ask::SignOut if central_first(state) => {
+            state.terms_subject = Subject::Gateway;
+            #[cfg(not(target_arch = "wasm32"))]
+            super::super::central::logout(state, prefs);
+        }
         Ask::SignOut => {
             state.terms_subject = Subject::Gateway;
             sign_out(state, prefs, scrolled, mailbox, settings);
@@ -444,6 +490,7 @@ pub(in crate::lobby) fn perform(
 pub(in crate::lobby) fn receive(
     reply: TermsReply,
     state: &mut ResMut<LobbyState>,
+    prefs: &mut ResMut<crate::prefs::Prefs>,
     mailbox: &Mailbox,
     settings: &mut Option<ResMut<crate::settings::ClientSettings>>,
 ) {
@@ -458,10 +505,15 @@ pub(in crate::lobby) fn receive(
             state.terms_subject = Subject::Gateway;
             readmit(state, mailbox);
         }
+        TermsReply::MigrationFailed => {
+            state.terms_subject = Subject::Gateway;
+            migration_failed(state, prefs);
+        }
         TermsReply::Doc { asked, doc } => state.terms.loaded(doc, asked),
         TermsReply::FetchFailed => state.terms.failed(),
         TermsReply::Accepted(_) if state.terms_subject == Subject::Central => {
             state.terms.accepted();
+            central_accepted(state);
         }
         TermsReply::Accepted(version) => {
             if state.terms.accepted().is_some() {
@@ -497,6 +549,23 @@ pub(in crate::lobby) fn follow_the_session(
     mut settings: Option<ResMut<crate::settings::ClientSettings>>,
     mut last: Local<Option<String>>,
 ) {
+    // Central's own terms, found unaccepted at its sign-in, stand before any
+    // gateway session: their sheet goes up with no token yet, and the
+    // admission follows their acceptance (`central::readmit`).
+    if central_first(&state) && !state.terms.up() {
+        state.terms_subject = Subject::Central;
+        let lang = state.lobby.lang();
+        let ask = state.terms.ask(lang);
+        perform(
+            ask,
+            &mut state,
+            &mut prefs,
+            &mut scrolled,
+            &mailbox,
+            &mut settings,
+        );
+        return;
+    }
     let token = state.lobby.token().map(str::to_string);
     if *last == token {
         return;
@@ -594,7 +663,7 @@ pub(crate) fn read_the_terms(
         }
     }
     let read = matches!(state.terms.sheet(), Sheet::Reading(r) if r.read_to_end);
-    if !read && at.y + seen >= whole - 2.0 && matches!(state.terms.sheet(), Sheet::Reading(_)) {
+    if !read && at.y + seen >= whole - 8.0 && matches!(state.terms.sheet(), Sheet::Reading(_)) {
         state.terms.reached_end();
     }
 }
@@ -683,6 +752,11 @@ fn block_text(
 ) -> Entity {
     let root = commands
         .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
             Text::new(""),
             tf(fonts, size),
             TextColor(tokens::INK),
@@ -722,6 +796,8 @@ pub(crate) fn document(commands: &mut Commands, kit: Kit, blocks: &[Block]) -> V
                 };
                 let text = block_text(commands, kit.fonts, size, spans, *level > 1);
                 commands.entity(text).insert(Node {
+                    width: Val::Percent(100.0),
+                    flex_shrink: 0.0,
                     margin: UiRect::top(kit.m.px(if *level == 1 { 0.0 } else { 6.0 })),
                     ..default()
                 });
@@ -733,6 +809,7 @@ pub(crate) fn document(commands: &mut Commands, kit: Kit, blocks: &[Block]) -> V
                     .spawn((
                         Node {
                             width: Val::Percent(100.0),
+                            flex_shrink: 0.0,
                             column_gap: kit.m.px(8.0),
                             padding: UiRect::left(kit.m.px(8.0)),
                             ..default()

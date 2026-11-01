@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/GTC/thrive-and-thrash.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ThriveAndThrash_GTC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Thrive and Thrash (Adapted)]
+2 Acidic Slime
+4 Arbor Elf
+3 Boiling Blood
+1 Bramblecrush
+1 Broken Wings
+1 Cancel
+1 Counsel of the Soratami
+1 Dream Fracture
+2 Evolving Wilds
+4 Farseek
+1 Flare
+2 Fog Bank
+10 Forest
+4 Frontier Bivouac
+2 Ground Assault
+6 Island
+3 Ketria Triome
+2 Mist Raven
+1 Mountain
+1 Natural End
+4 Simic Guildgate
+3 Strangleroot Geist
+1 Thragtusk

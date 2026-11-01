@@ -1,0 +1,81 @@
+# baylee curated highlander aggro seed=20261060
+# licence: AGPL-3.0-only
+[deck:highlander aggro WB #20261060]
+1 Abundant Countryside
+1 Ancient Ziggurat
+1 Arashin Cleric
+1 Avengers Tower
+1 Ayara, First of Locthwain
+1 Baldur's Gate
+1 Baxter Building
+1 Cascading Cataracts
+1 Castle Doom
+1 Cathedral Sanctifier
+1 Champion of the Parish
+1 Commissar Severina Raine
+1 Contemplation
+1 Corrupted Crossroads
+1 Cosmium Blast
+1 Dakmor Ghoul
+1 Death Cultist
+1 Death Watch
+1 Dream Beavers
+1 Dusk Legion Zealot
+1 Elas il-Kor, Sadistic Pilgrim
+1 Extraction Specialist
+1 Foul-Tongue Shriek
+1 Grim Guardian
+1 Healer of the Pride
+1 Highway Robber
+1 Holdout Settlement
+1 Impassioned Orator
+1 Inspiring Cleric
+1 Jasmine Dragon Tea Shop
+1 Joust Through
+1 Kalastria Healer
+1 Last Caress
+1 Leonin Elder
+1 Maga, Traitor to Mortals
+1 Maggot Carrier
+1 Mandroid Squadron
+1 Midnight Charm
+1 Mire Triton
+1 Misery Charm
+1 Mox Pearl
+1 Necrogen Scudder
+1 Night Market Lookout
+1 Northern Air Temple
+1 Nykthos, Shrine to Nyx
+1 Ondu Cleric
+1 Operations Officer
+1 Orcish Bowmasters
+1 Painted Bluffs
+1 Phyrexian Rager
+6 Plains
+1 Polluted Bonds
+1 Rathi Fiend
+1 Savannah Sage
+1 Shu Soldier-Farmers
+1 Sign in Blood
+1 Skyclave Cleric
+1 Skymarch Bloodletter
+1 Sleeper Agent
+1 Soul Warden
+1 Soul's Attendant
+1 Sunbeam Spellbomb
+1 Surveillance Room
+1 Suture Priest
+18 Swamp
+1 Tainted Field
+1 Tendrils of Corruption
+1 Toxic Abomination
+1 Underworld Coinsmith
+1 Vampire Neonate
+1 Vampire Spawn
+1 Vampiric Rites
+1 Venerable Monk
+1 Warmth
+1 Wayward Servant
+1 Wretched Anurid
+1 Zof Consumption
+1 Zuran Orb

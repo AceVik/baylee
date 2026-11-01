@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/PLC/rituals-of-rebirth.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RitualsOfRebirth_PLC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Rituals of Rebirth (Adapted)]
+3 Awaken the Bear
+2 Bargain
+1 Bog Serpent
+3 Evolution Charm
+11 Forest
+2 Greenseeker
+2 Harmonize
+2 Havenwood Wurm
+2 Icatian Crier
+2 Jedit's Dragoons
+1 Legion's Judgment
+2 Llanowar Stalker
+1 Phyrexian Tribute
+4 Plains
+3 Rakshasa's Secret
+1 Read the Bones
+1 Resurrection
+1 Sengir Autocrat
+1 Spike Feeder
+7 Swamp
+2 Terramorphic Expanse
+2 Thornado
+1 Wall of Roots
+3 Wind Shear

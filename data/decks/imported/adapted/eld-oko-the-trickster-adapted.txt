@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/ELD/oko-the-trickster.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, OkoTheTrickster_ELD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Oko, the Trickster (Adapted)]
+4 Auroral Procession
+3 Bramblefort Fink
+3 Charmed Sleep
+2 Double Major
+11 Forest
+4 Hydroform
+10 Island
+3 Maraleaf Pixie
+2 Mistford River Turtle
+4 Neoform
+4 Oko's Accomplices
+3 Square Up
+4 Thornwood Falls
+3 Tome Raider

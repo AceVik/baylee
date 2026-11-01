@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/M21/garruk-savage-herald.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GarrukSavageHerald_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Garruk, Savage Herald (Adapted)]
+3 Almighty Brushwagg
+1 An-Havva Inn
+2 Appetite for the Unnatural
+3 Drowsing Tyrannodon
+2 Eldritch Evolution
+2 Fade into Antiquity
+25 Forest
+2 Garruk's Uprising
+1 Natural Connection
+2 Ornery Dilophosaur
+3 Predatory Wurm
+3 Titanic Growth
+1 Unforgiving Aim
+4 Untamed Wilds
+4 Wildwood Patrol
+2 Woodcutter's Grit

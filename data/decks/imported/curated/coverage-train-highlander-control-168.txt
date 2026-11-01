@@ -1,0 +1,79 @@
+# baylee synergistic coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WUR #20266169]
+1 Ambush
+1 Battlefield Forge
+1 Blaze of Glory
+1 Blood of the Martyr
+1 Brassclaw Orcs
+1 Burnout
+1 Clever Concealment
+1 Cloudcrest Lake
+1 Coastal Hornclaw
+1 Colos Yearling
+1 Desolate Lighthouse
+1 Devout Decree
+1 Disorient
+1 Dreamwinder
+1 Everybody Lives!
+1 Eye for an Eye
+1 Fade Away
+1 Festival
+1 Fiery Islet
+1 Flowstone Shambler
+1 Glaciers
+1 In the Eye of Chaos
+1 Ironclaw Buzzardiers
+9 Island
+1 Jeskai Brushmaster
+1 Juxtapose
+1 Kukemssa Serpent
+1 Kykar, Wind's Fury
+1 Magical Hack
+1 Makindi Ox
+1 Malfunction
+1 Misdirection
+1 Mizzix's Mastery
+1 Mordenkainen's Polymorph
+5 Mountain
+1 Mystic Gate
+1 Mystic Monastery
+1 Needleverge Pathway
+1 Orcish Squatters
+1 Orcish Veteran
+1 Perilous Landscape
+13 Plains
+1 Plateau
+1 Political Trickery
+1 Purelace
+1 Ransack
+1 Rapid Fire
+1 Rapturous Moment
+1 Raugrin Triome
+1 Reality Ripple
+1 Redeem
+1 Relic Sloth
+1 Reverberation
+1 Reverse Damage
+1 Riverpyre Verge
+1 Rock Badger
+1 Sejiri Shelter
+1 Serpent of the Endless Sea
+1 Serpentine Ambush
+1 Shivan Reef
+1 Silhouette
+1 Sleight of Mind
+1 Song-Mad Treachery
+1 Starstorm
+1 Stymied Hopes
+1 Sunbaked Canyon
+1 Sunbillow Verge
+1 Suppression Ray
+1 Teferi's Protection
+1 Telekinesis
+1 Telim'Tor's Edict
+1 Tibor and Lumia
+1 Tundra
+1 Venser, the Sojourner
+1 Volcanic Island
+1 Whirlwind of Thought

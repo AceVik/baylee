@@ -151,6 +151,14 @@ struct Line {
     ink: Color,
 }
 
+/// A chosen object repeated at the foot of the sheet with its own picture.
+#[derive(Clone, PartialEq, Debug)]
+struct SelectedTarget {
+    object: ObjectId,
+    name: String,
+    art: Option<baylee_client_core::images::ImageKey>,
+}
+
 /// What the drawer is drawing, so it is not drawn again for nothing.
 ///
 /// Every field is *what came out*, not what went in — the rows as they are
@@ -184,6 +192,9 @@ pub struct DrawerRevision {
     rows: Vec<crate::choices::ChoiceOption>,
     seat_filters: Vec<crate::choices::ChoiceOption>,
     previews: Vec<(usize, ObjectId)>,
+    /// Chosen objects repeated at the foot, including ones hidden by a filter
+    /// or standing on another page.
+    selected_targets: Vec<SelectedTarget>,
     /// Which row has already been taken.
     picked: Option<usize>,
     /// The slide that puts the panel over the question, in logical pixels of
@@ -215,6 +226,7 @@ impl DrawerRevision {
             // open — see the filter's own comment — but an empty list with no
             // filter is a chooser with nothing in it, which is no chooser.
             && self.rows.is_empty()
+            && self.selected_targets.is_empty()
     }
 }
 
@@ -255,7 +267,7 @@ pub(in crate::hud) fn spawn_drawer_root(commands: &mut Commands) -> Entity {
 ///
 /// Runs after [`super::sync_ledge`], because the centre it stands on is what
 /// that system worked out.
-#[allow(clippy::too_many_arguments)] // one retained-UI rebuild, like the shelf's
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // one retained-UI rebuild, like the shelf's
 pub fn sync_drawer(
     mut commands: Commands,
     duel: Res<Duel>,
@@ -368,6 +380,19 @@ pub fn sync_drawer(
     }
 
     let picture = picture_of(&revision, &duel, textures.as_deref_mut(), assets.as_deref());
+    let selected_pictures: Vec<Option<Handle<Image>>> = revision
+        .selected_targets
+        .iter()
+        .map(|target| {
+            let key = target.art?;
+            let statics = duel.statics.as_ref()?;
+            Some(
+                textures
+                    .as_deref_mut()?
+                    .get(key, statics, assets.as_deref()?),
+            )
+        })
+        .collect();
     match asked {
         Asked::Nothing => {}
         Asked::Pill => match kept {
@@ -391,6 +416,7 @@ pub fn sync_drawer(
                 (&revision, &duel),
                 panel,
                 picture,
+                &selected_pictures,
             );
         }
     }
@@ -398,6 +424,7 @@ pub fn sync_drawer(
 
 /// Writes the open sheet: its head, the lines, the stepper, the type
 /// chooser's lists and the rows.
+#[allow(clippy::too_many_lines)] // one retained panel in visual order
 fn fill_panel(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -405,6 +432,7 @@ fn fill_panel(
     (revision, duel): (&DrawerRevision, &Duel),
     panel: Entity,
     picture: Option<Handle<Image>>,
+    selected_pictures: &[Option<Handle<Image>>],
 ) {
     if let Some(head) = revision.head.as_ref() {
         let written = sheet::spawn_head(
@@ -423,10 +451,17 @@ fn fill_panel(
     let spare = !(revision.phone && revision.group.is_some());
     for line in revision.lines.iter().filter(|_| spare) {
         let written = sentence(commands, fonts, &line.text, line.size, line.ink);
-        commands.entity(written).insert(Node {
-            max_width: percent(100),
-            ..default()
-        });
+        // Centred as the panel's rows are, wrapped or not: a hint that ran
+        // to two lines stood flush left under the centred ones (the block
+        // list's, played 30.10.2026).
+        commands.entity(written).insert((
+            Node {
+                max_width: percent(100),
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            TextLayout::justify(Justify::Center),
+        ));
         commands.entity(panel).add_child(written);
     }
 
@@ -503,6 +538,124 @@ fn fill_panel(
             commands.entity(panel).add_child(rows);
         }
     }
+    if !revision.selected_targets.is_empty() {
+        let selected = selected_targets(
+            commands,
+            fonts,
+            lang,
+            &revision.selected_targets,
+            selected_pictures,
+        );
+        commands.entity(panel).add_child(selected);
+    }
+}
+
+/// Chosen objects stay visible even when their choice row is on another page.
+#[allow(clippy::too_many_lines)] // one selected-object strip in visual order
+fn selected_targets(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    targets: &[SelectedTarget],
+    pictures: &[Option<Handle<Image>>],
+) -> Entity {
+    let root = commands
+        .spawn((
+            Node {
+                width: percent(100),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                row_gap: px(4),
+                padding: UiRect::top(px(5)),
+                border: UiRect::top(px(1)),
+                ..default()
+            },
+            BorderColor::all(palette::DIALOG_LINE),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let caption_text = Phrase::TargetingSelected
+        .fill(lang, &[""])
+        .trim_end()
+        .to_string();
+    let caption = sentence(commands, fonts, &caption_text, HINT_PT, palette::DOCK_INK);
+    let row = commands
+        .spawn((
+            Node {
+                max_width: percent(100),
+                flex_wrap: FlexWrap::Wrap,
+                justify_content: JustifyContent::Center,
+                column_gap: px(8),
+                row_gap: px(6),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    for (target, picture) in targets.iter().zip(pictures) {
+        let tile = commands
+            .spawn((
+                ChoicePreview {
+                    object: target.object,
+                },
+                Node {
+                    width: px(72),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    row_gap: px(3),
+                    padding: UiRect::all(px(3)),
+                    border: UiRect::all(px(2)),
+                    border_radius: btn_radius(),
+                    ..default()
+                },
+                BackgroundColor(palette::CANDLE.with_alpha(PICKED_WASH)),
+                BorderColor::all(palette::CANDLE),
+            ))
+            .id();
+        let slot = commands
+            .spawn((
+                Node {
+                    width: px(46),
+                    height: px(46.0 * 88.0 / 63.0),
+                    overflow: Overflow::clip(),
+                    ..default()
+                },
+                BackgroundColor(palette::DOCK_GROUND),
+                Pickable::IGNORE,
+            ))
+            .id();
+        if let Some(image) = picture {
+            let art = commands
+                .spawn((
+                    ImageNode::new(image.clone()),
+                    Node {
+                        width: percent(100),
+                        height: percent(100),
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(slot).add_child(art);
+        }
+        let name = commands
+            .spawn((
+                Text::new(target.name.clone()),
+                tf_bold(fonts, 10.5),
+                TextColor(palette::DOCK_INK),
+                Node {
+                    height: px(26),
+                    overflow: Overflow::clip(),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(tile).add_children(&[slot, name]);
+        commands.entity(row).add_child(tile);
+    }
+    commands.entity(root).add_children(&[caption, row]);
+    root
 }
 
 /// The type chooser's quick list under its caption; on a phone the caption
@@ -794,6 +947,7 @@ fn resolving_lines(
 /// Separate from the drawing for the reason every revision in this client is:
 /// it is run on every frame and the drawing is not, so what it costs is what
 /// the comparison costs.
+#[allow(clippy::too_many_lines)] // every decision kind shares one revision calculation
 fn reading(
     duel: &Duel,
     lang: Lang,
@@ -922,6 +1076,11 @@ fn reading(
     } else {
         target_filters(duel, lang)
     };
+    let selected_targets = if waiting || elsewhere {
+        Vec::new()
+    } else {
+        selected_target_cards(duel, texts)
+    };
     DrawerRevision {
         decision_id: duel
             .interaction
@@ -933,6 +1092,7 @@ fn reading(
         rows,
         seat_filters,
         previews,
+        selected_targets,
         picked,
         shift,
         head,
@@ -1213,6 +1373,7 @@ const FILTER_MIN_W: f32 = 280.0;
 /// "OK" nor things to do while holding priority — they are *the* answer, and
 /// picking one sends it. Until this existed a tapped dual land drew "Choose a
 /// colour" with nothing under it and the game stopped there.
+#[allow(clippy::too_many_lines)] // the indexed chooser's complete row composition
 fn chooser(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -1230,6 +1391,12 @@ fn chooser(
                 flex_wrap: FlexWrap::Wrap,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                // The panel's whole width, not only at most: without a width
+                // of its own the wrap was measured as one line and the panel
+                // sized to that, and the lines past it hung out of the
+                // panel's foot over the shelf's answers
+                // (`a_chooser_that_wraps_stays_inside_its_panel`).
+                width: percent(100),
                 max_width: percent(100),
                 ..default()
             },
@@ -1237,7 +1404,43 @@ fn chooser(
         ))
         .id();
     for option in rows {
-        let on = picked == Some(option.index);
+        if let Some(heading) = &option.heading {
+            let caption = commands
+                .spawn((
+                    Node {
+                        width: percent(100),
+                        min_height: px(22),
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        column_gap: px(6),
+                        padding: UiRect::horizontal(px(6)),
+                        border: UiRect::bottom(px(1)),
+                        ..default()
+                    },
+                    BorderColor::all(palette::DIALOG_LINE),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let icon = commands
+                .spawn((
+                    Text::new(heading.icon.to_string()),
+                    icon_tf(fonts, 12.0),
+                    TextColor(palette::CANDLE),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            let label = commands
+                .spawn((
+                    Text::new(heading.label.clone()),
+                    tf_bold(fonts, HINT_PT),
+                    TextColor(palette::DOCK_INK),
+                    Pickable::IGNORE,
+                ))
+                .id();
+            commands.entity(caption).add_children(&[icon, label]);
+            commands.entity(row).add_child(caption);
+        }
+        let on = option.chosen || picked == Some(option.index);
         let (fill, edge, ink) = PANEL_KEY;
         // Taken, rather than louder: a picked row is still one answer among
         // several, so it is washed with the candle instead of being drawn as
@@ -1348,25 +1551,38 @@ fn target_seat_name(
     crate::hud::seatbar::called(lang, view, duel.statics.as_ref(), seat, role)
 }
 
+/// Whether a target list is long enough to page, or filtered already: the
+/// lists that stand under the seats' filter.
+fn filterable(duel: &Duel, pending: &Pending) -> bool {
+    baylee_client_core::targeting::options(pending).len() > baylee_client_core::targeting::PAGE_SIZE
+        || duel.target_filter.is_some()
+}
+
 /// Seat filters change only the visible list, preserving all chosen targets.
 fn target_filters(duel: &Duel, lang: Lang) -> Vec<crate::choices::ChoiceOption> {
     use baylee_client_core::targeting;
     let Some((i, view)) = duel.interaction.as_ref().zip(duel.view.as_ref()) else {
         return Vec::new();
     };
-    if !matches!(i.pending(), Pending::ChooseTargets { .. })
-        || (targeting::options(i.pending()).len() <= targeting::PAGE_SIZE
-            && duel.target_filter.is_none())
-    {
+    if !matches!(i.pending(), Pending::ChooseTargets { .. }) || !filterable(duel, i.pending()) {
         return Vec::new();
     }
-    let row = |player, label| crate::choices::ChoiceOption {
-        index: targeting::filter_index(player),
-        label,
-        pip: None,
-        cost: None,
+    // The seat the list is filtered to is drawn chosen, "All seats" when
+    // none is: nothing said which one was in force.
+    let row = |player, label| {
+        crate::choices::ChoiceOption::text(targeting::filter_index(player), label)
+            .chosen(duel.target_filter == player)
     };
-    let mut rows = vec![row(None, Phrase::TargetingAllSeats.text(lang).to_string())];
+    // Under a caption of their own: the seats' chips looked like the seat
+    // rows of the list under them, and read as the list said twice.
+    let mut rows = vec![
+        row(None, Phrase::TargetingAllSeats.text(lang).to_string()).headed(
+            crate::choices::ChoiceHeading {
+                label: Phrase::TargetingShowFrom.text(lang).into(),
+                icon: glyph::MAGNIFIER,
+            },
+        ),
+    ];
     for seat in &view.seats {
         if !targeting::filtered(i.pending(), view, Some(seat.player)).is_empty() {
             rows.push(row(
@@ -1376,6 +1592,32 @@ fn target_filters(duel: &Duel, lang: Lang) -> Vec<crate::choices::ChoiceOption> 
         }
     }
     rows
+}
+
+/// Every selected object, not only those on the visible target page.
+fn selected_target_cards(duel: &Duel, texts: &crate::cardtext::CardTexts) -> Vec<SelectedTarget> {
+    use baylee_client_core::images::ArtSize;
+    let Some((i, view)) = duel.interaction.as_ref().zip(duel.view.as_ref()) else {
+        return Vec::new();
+    };
+    if !matches!(i.pending(), Pending::ChooseTargets { .. }) {
+        return Vec::new();
+    }
+    i.selected()
+        .filter_map(|id| {
+            let object = view.object(id)?;
+            Some(SelectedTarget {
+                object: id,
+                name: crate::face::name_of(object, view, texts),
+                art: baylee_client_core::board::art_in(
+                    object,
+                    ArtSize::Small,
+                    crate::cardart::registry(),
+                    view,
+                ),
+            })
+        })
+        .collect()
 }
 
 /// Source, exact sentence, selected identities and every legal option.
@@ -1392,15 +1634,7 @@ fn target_reading(
     let Some(i) = duel.interaction.as_ref() else {
         return;
     };
-    let Pending::ChooseTargets {
-        min,
-        max,
-        reason:
-            baylee_engine::choice::TargetPrompt::Targets
-            | baylee_engine::choice::TargetPrompt::Retarget { .. },
-        ..
-    } = i.pending()
-    else {
+    let Pending::ChooseTargets { min, max, .. } = i.pending() else {
         return;
     };
     let Some(view) = duel.view.as_ref() else {
@@ -1477,58 +1711,48 @@ fn target_reading(
             ],
         ));
     }
+    let visible = targeting::filtered(i.pending(), view, duel.target_filter);
+    let page = crate::choices::Page::of(visible.len(), duel.target_page, targeting::PAGE_SIZE);
     if !chosen.is_empty() {
-        say(Phrase::TargetingSelected.fill(lang, &[&chosen.join("; ")]));
+        // A chosen row on this page is drawn taken and says so itself; the
+        // names are written only for a choice the page does not show.
+        let shown = &visible[page.start..page.end];
+        let unseen = options
+            .iter()
+            .any(|t| selected(*t) && !shown.iter().any(|(_, s)| s == t));
+        if unseen {
+            say(Phrase::TargetingSelected.fill(lang, &[&chosen.join("; ")]));
+        }
         if let Some(context) = &view.targeting
             && context.batch_count > 1
         {
             say(Phrase::TargetingBatchHint.fill(lang, &[&context.batch_count.to_string()]));
         }
     }
-    let visible = targeting::filtered(i.pending(), view, duel.target_filter);
-    let start = duel
-        .target_page
-        .min(visible.len().saturating_sub(1) / targeting::PAGE_SIZE)
-        * targeting::PAGE_SIZE;
-    let end = (start + targeting::PAGE_SIZE).min(visible.len());
-    if visible.len() > targeting::PAGE_SIZE {
+    if page.count > 1 {
         say(Phrase::TargetingPage.fill(
             lang,
             &[
-                &(start + 1).to_string(),
-                &end.to_string(),
+                &(page.start + 1).to_string(),
+                &page.end.to_string(),
                 &visible.len().to_string(),
             ],
         ));
     }
-    *rows = visible
+    *rows = visible[page.start..page.end]
         .iter()
-        .copied()
-        .skip(start)
-        .take(targeting::PAGE_SIZE)
-        .map(|(index, t)| crate::choices::ChoiceOption {
-            index,
-            label: format!("{}{}", if selected(t) { "[x] " } else { "" }, label(t)),
-            pip: None,
-            cost: None,
-        })
+        .map(|&(index, t)| crate::choices::ChoiceOption::text(index, label(t)).chosen(selected(t)))
         .collect();
-    if start > 0 {
-        rows.push(crate::choices::ChoiceOption {
-            index: targeting::PREVIOUS,
-            label: "←".into(),
-            pip: None,
-            cost: None,
+    // Under the filter, the list has its caption too.
+    if filterable(duel, i.pending())
+        && let Some(first) = rows.first_mut()
+    {
+        first.heading = Some(crate::choices::ChoiceHeading {
+            label: Phrase::TargetingTargets.text(lang).into(),
+            icon: glyph::CHECK,
         });
     }
-    if end < visible.len() {
-        rows.push(crate::choices::ChoiceOption {
-            index: targeting::NEXT,
-            label: "→".into(),
-            pip: None,
-            cost: None,
-        });
-    }
+    crate::choices::page_arrows(rows, lang, page.earlier(), page.later());
 }
 
 fn prevention_line(
@@ -1574,12 +1798,112 @@ fn damage_paging(duel: &Duel, lang: Lang, rows: &mut Vec<crate::choices::ChoiceO
     }
 }
 
+/// A chooser whose answers wrap onto several lines stays inside its panel.
+///
+/// The row wrapped without a width of its own, so the layout measured it as
+/// one line and sized the panel to that; the panel grows up from the shelf,
+/// so every line past the first hung out of its bottom, over the shelf's
+/// answers ("Declare attack", "No"), which the last row hid (played
+/// 30.10.2026: six attackers and one defender).
+#[cfg(test)]
+#[test]
+fn a_chooser_that_wraps_stays_inside_its_panel() {
+    use crate::shellkit::header::tests::{bounds, layout_app};
+    let (mut app, fonts) = layout_app();
+    let mut commands = app.world_mut().commands();
+    let window = commands
+        .spawn(Node {
+            width: px(1280),
+            height: px(800),
+            ..default()
+        })
+        .id();
+    let root = commands.spawn(root_node()).id();
+    commands.entity(window).add_child(root);
+    let panel = spawn_panel(&mut commands, root, None);
+    // Arrived: the zoom is a transform and moves no layout, but it would
+    // scale the rectangles read below.
+    commands.entity(panel).insert(UiTransform::default());
+    let heading = |label: &str| crate::choices::ChoiceHeading {
+        label: label.into(),
+        icon: glyph::SEND,
+    };
+    let mut rows: Vec<_> = (0..9)
+        .map(|i| {
+            crate::choices::ChoiceOption::text(i, format!("Attack: Pearled Unicorn {i} → steady 1"))
+        })
+        .collect();
+    rows[0].heading = Some(heading("Players"));
+    rows[3].heading = Some(heading("Creatures"));
+    let answers = chooser(&mut commands, &fonts, &rows, None, &[], (None, false));
+    commands.entity(panel).add_child(answers);
+    app.world_mut().flush();
+    app.update();
+    app.update();
+    let world = app.world_mut();
+    let inside = bounds(world, panel);
+    let mut buttons = world.query_filtered::<Entity, With<ChoiceButton>>();
+    let buttons: Vec<Entity> = buttons.iter(world).collect();
+    assert_eq!(buttons.len(), rows.len());
+    let lines = buttons
+        .iter()
+        .map(|b| bounds(world, *b).min.y.round() as i32)
+        .collect::<std::collections::BTreeSet<_>>();
+    assert!(lines.len() >= 4, "the answers did not wrap: {lines:?}");
+    for button in buttons {
+        let drawn = bounds(world, button);
+        assert!(
+            drawn.max.y <= inside.max.y + 0.5 && drawn.min.y >= inside.min.y - 0.5,
+            "an answer at {drawn:?} hangs out of its panel at {inside:?}"
+        );
+    }
+}
+
+/// A chosen row is drawn taken as a picked one is, from its `chosen` alone.
+#[cfg(test)]
+#[test]
+fn a_chosen_row_is_drawn_taken_like_a_picked_one() {
+    let mut world = World::new();
+    let rows = [
+        crate::choices::ChoiceOption::text(0, "Aim: Bob".into()).chosen(true),
+        crate::choices::ChoiceOption::text(1, "Aim: Carol".into()),
+        crate::choices::ChoiceOption::text(2, "Aim: Dana".into()),
+    ];
+    let row = chooser(
+        &mut world.commands(),
+        &UiFonts::default(),
+        &rows,
+        Some(2),
+        &[],
+        (None, false),
+    );
+    world.flush();
+    let edges: Vec<Color> = world
+        .entity(row)
+        .get::<Children>()
+        .expect("the row has its buttons")
+        .iter()
+        .map(|button| {
+            world
+                .entity(button)
+                .get::<BorderColor>()
+                .expect("a button has an edge")
+                .top
+        })
+        .collect();
+    assert_eq!(
+        edges,
+        [palette::CANDLE, PANEL_KEY.1, palette::CANDLE],
+        "chosen and picked are taken, the other row is not"
+    );
+}
+
 #[cfg(test)]
 mod targeting_tests {
     use super::*;
     use baylee_client_core::{
         Interaction, targeting,
-        test_support::{ViewBuilder, token},
+        test_support::{ViewBuilder, printed, token},
     };
     use baylee_core::ids::{ObjectId, PlayerId};
     use baylee_engine::choice::{PlayerAction, TargetPrompt};
@@ -1620,6 +1944,15 @@ mod targeting_tests {
         let (_, rows) = read(&duel);
         assert_eq!(rows.len(), targeting::PAGE_SIZE + 1);
         assert_eq!(rows[0].index, 0);
+        // The seats' filter and the list each stand under a caption, so the
+        // seat chips are not read as the list's seat rows said twice.
+        let caption =
+            |row: &crate::choices::ChoiceOption| row.heading.as_ref().map(|h| h.label.clone());
+        assert_eq!(caption(&rows[0]).as_deref(), Some("Targets"));
+        assert_eq!(
+            caption(&target_filters(&duel, Lang::En)[0]).as_deref(),
+            Some("Show the targets of")
+        );
         crate::input::pick_choice(&mut duel, targeting::NEXT);
         assert_eq!(duel.target_page, 1);
         assert!(duel.outbox.is_empty());
@@ -1635,11 +1968,20 @@ mod targeting_tests {
         );
         let (lines, rows) = read(&duel);
         assert!(lines.iter().any(|l| l.text.contains("Selected:")));
-        assert!(rows[0].label.starts_with("[x]"));
+        assert!(
+            rows[0].chosen && !rows[1].chosen,
+            "the picked target is drawn taken"
+        );
+        assert!(!rows[0].label.contains("[x]"), "and not written so");
+        // Its row says it on its own page; its name is written only on a
+        // page that does not show it.
+        let named = |lines: &[Line]| lines.iter().any(|l| l.text.starts_with("Selected: Bear"));
+        assert!(!named(&lines), "the names repeat the row drawn taken");
         crate::input::pick_choice(&mut duel, targeting::NEXT);
-        let (_, rows) = read(&duel);
+        let (lines, rows) = read(&duel);
         assert_eq!(rows.last().unwrap().index, targeting::PREVIOUS);
         assert!(rows.iter().any(|r| r.index == 20));
+        assert!(named(&lines), "a choice off the page is named");
         assert!(
             matches!(duel.interaction.as_ref().unwrap().confirm(), Some(PlayerAction::ChooseObjects { objects }) if objects == vec![ObjectId::new(16, 0)])
         );
@@ -1687,6 +2029,58 @@ mod targeting_tests {
                 .unwrap()
                 .is_selected(ObjectId::new(16, 0))
         );
+        assert!(duel.outbox.is_empty());
+    }
+
+    /// Report 01a16ccd: Sakashima's `CopyOf` question offered exactly object
+    /// 18. It needs the same rows, tally and selected-object foot as `Targets`.
+    #[test]
+    fn copy_of_object_18_gets_a_row_and_a_selected_preview_card() {
+        let mut duel = choices();
+        let mut pending = duel.interaction.as_ref().unwrap().pending().clone();
+        if let Pending::ChooseTargets {
+            options,
+            player_options,
+            min,
+            max,
+            reason,
+            ..
+        } = &mut pending
+        {
+            *options = vec![ObjectId::new(18, 0)];
+            player_options.clear();
+            *min = 0;
+            *max = 1;
+            *reason = TargetPrompt::CopyOf;
+        }
+        let object = duel
+            .view
+            .as_mut()
+            .unwrap()
+            .battlefield
+            .iter_mut()
+            .find(|object| object.id == ObjectId::new(18, 0))
+            .unwrap();
+        *object = printed(18, 1, "Bear", 17);
+        duel.receive_choice(pending);
+        let (lines, rows) = read(&duel);
+        assert!(!lines.is_empty(), "CopyOf keeps its target reading");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].index, 0);
+        assert!(rows[0].label.contains("Bear"));
+        assert_eq!(
+            crate::choices::preview_object(&duel, rows[0].index),
+            Some(ObjectId::new(18, 0))
+        );
+        assert!(selected_target_cards(&duel, &crate::cardtext::CardTexts::default()).is_empty());
+
+        crate::input::pick_choice(&mut duel, 0);
+        let selected = selected_target_cards(&duel, &crate::cardtext::CardTexts::default());
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0].object, ObjectId::new(18, 0));
+        assert_eq!(selected[0].name, "Bear");
+        assert!(selected[0].art.is_some(), "the foot has a picture to draw");
+        assert!(read(&duel).1[0].chosen);
         assert!(duel.outbox.is_empty());
     }
 

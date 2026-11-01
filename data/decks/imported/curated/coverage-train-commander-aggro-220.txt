@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUB #20266221]
+1 Abyssal Hunter
+1 Aether Hub
+1 Arvad the Cursed
+1 Bile Urchin
+1 Blight Keeper
+1 Blight Pile
+1 Bloodrite Invoker
+1 Brood of Cockroaches
+1 Cavern of Souls
+1 Contaminated Landscape
+1 Coordinated Maneuver
+1 Corpse Knight
+1 Corrupted Roots
+1 Cosmium Blast
+1 Desiccated Naga
+1 Drana's Emissary
+1 Drifting Djinn
+1 Dromar's Cavern
+1 Dry Spell
+1 Elite Javelineer
+1 Elspeth's Smite
+1 Engine Rat
+1 Essence Depleter
+1 Gangrenous Zombies
+1 Gemstone Mine
+1 Gideon's Reproach
+1 Gifted Aetherborn
+1 Glimmervoid
+1 Heap Gate
+1 Impeccable Timing
+1 Infectious Horror
+1 Infernal Grasp
+4 Island
+1 Judge of Currents
+1 Kree Commandos
+1 Mawcor
+1 Moroii
+1 Nim Abomination
+1 Orzhov Guildmage
+1 Outflank
+1 Painted Bluffs
+7 Plains
+1 Psychic Purge
+1 Pulse Tracker
+1 Punish Ignorance
+1 Razorgrass Ambush
+1 Reign of Terror
+1 Reroute Systems
+1 Samite Archer
+1 Sanctum Seeker
+1 Sanguinary Priest
+1 Sanguine Syphoner
+1 Screeching Soulbreaker
+1 Secret Base
+1 Sheoldred, the Apocalypse
+1 Shepherd of Rot
+1 Skirsdag Supplicant
+1 Sky Scourer
+1 Slash of Talons
+1 Sliver Hive
+1 Songbird, Sonic Screamer
+1 Specter of the Fens
+1 Spiteful Bully
+1 Stormscape Apprentice
+1 Suq'Ata Firewalker
+1 Surveillance Room
+13 Swamp
+1 Tethered Skirge
+1 Thistledown Duo
+1 Thoughtseize
+1 Throne of Makindi
+1 Ultimate Alliance
+1 Undiscovered Paradise
+1 Vampire of the Dire Moon
+1 Vapor Snag
+1 Vicious Conquistador
+1 White Lotus Hideout
+1 Zulaport Chainmage
+
+[commander]
+Lady Evangela

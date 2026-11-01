@@ -992,7 +992,9 @@ fn only_a_sign_in_that_worked_is_worth_remembering() {
     app.insert_resource(crate::settings::ClientSettings::default());
     {
         let mut state = app.world_mut().resource_mut::<LobbyState>();
-        state.lobby.set_field(Field::Username, "mail@acevik.de");
+        state
+            .lobby
+            .set_field(Field::Username, "player@example.invalid");
     }
 
     // A refusal leaves the stored address alone: it may well be the typo.
@@ -1086,6 +1088,7 @@ fn issue_187_no_account_request_without_an_explicit_gateway() {
                 registration: Registration::Open,
                 art_cache: false,
                 guests: false,
+                central: false,
             }),
         ));
     app.update();

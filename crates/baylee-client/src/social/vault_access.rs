@@ -26,22 +26,11 @@ impl std::fmt::Debug for Login {
 }
 
 impl Login {
-    /// One local-only handoff after Central verified the password. Never used for gateway HTTP.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn central(gateway: &str, password: String) -> Self {
-        Self {
-            gateway: gateway.into(),
-            token: None,
-            password: Zeroizing::new(password),
-            previous: None,
-            created: web_time::Instant::now(),
-        }
+    /// For `gateway`, by `gateway_list::same`.
+    pub(crate) fn is_for(&self, gateway: &str) -> bool {
+        baylee_client_core::lobby::gateway_list::same(&self.gateway, gateway)
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn fresh_for(&self, gateway: &str) -> bool {
-        self.created.elapsed().as_secs() <= 120 && self.gateway == gateway.trim_end_matches('/')
-    }
     #[cfg(target_arch = "wasm32")]
     pub(crate) fn from_request(_gateway: &str, _request: &LobbyRequest) -> Option<Self> {
         None
@@ -75,7 +64,7 @@ impl Login {
 pub(crate) fn discard_stale_login(lobby: &mut LobbyState) {
     if lobby.vault_login.as_ref().is_some_and(|l| {
         l.created.elapsed().as_secs() > 120
-            || l.gateway != lobby.gateway.trim_end_matches('/')
+            || !l.is_for(&lobby.gateway)
             || l.token
                 .as_deref()
                 .is_some_and(|t| Some(t) != lobby.lobby.token())
@@ -253,5 +242,26 @@ mod tests {
         login.accept("accepted-token");
         assert_eq!(login.token.as_deref(), Some("accepted-token"));
         assert_eq!(login.gateway, "https://example.test");
+    }
+
+    /// A sign-in at the live gateway is for a session there by either
+    /// address. (A Central sign-in hands the chat no password any more.)
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn a_login_is_for_the_live_gateway_by_either_address() {
+        use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
+        let login = Login::from_request(
+            PINNED,
+            &LobbyRequest::LogIn {
+                username: "alice".into(),
+                password: "secret".into(),
+            },
+        )
+        .unwrap();
+        assert!(login.is_for(PINNED));
+        assert!(login.is_for(KEYED));
+        assert!(login.is_for(&format!("{KEYED}/")));
+        assert!(!login.is_for("https://example.test"));
     }
 }

@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/TMP/the-swarm.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSwarm_TMP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Swarm (Adapted)]
+1 Cyclone
+1 Disenchant
+1 Eyeless Watcher
+14 Forest
+1 Krakilin
+3 Master Decoy
+4 Muscle Sliver
+1 Nature's Wrath
+1 Needle Storm
+2 Overrun
+3 Pacifism
+3 Pincher Beetles
+7 Plains
+2 Ranger en-Vec
+3 Rootwalla
+1 Silence
+3 Skyshroud Elf
+1 Soltari Crusader
+2 Soltari Trooper
+3 Trained Armodon
+1 Untamed Might
+2 Vec Townships

@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/VIS/wild-eyed-frenzy.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WildEyedFrenzy_VIS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Wild-Eyed Frenzy (Adapted)]
+3 Chaos Charm
+2 Crackling Club
+1 Flame Elemental
+3 Flare
+2 Goblin Elite Infantry
+2 Goblin Recruiter
+2 Goblin Scouts
+2 Goblin Soothsayer
+3 Goblin Swine-Rider
+2 Goblin Tinkerer
+1 Hurler Cyclops
+2 Jaya's Greeting
+3 Keeper of Kookus
+1 Kookus
+23 Mountain
+2 Pyrokinesis
+1 Sundering Eruption
+2 Talruum Piper
+1 Unerring Sling
+2 Wheel of Fortune

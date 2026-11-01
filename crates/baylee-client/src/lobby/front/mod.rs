@@ -480,13 +480,15 @@ pub(super) fn pose_front(
         if card.0 == Panel::Gateway && !motion.moving() && computed.size().y > 0.0 {
             let centre = global.translation;
             let scale = computed.inverse_scale_factor();
+            let gateways = state.displayed_gateways();
             let found: Vec<(String, Vec2)> = rows
                 .iter()
                 .filter_map(|(press, node, at)| match press {
-                    Press::Front(FrontPress::SelectGateway(index)) if node.size().y > 0.0 => state
-                        .gateways
-                        .get(*index)
-                        .map(|url| (url.clone(), (at.translation - centre) * scale)),
+                    Press::Front(FrontPress::SelectGateway(index)) if node.size().y > 0.0 => {
+                        gateways
+                            .get(*index)
+                            .map(|url| (url.clone(), (at.translation - centre) * scale))
+                    }
                     _ => None,
                 })
                 .collect();
@@ -597,7 +599,7 @@ pub(super) struct FadedPrimary(f32);
 /// Primary buttons normally share a material. Clone it only when a panel
 /// fades, so its surface follows the text without fading another panel or
 /// a stationary button that happens to share the original handle.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(super) fn fade_primary_surfaces(
     mut commands: Commands,
     motion: Res<FrontMotion>,
@@ -609,13 +611,31 @@ pub(super) fn fade_primary_surfaces(
         Option<&FadedPrimary>,
     )>,
     materials: Option<ResMut<Assets<crate::ambience::AmbienceMaterial>>>,
+    sheens: Query<&MaterialNode<crate::shellkit::sheen::SheenMaterial>>,
+    mut sheen_materials: Option<ResMut<Assets<crate::shellkit::sheen::SheenMaterial>>>,
 ) {
-    let Some(mut materials) = materials else {
-        return;
-    };
+    let mut materials = materials;
     for (card, panel) in &cards {
         let alpha = pose(&motion, panel.0, 0.0).alpha;
         for node in children.iter_descendants(card) {
+            if let Some(sheen_materials) = sheen_materials.as_mut()
+                && let Ok(sheen) = sheens.get(node)
+            {
+                let want = crate::shellkit::sheen::GLOW * alpha;
+                if sheen_materials
+                    .get(&sheen.0)
+                    .is_some_and(|m| (m.params.glow - want).abs() > 1e-5)
+                    && let Some(mut material) = sheen_materials.get_mut(&sheen.0)
+                {
+                    material.params.glow = want;
+                    if alpha < 1.0 {
+                        material.params.hover = 0.0;
+                    }
+                }
+            }
+            let Some(materials) = materials.as_mut() else {
+                continue;
+            };
             let Ok((entity, mut handle, faded)) = surfaces.get_mut(node) else {
                 continue;
             };
@@ -659,7 +679,8 @@ fn fade_leather(
         grains.push((id, material.params.grain));
         material.params.grain
     };
-    let density = super::dock::GROUND_DENSITY * alpha;
+    let curved = 1.0 - (1.0 - alpha).powi(3);
+    let density = super::dock::GROUND_DENSITY * curved;
     if (material.params.ramp.y - density).abs() < 1e-4 {
         return;
     }
@@ -1298,6 +1319,8 @@ pub(crate) enum FrontPress {
     OpenSource,
     /// Open the community's Discord invitation in the browser.
     OpenDiscord,
+    /// Open the website's registration page, from Central's sign-in form.
+    OpenCentralRegister,
     /// Open the gateway's legal notice (Impressum, `/info` `impressum`) in
     /// the browser.
     OpenImpressum,
@@ -1357,6 +1380,9 @@ impl FrontPress {
                 state.lobby.back_to_sign_in();
             }
             FrontPress::GuestFace => {
+                // From Central's form, a gateway that takes guests too.
+                #[cfg(not(target_arch = "wasm32"))]
+                super::central::guest_instead(state);
                 let request = state.lobby.open_guest_face();
                 if state.lobby.guest() {
                     let gateway = state.gateway.clone();
@@ -1399,6 +1425,7 @@ impl FrontPress {
             }
             press @ (FrontPress::OpenSource
             | FrontPress::OpenDiscord
+            | FrontPress::OpenCentralRegister
             | FrontPress::OpenImpressum) => {
                 super::source::open(press, state);
             }
@@ -1412,19 +1439,49 @@ impl FrontPress {
             // player's own decks in it and a room to arrange. What the button
             // skips is still the sign-in; what it no longer skips is choosing
             // who you are playing and with what.
-            FrontPress::PlayOffline => {
-                state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
-                prefs.detach();
-                scrolled.set(List::Table, 0.0);
-                // Whatever is already here is kept. `HubPress::SignOut` is the only
-                // thing that clears it, so a player coming back to offline
-                // play finds the decks and the room they left.
-                state
-                    .offline
-                    .get_or_insert_with(super::offline::Offline::load);
-                let request = state.lobby.play_offline();
-                dispatch(state, mailbox, request);
-            }
+            FrontPress::PlayOffline => start_offline(state, prefs, scrolled, mailbox),
+        }
+    }
+}
+
+/// Enters the offline lobby and settles its initial local requests (`ListDecks`,
+/// `ListTables`, and starter precons when the account has no decks yet) in the
+/// same frame so the lobby renders populated on its very first frame.
+fn start_offline(
+    state: &mut LobbyState,
+    prefs: &mut crate::prefs::Prefs,
+    scrolled: &mut Scrolled,
+    mailbox: &Mailbox,
+) {
+    state.gateway_epoch = state.gateway_epoch.wrapping_add(1);
+    prefs.detach();
+    scrolled.set(List::Table, 0.0);
+    // Whatever is already here is kept. `HubPress::SignOut` is the only
+    // thing that clears it, so a player coming back to offline
+    // play finds the decks and the room they left.
+    state
+        .offline
+        .get_or_insert_with(super::offline::Offline::load);
+    let lang = state.lobby.lang();
+    let mut request = state.lobby.play_offline();
+    while let Some(req) = request {
+        let Some(offline) = state.offline.as_mut() else {
+            dispatch(state, mailbox, Some(req));
+            break;
+        };
+        let event = offline.perform(req, lang);
+        request = state.lobby.apply(event);
+    }
+    if state.lobby.decks().is_empty()
+        && state.lobby.library().house.is_empty()
+        && let Some(req) = state.lobby.browse_house()
+    {
+        if let Some(offline) = state.offline.as_mut() {
+            let event = offline.perform(req, lang);
+            let next = state.lobby.apply(event);
+            dispatch(state, mailbox, next);
+        } else {
+            dispatch(state, mailbox, Some(req));
         }
     }
 }

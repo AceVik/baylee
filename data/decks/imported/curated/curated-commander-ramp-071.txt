@@ -1,0 +1,82 @@
+# baylee curated commander ramp seed=20261094
+# licence: AGPL-3.0-only
+[deck:commander ramp WUG #20261094]
+1 Abstergo Entertainment
+1 Abundant Countryside
+1 Aether Hub
+1 Ally Encampment
+1 Ancestral Vision
+1 Archaeomancer
+1 Beneath the Sands
+1 Birthing Pod
+1 Bugenhagen, Wise Elder
+1 Cascading Cataracts
+1 Cloudblazer
+1 Consider
+1 Crucible of the Spirit Dragon
+1 Drumhunter
+1 Eclipsed Realms
+1 Emrakul's Influence
+1 Evolution Charm
+1 Fable of Wolf and Owl
+1 Fauna Shaman
+1 Force of Nature
+14 Forest
+1 Frontier Guide
+1 Great Hall of the Citadel
+1 Heap Gate
+1 Holdout Settlement
+1 Insight
+6 Island
+1 Jeskai Sage
+1 Katara, the Fearless
+1 Knight-Captain of Eos
+1 Knightly Valor
+1 Kozilek's Unsealing
+1 Lady Caleria
+1 Lay of the Land
+1 Lotus Vale
+1 Lumra, Bellow of the Woods
+1 Maelstrom of the Spirit Dragon
+1 Maja, Bretagard Protector
+1 Maul Splicer
+1 Merchant Scroll
+1 Nylea's Intervention
+1 Oashra Cultivator
+1 Outlaw Medic
+1 Path to Exile
+1 Pawpatch Formation
+6 Plains
+1 Portent
+1 Ramosian Captain
+1 Ramosian Lieutenant
+1 Ramosian Sergeant
+1 Rampaging Baloths
+1 Reach for the Sky
+1 Renewal
+1 Rinoa Heartilly
+1 Riverwheel Aerialists
+1 Rockcaster Platoon
+1 Safewright Quest
+1 Serum Visions
+1 Slipstream Eel
+1 Sliver Hive
+1 Steelshaper Apprentice
+1 Surveillance Room
+1 Sythis, Harvest's Hand
+1 Thranduil the Strategist
+1 Tolsimir Wolfblood
+1 Tranquil Landscape
+1 Transmute Artifact
+1 Trostani's Summoner
+1 Tura Kennerüd, Skyknight
+1 Ulvenwald Observer
+1 Untamed Wilds
+1 Virtue of Knowledge
+1 Voldaren Estate
+1 Wild Wanderer
+1 Worldly Tutor
+1 Yoked Plowbeast
+
+[commander]
+Angus Mackenzie

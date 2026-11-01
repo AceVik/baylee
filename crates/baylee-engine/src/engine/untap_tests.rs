@@ -736,3 +736,176 @@ fn a_permanent_kept_tapped_by_choice_takes_no_room_under_a_limit() {
         }
     }
 }
+
+fn add_untap_probe_effect(
+    engine: &mut Engine<SyntheticLookup>,
+    target: ObjectId,
+    modifier: Modifier,
+    duration: Duration,
+) {
+    use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
+    let filter = EffectFilter::object(&engine.state, target);
+    engine.state.effects.register(ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: None,
+        controller: PlayerId::new(0),
+        origin: EffectOrigin::Resolution,
+        layer: modifier.layer(),
+        timestamp: engine.state.timestamp,
+        duration,
+        filter,
+        modifier,
+    });
+    engine.state.refresh_characteristics();
+}
+
+#[test]
+fn wind_counters_replace_only_an_actual_determined_untap_and_all_are_removed() {
+    use baylee_cards_dsl::counters::WIND;
+    for blocked in [false, true] {
+        let f = forest();
+        let mut engine = Engine::new(&preset(13, &[f]), lookup()).unwrap();
+        keep_mulligans(&mut engine);
+        let target = permanents(&engine, f)[0];
+        engine.state.turn.active = PlayerId::new(0);
+        engine.state.set_tapped(target, true);
+        engine
+            .state
+            .object_mut(target)
+            .unwrap()
+            .counters
+            .add(WIND, 3);
+        add_untap_probe_effect(
+            &mut engine,
+            target,
+            Modifier::RemoveCountersInsteadOfUntapping(WIND),
+            Duration::Indefinitely,
+        );
+        if blocked {
+            add_untap_probe_effect(
+                &mut engine,
+                target,
+                Modifier::DoesNotUntap,
+                Duration::Indefinitely,
+            );
+        }
+        assert!(!engine.finish_untap_step(&[]));
+        assert!(tapped(&engine, target));
+        assert_eq!(
+            engine.state.object(target).unwrap().counters.get(WIND),
+            if blocked { 3 } else { 0 }
+        );
+        if !blocked {
+            engine.finish_untap_step(&[]);
+            assert!(!tapped(&engine, target));
+        }
+    }
+}
+
+#[test]
+fn optional_nonuntap_preserves_wind_and_stun_replacement_is_a_real_choice() {
+    use baylee_cards_dsl::{CounterKind, counters::WIND};
+    let f = forest();
+    let mut engine = Engine::new(&preset(13, &[f]), lookup()).unwrap();
+    keep_mulligans(&mut engine);
+    let target = permanents(&engine, f)[0];
+    engine.state.turn.active = PlayerId::new(0);
+    engine.state.set_tapped(target, true);
+    engine
+        .state
+        .object_mut(target)
+        .unwrap()
+        .counters
+        .add(WIND, 3);
+    engine
+        .state
+        .object_mut(target)
+        .unwrap()
+        .counters
+        .add(CounterKind::Stun, 2);
+    add_untap_probe_effect(
+        &mut engine,
+        target,
+        Modifier::RemoveCountersInsteadOfUntapping(WIND),
+        Duration::Indefinitely,
+    );
+    assert!(!engine.finish_untap_step(&[target]));
+    assert_eq!(engine.state.object(target).unwrap().counters.get(WIND), 3);
+    assert!(engine.finish_untap_step(&[]));
+    assert!(matches!(
+        engine.pending(),
+        Pending::YesNo {
+            prompt: crate::choice::YesNoPrompt::RemoveCountersInsteadOfUntapping {
+                kind: WIND,
+                count: 3,
+                ..
+            },
+            ..
+        }
+    ));
+    engine
+        .apply(PlayerId::new(0), PlayerAction::YesNo(false))
+        .unwrap();
+    assert_eq!(engine.state.object(target).unwrap().counters.get(WIND), 3);
+    assert_eq!(
+        engine
+            .state
+            .object(target)
+            .unwrap()
+            .counters
+            .get(CounterKind::Stun),
+        1
+    );
+    assert!(tapped(&engine, target));
+}
+
+#[test]
+fn affected_untap_start_expiry_precedes_type_based_untap_prohibitions() {
+    use crate::effects::{ContinuousEffect, EffectFilter, EffectOrigin};
+    use baylee_core::generated::subtypes;
+    let f = forest();
+    let mut engine = Engine::new(&preset(13, &[f]), lookup()).unwrap();
+    keep_mulligans(&mut engine);
+    let target = permanents(&engine, f)[0];
+    engine.state.turn.active = PlayerId::new(0);
+    engine.state.set_tapped(target, true);
+    add_untap_probe_effect(
+        &mut engine,
+        target,
+        Modifier::SetLandType(subtypes::land::SWAMP),
+        Duration::UntilStartOfAffectedNextUntap,
+    );
+    engine.state.effects.register(ContinuousEffect {
+        id: baylee_core::ids::EffectId::new(0),
+        source: None,
+        controller: PlayerId::new(0),
+        origin: EffectOrigin::Resolution,
+        layer: Layer::Text,
+        timestamp: engine.state.timestamp,
+        duration: Duration::Indefinitely,
+        filter: EffectFilter::Dsl(&Filter::HasSubtype(subtypes::land::FOREST)),
+        modifier: Modifier::DoesNotUntap,
+    });
+    engine.state.refresh_characteristics();
+    assert!(!engine.untap_step());
+    assert!(
+        tapped(&engine, target),
+        "the original Forest type must return before determination"
+    );
+    assert!(
+        engine
+            .state
+            .object(target)
+            .unwrap()
+            .characteristics()
+            .subtypes
+            .contains(subtypes::land::FOREST)
+    );
+    assert!(
+        !engine
+            .state
+            .effects
+            .iter()
+            .any(|effect| effect.duration == Duration::UntilStartOfAffectedNextUntap)
+    );
+}

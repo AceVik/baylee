@@ -4,5 +4,6 @@
 use super::*;
 
 mod ornithopter;
+mod shield_sphere;
 mod shifting_wall;
 mod walking_ballista;

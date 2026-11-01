@@ -395,6 +395,7 @@ pub(crate) fn draw(commands: &mut Commands, env: &Env) -> Entity {
     if !ui.hand.is_empty() {
         let hand = commands
             .spawn((
+                super::sample_hand::SampleHand,
                 Node {
                     width: Val::Percent(100.0),
                     column_gap: m.px(6.0),

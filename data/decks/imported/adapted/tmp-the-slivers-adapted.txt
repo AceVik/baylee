@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/TMP/the-slivers.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSlivers_TMP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Slivers (Adapted)]
+2 Argent Mutation
+4 Clot Sliver
+2 Counterspell
+1 Crushing Disappointment
+2 Dark Banishing
+2 Diabolic Edict
+1 Dismiss
+1 Fevered Convulsions
+13 Island
+4 Metallic Sliver
+1 Mindwhip Sliver
+3 Mnemonic Sliver
+1 Opt
+1 Pendulum of Patterns
+2 Power Sink
+1 Rootwater Depths
+1 Soul Shred
+2 Spell Blast
+11 Swamp
+1 Waterlogged Teachings
+4 Winged Sliver

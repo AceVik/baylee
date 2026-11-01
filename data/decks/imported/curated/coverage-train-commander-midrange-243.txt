@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266244]
+1 Abbey Griffin
+1 Angelic Wall
+1 Armored Griffin
+1 Assault Griffin
+1 Aurora Griffin
+1 Aven Sentry
+1 Bayou Dragonfly
+1 Berserk
+1 Bounty Agent
+1 Branchloft Pathway
+1 Burrowguard Mentor
+1 Catastrophe
+1 Charging Badger
+1 Charging Griffin
+1 Companion of the Trials
+1 Daraja Griffin
+1 Defiant Elf
+1 Diving Griffin
+1 Dragonstalker
+1 Eagle of the Watch
+1 Ekundu Griffin
+1 Emerald Dragonfly
+1 Enforcer Griffin
+1 Excise
+1 Exultant Skymarcher
+3 Forest
+1 Garrison Griffin
+1 Gathering Place
+1 Gavony Township
+1 Gideon's Avenger
+1 Grove of the Guardian
+1 Horizon Canopy
+1 Hushwood Verge
+1 Inspired Insurgent
+1 King Suleiman
+1 Kinsbaile Balloonist
+1 Kjeldoran Skyknight
+1 Makindi Aeronaut
+1 Makindi Griffin
+1 Moon Sprite
+1 Mothrider Patrol
+1 Peregrine Griffin
+22 Plains
+1 Prized Griffin
+1 Riftstone Portal
+1 Roc Charger
+1 Sabertooth Nishoba
+1 Saltcrusted Steppe
+1 Savannah
+1 Scryb Ranger
+1 Setessan Griffin
+1 Shadow Glider
+1 Shrike Force
+1 Silverbeak Griffin
+1 Silverclaw Griffin
+1 Skyblade of the Legion
+1 Skyhunter Prowler
+1 Skyspear Cavalry
+1 Smite
+1 Soulscour
+1 Spotted Griffin
+1 Sungrass Prairie
+1 Sunspire Griffin
+1 Temple Garden
+1 Teremko Griffin
+1 Tethered Griffin
+1 Thermal Glider
+1 Unyaro Griffin
+1 Vec Townships
+1 Veldt
+1 Vitu-Ghazi, the City-Tree
+1 Wild Aesthir
+1 Wild Griffin
+1 Wooded Bastion
+1 Yavimaya Gnats
+1 Zuberi, Golden Feather
+
+[commander]
+Bast, Panther Goddess

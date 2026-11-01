@@ -258,6 +258,21 @@ fn a_tapped_trigger_answers_for_any_permanent_its_filter_names() {
     assert_eq!(event_object_of(&tapped(theirs)), Some(theirs), "that land");
 }
 
+#[test]
+fn an_untapped_permanent_is_the_event_object() {
+    let mut state = state();
+    let artifact = permanent(&mut state, them(), "Sol Ring");
+    let untapped = GameEvent::ObjectUntapped {
+        object: artifact,
+        cause: crate::event::Cause::Effect,
+    };
+    assert_eq!(
+        event_object_of(&untapped),
+        Some(artifact),
+        "that permanent's controller"
+    );
+}
+
 /// Hypnotic Specter's "deals damage to an opponent" is any damage, where
 /// the combat trigger sees combat damage only. Fungusaur's "is dealt
 /// damage" is one event for all the combat damage of a step (CR 510.2,
@@ -820,4 +835,48 @@ fn mana_production_reads_its_activation_across_trigger_scan_boundaries() {
             ));
         }
     }
+}
+
+/// Every "at the beginning of …'s <step>" in the pool names a player the
+/// step matcher reads. Any other `PlayerRel` falls to its `_ => false`
+/// arm and never fires; before that arm it was `_ => true`, and Miser's
+/// Cage, Pauper's Cage and Malignant Growth, written `EachOpponent`, fired
+/// in their controller's own upkeep as well.
+#[test]
+fn every_step_trigger_names_a_player_the_matcher_reads() {
+    const READ: &[&str] = &[
+        "You",
+        "Opponent",
+        "EachOpponent",
+        "ControllerOfAttached",
+        "EachPlayer",
+        "ActivePlayer",
+    ];
+    let mut seen = 0_usize;
+    let mut unread = Vec::new();
+    for def in baylee_cards::all() {
+        let text = format!("{def:?}");
+        for (at, _) in text.match_indices("StepBegin { step: ") {
+            let rest = &text[at..];
+            let Some(whose) = rest.find("whose: ").map(|i| &rest[i + "whose: ".len()..]) else {
+                continue;
+            };
+            let name: String = whose
+                .chars()
+                .take_while(char::is_ascii_alphanumeric)
+                .collect();
+            seen += 1;
+            if !READ.contains(&name.as_str()) {
+                unread.push(format!("{}: {name}", def.name()));
+            }
+        }
+    }
+    assert!(
+        seen >= 100,
+        "only {seen} step triggers found in the pool; the walk has gone blind"
+    );
+    assert!(
+        unread.is_empty(),
+        "step triggers no matcher arm reads: {unread:?}"
+    );
 }

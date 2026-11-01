@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro WUB #20266298]
+1 Ancient Spring
+1 Angrath's Ambusher
+1 Arcane Sanctum
+1 Arctic Foxes
+1 Bog Raiders
+1 Bouncing Beebles
+1 Bubbling Beebles
+1 Calciform Pools
+1 Cloudcrest Lake
+1 Contaminated Landscape
+1 Crypt Ripper
+1 Darkling Stalker
+1 Dauthi Horror
+1 Deathgaze Cockatrice
+1 Desolation Prowler
+1 Devilthorn Fox
+1 Dread Shade
+1 Drifting Shade
+1 Dromar's Cavern
+1 Drowned
+1 Dutiful Thrull
+1 Fatal Fumes
+1 Fetid Horror
+1 Flutterfox
+1 Ghostly Changeling
+1 Gift of Orzhova
+1 Glasswing Grace
+1 Gleaming Bastion
+1 Godless Shrine
+1 Harmattan Efreet
+1 Hengegate Pathway
+1 Hoar Shade
+1 Island
+1 Jorubai Murk Lurker
+1 Kozilek's Shrieker
+1 Legions of Lim-Dûl
+1 Lim-Dûl's Cohort
+1 Looming Shade
+1 Lurking Nightstalker
+1 Lys Alana Scarblade
+1 Mana Leech
+1 Metathran Zombie
+1 Mischievous Sneakling
+1 Mystic Gate
+1 Naga Eternal
+1 Nameless Race
+1 Nezumi Bladeblesser
+1 Nightsky Mimic
+1 Obscura Initiate
+1 Plague Witch
+3 Plains
+1 Rabid Rats
+1 Raffine's Tower
+1 Rainbow Efreet
+1 Roofstalker Wight
+1 Screeching Buzzard
+1 Sentry of the Underworld
+1 Skeletal Changeling
+1 Slaughter Drone
+1 Spectral Lynx
+1 Stillmoon Cavalier
+20 Swamp
+1 Tattered Apparition
+1 Those Who Serve
+1 Twilight Panther
+1 Undercity Shade
+1 Underground River
+1 Utter End
+1 Vodalian Zombie
+1 Wall of Blood
+1 Wall of Tears
+1 Wall of Tombstones
+1 Wall of Water
+1 Warpath Ghoul
+1 Watery Grave
+1 Whispering Shade
+1 Wizards' School
+1 Zof Shade
+1 Zombie Outlander

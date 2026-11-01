@@ -789,9 +789,9 @@ pub fn blockers(
         return crate::combat::choose_blocks(&board, options, life);
     }
     let attackers: Vec<_> = ids.iter().filter_map(|&id| board.fighter(id)).collect();
-    let defenders: Vec<_> = options
+    let mut ordered_options: Vec<_> = options
         .iter()
-        .filter_map(|o| board.fighter(o.blocker))
+        .filter_map(|o| board.fighter(o.blocker).map(|f| (o, f)))
         .collect();
     // The search needs a body for every attacker and needs to know what each
     // one is aiming at; `position` below reads both. When the view supplies
@@ -800,9 +800,15 @@ pub fn blockers(
     // compare was always for, and could not do while the fallback shared this
     // function's blind spot.
     let described = ids.iter().all(|id| board.aim(*id).is_some());
-    if !described || attackers.len() != ids.len() || defenders.len() != options.len() {
+    if !described || attackers.len() != ids.len() || ordered_options.len() != options.len() {
         return crate::combat::choose_blocks(&board, options, life);
     }
+    // Sort blockers most valuable first, as `fight` and `attack_position`
+    // require: the attacker assigns gang-block damage to kill our most
+    // valuable blocker first, and `Reply::visit` explores single-blocker
+    // replies from the tail (least valuable blocker) first.
+    ordered_options.sort_by_key(|(o, f)| (std::cmp::Reverse(worth(*f)), o.blocker));
+    let defenders: Vec<_> = ordered_options.iter().map(|(_, f)| *f).collect();
     let (walkers, aimed, walker_base, unblockable) = defended(&board, &ids);
     let position = Position {
         walkers,
@@ -825,9 +831,9 @@ pub fn blockers(
         blockers: defenders,
         retaliation: vec![],
         exchanges: Vec::new(),
-        can_block: options
+        can_block: ordered_options
             .iter()
-            .map(|o| {
+            .map(|(o, _)| {
                 ids.iter().enumerate().fold(0, |mask, (i, id)| {
                     mask | if o.attackers.contains(id) { 1 << i } else { 0 }
                 })
@@ -859,8 +865,12 @@ pub fn blockers(
     reply.visit(0, balance);
     let mut result = Vec::new();
     for (i, &id) in ids.iter().enumerate() {
-        for (j, option) in options.iter().enumerate() {
-            if reply.best_groups[i] & (1 << j) != 0 {
+        for option in options {
+            if ordered_options
+                .iter()
+                .position(|(o, _)| o.blocker == option.blocker)
+                .is_some_and(|j| reply.best_groups[i] & (1 << j) != 0)
+            {
                 result.push((option.blocker, id));
             }
         }

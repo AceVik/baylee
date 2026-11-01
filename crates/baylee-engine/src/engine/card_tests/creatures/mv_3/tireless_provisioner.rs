@@ -59,3 +59,36 @@ fn tireless_provisioner_creates_treasure_token_on_landfall() {
         "token has artifact type"
     );
 }
+
+/// Report 01a162d1: a land played from the graveyard is still a land entering
+/// under its controller, and mode 0 makes exactly one Food.
+#[test]
+fn tireless_provisioner_makes_food_for_a_land_played_from_the_graveyard() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(0, &[tireless_provisioner(), ramunap_excavator()])
+        .hand(0, &[forest()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let forest = hand_to_graveyard(&mut engine, p0, forest());
+
+    engine
+        .apply(p0, PlayerAction::PlayLand { card: forest })
+        .unwrap();
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCastMode { .. })
+    });
+    engine.apply(p0, PlayerAction::ChooseMode(0)).unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let tokens = tokens_of(&engine, p0);
+    assert_eq!(tokens.len(), 1, "the graveyard landfall makes one token");
+    let token = engine
+        .state()
+        .object(tokens[0])
+        .and_then(|object| object.token)
+        .expect("the created artifact token");
+    assert_eq!(token.name, "Food");
+    assert!(token.types.contains(TypeSet::ARTIFACT));
+}

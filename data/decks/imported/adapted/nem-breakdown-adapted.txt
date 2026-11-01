@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/NEM/breakdown.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Breakdown_NEM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Breakdown (Adapted)]
+4 Auroral Procession
+1 Commander's Insight
+1 Dehydration
+4 Double Major
+1 Eldritch Evolution
+1 False Demise
+10 Forest
+2 Frantic Search
+2 Hickory Woodlot
+4 Hydroform
+10 Island
+4 Neoform
+2 Revive
+2 Saprazzan Skerry
+1 Seal of Removal
+1 Seal of Strength
+4 Square Up
+2 Stronghold Zeppelin
+1 Vine Trellis
+3 Waterfront Bouncer

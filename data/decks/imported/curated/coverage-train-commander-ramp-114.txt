@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp BR #20266115]
+1 Akki War Paint
+1 Akoum Refuge
+1 Anurid Murkdiver
+1 Batterhorn
+1 Billiard Room
+1 Blockbuster
+1 Bogstomper
+1 Brimstone Dragon
+1 Bronze Walrus
+1 Canyon Slough
+1 Catacomb Dragon
+1 Caustic Crawler
+1 Clinging Darkness
+1 Crown of Flames
+1 Cursed Flesh
+1 Dragon Tyrant
+1 Dragon's Desire
+1 Dragonskull Summit
+1 Fire-Rim Form
+1 Flameborn Viron
+1 Flayer Drone
+1 Flowstone Mauler
+1 Foreboding Ruins
+1 Forgeborn Oreads
+1 Fíli and Kíli, Joyous
+1 Geosurge
+1 Goblin-town
+1 Hellkite Igniter
+1 Hellkite Punisher
+1 Helm of Awakening
+1 Immersturm Skullcairn
+1 Jagged Barrens
+1 Jet Medallion
+1 Kolaghan Monument
+1 Kuro, Pitlord
+1 Lay Waste
+1 Limestone Golem
+1 Lost Legion
+1 Lotus Petal
+1 Master of the Feast
+1 Messenger's Speed
+1 Monstrous Carabid
+17 Mountain
+1 Oasis Gardener
+1 Ogre Arsonist
+1 Oni of Wild Places
+1 Oread of Mountain's Blaze
+1 Pili-Pala
+1 Pyrogoyf
+1 Rakdos Carnarium
+1 Razortrap Gorge
+1 Scepter of Fugue
+1 Sensei's Divining Top
+1 Sheoldred
+1 Shocker
+1 Sire of Insanity
+1 Skorpekh Destroyer
+1 Slinking Skirge
+1 Smoldering Marsh
+1 Spire Mangler
+1 Sulfurous Mire
+9 Swamp
+1 Tahngarth's Rage
+1 Tainted Well
+1 Temple of Malice
+1 Tenement Crasher
+1 Tramway Station
+1 Tsabo Tavoc
+1 Urborg Volcano
+1 Vault Skirge
+1 Vector, Imperial Capital
+1 Venomcrawler
+1 Vermiculos
+1 Weakness
+1 World Map
+
+[commander]
+Lady Orca

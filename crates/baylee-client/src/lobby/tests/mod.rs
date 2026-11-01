@@ -12,6 +12,8 @@
 
 mod builder;
 mod builder_wp4;
+#[cfg(not(target_arch = "wasm32"))]
+mod central_door;
 mod decks_visit;
 mod end_screen;
 mod entrance;
@@ -25,12 +27,14 @@ mod header;
 mod invites;
 mod perf;
 mod printings;
+mod remembrance;
 mod report;
 mod settings;
 mod shortcuts;
 #[cfg(not(target_arch = "wasm32"))]
 mod shutdown;
 mod sign_in;
+mod table_settings;
 mod tables;
 mod transfer;
 

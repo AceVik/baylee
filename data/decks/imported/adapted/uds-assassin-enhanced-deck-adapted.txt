@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/UDS/assassin-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AssassinEnhancedDeck_UDS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Assassin - Enhanced Deck (Adapted)]
+1 Assassinate
+4 Bone Shredder
+2 Claws of Gix
+4 Dark Ritual
+2 Dauthi Voidwalker
+1 Despoil
+4 Duress
+1 Harrowing Journey
+2 Mobile Fort
+1 Nightmare
+4 Order of Yawgmoth
+4 Polluted Mire
+4 Ravenous Rats
+2 Risky Shortcut
+3 Stalking Stones
+4 Stupor
+14 Swamp
+1 Vampiric Tutor
+1 Volrath's Stronghold
+1 Wheel of Torture

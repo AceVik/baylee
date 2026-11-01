@@ -95,9 +95,9 @@ pub use localrecord::{
 pub use refs::{Candidates, CardRef, PlayerRef, Refs};
 pub use route::{
     DEVICE_ID_CHARS, DIRECT_PATH, DirectSubmission, MAX_DIRECT_CLIENT_BYTES, Route, device_id,
-    feedback_service, is_device_id, kept_device_id, route,
+    feedback_service, is_device_id, kept_device_id, report_address, route,
 };
-pub use seatlog::{LogRow, RosterSeat, SeatLog, seat_log};
+pub use seatlog::{LogRow, Placeholders, RosterSeat, SeatLog, seat_log, seat_log_with};
 
 /// The shortest string [`seal`] will search for.
 ///

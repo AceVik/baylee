@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/M11/reign-of-vampirism.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ReignOfVampirism_M11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Reign of Vampirism (Adapted)]
+3 Barony Vampire
+3 Bloodthrone Vampire
+3 Carrion Feeder
+3 Child of Night
+2 Corrupt
+1 Cultivate
+2 Diabolic Tutor
+2 Doom Blade
+9 Forest
+4 Gaze of Granite
+1 Giant Growth
+1 Giant Spider
+2 Howling Banshee
+4 Maelstrom Pulse
+1 Nature's Spiral
+1 Plummet
+1 Royal Assassin
+1 Spined Wurm
+16 Swamp

@@ -12,6 +12,8 @@ use super::*;
 /// are defined and handled beside the screen that draws them.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Press {
+    /// Baylee's local photograph album.
+    Memorial(super::memorial::MemorialPress),
     /// The front door.
     Front(FrontPress),
     /// The signed-in hub.
@@ -113,6 +115,20 @@ impl SharedPress {
             // An empty part of the artwork dialog dismisses its set
             // autocomplete.
             SharedPress::PickerNothing => state.lobby.builder_mut().picker_close_sets(),
+            // A link's gateway, said yes to: asked about itself as a typed
+            // address is, and saved only when a gateway answers.
+            SharedPress::ConfirmDestructive
+                if matches!(
+                    state.confirmation,
+                    Some(confirm::Destructive::AddGateway(_))
+                ) =>
+            {
+                if let Some(confirm::Destructive::AddGateway(url)) = state.confirmation.take()
+                    && let Some(url) = state.ask_gateway(url)
+                {
+                    http::probe_gateway(url, mailbox);
+                }
+            }
             SharedPress::ConfirmDestructive
                 if matches!(state.confirmation, Some(confirm::Destructive::SignOutGuest)) =>
             {
@@ -151,6 +167,7 @@ impl SharedPress {
 /// focused control (`focusing`), a shell key (`shortcuts`).
 pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
     match press {
+        Press::Memorial(press) => press.handle(cx),
         Press::Front(press) => press.handle(cx),
         Press::Hub(press) => press.handle(cx),
         Press::Library(press) => press.handle(cx),

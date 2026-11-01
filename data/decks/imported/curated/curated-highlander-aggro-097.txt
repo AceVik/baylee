@@ -1,0 +1,82 @@
+# baylee curated highlander aggro seed=20261120
+# licence: AGPL-3.0-only
+[deck:highlander aggro BRG #20261120]
+1 Abstergo Entertainment
+1 Acolyte of Xathrid
+1 Appendage Amalgam
+1 Arms Dealer
+1 Barrage of Expendables
+1 Baxter Building
+1 Black Waltz No. 3
+1 Boggart Cursecrafter
+1 Burning Earth
+1 Callous Inspector
+1 Carnival of Souls
+1 City of Brass
+1 Contaminated Ground
+1 Crimson Kobolds
+1 Death Watch
+1 Deathcurse Ogre
+1 Deathrite Shaman
+1 Dragonmaster Outcast
+1 Dross Harvester
+1 Elves of Deep Shadow
+1 Fanatical Firebrand
+1 Fastbond
+1 Footlight Fiend
+7 Forest
+1 Gimli, Counter of Kills
+1 Goblin Arsonist
+1 Goblin Bombardment
+1 Goblin Sledder
+1 Golgari Guildmage
+1 Grasping Longneck
+1 Great Hall of the Biblioplex
+1 Guildmages' Forum
+1 Havoc
+1 Hidden Grotto
+1 Holdout Settlement
+1 Impact Tremors
+1 Judith, the Scourge Diva
+1 Jund Battlemage
+1 Kobolds of Kher Keep
+1 Kris Mage
+1 Lampad of Death's Vigil
+1 Lotus Vale
+1 Madame Hydra
+1 Marionette Apprentice
+1 Merciless Enforcers
+1 Mintstrosity
+1 Mogg Fanatic
+1 Molting Skin
+1 Monsoon
+6 Mountain
+1 Mudbutton Torchrunner
+1 Munitions Enthusiast
+1 Omen of the Dead
+1 Orcish Bloodpainter
+1 Orcish Vandal
+1 Phyrexian Arena
+1 Phyrexian Reclamation
+1 Pillar of the Paruns
+1 Pitchburn Devils
+1 Prodigal Pyromancer
+1 Sardian Avenger
+1 Scald
+1 Seal of Fire
+1 Secluded Courtyard
+1 Sell-Sword Brute
+1 Shimmering Grotto
+1 Skyway Sniper
+1 Slimefoot, the Stowaway
+1 Spear Spewer
+1 Springjack Pasture
+1 Stormbind
+1 Stormfist Crusader
+1 Study Hall
+11 Swamp
+1 Talon Gates of Madara
+1 War-Torch Goblin
+1 Warp Artifact
+1 World Shaper
+1 Zulaport Cutthroat

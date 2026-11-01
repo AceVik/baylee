@@ -87,13 +87,13 @@ fn batch47_power_artifact_floor_does_not_limit_an_independent_later_reduction() 
         parts: &[],
     };
     assert_eq!(
-        e.activation_price(P0, artifact, &raw, None)
+        e.activation_price(P0, artifact, 0, &raw, None)
             .mana
             .generic_total(),
         1
     );
     assert_eq!(
-        e.activation_price(P0, artifact, &raw, reduction)
+        e.activation_price(P0, artifact, 0, &raw, reduction)
             .mana
             .generic_total(),
         0,
@@ -109,7 +109,7 @@ fn batch47_power_artifact_floor_does_not_limit_an_independent_later_reduction() 
         )
         .unwrap();
     assert_eq!(
-        e.activation_price(P0, artifact, &raw, reduction)
+        e.activation_price(P0, artifact, 0, &raw, reduction)
             .mana
             .generic_total(),
         2,

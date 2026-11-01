@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/APC/whirlpool.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Whirlpool_APC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Whirlpool (Adapted)]
+2 Bloodfire Dwarf
+2 Bloodfire Kavu
+4 Broadside Barrage
+2 Chromatic Sphere
+1 Coastal Drake
+1 Exclude
+4 Fire
+1 Flametongue Kavu
+4 Invoke the Firemind
+12 Island
+4 Izzet Charm
+1 Metathran Transport
+12 Mountain
+1 Opt
+2 Razorfin Hunter
+4 Rush of Inspiration
+2 Stun
+1 Traumatic Critique

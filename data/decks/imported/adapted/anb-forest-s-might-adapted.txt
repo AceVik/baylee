@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/ANB/forest-s-might.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ForestSMight_ANB.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Forest's Might (Adapted)]
+2 Aggressive Mammoth
+3 Barkhide Troll
+3 Bridgeworks Battle
+1 Chord of Calling
+25 Forest
+3 Giant Growth
+4 Greenwood Sentinel
+1 Growth Spasm
+4 Khalni Ambush
+1 Meteor Golem
+3 Silverback Shaman
+1 Spoils of Victory
+3 Stampede
+4 They Went This Way
+2 Tranquility

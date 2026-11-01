@@ -8,6 +8,8 @@ pub enum PlayWindow {
     ThisTurn,
     /// Expires as the benefiting player's next turn starts.
     UntilYourNextTurn,
+    /// Expires as the benefiting player's next actual upkeep begins.
+    UntilYourNextUpkeep,
     /// Expires in the cleanup step of that player's next turn.
     ThroughYourNextTurn,
 }

@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/BFZ/swarming-instinct.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SwarmingInstinct_BFZ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Swarming Instinct (Adapted)]
+3 Auroral Procession
+1 Blighted Cataract
+3 Blisterpod
+1 Brood Monitor
+3 Call the Scions
+2 Double Major
+1 Drowner of Hope
+2 Evolving Wilds
+2 Eyeless Watcher
+11 Forest
+2 Hedron Archive
+1 Hydroform
+10 Island
+2 Kozilek's Channeler
+4 Neoform
+2 Scour from Existence
+2 Skyline Cascade
+2 Tide Drifter
+3 Windrider Eel
+3 Wing Commando

@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/SNC/angelic-accountants.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AngelicAccountants_SNC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Angelic Accountants (Adapted)]
+4 Absorb
+4 Daring Leap
+1 Deserted Beach
+4 Dramatic Rescue
+4 Energy Arc
+9 Island
+4 Offering to Asha
+4 Ojutai's Command
+2 Overrule
+9 Plains
+2 Skybridge Towers
+4 Sphinx's Revelation
+3 Supreme Verdict
+4 Tranquil Cove
+2 Valorous Stance

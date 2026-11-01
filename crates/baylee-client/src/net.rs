@@ -335,6 +335,11 @@ pub struct NetworkHost {
     /// close behind it, and never cleared, so [`DuelHost::link`] never shows
     /// the retry schedule a closed socket it could redial.
     refused: Option<u32>,
+    /// Dials since the socket was last open whose ticket the gateway
+    /// refused (`401`): the seat token no longer admits this client. Read by
+    /// the reconnect schedule for what it says when it runs out
+    /// (`reconnect::gave_up`).
+    ticket_refusals: u32,
     clock: clock::Clock,
     clock_origin: web_time::Instant,
     next_probe: u64,
@@ -379,6 +384,7 @@ impl NetworkHost {
             },
             pending_out: Vec::new(),
             refused: None,
+            ticket_refusals: 0,
             clock: clock::Clock::default(),
             clock_origin: web_time::Instant::now(),
             next_probe: 0,
@@ -478,10 +484,23 @@ impl NetworkHost {
                     return;
                 }
                 // A seat token the gateway no longer takes is a chair that is
-                // not this client's any more; to the player it is the same
-                // link that will not come back as a refused upgrade was
-                // before #294, and the reconnect schedule says so.
-                Step::Unauthorized | Step::GiveUp => {
+                // not this client's any more, or a check the gateway could
+                // not make (it answers a failed Central check `401` too); to
+                // the player it is the same link that will not come back as
+                // a refused upgrade was before #294, and the reconnect
+                // schedule dials on. Counted, and said in the log, so that
+                // the schedule can tell a sign-in that ended from an outage
+                // when it runs out, and a report can show which it was.
+                Step::Unauthorized => {
+                    self.ticket_refusals = self.ticket_refusals.saturating_add(1);
+                    bevy::log::warn!(
+                        refusals = self.ticket_refusals,
+                        "the gateway refused this seat's socket ticket (401)"
+                    );
+                    self.connection.observe(&WsEvent::Error("no socket".into()));
+                    return;
+                }
+                Step::GiveUp => {
                     self.connection.observe(&WsEvent::Error("no socket".into()));
                     return;
                 }
@@ -606,7 +625,10 @@ impl DuelHost for NetworkHost {
         };
         for event in events {
             match &event {
-                WsEvent::Opened => self.dial.opened(),
+                WsEvent::Opened => {
+                    self.dial.opened();
+                    self.ticket_refusals = 0;
+                }
                 WsEvent::Error(_) | WsEvent::Closed if self.dial.in_flight() => {
                     // Refused before it opened: most likely a ticket that
                     // expired or was spent. A fresh one, silently, while the
@@ -746,6 +768,10 @@ impl DuelHost for NetworkHost {
             (true, true) => LinkState::Connecting,
             (true, false) => LinkState::Down,
         }
+    }
+
+    fn ticket_refusals(&self) -> u32 {
+        self.ticket_refusals
     }
 
     fn reconnect(&mut self) -> Result<(), String> {

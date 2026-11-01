@@ -1,0 +1,22 @@
+# baylee curated constructed control seed=20261125
+# licence: AGPL-3.0-only
+[deck:constructed control UG #20261125]
+1 A Realm Reborn
+1 Aether Hub
+2 Cavern of Souls
+3 Eidolon of Blossoms
+2 Eidolon of Philosophy
+5 Forest
+4 Ior Ruin Expedition
+11 Island
+4 Kavu Lair
+4 Maddening Wind
+2 Mana Crypt
+4 Power Taint
+1 Rumble Arena
+4 Spectral Sailor
+3 Study Hall
+4 Treasure Trove
+2 Underdome
+2 Virtue of Knowledge
+1 Waterlogged Grove

@@ -186,6 +186,7 @@ impl
             context: RuleContext {
                 source,
                 text: crate::text_changes::TextChangeMap::IDENTITY,
+                resolved_name: None,
                 reference: None,
             },
             source_version: None,

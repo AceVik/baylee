@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/M19/forest-s-might.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ForestSMight_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Forest's Might (Adapted)]
+1 Aggressive Mammoth
+1 An-Havva Inn
+2 Blanchwood Armor
+3 Centaur Courser
+3 Chord of Calling
+2 Crushing Canopy
+2 Druid of the Cowl
+1 Fade into Antiquity
+25 Forest
+1 Gigantosaurus
+2 Greenwood Sentinel
+3 Highland Game
+3 Khalni Ambush
+2 Llanowar Elves
+1 Meteor Golem
+2 Plummet
+1 Prodigious Growth
+3 Titanic Growth
+2 Vigilant Baloth

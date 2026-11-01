@@ -1,0 +1,15 @@
+# adapted from data/decks/precon/Q06/mono-red-burn.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MonoRedBurn_Q06.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Mono-Red Burn (Adapted)]
+4 Acidic Soil
+4 Breath Weapon
+4 Brotherhood's End
+4 Improvised Weaponry
+4 Lightning Strike
+4 Make Mischief
+4 Monastery Swiftspear
+16 Mountain
+4 Open Fire
+4 Ramunap Ruins
+4 Seismic Rupture
+4 Stone Rain

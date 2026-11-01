@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/DTK/furious-forces.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FuriousForces_DTK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Furious Forces (Adapted)]
+1 Atarka Monument
+1 Berserkers' Onslaught
+4 Colossal Might
+1 Dragon Fodder
+1 Dragonloft Idol
+1 Evolving Wilds
+12 Forest
+4 Ground Assault
+4 Manamorphose
+12 Mountain
+2 Rishkar, Peema Renegade
+1 Roast
+4 Savage Twister
+1 Scion of Ugin
+1 Seismic Rupture
+4 Stump Stomp
+1 Summit Prowler
+4 Surge of Strength
+1 Tread Upon

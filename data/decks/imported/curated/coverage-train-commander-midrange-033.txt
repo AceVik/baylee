@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WG #20266034]
+1 Absolute Grace
+1 Absolute Law
+1 Arboria
+1 Arctic Flats
+1 Arctic Treeline
+1 Awakening
+1 Barbed Foliage
+1 Birnin Zana Plaza
+1 Black Ward
+1 Blue Ward
+1 Botanical Plaza
+1 Bower Passage
+1 Bretagard Stronghold
+1 Broken Fall
+1 Burden of Guilt
+1 Call of the Wild
+1 Canopy Vista
+1 Choke
+1 Circle of Protection: Shadow
+1 Command Beacon
+1 Conservatory
+1 Conversion
+1 Crackdown
+1 Crisis of Conscience
+1 Damping Field
+1 Day of Destiny
+1 Deadfall
+1 Dense Canopy
+1 Dense Foliage
+1 Dryad of the Ilysian Grove
+1 Earthcraft
+1 Eidolon of Inspiration
+1 Eidolon of Rhetoric
+1 Elven Fortress
+1 Ephara's Radiance
+1 Etched Cornfield
+1 Fear of Surveillance
+11 Forest
+1 Fortified Village
+1 Golden-Tail Disciple
+1 Gossamer Chains
+1 Great Wall
+1 High Ground
+1 Humility
+1 Ifh-Bíff Efreet
+1 Island Sanctuary
+1 Karma
+1 Kindercatch
+1 Kjeldoran Frostbeast
+1 Living Plane
+1 Lucent Liminid
+1 Mantle of Leadership
+1 Might of the Ancestors
+1 Molting Skin
+1 Nettletooth Djinn
+1 Noble Steeds
+1 Nyxborn Courser
+14 Plains
+1 Powerleech
+1 Radiant Grove
+1 Restless Prairie
+1 Retaliation
+1 Righteous Aura
+1 Rolling Stones
+1 Root Cage
+1 Rule of Law
+1 Safeguard
+1 Seeker
+1 Song of Serenity
+1 Sunpetal Grove
+1 Temple of Plenty
+1 Tranquil Grove
+1 Unlikely Alliance
+1 Venerable Lammasu
+1 Walk-In Closet
+1 Windurst, Federation Center
+
+[commander]
+Jasmine Boreal

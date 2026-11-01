@@ -1,0 +1,81 @@
+# baylee curated highlander midrange seed=20261027
+# licence: AGPL-3.0-only
+[deck:highlander midrange UBR #20261027]
+1 Ally Encampment
+1 Ancestral Vision
+1 Audacious Thief
+1 Baxter Building
+1 Blightspeaker
+1 Callous Inspector
+1 Capital City
+1 Castle Sengir
+1 City of Brass
+1 Crosis's Catacombs
+1 Disciple of the Vault
+1 Dismissive Pyromancer
+1 Dragon's Rage Channeler
+1 Ember Shot
+1 Embersmith
+1 Etherium Spinner
+1 Experimental Aviator
+1 Fire Nation Archers
+1 Firebrand Archer
+1 Firemind's Research
+1 Flame Jet
+1 Flare
+1 Funeral Rites
+1 Gemstone Mine
+1 Greedy Freebooter
+1 Grim Tutor
+1 Heap Gate
+1 Henge of Ramos
+1 Holdout Settlement
+1 Imperial Seal
+1 Improvised Weaponry
+1 Iron Man, Tony Stark
+5 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Jasmine Dragon Tea Shop
+1 Jeskai Sage
+1 Jhessian Thief
+1 Judith, the Scourge Diva
+1 Kamahl, Pit Fighter
+1 Kessig Flamebreather
+1 Lim-Dûl's Paladin
+1 Lunar Mystic
+1 Madame Hydra
+1 Mai, Scornful Striker
+1 Malakir Rebirth
+1 Marionette Apprentice
+1 Mirrodin's Core
+1 Mistfire Adept
+10 Mountain
+1 Murasa Pyromancer
+1 Murmuring Mystic
+1 Opportunist
+1 Pia and Kiran Nalaar
+1 Playful Shove
+1 Pointed Discussion
+1 Pondering Mage
+1 Profane Tutor
+1 Reclusive Artificer
+1 Risky Shortcut
+1 Rockslide Sorcerer
+1 Rumble Arena
+1 Seething Landscape
+1 Sengir Autocrat
+1 Skirsdag Cultist
+1 Spark Spray
+1 Sparkmage Apprentice
+1 Stormfist Crusader
+1 Sunset Strikemaster
+10 Swamp
+1 Sweettooth Witch
+1 Tarnished Citadel
+1 The Immortal Weapons
+1 Tor Wauki
+1 Ultimecia, Temporal Threat
+1 Vampiric Tutor
+1 Vault Plunderer
+1 Weaver of Lightning
+1 Zuko, Avatar Hunter

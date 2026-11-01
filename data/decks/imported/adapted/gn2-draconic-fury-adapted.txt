@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/GN2/draconic-fury.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DraconicFury_GN2.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Draconic Fury (Adapted)]
+1 Arc Lightning
+1 Bombard
+1 Brute Strength
+2 Dragon Egg
+1 Dragon Mage
+1 Evaporate
+1 Fateful End
+4 Flare
+1 Goblin Offensive
+2 Goblin Smuggler
+1 Hammer of Bogardan
+2 Kargan Dragonrider
+2 Lightning Strike
+1 Make Mischief
+1 Molten Blast
+26 Mountain
+2 Ripscale Predator
+4 Seismic Rupture
+1 Shock
+1 Sizzle
+1 Start from Scratch
+1 Sundering Eruption
+2 Vampires' Vengeance

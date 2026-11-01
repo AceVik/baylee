@@ -1,0 +1,83 @@
+# baylee curated commander aggro seed=20261085
+# licence: AGPL-3.0-only
+[deck:commander aggro WU #20261085]
+1 Aang's Defense
+1 Abstergo Entertainment
+1 Adarkar Wastes
+1 Agent of Atlas
+1 Ancestral Vision
+1 Auspicious Ancestor
+1 Aven Wind Mage
+1 Cavern of Souls
+1 Censor
+1 Chain to Memory
+1 Condescend
+1 Customs Depot
+1 Daily Bugle Building
+1 Dazzling Lights
+1 Defiant Strike
+1 Disrupt
+1 Dragon Bell Monk
+1 Drowner Initiate
+1 Elementalist Adept
+1 Elusive Spellfist
+1 Etherium Spinner
+1 Experimental Aviator
+1 Eyes of the Watcher
+1 Fleeting Distraction
+1 Gallant Strike
+1 Great Hall of the Citadel
+1 Guardian of Solitude
+1 Hall of Oracles
+1 Hallowed Fountain
+1 Hamato Guardian Stance
+1 Hesitation
+1 Hidden Grotto
+1 Iron Will
+14 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Jeskai Student
+1 Kor Firewalker
+1 Kulrath Mystic
+1 Lake-town Lookout
+1 Lazotep Quarry
+1 Lost in a Labyrinth
+1 Mana Vortex
+1 Merrow Reejerey
+1 Miscalculation
+1 Mistfire Adept
+1 Monastery Mentor
+1 Moorland Haunt
+1 Myrsmith
+1 Mystic Remora
+1 Opal Caryatid
+1 Opal Gargoyle
+1 Pact of Negation
+10 Plains
+1 Ponder
+1 Presence of the Master
+1 School of the Unseen
+1 Seeker of the Way
+1 Skycloud Expanse
+1 Sram, Senior Edificer
+1 Stand Firm
+1 Stormkeld Prowler
+1 Student of Ojutai
+1 TVA Bureaucrat
+1 Talrand, Sky Summoner
+1 The Mechanist, Aerial Artisan
+1 The Mycosynth Gardens
+1 Thistledown Duo
+1 Three Steps Ahead
+1 Tura Kennerüd, Skyknight
+1 Umara Entangler
+1 Undiscovered Paradise
+1 Vedalken Archmage
+1 Veil of Birds
+1 Veiled Sentry
+1 Whirlwind Adept
+1 Wing Commando
+1 Worthy Knight
+
+[commander]
+Absolute Virtue

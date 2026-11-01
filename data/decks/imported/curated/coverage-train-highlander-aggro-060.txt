@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro WUBRG #20266061]
+1 Ana Disciple
+1 Armorer Guildmage
+1 Azorius First-Wing
+1 Bloodied Ghost
+1 Bountiful Landscape
+1 Cat-Owl
+1 Cave of Temptation
+1 Cloudheath Drake
+1 Creeping Trailblazer
+1 Damn
+1 Darklit Gargoyle
+1 Deceptive Landscape
+1 Dega Disciple
+1 Deity of Scars
+1 Duskwatch Hunter
+1 Esper Cormorants
+1 Fatehold Chronologist
+9 Forest
+1 Foxfire Oak
+1 Fulminator Mage
+1 Fusion Elemental
+1 Gaea's Skyfolk
+1 Goblin Deathraiders
+1 Grizzly Ghoul
+1 Hazerider Drake
+1 Hobgoblin Dragoon
+1 Indatha Triome
+1 Inspirit, Flagship Vessel
+6 Island
+1 Keldon Mantle
+1 Ketria Triome
+1 Lightning Stormkin
+1 Lotleth Troll
+1 Mantis Rider
+1 Moldering Karok
+1 Murmuring Bosk
+1 Mystic Monastery
+1 Needlethorn Drake
+1 Nightscape Master
+1 Nomad Outpost
+1 Obelisk of Bant
+1 Obelisk of Naya
+1 Obscura Initiate
+1 Perilous Landscape
+1 Pestilent Kathari
+1 Plumeveil
+1 Profane Procession
+1 Raka Disciple
+1 Rakdos Trumpeter
+1 Raugrin Triome
+1 Relic's Roar
+1 Sangrite Backlash
+1 Savai Triome
+1 Scapegoat
+1 Seafloor Debris
+1 Seedpod Squire
+1 Sewn-Eye Drake
+1 Shadow Lance
+1 Shaper Guildmage
+1 Shattered Landscape
+1 Shinechaser
+1 Soulherder
+1 Stenchskipper
+1 Suture Spirit
+9 Swamp
+1 Talon Trooper
+1 Talonrend
+1 Tattered Drake
+1 Tattermunge Maniac
+1 Tempest Drake
+1 Torch Drake
+1 Tournament Grounds
+1 Tower Drake
+1 Twining Twins
+1 Ulrich's Kindred
+1 Vassal Soul
+1 Venomthrope
+1 Wasp Lancer
+1 Windreaper Falcon

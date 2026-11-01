@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/ANB/angelic-army-2.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AngelicArmy2_ANB.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Angelic Army 2 (Adapted)]
+1 Angelic Reward
+4 Bring to Trial
+1 Cleansing
+1 Expose to Daylight
+3 Fencing Ace
+4 Healing Hands
+3 Impassioned Orator
+2 Inspiring Commander
+1 Make Your Move
+1 Midnight Haunting
+3 Moment of Heroism
+4 Pacifism
+25 Plains
+2 Serra Angel
+2 Serra's Guardian
+3 Sworn Companions

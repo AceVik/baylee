@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/WC97/janosch-kuhn-red-white-blue-speed-control.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JanoschKühnRedWhiteBlueSpeedControl_WC97.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Janosch Kühn - Red-White-Blue Speed Control (Adapted)]
+1 City of Brass
+4 Counterspell
+2 Disenchant
+2 Disintegrate
+3 Fend Off
+4 Force of Will
+4 Frenetic Efreet
+2 Hammer of Bogardan
+4 Impulse
+4 Iroh's Demonstration
+6 Island
+6 Mountain
+1 Pillage
+4 Plains
+4 Swords to Plowshares
+4 Thawing Glaciers
+1 Undiscovered Paradise
+4 Wildfire Emissary

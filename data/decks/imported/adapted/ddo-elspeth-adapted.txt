@@ -1,0 +1,32 @@
+# adapted from data/decks/precon/DDO/elspeth.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Elspeth_DDO.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Elspeth (Adapted)]
+1 Afterlife
+1 Army of Allah
+1 Bring to Trial
+1 Captain of the Watch
+1 Court Street Denizen
+1 Dictate of Heliod
+1 Dragon's Presence
+2 Hive Stirrings
+1 Hop to It
+2 Icatian Javelineers
+1 Ironwright's Cleansing
+2 King of the Pride
+2 Kinsbaile Skirmisher
+1 Kor Skyfisher
+1 Mighty Leap
+1 Mortal's Ardor
+1 Mother of Runes
+22 Plains
+1 Queen's Commission
+2 Raise the Alarm
+1 Repentance
+1 Sandblast
+2 Secluded Steppe
+3 Split Up
+1 Standing Troops
+2 Sunlance
+1 Survive the Night
+2 Veteran Armorsmith
+1 Worthy Knight

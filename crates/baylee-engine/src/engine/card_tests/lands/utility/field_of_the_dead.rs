@@ -86,3 +86,85 @@ fn field_of_the_dead_makes_nothing_while_two_lands_share_a_name() {
         "seven lands but six names: no Zombie"
     );
 }
+
+/// Report 01a16cca: two lands entering together after six distinct names
+/// each see the condition independently, so both make a Zombie.
+#[test]
+fn field_of_the_dead_triggers_for_both_lands_arriving_together() {
+    use baylee_core::generated::index;
+
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, forest())
+        .battlefield(
+            0,
+            &[
+                forest(),
+                tropical_island(),
+                island(),
+                swamp(),
+                mountain(),
+                field_of_the_dead(),
+                index::MOX_EMERALD,
+            ],
+        )
+        .hand(
+            0,
+            &[
+                primeval_titan(),
+                gaea_s_cradle(),
+                yavimaya_cradle_of_growth(),
+            ],
+        )
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+    let cradle = hand_to_library_top(&mut engine, p0, gaea_s_cradle());
+    let yavimaya = hand_to_library_top(&mut engine, p0, yavimaya_cradle_of_growth());
+
+    let spell = in_hand(&engine, p0, primeval_titan()).expect("the Titan is in hand");
+    let pending = engine.pending().clone();
+    assert!(
+        matches!(pending, Pending::Priority { ref legal, .. } if legal.payable.contains(&spell)),
+        "the Titan is payable before tapping: {pending:?}, pool {:?}",
+        engine.state().players[0].mana_pool
+    );
+    tap_all_mana(&mut engine, p0);
+    let pending = engine.pending().clone();
+    assert!(
+        matches!(pending, Pending::Priority { ref legal, .. } if legal.castable.contains(&spell)),
+        "the Titan is castable after tapping: {pending:?}, pool {:?}",
+        engine.state().players[0].mana_pool
+    );
+    cast_with_floating(&mut engine, p0, primeval_titan());
+    pass_until(&mut engine, |e| {
+        matches!(e.pending(), Pending::ChooseCards { .. })
+    });
+    let Pending::ChooseCards { options, max, .. } = engine.pending().clone() else {
+        unreachable!("the Titan's search is the only card choice here")
+    };
+    assert_eq!(max, 2);
+    assert!(
+        options.contains(&cradle),
+        "the Cradle is offered: {options:?}"
+    );
+    assert!(
+        options.contains(&yavimaya),
+        "Yavimaya is offered: {options:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![cradle, yavimaya],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    assert_eq!(lands_of(&engine, p0).len(), 8);
+    assert_eq!(
+        tokens_of(&engine, p0).len(),
+        2,
+        "both newly arrived lands have seven or more distinct names"
+    );
+}

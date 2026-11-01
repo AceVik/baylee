@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/UDS/assassin.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Assassin_UDS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Assassin (Adapted)]
+1 Body Snatcher
+1 Bone Shredder
+2 Dark Ritual
+1 Despoil
+1 Despondency
+2 Disease Carriers
+2 Duress
+1 Dying Wail
+1 Engineered Plague
+1 Festering Wound
+1 Harrowing Journey
+2 Icequake
+1 Krovikan Plague
+2 Looming Shade
+1 Mantis Engine
+2 Order of Yawgmoth
+1 Ostracize
+4 Polluted Mire
+4 Ravenous Rats
+2 Risky Shortcut
+1 Sanguine Guard
+2 Sicken
+2 Slinking Skirge
+1 Spawning Pool
+1 Spin Out
+2 Squirming Mass
+16 Swamp
+2 Unnerve

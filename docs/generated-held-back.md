@@ -34,4 +34,5 @@ never a reason to edit a card by hand.
 ## Identity clashes
 
 - Pestbrood Sloth, Send in the Pest: a second `PEST_1_1_BLACK_GREEN` token (with an attack trigger) beside the pool's one.
+- Drudge Spell: a second `SKELETON_1_1_BLACK` token (`b_1_1_skeleton_regenerate`, with `{B}: Regenerate this creature`) beside the pool's plain `SKELETON_1_1_BLACK` (`b_1_1_skeleton`).
 - The 24 Alchemy rebalanced cards land on the paper card's file path: `A-Sepulcher Ghoul`, `A-Blood Artist`, `A-Canopy Tactician`, `A-Elderleaf Mentor`, `A-Skemfar Avenger`, `A-Rockslide Sorcerer`, `A-Umara Mystic`, `A-Dragonborn Looter`, `A-Eyes of the Beholder`, `A-Goggles of Night`, `A-Pseudodragon Familiar`, `A-Celebrity Fencer`, `A-Glittermonger`, `A-Jackhammer`, `A-Midnight Assassin`, `A-Most Wanted`, `A-Ominous Parcel`, `A-Riveteers Initiate`, `A-Social Climber`, `A-Speakeasy Server`, `A-Stimulus Package`, `A-Haywire Mite`, `A-The One Ring`, `A-Mightstone's Animation`.

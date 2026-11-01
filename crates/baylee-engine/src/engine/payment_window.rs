@@ -108,9 +108,18 @@ impl<L: CardLookup> Engine<L> {
     /// is the shape of bug this workspace runs its test suite in release to
     /// catch.
     pub(super) fn can_settle_tax(&self, res: &crate::resolve::Resolution) -> bool {
-        match res.awaiting {
-            Some(crate::resolve::AwaitingOp::PlayerMayPay { player, cost, .. }) => {
-                self.can_pay_mana(player, resolve::payment_for(&self.state, res), &cost)
+        match &res.awaiting {
+            Some(crate::resolve::AwaitingOp::PlayerMayPay {
+                player,
+                cost,
+                outcome,
+            }) => {
+                let life = match outcome {
+                    resolve::ManaPaymentOutcome::ManaAndLife { life, .. } => *life,
+                    _ => 0,
+                };
+                resolve::mana_life_payment::life_payable(&self.state, *player, life)
+                    && self.can_pay_mana(*player, resolve::payment_for(&self.state, res), cost)
             }
             _ => false,
         }
@@ -165,7 +174,7 @@ impl<L: CardLookup> Engine<L> {
         let Some(window) = self.mana_window.take() else {
             return Ok(WindowClose::Open);
         };
-        let mut res = match window.suspended {
+        let res = match window.suspended {
             PaymentContinuation::LandMana(work) => {
                 self.mana_window = Some(PaymentWindow {
                     player: window.player,
@@ -207,6 +216,15 @@ impl<L: CardLookup> Engine<L> {
                 let paid = self.settle_attack_tax(window.player, attackers, &opened);
                 return Ok(WindowClose::settled(paid));
             }
+            PaymentContinuation::BlockTax {
+                defending,
+                blockers,
+                opened,
+                ..
+            } => {
+                let paid = self.settle_block_tax(defending, &blockers, &opened);
+                return Ok(WindowClose::settled(paid));
+            }
             // The cast pays out of the pool as any cast does; one it cannot
             // pay is not made, and the card stays where it is (CR 601.2h
             // reverses a casting that cannot be paid), and what the window
@@ -237,9 +255,13 @@ impl<L: CardLookup> Engine<L> {
             }
         };
         let paid = self.can_settle_tax(&res);
+        Ok(self.settle_tax_resolution(res, paid))
+    }
+
+    fn settle_tax_resolution(&mut self, mut res: resolve::Resolution, paid: bool) -> WindowClose {
         if let Some(resolve::AwaitingOp::ManaForDamage { player, amount }) = res.awaiting {
             self.prompt_damage_payment(res, player, amount);
-            return Ok(WindowClose::Paid);
+            return WindowClose::Paid;
         }
         match resolve::resume_tax_choice(&mut self.state, &mut res, paid) {
             resolve::Flow::Enter => {
@@ -255,7 +277,7 @@ impl<L: CardLookup> Engine<L> {
                 self.finish_resolution(&res);
             }
         }
-        Ok(WindowClose::settled(paid))
+        WindowClose::settled(paid)
     }
 
     fn prompt_damage_payment(
@@ -334,6 +356,12 @@ impl<L: CardLookup> Engine<L> {
                 _ => return false,
             }
         }
+        // Whether the trigger scan had read everything before the window: it
+        // has whenever the window opened at a question, since the machine
+        // scans before it asks, and every mana ability since has been
+        // scanned in turn — which is what dropping the queue back to
+        // `opened.triggers` below rests on.
+        let scanned = self.trigger_scan_seq >= opened.journal as u64;
         for object in tapped {
             if self
                 .state
@@ -341,11 +369,20 @@ impl<L: CardLookup> Engine<L> {
                 .is_some_and(|o| o.zone == Zone::Battlefield)
                 && self.state.restore_tapped(object, false)
             {
+                // Journaled for whoever reads the board's history, as every
+                // untap is.
                 self.state.journal.record(GameEvent::ObjectUntapped {
                     object,
                     cause: Cause::Cost,
                 });
             }
+        }
+        // No ability triggers from an undone action (CR 732.1): neither from
+        // what the window did nor from its reversal, so "whenever a
+        // permanent becomes untapped" (Mesmeric Orb) does not hear these
+        // untaps. The scan passes over them.
+        if scanned {
+            self.trigger_scan_seq = self.state.journal.last_seq();
         }
         self.state.players[usize::from(player.get())].mana_pool = opened.pool.clone();
         self.state

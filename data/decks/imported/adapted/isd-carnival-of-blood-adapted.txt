@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/ISD/carnival-of-blood.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CarnivalOfBlood_ISD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Carnival of Blood (Adapted)]
+4 Auger Spree
+4 Bedevil
+3 Bloodcrazed Neonate
+1 Child of Night
+1 Cobbled Wings
+4 Delirium
+1 Diabolic Tutor
+2 Falkenrath Noble
+1 Fireball
+1 Gerrard's Irregulars
+2 Markov Patrician
+2 Mask of Avacyn
+12 Mountain
+1 Sengir Vampire
+4 Spontaneous Combustion
+2 Stromkirk Patrol
+12 Swamp
+1 Traveler's Amulet
+2 Vengeful Bloodwitch

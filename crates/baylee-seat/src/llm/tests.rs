@@ -20,7 +20,7 @@ const KEY: &str = "sk-ant-TEST-0123456789abcdefghijklmn";
 
 /// One scripted reply.
 #[derive(Clone)]
-struct Scripted {
+pub(crate) struct Scripted {
     status: u16,
     body: Value,
     delay: Duration,
@@ -30,7 +30,7 @@ struct Scripted {
 }
 
 impl Scripted {
-    fn ok(body: Value) -> Self {
+    pub(crate) fn ok(body: Value) -> Self {
         Self {
             status: 200,
             body,
@@ -70,7 +70,7 @@ struct Seen {
 }
 
 #[derive(Clone, Default)]
-struct Provider0 {
+pub(crate) struct Provider0 {
     replies: Arc<Mutex<VecDeque<Scripted>>>,
     seen: Arc<Mutex<Vec<Seen>>>,
 }
@@ -80,7 +80,7 @@ impl Provider0 {
         lock(&self.seen).clone()
     }
 
-    fn script(&self, reply: Scripted) {
+    pub(crate) fn script(&self, reply: Scripted) {
         lock(&self.replies).push_back(reply);
     }
 }
@@ -129,7 +129,7 @@ async fn answer(
 }
 
 /// A stand-in provider on a free port of this machine.
-async fn stand_in() -> (String, Provider0) {
+pub(crate) async fn stand_in() -> (String, Provider0) {
     let provider = Provider0::default();
     let app = Router::new().fallback(answer).with_state(provider.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -148,7 +148,7 @@ fn env_for(base: &str) -> impl Fn(&str) -> Option<String> + '_ {
     }
 }
 
-fn mind(base: &str, provider: Provider, tweak: impl FnOnce(&mut Settings)) -> ApiMind {
+pub(crate) fn mind(base: &str, provider: Provider, tweak: impl FnOnce(&mut Settings)) -> ApiMind {
     let model = match provider {
         Provider::Anthropic => "claude-sonnet-5",
         Provider::OpenAi => "TEST-model",
@@ -164,7 +164,7 @@ fn mind(base: &str, provider: Provider, tweak: impl FnOnce(&mut Settings)) -> Ap
 }
 
 /// An Anthropic reply: a summarised thought, then the calls.
-fn claude(calls: &[(&str, &str, Value)]) -> Value {
+pub(crate) fn claude(calls: &[(&str, &str, Value)]) -> Value {
     let mut content = vec![json!({
         "type": "thinking", "thinking": "The land first, then the bolt.", "signature": "TEST-sig"
     })];
@@ -190,7 +190,7 @@ fn claude_text(text: &str) -> Value {
     })
 }
 
-fn a_priority() -> Request {
+pub(crate) fn a_priority() -> Request {
     let (view, log) = board();
     let pending = priority(&view);
     request(view, pending, log)
@@ -1083,167 +1083,7 @@ async fn a_cast_the_table_took_back_is_said() {
     assert!(!told(&provider.seen()[3]));
 }
 
-/// The OpenAI-compatible path: a function call whose arguments are a JSON
-/// string, the bearer key, and the JSON mode for a server without tools.
-#[tokio::test]
-async fn an_openai_compatible_endpoint_answers_by_function_or_by_json() {
-    let (base, provider) = stand_in().await;
-    provider.script(Scripted::ok(json!({
-        "choices": [{"message": {
-            "role": "assistant", "content": null, "reasoning_content": "Land first.",
-            "tool_calls": [{"id": "call_1", "type": "function", "function": {
-                "name": "decide", "arguments": "{\"ask\":\"q12\",\"pick\":[\"a1\"]}"
-            }}]
-        }, "finish_reason": "tool_calls"}],
-        "usage": {"prompt_tokens": 900, "completion_tokens": 40}
-    })));
-    let tools = mind(&base, Provider::OpenAi, |_| {});
-    let answer = tools.decide(a_priority()).await.expect("an answer");
-    assert_eq!(answer.action, PlayerAction::PlayLand { card: id(52) });
-    let seen = provider.seen();
-    assert_eq!(seen[0].path, "/chat/completions");
-    assert_eq!(
-        seen[0].bearer.as_deref(),
-        Some(format!("Bearer {KEY}").as_str())
-    );
-    assert_eq!(seen[0].body["messages"][0]["role"], "system");
-    assert!(seen[0].body["tools"].is_array());
-
-    provider.script(Scripted::ok(json!({
-        "choices": [{"message": {"role": "assistant",
-            "content": "```json\n{\"ask\": \"q12\", \"pick\": [\"p\"], \"say\": \"Hold.\"}\n```"},
-            "finish_reason": "stop"}],
-        "usage": {"prompt_tokens": 900, "completion_tokens": 40}
-    })));
-    let json_mind = mind(&base, Provider::OpenAi, |s| s.answer = AnswerMode::Json);
-    let answer = json_mind.decide(a_priority()).await.expect("a JSON answer");
-    assert_eq!(answer.action, PlayerAction::PassPriority);
-    let seen = provider.seen();
-    assert_eq!(seen[1].body["response_format"]["type"], "json_object");
-    assert!(seen[1].body.get("tools").is_none());
-    // A model held to no schema is told the answer's shape on its question.
-    let told = seen[1].body["messages"][1]["content"]
-        .as_str()
-        .expect("text");
-    assert!(
-        told.contains("Answer: ask=\"q12\", pick=[one option id]"),
-        "{told}"
-    );
-}
-
-/// The deck is told by name to an endpoint on this machine, which keeps no
-/// prompt cache, and in full to Anthropic, which reads it back from one.
-#[tokio::test]
-async fn the_deck_is_told_by_name_where_nothing_caches_it() {
-    let (base, provider) = stand_in().await;
-    provider.script(Scripted::ok(json!({
-        "choices": [{"message": {"role": "assistant",
-            "content": "{\"ask\": \"q12\", \"pick\": [\"p\"]}"}, "finish_reason": "stop"}],
-        "usage": {"prompt_tokens": 900, "completion_tokens": 40}
-    })));
-    let local = mind(&base, Provider::OpenAi, |s| {
-        s.answer = AnswerMode::JsonSchema;
-    });
-    local.decide(a_priority()).await.expect("an answer");
-    let seen = provider.seen();
-    let told = seen[0].body["messages"][1]["content"]
-        .as_str()
-        .expect("text");
-    assert!(told.contains("YOUR DECK (40 cards), by name."), "{told}");
-    assert!(told.contains("  Llanowar Elves {G} · Creature"), "{told}");
-    assert!(!told.contains("Answer:"), "{told}");
-
-    provider.script(Scripted::ok(claude(&[(
-        "toolu_1",
-        "decide",
-        json!({"ask": "q12", "pick": ["p"]}),
-    )])));
-    let anthropic = mind(&base, Provider::Anthropic, |_| {});
-    anthropic.decide(a_priority()).await.expect("an answer");
-    let seen = provider.seen();
-    let prefix = last_user(&seen[1])[0]["text"]
-        .as_str()
-        .expect("prefix")
-        .to_string();
-    assert!(
-        prefix.contains("The full text of every card in it"),
-        "{prefix}"
-    );
-}
-
-/// An endpoint that takes no bare `json_object` (LM Studio) is asked for
-/// an object held to the answer's schema, and is told the JSON rules in its
-/// system prompt as the plain JSON mode is. An endpoint that turns a
-/// `response_format` down says which mode to try instead.
-#[tokio::test]
-async fn an_openai_compatible_endpoint_answers_by_json_schema() {
-    let (base, provider) = stand_in().await;
-    provider.script(Scripted::ok(json!({
-        "choices": [{"message": {"role": "assistant",
-            "content": "{\"ask\": \"q12\", \"pick\": [\"a1\"], \"say\": \"Land.\"}"},
-            "finish_reason": "stop"}],
-        "usage": {"prompt_tokens": 900, "completion_tokens": 40}
-    })));
-    let schema_mind = mind(&base, Provider::OpenAi, |s| {
-        s.answer = AnswerMode::JsonSchema;
-    });
-    let answer = schema_mind
-        .decide(a_priority())
-        .await
-        .expect("an answer by the schema");
-    assert_eq!(answer.action, PlayerAction::PlayLand { card: id(52) });
-    let seen = provider.seen();
-    let format = &seen[0].body["response_format"];
-    assert_eq!(format["type"], "json_schema");
-    assert_eq!(format["json_schema"]["name"], "decide");
-    assert_eq!(format["json_schema"]["schema"], prompt::answer_schema());
-    assert!(format["json_schema"].get("strict").is_none());
-    let schema = prompt::answer_schema();
-    for field in ["ask", "pick", "attacks", "then", "say", "concede"] {
-        assert!(schema["properties"].get(field).is_some(), "{field}");
-    }
-    assert!(seen[0].body.get("tools").is_none());
-    let system = seen[0].body["messages"][0]["content"].as_str().unwrap();
-    assert!(system.ends_with(prompt::JSON_MODE), "{system}");
-
-    // A concession by the schema is read as one.
-    provider.script(Scripted::ok(json!({
-        "choices": [{"message": {"role": "assistant",
-            "content": "{\"ask\": \"q12\", \"concede\": \"Lethal on board.\"}"},
-            "finish_reason": "stop"}],
-        "usage": {"prompt_tokens": 900, "completion_tokens": 40}
-    })));
-    let answer = mind(&base, Provider::OpenAi, |s| {
-        s.answer = AnswerMode::JsonSchema;
-    })
-    .decide(a_priority())
-    .await
-    .expect("a concession");
-    assert_eq!(answer.action, PlayerAction::Concede);
-
-    // LM Studio's refusal of the other mode names the one to try.
-    for (mode, other) in [
-        (AnswerMode::Json, "answer: json_schema"),
-        (AnswerMode::JsonSchema, "answer: json instead"),
-    ] {
-        provider.script(Scripted {
-            status: 400,
-            body: json!({"error": "'response_format.type' must be 'json_schema' or 'text'"}),
-            delay: Duration::ZERO,
-            headers: Vec::new(),
-        });
-        let refused = mind(&base, Provider::OpenAi, |s| {
-            s.answer = mode;
-        })
-        .decide(a_priority())
-        .await
-        .expect_err("turned down");
-        let MindError::Unavailable(why) = refused else {
-            panic!("{refused:?}");
-        };
-        assert!(why.contains("400") && why.contains(other), "{why}");
-    }
-}
+mod json;
 
 #[test]
 fn a_spec_names_a_provider_and_a_model() {
@@ -1670,6 +1510,10 @@ fn a_limit_says_it_is_one_and_when_it_lifts() {
 }
 
 mod plan;
+
+mod draw;
+
+mod extras;
 
 #[tokio::test]
 async fn managed_sessions_keep_the_transcript_across_turns_and_close_only_their_seat() {

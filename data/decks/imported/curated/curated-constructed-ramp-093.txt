@@ -1,0 +1,22 @@
+# baylee curated constructed ramp seed=20261116
+# licence: AGPL-3.0-only
+[deck:constructed ramp BR #20261116]
+3 Coal Golem
+4 Gauntlet of Might
+2 Gemstone Mine
+3 Iron Myr
+4 Lead Pipe
+4 Legion Extruder
+7 Mountain
+3 Pashalik Mons
+4 Rakdos Cluestone
+2 Rumble Arena
+3 Saberclaw Golem
+3 Sacrifice
+2 Sliver Hive
+2 Spire of Industry
+1 Study Hall
+8 Swamp
+1 Tainted Peak
+2 The Balrog of Moria
+2 Warren Soultrader

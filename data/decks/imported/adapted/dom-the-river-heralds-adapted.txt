@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/DOM/the-river-heralds.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheRiverHeralds_DOM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The River Heralds (Adapted)]
+4 Auroral Procession
+1 Deeproot Waters
+2 Dive Down
+4 Double Major
+1 Ferocious Charge
+11 Forest
+1 Hadana's Climb
+4 Hydroform
+11 Island
+1 Jade Bearer
+2 Jade Guardian
+1 Jungle Delver
+1 Leaf-Crowned Visionary
+4 Neoform
+2 One With the Wind
+1 Seafloor Oracle
+4 Square Up
+1 Swift Warden
+1 Wind Strider
+1 Woodcutter's Grit
+2 Woodland Stream

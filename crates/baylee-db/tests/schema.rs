@@ -170,83 +170,156 @@ async fn the_schema_applies_and_reapplies() {
 }
 
 #[tokio::test]
-async fn central_cutover_preserves_sources_reconciles_snapshots_and_revokes_legacy_sessions() {
+async fn the_legacy_export_takes_unmoved_password_accounts_and_no_secrets() {
     use baylee_db::central;
-    let sandbox = Sandbox::open("central_link").await;
-    let (alice_id, bob_id, deck_id) = central_seed(&sandbox.db).await;
-    let alice = alice_id.to_string();
-    let first = central::prepare(&sandbox.db, &alice).await.unwrap();
-    let text = first.document.to_string();
+    let sandbox = Sandbox::open("central_legacy_export").await;
+    let (alice, bob, _) = central_seed(&sandbox.db).await;
+    let ban = |until: Option<i64>, id: Uuid| {
+        Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE account SET banned_at = clock_timestamp(), ban_reason = 'synthetic',
+             banned_by = 'test', banned_until = to_timestamp($1::bigint) WHERE id = $2",
+            [until.into(), id.into()],
+        )
+    };
+    sandbox.db.execute_raw(ban(None, bob)).await.unwrap();
+    // A lapsed ban is no ban; a guest, a projection and a moved account are
+    // not legacy accounts.
+    let lapsed = an_account("central-c@example.invalid");
+    let Set(lapsed_id) = lapsed.id else {
+        unreachable!()
+    };
+    Account::insert(lapsed).exec(&sandbox.db).await.unwrap();
+    sandbox
+        .db
+        .execute_raw(ban(Some(1), lapsed_id))
+        .await
+        .unwrap();
+    let mut guest = an_account("central-guest@example.invalid");
+    guest.email = Set(None);
+    guest.password_hash = Set(None);
+    guest.guest = Set(true);
+    Account::insert(guest).exec(&sandbox.db).await.unwrap();
+    central::projection(&sandbox.db, *Uuid::now_v7().as_bytes(), true)
+        .await
+        .unwrap();
+    let moved = an_account("central-moved@example.invalid");
+    let Set(moved_id) = moved.id else {
+        unreachable!()
+    };
+    Account::insert(moved).exec(&sandbox.db).await.unwrap();
+    central::adopt(
+        &sandbox.db,
+        &moved_id.to_string(),
+        *Uuid::now_v7().as_bytes(),
+    )
+    .await
+    .unwrap();
+    let accounts = central::legacy_accounts(&sandbox.db).await.unwrap();
+    let mut expected = vec![alice.to_string(), bob.to_string(), lapsed_id.to_string()];
+    expected.sort();
+    assert_eq!(
+        accounts.iter().map(|a| a.id.clone()).collect::<Vec<_>>(),
+        expected,
+        "the unmoved password accounts, by id"
+    );
+    let of = |id: Uuid| accounts.iter().find(|a| a.id == id.to_string()).unwrap();
+    let text = of(alice).snapshot.as_deref().unwrap();
     assert!(text.contains("ALICE_PRIVATE_DECK"));
     assert!(!text.contains("BOB_PRIVATE_DECK"));
-    assert!(!text.contains("password_hash"));
-    assert!(!text.contains("token_hash"));
-    assert_eq!(
-        first.document["decks"][0]["history"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
-    );
-    let central_id = *Uuid::now_v7().as_bytes();
-    assert!(!central::linked(&sandbox.db, &alice).await.unwrap());
-    assert!(
-        central::finish(&sandbox.db, &alice, central_id, [0; 32])
-            .await
-            .is_err()
-    );
+    assert!(!text.contains("password_hash") && !text.contains("token_hash"));
+    let snapshot: serde_json::Value = serde_json::from_str(text).unwrap();
+    assert_eq!(snapshot["decks"][0]["history"].as_array().unwrap().len(), 1);
+    assert_eq!(of(alice).ban, None);
+    assert_eq!(of(bob).ban, Some(central::Ban { until: None }));
+    assert_eq!(of(lapsed_id).ban, None);
+    assert!(of(alice).password_hash.starts_with("$argon2id$"));
+    // A source larger than the first snapshot format is named, not cut.
     ClientSettings::insert(client_settings::ActiveModel {
-        account_id: Set(alice_id),
-        doc: Set(serde_json::json!({"future":1})),
+        account_id: Set(alice),
+        doc: Set(serde_json::json!({"padding": "x".repeat(200_000)})),
         updated_at: Set(OffsetDateTime::now_utc()),
     })
     .exec(&sandbox.db)
     .await
     .unwrap();
+    let accounts = central::legacy_accounts(&sandbox.db).await.unwrap();
+    let alice_now = accounts.iter().find(|a| a.id == alice.to_string()).unwrap();
+    assert!(alice_now.snapshot.is_none());
+    sandbox.close().await;
+}
+
+#[tokio::test]
+async fn a_moved_account_is_linked_at_its_first_admission_and_only_once() {
+    use baylee_db::central;
+    let sandbox = Sandbox::open("central_adopt").await;
+    let (alice_id, bob_id, deck_id) = central_seed(&sandbox.db).await;
+    let alice = alice_id.to_string();
+    let central_id = *Uuid::now_v7().as_bytes();
+    assert!(central::adopt(&sandbox.db, &alice, [0; 16]).await.is_err());
     assert!(
-        central::finish(&sandbox.db, &alice, central_id, first.digest)
-            .await
-            .is_err()
-    );
-    let second = central::prepare(&sandbox.db, &alice).await.unwrap();
-    assert_ne!(first.digest, second.digest);
-    assert!(
-        central::finish(&sandbox.db, &alice, central_id, first.digest)
+        central::adopt(&sandbox.db, &Uuid::now_v7().to_string(), central_id)
             .await
             .is_err(),
-        "another export cannot authorize an older restored copy"
+        "no such account"
+    );
+    assert!(!central::linked(&sandbox.db, &alice).await.unwrap());
+    assert!(
+        central::adopt(&sandbox.db, &alice, central_id)
+            .await
+            .unwrap()
+    );
+    assert!(central::linked(&sandbox.db, &alice).await.unwrap());
+    assert_eq!(
+        SessionToken::find().count(&sandbox.db).await.unwrap(),
+        0,
+        "its password sessions end with the link"
+    );
+    // The same link again is nothing new and ends nothing.
+    SessionToken::insert(session_token::ActiveModel {
+        token_hash: Set(vec![43; 32]),
+        account_id: Set(alice_id),
+        expires_at: Set(OffsetDateTime::now_utc() + time::Duration::days(1)),
+    })
+    .exec(&sandbox.db)
+    .await
+    .unwrap();
+    assert!(
+        !central::adopt(&sandbox.db, &alice, central_id)
+            .await
+            .unwrap()
     );
     assert_eq!(SessionToken::find().count(&sandbox.db).await.unwrap(), 1);
-    central::finish(&sandbox.db, &alice, central_id, second.digest)
-        .await
-        .unwrap();
-    assert!(central::linked(&sandbox.db, &alice).await.unwrap());
     assert!(
-        central::matches(&sandbox.db, &alice, central_id)
+        central::adopt(&sandbox.db, &alice, *Uuid::now_v7().as_bytes())
             .await
-            .unwrap()
+            .is_err(),
+        "a link is immutable"
     );
     assert!(
-        !central::matches(&sandbox.db, &bob_id.to_string(), central_id)
+        central::adopt(&sandbox.db, &bob_id.to_string(), central_id)
             .await
-            .unwrap()
+            .is_err(),
+        "an identity is linked to one account"
     );
-    assert_eq!(SessionToken::find().count(&sandbox.db).await.unwrap(), 0);
-    central_password_retired(&sandbox.db, alice_id, bob_id).await;
-    central::finish(&sandbox.db, &alice, central_id, second.digest)
-        .await
-        .unwrap();
+    let mut guest = an_account("central-guest@example.invalid");
+    guest.email = Set(None);
+    guest.password_hash = Set(None);
+    guest.guest = Set(true);
+    let Set(guest_id) = guest.id else {
+        unreachable!()
+    };
+    Account::insert(guest).exec(&sandbox.db).await.unwrap();
     assert!(
-        central::finish(
+        central::adopt(
             &sandbox.db,
-            &alice,
-            *Uuid::now_v7().as_bytes(),
-            second.digest
+            &guest_id.to_string(),
+            *Uuid::now_v7().as_bytes()
         )
         .await
         .is_err()
     );
-    assert!(central::prepare(&sandbox.db, &alice).await.is_err());
+    // The game data stays; the projection and the session issue under it.
     assert!(
         Deck::find_by_id(deck_id)
             .one(&sandbox.db)
@@ -254,115 +327,72 @@ async fn central_cutover_preserves_sources_reconciles_snapshots_and_revokes_lega
             .unwrap()
             .is_some()
     );
-    assert_eq!(
-        ClientSettings::find_by_id(alice_id)
-            .one(&sandbox.db)
-            .await
-            .unwrap()
-            .unwrap()
-            .doc,
-        serde_json::json!({"future":1})
-    );
-    sandbox.close().await;
-}
-
-#[tokio::test]
-async fn central_cutover_refuses_a_password_changed_after_its_fresh_proof() {
-    use baylee_db::central;
-    let sandbox = Sandbox::open("central_password_race").await;
-    let (alice, _, _) = central_seed(&sandbox.db).await;
-    let source = central::prepare(&sandbox.db, &alice.to_string())
-        .await
-        .unwrap();
-    sandbox
-        .db
-        .execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "UPDATE account SET password_hash = 'new-synthetic-verifier' WHERE id = $1",
-            [alice.into()],
-        ))
-        .await
-        .unwrap();
-    let central_id = *Uuid::now_v7().as_bytes();
-    assert!(
-        central::validate_cutover(&sandbox.db, &alice.to_string(), central_id, source.digest)
-            .await
-            .is_err()
-    );
-    assert!(
-        central::finish(&sandbox.db, &alice.to_string(), central_id, source.digest)
-            .await
-            .is_err()
-    );
-    assert!(
-        central::refresh(&sandbox.db, &alice.to_string())
-            .await
-            .is_err(),
-        "an old Central proof cannot refresh authorization to the changed credential"
-    );
-    assert!(
-        !central::linked(&sandbox.db, &alice.to_string())
-            .await
-            .unwrap()
-    );
-    let current = Account::find_by_id(alice)
-        .one(&sandbox.db)
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        current.password_hash.as_deref(),
-        Some("new-synthetic-verifier")
-    );
-    // A caller that has independently verified the new legacy proof may restart.
-    let restarted = central::prepare(&sandbox.db, &alice.to_string())
-        .await
-        .unwrap();
-    central::validate_cutover(
+    central::issue_session(
         &sandbox.db,
-        &alice.to_string(),
-        central_id,
-        restarted.digest,
+        &alice,
+        vec![44; 32],
+        [45; 32],
+        OffsetDateTime::now_utc().unix_timestamp() + 60,
+        "admit",
     )
     .await
     .unwrap();
+    central_password_retired(&sandbox.db, alice_id, bob_id).await;
     sandbox.close().await;
 }
 
 #[tokio::test]
-async fn central_generation_upgrade_keeps_pending_markers_without_inventing_a_proof() {
+async fn a_projection_takes_its_name_and_tag_from_central() {
     use baylee_db::central;
-    let before = Migrator::migrations()
-        .iter()
-        .position(|migration| migration.name() == "m20261019_000023_bind_migration_credentials")
-        .unwrap();
-    let sandbox = Sandbox::open_at(
-        "central_generation_upgrade",
-        Some(u32::try_from(before).unwrap()),
-    )
-    .await;
-    let (alice, _, _) = central_seed(&sandbox.db).await;
-    sandbox
-        .db
-        .execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            "INSERT INTO central_account_link (account_id,snapshot_digest) VALUES ($1,$2)",
-            [alice.into(), vec![0_u8; 32].into()],
-        ))
+    let sandbox = Sandbox::open("central_projection_profile").await;
+    let row = |id: String| {
+        let db = sandbox.db.clone();
+        async move {
+            let row = Account::find_by_id(Uuid::parse_str(&id).unwrap())
+                .one(&db)
+                .await
+                .unwrap()
+                .unwrap();
+            (row.display_name, row.tag)
+        }
+    };
+    let floo = central::projection(&sandbox.db, *Uuid::now_v7().as_bytes(), true)
         .await
         .unwrap();
-    Migrator::up(&sandbox.db, None).await.unwrap();
-    let alice = alice.to_string();
-    assert!(central::pending(&sandbox.db, &alice).await.unwrap());
-    assert!(!central::prepared(&sandbox.db, &alice).await.unwrap());
-    assert!(central::refresh(&sandbox.db, &alice).await.is_err());
+    let other = central::projection(&sandbox.db, *Uuid::now_v7().as_bytes(), true)
+        .await
+        .unwrap();
+    let (name, drawn) = row(floo.clone()).await;
+    assert_eq!(name, "Player");
+    // Central's name and tag replace the local ones, and taking them again
+    // writes nothing.
     assert!(
-        central::validate_cutover(&sandbox.db, &alice, *Uuid::now_v7().as_bytes(), [0; 32])
+        central::take_profile(&sandbox.db, &floo, Some("floo"), Some(0x1337))
             .await
-            .is_err()
+            .unwrap()
     );
-    central::prepare(&sandbox.db, &alice).await.unwrap();
-    assert!(central::prepared(&sandbox.db, &alice).await.unwrap());
+    assert_eq!(row(floo.clone()).await, ("floo".into(), 0x1337));
+    assert!(
+        !central::take_profile(&sandbox.db, &floo, Some("floo"), Some(0x1337))
+            .await
+            .unwrap()
+    );
+    // What Central does not say keeps the local value.
+    assert!(
+        central::take_profile(&sandbox.db, &floo, None, None)
+            .await
+            .is_ok()
+    );
+    assert_eq!(row(floo.clone()).await, ("floo".into(), 0x1337));
+    // A tag another account holds here is not taken; the name still is.
+    let (_, held) = row(other.clone()).await;
+    assert!(
+        central::take_profile(&sandbox.db, &floo, Some("floo2"), Some(held))
+            .await
+            .unwrap()
+    );
+    assert_eq!(row(floo.clone()).await, ("floo2".into(), 0x1337));
+    assert_ne!(drawn, 0x1337);
     sandbox.close().await;
 }
 
@@ -1992,6 +2022,77 @@ async fn a_bridges_seat_names_its_host_and_goes_with_it() {
         .await
         .expect("deletes");
     assert_eq!(delegated(db).await, 0, "the link went with the account");
+
+    sandbox.close().await;
+}
+
+/// A report a host's seat bridge sends on its chair's seat token carries
+/// that game's record, read for that chair and that host, and nothing else
+/// reads it: not the host's own chair, not another host, not another game,
+/// not a chair past the table, not once the host is gone.
+#[tokio::test]
+async fn a_bridges_chair_reads_its_own_games_record_and_no_other() {
+    use baylee_db::records;
+
+    let sandbox = Sandbox::open("record_for_delegate").await;
+    let db = &sandbox.db;
+    let (host, other) = (
+        an_account("host@example.com"),
+        an_account("other@example.com"),
+    );
+    let (host_id, other_id) = (host.id.clone().unwrap(), other.id.clone().unwrap());
+    Account::insert(host).exec(db).await.expect("an account");
+    Account::insert(other).exec(db).await.expect("an account");
+    let bridge = |by| records::Seat {
+        account: None,
+        delegated_by: Some(by),
+    };
+    records::open(
+        db,
+        "g1",
+        &[records::Seat::played_by(host_id), bridge(host_id)],
+    )
+    .await
+    .expect("opens");
+    records::open(
+        db,
+        "g2",
+        &[records::Seat::played_by(other_id), bridge(other_id)],
+    )
+    .await
+    .expect("opens");
+    for (game, piece) in [("g1", b"mine".to_vec()), ("g2", b"theirs".to_vec())] {
+        assert!(records::append(db, game, 0, piece, true).await.unwrap());
+    }
+
+    let mine = records::for_delegate(db, "g1", 1, host_id)
+        .await
+        .unwrap()
+        .expect("the bridge's chair");
+    assert_eq!(mine.data, b"mine");
+    assert!(mine.complete);
+    for (game, seat, by) in [
+        ("g1", 0, host_id),
+        ("g1", 1, other_id),
+        ("g2", 1, host_id),
+        ("g1", 2, host_id),
+        ("g1", usize::MAX, host_id),
+        ("g3", 1, host_id),
+    ] {
+        assert_eq!(
+            records::for_delegate(db, game, seat, by).await.unwrap(),
+            None,
+            "{game} {seat}"
+        );
+    }
+    baylee_db::accounts::delete(db, host_id)
+        .await
+        .expect("deletes");
+    assert_eq!(
+        records::for_delegate(db, "g1", 1, host_id).await.unwrap(),
+        None,
+        "a deleted host's bridge answers for nothing"
+    );
 
     sandbox.close().await;
 }

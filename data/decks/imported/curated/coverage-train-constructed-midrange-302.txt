@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange UBG #20266303]
+2 Aether Hub
+2 Bag End Porter
+2 Barbed-Back Wurm
+2 Brushwagg
+11 Forest
+2 Gorilla Chieftain
+1 Haven of the Spirit Dragon
+1 Island
+2 Jorubai Murk Lurker
+2 Juxtapose
+2 Kozilek's Shrieker
+2 Living Airship
+2 Mana Leech
+2 Mole Worms
+2 Planar Nexus
+2 Rakshasa Deathdealer
+1 Rumble Arena
+2 Silverback Ape
+2 Simic Ragworm
+2 Slaughter Drone
+3 Swamp
+3 Unknown Shores
+2 Wall of Blood
+2 Whip Vine
+2 Wolverine Pack
+2 Zodiac Rooster

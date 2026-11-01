@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/PS11/fangs-of-the-predator.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FangsOfThePredator_PS11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fangs of the Predator (Adapted)]
+2 Blanchwood Armor
+4 Bridgeworks Battle
+1 Duskdale Wurm
+24 Forest
+3 Giant Growth
+2 Giant Spider
+1 Inner Calm, Outer Strength
+1 Loxodon Warhammer
+1 Molimo, Maro-Sorcerer
+1 Natural Spring
+2 Overrun
+1 Pulse of Murasa
+2 Rampant Growth
+1 River Boa
+1 Roughshod Mentor
+3 Runeclaw Bear
+2 Spined Wurm
+2 Trained Armodon
+1 Troll Ascetic
+1 Verdant Force
+2 Wall of Wood
+2 Wurm's Tooth

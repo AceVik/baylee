@@ -10,6 +10,9 @@ use crate::text_changes::{RuleContext, TextChangeMap};
 use crate::trigger::PendingTrigger;
 use crate::zone::Zone;
 
+mod death_returns;
+pub(crate) use death_returns::DamagedCreatureDeath;
+
 /// A positive damage event's two object identities (CR 400.7).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct DamageRecord {
@@ -78,6 +81,22 @@ impl GameState {
                 source.version,
                 self.source_object(source)
                     .and_then(|o| o.characteristics().power)
+                    .unwrap_or(0),
+            ));
+        }
+        if let Some(entry) = seq
+            .checked_sub(1)
+            .and_then(|index| self.journal.entries().get(index as usize))
+            && let GameEvent::Discarded {
+                object, version, ..
+            } = entry.event
+            && object == id
+        {
+            // CR 400.7: the discard trigger follows only the immediate successor.
+            return Some((
+                version.wrapping_add(1),
+                self.source_object(baylee_core::ids::DamageSourceRef { object, version })
+                    .and_then(|card| card.characteristics().power)
                     .unwrap_or(0),
             ));
         }
@@ -287,6 +306,7 @@ pub(crate) fn collect(
                 let context = RuleContext {
                     source: source.id,
                     text: list.base_text(index),
+                    resolved_name: None,
                     reference: None,
                 };
                 if *zone != TriggerZone::Battlefield
@@ -321,6 +341,7 @@ pub(crate) fn collect(
                 let context = RuleContext {
                     source: source.id,
                     text: *text,
+                    resolved_name: None,
                     reference: None,
                 };
                 if matches_death(trigger, state, death, source, context) {
@@ -355,7 +376,10 @@ fn pending(death: &DamageDeath, source: &GameObject) -> PendingTrigger {
         source_version: Some(source.version),
         text: crate::text_changes::TextChangeMap::IDENTITY,
         related_objects: None,
-        event_subject: None,
+        event_subject: Some(baylee_core::ids::DamageSourceRef {
+            object: death.victim.id,
+            version: death.victim.version.wrapping_add(1),
+        }),
         event_ability: None,
         event_object_identity: Some((
             death.victim.version,

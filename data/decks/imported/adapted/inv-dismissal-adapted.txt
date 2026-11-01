@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/INV/dismissal.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Dismissal_INV.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dismissal (Adapted)]
+4 Crosis's Charm
+1 Cursed Flesh
+1 Disrupt
+3 Drag Under
+1 Drake-Skull Cameo
+4 Drastic Revelation
+2 Eyeblight's Ending
+1 Hate Weaver
+11 Island
+1 Last Caress
+1 Metathran Zombie
+1 Neutralize
+1 Opt
+1 Pillage
+1 Psionic Blast
+1 Rakshasa's Secret
+3 Ravenous Rats
+1 Refute
+1 Repulse
+2 Salt Marsh
+2 Sizzle
+1 Slinking Serpent
+1 Stalking Assassin
+1 Sulfur Vent
+9 Swamp
+2 Urborg Drake
+1 Vodalian Zombie
+1 Waterlogged Teachings

@@ -8,14 +8,15 @@ description: Drive, photograph and record the Bevy desktop client through its lo
 Read `docs/client.md` §"Driving the client without its window" for the full
 protocol and §"Recording real render frames" for capture limits. The harness
 is in `crates/baylee-client/src/devctl.rs`, compiled only with `dev-control`.
-The native Rust helper is `cargo run --profile tools -p baylee-tools -- …` (or
-`scripts/baylee-tools …`); Python and Pillow are not needed. The PyTorch
+The native Rust helper is `cargo tools …` (the alias for
+`cargo run --locked --profile tools -p baylee-tools -- …`); Python and Pillow are not needed. The PyTorch
 trainer under `tools/trainer` is a separate, intentionally Python workflow.
 
 ## Start an isolated, silent client
 
 Every agent-started test client must be closed after the test, including on
-failure or interruption (owner, 19.10.2026). Record its exact PID/session at
+failure or interruption (owner, 19.10.2026; again 29.10.2026: after **each**
+test run, not left open between iterations). Record its exact PID/session at
 launch and use finally/trap cleanup; verify the process exited and its harness
 port stopped listening before finishing. Close helper services started for
 the same test too. Never stop unrelated processes or leave cleanup to the
@@ -40,6 +41,16 @@ primary display** (owner preference, 19.10.2026). On that date `/monitors`
 reported index **0**, `\\.\DISPLAY2`, at physical `(-2560, 864)`, 2560 × 1600.
 Use `BAYLEE_DEV_MONITOR=0` there; reconfirm after display topology changes.
 Do not substitute the primary screen if the left screen is absent.
+On the owner's MacBook, use the **built-in display** (owner, 22.10.2026: he
+works on the external screens). The main display there is external, so
+`primary` is wrong, and the built-in display's index changes with the screens
+attached (it was 1 with two external screens, 0 with one, the same day).
+`/monitors` names every screen `Monitor #…`, and its pixel size follows the
+owner's resolution setting (3456×2234 and 4112×2658 were both seen), so find
+it by asking macOS: `CGGetActiveDisplayList` with `CGDisplayIsBuiltin` (a short
+Swift script, no client needed) gives its index and bounds, which match one
+`/monitors` rectangle. Confirm right after launch that the window is on it,
+and close the client at once if it opened anywhere else.
 
 ```bash
 XDG_CONFIG_HOME=/tmp/baylee-qa/config XDG_CACHE_HOME=/tmp/baylee-qa/cache \
@@ -53,14 +64,30 @@ account. `/state.view` is null before the duel. A networked test uses only an
 explicitly authorised staging gateway and isolated test accounts. Keep
 secrets out of command transcripts, dumps and screenshots.
 
+A networked test always sets `BAYLEE_GATEWAY` to the QA gateway: without it
+the client takes the production gateway. The front door also lists the
+built-in production gateway (Baylee Sanctuary) beside the saved ones, and the
+rows' order can change between runs, so never pick a row by index alone:
+strip every non-loopback address from the profile's `gateways`, choose the
+row that has a bin (`Front(ForgetGateway(k))`; the built-in row has none),
+and type nothing until the gateway's own username and password fields are on
+screen and no Central control is. If the QA gateway is not answering, the
+test stops instead of signing in anywhere (29.10.2026: a run picked the
+production row by index after a QA restart and tried throwaway test
+credentials there).
+
 Build once under the shared Cargo lock, then run the binary for repeated
 checks. If worktrees share a target directory, copy the finished client and
 helper into a directory for this run; later builds can replace the shared
 executables. Pass the matching checkout as the helper's `--root`.
 Record its commit, features and settings. Wait for `/health` with a
 bounded deadline and inspect stderr if it fails; never loop forever. The
-passive macOS window stays above other windows to obtain drawable surfaces,
-without focusing or taking OS pointer input. A black screenshot is not proof
+passive macOS window stands behind the owner's windows and comes above them
+only while a screenshot or recording captures (`/health` says `"on_top"`),
+without focusing or taking OS pointer input. A passive client closes itself
+after `BAYLEE_DEV_IDLE_EXIT` seconds without a request (600 by default; set a
+longer one only for a long recording run, never `0` for an agent run); that
+is the backstop, not the way to close it. A black screenshot is not proof
 of a shader defect: inspect the actual surface and window state first.
 
 ## Protocol and coordinates

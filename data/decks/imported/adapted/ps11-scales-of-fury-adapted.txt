@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/PS11/scales-of-fury.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ScalesOfFury_PS11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Scales of Fury (Adapted)]
+1 Brotherhood's End
+1 Crucible of Fire
+4 Darigaaz's Charm
+3 Dragon Fodder
+1 Dragon Roost
+1 Dragon's Claw
+11 Forest
+4 Furnace Whelp
+2 Gravedigger
+3 Iroh's Demonstration
+6 Mountain
+2 Plague Beetle
+2 Plummet
+1 Pointed Discussion
+4 Rampant Growth
+1 Reckless Spite
+1 Shivan Dragon
+5 Swamp
+2 Terramorphic Expanse
+2 Terror
+2 Typhoon
+1 Wurm's Tooth

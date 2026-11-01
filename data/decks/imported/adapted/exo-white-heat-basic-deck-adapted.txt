@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/EXO/white-heat-basic-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WhiteHeatBasicDeck_EXO.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:White Heat - Basic Deck (Adapted)]
+1 Arahbo, the First Fang
+2 Fit of Rage
+1 Fling
+1 Goblin Bombardment
+4 Kindle
+2 Knight of Dawn
+1 Lifelink
+2 Lightning Blast
+2 Master Decoy
+3 Monastery Mentor
+9 Mountain
+1 Onslaught
+1 Paladin en-Vec
+13 Plains
+2 Raise the Alarm
+1 Reconnaissance
+1 Shackles
+2 Shock
+4 Soltari Foot Soldier
+2 Strangle
+1 Urgent Exorcism
+4 Welkin Hawk

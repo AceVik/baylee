@@ -1,0 +1,30 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro WUB #20266297]
+2 Anointed Deacon
+2 Charging Bandits
+2 Dauthi Mercenary
+2 Duskmantle Operative
+2 Foot Elite
+2 Galina's Knight
+2 Glen Elendra Liege
+2 Gorgon's Head
+3 Hall of Oracles
+1 Island
+1 Lurking Nightstalker
+2 Maelstrom of the Spirit Dragon
+2 Neurok Hoversail
+2 Order of the Ebon Hand
+6 Plains
+2 Resolute Rider
+2 Scarred Vinebreeder
+1 Secluded Courtyard
+2 Soltari Crusader
+2 Soltari Monk
+2 Split-Tail Miko
+2 Springjack Pasture
+2 Stillmoon Cavalier
+7 Swamp
+2 Thistledown Liege
+1 Underdome
+2 Wandering Mage

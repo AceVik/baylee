@@ -326,3 +326,69 @@ fn a_normal_cast_is_not_traded_for_a_mode() {
         "the printed cast is the answer even when a mode outscores it"
     );
 }
+
+#[test]
+fn modal_mode_breaks_ties_by_worth_and_holds_when_no_mode_is_useful() {
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+
+    // Against both a 1/1 token creature and a 4-loyalty planeswalker, both
+    // Mode 1 (token creature) and Mode 2 (planeswalker) of Sheoldred's Edict
+    // reach; mode_worth breaks the tie in favour of the planeswalker (Mode 2).
+    let mut token = token_creature(obj(1), them);
+    token.power = Some(1);
+    token.toughness = Some(1);
+    let v = edict_table(vec![token, walker(obj(2), them, 4)]);
+    assert_eq!(
+        agent().act(
+            &v,
+            &Pending::ChooseCastMode {
+                player: v.seat,
+                object: obj(9),
+                options: edict_modes(),
+            }
+        ),
+        PlayerAction::ChooseMode(2),
+        "planeswalker edict mode outscores 1/1 token edict mode"
+    );
+
+    // Abrade is held when the only creature on the board is friendly and there
+    // are no artifacts, and cast when an opposing creature is present.
+    let abrade = hand_card(1, "Abrade");
+    let mut v2 = view(0, &[20, 20], vec![permanent(obj(10), me, 2)]);
+    v2.hand = vec![abrade.clone()];
+    assert!(
+        agent().spell_score(&v2, abrade.card) < 0,
+        "Abrade is held when the only target is our own creature"
+    );
+    v2.battlefield.push(permanent(obj(11), them, 2));
+    v2.target_objects = v2
+        .battlefield
+        .iter()
+        .map(|o| {
+            baylee_client_core::test_support::target_snapshot(o, baylee_view::LogZone::Battlefield)
+        })
+        .collect();
+    assert!(
+        agent().spell_score(&v2, abrade.card) > 0,
+        "Abrade is cast when an opposing creature can be bolted"
+    );
+
+    // Wrath of God is held when our creature value >= the opponent's, and cast
+    // when the opponent has strictly more creature value on the board.
+    let wrath = hand_card(2, "Wrath of God");
+    let mut v3 = view(
+        0,
+        &[20, 20],
+        vec![permanent(obj(10), me, 3), permanent(obj(11), them, 2)],
+    );
+    v3.hand = vec![wrath.clone()];
+    assert!(
+        agent().spell_score(&v3, wrath.card) < 0,
+        "Wrath of God is held when our board outvalues the opponent's"
+    );
+    v3.battlefield.push(permanent(obj(12), them, 3));
+    assert!(
+        agent().spell_score(&v3, wrath.card) > 0,
+        "Wrath of God is cast when the opponent's board outvalues ours"
+    );
+}

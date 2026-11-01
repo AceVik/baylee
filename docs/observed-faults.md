@@ -90,6 +90,27 @@ hand deliberately rather than drawn.
 
 ## Engine
 
+### Training robustness audit, 23 October 2026 — two offer-contract gaps
+
+Reproduced by `baylee-train fuzz`, run
+`/home/ace/baylee-data/v4/checks/parallel-engine-audit`, name
+`codex-r3-resource-audit-20261023`, first seed 970001, deck seed 971001,
+72 generated working decks, chaos 0.2. Both remain unfixed:
+
+- Game 127 (seed 970128): banding offers selecting two members without
+  banding, then rejects the selection. The offered question has `min: 0`,
+  `max: 2`, `total: None`; its `answer_fault` reports no fault. The missing
+  bound belongs in the machine-readable question.
+- Game 208 (seed 970209): the question offers three attackers and no count
+  cap; selecting all three passes its checker, then apply rejects it as
+  "too many attackers declared". An offline replay verified all 301 accepted
+  inputs and reproduced the refusal without changing state. The aggregate
+  `AttackRules::max_attackers` restriction is missing from the offer.
+
+See the [training log](history/trained-ai-v4-codex-run-2026-10-22.md) for the
+record/probe paths and repair boundaries. These are distinct from v4's invalid
+priority-pass fallback for a number question, which was fixed and replayed.
+
 These four came from one game and have not been investigated yet.
 
 ### 4. "Mein Mana ist verschwunden"
@@ -2188,10 +2209,16 @@ on the battlefield, would get the value from before its own change. Inspirit
 Flagship Vessel is that shape — station a creature, tap it, then take its power
 in charge counters.
 
-`Amount::TargetCmc` stays where it was, deliberately: its one reader is
-Reanimate, whose target is a creature *card* in a graveyard and whose mana value
-is the printed one. A card that never was a permanent has no last known
-information on the battlefield to prefer.
+`Amount::TargetCmc` was left out at first, on the reading that its one reader,
+Reanimate, has a creature card in a graveyard as its target and wants the
+printed mana value. It reads the snapshot too since 31.10.2026
+(`resolve::target_mana_value`, shared with Mana Drain). It had 27 readers by
+then, and the card's raw `x_value` it read counted X on the battlefield, where
+X is 0 (CR 202.3e): Divine Offering on a Chalice of the Void cast for one gained
+two life. Reanimate is right through the snapshot as well: the card it expected
+in the graveyard has moved, so it is read as it was there, and a Clone
+reanimated as a copy of Serra Angel costs its controller four life, not five
+(`reanimate_takes_the_mana_value_the_card_had_in_the_graveyard`).
 
 Three tests, all in `card_tests`, all built on one helper that casts an Umara
 Raptor so its own rally trigger makes it a 2/2 — a target whose projected power
@@ -3706,3 +3733,67 @@ cast; it handed priority on before). The client is `ManaRun::cast_first`.
 (Living Artifact on a Sol Ring), and the Khalni Ambush cast-mode test now
 follows the cast through its targets and window.
 
+
+## Seen while recording the beta.8b pictures, 2026-10-22
+
+Seen by the agent that recorded the README and website loops, on a local test
+stack (passive, silent client at 1600×900); not yet reproduced on purpose.
+
+- **The "Lock chat" pill sits over the hand** at a table on a gateway with chat. Fixed 30.10.2026: unlocked, nothing floats (the composer carries the lock); locked, **Unlock chat** stands under the arrangement pill (`docs/client.md` §"Friends and chat").
+- **The "Ring" pill stays over the lobby's logo** after leaving a table.
+- **A lobby notice covers the room's title** while a table is being arranged.
+
+
+## Found while reviewing the Argon card pool, 2026-10-23
+
+### 65. The mana sweep ignores “adds” when selecting faces — CONFIRMED coverage gap
+
+`engine::land_mana_tests::adds_mana` recognizes `add ` but not `adds `.
+The compiled Oracle table contains 13 affected lines, on 11 nonland
+permanents and two instants/sorceries. The nonland faces are Gauntlet of
+Might, Mana Flare, Wild Growth, Chaos Moon, Winter's Night, Eladamri's
+Vineyard, Overgrowth, Fertile Ground, Vernal Bloom, Tangleroot and Wolfwillow
+Haven; the spells are High Tide and Bubbling Muck. These faces can be absent
+from `other_permanent_faces` even though their text describes mana production.
+The two independently counted sides of the current sweep share this reader,
+so agreement between their totals does not establish coverage of these lines.
+
+This is a test coverage finding, not evidence of incorrect game resolution.
+Eladamri's Vineyard has its own passing played-card regression. Fertile
+Ground is held back. Closing the sweep gap requires recognizing the additional
+verb form and supplying legal attachments for the affected land Auras before
+measuring the expanded population; widening a busy/skip allowance would not
+establish that coverage. The October 23 population adjustment retains the
+existing reader boundary and explicitly documents it beside the exact pins.
+
+
+### 66. Target preflight has nine exact history/X/source gaps — KNOWN coverage gap
+
+The client cannot prove target availability for Detonate, Fatal Blow,
+Fire and Brimstone, Glyph of Delusion, Interdict, Kaervek's Purge, Rust,
+Spell Blast and Stir the Grave in every view. These filters need unannounced
+X, this turn's damage/attack/block history, or authoritative activated-ability
+kind and source incarnation. `PlayerView` does not carry those facts for this
+preflight. Marked damage can be zero after regeneration, current combat is not
+all combat this turn, and printed source identity does not describe a copied
+or granted stack ability's exact provenance.
+
+`targeting` therefore keeps the conservative unknown answer and lets the
+engine decide the cast. It never invents a legal target. An existing creature
+with zero marked damage is still unknown for Fatal Blow, while a genuinely
+empty creature population can still prove Fatal Blow and Kaervek's Purge
+unplayable. Fire and Brimstone remains unknown with empty current combat.
+The population test now pins all nine identities and the exact ability count,
+replacing the previous coarse ceiling; adding, removing or duplicating an
+unread member must be reviewed. Closing a gap requires a sufficient public
+projection or a proof that does not substitute current state for history.
+
+## Found while reviewing the fixes for the reports of 30.10, 2026-10-31
+
+### 67. Mana Drain's mana skips the stack — CONFIRMED
+
+Mana Drain's "at the beginning of your next main phase, add …" is a delayed
+triggered ability (CR 603.7) that is not a mana ability (CR 605.1b), so it
+should go on the stack and be answerable, but `DelayedAction::AddMana`
+(`engine/progress/delayed.rs`) puts the mana straight into the pool before
+anyone gets priority.

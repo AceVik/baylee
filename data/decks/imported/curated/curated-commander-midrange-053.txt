@@ -1,0 +1,72 @@
+# baylee curated commander midrange seed=20261076
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20261076]
+1 Afiya Grove
+1 Ajani's Comrade
+1 Arctic Wolves
+1 Beast-Kin Ranger
+1 Bond Beetle
+1 Bucolic Ranch
+1 Carven Caryatid
+1 Cocoon
+1 Cyclone
+1 Dauntless Survivor
+1 Deeproot Elite
+1 Doubling Season
+1 Druid Class
+1 Drumhunter
+1 Eidolon of Blossoms
+1 Elvish Handservant
+1 Elvish Vanguard
+1 Force of Nature
+34 Forest
+1 Graypelt Hunter
+1 Green Mana Battery
+1 Guardian of the Halls
+1 Healer of the Glade
+1 Hornet Queen
+1 Howling Giant
+1 Intrepid Provisioner
+1 Ironshell Beetle
+1 Ivy Lane Denizen
+1 Jade Bearer
+1 Jade Guardian
+1 Jasmine Dragon Tea Shop
+1 Kronch Wrangler
+1 Llanowar Sentinel
+1 Llanowar Visionary
+1 Maddening Wind
+1 Marshdrinker Giant
+1 Migrating Ketradon
+1 Most Wanted
+1 Multani's Acolyte
+1 Murasa Ranger
+1 Oakhollow Village
+1 Oran-Rief Survivalist
+1 Origin of Metalbending
+1 Planar Nexus
+1 Qasali Slingers
+1 Retreat to Kazandu
+1 Rishkar, Peema Renegade
+1 Satyr Grovedancer
+1 Sazh's Chocobo
+1 Setessan Champion
+1 Shield Sphere
+1 Snakeskin Veil
+1 Sunshower Druid
+1 Surveillance Room
+1 Territorial Scythecat
+1 Timberland Guide
+1 Titania, Protector of Argoth
+1 Tribute to the World Tree
+1 Valley Mightcaller
+1 Vinelasher Kudzu
+1 Viridian Shaman
+1 Walking Ballista
+1 White Lotus Hideout
+1 Wild Wanderer
+1 Wood Elves
+1 Xindi Surveyors
+
+[commander]
+Blor the Impervious

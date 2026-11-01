@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/GN3/boundless-elves.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BoundlessElves_GN3.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Boundless Elves (Adapted)]
+1 Appetite for the Unnatural
+1 Awaken the Bear
+1 Bala Ged Recovery
+1 Beast Whisperer
+1 Broken Wings
+4 Chord of Calling
+2 Crushing Canopy
+1 Elvish Archdruid
+1 Elvish Skysweeper
+3 Elvish Visionary
+1 Fade into Antiquity
+2 Ferocious Charge
+24 Forest
+1 Joraga Visionary
+2 Khalni Ambush
+3 Llanowar Elves
+2 Llanowar Tribe
+1 Overrun
+1 Regrowth
+1 Spoils of Victory
+2 Squall
+2 Thornweald Archer
+1 Wirewood Pride
+1 Woodcutter's Grit

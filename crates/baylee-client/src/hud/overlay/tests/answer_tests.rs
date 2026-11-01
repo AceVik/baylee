@@ -30,6 +30,8 @@ fn combat_commit_buttons_update_without_a_new_game_snapshot() {
             }
         } else {
             Pending::ChooseAttackers {
+                alone: Vec::new(),
+                minimum_required: None,
                 player: PlayerId::new(0),
                 attackers: vec![creature],
                 defenders: vec![Defender::Player(PlayerId::new(1))],

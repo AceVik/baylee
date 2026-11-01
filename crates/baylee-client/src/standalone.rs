@@ -65,6 +65,21 @@ pub fn run() {
             return;
         }
     };
+    // The updater (#326) starts here, before the window, the renderer and
+    // the lobby are built: its first check leaves at once, and is answered
+    // while the rest starts. A browser or phone build has none
+    // (`docs/client.md` §"Updating").
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    let updater = crate::update::native::begin();
+    // A `baylee:` link among the arguments (`crate::links`): a client
+    // started without a launcher hands it to the one already running here
+    // and ends before it opens a window; otherwise it is this client's, and
+    // so is the door later links come through. After the updater, which is
+    // what learns whether a launcher started this client.
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
+    if seated.is_none() && !crate::links::start() {
+        return;
+    }
 
     // Before any window: Windows reads a process's AppUserModelID when its
     // first window appears.
@@ -192,17 +207,16 @@ pub fn run() {
         app.insert_resource(InstalledHost(host))
             .add_systems(Startup, open_duel);
     } else {
-        app.add_plugins(LobbyPlugin);
+        app.add_plugins((crate::links::LinksPlugin, LobbyPlugin));
         // A debug build's panel for changing a language-model chair during
         // the game (`crate::tablellm`); a release build has none.
         if baylee_client_core::llmseat::seating::LIVE_CHANGES {
             app.add_plugins(crate::tablellm::TableLlmPlugin);
         }
     }
-    // The updater (#326): after the lobby, so its notice stands over it.
-    // A browser or phone build has none (`docs/client.md` §"Updating").
+    // The updater's face, after the lobby, so its card stands over it.
     #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
-    app.add_plugins(crate::update::native::NativeUpdatePlugin);
+    app.add_plugins(updater);
     app.run();
 }
 
@@ -251,19 +265,18 @@ fn primary_window() -> Window {
         window.resolution.set(width, height);
     }
     // A watched agent run (`BAYLEE_DEV_PASSIVE=1`): opens
-    // without the focus, see `primary_cursor_options` below, and
-    // stays above other windows. Since bevy 0.20 an unfocused window
-    // no longer activates the app, so it opens *behind* whatever the
-    // owner is using; and wgpu acquires no drawable for a window
-    // macOS reports occluded (`wgpu-hal` `metal::surface`), so a
-    // covered passive window draws nothing at all, and every
-    // `/screenshot` of it came back black. On top, it is always
-    // drawn; with hit testing off the owner's clicks still go
-    // through it to what lies beneath.
+    // without the focus, see `primary_cursor_options` below. Since
+    // bevy 0.20 an unfocused window no longer activates the app, so it
+    // opens *behind* whatever the owner is using, and it stays there:
+    // it no longer sits above every other window (owner, 29.10.2026).
+    // wgpu acquires no drawable for a window macOS reports occluded
+    // (`wgpu-hal` `metal::surface`), so a covered window draws nothing
+    // and a `/screenshot` of it would come back black; the harness
+    // lifts it above the others only while it captures
+    // (`devctl::window::lift_while_capturing`).
     #[cfg(all(feature = "dev-control", not(target_arch = "wasm32")))]
     if crate::devctl::passive() {
         window.focused = false;
-        window.window_level = bevy::window::WindowLevel::AlwaysOnTop;
     }
     window
 }

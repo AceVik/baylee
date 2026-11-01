@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp B #20266156]
+1 Aspect of Lamprey
+1 Asphodel Wanderer
+1 Bartizan Bats
+1 Battle-Rage Blessing
+1 Black Carriage
+1 Bloodcrazed Paladin
+1 Bog Rats
+1 Boon of Emrakul
+1 Breach
+1 Catacomb Crocodile
+1 Cinderhaze Wretch
+1 Clutch of Undeath
+1 Crazed Skirge
+1 Dakmor Salvage
+1 Darkness
+1 Doom Whisperer
+1 Evil Eye of Orms-by-Gore
+1 Fatal Fumes
+1 Feast of the Unicorn
+1 Foul Roads
+1 Foundry Screecher
+1 Fugue
+1 Gloomhunter
+1 Great Arashin City
+1 Gurmag Swiftwing
+1 Irradiate
+1 Lash of Malice
+1 Mad Auntie
+1 Marrow Bats
+1 Memorial to Folly
+1 Midnight Assassin
+1 Mind Knives
+1 Mindwrack Harpy
+1 Mortuary Mire
+1 Muck Rats
+1 Night of Souls' Betrayal
+1 Nocturnal Raid
+1 Olivia's Dragoon
+1 Order of the Ebon Hand
+1 Overkill
+1 Paragon of Open Graves
+1 Peat Bog
+1 Pharika's Chosen
+1 Pride of the Perfect
+1 Queen's Bay Soldier
+1 Ravenous Skirge
+1 Restless Dead
+1 Sewer Rats
+1 Sewers of Estark
+1 Shadowcloak Vampire
+1 Sinister Starfish
+1 Skeletal Snake
+1 Specter's Wail
+1 Stone-Throwing Devils
+1 Strands of Undeath
+1 Subterranean Hangar
+35 Swamp
+1 Thrull Champion
+1 Untamed Hunger
+1 Unworthy Dead
+1 Vampire Envoy
+1 Vampire Hexmage
+1 Vampire Hounds
+1 Virtue of Persistence
+1 Word of Binding
+
+[commander]
+Kalakscion, Hunger Tyrant

@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/UDS/enchanter-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, EnchanterEnhancedDeck_UDS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Enchanter - Enhanced Deck (Adapted)]
+3 Adarkar Wastes
+3 Brilliant Halo
+4 Counterspell
+1 Daring Leap
+3 Disenchant
+2 Dream Fracture
+2 Drifting Meadow
+1 Ertai, Wizard Adept
+18 Island
+3 Miscalculation
+4 Mother of Runes
+3 Opt
+1 Plains
+3 Sphinx's Revelation
+2 Thieving Magpie
+1 Time Spiral
+3 Tradewind Rider
+1 Wrath of God
+2 Zephid's Embrace

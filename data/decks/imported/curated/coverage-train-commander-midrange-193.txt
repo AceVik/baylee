@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BRG #20266194]
+1 Abundant Countryside
+1 Adaptive Shimmerer
+1 Ally Encampment
+1 Ambush Gigapede
+1 Ambush Krotiq
+1 Ancient Ziggurat
+1 Avacyn's Collar
+1 Avengers Tower
+1 Batterhorn
+1 Beetleback Chief
+1 Blight Mound
+1 Call the Bloodline
+1 Capital City
+1 Cascading Cataracts
+1 Cha'DIch Investigator
+1 Crater Hellion
+1 Daily Bugle Building
+1 Demon's Due
+1 Dori, Bearer of Friends
+1 Elder Auntie
+1 Elderfang Venom
+1 Eumidian Terrabotanist
+1 Eyeblight Cullers
+7 Forest
+1 Fungal Infection
+1 Gimli of the Glittering Caves
+1 Gladewalker Ritualist
+1 Glimmervoid
+1 Goblin Gang Leader
+1 Golgari Germination
+1 Gruul Cluestone
+1 Gruul Locket
+1 Hulk, Always Angry
+1 Interplanar Beacon
+1 Jewel Thief
+1 Kazandu Nectarpot
+1 Knucklebone Witch
+1 Kraul Whipcracker
+1 Lotus Cobra
+1 Lotus Vale
+1 Mana Confluence
+1 Mirrex
+9 Mountain
+1 Night Soil
+1 Nightshade Harvester
+1 Nimana Sell-Sword
+1 Plasmancer
+1 Poisonbelly Ogre
+1 Pyknite
+1 Quarry Beetle
+1 Raphael, Tough Turtle
+1 Redcap Thief
+1 Retrofitter Foundry
+1 Revel of the Fallen God
+1 Serpent Warrior
+1 Shield-Wall Sentinel
+1 Sling-Gang Lieutenant
+1 Sluggishness
+1 Snapping Gnarlid
+1 Solemn Simulacrum
+1 Spawning Pit
+1 Springjack Pasture
+1 Stimulus Package
+1 Surveillance Room
+9 Swamp
+1 Terrarion
+1 The Meathook Massacre
+1 The Underworld Cookbook
+1 Tooth and Claw
+1 Toxin Analysis
+1 Tuktuk Grunts
+1 Tunneling Geopede
+1 Underfoot Underdogs
+1 Warren Soultrader
+1 Weirding Shaman
+1 White Lotus Hideout
+1 Wily Goblin
+
+[commander]
+Xira Arien

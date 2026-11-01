@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/DKA/swift-justice.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SwiftJustice_DKA.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Swift Justice (Adapted)]
+4 Arrows of Justice
+2 Assault Griffin
+1 Bloodcrazed Neonate
+2 Elite Vanguard
+2 Energy Bolt
+1 Erdwal Ripper
+1 Forge Devil
+3 Frontline Rush
+2 Lightning Elemental
+2 Lightning Helix
+12 Mountain
+2 Niblis of the Mist
+2 Niblis of the Urn
+12 Plains
+1 Requiem Angel
+1 Serra Angel
+1 Silverchase Fox
+1 Skillful Lunge
+4 Spirit Summoning
+1 Stromkirk Noble
+1 Torch Fiend
+2 Traveler's Amulet

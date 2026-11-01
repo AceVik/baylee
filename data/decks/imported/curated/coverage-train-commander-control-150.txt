@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control G #20266151]
+1 Angelic Armaments
+1 Animate Land
+1 Arcum's Whistle
+1 Argoth, Sanctum of Nature
+1 Balm of Restoration
+1 Beast of Burden
+1 Bladed Bracers
+1 Blessed Respite
+1 Blossom Dryad
+1 Broodwarden
+1 Cacophodon
+1 Chorus of Might
+1 Darksteel Plate
+1 Elder Druid
+1 Elixir of Vitality
+1 Entangling Vines
+1 Evendo, Waking Haven
+1 Fanatical Fever
+1 Gingerbread Cabin
+1 Graaz, Unstoppable Juggernaut
+1 Grazing Whiptail
+1 Hair-Strung Koto
+1 Hero's Heirloom
+1 Initiate's Companion
+1 Lair of the Hydra
+1 Lead Golem
+1 Leonin Bladetrap
+1 Life Chisel
+1 Llanowar Reborn
+1 Mending Touch
+1 Metrognome
+1 Mogg Cannon
+1 Nourish
+1 Oran-Rief, the Vastwood
+1 Orazca Frillback
+1 Pardic Wanderer
+1 Predator's Strike
+1 Riot Gear
+1 Roots
+1 Rushwood Dryad
+1 Sacred White Deer
+1 Sandals of Abdallah
+1 Scaled Behemoth
+1 Scrapheap
+1 Sculptor of Winter
+1 Shifting Woodland
+1 Snow Fortress
+36 Snow-Covered Forest
+1 Spike-Tailed Ceratops
+1 Spirit Shield
+1 Spore Cloud
+1 Squirrel Nest
+1 Steel Golem
+1 Strength of Cedars
+1 Strider Harness
+1 Summer Bloom
+1 Tajuru Snarecaster
+1 Tel-Jilad Archers
+1 The Walls of Ba Sing Se
+1 Treetop Scout
+1 Vitalize
+1 Warren-Scourge Elf
+1 Weatherseed Elf
+1 Wirewood Symbiote
+
+[commander]
+Terrian, World Tyrant

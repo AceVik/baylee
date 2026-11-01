@@ -22,9 +22,7 @@
 //! each other's places walks in order and reports as aligned — an upper
 //! bound wearing a count's clothes.
 
-use baylee_cards_dsl::{
-    AbilityDef, AltCondition, AlternativeCost, CostPart, SpellMode, StepKind, Trigger,
-};
+use baylee_cards_dsl::{AbilityDef, AltCondition, AlternativeCost, CostPart, StepKind, Trigger};
 
 /// The sentences a printed oracle text is made of.
 ///
@@ -33,6 +31,15 @@ use baylee_cards_dsl::{
 /// reach this crate, so the split belongs to `baylee-core`, which both
 /// ends depend on.
 pub use baylee_core::oracle::sentences;
+
+mod grants;
+use grants::granted_cost;
+
+mod modes;
+pub use modes::map_modes;
+
+mod shape;
+pub use shape::line_shape;
 
 /// What shape an oracle sentence or an ability is, coarsely enough that the
 /// two can be held against each other.
@@ -77,9 +84,9 @@ pub enum LineShape {
     ///
     /// Not every grant: one written inside an ability that already has a
     /// sentence of its own shape, such as Urza's Saga's chapters or Spawning
-    /// Pool's `{1}{B}:`, is found under that shape. This is for the two
-    /// kinds of ability that were [`Self::Other`] and grant one: a static
-    /// and a copy clause (`…except it has "{T}: Add {U}."`).
+    /// Pool's `{1}{B}:`, is found under that shape. This is for abilities
+    /// otherwise classified as [`Self::Other`]: statics, copy clauses
+    /// (`…except it has "{T}: Add {U}."`) and spell effects.
     ///
     /// A static never uses the stack, so it is not counted in
     /// [`Self::stackable`].
@@ -126,144 +133,6 @@ pub fn without_reminder(line: &str) -> String {
         }
     }
     out.trim().to_string()
-}
-
-/// The shape of one printed line.
-pub fn line_shape(line: &str) -> LineShape {
-    let printed = line;
-    let line = without_reminder(line);
-    let line = line.as_str();
-    // The trigger word is read **before** the colon, and putting it after
-    // was this function's own first bug: most triggered abilities print no
-    // colon at all ("When this creature enters, draw a card"), so a reader
-    // that split on one first sent all of them to `Other` and reported 125
-    // cards as misaligned. The pool was right and the heuristic was wrong,
-    // which is the failure mode a measurement like this exists to have
-    // early rather than after a table is built on it.
-    let lower = line.to_lowercase();
-    // "As this creature enters" is a replacement rather than a trigger by
-    // the rules (CR 614), and every card that prints it writes it as
-    // `triggered!` here — so for the purpose of finding which sentence an
-    // ability came from it is a third trigger word, not a fourth shape.
-    //
-    // The word is not only that sentence's: "As long as …" opens a
-    // *static* ability, and read as a trigger it left The World Tree's
-    // conditional grant without its sentence once the grant was built. It
-    // goes on to the colon test below, where a quoted ability makes it a
-    // grant.
-    if lower.starts_with("when")
-        || lower.starts_with("at ")
-        || (lower.starts_with("as ") && !lower.starts_with("as long as "))
-        || lower.starts_with("ward ")
-        || lower.starts_with("ward—")
-    {
-        // A trigger on tapping for mana that adds mana and targets nothing
-        // is a mana ability (CR 605.1b) and never a stack entry: Badgermole
-        // Cub's "Whenever you tap a creature for mana, add an additional
-        // {G}." Forbidden Orchard's, which targets an opponent, stays a
-        // trigger.
-        if lower.contains(" for mana, add ") && !lower.contains("target") {
-            return LineShape::Mana;
-        }
-        return LineShape::Triggered;
-    }
-    // A chapter's separator is an em dash, not a colon.
-    if line
-        .split_once(" — ")
-        .is_some_and(|(head, _)| !head.is_empty() && head.chars().all(|c| "IVX, ".contains(c)))
-    {
-        return LineShape::Chapter;
-    }
-    let Some(colon) = ability_colon(line) else {
-        // Every colon this line prints stands inside quotation marks, so
-        // the line defines no ability of its own — see [`ability_colon`] —
-        // and only the ability that *grants* the quoted one may claim it.
-        // Said here rather than left to fall through, because the branch
-        // below reads a *keyword* line and a short grant fits it: `Lands
-        // have "{T}: Add {C}."` is 26 characters, ends in a quotation mark
-        // rather than a full stop, and carries a `{`. The pool's shortest
-        // grant is 46 characters and only that length stood between this
-        // and the same defect one branch over.
-        if line.contains(':') || granted_crew_number(line).is_some() {
-            return LineShape::Grant;
-        }
-        // A keyword ability with a cost is a printed sentence too, and it
-        // is the *right* sentence for the ability it compiles to — cycling
-        // and equip are `AbilityDef::Activated` here, and "Cycling {B}" is
-        // what a player reads when one of them goes on the stack. It has no
-        // colon because the card put the cost and the effect in a keyword
-        // instead of side by side.
-        return if line.len() <= 40
-            && !line.ends_with('.')
-            && (line.contains('{')
-                || reminder_spells_out_an_ability(printed)
-                || a_numbered_tapping_keyword(line))
-        {
-            LineShape::Activated
-        } else {
-            LineShape::Other
-        };
-    };
-    let (head, body) = line.split_at(colon);
-    let body = body[':'.len_utf8()..].trim();
-    // A line that makes mana is its own shape, and the reasons are on
-    // [`LineShape::Mana`] — including why it has to be said here as well as
-    // in `ability_shape`.
-    let lower_body = body.to_lowercase();
-    // The "add" may open the body's *second* sentence: Three Tree City's
-    // "{2}, {T}: Choose a color. Add an amount of mana of that color …" is a
-    // mana ability (CR 605.1a — it could add mana and targets nothing), and
-    // read on the first sentence alone it was `Activated`, so the card's
-    // mana ability had no sentence. That later "add" is believed only in a
-    // body that never says "target", because a targeting ability is not a
-    // mana ability whatever it adds; a body *opening* on "add" keeps the
-    // reading it always had, since Primal Wellspring's "Add one mana of any
-    // color. When that mana is spent …, you may choose new targets for the
-    // copy" is a mana ability whose "target" belongs to a delayed trigger.
-    let makes = |s: &str| s.starts_with("add ") && (s.contains('{') || s.contains("mana"));
-    let adds_first = makes(&lower_body)
-        || (!lower_body.contains("target")
-            && lower_body.starts_with("for each color among ")
-            && lower_body
-                .split_once(", ")
-                .is_some_and(|(_, effect)| makes(effect)));
-    let adds_later = !lower_body.contains("target") && lower_body.split(". ").skip(1).any(makes);
-    // Drawing and milling move cards out of the library, so adding mana
-    // beside them does not make this a mana ability (CR 605.1a). Read words
-    // rather than card names or one particular "Draw a card" sentence.
-    // A delayed trigger is a separate ability, just as in `mana_rule`.
-    let moves_library = lower_body
-        .split(". ")
-        .take_while(|clause| {
-            !clause.starts_with("when")
-                && !clause.starts_with("at ")
-                && !clause.contains(" at the beginning of ")
-        })
-        .flat_map(|clause| clause.split(|c: char| !c.is_ascii_alphabetic()))
-        .any(|word| matches!(word, "draw" | "draws" | "mill" | "mills"));
-    if (adds_first || adds_later) && !moves_library {
-        return LineShape::Mana;
-    }
-    // A loyalty cost is the whole of what precedes the colon, and the minus
-    // a card prints is U+2212, not a hyphen.
-    if !head.is_empty()
-        && head
-            .chars()
-            .all(|c| c.is_ascii_digit() || c == '+' || c == '-' || c == '\u{2212}' || c == 'X')
-    {
-        return LineShape::Loyalty;
-    }
-    // An activation cost is mana, a tap, a sacrifice — never a sentence, so
-    // the head is length-bounded rather than merely non-empty. The bound is
-    // 120 and not 60 because a cost may be several clauses of prose:
-    // Recurring Nightmare pays "Sacrifice a creature, Return this
-    // enchantment to its owner's hand", which is 76 characters and was
-    // being read as a card with no activated ability at all.
-    if head.len() <= 120 {
-        LineShape::Activated
-    } else {
-        LineShape::Other
-    }
 }
 
 /// Where this line's **own** ability puts its colon, if it has one.
@@ -415,35 +284,6 @@ pub fn ability_shape(ability: &baylee_cards_dsl::AbilityDef) -> LineShape {
     }
 }
 
-/// The cost of the activated ability a static or a copy clause grants, when
-/// it grants one: the two kinds of ability [`LineShape::Grant`] is for.
-///
-/// `None` for every other ability, including one that grants through an
-/// effect it resolves (a saga chapter, Spawning Pool's `{1}{B}:`), since
-/// that one already has a sentence of its own shape.
-fn granted_cost(ability: &AbilityDef) -> Option<baylee_cards_dsl::Cost> {
-    use baylee_cards_dsl::{CopyMod, Modifier};
-    let cost = |modifier: &Modifier| match modifier {
-        Modifier::GrantActivated { cost, .. } => Some(*cost),
-        _ => None,
-    };
-    match ability {
-        AbilityDef::Static(rule) => cost(&rule.modifier),
-        AbilityDef::CopyOnEnter { mods, .. } | AbilityDef::CopyOnEnterUntilEot { mods, .. } => {
-            mods.iter().find_map(|m| match m {
-                CopyMod::Grant(modifier) => cost(modifier),
-                CopyMod::GrantAbility(
-                    AbilityDef::Activated { cost, .. }
-                    | AbilityDef::ActivatedConditional { cost, .. }
-                    | AbilityDef::ModalActivated { cost, .. },
-                ) => Some(*cost),
-                _ => None,
-            })
-        }
-        _ => None,
-    }
-}
-
 /// What a sentence prints inside its first pair of quotation marks.
 ///
 /// The ASCII `"` for [`ability_colon`]'s reason: it is what the pool prints.
@@ -513,7 +353,7 @@ pub fn cost_fits(cost: &baylee_cards_dsl::Cost, line: &str) -> bool {
     // A keyword ability prints its cost with no colon after it — "Cycling
     // {B}" is a whole line — so a line without one is read as all cost.
     let head = line.split_once(':').map_or(line.as_str(), |(head, _)| head);
-    let mut printed = braced(head);
+    let printed = braced(head);
     let taps = printed.iter().any(|s| s == "T");
     let untaps = printed.iter().any(|s| s == "Q");
     if taps != cost.parts.contains(&CostPart::TapSelf) {
@@ -528,16 +368,18 @@ pub fn cost_fits(cost: &baylee_cards_dsl::Cost, line: &str) -> bool {
         return false;
     }
     // Energy symbols belong to nonmana payments, not the mana cost.
-    printed.retain(|s| s != "T" && s != "Q" && s != "E");
     let mut want = braced(&cost.mana.to_string());
-    // `{0}` and no mana at all are the same cost written two ways, and
-    // equip is where they meet: Lightning Greaves prints "Equip {0}" and
-    // compiles to `ManaCost::ZERO`, which renders as nothing.
-    printed.retain(|s| s != "0");
     want.retain(|s| s != "0");
-    printed.sort();
     want.sort();
-    printed == want
+    for alt_head in head.split(" or ") {
+        let mut alt_printed = braced(alt_head);
+        alt_printed.retain(|s| s != "T" && s != "Q" && s != "E" && s != "0");
+        alt_printed.sort();
+        if alt_printed == want {
+            return true;
+        }
+    }
+    false
 }
 
 /// Does what a mana ability *makes* fit the body of a printed line?
@@ -683,7 +525,9 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         | T::InstantCastAfterFirst { .. }
         | T::NthSpellCast { .. }
         | T::FirstNoncreatureSpellCast(_) => &["cast"],
-        T::BecomesTarget | T::TargetedByOpponent { .. } => &["becomes the target"],
+        T::BecomesTarget | T::EnchantedBecomesTarget | T::TargetedByOpponent { .. } => {
+            &["becomes the target"]
+        }
         T::TurnedFaceUp => &["turned face up"],
         T::TransformsIntoThis => &["transforms into"],
         T::Mutates => &["mutates"],
@@ -700,10 +544,12 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         | T::DealsDamageToPlayer { .. }
         | T::DealsDamageToOpponent(_)
         | T::DealsDamage(_)
-        | T::DealtDamage(_) => &["damage"],
+        | T::DealtDamage(_)
+        | T::DealtCombatDamage(_) => &["damage"],
         // Living Artifact and Lich, "Whenever you're dealt damage".
         T::PlayerDealtDamage(_) => &["dealt damage"],
         T::BecomesTapped(_) => &["tap"],
+        T::BecomesUntapped(_) => &["untap"],
         T::AbilityActivated { .. } => &["activates"],
         // Badgermole Cub, "Whenever you tap a creature for mana".
         T::TappedForMana { .. } => &["for mana"],
@@ -715,6 +561,7 @@ pub fn trigger_words(trigger: &baylee_cards_dsl::Trigger) -> &'static [&'static 
         T::Draws(_) | T::DrawsExceptFirst(_) | T::NthCardDrawnInTurn { .. } => &["draw"],
         T::SearchesLibrary(_) => &["search"],
         T::GainsLife(_) => &["gain life", "gains life"],
+        T::LosesLife(_) => &["lose life", "loses life"],
         // Fastbond, "Whenever you play a land".
         T::PlaysLand(_) => &["play a land"],
         T::PlaysAnotherLand => &["play another land"],
@@ -825,6 +672,7 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::NthCardDrawnInTurn { who: rel, .. }
         | Trigger::SearchesLibrary(rel)
         | Trigger::GainsLife(rel)
+        | Trigger::LosesLife(rel)
         | Trigger::PlaysLand(rel)
         | Trigger::InstantCastAfterFirst { who: rel }
         | Trigger::FirstNoncreatureSpellCast(rel)
@@ -858,10 +706,20 @@ fn whose_trigger_fits(trigger: &Trigger, line: &str) -> bool {
         | Trigger::DealsDamageToOpponent(filter)
         | Trigger::DealsDamage(filter)
         | Trigger::DealtDamage(filter)
+        | Trigger::DealtCombatDamage(filter)
         | Trigger::SpellCast(filter)
         | Trigger::SpellCastUsingSourceMana(filter)
         | Trigger::SpellCastOrCopied(filter) => {
-            if matches!(filter, baylee_cards_dsl::Filter::This) {
+            // "This" narrowed by a condition is still this object: Bogardan
+            // Phoenix's two dies triggers are `This` and with and without a
+            // death counter, and both are "when this creature dies".
+            let names_this =
+                |f: &baylee_cards_dsl::Filter| matches!(f, baylee_cards_dsl::Filter::This);
+            let this = match filter {
+                baylee_cards_dsl::Filter::And(parts) => parts.iter().any(names_this),
+                other => names_this(other),
+            };
+            if this {
                 !about_someone_else()
             } else {
                 !about_itself()
@@ -913,7 +771,7 @@ pub fn content_fits(ability: &baylee_cards_dsl::AbilityDef, line: &str) -> bool 
         A::Ward { .. } => line.to_lowercase().starts_with("ward"),
         // A grant's cost is the one inside the quotation marks, which is the
         // granted ability's and printed as its head (CR 113.10a).
-        A::Static(_) | A::CopyOnEnter { .. } | A::CopyOnEnterUntilEot { .. } => {
+        A::Static(_) | A::CopyOnEnter { .. } | A::CopyOnEnterUntilEot { .. } | A::Spell { .. } => {
             match granted_cost(ability) {
                 Some(cost) => {
                     quoted(line).is_some_and(|inside| cost_fits(&cost, inside))
@@ -1023,141 +881,6 @@ pub struct Mapping {
     /// pool. It stays visible so the next discriminator is chosen against
     /// a count instead of a hunch.
     pub ambiguous: usize,
-}
-
-/// The bullet a modal card lists its modes under.
-const BULLET: char = '\u{2022}';
-
-/// Whether a printed sentence is one mode of a modal card's list: a bullet,
-/// or spree's plus sign in front of the mode's own cost — "+ {1} — …"
-/// (CR 702.172b: the plus sign is a bullet with a reminder in it).
-fn is_mode_line(line: &str) -> bool {
-    let line = line.trim_start();
-    line.starts_with(BULLET) || line.starts_with("+ {")
-}
-
-/// Which printed sentence each mode of a modal spell came from.
-///
-/// `CastModeKind::Mode(i)` is the only thing a client is told about a mode,
-/// and a chooser that can only say "Mode 2" asks a player to pick between
-/// two numbers. The sentence is what turns that into the card — but only
-/// where it is *known*: a label pointing one sentence off is drawn as the
-/// card's own words and is worse than the number it replaced, so anything
-/// this cannot read whole answers `None` for every mode of the face.
-///
-/// Two printings, and the text says which. A card that prints `Choose one —`
-/// — or `choose up to one —`, where one mode does nothing and is how a
-/// player declines — lists its modes as bullets, one per mode that does
-/// something, in order. The other shape is **overload**, which prints no
-/// bullet at all: the card's body, and a keyword line naming the other
-/// cost. There, a mode with a `cost_override` finds the keyword line
-/// printing that cost and a mode without one is the body, and both halves
-/// have to come out to exactly the right count or the card is refused.
-///
-/// A modal **trigger** is read by the same two, and most of the pool's are
-/// bulleted (Charming Prince, Aether Channeler, Ertai Resurrected,
-/// Primaris Eliminator). Two are neither, and refuse: Derevi and Inspirit,
-/// Flagship Vessel print their choice *inside* one sentence — "you may tap
-/// or untap target permanent", "your choice of a +1/+1 counter or two
-/// charge counters" — which is a mode with no sentence of its own, and a
-/// number is the better label for it.
-///
-/// It reads modes and not abilities, so it is not part of [`map`]: an
-/// `AbilityDef::ModalSpell` is [`LineShape::Other`] there, which is the
-/// right answer for the ability — the whole card is its text — and no
-/// answer at all for the modes inside it.
-#[must_use]
-pub fn map_modes(modes: &[SpellMode], oracle: &str) -> Vec<Option<u8>> {
-    let lines: Vec<&str> = sentences(oracle).collect();
-    let refuse = || vec![None; modes.len()];
-    let bullets: Vec<usize> = lines
-        .iter()
-        .enumerate()
-        .filter(|(_, line)| is_mode_line(line))
-        .map(|(at, _)| at)
-        .collect();
-    if !bullets.is_empty() {
-        // A mode that does nothing is the one a player declines with, and
-        // it is printed nowhere: "choose up to one —" states the
-        // permission in the header and then lists only the things there
-        // are to choose. Ertai Resurrected is the pool's card, its third
-        // mode is `mode!(&[])`, and read as a bullet's owner it cost the
-        // other two theirs — three `None`s for a card that prints two
-        // perfectly good sentences.
-        //
-        // Both halves are asked for, because either alone is a guess. The
-        // printing has to say "choose up to", and the modes have to hold
-        // exactly one that does nothing; a bullet count one short on its
-        // own is the ordinary disagreement below, where the honest answer
-        // is still to refuse the card whole.
-        let declining = |m: &SpellMode| {
-            m.effects.is_empty()
-                && m.targets.is_none()
-                && m.cost_override.is_none()
-                && m.additional_cost.is_none()
-        };
-        let spoken: Vec<usize> = modes
-            .iter()
-            .enumerate()
-            .filter(|(_, m)| !declining(m))
-            .map(|(at, _)| at)
-            .collect();
-        let declines = modes.len() - spoken.len();
-        let optional = oracle.to_lowercase().contains("choose up to");
-        // A bullet count that disagrees with the mode count is the printing
-        // and the code describing different cards, which is exactly the
-        // case where walking them in step is confidently wrong.
-        if bullets.len() != spoken.len() || (declines > 0 && !(optional && declines == 1)) {
-            return refuse();
-        }
-        let mut found = vec![None; modes.len()];
-        for (at, line) in spoken.iter().zip(&bullets) {
-            found[*at] = u8::try_from(*line).ok();
-        }
-        return found;
-    }
-    let mut found = vec![None; modes.len()];
-    let mut spoken: Vec<usize> = Vec::new();
-    for (at, mode) in modes.iter().enumerate() {
-        let Some(mana) = mode.cost_override else {
-            continue;
-        };
-        let cost = baylee_cards_dsl::Cost { mana, parts: &[] };
-        let hits: Vec<usize> = lines
-            .iter()
-            .enumerate()
-            .filter(|(_, line)| line_shape(line) == LineShape::Activated && cost_fits(&cost, line))
-            .map(|(at, _)| at)
-            .collect();
-        // Two lines printing the same cost is the reader unable to tell
-        // them apart, and whichever came first would be a coin toss drawn
-        // to the player as the card's own sentence.
-        let [only] = hits[..] else {
-            return refuse();
-        };
-        found[at] = u8::try_from(only).ok();
-        spoken.push(only);
-    }
-    // What is left is the card's body, and the counts have to meet exactly.
-    // A modal card that also prints a keyword line — "Flying" over a body
-    // over an overload cost — leaves two candidates for one mode and is
-    // refused here rather than given the first of them.
-    let body: Vec<usize> = lines
-        .iter()
-        .enumerate()
-        .filter(|(at, line)| !spoken.contains(at) && line_shape(line) == LineShape::Other)
-        .map(|(at, _)| at)
-        .collect();
-    let plain: Vec<usize> = (0..modes.len())
-        .filter(|at| modes[*at].cost_override.is_none())
-        .collect();
-    if body.len() != plain.len() {
-        return refuse();
-    }
-    for (at, line) in plain.iter().zip(body) {
-        found[*at] = u8::try_from(line).ok();
-    }
-    found
 }
 
 /// Which printed sentence each alternative cost came from.

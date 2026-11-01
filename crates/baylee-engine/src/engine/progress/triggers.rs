@@ -266,7 +266,8 @@ impl<L: CardLookup> Engine<L> {
                     crate::text_changes::RuleContext {
                         source: t.source,
                         text: t.text,
-                        reference: None,
+                        resolved_name: None,
+                        reference: t.event_object,
                     },
                     None,
                     wall_only,
@@ -293,17 +294,8 @@ impl<L: CardLookup> Engine<L> {
             let effects = if t.ability_index == baylee_core::ids::AbilityRef::SYNTHETIC {
                 if t.event_mana.is_some()
                     && t.synthetic_target.is_none()
-                    && t.synthetic_effects.is_some_and(|fx| {
-                        fx.iter().any(|effect| {
-                            matches!(
-                                effect,
-                                baylee_cards_dsl::Effect::AddMana { .. }
-                                    | baylee_cards_dsl::Effect::AddManaFor { .. }
-                                    | baylee_cards_dsl::Effect::AddManaLikeEvent { .. }
-                                    | baylee_cards_dsl::Effect::ManaForColorsAmong(_)
-                            )
-                        })
-                    })
+                    && t.synthetic_effects
+                        .is_some_and(baylee_cards_dsl::mana_rule::could_add_mana)
                 {
                     t.synthetic_effects
                 } else {
@@ -352,9 +344,16 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
                 subject: crate::resolve::SubjectContext::default()
-                    .with_event_player(t.event_player),
-                text: crate::text_changes::TextChangeMap::IDENTITY,
+                    .with_event_player(t.event_player)
+                    .with_source_version(t.source_version)
+                    .with_event_identity(t.event_object.zip(t.event_object_identity).map(
+                        |(object, (version, power))| {
+                            (baylee_core::ids::DamageSourceRef { object, version }, power)
+                        },
+                    )),
+                text: t.text,
                 this_way_from: None,
+                coin_stake: None,
             };
             let flow = crate::resolve::run(&mut self.state, &mut res);
             #[cfg(test)]
@@ -430,6 +429,11 @@ impl<L: CardLookup> Engine<L> {
         let arena = &self.state.arena;
         let entries = &self.state.journal.entries()[scan_from as usize..];
         self.state.delayed.retain(|d| match d.when {
+            crate::state::DelayedWhen::Observed { watch, .. } => {
+                arena.get(watch.object).is_some_and(|o| {
+                    o.zone == crate::zone::Zone::Battlefield && o.version == watch.version
+                }) && !d.when.observation_fired(entries, d.controller)
+            }
             crate::state::DelayedWhen::DiesOrIsExiled { card, version, .. }
             | crate::state::DelayedWhen::DiesThisTurn { card, version, .. }
             | crate::state::DelayedWhen::DealtDamageThisTurn { card, version, .. }
@@ -634,7 +638,8 @@ impl<L: CardLookup> Engine<L> {
                     crate::text_changes::RuleContext {
                         source: t.source,
                         text: t.text,
-                        reference: None,
+                        resolved_name: None,
+                        reference: t.event_object,
                     },
                     None,
                     self.trigger_wall_only(&t),
@@ -690,7 +695,8 @@ impl<L: CardLookup> Engine<L> {
                             crate::text_changes::RuleContext {
                                 source: t.source,
                                 text: t.text,
-                                reference: None,
+                                resolved_name: None,
+                                reference: t.event_object,
                             },
                             self.trigger_wall_only(&t),
                             first,
@@ -723,9 +729,15 @@ impl<L: CardLookup> Engine<L> {
                     let max = max.min(u32::try_from(offered).unwrap_or(u32::MAX));
                     self.pending = Pending::ChooseTargets {
                         player: match req.chooser {
-                            baylee_cards_dsl::TargetChooser::EventPlayer => t.event_player.expect(
-                                "event-player target chooser requires a captured event player",
-                            ),
+                            baylee_cards_dsl::TargetChooser::EventPlayer => t
+                                .event_player
+                                .or_else(|| {
+                                    t.event_object
+                                        .and_then(|id| self.state.last_known_controller(id))
+                                })
+                                .expect(
+                                    "event-player target chooser requires a captured event player",
+                                ),
                             baylee_cards_dsl::TargetChooser::Controller => t.controller,
                             baylee_cards_dsl::TargetChooser::Opponent => {
                                 panic!("opponent chooser requires an activation announcement")
@@ -779,6 +791,7 @@ impl<L: CardLookup> Engine<L> {
                         crate::text_changes::RuleContext {
                             source: t.source,
                             text: t.text,
+                            resolved_name: None,
                             reference: None,
                         },
                         self.trigger_wall_only(&t),
@@ -803,7 +816,8 @@ impl<L: CardLookup> Engine<L> {
                     crate::text_changes::RuleContext {
                         source: t.source,
                         text: t.text,
-                        reference: None,
+                        resolved_name: None,
+                        reference: t.event_object,
                     },
                     None,
                     self.trigger_wall_only(&t),
@@ -890,7 +904,7 @@ impl<L: CardLookup> Engine<L> {
                 });
             } else {
                 self.hand_over_trigger_abilities(&t);
-                self.push_ability_to_stack(
+                let top = self.push_ability_to_stack(
                     t.controller,
                     t.source,
                     t.ability_index,
@@ -899,14 +913,14 @@ impl<L: CardLookup> Engine<L> {
                 self.set_top_mode(t.chosen_mode);
                 self.bind_top_trigger(&t);
                 // Carry the event object onto the fresh stack object.
-                if let Some(event_object) = t.event_object {
-                    let top = self.state.zones.list(ZoneLocation::Stack).last().copied();
-                    if let Some(top) = top
-                        && let Some(obj) = self.state.object_mut(top)
-                    {
-                        obj.event_object = Some(event_object);
-                        obj.targets.extend(t.implicit_target);
-                    }
+                if let Some(event_object) = t.event_object
+                    && let Some(obj) = self.state.object_mut(top)
+                {
+                    obj.event_object = Some(event_object);
+                    obj.targets.extend(t.implicit_target);
+                }
+                if self.discard_empty_trigger_without_effect(top) {
+                    continue;
                 }
                 if self.ask_trigger_second_target() {
                     return;

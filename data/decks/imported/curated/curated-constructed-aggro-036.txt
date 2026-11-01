@@ -1,0 +1,22 @@
+# baylee curated constructed aggro seed=20261059
+# licence: AGPL-3.0-only
+[deck:constructed aggro UR #20261059]
+3 Chandra's Emberling
+2 Daily Bugle Building
+2 Dragon's Rage Channeler
+4 Elusive Spellfist
+2 Embersmith
+3 Force of Will
+1 Gemstone Mine
+1 Guildmages' Forum
+2 Invoke Prejudice
+9 Island
+4 Izzet Charm
+3 Jasmine Dragon Tea Shop
+4 Kiln Fiend
+4 Mindsparker
+4 Monastery Swiftspear
+5 Mountain
+2 Nykthos, Shrine to Nyx
+3 Sawblade Scamp
+2 Spark Jolt

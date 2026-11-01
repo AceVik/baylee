@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/M15/infernal-intervention.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, InfernalIntervention_M15.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Infernal Intervention (Adapted)]
+4 Bedevil
+2 Carrion Crow
+1 Clear a Path
+3 Delirium
+2 Flesh to Dust
+2 Goblin Roughrider
+1 Gravedigger
+2 Heat Ray
+2 Lightning Strike
+13 Mountain
+2 Nightfire Giant
+3 Spontaneous Combustion
+1 Stab Wound
+1 Stonefury
+13 Swamp
+1 Thundering Giant
+2 Torch Fiend
+3 Typhoid Rats
+1 Wall of Fire
+1 Zof Shade

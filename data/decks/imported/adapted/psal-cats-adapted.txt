@@ -1,0 +1,28 @@
+# adapted from data/decks/precon/PSAL/cats.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Cats_PSAL.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Cats (Adapted)]
+1 Advent of the Wurm
+2 Altar of Bone
+2 Bonesplitter
+3 Call of the Conclave
+2 Eladamri's Call
+5 Forest
+2 Griffin Sentinel
+1 Heroes' Reunion
+1 Jedit's Dragoons
+1 Leonin Elder
+1 Leonin Skyhunter
+1 Lightning Greaves
+1 Mirri, Cat Warrior
+4 Nature's Chant
+12 Plains
+1 Reknit
+2 Saltblast
+2 Selesnya Sanctuary
+3 Selesnya Signet
+1 Slagwurm Armor
+1 Specter's Shroud
+4 Terramorphic Expanse
+2 Thraben Watcher
+4 Vitalizing Cascade
+1 Whitemane Lion

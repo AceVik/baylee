@@ -1,0 +1,80 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control UBR #20266016]
+1 Akoum Refuge
+1 Ancient Runes
+1 Artifact Possession
+1 Auntie's Hovel
+1 Banshee
+1 Baron, Airship Kingdom
+1 Bhaal's Invoker
+1 Bloodrite Invoker
+1 Boltwave
+1 Bot Bashing Time
+1 Breath of Malfegor
+1 Caldera Lake
+1 Canyon Slough
+1 Cinder Storm
+1 Concentrated Fire
+1 Crash and Burn
+1 Cunning Sparkmage
+1 Dark Nourishment
+1 Earth Tremor
+1 Earthbind
+1 End the Festivities
+1 Explosive Shot
+1 Fanged Flames
+1 Fire Ambush
+1 Flamekin Spitfire
+1 Foreboding Ruins
+1 Frostling
+1 Hasran Ogress
+1 Haunted Ridge
+1 Heat of Battle
+1 Hecatomb
+1 Honden of Infinite Rage
+1 Jaya's Firenado
+1 Land's Edge
+1 Last Kiss
+1 Lust for War
+1 Mind Whip
+1 Mob Justice
+1 Mogg Maniac
+15 Mountain
+1 Obliterating Bolt
+1 Ogre Shaman
+1 Ominous Asylum
+1 Ozai's Cruelty
+1 Psychic Purge
+1 Relic Bind
+1 Restless Spire
+1 Retromancer
+1 Rockslide Ambush
+1 Sawtooth Ogre
+1 Scorched Geyser
+1 Scorching Shot
+1 Scorchmark
+1 Searing Wind
+1 Seismic Assault
+1 Seizures
+1 Sheoldred, the Apocalypse
+1 Skull Rend
+1 Smoldering Marsh
+1 Spectacle Summit
+1 Sudden Impact
+1 Suplex
+1 Surtland Frostpyre
+12 Swamp
+1 TCRI Building
+1 Tectonic Hazard
+1 Tourach's Chant
+1 Unfriendly Fire
+1 Valakut Invoker
+1 Viashino Fangtail
+1 Volcanic Island
+1 Wandering Fumarole
+1 Winter's Intervention
+1 Word of Blasting
+
+[commander]
+Sol'kanar the Swamp King

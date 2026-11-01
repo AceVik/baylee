@@ -1,0 +1,21 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, CentaurShaman_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Centaur Shaman]
+2 Birds of Paradise
+4 Carrion Ants
+3 Cockatrice
+4 Cursed Land
+2 Dark Ritual
+11 Forest
+4 Onulet
+3 Paralyze
+2 Pestilence
+2 Stream of Life
+11 Swamp
+4 Wanderlust
+4 Warp Artifact
+4 Whirling Dervish
+
+[sideboard]
+2 Deathgrip
+2 Lifeforce

@@ -103,7 +103,7 @@ mod tests {
     fn restores_gateways_and_unknown_preference_keys_without_using_device_defaults() {
         let original = AccountData {
             version: 1,
-            gateways: vec!["https://baylee.acevik.de".into()],
+            gateways: vec![central_api::LEGACY_ORIGIN.into()],
             preferences: serde_json::json!({"future_setting": {"value": 3}}),
             legacy: None,
             chat: crate::chat::ChatArchive::default(),
@@ -115,5 +115,19 @@ mod tests {
             br#"{"version":1,"gateways":["https://secret@host.invalid"],"preferences":{},"legacy":null}"#] {
             assert!(AccountData::read(invalid).is_err());
         }
+    }
+
+    /// The document the website seals at registration (baylee-central
+    /// `docs/web-accounts.md` §"The initial account document"), byte for byte:
+    /// a freshly registered account restores it, lists the official gateway
+    /// and starts from default preferences.
+    #[test]
+    fn the_website_s_initial_document_restores() {
+        let sealed = br#"{"version":1,"gateways":["https://baylee.acevik.de"],"preferences":{},"legacy":null,"chat":{"devices":[],"installations":[]}}"#;
+        let data = AccountData::read(sealed).unwrap();
+        assert_eq!(data.gateways, vec![central_api::LEGACY_ORIGIN.to_string()]);
+        assert!(data.legacy.is_none());
+        assert_eq!(data.preferences, serde_json::json!({}));
+        assert_eq!(data.write().unwrap().as_slice(), sealed.as_slice());
     }
 }

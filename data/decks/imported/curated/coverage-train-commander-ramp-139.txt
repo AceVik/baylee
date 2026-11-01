@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp R #20266140]
+1 Active Volcano
+1 An-Zerrin Ruins
+1 Arid Mesa
+1 Artifact Blast
+1 Blood Mist
+1 Bloodshed Fever
+1 Bravado
+1 Canyon Drake
+1 Captive Flame
+1 Cave Sense
+1 Caverns of Despair
+1 Covetous Dragon
+1 Crevasse
+1 Curse of Marit Lage
+1 Demolition Field
+1 Deranged Whelp
+1 Desert Drake
+1 Deserted Temple
+1 Devastation
+1 Dragon Hatchling
+1 Drownyard Temple
+1 Eldrazi Linebreaker
+1 Elephant Graveyard
+1 Endless Sands
+1 Faceless Haven
+1 Feral Ridgewolf
+1 Fervor
+1 Fire Drake
+1 Fire Nation's Conquest
+1 Firefly
+1 Flowstone Blade
+1 Flowstone Embrace
+1 Flowstone Kavu
+1 Flowstone Wyvern
+1 Frenzied Rage
+1 Glyph of Destruction
+1 Goblin Kites
+1 Goblin Rock Sled
+1 Goblin War Drums
+1 Granite Gargoyle
+1 Homeward Path
+1 Horde of Boggarts
+1 Hulk, Bruce Banner
+1 Isolated Watchtower
+1 Jund Panorama
+1 Mage-Ring Network
+1 Maniacal Rage
+1 Maze of Shadows
+21 Mountain
+1 Nalathni Dragon
+1 Power Boost
+1 Raging River
+1 Red Elemental Blast
+1 Rhystic Cave
+1 Roadside Reliquary
+1 Sabertooth Wyvern
+1 Satyr Rambler
+1 Scarlet Witch, Wanda Maximoff
+1 Scavenger Grounds
+1 Scrying Sheets
+1 Sequestered Stash
+1 Shard Phoenix
+1 Skyship Stalker
+1 Smash to Dust
+1 Sorrow's Path
+1 Spitting Drake
+1 Stampede Rider
+1 Sun-Collared Raptor
+1 Talons of Falkenrath
+1 Total War
+1 Tower of the Magistrate
+1 Two-Headed Dragon
+1 Underworld Breach
+1 Vance's Blasting Cannons
+1 Vestige of Emrakul
+1 Vesuva
+1 Veteran's Voice
+1 Winding Canyons
+1 Zhao, the Seething Flame
+
+[commander]
+Rorix Bladewing

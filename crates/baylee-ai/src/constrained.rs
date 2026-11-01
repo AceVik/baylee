@@ -7,12 +7,38 @@ use baylee_engine::choice::{ManaAbilityChoice, ManaChoiceId, PlayerAction};
 use baylee_view::PlayerView;
 
 pub(crate) fn mana_choice(
+    view: &PlayerView,
     choice: ManaChoiceId,
     options: &[ManaAbilityChoice],
 ) -> Option<PlayerAction> {
+    let life = view
+        .seat(baylee_client_core::decision::resource_player(view))
+        .map_or(20, |s| s.life);
     options
-        .first()
-        .map(|option| PlayerAction::ChooseManaAbility {
+        .iter()
+        .enumerate()
+        .min_by_key(|&(position, option)| {
+            let harm =
+                crate::policy::mana_ability_harm(view, option.source.object, option.ability_index);
+            let lethal = harm > 0 && harm >= life;
+            let priced = option
+                .ability_index
+                .and_then(|i| crate::activate::printed(view, option.source.object, i))
+                .is_some_and(|def| match def {
+                    baylee_cards_dsl::AbilityDef::Activated { cost, effects, .. }
+                    | baylee_cards_dsl::AbilityDef::ActivatedConditional {
+                        cost, effects, ..
+                    } => {
+                        crate::policy::priced(cost)
+                            || effects
+                                .iter()
+                                .any(|e| !matches!(e, baylee_cards_dsl::Effect::AddMana { .. }))
+                    }
+                    _ => false,
+                });
+            (lethal, harm, priced, position)
+        })
+        .map(|(_, option)| PlayerAction::ChooseManaAbility {
             choice,
             source: option.source,
             ability_index: option.ability_index,

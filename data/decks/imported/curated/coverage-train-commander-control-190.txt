@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUG #20266191]
+1 Abundant Countryside
+1 Afiya Grove
+1 Amrou Scout
+1 Arnjlot's Ascent
+1 Artificer's Intuition
+1 Backfire
+1 Baldur's Gate
+1 Barrenton Cragtreads
+1 Blizzard
+1 Breath of Dreams
+1 City of Brass
+1 Cocoon
+1 Cold Snap
+1 Daily Bugle Building
+1 Deeproot Waters
+1 Defiant Falcon
+1 Divine Intervention
+1 Druid Class
+1 Energy Vortex
+1 Fastbond
+1 Forbidden Orchard
+7 Forest
+1 Frontier Guide
+1 Fungal Bloom
+1 Fyndhorn Pollen
+1 Hadana's Climb
+1 Henge of Ramos
+1 Herald of the Sun
+1 Homarid Shaman
+1 In the Eye of Chaos
+1 Infinite Authority
+1 Innkeeper's Talent
+1 Interplanar Beacon
+9 Island
+1 Labyrinth Minotaur
+1 Lilting Refrain
+1 Lotus Vale
+1 Luminarch Ascension
+1 Mesmeric Trance
+1 Midsummer Revel
+1 Mind Harness
+1 Mirrex
+1 Moon-Eating Dog
+1 Narwhal
+1 Numbing Dose
+1 Nykthos, Shrine to Nyx
+1 Oath of the Ancient Wood
+11 Plains
+1 Plumecreed Mentor
+1 Primoc Escapee
+1 Prismatic Circle
+1 Psychic Allergy
+1 Psychic Venom
+1 Royal Decree
+1 School of the Unseen
+1 Silkwing Scout
+1 Simic Ragworm
+1 Sliver Hive
+1 Spark Double
+1 Sphinx of Magosi
+1 Sunspring Expedition
+1 Supply-Line Cranes
+1 Survivors' Encampment
+1 Tendo Ice Bridge
+1 Thelon's Chant
+1 Tidal Influence
+1 Trail of Evidence
+1 Tranquil Path
+1 True Conviction
+1 Undiscovered Paradise
+1 Wall of Vapor
+1 Wanderlust
+1 War Dance
+1 White Lotus Hideout
+1 Worldly Tutor
+
+[commander]
+Derevi, Empyrial Tactician

@@ -1,0 +1,32 @@
+{
+  "rate": 48000,
+  "seconds": 511.1744305829941,
+  "notes": 2053,
+  "sha256": "168ed52eef92393d0d7223333b5a52ce4bf0ec8437326a7d4777d3e700b6cb8e",
+  "works": [
+    {
+      "work": "clair-de-lune",
+      "start_seconds": 0.65,
+      "duration_seconds": 295.795119697007,
+      "source_notes_performed": 1468,
+      "arranged_notes": 1491,
+      "written_beats": 322.5,
+      "piano_velocity_range": [
+        29,
+        103
+      ]
+    },
+    {
+      "work": "gymnopedie-1",
+      "start_seconds": 303.445119697007,
+      "duration_seconds": 200.7293108859871,
+      "source_notes_performed": 455,
+      "arranged_notes": 562,
+      "written_beats": 234.0,
+      "piano_velocity_range": [
+        29,
+        78
+      ]
+    }
+  ]
+}

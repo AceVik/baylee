@@ -1,0 +1,16 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, Seer_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Seer]
+2 Counterspell
+4 Crystal Rod
+3 Drain Power
+4 Ghost Ship
+2 Hurkyl's Recall
+22 Island
+3 Ornithopter
+3 Tetravus
+2 Time Elemental
+3 Triskelion
+4 Unstable Mutation
+4 Unsummon
+4 Zephyr Falcon

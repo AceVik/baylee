@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/XLN/huatli-dinosaur-knight.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, HuatliDinosaurKnight_XLN.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Huatli, Dinosaur Knight (Adapted)]
+4 Arrows of Justice
+2 Double Cleave
+2 Frenzied Raptor
+4 Huatli's Snubhorn
+2 Lightning Helix
+2 Lightning Strike
+2 Martial Glory
+11 Mountain
+11 Plains
+2 Pterodon Knight
+2 Raptor Companion
+2 Shining Aerosaur
+2 Slash of Talons
+4 Spirit Summoning
+4 Stone Quarry
+2 Territorial Hammerskull
+2 Tilonalli's Knight

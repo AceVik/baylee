@@ -1,0 +1,22 @@
+# baylee unseen-card holdout constructed seed=90000015
+# licence: AGPL-3.0-only
+[deck:constructed ramp WG #90000015]
+2 Abstergo Entertainment
+4 Aeronaut Cavalry
+3 Baxter Building
+2 Dawnhart Rejuvenator
+3 Earth King's Lieutenant
+1 Forest
+2 Forsaken City
+2 Glimmervoid
+3 Hada Freeblade
+3 Icatian Moneychanger
+4 Inspiring Commander
+3 Maul Splicer
+4 Okoye, Dora Milaje Leader
+14 Plains
+2 Ranger-Captain of Eos
+2 Recruiter of the Guard
+1 Rumble Arena
+3 Tireless Missionaries
+2 Yotian Dissident

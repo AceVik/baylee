@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/M19/dragon-s-fire.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DragonSFire_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dragon's Fire (Adapted)]
+1 Arc Lightning
+2 Breath Weapon
+2 Charging Monstrosaur
+2 Fiery Finish
+2 Flare
+3 Goblin Instigator
+3 Havoc Devils
+3 Kargan Dragonrider
+1 Make Mischief
+1 Meteor Golem
+25 Mountain
+2 Onakke Ogre
+3 Pyromantic Pilgrim
+1 Rack and Ruin
+3 Shock
+1 Start from Scratch
+3 Sure Strike
+2 Volcanic Dragon

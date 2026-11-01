@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/M20/gruul-clans.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GruulClans_M20.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Gruul Clans (Adapted)]
+4 Colossal Might
+10 Forest
+3 Giant Growth
+4 Ground Assault
+4 Gruul Guildgate
+4 Guttural Response
+2 Lava Coil
+4 Manamorphose
+10 Mountain
+1 Rubblebelt Runner
+1 Sangrite Surge
+4 Savage Twister
+1 Stomping Ground
+4 Stump Stomp
+4 Surge of Strength

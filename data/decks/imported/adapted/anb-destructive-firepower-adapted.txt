@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/ANB/destructive-firepower.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DestructiveFirepower_ANB.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Destructive Firepower (Adapted)]
+2 Arc Lightning
+3 Bathe in Dragonfire
+3 Ember Hauler
+1 Fire Urchin
+1 Hammer of Bogardan
+2 Improvised Weaponry
+3 Infuriate
+2 Make Mischief
+3 Molten Blast
+25 Mountain
+1 Rack and Ruin
+4 Seismic Rupture
+2 Shivan Dragon
+4 Shock
+3 Spellgorger Weird
+1 Valakut Awakening

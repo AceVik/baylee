@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/ONS/ivory-doom.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, IvoryDoom_ONS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ivory Doom (Adapted)]
+4 Anguished Unmaking
+4 Barren Moor
+2 Cabal Archon
+2 Disciple of Grace
+4 Dusk Legion Zealot
+3 Inkling Summoning
+4 Mortify
+2 Pacifism
+8 Plains
+2 Profane Prayers
+4 Secluded Steppe
+2 Smother
+1 Starlit Sanctum
+8 Swamp
+2 Swat
+4 Unmake
+4 Vindicate

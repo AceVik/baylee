@@ -31,6 +31,7 @@ fn matching_event<'a>(
                     RuleContext {
                         source,
                         text,
+                        resolved_name: None,
                         reference: None,
                     },
                 )

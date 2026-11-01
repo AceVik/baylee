@@ -154,6 +154,15 @@ ScryfallCredit = Kartendaten und -bilder bereitgestellt von Scryfall.
 GatewayChecking = Prüfe { $url }…
 GatewaySaved = { $url } gespeichert.
 GatewayNotFound = Unter { $url } hat kein Baylee-Gateway geantwortet. Prüfe die Adresse oder versuche es erneut, sobald es läuft.
+LinkGatewayQuestion = { $url } zu deinen Gateways hinzufügen?
+LinkGatewayHint = Ein Link fragt danach. Gateways betreiben andere Leute: Füge eines nur hinzu, wenn du weißt, wer es betreibt. Dein Baylee-Central-Passwort geht nie an ein Gateway; fragt ein Gateway nach einem Passwort, ist es sein eigenes.
+LinkGatewayJoinsAccount = Es kommt zu den Gateways deines Accounts.
+LinkGatewayJoinsDevice = Es kommt zu den Gateways dieses Geräts.
+LinkGatewayAdd = Gateway hinzufügen
+LinkNotNow = Nicht jetzt
+LinkGatewaySignInFirst = Melde dich an, dann fragt Baylee, ob { $url } zu deinem Account kommt. Oder geh zurück, um es diesem Gerät hinzuzufügen.
+LinkGatewayKnown = { $url } ist schon unter deinen Gateways.
+LinkGatewayListFull = Dein Account hält so viele Gateways, wie er kann. Entferne eines, bevor du ein weiteres hinzufügst.
 GatewayCheckingShort = wird geprüft…
 GatewayVersionUnknown = Version unbekannt
 GatewayNotAnswering = antwortet nicht
@@ -277,8 +286,7 @@ UpdateTrashFailed = Sie ließ sich nicht in den Papierkorb legen ({ $error }); z
 UpdateWhyNotVerified = Der Download ließ sich nicht als unserer bestätigen und wurde nicht installiert.
 UpdateWhyOther = Dieses Update lässt sich nicht automatisch installieren.
 ReleaseNotes = Versionshinweise
-UpdateHide = Ausblenden
-UpdateRestartOffer = Update bereit – jetzt neu starten und genau hier weitermachen.
+UpdateRestartOffer = Starte jetzt neu und mach genau hier weiter – oder später: Es wird beim Beenden installiert.
 UpdateRestartNow = Jetzt neu starten
 UpdateLater = Später
 UpdateRestartFailed = Neustart nicht möglich: { $error }
@@ -294,6 +302,26 @@ UpdateCheckNow = Nach Updates suchen
 UpdateChecking = Suche läuft…
 UpdateUpToDate = Baylee ist aktuell.
 UpdateCheckFailed = Die Suche nach Updates hat nicht geklappt.
+UpdateCardTitle = Update { $version }
+UpdateCardReady = Update { $version } ist bereit
+UpdateCardAvailable = Update { $version } verfügbar
+UpdateDownloading = Wird heruntergeladen…
+UpdateVerifying = Wird geprüft…
+UpdateUnpacking = Wird entpackt…
+UpdateBytesOf = { $received } von { $total }
+UpdatePercent = { $percent } %
+UpdateLeftSeconds = noch etwa { $count } s
+UpdateLeftMinutes = noch etwa { $count } min
+UpdateLeftMoment = nur noch wenige Sekunden
+UpdateLeftHours = noch über eine Stunde
+UpdateDownloaded = { $size } heruntergeladen
+UpdateSignatureVerified = Signatur bestätigt
+UpdateDownloadingLine = Update { $version } wird heruntergeladen
+UpdateVerifyingLine = Update { $version } wird geprüft…
+UpdateUnpackingLine = Update { $version } wird entpackt…
+UpdateFailedLine = Update { $version } nicht heruntergeladen – neuer Versuch bei der nächsten Suche
+UpdateFailedWhy = Der Download ist abgebrochen ({ $error }). Baylee versucht es bei der nächsten Suche erneut.
+UpdateTryAgain = Erneut versuchen
 SignOut = Abmelden
 DeleteAccount = Account löschen
 DeleteAccountQuestion = Den Account { $account } löschen?
@@ -539,6 +567,8 @@ VisitBehindDial = Dahinter, Uhr
 VisitAcross = Gegenüber
 PriorityCueOn = Prioritätston: an
 PriorityCueOff = Prioritätston: aus
+FollowTurnOn = Tisch folgt dem Zug: an
+FollowTurnOff = Tisch folgt dem Zug: aus
 RowPriorityCue = Prioritätston
 HelpPriorityCue = Ein weicher Schlag, wenn der Tisch auf dich zu warten beginnt – nur auf deinem eigenen Gerät, nie für die anderen. Er hat einen eigenen Schalter; der Musik-Schalter schaltet ihn nie stumm.
 ActFocusNextSeat = Nächsten Platz ansehen
@@ -871,6 +901,7 @@ AttackListShow = Liste zeigen ({ $count }) ▸
 AttackSend = Angreifen: { $card } → { $defender }
 AttackWithdraw = Zurückziehen: { $card } → { $defender }
 AttackDraftHint = Angriffsziel wählen, dann Kreaturen. Zum Umverteilen hier zurückziehen. Zum Schluss bestätigen.
+AttackPage = Seite { $page } von { $total }
 DeclareBlockers = Blocker deklarieren
 BlockDraftHint = Angreifer wählen, dann die Kreaturen, die ihn blocken. Erneut wählen nimmt einen Blocker zurück. Zum Schluss bestätigen.
 BlockAim = Angreifer: { $attacker } · { $count } Blocker
@@ -1091,6 +1122,7 @@ ChooseExactly = Wähle { $count } { $noun }
 ChooseBetween = Wähle { $min }–{ $max } { $noun }
 ChooseCreatureType = Wähle einen Kreaturentyp
 ChooseBasicLandType = Wähle einen Standardlandtyp
+ChooseLandType = Wähle einen Landtyp
 ChooseCardName = Wähle einen Kartennamen
 ChooseColour = Wähle eine Farbe
 ChooseColours = Wähle eine oder mehrere Farben
@@ -1147,6 +1179,12 @@ PayLife =
     }
 PayTax = {"{"}{ $mana }{"}"} zahlen?
 PayMana = { $cost } zahlen?
+PayManaAndLife =
+    { $life ->
+        [one] { $cost } und { $life } Lebenspunkt zahlen?
+       *[other] { $cost } und { $life } Lebenspunkte zahlen?
+    }
+RemoveCountersInsteadOfUntapping = Statt zu enttappen { $count } { $counters } entfernen? „Nein“ wählt einen anderen Ersatzeffekt.
 PayPact = Pakt: { $cost } zahlen. Jetzt Mana erzeugen? Wenn du ablehnst oder ohne genug Mana abschließt, verlierst du das Spiel.
 CastForMiracle = Für die Mirakulum-Kosten wirken?
 CastWithoutPaying = Wirken, ohne seine Manakosten zu bezahlen?
@@ -1180,12 +1218,17 @@ YouAreWatching = Du schaust zu
 ConcedeConfirm = Aufgeben? Nochmal drücken
 LeaveTable = Tisch verlassen
 LeftTheTable = Du hast den Tisch verlassen
-LeaveTableConfirm = Verlassen? Das Haus spielt für dich weiter. Nochmal drücken
-LeaveTableConfirmOffline = Verlassen? Die Partie endet. Nochmal drücken
+LeaveTableConfirm = Verlassen? Nochmal drücken
+LeaveTableCost = Das Haus spielt für dich weiter.
+LeaveTableCostOffline = Die Partie endet.
 GameLogTitle = Spielprotokoll
 GameLogEmpty = Noch ist nichts passiert
 GameLogNewBelow = Neue Zeilen unten
 GameLogLatest = Zurück zum Neuesten
+GameLogTurnLines = { $count ->
+        [one] { $count } Eintrag
+       *[other] { $count } Einträge
+    }
 RevealedBy = { $player } zeigt offen vor
 RevealedWaiting = Noch { $count } weitere
 RevealedHint = Zeige auf eine Karte, um sie zu vergrößern
@@ -1228,6 +1271,8 @@ TargetingBatch = Für alle { $count } bestätigen
 TargetingBatchHint = { $count } gleiche Auslöser warten. Einzeln bestätigen oder diese Auswahl für alle { $count } übernehmen.
 TargetingSelected = Ausgewählt: { $targets }
 TargetingAllSeats = Alle Spieler
+TargetingShowFrom = Ziele zeigen von
+TargetingTargets = Ziele
 TargetingPage = Ziele { $first }–{ $last } von { $total }. Auswahl auch direkt am Tisch möglich.
 CastKicked = Mit Bonuskosten
 CastDisguise = Verkleidung – 2/2, Abwehr {"{"}2{"}"}
@@ -1273,7 +1318,7 @@ YouNamed = Du ({ $player })
 You = Du
 AimedAt = Ziel: { $target } ({ $position } von { $total })
 DeclaredCount = { $count } deklariert
-IncomingAt = { $defender }: { $count } Angreifer, { $unblocked } ungeblockt
+IncomingAt = { $defender }: { $count } Angreifer, { $unblocked } Schaden ungeblockt
 IncomingYou = Du
 ASeat = ein Platz
 APermanent = ein Permanent
@@ -1287,6 +1332,7 @@ LostWaiting = { $player } hat die Verbindung verloren – der Tisch wartet { $wa
 LostPaused = { $player } hat die Verbindung verloren – das Spiel ist pausiert, bis die Verbindung wieder steht
 LostHousePlays = Die Haus-KI spielt für { $player }
 LinkGaveUp = Der Tisch ist nicht erreichbar. Tritt aus der Lobby erneut bei.
+LinkSignInEnded = Der Tisch nimmt diesen Platz von hier nicht mehr an: Deine Anmeldung ist abgelaufen, oder der Platz wurde auf einem anderen Gerät übernommen. Melde dich in der Lobby neu an, um zurückzukehren.
 ClientOutdated = Dein Client ist veraltet: Aktualisiere ihn, um beizutreten.
 TableOlder = Dieser Tisch läuft mit einer älteren Version als dein Client.
 CardHasNoTarget = Für diese Karte gibt es kein gültiges Ziel mehr
@@ -1765,11 +1811,12 @@ ReportCatNoShotOnWeb = (die Browser-Version macht kein Bild)
 ReportCatScreenshotHintWeb = Die Browser-Version des Clients kann kein Bild ihres Fensters machen, ein Bericht von hier enthält also nie eines. Ist das Kästchen angehakt, gilt es, wenn du aus dem Desktop-Client meldest.
 ReportShotSize = { $width } × { $height }, { $kilobytes } KB
 ReportCrashesBox = Absturzberichte automatisch senden
-ReportPreviewShow = Zeigen, was gesendet wird
-ReportPreviewHide = Vorschau schließen
+ReportPreviewShow = Was gesendet wird
+ReportPreviewHide = Vorschau aus
 ReportSend = Senden
 ReportClose = Schließen
 ReportSending = Wird gesendet…
+ReportPreparing = Anhänge werden vorbereitet…
 ReportSent = Danke. Bericht { $id } ist angekommen.
 ReportsUnavailable = Dieses Gateway nimmt gerade keine Berichte an.
 ReportSignInAgain = Deine Sitzung ist abgelaufen. Melde dich erneut an und sende den Bericht dann.
@@ -1778,10 +1825,10 @@ ReportTooMany = Zu viele Berichte in kurzer Zeit. Warte etwas und sende dann ern
 ReportUnreachable = Das Gateway war nicht erreichbar. Dein Bericht ist noch da.
 ReportNotPassedOn = Das Gateway konnte den Bericht nicht weitergeben. Dein Bericht ist noch da; versuch es später erneut.
 ReportFailed = Der Bericht konnte nicht gesendet werden. Versuch es später erneut.
-ReportNeedsSession = Melde dich bei einem Gateway an, um einen Bericht zu senden. Einen anderen Feedback-Dienst, an den er gehen könnte, kennt dieser Client nicht.
-ReportGoesDirect = Du bist nicht angemeldet, darum geht dieser Bericht direkt an den Baylee-Feedback-Dienst unter { $url }.
-ReportsDirectUnavailable = Der Feedback-Dienst nimmt gerade keine Berichte direkt von einem Client an. Melde dich bei einem Gateway an, um ihn zu senden.
-ReportDirectUnreachable = Der Feedback-Dienst war nicht erreichbar. Dein Bericht ist noch da.
+ReportNeedsSession = Melde dich bei einem Gateway an, um einen Bericht zu senden. Eine andere Adresse, an die er gehen könnte, kennt dieser Client nicht.
+ReportGoesDirect = Du bist nicht angemeldet, darum geht dieser Bericht direkt an Baylee unter { $url }, ohne Konto.
+ReportsDirectUnavailable = Dort werden gerade keine Berichte direkt von einem Client angenommen. Melde dich bei einem Gateway an, um ihn zu senden.
+ReportDirectUnreachable = Die Adresse für Berichte war nicht erreichbar. Dein Bericht ist noch da.
 ReportRecordBox = Die vollständige Aufzeichnung dieses Spiels anhängen
 ReportRecordHint = Jede Aktion des Spiels, das dieses Gerät ausgerichtet hat, ab dem Mischen ({ $kilobytes } KB). Sie zeigt die Karten aller Plätze, auch die verdeckten: Hände, Bibliotheken, verdeckte Karten. Sie nennt niemanden. Wird bei jedem Bericht neu gefragt.
 ReportRecordNever = Nie anbieten, die Aufzeichnung eines Spiels anzuhängen
@@ -1943,6 +1990,8 @@ TourStartPractice = Übungsspiel starten
 TourLater = Später
 TourMenuRow = Tour
 TourMenuRowAway = Tour (nur im Übungsspiel)
+SettingsMenuRow = Einstellungen
+SettingsMenuRowAway = Einstellungen (nur in der Lobby)
 RowTourLobby = Lobby & Raum
 HelpTourLobby = Zeigt dir Eingang, Spielen-Seite und Raum, jeweils beim ersten Besuch.
 RowTourBuilder = Deckbauer
@@ -2079,7 +2128,7 @@ TourT21Body = Oben links wählst du, wie der Tisch aufgebaut ist: Ring, Aufrecht
 TourT22Title = Einen Spieler besuchen
 TourT22Body = Klick unten links auf einen Chip oder drück F, und die Kamera schwenkt hinter diesen Spieler; sein Brett steht dann aufrecht und groß vor dir, auf dem Tisch bewegt sich nichts. Shift+F geht zum vorigen; H, Esc oder dein eigener Chip bringt dich zurück. Zielen geht auch von dort. Drück jetzt F, dann H.
 TourT23Title = Dem Zug folgen
-TourT23Body = Von selbst folgt die Kamera nur deinem Zug und deinen Kampffragen. Soll sie immer zum Spieler am Zug schwenken, schalte unter Einstellungen › Grafik Tisch folgt dem Zug ein. Sie schwenkt aber nie, solange eine Frage an dich offen ist oder dein Mauszeiger auf dem Tisch liegt.
+TourT23Body = Die Kamera schwenkt zum Spieler am Zug und kommt in deinem Zug und bei deinen Kampffragen zu dir zurück, aber nie, solange eine Frage an dich offen ist oder dein Mauszeiger auf dem Tisch liegt. Abschalten: im Menü (Tisch folgt dem Zug) oder unter Einstellungen › Grafik.
 TourT24Title = Auf dem Handy
 TourT24Body = Auf dem Handy siehst du in der Grundansicht deine Matte und die Tischmitte. Die anderen Spieler besuchst du über die Chips; die Anordnung findest du im Menü.
 TourT25Title = Vorzeigen
@@ -2091,7 +2140,7 @@ TourT27Body = G, die Zonen-Tür in der Leiste oder ein Klick auf einen Kartensta
 TourT28Title = Alle Tasten
 TourT28Body = ? zeigt dir alle Tasten, die am Tisch gerade gelten. F8 meldet ein Problem, Strg/Cmd mit +, − und 0 ändert die Schriftgröße. Jede Taste kannst du unter Einstellungen › Steuerung umbelegen; das bleibt in deinem Account. Mit W, A, S, D und E spielst du ganz ohne Maus.
 TourT29Title = Das Menü
-TourT29Body = Das Menü unten rechts hat alles, was du im Spiel brauchst: Unentschieden anbieten, Aufgeben, Anordnung, Prioritätston, Musik, Problem melden und Tour. Weitere Einstellungen gibt es am Tisch nicht; die warten in der Lobby.
+TourT29Body = Das Menü unten rechts hat alles, was du im Spiel brauchst: Unentschieden anbieten, Aufgeben, Anordnung, Problem melden, Tour, Einstellungen, Musik, Prioritätston, Kartenansicht und Tisch folgt dem Zug. Einstellungen öffnet den Rest über dem Tisch.
 TourT30Title = Aufgeben und Ende
 TourT30Body = Aufgeben fragt noch einmal nach: Enter heißt Zurück; zum Aufgeben drückst du → und dann Enter, oder du klickst. Am Ende siehst du ein Fenster mit dem Ergebnis, dem Grund je Spieler und dem ganzen Protokoll. Am Gateway gibt es Nochmal spielen, offline Zurück zur Lobby; Esc bringt dich immer in die Lobby.
 TourT31Title = Ein Problem melden
@@ -2099,7 +2148,7 @@ TourT31Body = Die Ecke oben rechts, F8 oder Problem melden im Menü öffnet ein 
 TourT32Title = Anhänge
 TourT32Body = Jede Zeile unter Anhänge ist eine Wahl, die dein Gerät sich merkt: System, dein Blick auf den Tisch, dein Protokoll (Namen ersetzt), Einstellungen (ohne Schlüssel), ein Bild nur vom Baylee-Fenster, nie vom Desktop. Alles ist angehakt; nimm vor dem Senden heraus, was du behältst. „Zeigen, was gesendet wird“ zeigt alles.
 TourT33Title = Wohin es geht
-TourT33Body = Dein Bericht geht an das Gateway, bei dem du angemeldet bist. Bist du nirgends angemeldet, geht er an den Feedback-Dienst dieser Version; gibt es den nicht, kannst du nur Kopieren. Mit Aufzeichnung fragt ein Fenster noch einmal nach. Am Gateway läuft deine Uhr derweil weiter; melde also lieber nach der Frage.
+TourT33Body = Dein Bericht geht an das Gateway, bei dem du angemeldet bist. Bist du nirgends angemeldet, geht er direkt an Baylees Adresse für Berichte; kennt diese Version keine, kannst du nur Kopieren. Mit Aufzeichnung fragt ein Fenster noch einmal nach. Am Gateway läuft deine Uhr derweil weiter; melde also lieber nach der Frage.
 TourT34Title = Fertig
 TourT34Body = Das war der Tisch. Jedes Kapitel kannst du in jedem Spiel gegen das Haus noch einmal ansehen: Menü › Tour. Touren aus- oder wieder einschalten: Einstellungen › Anzeige & Oberfläche › Touren. Viel Spaß!
 ShellDetails = Details
@@ -2578,8 +2627,8 @@ HelpHoldStill = Karten springen statt zu gleiten, überall; jede Regel bleibt
 HelpSky = Das Licht hinter dem Tisch: folgt deiner Uhr oder bleibt bei Tag oder Nacht
 HelpMaster = Jeder Klang, die Musik eingeschlossen
 RowMusic = Musik
-RowMusicTheme = Musik-Thema
-HelpMusicTheme = Fünfzehn eigene Suiten: fünf in B-Dorisch und zehn in ganz unterschiedlichen Stilen. Wechselnd wählt pro Spiel eine andere. Übergänge fließen in den nächsten musikalischen Puls
+RowMusicTheme = Musikthema in Partien
+HelpMusicTheme = Fünfzehn eigene Suiten für deine Partien. Wechselnd wählt für jede Partie eine andere Suite. Login und Lobby teilen Baylees Erinnerung: Clair de lune und Gymnopédie Nr. 1, mit Flügel, Geige und Cello.
 MusicThemeEmber = Glutpfad
 MusicThemeGlass = Mondglas
 MusicThemeThorn = Dornenkrone
@@ -2606,7 +2655,7 @@ MusicThemeIron = Eisenpuls · Breakbeat
 MusicThemeIronShort = Eisenpuls
 MusicThemeStar = Sternfall
 RowMusicSamples = Instrumentenklang
-HelpMusicSamples = Beide Banken nutzen CC0-Aufnahmen mit 44,1 kHz. Studio bereitet sie hochwertig für 48 kHz auf; die Alternative spielt die Originalbank. Unsere Synthesizer laufen immer mit 48 kHz
+HelpMusicSamples = Für die Spielmusik bereitet Studio die CC0-Aufnahmen für 48 kHz auf; Original nutzt die Aufnahmen mit 44,1 kHz. Baylees Erinnerung spielt immer mit ihrem Stereo-Flügel und den Streichern bei 48 kHz.
 MusicSamplesStudio = Studio
 MusicSamplesOriginal = Original
 MusicThemeRotating = Wechselnd
@@ -2726,6 +2775,7 @@ SettingsTextSize = Textgröße
 HandOrderDraw = Zugfolge
 HandOrderType = Typ
 HandOrderColor = Farbe
+CentralRegister = Noch kein Account? Leg einen auf baylee.app an
 CentralSignInFailed = Anmeldung oder Wiederherstellung fehlgeschlagen. Bitte prüfe deine Zugangsdaten und die Verbindung.
 CentralSyncFailed = Account-Daten konnten nicht synchronisiert werden. Deine lokalen Änderungen bleiben erhalten. Bitte melde dich erneut an.
 CentralSignOut = Vom Baylee-Account abmelden
@@ -2735,3 +2785,124 @@ PickerAllLanguages = Alle Sprachen
 PickerForceFinish = Foil / Etched erzwingen
 PickerHint = Shift halten: Rückseite · ← → Artwork wechseln
 PickerSetSearch = Set · Kürzel oder Name suchen
+
+# Table status and device display switches.
+SeatEliminated = Du bist ausgeschieden · Der Tisch spielt weiter
+CardViewText = Kartenansicht: Text
+CardViewArt = Kartenansicht: Bild
+
+# Baylees lokaler Erinnerungsort und Fotoalbum.
+MemorialOpen = Baylees Erinnerungen öffnen
+MemorialInvitation = Baylee · Für immer geliebt
+MemorialDedication = Diese Welt ist einer kleinen Katze gewidmet, die unendlich geliebt wurde. Schlaf friedlich im Sonnenschein, Baylee. · 26. Oktober 2026
+MemorialPrevious = Zurück
+MemorialNext = Weiter
+
+# Baylee’s story, approved by her family on 27 October 2026.
+MemorialStoryTitle = Für Baylee. Für immer im Sonnenlicht.
+MemorialTogether = Bei uns · 17. November 2025 – 26. Oktober 2026
+MemorialChapters = Ihre Geschichte
+MemorialChapterPrevious = Vorheriges Kapitel
+MemorialChapterNext = Nächstes Kapitel
+MemorialPhotos = Unsere Erinnerungen
+MemorialRead = Zum Lesen scrollen
+
+MemorialChapter1Title = Ein Zuhause für Baylee
+MemorialChapter1Body =
+    Am 17. November 2025 kam Baylee zu uns nach Hause.
+
+    Meine Frau und ich hatten sie aus dem Tierheim in Krefeld geholt. Ihr Alter wurde auf ungefähr dreizehn Jahre geschätzt. Sie hatte bösartige Mammatumoren, und der Krebs hatte bereits Metastasen in ihrer Leber gebildet. Baylee war eine Palliativkatze. Wir wussten, dass unsere gemeinsame Zeit begrenzt sein würde. Sie sollte bei uns ein Zuhause haben, in dem sie geliebt wurde.
+
+    Wie schnell sie dieses Zuhause für sich beanspruchen würde, zeigte sie uns gleich selbst.
+
+    Schon am ersten Tag schlich sie sich auf meinen Schoß, während ich arbeitete. Und in ihrer ersten Nacht riss sie ein Loch in einen Beutel Katzenfutter, den ich eigentlich für die Katzen meiner Eltern bestellt hatte, und bediente sich daraus. Natürlich hatte sie ihr eigenes Futter bekommen und war am Abend gut gefüttert worden. Aber Baylee hatte offenbar beschlossen, dass dieser Vorrat trotzdem eine nähere Untersuchung verdiente.
+
+    Die kleine Maus hatte einen erstaunlichen Appetit – und unglaublich viel Energie.
+
+MemorialChapter2Title = Vertrauen wächst
+MemorialChapter2Body =
+    Weil uns auffiel, dass sie sehr viel Wasser trank, gingen wir mit ihr zum Tierarzt. Eine Blutuntersuchung zeigte eine Erkrankung der Schilddrüse, die auch ihren großen Hunger und ihre lebhafte Art erklärte. Sie bekam Schilddrüsenmedikamente und vorübergehend ein Antibiotikum, weil ihre Entzündungswerte erhöht waren.
+
+    Als sie sich plötzlich überall rieb, viel maunzte und ungewöhnlich verschmust und anhänglich wurde, machten wir uns zunächst Sorgen, dass sie eines der neuen Medikamente nicht vertrug. Bei der erneuten Untersuchung stellte sich jedoch heraus: Unsere kleine Mausi war rollig. Sie war also nicht kastriert worden.
+
+    Auch diese Zeit standen wir gemeinsam durch. Baylee vertraute uns immer mehr, und wir schlossen uns gegenseitig immer tiefer ins Herz.
+
+MemorialChapter3Title = Unsere kleine Prinzessin
+MemorialChapter3Body =
+    Ich erinnere mich noch genau daran, wie sehr sie sich über ihren Kratzbaum freute. Sie setzte sich sofort ganz oben auf den Sitz und schaute zufrieden in die Wohnung. Erstaunlicherweise benutzte sie ausgerechnet diesen Platz danach nie wieder. Warum, blieb ihr Geheimnis.
+
+    Andere Plätze ließ sie dafür kaum aus: meinen Schoß, meine Beine und unser Bett. Dort schlief sie meistens auf mir oder auf meiner Frau. Am liebsten schaffte sie es, auf uns beiden gleichzeitig zu liegen.
+
+    Mit erhobenem Schwanz stolzierte sie durch die Wohnung, als wüsste sie ganz genau, dass sie hier die Prinzessin war. Sie hatte Temperament und konnte deutlich zeigen, wo ihre Grenzen lagen. Sie durfte bei uns ganz sie selbst sein. Auch mit ihren Eigenheiten, ihren Forderungen und ihrem kleinen Dickkopf wurde sie geliebt.
+
+    Noch nie hatte ich zu einem Tier eine so tiefe Beziehung aufgebaut. Baylee wuchs meiner Frau und mir sehr tief ins Herz.
+
+MemorialChapter4Title = Sonnenstunden
+MemorialChapter4Body =
+    Als es draußen wärmer wurde, entdeckte sie den Balkon für sich. Sie liebte es, die ersten Sonnenstrahlen des Tages in ihrem Fell zu spüren. Bald verbrachte sie dort beinahe den ganzen Tag.
+
+    Besonders die Tauben und Gartenvögel hatten es ihr angetan. Sie beobachtete sie aufmerksam, lag ihnen auf der Lauer und versuchte immer wieder, sie zu erschrecken. Zwischen Sonnenbaden und Vogelbeobachtung hatte unsere kleine Prinzessin einen gut gefüllten Tagesplan.
+
+MemorialChapter5Title = Ihr kleiner Dickkopf
+MemorialChapter5Body =
+    Währenddessen schritt ihre Krankheit weiter voran.
+
+    Der Tumor entzündete sich, und Baylee leckte die betroffene Stelle immer wieder auf. Beim Tierarzt bekam sie ihren ersten Body, einen roten. Von da an musste sie täglich einen tragen, damit sie die Wunde nicht weiter verletzte.
+
+    An das Tragen gewöhnte sie sich schnell. Das Anziehen konnte sie allerdings bis zum letzten Tag nicht leiden. Selbst mit einer Schale Futter ließ sie sich dann nur bedingt hervorlocken. So groß ihr Appetit auch war: Ihre Meinung zum Body blieb eindeutig.
+
+    Die Wunde wurde schlimmer. Sie eiterte, begann irgendwann zu bluten und roch unangenehm. Gleichzeitig zeigte Baylee uns weiterhin, wie viel Freude sie an ihrem Alltag hatte. Sie spielte, fraß, erkundete ihre Umgebung und kletterte auf ihr Kratzbrett und auf die Schränke.
+
+    Manchmal lag sie stundenlang auf der Bettkante neben uns und wartete darauf, dass wir endlich aufwachten und ihr Frühstück machten. Wenn ihr das zu lange dauerte, kletterte sie kurzerhand über uns hinweg. Unsere Gesichter waren dabei kein Hindernis.
+
+    Beim Essen hatte sie genaue Vorstellungen. Geschmacklich gehörte sie eher zur „Fraktion Tiefkühlpizza“: Hochwertiges Katzenfutter konnte sie nach einer Weile nicht mehr begeistern, und Abwechslung war Pflicht. Zweimal hintereinander dasselbe Futter kam für sie nicht infrage. Huhn mit Leber, alles mit Käse, Thunfisch oder Lachs – damit konnte man ihr eine Freude machen.
+
+MemorialChapter6Title = Mit erhobenem Schwanz
+MemorialChapter6Body =
+    Der Tumor wurde größer und nässte zunehmend. Baylee hatte sichtbar Schmerzen. Als diese nachließen, war sie wieder unsere kleine Katze, die mit erhobenem Schwanz durch die Räume zog und ihre Menschen für sich beanspruchte.
+
+    Wir sahen, dass ihre Kräfte langsam weniger wurden. Doch ihr Appetit, ihre Neugier, ihre verschmuste Art und ihr lautes Schnurren waren noch da.
+
+MemorialChapter7Title = Abschied nehmen
+MemorialChapter7Body =
+    Am Freitagabend, dem 23. Oktober 2026, bekam sie Symptome, die zunächst wie eine Erkältung wirkten. Ihre Nase lief, und sie atmete tief und angestrengt, als müsse sie um Luft ringen.
+
+    Am Samstag wirkte sie wieder lebhafter. Die auffällige Atmung und der Schnupfen blieben, aber sie zeigte noch einmal die Energie und Lebensfreude, die wir von ihr kannten.
+
+    Der Sonntagmorgen war schwer. Ihre Augen tränten, sie atmete mühsam und hatte Schmerzen. Ich gab ihr Schmerzmittel. Nach ungefähr einer Stunde ging es ihr wieder besser, doch ihre Atmung blieb verändert. Für uns war klar, dass wir mit ihr zum Tierarzt mussten.
+
+    Am Montagmorgen verschlechterte sich ihr Zustand erneut. Zum Glück hatte meine Frau an diesem Tag frei. Wir riefen in der Praxis an, bekamen einen Termin und fuhren mit Baylee dorthin.
+
+    Die Röntgenaufnahme zeigte, wie weit sich der Krebs inzwischen ausgebreitet hatte. Uns wurde erklärt, dass ihr nur noch ungefähr ein Drittel ihrer Lunge zum Atmen zur Verfügung stand. Sie weiterleben zu lassen hätte bedeutet, dass sie immer weniger Luft bekommen würde.
+
+    Wir mussten Abschied nehmen.
+
+    Am Montag, dem 26. Oktober 2026, gegen zwölf Uhr wurde unsere liebste Baylee eingeschläfert.
+
+MemorialChapter8Title = Für immer im Sonnenlicht
+MemorialChapter8Body =
+    Sie war knapp ein Jahr bei uns. In dieser Zeit war sie ein Teil unserer Familie geworden und eine sehr enge Freundin. Sie gehörte zu unseren Arbeitstagen, zu unseren Nächten, zum Aufwachen am Morgen. Zu den Sonnenstunden auf dem Balkon und zu den kleinen Gewohnheiten, aus denen ein gemeinsames Leben besteht.
+
+    Jetzt fehlt sie in all diesen Momenten.
+
+    Die Leere ist noch frisch und tief. Uns fehlen ihr Schnurren, ihr Gewicht auf unseren Beinen, ihr erhobener Schwanz und ihre selbstverständliche Erwartung, dass wir uns endlich um ihr Frühstück kümmern.
+
+    Wenn es etwas nach diesem Leben gibt, was auch immer es sein mag, dann wünsche ich mir, dieser Seele eines Tages wiederzubegegnen.
+
+    Bis dahin tragen wir unser kleines Mäuschen für immer im Herzen.
+
+    Deshalb ist dieses Hobbyprojekt Baylee gewidmet. Ihrem Temperament, ihrer Nähe, ihrer Freude an der Sonne und den Vögeln. Und der Liebe, die in unserer gemeinsamen Zeit gewachsen ist.
+
+    Hier darf sie friedlich auf ihrer Wolke schlafen, im warmen Sonnenlicht, umgeben von Blumen, Tauben und Gartenvögeln.
+
+    Ruhe in Frieden, meine liebste Baylee.
+
+MemorialFirstChapter = Du bist am Anfang ihrer Geschichte.
+MemorialLastChapter = Du bist am Ende ihrer Geschichte.
+
+MemorialPhotoOpen = Foto groß ansehen
+MemorialZoomIn = Vergrößern
+MemorialZoomOut = Verkleinern
+MemorialFit = Einpassen
+MemorialZoomMinimum = Das Foto ist vollständig sichtbar.
+MemorialZoomMaximum = Maximale Vergrößerung erreicht.

@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange W #20266054]
+1 Advance Scout
+1 Aether Shockwave
+1 Alaborn Musketeer
+1 Alaborn Trooper
+1 Alert Shu Infantry
+1 Animate Wall
+1 Ardent Militia
+1 Argivian Blacksmith
+1 Artifact Ward
+1 Aysen Bureaucrats
+1 Banishing Stroke
+1 Benalish Infantry
+1 Bladed Ambassador
+1 Blue Scarab
+1 Border Guard
+1 Border Patrol
+1 Brainwash
+1 Burst of Energy
+1 Celestial Enforcer
+1 Clergy en-Vec
+1 Clergy of the Holy Nimbus
+1 Coeurl
+1 Dark Depths
+1 Death Speakers
+1 Defender of Law
+1 Enchanted Being
+1 Ephara's Warden
+1 Farbog Explorer
+1 Farmstead
+1 Field Surgeon
+1 Flanking Troops
+1 Fleet-Footed Monk
+1 Foot Soldiers
+1 Foriysian Interceptor
+1 Frostbridge Guard
+1 Haazda Shield Mate
+1 Half-Elf Monk
+1 Kelsinko Ranger
+1 Kitsune Diviner
+1 Kjeldoran Escort
+1 Knights of Thorn
+1 Loxodon Mystic
+1 Martyrs of Korlis
+1 Master of Arms
+1 Mobilized District
+1 Peacekeeper
+34 Plains
+1 Rath's Edge
+1 Repentant Blacksmith
+1 Righteous Avengers
+1 Sacred Knight
+1 Saltfield Recluse
+1 Samite Alchemist
+1 Serra Paladin
+1 Shire Terrace
+1 Shrine Keeper
+1 Shu Elite Infantry
+1 Shu Foot Soldiers
+1 Spawnbinder Mage
+1 Split-Tail Miko
+1 Sterling Keykeeper
+1 Trokin High Guard
+1 Unstable Frontier
+1 Veteran Bodyguard
+1 White Ward
+1 Zoetic Cavern
+
+[commander]
+Hawkeye, Clint Barton

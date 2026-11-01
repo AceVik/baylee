@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/ORI/take-to-the-sky.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TakeToTheSky_ORI.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Take to the Sky (Adapted)]
+4 Absorb
+1 Aven Battle Priest
+2 Charging Griffin
+2 Claustrophobia
+4 Daring Leap
+1 Energy Arc
+1 Evolving Wilds
+2 Healing Hands
+14 Island
+2 Moorland Haunt
+1 Negate
+2 Nivix Barrier
+1 Overrule
+10 Plains
+2 Sigiled Starfish
+4 Sphinx's Revelation
+1 Stratus Walk
+2 Thunderclap Wyvern
+2 Watercourser
+2 Yoked Ox

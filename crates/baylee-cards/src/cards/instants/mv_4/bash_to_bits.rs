@@ -1,0 +1,21 @@
+//! Bash to Bits — {3}{R} — Instant
+//! Oracle: Destroy target artifact.
+//! Oracle: Flashback {4}{R}{R} (You may cast this card from your graveyard for its flashback cost. Then exile it.)
+//! Set: ODY #176 — Odyssey | Scryfall ID: 694b24de-d7f8-49c6-8ab3-d5fab13b6a8f | Oracle ID: 894b8375-5d55-4138-8448-c38f83a17e4f
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::BASH_TO_BITS,
+    oracle_id = "894b8375-5d55-4138-8448-c38f83a17e4f",
+    scryfall_id = "694b24de-d7f8-49c6-8ab3-d5fab13b6a8f",
+    color_identity = ColorSet::from_slice(&[Color::Red]),
+    faces = &[face!(
+        name = "Bash to Bits",
+        mana_cost = mana!("{3}{R}"),
+        types = TypeSet::INSTANT,
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

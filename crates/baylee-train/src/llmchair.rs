@@ -175,6 +175,8 @@ impl LlmChair {
                 budget: self.wait,
                 retry: retry.take(),
                 continuing: false,
+                // This chair keeps no `until` plan, so none ever ends.
+                held: None,
             };
             // A call is counted before it is sent, so games in flight
             // together never pass the cap; past it the house answers.

@@ -1,0 +1,86 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUBRG #20266161]
+1 Akroan Hoplite
+1 Armorer Guildmage
+1 Aysen Abbey
+1 Bounding Krasis
+1 Bountiful Landscape
+1 Briarpack Alpha
+1 Burrowguard Mentor
+1 Cabal Trainee
+1 Centaur Healer
+1 Creeping Trailblazer
+1 Crosis's Catacombs
+1 Crypt of the Eternals
+1 Crystal Quarry
+1 Damn
+1 Darigaaz's Caldera
+1 Dega Disciple
+1 Despark
+1 Dreadwurm
+1 Elite Arrester
+1 Fallow Wurm
+2 Forest
+1 Fulminator Mage
+1 Fusion Elemental
+1 Geyserfield Stalker
+1 Grove Rumbler
+1 Guardian Angel
+1 Heroism
+1 Holy Mantle
+1 Imperious Inkmage
+3 Island
+1 Jeskai Runemark
+1 Kjeldoran Pride
+1 Liliana's Specter
+1 Loporrit Scout
+1 Marked by Honor
+1 Marsh Crocodile
+4 Mountain
+1 Nearby Planet
+1 Noggle Bridgebreaker
+1 Omnath, Locus of Creation
+1 Orc Sureshot
+1 Perilous Landscape
+1 Pin to the Earth
+6 Plains
+1 Pursuit of Flight
+1 Rakdos Ragemutt
+1 Rakdos Trumpeter
+1 Rampart Hunter
+1 Rimefur Reindeer
+1 Risen Reef
+1 Rith's Grove
+1 Ruination Wurm
+1 Sacellum Archers
+1 Scourge of the Nobilis
+1 Shaper Guildmage
+1 Shivan Wurm
+1 Short Circuit
+1 Sinister Starfish
+1 Snapping Creeper
+1 Spectral Shield
+1 Spined Fluke
+9 Swamp
+1 The World Tree
+1 Thundering Wurm
+1 Tightening Coils
+1 Tournament Grounds
+1 Treeguard Duo
+1 Trench Wurm
+1 Treva's Ruins
+1 Twisted Landscape
+1 Unflinching Courage
+1 Untamed Hunger
+1 Vermiculos
+1 Viashino Firstblade
+1 Void Grafter
+1 Votary of the Conclave
+1 Wakandan Tusker
+1 Wizards' School
+1 You See a Guard Approach
+1 Zodiac Rabbit
+
+[commander]
+Go-Shintai of Life's Origin

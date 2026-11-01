@@ -1007,8 +1007,13 @@ mod tests {
             (false, true),
             "the picture is asked for first"
         );
-        for _ in 0..20 {
+        // The failure arrives from the asset loader's own thread, so frames
+        // are no clock: twenty were too few on a loaded runner once (run
+        // 39873327757). Update until it shows, within a bound.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while shown(&mut app) != (true, false) && std::time::Instant::now() < deadline {
             app.update();
+            std::thread::sleep(std::time::Duration::from_millis(5));
         }
         assert_eq!(
             shown(&mut app),

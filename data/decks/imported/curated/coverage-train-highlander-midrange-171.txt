@@ -1,0 +1,81 @@
+# baylee synergistic coverage highlander midrange
+# licence: AGPL-3.0-only
+[deck:highlander midrange WUG #20266172]
+1 Agent of Horizons
+1 Aisling Leprechaun
+1 Alpine Grizzly
+1 Arctic Foxes
+1 Armored Galleon
+1 Ashcoat Bear
+1 Bant Battlemage
+1 Barbary Apes
+1 Bear Cub
+1 Border Patrol
+1 Bramblefort Fink
+1 Bristlepack Sentry
+1 Brokers Initiate
+1 Cave Tiger
+1 Coral Commando
+1 Crucible of the Spirit Dragon
+1 Deflection
+1 Deft Duelist
+1 Devilthorn Fox
+1 Enraged Ceratok
+15 Forest
+1 Forest Bear
+1 Galina's Knight
+1 Gallifrey Council Chamber
+1 Ghazbán Ogre
+1 Great Hall of the Biblioplex
+1 Great Hall of the Citadel
+1 Grizzled Leotau
+1 Guardian Lions
+1 Haven of the Spirit Dragon
+1 Hussar Patrol
+4 Island
+1 Jasmine Dragon Tea Shop
+1 Jhessian Balmgiver
+1 Kitsune Riftwalker
+1 Knights of Thorn
+1 Llanowar Cavalry
+1 Lynx
+1 Martyrs of Korlis
+1 Minister of Impediments
+1 Mirrex
+1 Mirrodin's Core
+1 Mnemonic Nexus
+1 Mtenda Lion
+1 Niall Silvain
+1 Order of the Sacred Bell
+1 Painted Bluffs
+1 Pillar of the Paruns
+6 Plains
+1 Pouncing Cheetah
+1 Pradesh Gypsies
+1 Rapid Fire
+1 Rhox War Monk
+1 Rubbleback Rhino
+1 Scalebane's Elite
+1 Seasinger
+1 Secluded Courtyard
+1 Selesnya Sentry
+1 Shelkin Brownie
+1 Spire of Industry
+1 Study Hall
+1 Surveillance Room
+1 Teferi's Honor Guard
+1 Tireless Hauler
+1 Trained Jackal
+1 Trokin High Guard
+1 Unclaimed Territory
+1 Underdark Basilisk
+1 Veteran Bodyguard
+1 Wanderwine Distracter
+1 Whip Vine
+1 Wild Ceratok
+1 Wild Leotau
+1 Wilderness Hypnotist
+1 Wily Bandar
+1 Zealous Guardian
+1 Zodiac Rabbit
+1 Zodiac Tiger

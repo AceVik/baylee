@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/DTK/enlightened-mastery.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, EnlightenedMastery_DTK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Enlightened Mastery (Adapted)]
+4 Absorb
+1 Ancient Carp
+2 Cunning Breezedancer
+4 Daring Leap
+1 Dragon's Eye Sentry
+3 Elusive Spellfist
+4 Energy Arc
+1 Evolving Wilds
+13 Island
+3 Offering to Asha
+1 Ojutai Monument
+4 Ojutai's Command
+11 Plains
+4 Sphinx's Revelation
+2 Student of Ojutai
+2 Updraft Elemental

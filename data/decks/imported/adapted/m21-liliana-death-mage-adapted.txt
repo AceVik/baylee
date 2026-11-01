@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/M21/liliana-death-mage.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LilianaDeathMage_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Liliana, Death Mage (Adapted)]
+2 Assassinate
+3 Funeral Rites
+3 Grasp of Darkness
+3 Grim Physician
+4 Masked Blackguard
+2 Painful Lesson
+4 Rakshasa's Secret
+1 Reaver Ambush
+3 Reckless Spite
+2 Risky Shortcut
+1 Slay
+1 Spin Out
+4 Spirit of Malevolence
+25 Swamp
+2 Unlikely Aid

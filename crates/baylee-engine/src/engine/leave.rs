@@ -67,6 +67,13 @@ impl<L: CardLookup> Engine<L> {
         if self.refresh_damage_question() {
             return;
         }
+        if let Some(res) = &mut self.resolution
+            && let Some(pending) = resolve::coin_stakes::refresh_choice(&self.state, res)
+        {
+            self.pending = pending;
+            self.awaiting_answer = true;
+            return;
+        }
         if asked == Some(player) {
             self.drop_the_leavers_question(player);
         } else if !self.forget_the_departed(&exiled) {
@@ -289,7 +296,8 @@ impl<L: CardLookup> Engine<L> {
                 super::PaymentContinuation::Tax(res) => res,
                 // Nothing was declared yet: the step goes on without them,
                 // and nobody declares in their place (CR 800.4j).
-                super::PaymentContinuation::AttackTax { .. } => {
+                super::PaymentContinuation::AttackTax { .. }
+                | super::PaymentContinuation::BlockTax { .. } => {
                     self.awaiting_answer = false;
                     self.run_until_choice();
                     return;

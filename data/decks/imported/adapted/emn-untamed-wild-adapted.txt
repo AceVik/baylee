@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/EMN/untamed-wild.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, UntamedWild_EMN.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Untamed Wild (Adapted)]
+2 Blood Mist
+3 Brazen Wolves
+4 Colossal Might
+12 Forest
+3 Ground Assault
+2 Kird Ape
+1 Mad Prophet
+3 Manamorphose
+13 Mountain
+1 Noose Constrictor
+2 Quilled Wolf
+1 Rush of Adrenaline
+3 Savage Twister
+4 Stump Stomp
+2 Surge of Strength
+1 Uncaged Fury
+3 Wolfkin Bond

@@ -1,19 +1,7 @@
-//! Combat damage, advancing a step, the untap step and the cleanup step.
+//! Combat damage, advancing a step and the cleanup step.
 
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary
 use super::*;
-
-/// One `Modifier::UntapAtMost` binding the active player's untap step.
-pub(super) struct UntapLimit {
-    /// What it counts.
-    of: &'static Filter,
-    /// The effect's controller, the filter's "you".
-    you: PlayerId,
-    /// The effect's source, the filter's "this".
-    this: Option<ObjectId>,
-    /// How many of them may untap.
-    count: u8,
-}
 
 impl<L: CardLookup> Engine<L> {
     /// Deals one combat damage step's damage, and what toxic adds to it.
@@ -102,9 +90,11 @@ impl<L: CardLookup> Engine<L> {
                 // CR 504.2) — the upkeep step itself has none at all
                 // (CR 503.1). The first player skips it on turn 1 of a
                 // two-player game (CR 103.8).
-                let skip = self.state.turn.number == 1
-                    && self.state.players.len() == 2
-                    && self.state.turn.active.get() == 0;
+                let skip = self.state.per_turn.skip_draw_step
+                    || self.state.skips_draw_step(self.state.turn.active)
+                    || (self.state.turn.number == 1
+                        && self.state.players.len() == 2
+                        && self.state.turn.active.get() == 0);
                 if skip {
                     // CR 103.8a skips the *step*, not only its draw: there is
                     // no beginning of it for "at the beginning of your draw
@@ -112,9 +102,7 @@ impl<L: CardLookup> Engine<L> {
                     // on the play's first turn when this went on to
                     // `Step::Draw` without drawing. Straight on to the main
                     // phase, with the turn-based actions that begin it.
-                    self.saga_precombat_main_counters();
-                    self.queue_first_main_delayed();
-                    (Phase::FirstMain, Step::Main)
+                    self.enter_first_main_or_skip()
                 } else {
                     // The draw step has begun when its draw is made, so the
                     // draw is made in it: `draw_cards` reads the step to know
@@ -140,11 +128,9 @@ impl<L: CardLookup> Engine<L> {
                 // controls takes a lore counter. The delayed triggers go
                 // second because they are triggered abilities and wait for
                 // the stack, which the turn-based action does not use.
-                self.saga_precombat_main_counters();
-                self.queue_first_main_delayed();
-                (Phase::FirstMain, Step::Main)
+                self.enter_first_main_or_skip()
             }
-            (Phase::FirstMain, Step::Main) => (Phase::Combat, Step::CombatBegin),
+            (Phase::FirstMain, Step::Main) => self.enter_combat_or_skip(),
             (Phase::SecondMain, Step::Main) => {
                 self.queue_end_step_delayed();
                 (Phase::Ending, Step::End)
@@ -187,6 +173,15 @@ impl<L: CardLookup> Engine<L> {
             }
             (_, Step::CombatDamage) => (Phase::Combat, Step::CombatEnd),
             (_, Step::CombatEnd) => {
+                self.state.delayed.retain(|watch| {
+                    !matches!(
+                        watch.when,
+                        crate::state::DelayedWhen::TriggeredThisTurn {
+                            this_combat_only: true,
+                            ..
+                        }
+                    )
+                });
                 self.state.combat = crate::combat::CombatState::default();
                 // Nothing is attacking any more, so an anthem conditioned on
                 // it stops applying — and the removal below only bumps the
@@ -197,7 +192,7 @@ impl<L: CardLookup> Engine<L> {
                 self.state.effects.remove_where(|fx| {
                     matches!(fx.duration, baylee_cards_dsl::Duration::UntilEndOfCombat)
                 });
-                (Phase::SecondMain, Step::Main)
+                self.enter_second_main_or_skip()
             }
             // A cleanup step closes through here only when CR 514.3a opened
             // it to priority, and then "another cleanup step begins"; the
@@ -207,6 +202,34 @@ impl<L: CardLookup> Engine<L> {
             _ => unreachable!("invalid phase/step combination"),
         };
         self.begin_step(next_phase, next_step);
+    }
+
+    fn enter_first_main_or_skip(&mut self) -> (Phase, Step) {
+        if self.state.per_turn.skip_main_phases {
+            self.enter_combat_or_skip()
+        } else {
+            self.saga_precombat_main_counters();
+            self.queue_main_phase_delayed();
+            (Phase::FirstMain, Step::Main)
+        }
+    }
+
+    fn enter_combat_or_skip(&mut self) -> (Phase, Step) {
+        if self.state.per_turn.skip_combat_phases {
+            self.enter_second_main_or_skip()
+        } else {
+            (Phase::Combat, Step::CombatBegin)
+        }
+    }
+
+    fn enter_second_main_or_skip(&mut self) -> (Phase, Step) {
+        if self.state.per_turn.skip_main_phases {
+            self.queue_end_step_delayed();
+            (Phase::Ending, Step::End)
+        } else {
+            self.queue_main_phase_delayed();
+            (Phase::SecondMain, Step::Main)
+        }
     }
 
     /// Publish the entered phase and its history before collecting beginning triggers.
@@ -224,6 +247,11 @@ impl<L: CardLookup> Engine<L> {
         // anything triggers at it (CR 503.1).
         if next_step == Step::Upkeep {
             let active = self.state.turn.active;
+            self.state.begin_upkeep_history(active);
+            self.state.play_permissions.retain(|permission| {
+                permission.player != active
+                    || permission.window != baylee_cards_dsl::PlayWindow::UntilYourNextUpkeep.into()
+            });
             self.state.effects.begin_upkeep(active);
             self.state.effects.remove_where(|fx| {
                 matches!(fx.duration, baylee_cards_dsl::Duration::UntilYourNextUpkeep)
@@ -257,401 +285,6 @@ impl<L: CardLookup> Engine<L> {
                     kw.contains(K::FIRST_STRIKE) || kw.contains(K::DOUBLE_STRIKE)
                 })
             })
-    }
-
-    /// The untap step's second turn-based action (CR 502.2): the game looks
-    /// at the previous turn and decides whether the designation flips.
-    ///
-    /// Both halves are one-sided on purpose. Day becomes night when the
-    /// previous turn's active player cast **no** spells; night becomes day
-    /// when they cast **two or more**. One spell holds the designation
-    /// where it is, in either direction.
-    ///
-    /// A game with neither designation skips the check entirely and keeps
-    /// having neither (CR 730.2c) — which is every game in this pool that
-    /// has no daybound card in it, so the common case costs two compares.
-    ///
-    /// CR 502.2a states a variant for the shared team turns option, which
-    /// is CR 805 and something this engine does not offer: `--teams` puts
-    /// chairs on sides, and each of them still takes its own turn. The
-    /// plain rule is therefore the whole rule here.
-    fn check_day_night(&mut self) {
-        let (Some(now), Some(previous)) = (self.state.day_night, self.state.previous_turn) else {
-            return;
-        };
-        match now {
-            DayNight::Day if previous.spells_cast == 0 => self.state.become_night(),
-            DayNight::Night if previous.spells_cast >= 2 => self.state.become_day(),
-            _ => {}
-        }
-    }
-
-    /// Whether an effect keeps `id` from untapping this untap step
-    /// (CR 502.3, and CR 613.11 for what kind of effect that is).
-    ///
-    /// One condition, and the missing second one is worth saying out loud:
-    /// **whose** untap step is already answered by the loop that calls
-    /// this. CR 502.3 untaps the permanents *the active player controls*
-    /// and no others, and every printing of the sentence names that same
-    /// player — Basalt Monolith says "during **your** untap step" about
-    /// itself, Paralyze says "during **its controller's** untap step" about
-    /// the creature it enchants, and the card-script reference writes both
-    /// as `ValidStepTurnToController$ You`, where "you" is the *affected*
-    /// card's controller rather than the effect's.
-    ///
-    /// Reading it as the effect's controller instead would have been a
-    /// one-word mistake that worked on the monoliths — an ability a
-    /// permanent has about itself puts all three players on the same seat —
-    /// and broke the 45 Auras that are the commonest printing of this
-    /// sentence: the Aura's controller is the one player whose untap step
-    /// the enchanted creature never untaps in anyway.
-    fn keeps_tapped(&self, id: ObjectId) -> bool {
-        let Some(obj) = self.state.object(id) else {
-            return false;
-        };
-        self.state.effects.iter().any(|fx| {
-            matches!(fx.modifier, baylee_cards_dsl::Modifier::DoesNotUntap)
-                && crate::effects::applies_to(&self.state, fx, obj)
-        })
-    }
-
-    /// The permanents CR 502.3 lets the active player decide about.
-    ///
-    /// Three conditions, and the third is the one that is easy to leave out.
-    /// Tapped, because an untapped permanent has nothing to determine.
-    /// Controlled by the active player, because CR 502.3 is only ever about
-    /// their permanents. And **not already kept from untapping** — a Basalt
-    /// Monolith that also said "you may choose not to untap" would otherwise
-    /// be offered a question whose two answers do the same thing, which is
-    /// the offer that contradicts its own apply.
-    fn untap_optional(&self) -> Vec<ObjectId> {
-        let active = self.state.turn.active;
-        // What phased in a moment ago untaps with the rest (CR 502.1 before
-        // 502.3); what is still phased out does not.
-        self.state
-            .battlefield_seen()
-            .filter(|id| {
-                let Some(obj) = self.state.object(*id) else {
-                    return false;
-                };
-                obj.controller == active
-                    && obj.status.contains(Status::TAPPED)
-                    && !self.keeps_tapped(*id)
-                    && self.state.effects.iter().any(|fx| {
-                        let applies =
-                            matches!(fx.modifier, baylee_cards_dsl::Modifier::MayChooseNotToUntap)
-                                && crate::effects::applies_to(&self.state, fx, obj);
-                        // Read here and never by the projection, so this is
-                        // where the static is applied: the recorder's door.
-                        #[cfg(test)]
-                        if applies {
-                            crate::ability_log::static_applied(fx);
-                        }
-                        applies
-                    })
-            })
-            .collect()
-    }
-
-    /// The untap step, up to the point where it may have to ask.
-    ///
-    /// Returns `true` when it suspended on a question, which is the
-    /// contract [`Self::progress_step`] has with every other step.
-    ///
-    /// The split is where CR 502.3's two halves already are. Phasing
-    /// (CR 702.26a) and the day/night check (CR 502.2) come first and
-    /// happen exactly once; then "the active player **determines** which
-    /// permanents they control will untap", which is a question whenever a
-    /// permanent gives it a second answer; then "they untap them all
-    /// simultaneously", which is [`Self::finish_untap_step`] and is
-    /// reachable from either side of the question. Nothing before the
-    /// suspension may run again on the way back, which is why the resume
-    /// path enters at the second function rather than re-entering this one.
-    ///
-    /// **No priority is granted here.** CR 502.4 says no player receives
-    /// priority during the untap step; it does not say the turn-based
-    /// action may not take the answer its own rule asks a player for.
-    pub(crate) fn untap_step(&mut self) -> bool {
-        let active = self.state.turn.active;
-        // "Players skip their untap steps" (Stasis) replaces the step with
-        // nothing (CR 614.1b, 614.10): no phasing, no day/night check, no
-        // untap, and an effect waiting for the player's *next* untap step
-        // keeps waiting for one that is not skipped (CR 614.10a) — which is
-        // why this goes straight on and not through `finish_untap_step`.
-        if self.state.skips_untap_step(active) {
-            self.advance_step();
-            return false;
-        }
-        // "All phased-out permanents that the active player controlled when
-        // they phased out phase in" (CR 502.1): a phased-out permanent is
-        // not projected, so its controller is still that one. One that
-        // phased out indirectly phases in with its host and never by itself
-        // (CR 702.26g).
-        let coming: Vec<ObjectId> = self
-            .state
-            .zones
-            // phasing: the walk is for the permanents that are phased out.
-            .list(ZoneLocation::Battlefield)
-            .iter()
-            .copied()
-            .filter(|&id| {
-                self.state.object(id).is_some_and(|o| {
-                    o.controller == active
-                        && o.status.contains(Status::PHASED_OUT)
-                        && !o.status.contains(Status::PHASED_OUT_INDIRECTLY)
-                        && !o.riders.iter().any(|r| {
-                            matches!(r, crate::object::Rider::PhasedOutUntilHostLeaves { .. })
-                        })
-                })
-            })
-            .collect();
-        let going: Vec<_> = self
-            .state
-            .battlefield_seen()
-            .filter(|&id| {
-                self.state.object(id).is_some_and(|object| {
-                    object.controller == active
-                        && object
-                            .characteristics()
-                            .keywords
-                            .contains(baylee_cards_dsl::KeywordSet::PHASING)
-                })
-            })
-            .collect();
-        if !going.is_empty() {
-            self.state.phase_out(&going);
-        }
-        for id in coming {
-            self.state.phase_in(id);
-        }
-        self.check_day_night();
-        self.return_during_untap();
-        // CR 502.3, the third turn-based action: "the active player
-        // determines which permanents they control will untap. Then they
-        // untap them all simultaneously."
-        let optional = self.untap_optional();
-        if optional.is_empty() {
-            return self.untap_under_limits(Vec::new(), Vec::new());
-        }
-        // The answer names the permanents that stay tapped, so an empty one
-        // is "untap everything" — the determination every board without
-        // such a permanent makes, and the one an automated seat produces by
-        // answering the minimum.
-        let max = u8::try_from(optional.len()).unwrap_or(u8::MAX);
-        self.pending_plan = Some(PlanKind::UntapChoice);
-        self.pending = Pending::ChooseCards {
-            player: active,
-            options: optional,
-            min: 0,
-            max,
-            prompt: crate::choice::ChoicePrompt::LeaveTapped,
-            total: None,
-        };
-        self.awaiting_answer = true;
-        true
-    }
-
-    /// The limits on the active player's untap step
-    /// (`Modifier::UntapAtMost`), each with the "you" and "this" its filter
-    /// is read against.
-    fn untap_limits(&self) -> Vec<UntapLimit> {
-        let active = self.state.turn.active;
-        self.state
-            .effects
-            .iter()
-            .filter_map(|fx| {
-                let baylee_cards_dsl::Modifier::UntapAtMost { who, of, count } = fx.modifier else {
-                    return None;
-                };
-                crate::eval::players(who, &self.state, fx.controller)
-                    .is_some_and(|p| p.contains(&active))
-                    .then_some(UntapLimit {
-                        of,
-                        you: fx.controller,
-                        this: fx.source,
-                        count,
-                    })
-            })
-            .collect()
-    }
-
-    /// Whether `limit` counts the permanent `id`.
-    fn counts(&self, limit: &UntapLimit, id: ObjectId) -> bool {
-        self.state.object(id).is_some_and(|obj| {
-            crate::eval::matches(
-                limit.of,
-                &self.state,
-                obj,
-                limit.you,
-                limit.this.unwrap_or(id),
-            )
-        })
-    }
-
-    /// CR 502.3's determination under untap limits (Smoke, Winter Orb):
-    /// of the permanents that would untap, the ones a limit counts untap as
-    /// the active player names them, and the rest of them stay tapped once
-    /// no limit has room left for any of them.
-    ///
-    /// "Can't untap more than one" keeps a permanent tapped only when the
-    /// limit is full: the default is still that everything untaps (CR
-    /// 502.3), so the player chooses *which*, not *whether*. The question
-    /// is asked again after every answer, and each answer counts against
-    /// every limit the permanents in it match — an animated land under
-    /// Smoke and Winter Orb is the one creature and the one land (the Smoke
-    /// ruling), and Static Orb beside Winter Moon lets two permanents untap,
-    /// at most one of them a nonbasic land (the Winter Moon ruling).
-    ///
-    /// `max` is the most a single answer can name without breaking a limit
-    /// whatever it names: the smallest room among the limits that cannot
-    /// take everything still on the menu. Anything from one to that is
-    /// legal, so the menu never offers an answer the apply would refuse.
-    /// When every limit can take everything on the menu, nothing is asked.
-    ///
-    /// `kept` is what the player already chose to leave tapped
-    /// (`ChoicePrompt::LeaveTapped`), asked first so that a permanent the
-    /// player keeps by choice does not take a limit's room. Returns `true`
-    /// when a question was asked.
-    pub(crate) fn untap_under_limits(
-        &mut self,
-        kept: Vec<ObjectId>,
-        chosen: Vec<ObjectId>,
-    ) -> bool {
-        let active = self.state.turn.active;
-        let limits = self.untap_limits();
-        let counted = |id: ObjectId| limits.iter().any(|l| self.counts(l, id));
-        // What would untap if no limit applied. A phased-out permanent is
-        // treated as though it does not exist (CR 702.26b): no limit counts
-        // it and no menu offers it.
-        let would: Vec<ObjectId> =
-            self.state
-                .battlefield_seen()
-                .filter(|id| {
-                    self.state.object(*id).is_some_and(|o| {
-                        o.controller == active && o.status.contains(Status::TAPPED)
-                    }) && !kept.contains(id)
-                        && !self.keeps_tapped(*id)
-                })
-                .collect();
-        let room: Vec<usize> = limits
-            .iter()
-            .map(|l| {
-                let used = chosen.iter().filter(|c| self.counts(l, **c)).count();
-                usize::from(l.count).saturating_sub(used)
-            })
-            .collect();
-        // Counted, not yet named, and every limit counting it has room.
-        let open: Vec<ObjectId> = would
-            .iter()
-            .copied()
-            .filter(|id| {
-                !chosen.contains(id)
-                    && counted(*id)
-                    && limits
-                        .iter()
-                        .zip(&room)
-                        .all(|(l, r)| *r > 0 || !self.counts(l, *id))
-            })
-            .collect();
-        let most = limits
-            .iter()
-            .zip(&room)
-            .filter(|(l, r)| open.iter().filter(|id| self.counts(l, **id)).count() > **r)
-            .map(|(_, r)| *r)
-            .min();
-        let Some(most) = most else {
-            // Everything still open fits: it untaps with what was named, and
-            // what the limits shut out stays tapped.
-            let mut stays = kept;
-            stays.extend(
-                would
-                    .iter()
-                    .filter(|id| counted(**id) && !chosen.contains(id) && !open.contains(id)),
-            );
-            self.finish_untap_step(&stays);
-            return false;
-        };
-        self.pending_plan = Some(PlanKind::UntapLimit { kept, chosen });
-        self.pending = Pending::ChooseCards {
-            player: active,
-            options: open,
-            min: 1,
-            max: u8::try_from(most).unwrap_or(u8::MAX),
-            prompt: crate::choice::ChoicePrompt::Untap,
-            total: None,
-        };
-        self.awaiting_answer = true;
-        true
-    }
-
-    /// "Then they untap them all simultaneously" (CR 502.3), with `kept`
-    /// left out of it.
-    ///
-    /// `kept` has been checked against the very list [`Self::untap_optional`]
-    /// produced before this is reached, so it is read and not re-validated —
-    /// the same arrangement `cost_wizard::pay` has with its own menu.
-    ///
-    /// The `keeps_tapped` half is read off the effect table rather than off
-    /// a projection: what a "doesn't untap" effect modifies is a rule and
-    /// not a characteristic (CR 613.11), so there is nothing on the
-    /// permanent to look at.
-    pub(crate) fn finish_untap_step(&mut self, kept: &[ObjectId]) {
-        let active = self.state.turn.active;
-        for id in self.state.battlefield_view() {
-            let tapped = self
-                .state
-                .object(id)
-                .is_some_and(|o| o.controller == active && o.status.contains(Status::TAPPED));
-            if tapped
-                && !kept.contains(&id)
-                && !self.keeps_tapped(id)
-                && self.state.set_tapped(id, false)
-            {
-                self.state.journal.record(GameEvent::ObjectUntapped {
-                    object: id,
-                    cause: Cause::TurnBased,
-                });
-            }
-        }
-        let arena = &self.state.arena;
-        self.state
-            .effects
-            .finish_bound_untap(active, |id, version| {
-                arena
-                    .get(id)
-                    .filter(|object| object.version == version && object.zone == Zone::Battlefield)
-                    .map(|object| object.controller)
-            });
-        // "…doesn't untap during your **next** untap step": the step it was
-        // waiting for has now happened, so the effect is spent.
-        //
-        // **After the loop above and not before it.** This is the fourth
-        // duration that expires at a point in the turn structure — the other
-        // three are `UntilYourNextTurn` in `start_turn`, `UntilEndOfCombat`
-        // in `end_of_combat` and `UntilEndOfTurn` in
-        // `cleanup_ends_the_turns_effects` — and it
-        // is the first that ends inside the step it is about rather than at
-        // a boundary between two. An expiry written at the top of the untap
-        // step would let the land untap on schedule and leave a card that
-        // compiles, claims `Implemented` and does nothing at all; one
-        // written at the turn boundary instead would take the *following*
-        // untap step with it and cost the land a second turn. Both
-        // directions are pinned in `untap_tests`.
-        //
-        // `fx.controller` and not the affected permanent's controller, which
-        // is the one place this and `keeps_tapped` read CR 502.3's "your"
-        // from different seats. The sentence is only ever printed about the
-        // source of the ability that created it, so the two seats are the
-        // same one on every card that can say this; a permanent that changed
-        // hands in between is the case where they would part, and no
-        // printing reaches it.
-        self.state.effects.remove_where(|fx| {
-            matches!(
-                fx.duration,
-                baylee_cards_dsl::Duration::UntilYourNextUntapStep
-            ) && fx.controller == active
-        });
-        self.advance_step();
     }
 
     /// The cleanup step's turn-based actions, in the order CR 514 gives

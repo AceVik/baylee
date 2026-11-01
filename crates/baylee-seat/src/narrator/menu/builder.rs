@@ -1149,6 +1149,49 @@ impl Builder<'_, '_> {
     pub(super) fn attackers(&mut self, attackers: &[ObjectId], defenders: &[Defender]) {
         let table = self.table;
         self.line("QUESTION: Declare attackers.");
+        let pending = self.request.pending.clone();
+        if let Pending::ChooseAttackers {
+            required,
+            alone,
+            minimum_required,
+            limits,
+            ..
+        } = &pending
+        {
+            let minimum = minimum_required.map_or(required.len(), |n| n as usize);
+            if minimum > 0 {
+                self.line(format!(
+                    "At least {minimum} of these creatures must attack: {}.",
+                    required
+                        .iter()
+                        .map(|id| tag(*id))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+            if !alone.is_empty() {
+                self.line(format!(
+                    "These creatures can attack only as the sole attacker: {}.",
+                    alone
+                        .iter()
+                        .map(|id| tag(*id))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+            for limit in limits {
+                self.line(format!(
+                    "{} may attack only: {}.",
+                    tag(limit.creature),
+                    limit
+                        .defenders
+                        .iter()
+                        .map(|d| defender_id(*d))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+        }
         self.line("Creatures that can attack:");
         for &id in attackers {
             let line = format!("  {}", self.describe(id));
@@ -1170,6 +1213,7 @@ impl Builder<'_, '_> {
         self.ask = Ask::Attack {
             attackers: attackers.to_vec(),
             defenders: defenders.to_vec(),
+            pending: Box::new(self.request.pending.clone()),
         };
         self.answer(
             "attacks=[{\"attacker\": id, \"at\": defender id}, …]; attacks=[] attacks with nothing",

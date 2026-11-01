@@ -1,0 +1,28 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, TrollShaman_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Troll Shaman]
+2 Conservator
+2 Dancing Scimitar
+3 Eternal Warrior
+3 Fireball
+2 Gray Ogre
+4 Hill Giant
+2 Hurloon Minotaur
+2 Lightning Bolt
+22 Mountain
+2 Oasis
+2 Shatter
+1 Shivan Dragon
+4 Stone Giant
+2 Strip Mine
+3 The Brute
+4 Uthden Troll
+
+[sideboard]
+1 Burrowing
+1 Celestial Prism
+1 Colossus of Sardia
+1 Ivory Cup
+1 Red Elemental Blast
+1 Throne of Bone
+1 Wooden Sphere

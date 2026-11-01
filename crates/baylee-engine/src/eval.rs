@@ -5,12 +5,17 @@
 
 mod amounts;
 mod conditions;
+mod defender_conditions;
+#[cfg(test)]
+mod ice_condition_tests;
+mod names;
 mod protection;
 mod relations;
 mod stack_filters;
 pub(crate) mod target_domain;
 pub(crate) mod target_pair;
 mod targets;
+mod upkeep_history;
 
 use crate::object::{GameObject, Status};
 use crate::state::GameState;
@@ -29,12 +34,13 @@ pub use conditions::{
     condition_holds, condition_holds_with_context, controlled_matching,
     controlled_matching_with_context, intervening_if,
 };
+pub(crate) use protection::protection_from_exiled_types;
 pub use protection::{
     permits_enchantment, protected_from, untargetable_by, untargetable_by_source,
 };
 pub use relations::{controller_of_attached, defending_player_of, most_life, players};
 pub use targets::{
-    choice_options, choice_options_with_context, stack_target_options,
+    choice_options, choice_options_with_context, first_target_players, stack_target_options,
     stack_target_options_relative, target_options, target_options_with_context,
     target_player_options, targeted_players,
 };
@@ -52,6 +58,7 @@ pub fn live_context(state: &GameState, source: ObjectId) -> RuleContext {
         return RuleContext {
             source,
             text: TextChangeMap::IDENTITY,
+            resolved_name: None,
             reference: None,
         };
     }
@@ -65,6 +72,7 @@ pub fn live_context(state: &GameState, source: ObjectId) -> RuleContext {
                     version: object.version,
                 })
             }),
+        resolved_name: None,
         reference: None,
     }
 }
@@ -141,7 +149,9 @@ pub fn matches_projected_with_context(
         Filter::HasSubtype(s) => chars.subtypes.contains(*s),
         Filter::HasWatermark => obj.watermark().is_some(),
         Filter::SharesWatermarkWithSource => obj.watermark().is_some_and(|mark| {
-            state.object(this).is_some_and(|source| source.watermark() == Some(mark))
+            state
+                .object(this)
+                .is_some_and(|source| source.watermark() == Some(mark))
         }),
         Filter::UnCard => obj.is_un_card(),
         Filter::HasColor(c) => chars.colors.intersects(*c),
@@ -168,12 +178,7 @@ pub fn matches_projected_with_context(
                             })
                     })
             }),
-        Filter::NamedBySource => state.object(this).is_some_and(|source| {
-            let current = source.rules_acquisition();
-            source.riders.iter().any(|rider| {
-            matches!(rider, crate::object::Rider::ChosenName { acquisition, name, .. } if *acquisition == current && *name == chars.name)
-        })
-        }),
+        Filter::NamedBySource => names::named_by_source(state, context, chars.name),
         Filter::IsToken => !obj.is_card(),
         Filter::ActivatedAbilityFrom(filter) => {
             stack_filters::activated_source_matches(filter, state, obj, you, context)
@@ -191,7 +196,11 @@ pub fn matches_projected_with_context(
                     obj.chosen_player
                         .is_some_and(|p| !obj.target_players.contains(p)),
                 );
-            obj.targets.len() + obj.second_targets().len() + players + obj.second_target_players().len() == 1
+            obj.targets.len()
+                + obj.second_targets().len()
+                + players
+                + obj.second_target_players().len()
+                == 1
         }
         Filter::HasManaAbility => {
             (chars.has_mana_ability && chars.abilities_lost.is_none() && !chars.rules_text_lost)
@@ -214,7 +223,9 @@ pub fn matches_projected_with_context(
             }
         }
         Filter::OwnedByYou => obj.owner == you,
-        Filter::OwnedBySourceOwner => state.object_or_departed(this).is_some_and(|source| source.owner == obj.owner),
+        Filter::OwnedBySourceOwner => state
+            .object_or_departed(this)
+            .is_some_and(|source| source.owner == obj.owner),
         Filter::Tapped => obj.status.contains(Status::TAPPED),
         Filter::Untapped => !obj.status.contains(Status::TAPPED),
         // A lookup and not a scan: this arm runs once per object whenever a
@@ -233,6 +244,19 @@ pub fn matches_projected_with_context(
                     .is_some_and(|band| state.combat.band_of(obj.id) == Some(band))
         }
         Filter::Blocking => state.combat.blockers.iter().any(|b| b.blocker == obj.id),
+        Filter::Blocked => {
+            state.object(obj.id).is_some_and(|current| {
+                current.version == obj.version && current.zone == Zone::Battlefield
+            }) && state.combat.is_attacking(obj.id)
+                && state.combat.is_blocked(obj.id)
+                && matches!(
+                    state.turn.step,
+                    crate::turn::Step::DeclareBlockers
+                        | crate::turn::Step::CombatDamageFirst
+                        | crate::turn::Step::CombatDamage
+                        | crate::turn::Step::CombatEnd
+                )
+        }
         // Blocked or unblocked is settled as blockers are declared (CR
         // 509.1h), which is the declare-blockers step's first act; from
         // there to the end of combat an attacker is one or the other.
@@ -357,6 +381,48 @@ pub fn matches_projected_with_context(
                         .contains(baylee_core::generated::subtypes::enchantment::AURA)
             })
         }),
+        Filter::Equipped => state.battlefield_seen().any(|id| {
+            state.object(id).is_some_and(|equip| {
+                equip.attached_to == Some(obj.id)
+                    && equip
+                        .characteristics()
+                        .subtypes
+                        .contains(baylee_core::generated::subtypes::artifact::EQUIPMENT)
+            })
+        }),
+        Filter::CmcEqualsCountersOnSource(kind) => state
+            .object(this)
+            .is_some_and(|src| chars.mana_value() == u32::from(src.counters.get(*kind))),
+        Filter::NotControlledByReferenceController => context
+            .reference
+            .and_then(|reference| state.object_or_departed(reference))
+            .is_some_and(|reference| obj.controller != reference.controller),
+        Filter::LowestManaValueOnBattlefield(inner) => {
+            matches(inner)
+                && state
+                    .battlefield_seen()
+                    .filter_map(|id| state.object(id))
+                    .filter(|other| matches_with_context(inner, state, other, you, context))
+                    .map(|other| other.characteristics().mana_value())
+                    .min()
+                    .is_some_and(|lowest| chars.mana_value() == lowest)
+        }
+        Filter::SameNameAsLinkedExile => {
+            linked_exile_cards(state, you, context, None, &Filter::Any)
+                .into_iter()
+                .filter_map(|id| state.object(id))
+                .any(|exiled| exiled.characteristics().name == chars.name)
+        }
+        Filter::SharesColorWithExiledWithSource => {
+            linked_exile_cards(state, you, context, None, &Filter::Any)
+                .into_iter()
+                .filter_map(|id| state.object(id))
+                .any(|exiled| exiled.characteristics().colors.intersects(chars.colors))
+        }
+        Filter::CmcEqualsYourUnspentMana => state
+            .players
+            .get(usize::from(you.get()))
+            .is_some_and(|player| u64::from(chars.mana_value()) == player.mana_pool.total()),
         // As the source last existed when it has left the battlefield
         // (CR 608.2h): Abu Ja'far's dies trigger reads its partners there.
         Filter::BlockingSource => {
@@ -369,12 +435,12 @@ pub fn matches_projected_with_context(
         Filter::BlockingReference => context
             .reference
             .is_some_and(|reference| state.combat.is_blocking(obj.id, reference)),
-        Filter::BlockedByReferenceThisTurn => context.reference.is_some_and(|reference| {
-            blocked_this_turn(state, reference, obj.id)
-        }),
-        Filter::BlockedReferenceThisTurn => context.reference.is_some_and(|reference| {
-            blocked_this_turn(state, obj.id, reference)
-        }),
+        Filter::BlockedByReferenceThisTurn => context
+            .reference
+            .is_some_and(|reference| blocked_this_turn(state, reference, obj.id)),
+        Filter::BlockedReferenceThisTurn => context
+            .reference
+            .is_some_and(|reference| blocked_this_turn(state, obj.id, reference)),
         Filter::AttachedTo(inner) => obj
             .attached_to
             .and_then(|host| state.object(host))
@@ -389,11 +455,20 @@ pub fn matches_projected_with_context(
                     .intersects(*types)
             }),
         Filter::SharesCreatureTypeWithOtherTarget => context.reference.is_none_or(|reference| {
-            reference != obj.id && state.object(reference).is_some_and(|other| {
-                target_pair::shares(chars, other.characteristics())
-            })
+            reference != obj.id
+                && state
+                    .object(reference)
+                    .is_some_and(|other| target_pair::shares(chars, other.characteristics()))
         }),
         Filter::DealtDamageToSourceThisTurn => dealt_damage_to_this_turn(state, this, obj),
+        Filter::DealtDamageBySourceThisTurn => state.object(this).is_some_and(|source| {
+            state.per_turn.damage_log.iter().any(|entry| {
+                entry.source.object == this
+                    && entry.source.version == source.version
+                    && entry.to == crate::event::DamageTarget::Object(obj.id)
+                    && entry.to_version == Some(obj.version)
+            })
+        }),
         Filter::BlockedByReference => context
             .reference
             .is_some_and(|r| state.combat.is_blocking(r, obj.id)),
@@ -504,7 +579,9 @@ pub fn matches_projected_with_context(
         // whole library would be a tutor with no price.
         Filter::CmcAtMostX => chars.mana_value() <= announced_x(state, this),
         Filter::CmcExactlyX => chars.mana_value() == announced_x(state, this),
-        Filter::TwiceCmcExactlyX => chars.mana_value().saturating_mul(2) == announced_x(state, this),
+        Filter::TwiceCmcExactlyX => {
+            chars.mana_value().saturating_mul(2) == announced_x(state, this)
+        }
         // Converge's number, off the source where the payment wrote it; no
         // record is no mana spent, and so no colors.
         Filter::CmcAtMostColorsSpent => {
@@ -763,7 +840,7 @@ pub fn matches_for_some_x(
 
 /// Match an activation's own X without overwriting the permanent's cast X.
 /// `None` is the pre-announcement probe: some X may satisfy each X atom.
-fn matches_for_x(
+pub(crate) fn matches_for_x(
     filter: &Filter,
     state: &GameState,
     obj: &GameObject,

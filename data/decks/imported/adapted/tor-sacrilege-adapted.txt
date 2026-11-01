@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/TOR/sacrilege.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Sacrilege_TOR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sacrilege (Adapted)]
+1 Angel of Retribution
+4 Anguished Unmaking
+1 Aven Cloudchaser
+3 Buried Alive
+1 Glider Kids
+4 Gravedigger
+1 Hypochondria
+3 Inkling Summoning
+1 Malevolent Awakening
+4 Mortify
+10 Plains
+12 Swamp
+2 Tainted Field
+3 Teroh's Faithful
+4 Unmake
+4 Vindicate
+1 Whispering Shade
+1 Zombify

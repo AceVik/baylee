@@ -649,3 +649,68 @@ fn large_life_payment_preserves_exact_price_and_reserve_without_overflow() {
         );
     }
 }
+
+#[test]
+fn removal_and_fights_prefer_keyworded_threats_and_respect_indestructible() {
+    use baylee_cards_dsl::{Effect, Filter, KeywordSet, TargetSlot, TargetSpec};
+    use baylee_engine::engine::DecisionContext;
+
+    let (me, them) = (PlayerId::new(0), PlayerId::new(1));
+    let vanilla = permanent(obj(1), them, 2);
+    let mut threat = permanent(obj(2), them, 2);
+    threat.keywords = KeywordSet::FLYING.union(KeywordSet::LIFELINK).bits();
+    let v = view(0, &[20, 20], vec![vanilla, threat]);
+    let exile = [Effect::Exile {
+        target: TargetSpec::Object(&Filter::CREATURE),
+    }];
+    let pending = Pending::ChooseTargets {
+        player: me,
+        options: vec![obj(1), obj(2)],
+        player_options: vec![],
+        min: 1,
+        max: 1,
+        reason: baylee_engine::choice::TargetPrompt::Targets,
+    };
+    assert_eq!(
+        agent().act_with_context(
+            &v,
+            &pending,
+            &DecisionContext {
+                effects: &exile,
+                ..Default::default()
+            }
+        ),
+        PlayerAction::ChooseTargets {
+            objects: vec![obj(2)],
+            players: vec![],
+        },
+        "the flying lifelinker outranks the vanilla 2/2 with a lower ObjectId"
+    );
+
+    // Fight: an indestructible foe does not die to fight damage, so our 4/4
+    // fights the mortal 3/3 instead of the indestructible 3/3.
+    let fighter = permanent(obj(10), me, 4);
+    let mut indest_foe = permanent(obj(1), them, 3);
+    indest_foe.keywords = KeywordSet::INDESTRUCTIBLE.bits();
+    let mortal_foe = permanent(obj(2), them, 3);
+    let v = view(0, &[20, 20], vec![fighter, indest_foe, mortal_foe]);
+    let fight_effects = [Effect::Fight {
+        fighter: TargetSlot::First,
+        foe: TargetSlot::Second,
+    }];
+    let first = [obj(10)];
+    let foe_context = DecisionContext {
+        effects: &fight_effects,
+        first_targets: &first,
+        second_instance: true,
+        ..Default::default()
+    };
+    assert_eq!(
+        agent().act_with_context(&v, &pending, &foe_context),
+        PlayerAction::ChooseTargets {
+            objects: vec![obj(2)],
+            players: vec![],
+        },
+        "a fight targets the mortal 3/3 rather than the indestructible 3/3"
+    );
+}

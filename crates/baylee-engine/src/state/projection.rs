@@ -43,7 +43,8 @@ impl GameState {
         // battlefield + stack.
         let cross_zone = self.effects.iter().any(|fx| match fx.filter {
             crate::effects::EffectFilter::Dsl(f)
-            | crate::effects::EffectFilter::DslAbout(f, ..) => filter_reaches_other_zones(f),
+            | crate::effects::EffectFilter::DslAbout(f, ..)
+            | crate::effects::EffectFilter::DslControlledBy(f, ..) => filter_reaches_other_zones(f),
             crate::effects::EffectFilter::ObjectIs(id, version) => {
                 self.object(id).is_some_and(|o| {
                     o.version == version && !matches!(o.zone, Zone::Battlefield | Zone::Stack)
@@ -152,6 +153,18 @@ impl GameState {
         // hands, so the comparison is with the controller before the first.
         for (id, before) in was {
             if self.object(id).is_some_and(|o| o.controller != before) {
+                if let Some(new) = self
+                    .object(id)
+                    .filter(|object| object.zone == Zone::Battlefield)
+                    .map(|object| object.controller)
+                {
+                    self.journal
+                        .record(crate::event::GameEvent::ControllerChanged {
+                            object: id,
+                            old: before,
+                            new,
+                        });
+                }
                 self.restart_summoning_sickness(id);
                 self.combat.remove_from_combat(id);
                 if let Some(reference) = self.source_identity(id) {

@@ -20,6 +20,7 @@ card!(
         power = Some(4),
         toughness = Some(5),
     ),],
+    commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[
         // Station (CR 702.184a): "Tap another untapped creature you

@@ -25,13 +25,16 @@ card!(
         choose: ModeCount::ONE_OR_MORE,
         modes: &[
             mode!(&[Effect::ExileAll {
-                filter: &Filter::ARTIFACT
+                filter: &Filter::ARTIFACT,
+                linked: false,
             }]),
             mode!(&[Effect::ExileAll {
-                filter: &Filter::CREATURE
+                filter: &Filter::CREATURE,
+                linked: false,
             }]),
             mode!(&[Effect::ExileAll {
-                filter: &Filter::ENCHANTMENT
+                filter: &Filter::ENCHANTMENT,
+                linked: false,
             }]),
             mode!(&[Effect::ExileGraveyard {
                 player: PlayerRel::EachPlayer

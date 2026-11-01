@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/ISD/deathfed.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Deathfed_ISD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Deathfed (Adapted)]
+2 Acidic Slime
+1 Agadeem's Awakening
+4 Armored Skaab
+1 Birds of Paradise
+3 Chord of Calling
+1 Clear the Mind
+2 Deconstruct
+13 Forest
+1 Green Sun's Zenith
+1 Hinterland Harbor
+7 Island
+4 Jolt
+4 Llanowar Elves
+2 Merfolk Looter
+4 Mulch
+1 Reckless Spite
+4 Sultai Charm
+3 Swamp
+2 Teleport

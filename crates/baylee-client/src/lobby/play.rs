@@ -226,7 +226,7 @@ pub(super) fn draw(
     }
     menu(commands, root, state, kit, hero_more, tables_more);
     if state.play.picker {
-        picker(commands, root, state, kit);
+        picker(commands, root, state, kit, scrolled);
     }
     if let Some(id) = &state.play.password_for {
         discovery::password_sheet(commands, root, state, metrics, kit, id);
@@ -497,7 +497,13 @@ fn menu(
 
 /// The deck picker (Change deck): the shelf's tiles, one press chooses.
 #[allow(clippy::too_many_lines)] // one sheet, drawn top to bottom
-fn picker(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
+fn picker(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    kit: Kit,
+    scrolled: &Scrolled,
+) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
     let grid = commands
@@ -527,13 +533,14 @@ fn picker(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
     {
         let deck = &lobby.decks()[index];
         let chosen = lobby.selected() == Some(index);
+        let extra = if chosen { 1.0 } else { 0.0 };
         let tile = commands
             .spawn((
                 Role::Tile,
                 Node {
                     column_gap: kit.m.px(10.0),
                     align_items: AlignItems::Center,
-                    padding: UiRect::all(kit.m.px(8.0)),
+                    padding: UiRect::all(px_fixed((kit.m.scaled(8.0) - extra).max(0.0))),
                     border: UiRect::all(px_fixed(if chosen { 2.0 } else { 1.0 })),
                     border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
                     ..default()
@@ -591,13 +598,19 @@ fn picker(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
         None,
         Press::Play(PlayPress::CloseSheet),
     );
-    let surface = surfaces::sheet_box(
+    // A shelf of decks can run past the sheet: the wheel moves it and a bar
+    // says so (report 30.10.2026: neither did).
+    let surface = surfaces::sheet_box_listed(
         commands,
         kit,
         SheetWidth::Medium,
         Phrase::PlayChangeDeck.text(lang),
         &[grid],
         &[cancel],
+        (
+            Scrollable(List::DeckPicker),
+            ScrollPosition(Vec2::new(0.0, scrolled.get(List::DeckPicker))),
+        ),
     );
     orders::stop(commands, cancel, &orders::PICKER, "cancel");
     let scrim = surfaces::sheet(commands, surface);

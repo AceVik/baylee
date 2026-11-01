@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/AFR/lifeline.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Lifeline_AFR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Lifeline (Adapted)]
+1 Advent of the Wurm
+4 Arctic Treeline
+1 Branchloft Pathway
+4 Call of the Conclave
+4 Eladamri's Call
+9 Forest
+3 Gerrard's Command
+1 Heroes' Reunion
+3 Kor Celebrant
+3 Nature's Chant
+2 Pillardrop Rescuer
+10 Plains
+3 Reknit
+3 Sanctify
+3 Selesnya Charm
+2 Story Seeker
+4 Vitalizing Cascade

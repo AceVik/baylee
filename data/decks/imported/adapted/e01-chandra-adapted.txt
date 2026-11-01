@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/E01/chandra.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Chandra_E01.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Chandra (Adapted)]
+4 Arc Lightning
+1 Battle-Rattle Shaman
+2 Breath Weapon
+1 Brute Strength
+1 Dualcaster Mage
+3 Fateful End
+1 Guttersnipe
+4 Hammer of Bogardan
+1 Hordeling Outburst
+2 Kiln Fiend
+1 Make Mischief
+1 Massive Raid
+2 Molten Blast
+23 Mountain
+1 Sarkhan's Triumph
+1 Scrap
+2 Searing Spear
+1 Seismic Rupture
+2 Smoldering Spires
+1 Steam Blast
+1 Sundering Eruption
+2 Unsubtle Mockery
+2 Volcanic Geyser

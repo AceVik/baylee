@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/OTJ/snack-time.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SnackTime_OTJ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Snack Time (Adapted)]
+3 Abrupt Decay
+2 Assassin's Trophy
+2 Drain the Well
+12 Forest
+4 Gaze of Granite
+4 Maelstrom Pulse
+3 Mintstrosity
+4 Pest Summoning
+2 Reach for the Sky
+2 Return from the Wilds
+2 Scream Puff
+2 Sugar Rush
+12 Swamp
+3 Sweettooth Witch
+2 Titanic Growth
+1 Underground Mortuary

@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUG #20266220]
+1 Abundant Countryside
+1 Ajani's Sunstriker
+1 Alabaster Host Sanctifier
+1 Ayesha Tanaka
+1 Benalish Heralds
+1 Bishop's Soldier
+1 Blossoming Wreath
+1 Blunt the Assault
+1 Bountiful Harvest
+1 Brightblade Stoat
+1 Candy Trail
+1 Capital City
+1 Cave of Temptation
+1 Centaur Healer
+1 City of Brass
+1 Congregate
+1 Convalescence
+1 Court Cleric
+1 D'Avenant Archer
+1 D'Avenant Healer
+1 Daily Bugle Building
+1 Dawnstrike Paladin
+1 Daybreak Chaplain
+1 Deputy of Acquittals
+1 Dogged Hunter
+1 Farrel's Zealot
+5 Forest
+1 Fruition
+1 Furtive Analyst
+1 Gallifrey Council Chamber
+1 Gerrard's Wisdom
+1 Guildmages' Forum
+1 Haven of the Spirit Dragon
+1 Healing Leaves
+1 Henge of Ramos
+1 Intrepid Hero
+3 Island
+1 Joyous Respite
+1 Kor Celebrant
+1 Leonin Vanguard
+1 Lifetap
+1 Linden, the Steadfast Queen
+1 Lord of the Unreal
+1 Mana Confluence
+1 Mech Hangar
+1 Natural Spring
+1 Ondu War Cleric
+18 Plains
+1 Ramosian Sky Marshal
+1 Respite
+1 Righteous Cause
+1 Shimmering Grotto
+1 Silent Attendant
+1 Social Climber
+1 Southern Paladin
+1 Spiritual Sanctuary
+1 Starlight Invoker
+1 Staunch Defenders
+1 Stone Haven Medic
+1 Story Seeker
+1 Sunblade Angel
+1 Surveillance Room
+1 Tendo Ice Bridge
+1 The Mycosynth Gardens
+1 Thoughtleech
+1 Thran Quarry
+1 Toil to Renown
+1 Tracker
+1 Trained Caracal
+1 Turntimber Ascetic
+1 Volrath's Gardens
+1 Wanderbrine Preacher
+1 Warrior Angel
+1 Whitesun's Passage
+1 Yotian Medic
+1 Zealots en-Dal
+
+[commander]
+Angus Mackenzie

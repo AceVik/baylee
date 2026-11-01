@@ -1,0 +1,82 @@
+# baylee curated commander aggro seed=20261037
+# licence: AGPL-3.0-only
+[deck:commander aggro UB #20261037]
+1 Aether Hub
+1 Arnyn, Deathbloom Botanist
+1 Ayara, First of Locthwain
+1 Bastion of Remembrance
+1 Blood Artist
+1 Brotherhood Headquarters
+1 Callous Inspector
+1 Capital City
+1 Carrier Thrall
+1 Carrion Feeder
+1 Claws of Gix
+1 Dakmor Ghoul
+1 Death Watch
+1 Discordant Piper
+1 Dream Beavers
+1 Dusk Legion Zealot
+1 Essence Feed
+1 Falkenrath Noble
+1 Fear of Lost Teeth
+1 Foul-Tongue Shriek
+1 Hall of Oracles
+1 Holdout Settlement
+1 Illusions of Grandeur
+1 Imperial Seal
+1 Infectious Host
+1 Jasmine Dragon Tea Shop
+1 Kalastria Healer
+1 Kalastria Highborn
+1 Kheru Bloodsucker
+1 Lead Pipe
+1 Maalfeld Twins
+1 Maggot Carrier
+1 Mai, Scornful Striker
+1 Mana Confluence
+1 Master of Dark Rites
+1 Midnight Charm
+1 Midnight Reaper
+1 Misery Charm
+1 Night Market Lookout
+1 Nocturnal Feeder
+1 Novice Occultist
+1 Phyrexian Gargantua
+1 Polluted Bonds
+1 Quest for the Gravelord
+1 Reanimate
+1 Sanctum Seeker
+1 Sanguine Syphoner
+1 Sarcomancy
+1 School of the Unseen
+1 Scourge of the Undercity
+1 Secluded Courtyard
+1 Serrated Scorpion
+1 Skymarch Bloodletter
+1 Sovereign's Bite
+1 Spire of Industry
+1 Stitcher's Supplier
+24 Swamp
+1 Tattered Mummy
+1 Tempting Witch
+1 Three Tree City
+1 Toxic Abomination
+1 Turtle Lair
+1 Undead Augur
+1 Underground Sea
+1 Vampire Neonate
+1 Vampire Spawn
+1 Vampire's Kiss
+1 Vengeful Bloodwitch
+1 Vengeful Dead
+1 Vermin Gorger
+1 Vindictive Vampire
+1 Watery Grave
+1 Wretched Anurid
+1 Yahenni, Undying Partisan
+1 Yawgmoth's Edict
+1 Zuran Orb
+
+[commander]
+Tegwyll, Duke of Splendor

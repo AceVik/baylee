@@ -23,6 +23,7 @@ card!(
     abilities = &[spell!(&[
         Effect::ExileAll {
             filter: &WHITE_CREATURE,
+            linked: false,
         },
         Effect::DrawCardsFor {
             who: PlayerRel::EachPlayer,

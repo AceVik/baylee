@@ -7,6 +7,7 @@
 )]
 // MIDI pitches, buffer indices and bounded audio amplitudes.
 use super::{RATE, score::arrangement::Instrument};
+pub(in crate::music) mod chamber;
 mod sampled;
 mod synth;
 pub(super) use sampled::{Def, Family, Kind};
@@ -17,6 +18,7 @@ use sampled::Voice;
 pub(super) fn prepare() {
     sampled::prepare();
     synth::prepare();
+    chamber::prepare();
 }
 /// How a note is touched beyond its pitch, length and level.
 #[derive(Clone, Copy, Debug)]
@@ -102,6 +104,7 @@ const PLUCK_ROOM: f32 = 0.18;
 pub(super) struct Orchestra {
     voices: Vec<Voice>,
     synth: synth::Synth,
+    chamber: chamber::Ensemble,
     strings: [Lute; STRINGS],
     plucks: u32,
     room: [Delay; 8],
@@ -114,6 +117,7 @@ impl Default for Orchestra {
         Self {
             voices: Vec::with_capacity(POLYPHONY),
             synth: synth::Synth::default(),
+            chamber: chamber::Ensemble::default(),
             strings: std::array::from_fn(|_| Lute::new()),
             plucks: 0,
             room: [1631, 2043, 2327, 2821, 1697, 2101, 2399, 2921].map(Delay::new),
@@ -129,6 +133,9 @@ fn panned(gain: f32, pan: f32) -> [f32; 2] {
     ]
 }
 impl Orchestra {
+    pub(in crate::music) fn chamber_note(&mut self, note: chamber::Note) {
+        self.chamber.note(note);
+    }
     #[cfg(test)]
     pub(super) fn note(
         &mut self,
@@ -196,6 +203,7 @@ impl Orchestra {
     /// Never rewind a release envelope when a second change follows quickly.
     pub(super) fn release_notes(&mut self) {
         self.synth.release();
+        self.chamber.release();
         for voice in &mut self.voices {
             voice.release();
         }
@@ -248,6 +256,7 @@ impl Orchestra {
             }
         }
         self.synth.frame(&mut dry, &mut feed);
+        self.chamber.frame(&mut dry, &mut feed);
         self.finish(dry, feed)
     }
     /// Voice-major blocks, with exactly the reference's summation order.
@@ -282,6 +291,7 @@ impl Orchestra {
             }
         }
         self.synth.render(out, feed);
+        self.chamber.render(out, feed);
         for (frame, send) in out.iter_mut().zip(feed.iter()) {
             *frame = self.finish(*frame, *send);
         }

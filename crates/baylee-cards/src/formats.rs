@@ -158,6 +158,12 @@ pub fn check(shape: Shape, main: &[CardIndex], leaders: &[CardIndex]) -> Vec<Pro
             problems.push(Problem::NotALeader(l.index));
         }
     }
+    if let [a] = led.as_slice()
+        && a.eligible
+        && a.background
+    {
+        problems.push(Problem::NotALeader(a.index));
+    }
     if let [a, b] = led.as_slice()
         && a.eligible
         && b.eligible

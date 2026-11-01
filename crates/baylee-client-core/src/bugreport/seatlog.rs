@@ -8,6 +8,11 @@
 //! other seat "Player A", "Player B", … in seat order — and no line is ever
 //! written with a real name to be scrubbed afterwards.
 //!
+//! A language-model seat's report (`baylee_seat::reports`) carries the same
+//! log, written the same way, with the placeholders its model knew the
+//! others by, "P1", "P2", … ([`Placeholders::Seats`]): its reports name
+//! players that way, and the log they point into should too.
+//!
 //! The lines are written in English whatever the interface speaks: they are
 //! read by whoever reads reports, and one language there is one search.
 
@@ -18,6 +23,29 @@ use baylee_view::GameStatic;
 
 use crate::gamelog::{CardTextLookup, LogBook, Wording};
 use crate::i18n::Lang;
+
+/// What a report's log calls the seats other than the reporter's, who is
+/// "You" either way. Neither is anybody's name.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Placeholders {
+    /// "Player A", "Player B", … in seat order: a person's report.
+    #[default]
+    Letters,
+    /// "P1", "P2", … by seat number, from one: a language-model seat's
+    /// report, whose model was told every seat that way and wrote its
+    /// reports in those words.
+    Seats,
+}
+
+impl Placeholders {
+    /// The name of `seat`, the `nth` seat other than the reporter's.
+    fn name(self, nth: usize, seat: PlayerId) -> String {
+        match self {
+            Self::Letters => placeholder(nth),
+            Self::Seats => format!("P{}", u16::from(seat.get()) + 1),
+        }
+    }
+}
 
 /// One seat of the game, as a report names it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -54,19 +82,71 @@ pub struct SeatLog {
     pub lines: Vec<LogRow>,
 }
 
+impl SeatLog {
+    /// Leaves out the oldest lines until the log, serialised, weighs at
+    /// most `bytes`, and says how many it left out. The newest lines are
+    /// the ones kept: a report is about the end of what it was told. A log
+    /// whose roster alone is over `bytes` keeps no line.
+    pub fn fit(&mut self, bytes: usize) -> usize {
+        fn weight<T: Serialize + ?Sized>(value: &T) -> usize {
+            serde_json::to_vec(value).map_or(usize::MAX, |json| json.len())
+        }
+        let whole = weight(self);
+        if whole <= bytes {
+            return 0;
+        }
+        let rows: Vec<usize> = self.lines.iter().map(weight).collect();
+        // The log with no line at all: the whole, less every row and the
+        // commas between them.
+        let commas = rows.len().saturating_sub(1);
+        let lines = rows
+            .iter()
+            .fold(commas, |sum, row| sum.saturating_add(*row));
+        let mut used = whole.saturating_sub(lines);
+        let mut kept = 0;
+        for row in rows.iter().rev() {
+            let next = used
+                .saturating_add(*row)
+                .saturating_add(usize::from(kept > 0));
+            if next > bytes {
+                break;
+            }
+            used = next;
+            kept += 1;
+        }
+        let left_out = self.lines.len() - kept;
+        self.lines.drain(..left_out);
+        left_out
+    }
+}
+
 /// The placeholder for the `nth` other seat: "Player A", "Player B", …
 fn placeholder(nth: usize) -> String {
     let letter = u8::try_from(nth % 26).map_or('?', |n| char::from(b'A' + n));
     format!("Player {letter}")
 }
 
-/// `book` as `seat` reads it, written for a report.
+/// `book` as `seat` reads it, written for a person's report: the others
+/// are [`Placeholders::Letters`].
 #[must_use]
 pub fn seat_log(
     book: &LogBook,
     statics: Option<&GameStatic>,
     seat: PlayerId,
     texts: &dyn CardTextLookup,
+) -> SeatLog {
+    seat_log_with(book, statics, seat, texts, Placeholders::Letters)
+}
+
+/// `book` as `seat` reads it, written for a report, the other seats
+/// named by `placeholders`.
+#[must_use]
+pub fn seat_log_with(
+    book: &LogBook,
+    statics: Option<&GameStatic>,
+    seat: PlayerId,
+    texts: &dyn CardTextLookup,
+    placeholders: Placeholders,
 ) -> SeatLog {
     let redacted = statics.map(|statics| {
         let mut redacted = statics.clone();
@@ -76,7 +156,7 @@ pub fn seat_log(
                 "You".to_string()
             } else {
                 others += 1;
-                placeholder(others - 1)
+                placeholders.name(others - 1, identity.player)
             };
         }
         redacted
@@ -227,5 +307,74 @@ mod tests {
         let log = seat_log(&book(), None, PlayerId::new(0), &no_text);
         assert!(log.roster.is_empty());
         assert_eq!(log.lines.len(), 3);
+    }
+
+    /// A language-model seat's log names the others as its model knew
+    /// them, by seat number from one, and the reporter "You"; still no real
+    /// name anywhere, and the same lines as a person's log of the book.
+    #[test]
+    fn a_model_s_log_names_the_others_by_seat_number() {
+        let roster = roster();
+        let log = seat_log_with(
+            &book(),
+            Some(&roster),
+            PlayerId::new(1),
+            &no_text,
+            Placeholders::Seats,
+        );
+        let names: Vec<_> = log.roster.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, ["P1", "You", "P3"]);
+        let json = serde_json::to_string(&log).expect("json");
+        for name in NAMES {
+            let bare = name.split('#').next().expect("a name");
+            assert!(!json.contains(bare), "{bare} is in the log: {json}");
+        }
+        let all: Vec<&str> = log.lines.iter().map(|row| row.text.as_str()).collect();
+        assert!(all.iter().any(|line| line.contains("P1")), "{all:?}");
+        assert!(all.iter().any(|line| line.contains("P3")), "{all:?}");
+        let person = seat_log(&book(), Some(&roster), PlayerId::new(1), &no_text);
+        assert_eq!(log.lines.len(), person.lines.len());
+        assert_eq!(log.seat, person.seat);
+    }
+
+    /// A log over its bound loses its oldest lines, the newest kept, and
+    /// weighs no more than the bound after; one within it is left whole.
+    #[test]
+    fn a_log_is_fitted_from_its_start() {
+        let mut log = SeatLog {
+            seat: 0,
+            roster: vec![RosterSeat {
+                seat: 0,
+                name: "You".into(),
+                is_ai: false,
+                team: None,
+            }],
+            lines: (0..200)
+                .map(|n| LogRow {
+                    turn: n,
+                    at: 1_700_000_000_000,
+                    text: format!("line {n:03} {}", "ä".repeat(20)),
+                })
+                .collect(),
+        };
+        let whole = serde_json::to_vec(&log).expect("json").len();
+        assert_eq!(log.clone().fit(whole), 0, "a log within its bound is whole");
+        let bound = whole / 3;
+        let left_out = log.fit(bound);
+        let weight = serde_json::to_vec(&log).expect("json").len();
+        assert!(weight <= bound, "{weight} > {bound}");
+        assert_eq!(log.lines.len() + left_out, 200);
+        assert_eq!(log.lines.last().map(|row| row.turn), Some(199));
+        assert_eq!(
+            log.lines.first().map(|row| row.turn),
+            Some(200 - log.lines.len() as u32)
+        );
+        // One more line would not have fitted: as many as fit are kept.
+        let row = serde_json::to_vec(&log.lines[0]).expect("json").len();
+        assert!(weight + row + 1 > bound, "a line too many was left out");
+        // A bound under the roster keeps no line.
+        let mut tiny = log.clone();
+        assert_eq!(tiny.fit(10), log.lines.len());
+        assert!(tiny.lines.is_empty());
     }
 }

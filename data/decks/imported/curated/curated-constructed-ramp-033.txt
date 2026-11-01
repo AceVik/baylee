@@ -1,0 +1,22 @@
+# baylee curated constructed ramp seed=20261056
+# licence: AGPL-3.0-only
+[deck:constructed ramp UG #20261056]
+1 City of Brass
+3 Conduit Pylons
+2 Enduring Vitality
+4 Forest
+4 Generous Visitor
+11 Island
+3 Jin-Gitaxias, Progress Tyrant
+3 Maul Splicer
+2 Midsummer Revel
+3 Mind Over Matter
+3 Mirrex
+4 Mystic Remora
+4 Ojer Pakpatiq, Deepest Epoch
+4 Pact of Negation
+2 Pillar of the Paruns
+2 Primeval Bounty
+2 Reflections of Littjara
+2 Return from the Wilds
+1 Shimmering Grotto

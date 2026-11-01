@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/MMQ/tidal-mastery-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TidalMasteryEnhancedDeck_MMQ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Tidal Mastery - Enhanced Deck (Adapted)]
+4 Absorb
+1 Alabaster Wall
+1 Braidwood Cup
+4 Catalog
+1 Cessation
+1 Clear
+3 Counterspell
+1 Crossbow Infantry
+1 Daring Leap
+3 Disenchant
+2 Drifting Meadow
+2 Exile
+15 Island
+1 Mother of Runes
+1 Pacifism
+2 Palinchron
+9 Plains
+2 Sphinx's Revelation
+3 Stinging Barrier
+2 Stroke of Genius
+1 Wrath of God

@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/MRD/wicked-big.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WickedBig_MRD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Wicked Big (Adapted)]
+2 Brown Ouphe
+1 Confidence from Strength
+4 Copper Myr
+2 Creeping Mold
+1 Deconstruct
+4 Fangren Hunter
+24 Forest
+2 Needlebug
+1 Plated Slagwurm
+2 Predator's Strike
+1 Slith Predator
+2 Snakeskin Veil
+2 Tel-Jilad Archers
+2 Tel-Jilad Chosen
+2 Tel-Jilad Exile
+2 Trolls of Tel-Jilad
+2 Untamed Wilds
+2 Viridian Shaman
+2 Woodcutter's Grit

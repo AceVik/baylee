@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/PLS/barrage.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Barrage_PLS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Barrage (Adapted)]
+1 Aerial Assault
+4 Agadeem's Awakening
+2 Alpha Kavu
+2 Broken Wings
+1 Direct Hit
+1 Dragon's Rage Channeler
+2 Evaporate
+1 Expunge
+1 Fires of Yavimaya
+2 Flametongue Kavu
+12 Forest
+1 Grim Tutor
+2 Horned Kavu
+1 Implode
+1 Jovial Evil
+1 Kavu Recluse
+1 Molten Blast
+11 Mountain
+2 Nomadic Elf
+1 Savage Twister
+1 Serpentine Kavu
+1 Squall
+2 Sylvan Library
+1 Thornscape Apprentice
+1 Thunderscape Apprentice
+2 Tivadar's Crusade
+1 Vindicate
+1 Warrior's Honor

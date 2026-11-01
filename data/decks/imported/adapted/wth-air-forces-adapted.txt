@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/WTH/air-forces.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AirForces_WTH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Air Forces (Adapted)]
+1 Abduction
+2 Alabaster Kirin
+1 Cloud Djinn
+1 Disrupt
+1 Dissipate
+1 Fog Elemental
+2 Heavy Ballista
+2 Impulse
+14 Island
+1 Man-o'-War
+3 Monastery Mentor
+3 Ophidian
+2 Pacifism
+10 Plains
+1 Power Sink
+1 Sage Owl
+3 Serrated Biskelion
+1 Silent Observer
+1 Skywhaler's Shot
+1 Sphinx's Revelation
+1 Suq'Ata Firewalker
+2 Twinblade Blessing
+2 Unexplained Disappearance
+3 Vodalian Illusionist

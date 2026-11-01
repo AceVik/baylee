@@ -43,6 +43,30 @@ pub(super) fn amount(raw: &str, svars: &BTreeMap<String, String>, has_x: bool) -
     {
         return super::counter_kind(kind).map(|kind| format!("Amount::CountersOnSource({kind})"));
     }
+    if svars.get(raw).map(|def| def.trim()) == Some("Count$ValidHand Card.YouOwn") {
+        return Some("Amount::HandSize(PlayerRel::You)".to_string());
+    }
+    if svars.get(raw).map(|def| def.trim()) == Some("TriggeredPlayer$CardsInHand/NMinus.3") {
+        return Some(
+            "Amount::Difference { left: &Amount::Fixed(3), right: &Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::HandActivePlayer } }"
+                .to_string(),
+        );
+    }
+    if svars.get(raw).map(|def| def.trim()) == Some("TriggeredPlayer$CardsInHand/Minus.4") {
+        return Some(
+            "Amount::Difference { left: &Amount::CountOf { filter: &Filter::Any, zone: ZoneSel::HandActivePlayer }, right: &Amount::Fixed(4) }"
+                .to_string(),
+        );
+    }
+    if svars.get(raw).map(|def| def.trim()) == Some("Exiled$CardManaCost/Plus.1") {
+        return Some("Amount::Plus { base: &Amount::SacrificedManaValue, offset: 1 }".to_string());
+    }
+    if svars.get(raw).map(|def| def.trim()) == Some("Sacrificed$CardManaCost") {
+        return Some("Amount::SacrificedManaValue".to_string());
+    }
+    if svars.get(raw).map(|def| def.trim()) == Some("Targeted$CardManaCost") {
+        return Some("Amount::TargetCmc".to_string());
+    }
     if raw == "X" {
         return (has_x && svars.get("X").map(String::as_str) == Some("Count$xPaid"))
             .then(|| "Amount::X".to_string());

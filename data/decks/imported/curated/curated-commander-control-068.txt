@@ -1,0 +1,81 @@
+# baylee curated commander control seed=20261091
+# licence: AGPL-3.0-only
+[deck:commander control WRG #20261091]
+1 Abstergo Entertainment
+1 Academy Rector
+1 Aura Fracture
+1 Avengers Tower
+1 Baldur's Gate
+1 Bishop of Wings
+1 Blade Splicer
+1 Brazen Freebooter
+1 Butterbur, Bree Innkeeper
+1 Captivating Cave
+1 Crystal Grotto
+1 Eclipsed Realms
+1 Elder Auntie
+1 Elephant Guide
+1 Elgaud Inquisitor
+1 Field of Souls
+1 Flamewright
+3 Forest
+1 Fortifying Provisions
+1 Ghirapur Gearcrafter
+1 Gimli of the Glittering Caves
+1 Goblin Commando
+1 Goblin Engineer
+1 Goblin Instigator
+1 Goblin Trenches
+1 Goblin Warrens
+1 Griffin Guide
+1 Haven of the Spirit Dragon
+1 Heap Gate
+1 Heartwood Giant
+1 Henge of Ramos
+1 Honored Knight-Captain
+1 Hunted Witness
+1 Imperial Recruiter
+1 Jasmine Dragon Tea Shop
+1 Kjeldoran Home Guard
+1 Knight of Doves
+1 Knight-Captain of Eos
+1 Late to Dinner
+1 Legion Extruder
+1 Lightning Diadem
+1 Luminarch Ascension
+1 Maja, Bretagard Protector
+1 Mawloc
+12 Mountain
+1 Mox Emerald
+1 Nykthos, Shrine to Nyx
+1 Ojer Taq, Deepest Foundation
+1 Pashalik Mons
+12 Plains
+1 Pyrite Spellbomb
+1 Rancor
+1 Reckless Lackey
+1 Requiem Angel
+1 Resolute Reinforcements
+1 Rumble Arena
+1 Secluded Courtyard
+1 Sensor Splicer
+1 Shivan Harvest
+1 Siege-Gang Commander
+1 Skyclave Apparition
+1 Sluggishness
+1 Smaug the Magnificent
+1 Spreading Algae
+1 Stangg
+1 Stark Industries Executive
+1 Stimulus Package
+1 Tarnished Citadel
+1 Three Tree City
+1 Tooth and Claw
+1 Underfoot Underdogs
+1 Villainous Hideout
+1 Weaponize the Monsters
+1 Wily Goblin
+1 Wurmweaver Coil
+
+[commander]
+Palladia-Mors

@@ -70,8 +70,23 @@ pub fn players(rel: PlayerRel, state: &GameState, you: PlayerId) -> Option<Vec<P
                 .map(|p| p.id)
                 .collect()
         }
+        PlayerRel::LeastLifeOrTied => {
+            let least = state
+                .players
+                .iter()
+                .filter(|p| !p.has_lost())
+                .map(|p| p.life)
+                .min();
+            state
+                .players
+                .iter()
+                .filter(|p| !p.has_lost() && Some(p.life) == least)
+                .map(|p| p.id)
+                .collect()
+        }
         PlayerRel::ControllerOfTarget
         | PlayerRel::TargetPlayerOrController
+        | PlayerRel::SecondTargetPlayerOrController
         | PlayerRel::ControllerOfEvent
         | PlayerRel::Recipient
         | PlayerRel::DefendingPlayer

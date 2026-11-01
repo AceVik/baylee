@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/Q04/allied-fires.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AlliedFires_Q04.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Allied Fires (Adapted)]
+1 Agate Assault
+2 Hail Storm
+2 Howling Fury
+4 Interplanar Beacon
+5 Island
+1 Kenrith, the Returned King
+2 Mountain
+2 Needle Storm
+4 Omen of the Sea
+2 Plains
+3 Pulse of Murasa
+3 Refute
+2 Sandblast
+4 Split Up
+1 Steam Vents
+3 Swiftwater Cliffs
+1 Temple of Enlightenment
+1 Temple of Epiphany
+1 Temple of Triumph
+3 They Went This Way
+2 Time Wipe
+3 Tranquil Cove
+4 Wind-Scarred Crag
+4 Wistful Thinking

@@ -756,3 +756,157 @@ fn the_logo_picks_the_cut_its_height_asks_for() {
     assert_eq!(cut_for(150.0), 2);
     assert_eq!(cut_for(400.0), 2);
 }
+
+/// The toast lanes standing.
+fn toast_lanes(app: &mut App) -> usize {
+    let mut lanes = app
+        .world_mut()
+        .query_filtered::<(), With<super::super::header::ToastLane>>();
+    lanes.iter(app.world()).count()
+}
+
+/// The toasts' crosses drawn, oldest toast first.
+fn crosses(app: &mut App) -> Vec<super::super::header::ToastId> {
+    use super::super::header::ToastId;
+    let mut drawn: Vec<ToastId> = presses(app)
+        .into_iter()
+        .filter_map(|p| match p {
+            Press::Header(HeaderPress::DismissToast(id)) => Some(id),
+            _ => None,
+        })
+        .collect();
+    drawn.sort_by_key(|id| match id {
+        ToastId::Undo => 0,
+        ToastId::Shown(n) => *n,
+    });
+    drawn
+}
+
+/// Somebody sits down at the seated player's waiting table ("Lina#0031"),
+/// which fills it: the bell rings twice, and each ring is a toast.
+fn lina_sits_down(app: &mut App) {
+    let mut state = app.world_mut().resource_mut::<LobbyState>();
+    let mut listing = GameListing {
+        games: state.lobby.games().to_vec(),
+        total: 1,
+        ..GameListing::default()
+    };
+    listing.games[0].seats[3].taken = true;
+    listing.games[0].seats[3].player = Some("Lina#0031".to_string());
+    state.lobby.apply(LobbyEvent::Games(listing));
+}
+
+/// The owner's report of 22.10.2026: notifications that did not go away and
+/// whose cross did not close them. The bell rings as the last chair of a
+/// table fills, which is the moment its game starts; its toasts stood over
+/// the whole game. Their lane is a root of its own, which the lobby's
+/// teardown left, and what ages it and answers its cross runs only in the
+/// lobby. Coming back, the old news stays away and new news shows.
+#[test]
+fn no_lobby_toast_stands_over_a_table() {
+    let mut app = seated();
+    lina_sits_down(&mut app);
+    app.update();
+    app.update();
+    assert_eq!(toast_lanes(&mut app), 1, "the bell's news, as toasts");
+    assert!(
+        labels(&mut app)
+            .iter()
+            .any(|l| l == "Lina#0031 sat down at your table"),
+        "{:?}",
+        labels(&mut app)
+    );
+
+    phase(&mut app, DuelPhase::Playing);
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(toast_lanes(&mut app), 0, "no lobby toast over the table");
+    assert!(
+        !labels(&mut app)
+            .iter()
+            .any(|l| l == "Lina#0031 sat down at your table"),
+        "and nothing it said"
+    );
+
+    phase(&mut app, DuelPhase::Closed);
+    for _ in 0..3 {
+        app.update();
+    }
+    assert_eq!(
+        toast_lanes(&mut app),
+        0,
+        "back in the lobby, the news from before the game stays away"
+    );
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .note_said("you left the table");
+    app.update();
+    assert_eq!(toast_lanes(&mut app), 1, "and new news shows");
+}
+
+/// A toast's cross takes that toast away, and only that one; a status it
+/// took away does not come back while the lobby still says it.
+#[test]
+fn a_toasts_cross_takes_that_toast_away() {
+    let mut app = seated();
+    app.world_mut()
+        .resource_mut::<LobbyState>()
+        .lobby
+        .note_said("the house is warming up");
+    app.update();
+    lina_sits_down(&mut app);
+    app.update();
+    app.update();
+    let drawn = crosses(&mut app);
+    assert_eq!(
+        drawn.len(),
+        3,
+        "the status, and two from the bell: {drawn:?}"
+    );
+    let status = drawn[0];
+    tap_control(&mut app, "the status toast's cross", |p| {
+        *p == Press::Header(HeaderPress::DismissToast(status))
+    });
+    let said = labels(&mut app);
+    assert!(
+        !said.iter().any(|l| l == "the house is warming up"),
+        "the status is gone: {said:?}"
+    );
+    assert!(
+        said.iter().any(|l| l == "Lina#0031 sat down at your table"),
+        "and the bell's toasts stand: {said:?}"
+    );
+    assert_eq!(crosses(&mut app), drawn[1..].to_vec());
+    for _ in 0..30 {
+        app.update();
+    }
+    assert!(
+        !labels(&mut app)
+            .iter()
+            .any(|l| l == "the house is warming up"),
+        "a sentence the lobby still holds does not come back"
+    );
+}
+
+/// The room scrolls under its header and says so with a bar aimed at its
+/// scroller, where a seat's long list of decks is scrolled (report
+/// 30.10.2026; the bar went with WP3's rebuild, b0dd3c480).
+#[test]
+fn the_room_scrolls_with_a_bar_aimed_at_it() {
+    let mut app = seated();
+    let room = app
+        .world_mut()
+        .query::<(Entity, &Scrollable)>()
+        .iter(app.world())
+        .find(|(_, s)| s.0 == List::Table)
+        .map(|(entity, _)| entity)
+        .expect("the room's scroller");
+    let aimed = app
+        .world_mut()
+        .query::<&bevy::ui_widgets::Scrollbar>()
+        .iter(app.world())
+        .any(|bar| bar.target == room);
+    assert!(aimed, "a bar is aimed at the room's scroller");
+}

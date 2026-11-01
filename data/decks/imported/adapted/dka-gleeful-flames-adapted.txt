@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/DKA/gleeful-flames.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GleefulFlames_DKA.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Gleeful Flames (Adapted)]
+4 Acidic Soil
+4 Disharmony
+2 Faithless Looting
+4 Forge Devil
+4 Goblin Arsonist
+4 Goblin Grenade
+3 Haunted Fengraf
+2 Inkmoth Nexus
+17 Mountain
+1 Orcish Cannonade
+3 Rack and Ruin
+1 Sarkhan's Triumph
+4 Sizzle
+3 Torch Fiend
+4 Valakut Awakening

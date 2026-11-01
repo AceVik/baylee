@@ -1,0 +1,30 @@
+# adapted from data/decks/precon/DOM/the-legion-of-dusk.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheLegionOfDusk_DOM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Legion of Dusk (Adapted)]
+1 Adanto Vanguard
+4 Anguished Unmaking
+1 Anointed Deacon
+1 Bishop's Soldier
+1 Call to the Feast
+1 Desert of the Glorified
+1 Desert of the True
+2 Dusk Legion Zealot
+1 Forsake the Worldly
+2 Forsaken Sanctuary
+2 Harsh Sustenance
+1 Legion Lieutenant
+2 Martyr of Dusk
+2 Mortify
+9 Plains
+2 Queen's Commission
+1 Reaver Ambush
+1 Rustwing Falcon
+1 Sanctum Seeker
+2 Shefet Dunes
+1 Skymarch Bloodletter
+1 Squire's Devotion
+10 Swamp
+4 Unmake
+1 Vicious Conquistador
+4 Vindicate
+1 Vona, Butcher of Magan

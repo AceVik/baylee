@@ -1,0 +1,20 @@
+# baylee curated constructed control seed=20261029
+# licence: AGPL-3.0-only
+[deck:constructed control WU #20261029]
+1 Ancestral Vision
+3 Brotherhood Headquarters
+3 Captivating Cave
+2 Corsair Captain
+4 Drogskol Cavalry
+4 Guarded Heir
+4 Honored Knight-Captain
+1 Island
+4 Knight Exemplar
+4 Knight-Captain of Eos
+3 Master Splicer
+15 Plains
+3 Resolute Reinforcements
+3 Surveillance Room
+2 Thraben Inspector
+1 Voldaren Estate
+3 Wing Splicer

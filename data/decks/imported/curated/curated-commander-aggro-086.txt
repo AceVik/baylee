@@ -1,0 +1,74 @@
+# baylee curated commander aggro seed=20261109
+# licence: AGPL-3.0-only
+[deck:commander aggro B #20261109]
+1 Al Bhed Salvagers
+1 Arnyn, Deathbloom Botanist
+1 Baxter Building
+1 Bishop of the Bloodstained
+1 Blight Keeper
+1 Blood Artist
+1 Bloodhunter Bat
+1 Bloodrite Invoker
+1 Boomerang, Blade Flinger
+1 Callous Inspector
+1 Claws of Gix
+1 Corrupted Roots
+1 Crucible of the Spirit Dragon
+1 Death Cultist
+1 Death Watch
+1 Deathcurse Ogre
+1 Deathgreeter
+1 Desiccated Naga
+1 Desperate Bloodseeker
+1 Dogged Pursuit
+1 Dream Beavers
+1 Essence Extraction
+1 Fear of Lost Teeth
+1 Festering Wound
+1 Foul-Tongue Shriek
+1 Gibbering Barricade
+1 Kalastria Healer
+1 Kalastria Highborn
+1 Lampad of Death's Vigil
+1 Merciless Enforcers
+1 Metalspinner's Puzzleknot
+1 Midnight Charm
+1 Night Market Lookout
+1 Nocturnal Feeder
+1 Northern Air Temple
+1 Ominous Parcel
+1 Phyrexian Tower
+1 Pulse Tracker
+1 Sanctum Seeker
+1 Sanguinary Priest
+1 Sanguine Syphoner
+1 Scourge of the Undercity
+1 Serrated Scorpion
+1 Skymarch Bloodletter
+1 Sling-Gang Lieutenant
+1 Spirit of Malevolence
+1 Swallowing Plague
+32 Swamp
+1 Symbiote Spawn
+1 Tarnished Citadel
+1 The Meathook Massacre
+1 Tomb of Urami
+1 Touch of Death
+1 Undead Augur
+1 Vampire Neonate
+1 Vampire Sovereign
+1 Vampire Spawn
+1 Vampire of the Dire Moon
+1 Vampiric Rites
+1 Vengeful Bloodwitch
+1 Vermin Gorger
+1 Vicious Conquistador
+1 Vicious Hunger
+1 Vindictive Vampire
+1 Westvale Abbey
+1 Winter's Intervention
+1 Zulaport Cutthroat
+1 Zuran Orb
+
+[commander]
+Black Widow, Deadly Hunter

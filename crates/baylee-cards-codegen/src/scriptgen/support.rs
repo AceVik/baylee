@@ -47,6 +47,9 @@ pub fn refusal_reason(
         block_line: None,
         block_half: None,
         in_delayed: false,
+        cost_sacrifices_self: false,
+        cost_sacrifices_other: false,
+        trigger_is_self: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -103,6 +106,7 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "ManaReflected",
     "Destroy",
     "DestroyAll",
+    "SacrificeAll",
     "DelayedTrigger",
     "DamageAll",
     "DamageResolve",
@@ -110,6 +114,9 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "AddTurn",
     "SkipTurn",
     "Effect",
+    "NameCard",
+    "GenericChoice",
+    "ControlPlayer",
     "ChooseSource",
     "Fog",
     "Debuff",
@@ -123,15 +130,21 @@ pub const SUPPORTED_APIS: &[&str] = &[
     "Untap",
     "Counter",
     "PutCounter",
+    "RemoveCounter",
+    "RemoveCounterAll",
+    "Cleanup",
     "Sacrifice",
     "Pump",
     "PumpAll",
+    "Protection",
     "Phases",
     "ChangeZone",
     "ChangeZoneAll",
+    "Play",
     "RearrangeTopOfLibrary",
     "Token",
     "Investigate",
+    "WinsGame",
 ];
 
 /// A cost token that names an object, split into its kind and its body.
@@ -139,7 +152,14 @@ pub const SUPPORTED_APIS: &[&str] = &[
 /// `Sac<1/CARDNAME…>` is deliberately not among them: it is matched one
 /// branch earlier as `SacrificeSelf`, which asks nobody anything.
 pub(super) fn object_cost(token: &str) -> Option<(&'static str, &str)> {
-    for kind in ["Sac", "Discard", "tapXType", "Return", "ExileFromGrave"] {
+    for kind in [
+        "Sac",
+        "Discard",
+        "tapXType",
+        "Return",
+        "ExileFromGrave",
+        "Exile",
+    ] {
         if let Some(body) = token
             .strip_prefix(kind)
             .and_then(|t| t.strip_prefix('<'))
@@ -164,6 +184,7 @@ pub(super) fn asks_for_an_object(part: &str) -> bool {
         "TapOther(",
         "ReturnToHand(",
         "ExileFromGraveyard(",
+        "ExilePermanent(",
     ]
     .iter()
     .any(|kind| part.starts_with(kind))

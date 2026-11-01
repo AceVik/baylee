@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/TMP/flames-of-rath-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FlamesOfRathAdvancedDeck_TMP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Flames of Rath - Advanced Deck (Adapted)]
+2 Apocalypse
+3 Ball Lightning
+2 Disenchant
+2 Dwarven Armory
+4 Dwarven Ruins
+2 Earthquake
+2 Fireball
+3 Gemstone Mine
+2 Hammer of Bogardan
+4 Iroh's Demonstration
+4 Kindle
+2 Lightning Elemental
+12 Mountain
+3 Pyrokinesis
+2 Reflecting Pool
+1 Repentance
+1 Rocket Launcher
+2 Scabland
+4 Steel Golem
+2 Thunderbolt
+1 Undiscovered Paradise

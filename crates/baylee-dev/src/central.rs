@@ -27,6 +27,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// The schema tests `db` requires by name: the legacy accounts' move to
+/// Central. A suite that passes without them proves nothing about it.
+const SCHEMA_MUST_RUN: &[&str] = &[
+    "the_legacy_export_takes_unmoved_password_accounts_and_no_secrets",
+    "a_moved_account_is_linked_at_its_first_admission_and_only_once",
+];
+
 /// The gateway e2e targets `db` may add after the schema suite.
 pub const GATEWAY_TESTS: &[&str] = &[
     "e2e_account",
@@ -153,17 +160,30 @@ pub fn db(gateway_tests: &[String], config: Option<&Path>, failure: bool) -> Res
                 all_passed(&done.stdout),
                 "the expected PostgreSQL suite did not run completely"
             );
-            ensure!(
-                target != "schema"
-                    || done.stdout.contains(
-                        "test central_cutover_preserves_sources_reconciles_snapshots_and_revokes_legacy_sessions ... ok"
-                    ),
-                "the expected central cutover test did not run"
-            );
+            if target == "schema" {
+                let missing = not_passed(&done.stdout, SCHEMA_MUST_RUN);
+                ensure!(
+                    missing.is_empty(),
+                    "the legacy move's schema tests did not pass: {}",
+                    missing.join(", ")
+                );
+            }
             pg.checkpoint()?;
         }
         Ok(())
     })
+}
+
+/// The tests of `names` that the libtest output does not report as passed.
+fn not_passed<'a>(output: &str, names: &[&'a str]) -> Vec<&'a str> {
+    names
+        .iter()
+        .copied()
+        .filter(|name| {
+            let passed = format!("test {name} ... ok");
+            !output.lines().any(|line| line.trim_end() == passed)
+        })
+        .collect()
 }
 
 /// At least one test passed, none failed and none was ignored.
@@ -199,10 +219,14 @@ pub fn integration(config: Option<&Path>, cancel: Option<&Path>, failure: bool) 
         !cancel.is_some_and(Path::exists),
         "fixture cancelled by its owner"
     );
-    let (migrator, runtime) = (crate::secret::hex(32)?, crate::secret::hex(32)?);
+    let (migrator, runtime, legacy) = (
+        crate::secret::hex(32)?,
+        crate::secret::hex(32)?,
+        crate::secret::hex(32)?,
+    );
     with_postgres("baylee-central-e2e", "512m", 268_435_456, failure, |pg| {
         // The secrets are generated hex, never caller-provided SQL.
-        pg.sql(&bootstrap(&migrator, &runtime))?;
+        pg.sql(&bootstrap(&migrator, &runtime, &legacy))?;
         println!(
             "Testing real PostgreSQL {} with isolated migration and runtime roles.",
             pg.version()?
@@ -223,6 +247,7 @@ pub fn integration(config: Option<&Path>, cancel: Option<&Path>, failure: bool) 
             .env("CENTRAL_TEST_PORT", pg.port().to_string())
             .env("CENTRAL_TEST_MIGRATOR_PASSWORD", &migrator)
             .env("CENTRAL_TEST_RUNTIME_PASSWORD", &runtime)
+            .env("CENTRAL_TEST_LEGACY_PASSWORD", &legacy)
             .env("DATABASE_URL", pg.admin_url());
         let done = Owned::spawn(&mut test)?.wait(Duration::from_secs(300), cancel)?;
         println!("{}", done.stdout);
@@ -242,12 +267,13 @@ pub fn integration(config: Option<&Path>, cancel: Option<&Path>, failure: bool) 
 }
 
 /// Central's roles as its own fixture makes them: a migrator owning the two
-/// test databases, a runtime role, and a NOINHERIT member of the migrator the
-/// store must refuse.
-fn bootstrap(migrator: &str, runtime: &str) -> String {
+/// test databases, a runtime role, the legacy store's role, and a NOINHERIT
+/// member of the migrator the store must refuse.
+fn bootstrap(migrator: &str, runtime: &str, legacy: &str) -> String {
     let mut sql = format!(
         "CREATE ROLE central_migrator LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{migrator}';\n\
          CREATE ROLE central_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{runtime}';\n\
+         CREATE ROLE central_legacy LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{legacy}';\n\
          CREATE ROLE central_inherited LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD '{runtime}';\n\
          GRANT central_migrator TO central_inherited;\n"
     );
@@ -549,6 +575,28 @@ mod tests {
     }
 
     #[test]
+    fn the_required_schema_tests_exist_and_must_each_pass() {
+        // A rename in the schema suite fails here, in every gate, and not
+        // only in the CI job that runs PostgreSQL.
+        let suite = include_str!("../../baylee-db/tests/schema.rs");
+        for name in SCHEMA_MUST_RUN {
+            assert!(suite.contains(&format!("async fn {name}(")), "{name}");
+        }
+        let all = SCHEMA_MUST_RUN
+            .iter()
+            .map(|name| format!("test {name} ... ok"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(not_passed(&all, SCHEMA_MUST_RUN).is_empty());
+        let one_failed = all.replacen(" ... ok", " ... FAILED", 1);
+        assert_eq!(
+            not_passed(&one_failed, SCHEMA_MUST_RUN),
+            [SCHEMA_MUST_RUN[0]]
+        );
+        assert_eq!(not_passed("", SCHEMA_MUST_RUN), SCHEMA_MUST_RUN);
+    }
+
+    #[test]
     fn only_numeric_loopback_origins_are_fixture_origins() {
         assert!(loopback_origin("http://127.0.0.1:5432"));
         for bad in [
@@ -563,9 +611,10 @@ mod tests {
     }
 
     #[test]
-    fn the_bootstrap_makes_both_roles_and_revokes_public_rights() {
-        let sql = bootstrap("aa", "bb");
+    fn the_bootstrap_makes_the_roles_and_revokes_public_rights() {
+        let sql = bootstrap("aa", "bb", "cc");
         assert!(sql.contains("central_migrator") && sql.contains("PASSWORD 'aa'"));
+        assert!(sql.contains("ROLE central_legacy") && sql.contains("PASSWORD 'cc'"));
         assert_eq!(
             sql.matches("REVOKE CREATE ON SCHEMA public FROM PUBLIC;")
                 .count(),

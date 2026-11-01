@@ -1,0 +1,22 @@
+# baylee curated constructed ramp seed=20261092
+# licence: AGPL-3.0-only
+[deck:constructed ramp WB #20261092]
+4 Ayara, First of Locthwain
+1 Brotherhood Headquarters
+3 Carnival of Souls
+4 Dogged Pursuit
+2 Elas il-Kor, Sadistic Pilgrim
+4 Fear of Lost Teeth
+3 Gerrard's Battle Cry
+2 Ill-Gotten Inheritance
+2 Mech Hangar
+3 Mirrodin's Core
+1 Nykthos, Shrine to Nyx
+1 Personal Incarnation
+4 Phyrexian Arena
+3 Plains
+3 Scrubland
+2 Sneering Shadewriter
+12 Swamp
+2 Underworld Coinsmith
+4 Walking Ballista

@@ -1,7 +1,7 @@
 name: ci
 
 # Who waits for what (owner, 08.10.2026: "CI green only matters when we
-# release"). A change lands on main after the three local gates
+# release"). A change lands on main after the two desktop gates
 # (`cargo dev land`) without waiting for CI. CI then has two jobs:
 #
 # - **main push**: everything that protects a release. `release.yml` promotes
@@ -10,11 +10,13 @@ name: ci
 #   REQUIRED_JOBS to have run and passed in that run, so nothing here can be
 #   skipped on a commit that is then released.
 # - **pull request**: the quick half (fmt, clippy, the debug suite in two
-#   partitions, wasm, validate, deny), each only when its inputs changed. The
+#   partitions, shipped-features, validate, deny, web-feedback), each only
+#   when its inputs changed. The
 #   label `ci:full` runs a PR as a main push would; so does any change to CI
 #   itself.
-# - **nightly**: the full set again plus the five-platform `build` matrix,
-#   for what rots without a push (a new stable toolchain, a new advisory).
+# - **nightly**: the full set again plus the five-platform `build` matrix
+#   (every binary on Linux x86_64, the client elsewhere), for what rots
+#   without a push (a new stable toolchain, a new advisory).
 #
 # Measured before this layout (30 main pushes and 31 PRs, 06.–08.10.2026):
 # PR p50 27 min (p95 40), main push p50 56 (p95 69), and three jobs stuck for 4–6 h in
@@ -34,9 +36,13 @@ on:
         type: boolean
         default: true
       platforms:
-        description: Also link every binary on all five runner platforms (the nightly matrix)
+        description: Also run the nightly build matrix (every binary on Linux x86_64, the client on the other four platforms)
         type: boolean
         default: false
+
+# Read-only unless a job says otherwise (`packages`, `audit`).
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -58,7 +64,7 @@ jobs:
   # crates/baylee-dev/src/changes.rs, says which paths are which). Every push still gets a run: a workflow-level
   # `paths-ignore` would leave a commit with no run at all.
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       full: ${{ steps.scope.outputs.full }}
@@ -68,8 +74,9 @@ jobs:
       packages: ${{ steps.scope.outputs.packages }}
       platforms: ${{ steps.scope.outputs.platforms }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 2
       - id: scope
         shell: bash
@@ -127,41 +134,46 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   fmt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
         with:
           components: rustfmt
       - run: cargo fmt --all -- --check
-      # Release provenance, website and Impressum checks now live in
-      # baylee-tools and run in the workspace test jobs below.
 
-  # Caches. The repository has 10 GB of Actions cache and each Rust cache is
-  # 1.0–1.7 GB; on 08.10.2026 eight entries filled it, all from that day, and
+  # Caches. The repository had 10 GB of Actions cache (25 GB since 29.10.2026,
+  # when the package caches had pushed `tests-optimized` out twice) and each
+  # Rust cache is 1.0–1.9 GB; on 08.10.2026 eight entries filled it, all from that day, and
   # most jobs logged "No cache found" (the debug suite compiled for 7.7 min
   # instead of 3.5, the optimized one for 25 instead of 17). The writers were
   # PRs: a PR's cache lives under `refs/pull/N/merge`, which no other run can
   # read, and the PR-only platform matrix wrote five more. So only a push to
-  # main writes a cache now, and every other run restores main's. Jobs whose
-  # cold build is a few minutes (bench, msrv, the nightly matrix) write none.
+  # main writes a cache now, and every other run restores main's. Jobs no
+  # cache is written for (bench, msrv, the nightly matrix's other rows)
+  # restore none either; its Linux x86_64 row reads the debug suite's.
   clippy:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
         with:
           components: clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: tests-debug
           save-if: false
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      # The training crates are not CI's (owner, 30.10.2026): see the test job.
+      - run: cargo clippy --workspace --all-targets --exclude baylee-train --exclude baylee-train-ops -- -D warnings
 
   # The gateway keeps its accounts in PostgreSQL, so the suite needs one.
   # Not a convenience: the e2e tests spawn real gateway processes, and a
@@ -182,11 +194,13 @@ jobs:
     name: test (${{ matrix.partition }}/2)
     needs: changes
     if: needs.changes.outputs.tests == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # 30 until 15.10.2026: the full generated pool (9078 cards) put the
     # per-card sweeps of partition 1 past it (harness 172 s on ten cores
-    # here, over 19 min on the four-core runner).
-    timeout-minutes: 50
+    # here, over 19 min on the four-core runner). 50 until 29.10.2026, when
+    # partition 1 ran p50 31.8 / p95 40.5 min warm and hit 50 once cold
+    # (run 39778675890); the harness is eight shards across both halves now.
+    timeout-minutes: 65
     strategy:
       fail-fast: false
       matrix:
@@ -211,43 +225,61 @@ jobs:
     env:
       DATABASE_URL: postgres://baylee:baylee@127.0.0.1:5432/baylee
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: rui314/setup-mold@v1
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
+      - uses: rui314/setup-mold@339e96b4ff1f3bd865856ba4cbbe8818a7acb038 # v1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: tests-debug
           cache-on-failure: true
-          save-if: ${{ matrix.partition == 1 && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@nextest
+          # The nightly writes too: after an eviction a quiet main stayed
+          # cold until its next push.
+          save-if: ${{ matrix.partition == 1 && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule') }}
+      - uses: taiki-e/install-action@d042af60014eb018fcd01f57f4f62118b69e3ea6 # nextest branch: installs nextest
+      # Before the suite, not after: run 40556109917 lost a green 40-minute
+      # partition when this install hung behind it. The bounded install
+      # includes dpkg triggers: that run spent 295 s downloading and was
+      # killed during man-db after unpacking.
+      - name: Linux credential-store packages
+        if: matrix.partition == 1
+        shell: bash
+        run: |
+          sudo timeout --kill-after=15s 600 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
+            -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
       # nextest rather than `cargo test`: it runs each test in its own process,
       # reports per *test* rather than per binary (which is how the next
       # outlier is found), and partitions. There are no doctests in this
       # workspace (`cargo test --doc` finds zero), so nextest not running them
       # costs nothing. `--no-fail-fast`: a run that stops at the first failure
       # hides how much else is broken.
+      # The training crates (baylee-train, baylee-train-ops) are not CI's:
+      # they are built, linted and tested locally, where the local gate runs
+      # them (owner, 24.10. and 30.10.2026). xtask still links baylee-train
+      # without `play`, so its library compiles as a dependency. Engine,
+      # house-AI and gamehost coverage stays in CI.
       - run: >-
           cargo nextest run --locked --workspace --all-targets --no-fail-fast
+          --exclude baylee-train --exclude baylee-train-ops
           --partition count:${{ matrix.partition }}/2
       - name: Isolated Linux credential-store round trip
         if: matrix.partition == 1
-        shell: bash
-        run: |
-          sudo timeout 300 apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
-            -o Acquire::https::Timeout=30 install --no-install-recommends -y dbus-x11 gnome-keyring libglib2.0-bin
-          cargo dev keyring-linux
+        run: cargo dev keyring-linux
 
   # Debug-only behavior has bitten before (a `debug_assert!` hid the mana
   # payment from every release build), so the suite also runs optimized with
   # release assertions/overflow semantics, without per-test LTO. Main pushes
-  # and the nightly only: 17 min of compiling when warm, 25 cold, for 3.5 min
-  # of tests, and it guards a release, not a review.
+  # and the nightly only, and it guards a release, not a review. Cold
+  # compiles took 52–56 min on 29.10.2026, when eviction at the cache limit
+  # dropped its cache (docs/releasing.md §"CI"), so 60 min cancelled one
+  # eight minutes into the tests.
   test-release:
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
     services:
       postgres:
         image: postgres:18-alpine
@@ -265,17 +297,19 @@ jobs:
     env:
       DATABASE_URL: postgres://baylee:baylee@127.0.0.1:5432/baylee
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: rui314/setup-mold@v1
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
+      - uses: rui314/setup-mold@339e96b4ff1f3bd865856ba4cbbe8818a7acb038 # v1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: tests-optimized
           cache-on-failure: true
-          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - uses: taiki-e/install-action@nextest
-      - run: cargo nextest run --locked --workspace --all-targets --no-fail-fast --cargo-profile ci-release
+          save-if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule') }}
+      - uses: taiki-e/install-action@d042af60014eb018fcd01f57f4f62118b69e3ea6 # nextest branch: installs nextest
+      - run: cargo nextest run --locked --workspace --all-targets --exclude baylee-train --exclude baylee-train-ops --no-fail-fast --cargo-profile ci-release
 
   # Main builds the actual dist packages once. Tags promote those exact
   # artifacts. A dispatched or `ci:full` run builds them too, but only a main
@@ -288,35 +322,19 @@ jobs:
       contents: read
       actions: read
 
-  # The sixth target: an arm64 Mac links x86_64 with nothing but `rustup target
-  # add`, since the macOS SDK carries both slices (measured before the row was
-  # written). x86_64 macOS runners retire with `macos-15-intel` in 2027, and
-  # `macos-13` already sat 91 minutes in `queued` after its retirement.
-  macos-intel:
-    needs: changes
-    if: needs.changes.outputs.full == 'true'
-    runs-on: macos-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-apple-darwin
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - run: cargo build --locked --workspace --bins --target x86_64-apple-darwin
-
-  # Every binary on every platform this is meant to run on, on its own
-  # architecture: the nightly and a dispatch with `platforms`. Main's
-  # `packages` already link the shipped client and launcher and check every
-  # target's code (`--all-targets`) on all five platforms; this is the link of
-  # the *other* binaries (gateway, agent, seat, xtask, ...) there. What breaks
-  # per platform is what one Linux runner cannot see — a path separator, a
-  # `cfg` that has only met 64-bit x86, a build script that assumes a shell,
-  # and above all the link — and none of it changes per push often enough to
-  # make every change wait on five Bevy builds (macOS took 24–32 min of every
-  # PR).
+  # The client on every platform it ships for, on its own architecture: the
+  # nightly and a dispatch with `platforms`. Only the client is built for every
+  # platform; the servers and tools run on Linux x86_64 (owner, 29.10.2026), so
+  # that row alone links every binary and checks every target, and the arm64
+  # Linux row adds the gateway, agent and engine server. Main's
+  # `packages` build the shipped client for all six targets in the `dist`
+  # profile; this builds it in the debug profile developers run.
+  # What breaks per platform is what one Linux runner cannot see — a path
+  # separator, a `cfg` that has only met 64-bit x86, a build script that
+  # assumes a shell, and above all the link — and none of it changes per push
+  # often enough to make every change wait on five Bevy builds (macOS took
+  # 24–32 min of every PR). The x86_64 macOS client is the package row's alone:
+  # the `macos-intel` job that linked every binary for it went on 29.10.2026.
   build:
     needs: changes
     if: needs.changes.outputs.platforms == 'true'
@@ -329,10 +347,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest      # x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04       # x86_64-unknown-linux-gnu
             timeout: 40
+            everything: true
           - os: ubuntu-24.04-arm   # aarch64-unknown-linux-gnu
             timeout: 40
+            servers: true
           - os: windows-latest     # x86_64-pc-windows-msvc
             timeout: 60
           - os: windows-11-arm     # aarch64-pc-windows-msvc
@@ -340,17 +360,29 @@ jobs:
           - os: macos-latest       # aarch64-apple-darwin
             timeout: 75
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/linux-deps
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+      - uses: ./.github/actions/linux-deps
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
+      # Only the Linux x86_64 row has a cache to read: the debug suite's.
+      - if: matrix.everything
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: tests-debug
           save-if: false
-          key: ${{ matrix.os }}
-      - run: cargo build --locked --workspace --bins
+      - if: matrix.everything
+        run: cargo build --locked --workspace --bins --exclude baylee-train --exclude baylee-train-ops
       # `--bins` links every binary; this is the half it does not reach, and
       # it is where a `cfg(test)` block first meets a platform.
-      - run: cargo check --locked --workspace --all-targets
+      - if: matrix.everything
+        run: cargo check --locked --workspace --all-targets --exclude baylee-train --exclude baylee-train-ops
+      - if: ${{ !matrix.everything }}
+        run: cargo build-client
+      - if: ${{ !matrix.everything }}
+        run: cargo check-client
+      - if: matrix.servers
+        run: cargo build-servers
 
   # Cards are not generated here. `codegen` reads the external card-script
   # reference, which is GPL and deliberately not vendored (`NOTICE`), so a
@@ -362,14 +394,16 @@ jobs:
   validate:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/scryfall-cache
         id: scryfall
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: tests-debug
           save-if: false
@@ -378,78 +412,50 @@ jobs:
       # scryfall-cache` is the command that fetches: one bulk download, 3322
       # payloads in about 30 s (run 37787880265).
       - run: cargo run --locked -p xtask -- scryfall-cache
+      # xtask links baylee-train (without `play`) for card validation, not training: `working`, `cardwalk` and `housedeck`.
       - run: cargo run --locked -p xtask -- validate
+      # The API documents (docs/api/): current, and every route a service
+      # registers is in one of them (`cargo dev api check`). The tool is a
+      # workspace of its own (tools/api-docs/Cargo.toml says why), so no
+      # `--workspace` job runs its tests.
+      - run: cargo run --locked -q --manifest-path tools/api-docs/Cargo.toml -- check
+      - run: cargo test --locked -q --manifest-path tools/api-docs/Cargo.toml
       # Saved even when the comparison fails (`actions/cache`'s own post step
       # is skipped on a failed job). `!cancelled()` and deliberately not
       # `always()`: `actions/cache/save` never overwrites a key, so a run
       # cancelled early would have saved a partial directory under the key
-      # the full fetch was going to write.
-      - uses: actions/cache/save@v4
-        if: ${{ !cancelled() }}
+      # the full fetch was going to write. A pull request saves nothing: its
+      # cache could serve only itself, and it would push main's out.
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
         continue-on-error: true
         with:
           path: data/scryfall-cache
           key: ${{ steps.scryfall.outputs.key }}
 
-  # The browser client's crates for wasm32; `cargo dev gate wasm` (crates/baylee-dev/src/gate.rs) says why
-  # all eight are named.
-  wasm:
+  # Android, iOS and the wasm client are coming soon. Their target-specific
+  # checks are not part of desktop CI or release promotion.
+
+  # Development-feature builds/tests run locally before landing, not in CI.
+  # Only release-relevant graph checks remain: neither verification hook may
+  # reach shipped builds, and the reviewed bigint advisory scope must hold.
+  # This resolves dependency graphs, without building
+  # the Bevy client or running the gateway suite a second time.
+  shipped-features:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      - run: cargo dev gate wasm
-
-  # The eight features `--workspace` never builds (`cargo dev gate features`, crates/baylee-dev/src/features.rs
-  # holds the matrix and says per feature why it gets the check it gets;
-  # `--all-features` is deliberately not the shortcut). The hole runs both
-  # ways: `devctl.rs` broke with every job green (#121), and a feature makes
-  # code live that `-D warnings` then flags. Main pushes and the nightly: the
-  # same script is a local gate before every landing.
-  #
-  # PostgreSQL is here for one of the eight: `dev-table` is a gateway feature
-  # and a gateway with no database refuses to start.
-  features:
-    needs: changes
-    if: needs.changes.outputs.full == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: baylee
-          POSTGRES_PASSWORD: baylee
-          POSTGRES_DB: baylee
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U baylee -d baylee"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgres://baylee:baylee@127.0.0.1:5432/baylee
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/linux-deps
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-      - uses: rui314/setup-mold@v1
-      - uses: Swatinem/rust-cache@v2
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: tests-debug
           save-if: false
-      - run: cargo dev gate features
+      - run: cargo dev gate shipped-features
 
   # Benches run so they never silently rot; the numbers land in the job log
   # for comparison against docs/perf-baseline.md (manual check — runner timing
@@ -458,14 +464,13 @@ jobs:
   bench:
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          save-if: false
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
       # `--bench basics` names the target on purpose: without it libtest's own
       # harness answers `--quick` with "Unrecognized option" and exit 101.
       - run: cargo bench --locked -p baylee-engine --bench basics -- --quick
@@ -479,27 +484,30 @@ jobs:
   msrv:
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/linux-deps
       - id: declared
         run: |
           v=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
           test -n "$v" || { echo "Cargo.toml declares no rust-version"; exit 1; }
           echo "version=$v" >> "$GITHUB_OUTPUT"
-      - uses: dtolnay/rust-toolchain@master
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: ${{ steps.declared.outputs.version }}
-      - run: echo "RUSTUP_TOOLCHAIN=${{ steps.declared.outputs.version }}" >> "$GITHUB_ENV"
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: false
+      # Through `env:`, not spliced into the script: a pull request writes
+      # `Cargo.toml`, and so the text this line would run.
+      - env:
+          VERSION: ${{ steps.declared.outputs.version }}
+        run: echo "RUSTUP_TOOLCHAIN=$VERSION" >> "$GITHUB_ENV"
       # In the log, so the next person reading a green tick can see which
       # compiler earned it. This is the line whose absence hid the bug.
       - run: rustc --version && cargo --version
-      - run: cargo check --locked --workspace --all-targets
+      - run: cargo check --locked --workspace --all-targets --exclude baylee-train --exclude baylee-train-ops
 
   # The feedback service's web UI (web/feedback, #311): the lockfile's tree,
   # the type check, lint, the unit and component tests, and the build the
@@ -508,14 +516,16 @@ jobs:
   web-feedback:
     needs: changes
     if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     defaults:
       run:
         working-directory: web/feedback
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -529,18 +539,20 @@ jobs:
   deny:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
 
   # Main pushes and the nightly: a new advisory arrives without a push, which
   # is what the nightly is for.
   audit:
     needs: changes
     if: needs.changes.outputs.full == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     # `audit-check` reports through a **check run**, which is a write, and
     # this workflow's `GITHUB_TOKEN` is read-only. Named on the job rather
@@ -550,8 +562,10 @@ jobs:
       contents: read
       checks: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           # The same advisories deny.toml ignores, with their reasons there:
@@ -559,4 +573,4 @@ jobs:
           # titlebar, no safe upgrade. audit-check reads no deny.toml, and on a
           # warning it opens an issue this read-only token may not write, so
           # the job went red on a notice that is not a vulnerability.
-          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0344
+          ignore: RUSTSEC-2026-0192,RUSTSEC-2026-0344,RUSTSEC-2026-0387

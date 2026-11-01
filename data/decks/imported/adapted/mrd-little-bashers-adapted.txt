@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/MRD/little-bashers.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LittleBashers_MRD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Little Bashers (Adapted)]
+2 Aerial Assault
+2 Altar's Light
+1 Army of Allah
+2 Auriok Bladewarden
+2 Auriok Transfixer
+2 Bonesplitter
+2 Bring to Trial
+3 Cleansing
+1 Fireshrieker
+1 Flawless Maneuver
+2 Gold Myr
+2 Leonin Scimitar
+2 Leonin Skyhunter
+1 Loxodon Warhammer
+22 Plains
+3 Radiant's Judgment
+1 Repentance
+2 Slith Ascendant
+2 Soldier Replica
+4 Solemn Offering
+1 Thraben Watcher

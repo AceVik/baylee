@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WU #20266225]
+1 A.I.M. Bot
+1 Adarkar Unicorn
+1 Bastion Mastodon
+1 Beast of Burden
+1 Brotherhood Headquarters
+1 Castle Vantress
+1 Clockwork Drawbridge
+1 Cloudheath Drake
+1 Coldsteel Heart
+1 Conduit Pylons
+1 Coral Atoll
+1 Corrupted Crossroads
+1 Crucible of the Spirit Dragon
+1 Dark Sphere
+1 Dukhara Peafowl
+1 Eclipsed Realms
+1 Esper Cormorants
+1 Esperzoa
+1 Expedition Map
+1 Eye of Vecna
+1 Fallowsage
+1 Filigree Sages
+1 Fountain Watch
+1 Gilded Lotus
+1 Goblin Cannon
+1 Guildmages' Forum
+1 Gust-Skimmer
+1 Hermitic Nautilus
+1 Implements of Sacrifice
+1 Imposing Vantasaur
+1 Jandor's Ring
+1 Mana Matrix
+1 Marble Chalice
+1 Metallurgeon
+1 Mimic
+1 Mishra's War Machine
+1 Mox Opal
+1 Murmuring Volume
+1 Mystic Gate
+1 Neurok Replica
+1 Opaline Unicorn
+1 Pardic Wanderer
+1 Planar Gate
+1 Prismatic Lens
+1 Renegade Map
+1 Rune-Sealed Wall
+1 Scalding Tongs
+1 Scepter of Dominance
+1 Scorpion Sentinel
+1 Sea Gate
+1 Seer's Sundial
+1 Silent Dart
+1 Sisay's Ring
+1 Skyline Cascade
+1 Sliver Hive
+1 Snow Fortress
+6 Snow-Covered Island
+20 Snow-Covered Plains
+1 Springjaw Trap
+1 Springleaf Drum
+1 Stone Calendar
+1 Surveillance Room
+1 Thaumatic Compass
+1 The Fair Basilica
+1 The Walls of Ba Sing Se
+1 Thrór's Map
+1 Time Walk
+1 Titanium Golem
+1 Traveler's Amulet
+1 Turtle Lair
+1 Unknown Shores
+1 Urza's Blueprints
+1 Urza's Chalice
+1 Vedalken Outlander
+1 Xanthic Statue
+
+[commander]
+Jedit Ojanen

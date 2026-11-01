@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/THS/devotion-to-darkness.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DevotionToDarkness_THS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Devotion to Darkness (Adapted)]
+2 Blood-Toll Harpy
+2 Child of Night
+4 Consult the Necrosages
+1 Countersquall
+1 Demonic Hordes
+4 Essence Vortex
+1 Glimpse the Unthinkable
+1 Hatred
+2 Horizon Scholar
+2 Insatiable Harpy
+9 Island
+4 Notion Rain
+1 Pharika's Cure
+4 Pilfered Plans
+2 Sip of Hemlock
+16 Swamp
+2 Undead Minotaur
+1 Voyage's End
+1 Witches' Eye

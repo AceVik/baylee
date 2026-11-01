@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/DOM/izzet-spellweaving.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, IzzetSpellweaving_DOM.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Izzet Spellweaving (Adapted)]
+1 Abrade
+4 Broadside Barrage
+2 Cancel
+1 Censor
+1 Desert of the Fervent
+1 Desert of the Mindful
+2 Essence Scatter
+1 Field of Ruin
+1 Fiery Cannonade
+1 Fire
+1 Galestrike
+2 Hieroglyphic Illumination
+4 Highland Lake
+4 Invoke the Firemind
+11 Island
+1 Izzet Charm
+1 Lightning Blast
+1 Lightning Strike
+2 Magma Spray
+8 Mountain
+1 Negate
+2 Opt
+1 Primal Amulet
+1 Pull from Tomorrow
+1 Riddleform
+4 Rush of Inspiration

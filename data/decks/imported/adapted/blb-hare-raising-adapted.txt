@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/BLB/hare-raising.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, HareRaising_BLB.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Hare Raising (Adapted)]
+2 Advent of the Wurm
+4 Blossoming Sands
+2 Burrowguard Mentor
+2 Call of the Conclave
+1 Colossification
+3 Druid of the Spade
+11 Forest
+2 Gerrard's Command
+2 Giant Growth
+2 Hop to It
+4 Nature's Chant
+3 Pileated Provisioner
+12 Plains
+2 Reknit
+2 Repel Calamity
+1 Selesnya Charm
+3 Treeguard Duo
+2 Vitalizing Cascade

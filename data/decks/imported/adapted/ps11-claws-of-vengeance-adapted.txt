@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/PS11/claws-of-vengeance.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ClawsOfVengeance_PS11.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Claws of Vengeance (Adapted)]
+1 Angel's Feather
+2 Blaze
+2 Bull Cerodon
+12 Forest
+4 Incandescent Aria
+2 Iroh's Demonstration
+1 Kalonian Behemoth
+1 Knight of the Skyward Eye
+5 Mountain
+3 Pacifism
+1 Pariah
+6 Plains
+1 Plummet
+2 Rampant Growth
+2 Rip-Clan Crasher
+2 Rith's Grove
+3 Runeclaw Bear
+1 Sangrite Surge
+2 Terramorphic Expanse
+2 Tundra Wolves
+2 Venerable Monk
+2 Woolly Thoctar
+1 Wurm's Tooth

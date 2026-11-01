@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/RIX/vraska-scheming-gorgon.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, VraskaSchemingGorgon_RIX.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Vraska, Scheming Gorgon (Adapted)]
+4 Anguished Unmaking
+1 Bishop of the Bloodstained
+1 Bright Reprisal
+1 Dusk Legion Zealot
+1 Exultant Skymarcher
+4 Forsaken Sanctuary
+2 Gilded Sentinel
+2 Inspiring Cleric
+1 Legion Lieutenant
+2 Moment of Craving
+2 Moment of Triumph
+1 Mortify
+9 Plains
+2 Queen's Bay Soldier
+1 Recover
+2 Skyblade of the Legion
+2 Skymarch Bloodletter
+11 Swamp
+2 Unmake
+4 Vampire Champion
+1 Vicious Conquistador
+4 Vindicate

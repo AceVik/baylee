@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/WC00/jon-finkel-mono-blue-tinker.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JonFinkelMonoBlueTinker_WC00.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Jon Finkel - Mono-Blue Tinker (Adapted)]
+4 Brainstorm
+4 Cancel
+4 Catalog
+4 Crystal Vein
+1 Ebony Rhino
+1 Force of Negation
+4 Grafted Skullcap
+9 Island
+4 Masticore
+1 Mishra's Helix
+4 Pearl Medallion
+4 Rishadan Port
+4 Saprazzan Skerry
+4 Thran Dynamo
+4 Tinker
+4 Voltaic Key

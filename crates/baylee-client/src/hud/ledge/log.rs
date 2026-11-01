@@ -43,6 +43,14 @@
 //! span at all, and a face-down one a span with nothing to preview, which is
 //! set a weight up and not linked ([`Piece::Name`]).
 //!
+//! # Turns fold (feedback of 24.10.2026)
+//!
+//! Every turn but the newest stands as its heading alone, a chevron and how
+//! many lines it holds; a press on a heading opens or folds it
+//! ([`LogFolds`], [`spawn_turn`]). The player's choice holds for that turn
+//! for the rest of the game, in the panel, the chat window's Log tab and the
+//! end screen alike; a new turn folds the one before unless it was opened.
+//!
 //! # Following the newest line
 //!
 //! The list stays at its end while the player leaves it there, and stops
@@ -60,6 +68,9 @@ use baylee_view::{CardIdentity, Phase, RulesFace};
 use bevy::picking::events::{PointerClick, PointerOut, PointerOver};
 use bevy::ui::ScrollPosition;
 use bevy::ui_widgets::{ControlOrientation, Scrollbar, ScrollbarThumb};
+use std::collections::BTreeMap;
+
+pub(crate) mod virtual_list;
 
 /// How wide the panel is at least, where the window has the room.
 ///
@@ -192,7 +203,7 @@ impl Default for LogZoom {
 }
 
 /// What the panel was last drawn from.
-#[derive(Resource, Default, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Resource, Default, Debug)]
 pub struct LogRevision {
     /// The panel it was drawn into. The overlay can spawn a new one.
     panel: Option<Entity>,
@@ -210,6 +221,8 @@ pub struct LogRevision {
     drawn: usize,
     /// Where the last drawn line left the phase headings.
     run: PhaseRun,
+    /// The bounded window of mounted rows.
+    rows: virtual_list::VirtualLog,
 }
 
 impl LogRevision {
@@ -223,8 +236,8 @@ impl LogRevision {
             && self.seat == next.seat
             && self.rewrites == next.rewrites
             // An empty book drew its empty line, which the first line
-            // replaces rather than follows.
-            && self.drawn > 0
+            // replaces rather than follows. Two empty frames still extend.
+            && (self.drawn > 0 || len == 0)
             && len >= self.drawn
     }
 }
@@ -299,7 +312,12 @@ pub(crate) fn spawn_log_panel(commands: &mut Commands) -> Entity {
 ///
 /// Nothing here shows or hides it: [`grow_the_log`] does both, at the ends
 /// of the movement.
-#[allow(clippy::too_many_arguments)] // a Bevy system: every one is an injection
+#[allow(
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::too_many_lines
+)]
+// a Bevy system: every one is an injection
 pub fn sync_log(
     mut commands: Commands,
     duel: Res<Duel>,
@@ -309,9 +327,15 @@ pub fn sync_log(
     windows: Query<&Window>,
     ui: Option<Res<UiScale>>,
     mut revision: ResMut<LogRevision>,
-    mut panel: Query<(Entity, Option<&Children>, &mut LogZoom, &mut Node), With<LogPanel>>,
-    mut lists: Query<(Entity, &mut LogFollow), With<LogList>>,
+    mut panel: Query<
+        (Entity, Option<&Children>, &mut LogZoom, &mut Node),
+        (With<LogPanel>, Without<virtual_list::LogSpacer>),
+    >,
+    mut lists: Query<(Entity, &mut LogFollow, &mut ScrollPosition), With<LogList>>,
+    nodes: Query<&ComputedNode>,
+    mut spacers: Query<&mut Node, With<virtual_list::LogSpacer>>,
     chat: Option<Res<crate::social::SocialHost>>,
+    folds: Option<Res<LogFolds>>,
 ) {
     let Ok((panel, standing, mut fold, mut node)) = panel.single_mut() else {
         return;
@@ -337,6 +361,7 @@ pub fn sync_log(
             fold.t = 0.0;
         }
         revision.panel = None;
+        revision.rows.reset();
         return;
     }
     // A finished game closes it, for the menu's reason: `DuelSet::Input`
@@ -351,6 +376,7 @@ pub fn sync_log(
         rewrites: duel.log.rewrites(),
         drawn: revision.drawn,
         run: revision.run,
+        rows: virtual_list::VirtualLog::default(),
     };
     if next.open == fold.closing {
         fold.closing = !next.open;
@@ -365,41 +391,48 @@ pub fn sync_log(
     let len = duel.log.len();
     let drawn = standing.is_some_and(|kids| !kids.is_empty());
     if revision.extends(&next, len) && drawn {
-        if len == revision.drawn {
-            return;
-        }
-        let Some((list, mut follow)) = lists.iter_mut().next() else {
+        let Some((list, mut follow, mut scroll)) = lists.iter_mut().next() else {
             return;
         };
         let lookup = LogTexts(texts.as_deref());
         let wording = wording(&duel, lang, &lookup);
-        let mut run = revision.run;
-        for line in duel.log.lines_since(revision.drawn, &wording) {
-            if let Some(phase) = run.heading(&line) {
-                let heading = spawn_phase(&mut commands, &fonts, lang, phase, &PANEL_INKS);
-                commands.entity(list).add_child(heading);
+        if len > revision.drawn {
+            let from = revision.drawn;
+            let mut run = revision.run;
+            let lines = duel.log.lines_since(from, &wording);
+            revision
+                .rows
+                .append(virtual_list::append_entries(&lines, from, &mut run));
+            if !follow.stuck {
+                follow.unseen = true;
             }
-            let swatch = subject_ink(&wording, line.subject);
-            let row = spawn_line(
+            revision.drawn = len;
+            revision.run = run;
+        }
+        if let Some(folds) = &folds {
+            revision.rows.fold_with(folds, scroll.y);
+        }
+        if len > 0 {
+            revision.rows.sync(
                 &mut commands,
+                list,
                 &fonts,
                 lang,
-                &line,
+                Some(&wording),
                 &PANEL_INKS,
-                Some(swatch),
+                &mut follow,
+                &mut scroll,
+                &nodes,
+                &mut spacers,
+                &mut |_, _, _, _| {},
             );
-            commands.entity(list).add_child(row);
         }
-        if !follow.stuck {
-            follow.unseen = true;
-        }
-        revision.drawn = len;
-        revision.run = run;
         return;
     }
 
     // Everything again: the panel opened, or what every line is written
-    // from changed under it.
+    // from changed under it. The root removal owns the old row entities.
+    revision.rows.reset();
     if let Some(kids) = standing {
         for kid in kids {
             commands.entity(*kid).despawn();
@@ -408,13 +441,38 @@ pub fn sync_log(
     let lookup = LogTexts(texts.as_deref());
     let wording = wording(&duel, lang, &lookup);
     let lines = duel.log.lines(&wording);
-    let (parts, run) = draw_all(&mut commands, &fonts, &wording, &lines);
+    let (entries, run) = virtual_list::entries(&lines);
+    let (parts, list) = draw_all(&mut commands, &fonts, &wording, &lines);
     commands.entity(panel).add_children(&parts);
+    let mut rows = std::mem::take(&mut revision.rows);
+    rows.replace(entries);
+    if let Some(folds) = &folds {
+        rows.fold_with(folds, 0.0);
+    }
+    if len > 0 {
+        let mut follow = LogFollow::default();
+        let mut scroll = ScrollPosition::default();
+        rows.sync(
+            &mut commands,
+            list,
+            &fonts,
+            lang,
+            Some(&wording),
+            &PANEL_INKS,
+            &mut follow,
+            &mut scroll,
+            &nodes,
+            &mut spacers,
+            &mut |_, _, _, _| {},
+        );
+        commands.entity(list).insert((follow, scroll));
+    }
     *revision = LogRevision {
         drawn: len,
         run,
         ..next
     };
+    revision.rows = rows;
 }
 
 /// The whole panel's inside: the head, and the list with its scrollbar and
@@ -424,7 +482,7 @@ fn draw_all(
     fonts: &UiFonts,
     wording: &Wording,
     lines: &[LogLine],
-) -> ([Entity; 2], PhaseRun) {
+) -> ([Entity; 2], Entity) {
     let lang = wording.lang;
     let head = head(commands, fonts, lang);
     let body = commands
@@ -467,16 +525,6 @@ fn draw_all(
             .id();
         commands.entity(list).add_child(empty);
     }
-    let mut run = PhaseRun::default();
-    for line in lines {
-        if let Some(phase) = run.heading(line) {
-            let heading = spawn_phase(commands, fonts, lang, phase, &PANEL_INKS);
-            commands.entity(list).add_child(heading);
-        }
-        let swatch = subject_ink(wording, line.subject);
-        let row = spawn_line(commands, fonts, lang, line, &PANEL_INKS, Some(swatch));
-        commands.entity(list).add_child(row);
-    }
     let track = scrollbar(
         commands,
         list,
@@ -488,7 +536,7 @@ fn draw_all(
     );
     let pill = new_lines_pill(commands, fonts, lang);
     commands.entity(body).add_children(&[list, track, pill]);
-    ([head, body], run)
+    ([head, body], list)
 }
 
 /// The catalog's text as the log reads it: card names, and the words of a
@@ -530,6 +578,166 @@ impl PhaseRun {
         self.last = Some((line.turn, phase));
         (new && phase != Phase::Beginning).then_some(phase)
     }
+}
+
+/// Which turns of this game's log are open: the player's choices, over the
+/// rule that only the newest is (feedback of 24.10.2026). Every list that
+/// folds reads it ([`virtual_list::VirtualLog::fold_with`]); a press on a
+/// turn's heading writes it ([`spawn_turn`]), and nothing else does.
+#[derive(Resource, Default, Debug)]
+pub struct LogFolds {
+    /// The turns the player opened (`true`) or folded (`false`).
+    chosen: BTreeMap<u32, bool>,
+    /// The game these are about: its first line's time and how often its
+    /// book was rewritten, so the next game, or a replay's jump, starts over.
+    game: Option<(u64, u32)>,
+    /// Counts every change, so a list refolds only when one was made.
+    generation: u64,
+}
+
+impl LogFolds {
+    /// Whether `turn` is shown open; `newest` is whether it is the newest.
+    pub(crate) fn open(&self, turn: u32, newest: bool) -> bool {
+        self.chosen.get(&turn).copied().unwrap_or(newest)
+    }
+
+    /// Opens or folds `turn`.
+    pub(crate) fn set(&mut self, turn: u32, open: bool) {
+        if self.chosen.insert(turn, open) != Some(open) {
+            self.generation += 1;
+        }
+    }
+
+    /// How many changes have been made.
+    pub(crate) const fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// The choices are about `game` from now on; another game's are
+    /// forgotten.
+    fn about(&mut self, game: (u64, u32)) {
+        self.game = Some(game);
+        if !self.chosen.is_empty() {
+            self.chosen.clear();
+            self.generation += 1;
+        }
+    }
+}
+
+/// Forgets the turns opened in another game. Writes only when the game
+/// changed, never at rest.
+pub fn keep_the_folds(duel: Option<Res<Duel>>, folds: Option<ResMut<LogFolds>>) {
+    let (Some(duel), Some(mut folds)) = (duel, folds) else {
+        return;
+    };
+    let game = (
+        duel.log.entries().first().map_or(0, |entry| entry.at),
+        duel.log.rewrites(),
+    );
+    if folds.game != Some(game) {
+        folds.about(game);
+    }
+}
+
+/// A turn's heading in a list that folds: the rule, a chevron, the heading's
+/// words and, folded, how many lines the turn holds. A press opens or folds
+/// it ([`LogFolds::set`]).
+#[allow(clippy::too_many_arguments)] // a row of the log, and its fold
+pub(crate) fn spawn_turn(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    lang: Lang,
+    line: &LogLine,
+    inks: &LineInks,
+    open: bool,
+    lines: usize,
+) -> Entity {
+    let mut chevron = commands.spawn((
+        Text::new(if open { "\u{f078}" } else { "\u{f054}" }),
+        icon_tf(fonts, inks.turn_pt * 0.7),
+        Node {
+            width: px(inks.turn_pt * 1.1),
+            flex_shrink: 0.0,
+            ..default()
+        },
+        Pickable::IGNORE,
+    ));
+    (inks.paint)(&mut chevron, Paint::Ink(inks.soft));
+    let chevron = chevron.id();
+    let words = if open || lines == 0 {
+        line.text.clone()
+    } else {
+        format!(
+            "{} \u{b7} {}",
+            line.text,
+            Phrase::GameLogTurnLines.fill(lang, &[&lines.to_string()])
+        )
+    };
+    // Grows into the row as a sentence does: left to its content, Bevy
+    // sets a text in a row at its narrowest, a word to a line.
+    let mut heading = commands.spawn((
+        Text::new(words),
+        tf(fonts, inks.turn_pt),
+        Node {
+            flex_grow: 1.0,
+            min_width: px(0),
+            ..default()
+        },
+        Pickable::IGNORE,
+    ));
+    (inks.paint)(&mut heading, Paint::Ink(inks.soft));
+    let heading = heading.id();
+    let mut rule = commands.spawn((
+        LogFoldToggle {
+            turn: line.turn,
+            open,
+        },
+        Node {
+            margin: UiRect::top(px(LOG_TURN_GAP)),
+            padding: UiRect::top(px(3)),
+            border: UiRect::top(px(1)),
+            align_items: AlignItems::Center,
+            flex_shrink: 0.0,
+            ..default()
+        },
+        Pickable {
+            should_block_lower: false,
+            is_hoverable: true,
+        },
+    ));
+    (inks.paint)(&mut rule, Paint::Rule(inks.rule));
+    rule.add_children(&[chevron, heading])
+        .observe(
+            |mut click: On<PointerClick>,
+             toggles: Query<&LogFoldToggle>,
+             parents: Query<&ChildOf>,
+             mut lists: Query<&mut LogFollow>,
+             folds: Option<ResMut<LogFolds>>| {
+                let (Ok(toggle), Some(mut folds)) = (toggles.get(click.entity), folds) else {
+                    return;
+                };
+                click.propagate(false);
+                folds.set(toggle.turn, !toggle.open);
+                // The heading stays under the pointer and the turn opens
+                // below it, rather than the list following its end away
+                // from what was pressed.
+                if let Ok(parent) = parents.get(click.entity)
+                    && let Ok(mut follow) = lists.get_mut(parent.parent())
+                {
+                    follow.stuck = false;
+                }
+            },
+        )
+        .id()
+}
+
+/// A turn's heading that opens or folds the turn when pressed.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct LogFoldToggle {
+    /// The turn.
+    pub turn: u32,
+    /// Whether it is drawn open.
+    pub open: bool,
 }
 
 /// What a phase's heading says.
@@ -577,7 +785,7 @@ const PHASE_GAP: f32 = 4.0;
 
 /// How far a phase's heading stands in: past the time column, over the
 /// sentences it heads.
-const PHASE_INDENT: f32 = CLOCK_W + SWATCH_GAP;
+const PHASE_INDENT: f32 = CLOCK_W + CLOCK_AIR + SWATCH_GAP;
 
 /// Who the lines are written for.
 pub(crate) fn wording<'a>(
@@ -885,17 +1093,12 @@ pub(crate) fn spawn_line(
         // A line that carries on the one above it stands under that line's
         // sentence, with no time of its own: it is the same moment.
         let clock = if line.follows { String::new() } else { clock };
-        let mut time = commands.spawn((
-            Text::new(clock),
-            tf(fonts, inks.line_pt),
-            Node {
-                width: px(CLOCK_W),
-                flex_shrink: 0.0,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ));
-        (inks.paint)(&mut time, Paint::Ink(inks.soft));
+        let mut time = commands.spawn(clock_bundle(fonts, inks.line_pt, inks.soft, clock));
+        let soft = inks.soft;
+        (inks.paint)(
+            &mut time,
+            Paint::Ink(soft.with_alpha(soft.alpha() * CLOCK_FADE)),
+        );
         let time = time.id();
         commands.entity(row).add_child(time);
     }
@@ -1009,9 +1212,67 @@ fn sentence(
 /// What opens a line that carries on the line above it (`LogLine::follows`).
 const FOLLOWS_MARK: &str = "\u{2192} ";
 
-/// How wide a line's time is: "00:00" at the line's size, with a little to
-/// spare for the widest figures.
-pub(crate) const CLOCK_W: f32 = 34.0;
+/// How wide a line's time is: "00:00" at [`CLOCK_SCALE`] of the line's
+/// size, in figures of one width, with a little to spare.
+pub(crate) const CLOCK_W: f32 = 30.0;
+
+/// A line's time against its sentence: a step smaller, so it reads as the
+/// margin's and not the sentence's (feedback of 24.10.2026: "the time should
+/// stand apart, but look quieter").
+pub(crate) const CLOCK_SCALE: f32 = 0.84;
+
+/// The air between a line's time and the rest of it, on top of the row's
+/// own gap (the same feedback: "some room between the time and the line").
+pub(crate) const CLOCK_AIR: f32 = 6.0;
+
+/// How much of the quieter ink a line's time takes.
+pub(crate) const CLOCK_FADE: f32 = 0.7;
+
+/// How far the smaller time stands down, so its figures sit on the
+/// sentence's first line rather than above it: the difference of the two
+/// sizes' ascents, near enough, at the default text step.
+pub(crate) fn clock_drop_at(line_pt: f32) -> f32 {
+    (1.0 - CLOCK_SCALE) * line_pt * crate::hud::UI_SCALE * 0.78
+}
+
+/// A line's time: [`CLOCK_SCALE`] of `line_pt`, its figures lining and of
+/// one width so the column's times stand flush.
+pub(crate) fn clock_font(fonts: &UiFonts, line_pt: f32) -> TextFont {
+    TextFont {
+        font_features: bevy::text::FontFeatures::builder()
+            .enable(bevy::text::FontFeatureTag::LINING_FIGURES)
+            .enable(bevy::text::FontFeatureTag::TABULAR_FIGURES)
+            .build(),
+        ..tf(fonts, line_pt * CLOCK_SCALE)
+    }
+}
+
+/// A line's time: the column's node, its words and its ink, as both the log
+/// and the chat window draw it.
+pub(crate) fn clock_bundle(
+    fonts: &UiFonts,
+    line_pt: f32,
+    soft: Color,
+    clock: String,
+) -> impl Bundle {
+    (
+        Text::new(clock),
+        clock_font(fonts, line_pt),
+        TextLayout::no_wrap(),
+        TextColor(soft.with_alpha(soft.alpha() * CLOCK_FADE)),
+        Node {
+            width: px(CLOCK_W),
+            margin: UiRect {
+                top: px(clock_drop_at(line_pt)),
+                right: px(CLOCK_AIR),
+                ..default()
+            },
+            flex_shrink: 0.0,
+            ..default()
+        },
+        Pickable::IGNORE,
+    )
+}
 
 /// A line's time on the device's own clock, "14:05" (#300).
 ///

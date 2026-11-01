@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WU #20266036]
+1 Abandoned Campground
+1 Aboshan, Cephalid Emperor
+1 Aerial Modification
+1 Aether Storm
+1 Ambassador Laquatus
+1 Angelic Edict
+1 Benthic Giant
+1 Blade Banish
+1 Blessed Light
+1 Bonded Fetch
+1 Celestial Colonnade
+1 Celestial Purge
+1 Cleansing Ray
+1 Cloudcrest Lake
+1 Collar the Culprit
+1 Coma Veil
+1 Controlled Instincts
+1 Dark Maze
+1 Deathless Angel
+1 Deep Spawn
+1 Deep-Sea Serpent
+1 Demystify
+1 Destroy Evil
+1 Dispatch
+1 Ephemeron
+1 Flash Flood
+1 Fortified Beachhead
+1 Gates of Istfell
+1 Geist of the Archives
+1 Giant Shark
+1 Glare of Heresy
+1 Gleaming Bastion
+1 Homarid Explorer
+1 Hydroblast
+1 Iceridge Serpent
+1 Idyllic Beachfront
+1 Irrigated Farmland
+19 Island
+1 Jhovall Queen
+1 Keening Apparition
+1 Lake-town
+1 Lonely Arroyo
+1 Loxodon Mender
+1 Merfolk Assassin
+1 Meticulous Archive
+1 Neck Snap
+1 Nimbus Maze
+1 Not on My Watch
+1 Peace and Quiet
+7 Plains
+1 Prahv, Spires of Order
+1 Prismatic Ending
+1 Repel Calamity
+1 Rhystic Deluge
+1 Ronom Unicorn
+1 Rune-Sealed Wall
+1 Runner's Bane
+1 Sea of Clouds
+1 Seachrome Coast
+1 Searing Light
+1 Sejiri Refuge
+1 Shriekgeist
+1 Sisay's Ring
+1 So Shiny
+1 Spellkeeper Weird
+1 Swift Reconfiguration
+1 Teferi, Time Raveler
+1 Thassa's Ire
+1 The Terror of Serpent's Pass
+1 Thieving Otter
+1 Thing from the Deep
+1 Vanishing
+1 Vengeance
+1 Vizzerdrix
+1 Witness of Tomorrows
+
+[commander]
+Tobias Andrion

@@ -1,0 +1,33 @@
+# adapted from data/decks/precon/E01/archenemy-nicol-bolas.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ArchenemyNicolBolas_E01.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Archenemy Nicol Bolas (Adapted)]
+1 Acidic Soil
+1 Afflict
+1 Baleful Strix
+1 Cast Away Doubt
+1 Cinder Barrens
+4 Crosis's Charm
+4 Crumbling Necropolis
+2 Doom Blade
+1 Dragonskull Summit
+4 Drastic Revelation
+1 Dreadbore
+1 Dream Fracture
+1 Drowned Catacomb
+2 Flametongue Kavu
+1 Grixis Panorama
+1 Harvester of Souls
+2 Highland Lake
+5 Island
+2 Lightning Bolt
+3 Mountain
+1 Mystic Denial
+2 Obelisk of Grixis
+4 Reckless Spite
+1 Submerged Boneyard
+7 Swamp
+1 Talisman of Dominance
+1 Talisman of Indulgence
+1 Twitch
+2 Vampire Nighthawk
+1 Xander's Lounge

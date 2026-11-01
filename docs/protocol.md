@@ -3,6 +3,24 @@
 Binary WebSocket protocol (protobuf, `baylee-protocol`, wasm-safe).
 Schema: `crates/baylee-protocol/proto/baylee/v1/transport.proto`.
 
+## Composed ability origins (compatible addition)
+
+`PublicObject.ability_sources` maps runtime indices in composed ability lists
+to their public printed clause or registry token, including a `copy_modifier`
+index for an ability quoted by a copy exception. Machine God's Effigy copying
+Thrun has a blue-mana ability at runtime index 2; that ability comes from
+Effigy's copy clause, not a nonexistent third printed ability on Thrun.
+Copies of copies retain that original provenance. On an ability on the stack,
+only its captured selected entry is included. Ordinary printed lists omit the
+field; missing fields decode as an empty list. Existing readers ignore it.
+
+The projection uses the visible object's captured rules, never a hidden donor
+lookup. Unknown and face-down objects expose no composed origins. Board grouping
+includes the origins so copies with different acquired text do not collapse.
+This does not grant permission to activate: the current legal offer remains
+authoritative. Training catalogs name the exact quoted ability separately and
+must be refreshed/replayed when their semantic-reference digest changes.
+
 ## Mana spending permissions (compatible view-45 addition)
 
 `ManaPoolView.spending` carries each seat's current `ManaSpending` permissions.
@@ -152,8 +170,13 @@ is no account yet:
 ```json
 {"name":"Baylee EU","version":"…","commit":"…","build":"…","built_at":"…","dirty":false,
  "protocol_version":…,"view_version":…,"source":"https://github.com/AceVik/baylee",
- "registration":"invite","guests":true,"impressum":"https://example.org/impressum"}
+ "registration":"invite","guests":true,"auth_mode":"mixed","impressum":"https://example.org/impressum"}
 ```
+
+- `auth_mode` is who comes in: `guests`, `central` (Baylee Central's
+  accounts, the default) or `mixed`, as the console or `BAYLEE_AUTH_MODE`
+  chose it, and `guests` is whether its door is open
+  (`docs/central-login.md` §"Who a gateway lets in").
 
 - `name` is `BAYLEE_GATEWAY_NAME`, trimmed. It is **absent** when unset, and
   the client names the gateway by its address. It is at most 64 characters,
@@ -547,6 +570,12 @@ a stale client safe: a view is a snapshot, so a client that sends the depth it
 last saw is sending a number the engine may already have passed — and the
 engine reading a larger depth cancels the hold, which is exactly the right
 answer, because somebody just responded to what was being let through.
+As the engine observes the stack shrink, it lowers this boundary. A response
+that restores the original depth after one object resolves therefore also
+ends the hold. This remains a depth-based check: a resolution that replaces
+itself with a trigger before the next check need not expose an intermediate
+smaller depth. Neural seats currently use individual priority passes, keeping
+their observation and decision loop active, rather than these client holds.
 
 A hold or a per-ability yield passes **priority** and nothing that only looks
 like it. A payment window (CR 601.2g, 605.3a: the seat said yes to a tax, owes
@@ -795,6 +824,31 @@ the window and not on the suspended resolution, which holds the price for the
 whole of the yes-or-no question too — reading the operation alone reports a
 debt while the seat is still deciding whether to take one.
 
+### Announced spell context for native training
+
+An additional **experimental native-only** projection is available through
+`Session::view_for_with_announcement_context` and its passive counterpart
+`observe_view_with_announcement_context`. It extends the payment projection
+with optional `PlayerView.announced_x`, the settled X of the current spell
+announcement. Absence means X is not yet settled or there is no announcement;
+`0` is an explicitly settled zero (including X fixed at zero by the casting
+cost). The source is `announced_cast`. Only its resource owner and authorized
+CR 722 controller receive these facts. Commit, cancellation and reversal clear
+the context; suspended miracle and nested mana windows retain it. This is
+observation, not permission to cancel, and makes no affordability promise.
+Existing payment/default/socket methods leave `announced_x` absent, so their
+serialized bytes and observation contracts are unchanged. No wire capability,
+encoder revision or model consumption is introduced by this projection.
+
+`PlayerView::announced_cast` is an optional, owner-only spell identity used by
+the opt-in native payment-context projection. It survives a nested mana ability
+asking for a color. It does not authorize `CancelCast`: `casting` retains that
+separate meaning and can be absent while `announced_cast` is present. Default
+and archived projections omit the field; it defaults to `None` when reading
+older views. This additive field does not change view version 82. The live
+socket has no payment-context capability yet, so encoder 8 must refuse live
+deployment until that capability is implemented and checked.
+
 ## How long a seat has left (view version 25)
 
 The decision clock has run since the engine moved into a process of its own,
@@ -992,9 +1046,10 @@ answer are built, so the frames that carry the answer also say who gave it.
 question has one (`baylee_engine::choice::timeout_answer`): pass priority,
 attack with nothing, block with nothing, keep the hand, and "no" to a yes/no
 whose decline leaves things alone (`YesNoPrompt::declining_does_nothing`).
-Attacking with nothing is attacking with the question's `required`
-creatures (CR 508.1d), and blocking with nothing is the question's
-`obeying` blocks (CR 509.1c), so the engine accepts both. The house answers
+The attack timeout chooses a legal declaration satisfying
+`ChooseAttackers.minimum_required` (or every legacy `required` creature when
+that field is absent), respecting `alone` and defender limits. The block
+timeout uses the question's `obeying` blocks, so the engine accepts both. The house answers
 the rest: a discard, targets, a search, an ordering, and the two commander
 questions, where declining would cost the commander. The house also answers
 if the engine refuses the do-nothing answer (`Session::answer_by_clock` →
@@ -1661,7 +1716,10 @@ cannot say, how many creatures may block one attacker (menace), is
   blocker, attacker, count }`, `count` the requirements asking for it; empty
   when none is in force. A declaration obeys the sum over its pairs, and
   `answer_fault` refuses one whose sum is below `obeying`'s
-  (`AnswerFault::MustBlock`).
+  (`AnswerFault::MustBlock`). A blocker that can't block unless its
+  controller pays (Myr Prototype) is offered and named in no demand: nobody
+  has to pay to obey a requirement (CR 509.1c), so it neither must block nor
+  obeys one in another's place, and `obeying` never uses it.
 
 ## The gateway runs no rules
 
@@ -1734,6 +1792,18 @@ nowhere else, so a link that closes before `GameEnded` is a game that cannot be
 continued; the gateway marks it over rather than leaving a table that will
 never move again.
 
+Engine ownership also has transport deadlines. An ordered engine must attach
+within 30 seconds; an exit before its hello or a failed setup closes that
+assignment and releases its agent's capacity. After attachment, an agent's
+exit notice does not overtake the engine socket's final record and `GameEnded`.
+Status notices are accepted only for games assigned to that agent connection.
+An agent silent for 90 seconds loses its control connection. Losing that
+connection closes its games and replay jobs; the agent stops and reaps its
+own children before redialling. There is no transfer of engines to the new
+agent identity. SIGTERM and Ctrl-C likewise stop and reap those children.
+These are engine/agent lifetimes, separate from a player's reconnect and
+24-hour paused-game hold below.
+
 ### The game record (#315)
 
 Every game an engine plays is written down whole: the preset it was built
@@ -1764,6 +1834,16 @@ are optional and skipped when absent: a record from before them reads as it
 did, `RECORD_VERSION` stays 1, and a replay of it on a later build is
 unverified.
 
+`record::replay` tells the two apart by the header's `build` against its
+own (`record::this_build`): a record of this build is held to every engine
+hash, and a record of another build to the engine hash or, where that
+moved, to `seen` beside it; `Replayed::checked` says whether `seen` had to
+stand in (`Checked::Seen`). A record of another build without `seen` is
+held to its hashes. `record::replay_exact` holds any record to every hash,
+for the readers that need the whole state rather than the table (training
+labels with behaviour probabilities, the research episodes), and
+`Session::resume_recorded` checks as `replay` does.
+
 The engine sends it to the gateway as `GameRecordChunk{game_id, seq, data,
 last}` on the engine link, a piece once 32 KiB of it have gathered
 (`RECORD_CHUNK_BYTES`) and the rest, `last`, just before `GameEnded`. Each
@@ -1785,7 +1865,7 @@ turns 13 and 16):
   after it ended the answer is `RecordFlushed` alone, never an empty piece.
   The gateway hands the answer to the game's record writer behind the pieces
   before it, and the report waits until those are *stored*, not merely
-  received, at most `FLUSH_WAIT` (3 s, `crates/baylee-gateway/src/report.rs`).
+  received, at most `FLUSH_WAIT` (3 s, `crates/baylee-gateway/src/report/mod.rs`).
   Then it reads the record as the store has it, which reaches the moment the
   report was filed: played again it ends on the hash the engine had when the
   report arrived. An engine that does not answer in time (busy, stuck, gone,
@@ -1817,11 +1897,18 @@ bound.
 - **It is omniscient, so no seat is ever sent it.** The gateway stores the
   pieces and forwards none; nothing a seat socket or the lobby can ask reads
   them. Two readers a route reaches: `POST /reports`, for a player who sat
-  at the game, which passes it to the feedback service (`docs/feedback.md`)
-  through `records::for_seated`; and a replay job (§"Replays"), which hands
+  at the game, which passes it to the feedback service, or files it with
+  Baylee Central where `BAYLEE_REPORTS_TO=central` (`docs/feedback.md`),
+  through `records::for_seated` (and `POST …/chair/report`, for a host's
+  seat bridge, the one game its seat token opens, through
+  `records::for_delegate`); and a replay job (§"Replays"), which hands
   it only to an engine on the engine link through `records::for_projection`
   after the route found the account's seat. A replay is a projection, never
   the record.
+  `POST /client/reports` (the official gateway's, for a client signed in
+  nowhere) reads none: the only record it files is one the client wrote of
+  a game it hosted itself, checked as a record's shape and marked as the
+  client's (`docs/feedback.md` §"To Baylee Central instead").
 - **It names nobody.** Seats are numbers, and the gateway keeps which account
   sat where beside it (`game_record_seat`), a link that goes with the
   account (`ON DELETE SET NULL`) while the record stays. The seat names a
@@ -1842,7 +1929,7 @@ bound.
 ### Running one
 
 ```bash
-BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) ./target/debug/baylee-gateway
+BAYLEE_AGENT_TOKEN=$(openssl rand -hex 32) BAYLEE_AUTH_MODE=guests ./target/debug/baylee-gateway
 BAYLEE_AGENT_TOKEN=<the same> ./target/debug/baylee-agent
 ```
 
@@ -1869,9 +1956,12 @@ reader of that spelling. The secrets are unchanged: the socket's permissions
 are a second fence, not a replacement for `BAYLEE_AGENT_TOKEN`.
 
 An agent that came in on the socket is **local**, and so is every game it is
-ordered to run; the game keeps that mark after its agent has gone. `/health`
-counts them apart as `games.local_running`, because that is what a deploy of
-this machine waits for (`baylee-deploy`, crate baylee-ops): replacing this
+ordered to run; the game keeps that provenance after its agent has gone.
+Losing the agent's control link closes its assignments, and the agent stops
+and reaps its engines before reconnecting. `/health` counts only still-running
+local games in `games.local_running`. A graceful deploy or reboot must hold
+new admission and drain those games **before** stopping their agent. Stopping
+the agent is not a way to drain games without interruption. Replacing this
 machine's agent and engine binary does not end a game an agent elsewhere is
 running. Replacing the gateway still ends every game, local or not, since
 every engine's link runs through it.
@@ -2019,7 +2109,7 @@ as `Session::seat_view` builds it for a socket at it):
    exiled face down and may look at), by name;
 5. its **log** as it was told it: its draws and the cards it was shown, by
    name;
-6. a hand it saw while **controlling** another player (CR 720,
+6. a hand it saw while **controlling** another player (CR 722.4,
    `controlled_hands`), only where that player is in **S**;
 7. its own answers' bookkeeping (what its policies answered, whether the
    clock or a stand-in answered for it).
@@ -2028,7 +2118,7 @@ Not shown: its library's order beyond what it looked at (it did not know
 it either), clocks, chat. Known limits (v1): the log of a shown seat may
 name a card it was shown privately of a seat outside **S** (an effect that
 revealed that player's hand to it alone), and a face-down card of a player
-it controlled (CR 720) keeps its name; both need a log line or object
+it controlled (CR 722) keeps its name; both need a log line or object
 filter of their own (v2).
 
 The header says which: `perspective` (`seat`, `public`, `all_hands`), `seat`,
@@ -2335,8 +2425,7 @@ wins.
 window, and nothing about the frames changed. A new client needs a gateway
 that sells tickets, which one build (gateway first) guarantees.
 
-What is still in an address: `/auth/confirm?token=` (a mail link, which
-has to be one; single-use, 24 h), and in a browser the page URL a table is
+What is still in an address: in a browser, the page URL a table is
 handed over with from outside the client (`?game=…&token=…`,
 `docs/client.md`), which the static host serving the page and the
 browser's history see. The client's own lobby never builds that URL; it
@@ -2380,33 +2469,25 @@ full: one database query a frame, and for a Central-bound seat two and a
 call to Central, which kept a flooding socket on a loaded machine from
 being read fast enough to reach its frame allowance (#284).
 
-## Confirming an address, and why it is optional
+## Accounts are Baylee Central's (the cutover)
 
-Since usernames (#269, below) a new account has **no address**: nothing is
-mailed at registration, and an address, confirmed or not, keeps nobody out.
-What is left is for the accounts that registered with an address before: a
-link already mailed still confirms it, and `POST /auth/confirm/resend
-{email}` mails another to an address not yet confirmed. The address stays on
-the account as the way to reach its player, for recovery later.
-`BAYLEE_SMTP_URL` decides whether anything is mailed at all.
-
-Three details are load-bearing:
-
-- **`POST /auth/confirm/resend` answers `{"ok":true}` whatever happened.** A
-  route that said "no such address" would be an address oracle, and this one
-  needs no password to call.
-- **Only the hash of the link's token is stored**, like a session token's: a
-  live link in the store would be a live login. A link lasts 24 hours, a new
-  one invalidates the last, and following one spends it.
-- **`BAYLEE_PUBLIC_URL` is where the link points.** The gateway cannot work
-  out its own public address, and taking it from a request header is how a
-  confirmation link ends up pointing at whatever `Host:` an attacker sent.
-
-The mail is written in the `lang` the account registered with, kept on the
-account, so a resend months later still lands in the language the player
-signed up in. `confirmation_required` is gone from `GET /auth/config` and
-from the registration answer: a client that still reads it finds nothing and
-takes `false`, which is now the truth.
+Since the cutover (owner's decision of 30.10.2026, `docs/central-login.md`
+§"Cutover") nobody registers, signs in with a password, changes or resets a
+password, or confirms an address at a gateway. `POST /auth/register`, `POST
+/auth/login`, `POST /auth/password`, `GET /auth/confirm`, `POST
+/auth/confirm/resend` and the console's `POST /admin/accounts/{id}/password`
+are gone (`404`), and so is the mailer. Whom a gateway lets in is its
+operator's choice (`BAYLEE_AUTH_MODE`: `guests`, `central`, the default, or
+`mixed`; `docs/central-login.md` §"Who a gateway lets in"): a guest through
+`POST /auth/guest`, a Central account through `POST /auth/central/login` where
+the gateway is connected (`BAYLEE_CENTRAL_CONFIG_FILE`). `GET /auth/config`
+says which: `auth_mode`, `central`, `guests_enabled` and
+`registration_enabled`, always `false`, kept for clients from before, which
+draw a sign-up form only where it is true. The
+accounts from before Central keep their game data here: Central signs them in
+from its legacy store, and the gateway links each one at its first admission,
+ending its password and its password sessions. An account's username and
+address stay as data; nothing mails it, and nothing signs in by them here.
 
 **A new key here is safe in one direction only.** A client's config struct
 deserializes the keys it names and ignores the rest, so a key it has never
@@ -2415,15 +2496,16 @@ a property of that struct and not a promise this route makes: a field a
 client is *required* to read breaks every client that predates it while the
 same sentence stays true, and is a version bump rather than a new key.
 
-## Signing in with a username (#269)
+## Usernames (#269)
 
 Online play must not require an e-mail address (the Fan Content Policy
 forbids "email registration" as the price of fan content; `docs/legal.md`
-§2), so a player signs up with a **username** and signs in with it. The
-username is **private**: its owner is shown it (`/me`, the sign-in answer)
-and nobody else ever is. The name other players see stays the display name
-and its tag, below. A public login name would give away half of every
-credential.
+§2), so an account has a **username**. Since the cutover it is Baylee
+Central's, and a gateway signs nobody in by it (§"Accounts are Baylee
+Central's"); an account from before keeps the one it had here, and moved it
+to Central with the account. The username is **private**: its owner is shown
+it (`/me`) and nobody else ever is. The name other players see stays the
+display name and its tag, below.
 
 **The rule** is one function both ends link, `baylee_protocol::names::username`:
 a control character or one that is invisible or turns the text's direction
@@ -2431,33 +2513,8 @@ is refused before anything else (normalisation keeps them, and they are what
 a look-alike is made of); then the name is folded to NFKC (full-width
 `Ａｌｉｃｅ` is `Alice`) and must be ASCII letters, digits and `_ - .`, three
 to twenty-four of them, beginning and ending on a letter or a digit, with no
-two separators side by side. Its **key**, the lower case, is what is unique
-and what sign-in looks up, so `Alice` and `alice` are one name; the name is
-kept as typed, after folding.
-
-- **Registration** takes `{username, display_name, password, lang}` and
-  answers `{"ok":true}`, or `400` (`invalid username`, `invalid display
-  name`, `invalid password`: the password may be neither name, in any case)
-  or `409` `that username is taken`. A taken name is said openly, which an
-  address never was: a username has to be chosen, so a taken one has to be
-  named, and a name that can be chosen can be found. The per-IP limiter
-  (ten tries in five minutes) is what bounds that, and what is found is a
-  login name and no more.
-- **Sign-in** takes `{username, password}` (`email` is accepted as the
-  field's old name) and answers `{token, expires_at, username}`. Until
-  **31.12.2026** an input with an `@` is looked up as an address, so that a
-  player from before usernames is not locked out before learning the name
-  they were given; the answer's `username` is how the client tells them.
-  #280 removes that path.
-- **One account, one budget:** eight tries in five minutes, counted against
-  the account however it was named, by username or address in any case. A
-  name that is nobody's is counted under what was typed. A wrong password
-  and an unknown name are the same `401`.
-- **Accounts from before usernames** were each given one from their
-  address's local part (migration `m20260924_000006_usernames`,
-  `baylee_db::usernames`): folded and made to keep the rule, with the tag in
-  a handle's hex added after a `-` where that part is shorter than three
-  characters or taken (`al-af03`), the older account keeping the plain name.
+two separators side by side. Its **key**, the lower case, is what is unique,
+so `Alice` and `alice` are one name. Central keeps the same key rule.
 
 ## Playing as a guest (#269)
 
@@ -2485,16 +2542,25 @@ so a guest is `Guest#1a2b` to the other players.
   upload a sleeve or a mat** (`403` `guests cannot upload images`): a
   picture from an account anybody gets by asking is one only the gateway
   would answer for. `GET /me` says `"guest": true`.
-- **Bounded twice.** Per address by the limiter registration uses (ten in
+- **Bounded twice.** Per address by the gateway's limiter (ten in
   five minutes), and in all by `BAYLEE_GUEST_CAP` (1000 unless set, `0` for
   no bound, anything else not a count refuses to start the gateway): past
   it `503` `no guest seats free, sign up or try later`. The count is read
   before the write, so a burst at the edge may pass it by as many requests
   as are in flight.
-- **`BAYLEE_GUESTS=off`** closes the door (`403` `this gateway takes no
-  guests`), read the way `BAYLEE_REGISTRATION` is; `GET /auth/config` says
-  `guests_enabled`, so a client offers what the gateway takes. The two
-  switches are independent.
+- **`BAYLEE_AUTH_MODE`** decides whether the door is there: `guests` and
+  `mixed` open it, `central`, the default, keeps it shut (`403` `this gateway
+  takes no guests`); `GET /auth/config` says `guests_enabled`, so a client
+  offers what the gateway takes. It replaces `BAYLEE_GUESTS`, which is read
+  no more. `BAYLEE_REGISTRATION` is a switch of its own.
+- **`central`** in `GET /auth/config` says whether the gateway takes Baylee
+  Central sign-ins (`POST /auth/central/login`): it is connected
+  (`BAYLEE_CENTRAL_CONFIG_FILE`) and its mode is `central` or `mixed`
+  (`docs/central-login.md`). A native client turns its account form into
+  Central's only where it is `true`, with the guest door beside it where
+  `guests_enabled` is too; elsewhere it offers the guest door, where there
+  is one. A gateway older than the field sends none, which reads
+  as `false`.
 - The database holds a guest to all of this (migration
   `m20260925_000007_guests`): a guest has no username, address or password,
   and an account that is not a guest has a password and a username or,
@@ -2505,20 +2571,18 @@ Turning a guest into an account, keeping its decks, is not part of this
 
 ## A closed beta: keys (#317)
 
-`BAYLEE_REGISTRATION=invite` makes a gateway a closed beta: a **new
-account and a new guest each need a key**. A guest coming back with its
-session needs none (the session is the guest), and signing in needs none.
-`off` and unset are as before; `BAYLEE_GUESTS=off` still closes the guest
-door, key or no key.
+`BAYLEE_REGISTRATION=invite` makes a gateway a closed beta: a **new guest
+needs a key** (accounts are Baylee Central's, §"Accounts are Baylee
+Central's"). A guest coming back with its session needs none (the session is
+the guest). `off` and unset are as before; a mode without guests
+(`BAYLEE_AUTH_MODE`) still closes the guest door, key or no key.
 
-- **Where it goes.** `POST /auth/register` and `POST /auth/guest` take an
-  optional `invite_key` beside their other fields. A gateway that is not a
-  closed beta ignores it; a client sends it only where the gateway said
-  `invite`, so an older gateway is sent exactly what it always was.
+- **Where it goes.** `POST /auth/guest` takes an optional `invite_key`
+  beside its other fields. A gateway that is not a closed beta ignores it; a
+  client sends it only where the gateway said `invite`, so an older gateway
+  is sent exactly what it always was.
 - **What the gateway says.** `GET /info` and `GET /auth/config` carry
-  `"registration": "open" | "invite" | "off"`. `/auth/config` keeps
-  `registration_enabled: true` in invite mode, so a client from before #317
-  still draws its sign-up form, and is then told why it failed (below).
+  `"registration": "open" | "invite" | "off"`.
 - **Its shape.** `BAYLEE-XXXX-XXXX-XXXX-XXXX`: sixteen characters of
   Crockford base32, 80 random bits, the prefix and dashes only for the eye.
   The gateway reads a key the way a person copies one: case, spaces, dashes
@@ -2610,7 +2674,6 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `GET /admin/accounts` | a page of accounts, below; `?q=` (part of a username or display name, a `#tag` in hex, or an id; at most 100 characters), `tag=` (exactly one account by its tag: `af03`, `#af03` or a whole handle `Alice#af03`, the name not checked; registered or guest; not a tag `400`; the sender a chat report names, §"Who a report can find"), `kind=all\|registered\|guest`, `sort=newest\|oldest\|name\|games\|active`, `online=true` (only accounts with a lobby socket or a chair), `offset`, `limit` (1–200, default 50); anything else in them `400` |
 | `GET /admin/accounts/{id}` | one account, below; `404` for none, `400` for an id that is not a UUID |
 | `DELETE /admin/accounts/{id}` | deletes the account as `DELETE /account` does; §"Acting on an account" |
-| `POST /admin/accounts/{id}/password` | resets a registered account's password; `200 {"password"}`, the one time it is shown; §"Acting on an account" |
 | `PUT /admin/accounts/{id}/ban` | `{"reason", "until"?}`: bans it; `DELETE` the same path lifts the ban; §"Acting on an account" |
 | `POST /admin/games/{id}/close` | `{"reason"}`: ends a running game through its engine; `202`; §"Acting on a game" |
 | `GET /admin/invites` | `[{"id", "created_at", "note", "uses_left", "expires_at", "revoked_at", "admitted", "state"}]`, newest first; `state` is `active`, `used_up`, `expired` or `revoked`. Never a key: only its hash is stored, so no route can show one again |
@@ -2620,13 +2683,34 @@ Every answer is `Cache-Control: no-store`. Bodies are at most 16 KiB.
 | `GET /admin/cards/blocks` | every card block made, newest first: `[{"id", "index", "name", "reason", "created_at", "created_by", "until", "lifted_at", "lifted_by", "state"}]`, `state` `active`, `expired` (its `until` passed) or `lifted` |
 | `POST /admin/cards/blocks` | `{"index", "reason", "until"?}`: blocks a card of the pool. `reason` 1–200 characters after trimming, one line; `until` RFC 3339, in the future and at most ten years ahead, absent or `null` for a block without an end; unknown fields `400`. `201` with the block as listed; `404` for an index the pool has not; `409` when the card already has a block in force (lift it first) |
 | `DELETE /admin/cards/blocks/{id}` | lifts a block in force: `204`; `404` for none, or one lifted or ended already; `400` for an id that is not a UUID. The row stays, lifted |
+| `GET /admin/auth-mode` | `{"mode", "source", "set_at", "set_by", "connected"}`: who comes in (`guests`, `central`, `mixed`), whether the operator's `BAYLEE_AUTH_MODE` (`environment`), an admin (`console`) or nobody (`default`) chose it, and whether the gateway is connected to Baylee Central; `docs/central-login.md` §"Who a gateway lets in" |
+| `PUT /admin/auth-mode` | `{"mode"}`: in force for every sign-in from now on and kept in the database; a session already made goes on. `200` as `GET` answers; `400` for anything but one of the three names (unknown fields too); `409` while `BAYLEE_AUTH_MODE` sets it |
+| `GET /admin/central` | the gateway's link to Baylee Central: `{"source", "token", "central", "check"}`; §"Linking the gateway to Baylee Central" |
+| `PUT /admin/central/token` | `{"token"}`: links the gateway with a gateway token, once Central knows it; `200` as `GET /admin/central`; `400` not a token, `409` the operator's file sets the link, `422` Central does not know it (unknown, revoked or expired), `503` Central did not answer |
+| `DELETE /admin/central/token` | forgets the pasted token and unlinks at once: `204`; `404` for none; `409` as above |
+
+**Linking the gateway to Baylee Central.** A self-hosted gateway links
+itself with a gateway token its owner made on baylee.app (baylee-central
+`docs/gateway-registry.md` §"Gateway tokens"; `docs/central-login.md`
+§"Linking a gateway with a token"). `PUT /admin/central/token` asks Central
+what the token is (`GatewayStatus`) before it keeps it in the gateway's
+database (`central_link`), and uses it at once for its players' Central
+sign-ins and its directory heartbeat (one at once, then every 30 seconds),
+as far as the token's scopes allow and unless Central's administrators
+disabled the gateway (the public list also waits for their approval). `GET /admin/central` answers `source` (`file` when
+`BAYLEE_CENTRAL_CONFIG_FILE` sets the link, which the console cannot change;
+`token`; `none`), `token` (`last4`, `set_at`, `set_by`: never more of it),
+`central` (the gateway's id, origin and name at Central, `state` `pending`,
+`approved` or `disabled`, `sso`, `listing`, `expires_at`) and `check` (`ok`,
+`rejected` for a revoked or expired token, `unavailable`). The audit lines
+are `action=central.link` with the gateway's id and `action=central.unlink`.
 
 **Audit.** Every change is a log line on the target `baylee_gateway::audit`
 at `info` (so `RUST_LOG=info` must reach it): `admin=<name>`,
 `action=invite.create` with `count`, `uses`, `expires` and the key `ids`,
 `action=invite.revoke` with the `id`, `action=card.block` with the block's
-`id`, the card's `index` and name and `until`, or `action=card.unblock` with
-the `id`, `index` and name. Never a key, the token, a key's note or a block's
+`id`, the card's `index` and name and `until`, `action=card.unblock` with
+the `id`, `index` and name, or `action=auth_mode.set` with the `mode`. Never a key, the token, a key's note or a block's
 reason, either of which may name a person. Reads are not audited.
 
 **The numbers** (`GET /admin/stats`) are counts and sums only, one SQL
@@ -2638,7 +2722,7 @@ anything per person:
 {
   "at": "2026-10-08T12:00:00Z",
   "gateway": { "name": "Baylee EU", "registration": "invite", "version": "…", "commit": "…", "build": 2648, "built_at": "…", "dirty": false,
-               "uptime_secs": 86400, "terms": true, "mail": false },
+               "uptime_secs": 86400, "terms": true, "central": true, "auth_mode": "central", "auth_mode_source": "default" },
   "accounts": { "registered": 41, "with_email": 3, "confirmed_email": 2, "admitted_by_key": 40,
                 "created": { "today_utc": 1, "last_7d": 6, "last_30d": 41 }, "decks": 77 },
   "guests": { "enabled": true, "live": 7, "cap": 1000, "created": { "today_utc": 2, "last_7d": 5, "last_30d": 7 } },
@@ -2786,33 +2870,13 @@ feedback UI's *Find sender's account* opens the accounts filtered by
 the service as the keyed pseudonym only, and no route of the service turns
 it back into an account (the gateway's operator, who holds the key, can). Every act is a change, so it names its admin
 (`X-Baylee-Admin`) and is an audit line on `baylee_gateway::audit`:
-`action=account.password.reset`, `account.ban` (with `until` and whether
-it is a guest), `account.unban`, `account.delete` or `game.close`, the
-admin and the account's or game's id; **never a password, a token or a
-ban's reason**, which may name a person. A domain refusal is `400`, `404`
+`action=account.ban` (with `until` and whether it is a guest),
+`account.unban`, `account.delete` or `game.close`, the admin and the
+account's or game's id; **never a token or a ban's reason**, which may name a
+person. There is no password to reset: accounts are Baylee Central's. A domain refusal is `400`, `404`
 or `409`, never `403`, which the feedback service reads as its token
 refused.
 
-- **Reset** (`POST /admin/accounts/{id}/password`, no body): a registered
-  account gets a random password, 80 bits as `XXXX-XXXX-XXXX-XXXX` in
-  Crockford's alphabet, answered once as `200 {"password"}` for the admin
-  to hand on, and stored only as its Argon2id hash. The account's
-  `must_change_password` is set and every session it has is deleted in the
-  same transaction; its lobby sockets close (`departed`). A chair it holds
-  is not touched: a seat runs on its seat token. A guest has no password:
-  `409`; no account: `404`.
-- **Choosing the new one** (`POST /auth/password {username, password,
-  new_password}`, public): proves the password as a sign-in does (the same
-  eight tries per account, the same `401`), then checks `new_password` by
-  the registration rule (`400 invalid password`) and that it differs from
-  the one given (`400`). It stores the new hash, clears the flag, deletes
-  every session of the account, closes its lobby sockets, and answers as
-  `POST /auth/login` does (`{token, expires_at, username, terms_stale?}`).
-  Any account may use it to change its password; one that was reset must.
-- **Sign-in with a reset password**: `POST /auth/login` answers `403
-  {"error": "Your password was reset. Choose a new one to sign in.",
-  "password_change": true}` and makes no session. A session that slipped
-  in between (resolved with the flag set) is refused `401`.
 - **Ban** (`PUT /admin/accounts/{id}/ban {"reason", "until"?}`): `reason`
   1–500 characters, one line; `until` an RFC 3339 moment in the future,
   absent or `null` for good (`400` otherwise). Replaces any ban the
@@ -2826,9 +2890,10 @@ refused.
   not renewed, so the guest is purged when it lapses (30 days) unless the
   ban ends first. A guest can of course come back as a new guest; a ban is
   for accounts.
-- **What a banned player is told**: their sign-in (after the right
-  password, so the reason reaches only them), and every request of a
-  banned guest's session, `POST /ws-ticket` and the lobby socket included,
+- **What a banned player is told**: their sign-in here (`POST
+  /auth/central/login`, after Central proved the account), and every
+  request of a banned guest's session, `POST /ws-ticket` and the lobby
+  socket included,
   answer `403 {"error": "This account is banned until
   2026-10-20T18:00:00Z. Reason: …", "ban": {"reason", "until"}}` (`until`
   `null` and "This account is banned. Reason: …" for good). The sentence is
@@ -3004,10 +3069,10 @@ the bridge as its first stdin line, never an argument, and logs it nowhere.
   none), or `unavailable` (the seat agent has no key store). Never the key.
 - `caps`, `max_games`: absent = none. `spent` is the profile's own spend
   book for the current (UTC) day and month.
-- `diverts`: the fallback a new game of this profile starts on now
-  (§"A fallback profile"), absent otherwise. While it is set the profile is
-  reported `available` with no `until_unix`, its `games` and `max_games`
-  still its own.
+- `diverts`: the fallback a new game of this profile starts on now, the
+  first available of its chain (§"A fallback profile"), absent otherwise.
+  While it is set the profile is reported `available` with no
+  `until_unix`, its `games` and `max_games` still its own.
 
 **A profile's definition** (`profile_write.definition`, and as reported):
 
@@ -3024,7 +3089,8 @@ key-shaped value in any field); `max_games`, `caps`, `canary` and
 `fallback` are each optional and off when absent; `label` and `vendor` are
 1–40 characters with no control character (`vendor` is what the room shows
 as "game data goes to …"); `fallback` is another profile id of the same
-seat agent (§"A fallback profile").
+seat agent, or a list of them in the order they take over (§"A fallback
+profile").
 
 ### Which profiles a player sees: `GET /lobby/llm-profiles`
 
@@ -3171,55 +3237,69 @@ environment; the seat agent writes it into its key store
 
 ### A fallback profile
 
-Owner, 13.10.2026: the house plays a hosted chair only in an emergency. A
-profile's definition may name a **fallback**, another profile of the same
-seat agent; both play a model behind an API, and both name the same
-`vendor` (case aside), because the room shows the ordered profile's vendor
-as where the game data goes, and the fallback plays on in that chair.
+Owner, 13.10.2026: the house plays a hosted chair only in an emergency;
+owner, 31.10.2026: a game stays playable when a quota or a subscription
+runs out, on the same model elsewhere first and then on the next most
+suitable one. A profile's definition may name **fallbacks**, other
+profiles of the same seat agent: one id (`"fallback": "sonnet-backup"`,
+as it always could) or a list in the order they take over (`"fallback":
+["opus-api", "sonnet-api"]`). The profile plays a model behind an API or
+an agent CLI; each fallback plays a model behind an API, and names the
+same `vendor` (case aside), because the room shows the ordered profile's
+vendor as where the game data goes, and a fallback plays on in that chair.
 
 - **Checked by the seat agent** at every write and at start
   (`definition_fault`, `definitions_fault`), answered `400` with its
-  sentence: not the profile itself, a valid id, not beside an agent CLI
-  profile, not a profile that plays an agent CLI, not one of another
-  vendor. A fallback no profile of the seat agent has yet is accepted (it
-  may be written next) and is no fallback until it is; at a game a missing,
-  switched-off or unfit fallback is none, and the seat agent's log says so.
-  The fallback's own `fallback` is never followed.
-- **During a game.** The chair's bridge holds the fallback in reserve
-  (`--fallback-profile`, its own settings file and spend book): when the
-  model cannot answer, because its provider says it is rate limited or
-  busy (HTTP 429, or the error code `rate_limited` or `busy`) or because it
-  failed otherwise (a 5xx such as `502 server_error`, the network), the
-  question is asked of the fallback at once and the fallback plays the
-  rest of the game, reserved under its own caps and declared to the table
-  (§"Who answers a seat, as it says"). It never hands back. A question the
-  model declines stays the house's, and the fallback stands by. Where it
-  cannot take over (its book refuses, no key), the house answers, as
-  without one. Only a limit is reported to the seat agent as one (the
-  bridge's `the primary is rate limited` line), so only a limit holds the
-  profile back from new games. `docs/llm-seat.md` §"A fallback profile".
+  sentence: valid ids, not the profile itself, none named twice, none
+  that plays an agent CLI, none of another vendor, and none written into
+  the profile's own settings (`profile.fallback`; the definition names
+  them). A fallback no profile of the seat agent has yet is accepted (it
+  may be written next) and is no fallback until it is; at a game a
+  missing, switched-off or unfit fallback is left out of the chain, and
+  the seat agent's log says so. A fallback's own `fallback` is never
+  followed.
+- **During a game.** The chair's bridge holds the chain in reserve (a
+  `--fallback-profile` each, in order, each with its own settings file and
+  spend book): when the model playing cannot answer, because its provider
+  says it is rate limited, busy or out of its quota (HTTP 429, the error
+  code `rate_limited` or `busy`, an agent CLI's spent subscription) or
+  because it failed otherwise (a 5xx such as `502 server_error`, the
+  network, a CLI process that died), the question is asked of the next
+  fallback at once and that fallback plays on, reserved under its own caps
+  and declared to the table (§"Who answers a seat, as it says"), until it
+  cannot answer either and the next one takes over. It never hands back. A
+  question a model declines stays the house's, and the chain stands by. A
+  fallback that cannot take over (its book refuses, no key) is passed over
+  for the next; past the end of the chain the house answers, as without
+  one. Only a limit is reported to the seat agent as one (the bridge's
+  `the primary is rate limited` line for the profile, `the fallback <id>
+  is rate limited` for a fallback that took over), so only a limit holds
+  that profile back from new games. `docs/llm-seat.md` §"A fallback
+  profile".
 - **At the start of a game.** While the profile is not `available`, for
   any reason (owner, 13.10.2026: it is to run steadily): at its
   `max_games`, limited (a cap of its book, or a provider's limit its check
   or a bridge reported), failing its check, signed out, being checked or
-  switched off, and the fallback is `available`, the seat agent starts a new
-  game on the fallback outright, for the whole game, and reports the
-  profile `available` with `diverts: "<fallback>"`; the gateway's pick takes
-  such a profile at its bound (the seat agent holds the fallback's), and a
-  start the fallback cannot take after all is `failed` as any busy one. The
-  game counts in the fallback's `games`, its chair keeps the ordered
-  profile's name (`LLM-<label>`), and the order, its status and the room's
-  `hosted` entry are the ordered profile's: the player ordered it and sees
-  it.
+  switched off, and one of its fallbacks is `available`, the seat agent
+  starts a new game outright on the first of the chain that is, for the
+  whole game, with the fallbacks after it standing by, and reports the
+  profile `available` with `diverts: "<fallback>"`; the gateway's pick
+  takes such a profile at its bound (the seat agent holds the fallback's),
+  and a start the fallback cannot take after all is `failed` as any busy
+  one. The game counts in that fallback's `games`, its chair keeps the
+  ordered profile's name (`LLM-<label>`), and the order, its status and
+  the room's `hosted` entry are the ordered profile's: the player ordered
+  it and sees it.
 - **Who may.** §"Who may seat which model" is asked of the ordered profile
-  only. Its fallback is the operator's choice and plays for anyone who may
-  seat the profile; the fallback's own policy governs ordering the
+  only. Its fallbacks are the operator's choice and play for anyone who
+  may seat the profile; a fallback's own policy governs ordering that
   fallback itself.
 
 ## Friends and chat (beta.8)
 
 Friends, presence for friends, whispers, groups and table chat, every
-message body end-to-end encrypted. The types are
+message body end-to-end encrypted, and one public lobby chat that is not
+(below). The types are
 `baylee_protocol::social` (`crates/baylee-protocol/src/social.rs`), the
 gateway's side `crates/baylee-gateway/src/social/`, the crypto
 `crates/baylee-seal`.
@@ -3230,10 +3310,19 @@ gateway's side `crates/baylee-gateway/src/social/`, the crypto
   `social::SOCIAL_VERSION` (1) too.
 - **The public identifier is the tag** (`af03`). Account ids never leave the
   gateway.
-- **The gateway never sees plaintext.** It carries sealed bodies as opaque
-  base64url, checks only shapes, sizes, membership and that a send wraps the
-  message key for exactly the current devices of every recipient, and never
-  logs a frame, ticket, ciphertext, key, tag or handle.
+- **The gateway never sees plaintext** of a whisper, group or table
+  message. It carries sealed bodies as opaque base64url, checks only shapes,
+  sizes, membership and that a send wraps the message key for exactly the
+  current devices of every recipient, and never logs a frame, ticket,
+  ciphertext, key, tag or handle.
+- **The lobby chat is public and not encrypted** (`Up::Global` →
+  `Down::Global`, `Conv::Global`, `global` in a report). Its body is plain
+  text (at most `MAX_BODY_BYTES`, under the same send allowance as a
+  message); the gateway passes it to every other open social socket, keeps
+  the last 50 in memory (never on disk, gone with a restart) and sends them
+  after `snapshot` to a socket that opens. The default terms and the privacy
+  template say so (`docs/gateway-legal/`); the client says it where the lobby
+  chat is empty.
 - `GET /info` says `"social": {"version": 1, "keep_days": 14}`, or `null`
   when the gateway has `BAYLEE_SOCIAL=off`. An older gateway sends no key,
   which means no chat.
@@ -3391,7 +3480,10 @@ its one device, fetch keys, block, set its settings and report.
 Group changes reach every member as `group` frames (`joined`, `updated`,
 `left`, `invited`, `invite_gone`, `deleted`) and, for joins, departures,
 renames and new owners, as `notice` lines the client draws as server
-notices. An owner who leaves or is deleted hands the group to the member who
+notices. An `invited` frame also names its `inviter` (a `Person`, since
+29.10.2026), so the invitee's client lists the invite in its drawer at once;
+an older gateway sends none, and that client lists it from its next
+`snapshot`. An owner who leaves or is deleted hands the group to the member who
 joined first; a group nobody is left in is deleted.
 
 **Table invites** live ten minutes in the gateway's memory.
@@ -3525,7 +3617,14 @@ raises the sheet and `GET /terms?lang=` in the interface's language
 (`terms::url`); `false` with `/info.terms` named keeps that version as the
 device's copy (`ClientSettings.terms`, by gateway address). A kept guest,
 which signs in to nothing, is asked when `/info.terms` differs from that
-copy. A Central sign-in's `"central_terms_stale": true` shows Baylee
+copy. Central gives no gateway ticket and keeps no write while its own
+terms in force wait for the account (`TermsRequired`), so the native client
+asks before any gateway: a Central sign-in that finds them unaccepted
+(`TermsStatus`) shows Baylee Central's own terms with no gateway session
+yet, and admits only after they are accepted; Later ends the Central
+sign-in. A gateway account's migration waits for them the same way
+(`Account::migration_held`; `Account::finish_migration` after the
+acceptance). A Central sign-in's `"central_terms_stale": true` shows Baylee
 Central's own terms first (fetched and accepted through the account worker,
 `Account::central_terms`, `accept_terms`), then admits again, which brings
 the gateway's own answer. The sheet renders the Markdown subset (`#`/`##`,
@@ -3629,14 +3728,10 @@ from a curl recipe into a contract:
 | step | call | answer |
 | --- | --- | --- |
 | which gateway this is | `GET /info` | `{name?, version, commit, build, built_at, dirty, protocol_version, view_version, source, registration, guests}` |
-| sign up | `POST /auth/register` `{username, display_name, password, lang, invite_key?}` | `{"ok":true}`; `409` for a taken username; `403` for a missing or refused key on a closed beta |
-| confirm | `GET /auth/confirm?token=…` (the link in the mail) | `{"ok":true}` |
-| send it again | `POST /auth/confirm/resend` `{email}` (an address from before #269) | `{"ok":true}`, always |
-| sign in | `POST /auth/login` `{username, password}` (an address until 31.12.2026) | `{token, expires_at, username}`; `403` with `ban` for a banned account, with `password_change: true` after an admin's reset (§"Acting on an account") |
-| choose a new password | `POST /auth/password` `{username, password, new_password}` | as a sign-in; what an account an admin reset must do first |
+| sign in | `POST /auth/central/login` `{ticket}`: an `admit` ticket Baylee Central issued for this gateway (`docs/central-login.md`) | `{token, expires_at, username, display_name, terms_stale?}`; `403` with `ban` for a banned account |
 | play as a guest | `POST /auth/guest` `{display_name?, lang?, invite_key?}` | `{token, expires_at, guest, handle}`; `403` when off or for a missing or refused key on a closed beta, `503` when full |
 | sign out | `POST /auth/logout` | `204`; a guest is deleted with it |
-| leave for good | `DELETE /account` `{password}` (a guest sends `{}`) | `204`; `403` for a wrong password, `429` past eight tries |
+| leave for good | `DELETE /account` `{}` | `204`; `403` for a banned account |
 | who am I | `GET /me` | `{id, email, username, guest, display_name, tag, handle}` |
 | who is that | `GET /players/{handle}` | `{id, display_name, tag, handle}`, `400` without a `#`, `404` for nobody |
 | decks | `GET /decks` | `[{id, name, format, cards, sideboard, copies, side_copies, identity, commanders, leaders, signature, unplayable, updated_at, sleeve, playmat}]` |
@@ -4047,6 +4142,18 @@ to reconnect — because nothing between a room and a `GamePreset` ever wrote
 whole preset to the engine as JSON, house rules included, and gamehost has
 always decoded them. What was missing was a way to say which one.
 
+`HouseRules.starting_player` is `null` for a game that chooses its starting
+seat uniformly from the preset's seeded RNG. An explicit non-negative seat is
+accepted only for controlled games and is range-checked at setup. Old records
+without the field keep historical seat 0; the protobuf path always starts a
+new game with the seeded choice.
+
+`HouseRules.auto_discard_empty_optional_triggers` is `true` in a new game: an
+optional trigger whose empty target answer provably has no effect and no
+follow-up question leaves the stack without resolving. Records without the
+field read it as `false`, preserving the target questions their historical
+inputs answer; the protobuf path enables the new behavior for every new game.
+
 `POST /lobby/games` takes `clock` (a name) and, overriding it,
 `decision_timeout_secs` and `reconnect_window_secs`. Nothing said is the
 first row, `classic`: three minutes a decision since 08.10.2026 (the owner;
@@ -4264,6 +4371,7 @@ needs no account at all (`crates/baylee-gateway/src/chair.rs`):
 | its mind answered its check | `POST /lobby/games/{id}/chair/ready` `{ready?}`, `Authorization: Bearer <seat token>` | `204`; `403` for a person's chair (they say ready with their session) |
 | is the game on | `GET /lobby/games/{id}/chair`, `Authorization: Bearer <seat token>` | `{game_id, seat, state, decide_secs, ready}`; `401` once the token opens nothing (the host took the chair back, or left) |
 | give the chair back before the game | `POST /lobby/games/{id}/chair/leave`, `Authorization: Bearer <seat token>` | `204`; `403` for a person's chair |
+| send its game's bug report | `POST /lobby/games/{id}/chair/report`, the body `POST /reports` takes, `Authorization: Bearer <seat token>` | `201 {report_id}`; `403` for a person's chair (they report with their session), `400` for a `game_id` of another game or a `local_record`, `409` once the chair has sent one; as `POST /reports` otherwise (`docs/feedback.md`) |
 
 A chair ticket is the same kind of secret as a socket's (§"Opening a
 socket: tickets"), in a store of its own:
@@ -4297,8 +4405,8 @@ socket: tickets"), in a store of its own:
   that name: marking a delegated seat in `SeatIdentity` would be a new field
   the gateway hands the engine (`GameSetup`) and a view change, so the
   prefix is the mark.
-- **An operator may switch it off**: `BAYLEE_CHAIR_TICKETS=off` (read as
-  `BAYLEE_GUESTS` is) answers both the ask and the redemption `403` `this
+- **An operator may switch it off**: `BAYLEE_CHAIR_TICKETS=off` (`off`,
+  `0` and `false` shut it, as they shut `BAYLEE_REGISTRATION`) answers both the ask and the redemption `403` `this
   gateway hands no chair to a seat bridge`; a host's client then falls back
   to the guest door, where there is one. A host could otherwise hand its
   ticket to a person, who would sit with no account; the prefix makes that
@@ -4325,6 +4433,18 @@ arranging it (`POST …/seats/{seat}` with a `kind`), which ends its seat
 token; a host who leaves the room or deletes its account takes every chair
 it handed out with it. A rematch room copies no delegate: the chair waits
 open, on its side, for the host to seat another.
+
+**Its report.** The bridge has no session, so its language model's bug
+report about the game goes on its seat token (`…/chair/report`, owner,
+31.10.2026, `report::post_chair_report`): about this game only (a
+`game_id` empty or this one; the gateway files it under this one), with
+no `local_record`, once a chair a game (`Delegate::reported`, given back
+when the feedback service did not take it), for as long as the room is
+in the lobby (an hour after the game ends). The gateway passes it on as
+it does a player's, under the pseudonym of the host who answers for the
+chair and against the host's 64 an hour, with this game's record, read
+for the chair that played it (`records::for_delegate`: the token's game,
+its chair and its host), never another table's.
 
 **What the record says.** `game_record_seat` carries `delegated_by` beside
 `account_id` (migration `m20261006_000013_delegated_seats`): a delegate's
@@ -4823,9 +4943,12 @@ engine used to hold without saying are fields:
   opening hand of zero cards (CR 103.5); `MulliganTake` is then refused
   with `NoFurtherMulligan`.
 - The combat requirements (CR 508.1c–d, 509.1c), from fields the
-  questions already carried: a declaration of attackers without a creature
-  in `ChooseAttackers.required` faults `MustAttack`, one sending a creature
-  in `limits` elsewhere `NotOffered`; a declaration of blockers obeying
+  questions carry: a declaration of attackers satisfying fewer than
+  `ChooseAttackers.minimum_required` entries of `required` faults `MustAttack`.
+  An absent minimum means `required.len()` for compatibility. `alone`
+  defaults to empty; declaring one of its creatures with any other attacker
+  faults `NotOffered`, as does sending a creature in `limits` elsewhere.
+  A declaration of blockers obeying
   fewer requirements than `ChooseBlockers.obeying`, counted by `demands`,
   faults `MustBlock`.
 

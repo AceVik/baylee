@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/UDS/fiendish-nature-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FiendishNatureEnhancedDeck_UDS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fiendish Nature - Enhanced Deck (Adapted)]
+3 Ancient Silverback
+1 Cradle Guard
+2 Elvish Lyrist
+4 Engineered Plague
+13 Forest
+4 Gaze of Granite
+2 Giant Growth
+2 Hungry Mist
+4 Llanowar Elves
+2 Maelstrom Pulse
+1 Pest Summoning
+1 Polluted Mire
+2 Rancor
+3 Recurring Nightmare
+6 Swamp
+1 Symbiosis
+2 Tranquil Thicket
+2 Uktabi Orangutan
+1 Verdant Force
+4 Wall of Blossoms

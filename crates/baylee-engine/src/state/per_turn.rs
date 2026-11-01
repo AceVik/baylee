@@ -6,10 +6,13 @@ use std::hash::Hash;
 
 /// Per-turn counters for conditional triggers (reset at every turn start).
 #[derive(Clone, Hash, Debug)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct PerTurn {
     /// Untapped lands controlled by this turn's active player at its start,
     /// before untapping or phasing; independent of any source's presence.
     pub untapped_lands_at_start: u32,
+    /// Cards in the active player's hand at this turn's boundary.
+    pub hand_size_at_start: u32,
     /// Main phases actually begun this turn; the first need not be precombat.
     pub main_phases_begun: u32,
     /// A permanent card actually arrived in each owner’s graveyard this turn.
@@ -74,6 +77,8 @@ pub struct PerTurn {
     /// Actual positive permanent damage, deduplicated by both incarnations.
     /// This historical fact survives cleanup; reset only as the turn ends.
     pub(crate) permanent_damage: Vec<crate::damage_history::DamageRecord>,
+    /// Exact source and graveyard successor for creatures that died after damage.
+    pub(crate) damaged_creature_deaths: Vec<crate::damage_history::DamagedCreatureDeath>,
     /// Creatures that died this turn, all players (Emeritus of Woe's
     /// re-prepare condition).
     pub creatures_died: u32,
@@ -92,6 +97,8 @@ pub struct PerTurn {
     /// (CR 400.7) and is no longer one of them. Written by
     /// [`GameState::draw_cards`] and nothing else.
     pub drawn: Vec<(ObjectId, u32)>,
+    /// Draws performed by the original instruction, excluding replacement draws (CR 614.11b).
+    pub instruction_drawn: Vec<(ObjectId, u32)>,
     /// How many times each ability of each object has resolved this turn
     /// (Nissa, Resurgent Animist's "the second time this ability has
     /// resolved this turn"). Written by the stack's resolution of an
@@ -150,6 +157,12 @@ pub struct PerTurn {
         baylee_core::ids::DamageSourceRef,
         baylee_core::ids::DamageSourceRef,
     )>,
+    /// Active player skips their draw step this turn (Fatespinner).
+    pub skip_draw_step: bool,
+    /// Active player skips their main phases this turn (Fatespinner).
+    pub skip_main_phases: bool,
+    /// Active player skips their combat phases this turn (Fatespinner).
+    pub skip_combat_phases: bool,
 }
 
 /// One block declared this turn ([`PerTurn::blocks`]).
@@ -276,6 +289,7 @@ impl PerTurn {
     pub fn new(players: usize) -> Self {
         Self {
             untapped_lands_at_start: 0,
+            hand_size_at_start: 0,
             main_phases_begun: 0,
             descended: vec![false; players],
             speed_triggered: vec![false; players],
@@ -297,12 +311,14 @@ impl PerTurn {
             life_lost_amount: vec![0; players],
             damage_dealt_to: vec![0; players],
             permanent_damage: Vec::new(),
+            damaged_creature_deaths: Vec::new(),
             creatures_died: 0,
             counter_placements: std::collections::BTreeSet::new(),
             draws: vec![0; players],
             drew_in_draw_step: false,
             entered_battlefield: Vec::new(),
             drawn: Vec::new(),
+            instruction_drawn: Vec::new(),
             resolved: Vec::new(),
             graveyard_plays: Vec::new(),
             graveyard_allowances_used: Vec::new(),
@@ -318,6 +334,9 @@ impl PerTurn {
             damage_cant_regenerate_sources: Vec::new(),
             damage_exile_if_dies_sources: Vec::new(),
             tapped_for_ability: Vec::new(),
+            skip_draw_step: false,
+            skip_main_phases: false,
+            skip_combat_phases: false,
         }
     }
 
@@ -366,6 +385,7 @@ impl PerTurn {
         // reset here too.
         let Self {
             untapped_lands_at_start,
+            hand_size_at_start,
             main_phases_begun,
             descended,
             speed_triggered,
@@ -391,6 +411,7 @@ impl PerTurn {
             counter_placements,
             entered_battlefield,
             drawn,
+            instruction_drawn,
             resolved,
             graveyard_plays,
             graveyard_allowances_used,
@@ -406,10 +427,15 @@ impl PerTurn {
             damage_cant_regenerate_sources,
             damage_exile_if_dies_sources,
             tapped_for_ability,
+            skip_draw_step,
+            skip_main_phases,
+            skip_combat_phases,
             pending_entry_history,
             permanent_damage,
+            damaged_creature_deaths,
         } = self;
         *untapped_lands_at_start = 0;
+        *hand_size_at_start = 0;
         *main_phases_begun = 0;
         descended.fill(false);
         speed_triggered.fill(false);
@@ -433,10 +459,12 @@ impl PerTurn {
         life_lost_amount.fill(0);
         damage_dealt_to.fill(0);
         permanent_damage.clear();
+        damaged_creature_deaths.clear();
         *creatures_died = 0;
         counter_placements.clear();
         entered_battlefield.clear();
         drawn.clear();
+        instruction_drawn.clear();
         resolved.clear();
         graveyard_plays.clear();
         graveyard_allowances_used.clear();
@@ -452,6 +480,9 @@ impl PerTurn {
         damage_cant_regenerate_sources.clear();
         damage_exile_if_dies_sources.clear();
         tapped_for_ability.clear();
+        *skip_draw_step = false;
+        *skip_main_phases = false;
+        *skip_combat_phases = false;
     }
 }
 

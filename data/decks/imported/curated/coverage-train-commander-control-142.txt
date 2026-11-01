@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control R #20266143]
+1 Aerathi Berserker
+1 An-Zerrin Ruins
+1 Anarchy
+1 Aspect of Manticore
+1 Balduvian War-Makers
+1 Barbarian Outcast
+1 Black Widow, Natasha Romanoff
+1 Blinkmoth Well
+1 Blood Knight
+1 Bloodfire Kavu
+1 Boil
+1 Boiling Seas
+1 Capital Guard
+1 Crimson Mage
+1 Defender of Chaos
+1 Desert Nomads
+1 Dwarven Catapult
+1 Exotic Orchard
+1 Fervent Strike
+1 Fire Ants
+1 Fire Nation Soldier
+1 Flashfires
+1 Flowstone Embrace
+1 Frantic Confrontation
+1 Frenzied Rage
+1 Furious Strength
+1 Gnat Alley Creeper
+1 Granite Grip
+1 Granulate
+1 Griffin Canyon
+1 Happy Hogan, Dauntless Driver
+1 Haradrim Spearmaster
+1 Independent Troops
+1 Keldon Warlord
+1 Lava Storm
+1 Lightning Talons
+1 Magus of the Moon
+1 Mardu Runemark
+1 Mech Hangar
+1 Miner's Bane
+1 Misty Rainforest
+36 Mountain
+1 Márton Stromgald
+1 Renegade Troops
+1 Renegade Warlord
+1 Rig for War
+1 Roc Hunter
+1 Rowan's Battleguard
+1 Ruination
+1 Searing Spear Askari
+1 Shatterstorm
+1 Shrine of the Forsaken Gods
+1 Spiteful Motives
+1 Storm's Wrath
+1 Subterranean Spirit
+1 Swashbuckling
+1 Telim'Tor
+1 Tenement Crasher
+1 Trailblazing Historian
+1 Trained Orgg
+1 Urza's Tower
+1 Warship Scout
+1 Whip Sergeant
+1 Whirling Strike
+
+[commander]
+Eron the Relentless

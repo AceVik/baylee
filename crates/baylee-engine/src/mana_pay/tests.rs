@@ -70,7 +70,7 @@ fn a_large_generic_payment_and_its_restricted_part_use_full_width() {
         &ManaCost::parse("{140000}{R}"),
         ManaSpending::EXACT,
         preferred,
-        Some((ManaColor::Blue, 90_000)),
+        Some((ManaColor::Blue, 90_000).into()),
     )
     .expect("large type-constrained generic payment fits");
     assert_eq!(paid.available(ManaColor::Blue), 20_000);
@@ -672,7 +672,7 @@ fn generic_actual_color_restriction_survives_spending_permissions() {
             &cost,
             ManaSpending::ANY_COLOR,
             [0; 6],
-            Some((ManaColor::Black, 2)),
+            Some((ManaColor::Black, 2).into()),
         )
         .is_none()
     );
@@ -682,7 +682,7 @@ fn generic_actual_color_restriction_survives_spending_permissions() {
         &cost,
         ManaSpending::ANY_COLOR,
         [0; 6],
-        Some((ManaColor::Black, 2)),
+        Some((ManaColor::Black, 2).into()),
     )
     .unwrap();
     assert_eq!(paid.total(), 0);
@@ -693,7 +693,7 @@ fn generic_actual_color_restriction_survives_spending_permissions() {
             &cost,
             ManaSpending::EXACT,
             [0; 6],
-            Some((ManaColor::Black, 2)),
+            Some((ManaColor::Black, 2).into()),
         )
         .is_none(),
         "the printed black pip needs a third black unit without permission"

@@ -363,6 +363,83 @@ fn the_prompt_bar_can_ask_for_a_hold_as_well() {
     assert!(running.outbox().is_empty());
 }
 
+/// "Skip turn" includes the stack already standing, through both the shelf
+/// button and Shift+Tab. A selected response point is a different request and
+/// must not shorten this one; an empty stack needs no engine hold at all.
+#[test]
+fn skip_turn_lets_the_whole_current_stack_resolve_first() {
+    use baylee_client_core::automation::AutoPilot;
+    use baylee_client_core::prefs::Keymap;
+    use baylee_client_core::test_support::{ViewBuilder, token};
+    use baylee_engine::choice::PriorityHold;
+    use bevy::input::ButtonInput;
+    use bevy::prelude::KeyCode;
+
+    use crate::hud::PromptButton;
+    use crate::input::look_around;
+    use crate::keys::Fired;
+
+    let view = |stacked: bool| {
+        let mut view = ViewBuilder::new(2).build();
+        view.turn = 8;
+        view.stack = if stacked {
+            vec![token(9, 1, "Shock", 0, 0)]
+        } else {
+            Vec::new()
+        };
+        view
+    };
+    let button = |app: &mut bevy::app::App| {
+        app.world_mut()
+            .spawn(PromptButton {
+                decision_id: None,
+                action: crate::hud::PromptAction::SkipTurn,
+            })
+            .id()
+    };
+    let assert_skipped = |duel: &crate::Duel, held: bool| {
+        let expected = held.then_some(PlayerAction::SetPriorityHold(
+            PriorityHold::UntilStackEmpty { depth: 1 },
+        ));
+        assert_eq!(duel.outbox(), expected.as_slice());
+        assert_eq!(duel.autopilot, Some(AutoPilot::ToNextTurn { from_turn: 8 }));
+    };
+
+    let mut clicked = crate::Duel {
+        view: Some(view(true)),
+        ..Default::default()
+    };
+    clicked.stack_selected = clicked.view.as_ref().map(|v| v.stack[0].id);
+    let mut app = pointer_app(clicked);
+    let skip = button(&mut app);
+    click(&mut app, skip);
+    assert_skipped(app.world().resource::<crate::Duel>(), true);
+
+    let mut keyed = crate::Duel {
+        view: Some(view(true)),
+        ..Default::default()
+    };
+    let mut keys = ButtonInput::default();
+    keys.press(KeyCode::ShiftLeft);
+    keys.press(KeyCode::Tab);
+    let fired = Fired::of(&keys, &Keymap::standard());
+    look_around(
+        fired,
+        &mut keyed,
+        &mut crate::settings::ClientSettings::default(),
+        &mut crate::prefs::Prefs::default(),
+    );
+    assert_skipped(&keyed, true);
+
+    let mut app = pointer_app(crate::Duel {
+        view: Some(view(false)),
+        ..Default::default()
+    });
+    let skip = button(&mut app);
+    click(&mut app, skip);
+    assert_skipped(app.world().resource::<crate::Duel>(), false);
+}
+
 /// `Esc` walks the screen from the top down, and the game menu is a rung on
 /// that ladder rather than something only its own button can shut.
 ///
@@ -656,5 +733,36 @@ fn a_press_outside_the_panel_puts_it_away_and_three_presses_do_not() {
             pressed_on(&aim),
             "a press on {what} closed the menu, and it must not"
         );
+    }
+}
+
+/// A menu remains dismissible while the engine is waiting on another seat.
+#[test]
+fn escape_closes_menu_and_log_between_questions_without_sending_an_action() {
+    use bevy::input::keyboard::KeyboardInput;
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.init_resource::<ButtonInput<KeyCode>>()
+        .init_resource::<crate::prefs::Prefs>()
+        .init_resource::<crate::settings::ClientSettings>()
+        .init_resource::<crate::Duel>()
+        .add_message::<KeyboardInput>()
+        .add_systems(Update, keyboard);
+    for menu in [true, false] {
+        {
+            let mut duel = app.world_mut().resource_mut::<crate::Duel>();
+            duel.game_menu = menu;
+            duel.log_open = !menu;
+        }
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Escape);
+        app.update();
+        let duel = app.world().resource::<crate::Duel>();
+        assert!(!duel.game_menu && !duel.log_open);
+        assert!(duel.outbox().is_empty());
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .reset_all();
     }
 }

@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/ONS/devastation.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Devastation_ONS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Devastation (Adapted)]
+2 Barkhide Mauler
+4 Colossal Might
+13 Forest
+2 Forgotten Cave
+4 Ground Assault
+1 Karplusan Forest
+1 Krosan Groundshaker
+4 Manamorphose
+9 Mountain
+1 Plummet
+4 Savage Twister
+1 Shaleskin Bruiser
+4 Stump Stomp
+2 Surge of Strength
+2 Tranquil Thicket
+3 Wirewood Elf
+3 Wirewood Savage

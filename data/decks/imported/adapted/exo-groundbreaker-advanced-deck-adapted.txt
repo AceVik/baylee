@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/EXO/groundbreaker-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GroundbreakerAdvancedDeck_EXO.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Groundbreaker - Advanced Deck (Adapted)]
+2 Anarchist
+1 Army Ants
+1 City of Brass
+3 Darigaaz's Charm
+3 Diabolic Edict
+2 Earthquake
+1 Forest
+1 Hammer of Bogardan
+4 Iroh's Demonstration
+2 Karplusan Forest
+3 Mountain
+3 Orcish Settlers
+1 Orgg
+1 Plaguebearer
+3 Quicksand
+4 Rain of Tears
+1 Ravenous Baboons
+3 Reflecting Pool
+4 Stone Rain
+2 Strangle
+2 Sulfurous Springs
+3 Swamp
+2 Uktabi Orangutan
+2 Undiscovered Paradise
+2 Violent Impact
+4 Wasteland

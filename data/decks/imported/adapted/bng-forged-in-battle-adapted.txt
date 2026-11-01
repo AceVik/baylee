@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/BNG/forged-in-battle.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ForgedInBattle_BNG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Forged in Battle (Adapted)]
+1 Akroan Hoplite
+4 Arrows of Justice
+2 Cyclops of One-Eyed Pass
+3 Double Cleave
+4 Energy Bolt
+2 Hold at Bay
+1 Legion Leadership
+4 Lightning Helix
+3 Martial Glory
+2 Mortal's Ardor
+14 Mountain
+11 Plains
+1 Priest of Iroas
+1 Reckless Reveler
+2 Rise to the Challenge
+4 Spirit Summoning
+1 Two-Headed Cerberus

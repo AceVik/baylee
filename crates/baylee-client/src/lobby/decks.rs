@@ -966,11 +966,18 @@ pub(super) fn tile(
             }),
         ))
         .id();
+    let base = kit.m.scaled(if phone { 6.0 } else { 12.0 });
+    let pad = (base - if look.next { 1.0 } else { 0.0 }).max(0.0);
     let band = commands
         .spawn((
             Node {
                 column_gap: kit.m.px(12.0),
-                padding: UiRect::all(kit.m.px(if phone { 6.0 } else { 12.0 })),
+                padding: UiRect {
+                    left: px_fixed(pad),
+                    right: px_fixed(pad),
+                    top: px_fixed(pad),
+                    bottom: px_fixed(base),
+                },
                 border_radius: BorderRadius::top(px_fixed(tokens::RADIUS_PANEL - 1.0)),
                 ..default()
             },
@@ -1037,7 +1044,12 @@ pub(super) fn tile(
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
                 row_gap: kit.m.px(if phone { 4.0 } else { 6.0 }),
-                padding: UiRect::all(kit.m.px(if phone { 6.0 } else { 12.0 })),
+                padding: UiRect {
+                    left: px_fixed(pad),
+                    right: px_fixed(pad),
+                    top: px_fixed(base),
+                    bottom: px_fixed(pad),
+                },
                 ..default()
             },
             Pickable::IGNORE,

@@ -29,5 +29,7 @@ export default defineConfig({
     setupFiles: ["src/test-setup.ts"],
     restoreMocks: true,
     unstubGlobals: true,
+    // CSS is empty under test, except the tokens, whose contrast is measured.
+    css: { include: [/styles\/tokens\.css/] },
   },
 });

@@ -97,6 +97,9 @@ impl Show {
             Event::MindDown => {
                 vec!["the mind is down: the house plays until it answers again".into()]
             }
+            Event::Housed => {
+                vec!["the mind is limited: the house plays the rest of the game".into()]
+            }
             Event::TableSaid { message } => vec![format!("table: {message}")],
             Event::Left { reason } => vec![format!("left the table: {reason}")],
             Event::Over { result } => vec![format!("game over: {result}")],
@@ -199,6 +202,12 @@ impl Show {
                 out.push(format!(
                     "conversations: {} ({} begun again after one was lost)",
                     tally.sessions, tally.restarts
+                ));
+            }
+            if tally.tools_refused > 0 {
+                out.push(format!(
+                    "tools the model asked for and was refused: {}",
+                    tally.tools_refused
                 ));
             }
             if tally.spent {
@@ -489,6 +498,14 @@ mod tests {
             summary[3],
             "conversations: 3 (1 begun again after one was lost)"
         );
+        assert!(summary[4].starts_with("rule of thumb"), "{summary:?}");
+        // And the tools its model asked for that the seat refused.
+        let refusing = Tally {
+            tools_refused: 2,
+            ..cli
+        };
+        let summary = show.summary(&stats, Some(&refusing));
+        assert_eq!(summary[4], "tools the model asked for and was refused: 2");
     }
 
     #[test]

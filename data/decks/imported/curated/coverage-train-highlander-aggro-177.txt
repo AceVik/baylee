@@ -1,0 +1,82 @@
+# baylee synergistic coverage highlander aggro
+# licence: AGPL-3.0-only
+[deck:highlander aggro BRG #20266178]
+1 Abundant Countryside
+1 Acidic Sliver
+1 Angrath's Ambusher
+1 Avengers Tower
+1 Baldur's Gate
+1 Battle Rampart
+1 Baxter Building
+1 Blistering Barrier
+1 Bucolic Ranch
+1 Cave of Temptation
+1 Cavern Crawler
+1 Charging War Boar
+1 Crypt Ripper
+1 Dakmor Scorpion
+1 Deathbellow Raider
+1 Dirtwater Wraith
+1 Dune Beetle
+1 Dwarven Bloodboiler
+1 Endless One
+1 Fen Stalker
+1 Flesh Burrower
+1 Forerunner of Slaughter
+2 Forest
+1 Gallifrey Council Chamber
+1 Giant Slug
+1 Glimmervoid
+1 Go Forth
+1 Goblin Artisans
+1 Goblin Outlander
+1 Great Hall of the Biblioplex
+1 Grollub
+1 Havoc Sower
+1 Henge of Ramos
+1 Hoar Shade
+1 Interplanar Beacon
+1 Kozilek's Shrieker
+1 Mana Leech
+1 Mole Worms
+12 Mountain
+1 Nezumi Bladeblesser
+1 Nykthos, Shrine to Nyx
+1 Orcish Healer
+1 Perilous Shadow
+1 Pestilence Rats
+1 Phyrexian Gremlins
+1 Plague Rats
+1 Plague Witch
+1 Predatory Wurm
+1 Rabid Wolverines
+1 Raging Spirit
+1 Rakdos Shred-Freak
+1 Ritual of the Machine
+1 Riveteers Initiate
+1 Shimian Night Stalker
+1 Skeletal Changeling
+1 Slaughter Drone
+1 Slimy Dualleech
+1 Sootstoke Kindler
+1 Spitting Slug
+1 Squelching Leeches
+1 Steam Spitter
+10 Swamp
+1 Transmutation
+1 Tree Monkey
+1 Turtle Lair
+1 Unknown Shores
+1 Viashino Grappler
+1 Vicious Kavu
+1 Wall of Blood
+1 Wall of Earth
+1 Wall of Granite
+1 Wall of Putrid Flesh
+1 Wall of Tombstones
+1 Wall of Torches
+1 Warship Flight Crew
+1 Whispering Shade
+1 Zodiac Monkey
+1 Zodiac Rooster
+1 Zof Shade

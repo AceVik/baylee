@@ -51,6 +51,65 @@ pub(super) fn keyboard(
         keys.clear();
         return;
     }
+    if state.memorial.open {
+        keys.clear();
+        if !codes.just_pressed(KeyCode::Escape)
+            && codes.any_pressed([
+                KeyCode::ControlLeft,
+                KeyCode::ControlRight,
+                KeyCode::SuperLeft,
+                KeyCode::SuperRight,
+            ])
+        {
+            return;
+        }
+        if codes.just_pressed(KeyCode::Escape) {
+            state.memorial.dismiss();
+        } else if state.memorial.viewing
+            && codes.any_just_pressed([KeyCode::Equal, KeyCode::NumpadAdd])
+        {
+            state.memorial.magnify(true);
+        } else if state.memorial.viewing
+            && codes.any_just_pressed([KeyCode::Minus, KeyCode::NumpadSubtract])
+        {
+            state.memorial.magnify(false);
+        } else if state.memorial.viewing && codes.just_pressed(KeyCode::Digit0) {
+            state.memorial.zoom = 0;
+        } else if codes.just_pressed(KeyCode::ArrowRight) {
+            if !state.memorial.viewing
+                && (codes.pressed(KeyCode::AltLeft) || codes.pressed(KeyCode::AltRight))
+            {
+                let before = state.memorial.chapter;
+                state.memorial.read(true);
+                if state.memorial.chapter != before {
+                    scrolled.set(List::Memorial, 0.0);
+                }
+            } else if !focus
+                .get()
+                .and_then(|e| stops.get(e).ok())
+                .is_some_and(|s| s.table == memorial::ALBUM_ORDER.name && s.id == "chapters")
+            {
+                state.memorial.turn(true);
+            }
+        } else if codes.just_pressed(KeyCode::ArrowLeft) {
+            if !state.memorial.viewing
+                && (codes.pressed(KeyCode::AltLeft) || codes.pressed(KeyCode::AltRight))
+            {
+                let before = state.memorial.chapter;
+                state.memorial.read(false);
+                if state.memorial.chapter != before {
+                    scrolled.set(List::Memorial, 0.0);
+                }
+            } else if !focus
+                .get()
+                .and_then(|e| stops.get(e).ok())
+                .is_some_and(|s| s.table == memorial::ALBUM_ORDER.name && s.id == "chapters")
+            {
+                state.memorial.turn(false);
+            }
+        }
+        return;
+    }
     // The About sheet: Esc closes it, and nothing under it takes a key.
     if state.about_open {
         keys.clear();

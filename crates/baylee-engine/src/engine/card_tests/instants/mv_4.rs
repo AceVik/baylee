@@ -4,29 +4,48 @@
 use super::*;
 
 mod altar_s_light;
+mod ambush;
+mod barreling_attack;
+mod bloodscent;
+mod chastise;
 mod clever_concealment;
+mod congregate;
 mod cryptic_command;
+mod deflection;
+mod discombobulate;
 mod dismiss;
+mod ensnare;
 mod fact_or_fiction;
 mod fanatical_fever;
 mod fell_the_profane;
+mod foil;
+mod grab_the_reins;
 mod hagra_mauling;
 mod inspiration;
 mod irradiate;
 mod lightning_blast;
 mod memory_deluge;
 mod might_of_oaks;
-mod reverberation;
-mod sewers_of_estark;
-mod sudden_strength;
-mod waterlogged_teachings;
-
+mod nocturnal_raid;
+mod quash;
+mod ramosian_rally;
 mod rapid_fire;
-
+mod ray_of_command;
+mod refreshing_rain;
+mod reverberation;
+mod rewind;
+mod scour;
+mod sewers_of_estark;
+mod slaughter;
+mod snuff_out;
+mod solidarity;
 mod storm_seeker;
-
-mod wrecking_ball;
-
+mod sudden_impact;
+mod sudden_strength;
+mod thwart;
+mod turnabout;
+mod venomous_breath;
+mod warpath;
+mod waterlogged_teachings;
 mod weave_fate;
-
-mod deflection;
+mod wrecking_ball;

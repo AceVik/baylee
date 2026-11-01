@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/DST/transference.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Transference_DST.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Transference (Adapted)]
+2 Argent Mutation
+2 Befuddle
+1 Catalog
+4 Clear the Mind
+2 Cobalt Golem
+1 Depths of Desire
+3 Dissipate
+1 Dragon Blood
+2 Dream Fracture
+1 Exclude
+2 Halt Order
+21 Island
+1 Juggernaut
+3 Psionic Blast
+1 Reshape
+2 Seat of the Synod
+2 Skullclamp
+4 Spirit Water Revival
+1 Stroke of Genius
+1 Tinker
+1 Ur-Golem's Eye
+2 You Find the Villains' Lair

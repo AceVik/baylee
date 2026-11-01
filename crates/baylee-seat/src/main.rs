@@ -11,7 +11,10 @@
 //! and plays the game to its end. A bridge a host's client starts
 //! (`--tethered --chair <n> --chair-ticket`) instead reads the host's chair
 //! ticket off its stdin and sits down on it, with no account of its own, so
-//! it gets in where the gateway takes no guests. The gateway is `--gateway`, else
+//! it gets in where the gateway takes no guests. `--host-chair --tethered
+//! --chair <n>` instead reuses a chair an account already holds (the host's,
+//! or one it joined) and its session from first-line stdin JSON; it creates
+//! no account or deck. The gateway is `--gateway`, else
 //! `BAYLEE_GATEWAY`, else the local default; a closed beta's key is
 //! `--invite-key` or `BAYLEE_INVITE_KEY`, a locked room's password
 //! `--password` or `BAYLEE_ROOM_PASSWORD`. `RUST_LOG=info` says what the
@@ -45,11 +48,12 @@ use baylee_seat::keys;
 use baylee_seat::link::SeatLink;
 use baylee_seat::llm::{self, AnswerMode, Price, Secret, Spec, Tally, scrub};
 use baylee_seat::lobby::{Chair, ChairTicket, GuestSignIn, Lobby, Room, Session, seat_name};
-use baylee_seat::seat::{BLITZ_SECS, Outcome};
+use baylee_seat::seat::{Outcome, is_blitz_clock};
 use baylee_seat::show::Show;
 use baylee_seat::spend::{self, Booked};
 use baylee_seat::{BridgeConfig, Disclosure, HouseMind, Mind, ScriptedMind, SeatCore, Transcript};
 use clap::{Parser, Subcommand, ValueEnum};
+use std::fmt::Write as _;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -157,6 +161,12 @@ struct Join {
     /// (`docs/llm-seat.md` §"A language model at your table").
     #[arg(long, requires_all = ["tethered", "chair"])]
     chair_ticket: bool,
+    /// Reuse a chair an account already holds (the host's chair 0, or the
+    /// one `--chair` names that it joined) and its session, from first-line
+    /// stdin JSON. Never pass tokens as arguments; the remaining stdin holds
+    /// the tether.
+    #[arg(long, requires_all = ["tethered", "chair"], conflicts_with = "chair_ticket")]
+    host_chair: bool,
     /// The gateway's address [default: `BAYLEE_GATEWAY`, else the local one].
     #[arg(long)]
     gateway: Option<String>,
@@ -264,24 +274,42 @@ struct Join {
     /// A directory for the game's transcript, one JSON line per event.
     #[arg(long)]
     transcripts: Option<PathBuf>,
+    /// The directory a language model's `reports.jsonl` is written to as
+    /// it reports, whether or not the gateway takes the game's bug report
+    /// [default: `--transcripts`, else `llm-reports` beside the settings
+    /// file].
+    #[arg(long)]
+    reports_dir: Option<PathBuf>,
+    /// Keep a language model's reports of rules or engine errors in its
+    /// `reports.jsonl` only: no bug report goes to the gateway when the
+    /// game ends.
+    #[arg(long)]
+    no_send_reports: bool,
     /// Sit at a table that gives a question 30 seconds or fewer.
     #[arg(long)]
     allow_blitz: bool,
-    /// A profile that takes the chair over when the model is rate limited
-    /// or busy (HTTP 429, or the endpoint's `rate_limited` or `busy`), from
-    /// the question it could not answer to the end of the game: a language
-    /// model behind an API, behind one too, reserved in its own spend book
-    /// as it takes over (`docs/llm-seat.md` §"A fallback profile").
+    /// A profile that takes the chair over when the model is rate limited,
+    /// out of its quota, busy or failing, from the question it could not
+    /// answer on: a language model behind an API, reserved in its own spend
+    /// book as it takes over. Given again, the next in a chain, which takes
+    /// over when the one before it cannot answer either [default: the
+    /// profile's own `fallback`] (`docs/llm-seat.md` §"A fallback profile").
+    #[arg(long, conflicts_with = "no_fallback")]
+    fallback_profile: Vec<String>,
+    /// The settings file the fallback profiles are in: once for all of
+    /// them, or once for each `--fallback-profile`, in the same order
+    /// [default: the model's].
+    #[arg(long, requires = "fallback_profile")]
+    fallback_config: Vec<PathBuf>,
+    /// The fallbacks' spend book: once for all of them, or once for each
+    /// `--fallback-profile`, in the same order [default: the model's
+    /// `--ledger` where a fallback is in the model's settings file, else
+    /// the book beside the fallback's].
+    #[arg(long, requires = "fallback_profile")]
+    fallback_ledger: Vec<PathBuf>,
+    /// No fallback, whatever the profile's `fallback` names.
     #[arg(long)]
-    fallback_profile: Option<String>,
-    /// The settings file the fallback profile is in [default: the
-    /// model's].
-    #[arg(long, requires = "fallback_profile")]
-    fallback_config: Option<PathBuf>,
-    /// The fallback's spend book [default: the model's `--ledger` when both
-    /// are in one settings file, else the book beside the fallback's].
-    #[arg(long, requires = "fallback_profile")]
-    fallback_ledger: Option<PathBuf>,
+    no_fallback: bool,
 }
 
 /// What decides.
@@ -322,9 +350,51 @@ struct Chosen {
     note: Option<String>,
     /// What the seat tells the table answers it, for the game's record.
     declared: SeatMind,
+    /// The profile played, and the fallbacks it names.
+    named: Named,
+}
+
+/// The profile a chair plays, where it plays one, and the fallbacks that
+/// profile names (`fallback`), in the order they take over.
+#[derive(Debug, Default)]
+struct Named {
+    profile: Option<String>,
+    fallbacks: Vec<String>,
 }
 
 impl Join {
+    /// The fallback profiles that stand by, in the order they take over:
+    /// each `--fallback-profile`, else the ones the profile played names
+    /// (`profiles`), unless `--no-fallback`.
+    fn fallback_chain(&self, profiles: &[String]) -> Vec<String> {
+        if self.no_fallback {
+            Vec::new()
+        } else if self.fallback_profile.is_empty() {
+            profiles.to_vec()
+        } else {
+            self.fallback_profile.clone()
+        }
+    }
+
+    /// Why `--fallback-config` or `--fallback-ledger` cannot be paired
+    /// with the `--fallback-profile`s: each is given once for all of them,
+    /// or once for each, in their order.
+    fn fallback_files_fault(&self) -> Option<String> {
+        let profiles = self.fallback_profile.len();
+        [
+            ("--fallback-config", self.fallback_config.len()),
+            ("--fallback-ledger", self.fallback_ledger.len()),
+        ]
+        .into_iter()
+        .find(|&(_, given)| given > 1 && given != profiles)
+        .map(|(flag, given)| {
+            format!(
+                "{flag} is given {given} times for {profiles} --fallback-profile: give it once \
+                 for all of them, or once for each, in the same order"
+            )
+        })
+    }
+
     /// What the command line says over a profile.
     fn overrides(&self) -> Overrides {
         Overrides {
@@ -369,6 +439,7 @@ fn choose(
         booked: None,
         think_secs: join.think_secs.unwrap_or(DEFAULT_THINK_SECS),
         note: None,
+        named: Named::default(),
     };
     let spec = match &join.mind {
         Some(kind @ (MindKind::House | MindKind::Scripted)) => {
@@ -432,6 +503,10 @@ fn choose(
         think_secs: plan.think_secs,
         note: plan.note,
         declared,
+        named: Named {
+            profile: plan.profile,
+            fallbacks: plan.fallback,
+        },
     })
 }
 
@@ -490,6 +565,7 @@ fn reach(
     // anything: a missing key or program refuses the game, not the book.
     let access = llm::check(&plan, &env).map_err(anyhow::Error::msg)?;
     plan.settings.transcripts.clone_from(&join.transcripts);
+    plan.settings.reports = paths.reports(join.reports_dir.as_deref(), join.transcripts.as_deref());
     Ok(Some(Reachable {
         caps: file.as_ref().map(|file| file.caps).unwrap_or_default(),
         book: paths.book(file.is_some()),
@@ -498,20 +574,27 @@ fn reach(
     }))
 }
 
-/// The command line a fallback profile plays under: `join`'s, its profile
-/// the fallback, its file and book the fallback's, and none of the flags
-/// that tune the model (they are the model's, never the fallback's: the
-/// fallback plays its own profile's answer mode, effort and budgets).
-fn fallback_join(join: &Join, profile: &str) -> Join {
+/// The command line the fallback `profile`, the `at`-th of the chain,
+/// plays under: `join`'s, its profile the fallback, its file and book the
+/// fallback's (the `--fallback-config` and `--fallback-ledger` given for
+/// it, or given once for all), and none of the flags that tune the model
+/// (they are the model's, never the fallback's: the fallback plays its own
+/// profile's answer mode, effort and budgets), nor any fallback of its own.
+fn fallback_join(join: &Join, at: usize, profile: &str) -> Join {
+    let given = |paths: &[PathBuf]| match paths {
+        [one] => Some(one.clone()),
+        each => each.get(at).cloned(),
+    };
+    let config = given(&join.fallback_config);
     Join {
         mind: None,
         profile: Some(profile.to_string()),
-        config: join.fallback_config.clone().or_else(|| join.config.clone()),
-        ledger: match (&join.fallback_ledger, &join.fallback_config) {
-            (Some(ledger), _) => Some(ledger.clone()),
+        ledger: match (given(&join.fallback_ledger), &config) {
+            (Some(ledger), _) => Some(ledger),
             (None, None) => join.ledger.clone(),
             (None, Some(_)) => None,
         },
+        config: config.or_else(|| join.config.clone()),
         effort: None,
         default_effort: false,
         answer: None,
@@ -522,47 +605,76 @@ fn fallback_join(join: &Join, profile: &str) -> Join {
         price_in: None,
         price_out: None,
         think_secs: None,
-        fallback_profile: None,
-        fallback_config: None,
-        fallback_ledger: None,
+        fallback_profile: Vec::new(),
+        fallback_config: Vec::new(),
+        fallback_ledger: Vec::new(),
+        no_fallback: true,
         ..join.clone()
+    }
+}
+
+/// Where `join`'s language model writes its reports file
+/// ([`config::Paths::reports`]), with `env` as the environment.
+fn reports_of(join: &Join, env: &dyn Fn(&str) -> Option<String>) -> Option<PathBuf> {
+    Paths::resolve(join.config.as_deref(), join.ledger.as_deref(), env)
+        .reports(join.reports_dir.as_deref(), join.transcripts.as_deref())
+}
+
+/// [`fallback_join`], its reports written to the model's reports file
+/// ([`reports_of`] `join`), whichever settings file the fallback is read
+/// from: one game, one file.
+fn fallback_reporting(
+    join: &Join,
+    at: usize,
+    profile: &str,
+    env: &dyn Fn(&str) -> Option<String>,
+) -> Join {
+    Join {
+        reports_dir: reports_of(join, env),
+        ..fallback_join(join, at, profile)
     }
 }
 
 /// What a fallback that took over spends: its reservation, settled with the
 /// game, and its tally, for the closing lines.
-#[derive(Default)]
 struct FallbackSpend {
+    /// Its profile.
+    label: String,
     booked: Option<Booked>,
-    tally: Option<Arc<Mutex<Tally>>>,
+    tally: Arc<Mutex<Tally>>,
 }
 
-/// [`FallbackSpend`], shared with the standby that fills it.
-type Fallen = Arc<Mutex<FallbackSpend>>;
+/// Every [`FallbackSpend`], in the order the fallbacks took over, shared
+/// with the standbys that fill it.
+type Fallen = Arc<Mutex<Vec<FallbackSpend>>>;
 
-/// The fallback `join` names (`--fallback-profile`) for a model that plays
-/// behind an API (`primary`, what it declared), ready to take over: its
-/// profile read and its key found now, its game reserved in its own book
-/// only when it takes over. `Ok(None)` names none; `Err` says why none
-/// stands by, and the chair plays without one.
+/// Why no fallback may take over from what `primary` declared, or `None`:
+/// one takes over from a language model, behind an API or an agent CLI,
+/// whose quota or provider may give out mid-game; the house and a script
+/// have nothing to hand over.
+fn no_fallback_behind(primary: &SeatMind) -> Option<&'static str> {
+    let model = [
+        seat_mind::Kind::LlmApi as i32,
+        seat_mind::Kind::LlmCli as i32,
+    ];
+    (!model.contains(&primary.kind))
+        .then_some("a fallback takes over from a language model, and this chair plays none")
+}
+
+/// The fallback `profile`, the `at`-th of the chain `join` names, ready to
+/// take over: its profile read and its key found now, its game reserved in
+/// its own book only when it takes over. `Err` says why it does not stand
+/// by, and the chain goes on without it.
 fn standby(
     join: &Join,
-    primary: &SeatMind,
+    at: usize,
+    profile: &str,
     args: &[String],
     env: &dyn Fn(&str) -> Option<String>,
     keys: &dyn KeyStore,
     fallen: &Fallen,
-) -> Result<Option<bridge::Standby>, String> {
-    let Some(profile) = join.fallback_profile.as_deref() else {
-        return Ok(None);
-    };
-    if primary.kind != seat_mind::Kind::LlmApi as i32 {
-        return Err(
-            "a fallback takes over from a language model behind an API, and this chair plays none"
-                .into(),
-        );
-    }
-    let fallback = fallback_join(join, profile);
+) -> Result<bridge::Standby, String> {
+    let fallback = fallback_reporting(join, at, profile, env);
     let Reachable {
         mut plan,
         access,
@@ -581,7 +693,8 @@ fn standby(
     let named = label.clone();
     let arm = move |limit: &bridge::Limit| -> Result<bridge::Swap, String> {
         // Why it takes over, in the words a seat agent reads (a limit says
-        // `bridge::LIMITED`, a failure never does).
+        // `bridge::LIMITED` of the primary, `bridge::fallback_limited` of a
+        // fallback that played; a failure never does).
         let cause = scrub(&limit.said(), None);
         let mut booked = match book
             .map(|book| {
@@ -612,11 +725,14 @@ fn standby(
         if let Some(booked) = &mut booked {
             booked.watch(Arc::clone(&built.tally));
         }
-        {
-            let mut spend = fallen.lock().unwrap_or_else(PoisonError::into_inner);
-            spend.booked = booked;
-            spend.tally = Some(built.tally);
-        }
+        fallen
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(FallbackSpend {
+                label: named.clone(),
+                booked,
+                tally: built.tally,
+            });
         say!(
             "the fallback {named} answers from turn {}: {cause}",
             limit.turn
@@ -628,36 +744,72 @@ fn standby(
             declared: Some(declared),
         })
     };
-    Ok(Some(bridge::Standby {
+    Ok(bridge::Standby {
         label,
         arm: Box::new(arm),
-    }))
+    })
 }
 
-/// [`standby`], said: which fallback stands by, or why none does (the
-/// chair plays on without one).
+/// The chain of fallbacks that stand by for what `primary` declared, in
+/// the order they take over ([`Join::fallback_chain`]: the flags, else
+/// what the profile played, `named`, names), each said: which stand by,
+/// and why any does not (the chair plays on without it). A name given
+/// twice stands by once, and the profile played never does.
 fn stand_by(
     join: &Join,
     primary: &SeatMind,
+    named: &Named,
     args: &[String],
     env: &dyn Fn(&str) -> Option<String>,
     keys: &dyn KeyStore,
     fallen: &Fallen,
-) -> Option<bridge::Standby> {
-    match standby(join, primary, args, env, keys, fallen) {
-        Ok(Some(standby)) => {
-            say!(
-                "the fallback {} stands by: it plays on if the model is rate limited or fails",
-                standby.label
-            );
-            Some(standby)
-        }
-        Ok(None) => None,
-        Err(why) => {
-            say!("no fallback stands by: {}", scrub(&why, None));
-            None
+) -> Vec<bridge::Standby> {
+    let own = named.profile.as_deref();
+    let chain = join.fallback_chain(&named.fallbacks);
+    if chain.is_empty() {
+        return Vec::new();
+    }
+    if let Some(why) = no_fallback_behind(primary) {
+        say!("no fallback stands by: {why}");
+        return Vec::new();
+    }
+    let mut seen = Vec::new();
+    let mut standing = Vec::new();
+    for (at, profile) in chain.iter().enumerate() {
+        let file = fallback_join(join, at, profile).config;
+        let refused = if file == join.config && own == Some(profile.as_str()) {
+            Err("it is the profile the chair plays".to_string())
+        } else if seen.contains(&(file.clone(), profile)) {
+            Err("it is named before it in the chain".to_string())
+        } else {
+            standby(join, at, profile, args, env, keys, fallen)
+        };
+        seen.push((file, profile));
+        match refused {
+            Ok(standby) => standing.push(standby),
+            Err(why) => say!(
+                "the fallback {} does not stand by: {}",
+                scrub(profile, None),
+                scrub(&why, None)
+            ),
         }
     }
+    match standing.as_slice() {
+        [] => say!("no fallback stands by"),
+        [one] => say!(
+            "the fallback {} stands by: it plays on if the model is rate limited or fails",
+            one.label
+        ),
+        chain => {
+            let names: Vec<&str> = chain.iter().map(|s| s.label.as_str()).collect();
+            say!(
+                "the fallbacks {} stand by, in this order: each plays on if the one before it is \
+                 rate limited or fails",
+                names.join(", ")
+            );
+        }
+    }
+    standing
 }
 
 impl MindKind {
@@ -776,7 +928,7 @@ async fn run() -> anyhow::Result<()> {
         }
         Command::Join(join) => {
             let (mut let_go, orders, ticket) = if join.tethered {
-                let held = tether::hold(join.chair_ticket);
+                let held = tether::hold(join.chair_ticket || join.host_chair);
                 (Some(held.let_go), Some(held.orders), held.ticket)
             } else {
                 (None, None, None)
@@ -978,7 +1130,7 @@ struct Leaving {
 /// with afterwards.
 #[derive(Clone)]
 enum Standing {
-    /// As a guest, under its own session.
+    /// Under its own session, as a guest or an explicitly handed-over host.
     Guest(Session),
     /// On its host's chair ticket: it has the chair's seat token and
     /// nothing else.
@@ -986,7 +1138,7 @@ enum Standing {
 }
 
 impl Standing {
-    /// The session to take the chair back with, for a guest.
+    /// The owning session to take the chair back with.
     fn session(&self) -> Option<Session> {
         match self {
             Self::Guest(session) => Some(session.clone()),
@@ -1022,84 +1174,8 @@ async fn leave_unstarted(unstarted: &Unstarted) {
     }
 }
 
-/// Stdin held by the program that started the bridge (`--tethered`).
-mod tether {
-    use baylee_client_core::llmseat::seating::{LIVE_CHANGES, ORDER_BYTES};
-    use baylee_client_core::say;
-    use tokio::io::AsyncBufReadExt as _;
-    use tokio::sync::{mpsc, oneshot};
-
-    /// What the program that started the bridge hands it on stdin.
-    pub struct Held {
-        /// Fires when stdin closes: the program let go.
-        pub let_go: oneshot::Receiver<()>,
-        /// Each later line, an order.
-        pub orders: mpsc::UnboundedReceiver<String>,
-        /// The first line, when the bridge was told a chair ticket comes
-        /// there (`--chair-ticket`): handed over as it was read and to
-        /// nothing else, never an order, never printed.
-        pub ticket: Option<oneshot::Receiver<String>>,
-    }
-
-    /// Reads stdin until it closes: first the chair ticket when `ticket`
-    /// says one comes, then each line an order (a debug build's only; a
-    /// release build reads them and does nothing with them), and its end
-    /// the program letting go.
-    pub fn hold(ticket: bool) -> Held {
-        let (gone, let_go) = oneshot::channel();
-        let (send, orders) = mpsc::unbounded_channel();
-        let (ticket_in, ticket_out) = if ticket {
-            let (tx, rx) = oneshot::channel();
-            (Some(tx), Some(rx))
-        } else {
-            (None, None)
-        };
-        tokio::spawn(async move {
-            let mut lines = tokio::io::BufReader::new(tokio::io::stdin()).lines();
-            if let Some(ticket_in) = ticket_in {
-                // Taken whatever it is: an empty or closed stdin hands over
-                // an empty line, which is refused as no ticket.
-                let first = lines.next_line().await.ok().flatten().unwrap_or_default();
-                let _ = ticket_in.send(first);
-            }
-            let mut said = false;
-            while let Ok(Some(line)) = lines.next_line().await {
-                if line.trim().is_empty() {
-                    continue;
-                }
-                if !LIVE_CHANGES {
-                    if !said {
-                        say!("order refused: a release build changes no mind during a game");
-                        said = true;
-                    }
-                    continue;
-                }
-                if line.len() > ORDER_BYTES {
-                    say!("order refused: an order is one line of at most {ORDER_BYTES} bytes");
-                    continue;
-                }
-                let _ = send.send(line);
-            }
-            let _ = gone.send(());
-        });
-        Held {
-            let_go,
-            orders,
-            ticket: ticket_out,
-        }
-    }
-
-    /// Waits for the program to let go; forever when nothing holds the
-    /// bridge.
-    pub async fn let_go(held: Option<&mut oneshot::Receiver<()>>) {
-        match held {
-            Some(held) => {
-                let _ = held.await;
-            }
-            None => std::future::pending().await,
-        }
-    }
-}
+mod host_chair;
+mod tether;
 
 /// Every signal a process can be asked to stop by, registered with the
 /// operating system the moment this is built (`arm`), well before anything
@@ -1244,10 +1320,7 @@ async fn join_and_play(
     let show = (join.show || tally.is_some()).then(|| Arc::new(Mutex::new(Show::new())));
     let played = play_out(join, seated, show.clone(), keys, orders, &booked).await?;
     let booked = booked.lock().unwrap_or_else(PoisonError::into_inner).take();
-    let FallbackSpend {
-        booked: fallback_booked,
-        tally: fallback_tally,
-    } = std::mem::take(&mut *fallen.lock().unwrap_or_else(PoisonError::into_inner));
+    let fell_back = std::mem::take(&mut *fallen.lock().unwrap_or_else(PoisonError::into_inner));
     report(&played);
     if let Some(show) = show {
         let tally = tally.map(|t| t.lock().unwrap_or_else(PoisonError::into_inner).clone());
@@ -1255,18 +1328,28 @@ async fn join_and_play(
         for line in show.summary(&played.stats, tally.as_ref()) {
             say!("{line}");
         }
-        if let (Some(fell_back), Some(tally)) = (&played.fallback, fallback_tally) {
-            let tally = tally.lock().unwrap_or_else(PoisonError::into_inner).clone();
-            say!("the fallback {}: {}", fell_back.label, Show::spent(&tally));
+        for spend in &fell_back {
+            let tally = spend
+                .tally
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone();
+            say!("the fallback {}: {}", spend.label, Show::spent(&tally));
         }
     }
     if let Some(mut booked) = booked {
         booked.settle(spend::now()).map_err(anyhow::Error::msg)?;
         say!("the game is settled in the spend book");
     }
-    if let Some(mut booked) = fallback_booked {
-        booked.settle(spend::now()).map_err(anyhow::Error::msg)?;
-        say!("the fallback's game is settled in its spend book");
+    // Each fallback that took over reserved its game in its own book.
+    for spend in fell_back {
+        if let Some(mut booked) = spend.booked {
+            booked.settle(spend::now()).map_err(anyhow::Error::msg)?;
+            say!(
+                "the fallback {}'s game is settled in its spend book",
+                spend.label
+            );
+        }
     }
     Ok(())
 }
@@ -1283,8 +1366,8 @@ struct Seated {
     booked: Option<Booked>,
     think_secs: u64,
     declared: SeatMind,
-    /// A fallback profile standing by, if one does.
-    standby: Option<bridge::Standby>,
+    /// The fallback profiles standing by, in the order they take over.
+    standby: Vec<bridge::Standby>,
 }
 
 /// The name a chair played by `mind` signs in under: the prefix of what
@@ -1316,7 +1399,7 @@ fn room_takes_us(room: &Room, join: &Join, has_password: bool) -> anyhow::Result
     if room.locked && !has_password {
         bail!("the room {} is locked: give its --password", room.id);
     }
-    if let Some(secs) = room.clock.decide_secs.filter(|s| *s <= BLITZ_SECS)
+    if let Some(secs) = room.clock.decide_secs.filter(|s| is_blitz_clock(*s))
         && !join.allow_blitz
     {
         bail!(
@@ -1351,6 +1434,9 @@ async fn sit_down(
 ) -> anyhow::Result<Seated> {
     let profile = AIProfile::named(&join.level)
         .with_context(|| format!("no house level called «{}»", join.level))?;
+    if let Some(why) = join.fallback_files_fault() {
+        bail!(why);
+    }
     let Chosen {
         mind,
         label,
@@ -1359,6 +1445,7 @@ async fn sit_down(
         think_secs,
         note,
         declared,
+        named,
     } = choose(join, args, env, keys, profile, spend::now())?;
     if let Some(note) = note {
         say!("{note}");
@@ -1366,7 +1453,7 @@ async fn sit_down(
     if let Some(booked) = &booked {
         say!("{}", booked.sat_down());
     }
-    let standby = stand_by(join, &declared, args, env, keys, fallen);
+    let standby = stand_by(join, &declared, &named, args, env, keys, fallen);
     let display_name = display_name(join.name.as_deref(), &label, &*mind)?;
     let deck = match (&join.deck, &join.acceptance) {
         (Some(path), _) => Deck::from_file(path)?,
@@ -1379,6 +1466,7 @@ async fn sit_down(
         .unwrap_or_else(|| LOCAL_GATEWAY.to_string());
     let lobby = Lobby::new(&gateway);
     let (by, chair) = match ticket {
+        Some(ticket) if join.host_chair => host_chair::sit(join, &lobby, ticket, unstarted).await?,
         Some(ticket) => {
             let line = tokio::time::timeout(TICKET_WAIT, ticket)
                 .await
@@ -1398,7 +1486,7 @@ async fn sit_down(
                 by: by.clone(),
                 room: chair.game_id.clone(),
             });
-            if let Some(secs) = decide_secs.filter(|s| *s <= BLITZ_SECS)
+            if let Some(secs) = decide_secs.filter(|s| is_blitz_clock(*s))
                 && !join.allow_blitz
             {
                 bail!(
@@ -1409,6 +1497,7 @@ async fn sit_down(
             }
             (by, chair)
         }
+        None if join.host_chair => bail!("host chair credentials must come on stdin"),
         None => sit_as_guest(join, &lobby, &display_name, &deck, unstarted).await?,
     };
     say!(
@@ -1459,7 +1548,21 @@ async fn ready_and_wait(
         ),
     }
     match by {
-        Standing::Guest(session) => lobby.ready(session, &chair.game_id).await?,
+        Standing::Guest(session) => {
+            if let Err(refused) = lobby.ready(session, &chair.game_id).await {
+                // The gateway counts a host's own chair ready once it holds
+                // a deck, so the host may start the room before a bridge
+                // that took that chair (`--host-chair`) and is slow to
+                // start, a CLI, says so. The mind answered its check, so a
+                // room that is playing is one the chair plays in.
+                match lobby.room(session, &chair.game_id).await? {
+                    Some(room) if room.playing() => {
+                        say!("the room started before the chair said ready; it plays");
+                    }
+                    _ => return Err(refused),
+                }
+            }
+        }
         Standing::Delegated(chair) => lobby.chair_ready(chair).await?,
     }
     say!("the mind answered its check: the chair is ready");
@@ -1581,8 +1684,14 @@ async fn play_out(
     }
     let options = PlayOptions {
         min_think: Duration::from_millis(join.min_think_ms),
+        send_reports: !join.no_send_reports,
         ..PlayOptions::default()
     };
+    // A language model's lookups of a card this build does not play go to
+    // this gateway's catalog, under the seat's own session, where it has one.
+    if let Some(session) = seated.by.session() {
+        baylee_seat::lookup::Library::shared().seat_at(seated.lobby.base(), session);
+    }
     let mut link = SeatLink::new(seated.lobby, seated.chair, seated.by.session());
     let played = bridge::play_swapping(
         &mut link,
@@ -1595,6 +1704,10 @@ async fn play_out(
     )
     .await?;
     transcript.write_value(&serde_json::json!({ "summary": played.stats }));
+    // How each fallback profile that took over played, in that order.
+    if !played.fallbacks.is_empty() {
+        transcript.write_value(&serde_json::json!({ "fell_back": played.fallbacks }));
+    }
     transcript.flush();
     Ok(played)
 }
@@ -1754,9 +1867,9 @@ fn report(played: &bridge::Played) {
 }
 
 /// The line a game ends with: how it ended, who answered how often, and,
-/// where a fallback profile took over, how often it answered from which
-/// turn (`…; the fallback (backup) answered 12 from turn 3`). A seat
-/// agent keeps it in its operator's log.
+/// for each fallback profile that took over, in that order, how often it
+/// answered from which turn (`…; the fallback (backup) answered 12 from
+/// turn 3`). A seat agent keeps it in its operator's log.
 fn summary_line(played: &bridge::Played) -> String {
     let stats = &played.stats;
     let outcome = match stats.outcome {
@@ -1766,16 +1879,14 @@ fn summary_line(played: &bridge::Played) -> String {
         None if played.result.is_none() => "the room closed without a result",
         None => "ended",
     };
-    let fallback = played
-        .fallback
-        .as_ref()
-        .map(|fell| {
-            format!(
-                "; the fallback ({}) answered {} from turn {}",
-                fell.label, fell.answered, fell.turn
-            )
-        })
-        .unwrap_or_default();
+    let mut fallback = String::new();
+    for fell in &played.fallbacks {
+        let _ = write!(
+            fallback,
+            "; the fallback ({}) answered {} from turn {}",
+            fell.label, fell.answered, fell.turn
+        );
+    }
     format!(
         "{outcome} after {} turns: {} questions, {} answered by standing orders, {} wakes \
          and {} payment steps, {} questions in a plan; the mind answered {}, the house {}, the least answer {}; \

@@ -9,19 +9,18 @@
 //!
 //! [`row_visual`] survived the move: a step's glyph and its three letters are
 //! the same wherever a step is drawn, and the seat bar reads them from here.
-//! So did [`light_the_current_step`] and [`flash_the_designation`], and the
-//! two are no longer in the same state. The bar has its **baton**:
-//! `seatbar::tile` spawns a [`PhaseNow`] on the current step's tile of the
-//! seat whose turn it is, so `light_the_current_step` runs over a real query
-//! and the ease is on screen. The **hinge-light** is not written, so nothing
-//! spawns a [`Designation`] outside a test and `flash_the_designation` still
-//! runs over an empty one.
-//!
-//! Both were kept for the same reason, and it is the reason that outlived the
-//! rail: what they know is not where the strip was — it is that a light
-//! eased from zero at spawn *is* the transition when the tree is rebuilt
-//! whole, and that a flash anchored to an entity restarts every time the
-//! pointer moves. Their tests spawn the markers by hand and hold both.
+//! So did the two eased lights. The **step light** is the bar's baton: the
+//! bars draw the step the table's pace shows ([`pace_the_steps`], held a
+//! while per step so a person can follow the turn going round), and
+//! [`glow_the_steps`] fades the gold off the step left and onto the step
+//! shown. It keeps the light by seat and step ([`super::StepLights`]), off
+//! the tiles, because the bars are rebuilt whole with every step: a light
+//! eased from zero at spawn arrived on the new tile and died at once on the
+//! old (29.10.2026). The **hinge-light** is not written, so nothing spawns a
+//! [`Designation`] outside a test and [`flash_the_designation`] still runs
+//! over an empty query; a flash anchored to an entity restarts every time
+//! the pointer moves, which is what it keeps the last value against. Their
+//! tests spawn the markers by hand.
 
 #[allow(clippy::wildcard_imports)] // the HUD's own vocabulary
 use super::*;
@@ -71,9 +70,9 @@ const FLASH_DECAY: f32 = 3.0;
 
 /// Marks a change of designation with a brief light around the block.
 ///
-/// It writes the border and the shadow and leaves the background alone, for
-/// [`light_the_current_step`]'s reason: two systems writing one component is
-/// a fight the frame order decides. The decay is anchored to the change
+/// It writes the border and the shadow and leaves the background alone,
+/// because `Feel` owns that one, and two systems writing one component is a
+/// fight the frame order decides. The decay is anchored to the change
 /// rather than to the entity's birth, so a HUD rebuilt mid-decay — which the
 /// pointer does constantly — picks the flash up where it was instead of
 /// starting it again.
@@ -125,79 +124,197 @@ pub fn flash_the_designation(
     }
 }
 
-/// How fast the current step's button lights up, per second.
-///
-/// The same exponential the camera and the lobby's buttons use, at a rate
-/// that puts the light at about nine tenths after a quarter of a second: long
-/// enough to read as a movement, short enough that a player pressing through
-/// four steps in a row is never waiting for the rail to catch up.
-const LIGHT_RATE: f32 = 9.0;
+/// How fast the step light comes onto a tile and leaves the one before, per
+/// second: about nine tenths of the way in 0.65 s, so the light is seen to
+/// pass from step to step at the pace `phasepace::STEP_HOLD` holds each one
+/// (owner, 29.10.2026: slower, smooth, followable); it leaves at twice the
+/// rate. It used to arrive in a quarter of a second, and leave in none: the
+/// old tile went with the tree.
+const LIGHT_RATE: f32 = 3.5;
 
 /// How far the light around the current step's button reaches, and how far it
 /// stands off the button's own edge.
 const NOW_GLOW: f32 = 10.0;
 const NOW_SPREAD: f32 = 2.0;
 
-/// Lights the step the game is in.
-///
-/// A system rather than a colour written at build time, because the HUD tree
-/// is rebuilt whole whenever anything in [`HudRevision`] changes — a step
-/// change is one of those, so the new button is *born* current and the old
-/// one no longer exists. Easing from zero at spawn is therefore exactly the
-/// transition: the light arrives on the new step over a quarter of a second
-/// instead of cutting there.
-///
-/// It writes the border and the shadow and leaves the background alone,
-/// because [`Feel`] owns that one and two systems writing the same component
-/// is a fight the frame order decides.
-pub fn light_the_current_step(
+/// Follows the view's step with the table's pace ([`super::StepPace`]):
+/// each step a view stood in is shown for a while before the next, briefly
+/// while this seat must answer, and reduced motion goes straight to the
+/// step.
+/// Writes only when what is shown changes; a new game, or a replay that went
+/// back, starts over.
+pub fn pace_the_steps(
     time: Res<Time>,
     duel: Option<Res<Duel>>,
-    mut transition: Local<Option<(u32, baylee_view::Step, f32)>>,
     prefs: Option<Res<crate::prefs::Prefs>>,
-    mut steps: Query<(&mut PhaseNow, &mut BorderColor, &mut BoxShadow)>,
+    mut pace: ResMut<super::StepPace>,
+) {
+    let Some(view) = duel.as_ref().and_then(|d| d.view.as_ref()) else {
+        return;
+    };
+    let seen = baylee_client_core::phasepace::Shown {
+        turn: view.turn,
+        active: view.active,
+        phase: view.phase,
+        step: view.step,
+    };
+    // A replay that went back, or jumped turns ahead, is a new place, not a
+    // turn going round: shown at once.
+    if pace
+        .0
+        .shown()
+        .is_some_and(|shown| shown.turn > seen.turn || seen.turn > shown.turn + 1)
+    {
+        pace.0.reset();
+    }
+    let asked = view.awaiting == Some(view.seat);
+    let still = prefs.is_some_and(|p| p.all().reduce_motion);
+    let quiet = pace.bypass_change_detection();
+    if quiet.0.follow(time.elapsed_secs(), seen, asked, still) {
+        pace.set_changed();
+    }
+}
+
+/// The view the seat bars are built from: the view, standing in the step,
+/// phase, turn and active seat the table's pace shows. `None` when the pace
+/// shows the view's own.
+#[must_use]
+pub(super) fn paced(view: &PlayerView, pace: &super::StepPace) -> Option<PlayerView> {
+    let shown = pace.0.shown()?;
+    let own = shown.turn == view.turn
+        && shown.active == view.active
+        && shown.phase == view.phase
+        && shown.step == view.step;
+    (!own).then(|| PlayerView {
+        turn: shown.turn,
+        active: shown.active,
+        phase: shown.phase,
+        step: shown.step,
+        ..view.clone()
+    })
+}
+
+/// Lights the step the table shows, and lets the light go from the step it
+/// left.
+///
+/// The bars are rebuilt whole with every step, so a light that lived on the
+/// tile was born at nothing on the new step and died at once on the old.
+/// The light lives here instead ([`super::StepLights`], by seat and step),
+/// eases up on the step shown and down on every other, and every part that
+/// wears it is written from it, a rebuilt one on the frame it appears: the
+/// tile's glow and frame ([`super::StepGlow`]), the gold under its glyph
+/// ([`super::StepFill`]) and its ink ([`super::StepInk`]), so the gold
+/// passes from tile to tile instead of jumping. Only a step that grants
+/// priority is lit, as only those were gold (CR 502.4, CR 514.3a). Every
+/// write is compared first, and once every light has settled nothing is
+/// written at all.
+///
+/// The tile's own background is left alone, because [`Feel`] owns that one
+/// and two systems writing the same component is a fight the frame order
+/// decides; the gold is a child's.
+#[allow(clippy::type_complexity)] // a tile's parts, each written apart
+pub fn glow_the_steps(
+    time: Res<Time>,
+    pace: Res<super::StepPace>,
+    prefs: Option<Res<crate::prefs::Prefs>>,
+    mut lights: ResMut<super::StepLights>,
+    mut tiles: Query<(&super::StepGlow, &mut BorderColor, &mut BoxShadow)>,
+    mut fills: Query<(&super::StepFill, &mut BackgroundColor)>,
+    mut inks: Query<
+        (
+            &super::StepInk,
+            Option<&mut TextColor>,
+            Option<&mut BackgroundColor>,
+        ),
+        Without<super::StepFill>,
+    >,
 ) {
     let still = prefs.is_some_and(|p| p.all().reduce_motion);
-    let step = if still {
-        1.0
-    } else {
-        1.0 - (-LIGHT_RATE * time.delta_secs()).exp()
+    let shown = pace
+        .0
+        .shown()
+        .filter(|s| s.row().grants_priority())
+        .map(|s| (s.active, s.row()));
+    let ease = |rate: f32| {
+        if still {
+            1.0
+        } else {
+            1.0 - (-rate * time.delta_secs()).exp()
+        }
     };
-    let anchored = duel
-        .as_ref()
-        .and_then(|duel| duel.view.as_ref())
-        .map(|view| {
-            let changed =
-                transition.is_none_or(|(turn, phase, _)| turn != view.turn || phase != view.step);
-            if changed {
-                *transition = Some((view.turn, view.step, time.elapsed_secs()));
-            }
-            let at = transition
-                .as_ref()
-                .map_or(time.elapsed_secs(), |(_, _, at)| *at);
-            if still {
-                1.0
-            } else {
-                1.0 - (-LIGHT_RATE * (time.elapsed_secs() - at)).exp()
-            }
-        });
-    for (mut now, mut border, mut shadow) in &mut steps {
-        if now.lit >= 1.0 {
-            continue;
+    // The light leaves twice as fast as it comes: at the pace's hold a step
+    // left still glowed when the next was lit, and the gold trailed three
+    // tiles behind the step shown (recorded 30.10.2026).
+    let (coming, going) = (ease(LIGHT_RATE), ease(2.0 * LIGHT_RATE));
+    let quiet = lights.bypass_change_detection();
+    if let Some(key) = shown {
+        quiet.lit.entry(key).or_insert(0.0);
+    }
+    let mut moved = false;
+    quiet.lit.retain(|key, lit| {
+        let target = if Some(*key) == shown { 1.0 } else { 0.0 };
+        let factor = if target > *lit { coming } else { going };
+        let next = *lit + (target - *lit) * factor;
+        let next = if (next - target).abs() < 1e-3 {
+            target
+        } else {
+            next
+        };
+        if (next - *lit).abs() > f32::EPSILON {
+            moved = true;
+            *lit = next;
         }
-        now.lit = anchored.unwrap_or_else(|| (now.lit + (1.0 - now.lit) * step).min(1.0));
-        if now.lit > 0.999 {
-            now.lit = 1.0;
+        target > 0.0 || *lit > 0.0
+    });
+    if moved {
+        lights.set_changed();
+    }
+    let lit = |key| lights.lit.get(&key).copied().unwrap_or(0.0);
+    for (glow, mut border, mut shadow) in &mut tiles {
+        let on = lit((glow.player, glow.row));
+        let want = BorderColor::all(crate::ambience::blend(glow.frame, palette::ACTIVE, on));
+        if *border != want {
+            *border = want;
         }
-        let mut tone = palette::ACTIVE.to_srgba();
-        tone.alpha = now.lit;
-        *border = BorderColor::all(Color::from(tone));
-        if let Some(first) = shadow.first_mut() {
-            let mut glow = palette::ACTIVE.to_srgba();
-            glow.alpha = 0.55 * now.lit;
-            first.color = Color::from(glow);
-            first.blur_radius = Val::Px(NOW_GLOW * now.lit);
-            first.spread_radius = Val::Px(NOW_SPREAD * now.lit);
+        let mut light = palette::ACTIVE.to_srgba();
+        light.alpha = 0.55 * on;
+        let colour = Color::from(light);
+        let blur = Val::Px(NOW_GLOW * on);
+        let spread = Val::Px(NOW_SPREAD * on);
+        if let Some(first) = shadow.first()
+            && (first.color != colour || first.blur_radius != blur || first.spread_radius != spread)
+            && let Some(first) = shadow.first_mut()
+        {
+            first.color = colour;
+            first.blur_radius = blur;
+            first.spread_radius = spread;
+        }
+    }
+    for (fill, mut ground) in &mut fills {
+        let mut gold = palette::ACTIVE.to_srgba();
+        gold.alpha *= lit(fill.0);
+        let want = Color::from(gold);
+        if ground.0 != want {
+            ground.0 = want;
+        }
+    }
+    // The glyph and the label are text, the stop accent a node. A text
+    // node has a ground of its own too (every `Node` does), which must stay
+    // clear: inked, the glyph and the label were solid blocks.
+    for (ink, text, ground) in &mut inks {
+        let want = crate::ambience::blend(ink.rest, palette::PARCHMENT_INK, lit(ink.key));
+        match (text, ground) {
+            (Some(mut text), _) => {
+                if text.0 != want {
+                    text.0 = want;
+                }
+            }
+            (None, Some(mut ground)) => {
+                if ground.0 != want {
+                    ground.0 = want;
+                }
+            }
+            (None, None) => {}
         }
     }
 }

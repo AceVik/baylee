@@ -11,6 +11,25 @@ static CREATURE_WITHOUT_FLYING: Filter = Filter::And(&[Filter::CREATURE, Filter:
 static TARGETS_MINE: Filter = Filter::TargetsPermanentYouControl;
 static ACTIVATED_FROM_ARTIFACT: Filter = Filter::ActivatedAbilityFrom(&Filter::ARTIFACT);
 
+#[test]
+fn source_damage_history_stays_unknown_even_with_marked_damage() {
+    for damage in [0, 3] {
+        let mut object = printed(1, 0, "Damage history fixture", 1);
+        object.damage = damage;
+        let view = ViewBuilder::new(2)
+            .with_battlefield(0, vec![object.clone()])
+            .build();
+        for filter in [
+            &Filter::DealtDamageToSourceThisTurn,
+            &Filter::DealtDamageBySourceThisTurn,
+        ] {
+            assert_eq!(matches(&view, &object, filter), None);
+            assert_eq!(matches(&view, &object, &Filter::Not(filter)), None);
+            assert_eq!(legal_targets(&view, &TargetSpec::Object(filter)), None);
+        }
+    }
+}
+
 fn spell(targets: Vec<TargetRef>) -> PublicObject {
     let mut spell = printed(3, 1, "Stack fixture", 3);
     spell.types = TypeSet::INSTANT;

@@ -32,6 +32,36 @@ and `docs/card-identity.md` (indices and who may write what).
 - DSL facts: `Effect::AddMana` takes `Amount`/`combination` (`mana_dynamic`, `mana_choice_dynamic`, `mana_combination`). `.restricted(filter, rider)` is "Spend this mana only…"; a rider without "only" is `.when_spent(filter, rider)`: ordinary mana (CR 106.6) whose rider fires once per unit spent on a matching spell (106.6a). `DB$ Sacrifice` is `SacrificeSelf`; with `UnlessCost$`, `Effect::PlayerMayPayCostOr` (one `CostPart`; naming none declines). `cost_expr` (scriptgen) turns cost spellings (`Sac`, `tapXType`, …) into `CostPart`s; check it before blaming `cost_wizard`. `ChangeTypeDesc$` is claimed via `Params::claim_label` beside `ChangeType$`. Library search: `Optional$` = up to, `Mandatory$ True` = must, neither = refused.
 - In a trigger `Amount::X` is `x.unwrap_or(0)`; `Tx::has_x` is per rules line. `S: Mode$ Continuous` becomes one `static_ability!` per layer.
 - `stubgen::STUB_MARKER`/`OWNED_MARKER` files are rewritten every run; files with neither are hand-written, untouched. Fix wrong output in the reader, never the card. Only `stubgen::is_machine_owned` asks; never retype the markers. `validate` prints the hand-owned/machine-owned/stub split; watch it.
+- After a reader gains an adopted card's complete rules,
+  `cargo run -p xtask -- codegen --reclaim "<name>" --scripts <upstream-cardsfolder> --check`
+  previews returning that named card to generator ownership. Repeat `--reclaim`
+  for a small explicit selection. Every selected card must already be
+  `Implemented`, fully transcode, retain its ledger identity, cached pinned
+  printing and canonical path, and have accepted tests at its own path.
+  All selected outputs are planned and every source is rechecked before the
+  first card write. Omit `--check` to apply the reviewed selection; no downloads,
+  other cards, registries or tables are written. A pending preview exits nonzero.
+  Regenerate compiled tables separately with `codegen --tables`, then test and
+  validate the generated definitions. Never restore ownership markers by hand.
+- When a reader fully handles an existing machine-owned stub,
+  `cargo run -p xtask -- codegen --complete-stub "<name>" --scripts <upstream-cardsfolder> --check`
+  previews just that stub's normal generator output. Repeat `--complete-stub`
+  for an explicit selection. Only unfinished `GENERATED STUB` sources qualify;
+  hand-owned, Partial and already completed generated cards are refused.
+  Coverage is `Generated` without accepted canonical tests and `Implemented`
+  with them; an existing test hold prevents promotion. Like `--reclaim`, it
+  pins the cached printing, Oracle ID, ledger index and canonical path, plans
+  the whole selection and rechecks every original before the first write.
+  Omit `--check` only after reviewing the complete preview. This mode never
+  downloads, adopts cards, changes other cards, or regenerates tables/registries.
+  A completed output is no longer an input to this stub-only mode.
+- A reviewed unsafe hand-owned implementation can be restored only through
+  `cargo run -p xtask -- codegen --hold-back "<name>" --hold-back-reason "<finding>"`
+  (repeat names or pass `--hold-back-file`). This narrow mode needs cached
+  pinned printings, never the corpus; it writes only selected canonical stubs
+  with no abilities or coverage claim and records the reason. It refuses
+  finished machine-owned cards, whose reader must be fixed instead. Regenerate
+  compiled tables separately with `codegen --tables`.
 - `cross-read` is a report (disagreement ≠ defect), blind to costs.
 
 ## Writing a card

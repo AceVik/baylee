@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/M21/stomp-stomp.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, StompStomp_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Stomp, Stomp (Adapted)]
+3 Almighty Brushwagg
+4 Colossal Might
+10 Forest
+4 Ground Assault
+4 Guttural Response
+4 Manamorphose
+9 Mountain
+3 Rampart Smasher
+4 Rugged Highlands
+4 Savage Twister
+2 Scorching Dragonfire
+4 Stump Stomp
+4 Surge of Strength
+1 Temple of Abandon

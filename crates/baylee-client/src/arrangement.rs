@@ -591,8 +591,12 @@ pub fn sync_switcher(
     settings: Option<Res<crate::settings::ClientSettings>>,
     mut revision: ResMut<SwitcherRevision>,
     standing: Query<Entity, SwitcherParts>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
-    let up = phase.is_some_and(|p| matches!(p.get(), DuelPhase::Playing | DuelPhase::Finished));
+    // Down while the settings cover the table (`lobby::table_settings`):
+    // the pill stands over their root, where their nav's Back is.
+    let up = phase.is_some_and(|p| matches!(p.get(), DuelPhase::Playing | DuelPhase::Finished))
+        && !crate::lobby::table_settings::covers_the_table(lobby.as_deref());
     let Some(fonts) = fonts.filter(|_| up) else {
         for e in &standing {
             commands.entity(e).despawn();
@@ -709,7 +713,20 @@ fn spawn_pill(
     commands.entity(pill).add_child(caret);
 }
 
-/// A placeholder pictogram: the arrangement's letter in a ring (§7.6).
+/// An icon pictogram for each arrangement in a ring (§7.6).
+const fn arrangement_glyph(arrangement: Arrangement) -> char {
+    match arrangement {
+        Arrangement::Ring => crate::hud::glyph::FRIENDS,
+        Arrangement::UprightRing => crate::hud::glyph::EXPAND,
+        Arrangement::Turntable => crate::hud::glyph::RESTORE,
+        Arrangement::TurntableRows => crate::hud::glyph::VIEW_ROWS,
+        Arrangement::Spotlight => crate::hud::glyph::EYE,
+        Arrangement::Pods => crate::hud::glyph::VIEW_GRID,
+        Arrangement::ArcRail => crate::hud::glyph::VIEW_BIG,
+        Arrangement::FocusRing => crate::hud::glyph::MAGNIFIER,
+    }
+}
+
 fn letter_disc(
     commands: &mut Commands,
     fonts: &UiFonts,
@@ -731,8 +748,8 @@ fn letter_disc(
             BorderColor::all(ink),
             Pickable::IGNORE,
             children![(
-                Text::new(arrangement.letter().to_string()),
-                tf_bold(fonts, 11.0),
+                Text::new(arrangement_glyph(arrangement).to_string()),
+                crate::hud::icon_tf(fonts, 9.5),
                 TextColor(ink),
                 Pickable::IGNORE,
             )],
@@ -828,25 +845,16 @@ fn spawn_menu(commands: &mut Commands, fonts: &UiFonts, lang: Lang, look: MenuLo
     commands.entity(panel).add_child(rule);
     let remember = remember_row(commands, fonts, lang, look);
     commands.entity(panel).add_child(remember);
-    let note = commands
-        .spawn((
-            Text::new(Phrase::ArrLettersNote.text(lang)),
-            tf(fonts, 11.0),
-            TextColor(palette::DIALOG_SOFT),
-            Node {
-                margin: UiRect::top(px(4.0)),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(panel).add_child(note);
     if !look.phone {
         let hint = commands
             .spawn((
                 Text::new(Phrase::ArrKeysHint.text(lang)),
                 tf(fonts, 11.0),
                 TextColor(palette::DIALOG_SOFT),
+                Node {
+                    margin: UiRect::top(px(4.0)),
+                    ..default()
+                },
                 Pickable::IGNORE,
             ))
             .id();
@@ -1099,15 +1107,50 @@ pub fn flash_the_pill(
     }
 }
 
+/// Drops the table's arrangement switcher, peeks and hand tab when returning
+/// to the lobby (`DuelPhase::Closed`), so their root-level `GlobalZIndex`
+/// nodes never linger over the lobby header.
+#[allow(clippy::type_complexity)]
+fn teardown(
+    mut commands: Commands,
+    mut measured: ResMut<ArrangementFrame>,
+    mut switcher_rev: ResMut<SwitcherRevision>,
+    mut peeks_rev: ResMut<crate::hud::peeks::PeeksRevision>,
+    mut tab_rev: ResMut<crate::hud::hand_drawer::HandTabRevision>,
+    standing: Query<
+        Entity,
+        Or<(
+            With<ArrangementPill>,
+            With<ArrangementPanel>,
+            With<ArrangementVeil>,
+            With<crate::hud::peeks::PeekColumn>,
+            With<crate::hud::hand_drawer::HandTab>,
+        )>,
+    >,
+) {
+    for entity in &standing {
+        commands.entity(entity).despawn();
+    }
+    *measured = ArrangementFrame::default();
+    *switcher_rev = SwitcherRevision::default();
+    *peeks_rev = crate::hud::peeks::PeeksRevision::default();
+    *tab_rev = crate::hud::hand_drawer::HandTabRevision::default();
+}
+
 /// Registers the switcher's systems. Its own call, because the present
 /// tuple is at bevy's twenty.
 pub fn plugin(app: &mut App) {
+    // Final hand placement belongs after every HUD spawn, not beside the
+    // switcher: a rebuilt folded hand must never spend a frame at its default
+    // open transform.
+    crate::hud::hand_drawer::register(app);
     app.init_resource::<ArrangementFrame>()
         .init_resource::<crate::table::GlideReport>()
         .init_resource::<SwitcherRevision>()
         .init_resource::<crate::hud::peeks::PeeksRevision>()
         .init_resource::<crate::hud::hand_drawer::HandTabRevision>()
-        .init_resource::<crate::hud::hand_drawer::TabPress>();
+        .init_resource::<crate::hud::hand_drawer::TabPress>()
+        .add_systems(OnEnter(DuelPhase::Closed), teardown);
     app.add_systems(
         Update,
         (
@@ -1134,7 +1177,6 @@ pub fn plugin(app: &mut App) {
             flash_the_pill.after(sync_switcher),
             crate::hud::peeks::sync_peeks,
             crate::hud::hand_drawer::sync_hand_tab,
-            crate::hud::hand_drawer::slide_the_hand.after(crate::hud::hand_drawer::sync_hand_tab),
         )
             .in_set(crate::DuelSet::Present)
             .run_if(not(in_state(DuelPhase::Closed))),

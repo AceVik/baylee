@@ -1,0 +1,21 @@
+# baylee curated constructed midrange seed=20261062
+# licence: AGPL-3.0-only
+[deck:constructed midrange BG #20261062]
+1 Abundant Countryside
+1 Ally Encampment
+4 Beast Whisperer
+4 Briarknit Kami
+2 Easy Prey
+10 Forest
+4 Freyalise's Charm
+2 Gallifrey Council Chamber
+2 Great Hall of the Biblioplex
+2 Locust Spray
+3 Nether Void
+4 Night's Whisper
+3 Overgrown Tomb
+3 Primordial Sage
+3 Profane Tutor
+3 Royal Assassin
+5 Swamp
+4 Verduran Enchantress

@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/EXO/dominator-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DominatorAdvancedDeck_EXO.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dominator - Advanced Deck (Adapted)]
+2 Chant of the Skifsang
+4 Counterspell
+1 Erratic Portal
+1 Favorable Winds
+2 Fellwar Stone
+2 Force Spike
+2 Impulse
+17 Island
+3 Man-o'-War
+4 Mana Leak
+2 Part Water
+1 Power Sink
+2 Regress
+2 Suq'Ata Firewalker
+3 Undiscovered Paradise
+4 Unexplained Disappearance
+4 Wasteland
+4 Winter Orb

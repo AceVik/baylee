@@ -1,22 +1,16 @@
-//! Authentication, done to current best practice:
+//! Sessions, done to current best practice. No password is checked here:
+//! accounts sign in at Baylee Central, and the legacy accounts' hashes went
+//! to Central's legacy store at the cutover (`docs/central-login.md`).
 //!
-//! - Passwords are hashed with **Argon2id** (memory-hard, PHC strings).
 //! - Bearer tokens are 256 bits from the OS CSPRNG, stored **only as
 //!   SHA-256 hashes** (the DB never holds a usable token), 12 h expiry
 //!   with sliding renewal; 30 days for a guest's, whose session is the
 //!   whole of its account ([`Lifetime`]).
-//! - Login errors are identical for unknown users and wrong passwords,
-//!   and unknown-user attempts verify against a fixed dummy hash so
-//!   response timing doesn't leak account existence.
-//! - Sliding-window rate limiters throttle the auth endpoints. Signing in
-//!   is counted per **account**, however it was named (#269), and the rest
-//!   per IP; `RateLimiter` holds the window and the count and the caller
-//!   says what a key is.
+//! - Sliding-window rate limiters throttle the public doors per IP (and a
+//!   closed beta's key tries); `RateLimiter` holds the window and the count
+//!   and the caller says what a key is.
 //! - All secret comparisons are constant-time (`subtle`).
 
-use argon2::Argon2;
-use argon2::password_hash::phc::PasswordHash;
-use argon2::{PasswordHasher, PasswordVerifier};
 use parking_lot::Mutex;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -84,47 +78,6 @@ impl Lifetime {
     }
 }
 
-/// Hash a password for storage (Argon2id, random salt).
-///
-/// # Panics
-/// Only when the OS RNG is unavailable (unrecoverable anyway).
-#[must_use]
-pub fn hash_password(password: &str) -> String {
-    // The salt is the library's own since password-hash 0.6:
-    // `PasswordHasher::hash_password` draws `RECOMMENDED_SALT_LEN` bytes
-    // from the OS CSPRNG itself, which is why this no longer reaches for
-    // `getrandom` and a `SaltString` (the type is gone).
-    let hash: PasswordHash = Argon2::default()
-        .hash_password(password.as_bytes())
-        .expect("argon2 hashing works");
-    hash.to_string()
-}
-
-/// Argon2id hash of a fixed password, computed once with the **same**
-/// parameters as a real one, because it is computed the same way.
-///
-/// A hard-coded literal drifted out of sync once already (m=65536,t=3
-/// against m=19456,t=2) and made an unknown user measurably *slower* to
-/// refuse than a real one — the exact leak the dummy is there to close.
-/// Calling [`hash_password`] is what makes that impossible rather than
-/// unlikely, and it is a `static` rather than a local so that a test can say
-/// so out loud.
-static DUMMY: std::sync::LazyLock<String> =
-    std::sync::LazyLock::new(|| hash_password("dummy-password"));
-
-/// Verify a password against a stored PHC hash. Unknown users verify
-/// against a fixed dummy hash to equalize timing.
-#[must_use]
-pub fn verify_password(stored: Option<&str>, password: &str) -> bool {
-    let phc = stored.unwrap_or(&DUMMY);
-    let Ok(parsed) = PasswordHash::new(phc) else {
-        return false;
-    };
-    Argon2::default()
-        .verify_password(password.as_bytes(), &parsed)
-        .is_ok()
-}
-
 /// SHA-256 of a token, as the thirty-two bytes it is — the only form stored.
 ///
 /// The database column is `bytea`, so nothing encodes on the way in and
@@ -189,12 +142,6 @@ pub struct IssuedToken {
 }
 
 impl IssuedToken {
-    /// Issue a fresh token.
-    #[must_use]
-    pub fn new() -> Self {
-        Self::lasting(Lifetime::ACCOUNT)
-    }
-
     /// Issue a fresh token that lives as long as `lifetime` says.
     #[must_use]
     pub fn lasting(lifetime: Lifetime) -> Self {
@@ -339,41 +286,6 @@ pub fn valid_display_name(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
-/// Input validation for passwords (hygiene, not a strength meter):
-/// length, not the username or the display name, and not a top common
-/// password.
-#[must_use]
-pub fn valid_password(username: &str, display_name: &str, password: &str) -> bool {
-    const COMMON: &[&str] = &[
-        "password",
-        "password1",
-        "12345678",
-        "123456789",
-        "1234567890",
-        "qwerty123",
-        "letmein123",
-        "iloveyou",
-        "dragon123",
-        "master123",
-        "monkey123",
-        "abc12345",
-    ];
-    // Eight, which is what NIST SP 800-63B asks for, rather than the ten this
-    // started at. The bound that matters is the upper one (a hash is not a
-    // place to put a megabyte) and the checks below it; a longer minimum buys
-    // very little against an offline attack on an Argon2id hash and costs a
-    // real player a rejected password on a game account.
-    if !(8..=256).contains(&password.len()) {
-        return false;
-    }
-    // Either name in any case: the username is half of the credential, and
-    // the display name is on every table the player sits at.
-    if password.eq_ignore_ascii_case(username) || password.eq_ignore_ascii_case(display_name) {
-        return false;
-    }
-    !COMMON.iter().any(|c| password.eq_ignore_ascii_case(c))
-}
-
 /// A fresh `UUIDv7` for something that lives only in this process.
 ///
 /// A game, a room and an agent are named by one of these, and none of them
@@ -386,9 +298,52 @@ pub fn new_id() -> String {
     Uuid::now_v7().to_string()
 }
 
+/// A password hashed as this gateway hashed them (Argon2id under argon2's
+/// defaults, a PHC string): for the cutover export's tests, which must parse
+/// the gateway's own hashes.
+#[cfg(test)]
+pub fn hash_password(password: &str) -> String {
+    use argon2::{Argon2, PasswordHasher, password_hash::phc::PasswordHash};
+    let hash: PasswordHash = Argon2::default()
+        .hash_password(password.as_bytes())
+        .expect("argon2 hashing works");
+    hash.to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The table of cases baylee-central's `central_api::profile` tests too:
+    /// Central keeps the same rule for the names the bridge carries and the
+    /// ones people choose there, and refuses a name that breaks it.
+    const SHARED_NAMES: [(&str, bool); 13] = [
+        ("Alice", true),
+        ("player_one-99", true),
+        ("ab", false),
+        ("has space", false),
+        ("emoji🎉", false),
+        ("sixteen_chars_yz", true),
+        ("seventeen_chars_x", false),
+        ("alice@example.com", false),
+        ("Alice#af03", false),
+        ("_Alice", false),
+        ("Alice-", false),
+        ("abc", true),
+        ("a_-b", true),
+    ];
+
+    #[test]
+    fn the_display_name_rule_is_centrals() {
+        for (name, valid) in SHARED_NAMES {
+            assert_eq!(valid_display_name(name), valid, "{name}");
+            assert_eq!(
+                central_api::profile::valid_display_name(name),
+                valid,
+                "Central reads {name} as this gateway does"
+            );
+        }
+    }
 
     #[test]
     fn display_name_validation() {
@@ -407,40 +362,6 @@ mod tests {
         // Dressing a name up as somebody else's with a separator on the end.
         assert!(!valid_display_name("_Alice"));
         assert!(!valid_display_name("Alice-"));
-    }
-
-    #[test]
-    fn password_rules() {
-        assert!(valid_password(
-            "wonderland",
-            "Alice",
-            "a-very-fine-password"
-        ));
-        assert!(!valid_password("wonderland", "Alice", "short"));
-        // Eight is the floor, and seven is under it.
-        assert!(valid_password("wonderland", "Alice", "8charact"));
-        assert!(!valid_password("wonderland", "Alice", "7chars!"));
-        // Neither name, in any case, and each long enough that the length
-        // is not what refuses it.
-        assert!(!valid_password("wonderland", "Alice", "WonderLand"));
-        assert!(!valid_password("wonderland", "Rabbit_hole", "rabbit_HOLE"));
-        assert!(valid_password("wonderland", "Rabbit_hole", "wonderland2"));
-        assert!(!valid_password("wonderland", "Alice", "password"));
-    }
-
-    #[test]
-    fn hash_and_verify_roundtrip() {
-        let hash = hash_password("a-very-fine-password");
-        assert!(hash.starts_with("$argon2id$"));
-        assert!(verify_password(Some(&hash), "a-very-fine-password"));
-        assert!(!verify_password(Some(&hash), "wrong-password-xx"));
-    }
-
-    #[test]
-    fn unknown_user_verifies_against_dummy_without_leaking() {
-        // Unknown e-mail: dummy-hash path returns false (and costs the
-        // same work, so timing doesn't leak account existence).
-        assert!(!verify_password(None, "a-very-fine-password"));
     }
 
     /// A session is renewed once its interval has passed since the last
@@ -503,39 +424,6 @@ mod tests {
         assert!(
             !limiter.allow("d@e.f"),
             "somebody else's count is untouched"
-        );
-    }
-
-    /// **The dummy an unknown user is refused against costs what a real one
-    /// costs**, which is the whole of what it is for: the work has to be the
-    /// same or the refusal is faster and the timing says the account does
-    /// not exist.
-    ///
-    /// A hard-coded literal drifted once already — m=65536,t=3 against
-    /// m=19456,t=2 — and made the unknown user the *slower* of the two.
-    /// Computing it through `hash_password` is what closed that, and this is
-    /// the assertion that says so rather than leaving it to a reader to
-    /// notice.
-    #[test]
-    fn an_unknown_user_is_refused_against_a_hash_that_cost_what_a_real_one_costs() {
-        let real = PasswordHash::new(&hash_password("a-very-fine-password"))
-            .expect("a hash this crate just wrote");
-        let dummy = PasswordHash::new(&DUMMY).expect("and the one it refuses with");
-
-        assert_eq!(real.algorithm.as_str(), dummy.algorithm.as_str());
-        assert_eq!(
-            real.params.to_string(),
-            dummy.params.to_string(),
-            "the work an unknown user costs is the work a real one costs"
-        );
-        assert_eq!(
-            format!("{:?}", real.version),
-            format!("{:?}", dummy.version)
-        );
-        assert_ne!(
-            real.salt.map(|s| s.to_string()),
-            dummy.salt.map(|s| s.to_string()),
-            "and it is the same recipe rather than the same hash"
         );
     }
 
@@ -608,17 +496,19 @@ mod tests {
         assert!(!limiter.spent_at("someone else", now));
     }
 
+    // The clock is moved by hand in these: with real sleeps of 80–220 ms a
+    // loaded runner swept the map mid-loop and failed them (run 40622679934).
     #[test]
     fn a_spent_budget_comes_back_when_the_window_has_passed() {
         let limiter = RateLimiter::new(Duration::from_millis(120), 2);
+        let now = Instant::now();
 
-        assert!(limiter.allow("a@b.c"));
-        assert!(limiter.allow("a@b.c"));
-        assert!(!limiter.allow("a@b.c"), "spent inside the window");
+        assert!(limiter.allow_at("a@b.c", now));
+        assert!(limiter.allow_at("a@b.c", now));
+        assert!(!limiter.allow_at("a@b.c", now), "spent inside the window");
 
-        std::thread::sleep(Duration::from_millis(220));
         assert!(
-            limiter.allow("a@b.c"),
+            limiter.allow_at("a@b.c", now + Duration::from_millis(220)),
             "and handed back by the window moving on, with nobody saying so"
         );
     }
@@ -635,15 +525,16 @@ mod tests {
     #[test]
     fn an_entry_prunes_its_own_hits_when_no_sweep_is_due() {
         let limiter = RateLimiter::new(Duration::from_millis(40), 2);
+        let now = Instant::now();
 
-        assert!(limiter.allow("a@b.c"));
-        assert!(limiter.allow("a@b.c"));
-        assert!(!limiter.allow("a@b.c"), "spent");
+        assert!(limiter.allow_at("a@b.c", now));
+        assert!(limiter.allow_at("a@b.c", now));
+        assert!(!limiter.allow_at("a@b.c", now), "spent");
 
-        std::thread::sleep(Duration::from_millis(80));
-        *limiter.last_sweep.lock() = Instant::now();
+        let later = now + Duration::from_millis(80);
+        *limiter.last_sweep.lock() = later;
         assert!(
-            limiter.allow("a@b.c"),
+            limiter.allow_at("a@b.c", later),
             "the sweep is not due, and the entry's own hits are outside the \
              window"
         );
@@ -660,14 +551,14 @@ mod tests {
     #[test]
     fn a_key_nobody_uses_again_does_not_stay_in_the_map() {
         let limiter = RateLimiter::new(Duration::from_millis(80), 2);
+        let now = Instant::now();
 
         for n in 0..50 {
-            assert!(limiter.allow(&format!("stranger-{n}")));
+            assert!(limiter.allow_at(&format!("stranger-{n}"), now));
         }
         assert_eq!(limiter.hits.lock().len(), 50, "one entry each, so far");
 
-        std::thread::sleep(Duration::from_millis(160));
-        assert!(limiter.allow("the attempt that sweeps"));
+        assert!(limiter.allow_at("the attempt that sweeps", now + Duration::from_millis(160)));
         assert_eq!(
             limiter.hits.lock().len(),
             1,

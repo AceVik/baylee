@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/AVR/bound-by-strength.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BoundByStrength_AVR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Bound by Strength (Adapted)]
+1 Acidic Slime
+4 Auroral Procession
+2 Crash the Ramparts
+4 Double Major
+13 Forest
+4 Hydroform
+12 Island
+2 Llanowar Elves
+1 Natural End
+4 Neoform
+1 Overrun
+3 Recollect
+1 Runeclaw Bear
+1 Solve the Equation
+4 Square Up
+2 Vorstclaw
+1 Wolfir Avenger

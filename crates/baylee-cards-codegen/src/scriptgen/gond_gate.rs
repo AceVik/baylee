@@ -34,11 +34,21 @@ impl Tx<'_> {
         p.drop_prose();
         if p.take("Cost").as_deref() != Some("T")
             || p.take("ColorOrType").as_deref() != Some("Color")
-            || p.take("Valid").as_deref() != Some("Gate.YouCtrl")
             || p.take("ReflectProperty").as_deref() != Some("Produce")
         {
             return self.deny("reflected mana outside the exact your-Gate colours grammar".into());
         }
+        let effect = match p.take("Valid").as_deref() {
+            Some("Gate.YouCtrl") => {
+                "Effect::mana_from_lands(&Filter::HasSubtype(subtypes::land::GATE), true, false)"
+            }
+            Some("Basic.YouCtrl") => "Effect::mana_from_lands(&Filter::BASIC_LAND, true, false)",
+            Some("Land.OppCtrl") => "Effect::mana_land_color(false)",
+            _ => {
+                return self
+                    .deny("reflected mana outside the exact your-Gate colours grammar".into());
+            }
+        };
         if let Some(amount) = p.take("Amount")
             && amount != "1"
         {
@@ -47,7 +57,9 @@ impl Tx<'_> {
         if !p.exhausted() {
             return self.deny("unclaimed reflected Gate mana parameter".into());
         }
-        self.body.abilities.push("mana_ability!(&[Effect::mana_from_lands(&Filter::HasSubtype(subtypes::land::GATE), true, false)])".into());
+        self.body
+            .abilities
+            .push(format!("mana_ability!(&[{effect}])"));
         Some(())
     }
 }

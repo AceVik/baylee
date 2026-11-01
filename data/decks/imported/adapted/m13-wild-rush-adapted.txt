@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/M13/wild-rush.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WildRush_M13.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Wild Rush (Adapted)]
+1 Acidic Slime
+3 Arbor Elf
+2 Centaur Courser
+2 Deadly Recluse
+2 Duskdale Wurm
+1 Evolving Wilds
+16 Forest
+2 Garruk's Packleader
+4 Gaze of Granite
+4 Maelstrom Pulse
+4 Pest Summoning
+1 Plummet
+1 Primal Huntbeast
+1 Rancor
+1 Sentinel Spider
+2 Spiked Baloth
+2 Spreading Rot
+8 Swamp
+2 Vastwood Gorger
+1 Yeva's Forcemage

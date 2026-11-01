@@ -1,0 +1,30 @@
+# baylee synergistic holdout coverage constructed ramp
+# licence: AGPL-3.0-only
+[deck:constructed ramp WUBRG #90010021]
+2 Bear's Companion
+2 Brine Hag
+2 Channel the Suns
+2 Creature Bond
+2 Crystal Quarry
+2 Deviant Glee
+2 Duergar Assailant
+2 Duskmantle, House of Shadow
+2 Felhide Petrifier
+2 Hardened Tactician
+4 Island
+2 Izzet Signet
+2 Manaforge Cinder
+1 Mindstatic
+1 Molten Tributary
+3 Mountain
+2 Munitions Expert
+2 Nearby Planet
+5 Plains
+2 Riot Spikes
+2 Sage's Knowledge
+2 Shield of the Oversoul
+2 Sphinx of the Final Word
+3 Swamp
+3 The World Tree
+2 Third Path Iconoclast
+2 Unfulfilled Desires

@@ -1,0 +1,16 @@
+# adapted from data/decks/precon/Q04/cavalcade-charge.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CavalcadeCharge_Q04.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Cavalcade Charge (Adapted)]
+4 Bombard
+3 Desert of the Fervent
+4 Flick a Coin
+3 Hordeling Outburst
+4 Improvised Weaponry
+4 Make Mischief
+18 Mountain
+4 Scrap
+3 Sizzle
+4 Stone Rain
+4 Sundering Eruption
+4 Valakut Awakening
+1 Wheel of Fortune

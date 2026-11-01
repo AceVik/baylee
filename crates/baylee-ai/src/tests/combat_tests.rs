@@ -11,6 +11,8 @@ fn lethal_power_is_not_lethal_through_a_larger_blocker() {
         ],
     );
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: v.seat,
         attackers: vec![obj(1)],
         defenders: vec![Defender::Player(PlayerId::new(1))],
@@ -119,6 +121,8 @@ fn combat_retaliation_counts_a_defender_not_offered_as_an_attacker() {
         ],
     );
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: v.seat,
         attackers: vec![obj(1)],
         defenders: vec![Defender::Player(PlayerId::new(1))],
@@ -164,6 +168,8 @@ fn combat_a_winning_attack_does_not_get_redirected_to_a_planeswalker() {
         ],
     );
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: v.seat,
         attackers: vec![obj(1)],
         defenders: vec![
@@ -417,6 +423,8 @@ fn every_adjacent_difficulty_changes_a_real_decision() {
         ],
     );
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: v.seat,
         attackers: vec![obj(1)],
         defenders: vec![Defender::Player(PlayerId::new(1))],
@@ -443,6 +451,8 @@ fn every_adjacent_difficulty_changes_a_real_decision() {
         ],
     );
     let pending = Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: v.seat,
         attackers: vec![obj(1), obj(3)],
         defenders: vec![Defender::Player(PlayerId::new(1))],

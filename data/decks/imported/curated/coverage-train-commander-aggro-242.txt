@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro UR #20266243]
+1 Apathy
+1 Baldur's Gate
+1 Belligerent Whiptail
+1 Bloodfire Mentor
+1 Bonded Fetch
+1 Burning Palm Efreet
+1 Cascade Bluffs
+1 Clear a Path
+1 Cloud Dragon
+1 Cloudsculpt Technician
+1 Conduit Pylons
+1 Controlled Instincts
+1 Covetous Dragon
+1 Crackling Triton
+1 Crucible of the Spirit Dragon
+1 Dinotomaton
+1 Dragon Hatchling
+1 Dwarven Miner
+1 Dwarven Weaponsmith
+1 Electric Eel
+1 Epiphany Storm
+1 Feedback
+1 Firebreathing
+1 Floodbringer
+1 Flying Dolphin-Fish
+1 Forbidden Orchard
+1 Goblin Digging Team
+1 Hall of Oracles
+1 Henge of Ramos
+1 Hidden Grotto
+1 Indigo Faerie
+10 Island
+1 Jasmine Dragon Tea Shop
+1 Karplusan Hound
+1 Library Larcenist
+1 Lightning Stormkin
+1 Mana Chains
+1 Metropolis Sprite
+14 Mountain
+1 Nightveil Sprite
+1 Nykthos, Shrine to Nyx
+1 Oboro Breezecaller
+1 Ornithopter of Paradise
+1 Piranha Fly
+1 Planetary Patrol
+1 Pseudodragon Familiar
+1 Quick Study
+1 Rathi Dragon
+1 Ravenous Baboons
+1 Razorfin Hunter
+1 Robe of Mirrors
+1 Rock Hydra
+1 Salivating Gremlins
+1 Scarlet Witch, Wanda Maximoff
+1 Sea Sprite
+1 Sea's Claim
+1 Secluded Courtyard
+1 Shimmering Wings
+1 Shivan Devastator
+1 Sleep Magic
+1 Soratami Rainshaper
+1 Springjack Pasture
+1 Steam Vents
+1 Stock Up
+1 Stormcloud Djinn
+1 Sun-Collared Raptor
+1 Tangle Kelp
+1 Thieving Otter
+1 Three Tree City
+1 Touch of Invisibility
+1 Two-Headed Dragon
+1 Vanishing
+1 Weatherseed Faeries
+1 Weave Fate
+1 Wind Dancer
+1 Wind Strider
+1 Zephyr Sprite
+
+[commander]
+Tony Stark

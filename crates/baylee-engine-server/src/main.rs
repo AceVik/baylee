@@ -20,6 +20,8 @@
 //! over an ordinary socket, see exactly what that seat is entitled to see and
 //! answer for it, and hand the chair back to the house AI by hanging up.
 
+mod pump_config;
+
 use baylee_core::ids::PlayerId;
 use baylee_core::preset::GamePreset;
 use baylee_engine::choice::PlayerAction;
@@ -686,6 +688,7 @@ mod attached {
 
     /// Plays one game against the gateway and returns when it ends.
     pub async fn run(attach: Attach) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let pump_budget = super::pump_config::from_env()?;
         // `unix:<path>` is the gateway's unix socket (`BAYLEE_UNIX_SOCKET`),
         // which an agent on the same machine hands its engines; the engine
         // plane is at the usual path on it.
@@ -698,10 +701,10 @@ mod attached {
                 Some(ws_config()),
             )
             .await?;
-            return play(ws, attach).await;
+            return play(ws, attach, pump_budget).await;
         }
         let ws = dial(&attach.url).await?;
-        play(ws, attach).await
+        play(ws, attach, pump_budget).await
     }
 
     /// Dials the gateway over TCP with Nagle's algorithm off (`TCP_NODELAY`).
@@ -727,6 +730,7 @@ mod attached {
     async fn play<S>(
         mut ws: tokio_tungstenite::WebSocketStream<S>,
         attach: Attach,
+        pump_budget: usize,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
     where
         S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
@@ -737,8 +741,7 @@ mod attached {
         send(&mut ws, &engine_hello(&attach)).await?;
         tracing::info!(game_id = attach.game_id, url = attach.url, "attached");
 
-        let mut runner =
-            EngineRunner::new().with_pump_budget(baylee_engine_server::ATTACHED_PUMP_SLICE);
+        let mut runner = EngineRunner::new().with_pump_budget(pump_budget);
         // Each deadline is anchored to what it was armed for, so it restarts
         // when its seat is asked something new rather than every time a frame
         // from another seat wakes this task up.

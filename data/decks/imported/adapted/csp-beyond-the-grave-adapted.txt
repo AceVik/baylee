@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/CSP/beyond-the-grave.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BeyondTheGrave_CSP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Beyond The Grave (Adapted)]
+1 Ashen Ghoul
+1 Coldsteel Heart
+4 Darigaaz's Charm
+2 Dark Banishing
+1 Dark Ritual
+2 Disciple of Tevesh Szat
+1 Douse in Gloom
+3 Forest
+2 Gaea's Bounty
+2 Gristle Grinner
+3 Gutless Ghoul
+2 Insidious Bookworms
+1 Kjeldoran Dead
+2 Lim-Dûl's Paladin
+9 Mountain
+2 Orcish Bloodpainter
+1 Orcish Healer
+2 Repulsor Rays
+1 Sek'Kuar, Deathkeeper
+1 Sick and Tired
+1 Skull Catapult
+2 Soul Bleed
+12 Swamp
+2 The Underworld Cookbook

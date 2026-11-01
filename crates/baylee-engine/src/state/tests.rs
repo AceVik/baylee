@@ -140,7 +140,10 @@ fn make_preset(seed: u64) -> GamePreset {
         rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
-        house_rules: HouseRules::default(),
+        house_rules: HouseRules {
+            starting_player: Some(0),
+            ..HouseRules::default()
+        },
         modifiers: vec![],
         prints: vec![baylee_core::preset::PrintInfo {
             scryfall_id: uuid::Uuid::nil(),
@@ -162,6 +165,38 @@ fn make_preset(seed: u64) -> GamePreset {
             })
             .collect(),
     }
+}
+
+/// The starting player comes from the seeded stream, not from who opened
+/// the table. The same preset reproduces the whole opening state, and a
+/// controlled game can still name the seat explicitly.
+#[test]
+fn starting_player_is_seeded_reproducibly_and_can_be_overridden() {
+    let seed = (0..100)
+        .find(|seed| {
+            let mut preset = make_preset(*seed);
+            preset.house_rules.starting_player = None;
+            GameState::from_preset(&preset, &RegistryLookup)
+                .expect("a randomized game starts")
+                .starting_player
+                .get()
+                != 0
+        })
+        .expect("some seed starts a seat other than the host");
+
+    let mut randomized = make_preset(seed);
+    randomized.house_rules.starting_player = None;
+    let first = GameState::from_preset(&randomized, &RegistryLookup).expect("first build");
+    let second = GameState::from_preset(&randomized, &RegistryLookup).expect("second build");
+    assert_eq!(first.starting_player, second.starting_player);
+    assert_eq!(first.turn.active, second.turn.active);
+    assert_eq!(first.snapshot_hash(), second.snapshot_hash());
+    assert_ne!(first.starting_player.get(), 0, "not always the host");
+
+    let controlled = GameState::from_preset(&make_preset(seed), &RegistryLookup)
+        .expect("the controlled game starts");
+    assert_eq!(controlled.starting_player.get(), 0);
+    assert_eq!(controlled.turn.active.get(), 0);
 }
 
 /// A draw limit, registered by hand rather than played off a card.
@@ -1470,6 +1505,7 @@ fn mana_loop_identity_tracks_producers_without_tracking_allocation_history() {
             RuleContext {
                 source,
                 text: TextChangeMap::IDENTITY,
+                resolved_name: None,
                 reference: None,
             },
             None,

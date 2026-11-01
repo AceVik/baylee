@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/M20/cult-of-rakdos.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CultOfRakdos_M20.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Cult of Rakdos (Adapted)]
+4 Auger Spree
+4 Bedevil
+1 Blood Crypt
+4 Delirium
+3 Footlight Fiend
+2 Get the Point
+1 Judith, the Scourge Diva
+4 Kaervek's Purge
+10 Mountain
+4 Rakdos Guildgate
+3 Shock
+2 Spear Spewer
+4 Spontaneous Combustion
+10 Swamp
+4 Wrecking Ball

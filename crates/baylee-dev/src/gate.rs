@@ -12,7 +12,7 @@ use std::{collections::BTreeSet, fs, path::Path};
 const SCRYFALL_CACHE: &str = "data/scryfall-cache";
 
 /// fmt, clippy, every test through nextest, `validate` and the API
-/// documents (`api`, where the oas-forge checkout is), as CI runs them.
+/// documents (`api`), as CI runs them.
 /// Every phase runs even when an earlier one failed. Needs Postgres for the
 /// catalog and gateway tests (`DATABASE_URL`).
 pub fn full() -> Result<i32> {
@@ -52,9 +52,8 @@ pub fn full() -> Result<i32> {
     } else {
         println!("STEP validate SKIPPED - no {SCRYFALL_CACHE}");
     }
-    if let Some(mut api) = crate::api::command("gate") {
-        steps.run("api", &mut api);
-    }
+    steps.run("api", &mut crate::api::command("check"));
+    steps.run("api-tests", &mut crate::api::tests());
     Ok(steps.finish())
 }
 
@@ -99,9 +98,9 @@ pub fn rules() -> i32 {
     0
 }
 
-/// The browser build's crates checked for wasm32: CI's `wasm` job and the
-/// third local gate before landing. All eight are named, not the client
-/// alone: cargo unifies features across the members a command selects, so
+/// An opt-in check for the experimental browser build (coming soon), outside
+/// CI and landing. All eight crates are named: cargo unifies features across
+/// the members a command selects, so
 /// `-p baylee-client` would resolve the other seven with whatever the client
 /// asks for. Naming them checks each on its own default features.
 pub fn wasm() -> i32 {

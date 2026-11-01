@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/WC03/peer-kroger-reanimator.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PeerKrögerReanimator_WC03.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Peer Kröger - Reanimator (Adapted)]
+4 Auger Spree
+4 Barren Moor
+4 Bedevil
+4 Bloodstained Mire
+3 Buried Alive
+4 Delirium
+4 Doomed Necromancer
+6 Mountain
+2 Shadowblood Ridge
+2 Smother
+4 Spontaneous Combustion
+9 Swamp
+1 Terminate
+1 Visara the Dreadful
+4 Wrecking Ball
+4 Zombify

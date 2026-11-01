@@ -28,6 +28,7 @@ fn source_white_unit(state: &mut GameState, card: ObjectId, snow: bool) -> Restr
         crate::text_changes::RuleContext {
             source: card,
             text: crate::text_changes::TextChangeMap::IDENTITY,
+            resolved_name: None,
             reference: None,
         },
         Some(state.object(card).unwrap().version),

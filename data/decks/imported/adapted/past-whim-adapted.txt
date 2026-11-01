@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/PAST/whim.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Whim_PAST.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Whim (Adapted)]
+1 Alabaster Potion
+1 Black Lotus
+2 Carrion Ants
+2 Colossus of Sardia
+2 Drain Power
+1 Hullcarver
+7 Island
+2 Kismet
+1 Kormus Bell
+2 Meekstone
+1 Mox Pearl
+1 Mox Sapphire
+6 Plains
+4 Power Sink
+4 Psychic Venom
+4 Royal Assassin
+2 Serra Angel
+2 Shapeshifter
+2 Siren's Call
+6 Swamp
+2 Twiddle
+1 Void Rend
+2 Word of Binding
+4 Yotian Soldier

@@ -1,0 +1,80 @@
+# baylee curated highlander midrange seed=20261099
+# licence: AGPL-3.0-only
+[deck:highlander midrange WB #20261099]
+1 Ajani's Welcome
+1 Angel of Renewal
+1 Arashin Cleric
+1 Armistice
+1 Aven Battle Priest
+1 Aven of Enduring Hope
+1 Bishop of Wings
+1 Black Dragon
+1 Blightspeaker
+1 Bloodhunter Bat
+1 Bulwark Giant
+1 Carrier Pigeons
+1 Cascading Cataracts
+1 Castle Doom
+1 Cathedral Sanctifier
+1 Caves of Koilos
+1 Delif's Cone
+1 Demon's Due
+1 Dwarven Priest
+1 Elas il-Kor, Sadistic Pilgrim
+1 Foul Imp
+1 Gallifrey Council Chamber
+1 Glider Kids
+1 Hall of Oracles
+1 Harsh Sustenance
+1 Healer of the Pride
+1 Heap Gate
+1 Henge of Ramos
+1 Holdout Settlement
+1 Honored Knight-Captain
+1 Implement of Improvement
+1 Inspiring Cleric
+1 Kalastria Healer
+1 Kor Celebrant
+1 Leonin Elder
+1 Lifecreed Duo
+1 Lone Missionary
+1 Maga, Traitor to Mortals
+1 Mandible Justiciar
+1 Mirrex
+1 Monk Idealist
+1 Necrogen Scudder
+1 Northern Air Temple
+1 Operations Officer
+1 Phyrexian Rager
+12 Plains
+1 Potion of Healing
+1 Radiant's Dragoons
+1 Rathi Fiend
+1 Reviving Dose
+1 Rune-Scarred Demon
+1 Savannah Sage
+1 Settlement Blacksmith
+1 Shinra Reinforcements
+1 Shu Soldier-Farmers
+1 Skyclave Cleric
+1 Skymarch Bloodletter
+1 Spirit Link
+1 Staunch Defenders
+1 Sunbeam Spellbomb
+1 Suture Priest
+13 Swamp
+1 Tainted Field
+1 Tendrils of Corruption
+1 Three Tree City
+1 Tireless Missionaries
+1 Treasure Hunter
+1 Unclaimed Territory
+1 Underdome
+1 Underworld Coinsmith
+1 Unknown Shores
+1 Vampiric Rites
+1 Villainous Hideout
+1 Wild Aesthir
+1 Windgrace Acolyte
+1 Witch's Cauldron
+1 Zuran Orb

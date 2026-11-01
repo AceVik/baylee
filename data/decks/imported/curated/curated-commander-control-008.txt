@@ -1,0 +1,80 @@
+# baylee curated commander control seed=20261031
+# licence: AGPL-3.0-only
+[deck:commander control WU #20261031]
+1 Adarkar Wastes
+1 Ancestral Vision
+1 Archaeological Dig
+1 Aura Blast
+1 Aven Fateshaper
+1 Backup Agent
+1 Baxter Building
+1 Bazaar Trademage
+1 Calciform Pools
+1 Captain's Defense
+1 Captivating Cave
+1 Censor
+1 Contradict
+1 Crucible of the Spirit Dragon
+1 Customs Depot
+1 Defiant Strike
+1 Deliberate
+1 Dream Fracture
+1 Erode
+1 Force Void
+1 Forced Fruition
+1 Gallifrey Council Chamber
+1 Glimmervoid
+1 Gryff Vanguard
+1 Guided Strike
+1 Hall of Oracles
+1 Halt Order
+1 Harrier Strix
+1 Hesitation
+1 Holdout Settlement
+1 Honor
+1 Insight
+1 Invoke Prejudice
+1 Iron Will
+21 Island
+1 Jeskai Sage
+1 Jin-Gitaxias, Progress Tyrant
+1 Kindly Customer
+1 Kozilek's Unsealing
+1 Loran of the Third Path
+1 Lotus-Eye Mystics
+1 Lunar Mystic
+1 Martyr's Cry
+1 Mech Hangar
+1 Miscalculation
+1 Murmuring Mystic
+1 Mystic Remora
+1 Nykthos, Shrine to Nyx
+1 Opal Archangel
+1 Oyobi, Who Split the Heavens
+6 Plains
+1 Presence of the Master
+1 Rebellious Strike
+1 Recruiter of the Guard
+1 Reflections of Littjara
+1 Rhystic Study
+1 Runeboggle
+1 Scholar of Stars
+1 Shipwreck Dowser
+1 Shocking Grasp
+1 Sigil of the Empty Throne
+1 Soul Read
+1 Spellseeker
+1 Storyteller Pixie
+1 Talon Gates of Madara
+1 Tanufel Rimespeaker
+1 Tarnished Citadel
+1 Throne of Makindi
+1 Turtle Lair
+1 Ultimecia, Temporal Threat
+1 Unifying Theory
+1 Vedalken Archmage
+1 Veiled Serpent
+1 You Find the Villains' Lair
+
+[commander]
+Rasputin Dreamweaver

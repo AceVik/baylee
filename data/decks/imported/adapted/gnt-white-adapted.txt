@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/GNT/white.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, White_GNT.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:White (Adapted)]
+1 Aerial Responder
+3 Afterlife
+1 Always Watching
+3 Army of Allah
+1 Benalish Marshal
+2 Bright Reprisal
+1 Bring to Trial
+2 Call the Cavalry
+1 Call the Gatewatch
+1 Cleansing Nova
+2 Dwarven Priest
+2 Fan Bearer
+1 Forsake the Worldly
+2 Gallant Cavalry
+2 Knightly Valor
+2 Mesa Unicorn
+1 Metal Fatigue
+2 Pegasus Courser
+25 Plains
+1 Sandblast
+2 Serra Angel
+1 Subjugator Angel
+1 Warrior's Honor

@@ -1,0 +1,79 @@
+# baylee synergistic coverage highlander ramp
+# licence: AGPL-3.0-only
+[deck:highlander ramp WRG #20266184]
+1 A Realm Reborn
+1 Ally Encampment
+1 An-Havva Township
+1 Arc Runner
+1 Avengers Tower
+1 Baldur's Gate
+1 Bonebreaker Giant
+1 Brazen Scourge
+1 Burnout
+1 Crystal Grotto
+1 Dwarven Nomad
+1 Ethereal Champion
+1 Farseek
+1 Fire Dragon
+1 Fleshpulper Giant
+1 Flowstone Giant
+8 Forest
+1 Foundry Champion
+1 Frost Ogre
+1 Furnace Brood
+1 Gamble
+1 Gore Swine
+1 Great Hall of the Biblioplex
+1 Highland Giant
+1 Hillcomber Giant
+1 Hollowhead Sliver
+1 Hulking Devil
+1 Lagac Lizard
+1 Lathnu Sailback
+1 Lay of the Land
+1 Lizard Warrior
+1 Lotus Vale
+1 Lowland Giant
+1 Marble Titan
+1 Mijae Djinn
+1 Mossfire Egg
+18 Mountain
+1 Multani's Harmony
+1 Nema Siltlurker
+1 Obsidian Giant
+1 Ogre Berserker
+1 Open the Armory
+1 Predatory Hunger
+1 Raging Bull
+1 Raging Kavu
+1 Raging Poltergeist
+1 Rampart Smasher
+1 Regathan Firecat
+1 Riot Devils
+1 Safewright Quest
+1 School of the Unseen
+1 Scoria Elemental
+1 Sheltering Landscape
+1 Silverback Ape
+1 Skycrash
+1 Skyraker Giant
+1 Slimy Kavu
+1 Spire of Industry
+1 Starstorm
+1 Stone Spirit
+1 Survivors' Encampment
+1 Talruum Piper
+1 Tarnished Citadel
+1 Time of Need
+1 Tor Giant
+1 Towering Thunderfist
+1 Turtle Lair
+1 Two-Headed Cerberus
+1 Unclaimed Territory
+1 Undiscovered Paradise
+1 Viashino Sandswimmer
+1 Voldaren Estate
+1 Vug Lizard
+1 Wild Ox
+1 Windseeker Centaur
+1 Zodiac Dog

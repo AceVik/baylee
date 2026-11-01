@@ -1,0 +1,30 @@
+# adapted from data/decks/precon/EVG/goblins.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Goblins_EVG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Goblins (Adapted)]
+2 Arc Lightning
+1 Clickslither
+2 Deflecting Swat
+1 Fateful End
+1 Fiery Cannonade
+1 Forgotten Cave
+1 Goblin Burrows
+1 Goblin Sledder
+1 Make Mischief
+1 Mogg Fanatic
+3 Molten Blast
+22 Mountain
+2 Mudbutton Torchrunner
+1 Rack and Ruin
+2 Raging Goblin
+1 Reckless One
+1 Siege-Gang Commander
+1 Sizzle
+1 Skirk Prospector
+1 Skirk Shaman
+2 Smash
+1 Spitting Earth
+1 Sundering Eruption
+1 Tar Pitcher
+3 Tarfire
+3 Unsubtle Mockery
+2 Wheel of Fortune

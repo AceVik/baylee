@@ -1,0 +1,147 @@
+{
+  "date": "2026-10-26",
+  "scope": "Actual runtime, two mixing passes; numerical/score review, not a subjective listening claim",
+  "first": {
+    "bits": 24,
+    "file": "glass-memorial.wav",
+    "last_position": {
+      "bar": 129,
+      "movement": "lobby",
+      "phrase_bar": 129,
+      "samples": "studio48",
+      "theme": "glass"
+    },
+    "max_step": 0.11136015504598618,
+    "peak": 0.9467332363128662,
+    "rate": 48000,
+    "recorded_source_rates": [
+      44100,
+      48000
+    ],
+    "render_seconds": 2.267762667,
+    "rms_db": -22.625253722088097,
+    "samples": "studio48",
+    "seconds": 520,
+    "synthesis_rate": 48000,
+    "transitions": [
+      {
+        "position": {
+          "bar": 7,
+          "movement": "lobby",
+          "phrase_bar": 7,
+          "samples": "studio48",
+          "theme": "glass"
+        },
+        "seconds": 31.162666666666667
+      }
+    ]
+  },
+  "final": {
+    "bits": 24,
+    "file": "glass-memorial.wav",
+    "last_position": {
+      "bar": 129,
+      "movement": "lobby",
+      "phrase_bar": 129,
+      "samples": "studio48",
+      "theme": "glass"
+    },
+    "max_step": 0.07591639459133148,
+    "peak": 0.7652741074562073,
+    "rate": 48000,
+    "recorded_source_rates": [
+      44100,
+      48000
+    ],
+    "render_seconds": 2.049569875,
+    "rms_db": -25.950992796130507,
+    "samples": "studio48",
+    "seconds": 520,
+    "synthesis_rate": 48000,
+    "transitions": [
+      {
+        "position": {
+          "bar": 7,
+          "movement": "lobby",
+          "phrase_bar": 7,
+          "samples": "studio48",
+          "theme": "glass"
+        },
+        "seconds": 31.162666666666667
+      }
+    ]
+  },
+  "decisions": [
+    "Replace harp-led songs with complete public-domain Debussy and Satie piano editions",
+    "Use CC0 stereo Yamaha C2 recordings with two velocity layers; full stereo violin and cello",
+    "Retain written repeats; shape melody, accompaniment, rubato, pedal and bowed phrases",
+    "Reduce piano gain from 0.88 to 0.60 so the climax remains below the safety knee"
+  ],
+  "sections": [
+    {
+      "start_seconds": 0,
+      "end_seconds": 60,
+      "rms_db": -29.25,
+      "peak": 0.2927941083908081
+    },
+    {
+      "start_seconds": 60,
+      "end_seconds": 110,
+      "rms_db": -26.6,
+      "peak": 0.4178023338317871
+    },
+    {
+      "start_seconds": 110,
+      "end_seconds": 150,
+      "rms_db": -19.26,
+      "peak": 0.7652740478515625
+    },
+    {
+      "start_seconds": 150,
+      "end_seconds": 200,
+      "rms_db": -20.39,
+      "peak": 0.7059580087661743
+    },
+    {
+      "start_seconds": 200,
+      "end_seconds": 290,
+      "rms_db": -35.13,
+      "peak": 0.16597020626068115
+    },
+    {
+      "start_seconds": 304,
+      "end_seconds": 380,
+      "rms_db": -31.11,
+      "peak": 0.2388155460357666
+    },
+    {
+      "start_seconds": 380,
+      "end_seconds": 450,
+      "rms_db": -29.75,
+      "peak": 0.2825617790222168
+    },
+    {
+      "start_seconds": 450,
+      "end_seconds": 504,
+      "rms_db": -30.61,
+      "peak": 0.31457722187042236
+    }
+  ],
+  "wav_sha256": "3f3116ae4e33a44fd6b21f9d9de8e8a6d261effe2776c160f152bbd895c6009f",
+  "performance_sha256": "168ed52eef92393d0d7223333b5a52ce4bf0ec8437326a7d4777d3e700b6cb8e",
+  "bank_sha256": "6a9246429c3de822c8387637509e81279a24b00345d306461789ca23699b4560",
+  "checks": {
+    "core_library": {
+      "passed": 2187,
+      "ignored": 1,
+      "failed": 0
+    },
+    "music_after_final_bank_allocation_change": {
+      "passed": 47,
+      "failed": 0
+    },
+    "clippy": "cargo clippy --profile ci-release -p baylee-client-core --all-targets -- -D warnings: passed",
+    "python": "ruff check: passed; source/performance/bank SHA-256 checks passed",
+    "full_desktop_gates": "Not run; no push or main landing"
+  }
+}

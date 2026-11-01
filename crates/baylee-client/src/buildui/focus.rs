@@ -254,15 +254,25 @@ pub(crate) fn scroll_to_the_cursor(
 /// window's foot, once both have been laid out; then shows it.
 #[allow(clippy::type_complexity)] // the menu and the button it opened from
 pub(crate) fn place_menus(
-    mut menus: Query<(&PlacedMenu, &mut Node, &mut Visibility, &ComputedNode)>,
-    openers: Query<(&MenuOpener, &ComputedNode, &UiGlobalTransform)>,
+    mut menus: Query<(
+        Entity,
+        &PlacedMenu,
+        &mut Node,
+        &mut Visibility,
+        &ComputedNode,
+    )>,
+    children: Query<&Children>,
+    mut tree: ParamSet<(
+        Query<(&MenuOpener, &ComputedNode, &UiGlobalTransform)>,
+        Query<&mut UiGlobalTransform>,
+    )>,
     (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
 ) {
     let Some(window) = windows.iter().next() else {
         return;
     };
     let (width, height) = crate::hud::scale::desktop_dimensions(window, ui.as_deref());
-    for (menu, mut node, mut shown, laid) in &mut menus {
+    for (entity, menu, mut node, mut shown, laid) in &mut menus {
         if *shown != Visibility::Hidden {
             continue;
         }
@@ -271,7 +281,8 @@ pub(crate) fn place_menus(
         if size.y <= 0.0 {
             continue;
         }
-        let anchor =
+        let anchor = {
+            let openers = tree.p0();
             openers
                 .iter()
                 .find(|(opener, ..)| opener.0 == menu.0)
@@ -280,7 +291,8 @@ pub(crate) fn place_menus(
                     let half = at.size() * s * 0.5;
                     let mid = place.translation * s;
                     Rect::from_corners(mid - half, mid + half)
-                });
+                })
+        };
         let (left, top) = match anchor {
             Some(rect) => {
                 let below = rect.max.y + 4.0;
@@ -298,6 +310,21 @@ pub(crate) fn place_menus(
         };
         node.left = Val::Px(left);
         node.top = Val::Px(top);
+        if scale > 0.0 {
+            let mut transforms = tree.p1();
+            if let Ok(cur_at) = transforms.get(entity) {
+                let cur_min = cur_at.translation * scale - size * 0.5;
+                let delta = (Vec2::new(left, top) - cur_min) / scale;
+                for target in std::iter::once(entity).chain(children.iter_descendants(entity)) {
+                    if let Ok(mut t) = transforms.get_mut(target) {
+                        *t = UiGlobalTransform::from(bevy::math::Affine2 {
+                            matrix2: t.matrix2,
+                            translation: t.translation + delta,
+                        });
+                    }
+                }
+            }
+        }
         *shown = Visibility::Inherited;
     }
 }

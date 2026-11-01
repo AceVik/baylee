@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20266259]
+1 Arboria
+1 Archweaver
+1 Argothian Swine
+1 Aurochs
+1 Awakening
+1 Basilisk Gate
+1 Blanchwood Armor
+1 Bull Aurochs
+1 Choke
+1 Conifer Wurm
+1 Creeping Corrosion
+1 Dense Foliage
+1 Earthcraft
+1 Earthlore
+1 Elfhame Wurm
+1 Endless Wurm
+1 Faerie Noble
+1 Fangren Hunter
+1 Gaea's Anthem
+1 Glimmerpost
+1 Grounded
+1 Hawkeater Moth
+1 Howlpack Resurgence
+1 Jibbirik Omnivore
+1 Jolrael's Favor
+1 Leatherback Baloth
+1 Locust Swarm
+1 Moon Sprite
+1 Moss Kami
+1 Mosscoat Goriak
+1 Narcissism
+1 Needleshot Gourna
+1 Obscura Storefront
+1 Pixie Queen
+1 Plated Slagwurm
+1 Presence of Gond
+1 Reclaiming Vines
+1 Regeneration
+1 Roots of Life
+1 Sanctum of Eternity
+1 Savage Silhouette
+1 Scryb Ranger
+1 Shopkeeper's Bane
+1 Silk Net
+1 Silken Strength
+34 Snow-Covered Forest
+1 Spiked Baloth
+1 Staggering Size
+1 Stamina
+1 Stampeding Serow
+1 Stampeding Wildebeests
+1 Stomper Cub
+1 Subdue
+1 Tangle Mantis
+1 Tiger Claws
+1 Trenchpost
+1 Turtle Power!
+1 Tyrranax
+1 Tyvar's Stand
+1 Unnatural Predation
+1 Venomous Breath
+1 War Mammoth
+1 Wild Elephant
+1 Willow Faerie
+1 Wirewood Symbiote
+1 Zhalfirin Void
+
+[commander]
+Kodama of the North Tree

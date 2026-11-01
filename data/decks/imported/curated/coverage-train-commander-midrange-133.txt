@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BG #20266134]
+1 Anointed Deacon
+1 Battle Brawler
+1 Black Oak of Odunos
+1 Blast Zone
+1 Bloodcurdling Scream
+1 Cathedral of War
+1 Charging Bandits
+1 Consume the Meek
+1 Dauthi Warlord
+1 Devkarin Dissident
+1 Dhund Operative
+1 Dragon-Cursed Halls
+1 Dungeon Descent
+1 Ebony Treefolk
+1 Elephant Graveyard
+1 Elvish Berserker
+1 Elvish Scout
+1 Embraal Bruiser
+1 Equestrian Skill
+1 Erstwhile Trooper
+1 Feral Roar
+1 Fleshgrafter
+1 Flood Plain
+9 Forest
+1 Gaea's Anthem
+1 Gaea's Avenger
+1 Gaea's Embrace
+1 Gaea's Liege
+1 Gargoyle Castle
+1 Ghost Quarter
+1 Glyph of Doom
+1 Gravblade Heavy
+1 Greenhilt Trainee
+1 Hollow Dogs
+1 Hunger of the Nim
+1 Iridescent Blademaster
+1 Kithkin Daggerdare
+1 Kraul Warrior
+1 Lys Alana Scarblade
+1 Mage-Ring Network
+1 Masked Blackguard
+1 Mirage Mesa
+1 Mirkwood Channeler
+1 Mirkwood Pathmaker
+1 Mobilized District
+1 Nantuko Mentor
+1 Narcissism
+1 Naya Panorama
+1 Night Market
+1 Phytoburst
+1 Pit of Offerings
+1 Putrid Leech
+1 Razaketh's Rite
+1 Ridged Kusite
+1 Savage Silhouette
+1 Scarred Vinebreeder
+1 Scorched Ruins
+1 Season of the Witch
+1 Simian Brawler
+1 Soul Kiss
+1 Springsage Ritual
+1 Stromgald Crusader
+1 Sultai Runemark
+16 Swamp
+1 Tainted Aether
+1 Tall as a Beanstalk
+1 Temur Runemark
+1 Their Name Is Death
+1 Tiger Claws
+1 Torture
+1 Trollhide
+1 Twisted Embrace
+1 Vile Deacon
+1 Viridian Lorebearers
+1 Wei Ambush Force
+1 Wild Nacatl
+
+[commander]
+Vhati il-Dal

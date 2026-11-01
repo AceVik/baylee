@@ -1,0 +1,28 @@
+# adapted from data/decks/precon/MIR/burning-sky.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BurningSky_MIR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Burning Sky (Adapted)]
+2 Argent Mutation
+2 Azimaet Drake
+3 Bay Falcon
+2 Boomerang
+1 Burning Palm Efreet
+1 Coming In Hot
+1 Dissipate
+1 Dream Fighter
+2 Flame Elemental
+1 Goblin Scouts
+1 Harmattan Efreet
+2 Hoodwink
+1 Iroh's Demonstration
+12 Island
+2 Mad Prophet
+12 Mountain
+1 Mystical Tutor
+1 Power Sink
+3 Pyric Salamander
+1 Sea Monster
+1 Subterranean Spirit
+1 Suq'Ata Firewalker
+3 Teferi's Drake
+1 Vaporous Djinn
+2 Wildfire Emissary

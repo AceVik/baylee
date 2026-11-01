@@ -39,6 +39,7 @@ pub fn could_add_mana(effects: &[Effect]) -> bool {
                 | Effect::AddCombatMana { .. }
                 | Effect::AddManaUnlessAnyPlayerPays { .. }
                 | Effect::AddManaFor { .. }
+                | Effect::AddManaAmountFor { .. }
                 | Effect::AddManaLikeEvent { .. }
                 | Effect::ManaForColorsAmong(_)
         ) || {
@@ -50,7 +51,9 @@ pub fn could_add_mana(effects: &[Effect]) -> bool {
 
 fn immediate_branches(effect: &Effect) -> (&'static [Effect], &'static [Effect]) {
     match effect {
-        Effect::Reflexive { .. }
+        Effect::GrantTriggeredIfAbsent { .. }
+        | Effect::CreateDelayedObserver { .. }
+        | Effect::Reflexive { .. }
         | Effect::ScheduleLinkedCounterCleanup { .. }
         | Effect::AtNextEndStep { .. }
         | Effect::AtNextTurnsUpkeep { .. }
@@ -108,6 +111,7 @@ fn cost_moves_library(part: &CostPart) -> bool {
         | CostPart::RemoveCounterSelf { .. }
         | CostPart::RemoveCounterSelfX { .. }
         | CostPart::PutCounterSelf { .. } => false,
+        CostPart::ExileTopOfLibrary(_) => true,
     }
 }
 
@@ -135,6 +139,8 @@ fn moves_library(effect: &Effect) -> bool {
         | Effect::ExileTopToPlay { .. }
         | Effect::RevealTopOnePerType { .. }
         | Effect::RevealTopIf { .. }
+        | Effect::RevealTopPlayerMayPutOntoBattlefield { .. }
+        | Effect::RevealUntilLandDealDamage { .. }
         | Effect::PutFromHandOnTop { .. }
         | Effect::PayLifeOrPutBackDrawn { .. }
         | Effect::PutTargetOnBottomOfLibrary
@@ -243,5 +249,40 @@ mod tests {
             &[Effect::AtNextEndStep { effects: &[ADD] }],
             false
         ));
+    }
+}
+
+#[cfg(test)]
+mod triggered_tests {
+    use crate::{
+        Effect, Filter, ManaColor, PlayerRel, TargetReq, TargetSpec, Trigger, TriggeredParts,
+    };
+
+    #[test]
+    fn nested_immediate_mana_is_triggered_mana_but_targets_and_delayed_mana_are_not() {
+        static DELAYED_MANA: &[Effect] = &[Effect::mana(ManaColor::Blue, 2)];
+        static DELAYED: &[Effect] = &[Effect::AtNextEndStep {
+            effects: DELAYED_MANA,
+        }];
+        static NESTED: &[Effect] = &[Effect::MayDoFor {
+            player: PlayerRel::ControllerOfEvent,
+            effects: &[Effect::IfEventObjectMatches {
+                filter: &Filter::LAND,
+                then: &[Effect::mana(ManaColor::Blue, 2)],
+            }],
+        }];
+        let trigger = Trigger::TappedForMana {
+            by: PlayerRel::You,
+            filter: &Filter::LAND,
+        };
+        let mut parts = TriggeredParts::new(trigger, NESTED);
+        assert!(parts.build().is_triggered_mana_ability());
+        parts.targets = Some(TargetReq::one(TargetSpec::AnyTarget));
+        assert!(!parts.build().is_triggered_mana_ability());
+        parts.targets = None;
+        parts.second_targets = Some(TargetReq::one(TargetSpec::AnyTarget));
+        assert!(!parts.build().is_triggered_mana_ability());
+        let delayed = TriggeredParts::new(trigger, DELAYED);
+        assert!(!delayed.build().is_triggered_mana_ability());
     }
 }

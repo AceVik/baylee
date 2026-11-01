@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20266139]
+1 Ark of Blight
+1 Ashnod's Transmogrant
+1 Aurochs
+1 Axebane Stag
+1 Balm of Restoration
+1 Brambleweft Behemoth
+1 Bull Aurochs
+1 Canopy Dragon
+1 Charging Badger
+1 Child of Gaea
+1 Colossadactyl
+1 Conduit of Worlds
+1 Cursed Totem
+1 Despotic Scepter
+1 Excavation Mole
+1 Firdoch Core
+1 Flailing Drake
+1 Font of Mythos
+1 Force of Savagery
+34 Forest
+1 Game-Trail Changeling
+1 Goblin Firebomb
+1 Gold Pan
+1 Gorn Captain
+1 Grazing Gladehart
+1 Hippo-Cows
+1 Homeward Path
+1 Icecave Crasher
+1 Iron Bully
+1 Lurking Green Dragon
+1 Lux Cannon
+1 Magistrate's Scepter
+1 Matzalantli, the Great Door
+1 Meteor Sword
+1 Molder Beast
+1 Moss Kami
+1 Nexus Wardens
+1 Opaline Unicorn
+1 Paupers' Cage
+1 Pit Trap
+1 Pithing Needle
+1 Powerleech
+1 Pygmy Razorback
+1 Rath's Edge
+1 Sacred White Deer
+1 Sanctum of Ugin
+1 Shopkeeper's Bane
+1 Spidersilk Net
+1 Spiked Baloth
+1 Springmane Cervin
+1 Stampeding Serow
+1 Stomper Cub
+1 Survivors' Encampment
+1 Swarmyard
+1 Tangle Hulk
+1 Temple Bell
+1 Thopter Squadron
+1 Thrun, Breaker of Silence
+1 Time Bomb
+1 Toil to Renown
+1 U.S.S. Enterprise-D, Galaxy-Class
+1 Universal Solvent
+1 Wall of Tanglecord
+1 Well of Knowledge
+1 Wild Elephant
+1 Zhalfirin Void
+
+[commander]
+Kodama of the North Tree

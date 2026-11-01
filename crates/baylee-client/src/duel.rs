@@ -40,6 +40,13 @@ impl Duel {
         if self.ending().is_some() {
             return None;
         }
+        if self.my_seat_eliminated() {
+            return Some(
+                baylee_client_core::i18n::Phrase::SeatEliminated
+                    .text(lang)
+                    .to_string(),
+            );
+        }
         let prompt = self
             .cast_menu
             .as_ref()
@@ -920,10 +927,23 @@ impl Duel {
             .and_then(|s| s.team)
     }
 
-    /// Whether the local seat is being asked something right now.
+    /// Whether this seat is being asked something right now.
     #[must_use]
     pub fn is_my_turn_to_act(&self) -> bool {
         self.interaction.as_ref().is_some_and(Interaction::is_mine)
+    }
+
+    /// Whether this player's own seat has been eliminated while the game
+    /// goes on for the remaining seats (a multi-player table).
+    #[must_use]
+    pub fn my_seat_eliminated(&self) -> bool {
+        !self.watching
+            && self.replay.is_none()
+            && self
+                .view
+                .as_ref()
+                .and_then(|v| v.seat(v.seat))
+                .is_some_and(baylee_view::SeatView::has_lost)
     }
 
     /// Whether this seat's own standing order is currently withholding its
@@ -993,6 +1013,27 @@ impl Duel {
         self.view
             .as_ref()
             .is_some_and(|v| !v.stack.is_empty() && !v.priority_held)
+    }
+
+    /// Let the whole current stack resolve, then pass until the next turn.
+    ///
+    /// This is deliberately not [`Duel::hold_action`]: a stack entry selected
+    /// as a manual response point must not shorten "skip turn" into "stop at
+    /// that entry". A later stack still cancels the engine hold, and a real
+    /// decision still stops the client autopilot.
+    pub fn skip_turn(&mut self) {
+        let Some(view) = self.view.as_ref() else {
+            return;
+        };
+        let turn = view.turn;
+        let depth = u16::try_from(view.stack.len()).unwrap_or(u16::MAX);
+        let hold = !view.stack.is_empty() && !view.priority_held;
+        if hold {
+            self.submit(PlayerAction::SetPriorityHold(
+                baylee_engine::choice::PriorityHold::UntilStackEmpty { depth },
+            ));
+        }
+        self.autopilot = Some(AutoPilot::ToNextTurn { from_turn: turn });
     }
 
     /// Whether the engine would take a draw offer right now.

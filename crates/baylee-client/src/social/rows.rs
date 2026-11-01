@@ -11,7 +11,9 @@ use baylee_client_core::social::{
 use baylee_protocol::social::Conv;
 use bevy::prelude::*;
 
-use crate::hud::logpanel::{CLOCK_W, SWATCH_GAP, SWATCH_W, TEXT_OWN_HEIGHT};
+use crate::hud::logpanel::{
+    CLOCK_AIR, CLOCK_W, SWATCH_GAP, SWATCH_W, TEXT_OWN_HEIGHT, clock_bundle, clock_drop_at,
+};
 use crate::hud::{UiFonts, palette, tf, tf_bold, tf_italic};
 
 /// Sky cyan: the public Lobby chat for everyone online.
@@ -93,6 +95,8 @@ pub(crate) struct ChatCardLink {
     pub card: u32,
     /// The face.
     pub face: u8,
+    /// The printing named by the sender, when there was one.
+    pub print: Option<social::BodyPrint>,
 }
 
 /// A name in a chat line: a press whispers them (§5).
@@ -242,18 +246,20 @@ pub(crate) fn spawn_row(
             .insert(BackgroundColor(palette::ACTIVE.with_alpha(0.10)));
     }
     if style.timestamps && !matches!(line.kind, LineKind::Divider) {
+        // The log's own time column (`logpanel::clock_bundle`), at the
+        // window's zoom: the two lists read alike (feedback of 24.10.2026).
         let time = commands
-            .spawn((
-                Text::new(clock(line.at)),
-                tf(fonts, z(inks.pt)),
-                TextColor(inks.soft),
-                Node {
-                    width: zpx(CLOCK_W),
-                    flex_shrink: 0.0,
+            .spawn(clock_bundle(fonts, z(inks.pt), inks.soft, clock(line.at)))
+            .insert(Node {
+                width: zpx(CLOCK_W),
+                margin: UiRect {
+                    top: zpx(clock_drop_at(inks.pt)),
+                    right: zpx(CLOCK_AIR),
                     ..default()
                 },
-                Pickable::IGNORE,
-            ))
+                flex_shrink: 0.0,
+                ..default()
+            })
             .id();
         commands.entity(row).add_child(time);
     }
@@ -382,13 +388,13 @@ pub(crate) fn spawn_row(
                     Piece::Mention => {
                         span(commands, text, tf_bold(fonts, z(inks.pt)), ink);
                     }
-                    Piece::Link(card, face) => {
+                    Piece::Link(link) => {
                         let font = TextFont {
                             font: bevy::text::FontSource::Handle(fonts.medium.clone()),
                             ..tf(fonts, z(inks.pt))
                         };
                         let id = span(commands, text, font, inks.link.with_alpha(faded));
-                        commands.entity(id).insert(ChatCardLink { card, face });
+                        commands.entity(id).insert(link);
                     }
                 }
             }
@@ -449,14 +455,14 @@ fn is_error(phrase: ChatPhrase) -> bool {
 }
 
 /// A piece of a body's text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Piece {
     /// Its words.
     Words,
     /// A mention, bold.
     Mention,
-    /// A card link: index and face.
-    Link(u32, u8),
+    /// A card link, with the printing the line named.
+    Link(ChatCardLink),
 }
 
 /// A body cut at its links and mentions (spans in characters).
@@ -465,7 +471,16 @@ pub(crate) fn pieces(body: &social::Body) -> Vec<(String, Piece)> {
     let mut marks: Vec<([usize; 2], Piece)> = body
         .links
         .iter()
-        .map(|l| (l.at, Piece::Link(l.card, l.face)))
+        .map(|l| {
+            (
+                l.at,
+                Piece::Link(ChatCardLink {
+                    card: l.card,
+                    face: l.face,
+                    print: l.print.clone(),
+                }),
+            )
+        })
         .chain(body.mentions.iter().map(|m| (m.at, Piece::Mention)))
         .collect();
     marks.sort_by_key(|(at, _)| at[0]);

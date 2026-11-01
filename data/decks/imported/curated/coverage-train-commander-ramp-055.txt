@@ -1,0 +1,71 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp R #20266056]
+1 Adventuring Gear
+1 Aladdin
+1 Ali from Cairo
+1 Ambush Party
+1 Arena of the Ancients
+1 Assault Strobe
+1 Balduvian Barbarians
+1 Barbarian Horde
+1 Basilisk Collar
+1 Bazaar of Baghdad
+1 Black Widow, Natasha Romanoff
+1 Blinkmoth Well
+1 Blood Knight
+1 Bloodthorn Taunter
+1 Bubble Matrix
+1 Chimeric Sphere
+1 Colos Yearling
+1 Conqueror's Galleon
+1 Crown of the Ages
+1 Darksteel Plate
+1 Desert Nomads
+1 Deserter's Disciple
+1 Draconian Cylix
+1 Fallaji Chaindancer
+1 Fyndhorn Bow
+1 Gauntlets of Chaos
+1 Glasses of Urza
+1 Gorgon's Head
+1 Halberdier
+1 Horn of Deafening
+1 Hyperion Blacksmith
+1 Independent Troops
+1 Inventors' Fair
+1 Jabari's Banner
+1 Jandor's Saddlebags
+1 Lead Golem
+1 Manifold Key
+1 Marauder's Axe
+1 Masterwork of Ingenuity
+1 Mizzix's Mastery
+35 Mountain
+1 Mountain Goat
+1 Orcish Spy
+1 Phyrexia's Core
+1 Renegade Troops
+1 Roc Hunter
+1 Rubblebelt Recluse
+1 Saberclaw Golem
+1 Sanctum of Ugin
+1 Sculpting Steel
+1 Secret Tunnel
+1 Shield of the Ages
+1 Short Sword
+1 Skateboard
+1 Skyshaper
+1 Song-Mad Treachery
+1 Tavern Ruffian
+1 Teferi's Sentinel
+1 Torch Gauntlet
+1 Tower of Coireall
+1 Trailblazing Historian
+1 Trenchpost
+1 Warship Scout
+1 Whip Sergeant
+1 Winter Moon
+
+[commander]
+Quicksilver, Pietro Maximoff

@@ -5,6 +5,7 @@ use super::*;
 
 mod arrival_history;
 mod destruction;
+mod draws;
 mod mana;
 
 impl GameState {
@@ -52,6 +53,7 @@ impl GameState {
             discard_answers,
             discards_on_top,
             extra_turns,
+            turn_controls,
             resume_after,
             skip_followups,
             reanimated_auras,
@@ -195,6 +197,7 @@ impl GameState {
         discard_answers.hash(&mut h);
         discards_on_top.hash(&mut h);
         extra_turns.hash(&mut h);
+        turn_controls.hash(&mut h);
         resume_after.hash(&mut h);
         skip_followups.hash(&mut h);
         reanimated_auras.hash(&mut h);
@@ -340,8 +343,32 @@ impl GameState {
         // A later effect can read this historical count even when the
         // present battlefield is identical, so it distinguishes situations.
         h.u32(self.per_turn.untapped_lands_at_start);
+        h.u32(self.per_turn.hand_size_at_start);
         self.live_damage_pairs(&position).hash(&mut h);
+        let mut damaged_deaths: Vec<_> = self
+            .per_turn
+            .damaged_creature_deaths
+            .iter()
+            .map(|death| {
+                (
+                    position(death.source.object),
+                    moves_since(
+                        self.object_or_departed(death.source.object),
+                        death.source.version,
+                    ),
+                    position(death.returned.object),
+                    moves_since(
+                        self.object_or_departed(death.returned.object),
+                        death.returned.version,
+                    ),
+                )
+            })
+            .collect();
+        damaged_deaths.sort_unstable();
+        damaged_deaths.dedup();
+        damaged_deaths.hash(&mut h);
         self.hash_turn_history(&mut h, &position);
+        draws::hash(&mut h, self, &position);
         h.u8(self.monarch.map_or(255, PlayerId::get));
         // The designation is rules-visible and a loop that flips it is a
         // loop that changes what daybound permanents are (CR 731). The
@@ -514,7 +541,7 @@ impl GameState {
         }
     }
 
-    fn hash_turn_history(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+    fn hash_previous_combat_history(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
         for player in &self.players {
             let mut attackers: Vec<_> = player
                 .last_turn_attackers
@@ -527,7 +554,30 @@ impl GameState {
                 .collect();
             attackers.sort_unstable();
             attackers.hash(h);
+            for (window, references) in [
+                (&player.blocked_since_upkeep, 0_u8),
+                (&player.blocked_before_upkeep, 1_u8),
+            ] {
+                let mut blocked: Vec<_> = window
+                    .iter()
+                    .filter(|reference| {
+                        self.object(reference.object)
+                            .is_some_and(|object| object.version == reference.version)
+                    })
+                    .map(|reference| position(reference.object))
+                    .collect();
+                blocked.sort_unstable();
+                if !blocked.is_empty() {
+                    0x7570_6b65_u32.hash(h);
+                    references.hash(h);
+                    blocked.hash(h);
+                }
+            }
         }
+    }
+
+    fn hash_turn_history(&self, h: &mut Hasher, position: &impl Fn(ObjectId) -> u32) {
+        self.hash_previous_combat_history(h, position);
         self.per_turn.revolt.hash(h);
         self.per_turn.put_nontoken_permanent.hash(h);
         self.per_turn.improvise_next_spell.hash(h);
@@ -694,6 +744,29 @@ fn hash_shields(h: &mut Hasher, state: &GameState, position: &dyn Fn(ObjectId) -
                 hash_damage_source(h, state, reflection.object, reflection.version);
             }
             crate::prevention::ShieldKind::TargetingCauses => h.u8(8),
+            crate::prevention::ShieldKind::RedirectCombat {
+                sources,
+                to,
+                context,
+            } => {
+                h.u8(9);
+                filter_hash(h, sources);
+                context.text.hash(h);
+                h.u32(position(context.source));
+                context.resolved_name.hash(h);
+                context.reference.map(position).hash(h);
+                match to {
+                    crate::prevention::RedirectDestination::Object(reference) => {
+                        h.u8(0);
+                        h.u32(position(reference.object));
+                        h.u8(moves_since(
+                            state.object(reference.object),
+                            reference.version,
+                        ));
+                    }
+                    crate::prevention::RedirectDestination::SourceController => h.u8(1),
+                }
+            }
             crate::prevention::ShieldKind::Next(n) => {
                 h.u8(0);
                 h.u32(n);
@@ -913,6 +986,33 @@ fn hash_waiting_turn_effects(
 ) {
     for delayed in &state.delayed {
         match delayed.action {
+            crate::state::DelayedAction::TriggerAbout {
+                source,
+                source_version,
+                effects,
+                text,
+                object,
+                version,
+                subject,
+            } if delayed.when == crate::state::DelayedWhen::NextYourEndStep => {
+                h.u8(2);
+                delayed.controller.hash(h);
+                delayed.when.hash(h);
+                effects.hash(h);
+                text.hash(h);
+                h.u32(position(source));
+                moves_since(state.object_or_departed(source), source_version).hash(h);
+                h.u32(position(object));
+                moves_since(state.object_or_departed(object), version).hash(h);
+                subject
+                    .map(|r| {
+                        (
+                            position(r.object),
+                            moves_since(state.object_or_departed(r.object), r.version),
+                        )
+                    })
+                    .hash(h);
+            }
             crate::state::DelayedAction::DrawStepLifeLoss {
                 source,
                 controller,
@@ -1091,6 +1191,13 @@ fn hash_object_situation(
     for amount in obj.paid.as_ref().map_or([0; 6], |p| p.mana_types_spent) {
         h.u32(amount);
     }
+    for amount in obj
+        .paid
+        .as_ref()
+        .map_or([0; 6], |p| p.mana_types_spent_on_x)
+    {
+        h.u32(amount);
+    }
     h.boolean(obj.paid.is_some());
     if let Some(paid) = &obj.paid {
         h.usize(paid.discarded.len());
@@ -1128,6 +1235,10 @@ fn hash_object_situation(
     for t in obj.second_targets() {
         h.u32(position(*t));
     }
+    hash_ability_situation(h, obj, position);
+}
+
+fn hash_ability_situation(h: &mut Hasher, obj: &GameObject, position: &impl Fn(ObjectId) -> u32) {
     match &obj.ability {
         Some(loc) => {
             h.u8(1);
@@ -1279,6 +1390,10 @@ fn hash_acquired_rider(h: &mut Hasher, rider: &crate::object::Rider) {
             64u8.hash(h);
             count.hash(h);
         }
+        crate::object::Rider::SecondChosenSubtype(subtype) => {
+            h.u8(90);
+            subtype.hash(h);
+        }
         crate::object::Rider::ExhaustedAbility(index) => {
             h.u8(63);
             index.hash(h);
@@ -1398,6 +1513,11 @@ fn hash_effect(h: &mut Hasher, fx: &crate::effects::ContinuousEffect) {
             id.hash(h);
             version.hash(h);
         }
+        crate::effects::EffectFilter::DslControlledBy(filter, seats) => {
+            h.u8(3);
+            filter_hash(h, filter);
+            seats.hash(h);
+        }
     }
     hash_modifier(h, modifier);
 }
@@ -1419,6 +1539,8 @@ fn hash_player(h: &mut Hasher, player: &Player) {
         turns_started,
         turns_to_skip,
         last_turn_attackers,
+        blocked_since_upkeep,
+        blocked_before_upkeep,
         last_turn_acted,
         tried_empty_draw,
         commander_damage,
@@ -1445,6 +1567,11 @@ fn hash_player(h: &mut Hasher, player: &Player) {
     turns_started.hash(h);
     turns_to_skip.hash(h);
     last_turn_attackers.hash(h);
+    if !blocked_since_upkeep.is_empty() || !blocked_before_upkeep.is_empty() {
+        0x7570_6b65_u32.hash(h);
+        blocked_since_upkeep.hash(h);
+        blocked_before_upkeep.hash(h);
+    }
     last_turn_acted.hash(h);
     if *dungeon_room != 0 || *dungeons_completed != 0 {
         dungeon.hash(h);
@@ -1815,6 +1942,10 @@ fn hash_object(h: &mut Hasher, obj: &GameObject) {
                 64u8.hash(h);
                 count.hash(h);
             }
+            Rider::SecondChosenSubtype(subtype) => {
+                h.u8(90);
+                subtype.hash(h);
+            }
             Rider::ExhaustedAbility(index) => {
                 h.u8(63);
                 index.hash(h);
@@ -2033,6 +2164,7 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
             h.bytes(name.as_bytes());
         }
         F::Blocking => h.u8(47),
+        F::Blocked => h.u8(143),
         F::Unblocked => h.u8(39),
         F::ControlledByActivePlayer => h.u8(40),
         F::ControlledByDefendingPlayer => h.u8(46),
@@ -2169,6 +2301,20 @@ fn filter_hash(h: &mut Hasher, f: &baylee_cards_dsl::Filter) {
         }
         F::TappedToPayForSourceThisTurn => h.u8(140),
         F::HasCumulativeUpkeep => h.u8(141),
+        F::DealtDamageBySourceThisTurn => h.u8(142),
+        F::Equipped => h.u8(149),
+        F::CmcEqualsCountersOnSource(kind) => {
+            h.u8(144);
+            hash_counter(h, *kind);
+        }
+        F::NotControlledByReferenceController => h.u8(145),
+        F::LowestManaValueOnBattlefield(inner) => {
+            h.u8(146);
+            filter_hash(h, inner);
+        }
+        F::SameNameAsLinkedExile => h.u8(147),
+        F::CmcEqualsYourUnspentMana => h.u8(148),
+        F::SharesColorWithExiledWithSource => h.u8(150),
     }
 }
 

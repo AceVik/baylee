@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro B #20266146]
+1 Alley Strangler
+1 Arrogant Vampire
+1 Bane Alley Blackguard
+1 Blackbloom Rogue
+1 Bog Smugglers
+1 Bogbrew Witch
+1 Burrog Banemaker
+1 Cabal Evangel
+1 Cabal Slaver
+1 Cabal Trainee
+1 Caustic Rain
+1 Crooked Custodian
+1 Deathlace
+1 Demonic Torment
+1 Disciple of Tevesh Szat
+1 Dread Warlock
+1 Duskmantle Operative
+1 Emeritus of Woe
+1 Evil Presence
+1 Eviscerate
+1 Feebleness
+1 Feral Abomination
+1 Fire Nation Ambushers
+1 Forbidden Ritual
+1 Glamorous Grapplers
+1 Grandmother Sengir
+1 Greel's Caress
+1 Hag of Dark Duress
+1 Hag of Noxious Nightmares
+1 Hag of Twisted Visions
+1 Hagra Sharpshooter
+1 Hand of Silumgar
+1 Hired Poisoner
+1 Hostile Hostel
+1 Ifnir Deadlands
+1 Krovikan Scoundrel
+1 Lash of Thorns
+1 Mark of the Oni
+1 Moriok Reaver
+1 Mudflat Village
+1 Nath's Buffoon
+1 Nimble Pilferer
+1 Oblivion Crown
+1 One with Nothing
+1 Onyx Mage
+1 Opposition Agent
+1 Poison-Blade Mentor
+1 Prickly Boggart
+1 Rag Man
+1 Rain of Filth
+1 Rathi Trapper
+1 Shadow Stinger
+1 Shizo, Death's Storehouse
+1 Skeletal Grimace
+1 Skyshroud Vampire
+1 Soul Channeling
+32 Swamp
+1 Takenuma, Abandoned Mire
+1 Tendrils of Despair
+1 Throatseeker
+1 Tomb of Urami
+1 Torment
+1 Trespasser il-Vec
+1 Uncle Istvan
+1 Underworld Connections
+1 Wei Infantry
+1 Whisper Squad
+1 Zodiac Rat
+
+[commander]
+Kaervek, the Spiteful

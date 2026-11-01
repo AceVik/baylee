@@ -32,6 +32,7 @@ fn resolution(spell: ObjectId, effects: &[Effect]) -> Resolution {
         loot: None,
         draw_watch: None,
         this_way_from: None,
+        coin_stake: None,
     }
 }
 

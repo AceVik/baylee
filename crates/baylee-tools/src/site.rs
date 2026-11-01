@@ -36,6 +36,12 @@ struct Cli {
 enum Command {
     /// Generate the catalog from a single committed revision.
     CardStatus(card_status::Args),
+    /// Fail unless `web/site/data` was measured at an ancestor of REV whose
+    /// pool REV did not change (what a release tag must carry).
+    CardStatusFresh {
+        #[arg(long, default_value = "HEAD")]
+        rev: String,
+    },
     /// Update content hashes (CSS first, then HTML).
     Stamp {
         /// Report stale stamps without writing files.
@@ -63,6 +69,7 @@ pub fn run(root: &Path, args: &[String]) -> Result<()> {
     let cli = Cli::try_parse_from(std::iter::once("site".to_owned()).chain(args.iter().cloned()))?;
     match cli.command {
         Command::CardStatus(args) => card_status::run(root, args),
+        Command::CardStatusFresh { rev } => card_status::fresh(root, &rev),
         Command::Stamp { check } => stamp::run(root, check),
         Command::ImpressumBlob { json, out } => {
             let out = out.map_or_else(impressum::default_out, Ok)?;

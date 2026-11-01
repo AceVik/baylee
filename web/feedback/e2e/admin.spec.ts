@@ -1,12 +1,13 @@
 // The admin console in a real browser, through a real baylee-feedback, to
-// a real baylee-gateway's console (harness.ts): the overview renders at a
-// phone held upright, a phone on its side and a desktop, with nothing wider
-// than the screen and targets a finger can hit; keys are made, shown once,
-// let a player in, and are revoked.
+// a real baylee-gateway's console (harness.ts): the reports, a report and
+// the overview render at the narrowest phone, a phone held upright, a phone
+// on its side and a desktop, with nothing wider than the screen, targets a
+// finger can hit and no text under 12 px; keys are made, shown once, let a
+// player in, and are revoked.
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { ADMIN, PASSWORD, register } from "./harness.ts";
+import { ADMIN, PASSWORD, admitGuest } from "./harness.ts";
 
 interface Size {
   name: string;
@@ -18,6 +19,8 @@ interface Size {
 }
 
 const SIZES: Size[] = [
+  // The narrowest a page must reflow to without scrolling sideways (WCAG 1.4.10).
+  { name: "phone-narrow", width: 320, height: 640, phone: true, locale: "de-DE", colorScheme: "dark" },
   { name: "phone-portrait", width: 360, height: 740, phone: true, locale: "de-DE", colorScheme: "light" },
   { name: "phone-landscape", width: 740, height: 360, phone: true, locale: "en-GB", colorScheme: "dark" },
   { name: "desktop", width: 1280, height: 800, phone: false, locale: "en-GB", colorScheme: "light" },
@@ -83,6 +86,18 @@ async function fingerSized(page: Page) {
   expect(small).toEqual([]);
 }
 
+/** No visible text is set under 12 px, the type scale's floor. */
+async function readable(page: Page) {
+  const tiny = await page.evaluate(() =>
+    [...document.querySelectorAll("body *")]
+      .filter((el) => (el as HTMLElement).offsetParent !== null && el.getBoundingClientRect().width > 1)
+      .filter((el) => [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim() !== ""))
+      .map((el) => ({ el: el.outerHTML.slice(0, 80), px: parseFloat(getComputedStyle(el).fontSize) }))
+      .filter(({ px }) => px < 12),
+  );
+  expect(tiny, "text under 12 px").toEqual([]);
+}
+
 test.describe.configure({ mode: "serial" });
 
 for (const size of SIZES) {
@@ -99,6 +114,15 @@ for (const size of SIZES) {
       const problems = watch(page);
       const words = WORDS[size.locale];
       await signIn(page);
+      // The reports list and one report fit the screen too.
+      await expect(page.getByRole("row").nth(1)).toBeVisible();
+      await noSideways(page);
+      await readable(page);
+      await page.getByRole("row").nth(1).getByRole("link").first().click();
+      await expect(page).toHaveURL(/\/r\/[^/]+$/);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await noSideways(page);
+      await readable(page);
       await page.getByRole("link", { name: words.tab }).click();
       await expect(page).toHaveURL(/\/admin$/);
       await expect(page.getByTestId("registered")).toHaveText(new RegExp(`^2 ${words.registered}$`));
@@ -106,6 +130,7 @@ for (const size of SIZES) {
       await expect(page.getByRole("figure").first()).toBeVisible();
       await noSideways(page);
       await fingerSized(page);
+      await readable(page);
       // A reload lands on the overview again: it is a page of its own.
       await page.reload();
       await expect(page.getByTestId("registered")).toBeVisible();
@@ -137,7 +162,7 @@ for (const size of SIZES) {
       await expect(server.getByTestId("m-req")).toBeVisible();
       await expect(server.getByTestId("m-up")).toBeVisible();
       // The pool: the sets being worked on, Alpha among them or done.
-      await expect(page.getByTestId("pool-implemented")).toBeVisible();
+      await expect(page.getByTestId("pool-playable")).toBeVisible();
       await noSideways(page);
       await fingerSized(page);
       if (dir) await page.screenshot({ path: `${dir}/live-${size.name}.png`, fullPage: true });
@@ -205,8 +230,8 @@ test.describe("keys", () => {
     await expect(page.getByText(keys[0] ?? "no key")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Make keys" })).toBeVisible();
 
-    // A key the console made lets a player in.
-    expect(await register("e2e-first", keys[0] ?? "")).toBe(200);
+    // A key the console made lets a guest in.
+    expect(await admitGuest("e2e-first", keys[0] ?? "")).toBe(200);
 
     // Revoking asks once more, and the gateway then refuses the key.
     const second = items.nth(0);
@@ -216,7 +241,7 @@ test.describe("keys", () => {
     await second.getByRole("button", { name: "Revoke for good" }).click();
     await expect(page.getByText("Key revoked.")).toBeVisible();
     await expect(page.getByTestId("invite").filter({ hasText: "revoked" })).toHaveCount(1);
-    const statuses = [await register("e2e-second", keys[0] ?? ""), await register("e2e-third", keys[1] ?? "")];
+    const statuses = [await admitGuest("e2e-second", keys[0] ?? ""), await admitGuest("e2e-third", keys[1] ?? "")];
     // keys[0] is used up; whichever of the two was revoked, neither admits now.
     expect(statuses).toEqual([403, 403]);
     await expect(page.getByText(/gateway\.invite\.revoke/)).toBeVisible();

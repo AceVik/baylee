@@ -1,0 +1,28 @@
+# adapted from data/decks/precon/GVL/garruk.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Garruk_GVL.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Garruk (Adapted)]
+2 Albino Troll
+1 Call the Scions
+4 Chord of Calling
+2 Cultivate
+1 Deconstruct
+1 Elephant Guide
+1 Fade into Antiquity
+21 Forest
+1 Giant Growth
+2 Harmonize
+2 Indrik Stomphowler
+3 Khalni Ambush
+2 Nature's Lore
+1 Overrun
+1 Plated Slagwurm
+2 Rancor
+1 Ravenous Baloth
+2 Serrated Arrows
+1 Stampede
+1 Stampeding Wildebeests
+2 Tranquil Thicket
+1 Treetop Village
+2 Vine Trellis
+1 Windstorm
+2 Wirewood Savage

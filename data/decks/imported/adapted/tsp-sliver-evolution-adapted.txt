@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/TSP/sliver-evolution.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SliverEvolution_TSP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sliver Evolution (Adapted)]
+1 Avoid Fate
+3 Bonesplitter Sliver
+8 Forest
+2 Fury Sliver
+4 Gemhide Sliver
+1 Gemstone Mine
+4 Incandescent Aria
+2 Might Sliver
+6 Mountain
+4 Naya Charm
+8 Plains
+4 Rith's Charm
+2 Scarwood Goblins
+2 Strength in Numbers
+2 Terramorphic Expanse
+2 Two-Headed Sliver
+2 Venser's Sliver
+3 Watcher Sliver

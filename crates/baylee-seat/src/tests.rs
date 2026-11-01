@@ -665,7 +665,7 @@ fn a_kept_key_sits_a_model_down_without_the_environment() {
 
 /// A game that ended with these counts: a win with 20 answers by the mind,
 /// 2 by the house and 1 by the least answer, on 2 sockets.
-fn played(fallback: Option<bridge::FellBack>) -> bridge::Played {
+fn played(fallbacks: Vec<bridge::FellBack>) -> bridge::Played {
     use baylee_seat::seat::{AnsweredCounts, FallbackCounts, StandingCounts, Stats};
     bridge::Played {
         stats: Stats {
@@ -696,7 +696,8 @@ fn played(fallback: Option<bridge::FellBack>) -> bridge::Played {
         },
         result: None,
         dials: 2,
-        fallback,
+        fallbacks,
+        reports: None,
     }
 }
 
@@ -706,7 +707,7 @@ fn played(fallback: Option<bridge::FellBack>) -> bridge::Played {
 /// keeps in its operator's log.
 #[test]
 fn the_closing_line_names_the_fallback_only_where_one_took_over() {
-    let without = summary_line(&played(None));
+    let without = summary_line(&played(Vec::new()));
     assert_eq!(
         without,
         "won after 9 turns: 40 questions, 11 answered by standing orders, 6 wakes and 2 payment \
@@ -719,11 +720,24 @@ fn the_closing_line_names_the_fallback_only_where_one_took_over() {
         turn: 3,
         answered: 12,
     };
-    let with = summary_line(&played(Some(fell_back)));
+    let with = summary_line(&played(vec![fell_back.clone()]));
     assert_eq!(
         with,
         format!("{without}; the fallback (backup) answered 12 from turn 3"),
         "everything it said before, then the fallback"
+    );
+    // A chain: each fallback that took over, in the order it did.
+    let next = bridge::FellBack {
+        label: "spare".into(),
+        turn: 6,
+        answered: 4,
+    };
+    assert_eq!(
+        summary_line(&played(vec![fell_back, next])),
+        format!(
+            "{without}; the fallback (backup) answered 12 from turn 3; the fallback (spare) \
+             answered 4 from turn 6"
+        )
     );
 }
 
@@ -731,8 +745,8 @@ fn the_closing_line_names_the_fallback_only_where_one_took_over() {
 /// fallback's command line is made from it.
 fn fallback_of(args: &[&str]) -> Join {
     let join = join_args(args).unwrap();
-    let profile = join.fallback_profile.clone().expect("a fallback profile");
-    fallback_join(&join, &profile)
+    let profile = join.fallback_profile.first().expect("a fallback profile");
+    fallback_join(&join, 0, profile)
 }
 
 /// The fallback plays its own profile whole: its command line is the
@@ -781,15 +795,16 @@ fn a_fallback_takes_its_profile_and_none_of_the_models_tuning() {
         Overrides::default(),
         "the premise: the model is tuned"
     );
-    let fallback = fallback_join(&model, "backup");
+    let fallback = fallback_join(&model, 0, "backup");
     assert_eq!(fallback.overrides(), Overrides::default());
     assert!(fallback.mind.is_none());
     assert_eq!(fallback.profile.as_deref(), Some("backup"));
     assert_eq!(fallback.config, Some(PathBuf::from("/m/llm-seat.json")));
     assert_eq!(fallback.ledger, Some(PathBuf::from("/m/book.json")));
-    assert!(fallback.fallback_profile.is_none());
-    assert!(fallback.fallback_config.is_none());
-    assert!(fallback.fallback_ledger.is_none());
+    assert!(fallback.fallback_profile.is_empty());
+    assert!(fallback.fallback_config.is_empty());
+    assert!(fallback.fallback_ledger.is_empty());
+    assert!(fallback.no_fallback, "a fallback's own is never followed");
     assert_eq!(fallback.transcripts, Some(PathBuf::from("/t")));
     assert_eq!(fallback.level, "sharp");
     assert!(fallback.allow_blitz);
@@ -877,13 +892,96 @@ fn a_fallbacks_file_or_book_without_a_fallback_profile_is_refused() {
     assert!(join_args(&["--fallback-profile", "fb"]).is_ok());
 }
 
+/// `--fallback-config` and `--fallback-ledger` go with the
+/// `--fallback-profile`s: given once, for all of them; given once for
+/// each, each with the profile at its place; given otherwise, the chair
+/// does not sit down. A chain that comes from the profile's own
+/// `fallback` reads the model's file and book.
+#[test]
+fn a_chain_pairs_each_fallback_with_its_file_and_book() {
+    let some = |path: &str| Some(PathBuf::from(path));
+    let chain = join_args(&[
+        "--config",
+        "A",
+        "--ledger",
+        "L",
+        "--fallback-profile",
+        "fb1",
+        "--fallback-profile",
+        "fb2",
+        "--fallback-config",
+        "B",
+        "--fallback-config",
+        "C",
+        "--fallback-ledger",
+        "M",
+    ])
+    .unwrap();
+    assert_eq!(chain.fallback_files_fault(), None);
+    assert_eq!(chain.fallback_chain(&["own".into()]), ["fb1", "fb2"]);
+    let (first, second) = (
+        fallback_join(&chain, 0, "fb1"),
+        fallback_join(&chain, 1, "fb2"),
+    );
+    assert_eq!((first.config, first.ledger), (some("B"), some("M")));
+    assert_eq!((second.config, second.ledger), (some("C"), some("M")));
+    assert_eq!(second.profile.as_deref(), Some("fb2"));
+
+    let shared = join_args(&[
+        "--config",
+        "A",
+        "--ledger",
+        "L",
+        "--fallback-profile",
+        "fb1",
+        "--fallback-profile",
+        "fb2",
+    ])
+    .unwrap();
+    for (at, profile) in ["fb1", "fb2"].into_iter().enumerate() {
+        let fallback = fallback_join(&shared, at, profile);
+        assert_eq!(
+            (fallback.config, fallback.ledger),
+            (some("A"), some("L")),
+            "one file, one book"
+        );
+    }
+
+    let mismatched = join_args(&[
+        "--fallback-profile",
+        "fb1",
+        "--fallback-profile",
+        "fb2",
+        "--fallback-profile",
+        "fb3",
+        "--fallback-ledger",
+        "M",
+        "--fallback-ledger",
+        "N",
+    ])
+    .unwrap();
+    let fault = mismatched.fallback_files_fault().expect("refused");
+    assert!(
+        fault.contains("--fallback-ledger is given 2 times"),
+        "{fault}"
+    );
+
+    // No flag: the profile's own chain; `--no-fallback`: none at all, and
+    // it cannot go with a `--fallback-profile`.
+    let bare = join_args(&[]).unwrap();
+    assert_eq!(bare.fallback_chain(&["fb1".into()]), ["fb1"]);
+    let none = join_args(&["--no-fallback"]).unwrap();
+    assert!(none.fallback_chain(&["fb1".into()]).is_empty());
+    assert!(join_args(&["--no-fallback", "--fallback-profile", "fb1"]).is_err());
+}
+
 /// The model's settings file (`primary`, an Anthropic-protocol endpoint of
 /// a model `model-a` that is never called, at an explicit price) and the
 /// fallback's in a directory of its own (a book sits beside its file, so two
 /// directories are two books): `backup` (an OpenAI-compatible endpoint that
-/// is never called) at $2 a game under a day's cap of $3, `cli` (an agent
-/// CLI whose program is this very one, never started) and `keyless` (a
-/// profile whose key is in no variable).
+/// is never called) at $2 a game under a day's cap of $3, `spare` (another,
+/// of the same key), `cli` (an agent CLI whose program is this very one,
+/// never started) and `keyless` (a profile whose key is in no variable).
 fn fallback_files_in(dir: &Path) -> (PathBuf, PathBuf) {
     let model = dir.join("llm-seat.json");
     let primary = serde_json::json!({
@@ -909,6 +1007,11 @@ fn fallback_files_in(dir: &Path) -> (PathBuf, PathBuf) {
                 "base_url": "https://api.example.invalid/v1", "key_env": "TEST_FB_KEY",
                 "price": {"input": 0.3, "output": 1.1}, "game_usd": 2, "think_secs": 25
             },
+            "spare": {
+                "provider": "openai", "model": "model-c",
+                "base_url": "https://api.example.invalid/v1", "key_env": "TEST_FB_KEY",
+                "price": {"input": 0.3, "output": 1.1}, "game_usd": 0.5, "think_secs": 15
+            },
             "cli": {"provider": "cli", "model": "claude", "command": program},
             "keyless": {
                 "provider": "openai", "model": "model-b",
@@ -921,7 +1024,8 @@ fn fallback_files_in(dir: &Path) -> (PathBuf, PathBuf) {
     (model, fallback)
 }
 
-/// The key of the fallback's profile `backup`, and nothing else.
+/// The key of the fallback's profiles `backup` and `spare`, and nothing
+/// else.
 fn fallback_key(name: &str) -> Option<String> {
     (name == "TEST_FB_KEY").then(|| "TEST-fallback-key-value".to_string())
 }
@@ -936,20 +1040,51 @@ fn api_model() -> SeatMind {
     }
 }
 
-/// `standby` for `join`, a model behind an API, with `env` and no stored
-/// keys.
+/// `standby` for the first `--fallback-profile` of `join`, with `env` and
+/// no stored keys; `None` where `join` names none.
 fn standing_by(
     join: &Join,
     env: &dyn Fn(&str) -> Option<String>,
 ) -> Result<Option<bridge::Standby>, String> {
+    let Some(profile) = join.fallback_profile.first() else {
+        return Ok(None);
+    };
     standby(
         join,
-        &api_model(),
+        0,
+        profile,
         &[],
         env,
         &MemoryKeys::default(),
         &Fallen::default(),
     )
+    .map(Some)
+}
+
+/// [`stand_by`] for `join` behind `primary` (whose profile names no
+/// fallback of its own), with `env` and no stored keys: the profiles that
+/// stand by, in order.
+fn chain_behind(
+    join: &Join,
+    primary: &SeatMind,
+    env: &dyn Fn(&str) -> Option<String>,
+) -> Vec<String> {
+    let named = Named {
+        profile: Some("primary".into()),
+        fallbacks: Vec::new(),
+    };
+    stand_by(
+        join,
+        primary,
+        &named,
+        &[],
+        env,
+        &MemoryKeys::default(),
+        &Fallen::default(),
+    )
+    .into_iter()
+    .map(|standby| standby.label)
+    .collect()
 }
 
 /// Without `--fallback-profile` nothing stands by and nothing is asked of
@@ -960,6 +1095,7 @@ fn without_a_fallback_profile_nothing_stands_by() {
     let (model, _) = fallback_files_in(&dir);
     let join = join_args(&["--config", model.to_str().unwrap()]).unwrap();
     assert!(standing_by(&join, &placeholder).unwrap().is_none());
+    assert!(chain_behind(&join, &api_model(), &placeholder).is_empty());
     assert!(
         Book::beside(&model).read().unwrap().games.is_empty(),
         "nothing was reserved"
@@ -967,11 +1103,12 @@ fn without_a_fallback_profile_nothing_stands_by() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A fallback takes over from a language model behind an API, and from
-/// nothing else: the house, a script and an agent CLI have no limit to
-/// hand over, so the chair plays without one and says why.
+/// A fallback takes over from a language model, behind an API or an agent
+/// CLI (whose subscription may run out mid-game as an API's quota does),
+/// and from nothing else: the house and a script have nothing to hand
+/// over, so the chair plays without one and says why.
 #[test]
-fn a_fallback_stands_by_only_behind_a_model_behind_an_api() {
+fn a_fallback_stands_by_behind_a_language_model_only() {
     let dir = scratch("standby-primary");
     let (model, fallback) = fallback_files_in(&dir);
     let join = join_args(&[
@@ -985,24 +1122,19 @@ fn a_fallback_stands_by_only_behind_a_model_behind_an_api() {
     .unwrap();
     let cli = SeatMind {
         kind: seat_mind::Kind::LlmCli as i32,
-        provider: "example".into(),
+        provider: "claude".into(),
+        model: "opus".into(),
         ..SeatMind::default()
     };
-    for primary in [declare::house("steady"), declare::scripted(), cli] {
-        let refused = standby(
-            &join,
-            &primary,
-            &[],
-            &fallback_key,
-            &MemoryKeys::default(),
-            &Fallen::default(),
-        )
-        .unwrap_err();
-        assert!(refused.contains("behind an API"), "{refused}");
+    for primary in [declare::house("steady"), declare::scripted()] {
+        let refused = no_fallback_behind(&primary).expect("refused");
+        assert!(refused.contains("a language model"), "{refused}");
+        assert!(chain_behind(&join, &primary, &fallback_key).is_empty());
     }
-    // The premise: behind an API it stands by.
-    let standing = standing_by(&join, &fallback_key).unwrap();
-    assert_eq!(standing.expect("a fallback").label, "backup");
+    for primary in [api_model(), cli] {
+        assert_eq!(no_fallback_behind(&primary), None);
+        assert_eq!(chain_behind(&join, &primary, &fallback_key), ["backup"]);
+    }
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1028,7 +1160,10 @@ fn a_fallback_that_cannot_play_is_refused_when_the_chair_sits_down() {
         standing_by(&join, env).map(|_| ()).unwrap_err()
     };
     let cli = refused("cli", &fallback_key);
-    assert!(cli.contains("agent CLI"), "{cli}");
+    assert!(
+        cli.contains("plays an agent CLI, and a fallback is a model behind an API"),
+        "{cli}"
+    );
     assert!(cli.contains("«cli»"), "{cli}");
     let unknown = refused("nope", &fallback_key);
     assert!(unknown.contains("no profile «nope»"), "{unknown}");
@@ -1041,11 +1176,99 @@ fn a_fallback_that_cannot_play_is_refused_when_the_chair_sits_down() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A chain stands by in the order it is given, and a fallback that cannot
+/// play (an agent CLI, a profile the file lacks, one whose key is gone)
+/// is left out of it at sit-down, as is a name given twice and the
+/// chair's own profile; the rest stand by, nothing reserved.
+#[test]
+fn a_chain_stands_by_in_its_order_without_what_cannot_play() {
+    let dir = scratch("standby-chain");
+    let (model, fallback) = fallback_files_in(&dir);
+    let mut args = vec!["--config", model.to_str().unwrap()];
+    for profile in ["spare", "cli", "nope", "keyless", "backup", "spare"] {
+        args.extend(["--fallback-profile", profile]);
+    }
+    args.extend(["--fallback-config", fallback.to_str().unwrap()]);
+    let join = join_args(&args).unwrap();
+    assert_eq!(
+        chain_behind(&join, &api_model(), &fallback_key),
+        ["spare", "backup"]
+    );
+    // The chair's own profile, in its own file, is never its fallback.
+    let own = join_args(&[
+        "--config",
+        model.to_str().unwrap(),
+        "--fallback-profile",
+        "primary",
+    ])
+    .unwrap();
+    assert!(chain_behind(&own, &api_model(), &placeholder).is_empty());
+    assert!(Book::beside(&fallback).read().unwrap().games.is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// An agent CLI's profile may name its fallbacks itself, and a bridge
+/// given no `--fallback-profile` plays that chain: the same model behind
+/// an API first, then the next. `--no-fallback` plays none of it, and a
+/// `--fallback-profile` replaces it.
+#[test]
+fn a_cli_profile_s_own_chain_stands_by_unless_the_command_line_says_otherwise() {
+    let dir = scratch("standby-cli-chain");
+    let config = dir.join("llm-seat.json");
+    let program = std::env::current_exe().unwrap();
+    let file = serde_json::json!({
+        "default": "cc",
+        "caps": {"day_usd": 3, "day_tokens": 50_000_000},
+        "profiles": {
+            "cc": {"provider": "cli", "model": "claude:opus", "command": program,
+                   "fallback": ["opus-api", "sonnet-api"]},
+            "opus-api": {"provider": "anthropic", "model": "claude-opus-5-5",
+                         "key_env": "TEST_FB_KEY", "game_usd": 1},
+            "sonnet-api": {"provider": "anthropic", "model": "claude-sonnet-5-5",
+                           "key_env": "TEST_FB_KEY", "game_usd": 1}
+        }
+    });
+    std::fs::write(&config, file.to_string()).unwrap();
+    let path = config.to_str().unwrap();
+    let standing = |join: &Join| {
+        let chosen = chosen(join, &fallback_key).expect("the CLI sits down");
+        assert_eq!(chosen.declared.kind, seat_mind::Kind::LlmCli as i32);
+        stand_by(
+            join,
+            &chosen.declared,
+            &chosen.named,
+            &[],
+            &fallback_key,
+            &MemoryKeys::default(),
+            &Fallen::default(),
+        )
+        .into_iter()
+        .map(|standby| standby.label)
+        .collect::<Vec<_>>()
+    };
+    let own = join_args(&["--config", path]).unwrap();
+    assert_eq!(standing(&own), ["opus-api", "sonnet-api"]);
+    let none = join_args(&["--config", path, "--no-fallback"]).unwrap();
+    assert!(standing(&none).is_empty());
+    let told = join_args(&["--config", path, "--fallback-profile", "sonnet-api"]).unwrap();
+    assert_eq!(standing(&told), ["sonnet-api"]);
+    assert_eq!(
+        Book::beside(&config).read().unwrap().games.len(),
+        3,
+        "the CLI's own three games; no fallback reserved one"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// The fallback's game is reserved in its own book, in its own file's
 /// caps, at the moment it takes over and not before; it brings its own
 /// profile's think time and says what it is to the table; and a book that
 /// refuses at that moment leaves the limit to the house, as `Err`.
 #[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one book, followed take-over by take-over"
+)]
 fn a_fallback_reserves_its_game_in_its_own_book_when_it_takes_over() {
     let dir = scratch("standby-arm");
     let (model, fallback) = fallback_files_in(&dir);
@@ -1063,17 +1286,18 @@ fn a_fallback_reserves_its_game_in_its_own_book_when_it_takes_over() {
         why: "429: slow down".into(),
         lifts_in: Some(Duration::from_secs(120)),
         failed: false,
+        by: None,
     };
     let fallen = Fallen::default();
     let standing = standby(
         &join,
-        &api_model(),
+        0,
+        "backup",
         &[],
         &fallback_key,
         &MemoryKeys::default(),
         &fallen,
     )
-    .unwrap()
     .expect("a fallback");
     assert_eq!(standing.label, "backup");
     let own = Book::beside(&fallback);
@@ -1100,22 +1324,61 @@ fn a_fallback_reserves_its_game_in_its_own_book_when_it_takes_over() {
     );
     {
         let spent = fallen.lock().unwrap();
-        assert!(spent.booked.is_some() && spent.tally.is_some());
+        assert_eq!(spent.len(), 1);
+        assert_eq!(spent[0].label, "backup");
+        assert!(spent[0].booked.is_some());
     }
 
-    // The day's cap of $3: the first game holds $2, the next takes what is
-    // left, and the one after finds nothing. A reservation is settled when
-    // the spend it was kept in is dropped, so each is kept.
+    // A second fallback of the chain that takes over after the first is
+    // reserved beside it, in the same shared spend, in that order.
+    let spare = standby(
+        &join_args(&[
+            "--config",
+            model.to_str().unwrap(),
+            "--fallback-profile",
+            "backup",
+            "--fallback-profile",
+            "spare",
+            "--fallback-config",
+            fallback.to_str().unwrap(),
+        ])
+        .unwrap(),
+        1,
+        "spare",
+        &[],
+        &fallback_key,
+        &MemoryKeys::default(),
+        &fallen,
+    )
+    .expect("the second of the chain");
+    let next = bridge::Limit {
+        by: Some("backup".into()),
+        ..limit.clone()
+    };
+    let taken = (spare.arm)(&next).expect("half a dollar of the dollar the cap left");
+    assert_eq!(taken.think, Some(Duration::from_secs(15)));
+    let labels: Vec<String> = fallen
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|spend| spend.label.clone())
+        .collect();
+    assert_eq!(labels, ["backup", "spare"]);
+
+    // The day's cap of $3: the first game holds $2 and the spare's $0.50,
+    // the next takes what is left, and the one after finds nothing. A
+    // reservation is settled when the spend it was kept in is dropped, so
+    // each is kept.
     let another = |kept: &Fallen| {
         standby(
             &join,
-            &api_model(),
+            0,
+            "backup",
             &[],
             &fallback_key,
             &MemoryKeys::default(),
             kept,
         )
-        .unwrap()
         .expect("a fallback")
     };
     let (kept_second, kept_third) = (Fallen::default(), Fallen::default());
@@ -1124,10 +1387,123 @@ fn a_fallback_reserves_its_game_in_its_own_book_when_it_takes_over() {
     assert!(refused.contains("the day's cap of $3.00"), "{refused}");
     assert_eq!(
         own.read().unwrap().games.len(),
-        2,
+        3,
         "the refusal reserved nothing"
     );
-    assert!(kept_third.lock().unwrap().booked.is_none());
-    drop((swap, second, fallen, kept_second, kept_third));
+    assert!(kept_third.lock().unwrap().is_empty());
+    drop((swap, second, taken, fallen, kept_second, kept_third));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn host_chair_is_explicit_tethered_stdin_and_conflicts_with_ticket() {
+    let sat = join_args(&["--tethered", "--chair", "0", "--host-chair"]).unwrap();
+    assert!(sat.host_chair && sat.tethered && !sat.chair_ticket);
+    for args in [
+        vec!["--host-chair"],
+        vec!["--host-chair", "--chair", "0"],
+        vec!["--host-chair", "--tethered"],
+        vec![
+            "--host-chair",
+            "--tethered",
+            "--chair",
+            "0",
+            "--chair-ticket",
+        ],
+        vec!["--host-chair=session-secret", "--tethered", "--chair", "0"],
+    ] {
+        assert!(join_args(&args).is_err());
+    }
+    assert!(!join_args(&[]).unwrap().host_chair);
+}
+
+#[test]
+fn room_preflight_distinguishes_untimed_from_positive_short_clocks() {
+    let join = join_args(&[]).unwrap();
+    for (seconds, permitted) in [
+        (None, true),
+        (Some(0), true),
+        (Some(10), false),
+        (Some(30), false),
+        (Some(31), true),
+    ] {
+        let room: Room = serde_json::from_value(serde_json::json!({
+            "id":"room", "state":"waiting", "clock":{"decide_secs":seconds},
+            "seats":[{"seat":1,"kind":"human","taken":false}]
+        }))
+        .unwrap();
+        assert_eq!(
+            room_takes_us(&room, &join, false).is_ok(),
+            permitted,
+            "clock={seconds:?}"
+        );
+    }
+}
+
+/// Every language model's reports file has a place, so a report the
+/// gateway never takes is kept on this machine: `--reports-dir`, else
+/// `--transcripts`, else `llm-reports` beside the settings file (the
+/// player's config directory's, or the one `--config` names, never the
+/// other); and a fallback read from another settings file writes to the
+/// model's.
+#[test]
+fn a_model_s_reports_are_kept_beside_its_settings_without_transcripts() {
+    let dir = scratch("reports-dir");
+    let real = dir.join("xdg").join("baylee");
+    std::fs::create_dir_all(&real).unwrap();
+    settings_in(&real);
+    let xdg = dir.join("xdg").display().to_string();
+    let env = |name: &str| match name {
+        "XDG_CONFIG_HOME" => Some(xdg.clone()),
+        "TEST_FB_KEY" => fallback_key(name),
+        _ => placeholder(name),
+    };
+    let reports = |join: &Join| {
+        reach(join, None, &[], &env, &MemoryKeys::default())
+            .unwrap()
+            .expect("a model")
+            .plan
+            .settings
+            .reports
+    };
+    assert_eq!(
+        reports(&join_args(&[]).unwrap()),
+        Some(real.join("llm-reports")),
+        "the config directory's"
+    );
+    let mine = dir.join("mine");
+    std::fs::create_dir_all(&mine).unwrap();
+    let (model, fallback) = fallback_files_in(&mine);
+    let named = ["--config", model.to_str().unwrap()];
+    assert_eq!(
+        reports(&join_args(&named).unwrap()),
+        Some(mine.join("llm-reports")),
+        "beside the named file, not in the config directory"
+    );
+    let with = |more: &[&str]| join_args(&[&named[..], more].concat()).unwrap();
+    assert_eq!(
+        reports(&with(&["--transcripts", "/TEST/t"])),
+        Some(PathBuf::from("/TEST/t"))
+    );
+    assert_eq!(
+        reports(&with(&[
+            "--transcripts",
+            "/TEST/t",
+            "--reports-dir",
+            "/TEST/r"
+        ])),
+        Some(PathBuf::from("/TEST/r"))
+    );
+    // The fallback, read from its own file elsewhere, reports beside the
+    // model's.
+    let join = with(&[
+        "--fallback-profile",
+        "backup",
+        "--fallback-config",
+        fallback.to_str().unwrap(),
+    ]);
+    let standing = fallback_reporting(&join, 0, "backup", &env);
+    assert_eq!(standing.config.as_deref(), Some(fallback.as_path()));
+    assert_eq!(reports(&standing), Some(mine.join("llm-reports")));
     let _ = std::fs::remove_dir_all(&dir);
 }

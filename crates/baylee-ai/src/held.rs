@@ -142,7 +142,7 @@ fn least(
     match pending {
         Pending::ChooseManaAbility {
             choice, options, ..
-        } => crate::constrained::mana_choice(*choice, options),
+        } => crate::constrained::mana_choice(view, *choice, options),
         Pending::ChooseDamageSource { .. }
         | Pending::ChooseDamageEffect { .. }
         | Pending::AllocatePrevention { .. } => crate::damage::answer(view, pending, hostile),
@@ -172,9 +172,7 @@ fn least(
         Pending::YesNo { .. } => Some(PlayerAction::YesNo(false)),
         Pending::Mulligan { .. } => Some(PlayerAction::MulliganKeep),
         Pending::Priority { .. } => Some(PlayerAction::PassPriority),
-        Pending::ChooseAttackers { .. } => Some(PlayerAction::DeclareAttackers {
-            attackers: Vec::new(),
-        }),
+        Pending::ChooseAttackers { .. } => baylee_engine::choice::timeout_answer(pending),
         Pending::ChooseBlockers { .. } => Some(PlayerAction::DeclareBlockers {
             blockers: Vec::new(),
         }),

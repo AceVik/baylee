@@ -1,0 +1,32 @@
+# adapted from data/decks/precon/PLS/domain.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Domain_PLS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Domain (Adapted)]
+1 Agate Assault
+2 Befuddle
+2 Bring to Trial
+1 Cleanfall
+2 Deluge
+2 Dismember
+1 Expel
+3 Fate Forgotten
+1 Fateful End
+8 Forest
+1 Gaea's Might
+3 Harrow
+2 Incandescent Aria
+3 Island
+1 Kavu Recluse
+3 Mountain
+3 Plains
+1 Quirion Dryad
+1 Renegade's Getaway
+1 Rith's Charm
+1 Serpent's Gift
+3 Spin Out
+2 Sungold Barrage
+3 Swamp
+2 Terminal Moraine
+1 Treva's Charm
+2 Vindicate
+2 Winter's Grasp
+2 Wistful Thinking

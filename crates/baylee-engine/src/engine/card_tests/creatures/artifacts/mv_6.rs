@@ -8,13 +8,17 @@ mod beast_of_burden;
 mod chardalyn_dragon;
 mod composite_golem;
 mod darksteel_sentinel;
+mod duplicant;
 mod enatu_golem;
+mod flowstone_sculpture;
 mod geistcatcher_s_rig;
+mod goblin_dirigible;
 mod gold_forged_sentinel;
 mod iron_man_futurist_paragon;
 mod limestone_golem;
 mod lumengrid_gargoyle;
 mod malachite_golem;
+mod mirror_golem;
 mod pardic_wanderer;
 mod phyrexian_hulk;
 mod prophet_of_the_peak;
@@ -163,3 +167,4 @@ fn tramples_over_a_blocker(card: CardIndex, power: i32) {
         "the excess tramples over"
     );
 }
+mod phyrexian_devourer;

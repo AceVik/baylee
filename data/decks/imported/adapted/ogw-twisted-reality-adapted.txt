@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/OGW/twisted-reality.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TwistedReality_OGW.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Twisted Reality (Adapted)]
+1 Abstruse Interference
+4 Bewilder
+1 Blighted Cataract
+3 Blinding Drone
+1 Deepfathom Skulker
+1 Endless One
+1 Evolving Wilds
+1 Faerie Conclave
+2 Galestrike
+3 Halt Order
+1 Infuse
+14 Island
+2 Kozilek's Channeler
+2 Launch Mishap
+1 Prophet of Distortion
+2 Psionic Blast
+1 Scour from Existence
+2 Spatial Contortion
+3 Stealth Mission
+1 Tide Drifter
+1 Tinker
+10 Wastes
+2 Wing Commando

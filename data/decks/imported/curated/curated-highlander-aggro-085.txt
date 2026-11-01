@@ -1,0 +1,81 @@
+# baylee curated highlander aggro seed=20261108
+# licence: AGPL-3.0-only
+[deck:highlander aggro UB #20261108]
+1 Abundant Countryside
+1 Ancestral Vision
+1 Aven Wind Mage
+1 Benthic Behemoth
+1 Captivating Cave
+1 Cateran Persuader
+1 Chain to Memory
+1 Compelling Argument
+1 Condescend
+1 Consider
+1 Dakmor Lancer
+1 Dazzling Lights
+1 Dreadship Reef
+1 Drowned Secrets
+1 Drowner Initiate
+1 Easy Prey
+1 Eclipsed Realms
+1 Elementalist Adept
+1 Elusive Spellfist
+1 Eyes of the Watcher
+1 Fleeting Distraction
+1 Gravelgill Duo
+1 Guardian of Solitude
+1 Haven of the Spirit Dragon
+1 Headstone
+1 Henge of Ramos
+1 Ingenious Skaab
+14 Island
+1 Jasmine Dragon Tea Shop
+1 Jeskai Sage
+1 Jhessian Thief
+1 Kami of the Waning Moon
+1 Kulrath Mystic
+1 Locust Spray
+1 Lose Hope
+1 Lost in a Labyrinth
+1 Lotus Vale
+1 Mana Confluence
+1 Mana Vortex
+1 Mental Note
+1 Mirran Spy
+1 Mystic Remora
+1 Nether Void
+1 Niblis of Dusk
+1 Ojer Pakpatiq, Deepest Epoch
+1 Omen
+1 Opt
+1 Painsmith
+1 Ponder
+1 Portent
+1 Quill-Slinger Boggart
+1 Ramses Overdark
+1 Ray of Erasure
+1 Riddleform
+1 Rumble Arena
+1 Seahunter
+1 Secluded Courtyard
+1 Skittering Horror
+1 Skittering Monstrosity
+1 Skittering Skirge
+1 Sky Scourer
+1 Soul Rend
+1 Stymied Hopes
+1 Sugar Rush
+10 Swamp
+1 TVA Bureaucrat
+1 Talrand, Sky Summoner
+1 Tanufel Rimespeaker
+1 Tarnished Citadel
+1 Tendo Ice Bridge
+1 Thought Scour
+1 Umara Entangler
+1 Underground River
+1 Unearth
+1 Vedalken Blademaster
+1 Veil of Birds
+1 Whirlwind Adept
+1 Whisper Squad

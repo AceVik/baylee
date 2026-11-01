@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/M19/auras-of-majesty.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AurasOfMajesty_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Auras of Majesty (Adapted)]
+4 Advent of the Wurm
+3 Altar of Bone
+3 Call of the Conclave
+2 Daybreak Chaplain
+9 Forest
+2 Greenwood Sentinel
+1 Heroes' Reunion
+2 Knightly Valor
+1 Nature's Chant
+3 Oakenform
+4 Overgrown Farmland
+11 Plains
+1 Prodigious Growth
+3 Reknit
+3 Rune of Protection: Blue
+3 Satyr Enchanter
+1 Siegehorn Ceratops
+1 Sunpetal Grove
+3 Vitalizing Cascade

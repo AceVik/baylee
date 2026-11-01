@@ -1,0 +1,28 @@
+# adapted from data/decks/precon/VIS/unnatural-forces.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, UnnaturalForces_VIS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Unnatural Forces (Adapted)]
+1 Boomerang
+2 Brood of Cockroaches
+2 Buried Alive
+2 Enfeeblement
+2 Fetid Horror
+1 Flooded Shoreline
+1 Funeral Charm
+2 Funeral March
+2 Glimmerburst
+2 Glimpse the Unthinkable
+2 Impulse
+2 Inspiration
+12 Island
+2 Kukemssa Serpent
+2 Man-o'-War
+1 Nekrataal
+1 Notion Rain
+1 Opt
+1 Pelargir Survivor
+2 Restless Dead
+1 Shrieking Drake
+2 Silent Observer
+1 Soul Read
+12 Swamp
+1 Urborg Shambler

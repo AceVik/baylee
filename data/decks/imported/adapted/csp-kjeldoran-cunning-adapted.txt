@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/CSP/kjeldoran-cunning.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, KjeldoranCunning_CSP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Kjeldoran Cunning (Adapted)]
+4 Absorb
+1 Binding Grasp
+2 Boreal Shelf
+3 Brainstorm
+4 Daring Leap
+1 Disenchant
+1 Field Marshal
+11 Island
+2 Kjeldoran Elite Guard
+1 Kjeldoran Home Guard
+3 Kjeldoran Outrider
+1 Kjeldoran Pride
+11 Plains
+2 Portent
+1 Saltblast
+4 Sphinx's Revelation
+1 Steelshaper's Gift
+1 Swords to Plowshares
+2 Transmute Artifact
+2 Wings of Aesthir
+2 Zuran Spellcaster

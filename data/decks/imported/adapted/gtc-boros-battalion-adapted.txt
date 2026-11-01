@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/GTC/boros-battalion.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BorosBattalion_GTC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Boros Battalion (Adapted)]
+1 Aerial Maneuver
+4 Arrows of Justice
+1 Boros Guildgate
+2 Boros Keyrune
+2 Canyon Minotaur
+1 Court Street Denizen
+4 Energy Bolt
+1 Foundry Champion
+4 Lightning Helix
+2 Martial Glory
+12 Mountain
+12 Plains
+4 Rip Apart
+2 Skyknight Legionnaire
+4 Spirit Summoning
+2 Warclamp Mastiff
+2 Warleader's Helix

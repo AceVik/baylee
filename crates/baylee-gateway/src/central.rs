@@ -1,4 +1,8 @@
-//! Opt-in migration bridge. Secrets are read from an operator-owned file and never logged.
+//! The gateway's link to Baylee Central: the operator's file
+//! (`BAYLEE_CENTRAL_CONFIG_FILE`, the official gateway's migration bridge or
+//! a registered credential pair), or a token an admin pasted into the console
+//! (`link.rs`, baylee-central `docs/gateway-registry.md` §"Gateway tokens").
+//! Secrets are never logged.
 #![forbid(unsafe_code)]
 
 use crate::Shared;
@@ -13,7 +17,9 @@ use serde::Deserialize;
 use std::{io::Read, sync::Arc, time::Duration};
 use zeroize::Zeroizing;
 
+mod link;
 mod routes;
+pub(crate) use link::{console_routes, restore};
 pub(crate) use routes::router;
 
 pub(crate) struct Bridge {
@@ -43,8 +49,63 @@ struct Settings {
     metadata: Option<baylee_account::gateway::GatewayMetadata>,
 }
 
+/// The link as the gateway holds it: the bridge in use, if any. One from the
+/// operator's file is fixed for the process; a pasted token's can be
+/// replaced or removed while the gateway runs, so every user asks for the
+/// bridge each time ([`Link::get`]) rather than keeping one.
+pub(crate) struct Link {
+    slot: std::sync::RwLock<Option<Arc<Bridge>>>,
+    /// The operator's file set it; the console shows it and cannot change it.
+    file: bool,
+    /// Where a pasted token talks to: `BAYLEE_CENTRAL_ENDPOINT`, `live`
+    /// unless an explicitly selected numeric-loopback development origin.
+    endpoint: Endpoint,
+}
+
+impl Link {
+    /// The operator's file, if `BAYLEE_CENTRAL_CONFIG_FILE` names one; else
+    /// empty until [`restore`] reads a pasted token from the database.
+    pub(crate) fn from_env() -> Result<Self, ()> {
+        let endpoint = match std::env::var("BAYLEE_CENTRAL_ENDPOINT") {
+            Err(_) => Endpoint::live(),
+            Ok(value) if value == "live" => Endpoint::live(),
+            Ok(value) => Endpoint::development(&value).map_err(|_| ())?,
+        };
+        let bridge = Bridge::from_env()?;
+        Ok(Self {
+            file: bridge.is_some(),
+            slot: std::sync::RwLock::new(bridge),
+            endpoint,
+        })
+    }
+
+    /// The bridge in use now, if any.
+    pub(crate) fn get(&self) -> Option<Arc<Bridge>> {
+        self.slot
+            .read()
+            .map_or(None, |slot| slot.as_ref().map(Arc::clone))
+    }
+
+    pub(crate) fn is_some(&self) -> bool {
+        self.get().is_some()
+    }
+
+    /// Whether the operator's file set the link (the console cannot change it).
+    pub(crate) const fn fixed_by_file(&self) -> bool {
+        self.file
+    }
+
+    /// Use `bridge` from now on: a pasted token's, or none. A request that
+    /// holds the earlier bridge finishes with it.
+    fn set(&self, bridge: Option<Arc<Bridge>>) {
+        if let Ok(mut slot) = self.slot.write() {
+            *slot = bridge;
+        }
+    }
+}
+
 impl Bridge {
-    pub(crate) fn from_env() -> Result<Option<Arc<Self>>, ()> {
+    fn from_env() -> Result<Option<Arc<Self>>, ()> {
         let Some(path) = std::env::var_os("BAYLEE_CENTRAL_CONFIG_FILE") else {
             return Ok(None);
         };
@@ -75,6 +136,51 @@ impl Bridge {
         })))
     }
 
+    /// A pasted gateway token's bridge: one token serves both its players'
+    /// sign-ins and the heartbeat, for what its scopes allow; `metadata` is
+    /// the directory entry it beats with, on the token's origin.
+    fn from_token(
+        endpoint: Endpoint,
+        token: &Token,
+        metadata: baylee_account::gateway::GatewayMetadata,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            http: CentralHttp::new(endpoint),
+            credential: Token::from_secret_bytes(token.to_secret_bytes()),
+            heartbeat: Some(Token::from_secret_bytes(token.to_secret_bytes())),
+            metadata: Some(metadata),
+            legacy: false,
+            workers: Arc::new(tokio::sync::Semaphore::new(4)),
+            pending: Arc::new(tokio::sync::Semaphore::new(64)),
+        })
+    }
+
+    /// Whether this is the official gateway's bridge, the one credential
+    /// Central takes a report straight from a client under.
+    pub(crate) const fn official(&self) -> bool {
+        self.legacy
+    }
+
+    /// Files a report's metadata with Central under this gateway's own
+    /// credential (`report::central`), blocking.
+    pub(crate) fn file_report(
+        &self,
+        intake: &baylee_account::reports::ReportIntake,
+    ) -> Result<[u8; 16], baylee_account::Error> {
+        self.http.file_report(intake, &self.credential)
+    }
+
+    /// Sends a part `report` announced, under the same credential, blocking.
+    pub(crate) fn put_report_part(
+        &self,
+        report: &[u8; 16],
+        part: baylee_account::reports::Part,
+        gzip: &[u8],
+    ) -> Result<(), baylee_account::Error> {
+        self.http
+            .put_report_part(report, part, gzip, &self.credential)
+    }
+
     async fn exchange(
         self: &Arc<Self>,
         request: wire::Request,
@@ -96,11 +202,16 @@ impl Bridge {
         tokio::task::spawn_blocking(move || {
             let _permit = permit;
             let _pending = pending;
-            let credential = if matches!(&request, wire::Request::GatewayHeartbeat { .. }) {
-                bridge.heartbeat.as_ref().ok_or(StatusCode::UNAUTHORIZED)?
-            } else {
-                &bridge.credential
-            };
+            // A registered gateway beats with its heartbeat token; the official
+            // gateway's bridge beats with the bridge credential, for the
+            // official directory entry alone (baylee-central
+            // `docs/gateway-registry.md` §"Discovery, heartbeats and administrators").
+            let credential =
+                if matches!(&request, wire::Request::GatewayHeartbeat { .. }) && !bridge.legacy {
+                    bridge.heartbeat.as_ref().ok_or(StatusCode::UNAUTHORIZED)?
+                } else {
+                    &bridge.credential
+                };
             bridge
                 .http
                 .exchange(&request, Some(credential))
@@ -133,25 +244,44 @@ impl Settings {
         (),
     > {
         if let Some(bridge) = self.bridge {
-            if self.credential.is_some() || self.heartbeat.is_some() || self.metadata.is_some() {
+            if self.credential.is_some() || self.heartbeat.is_some() {
                 return Err(());
             }
             // Only the separately provisioned official migration bridge has legacy authority.
             // Synthetic loopback fixtures deliberately use their isolated bridge credential.
-            if let Some(origin) = self.origin {
+            // Live, the bridge is the official gateway's at any of its compiled
+            // origins (`Endpoint::official_origins`: the new one, and the one
+            // it moved from, docs/central-login.md §"The official gateway's aliases").
+            let official = endpoint.official_origins();
+            if let Some(origin) = &self.origin {
                 baylee_account::gateway::validate_origin(
-                    &origin,
+                    origin,
                     endpoint.legacy_origin().is_none(),
                 )
                 .map_err(|_| ())?;
-                if endpoint
-                    .legacy_origin()
-                    .is_some_and(|expected| expected != origin)
-                {
+                if !official.is_empty() && !official.contains(origin) {
                     return Err(());
                 }
             }
-            return Ok((bridge, None, None, true));
+            // The official gateway's directory entry, sent with the bridge
+            // credential. Its website lies on the bridge's origin: the
+            // configured `origin`, or live without one any of the official
+            // gateway's, as Central checks it.
+            let metadata = match self.metadata {
+                None => None,
+                Some(mut metadata) => {
+                    let origins = self.origin.map_or(official, |origin| vec![origin]);
+                    metadata.version = env!("CARGO_PKG_VERSION").into();
+                    if !origins
+                        .iter()
+                        .any(|origin| metadata.validate(origin).is_ok())
+                    {
+                        return Err(());
+                    }
+                    Some(metadata)
+                }
+            };
+            return Ok((bridge, None, metadata, true));
         }
         let (Some(origin), Some(credential), Some(heartbeat), Some(mut metadata)) =
             (self.origin, self.credential, self.heartbeat, self.metadata)
@@ -177,8 +307,10 @@ pub(crate) struct Heartbeat {
 }
 
 impl Heartbeat {
-    pub(crate) fn start(bridge: Option<&Arc<Bridge>>) -> Option<Self> {
-        let bridge = bridge.filter(|bridge| bridge.heartbeat.is_some())?.clone();
+    /// Beats every 30 seconds with the bridge in use then: a registered
+    /// gateway's, a pasted token's, and the official one's when its bridge
+    /// has `metadata`; nothing while there is none or it has no metadata.
+    pub(crate) fn start(state: Shared) -> Self {
         let (stop, mut stopped) = tokio::sync::oneshot::channel();
         let task = tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(30));
@@ -188,8 +320,11 @@ impl Heartbeat {
                     _ = &mut stopped => return,
                     _ = interval.tick() => {}
                 }
+                let Some(bridge) = state.central.get() else {
+                    continue;
+                };
                 let Some(metadata) = bridge.metadata.clone() else {
-                    return;
+                    continue;
                 };
                 // Network errors contain no operator-supplied diagnostics and never alter
                 // authorization: directory liveness expires centrally if heartbeats stop.
@@ -198,10 +333,10 @@ impl Heartbeat {
                     .await;
             }
         });
-        Some(Self {
+        Self {
             stop: Some(stop),
             task,
-        })
+        }
     }
 }
 
@@ -230,13 +365,10 @@ pub(crate) async fn resolve_digest(
             if binding.purpose != "admit" {
                 return Ok(None);
             }
-            let bridge = state
-                .central
-                .as_ref()
-                .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+            let bridge = state.central.get().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
             let Some(standing) = authorize(
                 state,
-                bridge,
+                &bridge,
                 binding.lease,
                 binding.central,
                 binding.expires_at,
@@ -265,7 +397,9 @@ pub(crate) async fn resolve_digest(
 /// accepted Central's terms in force and the version of this gateway's
 /// terms Central confirmed (none confirmed: nothing to accept yet, so
 /// nothing is enforced). `None` when the lease is no longer good or no
-/// longer the one bound here.
+/// longer the one bound here. A renewed session's lease comes back with a
+/// later expiry (never an earlier one), which is stored here too
+/// ([`renewed`]).
 pub(crate) async fn authorize(
     state: &Shared,
     bridge: &Arc<Bridge>,
@@ -286,20 +420,37 @@ pub(crate) async fn authorize(
             expires_at,
             central_terms,
             gateway_terms,
-        } if identity.account == account && expires_at == expires => {
+        } if identity.account == account && expires_at >= expires => {
+            renewed(state, lease, expires, expires_at).await?;
             Some(crate::terms::Standing::of(central_terms, gateway_terms))
         }
         _ => None,
     })
 }
 
+/// Central renewed the session behind `lease` (baylee-central
+/// `docs/operations.md` §"Sessions"): its later expiry becomes this
+/// gateway's for the lease, which bounds the local session, so that lasts as
+/// long as Central's. Nothing when it did not move.
+async fn renewed(
+    state: &Shared,
+    lease: [u8; 32],
+    expires: i64,
+    expires_at: i64,
+) -> Result<(), StatusCode> {
+    if expires_at <= expires {
+        return Ok(());
+    }
+    baylee_db::central::extend_session(&state.db, lease, expires_at)
+        .await
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)
+}
+
 /// Publish the terms in force to Central until it confirms them; only then
 /// can players accept them there, and only then does the gateway enforce
 /// them. Every minute, and at once after an admin published a version.
 pub(crate) fn spawn_terms_publisher(state: Shared) {
-    if state.central.is_none() {
-        return;
-    }
+    // a token pasted later links the gateway then, so the loop runs anyway
     tokio::spawn(async move {
         loop {
             publish_terms(&state).await;
@@ -317,7 +468,7 @@ pub(crate) async fn publish_terms(state: &Shared) -> bool {
     if state.terms.confirmed().is_some() {
         return true;
     }
-    let Some(bridge) = state.central.as_ref() else {
+    let Some(bridge) = state.central.get() else {
         return true;
     };
     let request = wire::Request::PublishGatewayTerms {
@@ -365,7 +516,7 @@ pub(crate) async fn admin_actor(
     if binding.purpose != "admin" {
         return Ok(None);
     }
-    let Some(bridge) = state.central.as_ref().filter(|bridge| !bridge.legacy) else {
+    let Some(bridge) = state.central.get().filter(|bridge| !bridge.legacy) else {
         return Ok(None);
     };
     let response = bridge
@@ -374,11 +525,17 @@ pub(crate) async fn admin_actor(
             purpose: wire::TicketPurpose::Admin,
         })
         .await?;
-    if !matches!(response, wire::Response::GatewaySession { identity, expires_at }
-        if identity.account == binding.central && expires_at == binding.expires_at)
-    {
+    let wire::Response::GatewaySession {
+        identity,
+        expires_at,
+    } = response
+    else {
+        return Ok(None);
+    };
+    if identity.account != binding.central || expires_at < binding.expires_at {
         return Ok(None);
     }
+    renewed(state, binding.lease, binding.expires_at, expires_at).await?;
     let Some(session) = crate::store::resolve_digest(&state.db, digest, crate::auth::now_secs())
         .await
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
@@ -389,35 +546,6 @@ pub(crate) async fn admin_actor(
         return Ok(None);
     }
     Ok(Some(uuid::Uuid::from_bytes(binding.central).to_string()))
-}
-
-/// Retire a pending migration before changing its legacy proof. The caller must
-/// hold the exclusive migration barrier through the subsequent database mutation.
-pub(crate) async fn invalidate_password(state: &Shared, account: &str) -> Result<(), StatusCode> {
-    if baylee_db::central::linked(&state.db, account)
-        .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
-    {
-        return Err(StatusCode::CONFLICT);
-    }
-    let Some(bridge) = state.central.as_ref().filter(|bridge| bridge.legacy) else {
-        if baylee_db::central::pending(&state.db, account)
-            .await
-            .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
-        {
-            return Err(StatusCode::SERVICE_UNAVAILABLE);
-        }
-        return Ok(());
-    };
-    match bridge
-        .exchange(wire::Request::LegacyInvalidate {
-            legacy_id: account.into(),
-        })
-        .await?
-    {
-        wire::Response::Done => Ok(()),
-        _ => Err(StatusCode::SERVICE_UNAVAILABLE),
-    }
 }
 
 /// Bind a seat capability to the session which authorized its creation.
@@ -441,20 +569,10 @@ pub(crate) async fn seat_binding(
     }
 }
 
-/// Drain in-flight account mutations before cutover and revoke old sessions under the same barrier.
-/// Central export/link routes are outside this layer and acquire its exclusive guard themselves.
+/// Drain in-flight account requests while a Central admission fixes a link
+/// or a projection: `central::routes` takes this barrier exclusively.
 pub(crate) async fn barrier(State(state): State<Shared>, request: Request, next: Next) -> Response {
-    if state.central.is_none() {
-        return next.run(request).await;
-    }
-    // Password changes invalidate pending Central enrollment while no cutover
-    // can race them. This route must not first acquire a shared lock.
-    if request.uri().path() == "/auth/password" {
-        let Ok(_guard) =
-            tokio::time::timeout(Duration::from_secs(5), state.central_barrier.write()).await
-        else {
-            return StatusCode::SERVICE_UNAVAILABLE.into_response();
-        };
+    if !state.central.is_some() {
         return next.run(request).await;
     }
     let Ok(_guard) =
@@ -511,5 +629,89 @@ mod tests {
             metadata: None,
         };
         assert!(wrong_bridge.validate(&endpoint).is_err());
+    }
+
+    fn official(website: &str) -> Settings {
+        Settings {
+            endpoint: "live".into(),
+            bridge: Some(Token::generate().unwrap()),
+            origin: None,
+            credential: None,
+            heartbeat: None,
+            metadata: Some(baylee_account::gateway::GatewayMetadata {
+                name: "Synthetic official gateway".into(),
+                version: "ignored".into(),
+                website: website.into(),
+            }),
+        }
+    }
+
+    /// The official gateway's bridge may carry its directory entry, on the
+    /// bridge's origin; never a registered gateway's credentials.
+    #[test]
+    fn the_bridge_takes_metadata_on_its_own_origin_and_no_registered_credential() {
+        use central_api::{LEGACY_ORIGIN, OFFICIAL_ORIGIN};
+        let live = Endpoint::live();
+        let (_, heartbeat, metadata, legacy) = official(&format!("{OFFICIAL_ORIGIN}/"))
+            .validate(&live)
+            .unwrap();
+        assert!(legacy);
+        assert!(
+            heartbeat.is_none(),
+            "the bridge beats with its own credential"
+        );
+        let metadata = metadata.unwrap();
+        assert_eq!(metadata.version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(metadata.website, format!("{OFFICIAL_ORIGIN}/"));
+        // A bridge file from before the move: its website on the old host.
+        assert!(
+            official(&format!("{LEGACY_ORIGIN}/"))
+                .validate(&live)
+                .is_ok()
+        );
+        // Named, the origin is either of the official gateway's, and the
+        // website lies on that one.
+        for origin in [OFFICIAL_ORIGIN, LEGACY_ORIGIN] {
+            let mut named = official(&format!("{origin}/status"));
+            named.origin = Some(origin.into());
+            assert!(named.validate(&live).is_ok(), "{origin}");
+        }
+        let mut astray = official(&format!("{LEGACY_ORIGIN}/"));
+        astray.origin = Some(OFFICIAL_ORIGIN.into());
+        assert!(astray.validate(&live).is_err());
+        let mut foreign = official("https://gateway.example/");
+        foreign.origin = Some("https://gateway.example".into());
+        assert!(foreign.validate(&live).is_err());
+        // Without metadata the bridge is as before: no heartbeat at all.
+        let mut plain = official(&format!("{OFFICIAL_ORIGIN}/"));
+        plain.metadata = None;
+        let (_, _, metadata, legacy) = plain.validate(&live).unwrap();
+        assert!(legacy && metadata.is_none());
+        // A website elsewhere, or a registered gateway's credentials beside the bridge.
+        assert!(
+            official("https://gateway.example/")
+                .validate(&live)
+                .is_err()
+        );
+        let mut with_credential = official(&format!("{OFFICIAL_ORIGIN}/"));
+        with_credential.credential = Some(Token::generate().unwrap());
+        assert!(with_credential.validate(&live).is_err());
+        let mut with_heartbeat = official(&format!("{OFFICIAL_ORIGIN}/"));
+        with_heartbeat.heartbeat = Some(Token::generate().unwrap());
+        assert!(with_heartbeat.validate(&live).is_err());
+        // In development the bridge's origin is the configured one: metadata
+        // without it is refused, and metadata must lie on it.
+        let development = Endpoint::development("http://127.0.0.1:9").unwrap();
+        assert!(
+            official("http://127.0.0.1:45125/")
+                .validate(&development)
+                .is_err()
+        );
+        let mut local = official("http://127.0.0.1:45125/");
+        local.origin = Some("http://127.0.0.1:45125".into());
+        assert!(local.validate(&development).unwrap().2.is_some());
+        let mut foreign = official("http://127.0.0.1:45126/");
+        foreign.origin = Some("http://127.0.0.1:45125".into());
+        assert!(foreign.validate(&development).is_err());
     }
 }

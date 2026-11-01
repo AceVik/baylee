@@ -381,11 +381,10 @@ pub fn mana_for(duel: &Duel, card: ObjectId) -> Option<baylee_client_core::manap
     }
     let cost = reach::least_x(spell_cost(view, legal, card)?);
     let seat = view.seat(baylee_client_core::decision::resource_player(view))?;
-    let sources = manasources::sources(view, legal);
     if legal.castable.contains(&card) {
-        baylee_client_core::manaplan::plan(&cost, &seat.mana_pool, &sources)
+        manasources::plan_for_spell(&cost, &seat.mana_pool, view, legal, card)
     } else {
-        baylee_client_core::manaplan::plan_with_life(&cost, &seat.mana_pool, &sources, seat.life)
+        manasources::plan_with_life_for_spell(&cost, &seat.mana_pool, view, legal, card, seat.life)
     }
 }
 

@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/E01/gideon.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Gideon_E01.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Gideon (Adapted)]
+2 Aerial Responder
+2 Anointer of Champions
+3 Bring to Trial
+1 Doomed Traveler
+2 Excoriate
+1 Fencing Ace
+2 Flawless Maneuver
+2 Gideon's Lawkeeper
+1 Legion's Judgment
+1 Make Your Move
+1 Metal Fatigue
+2 Moment of Heroism
+25 Plains
+2 Retribution of the Meek
+1 Sevinne's Reclamation
+1 Sparring Mummy
+1 Sun Titan
+4 Survive the Night
+1 Tempest of Light
+2 Those Who Serve
+1 Wizened Cenn
+1 Worthy Knight
+1 Youthful Knight

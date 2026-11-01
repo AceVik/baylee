@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/PAST/beast-master.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BeastMaster_PAST.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Beast Master (Adapted)]
+4 Aspect of Wolf
+2 Birds of Paradise
+2 Desert Twister
+2 Durkwood Boars
+21 Forest
+4 Giant Growth
+2 Giant Spider
+4 Grizzly Bears
+4 Nafs Asp
+4 Needle Storm
+3 Stream of Life
+4 Timber Wolves
+2 Untamed Wilds
+2 Web

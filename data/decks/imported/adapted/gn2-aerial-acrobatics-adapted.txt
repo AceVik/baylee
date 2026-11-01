@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/GN2/aerial-acrobatics.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AerialAcrobatics_GN2.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Aerial Acrobatics (Adapted)]
+2 Air Elemental
+2 Aven Wind Mage
+3 Bewilder
+1 Call to Mind
+1 Claustrophobia
+2 Cloudkin Seer
+2 Dream Fracture
+1 Exclude
+1 Frantic Search
+2 Galestrike
+26 Island
+1 Launch Mishap
+2 Moat Piranhas
+2 Otawara, Soaring City
+1 Psionic Blast
+2 Relearn
+2 Repulse
+2 Salvager of Secrets
+1 Sphinx of Enlightenment
+2 Syphon Essence
+1 Tinker
+1 Unsummon

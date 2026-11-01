@@ -192,12 +192,17 @@ pub struct MenuRevision {
     arrangement: Option<baylee_client_core::tableview::Arrangement>,
     /// Whether this client hosts the game (a house game): the tour's row.
     house: bool,
+    /// Whether a lobby stands behind the table to draw the settings over
+    /// it: a client seated straight into its game has none.
+    settings: bool,
     /// Whether this client only watches: its way out is *Stop watching*.
     watching: bool,
     /// Whether the table is a replay: its way out is Leave replay.
     replay: bool,
     /// Whether *Leave the table* is waiting for its second press.
     leaving: bool,
+    /// Whether this seat has already been eliminated in a multi-seat game.
+    eliminated: bool,
 }
 
 /// Where the panel stands.
@@ -313,6 +318,7 @@ pub fn sync_menu(
     update: Option<Res<crate::update::UpdateNotice>>,
     mut panel: Query<(Entity, Option<&Children>, &Visibility, &mut MenuZoom), With<MenuPanel>>,
     host: Option<Res<crate::InstalledHost>>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
     let Ok((panel, standing, seen, mut fold)) = panel.single_mut() else {
         // No panel yet: the overlay has not built its root. The gate is left
@@ -338,9 +344,11 @@ pub fn sync_menu(
         house: host
             .as_deref()
             .is_some_and(|h| h.0.link() == crate::host::LinkState::Local),
+        settings: lobby.is_some(),
         watching: duel.watching,
         replay: duel.replay.is_some(),
         leaving: duel.leave_armed,
+        eliminated: duel.my_seat_eliminated(),
     };
     // Whether the panel is *showing*, which is not whether it is visible: one
     // in the middle of folding away is still on the screen and is already
@@ -404,30 +412,59 @@ pub fn sync_menu(
         (leave_replay, Weight::Secondary)
     } else if next.watching {
         (Phrase::StopWatching.text(lang), Weight::Secondary)
+    } else if next.eliminated {
+        (Phrase::Concede.text(lang), Weight::Dead)
     } else if next.armed {
         (Phrase::ConcedeConfirm.text(lang), Weight::Danger)
     } else {
         (Phrase::Concede.text(lang), Weight::Secondary)
     };
     let concede = answer(&mut commands, &fonts, words, weight, None);
-    commands.entity(concede).insert(MenuButton {
-        action: MenuAction::Concede,
-    });
+    if weight != Weight::Dead {
+        commands.entity(concede).insert(MenuButton {
+            action: MenuAction::Concede,
+        });
+    }
     commands.entity(panel).add_child(concede);
 
     // Getting up without conceding (report 33): a spectator's *Stop
     // watching* above already is that, so a player's chair only.
     if !next.watching {
-        let (words, weight) = match (next.leaving, next.house) {
-            (true, true) => (Phrase::LeaveTableConfirmOffline, Weight::Danger),
-            (true, false) => (Phrase::LeaveTableConfirm, Weight::Danger),
-            (false, _) => (Phrase::LeaveTable, Weight::Secondary),
+        let (words, weight) = if next.leaving {
+            (Phrase::LeaveTableConfirm, Weight::Danger)
+        } else {
+            (Phrase::LeaveTable, Weight::Secondary)
         };
         let leave = answer(&mut commands, &fonts, words.text(lang), weight, None);
         commands.entity(leave).insert(MenuButton {
             action: MenuAction::LeaveGame,
         });
         commands.entity(panel).add_child(leave);
+        // What leaving costs stands under the row, as the host's Leave says
+        // it under its question (DESIGN-v5 §5): the armed row itself is as
+        // short as the concession's (owner, 22.10.2026: the armed words were
+        // too long for it). Armed or not, so arming moves nothing: the panel
+        // stands on the burger and grows upward, and a line that came with
+        // the arming slid the row out from under the pointer about to press
+        // it again (found on the live check).
+        let cost = if next.house {
+            Phrase::LeaveTableCostOffline
+        } else {
+            Phrase::LeaveTableCost
+        };
+        let line = commands
+            .spawn((
+                Text::new(cost.text(lang)),
+                tf(&fonts, VERSION_PT),
+                TextColor(palette::DIALOG_SOFT),
+                Node {
+                    width: percent(100),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(panel).add_child(line);
     }
 
     // The arrangement, on every frame (DESIGN-v8 §2.4); on a phone this is
@@ -470,6 +507,20 @@ pub fn sync_menu(
         });
     }
     commands.entity(panel).add_child(tour);
+    // Every setting, over the table (`lobby::table_settings`): dead where
+    // no lobby stands behind it, and saying so.
+    let (words, weight) = if next.settings {
+        (Phrase::SettingsMenuRow, Weight::Secondary)
+    } else {
+        (Phrase::SettingsMenuRowAway, Weight::Dead)
+    };
+    let settings_row = answer(&mut commands, &fonts, words.text(lang), weight, None);
+    if next.settings {
+        commands.entity(settings_row).insert(MenuButton {
+            action: MenuAction::Settings,
+        });
+    }
+    commands.entity(panel).add_child(settings_row);
 
     let music = crate::music::controls(
         &mut commands,
@@ -586,65 +637,11 @@ pub fn grow_the_menu(
     }
 }
 
-/// The priority sound's switch (DESIGN-v7 §4.5, D22), beside the music's:
-/// this device's `AudioMix::priority_cue`, saved with its settings. Its words
-/// say the state and are kept current by [`show_priority_switch`].
-#[derive(Component)]
-pub struct PrioritySwitch;
-
-fn priority_switch(commands: &mut Commands, fonts: &UiFonts) -> Entity {
-    let metrics = crate::lobby::Metrics::of(MENU_W);
-    let id = crate::lobby::button(
-        commands,
-        fonts,
-        metrics,
-        "",
-        crate::lobby::Press::Shared(crate::lobby::SharedPress::PickerNothing),
-        palette::PANEL,
-        true,
-    );
-    commands
-        .entity(id)
-        .remove::<crate::lobby::Press>()
-        .insert(UiButton)
-        .with_child((
-            Text::new(""),
-            crate::hud::tf(fonts, metrics.text),
-            TextColor(palette::INK),
-            PrioritySwitch,
-            Pickable::IGNORE,
-        ))
-        .observe(
-            |mut click: On<PointerClick>, mut settings: ResMut<crate::settings::ClientSettings>| {
-                click.propagate(false);
-                settings.audio.priority_cue = !settings.audio.priority_cue;
-                settings.save();
-            },
-        );
-    id
-}
-
-/// Writes the switch's words when the setting or the language changed.
-pub fn show_priority_switch(
-    settings: Option<Res<crate::settings::ClientSettings>>,
-    mut labels: Query<&mut Text, With<PrioritySwitch>>,
-) {
-    let Some(settings) = settings else {
-        return;
-    };
-    let lang = Lang::of(&settings.lang);
-    let words = if settings.audio.priority_cue {
-        Phrase::PriorityCueOn
-    } else {
-        Phrase::PriorityCueOff
-    }
-    .text(lang);
-    for mut text in &mut labels {
-        if text.0 != words {
-            text.0 = words.to_string();
-        }
-    }
-}
+mod switches;
+#[cfg(test)]
+use switches::PrioritySwitch;
+use switches::priority_switch;
+pub use switches::show_priority_switch;
 
 #[cfg(test)]
 mod tests {
@@ -678,17 +675,39 @@ mod tests {
     /// character commit and the `-dirty` suffix — and the real
     /// `baylee_build::short()` is held against that shape, which is what
     /// makes the bound a measurement instead of a guess.
+    ///
+    /// Every row `sync_menu` can draw is in the first population, the leave
+    /// rows of report 33 too: they were not, and the armed one ran out of the
+    /// panel (owner, 22.10.2026, "the confirmation button text is too long").
     #[test]
     fn the_panel_is_wide_enough_for_everything_it_can_ever_say() {
+        use baylee_client_core::layout::Arrangement;
+        use baylee_client_core::replay::words::ReplayPhrase;
         let inside = MENU_W - 2.0 * MENU_PAD_X - 2.0;
         for lang in [Lang::En, Lang::De] {
-            for phrase in [
+            let mut rows: Vec<String> = [
                 Phrase::OfferADraw,
                 Phrase::Concede,
                 Phrase::ConcedeConfirm,
+                Phrase::StopWatching,
+                Phrase::LeaveTable,
+                Phrase::LeaveTableConfirm,
                 Phrase::ReportButton,
-            ] {
-                let label = phrase.text(lang);
+                Phrase::TourMenuRow,
+                Phrase::TourMenuRowAway,
+                Phrase::SettingsMenuRow,
+                Phrase::SettingsMenuRowAway,
+            ]
+            .iter()
+            .map(|phrase| phrase.text(lang).to_string())
+            .collect();
+            rows.push(ReplayPhrase::LeaveReplay.text(lang).to_string());
+            rows.extend(
+                Arrangement::ALL
+                    .iter()
+                    .map(|a| Phrase::ArrGameMenuRow.fill(lang, &[a.name().text(lang)])),
+            );
+            for label in &rows {
                 let row = crate::hud::text_width(label, LABEL_PT, true) + 2.0 * BUTTON_PAD_X + 2.0;
                 assert!(
                     row <= inside,

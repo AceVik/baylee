@@ -217,6 +217,15 @@ pub(crate) fn mode_words(
         .or_else(|| baylee_cards::lines::inline_mode_words(card, CAST_FACE, i).map(str::to_string))
 }
 
+/// A non-interactive caption before a group of related choice rows.
+#[derive(Clone, PartialEq, Debug)]
+pub struct ChoiceHeading {
+    /// The category and, for a permanent defender, its controller.
+    pub label: String,
+    /// A Font Awesome mark drawn beside the category.
+    pub icon: char,
+}
+
 /// One row of an indexed chooser.
 #[derive(Clone, PartialEq, Debug)]
 pub struct ChoiceOption {
@@ -234,17 +243,103 @@ pub struct ChoiceOption {
     pub pip: Option<Pip>,
     /// A cost drawn after the label, for the cast options that have one.
     pub cost: Option<ManaCost>,
+    /// A caption attached to the first row of a visible group.
+    pub heading: Option<ChoiceHeading>,
+    /// Already chosen: a target picked, the defender or attacker the
+    /// declaration aims at, the seat a list is filtered to. Drawn taken, as
+    /// a picked row is (the candle's wash and edge), never as words in the
+    /// label: `[x] ` read as code beside a card's name.
+    pub chosen: bool,
 }
 
 impl ChoiceOption {
     /// A row that is only words.
-    fn text(index: usize, label: String) -> Self {
+    pub(crate) fn text(index: usize, label: String) -> Self {
         Self {
             index,
             label,
             pip: None,
             cost: None,
+            heading: None,
+            chosen: false,
         }
+    }
+
+    /// The row, chosen or not.
+    #[must_use]
+    pub(crate) fn chosen(self, chosen: bool) -> Self {
+        Self { chosen, ..self }
+    }
+
+    /// The row, with the caption of the group it opens.
+    #[must_use]
+    pub(crate) fn headed(self, heading: ChoiceHeading) -> Self {
+        Self {
+            heading: Some(heading),
+            ..self
+        }
+    }
+}
+
+/// One page of a list shown `size` rows at a time: the rows it holds and
+/// where it stands among the pages. The one reading of a page every paged
+/// chooser shares (targets, attack, block, damage), so an asked page past
+/// the end clamps to the last one everywhere alike.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Page {
+    /// The first row on it.
+    pub start: usize,
+    /// One past the last row on it.
+    pub end: usize,
+    /// Which page it is, counted from 0.
+    pub index: usize,
+    /// How many pages the list has; at least one.
+    pub count: usize,
+}
+
+impl Page {
+    /// Page `asked` of a list of `len` rows, `size` to a page.
+    #[must_use]
+    pub(crate) fn of(len: usize, asked: usize, size: usize) -> Self {
+        let count = len.saturating_sub(1) / size + 1;
+        let index = asked.min(count - 1);
+        let start = index * size;
+        Self {
+            start,
+            end: (start + size).min(len),
+            index,
+            count,
+        }
+    }
+
+    /// Whether a page comes before it.
+    #[must_use]
+    pub(crate) const fn earlier(self) -> bool {
+        self.index > 0
+    }
+
+    /// Whether a page comes after it.
+    #[must_use]
+    pub(crate) const fn later(self) -> bool {
+        self.index + 1 < self.count
+    }
+}
+
+/// The two page arrows under a paged list, each where there is a page to go
+/// to, worded alike in every chooser (they were "←", "→" in two and words in
+/// two others).
+pub(crate) fn page_arrows(rows: &mut Vec<ChoiceOption>, lang: Lang, earlier: bool, later: bool) {
+    if earlier {
+        rows.push(ChoiceOption::text(
+            baylee_client_core::targeting::PREVIOUS,
+            Phrase::PageBack.text(lang).into(),
+        ));
+    }
+    if later {
+        rows.push(ChoiceOption::text(
+            baylee_client_core::targeting::NEXT,
+            Phrase::PageMore.text(lang).into(),
+        ));
     }
 }
 
@@ -566,10 +661,8 @@ fn color_options(options: &[baylee_core::mana::ManaColor]) -> Vec<ChoiceOption> 
         .iter()
         .enumerate()
         .map(|(i, c)| ChoiceOption {
-            index: i,
-            label: String::new(),
             pip: Some(colour_pip(*c)),
-            cost: None,
+            ..ChoiceOption::text(i, String::new())
         })
         .collect()
 }
@@ -691,9 +784,6 @@ pub fn options(
                 .iter()
                 .enumerate()
                 .map(|(i, desc)| ChoiceOption {
-                    index: i,
-                    label: cast_label(desc.kind, lang, *object, names),
-                    pip: None,
                     // The cost is the part that actually distinguishes two
                     // alternative costs from each other; the words above it
                     // only say which kind of thing it is. It is *also* what
@@ -711,6 +801,7 @@ pub fn options(
                     } else {
                         Some(desc.cost)
                     },
+                    ..ChoiceOption::text(i, cast_label(desc.kind, lang, *object, names))
                 })
                 .collect(),
         ),
@@ -1280,32 +1371,26 @@ pub(crate) fn damage_effect_label(
     })
 }
 
+/// Attack defenders and creatures share a page control; the longer group decides
+/// how many pages exist, and each group clamps independently to its last page.
+pub(crate) fn attack_page_count(
+    options: &[baylee_client_core::interaction::AttackOption],
+) -> usize {
+    use baylee_client_core::{interaction::AttackOption, targeting::PAGE_SIZE};
+    let count = |wanted: fn(&AttackOption) -> bool| options.iter().filter(|o| wanted(o)).count();
+    let defenders = count(|o| matches!(o, AttackOption::Aim(_)));
+    let creatures = count(|o| matches!(o, AttackOption::Toggle(_)));
+    (defenders.max(creatures).saturating_sub(1) / PAGE_SIZE) + 1
+}
+
 /// Damage rows remain bounded by page size, independent of damage amount.
 pub(crate) const DAMAGE_PAGE_SIZE: usize = 4;
 
 /// Limits a damage chooser and adds explicit page controls.
 pub(crate) fn damage_page(rows: &mut Vec<ChoiceOption>, page: usize, lang: Lang) {
-    let total = rows.len();
-    let page = page.min(total.saturating_sub(1) / DAMAGE_PAGE_SIZE);
-    let start = page * DAMAGE_PAGE_SIZE;
-    *rows = rows
-        .iter()
-        .skip(start)
-        .take(DAMAGE_PAGE_SIZE)
-        .cloned()
-        .collect();
-    if page > 0 {
-        rows.push(ChoiceOption::text(
-            baylee_client_core::targeting::PREVIOUS,
-            Phrase::PageBack.text(lang).into(),
-        ));
-    }
-    if start + DAMAGE_PAGE_SIZE < total {
-        rows.push(ChoiceOption::text(
-            baylee_client_core::targeting::NEXT,
-            Phrase::PageMore.text(lang).into(),
-        ));
-    }
+    let page = Page::of(rows.len(), page, DAMAGE_PAGE_SIZE);
+    *rows = rows[page.start..page.end].to_vec();
+    page_arrows(rows, lang, page.earlier(), page.later());
 }
 
 #[cfg(test)]

@@ -3,6 +3,8 @@
 use baylee_core::ids::{ObjectId, PlayerId};
 use std::hash::Hash;
 
+mod observers;
+
 /// A delayed trigger registered for a future game point (suspend finishes,
 /// pact payments, rebound re-casts).
 #[derive(Clone, Hash, Debug)]
@@ -15,9 +17,58 @@ pub struct DelayedTrigger {
     pub action: DelayedAction,
 }
 
+/// One effect giving a player control of another player during that
+/// player's next turn (CR 722.1): "the next turn that the affected player
+/// actually takes", the whole of it, until "the beginning of the next turn".
+///
+/// It waits through every turn another player takes, extra turns among them,
+/// and through a turn of the affected player's that is skipped (CR 722.1b),
+/// is stamped with the number of the affected player's turn as that turn
+/// begins (`Engine::begin_turn`), controls exactly that turn, and ends as the
+/// next turn begins, whoever takes it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct PlayerTurnControl {
+    /// Who makes the controlled player's decisions.
+    pub controller: PlayerId,
+    /// Whose decisions and private information are controlled.
+    pub player: PlayerId,
+    /// The earliest turn this control may cover: the turn after the one it
+    /// was created in, so an effect created during the affected player's own
+    /// turn waits for their next.
+    pub turn: u32,
+    /// The number of the controlled turn, once it has begun; `None` while the
+    /// control waits for it.
+    pub began: Option<u32>,
+}
+
 /// When a delayed trigger fires.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DelayedWhen {
+    /// Repeated future combat events, including creatures entering after registration.
+    TriggeredThisTurn {
+        /// The combat event family.
+        event: baylee_cards_dsl::CombatWatchEvent,
+        /// Creatures that trigger, read at the event.
+        filter: &'static baylee_cards_dsl::Filter,
+        /// Whether the current combat's end expires the observer early.
+        this_combat_only: bool,
+        /// Independent targets chosen for each delayed trigger.
+        targets: Option<baylee_cards_dsl::TargetReq>,
+        /// The creator's frozen rule context.
+        context: crate::text_changes::RuleContext,
+        /// Ignore events from before registration.
+        after: u64,
+    },
+    /// Independent one-shot event observer. Its affected object is carried
+    /// separately by `DelayedAction::TriggerAbout`.
+    Observed {
+        /// Exact battlefield incarnation being watched.
+        watch: baylee_core::ids::DamageSourceRef,
+        /// Future event required to trigger.
+        when: baylee_cards_dsl::DelayedObservation,
+        /// Events at or before registration cannot trigger this ability.
+        after: u64,
+    },
     /// The next matching spell its controller casts before this turn ends.
     NextSpellCastThisTurn {
         /// Characteristics required of the completed spell.
@@ -36,10 +87,13 @@ pub enum DelayedWhen {
     /// At the beginning of the next upkeep, whoever's turn it is
     /// (Archangel Avacyn's delayed transform).
     NextUpkeepOfAnyone,
-    /// At the controller's next first main phase (Mana Drain).
-    NextFirstMain,
+    /// At the beginning of the controller's next main phase, first or
+    /// second, that begins after the watch was made (Mana Drain).
+    NextMain,
     /// At the beginning of the next end step (Venser +2).
     NextEndStep,
+    /// At the controller's next end step.
+    NextYourEndStep,
     /// At end of combat: as the next end of combat step begins, whoever's
     /// turn it is (CR 511.2; Cockatrice's "destroy that creature at end of
     /// combat").
@@ -186,6 +240,7 @@ impl DelayedWhen {
         matches!(
             self,
             Self::NextSpellCastThisTurn { .. }
+                | Self::TriggeredThisTurn { .. }
                 | Self::DiesThisTurn { .. }
                 | Self::LeavesBattlefieldThisTurn { .. }
                 | Self::DealtDamageThisTurn { .. }

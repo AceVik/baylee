@@ -36,6 +36,7 @@ use head::{group_bar, head_parts};
 pub(crate) use list::{ARRIVE_SECS, Arrive, UnreadDivider};
 use list::{arrive, fill_list, note_the_marker};
 use peek::peek;
+use resize::{LobbyChatSizing, lobby_panel_size};
 
 /// The tab row's height at the table (the bar's button height).
 const ROW_H: f32 = 28.0;
@@ -68,6 +69,17 @@ pub(crate) struct Stack(pub(crate) i32);
 /// [`G_PANEL`] at the table.
 pub(crate) fn stacked(offset: i32) -> (GlobalZIndex, Stack) {
     (GlobalZIndex(G_PANEL + offset), Stack(offset))
+}
+
+/// The quiet elevation shared by the lobby window and the table's panel.
+fn elevation() -> BoxShadow {
+    BoxShadow::new(
+        Color::srgba(0.0, 0.0, 0.0, 0.42),
+        zpx(0.0),
+        zpx(8.0),
+        zpx(0.0),
+        zpx(22.0),
+    )
 }
 
 /// Where a surface `offset` over [`G_PANEL`] at the table stands in the
@@ -171,6 +183,10 @@ pub(crate) enum Part {
 #[derive(Component)]
 pub(crate) struct LobbyChat;
 
+/// The list's track, hidden until the list actually overflows.
+#[derive(Component)]
+pub(crate) struct ChatScrollbar;
+
 /// Marks a node of the chat's own (the panel, the drawer, a sheet): a
 /// press anywhere else takes the keys back from the composer.
 #[derive(Component)]
@@ -195,6 +211,8 @@ pub(crate) struct Drawn {
     /// they left the phase headings.
     log_lines: usize,
     run: PhaseRun,
+    /// The Log tab's bounded window of mounted rows.
+    rows: logpanel::virtual_list::VirtualLog,
     /// A chat tab's drawn lines, in the order asked, and everything else
     /// the list was drawn from: a line more on the same list is appended.
     chat_lines: Vec<(String, String, u8, bool)>,
@@ -239,39 +257,49 @@ impl Frame {
 pub(crate) fn install(app: &mut App) {
     crate::ui_button::install(app);
     app.add_systems(PostUpdate, restack.before(bevy::ui::UiSystems::Prepare));
-    app.init_resource::<Windows>().add_systems(
-        Update,
-        (
-            doors,
-            keep_the_tab,
-            stamp_arrivals,
-            note_the_marker,
-            mark_read,
-            presses,
-            panel_follows_the_window,
-            sync_table_window
-                .after(crate::hud::sync_log)
-                .before(crate::hud::follow_the_log),
-            pop_the_lobby_chat,
-            arrive,
-            sync_lobby_window,
-            follow_in_the_lobby
-                .run_if(not(in_state(DuelPhase::Playing)))
-                .run_if(not(in_state(DuelPhase::Finished))),
-            wheel_in_the_lobby
-                .run_if(not(in_state(DuelPhase::Playing)))
-                .run_if(not(in_state(DuelPhase::Finished)))
-                .run_if(resource_exists::<Messages<bevy::picking::events::PointerScroll>>),
-            hover_chat_links,
-            lobby_card_links
-                .run_if(not(in_state(DuelPhase::Playing)))
-                .run_if(not(in_state(DuelPhase::Finished))),
-            peek,
-            filter_dialog,
-        )
-            .chain()
-            .run_if(resource_exists::<UiFonts>),
+    app.add_systems(
+        PostUpdate,
+        resize::cursor.after(crate::shellkit::pointer::follow_the_pointer),
     );
+    app.init_resource::<Windows>()
+        .init_resource::<LobbyChatSizing>()
+        .init_resource::<preview::ChatHover>()
+        .add_systems(
+            Update,
+            (
+                doors,
+                keep_the_tab,
+                stamp_arrivals,
+                note_the_marker,
+                mark_read,
+                presses,
+                panel_follows_the_window,
+                sync_table_window
+                    .after(crate::hud::sync_log)
+                    .before(crate::hud::follow_the_log),
+                pop_the_lobby_chat,
+                arrive,
+                resize::resize,
+                sync_lobby_window,
+                show_scrollbars_only_on_overflow,
+                follow_in_the_lobby
+                    .run_if(not(in_state(DuelPhase::Playing)))
+                    .run_if(not(in_state(DuelPhase::Finished))),
+                wheel_in_the_lobby
+                    .run_if(not(in_state(DuelPhase::Playing)))
+                    .run_if(not(in_state(DuelPhase::Finished)))
+                    .run_if(resource_exists::<Messages<bevy::picking::events::PointerScroll>>),
+                preview::hover,
+                preview::sync,
+                lobby_card_links
+                    .run_if(not(in_state(DuelPhase::Playing)))
+                    .run_if(not(in_state(DuelPhase::Finished))),
+                peek,
+                filter_dialog,
+            )
+                .chain()
+                .run_if(resource_exists::<UiFonts>),
+        );
 }
 
 /// The tabs drawn, in order (§3.1): All; Log while a game is open; Lobby
@@ -785,6 +813,34 @@ fn swatch_of(duel: Option<&Duel>, tag: Option<&str>) -> Option<Color> {
     Some(crate::hud::seat_colour(reader, Some(statics), seat.player))
 }
 
+/// Where the lobby's chat pill stands so it clears the memorial's caption,
+/// which lies along the same bottom-left corner where the window is short
+/// enough: beside it, ten pixels on. `None` where the caption is not there,
+/// not laid out yet, or ends well above the pill.
+///
+/// The pill stood at 12 pixels whatever lay there, and covered half of
+/// "Baylee · Forever loved" (seen 29.10.2026 at 1280 × 800).
+pub(super) fn pill_left(
+    captions: &Query<
+        (&ComputedNode, &UiGlobalTransform),
+        With<crate::lobby::memorial::MemorialCaption>,
+    >,
+    window_h: f32,
+) -> Option<Val> {
+    /// How far above the window's bottom the caption may end and still
+    /// share the pill's band.
+    const BAND: f32 = 60.0;
+    let (node, at) = captions.iter().next()?;
+    let scale = node.inverse_scale_factor();
+    let size = node.size() * scale;
+    if size.x <= 0.0 {
+        return None;
+    }
+    let centre = at.translation * scale;
+    let bottom = centre.y + size.y * 0.5;
+    (bottom > window_h - BAND).then_some(Val::Px(centre.x + size.x * 0.5 + 10.0))
+}
+
 /// The table's window: the log's panel, filled with the tabs, the list and
 /// the composer while a social session exists.
 #[allow(clippy::too_many_arguments)] // a Bevy system: each is what it draws from
@@ -799,8 +855,11 @@ fn sync_table_window(
     mut windows: ResMut<Windows>,
     panels: Query<(Entity, Option<&Children>), With<LogPanel>>,
     parts: Query<&Part>,
-    mut lists: Query<&mut LogFollow, With<LogList>>,
+    mut lists: Query<(&mut LogFollow, &mut ScrollPosition), With<LogList>>,
+    nodes: Query<&ComputedNode>,
+    mut spacers: Query<&mut Node, With<logpanel::virtual_list::LogSpacer>>,
     zoom: Res<super::zoom::Zoom>,
+    folds: Option<Res<logpanel::LogFolds>>,
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
     let (Some(machine), Some(duel)) = (host.machine(), duel) else {
@@ -828,7 +887,7 @@ fn sync_table_window(
         let ids = skeleton(&mut commands, &fonts, Frame::Table, lang);
         commands
             .entity(panel)
-            .insert(ChatSurface)
+            .insert((ChatSurface, elevation()))
             .add_children(&ids.all());
         commands
             .entity(panel)
@@ -845,19 +904,28 @@ fn sync_table_window(
         lang,
         machine,
         host.vault.sync_status(),
+        !host.vault.is_central(),
         &ui,
         Some(&duel),
         texts.as_deref(),
         Frame::Table,
         drawn,
         &mut lists,
+        &nodes,
+        &mut spacers,
+        folds.as_deref(),
     );
 }
 
 /// The lobby's window: docked bottom-left; minimised to its tab row, or
 /// hidden to the chat pill. Remains available on the loading screen
 /// (`Screen::Seated` / `DuelPhase::Opening`) before the 3D table opens.
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)] // a Bevy system: each is what it draws from
+#[allow(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    clippy::type_complexity
+)]
+// a Bevy system: each is what it draws from
 fn sync_lobby_window(
     mut commands: Commands,
     host: Res<SocialHost>,
@@ -868,10 +936,19 @@ fn sync_lobby_window(
     lobby: Option<Res<crate::lobby::LobbyState>>,
     (windows_q, scale): (Query<&Window>, Option<Res<UiScale>>),
     mut windows: ResMut<Windows>,
-    mut roots: Query<(Entity, &mut Node, &mut Visibility, &mut Pop), With<LobbyChat>>,
-    mut lists: Query<&mut LogFollow, With<LogList>>,
+    mut roots: Query<
+        (Entity, &mut Node, &mut Visibility, &mut Pop),
+        (With<LobbyChat>, Without<logpanel::virtual_list::LogSpacer>),
+    >,
+    mut lists: Query<(&mut LogFollow, &mut ScrollPosition), With<LogList>>,
+    (nodes, captions): (
+        Query<&ComputedNode>,
+        Query<(&ComputedNode, &UiGlobalTransform), With<crate::lobby::memorial::MemorialCaption>>,
+    ),
+    mut spacers: Query<&mut Node, With<logpanel::virtual_list::LogSpacer>>,
     mut shape: Local<Option<LobbyShape>>,
     zoom: Res<super::zoom::Zoom>,
+    sizing: Res<LobbyChatSizing>,
 ) {
     let _zoom = super::zoom::Scope::new(zoom.0);
     let at_table =
@@ -889,10 +966,19 @@ fn sync_lobby_window(
         return;
     };
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
-    let window_h = windows_q.iter().next().map_or(720.0, |w| {
-        crate::hud::scale::desktop_space(w, scale.as_deref()).y
-    });
-    let height = lobby_panel_height(window_h);
+    let window = windows_q
+        .iter()
+        .next()
+        .map_or(Vec2::new(1280.0, 720.0), |w| {
+            crate::hud::scale::desktop_space(w, scale.as_deref())
+        });
+    let size = lobby_panel_size(
+        sizing
+            .resized
+            .or(settings.as_deref().and_then(|s| s.chat_window)),
+        window,
+        zoom.0,
+    );
     let root = if let Some((root, ..)) = roots.iter().next() {
         root
     } else {
@@ -905,10 +991,13 @@ fn sync_lobby_window(
                     position_type: PositionType::Absolute,
                     bottom: zpx(0.0),
                     left: zpx(12.0),
-                    width: zpx(LOBBY_W),
+                    width: zpx(size.width),
                     flex_direction: FlexDirection::Column,
+                    border_radius: BorderRadius::all(zpx(6.0)),
                     ..default()
                 },
+                BackgroundColor(LOBBY_INKS.ground),
+                elevation(),
                 stacked(0),
                 Visibility::Visible,
                 Pop::default(),
@@ -945,15 +1034,19 @@ fn sync_lobby_window(
             *pop = Pop::OPENING;
         }
         let full = ui.open && !ui.minimised;
-        let want_h = if full { Val::Px(height) } else { Val::Auto };
+        let want_h = if full { zpx(size.height) } else { Val::Auto };
         if node.height != want_h {
             node.height = want_h;
         }
-        let want_w = if ui.open { zpx(LOBBY_W) } else { Val::Auto };
+        let want_w = if ui.open { zpx(size.width) } else { Val::Auto };
         if node.width != want_w {
             node.width = want_w;
         }
-        let left = zpx(12.0);
+        let left = if ui.open {
+            zpx(12.0)
+        } else {
+            pill_left(&captions, window.y).unwrap_or(zpx(12.0))
+        };
         if node.left != left {
             node.left = left;
         }
@@ -975,12 +1068,14 @@ fn sync_lobby_window(
         let ids = skeleton(&mut commands, &fonts, Frame::Lobby, lang);
         if ui.minimised {
             commands.entity(root).add_child(ids.head);
-            for id in [ids.sub, ids.note, ids.body, ids.composer] {
+            for id in [ids.sub, ids.note, ids.body, ids.composer, ids.light] {
                 commands.entity(id).despawn();
             }
             drawn.head = Some(ids.head);
         } else {
+            let handle = resize::handle(&mut commands);
             commands.entity(root).add_children(&ids.all());
+            commands.entity(root).add_child(handle);
             drawn.head = Some(ids.head);
             drawn.sub = Some(ids.sub);
             drawn.note = Some(ids.note);
@@ -997,12 +1092,16 @@ fn sync_lobby_window(
         lang,
         machine,
         host.vault.sync_status(),
+        !host.vault.is_central(),
         &ui,
         None,
         None,
         Frame::Lobby,
         drawn,
         &mut lists,
+        &nodes,
+        &mut spacers,
+        None,
     );
 }
 
@@ -1143,11 +1242,20 @@ struct Skeleton {
     list: Entity,
     composer: Entity,
     body: Entity,
+    /// The window's light, over its parts (`glass`).
+    light: Entity,
 }
 
 impl Skeleton {
-    fn all(&self) -> [Entity; 5] {
-        [self.head, self.sub, self.note, self.body, self.composer]
+    fn all(&self) -> [Entity; 6] {
+        [
+            self.head,
+            self.sub,
+            self.note,
+            self.body,
+            self.composer,
+            self.light,
+        ]
     }
 }
 
@@ -1157,23 +1265,43 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
     let head = commands
         .spawn((
             Part::Head,
+            ZIndex(1),
             Node {
                 height: zpx(frame.row_h()),
                 flex_shrink: 0.0,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Stretch,
-                padding: UiRect::new(zpx(4.0), zpx(3.0), zpx(0.0), zpx(0.0)),
+                // Leave the top-right resize corner clear of Close.
+                padding: UiRect::new(
+                    zpx(4.0),
+                    zpx(3.0
+                        + if frame == Frame::Lobby {
+                            resize::HANDLE
+                        } else {
+                            0.0
+                        }),
+                    zpx(0.0),
+                    zpx(0.0),
+                ),
                 border: UiRect::bottom(zpx(1.0)),
                 border_radius: BorderRadius::top(zpx(6.0)),
                 ..default()
             },
             BackgroundColor(inks.lit),
             BorderColor::all(inks.line),
+            BoxShadow::new(
+                Color::srgba(0.0, 0.0, 0.0, 0.22),
+                zpx(0.0),
+                zpx(3.0),
+                zpx(0.0),
+                zpx(6.0),
+            ),
         ))
         .id();
     let sub = commands
         .spawn((
             Part::Sub,
+            ZIndex(1),
             Node {
                 display: Display::None,
                 height: zpx(SUB_H),
@@ -1187,6 +1315,13 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             },
             BackgroundColor(inks.lit),
             BorderColor::all(inks.line),
+            BoxShadow::new(
+                Color::srgba(0.0, 0.0, 0.0, 0.22),
+                zpx(0.0),
+                zpx(3.0),
+                zpx(0.0),
+                zpx(6.0),
+            ),
         ))
         .id();
     // The encryption's quiet line under the tabs (owner, 13.10.): a press
@@ -1196,6 +1331,7 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             Part::Note,
             UiButton,
             ChatPress::Lock,
+            ZIndex(1),
             Node {
                 display: Display::None,
                 flex_shrink: 0.0,
@@ -1207,6 +1343,13 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             },
             BackgroundColor(inks.ground),
             Feel::new(inks.ground),
+            BoxShadow::new(
+                Color::srgba(0.0, 0.0, 0.0, 0.22),
+                zpx(0.0),
+                zpx(3.0),
+                zpx(0.0),
+                zpx(6.0),
+            ),
         ))
         .id();
     let body = commands
@@ -1215,7 +1358,12 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
                 flex_direction: FlexDirection::Row,
                 flex_grow: 1.0,
                 min_height: zpx(0.0),
-                padding: UiRect::all(zpx(logpanel::LOG_PAD)),
+                padding: UiRect::new(
+                    zpx(logpanel::LOG_PAD),
+                    zpx(logpanel::LOG_PAD),
+                    zpx(logpanel::LOG_PAD),
+                    zpx(0.0),
+                ),
                 column_gap: zpx(4.0),
                 ..default()
             },
@@ -1249,11 +1397,13 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
         (inks.line.with_alpha(0.35), inks.accent.with_alpha(0.8)),
         logpanel::at_rest,
     );
+    commands.entity(track).insert(ChatScrollbar);
     let pill = logpanel::new_lines_pill(commands, fonts, lang);
     commands.entity(body).add_children(&[list, track, pill]);
     let composer = commands
         .spawn((
             Part::Composer,
+            ZIndex(1),
             Node {
                 flex_shrink: 0.0,
                 flex_direction: FlexDirection::Column,
@@ -1262,7 +1412,17 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
             },
             BackgroundColor(inks.lit),
             BorderColor::all(inks.line),
+            BoxShadow::new(
+                Color::srgba(0.0, 0.0, 0.0, 0.24),
+                zpx(0.0),
+                zpx(-3.0),
+                zpx(0.0),
+                zpx(6.0),
+            ),
         ))
+        .id();
+    let light = commands
+        .spawn(super::glass::layer(super::glass::Glass::Window, zpx(6.0)))
         .id();
     Skeleton {
         head,
@@ -1271,6 +1431,7 @@ fn skeleton(commands: &mut Commands, fonts: &UiFonts, frame: Frame, lang: Lang) 
         list,
         composer,
         body,
+        light,
     }
 }
 
@@ -1282,12 +1443,16 @@ fn fill(
     lang: Lang,
     machine: &Social,
     backup: Option<super::vault_access::SyncStatus>,
+    lock_in_composer: bool,
     ui: &ChatUi,
     duel: Option<&Duel>,
     texts: Option<&crate::cardtext::CardTexts>,
     frame: Frame,
     drawn: &mut Drawn,
-    lists: &mut Query<&mut LogFollow, With<LogList>>,
+    lists: &mut Query<(&mut LogFollow, &mut ScrollPosition), With<LogList>>,
+    nodes: &Query<&ComputedNode>,
+    spacers: &mut Query<&mut Node, With<logpanel::virtual_list::LogSpacer>>,
+    folds: Option<&logpanel::LogFolds>,
 ) {
     let inks = frame.inks();
     let game_open = duel.is_some();
@@ -1462,7 +1627,8 @@ fn fill(
     // The list.
     if let Some(list) = drawn.list {
         fill_list(
-            commands, fonts, lang, machine, ui, duel, texts, frame, drawn, list, lists,
+            commands, fonts, lang, machine, ui, duel, texts, frame, drawn, list, lists, nodes,
+            spacers, folds,
         );
     }
     // The composer.
@@ -1489,12 +1655,21 @@ fn fill(
             lang as u8,
             ui.hint.map(|(p, _)| p as u8),
             ui.tab,
+            lock_in_composer,
         ));
         if key != drawn.composer_key {
             drawn.composer_key = key;
             commands.entity(composer).despawn_children();
             let kids = composer_parts(
-                commands, fonts, lang, machine, ui, &suggest, highlight, frame,
+                commands,
+                fonts,
+                lang,
+                machine,
+                ui,
+                &suggest,
+                highlight,
+                frame,
+                lock_in_composer,
             );
             commands.entity(composer).add_children(&kids);
         }
@@ -1521,50 +1696,30 @@ fn lobby_card_links(
     }
 }
 
-/// Hovering a card link in a chat line at the table opens the table's own
-/// preview, when the game knows a printing of that card (§12.3).
-fn hover_chat_links(
-    mut overs: MessageReader<bevy::picking::events::PointerOver>,
-    mut outs: MessageReader<bevy::picking::events::PointerOut>,
-    links: Query<&rows::ChatCardLink>,
-    duel: Option<ResMut<Duel>>,
+/// Whether a computed list needs a vertical scrollbar.
+fn overflows(node: &ComputedNode) -> bool {
+    node.content_size().y > node.size().y + 0.5
+}
+
+/// Gives the track its space only when there is somewhere to scroll to.
+fn show_scrollbars_only_on_overflow(
+    lists: Query<&ComputedNode, With<LogList>>,
+    parents: Query<&ChildOf>,
+    mut tracks: Query<(Entity, &mut Node), With<ChatScrollbar>>,
 ) {
-    let Some(mut duel) = duel else {
-        overs.clear();
-        outs.clear();
-        return;
-    };
-    for over in overs.read() {
-        let Ok(link) = links.get(over.entity) else {
-            continue;
+    for (entity, mut track) in &mut tracks {
+        let overflow = parents
+            .get(entity)
+            .ok()
+            .and_then(|parent| lists.get(parent.parent()).ok())
+            .is_some_and(overflows);
+        let display = if overflow {
+            Display::Flex
+        } else {
+            Display::None
         };
-        let identity = duel.view.as_ref().and_then(|view| {
-            view.battlefield
-                .iter()
-                .chain(view.stack.iter())
-                .chain(view.graveyards.iter().flatten())
-                .chain(view.exile.iter().flatten())
-                .chain(view.command.iter().flatten())
-                .find_map(|o| o.card.filter(|c| c.index.get() == link.card))
-        });
-        if let Some(identity) = identity {
-            duel.hovered_log = Some(crate::hud::LogHover {
-                span: over.entity,
-                link: crate::hud::LogLink {
-                    card: Some(baylee_view::CardIdentity {
-                        face: link.face,
-                        ..identity
-                    }),
-                    token: None,
-                },
-                at: over.pointer.position,
-                card: None,
-            });
-        }
-    }
-    for out in outs.read() {
-        if links.contains(out.entity) && duel.hovered_log.is_some_and(|h| h.span == out.entity) {
-            duel.hovered_log = None;
+        if track.display != display {
+            track.display = display;
         }
     }
 }
@@ -1613,7 +1768,9 @@ fn wheel_in_the_lobby(
 mod composer;
 mod filter;
 mod head;
-mod list;
+pub(crate) mod list;
 mod peek;
+mod preview;
+mod resize;
 #[cfg(test)]
 mod tests;

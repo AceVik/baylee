@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/EXO/widowmaker-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WidowmakerAdvancedDeck_EXO.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Widowmaker - Advanced Deck (Adapted)]
+2 Blood Pet
+1 Bottle Gnomes
+2 Counterspell
+1 Dark Ritual
+1 Dissipate
+2 Fallen Angel
+1 Glasses of Urza
+2 Impulse
+8 Island
+4 Ledger Shredder
+3 Live or Die
+4 Man-o'-War
+4 Merfolk Looter
+1 Misdirection
+1 Ozai's Cruelty
+4 Rootwater Depths
+1 Sedraxis Alchemist
+1 Spirit of the Night
+7 Swamp
+4 Underground River
+2 Undiscovered Paradise
+2 Unexplained Disappearance
+1 Vampire Hounds
+1 Void Helix

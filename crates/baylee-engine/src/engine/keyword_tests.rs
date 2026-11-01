@@ -123,6 +123,7 @@ const ENFORCED: &[(&str, baylee_cards_dsl::KeywordSet)] = {
         ("trample", K::TRAMPLE), // combat::assign_attacker_damage
         ("vigilance", K::VIGILANCE), // Engine::declare_attackers
         ("defender", K::DEFENDER), // combat::can_attack
+        ("flanking", K::FLANKING), // trigger::collect, synthetic (CR 702.25a)
         ("flash", K::FLASH),   // casting::can_cast
         ("prowess", K::PROWESS), // trigger.rs (synthetic)
         ("changeling", K::CHANGELING), // layers::recompute_with

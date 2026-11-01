@@ -5,6 +5,8 @@
 #[allow(clippy::wildcard_imports)] // family modules share the resolve vocabulary
 use super::*;
 
+mod sweep_filter;
+
 /// Whether "sacrifice this" can still happen (CR 701.21a): "To sacrifice
 /// a permanent, its controller moves it from the battlefield directly to
 /// its owner's graveyard. A player can't sacrifice something that isn't a
@@ -340,7 +342,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 .filter(|id| {
                     state.object(*id).is_some_and(|o| {
                         value.is_none_or(|value| o.characteristics().mana_value() == value)
-                            && eval::matches_with_context(filter, state, o, you, res.rule_context())
+                            && sweep_filter::matches(filter, state, o, res)
                     })
                 })
                 .collect();
@@ -350,7 +352,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         // Farewell's four sweeps. Nothing is targeted, and a phased-out
         // permanent is treated as though it doesn't exist (CR 702.26b),
         // which `battlefield_seen` is.
-        Effect::ExileAll { filter } => {
+        Effect::ExileAll { filter, linked } => {
             let all: Vec<ObjectId> = state
                 .battlefield_seen()
                 .filter(|id| {
@@ -363,6 +365,13 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 let Some(owner) = state.object(id).map(|o| o.owner) else {
                     continue;
                 };
+                if linked && let Some(obj) = state.object_mut(id) {
+                    obj.kind = ObjectKind::Card;
+                    obj.riders.push(crate::object::Rider::Linked {
+                        host: res.source,
+                        until: None,
+                    });
+                }
                 let _ = state.move_object(
                     id,
                     ZoneLocation::Exile(owner),
@@ -473,16 +482,17 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             None
         }
         Effect::PutSourceOnTopOfLibrary => {
-            let owner = state.object(res.source).map_or(you, |o| o.owner);
+            let source = super::subjects::moving_source(state, res)?.object;
+            let owner = state.object(source).map_or(you, |o| o.owner);
             // CR 903.9b: a commander that puts *itself* on top is still
             // being put into a library, and its owner still chooses.
             if let Some(pending) =
-                ask_commander_replace(state, res, &[(res.source, ZoneLocation::Library(owner))])
+                ask_commander_replace(state, res, &[(source, ZoneLocation::Library(owner))])
             {
                 return Some(pending);
             }
             let _ = state.move_object(
-                res.source,
+                source,
                 ZoneLocation::Library(owner),
                 ZonePosition::Top,
                 Cause::Effect,
@@ -759,12 +769,81 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             }
             None
         }
+        Effect::RevealLibrarySearch { filter, optional } => {
+            let options: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Library(you))
+                .iter()
+                .rev()
+                .copied()
+                .filter(|&card| {
+                    state.object(card).is_some_and(|object| {
+                        eval::matches_with_context(filter, state, object, you, res.rule_context())
+                    })
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::RevealLibrarySearch);
+            // "A player searching a hidden zone for cards with a stated
+            // quality … isn't required to find some or all of those cards"
+            // (CR 701.23b), as `SearchLibrary` reads it: only a search for
+            // any card at all, not said to be optional, must find one.
+            let must_find = !optional && matches!(filter, baylee_cards_dsl::Filter::Any);
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: u8::from(must_find),
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+                total: None,
+            })
+        }
+        Effect::ExileChosenFromHandWithSource(filter) => {
+            let options: Vec<ObjectId> = state
+                .zones
+                .list(ZoneLocation::Hand(you))
+                .iter()
+                .copied()
+                .filter(|&card| {
+                    state.object(card).is_some_and(|object| {
+                        eval::matches_with_context(filter, state, object, you, res.rule_context())
+                    })
+                })
+                .collect();
+            if options.is_empty() {
+                return None;
+            }
+            res.awaiting = Some(AwaitingOp::ExileFromHandWithSource);
+            Some(Pending::ChooseCards {
+                player: you,
+                options,
+                min: 1,
+                max: 1,
+                prompt: ChoicePrompt::Generic,
+                total: None,
+            })
+        }
         // Every target, each exiled with the source (CR 406.6) as the
         // object it is now.
         Effect::ExileTargetsWithSource => {
-            let version = super::source_version(state, res)
-                .or_else(|| state.object(res.source).map(|source| source.version))
-                .unwrap_or(0);
+            let source = state
+                .recorded_ability_source(res.on_stack)
+                .or_else(|| super::subjects::source(state, res))
+                .or_else(|| {
+                    super::source_version(state, res).map(|version| {
+                        baylee_core::ids::DamageSourceRef {
+                            object: res.source,
+                            version,
+                        }
+                    })
+                })
+                .unwrap_or(baylee_core::ids::DamageSourceRef {
+                    object: res.source,
+                    version: 0,
+                });
+            let version = source.version;
             let acquisition = super::subjects::acquisition(state, res);
             for &target in &res.targets {
                 let components = state.merged_components(target);
@@ -772,7 +851,7 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 if let Some(obj) = state.object_mut(target) {
                     obj.kind = ObjectKind::Card;
                     obj.riders.push(crate::object::Rider::ExiledWith {
-                        host: res.source,
+                        host: source.object,
                         version: u16::try_from(version).unwrap_or(u16::MAX),
                     });
                 }
@@ -788,17 +867,14 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                         .filter(|card| card.zone == crate::zone::Zone::Exile)
                     {
                         let with = crate::object::Rider::ExiledWith {
-                            host: res.source,
+                            host: source.object,
                             version: u16::try_from(version).unwrap_or(u16::MAX),
                         };
                         if !card.riders.contains(&with) {
                             card.riders.push(with);
                         }
                         card.riders.push(crate::object::Rider::LinkedExile {
-                            source: baylee_core::ids::DamageSourceRef {
-                                object: res.source,
-                                version,
-                            },
+                            source,
                             acquisition,
                         });
                     }
@@ -845,7 +921,8 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             let _ = state.sacrifice_object(id, Cause::Effect);
             None
         }
-        Effect::PutTargetOnBottomOfLibrary => {
+        Effect::PutTargetOnTopOfLibrary | Effect::PutTargetOnBottomOfLibrary => {
+            let top = matches!(op, Effect::PutTargetOnTopOfLibrary);
             let moves: Vec<(ObjectId, ZoneLocation)> = res
                 .targets
                 .iter()
@@ -862,7 +939,12 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 if let Some(obj) = state.object_mut(target) {
                     obj.kind = ObjectKind::Card;
                 }
-                let _ = state.move_object(target, to, ZonePosition::Bottom, Cause::Effect);
+                let position = if top {
+                    ZonePosition::Top
+                } else {
+                    ZonePosition::Bottom
+                };
+                let _ = state.move_object(target, to, position, Cause::Effect);
             }
             None
         }
@@ -1363,10 +1445,26 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         }
         Effect::EqualizePermanents { filter } => equalize::start(state, res, Some(filter)),
         Effect::EqualizeHands => equalize::start(state, res, None),
+        Effect::DiscardAmountForPlayers { who, amount } => {
+            equalize::start_amount(state, res, who, None, &amount)
+        }
+        Effect::SacrificeAmountForPlayers {
+            who,
+            filter,
+            amount,
+        } => equalize::start_amount(state, res, who, Some(filter), &amount),
         Effect::DiscardForPlayers { who, count } => {
             discard::start_chain(state, res, who, count, false)
         }
         Effect::DiscardEachOrDraw { who } => discard::start_chain(state, res, who, 1, true),
+        Effect::LookAtRandomFromHand { who, count } => {
+            private_hand::inspect_random(state, res, who, count)
+        }
+        Effect::LookHandDiscard {
+            player,
+            count,
+            filter,
+        } => private_hand::choose_discard(state, res, player, count, filter),
         Effect::LookAtChosenHand => {
             let player = res.chosen_player?;
             let options = state.zones.list(ZoneLocation::Hand(player)).clone();

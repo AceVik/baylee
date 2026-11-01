@@ -43,6 +43,84 @@ fn matches_name(state: &GameState, res: &Resolution, card: ObjectId) -> bool {
     })
 }
 
+pub(super) fn exile_top(
+    state: &mut GameState,
+    res: &Resolution,
+    who: PlayerRel,
+    count: Amount,
+) -> Option<Pending> {
+    let count = amount2(&count, state, res.controller, res) as usize;
+    for player in players_of(who, state, res.controller, res) {
+        let cards: Vec<_> = state
+            .zones
+            .list(ZoneLocation::Library(player))
+            .iter()
+            .rev()
+            .take(count)
+            .copied()
+            .collect();
+        for card in cards {
+            put_found(state, player, card, SearchDest::Exile);
+        }
+    }
+    None
+}
+
+pub(super) fn reveal_until_named(
+    state: &mut GameState,
+    res: &mut Resolution,
+    who: PlayerRel,
+    matched: SearchDest,
+    otherwise: SearchDest,
+) -> Option<Pending> {
+    let player = players_of(who, state, res.controller, res)
+        .first()
+        .copied()?;
+    let cards = state.zones.list(ZoneLocation::Library(player)).clone();
+    for card in cards.into_iter().rev() {
+        let matches = matches_name(state, res, card);
+        state.journal.record(GameEvent::Revealed {
+            player,
+            cards: vec![card],
+        });
+        if matches {
+            return put_top(state, res, card, player, matched);
+        }
+        put_found(state, player, card, otherwise);
+    }
+    None
+}
+
+pub(super) fn reveal_top_then(
+    state: &mut GameState,
+    res: &mut Resolution,
+    who: PlayerRel,
+    matched: SearchDest,
+    otherwise: SearchDest,
+    otherwise_effects: &'static [Effect],
+) -> Option<Pending> {
+    let player = players_of(who, state, res.controller, res)
+        .first()
+        .copied()?;
+    let card = *state.zones.list(ZoneLocation::Library(player)).last()?;
+    let matches = matches_name(state, res, card);
+    state.journal.record(GameEvent::Revealed {
+        player,
+        cards: vec![card],
+    });
+    if !matches {
+        let next = res.pc + 1;
+        res.effects.splice(next..next, flatten(otherwise_effects));
+    }
+    put_top(
+        state,
+        res,
+        card,
+        player,
+        if matches { matched } else { otherwise },
+    )
+}
+
 pub(super) fn reveal_top(
     state: &mut GameState,
     res: &mut Resolution,

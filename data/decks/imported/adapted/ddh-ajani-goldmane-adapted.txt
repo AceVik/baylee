@@ -1,0 +1,35 @@
+# adapted from data/decks/precon/DDH/ajani-goldmane.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AjaniGoldmane_DDH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ajani Goldmane (Adapted)]
+1 Ajani's Mantra
+1 Behemoth Sledge
+2 Call the Gatewatch
+1 Canyon Wildcat
+1 Cultivate
+1 Eldritch Evolution
+2 Evolving Wilds
+1 Fleetfoot Panther
+8 Forest
+1 Graypelt Refuge
+1 Grazing Gladehart
+1 Griffin Guide
+4 Incandescent Aria
+1 Jade Mage
+2 Jungle Shrine
+1 Kazandu Refuge
+1 Kird Ape
+1 Lightning Helix
+1 Llanowar Stalker
+1 Loam Lion
+1 Marisi's Twinclaws
+3 Mountain
+4 Naya Charm
+6 Plains
+2 Repentance
+4 Rith's Charm
+1 Sapseep Forest
+1 Spoils of Victory
+2 Thornado
+1 Vitu-Ghazi, the City-Tree
+1 Wild Nacatl
+1 Woolly Thoctar

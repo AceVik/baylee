@@ -136,7 +136,7 @@ async fn group_frame(ws: &mut Socket, event: GroupEvent, id: &str) -> GroupInfo 
     let Down::Group { group, .. } = wait_for(
         ws,
         &format!("{event:?} of {id}"),
-        move |d| matches!(d, Down::Group { event: e, group } if *e == event && group.id == want),
+        move |d| matches!(d, Down::Group { event: e, group, .. } if *e == event && group.id == want),
     )
     .await
     else {

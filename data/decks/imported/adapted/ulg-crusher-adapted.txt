@@ -1,0 +1,32 @@
+# adapted from data/decks/precon/ULG/crusher.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Crusher_ULG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Crusher (Adapted)]
+1 Argothian Swine
+1 Cradle Guard
+1 Crosswinds
+1 Defense of the Heart
+2 Disenchant
+3 Drifting Meadow
+1 Elvish Herder
+1 Erase
+17 Forest
+1 Gaea's Bounty
+1 Gaea's Embrace
+1 Gang of Elk
+2 Humble
+2 Mother of Runes
+2 Pacifism
+4 Plains
+1 Radiant's Judgment
+1 Rancor
+1 Silk Net
+3 Swift Warden
+1 Symbiosis
+1 Ticking Gnomes
+1 Treetop Village
+1 Vitalizing Cascade
+1 Weatherseed Treefolk
+1 Wing Snare
+2 Yavimaya Granger
+2 Yavimaya Scion
+3 Yavimaya Wurm

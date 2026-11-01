@@ -1,0 +1,71 @@
+# baylee curated commander ramp seed=20261058
+# licence: AGPL-3.0-only
+[deck:commander ramp B #20261058]
+1 Agents of HYDRA
+1 Baron Sengir
+1 Barrow Witches
+1 Bitterblossom
+1 Blightspeaker
+1 Bog Glider
+1 Bucolic Ranch
+1 Cabal Archon
+1 Cabal Patriarch
+1 Callous Inspector
+1 Cateran Overlord
+1 Claws of Gix
+1 Common Crook
+1 Corpsehatch
+1 Corrupted Crossroads
+1 Criminal Enterprise
+1 Dai Li Censor
+1 Dark Prophecy
+1 Deathgreeter
+1 Doomed Dissenter
+1 Essence Feed
+1 Gild
+1 Graf Harvest
+1 Greedy Freebooter
+1 Harvester of Souls
+1 Hopeless Nightmare
+1 Interplanar Beacon
+1 Liliana the Repentant
+1 Liliana's Mastery
+1 Live or Die
+1 Locthwain Lancer
+1 Massacre Wurm
+1 Master of Dark Rites
+1 Minotaur, Roxxon CEO
+1 Mortuary
+1 Nirkana Revenant
+1 Ogre Slumlord
+1 Open the Graves
+1 Orochi Hatchery
+1 Phyrexian Vivisector
+1 Pitiless Plunderer
+1 Priest of Yawgmoth
+1 Prowess of the Fair
+1 Quest for the Gravelord
+1 Razaketh, the Foulblooded
+1 Rotlung Reanimator
+1 Rumble Arena
+1 Sarcomancy
+1 Sengir Autocrat
+1 Shadow-Rite Priest
+1 Shauku, Endbringer
+1 Skeletal Vampire
+1 Spire of Industry
+1 Strands of Night
+1 Strongarm Thug
+1 Surveillance Room
+35 Swamp
+1 Sweettooth Witch
+1 Tempting Witch
+1 Thran Quarry
+1 Toxin Analysis
+1 Village Cannibals
+1 Virtue of Persistence
+1 Yawgmoth, Thran Physician
+1 Zulaport Cutthroat
+
+[commander]
+Veldrane of Sengir

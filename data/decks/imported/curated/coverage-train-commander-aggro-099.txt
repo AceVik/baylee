@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WRG #20266100]
+1 Arid Mesa
+1 Avacyn's Collar
+1 Bag End Banquet
+1 Basilisk Gate
+1 Black Scarab
+1 Blooming Stinger
+1 Briar Shield
+1 Brushfire Elemental
+1 Burrowing
+1 Cunning Maneuver
+1 Devils' Playground
+1 Devout Lightcaster
+1 Dragon-Cursed Halls
+1 Drill Too Deep
+1 Dryad's Favor
+1 Eager Glyphmage
+1 Endurance
+1 Envoy of Okinec Ahau
+1 Fearless Fledgling
+1 Feral Prowler
+1 Ferocious Pup
+1 Fierce Witchstalker
+1 Flamekin Gildweaver
+1 Fleetfoot Panther
+1 Fomori Vault
+6 Forest
+1 Forgeborn Oreads
+1 Fury
+1 Fyndhorn Pollen
+1 Galvanic Arc
+1 Gladewalker Ritualist
+1 Glaring Aegis
+1 Green Scarab
+1 Greensleeves, Maro-Sorcerer
+1 Guardian Gladewalker
+1 Guardian of Pilgrims
+1 Head of the Homestead
+1 Hobblefiend
+1 Imposing Visage
+1 Insolent Neonate
+1 Interplanar Beacon
+1 Irregular Cohort
+1 Leonin Abunas
+1 Lotusguard Disciple
+1 Magma Vein
+1 Makindi Sliderunner
+1 Mighty Mutanimals
+5 Mountain
+1 Mouth of Ronom
+1 Munitions Enthusiast
+1 Naya Panorama
+1 Paladin of the Bloodstained
+1 Panic
+1 Petrified Hamlet
+13 Plains
+1 Plant Elemental
+1 Plundering Pirate
+1 Prideful Parent
+1 Remnant Elemental
+1 Rescuer Chwinga
+1 Retrofitter Foundry
+1 Rockslide Elemental
+1 Rogue Elephant
+1 Rumble Arena
+1 Sea Gate Wreckage
+1 Sliver Hive
+1 Sokka's Sword Training
+1 Stromkirk Noble
+1 Tanglespan Lookout
+1 Twin-Silk Spider
+1 Uktabi Wildcats
+1 Unholy Officiant
+1 Unstable Frontier
+1 Urza's Saga
+1 Valakut Predator
+1 Vinelasher Kudzu
+1 Witty Roastmaster
+1 Zoetic Cavern
+
+[commander]
+Jetmir, Nexus of Revels

@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/Q07/rakdos-vampires.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RakdosVampires_Q07.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Rakdos Vampires (Adapted)]
+4 Auger Spree
+4 Bedevil
+2 Blightstep Pathway
+4 Bloodfell Caves
+4 Delirium
+2 Den of the Bugbear
+4 Dreadbore
+2 Infernal Grasp
+4 Kaervek's Purge
+6 Mountain
+4 Spontaneous Combustion
+7 Swamp
+2 Terminate
+4 Voldaren Epicure
+3 Voldaren Estate
+4 Wrecking Ball

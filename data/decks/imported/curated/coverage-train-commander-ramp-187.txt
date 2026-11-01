@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBR #20266188]
+1 Amphin Pathmage
+1 Archaeological Dig
+1 Axelrod Gunnarson
+1 Baxter Building
+1 Bitterblossom
+1 Black Widow, Deadly Hunter
+1 Blood Rites
+1 Bloodshot Cyclops
+1 Capital City
+1 Cat-Gator
+1 Crypt of the Eternals
+1 Daily Bugle Building
+1 Dark Privilege
+1 Deathbringer Thoctar
+1 Dimir Locket
+1 Dragon Mage
+1 Dragon Moose
+1 Fable of the Mirror-Breaker
+1 Failed Conversion
+1 Firestorm Hellkite
+1 Frostburn Weird
+1 Garna, the Bloodflame
+1 Goblin Bombardment
+1 Hall of Oracles
+1 Haunt the Network
+1 Hibernation Sliver
+1 Iceberg
+1 Intruding Soulrager
+11 Island
+1 Izzet Cluestone
+1 Izzet Locket
+1 Jorubai Murk Lurker
+1 Liliana's Mastery
+1 Mana Confluence
+1 Mech Hangar
+1 Merrow Grimeblotter
+1 Mindwarper
+1 Mirrodin's Core
+1 Mischievous Sneakling
+9 Mountain
+1 Mystical Tutor
+1 Nether Horror
+1 Noggle Bandit
+1 Nucklavee
+1 Nykthos, Shrine to Nyx
+1 Odylic Wraith
+1 Omen of the Dead
+1 Pillar of the Paruns
+1 Princess Lucrezia
+1 Rise of Eagles
+1 Riven Turnbull
+1 Robotics Mastery
+1 Ryusei, the Falling Star
+1 Sacrifice
+1 Sandbar Crocodile
+1 Secret Base
+1 Seething Landscape
+1 Shore Snapper
+1 Sicken
+1 Slinking Serpent
+1 Songs of the Damned
+1 Springjack Pasture
+6 Swamp
+1 Talisman of Creativity
+1 Tarnished Citadel
+1 Terror of the Fairgrounds
+1 Thalakos Drifters
+1 The Unspeakable
+1 Time Sieve
+1 Underdome
+1 Utvara Hellkite
+1 Viashino Skeleton
+1 Wanderbrine Rootcutters
+1 War-Spike Changeling
+1 Wizard Class
+1 Woodlot Crawler
+
+[commander]
+Gwendlyn Di Corci

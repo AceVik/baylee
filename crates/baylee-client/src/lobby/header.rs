@@ -39,10 +39,12 @@ pub(crate) enum HeaderPress {
     Bell,
     /// The account pill (or its letter).
     Account,
+    /// The chat tool.
+    Chat,
     /// Click outside an open header popover to close it.
     CloseMenu,
-    /// Dismiss a toast by index in `ToastLane`.
-    DismissToast(usize),
+    /// A toast's cross: the toast it stands on.
+    DismissToast(ToastId),
     /// The seated strip's Return, and the Phone header's Return pill.
     Return,
     /// The seated strip's Leave (waiting tables only).
@@ -78,7 +80,7 @@ pub(crate) enum ShellAsk {
     /// The chat's privacy sheet.
     ChatPrivacy,
     /// Dismiss a toast in `Toasts`.
-    DismissToast(usize),
+    DismissToast(ToastId),
     /// Quit the client application.
     Quit,
 }
@@ -187,7 +189,7 @@ pub(super) fn wears_header(state: &LobbyState) -> bool {
 }
 
 /// The account pill's handle: `GET /me`'s, a kept guest's, else none yet.
-fn handle(state: &LobbyState) -> Option<String> {
+pub(crate) fn handle(state: &LobbyState) -> Option<String> {
     if state.lobby.offline() {
         return None;
     }
@@ -208,24 +210,24 @@ pub(super) fn draw(
     state: &LobbyState,
     kit: Kit,
     metrics: Metrics,
-    retained: Option<Entity>,
+    retained: Option<&crate::shellkit::retain::Kept>,
 ) {
     let seated = seated(state);
     if wears_header(state) {
-        if let Some(bar) = retained {
-            commands.entity(root).add_child(bar);
+        if let Some(kept) = retained {
+            kept.attach(commands, root);
         } else {
             bar(commands, root, state, kit, seated.is_some());
         }
     }
-    if state.front_menu && wears_header(state) {
+    let builder = matches!(state.lobby.screen(), Screen::Build);
+    if state.front_menu && (wears_header(state) || builder) {
         let menu = super::front::gear_menu(commands, state, kit.fonts, metrics, metrics.pad);
         commands.entity(root).add_child(menu);
     }
     strips(commands, root, state, kit, seated);
     // The builder wears a header of its own (`buildui::header`) with the
-    // same dot, bell and account, and their popovers are these.
-    let builder = matches!(state.lobby.screen(), Screen::Build);
+    // same tools, bell and account, and their popovers are these.
     if let Some(menu) = state.header_menu.filter(|_| wears_header(state) || builder) {
         let popover = popover(commands, state, kit, menu);
         commands.entity(root).add_child(popover);
@@ -298,54 +300,7 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
             strips::pill_words(state.lobby.stats(), &state.lobby, lang)
         };
         let handle = handle(state);
-        // The quick settings (language, music: the music's toggle stands on
-        // every screen it plays on) keep their gear beside the bell.
-        let gear_face = commands
-            .spawn((
-                Node {
-                    min_width: kit.m.px(32.0),
-                    min_height: kit.m.px(32.0),
-                    padding: UiRect::axes(kit.m.px(6.0), kit.m.px(4.0)),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
-                    ..default()
-                },
-                BackgroundColor(Color::NONE),
-                UiTransform::default(),
-                crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
-                Pickable::IGNORE,
-            ))
-            .id();
-        let gear_glyph = commands
-            .spawn((
-                Text::new("\u{f013}"),
-                crate::hud::icon_tf(kit.fonts, kit.m.text),
-                TextColor(tokens::INK),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(gear_face).add_child(gear_glyph);
-        let gear = crate::shellkit::controls::hit(
-            commands,
-            kit,
-            gear_face,
-            (
-                Press::Front(FrontPress::FrontMenu),
-                kit_header::HeaderTrigger::Gear,
-            ),
-        );
-        let mut tools = vec![gear];
-        if let Some(true) = state.chat_header {
-            tools.push(chat_tool(
-                commands,
-                kit,
-                crate::hud::glyph::FRIENDS,
-                None,
-                crate::social::HeaderCount::Friends,
-                Press::Header(HeaderPress::Friends),
-            ));
-        }
+        let tools = tools(commands, state, kit);
         let look = HeaderLook {
             brand: Phrase::AppName.text(lang),
             // The short form (§2.1); the full one is in the gateway popover.
@@ -401,6 +356,65 @@ fn bar(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit, seat
     }
 }
 
+/// The quick settings and social tools shared by the lobby and builder.
+pub(crate) fn tools(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Vec<Entity> {
+    let gear_face = commands
+        .spawn((
+            Node {
+                min_width: kit.m.px(32.0),
+                min_height: kit.m.px(32.0),
+                padding: UiRect::axes(kit.m.px(6.0), kit.m.px(4.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(Color::NONE),
+            UiTransform::default(),
+            crate::ambience::Feel::rising_to(Color::NONE, tokens::HOVER),
+            Pickable::IGNORE,
+        ))
+        .id();
+    let gear_glyph = commands
+        .spawn((
+            Text::new("\u{f013}"),
+            crate::hud::icon_tf(kit.fonts, kit.m.text),
+            TextColor(tokens::INK),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(gear_face).add_child(gear_glyph);
+    let gear = crate::shellkit::controls::hit(
+        commands,
+        kit,
+        gear_face,
+        (
+            Press::Front(FrontPress::FrontMenu),
+            kit_header::HeaderTrigger::Gear,
+        ),
+    );
+    let mut tools = vec![gear];
+    if let Some(true) = state.chat_header {
+        tools.push(chat_tool(
+            commands,
+            kit,
+            crate::hud::glyph::CHAT,
+            Some(Phrase::ShellChat.text(state.lobby.lang())),
+            crate::social::HeaderCount::Chat,
+            Press::Header(HeaderPress::Chat),
+        ));
+        tools.push(chat_tool(
+            commands,
+            kit,
+            crate::hud::glyph::FRIENDS,
+            None,
+            crate::social::HeaderCount::Friends,
+            Press::Header(HeaderPress::Friends),
+        ));
+    }
+    tools
+}
+
 /// A social tool button in the header: its glyph, and for `HeaderCount::Chat`
 /// a notification-bell-style badge dot (`1`..`99+`), or for `Friends` the
 /// online count beside the icon.
@@ -419,16 +433,8 @@ fn chat_tool(
                 min_height: kit.m.px(32.0),
                 padding: UiRect::axes(kit.m.px(8.0), kit.m.px(4.0)),
                 flex_direction: FlexDirection::Row,
-                align_items: if is_chat_badge {
-                    AlignItems::FlexStart
-                } else {
-                    AlignItems::Center
-                },
-                column_gap: if is_chat_badge {
-                    px_fixed(0.0)
-                } else {
-                    kit.m.px(6.0)
-                },
+                align_items: AlignItems::Center,
+                column_gap: kit.m.px(6.0),
                 border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
                 ..default()
             },
@@ -439,13 +445,25 @@ fn chat_tool(
             Pickable::IGNORE,
         ))
         .id();
-    let icon = commands
+    let glyph = commands
         .spawn((
             Text::new(glyph.to_string()),
             crate::hud::icon_tf(kit.fonts, kit.m.text),
             TextColor(tokens::INK),
             Pickable::IGNORE,
         ))
+        .id();
+    // The glyph stands in a box of its own, which the chat's badge hangs
+    // from (`badge`).
+    let icon = commands
+        .spawn((
+            Node {
+                position_type: PositionType::Relative,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .add_child(glyph)
         .id();
     commands.entity(face).add_child(icon);
     if let Some(word) = word {
@@ -461,39 +479,7 @@ fn chat_tool(
     }
     let initial = crate::social::header_count(count);
     if is_chat_badge {
-        let badge = commands
-            .spawn((
-                crate::shellkit::role::Role::Count,
-                Node {
-                    min_width: px_fixed(16.0),
-                    min_height: px_fixed(16.0),
-                    padding: UiRect::axes(px_fixed(4.0), px_fixed(0.0)),
-                    margin: UiRect::left(kit.m.px(-6.0)),
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
-                    ..default()
-                },
-                BackgroundColor(tokens::GOLD),
-                if initial.is_empty() {
-                    Visibility::Hidden
-                } else {
-                    Visibility::Inherited
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        let n = commands
-            .spawn((
-                count,
-                Text::new(initial),
-                crate::hud::tf_bold(kit.fonts, kit.m.small * 0.85),
-                TextColor(tokens::OPAQUE),
-                Pickable::IGNORE,
-            ))
-            .id();
-        commands.entity(badge).add_child(n);
-        commands.entity(face).add_child(badge);
+        badge(commands, kit, icon, count, initial);
     } else {
         let n = commands
             .spawn((
@@ -507,6 +493,53 @@ fn chat_tool(
         commands.entity(face).add_child(n);
     }
     crate::shellkit::controls::hit(commands, kit, face, action)
+}
+
+/// The chat's count: a bell's badge on the icon's shoulder, standing out of
+/// the row. In the row with no gap and a negative margin it lay over the
+/// word's last letter ("Cha①", 29.10.2026).
+fn badge(
+    commands: &mut Commands,
+    kit: crate::shellkit::controls::Kit,
+    icon: Entity,
+    count: crate::social::HeaderCount,
+    initial: String,
+) {
+    let badge = commands
+        .spawn((
+            crate::shellkit::role::Role::Count,
+            Node {
+                position_type: PositionType::Absolute,
+                top: px_fixed(-7.0),
+                left: Val::Percent(70.0),
+                min_width: px_fixed(16.0),
+                min_height: px_fixed(16.0),
+                padding: UiRect::axes(px_fixed(4.0), px_fixed(0.0)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
+                ..default()
+            },
+            BackgroundColor(tokens::GOLD),
+            if initial.is_empty() {
+                Visibility::Hidden
+            } else {
+                Visibility::Inherited
+            },
+            Pickable::IGNORE,
+        ))
+        .id();
+    let n = commands
+        .spawn((
+            count,
+            Text::new(initial),
+            crate::hud::tf_bold(kit.fonts, kit.m.small * 0.85),
+            TextColor(tokens::OPAQUE),
+            Pickable::IGNORE,
+        ))
+        .id();
+    commands.entity(badge).add_child(n);
+    commands.entity(icon).add_child(badge);
 }
 
 /// The strips under the header: seated (not on a Phone, where the header's
@@ -946,13 +979,8 @@ impl HeaderPress {
             HeaderPress::CloseMenu => {
                 cx.state.header_menu = None;
             }
-            HeaderPress::DismissToast(idx) => {
-                if idx == 0 && cx.state.undo.is_some() {
-                    cx.state.undo = None;
-                } else {
-                    cx.state.shell_asks.push(ShellAsk::DismissToast(idx));
-                }
-            }
+            HeaderPress::DismissToast(ToastId::Undo) => cx.state.undo = None,
+            HeaderPress::DismissToast(id) => cx.state.shell_asks.push(ShellAsk::DismissToast(id)),
             HeaderPress::Shortcuts => {
                 cx.state.header_menu = None;
                 cx.state.shell_asks.push(ShellAsk::Shortcuts);
@@ -961,10 +989,14 @@ impl HeaderPress {
                 cx.state.header_menu = None;
                 cx.state.shell_asks.push(ShellAsk::Report);
             }
-            HeaderPress::Friends => {
+            HeaderPress::Friends | HeaderPress::Chat => {
                 cx.state.header_menu = None;
                 cx.state.front_menu = false;
-                cx.state.shell_asks.push(ShellAsk::Friends);
+                cx.state.shell_asks.push(if self == HeaderPress::Chat {
+                    ShellAsk::Chat
+                } else {
+                    ShellAsk::Friends
+                });
             }
             HeaderPress::ChatPrivacy => cx.state.shell_asks.push(ShellAsk::ChatPrivacy),
             HeaderPress::SignOut => {
@@ -1231,13 +1263,38 @@ enum ToastKind {
     Undo,
 }
 
-/// The toasts on show: each sentence, its kind, and the seconds it has left.
+/// Which toast a cross takes away: the Undo, or one of [`Toasts`] by the
+/// number it was given when it came. Never by where it stands in the lane: a
+/// status arrives at the front, so a place read when the cross was drawn can
+/// name its neighbour by the time the press is carried out.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum ToastId {
+    /// The Decks screen's Undo (`LobbyState::undo`).
+    Undo,
+    /// A status or bell toast.
+    Shown(u64),
+}
+
+/// The toasts on show: each one's number, kind, sentence, and the seconds it
+/// has left.
 #[derive(Resource, Default)]
 pub(super) struct Toasts {
-    shown: Vec<(ToastKind, String, f32)>,
+    shown: Vec<(u64, ToastKind, String, f32)>,
+    next: u64,
     rung: u64,
     last_status: String,
-    drawn: Vec<(ToastKind, String)>,
+    drawn: Vec<(ToastId, ToastKind, String)>,
+}
+
+impl Toasts {
+    /// Gives a toast its number and stands it at `at`.
+    fn stand(&mut self, at: usize, kind: ToastKind, said: String) {
+        self.next += 1;
+        self.shown.insert(
+            at.min(self.shown.len()),
+            (self.next, kind, said, TOAST_SECS),
+        );
+    }
 }
 
 /// How long a toast stays (15 s), and how many show at once (≤ 4).
@@ -1267,35 +1324,27 @@ pub(super) fn toast_lane(
         toasts.last_status.clear();
         toasts
             .shown
-            .retain(|(kind, _, _)| !matches!(kind, ToastKind::Status(_)));
+            .retain(|(_, kind, _, _)| !matches!(kind, ToastKind::Status(_)));
     } else if current_status != toasts.last_status {
         toasts.last_status = current_status.to_string();
         toasts
             .shown
-            .retain(|(kind, _, _)| !matches!(kind, ToastKind::Status(_)));
-        toasts.shown.insert(
-            0,
-            (
-                ToastKind::Status(state.lobby.tone()),
-                toasts.last_status.clone(),
-                TOAST_SECS,
-            ),
-        );
+            .retain(|(_, kind, _, _)| !matches!(kind, ToastKind::Status(_)));
+        let said = toasts.last_status.clone();
+        toasts.stand(0, ToastKind::Status(state.lobby.tone()), said);
     }
     if state.bell.rung() > toasts.rung {
         let new = usize::try_from(state.bell.rung() - toasts.rung).unwrap_or(usize::MAX);
         for item in state.bell.latest(new.min(TOASTS_AT_ONCE)) {
-            toasts
-                .shown
-                .push((ToastKind::Bell, item.sentence(lang), TOAST_SECS));
+            toasts.stand(usize::MAX, ToastKind::Bell, item.sentence(lang));
         }
         toasts.rung = state.bell.rung();
     }
     let dt = time.delta_secs();
-    for (_, _, left) in &mut toasts.shown {
+    for (_, _, _, left) in &mut toasts.shown {
         *left -= dt;
     }
-    toasts.shown.retain(|(_, _, left)| *left > 0.0);
+    toasts.shown.retain(|(_, _, _, left)| *left > 0.0);
     while toasts.shown.len() > TOASTS_AT_ONCE {
         toasts.shown.remove(0);
     }
@@ -1306,10 +1355,15 @@ pub(super) fn toast_lane(
         super::decks::UndoKind::ToursOff => Phrase::TourOffToast.text(lang).to_string(),
         super::decks::UndoKind::ToursRestarted => Phrase::TourRestartedToast.text(lang).to_string(),
     });
-    let now: Vec<(ToastKind, String)> = undo
+    let now: Vec<(ToastId, ToastKind, String)> = undo
         .iter()
-        .map(|t| (ToastKind::Undo, t.clone()))
-        .chain(toasts.shown.iter().map(|(k, t, _)| (*k, t.clone())))
+        .map(|t| (ToastId::Undo, ToastKind::Undo, t.clone()))
+        .chain(
+            toasts
+                .shown
+                .iter()
+                .map(|(n, k, t, _)| (ToastId::Shown(*n), *k, t.clone())),
+        )
         .collect();
     if now == toasts.drawn && (now.is_empty() || !lanes.is_empty()) {
         return;
@@ -1335,15 +1389,24 @@ pub(super) fn toast_lane(
         m: kit_metrics(width, height, step, *input),
         german: lang == Lang::De,
     };
+    let phone = kit.m.frame == Frame::Phone;
     let lane = commands
         .spawn((
             ToastLane,
             Node {
                 position_type: PositionType::Absolute,
-                left: px_fixed(kit.m.body),
-                right: Val::Auto,
-                top: px_fixed(kit.m.header + kit.m.gap),
-                bottom: Val::Auto,
+                left: Val::Auto,
+                right: px_fixed(kit.m.body),
+                top: if phone {
+                    px_fixed(kit.m.header + kit.m.gap)
+                } else {
+                    Val::Auto
+                },
+                bottom: if phone {
+                    Val::Auto
+                } else {
+                    px_fixed(kit.m.body)
+                },
                 width: kit.m.px(290.0),
                 flex_direction: FlexDirection::Column,
                 row_gap: px_fixed(kit.m.gap),
@@ -1353,8 +1416,8 @@ pub(super) fn toast_lane(
             Pickable::IGNORE,
         ))
         .id();
-    for (i, (kind, text)) in now.iter().enumerate() {
-        let action = (i == 0 && undo.is_some()).then(|| {
+    for (id, kind, text) in &now {
+        let action = (*id == ToastId::Undo).then(|| {
             controls::button_compact(
                 &mut commands,
                 kit,
@@ -1385,7 +1448,7 @@ pub(super) fn toast_lane(
             accent,
             title,
             text,
-            Press::Header(HeaderPress::DismissToast(i)),
+            Press::Header(HeaderPress::DismissToast(*id)),
             action,
         );
         commands.entity(lane).add_child(toast);
@@ -1395,6 +1458,29 @@ pub(super) fn toast_lane(
 /// The toast lane's root.
 #[derive(Component)]
 pub(crate) struct ToastLane;
+
+/// Takes the lobby's toasts away as a table opens (owner, 22.10.2026: "they
+/// don't go away, and their X doesn't close them").
+///
+/// The lane is a root of its own, not part of the lobby's screen, so the
+/// lobby's teardown leaves it standing; and [`toast_lane`], which ages it,
+/// and [`carry_out`], which answers its cross, both run only while the lobby
+/// does. A toast that stood when the table opened stayed over the whole game,
+/// as old as it was and with a cross that answered nothing. What it said is
+/// the lobby's news, stale by the time the player is back, so it does not
+/// come back either: the last status stays remembered, and only a new one is
+/// news again.
+fn put_the_toasts_away(
+    mut commands: Commands,
+    mut toasts: ResMut<Toasts>,
+    lanes: Query<Entity, With<ToastLane>>,
+) {
+    for lane in &lanes {
+        commands.entity(lane).despawn();
+    }
+    toasts.shown.clear();
+    toasts.drawn.clear();
+}
 
 /// Carries out what header presses asked of systems they cannot reach: the
 /// `?` overlay (through the shell keymap's own message), the report form,
@@ -1412,7 +1498,6 @@ pub(super) fn carry_out(
         return;
     }
     let mut desk = desk;
-    let has_undo = state.undo.is_some();
     for ask in std::mem::take(&mut state.shell_asks) {
         match ask {
             ShellAsk::Shortcuts => {
@@ -1428,14 +1513,10 @@ pub(super) fn carry_out(
             ShellAsk::Quit => {
                 exit.write(bevy::app::AppExit::Success);
             }
-            ShellAsk::DismissToast(idx) => {
-                let offset = usize::from(has_undo);
-                if let Some(pos) = idx.checked_sub(offset)
-                    && pos < toasts.shown.len()
-                {
-                    toasts.shown.remove(pos);
-                }
+            ShellAsk::DismissToast(ToastId::Shown(gone)) => {
+                toasts.shown.retain(|(n, _, _, _)| *n != gone);
             }
+            ShellAsk::DismissToast(ToastId::Undo) => state.undo = None,
             ShellAsk::Chat | ShellAsk::Friends | ShellAsk::ChatPrivacy => {
                 if let (Some(ui), Some(host)) = (chat.as_deref_mut(), host.as_deref_mut()) {
                     crate::social::header_ask(host, ui, ask);
@@ -1453,14 +1534,20 @@ pub(super) fn install(app: &mut App) {
         .add_systems(
             Update,
             (
-                follow_the_account,
-                ring_the_bell,
-                toast_lane,
-                carry_out,
-                super::feed::follow_the_feed.after(super::feed::feed),
-            )
-                .run_if(in_state(DuelPhase::Closed)),
+                (
+                    follow_the_account,
+                    ring_the_bell,
+                    toast_lane,
+                    super::feed::follow_the_feed.after(super::feed::feed),
+                )
+                    .run_if(in_state(DuelPhase::Closed)),
+                // Over a table too: the settings' Report a problem and Chat
+                // privacy rows ask through it (`table_settings`); the header's
+                // other asks have no control drawn there.
+                carry_out.run_if(super::table_settings::lobby_or_over_table),
+            ),
         )
+        .add_systems(OnExit(DuelPhase::Closed), put_the_toasts_away)
         .add_systems(
             PostUpdate,
             (discard_detached, place_header_popovers)

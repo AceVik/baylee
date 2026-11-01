@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BRG #20266020]
+1 Akki Raider
+1 Algae Gharial
+1 Arcane Spyglass
+1 Atog
+1 Bog Naughty
+1 Boggart Loggers
+1 Boris Devilboon
+1 Boseiju, Who Endures
+1 Cabal Pit
+1 Charnelhoard Wurm
+1 Clickslither
+1 Darigaaz's Caldera
+1 Drainpipe Vermin
+1 Elvish Doomsayer
+1 Executioner's Capsule
+1 Ferrovore
+1 Fire Snake
+1 Fire Sprites
+1 Foratog
+7 Forest
+1 Geothermal Crevice
+1 Glacial Crevasses
+1 Glimmer Bairn
+1 Goblin Gardener
+1 Goblin Masons
+1 Goblin Sappers
+1 Goblin Wizardry
+1 Guul Draz Mucklord
+1 Hoard Robber
+1 Hurloon Shaman
+1 Ifnir Deadlands
+1 Ignoble Hierarch
+1 Jinxed Idol
+1 Koskun Keep
+1 Lawless Broker
+1 Lithatog
+1 Marsh Lurker
+1 Megatog
+1 Mire Shade
+15 Mountain
+1 Nim Deathmantle
+1 Overgrown Armasaur
+1 Oxidda Daredevil
+1 Pentavus
+1 Phyrexian Altar
+1 Raiding Party
+1 Ravenous Intruder
+1 Rhys the Exiled
+1 Rock Basilisk
+1 Rockface Village
+1 Rootwater Alligator
+1 Rubble Reading
+1 Rust Monster
+1 Savage Lands
+1 Scarland Thrinax
+1 Scrapyard Steelbreaker
+1 Seething Pathblazer
+1 Shivan Gorge
+1 Slobad, Goblin Tinkerer
+1 Sokenzan, Crucible of Defiance
+1 Spore Crawler
+3 Swamp
+1 Sword of the Meek
+1 Sylvok Lifestaff
+1 Tablet of Epityr
+1 Takenuma, Abandoned Mire
+1 Thelonite Druid
+1 Thelonite Monk
+1 Trading Post
+1 Twisted Landscape
+1 Uktabi Wildcats
+1 Urborg
+1 Vampire Aristocrat
+1 Whiteout
+1 Wort, Boggart Auntie
+1 Yavimaya Hollow
+1 Ziatora's Proving Ground
+
+[commander]
+Adun Oakenshield

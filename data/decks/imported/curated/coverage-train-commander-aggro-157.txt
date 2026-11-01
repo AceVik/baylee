@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro W #20266158]
+1 Aether Shockwave
+1 Akroan Mastiff
+1 Animate Wall
+1 Arctic Foxes
+1 Artifact Ward
+1 Bastion Enforcer
+1 Black Ward
+1 Blade of the Sixth Pride
+1 Bladed Ambassador
+1 Brainwash
+1 Burden of Guilt
+1 Burst of Energy
+1 Cliffhaven Sell-Sword
+1 Clive's Hideaway
+1 Coeurl
+1 Crystal Vein
+1 Devilthorn Fox
+1 Devoted Hero
+1 Elvish Healer
+1 Ephara's Warden
+1 Ephemerate
+1 Equinox
+1 Fan Bearer
+1 Farmstead
+1 Field Surgeon
+1 Foriysian Brigade
+1 Fresh Volunteers
+1 Frostbridge Guard
+1 Glory Seeker
+1 Head of Security
+1 Holy Day
+1 Imperial Outrider
+1 Indestructibility
+1 Island of Wak-Wak
+1 Keen-Eyed Archers
+1 Kithkin Healer
+1 Kitsune Diviner
+1 Kjeldoran Escort
+1 Kor Sky Climber
+1 Loxodon Line Breaker
+1 Loxodon Mystic
+1 Loxodon Wayfarer
+1 Maned Serval
+1 Mantle of Leadership
+1 Marsh Threader
+1 Master Apothecary
+1 Master Healer
+1 Militant Monk
+1 Naya Panorama
+1 Nebelgast Beguiler
+1 Nephalia Academy
+32 Plains
+1 Saltfield Recluse
+1 Sanctuary Cat
+1 Savai Sabertooth
+1 Seasoned Marshal
+1 Seeker
+1 Seize the Initiative
+1 Siegecraft
+1 Snow Hound
+1 Soltari Emissary
+1 Soltari Monk
+1 Spawnbinder Mage
+1 Split-Tail Miko
+1 Swift Reconfiguration
+1 Thistledown Players
+1 Turtle Lair
+1 White Ward
+
+[commander]
+Isamaru, Hound of Konda

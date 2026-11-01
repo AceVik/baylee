@@ -1,0 +1,78 @@
+# baylee curated highlander control seed=20261102
+# licence: AGPL-3.0-only
+[deck:highlander control RG #20261102]
+1 Abundant Countryside
+1 Aether Hub
+1 Airship Crash
+1 Akki Rockspeaker
+1 Akoum Boulderfoot
+1 Ally Encampment
+1 Barrage Ogre
+1 Battlewand Oak
+1 Beneath the Sands
+1 Blisterstick Shaman
+1 Blockbuster
+1 Blood Rites
+1 Bridgeworks Battle
+1 Bulwark
+1 Claws of Wirewood
+1 Cyclone
+1 Deadshot Minotaur
+1 Eclipsed Realms
+1 Enchantress's Presence
+1 Eumidian Terrabotanist
+1 Flame Javelin
+6 Forest
+1 Galvanic Arc
+1 Goblin Chainwhirler
+1 Goblin Commando
+1 Goblin Recruiter
+1 Guildmages' Forum
+1 Guttersnipe
+1 Hall of Oracles
+1 Hidden Ancients
+1 Hidden Gibbons
+1 Hidden Spider
+1 Improvised Weaponry
+1 Ishi-Ishi, Akki Crackshot
+1 Jasmine Dragon Tea Shop
+1 Lightning Diadem
+1 Lys Alana Huntmaster
+1 Mana Crypt
+1 Manamorphose
+1 Mawloc
+1 Mech Hangar
+1 Mirrex
+1 Mogg Bombers
+1 Mogg Hollows
+1 Molten Vortex
+1 Monsoon
+1 Mossfire Egg
+21 Mountain
+1 Nimble-Blade Khenra
+1 Omnath, Locus of Rage
+1 Provoke
+1 Pyrogoyf
+1 Raphael, Tough Turtle
+1 Reach for the Sky
+1 Ruric Thar, the Unbowed
+1 Sarkhan's Unsealing
+1 Seismic Strike
+1 Shimmering Grotto
+1 Skycrash
+1 Slash, Reptile Rampager
+1 Spark Spray
+1 Spawning Breath
+1 Spellshock
+1 Starstorm
+1 Stomping Ground
+1 Stun
+1 Taiga
+1 Talon Gates of Madara
+1 The Mycosynth Gardens
+1 Tuktuk Scrapper
+1 Voldaren Epicure
+1 Volley Veteran
+1 Walking Ballista
+1 White Lotus Hideout
+1 Zo-Zu the Punisher

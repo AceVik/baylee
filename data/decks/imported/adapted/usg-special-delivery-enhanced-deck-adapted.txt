@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/USG/special-delivery-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SpecialDeliveryEnhancedDeck_USG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Special Delivery - Enhanced Deck (Adapted)]
+2 Citanul Centaurs
+1 City of Brass
+2 Colossal Might
+2 Cradle Guard
+2 Cursed Scroll
+1 Fireball
+1 Fling
+4 Forest
+1 Helm of Chatzuk
+2 Hurricane
+1 Hush
+4 Iroh's Demonstration
+3 Karplusan Forest
+2 Mirri, Cat Warrior
+4 Mogg Fanatic
+5 Mountain
+3 Pouncing Jaguar
+2 Reflecting Pool
+3 Shivan Raptor
+2 Shock
+2 Smoldering Crater
+1 Stalking Stones
+2 Strangle
+2 Tranquil Thicket
+2 Wasteland
+4 Wild Dogs

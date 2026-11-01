@@ -1,0 +1,27 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, Priestess_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Priestess]
+4 Animate Wall
+2 Benalish Hero
+2 Blessing
+2 Castle
+1 Disenchant
+2 Elder Land Wurm
+2 Fortified Area
+3 Healing Salve
+3 Ivory Cup
+2 Mesa Pegasus
+2 Pikemen
+23 Plains
+2 Reverse Damage
+3 Spirit Link
+2 Swords to Plowshares
+4 Wall of Spears
+4 Wall of Swords
+
+[sideboard]
+1 Circle of Protection: Black
+1 Circle of Protection: Blue
+1 Circle of Protection: Green
+1 Circle of Protection: Red
+1 Circle of Protection: White

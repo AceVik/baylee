@@ -13,6 +13,10 @@ pub(super) fn placed(state: &mut GameState, id: ObjectId, kind: CounterKind) {
         Modifier::HoneEquipment
     } else if let Some(keyword) = kind.keyword() {
         Modifier::AddKeyword(keyword)
+    } else if let Some((power, toughness)) = kind.power_toughness() {
+        // One counter's contribution; the Counter origin reads the current
+        // count, so removal preserves this placement's timestamp (613.7c).
+        Modifier::ModifyPT(power, toughness)
     } else {
         return;
     };

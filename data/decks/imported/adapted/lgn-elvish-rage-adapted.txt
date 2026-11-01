@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/LGN/elvish-rage.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ElvishRage_LGN.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Elvish Rage (Adapted)]
+3 An-Havva Inn
+2 Bala Ged Recovery
+2 Bridgeworks Battle
+1 Chord of Calling
+3 Defiant Elf
+2 Elven Riders
+1 Elvish Pathcutter
+1 Elvish Scrapper
+1 Elvish Warrior
+1 Ferocious Charge
+25 Forest
+1 Heedless One
+1 Lace with Moonglove
+1 Spidery Grasp
+3 Stonewood Invoker
+2 Timberwatch Elf
+2 Touch of Vitae
+1 Wellwisher
+2 Wirewood Channeler
+2 Wirewood Elf
+2 Wirewood Hivemaster
+1 Woodcutter's Grit

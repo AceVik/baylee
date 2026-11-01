@@ -1,0 +1,21 @@
+//! Morbid Hunger — {4}{B}{B} — Sorcery
+//! Oracle: Morbid Hunger deals 3 damage to any target. You gain 3 life.
+//! Oracle: Flashback {7}{B}{B} (You may cast this card from your graveyard for its flashback cost. Then exile it.)
+//! Set: ODY #150 — Odyssey | Scryfall ID: 47a4e7d0-ff09-4e19-8456-f4845f56dc8b | Oracle ID: 6e7e9685-ebe9-4db2-b52c-f6ce95e37e56
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::MORBID_HUNGER,
+    oracle_id = "6e7e9685-ebe9-4db2-b52c-f6ce95e37e56",
+    scryfall_id = "47a4e7d0-ff09-4e19-8456-f4845f56dc8b",
+    color_identity = ColorSet::from_slice(&[Color::Black]),
+    faces = &[face!(
+        name = "Morbid Hunger",
+        mana_cost = mana!("{4}{B}{B}"),
+        types = TypeSet::SORCERY,
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

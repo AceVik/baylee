@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/M14/psychic-labyrinth.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PsychicLabyrinth_M14.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Psychic Labyrinth (Adapted)]
+3 Absorb
+2 Air Servant
+1 Archaeomancer
+3 Claustrophobia
+1 Clone
+3 Coral Merfolk
+2 Daring Leap
+1 Divination
+16 Island
+1 Messenger Drake
+9 Plains
+1 Rod of Ruin
+2 Scroll Thief
+2 Seacoast Drake
+3 Show of Valor
+1 Solemn Offering
+4 Sphinx's Revelation
+2 Stonehorn Chanter
+2 Study
+1 Water Servant

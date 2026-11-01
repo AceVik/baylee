@@ -18,43 +18,72 @@ workspace = true
 default = ["play"]
 # Playing and recording games: everything past the card rule.
 play = [
+    "dep:baylee-ai",
     "dep:baylee-build",
+    "dep:baylee-cards-dsl",
     "dep:baylee-engine",
     "dep:baylee-gamehost",
     "dep:baylee-view",
+    "dep:baylee-train-ops",
     "dep:clap",
     "dep:flate2",
     "dep:serde",
     "dep:serde_json",
+    "dep:uuid",
 ]
 # The trained AI playing through ONNX Runtime (`netplay`, the `arena` bin).
 # Not default and in no gate: it downloads the runtime when it builds, and
 # only the trainer's machine needs it.
-onnx = ["play", "dep:ort"]
+onnx = ["play", "dep:ort", "dep:baylee-ai"]
 # The same on NVIDIA GPUs (CUDA 13; the runtime finds the CUDA and cuDNN
 # libraries on LD_LIBRARY_PATH): the batch servers of `--gpu-batch` run there,
-# and `BAYLEE_EP=cpu` keeps them on the CPU. A v2 player goes to the GPU only
+# and `BAYLEE_EP=cpu` keeps them on the CPU. A v2/v4 player goes to the GPU only
 # with `BAYLEE_EP=cuda`.
 onnx-cuda = ["onnx", "ort/cuda"]
 # A language model in an arena chair (`arena --llm`), through the seat
 # bridge's mind (`baylee_seat::llm::ApiMind`). In no gate: it is measured on
 # the trainer's machine against a model server on loopback.
 llm = ["onnx", "dep:baylee-seat", "dep:tokio"]
+# Local neural opponent over the ordinary gateway seat protocol.
+live-seat = [
+    "onnx", "dep:baylee-seat", "dep:tokio", "dep:baylee-protocol",
+    "dep:futures-util", "dep:prost", "dep:tokio-tungstenite",
+]
+# Multi-table LLM replay collector over the ordinary gateway seat protocol.
+llm-collector = [
+    "play", "dep:baylee-db", "dep:baylee-protocol", "dep:baylee-seat",
+    "dep:futures-util", "dep:time", "dep:tokio", "dep:tokio-tungstenite",
+    "dep:ureq", "dep:rustix",
+]
 
 [dependencies]
 anyhow.workspace = true
+baylee-train-ops = { path = "../baylee-train-ops", optional = true }
+baylee-ai = { workspace = true, optional = true }
 baylee-build = { workspace = true, optional = true }
 baylee-cards.workspace = true
+baylee-cards-dsl = { workspace = true, optional = true }
+baylee-cards-index.workspace = true
 baylee-core.workspace = true
+baylee-db = { workspace = true, optional = true }
+baylee-deckio.workspace = true
 baylee-engine = { workspace = true, optional = true }
 baylee-gamehost = { workspace = true, optional = true }
 baylee-view = { workspace = true, optional = true }
 baylee-seat = { workspace = true, optional = true }
+baylee-protocol = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+prost = { workspace = true, optional = true }
+time = { workspace = true, optional = true }
+tokio-tungstenite = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
+ureq = { workspace = true, optional = true }
+rustix = { workspace = true, features = ["process"], optional = true }
 clap = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
 sha2.workspace = true
 ort = { workspace = true, optional = true, features = [
     "std",
@@ -68,6 +97,19 @@ ort = { workspace = true, optional = true, features = [
 baylee-cards-dsl.workspace = true
 baylee-ai.workspace = true
 baylee-client-core = { workspace = true, features = ["test-support"] }
+
+[build-dependencies]
+syn.workspace = true
+sha2.workspace = true
+
+[[example]]
+name = "probe_refusal"
+required-features = ["play"]
+
+[[example]]
+name = "priority_audit4"
+path = "examples/priority_audit4/main.rs"
+required-features = ["play"]
 
 [[bin]]
 name = "selfplay"
@@ -90,6 +132,11 @@ path = "src/bin/convert3.rs"
 required-features = ["play"]
 
 [[bin]]
+name = "convert4"
+path = "src/bin/convert4/main.rs"
+required-features = ["play"]
+
+[[bin]]
 name = "fuzz"
 path = "src/bin/fuzz.rs"
 required-features = ["play"]
@@ -103,3 +150,38 @@ required-features = ["onnx"]
 name = "league"
 path = "src/bin/league.rs"
 required-features = ["onnx"]
+
+[[bin]]
+name = "eval4"
+path = "src/bin/eval4/main.rs"
+required-features = ["onnx"]
+
+[[bin]]
+name = "seat4"
+path = "src/bin/seat4/main.rs"
+required-features = ["live-seat"]
+
+[[bin]]
+name = "import_decks"
+path = "src/bin/import_decks/main.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "deck_catalog4"
+path = "src/bin/deck_catalog4.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "card_structure4"
+path = "src/bin/card_structure4.rs"
+required-features = ["play"]
+
+[[bin]]
+name = "llm_collector4"
+path = "src/bin/llm_collector4/main.rs"
+required-features = ["llm-collector"]
+
+[[bin]]
+name = "diagnose_payment4"
+path = "src/bin/diagnose_payment4/main.rs"
+required-features = ["play"]

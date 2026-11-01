@@ -1,1 +1,1 @@
-{"cards":[{"img":"7ae24f37-0788-4f53-af5a-c6c1f2b64894","name":"Bonescythe Sliver","oracle_id":"1d95ad32-768f-40a1-a461-e0562326b2b7","status":"generated"},{"name":"Ogre Battledriver","oracle_id":"c834c4b5-c122-4c63-81c7-884ca4c0dc3b","status":"absent"}],"code":"pdp14"}
+{"cards":[{"img":"7ae24f37-0788-4f53-af5a-c6c1f2b64894","name":"Bonescythe Sliver","oracle_id":"1d95ad32-768f-40a1-a461-e0562326b2b7","status":"implemented"},{"name":"Ogre Battledriver","oracle_id":"c834c4b5-c122-4c63-81c7-884ca4c0dc3b","status":"absent"}],"code":"pdp14"}

@@ -4,8 +4,11 @@
 use super::*;
 
 mod book_of_rass;
+mod feroz_s_ban;
+mod gate_to_the_aether;
 mod hair_strung_koto;
 mod jandor_s_ring;
+mod joven_s_tools;
 mod planar_portal;
 mod pyramids;
 mod rakalite;
@@ -21,3 +24,7 @@ mod serpent_generator;
 mod mirror_universe;
 
 mod celestial_sword;
+mod mindslaver;
+mod myr_incubator;
+mod urza_s_blueprints;
+mod well_of_discovery;

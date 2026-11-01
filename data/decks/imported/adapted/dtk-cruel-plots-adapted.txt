@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/DTK/cruel-plots.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CruelPlots_DTK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Cruel Plots (Adapted)]
+1 Coat with Venom
+4 Consult the Necrosages
+1 Death Wind
+4 Essence Vortex
+1 Evolving Wilds
+1 Glimpse the Unthinkable
+1 Hand of Silumgar
+11 Island
+1 Mind Rot
+1 Necromaster Dragon
+1 Negate
+4 Notion Rain
+2 Palace Familiar
+4 Pilfered Plans
+2 Psychic Drain
+1 Reduce in Stature
+2 Shambling Goblin
+1 Silumgar Monument
+13 Swamp
+1 Ukud Cobra
+1 Wandering Tombshell
+2 Youthful Scholar

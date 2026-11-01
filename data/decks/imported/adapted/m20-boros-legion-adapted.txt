@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/M20/boros-legion.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BorosLegion_M20.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Boros Legion (Adapted)]
+4 Arrows of Justice
+4 Boros Guildgate
+4 Double Cleave
+4 Energy Bolt
+3 Healer's Hawk
+2 Lava Coil
+2 Legion Guildmage
+4 Lightning Helix
+10 Mountain
+10 Plains
+2 Roc Charger
+1 Sacred Foundry
+2 Skyknight Legionnaire
+4 Spirit Summoning
+2 Sure Strike
+1 Swiftblade Vindicator
+1 Warleader's Helix

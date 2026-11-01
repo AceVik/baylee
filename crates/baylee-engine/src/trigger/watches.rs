@@ -12,6 +12,9 @@ use crate::zone::Zone;
 use baylee_cards_dsl::{PlayerRel, Trigger, TriggerZone};
 use baylee_core::ids::{ObjectId, PlayerId};
 
+mod observers;
+mod recurring;
+
 /// Storm and replicate retain the announced count in one instruction.
 static CAST_COPIES: &[baylee_cards_dsl::Effect] = &[baylee_cards_dsl::Effect::CopyThisSpell {
     amount: baylee_cards_dsl::Amount::EventAmount,
@@ -223,6 +226,14 @@ pub(super) fn watch_triggers(
     static TAWNOSS_RETURN: &[baylee_cards_dsl::Effect] =
         &[baylee_cards_dsl::Effect::ReturnTawnossCoffinExile];
     for watch in &state.delayed {
+        if let crate::state::DelayedWhen::Observed { .. } = watch.when {
+            if watch.when.observation_fired(events, watch.controller)
+                && let Some(trigger) = observers::trigger(state, watch)
+            {
+                triggers.push(trigger);
+            }
+            continue;
+        }
         if let (
             crate::state::DelayedWhen::LeavesBattlefieldOrUntaps { card, after, .. },
             crate::state::DelayedAction::ReturnExiledGroup {
@@ -528,6 +539,7 @@ pub(super) fn attack_watch_triggers(
         let Some(base) = synthetic_watch_trigger(state, watch) else {
             continue;
         };
+        recurring::collect(state, events, watch, &base, triggers);
         match watch.when {
             crate::state::DelayedWhen::YouAttackThisTurn { after } => {
                 let attacked = events
@@ -572,6 +584,7 @@ pub(super) fn attack_watch_triggers(
                 let context = crate::text_changes::RuleContext {
                     source: base.source,
                     text: base.text,
+                    resolved_name: None,
                     reference: None,
                 };
                 for entry in events.iter().filter(|entry| entry.seq > after) {
@@ -730,21 +743,21 @@ pub(super) fn first_combat_damage_to(
     })
 }
 
-/// All the combat damage a batch dealt to `player`: the one event
+/// All the combat damage a batch dealt to `recipient`: the one event
 /// [`first_combat_damage_to`] fires on, as an amount (CR 510.2).
 pub(super) fn combat_damage_in_batch(
     batch: &[crate::event::JournalEntry],
-    player: PlayerId,
+    recipient: crate::event::DamageTarget,
 ) -> u32 {
     batch
         .iter()
         .filter_map(|entry| match entry.event {
             GameEvent::DamageDealt {
-                target: crate::event::DamageTarget::Player(to),
+                target,
                 amount,
                 is_combat: true,
                 ..
-            } if to == player => Some(amount),
+            } if target == recipient => Some(amount),
             _ => None,
         })
         .fold(0u32, u32::saturating_add)

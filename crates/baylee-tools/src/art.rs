@@ -3,6 +3,7 @@
 mod dsp;
 mod glb;
 mod lantern;
+mod memorial;
 mod originality;
 mod prepare;
 mod samples;
@@ -32,6 +33,8 @@ enum Command {
     Lantern(lantern::Args),
     /// Check or rebuild the pinned orchestra bank (offline by default).
     Prepare(prepare::Args),
+    /// Reproduce the memorial performance or verify/rebuild its stereo bank.
+    Memorial(memorial::Args),
     /// Check all 75 melodies against the listed interval signatures.
     Originality,
 }
@@ -59,6 +62,7 @@ pub fn run(root: &Path, args: &[String]) -> Result<()> {
     match cli.command {
         Command::Lantern(options) => lantern::run(root, &options),
         Command::Prepare(options) => prepare::run(root, &options),
+        Command::Memorial(options) => memorial::run(root, &options),
         Command::Originality => originality::run(root),
     }
 }

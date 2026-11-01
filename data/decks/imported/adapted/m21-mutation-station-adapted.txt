@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/M21/mutation-station.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MutationStation_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Mutation Station (Adapted)]
+4 Consult the Necrosages
+4 Dismal Backwater
+2 Eliminate
+4 Essence Vortex
+1 Glimpse the Unthinkable
+10 Island
+1 Massacre Wurm
+4 Notion Rain
+4 Pilfered Plans
+4 Psychic Drain
+2 Stern Dismissal
+11 Swamp
+1 Temple of Deceit
+2 Tome Raider
+3 Tyrant's Scorn
+3 Urza's Guilt

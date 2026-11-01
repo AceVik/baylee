@@ -23,7 +23,8 @@
 //!
 //! Not `bevy_input_focus`'s `TabNavigationPlugin`: its window-wide Tab
 //! observer would fight the table's Tab (next phase). The walker here acts
-//! only while a table with drawn stops is on screen and no duel is.
+//! only while a table with drawn stops is on screen and no duel is, or the
+//! settings stand over the duel (`lobby::table_settings`).
 
 use bevy::input::ButtonState;
 use bevy::input::keyboard::{Key, KeyboardInput};
@@ -53,8 +54,10 @@ pub const TABLES: &[&TabOrder] = &[
     &crate::lobby::front::keys::SIGN_IN,
     &crate::lobby::front::keys::CREATE,
     &crate::lobby::front::keys::GUEST,
+    &crate::lobby::front::keys::NEW_PASSWORD,
     &crate::lobby::front::keys::TERMS,
     &crate::lobby::front::keys::ABOUT,
+    &crate::lobby::memorial::ALBUM_ORDER,
     &crate::settingsui::keys::SETTINGS,
     &crate::settingsui::keys::PROFILE_SHEET,
     // The lobby's screens and sheets (WP2, WP3; `lobby::orders`).
@@ -199,7 +202,7 @@ pub(super) fn install(app: &mut App) {
         // After every system that moves focus this frame (the walker, the
         // overlay that takes it, a screen's initial focus), so the ring and
         // the report say where it ended up, not where it was.
-        .add_systems(PostUpdate, (draw_ring, report).chain());
+        .add_systems(PostUpdate, (draw_ring, report).chain().in_set(FocusVisuals));
 }
 
 /// The kit's focus systems, which the shell's key resolver runs after: a
@@ -207,6 +210,10 @@ pub(super) fn install(app: &mut App) {
 /// asked about it.
 #[derive(SystemSet, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct FocusSystems;
+
+/// Ring/report pass after a rebuilt modal has rebound its semantic focus.
+#[derive(SystemSet, Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub(crate) struct FocusVisuals;
 
 /// Every stop gets its ring hidden, so focusing it later changes a colour
 /// and inserts nothing.
@@ -218,8 +225,13 @@ fn give_a_ring(added: On<Add<Stop>>, mut commands: Commands) {
     ));
 }
 
-fn table_open(phase: Option<&State<crate::DuelPhase>>) -> bool {
+/// Whether the shell's screens have the keyboard: no table stands, or the
+/// settings stand over it (`lobby::table_settings`), whose screen walks and
+/// answers as it does in the lobby. Otherwise only a modal kit sheet over
+/// the table does.
+fn table_open(phase: Option<&State<crate::DuelPhase>>, lobby: Option<&crate::LobbyState>) -> bool {
     phase.is_none_or(|p| *p.get() == crate::DuelPhase::Closed)
+        || crate::lobby::table_settings::covers_the_table(lobby)
 }
 
 /// Bare logical stops in headless tests have no visibility component.
@@ -345,6 +357,7 @@ fn walk(
     mut remembered: ResMut<Remembered>,
     mut last: Local<Option<Entity>>,
     yields: Res<WalkerYields>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
     if yields.0 {
         keys.clear();
@@ -381,7 +394,8 @@ fn walk(
     // At a table only a modal kit sheet walks (a sheet over the table, such
     // as a chooser with a field — the table design's amendment to KEYBOARD
     // §6); the table's own Tab is next phase, and nothing else keeps focus.
-    let at_table = !table_open(phase.as_deref());
+    // The settings over a table are the shell's screen (`table_open`).
+    let at_table = !table_open(phase.as_deref(), lobby.as_deref());
     let order = active(&drawn).filter(|t| t.modal || !at_table);
     // A focused stop that went away (its screen redrew, its sheet closed)
     // leaves nothing focused rather than a dangling entity.
@@ -421,7 +435,9 @@ fn walk(
             | Key::ArrowUp
             | Key::ArrowDown
             | Key::Home
-            | Key::End => {
+            | Key::End
+                if !ctrl_alt_meta =>
+            {
                 let Some(here) = here else { continue };
                 if focus.get().is_some_and(|f| fields.contains(f)) {
                     continue;
@@ -552,14 +568,16 @@ fn activate(
     tour: Option<Res<crate::tour::TourDesk>>,
     chat: Option<Res<crate::social::ChatUi>>,
     mut out: MessageWriter<Activated>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
     // A narrated tour bubble has the keys (TOURS.md §1.3): its Enter is
     // its Next, not the focused stop's press. So does the chat's composer.
     if tour.is_some_and(|t| t.holds_keyboard()) || chat.is_some_and(|c| c.holds_keyboard()) {
         keys.clear();
     }
-    // At a table a stop answers only inside a modal kit sheet.
-    let at_table = !table_open(phase.as_deref());
+    // At a table a stop answers only inside a modal kit sheet, or on the
+    // settings standing over it.
+    let at_table = !table_open(phase.as_deref(), lobby.as_deref());
     let answers = |stop: &Stop| !at_table || table(stop.table).is_some_and(|t| t.modal);
     // A chord is the shell's, never the focused stop's: `Cmd/Ctrl+Enter` is
     // the room's Start, and taken as Enter it pressed whatever had focus.

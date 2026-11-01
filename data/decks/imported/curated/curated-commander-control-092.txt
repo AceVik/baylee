@@ -1,0 +1,80 @@
+# baylee curated commander control seed=20261115
+# licence: AGPL-3.0-only
+[deck:commander control RG #20261115]
+1 Akoum Boulderfoot
+1 Altac Bloodseeker
+1 Anarchist
+1 Archaeological Dig
+1 Ardent Elementalist
+1 Barrage of Expendables
+1 Baxter Building
+1 Bucolic Ranch
+1 Bugenhagen, Wise Elder
+1 Burning-Tree Emissary
+1 Byway Courier
+1 Cartographer
+1 Confront the Unknown
+1 Dauntless Survivor
+1 Draconic Disciple
+1 Dragon Trainer
+1 Dragonmaster Outcast
+1 Elturgard Ranger
+1 Embraal Gear-Smasher
+1 Eternal Witness
+1 Fault Riders
+1 Fire Nation Archers
+1 Firefist Adept
+1 Forbidden Orchard
+12 Forest
+1 Gallifrey Council Chamber
+1 Ghirapur Gearcrafter
+1 Gladiolus Amicitia
+1 Goblin Trashmaster
+1 Goblin Warrens
+1 Heap Gate
+1 Jade Mage
+1 Jasmine Dragon Tea Shop
+1 Jungle Patrol
+1 Kamahl, Pit Fighter
+1 Karplusan Forest
+1 Klingon Strike Force
+1 Legion Extruder
+1 Magma Giant
+1 Magus of the Order
+1 Manic Vandal
+1 Mech Hangar
+15 Mountain
+1 Murasa Pyromancer
+1 Omnath, Locus of Rage
+1 Orochi Hatchery
+1 Painted Bluffs
+1 Pia and Kiran Nalaar
+1 Pia, Determined Rebuilder
+1 Priest of Urabrask
+1 Rakka Mar
+1 Reckless Fireweaver
+1 Renowned Weaver
+1 Revive the Shire
+1 Ripchain Razorkin
+1 Ruric Thar, the Unbowed
+1 Sell-Sword Brute
+1 Sparkmage Apprentice
+1 Spider-Man, Hometown Hero
+1 Stark Industries Executive
+1 Stingcaster Mage
+1 Stoic Builder
+1 Stomping Ground
+1 Sylvan Safekeeper
+1 Tendo Ice Bridge
+1 Thran Quarry
+1 Treetop Freedom Fighters
+1 Undiscovered Paradise
+1 Unknown Shores
+1 Village Elder
+1 Vital Splicer
+1 Voldaren Estate
+1 Young Pyromancer
+1 Zhur-Taa Druid
+
+[commander]
+Stangg

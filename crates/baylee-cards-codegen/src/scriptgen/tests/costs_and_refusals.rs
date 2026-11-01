@@ -208,7 +208,7 @@ fn a_graveyard_exile_cost_is_a_filter_over_the_payers_own_pile() {
             "ExileFromGrave<1/CARDNAME/this card>",
             "cost `ExileFromGrave<1/CARDNAME/this card>` naming itself",
         ),
-        ("ExileFromGrave<3/Card>", "a cost naming `3` objects"),
+        ("ExileFromGrave<4/Card>", "a cost naming `4` objects"),
     ] {
         let script = parse(&format!(
             "Name:X\nTypes:Land\n\
@@ -322,6 +322,9 @@ fn a_cost_is_not_split_inside_its_own_brackets() {
         block_line: None,
         block_half: None,
         in_delayed: false,
+        cost_sacrifices_self: false,
+        cost_sacrifices_other: false,
+        trigger_is_self: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };
@@ -514,6 +517,25 @@ fn an_anthem_is_a_static_ability_on_the_layer_it_belongs_to() {
     );
 }
 
+#[test]
+fn a_counted_power_bonus_keeps_controller_scope() {
+    let body = read(
+        "Name:Nim Lasher\nTypes:Creature\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ X | AddToughness$ 0\n\
+         SVar:X:Count$Valid Artifact.YouCtrl\n",
+    );
+    let a = format!("{}{}", body.statics, body.abilities.join("\n"));
+    assert!(a.contains("Modifier::ModifyPTPerCount"), "{a}");
+    assert!(a.contains("Filter::ARTIFACT"), "{a}");
+    assert!(a.contains("Filter::ControlledByYou"), "{a}");
+
+    assert!(refused(
+        "Name:Mixed Scope\nTypes:Creature\n\
+         S:Mode$ Continuous | Affected$ Card.Self | AddPower$ X | AddToughness$ 0\n\
+         SVar:X:Count$Valid Artifact.YouCtrl,Creature\n"
+    ));
+}
+
 /// A colour word is a colour (CR 105.2), not an unknown subtype: Bad
 /// Moon, Crusade, Terror and Northern Paladin were all refused over it.
 #[test]
@@ -671,7 +693,7 @@ fn a_static_ability_refuses_what_it_cannot_say() {
     ));
     // A mode that is not Continuous is not this rule.
     assert!(refused(
-        "Name:X\nTypes:Creature\nS:Mode$ CantBlock | ValidCard$ Card.Self\n"
+        "Name:X\nTypes:Creature\nS:Mode$ CantGainLife | ValidPlayer$ You\n"
     ));
 }
 
@@ -783,10 +805,10 @@ fn a_refusal_says_which_key_it_choked_on() {
 
     // A static ability names the mode it cannot read, so the worklist
     // ranks `ReduceCost` and `Continuous` as the different work they are.
-    let script = parse("Name:X\nTypes:Creature\nS:Mode$ CantBlock | ValidCard$ Card.Self");
+    let script = parse("Name:X\nTypes:Creature\nS:Mode$ CantGainLife | ValidPlayer$ You");
     assert_eq!(
         refusal_reason(&script, &cats(), None).as_deref(),
-        Some("static ability `S: Mode$ CantBlock`")
+        Some("static ability `S: Mode$ CantGainLife`")
     );
 }
 
@@ -812,8 +834,8 @@ fn a_refused_script_always_says_why() {
         // paid with one card where the script charges two is a
         // discount.
         (
-            "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<2/Card> | NumCards$ 1",
-            "a cost naming `2` objects",
+            "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ Discard<4/Card> | NumCards$ 1",
+            "a cost naming `4` objects",
         ),
         (
             "Name:X\nTypes:Creature\nA:AB$ Draw | NumCards$ 1",
@@ -826,9 +848,9 @@ fn a_refused_script_always_says_why() {
         ),
         (
             "Name:X\nTypes:Creature\n\
-             T:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | Execute$ TrigDraw\n\
+             T:Mode$ Phase | Phase$ Main2 | ValidPlayer$ You | Execute$ TrigDraw\n\
              SVar:TrigDraw:DB$ Draw | NumCards$ 1",
-            "trigger at step `Main1`",
+            "trigger at step `Main2`",
         ),
         (
             "Name:X\nTypes:Creature\n\
@@ -956,6 +978,9 @@ fn a_refused_script_always_says_why() {
         "Name:X\nTypes:Creature\nA:AB$ Draw | Cost$ T | NumCards$ 1",
         "Name:X\nTypes:Creature\n\
          T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigDraw\n\
+         SVar:TrigDraw:DB$ Draw | NumCards$ 1",
+        "Name:X\nTypes:Creature\n\
+         T:Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | Execute$ TrigDraw\n\
          SVar:TrigDraw:DB$ Draw | NumCards$ 1",
         "Name:X\nTypes:Creature\n\
          T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | \

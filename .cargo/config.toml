@@ -1,4 +1,8 @@
-# The rules half of the gate, for work that cannot touch the client.
+# Cargo aliases: the development and release tools (`dev`, `tools`), the
+# rules half of the gate (`lint-rules`, `test-rules`), and what CI builds per
+# platform (`build-servers`, `build-client`, `check-client`).
+#
+# The rules half of the gate is for work that cannot touch the client.
 #
 # `baylee-client` is a Bevy crate and dominates a full `--workspace` run, so an
 # engine or card change that rebuilt it was paying for a renderer it had not
@@ -10,8 +14,9 @@
 # enumeration also goes stale the moment a crate is added; "everything but
 # the renderer" cannot.
 #
-# Two aliases because a cargo alias is exactly one subcommand.
-# `cargo dev gate rules` runs both and stops at the first failure.
+# `lint-rules` and `test-rules` are two aliases because a cargo alias is
+# exactly one subcommand. `cargo dev gate rules` runs both and stops at the
+# first failure.
 [alias]
 # The development tasks (crates/baylee-dev): gates, landing, deploys, mobile
 # builds and local fixtures, as `cargo dev <task>`; `cargo dev --help` lists them.
@@ -24,6 +29,21 @@ dev = "run -q --locked --profile tools -p baylee-dev --"
 tools = "run -q --locked --profile tools -p baylee-tools --"
 lint-rules = "clippy --workspace --all-targets --exclude baylee-client -- -D warnings"
 test-rules = "nextest run --workspace --all-targets --exclude baylee-client"
+# The client is the only thing built for every platform (owner, 29.10.2026).
+# The servers and tools run on Linux x86_64; the gateway, the agent and the
+# engine server are also linked on Linux arm64 (`build-servers`), nowhere else.
+build-servers = "build --locked --workspace --bin baylee-gateway --bin baylee-agent --bin baylee-engine-server"
+# `build-client` is the three binaries a package ships: the client, its
+# launcher and the seat bridge. `--workspace` stays as the *selection*, so
+# features unify as in a workspace build: `-p baylee-client -p baylee-update`
+# would resolve 18–20 of the client's dependencies with fewer features
+# (`subtle`, `rand`, `tracing/log`, ...) and change the shipped binary.
+build-client = "build --locked --workspace --bin baylee-client --bin baylee-launch --bin baylee-seat"
+# Every target (tests included) of the shipped client's crates that carry a
+# platform `cfg`; their other dependencies are platform-neutral and checked as
+# libraries. `client_check_covers_every_platform_cfg` in baylee-tools keeps
+# this list complete.
+check-client = "check --locked --all-targets -p baylee-client -p baylee-client-core -p baylee-update -p baylee-seat -p baylee-keyring -p baylee-core -p baylee-engine"
 
 # macOS keeps debug info in each codegen unit's `.o` (`split-debuginfo =
 # unpacked`, the default there) and leaves those files in `target/debug/deps`.

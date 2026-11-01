@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control UBR #20266097]
+1 Agonizing Syphon
+1 Badgey, Malicious Glitch
+1 Bloodrite Invoker
+1 Boar-q-pine
+1 Boltwave
+1 Breath of Fire
+1 Bria, Riptide Rogue
+1 Certain Death
+1 Chaos Charm
+1 Choking Sands
+1 Cinder Storm
+1 Cleansing Screech
+1 Consuming Corruption
+1 Cori Mountain Monastery
+1 Curse Artifact
+1 Daring Escape
+1 Dark Nourishment
+1 Delusions of Mediocrity
+1 Dormant Volcano
+1 Elder Spawn
+1 Environmental Sciences
+1 Essence Depleter
+1 Explosive Impact
+1 Explosive Shot
+1 Fanged Flames
+1 Fire Ambush
+1 Flame-Blessed Bolt
+1 Hidden Cataract
+1 Hidden Volcano
+1 Ill-Gotten Inheritance
+1 Insolence
+3 Island
+1 Jidoor, Aristocratic Capital
+1 Kavaron, Memorial World
+1 Kazuul's Fury
+1 Last Kiss
+1 Locke Cole
+1 Lust for War
+1 Mind Bomb
+1 Mines of Moria
+1 Mistrise Village
+1 Mortuary Mire
+9 Mountain
+1 Ozai's Cruelty
+1 Parch
+1 Price of Progress
+1 Profane Prayers
+1 Psychic Allergy
+1 Relic Bind
+1 Rivendell
+1 Rockslide Ambush
+1 Scorching Shot
+1 Scorching Spear
+1 Scorchmark
+1 Screeching Soulbreaker
+1 Sea Gate
+1 Sear
+1 Sheoldred, the Apocalypse
+1 Simulacrum
+1 Skittering Monstrosity
+1 Skittering Skirge
+1 Sky Scourer
+1 Skyline Cascade
+1 Smoldering Spires
+1 Soul Shred
+1 Specter of the Fens
+1 Spikefield Hazard
+1 Spinerock Knoll
+1 Spymaster's Vault
+1 Strafe
+15 Swamp
+1 Teetering Peaks
+1 Umara Mystic
+1 Void Helix
+1 Word of Blasting
+
+[commander]
+Sol'kanar the Swamp King

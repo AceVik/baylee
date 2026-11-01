@@ -37,7 +37,10 @@ fn preset() -> GamePreset {
         rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed: 37,
-        house_rules: HouseRules::default(),
+        house_rules: HouseRules {
+            starting_player: Some(0),
+            ..Default::default()
+        },
         modifiers: vec![],
         prints: cards
             .iter()

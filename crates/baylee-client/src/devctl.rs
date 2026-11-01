@@ -144,7 +144,8 @@ fn stage_reveals(mut control: ResMut<DevControl>, duel: Option<ResMut<Duel>>) {
 /// `text_size` is the device's step (`xs s m l xl`); `lang` the interface's
 /// language (`en de`), in the settings and the lobby both; `input` pins the
 /// input class (`touch pointer`, `auto` unpins it); `gallery` opens or
-/// closes the kit's gallery. Nothing is written to the settings file.
+/// closes the kit's gallery; `update` (an object) feeds the update card a
+/// state (`update::native::dev`). Nothing is written to the settings file.
 fn shell_knobs(
     mut commands: Commands,
     mut control: ResMut<DevControl>,
@@ -219,6 +220,12 @@ fn shell_knobs(
             notice.hidden = false;
             said.push(format!("\"update_ready\":{}", quoted(version)));
         }
+        // Every state of the update card, fed as the updater's thread
+        // reports it (`update::native::dev`): `{"update":{"stage":…}}`.
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        if let Some(fed) = crate::update::native::dev_feed(body) {
+            said.push(fed);
+        }
         let _ = job.reply.send(format!("{{{}}}", said.join(",")));
     }
 }
@@ -250,10 +257,64 @@ fn resize(body: &str, win: &mut Window) -> String {
 /// without the focus and lets the real pointer through (hit testing off),
 /// so the owner can watch an agent's checks while using the machine without
 /// a stray hover or click landing in them. Dev-control's injected input is
-/// unaffected: it never came from the OS. It stays above other windows
-/// (`standalone`): a covered window draws nothing since bevy 0.20.
+/// unaffected: it never came from the OS. It stays behind the owner's
+/// windows and comes above them only while it captures
+/// (`window::lift_while_capturing`), and it closes itself when nothing has
+/// been asked of it for a while (`idle_exit`).
 pub(crate) fn passive() -> bool {
     std::env::var("BAYLEE_DEV_PASSIVE").is_ok_and(|v| v == "1")
+}
+
+/// How long a passive client waits for its next request before it closes
+/// itself: `BAYLEE_DEV_IDLE_EXIT` in seconds, ten minutes when unset, never
+/// for `0`. Agents are to close a client after each test (owner, 19.10.2026)
+/// and left them open between iterations all the same (29.10.2026), so a
+/// forgotten one now goes by itself. A client a person drives is not
+/// passive and never closes itself.
+fn idle_exit() -> Option<std::time::Duration> {
+    if !passive() {
+        return None;
+    }
+    let seconds = std::env::var("BAYLEE_DEV_IDLE_EXIT")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .unwrap_or(600);
+    (seconds > 0).then(|| std::time::Duration::from_secs(seconds))
+}
+
+/// Whether the client has been idle past `limit`, and the request count and
+/// moment the idle time is counted from.
+fn idle_over(
+    served: u64,
+    seen: (u64, std::time::Duration),
+    now: std::time::Duration,
+    limit: std::time::Duration,
+) -> (bool, (u64, std::time::Duration)) {
+    if served != seen.0 {
+        return (false, (served, now));
+    }
+    (now.saturating_sub(seen.1) >= limit, seen)
+}
+
+/// Closes a passive client nobody has asked anything of for `idle_exit()`.
+fn exit_when_idle(
+    control: Res<DevControl>,
+    time: Res<Time<Real>>,
+    mut seen: Local<(u64, std::time::Duration)>,
+    mut exits: MessageWriter<AppExit>,
+) {
+    let Some(limit) = control.idle_exit else {
+        return;
+    };
+    let (over, counted) = idle_over(control.served, *seen, time.elapsed(), limit);
+    *seen = counted;
+    if over {
+        info!(
+            "dev-control: no request for {} s, closing (BAYLEE_DEV_IDLE_EXIT)",
+            limit.as_secs()
+        );
+        exits.write(AppExit::Success);
+    }
 }
 
 /// Keeps a passive window's process out of macOS App Nap.
@@ -382,6 +443,8 @@ impl Plugin for DevControlPlugin {
             reveal_jobs: Vec::new(),
             frame: 0,
             virtual_cursor: None,
+            served: 0,
+            idle_exit: idle_exit(),
         })
         // After `InputSystem`: bevy has already cleared last frame's
         // `just_pressed` by then, so a key pressed here is `just_pressed`
@@ -392,6 +455,7 @@ impl Plugin for DevControlPlugin {
                 .chain()
                 .after(bevy::input::InputSystems),
         );
+        app.add_systems(Update, exit_when_idle);
         window::install(app);
         perf::install(app);
         recording::install(app);
@@ -422,6 +486,10 @@ struct DevControl {
     frame: u64,
     /// Client-only pointer, hidden from winit before its window synchronisation.
     virtual_cursor: Option<Vec2>,
+    /// Requests received so far; `exit_when_idle` watches it move.
+    served: u64,
+    /// How long a passive client waits for a request before it closes.
+    idle_exit: Option<std::time::Duration>,
 }
 
 impl DevControl {
@@ -726,9 +794,13 @@ fn health(frame: u64, window: Option<&Window>, clock: &Time<Virtual>) -> String 
             window.resolution.scale_factor(),
         )
     });
+    // Whether the window stands above the others now: a passive one only
+    // while it captures (`window::lift_while_capturing`).
+    let on_top =
+        window.is_some_and(|window| window.window_level == bevy::window::WindowLevel::AlwaysOnTop);
     format!(
         "{{\"ok\":true,\"frame\":{frame},\"width\":{w},\"height\":{h},\"scale\":{scale},\
-         \"speed\":{},\"paused\":{}}}",
+         \"speed\":{},\"paused\":{},\"on_top\":{on_top}}}",
         clock.relative_speed(),
         clock.is_paused(),
     )
@@ -929,6 +1001,7 @@ fn pump(
     }
 
     for job in waiting(&mut control) {
+        control.served += 1;
         let answer = match job.path.as_str() {
             "/monitors" => window::monitors_json(monitors.as_deref()),
             "/pointer/native" => window::native_pointer(&mut control, &buttons, &mut windows),

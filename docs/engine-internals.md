@@ -44,6 +44,12 @@ one mask OR, not a scan), and the ids in it are **append-only** since #43:
 list rather than a range, because a new creature type no longer sits next to
 the old ones. `docs/card-identity.md` §"`SubtypeId`" is normative.
 
+`AddSupertype` and `RemoveSupertype` alter only the named supertypes in layer
+4, including dependency ordering for effects that read those supertypes.
+The world rule still uses entry timestamps for printed World permanents;
+tracking time since gaining or regaining World through a continuous effect
+is unsupported. The supertype modifiers alone do not implement that rule.
+
 **An object keeps two clocks, and a transform moves only one.** Both read
 the game's one counter (`GameState::next_timestamp`).
 `GameObject::timestamp` is the timestamp of CR 613.7: taken as the object
@@ -293,6 +299,14 @@ whatever the creature is attacking (CR 702.19b), and a planeswalker that
 has left the battlefield absorbs nothing — the attack stands (CR 506.4c)
 but no damage is dealt and no lifelink is paid.
 
+`Modifier::AssignsNoCombatDamage` excludes an affected attacker or blocker
+from the assignment preview, damage-division questions and final assignments
+(CR 510.1a, 101.1). It is not prevention and does not suppress noncombat
+damage. In particular, a masked creature that would assign no damage does
+not turn face up for that assignment. Strike-step membership remains separate
+(CR 510.4); the restriction neither moves a first striker into the regular
+step nor allows a double striker to assign damage in either step.
+
 ### What must attack, and what may attack whom (CR 508.1c–d)
 Two sentences change a declaration of attackers, and both are statics the
 layers carry as rules modifiers (`Layer::Text`, beside the other
@@ -367,6 +381,13 @@ The source's version also follows the resulting ability onto the stack, so a
 self-counter cannot affect a later incarnation. A phased-out source is absent
 both when observing a death and when an effect would put a counter on it.
 
+`Trigger::DealtDamage` retains the damaged permanent as `EventObject` with
+its event-time incarnation, and the received damage as `EventAmount`. As with
+the player-damage trigger, simultaneous combat damage from several sources
+is one event with their total (CR 510.2, 603.2c). Noncombat damage retains
+each event's own amount. The amount remains available after lethal damage
+moves the creature to its graveyard.
+
 ### Damage dealt to a player
 
 `GameState::damage_player` is the door for damage that reaches a player, as
@@ -400,6 +421,15 @@ machine, so no block trigger reaches the stack before the last declaration
 (509.2a).
 
 ## What must block, and how many (CR 509.1a, 509.1c)
+Flanking is collected from the attacker's keyword when each blocker is
+declared. `layers::keyword_instances` replays the normal layer projection
+to count its native instance and each applicable grant; removing the
+keyword clears every earlier instance, and a later grant starts again.
+Each instance triggers separately (CR 702.25b), unless the blocker itself
+has flanking. The blocker is an implicit, untargeted event subject, pinned
+to its incarnation when it blocked: blinking it in response does not shrink
+the returned creature (CR 400.7).
+
 Four rules modifiers change a declaration of blockers, statics or
 until-end-of-turn effects on `Layer::Text` like the attack ones:
 
@@ -411,7 +441,13 @@ until-end-of-turn effects on `Layer::Text` like the attack ones:
   `Modifier::BlocksEachAttackerIfAble` on a blocker (Blaze of Glory) asks it
   to block each attacker. `BlockRules::demands(blocker, attacker)` counts the
   requirements asking for one pair, so two lures on one attacker ask twice,
-  and a declaration obeys the sum over its pairs.
+  and a declaration obeys the sum over its pairs. A blocker that costs mana
+  to block with (`Modifier::CantBlockUnlessPayManaPerCounter`) counts for
+  none: "that player is not required to pay that cost, even if blocking with
+  that creature would increase the number of requirements being obeyed"
+  (CR 509.1c). It is offered while its controller could pay, but the maximum
+  is the other blockers', and blocking with it obeys nothing in their place,
+  as a taxed attacker obeys no "attacks if able" (CR 508.1d).
 
 `combat::block_options` is the offer (the `BlockOption`s), and it is also
 the universe the maximum is taken in: a pair outside it breaks a restriction
@@ -620,6 +656,21 @@ most once per event, CR 614.5), applied, journaled; matching triggers are
 collected and stacked APNAP (per-player ordering via ChoiceRequest).
 SBAs run as a fixpoint before every priority grant (plus format SBAs).
 
+### Optional triggers with an empty target
+
+With `HouseRules.auto_discard_empty_optional_triggers`, an optional trigger
+whose target answer is empty is resolved first on a cloned state. Only a
+complete resolution with no follow-up question, no journal entry and no state
+change beyond the resolver's damage-batch bookkeeping removes the real stack
+object, journals `StackObjectDidNotResolve`, and runs cleanup. The journal
+counts because the snapshot hash omits it and an effect such as a revealed
+hand writes nothing else. Any actual effect, another target or division, or
+an unfinished question keeps the ordinary path. When on, the setting is part
+of the continuation hash; off, it adds nothing, so an old record keeps every
+hash it recorded. New games enable it; records without the field read it as
+`false`, so their historical empty-target answers still have a question to
+answer.
+
 ### Attachments (CR 704.5m, 704.5n, 704.5p)
 
 `eval::permits_enchantment` reads `CantBeEnchantedExceptSource` for Consecrate
@@ -667,6 +718,13 @@ checks only that the card is in a graveyard or in exile (CR 603.7c); a card
 moved from the graveyard into exile in response would come back from exile,
 because a synthetic trigger carries no version.
 
+When a source's own departure trigger creates `AtNextEndStep` or
+`AtNextCleanup`, the delayed action remembers the exact public-zone successor
+that the departure recorded (CR 400.7e). This lets a dies trigger return its
+card from the graveyard later. Moving that card out of the graveyard and back,
+before or after the delayed action is created, does not retarget the action
+to the new incarnation (CR 603.7c).
+
 ### A permanent spell keeps what was done to it (CR 400.7a)
 An effect a resolution registers on one object names it by id and version
 (`EffectFilter::ObjectIs`), and the permanent a spell becomes is a new object
@@ -685,6 +743,15 @@ A card returning to the battlefield is a different source even when its arena
 id is unchanged. The former Scavenging Ghoul self-counter leak is guarded by
 `resolve::counters` checking the captured source version before adding counters;
 the exact Ghoul/Kenrith scenario is not yet a dedicated regression.
+
+Source power and source-counter amounts read that exact incarnation, live while
+it remains and from its departure snapshot after it leaves (CR 608.2h). Paying
+a sacrifice cost can remove the source before its stack ability is created.
+Immediate mana abilities retain the pre-payment source version in their
+resolution context because they have no stack object. Counter amounts use the
+counters remaining after any earlier counter-removal cost, and a color choice
+retains the amount across suspension. `engine::cost_source_lki_tests` covers
+these paths, a returning source, and power changing before resolution.
 
 Damage uses the retained source incarnation and its last known characteristics.
 The former Circle of Protection failure after a pinger leaves and returns is
@@ -846,7 +913,12 @@ split rather than inside either branch, because an Aura is a targeted
 `eval::target_player_options`, with the object's own controller and source),
 which are the enumerations that offered those targets in the first place —
 one predicate read from both ends, so an offer and a re-check cannot disagree
-about what was choosable. A change of targets (CR 115.7, `resolve::retarget`)
+about what was choosable. A `TargetReq` naming `Player(You)` is an explicit
+self-target: only the controller is offered, their own hexproof permits it,
+and protection from everything forbids it both when choosing and when
+resolving. A bare `Player(You)` in an effect remains an implicit subject;
+without a target requirement it asks no target choice or target re-check.
+A change of targets (CR 115.7, `resolve::retarget`)
 asks the same function, so a redirected spell is offered only what the
 re-check would call legal (#247).
 
@@ -1160,8 +1232,18 @@ shield is a count on the object (`Object::regeneration_shields`) and
 `sba::destroy` is where it is spent — the creature is tapped through
 `GameState::set_tapped`, its marked damage and its deathtouch flag are
 cleared, and it is removed from combat. `sba::destroy_no_regen` is the same
-door with the shield skipped, which is CR 701.19c and the eight cards in the
-pool that print "it can't be regenerated".
+door with the shield skipped (CR 701.19c).
+
+Ordinary destruction also checks the turn's exact-object regeneration
+prohibitions and active `Modifier::CantBeRegenerated` rule effects before
+offering or spending a shield. A continuous prohibition reads its filter at
+destruction: `Filter::DealtDamageBySourceThisTurn` names the exact current
+recipients that source actually damaged this turn, so removing the static
+source removes its prohibition. `Effect::DamagedThisWayCantBeRegenerated`
+instead records the creature recipients of positive damage dealt by this
+resolution's source after prevention and redirection. That prohibition lasts
+through the turn independently of the source and does not follow a recipient
+through a zone change. Neither form consumes a shield it disallows.
 
 Three things about it are easy to get backwards:
 
@@ -1923,6 +2005,11 @@ arrival.
 
 Randomness comes from one seed and two kinds of stream:
 
+- **The starting seat** is drawn first from the table's stream, uniformly
+  across the seats (`HouseRules.starting_player == None`), before any opening
+  library is shuffled. A controlled test may name it explicitly instead. Old
+  records without the field keep historical seat 0; new randomized presets
+  serialize it as `null`, so a replay makes the same choice again.
 - **The table's stream** (ChaCha stream 0) shuffles the opening libraries and
   draws everything random from turn 1 on.
 - **A seat's mulligan stream** (`GameRng::for_seat`: the same seed on stream
@@ -1977,11 +2064,13 @@ that original calculation restored.
 2. Every `GainControl` effect for them ends, so what they took goes back to
    whoever controls it without them. A Gilded Drake'd creature goes back to
    its owner. Under a later thief it goes back to the earlier one. Their
-   `SearchTakeover` effects end too: Opposition Agent's hold on a searching
-   player is the one way the engine controls a player (CR 722.2). A search
-   they were making for somebody else when they left goes back to that
-   player, with the same cards and limits, to finish as their own search
-   (CR 722.5).
+   control of a player ends too, both ways the engine keeps one as an
+   effect: Opposition Agent's `SearchTakeover` hold on a searching player
+   (CR 722.2), and Mindslaver's control of a player's next turn
+   (`GameState::turn_controls`, CR 722.1), waiting or under way, whether
+   they are its controller or the player it controls. A search they were
+   making for somebody else when they left goes back to that player, with
+   the same cards and limits, to finish as their own search (CR 722.5).
 3. What a permanent of theirs held "until it leaves the battlefield" comes
    back (CR 610.3, `GameState::return_what_departed_hosts_held`): their
    permanents left without a move, so this is the one departure
@@ -1998,10 +2087,28 @@ that original calculation restored.
    they reanimated out of another player's graveyard, a spell of another
    player's they cast.
 
-`every_card_that_controls_a_player_does_it_by_taking_over_a_search` reads
-the Oracle text of every implemented and partial card and fails the day
-one controls a player some other way (Mindslaver, Word of Command). Step 2
-then has to end that effect as well.
+`every_card_that_controls_a_player_has_a_departure_rule` reads the Oracle
+text of every implemented and partial card and fails the day one controls
+a player some other way than the three it knows: Opposition Agent's search
+takeover, Mindslaver's `Effect::ControlPlayerNextTurn`, and Word of
+Command's `Effect::ControlPlayerPlayCard`, which is no effect a departure
+has to end, since it is read off the play under way at every decision
+(`Engine::controlled_actor`) and is gone with it. Step 2 then has to end
+the new one as well.
+
+A turn control waits through every turn its player does not take, other
+players' and extra turns among them, and through a turn of theirs that is
+skipped, which never begins (CR 722.1b). As the player's turn begins,
+`Engine::begin_turn` stamps the control with that turn's number
+(`PlayerTurnControl::began`); `controlled_actor` reads it only during the
+turn it was stamped with; and the next turn's beginning ends it, whoever
+takes that turn, the player's own extra turn included ("the effect doesn't
+end until the beginning of the next turn", CR 722.1). Of two waiting for
+the same player, the later works (CR 722.1a). Keyed on turn numbers alone
+it was dropped once two turns passed before the player's (seat 0's on seat
+3's, at four seats, or after its controller's two extra turns) and lasted
+on through an extra turn the player took right after
+(`player_control_tests`).
 
 CR 800.4c is the same rule seen later. A creature the leaver reanimated,
 which somebody else had taken until end of turn, is exiled as that effect

@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/STH/the-sparkler.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSparkler_STH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Sparkler (Adapted)]
+2 Chant of the Skifsang
+1 Contempt
+1 Counterspell
+1 Evacuation
+2 Flowstone Blade
+1 Intruder Alarm
+14 Island
+3 Lightning Blast
+3 Mana Leak
+1 Mogg Fanatic
+13 Mountain
+1 Opt
+1 Part Water
+2 Power Sink
+1 Rain of Revelation
+1 Ransack
+2 Regress
+2 Scorching Dragonfire
+1 Shatter
+2 Shock
+2 Spell Blast
+1 Strangle
+1 Wall of Razors
+1 Wall of Tears

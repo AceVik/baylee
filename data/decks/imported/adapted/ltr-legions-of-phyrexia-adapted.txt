@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/LTR/legions-of-phyrexia.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LegionsOfPhyrexia_LTR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Legions of Phyrexia (Adapted)]
+4 Anguished Unmaking
+1 Caves of Koilos
+3 Deadly Derision
+2 Fracture
+4 Harsh Sustenance
+4 Inkling Summoning
+4 Mortify
+2 Pest Control
+1 Phyrexian Arena
+9 Plains
+3 Purge the Profane
+4 Scoured Barrens
+4 Sunlit Marsh
+7 Swamp
+4 Unmake
+4 Vindicate

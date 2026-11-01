@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/AFR/armed-and-dangerous.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ArmedAndDangerous_AFR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Armed and Dangerous (Adapted)]
+2 Akoum Warrior
+4 Alpine Meadow
+4 Arrows of Justice
+1 Axgard Armory
+3 Double Cleave
+4 Energy Bolt
+4 Frontline Rush
+2 Kargan Warleader
+4 Lightning Helix
+3 Martial Glory
+10 Mountain
+1 Needleverge Pathway
+8 Plains
+4 Spirit Summoning
+4 Warleader's Helix
+2 Worthy Knight

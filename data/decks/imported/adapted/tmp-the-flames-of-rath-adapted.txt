@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/TMP/the-flames-of-rath.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheFlamesOfRath_TMP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Flames of Rath (Adapted)]
+1 Angelfire Crusader
+1 Blood Frenzy
+1 Coiled Tinviper
+2 Disenchant
+1 Dwarven Armory
+1 Firefly
+3 Fireslinger
+1 Flowstone Giant
+1 Flowstone Salamander
+1 Goblin Bombardment
+4 Kindle
+3 Lightning Blast
+2 Lightning Elemental
+1 Magmasaur
+1 Maze of Shadows
+4 Mogg Fanatic
+19 Mountain
+5 Plains
+2 Rolling Thunder
+1 Sandstone Warrior
+1 Squee's Toy
+1 Strangle
+1 Tahngarth's Rage
+2 Wild Wurm

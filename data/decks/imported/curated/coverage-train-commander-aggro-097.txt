@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WRG #20266098]
+1 Akroma's Devoted
+1 Argoth, Sanctum of Nature
+1 Auspicious Arrival
+1 Black Scarab
+1 Blade Historian
+1 Brave the Sands
+1 Butterbur, Bree Innkeeper
+1 Castle Ardenvale
+1 Cave of the Frost Dragon
+1 Citadel Gate
+1 Concordant Crossroads
+1 Consuming Ferocity
+1 Crib Swap
+1 Desert of the True
+1 Devout Harpist
+1 Emmara, Soul of the Accord
+1 Evendo, Waking Haven
+1 Exorcist
+1 Feather of Flight
+1 Field Marshal
+1 Forbidding Watchtower
+1 Garruk's Uprising
+1 Glaring Aegis
+1 Green Scarab
+1 Hanweir Garrison
+1 Herald of Dromoka
+1 Holy Armor
+1 Icatian Crier
+1 Imposing Visage
+1 Inspiring Veteran
+1 Invasion of Belenon
+1 Juniper Order Advocate
+1 Kabira Crossroads
+1 Kargan Warleader
+1 Knight Exemplar
+1 Kobold Drill Sergeant
+1 Kongming, "Sleeping Dragon"
+1 Lovisa Coldeyes
+1 Luke Cage, Hero for Hire
+1 Manor Gate
+1 Martyr of Dusk
+1 Master Trinketeer
+1 Memorial to Glory
+1 Meng Huo, Barbarian King
+1 Miracle Worker
+1 Mistveil Plains
+13 Mountain
+1 Nova Cleric
+1 Oathsworn Giant
+1 Paragon of Eternal Wilds
+1 Paragon of Fierce Defiance
+1 Paragon of New Dawns
+1 Patrol Signaler
+11 Plains
+1 Priest of Iroas
+1 Prophetic Ravings
+1 Red Scarab
+1 Ripchain Razorkin
+1 Sandstone Bridge
+1 Savior of the Sleeping
+1 Scavenger Folk
+1 Sokka's Sword Training
+1 Soraya the Falconer
+1 Spectral Procession
+1 Stalwart Shield-Bearers
+1 Starry-Eyed Skyrider
+1 The Fair Basilica
+1 The Lonely Mountain
+1 Thelonite Druid
+1 Trade Caravan
+1 Unchained Berserker
+1 Veteran Armorer
+1 Veteran Armorsmith
+1 Voldaren Stinger
+1 Weapons Trainer
+1 White Lotus Reinforcements
+1 White Scarab
+
+[commander]
+Samut, Voice of Dissent

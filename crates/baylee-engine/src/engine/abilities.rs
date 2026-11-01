@@ -114,6 +114,7 @@ pub(crate) const fn paid_by_the_casting_wizard(part: &CostPart) -> bool {
         | CostPart::PutCounterSelf { .. }
         | CostPart::PutCounterOnOther { .. }
         | CostPart::ExileFromSingleGraveyard { .. }
+        | CostPart::ExileTopOfLibrary(_)
         | CostPart::PayAttachedManaCost => false,
     }
 }
@@ -156,6 +157,7 @@ const fn can_refuse_part_way(part: &CostPart) -> bool {
         | CostPart::ReturnToHand(_)
         | CostPart::ExileFromGraveyard(_)
         | CostPart::ExileFromSingleGraveyard { .. }
+        | CostPart::ExileTopOfLibrary(_)
         | CostPart::PutCounterOnOther { .. } => true,
         CostPart::TapSelf
         | CostPart::UntapSelf

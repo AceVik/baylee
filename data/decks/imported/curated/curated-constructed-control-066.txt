@@ -1,0 +1,21 @@
+# baylee curated constructed control seed=20261089
+# licence: AGPL-3.0-only
+[deck:constructed control WG #20261089]
+4 Bargain
+5 Forest
+3 Healing Hands
+4 Loran of the Third Path
+1 Mana Confluence
+3 Mech Hangar
+3 Migrating Ketradon
+4 Mox Emerald
+4 Norn's Wellspring
+4 Path of Annihilation
+3 Pawpatch Formation
+11 Plains
+3 Radiant's Dragoons
+2 School of the Unseen
+2 Sliver Hive
+1 Spire of Industry
+2 Sungrass Egg
+1 Undiscovered Paradise

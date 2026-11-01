@@ -1,0 +1,25 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, Enchantress_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Enchantress]
+4 Aspect of Wolf
+3 Cockatrice
+2 Coral Helm
+2 Desert Twister
+2 Durkwood Boars
+22 Forest
+2 Instill Energy
+1 Ivory Tower
+1 Library of Leng
+3 Living Artifact
+4 Llanowar Elves
+3 Lure
+3 Regeneration
+3 Thicket Basilisk
+3 Verduran Enchantress
+2 Web
+2 Wild Growth
+
+[sideboard]
+2 Kormus Bell
+2 Living Lands
+2 Primal Clay

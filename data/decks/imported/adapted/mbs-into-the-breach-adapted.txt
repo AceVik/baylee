@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/MBS/into-the-breach.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, IntoTheBreach_MBS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Into the Breach (Adapted)]
+1 Contested War Zone
+2 Darksteel Axe
+2 Flick a Coin
+2 Hammer of Bogardan
+1 Iron Myr
+4 Lightning Bolt
+4 Memnite
+1 Molten Blast
+21 Mountain
+4 Orcish Cannonade
+4 Ornithopter
+2 Sundering Eruption
+2 Uncaged Fury
+4 Valakut Awakening
+2 Vampires' Vengeance
+4 Wheel of Fortune

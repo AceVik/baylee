@@ -7,20 +7,29 @@
 use baylee_cards_dsl::Filter;
 use baylee_core::ids::{ObjectId, PlayerId};
 
-use super::{AwaitingOp, Resolution, chosen};
+use super::{AwaitingOp, Resolution};
 use crate::choice::{ChoicePrompt, Pending};
 use crate::event::GameEvent;
 use crate::state::GameState;
 use crate::zone::ZoneLocation;
+
+mod amount;
+pub(super) use amount::start as start_amount;
+
+#[derive(Clone, Debug)]
+struct Group {
+    player: PlayerId,
+    cards: Vec<ObjectId>,
+    keep: usize,
+}
 
 /// A suspended simultaneous choice. No objects move while this is pending.
 #[derive(Clone, Debug)]
 pub struct Selection {
     hands: bool,
     prompt: ChoicePrompt,
-    groups: Vec<(PlayerId, Vec<ObjectId>)>,
+    groups: Vec<Group>,
     current: usize,
-    keep: usize,
     kept: Vec<ObjectId>,
     removals: Vec<(PlayerId, ObjectId)>,
 }
@@ -29,19 +38,20 @@ impl Selection {
     /// Choices already made matter even while every card remains in place.
     pub(crate) fn fingerprint(&self) -> u64 {
         let mut key = u64::from(self.hands) + 1;
-        for n in [
-            self.current,
-            self.keep,
-            self.kept.len(),
-            self.removals.len(),
-        ] {
+        for n in [self.current, self.kept.len(), self.removals.len()] {
             key = key.wrapping_mul(31).wrapping_add(n as u64);
         }
-        for (player, cards) in &self.groups {
+        for Group {
+            player,
+            cards,
+            keep,
+        } in &self.groups
+        {
             key = key
                 .wrapping_mul(31)
                 .wrapping_add(u64::from(player.get()) + 1);
             key = key.wrapping_mul(31).wrapping_add(cards.len() as u64);
+            key = key.wrapping_mul(31).wrapping_add(*keep as u64);
             for id in cards {
                 key = mix_object(key, *id);
             }
@@ -79,31 +89,49 @@ pub(super) fn start(
         .map(|player| {
             let options = filter.map_or_else(
                 || state.zones.list(ZoneLocation::Hand(player)).clone(),
-                |filter| chosen::options(state, player, filter, res.controller, res.source),
+                |filter| {
+                    crate::eval::controlled_matching_with_context(
+                        state,
+                        player,
+                        filter,
+                        res.controller,
+                        res.rule_context(),
+                    )
+                },
             );
             (player, options)
         })
         .collect();
-    let prompt = match filter {
-        None => ChoicePrompt::Keep,
-        Some(&Filter::LAND) => ChoicePrompt::KeepLands,
-        Some(&Filter::CREATURE) => ChoicePrompt::KeepCreatures,
-        Some(_) => ChoicePrompt::KeepPermanents,
-    };
     let keep = groups.iter().map(|(_, cards)| cards.len()).min()?;
+    let groups = groups
+        .into_iter()
+        .map(|(player, cards)| Group {
+            player,
+            cards,
+            keep,
+        })
+        .collect();
     advance(
         state,
         res,
         Selection {
             hands: filter.is_none(),
-            prompt,
+            prompt: prompt(filter),
             groups,
             current: 0,
-            keep,
             kept: Vec::new(),
             removals: Vec::new(),
         },
     )
+}
+
+fn prompt(filter: Option<&'static Filter>) -> ChoicePrompt {
+    match filter {
+        None => ChoicePrompt::Keep,
+        Some(&Filter::LAND) => ChoicePrompt::KeepLands,
+        Some(&Filter::CREATURE) => ChoicePrompt::KeepCreatures,
+        Some(_) => ChoicePrompt::KeepPermanents,
+    }
 }
 
 pub(super) fn resume(
@@ -121,12 +149,17 @@ fn advance(
     res: &mut Resolution,
     mut selection: Selection,
 ) -> Option<Pending> {
-    while let Some((player, cards)) = selection.groups.get(selection.current) {
-        if cards.len() == selection.keep {
+    while let Some(Group {
+        player,
+        cards,
+        keep,
+    }) = selection.groups.get(selection.current)
+    {
+        if cards.len() == *keep {
             // Keeping everything is forced; no empty or redundant menu.
             selection.kept.clone_from(cards);
         }
-        if selection.kept.len() < selection.keep {
+        if selection.kept.len() < *keep {
             let options = cards
                 .iter()
                 .copied()
@@ -134,7 +167,7 @@ fn advance(
                 .collect();
             // Pending's count is a byte, but the number of kept cards is not.
             // Large selections proceed in chunks without truncating the total.
-            let count = (selection.keep - selection.kept.len()).min(usize::from(u8::MAX)) as u8;
+            let count = (*keep - selection.kept.len()).min(usize::from(u8::MAX)) as u8;
             let pending = Pending::ChooseCards {
                 player: *player,
                 options,

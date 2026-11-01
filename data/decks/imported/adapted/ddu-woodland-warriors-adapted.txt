@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/DDU/woodland-warriors.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WoodlandWarriors_DDU.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Woodland Warriors (Adapted)]
+2 An-Havva Inn
+1 Appetite for the Unnatural
+1 Bala Ged Recovery
+2 Bestow Greatness
+1 Blooming Stinger
+1 Bridgeworks Battle
+3 Chord of Calling
+1 Dwynen, Gilt-Leaf Daen
+1 Eldritch Evolution
+1 Elvish Archdruid
+1 Elvish Vanguard
+2 Ferocious Charge
+18 Forest
+1 Hail Storm
+1 Harrow
+2 Ivy Lane Denizen
+2 Leaf Gilder
+1 Oran-Rief, the Vastwood
+2 Orochi Leafcaller
+1 Plummet
+1 Serpent's Gift
+2 Squall
+2 Tranquil Thicket
+2 Treetop Village
+4 Untamed Wilds
+1 Viridian Shaman
+1 Wildheart Invoker
+2 Wind Shear

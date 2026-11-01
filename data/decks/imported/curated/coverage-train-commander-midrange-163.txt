@@ -1,0 +1,85 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WUBRG #20266164]
+1 Adult Gold Dragon
+1 Arctic Aven
+1 Arrogant Vampire
+1 Aura Thief
+1 Azorius First-Wing
+1 Balshan Collaborator
+1 Bartizan Bats
+1 Battlefield Percher
+1 Bountiful Landscape
+1 Cat-Owl
+1 Contaminated Landscape
+1 Crosis's Catacombs
+1 Crystal Quarry
+1 Dakmor Bat
+1 Dark Deed
+1 Deity of Scars
+1 Dementia Bat
+1 Discordant Spirit
+1 Doom Whisperer
+1 Dromar's Cavern
+1 Erode
+5 Forest
+1 Foundry Screecher
+1 Gaea's Skyfolk
+1 Gloomhunter
+1 Goblin Deathraiders
+1 Godhead of Awe
+1 Grimclaw Bats
+1 Gurmag Swiftwing
+1 Hazerider Drake
+1 Hobgoblin Dragoon
+1 Hydrosurge
+5 Island
+1 Kelinore Bat
+1 Khenra Charioteer
+1 Koskun Keep
+1 Kraul Raider
+1 Kyscu Drake
+1 Lightning Angel
+1 Moldering Karok
+3 Mountain
+1 Mycoid Shepherd
+1 Nearby Planet
+1 Nephalia Seakite
+1 Nimbus Swimmer
+1 Nobilis of War
+1 Obscura Initiate
+1 One with Nothing
+1 Perilous Landscape
+1 Pestilent Kathari
+5 Plains
+1 Rith's Grove
+1 Scapegoat
+1 Scarland Thrinax
+1 Seedpod Squire
+1 Seething Landscape
+1 Senate Courier
+1 Sewn-Eye Drake
+1 Shattered Landscape
+1 Sheltering Landscape
+1 Sky Ruin Drake
+1 Sky Terror
+1 Spectral Shepherd
+7 Swamp
+1 Talon Trooper
+1 Tempest Drake
+1 The Balrog of Moria
+1 The World Tree
+1 Thunderclap Wyvern
+1 Torch Drake
+1 Tower Drake
+1 Tranquil Landscape
+1 Treva's Ruins
+1 Vampire Revenant
+1 Vassal Soul
+1 Viashivan Dragon
+1 Walking Dream
+1 Wasp Lancer
+1 Windreaper Falcon
+
+[commander]
+Kenrith, the Returned King

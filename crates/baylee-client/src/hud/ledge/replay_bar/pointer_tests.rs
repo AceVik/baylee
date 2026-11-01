@@ -102,3 +102,65 @@ fn a_native_keyboard_activate_is_not_forwarded_to_the_replay_observer() {
     );
     assert!(app.world().get::<Pressed>(button).is_none());
 }
+
+/// The settings standing over a replay (`lobby::table_settings`) have every
+/// key: `Space` there drives nothing. Put away, the same `Space` toggles the
+/// replay again.
+#[test]
+fn the_settings_over_a_replay_keep_its_keys() {
+    use crate::replay::{Origin, ReplayStatus};
+    use baylee_client_core::replay::{Perspective, Perspectives, Speed, Verify};
+    use baylee_core::ids::PlayerId;
+
+    for over in [false, true] {
+        let duel = crate::Duel {
+            replay: Some(ReplayStatus {
+                header: None,
+                step: 0,
+                steps: 10,
+                playing: false,
+                speed: Speed::One,
+                timeline: None,
+                stop: None,
+                check: None,
+                perspective: Perspective::Seat(PlayerId::new(0)),
+                offers: Perspectives {
+                    seat: true,
+                    public: true,
+                    all_hands: true,
+                },
+                verify: Verify::Stop,
+                loading: None,
+                problem: None,
+                origin: Origin::default(),
+                seats: Vec::new(),
+            }),
+            ..crate::Duel::default()
+        };
+        let mut lobby = crate::LobbyState::new();
+        crate::lobby::table_settings::stand_over_table(&mut lobby);
+        if !over {
+            crate::lobby::table_settings::close(&mut lobby);
+        }
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin)
+            .insert_state(crate::DuelPhase::Playing)
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<crate::prefs::Prefs>()
+            .init_resource::<BarUi>()
+            .init_resource::<ReplayAsks>()
+            .insert_resource(duel)
+            .insert_resource(lobby)
+            .add_systems(Update, replay_keys);
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Space);
+        app.update();
+        let asked = app.world().resource::<ReplayAsks>().0.len();
+        if over {
+            assert_eq!(asked, 0, "Space drove the replay under the settings");
+        } else {
+            assert!(asked > 0, "Space drives the replay once they are away");
+        }
+    }
+}

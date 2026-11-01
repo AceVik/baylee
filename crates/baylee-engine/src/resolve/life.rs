@@ -8,7 +8,11 @@ use crate::prevention::{Shield, ShieldKind, ShieldOrigin, Shielded};
 use baylee_cards_dsl::Filter;
 use baylee_core::types::TypeSet;
 
+mod attached_shield;
 pub(super) mod batch57;
+#[cfg(test)]
+mod damage_pair_tests;
+pub(super) mod ice_combat;
 
 /// Executes one life/damage effect.
 #[allow(clippy::too_many_lines)] // the family is one flat table
@@ -17,7 +21,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
     match op {
         Effect::DealDamageEvenly { .. }
         | Effect::DealDamageWithCappedLifeGain { .. }
+        | Effect::DealDamageWithLimitedLifeGain { .. }
         | Effect::DealDamage { .. }
+        | Effect::DealDamageWithoutPreventionOrRedirection { .. }
         | Effect::DealDamageToBothTargetInstances { .. }
         | Effect::DealDamageToMatchingTargets { .. }
         | Effect::DealDamageToAttached { .. }
@@ -31,6 +37,10 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         | Effect::DealDamageEach { .. }
         | Effect::DealDamageToEachOpponentAndPlaneswalkerDamagedThisGame { .. } => {
             start(state, res, op)
+        }
+        Effect::PreventNextDamageToAttached { amount } => {
+            attached_shield::add(state, res, amount);
+            None
         }
         Effect::GainLife { amount } => {
             let n = amount2(&amount, state, you, res) as i32;
@@ -56,6 +66,58 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
         Effect::GainLifeDoubleX => {
             let n = res.x.unwrap_or(0).saturating_mul(2) as i32;
             gain_life(state, you, n);
+            None
+        }
+        Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { who, amount } => {
+            let mut names = Vec::new();
+            for entry in super::this_way::entries(state, res) {
+                if let GameEvent::Revealed { cards, .. } = &entry.event {
+                    for &card in cards {
+                        if let Some(name) = state
+                            .object(card)
+                            .map(|object| object.characteristics().name)
+                            && !names.contains(&name)
+                        {
+                            names.push(name);
+                        }
+                    }
+                }
+            }
+            let journal = state.journal.entries();
+            let start = journal
+                .iter()
+                .rposition(|entry| matches!(entry.event, GameEvent::TurnStarted { .. }))
+                .unwrap_or(0);
+            let losses: Vec<(PlayerId, i32)> = super::players_of(who, state, you, res)
+                .into_iter()
+                .filter(|player| {
+                    journal[start..].iter().any(|entry| {
+                        let GameEvent::SpellCast {
+                            object,
+                            player: caster,
+                            ..
+                        } = &entry.event
+                        else {
+                            return false;
+                        };
+                        if caster != player {
+                            return false;
+                        }
+                        state
+                            .damage_source(*object, None)
+                            .is_some_and(|spell| names.contains(&spell.characteristics().name))
+                    })
+                })
+                .map(|player| {
+                    (
+                        player,
+                        super::amount_for_player(&amount, state, you, res, player) as i32,
+                    )
+                })
+                .collect();
+            for (player, loss) in losses {
+                state.change_life(player, -loss, Cause::Effect);
+            }
             None
         }
         Effect::LoseLife { amount, target } => {
@@ -142,10 +204,37 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
             );
             None
         }
+        Effect::PreventNextDamageFromTarget { gain_life } => {
+            let id = *res.targets.first()?;
+            let reference = state.source_identity(id)?;
+            let source = crate::prevention::ChosenSource::new_with_context(
+                state,
+                reference,
+                &Filter::Any,
+                you,
+                res.rule_context(),
+            )?;
+            let origin = origin(state, res);
+            state.shields.push_from(
+                Shield {
+                    protects: Shielded::Everything,
+                    kind: ShieldKind::NextFrom {
+                        source,
+                        all_but: 0,
+                        gain_life,
+                        combat_only: false,
+                    },
+                    controller: you,
+                },
+                Some(origin),
+            );
+            None
+        }
         // The source is chosen as this resolves (CR 609.7a), and the choice
         // is an instruction, so `min: 1`; with no source to choose there is
         // no shield and no question (CR 609.3).
         Effect::ChooseDamageSourcePreventAllThisTurn
+        | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
         | Effect::PreventNextFromChosenSource { .. } => {
             let (sources, combat_only, all_but, gain_life, all_recipients) = match op {
                 Effect::PreventNextFromChosenSource {
@@ -154,6 +243,9 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                     all_but,
                     gain_life,
                 } => (sources, combat_only, all_but, gain_life, false),
+                Effect::ChooseDamageSourcePreventAllThisTurnMatching(sources) => {
+                    (sources, false, 0, false, true)
+                }
                 _ => (&Filter::Any, false, 0, false, true),
             };
             let options = crate::prevention::source_options_with_context(
@@ -210,12 +302,16 @@ pub struct DamageResolution {
     after: AfterDamage,
 }
 
-#[derive(Clone, Copy, Debug, Hash)]
+#[derive(Clone, Debug, Hash)]
 enum AfterDamage {
     Done,
     CappedLifeGain {
         recipient: DamageTarget,
         before_cap: i32,
+    },
+    BottomOfLibrary {
+        player: PlayerId,
+        cards: Vec<ObjectId>,
     },
 }
 
@@ -281,8 +377,18 @@ fn origin(state: &GameState, res: &Resolution) -> ShieldOrigin {
 }
 
 fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pending> {
-    let assignments = assignments(state, res, op);
-    let after = if matches!(op, Effect::DealDamageWithCappedLifeGain { .. }) {
+    let mut assignments = assignments(state, res, op);
+    if let Some(players) = simultaneous_player_half(res, op) {
+        assignments.extend(self::assignments(state, res, players));
+        // The documented creature/player pair is one damage instruction.
+        // Keep the PC on its final operation even while replacement choices
+        // suspend it; all completion paths then advance once as usual.
+        res.pc += 1;
+    }
+    let after = if matches!(
+        op,
+        Effect::DealDamageWithCappedLifeGain { .. } | Effect::DealDamageWithLimitedLifeGain { .. }
+    ) {
         let recipient = assignments.first()?.recipient;
         let before_cap = match recipient {
             DamageTarget::Player(p) => state.players[usize::from(p.get())].life.max(0),
@@ -294,6 +400,13 @@ fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pend
                 }
             }),
         };
+        let before_cap = if let Effect::DealDamageWithLimitedLifeGain { life_limit, .. } = op {
+            before_cap.min(
+                i32::try_from(amount2(&life_limit, state, res.controller, res)).unwrap_or(i32::MAX),
+            )
+        } else {
+            before_cap
+        };
         AfterDamage::CappedLifeGain {
             recipient,
             before_cap,
@@ -303,10 +416,103 @@ fn start(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pend
     };
     let cause = batch57::cause(state, res);
     let mut work = DamageWork::new(state, assignments);
+    if let Effect::DealDamageWithoutPreventionOrRedirection { recipients, .. } = op {
+        work = work.with_recipient_lock(recipients, res.controller, res.rule_context());
+    }
     if let Some(cause) = cause {
         work = work.with_cause(&cause);
     }
     finish_or_suspend(state, res, DamageResolution { work, after })
+}
+
+/// Reveal until a land, deal the resulting damage, then order those same cards
+/// onto the bottom. The damage continuation retains the cards even when a
+/// replacement effect suspends the instruction.
+pub(super) fn reveal_until_land(
+    state: &mut GameState,
+    res: &mut Resolution,
+    target: TargetSpec,
+) -> Option<Pending> {
+    let you = res.controller;
+    let library: Vec<ObjectId> = state.zones.list(ZoneLocation::Library(you)).clone();
+    let mut revealed = Vec::new();
+    let mut nonland_count = 0u32;
+    let mut is_mountain = false;
+    for &card in library.iter().rev() {
+        revealed.push(card);
+        let Some(o) = state.object(card) else {
+            continue;
+        };
+        let chars = o.characteristics();
+        if chars.types.contains(TypeSet::LAND) {
+            is_mountain = chars
+                .subtypes
+                .contains(baylee_core::generated::subtypes::land::MOUNTAIN);
+            break;
+        }
+        nonland_count += 1;
+    }
+    if !revealed.is_empty() {
+        state.journal.record(GameEvent::Revealed {
+            player: you,
+            cards: revealed.clone(),
+        });
+    }
+    let damage = if is_mountain {
+        nonland_count.saturating_mul(2)
+    } else {
+        nonland_count
+    };
+    let assignments = assignments(
+        state,
+        res,
+        Effect::DealDamage {
+            target,
+            amount: baylee_cards_dsl::Amount::Fixed(damage),
+        },
+    );
+    let cause = batch57::cause(state, res);
+    let mut work = DamageWork::new(state, assignments);
+    if let Some(cause) = cause {
+        work = work.with_cause(&cause);
+    }
+    finish_or_suspend(
+        state,
+        res,
+        DamageResolution {
+            work,
+            after: AfterDamage::BottomOfLibrary {
+                player: you,
+                cards: revealed,
+            },
+        },
+    )
+}
+
+/// The DSL spells one untargeted creature-and-player damage sentence as
+/// this adjacent pair. Other instructions and differing amounts delimit it.
+fn simultaneous_player_half(res: &Resolution, op: Effect) -> Option<Effect> {
+    if res.targeted {
+        return None;
+    }
+    let Effect::DealDamageEach { amount, .. } = op else {
+        return None;
+    };
+    let next = *res.effects.get(res.pc + 1)?;
+    match next {
+        Effect::DealDamage {
+            amount: next_amount,
+            target:
+                TargetSpec::Player(
+                    PlayerRel::You
+                    | PlayerRel::Opponent
+                    | PlayerRel::EachOpponent
+                    | PlayerRel::EachPlayer
+                    | PlayerRel::EachOtherPlayer,
+                ),
+        } if amount == next_amount => Some(next),
+        _ => None,
+    }
 }
 
 fn finish_or_suspend(
@@ -318,33 +524,59 @@ fn finish_or_suspend(
         res.awaiting = Some(AwaitingOp::Damage(Box::new(damage)));
         return Some(pending);
     }
-    after_damage(state, res, &damage);
-    None
+    after_damage(state, res, &damage)
 }
 
-fn after_damage(state: &mut GameState, res: &Resolution, damage: &DamageResolution) {
-    if let AfterDamage::CappedLifeGain {
-        recipient,
-        before_cap,
-    } = damage.after
-    {
-        state.refresh_characteristics();
-        let cap = match recipient {
-            DamageTarget::Object(_) => target_chars(res, state)
-                .filter(|c| c.types.contains(TypeSet::CREATURE))
-                .map_or(before_cap, |c| {
-                    before_cap.min(i32::from(c.toughness.unwrap_or(0)).max(0))
-                }),
-            DamageTarget::Player(_) => before_cap,
-        };
-        gain_life(
-            state,
-            res.controller,
-            i32::try_from(damage.work.dealt())
-                .unwrap_or(i32::MAX)
-                .min(cap),
-        );
+fn after_damage(
+    state: &mut GameState,
+    res: &mut Resolution,
+    damage: &DamageResolution,
+) -> Option<Pending> {
+    match &damage.after {
+        AfterDamage::Done => {}
+        AfterDamage::CappedLifeGain {
+            recipient,
+            before_cap,
+        } => {
+            state.refresh_characteristics();
+            let cap = match recipient {
+                DamageTarget::Object(_) => target_chars(res, state)
+                    .filter(|c| c.types.contains(TypeSet::CREATURE))
+                    .map_or(*before_cap, |c| {
+                        (*before_cap).min(i32::from(c.toughness.unwrap_or(0)).max(0))
+                    }),
+                DamageTarget::Player(_) => *before_cap,
+            };
+            gain_life(
+                state,
+                res.controller,
+                i32::try_from(damage.work.dealt())
+                    .unwrap_or(i32::MAX)
+                    .min(cap),
+            );
+        }
+        AfterDamage::BottomOfLibrary { player, cards } => {
+            if cards.len() > 1 {
+                res.awaiting = Some(AwaitingOp::DigBottom);
+                let n = u32::try_from(cards.len()).unwrap_or(u32::MAX);
+                return Some(Pending::Arrange {
+                    player: *player,
+                    cards: cards.clone(),
+                    piles: vec![ArrangePile::all_of(ArrangePlace::LibraryBottom, n)],
+                    prompt: ArrangePrompt::Order,
+                });
+            }
+            for &card in cards {
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Library(*player),
+                    ZonePosition::Bottom,
+                    Cause::Effect,
+                );
+            }
+        }
     }
+    None
 }
 
 pub(crate) fn resume_damage(
@@ -359,7 +591,9 @@ pub(crate) fn resume_damage(
         res.awaiting = Some(AwaitingOp::Damage(damage));
         return Flow::Wait(pending);
     }
-    after_damage(state, res, &damage);
+    if let Some(pending) = after_damage(state, res, &damage) {
+        return Flow::Wait(pending);
+    }
     res.pc += 1;
     run(state, res)
 }
@@ -382,7 +616,9 @@ pub(crate) fn refresh_damage(state: &mut GameState, res: &mut Resolution) -> Flo
         res.awaiting = Some(AwaitingOp::Damage(damage));
         return Flow::Wait(pending);
     }
-    after_damage(state, res, &damage);
+    if let Some(pending) = after_damage(state, res, &damage) {
+        return Flow::Wait(pending);
+    }
     res.pc += 1;
     run(state, res)
 }
@@ -479,19 +715,23 @@ fn assignments(state: &GameState, res: &Resolution, op: Effect) -> Vec<Assignmen
                     assignments
                 })
         }
-        Effect::DealDamage { amount, target } => recipients(state, res, you, target)
-            .into_iter()
-            .map(|to| {
-                let n = match to {
-                    DamageTarget::Player(player) => {
-                        super::amount_for_player(&amount, state, you, res, player)
-                    }
-                    DamageTarget::Object(_) => amount2(&amount, state, you, res),
-                };
-                assignment(state, res, res.source, to, n)
-            })
-            .collect(),
-        Effect::DealDamageWithCappedLifeGain { amount } => for_spec(
+        Effect::DealDamage { amount, target }
+        | Effect::DealDamageWithoutPreventionOrRedirection { amount, target, .. } => {
+            recipients(state, res, you, target)
+                .into_iter()
+                .map(|to| {
+                    let n = match to {
+                        DamageTarget::Player(player) => {
+                            super::amount_for_player(&amount, state, you, res, player)
+                        }
+                        DamageTarget::Object(_) => amount2(&amount, state, you, res),
+                    };
+                    assignment(state, res, res.source, to, n)
+                })
+                .collect()
+        }
+        Effect::DealDamageWithCappedLifeGain { amount }
+        | Effect::DealDamageWithLimitedLifeGain { amount, .. } => for_spec(
             res.source,
             amount2(&amount, state, you, res),
             TargetSpec::AnyTarget,
@@ -810,7 +1050,7 @@ pub(super) fn deal_to_players(
 /// Whom `target` names as this resolves: the objects and players an
 /// effect that deals damage deals it to, and an effect that prevents
 /// damage shields, in the order they are dealt to.
-fn recipients(
+pub(super) fn recipients(
     state: &GameState,
     res: &Resolution,
     you: PlayerId,
@@ -822,26 +1062,17 @@ fn recipients(
             .into_iter()
             .map(DamageTarget::Player)
             .collect(),
-        // "Any target" (CR 115.4) chose from one set spanning both,
-        // so both halves are dealt to — a spell with two any-targets
-        // can have picked a creature and a face.
-        TargetSpec::AnyTarget => res
-            .targets
-            .iter()
-            .copied()
-            .map(DamageTarget::Object)
-            .chain(players(res.target_players))
-            .collect(),
-        // "Target opponent or planeswalker": one choice over both lists, so
-        // whichever half it landed in is dealt to.
-        TargetSpec::OpponentOrObject(_) | TargetSpec::PlayerOrObject(_) => res
-            .targets
-            .first()
-            .copied()
-            .map(DamageTarget::Object)
-            .into_iter()
-            .chain(players(res.target_players))
-            .collect(),
+        // "Any target" (CR 115.4) and "target opponent/player or <object>"
+        // chose from one set spanning both, so whichever half it landed in
+        // is dealt to.
+        TargetSpec::AnyTarget | TargetSpec::OpponentOrObject(_) | TargetSpec::PlayerOrObject(_) => {
+            res.targets
+                .iter()
+                .copied()
+                .map(DamageTarget::Object)
+                .chain(players(res.target_players))
+                .collect()
+        }
         // Only ever a second instance of "target": the damage goes to what
         // that instance chose, if it chose anything ("up to one").
         TargetSpec::ObjectOfFirstTargetsPlayer(_) | TargetSpec::CardInFirstTargetsGraveyard(_) => {
@@ -873,7 +1104,7 @@ fn recipients(
             .into_iter()
             .collect(),
         // Everything else names an object, and the damage goes to
-        // the one that was chosen. Spelled out rather than left to
+        // the one(s) that were chosen. Spelled out rather than left to
         // a `_` arm: a new player-flavoured `TargetSpec` would land
         // in a catch-all silently and be dealt to as an object.
         TargetSpec::Object(_)
@@ -887,11 +1118,24 @@ fn recipients(
         | TargetSpec::CardInGraveyardBelowEvent(..)
         | TargetSpec::CardInGraveyardBelowValue(..)
         | TargetSpec::AbilityOnStack(_)
-        | TargetSpec::SpellOrAbility(_)
-        | TargetSpec::EventObject => res
+        | TargetSpec::SpellOrAbility(_) => res
+            .targets
+            .iter()
+            .copied()
+            .map(DamageTarget::Object)
+            .collect(),
+        // "That creature": chosen when the ability's own target requirement
+        // says `EventObject` (Caltrops), and otherwise the object the trigger
+        // remembers, which nothing chose. A delayed trigger has no targets at
+        // all (CR 603.7c): Dwarven Sea Clan's "deals 2 damage to that
+        // creature at end of combat" read `targets`, found nothing, and dealt
+        // no damage — the reader `zones::spec_object` keeps for the moving
+        // effects was never asked here.
+        TargetSpec::EventObject => res
             .targets
             .first()
             .copied()
+            .or_else(|| super::zones::spec_object(state, res, target))
             .map(DamageTarget::Object)
             .into_iter()
             .collect(),
@@ -1525,6 +1769,7 @@ mod tests {
             mana_ability: false,
             countered_source: None,
             this_way_from: None,
+            coin_stake: None,
         }
     }
 

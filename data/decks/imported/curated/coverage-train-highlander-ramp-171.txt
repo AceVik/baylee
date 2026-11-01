@@ -1,0 +1,80 @@
+# baylee synergistic coverage highlander ramp
+# licence: AGPL-3.0-only
+[deck:highlander ramp WRG #20266172]
+1 Aisling Leprechaun
+1 An-Havva Township
+1 Angelfire Crusader
+1 Angelic Captain
+1 Ankle Biter
+1 Battle Rampart
+1 Beasts of Bogardan
+1 Camel
+1 Cerodon Yearling
+1 Channel
+1 Charging War Boar
+1 Contested Cliffs
+1 Dazzling Ramparts
+1 Fanatical Fever
+1 Fire-Lit Thicket
+1 Flinthoof Boar
+13 Forest
+1 Fortified Rampart
+1 Gathering Place
+1 Ghazbán Ogre
+1 Giant Badger
+1 Glare of Subdual
+1 Grappler Spider
+1 Grizzled Wolverine
+1 Heart Wolf
+1 Horrid Vigor
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Kird Chieftain
+1 Kranioceros
+1 Lithatog
+1 Marsh Boa
+1 Mire Kavu
+1 Mirkwood Spider
+12 Mountain
+1 Plains
+1 Prized Elephant
+1 Quarum Trench Gnomes
+1 Realms Uncharted
+1 Reckless Ogre
+1 Regenerate
+1 Rime Dryad
+1 Rith's Grove
+1 Rotted Hystrix
+1 Rugged Prairie
+1 Sedge Scorpion
+1 Setessan Griffin
+1 Sheltering Landscape
+1 Steam Spitter
+1 Stone Kavu
+1 Summer Bloom
+1 Summit Apes
+1 Sunscorched Divide
+1 Talarian Hook Spider
+1 Temple Garden
+1 Thaumatog
+1 Tinder Farm
+1 Tranquil Garden
+1 Tree Monkey
+1 Tundra Wall
+1 Unseen Walker
+1 Vec Townships
+1 Veldt
+1 Vitu-Ghazi, the City-Tree
+1 Wall of Brambles
+1 Wall of Caltrops
+1 Wall of Earth
+1 Wall of Faith
+1 Wall of Granite
+1 Wall of Ice
+1 Wall of Light
+1 Wall of Opposition
+1 Wall of Razors
+1 Wall of Stone
+1 Whip Vine
+1 Willow Dryad
+1 Willow Satyr

@@ -360,6 +360,10 @@ pub struct RuleContext {
     pub source: ObjectId,
     /// The semantic text of the particular rules being evaluated.
     pub text: TextChangeMap,
+    /// A name chosen during this resolution. It overrides persistent source
+    /// choices while evaluating `Filter::NamedBySource` (CR 608.2d), including
+    /// when the source has left the battlefield (CR 113.7a).
+    pub resolved_name: Option<baylee_core::ids::NameRef>,
     /// The object a relational filter is relative to (`Filter::Reference`
     /// and its family): a resolving spell's or ability's first target, else
     /// the object its triggering event was about; while a second target is

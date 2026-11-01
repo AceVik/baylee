@@ -1,0 +1,20 @@
+# baylee curated constructed aggro seed=20261035
+# licence: AGPL-3.0-only
+[deck:constructed aggro UR #20261035]
+4 Embersmith
+3 Enraged Flamecaster
+4 Firebrand Archer
+3 Forbidden Orchard
+4 Island
+4 Kessig Flamebreather
+1 Lotus Vale
+2 Maelstrom of the Spirit Dragon
+10 Mountain
+3 Rockslide Sorcerer
+2 Sliver Hive
+4 Spark Spray
+4 Thassa's Ire
+1 Volcanic Island
+4 Walking Ballista
+4 Weaver of Lightning
+3 Winter Sky

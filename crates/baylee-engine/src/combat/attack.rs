@@ -138,6 +138,7 @@ pub struct AttackRules<'a> {
     if_defender_controls: Vec<&'a crate::effects::ContinuousEffect>,
     except_by: Vec<&'a crate::effects::ContinuousEffect>,
     requirements: Vec<&'a crate::effects::ContinuousEffect>,
+    alone: Vec<&'a crate::effects::ContinuousEffect>,
     idle_defenders: Vec<&'a crate::effects::ContinuousEffect>,
     cant_attack_you: Vec<&'a crate::effects::ContinuousEffect>,
     attack_tax_life: Vec<&'a crate::effects::ContinuousEffect>,
@@ -158,6 +159,7 @@ impl<'a> AttackRules<'a> {
         let mut if_defender_controls = Vec::new();
         let mut except_by = Vec::new();
         let mut requirements = Vec::new();
+        let mut alone = Vec::new();
         let mut idle_defenders = Vec::new();
         let mut cant_attack_you = Vec::new();
         let mut attack_tax_life = Vec::new();
@@ -171,9 +173,11 @@ impl<'a> AttackRules<'a> {
                 Modifier::CantAttackPlayerIdleLastTurn => idle_defenders.push(fx),
                 Modifier::CantBeAttackedExceptBy { .. } => except_by.push(fx),
                 Modifier::AttacksEachCombat => requirements.push(fx),
+                Modifier::AttacksAloneOnly => alone.push(fx),
                 Modifier::CantAttackYou => cant_attack_you.push(fx),
                 Modifier::AttackTaxLife { .. } => attack_tax_life.push(fx),
-                Modifier::CantAttackUnlessPayMana(_) => unless_pay_mana.push(fx),
+                Modifier::CantAttackUnlessPayMana(_)
+                | Modifier::CantAttackUnlessPayManaPerCounter(_) => unless_pay_mana.push(fx),
                 Modifier::CantAttackUnlessYouSacrifice { .. } => unless_sacrifice.push(fx),
                 Modifier::MaxAttackersPerCombat(n)
                     if crate::effects::source_is_present(state, fx) =>
@@ -190,6 +194,7 @@ impl<'a> AttackRules<'a> {
             if_defender_controls,
             except_by,
             requirements,
+            alone,
             idle_defenders,
             cant_attack_you,
             attack_tax_life,
@@ -198,6 +203,27 @@ impl<'a> AttackRules<'a> {
             max_attackers,
             mana_reach: 0,
         }
+    }
+
+    /// An individual restriction, not a cap on unrelated attackers.
+    #[must_use]
+    pub fn attacks_alone(&self, creature: ObjectId) -> bool {
+        self.state.object(creature).is_some_and(|object| {
+            self.alone
+                .iter()
+                .any(|effect| crate::effects::applies_to(self.state, effect, object))
+        })
+    }
+
+    /// Maximum simultaneously satisfiable requirements among legal free attackers.
+    #[must_use]
+    pub fn required_maximum(&self, required: &[ObjectId]) -> usize {
+        let together = required
+            .iter()
+            .filter(|id| !self.attacks_alone(**id))
+            .count();
+        let maximum = together.max(usize::from(!required.is_empty()));
+        self.max_attackers.map_or(maximum, |cap| maximum.min(cap))
     }
 
     /// Whether any creature's attack costs mana now (CR 508.1h: Brainwash),
@@ -249,10 +275,14 @@ impl<'a> AttackRules<'a> {
         self.unless_pay_mana
             .iter()
             .filter_map(|fx| {
-                let baylee_cards_dsl::Modifier::CantAttackUnlessPayMana(n) = fx.modifier else {
-                    return None;
+                let amount = match fx.modifier {
+                    baylee_cards_dsl::Modifier::CantAttackUnlessPayMana(n) => n,
+                    baylee_cards_dsl::Modifier::CantAttackUnlessPayManaPerCounter(kind) => {
+                        u32::from(obj.counters.get(kind))
+                    }
+                    _ => return None,
                 };
-                crate::effects::applies_to(self.state, fx, obj).then_some(n)
+                crate::effects::applies_to(self.state, fx, obj).then_some(amount)
             })
             .fold(0_u32, u32::saturating_add)
     }

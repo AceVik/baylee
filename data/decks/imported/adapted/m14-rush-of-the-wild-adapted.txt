@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/M14/rush-of-the-wild.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RushOfTheWild_M14.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Rush of the Wild (Adapted)]
+2 Burning-Tree Emissary
+4 Colossal Might
+12 Forest
+4 Ground Assault
+4 Gruul Guildgate
+1 Guttural Response
+2 Kalonian Tusker
+4 Manamorphose
+6 Mountain
+4 Orochi Leafcaller
+1 Rogue's Passage
+4 Savage Twister
+3 Shock
+1 Stomping Ground
+4 Stump Stomp
+4 Surge of Strength

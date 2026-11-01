@@ -15,12 +15,14 @@ mod cross_read;
 mod dev_table;
 mod explain;
 mod files;
+mod hold_back;
 mod hooks;
 mod ledger_cmd;
 mod mechanics;
 mod oracle_lines;
 mod precons;
 mod printings;
+mod reclaim;
 mod tables;
 mod transcode;
 mod update_key;
@@ -94,14 +96,44 @@ fn main() -> anyhow::Result<()> {
         .to_path_buf();
     match cli.cmd {
         Cmd::Codegen {
+            complete_stub,
+            check,
+            scripts,
+            cache,
+            ..
+        } if !complete_stub.is_empty() => {
+            reclaim::complete_stubs(&root, &cache, &scripts, &complete_stub, check)
+        }
+        Cmd::Codegen {
+            reclaim,
+            check,
+            scripts,
+            cache,
+            ..
+        } if !reclaim.is_empty() => reclaim::run(&root, &cache, &scripts, &reclaim, check),
+        Cmd::Codegen {
             adopt_stub,
+            hold_back,
+            hold_back_file,
+            hold_back_reason,
             check,
             tables,
             subtypes,
             scripts,
             cache,
+            ..
         } => match adopt_stub {
             Some(name) => adopt_stub_card(&root, &name),
+            None if hold_back_reason.is_some() => hold_back::run(
+                &root,
+                &cache,
+                &hold_back,
+                hold_back_file.as_deref(),
+                hold_back_reason
+                    .as_deref()
+                    .expect("selection requires a reason"),
+                check,
+            ),
             None if subtypes => codegen::subtypes(&root, check, &cache),
             None => codegen(&root, check, tables, &scripts, &cache),
         },

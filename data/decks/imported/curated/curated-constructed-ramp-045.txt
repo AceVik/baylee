@@ -1,0 +1,21 @@
+# baylee curated constructed ramp seed=20261068
+# licence: AGPL-3.0-only
+[deck:constructed ramp WB #20261068]
+3 Brightclimb Pathway
+3 Champion of the Parish
+4 Cold Snap
+2 Festering Wound
+1 Haven of the Spirit Dragon
+2 Jasmine Dragon Tea Shop
+3 Krovikan Plague
+3 Mirrodin's Core
+3 Nightshade Harvester
+2 Ob Nixilis, the Fallen
+3 Orcish Bowmasters
+8 Plains
+1 Plaza of Heroes
+4 Royal Decree
+4 Shauku, Endbringer
+3 Sterling Supplier
+7 Swamp
+4 Vampiric Tutor

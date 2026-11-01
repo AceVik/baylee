@@ -164,10 +164,11 @@ struct Args {
 
 const PROFILES: [&str; 5] = ["novice", "casual", "steady", "sharp", "expert"];
 
-/// A net of either encoding.
+/// A net of any supported encoding (v2, v3, or v4).
 enum Net {
     V2(NetPlayer),
     V3(NetPlayer3),
+    V4(Box<baylee_train::netplay4::NetPlayer4>),
 }
 
 impl Net {
@@ -180,6 +181,24 @@ impl Net {
         match self {
             Self::V2(net) => net.answer(view, pending),
             Self::V3(net) => net.answer(view, pending, table),
+            Self::V4(net) => {
+                let a = net.act_detailed(view, pending, table.teams);
+                if a.provenance.source == baylee_train::features4::SourceKind4::House {
+                    Ok(None)
+                } else {
+                    Ok(Some(Answer {
+                        action: a.action,
+                        picks: 1,
+                        value: a.value,
+                    }))
+                }
+            }
+        }
+    }
+
+    fn reset_game(&mut self) {
+        if let Self::V4(net) = self {
+            net.reset_game();
         }
     }
 }
@@ -322,15 +341,25 @@ fn main() -> anyhow::Result<()> {
     let meta: serde_json::Value =
         serde_json::from_slice(&fs::read(args.model.with_extension("onnx.json"))?)
             .context("the export's .onnx.json")?;
-    let glob_width = meta["inputs"]["glob"][1].as_u64().context("glob width")? as usize;
+    let glob_width = meta["inputs"]["glob"][1]
+        .as_u64()
+        .or_else(|| meta["inputs"]["global_feat"][1].as_u64())
+        .unwrap_or(0) as usize;
     // The interface a model is exported against: a net of any size drops
     // in, a net of another encoding or table layout is refused.
     let encoder = meta["encoder_version"]
         .as_u64()
         .context("encoder version")?;
+    anyhow::ensure!(
+        !matches!(encoder, 8 | 9),
+        "Encoders 8 and 9 require versioned offline observation ordering; use eval4, not legacy arena"
+    );
     let known = [
         u64::from(baylee_train::features::ENCODER_VERSION),
         u64::from(baylee_train::features3::VERSION),
+        u64::from(baylee_train::features4::ENCODER_VERSION),
+        u64::from(baylee_train::features7::ENCODER_VERSION7),
+        8,
     ];
     if !known.contains(&encoder) {
         bail!("the model reads encoder v{encoder}; this build writes {known:?}");
@@ -341,7 +370,17 @@ fn main() -> anyhow::Result<()> {
         .iter()
         .filter_map(serde_json::Value::as_str)
         .collect();
-    if outputs != baylee_train::netplay::TABLES {
+    if encoder == u64::from(baylee_train::features4::ENCODER_VERSION)
+        || encoder == u64::from(baylee_train::features7::ENCODER_VERSION7)
+        || encoder == 8
+    {
+        if outputs != baylee_train::netplay4::OUTPUT_NAMES {
+            bail!(
+                "the v4 model's outputs are {outputs:?}; this build reads {:?}",
+                baylee_train::netplay4::OUTPUT_NAMES
+            );
+        }
+    } else if outputs != baylee_train::netplay::TABLES {
         bail!(
             "the model's score tables are {outputs:?}; this build reads {:?}",
             baylee_train::netplay::TABLES
@@ -445,7 +484,12 @@ fn main() -> anyhow::Result<()> {
             Duration::from_secs(args.max_secs),
         );
         std::thread::spawn(move || {
-            let loaded = if encoder == u64::from(baylee_train::features3::VERSION) {
+            let loaded = if encoder == u64::from(baylee_train::features4::ENCODER_VERSION)
+                || encoder == u64::from(baylee_train::features7::ENCODER_VERSION7)
+                || encoder == 8
+            {
+                baylee_train::netplay4::NetPlayer4::load(&model).map(|n| Net::V4(Box::new(n)))
+            } else if encoder == u64::from(baylee_train::features3::VERSION) {
                 match server {
                     Some(server) => NetPlayer3::served(&model, entities, as_profile, server),
                     None => NetPlayer3::load(&model, entities, as_profile),
@@ -494,6 +538,7 @@ fn main() -> anyhow::Result<()> {
                         let net_plays = matches!(role, Role::Net(_));
                         if net_plays {
                             session.take_over(me);
+                            net.reset_game();
                         }
                         // The model's chair: the house plays the seat, and the
                         // questions the model takes are taken over one by one.
@@ -567,10 +612,14 @@ fn main() -> anyhow::Result<()> {
                                 continue;
                             }
                             if let Some((pending, view)) = session.view_for(me) {
-                                // Asked too often in one state, the net has gone
-                                // round a loop of its own answers: the house
-                                // answers there (`netplay3::STALL_VISITS`).
-                                let visits = asked_in.entry(session.snapshot_hash()).or_default();
+                                // Asked too often in one visible state, the net
+                                // has gone round a loop of its own answers: the
+                                // house answers there (`netplay3::STALL_VISITS`).
+                                let visits = asked_in
+                                    .entry(baylee_train::features4::view_only_state_hash(
+                                        &view, &pending,
+                                    ))
+                                    .or_default();
                                 *visits += 1;
                                 let again = *visits > baylee_train::netplay3::STALL_VISITS;
                                 stalls += u64::from(again);

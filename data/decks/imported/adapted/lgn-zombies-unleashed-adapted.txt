@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/LGN/zombies-unleashed.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ZombiesUnleashed_LGN.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Zombies Unleashed (Adapted)]
+2 Barren Moor
+2 Delirium Skeins
+3 Douse in Gloom
+3 Essence Extraction
+3 Feeding Frenzy
+1 Festering Goblin
+4 Howling Fury
+2 Inquisition
+1 Mind Rot
+2 Painful Lesson
+3 Perish
+2 Shepherd of Rot
+3 Smokespew Invoker
+1 Stench of Decay
+23 Swamp
+3 Toxic Deluge
+2 Victimize

@@ -542,7 +542,10 @@ express at all yet.
   matching permanent as an activation cost),
   `PayAttachedManaCost` ( Merseine's "Pay enchanted creature's mana cost":
   adds the attached permanent's printed mana cost to the activation's mana
-  cost).
+  cost),
+  `ExileTopOfLibrary(n)` (Arc-Slogger's "Exile the top ten cards of your
+  library": exiles the top `n` cards of the payer's library; requires at least
+  `n` cards in library).
 
   `CostPart::ExertSelf` exerts the source as an activation cost. It does not
   tap the permanent, require it to be untapped, or impose summoning sickness;
@@ -1059,6 +1062,11 @@ its cousins — the default is `Unlimited`, because CR 602.2 caps an
 activation by nothing but its cost. It is a limit per **permanent** and per
 turn, not per card and not per *your* turn: two Wall of Roots each get their
 own, and a Wall used on your turn is available again on the opponent's.
+`ActivationLimit::PerTurnAmount(amount)` uses the same per-ability,
+per-incarnation tally, but reevaluates its maximum when an activation is
+offered. Losing a counted permanent can close the ability immediately;
+gaining one can permit another use without clearing earlier uses. Zero
+permits none. A control change or phasing does not reset the tally.
 `limit = ActivationLimit::Exhaust` is the separate once-per-ability restriction
 (CR 702.177a). Paying consumes that instance even if resolution is countered.
 A new turn, control change or phasing does not reset it; leaving the battlefield
@@ -1434,6 +1442,13 @@ written twice; one card's own compound filter stays in that card's file,
 where the oracle sentence it encodes is a line above it.
 
 ### Effects (ops)
+
+`Effect::ChooseColors { subject, max, duration }` lets the controller choose
+one to `max` colors during resolution, then replaces the exact subject's
+colors for the duration. `ColorSubject::Source` names the resolving ability's
+source incarnation independently of its targets (Shyft); `Target` names the
+first target, and `Attached` names the source's host. A source that has left
+and returned is a different subject and is not recolored.
 
 **The common ones have a verb**, and the verb is the word the card prints:
 `Effect::draw(1)`, `scry(2)`, `gain_life(3)`, `destroy(t)`,
@@ -1878,9 +1893,15 @@ ZoneRef::Battlefield))`, an `AddCounter` of `counters::AGE`, then
 `PlayerMayPayOr { player: You, mana: Amount::CountersOnSource(counters::AGE),
 effect: &Effect::SacrificeSelf }`. `Amount::CountersOnSource(kind)` reads
 the source's counters as it resolves, after the counter above went on.
+Fading (CR 702.32a) uses `counters::FADE`: `EnterModifier::WithCounters`
+adds the printed number of fade counters, and a `StepBegin { Upkeep, You }`
+trigger uses `IfCondition { condition: Condition::CountersOnSelf(counters::FADE,
+1), then: &[RemoveCounterSelf { kind: counters::FADE, n: 1 }], otherwise:
+&[SacrificeSelf] }`. Removing the last counter does not sacrifice the permanent;
+the upkeep trigger sacrifices it only when no fade counter can be removed.
 Also `AddCounter`, `AddCounterFilter`,
 `DrainAllCountersIntoSelf` (Thief of Blood), `AddMana`,
-`DelayedManaAtNextFirstMain` (Mana Drain), `SacrificeSelf`,
+`DelayedManaAtNextMain` (Mana Drain), `SacrificeSelf`,
 `PayCostOrLoseLater`, `ExileTargetsCreateTokens`.
 Conditional: `IfKicked { then, otherwise }`, `IfEventPowerAtLeast { n, then,
 otherwise }` (Tribute to the World Tree), and four that run `then` or nothing
@@ -1961,6 +1982,30 @@ Modal/sequence: `Sequence(&[..])`.
 `PermanentOfEachTypeFromGraveyard`, `CantBeTargetedBy`, `SetPTToCount`,
 `ModifyPTHalfCount(count)`,
 `ExileInsteadOfYourGraveyard`, `CastSpellsFromGraveyard`.
+
+`Modifier::CantBeRegenerated` is "[these permanents] can't be regenerated"
+(CR 701.19c). It changes the rules of destruction rather than an object's
+abilities, so it is a rule effect. Destruction checks the modifier's current
+filter before offering or spending a regeneration shield; the shield remains
+on the object. With `Filter::DealtDamageBySourceThisTurn`, the prohibition
+applies to the exact current objects that source damaged this turn and
+continues only while the continuous effect applies.
+
+`Modifier::AddSupertype(SupertypeSet)` and
+`Modifier::RemoveSupertype(SupertypeSet)` add or remove only the named
+supertypes in layer 4. Card types, subtypes and other supertypes stay.
+Arcum's Weathervane uses these to add or remove `SupertypeSet::SNOW`; these
+are characteristic changes, so a resolving effect locks its affected set.
+Do not use them to implement gaining or regaining `SupertypeSet::WORLD`:
+the world rule does not yet track how long a permanent has continuously had
+that supertype. Existing printed World permanents use their entry timestamps.
+
+`Filter::NamedBySource` reads a name chosen during the current resolution
+first. `ChooseCardName` supplies that local choice whether or not `remember`
+is set and whether or not the source remains on the battlefield (CR 113.7a,
+608.2d). Without a local choice, the filter reads names remembered by the
+source's current rules acquisition. `remember` controls persistence for
+later abilities, not whether this resolution can use its choice.
 
 `ChosenNameCantActivate` is Pithing Needle's "activated abilities of sources
 with the chosen name can't be activated unless they're mana abilities",
@@ -2076,6 +2121,13 @@ player's permanents, which is the same player every printing of the sentence
 names. It is **not** the way to say "doesn't untap during your *next* untap
 step" — that is a created effect with `Duration::UntilYourNextUntapStep`
 (`Effect::continuous(&Filter::This, Modifier::DoesNotUntap, …)`).
+That duration also binds the restriction to the resolving ability's
+controller: another player who gains control of the permanent untaps it
+normally. For the ability's source independently of its targets, use
+`ModifySource { modifier: DoesNotUntap, duration: UntilYourNextUntapStep }`.
+`SuppressUntap` instead follows the affected permanent's current controller
+and counts that player's actual untap steps; it does not mean "your next
+untap step" after a control change.
 
 `MayChooseNotToUntap` is the other half of the same rule and the storage
 lands' clause: CR 502.3 has the active player *determine* which of their
@@ -2306,9 +2358,18 @@ hashes, layers and does nothing. This paragraph said THREE until
 - **`Modifier::CharacteristicPT { count, toughness_plus }`** is a
   characteristic-defining P/T (layer 7a, CR 613.4a). `count` is a `PtCount`:
   - `YouControl(filter)`
+  - `InAllGraveyards(filter)`: matching cards in every player's graveyard,
+    excluding tokens (Lhurgoyf). This counts cards, while
+    `CardTypesInAllGraveyards` counts distinct card types.
+  - `ChosenPlayerControls(filter)`: matching battlefield permanents the
+    opponent chosen for this incarnation controls (Lost Order of Jarkeld).
+    It is zero without a choice, and updates as that player's board changes.
   - `CardTypesInAllGraveyards`
   - `ExiledWithThis`: the cards in exile exiled with this object as it is now
     (`ExileTargetsWithSource`; a Hearse that left and came back counts none).
+  - `CountersOnThis(kind)`: counters of the named kind on the affected object
+    (Rusting Golem's fade counters), rather than on the source of a granted
+    ability.
 
   Power is the count, and toughness is the count plus `toughness_plus`
   (Pyrogoyf: `+1`). A characteristic-defining ability works in every zone
@@ -2347,7 +2408,10 @@ hashes, layers and does nothing. This paragraph said THREE until
   this resolves: Dragon Whelp's "sacrifice this creature at the beginning
   of the next end step" is `AtNextEndStep { effects:
   &[Effect::SacrificeObject { target: TargetSpec::EventObject }] }`, and a
-  Whelp that left and came back is not sacrificed.
+  Whelp that left and came back is not sacrificed. A source's own departure
+  trigger can instead retain its exact public-zone successor (CR 400.7e),
+  such as its card in the graveyard after dying. Leaving that zone and
+  returning before or after the delay is created does not renew the link.
 - **`Effect::AtEndOfCombat { about, effects }`** is "[effects] at end of
   combat", a delayed trigger (CR 603.7) with this ability's source and
   controller that triggers as the next end of combat step begins
@@ -2430,7 +2494,8 @@ Effects:
 - **`Effect::DealDamageDivided { amount }`** announces a distribution before
   a spell's costs are paid (CR 601.2d), or as a triggered ability is put on
   the stack (603.3d). `DivisionAmount::Fixed(n)` supplies a printed total;
-  `XDoubleFrom(threshold)` supplies X, doubled when the announced X reaches
+  `DivisionAmount::XPlus(offset)` supplies X plus the fixed offset, saturating
+  on overflow; `XDoubleFrom(threshold)` supplies X, doubled when the announced X reaches
   the threshold. Each chosen target gets at least one; target-count offers
   respect the available total, including X = 0. Zero targets ask no question.
   `NumberPrompt::DivideDamage` identifies an exact object or a player. The
@@ -2467,6 +2532,12 @@ Effects:
   only. "Destroy … It can't be regenerated" is `destroy_no_regen`, not
   this. The reader writes it from an `Effect` whose one static is
   `CantRegenerate` on what it remembers, the line's target.
+- **`Effect::DamagedThisWayCantBeRegenerated`** is "creatures dealt damage
+  this way can't be regenerated this turn". It marks the exact creature
+  recipients of positive damage actually dealt by the resolving source in
+  this resolution, after prevention and redirection. It does not mark a
+  prevented target, another source's damage, or a later incarnation of a
+  recipient, and its prohibition expires at cleanup.
 - **`Effect::GraveyardAllToHand { filter }`** (Garna, the Bloodflame)
   returns every matching card in your graveyard. Nothing is targeted.
 
@@ -2496,6 +2567,13 @@ Triggers, reflexive events and amounts:
   damage" (Fungusaur). All combat damage in a step is dealt at once
   (CR 510.2), so a creature blocked by three triggers it once (CR 603.2c);
   every other damage event triggers it once, and prevented damage never.
+  `TargetSpec::EventObject` is the damaged permanent's event incarnation;
+  `Amount::EventAmount` is the damage it received, summed across sources
+  for simultaneous combat damage and retained even when that damage kills it.
+- **`Trigger::DealtCombatDamage(filter)`** is the combat-only form of
+  `DealtDamage` (Pious Warrior). It fires once per damaged permanent for a
+  step's combat damage, with the same event object and summed
+  `Amount::EventAmount`; noncombat and fully prevented damage do not trigger it.
 - **`Trigger::PlayerDealtDamage(rel)`** is "whenever you're dealt damage"
   (Living Artifact, Lich), the player's side of `DealtDamage`: once for a
   step's combat damage to that player and once for every other damage
@@ -3227,6 +3305,15 @@ solver. `Effect::DealDamageWithCappedLifeGain` gains the actual damage dealt,
 capped by the recipient's pre-damage life or loyalty, or its current toughness
 after damage and prevention have been processed. Prevented damage gains nothing.
 
+`FaceDef::x_mana_colors: Option<ColorSet>` admits a set of actual mana colors
+for X. When present it takes precedence over the singular `x_mana_color`;
+neither spelling converts mana or restricts the fixed and additional costs.
+Only the unreduced X component needs those colors, and a cast without paying
+its mana cost has no restricted X payment. `Amount::ManaTypeSpentOnX(ManaColor)`
+reads the actual units of that type allocated to this cast's X component,
+excluding fixed, additional and increased costs. It returns zero without a
+recorded payment; the mana spent on fixed costs is not a substitute.
+
 Spell copies and retargeting share one choice path. Retaining a target is an
 empty answer; newly chosen targets must be legal. Independent target groups
 stay separate, swaps within a group are permitted, and division amounts move
@@ -3461,6 +3548,9 @@ is not copiable and expires on departure or cleanup (CR 702.171b).
 `BlockableWithoutLandwalk(keywords)` ignores the named basic landwalk abilities
 only for blocking. It neither removes the abilities nor overrides other evasion.
 Text changes map the land-type words in the keyword mask as usual.
+`Modifier::BlockableWithoutAnyLandwalk` extends this permission to every
+landwalk kind, including `LandwalkMatching` and a chosen subtype. It leaves
+the abilities present and leaves other blocking restrictions in force.
 `IgnoreOpponentsHexproof` permits only the effect controller's spells and
 abilities to target their opponents and their opponents' creatures through
 hexproof. It is a continuing rules permission: new creatures are included,
@@ -3759,6 +3849,7 @@ is 0.
 | `DamageDealt` | damage the resolving source dealt (after prevention) | Syphon Soul |
 | `DamageDealtToYou` | the part of it dealt to the controller | Mishra's War Machine |
 | `Died(&Filter)` | permanents put into a graveyard from the battlefield that matched the filter as they left | Hellfire |
+| `Destroyed(&Filter)` | matching permanents successfully destroyed by this resolution, including destruction moved to exile by a replacement; regeneration and indestructible do not count | Multani's Decree |
 | `ReturnedToHand(&Filter)` | permanents returned from the battlefield to a hand, matched as they left (`Filter::Another` excludes the source) | Arid Archway |
 | `Discarded` | cards discarded | Recall |
 | `Milled(&Filter)` | cards milled (CR 701.17a) that match the filter in the graveyard | Grist, the Hunger Tide |
@@ -3784,6 +3875,11 @@ Effect::IfCondition {
 
 `Condition::AmountAtLeast` inside `Effect::IfCondition` reads the amount
 through the resolution, so every resolution-only amount works there.
+`Destroyed` matches the permanent's characteristics before destruction. It
+differs from `Died`: a destination replacement can preserve a successful
+destruction without putting the permanent into a graveyard. Count the receipts
+in one `GainLife` instruction when the card says "gain 2 life for each";
+running one gain per destroyed permanent creates extra life-gain events.
 
 `Amount::ThisWay` counts every player's part. `Amount::ThisWayBy { what, who }`
 counts only the part of the players `who` names (whose cards, whose
@@ -3906,6 +4002,10 @@ else does it match anything.
 
 Filters:
 
+- `Filter::Blocked` — an attacking creature that became blocked this combat
+  (CR 509.1h), even after its blockers leave combat. It is false before
+  blockers are declared and after the attacker leaves combat. The filter macro
+  spells it `f!(blocked CREATURE)` (Warpath).
 - `Filter::Reference` — the reference object itself.
 - `Filter::BlockingReference` — blocking the reference object now (Feint:
   `Effect::TapAll { filter: &Filter::BlockingReference }`).
@@ -3928,6 +4028,11 @@ Filters:
 - `Filter::DealtDamageToSourceThisTurn` — dealt damage this turn to the
   source, as the object that dealt it (Brine Hag's dies trigger: "all
   creatures that dealt damage to it this turn").
+- `Filter::DealtDamageBySourceThisTurn` — was dealt positive damage this
+  turn by the source, after prevention and redirection. Both source and
+  recipient are the exact incarnations recorded by the damage event; a
+  returned permanent is a new object. Damage history is engine state, so
+  public-view readers answer unknown rather than infer it from marked damage.
 - `Filter::BlockingSource` / `BlockedBySource` now also answer for a source
   that has left the battlefield, as it last existed (Abu Ja'far:
   `Trigger::Dies(&Filter::This)` →
@@ -4149,4 +4254,497 @@ Effects:
   printed or Layer 6 granted cumulative upkeep triggered ability (CR 702.24a;
   Balduvian Shaman's "that doesn't have cumulative upkeep").
 
+### Dynamic conditions and exact-object instructions
 
+`Condition::AmountIsEven(amount)` tests the evaluated magnitude, with zero
+even; `Condition::Not` supplies the odd branch. Choose whether to test it
+when a trigger fires, as an intervening condition, or inside a resolving
+`IfCondition`: those are different timing contracts.
+
+`Amount::LifeTotal(player)` reads the first player named by the relation,
+floored at zero. `Amount::Divided { base, divisor: NonZeroU32, round_up }`
+divides a magnitude by a positive integer; `round_up: false` rounds down.
+`Amount::divided(&base, divisor, round_up)` is the const constructor and
+rejects a zero divisor.
+`Effect::DiscardAmountForPlayers { who, amount }` and
+`Effect::SacrificeAmountForPlayers { who, filter, amount }` evaluate the
+number separately for each named player as their instruction begins.
+`PlayerRel::Recipient` inside the amount names that player. They gather
+choices in APNAP order before moving any cards or sacrificing any permanents;
+each player chooses from their own hand or matching permanents. A player with
+fewer eligible objects supplies all they have. Separate instructions in a
+sequence read the state left by earlier instructions.
+
+`Condition::ChosenColorIsUniqueMostCommon(&filter)` counts the colors of
+matching battlefield permanents controlled by the source's entry-chosen
+opponent. Each multicolored permanent contributes to every color it has;
+colorless permanents contribute none. The chosen color must occur at least
+once and strictly exceed each other color. A tie, missing choice or departed
+chosen opponent makes it false. The filter scopes the whole population
+(for example, nontoken permanents), not just permanents of the chosen color.
+Combine its negation with `Trigger::State` for a state-triggered consequence.
+
+`Modifier::ModifyPTByAmount { power, toughness }` evaluates independent signed
+`Amount`s relative to the continuous effect's source and controller in layer
+7c. It can read that source's counters without using the affected creature's
+counters. `Amount::is_negative` supplies each sign; magnitudes and the final
+P/T adjustments saturate at the engine's representable bounds.
+
+`Effect::ReanimateEnchantedTapped` has `ReanimateEnchanted`'s changed enchant
+ability, return, reattachment and independent leave-trigger semantics, with
+the returned creature entering tapped. It uses the ordinary entry pipeline;
+attachment follows completion of entry replacements.
+
+`Modifier::ExileInsteadOfLeavingBattlefield` changes an affected permanent's
+non-exile battlefield departure into exile under its owner's ownership.
+It covers hand, library and graveyard destinations; a move already into
+exile is unchanged. A resolving continuous effect can bind it to one exact
+incarnation, so a returned permanent does not inherit the old restriction.
+
+#### Independent delayed observers
+
+`Effect::CreateDelayedObserver { watch, when, about, effects }` resolves
+`watch: TargetSpec` and `about: TargetSpec` separately. Both must identify
+current battlefield objects at registration; their exact incarnations are
+retained. Registration creates no target requirement of its own.
+`DelayedObservation::LeavesBattlefieldOrUntaps` watches either future event;
+`DelayedObservation::YouLoseControl` watches the registering controller's
+future loss of control, including departure while that player controls it.
+Earlier events do not count. The watch ends with that incarnation's first
+departure and never follows a returned permanent.
+
+The resulting one-shot delayed trigger is independent of later ability loss
+or departure of the source that created it. Its controller remains the
+registering ability's controller. In `effects`, `TargetSpec::EventObject`
+names `about`, not `watch` or the original target list. Ordinary incarnation
+checks still apply if the affected object has since left. These instructions
+are delayed effects, not immediate effects on the watched object.
+
+#### Landwalk choices, blocking and damage
+
+`Effect::ChooseLandwalk { lands, target, basic_only, duration }` fixes its recipient
+incarnations before offering the subtype choice. `basic_only: true` offers
+the five basic land types; `false` offers the generated land-subtype catalog.
+The existing `ChooseSourceLandwalk { duration }` is the source-only, basic
+choice. A chosen basic type with `lands: &Filter::Any` grants its ordinary
+keyword; otherwise the grant uses `Modifier::LandwalkOfSubtype { subtype, lands }`. A subtype selected during
+resolution is not a printed word for text-change effects to replace.
+Only recipients still on the battlefield as the same objects receive the
+grant, for the supplied duration. `lands` adds a condition on the defending
+player's land: `Filter::Any` permits ordinary landwalk, while a snow filter
+requires that land to be snow as well as have the chosen subtype.
+
+`Effect::ExchangeBlockersOfTargetAttackers` reads the first two object
+targets, including a second independently announced group. It exchanges
+their existing blocking assignments only when the resulting blocks satisfy
+pairwise restrictions and blocker-count bounds. A creature blocking both
+continues blocking both. No blocker is declared anew; existing blocked
+status persists even if an attacker loses every blocker.
+
+`Effect::PreventNextDamageFromSource { to, combat_only }` fixes this ability's
+source incarnation and the players named by `to` as it resolves. For each
+player it prevents the source's next qualifying damage event this turn,
+not a fixed number of damage points. `combat_only` narrows the qualifying
+event; the source's other incarnations and other sources remain independent.
+
+`Effect::RedirectCombatDamageToYouThisTurn { by, to }` redirects only combat
+damage that would be dealt to the resolving controller. It evaluates the
+source filter `by` when damage occurs. `DamageRedirectTo::ThisObject` or
+`Target(spec)` fixes an exact permanent destination on resolution;
+`DamagingSourceController` instead names each damage source's controller.
+The redirection lasts through this turn and does not affect noncombat damage
+or damage to other players. Normal prevention and redirection ordering still
+applies.
+
+`Modifier::AttacksAloneOnly` forbids declaring any other attacker alongside
+an affected creature. `Pending::ChooseAttackers.alone` lists every offered
+creature with this restriction, including optional attackers. `required`
+contains all individually eligible cost-free mandatory attackers;
+`minimum_required: Some(n)` states how many of those requirements a legal
+declaration must satisfy together. A missing value retains the legacy
+requirement to attack with every `required` creature. In particular, two
+mandatory solo attackers are alternatives when the maximum satisfiable
+count is one. Defender limits continue to apply to each declared attacker.
+
+#### Private choices and public card movement
+
+`Effect::LookAtRandomFromHand { who, count }` privately shows the resolving
+controller a seeded random subset of one player's hand. Cards remain in
+their original hand order and are neither revealed publicly nor discarded.
+`Effect::LookHandDiscard { player, count, filter }` privately shows that
+player's entire hand to the resolving controller, who chooses matching cards
+for its owner to discard. The count is limited by the matching cards;
+an empty selectable subset still permits inspection of the whole hand.
+Both instructions use a single player, the first player their relation
+resolves to. Temporary inspection access ends with the decision.
+
+`Effect::LookAtTopPickThenReorder { count, pick }` privately inspects the
+controller's top cards, puts exactly `pick` into their hand (or all inspected
+cards if fewer), then lets that controller order the rest on top.
+`Effect::LookAtTopExileRandom { count, exile }` inspects up to `count` top
+cards, exiles a seeded random subset of size `exile` (or all if fewer), and
+lets the controller order the remainder on top. Exile is public; inspection
+and ordering do not reveal the remainder to other players.
+`Effect::PutFromHandOnTopFor { player, count }` instead lets the named hand's
+owner choose and order that many cards onto their own library, or their
+whole hand if smaller. It resolves one player, not every player of a plural
+relation. These instructions use the ordinary movement-replacement paths.
+
+`SearchDest::Exile` and `Find::EXILE` put a found card into public exile under
+its owner's ownership. They add a destination to the existing search and
+top-card instructions, not permission to play the exiled card.
+`Effect::ExileTop { who, count }` moves up to that many top cards from every
+library named by `who` into public exile; it does not emit a prior reveal.
+
+`Effect::RevealUntilNamed { player, matched, otherwise }` reveals down one
+player's library until the first card matching the current resolution's
+chosen name, moving misses to `otherwise` and the match to `matched`.
+With no match it processes the remaining library. `Effect::RevealTopByNameThen
+{ player, matched, otherwise, otherwise_effects }` processes only the top
+card and runs `otherwise_effects` for a mismatch, even if replacement changes
+its destination. An empty library runs neither branch. These effects read
+the name chosen in this resolution and use `SearchDest` destinations; they
+do not themselves choose a name or draw a card.
+
+`PlayWindow::UntilYourNextUpkeep` expires when the benefiting player's next
+actual upkeep begins, before upkeep triggers. A skipped upkeep does not
+expire it. The permission otherwise retains its ordinary casting, payment
+and land-play restrictions; it grants no instant-speed timing.
+
+#### Draw identity and draw replacements
+
+`Effect::DrawThenDiscardDrawn { draw, discard }` completes replacement-aware
+individual draws, then discards only cards actually drawn by this instruction
+that remain the same hand incarnations. The instruction-draw ledger is
+separate from the complete per-turn draw ledger: only original draws of this
+instruction register their exact hand incarnations here. Existing hand cards,
+replacement draws, and cards a replacement put into hand are ineligible. If fewer than `discard` eligible
+cards remain, it discards all of them. Discard choices are gathered before
+the cards move; the draws still generate their ordinary draw events.
+
+`Effect::ExileTopFaceDownUntilYourNextEndStep` exiles the controller's top
+library card unseen and schedules an independent one-shot return to its
+owner's hand at the controller's next end step. Nobody receives permission
+to inspect it from this instruction. The return retains the exact exile
+incarnation and does not follow a card that left and returned to exile.
+`Effect::ExileDiscardedCardFromYourGraveyard` instead reads the discard
+trigger's exact successor: it exiles that card only while the same object
+remains in the resolving controller's graveyard. Neither movement is a draw.
+
+`Modifier::RevealYourHand` publicly reveals only the continuous effect's
+controller's hand; `RevealAllHands` retains its all-player scope.
+`ReplacementRule::RevealDrawPutMatchingInGraveyard(&filter)` applies to that
+replacement's controller's draws. It reveals the would-be top card, puts a
+match into its owner's graveyard instead of drawing it, and otherwise lets
+the draw continue through its remaining replacements.
+`ReplacementRule::RevealDrawOthersMayPayLife(life)` applies to every player's
+draws: reveal the top card, then offer the other eligible players the life
+payment in APNAP order. The first payment puts that exact card into its
+owner's graveyard instead; if nobody pays, the draw continues. Each source
+applies at most once to a given draw. Reveal and replacement do not create
+an extra draw or suppress the other applicable draw replacements.
+
+
+
+#### Ordered land choices and computed reductions
+
+`EnterModifier::ChooseTwoBasicLandTypes` asks two ordered subtype questions;
+each offers all five basic land types, so choosing the same type twice is
+legal. The first is the source's ordinary chosen subtype and can select
+lands through `Filter::MatchesChosenTypeOfSource`. The second belongs to
+that source incarnation and is read by `Modifier::SetLandTypeToSecondChosen`.
+Like `SetLandType`, this sets a basic land type under the existing type and
+printed-ability replacement rules. `Modifier::AddChosenBasicLandType` instead
+adds the first chosen basic type while retaining other types and rules.
+
+`PtCount::ControllerOrDefenderControls(&Filter)` counts matching permanents
+controlled by the affected object's controller while it is not attacking;
+while attacking it uses that object's actual defending player, including
+the controller of a planeswalker or battle it attacks. It does not read the
+static ability's source as the attacker.
+`Modifier::ReducePTByCount { count, minimum_toughness }` subtracts this dynamic
+count from power and toughness in layer 7c. Its optional toughness bound
+belongs to this effect at its timestamp; subsequent modifiers can reduce
+toughness below the bound.
+
+#### Mixed prices, untap replacements and life-loss events
+
+`Effect::PlayerMayPayManaAndLifeEachThenElse { player, mana, life, times,
+paid, unpaid }` evaluates the repetition count on resolution and offers the
+combined repeated mana and life price as one optional payment. Payment must
+complete both components before `paid` runs; refusal or inability runs
+`unpaid`. `YesNoPrompt::PayManaAndLife { cost, life }` presents that complete
+price, with a `u32` life component, in a single decision.
+
+`Modifier::RemoveCountersInsteadOfUntapping(CounterKind)` replaces an
+ordinary untap with removal of that kind's counters. When multiple untap
+replacements apply, `YesNoPrompt::RemoveCountersInsteadOfUntapping {
+permanent, kind, count }` lets the affected player select one replacement.
+Declining advances to another applicable replacement; it never grants a
+free untap, and the last applicable replacement is mandatory.
+`Trigger::LosesLife(PlayerRel)` observes actual life lost by the named
+players, including life payment and damage that causes life loss. It does
+not count prevented damage, zero loss, or life-total changes that gain life.
+
+#### Destruction receipts and separately announced target groups
+
+`Effect::DestroyAllThenForEachDestroyed { filter, no_regen, effects }`
+destroys matching permanents, then runs its child instructions once per
+successful destruction. Each child binds the captured pre-destruction
+controller as `PlayerRel::EventPlayer` and the destroyed exact battlefield
+incarnation as `TargetSpec::EventObject`. A destruction moved to exile by a
+replacement still counts as destruction; a regenerated or indestructible
+permanent does not. The movement uses `Cause::Destroy`.
+
+`Effect::DestroyTargetSlots { targets: &[TargetSlot], no_regen }` destroys
+all permanents in the selected separately announced groups simultaneously.
+`First` and `Second` select their respective groups; `This` selects the exact
+source incarnation. Repeated permanents are deduplicated, and destruction
+finishes for the selected set before state-based actions. It does not reuse
+an unselected group's surviving targets.
+`PlayerRel::SecondTargetPlayerOrController` reads a targeted player or a
+targeted permanent's controller from the second group.
+`ZoneSel::GraveyardOf(PlayerRel)` selects the graveyards of the players that
+relation names at resolution. Neither selector adds an announcement or
+chooses a player itself.
+
+`Effect::DealDamageWithLimitedLifeGain { amount, life_limit }` uses the
+existing damage-and-life-gain path with both the recipient's pre-damage
+life/loyalty/toughness cap and the independently evaluated `life_limit`.
+The limit is fixed before damage; actual damage and prevention still govern
+the resulting gain. `Amount::ManaTypeSpentOnX(ManaColor)` can supply a cap
+based only on that color of mana spent toward X, excluding fixed costs.
+
+`Modifier::SkipDrawStep { who }` replaces the entire draw step; explicit draw
+instructions at other times still work. Face-down exile alone grants no
+inspection rights even to the exiled card's owner. The independent return
+for `ExileTopFaceDownUntilYourNextEndStep` uses the registering controller's
+`DelayedWhen::NextYourEndStep` and keeps the exact exiled `TriggerAbout`.
+
+#### Event iteration, conditional grants and directed choices
+
+`Effect::ForEachTarget { effects }` runs the child instructions separately
+for each surviving exact target, binding that object as `EventObject` and
+its controller as `EventPlayer`.
+`Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { effects }` instead
+iterates the exact still-present graveyard successors of creatures damaged
+by this source incarnation that died this turn. A card that left and returned
+to its graveyard is not the original successor.
+`Effect::GrantTriggeredIfAbsent { target, trigger, effects, duration }` grants
+a non-targeting triggered ability to each current battlefield recipient only
+when that same triggered ability is absent from its effective printed and
+granted abilities. The grant binds the recipient's current incarnation.
+
+`Effect::WheneverCombatEventThisTurn { event, filter, this_combat_only,
+targets, effects }` creates a recurring observer for future combat events.
+`CombatWatchEvent::Blocks` observes a creature becoming a blocker once per
+declaration, rather than once per blocked pair. `AttacksAndIsntBlocked`
+observes an attacker becoming unblocked after blocker declaration. The
+filter is read at the event, and each resulting trigger announces its own
+optional `TargetReq`. The observer ends at combat end when
+`this_combat_only` is true, otherwise at cleanup.
+
+`Condition::SourceBlockedOrWasBlockedSinceYourLastUpkeep` reads this source
+incarnation's combat history since the controller's previous upkeep.
+`CreatureDamagedBySourceDiedThisTurn` reads the current turn's source-specific
+damage/death history. `SomeDefendingPlayerControlsNone(&Filter)` succeeds
+when an eligible defending player controls no matching permanent.
+`Duration::UntilStartOfAffectedNextUntap` ends before untap determination in
+the affected incarnation's current controller's next actual untap step.
+
+`Effect::PlayerMayGainControl { player, filter, duration }` gives the named
+player an optional choice of a matching permanent and control of that chosen
+incarnation for the supplied duration. The filter is evaluated relative to
+the resolving ability's controller. `Effect::SacrificeNOrElse { filter,
+count, otherwise }` sacrifices that many of the resolving player's matching
+permanents, or all available if fewer; only an incomplete sacrifice runs
+`otherwise`.
+
+`Effect::ChooseSourceColor` records a resolution-chosen color on the source
+without changing its colors. `Modifier::PlayersCantCast { who, filter }`
+checks the actual casting player against `who` and the spell against `filter`,
+independently of the card's owner or controller.
+`Effect::DealDamageWithoutPreventionOrRedirection { amount, target,
+recipients }` restricts prevention and redirection for matching current damage
+recipients, rereading `recipients` after redirection.
+`Effect::PreventNextDamageToAttached { amount }` creates a finite shield
+through cleanup on this Aura's exact enchanted permanent without targeting.
+
+`Effect::PutHandOnTop { player }` lets that hand's owner order their whole
+hand onto their library. `Effect::SearchLibraryFor { library, receiver,
+count, filter, find, optional }` lets the resolving controller search the
+named library for up to the computed count, delivering cards according to
+`find` to the separately named receiver. It reads the maximum once at search
+start. Qualified searches retain the ordinary ability to fail to find;
+`optional` controls choosing fewer in an unrestricted search.
+`Effect::RechooseGraveyardCard { owner, chooser, cost }` gives `chooser` a
+non-targeted graveyard-card choice; the resolving controller may pay `cost`
+for another pass that excludes previous exact selections. The final chosen
+card is returned to `owner`.
+
+`Effect::AnyPlayerMayPayManaOr { cost, effects }` offers the full price to
+each player in APNAP order. The first complete payment stops the instruction;
+if nobody pays, `effects` runs.
+`Effect::FlipCoinLifeExchangeRepeat { opponent, initial, multiplier }` flips
+for opposite life gain and loss between the controller and `opponent`. The
+winner may repeat with the stake multiplied by `multiplier`; the contest
+remains one resolving instruction, including any replacement decisions
+between life changes.
+
+`FaceDef::entwine` (`entwine = Some(cost)` in `face!(…)`) adds an entwine
+cost (CR 702.42) to a modal spell with `ModeCount::ONE`, allowing the caster
+to choose all modes by paying the additional mana and/or non-mana cost parts.
+`Modifier::EquipCostsLess(n)` reduces generic mana in equip costs of matching
+Equipment by `n` (minimum `{0}`). `Modifier::CantActivateNonMana` prevents
+activating non-mana activated abilities of matching permanents.
+`Modifier::CopyLastExiledCreaturePTAndSubtypes` copies the power, toughness,
+and creature subtypes of the last creature card exiled with the source in
+layers 4 and 7b while retaining `Shapeshifter`.
+
+`Trigger::EnchantedBecomesTarget` fires when the permanent enchanted by the
+source Aura becomes the target of a spell or ability, recording that spell or
+ability's controller as `EventPlayer`. `Filter::CmcEqualsCountersOnSource(k)`
+matches objects whose mana value equals the number of `k` counters on the
+source; `Filter::LowestManaValueOnBattlefield(f)` matches battlefield
+permanents satisfying `f` with the minimum mana value among all such
+permanents; `Filter::SameNameAsLinkedExile` matches objects sharing a name
+with a card exiled with the source; `Filter::CmcEqualsYourUnspentMana`
+matches objects whose mana value equals the controller's unspent mana pool
+total.
+
+`Effect::PreventNextDamageFromTarget { gain_life }` prevents all damage the
+first target creature would deal the next time it would deal damage this
+turn, optionally gaining life equal to the damage prevented.
+`Effect::TargetPlayersCreaturesDontUntapNextUntap` prevents creatures the
+target player controls from untapping during that player's next untap step.
+`Effect::AddManaAmountFor { who, color, amount }` adds `amount` of `color`
+mana for each matching player. `Effect::ExchangeControlOfEventAndTarget`
+exchanges control of the triggering event permanent and the first target
+permanent. `Effect::UnattachAllEquipmentFromTarget` unattaches all Equipment
+from the first target creature. `Effect::ChoosePhaseToSkipThisTurn` asks the
+event player to choose draw step, main phase, or combat phase and skips each
+instance of the chosen step or phase this turn.
+`Effect::FlipCoinsUntilLossOrStopCumulative` flips coins until a loss (no
+effect) or the controller stops, applying cumulative 1/2/3-win effects.
+`Effect::AttachedGainControlBy { new_controller }` grants indefinite control
+of the enchanted permanent to `new_controller`.
+`Effect::RevealTopPlayerMayPutOntoBattlefield { player, filter }` reveals the
+named player's top library card and lets that player put it onto the
+battlefield if it matches `filter`.
+`Effect::RevealUntilLandDealDamage { target }` reveals cards from the top of
+the controller's library until a land card is revealed, deals damage equal to
+the number of nonland cards revealed (doubled if the land is a Mountain) to
+`target`, and puts the revealed cards on the bottom of the library in any
+order.
+
+### Pieces added for Mirrodin batch 2 (30.10.2026)
+
+Each entry is the sentence the piece states; the card that needed it is in
+brackets. Read them as vocabulary, not as card text.
+
+**Controlling a player.** `Effect::ControlPlayerNextTurn { player }`
+[Mindslaver] gives the resolving controller control of each player of
+`player` during the next turn that player actually takes (CR 722.1). It
+waits through every turn somebody else takes, extra turns among them, and
+through a turn of theirs that is skipped (CR 722.1b); it covers that whole
+turn and ends as the next turn begins, whoever takes it. Of several on one
+player the last created works (CR 722.1a). It ends at once when either
+player leaves the game. It is not `Effect::ControlPlayerPlayCard` (Word of
+Command), which controls one instructed play.
+
+**Coin flips.** `Modifier::FlipTwoCoinsIgnoreOne` [Krark's Thumb] is a
+replacement (CR 614.1a): whenever the effect's controller would flip a coin,
+they flip one more for each such effect they control and choose which
+results to ignore until one is left. Every coin is journaled; the
+instruction that flipped (a branch, a damage contest, a life contest)
+goes on once, from the result kept.
+
+**Triggers and conditions.** `Trigger::BecomesUntapped(&Filter)` [Mesmeric
+Orb] fires when a matching permanent becomes untapped, by any cause but the
+reversal of an undone payment (CR 732.1); the permanent is the event object,
+so `PlayerRel::ControllerOfEvent` is its controller.
+`Condition::HandSizeAtTurnStartAtMost(n)` [Mindstorm Crown] holds when the
+active player had at most `n` cards in hand as this turn began, before any
+turn-based action or trigger.
+
+**What a resolution did (`Amount::ThisWay`).** `ThisWay::DiscardedMatching(f)`
+[Lumengrid Augur] counts cards discarded earlier in this resolution that
+match `f` as they are in the graveyard. `ThisWay::ExiledFromLibrary(f)` [Myr
+Incubator] counts cards moved from a library to exile earlier in this
+resolution that match `f` as they are in exile. `ThisWay::CountersRemoved(k)`
+[Lightning Coils] counts the `k` counters removed from the resolving source
+earlier in this resolution, actual reductions only.
+
+**Players and filters.** `PlayerRel::LeastLifeOrTied` [Loxodon Peacekeeper]
+is every player still in the game with the least life or tied for it, read
+as the effect resolves; nothing is targeted.
+`Filter::SharesColorWithExiledWithSource` [Mourner's Shield] matches an
+object that shares at least one color with a card exiled with the source
+(CR 406.6).
+
+**Statics.** `Modifier::SpellsCostMorePerControlled(&Filter)` [Hum of the
+Radix] makes each spell the static's filter matches cost {1} more for each
+permanent its caster controls that matches the inner filter, counted for
+that caster when they cast it. `Modifier::NamedPlayersCantLose(rel)` and
+`Modifier::PlayersCantWin(rel)` [Platinum Angel] say the players of `rel`,
+read from the effect's controller, can't lose the game and can't win it;
+a concession is still a loss (CR 104.3a).
+`Modifier::ProtectionFromExiledWithSourceTypes` [Mirror Golem] gives
+protection from each card type among the cards exiled with the effect's
+source, read from exile as it is now (CR 702.16).
+`Modifier::CantAttackUnlessPayManaPerCounter(k)` and
+`Modifier::CantBlockUnlessPayManaPerCounter(k)` [Myr Prototype] make the
+creature cost {1} per `k` counter on it to attack or to block. It is offered
+only when its controller could pay, from the pool or by the mana abilities a
+payment window would offer, and the declaration opens that window when the
+pool falls short (CR 508.1i, 509.1e). A requirement asks nothing of it: its
+controller is never obliged to pay (CR 508.1d, 509.1c), so neither a lure
+nor "attacks each combat" is broken by leaving it home.
+
+**Effects.**
+`Effect::ChooseDamageSourcePreventAllThisTurnMatching(&Filter)` [Mourner's
+Shield] is `Effect::ChooseDamageSourcePreventAllThisTurn` with the choice
+limited to sources matching the filter; with none, nothing happens.
+`Effect::PutTargetOnTopOfLibrary` [Looming Hoverguard] puts each target on
+top of its owner's library, the sibling of `PutTargetOnBottomOfLibrary`
+(a commander may go to the command zone instead, CR 903.9b).
+
+`Effect::GuessChosenNameInHand { who, guesser }`, `Effect::RevealHandForGuess`
+and `Effect::DrawIfGuessWrong` [Liar's Pendulum] are one sentence in three
+steps, after an `Effect::ChooseCardName`: `guesser` says (yes or no) whether
+the named card is in the hand of `who`, without seeing it; the resolving
+controller may reveal that hand (`RevealHandForGuess`, usually inside
+`Effect::MayDo`); and `DrawIfGuessWrong` draws a card only if the hand was
+revealed and the guess was wrong.
+
+`Effect::AtNextEndStepForCreatedTokens { effects }` [Lightning Coils]
+registers, for each token created earlier in this resolution and still on
+the battlefield, its own delayed trigger at the next end step (CR 603.7)
+whose `effects` read that exact token as `EventObject`.
+
+`Effect::RevealLibrarySearch { filter, optional }` and
+`Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { who, amount }` [Grim
+Reminder]: search your library for one card matching `filter` and reveal
+it, moving nothing and shuffling nothing (a separate `ShuffleLibrary`
+does). A search for a stated quality may find nothing (CR 701.23b); only a
+search for any card at all with `optional: false` must find one. Then each
+player of `who` who cast a spell this turn with the name of a card revealed
+earlier in this resolution loses `amount` life, once.
+
+`Effect::ExileChosenFromHandWithSource(&Filter)` and
+`Effect::MayCopyCastLinkedExile` [Isochron Scepter]: the controller chooses
+one matching card from their hand, if one matches, and exiles it linked to
+the source (CR 406.6, 607.2a; wrap it in `MayDo` for "you may"); later the
+controller may copy the card exiled with the source and cast the copy
+without paying its mana cost (CR 707.12), the card staying in exile.
+
+`Effect::ModifyFilter { filter, controlled_by, modifier, duration }` [Incite
+War] applies one continuous `modifier` for `duration` to the objects matching
+`filter` as it resolves, narrowed to the permanents of the players of
+`controlled_by` when it names one; the set is fixed then (CR 611.2c).
+`Filter::This` there is the instruction's subject (its object target, or its
+source when it targets nothing) and nothing when that subject is gone.
+
+`Effect::RemoveAllCountersFilter { filter, kind }` [Oblivion Stone] removes
+every `kind` counter from each permanent matching `filter`, read from the
+controller. `counters::FATE` is the fate counter it removes.

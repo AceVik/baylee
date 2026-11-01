@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/TMT/leonardo.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Leonardo_TMT.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Leonardo (Adapted)]
+4 Arrows of Justice
+3 Double Cleave
+2 EPF Point Squad
+2 East Wind Avatar
+4 Energy Bolt
+2 Frontline Rush
+1 Hamato Guardian Stance
+4 Lightning Helix
+1 Make Your Move
+4 Martial Glory
+2 Mechanized Ninja Cavalry
+1 Mighty Mutanimals
+24 Plains
+4 Spirit Summoning
+2 Warleader's Helix

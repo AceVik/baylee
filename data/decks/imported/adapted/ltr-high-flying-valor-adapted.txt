@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/LTR/high-flying-valor.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, HighFlyingValor_LTR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:High-Flying Valor (Adapted)]
+4 Absorb
+2 Aeronaut Cavalry
+4 Daring Leap
+1 Dramatic Rescue
+2 Elspeth's Smite
+4 Energy Arc
+1 Fortified Beachhead
+4 Idyllic Beachfront
+6 Island
+1 Mass Production
+4 Offering to Asha
+4 Ojutai's Command
+10 Plains
+2 Resolute Reinforcements
+1 Siege Veteran
+4 Sphinx's Revelation
+4 Tranquil Cove
+2 Yotian Tactician

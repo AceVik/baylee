@@ -17,16 +17,29 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
-  # Where a client signed in to no gateway sends reports (docs/feedback.md
+  # The feedback service a client knows: the offline count, and reports
+  # signed in nowhere when no report address is set (docs/feedback.md
   # §"Straight from a client"); a repository variable, unset = off.
   BAYLEE_FEEDBACK_PUBLIC_URL: ${{ vars.BAYLEE_FEEDBACK_PUBLIC_URL }}
+  # Where a client signed in to no gateway sends reports instead, the
+  # official gateway (docs/feedback.md §"To Baylee Central instead"); unset =
+  # the feedback service above.
+  BAYLEE_REPORT_PUBLIC_URL: ${{ vars.BAYLEE_REPORT_PUBLIC_URL }}
 jobs:
   package:
     name: package (${{ matrix.target }})
-    runs-on: ${{ inputs.source-run != '' && 'ubuntu-latest' || matrix.os }}
+    # A promotion runs on Linux. The two macOS rows build on the owner's Mac,
+    # each in a throwaway Tart VM, while the repository variable
+    # `MACOS_RUNNER` is `self-hosted`, and only for a push to main or a
+    # dispatch (which only someone with write access can start): a pull
+    # request, `ci:full` included, never reaches that machine. Any other
+    # value (`github` since 30.10.2026) runs them on GitHub's image
+    # (docs/releasing.md §"The macOS runner").
+    runs-on: ${{ inputs.source-run != '' && 'ubuntu-24.04' || (matrix.mac && vars.MACOS_RUNNER == 'self-hosted' && (github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","macOS","ARM64","baylee-vm"]') || matrix.os }}
     # A build's p95 ×1.5 (06.–08.10.2026, before the build was narrowed to the
-    # two shipped binaries); a promotion takes minutes under the same bound.
-    timeout-minutes: ${{ matrix.timeout }}
+    # three shipped binaries). A promotion verifies and copies in 2–3 minutes,
+    # so 15 is its bound, not a build's.
+    timeout-minutes: ${{ inputs.source-run != '' && 15 || matrix.timeout }}
     strategy:
       fail-fast: false
       matrix:
@@ -43,9 +56,13 @@ jobs:
           - os: windows-11-arm
             target: aarch64-pc-windows-msvc
             timeout: 60
+          # A lockfile change gives rust-cache a new key, and the dist build
+          # starts cold: 21.10.2026 (Central pin) aarch64 needed 87 of 105
+          # minutes and the x86_64 cross build ran past them.
           - os: macos-latest
             target: aarch64-apple-darwin
-            timeout: 105
+            mac: true
+            timeout: 150
           # Intel Macs: cross-compiled on the arm runner (the macOS SDK
           # carries both slices; `rustup target add` is all it takes), and
           # the dmg's smoke start runs under Rosetta 2. GitHub's x86_64 macOS
@@ -54,14 +71,17 @@ jobs:
           # the arm runner is the faster machine of the two.
           - os: macos-latest
             target: x86_64-apple-darwin
-            timeout: 105
+            mac: true
+            timeout: 150
     env:
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
       CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -Ctarget-cpu=x86-64-v2
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - if: inputs.source-run != ''
-        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
         with:
           toolchain: stable
       - id: version
@@ -82,7 +102,7 @@ jobs:
           SOURCE_RUN: ${{ inputs.source-run }}
         run: cargo tools release verify-run "$SOURCE_RUN"
       - if: inputs.source-run != ''
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           github-token: ${{ github.token }}
           run-id: ${{ inputs.source-run }}
@@ -98,39 +118,39 @@ jobs:
       - if: inputs.source-run == ''
         uses: ./.github/actions/linux-deps
       - if: inputs.source-run == ''
-        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch: the toolchain defaults to stable
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
       - if: inputs.source-run == ''
-        uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        # The VM is not GitHub's image (another macOS, another SDK), so it
+        # keeps a cache of its own; GitHub's rows keep their keys.
         with:
-          shared-key: desktop-dist-${{ matrix.os }}-${{ matrix.target }}
+          shared-key: desktop-dist-${{ matrix.os }}-${{ matrix.target }}${{ runner.environment == 'self-hosted' && '-vm' || '' }}
           cache-on-failure: true
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       # The three binaries the package ships, the client, its launcher and the
       # seat bridge (`baylee-seat`, which seats a language model), and nothing
-      # else. This was `--workspace --bins`: fifteen binaries, each
-      # thin-LTO'd at one codegen unit, so on the three-core Mac the workspace
-      # crates were compiled two minutes in and the next 48 went to linking
-      # servers, trainers and xtask that no package contains (run
-      # 37787880265). `--workspace` stays as the *selection*, so features
-      # unify exactly as before: `-p baylee-client -p baylee-update` would
-      # resolve 18–20 of the client's dependencies with fewer features
-      # (`subtle`, `rand`, `tracing/log`, ...) and change the shipped binary.
-      # The other binaries' link on every platform is the nightly `build`
-      # matrix in `ci.yml`; their code is still checked here, below.
+      # else (`cargo build-client`, `.cargo/config.toml`). This was
+      # `--workspace --bins`: fifteen binaries, each thin-LTO'd at one codegen
+      # unit, so on the three-core Mac the workspace crates were compiled two
+      # minutes in and the next 48 went to linking servers, trainers and xtask
+      # that no package contains (run 37787880265). Then the client crates'
+      # tests are checked for the target. Servers and tools are built for
+      # Linux x86_64 only, where they run; this checked all of them on every
+      # target until 29.10.2026 (2.5 min of each Mac row, 5 on Windows).
       - if: inputs.source-run == ''
         shell: bash
         env:
           BAYLEE_RELEASE_BUILD: '1'
           PACKAGE_TARGET: ${{ matrix.target }}
-        run: cargo build --locked --workspace --bin baylee-client --bin baylee-launch --bin baylee-seat --profile dist --target "$PACKAGE_TARGET"
+        run: cargo build-client --profile dist --target "$PACKAGE_TARGET"
       - if: inputs.source-run == ''
         shell: bash
         env:
           PACKAGE_TARGET: ${{ matrix.target }}
-        run: cargo check --locked --workspace --all-targets --target "$PACKAGE_TARGET"
+        run: cargo check-client --target "$PACKAGE_TARGET"
       - if: inputs.source-run == ''
         shell: bash
         env:
@@ -177,7 +197,7 @@ jobs:
           PACKAGE_VERSION: ${{ steps.version.outputs.value }}
           PACKAGE_TARGET: ${{ matrix.target }}
         run: cargo tools release check-installers --install "$PACKAGE_TARGET" "$PACKAGE_VERSION"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: client-${{ matrix.target }}
           path: out/*

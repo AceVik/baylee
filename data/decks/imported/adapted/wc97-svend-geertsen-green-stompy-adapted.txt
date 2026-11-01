@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/WC97/svend-geertsen-green-stompy.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SvendGeertsenGreenStompy_WC97.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Svend Geertsen - Green Stompy (Adapted)]
+3 Balduvian Bears
+16 Forest
+4 Fyndhorn Elves
+4 Ghazbán Ogre
+4 Giant Growth
+2 Heart of Yavimaya
+2 Jolrael's Centaur
+4 Rogue Elephant
+3 Rumbling Baloth
+4 Spectral Bears
+2 Spring of Eternal Peace
+2 Uktabi Orangutan
+4 Valley Mightcaller
+2 Whirling Dervish
+4 Winter Orb

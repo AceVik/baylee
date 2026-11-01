@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/ODY/liftoff.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Liftoff_ODY.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Liftoff (Adapted)]
+1 Abandoned Outpost
+4 Absorb
+1 Angelic Wall
+1 Beloved Chaplain
+2 Blessed Orator
+2 Cephalid Broker
+2 Cephalid Looter
+1 Cephalid Retainer
+2 Cephalid Scout
+4 Daring Leap
+3 Energy Arc
+9 Island
+3 Offering to Asha
+4 Ojutai's Command
+1 Overrule
+10 Plains
+1 Puppeteer
+1 Seafloor Debris
+1 Second Thoughts
+1 Skycloud Egg
+4 Sphinx's Revelation
+2 Think Tank

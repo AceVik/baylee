@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UBG #20266096]
+1 Aesi, Tyrant of Gyre Strait
+1 Arguel's Blood Fast
+1 Beastcaller Savant
+1 Blightsoil Druid
+1 Blood Pet
+1 Bloom Tender
+1 Boon of the Wish-Giver
+1 Circle of Dreams Druid
+1 Coastal Piracy
+1 Crypt of Agadeem
+1 Cryptic Command
+1 Curiosity
+1 Deadly Embrace
+1 Deathbloom Gardener
+1 Deepfathom Skulker
+1 Delighted Halfling
+1 Desert of the Mindful
+1 Devoted Druid
+1 Dire Undercurrents
+1 Dregs of Sorrow
+1 Elvish Spirit Guide
+1 Enhanced Awareness
+1 Enter the Enigma
+1 Flight of Fancy
+12 Forest
+1 Fyndhorn Elder
+1 Halimar Depths
+1 Hermitic Herbalist
+1 Hollow Trees
+1 Howltooth Hollow
+12 Island
+1 Keeper of Tresserhorn
+1 Kishla Village
+1 Kozilek's Translator
+1 Learn from the Past
+1 Leovold, Emissary of Trest
+1 Lifespring Druid
+1 Lingering Mirage
+1 Llanowar Dead
+1 Loam Dryad
+1 Memorial to Folly
+1 Memorial to Genius
+1 Mindculling
+1 Mystic Sanctuary
+1 Necrologia
+1 Open Communications
+1 Ophidian Eye
+1 Prying Eyes
+1 Rain of Revelation
+1 Rofellos, Llanowar Emissary
+1 Sanctum Weaver
+1 Saprazzan Cove
+1 Scatter Arc
+1 Sea Gate Restoration
+1 Shaman of the Pack
+1 Silhana Starfletcher
+1 Soaring Seacliff
+1 Striped Riverwinder
+1 Sultai Devotee
+1 Super Intelligence
+2 Swamp
+1 Tangled Florahedron
+1 The Dross Pits
+1 The Hunter Maze
+1 Three Tree Rootweaver
+1 Thriving Isle
+1 Tidings
+1 Touch of Invisibility
+1 Treasure Cruise
+1 Turntimber Grove
+1 Turntimber Symbiosis
+1 Urborg Elf
+1 Vesper Ghoul
+1 Weaver of Currents
+1 Wirewood Elf
+1 Witch's Cottage
+
+[commander]
+Muldrotha, the Gravetide

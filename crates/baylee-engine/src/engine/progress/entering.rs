@@ -380,6 +380,7 @@ impl<L: CardLookup> Engine<L> {
                     EnterModifier::ChooseSubtype
                     | EnterModifier::ChooseSubtypeFrom(_)
                     | EnterModifier::ChooseBasicLandType
+                    | EnterModifier::ChooseTwoBasicLandTypes
                     | EnterModifier::ChooseCardName
                     | EnterModifier::ChooseColor
                     | EnterModifier::ChooseOpponent
@@ -535,6 +536,7 @@ impl<L: CardLookup> Engine<L> {
         use baylee_cards_dsl::EnterModifier;
         match modifier {
             EnterModifier::ChooseOpponent => self.ask_enter_opponent(id, controller),
+            EnterModifier::ChooseTwoBasicLandTypes => self.ask_two_land_types(id, controller),
             EnterModifier::ChooseSubtype
             | EnterModifier::ChooseSubtypeFrom(_)
             | EnterModifier::ChooseBasicLandType => {

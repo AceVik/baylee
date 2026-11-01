@@ -52,6 +52,7 @@ pub(super) fn composer_parts(
     suggest: &[String],
     highlight: usize,
     frame: Frame,
+    show_lock: bool,
 ) -> Vec<Entity> {
     let inks = frame.inks();
     let c = machine.composer();
@@ -131,11 +132,20 @@ pub(super) fn composer_parts(
                 .nth(chars)
                 .map_or(text.len(), |(b, _)| b)
         };
-        let links: Vec<(std::ops::Range<usize>, u32, u8)> = c
+        let links: Vec<(std::ops::Range<usize>, rows::ChatCardLink)> = c
             .body_of(text, false)
             .links
             .iter()
-            .map(|l| (byte(l.at[0])..byte(l.at[1]), l.card, l.face))
+            .map(|l| {
+                (
+                    byte(l.at[0])..byte(l.at[1]),
+                    rows::ChatCardLink {
+                        card: l.card,
+                        face: l.face,
+                        print: l.print.clone(),
+                    },
+                )
+            })
             .collect();
         let mut cuts: Vec<usize> = vec![0, text.len()];
         if focused && selection.is_none() {
@@ -180,11 +190,8 @@ pub(super) fn composer_parts(
             let span = commands
                 .spawn((TextSpan::new(&text[from..to]), font, TextColor(colour)))
                 .id();
-            if let Some((_, card, face)) = link {
-                commands.entity(span).insert(rows::ChatCardLink {
-                    card: *card,
-                    face: *face,
-                });
+            if let Some((_, link)) = link {
+                commands.entity(span).insert(link.clone());
             }
             commands.entity(field).add_child(span);
         }
@@ -201,28 +208,28 @@ pub(super) fn composer_parts(
     }
     let count = c.chars();
     let hint_text = if count >= 900 {
-        format!("{count} / 1000")
-    } else if let Some((phrase, _)) = ui.hint {
-        phrase.text(lang).to_string()
+        Some(format!("{count} / 1000"))
     } else {
-        ChatPhrase::ComposeHint.text(lang).to_string()
+        ui.hint.map(|(phrase, _)| phrase.text(lang).to_string())
     };
-    let hint = commands
-        .spawn((
-            Text::new(hint_text),
-            tf(fonts, z(10.5)),
-            TextColor(if ui.hint.is_some() {
-                palette::DANGER
-            } else {
-                inks.soft
-            }),
-            Node {
-                flex_shrink: 0.0,
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
+    let hint = hint_text.map(|text| {
+        commands
+            .spawn((
+                Text::new(text),
+                tf(fonts, z(10.5)),
+                TextColor(if ui.hint.is_some() {
+                    palette::DANGER
+                } else {
+                    inks.soft
+                }),
+                Node {
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id()
+    });
     let send = commands
         .spawn((
             UiButton,
@@ -246,17 +253,65 @@ pub(super) fn composer_parts(
             )],
         ))
         .id();
-    let row = commands
-        .spawn((Node {
-            flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
-            column_gap: zpx(6.0),
-            padding: UiRect::axes(zpx(6.0), zpx(5.0)),
-            min_height: zpx(36.0),
-            ..default()
-        },))
-        .add_children(&[chip, field, hint, send])
+    let lock = show_lock.then(|| {
+        commands
+            .spawn((
+                UiButton,
+                crate::social::vault_ui::Press::Lock,
+                Node {
+                    height: zpx(22.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    padding: UiRect::axes(zpx(8.0), zpx(2.0)),
+                    border_radius: BorderRadius::all(zpx(4.0)),
+                    flex_shrink: 0.0,
+                    ..default()
+                },
+                BackgroundColor(inks.ground),
+                Feel::new(inks.ground),
+                children![(
+                    Text::new(ChatPhrase::VaultLock.text(lang)),
+                    tf(fonts, z(10.5)),
+                    TextColor(inks.soft),
+                    Pickable::IGNORE,
+                )],
+            ))
+            .id()
+    });
+    let row = commands.spawn((Node {
+        flex_direction: FlexDirection::Row,
+        align_items: AlignItems::Center,
+        column_gap: zpx(6.0),
+        padding: UiRect::axes(zpx(6.0), zpx(5.0)),
+        min_height: zpx(36.0),
+        ..default()
+    },));
+    let row = row.id();
+    // The box and its light: the field's text can hold only spans, so the
+    // light is a sibling over it in a frame of the box's shape (`glass`).
+    let frame = commands
+        .spawn((
+            Node {
+                flex_grow: 1.0,
+                min_width: zpx(0.0),
+                border_radius: BorderRadius::all(zpx(4.0)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
         .id();
+    let light = commands
+        .spawn(crate::social::glass::layer(
+            crate::social::glass::Glass::Field,
+            zpx(4.0),
+        ))
+        .id();
+    commands.entity(frame).add_children(&[field, light]);
+    let mut kids = vec![chip, frame];
+    kids.extend(hint);
+    kids.push(send);
+    kids.extend(lock);
+    commands.entity(row).add_children(&kids);
     let mut out = vec![row];
     if !suggest.is_empty() {
         let pop = commands
@@ -307,12 +362,13 @@ pub(super) fn composer_parts(
 
 /// The box's placeholder (§8).
 fn placeholder(machine: &Social, target: &Target, lang: Lang) -> String {
-    match target {
+    let write = match target {
         Target::Whisper(handle) => ChatPhrase::WriteWhisper.fill(lang, &[handle]),
         Target::Sticky => ChatPhrase::TypeWhisper.text(lang).to_string(),
         other => {
             let (name, _, _) = target_label(machine, other, lang);
             ChatPhrase::WriteTo.fill(lang, &[&name])
         }
-    }
+    };
+    format!("{write} · {}", ChatPhrase::ComposeHint.text(lang))
 }

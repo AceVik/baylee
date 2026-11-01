@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/WC00/janosch-kuhn-angry-non-hermit.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JanoschKühnAngryNonHermit_WC00.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Janosch Kühn - Angry Non-Hermit (Adapted)]
+4 Arc Lightning
+4 Avalanche Riders
+4 Birds of Paradise
+4 Colossal Might
+1 Creeping Mold
+2 Dust Bowl
+10 Forest
+1 Grafted Skullcap
+4 Karplusan Forest
+4 Llanowar Elves
+2 Masticore
+4 Mountain
+2 Priest of Titania
+4 Rishadan Port
+2 Savage Twister
+4 Stone Rain
+4 Stump Stomp

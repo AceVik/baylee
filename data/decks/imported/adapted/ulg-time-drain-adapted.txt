@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/ULG/time-drain.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TimeDrain_ULG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Time Drain (Adapted)]
+2 Acridian
+1 Archivist
+3 Cloud of Faeries
+1 Confiscate
+1 Darkwatch Elves
+1 Faerie Conclave
+8 Forest
+2 Frantic Search
+2 Hush
+2 Hydroform
+11 Island
+1 Legolas Greenleaf
+2 Miscalculation
+1 Opportunity
+2 Peregrine Drake
+2 Remote Isle
+1 Rewind
+2 Snap
+2 Swan Song
+3 Swift Warden
+2 Thornwind Faeries
+1 Thran War Machine
+2 Tranquil Thicket
+1 Treetop Village
+1 Vedalken Infuser
+1 Walking Sponge
+1 Weatherseed Faeries
+1 Zephid's Embrace

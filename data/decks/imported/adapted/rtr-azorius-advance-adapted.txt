@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/RTR/azorius-advance.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AzoriusAdvance_RTR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Azorius Advance (Adapted)]
+4 Absorb
+1 Angel's Mercy
+1 Azorius Guildgate
+2 Azorius Locket
+2 Battleflight Eagle
+2 Concordia Pegasus
+4 Daring Leap
+1 Dramatic Rescue
+2 Energy Arc
+12 Island
+12 Plains
+2 Show of Valor
+3 Silvercoat Lion
+1 Skyline Predator
+4 Sphinx's Revelation
+2 Stealer of Secrets
+1 Swift Justice
+2 Trained Caracal
+2 Vassal Soul

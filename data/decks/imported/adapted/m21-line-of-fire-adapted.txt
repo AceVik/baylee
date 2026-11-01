@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/M21/line-of-fire.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LineOfFire_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Line of Fire (Adapted)]
+4 Auger Spree
+4 Bedevil
+4 Bloodfell Caves
+3 Careless Celebrant
+4 Delirium
+3 Discordant Piper
+4 Dreadbore
+1 Eat to Extinction
+2 Infuriate
+9 Mountain
+2 Serrated Scorpion
+4 Spontaneous Combustion
+10 Swamp
+1 Temple of Malice
+4 Terminate
+1 Wrecking Ball

@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/TMP/the-swarm-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSwarmAdvancedDeck_TMP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Swarm - Advanced Deck (Adapted)]
+1 Anointer of Champions
+2 Arctic Wolves
+3 Armageddon
+2 Birds of Paradise
+4 Brushland
+1 Cyclone
+1 Force of Nature
+11 Forest
+1 Hurricane
+3 Joyous Respite
+4 Llanowar Elves
+4 Llanowar Sentinel
+4 Muscle Sliver
+4 Quicksand
+4 River Boa
+2 Rumbling Baloth
+2 Skyshroud Elf
+1 Spirit Link
+1 Trained Armodon
+3 Uktabi Orangutan
+2 Vec Townships

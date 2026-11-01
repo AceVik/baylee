@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed aggro
+# licence: AGPL-3.0-only
+[deck:constructed aggro WUR #20266177]
+2 Bouncing Beebles
+2 Champion's Helm
+2 Cobbled Wings
+2 Dromosaur
+2 Elvenking's Harper
+2 Flame Blitz
+1 Gemstone Mine
+1 Hall of Oracles
+2 Hammerhead Shark
+2 Homarid Warrior
+9 Island
+2 Kavu Glider
+2 Kithkin Rabble
+5 Mountain
+2 Nest Robber
+2 Ogre's Cleaver
+2 Old Man of the Sea
+2 Parapet Watchers
+3 Planar Nexus
+2 Quarum Trench Gnomes
+2 Raka Disciple
+3 Secluded Courtyard
+1 Sliver Hive
+2 Talisman of Conviction
+2 Thalakos Deceiver
+1 Wall of Faith

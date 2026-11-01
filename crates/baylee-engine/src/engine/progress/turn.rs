@@ -44,6 +44,9 @@ impl<L: CardLookup> Engine<L> {
             self.state
                 .delayed
                 .retain(|d| !d.when.lapses_with_the_turn());
+            // Control of a player's turn ends as the next one begins, and
+            // one waiting for this player's turn begins it (CR 722.1).
+            self.begin_turn_controls();
         }
         // Only the seat whose turn this is: summoning sickness is measured
         // against *their* most recent turn (CR 302.6), so an opponent's
@@ -81,7 +84,17 @@ impl<L: CardLookup> Engine<L> {
         self.expire_until_next_turn_effects(self.state.turn.active);
         self.start_awaited_attack_restrictions();
         self.state.per_turn.reset();
+        // Continuous conditions reading turn history must not retain the
+        // previous turn if an expiry refreshed layers before the reset.
+        self.state.invalidate_projections();
         self.state.per_turn.untapped_lands_at_start = untapped_lands;
+        self.state.per_turn.hand_size_at_start = u32::try_from(
+            self.state
+                .zones
+                .list(ZoneLocation::Hand(self.state.turn.active))
+                .len(),
+        )
+        .unwrap_or(u32::MAX);
         self.state.ability_fires.clear();
         self.loyalty_used_this_turn.clear();
         let active = self.state.turn.active;
@@ -139,7 +152,8 @@ impl<L: CardLookup> Engine<L> {
                     PlayLifetime::Turns(PlayWindow::ThroughYourNextTurn) => {
                         permission.window = PlayWindow::ThisTurn.into();
                     }
-                    PlayLifetime::Turns(PlayWindow::ThisTurn) | PlayLifetime::Prepared(_) => {}
+                    PlayLifetime::Turns(PlayWindow::ThisTurn | PlayWindow::UntilYourNextUpkeep)
+                    | PlayLifetime::Prepared(_) => {}
                 }
             }
             true
@@ -484,17 +498,23 @@ impl<L: CardLookup> Engine<L> {
             ability_index: baylee_core::ids::AbilityRef::SYNTHETIC,
             controller: t.controller,
         });
+        self.discard_empty_trigger_without_effect(id);
     }
 
-    /// Queues delayed actions that fire at the first main phase (Mana
-    /// Drain's mana).
-    pub(crate) fn queue_first_main_delayed(&mut self) {
+    /// Queues the delayed actions that fire as one of the active player's
+    /// main phases begins (Mana Drain's mana).
+    ///
+    /// Either main phase: "your next main phase" is the next one to begin,
+    /// so a Drain resolved in its controller's first main phase pays in that
+    /// turn's second (the card's ruling of 2020-11-10). It used to wait for
+    /// the next first main phase, a turn late.
+    pub(crate) fn queue_main_phase_delayed(&mut self) {
         let active = self.state.turn.active;
         let mut i = 0;
         while i < self.state.delayed.len() {
             let fire = matches!(
                 self.state.delayed[i].when,
-                crate::state::DelayedWhen::NextFirstMain
+                crate::state::DelayedWhen::NextMain
             ) && self.state.delayed[i].controller == active;
             if fire {
                 let trigger = self.state.delayed.remove(i);
@@ -706,6 +726,7 @@ impl<L: CardLookup> Engine<L> {
     /// just the active player.
     pub(crate) fn queue_end_step_delayed(&mut self) {
         self.queue_delayed_at(crate::state::DelayedWhen::NextEndStep);
+        self.queue_delayed_at(crate::state::DelayedWhen::NextYourEndStep);
     }
 
     /// Queues the delayed triggers that wait for "end of combat": they
@@ -741,7 +762,10 @@ impl<L: CardLookup> Engine<L> {
     pub(super) fn queue_delayed_at(&mut self, when: crate::state::DelayedWhen) {
         let mut i = 0;
         while i < self.state.delayed.len() {
-            if self.state.delayed[i].when == when {
+            if self.state.delayed[i].when == when
+                && (when != crate::state::DelayedWhen::NextYourEndStep
+                    || self.state.delayed[i].controller == self.state.turn.active)
+            {
                 let trigger = self.state.delayed.remove(i);
                 self.delayed_queue
                     .push_back((trigger.controller, trigger.action));

@@ -785,6 +785,10 @@ pub(super) fn ask_about_registration(state: Res<LobbyState>, mailbox: Res<Mailbo
 
 /// `GET /auth/config`.
 #[derive(serde::Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the answer's shape: each bool is a switch the gateway sets"
+)]
 struct AuthConfig {
     registration_enabled: bool,
     /// `open`, `invite` or `off` (#317). Absent from a gateway from before
@@ -803,6 +807,10 @@ struct AuthConfig {
     /// guests has no route to offer.
     #[serde(default)]
     guests_enabled: bool,
+    /// Whether it takes Baylee Central sign-ins. Defaulted to no: a gateway
+    /// from before the field signs people in with its own routes.
+    #[serde(default)]
+    central: bool,
 }
 
 /// The clocks `GET /auth/config` lists, for the Create-table sheet. Read
@@ -861,6 +869,7 @@ pub(super) fn auth_config(body: &str) -> Option<Reply> {
         registration: Registration::read(body.registration_enabled, body.registration.as_deref()),
         art_cache: body.art_cache,
         guests: body.guests_enabled,
+        central: body.central,
     })
 }
 

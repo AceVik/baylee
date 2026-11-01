@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/SNC/grave-matters.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GraveMatters_SNC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Grave Matters (Adapted)]
+4 Abrupt Decay
+4 Assassin's Trophy
+1 Deathcap Glade
+2 Doomed Dissenter
+4 Drain the Well
+10 Forest
+4 Gaze of Granite
+2 Infernal Grasp
+4 Jungle Hollow
+4 Maelstrom Pulse
+3 Mulch
+4 Pest Summoning
+10 Swamp
+4 Tear Asunder

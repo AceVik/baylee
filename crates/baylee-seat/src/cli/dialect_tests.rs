@@ -124,7 +124,9 @@ fn no_dialect_approves_anything_or_passes_a_credential() {
 /// dialect's: a process that holds it, or a one-shot tool that resumes it.
 /// One that resumes keeps its sessions either in the seat's store or in a
 /// place of its own it names, never neither; one that does not leaves its
-/// arguments as they are.
+/// arguments as they are, keeps nothing in a store, and keeps its sessions
+/// beside its login only while one process holds them (Junie's ACP), from
+/// where the seat removes its own.
 // Unix only: unix paths and a home found by HOME, as the CLI seat has
 // them (Windows sets no HOME and joins with \; not yet supported there).
 #[cfg(unix)]
@@ -154,9 +156,22 @@ fn every_tool_has_a_dialect_that_agrees_with_the_panel() {
             let mut args = vec![OsString::from("a")];
             dialect.resume(&mut args, "ses_1");
             assert_eq!(args, [OsString::from("a")], "{tool:?}");
-            assert!(!in_store && outside.is_none(), "{tool:?}");
+            assert!(!in_store, "{tool:?}");
+            if let Some(root) = outside {
+                assert!(!dialect.one_shot(), "{tool:?}: kept, never resumed");
+                assert!(root.starts_with("/home/t"), "{tool:?}: {root:?}");
+            }
             assert!(!dialect.usage_spans_resumes(), "{tool:?}");
         }
+    }
+}
+
+/// Only Junie's processes leave the bridge's process group for a session
+/// of their own: every other tool ends with the group it was started in.
+#[test]
+fn only_junie_runs_in_a_session_of_its_own() {
+    for tool in CliTool::ALL {
+        assert_eq!(dialect(tool).detaches(), tool == CliTool::Junie, "{tool:?}");
     }
 }
 
@@ -257,217 +272,8 @@ fn each_tools_environment_is_its_login_and_its_own_files() {
     }
 }
 
-// ---------------------------------------------------------------------
-// Codex
-// ---------------------------------------------------------------------
-
-/// `codex exec`, locked down: user config, rules and project docs off,
-/// our instructions and schema by file, every tool feature off, read-only,
-/// no prompt history, the prompt from stdin; model and effort where named.
-// Unix only: unix paths and a home found by HOME, as the CLI seat has
-// them (Windows sets no HOME and joins with \; not yet supported there).
-#[cfg(unix)]
-#[test]
-fn codex_runs_exec_with_our_instructions_and_no_tools() {
-    let args = args_of(&Codex, Some("gpt-6.1-sol"), Some("low"));
-    let mut expected: Vec<String> = [
-        "exec",
-        "--json",
-        "--color",
-        "never",
-        "--ignore-user-config",
-        "--ignore-rules",
-        "--skip-git-repo-check",
-        "--sandbox",
-        "read-only",
-        "--output-schema",
-        "/s/schema.json",
-    ]
-    .map(str::to_string)
-    .into();
-    for config in [
-        "model_instructions_file=\"/s/instructions.md\"",
-        "project_doc_max_bytes=0",
-        "mcp_servers={}",
-        "notify=[]",
-        "web_search=\"disabled\"",
-        "tools.view_image=false",
-        "history.persistence=\"none\"",
-        "analytics.enabled=false",
-        "feedback.enabled=false",
-        "otel.exporter=\"none\"",
-        "check_for_update_on_startup=false",
-        "include_environment_context=false",
-        "include_permissions_instructions=false",
-        "include_apps_instructions=false",
-        "model_reasoning_summary=\"none\"",
-        "model_reasoning_effort=\"low\"",
-    ] {
-        expected.push("-c".into());
-        expected.push(config.into());
-    }
-    for feature in DISABLED_FEATURES {
-        expected.push("--disable".into());
-        expected.push(feature.into());
-    }
-    expected.extend(["--model", "gpt-6.1-sol", "-"].map(str::to_string));
-    assert_eq!(args, expected);
-    for feature in [
-        "shell_tool",
-        "unified_exec",
-        "plugins",
-        "hooks",
-        "multi_agent",
-    ] {
-        assert!(DISABLED_FEATURES.contains(&feature), "{feature}");
-    }
-    let bare = args_of(&Codex, None, None);
-    assert!(!bare.iter().any(|a| a == "--model" || a.contains("effort")));
-    assert_eq!(bare.last().map(String::as_str), Some("-"));
-    // The files the flags name: ours, whole.
-    let files = Codex.files(&settings_for("codex", None), "SYSTEM");
-    assert_eq!(files[0], ("instructions.md", "SYSTEM".to_string()));
-    assert_eq!(files[1].0, "schema.json");
-    assert_eq!(
-        serde_json::from_str::<Value>(&files[1].1).unwrap(),
-        prompt::answer_schema()
-    );
-    assert!(Codex.one_shot());
-    assert_eq!(Codex.stdin_line("q1\nline two"), "q1\nline two");
-    // A path with a quote or a backslash stays one TOML string.
-    let odd = Codex.args(
-        &settings_for("codex", None),
-        None,
-        "S",
-        Path::new("/a\"b\\c"),
-    );
-    let odd: Vec<String> = odd.into_iter().map(|a| a.into_string().unwrap()).collect();
-    assert!(odd.contains(&r#"model_instructions_file="/a\"b\\c/instructions.md""#.to_string()));
-}
-
-/// Codex's events as its non-interactive docs show them: the thread's
-/// start is the start, the answer is the agent message's text, the turn's
-/// usage has its cached tokens taken out of its input.
-#[test]
-fn codex_reads_its_answer_and_usage_off_the_turn() {
-    let events = read_all(
-        &Codex,
-        &[
-            r#"{"type":"thread.started","thread_id":"0199a213-81c0-7800-8aa1-bbab2a035a53"}"#,
-            r#"{"type":"turn.started"}"#,
-            r#"{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"hm"}}"#,
-            r#"{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"{\"ask\":\"q1\",\"pick\":[\"a\"]}"}}"#,
-            r#"{"type":"turn.completed","usage":{"input_tokens":24763,"cached_input_tokens":24448,"output_tokens":122,"reasoning_output_tokens":0}}"#,
-        ],
-    );
-    assert_eq!(events[0], Event::Started(Started::default()));
-    assert_eq!(events[1..5], [const { Event::Other }; 4]);
-    let Event::Reply(Outcome::Answer { value, text, usage }) = &events[5] else {
-        panic!("{:?}", events[5]);
-    };
-    assert_eq!(value.as_ref().unwrap()["ask"], "q1");
-    assert!(text.contains("pick"));
-    let usage = usage.unwrap();
-    assert_eq!(
-        (
-            usage.input,
-            usage.cache_read,
-            usage.output,
-            usage.cache_write
-        ),
-        (315, 24448, 122, 0)
-    );
-    assert!(Codex.usage_is_cumulative());
-    assert_eq!(Codex.lockdown_fault(&Started::default()), None);
-}
-
-/// Any item but the answer, the reasoning and a warning is a tool used:
-/// the lockdown is broken, whether it began or finished.
-#[test]
-fn codex_takes_a_tool_item_as_a_breach() {
-    for kind in [
-        "command_execution",
-        "file_change",
-        "mcp_tool_call",
-        "web_search",
-        "todo_list",
-    ] {
-        for event in ["item.started", "item.completed"] {
-            let line = json!({"type": event, "item": {"id": "i", "type": kind}}).to_string();
-            let read = read_all(&Codex, &[&line]);
-            let Event::Breach(why) = &read[1] else {
-                panic!("{kind}: {read:?}");
-            };
-            assert!(why.contains(kind), "{why}");
-        }
-    }
-    let warning = r#"{"type":"item.completed","item":{"id":"i","type":"error","message":"x"}}"#;
-    assert_eq!(
-        read_all(&Codex, &[warning]),
-        [Event::Started(Started::default()), Event::Other]
-    );
-}
-
-/// A failed turn is a limit by its words, else a failure; an `error` line
-/// before it (a retry Codex makes itself) ends nothing and names the
-/// failure that has no words of its own.
-#[test]
-fn codex_reads_a_failed_turn_as_a_limit_or_a_failure() {
-    let limited = read_all(
-        &Codex,
-        &[
-            r#"{"type":"thread.started","thread_id":"t"}"#,
-            r#"{"type":"error","message":"Reconnecting... 1/5"}"#,
-            r#"{"type":"turn.failed","error":{"message":"You've hit your usage limit. Try again at 3:04 PM."}}"#,
-        ],
-    );
-    assert_eq!(limited[2], Event::Other, "a retry ends nothing");
-    assert!(matches!(
-        &limited[3],
-        Event::Reply(Outcome::RateLimited { lifts_in: None, .. })
-    ));
-    let failed = read_all(
-        &Codex,
-        &[
-            r#"{"type":"error","message":"stream disconnected"}"#,
-            r#"{"type":"turn.failed","error":{}}"#,
-            r#"{"type":"turn.failed","error":{}}"#,
-        ],
-    );
-    assert_eq!(
-        failed[2],
-        Event::Reply(Outcome::Failed("stream disconnected".into()))
-    );
-    assert_eq!(
-        failed[3],
-        Event::Reply(Outcome::Failed("the turn failed".into())),
-        "the next turn does not inherit it"
-    );
-    let retries = read_all(
-        &Codex,
-        &[
-            r#"{"type":"turn.failed","error":{"message":"exceeded retry limit, last status: 429 Too Many Requests"}}"#,
-        ],
-    );
-    assert!(matches!(
-        retries[1],
-        Event::Reply(Outcome::RateLimited { .. })
-    ));
-}
-
-/// Signed in to a subscription only where `codex login status` says so on
-/// stderr; a key's login, or none, is not.
-#[test]
-fn codex_is_signed_in_by_its_status_on_stderr() {
-    assert_eq!(
-        Codex.probe_args().unwrap(),
-        [OsString::from("login"), OsString::from("status")]
-    );
-    assert!(Codex.probe_ok(b"", b"Logged in using ChatGPT\n"));
-    assert!(!Codex.probe_ok(b"", b"Logged in using an API key - sk-***\n"));
-    assert!(!Codex.probe_ok(b"", b"Not logged in\n"));
-    assert!(!Codex.probe_ok(b"", b""));
-}
+mod codex;
+mod junie;
 
 // ---------------------------------------------------------------------
 // opencode
@@ -652,128 +458,6 @@ fn opencode_is_signed_in_by_an_oauth_credential() {
 }
 
 // ---------------------------------------------------------------------
-// Junie
-// ---------------------------------------------------------------------
-
-/// Junie non-interactive: a JSON task in, a JSON stream out, every
-/// default location off, the session's own empty guidelines, extensions
-/// and caches, chat mode, ours added to its prompt; model and effort
-/// where named.
-// Unix only: unix paths and a home found by HOME, as the CLI seat has
-// them (Windows sets no HOME and joins with \; not yet supported there).
-#[cfg(unix)]
-#[test]
-fn junie_runs_with_every_default_location_off() {
-    assert_eq!(
-        args_of(&Junie, Some("sonnet"), Some("high")),
-        [
-            "--input-format=json",
-            "--output-format=json-stream",
-            "--skip-update-check",
-            "--share-anonymous-statistics=false",
-            "--config-default-locations=false",
-            "--mcp-default-locations=false",
-            "--skill-default-locations=false",
-            "--command-default-location=false",
-            "--agent-default-location=false",
-            "--model-default-locations=false",
-            "--agent-mode=chat",
-            "--extensions-default-location=/s/extensions",
-            "--guidelines-filename=/s/guidelines.md",
-            "--cache-dir=/s/cache",
-            "--system-prompt=SYSTEM",
-            "--model=sonnet",
-            "--effort=high",
-        ]
-    );
-    assert!(
-        !args_of(&Junie, None, None)
-            .iter()
-            .any(|a| a.starts_with("--model=") || a.starts_with("--effort="))
-    );
-    assert_eq!(
-        Junie.files(&settings_for("junie", None), "S"),
-        [("guidelines.md", String::new())]
-    );
-    assert!(Junie.one_shot());
-    let task: Value = serde_json::from_str(&Junie.stdin_line("q1\n\"x\"")).unwrap();
-    assert_eq!(task, json!({"task": "q1\n\"x\""}));
-}
-
-/// Junie's stream as its makers' own fixture shows it: its banner is
-/// nothing, its session is the start, the task's result step is allowed,
-/// and the result carries the answer and the whole task's tokens, summed
-/// over its models, found by their shape.
-#[test]
-fn junie_reads_its_result_and_its_per_model_usage() {
-    let events = read_all(
-        &Junie,
-        &[
-            "Junie 26.9.22",
-            r#"{"type":"session","timestamp":1,"sessionId":"session-test"}"#,
-            r#"{"type":"step","timestamp":4,"name":"TASK RESULT","details":"{\"ask\":\"q1\"}"}"#,
-            r#"{"type":"result","timestamp":5,"result":"{\"ask\":\"q1\",\"pick\":[\"a\"]}","changes":[],"errorCode":[{"model":"claude-sonnet-5","calls":2,"cost":0.05,"inputTokens":4,"cacheInputTokens":100,"cacheCreateTokens":200,"outputTokens":20},{"model":"small","inputTokens":6,"outputTokens":1}]}"#,
-        ],
-    );
-    assert_eq!(events[0], Event::Other);
-    assert_eq!(events[1], Event::Started(Started::default()));
-    assert_eq!(events[2..4], [const { Event::Other }; 2]);
-    let Event::Reply(Outcome::Answer { value, usage, .. }) = &events[4] else {
-        panic!("{events:?}");
-    };
-    assert_eq!(value.as_ref().unwrap()["ask"], "q1");
-    let usage = usage.unwrap();
-    assert_eq!(
-        (
-            usage.input,
-            usage.output,
-            usage.cache_read,
-            usage.cache_write
-        ),
-        (10, 21, 100, 200)
-    );
-    // Under another key, found the same.
-    let renamed = read_all(
-        &Junie,
-        &[r#"{"type":"result","result":"x","usage":[{"inputTokens":7,"outputTokens":2}]}"#],
-    );
-    let Event::Reply(Outcome::Answer { usage, .. }) = &renamed[1] else {
-        panic!();
-    };
-    assert_eq!(usage.unwrap().input, 7);
-    assert!(Junie.usage_is_cumulative());
-}
-
-/// A step of its own is a tool used; errors on the result, or a line
-/// before it, are a spent balance or limit, or a failure.
-#[test]
-fn junie_reads_a_step_as_a_breach_and_its_errors_by_their_words() {
-    let step = r#"{"type":"step","timestamp":2,"name":"Opened file","details":"ping.txt"}"#;
-    let Event::Breach(why) = &read_all(&Junie, &[step])[1] else {
-        panic!();
-    };
-    assert!(why.contains("Opened file"), "{why}");
-    let spent = r#"{"type":"result","result":"","errors":["Junie: Insufficient Account Balance. All tokens on your balance are spent."]}"#;
-    assert!(matches!(
-        read_all(&Junie, &[spent])[1],
-        Event::Reply(Outcome::RateLimited { .. })
-    ));
-    let events = read_all(
-        &Junie,
-        &[
-            r#"{"type":"error","message":"Cannot find authorization"}"#,
-            r#"{"type":"result","result":""}"#,
-        ],
-    );
-    assert_eq!(
-        events[2],
-        Event::Reply(Outcome::Failed("Cannot find authorization".into()))
-    );
-    assert!(Junie.probe_ok(b"Junie version: 26.9.22 (3419.29)\n", b""));
-    assert!(!Junie.probe_ok(b"", b""));
-}
-
-// ---------------------------------------------------------------------
 // agy
 // ---------------------------------------------------------------------
 
@@ -792,7 +476,7 @@ fn agy_names_its_tools_and_uses_none() {
         ..named.clone()
     };
     assert!(Agy.lockdown_fault(&served).unwrap().contains("github"));
-    let init = r#"{"event":"init","conversation_id":"c3b6","init":{"cwd":"/w","tools":["ask_permission","run_command","write_to_file"],"permission_mode":"request-review"}}"#;
+    let init = r#"{"event":"init","conversation_id":"c3b6","init":{"agent":"baylee-seat","cwd":"/w","tools":["ask_permission","run_command","write_to_file"],"permission_mode":"request-review"}}"#;
     let Event::Started(started) = &read_all(&Agy, &[init])[0] else {
         panic!();
     };
@@ -807,7 +491,7 @@ fn agy_names_its_tools_and_uses_none() {
 }
 
 // ---------------------------------------------------------------------
-// Resuming beside the login: Codex and Junie
+// Resuming beside the login: Codex
 // ---------------------------------------------------------------------
 
 /// A directory of the test's own, empty.
@@ -933,59 +617,4 @@ fn codex_warns_of_an_agents_file_in_its_home() {
         }
     }
     std::fs::remove_dir_all(&home).unwrap();
-}
-
-/// Junie follows a session up by the id its `session` line named
-/// (`--session-id=<id>`, never `--resume` alone), every flag kept; its
-/// sessions are where its home is, and the seat's own is exactly the
-/// directory named for its id.
-#[cfg(unix)]
-#[test]
-fn junie_follows_up_its_session_by_its_id() {
-    assert!(Junie.resumes() && !Junie.usage_spans_resumes());
-    let fresh: Vec<OsString> = args_of(&Junie, Some("opus"), Some("low"))
-        .into_iter()
-        .map(OsString::from)
-        .collect();
-    let mut resumed = fresh.clone();
-    Junie.resume(&mut resumed, "session-261006-120000-1abc");
-    assert_eq!(resumed[..fresh.len()], fresh[..]);
-    assert_eq!(
-        resumed[fresh.len()..],
-        [OsString::from("--session-id=session-261006-120000-1abc")]
-    );
-    assert!(!resumed.iter().any(|arg| arg == "--resume"));
-    let mut wire = Wire::default();
-    Junie.read_event(
-        r#"{"type":"session","sessionId":"session-261006-120000-1abc"}"#,
-        &mut wire,
-    );
-    assert_eq!(
-        wire.conversation.as_deref(),
-        Some("session-261006-120000-1abc")
-    );
-    let env = |name: &str| (name == "HOME").then(|| OsString::from("/home/t"));
-    assert_eq!(
-        Junie.sessions_root(&env),
-        Some(PathBuf::from("/home/t/.junie/sessions"))
-    );
-    let root = scratch_dir("junie-files");
-    let ours = root.join("session-ours");
-    let other = root.join("session-other");
-    std::fs::create_dir_all(&ours).unwrap();
-    std::fs::create_dir_all(&other).unwrap();
-    std::fs::write(root.join("session-file"), "").unwrap();
-    std::os::unix::fs::symlink(&other, root.join("session-link")).unwrap();
-    assert_eq!(Junie.session_files(&root, "session-ours"), [ours]);
-    for none in [
-        "session-file",
-        "session-link",
-        "session-gone",
-        "..",
-        "-x",
-        "",
-    ] {
-        assert!(Junie.session_files(&root, none).is_empty(), "{none:?}");
-    }
-    std::fs::remove_dir_all(&root).unwrap();
 }

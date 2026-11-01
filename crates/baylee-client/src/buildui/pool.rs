@@ -522,7 +522,30 @@ pub(super) fn over(commands: &mut Commands, holder: Entity, env: &Env) {
     let kit = env.kit;
     let m = kit.m;
     let ui = env.ui();
-    if ui.rail && !compact(env) {
+    let rail_open = ui.rail && !compact(env);
+    if rail_open || ui.syntax {
+        let dismiss = if rail_open {
+            Press::Build(BuildPress::ToggleRail)
+        } else {
+            Press::Build(BuildPress::ToggleSyntax)
+        };
+        let veil = commands
+            .spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px_fixed(0.0),
+                    right: px_fixed(0.0),
+                    top: px_fixed(0.0),
+                    bottom: px_fixed(0.0),
+                    ..default()
+                },
+                GlobalZIndex(tokens::z::POPOVER - 1),
+                dismiss,
+            ))
+            .id();
+        commands.entity(holder).add_child(veil);
+    }
+    if rail_open {
         let rail = commands
             .spawn((
                 Role::Opaque,
@@ -544,6 +567,7 @@ pub(super) fn over(commands: &mut Commands, holder: Entity, env: &Env) {
                 BackgroundColor(tokens::OPAQUE),
                 BorderColor::all(tokens::BORDER),
                 GlobalZIndex(tokens::z::POPOVER),
+                Press::Build(BuildPress::TransferNothing),
             ))
             .id();
         let head = rail_head(commands, env);
@@ -554,18 +578,21 @@ pub(super) fn over(commands: &mut Commands, holder: Entity, env: &Env) {
     }
     if ui.syntax {
         let pop = syntax(commands, env);
-        commands.entity(pop).insert(Node {
-            position_type: PositionType::Absolute,
-            top: px_fixed(m.pad + m.control + m.scaled(6.0)),
-            right: px_fixed(m.pad),
-            max_width: Val::Percent(100.0),
-            flex_direction: FlexDirection::Column,
-            row_gap: m.px(2.0),
-            padding: UiRect::all(px_fixed(m.pad)),
-            border: UiRect::all(px_fixed(1.0)),
-            border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
-            ..default()
-        });
+        commands.entity(pop).insert((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px_fixed(m.pad + m.control + m.scaled(6.0)),
+                right: px_fixed(m.pad),
+                max_width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: m.px(2.0),
+                padding: UiRect::all(px_fixed(m.pad)),
+                border: UiRect::all(px_fixed(1.0)),
+                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_CONTROL)),
+                ..default()
+            },
+            Press::Build(BuildPress::TransferNothing),
+        ));
         commands.entity(holder).add_child(pop);
     }
 }

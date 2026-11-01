@@ -130,7 +130,8 @@ impl<L: CardLookup> Engine<L> {
                     // reports of 12.10.2026.
                     if !wizard.makes_mana_after_choices()
                         && !more_mana
-                        && (self.wizard_face(&wizard).x_mana_color.is_some()
+                        && ((self.wizard_face(&wizard).x_mana_color.is_some()
+                            || self.wizard_face(&wizard).x_mana_colors.is_some())
                             || (cost.has_variable()
                                 && !wizard.free
                                 && self.pool_alone_pays_x(&wizard)))
@@ -556,7 +557,7 @@ impl<L: CardLookup> Engine<L> {
             WizardStage::Sacrifice => {
                 let face = self.wizard_face(&wizard);
                 let asked = wizard.sacrifices.len();
-                let Some(part) = additional_card_costs(face).nth(asked) else {
+                let Some(part) = additional_card_costs_for(face, wizard.option).nth(asked) else {
                     let mut wizard = wizard;
                     wizard.stage = WizardStage::Done;
                     self.cast_wizard = Some(wizard);
@@ -576,11 +577,12 @@ impl<L: CardLookup> Engine<L> {
                 options.retain(|candidate| {
                     let mut chosen = wizard.sacrifices.to_vec();
                     chosen.push(*candidate);
-                    casting::additional_payment_capacity(
+                    casting::additional_payment_capacity_for(
                         &self.state,
                         wizard.player,
                         wizard.card,
                         face,
+                        wizard.option,
                         &chosen,
                     )
                     .is_some()

@@ -1,0 +1,35 @@
+# adapted from data/decks/precon/DDE/phyrexia.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Phyrexia_DDE.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Phyrexia (Adapted)]
+1 Assassinate
+1 Bone Shredder
+1 Carrion Feeder
+2 Dark Ritual
+1 Ebony Rhino
+1 Grafted Skullcap
+1 Hideous End
+1 Howling Fury
+1 Lightning Greaves
+1 Live or Die
+1 Order of Yawgmoth
+1 Pelakka Predation
+1 Phyrexian Arena
+1 Phyrexian Battleflies
+1 Phyrexian Broodlings
+1 Phyrexian Debaser
+1 Phyrexian Defiler
+1 Phyrexian Denouncer
+1 Phyrexian Gargantua
+1 Phyrexian Ghoul
+1 Phyrexian Hulk
+1 Phyrexian Plaguelord
+1 Phyrexian Vault
+2 Priest of Gix
+2 Puppet Strings
+1 Ring of the Lucii
+1 Sanguine Guard
+1 Slay
+25 Swamp
+2 Tendrils of Corruption
+1 Voltaic Key
+1 Worn Powerstone

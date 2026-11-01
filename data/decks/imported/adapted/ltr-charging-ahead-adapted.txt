@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/LTR/charging-ahead.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ChargingAhead_LTR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Charging Ahead (Adapted)]
+4 Colossal Might
+1 Copperline Gorge
+2 Dragon Whelp
+8 Forest
+2 Furnace Strider
+4 Ground Assault
+4 Guttural Response
+4 Manamorphose
+8 Mountain
+4 Rugged Highlands
+1 Sangrite Surge
+4 Savage Twister
+4 Stump Stomp
+4 Surge of Strength
+2 Volcanic Dragon
+4 Wooded Ridgeline

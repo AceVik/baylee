@@ -1,0 +1,18 @@
+# baylee curated constructed ramp seed=20261104
+# licence: AGPL-3.0-only
+[deck:constructed ramp R #20261104]
+1 Birgi, God of Storytelling
+3 Dragon's Rage Channeler
+4 Festival Crasher
+2 Fire Tempest
+3 Frenzied Devils
+4 Inordinate Rage
+2 Iron Man, Tony Stark
+2 Magma Jet
+1 Mirrex
+4 Molten Nursery
+21 Mountain
+3 Ramunap Ruins
+2 Rite of the Dragoncaller
+4 Rockslide Sorcerer
+4 Titan's Strength

@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/WC97/jakub-slemr-prismatic-black-aggro.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JakubŠlemrPrismaticBlackAggro_WC97.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Jakub Šlemr - Prismatic Black Aggro (Adapted)]
+4 Black Knight
+4 Choking Sands
+3 City of Brass
+2 Earthquake
+4 Essence Infusion
+4 Fallen Askari
+3 Gemstone Mine
+4 Iroh's Demonstration
+4 Knight of Stromgald
+4 Man-o'-War
+4 Nekrataal
+1 Sedraxis Alchemist
+2 Sulfurous Springs
+10 Swamp
+2 Tetsuo Umezawa
+2 Uktabi Orangutan
+1 Underground River
+3 Undiscovered Paradise

@@ -1,0 +1,22 @@
+# baylee unseen-card holdout constructed seed=90000018
+# licence: AGPL-3.0-only
+[deck:constructed aggro BR #90000018]
+4 Bloodfire Expert
+4 Brute Force
+4 Electrostatic Field
+4 Emberstrike Duo
+1 Henge of Ramos
+3 Mogg Sentry
+4 Monastery Swiftspear
+8 Mountain
+3 Profane Tutor
+2 Purraj of Urborg
+3 Quill-Slinger Boggart
+1 Rainbow Vale
+1 Rumble Arena
+3 Spire of Industry
+2 Study Hall
+4 Sugar Rush
+6 Swamp
+1 Three Tree City
+3 Weaver of Lightning

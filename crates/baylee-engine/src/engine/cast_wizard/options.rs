@@ -532,6 +532,34 @@ impl<L: CardLookup> Engine<L> {
                     });
                 }
             }
+            if let Some(entwine) = face.entwine {
+                let set = casting::entwine_set(modes);
+                let cost = face.mana_cost.combine(&entwine.mana);
+                if afford_normal(&cost.with_x(0))
+                    && casting::additional_payment_capacity_for(
+                        &self.state,
+                        player,
+                        card,
+                        face,
+                        Some(CastModeKind::Modes(set)),
+                        &[],
+                    )
+                    .is_some()
+                    && casting::mode_set_has_legal_targets(
+                        &self.state,
+                        &self.lookup,
+                        player,
+                        card,
+                        set,
+                    )
+                {
+                    options.push(CastModeDesc {
+                        index: (options.len()) as u32,
+                        kind: CastModeKind::Modes(set),
+                        cost: price(cost),
+                    });
+                }
+            }
         }
         // Timing, per way of casting (CR 601.3): the front's for every option
         // that casts the front, and a back face's own for that face

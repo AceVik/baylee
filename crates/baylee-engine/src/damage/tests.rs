@@ -1,6 +1,7 @@
 //! Generic damage procedure tests, independent of card scripts.
 
 mod battle;
+mod ice_combat;
 
 use super::*;
 use crate::choice::AnswerFault;

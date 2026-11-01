@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/PTC/preston-poulter-semifinalist.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PrestonPoulterSemifinalist_PTC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Preston Poulter, Semifinalist (Adapted)]
+2 Aeolipile
+2 Armageddon
+1 Balance
+4 Brushland
+3 Disenchant
+3 Elvish Archers
+4 Erhnam Djinn
+2 Fellwar Stone
+4 Forest
+2 Havenwood Battleground
+2 Hurricane
+2 Icy Manipulator
+3 Land Tax
+4 Mishra's Factory
+1 Nevinyrral's Disk
+8 Plains
+1 Ruins of Trokair
+2 Skysnare Spider
+1 Spectral Bears
+2 Strip Mine
+4 Swords to Plowshares
+1 Sylvan Library
+1 Wrath of God
+1 Zuran Orb

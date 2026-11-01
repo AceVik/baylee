@@ -1,0 +1,26 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, UndeadKnight_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Undead Knight]
+4 Bad Moon
+4 Black Knight
+2 Drudge Skeletons
+3 El-Hajjâj
+2 Fear
+2 Flying Carpet
+2 Frozen Shade
+3 Howl from Beyond
+2 Lost Soul
+2 Marsh Gas
+2 Nightmare
+2 Scathe Zombies
+2 Spirit Shackle
+22 Swamp
+3 Terror
+3 Unholy Strength
+
+[sideboard]
+3 Animate Dead
+3 Bog Wraith
+2 Brass Man
+1 Obsianus Golem
+3 Simulacrum

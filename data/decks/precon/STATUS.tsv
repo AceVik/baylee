@@ -1,7 +1,7 @@
 deck	set	type	released	name	cards	playable
 10E/arcanis-s-guile	10E	Theme Deck	2007-07-13	Arcanis's Guile	40	no
 10E/black-deck-a	10E	Sample Deck	2008-05-02	Black Deck A	30	no
-10E/black-deck-b	10E	Sample Deck	2008-05-02	Black Deck B	30	no
+10E/black-deck-b	10E	Sample Deck	2008-05-02	Black Deck B	30	yes
 10E/blue-deck-a	10E	Sample Deck	2008-05-02	Blue Deck A	30	no
 10E/blue-deck-b	10E	Sample Deck	2008-05-02	Blue Deck B	30	no
 10E/cho-manno-s-resolve	10E	Theme Deck	2007-07-13	Cho-Manno's Resolve	40	no
@@ -26,27 +26,27 @@ deck	set	type	released	name	cards	playable
 5DN/special-forces	5DN	Theme Deck	2004-06-04	Special Forces	60	no
 5DN/stampede	5DN	Theme Deck	2004-06-04	Stampede	60	no
 5DN/sunburst	5DN	Theme Deck	2004-06-04	Sunburst	60	no
-5ED/deck-a	5ED	Starter Deck	1997-04-24	Deck A	30	no
-5ED/deck-b	5ED	Starter Deck	1997-04-24	Deck B	30	no
+5ED/deck-a	5ED	Starter Deck	1997-04-24	Deck A	30	yes
+5ED/deck-b	5ED	Starter Deck	1997-04-24	Deck B	30	yes
 6ED/deck-a	6ED	Starter Deck	1999-04-21	Deck A	40	no
 6ED/deck-b	6ED	Starter Deck	1999-04-21	Deck B	40	no
-7ED/armada	7ED	Theme Deck	2001-04-11	Armada	40	no
+7ED/armada	7ED	Theme Deck	2001-04-11	Armada	40	yes
 7ED/bomber	7ED	Theme Deck	2001-04-11	Bomber	40	no
 7ED/decay	7ED	Theme Deck	2001-04-11	Decay	40	no
 7ED/gold-deck	7ED	Starter Deck	2001-04-11	Gold Deck	30	no
 7ED/infestation	7ED	Theme Deck	2001-04-11	Infestation	40	no
 7ED/silver-deck	7ED	Starter Deck	2001-04-11	Silver Deck	30	no
 7ED/way-wild	7ED	Theme Deck	2001-04-11	Way Wild	40	no
-8ED/expulsion	8ED	Theme Deck	2003-07-28	Expulsion	40	no
+8ED/expulsion	8ED	Theme Deck	2003-07-28	Expulsion	40	yes
 8ED/gold-deck	8ED	Starter Deck	2003-07-28	Gold Deck	33	no
 8ED/heavy-hitters	8ED	Theme Deck	2003-07-28	Heavy Hitters	40	no
 8ED/life-boost	8ED	Theme Deck	2003-07-28	Life Boost	40	no
 8ED/silver-deck	8ED	Starter Deck	2003-07-28	Silver Deck	33	yes
 8ED/sky-slam	8ED	Theme Deck	2003-07-28	Sky Slam	40	no
 8ED/speed-scorch	8ED	Theme Deck	2003-07-28	Speed Scorch	40	no
-9ED/army-of-justice	9ED	Theme Deck	2005-07-29	Army of Justice	40	no
-9ED/custom-creatures	9ED	Theme Deck	2005-07-29	Custom Creatures	40	no
-9ED/dead-again	9ED	Theme Deck	2005-07-29	Dead Again	40	no
+9ED/army-of-justice	9ED	Theme Deck	2005-07-29	Army of Justice	40	yes
+9ED/custom-creatures	9ED	Theme Deck	2005-07-29	Custom Creatures	40	yes
+9ED/dead-again	9ED	Theme Deck	2005-07-29	Dead Again	40	yes
 9ED/gold-deck	9ED	Starter Deck	2005-08-09	Gold Deck	33	no
 9ED/lofty-heights	9ED	Theme Deck	2005-07-29	Lofty Heights	40	no
 9ED/silver-deck	9ED	Starter Deck	2005-08-09	Silver Deck	33	yes
@@ -720,7 +720,7 @@ MOR/warrior-s-code	MOR	Theme Deck	2008-02-01	Warrior's Code	60	no
 MRD/bait-and-bludgeon	MRD	Theme Deck	2003-10-02	Bait and Bludgeon	60	no
 MRD/little-bashers	MRD	Theme Deck	2003-10-02	Little Bashers	60	no
 MRD/sacrificial-bam	MRD	Theme Deck	2003-10-02	Sacrificial Bam	60	no
-MRD/wicked-big	MRD	Theme Deck	2003-10-02	Wicked Big	60	no
+MRD/wicked-big	MRD	Theme Deck	2003-10-02	Wicked Big	60	yes
 MSC/avengers-assemble-collector-s-edition	MSC	Commander Deck	2026-06-26	Avengers Assemble Collector's Edition	100	no
 MSC/avengers-assemble	MSC	Commander Deck	2026-06-26	Avengers Assemble	100	no
 MSC/doom-prevails-collector-s-edition	MSC	Commander Deck	2026-06-26	Doom Prevails Collector's Edition	100	no
@@ -915,7 +915,7 @@ PSAL/wizards	PSAL	Theme Deck	2005-08-01	Wizards	60	no
 PSAL/zombies	PSAL	Theme Deck	2005-08-01	Zombies	60	no
 PTC/bertrand-lestree-finalist	PTC	Pro Tour Deck	1996-05-01	Bertrand Lestree, Finalist	75	no
 PTC/eric-tam-quarterfinalist	PTC	Pro Tour Deck	1996-05-01	Eric Tam, Quarterfinalist	75	no
-PTC/george-baxter-quarterfinalist	PTC	Pro Tour Deck	1996-05-01	George Baxter, Quarterfinalist	75	no
+PTC/george-baxter-quarterfinalist	PTC	Pro Tour Deck	1996-05-01	George Baxter, Quarterfinalist	75	yes
 PTC/leon-lindback-semifinalist	PTC	Pro Tour Deck	1996-05-01	Leon Lindback, Semifinalist	75	no
 PTC/mark-justice-quarterfinalist	PTC	Pro Tour Deck	1996-05-01	Mark Justice, Quarterfinalist	75	no
 PTC/michael-loconto-champion	PTC	Pro Tour Deck	1996-05-01	Michael Loconto, Champion	77	no

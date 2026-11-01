@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/MIR/night-terrors.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, NightTerrors_MIR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Night Terrors (Adapted)]
+2 Atrocious Experiment
+1 Blighted Shaman
+3 Breathstealer
+3 Charcoal Diamond
+2 Dark Banishing
+1 Drain Life
+2 Dread Specter
+1 Fallen Angel
+3 Feral Shadow
+1 Fetid Horror
+1 Kaervek's Hex
+1 Nocturnal Raid
+1 Phyrexian Vault
+2 Restless Dead
+1 Shriek of Dread
+2 Skulking Ghost
+1 Slinking Skirge
+1 Soulshriek
+1 Spirit of the Night
+2 Stupor
+22 Swamp
+3 Urborg Panther
+1 Vampire's Kiss
+2 Wall of Corpses

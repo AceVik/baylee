@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/FRF/cunning-plan.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CunningPlan_FRF.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Cunning Plan (Adapted)]
+1 Arc Lightning
+1 Bathe in Dragonfire
+1 Bloodfire Expert
+4 Broadside Barrage
+1 Dragon-Style Twins
+1 Fire
+1 Hordeling Outburst
+4 Invoke the Firemind
+12 Island
+2 Jeskai Sage
+2 Jeskai Windscout
+3 Lightning Strike
+2 Mistfire Adept
+1 Monastery Swiftspear
+10 Mountain
+1 Refocus
+1 Riverwheel Aerialists
+4 Rush of Inspiration
+2 Soratami Mindsweeper
+3 Swiftwater Cliffs
+1 Void Snare
+1 Weave Fate
+1 Welkin Tern

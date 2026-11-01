@@ -1,0 +1,17 @@
+# baylee curated constructed ramp seed=20261032
+# licence: AGPL-3.0-only
+[deck:constructed ramp B #20261032]
+2 Ally Encampment
+1 Cabal Patriarch
+4 Callous Inspector
+4 Cirith Ungol Patrol
+4 Doomed Dissenter
+2 Glimmervoid
+4 Greedy Freebooter
+4 Maalfeld Twins
+2 Marionette Apprentice
+3 Parasitic Bond
+4 Shadow-Rite Priest
+21 Swamp
+2 Sweettooth Witch
+3 Tempting Witch

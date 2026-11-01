@@ -6,6 +6,166 @@ the two lanes in use now are remote and cheap, which changes the constraint
 from "one at a time" to "what is each one actually good at". Maintained by
 the orchestrator; entries dated, newest first.
 
+## 2026-10-31 — *Mirrodin* (`mrd`) Batch 2 review
+
+Two reviewers read the batch against its oracle text. One card played wrong;
+most findings were tests that could not tell the right reading from a wrong
+one, and every one of them passed every gate.
+
+1. **"Put a counter on it or remove one from it" is one ability.**
+   Jinxed Choker came out as two `{3}` abilities because the reference script
+   prints it as two `A:` lines, and the reader is faithful line by line. The
+   2004-12-01 ruling chooses add or remove on resolution, so the card is one
+   activation whose effect is `Effect::ChooseOne`. When the oracle text says
+   "or" inside one cost, count the printed abilities against the generated
+   ones; a mismatch is a wrong play even when each half is right.
+2. **A test must have a board on which the wrong reading answers differently.**
+   The batch's hollow tests share one shape: the board made the right and the
+   wrong reading coincide.
+   - A library of one name, so every reveal "matched" (Grim Reminder).
+   - The named card always in hand, so "guessed wrong" equalled "answered
+     no" (Liar's Pendulum).
+   - "You" and "all" coinciding in a count: only the caster had artifacts
+     (Override), only we had Swamps (Nightmare Lash), only we had artifacts
+     (Myr Enforcer).
+   - No opponent-side case for "you control", "your graveyard", "an
+     opponent draws", "that permanent's controller" (Lightning Coils, Moriok
+     Scavenger, Groffskithur, Mind's Eye, Mesmeric Orb, Incite War).
+   - A negative asserted where it could not have been otherwise: March of
+     the Machines "refused" an equip that p0 had no mana to pay for, and the
+     ruling says the equip may be activated and does nothing.
+   - A payment never shown paid (Mind's Eye's {1}: no land asserted tapped),
+     a "you may" never declined (Mind's Eye, Mask of Memory), a "this turn"
+     never carried into the next turn (Pearl Shard), a timing condition never
+     probed from the opponent's turn (Grim Reminder, Nim Devourer).
+   - A trigger's "you" read at the original owner rather than the current
+     controller, never asserted after a control change (Jinxed Choker).
+   - A win prevention tested only through the loss half (Platinum Angel: no
+     effect that makes the opponent win was ever put on the board).
+   Write the wrong reading down first, then build the board on which it
+   gives a different number. And a negative needs its control to pass for
+   the right reason: an ability is offered only while its mana is floating,
+   so "not offered in the opponent's upkeep" held for want of mana, and the
+   control in the own upkeep failed for the same want (Grim Reminder, Nim
+   Devourer).
+3. **A reader checks a value before it takes it.**
+   `p.take("IsPresent") == Some("Artifact.DefenderCtrl")` removes the
+   parameter whatever its value, so a clause of another value reaches the
+   condition reader as no clause at all: "can't be blocked as long as
+   defending player controls an untapped land" would have been read as
+   unblockable. The chain reader did the same with three `take`s in one
+   `&&`. Peek, compare, then take.
+4. **A turn control is about the turn a player actually takes, not a turn
+   number.** Mindslaver's control was keyed on `turn.number` and the active
+   seat, so it was dropped when two turns passed before its player's (four
+   seats, or the controller's two extra turns) and lasted into the player's
+   own extra turn after it. CR 722.1 names the turn the player takes and ends
+   at the next turn's beginning: stamp the control as that turn begins.
+5. **Every resume path advances the program as the plain path does.** The
+   damage contest's plain path returns to `run`, which steps past it; the
+   path that resumed from Krark's Thumb's question called `run` without the
+   step, so the contest ran again after every answer and never ended. The
+   coin-life contest dropped its own state while the Thumb asked and started
+   a fresh one. A test with the replacement on the board is the only one that
+   walks that path.
+6. **A search for a stated quality may find nothing** (CR 701.23b). Grim
+   Reminder's reveal search set `min: 1` from "not optional"; the library
+   search already read the filter as the rule does, and a sibling reader
+   asked fewer questions.
+7. **A loosened check needs its callers re-read, not its test rewritten.**
+   The replay check took the public-table digest on every build, and a test
+   that asserted a wrong hash diverged was rewritten to assert it passed.
+   The protocol keeps the exact hash on the build that played the game and
+   the table for a later build; the build is in the header.
+
+## 2026-10-30 — *Mirrodin* (`mrd`) Batch 2 (`Granite Shard` through `Platinum Angel`, 50 cards)
+
+Completing all 50 cards through `scriptgen` required small shared mechanisms rather than card-specific engine effects. The batch also exposed four integration rules worth preserving:
+
+1. **Update the complete `Modifier` census with every new variant.**
+   `ProtectionFromExiledWithSourceTypes`, `NamedPlayersCantLose`, and `PlayersCantWin` are rule-based modifiers, not locking modifiers. Adding them only to the DSL and projection is insufficient: the exhaustive declaration and census tests in `baylee-engine/src/effects.rs` must also account for them (now 181 declared variants, 54 locking and 127 rule-based).
+2. **Keep object targets, optional empty object choices, and player-only targets distinct.**
+   Counter resolution and subject binding must not infer an empty object selection from a player target. Karn's empty `+1`, Yawgmoth's optional "up to one" choice, and Jinxed Choker's player-targeted self-counter activation now share the same resolver without stealing one another's answers.
+3. **Turn control ends immediately when either player leaves.**
+   Mindslaver's scheduled `turn_controls` are removed by state-based actions as soon as their controller or controlled player has left; cleanup is not deferred to the next turn boundary. The departure scan includes `ControlPlayerNextTurn`, and the state fingerprint covers the scheduled control.
+4. **A corpus-free checkout can finish coverage only after accepted played tests exist.**
+   Never run full `codegen` without the external scripts. For already complete machine-owned outputs whose canonical tests are present and green, advance only the derived `Coverage::Generated` field to `Implemented`, leave the generated abilities untouched, then run `codegen --tables` and `codegen --tables --check`. The `require-card-tests` hook is the final independent check that no tested card remains at `Generated`.
+5. **Prefer composable rules primitives for the remaining Mirrodin mechanics.**
+   Krark's Thumb uses coin-flip replacement with an explicit ignored flip; Isochron Scepter reuses linked exile plus card copies and optional free casting; Mirror Golem derives protection from the linked card's types; Platinum Angel composes separate can't-lose and opponents-can't-win modifiers. Dynamic per-artifact mana costs and Myr Prototype's counter-scaled combat payment stay in shared pricing and declaration code.
+
+## 2026-10-26 — *Mercadian Masques* (`mmq`) Batch 5 (`Invigorate` through `Rishadan Footpad`, 25 cards)
+
+Adding the fifth 25 previously absent *Mercadian Masques* first-printing cards (`12 Implemented`, `3 Partial`, `10 Unimplemented`) extended the DSL, engine, and `scriptgen` across five patterns (`Inviolability`, `Kyren Negotiations`, `Natural Affinity`, `Noble Purpose`, `Pious Warrior`, `Quagmire Lamprey`, `Rappelling Scouts`, `Revered Elder`, `Rishadan Brigand`, `Rishadan Cutpurse`, `Rishadan Footpad`):
+
+1. **`Trigger::DealtCombatDamage(&'static Filter)` and `T:Mode$ DamageDealtOnce` / `TriggerCount$DamageAmount`.**
+   Added `Trigger::DealtCombatDamage(&'static Filter)` to `baylee-cards-dsl` and `baylee-engine` (summing batch combat damage per target in `event_damage_of`), and taught `triggers.rs` and `mana.rs` to lower `T:Mode$ DamageDealtOnce` (`ValidSource$` -> `DealsCombatDamage`, `ValidTarget$` -> `DealtCombatDamage`) and `TriggerCount$DamageAmount` (`Amount::EventAmount`) for `Noble Purpose` and `Pious Warrior`.
+2. **`R:Event$ DamageDone | Prevent$ True | ValidTarget$ Creature.EnchantedBy` (`Inviolability`).**
+   `keywords.rs` and `wall52.rs` lower `ValidTarget$ Creature.EnchantedBy` prevention replacements to `static_ability!(Filter::EnchantedBySource, Modifier::PreventDamageFrom(&Filter::Any))`.
+3. **Untargeted `AB$ PreventDamage | Defined$ Self` and `Effect::ProtectionFromChosenColor` (`Revered Elder`, `Rappelling Scouts`).**
+   `chains.rs` maps `Defined$ Self` on a permanent's own `PreventDamage` ability to `TargetSpec::ThisObject` (`Revered Elder`), and `Effect::ProtectionFromChosenColor` falls back to `subjects::source(state, res)` when `!res.targeted` (`Rappelling Scouts`).
+4. **`RepeatEach | RepeatPlayers$ Player.Opponent` with `Sacrifice` (`UnlessCost$`) and multi-player `Effect::PlayerMayPayOr` (`Rishadan Cutpurse`, `Rishadan Footpad`, `Rishadan Brigand`).**
+   `effects.rs` lowers `RepeatEach | RepeatPlayers$ Player.Opponent` wrapping `Sacrifice | Defined$ Remembered | UnlessCost$ <n> | UnlessPayer$ Remembered` to `Effect::PlayerMayPayOr { player: PlayerRel::EachOpponent, mana: Amount::Fixed(n), effect: &Effect::SacrificeChosen { who: PlayerRel::EventPlayer, .. } }`, and `choices.rs` iterates all players returned by `players_of(player, ..)` across `res.subject.pay_players_remaining`.
+5. **`SP$ AnimateAll | ValidCards$ Land` (`Natural Affinity`).**
+   `effects.rs` lowers `AnimateAll` into `Effect::CreateContinuousEffect` ops for `Modifier::AddType(TypeSet::CREATURE)` and `Modifier::SetPT(power, toughness)`.
+
+## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 4 (`Insubordination` through `Pangosaur`, 25 cards)
+
+Adding the fourth 25 previously absent *Mercadian Masques* first-printing cards (`14 Implemented`, `3 Partial`, `8 Unimplemented`) extended `scriptgen` across six patterns (`Jeweled Torque`, `Karn's Touch`, `Kyren Glider`, `Liability`, `Magistrate's Veto`, `Muzzle`, `Pangosaur`) and authored 4 full `Coverage::Implemented` hand-owned cards (`Insubordination`, `Lava Runner`, `Mercadian Atlas`, `Nether Spirit`):
+
+1. **Mana-only `Cost$` on triggered `AB$` abilities in `optional_price`.**
+   `activated.rs` recognizes `Cost$` on triggered `AB$` blocks when it parses as a positive generic mana integer even without `OptionalDecider$ You` (`Jeweled Torque` and the remaining four MMQ Torques).
+2. **`S:Mode$ CantBlock` in `statics.rs`.**
+   `statics.rs` maps `S:Mode$ CantBlock` to `Modifier::AddKeyword(KeywordSet::CANT_BLOCK)` (`Kyren Glider`, `Magistrate's Veto`).
+3. **`R:Event$ DamageDone | Prevent$ True | ValidSource$ Creature.EnchantedBy` in `keywords.rs` and `wall52.rs`.**
+   Mapped to `Modifier::PreventAllDamageFromIt` on `Filter::EnchantedBySource` (`Muzzle`).
+4. **`T:Mode$ LandPlayed` in `triggers.rs`.**
+   Mapped to `Trigger::PlaysLand` / `Trigger::PlaysAnotherLand` (`Pangosaur`).
+5. **`Defined$ TriggeredCardOwner` on `ChangesZone` triggers in `targets.rs`.**
+   Mapped to `PlayerRel::OwnerOfEvent` (`Liability`).
+6. **`AB$/SP$ Animate` with `Power$ X | Toughness$ X` and `SVar:X:Targeted$CardManaCost` in `effects.rs`.**
+   Mapped to `Effect::SetPTFilter { filter: &Filter::This, power: Amount::TargetCmc, toughness: Amount::TargetCmc, duration }` alongside `Effect::AddTypesToTarget` (`Karn's Touch`).
+
+## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 3 (`Enslaved Horror` through `Instigator`, 25 cards)
+
+Adding the third 25 previously absent *Mercadian Masques* first-printing cards (`10 Implemented`, `4 Partial`, `11 Unimplemented`) extended `scriptgen` across five patterns (`Extravagant Spirit`, `Flailing Manticore`, `Flailing Ogre`, `Flailing Soldier`, `Food Chain`, `Furious Assault`, `Haunted Crossroads`, `High Seas`):
+
+1. **`Count$ValidHand Card.YouOwn` and `unless_price` with `SVar:X`–`Z`.**
+   `atoms.rs` maps `Count$ValidHand Card.YouOwn` to `Amount::HandSize(PlayerRel::You)`, and `chains.rs` accepts `"X" | "Y" | "Z"` in `unless_price` (`Extravagant Spirit`).
+2. **`Activator$ Player` on non-mana activated abilities (`ActivationZone::BattlefieldAnyPlayer`).**
+   `activated.rs` appends `, zone = ActivationZone::BattlefieldAnyPlayer` when `Activator$ Player` appears on an activated ability, enabling the *Flailing* cycle (`Flailing Manticore`, `Flailing Ogre`, `Flailing Soldier`).
+3. **`Exile<1/...>` in `mana_cost_parts` and `Exiled$CardManaCost/Plus.1` in `Produced$`.**
+   `mana.rs` and `support.rs` map `"Exile"` cost atoms to `ExilePermanent(...)`, and `atoms.rs` maps `Exiled$CardManaCost/Plus.<n>` to `Amount::Plus { base: &Amount::SacrificedManaValue, offset: <n> }` because `CostPart::ExilePermanent` populates `paid.sacrificed_lki` (`Food Chain`).
+4. **Targeted `ChangeZone | Origin$ Graveyard | Destination$ Library` and `S:Mode$ RaiseCost | Type$ Spell`.**
+   `effects.rs` maps targeted `Origin$ Graveyard | Destination$ Library` (with `LibraryPosition$ 0` or default top) to `Effect::GraveyardToTop { target }` (`Haunted Crossroads`), and `final_portals.rs` maps `S:Mode$ RaiseCost | Type$ Spell | Amount$ <n> | ValidCard$ <filter>` to `Modifier::SpellsCostMore(n)` (`High Seas`).
+5. **`Filter::CmcAtMostX` / `Filter::CmcExactlyX` in `Effect::DestroyAll` require `SP$` mode.**
+   `Effect::DestroyAll` evaluates its filter against `this = res.source`, which is the announced `x_value` on a spell on the stack (`Meltdown`, `Gaze of Granite`, `Forced March`) and `0` on a battlefield permanent activating `AB$ DestroyAll` (`Hammer Mage`). `chains.rs` now refuses `DestroyAll` when `self.mode != "SP"` and the filter contains `Filter::CmcAtMostX` or `Filter::CmcExactlyX`.
+
+## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 2 (`Cho-Arrim Legate` through `Distorting Lens`, 25 cards)
+
+Adding the second 25 previously absent *Mercadian Masques* first-printing cards (`10 Implemented`, `5 Partial`, `10 Unimplemented`) extended `scriptgen` across five patterns (`Cho-Manno's Blessing`, `Cho-Manno, Revolutionary`, `Cinder Elemental`, `Collective Unconscious`, `Corrupt Official`, `Darting Merfolk`, `Deepwood Tantiv`, `Deepwood Wolverine`, `Distorting Lens`):
+
+1. **`ChosenColor` in protection filters and `ChooseColor` → `DB$ Animate` chains.**
+   `targets.rs` maps `"ChosenColor"` in `filter_expr_in_zone` to `Filter::OfSourceChosenColor` (`Cho-Manno's Blessing`), and `choose_color_animate` lowers `ChooseColor | Defined$ You | SubAbility$ DBAnimate` with `Colors$ ChosenColor | OverwriteColors$ True` to `Effect::ModifyCharacteristics { target, effect: ModifyEffect::SetColorsToChosen, duration }` (`Distorting Lens`).
+2. **`Prevent all damage that would be dealt to CARDNAME.`**
+   `constants.rs` maps `"Prevent all damage that would be dealt to CARDNAME."` in `keyword_static` to `Modifier::PreventDamageFrom(&Filter::Any)` (`Cho-Manno, Revolutionary`).
+3. **`NumCards$` expressions in `Draw` and self-bounce defaults in `ChangeZone`.**
+   `chains.rs` uses `amount_or_count` for `Draw`'s `NumCards$` (`Collective Unconscious`: `SVar:X:Count$Valid Creature.YouCtrl`), and `effects.rs` defaults untargeted `Origin$ Battlefield | Destination$ Hand` without `ChangeType$` on a permanent's own ability to `Defined$ Self` (`Darting Merfolk`).
+4. **Sacrifice-based alternative casting costs remain `Coverage::Partial`.**
+   `cast_wizard::paid_as_an_alternative_cost` currently only pays `CostPart::PayLife(_)` and `CostPart::ExileFromHand(_)`; cards whose alternative cost sacrifices permanents (`Crash`, `Delraich`, like `Fireblast`) must stay `Coverage::Partial` without `alternative_costs` until `cast_wizard` wires a sacrifice stage for `CastModeKind::Alternative`.
+
+## 2026-10-25 — *Mercadian Masques* (`mmq`) Batch 1 (`Aerial Caravan` through `Cho-Arrim Bruiser`, 25 cards)
+
+Adding the first 25 previously absent *Mercadian Masques* first-printing cards (`14 Implemented`, `2 Partial`, `9 Unimplemented`) extended `scriptgen` to cover five recurring patterns (`Alley Grifters`, `Ancestral Mask`, `Arrest`, `Ballista Squad`, `Briar Patch`, `Cackling Witch`, `Caustic Wasps`, `Chambered Nautilus`):
+
+1. **`T:Mode$ AttackerBlocked` on `Card.Self` and `TriggeredDefendingPlayer`.**
+   `triggers.rs` now maps `T:Mode$ AttackerBlocked` with `ValidCard$ Card.Self` to `Trigger::BecomesBlocked` (or `Trigger::BecomesBlockedBy(&{filter})` when `ValidBlocker$` is present), and `targets.rs` maps `Defined$ TriggeredDefendingPlayer` under `"Attacks" | "AttackerBlocked"` to `PlayerRel::DefendingPlayer` (`Alley Grifters`, `Chambered Nautilus`).
+2. **`T:Mode$ Attacks | Attacked$ You` with `Defined$ TriggeredAttackerLKICopy`.**
+   When `T:Mode$ Attacks` specifies `Attacked$ You` on a non-`Card.Self` filter, `triggers.rs` appends `.attackingYou` (`Filter::AttackingYou` in `targets.rs`), and `pump_effect` maps `Defined$ TriggeredAttackerLKICopy` / `TriggeredAttacker` under `Attacks` to `Filter::Reference` (`Briar Patch`).
+3. **`Count$Valid .../Times.<n>` in static P/T modifiers.**
+   `statics.rs` now strips an optional `/Times.<n>` suffix (`n` in `1..=4`) on symmetric `AddPower$`/`AddToughness$` `Count$Valid ` expressions and emits `Modifier::ModifyPTByCount` `n` times (`Ancestral Mask`: +2/+2 for each other enchantment).
+4. **Composite `S:Mode$ CantAttack,CantBlock,CantBeActivated` and `TargetSpec::ObjectOfEventPlayer`.**
+   `statics.rs` now lowers `Mode$ CantAttack,CantBlock,CantBeActivated` on `Creature.AttachedBy` into `Modifier::AddKeyword(KeywordSet::CANT_ATTACK.union(KeywordSet::CANT_BLOCK))` plus `Modifier::CantActivate` (`Arrest`), and `targets.rs` lowers `.ControlledBy TriggeredTarget` under `T:Mode$ DamageDone` to `TargetSpec::ObjectOfEventPlayer` (`Caustic Wasps`).
+
 ## 2026-10-19 — *Fallen Empires* (`fem`, 102/102) and retroactive DSL decomposition (*The Dark* / *Legends*)
 
 Completing all 67 remaining cards of *Fallen Empires* (`16 Coverage::Generated` via `scriptgen` + `51 Coverage::Implemented`) alongside retroactively decomposing single-card variants from *The Dark* and *Legends* surfaced five durable rules:
@@ -5194,3 +5354,591 @@ more than two it names nobody). What the author did more than once:
   mana restricted to cumulative upkeep both read;
   `cumulative_upkeep_is_said_in_the_one_shape_its_readers_know` holds every
   card printed with the keyword to it.
+
+## 2026-10-21 — Ice Age (`ice`) batch 5 (25 cards: `Illusionary Forces` to `Krovikan Vampire`)
+
+- Added 25 *Ice Age* first-printing cards (`Illusionary Forces` through `Krovikan Vampire`,
+  12 `Coverage::Implemented`, 13 `Coverage::Partial`) with engine/DSL files frozen pending
+  file splits on `main`.
+- Key card-authoring and testing lessons applying the Batch 1–4 review rules:
+  - Do not wire a `Coverage::Partial` card to a nearest-looking trigger/effect that
+    either plays a different rule or fails at resolution (`Krovikan Vampire`:
+    `Trigger::DiesAfterDamageByThis` captures `victim.version` before zone departure,
+    so `Effect::GraveyardToBattlefield { target: TargetSpec::EventObject }` skips it on
+    `!subjects::is_current`; leave `abilities = &[]` and state both what is missing and
+    how the card plays instead).
+  - `Trigger::DealsDamage` in `trigger.rs` sets `event_object_for = None` (unlike
+    `Trigger::DealtDamage`), so `PlayerRel::ControllerOfEvent` on `Justice` resolves to
+    nothing and only battlefield sources are scanned; keep `Justice`'s working upkeep
+    trigger and document the missing damage trigger until `trigger.rs` splits land.
+  - `Amount::SignedCountOf(&Filter::AttackerBlockersBeyondFirst)` + `Effect::ScalePT`
+    cleanly expresses `Johtull Wurm` (*"-2/-1 until end of turn for each creature
+    blocking it beyond the first"*), tested both against a single blocker (`-0/-0`) and
+    against three blockers (`-4/-2`).
+  - `Condition::Not(&Condition::DefendingPlayerControls(&Filter::And(&[Filter::LAND,
+    Filter::SNOW])))` inside `ActivationRestriction::All` cleanly expresses
+    `Kjeldoran Guard`'s *"only if defending player controls no snow lands"* restriction,
+    tested both when the controller owns a snow land (allowed) and when the defending
+    player controls one (excluded).
+
+## 2026-10-21 — Ice Age (`ice`) batch 6 (25 cards: `Lava Burst` to `Mountain Titan`)
+
+- Added 25 *Ice Age* first-printing cards (`Lava Burst` through `Mountain Titan`,
+  13 `Coverage::Implemented`, 12 `Coverage::Partial`), bringing `5ED/deck-b` (`Deck B`)
+  to playable status (`50 -> 51` playable preconstructed decks).
+- Key card-authoring and testing lessons:
+  - `Minion of Leshrac`'s *"If this creature deals damage to you this way, tap it"*
+    on its upkeep sacrifice-or-damage choice is 100% expressible using
+    `Condition::AmountAtLeast(Amount::ThisWay(ThisWay::DamageDealtToYou), 1)` inside
+    `Effect::IfCondition { ..., then: &[Effect::TapSelf], otherwise: &[] }` (the same
+    pattern as `Mishra's War Machine`).
+  - `Meteor Shower`'s *"deals X plus 1 damage"* for a single target is expressible via
+    `Amount::Plus { base: &Amount::X, offset: 1 }`; only dividing `X + 1` damage across
+    multiple targets lacks a `DivisionAmount` variant.
+  - `EnterModifier::ChooseOpponent` stores the chosen opponent on
+    `GameObject::chosen_opponent()`, and `Modifier::MayChooseNotToUntap` prompts
+    `Pending::ChooseCards { prompt: ChoicePrompt::LeaveTapped, .. }` during the untap
+    step (`vec![permanent]` leaves it tapped; `vec![]` lets it untap).
+
+## 2026-10-21 — Ice Age (`ice`) batch 7 (25 cards: `Mudslide` to `Red Scarab`)
+
+- Added 25 *Ice Age* first-printing cards (`Mudslide` through `Red Scarab`,
+  14 `Coverage::Implemented`, 11 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - `Effect::WhenLeavesThisTurn { watched, effects }` cleanly expresses bidirectional
+    same-turn departure links (`Phantasmal Mount`: one watching `TargetSpec::Source`
+    with `Effect::Sacrifice { target: TargetSpec::ChosenTarget(0) }` and a second
+    watching `TargetSpec::ChosenTarget(0)` with `Effect::SacrificeSelf`).
+  - `Modifier::GrantActivatedDefinition(&GRANTED)` on a land enchanted by an Aura
+    (`Mystic Might`) exposes the granted ability on the land at
+    `crate::choice::GRANTED_ABILITY`.
+  - `Modifier::ReplaceProducedManaColor(ManaColor)` on subtype filters (`Naked Singularity`,
+    `Reality Twist`) cleanly replaces the mana color produced by lands of each basic
+    land subtype without affecting unmentioned basic land subtypes (`Island` on
+    `Reality Twist`).
+
+## 2026-10-21 — Ice Age (`ice`) batch 8 (25 cards: `Rime Dryad` to `Stench of Evil`)
+
+- Added 25 *Ice Age* first-printing cards (`Rime Dryad` through `Stench of Evil`,
+  15 `Coverage::Implemented`, 10 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - `Modifier::ReplaceTappedMana { from, to }` applied across the 5 colored `ManaColor`
+    variants on `Filter::LAND` cleanly implements `Ritual of Subdual`'s *"If a land is
+    tapped for mana, it produces colorless mana instead of any other type"*.
+  - `Modifier::CantBeTargetedBy(&Filter::InZone(ZoneRef::Stack))` on
+    `Filter::AttachedToBySource` (`Spectral Shield`, matching `Anti-Magic Aura`) blocks
+    spells on the stack from targeting the enchanted creature while still allowing
+    activated/triggered abilities from permanents on the battlefield to target it.
+  - Restricted mana in `ManaPool` (`Soldevi Machinist`'s `{C}{C}` restricted to
+    `ManaUse::Abilities` on `Filter::ARTIFACT`) is tracked in `mana_pool.restricted()`
+    (and included in `mana_pool.total()`, while `mana_pool.available(color)` reports
+    unrestricted mana only). When floating in the pool, `priority_offer(&engine).abilities`
+    includes affordable artifact abilities while excluding non-artifact abilities.
+
+## 2026-10-21 — Ice Age (`ice`) batch 9 (final 24 cards: `Stormbind` to `Zur's Weirding`, set complete)
+
+- Added the final 24 *Ice Age* first-printing cards (`Stormbind` through `Zur's Weirding`,
+  16 `Coverage::Implemented`, 8 `Coverage::Partial`), completing all 368 *Ice Age* (`ice`)
+  Oracle identities in `data/card-pool.txt`.
+- Key card-authoring and testing lessons:
+  - `Filter::AttachedTo(&Filter::Reference)` combined with `Filter::OwnedByYou` and
+    `Filter::HasColor` inside `Effect::ReturnAllToHand` cleanly implements `Word of Undoing`
+    (*"Return target creature and all white Auras you own attached to it to their owners'
+    hands"*), leaving non-white Auras you own and white Auras an opponent owns behind.
+  - On instant/sorcery cards with a secondary graveyard activated ability (`Whiteout`),
+    `abilities[0]` is the `spell!` definition, so the graveyard `activated!` ability is
+    offered at `ability_index: 1` on the graveyard `ObjectId` (`in_graveyard(...)`).
+  - `Effect::CantBeRegeneratedThisTurn { target: TargetSpec::EventObject }` (`Lim-Dûl's Cohort`)
+    must be listed in `this_object_tests.rs`'s `READ` slice so the pool-wide `EventObject`
+    census recognizes that `resolve/immediate.rs` reads `EventObject` through `spec_objects`.
+
+## 2026-10-21 — Homelands (`hml`) batch 1 (25 cards: `Aether Storm` to `Folk of An-Havva`)
+
+- Added 25 *Homelands* first-printing cards (`Aether Storm` through `Folk of An-Havva`,
+  17 `Coverage::Implemented`, 8 `Coverage::Partial`), and held back `Drudge Spell` in
+  `docs/generated-held-back.md` due to `b_1_1_skeleton_regenerate` vs `b_1_1_skeleton`
+  colliding on `SKELETON_1_1_BLACK`.
+- Key card-authoring and testing lessons:
+  - `this_object_tests::every_event_object_in_the_pool_is_one_the_engine_reads` and
+    `every_this_object_in_the_pool_is_one_the_resolver_reads` inspect `format!("{def:?}")`,
+    which includes the `Coverage::Partial(...)` string literal on the `CardDef`. Never write
+    the literal substring `EventObject` or `ThisObject` inside a `Coverage::Partial(...)`
+    reason string (`Dwarven Sea Clan`), or the `Debug`-text sweep will count it as an unread
+    `TargetSpec` occurrence.
+  - `Effect::PutFromHandOnTop` is specifically the self-tuck cantrip half of `Brainstorm`, so
+    the AI counter-gate (`tactics::only_replaces_itself`) classifies a spell whose only effect
+    is `PutFromHandOnTop` as a cantrip that replaces itself. Targeted hand-disruption spells
+    like `Stunted Growth` should use `Effect::DiscardForPlayers { who: PlayerRel::Chosen, count: 3 }`
+    in their `Coverage::Partial` approximation so they act on the targeted player rather than
+    the caster.
+  - `CostItem::TapMatching(Filter::And(&[Filter::ControlledByYou, Filter::CREATURE, Filter::HasColor(Color::Blue)]))`
+    combined with `CostItem::RemoveCounter { kind: CounterKind::Polyp, count: 1 }` (`Coral Reef`)
+    prompts `Pending::ChooseCostObjects` for the untapped blue creature when activating the
+    ability.
+
+## 2026-10-21 — Homelands (`hml`) batch 2 (25 cards: `Forget` to `Reveka, Wizard Savant`)
+
+- Added 25 *Homelands* first-printing cards (`Forget` through `Reveka, Wizard Savant`,
+  14 `Coverage::Implemented`, 11 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - Slowtrips that read *"Draw a card at the beginning of the next turn's upkeep"* (`Headstone`,
+    `Jinx`, `Prophecy`, `Renewal`) must use `Effect::AtNextTurnsUpkeep`, not `Effect::AtNextUpkeep`
+    (which schedules the trigger for *your* next upkeep rather than the next turn's upkeep).
+    Writing played card tests that check the card draw on the opponent's turn 2 upkeep immediately
+    caught the distinction across all four cards.
+  - When testing a permanent with an upkeep sacrifice trigger (`Koskun Falls`'s *"At the beginning
+    of your upkeep, sacrifice this enchantment unless you tap an untapped creature you control"*),
+    seeding the enchantment on `battlefield(0, ...)` without a creature causes it to sacrifice
+    itself during P0's Turn 1 upkeep inside `reach_main_phase(&mut engine, p0)` before P1's turn
+    ever begins; cast the enchantment in P0's first main phase (or seed a creature on P0's
+    battlefield) when testing its static ability on P1's turn.
+
+## 2026-10-22 — Homelands (`hml`) batch 3 (final 15 cards: `Root Spider` to `Winter Sky`, set complete)
+
+- Added the final 15 *Homelands* first-printing cards (`Root Spider` through `Winter Sky`,
+  11 `Coverage::Implemented`, 4 `Coverage::Partial`, plus `Timmerian Fiends` in `data/unplayable.tsv`),
+  completing all playable *Homelands* (`hml`) cards (with `Drudge Spell` held back in
+  `docs/generated-held-back.md`).
+- Key card-authoring and testing lessons:
+  - `Filter::ControlledByDefendingPlayer` in `Condition::BattlefieldCountAtMost` resolves against
+    the attacking source (`this`) during combat, so `Spectral Bears`'s *"Whenever this creature
+    attacks, if defending player controls no black nontoken permanents, it doesn't untap during
+    your next untap step"* is 100% `Coverage::Implemented` via
+    `Condition::BattlefieldCountAtMost(&DEFENDERS_BLACK_NONTOKEN_PERMANENT, 0)` and
+    `Effect::SuppressUntap { target: TargetSpec::ThisObject, steps: 1 }`.
+  - `Trigger::DiesAfterDamageByThis` (`Sengir Bats`, `Sengir Vampire`) checks that the damage source
+    is still on the battlefield when `damage_death_snapshot` is taken (`object.zone == Zone::Battlefield`),
+    so when testing a 1/2 creature with `Trigger::DiesAfterDamageByThis`, block a 1/1 attacker rather
+    than a 2/2 attacker so the source survives combat to witness the death.
+
+## 2026-10-22 — Alliances (`all`) batch 1 (25 cards: `Aesthir Glider` to `Exile`)
+
+- Added 25 *Alliances* first-printing cards (`Aesthir Glider` through `Exile`,
+  9 `Coverage::Implemented`, 16 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - Returning a card from a graveyard to its owner's hand via `TargetSpec::ThisObject`
+    (`Death Spark`, matching `Puppet Master`) must use `Effect::ReturnToHand { target: TargetSpec::ThisObject }`,
+    not `Effect::GraveyardToHand { target: TargetSpec::ThisObject }`, because `this_object_tests::every_this_object_in_the_pool_is_one_the_resolver_reads`
+    allowlists `ReturnToHand` as the self-returning `ThisObject` carrier.
+  - Hand-exile mana abilities (`Elvish Spirit Guide`'s *"Exile this card from your hand: Add `{G}`"*)
+    are expressed with `AbilityDef::Activated` (`from_zone: ZoneRef::Hand`, `is_mana_ability: true`,
+    `CostItem::ExileSelf`) and activated from hand via `PlayerAction::ActivateAbility { source, ability_index: 0 }`
+    on the hand `ObjectId`.
+  - Conditional counterspells with an unconditional slowtrip (`Burnout`: *"Counter target instant
+    spell if it's blue. Draw a card at the beginning of the next turn's upkeep."*) are 100%
+    `Coverage::Implemented` via `Effect::When { condition: Condition::TargetMatches(&Filter::HasColor(Color::Blue)), then: &[Effect::CounterTargetSpell { unless_pays: None }] }`
+    followed by `Effect::AtNextTurnsUpkeep(&[Effect::DrawCards(ValueExpr::Fixed(1))])`.
+
+## 2026-10-22 — Alliances (`all`) batch 2 (25 cards: `False Demise` to `Lim-Dûl's Paladin`)
+
+- Added 25 *Alliances* first-printing cards (`False Demise` through `Lim-Dûl's Paladin`,
+  13 `Coverage::Implemented`, 12 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - Abilities that exile their own source permanent (`Ivory Gargoyle`'s `"{4}{W}: Exile this creature."`)
+    must use `Effect::ExileSource` rather than `Effect::Exile { target: TargetSpec::ThisObject }`,
+    as enforced by `this_object_tests::every_this_object_in_the_pool_is_one_the_resolver_reads`.
+  - Activated abilities targeting an opponent (`Helm of Obedience`) must use
+    `target = Some(TargetSpec::AnyOpponent)` rather than `TargetSpec::Player(PlayerRel::Opponent)`,
+    so `eval::target_player_options` offers opponent seats in `Pending::ChooseTargets`.
+  - `Effect::PlayerMayPayCostOr` with `CostPart::Sacrifice` (`Gargantuan Gorilla`) or
+    `CostPart::Discard` (`Lim-Dûl's Paladin`) directly opens `Pending::ChooseCards { min: 0, max: 1, prompt: ChoicePrompt::CostSacrifice / CostDiscard }`
+    without a preceding `Pending::YesNo` prompt: choosing 1 object pays the cost, and choosing
+    `vec![]` declines and runs the `else` branch.
+
+## 2026-10-22 — Alliances (`all`) batch 3 (25 cards: `Lim-Dûl's Vault` to `Scarab of the Unseen`)
+
+- Added 25 *Alliances* first-printing cards (`Lim-Dûl's Vault` through `Scarab of the Unseen`,
+  12 `Coverage::Implemented`, 13 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - When an activated ability has a target (`target = Some(TargetSpec::AnyOpponent)` on
+    `Phelddagrif`) and also modifies its own source permanent, use `Effect::ModifySource` rather
+    than `Effect::continuous(&Filter::This, ...)`. `Filter::This` inside `CreateContinuousEffect`
+    resolves through `subjects::this`, which reads `res.targets.first()` whenever `res.targeted`
+    is `true` and returns `None` when the only target is a player (`res.target_players`).
+  - Mandatory spell additional costs (*"As an additional cost to cast this spell, sacrifice a
+    creature"* on `Ritual of the Machine`) must be declared on `face!` as
+    `mandatory_additional_costs = &[CostPart::Sacrifice(&Filter::CREATURE)]`, not
+    `additional_costs` (which is for optional additional costs like kicker or waterbend).
+  - Granted activated abilities (`Modifier::GrantActivatedDefinition` on `Martyrdom`) receive a
+    synthetic ability index on the recipient permanent; tests should look up the synthetic `id`
+    via `crate::effects::granted_activated(engine.state(), recipient)`.
+
+## 2026-10-22 — Alliances (`all`) batch 4 (25 cards: `Scars of the Veteran` to `Undergrowth`)
+
+- Added 25 *Alliances* first-printing cards (`Scars of the Veteran` through `Undergrowth`,
+  9 `Coverage::Implemented`, 16 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - Abilities that put counters on their own source permanent (`Shield Sphere`, `Tornado`) must use
+    `Effect::AddCounterSource { kind, amount }` rather than `Effect::AddCounter { target: TargetSpec::ThisObject, .. }`,
+    because `this_object_tests::every_this_object_in_the_pool_is_one_the_resolver_reads` only
+    allowlists the specific `Effect` variants whose resolvers inspect `TargetSpec::ThisObject`.
+  - Dynamic mana abilities (`Soldevi Adnate`: *"Add an amount of `{B}` equal to the sacrificed
+    creature's mana value"*) cannot be expressed as a static `&[ManaSymbol]` slice and must remain
+    `Coverage::Partial`, with a `PARTIAL_NON_PRODUCER` entry in `land_mana_tests.rs`.
+  - `Amount::TargetCmc` inside `Effect::PumpTarget` (`Surge of Strength`) and `Effect::SetSourceToughness { base: Amount::TargetPower, offset: 1, duration: Duration::UntilEndOfTurn }`
+    (`Sworn Defender`) read the targeted permanent's mana value / power at resolution time.
+
+## 2026-10-22 — Alliances (`all`) batch 5 (11 cards: `Unlikely Alliance` to `Yavimaya Ants`)
+
+- Added the final 11 *Alliances* first-printing cards (`Unlikely Alliance` through `Yavimaya Ants`,
+  9 `Coverage::Implemented`, 2 `Coverage::Partial`), completing all 144 *Alliances* first-printing
+  Oracle identities (83 `Coverage::Implemented`, 61 `Coverage::Partial`).
+- Key card-authoring and testing lessons:
+  - `Filter::BandedWithSource` is supported in `Effect::continuous` (`Urza's Engine`'s second `{3}`
+    ability: *"Attacking creatures banded with this creature gain trample until end of turn"*), and
+    combat bands are tested via `declare_band_attack` + `answer_band_and_reach_blockers`.
+  - `CostPart::TapOther(&Filter::And(&[Filter::CREATURE, Filter::AttachedToBySource]))` paired with
+    `TargetSpec::Object(&Filter::And(&[Filter::CREATURE, Filter::Not(&Filter::AttachedToBySource)]))`
+    cleanly expresses `Veteran's Voice` (*"Tap enchanted creature: Target creature other than the
+    creature tapped this way gets +2/+1 until end of turn. Activate only if enchanted creature is
+    untapped."*).
+  - `Trigger::TappedForMana` with `Effect::AddManaLikeEvent { amount: 1 }` and
+    `Effect::SuppressUntap { target: TargetSpec::EventObject, steps: 1 }` expresses `Winter's Night`
+    as a triggered mana ability that also suppresses the tapped snow land's next untap step.
+
+## 2026-10-22 — Mirage (`mir`) batches 1–9 (213 cards: `Abyssal Hunter` to `Zombie Mob`) and Visions (`vis`) batch 1 (25 cards: `Aku Djinn` to `Feral Instinct`)
+
+- Completed all 213 remaining *Mirage* first-printing cards across 9 batches (**123 `Coverage::Implemented`,
+  90 `Coverage::Partial`**), each with a dedicated played engine test, and added *Visions* Batch 1
+  (`Aku Djinn` through `Feral Instinct`, **11 `Coverage::Implemented`, 14 `Coverage::Partial`**).
+- Key card-authoring and testing lessons:
+  - When a `Trigger::Dies` self-return card (`Bogardan Phoenix`) uses `Effect::ReturnSourceFromGraveyard`,
+    `lints::tests::entries::every_self_return_comes_back_under_the_control_its_sentence_prints` checks
+    that `owner_control` matches the printed Oracle text (`false` for *"under your control"*, `true` for
+    *"under its owner's control"*) and enforces a pool count ceiling in `entries.rs`.
+  - When an Aura's triggered ability (`Death Watch`: *"When enchanted creature dies, its controller loses
+    life equal to its power and you gain life equal to its toughness"*) fires on `Trigger::Dies(&Filter::AttachedToBySource)`,
+    `PlayerRel::ControllerOfEvent`, `Amount::EventPower`, and `Amount::EventLastToughness` read the LKI
+    snapshot of the dying enchanted creature directly.
+- Added *Visions* Batch 2 (`Fireblast` through `Kookus`, **15 `Coverage::Implemented`, 10 `Coverage::Partial`**),
+  including `Goblin Recruiter`'s multi-find top-of-library search (`Find::TOP_OF_LIBRARY.any_number()`)
+  and `Helm of Awakening`'s global spell cost reduction (`Modifier::SpellsCostLess(1)` on `Filter::Any`).
+  - `cast_wizard::paid_as_an_alternative_cost` only supports `CostPart::PayLife(_)` and `CostPart::ExileFromHand(_)`,
+    and `cast_wizard::paid_as_a_mandatory_additional_cost` only supports `PayLifeX`, `PayLife(_)`, `Sacrifice(_)`,
+    `ExilePermanent(_)`, `ExileFromGraveyard(_)`, `Discard(_)`, `DiscardHand`, and `DiscardLastDrawnThisTurn`
+    (enforced by `offer_tests::no_spell_cost_list_carries_a_part_its_payment_walks_past`), so `Fireblast`,
+    `Kaervek's Spite`, and `Infernal Harvest` must not place `CostPart::Sacrifice` in `alternative_costs`
+    or `CostPart::SacrificeAll` / `CostPart::ReturnToHand` in `mandatory_additional_costs`.
+  - Cards with `KeywordSet::FLANKING` (`Knight of Valor`, `Knight of the Mists`) must also carry the explicit
+    `triggered!(Trigger::BecomesBlockedBy(&WITHOUT_FLANKING), &[Effect::ModifyEvent { modifier: Modifier::ModifyPT(-1, -1), duration: Duration::UntilEndOfTurn }])`
+    ability so the flanking -1/-1 trigger fires when blocked by a creature without flanking.
+- Added *Visions* Batch 3 (`Lead-Belly Chimera` through `Sands of Time`, **9 `Coverage::Implemented`, 16 `Coverage::Partial`**),
+  including `Rock Slide` (`Effect::DealDamageDivided { amount: DivisionAmount::XDoubleFrom(u32::MAX) }` with `TargetReq::up_to(..., u8::MAX)`),
+  `Miraculous Recovery` (`Effect::GraveyardToBattlefield` with `counters: Some((CounterKind::P1P1, 1))`),
+  and `Resistance Fighter` (`Effect::continuous(&Filter::This, Modifier::AssignsNoCombatDamage, Duration::UntilEndOfTurn)` on a targeted ability).
+- Added *Visions* Batch 4 (`Shimmering Efreet` through `Vision Charm`, **13 `Coverage::Implemented`, 12 `Coverage::Partial`**),
+  including `Summer Bloom` (`Effect::continuous(&Filter::Any, Modifier::ExtraLandDrops(3), Duration::UntilEndOfTurn)`),
+  `Sun Clasp` (`Effect::ReturnAllToHand { filter: &ENCHANTED_CREATURE, opponents_only: false }`),
+  `Vanishing` (`Effect::PhaseOutFilter(&ENCHANTED_CREATURE)`),
+  `Triangle of War` (`Effect::Fight { fighter: TargetSlot::First, foe: TargetSlot::Second }`),
+  and `Teferi's Puzzle Box` (`Effect::PutAnyFromHandOnBottom` + `Effect::DrawCards { amount: Amount::ThisWay(ThisWay::PutIntoLibraryFromHand) }`).
+  - `lines::tests::every_mode_and_alternative_cost_knows_its_printed_sentence` requires every `AbilityDef::ModalSpell`
+    whose Oracle text has `•` bullets to have the exact same number of non-empty `modes` as `•` bullets so
+    `baylee_cards_codegen::lines::map` maps each mode index to its bullet line.
+- Added *Visions* Batch 5 (`Wand of Denial` through `Zhalfirin Crusader`, **2 `Coverage::Implemented`, 2 `Coverage::Partial`**),
+  completing all 104 newly implemented *Visions* (`vis`) first-printing cards (**50 `Coverage::Implemented`, 54 `Coverage::Partial`**).
+  - Continuous effects from a resolving spell (`Wind Shear`: *"Attacking creatures with flying get -2/-2 and lose flying
+    until end of turn"*) lock their affected permanent set on resolution (CR 611.2c), so applying `Modifier::ModifyPT(-2, -2)`
+    and `Modifier::RemoveKeyword(KeywordSet::FLYING)` in sequence on `ATTACKING_WITH_FLYING` affects the same locked set
+    without the keyword removal invalidating the filter for the second effect.
+- Added *Exodus* Batch 3 (`Oath of Lieges` through `Skyshaper`, **12 `Coverage::Implemented`, 13 `Coverage::Partial`**),
+  including `Reconnaissance` (`Effect::RemoveTargetFromCombat { unblock: false }` + `Effect::UntapTarget`),
+  `Plaguebearer` (`Filter::ManaValue(Cmp::Eq, ManaBound::ChosenX)`), and `Rabid Wolverines`
+  (`Amount::Count { filter: &Filter::BlockingSource, owner: PlayerRel::Any }`).
+  - `baylee_cards_codegen::lines::granted_cost` only inspects `AbilityDef::Static` and `AbilityDef::CopyOnEnter*`,
+    not `AbilityDef::Spell`, so an instant/sorcery spell cannot use `Modifier::GrantActivated` inside
+    `Effect::CreateContinuousEffect` (`Resuscitate`) until `granted_cost` walks `AbilityDef::Spell`.
+
+
+## 2026-10-23 — Review of Argon PR #394 (Ice Age 5 to Urza's Destiny 1)
+
+The second-model review read all 1,350 card/test pairs. Detailed findings and
+final validation are in `docs/history/2026-10-23-argon-review.md`.
+
+- **A Partial is a player-facing rules claim.** Missing a cost, upkeep
+  consequence, casting restriction, opponent choice or mandatory symmetric
+  effect makes a card stronger in a reachable game. Kaervek's Spite and
+  Infernal Harvest cannot move an additional cost to resolution; Aluren
+  cannot replace a free-cast permission with an ordinary generic reduction;
+  Nature's Resurgence and Pandemonium cannot drop the opponents' instructions.
+  Remove the whole optional upside or hold the card back. A useless 0/0 or
+  blank noncreature is held too.
+- **Search the existing DSL before naming a gap.** Mindwhip Sliver uses the
+  complete granted-ability definition; Body Snatcher can ask for its creature
+  discard; Magmasaur can branch on its counters and keep the sacrifice;
+  Umbilicus already has a life-payment alternative. The missing sentence and
+  the code used instead must both be explicit in a Partial reason.
+- **Read the consumer as well as the variant.** `EventAmount` must capture
+  damage to a permanent, not only damage to a player; `EventObject` on a
+  damage-received trigger means the recipient. A delayed self-return needs
+  the exact graveyard successor, not the old battlefield version, and it
+  must not follow the card out of the graveyard and back. Keyword bits do not
+  prove a rule is implemented, and a second handwritten flanking trigger
+  doubles the keyword's effect.
+- **Test the sentence's boundary through the real offer.** `castable` alone
+  means mana already floats; include `payable` for a real availability test.
+  Check both paid and unpaid abilities, and both sides of a filter. A turn
+  helper returns immediately when its predicate already holds. Printed mana
+  abilities use `ActivateAbility`; the intrinsic basic-land door is different.
+  A setup helper that taps every mana creature can accidentally tap the next
+  blocker too. Declare combat explicitly, and settle the stack before claiming
+  a trigger did not fire.
+- **Preventing damage and assigning none are different rules.** Use the
+  combat-prevention modifier for Resistance Fighter, Gossamer Chains and Fend
+  Off. Include a case where damage cannot be prevented. Assignment restrictions
+  also have to reach blockers and the masked-creature reveal preview.
+- **Generated files stay generated.** Restore reviewed unsafe cards with the
+  selective hold-back codegen mode, remove their mirrored tests/module entries,
+  then regenerate compiled tables. Never hand-write the generated stub marker
+  or run full codegen without the corpus. Keep reviews in small batches and
+  rerun the relevant tests before asking for the next batch.
+
+- **The controller in a duration is observable.** `SuppressUntap` follows the
+  affected permanent's controller. Use the existing `UntilYourNextUntapStep`
+  scope for the resolving ability's “your”, and test a control change before
+  untap. “Until its next untap” and “during its next untap” also differ at the
+  start/end boundary; checking only the final type misses Choke interactions.
+- **Measure the committed pool rather than adding authoring claims.** The
+  reviewed 1,350 identities contain 793 Implemented, 260 Partial and 297
+  Unimplemented cards. First-printing set totals also contain inherited cards.
+  Native `site card-status` checks the ledger/pool/index relationship and keeps
+  Excluded, Absent and Unimplemented separate. The original authoring snapshot
+  is not a current coverage report.
+
+- **Cost parts and simultaneous events have different snapshot boundaries.**
+  Refresh projected characteristics between completed cost parts, before the
+  next sacrifice records its source. Removing a counter then sacrificing must
+  use the remaining power. Do not refresh between individual sacrifices within
+  one simultaneous part: a sacrificed lord still contributes to that event's
+  last known characteristics. Include stacked and immediate mana controls.
+- **Census agreement is bounded by the reader.** Exact populations should be
+  reconciled by individual card evidence, preserving negative controls. Two
+  counts using the same text reader can share a blind spot, such as `add`
+  versus `adds`; record it explicitly rather than claiming complete coverage.
+  Text provenance for retained modal subsets must be unique, and unknown or
+  ambiguous effects must refuse a label rather than inherit a shifted index.
+
+- **Adding mana does not make an activation a mana ability.** A direct target
+  in any immediate sentence keeps Witch Engine's ability on the stack. Its
+  printed-line reader must agree. A target in a later delayed trigger belongs
+  to that separate ability; retain a Primal Wellspring-style negative control.
+- **A public view cannot reconstruct missing history.** Zero marked damage
+  after regeneration is not proof of no damage this turn. Current combat is
+  not all attacks this turn, and an unannounced X is not a candidate's mana
+  value. Keep the client's conservative unknown answer, pin known gaps by exact
+  membership, and test the genuinely empty candidate population separately.
+
+## 2026-10-24 — Feedback regressions and token art adoption
+
+- Replayed the report shapes for Umara Raptor, Field of the Dead and Tireless
+  Provisioner: a returned Earth King's Lieutenant produces exactly the two
+  counters that take the Raptor to 4/4; two lands entering together each see
+  the seven-name condition; a land played from the graveyard still triggers
+  Landfall. Keep those joins in the tests, not only the final token or P/T.
+- A token's id and its definition are different commitments. `tokenledger`
+  must let a generated entry become hand-written in place when a person chooses
+  a printing, while refusing collisions and preserving every other id. The M20
+  Zombie is the regression: `codegen --tables` moves only its body and reexport.
+- Test setups need the whole casting sequence. A Raptor plus Ephemerate needs
+  four lands, Primeval Titan needs two green sources, and library searches need
+  the offered ObjectIds asserted before `ChooseObjects`; otherwise a report test
+  fails on setup rather than on the rule it is meant to prove.
+
+## Desktop feedback card review (25 October 2026)
+
+Reviewed Kimi's `29fde2893624af5aa311a4fa971a42932a106f11` and
+`fdd79c1b93a55d5e83af188e05ac530e004dbaaf` from PR #395. Adopting an
+existing generated token preserves its stable token slot, so saved print
+identity remains valid. The black 2/2 Zombie art UUID resolves to tm20 #6.
+The Umara Raptor, Field of the Dead and Tireless Provisioner regression
+fixtures exercise their triggers through engine actions; the follow-up corrects
+the fixtures' actual mana costs. No further card-rule defect was found.
+
+UI review lesson from the surrounding PR: asynchronous screenshot encoding
+must not remove the wait for GPU readback, and virtualized rows from an old
+log must never be measured against a replacement book. Tests need measured
+rows and lifecycle changes, not only initial mounting with empty layout data.
+## 2026-10-25 — First Partial-completion batch (eight cards)
+
+The first eight-card batch has 48 passing focused tests and its initial table
+pipeline is green. Four generic reader forms pass 382 codegen tests (191
+scriptgen); selective reclaim passes 98 xtask tests. Fresh post-reclaim
+measurement, table/hook validation and the rules gate pass (20,872 tests,
+17 skipped). The corrected modifier population passes all 13 effects tests.
+Full `cargo dev gate` also passes: 23,109 workspace tests (8 slow), 25 skipped,
+plus 4 API tests; both gates exit 0. Feature gate was not run, and neither
+push nor land was performed. At that checkpoint, 286 Partial cards remained separate
+work; four returns to generator ownership do not enlarge this eight-card batch.
+
+- **Mutate the rule to test the assertion.** A no-op supertype application
+  initially passed because `SupertypeSet::contains(BASIC.union(SNOW))`
+  accepts either matching bit. Exact set equality detects Basic without Snow.
+  Nine targeted mutations were ultimately detected. A green regression needs
+  a failing counterexample before its asserted boundary is trusted.
+- **Snapshot a simultaneous rule before any object leaves.** A no-regeneration
+  static must apply to every affected victim of one destroy-all or lethal SBA
+  event even when its source is processed first. Test both object orders;
+  source departure in an earlier instruction is a different boundary.
+- **Exercise the real choice before measuring a count.** Directly setting a
+  chosen-opponent field missed the projection-cache bug at the entry decision.
+  The real action must invalidate projections before count-dependent P/T is
+  read. Include an opponent whose board gives a distinct answer.
+- **Keep history authoritative and scans conditional.** Damage-source and
+  recipient versions distinguish current incarnations; marked damage cannot
+  reconstruct those facts in a public view. Keep public readers unknown and
+  use an effect-table hint to avoid scanning every battlefield on ordinary
+  SBA passes with no regeneration prohibition.
+- **Name unsupported timing separately from supported characteristic edits.**
+  Adding/removing Snow is a layer-four supertype change. General World
+  tenure requires its own timing history; the primitive alone is not proof
+  that every rule about every supertype is complete.
+- **Match the reader's memory boundary to runtime facts.** A runtime that
+  records damage recipients across a resolution cannot safely implement a
+  script that resets damage memory after an earlier instruction. Accept the
+  initial damage instruction and refuse later memory resets explicitly.
+  Keep source-static no-regeneration predicates exact, and refuse World
+  supertype changes until the world rule tracks continuous tenure.
+- **Source identity determines prevention.** Energy Storm cares whether the
+  damage source is an instant or sorcery spell. “Ability damage is never
+  prevented” is too broad: an ability can attribute damage to a spell.
+  Negative controls need a nonspell source, not only an ability on the stack.
+- **Reader completion and coverage promotion are separate events.** Reclaim
+  only the explicitly named, already implemented definitions after fully
+  reading their real upstream scripts. Preserve each identity, printing pin,
+  path and tested coverage; prove a preview leaves every relevant file hash
+  unchanged. Four ownership transfers do not mean four additional cards were
+  implemented, and an extended reader does not justify a broad regeneration.
+- **New modifier variants belong in the verification census too.** An
+  exhaustive production match does not update the independent test population.
+  Add each new modifier to the enum-vs-list check and reconcile the locking
+  classification by behavior: supertype edits lock their sets; regeneration
+  prohibition changes a rule. Preserve membership checks alongside exact totals.
+
+## 2026-10-26 — Bounded Ice Age closeout
+
+Eighteen existing Partial definitions are now Implemented against `origin/main`;
+70 Ice Age rule cards remain open. Count 373 Oracle IDs separately from the
+383 printings, and preserve the user's narrowed scope rather than claim a
+whole-set completion. Rules gate: **21,050 passed, 17 skipped, exit 0**.
+Full desktop gate: **23,301 passed, 25 skipped; four API tests passed; exit 0**.
+Formatting, Clippy, tests, cache, validation and API checks all passed.
+Feature gate: **Passed, exit 0**. Client: 2,290 passed, including 39 devctl
+checks. Gateway devtable Clippy/tests, dev-dylink, test-support, train without
+play, fuzz, mutate, verification-hooks-shipped and crypto-bigint-scope all passed.
+
+Completed instruction-draw history is not by itself a future rule input for
+loop detection. Active loot must still hash its normalized eligible hand
+positions; snapshot identity retains the complete ledger. Direct zone-mutation
+fixtures must settle characteristics before measuring a no-new-events boundary.
+
+## 2026-10-24 — Urza's Destiny Batch 2 (`Goblin Festival` through `Phyrexian Negator`)
+
+- **Cards**: Added the next 25 absent first-printing identities in `uds` ledger order (`Goblin Festival` through `Phyrexian Negator`): **15 `Coverage::Implemented`, 4 `Coverage::Partial`, 6 `Coverage::Unimplemented` (`--hold-back`)**.
+  - **Machine-owned (`Coverage::Implemented`, 5)**: `Incendiary`, `Junk Diver`, `Keldon Vandals`, `Magnify`, `Mark of Fury`.
+  - **Hand-owned (`Coverage::Implemented`, 10)**: `Goblin Festival`, `Goblin Marshal`, `Hulking Ogre`, `Hunting Moa`, `Keldon Champion`, `Metathran Elite`, `Metathran Soldier`, `Multani's Decree`, `Pattern of Rebirth`, `Phyrexian Negator`.
+  - **Hand-owned (`Coverage::Partial`, 4)**: `Ivy Seer`, `Jasmine Seer`, `Metalworker`, `Nightshade Seer` — each retains only its creature body with its optional reveal-any-number-of-hand-cards activated ability omitted because variable-count hand reveal is not yet in the DSL.
+  - **Held back (`Coverage::Unimplemented`, 6)**: `Impatience` (blank enchantment without per-turn spell-cast tracking per active player), `Iridescent Drake` (ETB Aura attachment from graveyard not supported), `Landslide` (sorcery with no effect without sacrifice-any-number-of-Mountains cost/resolution), `Lurking Jackals` (blank enchantment without opponent life-threshold trigger and permanent type replacement), `Momentum` (Aura with no effect without power-boost per growth counter on the Aura), `Opalescence` (blank enchantment without global non-Aura enchantment animation to MV/MV creatures).
+- **Engine (`crates/baylee-engine/src/resolve/immediate.rs`)**:
+  - `Effect::GainControlAll` with `Filter::This` now checks `subjects::source(state, res).filter(|s| subjects::on_battlefield(state, *s))` instead of matching any battlefield permanent with `res.source` (whose arena `ObjectId` slot is reused with an incremented `version` if the card leaves and re-enters the battlefield before resolution, CR 400.7). Tested via `goblin_festival_new_incarnation_is_not_given_away_when_flip_loses`.
+- **Reader (`crates/baylee-cards-codegen/src/scriptgen/`)**:
+  - `keywords.rs`: Added `K:Echo:<cost>` transcoding to `AbilityDef::Echo { cost: mana!(...) }` (unblocking `Keldon Vandals` as machine-owned and future Echo creatures).
+  - `triggers.rs`: When a `Phase$ End of Turn` trigger script has `ValidPlayer$ You` (as on `Mark of Fury`), check the Oracle text for `"at the beginning of the end step"` (without `"your end step"`) and emit `PlayerRel::EachPlayer`.
+  - `chains.rs` / `targets.rs`: Claimed `TargetsWithDefinedController` on `ChangeZone` from `Graveyard` when it is `"You"` or when it is `"TriggeredCardController"` and the target filter already narrows to `PlayerRel::You` (unblocking `Junk Diver` as machine-owned).
+- **Tools**:
+  - `cargo tools hooks require-card-tests` reads a JSON hook payload from `stdin` (e.g., `echo '{}' | cargo tools hooks require-card-tests`); invoking it interactively without piping `stdin` blocks waiting for EOF.
+
+## 2026-10-24 — Urza's Destiny Batch 3 (`Plague Dogs` through `Telepathic Spies`)
+
+- **Cards**: Added the next 25 absent first-printing identities in `uds` ledger order (`Plague Dogs` through `Telepathic Spies`): **9 `Coverage::Implemented`, 7 `Coverage::Partial`, 9 `Coverage::Unimplemented` (stubs)**.
+  - **Machine-owned (`Coverage::Implemented`, 5)**: `Plague Dogs`, `Powder Keg`, `Private Research`, `Solidarity`, `Taunting Elf`.
+  - **Hand-owned (`Coverage::Implemented`, 4)**: `Reckless Abandon`, `Repercussion`, `Sigil of Sleep`, `Telepathic Spies`.
+  - **Hand-owned (`Coverage::Partial`, 7)**: `Quash`, `Rapid Decay`, `Rayne, Academy Chancellor`, `Replenish`, `Scour`, `Sowing Salt`, `Splinter`.
+  - **Unimplemented stubs (`Coverage::Unimplemented`, 9)**: `Plow Under` (putting two target lands on top of their owners' libraries not supported), `Rofellos's Gift`, `Scent of Brine`, `Scent of Cinder`, `Scent of Ivy`, `Scent of Jasmine`, `Scent of Nightshade` (variable-count hand reveal and revealed-card scaling not supported), `Scrying Glass` (choosing a number greater than 0 and a color and counting matching revealed hand cards not supported), `Storage Matrix` (untap-step type choice and untap restriction not supported).
+- **Reader (`crates/baylee-cards-codegen/src/scriptgen/`)**:
+  - `chains.rs`: Extended `"DestroyAll"` to transcode `.cmcEQX` across comma-separated alternatives of `ValidCards` into `Effect::DestroyAllWithManaValue { filter, value }` when `NoRegen` is absent (unblocking `Powder Keg` as machine-owned).
+  - `constants.rs`: Mapped `"All creatures able to block CARDNAME do so."` in `keyword_static` to `Modifier::MustBeBlockedByAllAble` (unblocking `Taunting Elf` as machine-owned).
+
+## 2026-10-25 — Urza's Destiny Batch 4 (`Thorn Elemental` through `Yawgmoth's Bargain`)
+
+- **Cards**: Added the final 10 absent first-printing identities in `uds` ledger order (`Thorn Elemental` through `Yawgmoth's Bargain`), completing Urza's Destiny (`uds`): **7 `Coverage::Implemented`, 1 `Coverage::Partial`, 2 `Coverage::Unimplemented` (stubs)**.
+  - **Machine-owned (`Coverage::Implemented`, 6)**: `Thran Foundry`, `Thran Golem`, `Trumpet Blast`, `Wall of Glare`, `Yavimaya Elder`, `Yavimaya Enchantress`.
+  - **Hand-owned (`Coverage::Implemented`, 1)**: `Urza's Incubator`.
+  - **Hand-owned (`Coverage::Partial`, 1)**: `Thorn Elemental` (7/7 Elemental body; optional unblocked combat-damage assignment `"You may have this creature assign its combat damage as though it weren't blocked."` is not in the DSL).
+  - **Unimplemented stubs (`Coverage::Unimplemented`, 2)**: `Wake of Destruction` (destroying all other *lands* with the same name as target land is not in the DSL; `DestroyOthersNamedLike` destroys all permanents with that name), `Yawgmoth's Bargain` (mandatory `Skip your draw step` replacement is not in `ReplacementRule`).
+- **Reader (`crates/baylee-cards-codegen/src/scriptgen/`)**:
+  - `mana.rs`: Added `Exile<1/CARDNAME>` / `Exile<1/CARDNAME/...>` cost transcoding to `CostPart::ExileSelf` (unblocking `Thran Foundry` as machine-owned).
+  - `targets.rs`: Added `"enchanted" => "Filter::Enchanted"` and `"!enchanted" | "unEnchanted" => "Filter::Not(&Filter::Enchanted)"` filter atoms (unblocking `Thran Golem` as machine-owned).
+  - `statics.rs`: Added `CanBlockAny$ True` -> `Modifier::CanBlockAnyNumber` in `block_modifiers` (unblocking `Wall of Glare` as machine-owned) and `AddPower$ X | AddToughness$ X` with `SVar:X:Count$Valid <valid>` -> `Modifier::ModifyPTByCount(PtCount::{YouControl|OnBattlefield}(...))` in `pt_modifiers` (unblocking `Yavimaya Enchantress` as machine-owned).
+  - `effects.rs` / `triggers.rs`: Added `ShuffleNonMandatory$ True` -> `optional = true` in `search_library` and accepted `OptionalDecider$ TriggeredCardController` on `Filter::This`/`ETB` triggers whose Oracle text contains `"you may"` (unblocking `Yavimaya Elder` as machine-owned).
+
+## 2026-10-26 — Mercadian Masques (`mmq`), Nemesis (`nem`), Prophecy (`pcy`) Batches 1–2, and Self-PR Review
+
+- **Cards**:
+  - Completed **Mercadian Masques (`mmq`)** across 8 batches (186 cards: **101 `Coverage::Implemented`, 22 `Coverage::Partial`, 63 `Coverage::Unimplemented`**).
+  - Completed **Nemesis (`nem`)** across 4 batches (100 cards: **55 `Coverage::Implemented`, 13 `Coverage::Partial`, 32 `Coverage::Unimplemented`**).
+  - Completed **Prophecy (`pcy`)** Batches 1–2 (50 cards, `Abolish` through `Mercenary Informer`: **16 `Coverage::Implemented`, 8 `Coverage::Partial`, 26 `Coverage::Unimplemented`**).
+- **Reader (`crates/baylee-cards-codegen/src/scriptgen/`)**:
+  - Extended `scriptgen` across `mmq`, `nem`, and `pcy` Batches 1–2 to transcode `Sac<2/Land>`, `Discard<2/...>`, `SacValid$` (`Effect::SacrificeFilter`), `UnlessCost$` on player targets (`PlayerRel::Chosen`), `&`-delimited `AddType$` tokens (`Living Terrain`), `TapOrUntap` / `TapOrUntapAll`, `RevealHand$` + `Discard` chains (`Effect::RevealHandDiscard`), `PumpAll` with `ValidCards$` subtype filters, and Rebel/Mercenary permanent search recruitment (`Effect::SearchLibraryToBattlefield` with `Filter::CmcAtMost`).
+  - Fixed `crates/baylee-cards-codegen/src/commander.rs` (`is_legendary_commander_face`) so flip creatures whose secondary face is legendary (`Erayo`, `Bushi Tenderfoot`, `Rune-Tail`, etc.) are not misclassified as `CommanderRule::Legendary` unless their primary face (index 0) is legendary (CR 903.3, 710.2).
+- **Self-PR Review (`origin/main..HEAD`)**:
+  - Promoted `Vine Dryad` and `Unmask` (`mmq` Batch 7) from `Coverage::Partial` to `Coverage::Implemented` using `AlternativeCost { cost: cost!(ExileFromHand(&...)), condition: AltCondition::Always }`, and added pitch-cast tests verifying that only a matching-color card in hand pays the alternative cost.
+  - Moved `abilities = &[...]` from `face!(...)` to card level (`card!(...)`) on 11 single-faced cards from `uds` Batch 3 (`Quash`, `Rapid Decay`, `Rayne, Academy Chancellor`, `Reckless Abandon`, `Repercussion`, `Replenish`, `Scour`, `Sigil of Sleep`, `Sowing Salt`, `Splinter`, `Telepathic Spies`) so `def.abilities`, `generated_lines.rs`, and `activation_census` see all 12 abilities.
+  - Added missing `// NOT SUPPORTED:` header comments to all hand-owned `Coverage::Partial` card files in the branch diff.
+  - Note on targeting prompts in card tests: spells with `TargetSpec::AnyPlayer` prompt `Pending::ChoosePlayer` (answered with `PlayerAction::ChoosePlayer(pid)`), whereas activated abilities with `TargetSpec::AnyPlayer` prompt `Pending::ChooseTargets` (answered with `PlayerAction::ChooseTargets { objects: vec![], players: vec![pid] }`).
+
+## 2026-10-26 — Reviewed `agy/uds-2` integration
+
+- Distinguish successful destruction from entering a graveyard. Decree counts
+  destruction receipts across replaced destinations, then gains the total life
+  once; repeating a gain instruction changes the number of life-gain events.
+- A counted sacrifice chooses its whole batch before moving any permanent.
+  A departing dies-trigger source must observe simultaneous creature deaths.
+- Preserve nested payment context, APNAP ordering and exact source incarnations.
+  Canonical tests need literal subject identity and observable gameplay,
+  including legal and refused combat choices.
+- Integration evidence: the test-module creation race and two test compile
+  errors were corrected; focused 35/35 passed. All eight deliberate mutations
+  were detected, all sources restored exactly, and restored 35/35 passed.
+  All 54 pending source reviews are closed. Rules: **21,355 passed, 17 skipped**;
+  full: **23,606 passed, 25 skipped**, plus four API tests; features: **passed**,
+  including 2,290 client tests (39 devctl). All gates exited 0. Both final gates
+  ran on `2dca3227cc796b87db78ec74d112019c4e7cefe7`.
+- Preserve infrastructure failures separately from source regressions. The
+  initial feature gate lost its shared PostgreSQL container; five isolated
+  social-report tests failed at DB connection. Restarting that container restored
+  the unchanged binary to 5/5; the complete feature rerun then passed. No source
+  or concurrency change was needed.
+- Table generation twice and its check changed no files; the 399-card Write/Stop
+  hook cleared its debt. Registry validation changed from 10,693 cards /
+  10,352 finished / 341 stubs to **11,083 / 10,600 / 483**, with 0 untested.
+  These totals and this merge do not claim set completion.
+
+## Desktop feedback follow-up (25 October 2026)
+
+- Optional triggers with no chosen target are discarded only when a probe
+  resolution on a cloned state completes with no effect and no follow-up
+  choice. The comparison normalizes only damage-batch allocation bookkeeping;
+  any other changed field keeps the trigger. Tuktuk Scrapper covers both the
+  answered empty target and no legal target, while a synthetic trigger with an
+  untargeted draw proves that independent effects still resolve.
+- Restricted mana is now planned by purpose. The ordinary plan wins first;
+  otherwise one filter-admitted restricted source is tapped last, so the
+  planner never evaluates restricted pool mana. Jasmine Dragon Tea Shop covers
+  Ally spells and Ally-source activation, with non-Ally negative controls.
+  Registry-backed hand identities are mandatory in these fixtures.
+- New games choose the starting seat uniformly from the preset's seeded RNG
+  before shuffling. Controlled tests may override it. Missing fields in old
+  presets retain historical seat 0, while new randomized presets serialize
+  `starting_player: null` for identical replays.
+- Review (29 October 2026): the probe compared only `GameState::snapshot_hash`,
+  which leaves the journal out on purpose. `Effect::RevealHand` writes nothing
+  but a journal entry, so a declined target would have discarded a public
+  reveal with it. A "no effect" proof has to cover every channel an effect can
+  write to; the probe now also requires an unchanged journal length.
+- Review (29 October 2026): the setting first entered `Engine::snapshot_hash`
+  as `extra * 31 + flag`. Old records read the flag as `false`, yet the
+  multiplication still moves `extra` whenever it is non-zero, so every stored
+  replay would have diverged at its opening hash. At the PR's own base `extra`
+  happened to be zero and the fixtures passed; `record::seen` caught it only
+  after the rebase. A new input to a replay hash must contribute nothing for
+  its legacy value, so the term is now added only when the setting is on.

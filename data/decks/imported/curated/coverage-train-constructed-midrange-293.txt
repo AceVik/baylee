@@ -1,0 +1,29 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WRG #20266294]
+2 Angelic Blessing
+1 Baldur's Gate
+2 Boa Constrictor
+1 Castle Doom
+3 Cave of Temptation
+2 Charging War Boar
+2 Colossus Hammer
+2 Dromosaur
+2 Fire-Belly Changeling
+2 Flutterfox
+6 Forest
+2 Kithkin Rabble
+2 Minotaur Sureshot
+2 Minotaur Tactician
+2 Mire Kavu
+2 Molecular Modifier
+8 Mountain
+1 Plains
+2 Predatory Wurm
+2 Pyric Salamander
+2 Reckless Ogre
+2 Spitting Slug
+2 Stone Kavu
+1 Unclaimed Territory
+3 Underdome
+2 Wall of Opposition

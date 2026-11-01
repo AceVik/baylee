@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/WC00/nicolas-labarre-chimera.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, NicolasLabarreChimera_WC00.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Nicolas Labarre - Chimera (Adapted)]
+4 Academy Rector
+4 Ashnod's Altar
+4 Birds of Paradise
+4 Brushland
+3 City of Brass
+1 Confiscate
+1 Drogskol Cavalry
+4 Enlightened Tutor
+1 Eyeblight's Ending
+4 Fecundity
+8 Forest
+4 Halt Order
+2 High Market
+4 Llanowar Elves
+2 Phyrexian Tower
+4 Priest of Titania
+1 Snake Basket
+1 Sphinx's Revelation
+2 Thran Quarry
+1 Whetstone
+1 Yawgmoth's Will

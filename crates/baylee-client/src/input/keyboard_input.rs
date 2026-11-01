@@ -4,7 +4,8 @@
 use super::*;
 
 /// What else may hold the keys besides the table: the report form, the
-/// arrangement menu, and the sentence of the stack entry the cursor is on.
+/// arrangement menu, the sentence of the stack entry the cursor is on, and
+/// the settings standing over the table.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct KeyClaims<'w> {
     desk: Option<Res<'w, crate::report::ReportDesk>>,
@@ -12,16 +13,21 @@ pub struct KeyClaims<'w> {
     stack_text: Option<ResMut<'w, crate::hud::StackTextScroll>>,
     tour: Option<Res<'w, crate::tour::TourDesk>>,
     chat: Option<Res<'w, crate::social::ChatUi>>,
+    lobby: Option<Res<'w, crate::LobbyState>>,
 }
 
 impl KeyClaims<'_> {
     /// The report form holds every key while it is up, and so does a
     /// narrated tour bubble (TOURS.md §1.3) — on the frame it closes, the
-    /// key is swallowed.
+    /// key is swallowed. The settings over the table hold them too: their
+    /// search, their rebinding rows and their `Esc` are the lobby's
+    /// (`lobby::table_settings`), and the `Esc` that closes them is taken
+    /// off the keys before the table could hear it.
     fn held(&self) -> bool {
         self.desk.as_ref().is_some_and(|desk| desk.holds_keyboard())
             || self.tour.as_ref().is_some_and(|t| t.holds_keyboard())
             || self.chat.as_ref().is_some_and(|c| c.holds_keyboard())
+            || self.lobby.as_ref().is_some_and(|l| l.settings_over_table())
     }
 }
 
@@ -222,12 +228,16 @@ fn arrangement_menu_keys(
 }
 
 /// `Esc` between two questions, innermost first: a reveal another seat
-/// made, then a visit.
+/// made, a menu or log, then a visit.
 fn between_questions(fired: Fired, duel: &mut Duel) {
     if fired.has(Action::Cancel) && duel.reveals.current().is_some() {
         // A reveal stands between two questions as well, and is put away
         // first, as it is in front of one (`answer_the_question`).
         duel.reveals.dismiss();
+    } else if fired.has(Action::Cancel) && duel.game_menu {
+        duel.game_menu = false;
+    } else if fired.has(Action::Cancel) && duel.log_open && !duel.chat_panel {
+        duel.log_open = false;
     } else if fired.has(Action::Cancel) && duel.visiting.is_some() {
         // Between two questions there is nothing to take back: `Esc` is
         // "back" to the home shot (DESIGN-v7 §2.4).
@@ -267,12 +277,12 @@ pub(super) fn look_around(
     if fired.has(Action::RailDown) {
         prefs.rail_cursor().move_selection(1);
     }
-    if let Some((phase, turn)) = duel.view.as_ref().map(|v| (v.phase, v.turn)) {
+    if let Some(phase) = duel.view.as_ref().map(|v| v.phase) {
         if fired.has(Action::NextPhase) {
             duel.autopilot = Some(AutoPilot::ToNextPhase { from: phase });
         }
         if fired.has(Action::NextTurn) {
-            duel.autopilot = Some(AutoPilot::ToNextTurn { from_turn: turn });
+            duel.skip_turn();
         }
     }
     if fired.has(Action::ToggleTextView) {
@@ -292,6 +302,9 @@ pub(super) fn look_around(
     if fired.has(Action::ToggleLog) {
         // A latch for the browser's reason: a log is read, not glanced at.
         duel.log_open = !duel.log_open;
+        if duel.log_open {
+            duel.game_menu = false;
+        }
         duel.chat_door = Some(crate::ChatDoor::Log);
     }
     // Here rather than beside the other answers, because a hold is the one

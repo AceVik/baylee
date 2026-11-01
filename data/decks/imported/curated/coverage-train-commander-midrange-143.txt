@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20266144]
+1 Argothian Elder
+1 Ba Sing Se
+1 Cat Warriors
+1 Cudgel Troll
+1 Cylian Elf
+1 Darksteel Forge
+1 Dawn's Light Archer
+1 Desert of the Indomitable
+1 Elite Cat Warrior
+1 Elvish Bard
+1 Elvish Herder
+1 Elvish Hunter
+1 Elvish Lookout
+1 Elvish Piper
+1 Elvish Ranger
+34 Forest
+1 Giltgrove Stalker
+1 Gladecover Scout
+1 Goblin Cannon
+1 Goblin Lyre
+1 Golem's Heart
+1 Greenside Watcher
+1 Grizzled Outrider
+1 Harrier Naga
+1 Hidden Nursery
+1 Hollow Trees
+1 Jade Idol
+1 Jungle Basin
+1 Khalni Garden
+1 Kite Shield
+1 Leering Emblem
+1 Lion Heart
+1 Lothlórien Lookout
+1 Malamet Brawler
+1 Mirror Universe
+1 Misers' Cage
+1 Murasa Brute
+1 Nacatl Savage
+1 Norwood Archers
+1 Norwood Ranger
+1 Null Brooch
+1 Pheres-Band Centaurs
+1 Quirion Druid
+1 Ring of Immortals
+1 Ring of Three Wishes
+1 Seedling Charm
+1 Seeker of Skybreak
+1 Shrink
+1 Silhana Ledgewalker
+1 Skyshroud Archer
+1 Skyshroud Ranger
+1 Spire Tracer
+1 Steel Leaf Champion
+1 Swordwise Centaur
+1 Tel-Jilad Chosen
+1 Tel-Jilad Exile
+1 Tel-Jilad Outrider
+1 Thumbscrews
+1 Tower of Calamities
+1 Tread Upon
+1 Treetop Rangers
+1 Treetop Warden
+1 War Barge
+1 Wildheart Invoker
+1 Willow Elf
+1 Wolfir Avenger
+
+[commander]
+Thrun, Breaker of Silence

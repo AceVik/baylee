@@ -40,6 +40,8 @@ pub enum SearchDest {
     TopOfLibrary,
     /// Into the searched card's owner's graveyard.
     Graveyard,
+    /// Into public exile, owned by the searched card's owner.
+    Exile,
 }
 
 /// Where one card found by [`Effect::SearchLibrary`] goes.
@@ -76,6 +78,11 @@ pub struct Find {
 }
 
 impl Find {
+    /// Into public exile.
+    pub const EXILE: Self = Self {
+        dest: SearchDest::Exile,
+        ..Self::HAND
+    };
     /// Into its owner's graveyard.
     pub const GRAVEYARD: Self = Self {
         dest: SearchDest::Graveyard,

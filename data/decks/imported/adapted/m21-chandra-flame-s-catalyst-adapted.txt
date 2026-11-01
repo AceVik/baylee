@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/M21/chandra-flame-s-catalyst.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ChandraFlameSCatalyst_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Chandra, Flame's Catalyst (Adapted)]
+4 Arc Lightning
+1 Battle Frenzy
+2 Evaporate
+1 Flick a Coin
+1 Hammer of Bogardan
+2 Infuriate
+3 Massive Raid
+25 Mountain
+2 Pyroceratops
+3 Shock
+2 Spellgorger Weird
+3 Start from Scratch
+1 Steam Blast
+4 Storm Caller
+2 Sundering Eruption
+2 Sure Strike
+2 Sweltering Suns

@@ -1,0 +1,19 @@
+# baylee curated constructed aggro seed=20261119
+# licence: AGPL-3.0-only
+[deck:constructed aggro W #20261119]
+4 Aven of Enduring Hope
+4 Cathedral Sanctifier
+1 Cavern of Souls
+4 Haazda Officer
+4 Honored Knight-Captain
+2 Inspiring Commander
+2 Operations Officer
+3 Pious Wayfarer
+23 Plains
+4 Soul Warden
+3 Soul's Attendant
+3 Study Hall
+4 Suture Priest
+4 Temple Acolyte
+4 Tenth District Guard
+1 Thopter Architect

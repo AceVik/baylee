@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/JUD/inundation.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Inundation_JUD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Inundation (Adapted)]
+3 Army of Allah
+2 Aven Cloudchaser
+2 Beloved Chaplain
+2 Blinding Light
+1 Commander Eesha
+1 Dedicated Martyr
+3 Flawless Maneuver
+3 Guided Strike
+1 Healing Hands
+2 Ironwright's Cleansing
+3 Make Your Move
+3 Militant Monk
+3 Patrol Hound
+20 Plains
+1 Repentance
+4 Suntail Hawk
+2 Survive the Night
+1 Tireless Tribe
+2 Unquestioned Authority
+1 Warrior's Honor

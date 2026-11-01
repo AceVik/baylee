@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BR #20266245]
+1 Appendage Amalgam
+1 Army Ants
+1 Atog
+1 Badlands
+1 Belligerent Guest
+1 Blanket of Night
+1 Blazemire Verge
+1 Blightstep Pathway
+1 Blood Crypt
+1 Bloodthrone Vampire
+1 Brink of Madness
+1 Brutal Nightstalker
+1 Burglar Rat
+1 Caustic Crawler
+1 Chains of Mephistopheles
+1 Cinder Marsh
+1 Dauthi Embrace
+1 Daxos's Torment
+1 Deathgrip
+1 Dreadwurm
+1 Drekavac
+1 Earsplitting Rats
+1 Evil Presence
+1 Face of Fear
+1 Ferocity of the Wilds
+1 Firebreathing
+1 Flameborn Viron
+1 Flowstone Blade
+1 Gloom
+1 Goblin Kites
+1 Grave Pact
+1 Graven Cairns
+1 Gravity Sphere
+1 Hecteyes
+1 Hidden Horror
+1 Imprison
+1 Insidious Bookworms
+1 Kavu Monarch
+1 Lantern-Lit Graveyard
+1 Lava Tubes
+1 Mindwrack Harpy
+1 Minotaur Aggressor
+1 Minotaur Skullcleaver
+1 Molten Slagheap
+1 Monstrous Carabid
+1 Mortuary
+1 Mount Doom
+7 Mountain
+1 Necrogen Mists
+1 No Mercy
+1 Nyxborn Marauder
+1 Oubliette
+1 Plundering Pirate
+1 Quagmire
+1 Raging River
+1 Raiding Party
+1 Rampart Hunter
+1 Reflexes
+1 Rix Maadi, Dungeon Palace
+1 Season of the Witch
+1 Shadowblood Ridge
+1 Sheoldred
+1 Shocker
+1 Siege Modification
+1 Smoke
+1 Spined Fluke
+1 Stensia Bloodhall
+1 Sulfurous Springs
+18 Swamp
+1 Swashbuckling
+1 Tainted Aether
+1 Tainted Peak
+1 The Abyss
+1 Twisted Embrace
+1 Vance's Blasting Cannons
+1 Vermiculos
+
+[commander]
+Mahadi, Emporium Master

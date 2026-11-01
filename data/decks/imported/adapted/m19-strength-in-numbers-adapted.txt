@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/M19/strength-in-numbers.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, StrengthInNumbers_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Strength in Numbers (Adapted)]
+4 Arrows of Justice
+2 Boggart Brute
+1 Clifftop Retreat
+1 Double Cleave
+4 Energy Bolt
+3 Goblin Instigator
+3 Leonin Vanguard
+4 Lightning Helix
+3 Lightning Strike
+2 Martyr of Dusk
+9 Mountain
+2 Nighthawk, Dark Defender
+2 Paladin of the Bloodstained
+10 Plains
+1 Siege-Gang Commander
+4 Spirit Summoning
+4 Stone Quarry
+1 Warleader's Helix

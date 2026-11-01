@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WUG #20266106]
+1 Ambrosia Whiteheart
+1 Angelheart Protector
+1 Aven Fogbringer
+1 Aviary Mechanic
+1 Battleflight Eagle
+1 Breeding Pool
+1 Bronzebeak Moa
+1 Burrog Befuddler
+1 Canopy Vista
+1 Clairvoyance
+1 Cloudchaser Kestrel
+1 Cogwork Wrestler
+1 Conclave Naturalists
+1 Corridor Monitor
+1 Daybreak Charger
+1 Deputy of Acquittals
+1 Devout Lightcaster
+1 Dewdrop Spy
+1 Dragoon's Wyvern
+1 Dream Stalker
+1 East Wind Avatar
+1 Emiel the Blessed
+1 Eutropia the Twice-Favored
+1 Faerie Duelist
+1 Fearless Fledgling
+1 Flooded Grove
+3 Forest
+1 Friendly Ghost
+1 Gale Swooper
+1 Gateway Sneak
+1 Gavony Township
+1 Gilded Drake
+1 Gleaming Bastion
+1 Guardian of Pilgrims
+1 Illvoi Galeblade
+10 Island
+1 Jeskai Barricade
+1 Judge's Familiar
+1 Ledger Shredder
+1 Lotusguard Disciple
+1 Lucky Offering
+1 Lush Portico
+1 Marketwatch Phantom
+1 Messenger Falcons
+1 Moonlit Scavengers
+1 Nebelgast Herald
+1 Neighborhood Guardian
+1 Niblis of the Mist
+1 Novijen, Heart of Progress
+1 Pestermite
+11 Plains
+1 Plumecreed Mentor
+1 Rescuer Chwinga
+1 Riftstone Portal
+1 River Hoopoe
+1 Sage Owl
+1 Sanguine Glorifier
+1 Saruli Caretaker
+1 Screeching Drake
+1 Sejiri Refuge
+1 Shrieking Drake
+1 Silver Drake
+1 Snapcaster Mage
+1 Soldier of the Grey Host
+1 Somnomancer
+1 Strix Lookout
+1 Theorist's Proxy
+1 Timid Drake
+1 Tishana's Tidebinder
+1 Triton Waverider
+1 Tropical Island
+1 Tundra
+1 Vec Townships
+1 Waterlogged Grove
+1 Welkin Guide
+1 Willowrush Verge
+1 Wistful Selkie
+1 Xindi Surveyors
+
+[commander]
+Derevi, Empyrial Tactician

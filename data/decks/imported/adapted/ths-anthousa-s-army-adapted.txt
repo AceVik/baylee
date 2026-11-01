@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/THS/anthousa-s-army.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AnthousaSArmy_THS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Anthousa's Army (Adapted)]
+2 Advent of the Wurm
+1 Artisan's Sorrow
+2 Battlewise Valor
+3 Call of the Conclave
+2 Deadly Recluse
+2 Eladamri's Call
+13 Forest
+2 Gerrard's Command
+2 Giant Growth
+2 Heroes' Reunion
+2 Nature's Chant
+2 Orochi Leafcaller
+2 Pacifism
+1 Pheres-Band Centaurs
+12 Plains
+2 Rumbling Baloth
+3 Selesnya Charm
+1 Setessan Griffin
+1 Vanquish the Foul
+3 Vitalizing Cascade

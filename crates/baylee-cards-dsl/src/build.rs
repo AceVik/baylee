@@ -658,6 +658,9 @@ macro_rules! __f_adjectives {
     ([$($acc:expr),*] blocking $($rest:tt)+) => {
         $crate::__f_adjectives!([$($acc,)* $crate::Filter::Blocking] $($rest)+)
     };
+    ([$($acc:expr),*] blocked $($rest:tt)+) => {
+        $crate::__f_adjectives!([$($acc,)* $crate::Filter::Blocked] $($rest)+)
+    };
     ([$($acc:expr),*] unblocked $($rest:tt)+) => {
         $crate::__f_adjectives!([$($acc,)* $crate::Filter::Unblocked] $($rest)+)
     };
@@ -1025,10 +1028,11 @@ pub mod prelude {
     /// of every card file.
     pub use crate::counters;
     pub use crate::effect::{
-        Amount, ColorSubject, CounterKind, DamageRedirectTo, DamageTo, DivisionAmount, Effect,
-        ExilePlay, ExileUntil, Find, LookRest, ManaDistribution, ManaRestriction, ManaSource,
-        ManaUse, ManaValueBound, ManaValueCmp, PlayWindow, PlayerRel, ReflexiveEvent, SearchDest,
-        SpendRider, TargetChooser, TargetReq, TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
+        Amount, ColorSubject, CombatWatchEvent, CounterKind, DamageRedirectTo, DamageTo,
+        DelayedObservation, DivisionAmount, Effect, ExilePlay, ExileUntil, Find, LookRest,
+        ManaDistribution, ManaRestriction, ManaSource, ManaUse, ManaValueBound, ManaValueCmp,
+        PlayWindow, PlayerRel, ReflexiveEvent, SearchDest, SpendRider, TargetChooser, TargetReq,
+        TargetSlot, TargetSpec, ThisWay, TokenDef, ZoneSel,
     };
     pub use crate::filter::{Filter, OriginalExpansion, ZoneRef};
     pub use crate::static_ability::{

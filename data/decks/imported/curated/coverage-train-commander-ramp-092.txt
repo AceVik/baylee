@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WRG #20266093]
+1 Abandoned Air Temple
+1 Acid Web Spider
+1 Adagia, Windswept Bastion
+1 Ambush Krotiq
+1 Attercop
+1 Avatar Enthusiasts
+1 Ba Sing Se
+1 Cartographer
+1 Celebrity Fencer
+1 Chosen by Heliod
+1 Dawnhart Disciple
+1 Den of the Bugbear
+1 Druid of the Anima
+1 Duergar Hedge-Mage
+1 Dundoolin Weaver
+1 EPF Point Squad
+1 Eager Glyphmage
+1 Emeria, the Sky Ruin
+1 Enlightened Ascetic
+1 Faeburrow Elder
+1 Fallaji Vanguard
+1 Femeref Enchantress
+1 Fleetfoot Panther
+7 Forest
+1 Gingerbread Cabin
+1 Great Forest Druid
+1 Helpful Hunter
+1 Herald of the Fair
+1 Honey Mammoth
+1 Huntmaster of the Fells
+1 Ishgard, the Holy See
+1 Jungle Basin
+1 Jungle Weaver
+1 Kazandu Nectarpot
+1 Leonin Snarecaster
+1 Madblind Mountain
+1 Metamorphosis
+1 Minas Tirith
+1 Monumental Henge
+8 Mountain
+1 Oran-Rief, the Vastwood
+1 Overgrowth
+1 Paladin of the Bloodstained
+1 Patagia Tiger
+11 Plains
+1 Prideful Parent
+1 Prowling Felidar
+1 Qasali Slingers
+1 Quarry Beetle
+1 Ravenous Lindwurm
+1 Rhox Meditant
+1 Rhox Oracle
+1 Rocky Roads
+1 Rogue Elephant
+1 Roving Harper
+1 Rushwood Grove
+1 Sanctum Gargoyle
+1 Scouring Sands
+1 Scythe Leopard
+1 Scythe Tiger
+1 Setessan Skirmisher
+1 Setessan Training
+1 Spider-Man, Hometown Hero
+1 Steel Leaf Paladin
+1 Steppe Lynx
+1 Striped Bears
+1 Sunastian Falconer
+1 Territorial Scythecat
+1 The Autonomous Furnace
+1 Thopter Architect
+1 Théoden, King of Rohan
+1 Vernal Bloom
+1 Vithian Renegades
+1 Werefox Bodyguard
+1 Wild Roads
+1 Zhalfirin Lancer
+
+[commander]
+Johan

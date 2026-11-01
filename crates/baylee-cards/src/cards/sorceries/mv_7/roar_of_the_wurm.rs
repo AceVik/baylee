@@ -1,0 +1,21 @@
+//! Roar of the Wurm — {6}{G} — Sorcery
+//! Oracle: Create a 6/6 green Wurm creature token.
+//! Oracle: Flashback {3}{G} (You may cast this card from your graveyard for its flashback cost. Then exile it.)
+//! Set: DDS #49 — Duel Decks: Mind vs. Might | Scryfall ID: 51a0c80e-4ace-4a2a-8b96-4472d1be6872 | Oracle ID: b8b9e6fd-b3ed-4fbc-8753-74018fa33caa
+// GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
+
+use baylee_cards_dsl::prelude::*;
+
+card!(
+    index = index::ROAR_OF_THE_WURM,
+    oracle_id = "b8b9e6fd-b3ed-4fbc-8753-74018fa33caa",
+    scryfall_id = "51a0c80e-4ace-4a2a-8b96-4472d1be6872",
+    color_identity = ColorSet::from_slice(&[Color::Green]),
+    faces = &[face!(
+        name = "Roar of the Wurm",
+        mana_cost = mana!("{6}{G}"),
+        types = TypeSet::SORCERY,
+    ),],
+);
+
+// TODO(card): implement abilities, see docs/card-dsl.md.

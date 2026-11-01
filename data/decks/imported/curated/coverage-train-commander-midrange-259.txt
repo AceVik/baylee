@@ -1,0 +1,72 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange G #20266260]
+1 Adventurers' Guildhouse
+1 Ancient Brontodon
+1 Ankh of Mishra
+1 Anvilwrought Raptor
+1 Basalt Monolith
+1 Blor the Impervious
+1 Brass-Talon Chimera
+1 Caltrops
+1 Clockwork Avian
+1 Colossadactyl
+1 Conduit of Worlds
+1 Coretapper
+1 Devil Dinosaur
+1 Disruptor Pistol
+1 Eden, Seat of the Sanctum
+1 Firdoch Core
+1 Flailing Drake
+34 Forest
+1 Game-Trail Changeling
+1 Grindclock
+1 Heartstone
+1 Hematite Talisman
+1 Hippo-Cows
+1 Iron-Heart Chimera
+1 Jalum Tome
+1 Karn's Bastion
+1 Kavu Mauler
+1 Lapis Lazuli Talisman
+1 Lead-Belly Chimera
+1 Lurking Green Dragon
+1 Malachite Talisman
+1 Matzalantli, the Great Door
+1 Nine-Ringed Bo
+1 Obelisk of Undoing
+1 Onyx Talisman
+1 Paupers' Cage
+1 Pheres-Band Warchief
+1 Quakestrider Ceratops
+1 Roterothopter
+1 Sanctuary Raptor
+1 Scalding Cauldron
+1 Scorched Ruins
+1 Seedling Charm
+1 Snapping Sailback
+1 Soldevi Simulacrum
+1 Spike Colony
+1 Spike Soldier
+1 Spike Weaver
+1 Staff of Domination
+1 Tectonic Edge
+1 Teeka's Dragon
+1 Telim'Tor's Darts
+1 Temple Bell
+1 Terrain Generator
+1 Thaumaturge's Familiar
+1 Throne of the God-Pharaoh
+1 Thumbscrews
+1 Tin-Wing Chimera
+1 Uktabi Efreet
+1 Universal Automaton
+1 Vial of Dragonfire
+1 Vial of Poison
+1 Vulpine Goliath
+1 Welding Jar
+1 Well of Knowledge
+1 Wheel of Torture
+
+[commander]
+Thrun, Breaker of Silence

@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/ARC/scorch-the-world-with-dragonfire.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ScorchTheWorldWithDragonfire_ARC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Scorch The World With Dragonfire (Adapted)]
+4 Colossal Might
+2 Dragon Fodder
+2 Dragon Whelp
+1 Fireball
+1 Fires of Yavimaya
+5 Forest
+2 Furnace Whelp
+4 Ground Assault
+2 Kazandu Refuge
+1 Manamorphose
+17 Mountain
+1 Ryusei, the Falling Star
+4 Savage Twister
+2 Seething Song
+4 Stump Stomp
+3 Surge of Strength
+2 Talisman of Impulse
+1 Taurean Mauler
+1 Thran Dynamo
+1 Two-Headed Dragon

@@ -1,0 +1,1119 @@
+# Failure-terminal research learning pilot — 30 October 2026
+
+The first real producer-to-update trial has completed CPU collection,
+research conversion, native cache verification, native input admission,
+full CPU tensor preflight, complete-history Torch probability replay and
+exactly one accepted full-model PPO update. This is a four-attempt development contract test, with no strength
+claim, holdout result, promotion or push. Read the
+[training runbook](../training-runbook.md#separate-failure-terminal-research-path)
+for the operational contracts and takeover checks.
+
+The evidence root is
+`/home/ace/baylee-data/v5/ops-codex-20261028/refactor-investigations-20261029/failure-terminal-real-e2e-01a18a9d-d0e0-7db4-b154-2cbae46d83fd/`.
+`collection-execution/status.json` is `complete`; the canonical
+`active-research-collection.json` is `complete-reviewed`. The operator review
+verified owned process cleanup, stopped its watcher and deduplicated event
+`775f9819e24eade089bad75f`. `collection.pipeline.json` SHA-256 is
+`5e130600bc6710a005143398296f1a6755c715181c4e9c41157b7e64b0ff666a`.
+The pinned `research-features/research.manifest.json` SHA-256 is
+`d3ff2f0da5b180048170cc4eb3dbd22b4d0777ce37c361942829c5354a1810b9`,
+recorded in `conversion-manifest-pin.json`. The conversion manifest itself is
+`conversion_only_unadmitted`; neither conversion nor a native input-admission
+receipt certifies numerical policy replay.
+
+Implemented milestones are `599cfe70a` (strict Rust research tensors and
+dedicated input admission), `5090f40a1` (separate admitted full-history PyTorch
+research PPO worker) and `7ba44fc23` (pinned Torch interop execution threads).
+Operations, preparation, conversion, cache and admission remain Rust; Python
+contains PyTorch computation and its associated tests only. Native verification
+passed 23 tests plus two CLI tests and strict Clippy. The 12 research worker
+tests passed in 2.185 seconds. A combined 21-test research/precision suite also
+passed before the later preflight addition; these overlapping suites are not
+an additive test total.
+
+Collection used raw E7/R6 FP32, K2, temperature 0.7, a frozen historical neural
+opponent for table 32 and neural self-play for table 48. These are four fixed
+known development cases. All attempts remain in the denominator: 4 planned,
+4 assigned, 4 recorded, 0 operational unknown and 0 not started. There were no
+game retries or refills. Collection stopped before House recovery.
+
+| Case | Observed classification | Research target |
+| --- | --- | --- |
+| 64 | Opponent failure; MTG outcome unknown | None |
+| 65 | Learner announcement loop; MTG outcome null | Utility 0 |
+| 96 | Natural terminal learner loss | Utility 0 |
+| 97 | Natural terminal learner loss | Utility 0 |
+
+Native admission verified three learner target histories with 1,713 frames and
+372 genuine choices. The cache manifest SHA-256 is
+`d6b8c9305c352e1fba0c47ae7b06463b2e727a558a657b56715ea46d56891915`;
+`research-input-admission.json` SHA-256 is
+`2b5cbe08963701733050fd1e770a572e127c699d01f54a328fd7bb551d69ef1b`.
+An independent native verify also passed. Opponent failures, operational
+unknowns and caps remain target-free, without invented game outcomes.
+
+This zero-return pilot makes the objective distinction concrete: use
+uncentered `A = training_utility - V_source`, with frozen source values, and
+train the critic against research utility. Centering within this small batch
+could make a failure appear relatively positive; ordinary MTG outcome labels
+cannot replace the separate utility contract. The worker must reconstruct
+complete recurrent histories and reproduce original sampled probabilities at
+maximum log-probability error `0.001` before an update. Successful native
+packing/input admission alone cannot pass that numerical gate.
+
+Preparation failures remain evidence. The first build was quarantined because
+source changed during the build; a fresh stable build passed in 63.177 seconds
+with approximately 1.53 GB peak memory. Before any games, an external Rust
+helper's prelaunch receipt-name mismatch was corrected. Neither event caused
+a game retry or discarded attempt. The first learning preflight under
+`research-learning-preparation-01a18ab2-d4b6-77ea-b983-59f2ea5fac58/`
+then failed before model forward because `trajectory_cache4` was absent from
+the isolated runtime PATH. Model loading uses its native `training-contract`
+validator even though research tensors come from `research_tensor4`. Preserve
+the failed receipt and include this additional pinned dependency in recovery;
+the existing weights, data and numerical thresholds do not need changing.
+The failed worker took 9.660 seconds with 1,129,421,824 bytes peak host PSS and
+verified cleanup. Runtime sealing previously took 367 seconds with a
+debug-linked preparation helper; subsequent launch checks use a derivative
+linked to the optimized Rust library. This is preparation overhead, not GPU
+training time or a measured model speedup.
+
+The corrected runtime is
+`research-learning-recovery-01a18ad4-ea35-701e-952c-1e0191d0b9fb/` under the same
+investigation root. It reuses the original frozen trainer, runtime and data;
+it adds the pinned `trajectory_cache4` executable to PATH and uses fresh phase
+outputs. `cpu-loader-verified.json` SHA-256 is
+`1564b288b0056f7e0ad4a4ce46539acf56e404b81ba530cd0012b2f322640696`.
+All 28 segments, 1,713 frames, 372 choices and three histories passed; there
+were zero forwards, optimizer steps or checkpoint writes. The worker took
+125.030 seconds and peak host PSS was 2,432,882,688 bytes. Its owned processes
+exited and the native guard verified cleanup.
+
+CUDA initialization then passed in 8.254 seconds with 687,463,424 bytes peak
+host PSS. The complete-history audit checked all 372 genuine choices in all
+1,713 frames, three histories and 28 segments. Maximum log-probability error
+was `0.000002384185791015625`, below the unchanged `0.001` tolerance. The
+frozen source values ranged from `0.0019812833052128553` to
+`0.8093113303184509`; mean uncentered advantage was `-0.3581425519779034`.
+No bootstrap or advantage centering was used. The audit took 136.376 seconds
+with 3,059,859,456 bytes peak host PSS. Its independently verified receipt is
+`audit-verified.json`, SHA-256
+`84ef1675940113c3eaea6cc135c6b5c5fdf3a6f0d682280811055b64e9073c16`.
+
+The frozen `update.pipeline.json` SHA-256 is
+`30fcb79d31859d97fdb957ecbfe43e507abbcc6e11b9864f63e86ef4bf09697e`.
+Its worker completed with exactly one attempted and accepted update, using
+**61 actor choices in 256 frames**. Full replay coverage is not the update
+dose: this is one minibatch, not a full epoch. B4/U64, K2, temperature 0.7,
+LR `2e-5`, fresh AdamW, FP32 and the target KL `0.02` were unchanged.
+Final whole-collection behavior KL was `0.0000772554598370577`; the final
+gate accepted the checkpoint. Gradient norm was `1.1445891857147217`,
+minibatch loss `0.4461709856987008`, and 301 parameter tensors changed,
+including policy components, the relational module and the value head.
+The worker took 178.610 seconds with 3,812,177,920 bytes peak host PSS.
+The native pipeline completed in 198.774 seconds, including its surrounding
+checks. The report contains no numeric policy/value parameter-delta metric
+beyond changed tensor names/count and policy KL.
+
+Published research artifacts under `update/output/`:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `net.pt` | `368b72d86b03a8a18f01c56378dd247f3ff8520e14dbf6e70d128288c6943127` |
+| `last.pt` | `2fc683e3f767c25f89ea13446725defaac4d603f1d34f920eb41bbb2f5bb985a` |
+| `report.json` | `8fcda476e93b2ef8df37fe578e8da451596f632b6cf5c3934061988bc0d8b76c` |
+
+`update-verified.json` SHA-256 is
+`deb4ce485399c18700365b24c38441751529909d432869eb32856926233f5884`.
+It verifies original inputs, prerequisites, outputs and owned-process cleanup.
+Controller PID 2427096/start ticks 16219480 and worker PID 2427142/start ticks
+16221247 exited; identities belong to boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` and must never be treated as reusable
+signal targets. The GPU is empty and its shared lock is released. All four
+phase watcher timers are inactive; event `ae1095cb47a2bebeefac316a` was handled
+in both central and local ledgers. The active training pointer reports
+completion with `training=false`.
+
+This establishes an actual bounded weight update from the separate research
+utility contract. It does not establish better play or a suitable long-run
+training mix. All three target histories have utility zero. Repeating this
+batch alone could encourage excessive passing or other unhelpful avoidance;
+next inspect matched gameplay against fixed opponents before increasing dose.
+The value head now learns research utility, not solely MTG win probability;
+retain that provenance in any export/comparison. Raw policy evaluation does
+not validate that value head for live draw-offer decisions or model promotion.
+
+The follow-up was prepared and started under
+`research-update-paired-gameplay-01a18ae5-3467-7853-ac5e-3d42fc1d3913/`.
+It uses fresh source and candidate attempts on cases 64/65/96/97, with the
+same historical candidate1 opponent for 64/65 and frozen original R6 for 96/97.
+Both arms use the historical-opponent provenance role; candidate-versus-candidate
+would change the opponent and would not isolate the learner update. The fixed
+plan is eight attempts, raw FP32 K2, temperature 0.7 and original seeds/decks.
+Every attempt remains reported, with research utility distinct from MTG outcome.
+
+The CPU export pipeline completed. All five ONNX depth graphs passed 47 parity
+frames; maximum absolute difference was `0.000041544437408447266` against the
+`0.001` limit. Export manifest SHA-256 is
+`1130bf06be4805fe996e8f3ef0124458fa2ae76e6c6a7340c4292dcfcc25102c`;
+the K2 graph SHA-256 is
+`1a99b5189d124296812248905bc784de5e32ee9dcbb58a4903995913fae3a8cf`.
+The exporter worker took 65.768 seconds and about 4.84 GB peak host PSS;
+the complete export pipeline took 155.359 seconds. These are distinct
+measurements: the difference includes native supervision, sealing and the
+additional verification stage, not just model computation. Final operator
+review rehashed 41,778 seals and verified owned-controller/worker/cgroup exit,
+stopped the export watcher and handled event `ae6badce4982438e170d2c59`.
+Its review SHA-256 is
+`12b380c10461eab7bb0a53e9cd73ca934af8cc7d67949baa0dd5fe35ec3e7ed0`.
+The final launch map explicitly pins the approved `trajectory_cache4` on PATH;
+the earlier preparation draft is retained. `export-verified.json` retains the
+research-utility critic semantics omitted by ordinary export metadata.
+Export success alone does not establish a gameplay result. The bounded CPU
+comparison started once under `baylee-research-gameplay-01a18ae5.service`;
+controller PID 2433058/start ticks 16369208 belongs to the same boot above.
+Its gameplay manifest SHA-256 is
+`71bbbb6614cdc371429528d40e1c66302cec26a1940ea726bcd60ee2b35b69c1`.
+The initial observer attach window elapsed during native input verification;
+the existing service remained active and was attached without relaunching it.
+The canonical CPU pointer and durable watcher track this owner. The pipeline
+has a 1,260-second limit, its service 1,320 seconds, two CPU equivalents and
+20 GiB memory, with no GPU stage. Each of the four two-attempt groups is bounded
+to 240 seconds; retain incomplete or unstarted planned attempts without retries
+or refills.
+
+The comparison and its separate bounded report completed. All eight attempts
+were assigned and recorded, with zero operational unknown or unstarted cases.
+Each arm retained one opponent failure with unknown MTG outcome and no utility
+target, one learner announcement loop with utility zero, and two natural MTG
+losses with utility zero. All four candidate canonical input/action/state-hash
+sequences were identical to the fresh source; all four source records also
+reproduced the original data exactly. Each arm executed 816 learner inputs,
+including 611 `PassPriority`, 20 `CastSpell` and zero `CancelCast`. These are
+executed-input counts, including forced actions, not genuine-choice rates or
+evidence that passing was optimal. The learned probabilities changed but this
+bounded update did not alter executed behavior or fix the loop on these cases.
+
+The gameplay pipeline took 662.289 seconds; reporting took 25.685 seconds.
+`paired-review.json` SHA-256 is
+`ff320ea9dd2752a16f3abc5d69a9b4615d34bc1acc5a438bd567418b2d6ba9b2`;
+the action comparison SHA-256 is
+`3a4e01143232a495339fd797e598b49edd5f288fbdb97809743f2851b1bcd0c3`.
+Final review rehashed 41,908 seals and confirmed all owned controller, guard,
+worker and report identities/groups exited and the cgroup was empty. The
+gameplay watcher was stopped and event `a513a6a1bff9b7e06cb82b04` handled.
+`reviewed-events/a513a6a1bff9b7e06cb82b04-gameplay-review.json` SHA-256 is
+`daf77c2146ea2a8e6d38549cab1abaf7ce459cc1b094036b6de93f6f2bb3e4e6`.
+The CPU pointer is `complete-reviewed`, GPU empty and user gateway unchanged.
+These four reused development cases establish neither improved strength nor
+equivalence. Do not increase dose by repeating only the three zero-target
+histories. The next collection should predeclare a broader opponent/deck/seed
+schedule and retain its outcomes without selecting wins or replacing failures.
+
+The export review also identified a provenance bug: ordinary ONNX metadata
+dropped the research critic's target semantics. Fix `0fb67c18f` preserves an
+explicit `critic_semantics` marker, rejects malformed/conflicting checkpoint
+objectives and parses the marker into native model identity. Research critics
+remain usable offline; the live adapter refuses them before initialization
+because its draw rule uses an MTG outcome scale. Thirty native identity/live
+tests, 23 Torch export/worker tests and strict targeted Clippy passed. An orphan
+research-progress rejection was also checked by its targeted test. Existing
+unmarked archival exports remain compatible; this already frozen research
+comparison retains external provenance and must stay offline. This fix changes
+future exports, not the measured graph or the running user gateway.
+Follow-up `2ace2ab9b` also refuses incompatible critics in the preview publisher
+before replacing the live selection. All seven publication tests and strict
+Clippy passed; the new regression uses correctly resealed evaluation metadata
+and verifies the existing selection's bytes stay unchanged on refusal.
+
+The frozen failure-terminal collector supports only historical neural and
+neural self-play opponents. Its producer verification requires a model identity
+for every seat. House and external LLM opponents therefore need an explicit
+role/provenance contract extension; they cannot be admitted by relabeling a
+House seat or adding an evaluator flag. Broader collection with the currently
+supported neural roles is separate from that later extension.
+
+The next predeclared collection is
+`failure-terminal-breadth-01a18b06-115f-7be2-944c-0e6a4ac95fea/` under the
+same investigation root. It uses original R6 as learner, with four historical
+candidate1 tables alternating with four frozen-R6 self-play tables. Both focal
+seats are retained per table: 16 planned attempts, eight correlated table
+clusters, not 16 independent tables. Cases 160–175 select 16 distinct adapted
+train decks at indices 32–47 of the unchanged 128-deck manifest, spanning ARC,
+ATH, AVR, BFZ and BNG. Actual opening seeds are 902610300080–902610300087,
+with base policy seed 902610300999. The overlap receipt checked 147 prior native
+rows in this investigation root: no reused opening seed or full tuple matched.
+This is fresh training collection, not a holdout or a playing-strength test.
+
+The collection retains the proven E7/K2/temperature-0.7 raw FP32 runtime without
+rebuilding or copying the models. It has no House fallback, outcome selection,
+automatic refill, retry, PPO stage or promotion. Record every planned attempt,
+including unknown and unstarted outcomes, and keep each seat pair in one table
+cluster. Each two-attempt group has a 240-second guard and 270-second outer
+stage limit; the pipeline is bounded to 2,280 seconds and its service to 2,340
+seconds, with two CPU equivalents and 20 GiB host memory. The separate loader
+preflight has zero games and a 150-second pipeline limit. Root reviewed the
+preparation and released this preflight, followed by collection only if it passes.
+
+The sealed collection manifest SHA-256 is
+`eccdb0b845533fb05ab7c9af58225ecdf30e95dd55e7b45be036736c6dab5cc0`;
+its launch map SHA-256 is
+`fb98c979e283e325a08c53f2554fe88a72c08550610602d8297902fdafbdc3ac`.
+The separate preflight manifest SHA-256 is
+`4a1786e10531ad640d94391f638ed08ab9e32cd66c6552099f69050e7efbefc3`.
+`ready.json` records the schedule, command, overlap and input-seal hashes;
+20,193 frozen input files were rehashed during preparation. Preparation and
+release alone are not proof of a running collector or usable training data;
+follow the actual execution receipts and canonical collection pointer.
+
+Both final-map CPU loaders passed in 18.443 and 18.447 seconds, at peak PSS
+2,291,756,032 and 2,317,804,544 bytes respectively. The verifier took 3.111
+seconds. Preflight cleanup confirmed all owned identities/groups exited and
+the cgroup was empty; its watcher was stopped before emitting a terminal wake.
+`preflight-verified.json` SHA-256 is
+`a4f07b96c876fb26ed28c55b500ffa8d8a8a66b13057fda76745d915cc58e978`;
+the separate cleanup receipt SHA-256 is
+`f8702be685046c6db945390f946bcfdb8e78fea80235cd08c964ef9b526913f5`.
+Collection then started exactly once under
+`baylee-breadth-01a18b06-collection.service`: controller PID 2442449/start ticks
+16553759 on the unchanged boot, with actual ELF/argv/cgroup identity checked.
+The canonical collection pointer is running and its durable watcher active.
+`collection-launcher-complete.json` SHA-256 is
+`92d34c6edcc711816908dc3e95c7c135bf07d62a991d90a9fc674ea899edf9e8`.
+This is an actual CPU collection launch, not another GPU learning update;
+results still require review. The user gateway is unchanged.
+
+The collection subsequently stopped at table 082. Its inner guard reached the
+240-second deadline and finished cleanup after 243.499 seconds, with peak PSS
+3,974,852,608 bytes. There was no OOM or native traceback. Case 164 had already
+published a complete record; case 165 was assigned but had no completion and
+remains `operational_unknown/process_deadline`, with null utility and no
+bootstrap. The collector correctly finalized this ledger and returned failure;
+the generic pipeline then stopped before starting tables 083–087.
+
+The final original denominator is 16 planned, six assigned, five recorded, one
+operational unknown and ten unstarted. Recorded cases are 160 natural loss,
+161 learner announcement loop with utility zero and unknown MTG outcome,
+162 natural win, 163 natural loss and 164 natural loss. Thus four natural
+outcomes include one win and three losses; these exploratory training games
+are not a strength estimate. Two of eight paired table clusters are fully
+recorded, one partial and five unstarted. No conversion, input admission or
+training was performed on this collection.
+
+`collection-review.json` SHA-256 is
+`c18c525b99a9d5f1e1800dd4d9f32184d084a3f67af464df9cb4c1d06b9ed448`.
+Review rehashed 20,224 sealed inputs/source files and confirmed the controller
+and all six outer/inner guard identities and groups had exited, with an empty
+cgroup. Only the owned collection watcher was stopped. Event
+`991344e21a106d3a03403769` is handled and the canonical pointer is
+`failed-reviewed`; the GPU is empty and user gateway unchanged.
+
+Continuation is restricted to the ten originally unstarted cases 166–175,
+under a fresh namespace and the same original seeds/decks/opponents. Case 165
+must not be retried or replaced. The original snapshot remains immutable;
+a combined review must count 16 logical attempts exactly once, not add the
+continuation's ten cases as a new denominator. Future independent collection
+stages need an explicit accounting mode that can retain a verified, cleaned-up
+deadline and proceed; generic pipeline and default collector failure behavior
+remain unchanged. Missing/corrupt evidence, changed inputs, interruption,
+worker errors and memory-limit failures still stop the collection.
+
+Commit `8ca6d1b73` implements this narrow opt-in as
+`collect-research --retain-deadline`. Sixteen research-accounting tests and the
+CLI parser test passed, including a real guarded deadline followed by the next
+independent pipeline command. The default deadline path still fails. Targeted
+strict Clippy and the release build passed. The release wrapper SHA-256 is
+`3dde481790c8ddab4543b7ca72b1950595cfdba8f08a743201a860e17a3dcfdc`.
+Every opted-in stage must require its immutable `collection-accounting.json`;
+`deadline_accounted` means the accounting is complete, not that its games
+completed or were admitted to training.
+
+The continuation was frozen under
+`failure-terminal-breadth-continuation-01a18b20-6cb0-713c-af18-0a8d80e1ba10/`.
+Its ready receipt SHA-256 is
+`1892d99d89b2e2a549c01a458ab21dd7f942f9e7899e1823443191a3d125467d`,
+pipeline SHA-256
+`540f94b35a9ad2f2758c7811f78295fc7c754249db75c154eb5f32ba9ef5b4e6`
+and literal launch-map SHA-256
+`b9119666492152bdcaa324caf9e8887f1a38704cc0e9221e9cf3c55a86059d37`.
+All 20,389 inherited/new input seals were rehashed. The unchanged model loader
+checks were reused; the new wrapper's CLI passed inside the final CPU map in
+0.081 seconds, with cleanup verified. Bounds are 600 seconds per inner
+two-game collection, 660 per outer stage, 3,420 for the pipeline and 3,480 for
+the service, with two CPU equivalents and 20 GiB. There are five independent
+tables, three frozen-R6 self-play and two historical-opponent pairs, using
+only original cases 166–175. Each requires explicit collection accounting;
+no evaluator success summary is required after a retained deadline.
+
+The continuation launched once after final ownership, input and unstarted-case
+checks. Actual controller identity is PID 2452410/start ticks 16706331 on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced`; service
+`baylee-breadth-cont-01a18b20-collection` and its `-watch.timer` were verified
+active. The first observed stage was `table-083-selfplay`. Launch receipt
+`collection-launcher-complete.json` has SHA-256
+`752c6a386018687d096b6e3b65b11d5c7906b5c1a5b2b89ef1cb5181a1378a81`.
+The canonical collection pointer names this running continuation and preserves
+the original logical denominator. This is CPU data collection; no further
+gradient update, model promotion or gateway change occurred.
+
+The continuation subsequently completed all five tables in 1,342.663 seconds.
+Every stage published `collection_complete=true`, with no further deadlines.
+Combined accounting of original tables 080–082 and continuation tables 083–087
+contains exactly 16 planned/assigned attempts: 15 recorded, one operational
+unknown and none unstarted. The natural outcomes are four wins and nine losses;
+one additional learner announcement loop has research utility zero. Case 170
+ended in an opponent failure and remains target-free, as does original case
+165's deadline. Thus 14 attempts have known research utility, including positive
+returns absent from the earlier pilot; native frame/choice counts and input
+admission are still separate checks. These training cases are not a strength
+comparison or holdout.
+
+`combined-collection-review.json` SHA-256 is
+`15eb8b1b29e2123b703709eda72e0c22c42effb4d285f0a4d3d2f62b9f190a14`.
+It rehashed 20,471 input/source seals and verified all 16 original/continuation
+outer/inner guards and their owned groups had exited, along with the current
+controller and cgroup. Only the continuation's owned watcher was stopped;
+GPU empty and user gateway unchanged. Event `f3b1a65f5cbc32bc29ca5936` is
+deduplicated in local and central receipts. The canonical pointer is
+`complete-reviewed`: accounting complete, but combined collection incomplete
+because case 165 remains unknown. Conversion must use the eight native table
+roots named in the review, not duplicate the old aggregate's ten unstarted
+placeholder rows.
+
+The broader data pipeline subsequently launched once under
+`research-breadth-learning-01a18b4c-d87e-7e64-88a4-48a4ef6a508e/`.
+Ready SHA-256 is
+`6a047fbc37f9b3f2c5205875a5e08aacccf36ff447c14173d7d34db415b8bde8`;
+pipeline SHA-256 is
+`e00722456944f3b3422de34ccf64586f0e439f2647bb720d9266ed7b556f0458`.
+It reuses all eight original table ledgers and the original R6/native runtime,
+with a fresh exact trainer tree from `1384b8e3d5ca8bd60e22d397adf2156fb8402451`.
+The first preparation namespace `01a18b42` stopped before freezing a plan due
+to an incorrect lookup of the prior watcher's seal; the watcher is bound through
+the prior input-seals manifest. Revision `01a18b4b` was frozen but never launched;
+its data-stage time limits were superseded before execution. Both are retained.
+Measured prior cache build/verify times of 67.05/34.67 seconds and admission/
+independent-verify times of 61.93/76.82 seconds informed the larger data bounds.
+
+Final source freezing took 20.341 seconds, reading 5.474 GB across 490 hashes;
+no model or runtime copies were made. The actual CPU mount check passed
+(SHA-256 `196dbe3fcc186cdfd3063986b9ab34e4cbdb4697319eeb8ed3645cccf4a0a6ee`).
+An independent current-state review found all 28 prior controller/worker
+identities and groups absent, and all four prior services/cgroups empty.
+The first launch invocation refused the audit's still-held ownership lock
+before creating a launch-attempt receipt or service. After that audit exited
+normally and released its locks, the single actual launch succeeded.
+
+Controller PID 2460615/start ticks 16965668, same boot, was verified running
+`convert`; its native watcher is armed and the systemd timer active.
+The four main data stages have 600 seconds each and strict final validation
+120 seconds, with pipeline/service limits of 2,700/2,760 seconds, four CPU
+equivalents and 20 GiB. No CUDA nodes are exposed. This is data preparation,
+not a completed admission, numerical replay or weight update. The next learning
+plan remains bounded to one epoch and at most eight attempted B4/U64 batches,
+with exact seed-31431 coverage recorded before release, and a 1,800-second
+learning-worker deadline. It uses original R6 rather than resuming the earlier
+updated candidate, because the new collection was generated by R6. The change
+in both dataset and update dose is not an isolated causal comparison.
+
+Event `ec82f6a7052c2438a3263273` subsequently reported completion. Native
+verification passed and retained all 16 attempts, including target-free cases
+165 and 170. The admitted research input contains 14 learner histories,
+14,902 frames and 3,479 genuine actor choices, split into 241 U64 segments.
+Eight B4 updates would use only a subset of those segments; full numerical
+replay coverage must not be reported as gradient exposure. Exact selected
+coverage remains a prerequisite to learning release.
+
+The five guards completed with cleanup verified:
+
+| Stage | Seconds | Peak proportional memory (decimal MB) |
+| --- | ---: | ---: |
+| Conversion | 175.149 | 388.6 |
+| Cache build and verification | 403.774 | 195.5 |
+| Native input admission | 195.191 | 362.8 |
+| Independent native verification | 196.216 | 522.3 |
+| Strict accounting validation | 3.513 | 178.2 |
+
+Pipeline elapsed time was 999.800 seconds. Cache/admission/independent
+verification together account for 795.181 seconds, about 79.5%; their internal
+costs are not yet separately measured. The 25.957 seconds outside the summed
+stage guards are unattributed pipeline/guard overhead. Relative to the earlier
+three-history pilot, frames grew 8.70 times, while admission grew 3.15 times and
+verification 2.55 times. These figures do not establish linear frame scaling
+or identify a pure I/O bottleneck.
+
+`data-ready.json` SHA-256 is
+`b3f16cc8fc362698ade454c26fa8f49a6bf4bd26e3dd419928f2135008284a25`;
+`data-verified.json` SHA-256 is
+`3a6de329087b218b1e330a30204176d88a92c1fcf2964302bcb158537a181429`.
+The event review rechecked 526 unique input/output/receipt seals, six owned
+identities and their groups, and the empty/removed cgroup. The service is
+inactive, only its owned watcher was stopped, and local/central event receipts
+deduplicate delivery. Review SHA-256 is
+`74544a5f88f3ce183d7208969a5e60381b164f1d45038dfb897c330e711ffef3`.
+The gateway is unchanged and no GPU/learning stage was started by this review.
+
+Read-only source review found repeated work worth measuring: source loading
+and rechecking revisit finalized producer ledgers; cache build performs an
+internal verification before the separate explicit one; native admission and
+independent verification both reconstruct and pack a complete tensor session.
+Export certification also hashes overlapping original guard inputs for both
+roles and multiple producers. Add per-phase call/unique-byte/repeated-byte
+counters and separate decompression, JSON parsing and packing timings before
+claiming a speedup. Process-local reuse of identical producer/catalog/model
+proofs is a candidate, with fresh final content validation preserved. This run
+keeps the frozen implementation and its independent verification unchanged.
+
+The next CPU-only phase launched once under
+`research-breadth-cpu-preflight-01a18b63-9f3f-750e-8356-deb160cee6d4/`.
+Ready SHA-256 is
+`93a7a4e650505c086b2d327c014640b77522b42c89038c0b65fab3ffa031e7e7`;
+pipeline SHA-256 is
+`00d0a39ccb1b8d0f0c4d677f153013a3aa472f575e5c1406f624c6ce2feb72fd`.
+The Rust helper reuses the preceding data/trainer and complete reviewed runtime
+without copying model/runtime files. Its actual CPU mount/import test passed,
+SHA-256 `0c7cf50768bb7c7174bd3adc4d95baccde8116325d6bd0fe9fe03b0beaa30b85`.
+Two native boundary tests and independent review passed. The only Python
+helper is a Torch `randperm` diagnostic; Rust validates the full permutation
+and counts native actor masks, history identities and return coverage.
+
+Controller PID 2466542/start ticks 17147023 on the same boot was verified with
+exact executable, argv and cgroup. Service
+`baylee-research-breadth-01a18b63-cpu` was active with its native watcher armed;
+the first observed stage is `loader`. The CPU loader has 1,200 seconds, the
+permutation 60 and native dose calculation 600; pipeline/service bounds are
+2,100/2,160 seconds, four CPU equivalents and 20 GiB. No CUDA device is mapped.
+The source remains original R6. This phase performs no model forward pass,
+optimizer update or model write. Exact planned dose and loader timings are
+pending; CUDA probability replay and learning remain subsequent phases.
+
+The loader then exited 1 after 11.955557208 seconds, with peak proportional
+memory 726,300,672 bytes and guard cleanup verified. It failed in
+`torch.use_deterministic_algorithms(True)`: Torch imports Dynamo's disk cache
+configuration, which calls `tempfile.gettempdir()`. The mount environment had
+no writable temporary directory, including its read-only trainer cwd. This
+occurred before source-model construction, dataset loading or any update.
+The successful CLI `--help` test did not cover execution configuration.
+Preserve the failed namespace and repair a fresh attempt with owned temporary
+and Torch cache directories plus a final-map CPU initialization diagnostic.
+Do not weaken deterministic execution or make frozen inputs writable.
+
+Failure event `c916ab9f99bdc95025194e75` is handled and deduplicated. The native
+review rechecked 22,225 seals and both controller/worker identities and groups;
+the service and cgroup are empty, GPU unused and user gateway unchanged.
+Only this attempt's watcher was stopped. Review SHA-256 is
+`be51a2b115a66fa2a295c2085494bdbdbdcc3c6da4038de9e9ba44ff90239eb0`.
+No loader report, permutation, dose plan or model output was produced.
+
+The operational correction is frozen in
+`research-breadth-cpu-recovery-01a18b70-7ab2-76ae-9a06-c06bc2f94018/`.
+Ready SHA-256 is
+`c7110a2f238c1b7c051b9b1eaa576703d7c933c1ba211119ff8cbb0f70f6dfb0`;
+pipeline SHA-256 is
+`5722b87a5c81350622e3064d512b380079adbd080bde7faf84dd3bb1c3ce3866`.
+It restores owned `TMPDIR`/`XDG_CACHE_HOME` and explicitly maps owned Torch
+Inductor, extension and Torch-home caches. The actual final-map diagnostic
+calls the frozen `configure_execution('cpu')`, confirms deterministic FP32
+settings, four/one threads and no CUDA initialization, model or optimizer.
+Initialization receipt SHA-256 is
+`f3f1b03e6140f28b00ed77cd21508801d3c78e7204f1c850f7997c4e70a3b970`;
+mount receipt SHA-256 is
+`deaaa8943434d38f0263e2c03fa82bf3fa10ef9f14bd9d0f0b3b7962b38d731e`.
+The two native tests pass. Dose and permutation code are byte-identical to the
+failed attempt; trainer, source/data, seed, math and resource bounds are
+unchanged. The failed run and its review remain pinned prerequisites.
+
+The recovery subsequently launched once. Its controller is PID 2468446/start
+ticks 17190395 on the same boot, verified with exact executable, argv and owned
+cgroup. Service `baylee-research-breadth-01a18b70-cpu` and its native watcher
+timer are active; first observed stage `loader`. Neither a successful loader
+result nor a new weight update is claimed at this handover.
+
+Event `3c29ba7ce0a3a10539fa3bf2` subsequently reported successful completion.
+All three guards completed with exit code zero and cleanup verified. The
+pipeline took 838.097 seconds: loader 410.676 seconds (2,447,874,048 bytes peak
+proportional memory), Torch permutation 1.725 seconds (751,332,352 bytes),
+native dose accounting 396.813 seconds (1,192,364,032 bytes). The CPU report
+confirms all 14 histories, 14,902 frames, 3,479 genuine choices and 241 segments,
+with no model forward, optimizer construction, weight update or model write.
+
+The fixed seed-31431 first eight B4 groups select 32 distinct segments from
+11 histories: 2,043 valid target frames and 465 genuine actor choices. Their
+per-batch actor counts are 46, 49, 53, 54, 51, 70, 73 and 69. The fourth batch
+has 251 valid frames; the others have 256. Padding contributes no targets.
+These are prospective maximum gradient exposures, not accepted updates or the
+additional full-history computation needed to reconstruct memory and audit KL.
+
+| Selected return category | Segments | Frames | Actor choices |
+| --- | ---: | ---: | ---: |
+| Natural win, utility 1 | 8 | 512 | 103 |
+| Natural loss, utility 0 | 23 | 1,467 | 351 |
+| Learner announcement loop, research utility 0 | 1 | 64 | 11 |
+
+No outcome-based selection or seed tuning occurred. Cases 165 and 170 remain
+target-free. The full replay must still check all 3,479 admitted choices,
+including histories not selected by this bounded update dose.
+
+New host phase timings localize the CPU preflight cost: native tensor-session
+handshake/admission took 192.547 seconds and final verification 192.494 seconds,
+about 96.5% of the 398.880-second measured worker interval. Materializing and
+validating all tensors took 10.226 seconds; policy construction took 2.119,
+checkpoint load 0.510 and digest 0.204 seconds. The worker interval excludes
+imports, final report write and cleanup; the guard total remains 410.676.
+This supports focusing later instrumentation on native admission and repeated
+verification. It does not distinguish hashing, decompression, parsing and
+packing within those phases, or measure GPU training throughput.
+
+Native `verify-cpu` passed once; CPU-verified SHA-256 is
+`70ced317769de35a8a1454b18f010821aae05b3dedc5c0a4444e1d61176cbdce`.
+Loader-report SHA-256 is
+`0fcc5688244892ed67b33dbee7ce6be83b6bbdd76c7490149234d061ee1074c9`;
+dose-plan SHA-256 is
+`eb56ba5e286506c33f21bd0916b24db56f4526bc5d91497e33c8216180617477`.
+The event review rechecked 22,251 seals and four owned identities/groups plus
+the empty service/cgroup. Only its watcher was stopped, the event deduplicated
+locally and centrally, and the canonical pointer marked `complete-reviewed`.
+GPU and gateway are unchanged. Review SHA-256 is
+`be481094f034e2605f0aa378333fcdd9dbb3a966c83962ab69af7cf9205f5e87`.
+
+The next audit was prepared in
+`research-breadth-gpu-audit-01a18b83-aab1-7e39-9589-1bd4b22c2011/`, but never
+launched. Independent review identified two operational races: the launcher
+held the nonblocking shared GPU lock while starting a worker that needed that
+same lock, and standalone watcher attachment lacked canonical-owner locking.
+Its sealed artifacts remain unchanged with `superseded-unlaunched.json`.
+A fresh derivative fixes lock handoff and holds canonical ownership throughout
+launch/attachment. Standalone attachment rejects a foreign root, service or
+controller and terminal ownership; all three focused Rust tests passed.
+
+The corrected namespace is
+`research-breadth-gpu-audit-recovery-01a18b93-5787-7e22-91bc-94beea70c851/`.
+Preparation took 11.565 seconds; sealed-input verification took 9.14 seconds.
+Its actual mount test passed, including frozen CPU execution configuration,
+writable owned caches and shared GPU-lock device/inode 66311:72485461.
+No CUDA context was created by that preflight. Ready SHA-256 is
+`507933ea3e9713111982e681a88c257dd9172bd83cfbae322bcb2b5d5e0b1afd`;
+pipeline SHA-256 is
+`087a51c789d0c872881503162a212e72520c8b2ec5b2b6b9d40ec232612b0f46`.
+Map receipt SHA-256 is
+`dea9546285608b5b5cba647f190bfa4cd9882104ca8c24bf18c1c98da36e3a43`.
+
+Root launched it exactly once. Controller PID 2476327/start ticks 17409017 on
+the same boot was verified by executable, arguments and service cgroup;
+`baylee-research-breadth-01a18b93-audit.service` and its watcher timer are active.
+First observed stage: `cuda_init`. Bounds are 60/60/1,200 seconds for CUDA
+initialization, native cleanup validation and full numerical replay, with
+1,440/1,500 seconds for pipeline/service, CPU400%, 20 GiB host memory and an
+11 GiB CUDA allocator cap. Each CUDA stage uses the exact shared GPU lock.
+The full 3,479-choice numerical replay remains pending at this launch handover;
+the pipeline has no optimizer or promotion stage and changes no learning math.
+
+Before handover, `cuda_init` and `validate_cuda` both completed with zero exit
+and verified cleanup in 21.193 and 19.715 seconds respectively. The probe
+confirmed `cuda:0`, the exact 11 GiB cap, successful synchronization and zero
+allocated bytes after cleanup. CUDA report SHA-256 is
+`1cefc30fc2e055e5b2bb50e2719749bcccb703feb33554b31cd6e62195aa187b`.
+The pipeline then entered `audit`; owned Torch worker PID 2476705 was observed
+on the GPU. This proves startup, not successful full replay or weight updates.
+
+Sol's read-only performance review identified hypotheses to measure after this
+trial, not demonstrated speedups. Starting the tensor server and final native
+verification each reconstruct admission, scan and pack frames; original
+producer inputs can be hashed repeatedly across roles. Segment requests also
+read/decompress/pack frames again. A dummy lane currently requests segment zero
+before producing zero tensors. Commit `980427a96` adds worker host phase timings
+for future runs, with 14 passing CPU tests; it does not modify this frozen
+trial. Unique/repeated byte and request counters remain future measurements
+around admission, reader validation, handshake, tensor loop, final verification
+and checkpoint hashing. Preserve final content revalidation
+when considering reuse; the aggregate 125-second measurement does not tell us
+which component dominates.
+
+The earlier coverage PPO experiment remains a technical success with 27
+accepted updates and 311 changed tensors. Its 16-case development comparison
+still has 4 wins/12 losses, matching original R6 without measured strength gain.
+The old continuous BC controller stays intentionally stopped, and the user
+gateway on port 28766 is preserved.
+
+## Breadth GPU audit completed and bounded learning released
+
+Event `80ea836edb2356b8b4c7b109` completed the GPU93 audit above. All 14
+histories, 14,902 frames, 3,479 genuine choices and 241 segments passed the
+unchanged FP32 replay gate. Maximum log-probability error was
+`0.00002288818359375`, against tolerance `0.001`. The uncentered research
+advantages have mean `-0.38190083379501194` and second moment
+`0.29173809510493487`; frozen source values range from
+`0.000027891794161405414` to `0.9999253749847412`. The target contract remains
+`failure_terminal_research_v1`, with no bootstrap, ordinary-PPO admission,
+optimizer updates, model writes or strength claim. Both unknown attempts stay
+target-free, with the original 16-attempt denominator preserved.
+
+Full pipeline time was 561.751 seconds. The audit guard took 491.930 seconds,
+with peak proportional memory 3,258,768,384 bytes. Its 469.684-second measured
+worker interval assigns 191.772 seconds to the native handshake, 81.803 to
+complete-history replay/target preparation and 192.269 to final verification.
+The interval excludes imports, report writing and cleanup. These host phase
+timings are not synchronized GPU-kernel timings. Native preparation plus final
+verification account for about 384 seconds; internal hashing, decompression,
+parsing and packing costs remain to be separated before optimizing them.
+
+Native `verify-gpu-audit` passed once. Artifact SHA-256 values:
+
+| Artifact under GPU93 | SHA-256 |
+| --- | --- |
+| `gpu-audit-verified.json` | `f43774692d70a5d6e2d8b357ee35b0244b0ab75fcf7a1843ffb881337e93fcda` |
+| `gpu/audit-output/probability-replay.json` | `e00d25246acdedb8d89a387fc5e193a64f3d0946846f170531ab5d341effffcf` |
+| `gpu/audit-output/report.json` | `c831437400f82502eada86dcfd076da69968a9c308d3d0b979c8ee6a1433a5f5` |
+| `gpu/audit-worker.json` | `8159fbac53de040355f856929a778cc90a08070a8fb805376216a2c859a2eee1` |
+| `reviewed-events/80ea836edb2356b8b4c7b109-operator-review.json` | `6379be65f5dcbd17a67dfb0f2ce0f5262f27bf71eb06aa2322b449fa370b7e59` |
+
+The native event review rechecked 22,285 seals and five dead owned
+identities/groups. Service/cgroup and GPU were empty; only the owned watcher
+was stopped. The gateway retained its exact PID/start/boot identity. Local and
+central event receipts deduplicate this completion. The canonical training
+pointer was marked `complete-reviewed` before the subsequent launch. Do not
+rerun the audit verifier: it has already written its immutable receipt.
+
+The sole next learning trial is
+`research-breadth-update-01a18ba0-5934-762e-961f-48b8a91e6122/`. Its split Rust
+controller pins reviewed CPU70/GPU93/data evidence, original R6 and the same
+frozen trainer/runtime. Four focused native tests and optimized `-D warnings`
+compilation passed. Preparation took 11.596 seconds and sealed-input
+verification 9.19 seconds. The actual final mount test passed CPU execution
+initialization without creating a CUDA context; frozen inputs remain read-only,
+owned cache paths writable and the shared GPU-lock inode unchanged.
+
+| Prepared artifact | SHA-256 |
+| --- | --- |
+| `ready.json` | `7f410e0d7260995c7b73da3d480ef7191db03c8873a5df17a80bef315796735f` |
+| `update.pipeline.json` | `4be7f7e81bf9cbdad41813d9f372204fb3db089b7a02c62fa2701771cf50139a` |
+| `bin/research_update_ops` | `fb6078ceae1a775e08f5edfb5772d61b81cf663ff447bde514cda9d38d97944e` |
+| `update/mapping-preflight.json` | `8cc7859ae6c05049f9b88b64723c03a8760c22d181f63debf5c408b80ccf863a` |
+
+Root reviewed the frozen source and independently checked the ready/map/helper
+hashes, prior ownership and empty GPU, then released exactly one launch with
+the external ready SHA. The launcher revalidates all input seals under the
+ownership locks. It reserves canonical ownership, releases the prelaunch GPU
+check lock before service start, and keeps ownership through watcher attachment.
+The actual controller is PID 2480842/start ticks 17525475 on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced`, verified by executable, argv and cgroup.
+Service `baylee-research-breadth-01a18ba0-update` and its `-watch.timer` are
+active; the first observed stage is `update`. Recheck live identity/status
+before acting on this launch snapshot; never start a duplicate controller.
+Before handover, owned Torch worker PID 2480931/start ticks 17528919 was
+observed on CUDA with 562 MiB reported by `nvidia-smi`. Native tensor worker
+PID 2480966 was active in the same owned process group, using the pinned
+`research_tensor4`; Torch resolved to the pinned canonical interpreter. Both
+stage logs were empty at this check, and no accepted update is inferred from
+the workers' presence.
+
+Settings remain original R6/fresh AdamW, FP32/K2/T0.7, B4/U64, seed 31431,
+LR `2e-5`, target KL `0.02`, clip `0.2`, KL penalty `0.02`, one epoch as an
+upper bound and at most eight attempted batches. Maximum planned gradient dose
+is 465 choices/2,043 frames/32 segments across 11 histories. Whole-history
+replay and memory reconstruction are additional computation, not extra gradient
+exposure. Worker/pipeline/service limits are 1,800/1,920/1,980 seconds,
+CPU400%, 20 GiB host memory and an 11 GiB CUDA allocator cap. Every update is
+transactionally checked; a rejection ends the attempt sequence. A failing
+final whole-collection KL gate restores original source parameters and reports
+zero retained updates, even if earlier transactions were accepted.
+
+No accepted update or strength improvement is claimed at launch. The next
+review must distinguish attempted batches, transaction acceptance and final
+retained dose, and inspect checkpoint tensors/progress in addition to byte
+seals. The native `verify-update` entry point creates the immutable numerical,
+exposure and cleanup receipt only after terminal success. Export and matched
+gameplay require subsequent review; there is no automatic retry, export,
+gameplay or promotion. This collection uses neural self-play/historical
+opponents; it is not a Terra- or Sonnet-opponent trial.
+
+## Breadth learning completed
+
+Event `eaf79da880f54c32dc9fdf88` completed the bounded UPDATE trial. All eight
+attempted transactions passed and were retained after the final full-collection
+KL check: `0.0010511504869043218`, below the fixed `0.02` limit. There was no
+rejection or final rollback. The full 3,479-choice numerical replay again had
+maximum log-probability error `0.00002288818359375` against tolerance `0.001`.
+
+Actual gradient dose matches the frozen CPU permutation: 465 genuine actor
+choices and 2,043 frames over 32 segments from 11 histories, with per-batch
+counts 46/49/53/54/51/70/73/69. The reports identify 311 changed parameter
+tensors. This is eight batches from one bounded epoch, not a full epoch over
+241 segments; replayed or reconstructed prefixes do not enlarge gradient dose.
+The 16-attempt denominator and both target-free unknown cases are unchanged.
+
+The pipeline took 1,676.101 seconds; its learning guard took 1,649.388 seconds
+with peak proportional memory 4,082,933,760 bytes, within the unchanged limits.
+Worker measured host time was 1,627.090 seconds: update transactions 1,050.667,
+native handshake 192.164, final verification 194.385, initial full replay
+81.999, final collection replay 84.970 and publication 19.078 seconds.
+Transactions include recurrent reconstruction and post-update whole-collection
+checks, not just gradient computation. The timings do not isolate CUDA kernels.
+
+Native `verify-update` passed once under canonical ownership and shared-GPU
+locks. The event review rechecked 22,313 seals and three owned identities/groups;
+the service/cgroup and GPU were empty. Only the owned watcher stopped, and the
+user gateway retained its original identity. The event is deduplicated locally
+and centrally, and canonical training status is `complete-reviewed`.
+
+| Artifact under UPDATE | SHA-256 |
+| --- | --- |
+| `update-verified.json` | `9b47449b843ead98d2b61f05666da35cfd3a7f079a82c5aa33b69160b0535e1f` |
+| `update/output/report.json` | `025513fdad9e988736e09fd66c8982d5bd2c3c5740ba6155c56a601443e65173` |
+| `update/output/last.pt` | `1bb5dab34b57ebd5dfe30d026d77823bdcbf6e86336b59357e80fd0b40372e7f` |
+| `update/output/net.pt` | `a26eb70d09154fd99d2e0840c58fa1b283efd8309f877013ed3d97264e22566a` |
+| `reviewed-events/eaf79da880f54c32dc9fdf88-operator-review.json` | `7f52ed8e5bb461557fa77922fd46f4cfd11e14ef1d260a8dc7332c6db7278eb6` |
+
+Checkpoint byte seals and report checks passed; independent PyTorch inspection
+of checkpoint tensors/progress/optimizer state remains the next prerequisite
+to export. The proposed behavior comparison retains all 16 fixed breadth cases
+160–175, with fresh original-R6 and candidate arms: 32 planned attempts under
+equal opponents, decks, opening seeds, focal seats and deadlines. Old collection
+records are reproducibility evidence, not substitutes for a source arm given
+different bounds. A deadline unknown is not a loss or a reason to refill.
+This compares behavior on reused training/development cases, not an untouched
+holdout, causal isolation of data breadth versus dose, or promotion evidence.
+
+## Independent checkpoint audit and CPU export launched
+
+The next namespace is
+`research-breadth-checkpoint-gameplay-01a18bc2-a906-7df6-9ea9-679bcbcf5831/`
+under the same evidence root. Root reviewed the native preparation, ownership,
+worker and postflight code and the independent PyTorch checkpoint inspector.
+The inspector checks finite checkpoint/optimizer/RNG tensors, recursive equality
+of both saved payloads, source identity/config/catalog, exact research contract,
+eight retained updates and independently recomputed changed parameter names.
+It performs no model forward or optimizer operation. The candidate export uses
+a pinned symlink to UPDATE's immutable `net.pt`, avoiding another checkpoint copy.
+
+CPU ONNX export is a subsequent guarded stage. It checks 47 cases (15 synthetic
+shape/depth checks and 32 recurrent diagnostic frames) across depths 0/1/2/4/8,
+with unchanged maximum absolute error `0.001`. The final native stage checks
+export metadata, catalog, graph identity and research-utility critic semantics.
+Diagnostic fixture use does not admit it as research training data or certify
+the critic as a live MTG win probability.
+
+| Frozen launch artifact | SHA-256 |
+| --- | --- |
+| `ready.json` | `6ad84a219a3747b4fad190fae239c0515a6addd08b318428776dab78ec0b9a83` |
+| `export.pipeline.json` | `517a2f9ae8699891b5c14aa752372c9c4eeaba3d6688c9482bbe81f67b24b15f` |
+| `bin/research_export_ops` | `322d11091a592345a4de19ceeb6f6aec13ad56fd235c1a2363090765ebe44186` |
+| `export/mapping-preflight.json` | `bfaf2b7e943d75401e17054c085705c28280b54d24ad7d337399baad13dc8601` |
+
+Two native tests and three small PyTorch fixtures passed. The actual final map
+verified CPU initialization, no exposed GPU device nodes/context, immutable
+inputs and writable owned caches. Preparation took 14.149 seconds. Bounds are
+180 seconds for semantic audit, 300 for export and 60 for native validation;
+pipeline/service limits are 660/720 seconds, CPU400% and 20 GiB memory.
+
+Root confirmed previous controller identities absent, canonical CPU/performance
+work reviewed and GPU empty, then launched once with the external ready hash.
+Controller PID 2489514/start ticks 17782606 on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` was verified by executable, arguments and
+cgroup. Service `baylee-research-breadth-01a18bc2-export` and its watcher were
+active; the first observed stage was `semantic_audit`. Recheck live state before
+acting. The phase has no optimizer, gameplay, automatic retry or promotion.
+The fresh 32-attempt comparison remains a separate reviewed phase after export.
+
+## Export completed; legacy metadata comparison rejected
+
+Event `628be11d178d2c5fffe9c242` ended that pipeline at `validate_export`.
+The preceding semantic audit and CPU export both exited zero with verified
+cleanup, in 38.306 and 62.684 seconds. All 47 parity cases passed; maximum
+absolute error was `0.000014901161193847656`, below the unchanged `0.001` bound.
+The native validator exited one after 12.834 seconds with
+`source/candidate exported architecture or catalog differs`.
+
+The only compared config difference is candidate `global_feat_width: 80`;
+legacy R6 export metadata omits the field. Frozen `Config4` defaults the E7
+width to integer 80, `Config5` inherits it, and the frozen exporter constructs
+the config and serializes all defaults with `cfg.to_dict()`. Raw checkpoint
+config equality had already passed in the independent tensor audit. Other
+compared architecture/catalog fields are equal. The validator used textual
+JSON structure equality where this specific proven default needed semantic
+comparison. The failed namespace and original graph/metadata bytes remain
+unchanged. Recovery is native validation of existing artifacts only; it must
+reject missing candidate width, wrong type/value, other encoders and any
+unrelated config change. No repeated Torch export or learning is needed.
+
+Root rechecked 22,367 seals and all controller/guard/Torch identities and groups,
+confirmed the empty service/cgroup and unchanged user gateway, stopped the owned
+watcher and deduplicated the event locally and centrally. Canonical state is
+`failed-reviewed`. Operator review SHA-256 is
+`630f43bdf775af4ea4e60926e44c5e3ce7cb01c7971f2ab86580f1f302673697`;
+semantic audit SHA-256 is
+`b19a7e85e1d906d35b6ec8d6eaceb1f296b41bca65919cdd80aa415bd28dc386`;
+export metadata SHA-256 is
+`69aefb2d76812e6c664ce2a43fa7a0dad7fedf2d64a9ebebd55ead0f9400ce92`.
+No accepted-export receipt, gameplay launch or promotion is inferred from the
+successful preceding stages.
+
+## Native export compatibility recovery completed
+
+The Rust successor checks exactly E7/V5 relational revision 2 and candidate
+context revision 1. Missing legacy source `config.global_feat_width` resolves
+to integer 80; the candidate must explicitly contain integer 80. Wrong types,
+other widths/encoders, top-level width overrides and unrelated config changes
+remain errors. Four targeted tests passed. Every exported input is bound to the
+failed validator's original sealed job and the root operator review; the
+successor neither edits metadata nor reruns Torch/export/learning.
+
+The first successor (`research-breadth-export-validation-01a18bd2-`
+`b52e-7cbf-9916-5e38b21666eb/`) failed before worker creation because its cwd was
+the new non-Git evidence directory. Event `e6df042d073e5790f8b86a5c` is closed;
+review SHA-256 is
+`9fd64a12482e52b258b8f9a75c9020f8d433be180b786061bfc56dedbf5b024b`.
+No model or validation computation occurred. Final-map preflight now also runs
+the guard's exact Git identity operations in the manifest's serialized cwd.
+
+The corrected namespace is
+`research-breadth-export-validation-recovery-01a18bdd-9c30-7bfb-bfc7-d8cb904a8725/`.
+Only the namespace, cwd and missing source-identity preflight changed; validation
+logic and 60/120/180-second worker/pipeline/service limits stayed fixed. The cwd
+is the frozen DATA trainer. Its ancestor Git marker is
+`a1f8c0da4fba4f5afc4aa10e982777590a0abd51` with empty tracked diff, matching the
+successful export guards; actual trainer bytes retain the separately pinned
+`1384b8e3d5ca8bd60e22d397adf2156fb8402451` freeze and file digests.
+
+The sole launch used ready SHA-256
+`0dc8139aadc5c79b4d1f7ec0ce838fdfee6c0333e27944a44734d3f53e98657b`.
+Controller PID 2495141/start ticks 17908749 on the same boot finished cleanly;
+the native worker took 30.054 seconds. All existing 47 parity checks and their
+unchanged maximum error of `0.000014901161193847656` were verified, along with
+exact graph/checkpoint/catalog identity and research-utility critic semantics.
+
+`validation-verified.json` SHA-256 is
+`ee647227e949017368538f7df2be38251d468bd2355c1e4f770f09cd6806eb74`.
+Event `170aa8ff1bb7ed9a2e75b5a5` is closed as `complete-reviewed` after checking
+22,385 seals, dead owned processes and empty groups/cgroup, stopping its watcher
+and preserving the gateway. Operator review SHA-256 is
+`1ba8743864c950a9dc5f5d43b7b4ae5b514cdd934d3235a4c1c7686134a06a75`.
+The failed export pipeline is not relabelled. This successful separate receipt
+allows preparation of the bounded matched gameplay comparison; it establishes
+neither improved play nor promotion.
+
+## Fresh 32-attempt matched comparison
+
+The successor is
+`research-breadth-paired-gameplay-01a18bf8-87a9-740e-a8f4-218d44a77c60/`.
+It fixes cases 160–175 and interleaves source/candidate runs for tables 080–087.
+Both arms use the same original seeds, decks, focal seats and fixed opponents:
+historical candidate1 on even tables and original R6 on odd tables. Changing
+the focal candidate never changes its opponent. The original 16 collection
+attempts are reproducibility evidence only, outside the fresh denominator of
+16 source plus 16 candidate attempts. These remain reused training/development
+cases, with no untouched holdout or promotion claim.
+
+Both arms use raw FP32/K2/T0.7 policy, first seed `902610300000`, policy seed
+`902610300999`, two native threads, single-thread BLAS and 5,000 decisions.
+Four zero-deal native loaders precede gameplay. Each two-case table receives
+the same 240-second inner guard; the 270-second outer guard leaves time for
+cleanup and the frozen native `collect-research --retain-deadline` accounting.
+The inner guard checks 190 actual runtime/model/plan inputs, while the outer
+guard verifies the complete source seals before starting its stage timeout.
+The final report shares one digest cache across all table input sets.
+Pipeline/service limits are 4,740/4,800 seconds, CPU200% and 20 GiB, CPU-only.
+
+Four focused Rust tests pass. A read-only fixture over all eight original
+roots verified 15 indexed histories, including one recorded unknown, and one
+operational unknown without an indexed history. It checks canonical decoding,
+receipt/index equality and research episode semantics. Missing histories never
+imply an empty equal prefix. Partial reporting requires dead owned processes
+and an empty service/cgroup, and retains all 32 planned rows. The final verifier
+binds required output digests and each guard's exact pipeline controller.
+
+| Frozen comparison artifact | SHA-256 |
+| --- | --- |
+| `ready.json` | `837f73fd43e29b907e29d9c70910c7be8912d50b360f82c9553b35eb0126fddd` |
+| `gameplay.pipeline.json` | `a4764252c9005ceb31d7b68a5560ed3907140c1495848393fa8352f767566dd2` |
+| `bin/matched_gameplay_ops` | `ce2b6379eb863b49ba2c3ca2146b3adc2db1753a29c92d77be2a6ca9dcf3e753` |
+| `gameplay/mapping-preflight.json` | `0215f86a6729bd2b20c0810a6371ecc1e4e66030f955361cc0ce754bcf987356` |
+| `reference-fixture.json` | `3e49fe785750b271c2a5eb9220bc370bfa9220531d3c99733c0b8e4c5e006cc4` |
+
+Preparation took 26.638 seconds. The actual mapping proved sealed commands,
+input lists, trainer and graphs read-only, owned outputs writable, no GPU device
+nodes, and the same clean frozen cwd Git identity. The earlier `01a18be4`
+preparation was never launched and is superseded by this derivative; preserve
+it rather than starting it. There is no Torch, conversion, optimizer, automatic
+retry/refill, collector restart or promotion stage in this comparison.
+
+Root launched the service once at 09:43:19 CET. Its controller is PID
+2500739/start ticks 18063496 on boot `ebf55ae5-05a2-41fc-a994-e5da27268ced`,
+under `baylee-research-breadth-01a18bf8-gameplay.service`. The initial launcher
+reported `No such file or directory` during watcher attachment: the controller
+receipt appeared at 09:44:24, about 65 seconds after service start, beyond its
+55-second attachment wait after verification. The active service was not
+restarted. Root inspected its successful launch receipt and live controller,
+then invoked only `attach-gameplay`; sealed inputs, exact controller identity,
+executable, argv, cgroup and canonical ownership passed. The canonical CPU
+pointer was then `running`, the watcher timer was active, and its first check
+exited zero. Future launchers must distinguish an attachment timeout from
+launch failure and allow for manifest-validation time before controller receipt.
+
+All four native zero-deal loaders completed with cleanup verified, taking
+30.539, 30.559, 30.523 and 30.410 seconds. The first observed gameplay stage was
+`source-table-080`. This establishes a running comparison, not its outcome.
+On terminal completion, inspect and run `verify-gameplay` once before reviewing
+the result; on failure, retain the run and establish owned-process cleanup
+before `report-partial`. Neither operation authorizes duplicate games or promotion.
+
+## Matched comparison results and next diagnostic
+
+Event `1f92fce8c7a2bee4e4e248e4` is closed as `complete-reviewed`. All 32
+fixed attempts were assigned, with zero unstarted cases. The pipeline took
+3,466.437 seconds. Native `verify-gameplay` passed once; its immutable
+`gameplay-verified.json` SHA-256 is
+`0c51a9333d9036cce2d410a4ab2d74de8a27565406f89e24a7f2207715a3d331`.
+Root rechecked 20,507 input seals, the 21 outer and 16 inner guards, dead owned
+identities, empty groups/cgroup and the unchanged user gateway. The owned
+watch timer is stopped; the CPU pointer is `complete-reviewed`.
+Operator review SHA-256 is
+`ae54f6bc825ab2c0846ba9ec1eb7f414b449de5d7087d4d43d32fb24c5ca69a8`.
+
+| Fixed 16-attempt arm | Original R6 | Eight-update candidate |
+| --- | ---: | ---: |
+| Indexed histories | 12 | 13 |
+| Natural MTG wins | 4 | 4 |
+| Natural MTG losses | 6 | 8 |
+| Learner announcement loop | 1 | 0 |
+| Recorded opponent failure, unknown utility | 1 | 1 |
+| Operational deadline unknowns | 4 | 3 |
+
+The natural-outcome denominators differ. All 25 indexed histories report zero
+fallback and refused answers. Among all 16 paired cases, known research utility
+is **one better, one worse, nine equal and five unresolved**. Ten pairs have
+natural MTG outcomes in both arms: each model wins four and loses six, with
+eight concordant outcomes and two opposite flips. These are reused training/
+development cases, with eight correlated table clusters, not a holdout or
+evidence of equivalence, causal training benefit or promotion.
+
+The native canonical comparison supplies the useful next diagnostic:
+
+| Case | Source to candidate outcome | First divergent canonical input | Source action to candidate action |
+| --- | --- | ---: | --- |
+| 160 | Natural loss to win | 657, learner seat 0 | `PassPriority` to `ActivateManaAbility(source=43)` |
+| 161 | Learner loop to natural loss; utility remains zero | 173, learner seat 1 | `ActivateAbility(source=104, ability_index=0)` to `ActivateManaAbility(source=110)` |
+| 175 | Natural win to loss | 70, learner seat 1 | `PassPriority` to `ActivateManaAbility(source=106)` |
+
+Eleven of the 12 pairs with both indexed histories differ in executed actions;
+case 163 alone is identical. Their initial canonical headers match, and the
+first divergence belongs to the learner seat. The old source loop in case 161
+ended after 730 executed inputs; the candidate differs much earlier and ends
+after 1,069. Avoiding that trajectory does not establish that the candidate
+chooses correctly when presented with the original failure state. Nor is the
+first changed action necessarily the sole cause of the final outcome.
+
+All 12 comparable fresh source histories exactly reproduce the original
+indexed actions and hashes. Four source histories are absent from this fresh
+comparison and cannot establish reproducibility. Cases 165/168/171 hit the
+deadline in both arms; 169 does so only in source. Case 170 has a recorded
+opponent failure in both arms. These remain unknown; the candidate's natural
+loss on 169 is not a demonstrated regression against an unknown source result.
+Original continuation tables 083–087 had 600-second guards; this comparison
+gave both arms 240 seconds. Original table 084 took 368.990 seconds and table
+085 took 566.304 seconds. The tighter wall-time budget can therefore censor
+reproducible source games. Keep the fixed denominator; do not refill unknowns
+or substitute old successful attempts.
+
+For a future independently planned comparison, derive the common time budget
+from the already observed source runtimes before freezing the schedule.
+Equal limits across arms are necessary but do not remove informative censoring
+when a policy changes game duration. Report completion and unknown counts
+alongside outcomes; the completed-only win fraction cannot resolve this issue.
+
+`paired-review.json` SHA-256 is
+`d6b13b4f48dfbe3ae06ac775b35e77ca53d88f105889484fe0e6efda13ea1008`;
+`action-comparison.json` SHA-256 is
+`bd36f643fd6e4e538ddf35dbeefc9ac26be031fc7345c0193c46d0c52d3ec448`.
+The bounded native projection at
+`ops-codex-20261028/reviews/breadth-gameplay-summary-01a18bf8.json` has SHA-256
+`48792a29d9e41ecc99eec7e163e8942705e67f1b003a837c339f7c45f85f4d2f`.
+Do not print whole `research_episode` objects from raw reports: their frozen
+prefixes can be very large. Project explicitly selected metrics instead.
+
+The next bounded CPU diagnostic will compare source and candidate on the same
+source histories for cases 160/161/175, using each model's own full-history
+memory. Rust must verify the replay and bind canonical action/seat/snapshot
+hashes through actual decision identifiers to the admitted cache. Canonical
+input numbers, learner inputs and tensor cursors are not interchangeable:
+forced actions may emit passive observations without decision rows. The
+PyTorch computation will measure action masses, KL, source-frozen values and
+advantages; native reports will join the already selected training exposure.
+The unexecuted terminal loop proposal is distinct from cached executed
+decisions. This diagnostic creates no labels, gradients, optimizer state,
+gameplay, refill or promotion. Changed behavior is established; a net benefit
+has not yet been demonstrated.
+
+## Three-history source-state diagnostic launched
+
+The fresh successor is
+`research-breadth-source-state-diagnostic-01a18c36-1364-7587-afcb-b0bdae5ea827/`.
+It reuses the admitted cache, frozen trainer and actual source/candidate
+checkpoint bytes. Preparation took 51.881 seconds. Three native fixtures
+passed, covering canonical-input versus decision-index alignment, missing
+record distinctions and attachment ownership. The actual read-only CPU mount
+also passed three Torch fixtures, including the frozen CPU configuration,
+mask/temperature probabilities and complete-history segment selection.
+These fixtures loaded no model and executed no gameplay or learning.
+
+| Frozen artifact | SHA-256 |
+| --- | --- |
+| `ready.json` | `572cf674112dc515bf10844a96b062f41c127043775812e8474b7ca4ada9f648` |
+| `diagnostic.pipeline.json` | `9b24e50a3ebd15bcacf8dfeb1ddbfb6d6ae1e8a680401c1acad508a1e3a764b4` |
+| `bin/source_state_ops` | `807bd7412af3e2f7f2e4a270ae26376697242f89cc5e0ec37396708f927eb419` |
+
+The three stages are native mapping (300 seconds), Torch inference (1,200)
+and native reporting (60). Pipeline/service limits are 1,680/1,740 seconds,
+CPU400%/20 GiB, with GPU nodes absent. The computation uses FP32/K2/T0.7,
+B4/U64, four CPU threads and one interop thread, without board chunking or
+CPU execution hints. Source sampled-logprob replay must pass `0.001` over
+every genuine choice in all three complete histories, not merely the selected
+diagnostic points. Each model reconstructs its own full-history memory.
+
+Root reviewed the code, actual fixture receipts and frozen pins, confirmed
+the prior service/watcher inactive and GPU empty, then released one launch.
+Controller PID 2515555/start ticks 18561265 on boot
+`ebf55ae5-05a2-41fc-a994-e5da27268ced` passed executable/argv/cgroup verification.
+Service `baylee-research-breadth-01a18c36-diagnostic` and its watcher are active;
+the first observed stage is native `mapping`. The canonical CPU pointer is
+`running`. Attachment now permits 180 seconds for initial manifest checking
+and retains a separate attach-only recovery command. A launch-attempt receipt
+prevents duplicate starts. Startup does not establish diagnostic success.
+No automatic optimizer, gameplay, retry/refill, promotion or old BC resume
+follows this diagnostic. Terminal review instructions are in the runbook.
+
+## Source-state diagnostic reviewed
+
+The three stages completed and the native final verifier checked all seals,
+dead controller/child identities and empty owned groups. The service is inactive
+and its watcher stopped. The canonical CPU pointer is `reviewed-complete`.
+No optimization or new gameplay occurred. Full source-history replay covers
+726 genuine choices and 2,915 frames, maximum absolute logprob error
+`0.000013113021850585938` against the unchanged `0.001` limit.
+
+The actual eight-update exposure matters: case 160 supplied no loss window;
+cases 161 and 175 supplied only frames 320–383, with 11 and 20 choices
+respectively. None of the prescribed first-divergence or late loop points was
+in those windows. Case 175's original pass has positive frozen advantage
+`0.43375027`, yet its probability falls from `0.96972150` to `0.94908947`;
+the alternative mana activation rises from `0.03012941` to `0.05073271`.
+This is an effect of shared parameter changes, not direct learning on that
+particular sampled move. It does not establish which move is strategically best.
+
+On case 161's complete original histories, the three prior Fireball proposals
+sharing the boundary view hash remain likely (logprob about `-0.4195`, versus
+source `-0.4064`, roughly 66% versus 67%). Thus the changed played trajectory
+does not demonstrate local repair. Target-subset probabilities shift more,
+but their optimality is not established. The final unexecuted boundary proposal
+has no cache row and was explicitly not evaluated. The value output is a
+research-utility critic, not a calibrated win probability.
+
+Report SHA-256:
+`4c601a6c0969ea700d12888ccd25c99baaee75a0f4f9f456c74102c0429986df`.
+Verified receipt SHA-256:
+`56e5c55882dda406af3ea8f86a8d080a469bd489b7c0d86741fffc910f8e3687`.
+The root's `operator-review.json` and native projection
+`ops-codex-20261028/reviews/source-state-summary-01a18c36.json` retain the
+bounded evidence. The owner's subsequent proposal to imitate LLM decisions
+from both winning and losing games is recorded as a separate controlled
+experiment in the research plan; no new long training was started by this review.

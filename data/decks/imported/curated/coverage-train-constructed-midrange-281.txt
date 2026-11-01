@@ -1,0 +1,30 @@
+# baylee synergistic coverage constructed midrange
+# licence: AGPL-3.0-only
+[deck:constructed midrange WUBRG #20266282]
+2 Alarum
+3 Ally Encampment
+2 Benthic Djinn
+2 Beyeen Veil
+2 Cascading Cataracts
+1 Conduit Pylons
+2 Emberwilde Caliph
+2 Fleshformer
+2 Forest
+2 Great Defender
+2 Hope and Glory
+3 Island
+2 Ivory Charm
+2 Jeskai Brushmaster
+4 Mountain
+2 Nightsky Mimic
+5 Plains
+2 Qilin's Blessing
+2 Raging Regisaur
+2 Rakdos Ickspitter
+2 Rise to the Challenge
+3 School of the Unseen
+2 Show of Valor
+2 Slaughter Cry
+1 Swamp
+2 Wormwood Dryad
+2 Wormwood Treefolk

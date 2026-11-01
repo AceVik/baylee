@@ -11,13 +11,17 @@
 //! the answer cap alone never ends in reasonable time. Both are kept with
 //! their record, as reports; neither is training data.
 
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use baylee_cards::decks::preset_for;
 use baylee_core::preset::{AIProfile, GamePreset, SeatController};
-use baylee_engine::choice::Pending;
+use baylee_engine::choice::{Pending, PlayerAction};
 use baylee_gamehost::Session;
-use serde::Serialize;
+use baylee_gamehost::record::Source;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::housedeck::HouseDeck;
 
@@ -67,6 +71,17 @@ pub enum Outcome {
     },
 }
 
+/// The action that was in flight when `Engine::apply` panicked.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CrashAttempt {
+    /// Seat that proposed the action.
+    pub seat: u8,
+    /// Who produced the action.
+    pub source: Source,
+    /// The action handed to `Engine::apply`.
+    pub action: PlayerAction,
+}
+
 impl Outcome {
     /// Whether the game reached its own end, which is what makes it
     /// training data.
@@ -92,6 +107,9 @@ pub struct Played {
     pub turn: u32,
     /// How long it took.
     pub elapsed: Duration,
+    /// When `outcome` is [`Outcome::Panicked`], the exact `(seat, source, action)`
+    /// that was in flight inside `Engine::apply`.
+    pub last_attempt: Option<CrashAttempt>,
 }
 
 /// A duel between two house decks, seat 0 playing `a` with `profiles[0]`.
@@ -142,9 +160,53 @@ pub fn table_for(
 /// reported as [`Outcome::Panicked`], which needs a build that unwinds.
 #[must_use]
 pub fn play(preset: &GamePreset, game_id: &str, caps: Caps) -> Played {
+    play_with_options(preset, game_id, caps, false)
+}
+
+/// [`play`], optionally clamping AI scouting requests so `sharp` and `expert`
+/// teachers only receive their own decklist intelligence and never peek at
+/// opponent decks, opponent hands, or upcoming library order.
+#[must_use]
+pub fn play_with_options(
+    preset: &GamePreset,
+    game_id: &str,
+    caps: Caps,
+    fair_scouting: bool,
+) -> Played {
     let started = Instant::now();
-    let mut session =
-        Session::new_recorded(preset, baylee_build::short()).expect("the preset builds a session");
+    let mut session = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        Session::new_recorded(preset, baylee_build::short())
+    })) {
+        Ok(Some(s)) => s,
+        Ok(None) => {
+            return Played {
+                record: Vec::new(),
+                answers: 0,
+                turn: 0,
+                elapsed: started.elapsed(),
+                outcome: Outcome::Panicked {
+                    message: "preset failed to build Session::new_recorded".to_owned(),
+                },
+                last_attempt: None,
+            };
+        }
+        Err(panic) => {
+            let message = panic
+                .downcast_ref::<&str>()
+                .map(ToString::to_string)
+                .or_else(|| panic.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "a constructor panic that is not a string".to_owned());
+            return Played {
+                record: Vec::new(),
+                answers: 0,
+                turn: 0,
+                elapsed: started.elapsed(),
+                outcome: Outcome::Panicked { message },
+                last_attempt: None,
+            };
+        }
+    };
+    session.set_fair_scouting(fair_scouting);
     let seats = preset.seats.len();
     session.describe(
         game_id.to_owned(),
@@ -192,13 +254,69 @@ pub fn play(preset: &GamePreset, game_id: &str, caps: Caps) -> Played {
             .or_else(|| panic.downcast_ref::<String>().cloned())
             .unwrap_or_else(|| "a panic that is not a string".to_owned()),
     });
+    let last_attempt = session
+        .last_attempt()
+        .map(|(seat, source, action)| CrashAttempt {
+            seat: seat.get(),
+            source: *source,
+            action: action.clone(),
+        });
     Played {
         record: session.take_record(),
         answers: session.decision_seq(),
         turn: session.state().turn.number,
         elapsed: started.elapsed(),
         outcome,
+        last_attempt,
     }
+}
+
+/// Writes a self-contained `fault-<uuid_v7>.json` bundle when a game crashes
+/// or hits a cap, including the full `GamePreset`, the full record up to the
+/// step, and the triggering `last_attempt` that was in flight inside
+/// `Engine::apply`.
+///
+/// # Errors
+/// When the fault directory or bundle file cannot be written.
+pub fn write_fault_bundle(
+    dir: &Path,
+    game_id: &str,
+    preset: &GamePreset,
+    played: &Played,
+) -> std::io::Result<PathBuf> {
+    fs::create_dir_all(dir)?;
+    let id = Uuid::now_v7();
+    let path = dir.join(format!("fault-{id}.json"));
+    let record_lines: Vec<serde_json::Value> = played
+        .record
+        .split(|&b| b == b'\n')
+        .filter(|l| !l.is_empty())
+        .filter_map(|l| serde_json::from_slice(l).ok())
+        .collect();
+    let category = match &played.outcome {
+        Outcome::Panicked { .. } => "panic",
+        Outcome::AnswerCap => "answer_cap",
+        Outcome::TimeCap => "time_cap",
+        _ => "finished",
+    };
+    let bundle = serde_json::json!({
+        "fault_id": id.to_string(),
+        "category": category,
+        "game_id": game_id,
+        "seed": preset.seed,
+        "preset": preset,
+        "turn": played.turn,
+        "answers": played.answers,
+        "elapsed_ms": played.elapsed.as_millis() as u64,
+        "outcome": played.outcome,
+        "last_attempt": played.last_attempt,
+        "record_lines": record_lines.len(),
+        "record_header": record_lines.first(),
+        "record_full": record_lines,
+        "record_tail": record_lines.iter().rev().take(32).rev().cloned().collect::<Vec<_>>(),
+    });
+    fs::write(&path, serde_json::to_vec_pretty(&bundle)?)?;
+    Ok(path)
 }
 
 #[cfg(test)]
@@ -228,6 +346,11 @@ mod tests {
         assert!(played.outcome.finished(), "{:?}", played.outcome);
         let replayed = replay(&played.record).expect("the record replays");
         assert!(replayed.ended);
+        assert_eq!(
+            replayed.checked,
+            baylee_gamehost::record::Checked::Exact,
+            "self-play names this build, so every engine hash held the replay"
+        );
         assert!(replayed.inputs >= played.answers);
         let end = played
             .record

@@ -1,0 +1,28 @@
+# adapted from data/decks/precon/DTK/landslide-charge.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LandslideCharge_DTK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Landslide Charge (Adapted)]
+1 Arc Lightning
+1 Bolt of Keranos
+1 Clear the Mind
+2 Crash the Ramparts
+4 Evolving Wilds
+1 Ferocious Charge
+10 Forest
+4 Frontier Bivouac
+2 Golden Hind
+4 Heir of the Wilds
+1 I Am Iron Man
+2 Improvised Weaponry
+1 Island
+2 Lightning Strike
+1 Meditate
+5 Mountain
+1 Natural End
+2 Open Fire
+4 Orochi Leafcaller
+1 Refute
+2 Roast
+4 Sizzle
+1 Temple of Abandon
+1 Untamed Wilds
+2 Winter's Grasp

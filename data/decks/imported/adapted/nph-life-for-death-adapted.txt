@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/NPH/life-for-death.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LifeForDeath_NPH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Life for Death (Adapted)]
+4 Arrows of Justice
+1 Double Cleave
+1 Frontline Rush
+2 Golem's Heart
+1 Lightning Bolt
+1 Lightning Helix
+1 Lumengrid Gargoyle
+2 Martial Glory
+11 Mountain
+2 Pacifism
+13 Plains
+3 Porcelain Legionnaire
+1 Pristine Talisman
+1 Shattered Angel
+3 Slash Panther
+2 Slith Ascendant
+1 Solemn Offering
+4 Spirit Summoning
+3 Warleader's Helix
+2 Whitesun's Passage
+1 Wild Wurm

@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/M21/life-skills.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, LifeSkills_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Life Skills (Adapted)]
+4 Anguished Unmaking
+2 Anointed Chorister
+2 Bake into a Pie
+1 Baneslayer Angel
+1 Forum of Amity
+3 Harsh Sustenance
+4 Inkling Summoning
+4 Mortify
+10 Plains
+3 Resolute Rider
+3 Sanctify
+4 Scoured Barrens
+1 Shadowspear
+10 Swamp
+4 Unmake
+4 Vindicate

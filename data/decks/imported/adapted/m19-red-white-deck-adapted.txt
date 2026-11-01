@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/M19/red-white-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RedWhiteDeck_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Red-White Deck (Adapted)]
+4 Arrows of Justice
+2 Charging Monstrosaur
+2 Exultant Skymarcher
+1 Frenzied Raptor
+1 Goblin Motivator
+1 Hostile Minotaur
+3 Knight of New Benalia
+1 Lightning Helix
+2 Lightning Strike
+1 Moment of Triumph
+10 Mountain
+10 Plains
+2 Pyromantic Pilgrim
+2 Rustwing Falcon
+1 Serra's Guardian
+1 Shivan Dragon
+1 Silverbeak Griffin
+2 Sky Terror
+2 Skyknight Legionnaire
+4 Spirit Summoning
+1 Split Up
+4 Stone Quarry
+2 Sun Sentinel

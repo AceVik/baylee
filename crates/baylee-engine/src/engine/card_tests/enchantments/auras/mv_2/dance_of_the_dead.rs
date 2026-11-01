@@ -5,9 +5,6 @@
 //! - "When this Aura enters, if it's on the battlefield, it loses 'enchant creature card in a graveyard' and gains 'enchant creature put onto the battlefield with this Aura.' Put enchanted creature card onto the battlefield tapped under your control and attach this Aura to it. When this Aura leaves the battlefield, that creature's controller sacrifices it."
 //! - "Enchanted creature gets +1/+1 and doesn't untap during its controller's untap step."
 //! - "At the beginning of the upkeep of enchanted creature's controller, that player may pay {1}{B}. If the player does, untap that creature."
-//!
-//! "Tapped" is not played (the card is Partial: the creature returns
-//! untapped), so the untap tests tap it through the harness first.
 
 #[allow(clippy::wildcard_imports)]
 use super::*;
@@ -39,6 +36,10 @@ fn danced_bears(hand: &[CardIndex]) -> (Engine<RegistryLookup>, ObjectId) {
 
     let reanimated =
         on_battlefield(&engine, P0, index::GRIZZLY_BEARS).expect("Grizzly Bears returned");
+    assert!(
+        lk::tapped(&engine, reanimated),
+        "Dance returns the creature tapped"
+    );
     (engine, reanimated)
 }
 
@@ -79,14 +80,6 @@ fn dance_of_the_dead_reanimates_creature_pumps_it_and_sacrifices_it_when_aura_le
 #[test]
 fn dance_of_the_dead_keeps_its_creature_tapped_unless_the_upkeep_price_is_paid() {
     let (mut engine, reanimated) = danced_bears(&[dance_of_the_dead()]);
-    engine
-        .dev_state_mut(P0)
-        .expect("the harness may set boards up")
-        .object_mut(reanimated)
-        .expect("on the battlefield")
-        .status
-        .insert(Status::TAPPED);
-    engine.refresh_offer();
 
     // Next upkeep: the untap step left it tapped; decline the {1}{B}.
     to_my_upkeep(&mut engine);

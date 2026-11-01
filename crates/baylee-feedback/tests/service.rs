@@ -197,6 +197,43 @@ fn a_report(kind: &str, record: Option<&[u8]>) -> String {
     .to_string()
 }
 
+/// The intake is public behind the proxy (#408): a request without a
+/// gateway's token is answered from its headers, before any of the body it
+/// announces is read. The request below announces 50 MB and sends none of
+/// it, so a service that read the body first would never answer.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_intake_without_a_token_is_refused_before_its_body_is_read() {
+    use std::io::{Read as _, Write as _};
+    let service = Service::start("intake_unread").await;
+    let address = service
+        .base
+        .strip_prefix("http://")
+        .expect("a plain loopback address")
+        .to_owned();
+    let answer = tokio::task::spawn_blocking(move || {
+        let mut stream = std::net::TcpStream::connect(&address).expect("connecting");
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .expect("a read timeout");
+        write!(
+            stream,
+            "POST /intake/reports HTTP/1.1\r\nHost: {address}\r\n\
+             Content-Type: application/json\r\nContent-Length: 50000000\r\n\r\n"
+        )
+        .expect("writing the headers");
+        let mut answer = [0_u8; 64];
+        let read = stream.read(&mut answer).unwrap_or(0);
+        String::from_utf8_lossy(&answer[..read]).into_owned()
+    })
+    .await
+    .expect("the request");
+    assert!(
+        answer.starts_with("HTTP/1.1 401"),
+        "answered before the body: {answer:?}"
+    );
+    service.close().await;
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[allow(clippy::too_many_lines)] // one scenario, intake to read-back
 async fn a_gateway_hands_in_a_report_and_a_reader_reads_it_back() {
@@ -464,6 +501,8 @@ async fn a_malformed_report_is_refused_and_nothing_about_the_caller_is_kept() {
             // Kept by Postgres from the text and the crash.
             "signature",
             "search",
+            // What the client says sent it (m0008): its own word, never a person.
+            "source",
         ]
     );
     // A note is an admin's, about a report; a view and an opened mark are

@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/M13/depths-of-power.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DepthsOfPower_M13.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Depths of Power (Adapted)]
+1 Airship Engine Room
+2 Archaeomancer
+4 Broadside Barrage
+2 Divination
+1 Essence Scatter
+1 Evolving Wilds
+1 Fog Bank
+1 Hydrosurge
+2 Invoke the Firemind
+15 Island
+3 Kraken Hatchling
+8 Mountain
+1 Negate
+1 Rewind
+4 Rush of Inspiration
+2 Scroll Thief
+3 Searing Spear
+1 Smelt
+2 Talrand's Invocation
+1 Talrand, Sky Summoner
+1 Unsummon
+3 Wind Drake

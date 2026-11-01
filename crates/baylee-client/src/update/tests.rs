@@ -1,9 +1,17 @@
 //! The updater's face in a headless app: the notice appears where it
 //! should, its buttons do what they say, and the switches reach the thread.
 
+use super::card::*;
+use super::settings::*;
 use super::*;
+use crate::hud::{UiFonts, tf};
+use crate::lobby::Metrics;
+use crate::settings::ClientSettings;
+use crate::{DuelPhase, lobby};
 use bevy::ecs::system::RunSystemOnce;
+use bevy::input::mouse::MouseScrollUnit;
 use bevy::picking::events::PointerClick;
+use bevy::ui::{percent, px};
 
 fn fonts() -> UiFonts {
     UiFonts {
@@ -123,11 +131,10 @@ fn a_staged_update_is_announced_in_the_lobby_and_offered_at_a_table() {
     assert!(
         texts(&mut app)
             .iter()
-            .any(|t| t == "Update 0.1.0-beta.3 ready – installs when you quit"),
+            .any(|t| t == "Update 0.1.0-beta.3 is ready"),
         "{:?}",
         texts(&mut app)
     );
-    assert!(texts(&mut app).iter().any(|t| t == "Release notes"));
 
     phase(&mut app, DuelPhase::Playing);
     app.update();
@@ -228,7 +235,10 @@ fn a_link_says_why_it_is_only_a_link() {
 #[test]
 fn later_puts_the_notice_away_and_release_notes_open_the_page() {
     let mut app = headless();
-    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(ready());
+    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(Shown::Updated {
+        version: "0.1.0-beta.3".into(),
+        page: Some("https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.3".into()),
+    });
     app.update();
     let notes = button(
         &mut app,
@@ -241,6 +251,8 @@ fn later_puts_the_notice_away_and_release_notes_open_the_page() {
         ["https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.3"]
     );
 
+    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(ready());
+    app.update();
     let hide = button(&mut app, &UpdateButton::Later);
     click(&mut app, hide);
     app.update();
@@ -521,6 +533,252 @@ fn only_a_web_page_is_opened() {
     assert!(!openable("http://127.0.0.1.evil.example/"));
     assert!(!openable("file:///etc/passwd"));
     assert!(!openable("javascript:alert(1)"));
+}
+
+fn fetching(stage: Fetch) -> Shown {
+    Shown::Fetching {
+        version: "0.1.0-beta.9".into(),
+        page: "https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.9".into(),
+        stage,
+    }
+}
+
+fn reading(received: u64) -> Progress {
+    Progress {
+        received,
+        total: 150_000_000,
+        rate: Some(3_200_000),
+        left: Some((150_000_000 - received) / 3_200_000),
+    }
+}
+
+/// The one entity marked `M`, and the tick it was last written at.
+fn marked<M: Component>(app: &mut App) -> Entity {
+    let world = app.world_mut();
+    world
+        .query_filtered::<Entity, With<M>>()
+        .single(world)
+        .unwrap_or_else(|_| panic!("one {}", std::any::type_name::<M>()))
+}
+
+fn text_of(app: &App, entity: Entity) -> String {
+    app.world().get::<Text>(entity).expect("a text").0.clone()
+}
+
+/// A download draws its bar and its two numbers, and a reading moves them
+/// in place: the card is not rebuilt for it.
+#[test]
+fn a_download_fills_its_bar_and_says_how_far_in_place() {
+    let mut app = headless();
+    {
+        let mut notice = app.world_mut().resource_mut::<UpdateNotice>();
+        notice.shown = Some(fetching(Fetch::Downloading));
+        notice.progress = Some(reading(45_000_000));
+    }
+    app.update();
+    assert_eq!(toasts(&mut app), 1);
+    let card = marked::<UpdateToast>(&mut app);
+    let said = texts(&mut app);
+    for wanted in ["Update 0.1.0-beta.9", "Downloading…"] {
+        assert!(said.iter().any(|t| t == wanted), "{wanted}: {said:?}");
+    }
+    let fill = marked::<ProgressFill>(&mut app);
+    let share = marked::<ProgressPercent>(&mut app);
+    let line = marked::<ProgressLine>(&mut app);
+    assert_eq!(app.world().get::<Node>(fill).unwrap().width, percent(30.0));
+    assert_eq!(text_of(&app, share), "30%");
+    assert_eq!(
+        text_of(&app, line),
+        "45 of 150 MB · 3.2 MB/s · about 30 s left"
+    );
+
+    app.world_mut().resource_mut::<UpdateNotice>().progress = Some(reading(120_000_000));
+    app.update();
+    assert_eq!(marked::<UpdateToast>(&mut app), card, "moved in place");
+    assert_eq!(app.world().get::<Node>(fill).unwrap().width, percent(80.0));
+    assert_eq!(text_of(&app, share), "80%");
+    assert_eq!(
+        text_of(&app, line),
+        "120 of 150 MB · 3.2 MB/s · about 10 s left"
+    );
+    assert!(
+        app.world().get::<UpdateButton>(card).is_none()
+            && button(&mut app, &UpdateButton::Hide) != card,
+        "the card hides by its close mark"
+    );
+
+    // Verifying: the whole bar, and what was downloaded under it.
+    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(fetching(Fetch::Verifying));
+    app.update();
+    let fill = marked::<ProgressFill>(&mut app);
+    assert_eq!(app.world().get::<Node>(fill).unwrap().width, percent(100.0));
+    let said = texts(&mut app);
+    for wanted in ["Verifying…", "150 MB downloaded"] {
+        assert!(said.iter().any(|t| t == wanted), "{wanted}: {said:?}");
+    }
+    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(fetching(Fetch::Unpacking));
+    app.update();
+    let said = texts(&mut app);
+    for wanted in ["Unpacking…", "Signature verified"] {
+        assert!(said.iter().any(|t| t == wanted), "{wanted}: {said:?}");
+    }
+}
+
+/// At rest the progress writer writes nothing: a frame without a new
+/// reading leaves the bar's node and both numbers unchanged, and a reading
+/// that moves nothing drawn writes nothing either. Proved by a reading that
+/// does move the bar.
+#[test]
+fn a_download_at_rest_writes_nothing() {
+    let mut app = headless();
+    {
+        let mut notice = app.world_mut().resource_mut::<UpdateNotice>();
+        notice.shown = Some(fetching(Fetch::Downloading));
+        notice.progress = Some(reading(45_000_000));
+    }
+    app.update();
+    app.update();
+    let fill = marked::<ProgressFill>(&mut app);
+    let share = marked::<ProgressPercent>(&mut app);
+    let ticks = |app: &App| {
+        let world = app.world();
+        (
+            world
+                .entity(fill)
+                .get_change_ticks::<Node>()
+                .unwrap()
+                .changed,
+            world
+                .entity(share)
+                .get_change_ticks::<Text>()
+                .unwrap()
+                .changed,
+        )
+    };
+    let before = ticks(&app);
+    app.update();
+    app.update();
+    assert_eq!(ticks(&app), before, "nothing written at rest");
+    // A reading 10 kB on: the same tenth of a percent, the same words.
+    app.world_mut().resource_mut::<UpdateNotice>().progress = Some(reading(45_010_000));
+    app.update();
+    assert_eq!(ticks(&app), before, "a reading that moves nothing drawn");
+    app.world_mut().resource_mut::<UpdateNotice>().progress = Some(reading(60_000_000));
+    app.update();
+    let after = ticks(&app);
+    assert!(
+        after.0 != before.0 && after.1 != before.1,
+        "a real reading writes"
+    );
+}
+
+/// A download, a failure and a link are never drawn over a table: the
+/// menu's line says them there, and follows the download's share.
+#[test]
+fn a_download_stays_off_the_table_and_the_menu_follows_it() {
+    let mut app = headless();
+    phase(&mut app, DuelPhase::Playing);
+    table(&mut app, None);
+    {
+        let mut notice = app.world_mut().resource_mut::<UpdateNotice>();
+        notice.shown = Some(fetching(Fetch::Downloading));
+        notice.progress = Some(reading(45_000_000));
+    }
+    app.update();
+    assert_eq!(toasts(&mut app), 0, "no card at a table while downloading");
+    let line = app
+        .world_mut()
+        .run_system_once(
+            |mut commands: Commands, fonts: Res<UiFonts>, notice: Res<UpdateNotice>| {
+                menu_line(&mut commands, &fonts, Lang::En, Some(&notice), 12.0)
+            },
+        )
+        .expect("the line builds")
+        .expect("a line while downloading");
+    app.update();
+    assert_eq!(text_of(&app, line), "Downloading update 0.1.0-beta.9 · 30%");
+    app.world_mut().resource_mut::<UpdateNotice>().progress = Some(reading(75_000_000));
+    app.update();
+    assert_eq!(text_of(&app, line), "Downloading update 0.1.0-beta.9 · 50%");
+    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(Shown::Failed {
+        version: "0.1.0-beta.9".into(),
+        page: "https://example.invalid/".into(),
+        reason: "connection reset".into(),
+    });
+    app.update();
+    assert_eq!(toasts(&mut app), 0, "no failure at a table either");
+}
+
+/// A failed download says why and that the next check tries again, and
+/// "Try again" asks for a check now and says it is checking.
+#[test]
+fn a_failed_download_says_why_and_tries_again_when_asked() {
+    let mut app = headless();
+    app.world_mut().resource_mut::<UpdateNotice>().shown = Some(Shown::Failed {
+        version: "0.1.0-beta.9".into(),
+        page: "https://example.invalid/".into(),
+        reason: "connection reset".into(),
+    });
+    app.update();
+    let said = texts(&mut app);
+    assert!(
+        said.iter().any(|t| t
+            == "The download stopped (connection reset). Baylee tries again at the next check."),
+        "{said:?}"
+    );
+    let again = button(&mut app, &UpdateButton::TryAgain);
+    click(&mut app, again);
+    assert_eq!(requests(&mut app), [UpdateRequest::CheckNow]);
+    app.update();
+    assert!(
+        texts(&mut app)
+            .iter()
+            .any(|t| t == Phrase::UpdateChecking.text(Lang::En)),
+        "the card says the retry is under way"
+    );
+}
+
+/// The settings' status line says how far a download is, whoever started
+/// it.
+#[test]
+fn the_settings_status_follows_a_download() {
+    let mut app = headless();
+    let status = app.world_mut().spawn((Text::new(""), Readout::Status)).id();
+    {
+        let mut notice = app.world_mut().resource_mut::<UpdateNotice>();
+        notice.shown = Some(fetching(Fetch::Downloading));
+        notice.progress = Some(reading(45_000_000));
+        notice.asked = Some(Asked::Checking);
+    }
+    app.update();
+    assert_eq!(
+        text_of(&app, status),
+        "Downloading update 0.1.0-beta.9 · 45 of 150 MB · 3.2 MB/s · about 30 s left"
+    );
+}
+
+/// German, the decimal comma and the German time left.
+#[test]
+fn a_german_download_reads_in_german() {
+    let mut app = headless();
+    app.world_mut().insert_resource(ClientSettings {
+        lang: "de".into(),
+        ..default()
+    });
+    {
+        let mut notice = app.world_mut().resource_mut::<UpdateNotice>();
+        notice.shown = Some(fetching(Fetch::Downloading));
+        notice.progress = Some(reading(45_000_000));
+    }
+    app.update();
+    let line = marked::<ProgressLine>(&mut app);
+    let share = marked::<ProgressPercent>(&mut app);
+    assert_eq!(
+        text_of(&app, line),
+        "45 von 150 MB · 3,2 MB/s · noch etwa 30 s"
+    );
+    assert_eq!(text_of(&app, share), "30\u{a0}%");
+    assert!(texts(&mut app).iter().any(|t| t == "Wird heruntergeladen…"));
 }
 
 /// Real Bevy text and flex layout, with shipped fonts; no renderer, native
@@ -875,10 +1133,7 @@ fn a_short_table_can_scroll_wrapped_german_actions_without_covering_the_ledge() 
         .query_filtered::<Entity, With<ToastActions>>()
         .single(world)
         .unwrap();
-    let last = button(
-        &mut fixture.app,
-        &UpdateButton::Open("https://github.com/AceVik/baylee/releases/tag/v0.1.0-beta.3".into()),
-    );
+    let last = button(&mut fixture.app, &UpdateButton::Later);
     fixture.wheel(actions, -100.0);
     let viewport = fixture.rect(actions);
     let last_rect = fixture.rect(last);
@@ -926,4 +1181,135 @@ fn a_signed_in_german_notice_keeps_its_explanation_above_wrapped_actions() {
             "short explanation fully visible: {text:?} in {frame:?}"
         );
     }
+}
+
+/// The download's card in real layout: it fits the window at a desktop
+/// size, a small window and a phone's frame, in both languages; its bar
+/// lies inside it; and at a desktop size the download's line takes one row.
+#[test]
+fn the_download_card_fits_desktop_small_and_phone_frames() {
+    for lang in [Lang::En, Lang::De] {
+        for size in [
+            UVec2::new(1280, 800),
+            UVec2::new(640, 360),
+            UVec2::new(844, 390),
+        ] {
+            let mut fixture = NoticeLayout::new(size, Some(56.0), lang, 1.0);
+            fixture
+                .app
+                .world_mut()
+                .resource_mut::<UpdateNotice>()
+                .progress = Some(reading(45_000_000));
+            let toast = fixture.show(Some(fetching(Fetch::Downloading)), UpdatePlace::default());
+            let bottom = fixture.rect(fixture.footer.unwrap()).min.y;
+            fixture.assert_buttons_clear(toast, 16.0, bottom - 16.0);
+            let frame = fixture.rect(toast);
+            let world = fixture.app.world_mut();
+            let track = world
+                .query_filtered::<&ChildOf, With<ProgressFill>>()
+                .single(world)
+                .unwrap()
+                .parent();
+            let line = world
+                .query_filtered::<Entity, With<ProgressLine>>()
+                .single(world)
+                .unwrap();
+            let share = world
+                .query_filtered::<Entity, With<ProgressPercent>>()
+                .single(world)
+                .unwrap();
+            let track = fixture.rect(track);
+            assert!(
+                track.width() > 100.0 && track.height() >= 3.0,
+                "a bar: {track:?}"
+            );
+            assert!(
+                track.min.x >= frame.min.x && track.max.x <= frame.max.x,
+                "{track:?} in {frame:?}"
+            );
+            // The title names the version on one row at every size: a text
+            // in a row shrank to one character's width once.
+            let world = fixture.app.world_mut();
+            let body = world
+                .query_filtered::<Entity, (With<ToastScroll>, Without<ToastActions>)>()
+                .single(world)
+                .unwrap();
+            let title = world.get::<Children>(body).unwrap()[0];
+            let stage = world
+                .get::<Children>(world.get::<ChildOf>(share).unwrap().parent())
+                .unwrap()[0];
+            let one = fixture.rect(share).height();
+            for (what, rect) in [
+                ("title", fixture.rect(title)),
+                ("stage", fixture.rect(stage)),
+            ] {
+                assert!(
+                    rect.height() < one * 2.0 && rect.width() > 100.0,
+                    "{lang:?} {size}: the {what} on one row: {rect:?}"
+                );
+            }
+            if size.x >= 1280 {
+                let under = fixture.rect(line);
+                assert!(
+                    under.height() < one * 1.6,
+                    "{lang:?}: the line on one row: {under:?} against {one}"
+                );
+            }
+        }
+    }
+}
+
+/// The ready card's two actions stand on one row at a desktop size, in
+/// both languages, the primary first.
+#[test]
+fn the_ready_card_s_actions_share_a_row_on_a_desktop() {
+    for lang in [Lang::En, Lang::De] {
+        let mut fixture = NoticeLayout::new(UVec2::new(1280, 800), Some(56.0), lang, 1.0);
+        let toast = fixture.show(Some(ready()), UpdatePlace::default());
+        let bottom = fixture.rect(fixture.footer.unwrap()).min.y;
+        fixture.assert_buttons_clear(toast, 16.0, bottom - 16.0);
+        let restart = button(&mut fixture.app, &UpdateButton::RestartNow);
+        let later = button(&mut fixture.app, &UpdateButton::Later);
+        let (restart, later) = (fixture.rect(restart), fixture.rect(later));
+        assert!(
+            (restart.center().y - later.center().y).abs() < 1.0,
+            "{lang:?}: {restart:?} {later:?}"
+        );
+        assert!(restart.max.x <= later.min.x);
+    }
+}
+
+/// The front door's page stands in the host its scroll bar shares with it
+/// (`lobby::scrollbars::attach`), not in the lobby's root itself: the card
+/// still stands above the colophon (live check of 22.10.2026, where it
+/// covered the colophon's first words).
+#[test]
+fn the_card_clears_the_colophon_of_a_page_with_a_scroll_bar() {
+    use crate::shellkit::role::Role;
+    let mut fixture = NoticeLayout::new(UVec2::new(1280, 800), Some(56.0), Lang::En, 1.0);
+    let world = fixture.app.world_mut();
+    let page = world
+        .query::<(Entity, &Role)>()
+        .iter(world)
+        .find_map(|(entity, role)| (*role == Role::Scroll).then_some(entity))
+        .expect("the page");
+    let host = world
+        .spawn(Node {
+            width: percent(100),
+            flex_grow: 1.0,
+            flex_basis: px(0),
+            min_height: px(0),
+            ..default()
+        })
+        .id();
+    world.entity_mut(fixture.canvas).insert_children(0, &[host]);
+    world.entity_mut(host).add_child(page);
+    let toast = fixture.show(Some(fetching(Fetch::Downloading)), UpdatePlace::default());
+    let colophon = fixture.rect(fixture.footer.unwrap()).min.y;
+    assert!((colophon - 744.0).abs() < 0.5, "the fixture's colophon");
+    let card = fixture.rect(toast);
+    assert!(
+        card.max.y <= colophon - 16.0 + 0.5,
+        "above the colophon: {card:?}"
+    );
 }

@@ -661,7 +661,7 @@ KindTimestamps = Timestamps
 FilterNote = A line is shown on every tab that ticks its kind. The tab's name and where you write stay.
 
 # The Global Lobby tab, empty.
-EmptyGlobal = Say hello to everyone online in the lobby!
+EmptyGlobal = Say hello to everyone online in the lobby! The lobby chat is public and not encrypted.
 
 # The Table tab, empty, in a game.
 EmptyTable = Nothing said yet. What you write here goes to the players at this table, encrypted.

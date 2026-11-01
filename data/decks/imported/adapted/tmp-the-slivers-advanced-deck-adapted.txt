@@ -1,0 +1,25 @@
+# adapted from data/decks/precon/TMP/the-slivers-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSliversAdvancedDeck_TMP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Slivers - Advanced Deck (Adapted)]
+4 Clot Sliver
+3 Counterspell
+1 Dismiss
+1 Drain Life
+1 Fevered Convulsions
+3 Impulse
+8 Island
+4 Metallic Sliver
+1 Mindwhip Sliver
+3 Mnemonic Sliver
+2 Nevinyrral's Disk
+1 Opt
+1 Portent
+1 Power Sink
+2 Quicksand
+4 Rootwater Depths
+3 Stupor
+6 Swamp
+2 Terror
+4 Underground River
+1 Waterlogged Teachings
+4 Winged Sliver

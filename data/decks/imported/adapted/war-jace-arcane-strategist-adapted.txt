@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/WAR/jace-arcane-strategist.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JaceArcaneStrategist_WAR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Jace, Arcane Strategist (Adapted)]
+4 Auroral Procession
+4 Double Major
+1 Fabricate
+2 Force Void
+11 Forest
+4 Hydroform
+2 Infuse
+10 Island
+4 Neoform
+1 Primordial Wurm
+3 Pulse of Murasa
+4 Simic Guildgate
+1 Spark Double
+4 Square Up
+2 Stealth Mission
+2 Wardscale Crocodile
+1 Woodcutter's Grit

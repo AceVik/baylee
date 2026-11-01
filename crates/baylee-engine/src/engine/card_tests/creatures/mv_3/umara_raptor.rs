@@ -104,3 +104,75 @@ fn air_elemental_lands_as_a_four_four_that_only_a_flier_may_block() {
          creature with flying: {offered:?}"
     );
 }
+
+/// Report 01a16cdd: a Lieutenant returning from Ephemerate pumps the Raptor
+/// once itself, and gives it another counter as another Ally entering.
+#[test]
+fn a_returned_lieutenant_raises_the_raptor_to_four_four() {
+    let p0 = PlayerId::new(0);
+    let mut engine = Duel::new(SEED, island())
+        .battlefield(
+            0,
+            &[
+                earth_king_s_lieutenant(),
+                island(),
+                plains(),
+                plains(),
+                plains(),
+            ],
+        )
+        .hand(0, &[umara_raptor(), ephemerate()])
+        .start();
+    keep_mulligans(&mut engine);
+    reach_main_phase(&mut engine, p0);
+
+    cast_from_hand(&mut engine, p0, umara_raptor());
+    pass_until(&mut engine, stack_is_empty);
+    let raptor = on_battlefield(&engine, p0, umara_raptor()).expect("the Raptor resolved");
+    let lieutenant = on_battlefield(&engine, p0, earth_king_s_lieutenant())
+        .expect("the Lieutenant was already there");
+    assert_eq!(pt(&engine, raptor), (2, 2), "its own rally trigger");
+    assert_eq!(
+        pt(&engine, lieutenant),
+        (2, 2),
+        "the Lieutenant's own rally trigger"
+    );
+
+    let spell = in_hand(&engine, p0, ephemerate()).expect("Ephemerate is in hand");
+    let pending = engine.pending().clone();
+    assert!(
+        matches!(pending, Pending::Priority { ref legal, .. } if legal.castable.contains(&spell)),
+        "Ephemerate is castable before it is tapped for: {pending:?}, pool {:?}",
+        engine.state().players[0].mana_pool
+    );
+    cast_from_hand(&mut engine, p0, ephemerate());
+    let Pending::ChooseTargets { options, .. } = engine.pending().clone() else {
+        panic!("Ephemerate asks for a creature: {:?}", engine.pending())
+    };
+    assert!(
+        options.contains(&lieutenant),
+        "the Lieutenant is a legal target: {options:?} vs {lieutenant:?}"
+    );
+    engine
+        .apply(
+            p0,
+            PlayerAction::ChooseObjects {
+                objects: vec![lieutenant],
+            },
+        )
+        .unwrap();
+    pass_until(&mut engine, stack_is_empty);
+
+    let returned =
+        on_battlefield(&engine, p0, earth_king_s_lieutenant()).expect("the Lieutenant returned");
+    assert_eq!(
+        pt(&engine, returned),
+        (1, 1),
+        "it returns without its old counters"
+    );
+    assert_eq!(
+        pt(&engine, raptor),
+        (4, 4),
+        "one counter for the Lieutenant's arrival and one from its own ETB"
+    );
+}

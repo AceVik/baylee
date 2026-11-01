@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/5DN/nuts-and-bolts.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, NutsAndBolts_5DN.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Nuts and Bolts (Adapted)]
+4 Absorb
+1 Aether Spellbomb
+2 Ancient Den
+2 Auriok Salvagers
+1 Bonesplitter
+3 Chromatic Sphere
+4 Daring Leap
+3 Energy Arc
+1 Griffin Sentinel
+7 Island
+2 Leonin Elder
+3 Leonin Squire
+1 Myr Moonvessel
+1 Ojutai's Command
+1 Ornithopter
+12 Plains
+2 Seat of the Synod
+1 Skullclamp
+2 Skyhunter Prowler
+4 Sphinx's Revelation
+1 Steelshaper's Gift
+1 Sunbeam Spellbomb
+1 Vanquish

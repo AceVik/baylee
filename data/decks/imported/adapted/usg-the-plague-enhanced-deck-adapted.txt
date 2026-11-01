@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/USG/the-plague-enhanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ThePlagueEnhancedDeck_USG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Plague - Enhanced Deck (Adapted)]
+1 Arahbo, the First Fang
+2 Colorful Feiyi Sparrow
+3 Dark Ritual
+4 Disciple of Grace
+2 Drain Life
+3 Drifting Meadow
+2 Expunge
+3 Humble
+1 Marble Titan
+2 Paladin en-Vec
+3 Pariah
+4 Pestilence
+7 Plains
+2 Polluted Mire
+4 Reflecting Pool
+1 Spirit Mirror
+1 Standing Troops
+8 Swamp
+1 Tattoo Ward
+2 Voice of Grace
+2 Wall of Junk
+1 Worship
+1 Yotian Medic

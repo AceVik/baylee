@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/BOK/ninjutsu.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Ninjutsu_BOK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ninjutsu (Adapted)]
+2 Alexi's Cloak
+1 Bewilder
+4 Call to Mind
+2 Clear the Mind
+3 Depths of Desire
+1 Drag Under
+3 Dream Fracture
+1 Exclude
+2 Fierce Guardianship
+2 Frantic Search
+24 Island
+1 Jolt
+1 Mystic Denial
+3 Mystic Restraints
+3 River Kaijin
+2 Soratami Cloudskater
+1 Soratami Mirror-Guard
+1 Teardrop Kami
+1 Tinker
+1 Twitch
+1 Undo

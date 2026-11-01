@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/DTK/relentless-rush.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RelentlessRush_DTK.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Relentless Rush (Adapted)]
+4 Auger Spree
+4 Bedevil
+1 Boltwing Marauder
+1 Defeat
+4 Delirium
+3 Dreadbore
+1 Duress
+1 Evolving Wilds
+2 Flatten
+1 Foul-Tongue Shriek
+2 Impact Tremors
+4 Kaervek's Purge
+1 Kolaghan Monument
+13 Mountain
+4 Spontaneous Combustion
+11 Swamp
+2 Terminate
+1 Vial of Dragonfire

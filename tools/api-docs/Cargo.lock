@@ -162,6 +162,8 @@ dependencies = [
 [[package]]
 name = "oas-forge"
 version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10f6f28a42231b8cc2dbdd5b86336b141edb0b2fd7b28ec8e51b66c240eac76e"
 dependencies = [
  "proc-macro2",
  "quote",

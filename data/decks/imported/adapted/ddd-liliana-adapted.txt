@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/DDD/liliana.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Liliana_DDD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Liliana (Adapted)]
+1 Afflict
+1 Bad Moon
+2 Corrupt
+1 Deathgreeter
+1 Drudge Skeletons
+2 Funeral Rites
+2 Gruesome Fate
+1 Hand of Death
+1 Hideous End
+1 Howling Banshee
+1 Icequake
+1 Keening Banshee
+1 Ob Nixilis's Cruelty
+1 Perish
+2 Phyrexian Rager
+2 Phyrexian Tribute
+2 Polluted Mire
+1 Ravenous Rats
+2 Sign in Blood
+1 Skeletal Vampire
+1 Stench of Decay
+1 Succumb to Temptation
+23 Swamp
+2 Syphon Soul
+2 Tendrils of Corruption
+2 Vampire Bats
+1 Vicious Hunger
+1 Zodiac Snake

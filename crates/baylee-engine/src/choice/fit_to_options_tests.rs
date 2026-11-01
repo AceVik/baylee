@@ -210,6 +210,8 @@ fn an_attack_is_held_to_its_requirements_and_limits() {
         attackers: vec![jugg, elf],
         defenders: vec![them, walker],
         required: vec![jugg],
+        alone: Vec::new(),
+        minimum_required: None,
         limits: vec![AttackLimit {
             creature: elf,
             defenders: vec![them],

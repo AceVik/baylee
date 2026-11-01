@@ -39,6 +39,7 @@ fn welcoming() -> App {
                 registration: Registration::Open,
                 art_cache: false,
                 guests: true,
+                central: false,
             }),
         ),
     );

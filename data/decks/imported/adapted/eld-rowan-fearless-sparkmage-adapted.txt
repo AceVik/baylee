@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/ELD/rowan-fearless-sparkmage.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RowanFearlessSparkmage_ELD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Rowan, Fearless Sparkmage (Adapted)]
+4 Arrows of Justice
+2 Energy Bolt
+4 Garrison Griffin
+2 Inspiring Veteran
+2 Knight of the Keep
+4 Lightning Helix
+10 Mountain
+11 Plains
+2 Prized Griffin
+3 Rowan's Battleguard
+3 Scorching Dragonfire
+4 Spirit Summoning
+2 Venerable Knight
+1 Weaselback Redcap
+4 Wind-Scarred Crag
+2 Youthful Knight

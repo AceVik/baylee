@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/PLS/comeback.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Comeback_PLS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Comeback (Adapted)]
+1 Ancient Spring
+1 Coastal Tower
+1 Counsel of the Soratami
+2 Dromar's Cavern
+4 Esper Charm
+1 Galina's Knight
+7 Island
+1 Mana Cylix
+2 Marsh Crocodile
+4 Plains
+1 Pointed Discussion
+4 Punish Ignorance
+2 Rakshasa's Secret
+2 Ravenous Rats
+3 Read the Bones
+3 Refute
+1 Salt Marsh
+2 Silver Drake
+1 Slay
+1 Stormscape Apprentice
+6 Swamp
+1 Terminal Moraine
+2 Undo
+1 Vodalian Merchant
+4 Void Rend
+2 Wistful Thinking

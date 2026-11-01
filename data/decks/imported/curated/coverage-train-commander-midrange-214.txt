@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBR #20266215]
+1 Abundant Countryside
+1 Arguel's Blood Fast
+1 Avengers Tower
+1 Barbarian Riftcutter
+1 Blacklance Paragon
+1 Blaster Mage
+1 Boggart Arsonists
+1 Boggart Loggers
+1 Boon of the Wish-Giver
+1 Bucolic Ranch
+1 Burrog Befuddler
+1 Cartouche of Knowledge
+1 Cascading Cataracts
+1 Crosis's Catacombs
+1 Cursed Mirror
+1 Dig Through Time
+1 Dire Fleet Poisoner
+1 Dire Undercurrents
+1 Donatello, Turtle Techie
+1 Eternity Snare
+1 Etherium Astrolabe
+1 Ezio, Blade of Vengeance
+1 Facet Reader
+1 Font of Fortunes
+1 Forbidden Orchard
+1 Forget
+1 Foriysian Totem
+1 Goblin Settler
+1 Greed
+1 Guildmages' Forum
+15 Island
+1 Joven
+1 Leap
+1 Lore Broker
+1 Mercenary Knight
+1 Merfolk Assassin
+1 Mightstone's Animation
+5 Mountain
+1 Network Disruptor
+1 Neurok Commando
+1 Nezumi Informant
+1 Nighthaze
+1 Noggle Ransacker
+1 Notorious Assassin
+1 Nykthos, Shrine to Nyx
+1 Obelisk of Grixis
+1 Ogre Gatecrasher
+1 Open Communications
+1 Painted Bluffs
+1 Planar Nexus
+1 Prying Eyes
+1 Rakdos Keyrune
+1 Reconnaissance Mission
+1 Research Assistant
+1 Screeching Drake
+1 Sea Gate Restoration
+1 Seething Landscape
+1 Separatist Voidmage
+1 Serpent Assassin
+1 Shrieking Drake
+1 Skull of Ramos
+1 Snapcaster Mage
+1 Spider-Man, Hometown Hero
+1 Splatter Technique
+1 Stalking Assassin
+1 Starke of Rath
+5 Swamp
+1 Third Path Savant
+1 Throne of Makindi
+1 Trade Routes
+1 Underdome
+1 Unliving Psychopath
+1 Venser, Shaper Savant
+1 Voldaren Estate
+1 Weldfast Wingsmith
+1 White Lotus Hideout
+1 Yellowjacket, Heartless Marauder
+
+[commander]
+Tetsuo Umezawa

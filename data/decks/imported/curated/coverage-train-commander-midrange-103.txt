@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange BRG #20266104]
+1 Abyssal Gatekeeper
+1 Abyssal Hunter
+1 Altac Bloodseeker
+1 Appendage Amalgam
+1 Badlands
+1 Bereavement
+1 Blazemire Verge
+1 Blood Crypt
+1 Bogardan Phoenix
+1 Briar Shield
+1 Brood Butcher
+1 Brood of Cockroaches
+1 Contaminated Ground
+1 Corrupted Harvester
+1 Cosmic Horror
+1 Creakwood Liege
+1 Dark Fortress
+1 Elven Cache
+1 Fastbond
+1 Fiery Mantle
+1 Fire Tempest
+1 Footlight Fiend
+8 Forest
+1 Glacial Crevasses
+1 Grasping Longneck
+1 Grave Pact
+1 Graven Cairns
+1 Heat of Battle
+1 Hell's Caretaker
+1 Horror of Horrors
+1 Impact Tremors
+1 Jaya's Firenado
+1 Lava Tubes
+1 Lich
+1 Lightning Javelin
+1 Long Feng, Grand Secretariat
+1 Mindslicer
+1 Mortuary
+1 Mossfire Valley
+5 Mountain
+1 Nurturing Peatland
+1 Ojer Axonil, Deepest Might
+1 Ojer Kaslem, Deepest Growth
+1 Omen of the Forge
+1 Past in Flames
+1 Penregon Strongbull
+1 Pitchburn Devils
+1 Plague Spitter
+1 Poison-Tip Archer
+1 Power Surge
+1 Primal Frenzy
+1 Raiding Party
+1 Reincarnation
+1 Rix Maadi, Dungeon Palace
+1 Scald
+1 Scream Puff
+1 Seismic Assault
+1 Seizures
+1 Shadowblood Ridge
+1 Shauku's Minion
+1 Shivan Phoenix
+1 Skarrg, the Rage Pits
+1 Sleeper's Guile
+1 Slimefoot, the Stowaway
+1 Soulcage Fiend
+1 Splatter Goblin
+1 Stensia Bloodhall
+1 Stronghold Assassin
+12 Swamp
+1 Taiga
+1 Tor Wauki
+1 Twilight Mire
+1 Twists and Turns
+1 Underworld Dreams
+1 Urborg Stalker
+1 Warp Artifact
+1 Wastewood Verge
+
+[commander]
+Adun Oakenshield

@@ -23,6 +23,8 @@ pub enum ZoneSel {
     LibraryYou,
     /// Your graveyard.
     GraveyardYou,
+    /// Graveyards of the players named by the relation, bound at resolution.
+    GraveyardOf(PlayerRel),
     /// All opponents' graveyards.
     GraveyardOpponents,
     /// All graveyards.
@@ -64,6 +66,8 @@ pub enum PlayerRel {
     ControllerOfTarget,
     /// The first targeted player, or the controller of the first targeted permanent.
     TargetPlayerOrController,
+    /// The player or permanent's controller named by the second target group.
+    SecondTargetPlayerOrController,
     /// The player who controlled the object the triggering event was about,
     /// as the event happened — Massacre Wurm's "whenever a creature an
     /// opponent controls dies, **that player** loses 2 life". Nothing is
@@ -130,6 +134,9 @@ pub enum PlayerRel {
     /// the game (The Black Gate's "a player with the most life or tied for
     /// most life"). Read as the effect resolves; nothing is targeted.
     MostLifeOrTied,
+    /// Every player with the least life or tied for the least life, still in
+    /// the game. Read as the effect resolves; nothing is targeted.
+    LeastLifeOrTied,
     /// "Defending player" as an ability of an attacking creature means it
     /// (CR 508.5): the player that creature is attacking, the controller of
     /// the planeswalker it is attacking, or the protector of the battle it
@@ -238,6 +245,8 @@ pub enum TargetSpec {
 /// The permanent whose colors an instruction changes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ColorSubject {
+    /// The exact source of this spell or ability, independent of its targets.
+    Source,
     /// The explicitly targeted permanent.
     Target,
     /// The source's currently attached host, with departure LKI when needed.

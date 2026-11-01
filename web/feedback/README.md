@@ -1,7 +1,7 @@
 # The feedback service's web UI (#311)
 
 The page an admin triages player reports on, at
-`https://feedback.baylee.acevik.de/`. It is a React app built to static
+`https://feedback.baylee.app/`. It is a React app built to static
 files that `baylee-feedback` serves itself from `FEEDBACK_WEB_DIR`, and it
 talks only to that service's `/ui/api/…` routes (`docs/feedback.md` §"The
 web UI"). Besides the reports it has a *Contact* page (`/contact`) for the
@@ -33,9 +33,39 @@ second schema as a closed beta with its admin console on a loopback port
 (two players let in with keys its `invite create` made), starts the service
 with `FEEDBACK_WEB_DIR=dist` and that console, hands reports in through
 `/intake/reports` as a gateway does, and drops both schemas afterwards.
-`e2e/admin.spec.ts` drives the console at 360×740 and 740×360 (touch, the
-first in German) and 1280×800, and fails on a page or a card wider than its
-screen and on a control under 44 px; with `SCREENSHOTS_DIR` it saves each.
+`e2e/admin.spec.ts` drives the reports list, a report and the console at
+320×640 (dark), 360×740 and 740×360 (touch, the first two in German) and
+1280×800, and fails on
+a page or a card wider than its screen, on a control under 44 px and on
+visible text under 12 px; with `SCREENSHOTS_DIR` it saves each.
+
+## Its look
+
+One design system, in `src/styles/`, each selector defined once:
+
+- `tokens.css`: every colour (light, and dark as a blue hour), the type
+  scale (12 px at the least), the spacing grid of 4 px, radii, shadows,
+  durations, the layout's sizes and stacking. No other file names a raw
+  colour or size, so the look can move with the console into baylee.app
+  (M5) by carrying this file and the next.
+- `base.css`, `components.css`: type, links and focus; buttons, fields,
+  panels, headline tiles, tables, badges, segmented controls, dialogs,
+  toasts, and the states a page can be in (empty, failed, loading).
+- `shell.css`: the bar, the console's sections (a sidebar on a wide screen,
+  a tab bar at the bottom of a tablet or phone, its icons alone under
+  480 px) and a page's column.
+- `admin.css`, `reports.css`, `contact.css`, `models.css`: each page's own
+  parts, built from the above.
+
+The rules it keeps: text holds 4.5:1 and a control's edge, a chart's mark
+and the focus ring 3:1 against every surface they are drawn on, in both
+schemes (`src/styles/contrast.test.ts` measures `tokens.css`); a control is
+44 px high in the console, on the bar and under a finger; motion is short
+(120–180 ms) and stops when the system asks for reduced motion; the root is
+87.5 %, so the reader's own font size scales the page. Every page has a skip
+link to its content, names itself in the window's title and tells the
+browser its language. The mark (`src/Brand.tsx`, and `public/favicon.svg`,
+served by the service like the rest) is drawn, not fetched.
 
 ## TypeScript
 
@@ -51,7 +81,10 @@ are the strictest there are (`strict`, `noUncheckedIndexedAccess`,
 ## What it may load
 
 Everything is bundled and served from the service's own origin: no CDN, no
-web font (system fonts only), no analytics or telemetry. The one thing the
+web font (system fonts only), no analytics or telemetry. The stylesheets'
+few icons (a select's chevron, the search glass, the empty and failed
+states) are `data:` SVG in the CSS, which the policy's `img-src data:`
+allows. The one thing the
 page loads from anywhere else is the picture of a card: a card a report
 names, or a card on the set progress page, is fetched by the admin's
 browser straight from Scryfall's image host (`src/reports/scryfall.ts`,
@@ -168,7 +201,7 @@ Unlicense. All are compatible with AGPL-3.0; of the non-MIT ones only
   change is in the report's history, under the admin's name.
 - Admin (`/admin/…`, shown when the service has a gateway's console,
   `docs/feedback.md` §"The admin console"), a sidebar on a wide screen and
-  a tab bar under the thumb on a phone:
+  a tab bar under the thumb on a phone (its icons alone under 480 px):
   - Overview (`/admin`): headline tiles (online, games running, accounts,
     new today, games today, new reports, and "Offline now": the anonymous
     count of offline games this service hears beat, `/ui/api/admin/offline`), four 30-day bar charts (reports,

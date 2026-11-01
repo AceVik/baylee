@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/AKH/gideon-martial-paragon.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GideonMartialParagon_AKH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Gideon, Martial Paragon (Adapted)]
+4 Arrows of Justice
+3 Companion of the Trials
+2 Electrify
+4 Energy Bolt
+1 Frontline Rush
+4 Graceful Cat
+1 Impeccable Timing
+1 Kiln Fiend
+4 Lightning Helix
+1 Martial Glory
+10 Mountain
+10 Plains
+2 Sparring Mummy
+4 Spirit Summoning
+4 Stone Quarry
+3 Warleader's Helix
+2 Wild Jhovall

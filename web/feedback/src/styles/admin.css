@@ -1,0 +1,987 @@
+/* The console's pages: the overview's charts, Live (players, tables,
+   agents, the server), the accounts, the sets, the blocked cards and the
+   beta keys. Built from `components.css`; only what is a page's own is here. */
+
+/* ----------------------------------------------------------------- charts */
+
+/* Two charts a row on a wide screen, so four make a square; an odd last one
+   takes the row. */
+.charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+
+@media (min-width: 1100px) {
+  .charts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .charts > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+.chart {
+  min-width: 0;
+  margin: 0;
+  padding: var(--sp-5) var(--sp-5) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.chart-title {
+  flex: 1 1 auto;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+}
+
+.chart-sum {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-head .legend {
+  flex-basis: 100%;
+}
+
+.mark.c1 {
+  fill: var(--c1);
+}
+
+.mark.c2 {
+  fill: var(--c2);
+}
+
+.mark.dim {
+  opacity: 0.35;
+}
+
+.chart-plot {
+  position: relative;
+  height: 160px;
+  touch-action: pan-y;
+}
+
+.chart-plot svg {
+  display: block;
+  overflow: visible;
+}
+
+.chart-plot .grid {
+  stroke: var(--border);
+  stroke-dasharray: 3 4;
+}
+
+.chart-plot .axis {
+  stroke: var(--border-strong);
+}
+
+.chart-plot .hover-band {
+  fill: var(--surface-alt);
+}
+
+.chart-y {
+  position: absolute;
+  left: 0;
+  z-index: 1;
+  padding: 0 var(--sp-1);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.chart-y-top {
+  top: 0.15rem;
+}
+
+.chart-y-mid {
+  top: calc(50% + 0.15rem);
+}
+
+/* The keyboard's way in: a range over the whole plot, seen only when
+   focused. */
+.chart-range {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: crosshair;
+}
+
+.chart-plot:has(.chart-range:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+  border-radius: var(--r-sm);
+}
+
+.chart-tip {
+  position: absolute;
+  top: -0.25rem;
+  z-index: 3;
+  display: grid;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--text);
+  color: var(--bg);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  box-shadow: var(--shadow-md);
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+
+.chart-x {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.chart-table summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+
+.chart-table summary:hover {
+  color: var(--accent-hover);
+}
+
+.table-scroll {
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.chart-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-table th,
+.chart-table td {
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+}
+
+.chart-table thead th {
+  color: var(--text-muted);
+  font-weight: var(--fw-semibold);
+}
+
+.chart-table th[scope="row"],
+.chart-table thead th:first-child {
+  text-align: left;
+  font-weight: var(--fw-medium);
+}
+
+/* ------------------------------------------------------------------- live */
+
+/* Players beside the tables on a wide screen, the agents under the players;
+   the server and the pool across the whole width. */
+.live-layout {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+  grid-template-areas:
+    "players tables"
+    "agents tables";
+  grid-template-rows: auto 1fr;
+  gap: var(--sp-4);
+  align-items: start;
+}
+
+.live-layout .panel {
+  margin: 0;
+}
+
+.live-players {
+  grid-area: players;
+}
+
+.live-tables {
+  grid-area: tables;
+}
+
+.live-agents {
+  grid-area: agents;
+}
+
+.live-layout .live-server,
+.live-layout .live-pool {
+  grid-column: 1 / -1;
+}
+
+.players,
+.agents,
+.rows,
+.chairs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.player,
+.agents li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.player:last-child,
+.agents li:last-child {
+  border-bottom: 0;
+}
+
+.player-where {
+  display: inline-flex;
+  gap: var(--sp-1);
+  margin-left: auto;
+}
+
+.player-where a {
+  text-decoration: none;
+}
+
+.agents meter {
+  flex-basis: 100%;
+  height: 0.5rem;
+}
+
+.who-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  font-weight: var(--fw-semibold);
+}
+
+.table-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--sp-3);
+}
+
+/* A table: its state as the colour of its left edge, and in words. */
+.table-card {
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+  scroll-margin-top: calc(var(--header-h) + var(--sp-4));
+}
+
+.table-card.state-playing {
+  border-left-color: var(--ok);
+}
+
+.table-card:target {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.table-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.table-card-head h3 {
+  min-width: 0;
+  margin: 0 auto 0 0;
+  color: var(--text);
+  font-size: var(--fs-md);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.table-meta {
+  margin: var(--sp-1) 0 var(--sp-2);
+}
+
+.chair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--border);
+}
+
+.chair-no {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+}
+
+.chair-body {
+  display: grid;
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+/* The server: tiles with a line of the last hour under each. */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--sp-3);
+}
+
+.metric {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4) var(--sp-2);
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+}
+
+.metric-label {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+
+.metric-value {
+  overflow: hidden;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spark {
+  width: 100%;
+  height: 36px;
+  margin-top: var(--sp-1);
+}
+
+.spark svg {
+  display: block;
+  overflow: visible;
+}
+
+.spark-line {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.spark-line.c1 {
+  stroke: var(--c1);
+}
+
+.spark-line.c2 {
+  stroke: var(--c2);
+}
+
+.spark-dot.c1 {
+  fill: var(--c1);
+}
+
+.spark-dot.c2 {
+  fill: var(--c2);
+}
+
+.metric-games {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.metric-game {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) auto auto minmax(6rem, 1fr);
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.metric-game:last-child {
+  border-bottom: 0;
+}
+
+.metric-game-id {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-game-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.metric-game .spark {
+  height: 24px;
+  margin-top: 0;
+}
+
+/* --------------------------------------------------------------- accounts */
+
+.accounts-wrap {
+  transition: opacity var(--dur) var(--ease);
+}
+
+.accounts-wrap.busy {
+  opacity: 0.6;
+}
+
+table.accounts td {
+  vertical-align: middle;
+}
+
+.acc-name {
+  min-width: 14rem;
+}
+
+.acc-name .mono {
+  display: block;
+  margin-top: 2px;
+}
+
+.acc-handle {
+  margin-right: var(--sp-2);
+  color: var(--text);
+  font-weight: var(--fw-semibold);
+  text-decoration: none;
+}
+
+.acc-handle:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.acc-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin: 0;
+  vertical-align: middle;
+}
+
+.page-head .acc-badges {
+  margin-top: var(--sp-2);
+}
+
+/* One account. */
+.now-at {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent);
+  border-radius: var(--r-md);
+  background: var(--ok-soft);
+  color: var(--text);
+}
+
+.row-item {
+  display: grid;
+  gap: 2px;
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.row-item:last-child {
+  border-bottom: 0;
+}
+
+.game-item {
+  grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-4);
+}
+
+.game-when {
+  display: grid;
+}
+
+.game-chairs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.chair-pill {
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-full);
+  background: var(--surface-alt);
+  font-size: var(--fs-sm);
+}
+
+.chair-pill.self {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+}
+
+.mod-actions {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.mod-actions > p {
+  margin: 0;
+}
+
+.mod-actions .row-actions {
+  margin-top: 0;
+}
+
+.audit-panel {
+  margin-top: var(--sp-6);
+}
+
+.audit-detail {
+  overflow-wrap: anywhere;
+}
+
+.console-audit {
+  font-size: var(--fs-sm);
+}
+
+/* ------------------------------------------------------------------- sets */
+
+.pool-summary .big {
+  margin-bottom: var(--sp-2);
+}
+
+.legend-list + p {
+  margin-top: var(--sp-3);
+}
+
+.set-rows {
+  list-style: none;
+  margin: var(--sp-3) 0 0;
+  padding: 0;
+}
+
+.set-row {
+  display: grid;
+  grid-template-columns: 4rem auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-1) 0;
+}
+
+.set-code {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-caps);
+}
+
+/* Ten columns: the cells sit closer than elsewhere. */
+table.sets th,
+table.sets td {
+  padding-left: var(--sp-3);
+  padding-right: var(--sp-3);
+}
+
+table.sets td {
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+table.sets .set-bar {
+  width: 12rem;
+  min-width: 10rem;
+}
+
+/* The bar and its share on one line, the cell still a cell. */
+table.sets td.set-bar .progress-wrap {
+  display: inline-block;
+  width: calc(100% - 3.25rem);
+  vertical-align: middle;
+}
+
+table.sets td.set-bar .progress-wrap + span {
+  display: inline-block;
+  width: 3rem;
+  text-align: right;
+  vertical-align: middle;
+}
+
+.set-cards {
+  display: grid;
+  gap: var(--sp-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.set-card {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(8rem, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+
+.set-card:hover {
+  border-color: var(--border-strong);
+}
+
+.set-card-name {
+  min-width: 0;
+}
+
+.set-card-type {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.set-card-note {
+  grid-column: 1 / -1;
+}
+
+/* ---------------------------------------------------------- blocked cards */
+
+.card-search {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.card-hits {
+  display: grid;
+  gap: var(--sp-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.card-hit {
+  display: grid;
+  gap: var(--sp-2);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+
+.card-hit-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+}
+
+.card-hit-head > button,
+.card-hit-head > .badge {
+  margin-left: auto;
+}
+
+.block-form {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.block-reason {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.block-history > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-h);
+  color: var(--accent);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+
+/* -------------------------------------------------------------- beta keys */
+
+.invites {
+  margin-top: var(--sp-6);
+}
+
+.invites > h2 {
+  font-size: var(--fs-xl);
+}
+
+.invites > h3 {
+  margin-top: var(--sp-6);
+}
+
+.create-form,
+.made {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+/* Three fields a row, the note under them across. */
+@media (min-width: 641px) {
+  .create-form .form-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.create-form h3,
+.made h3 {
+  margin: 0;
+}
+
+.create-form > button {
+  justify-self: start;
+}
+
+.made-keys {
+  display: grid;
+  gap: var(--sp-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.made-keys li {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.made-keys input.key {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  letter-spacing: 0.02em;
+}
+
+.invite-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: var(--sp-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.invite {
+  display: grid;
+  align-content: start;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.invite-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+
+.invite-note {
+  min-width: 0;
+  font-weight: var(--fw-semibold);
+}
+
+.invite.state-revoked,
+.invite.state-expired,
+.invite.state-used_up {
+  background: var(--surface-alt);
+  box-shadow: none;
+  color: var(--text-muted);
+}
+
+.invite-state.state-active {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.invite-state.state-revoked {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.invite > button {
+  justify-self: start;
+}
+
+/* ------------------------------------------------------------- the phone */
+
+@media (max-width: 899px) {
+  .live-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "players"
+      "tables"
+      "agents";
+  }
+}
+
+/* A phone: the accounts and the sets tables become lists of cards. */
+@media (max-width: 640px) {
+  .kpis {
+    gap: var(--sp-2);
+  }
+  .kpi {
+    flex-basis: calc(50% - var(--sp-1));
+    padding: var(--sp-3);
+  }
+  .kpi-value {
+    font-size: var(--fs-2xl);
+  }
+  .toolbar .segmented,
+  .toolbar .toggle,
+  .toolbar .select-label,
+  .toolbar .select-label select {
+    flex: 1 1 auto;
+  }
+  .segmented button {
+    flex: 1 1 auto;
+  }
+  table.accounts thead,
+  table.sets thead {
+    display: none;
+  }
+  table.accounts,
+  table.accounts tbody,
+  table.sets,
+  table.sets tbody {
+    display: block;
+  }
+  table.accounts tr,
+  table.sets tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
+    border-bottom: 1px solid var(--border);
+  }
+  table.accounts tbody tr:last-child,
+  table.sets tbody tr:last-child {
+    border-bottom: 0;
+  }
+  table.accounts td,
+  table.sets td {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    font-size: var(--fs-sm);
+    white-space: normal;
+  }
+  table.accounts td.acc-name {
+    grid-column: 1 / -1;
+    min-width: 0;
+    font-size: var(--fs-md);
+  }
+  table.sets td.set-no {
+    display: none;
+  }
+  table.sets td.set-name {
+    grid-column: 1 / -1;
+    font-size: var(--fs-md);
+  }
+  table.accounts td:not(.acc-name)::before,
+  table.sets td:not(.set-name)::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+  }
+  table.accounts .num,
+  table.sets .num {
+    text-align: left;
+  }
+  table.sets .set-bar,
+  table.sets td.set-bar {
+    display: block;
+    grid-column: 1 / -1;
+    width: auto;
+    min-width: 0;
+  }
+  table.sets td.set-bar .progress-wrap {
+    margin: var(--sp-1) 0;
+  }
+  table.sets td.set-bar .progress-wrap + span {
+    width: auto;
+  }
+  .game-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .game-id {
+    display: none;
+  }
+  .set-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .set-card-type {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+  .metric-game {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .metric-game .spark {
+    grid-column: 1 / -1;
+  }
+}

@@ -1,0 +1,29 @@
+# adapted from data/decks/precon/MIR/jungle-jam.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, JungleJam_MIR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Jungle Jam (Adapted)]
+1 Afterlife
+1 Disenchant
+2 Ekundu Griffin
+2 Foratog
+10 Forest
+3 Gibbering Hyenas
+1 Grasslands
+1 Ivory Charm
+3 Jolrael's Centaur
+1 Mountain
+1 Mountain Valley
+2 Mtenda Griffin
+2 Nettletooth Djinn
+2 Pacifism
+10 Plains
+3 Quirion Elves
+3 Rampant Growth
+1 Ritual of Steel
+1 Sawback Manticore
+1 Skyblade of the Legion
+2 Song of Serenity
+2 Teremko Griffin
+2 Unyaro Griffin
+1 Vitalizing Cascade
+1 Worldly Tutor
+1 Zuberi, Golden Feather

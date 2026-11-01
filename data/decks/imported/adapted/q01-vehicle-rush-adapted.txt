@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/Q01/vehicle-rush.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, VehicleRush_Q01.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Vehicle Rush (Adapted)]
+3 Aether Hub
+4 Buried Alive
+1 Concealed Courtyard
+4 Defibrillating Current
+1 Dragonskull Summit
+2 Evolving Wilds
+4 Healing Hands
+1 Inspiring Vantage
+1 Last Caress
+4 Lightning Strike
+3 Mountain
+2 Narrow Escape
+4 Open Fire
+5 Plains
+1 Rakshasa's Secret
+4 Ruinous Ultimatum
+4 Spire of Industry
+4 Succumb to Temptation
+1 Swamp
+4 Sweltering Suns
+3 Unclaimed Territory

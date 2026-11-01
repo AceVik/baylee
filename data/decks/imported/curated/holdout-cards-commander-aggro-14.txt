@@ -1,0 +1,74 @@
+# baylee unseen-card holdout commander seed=90000020
+# licence: AGPL-3.0-only
+[deck:commander aggro G #90000020]
+1 Ajani's Comrade
+1 Arbor Armament
+1 Archdruid's Charm
+1 Battlegrowth
+1 Beneath the Sands
+1 Bog-Strider Ash
+1 Bond Beetle
+1 Bridgeworks Battle
+1 Citanul Druid
+1 Conduit Pylons
+1 Crucible of the Spirit Dragon
+1 Deeproot Elite
+1 Deranged Hermit
+1 Elvish Farmer
+1 Elvish Handservant
+1 Emerald Charm
+1 Fell the Pheasant
+1 Freyalise Supplicant
+1 Greenseeker
+1 Guardian Gladewalker
+1 Guardian of the Halls
+1 Hail Storm
+1 Haywire Mite
+1 Hexdrinker
+1 Hidden Guerrillas
+1 Hurricane
+1 Into the North
+1 Ironshell Beetle
+1 Kodama's Reach
+1 Kujar Seedsculptor
+1 Leaf Arrow
+1 Lifesmith
+1 Lotus Vale
+1 Lurking Lizards
+1 Lys Alana Bowmaster
+1 Lys Alana Huntmaster
+1 Managorger Hydra
+1 Marsh Viper
+1 Murasa Ranger
+1 Okina, Temple to the Grandfathers
+1 Open the Gates
+1 Ornithopter
+1 Questing Beast
+1 Quirion Dryad
+1 Ruins Recluse
+1 Rumble Arena
+1 Rustvine Cultivator
+1 Sazh's Chocobo
+1 Scute Mob
+1 Shield Sphere
+1 Skyway Sniper
+1 Slith Predator
+32 Snow-Covered Forest
+1 Spike Drone
+1 Spike Worker
+1 Squall Line
+1 Tajuru Archer
+1 Take Down
+1 Territorial Scythecat
+1 The Seedcore
+1 Thorn Thallid
+1 Titania's Chosen
+1 Vastwood Fortification
+1 Verdant Automaton
+1 Vinelasher Kudzu
+1 Walking Ballista
+1 Winter Blast
+1 Yavimaya Ants
+
+[commander]
+Silvos, Rogue Elemental

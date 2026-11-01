@@ -1,0 +1,87 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange WB #20266179]
+1 Accursed Duneyard
+1 Amber Prison
+1 Archdemon of Paliano
+1 Armored Warhorse
+1 Battle Hurda
+1 Black Poplar Shaman
+1 Blinkmoth Well
+1 Bloodgift Demon
+1 Bog Elemental
+1 Bog Tatters
+1 Brawler's Plate
+1 Breathstealer
+1 Canal Monitor
+1 Carrion Wall
+1 Cat Burglar
+1 Cateran Summons
+1 Cavernous Maw
+1 Cemetery Gate
+1 Command Tower
+1 Crowd of Cinders
+1 Crystal Vein
+1 Dauthi Marauder
+1 Dauthi Mindripper
+1 Dauthi Trapper
+1 Drudge Reavers
+1 Expanded Anatomy
+1 Fasting
+1 Felhide Minotaur
+1 Flooded Strand
+1 Giant Cockroach
+1 Gods' Eye, Gate to the Reikai
+1 Haunted Cloak
+1 Hostile Desert
+1 Inventors' Fair
+1 Island of Wak-Wak
+1 Jagwasp Swarm
+1 Labyrinth of Skophos
+1 Lim-Dûl's High Guard
+1 Mindstab Thrull
+1 Mishra's Groundbreaker
+1 Moonglove Changeling
+1 Moonrise Cleric
+1 Norn's Wellspring
+1 Phyrexian Monitor
+4 Plains
+1 Prowling Nightstalker
+1 Python
+1 Quicksilver Amulet
+1 Radiant Fountain
+1 Raiding Nightstalker
+1 Rath's Edge
+1 Rathi Assassin
+1 Restless Bones
+1 Sandstorm Verge
+1 Sentry of the Underworld
+1 Shadow Rider
+1 Shauku, Endbringer
+1 Sheltered Valley
+1 Skeletal Crocodile
+1 Skullmead Cauldron
+1 Skycoach Waypoint
+1 Soul Exchange
+1 Soul Rend
+1 Soulstone Sanctuary
+1 Spatial Contortion
+1 Spectral Sliver
+16 Swamp
+1 Talisman of Hierarchy
+1 Tattered Apparition
+1 Tower of Eons
+1 Tower of Murmurs
+1 Umbral Mantle
+1 Unnerve
+1 Unraveling Mummy
+1 Urborg, Tomb of Yawgmoth
+1 Venomous Changeling
+1 Volatile Fault
+1 Wall of Shadows
+1 Weed-Pruner Poplar
+1 Wishclaw Talisman
+1 Yavimaya, Cradle of Growth
+
+[commander]
+Judge Magister Gabranth

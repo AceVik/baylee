@@ -1,0 +1,32 @@
+# adapted from data/decks/precon/STH/the-spikes-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, TheSpikesAdvancedDeck_STH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:The Spikes - Advanced Deck (Adapted)]
+1 Armageddon
+2 City of Brass
+2 Forest
+1 Gemstone Mine
+1 Hammer of Bogardan
+3 Iroh's Demonstration
+2 Jolrael's Centaur
+4 Karplusan Forest
+4 Kindle
+4 Llanowar Elves
+2 Managorger Hydra
+4 Mogg Hollows
+1 Mountain
+1 Orgg
+1 Pincher Beetles
+3 Quicksand
+2 Reflecting Pool
+2 River Boa
+2 Rumbling Baloth
+1 Shard Phoenix
+1 Shivan Dragon
+2 Skyshroud Elf
+2 Spike Breeder
+3 Spike Drone
+3 Suq'Ata Lancer
+2 Uktabi Orangutan
+2 Undiscovered Paradise
+1 Vec Townships
+1 Wildfire Emissary

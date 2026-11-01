@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/M14/death-reaper.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DeathReaper_M14.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Death Reaper (Adapted)]
+1 Barrage of Expendables
+4 Bedevil
+2 Blood Bairn
+1 Bogbrew Witch
+2 Child of Night
+2 Corrupt
+1 Deathgaze Cockatrice
+4 Delirium
+1 Demonic Hordes
+2 Gifted Aetherborn
+8 Mountain
+2 Sengir Vampire
+1 Smelt
+3 Spontaneous Combustion
+17 Swamp
+3 Thunder Strike
+2 Undead Minotaur
+1 Vampire Warlord
+3 Wring Flesh

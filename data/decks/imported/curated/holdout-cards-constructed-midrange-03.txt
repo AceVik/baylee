@@ -1,0 +1,21 @@
+# baylee unseen-card holdout constructed seed=90000009
+# licence: AGPL-3.0-only
+[deck:constructed midrange UG #90000009]
+1 Abstergo Entertainment
+4 Aesi, Tyrant of Gyre Strait
+4 Archdruid's Charm
+3 Carven Caryatid
+3 Cascading Cataracts
+2 Cloistered Telepath
+3 Eidolon of Blossoms
+4 Emrakul's Influence
+11 Forest
+4 Island
+4 Kavu Climber
+3 Mystic Remora
+4 Pond Prophet
+2 Rumble Arena
+1 Study Hall
+2 The Mycosynth Gardens
+3 Three Steps Ahead
+2 Unifying Theory

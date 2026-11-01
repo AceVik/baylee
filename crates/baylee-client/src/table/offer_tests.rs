@@ -227,13 +227,12 @@ fn choosing(drawn: &[Placement], slot: u32) -> bool {
         .choosable
 }
 
-/// Report 09: while a `ChooseTargets` question stands, a permanent it will
-/// take is lit on the felt (`glow::CHOOSABLE`), one already chosen is not,
-/// and one outside the options is not. On the old code `Offer` had no such
-/// claim: nothing was ever choosable and `glow_of` never gave the light.
+/// While a `ChooseTargets` question stands, a permanent it will take is lit
+/// on the felt (`glow::CHOOSABLE`). Choosing replaces that invitation with the
+/// persistent `glow::SELECTED`; one outside the options stays unlit.
 #[test]
-fn a_question_lights_the_permanents_it_will_take_and_not_the_ones_chosen() {
-    use crate::cardmat::{Offer, glow, glow_of};
+fn a_question_lights_options_and_keeps_a_chosen_one_visibly_selected() {
+    use crate::cardmat::{Offer, glow, glow_of, glow_of_with_selection};
     use baylee_core::ids::ObjectId;
     let (mut duel, drawn) = under_question(baylee_engine::choice::Pending::ChooseTargets {
         player: PlayerId::new(0),
@@ -253,7 +252,7 @@ fn a_question_lights_the_permanents_it_will_take_and_not_the_ones_chosen() {
             .iter()
             .find(|p| p.object == ObjectId::new(slot, 0))
             .expect("drawn");
-        glow_of(view.object(p.object), p.offer)
+        glow_of_with_selection(view.object(p.object), p.offer, p.selected)
     };
     assert_eq!(of(&drawn, 10), glow::CHOOSABLE, "lit on the felt");
     assert_eq!(of(&drawn, 12), 0, "and an unselectable one is not");
@@ -271,7 +270,7 @@ fn a_question_lights_the_permanents_it_will_take_and_not_the_ones_chosen() {
         "an armed card keeps its own light"
     );
 
-    // Chosen, a card stops asking to be.
+    // Chosen, a card stops asking to be but keeps its own stronger state.
     duel.interaction
         .as_mut()
         .expect("the question")
@@ -279,7 +278,14 @@ fn a_question_lights_the_permanents_it_will_take_and_not_the_ones_chosen() {
     let drawn = placements(&duel);
     assert!(!choosing(&drawn, 10), "chosen");
     assert!(choosing(&drawn, 11), "the other still is");
-    assert_eq!(of(&drawn, 10), 0);
+    assert!(
+        drawn
+            .iter()
+            .find(|p| p.object == ObjectId::new(10, 0))
+            .unwrap()
+            .selected
+    );
+    assert_eq!(of(&drawn, 10), glow::SELECTED);
 }
 
 /// Combat's declarations are their own picture: in attack declaration mode
@@ -293,6 +299,8 @@ fn attack_declaration_and_a_quiet_window_light_nothing_as_choosable() {
         attackers: vec![ObjectId::new(10, 0), ObjectId::new(11, 0)],
         defenders: vec![Defender::Player(PlayerId::new(1))],
         required: Vec::new(),
+        alone: Vec::new(),
+        minimum_required: None,
         limits: Vec::new(),
     });
     assert!(!drawn.is_empty());

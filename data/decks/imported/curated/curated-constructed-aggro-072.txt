@@ -1,0 +1,23 @@
+# baylee curated constructed aggro seed=20261095
+# licence: AGPL-3.0-only
+[deck:constructed aggro WUR #20261095]
+1 Aether Hub
+4 Betrayal
+2 Eclipsed Realms
+4 Eidolon of Astral Winds
+2 Eidolon of Philosophy
+3 Flame Blitz
+2 Flamekin Harbinger
+4 Forgeborn Oreads
+1 Gemstone Mine
+3 Hallowed Ground
+8 Island
+5 Mountain
+4 Oread of Mountain's Blaze
+1 Plains
+1 Plaza of Heroes
+1 School of the Unseen
+3 Spirited Companion
+3 Tarnished Citadel
+4 Wan Shi Tong, Librarian
+4 Whitewater Naiads

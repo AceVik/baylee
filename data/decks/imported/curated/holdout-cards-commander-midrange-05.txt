@@ -1,0 +1,72 @@
+# baylee unseen-card holdout commander seed=90000011
+# licence: AGPL-3.0-only
+[deck:commander midrange R #90000011]
+1 Akki Avalanchers
+1 Ancestors' Aid
+1 Ardent Elementalist
+1 Balduvian Trading Post
+1 Barrage of Expendables
+1 Blazing Effigy
+1 Blood Petal Celebrant
+1 Bogardan Firefiend
+1 Careless Celebrant
+1 Conscripted Infantry
+1 Crackling Club
+1 Cunning Maneuver
+1 Deadapult
+1 Dragon Egg
+1 Dragon Roost
+1 Dragonmaster Outcast
+1 Embraal Gear-Smasher
+1 Fable of the Mirror-Breaker
+1 Fault Riders
+1 Flamekin Gildweaver
+1 Gemstone Mine
+1 Goblin Arsonist
+1 Goblin Bombardment
+1 Goblin Engineer
+1 Goblin Scouts
+1 Goblin Soothsayer
+1 Goblin Warrens
+1 Hanweir Battlements
+1 Hanweir Garrison
+1 Inferno Fist
+1 Krark-Clan Stoker
+1 Living Lightning
+1 Magmaw
+1 Mana Crypt
+34 Mountain
+1 Mox Ruby
+1 Need for Speed
+1 Orcish Bloodpainter
+1 Orcish Mechanics
+1 Piggy Bank
+1 Pitchburn Devils
+1 Plaza of Heroes
+1 Plundering Pirate
+1 Reckless Lackey
+1 Reckless Ransacking
+1 Ripchain Razorkin
+1 Rite of the Dragoncaller
+1 Rukh Egg
+1 Secluded Courtyard
+1 Sell-Sword Brute
+1 Siege-Gang Commander
+1 Skirk Prospector
+1 Skirsdag Cultist
+1 Slash, Reptile Rampager
+1 Sluggishness
+1 Smoldering Efreet
+1 Storm-Kiln Artist
+1 Tar Pitcher
+1 Tooth and Claw
+1 Treetop Freedom Fighters
+1 Trumpeting Carnosaur
+1 Unknown Shores
+1 Wily Goblin
+1 Young Pyromancer
+1 Zap
+1 Zuko, Avatar Hunter
+
+[commander]
+Smaug the Magnificent

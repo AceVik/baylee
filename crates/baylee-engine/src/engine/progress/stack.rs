@@ -266,16 +266,15 @@ impl<L: CardLookup> Engine<L> {
         chosen: &[ObjectId],
         players: bool,
     ) -> Option<(SmallVec<[ObjectId; 2]>, SeatSet)> {
-        // Two specs name no *chosen* target. `EventObject` is the object the
-        // trigger fired on, and `Player(rel)` derives its players from a
-        // relation at resolution — `resolve::players_of` reads neither list
-        // for it. Both enumerate empty by construction, so asking them this
-        // question would read every target they have as illegal.
-        if matches!(req.spec, TargetSpec::EventObject | TargetSpec::Player(_)) {
+        // Event objects and context-player relations are implicit. An explicit
+        // self-target requirement chooses a player and must be rechecked;
+        // untargeted self-effects carry no requirement through this path.
+        if matches!(req.spec, TargetSpec::EventObject)
+            || matches!(req.spec, TargetSpec::Player(rel) if rel != baylee_cards_dsl::PlayerRel::You)
+        {
             return None;
         }
-        // The player half exists only for the three specs that can name one;
-        // `eval::targeted_players` says why the bound matters.
+        // Only player-target specs read the chosen-player fields.
         let chosen_players = if players {
             eval::targeted_players(obj, &req.spec)
         } else {
@@ -356,6 +355,137 @@ impl<L: CardLookup> Engine<L> {
         let _ = self
             .state
             .move_object(top, destination, ZonePosition::Top, Cause::Spell);
+    }
+
+    /// Removes an optional trigger whose empty target answer makes the whole
+    /// ability a no-op. The answer is proved, not inferred from effect names:
+    /// the same resolution runs on a clone, and only a completed resolution
+    /// with an unchanged state hash and no journal entry permits the real
+    /// stack object to go.
+    /// A follow-up choice or any untargeted effect keeps the ability.
+    #[allow(clippy::too_many_lines)] // the probe mirrors the ordinary resolution context
+    pub(crate) fn discard_empty_trigger_without_effect(&mut self, top: ObjectId) -> bool {
+        if !self.house_rules.auto_discard_empty_optional_triggers {
+            return false;
+        }
+        let Some(obj) = self.state.object(top).cloned() else {
+            return false;
+        };
+        if obj.kind != ObjectKind::AbilityOnStack
+            || !obj.targets.is_empty()
+            || !obj.target_players.is_empty()
+            || !obj.second_targets().is_empty()
+            || !obj.second_target_players().is_empty()
+        {
+            return false;
+        }
+        let Some(req) = self.stack_target_req(top) else {
+            return false;
+        };
+        if req.min != 0
+            || self.stack_second_target_req(top).is_some()
+            || self.stack_divided_amount(top).is_some()
+        {
+            return false;
+        }
+        let Some(loc) = obj.ability else {
+            return false;
+        };
+        let runtime_body = loc.index == baylee_core::ids::AbilityRef::SYNTHETIC
+            || crate::choice::granted_slot(loc.index).is_some();
+        let effects = if runtime_body {
+            let Some(effects) = self.synthetic_fx.get(&top).copied().or_else(|| {
+                crate::effects::granted_definition(&self.state, loc.index)
+                    .map(|granted| granted.effects)
+            }) else {
+                return false;
+            };
+            effects
+        } else {
+            let abilities = obj.own_abilities.as_ref().map_or_else(
+                || {
+                    self.state
+                        .object(loc.source)
+                        .map_or(crate::copiable_abilities::AbilityDefs::EMPTY, |o| {
+                            o.printed_abilities(&self.lookup)
+                        })
+                },
+                crate::copiable_abilities::AbilityDefs::from,
+            );
+            match abilities.get(loc.index as usize) {
+                Some(
+                    AbilityDef::Triggered { effects, .. } | AbilityDef::SagaChapter { effects, .. },
+                ) => *effects,
+                Some(AbilityDef::ModalTriggered { modes, .. }) => {
+                    let Some(mode) = obj.mode_index else {
+                        return false;
+                    };
+                    let Some(mode) = modes.get(mode as usize) else {
+                        return false;
+                    };
+                    mode.effects
+                }
+                _ => return false,
+            }
+        };
+        let mut res = Resolution {
+            source: loc.source,
+            on_stack: top,
+            controller: obj.controller,
+            effects: resolve::flatten(effects),
+            pc: 0,
+            targets: obj.targets.clone(),
+            second_targets: SmallVec::from_slice(obj.second_targets()),
+            x: Some(obj.x_value),
+            chosen_player: obj.chosen_player,
+            target_players: obj.target_players,
+            event_object: obj.event_object,
+            targeted: true,
+            awaiting: None,
+            mana_ability: false,
+            countered_source: None,
+            target_lki: None,
+            subject: crate::resolve::SubjectContext::default()
+                .with_second_players(obj.second_target_players()),
+            text: crate::text_changes::TextChangeMap::IDENTITY,
+            event_mana: None,
+            retarget_left: None,
+            loot: None,
+            draw_watch: None,
+            this_way_from: None,
+            coin_stake: None,
+        };
+        let mut probe = self.state.clone();
+        let flow = resolve::run(&mut probe, &mut res);
+        if !matches!(flow, resolve::Flow::Complete) {
+            return false;
+        }
+        // The snapshot hash leaves the journal out, and some effects are
+        // nothing but an entry there: a revealed hand changes no field.
+        // Any entry the probe wrote is an effect.
+        if probe.journal.len() != self.state.journal.len() {
+            return false;
+        }
+        // Allocation of the next damage-batch id is resolver bookkeeping,
+        // not an effect. Compare every other field, then adopt that
+        // bookkeeping here too. A new event, a changed zone, or any other
+        // changed field keeps the real ability instead.
+        let mut before = self.state.clone();
+        before.next_damage_batch = probe.next_damage_batch;
+        if probe.snapshot_hash() != before.snapshot_hash() {
+            return false;
+        }
+
+        self.state = probe;
+        self.state
+            .journal
+            .record(GameEvent::StackObjectDidNotResolve { object: top });
+        self.state.zones.remove(top, ZoneLocation::Stack);
+        self.state.remember_damage_source(top);
+        self.synthetic_fx.remove(&top);
+        let _ = self.state.arena.remove(top);
+        self.cleanup_check_acted();
+        true
     }
 
     #[allow(clippy::too_many_lines)] // resolution dispatch is a flat router; extraction would obscure it
@@ -590,6 +720,7 @@ impl<L: CardLookup> Engine<L> {
                     loot: None,
                     draw_watch: None,
                     this_way_from: None,
+                    coin_stake: None,
                 };
                 match resolve::run(&mut self.state, &mut res) {
                     resolve::Flow::Complete => self.finish_resolution(&res),
@@ -634,6 +765,7 @@ impl<L: CardLookup> Engine<L> {
                 loot: None,
                 draw_watch: None,
                 this_way_from: None,
+                coin_stake: None,
             };
             #[cfg(test)]
             crate::ability_log::resolving(&self.state, &self.lookup, top);
@@ -706,6 +838,7 @@ impl<L: CardLookup> Engine<L> {
                 draw_watch: None,
                 event_mana: None,
                 this_way_from: None,
+                coin_stake: None,
             };
             #[cfg(test)]
             crate::ability_log::resolving(&self.state, &self.lookup, top);

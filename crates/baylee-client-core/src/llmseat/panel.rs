@@ -26,8 +26,8 @@ use super::ledger::{Ledger, Moment, Spent};
 use super::seating::Preset;
 use super::{
     AnswerMode, CapField, Caps, DEFAULT_ANTHROPIC_MODEL, DEFAULT_CLI_CALLS,
-    DEFAULT_CLI_SPEND_TOKENS, Field, GivenPrice, PRICED, Period, Place, Price, Profile, Provider,
-    SeatSettings, Why, cli_model, price, shaped_like_a_key,
+    DEFAULT_CLI_SPEND_TOKENS, Field, GivenPrice, LookupSource, PRICED, Period, Place, Price,
+    Profile, Provider, SeatSettings, Why, cli_model, price, shaped_like_a_key,
 };
 use crate::i18n::{Lang, Phrase};
 use crate::textbuf::TextBuffer;
@@ -112,10 +112,12 @@ impl Slot {
         Self::Command,
     ];
 
-    /// The box or choice that shows `field`.
+    /// The box or choice that shows `field`; `None` for a field the panel
+    /// keeps as the file has it and shows nowhere (`lookup`, `fallback`),
+    /// whose fault the panel says of the file as a whole.
     #[must_use]
-    pub const fn of(field: Field) -> Self {
-        match field {
+    pub const fn of(field: Field) -> Option<Self> {
+        Some(match field {
             Field::Provider => Self::Provider,
             Field::Model => Self::Model,
             Field::Effort => Self::Effort,
@@ -131,7 +133,8 @@ impl Slot {
             Field::KeyEnv => Self::KeyEnv,
             Field::BaseUrl => Self::BaseUrl,
             Field::Command => Self::Command,
-        }
+            Field::Lookup | Field::Fallback => return None,
+        })
     }
 
     /// What the box is called above it.
@@ -290,6 +293,10 @@ struct Draft {
     key_env: TextBuffer,
     base_url: TextBuffer,
     command: TextBuffer,
+    /// Kept as the file has it: the panel shows no box for it.
+    lookup: Option<LookupSource>,
+    /// Kept as the file has it: the panel shows no box for it.
+    fallback: Vec<String>,
 }
 
 /// A form's texts and choices, to tell whether anything was edited.
@@ -323,6 +330,8 @@ impl Draft {
             key_env: text(profile.key_env.as_deref()),
             base_url: text(profile.base_url.as_deref()),
             command: text(profile.command.as_deref()),
+            lookup: profile.lookup,
+            fallback: profile.fallback.clone(),
         }
     }
 
@@ -415,6 +424,8 @@ impl Draft {
             key_env: word(&self.key_env),
             base_url: word(&self.base_url),
             command: word(&self.command),
+            lookup: self.lookup,
+            fallback: self.fallback.clone(),
         };
         (profile, problems)
     }
@@ -1018,7 +1029,7 @@ impl SeatPanel {
                 Place::Name(name) => place.get(name).map(|at| Spot::Profile(*at, Slot::Name)),
                 Place::Profile(name, field) => place
                     .get(name)
-                    .map(|at| Spot::Profile(*at, Slot::of(*field))),
+                    .and_then(|at| Slot::of(*field).map(|slot| Spot::Profile(*at, slot))),
                 Place::Cap(cap) => Some(Spot::Cap(*cap)),
                 Place::Elsewhere(_) => None,
             };

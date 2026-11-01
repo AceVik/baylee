@@ -3,40 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-mod akroma_angel_of_wrath;
-mod ancient_brontodon;
-mod ashen_firebeast;
-mod avacyn_angel_of_hope;
-mod axelrod_gunnarson;
-mod baleful_force;
-mod benthic_behemoth;
-mod bloodfire_colossus;
-mod brimstone_dragon;
-mod celestial_force;
-mod chromium;
-mod copper_host_crusher;
-mod crash_of_rhinos;
-mod deep_spawn;
-mod eldrazi_devastator;
-mod gigantomancer;
-mod godsire;
-mod goliath_spider;
-mod griselbrand;
-mod hearthcage_giant;
-mod hellkite_overlord;
-mod maelstrom_wanderer;
-mod magmatic_force;
-mod pestilence_demon;
-mod piru_the_volatile;
-mod razaketh_the_foulblooded;
-mod scaled_wurm;
-mod skeletal_wurm;
-mod tidal_force;
-mod tidespout_tyrant;
-mod utvara_hellkite;
-mod verdant_force;
-mod zetalpa_primal_dawn;
-
 /// A duel at seat 0's first main phase: `board` already on its battlefield
 /// and `hand` in its hand.
 #[track_caller]
@@ -114,3 +80,50 @@ fn hand_size(engine: &Engine<RegistryLookup>, seat: u8) -> usize {
         .list(ZoneLocation::Hand(PlayerId::new(seat)))
         .len()
 }
+mod akroma_angel_of_wrath;
+mod ancient_brontodon;
+mod ashen_firebeast;
+mod avacyn_angel_of_hope;
+mod avatar_of_fury;
+mod avatar_of_hope;
+mod avatar_of_might;
+mod avatar_of_will;
+mod avatar_of_woe;
+mod axelrod_gunnarson;
+mod baleful_force;
+mod baron_sengir;
+mod benthic_behemoth;
+mod bloodfire_colossus;
+mod brimstone_dragon;
+mod celestial_force;
+mod chromium;
+mod copper_host_crusher;
+mod crash_of_rhinos;
+mod deep_spawn;
+mod devouring_strossus;
+mod eldrazi_devastator;
+mod gigantomancer;
+mod godsire;
+mod goliath_spider;
+mod griselbrand;
+mod hearthcage_giant;
+mod hellkite_overlord;
+mod living_hive;
+mod maelstrom_wanderer;
+mod magmatic_force;
+mod pestilence_demon;
+mod piru_the_volatile;
+mod razaketh_the_foulblooded;
+mod scaled_wurm;
+mod scion_of_darkness;
+mod silver_seraph;
+mod skeletal_wurm;
+mod symbiotic_wurm;
+mod tidal_force;
+mod tidal_kraken;
+mod tidespout_tyrant;
+mod tunneler_wurm;
+mod utvara_hellkite;
+mod vampiric_dragon;
+mod verdant_force;
+mod zetalpa_primal_dawn;

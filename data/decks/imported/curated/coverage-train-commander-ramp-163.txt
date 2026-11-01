@@ -1,0 +1,84 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WUBRG #20266164]
+1 Aether Hub
+1 Angelic Captain
+1 Arctic Aven
+1 Assault Strobe
+1 Assault Zeppelid
+1 Aven Smokeweaver
+1 Baldur's Gate
+1 Baxter Building
+1 Belbe's Percher
+1 Benthic Djinn
+1 Bloodied Ghost
+1 Bucolic Ranch
+1 Cat-Owl
+1 Darklit Gargoyle
+1 Deity of Scars
+1 Dimir Cutpurse
+1 Discordant Spirit
+1 Drogskol Captain
+1 Duskwatch Hunter
+1 Esper Cormorants
+1 Fatehold Chronologist
+1 Feint
+1 Fleshformer
+3 Forest
+1 Gallifrey Council Chamber
+1 Goblin Deathraiders
+1 Godhead of Awe
+1 Great Hall of the Citadel
+1 Hall of Oracles
+1 Headlong Rush
+1 Henge of Ramos
+1 Holdout Settlement
+6 Island
+1 Lightning Stormkin
+1 Lotus Vale
+1 Makindi Ox
+1 Mana Clash
+1 Marsh Crocodile
+1 Mending Hands
+1 Mirrodin's Core
+5 Mountain
+1 Needlethorn Drake
+1 Nephalia Seakite
+1 Nimbus Swimmer
+1 Nobilis of War
+1 Obscura Initiate
+1 Ondu Greathorn
+1 Pestilent Kathari
+1 Pit Raptor
+7 Plains
+1 Prismatic Lace
+1 Rakdos Ickspitter
+1 Relic Sloth
+1 Rimefur Reindeer
+1 Savage Gorilla
+1 Scapegoat
+1 Screeching Harpy
+1 Secluded Courtyard
+1 Secret Base
+1 Seedpod Squire
+1 Senate Courier
+1 Shivan Wurm
+1 Siegehorn Ceratops
+1 Sky Terror
+1 Spectral Shepherd
+1 Suture Spirit
+5 Swamp
+1 Talon Gates of Madara
+1 Talon Trooper
+1 Talonrend
+1 Tarnished Citadel
+1 The Balrog of Moria
+1 Twilight Panther
+1 Twining Twins
+1 Unnatural Speed
+1 Vassal Soul
+1 White Lotus Hideout
+1 Windreaper Falcon
+
+[commander]
+General Tazri

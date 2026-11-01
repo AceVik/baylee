@@ -134,6 +134,13 @@ mod tests {
         assert_eq!(super::name(u16::MAX), None);
     }
 
+    /// Field of the Dead's ordinary black 2/2 wears the matching M20 token.
+    #[test]
+    fn the_black_two_two_zombie_wears_its_m20_printing() {
+        let id = baylee_cards::tokens::token_id(&baylee_cards::tokens::ZOMBIE_2_2_BLACK);
+        assert_eq!(super::of(id), Some("18f0436e-9328-4266-9cf8-80b557a0c17c"));
+    }
+
     /// The tie `wearing` documents is real, and it is the first of the two.
     ///
     /// Three tokens are printed "Shapeshifter". A copy of either is drawn as

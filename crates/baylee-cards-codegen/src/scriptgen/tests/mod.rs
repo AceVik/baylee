@@ -1,12 +1,16 @@
 use super::*;
 
 mod affected_defined;
+mod animation_rules;
 mod archon_kismet;
 mod blocks_and_conditions;
 mod costs_and_refusals;
+mod divided_damage;
 mod effects;
 mod imprison;
+mod prevention_rules;
 mod reading;
+mod static_supertypes;
 mod tokens_and_zones;
 
 fn cats() -> SubtypeCatalogs {
@@ -99,6 +103,9 @@ fn filter(valid: &str) -> String {
         block_line: None,
         block_half: None,
         in_delayed: false,
+        cost_sacrifices_self: false,
+        cost_sacrifices_other: false,
+        trigger_is_self: false,
         body: CardBody::default(),
         unclaimed: std::cell::RefCell::new(None),
     };

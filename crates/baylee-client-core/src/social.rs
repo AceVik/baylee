@@ -281,6 +281,9 @@ pub enum Effect {
     DeleteAllLocal,
     /// Show a toast.
     Toast(ChatToast),
+    /// Take away a toast that asked about this: it was answered (in the
+    /// drawer, on another device) or taken back.
+    Withdraw(ToastAbout),
     /// Play a cue.
     Sound(ChatCue),
     /// Show this conversation's tab.
@@ -316,6 +319,22 @@ pub struct ChatToast {
     pub actions: Vec<(ToastButton, Intent)>,
     /// Stays until answered (requests, invites) rather than 6 s.
     pub until_answered: bool,
+    /// What it asks about, for a toast that waits for an answer the player
+    /// can also give elsewhere (the drawer, another device) or that the
+    /// asker can take back: it goes once that is no longer open
+    /// ([`Social::still_asks`]).
+    pub about: Option<ToastAbout>,
+}
+
+/// What a toast that waits for an answer asks about.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ToastAbout {
+    /// A friend request from this tag.
+    FriendRequest(String),
+    /// An invite to the group with this id.
+    GroupInvite(String),
+    /// The table invite with this id.
+    TableInvite(String),
 }
 
 /// A toast's button.

@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/OTJ/saddle-up.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SaddleUp_OTJ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Saddle Up (Adapted)]
+4 Advent of the Wurm
+2 Ankle Biter
+3 Bristlepack Sentry
+4 Brushland
+4 Call of the Conclave
+3 Eladamri's Call
+10 Forest
+2 Gerrard's Command
+2 Intrepid Stablemaster
+1 Lush Portico
+2 Moment of Valor
+4 Nature's Chant
+10 Plains
+4 Selesnya Charm
+4 Vitalizing Cascade
+1 Wylie Duke, Atiin Hero

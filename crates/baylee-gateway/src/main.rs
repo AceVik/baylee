@@ -11,6 +11,7 @@ mod admin;
 mod admission;
 mod art;
 mod auth;
+mod authmode;
 mod blocks;
 mod central;
 mod chair;
@@ -20,9 +21,9 @@ mod departure;
 mod engine;
 mod handle;
 mod invite;
+mod legacyexport;
 mod llmaccess;
 mod lobby;
-mod mail;
 mod metrics;
 mod moderation;
 mod namebook;
@@ -51,7 +52,6 @@ use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Json;
 use axum::routing::{delete, get, post, put};
-use baylee_protocol::names;
 use baylee_protocol::v1::{self, Envelope};
 use lobby::{Lobby, LobbyGame, LobbyState};
 use parking_lot::Mutex;
@@ -70,44 +70,31 @@ use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
-use store::{Confirmation, Deck, StoredToken};
+use store::Deck;
 use tokio::sync::broadcast::error::RecvError;
 use tracing_subscriber::EnvFilter;
 
 /// Shared gateway state.
 struct AppState {
-    central: Option<Arc<central::Bridge>>,
+    central: central::Link,
     central_barrier: tokio::sync::RwLock<()>,
-    auth_workers: Arc<tokio::sync::Semaphore>,
     /// Accounts, sessions, decks, links, preferences.
     ///
     /// `store.rs` is the only module that knows this is a database; every
     /// route here calls a function there and gets a plain struct back.
     db: sea_orm::DatabaseConnection,
     limiter: auth::RateLimiter,
-    /// Sign-in attempts, counted **per address** rather than per IP.
-    ///
-    /// A separate limiter because it answers a different question. Guessing
-    /// is aimed at one account, so the address is what the count belongs to;
-    /// an IP is only a proxy for it, and a bad proxy in both directions. It
-    /// punishes a household or an office behind one address for a neighbour's
-    /// typing — which is how the owner locked themselves out of a development
-    /// box where every request, mine included, arrives from `127.0.0.1` — and
-    /// it stops nobody with more than one address to send from.
-    ///
-    /// The cost is stated rather than avoided: a stranger who knows an
-    /// address can spend its eight attempts and make its owner wait out the
-    /// window. That is a nuisance bounded by five minutes, against guessing
-    /// bounded by nothing, and the register and resend routes keep their IP
-    /// limit so account spam and mail amplification stay bounded by it.
+    /// Tries of a closed beta's key at the guest door (#317): eight in five
+    /// minutes per address, on a budget of their own beside [`Self::limiter`],
+    /// so that guessing at eighty bits stays a guess.
     sign_in_limiter: auth::RateLimiter,
     lobby: Mutex<Lobby>,
     /// Who may register (`BAYLEE_REGISTRATION`): anybody, somebody with a
     /// closed-beta key (`invite`, #317), or nobody (`off`).
     registration: invite::Registration,
-    /// Whether a player may play as a guest (`BAYLEE_GUESTS=off` to
-    /// disable; #269).
-    guests_enabled: bool,
+    /// Who comes in: guests, Baylee Central's accounts, or both
+    /// (`BAYLEE_AUTH_MODE` or the console, `authmode.rs`).
+    auth_mode: authmode::Setting,
     /// How many guests there may be at once (`BAYLEE_GUEST_CAP`, 1000 unless
     /// set, `0` for no bound); `None` when unbounded. See [`guest_cap`].
     guest_cap: Option<u64>,
@@ -123,9 +110,6 @@ struct AppState {
     /// already checked by [`impressum_url`]; `None` when unset. `/info`
     /// carries it for the client to link.
     impressum_url: Option<String>,
-    /// Where confirmation mail goes, and — because it is the same
-    /// question — whether an address has to be confirmed at all.
-    mail: mail::Mailer,
     /// Proxies whose `X-Forwarded-For` header may be trusted for rate
     /// limiting (`BAYLEE_TRUSTED_PROXIES`, comma-separated IPs). Empty =
     /// the header is never trusted; anyone can set it, so trusting it
@@ -133,9 +117,9 @@ struct AppState {
     trusted_proxies: Vec<IpAddr>,
     /// Every agent connected right now, and the games each was asked to run.
     ///
-    /// Nothing here is persisted: an agent that reconnects is a new agent, and
-    /// a game whose agent went away is a game whose engine either reports its
-    /// own end or stops existing.
+    /// Nothing here is persisted: an agent that reconnects is a new agent.
+    /// Losing its control link closes its old game assignments; the agent
+    /// stops and reaps those engines before reconnecting.
     agents: Mutex<engine::Agents>,
     /// The server metrics the admin console shows (`metrics.rs`): an hour
     /// of samples in memory, and the public routes' request counter.
@@ -220,7 +204,7 @@ struct AppState {
     /// address (`chair.rs`).
     chair_limiter: auth::RateLimiter,
     /// Whether hosts may hand chairs to seat bridges at all
-    /// (`BAYLEE_CHAIR_TICKETS=off` to disable), read as `BAYLEE_GUESTS` is.
+    /// (`BAYLEE_CHAIR_TICKETS=off` to disable), read by [`switched_on`].
     chair_tickets_enabled: bool,
     /// The handles of the accounts seated in the lobby, read once each
     /// (`namebook.rs`).
@@ -275,6 +259,12 @@ impl AppState {
     pub(crate) fn lobby_moved(&self) {
         let _ = self.lobby_changed.send(());
     }
+
+    /// Whether this gateway is connected to Baylee Central
+    /// (`BAYLEE_CENTRAL_CONFIG_FILE`): how a Central sign-in reaches it.
+    pub(crate) fn connected(&self) -> bool {
+        self.central.is_some()
+    }
 }
 
 type Shared = Arc<AppState>;
@@ -294,6 +284,12 @@ async fn main() {
     if args.first().map(String::as_str) == Some("records") {
         std::process::exit(recordexport::cli(&args[1..]).await);
     }
+    // The cutover's export of the accounts Central signs in from then on
+    // (`docs/central-login.md` §"Cutover"): the operator's and the
+    // database's alone, and never logged.
+    if args.first().map(String::as_str) == Some("legacy") {
+        std::process::exit(legacyexport::cli(&args[1..]).await);
+    }
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
@@ -310,6 +306,14 @@ async fn main() {
         .unwrap_or_else(|why| panic!("BAYLEE_IMPRESSUM_URL: {why}"));
     let guest_cap = guest_cap(std::env::var("BAYLEE_GUEST_CAP").ok().as_deref())
         .unwrap_or_else(|why| panic!("BAYLEE_GUEST_CAP: {why}"));
+    let auth_mode = authmode::Setting::from_env(std::env::var("BAYLEE_AUTH_MODE").ok().as_deref())
+        .unwrap_or_else(|why| panic!("BAYLEE_AUTH_MODE: {why}"));
+    if std::env::var_os("BAYLEE_GUESTS").is_some() {
+        tracing::warn!(
+            "BAYLEE_GUESTS is read no more: the console or BAYLEE_AUTH_MODE decides who comes in \
+             (guests, central or mixed; unset is central)"
+        );
+    }
     let reconnect_secs =
         clock::reconnect_from_env(std::env::var("BAYLEE_RECONNECT_SECS").ok().as_deref())
             .unwrap_or_else(|why| panic!("BAYLEE_RECONNECT_SECS: {why}"));
@@ -393,10 +397,9 @@ async fn main() {
         tracing::warn!("BAYLEE_AGENT_TOKEN is not set: no agent can connect, so no game can start");
     }
     let state = Arc::new(AppState {
-        central: central::Bridge::from_env()
+        central: central::Link::from_env()
             .unwrap_or_else(|()| panic!("central bridge configuration rejected")),
         central_barrier: tokio::sync::RwLock::new(()),
-        auth_workers: Arc::new(tokio::sync::Semaphore::new(4)),
         db,
         limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 10),
         sign_in_limiter: auth::RateLimiter::new(std::time::Duration::from_secs(300), 8),
@@ -414,12 +417,11 @@ async fn main() {
         registration: invite::Registration::from_env(
             std::env::var("BAYLEE_REGISTRATION").ok().as_deref(),
         ),
-        guests_enabled: switched_on(std::env::var("BAYLEE_GUESTS").ok().as_deref()),
+        auth_mode,
         guest_cap,
         display_name,
         source_url,
         impressum_url,
-        mail: mail::Mailer::from_env(),
         trusted_proxies: trusted_proxies(
             &std::env::var("BAYLEE_TRUSTED_PROXIES").unwrap_or_default(),
         ),
@@ -427,7 +429,8 @@ async fn main() {
         texts: texts::TextCache::default(),
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
-        feedback: report::Feedback::from_env(),
+        feedback: report::Feedback::from_env()
+            .unwrap_or_else(|why| panic!("reports configuration rejected: {why}")),
         record_flushes: record::Flushes::default(),
         tickets: wsticket::Tickets::new(ticket_ttl),
         legacy_until,
@@ -464,7 +467,30 @@ async fn main() {
     spawn_cleanup(state.clone());
     spawn_ticket_sweep(state.clone());
     metrics::spawn(state.clone());
-    let _central_heartbeat = central::Heartbeat::start(state.central.as_ref());
+    // A pasted token's link first: whether Central's sign-in reaches this
+    // gateway depends on it.
+    central::restore(&state).await;
+    state
+        .auth_mode
+        .restore(&state.db)
+        .await
+        .unwrap_or_else(|e| panic!("auth mode: {e}"));
+    let mode = state.auth_mode.current();
+    if mode.central() && !state.connected() {
+        tracing::warn!(
+            mode = mode.as_str(),
+            "this gateway takes Baylee Central's accounts and is not connected to Central \
+             (a token pasted into the console, or BAYLEE_CENTRAL_CONFIG_FILE): no Central \
+             sign-in reaches it yet, so it lets in {}; allow guests in the console or with \
+             BAYLEE_AUTH_MODE, or connect it",
+            if mode.guests() {
+                "guests only"
+            } else {
+                "nobody"
+            }
+        );
+    }
+    let _central_heartbeat = central::Heartbeat::start(state.clone());
     central::spawn_terms_publisher(state.clone());
     social::sweep::sweep(&state).await;
     social::presence::spawn(state.clone());
@@ -485,6 +511,7 @@ async fn main() {
         .merge(account_routes())
         .merge(deck_routes())
         .merge(report::routes())
+        .merge(report::direct::routes())
         .merge(social::routes::routes())
         .route("/social/ws", get(social::socket::social_ws))
         .route("/lobby/games", get(list_games).post(create_game))
@@ -875,13 +902,9 @@ struct ErrorBody {
     /// handful that cannot would be paying for the exception on every path.
     error: std::borrow::Cow<'static, str>,
     /// The ban an account is refused with (beta.8): only on a `403` from a
-    /// sign-in or a session of a banned account (`moderation.rs`).
+    /// Central sign-in or a session of a banned account (`moderation.rs`).
     #[serde(skip_serializing_if = "Option::is_none")]
     ban: Option<moderation::BanBody>,
-    /// The account must choose a new password first (beta.8): only on the
-    /// `403` a sign-in with an admin's reset password is answered.
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
-    password_change: bool,
     /// Whose terms of use the account has to accept first (`central` or
     /// `gateway`): only on the `403` of a session that has not (`terms_admit`).
     /// @openapi enum: [central, gateway]
@@ -895,7 +918,6 @@ fn err(status: StatusCode, message: &'static str) -> (StatusCode, Json<ErrorBody
         Json(ErrorBody {
             error: std::borrow::Cow::Borrowed(message),
             ban: None,
-            password_change: false,
             terms_required: None,
         }),
     )
@@ -911,14 +933,14 @@ fn err_saying(status: StatusCode, message: String) -> (StatusCode, Json<ErrorBod
         Json(ErrorBody {
             error: std::borrow::Cow::Owned(message),
             ban: None,
-            password_change: false,
             terms_required: None,
         }),
     )
 }
 
-/// Whether a switch is on: whether this gateway lets one play as a guest
-/// (`BAYLEE_GUESTS`, #269). `BAYLEE_REGISTRATION` has three answers since
+/// Whether a switch is on: whether hosts may hand chairs to seat bridges
+/// (`BAYLEE_CHAIR_TICKETS`), as `BAYLEE_GUESTS` was read until the auth
+/// mode replaced it. `BAYLEE_REGISTRATION` has three answers since
 /// #317 ([`invite::Registration::from_env`]) and reads its two old ones the
 /// same way, so that an operator still learns one reading.
 ///
@@ -1114,7 +1136,7 @@ fn db_down(e: &anyhow::Error) -> (StatusCode, Json<ErrorBody>) {
 ///
 /// The preflight is answered here rather than routed, because axum resolves a
 /// path to a `MethodRouter` that knows only the methods a handler registered:
-/// an `OPTIONS` to `/auth/login` is a 405 before any handler sees it, and a
+/// an `OPTIONS` to any route is a 405 before any handler sees it, and a
 /// per-route `options(…)` would have to be typed out on all sixty routes and
 /// forgotten on the sixty-first.
 async fn cors(

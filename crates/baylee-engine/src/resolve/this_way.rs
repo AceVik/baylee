@@ -13,7 +13,7 @@ use baylee_core::ids::{ObjectId, PlayerId};
 
 use super::Resolution;
 use crate::eval;
-use crate::event::{DamageTarget, GameEvent, JournalEntry};
+use crate::event::{Cause, DamageTarget, GameEvent, JournalEntry};
 use crate::state::GameState;
 use crate::zone::Zone;
 
@@ -53,6 +53,7 @@ pub(super) fn entries<'a>(state: &'a GameState, res: &Resolution) -> &'a [Journa
 /// [`baylee_cards_dsl::Amount::ThisWay`]: how much of `what` this resolution
 /// has done, counting only `only`'s part when it names a player (an
 /// instruction applied to each player in turn).
+#[allow(clippy::too_many_lines)] // Keep each journal event/result pair in one flat match.
 pub(super) fn count(
     state: &GameState,
     res: &Resolution,
@@ -110,7 +111,59 @@ pub(super) fn count(
                 },
                 ThisWay::ReturnedToHand(filter),
             ) => u32::from(was(state, res, *object, filter, &mine)),
+            (
+                GameEvent::ZoneChanged {
+                    object,
+                    from: Zone::Battlefield,
+                    cause: Cause::Destroy,
+                    ..
+                },
+                ThisWay::Destroyed(filter),
+            ) => u32::from(destroyed(state, res, entry, *object, filter, &mine)),
             (GameEvent::Discarded { player, .. }, ThisWay::Discarded) => u32::from(mine(*player)),
+            (GameEvent::Discarded { object, player, .. }, ThisWay::DiscardedMatching(filter))
+                if mine(*player) =>
+            {
+                u32::from(state.object(*object).is_some_and(|card| {
+                    eval::matches_with_context(
+                        filter,
+                        state,
+                        card,
+                        res.controller,
+                        res.rule_context(),
+                    )
+                }))
+            }
+            (
+                GameEvent::ZoneChanged {
+                    object,
+                    from: Zone::Library,
+                    to: Zone::Exile,
+                    ..
+                },
+                ThisWay::ExiledFromLibrary(filter),
+            ) => u32::from(state.object(*object).is_some_and(|card| {
+                mine(card.owner)
+                    && eval::matches_with_context(
+                        filter,
+                        state,
+                        card,
+                        res.controller,
+                        res.rule_context(),
+                    )
+            })),
+            (
+                GameEvent::CounterChanged {
+                    object,
+                    kind: event_kind,
+                    old,
+                    new,
+                    ..
+                },
+                ThisWay::CountersRemoved(kind),
+            ) if *object == res.source && *event_kind == kind && new < old => {
+                u32::from(old.saturating_sub(*new))
+            }
             (GameEvent::ControllerChanged { .. }, ThisWay::ControlChanged) => 1,
             (
                 GameEvent::ZoneChanged {
@@ -182,6 +235,32 @@ fn was(
         )
 }
 
+/// Destruction retains the departure controller even if the card moves again.
+fn destroyed(
+    state: &GameState,
+    res: &Resolution,
+    entry: &JournalEntry,
+    object: ObjectId,
+    filter: &baylee_cards_dsl::Filter,
+    mine: &impl Fn(PlayerId) -> bool,
+) -> bool {
+    let Some(departure) = &entry.departure else {
+        return was(state, res, object, filter, mine);
+    };
+    let Some(card) = state.damage_source(object, Some(departure.version)) else {
+        return false;
+    };
+    mine(departure.controller)
+        && eval::matches_projected_with_context(
+            filter,
+            state,
+            card,
+            card.characteristics(),
+            res.controller,
+            res.rule_context(),
+        )
+}
+
 fn milled(
     state: &GameState,
     res: &Resolution,
@@ -201,17 +280,18 @@ fn milled(
 pub(super) fn damaged_permanents(state: &GameState, res: &Resolution) -> Vec<ObjectId> {
     let mut out: Vec<ObjectId> = Vec::new();
     for entry in entries(state, res) {
-        if let GameEvent::DamageDealt {
-            source: Some(source),
-            target: DamageTarget::Object(object),
-            amount,
-            ..
-        } = entry.event
-            && source == res.source
-            && amount > 0
-            && !out.contains(&object)
-        {
-            out.push(object);
+        match entry.event {
+            GameEvent::DamageDealt {
+                source: Some(source),
+                target: DamageTarget::Object(object),
+                amount,
+                ..
+            } if source == res.source && amount > 0 && !out.contains(&object) => {
+                out.push(object);
+            }
+            // CR 400.7: a later incarnation was not dealt that earlier damage.
+            GameEvent::ZoneChanged { object, .. } => out.retain(|&id| id != object),
+            _ => {}
         }
     }
     out

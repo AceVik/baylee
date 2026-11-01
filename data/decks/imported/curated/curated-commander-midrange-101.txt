@@ -1,0 +1,72 @@
+# baylee curated commander midrange seed=20261124
+# licence: AGPL-3.0-only
+[deck:commander midrange R #20261124]
+1 Akoum Boulderfoot
+1 Ardent Elementalist
+1 Arms Dealer
+1 Barrage Ogre
+1 Capital City
+1 Daily Bugle Building
+1 Devils' Playground
+1 Dori, Bearer of Friends
+1 Dragon Roost
+1 Elder Auntie
+1 Fire Imp
+1 Flamekin Harbinger
+1 Flametongue Kavu
+1 Flick a Coin
+1 Flurry of Horns
+1 Foundry Street Denizen
+1 Fury
+1 Gimli of the Glittering Caves
+1 Goblin Arsonist
+1 Goblin Chainwhirler
+1 Goblin Commando
+1 Goblin Engineer
+1 Goblin Gang Leader
+1 Goblin Gardener
+1 Goblin Instigator
+1 Goblin Recruiter
+1 Goblin Soothsayer
+1 Goblin Trashmaster
+1 Hearthcage Giant
+1 Improvised Weaponry
+1 Kavu Monarch
+1 Keldon Necropolis
+1 Klingon Strike Force
+1 Krenko's Command
+1 Make Mischief
+1 Mana Confluence
+1 Mana Crypt
+1 Meticulous Artisan
+1 Mogg Bombers
+34 Mountain
+1 Mouser Attack!
+1 Mudbutton Torchrunner
+1 Munitions Enthusiast
+1 Orochi Hatchery
+1 Pashalik Mons
+1 Pyrogoyf
+1 Ral's Reinforcements
+1 Raphael, Tough Turtle
+1 Reckless Lackey
+1 Redcap Thief
+1 Sardian Avenger
+1 Skirk Prospector
+1 Slobad, Goblin Tinkerer
+1 Spawning Breath
+1 Storm Caller
+1 Subterranean Scout
+1 Sudden Breakthrough
+1 Tar Pitcher
+1 Tuktuk Scrapper
+1 Unclaimed Territory
+1 Underfoot Underdogs
+1 Villainous Hideout
+1 Voldaren Epicure
+1 Weaponize the Monsters
+1 Wily Goblin
+1 Zo-Zu the Punisher
+
+[commander]
+Slash, Reptile Rampager

@@ -10,11 +10,11 @@ use baylee_cards_dsl::ZoneRef;
 use baylee_core::ids::{DamageSourceRef, PlayerId, SeatSet};
 
 fn link(state: &GameState, res: &Resolution) -> Option<Rider> {
+    let source = state
+        .recorded_ability_source(res.on_stack)
+        .or_else(|| super::subjects::source(state, res))?;
     Some(Rider::LinkedExile {
-        source: DamageSourceRef {
-            object: res.source,
-            version: source_version(state, res)?,
-        },
+        source,
         acquisition: super::subjects::acquisition(state, res),
     })
 }
@@ -122,13 +122,19 @@ fn exile(state: &mut GameState, res: &Resolution, card: ObjectId, hideaway: bool
 
 pub(super) fn offer_play(state: &GameState, res: &mut Resolution) -> Option<Pending> {
     let cards = linked(state, res);
-    continue_play(state, res, cards)
+    continue_play(state, res, cards, false)
+}
+
+pub(super) fn offer_copy(state: &GameState, res: &mut Resolution) -> Option<Pending> {
+    let cards = linked(state, res);
+    continue_play(state, res, cards, true)
 }
 
 pub(crate) fn continue_play(
     state: &GameState,
     res: &mut Resolution,
     cards: Vec<DamageSourceRef>,
+    copy: bool,
 ) -> Option<Pending> {
     let options: Vec<_> = cards
         .iter()
@@ -142,7 +148,7 @@ pub(crate) fn continue_play(
     if options.is_empty() {
         return None;
     }
-    res.awaiting = Some(AwaitingOp::LinkedPlay { cards });
+    res.awaiting = Some(AwaitingOp::LinkedPlay { cards, copy });
     Some(Pending::ChooseCards {
         player: res.controller,
         options,
@@ -187,4 +193,55 @@ pub(super) fn return_cards(
         let _ = state.move_object(card, destination, ZonePosition::Top, Cause::Effect);
     }
     None
+}
+
+/// The delayed ability remembers one exact exiled incarnation, without look permission.
+pub(super) fn exile_top_until_own_end(state: &mut GameState, res: &Resolution) {
+    let Some(&card) = state
+        .zones
+        .list(ZoneLocation::Library(res.controller))
+        .last()
+    else {
+        return;
+    };
+    exile(state, res, card, false);
+    let Some(object) = state.object(card).filter(|o| o.zone == Zone::Exile) else {
+        return;
+    };
+    let version = object.version;
+    state.delayed.push(crate::state::DelayedTrigger {
+        controller: res.controller,
+        when: crate::state::DelayedWhen::NextYourEndStep,
+        action: crate::state::DelayedAction::TriggerAbout {
+            source: res.source,
+            source_version: source_version(state, res).unwrap_or(0),
+            effects: &[baylee_cards_dsl::Effect::ReturnToHand {
+                target: baylee_cards_dsl::TargetSpec::EventObject,
+            }],
+            text: res.text,
+            object: card,
+            version,
+            subject: None,
+        },
+    });
+}
+
+/// A discard trigger cannot chase the card after it leaves the graveyard.
+pub(super) fn exile_discarded(state: &mut GameState, res: &Resolution) {
+    let Some(reference) = super::subjects::event(state, res) else {
+        return;
+    };
+    if state.object(reference.object).is_none_or(|o| {
+        o.version != reference.version
+            || o.zone != Zone::Graveyard
+            || o.zone_owner != Some(res.controller)
+    }) {
+        return;
+    }
+    let _ = state.move_object(
+        reference.object,
+        ZoneLocation::Exile(res.controller),
+        ZonePosition::Top,
+        Cause::Effect,
+    );
 }

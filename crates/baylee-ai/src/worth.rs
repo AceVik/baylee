@@ -188,9 +188,11 @@ pub fn mana_poured(view: &PlayerView, source: ObjectId, effects: &[Effect]) -> O
 /// things a view can answer before the ability is activated.
 fn countable(amount: Amount) -> bool {
     match amount {
-        Amount::Fixed(_) => true,
+        Amount::Fixed(_) | Amount::LifeTotal(_) => true,
         Amount::CountOf { zone, .. } => matches!(zone, ZoneSel::Battlefield),
-        Amount::Plus { base, .. } | Amount::Times { base, .. } => countable(*base),
+        Amount::Plus { base, .. } | Amount::Times { base, .. } | Amount::Divided { base, .. } => {
+            countable(*base)
+        }
         Amount::Sum { left, right } => countable(*left) && countable(*right),
         _ => false,
     }
@@ -482,6 +484,17 @@ impl HeuristicAgent {
         })
     }
 
+    /// How many legal targets `req` can see in `view`, or `None` when the
+    /// target specification is not one [`Self::aims`] reads.
+    pub(crate) fn target_candidates(
+        &self,
+        view: &PlayerView,
+        origin: Origin<'_>,
+        req: &TargetReq,
+    ) -> Option<usize> {
+        self.aims(view, origin, &req.spec).map(|a| a.len())
+    }
+
     /// The worth of a list of effects run in order at `aim`.
     pub(crate) fn effects_worth(
         &self,
@@ -539,6 +552,21 @@ impl HeuristicAgent {
             Amount::Fixed(n) | Amount::NegXFixed(n) => i64::from(n),
             Amount::X | Amount::NegX => i64::from(x),
             Amount::DoubleX => 2 * i64::from(x),
+            Amount::LifeTotal(who) => self
+                .players(view, who, aim)?
+                .first()
+                .map_or(Some(0), |player| {
+                    view.seat(*player).map(|seat| i64::from(seat.life.max(0)))
+                })?,
+            Amount::Divided {
+                base,
+                divisor,
+                round_up,
+            } => {
+                let n = self.count(view, origin, *base, aim, x)?.max(0);
+                let divisor = i64::from(divisor.get());
+                n / divisor + i64::from(round_up && n % divisor != 0)
+            }
             Amount::Plus { base, offset } => {
                 self.count(view, origin, *base, aim, x)? + i64::from(offset)
             }
@@ -557,7 +585,7 @@ impl HeuristicAgent {
             Amount::Difference { left, right } => (self.count(view, origin, *left, aim, x)?
                 - self.count(view, origin, *right, aim, x)?)
             .max(0),
-            Amount::CountOf { filter, zone } => self.count_of(view, origin, filter, zone)?,
+            Amount::CountOf { filter, zone } => self.count_of(view, origin, filter, zone, aim)?,
             Amount::DistinctColorsAmong(filter) => i64::from(
                 view.battlefield
                     .iter()
@@ -591,6 +619,7 @@ impl HeuristicAgent {
         origin: Origin<'_>,
         filter: &Filter,
         zone: ZoneSel,
+        aim: Aim,
     ) -> Option<i64> {
         let me = usize::from(view.seat.get());
         let (objects, zone): (Vec<&PublicObject>, ZoneRef) = match zone {
@@ -599,6 +628,21 @@ impl HeuristicAgent {
                 view.graveyards.get(me).into_iter().flatten().collect(),
                 ZoneRef::Graveyard,
             ),
+            ZoneSel::GraveyardOf(who) => {
+                let players = self.players(view, who, aim)?;
+                (
+                    view.graveyards
+                        .iter()
+                        .enumerate()
+                        .filter(|(index, _)| {
+                            u8::try_from(*index)
+                                .is_ok_and(|seat| players.contains(&PlayerId::new(seat)))
+                        })
+                        .flat_map(|(_, cards)| cards.iter())
+                        .collect(),
+                    ZoneRef::Graveyard,
+                )
+            }
             ZoneSel::GraveyardAll => (
                 view.graveyards.iter().flatten().collect(),
                 ZoneRef::Graveyard,
@@ -729,14 +773,42 @@ impl HeuristicAgent {
         material(o)
     }
 
-    /// `o` leaving the battlefield for good, to this seat.
+    /// `o` leaving the battlefield for good, to this seat: nothing more for
+    /// an opponent's permanent this seat's own spell is already taking.
     fn removal(&self, view: &PlayerView, o: &PublicObject) -> i64 {
         let worth = Self::permanent_worth(view, o);
-        if self.hostile(o.controller, view.seat) {
-            worth
-        } else {
+        if !self.hostile(o.controller, view.seat) {
             -worth
+        } else if Self::answered(view, o) {
+            0
+        } else {
+            worth
         }
+    }
+
+    /// Whether a spell or ability of this seat's on the stack is aimed at
+    /// `o` to remove it: [`doomed`](Self::doomed) seen from the other side.
+    ///
+    /// A second answer to it is worth nothing while the first is on its way.
+    /// The house cast Path to Exile at a commander, was asked again as its
+    /// caster (CR 117.3c), and cast Swords to Plowshares at it as well;
+    /// Swords resolved first, and Path had no target left (CR 608.2b), a
+    /// card thrown away (22.10.2026). Once the first has left the stack,
+    /// countered or fizzled, the second is worth its card again.
+    pub(crate) fn answered(view: &PlayerView, o: &PublicObject) -> bool {
+        view.stack.iter().any(|s| {
+            s.controller == view.seat
+                && crate::tactics::stack_removes(view, s, o)
+                && s.targets.iter().any(|target| match target {
+                    TargetRef::Object(source) => {
+                        source.object == o.id
+                            && view
+                                .target_object(*source)
+                                .is_some_and(|target| target.is_current)
+                    }
+                    TargetRef::Player(_) => false,
+                })
+        })
     }
 
     /// Whether `o` is going anyway: an opponent's spell or ability on the
@@ -804,7 +876,8 @@ impl HeuristicAgent {
 
     /// What `o` entering the battlefield sets off for its controller, by
     /// the vocabulary [`crate::tactics::meaning`] reads: its own ETB
-    /// triggers, never counted below zero.
+    /// triggers, never counted below zero except when a mandatory draw
+    /// decks its owner.
     fn etb_worth(&self, view: &PlayerView, o: &PublicObject) -> i64 {
         printed_list(o)
             .iter()
@@ -813,7 +886,21 @@ impl HeuristicAgent {
                     trigger: Trigger::EntersBattlefield(Filter::This),
                     effects,
                     ..
-                } => self.effect_value(view, effects).max(0),
+                } => {
+                    let draws = crate::optional::self_draws(view, effects, 0);
+                    if draws > 0
+                        && view.seat(o.owner).is_some_and(|s| {
+                            if o.owner == view.seat {
+                                s.library_count <= draws
+                            } else {
+                                self.hostile(o.owner, view.seat) && s.library_count < draws
+                            }
+                        })
+                    {
+                        return -DECKED;
+                    }
+                    self.effect_value(view, effects).max(0)
+                }
                 _ => 0,
             })
             .sum()
@@ -828,6 +915,9 @@ impl HeuristicAgent {
     fn bounce(&self, view: &PlayerView, o: &PublicObject) -> i64 {
         let tempo = i64::from(o.mana_value) * 60 + 50;
         if self.hostile(o.controller, view.seat) {
+            if Self::answered(view, o) {
+                return 0;
+            }
             // A token does not come back (CR 111.7).
             if o.token.is_some() {
                 return Self::permanent_worth(view, o);
@@ -1152,9 +1242,40 @@ impl HeuristicAgent {
                 .sum();
         }
         let ids: Vec<ObjectId> = objects.iter().map(|o| o.id).collect();
-        self.attack_gain(view, &|o| {
+        let early = view.active == view.seat
+            && (matches!(view.phase, Phase::Beginning | Phase::FirstMain)
+                || view.phase == Phase::Combat && view.step == Step::CombatBegin);
+        let mut total = self.attack_gain(view, &|o| {
             ids.contains(&o.id).then_some((power, toughness, keywords))
-        })
+        });
+        let pure_debuff = power <= 0 && toughness <= 0 && keywords == 0;
+        for &o in objects.iter().filter(|o| creature(o)) {
+            let left = i32::from(o.toughness.unwrap_or(0));
+            let lethal = toughness < 0
+                && (left + toughness <= 0
+                    || (!has(o, KeywordSet::INDESTRUCTIBLE)
+                        && left - i32::from(o.damage) + toughness <= 0));
+            if self.hostile(o.controller, view.seat) {
+                total += if lethal {
+                    self.removal(view, o)
+                } else if pure_debuff {
+                    if Self::answered(view, o) {
+                        0
+                    } else {
+                        -i64::from(power) * 20 - i64::from(toughness) * 15
+                    }
+                } else {
+                    -(i64::from(power.max(0)) * 30
+                        + i64::from(toughness.max(0)) * 10
+                        + 30 * i64::from(keywords.count_ones()))
+                };
+            } else if !early && lethal {
+                total += self.removal(view, o);
+            } else if pure_debuff && !lethal && (power < 0 || toughness < 0) {
+                total += i64::from(power) * 20 + i64::from(toughness) * 15;
+            }
+        }
+        total
     }
 
     /// Counters put on `o`, to this seat.
@@ -1246,12 +1367,18 @@ impl HeuristicAgent {
     ) -> Option<i64> {
         let me = view.seat;
         // These need resolution metadata the valuation context does not
-        // carry: the original controller/chooser, cast origin, or the future event spell.
+        // carry: the original controller/chooser, cast origin, or independent event subjects.
         // Do not turn a nested clause into a concrete value for this seat.
         if matches!(
             effect,
             Effect::MayDoFor { .. }
                 | Effect::WhenNextSpellCastThisTurn { .. }
+                | Effect::CreateDelayedObserver { .. }
+                | Effect::DestroyAllThenForEachDestroyed { .. }
+                | Effect::ForEachCreatureDamagedBySourceThatDiedThisTurn { .. }
+                | Effect::ForEachTarget { .. }
+                | Effect::WheneverCombatEventThisTurn { .. }
+                | Effect::GrantTriggeredIfAbsent { .. }
                 | Effect::IfCastFromGraveyard { .. }
         ) {
             return None;
@@ -1288,6 +1415,12 @@ impl HeuristicAgent {
         let hostile_subject = subject.is_some_and(|o| self.hostile(o.controller, me));
         Some(match effect {
             Effect::DrawCards { amount } => self.draw_worth(view, me, count(*amount)?),
+            Effect::DrawThenDiscardDrawn { draw, discard } => {
+                let drawn = count(*draw)?.max(0);
+                // All draws still risk decking and fire draw triggers. Only
+                // cards drawn by this instruction can pay its discard.
+                self.draw_worth(view, me, drawn) - drawn.min(i64::from(*discard)) * CARD
+            }
             Effect::DrawCardsFor { amount, who } => {
                 let n = count(*amount)?;
                 self.players(view, *who, aim)?
@@ -1573,7 +1706,8 @@ impl HeuristicAgent {
             // effects can reduce the incidental life gain, so do not rely on it.
             Effect::DealDamage { amount, .. }
             | Effect::DealDamageEvenly { amount, .. }
-            | Effect::DealDamageWithCappedLifeGain { amount } => {
+            | Effect::DealDamageWithCappedLifeGain { amount }
+            | Effect::DealDamageWithLimitedLifeGain { amount, .. } => {
                 // Defeating a battle may benefit its controller rather than
                 // remove their resource; its back-face value is not modelled.
                 if matches!(aim, Aim::Object(_))
@@ -1834,6 +1968,7 @@ impl HeuristicAgent {
                 | CostPart::ExileFromGraveyard(_)
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost => 20,
+                CostPart::ExileTopOfLibrary(n) => i64::from(*n) * 5,
                 CostPart::TapOther(filter) => own(filter, &|o| {
                     o.id != origin.id && !o.status.contains(ObjectStatus::TAPPED)
                 })

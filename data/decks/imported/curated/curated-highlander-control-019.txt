@@ -1,0 +1,79 @@
+# baylee curated highlander control seed=20261042
+# licence: AGPL-3.0-only
+[deck:highlander control WBG #20261042]
+1 Abstergo Entertainment
+1 Abundant Countryside
+1 Aether Hub
+1 Agent of Atlas
+1 Archaeological Dig
+1 Argothian Enchantress
+1 Auspicious Ancestor
+1 Blightcaster
+1 Briarknit Kami
+1 Corrupt
+1 Crucible of the Spirit Dragon
+1 Daily Bugle Building
+1 Damnable Pact
+1 Deadly Riposte
+1 Death Grasp
+1 Dogged Pursuit
+1 Emrakul's Influence
+1 Enchantress's Presence
+1 Essence Feed
+5 Forest
+1 Foul-Tongue Shriek
+1 Funeral Rites
+1 Great Hall of the Citadel
+1 Grim Tutor
+1 Henge of Ramos
+1 Hidden Guerrillas
+1 Kambal, Consul of Allocation
+1 Kurgadon
+1 Last Caress
+1 Lazotep Quarry
+1 Lifecrafter's Bestiary
+1 Lightshield Parry
+1 Locthwain Lancer
+1 Lotus-Eye Mystics
+1 Lys Alana Bowmaster
+1 Mai, Scornful Striker
+1 Mana Crypt
+1 Maul Splicer
+1 Mind Drain
+1 Misery Charm
+1 Myrsmith
+1 Nether Void
+1 Night's Whisper
+1 Oppression
+1 Orbweaver Kumo
+1 Painful Quandary
+1 Path of Annihilation
+4 Plains
+1 Planar Nexus
+1 Pointed Discussion
+1 Polluted Bonds
+1 Primeval Bounty
+1 Primordial Sage
+1 Profane Tutor
+1 Quill-Slinger Boggart
+1 Reanimate
+1 Reverent Howl
+1 Ritual of Soot
+1 School of the Unseen
+1 Shattered Crypt
+1 Sigil of the Empty Throne
+1 Sign in Blood
+1 Snake Pit
+1 Sunscorch Regent
+18 Swamp
+1 Tangleroot
+1 Tarnished Citadel
+1 Tendo Ice Bridge
+1 Three Tree City
+1 Touch of Death
+1 Unclaimed Territory
+1 Vampire's Kiss
+1 Vampiric Feast
+1 Vampiric Tutor
+1 Voldaren Estate
+1 Yawgmoth's Edict

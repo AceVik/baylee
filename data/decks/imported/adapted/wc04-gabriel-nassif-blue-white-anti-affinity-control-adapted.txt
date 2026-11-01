@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/WC04/gabriel-nassif-blue-white-anti-affinity-control.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GabrielNassifBlueWhiteAntiAffinityControl_WC04.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Gabriel Nassif - Blue-White Anti-Affinity Control (Adapted)]
+4 Absorb
+2 Akroma's Vengeance
+3 Annul
+4 Cloudpost
+3 Condescend
+4 Daring Leap
+4 Flooded Strand
+7 Island
+4 Mana Leak
+1 Ojutai's Command
+7 Plains
+3 Rewind
+4 Sphinx's Revelation
+3 Temple of the False God
+3 Wayfarer's Bauble
+4 Wrath of God

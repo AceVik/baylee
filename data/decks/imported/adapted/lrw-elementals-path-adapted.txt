@@ -1,0 +1,32 @@
+# adapted from data/decks/precon/LRW/elementals-path.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ElementalsPath_LRW.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Elementals' Path (Adapted)]
+1 Bring to Trial
+1 Clear the Mind
+3 Consuming Bonfire
+2 Flamekin Brawler
+2 Flamekin Harbinger
+1 Forest
+3 Foxfire
+1 Grim Tutor
+1 Infuse
+2 Island
+2 Midnight Haunting
+2 Morale
+12 Mountain
+1 Mulldrifter
+2 Needle Storm
+1 Plains
+1 Pulse of Murasa
+1 Relearn
+2 Sandblast
+2 Shake the Foundations
+2 Shimmering Grotto
+1 Slagstorm
+2 Springleaf Drum
+2 Swamp
+1 Vanquish the Weak
+1 Vivid Crag
+2 Void Rend
+3 Waking Nightmare
+3 Wanderer's Twig

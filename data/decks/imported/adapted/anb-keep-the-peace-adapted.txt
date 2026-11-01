@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/ANB/keep-the-peace.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, KeepThePeace_ANB.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Keep the Peace (Adapted)]
+1 Angelic Reward
+1 Cleansing
+1 Expose to Daylight
+2 Fencing Ace
+4 Healing Hands
+1 Holy Light
+3 Impassioned Orator
+2 Inspiring Commander
+4 Make Your Move
+4 Midnight Haunting
+2 Moorland Inquisitor
+3 Pacifism
+25 Plains
+1 Serra Angel
+1 Spiritual Guardian
+1 Survive the Night
+2 Sworn Companions
+2 Warrior's Honor

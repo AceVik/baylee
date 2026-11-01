@@ -1,0 +1,72 @@
+# baylee curated commander midrange seed=20261088
+# licence: AGPL-3.0-only
+[deck:commander midrange U #20261088]
+1 A.I.M. Synthoids
+1 Angler Drake
+1 Barrels of Blasting Jelly
+1 Bazaar Trademage
+1 Bellowing Crier
+1 Blue Mana Battery
+1 Buzz Bots
+1 Chromatic Star
+1 Council of Advisors
+1 Courier's Capsule
+1 Culling Dais
+1 Elite Instructor
+1 Energy Refractor
+1 Experimental Aviator
+1 Eye of Vecna
+1 Falcon, Winged Wonder
+1 Futurist Forge
+1 Goggles of Night
+1 Golden Guardian
+1 Gryff Vanguard
+1 Hierophant's Chalice
+1 Icewind Elemental
+1 Insight Engine
+34 Island
+1 Jace, the Mind Sculptor
+1 Lotus Petal
+1 Mechan Navigator
+1 Memory Deluge
+1 Mental Note
+1 Merchant of Secrets
+1 Mightstone's Animation
+1 Mox Opal
+1 Muse Drake
+1 Nimble Innovator
+1 Oboro, Palace in the Clouds
+1 Ominous Parcel
+1 Owl Familiar
+1 Padeem, Consul of Innovation
+1 Parasitic Strix
+1 Parcel Myr
+1 Plaza of Heroes
+1 Prophetic Prism
+1 Quicksilver Fisher
+1 Raven Familiar
+1 Ray of Erasure
+1 S.H.I.E.L.D. Deployment Drone
+1 Sarcomite Myr
+1 Scepter of Insight
+1 Secluded Courtyard
+1 Serum Visions
+1 Shield-Wall Sentinel
+1 Silver Raven
+1 Sire of the Storm
+1 Soaring Show-Off
+1 Soldevi Excavations
+1 Solemn Simulacrum
+1 Springjack Pasture
+1 Surveillance Room
+1 Terrarion
+1 The Everflowing Well
+1 Three Steps Ahead
+1 Thrór's Map
+1 Trigon of Thought
+1 Unstable Obelisk
+1 Wan Shi Tong, Librarian
+1 Witching Well
+
+[commander]
+Iron Man, Futurist Paragon

@@ -32,6 +32,7 @@ card!(
         toughness = Some(5),
     )],
     color_identity = ColorSet::from_slice(&[Color::White, Color::Blue, Color::Red]),
+    commander = CommanderRule::Legendary,
     coverage = Coverage::Implemented,
     abilities = &[
         // Station (CR 702.184a): "Tap another untapped creature you

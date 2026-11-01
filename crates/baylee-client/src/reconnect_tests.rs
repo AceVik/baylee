@@ -292,6 +292,89 @@ fn a_table_that_cannot_be_reached_stops_and_says_so() {
     );
 }
 
+/// A table that waits 180 s, the default since 10.10.2026, is dialled
+/// until its window has passed, not for the two minutes twelve dials take
+/// (owner, 22.10.2026: "the connection was lost and is not restored by
+/// itself"). The old code gave up at 120.5 s.
+#[test]
+fn a_table_with_a_long_window_is_dialled_until_it_ends() {
+    let (mut app, _link, dials) = app_with(LinkState::Down, Window::secs(180));
+    for _ in 0..175 {
+        advance(&mut app, 1.0);
+        assert_ne!(
+            app.world().resource::<Duel>().link_note.map(|n| n.phrase),
+            Some(Phrase::LinkGaveUp),
+            "given up inside the window"
+        );
+    }
+    assert!(
+        *dials.lock().unwrap() > Retry::GIVE_UP as usize,
+        "still dialling at 175 s: {}",
+        *dials.lock().unwrap()
+    );
+    assert_eq!(app.world().resource::<Unreachables>().0, 0);
+    for _ in 0..300 {
+        advance(&mut app, 1.0);
+    }
+    assert_eq!(
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
+        Some(Phrase::LinkGaveUp),
+        "and past it, stopped and said so"
+    );
+    assert_eq!(app.world().resource::<Unreachables>().0, 1);
+}
+
+/// A host whose every dial the table refuses (`401` on the ticket), as a
+/// seat whose Central sign-in ended is refused on every dial.
+struct RefusedHost {
+    dials: Arc<Mutex<u32>>,
+}
+
+impl DuelHost for RefusedHost {
+    fn poll(&mut self) -> Vec<HostMessage> {
+        Vec::new()
+    }
+    fn submit(&mut self, _: PlayerAction) {}
+    fn ready(&mut self) {}
+    fn seat(&self) -> PlayerId {
+        PlayerId::new(0)
+    }
+    fn link(&self) -> LinkState {
+        LinkState::Down
+    }
+    fn reconnect(&mut self) -> Result<(), String> {
+        *self.dials.lock().unwrap() += 1;
+        Ok(())
+    }
+    fn ticket_refusals(&self) -> u32 {
+        *self.dials.lock().unwrap()
+    }
+}
+
+/// Refused on every dial, the seat is told its sign-in ended and how to get
+/// back, rather than that the table cannot be reached.
+#[test]
+fn a_seat_refused_on_every_dial_is_told_its_sign_in_ended() {
+    let (mut app, _link, _dials) = app_with(LinkState::Down, ORDINARY);
+    let dials = Arc::new(Mutex::new(0));
+    app.insert_resource(InstalledHost(Box::new(RefusedHost {
+        dials: Arc::clone(&dials),
+    })));
+    for _ in 0..80 {
+        advance(&mut app, 20.0);
+    }
+    assert_eq!(*dials.lock().unwrap(), Retry::GIVE_UP);
+    assert_eq!(
+        app.world().resource::<Duel>().link_note.map(|n| n.phrase),
+        Some(Phrase::LinkSignInEnded)
+    );
+    assert_eq!(
+        app.world().resource::<Unreachables>().0,
+        1,
+        "given up, once"
+    );
+}
+
 /// A table that refused this client's protocol is never dialled again
 /// (#271): only an update on one side changes its answer. The player is told
 /// which side is behind, and the duel is given up once.

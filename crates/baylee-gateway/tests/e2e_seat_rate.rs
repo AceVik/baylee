@@ -19,7 +19,6 @@ mod common;
 use baylee_protocol::v1::{self, Envelope};
 use common::{http, json_field, login, spawn_gateway, spawn_gateway_with};
 use futures_util::{SinkExt, StreamExt};
-use prost::Message as _;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 
@@ -100,12 +99,12 @@ async fn a_seat_that_floods_its_socket_is_closed_with_policy() {
     // opens, which is later, so this is the longer of the two.
     let dialled = std::time::Instant::now();
     let mut ws = common::dial_seat(port, game_id, seat_token).await;
-    let beat = Envelope {
-        msg: Some(v1::envelope::Msg::Heartbeat(v1::Heartbeat::default())),
-    }
-    .encode_to_vec();
+    // Flood transport frames: a game envelope is reauthorized against the
+    // database before the next recv, which can pace it below the rate limit.
+    // Unsolicited pongs spend the same allowance without that unrelated work.
+    let flood = Message::Pong(Vec::new().into());
     for _ in 0..10_000 {
-        if ws.feed(Message::Binary(beat.clone().into())).await.is_err() {
+        if ws.feed(flood.clone()).await.is_err() {
             break;
         }
     }

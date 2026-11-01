@@ -1,0 +1,83 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro WR #20266251]
+1 Aether Hub
+1 Akroan Hoplite
+1 Alaborn Grenadier
+1 Armory Guard
+1 Aven Trooper
+1 Axgard Cavalry
+1 Balthor the Stout
+1 Bastion Enforcer
+1 Battlefield Forge
+1 Benalish Hero
+1 Bladed Ambassador
+1 Bloodfire Dwarf
+1 Bloodfire Kavu
+1 Boros Recruit
+1 Boros Swiftblade
+1 Breakneck Berserker
+1 Captivating Cave
+1 Castle Raptors
+1 Cenn's Heir
+1 Commander Eesha
+1 Dwarven Berserker
+1 Dwarven Bloodboiler
+1 Dwarven Demolition Team
+1 Dwarven Grunt
+1 Dwarven Lieutenant
+1 Dwarven Nomad
+1 Dwarven Soldier
+1 Dwarven Thaumaturgist
+1 Dwarven Trader
+1 Dwarven Warriors
+1 Enslaved Dwarf
+1 Exultant Skymarcher
+1 Flashfires
+1 Frontline War-Rager
+1 Garrison Sergeant
+1 Goblin Sappers
+1 Goblin Swine-Rider
+1 Great Hall of the Citadel
+1 Haven of the Spirit Dragon
+1 Head of Security
+1 Keldon Berserker
+1 Kinsbaile Balloonist
+1 Kithkin Shielddare
+1 Law-Rune Enforcer
+1 Liberated Dwarf
+1 Longbow Archer
+1 Meltdown
+1 Midnight Duelist
+15 Mountain
+1 Phantom General
+9 Plains
+1 Planar Portal
+1 Plateau
+1 Plaza of Heroes
+1 Resistance Fighter
+1 Rugged Prairie
+1 Sacred Foundry
+1 Sandstone Warrior
+1 Shadow Glider
+1 Skyblade of the Legion
+1 Sliver Hive
+1 Soltari Champion
+1 Soltari Foot Soldier
+1 Soltari Trooper
+1 Staunch Shieldmate
+1 Steadfast Paladin
+1 Stern Constable
+1 Subterranean Spirit
+1 Sunscorched Divide
+1 Tendo Ice Bridge
+1 Tremor
+1 Twinscroll Shaman
+1 Veteran of the Depths
+1 Villainous Hideout
+1 Voldaren Estate
+1 Whipflare
+1 Winter Soldier, Bucky Barnes
+
+[commander]
+Nori, Teller of Tales

@@ -305,14 +305,46 @@ fn dot(commands: &mut Commands, kit: Kit, colour: Color) -> Entity {
 /// right its version with the verdict, and this client's (A2, A3: the name
 /// at row size, the version whole and right-aligned).
 fn gateway_head(commands: &mut Commands, state: &LobbyState, kit: Kit) -> Entity {
-    if state.central_pending() {
-        return controls::label(
+    let leaving_central = !state.lobby.gateway_chosen() && state.left_central_bound;
+    if state.central_pending() || leaving_central {
+        let label = controls::label(
             commands,
             kit,
             "Baylee Central · central.baylee.app",
             kit.m.text,
             tokens::INK,
         );
+        if !state.central_bound() && !leaving_central {
+            return label;
+        }
+        // A gateway asked for Central: `‹` goes back to the device's own.
+        let back = glyph_button(
+            commands,
+            kit,
+            '\u{f053}',
+            Phrase::ChooseGateway.text(state.lobby.lang()),
+            (
+                Press::Front(if state.lobby.busy() {
+                    FrontPress::Nothing
+                } else {
+                    FrontPress::LeaveGateway
+                }),
+                keys::stop(state, "back"),
+            ),
+        );
+        let head = commands
+            .spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    column_gap: kit.m.px(10.0),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(head).add_children(&[back, label]);
+        return head;
     }
     let lang = state.lobby.lang();
     let words =
@@ -661,7 +693,7 @@ pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState,
             kit,
             &text,
             Weight::Secondary,
-            if lobby.busy() || !state.gateway_selected {
+            if lobby.busy() || !(state.gateway_selected || state.central_bound()) {
                 Live::No("")
             } else {
                 Live::Yes
@@ -674,7 +706,24 @@ pub(super) fn sign_in(commands: &mut Commands, card: Entity, state: &LobbyState,
             ),
         )
     });
-    let doors: Vec<Entity> = create.into_iter().chain(guest).collect();
+    // Central's sign-in has no sign-up of its own yet: an account is made on
+    // the website (baylee-central `docs/web-accounts.md`).
+    let leaving_central = !lobby.gateway_chosen() && state.left_central_bound;
+    let register = (state.central_pending() || leaving_central).then(|| {
+        controls::wide_button(
+            commands,
+            kit,
+            Phrase::CentralRegister.text(lang),
+            Weight::Secondary,
+            Live::Yes,
+            None,
+            (
+                Press::Front(FrontPress::OpenCentralRegister),
+                keys::stop(state, "register"),
+            ),
+        )
+    });
+    let doors: Vec<Entity> = create.into_iter().chain(guest).chain(register).collect();
     if !doors.is_empty() {
         let line = rule(commands);
         let row = pair_if(
@@ -907,7 +956,7 @@ pub(super) fn gateway(
     commands.entity(card).add_children(&[title, hint]);
     #[cfg(not(target_arch = "wasm32"))]
     central_sign_out(commands, card, state, kit);
-    if !state.gateways.is_empty() {
+    if !state.displayed_gateways().is_empty() {
         let list = super::super::gateway::list(
             commands,
             state,

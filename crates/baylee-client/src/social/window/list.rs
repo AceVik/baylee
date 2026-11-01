@@ -19,7 +19,10 @@ pub(super) fn fill_list(
     frame: Frame,
     drawn: &mut Drawn,
     list: Entity,
-    lists: &mut Query<&mut LogFollow, With<LogList>>,
+    lists: &mut Query<(&mut LogFollow, &mut ScrollPosition), With<LogList>>,
+    nodes: &Query<&ComputedNode>,
+    spacers: &mut Query<&mut Node, With<logpanel::virtual_list::LogSpacer>>,
+    folds: Option<&logpanel::LogFolds>,
 ) {
     let inks = frame.inks();
     let tab = ui.tab;
@@ -32,57 +35,74 @@ pub(super) fn fill_list(
             texts.map_or(0, crate::cardtext::CardTexts::generation),
         )
     });
-    // On the Log tab only the book matters, and it only grows.
+    // On the Log tab only the book matters, and it only grows. Its mounted
+    // window is bounded; All remains limited to its existing 150 log rows.
     if tab == ChatTab::Log {
         let Some(duel) = duel else { return };
         let key = key_of(&(tab, log_identity, lang as u8));
-        if key == drawn.list_key && log_len >= drawn.log_lines {
-            if log_len == drawn.log_lines {
+        if key == drawn.list_key && log_len == 0 && drawn.log_lines == 0 {
+            return;
+        }
+        if key == drawn.list_key && drawn.log_lines > 0 && log_len >= drawn.log_lines {
+            let Ok((mut follow, mut scroll)) = lists.get_mut(list) else {
                 return;
-            }
+            };
             let lookup = logpanel::LogTexts(texts);
             let wording = logpanel::wording(duel, lang, &lookup);
-            let mut run = drawn.run;
-            for (order, line) in
-                (drawn.log_lines..).zip(duel.log.lines_since(drawn.log_lines, &wording))
-            {
-                if let Some(phase) = run.heading(&line) {
-                    let heading =
-                        logpanel::spawn_phase(commands, fonts, lang, phase, &logpanel::PANEL_INKS);
-                    commands.entity(list).add_child(heading);
-                }
-                let swatch = logpanel::subject_ink(&wording, line.subject);
-                let row = logpanel::spawn_line(
-                    commands,
-                    fonts,
-                    lang,
-                    &line,
-                    &logpanel::PANEL_INKS,
-                    Some(swatch),
-                );
-                commands.entity(row).insert((
-                    super::super::menu::Copyable::new(order, log_copy(&line)),
-                    Arrive::default(),
+            if log_len > drawn.log_lines {
+                let from = drawn.log_lines;
+                let mut run = drawn.run;
+                let lines = duel.log.lines_since(from, &wording);
+                drawn.rows.append(logpanel::virtual_list::append_entries(
+                    &lines, from, &mut run,
                 ));
-                commands.entity(list).add_child(row);
+                if !follow.stuck {
+                    follow.unseen = true;
+                }
+                drawn.log_lines = log_len;
+                drawn.run = run;
             }
-            if let Ok(mut follow) = lists.get_mut(list)
-                && !follow.stuck
-            {
-                follow.unseen = true;
+            if let Some(folds) = folds {
+                drawn.rows.fold_with(folds, scroll.y);
             }
-            drawn.log_lines = log_len;
-            drawn.run = run;
+            drawn.rows.sync(
+                commands,
+                list,
+                fonts,
+                lang,
+                Some(&wording),
+                &logpanel::PANEL_INKS,
+                &mut follow,
+                &mut scroll,
+                nodes,
+                spacers,
+                &mut |order, line, fresh, row| {
+                    row.insert(super::super::menu::Copyable::new(order, log_copy(line)));
+                    if fresh {
+                        row.insert(Arrive::default());
+                    }
+                },
+            );
             return;
+        }
+
+        // A foreign tab's rows and the empty sentence belong to the caller's
+        // list, not to VirtualLog. A rewrite of this same log is different:
+        // VirtualLog still knows those entities and replaces them itself.
+        if drawn.shown_tab != Some(tab) || drawn.log_lines == 0 {
+            drawn.rows.reset();
+            commands.entity(list).despawn_children();
         }
         drawn.list_key = key;
         drawn.shown_tab = Some(tab);
         drawn.chat_lines.clear();
-        commands.entity(list).despawn_children();
         let lookup = logpanel::LogTexts(texts);
         let wording = logpanel::wording(duel, lang, &lookup);
         let lines = duel.log.lines(&wording);
         if lines.is_empty() {
+            drawn.rows.reset();
+            commands.entity(list).despawn_children();
+            drawn.rows.replace(Vec::new());
             let empty = empty_line(
                 commands,
                 fonts,
@@ -90,33 +110,39 @@ pub(super) fn fill_list(
                 &inks,
             );
             commands.entity(list).add_child(empty);
-        }
-        let mut run = PhaseRun::default();
-        for (order, line) in lines.iter().enumerate() {
-            if let Some(phase) = run.heading(line) {
-                let heading =
-                    logpanel::spawn_phase(commands, fonts, lang, phase, &logpanel::PANEL_INKS);
-                commands.entity(list).add_child(heading);
+            drawn.log_lines = 0;
+            drawn.run = PhaseRun::default();
+            if let Ok((mut follow, _)) = lists.get_mut(list) {
+                follow.stuck = true;
             }
-            let swatch = logpanel::subject_ink(&wording, line.subject);
-            let row = logpanel::spawn_line(
-                commands,
-                fonts,
-                lang,
-                line,
-                &logpanel::PANEL_INKS,
-                Some(swatch),
-            );
-            commands
-                .entity(row)
-                .insert(super::super::menu::Copyable::new(order, log_copy(line)));
-            commands.entity(list).add_child(row);
+            return;
         }
+        let (entries, run) = logpanel::virtual_list::entries(&lines);
+        drawn.rows.replace(entries);
         drawn.log_lines = log_len;
         drawn.run = run;
-        if let Ok(mut follow) = lists.get_mut(list) {
-            follow.stuck = true;
+        let Ok((mut follow, mut scroll)) = lists.get_mut(list) else {
+            return;
+        };
+        follow.stuck = true;
+        if let Some(folds) = folds {
+            drawn.rows.fold_with(folds, 0.0);
         }
+        drawn.rows.sync(
+            commands,
+            list,
+            fonts,
+            lang,
+            Some(&wording),
+            &logpanel::PANEL_INKS,
+            &mut follow,
+            &mut scroll,
+            nodes,
+            spacers,
+            &mut |order, line, _, row| {
+                row.insert(super::super::menu::Copyable::new(order, log_copy(line)));
+            },
+        );
         return;
     }
     // A chat tab, or All: a line more on the same list is appended, and
@@ -183,7 +209,7 @@ pub(super) fn fill_list(
         }
         drawn.list_key = key;
         drawn.chat_lines = signature;
-        if let Ok(mut follow) = lists.get_mut(list) {
+        if let Ok((mut follow, _)) = lists.get_mut(list) {
             if ui.follow || follow.stuck {
                 follow.stuck = true;
             } else {
@@ -198,6 +224,7 @@ pub(super) fn fill_list(
     drawn.chat_lines = signature;
     drawn.log_lines = 0;
     drawn.shown_tab = Some(tab);
+    drawn.rows.reset();
     commands.entity(list).despawn_children();
     let mut entries: Vec<(u64, u8, usize, Entity)> = Vec::new();
     let mut divider_before = None;
@@ -270,7 +297,7 @@ pub(super) fn fill_list(
         kids.insert(at, unread_divider(commands, fonts, lang, &inks));
     }
     commands.entity(list).add_children(&kids);
-    if let Ok(mut follow) = lists.get_mut(list) {
+    if let Ok((mut follow, _)) = lists.get_mut(list) {
         if first_draw || ui.follow || follow.stuck {
             follow.stuck = true;
         } else {

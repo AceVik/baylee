@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/GTC/rally-and-rout.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RallyAndRout_GTC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Rally and Rout (Adapted)]
+4 Arrows of Justice
+3 Boros Guildgate
+1 Champion of the Parish
+1 Clifftop Retreat
+4 Doomed Traveler
+2 Energy Bolt
+4 Frontline Rush
+2 Legion Guildmage
+4 Lightning Helix
+8 Mountain
+10 Plains
+2 Rip Apart
+3 Searing Spear
+3 Skyknight Legionnaire
+1 Slayers' Stronghold
+4 Spirit Summoning
+4 Warleader's Helix

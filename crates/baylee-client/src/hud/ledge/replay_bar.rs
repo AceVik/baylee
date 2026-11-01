@@ -312,7 +312,7 @@ fn spawn_bar(
                 ..default()
             },
             UiTransform::default(),
-            GlobalZIndex(3),
+            GlobalZIndex(G_REPLAY_BAR),
         ))
         .id();
     let timeline = spawn_timeline(commands, fonts, duel, look, status);
@@ -929,7 +929,7 @@ fn spawn_picker(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) {
                 spread_radius: px(0.0),
                 blur_radius: px(14.0),
             }),
-            GlobalZIndex(5),
+            GlobalZIndex(G_REPLAY_SHEET),
         ))
         .id();
     let head = commands
@@ -1056,7 +1056,7 @@ fn spawn_sheet(commands: &mut Commands, fonts: &UiFonts, look: &BarLook) {
                 spread_radius: px(0.0),
                 blur_radius: px(14.0),
             }),
-            GlobalZIndex(4),
+            GlobalZIndex(G_REPLAY_SHEET),
         ))
         .id();
     let text = commands
@@ -1342,12 +1342,17 @@ pub fn replay_keys(
     desk: Option<Res<crate::report::ReportDesk>>,
     ui: Res<BarUi>,
     mut asks: ResMut<ReplayAsks>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
     use baylee_client_core::prefs::Action;
     let Some(status) = duel.replay.as_ref() else {
         return;
     };
-    if desk.is_some_and(|desk| desk.holds_keyboard()) || duel.browser.is_typing() {
+    // The settings over the replay have every key (`lobby::table_settings`).
+    if desk.is_some_and(|desk| desk.holds_keyboard())
+        || duel.browser.is_typing()
+        || lobby.is_some_and(|l| l.settings_over_table())
+    {
         return;
     }
     let fired = crate::keys::Fired::of(&keys, prefs.keymap());

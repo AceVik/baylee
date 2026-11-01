@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/M21/starry-eyed.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, StarryEyed_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Starry-Eyed (Adapted)]
+4 Absorb
+1 Archon of Sun's Grace
+2 Capture Sphere
+4 Daring Leap
+4 Dramatic Rescue
+2 Eidolon of Philosophy
+4 Energy Arc
+9 Island
+1 Luminous Broodmoth
+4 Offering to Asha
+4 Ojutai's Command
+1 Overrule
+11 Plains
+4 Sphinx's Revelation
+1 Temple of Enlightenment
+4 Tranquil Cove

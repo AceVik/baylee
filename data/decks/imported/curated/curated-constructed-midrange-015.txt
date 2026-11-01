@@ -1,0 +1,17 @@
+# baylee curated constructed midrange seed=20261038
+# licence: AGPL-3.0-only
+[deck:constructed midrange G #20261038]
+2 Audacity
+4 Elderleaf Mentor
+20 Forest
+4 Gaea's Touch
+2 Gilded Goose
+3 Hall of Oracles
+3 Mantle of the Wolf
+2 Pawpatch Formation
+1 Surveillance Room
+4 Thallid Devourer
+4 Turntimber Ranger
+3 Welcome to . . .
+4 Wirewood Hivemaster
+4 Yavimaya Sapherd

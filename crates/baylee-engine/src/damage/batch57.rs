@@ -144,6 +144,7 @@ impl DamageWork {
                     crate::text_changes::RuleContext {
                         source: effect.source.unwrap_or(source.id),
                         text: state.effect_text(effect),
+                        resolved_name: None,
                         reference: None,
                     },
                 )

@@ -60,6 +60,7 @@ Two consequences worth knowing before changing anything here:
 | Nothing more this turn (stop asking me) | `F7` | implemented |
 | Ask me again (cancel a hold) | `F6` / `F7`, or the way out on the shelf | implemented |
 | Report a problem: the report form, over the lobby or the table (#309); while it is up every key is the form's, `Esc` shuts it, `Ctrl`/`Cmd`+`V` pastes | `F8`, the table's corner button or game menu row, or the lobby's button | implemented |
+| Settings over the table (report of 30.10.2026): the settings screen's own sections that leave the table where it is; while it stands every key is the screen's: Tab and the arrows walk it, `Enter`/`Space` press, its search and a row being rebound type, and the table, the chat's `/` and `R` and a replay's keys hear none; `Esc` empties the search, closes a sheet, then puts it away (a report form over it has its `Esc` first) | the game menu's row | implemented |
 | Report sheet (window B): Tab walks kind → text → Attachments (and its rows while open) → What is sent → Copy as text (nowhere only) → Close → Send; the confirmation Back → Send now. `Ctrl`/`Cmd`+`Enter` sends from the text, `Enter` is a line break. `#` + a letter or `@` + a character opens suggestions (field behaviour, a text change, so `AltGr`+`Q` typing `@` fires nothing): `↑`/`↓` move, `Enter`/`Tab` take, `Esc` puts them away, a second `Esc` closes the sheet (draft kept) | in the report sheet | implemented |
 | Chat at the table (beta.8): `/` (by the character) opens the chat window on the last chat tab with `/` typed; `R` with `/r <last whisperer> `; `Ctrl`/`Cmd`+`Enter` empty. `Enter` stays the game's (`Primary`) until the box has the caret. While it does, every key is the box's but the F-keys: `Enter` sends (or takes a suggestion), `⇧Enter` a line break, `Esc` puts the suggestions away, then lets go of the keys (the draft is kept), `Tab`/`⇧Tab` take a suggestion or cycle the target (Table, Team, whisper partners, groups), `↑`/`↓` the suggestions or the lines sent, `Alt`+`1`…`6` the tabs. A right-press on a card while the box has the caret links it. `Action::Friends` (unbound) opens the friends drawer | at a table with a social session; Settings → Keys, group Chat | implemented |
 | Chat in the lobby: the bottom-right chat pill opens the window and gives the box the caret; the friends button the drawer; keys in the box as at the table | lobby, deck builder | implemented |
@@ -401,9 +402,9 @@ Fast-forwarding is `Tab` and `⇧Tab`, which have no buttons of their own.
 Clicking your own permanent activates what it is offering: one ability arms
 straight away (or goes through, if it makes mana), several open the ability
 sheet on the card itself. The prompt bar carries the answers for
-whatever is pending, including combat's "Aim next", "Attack"/"Block" and
-"None" — the middle of those three appearing only once something is
-declared. The hand bar scrolls horizontally
+whatever is pending, including combat's "Attack"/"Block", "Aim next" and
+"None" — the commit appearing only once something is declared, and "Aim
+next" only where there are two or more defenders or attackers to aim at. The hand bar scrolls horizontally
 with the mouse wheel.
 
 ### Nothing a hand does moves the camera
@@ -500,3 +501,12 @@ Unbinding an action is allowed — a pointer can still reach everything.
 Repeated target choices: `Shift+Enter` explicitly confirms the selected targets
 for the current series (rebindable in Settings). Normal confirmation still answers
 only one choice.
+
+### Baylee's remembrance book
+
+Left/Right changes photos, or the focused chapter bookmark. Alt+Left/Right
+changes chapters without wrapping. Home/End on bookmarks selects the first/last
+chapter; on the reading column it scrolls to the beginning/end. PageUp/PageDown
+scrolls the writing. Enter opens the focused photo. In the photo viewer, +/−
+zooms, 0 fits, and Escape returns to the same book/photo; a second Escape returns
+to the cloud. Tab stays within the active modal. Controls never enlarge on hover.

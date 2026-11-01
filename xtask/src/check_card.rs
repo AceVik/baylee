@@ -180,6 +180,73 @@ pub(crate) fn check_def_against_the_printing(
     check_back_face_castability_matches_the_layout(slug, def, payload, tally, problems);
     check_color_indicator_matches_the_printing(slug, def, payload, tally, problems);
     check_flashback_matches_the_printing(slug, def, payload, problems);
+    check_commander_matches_the_printing(slug, def, payload, problems);
+}
+
+/// CR 903.3a / CR 113.6c: a card may be a commander when its text says so
+/// (`CommanderRule::ExplicitlyAllowed`), or when its front face is a legendary
+/// creature (including Grist, the Hunger Tide outside the battlefield) or a
+/// legendary Vehicle or Spacecraft with printed power and toughness
+/// (`CommanderRule::Legendary`).
+fn check_commander_matches_the_printing(
+    slug: &str,
+    def: &baylee_cards::dsl::CardDef,
+    payload: &serde_json::Value,
+    problems: &mut usize,
+) {
+    use baylee_cards::dsl::CommanderRule;
+    let whole = printed_text(payload);
+    let printed_faces: Vec<&serde_json::Value> = payload
+        .get("card_faces")
+        .and_then(serde_json::Value::as_array)
+        .map_or_else(|| vec![payload], |faces| faces.iter().collect());
+    let front = printed_faces.first().copied().unwrap_or(payload);
+    let front_type = front
+        .get("type_line")
+        .and_then(serde_json::Value::as_str)
+        .or_else(|| payload.get("type_line").and_then(serde_json::Value::as_str))
+        .unwrap_or("");
+    let front_oracle = front
+        .get("oracle_text")
+        .and_then(serde_json::Value::as_str)
+        .or_else(|| {
+            payload
+                .get("oracle_text")
+                .and_then(serde_json::Value::as_str)
+        })
+        .unwrap_or("");
+    let has_pt = (front
+        .get("power")
+        .and_then(serde_json::Value::as_str)
+        .is_some()
+        && front
+            .get("toughness")
+            .and_then(serde_json::Value::as_str)
+            .is_some())
+        || def
+            .faces
+            .first()
+            .is_some_and(|f| f.power.is_some() && f.toughness.is_some());
+    let expected = if whole.contains("can be your commander") {
+        CommanderRule::ExplicitlyAllowed
+    } else if front_type.contains("Legendary")
+        && (front_type.contains("Creature")
+            || front_oracle.contains(
+                "isn't on the battlefield, it's a 1/1 Insect creature in addition to its other types",
+            )
+            || ((front_type.contains("Vehicle") || front_type.contains("Spacecraft")) && has_pt))
+    {
+        CommanderRule::Legendary
+    } else {
+        CommanderRule::NotEligible
+    };
+    if def.commander != expected {
+        println!(
+            "{slug}: commander rule is {:?} and the printing requires {expected:?} (front type line {front_type:?})",
+            def.commander
+        );
+        *problems += 1;
+    }
 }
 
 /// Defense is face-local, numeric, and mandatory on every Battle face.

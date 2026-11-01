@@ -1,0 +1,30 @@
+# adapted from data/decks/precon/FRF/power-and-profit.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, PowerAndProfit_FRF.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Power and Profit (Adapted)]
+3 Afflict
+1 Blood Pact
+4 Bridgeworks Battle
+1 Courser of Kruphix
+1 Debilitating Injury
+1 Eidolon of Blossoms
+1 Eldritch Evolution
+2 Evolving Wilds
+1 Font of Fertility
+8 Forest
+4 Frantic Search
+1 Gaea's Bounty
+2 Grim Tutor
+1 Hero's Downfall
+1 Icequake
+3 Island
+2 Jungle Hollow
+4 Opulent Palace
+2 Rakshasa's Secret
+1 Reaper of the Wilds
+3 Stroke of Genius
+1 Stupor
+1 Sultai Ascendancy
+4 Sultai Charm
+5 Swamp
+1 Typhoon
+1 Vivify

@@ -50,7 +50,7 @@ pub fn run(path: &Path) -> anyhow::Result<()> {
     println!("Next:");
     println!("  1. put the public key in front of baylee_update::sign::TRUSTED_KEYS");
     println!(
-        "  2. gh secret set BAYLEE_UPDATE_SIGNING_KEY < {}",
+        "  2. gh secret set BAYLEE_UPDATE_SIGNING_KEY --env release < {}",
         path.display()
     );
     println!("  3. back the file up somewhere safe: without it no client can verify");

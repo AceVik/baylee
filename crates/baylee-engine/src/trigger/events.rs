@@ -7,7 +7,7 @@ use baylee_cards_dsl::Trigger;
 use baylee_core::ids::{ObjectId, PlayerId};
 
 /// How much damage a damage event dealt, as `trigger` reads it: to a
-/// player, or for [`Trigger::DealsDamage`] to anything.
+/// player or permanent, or for [`Trigger::DealsDamage`] to anything.
 ///
 /// Per entry, except where the trigger is about the player rather than the
 /// source: [`Trigger::PlayerDealtDamage`] fires once for a step's combat
@@ -28,24 +28,28 @@ pub(super) fn event_damage_of(
             source: Some(source),
             is_combat: true,
             ..
-        } if matches!(trigger, Trigger::DealsDamage(_)) => {
+        } if matches!(
+            trigger,
+            Trigger::DealsDamage(_) | Trigger::DealsCombatDamage(_)
+        ) =>
+        {
             Some(combat_damage_by_in_batch(batch, *source))
         }
         GameEvent::DamageDealt { amount, .. } if matches!(trigger, Trigger::DealsDamage(_)) => {
             Some(*amount)
         }
         GameEvent::DamageDealt {
-            target: crate::event::DamageTarget::Player(player),
+            target,
             is_combat: true,
             ..
-        } if matches!(trigger, Trigger::PlayerDealtDamage(_)) => {
-            Some(combat_damage_in_batch(batch, *player))
+        } if matches!(
+            trigger,
+            Trigger::PlayerDealtDamage(_) | Trigger::DealtDamage(_) | Trigger::DealtCombatDamage(_)
+        ) =>
+        {
+            Some(combat_damage_in_batch(batch, *target))
         }
-        GameEvent::DamageDealt {
-            target: crate::event::DamageTarget::Player(_),
-            amount,
-            ..
-        } => Some(*amount),
+        GameEvent::DamageDealt { amount, .. } => Some(*amount),
         GameEvent::LifeChanged { old, new, .. } => Some(new.abs_diff(*old)),
         _ => None,
     }
@@ -65,6 +69,15 @@ pub(super) fn event_player_of(event: &GameEvent) -> Option<PlayerId> {
     match event {
         GameEvent::StepChanged { active: player, .. }
         | GameEvent::AbilityActivated { player, .. }
+        | GameEvent::AbilityTriggered {
+            controller: player, ..
+        }
+        | GameEvent::BecameTarget {
+            controller: player, ..
+        }
+        | GameEvent::PlayerBecameTarget {
+            controller: player, ..
+        }
         | GameEvent::CardsDrawn { player, .. }
         | GameEvent::SpellCast { player, .. }
         | GameEvent::SpellCopied { player, .. }
@@ -120,7 +133,9 @@ pub(super) fn event_object_for(
             },
         ) => Some(*blocker),
         (
-            Trigger::DealsCombatDamageToCreature(_),
+            Trigger::DealsCombatDamageToCreature(_)
+            | Trigger::DealtDamage(_)
+            | Trigger::DealtCombatDamage(_),
             GameEvent::DamageDealt {
                 target: crate::event::DamageTarget::Object(recipient),
                 ..
@@ -200,9 +215,10 @@ pub(super) fn event_object_of(event: &GameEvent) -> Option<ObjectId> {
         | GameEvent::AttackerBlocked { object }
         | GameEvent::CreatureMutated { object }
         | GameEvent::AttackerUnblocked { object }
-        // The permanent that became tapped: "that land's controller" of
-        // Psychic Venom.
+        // The permanent that changed tap state: "that land's controller"
+        // of Psychic Venom and "that permanent's controller" of Mesmeric Orb.
         | GameEvent::ObjectTapped { object, .. }
+        | GameEvent::ObjectUntapped { object, .. }
         // The permanent tapped for mana (CR 106.12a): "its controller" and
         // "that player" of Gauntlet of Might and Manabarbs.
         | GameEvent::ManaProduced {

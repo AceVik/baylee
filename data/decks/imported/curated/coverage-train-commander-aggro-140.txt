@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro G #20266141]
+1 A.I.M. Synthoids
+1 Aesthir Glider
+1 Alpha Myr
+1 Ancestral Statue
+1 Arcane Encyclopedia
+1 Arcum's Sleigh
+1 Bone Saw
+1 Boseiju, Who Endures
+1 Briarpack Alpha
+1 Bronze Sable
+1 Candelabra of Tawnos
+1 Chardalyn Dragon
+1 City in a Bottle
+1 Coastal Bulwark
+1 Consulate Skygate
+1 Crossroads Watcher
+1 Didgeridoo
+1 Dragon Engine
+1 Dryad Arbor
+1 Excavated Wall
+1 Fallow Wurm
+1 Fang Guardian
+32 Forest
+1 Glasses of Urza
+1 Grazing Gladehart
+1 Hashep Oasis
+1 Haunted Guardian
+1 Heart of Yavimaya
+1 Hedron Rover
+1 Hopping Automaton
+1 Invasive Species
+1 Jangling Automaton
+1 Jhoira's Toolbox
+1 Kazandu Mammoth
+1 Kiln Walker
+1 Llanowar Druid
+1 Locthwain Gargoyle
+1 Loporrit Scout
+1 Manifold Key
+1 Myr Scrapling
+1 Night Market Guard
+1 Oakhollow Village
+1 Omega Myr
+1 Pit Trap
+1 Pithing Needle
+1 Predator, Flagship
+1 Prizefighter Construct
+1 Pyramids
+1 Rustspore Ram
+1 Sanitation Automaton
+1 Serrated Biskelion
+1 Shifting Wall
+1 Sliver Construct
+1 Sterling Hound
+1 Suspicious Bookcase
+1 Tanglebloom
+1 Telim'Tor's Darts
+1 Thran War Machine
+1 Thundering Wurm
+1 Tower of Fortunes
+1 Treeguard Duo
+1 Unlicensed Hearse
+1 Vial of Poison
+1 Voltaic Servant
+1 Wall of Junk
+1 Watcher of the Wayside
+1 Witches' Eye
+1 Yavimaya Hollow
+
+[commander]
+Kaysa

@@ -1,0 +1,18 @@
+# adapted from data/decks/precon/SNC/spellweaver.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Spellweaver_SNC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Spellweaver (Adapted)]
+3 Abrade
+4 Broadside Barrage
+3 Consider
+1 Expressive Iteration
+3 Festival Crasher
+4 Fire
+4 Invoke the Firemind
+10 Island
+4 Izzet Charm
+1 Memory Deluge
+10 Mountain
+4 Rush of Inspiration
+1 Stormcarved Coast
+4 Swiftwater Cliffs
+4 Traumatic Critique

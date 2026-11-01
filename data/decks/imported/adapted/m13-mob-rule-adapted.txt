@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/M13/mob-rule.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, MobRule_M13.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Mob Rule (Adapted)]
+1 Arms Dealer
+2 Burning-Fist Minotaur
+4 Colossal Might
+2 Dragon Hatchling
+1 Evolving Wilds
+1 Fervor
+2 Fire Elemental
+2 Flinthoof Boar
+8 Forest
+2 Furnace Whelp
+3 Goblin Arsonist
+1 Kindled Fury
+2 Krenko's Command
+15 Mountain
+2 Reckless Brute
+1 Rummaging Goblin
+1 Savage Twister
+1 Serpent's Gift
+2 Stump Stomp
+2 Surge of Strength
+2 Titanic Growth
+1 Torch Fiend
+2 Volcanic Geyser

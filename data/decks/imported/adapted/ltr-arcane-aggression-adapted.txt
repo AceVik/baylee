@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/LTR/arcane-aggression.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ArcaneAggression_LTR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Arcane Aggression (Adapted)]
+4 Airship Engine Room
+4 Broadside Barrage
+2 Electrostatic Infantry
+1 Expressive Iteration
+4 Fire
+4 Invoke the Firemind
+7 Island
+4 Izzet Charm
+3 Lightning Strike
+9 Mountain
+3 Ral's Reinforcements
+4 Rush of Inspiration
+1 Shivan Reef
+2 Stormchaser Mage
+4 Swiftwater Cliffs
+4 Traumatic Critique

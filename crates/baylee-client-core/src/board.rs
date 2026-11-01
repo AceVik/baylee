@@ -350,13 +350,15 @@ pub struct CardGroup {
     pub power: Option<i16>,
     /// Projected toughness, for creatures.
     pub toughness: Option<i16>,
-    /// The power and toughness the card itself prints, before any continuous
-    /// effect — what the corner plate is standing on top of.
+    /// The power and toughness the print the card is drawn on says, before
+    /// any continuous effect — what the corner plate is standing on top of.
     ///
-    /// Straight through from the view rather than derived, because a client
-    /// cannot run the layer system and a copy's base is the copied card's
-    /// (CR 706.2). In `ObjectSummaryKey` too, for loyalty's reason: it is
-    /// drawn, so a printed 3/3 and a 2/2 under an anthem must not pile up.
+    /// The registry's box of the face [`art_of`] draws ([`printed_of`]),
+    /// else the view's base: a copy's base is the copied card's (CR 706.2),
+    /// and a copy changed by its own rules is drawn on a print whose box says
+    /// another body (an eternalized Fanatic of Rhonas, 4/4 on a 1/4 print).
+    /// In `ObjectSummaryKey` too, for loyalty's reason: it is drawn, so a
+    /// printed 3/3 and a 2/2 under an anthem must not pile up.
     pub base_power: Option<i16>,
     /// The toughness half of it.
     pub base_toughness: Option<i16>,
@@ -1428,6 +1430,10 @@ pub struct Registry<'a> {
     /// Whether a land with these rules is one its player uses for more than
     /// mana: the land row's right-hand section ([`Section`]).
     pub utility_land: &'a dyn Fn(RulesFace) -> bool,
+    /// What the power and toughness box of a card face or registry token
+    /// says ([`printed_of`]): what the plate is set against. `None` where it
+    /// prints no body.
+    pub printed_body: &'a dyn Fn(Wears) -> Option<(i16, i16)>,
 }
 
 #[cfg(test)]
@@ -1463,6 +1469,7 @@ impl Registry<'_> {
             token_face: &|_| None,
             card_face: None,
             utility_land: &UTILITY_LAND,
+            printed_body: &|_| None,
         }
     }
 
@@ -1479,6 +1486,7 @@ impl Registry<'_> {
             token_face: &|_| None,
             card_face: None,
             utility_land: &UTILITY_LAND,
+            printed_body: &|_| None,
         }
     }
 }
@@ -1518,6 +1526,20 @@ pub fn worn(obj: &PublicObject, reg: Registry<'_>) -> Option<Wears> {
             |w| !matches!((w, obj.card), (Wears::Card(index, _), Some(c)) if *index == c.index),
         ),
     }
+}
+
+/// What the box of the print an object is drawn with says ([`art_of`]'s
+/// print): the registry's printed power and toughness of that face, or of
+/// that registry token. Not the view's base, which is the copiable body
+/// (CR 707.2) and which a copy changed by its own rules leaves behind: an
+/// eternalized Fanatic of Rhonas is a 4/4 with a 4/4 base, drawn on the
+/// Fanatic's print, whose box says 1/4 (report 30.10.2026).
+#[must_use]
+pub fn printed_of(obj: &PublicObject, reg: Registry<'_>) -> Option<(i16, i16)> {
+    worn(obj, reg)
+        .or_else(|| obj.card.map(|c| Wears::Card(c.index, c.face)))
+        .or_else(|| obj.token.map(Wears::Token))
+        .and_then(|wears| (reg.printed_body)(wears))
 }
 
 /// The picture an object wears.
@@ -2070,14 +2092,17 @@ fn card_group(
     section: Section,
     reg: Registry<'_>,
 ) -> CardGroup {
+    // What the plate is set against, worked out once with the picture: the
+    // drawn print's box, the view's base where the print says none.
+    let printed = printed_of(obj, reg);
     CardGroup {
         representative: obj.id,
         members: vec![obj.id],
         name: obj.name.clone(),
         power: obj.power,
         toughness: obj.toughness,
-        base_power: obj.base_power,
-        base_toughness: obj.base_toughness,
+        base_power: printed.map_or(obj.base_power, |(power, _)| Some(power)),
+        base_toughness: printed.map_or(obj.base_toughness, |(_, toughness)| Some(toughness)),
         damage: obj.damage,
         loyalty: obj.loyalty,
         // A staged tap is drawn turned: the preview of the payment the

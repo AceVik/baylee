@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/M15/will-of-the-masses.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, WillOfTheMasses_M15.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Will Of The Masses (Adapted)]
+4 Advent of the Wurm
+1 Altar of Bone
+4 Call of the Conclave
+4 Eladamri's Call
+13 Forest
+1 Gerrard's Command
+4 Heroes' Reunion
+1 Hornet Queen
+1 Nature's Chant
+2 Oreskos Swiftclaw
+12 Plains
+1 Plummet
+3 Raise the Alarm
+3 Selesnya Charm
+1 Titanic Growth
+4 Vitalizing Cascade
+1 Wall of Mulch

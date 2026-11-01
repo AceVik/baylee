@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/STH/migraine.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Migraine_STH.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Migraine (Adapted)]
+2 Bottomless Pit
+3 Buried Alive
+2 Cateran Summons
+1 Custodian of the Trove
+1 Dark Banishing
+1 Dark Ritual
+4 Dauthi Horror
+1 Dauthi Mindripper
+4 Death Stroke
+2 Diabolic Edict
+4 Foul Imp
+3 Megrim
+1 Mindwarper
+2 Pit Imp
+2 Plaguebearer
+1 Rabid Rats
+1 Ring of the Lucii
+24 Swamp
+1 Tower of Champions

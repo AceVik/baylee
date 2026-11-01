@@ -1,25 +1,19 @@
 //! Google's Antigravity CLI, `agy`, as a mind's CLI: one process per
 //! conversation, kept across turns as Claude Code's is ([`super`]), with
 //! stream-json both ways, so each message is a line on its stdin and each
-//! answer a `result` line on its stdout. It takes no system prompt of ours
-//! as a flag, so the first message of a conversation (the one that carries
-//! the game's prefix) carries ours ahead of it, and every later one only
-//! itself.
+//! answer a `result` line on its stdout. A private `baylee-seat` agent
+//! carries the instructions and enables only the output function `finish`.
 //!
-//! Locked down less than Claude Code can be (`docs/llm-seat.md` §"A CLI as
-//! the model"): `agy` has no flag that takes its tools, MCP servers or
-//! rules files away. In print mode it approves nothing that asks (a
-//! command, the web: "soft-denied"), and it is never given
-//! `--dangerously-skip-permissions`; slash commands and skills are off
-//! (`--disable-slash-commands`); its working directory is empty, so no
-//! project's rules are read (its user rules under `~/.gemini` still are).
-//! Its `init` line must name the tools it offers and must connect no MCP
-//! server; and a step of the `tool` kind (the model used one, even one it
-//! may) takes the mind off the table ([`Event::Breach`]). It keeps each
-//! conversation in its own database: no flag turns that off.
+//! The agent is discovered under `.agents/agents` in the private working
+//! directory. An empty tools list inherits tools, so it must explicitly
+//! contain `finish`. Its `init` must confirm the selected agent; agy 1.4.7
+//! still reports its global tool inventory there, not the agent's filtered
+//! capabilities. Every external tool event remains a breach. Slash commands
+//! are disabled, no approval flag is passed, and no MCP server may connect.
+//! User rules under `~/.gemini` and the tool's own session storage remain
+//! the CLI's (`docs/llm-seat.md` §"A CLI as the model").
 
 use super::dialect::{Dialect, Event, Outcome, Started, Wire, clipped, listed, names};
-use crate::cli::GAME_DATA;
 use crate::llm::{Settings, Usage, json_object, prompt};
 use baylee_client_core::llmseat::{CliTool, DEFAULT_AGY_MODEL};
 use serde_json::{Value, json};
@@ -29,9 +23,27 @@ use std::path::Path;
 /// Gemini CLI (Antigravity).
 pub(crate) struct Agy;
 
+/// An explicit capability list is essential: `tools: []` inherits all tools.
+const AGENT: &str = "baylee-seat";
+const AGENT_FILE: &str = ".agents/agents/baylee-seat.md";
+
 impl Dialect for Agy {
     fn tool(&self) -> CliTool {
         CliTool::Agy
+    }
+
+    fn workspace_files(&self, system: &str) -> Vec<(&'static str, String)> {
+        vec![(
+            AGENT_FILE,
+            format!(
+                "---\nname: {AGENT}\ndescription: Answer Baylee game decisions in JSON.\n\
+             tools: [finish]\nmainAgent: true\nsubagent: false\n\
+             commandExecutionPolicy: off\nmcpServers: []\nskills: []\nplugins: []\n---\n\
+             {system}\n\n\
+             Answer directly with the decision JSON. No commands, files, browser, MCP, \
+             skills or other agents are needed or permitted.\n"
+            ),
+        )]
     }
 
     fn args(
@@ -47,12 +59,14 @@ impl Dialect for Agy {
             "--output-format",
             "stream-json",
             "--disable-slash-commands",
+            "--agent",
+            AGENT,
         ]
         .into_iter()
         .map(OsString::from)
         .collect();
         args.push("--json-schema".into());
-        args.push(prompt::answer_schema().to_string().into());
+        args.push(prompt::answer_schema(settings.extras()).to_string().into());
         let raw_model = model.unwrap_or(DEFAULT_AGY_MODEL);
         let (resolved_model, resolved_effort) =
             match (agy_tier_stem(raw_model), settings.effort.as_deref()) {
@@ -80,20 +94,11 @@ impl Dialect for Agy {
     }
 
     fn stdin_line(&self, text: &str) -> String {
-        let content = if text.contains("THE GAME\nYou are") {
-            format!(
-                "{}{}{GAME_DATA}\n\n{text}",
-                prompt::SYSTEM,
-                prompt::JSON_MODE
-            )
-        } else {
-            text.to_string()
-        };
         json!({
             "event": "user",
             "message": {
                 "role": "user",
-                "content": content,
+                "content": text,
             }
         })
         .to_string()
@@ -115,6 +120,13 @@ impl Dialect for Agy {
         match text("event") {
             Some("init") => {
                 let init = value.get("init").unwrap_or(&value);
+                if init.get("agent").and_then(Value::as_str) != Some(AGENT) {
+                    return Event::Breach(
+                        "the agy process did not select the restricted baylee-seat agent: \
+                         update agy before playing through it"
+                            .into(),
+                    );
+                }
                 Event::Started(started(init))
             }
             Some("step_update") => {
@@ -125,6 +137,11 @@ impl Dialect for Agy {
                     .and_then(|info| info.get("name"))
                     .and_then(Value::as_str);
                 if kind == Some("tool") || tool.is_some() {
+                    // `finish` only returns the answer; it has no external effect.
+                    // The result line remains the single source of answer/usage.
+                    if tool == Some("finish") {
+                        return Event::Other;
+                    }
                     return Event::Breach(format!(
                         "the agy process let the model use {}: the seat does not play through it",
                         clipped(tool.unwrap_or("a tool"))
@@ -141,9 +158,9 @@ impl Dialect for Agy {
     }
 
     fn lockdown_fault(&self, started: &Started) -> Option<String> {
-        // Its tools cannot be taken away, so they are not judged here; a
-        // tool used is ([`Event::Breach`]). That it named them, and that it
-        // connected no MCP server where it says, is.
+        // 1.4.7 reports the global inventory even for our restricted agent.
+        // Agent selection is checked before this; external tool use is
+        // still a breach, and connected MCP servers are never accepted.
         if started.tools.is_none() {
             return Some(
                 "the agy process did not say which tools it offers the model: the seat does not \

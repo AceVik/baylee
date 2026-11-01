@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/AVR/slaughterhouse.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Slaughterhouse_AVR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Slaughterhouse (Adapted)]
+4 Auger Spree
+4 Bedevil
+1 Blood Artist
+1 Bloodflow Connoisseur
+4 Delirium
+2 Dreadbore
+2 Fling
+2 Goblin Arsonist
+1 Harvester of Souls
+1 Havengul Vampire
+1 Hunted Ghoul
+2 Kaervek's Purge
+1 Maalfeld Twins
+12 Mountain
+2 Raging Poltergeist
+3 Soulcage Fiend
+4 Spontaneous Combustion
+13 Swamp

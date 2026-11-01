@@ -8,7 +8,7 @@
 //! characteristic-projection cache: one integer compare per cache hit.
 
 use baylee_cards_dsl::{Duration, Filter, Layer, Modifier};
-use baylee_core::ids::{EffectId, ObjectId, PlayerId};
+use baylee_core::ids::{EffectId, ObjectId, PlayerId, SeatSet};
 
 mod grants;
 pub use grants::{GrantedAbility, granted_definition, sync_granted_activated};
@@ -40,6 +40,10 @@ pub enum EffectFilter {
     /// (the id and the version it had); after that every reference-reading
     /// part of the filter matches nothing.
     DslAbout(&'static Filter, ObjectId, u32),
+    /// A live DSL filter narrowed to the controllers chosen as the effect
+    /// resolved. The seats are fixed; the objects matching among them are not
+    /// (CR 611.2c when the modifier does not lock its set).
+    DslControlledBy(&'static Filter, SeatSet),
 }
 
 impl EffectFilter {
@@ -103,6 +107,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // Characteristics: types, colors, abilities, P/T — and control,
         // which the rule names beside them.
         Modifier::AddType(_)
+        | Modifier::AddSupertype(_)
+        | Modifier::RemoveSupertype(_)
         | Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
         | Modifier::AnimateNoncreatureArtifact
         | Modifier::RemoveType(_)
@@ -112,6 +118,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::AllBasicLandTypes
         | Modifier::SetLandType(_)
         | Modifier::SetLandTypeToChosen
+        | Modifier::SetLandTypeToSecondChosen
         | Modifier::AddChosenBasicLandType
         | Modifier::BecomeType { .. }
         | Modifier::AddColor(_)
@@ -124,6 +131,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantHaveKeywords(_)
         | Modifier::LoseAllAbilities
         | Modifier::ProtectionFrom(_)
+        | Modifier::ProtectionFromExiledWithSourceTypes
         | Modifier::BecomeCopyOf(_)
         | Modifier::GrantsFlashback
         | Modifier::GrantsEscape(_)
@@ -139,8 +147,10 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CharacteristicPT { .. }
         | Modifier::CharacteristicPTSeparate { .. }
         | Modifier::ModifyPTPerCount { .. }
+        | Modifier::ModifyPTByAmount { .. }
         | Modifier::ModifyPTByCount(_)
         | Modifier::ModifyPTHalfCount(_)
+        | Modifier::ReducePTByCount { .. }
         | Modifier::ModifyPTPerGraveyardCard { .. }
         | Modifier::HoneEquipment
         | Modifier::ModifyPT(..)
@@ -148,6 +158,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::SetPower(_)
         | Modifier::SetToughness(_)
         | Modifier::SetPTToCount(_)
+        | Modifier::CopyLastExiledCreaturePTAndSubtypes
         | Modifier::SwitchPT => true,
         // Neither: a shield that prevents damage, and the rules a player
         // plays under. Teferi's `SorceriesHaveFlash` is the clearest of
@@ -157,15 +168,20 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::BandsWithOther(_)
         | Modifier::DamageLifeLossFloor { .. }
         | Modifier::AdditionalCounterPlacement { .. }
+        | Modifier::FlipTwoCoinsIgnoreOne
         | Modifier::DoubleCountersPlacedByYou
         | Modifier::NextDestructionClearsDamage
         | Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostMore(_)
+                    | Modifier::SpellsCostMorePerControlled(_)
         | Modifier::ManaAbilitiesCostLife(_)
         | Modifier::ReplaceTappedMana { .. }
         | Modifier::AbilitiesCostMore(_)
             | Modifier::AbilitiesCostLess { .. }
+            | Modifier::EquipCostsLess(_)
+            | Modifier::CantActivateNonMana
             | Modifier::RegenerateInsteadOfDestroy
+                    | Modifier::CantBeRegenerated
         | Modifier::LegendRuleOff
         // Two permissions, and CR 611.2c locks a set only for an effect
         // that changes characteristics or control. These change what their
@@ -179,6 +195,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PlayLandsFromLibraryTop
         | Modifier::RevealAllLibraryTops
         | Modifier::RevealAllHands
+        | Modifier::RevealYourHand
         | Modifier::RevealLibraryTop
         | Modifier::ExtraLandDrops(_)
         | Modifier::CantActivateArtifacts
@@ -186,6 +203,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::ChosenNameCantActivate
         | Modifier::OpponentsCastAsSorcery
         | Modifier::OpponentsCantCast(_)
+        | Modifier::PlayersCantCast { .. }
         | Modifier::PlayersCantPlay(_)
         | Modifier::CantBeEnchantedExceptSource
         | Modifier::CantBeTargetedBy(_)
@@ -195,6 +213,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBeTargetedByAbilitiesFrom(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
+        | Modifier::NamedPlayersCantLose(_)
+        | Modifier::PlayersCantWin(_)
         | Modifier::CantLoseLife { .. }
         | Modifier::NoLossForZeroLife { .. }
         | Modifier::LifeGainDrawsInstead { .. }
@@ -216,6 +236,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantAttackUnlessDefenderControls(_)
         | Modifier::CantAttackPlayerIdleLastTurn
         | Modifier::LandwalkMatching(_)
+        | Modifier::LandwalkOfSubtype { .. }
         | Modifier::AttacksEachCombat
         | Modifier::MaxAttackersPerCombat(_)
         | Modifier::MaxBlockersPerCombat(_)
@@ -233,7 +254,9 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::NoMaxHandSize
             | Modifier::ChosenPlayerMaxHandSize(_)
         | Modifier::SkipUntapStep { .. }
+        | Modifier::SkipDrawStep { .. }
         | Modifier::BlockableWithoutLandwalk(_)
+        | Modifier::BlockableWithoutAnyLandwalk
         | Modifier::IgnoreOpponentsHexproof
         | Modifier::CounterMaximum { .. }
         | Modifier::CrewSaddlePowerBonus(_)
@@ -242,7 +265,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::PlayerProtectionFromEverything { .. }
         | Modifier::PlayerProtectionFromOpponents { .. }
         | Modifier::SpellCastLimitPerTurn { .. }
-        | Modifier::PlayerHexproof
+        | Modifier::PlayerHexproof { .. }
         | Modifier::SpellsHaveFlash(_)
         | Modifier::SorceriesHaveFlash
         | Modifier::ManaIsAnyColor
@@ -251,6 +274,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // CR 611.2c locks the set for an effect that changes
         // characteristics or control; this changes a rule, so a permanent
         // that arrives later and matches the filter is kept tapped too.
+        | Modifier::RemoveCountersInsteadOfUntapping(_)
         | Modifier::DoesNotUntap
         | Modifier::MayChooseNotToUntap
         | Modifier::UntapAtMost { .. }
@@ -258,9 +282,11 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         // filter then may attack, not a set fixed as the effect began.
         | Modifier::AttacksDespiteDefender
         | Modifier::AttacksAsThoughHaste
+        | Modifier::AttacksAloneOnly
         // A replacement for a player's graveyard: the cards it catches are
         // whichever arrive, not a set fixed as it began.
         | Modifier::ExileInsteadOfYourGraveyard
+        | Modifier::ExileInsteadOfLeavingBattlefield
         // A permission like the three above: a card that reaches the
         // graveyard after Forgotten Cellar's trigger resolved is as
         // castable as one that was there.
@@ -273,6 +299,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::NextDrawFromTop { .. }
         | Modifier::MayRedirectDamageToYou
         | Modifier::CantAttackUnlessPayMana(_)
+        | Modifier::CantAttackUnlessPayManaPerCounter(_)
+        | Modifier::CantBlockUnlessPayManaPerCounter(_)
         | Modifier::CantAttackUnlessYouSacrifice { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
         | Modifier::CantEnterBattlefield(_)
@@ -389,6 +417,7 @@ impl RuleHints {
     const BOARD_STATE_FILTER: u32 = 1 << 18;
     const PLAYER_OR_SBA_RULE: u32 = 1 << 19;
     const GRANT_TRIGGERED: u32 = 1 << 20;
+    const REGENERATION_PROHIBITION: u32 = 1 << 21;
 
     const fn contains(&self, bit: u32) -> bool {
         self.0 & bit != 0
@@ -491,6 +520,10 @@ impl EffectTable {
 
     pub(crate) const fn may_change_player_or_sba_rules(&self) -> bool {
         self.hints.contains(RuleHints::PLAYER_OR_SBA_RULE)
+    }
+
+    pub(crate) const fn may_prevent_regeneration(&self) -> bool {
+        self.hints.contains(RuleHints::REGENERATION_PROHIBITION)
     }
 
     pub(crate) fn has_parked(&self) -> bool {
@@ -604,6 +637,7 @@ impl EffectTable {
             matches!(
                 fx.modifier,
                 Modifier::SpellsCostMore(_)
+                    | Modifier::SpellsCostMorePerControlled(_)
                     | Modifier::SpellsCostMoreMana(_)
                     | Modifier::SpellsCostLess(_)
             ),
@@ -614,7 +648,9 @@ impl EffectTable {
                 fx.modifier,
                 Modifier::AbilitiesCostMore(_)
                     | Modifier::AbilitiesCostLess { .. }
+                    | Modifier::EquipCostsLess(_)
                     | Modifier::CantActivate
+                    | Modifier::CantActivateNonMana
                     | Modifier::CantActivateArtifacts
                     | Modifier::ChosenNameCantActivate
             ),
@@ -628,6 +664,7 @@ impl EffectTable {
                     | Modifier::SpellsHaveFlash(_)
                     | Modifier::SpellCastLimitPerTurn { .. }
                     | Modifier::OpponentsCantCast(_)
+                    | Modifier::PlayersCantCast { .. }
                     | Modifier::PlayersCantPlay(_)
             ),
         );
@@ -638,6 +675,7 @@ impl EffectTable {
                 Modifier::RevealAllLibraryTops
                     | Modifier::RevealLibraryTop
                     | Modifier::RevealAllHands
+                    | Modifier::RevealYourHand
                     | Modifier::NoMaxHandSize
                     | Modifier::ChosenPlayerMaxHandSize(_)
             ),
@@ -662,7 +700,9 @@ impl EffectTable {
             RuleHints::BOARD_STATE_FILTER,
             matches!(
                 fx.filter,
-                EffectFilter::Dsl(f) | EffectFilter::DslAbout(f, ..)
+                EffectFilter::Dsl(f)
+                    | EffectFilter::DslAbout(f, ..)
+                    | EffectFilter::DslControlledBy(f, ..)
                     if crate::state::filter_reads_board_state(f)
             ) || crate::state::modifier_reads_combat(fx.modifier),
         );
@@ -675,11 +715,18 @@ impl EffectTable {
                     | Modifier::NoLossForZeroLife { .. }
                     | Modifier::LifeGainDrawsInstead { .. }
                     | Modifier::PlayersCantLose
+                    | Modifier::NamedPlayersCantLose(_)
+                    | Modifier::PlayersCantWin(_)
                     | Modifier::DrawLimitPerTurn { .. }
                     | Modifier::SkipUntapStep { .. }
+                    | Modifier::SkipDrawStep { .. }
                     | Modifier::LegendRuleOff
                     | Modifier::RegenerateInsteadOfDestroy
             ),
+        );
+        self.hints.insert_if(
+            RuleHints::REGENERATION_PROHIBITION,
+            matches!(fx.modifier, Modifier::CantBeRegenerated),
         );
         self.effects.push(fx);
         self.generation += 1;
@@ -1064,7 +1111,9 @@ pub(crate) fn applies_to_snapshot(
     {
         return false;
     }
-    if let EffectFilter::Dsl(filter) | EffectFilter::DslAbout(filter, ..) = fx.filter
+    if let EffectFilter::Dsl(filter)
+    | EffectFilter::DslAbout(filter, ..)
+    | EffectFilter::DslControlledBy(filter, ..) = fx.filter
         && !matches!(
             obj.zone,
             crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
@@ -1094,9 +1143,25 @@ pub(crate) fn matches_filter(
             crate::text_changes::RuleContext {
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
+                resolved_name: None,
                 reference: None,
             },
         ),
+        EffectFilter::DslControlledBy(filter, seats) => {
+            seats.contains(obj.controller)
+                && crate::eval::matches_with_context(
+                    filter,
+                    state,
+                    obj,
+                    fx.controller,
+                    crate::text_changes::RuleContext {
+                        source: fx.source.unwrap_or(obj.id),
+                        text: state.effect_text(fx),
+                        resolved_name: None,
+                        reference: None,
+                    },
+                )
+        }
         EffectFilter::DslAbout(filter, id, version) => crate::eval::matches_with_context(
             filter,
             state,
@@ -1105,6 +1170,7 @@ pub(crate) fn matches_filter(
             crate::text_changes::RuleContext {
                 source: fx.source.unwrap_or(obj.id),
                 text: state.effect_text(fx),
+                resolved_name: None,
                 reference: still_the_object(state, *id, *version),
             },
         ),
@@ -1465,10 +1531,33 @@ mod tests {
         use baylee_cards_dsl::{CounterKind, KeywordSet, PlayerRel};
         use baylee_core::color::{Color, ColorSet};
         use baylee_core::ids::SubtypeId;
-        use baylee_core::types::TypeSet;
+        use baylee_core::types::{SupertypeSet, TypeSet};
         vec![
             Modifier::BecomeCopyOf(ObjectId::new(1, 0)),
             Modifier::GainControl,
+            Modifier::CantBeRegenerated,
+            Modifier::AttacksAloneOnly,
+            Modifier::BlockableWithoutAnyLandwalk,
+            Modifier::ExileInsteadOfLeavingBattlefield,
+            Modifier::LandwalkOfSubtype {
+                subtype: SubtypeId::new(1),
+                lands: &Filter::Any,
+            },
+            Modifier::ModifyPTByAmount {
+                power: baylee_cards_dsl::Amount::Fixed(1),
+                toughness: baylee_cards_dsl::Amount::Fixed(2),
+            },
+            Modifier::RevealYourHand,
+            Modifier::SkipDrawStep {
+                who: PlayerRel::You,
+            },
+            Modifier::RemoveCountersInsteadOfUntapping(CounterKind::Charge),
+            Modifier::PlayersCantCast {
+                who: PlayerRel::You,
+                filter: &Filter::Any,
+            },
+            Modifier::AddSupertype(SupertypeSet::SNOW),
+            Modifier::RemoveSupertype(SupertypeSet::SNOW),
             Modifier::AddType(TypeSet::ARTIFACT),
             Modifier::AnimateNoncreatureArtifact,
             Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture,
@@ -1479,6 +1568,7 @@ mod tests {
             Modifier::AllBasicLandTypes,
             Modifier::SetLandType(SubtypeId::new(1)),
             Modifier::SetLandTypeToChosen,
+            Modifier::SetLandTypeToSecondChosen,
             Modifier::AddChosenBasicLandType,
             Modifier::BecomeType {
                 types: TypeSet::CREATURE,
@@ -1564,12 +1654,17 @@ mod tests {
                 t: 1,
             },
             Modifier::ModifyPTHalfCount(baylee_cards_dsl::PtCount::YouControl(&Filter::YOUR_LAND)),
+            Modifier::ReducePTByCount {
+                count: baylee_cards_dsl::PtCount::ControllerOrDefenderControls(&Filter::LAND),
+                minimum_toughness: Some(1),
+            },
             Modifier::ModifyPTByCount(baylee_cards_dsl::PtCount::DistinctColorsAmong(
                 &Filter::ControlledByYou,
             )),
             Modifier::SwitchPT,
             Modifier::SpellsCostLess(3),
             Modifier::SpellsCostMore(3),
+            Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT),
             Modifier::AbilitiesCostMore(3),
             Modifier::ManaAbilitiesCostLife(1),
             Modifier::ReplaceTappedMana {
@@ -1639,6 +1734,7 @@ mod tests {
                 minimum: 1,
             },
             Modifier::AdditionalCounterPlacement { n: 1 },
+            Modifier::FlipTwoCoinsIgnoreOne,
             Modifier::DoubleCountersPlacedByYou,
             Modifier::NextDestructionClearsDamage,
             Modifier::CombatDamageCantBePrevented,
@@ -1695,7 +1791,9 @@ mod tests {
                 who: PlayerRel::EachPlayer,
                 limit: 1,
             },
-            Modifier::PlayerHexproof,
+            Modifier::PlayerHexproof {
+                who: PlayerRel::You,
+            },
             Modifier::BoastTwice,
             Modifier::SpellsHaveFlash(None),
             Modifier::SorceriesHaveFlash,
@@ -1711,6 +1809,8 @@ mod tests {
             Modifier::CastSpellsFromGraveyard,
             Modifier::MayRedirectDamageToYou,
             Modifier::CantAttackUnlessPayMana(1),
+            Modifier::CantAttackUnlessPayManaPerCounter(baylee_cards_dsl::CounterKind::P1P1),
+            Modifier::CantBlockUnlessPayManaPerCounter(baylee_cards_dsl::CounterKind::P1P1),
             Modifier::CantAttackUnlessYouSacrifice {
                 count: 2,
                 filter: &Filter::LAND,
@@ -1719,6 +1819,12 @@ mod tests {
             Modifier::CantEnterBattlefield(&Filter::LAND),
             Modifier::SpellsCostMoreMana(baylee_core::mana::ManaCost::ZERO),
             Modifier::CantAttackIfDefenderControls(&Filter::CREATURE),
+            Modifier::CopyLastExiledCreaturePTAndSubtypes,
+            Modifier::ProtectionFromExiledWithSourceTypes,
+            Modifier::NamedPlayersCantLose(PlayerRel::You),
+            Modifier::PlayersCantWin(PlayerRel::You),
+            Modifier::EquipCostsLess(1),
+            Modifier::CantActivateNonMana,
         ]
     }
 
@@ -1757,7 +1863,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            157,
+            181,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1834,7 +1940,18 @@ mod tests {
         // `CantAttackUnlessYouSacrifice`, `DamageToItCantBePreventedOrRedirected`,
         // `CantEnterBattlefield`, `SpellsCostMoreMana`, and
         // `CantAttackIfDefenderControls`) bring rules-only to 110.
-        assert_eq!((locking, all.len() - locking), (47, 110));
+        // Adding/removing a supertype locks the affected set; prohibiting
+        // regeneration modifies a rule. The Ice Age additions contribute 2/1.
+        // Independently evaluated P/T changes characteristics; the five
+        // new blocking, attacking, departure and visibility rules do not.
+        // Land-type replacement and the bounded P/T reduction also change
+        // characteristics. Draw skipping, untap replacement and cast limits
+        // change rules only. Mirrodin Batch 1 adds `CopyLastExiledCreaturePTAndSubtypes`
+        // (characteristics, +1) and `EquipCostsLess`/`CantActivateNonMana` (rules, +2).
+        // `ProtectionFromExiledWithSourceTypes` also locks its set. Coin flipping,
+        // per-artifact spell tax, win/loss prohibitions and per-counter attack/block
+        // costs are six more rules-only modifiers.
+        assert_eq!((locking, all.len() - locking), (54, 127));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

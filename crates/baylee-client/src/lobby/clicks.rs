@@ -263,6 +263,9 @@ pub(super) fn run(press: Press, cx: Cx<'_, '_, '_, '_, '_>) {
         {
             return;
         }
+        if state.memorial.open && !matches!(press, Press::Memorial(_)) {
+            return;
+        }
         if state.about_open
             && !matches!(
                 press,

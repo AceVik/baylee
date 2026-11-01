@@ -3,49 +3,6 @@
 #[allow(clippy::wildcard_imports)] // the parent's vocabulary and helpers
 use super::*;
 
-mod adarkar_sentinel;
-mod anodet_lurker;
-mod bastion_mastodon;
-mod boulderborn_dragon;
-mod clockwork_avian;
-mod cloudheath_drake;
-mod coal_golem;
-mod crosis_s_attendant;
-mod dalek_drone;
-mod darigaaz_s_attendant;
-mod darksteel_juggernaut;
-mod dromar_s_attendant;
-mod etched_monstrosity;
-mod ethersworn_adjudicator;
-mod gearsmith_guardian;
-mod glass_golem;
-mod glassdust_hulk;
-mod henge_guardian;
-mod igneous_golem;
-mod iron_man_tony_stark;
-mod mantis_engine;
-mod marble_priest;
-mod narstad_scrapper;
-mod necropolis;
-mod pewter_golem;
-mod prizefighter_construct;
-mod razormane_masticore;
-mod rith_s_attendant;
-mod saberclaw_golem;
-mod scarecrow;
-mod slash_panther;
-mod soldevi_steam_beast;
-mod soliton;
-mod stone_golem;
-mod tangle_hulk;
-mod teferi_s_sentinel;
-mod tek;
-mod titanium_golem;
-mod treva_s_attendant;
-mod ultron_machine_overlord;
-mod vectis_agents;
-mod venser_s_sliver;
-
 /// A seat's life total.
 fn life_of(engine: &Engine<RegistryLookup>, seat: usize) -> i32 {
     engine.state().players[seat].life
@@ -100,3 +57,56 @@ fn is_artifact_creature(engine: &Engine<RegistryLookup>, id: ObjectId) -> bool {
         .types;
     types.contains(TypeSet::ARTIFACT) && types.contains(TypeSet::CREATURE)
 }
+mod adarkar_sentinel;
+mod anodet_lurker;
+mod bastion_mastodon;
+mod boulderborn_dragon;
+mod clockwork_avian;
+mod clockwork_vorrac;
+mod cloudheath_drake;
+mod coal_golem;
+mod copper_leaf_angel;
+mod crosis_s_attendant;
+mod dalek_drone;
+mod darigaaz_s_attendant;
+mod darksteel_juggernaut;
+mod dromar_s_attendant;
+mod etched_monstrosity;
+mod ethersworn_adjudicator;
+mod gearsmith_guardian;
+mod glass_golem;
+mod glassdust_hulk;
+mod henge_guardian;
+mod igneous_golem;
+mod iron_man_tony_stark;
+mod karn_silver_golem;
+mod lead_golem;
+mod leveler;
+mod mantis_engine;
+mod marble_priest;
+mod matopi_golem;
+mod myr_prototype;
+mod narstad_scrapper;
+mod necropolis;
+mod pewter_golem;
+mod prizefighter_construct;
+mod razormane_masticore;
+mod rith_s_attendant;
+mod saberclaw_golem;
+mod scarecrow;
+mod slash_panther;
+mod snow_fortress;
+mod soldevi_steam_beast;
+mod soliton;
+mod stone_golem;
+mod tangle_hulk;
+mod teferi_s_sentinel;
+mod tek;
+mod thopter_squadron;
+mod thran_golem;
+mod titanium_golem;
+mod treva_s_attendant;
+mod ultron_machine_overlord;
+mod urza_s_engine;
+mod vectis_agents;
+mod venser_s_sliver;

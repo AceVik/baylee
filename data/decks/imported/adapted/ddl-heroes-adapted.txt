@@ -1,0 +1,34 @@
+# adapted from data/decks/precon/DDL/heroes.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Heroes_DDL.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Heroes (Adapted)]
+2 Armory Guard
+4 Arrows of Justice
+1 Battle Mastery
+2 Boros Guildgate
+1 Dawnstrike Paladin
+1 Double Cleave
+1 Energy Bolt
+1 Fencing Ace
+1 Glider Kids
+1 Griffin Guide
+1 Kamahl, Pit Fighter
+1 Legion Guildmage
+1 Legion Leadership
+3 Lightning Helix
+1 Magma Jet
+1 Miraculous Recovery
+1 Moment of Heroism
+11 Mountain
+2 New Benalia
+1 Nobilis of War
+1 Pay No Heed
+9 Plains
+1 Pyrokinesis
+1 Righteousness
+1 Smite the Monstrous
+4 Spirit Summoning
+1 Stand Firm
+1 Sun Titan
+1 Thraben Valiant
+1 Warleader's Helix
+1 Winds of Rath

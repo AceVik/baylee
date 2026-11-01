@@ -440,19 +440,20 @@ fn the_prefix_is_byte_stable_and_told_as_the_style_says() {
     );
 }
 
-/// A Commander deck's prefix (2026-10-06, estimated tokens): its full
-/// text is 4,685 with every reminder and 4,508 with the reminder text of
-/// unparametrised keywords and basic lands stripped, held at 97 per cent
-/// of the first; its names alone are 677, held at 800. The stripping is
-/// the conservative rule (`docs/llm-protocol.md` §"The deck"): a
-/// keyword's reminder after a cost or a number stays.
+/// A Commander deck's prefix (estimated tokens): its full text was 4,685
+/// with every reminder and 4,508 with the reminder text of unparametrised
+/// keywords and basic lands stripped on 2026-10-06 (now 4,791 and 4,563 as
+/// more of Reap the Tides entered the pool), held at 97 per cent of the
+/// first; its names alone are 662, held at 800. The stripping is the
+/// conservative rule (`docs/llm-protocol.md` §"The deck"): a keyword's
+/// reminder after a cost or a number stays.
 #[test]
 fn a_commander_deck_s_prefix_holds_its_budget() {
     let context = precon();
     let full = estimate_tokens(&prefix(&context, DeckText::Full));
     let names = estimate_tokens(&prefix(&context, DeckText::Names));
     assert!(
-        full * 100 <= 4_685 * 97,
+        full * 100 <= 4_791 * 97,
         "the full prefix costs about {full}"
     );
     assert!(names <= 800, "the names prefix costs about {names}");
@@ -1539,4 +1540,27 @@ fn optional_exact_tap_menu_rejects_partial_payments() {
             count == 0 || count == 5
         );
     }
+}
+
+#[test]
+fn untap_replacement_refusal_does_not_offer_a_free_untap() {
+    let (view, log) = board();
+    let pending = Pending::YesNo {
+        player: ME,
+        source: None,
+        prompt: baylee_engine::choice::YesNoPrompt::RemoveCountersInsteadOfUntapping {
+            permanent: id(70),
+            kind: baylee_cards_dsl::CounterKind::Stun,
+            count: 1,
+        },
+    };
+    let request = request(view, pending, log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    assert!(wake.text.contains("leave it tapped"), "{}", wake.text);
+    assert!(
+        wake.text
+            .contains("another applicable untap replacement; this does not untap it"),
+        "{}",
+        wake.text
+    );
 }

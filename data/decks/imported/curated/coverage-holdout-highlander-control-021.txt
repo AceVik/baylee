@@ -1,0 +1,79 @@
+# baylee synergistic holdout coverage highlander control
+# licence: AGPL-3.0-only
+[deck:highlander control WBG #90010022]
+1 Blighted Bat
+1 Blood-Cursed Knight
+1 Branchloft Pathway
+1 Coercion
+1 Colossodon Yearling
+1 Crushing Vines
+1 Culling Sun
+1 Cunning Lethemancer
+1 Cyclone
+1 Darkheart Sliver
+1 Dauthi Slayer
+1 Deathgazer
+1 Deception
+1 Deceptive Landscape
+1 Dungeon Shade
+1 Edge of the Divinity
+1 Emrakul's Influence
+1 Enchantress's Presence
+1 Essence Feed
+11 Forest
+1 Freyalise's Charm
+1 From Beyond
+1 Gateway Shade
+1 Gathering Place
+1 Gavony Township
+1 Gorilla Warrior
+1 Grim Backwoods
+1 Indatha Triome
+1 Kin-Tree Severance
+1 Krosan Grip
+1 Leaf Dancer
+1 Manor Skeleton
+1 Mindlash Sliver
+1 Murmuring Bosk
+1 Nature's Ruin
+1 Nether Void
+1 Night's Whisper
+1 Nurturing Peatland
+1 Overgrown Tomb
+1 Oversoul of Dusk
+1 Path of Annihilation
+1 Pawpatch Formation
+8 Plains
+1 Presence of the Master
+1 Primeval Bounty
+1 Primordial Sage
+1 Putrefy
+1 Quirion Ranger
+1 Rampart Crawler
+1 Razortooth Rats
+1 Reclusive Wight
+1 Rotting Mastodon
+1 Sandsteppe Citadel
+1 Shambling Ghoul
+1 Shanodin Dryads
+1 Shineshadow Snarl
+1 Sigil of the Empty Throne
+1 Simian Grunts
+1 Snake Pit
+1 Somberwald Dryad
+1 Sphinx-Bone Wand
+1 Spined Karok
+1 Stalker Hag
+1 Stronghold Rats
+1 Sungrass Prairie
+8 Swamp
+1 Tainted Wood
+1 The Wretched
+1 Vampiric Tutor
+1 Vault of Champions
+1 Vault of the Archangel
+1 Walking Dead
+1 Wandering Wolf
+1 Wooded Bastion
+1 Yawgmoth's Edict
+1 Zendikar Farguide

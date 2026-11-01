@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/M21/company-of-knights.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CompanyOfKnights_M21.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Company of Knights (Adapted)]
+4 Arrows of Justice
+2 Burning-Yard Trainer
+1 Dub
+3 Fireborn Knight
+2 Infuriate
+3 Inspiring Veteran
+3 Lightning Helix
+10 Mountain
+2 Pacifism
+9 Plains
+2 Scorching Dragonfire
+2 Short Sword
+4 Spirit Summoning
+1 Temple of Triumph
+3 Venerable Knight
+2 Weaselback Redcap
+4 Wind-Scarred Crag
+1 Worthy Knight
+2 Youthful Knight

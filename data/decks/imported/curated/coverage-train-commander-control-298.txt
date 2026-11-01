@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WUG #20266299]
+1 Aegis of the Meek
+1 Agent of Horizons
+1 Amphin Pathmage
+1 Avengers Tower
+1 Baldur's Gate
+1 Bant Battlemage
+1 Brotherhood Headquarters
+1 Bubble Matrix
+1 Capital City
+1 Captivating Cave
+1 Cascading Cataracts
+1 Cavern of Souls
+1 Chimeric Idol
+1 Chimeric Sphere
+1 Cloak of the Bat
+1 Cyclopean Snare
+1 Cyclopean Tomb
+1 Disorient
+1 Dragon Mask
+1 Ebony Horse
+1 Elven Lyre
+1 Flying Carpet
+1 Forcefield
+9 Forest
+1 Galvanic Key
+1 Glimmervoid
+1 Grappler Spider
+1 Haunted Cloak
+1 Helm of Possession
+1 Henge of Ramos
+1 Hivestone
+1 Hussar Patrol
+1 Imi Statue
+1 Interplanar Beacon
+16 Island
+1 Jade Statue
+1 Jandor's Saddlebags
+1 Jhessian Balmgiver
+1 Liquimetal Coating
+1 Mask of Avacyn
+1 Merfolk of the Depths
+1 Mightstone
+1 Mishra's Groundbreaker
+1 Oko, Thief of Crowns
+2 Plains
+1 Plated Spider
+1 Plaza of Heroes
+1 Power Matrix
+1 Quicksilver Amulet
+1 Raven Wings
+1 Ring of Gix
+1 Study Hall
+1 Surveillance Room
+1 Talarian Hook Spider
+1 Tawnos's Coffin
+1 Teferi's Honor Guard
+1 Tek
+1 The Mycosynth Gardens
+1 Touchstone
+1 Treefolk Healer
+1 Trip Noose
+1 Trusty Machete
+1 Tumble Magnet
+1 Turtle Lair
+1 Tyrant's Machine
+1 Ultron, Machine Overlord
+1 Veteran's Sidearm
+1 Vibrating Sphere
+1 Vulshok Morningstar
+1 Wanderwine Distracter
+1 War Chariot
+1 Wardscale Crocodile
+1 Weakstone
+1 White Lotus Hideout
+1 Wilderness Hypnotist
+
+[commander]
+Katara, the Fearless

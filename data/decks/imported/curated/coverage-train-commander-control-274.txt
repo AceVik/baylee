@@ -1,0 +1,70 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control B #20266275]
+1 Armor of Shadows
+1 Arrogant Vampire
+1 Bad River
+1 Bartizan Bats
+1 Bleed Dry
+1 Boseiju, Who Shelters All
+1 Breach
+1 Brutal Nightstalker
+1 Clutch of Undeath
+1 Dark Deed
+1 Dark Remedy
+1 Death Wind
+1 Dementia Bat
+1 Earsplitting Rats
+1 Elephant-Rat
+1 Fatal Fumes
+1 Feral Shadow
+1 Flatten
+1 Funeral Charm
+1 Give In to Violence
+1 Grimclaw Bats
+1 Grotesque Mutation
+1 Gurmag Swiftwing
+1 Hall of the Bandit Lord
+1 Hatred
+1 Irradiate
+1 Keening Banshee
+1 Lash of Thorns
+1 Last Gasp
+1 Mark of the Oni
+1 Markov Patrician
+1 Midnight Assassin
+1 Mirage Mesa
+1 Mischievous Poltergeist
+1 Moaning Spirit
+1 Nocturnal Raid
+1 Orc Sureshot
+1 Overkill
+1 Pit of Offerings
+1 Ritual of Soot
+1 Ruins of Oran-Rief
+1 Rush of Vitality
+1 Scorpion's Sting
+1 Screaming Phantom
+1 Searchlight Geist
+1 Sewers of Estark
+1 Sick and Tired
+1 Skulking Ghost
+1 Skyshroud Vampire
+1 Soul Channeling
+1 Soulshriek
+1 Stab
+1 Stench of Decay
+1 Strands of Undeath
+1 Strangling Spores
+36 Swamp
+1 Tar Snare
+1 Throttle
+1 Underworld Connections
+1 Untaidake, the Cloud Keeper
+1 Vampire Envoy
+1 Vampire Hexmage
+1 Vampire Revenant
+1 Wring Flesh
+
+[commander]
+Kalakscion, Hunger Tyrant

@@ -1,0 +1,31 @@
+# adapted from data/decks/precon/PTC/eric-tam-quarterfinalist.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, EricTamQuarterfinalist_PTC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Eric Tam, Quarterfinalist (Adapted)]
+1 Balance
+3 Birds of Paradise
+1 Blinking Spirit
+4 Brushland
+2 City of Brass
+4 Disenchant
+1 Earthquake
+4 Erhnam Djinn
+3 Fellwar Stone
+2 Fireball
+1 Icatian Town
+3 Icy Manipulator
+2 Iroh's Demonstration
+1 Jayemdae Tome
+4 Karplusan Forest
+1 Land Tax
+1 Lightning Bolt
+2 Mishra's Factory
+4 Mountain
+1 Orgg
+4 Plains
+1 Serra Angel
+1 Skysnare Spider
+1 Spirit Mirror
+2 Stormbind
+3 Swords to Plowshares
+2 Wrath of God
+1 Zuran Orb

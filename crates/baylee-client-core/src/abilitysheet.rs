@@ -248,7 +248,8 @@ pub fn cut(blocks: Vec<TextBlock>, key: &str) -> Cut {
     let badge = key_badge(key);
     let head = match crate::manapip::printed_loyalty(split.head) {
         Some(printed) => (badge == Some(printed)).then(|| key.to_string()),
-        None => (badge.is_none() && licensed(split.head, key)).then(|| split.head.to_string()),
+        None if badge.is_some() => None,
+        None => licensed_head(split.head, key),
     };
     if head.is_some() {
         *first = split.body.to_string();
@@ -256,10 +257,37 @@ pub fn cut(blocks: Vec<TextBlock>, key: &str) -> Cut {
     Cut { head, blocks }
 }
 
-/// [`baylee_cardtext::licensed`], and a head in words only for a key in words.
-fn licensed(head: &str, key: &str) -> bool {
-    let spelled = baylee_cardtext::symbols(head).is_empty();
-    baylee_cardtext::licensed(head, key) && (!spelled || baylee_cardtext::symbols(key).is_empty())
+/// License the whole cost first, then each printed alternative separately.
+/// A card such as Crystal Shard prints `{3}, {T} or {U}, {T}`; either ability
+/// costs only one side, so comparing the combined head against either key
+/// would incorrectly suppress the column.
+fn licensed_head(head: &str, key: &str) -> Option<String> {
+    fn licensed(head: &str, key: &str) -> bool {
+        let spelled = baylee_cardtext::symbols(head).is_empty();
+        baylee_cardtext::licensed(head, key)
+            && (!spelled || baylee_cardtext::symbols(key).is_empty())
+    }
+    if licensed(head, key) {
+        return Some(head.to_string());
+    }
+    for separator in [
+        " or ",
+        " oder ",
+        " ou ",
+        " o ",
+        " 또는 ",
+        " или ",
+        " または ",
+        " 或 ",
+    ] {
+        if let Some(alternative) = head
+            .split(separator)
+            .find(|part| licensed(part.trim(), key))
+        {
+            return Some(alternative.trim().to_string());
+        }
+    }
+    None
 }
 
 /// The badge a `{L…}` key names, or `None` for a key that is a cost in mana.
@@ -306,6 +334,22 @@ mod tests {
 
     fn head(text: &str, key: &str) -> Option<String> {
         cut(vec![rules(text)], key).head
+    }
+
+    #[test]
+    fn alternative_costs_are_licensed_separately() {
+        let text = "{3}, {T} or {U}, {T}: Return target creature to its owner's hand unless its controller pays {1}.";
+        for (key, cost) in [("{3}, {T}", "{3}, {T}"), ("{U}, {T}", "{U}, {T}")] {
+            assert_eq!(
+                cut(vec![rules(text)], key),
+                Cut {
+                    head: Some(cost.into()),
+                    blocks: vec![rules(
+                        "Return target creature to its owner's hand unless its controller pays {1}."
+                    )],
+                }
+            );
+        }
     }
 
     #[test]

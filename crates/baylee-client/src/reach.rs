@@ -121,11 +121,6 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
     else {
         return std::collections::HashSet::new();
     };
-    // Nothing to reach for while there is nothing to tap.
-    let sources = manasources::sources(view, legal);
-    if sources.is_empty() {
-        return std::collections::HashSet::new();
-    }
     let Some((pool, life)) = view
         .seat(baylee_client_core::decision::resource_player(view))
         .map(|s| (s.mana_pool, s.life))
@@ -147,9 +142,9 @@ pub(super) fn reachable(duel: &Duel) -> std::collections::HashSet<ObjectId> {
         // life again would plan zero taps and mark a life-only card as needing
         // land taps even over off-colour lands.
         if legal.castable.contains(&id) {
-            baylee_client_core::manaplan::plan(&cost, &pool, &sources).is_some()
+            manasources::plan_for_spell(&cost, &pool, view, legal, id).is_some()
         } else {
-            baylee_client_core::manaplan::plan_with_life(&cost, &pool, &sources, life).is_some()
+            manasources::plan_with_life_for_spell(&cost, &pool, view, legal, id, life).is_some()
         }
     };
     baylee_client_core::decision::hand(view)
@@ -536,6 +531,8 @@ mod tests {
             .with_battlefield(1, vec![token(1, 1, "Earth Elemental", 4, 4)])
             .build();
         let pending = Pending::ChooseAttackers {
+            alone: Vec::new(),
+            minimum_required: None,
             player: view.seat,
             attackers: vec![obj(10)],
             defenders: vec![Defender::Player(PlayerId::new(1))],

@@ -2,20 +2,16 @@
 //! Oracle: Enchant creature you control
 //! Oracle: Whenever enchanted creature attacks and isn't blocked, you may have it assign no combat damage this turn. If you do, defending player discards a card at random.
 //! Set: ME2 #82 — Masters Edition II | Scryfall ID: f5fd387e-d77f-4502-8d2e-752a53f577fc | Oracle ID: 5d258409-28d3-4eac-9f1a-3e494db818bf
-// PARTIAL: at a table of more than two players the defending player is nobody, so nothing is discarded.
 
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
-// NOT SUPPORTED: "defending player discards a card at random" at a table of more than two. CR 508.5 makes it the player the enchanted creature is attacking, but `PlayerRel::DefendingPlayer` reads the source's own attack, and this source is the Aura: with more than one opponent it names nobody. Two-player games play the sentence in full.
 card!(
     index = index::CLOAK_OF_CONFUSION,
     oracle_id = "5d258409-28d3-4eac-9f1a-3e494db818bf",
     scryfall_id = "f5fd387e-d77f-4502-8d2e-752a53f577fc",
     color_identity = ColorSet::from_slice(&[Color::Black]),
-    coverage = Coverage::Partial(
-        "at a table of more than two players the defending player discards nothing: PlayerRel::DefendingPlayer reads the Aura's own attack, not the enchanted creature's (CR 508.5)"
-    ),
+    coverage = Coverage::Implemented,
     faces = &[face!(
         name = "Cloak of Confusion",
         mana_cost = mana!("{1}{B}"),

@@ -1,0 +1,17 @@
+# adapted from data/decks/precon/WC98/brian-hacker-white-weenie.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, BrianHackerWhiteWeenie_WC98.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Brian Hacker - White Weenie (Adapted)]
+1 Aura of Silence
+3 Disenchant
+4 Divine Verdict
+3 Doomed Traveler
+4 Kithkin Greatheart
+1 Monastery Mentor
+3 Paladin en-Vec
+17 Plains
+4 Soltari Monk
+4 Soltari Priest
+4 Soul Warden
+4 Tithe
+4 Twinblade Blessing
+4 White Knight

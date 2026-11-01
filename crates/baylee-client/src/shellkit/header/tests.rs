@@ -50,7 +50,7 @@ const ACTIONS: [Action; 10] = [
 
 const HANDLE: &str = "QaMica#0001";
 
-fn layout_app() -> (App, UiFonts) {
+pub(crate) fn layout_app() -> (App, UiFonts) {
     let mut app = App::new();
     app.add_plugins((
         MinimalPlugins,
@@ -205,7 +205,7 @@ fn draw(
     root
 }
 
-fn bounds(world: &World, entity: Entity) -> Rect {
+pub(crate) fn bounds(world: &World, entity: Entity) -> Rect {
     let computed = world.get::<ComputedNode>(entity).expect("laid out");
     let (_, _, centre) = world
         .get::<UiGlobalTransform>(entity)
@@ -406,6 +406,112 @@ fn narrow_desktop_with_large_german_text_wraps_without_losing_actions() {
                 overlap.width() <= 0.5 || overlap.height() <= 0.5,
                 "{action:?} overlaps {other:?}"
             );
+        }
+    }
+}
+
+/// Exercise the real builder through its normal retained sections, with the
+/// shipped fonts: contextual and shared header actions must remain reachable,
+/// the wide account keeps its handle, and no version stands beside the brand.
+#[test]
+fn builder_header_keeps_contextual_actions_inside_the_shared_frame() {
+    use crate::buildui::{Env, Layout};
+    use crate::lobby::{
+        BuildPress, FrontPress, HeaderPress, LibraryPress, LobbyState, Press, Scrolled,
+    };
+
+    let (mut app, fonts) = layout_app();
+    let scrolled = Scrolled::default();
+    for lang in [Lang::En, Lang::De] {
+        for width in [1280.0, 1600.0, 1920.0] {
+            let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+            state.lobby.set_lang(lang);
+            state.chat_header = Some(true);
+            state.lobby.set_me(baylee_client_core::lobby::strips::Me {
+                handle: HANDLE.to_string(),
+                guest: false,
+            });
+            for ch in "A long deck name that must yield to every navigation action".chars() {
+                state.lobby.builder_mut().type_name(ch);
+            }
+            let m = ShellMetrics::of(Viewport::desktop(width, 800.0), TextSize::M);
+            let env = Env {
+                kit: Kit {
+                    fonts: &fonts,
+                    m,
+                    german: lang == Lang::De,
+                },
+                state: &state,
+                scrolled: &scrolled,
+                layout: Layout::of(m.frame, width),
+                save_keys: Some("Cmd+S"),
+            };
+            let mut commands = app.world_mut().commands();
+            let root = commands
+                .spawn(Node {
+                    width: px_fixed(width),
+                    height: px_fixed(800.0),
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                })
+                .id();
+            let _retained = crate::buildui::builder(&mut commands, root, &env, None, None);
+            app.world_mut().flush();
+            app.update();
+            app.update();
+            let header = app
+                .world_mut()
+                .query::<(Entity, &HeaderSurface)>()
+                .iter(app.world())
+                .find(|(_, surface)| !surface.0)
+                .unwrap()
+                .0;
+            let frame = bounds(app.world(), header);
+            let mut texts = app.world_mut().query::<&Text>();
+            let drawn: Vec<_> = texts
+                .iter(app.world())
+                .map(|text| text.0.as_str())
+                .collect();
+            assert!(drawn.contains(&HANDLE), "the wide account keeps its handle");
+            assert!(
+                drawn.iter().all(|text| *text != baylee_build::VERSION),
+                "no version beside the builder's brand"
+            );
+            let mut previous = frame.min.x;
+            for action in [
+                Press::Build(BuildPress::CloseBuilder),
+                Press::Build(BuildPress::OpenImport),
+                Press::Build(BuildPress::OpenExport),
+                Press::Library(LibraryPress::BrowseHistory),
+                Press::Build(BuildPress::SaveDeck),
+                Press::Build(BuildPress::ToggleHeaderMenu),
+                Press::Header(HeaderPress::Gateway),
+                Press::Front(FrontPress::FrontMenu),
+                Press::Header(HeaderPress::Chat),
+                Press::Header(HeaderPress::Friends),
+                Press::Header(HeaderPress::Bell),
+                Press::Header(HeaderPress::Account),
+            ] {
+                let entity = app
+                    .world_mut()
+                    .query::<(Entity, &Press)>()
+                    .iter(app.world())
+                    .find(|(_, p)| **p == action)
+                    .expect("contextual action is still available")
+                    .0;
+                let rect = bounds(app.world(), entity);
+                assert!(
+                    rect.min.x >= previous - 0.5,
+                    "{lang:?} {width} {action:?}: overlap {rect:?}"
+                );
+                assert!(
+                    rect.max.x <= frame.max.x + 0.5,
+                    "{lang:?} {width} {action:?}: outside {rect:?}"
+                );
+                assert!(rect.height() >= m.hit - 0.5, "hit target stays usable");
+                previous = rect.max.x;
+            }
+            app.world_mut().entity_mut(root).despawn();
         }
     }
 }

@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/RAV/charge-of-the-boros.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ChargeOfTheBoros_RAV.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Charge of the Boros (Adapted)]
+4 Arrows of Justice
+2 Boros Garrison
+1 Boros Guildmage
+3 Boros Recruit
+2 Boros Swiftblade
+1 Cyclopean Snare
+2 Dogpile
+3 Energy Bolt
+1 Frontline Rush
+4 Lightning Helix
+10 Mountain
+2 Nightguard Patrol
+10 Plains
+1 Sabertooth Wyvern
+3 Skyknight Legionnaire
+4 Spirit Summoning
+1 Sunhome, Fortress of the Legion
+1 Terrarion
+2 Viashino Slasher
+2 War-Torch Goblin
+1 Warleader's Helix

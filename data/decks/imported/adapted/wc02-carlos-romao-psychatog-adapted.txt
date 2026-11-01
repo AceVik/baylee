@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/WC02/carlos-romao-psychatog.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, CarlosRomãoPsychatog_WC02.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Carlos Romão - Psychatog (Adapted)]
+2 Cephalid Coliseum
+4 Consult the Necrosages
+4 Counterspell
+1 Darkwater Catacombs
+4 Essence Vortex
+3 Fact or Fiction
+10 Island
+4 Notion Rain
+4 Pilfered Plans
+2 Psychic Drain
+4 Repulse
+4 Salt Marsh
+3 Swamp
+4 Tyrant's Scorn
+4 Underground River
+3 Unexplained Disappearance

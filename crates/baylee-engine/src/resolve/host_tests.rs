@@ -50,6 +50,7 @@ fn resolved(effects: &'static [Effect]) -> (GameState, ObjectId, ObjectId) {
         loot: None,
         draw_watch: None,
         this_way_from: None,
+        coin_stake: None,
     };
     assert!(matches!(run(&mut state, &mut res), Flow::Complete));
     (state, host, other)

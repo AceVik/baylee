@@ -1,0 +1,42 @@
+[
+  {
+    "id": "clair-de-lune",
+    "composer": "Claude Debussy",
+    "title": "Suite bergamasque: Clair de lune",
+    "catalog": "L75",
+    "edition": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=1778",
+    "license": "Public Domain",
+    "files": [
+      {
+        "path": "clair-de-lune.ly",
+        "url": "https://www.mutopiaproject.org/ftp/DebussyC/L75/debussy_Ste_Bergamesq_Clair/debussy_Ste_Bergamesq_Clair.ly",
+        "sha256": "c1c58f806a8939fc5a157707ea479403abb9655a4820b25bb6b98e39fd781e7a"
+      },
+      {
+        "path": "clair-de-lune.mid",
+        "url": "https://www.mutopiaproject.org/ftp/DebussyC/L75/debussy_Ste_Bergamesq_Clair/debussy_Ste_Bergamesq_Clair.mid",
+        "sha256": "4eee9a1546ffde1ff74cb9824ba0e57cbc821185a15185bfea9faed97820bf8c"
+      }
+    ]
+  },
+  {
+    "id": "gymnopedie-1",
+    "composer": "Erik Satie",
+    "title": "Gymnopédie No. 1",
+    "catalog": "",
+    "edition": "https://www.mutopiaproject.org/cgibin/piece-info.cgi?id=37",
+    "license": "Public Domain",
+    "files": [
+      {
+        "path": "gymnopedie-1.ly",
+        "url": "https://www.mutopiaproject.org/ftp/SatieE/gymnopedie_1/gymnopedie_1.ly",
+        "sha256": "420a52244e9fbe106dd33ba2cac84414fd66e0d01c6d472205bad39678d4ce04"
+      },
+      {
+        "path": "gymnopedie-1.mid",
+        "url": "https://www.mutopiaproject.org/ftp/SatieE/gymnopedie_1/gymnopedie_1.mid",
+        "sha256": "09ce7337b4bf42ba12e1aa64b4c7dc7fcfa6455f1070cb12f8880a755df97384"
+      }
+    ]
+  }
+]

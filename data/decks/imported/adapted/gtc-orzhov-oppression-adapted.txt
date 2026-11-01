@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/GTC/orzhov-oppression.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, OrzhovOppression_GTC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Orzhov Oppression (Adapted)]
+2 Angelic Edict
+4 Anguished Unmaking
+1 Gift of Orzhova
+1 Guardian Lions
+1 High Priest of Penance
+3 Inkling Summoning
+1 Jayemdae Tome
+4 Mortify
+1 Murder
+1 Orzhov Guildgate
+2 Orzhov Keyrune
+12 Plains
+1 Purge the Profane
+1 Rain of Blades
+2 Silvercoat Lion
+1 Smog Elemental
+13 Swamp
+4 Unmake
+4 Vindicate
+1 Zombie Goliath

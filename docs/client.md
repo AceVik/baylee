@@ -2,6 +2,11 @@
 
 Bevy 2.5D duel client. Three crates, split by what can be tested without a GPU.
 
+Current support is desktop: Windows, macOS and Linux. Android, iOS and
+browser/wasm are **coming soon** (owner, 24.10.2026). Platform-specific code
+and design notes below are experimental scaffolding, outside current CI and
+release requirements.
+
 | Crate | Contains | Depends on a renderer? |
 |---|---|---|
 | `baylee-view` | The wire view: projected characteristics, per-seat filtering | no — not even the rules kernel |
@@ -1144,6 +1149,13 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   of the seat shown now, never on my turn, which comes home at once; while the moved table settles a `Space` is dropped
   (`Duel::follow_settling`, cleared by `settle_the_follow` once `glide` and
   the camera are still). A seat chosen by hand holds until the next turn.
+  The switch stands in Settings › Graphics and, since a report of
+  30.10.2026, in the game menu too (`menu::switches::FollowSwitch`, "Table
+  follows the turn: on/off"), so it is turned off at the table where the
+  swing is seen. It is the swing to *another* seat's turn: coming home on
+  my own turn and on my attackers or blockers question
+  (`tableview::comes_home`) has no switch, because what those show is my
+  own board, which the question is about.
 - **Invariant 4** (`table::arrangement_tests`): every board whole on screen at
   home or as the seat of interest, and every other seat's creature card at
   least 36 px at home or 40 near (Wide, Vast, Narrow), or as large as a duel
@@ -1378,11 +1390,46 @@ the flier's one possible blocker is the one lit). `table::track_proposals`
 rebuilds the board when that set moves with the aim. And the block
 declaration is a named list in the drawer, as the attack declaration is
 (`drawer::block`, `interaction::BlockRow`): every attacker as
-"Attacker: Earth Elemental · 1 blocking" (`[x]` on the one in aim), then
+"Attacker: Earth Elemental · 1 blocking" (the one in aim drawn chosen), then
 "Block: Grizzly Bears → Earth Elemental" for each creature that may block
 it and "Take back: … → …" for each already blocking; a row is the click the
 table takes (`Interaction::toggle`), the blockers page and the attackers stay,
 and the ordinary confirmation still sends.
+
+**The three action dialogs read alike (30.10.2026).** The owner, 29.10.2026:
+unify the dialogs for targets, attackers and blockers where possible, fix
+their glitches, and play them several times. Played on a dealt board
+(`BAYLEE_DEV_SEAT_BOARD`, six creatures a side, Lightning Bolt in hand):
+
+- **A chooser that wraps stays in its panel.** The answer row wrapped
+  without a width of its own, so the layout measured it as one line and
+  sized the panel to that; the panel grows up from the shelf, so with six
+  attackers the last line hung out of its foot over the shelf's own answers
+  ("Declare attack", "None") and hid them. `drawer::chooser` now spans the
+  panel (`a_chooser_that_wraps_stays_inside_its_panel` lays it out).
+- **Chosen is drawn, never written.** The target picked, the defender or
+  attacker in aim and the seat a target list is filtered to wear the taken
+  row's candle edge and wash (`ChoiceOption::chosen`), as a picked row
+  always did; the three dialogs wrote `[x] ` into the label instead, and
+  the seat filter said nothing about which seat was in force.
+- **One page, one pair of arrows.** `choices::Page` is the one reading of a
+  page for targets, attackers, blockers and damage (an asked page past the
+  end is the last one everywhere), and `choices::page_arrows` the one pair
+  of arrows, worded "‹ Back" / "More ›" in all four (two said "←", "→").
+- **Captioned groups in all three.** The attack list stood in captioned
+  groups (Players, Creatures); the block list ran attackers and blockers on
+  in one wrap and now stands under Attackers and Blockers (with the page's
+  range, as the attack list's creatures); a long target list stands under
+  Targets, its seat filter under "Show the targets of" (the seats' chips had
+  read as the list's seat rows said twice).
+- **The commit leads.** The combat shelf's first answer wears the candle,
+  and it was "Aim next" even where one defender or one attacker left it
+  nothing to aim at. The commit ("Attack", "Block") now leads once
+  something is declared, "Aim next" stands only where there are two or more
+  to aim at (its key `C` moves the aim wherever there is one), then "None".
+- **Words.** The incoming tally says what its number is: "steady 1: 1
+  attacking, 2 damage unblocked" (it read as two creatures). A target list
+  names the chosen targets only where the page does not show their row.
 
 The board model also builds a text chip row per seat (`board::TokenChip`,
 `12× 1/1 Soldier · 3× Treasure`) and a one-line threat read
@@ -3196,7 +3243,12 @@ numbers, and the **light on the felt** round the card says what is on offer.
   and a plate beside it saying 2/2 is noise on every creature of the board.
   A body the layers changed, marked damage, a card drawn without its print,
   a print whose box the next card of a fanned lane covers, and every loyalty
-  and chapter count, are written. `client-core/src/cardplate.rs` decides
+  and chapter count, are written. "Changed" is against the box of the print
+  the card is drawn on (`board::printed_of`, the registry's body of the face
+  `art_of` draws, worked out when the board is built), not against the
+  view's copiable base: an eternalized Fanatic of Rhonas, a 4/4 with a 4/4
+  base on the Fanatic's 1/4 print, read 1/4 while the plate was set against
+  its base (report 30.10.2026). `client-core/src/cardplate.rs` decides
   what it says and packs it into one `u32` — three ten-bit numbers and two
   kind bits — which with its ink word (the tone and `PLATE_NIGHT`,
   `Corner::plate_words`, and `PLATE_TURNED`) is the plate material's key, so a creature dealt
@@ -3691,9 +3743,22 @@ only thing that knows the language.
 
 #### What the banner may claim, and why it cannot count
 
+*Since 22.10.2026* the schedule also dials on until the table's window has
+passed (`Retry::hold_for`; the window has been 180 s by default since
+10.10.2026, longer than the twelve dials below). A client that stopped at
+120.5 s gave up a chair the table was still holding for it, which the owner
+met as a connection that was lost and never came back. When it does run out,
+`reconnect::gave_up` picks the sentence: a seat whose ticket was refused
+(`401`) on every dial is told its sign-in ended or the seat was taken up on
+another device, and to sign in again in the lobby (`LinkSignInEnded`); a
+Central session lives 30 minutes and is never renewed
+(`docs/central-login.md`), and the gateway then refuses the seat. A single
+refusal says nothing: the gateway answers a failed Central check `401` too.
+The rest of this section is the reasoning as it stood before.
+
 The schedule outlives the thing it was reassuring the player about. Twelve
 dials land at t = 0.5, 1.5, 3.5, 7.5, 15.5 and then every fifteen seconds to
-**120.5 s**. `HouseRules::reconnect_window_secs` is shorter than that on all
+**120.5 s**. `HouseRules::reconnect_window_secs` was shorter than that on all
 four presets — 30 s or 60 s — though not on every table that can be opened,
 since a room may ask for anything up to an hour. When it does expire,
 `Session::stand_in` gives the chair to the house, and for the rest of that
@@ -4196,9 +4261,14 @@ count and the actions it fired; `/key` takes a `"char"` to play a layout.
 
 ### The shell's header and strips
 
-Every signed-in lobby screen but the builder wears the shell's header
-(`lobby/header.rs` over `shellkit::header`; the builder keeps its own and
-gets only the strips): Play · Decks · Settings, the gateway pill (its reach
+Every signed-in lobby screen and the builder use the shell's shared header
+frame and status controls (`shellkit::header`). The builder replaces the
+navigation with its breadcrumb, editable deck name, compact icon actions
+(Import, Export, History, Save), save state and overflow menu; the existing
+unsaved-draft confirmation and shortcuts still apply. Both headers and the
+seated strip use the same subtly translucent animated surface, with no opaque
+backing behind it. The lobby adds Play · Decks · Replays. The right end
+carries the gateway pill (its reach
 dot, `/info`'s name, and `GET /lobby/stats`'s tables and players, or the
 listing's waiting tables until it answers), the quick-settings gear, the
 bell, and the account pill (`GET /me`'s handle; offline, no account: the
@@ -4216,9 +4286,16 @@ folds into the header as the gold Return pill in the gateway dot's place.
 `r` is its Return. The reconnecting strip stands while a feed that was
 live is down (`feed::follow_the_feed`), with Retry now. The bell rings for
 somebody sitting down at or leaving the player's waiting table and for the
-table filling (`strips::table_news`); each ring is a toast for six seconds,
-at most three, bottom-right (from the top on a Phone), in a lane of its own
-outside the lobby's tree. A `401` lands on the front door with "Signed out
+table filling (`strips::table_news`); each ring is a toast for fifteen
+seconds, beside the lobby's own notices (`Lobby::status`), at most four,
+top-left under the header (`header::toast_lane`), in a lane of its own
+outside the lobby's tree. Each toast's cross takes that toast away, named by
+the number it came with (`header::ToastId`), never by its place in the lane.
+The lane is put away when a table opens (`put_the_toasts_away`), and what it
+said does not come back after the game: it ages and answers its cross only
+while the lobby runs, so the toasts of the last rings before a game, which
+is when a table fills, stood over the whole game with a cross that did
+nothing (owner, 22.10.2026). A `401` lands on the front door with "Signed out
 — your session ended · Sign in again", and the builder's draft and pool are
 kept for the next sign-in.
 
@@ -4239,69 +4316,61 @@ duel taking the screen still drops it on the frame it does (`teardown`).
 
 ### The front door stands in a scene
 
-The gateway and sign-in forms now stand in **Baylee's sanctuary**: a moonlit
-conservatory garden seen through an open limestone arch. The previous geode's
-inward crystal teeth are gone. `vista.rs` schedules reusable full-screen
-`UiMaterial` surfaces; `shaders/vista.wesl` composites an original generated matte
-painting split into distant world and transparent near architecture, a
-hand-painted portrait of petite Baylee in her red body and an original
-Blender lantern.
-The photographic references remain outside the repository. Sources, exact
-generation prompts and the editable lantern live in `art/baylee/`.
+The existing gateway/sign-in forms stand above a sunlit garden city, river,
+bridges and mountains: a first glimpse of the future **Baylees World**. This is
+background artwork, not a playable world. The approved portrait of petite,
+curled-up Baylee sleeps on a separate cloud with garden birds, pigeons and flowers.
+Both wordmark and icon include her. Asset provenance, exact generation calls
+and photo mapping are in `art/baylee/README.md`.
 
-The image is fitted with cover coordinates, preserving architectural proportions
-on portrait and ultrawide displays. This is a **hybrid scene**, not a fully
-modelled landscape: painted architecture sits behind shader-rendered spatial
-water and cloud volumes. Water rays intersect a horizontal world surface with
-two height refinements; four travelling waves provide analytic surface normals,
-Fresnel reflection, moving moon highlights and shoreline-masked refraction.
-Cloud rays cross six slices (three at mobile quality) of a continuous 3D density
-field. Wind advects that volume, which shades and occludes the moon's disc and
-halo. Narrow cascades carry falling streaks and mist.
+`vista.rs` retains two full-screen `UiMaterial` surfaces for front/interior.
+`shaders/vista.wesl` fits the world with cover coordinates and supplies subtle
+pointer parallax, slow cloud haze, warm sun rays and a dark mask following the
+form. The lobby uses the same world at slightly quieter exposure. The existing
+forms, legal footer, QR and authentication logic remain unchanged. Hub panels
+leave a 180-pixel strip of sky clear for Baylee and her caption, so their hit
+areas cannot cover the cloud at narrow widths or XL text size.
+The existing passage timings remain; a feathered light aperture reveals the
+lobby after accepted authentication. Rejected credentials and offline entry
+never start that flight. Reduced motion uses the existing short colour change.
 
-Pointer parallax grows toward the foreground; Baylee and the lantern have
-separate depths and contact shadows. Virtual time drives all of these effects,
-lantern flicker, two firefly layers and Baylee's subtle breathing. The shader
-never samples card artwork. Narrow screens omit foreground props when they
-cannot stand clear of the form; Baylee remains in the logo.
+`lobby::memorial` draws the approved cloud as an accessible button. Its portrait
+UVs remain fixed; warm contour light and botanical engraving respond to hover
+and keyboard focus without a pointer ornament or enlarged hit geometry. The
+shader uses the shared virtual clock; its material stays unchanged at rest.
+Measured cloud geometry survives shell rebuilds.
 
-`Vista::Interior` keeps the same garden behind both the lobby and deckbuilder,
-including beneath the authenticated arrival flight. It uses quieter pointer
-motion, fewer visible motes, a slightly closer view and a 32% reading-light
-reduction. Lobby/editor panels keep their gold tooling while their material
-opacity grades from 96% to 92%; the fallback fill is removed only after that
-material exists. Thus translucent panels do not accidentally stack over a second
-opaque background. Front-door panels retain their original density.
+Click/Enter opens a parchment remembrance book: the family's approved story,
+37 paragraphs in eight chapters, in German and English. Faustina italic ink
+sits over stationary paper fibres. The reading column has a real scrollbar;
+chapter controls and Close remain visible at XL text size. Ten photographs turn
+independently of the chapter and preserve its scroll position, including a
+scrollbar drag. Preview-only shaders crop around per-photo anchors, round the
+corners and add a subtle vignette. Selecting the preview opens its uncropped,
+full-resolution photograph. Zoom is bounded from fit to 400%, with bounded drag,
+wheel, explicit buttons and Fit. Full copies are loaded on demand and contain no
+capture/location metadata. Originals are not retouched. No album request uses a network.
 
-The form keeps its opaque dark surface, keyboard controls, guest/account flows
-and accessible settings. The logo uses the new transparent brand artwork, above
-the existing localized welcome line. The source and fan-content notice occupy a non-shrinking footer over a soft blue mist gradient with
-12.5 px text, three sentence-aligned notice lines and equal left/right margins.
-The QR occupies the right margin without shifting the text off the screen
-centre. Only the form body scrolls, keeping these notices visible at
-every viewport. Long source URLs wrap by character when needed.
+Left/Right turns photos; over the chapter row it selects chapters instead.
+Alt+Left/Right changes chapters without wrapping. PageUp/PageDown scroll the
+text; Home/End and Up/Down scroll when the reading column has focus. In the
+viewer, +/− zoom and 0 fits. Escape closes the viewer first and restores the
+preview focus, then closes the book and restores the cloud. Initial focus enters
+the modal; sign-in fields cannot reclaim it. The family-approved chapter-six
+wording says the tumour grew larger and wept increasingly, without rupture imagery.
 
-**Choosing a gateway is walking through it.** The existing one-second passage
-(0.8 s back) gently advances into the garden as the panels exchange places.
-The account carousel retains its own 0.48 s timing. **Successful authentication**
-starts the existing 1.65 s flight only after account or guest acceptance: the
-camera accelerates, foreground props pass away, light streaks converge, and a
-feathered aperture reveals the actual lobby beneath. Rejected credentials,
-offline entry and restored sessions do not start that flight. Input remains
-blocked until it completes; sign-out or reduced motion cancels it.
+A finite leaf animation retains its origin, old scroll and progress through
+rebuilds and rapid reversals. Surface/photo slides and elevation shadows clarify
+the layers; controls never scale on hover or click. Reduced motion immediately
+settles the leaf and slides. Cached fitted photo geometry is applied before
+layout to avoid a one-frame miniature during zoom. The approved cloud decorates
+the book header without inheriting hover from behind the modal.
 
-The same scene holds behind longer waits. `VistaArt` retains all five login
-images, and the startup curtain waits for their load state as well as the fonts
-before collecting resident GPU assets. A missing image reports the existing
-asset failure rather than revealing an incomplete login.
-
-`reduce_motion` zeros the virtual clock and pointer; even Baylee, the lamp and
-water stay still. The only reduced-motion passage is a short colour change.
-The public material uses four textures and samplers, no offscreen buffers,
-particle entities, per-frame allocation or imported scene meshes. Water and
-cloud geometry are evaluated analytically inside the material. The GLB is an editable
-source export; the client consumes its transparent render. Mobile GPU performance
-has not been measured for this replacement; older geode timings do not apply.
+`VistaArt` keeps the world, cloud and title logo resident for the startup curtain.
+A missing image uses the existing asset failure path. Ambient low quality and
+`reduce_motion` freeze the sky, cloud and breathing; focus feedback remains static.
+No offscreen buffer, per-frame entity spawning or card-art sampling is involved.
+The city is a generated raster with shader layers, not geometrically modelled.
 
 ### The front door's faces, on the kit (WP1)
 
@@ -4325,6 +4394,12 @@ above the keyboard (§2.7). A second face's head wraps rather than cuts:
 it, or on a line of its own when the three do not fit. A front door taller
 than its window scrolls, and a bar at its edge says so
 (`scrollbars::OnlyWhenNeeded`, out of the layout while the page fits).
+Every list that runs over has one, at its right edge where the client's
+other bars stand: Play's deck picker (Change deck) is a sheet whose body is
+a `Scrollable` with its bar (`surfaces::sheet_box_listed`; before a report
+of 30.10.2026 its body scrolled to no wheel and showed no bar), and the
+room under its header has its bar back (lost with WP3's rebuild,
+b0dd3c480), which is where a seat's long list of decks is scrolled.
 
 **One click is one press** (owner, 09.10.2026: "buttons need 2 clicks").
 A press on a button while a field held the caret moved the kit's focus
@@ -4708,7 +4783,16 @@ search understands, a press inserting the example. The deck side has its
 commander slot, tabs Main · Sideboard · Stats, the list grouped by type, mana
 value or colour with folding, rows with `− n +` and `⋯`; Stats is the curve
 with one type lit, the colour pips' shares, the type counts, the land share
-and Draw seven (a fresh shuffle, nothing leaves the deck). The header holds
+and Draw seven (a fresh shuffle, nothing leaves the deck). Each draw scrolls
+the sample into view once its geometry is ready, even when it draws the same
+cards again; subsequent manual scrolling is left alone. Pool-row `+`,
+deck-row `−` / `+` and the adjacent `⋯` use the same square icon-button
+helper, with identical face and hit-area dimensions at every text size and
+input mode. The card window's quantity controls use the same helper.
+A centred box holds the quantity between the two square faces. Cost rows
+retain `manaui::spawn_cost`'s scaled spacing between complete symbols;
+hybrid and Phyrexian symbols stay intact.
+The header holds
 the one save state ("Unsaved · n changes", "Saved ✓ · n min ago", "Couldn't
 save · Retry"). The tree is retained section by section (`buildui::retained`):
 a key typed into the search patches the toolbar and the list, and nothing is
@@ -5118,6 +5202,17 @@ unused half of a permanent it taps anyway. A priced source is tried first,
 then the roomiest. The same pass stopped a Forest listed before a Sol Ring
 from paying half of `{2}` beside it, which predates any price.
 
+Among clean sources of one breadth, `manaplan::prioritize` decides what is
+kept, in three tiers that are never traded against each other: a creature
+(its attack and its tap), then a permanent used for more than mana (an
+ability activated on the battlefield that is not a mana ability,
+`CardDef::activates_beyond_mana`: Karakas, a creature land, Mind Stone;
+statics like Urborg's do not count), then the colours the hand still needs.
+The registry's answer comes in as a predicate, from the client
+(`cardart::taps_beyond_mana`) and from the house AI alike. A Karakas beside
+a Plains used to tie and fall to the object order, so it was tapped first
+about as often as not (report 30.10.2026; `a_utility_land_is_tapped_last`).
+
 Four rules keep it honest, and they are the reason to read the module before
 changing it:
 
@@ -5129,8 +5224,10 @@ changing it:
    hands the turn back rather than pushing an action that would bounce.
 2. **It never spends what a player would want to decide.** Phyrexian mana is
    read as its colour and never as two life; `{X}` and `{S}` are refused
-   outright; restricted mana (Cavern of Souls) is not counted, because what it
-   may be spent on is a rules question this side of the wire cannot answer.
+   outright. Restricted mana (Cavern of Souls) is not counted in the generic
+   matcher. `manasources` first tries the unrestricted plan, then adds at most
+   one restricted tap whose filter provably admits this spell or activation,
+   always last, so the engine's own payment check remains authoritative.
 3. **It under-counts rather than over-counts.** A source that makes two mana
    *of one chosen colour* is worth one mana here, because two units that must
    match are not two independent units, and pretending otherwise builds a plan
@@ -5252,7 +5349,11 @@ population is closed" survived being written down. Every target-requiring
 spell ability is provable, never-targetless (a spec naming a player, or naming
 something the spell already holds, refused by construction rather than by a
 gap), or blind; a blind one is offered and never withheld, and the test puts a
-floor under the population and a ceiling over the blind bucket.
+floor under the population and pins the exact blind membership. A new blind
+ability, a removed member or a duplicate must be reviewed. The known gaps
+require turn history, unannounced X or authoritative stack-source facts absent
+from `PlayerView`; marked damage and the current combat cannot substitute for
+that history. The engine remains authoritative when the preflight is unknown.
 
 #### A card in a pile is reached for too (#242)
 
@@ -5643,13 +5744,13 @@ trap a second time.
 
 ### The pool, and the land that always tapped for the wrong thing
 
-Rule 2 above — the planner refuses restricted mana — is correct and was, for
-one card, the entire user-visible bug. Jasmine Dragon Tea Shop prints *two*
-mana abilities: `{T}: Add {C}`, and `{T}: Add one mana of any color`
-spendable only on Allies. `manasources` reduces a permanent to the one tap it
-can read, `simple_mana` refuses the restricted one on purpose, so the land
-resolved to `{C}` — every time, whatever the player wanted, and the Ally
-spell the land is in the deck *for* stayed unlit.
+Rule 2 above — the *generic* matcher refuses restricted mana — is correct
+and was, for one card, the entire user-visible bug. Jasmine Dragon Tea Shop
+prints *two* mana abilities: `{T}: Add {C}`, and `{T}: Add one mana of any
+color` spendable only on Allies. `manasources` used to reduce a permanent to
+the one tap it could read, so the land resolved to `{C}` — every time,
+whatever the player wanted, and the Ally spell the land is in the deck *for*
+stayed unlit.
 
 Three things were wrong and only one of them was the planner:
 
@@ -5681,9 +5782,12 @@ colour alone must not carry meaning, and five discs is a number the player has
 to stop and count. `baylee-client-core/src/manapool.rs` decides the row and is
 tested without a renderer, like everything else in that crate.
 
-None of this changes what the planner does, and that is the point — the player
-can now do by hand the thing the planner is right to refuse, and watch it
-happen.
+The generic matcher still refuses restricted mana, and that is the point —
+the player can do by hand the thing it is right to refuse. A purpose-specific
+plan now tries the ordinary sources first and then, only when the filter
+provably admits this exact spell or activation, adds one restricted tap last.
+The engine still makes the final payment check, so no plan depends on reading
+restricted mana already floating in the pool.
 
 ## A choice you answer by picking, not by clicking the table
 
@@ -6482,6 +6586,41 @@ reading and would probably not have needed to be; it is left where it is,
 because the tables were tuned there and a shelf's depth is a look rather than
 an arithmetic.
 
+### The turn goes round at a pace a person can follow (30.10.2026)
+
+The owner, 29.10.2026: phase transitions at the table should be smooth,
+good-looking animations, and slower, so a person can follow what happened.
+The engine moves through the steps as fast as the seats pass, and when the
+house or a standing order passed, three steps went by between two frames:
+the gold jumped from the upkeep to the end of combat, cut on the new tile and
+gone at once from the old one, because the bars are rebuilt whole with every
+step and the light lived on the tile.
+
+- **The pace** (`client-core::phasepace`, `hud::StepPace`,
+  `rail::pace_the_steps`): the bars draw the step the pace shows, not the
+  view's. Every step a view stood in is shown for at least `STEP_HOLD`
+  (0.6 s) before the next, so the light walks the row a step at a time; only
+  steps a view stood in are shown, never one the game skipped (CR 508.8). It
+  never stands in the way of an answer: when this seat is asked something,
+  the steps still waiting run by at `CATCH_UP` (0.15 s) each, so the light
+  reaches the step asked about instead of jumping there (in another seat's
+  turn a seat is asked at most steps, and a jump each time was the cut this
+  ends); with motion reduced it goes straight there. It never falls more
+  than `MAX_BEHIND` (4) steps behind. A replay that goes back or
+  jumps turns starts it over.
+- **The light** (`rail::glow_the_steps`, `hud::StepLights`): kept by seat and
+  step, off the tiles, it eases up on the step shown (`LIGHT_RATE` 3.5/s,
+  nine tenths in 0.65 s) and down on the one left twice as fast, so the gold
+  does not trail behind the step shown. It writes every part that
+  wears it, a rebuilt tile on the frame it is first drawn: the gold under the
+  glyph (`StepFill`, a child, because `Feel` owns the tile's own ground), the
+  glyph's, label's and stop accent's ink towards the ink that reads on gold
+  (`StepInk`), and the tile's glow and frame (`StepGlow`). So the gold passes
+  from tile to tile instead of jumping. Only a step that grants priority is
+  gilded, as before (CR 502.4, CR 514.3a). Every write is compared first;
+  settled, it writes nothing (`the_gold_passes_from_the_step_left_to_the_step_shown`).
+  Reduced motion cuts.
+
 ## The players' strip, and the bar's right end (#264)
 
 On 25.09.2026 the owner rearranged the bar's two ends: *"At time the Manazone
@@ -6762,8 +6901,10 @@ one bar would have said the untap step is the daytime, and
 `the_designation_does_not_borrow_a_step_glyph` reads both files to hold it.
 
 The change is marked by a flash on the block's border and shadow, and it is
-anchored to the **change** rather than to the entity. `PhaseNow` can ease
-from zero at spawn because the tree is rebuilt when the step changes; the
+anchored to the **change** rather than to the entity. `PhaseNow` could ease
+from zero at spawn because the tree is rebuilt when the step changes (until
+30.10.2026, when the step light moved off the tiles, §"The turn goes round
+at a pace a person can follow"); the
 overlay tree is rebuilt on every hover, so a light born with the block would
 fire whenever the pointer crossed a card. `rail::DesignationFlash` keeps the
 last designation it saw beside the clock, and
@@ -7318,6 +7459,39 @@ the name could not tell a burst from a tap — which is precisely the thing the
 counted cues exist to do.
 
 ### One orchestra follows the player
+
+The login, lobby and deckbuilder share an eight-and-a-half-minute piano
+remembrance dedicated to Baylee: Debussy's **Clair de lune** and Satie's
+**Gymnopédie No. 1**. The complete Mutopia editions are public domain; source
+scores, MIDI, hashes, preparation scripts and manifests live in
+`art/music/memorial/`. This replaces the earlier three-Lieder arrangement.
+Every written piano note is retained, including Satie's repeat. A prepared
+performance map supplies rubato, melody/accompaniment balance, dynamic arcs and
+bounded half-pedal. Violin and cello enter in selected sustained phrases.
+
+The grand piano is Osiris Piano: real stereo Yamaha C2 recordings with two
+velocity layers, soft pedal and sustain, from its low-noise Mic A set. Solo
+violin and cello use full stereo VSCO 2 CE recordings. Both libraries are CC0.
+The piano source is 48 kHz/16 bit; the strings are 44.1 kHz. Offline VHQ libsoxr
+preparation tunes the required pitches at 48 kHz, retaining stereo, source
+levels and long natural decays. The manifest records all source and prepared
+hashes. Four lossless packed chunks embed 157 clips (about 127 MiB packed,
+175 MiB decoded); they are decompressed once before the audio callback.
+
+`music::score::memorial` reads fixed-size compiled events without render-time
+allocation. `music::orchestra::chamber` mixes recorded velocity layers and
+shapes key release and bow phrases in a fixed 64-voice pool, using the same
+continuous room as the other music. Login → lobby and theme-setting changes
+preserve the exact waveform and held notes. During a duel the remembrance
+pauses while the selected original suite plays; returning resumes its place.
+Mute, volume and background silence still apply. The sample-bank setting
+selects the **game** recordings; the remembrance always uses its stereo bank.
+Scene requests are observed at most every 50 ms, including rests. Position
+counters use four-second observation windows here; game suites retain their
+musical bar counters. No third-party performance recording is used.
+
+The following fifteen original suites remain the **duel** music. Their earlier
+title/lobby arrangements remain authoring material but are no longer played there.
 
 Fifteen original suites (10 October 2026) are available. The first five remain
 unchanged, centred on **B♭ Dorian**
@@ -8430,6 +8604,42 @@ screen, so `Enter` and `Space` press them. `baylee-tools shell settings`
 walks every section at the seven sizes in English and German with the
 kit's checks.
 
+**Over a table** (report of 30.10.2026): the game menu's *Settings* row
+(`MenuAction::Settings` → `Duel::settings_asked`) asks the lobby, which
+stands the same screen over the playing table in a root of its own
+(`lobby::table_settings`, `OverTable`; the lobby's own tree stays down).
+Its root lies over the HUD and under the screen's own popovers
+(`tokens::z::POPOVER - 2`), on a scrim the table shows dimly through, so
+a graphics knob turned there shows on the table; it is measured as the
+report form is (`ShellMetrics::under`), never scaled twice. The table's
+controls that stand above that root — the arrangement pill and menu
+(`G_SWITCHER`), the peeks, a phone's hand tab — stand down while it
+does (`table_settings::covers_the_table`), or a press through them would
+answer the question under the screen; the report corner, the chat window,
+the update card and a tour stand over it as they stand over the lobby's.
+Only what leaves the table where it is is offered (`Section::at_table`:
+Graphics, Audio, Display, Controls, Gameplay, Privacy): the account, the
+gateway, the language models and the updater stay in the lobby, and
+`LobbyState::set_settings_section` refuses them there, from the nav, the
+type-ahead or a search result alike. The lobby's clicks, typing, wheel,
+focus, the screen's key systems and the header's `carry_out` (Report a
+problem, Chat privacy) run for it (`table_settings::lobby_or_over_table`);
+the rest of the lobby does not. The kit's walker and activation count it
+as the shell's screen (`shellkit::focus::table_open`), so Tab, the arrows
+and Enter work it as in the lobby. While it stands the table's keys are
+held: the table's `KeyClaims`, the chat's key doors (`/`, `R`,
+`Ctrl`/`Cmd`+`Enter`), the replay bar's keys and the preview's resize
+chord all stand aside, and the table tour is set aside (`tour::table`
+parks it: no bubble, no key) and comes back on its step after; one that
+starts under them starts parked, and a tip waits until the table shows.
+`Esc` empties the search, closes a
+sheet, then puts it away, taken off the keys before the table could hear
+it; a report form, a narrated tour bubble or the chat's composer over it
+has its `Esc` first. Back does the same. The table being put down
+(finished, or left) puts it down with it, and the lobby comes back on its
+own screen. A client seated straight into its game has no lobby: the row
+is dead there and says so.
+
 ## The interface's own words
 
 Card text has been translated for as long as `/pool?lang=` existed — the
@@ -8778,9 +8988,29 @@ A turn's heading is a quieter line under a rule. Every other line reads
 like a chat (#300): its time, the seat swatch, then the sentence, and
 "(×N)" in the quieter ink after a line that happened more than once.
 
+**Turns fold** (feedback of 24.10.2026: the log is huge, fold what can be
+grouped, folded by default). The panel, the chat window's Log tab and the
+end screen show every turn but the newest as its heading alone, a chevron
+and "· 135 lines" (`virtual_list::fold`, `Entry::Turn`); a press on a heading
+opens or folds it (`LogFolds`, `spawn_turn`), and the choice holds for that
+turn for the rest of the game in all three lists, forgotten at the next game
+or a replay's jump (`keep_the_folds`). A new turn folds the one before it
+unless the player opened that one. The list keeps the whole book beside what
+it shows, so a refold keeps every measured row height and the row being
+read; a press on a heading stops the list following its end, so the heading
+stays under the pointer and the turn opens below it. A line of the newest,
+open turn is appended as before, mounting nothing again; only a new turn or
+a press refolds. The chat window's All tab does not fold.
+
 - **The time** is `LogLine::at` on the device's own clock, "14:05", in a
   column `CLOCK_W` wide so the sentences start in one place
-  (`ledge::log::local_clock`, `LogLine::clock`). The offset is asked of the
+  (`ledge::log::local_clock`, `LogLine::clock`). It is set a step smaller
+  than the sentence (`CLOCK_SCALE`), in lining figures of one width, in the
+  quieter ink faded further (`CLOCK_FADE`), lowered onto the sentence's
+  first line, with `CLOCK_AIR` of room before the swatch (feedback of
+  24.10.2026: "room between the time and the line; the time apart, but
+  quieter"). The chat window's lines take the same column
+  (`ledge::log::clock_bundle`). The offset is asked of the
   platform for the moment the line was written (`time`'s `local-offset`:
   `localtime_r`, Windows' zone information, the browser's `Date`), so a line
   from before the clocks changed keeps its hour; where the platform will not
@@ -9015,10 +9245,13 @@ preview is the same fitted submission pretty-printed, the picture written
 as its size and the text cut at 20 000 characters on screen.
 
 The screenshot is asked for as the form opens and the form waits up to
-`SHOT_PATIENCE` frames to draw itself, so the picture is of the screen and
-not of the form. It is encoded as PNG at most 1280 pixels wide, smaller
-until it is under 900 kB, and dropped if it never is. A browser build links
-no encoder and takes none.
+30 frames for renderer readback before drawing itself, so the picture is of
+the screen and not of the form. A timed-out request is cancelled and its late
+answer ignored. PNG encoding and local-record compression run on the compute
+pool; encoding does not delay drawing the form. Send waits for record
+preparation and, when selected, screenshot preparation. The PNG is at most
+1280 pixels wide, smaller until it is under 900 kB, and dropped if it never
+is. A browser build links no encoder and takes none.
 
 **A game hosted here, and a client signed in nowhere.** `LocalHost` plays
 through `Session::new_recorded`, so a game against the house is recorded
@@ -9044,10 +9277,12 @@ always goes through the confirmation), with "Never offer…"
 beside it (`RecordConsent::Never`, the one standing answer). The record
 never rides under a game id, and `seal` reads its own lines
 (`seal_record`), which the gzip would hide. `report::route` picks the
-road: the gateway signed in to, else the feedback service the settings
-(`feedback_url`, `""` = off) or the build (`BAYLEE_FEEDBACK_PUBLIC_URL`)
-name, as `bugreport::feedback_service` accepts it (`https`, or `http` to
-this machine), else none: the form then says it needs a gateway and has no
+road: the gateway signed in to, else the report address the settings
+(`report_url`, `""` = off) or the build (`BAYLEE_REPORT_PUBLIC_URL`, the
+official gateway in a release) name, else the feedback service the settings
+(`feedback_url`) or the build (`BAYLEE_FEEDBACK_PUBLIC_URL`) name
+(`bugreport::report_address`, held to `bugreport::feedback_service`'s rules:
+`https`, or `http` to this machine), else none: the form then says it needs a gateway and has no
 Send. A direct report goes under `report_device`, a random id made with
 the first (`kept_device_id`, `getrandom`), fitted to the service's 1 MiB
 (`Submission::sealed_direct`). A direct report and any report carrying a
@@ -9169,9 +9404,10 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   count outside its corner (rose for a whisper or a mention). The scroll and
   `L` open the panel on Log; the bubble on the last chat tab; `Esc` never
   closes it. Shut, new chat lines peek above the strip for 10 s and fade.
-  In the lobby the same window docks bottom-right (560 × 38 % of the height,
-  320–520), beside the friends drawer, minimises to its tab row or hides to
-  the chat pill. It grows from its corner and shrinks back before the pill
+  In the lobby the same window docks bottom-left (default 560 × 38 % of the
+  height, 320–520), beside the friends drawer, minimises to its tab row or
+  hides to the chat pill. Its top-right corner resizes it upward and right;
+  the chosen size is saved per device and clamped to the available window. It grows from its corner and shrinks back before the pill
   takes its place (`window::Pop`, `hud::motion`'s curve); a line more is
   appended rather than the list redrawn, and a row newer than the list
   showed rises 10 px into place (`window::Arrive`, 0.18 s). A line is drawn
@@ -9205,6 +9441,38 @@ the chat window design). The renderer never builds a frame or an HTTP body.
   encryption notice stands the first time the chat opens on a device, and
   from every lock; Chat & privacy holds the server settings, history length,
   sounds, this account's devices and Forget this device.
+- **Light** (owner, 29.10.2026: a more attractive chat input and window,
+  with light shader animations): one small UI material
+  (`social::glass`, `shaders/chat_glass.wesl`, uniforms only) laid as light
+  over the window and the composer's box, never over the middle of what is
+  read. The window wears a rim of light just inside its rounded edge (on
+  the edge itself the 1 px border covered it), brightest along the top, and
+  for 0.9 s after a **chat** line arrives a band climbs its sides from the
+  foot, where new lines appear, washing a little way in (a game log line
+  arriving in the table's window moves its row and lights nothing). The
+  composer's box lights its rim and carries a glint round it every 3.2 s
+  while it has the caret; without the caret, a faint rim and nothing that
+  moves. Two
+  materials serve every surface, written only when the caret comes or goes,
+  `reduce_motion` changes or a chat line arrives; the band and the glint
+  move on `globals.time`, so a resting chat writes nothing
+  (`a_resting_chat_writes_no_light`), and `reduce_motion` holds the glint
+  still and draws no band. Its cost is under what a GPU trace tells apart:
+  the lobby with the window open and the glint running drew 2.54 and
+  3.68 ms of fragment work a frame with it and 3.59 and 3.56 ms without
+  (`/hide chat_glass`, two interleaved rounds of Metal System Trace at
+  Retina, 30.10.2026), the rounds differing more than the switch.
+- **Where things stand** (played 29.10.2026). The header's chat count is a
+  badge on the bubble's shoulder, out of the row (it lay over the word's
+  last letter). Unlocked, nothing floats: the composer carries the lock (a
+  "Lock chat" pill stood free at 42 % of the width, over the lobby and over
+  the hand at a table, whenever the window was shut). Locked, **Unlock chat**
+  stands where the chat's pill would: the lobby's bottom-left corner, beside
+  the memorial's caption where the window is short enough to share its band
+  (`window::pill_left`; the pill had covered half of it), and at a table
+  under the arrangement pill. At a table the friends drawer ends above the
+  hand zone, whose top is the bar with the HUD's own doors (#389: run to the
+  window's foot it covered them and a press on one answered nothing).
 - **Sounds** are four synthesised cues (`sound::chat_voice`), no samples,
   at the interface level and the device's effects volume.
 - `/state.chat` reports the machine and the window and every chat control
@@ -9237,6 +9505,17 @@ and every six hours: no account, `User-Agent: Baylee/<version>`, the last
 build is offered stable releases only, a pre-release build both, ordered by
 semver precedence (`0.1.0-beta.10` after `beta.9`).
 
+The first check leaves as early as the client can (owner, 22.10.2026:
+"check as quickly as possible"): `update::native::begin` runs in
+`standalone::run` right after the settings store opens, before the window,
+the renderer and the lobby are built, and starts the thread, whose first
+request leaves at once. The log says how soon: in the live check of
+22.10.2026, a debug build, "begun 3 ms after the process started" and "first
+check asked 5 ms after", where the plugin's build (the old start) came at
+317–356 ms. `begin` runs before Bevy's logger exists, so what it says is kept
+and logged once the plugin is built. With automatic checks off it still
+makes no request at all.
+
 **Staging.** For a newer release it downloads the archive for its own target
 into its per-user state directory, checks the size, the `.sha256` (a
 sanity check against a broken download, nothing more) and then the Ed25519
@@ -9247,6 +9526,18 @@ the signed internal folder must name the exact offered version and target;
 only then is `staged.json` written. An unsigned archive is never
 downloaded, and a refused one is deleted; the notice then only links to the
 release page.
+
+**Reporting.** The thread says how far it has got (`service::Report`):
+a check begun (with when), found (version, page, the archive's size), the
+download as it arrives, verifying, unpacking, and the check's end
+(`Report::Done(Outcome)`, as before). `progress::Meter` turns the 64 KiB
+reads into at most four readings a second, always the first and the last,
+so the readings a client sees add up to the archive; its rate is smoothed
+over a 3 s time constant and said only after 0.75 s of download, and the
+time left follows it. A client that has gone stops a download in the
+middle, leaving no part of it behind. A download that fails is said as
+such ("tried again at the next check"); the next check, or "Try again",
+downloads it anew.
 
 **Installing on exit.** The public executable is a permanent launcher; the
 real client is `baylee-runtime`. On exit the updater places the verified
@@ -9333,16 +9624,58 @@ folder it runs from is `target/release`, not an installation. Under
 `BAYLEE_UPDATE_KEY` point it at a stub, make it pretend to be an older
 version and make it trust a test key.
 
-**The face.** `update::UpdateNotice` is what is shown: a small panel in the
-lobby's bottom-left corner (hidden for the session by its own button, back
-on news) and a line in the table's menu, both opening the release page
-(`https` only, or a loopback stub). The settings screen has "Update
-automatically", "Check for updates automatically" (off: no request at all,
-until "Check for updates" is pressed) and that button, kept per device in
-`update.json`.
+**The card.** `update::UpdateNotice` is what is shown, and `update::card`
+draws it on the shell's kit: one card in the lobby's bottom-left corner,
+above the front door's colophon, 336 px wide at the default text step and
+opaque, with an accent edge on its left. Its title names the version beside
+a mark in the accent; under it:
 
-A ready update (staged and verified) also offers "Restart now" and "Later"
-on that panel, and at a table (§"Restarting into an update").
+- **Downloading**: a slim bar, the share beside "Downloading…" ("45%",
+  German "45 %"), and "45 of 150 MB · 3.2 MB/s · about 30 s left" under it
+  (SI megabytes; what has arrived rounded down, so it never reads the whole
+  early; the time left in steps of 5 s, then whole minutes, then "more than
+  an hour"; `update/words.rs`).
+- **Verifying**, **unpacking**: the full bar, "Verifying…" over "150 MB
+  downloaded", then "Unpacking…" over "Signature verified".
+- **Ready**: "Update X is ready", "Restart now and carry on right where you
+  are – or later: it installs when you quit", **Restart to update** (the
+  screen's one primary) and **Later**.
+- **Failed**: why, in the system's words, that the next check tries again,
+  and **Try again** with the release notes.
+- **Only a link** (installing off, a development build, a folder this user
+  cannot write, a refused signature): why, the moves where one helps
+  ("Moving the app", above), and the release notes; **Updated to X** after an
+  update, with its release notes.
+
+Every card but the ready one has a close mark, which hides it for the
+session; "Later" does that for the ready one. It comes back only for news:
+another version, or one that has become ready (`UpdateNotice::show`), so a
+card hidden during the download stays hidden through its stages and
+returns once there is something to restart into. Nothing plays a sound,
+takes the keyboard or covers the screen. At a table no card stands but the
+ready one (§"Restarting into an update"); the table menu's line says the
+rest and follows a download's share ("Downloading update X · 45%"), and the
+settings' status line says the whole download line. The pages open only
+over `https`, or a loopback stub.
+
+A reading writes only the bar's width (in tenths of a percent) and the two
+numbers, compared before writing; `UpdateNotice::progress` stands beside
+`shown`, so the card, the table menu and its revision rebuild only when the
+stage changes, and a download relays nothing else out. The settings screen
+has "Update automatically", "Check for updates automatically" (off: no
+request at all, until "Check for updates" is pressed) and that button, kept
+per device in `update.json`.
+
+**Showing every state without a release** (`dev-control` only):
+`POST /shell {"update":{"stage":…}}` feeds the card the reports the thread
+would send, by the same path (`update/native/dev.rs`): `found`,
+`downloading` (`received`, `total`, `rate`, `left`), `verifying`,
+`unpacking`, `staged`, `failed` (`reason`), `available` (`why`: `dev`,
+`off`, `unsigned`, `folder`, `other`), `updated`, `moved` and `kept` (the
+start's own cards, set directly), and `simulate` (`size`, `ms`): a whole
+download in real time through the updater's own meter on a line whose speed
+wanders, then verifying, unpacking and ready. Point `BAYLEE_UPDATE_API` at
+a closed loopback port, and the real check makes no request off the machine.
 
 **macOS quarantine.** Files the client writes are not quarantined: macOS
 marks a download with `com.apple.quarantine` only when the program that
@@ -9364,20 +9697,21 @@ The owner, 09.10.2026 (beta.6): when an update is ready, the client
 suggests a restart, and after it the player goes on at exactly the same
 point, in a game too.
 
-**The offer.** `Shown::Ready` (staged and verified) draws "Update ready –
-restart now and continue where you are" with **Restart now**, **Later**
-and the release notes: in the lobby's corner panel, and at a table at the
-top of the window. At a table it never appears in the middle of a question
+**The offer.** `Shown::Ready` (staged and verified) draws the ready card
+("Restart now and carry on right where you are – or later: it installs when
+you quit", **Restart to update** and **Later**; §"Updating"): in the
+lobby's corner, and at a table at the top of the window. At a table it never appears in the middle of a question
 of this player's (`client-core::resume::RestartOffer`): an update that
 becomes ready while the player owes an answer is held until that question
 is answered, and appears then, between that answer and whatever comes
 next, or at once while nothing is asked. Against the house the player is
 asked almost every frame, so "only while nothing is asked" would never show
 it. Once it stands it stays (a panel, never a question, and it takes no
-key) until "Later", which puts it away for the session. The table's menu
-line is unchanged.
+key) until "Later", which puts it away for the session. A download, a
+failure or a link never stands over a table; the table's menu line says
+them (§"Updating").
 
-**Leaving** (`lobby/resume.rs`, `restart_on_request`). "Restart now"
+**Leaving** (`lobby/resume.rs`, `restart_on_request`). "Restart to update"
 writes where the player is to `resume.json` beside the settings (`0600`,
 atomically), leaves the relaunch helper behind with the handoff on its
 pipe (`update::native::restart`, `baylee_update::relaunch`), and quits; the
@@ -9470,6 +9804,123 @@ process back at the same table, seat, `seq` and hand, the zone browser
 open as it was, with the held-seat note; an offline game at turn 5 back at
 the same `seq`, hand and visit, and played on.
 
+## The live gateway's address, and its move (30.10.2026)
+
+The live gateway, Baylee Sanctuary, serves at `https://gateway.baylee.app`
+since 30.10.2026 and at `https://baylee.acevik.de`, its first address, as an
+alias. The client still pins the first address (`gateway_list::PINNED`): it
+follows once Baylee Central takes tickets for the new origin, in a step of
+its own (#402) that makes the new address `PINNED` and the old one `FORMER`.
+Until then `FORMER` is empty, the mapping below leaves every address as it
+is, and the tests that need the old spelling are ignored with that reason.
+The old host stays an alias until a release with the new address is widely
+installed; after that it only redirects. Nothing a player kept under the old address may be lost, and an
+installed client must keep working beside a new one on the account's other
+devices, so what holds the address is moved in one of two ways.
+
+- **Read under the new address** (`gateway_list::moved`), because the
+  device's own files are read by one client version at a time:
+  `client-settings.json`'s list, uses, guest tokens and accepted terms
+  (`ClientSettings::moved` on load; a guest kept under both addresses keeps
+  both, neither token is overwritten), `resume.json` and the crash report
+  written by the client an update replaced, the account's synced list as
+  this client shows it (`renamed`), and an address typed or proposed by a
+  link (`gateway::normalize`, `links::propose`).
+- **Kept under the first address** (`gateway_list::keyed`, `KEYED`), because
+  they cannot move without loss: the vault's scope, which is both its folder
+  name and its AEAD associated data, the legacy chat folder, the keychain
+  slot, and the account's chat records, which an installed client on another
+  device matches with `==` (a miss there makes it generate a second chat
+  identity). The account's synced gateway list is written in this spelling
+  too (`filed`), so an installed client shows its own pinned row and no
+  second one.
+
+A Central sign-in hands the chat no password: every local vault the password
+opens gains the account's key, found by its folder under whichever address
+it is filed (`docs/password-vault.md` §"The account key"). A browser's
+`localStorage` belongs to the page's origin: `/play/` on the new host starts
+empty, and a browser guest kept on the old host stays there. Tests:
+`gateway_list` (the mapping), `settings` (a file from before the move),
+`vault::password` and `restore` (the vault and the chat records),
+`lobby::central` (the account's list). The gateway's side is in
+`docs/central-login.md` §"The official gateway's aliases" (#402 is the switch that ends it).
+
+## Links from the website
+
+The owner, 30.10.2026: baylee.app's gateway list links into the client,
+the client handles the player being signed in or not, and a link never
+does anything with consequences before the player confirms. The design and
+its open questions are `docs/proposals/deep-links.md`; this is slice 1 of
+it (no sign-in handoff: the client signs in with its own form).
+
+**The links.** `baylee://open` starts the client or brings it forward.
+`baylee://signin` does that, and opens Baylee Central's sign-in where
+nobody is signed in. `baylee://gateway/add?origin=<origin>` proposes a
+gateway: the origin percent-encoded, `https` and a DNS name with an
+optional port, nothing else (a `dev-control` build also takes a numeric
+loopback `http` origin, for tests). `client-core::deeplink::read` reads a
+link strictly: anything that is not exactly one of these, a link over
+2 KiB, a second or unknown parameter, is dropped without a word to the
+player. A link carries no secret and no text the client shows; the website
+puts nothing else into one. The log names a link's kind, never its text.
+
+**How a link arrives** (`src/links.rs`). Windows and Linux start the
+launcher with the link as its argument (the setup's `HKCU\Software\Classes\baylee`,
+the desktop entry's `MimeType=x-scheme-handler/baylee;` and `%u`). With no
+client running, the launcher passes it to the client it starts. With one
+running, the second launcher meets the lifetime lock and, instead of
+refusing, knocks on the running client's **door** (`baylee_update::link`:
+a Unix socket in a `0700` directory of the state root, a named pipe
+refusing remote clients on Windows, one per installation, named after its
+state directory; its frame is frozen because the launcher is permanent),
+hands the link over and ends: no second window. On Windows it first lets
+the client take the foreground. macOS sends the link to the running client
+itself as an Apple Event, on a cold start too (`src/links/macos.rs`;
+winit owns the app delegate, so the event is asked for from
+`NSAppleEventManager`, before the event loop runs and again on
+`willFinishLaunching`). A client started without a launcher (`cargo run`,
+a terminal) with a link as its argument knocks on its own door first,
+named by its program and settings folder, and ends if a client took it.
+
+**What the client does** (`lobby/links.rs`). At most ten links a minute
+are read; the latest waits (`links::Arrived`) and the window comes
+forward, never in a passive dev-control run. The lobby follows it only
+at rest: not in a game or replay (the lobby's systems do not run there),
+not over another question, the terms or About, not while a request or an
+address check is under way. `open` does nothing more. `signin` opens
+Central's sign-in when nobody is signed in anywhere, with `‹` back to the
+device's gateways, and no gateway is entered after it: the account's list
+is shown. A gateway link:
+
+- signed in at Central: asks at once, and the gateway joins the account's
+  list (`sync_gateways`, `Account::save`; refused when it holds 128);
+- signed out: opens Central's sign-in first and keeps the link; after the
+  sign-in (and Central's terms) it asks for the account's list; back with
+  `‹` instead, it asks for this device's list;
+- signed in at a gateway with its own accounts, or offline: asks for this
+  device's list;
+- already in that list: says so and asks nothing.
+
+The question (`confirm::Destructive::AddGateway`) shows the address in
+full as it would be saved, says that gateways are run by other people and
+that the Central password never goes to one, and which list it joins.
+"Not now" is what `Esc` and a tap beside the panel do; "Add gateway" needs
+a press. Nothing contacts the address before the yes; then it is asked
+about itself exactly as a typed address is (`ask_gateway`,
+`http::probe_gateway`), and saved only when a gateway answers. Nothing is
+selected or entered by itself.
+
+**This device's list stays the device's.** `keep_gateways` writes
+`state.device_gateways()` to the settings file: while Central is signed
+in, the list on screen is the account's, and before 30.10.2026 a Central
+sign-in wrote it into the device's settings, where it stayed after signing
+out.
+
+**Not yet.** Phones (no release build; on a phone a verified `https` link
+is the safer road), Wayland raising the window (the launcher carries the
+activation token; winit 0.30 cannot apply it to a window that exists), and
+signing in from the website (the proposal's slice 3, owner's questions).
+
 ## Where a packaged desktop build finds its fonts
 
 `standalone::asset_root` takes the `assets` directory **beside the executable**
@@ -9521,7 +9972,7 @@ with its page's origin, and that is the served case (#327): the origin is then
 the page's gateway (`gateway_list::page_gateway`, tested natively over a plain
 string), which joins the gateway list at the front if it is missing and is
 where the keyboard's cursor starts (`with_page`, `starting_row`). On
-`https://baylee.acevik.de/play/` that is the pinned Sanctuary row; natively
+`https://gateway.baylee.app/play/` that is the pinned Sanctuary row; natively
 there is no page and the list behaves as before.
 
 The same missing filesystem is why settings take a second back end. Natively
@@ -9567,7 +10018,7 @@ is the proof, and goes red when the door is taken out.
 ### Serving it at /play/
 
 The live gateway's host serves the browser client at
-**<https://baylee.acevik.de/play/>** (#327). Caddy terminates TLS there and
+**<https://gateway.baylee.app/play/>** (#327). Caddy terminates TLS there and
 hands every path to the gateway except `/play`, which
 `scripts/server/play.caddy` answers from `/opt/baylee/web/play`; the gateway
 has no route under `/play` and a test keeps it so
@@ -9691,8 +10142,9 @@ workstation's left display (native index 0) and rejects a non-left monitor.
 `crates/baylee-client/src/devctl.rs` is a loopback HTTP harness that presses
 keys, moves and clicks the pointer, dumps what the client believes, and saves a
 screenshot — with input injected independently of OS focus. Agent runs use a passive,
-unfocused window; on macOS it stays above other windows so the renderer can
-obtain a drawable surface.
+unfocused window that stands behind the owner's windows; on macOS it comes
+above them only while it captures, so the renderer can obtain a drawable
+surface, and it closes itself after ten minutes without a request.
 It exists because the alternative is bringing a window to the front, pressing a
 key by hand and looking at it, which is neither repeatable nor available to
 anything automated.
@@ -9770,7 +10222,7 @@ frame (a `dev-control` build counts allocations through its own global
 allocator) over the window since the last reset; `/hide` takes every entity
 of one material away (`felt`, `mat`, `card`, `floor`, `shell`, `plate`,
 `badge`, `marks`, `arrow`, `sky`, `vista`, `ambience`, `frontal`, `card_ui`,
-`shell_ui`), so one switch gives both a drawing's GPU cost and, by a
+`shell_ui`, `chat_glass`), so one switch gives both a drawing's GPU cost and, by a
 full-frame diff, what it contributes to the picture.
 
 Three rows of `/state` measure the lobby rather than the table.
@@ -9808,6 +10260,26 @@ client black where a 0.19 client started beside it, activated and in front,
 drew the table). Never the active app, it was also napped (priority 4,
 under a frame a second, once a hang of minutes), so it holds a process
 activity against App Nap for the run (`devctl::keep_a_passive_window_awake`).
+
+Since 29.10.2026 it stays on top only while it captures (owner: the window
+over everything was in the way). A passive window opens at the normal level,
+behind whatever the owner is using, and `devctl::window::lift_while_capturing`
+lifts it to `AlwaysOnTop` while a screenshot is pending or a recording takes
+frames, still unfocused and still letting the pointer through, then lets it
+sink back one second after the last capture (`LIFT_LINGER`), so a run of
+screenshots does not bob it up and down. `/health` says which it is
+(`"on_top"`). Measured on the M1 Max: 60 frames a second at rest behind the
+owner's windows, a `/screenshot` of the lobby drawn (mean luma 141 of 255),
+`"on_top":true` right after it and `false` two seconds later.
+
+**A forgotten client closes itself.** Agents close every client they start
+(owner, 19.10.2026), and still left them open between iterations
+(29.10.2026). A passive client that has been sent no request for
+`BAYLEE_DEV_IDLE_EXIT` seconds (600 when unset, `0` never) logs "no request
+for … s" and exits (`devctl::exit_when_idle`); every request starts the wait
+afresh. Measured with 45 s: exited 46 s after its last request, port closed.
+A client a person drives is not passive and never closes itself. This is the
+backstop, not the rule: close the client when the test is done.
 
 **Virtual pointer and dedicated display (Windows and native desktop).**
 `POST /pointer` keeps its coordinates inside the client, whether passive mode
@@ -10765,7 +11237,15 @@ chosen").
   /lobby/depart`, docs/protocol.md §"Leaving, and losing the connection"),
   so the house takes the chair at once rather than after the reconnect
   window, and the lobby says "You left the table". Offline the game this
-  client hosts ends with it, which its armed words say. A spectator's way
+  client hosts ends with it. Armed, the row says only *Leave? Press again*,
+  as short as the concession's, and what leaving costs stands in a quiet
+  line under the row (*The house plays on for you.* / *This game ends.*),
+  armed or not, as the host's Leave says it under its question (owner,
+  22.10.2026: the armed words were too long for the row;
+  `the_panel_is_wide_enough_for_everything_it_can_ever_say` now measures
+  every row the menu draws). Arming adds no row: the panel grows upward
+  from the burger, and a line that came with the arming slid the armed row
+  out from under the pointer. A spectator's way
   out stays *Stop watching*; a finished game's stays the end screen's.
 
 The October 14 real-client check recorded five seconds at 20 samples/s,

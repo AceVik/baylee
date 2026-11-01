@@ -43,13 +43,14 @@ const GATEWAY_STOPS: &[&str] = &[
     "settings",
     "offline",
     "about",
+    "baylee",
     "source",
     "discord",
     "notice",
 ];
 const SIGN_IN_STOPS: &[&str] = &[
     "back", "retry", "username", "password", "eye", "submit", "create", "guest", "lang", "music",
-    "settings", "offline", "about", "source", "discord", "notice",
+    "settings", "offline", "about", "baylee", "source", "discord", "notice",
 ];
 const CREATE_STOPS: &[&str] = &[
     "back",
@@ -66,6 +67,7 @@ const CREATE_STOPS: &[&str] = &[
     "settings",
     "offline",
     "about",
+    "baylee",
     "source",
     "discord",
     "notice",
@@ -80,6 +82,7 @@ const GUEST_STOPS: &[&str] = &[
     "settings",
     "offline",
     "about",
+    "baylee",
     "source",
     "discord",
     "notice",
@@ -97,6 +100,7 @@ const NEW_PASSWORD_STOPS: &[&str] = &[
     "settings",
     "offline",
     "about",
+    "baylee",
     "source",
     "discord",
     "notice",
@@ -199,6 +203,9 @@ fn at_the_door(state: &LobbyState) -> bool {
 /// the settings screen (its search is a lobby field, owner 09.10.2026),
 /// unless a confirmation stands over it.
 fn bridged(state: &LobbyState) -> bool {
+    if state.memorial.open {
+        return false;
+    }
     at_the_door(state)
         || (state.settings.is_open()
             && state.confirmation.is_none()
@@ -296,8 +303,10 @@ pub(in crate::lobby) fn ours(table: &str) -> bool {
         SIGN_IN.name,
         CREATE.name,
         GUEST.name,
+        NEW_PASSWORD.name,
         TERMS.name,
         ABOUT.name,
+        crate::lobby::memorial::ALBUM_ORDER.name,
         crate::settingsui::keys::SETTINGS.name,
         crate::settingsui::keys::PROFILE_SHEET.name,
     ]
@@ -351,7 +360,9 @@ mod tests {
             unique.dedup();
             assert_eq!(unique.len(), named.len(), "{}: a stop twice", table.name);
             if table.name.starts_with("front-") {
-                for id in ["lang", "music", "settings", "offline", "about", "source"] {
+                for id in [
+                    "lang", "music", "settings", "offline", "about", "baylee", "source",
+                ] {
                     assert!(named.contains(&id), "{} lacks {id}", table.name);
                 }
             }

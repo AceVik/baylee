@@ -279,12 +279,17 @@ pub(super) fn initial_focus(
     if report.table.is_none() || *was == report.table {
         return;
     }
-    *was = report.table;
-    if focus.get().is_some_and(|f| stops.contains(f)) {
+    if focus.get().is_some_and(|f| {
+        stops
+            .get(f)
+            .is_ok_and(|(_, s)| Some(s.table) == report.table)
+    }) {
+        *was = report.table;
         return;
     }
     // The caret is already in a field the screen draws: that is the focus.
     if state.lobby.typing_here() && super::keyboard::field_drawn(&state) {
+        *was = report.table;
         return;
     }
     let first = |table: &str, id: &str| {
@@ -311,9 +316,15 @@ pub(super) fn initial_focus(
         Some("preview") => first("preview", "add"),
         Some("picker") => first("picker", "tiles"),
         Some("menu") => first("menu", "items"),
-        _ => None,
+        _ => {
+            *was = report.table;
+            None
+        }
     };
+    // The cloud can already name the room while its seat tree is being built.
+    // Do not consume that screen change until its actual first stop exists.
     if let Some(entity) = pick {
+        *was = report.table;
         focus.set(entity, FocusCause::Navigated);
         // Remembered now: the tree may be rebuilt before the frame ends.
         kept.0 = stops.get(entity).ok().map(|(_, s)| *s);

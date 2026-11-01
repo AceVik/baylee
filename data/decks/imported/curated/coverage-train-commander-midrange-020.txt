@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander midrange
+# licence: AGPL-3.0-only
+[deck:commander midrange UBG #20266021]
+1 Ancestral Reminiscence
+1 Arcane Flight
+1 Astrolabe
+1 Aven Fogbringer
+1 Bogwater Lumaret
+1 Burrog Befuddler
+1 Cartouche of Knowledge
+1 Castle Garenbrig
+1 Centaur Garden
+1 Chill
+1 Chocobo Camp
+1 Cursecatcher
+1 Dictate of Kruphix
+1 Disruptive Student
+1 Dreadwurm
+1 Dream Stalker
+1 Elemental Bond
+1 Enhanced Awareness
+1 Envelop
+1 Fallowsage
+5 Forest
+1 Furtive Analyst
+1 Gingerbread Cabin
+1 Havengul Laboratory
+1 Hecteyes
+20 Island
+1 Jadecraft Artisan
+1 Library Larcenist
+1 Magus of the Bazaar
+1 Minamo, School at Water's Edge
+1 Mortal Wound
+1 Network Terminal
+1 Nimble Thopterist
+1 Noxious Newt
+1 Nyxborn Colossus
+1 Patron Wizard
+1 Rampart Hunter
+1 Reef Roads
+1 Rivendell
+1 Rushwood Grove
+1 Sea Gate Loremaster
+1 Shadowmage Infiltrator
+1 Shimmering Wings
+1 Shore Keeper
+1 Shoreline Salvager
+1 Silvergill Peddler
+1 Sleeper's Robe
+1 Soothsayer Adept
+1 Soratami Savant
+1 Spirit Away
+1 Spreading Seas
+1 Stock Up
+1 Sure-Footed Infiltrator
+1 Tainted Well
+1 Teferi's Isle
+1 Teferi's Protege
+1 The Black Gate
+1 Theorist's Proxy
+1 Third Path Savant
+1 Thought Courier
+1 Thrull Wizard
+1 Tidings
+1 Tolarian Academy
+1 Tomb of Urami
+1 Touch of Brilliance
+1 Touch of Invisibility
+1 Trade Routes
+1 Treeguard Duo
+1 Trenzalore Clocktower
+1 Triton Waverider
+1 Unholy Grotto
+1 Vedalken Heretic
+1 Vermiculos
+1 Void Grafter
+1 Voracious Greatshark
+1 Yavimaya's Embrace
+
+[commander]
+Leovold, Emissary of Trest

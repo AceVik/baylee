@@ -1,0 +1,30 @@
+# adapted from data/decks/precon/INV/spectrum.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Spectrum_INV.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Spectrum (Adapted)]
+1 Agate Assault
+1 Chord of Calling
+2 Dissipate
+2 Exclude
+1 Fires of Yavimaya
+14 Forest
+3 Harrow
+2 Island
+2 Mountain
+1 Nearby Planet
+1 Nomadic Elf
+2 Plains
+1 Precision Bolt
+2 Retribution of the Meek
+1 Sabertooth Nishoba
+1 Serpentine Kavu
+2 Spin Out
+2 Sporemound
+1 Sungold Barrage
+2 Swamp
+3 Sylvan Library
+2 Thornado
+3 Thornscape Apprentice
+2 Warrior's Honor
+2 Wildsize
+2 Winter's Grasp
+2 Yavimaya Barbarian

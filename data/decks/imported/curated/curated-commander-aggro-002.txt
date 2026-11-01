@@ -1,0 +1,74 @@
+# baylee curated commander aggro seed=20261025
+# licence: AGPL-3.0-only
+[deck:commander aggro G #20261025]
+1 Ajani's Comrade
+1 Arbor Armament
+1 Argothian Enchantress
+1 Battlewand Oak
+1 Beast Whisperer
+1 Briarknit Kami
+1 Centaur's Herald
+1 Confront the Unknown
+1 Corrupted Crossroads
+1 Deeproot Champion
+1 Dissenter's Deliverance
+1 Elderleaf Mentor
+1 Elvish Farmer
+1 Elvish Handservant
+1 Elvish Vanguard
+1 Fell the Pheasant
+1 Feral Instinct
+1 Feral Thallid
+32 Forest
+1 Freyalise's Charm
+1 Gaea's Gift
+1 Generous Visitor
+1 Graypelt Hunter
+1 Guardian of the Halls
+1 Hidden Gibbons
+1 Hidden Guerrillas
+1 Hidden Spider
+1 Jade Bearer
+1 Jasmine Dragon Tea Shop
+1 Jungle Delver
+1 Kronch Wrangler
+1 Kurgadon
+1 Leaf-Crowned Visionary
+1 Legolas Greenleaf
+1 Lurking Lizards
+1 Luxurious Libation
+1 Lys Alana Bowmaster
+1 Lys Alana Huntmaster
+1 Many Partings
+1 Medusa, Inhuman Queen
+1 Mold Adder
+1 Origin of Metalbending
+1 Pawpatch Formation
+1 Rishkar, Peema Renegade
+1 Rustvine Cultivator
+1 Setessan Champion
+1 Shield Sphere
+1 Snake Pit
+1 Snakeskin Veil
+1 Spike Drone
+1 Spire of Industry
+1 Sunshower Druid
+1 Thallid
+1 Thallid Devourer
+1 Thorn Thallid
+1 Three Tree City
+1 Timberland Guide
+1 Titania's Chosen
+1 Turntimber Ranger
+1 Unclaimed Territory
+1 Valley Mightcaller
+1 Verduran Enchantress
+1 Villainous Hideout
+1 Vital Splicer
+1 Vitality Charm
+1 Walking Ballista
+1 Whirling Dervish
+1 Wilt
+
+[commander]
+Prowler, Misguided Mentor

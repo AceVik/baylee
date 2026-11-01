@@ -46,6 +46,14 @@ pub(crate) struct Unplaced;
 #[derive(Component, Default)]
 pub(super) struct Opening(f32);
 
+/// Remembers the open menu's animation progress across UI rebuilds so that
+/// keyboard navigation or background updates do not restart its arrival motion.
+#[derive(Resource, Default)]
+pub(crate) struct MenuMemory {
+    pub(super) menu: Option<ShellMenu>,
+    pub(super) opening: f32,
+}
+
 /// Draws `items` as the open menu hanging from `anchor`, with a scrim that
 /// closes it, at the root of the tree.
 pub(super) fn draw<'a>(
@@ -88,14 +96,15 @@ pub(super) fn draw<'a>(
         MenuAnchor(anchor),
         Unplaced,
         Opening::default(),
-        UiTransform::default(),
+        UiTransform::from_translation(Val2::px(0.0, -5.0)),
         Visibility::Hidden,
     ));
     commands.entity(root).add_children(&[scrim, menu]);
 }
 
 /// Places each unplaced menu under its anchor's right edge, flipped above it
-/// when it would leave the window, and shows it.
+/// when it would leave the window, and shows it in the same frame.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub(super) fn place(
     mut commands: Commands,
     (windows, ui): (Query<&Window>, Option<Res<UiScale>>),
@@ -106,17 +115,31 @@ pub(super) fn place(
             &ComputedNode,
             &mut Node,
             &mut Visibility,
+            &UiTransform,
         ),
         With<Unplaced>,
     >,
-    anchors: Query<(&ComputedNode, &UiGlobalTransform), Without<Unplaced>>,
+    children: Query<&Children>,
+    mut tree: ParamSet<(
+        Query<(&ComputedNode, &UiGlobalTransform), Without<Unplaced>>,
+        Query<&mut UiGlobalTransform>,
+    )>,
 ) {
     let Some(window) = windows.iter().next() else {
         return;
     };
     let (width, height) = crate::hud::scale::desktop_dimensions(window, ui.as_deref());
-    for (entity, anchor, computed, mut node, mut shown) in &mut menus {
-        let Ok((at, place)) = anchors.get(anchor.0) else {
+    for (entity, anchor, computed, mut node, mut shown, transform) in &mut menus {
+        let anchor_info = {
+            let anchors = tree.p0();
+            anchors.get(anchor.0).ok().map(|(at, place)| {
+                (
+                    at.size() * at.inverse_scale_factor,
+                    place.translation * at.inverse_scale_factor,
+                )
+            })
+        };
+        let Some((anchor_size, mid)) = anchor_info else {
             // The opener is gone: nothing to hang from.
             commands.entity(entity).remove::<Unplaced>();
             continue;
@@ -126,8 +149,6 @@ pub(super) fn place(
         if size.x <= 0.0 {
             continue; // not measured yet
         }
-        let anchor_size = at.size() * at.inverse_scale_factor;
-        let mid = place.translation * at.inverse_scale_factor;
         let right = mid.x + anchor_size.x / 2.0;
         let below = mid.y + anchor_size.y / 2.0 + 4.0;
         let above = mid.y - anchor_size.y / 2.0 - 4.0 - size.y;
@@ -137,12 +158,28 @@ pub(super) fn place(
         } else {
             below.min((height - size.y).max(0.0))
         };
-        // Two passes: the place is written, laid out on the next frame, and
-        // only then shown — so the menu is never drawn where it was spawned.
         if node.left != px(left) || node.top != px(top) {
             node.left = px(left);
             node.top = px(top);
-            continue;
+            if scale > 0.0 {
+                let mut transforms = tree.p1();
+                if let Ok(cur_at) = transforms.get(entity) {
+                    let cur_min = cur_at.translation * scale - size * 0.5;
+                    let arrival = match transform.translation.y {
+                        Val::Px(y) => y,
+                        _ => 0.0,
+                    };
+                    let delta = (Vec2::new(left, top + arrival) - cur_min) / scale;
+                    for target in std::iter::once(entity).chain(children.iter_descendants(entity)) {
+                        if let Ok(mut t) = transforms.get_mut(target) {
+                            *t = UiGlobalTransform::from(bevy::math::Affine2 {
+                                matrix2: t.matrix2,
+                                translation: t.translation + delta,
+                            });
+                        }
+                    }
+                }
+            }
         }
         *shown = Visibility::Inherited;
         commands.entity(entity).remove::<Unplaced>();
@@ -173,19 +210,31 @@ pub(super) fn danger(text: &str, press: Press) -> MenuItem<'_, Press> {
 pub(super) fn animate(
     time: Res<Time>,
     prefs: Res<crate::prefs::Prefs>,
+    state: Res<LobbyState>,
+    mut memory: ResMut<MenuMemory>,
     mut menus: Query<(&mut Opening, &mut UiTransform, &Visibility)>,
 ) {
+    if memory.menu != state.menu {
+        memory.menu = state.menu;
+        memory.opening = 0.0;
+    }
     for (mut opening, mut transform, visible) in &mut menus {
-        if *visible == Visibility::Hidden || opening.0 >= 1.0 {
-            continue;
+        if *visible == Visibility::Hidden {
+            opening.0 = memory.opening;
         }
         let next = if prefs.all().reduce_motion {
             1.0
+        } else if *visible == Visibility::Hidden {
+            opening.0
         } else {
             opening.0 + (1.0 - opening.0) * (1.0 - (-24.0 * time.delta_secs()).exp())
         };
         opening.0 = if next > 0.995 { 1.0 } else { next };
-        transform.translation = Val2::px(0.0, -5.0 * (1.0 - opening.0));
+        memory.opening = opening.0;
+        let translation = Val2::px(0.0, -5.0 * (1.0 - opening.0));
+        if transform.translation != translation {
+            transform.translation = translation;
+        }
     }
 }
 
@@ -216,3 +265,6 @@ pub(super) fn selected(commands: &mut Commands, wanted: Press) {
         }
     });
 }
+
+#[cfg(test)]
+mod tests;

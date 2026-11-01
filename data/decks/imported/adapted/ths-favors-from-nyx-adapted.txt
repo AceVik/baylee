@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/THS/favors-from-nyx.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FavorsFromNyx_THS.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Favors From Nyx (Adapted)]
+4 Anguished Unmaking
+1 Blightcaster
+1 Demonic Hordes
+1 Doom Blade
+1 Glider Kids
+2 Inkling Summoning
+2 Lagonna-Band Elder
+2 Last Breath
+4 Mortify
+1 Pacifism
+2 Pharika's Cure
+1 Pillarfield Ox
+16 Plains
+1 Ray of Dissolution
+1 Sentry of the Underworld
+9 Swamp
+2 Traveling Philosopher
+2 Unmake
+2 Vanquish the Foul
+4 Vindicate
+1 Yoked Ox

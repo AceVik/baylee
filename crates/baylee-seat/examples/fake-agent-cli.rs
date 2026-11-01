@@ -35,12 +35,11 @@
 //! agy's shape; only `answer` steps.
 //!
 //! Started as a tool that answers one message a process is (`codex exec`,
-//! `opencode run`, Junie's `--input-format=json` first), it reads its
-//! stdin to its end as the one message, logs it (`prompt`) and the files
-//! in its session's `support` directory (`support`, beside its `TMPDIR`),
-//! answers the next step in that tool's shape and exits: `answer`, `text`,
-//! `tool` (the model uses a tool, then answers), `rate_limit`, `fail` and
-//! `exit` (and, as Junie, `signed_out`: a failure before any session).
+//! `opencode run`), it reads its stdin to its end as the one message, logs
+//! it (`prompt`) and the files in its session's `support` directory
+//! (`support`, beside its `TMPDIR`), answers the next step in that tool's
+//! shape and exits: `answer`, `text`, `tool` (the model uses a tool, then
+//! answers), `rate_limit`, `fail` and `exit`.
 //! As opencode it keeps its conversations as its tool does, in the file
 //! `OPENCODE_DB` names (a JSON object of each session's turns, standing in
 //! for its database; `:memory:` or none keeps nothing): a new one is
@@ -52,21 +51,23 @@
 //! (else `~/.codex`), `sessions/2026/10/06/rollout-…-<id>.jsonl`, holding
 //! its turns and its running count, which `turn.completed` reports whole;
 //! `resume <id>` goes on with one, and one not there is an exit before any
-//! line. As Junie it keeps `sessions/<id>/events.jsonl` under
-//! `$JUNIE_HOME` (else `~/.junie`); `--session-id=<id>` follows one up,
-//! and one not there begins a new session silently, as Junie may. With
-//! `stray: true` in the script, both begin a new one whatever they are
-//! asked to go on with (logged as `strayed`).
-//! Each one's login check answers as its tool's does (`login
-//! status` on stderr, `auth list`, `--version`), signed in unless
-//! `logged_in` is false.
+//! line. With `stray: true` in the script, it begins a new one whatever it
+//! is asked to go on with (logged as `strayed`).
+//!
+//! Started as Junie is (`--acp=true` first), it speaks Junie's ACP: one
+//! session a process, every step a prompt's turn (`fake-agent-cli/junie.rs`).
+//!
+//! Each tool's login check answers as its tool's does (`login status` on
+//! stderr, `auth list`, `--version`), signed in unless `logged_in` is
+//! false.
 //!
 //! It appends to `fake-cli.log`, one JSON object a line, what it was
 //! started with (its arguments, its whole environment, its working
 //! directory, how many entries that holds and, on Unix, its and its
-//! parent's modes), every line it read, its stdin's end, and an exit it
-//! chose (`exit`, `exit_after`) as it takes it. `auth status
-//! --json` answers `{"loggedIn": logged_in}` and reads nothing.
+//! parent's modes and the session it leads), every line it read, its
+//! stdin's end, and an exit it chose (`exit`, `exit_after`) as it takes
+//! it. `auth status --json` answers `{"loggedIn": logged_in}` and reads
+//! nothing.
 
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -74,26 +75,39 @@ use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[path = "fake-agent-cli/agy.rs"]
+mod agy;
+use agy::{agy_init, play_agy};
+
+#[path = "fake-agent-cli/junie.rs"]
+mod junie;
+
 /// A tool that answers one message a process.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum OneShot {
     Codex,
     Opencode,
+}
+
+/// A tool whose login check the fake answers.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Probe {
+    Codex,
+    Opencode,
     Junie,
 }
 
-/// The one-shot tool `args` start, and the one whose login check they are.
-fn one_shot_of(args: &[String]) -> (Option<OneShot>, Option<OneShot>) {
+/// The one-shot tool `args` start, and the tool whose login check they are.
+fn one_shot_of(args: &[String]) -> (Option<OneShot>, Option<Probe>) {
     let one_shot = match args.get(1).map(String::as_str) {
         Some("exec") => Some(OneShot::Codex),
         Some("run") => Some(OneShot::Opencode),
-        Some("--input-format=json") => Some(OneShot::Junie),
         _ => None,
     };
     let probe = match args.get(1..) {
-        Some([a, b]) if a == "login" && b == "status" => Some(OneShot::Codex),
-        Some([a, b]) if a == "auth" && b == "list" => Some(OneShot::Opencode),
-        Some([a]) if a == "--version" => Some(OneShot::Junie),
+        Some([a, b]) if a == "login" && b == "status" => Some(Probe::Codex),
+        Some([a, b]) if a == "auth" && b == "list" => Some(Probe::Opencode),
+        Some([a]) if a == "--version" => Some(Probe::Junie),
         _ => None,
     };
     (one_shot, probe)
@@ -102,11 +116,14 @@ fn one_shot_of(args: &[String]) -> (Option<OneShot>, Option<OneShot>) {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let auth = args.get(1..) == Some(&["auth".into(), "status".into(), "--json".into()][..]);
-    // Claude Code is started with `-p`, agy with its `--input-format`.
+    // Claude Code is started with `-p`, agy with its `--input-format`,
+    // Junie with `--acp=true`.
     let agy = args.get(1).map(String::as_str) == Some("--input-format");
+    let acp = args.get(1).map(String::as_str) == Some("--acp=true");
     let (one_shot, probe) = one_shot_of(&args);
     if !auth
         && !agy
+        && !acp
         && one_shot.is_none()
         && probe.is_none()
         && args.get(1).map(String::as_str) != Some("-p")
@@ -122,23 +139,7 @@ fn main() {
         .unwrap_or_else(|| json!({}));
     let log = home.join("fake-cli.log");
     let pid = std::process::id();
-    let env: BTreeMap<String, String> = std::env::vars().collect();
-    let cwd = std::env::current_dir().expect("a working directory");
-    let entries = std::fs::read_dir(&cwd).map_or(usize::MAX, Iterator::count);
-    dump(
-        &log,
-        &json!({
-            "pid": pid,
-            "start": {
-                "argv": args,
-                "env": env,
-                "cwd": cwd,
-                "cwd_entries": entries,
-                "cwd_mode": mode(&cwd),
-                "root_mode": cwd.parent().map(mode),
-            },
-        }),
-    );
+    log_start(&log, pid, &args);
     if auth {
         let logged_in = config
             .get("logged_in")
@@ -157,6 +158,10 @@ fn main() {
     }
     if let Some(tool) = one_shot {
         answer_once(tool, &home, &config, &log, pid);
+        return;
+    }
+    if acp {
+        junie::serve(&home, &config, &log, pid);
         return;
     }
     let mut init = init(&config, pid).map(|line| if agy { agy_init(&line) } else { line });
@@ -201,6 +206,31 @@ fn main() {
         }
     }
     dump(&log, &json!({"pid": pid, "eof": true}));
+}
+
+/// Logs what the process was started with: its arguments, its whole
+/// environment, its working directory, how many entries that holds and,
+/// on Unix, its and its parent's modes and whether it leads a session.
+fn log_start(log: &Path, pid: u32, args: &[String]) {
+    let env: BTreeMap<String, String> = std::env::vars().collect();
+    let cwd = std::env::current_dir().expect("a working directory");
+    let entries = std::fs::read_dir(&cwd).map_or(usize::MAX, Iterator::count);
+    dump(
+        log,
+        &json!({
+            "pid": pid,
+            "start": {
+                "argv": args,
+                "env": env,
+                "cwd": cwd,
+                "cwd_entries": entries,
+                "cwd_mode": mode(&cwd),
+                "root_mode": cwd.parent().map(mode),
+                "sid": session_leader(),
+                "pgid": process_group(),
+            },
+        }),
+    );
 }
 
 /// The `init` line, as the script changes it; `None` for none.
@@ -270,20 +300,20 @@ impl Usage {
 }
 
 /// A login check, as each one-shot tool answers it.
-fn answer_probe(tool: OneShot, logged_in: bool) {
+fn answer_probe(tool: Probe, logged_in: bool) {
     match (tool, logged_in) {
-        (OneShot::Codex, true) => eprintln!("Logged in using ChatGPT"),
-        (OneShot::Codex, false) => {
+        (Probe::Codex, true) => eprintln!("Logged in using ChatGPT"),
+        (Probe::Codex, false) => {
             eprintln!("Not logged in");
             std::process::exit(1);
         }
-        (OneShot::Opencode, true) => {
+        (Probe::Opencode, true) => {
             println!(
                 "Credentials ~/.local/share/opencode/auth.json\n  Anthropic oauth\n1 credentials"
             );
         }
-        (OneShot::Opencode, false) => println!("0 credentials"),
-        (OneShot::Junie, _) => println!("Junie version: 26.9.22 (fake)"),
+        (Probe::Opencode, false) => println!("0 credentials"),
+        (Probe::Junie, _) => println!("Junie version: 26.10.27 (fake)"),
     }
 }
 
@@ -325,7 +355,6 @@ fn answer_once(tool: OneShot, home: &Path, config: &Value, log: &Path, pid: u32)
             file: None,
         },
         OneShot::Codex => codex_thread(config, log, pid),
-        OneShot::Junie => junie_session(config, log, pid),
     };
     let Some(step) = next_step(home, config) else {
         eprintln!("fake: the script ended");
@@ -368,7 +397,6 @@ fn answer_once(tool: OneShot, home: &Path, config: &Value, log: &Path, pid: u32)
         // rollout.
         OneShot::Codex => play_codex(kind, &answer, &total, &session),
         OneShot::Opencode => play_opencode(kind, &answer, &usage, &session),
-        OneShot::Junie => play_junie(kind, &answer, &usage, &session),
     }
     if matches!(kind, "rate_limit" | "fail") {
         std::process::exit(1);
@@ -484,33 +512,6 @@ fn codex_thread(config: &Value, log: &Path, pid: u32) -> Kept {
     }
 }
 
-/// The Junie session this process answers in: the one `--session-id`
-/// names, or, when that one is not there, a new one, silently.
-fn junie_session(config: &Value, log: &Path, pid: u32) -> Kept {
-    let sessions = tool_home("JUNIE_HOME", ".junie").join("sessions");
-    let asked =
-        std::env::args().find_map(|arg| arg.strip_prefix("--session-id=").map(str::to_string));
-    let events = |id: &str| sessions.join(id).join("events.jsonl");
-    let going = asked
-        .filter(|_| !strays(config))
-        .and_then(|id| read_kept(&events(&id)).map(|(turn, _)| (id, turn + 1)));
-    let (id, turn) = going.unwrap_or_else(|| {
-        let fresh = format!("session-261006-120000-{pid}");
-        if strays(config) {
-            dump(log, &json!({"pid": pid, "strayed": fresh}));
-        }
-        (fresh, 1)
-    });
-    std::fs::create_dir_all(sessions.join(&id)).expect("the fake's session directory");
-    dump(log, &json!({"pid": pid, "session": id, "turn": turn}));
-    Kept {
-        file: Some(events(&id)),
-        id,
-        turn,
-        before: Usage::default(),
-    }
-}
-
 /// The opencode session this process answers in: the one `--session`
 /// names, from the store `OPENCODE_DB` names, or a new one kept there. One
 /// it cannot find ends the process as opencode does, before any line.
@@ -604,60 +605,6 @@ fn play_opencode(kind: &str, answer: &str, usage: &Usage, session: &str) {
         "tokens": {"input": usage.input, "output": usage.output, "reasoning": 0,
                    "cache": {"read": usage.cache_read, "write": usage.cache_write}}}}),
     );
-}
-
-/// One task answered as Junie's `json-stream` does, its banner first.
-fn play_junie(kind: &str, answer: &str, usage: &Usage, session: &str) {
-    println!("Junie fake banner");
-    if kind == "signed_out" {
-        // Its first word, before any session: it cannot sign in.
-        say(&json!({"type": "result", "timestamp": 1, "result": "",
-            "errors": ["Cannot find authorization"]}));
-        std::process::exit(1);
-    }
-    say(&json!({"type": "session", "timestamp": 1, "sessionId": session}));
-    let errors = match kind {
-        "rate_limit" => {
-            vec!["Junie: Insufficient Account Balance. All tokens on your balance are spent."]
-        }
-        "fail" => vec!["the fake failed"],
-        _ => Vec::new(),
-    };
-    if kind == "tool" {
-        say(
-            &json!({"type": "step", "timestamp": 2, "name": "Opened file",
-            "details": "ping.txt"}),
-        );
-    }
-    if errors.is_empty() {
-        say(&json!({"type": "step", "timestamp": 3, "name": "TASK RESULT", "details": answer}));
-    }
-    say(
-        &json!({"type": "result", "timestamp": 4, "result": if errors.is_empty() { answer } else { "" },
-        "errors": errors, "changes": [],
-        "errorCode": [{"model": "fake", "calls": 1, "cost": 0.0,
-            "inputTokens": usage.input, "cacheInputTokens": usage.cache_read,
-            "cacheCreateTokens": usage.cache_write, "outputTokens": usage.output}]}),
-    );
-}
-
-/// Claude Code's `init` line as agy says it.
-fn agy_init(line: &Value) -> Value {
-    json!({"event": "init", "init": line})
-}
-
-/// Answers one message as agy would: only `answer` steps, with agy's
-/// `cache_read_tokens` for Claude Code's `cache_read_input_tokens`.
-fn play_agy(step: &Value) {
-    let kind = step.get("kind").and_then(Value::as_str).unwrap_or("answer");
-    assert_eq!(kind, "answer", "the fake speaks only answers as agy");
-    let answer = step.get("answer").cloned().unwrap_or(Value::Null);
-    let usage = step.get("usage").cloned().unwrap_or_else(default_usage);
-    let n = |key: &str| usage.get(key).and_then(Value::as_u64).unwrap_or(0);
-    say(&json!({"event": "result", "result": {
-        "status": "SUCCESS", "response": answer.to_string(), "structured_output": answer,
-        "usage": {"input_tokens": n("input_tokens"), "output_tokens": n("output_tokens"),
-                  "cache_read_tokens": n("cache_read_input_tokens")}}}));
 }
 
 /// Answers one message as `step` says.
@@ -759,5 +706,31 @@ fn mode(path: &Path) -> Option<String> {
 
 #[cfg(not(unix))]
 fn mode(_: &Path) -> Option<String> {
+    None
+}
+
+/// Whether this process leads a session of its own: its session's id is
+/// its own pid. `None` off Unix.
+#[cfg(unix)]
+fn session_leader() -> Option<bool> {
+    let session = rustix::process::getsid(None).ok()?;
+    Some(session == rustix::process::getpid())
+}
+
+#[cfg(not(unix))]
+fn session_leader() -> Option<bool> {
+    None
+}
+
+/// The id of this process's process group: the one a signal to its
+/// starter's group reaches. `None` off Unix.
+#[cfg(unix)]
+#[expect(clippy::unnecessary_wraps, reason = "the same shape as off Unix")]
+fn process_group() -> Option<i32> {
+    Some(rustix::process::getpgrp().as_raw_nonzero().get())
+}
+
+#[cfg(not(unix))]
+fn process_group() -> Option<i32> {
     None
 }

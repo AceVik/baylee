@@ -1,0 +1,74 @@
+# baylee curated commander aggro seed=20261049
+# licence: AGPL-3.0-only
+[deck:commander aggro R #20261049]
+1 Aether Sting
+1 Akoum Boulderfoot
+1 Ben-Ben, Akki Hermit
+1 Bloodfire Colossus
+1 Bloodfire Expert
+1 Burning Prophet
+1 Chandra's Emberling
+1 Crackling Cyclops
+1 Disintegrate
+1 Dismissive Pyromancer
+1 Dragon's Rage Channeler
+1 Eidolon of the Great Revel
+1 Electrostatic Field
+1 Electrostatic Infantry
+1 Embersmith
+1 Enraged Flamecaster
+1 Erebor Flamesmith
+1 Fever Charm
+1 Fire Urchin
+1 Firespitter Whelp
+1 Flame Slash
+1 Forbidden Orchard
+1 Forge Devil
+1 Ghitu Fire-Eater
+1 Goblin Grenade
+1 Guttersnipe
+1 Hall of Oracles
+1 Haven of the Spirit Dragon
+1 Havoc
+1 Heat Ray
+1 Ishi-Ishi, Akki Crackshot
+1 Jaya's Greeting
+1 Kiln Fiend
+1 Kozilek's Sentinel
+1 Kris Mage
+1 Lightning Visionary
+1 Mage-Ring Bully
+1 Magma Jet
+1 Mana Crypt
+1 Mindsparker
+1 Monastery Swiftspear
+32 Mountain
+1 Nimble-Blade Khenra
+1 Pinnacle Monk
+1 Pyre Hound
+1 Pyre Spawn
+1 Pyroceratops
+1 Pyrostatic Pillar
+1 Reckless Air Strike
+1 Rockslide Sorcerer
+1 Sanguinary Mage
+1 Sawblade Scamp
+1 School of the Unseen
+1 Scorching Spear
+1 Shower of Sparks
+1 Sizzle
+1 Sliver Hive
+1 Soul of Magma
+1 Spark Jolt
+1 Spark Spray
+1 Storm Caller
+1 Taurean Mauler
+1 Vertigo
+1 Villainous Hideout
+1 Walking Ballista
+1 Weaver of Lightning
+1 Winter Sky
+1 Zuko's Offense
+
+[commander]
+The Whizzer, Classic Speedster

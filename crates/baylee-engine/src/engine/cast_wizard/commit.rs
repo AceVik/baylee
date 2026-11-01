@@ -48,7 +48,7 @@ impl<L: CardLookup> Engine<L> {
             // spell may spend it, and a rider applies for each entry that
             // actually paid. A failed payment has touched nothing.
             let allowance = self.wizard_source_allowance(wizard);
-            let Some(spent) = casting::pay_mana_scoped(
+            let Some((spent, x_paid)) = casting::pay_mana_scoped_recording_x(
                 &mut self.state,
                 player,
                 spend_for(wizard, face),
@@ -64,6 +64,7 @@ impl<L: CardLookup> Engine<L> {
                 &held_before,
                 &self.state.players[player.get() as usize].mana_pool,
             );
+            paid_mana.mana_types_spent_on_x = x_paid;
             spent_riders = spent;
         }
         // The mana is paid, so the rest of the cost may now be spent: the
@@ -141,6 +142,7 @@ impl<L: CardLookup> Engine<L> {
                     | CostPart::PutCounterOnOther { .. }
                     | CostPart::ExileFromSingleGraveyard { .. }
                     | CostPart::PayAttachedManaCost
+                    | CostPart::ExileTopOfLibrary(_)
                     | CostPart::PayLifeX => {}
                 }
             }
@@ -172,7 +174,7 @@ impl<L: CardLookup> Engine<L> {
         let mut sacrificed_lki = None;
         let mut sacrificed_object = None;
         let mut graveyard_batch = crate::graveyard_order::PaymentBatch::new(&self.state);
-        for part in face.mandatory_additional_costs {
+        for part in super::wizard_mandatory_parts(face, wizard.option) {
             graveyard_batch.before_part(&mut self.state, part);
             if !paid_as_a_mandatory_additional_cost(part) {
                 continue;
@@ -261,6 +263,7 @@ impl<L: CardLookup> Engine<L> {
                 | CostPart::PutCounterOnOther { .. }
                 | CostPart::ExileFromSingleGraveyard { .. }
                 | CostPart::PayAttachedManaCost
+                | CostPart::ExileTopOfLibrary(_)
                 | CostPart::ExileFromHand(_) => {}
             }
         }

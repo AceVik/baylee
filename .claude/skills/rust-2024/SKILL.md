@@ -55,5 +55,5 @@ The gate is expensive, so mistakes are expensive. Two that recur:
   Use a separate `CARGO_TARGET_DIR` when another agent or rust-analyzer may be
   building.
 
-Run `./scripts/gate-rules.sh` while working (fmt + clippy + test, excluding
+Run `cargo dev gate rules` while working (fmt + clippy + test, excluding
 the Bevy client); the full gate before a push.

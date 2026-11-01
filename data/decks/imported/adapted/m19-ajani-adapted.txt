@@ -1,0 +1,23 @@
+# adapted from data/decks/precon/M19/ajani.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Ajani_M19.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ajani (Adapted)]
+2 Afterlife
+2 Army of Allah
+3 Bring to Trial
+3 Court Cleric
+2 Dwarven Priest
+2 Guiding Bolt
+2 Herald of Faith
+1 Hive Stirrings
+1 Metal Fatigue
+1 Meteor Golem
+1 Mighty Leap
+2 Nighthawk, Dark Defender
+2 Oreskos Swiftclaw
+1 Pegasus Courser
+25 Plains
+1 Rune of Protection: Blue
+3 Rustwing Falcon
+1 Sanctify
+1 Serra's Guardian
+4 Silverbeak Griffin

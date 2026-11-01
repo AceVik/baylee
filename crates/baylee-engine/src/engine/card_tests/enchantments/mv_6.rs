@@ -15,7 +15,9 @@ mod mind_over_matter;
 mod primeval_bounty;
 mod rage_reflection;
 mod rite_of_the_dragoncaller;
+mod ritual_of_subdual;
 mod storm_of_saruman;
+mod territorial_dispute;
 mod true_conviction;
 
 /// Declares `attackers` for `seat` against `at` and stops once the
@@ -113,3 +115,4 @@ fn ogre_may_block(p0_board: &[CardIndex], attacker: CardIndex, p1_land: CardInde
 }
 
 mod earthlink;
+mod nature_s_wrath;

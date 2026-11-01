@@ -236,6 +236,8 @@ fn shift_e_takes_the_whole_merged_card_and_gives_it_back() {
     let mut duel = crate::Duel::default();
     duel.receive_view(view);
     duel.receive_choice(Pending::ChooseAttackers {
+        alone: Vec::new(),
+        minimum_required: None,
         player: PlayerId::new(0),
         attackers: ids.clone(),
         defenders: vec![baylee_core::ids::Defender::Player(PlayerId::new(1))],
@@ -339,6 +341,38 @@ fn pressing_with_the_chat(
     chat: Option<crate::social::ChatUi>,
     key: bevy::prelude::KeyCode,
 ) -> Vec<PlayerAction> {
+    pressing_beside(
+        |app| {
+            if let Some(chat) = chat {
+                app.insert_resource(chat);
+            }
+        },
+        key,
+    )
+}
+
+/// The same press with the lobby's state beside the table: the settings
+/// standing over it when `over`, else the screen put away again.
+fn pressing_with_the_settings(over: bool, key: bevy::prelude::KeyCode) -> Vec<PlayerAction> {
+    pressing_beside(
+        |app| {
+            let mut lobby = crate::LobbyState::new();
+            crate::lobby::table_settings::stand_over_table(&mut lobby);
+            if !over {
+                crate::lobby::table_settings::close(&mut lobby);
+            }
+            app.insert_resource(lobby);
+        },
+        key,
+    )
+}
+
+/// The press of [`pressing_with_the_chat`], with whatever else may claim
+/// the keys put beside the table by `claim`.
+fn pressing_beside(
+    claim: impl FnOnce(&mut bevy::app::App),
+    key: bevy::prelude::KeyCode,
+) -> Vec<PlayerAction> {
     use bevy::input::ButtonInput;
     use bevy::input::keyboard::KeyboardInput;
     use bevy::prelude::*;
@@ -374,9 +408,7 @@ fn pressing_with_the_chat(
         .add_message::<KeyboardInput>()
         .insert_resource(duel)
         .add_systems(Update, keyboard);
-    if let Some(chat) = chat {
-        app.insert_resource(chat);
-    }
+    claim(&mut app);
     app.world_mut()
         .resource_mut::<ButtonInput<KeyCode>>()
         .press(key);
@@ -420,6 +452,21 @@ fn typing_in_the_chat_keeps_the_tables_keys_from_firing() {
     assert_eq!(
         pressing_with_the_chat(Some(chat), bevy::prelude::KeyCode::Enter),
         []
+    );
+}
+
+/// The settings standing over the table hold every key: Enter is theirs,
+/// and the land under the cursor stays where it is. Put away, the same
+/// press plays it again.
+#[test]
+fn the_settings_over_the_table_keep_its_keys_from_firing() {
+    assert_eq!(
+        pressing_with_the_settings(true, bevy::prelude::KeyCode::Enter),
+        []
+    );
+    assert_eq!(
+        pressing_with_the_settings(false, bevy::prelude::KeyCode::Enter),
+        [PlayerAction::PlayLand { card: obj(3) }]
     );
 }
 

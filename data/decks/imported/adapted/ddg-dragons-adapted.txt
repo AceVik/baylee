@@ -1,0 +1,35 @@
+# adapted from data/decks/precon/DDG/dragons.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Dragons_DDG.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Dragons (Adapted)]
+1 Acidic Soil
+2 Arc Lightning
+2 Battle Frenzy
+1 Bloodmark Mentor
+1 Bogardan Rager
+1 Boiling Blood
+1 Captive Flame
+1 Char
+1 Cinder Wall
+2 Dragon Fodder
+2 Dragon Whelp
+1 Dragon's Claw
+1 Fire-Belly Changeling
+1 Henge Guardian
+24 Mountain
+2 Mudbutton Torchrunner
+1 Open Fire
+1 Sarkhan's Triumph
+1 Seething Song
+1 Seismic Strike
+1 Shiv's Embrace
+1 Shivan Hellkite
+1 Sizzle
+1 Skirk Prospector
+1 Slaughter Cry
+1 Smash
+1 Spitting Earth
+1 Start from Scratch
+1 Stonefury
+1 Thunder Dragon
+1 Uncaged Fury
+1 Valakut Awakening

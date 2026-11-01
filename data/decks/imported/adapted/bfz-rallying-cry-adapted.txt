@@ -1,0 +1,24 @@
+# adapted from data/decks/precon/BFZ/rallying-cry.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, RallyingCry_BFZ.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Rallying Cry (Adapted)]
+1 Angel of Renewal
+1 Angelic Captain
+1 Angelic Gift
+4 Arrows of Justice
+1 Blighted Gorge
+1 Energy Bolt
+2 Evolving Wilds
+2 Expedition Envoy
+1 Frontline Rush
+2 Ironpaw Aspirant
+2 Kor Entanglers
+2 Legion Leadership
+4 Lightning Helix
+10 Mountain
+2 Outnumber
+10 Plains
+2 Sandstone Bridge
+2 Shatterskull Recruit
+2 Smite the Monstrous
+4 Spirit Summoning
+4 Warleader's Helix

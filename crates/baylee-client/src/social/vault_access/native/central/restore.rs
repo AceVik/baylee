@@ -27,11 +27,9 @@ pub(super) fn start(
     keep: u32,
     cancelled: &AtomicBool,
 ) -> Result<Ready, Error> {
-    let context = Arc::new(bootstrap::open_context(
-        root,
-        Scope::new(&session.tag, &session.gateway)?,
-        cancelled,
-    )?);
+    let scope = Scope::new(&session.tag, &session.gateway)?;
+    let vault_scope = *scope.as_bytes();
+    let context = Arc::new(bootstrap::open_context(root, scope, cancelled)?);
     let installation = context.installation()?;
     let slot = social::SecretSlot::new(&session.tag, &session.gateway);
     let mut records = handle
@@ -43,6 +41,9 @@ pub(super) fn start(
         }
     }
     ensure_running(cancelled)?;
+    // An old local vault opens with the account's key where a password
+    // sign-in gave it the wrapper (`docs/password-vault.md` §"The account key").
+    let account_key = handle.local_vault_key(vault_scope).ok();
     let local = import_keys(
         root,
         &context,
@@ -51,9 +52,11 @@ pub(super) fn start(
         &installation,
         &records,
         choice,
+        account_key.as_deref(),
         &password,
     )?;
     drop(password);
+    drop(account_key);
     if let Some(local) = &local {
         handle
             .archive_chat_device(local.clone())
@@ -207,6 +210,7 @@ fn import_keys(
     installation: &str,
     records: &[ChatDevice],
     choice: Choice,
+    account_key: Option<&[u8; 32]>,
     password: &str,
 ) -> Result<Option<ChatDevice>, Error> {
     if let Some(record) = records
@@ -216,7 +220,7 @@ fn import_keys(
         return Ok(Some(record.clone()));
     }
     let legacy = root.join(social::disk::chat_folder(&session.gateway, &session.tag));
-    let keys = match context.legacy_keys((!password.is_empty()).then_some(password))? {
+    let keys = match context.legacy_keys(account_key, (!password.is_empty()).then_some(password))? {
         Some(keys) => Some(baylee_seal::DeviceSecrets::from_bytes(&keys)),
         None if choice == Choice::ImportFile
             || legacy
@@ -263,7 +267,9 @@ fn import_keys(
         return Ok(Some(known.clone()));
     }
     Ok(Some(ChatDevice {
-        gateway: session.gateway.clone(),
+        // Filed where `Handle::chat_devices` looks, and where an installed
+        // client on another device looks too.
+        gateway: baylee_client_core::lobby::gateway_list::keyed(&session.gateway).to_string(),
         tag: session.tag.clone(),
         installation: installation.into(),
         device: keys.device_id().into(),
@@ -356,6 +362,58 @@ fn persist(path: &Path, source: &MemoryDisk) -> Result<(), Error> {
 mod tests {
     use super::*;
 
+    /// The live gateway's chat after its move: the vault context an
+    /// installed client opened under the former address is this client's
+    /// (the same installation), and a first chat record is filed under the
+    /// address an installed client on another device looks for.
+    #[test]
+    #[ignore = "the client still pins the old address; runs from the flip on (#402)"]
+    fn the_live_gateway_s_chat_context_and_records_outlive_its_move() {
+        use baylee_client_core::lobby::gateway_list::{KEYED, PINNED};
+        struct Cleanup(std::path::PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let root = std::env::temp_dir()
+            .canonicalize()
+            .unwrap()
+            .join(format!("baylee-moved-chat-{}", uuid::Uuid::now_v7()));
+        let _cleanup = Cleanup(root.clone());
+        std::fs::create_dir(&root).unwrap();
+        let before = {
+            let context = ContextGuard::open(&root, Scope::new("af03", KEYED).unwrap()).unwrap();
+            context.installation().unwrap()
+        };
+        let session = Session {
+            gateway: PINNED.into(),
+            tag: "af03".into(),
+            handle: "Alice#af03".into(),
+            token: "synthetic token".into(),
+            guest: false,
+        };
+        let context =
+            ContextGuard::open(&root, Scope::new(&session.tag, &session.gateway).unwrap()).unwrap();
+        let installation = context.installation().unwrap();
+        assert_eq!(installation, before, "the same installation, not a new one");
+        let slot = social::SecretSlot::new(&session.tag, &session.gateway);
+        let first = import_keys(
+            &root,
+            &context,
+            &session,
+            &slot,
+            &installation,
+            &[],
+            Choice::Unlock,
+            None,
+            "",
+        )
+        .unwrap()
+        .expect("a first identity");
+        assert_eq!(first.gateway, KEYED);
+    }
+
     #[test]
     fn a_new_installation_reuses_identity_and_never_replaces_keyless_ciphertext() {
         struct Cleanup(std::path::PathBuf);
@@ -401,6 +459,7 @@ mod tests {
                 &installation,
                 &records,
                 Choice::Unlock,
+                None,
                 ""
             )
             .unwrap()
@@ -429,6 +488,7 @@ mod tests {
                 &installation,
                 &[],
                 Choice::Unlock,
+                None,
                 ""
             ),
             Err(Error::Missing)

@@ -1,0 +1,71 @@
+# baylee curated commander ramp seed=20261034
+# licence: AGPL-3.0-only
+[deck:commander ramp B #20261034]
+1 Aether Hub
+1 Agents of HYDRA
+1 Al Bhed Salvagers
+1 Baldur's Gate
+1 Baleful Force
+1 Barrow Witches
+1 Blightspeaker
+1 Bog Glider
+1 Cabal Patriarch
+1 Callous Inspector
+1 Castle Doom
+1 Cateran Overlord
+1 Cavern of Souls
+1 Cha'DIch Investigator
+1 Cirith Ungol Patrol
+1 Common Crook
+1 Daily Bugle Building
+1 Dakmor Lancer
+1 Deathgreeter
+1 Dire Fleet Hoarder
+1 Disciple of the Vault
+1 Doomed Dissenter
+1 Eyeblight Cullers
+1 Great Hall of the Citadel
+1 Greedy Freebooter
+1 Griselbrand
+1 Harvester of Souls
+1 Heap Gate
+1 Highway Robber
+1 Hopeless Nightmare
+1 Lead Pipe
+1 Liliana the Repentant
+1 Locthwain Lancer
+1 Lord of the Pit
+1 Maalfeld Twins
+1 Mana Crypt
+1 Marsh Flitter
+1 Massacre Wurm
+1 Nimana Sell-Sword
+1 Novice Occultist
+1 Ogre Slumlord
+1 Open the Graves
+1 Pitiless Plunderer
+1 Priest of Gix
+1 Priest of Yawgmoth
+1 Profane Tutor
+1 Quest for the Gravelord
+1 Razaketh, the Foulblooded
+1 Sengir Autocrat
+1 Shadow-Rite Priest
+1 Soldevi Adnate
+1 Strands of Night
+1 Strongarm Thug
+35 Swamp
+1 Sweettooth Witch
+1 Tempting Witch
+1 Tithebearer Giant
+1 Unburied Earthcarver
+1 Undead Augur
+1 Unearth
+1 Vault Plunderer
+1 Veldrane of Sengir
+1 Village Cannibals
+1 Whisper Squad
+1 Yawgmoth, Thran Physician
+
+[commander]
+Visara the Dreadful

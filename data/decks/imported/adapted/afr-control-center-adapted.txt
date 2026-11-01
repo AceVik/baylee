@@ -1,0 +1,20 @@
+# adapted from data/decks/precon/AFR/control-center.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, ControlCenter_AFR.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Control Center (Adapted)]
+1 Black Dragon
+1 Clearwater Pathway
+4 Consult the Necrosages
+2 Curate
+3 Elderfang Disciple
+4 Essence Vortex
+4 Glimpse the Unthinkable
+4 Ice Tunnel
+10 Island
+4 Notion Rain
+4 Pilfered Plans
+1 Port of Karfell
+10 Swamp
+3 Tyrant's Scorn
+1 Undersea Invader
+2 Vampire Spawn
+2 You Find the Villains' Lair

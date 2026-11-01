@@ -15,26 +15,39 @@
 //! Where a test sets a board up directly it says so, and it is the board and
 //! never the rule that is set.
 
+mod alone_attack;
+mod assignment_restrictions;
 mod attacking_tokens;
 mod battle_sba;
 mod blocks;
 mod branches;
+mod chosen_count_entry;
+mod color_source;
 mod combat_memory;
 mod control;
 mod costs;
 mod counter_payment;
 mod crew_saddle;
+mod damaged_object;
+mod delayed_departure;
 mod departed;
 mod destruction_order;
+mod destruction_receipts;
+mod draw_memory;
 mod draw_replacements;
 mod effects;
+mod flanking;
+mod land_transformations;
 mod mana;
 mod modal_activated;
+mod names;
 mod powerstone;
 mod preparation;
+mod regeneration_prohibitions;
 mod tokens;
 mod transforms;
 mod triggers;
+pub(super) mod untap_scope;
 mod wave3_rules;
 mod wave3b_rules;
 mod zones;
@@ -222,7 +235,10 @@ pub(super) fn bench<const N: usize>(
         rules: baylee_core::card_metadata::RulesMetadata::default(),
         format: FormatId::Freeform,
         seed,
-        house_rules: HouseRules::default(),
+        house_rules: HouseRules {
+            starting_player: Some(0),
+            ..HouseRules::default()
+        },
         modifiers: vec![],
         prints: vec![PrintInfo {
             scryfall_id: uuid::Uuid::nil(),

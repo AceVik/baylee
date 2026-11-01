@@ -260,8 +260,12 @@ impl<L: CardLookup> Engine<L> {
         // more times this turn" (Dragon Whelp) reads the same count, so an
         // ability whose effects ask it is counted too; no other is, which
         // keeps a repeatable activation out of the loop signature.
-        if matches!(limit, ActivationLimit::PerTurn(_) | ActivationLimit::Boast)
-            || asks_its_activations(effects)
+        if matches!(
+            limit,
+            ActivationLimit::PerTurn(_)
+                | ActivationLimit::PerTurnAmount(_)
+                | ActivationLimit::Boast
+        ) || asks_its_activations(effects)
         {
             *self
                 .state
@@ -322,6 +326,7 @@ impl<L: CardLookup> Engine<L> {
                 countered_source: None,
                 target_lki: None,
                 subject: resolve::SubjectContext::after_cost(&paid)
+                    .with_source_version(activated_source_version)
                     .with_mana_tap_source(cost.parts.contains(&CostPart::TapSelf).then_some(
                         baylee_core::ids::DamageSourceRef {
                             object: source,
@@ -336,6 +341,7 @@ impl<L: CardLookup> Engine<L> {
                 loot: None,
                 draw_watch: None,
                 this_way_from: None,
+                coin_stake: None,
             };
             let flow = resolve::run(&mut self.state, &mut res);
             #[cfg(test)]

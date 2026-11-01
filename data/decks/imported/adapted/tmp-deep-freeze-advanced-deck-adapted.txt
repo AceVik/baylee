@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/TMP/deep-freeze-advanced-deck.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DeepFreezeAdvancedDeck_TMP.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Deep Freeze - Advanced Deck (Adapted)]
+4 Adarkar Wastes
+1 Angelic Renewal
+2 Avenging Angel
+2 Binding Grasp
+1 Contradict
+4 Counterspell
+2 Disenchant
+2 Dismiss
+1 Dissipate
+4 Impulse
+1 Inspiration
+10 Island
+2 Man-o'-War
+2 Opt
+6 Plains
+1 Portent
+2 Quicksand
+2 Rainbow Efreet
+2 Sky Spirit
+2 Suq'Ata Firewalker
+1 Svyelunite Temple
+3 Thalakos Lowlands
+3 Wrath of God

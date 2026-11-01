@@ -176,10 +176,11 @@ fn expand(path: &str) -> PathBuf {
     }
 }
 
-/// A net in a chair: v2 or v3, from its export's JSON.
+/// A net in a chair: v2, v3, or v4, from its export's JSON.
 enum Player {
     V2(NetPlayer),
     V3(Box<NetPlayer3>),
+    V4(Box<baylee_train::netplay4::NetPlayer4>),
 }
 
 impl Player {
@@ -192,7 +193,12 @@ impl Player {
     ) -> anyhow::Result<Self> {
         let meta: Value = serde_json::from_slice(&fs::read(model.with_extension("onnx.json"))?)
             .with_context(|| format!("{}.json", model.display()))?;
-        if meta["encoder_version"] == json!(3) {
+        if meta["encoder_version"] == json!(4) {
+            let mut net = baylee_train::netplay4::NetPlayer4::load(model)?;
+            net.set_temperature(temperature);
+            net.reseed(seed);
+            Ok(Self::V4(Box::new(net)))
+        } else if meta["encoder_version"] == json!(3) {
             let mut net = match servers.get(model) {
                 Some(server) => NetPlayer3::served(model, entities, 4, server.clone())?,
                 None => NetPlayer3::load(model, entities, 4)?,
@@ -215,12 +221,34 @@ impl Player {
         match self {
             Self::V2(net) => net.answer(view, pending),
             Self::V3(net) => net.answer(view, pending, table),
+            Self::V4(net) => {
+                let a = net.act_detailed(view, pending, table.teams);
+                if a.provenance.source == baylee_train::features4::SourceKind4::House {
+                    Ok(None)
+                } else {
+                    Ok(Some(Answer {
+                        action: a.action,
+                        picks: 1,
+                        value: a.value,
+                    }))
+                }
+            }
         }
     }
 
     fn reseed(&mut self, seed: u64) {
-        if let Self::V3(net) = self {
-            net.seed(seed);
+        match self {
+            Self::V2(_) => {}
+            Self::V3(net) => net.seed(seed),
+            Self::V4(net) => {
+                net.reseed(seed);
+            }
+        }
+    }
+
+    fn reset_game(&mut self) {
+        if let Self::V4(net) = self {
+            net.reset_game();
         }
     }
 }
@@ -316,6 +344,9 @@ fn play_one(
     }
     learner.reseed(mix(seed ^ 0x1ea7));
     selfish.reseed(mix(seed ^ 0x5e1f));
+    for net in nets.values_mut() {
+        net.reset_game();
+    }
     let teams: Vec<Option<u8>> = preset.seats.iter().map(|s| s.team).collect();
     let deck_me = deck_list(&preset.seats[usize::from(learner_seat)]);
     let deck_them = deck_list(&preset.seats[usize::from(other)]);
@@ -369,11 +400,14 @@ fn play_one(
                 teams: &teams,
                 deck,
             };
-            // Asked too often in one game state, a net has gone round a loop
-            // of its own answers: the house answers there
-            // (`netplay3::STALL_VISITS`).
+            // Asked too often in one visible game state, a net has gone round
+            // a loop of its own answers: the house answers there
+            // (`netplay3::STALL_VISITS`). Uses `view_only_state_hash` so
+            // hidden opponent hands/libraries cannot leak into stall detection.
             let visits = asked_in[usize::from(seat.get())]
-                .entry(session.snapshot_hash())
+                .entry(baylee_train::features4::view_only_state_hash(
+                    &view, &pending,
+                ))
                 .or_default();
             *visits += 1;
             let again = *visits > baylee_train::netplay3::STALL_VISITS;
@@ -480,7 +514,7 @@ fn main() -> anyhow::Result<()> {
             bail!("--shapes names none");
         }
         let held = deckgen::held_out(&working, args.held_out_every);
-        let pool = deckgen::Pool::new(&working, &held);
+        let pool = deckgen::pool_for_working(&working, &held);
         let mut attempt = 0_u64;
         let mut made = 0;
         while made < args.generated && attempt < args.generated as u64 * 4 {
@@ -510,8 +544,8 @@ fn main() -> anyhow::Result<()> {
     let learner_meta: Value =
         serde_json::from_slice(&fs::read(args.learner.with_extension("onnx.json"))?)
             .context("the learner's net.onnx.json")?;
-    if learner_meta["encoder_version"] != json!(3) {
-        bail!("the learner must be a v3 export");
+    if learner_meta["encoder_version"] != json!(3) && learner_meta["encoder_version"] != json!(4) {
+        bail!("the learner must be a v3 or v4 export");
     }
     fs::create_dir_all(args.out.join("records"))?;
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();

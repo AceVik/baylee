@@ -1,0 +1,82 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp WBR #20266094]
+1 Accelerate
+1 Ambush Gigapede
+1 Armistice
+1 Avaricious Dragon
+1 Battle Hymn
+1 Binding Mummy
+1 Blood-Toll Harpy
+1 Boltwing Marauder
+1 Brand
+1 Burning Inquiry
+1 Cliffgate
+1 Control of the Court
+1 Corpse Knight
+1 Dakmor Salvage
+1 Dangerous Wager
+1 Dragon Mantle
+1 Dwarven Hold
+1 Expedite
+1 Fire Imp
+1 Fountain of Cho
+1 Goblin Lore
+1 Grasping Thrull
+1 Gravebind
+1 Graveshifter
+1 Greed
+1 Hagra Diabolist
+1 Hidden Necropolis
+1 Impolite Entrance
+1 Imposing Vantasaur
+1 Lava Zombie
+1 Lifecreed Duo
+1 Lightning Blow
+1 Lindblum, Industrial Regency
+1 Locust Spray
+1 Mana Geyser
+1 Memorial to War
+1 Mercadian Bazaar
+1 Miasmic Mummy
+1 Mold Demon
+1 Momo, Rambunctious Rascal
+8 Mountain
+1 Mummy Paramount
+1 Nighthaze
+1 Nomad Outpost
+1 Onslaught
+1 Oppression
+1 Orzhov Keyrune
+1 Panic
+4 Plains
+1 Putrefaction
+1 Rakdos Keyrune
+1 Raking Claws
+1 Rank and File
+1 Rathi Dragon
+1 Sandstone Needle
+1 Savai Triome
+1 Shattered Landscape
+1 Shield-Wall Sentinel
+1 Sibsig Host
+1 Skull of Ramos
+1 Stun
+1 Sugar Rush
+1 Susur Secundi, Void Altar
+14 Swamp
+1 Thoughtrender Lamia
+1 Thriving Heath
+1 Thrór's Map
+1 Thundermaw Hellkite
+1 Toucan-Puffin
+1 Tournament Grounds
+1 Ubul Sar Gatekeepers
+1 Valakut, the Molten Pinnacle
+1 Wayward Servant
+1 Winds of Change
+1 Witty Roastmaster
+1 Zof Consumption
+
+[commander]
+Oros, the Avenger

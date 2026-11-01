@@ -1,0 +1,27 @@
+# adapted from data/decks/precon/ISD/spectral-legions.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SpectralLegions_ISD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Spectral Legions (Adapted)]
+1 Absorb
+1 Angel of Flight Alabaster
+1 Battleground Geist
+2 Chapel Geist
+1 Curiosity
+2 Daring Leap
+2 Divine Favor
+2 Doomed Traveler
+1 Gallows Warden
+1 Geist-Honored Monk
+10 Island
+1 Lifelink
+2 Mausoleum Guard
+2 Midnight Haunting
+1 Moment of Heroism
+3 Moon Heron
+1 Negate
+2 Pacifism
+14 Plains
+2 Rebuke
+3 Sphinx's Revelation
+1 Spirit Mantle
+2 Unsummon
+2 Voiceless Spirit

@@ -155,8 +155,14 @@ impl Contacts {
         }
     }
 
-    /// A group event (§8.2).
-    pub fn group_event(&mut self, event: GroupEvent, group: &GroupInfo) {
+    /// A group event (§8.2); `inviter` and `now_ms` date an invite.
+    pub fn group_event(
+        &mut self,
+        event: GroupEvent,
+        group: &GroupInfo,
+        inviter: Option<&Person>,
+        now_ms: u64,
+    ) {
         match event {
             GroupEvent::Joined | GroupEvent::Updated => {
                 self.group_invites.retain(|i| i.group != group.id);
@@ -171,17 +177,30 @@ impl Contacts {
                 self.group_invites.retain(|i| i.group != group.id);
             }
             GroupEvent::InviteGone => self.group_invites.retain(|i| i.group != group.id),
-            // The invite itself arrives in the next snapshot, which carries
-            // its inviter; the event only says the group exists.
-            GroupEvent::Invited => {}
+            // Listed at once where the gateway names who invited (since
+            // 29.10.2026); an older gateway's invite is listed by the next
+            // snapshot, which carries its inviter.
+            GroupEvent::Invited => {
+                if let Some(inviter) = inviter {
+                    self.group_invites.retain(|i| i.group != group.id);
+                    self.group_invites.push(GroupInvite {
+                        group: group.id.clone(),
+                        name: group.name.clone(),
+                        inviter: inviter.clone(),
+                        at: now_ms,
+                    });
+                }
+            }
         }
     }
 
-    /// Drops table invites past their time.
-    pub fn expire_invites(&mut self, now_ms: u64) -> bool {
-        let before = self.invites.len();
-        self.invites.retain(|i| i.expires_at > now_ms);
-        before != self.invites.len()
+    /// Drops table invites past their time, and says which went.
+    pub fn expire_invites(&mut self, now_ms: u64) -> Vec<String> {
+        let (gone, kept) = std::mem::take(&mut self.invites)
+            .into_iter()
+            .partition(|i| i.expires_at <= now_ms);
+        self.invites = kept;
+        gone.into_iter().map(|i: HeldInvite| i.invite.id).collect()
     }
 
     /// The drawer's sections.

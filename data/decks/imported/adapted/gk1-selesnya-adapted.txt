@@ -1,0 +1,26 @@
+# adapted from data/decks/precon/GK1/selesnya.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, Selesnya_GK1.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Selesnya (Adapted)]
+4 Advent of the Wurm
+4 Call of the Conclave
+1 Centaur Healer
+1 Conclave Cavalier
+1 Desert Twister
+2 Eladamri's Call
+8 Forest
+2 Gerrard's Command
+1 Glare of Subdual
+1 Grove of the Guardian
+1 Heroes' Reunion
+1 Nature's Chant
+8 Plains
+1 Privileged Position
+4 Selesnya Charm
+2 Selesnya Evangel
+4 Selesnya Guildgate
+4 Selesnya Sanctuary
+2 Selesnya Signet
+1 Tolsimir Wolfblood
+1 Vernadi Shieldmate
+4 Vitalizing Cascade
+2 Watchwolf

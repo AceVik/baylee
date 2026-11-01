@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/WC01/antoine-ruel-blue-black-red-nether-go.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, AntoineRuelBlueBlackRedNetherGo_WC01.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Antoine Ruel - Blue-Black-Red Nether-Go (Adapted)]
+2 Agadeem's Awakening
+4 Counterspell
+4 Crosis's Charm
+4 Drastic Revelation
+2 Duress
+2 Eyeblight's Ending
+3 Fact or Fiction
+4 Fire
+8 Island
+3 Opt
+2 Pillage
+4 Salt Marsh
+3 Shivan Reef
+2 Stroke of Genius
+4 Stupor
+1 Sulfurous Springs
+1 Sweltering Suns
+4 Underground River
+3 Urborg Volcano

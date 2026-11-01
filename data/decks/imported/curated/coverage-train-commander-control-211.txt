@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander control
+# licence: AGPL-3.0-only
+[deck:commander control WRG #20266212]
+1 An-Havva Township
+1 Armed Response
+1 Aven Archer
+1 Barbarian Lunatic
+1 Battlefield Forge
+1 Boltwave
+1 Brothers of Fire
+1 Brushland
+1 Cinder Cloud
+1 Cold Snap
+1 Collision Course
+1 Command the Storm
+1 Coordinated Maneuver
+1 Cosmium Blast
+1 Deadshot
+1 Dive Bomber
+1 Earth Tremor
+1 Eivor, Battle-Ready
+1 Elspeth's Smite
+1 Engulfing Eruption
+1 Eternal Flame
+1 Explosive Shot
+1 Falkenrath Exterminator
+1 Fanged Flames
+1 Femeref Archers
+1 Fire and Brimstone
+1 Flame Lash
+5 Forest
+1 Ghitu Fire-Eater
+1 Gideon's Reproach
+1 Grove of the Burnwillows
+1 Grove of the Guardian
+1 Harpoon Sniper
+1 Hushwood Verge
+1 Ichneumon Druid
+1 Impeccable Timing
+1 Jetmir's Garden
+1 Jungle Shrine
+1 Karplusan Hound
+1 Land's Edge
+1 Leaf Arrow
+1 Lust for War
+1 Mob Justice
+17 Mountain
+1 Obliterating Bolt
+1 Outflank
+1 Pierce the Sky
+1 Pinecrest Ridge
+5 Plains
+1 Primal Order
+1 Ragefire
+1 Razorgrass Ambush
+1 Reduce to Ashes
+1 Reroute Systems
+1 Riftstone Portal
+1 Rith's Grove
+1 Rockslide Ambush
+1 Sacellum Archers
+1 Savannah
+1 Scorching Shot
+1 Searing Wind
+1 Sheltering Landscape
+1 Skarrg, the Rage Pits
+1 Slayers' Stronghold
+1 Strafe
+1 Sudden Impact
+1 Suplex
+1 Thelon's Chant
+1 Tinder Farm
+1 Torch Song
+1 Ultimate Alliance
+1 Unfriendly Fire
+1 Unyaro Bee Sting
+1 Valakut Invoker
+1 Word of Blasting
+
+[commander]
+Rin and Seri, Inseparable

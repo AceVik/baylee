@@ -145,17 +145,15 @@ pub(crate) fn run_with_context(
 
     outcome.changed |= speed::start(state, lookup);
     // --- Player losses (CR 704.5a-c) -----------------------------------
-    // Everybody Lives: no losses while the effect is active.
-    let cant_lose = players_cant_lose(state);
     // Every loss is found before anybody leaves: they are one simultaneous
     // event (CR 704.3), and the crown passes over every player leaving in it
     // (CR 724.4), not through one of them on its way to the heir.
     let mut losers: Vec<(PlayerId, LossReason)> = Vec::new();
     for player in 0..state.players.len() {
-        if cant_lose {
-            break;
-        }
         let p = PlayerId::new(player as u8);
+        if player_cant_lose(state, p) {
+            continue;
+        }
         let (life, poison, empty_draw, has_lost, commander_damage) = {
             let pl = &state.players[player];
             (
@@ -254,6 +252,10 @@ pub(crate) fn run_with_context(
             .and_then(|(_, snapshot)| snapshot.clone())
     };
 
+    // Regeneration prohibitions see the same pre-action board as every
+    // member of this simultaneous state-based event, even if a source dies.
+    let cannot_regenerate = regeneration::prohibited_on_battlefield(state);
+
     // CR 704.5v-y candidates were captured with the same pre-action board.
     for reference in &battles.graveyard {
         if state.source_identity(reference.object) == Some(*reference) {
@@ -305,7 +307,13 @@ pub(crate) fn run_with_context(
     }
     for (id, is_destroy) in dying {
         if is_destroy {
-            destroy_with(state, id, true, departure(id), false);
+            destroy_with(
+                state,
+                id,
+                !cannot_regenerate.contains(&id),
+                departure(id),
+                false,
+            );
         } else {
             put_into_graveyard_with_departure(state, id, departure(id));
         }
@@ -779,7 +787,8 @@ pub fn apply_legend_choice(
 /// Lethal damage routes through here, so a shielded creature survives a
 /// Lightning Bolt and a "destroy target creature" by the same line.
 pub fn destroy(state: &mut GameState, id: baylee_core::ids::ObjectId) {
-    destroy_with(state, id, true, None, true);
+    let regeneratable = regeneration::allowed(state, id);
+    destroy_with(state, id, regeneratable, None, true);
 }
 
 /// Destroys a permanent whose destruction a card said it could not be
@@ -852,12 +861,8 @@ fn destroy_with_replacements(
     }) {
         return;
     }
-    // "It can't be regenerated this turn" (Disintegrate): the shield
-    // stands and is not applied (CR 701.19c), for this object only.
-    let regeneratable = regeneratable
-        && state
-            .object(id)
-            .is_none_or(|o| !state.per_turn.cant_regenerate.contains(&(id, o.version)));
+    // The caller captured regeneration permission before this event began.
+    // Rechecking after a co-destroyed static source leaves would split the event.
     let standing_regeneration = state.effects.may_change_player_or_sba_rules()
         && state.object(id).is_some_and(|object| {
             state.effects.iter().any(|effect| {
@@ -932,7 +937,7 @@ fn destroy_with_replacements(
         }
         return;
     }
-    put_into_graveyard_with_departure(state, id, departure);
+    put_into_graveyard_with_cause(state, id, departure, Cause::Destroy);
 }
 
 /// Destroy a simultaneous set, retaining attachments before any member leaves.
@@ -943,10 +948,16 @@ pub(crate) fn destroy_all(
 ) {
     let departures: Vec<_> = objects
         .iter()
-        .map(|id| (*id, state.departure_snapshot(*id)))
+        .map(|id| {
+            (
+                *id,
+                state.departure_snapshot(*id),
+                !no_regen && regeneration::allowed(state, *id),
+            )
+        })
         .collect();
-    for (id, departure) in departures {
-        destroy_with(state, id, !no_regen, departure, true);
+    for (id, departure, regeneratable) in departures {
+        destroy_with(state, id, regeneratable, departure, true);
     }
 }
 
@@ -960,7 +971,8 @@ pub(crate) fn destroy_all(
 ///
 /// The time a permanent has had the supertype is read as its timestamp
 /// (CR 613.7d), taken as it entered the battlefield: every world card in the
-/// pool prints the supertype, and nothing grants it. Permanents that enter
+/// pool prints the supertype. Tracking time since gaining or regaining WORLD
+/// through a continuous supertype change is not yet supported. Permanents that enter
 /// at once get timestamps in APNAP order (CR 613.7m) here, so the tie of
 /// the rule's second sentence is two equal timestamps.
 fn world_rule(state: &GameState) -> smallvec::SmallVec<[baylee_core::ids::ObjectId; 4]> {
@@ -1006,6 +1018,15 @@ fn put_into_graveyard_with_departure(
     id: baylee_core::ids::ObjectId,
     departure: Option<crate::damage_history::BattlefieldDeparture>,
 ) {
+    put_into_graveyard_with_cause(state, id, departure, Cause::StateBased);
+}
+
+fn put_into_graveyard_with_cause(
+    state: &mut GameState,
+    id: baylee_core::ids::ObjectId,
+    departure: Option<crate::damage_history::BattlefieldDeparture>,
+    cause: Cause,
+) {
     let owner = state.object(id).map_or(PlayerId::new(0), |o| o.owner);
     // Only the kind. The marked damage and the deathtouch flag used to be
     // cleared here too, which was this one caller doing by hand what every
@@ -1018,7 +1039,7 @@ fn put_into_graveyard_with_departure(
         id,
         ZoneLocation::Graveyard(owner),
         ZonePosition::Top,
-        Cause::StateBased,
+        cause,
         departure,
     );
 }
@@ -1038,6 +1059,33 @@ pub fn players_cant_lose(state: &GameState) -> bool {
             .any(|fx| matches!(fx.modifier, baylee_cards_dsl::Modifier::PlayersCantLose))
 }
 
+/// Whether this player is protected from every non-concession loss.
+#[must_use]
+pub fn player_cant_lose(state: &GameState, player: PlayerId) -> bool {
+    players_cant_lose(state)
+        || (state.effects.may_change_player_or_sba_rules()
+            && state.effects.iter().any(|fx| {
+                let baylee_cards_dsl::Modifier::NamedPlayersCantLose(who) = fx.modifier else {
+                    return false;
+                };
+                crate::eval::players(who, state, fx.controller)
+                    .is_some_and(|players| players.contains(&player))
+            }))
+}
+
+/// Whether an effect prohibits this player from winning.
+#[must_use]
+pub fn player_cant_win(state: &GameState, player: PlayerId) -> bool {
+    state.effects.may_change_player_or_sba_rules()
+        && state.effects.iter().any(|fx| {
+            let baylee_cards_dsl::Modifier::PlayersCantWin(who) = fx.modifier else {
+                return false;
+            };
+            crate::eval::players(who, state, fx.controller)
+                .is_some_and(|players| players.contains(&player))
+        })
+}
+
 /// An effect says `player` loses the game (CR 104.3e), such as a pact left
 /// unpaid. They do, unless an effect says players can't lose the game, and
 /// then nothing happens: the effect that said so has done all it does.
@@ -1045,7 +1093,7 @@ pub fn players_cant_lose(state: &GameState) -> bool {
 /// Returns whether the player lost. Not for a concession, which "can't lose
 /// the game" does not stop (CR 104.3a); that calls [`eliminate_player`].
 pub fn lose_by_effect(state: &mut GameState, player: PlayerId) -> bool {
-    if players_cant_lose(state) {
+    if player_cant_lose(state, player) {
         return false;
     }
     eliminate_player(state, player, LossReason::Effect);
@@ -1059,9 +1107,10 @@ pub fn lose_by_effect(state: &mut GameState, player: PlayerId) -> bool {
 /// 1. Everything they own leaves the game, and every effect giving them
 ///    control of an object ends, so what they took goes back to whoever
 ///    controls it without them. So does every effect giving them control of
-///    a player: the one the engine has is Opposition Agent's search takeover
-///    (CR 722.2), and `every_card_that_controls_a_player_does_it_by_taking_over_a_search`
-///    fails the day a card controls a player some other way. What a
+///    a player: Opposition Agent's search takeover (CR 722.2) and Mindslaver's
+///    scheduled turn control both end here, and
+///    `every_card_that_controls_a_player_has_a_departure_rule` fails the day a
+///    card controls a player some other way. What a
 ///    permanent of theirs held "until it leaves the battlefield" comes back,
 ///    and if they were the monarch, the designation passes on as they leave
 ///    (CR 724.4, `GameState::monarch_leaves`).
@@ -1125,6 +1174,11 @@ fn leave(
             baylee_cards_dsl::Modifier::GainControl | baylee_cards_dsl::Modifier::SearchTakeover
         ) && fx.controller == player
     });
+    // A scheduled turn control is an effect giving one player control of
+    // another. It ends immediately when either participant leaves (CR 800.4a).
+    state
+        .turn_controls
+        .retain(|control| control.controller != player && control.player != player);
     // A permanent of theirs that held a card "until it leaves the
     // battlefield" has just left it without passing through `move_object`,
     // and the card comes back to its owner (CR 610.3).

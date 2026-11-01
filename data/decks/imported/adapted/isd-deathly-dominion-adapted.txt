@@ -1,0 +1,21 @@
+# adapted from data/decks/precon/ISD/deathly-dominion.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, DeathlyDominion_ISD.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Deathly Dominion (Adapted)]
+4 Abrupt Decay
+1 Ambush Viper
+1 Assassin's Trophy
+2 Dead Weight
+2 Devouring Swarm
+1 Doom Blade
+13 Forest
+4 Gaze of Granite
+2 Gohn, Town of Ruin
+2 Lumberknot
+4 Maelstrom Pulse
+4 Pest Summoning
+1 Plummet
+2 Rampant Growth
+11 Swamp
+3 Tear Asunder
+1 Typhoid Rats
+2 Warpath Ghoul

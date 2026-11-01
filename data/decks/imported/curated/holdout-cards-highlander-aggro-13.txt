@@ -1,0 +1,81 @@
+# baylee unseen-card holdout highlander seed=90000019
+# licence: AGPL-3.0-only
+[deck:highlander aggro UG #90000019]
+1 Ancestral Vision
+1 Ant-Man, Reformed Rogue
+1 Argothian Enchantress
+1 Avengers Tower
+1 Baldur's Gate
+1 Baxter Building
+1 Bog-Strider Ash
+1 Careful Study
+1 Charge Through
+1 Citanul Druid
+1 Clairvoyance
+1 Cloak of Feathers
+1 Constricting Tendrils
+1 Corrupted Crossroads
+1 Cruel Witness
+1 Customs Depot
+1 Deeproot Champion
+1 Drowner Initiate
+1 Elementalist Adept
+1 Elusive Spellfist
+1 Elvish Handservant
+1 Etherium Spinner
+1 Fleeting Distraction
+9 Forest
+1 Generous Visitor
+1 Great Hall of the Citadel
+1 Haven of the Spirit Dragon
+1 Hesitation
+1 Hidden Grotto
+1 Hidden Spider
+1 Hurricane
+1 Iguana Parrot
+1 Ingenious Skaab
+1 Interplanar Beacon
+15 Island
+1 Jarvis, Earth's Mightiest Butler
+1 Jhessian Thief
+1 Jinx
+1 Kami of the Hunt
+1 Kulrath Mystic
+1 Lifesmith
+1 Lightshell Duo
+1 Lotus Path Djinn
+1 Mana Drain
+1 Medusa, Inhuman Queen
+1 Merrow Reejerey
+1 Mistfire Adept
+1 Mistral Singer
+1 Mold Adder
+1 Novijen, Heart of Progress
+1 Pact of Negation
+1 Pillar of the Paruns
+1 Primordial Sage
+1 Prosperity
+1 Psychic Barrier
+1 Pym Particles
+1 Ringwarden Owl
+1 Shadow Rift
+1 Shocking Grasp
+1 Shorecrasher Mimic
+1 Sky Theater Strix
+1 Slip Through Space
+1 Soilshaper
+1 Stymied Hopes
+1 Surveillance Room
+1 TVA Bureaucrat
+1 Take Down
+1 Talrand, Sky Summoner
+1 Tendo Ice Bridge
+1 Three Steps Ahead
+1 Throne of Makindi
+1 Thunderous Snapper
+1 Tropical Island
+1 Umara Entangler
+1 Vedalken Blademaster
+1 Veiled Apparition
+1 Veiled Sentry
+1 Wing Commando

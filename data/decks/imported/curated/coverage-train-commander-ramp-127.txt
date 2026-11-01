@@ -1,0 +1,81 @@
+# baylee synergistic coverage commander ramp
+# licence: AGPL-3.0-only
+[deck:commander ramp UB #20266128]
+1 Aquitect's Defenses
+1 Archway of Innovation
+1 Back to Basics
+1 Barrin, Master Wizard
+1 Battleground Geist
+1 Bladestitched Skaab
+1 Bottomless Vault
+1 Castle Vantress
+1 Clash of Wills
+1 Coerced to Kill
+1 Copy Land
+1 Coral Barrier
+1 Dampening Pulse
+1 Deep Water
+1 Drunau Corpse Trawler
+1 Extinguish All Hope
+1 Fledgling Osprey
+1 Flooded Shoreline
+1 Floodgate
+1 Gravitational Shift
+1 Hag of Noxious Nightmares
+1 Hall of Storm Giants
+1 Haunter of Nightveil
+1 Hullbreacher
+1 Human Frailty
+13 Island
+1 Jidoor, Aristocratic Capital
+1 Kaervek, the Spiteful
+1 Larceny
+1 Levitation
+1 Lord of Atlantis
+1 Lord of the Unreal
+1 Master of the Pearl Trident
+1 Memorial to Folly
+1 Memorial to Genius
+1 Merfolk Seer
+1 Merfolk Sovereign
+1 Mirrormade
+1 Mists of Littjara
+1 Moonring Island
+1 Myr Matrix
+1 Mystic Decree
+1 Mystic Sanctuary
+1 Necromaster Dragon
+1 Nimble Thopterist
+1 Pestered Wellguard
+1 Reef Roads
+1 Rite of Replication
+1 River of Tears
+1 River's Favor
+1 Seafloor Debris
+1 Selhoff Entomber
+1 Sensory Deprivation
+1 Shelldock Isle
+1 Shimmer
+1 Sinister Strength
+1 Skyline Cascade
+1 Snow Devil
+1 Spitting Sliver
+1 Stasis
+13 Swamp
+1 Thassa's Ire
+1 The Surgical Bay
+1 The Walls of Ba Sing Se
+1 Their Name Is Death
+1 Torment
+1 Undertow
+1 Urborg Shambler
+1 Vivid Marsh
+1 Vodalian War Machine
+1 Wall of Kelp
+1 Web of Inertia
+1 Zephyr Charge
+1 Zephyr Net
+1 Zombie Master
+
+[commander]
+Nebuchadnezzar

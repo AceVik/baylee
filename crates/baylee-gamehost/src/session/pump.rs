@@ -92,7 +92,12 @@ impl Session {
                 SeatKind::Ai(agent) | SeatKind::StandIn(agent) => {
                     let view = self.agent_view(player, &pending);
                     let context = self.engine.decision_context();
-                    let scouting = agent.scouting_request(&pending).and_then(|request| {
+                    let scouting = agent.scouting_request(&pending).and_then(|mut request| {
+                        if self.fair_scouting {
+                            request.opponents = false;
+                            request.hands = false;
+                            request.library = baylee_ai::intelligence::LibraryAccess::None;
+                        }
                         crate::scouting::request(
                             &self.seats,
                             &self.scouting_decks,
@@ -166,13 +171,19 @@ impl Session {
         };
         let refused = action.clone();
         let kept = self.record.is_some().then(|| action.clone());
-        if self.engine.apply(player, action).is_ok() {
-            if let Some(action) = kept {
-                self.recorded(player, by, action);
+        self.last_attempt = Some((player, by, action.clone()));
+        let applied = self.engine.apply(player, action);
+        self.last_attempt = None;
+        let error = match applied {
+            Ok(()) => {
+                if let Some(action) = kept {
+                    self.recorded(player, by, action);
+                }
+                self.log_answer(player, &asked, deciding, None);
+                return moves;
             }
-            self.log_answer(player, &asked, deciding, None);
-            return moves;
-        }
+            Err(error) => error,
+        };
         // A refused answer leaves the engine as it was, so the question the
         // proposal was refused on is still the one standing, and asking the
         // house again would only propose the same answer to it. The answer
@@ -183,19 +194,35 @@ impl Session {
         // spent its offer, the house was then asked about the priority that
         // followed, and that answer went into the record in place of an
         // answer to the miracle — a record no replay could follow.
-        let pending = self
-            .engine
-            .pending_for(player)
-            .expect("a refused answer leaves its question standing");
+        //
+        // A seat with no question standing was asked nothing before the
+        // proposal either (the refusal moved nothing), so nobody waits on it
+        // and nothing stalls. This used to `expect` a question here, and a
+        // concession for a chair whose duel the concession before it had
+        // ended aborted the engine process and the game with it
+        // (22.10.2026). The host's journal says so now; the game and its
+        // record stay as they were.
+        let Some(pending) = self.engine.pending_for(player) else {
+            tracing::error!(
+                seat = player.get(),
+                action = ?refused,
+                %error,
+                game_over = matches!(self.engine.pending(), Pending::GameOver(_)),
+                "the house answered for a seat that was asked nothing; the answer is dropped",
+            );
+            return false;
+        };
         let fallback = baylee_engine::choice::timeout_answer(pending)
             .filter(|answer| *answer != refused)
             .or_else(|| self.house_action(player))
             .expect("refused AI action left no decision");
         let asked = self.answering(player, &fallback);
         let kept = self.record.is_some().then(|| fallback.clone());
+        self.last_attempt = Some((player, by, fallback.clone()));
         self.engine.apply(player, fallback).expect(
             "both AI proposal and recovery were refused; refusing to silently stall the table",
         );
+        self.last_attempt = None;
         if let Some(action) = kept {
             self.recorded(player, by, action);
         }

@@ -1,0 +1,20 @@
+# MTGJSON 5.3.0+20260929, https://mtgjson.com, Sorcerer_PAST.json
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Sorcerer]
+3 Ali Baba
+3 Brass Man
+4 Giant Strength
+4 Goblin Balloon Brigade
+3 Hurr Jackal
+3 Immolation
+4 Lightning Bolt
+4 Manabarbs
+4 Mons's Goblin Raiders
+20 Mountain
+4 Sisters of the Flame
+4 Winds of Change
+
+[sideboard]
+2 Burrowing
+1 Celestial Prism
+2 Ornithopter

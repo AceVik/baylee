@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/GTC/simic-synthesis.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, SimicSynthesis_GTC.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Simic Synthesis (Adapted)]
+4 Auroral Procession
+1 Chronomaton
+1 Crack Open
+4 Double Major
+12 Forest
+1 Frantic Search
+1 Frilled Oculus
+4 Hydroform
+13 Island
+1 Ivy Lane Denizen
+2 Kraken Hatchling
+1 Merfolk of the Depths
+4 Neoform
+1 Regress
+1 Simic Guildgate
+2 Simic Keyrune
+1 Skyshroud Forest
+4 Square Up
+2 Winged Coatl

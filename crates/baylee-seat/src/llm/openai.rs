@@ -3,14 +3,15 @@
 //! What `DeepSeek`, `OpenAI` and the local servers (llama.cpp, vLLM, Ollama)
 //! share: messages with roles, function tools whose arguments arrive as a
 //! JSON string, `role: tool` results. A model's `reasoning_content` is
-//! shown on the terminal and never sent back (`DeepSeek` refuses it in a
-//! request). For a server without tools, [`AnswerMode::Json`] asks for one
+//! retained verbatim in tool conversations: thinking endpoints such as
+//! `DeepSeek` require it on subsequent calls. For a server without tools,
+//! [`AnswerMode::Json`] asks for one
 //! JSON object instead, and [`AnswerMode::JsonSchema`] for one held to the
 //! answer's schema ([`answer_schema`]), which is what a server that refuses
 //! a bare `json_object` takes (LM Studio: "`'response_format.type' must be
 //! 'json_schema' or 'text'`").
 
-use super::prompt::{JSON_MODE, SYSTEM, answer_schema, openai_tools};
+use super::prompt::{Extras, JSON_MODE, answer_schema, openai_tools};
 use super::{AnswerMode, Call, Reply, Settings, Stop, ToolResult, Usage};
 use serde_json::{Value, json};
 
@@ -26,28 +27,28 @@ pub fn models_url(base: &str) -> String {
     format!("{base}/models")
 }
 
-/// The conversation's first message: the system prompt.
+/// The conversation's first message: the system prompt for a seat with
+/// `extras`.
 #[must_use]
-pub fn system(mode: AnswerMode) -> Value {
-    let text = if mode.is_json() {
-        format!("{SYSTEM}{JSON_MODE}")
-    } else {
-        SYSTEM.to_string()
-    };
+pub fn system(mode: AnswerMode, extras: Extras) -> Value {
+    let mut text = super::prompt::system(extras);
+    if mode.is_json() {
+        text.push_str(JSON_MODE);
+    }
     json!({"role": "system", "content": text})
 }
 
-/// The request body.
+/// The request body for the endpoint at `base`.
 #[must_use]
-pub fn body(settings: &Settings, messages: &[Value]) -> Value {
+pub fn body(settings: &Settings, base: &str, messages: &[Value]) -> Value {
     let mut body = json!({
         "model": settings.model,
         "messages": messages,
-        "max_tokens": settings.max_tokens,
     });
+    body[reply_limit(base)] = json!(settings.max_tokens);
     match settings.answer {
         AnswerMode::Tools => {
-            body["tools"] = openai_tools();
+            body["tools"] = openai_tools(settings.extras());
             body["tool_choice"] = json!("auto");
         }
         AnswerMode::Json => body["response_format"] = json!({"type": "json_object"}),
@@ -57,7 +58,7 @@ pub fn body(settings: &Settings, messages: &[Value]) -> Value {
         AnswerMode::JsonSchema => {
             body["response_format"] = json!({
                 "type": "json_schema",
-                "json_schema": {"name": "decide", "schema": answer_schema()},
+                "json_schema": {"name": "decide", "schema": answer_schema(settings.extras())},
             });
         }
     }
@@ -65,6 +66,28 @@ pub fn body(settings: &Settings, messages: &[Value]) -> Value {
         body["reasoning_effort"] = json!(effort);
     }
     body
+}
+
+/// The field the endpoint at `base` takes the most a reply may take in.
+/// `OpenAI`'s own API refuses `max_tokens` for its current models (`400
+/// Unsupported parameter: 'max_tokens' is not supported with this model.
+/// Use 'max_completion_tokens' instead.`, seen live on 31.10.2026), and
+/// is told `max_completion_tokens`; every other OpenAI-compatible endpoint
+/// (`DeepSeek`, Google's, a server on this machine) is told `max_tokens`,
+/// which it takes.
+#[must_use]
+pub fn reply_limit(base: &str) -> &'static str {
+    let host = base
+        .split_once("://")
+        .map_or(base, |(_, rest)| rest)
+        .split(['/', ':', '?', '#'])
+        .next()
+        .unwrap_or_default();
+    if host.eq_ignore_ascii_case("api.openai.com") {
+        "max_completion_tokens"
+    } else {
+        "max_tokens"
+    }
 }
 
 /// Appends the user's turn: one `tool` message per result of the model's
@@ -142,14 +165,11 @@ pub fn parse(body: &Value, mode: AnswerMode) -> Result<Reply, String> {
         && calls.is_empty()
         && let Some(object) = json_object(&text)
     {
-        let name = if object.get("concede").is_some() {
-            "concede"
-        } else {
-            "decide"
-        };
+        // A synthetic call, decoded by the same JSON reader as a CLI.
+        // The presence of an optional `concede` key is not a concession.
         calls.push(Call {
             id: String::new(),
-            name: name.into(),
+            name: "decide".into(),
             input: object,
         });
     }
@@ -173,11 +193,16 @@ pub fn parse(body: &Value, mode: AnswerMode) -> Result<Reply, String> {
         Some("content_filter") => Stop::Refusal,
         Some(other) => Stop::Other(other.to_string()),
     };
-    // Replayed without the reasoning, which such endpoints refuse to be
-    // sent back.
     let mut assistant = json!({"role": "assistant", "content": message.get("content").cloned().unwrap_or(Value::Null)});
     if !raw_calls.is_empty() {
         assistant["tool_calls"] = Value::Array(raw_calls);
+    }
+    // Preserve the provider's exact protocol field, including whitespace and
+    // an empty string, independently of the trimmed text shown to a player.
+    if mode == AnswerMode::Tools
+        && let Some(reasoning) = message.get("reasoning_content").filter(|v| v.is_string())
+    {
+        assistant["reasoning_content"] = reasoning.clone();
     }
     Ok(Reply {
         assistant,
@@ -190,7 +215,9 @@ pub fn parse(body: &Value, mode: AnswerMode) -> Result<Reply, String> {
 }
 
 /// The first JSON object in `text`: the whole text, or the text inside a
-/// code fence, or the outermost `{…}`.
+/// code fence, or the outermost `{…}`; failing those (prose after the
+/// object that has braces of its own, as a coding agent's summary may),
+/// the first of its first 64 `{` from which a whole object reads.
 #[must_use]
 pub fn json_object(text: &str) -> Option<Value> {
     if let Ok(value @ Value::Object(_)) = serde_json::from_str::<Value>(text) {
@@ -198,10 +225,18 @@ pub fn json_object(text: &str) -> Option<Value> {
     }
     let start = text.find('{')?;
     let end = text.rfind('}')?;
-    (start < end)
-        .then(|| serde_json::from_str::<Value>(&text[start..=end]).ok())
-        .flatten()
-        .filter(Value::is_object)
+    if start < end
+        && let Ok(value @ Value::Object(_)) = serde_json::from_str::<Value>(&text[start..=end])
+    {
+        return Some(value);
+    }
+    text.match_indices('{').take(64).find_map(|(at, _)| {
+        serde_json::Deserializer::from_str(&text[at..])
+            .into_iter::<Value>()
+            .next()
+            .and_then(Result::ok)
+            .filter(Value::is_object)
+    })
 }
 
 /// What to try when an endpoint turned the request's `response_format`

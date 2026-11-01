@@ -39,6 +39,15 @@ pub enum RedirectDestination {
 /// How a shield prevents, and how much of it is left.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ShieldKind {
+    /// Redirect combat damage from matching sources, without consuming the effect.
+    RedirectCombat {
+        /// Source criterion evaluated for each event.
+        sources: &'static Filter,
+        /// Destination bound on resolution.
+        to: RedirectDestination,
+        /// Source, wording, name and relational reference frozen on resolution.
+        context: RuleContext,
+    },
     /// Redirect matching source damage for the turn, or only its next event.
     RedirectSource {
         /// Exact chosen damage source.
@@ -149,6 +158,7 @@ impl ChosenSource {
                 RuleContext {
                     source: self.this,
                     text: self.text,
+                    resolved_name: None,
                     reference: None,
                 },
             )

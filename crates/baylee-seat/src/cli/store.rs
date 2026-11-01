@@ -4,8 +4,8 @@
 use super::{CliTool, Dialect, Duration, Path, PathBuf, dialect};
 
 /// A session's own directory under the OS's temp directory, removed with
-/// it: `work`, the process's working directory, empty; `tmp`, its temp
-/// directory; and `support`, the files its dialect points it at
+/// it: `work`, empty apart from a dialect's own workspace configuration;
+/// `tmp`, its temp directory; and `support`, the files its dialect points it at
 /// ([`Dialect::files`]); all four readable by this user alone. Named by
 /// the seat and [`unique`] alone: a tool may tell its provider its working
 /// directory, so no part of the game's id is in it (owner, 13.10.2026).
@@ -17,6 +17,9 @@ impl SessionDir {
     pub(super) fn new(seat: u8) -> std::io::Result<Self> {
         let root = std::env::temp_dir().join(format!("baylee-cli-{seat}-{}", unique()));
         private_dir(&root)?;
+        // The path the CLI is told is the one it finds itself in: macOS's
+        // temp dir is under the `/var` -> `/private/var` link.
+        let root = root.canonicalize()?;
         let dir = Self { root };
         private_dir(&dir.work())?;
         private_dir(&dir.tmp())?;
@@ -38,19 +41,40 @@ impl SessionDir {
 
     /// Writes `files` into `support`, each readable by this user alone.
     pub(super) fn write(&self, files: &[(&'static str, String)]) -> std::io::Result<()> {
-        for (name, contents) in files {
-            let mut options = std::fs::OpenOptions::new();
-            options.write(true).create_new(true);
+        write_files(&self.support(), files)
+    }
+
+    /// Writes the dialect's workspace configuration, before starting it.
+    pub(super) fn write_workspace(&self, files: &[(&'static str, String)]) -> std::io::Result<()> {
+        write_files(&self.work(), files)
+    }
+}
+
+/// Writes private configuration, including any private parent directories.
+fn write_files(root: &Path, files: &[(&'static str, String)]) -> std::io::Result<()> {
+    for (name, contents) in files {
+        let path = root.join(name);
+        if let Some(parent) = path.parent() {
+            let mut builder = std::fs::DirBuilder::new();
+            builder.recursive(true);
             #[cfg(unix)]
             {
-                use std::os::unix::fs::OpenOptionsExt;
-                options.mode(0o600);
+                use std::os::unix::fs::DirBuilderExt;
+                builder.mode(0o700);
             }
-            let mut file = options.open(self.support().join(name))?;
-            std::io::Write::write_all(&mut file, contents.as_bytes())?;
+            builder.create(parent)?;
         }
-        Ok(())
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(path)?;
+        std::io::Write::write_all(&mut file, contents.as_bytes())?;
     }
+    Ok(())
 }
 
 impl Drop for SessionDir {
@@ -97,7 +121,8 @@ pub(super) const STORE_PREFIX: &str = "baylee-cli-store-";
 pub(super) const STALE_STORE: Duration = Duration::from_hours(1);
 
 /// A seat's conversation kept on disk for a tool that resumes one
-/// ([`Dialect::resumes`]): under the OS's temp directory beside the
+/// ([`Dialect::resumes`]) or keeps it beside its login
+/// ([`super::Launch::keeps_conversations`]): under the OS's temp directory beside the
 /// sessions' own directories, readable by this user alone, removed with
 /// the conversation (and so with the seat and the mind); `work`, the
 /// working directory every process of the conversation shares, empty, and
@@ -112,6 +137,7 @@ impl Store {
     pub(super) fn new(seat: u8) -> std::io::Result<Self> {
         let root = std::env::temp_dir().join(format!("{STORE_PREFIX}{seat}-{}", unique()));
         private_dir(&root)?;
+        let root = root.canonicalize()?;
         let store = Self { root };
         private_dir(&store.work())?;
         private_dir(&store.data())?;

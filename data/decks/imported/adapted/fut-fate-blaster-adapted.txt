@@ -1,0 +1,19 @@
+# adapted from data/decks/precon/FUT/fate-blaster.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, FateBlaster_FUT.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Fate Blaster (Adapted)]
+3 Blind Phantasm
+1 Boldwyr Intimidator
+4 Broadside Barrage
+3 Cryptic Annelid
+1 Dandân
+4 Fire
+1 Foresee
+1 Frozen Aether
+4 Invoke the Firemind
+14 Island
+4 Izzet Charm
+11 Mountain
+4 Rush of Inspiration
+2 Sage of Epityr
+2 Traumatic Critique
+1 Uthden Troll

@@ -1,0 +1,22 @@
+# adapted from data/decks/precon/SOI/ghostly-tide.txt (MTGJSON 5.3.0+20260929, https://mtgjson.com, GhostlyTide_SOI.json)
+# licence: MIT (Copyright © 2018 – Present, Zach Halpern); see NOTICE
+[deck:Ghostly Tide (Adapted)]
+4 Absorb
+1 Catalog
+1 Chaplain's Blessing
+4 Daring Leap
+1 Drogskol Cavalry
+4 Energy Arc
+12 Island
+2 Niblis of Dusk
+13 Plains
+2 Puncturing Light
+1 Reckless Scholar
+2 Seagraf Skaab
+1 Silent Observer
+1 Silverstrike
+1 Sleep Paralysis
+2 Spectral Shepherd
+4 Sphinx's Revelation
+2 Stormrider Spirit
+2 Vessel of Ephemera

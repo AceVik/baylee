@@ -8,6 +8,12 @@ use super::*;
 use crate::lobby::{hover_of_card, hover_of_entry, print_mark};
 use baylee_client_core::deckbuilder::PoolCard;
 
+mod deck;
+mod pool;
+pub(super) mod quantity;
+pub(crate) use deck::deck_row;
+pub(crate) use pool::pool_row;
+
 /// A pool row's place in the shown results, for the cursor's highlight.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct PoolRowAt(pub(crate) usize);
@@ -94,300 +100,6 @@ fn print(commands: &mut Commands, hover: &crate::lobby::HoverCard, height: f32) 
     thumb
 }
 
-/// One pool row: print, name, the type line, pips, the count badge, `+`
-/// and `⋯`.
-#[allow(clippy::too_many_lines)] // one row, read left to right
-pub(crate) fn pool_row(
-    commands: &mut Commands,
-    kit: Kit,
-    state: &LobbyState,
-    slot: usize,
-    at: usize,
-    pitch: f32,
-) -> Option<Entity> {
-    let deck = state.lobby.builder();
-    let lang = state.lobby.lang();
-    let card = deck.card(slot)?;
-    let m = kit.m;
-    let gap = m.scaled(4.0);
-    let height = pitch - gap;
-    let hover = hover_of_card(card);
-    let row = commands
-        .spawn((
-            Role::Row,
-            frame(kit, at as f32 * pitch, height),
-            BackgroundColor(ROW_GROUND),
-            crate::ambience::Feel::tinting_to(ROW_GROUND, ROW_HOT),
-            Press::Build(BuildPress::Inspect(slot)),
-            hover.clone(),
-            PoolRowAt(at),
-        ))
-        .id();
-    if at == 0 {
-        commands.entity(row).insert(crate::tour::TourAnchor(
-            baylee_client_core::tour::Anchor::BuildFirstRow,
-        ));
-    }
-    let thumb = print(
-        commands,
-        &hover,
-        (height - m.scaled(4.0)).min(m.scaled(67.0)),
-    );
-    commands.entity(thumb).insert((
-        Press::Build(BuildPress::PickPrint(slot)),
-        Pickable::default(),
-    ));
-
-    let info = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                flex_grow: 1.0,
-                flex_basis: px_fixed(0.0),
-                min_width: px_fixed(0.0),
-                row_gap: m.px(2.0),
-                ..default()
-            },
-            Pickable::IGNORE,
-        ))
-        .id();
-    let name = cell(commands, kit, &card.name, m.text, tokens::INK, true);
-    let mut top = vec![name];
-    if let Some((said, ink)) = coverage_mark(card.coverage) {
-        let flag = commands
-            .spawn((
-                Text::new(said.text(lang)),
-                tf_bold(kit.fonts, m.small * 0.9),
-                TextColor(ink),
-                TextLayout::no_wrap(),
-                Node {
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        top.push(flag);
-    }
-    // Blocked on this gateway: the deck that holds it will not sit down
-    // here (`docs/protocol.md` §"Blocked cards"); the sheet says why.
-    if deck.blocked(card.index).is_some() {
-        let flag = commands
-            .spawn((
-                Text::new(Phrase::BuildBlocked.text(lang)),
-                tf_bold(kit.fonts, m.small * 0.9),
-                TextColor(tokens::DANGER),
-                TextLayout::no_wrap(),
-                Node {
-                    flex_shrink: 0.0,
-                    ..default()
-                },
-                Pickable::IGNORE,
-            ))
-            .id();
-        top.push(flag);
-    }
-    let first = line(commands, kit, &top);
-    let second = cell(commands, kit, &subline(card), m.small, tokens::MUTED, false);
-    commands.entity(info).add_children(&[first, second]);
-
-    let mut kids = vec![thumb, info];
-    if let Some(cost) =
-        crate::manaui::spawn_cost_or_text(commands, kit.fonts, &card.mana_cost, m.small * 1.25)
-    {
-        commands.entity(cost).insert(Node {
-            flex_shrink: 0.0,
-            align_items: AlignItems::Center,
-            ..default()
-        });
-        kids.push(cost);
-    }
-    kids.push(badge(commands, kit, slot, deck));
-    kids.push(controls::button(
-        commands,
-        kit,
-        "+",
-        Weight::Secondary,
-        Live::Yes,
-        None,
-        Press::Build(BuildPress::AddFromPool(slot, false)),
-    ));
-    if card.commander && state.commander_pick.is_some() {
-        let partner = state.commander_pick == Some(true);
-        kids.push(controls::button(
-            commands,
-            kit,
-            if partner {
-                Phrase::BuildPartner.text(lang)
-            } else {
-                Phrase::BuildChoose.text(lang)
-            },
-            Weight::Primary,
-            Live::Yes,
-            None,
-            if partner {
-                Press::Build(BuildPress::AddPartner(slot))
-            } else {
-                Press::Build(BuildPress::SetCommander(slot))
-            },
-        ));
-    }
-    kids.push(icon_button(
-        commands,
-        kit,
-        mark::MORE,
-        state.build.menu == Some(BuildMenu::Pool(slot)),
-        (
-            Press::Build(BuildPress::PoolMenu(slot)),
-            focus::MenuOpener(BuildMenu::Pool(slot)),
-        ),
-    ));
-    commands.entity(row).add_children(&kids);
-    Some(row)
-}
-
-/// The count badge: how many the deck holds, both lists together; hidden
-/// at none.
-fn badge(commands: &mut Commands, kit: Kit, slot: usize, deck: &DeckBuilder) -> Entity {
-    let held = deck.count_of(slot, Zone::Main) + deck.count_of(slot, Zone::Side);
-    let m = kit.m;
-    let disc = commands
-        .spawn((
-            Node {
-                min_width: px_fixed(m.scaled(22.0).max(m.small * 1.6)),
-                min_height: px_fixed(m.scaled(22.0).max(m.small * 1.6)),
-                padding: UiRect::axes(m.px(6.0), px_fixed(0.0)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                flex_shrink: 0.0,
-                border_radius: BorderRadius::all(px_fixed(tokens::RADIUS_PILL)),
-                display: if held == 0 {
-                    Display::None
-                } else {
-                    Display::Flex
-                },
-                ..default()
-            },
-            BackgroundColor(tokens::GOLD.with_alpha(0.22)),
-            Pickable::IGNORE,
-            InDeck(slot),
-        ))
-        .id();
-    let n = commands
-        .spawn((
-            Text::new(held.to_string()),
-            tf_bold(kit.fonts, m.small),
-            TextColor(tokens::GOLD),
-            TextLayout::no_wrap(),
-            Pickable::IGNORE,
-        ))
-        .id();
-    commands.entity(disc).add_child(n);
-    disc
-}
-
-/// One deck row: print, name (and its printing), pips, `− n +`, `⋯`.
-#[allow(clippy::too_many_arguments)] // one row: where, which, and what it reads
-pub(crate) fn deck_row(
-    commands: &mut Commands,
-    kit: Kit,
-    state: &LobbyState,
-    zone: Zone,
-    at: usize,
-    order: usize,
-    top: f32,
-    pitch: f32,
-) -> Option<Entity> {
-    let deck = state.lobby.builder();
-    let entry = deck.entries(zone).get(at)?;
-    let card = deck.card(entry.slot)?;
-    let m = kit.m;
-    let height = pitch - m.scaled(4.0);
-    let hover = hover_of_entry(card, &entry.print);
-    let row = commands
-        .spawn((
-            Role::Row,
-            frame(kit, top, height),
-            BackgroundColor(ROW_GROUND),
-            crate::ambience::Feel::tinting_to(ROW_GROUND, ROW_HOT),
-            Press::Build(BuildPress::InspectRow(at)),
-            hover.clone(),
-            DeckRowAt(order),
-        ))
-        .id();
-    let thumb = print(
-        commands,
-        &hover,
-        (height - m.scaled(6.0)).max(m.scaled(20.0)),
-    );
-    commands.entity(thumb).insert((
-        Press::Build(BuildPress::PickRowPrint(at)),
-        Pickable::default(),
-    ));
-    let blocked = deck.blocked(card.index).is_some();
-    let ink = if blocked {
-        tokens::DANGER
-    } else if card.coverage.trustworthy() {
-        tokens::INK
-    } else {
-        tokens::MUTED
-    };
-    let name = cell(commands, kit, &card.name, m.text, ink, false);
-    commands.entity(name).insert(Node {
-        min_width: px_fixed(0.0),
-        flex_shrink: 1.0,
-        flex_grow: 1.0,
-        flex_basis: px_fixed(0.0),
-        overflow: Overflow::clip_x(),
-        ..default()
-    });
-    let mut kids = vec![thumb, name];
-    // A row that names a printing shows it, or two lines of one card would
-    // read as a fault in the list.
-    let chosen = print_mark(&entry.print);
-    if !chosen.is_empty() {
-        let mark = cell(commands, kit, &chosen, m.small * 0.9, tokens::ACCENT, false);
-        commands.entity(mark).insert(Node {
-            max_width: m.px(110.0),
-            min_width: px_fixed(0.0),
-            flex_shrink: 1.0,
-            overflow: Overflow::clip_x(),
-            ..default()
-        });
-        kids.push(mark);
-    }
-    if let Some(cost) =
-        crate::manaui::spawn_cost_or_text(commands, kit.fonts, &card.mana_cost, m.small * 1.15)
-    {
-        commands.entity(cost).insert(Node {
-            flex_shrink: 0.0,
-            align_items: AlignItems::Center,
-            ..default()
-        });
-        kids.push(cost);
-    }
-    kids.push(controls::stepper(
-        commands,
-        kit,
-        &entry.count.to_string(),
-        Press::Build(BuildPress::RemoveRow(at)),
-        Press::Build(BuildPress::AddRow(at)),
-    ));
-    kids.push(icon_button(
-        commands,
-        kit,
-        mark::MORE,
-        state.build.menu == Some(BuildMenu::Deck(at)),
-        (
-            Press::Build(BuildPress::DeckMenu(at)),
-            focus::MenuOpener(BuildMenu::Deck(at)),
-        ),
-    ));
-    commands.entity(row).add_children(&kids);
-    Some(row)
-}
-
 /// A deck section's heading: its caret, its name and count; a press folds
 /// it or opens it again.
 #[allow(clippy::too_many_arguments)] // one heading: where, which, and what it says
@@ -434,4 +146,59 @@ pub(crate) fn section_head(
     );
     commands.entity(row).add_children(&[caret, name]);
     row
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::shellkit::{ShellMetrics, TextSize, Viewport};
+
+    #[test]
+    fn pool_and_deck_rows_keep_space_between_complete_mana_symbols() {
+        let mut world = World::new();
+        let fonts = crate::hud::UiFonts::default();
+        let kit = Kit {
+            fonts: &fonts,
+            m: ShellMetrics::of(Viewport::desktop(1600.0, 900.0), TextSize::M),
+            german: false,
+        };
+        let mut state = LobbyState::from_settings(crate::settings::ClientSettings::default());
+        state.lobby.builder_mut().set_pool(
+            vec![PoolCard {
+                name: "Mana spacing fixture".into(),
+                mana_cost: "{1}{W/U}{G/P}".into(),
+                oracle_text: "Fixture".into(),
+                ..PoolCard::default()
+            }],
+            true,
+        );
+        assert!(state.lobby.builder_mut().add(0, Zone::Main));
+        let mut commands = world.commands();
+        let pool = pool_row(&mut commands, kit, &state, 0, 0, 72.0).unwrap();
+        let deck = deck_row(&mut commands, kit, &state, Zone::Main, 0, 0, 0.0, 72.0).unwrap();
+        world.flush();
+        for row in [pool, deck] {
+            let cost = world
+                .get::<Children>(row)
+                .unwrap()
+                .iter()
+                .find(|child| {
+                    world.get::<Children>(*child).is_some_and(|pips| {
+                        pips.len() == 3
+                            && pips.iter().all(|pip| {
+                                world.get::<Node>(pip).is_some_and(|node| {
+                                    matches!(node.width, Val::Px(side) if side > 0.0)
+                                        && node.width == node.height
+                                })
+                            })
+                    })
+                })
+                .expect("generic, hybrid and Phyrexian remain three complete pips");
+            let node = world.get::<Node>(cost).unwrap();
+            assert!(
+                matches!(node.column_gap, Val::Px(gap) if (1.0..4.0).contains(&gap)),
+                "rows must preserve the mana renderer's small scaled gap"
+            );
+        }
+    }
 }

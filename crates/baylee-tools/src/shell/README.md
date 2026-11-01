@@ -14,9 +14,9 @@ These tools do not build or launch a client, gateway, server or model.
 | `front.py` | `front OUTDIR "Saved local gateway name"` |
 | `header.py` | `header OUTDIR` |
 | `keys.py` | `keys OUTDIR` |
-| `lane.py login` | `lane login USER --password-env VARIABLE [--gateway-row 'Front(SelectGateway(N))']` |
+| `lane.py login` | `lane login …`: refused since the cutover (no gateway signs anybody in with a password); its rewrite to Central's sign-in is [#406](https://github.com/AceVik/baylee/issues/406) |
 | `look.py` | `look OUTDIR play,decks 960x700,844x390 [--touch] [--lang de]` |
-| `measure.py` | `measure hover` / `measure presses` / `measure quit USER PID --password-env VARIABLE [--gateway URL]` |
+| `measure.py` | `measure hover` / `measure presses` / `measure quit PID --session-env VARIABLE [--gateway URL]` |
 | `probe.py` | `probe SCREEN 844x390 de touch xl [SHOT.png]` |
 | `report.py` | `report walk` / `report table` / `report dump OUTDIR` |
 | `screens.py` | `screens OUTDIR [lobby\|room\|all]` |
@@ -48,9 +48,10 @@ never printed. Requests do not follow redirects or inherit HTTP proxies.
   claim that the HTTP driver sandboxes the client.
 - Use `BAYLEE_DEV_SCALE=1` for ring and art-credit pixel checks; these checks
   explicitly reject a different scale. Black screenshots fail measurement.
-- `front` needs a saved local gateway; `lane login` selects only a removable
-  gateway row, preserving the exclusion of the pinned live gateway. A client
-  already on sign-in must already be pointed at the lane's local gateway.
+- `front` needs a saved local gateway. `lane login` refuses: it typed a
+  password into the client's gateway sign-in, which no gateway has since the
+  cutover; sign a lane's client in through Baylee Central or as a guest by
+  hand until #406 brings it back.
 - `header`, `screens lobby`, `look`, `probe`, `measure hover` and the default
   walks expect the lane signed in. Walks require multiple decks and an open
   table named "Thursday …". `screens room` requires an already seated client.
@@ -77,8 +78,11 @@ never printed. Requests do not follow redirects or inherit HTTP proxies.
   and exact original deck identity after the flush. It never kills the client.
   Only its owned osascript helper is terminated/reaped on timeout/error.
   The gateway defaults to `BAYLEE_GATEWAY_URL` or `http://127.0.0.1:28931`.
-- Passwords are never positional arguments. Use `--password-env NAME`,
-  `--password-file FILE`, `--password-stdin`, or `BAYLEE_SHELL_PASSWORD`.
+  It reads the decks with the client's own session token, since a gateway
+  signs nobody in with a password any more (`docs/central-login.md`):
+  `--session-env NAME`, `--session-file FILE`, `--session-stdin`, or
+  `BAYLEE_SHELL_SESSION`.
+- Session tokens are never positional arguments.
   Request bodies, bearer tokens and returned error bodies are not logged.
 
 Clicks reread semantic controls and positions, wait for stable geometry, send a

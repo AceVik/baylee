@@ -1,0 +1,74 @@
+# baylee synergistic coverage commander aggro
+# licence: AGPL-3.0-only
+[deck:commander aggro U #20266156]
+1 Advanced Hoverguard
+1 Alexi's Cloak
+1 Ancient Carp
+1 Ancient Crab
+1 Armored Whirl Turtle
+1 Aura of Dominion
+1 Avalanche Caller
+1 Blinding Drone
+1 Bouncing Beebles
+1 Capture Sphere
+1 Cephalid Inkshrouder
+1 Cephalid Retainer
+1 Cloak of Mists
+1 Cold-Water Snapper
+1 Coral Eel
+1 Crafty Pathmage
+1 Curio Vendor
+1 Dandân
+1 Daring Thunder-Thief
+1 Devouring Deep
+1 Diamond City
+1 Diamond Valley
+1 Drownyard Temple
+1 Encase in Ice
+1 Errant Minion
+1 Giant Octopus
+1 Glimmerdust Nap
+1 Grayscaled Gharial
+1 Hammerhead Shark
+1 Horned Turtle
+1 Horseshoe Crab
+1 Hoverguard Observer
+1 Ice Over
+1 Illusory Wrappings
+1 Jhessian Lookout
+1 Kelpie Guide
+1 Manta Ray
+1 Merseine
+1 Mistford River Turtle
+1 Moat Piranhas
+1 Mystic Restraints
+1 Persuasion
+1 Petrified Hamlet
+1 Plated Seastrider
+1 Red Cliffs Armada
+1 Reduce in Stature
+1 Relic's Roar
+1 Riptide Turtle
+1 Runner's Bane
+1 Sandbar Crocodile
+1 School of Piranha
+1 Sheltered Valley
+1 Shorecomber Crab
+1 Sindbad
+32 Snow-Covered Island
+1 Straw Soldiers
+1 Sunscorched Desert
+1 Thirst
+1 Threads of Disloyalty
+1 Treachery
+1 Turtle-Seals
+1 Vedalken Mesmerist
+1 Venarian Gold
+1 Vivid Flying Fish
+1 Walking Sponge
+1 Warden of Geometries
+1 Wetland Sambar
+1 Wu Warship
+
+[commander]
+Caelorna, Coral Tyrant
