@@ -16,7 +16,9 @@ fn jsonl(path: &Path) -> Result<Vec<Value>> {
     let count = source.read(&mut magic)?;
     let source = File::open(path)?;
     let reader: Box<dyn Read> = if count == 2 && magic == [31, 139] {
-        Box::new(flate2::read::GzDecoder::new(source))
+        // Streamed replay tapes concatenate gzip members; the terminal receipt
+        // and frames requiring verification can occur after the first member.
+        Box::new(flate2::read::MultiGzDecoder::new(source))
     } else {
         Box::new(source)
     };

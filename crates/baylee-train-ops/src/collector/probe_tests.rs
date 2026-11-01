@@ -135,3 +135,72 @@ fn running_probe_waits_without_admission() -> Result<()> {
     )?);
     Ok(())
 }
+
+fn gzip_member(bytes: &[u8]) -> Result<Vec<u8>> {
+    use std::io::Write;
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(bytes)?;
+    Ok(encoder.finish()?)
+}
+
+fn replace_replay_tape(root: &Path, bytes: &[u8]) -> Result<()> {
+    let attempt = root.join("attempts/attempt-000000000");
+    let tape = attempt.join("replay_tape.json");
+    fs::write(&tape, bytes)?;
+    let replay_path = attempt.join("replay_receipt.json");
+    let mut replay = json(&replay_path)?;
+    replay["tape_sha256"] = json!(files::sha256(&tape)?);
+    files::atomic_json(&replay_path, &replay)?;
+    let mut technical = json(attempt.join("technical-result.json"))?;
+    for item in technical["artifacts"].as_array_mut().context("artifacts")? {
+        item["sha256"] = json!(files::sha256(Path::new(text(item, "path")?))?);
+    }
+    files::atomic_json(&attempt.join("technical-result.json"), &technical)?;
+    let mut receipt = json(attempt.join("receipt.json"))?;
+    receipt["technical"] = technical;
+    files::atomic_json(&attempt.join("receipt.json"), &receipt)
+}
+
+#[test]
+fn compressed_replay_checks_the_stop_in_later_members() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let root = directory.path();
+    let config = fixture(root)?;
+    let tape = fs::read_to_string(root.join("attempts/attempt-000000000/replay_tape.json"))?;
+    replace_replay_tape(root, &gzip_member(tape.as_bytes())?)?;
+    ensure!(validate_clean_probe(&config)?);
+
+    let mut members = Vec::new();
+    for line in tape.split_inclusive('\n') {
+        members.extend(gzip_member(line.as_bytes())?);
+    }
+    replace_replay_tape(root, &members)?;
+    ensure!(validate_clean_probe(&config)?);
+    Ok(())
+}
+
+#[test]
+fn compressed_replay_cannot_hide_corrupt_or_inexact_later_members() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let root = directory.path();
+    let config = fixture(root)?;
+    let tape = fs::read_to_string(root.join("attempts/attempt-000000000/replay_tape.json"))?;
+    let complete_member = gzip_member(tape.as_bytes())?;
+    let inexact = tape.replace("\"exact\"", "\"seen\"");
+    let mut truncated = gzip_member(tape.as_bytes())?;
+    truncated.pop();
+    for tail in [
+        gzip_member(inexact.as_bytes())?,
+        truncated,
+        b"invalid gzip tail".to_vec(),
+    ] {
+        let mut members = complete_member.clone();
+        members.extend(tail);
+        replace_replay_tape(root, &members)?;
+        ensure!(
+            validate_clean_probe(&config).is_err(),
+            "invalid later member accepted"
+        );
+    }
+    Ok(())
+}
