@@ -1173,6 +1173,8 @@ fn every_written_row_draws_its_printed_cost_or_its_whole_sentence() {
 // header's Oracle text).
 // Banshee's Blade (Mirrodin, Equip {2}) is read since the review of PR #410
 // moved the ten-card seating batches; it was in a batch that never seated.
+// Still read once the review wrote Wall of Vipers and Mercenary Informer
+// back (01.11.2026: 3319 printed heads, 138 drawn whole, none refused).
 const DRAWN_WHOLE: &[&str] = &[
     "+2 Mace",
     "Accorder's Shield",
