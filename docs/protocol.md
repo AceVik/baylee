@@ -1852,7 +1852,7 @@ turns 13 and 16):
   after it ended the answer is `RecordFlushed` alone, never an empty piece.
   The gateway hands the answer to the game's record writer behind the pieces
   before it, and the report waits until those are *stored*, not merely
-  received, at most `FLUSH_WAIT` (3 s, `crates/baylee-gateway/src/report.rs`).
+  received, at most `FLUSH_WAIT` (3 s, `crates/baylee-gateway/src/report/mod.rs`).
   Then it reads the record as the store has it, which reaches the moment the
   report was filed: played again it ends on the hash the engine had when the
   report arrived. An engine that does not answer in time (busy, stuck, gone,
