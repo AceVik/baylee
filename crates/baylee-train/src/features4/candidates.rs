@@ -88,6 +88,26 @@ pub fn encode_candidates4(
                 out.candidates.push(c);
             }
 
+            // Foretell (CR 702.143a) is the special action suspend is: pay
+            // from the pool, exile the card from hand, cast it on a later
+            // turn. It is marked as suspend is, on the card's own row; the
+            // card tells the two apart. A slot of its own would be one no
+            // trained net has read.
+            for &card in &legal.foretellable {
+                if out.candidates.len() >= MAX_CANDIDATES {
+                    break;
+                }
+                let mut c = Candidate4::default();
+                c.feat[3] = 1.0;
+                c.feat[18] = 1.0;
+                if let Some(eidx) = state.find_entity(card) {
+                    c.entity_idx = eidx as i16;
+                    c.card_id = state.entity_card_ids[eidx];
+                }
+                c.action = Some(PlayerAction::Foretell { card });
+                out.candidates.push(c);
+            }
+
             for &mana_src in &legal.mana_abilities {
                 if out.candidates.len() >= MAX_CANDIDATES {
                     break;

@@ -128,3 +128,29 @@ fn real_payment_settlement_keeps_full_bc_weight_including_off_turn() {
         assert!(view.casting.is_none());
     }
 }
+
+/// A card that could be foretold is a play declined, as a suspendable one is:
+/// the pass keeps its full weight. The classification reads only that a
+/// foretell is offered, so any object stands in for the card.
+#[test]
+fn passing_with_a_foretell_on_offer_is_not_idle() {
+    let payer = PlayerId::new(0);
+    let session = priority(payer, false);
+    let (mut pending, view) = session.view_for_with_context(payer).unwrap();
+    assert!(is_idle_pass(&pending, &view, &PlayerAction::PassPriority));
+    let Pending::Priority { legal, .. } = &mut pending else {
+        panic!("first main priority")
+    };
+    legal
+        .foretellable
+        .push(view.battlefield_of(payer).next().unwrap().id);
+    assert!(!is_idle_pass(&pending, &view, &PlayerAction::PassPriority));
+    assert_eq!(
+        live_weight(&pending, &view, &PlayerAction::PassPriority),
+        1.0
+    );
+    assert_eq!(
+        llm_weight(&pending, &view, &PlayerAction::PassPriority),
+        1.0
+    );
+}
