@@ -53,6 +53,7 @@ use policy::sample_categorical;
 pub use policy::{PolicyMode4, valid_raw_temperature};
 mod ranked;
 pub use ranked::{Ranked4, RootDecision4, rank_single_choice};
+pub mod search;
 mod snapshot;
 pub use snapshot::PlayerSnapshot4;
 mod structure;
