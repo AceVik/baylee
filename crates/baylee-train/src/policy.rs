@@ -798,6 +798,7 @@ pub fn finished(pending: &Pending, picked: &Picked, last: Choice) -> bool {
 ///
 /// # Errors
 /// [`Unmatched::Shape`] when the picks do not make an answer to `pending`.
+#[allow(clippy::too_many_lines)] // one arm per question kind
 pub fn assemble(pending: &Pending, picks: &[Choice]) -> Result<PlayerAction, Unmatched> {
     let objects = || -> Vec<ObjectId> {
         picks
