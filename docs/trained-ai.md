@@ -503,6 +503,51 @@ such as legal-target, legal-block or tutor-match relationships require a
 separately versioned, view-only encoder change; they are not silently supplied
 by the new model.
 
+### PR #410's questions in Encoders 4 and 7–9 (1 November 2026)
+
+PR #410 added a card-type question, the foretell special action and cast,
+and nonland naming. Each lands on a slot the encoders already had, so no
+input, head, width or slot count moved and no checkpoint changes shape.
+Encoder 6 (the v4 encoder) and Encoders 7–9 share one candidate builder
+(`features4::encode_candidates4`, which `encode_candidates7_grouped` wraps),
+so they answer each question the same way:
+
+| Engine | Encoder 6 (v4) | Encoders 7, 8, 9 |
+| --- | --- | --- |
+| `LegalActions.foretellable`, answered `PlayerAction::Foretell { card }` | A Priority candidate per card, after the suspend ones, marked as suspend is (`feat[3]`, cast family, and `feat[18]`, special action), pointing at the card's hand row; the row's `entity_feat[27]` ("offered to cast") is set | The same candidates; the v7 state sets the same bit, `encode_candidates7` counts them, permanent grouping keys them (kind 9) |
+| `CastModeKind::Foretell` (the later cast) | An alternative cost: cast-mode slot 28 (and 2 in the v3 `policy::mode_kind`); no extra rule reference (the structure catalog has no foretell entry) | The same |
+| `Pending::ChooseCardType` | The subtype question: `PendingKind4::ChooseSubtype` (global 34), and kind 9 in the v3 `features::question`; one candidate per offered type in the engine's order, `feat[15]` and `feat[18] = index / 16` | The same |
+| `Pending::ChooseCardName.excluded_types` | No candidate for a face with an excluded type: an excluded teacher name is unencodable (`unencoded_decisions`), and the policy cannot decode one | The same |
+
+The v3 policy leaves the card-type question to its fallback, as it does a
+card name, and never foretells. Foretell is marked as suspend because it is
+the same act (pay from the pool, exile from hand, cast on a later turn); the
+card tells the two apart, and a slot of its own would be one no trained net
+has read. A pass with a foretell on offer keeps its full imitation weight
+(`convert4::idle_pass`), and the tactical guards count a foretell offer where
+they count a suspend offer. Like suspend, foretell is offered only once {2}
+floats, and the tactical guard taps mana only for a sink it can see, so in
+tactical mode the net foretells only with mana already floating; raw mode
+has no such guard.
+
+Older encodings are byte for byte as they were:
+`encoder_contract::pins` hashes everything the four encoders write on two
+scripted games against digests taken before the change, and convert4 output
+for 48 house-AI games with Encoders 7, 8 and 9 was identical before and after.
+`encoder_contract::mechanics` plays each question on a real table through
+each encoder (candidate, teacher target, decoding, the engine taking the
+decoded answer), and `netplay4::policy::questions_tests` has both sampling
+modes play the favoured answer with no house fallback.
+
+**Votes.** The engine asks Council's Judgment's votes as
+`Pending::ChooseCards { prompt: ChoicePrompt::Generic, min: 1, max: 1 }`,
+which every encoder already reads as the ChooseCards kind with one
+single-choice candidate per permanent (`feat[6]`). No encoder reads a
+`ChoicePrompt` or a `GameEvent`, so a `ChoicePrompt::Vote` on that question
+and a `GameEvent::Voted` need no encoder change; only a new `Pending`
+variant for votes would need a `PendingKind4::of` arm, mapped to
+`ChooseCards`, and a candidate arm like the ChooseCards one.
+
 **Current objective (`LOSS_VERSION = 4`):** categorical cross-entropy and ordinary
 Bernoulli BCE use symmetric class treatment and unit policy-head coefficients.
 Earlier loss versions retained asymmetric behavior that their “calibrated” label
