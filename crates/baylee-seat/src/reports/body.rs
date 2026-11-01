@@ -482,7 +482,8 @@ fn block(n: Option<usize>, filed: &Filed, attached: Option<&Attached<'_>>) -> St
     if checked.kind == Kind::Unverified {
         let _ = write!(
             kind,
-            " (the model said {}; it quoted no card's text and cited no rule)",
+            " (the model said {}; it quoted no three words of a card's rules text as it was \
+             told them and cited no rule number spelt as one)",
             report.kind.as_str()
         );
     }

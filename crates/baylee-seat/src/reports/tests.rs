@@ -331,47 +331,228 @@ fn quotes_are_checked_against_the_card_text_the_model_was_told() {
     assert_eq!(check(Vec::new()), None);
 }
 
-/// A report that quotes no card's text and cites no rule number is
-/// `unverified`, whatever kind the model gave it; either one keeps the
-/// model's kind.
+/// The kind the seat files a `rules_error` under that quotes `quote` of
+/// the card `name` (none for no card) and cites `rules`, read against
+/// `told`.
+fn kind_with(
+    name: Option<&str>,
+    quote: Option<String>,
+    rules: &[&str],
+    told: impl Fn(&str) -> Vec<String>,
+) -> Kind {
+    let report = Report {
+        kind: Kind::RulesError,
+        cards: name
+            .map(|name| Card {
+                name: name.into(),
+                oracle_quote: quote,
+            })
+            .into_iter()
+            .collect(),
+        rules: rules.iter().map(ToString::to_string).collect(),
+        observed: "x".into(),
+        ..Report::default()
+    };
+    Checked::new(&report, "Priority", told).kind
+}
+
+/// [`kind_with`] for a quote of Lightning Bolt as the test seat was told it.
+fn bolt_kind(quote: Option<String>, rules: &[&str]) -> Kind {
+    kind_with(Some("Lightning Bolt"), quote, rules, told)
+}
+
+/// The first `n` words of Bolt's quote, as the seat told them.
+fn bolt_words(n: usize) -> String {
+    bolt_quote()
+        .split_whitespace()
+        .take(n)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// A report that cites nothing is `unverified`, whatever kind the model
+/// gave it; a card named without a quote is no citation; and the shape
+/// before 01.11.2026 cites in free text, which the seat does not read.
 #[test]
-fn a_report_with_neither_quote_nor_rule_is_unverified() {
-    let kind = |cards: Vec<Card>, rules: Vec<String>| {
-        let report = Report {
-            kind: Kind::RulesError,
-            cards,
-            rules,
-            observed: "x".into(),
-            ..Report::default()
-        };
-        Checked::new(&report, "Priority", told).kind
-    };
-    let named = Card {
-        name: "Lightning Bolt".into(),
-        oracle_quote: None,
-    };
-    let quoted = Card {
-        oracle_quote: Some(bolt_quote()),
-        ..named.clone()
-    };
-    assert_eq!(kind(Vec::new(), Vec::new()), Kind::Unverified);
-    assert_eq!(
-        kind(vec![named], Vec::new()),
-        Kind::Unverified,
-        "a card's name is no quote"
-    );
-    assert_eq!(kind(vec![quoted], Vec::new()), Kind::RulesError);
-    assert_eq!(kind(Vec::new(), vec!["601.2".into()]), Kind::RulesError);
-    assert_eq!(
-        kind(Vec::new(), vec!["not a rule".into()]),
-        Kind::RulesError,
-        "cited, if badly: rules_format_ok says so"
-    );
+fn a_report_that_cites_nothing_is_unverified() {
+    assert_eq!(kind_with(None, None, &[], told), Kind::Unverified);
+    assert_eq!(bolt_kind(None, &[]), Kind::Unverified, "named, not quoted");
     let old = Report::read(&json!({"what": "x", "evidence": "702.19b"})).unwrap();
+    assert_eq!(Checked::new(&old, "Priority", told).kind, Kind::Unverified);
+}
+
+/// Three words of a card's rules text, word for word as the seat told
+/// them (spacing aside), keep the model's kind: from the narrator's text
+/// and from a lookup's, whose heading is written apart from its rules.
+#[test]
+fn a_quote_of_three_words_of_rules_text_keeps_the_kind() {
+    assert!(bolt_quote().split_whitespace().count() > QUOTE_WORDS);
+    assert_eq!(bolt_kind(Some(bolt_words(3)), &[]), Kind::RulesError);
+    let spaced = format!("\n {}  ", bolt_words(3).replace(' ', " \n  "));
     assert_eq!(
-        Checked::new(&old, "Priority", told).kind,
+        bolt_kind(Some(spaced), &[]),
+        Kind::RulesError,
+        "spacing aside"
+    );
+    assert_eq!(bolt_kind(Some(bolt_quote()), &[]), Kind::RulesError);
+    let looked_up = |name: &str| crate::lookup::compiled(name).into_iter().collect();
+    assert_eq!(
+        kind_with(Some("Lightning Bolt"), Some(bolt_words(3)), &[], looked_up),
+        Kind::RulesError,
+        "the build's text of a card looked up"
+    );
+}
+
+/// Fewer than three words are no citation, however exact.
+#[test]
+fn a_quote_of_two_words_is_unverified() {
+    assert_eq!(bolt_kind(Some(bolt_words(2)), &[]), Kind::Unverified);
+}
+
+/// A single character, or a word of a single one, is no citation.
+#[test]
+fn a_one_character_quote_is_unverified() {
+    let first = bolt_quote().chars().next().unwrap().to_string();
+    assert_eq!(bolt_kind(Some(first), &[]), Kind::Unverified);
+}
+
+/// Three words or more that are not the card's text as the seat told it
+/// are no citation: not its words, or another card's.
+#[test]
+fn a_quote_that_does_not_match_is_unverified() {
+    assert_eq!(
+        bolt_kind(Some("these are not its words".into()), &[]),
+        Kind::Unverified
+    );
+    assert_eq!(
+        kind_with(Some("Shock"), Some(bolt_quote()), &[], told),
         Kind::Unverified,
-        "the old shape cites in free text, which the seat does not read"
+        "Bolt's words, but the model named another card"
+    );
+}
+
+/// Word for word means whole words: a quote that begins or ends inside
+/// one of the text's words is no citation.
+#[test]
+fn a_quote_that_cuts_a_word_in_two_is_unverified() {
+    let words = bolt_words(QUOTE_WORDS);
+    let last = words.split(' ').next_back().unwrap();
+    assert!(
+        last.chars().count() > 1,
+        "a last word that can be cut: {words}"
+    );
+    assert_eq!(
+        bolt_kind(Some(words.clone()), &[]),
+        Kind::RulesError,
+        "whole"
+    );
+    let headless: String = words.chars().skip(1).collect();
+    assert_eq!(bolt_kind(Some(headless), &[]), Kind::Unverified);
+    let tailless: String = words.chars().take(words.chars().count() - 1).collect();
+    assert_eq!(bolt_kind(Some(tailless), &[]), Kind::Unverified);
+}
+
+/// A card's name alone is no quote, even where its rules text says it
+/// (a card that names itself), and the heading's words are no rules text.
+#[test]
+fn a_card_s_name_alone_is_unverified() {
+    let name = "Sword of Testing Things";
+    let names_itself = |_: &str| {
+        vec![format!(
+            "  {name} {{3}} · Artifact — Equipment\n    {name} deals 1 damage to any target.\n"
+        )]
+    };
+    assert_eq!(
+        kind_with(Some(name), Some(name.into()), &[], names_itself),
+        Kind::Unverified
+    );
+    assert_eq!(
+        kind_with(Some(name), Some(format!("{name} deals")), &[], names_itself),
+        Kind::RulesError,
+        "with its rules text it is a quote"
+    );
+    let told_heading: String = bolt_text().lines().next().unwrap().trim().to_string();
+    let name_and_cost = told_heading.split(" · ").next().unwrap().to_string();
+    assert!(name_and_cost.split_whitespace().count() >= QUOTE_WORDS);
+    assert_eq!(
+        bolt_kind(Some(name_and_cost), &[]),
+        Kind::Unverified,
+        "the name and cost, from the heading"
+    );
+}
+
+/// A card's type line alone is no quote: not where the heading tells it,
+/// and not where its rules text happens to say the same words.
+#[test]
+fn a_type_line_alone_is_unverified() {
+    let long = baylee_cards::all()
+        .filter(|def| def.faces.len() == 1)
+        .find_map(|def| {
+            let typed = baylee_cards::pool::type_line(&def.faces[0]);
+            let words = typed
+                .split_whitespace()
+                .filter(|w| w.chars().any(char::is_alphanumeric))
+                .count();
+            (words >= QUOTE_WORDS).then_some((def.index, def.name(), typed))
+        })
+        .expect("a card whose type line has three words");
+    let (card, name, typed) = long;
+    let text = crate::narrator::card_text(card, 0).expect("its text");
+    let as_told = |_: &str| vec![text.clone()];
+    assert_eq!(
+        kind_with(Some(name), Some(typed.clone()), &[], as_told),
+        Kind::Unverified,
+        "{typed}"
+    );
+    let says_it = |_: &str| {
+        vec![format!(
+            "  Test Card {{1}} · {typed}\n    {typed} gets +1/+1.\n"
+        )]
+    };
+    assert_eq!(
+        kind_with(Some("Test Card"), Some(typed.clone()), &[], says_it),
+        Kind::Unverified,
+        "said in its rules text too"
+    );
+}
+
+/// A rule number spelt as the Comprehensive Rules spell one keeps the
+/// model's kind, with or without a quote.
+#[test]
+fn a_rule_number_in_cr_form_keeps_the_kind() {
+    for rule in ["601", "601.2", "702.19b"] {
+        assert_eq!(
+            kind_with(None, None, &[rule], told),
+            Kind::RulesError,
+            "{rule}"
+        );
+    }
+    assert_eq!(
+        bolt_kind(Some(bolt_words(2)), &["702.19b"]),
+        Kind::RulesError,
+        "the rule cites where the quote does not"
+    );
+}
+
+/// `["none"]`, or anything else that is not spelt as a rule number, is no
+/// citation; `rules_format_ok` still says it is not one.
+#[test]
+fn none_as_a_rule_is_unverified() {
+    for rules in [&["none"][..], &["not a rule"], &["60"], &["none", "n/a"]] {
+        assert_eq!(
+            kind_with(None, None, rules, told),
+            Kind::Unverified,
+            "{rules:?}"
+        );
+    }
+    let report = Report {
+        rules: vec!["none".into()],
+        observed: "x".into(),
+        ..Report::default()
+    };
+    assert_eq!(
+        Checked::new(&report, "Priority", told).rules_format_ok,
+        Some(false)
     );
 }
 

@@ -111,9 +111,10 @@ says), missing_option (a legal choice was not offered), illegal_option (a choice
 not allow was offered), wrong_outcome (a wrong result: damage, life, a zone, a count), \
 display_text (the text you were shown is wrong), other. severity: game_changing, minor or \
 cosmetic. confidence: low, medium or high.
-Back every report with an exact quote of a card's text as you were shown it (oracle_quote, word \
-for word) or a Comprehensive Rules number (rules, such as 702.19b or 601.2), or both; a report \
-with neither is filed as unverified. At most 8 cards and 8 rule numbers. A report never changes \
+Back every report with an exact quote of at least three words of a card's rules text as you were \
+shown it (oracle_quote, word for word; its name or type line alone is no quote) or a \
+Comprehensive Rules number (rules, such as 702.19b or 601.2), or both; a report with neither is \
+filed as unverified. At most 8 cards and 8 rule numbers. A report never changes \
 how your answer is taken.";
 
 /// The whole system prompt for a seat with `extras`: [`SYSTEM`], how to
@@ -211,7 +212,7 @@ fn report_schema(extras: Extras) -> Value {
                         "name": {"type": "string", "description": "The card's name, at most 100 characters."},
                         "oracle_quote": {
                             "type": "string",
-                            "description": "The exact words of the card's text you rely on, as you were shown them, at most 300 characters."
+                            "description": "The exact words of the card's rules text you rely on, as you were shown them: at least three words, not its name or type line alone; at most 300 characters."
                         }
                     },
                     "required": ["name"]
@@ -229,7 +230,7 @@ fn report_schema(extras: Extras) -> Value {
             }
         },
         "required": ["kind", "severity", "confidence", "observed", "expected"],
-        "description": "A rules or engine error you noticed: report it in addition to answering, and keep playing normally. Back it with an exact oracle_quote of a card's text or a rules number; a report with neither is filed as unverified."
+        "description": "A rules or engine error you noticed: report it in addition to answering, and keep playing normally. Back it with an exact oracle_quote of at least three words of a card's rules text or a rules number; a report with neither is filed as unverified."
     });
     if extras.scryfall {
         schema["properties"]["references"] = json!({

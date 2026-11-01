@@ -381,9 +381,11 @@ shape since 01.11.2026:
   descriptions, not as schema keywords, which not every provider takes.
   Nothing is refused for its shape: an over-long field is cut, control
   characters but a line break and a tab are left out. The prompt asks for
-  an exact quote of a card's text as the model was shown it, or a rule
+  an exact quote of at least three words of a card's rules text as the
+  model was shown it (its name or type line alone is no quote), or a rule
   number, or both, with every report, explains the kinds in one line each,
-  and says a report with neither is filed as `unverified`; it no longer
+  and says a report with neither is filed as `unverified` (what counts:
+  `docs/llm-seat.md` §"Reports and lookups", 01.11.2026); it no longer
   tells the model to report when unsure. A profile with `lookup:
   "scryfall"` also has `references` (the rulings it was shown, at most 20
   of 300 characters).

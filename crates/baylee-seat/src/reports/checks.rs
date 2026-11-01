@@ -3,8 +3,8 @@
 //! seat showed it ([`Moment`]), and what the seat checked of the model's
 //! words ([`Checked`]): whether its quotes are words of the card text the
 //! seat told it, whether its rule numbers are spelt as rule numbers,
-//! `unverified` where it gave neither, and the key a report is filed once
-//! a game under.
+//! `unverified` where it cites nothing well-formed ([`cites`]), and the
+//! key a report is filed once a game under.
 //!
 //! None of it says the report is right: a quote that matches is the
 //! model's reading of a text it was told, a well-formed rule number may
@@ -30,6 +30,15 @@ pub const ID_CHARS: usize = 40;
 
 /// The longest an answer is kept in a report, in characters.
 pub const ANSWER_CHARS: usize = 300;
+
+/// The fewest words a quote must have to count as a citation ([`cites`]).
+pub const QUOTE_WORDS: usize = 3;
+
+/// What stands between a face's name and cost, its type line and its
+/// stats where the seat tells a card (`narrator::card_text`,
+/// `lookup::compiled`): a line with it is a face's heading, not its rules
+/// text.
+const HEADING: &str = " · ";
 
 /// Who filed a report: what `client.source` says.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -169,8 +178,8 @@ impl Moment {
 /// What the seat checked of a report's words.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Checked {
-    /// The model's kind, or [`Kind::Unverified`] where the report quotes no
-    /// card's text and cites no rule number.
+    /// The model's kind, or [`Kind::Unverified`] where the report cites
+    /// nothing well-formed ([`cites`]).
     pub kind: Kind,
     /// Whether every quote is words of the text the seat told the model for
     /// that card (spacing aside); `None` where it quotes none.
@@ -188,24 +197,27 @@ impl Checked {
     /// card's name (`Narrator::told_texts`, and its lookups).
     #[must_use]
     pub fn new(report: &Report, pending: &str, told: impl Fn(&str) -> Vec<String>) -> Self {
-        let quoted: Vec<(&str, &str)> = report
+        let quoted: Vec<(&str, &str, Vec<String>)> = report
             .cards
             .iter()
-            .filter_map(|card| Some((card.name.as_str(), card.oracle_quote.as_deref()?)))
+            .filter_map(|card| {
+                let quote = card.oracle_quote.as_deref()?;
+                Some((card.name.as_str(), quote, told(&card.name)))
+            })
             .collect();
         let oracle_quote_matches = (!quoted.is_empty()).then(|| {
-            quoted.iter().all(|(name, quote)| {
+            quoted.iter().all(|(_, quote, texts)| {
                 let quote = spaced(quote);
-                !quote.is_empty() && told(name).iter().any(|text| spaced(text).contains(&quote))
+                !quote.is_empty() && texts.iter().any(|text| spaced(text).contains(&quote))
             })
         });
         let rules_format_ok =
             (!report.rules.is_empty()).then(|| report.rules.iter().all(|r| rule_number(r)));
-        let kind = if quoted.is_empty() && report.rules.is_empty() {
-            Kind::Unverified
-        } else {
-            report.kind
-        };
+        let cited = quoted
+            .iter()
+            .any(|(name, quote, texts)| cites(name, quote, texts))
+            || report.rules.iter().any(|rule| rule_number(rule));
+        let kind = if cited { report.kind } else { Kind::Unverified };
         let names: Vec<&str> = report.cards.iter().map(|c| c.name.as_str()).collect();
         Self {
             kind,
@@ -214,6 +226,49 @@ impl Checked {
             dedupe_key: dedupe_key(kind, &names, &report.rules, pending),
         }
     }
+}
+
+/// Whether `quote`, given for the card `name`, is a citation that keeps a
+/// report's kind (PM, 01.11.2026): at least [`QUOTE_WORDS`] words (a word
+/// is a run without spacing that holds a letter or a digit), word for word
+/// of the rules text of one of `texts` as the seat told it, spacing aside
+/// and never a word cut in two; not the card's name or type line alone,
+/// and not words of a face's heading (its name, cost, type line, stats).
+/// A rule number spelt as one ([`rule_number`]) is the other citation.
+#[must_use]
+pub fn cites(name: &str, quote: &str, texts: &[String]) -> bool {
+    let quote = spaced(quote);
+    let words = quote
+        .split(' ')
+        .filter(|word| word.chars().any(char::is_alphanumeric))
+        .count();
+    if words < QUOTE_WORDS || fold(&quote) == fold(name) {
+        return false;
+    }
+    texts.iter().any(|text| {
+        let (headings, rules): (Vec<&str>, Vec<&str>) =
+            text.lines().partition(|line| line.contains(HEADING));
+        let a_type_line = headings.iter().any(|heading| {
+            heading
+                .split(HEADING)
+                .nth(1)
+                .is_some_and(|typed| fold(typed) == fold(&quote))
+        });
+        !a_type_line && whole_words_in(&spaced(&rules.join("\n")), &quote)
+    })
+}
+
+/// Whether `quote` is in `text` without cutting a word in two at either
+/// end.
+fn whole_words_in(text: &str, quote: &str) -> bool {
+    let word = |c: char| c.is_alphanumeric();
+    text.match_indices(quote).any(|(at, _)| {
+        let before = text[..at].chars().next_back();
+        let after = text[at + quote.len()..].chars().next();
+        let cut_before = quote.starts_with(word) && before.is_some_and(word);
+        let cut_after = quote.ends_with(word) && after.is_some_and(word);
+        !cut_before && !cut_after
+    })
 }
 
 /// Whether `rule` is spelt as a Comprehensive Rules number: a rule

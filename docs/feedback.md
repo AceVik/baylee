@@ -132,7 +132,7 @@ lookups" has each one's exact meaning):
 | field | values |
 | --- | --- |
 | `client.source` | `llm-seat` (a model playing a seat), `llm-trainer` (a model watching the trained AI play one) |
-| `client.report.kind` | `rules_error`, `card_text_mismatch`, `missing_option`, `illegal_option`, `wrong_outcome`, `display_text`, `other`, or the seat's `unverified`: no quote of a card's text and no rule number |
+| `client.report.kind` | `rules_error`, `card_text_mismatch`, `missing_option`, `illegal_option`, `wrong_outcome`, `display_text`, `other`, or the seat's `unverified`: no quote of three words or more of a card's rules text as the model was told it and no rule number spelt as one (`docs/llm-seat.md`) |
 | `client.report.severity` | `game_changing`, `minor`, `cosmetic`, or `null` (not said) |
 | `client.report.confidence` | `low`, `medium`, `high`, or `null` |
 | `client.report.oracle_quote_matches` | `true` when every quote is words of the card text the seat told the model, `false` when one is not; absent without a quote |

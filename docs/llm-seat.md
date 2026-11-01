@@ -796,8 +796,17 @@ seat adds what only it may say, never the model (01.11.2026,
   digits, the first not 0, then a full stop and one to three digits, then
   one lower-case letter: `601`, `601.2`, `702.19b`); absent where it cites
   none. Well-formed is not the right rule.
-- `kind` becomes `unverified` where the report quotes no card's text and
-  cites no rule number (the text says which kind the model gave).
+- `kind` becomes `unverified` where the report cites nothing well-formed
+  (PM, 01.11.2026, `reports::cites`; the text says which kind the model
+  gave). Two things count: a quote of at least three words (a word holds
+  a letter or a digit) that is word for word, spacing aside and no word
+  cut in two, of a card's rules text as the seat told it for that card
+  (not the face's heading: its name, cost, type line or stats), and not
+  the card's name or type line alone; or a rule number spelt as one
+  (above). A quote that does not match, one of a word or two (or a
+  single character), a card's name, its type line, and a rule such as
+  `"none"` cite nothing. `oracle_quote_matches` and `rules_format_ok`
+  are said as before, whatever `kind` became.
 - `dedupe_key`: SHA-256, in hex, of `[kind, the cards' names folded
   (lower case, spacing collapsed), sorted, each once, the rule numbers
   sorted, each once, pending]` as JSON. A game files one report a key,

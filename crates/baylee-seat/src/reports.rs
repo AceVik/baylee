@@ -9,8 +9,10 @@
 //! it may say ([`Checked`], [`Moment`]): the question it was answering, as
 //! the seat showed it; whether the quotes are words of the card text the
 //! seat itself told the model; whether the rule numbers are spelt as rule
-//! numbers; `unverified` where there is neither; and the key a report is
-//! filed once a game under.
+//! numbers; `unverified` where it cites nothing well-formed (three words
+//! or more of a card's rules text as the seat told it, or a rule number
+//! spelt as one, [`cites`]); and the key a report is filed once a game
+//! under.
 //!
 //! The seat files each one it reads ([`Book::file`]): one JSON line in
 //! `reports.jsonl` at once, in its reports directory
@@ -47,8 +49,8 @@ mod read;
 
 pub use body::{RECORD_TAIL_CHARS, RECORD_TAIL_LINES, bundle, count, submissions};
 pub use checks::{
-    ANSWER_CHARS, Checked, ID_CHARS, MOST_OPTIONS, Moment, OPTION_CHARS, Source, dedupe_key,
-    rule_number,
+    ANSWER_CHARS, Checked, ID_CHARS, MOST_OPTIONS, Moment, OPTION_CHARS, QUOTE_WORDS, Source,
+    cites, dedupe_key, rule_number,
 };
 pub use read::{
     Card, Confidence, Kind, MOST_CARDS, MOST_RULES, NAME_CHARS, QUOTE_CHARS, RULE_CHARS, Report,
