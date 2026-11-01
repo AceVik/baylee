@@ -20,6 +20,7 @@ use axum::http::StatusCode;
 use base64::Engine as _;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_protocol::{TICKET_REFUSED, chair_redeem_path, chair_ticket_path};
+use common::central::{central_file, parts_arrive, stub_central};
 use common::{Gateway, Socket, attach_agent, http, json_field, login, spawn_gateway_with};
 use futures_util::SinkExt;
 use parking_lot::Mutex;
@@ -345,5 +346,75 @@ async fn a_hosts_bridge_reports_on_its_seat_token_under_the_hosts_pseudonym() {
     assert_eq!(lines.first().unwrap()["kind"], "header");
     assert_eq!(lines.last().unwrap()["kind"], "end");
     drop(inbox);
+    agent.abort();
+}
+
+/// Where the gateway files its reports with Central
+/// (`BAYLEE_REPORTS_TO=central`), a bridge's report goes there too: under
+/// the host's pseudonym, about its own game, with that game's record and
+/// the bridge's `client` (its `llm-seat` source with it) as the parts.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_hosts_bridge_report_goes_to_central_where_the_operator_says_so() {
+    let link = baylee_account::Token::generate().expect("a token");
+    let (url, filed) = stub_central(link.bearer().to_string()).await;
+    let file = central_file(&url, &link);
+    let gw = spawn_gateway_with(
+        "chair_report_central",
+        &[
+            ("BAYLEE_REPORTS_TO", "central".to_owned()),
+            ("BAYLEE_FEEDBACK_KEY", "pseudonym-key".to_owned()),
+            (
+                "BAYLEE_CENTRAL_CONFIG_FILE",
+                file.0.to_string_lossy().into_owned(),
+            ),
+        ],
+    );
+    let port = gw.port;
+    let agent = attach_agent(&gw).await;
+    let host = login(port, "hana", "HanaHost");
+    let (game, bridge, _) = a_finished_bridge_game(&gw, &host).await;
+    let null = serde_json::Value::Null;
+    let path = format!("/lobby/games/{game}/chair/report");
+    let (status, answer) = http(port, "POST", &path, Some(&bridge), &body(&null));
+    assert_eq!(status, 201, "{answer}");
+    // The host's own report, for its pseudonym.
+    let (status, answer) = http(port, "POST", "/reports", Some(&host), &body(&null));
+    assert_eq!(status, 201, "{answer}");
+    parts_arrive(&filed, 3, 20).await;
+
+    let desk = filed.lock();
+    assert_eq!(desk.reports.len(), 2);
+    let sent = &desk.reports[0];
+    assert_eq!(sent["game_id"], game.as_str());
+    assert_eq!(
+        sent["reporter"], desk.reports[1]["reporter"],
+        "the host's pseudonym: the host answers for the chair"
+    );
+    let raw = sent.to_string();
+    for private in ["hana", "HanaHost", bridge.as_str(), host.as_str()] {
+        assert!(!raw.contains(private), "the report carried {private:?}");
+    }
+    let first = format!("{:032x}", 1);
+    let part = |name: &str| {
+        desk.parts
+            .iter()
+            .find(|(id, p, _)| *id == first && p == name)
+            .map_or_else(|| panic!("no {name} part"), |(_, _, gzip)| gzip.clone())
+    };
+    let mut client = String::new();
+    flate2::read::GzDecoder::new(&part("client")[..])
+        .read_to_string(&mut client)
+        .expect("gzip");
+    let client: serde_json::Value = serde_json::from_str(&client).unwrap();
+    assert_eq!(client["source"], "llm-seat");
+    let record = part("record");
+    assert_eq!(
+        i64::try_from(record.len()).unwrap(),
+        gw.scalar(&format!(
+            "SELECT bytes FROM game_record WHERE game_id = '{game}'"
+        )),
+        "the chair's game's record, as the store holds it"
+    );
+    drop(desk);
     agent.abort();
 }
