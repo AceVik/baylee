@@ -1884,11 +1884,16 @@ bound.
 - **It is omniscient, so no seat is ever sent it.** The gateway stores the
   pieces and forwards none; nothing a seat socket or the lobby can ask reads
   them. Two readers a route reaches: `POST /reports`, for a player who sat
-  at the game, which passes it to the feedback service (`docs/feedback.md`)
+  at the game, which passes it to the feedback service, or files it with
+  Baylee Central where `BAYLEE_REPORTS_TO=central` (`docs/feedback.md`),
   through `records::for_seated`; and a replay job (§"Replays"), which hands
   it only to an engine on the engine link through `records::for_projection`
   after the route found the account's seat. A replay is a projection, never
   the record.
+  `POST /client/reports` (the official gateway's, for a client signed in
+  nowhere) reads none: the only record it files is one the client wrote of
+  a game it hosted itself, checked as a record's shape and marked as the
+  client's (`docs/feedback.md` §"To Baylee Central instead").
 - **It names nobody.** Seats are numbers, and the gateway keeps which account
   sat where beside it (`game_record_seat`), a link that goes with the
   account (`ON DELETE SET NULL`) while the record stays. The seat names a

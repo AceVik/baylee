@@ -832,9 +832,14 @@ paths:
         A report from a client signed in to no gateway, filed with
         Baylee Central marked `direct`; only the official gateway takes one,
         where `BAYLEE_REPORTS_TO=central` and `BAYLEE_DIRECT_REPORT_KEY` are set.
-        It asks for no credential and stands on its limits: a bounded body, and
-        10 reports per address and 600 from everyone an hour, every request
-        counted, a refused one too. Any origin may post.
+        It asks for no credential and stands on its limits: a bounded body, a
+        record that must read as a game record, and 10 reports per address (an
+        IPv6 one by its /64) and 40 from everyone an hour. Every report read
+        counts, one refused for what it says too; a body over the route's bound,
+        or one refused for the count, does not. The 40 are a third of what
+        Central files for this gateway in an hour, which its signed-in players
+        draw on too. Central's id is answered once the metadata is filed; the
+        client's details and the record follow. Any origin may post.
       operationId: send_direct_report
       tags:
       - Reports
@@ -847,13 +852,13 @@ paths:
         required: true
       responses:
         "201":
-          description: Central took it
+          description: Central filed it; its parts follow
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReportReceipt"
         "400":
-          description: "Not a report: malformed JSON, an unknown field or `kind`, no text (but for a crash), `client` not an object, a malformed `device` or `build`, a record that is not base64 of gzip, or nothing left Central would take"
+          description: "Not a report: malformed JSON, an unknown field or `kind`, no text (but for a crash), `client` not an object, a malformed `device` or `build`, a record that is not base64 of gzip or not a game record, or nothing left Central would take"
           content:
             application/json:
               schema:
@@ -861,7 +866,8 @@ paths:
         "413":
           description: >-
             The text is over 20000 characters, `client` over 1 MiB, or the record over 4
-            MiB; a body over 6.46 MiB is refused before it is read, in plain text
+            MiB (32 MiB unpacked); a body over 6.46 MiB is refused before it is read, in plain
+            text
           content:
             application/json:
               schema:
@@ -881,8 +887,8 @@ paths:
         "503":
           description: >-
             Direct reports are not taken here (not the official gateway, not filing with
-            Central, or no `BAYLEE_DIRECT_REPORT_KEY`), or Central is past its budget for this
-            gateway
+            Central, or no `BAYLEE_DIRECT_REPORT_KEY`), too many reports are on their way to
+            Central, or it is past its budget for this gateway
           content:
             application/json:
               schema:
@@ -911,13 +917,13 @@ paths:
         required: true
       responses:
         "201":
-          description: The feedback service or Central took it
+          description: The feedback service took it, or Central filed it (its parts follow)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReportReceipt"
         "400":
-          description: "Not a report: not JSON, an unknown `kind`, no `text` (for Central: none left once what it does not show is taken out), `client` not an object, a `game_id` over 128 characters (for Central: or not printable ASCII), or a `local_record` beside a `game_id` or not base64 of gzip"
+          description: "Not a report: not JSON, an unknown `kind`, no `text` (for Central: none left once what it does not show is taken out), `client` not an object, a `game_id` over 128 characters (for Central: or not printable ASCII), or a `local_record` beside a `game_id` or not base64 of gzip (for Central: or not a game record)"
           content:
             application/json:
               schema:
@@ -937,9 +943,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "413":
-          description: >-
-            The text is over 20000 characters, `client` over 2 MiB, or the `local_record`
-            over 4 MiB; a body over 7.58 MiB is refused before it is read, in plain text
+          description: "The text is over 20000 characters, `client` over 2 MiB, or the `local_record` over 4 MiB (for Central: or over 32 MiB unpacked); a body over 7.58 MiB is refused before it is read, in plain text"
           content:
             application/json:
               schema:
@@ -5218,7 +5222,9 @@ components:
           type:
           - string
           - "null"
-          description: The commit it was built from, if it knows.
+          description: >-
+            The commit it was built from, if it knows; one that is not hex digits, or over
+            64 of them, is left out, not refused.
       required:
       - version
       additionalProperties: false

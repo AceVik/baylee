@@ -89,7 +89,9 @@ impl CentralHttp {
 
     /// Send a part `report` announced (`PUT /v1/reports/{id}/{part}`), the
     /// gzip as its raw body, within the hour after the report. Central
-    /// takes two at a time; one it had no slot for (`429`) is sent again.
+    /// takes two at a time from everyone; a part it had no slot for (`429`),
+    /// or that got no answer, is sent again after [`PART_WAITS`]: at most
+    /// five sends of up to [`UPLOAD_TIME`] each and 70 s of waiting.
     ///
     /// # Errors
     /// `Conflict` when Central already holds it (a retried upload that had
@@ -109,8 +111,9 @@ impl CentralHttp {
             reports::id_hex(report),
             part.as_str()
         );
-        retry_busy(
-            &[500, 2_000, 5_000],
+        retry_on(
+            &PART_WAITS,
+            |why| matches!(why, Error::Busy | Error::Unavailable),
             || {
                 let response = agent
                     .put(&url)
@@ -130,6 +133,11 @@ impl CentralHttp {
 
 /// How long a part's upload may take in all: Central's own bound on one.
 const UPLOAD_TIME: Duration = Duration::from_secs(60);
+
+/// The waits before a part is sent again: together longer than one upload
+/// may hold a slot at Central ([`UPLOAD_TIME`]), so a part that found both
+/// taken by other gateways' uploads still gets one.
+const PART_WAITS: [u64; 4] = [2_000, 8_000, 20_000, 40_000];
 
 /// What a status other than success says.
 const fn refusal(status: u16) -> Error {
@@ -152,12 +160,13 @@ fn filed(mut response: ureq::http::Response<ureq::Body>) -> Result<[u8; 16], Err
         201 => {}
         status => return Err(refusal(status)),
     }
-    if response
+    let json = response
         .headers()
         .get("Content-Type")
         .and_then(|v| v.to_str().ok())
-        != Some("application/json")
-    {
+        .and_then(|v| v.split(';').next())
+        .is_some_and(|v| v.trim().eq_ignore_ascii_case("application/json"));
+    if !json {
         return Err(Error::Rejected);
     }
     let mut bytes = Vec::new();
@@ -175,12 +184,27 @@ fn filed(mut response: ureq::http::Response<ureq::Body>) -> Result<[u8; 16], Err
 // connection loss after a mutating operation, permits a blind transport retry.
 fn retry_busy<T>(
     waits: &[u64],
+    operation: impl FnMut() -> Result<T, Error>,
+    wait: impl FnMut(Duration),
+) -> Result<T, Error> {
+    retry_on(waits, |why| matches!(why, Error::Busy), operation, wait)
+}
+
+// A report's part is the one exchange sent again without an answer as well
+// (`put_report_part`): Central answers a part it already holds with 409, which
+// counts as sent, and takes one only at its announced length and SHA-256, so a
+// second send never files anything twice. And a 429 Central gives before it
+// reads the body can reach this side as a broken connection while the body is
+// still going out, which is no answer at all.
+fn retry_on<T>(
+    waits: &[u64],
+    again: impl Fn(&Error) -> bool,
     mut operation: impl FnMut() -> Result<T, Error>,
     mut wait: impl FnMut(Duration),
 ) -> Result<T, Error> {
     for &millis in waits {
         match operation() {
-            Err(Error::Busy) => wait(Duration::from_millis(millis)),
+            Err(why) if again(&why) => wait(Duration::from_millis(millis)),
             result => return result,
         }
     }
@@ -318,6 +342,47 @@ mod tests {
                 |_| panic!("a legacy sign-in is not retried")
             ),
             Err(Error::Busy)
+        ));
+        assert_eq!(attempts, 1);
+    }
+
+    /// A part is sent again without an answer too, and its waits outlast
+    /// one upload holding Central's slot; a refusal is not sent again.
+    #[test]
+    fn a_part_is_sent_again_until_it_gets_an_answer() {
+        assert!(
+            u128::from(PART_WAITS.iter().sum::<u64>()) > UPLOAD_TIME.as_millis(),
+            "the waits outlast an upload that holds the slot"
+        );
+        let again = |why: &Error| matches!(why, Error::Busy | Error::Unavailable);
+        let mut attempts = 0;
+        let result = retry_on(
+            &PART_WAITS,
+            again,
+            || {
+                attempts += 1;
+                match attempts {
+                    1 => Err(Error::Unavailable),
+                    2 => Err(Error::Busy),
+                    _ => Ok(()),
+                }
+            },
+            |_| {},
+        );
+        assert!(result.is_ok());
+        assert_eq!(attempts, 3);
+        attempts = 0;
+        assert!(matches!(
+            retry_on::<()>(
+                &PART_WAITS,
+                again,
+                || {
+                    attempts += 1;
+                    Err(Error::Rejected)
+                },
+                |_| panic!("a refused part is not sent again"),
+            ),
+            Err(Error::Rejected)
         ));
         assert_eq!(attempts, 1);
     }

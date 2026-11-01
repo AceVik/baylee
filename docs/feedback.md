@@ -147,16 +147,26 @@ changes is where the report goes and in what shape:
   its JSON (none for `{}`; at most 2 MiB), and the record as the gateway
   keeps it (at most 64 MiB) or the client's `local_record` (at most 4 MiB,
   `origin: "client"`). One larger than that goes without, with a line in
-  the log. Both are sent in the same request, after the metadata was taken;
-  a part that does not arrive leaves the report filed with that part shown
-  as awaited (the log names the report and the part, never its content),
-  and one Central already holds (a retried upload) counts as sent.
+  the log. A client's record is read first as the service reads one (a
+  game record's header first, then only its own lines, at most 32 MiB
+  unpacked; `baylee_account::client_record`), because Central never unpacks
+  it: one that is not a game record is `400`, one that unpacks past the
+  bound `413`. The parts follow the answer: the player is told once the
+  metadata is filed, so a slow upload never makes a filed report look lost
+  (and sent again). The gateway uploads two at a time, as many as Central
+  takes from everyone; one Central turns away (`429`, before or while the
+  body goes out) or that gets no answer is sent again, at most five times
+  over 70 s of waiting; one that never arrives leaves the report filed with
+  that part shown as awaited (the log names the report and the part, never
+  its content), and one Central already holds (a resent upload) counts as
+  sent.
 - **Answers:** `201 {"report_id": "<32 hex digits>"}`, Central's id; `502`
   when Central did not take the metadata; `503` without a link, when four
-  reports are already on their way to Central from this gateway and none
-  finished within 10 seconds (their parts are held in memory), or when
-  Central is past its budget for this gateway (120 reports an hour). A
-  report that was not taken costs the player nothing of their 64.
+  reports are already on their way to Central from this gateway, parts
+  included, and none finished within 10 seconds (their parts are held in
+  memory), or when Central is past its budget for this gateway (120
+  reports an hour). A report that was not taken costs the player nothing of
+  their 64.
 - **Pseudonyms do not change:** made with `BAYLEE_FEEDBACK_KEY`, or the key
   derived from `BAYLEE_FEEDBACK_TOKEN` as before, so a player's reports
   line up across the switch. With `central` and neither set, the gateway
@@ -170,14 +180,24 @@ changes is where the report goes and in what shape:
 - **Straight from a client** (owner, 31.10.2026): the official gateway takes
   `POST /client/reports` itself and files it with Central marked `direct`,
   under its bridge, the only credential Central takes such a report under.
-  The body, its bounds and its allowance are the service's (§"Straight from
-  a client"): no credential, a device id, 10 an hour per address and 600 in
-  all, every request counted; the reporter is the service's HMAC of the
-  device id under `BAYLEE_DIRECT_REPORT_KEY` hashed, so the same value as
-  the service's `FEEDBACK_DIRECT_KEY` keeps a device's reports linkable
-  across the move. Its record is the client's (`origin: "client"`), checked
-  as a `local_record` is. Without `BAYLEE_REPORTS_TO=central`, the bridge
-  or the key, `503`. A client sends there when its build or settings name
+  The body and its bounds are the service's (§"Straight from a client"): no
+  credential, a device id; a `build.commit` that is not hex (or over 64
+  digits) is left out, as Central would refuse it. Its allowance is 10 an
+  hour per address, an IPv6 address counted by its /64, and **40 in all**,
+  not the service's 600: Central files 120 an hour for one gateway, and the
+  official gateway's signed-in players' reports draw on the same 120, so
+  however many addresses send direct reports, 80 stay for the players.
+  Every report the route reads counts, one refused for what it says too; a
+  body over the route's bound and one refused for the count do not. Behind
+  a proxy the gateway does not trust (`BAYLEE_TRUSTED_PROXIES`), every
+  client is the proxy's address and shares its 10. The reporter is the
+  service's HMAC of the device id under `BAYLEE_DIRECT_REPORT_KEY` hashed,
+  so the same value as the service's `FEEDBACK_DIRECT_KEY` keeps a device's
+  reports linkable across the move. Its record is the client's
+  (`origin: "client"`), checked as a `local_record` is, its shape included.
+  A report waits for no place among the four on their way: none free is
+  `503` at once. Without `BAYLEE_REPORTS_TO=central`, the bridge or the
+  key, `503`. A client sends there when its build or settings name
   that address (`docs/client.md`, `BAYLEE_REPORT_PUBLIC_URL`, `report_url`);
   the offline count stays with the service.
 - **The reports the service holds** stay there until the one-time copy below

@@ -3,7 +3,9 @@
 //! `docs/reports.md` §"Intake"): the metadata first, under the gateway's own
 //! Central credential, then what is heavy as the gzip Central keeps and
 //! never unpacks: the `client` object, and the record of the game the report
-//! is about.
+//! is about. The player is answered once the metadata is filed; the parts
+//! follow behind the answer ([`send_parts`]), so a slow upload never turns
+//! a filed report into one the client thinks was lost and sends again.
 //!
 //! What goes into the metadata is brought within Central's bounds here, so a
 //! long crash message or a stray control character in what a client wrote
@@ -22,10 +24,15 @@ use baylee_account::reports::{
 
 use super::ReportKind;
 
-/// How many reports may be on their way to Central at once: each holds its
-/// parts in memory (a record may be 64 MiB), and Central itself takes two
-/// uploads at a time.
+/// How many reports may be on their way to Central at once, their parts
+/// included: each holds its parts in memory (a record may be 64 MiB).
 pub(super) const IN_FLIGHT: usize = 4;
+
+/// How many parts this gateway uploads at once: as many as Central takes
+/// from everyone (baylee-central `central-http` `native::UPLOADS`), so this
+/// gateway never refuses itself a slot there. Other gateways can still hold
+/// them; [`baylee_account::CentralHttp::put_report_part`] waits that out.
+pub(super) const UPLOADS: usize = 2;
 
 /// A game's record as a report carries it, gzip.
 pub(super) struct RecordBytes {
@@ -42,6 +49,15 @@ pub(super) struct Filing {
     pub(super) intake: ReportIntake,
     client: Option<Vec<u8>>,
     record: Option<Vec<u8>>,
+}
+
+impl Filing {
+    /// The parts the metadata announced, each with its gzip.
+    fn parts(self) -> impl Iterator<Item = (Part, Vec<u8>)> {
+        [(Part::Client, self.client), (Part::Record, self.record)]
+            .into_iter()
+            .filter_map(|(part, gzip)| Some((part, gzip?)))
+    }
 }
 
 /// What the player sent, within Central's bounds; or why it cannot be.
@@ -160,33 +176,41 @@ pub(super) fn prepare(
     })
 }
 
-/// Files `filing` with Central through `bridge`, blocking: the metadata, then
-/// each part it announced. Central's id for it; or why not, when the
-/// metadata was not taken. A part that does not arrive leaves the report
-/// filed and that part shown as awaited, with a line in the log; one Central
-/// already holds (a retried upload that had landed) counts as sent.
-pub(super) fn file(
-    bridge: &crate::central::Bridge,
-    filing: &Filing,
-) -> Result<String, baylee_account::Error> {
-    let id = bridge.file_report(&filing.intake)?;
-    let report = intake::id_hex(&id);
-    for (part, gzip) in [
-        (Part::Client, &filing.client),
-        (Part::Record, &filing.record),
-    ] {
-        let Some(gzip) = gzip else { continue };
-        match bridge.put_report_part(&id, part, gzip) {
+/// Sends each part `filing` announced for Central's report `id` through
+/// `bridge`, one of `uploads` at a time, and then lets `slot` go: the
+/// report's place among [`IN_FLIGHT`], held while its parts are in memory.
+/// A part that does not arrive leaves the report filed and that part shown
+/// as awaited, with a line in the log; one Central already holds (a resent
+/// upload that had landed) counts as sent.
+pub(super) async fn send_parts(
+    bridge: std::sync::Arc<crate::central::Bridge>,
+    id: [u8; 16],
+    filing: Filing,
+    uploads: std::sync::Arc<tokio::sync::Semaphore>,
+    slot: Option<tokio::sync::OwnedSemaphorePermit>,
+) {
+    for (part, gzip) in filing.parts() {
+        let Ok(upload) = uploads.clone().acquire_owned().await else {
+            return;
+        };
+        let bridge = bridge.clone();
+        let sent = tokio::task::spawn_blocking(move || {
+            let _upload = upload;
+            bridge.put_report_part(&id, part, &gzip)
+        })
+        .await
+        .unwrap_or(Err(baylee_account::Error::Unavailable));
+        match sent {
             Ok(()) | Err(baylee_account::Error::Conflict) => {}
             Err(why) => tracing::warn!(
-                report,
+                report = intake::id_hex(&id),
                 part = part.as_str(),
                 ?why,
                 "a report's part did not reach Central"
             ),
         }
     }
-    Ok(report)
+    drop(slot);
 }
 
 #[cfg(test)]
