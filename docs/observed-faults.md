@@ -2209,10 +2209,16 @@ on the battlefield, would get the value from before its own change. Inspirit
 Flagship Vessel is that shape — station a creature, tap it, then take its power
 in charge counters.
 
-`Amount::TargetCmc` stays where it was, deliberately: its one reader is
-Reanimate, whose target is a creature *card* in a graveyard and whose mana value
-is the printed one. A card that never was a permanent has no last known
-information on the battlefield to prefer.
+`Amount::TargetCmc` was left out at first, on the reading that its one reader,
+Reanimate, has a creature card in a graveyard as its target and wants the
+printed mana value. It reads the snapshot too since 31.10.2026
+(`resolve::target_mana_value`, shared with Mana Drain). It had 27 readers by
+then, and the card's raw `x_value` it read counted X on the battlefield, where
+X is 0 (CR 202.3e): Divine Offering on a Chalice of the Void cast for one gained
+two life. Reanimate is right through the snapshot as well: the card it expected
+in the graveyard has moved, so it is read as it was there, and a Clone
+reanimated as a copy of Serra Angel costs its controller four life, not five
+(`reanimate_takes_the_mana_value_the_card_had_in_the_graveyard`).
 
 Three tests, all in `card_tests`, all built on one helper that casts an Umara
 Raptor so its own rally trigger makes it a 2/2 — a target whose projected power
@@ -3781,3 +3787,13 @@ The population test now pins all nine identities and the exact ability count,
 replacing the previous coarse ceiling; adding, removing or duplicating an
 unread member must be reviewed. Closing a gap requires a sufficient public
 projection or a proof that does not substitute current state for history.
+
+## Found while reviewing the fixes for the reports of 30.10, 2026-10-31
+
+### 67. Mana Drain's mana skips the stack — CONFIRMED
+
+Mana Drain's "at the beginning of your next main phase, add …" is a delayed
+triggered ability (CR 603.7) that is not a mana ability (CR 605.1b), so it
+should go on the stack and be answerable, but `DelayedAction::AddMana`
+(`engine/progress/delayed.rs`) puts the mana straight into the pool before
+anyone gets priority.

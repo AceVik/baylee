@@ -296,7 +296,8 @@ impl<L: CardLookup> Engine<L> {
                 super::PaymentContinuation::Tax(res) => res,
                 // Nothing was declared yet: the step goes on without them,
                 // and nobody declares in their place (CR 800.4j).
-                super::PaymentContinuation::AttackTax { .. } => {
+                super::PaymentContinuation::AttackTax { .. }
+                | super::PaymentContinuation::BlockTax { .. } => {
                     self.awaiting_answer = false;
                     self.run_until_choice();
                     return;

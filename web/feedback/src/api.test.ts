@@ -4,6 +4,7 @@ import {
   accountQuery,
   api,
   filterQuery,
+  isSourceName,
   onSignedOut,
   parseAccountFilter,
   parseFilter,
@@ -24,6 +25,7 @@ describe("filters in the query string", () => {
       label: "ui-2",
       gateway: "eu",
       channel: "direct",
+      source: "!llm-seat",
       reporter: "5bdc",
       game_id: "g1",
       signature: "0123456789abcdef",
@@ -67,10 +69,26 @@ describe("filters in the query string", () => {
       parseFilter(
         "?kind=rant&status=lost&from=2026-9-1&to=yesterday&has_record=maybe&offset=-5&gateway=" +
           "&label=Bad%20Label&signature=xyz&duplicate_of=nope&channel=pigeon&sort=size&dir=up&limit=7" +
-          "&priority=urgent&trash=yes",
+          "&priority=urgent&trash=yes&source=!",
       ),
     ).toEqual({});
     expect(parseFilter("?has_record=true&offset=3.5")).toEqual({ has_record: true });
+  });
+
+  test("a source filter is a source, none, or either after !, 1–64 characters without a control character", () => {
+    for (const good of ["llm-seat", "none", "!llm-seat", "!none", "a bot", "s".repeat(64), "ü".repeat(64)]) {
+      expect(parseFilter(`?source=${encodeURIComponent(good)}`)).toEqual({ source: good });
+    }
+    for (const bad of ["!", "s".repeat(65), "llm\u0001seat", "llm\u0085seat"]) {
+      expect(parseFilter(`?source=${encodeURIComponent(bad)}`)).toEqual({});
+    }
+  });
+
+  test("a stored source is offered as a filter only when it names itself, not the filter's own words", () => {
+    for (const named of ["llm-seat", "a bot", "s".repeat(64)]) expect(isSourceName(named)).toBe(true);
+    for (const reserved of ["none", "!llm-seat", "", "s".repeat(65), "llm\u0001seat"]) {
+      expect(isSourceName(reserved)).toBe(false);
+    }
   });
 });
 

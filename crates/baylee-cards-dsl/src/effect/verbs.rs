@@ -677,6 +677,7 @@ impl Effect {
             | Effect::CreateDelayedObserver { effects, .. }
             | Effect::AtNextEndStep { effects }
             | Effect::AtNextEndStepAboutSubject { effects }
+            | Effect::AtNextEndStepForCreatedTokens { effects }
             | Effect::AtNextCleanup { effects }
             | Effect::WhenTargetDiesThisTurn { effects }
             | Effect::WhenSourceDiesThisTurn { effects }
@@ -881,6 +882,7 @@ impl Effect {
             | Effect::AttackWithoutTappingWhileSourceUntappedThisCombat
             | Effect::PreventAllCombatDamageThisTurn
             | Effect::ChooseDamageSourcePreventAllThisTurn
+            | Effect::ChooseDamageSourcePreventAllThisTurnMatching(_)
             | Effect::PreventNextFromChosenSource { .. }
             | Effect::RedirectNextFromChosenSource { .. }
             | Effect::WishToHand { .. }
@@ -930,6 +932,9 @@ impl Effect {
             | Effect::UntapSelf
             | Effect::UntapFound
             | Effect::ChooseCardName { .. }
+            | Effect::GuessChosenNameInHand { .. }
+            | Effect::RevealHandForGuess
+            | Effect::DrawIfGuessWrong
             | Effect::RevealTopByName { .. }
             | Effect::RevealRandomDiscardNamed { .. }
             | Effect::ChooseNumber { .. }
@@ -971,7 +976,7 @@ impl Effect {
             | Effect::CounterTargetAbility
             | Effect::CounterTargetSpellOrAbility
             | Effect::TargetSourceLosesAbilities { .. }
-            | Effect::DelayedManaAtNextFirstMain { .. }
+            | Effect::DelayedManaAtNextMain { .. }
             | Effect::ChangeTarget { .. }
             | Effect::ChooseNewTargets
             | Effect::ExchangeGreatestManaValue { .. }
@@ -1102,6 +1107,7 @@ impl Effect {
             | Effect::CastFaceDownUsingSpentX
             | Effect::ActivateLandsAndTakeMana { .. }
             | Effect::ControlPlayerPlayCard { .. }
+            | Effect::ControlPlayerNextTurn { .. }
             | Effect::BecomeCopyOfTarget { .. }
             | Effect::ChangeTextWord { .. }
             | Effect::CopyThisSpell { .. }
@@ -1166,7 +1172,9 @@ impl Effect {
             | Effect::SacrificeSelf
             | Effect::Hideaway(_)
             | Effect::ExileTopFaceDownLinked
+            | Effect::ExileChosenFromHandWithSource(_)
             | Effect::MayPlayLinkedExile
+            | Effect::MayCopyCastLinkedExile
             | Effect::ReturnLinkedExile { .. }
             | Effect::SacrificeObject { .. }
             | Effect::PayCostOrLoseLater { .. }
@@ -1177,6 +1185,11 @@ impl Effect {
             | Effect::SearchLibraryOf { .. }
             | Effect::SearchLibraryUpTo { .. }
             | Effect::SearchOpponentSplits { .. }
+            | Effect::RevealLibrarySearch { .. }
+            | Effect::PlayersWhoCastRevealedNameThisTurnLoseLife { .. }
+            | Effect::ModifyFilter { .. }
+            | Effect::RemoveAllCountersFilter { .. }
+            | Effect::PutTargetOnTopOfLibrary
             | Effect::PumpFilter { .. }
             | Effect::ProtectionFromChosenColor { .. }
             | Effect::Regenerate { .. }

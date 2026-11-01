@@ -183,9 +183,33 @@ pub fn sheet_box_with(
     )
 }
 
+/// A [`sheet_box_with`] whose body, a list that may run past the sheet,
+/// has a scrollbar beside it, shown while it does: where the client's other
+/// bars stand. `marker` should make the body a lobby `Scrollable`, or the
+/// wheel moves nothing (Play's deck picker had neither, report 30.10.2026).
+pub fn sheet_box_listed(
+    commands: &mut Commands,
+    kit: Kit,
+    width: SheetWidth,
+    title: &str,
+    body: &[Entity],
+    footer: &[Entity],
+    marker: impl Bundle,
+) -> Entity {
+    sheet_box_parts(
+        commands,
+        kit,
+        width,
+        title,
+        body,
+        SheetFooter::regular(footer),
+        (marker, ()),
+        true,
+    )
+}
+
 /// A [`sheet_box_with`] with a compact and optionally retained footer.
-#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
-// the three sheet bands and both footer paths
+#[allow(clippy::too_many_arguments)] // the sheet's three bands and their markers
 pub fn sheet_box_with_footer(
     commands: &mut Commands,
     kit: Kit,
@@ -195,6 +219,31 @@ pub fn sheet_box_with_footer(
     footer: SheetFooter,
     marker: impl Bundle,
     footer_marker: impl Bundle,
+) -> Entity {
+    sheet_box_parts(
+        commands,
+        kit,
+        width,
+        title,
+        body,
+        footer,
+        (marker, footer_marker),
+        false,
+    )
+}
+
+/// The sheet's three bands: head, body (with its bar where `bar`) and foot.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+// the three sheet bands and both footer paths
+fn sheet_box_parts(
+    commands: &mut Commands,
+    kit: Kit,
+    width: SheetWidth,
+    title: &str,
+    body: &[Entity],
+    footer: SheetFooter,
+    (marker, footer_marker): (impl Bundle, impl Bundle),
+    bar: bool,
 ) -> Entity {
     let phone = kit.m.frame == super::Frame::Phone;
     let wide = match width {
@@ -249,7 +298,47 @@ pub fn sheet_box_with_footer(
         .insert(marker)
         .id();
     commands.entity(scroller).add_children(body);
-    commands.entity(surface).add_children(&[head, scroller]);
+    let band = if bar {
+        let track = crate::lobby::scrollbars::track(commands, scroller, phone);
+        commands.entity(track).insert((
+            crate::lobby::scrollbars::OnlyWhenNeeded,
+            // Shown once the list is laid out and found to run over.
+            Node {
+                width: px_fixed(if phone { 16.0 } else { 12.0 }),
+                height: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                display: Display::None,
+                border_radius: BorderRadius::all(px_fixed(6.0)),
+                ..default()
+            },
+        ));
+        commands
+            .entity(scroller)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.flex_grow = 1.0;
+                node.flex_basis = px_fixed(0.0);
+                node.min_width = px_fixed(0.0);
+            });
+        let host = commands
+            .spawn((
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    flex_shrink: 1.0,
+                    min_height: px_fixed(0.0),
+                    column_gap: px_fixed(6.0),
+                    padding: UiRect::right(px_fixed(6.0)),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .id();
+        commands.entity(host).add_children(&[scroller, track]);
+        host
+    } else {
+        scroller
+    };
+    commands.entity(surface).add_children(&[head, band]);
     if footer.retained {
         return surface;
     }

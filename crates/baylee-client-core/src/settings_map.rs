@@ -103,6 +103,25 @@ impl Section {
         }
     }
 
+    /// Whether the section is offered over a table (the game menu's
+    /// Settings): what the player sets for this device and this account's
+    /// play. The account, the gateway, the language models and the updater
+    /// stay in the lobby: signing out, deleting the account, changing the
+    /// gateway or restarting into an update would pull the table out from
+    /// under the seat.
+    #[must_use]
+    pub const fn at_table(self) -> bool {
+        match self {
+            Self::Graphics
+            | Self::Audio
+            | Self::Display
+            | Self::Controls
+            | Self::Gameplay
+            | Self::Privacy => true,
+            Self::Account | Self::Network | Self::LanguageModels | Self::Updates => false,
+        }
+    }
+
     /// Whether a build has this section at all. A browser or a phone has
     /// no updater; the language models are one read-only line there.
     #[must_use]
@@ -770,6 +789,39 @@ mod tests {
         let mut sorted = sections.clone();
         sorted.sort();
         assert_eq!(sections, sorted);
+    }
+
+    /// Over a table, no row that would pull the table out from under the
+    /// seat is offered, and every row about how the table plays is.
+    #[test]
+    fn over_a_table_the_rows_that_end_the_session_stay_in_the_lobby() {
+        let away = [
+            Row::SignOut,
+            Row::DeleteAccount,
+            Row::SwitchGateway,
+            Row::Gateway,
+            Row::Profiles,
+            Row::CheckNow,
+            Row::InstallAutomatically,
+        ];
+        for row in away {
+            assert!(!of(row).section.at_table(), "{row:?} is offered at a table");
+        }
+        let kept = [
+            Row::TableKeys,
+            Row::Automation,
+            Row::Stops,
+            Row::AbilityAnswers,
+            Row::Effects,
+            Row::TextSize,
+            Row::ReportProblem,
+        ];
+        for row in kept {
+            assert!(
+                of(row).section.at_table(),
+                "{row:?} is not offered at a table"
+            );
+        }
     }
 
     /// The account's rows in Graphics and Audio say so; the rest of those

@@ -31,6 +31,7 @@ mod iron_star;
 mod ivory_cup;
 mod ivory_tower;
 mod juju_bubble;
+mod liar_s_pendulum;
 mod library_of_leng;
 mod mana_cylix;
 mod mana_vault;

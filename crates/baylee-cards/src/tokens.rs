@@ -109,6 +109,20 @@ pub static ARMY_0_0_BLACK: TokenDef = TokenDef {
     ..TokenDef::DEFAULT
 };
 
+/// 5/5 green Beast (One Dozen Eyes). The printing used for art also has
+/// trample, which One Dozen Eyes does not grant.
+pub static BEAST_5_5_GREEN: TokenDef = TokenDef {
+    name: "Beast",
+    colors: ColorSet::from_slice(&[Color::Green]),
+    types: TypeSet::CREATURE,
+    subtypes: &[creature::BEAST],
+    power: Some(5),
+    toughness: Some(5),
+    // C18 #14 — the only 5/5 Beast token printing Scryfall indexes.
+    scryfall_id: "44675b6a-ea5a-44f1-9f2c-3725cdfcc814",
+    ..TokenDef::DEFAULT
+};
+
 /// 1/1 white Bird with flying (Aether Channeler).
 pub static BIRD_1_1_WHITE_FLYING: TokenDef = TokenDef {
     name: "Bird",

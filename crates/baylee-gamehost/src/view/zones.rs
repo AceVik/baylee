@@ -8,7 +8,7 @@ use baylee_engine::state::GameState;
 use baylee_engine::zone::{Zone, ZoneLocation};
 use baylee_view::PublicObject;
 
-/// A controller may inspect what the controlled player can inspect (CR 720.4).
+/// A controller may inspect what the controlled player can inspect (CR 722.4).
 pub(super) fn entitled_viewer(obj: &GameObject, seat: PlayerId, controlled: SeatSet) -> PlayerId {
     if obj.zone == Zone::Exile
         && obj

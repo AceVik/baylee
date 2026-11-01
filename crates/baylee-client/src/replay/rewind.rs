@@ -132,6 +132,7 @@ impl Duel {
             ai_log_open: old.ai_log_open,
             ai_log_heard: old.ai_log_heard,
             report_asked: old.report_asked,
+            settings_asked: old.settings_asked,
             concede_armed: old.concede_armed,
             leave_armed: old.leave_armed,
             departing: old.departing,

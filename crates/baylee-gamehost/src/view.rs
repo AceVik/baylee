@@ -396,7 +396,7 @@ pub struct SeatContext<'a> {
     pub inspected_cards: &'a [ObjectId],
     /// The resource owner of the current decision, even when another player answers.
     pub decision_player: Option<PlayerId>,
-    /// Other players whose private information this viewer may inspect (CR 720.4).
+    /// Other players whose private information this viewer may inspect (CR 722.4).
     pub controlled_players: SeatSet,
     /// Libraries whose changed top must stay hidden until announcement ends (CR 401.5).
     pub library_reveal_blocked: SeatSet,

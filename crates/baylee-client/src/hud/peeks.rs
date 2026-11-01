@@ -172,8 +172,12 @@ pub fn sync_peeks(
     settings: Option<Res<crate::settings::ClientSettings>>,
     mut revision: ResMut<PeeksRevision>,
     standing: Query<Entity, With<PeekColumn>>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
-    let up = phase.is_some_and(|p| matches!(p.get(), DuelPhase::Playing | DuelPhase::Finished));
+    // Down while the settings cover the table: a chip pressed through them
+    // would answer the question standing under them.
+    let up = phase.is_some_and(|p| matches!(p.get(), DuelPhase::Playing | DuelPhase::Finished))
+        && !crate::lobby::table_settings::covers_the_table(lobby.as_deref());
     let lang = settings.as_ref().map_or(Lang::En, |s| Lang::of(&s.lang));
     let next = if up {
         PeeksRevision {

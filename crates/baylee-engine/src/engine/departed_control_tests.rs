@@ -654,15 +654,15 @@ fn a_search_taken_over_by_a_leaver_goes_back_to_the_searcher() {
     );
 }
 
-/// Opposition Agent is the one card in the pool that controls a player
-/// (CR 722.2), through `Modifier::SearchTakeover`, and that is the effect a
-/// player leaving ends besides control of objects (CR 800.4a). This fails
-/// the day a card controls a player some other way, which
-/// `sba::eliminate_player` then has to end too.
+/// Opposition Agent controls a player through `Modifier::SearchTakeover`
+/// (CR 722.2), while Mindslaver schedules control of that player's next turn.
+/// Both are effects a player leaving ends besides control of objects
+/// (CR 800.4a). A new printed form fails here until its departure rule exists.
 #[test]
-fn every_card_that_controls_a_player_does_it_by_taking_over_a_search() {
+fn every_card_that_controls_a_player_has_a_departure_rule() {
     let mut read = 0;
     let mut takers = Vec::new();
+    let mut scheduled_cards = Vec::new();
     for (oracle_id, def) in baylee_cards::generated::ALL {
         if matches!(def.coverage, baylee_cards_dsl::Coverage::Unimplemented) {
             continue;
@@ -696,6 +696,22 @@ fn every_card_that_controls_a_player_does_it_by_taking_over_a_search() {
                 );
                 continue;
             }
+            let schedules = def
+                .abilities
+                .iter()
+                .chain(def.faces.iter().flat_map(|f| f.abilities.iter()))
+                .any(|a| {
+                    matches!(a, baylee_cards_dsl::AbilityDef::Activated { effects, .. }
+                    | baylee_cards_dsl::AbilityDef::ActivatedConditional { effects, .. }
+                    if effects.iter().any(|e| matches!(
+                        e,
+                        baylee_cards_dsl::Effect::ControlPlayerNextTurn { .. }
+                    )))
+                });
+            if schedules {
+                scheduled_cards.push(def.faces[face].name);
+                continue;
+            }
             let takes_over = def
                 .abilities
                 .iter()
@@ -706,10 +722,10 @@ fn every_card_that_controls_a_player_does_it_by_taking_over_a_search() {
                 });
             assert!(
                 takes_over,
-                "{} ({oracle_id}) prints control of a player, and not as a search \
-                 taken over. If the engine does it, sba::eliminate_player must end \
-                 it as its player leaves (CR 800.4a) and this test must know it; \
-                 if the card's Partial note leaves it out, say so here: {text}",
+                "{} ({oracle_id}) prints control of a player without a known departure \
+                 rule. If the engine implements it, sba::eliminate_player must end it \
+                 as its player leaves (CR 800.4a) and this test must know it; if the \
+                 card's Partial note leaves it out, say so here: {text}",
                 def.faces[face].name
             );
             takers.push(def.faces[face].name);
@@ -717,7 +733,11 @@ fn every_card_that_controls_a_player_does_it_by_taking_over_a_search() {
     }
     assert!(
         takers.contains(&"Opposition Agent"),
-        "the reader finds the card that does: {takers:?}"
+        "the reader finds search control: {takers:?}"
+    );
+    assert!(
+        scheduled_cards.contains(&"Mindslaver"),
+        "the reader finds scheduled turn control: {scheduled_cards:?}"
     );
     // Pool growth must not trip an arbitrary upper bound, and a partial
     // walk must not pass merely because it stayed above a historical floor.

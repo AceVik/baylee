@@ -48,6 +48,11 @@ fn attack() -> (
         let action = match session.pending() {
             Pending::Mulligan { .. } => PlayerAction::MulliganKeep,
             Pending::Priority { .. } => PlayerAction::PassPriority,
+            // The engine asks every active player for a declaration, also
+            // one with nothing to attack with.
+            Pending::ChooseAttackers { .. } => PlayerAction::DeclareAttackers {
+                attackers: Vec::new(),
+            },
             other => panic!("unexpected setup decision {other:?}"),
         };
         session.act(player, action).unwrap();

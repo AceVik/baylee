@@ -27,6 +27,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// The schema tests `db` requires by name: the legacy accounts' move to
+/// Central. A suite that passes without them proves nothing about it.
+const SCHEMA_MUST_RUN: &[&str] = &[
+    "the_legacy_export_takes_unmoved_password_accounts_and_no_secrets",
+    "a_moved_account_is_linked_at_its_first_admission_and_only_once",
+];
+
 /// The gateway e2e targets `db` may add after the schema suite.
 pub const GATEWAY_TESTS: &[&str] = &[
     "e2e_account",
@@ -153,17 +160,30 @@ pub fn db(gateway_tests: &[String], config: Option<&Path>, failure: bool) -> Res
                 all_passed(&done.stdout),
                 "the expected PostgreSQL suite did not run completely"
             );
-            ensure!(
-                target != "schema"
-                    || done.stdout.contains(
-                        "test central_cutover_preserves_sources_reconciles_snapshots_and_revokes_legacy_sessions ... ok"
-                    ),
-                "the expected central cutover test did not run"
-            );
+            if target == "schema" {
+                let missing = not_passed(&done.stdout, SCHEMA_MUST_RUN);
+                ensure!(
+                    missing.is_empty(),
+                    "the legacy move's schema tests did not pass: {}",
+                    missing.join(", ")
+                );
+            }
             pg.checkpoint()?;
         }
         Ok(())
     })
+}
+
+/// The tests of `names` that the libtest output does not report as passed.
+fn not_passed<'a>(output: &str, names: &[&'a str]) -> Vec<&'a str> {
+    names
+        .iter()
+        .copied()
+        .filter(|name| {
+            let passed = format!("test {name} ... ok");
+            !output.lines().any(|line| line.trim_end() == passed)
+        })
+        .collect()
 }
 
 /// At least one test passed, none failed and none was ignored.
@@ -552,6 +572,28 @@ mod tests {
         assert!(!all_passed(
             "test result: FAILED. 3 passed; 1 failed; 0 ignored;"
         ));
+    }
+
+    #[test]
+    fn the_required_schema_tests_exist_and_must_each_pass() {
+        // A rename in the schema suite fails here, in every gate, and not
+        // only in the CI job that runs PostgreSQL.
+        let suite = include_str!("../../baylee-db/tests/schema.rs");
+        for name in SCHEMA_MUST_RUN {
+            assert!(suite.contains(&format!("async fn {name}(")), "{name}");
+        }
+        let all = SCHEMA_MUST_RUN
+            .iter()
+            .map(|name| format!("test {name} ... ok"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(not_passed(&all, SCHEMA_MUST_RUN).is_empty());
+        let one_failed = all.replacen(" ... ok", " ... FAILED", 1);
+        assert_eq!(
+            not_passed(&one_failed, SCHEMA_MUST_RUN),
+            [SCHEMA_MUST_RUN[0]]
+        );
+        assert_eq!(not_passed("", SCHEMA_MUST_RUN), SCHEMA_MUST_RUN);
     }
 
     #[test]

@@ -825,16 +825,85 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
+  /client/reports:
+    post:
+      summary: Send a report from a client signed in nowhere
+      description: |-
+        A report from a client signed in to no gateway, filed with
+        Baylee Central marked `direct`; only the official gateway takes one,
+        where `BAYLEE_REPORTS_TO=central` and `BAYLEE_DIRECT_REPORT_KEY` are set.
+        It asks for no credential and stands on its limits: a bounded body, a
+        record that must read as a game record, and 10 reports per address (an
+        IPv6 one by its /64) and 40 from everyone an hour. Every report read
+        counts, one refused for what it says too; a body over the route's bound,
+        or one refused for the count, does not. The 40 are a third of what
+        Central files for this gateway in an hour, which its signed-in players
+        draw on too. Central's id is answered once the metadata is filed; the
+        client's details and the record follow. Any origin may post.
+      operationId: send_direct_report
+      tags:
+      - Reports
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Direct"
+        required: true
+      responses:
+        "201":
+          description: Central filed it; its parts follow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportReceipt"
+        "400":
+          description: "Not a report: malformed JSON, an unknown field or `kind`, no text (but for a crash), `client` not an object, a malformed `device` or `build`, a record that is not base64 of gzip or not a game record, or nothing left Central would take"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "413":
+          description: >-
+            The text is over 20000 characters, `client` over 1 MiB, or the record over 4
+            MiB (32 MiB unpacked); a body over 6.46 MiB is refused before it is read, in plain
+            text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "429":
+          description: Too many reports from this address or from everyone in the last hour
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "502":
+          description: Central did not take it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "503":
+          description: >-
+            Direct reports are not taken here (not the official gateway, not filing with
+            Central, or no `BAYLEE_DIRECT_REPORT_KEY`), too many reports are on their way to
+            Central, or it is past its budget for this gateway
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
   /reports:
     post:
       summary: Send a bug report or feedback
       description: |-
         A signed-in player's bug report, crash report or feedback,
-        guests included. The gateway passes it on to the feedback service with
-        its own name and build, a pseudonym for the reporter, and the record of
-        the game it names when the reporter sat at it (or the client's own
-        record of a local game); never a name, address or IP. 64 reports an
-        hour per account; one the service did not take is not counted.
+        guests included. The gateway passes it on to the feedback service, or
+        files it with Baylee Central where `BAYLEE_REPORTS_TO=central`, with its
+        own name and build, a pseudonym for the reporter, and the record of the
+        game it names when the reporter sat at it (or the client's own record of
+        a local game); never a name, address or IP. 64 reports an hour per
+        account; one that was not taken is not counted.
       operationId: send_report
       tags:
       - Reports
@@ -848,13 +917,13 @@ paths:
         required: true
       responses:
         "201":
-          description: The feedback service took it
+          description: The feedback service took it, or Central filed it (its parts follow)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReportReceipt"
         "400":
-          description: "Not a report: not JSON, an unknown `kind`, no `text`, `client` not an object, a `game_id` over 128 characters, or a `local_record` beside a `game_id` or not base64 of gzip"
+          description: "Not a report: not JSON, an unknown `kind`, no `text` (for Central: none left once what it does not show is taken out), `client` not an object, a `game_id` over 128 characters (for Central: or not printable ASCII), or a `local_record` beside a `game_id` or not base64 of gzip (for Central: or not a game record)"
           content:
             application/json:
               schema:
@@ -874,9 +943,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "413":
-          description: >-
-            The text is over 20000 characters, `client` over 2 MiB, or the `local_record`
-            over 4 MiB; a body over 7.58 MiB is refused before it is read, in plain text
+          description: "The text is over 20000 characters, `client` over 2 MiB, or the `local_record` over 4 MiB (for Central: or over 32 MiB unpacked); a body over 7.58 MiB is refused before it is read, in plain text"
           content:
             application/json:
               schema:
@@ -894,7 +961,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "502":
-          description: The feedback service did not take it
+          description: The feedback service or Central did not take it
           content:
             application/json:
               schema:
@@ -902,7 +969,7 @@ paths:
         "503":
           description: |-
             - The account store or Baylee Central is unavailable
-            - Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset), or the account store, the database or Baylee Central is unavailable
+            - Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset, or with `BAYLEE_REPORTS_TO=central` no link to Central), too many reports are on their way to Central or it is past its budget for this gateway, or the account store, the database or Baylee Central is unavailable
           content:
             application/json:
               schema:
@@ -914,12 +981,12 @@ paths:
         A host's seat bridge, which has a seat token and no
         session, sends the bug report its language model wrote about its game,
         in the body `POST /reports` takes. The gateway passes it on as it does
-        a player's, under the pseudonym of the host who handed the chair over
-        and against that host's budget, with this game's record, which the
-        chair played. About this game only: a `game_id` is empty or this one,
-        and no `local_record`. One report a chair a game; it may be sent until
-        the room leaves the lobby (an hour after the game ends). A person
-        reports with their session.
+        a player's, to the feedback service or to Central, under the pseudonym
+        of the host who handed the chair over and against that host's budget,
+        with this game's record, which the chair played. About this game only:
+        a `game_id` is empty or this one, and no `local_record`. One report a
+        chair a game; it may be sent until the room leaves the lobby (an hour
+        after the game ends). A person reports with their session.
       operationId: send_chair_report
       tags:
       - Chairs
@@ -940,7 +1007,7 @@ paths:
         required: true
       responses:
         "201":
-          description: The feedback service took it
+          description: The feedback service took it, or Central filed it (its parts follow)
           content:
             application/json:
               schema:
@@ -1000,15 +1067,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "502":
-          description: The feedback service did not take it
+          description: The feedback service or Central did not take it
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorBody"
         "503":
           description: >-
-            Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset), or the database
-            or Baylee Central is unavailable
+            Reports are not configured here (`BAYLEE_FEEDBACK_URL` unset, or with
+            `BAYLEE_REPORTS_TO=central` no link to Central), too many reports are on their way to
+            Central, or the database or Baylee Central is unavailable
           content:
             application/json:
               schema:
@@ -5251,6 +5319,23 @@ components:
       - built_at
       - dirty
       description: "Which binary answers: the same five fields in `/source`, `/info` and `/health`."
+    BuildIn:
+      type: object
+      properties:
+        version:
+          type: string
+          description: The client's release.
+        commit:
+          type:
+          - string
+          - "null"
+          description: >-
+            The commit it was built from, if it knows; one that is not hex digits, or over
+            64 of them, is left out, not refused.
+      required:
+      - version
+      additionalProperties: false
+      description: The client's build as the body names it.
     CardTextEntry:
       type: object
       properties:
@@ -6419,6 +6504,40 @@ components:
       - added_at
       - seen_at
       description: One of this account's devices, as `GET /social/devices` lists it.
+    Direct:
+      type: object
+      properties:
+        kind:
+          $ref: "#/components/schemas/ReportKind"
+          description: What the report is about.
+        text:
+          type: string
+          description: What the player wrote, at most 20000 characters; empty only for a crash.
+        build:
+          $ref: "#/components/schemas/BuildIn"
+          description: "The client's build: its version and commit together at most 128 characters, not empty."
+        device:
+          type: string
+          description: "A random id the client made for its reports: 32 lowercase hex digits. The report is filed under this gateway's HMAC of it, never the id."
+          pattern: ^[0-9a-f]{32}$
+        client:
+          description: "What the client says about itself: a JSON object of at most 1 MiB serialized."
+          type: object
+        record:
+          anyOf:
+          - $ref: "#/components/schemas/LocalRecord"
+          - type: "null"
+          description: The record of a game the client hosted itself, if one is attached.
+      required:
+      - kind
+      - text
+      - build
+      - device
+      - client
+      additionalProperties: false
+      description: >-
+        A report from a client signed in to no gateway; every field named, no other
+        taken.
     ErrorBody:
       type: object
       properties:

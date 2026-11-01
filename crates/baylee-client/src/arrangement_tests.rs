@@ -972,3 +972,67 @@ fn a_rebuilt_replay_hand_never_flashes_open() {
         assert_eq!(app.world().resource::<Duel>().hand_shown, 0.0);
     }
 }
+
+/// The table's controls that stand over the settings' root (the pill at
+/// `G_SWITCHER`, the peeks, a phone's hand tab) stand down while the
+/// settings cover the table (`lobby::table_settings`), and stand again once
+/// they are put away: a press through them would answer the question
+/// standing under the screen.
+#[test]
+fn the_raised_controls_stand_down_under_the_settings() {
+    use crate::hud::hand_drawer::{HandTab, HandTabRevision, sync_hand_tab};
+    use crate::hud::peeks::{PeekColumn, PeeksRevision, sync_peeks};
+
+    for over in [false, true] {
+        let mut lobby = crate::LobbyState::new();
+        crate::lobby::table_settings::stand_over_table(&mut lobby);
+        if !over {
+            crate::lobby::table_settings::close(&mut lobby);
+        }
+        let mut app = App::new();
+        app.add_plugins(bevy::state::app::StatesPlugin)
+            .insert_state(DuelPhase::Playing)
+            .insert_resource(seated_duel(Arrangement::FocusRing))
+            .insert_resource(table(4))
+            .insert_resource(crate::hud::UiFonts::default())
+            .init_resource::<SwitcherRevision>()
+            .init_resource::<PeeksRevision>()
+            .init_resource::<HandTabRevision>()
+            .insert_resource(lobby)
+            .add_systems(Update, (sync_switcher, sync_peeks, sync_hand_tab));
+        // A phone held sideways for the hand tab (`TableFrame::of`: under
+        // 500 tall); the switcher reads the frame the arrangement measured
+        // (a wide one), which is what stands its pill.
+        let mut window = Window::default();
+        window.resolution.set(844.0, 390.0);
+        app.world_mut().spawn(window);
+        app.update();
+        let pills = app
+            .world_mut()
+            .query_filtered::<(), With<ArrangementPill>>()
+            .iter(app.world())
+            .count();
+        let peeks = app
+            .world_mut()
+            .query_filtered::<(), With<PeekColumn>>()
+            .iter(app.world())
+            .count();
+        let tabs = app
+            .world_mut()
+            .query_filtered::<(), With<HandTab>>()
+            .iter(app.world())
+            .count();
+        if over {
+            assert_eq!(
+                (pills, peeks, tabs),
+                (0, 0, 0),
+                "standing over the settings"
+            );
+        } else {
+            assert!(
+                pills > 0 && peeks > 0 && tabs > 0,
+                "the control drew nothing: pill {pills}, peeks {peeks}, tab {tabs}"
+            );
+        }
+    }
+}

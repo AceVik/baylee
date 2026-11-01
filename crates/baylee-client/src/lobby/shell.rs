@@ -199,7 +199,7 @@ pub(super) fn teardown(
 
 /// What the kit and the settings screen read beside the lobby (one
 /// parameter, under Bevy's sixteen).
-type KitInputs<'w, 's> = (
+pub(super) type KitInputs<'w, 's> = (
     Res<'w, crate::shellkit::InputClass>,
     Option<Res<'w, crate::settings::ClientSettings>>,
     Option<Res<'w, crate::quality::InUse>>,

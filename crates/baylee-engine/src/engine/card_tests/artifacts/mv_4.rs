@@ -66,6 +66,7 @@ mod magnetic_mine;
 mod metrognome;
 mod mightstone;
 mod mishra_s_groundbreaker;
+mod mourner_s_shield;
 mod nevinyrral_s_disk;
 mod nova_pentacle;
 mod null_brooch;

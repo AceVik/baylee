@@ -417,6 +417,9 @@ pub fn condition_holds_with_context(
         Condition::HandSizeAtMost(max) => {
             state.zones.list(ZoneLocation::Hand(you)).len() <= max as usize
         }
+        Condition::HandSizeAtTurnStartAtMost(max) => {
+            state.per_turn.hand_size_at_start <= u32::from(max)
+        }
         Condition::APlayerHandSizeAtMost(n) => (0..state.players.len())
             .map(|seat| PlayerId::new(seat as u8))
             .any(|player| {

@@ -226,7 +226,7 @@ pub(super) fn draw(
     }
     menu(commands, root, state, kit, hero_more, tables_more);
     if state.play.picker {
-        picker(commands, root, state, kit);
+        picker(commands, root, state, kit, scrolled);
     }
     if let Some(id) = &state.play.password_for {
         discovery::password_sheet(commands, root, state, metrics, kit, id);
@@ -497,7 +497,13 @@ fn menu(
 
 /// The deck picker (Change deck): the shelf's tiles, one press chooses.
 #[allow(clippy::too_many_lines)] // one sheet, drawn top to bottom
-fn picker(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
+fn picker(
+    commands: &mut Commands,
+    root: Entity,
+    state: &LobbyState,
+    kit: Kit,
+    scrolled: &Scrolled,
+) {
     let lobby = &state.lobby;
     let lang = lobby.lang();
     let grid = commands
@@ -592,13 +598,19 @@ fn picker(commands: &mut Commands, root: Entity, state: &LobbyState, kit: Kit) {
         None,
         Press::Play(PlayPress::CloseSheet),
     );
-    let surface = surfaces::sheet_box(
+    // A shelf of decks can run past the sheet: the wheel moves it and a bar
+    // says so (report 30.10.2026: neither did).
+    let surface = surfaces::sheet_box_listed(
         commands,
         kit,
         SheetWidth::Medium,
         Phrase::PlayChangeDeck.text(lang),
         &[grid],
         &[cancel],
+        (
+            Scrollable(List::DeckPicker),
+            ScrollPosition(Vec2::new(0.0, scrolled.get(List::DeckPicker))),
+        ),
     );
     orders::stop(commands, cancel, &orders::PICKER, "cancel");
     let scrim = surfaces::sheet(commands, surface);

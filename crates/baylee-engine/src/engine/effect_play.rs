@@ -173,7 +173,11 @@ impl<L: CardLookup> Engine<L> {
 
     fn answer_linked_play(&mut self, player: PlayerId, cards: &[ObjectId]) {
         let mut resolution = self.resolution.take().expect("linked play resolution");
-        let Some(AwaitingOp::LinkedPlay { cards: remaining }) = resolution.awaiting.as_mut() else {
+        let Some(AwaitingOp::LinkedPlay {
+            cards: remaining,
+            copy,
+        }) = resolution.awaiting.as_mut()
+        else {
             unreachable!("linked play continuation")
         };
         let chosen = cards
@@ -185,6 +189,13 @@ impl<L: CardLookup> Engine<L> {
         } else {
             remaining.clear();
         }
+        let chosen = chosen.and_then(|original| {
+            if *copy {
+                self.copy_exiled_card(original)
+            } else {
+                Some(original)
+            }
+        });
         let linked = chosen
             .filter(|r| {
                 self.state
@@ -282,6 +293,47 @@ impl<L: CardLookup> Engine<L> {
         }
     }
 
+    /// Create the exact spell copy a linked-copy instruction casts, leaving
+    /// the original and its exile link untouched.
+    fn copy_exiled_card(
+        &mut self,
+        original: baylee_core::ids::DamageSourceRef,
+    ) -> Option<baylee_core::ids::DamageSourceRef> {
+        let mut copy = self
+            .state
+            .object(original.object)
+            .filter(|object| {
+                object.zone == crate::zone::Zone::Exile && object.version == original.version
+            })?
+            .clone();
+        copy.riders.clear();
+        self.state.timestamp += 1;
+        copy.timestamp = self.state.timestamp;
+        copy.controlled_since = self.state.timestamp;
+        let owner = copy.owner;
+        let id = self.state.arena.insert_with(|id| {
+            copy.id = id;
+            copy
+        });
+        self.state.zones.insert(
+            id,
+            crate::zone::ZoneLocation::Exile(owner),
+            crate::zone::ZonePosition::Top,
+            true,
+        );
+        let object = self.state.object_mut(id)?;
+        object.zone = crate::zone::Zone::Exile;
+        object.zone_owner = Some(owner);
+        object.kind = crate::object::ObjectKind::Card;
+        object.riders.push(crate::object::Rider::SpellCopy);
+        let version = object.version;
+        self.state.watch_token_cleanup(id);
+        Some(baylee_core::ids::DamageSourceRef {
+            object: id,
+            version,
+        })
+    }
+
     fn play_commanded_card(&mut self, player: PlayerId, card: ObjectId) -> Result<(), EngineError> {
         self.start_cast_wizard(player, card)
     }
@@ -372,11 +424,12 @@ impl<L: CardLookup> Engine<L> {
                 return true;
             }
         }
-        if let Some(AwaitingOp::LinkedPlay { cards }) = parent.resolution.awaiting.take()
+        if let Some(AwaitingOp::LinkedPlay { cards, copy }) = parent.resolution.awaiting.take()
             && let Some(question) = crate::resolve::hidden_exile::continue_play(
                 &self.state,
                 &mut parent.resolution,
                 cards,
+                copy,
             )
         {
             self.resolution = Some(*parent.resolution);

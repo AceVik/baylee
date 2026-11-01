@@ -74,6 +74,37 @@ pub fn feedback_service(setting: Option<&str>, built: Option<&str>) -> Option<St
         Some(set) => set,
         None => built.map(str::trim).filter(|b| !b.is_empty())?,
     };
+    usable(chosen)
+}
+
+/// Where a report goes straight when the client is signed in nowhere
+/// (owner, 31.10.2026: an address of its own, apart from the offline count):
+/// the settings' `report_url` when it has one, else the one the build was
+/// given (`BAYLEE_REPORT_PUBLIC_URL`, the official gateway's in a release),
+/// else the feedback service as before. An empty setting turns direct
+/// reports off; so does an empty `service_setting` (the feedback service's)
+/// while there is no report setting, as it did before there was one. The
+/// address is held to [`feedback_service`]'s rules.
+#[must_use]
+pub fn report_address(
+    setting: Option<&str>,
+    built: Option<&str>,
+    service_setting: Option<&str>,
+    service: Option<&str>,
+) -> Option<String> {
+    match setting.map(str::trim) {
+        Some("") => None,
+        Some(set) => usable(set),
+        None if service_setting.map(str::trim) == Some("") => None,
+        None => match built.map(str::trim).filter(|b| !b.is_empty()) {
+            Some(built) => usable(built),
+            None => service.map(str::to_string),
+        },
+    }
+}
+
+/// `chosen` as a base address a report may go to, or `None`.
+fn usable(chosen: &str) -> Option<String> {
     let base = chosen.trim_end_matches('/');
     let (secure, rest) = if let Some(rest) = base.strip_prefix("https://") {
         (true, rest)
@@ -215,6 +246,55 @@ mod tests {
 
     /// A device id is 32 lowercase hex digits drawn at random; a kept one
     /// is used, and anything else in its place is replaced.
+    #[test]
+    fn a_direct_report_has_an_address_of_its_own_then_the_service() {
+        let service = Some("https://feedback.example");
+        let built = Some("https://gateway.example/");
+        assert_eq!(
+            report_address(None, built, None, service),
+            Some("https://gateway.example".into())
+        );
+        assert_eq!(
+            report_address(None, None, None, service),
+            service.map(str::to_string)
+        );
+        assert_eq!(
+            report_address(None, Some(" "), None, service),
+            service.map(str::to_string)
+        );
+        assert_eq!(
+            report_address(Some("https://mine.example"), built, None, service),
+            Some("https://mine.example".into())
+        );
+        assert_eq!(report_address(Some(""), built, None, service), None, "off");
+        // A settings file from before `report_url` that turned the service
+        // off turned direct reports off with it, and still does; a report
+        // address of its own still counts.
+        assert_eq!(report_address(None, built, Some(""), None), None);
+        assert_eq!(report_address(None, built, Some(" "), None), None);
+        assert_eq!(
+            report_address(Some("https://mine.example"), built, Some(""), None),
+            Some("https://mine.example".into())
+        );
+        assert_eq!(
+            report_address(None, built, Some("https://feedback.example"), service),
+            Some("https://gateway.example".into())
+        );
+        assert_eq!(
+            report_address(Some("http://far.example"), built, None, service),
+            None,
+            "only a safe address"
+        );
+        assert_eq!(
+            report_address(None, Some("http://far.example"), None, service),
+            None
+        );
+        assert_eq!(
+            route(None, report_address(None, built, None, service).as_deref()),
+            Route::Direct("https://gateway.example/client/reports".into())
+        );
+    }
+
     #[test]
     fn a_device_id_is_random_hex_and_a_bad_one_is_replaced() {
         let made = device_id([0xab; 16]);

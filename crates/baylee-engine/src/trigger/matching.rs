@@ -707,7 +707,8 @@ fn matches(
                         .contains(baylee_core::types::TypeSet::CREATURE)
                 })
         }
-        (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. }) => state
+        (Trigger::BecomesTapped(filter), GameEvent::ObjectTapped { object, .. })
+        | (Trigger::BecomesUntapped(filter), GameEvent::ObjectUntapped { object, .. }) => state
             .object(*object)
             .is_some_and(|o| eval::matches_with_context(filter, state, o, you, context)),
         (

@@ -1149,6 +1149,13 @@ nothing else (`layout::tests::arrangements::arranged_reads_only_the_roster`).
   of the seat shown now, never on my turn, which comes home at once; while the moved table settles a `Space` is dropped
   (`Duel::follow_settling`, cleared by `settle_the_follow` once `glide` and
   the camera are still). A seat chosen by hand holds until the next turn.
+  The switch stands in Settings › Graphics and, since a report of
+  30.10.2026, in the game menu too (`menu::switches::FollowSwitch`, "Table
+  follows the turn: on/off"), so it is turned off at the table where the
+  swing is seen. It is the swing to *another* seat's turn: coming home on
+  my own turn and on my attackers or blockers question
+  (`tableview::comes_home`) has no switch, because what those show is my
+  own board, which the question is about.
 - **Invariant 4** (`table::arrangement_tests`): every board whole on screen at
   home or as the seat of interest, and every other seat's creature card at
   least 36 px at home or 40 near (Wide, Vast, Narrow), or as large as a duel
@@ -3236,7 +3243,12 @@ numbers, and the **light on the felt** round the card says what is on offer.
   and a plate beside it saying 2/2 is noise on every creature of the board.
   A body the layers changed, marked damage, a card drawn without its print,
   a print whose box the next card of a fanned lane covers, and every loyalty
-  and chapter count, are written. `client-core/src/cardplate.rs` decides
+  and chapter count, are written. "Changed" is against the box of the print
+  the card is drawn on (`board::printed_of`, the registry's body of the face
+  `art_of` draws, worked out when the board is built), not against the
+  view's copiable base: an eternalized Fanatic of Rhonas, a 4/4 with a 4/4
+  base on the Fanatic's 1/4 print, read 1/4 while the plate was set against
+  its base (report 30.10.2026). `client-core/src/cardplate.rs` decides
   what it says and packs it into one `u32` — three ten-bit numbers and two
   kind bits — which with its ink word (the tone and `PLATE_NIGHT`,
   `Corner::plate_words`, and `PLATE_TURNED`) is the plate material's key, so a creature dealt
@@ -4382,6 +4394,12 @@ above the keyboard (§2.7). A second face's head wraps rather than cuts:
 it, or on a line of its own when the three do not fit. A front door taller
 than its window scrolls, and a bar at its edge says so
 (`scrollbars::OnlyWhenNeeded`, out of the layout while the page fits).
+Every list that runs over has one, at its right edge where the client's
+other bars stand: Play's deck picker (Change deck) is a sheet whose body is
+a `Scrollable` with its bar (`surfaces::sheet_box_listed`; before a report
+of 30.10.2026 its body scrolled to no wheel and showed no bar), and the
+room under its header has its bar back (lost with WP3's rebuild,
+b0dd3c480), which is where a seat's long list of decks is scrolled.
 
 **One click is one press** (owner, 09.10.2026: "buttons need 2 clicks").
 A press on a button while a field held the caret moved the kit's focus
@@ -5183,6 +5201,17 @@ tapped source whose pips fit on mana the plan already has: floating, or the
 unused half of a permanent it taps anyway. A priced source is tried first,
 then the roomiest. The same pass stopped a Forest listed before a Sol Ring
 from paying half of `{2}` beside it, which predates any price.
+
+Among clean sources of one breadth, `manaplan::prioritize` decides what is
+kept, in three tiers that are never traded against each other: a creature
+(its attack and its tap), then a permanent used for more than mana (an
+ability activated on the battlefield that is not a mana ability,
+`CardDef::activates_beyond_mana`: Karakas, a creature land, Mind Stone;
+statics like Urborg's do not count), then the colours the hand still needs.
+The registry's answer comes in as a predicate, from the client
+(`cardart::taps_beyond_mana`) and from the house AI alike. A Karakas beside
+a Plains used to tie and fall to the object order, so it was tapped first
+about as often as not (report 30.10.2026; `a_utility_land_is_tapped_last`).
 
 Four rules keep it honest, and they are the reason to read the module before
 changing it:
@@ -8575,6 +8604,42 @@ screen, so `Enter` and `Space` press them. `baylee-tools shell settings`
 walks every section at the seven sizes in English and German with the
 kit's checks.
 
+**Over a table** (report of 30.10.2026): the game menu's *Settings* row
+(`MenuAction::Settings` → `Duel::settings_asked`) asks the lobby, which
+stands the same screen over the playing table in a root of its own
+(`lobby::table_settings`, `OverTable`; the lobby's own tree stays down).
+Its root lies over the HUD and under the screen's own popovers
+(`tokens::z::POPOVER - 2`), on a scrim the table shows dimly through, so
+a graphics knob turned there shows on the table; it is measured as the
+report form is (`ShellMetrics::under`), never scaled twice. The table's
+controls that stand above that root — the arrangement pill and menu
+(`G_SWITCHER`), the peeks, a phone's hand tab — stand down while it
+does (`table_settings::covers_the_table`), or a press through them would
+answer the question under the screen; the report corner, the chat window,
+the update card and a tour stand over it as they stand over the lobby's.
+Only what leaves the table where it is is offered (`Section::at_table`:
+Graphics, Audio, Display, Controls, Gameplay, Privacy): the account, the
+gateway, the language models and the updater stay in the lobby, and
+`LobbyState::set_settings_section` refuses them there, from the nav, the
+type-ahead or a search result alike. The lobby's clicks, typing, wheel,
+focus, the screen's key systems and the header's `carry_out` (Report a
+problem, Chat privacy) run for it (`table_settings::lobby_or_over_table`);
+the rest of the lobby does not. The kit's walker and activation count it
+as the shell's screen (`shellkit::focus::table_open`), so Tab, the arrows
+and Enter work it as in the lobby. While it stands the table's keys are
+held: the table's `KeyClaims`, the chat's key doors (`/`, `R`,
+`Ctrl`/`Cmd`+`Enter`), the replay bar's keys and the preview's resize
+chord all stand aside, and the table tour is set aside (`tour::table`
+parks it: no bubble, no key) and comes back on its step after; one that
+starts under them starts parked, and a tip waits until the table shows.
+`Esc` empties the search, closes a
+sheet, then puts it away, taken off the keys before the table could hear
+it; a report form, a narrated tour bubble or the chat's composer over it
+has its `Esc` first. Back does the same. The table being put down
+(finished, or left) puts it down with it, and the lobby comes back on its
+own screen. A client seated straight into its game has no lobby: the row
+is dead there and says so.
+
 ## The interface's own words
 
 Card text has been translated for as long as `/pool?lang=` existed — the
@@ -9212,10 +9277,12 @@ always goes through the confirmation), with "Never offer…"
 beside it (`RecordConsent::Never`, the one standing answer). The record
 never rides under a game id, and `seal` reads its own lines
 (`seal_record`), which the gzip would hide. `report::route` picks the
-road: the gateway signed in to, else the feedback service the settings
-(`feedback_url`, `""` = off) or the build (`BAYLEE_FEEDBACK_PUBLIC_URL`)
-name, as `bugreport::feedback_service` accepts it (`https`, or `http` to
-this machine), else none: the form then says it needs a gateway and has no
+road: the gateway signed in to, else the report address the settings
+(`report_url`, `""` = off) or the build (`BAYLEE_REPORT_PUBLIC_URL`, the
+official gateway in a release) name, else the feedback service the settings
+(`feedback_url`) or the build (`BAYLEE_FEEDBACK_PUBLIC_URL`) name
+(`bugreport::report_address`, held to `bugreport::feedback_service`'s rules:
+`https`, or `http` to this machine), else none: the form then says it needs a gateway and has no
 Send. A direct report goes under `report_device`, a random id made with
 the first (`kept_device_id`, `getrandom`), fitted to the service's 1 MiB
 (`Submission::sealed_direct`). A direct report and any report carrying a
@@ -9768,7 +9835,9 @@ devices, so what holds the address is moved in one of two ways.
   too (`filed`), so an installed client shows its own pinned row and no
   second one.
 
-The chat unlock a Central sign-in hands over is for `PINNED`. A browser's
+A Central sign-in hands the chat no password: every local vault the password
+opens gains the account's key, found by its folder under whichever address
+it is filed (`docs/password-vault.md` §"The account key"). A browser's
 `localStorage` belongs to the page's origin: `/play/` on the new host starts
 empty, and a browser guest kept on the old host stays there. Tests:
 `gateway_list` (the mapping), `settings` (a file from before the move),

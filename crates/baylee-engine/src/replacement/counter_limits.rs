@@ -53,7 +53,9 @@ pub(crate) fn excess(state: &GameState) -> Vec<(ObjectId, CounterKind, u16)> {
                     add(id);
                 }
             }
-            EffectFilter::Dsl(_) | EffectFilter::DslAbout(..) => {
+            EffectFilter::Dsl(_)
+            | EffectFilter::DslAbout(..)
+            | EffectFilter::DslControlledBy(..) => {
                 for id in state.battlefield_seen() {
                     add(id);
                 }

@@ -145,6 +145,57 @@ impl EvaluationPlayer for LegacyPlayer {
     }
 }
 
+/// The batched nets every worker shares under `--inference-batch`; empty
+/// when each worker owns its sessions.
+#[derive(Clone, Default)]
+struct SharedNets {
+    learner: Option<Arc<BatchedNet4>>,
+    opponent: Option<Arc<BatchedNet4>>,
+}
+
+impl SharedNets {
+    fn open(
+        rows: usize,
+        model: &std::path::Path,
+        opponent: Option<(&std::path::Path, Option<&ModelIdentity>)>,
+    ) -> anyhow::Result<Self> {
+        if rows == 0 {
+            return Ok(Self::default());
+        }
+        let limits = BatchLimits4::for_rows(rows);
+        let learner = BatchedNet4::load(model, limits)?;
+        let opponent = match opponent {
+            // An exact frozen self-play copy runs on the learner's graphs.
+            Some((_, Some(identity))) if identity == learner.model_identity() => {
+                Some(learner.clone())
+            }
+            Some((path, _)) => Some(BatchedNet4::load(path, limits)?),
+            None => None,
+        };
+        Ok(Self {
+            learner: Some(learner),
+            opponent,
+        })
+    }
+
+    /// Limits and calls so far, for the report; `null` without batching.
+    fn report(&self) -> Value {
+        let Some(learner) = &self.learner else {
+            return Value::Null;
+        };
+        let limits = learner.limits();
+        let (mut calls, mut rows) = learner.stats();
+        if let Some(opponent) = self.opponent.as_ref().filter(|net| !Arc::ptr_eq(net, learner)) {
+            let (c, r) = opponent.stats();
+            calls += c;
+            rows += r;
+        }
+        json!({"max_rows": limits.max_rows, "token_budget": limits.token_budget,
+            "calls": calls, "rows": rows,
+            "bitwise_reproducible": false})
+    }
+}
+
 fn load_player(
     path: &std::path::Path,
     legacy: bool,
@@ -152,9 +203,14 @@ fn load_player(
     temperature: f32,
     policy_mode: PolicyMode4,
     expected_identity: Option<&ModelIdentity>,
+    shared: Option<&Arc<BatchedNet4>>,
 ) -> anyhow::Result<Box<dyn EvaluationPlayer>> {
     if !legacy {
-        let player = NetPlayer4::load(path)?
+        let player = match shared {
+            Some(net) => NetPlayer4::shared(net),
+            None => NetPlayer4::load(path)?,
+        };
+        let player = player
             .with_thinking_steps(depth)
             .with_temperature(temperature)
             .with_policy_mode(policy_mode);

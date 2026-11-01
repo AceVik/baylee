@@ -65,7 +65,7 @@ mod tests {
         let (pending, view) = session.view_for_with_context(player).unwrap();
         let hash = view_only_state_hash(&view, &pending);
         let mut net = NetPlayer4 {
-            sessions: BTreeMap::new(),
+            backend: crate::netplay4::Backend::Owned(BTreeMap::new()),
             model_dir: std::path::PathBuf::new(),
             rule_roots: None,
             encoder_version: 7,
@@ -80,6 +80,7 @@ mod tests {
                 depth_graph_sha256: BTreeMap::new(),
                 metadata_sha256: String::new(),
                 source_checkpoint_sha256: None,
+                precision: None,
             },
             d_model: 16,
             thinking_steps: 2,

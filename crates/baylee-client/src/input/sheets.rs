@@ -389,6 +389,7 @@ pub fn preview_resize(
     mut motions: MessageReader<MouseMotion>,
     mut duel: ResMut<Duel>,
     mut settings: ResMut<ClientSettings>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
     for down in downs.read() {
         if find_in_lineage(down.entity, &resize, &parents).is_some() {
@@ -412,7 +413,11 @@ pub fn preview_resize(
         settings.save();
     }
 
-    // Command/Alt + Shift + Up/Down resizes too.
+    // Command/Alt + Shift + Up/Down resizes too, but not under the settings
+    // standing over the table, which have every key (`lobby::table_settings`).
+    if crate::lobby::table_settings::covers_the_table(lobby.as_deref()) {
+        return;
+    }
     let meta = keys.pressed(KeyCode::SuperLeft)
         || keys.pressed(KeyCode::SuperRight)
         || keys.pressed(KeyCode::AltLeft)

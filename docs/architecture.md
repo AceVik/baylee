@@ -56,7 +56,7 @@ information is unrepresentable in a view, and the gateway runs no rules.
   `Session::view_for_with_announcement_context` and
   `observe_view_with_announcement_context`. These extend payment context with
   `announced_x`: absent before the X choice, `Some(0)` for settled zero. The
-  resource owner and its authorized CR 720 controller may observe it; unrelated
+  resource owner and its authorized CR 722 controller may observe it; unrelated
   seats may not. The read-only projection follows active and suspended casts,
   including miracle and nested mana choices, without granting cancellation.
   Default, socket, Encoder-7 and Encoder-8 projections remain unchanged. No

@@ -824,6 +824,10 @@ pub struct Duel {
     /// form on the next frame (#309). A flag rather than a call, because the
     /// menu's handler holds only the duel.
     pub report_asked: bool,
+    /// The game menu's Settings was pressed: the lobby stands its settings
+    /// screen over the table on the next frame (`lobby::table_settings`),
+    /// for the reason [`Self::report_asked`] is a flag.
+    pub settings_asked: bool,
     /// What has been typed into the creature-type filter.
     ///
     /// It lives here and not on the `Interaction` because the interaction is

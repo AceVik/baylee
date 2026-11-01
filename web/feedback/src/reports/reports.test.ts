@@ -52,14 +52,16 @@ describe("the CSV export", () => {
         priority: "high",
         assignee: "viktor",
         labels: ["ui", "lands"],
+        source: "llm-seat",
       }),
     ]);
     const lines = csv.split("\r\n");
     expect(lines[0]).toBe(
-      "id,created_at,updated_at,kind,status,priority,assignee,labels,gateway,channel,reporter,game_id,has_record,record_bytes,issue_number,text",
+      "id,created_at,updated_at,kind,status,priority,assignee,labels,gateway,channel,source,reporter,game_id,has_record,record_bytes,issue_number,text",
     );
     expect(lines[1]).toContain('"The Swamp, untapped"');
-    expect(lines[2]).toContain(",(direct),direct,");
+    expect(lines[1]).toContain(",gateway,,");
+    expect(lines[2]).toContain(",(direct),direct,llm-seat,");
     expect(lines[2]).toContain(",311,");
     expect(lines[2]).toContain(",high,viktor,ui lands,");
     expect(lines[3]).toBe("");

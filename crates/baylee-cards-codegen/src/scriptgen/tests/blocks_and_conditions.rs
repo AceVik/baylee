@@ -1327,3 +1327,72 @@ fn combat_damage_to_creature_conditional_subability_and_graveyard_sacrifice_cost
     );
     assert_eq!(citadel.abilities.len(), 1);
 }
+
+/// A reader that names one exact clause takes it only once it has seen that
+/// clause. `CantBlockBy` with `IsPresent$ Artifact.DefenderCtrl` is "can't be
+/// blocked as long as defending player controls an artifact"; the same
+/// static with a defending player's untapped land is another sentence, and
+/// its clause stays for the general condition reader, which refuses a count
+/// of somebody else's lands. It used to be taken in the comparison and read
+/// as an evasion with no condition at all.
+#[test]
+fn a_present_clause_of_another_value_is_not_taken_as_absent() {
+    let artifact = read(
+        "Name:X\nManaCost:2 U\nTypes:Creature\nPT:2/2\n\
+         S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | IsPresent$ Artifact.DefenderCtrl\n",
+    );
+    let text = artifact.abilities.join("\n");
+    assert!(
+        text.contains("Condition::SomeDefendingPlayerControlsNone"),
+        "{text}"
+    );
+    let land = transcode(
+        &parse(
+            "Name:X\nManaCost:1 U\nTypes:Creature\nPT:1/1\n\
+             S:Mode$ CantBlockBy | ValidAttacker$ Card.Self | \
+             IsPresent$ Land.DefenderCtrl+untapped\n",
+        ),
+        &cats(),
+        None,
+    );
+    assert!(
+        land.as_ref()
+            .is_none_or(|body| body.abilities.join("\n").contains("condition = Some(")),
+        "an evasion whose condition was dropped: {:?}",
+        land.map(|body| body.abilities)
+    );
+}
+
+/// The same for a chain line: "if an artifact card was discarded this way,
+/// untap this" is read from three exact clauses, and a line that differs in
+/// one of them — here the comparison, "if it was not" — keeps all three for
+/// the general reading, which refuses `ConditionDefined$ Remembered`. It
+/// used to lose all three and untap unconditionally.
+#[test]
+fn a_discard_condition_of_another_value_is_not_taken_as_absent() {
+    let script = |compare: &str| {
+        format!(
+            "Name:X\nManaCost:3 U\nTypes:Creature Wizard\nPT:2/2\n\
+             A:AB$ Draw | Cost$ 1 T | ValidTgts$ Player | NumCards$ 1 | SubAbility$ D\n\
+             SVar:D:DB$ Discard | Defined$ Targeted | NumCards$ 1 | Mode$ TgtChoose | \
+             RememberDiscarded$ True | SubAbility$ U\n\
+             SVar:U:DB$ Untap | Defined$ Self | ConditionDefined$ Remembered | \
+             ConditionPresent$ Card.Artifact | ConditionCompare$ {compare} | SubAbility$ C\n\
+             SVar:C:DB$ Cleanup | ClearRemembered$ True\n"
+        )
+    };
+    let artifact = read(&script("EQ1"));
+    let text = artifact.abilities.join("\n");
+    assert!(
+        text.contains("ThisWay::DiscardedMatching(&Filter::ARTIFACT)"),
+        "{text}"
+    );
+    let other = transcode(&parse(&script("EQ0")), &cats(), None);
+    assert!(
+        other
+            .as_ref()
+            .is_none_or(|body| body.abilities.join("\n").contains("Effect::IfCondition")),
+        "an untap whose condition was dropped: {:?}",
+        other.map(|body| body.abilities)
+    );
+}

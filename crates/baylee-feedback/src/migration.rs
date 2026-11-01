@@ -24,6 +24,7 @@ impl MigratorTrait for Migrator {
             Box::new(Contact),
             Box::new(ChatKind),
             Box::new(Triage),
+            Box::new(Source),
         ]
     }
 }
@@ -426,6 +427,42 @@ impl MigrationTrait for Triage {
         ] {
             db.execute_unprepared(statement).await?;
         }
+        Ok(())
+    }
+}
+
+/// The eighth migration: what sent a report, as a column of its own
+/// (`docs/feedback.md` §"Reading"). The list, its facets and the source
+/// filter read it instead of unpacking `client`, which holds up to 2 MiB
+/// (a screenshot, a log) out of line. Only a string counts: an empty one,
+/// a number or an object is no source.
+struct Source;
+
+impl MigrationName for Source {
+    fn name(&self) -> &'static str {
+        "m0008_source"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for Source {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "ALTER TABLE feedback_report ADD COLUMN IF NOT EXISTS source text \
+                 GENERATED ALWAYS AS (CASE WHEN jsonb_typeof(client -> 'source') = 'string' \
+                 THEN nullif(left(client ->> 'source', 64), '') END) STORED",
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared("ALTER TABLE feedback_report DROP COLUMN IF EXISTS source")
+            .await?;
         Ok(())
     }
 }

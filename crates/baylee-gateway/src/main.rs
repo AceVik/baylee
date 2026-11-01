@@ -424,7 +424,8 @@ async fn main() {
         texts: texts::TextCache::default(),
         art: Arc::new(art::ArtCache::from_env()),
         deck_images: Arc::new(cosmetics::Store::from_env()),
-        feedback: report::Feedback::from_env(),
+        feedback: report::Feedback::from_env()
+            .unwrap_or_else(|why| panic!("reports configuration rejected: {why}")),
         record_flushes: record::Flushes::default(),
         tickets: wsticket::Tickets::new(ticket_ttl),
         legacy_until,
@@ -505,6 +506,7 @@ async fn main() {
         .merge(account_routes())
         .merge(deck_routes())
         .merge(report::routes())
+        .merge(report::direct::routes())
         .merge(social::routes::routes())
         .route("/social/ws", get(social::socket::social_ws))
         .route("/lobby/games", get(list_games).post(create_game))

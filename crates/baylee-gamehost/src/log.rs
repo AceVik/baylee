@@ -413,7 +413,7 @@ impl GameLog {
             players: if synthetic {
                 SeatSet::new()
             } else {
-                obj.target_players
+                baylee_engine::eval::first_target_players(obj)
                     .iter()
                     .chain(obj.second_target_players().iter())
                     .collect()
@@ -448,8 +448,7 @@ impl GameLog {
         if !objects_match {
             return Some(false);
         }
-        let players: SeatSet = obj
-            .target_players
+        let players: SeatSet = baylee_engine::eval::first_target_players(obj)
             .iter()
             .chain(obj.second_target_players().iter())
             .collect();

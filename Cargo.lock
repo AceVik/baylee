@@ -834,6 +834,7 @@ version = "0.1.1-beta.9b"
 dependencies = [
  "central-api",
  "central-client",
+ "flate2",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -1153,6 +1154,7 @@ dependencies = [
  "argon2 0.6.0",
  "axum",
  "base64 0.23.1",
+ "baylee-account",
  "baylee-build",
  "flate2",
  "getrandom 0.4.3",
@@ -1175,6 +1177,7 @@ name = "baylee-gamehost"
 version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-ai",
+ "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
  "baylee-client-core",
@@ -3263,7 +3266,7 @@ dependencies = [
 [[package]]
 name = "central-api"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=94177dd768572536a238a386e3877ade69f4b93b#94177dd768572536a238a386e3877ade69f4b93b"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=0a941953f8c0d5573e82e0979e7faf1fb9e40299#0a941953f8c0d5573e82e0979e7faf1fb9e40299"
 dependencies = [
  "getrandom 0.4.3",
  "serde",
@@ -3276,7 +3279,7 @@ dependencies = [
 [[package]]
 name = "central-client"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=94177dd768572536a238a386e3877ade69f4b93b#94177dd768572536a238a386e3877ade69f4b93b"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=0a941953f8c0d5573e82e0979e7faf1fb9e40299#0a941953f8c0d5573e82e0979e7faf1fb9e40299"
 dependencies = [
  "central-api",
  "central-crypto",
@@ -3286,12 +3289,14 @@ dependencies = [
 [[package]]
 name = "central-crypto"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=94177dd768572536a238a386e3877ade69f4b93b#94177dd768572536a238a386e3877ade69f4b93b"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=0a941953f8c0d5573e82e0979e7faf1fb9e40299#0a941953f8c0d5573e82e0979e7faf1fb9e40299"
 dependencies = [
  "argon2 0.5.3",
  "chacha20poly1305",
  "getrandom 0.4.3",
  "hkdf 0.12.4",
+ "hmac 0.12.1",
+ "hpke",
  "opaque-ke",
  "rand 0.8.8",
  "secrecy",
@@ -3302,7 +3307,7 @@ dependencies = [
 [[package]]
 name = "central-http"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=94177dd768572536a238a386e3877ade69f4b93b#94177dd768572536a238a386e3877ade69f4b93b"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=0a941953f8c0d5573e82e0979e7faf1fb9e40299#0a941953f8c0d5573e82e0979e7faf1fb9e40299"
 dependencies = [
  "axum",
  "central-api",
@@ -3320,7 +3325,7 @@ dependencies = [
 [[package]]
 name = "central-identity"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=94177dd768572536a238a386e3877ade69f4b93b#94177dd768572536a238a386e3877ade69f4b93b"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=0a941953f8c0d5573e82e0979e7faf1fb9e40299#0a941953f8c0d5573e82e0979e7faf1fb9e40299"
 dependencies = [
  "central-api",
  "central-crypto",
@@ -3332,7 +3337,7 @@ dependencies = [
 [[package]]
 name = "central-migration"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=94177dd768572536a238a386e3877ade69f4b93b#94177dd768572536a238a386e3877ade69f4b93b"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=0a941953f8c0d5573e82e0979e7faf1fb9e40299#0a941953f8c0d5573e82e0979e7faf1fb9e40299"
 dependencies = [
  "sea-orm-migration",
 ]
@@ -3340,18 +3345,19 @@ dependencies = [
 [[package]]
 name = "central-policy"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=94177dd768572536a238a386e3877ade69f4b93b#94177dd768572536a238a386e3877ade69f4b93b"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=0a941953f8c0d5573e82e0979e7faf1fb9e40299#0a941953f8c0d5573e82e0979e7faf1fb9e40299"
 
 [[package]]
 name = "central-postgres"
 version = "0.1.0"
-source = "git+https://github.com/AceVik/baylee-central.git?rev=94177dd768572536a238a386e3877ade69f4b93b#94177dd768572536a238a386e3877ade69f4b93b"
+source = "git+https://github.com/AceVik/baylee-central.git?rev=0a941953f8c0d5573e82e0979e7faf1fb9e40299#0a941953f8c0d5573e82e0979e7faf1fb9e40299"
 dependencies = [
  "central-api",
  "central-crypto",
  "sea-orm",
  "secrecy",
  "sha2 0.10.9",
+ "subtle",
  "url",
 ]
 
@@ -5141,6 +5147,24 @@ name = "hound"
 version = "3.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62adaabb884c94955b19907d60019f4e145d091c75345379e70d1ee696f7854f"
+
+[[package]]
+name = "hpke"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f512e325a1a71bf3273fb9b7fc9e5d96dac136fb4a95d0e6637001b12ea3e09"
+dependencies = [
+ "aead",
+ "chacha20poly1305",
+ "curve25519-dalek 5.0.0",
+ "hkdf 0.13.0",
+ "hybrid-array",
+ "rand_core 0.10.1",
+ "sha2 0.11.1",
+ "subtle",
+ "x25519-dalek",
+ "zeroize",
+]
 
 [[package]]
 name = "http"

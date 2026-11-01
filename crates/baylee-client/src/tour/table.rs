@@ -71,6 +71,7 @@ pub(super) fn tours(
         Query<&ChildOf>,
     ),
     mut watch: Local<Watch>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
     let Some(duel) = duel else {
         return;
@@ -142,7 +143,12 @@ pub(super) fn tours(
     // try-it step that asks for what cannot be done yet is set aside until
     // it can (09.10.: T8 asked for a cast over the mulligan, stuck).
     let opening = !view.deciding.is_empty();
-    let park = table_gate(false, desk.run.as_ref(), opening) == TableGate::Park;
+    // And while the settings cover the table (`lobby::table_settings`): a
+    // bubble anchored on what they hide would keep `Enter`, `Space` and the
+    // arrows the screen's walker and sliders also read. It comes back with
+    // the table.
+    let covered = crate::lobby::table_settings::covers_the_table(lobby.as_deref());
+    let park = covered || table_gate(false, desk.run.as_ref(), opening) == TableGate::Park;
     if desk.run.as_ref().is_some_and(|r| r.tour == Tour::Table) && desk.parked != park {
         desk.parked = park;
     }
@@ -158,6 +164,12 @@ pub(super) fn tours(
         desk.stash = None;
         desk.run = None;
         desk.start(run);
+        // Started under the settings (a practice game's tour turned on by
+        // Restart tours in Display): parked from its first frame, not the
+        // next, or its bubble draws and holds the keys for one.
+        if covered {
+            desk.parked = true;
+        }
         *watch = Watch::default();
         return;
     }
@@ -209,9 +221,11 @@ pub(super) fn tours(
     }
     // A tip: a just-in-time step whose anchor stands for the first time. It
     // queues behind a narrated step and steps in front of a try-it or a
-    // folded one (which comes back after it).
+    // folded one (which comes back after it). Not under the settings: its
+    // anchor is hidden there, and it waits until the table shows again.
     let tours = &settings.tours;
-    if !tours.tips
+    if covered
+        || !tours.tips
         || desk
             .run
             .as_ref()

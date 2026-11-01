@@ -31,7 +31,7 @@ fn settled_x(wizard: &CastWizard) -> Option<u32> {
 
 impl<L: CardLookup> Engine<L> {
     /// In-progress source and settled X, visible only to its resource owner or
-    /// that owner's currently authorized controller (CR 720.4).
+    /// that owner's currently authorized controller (CR 722.4).
     ///
     /// `None` X means the announcement has not passed its X choice. `Some(0)`
     /// includes an explicitly chosen zero and a cost whose X is fixed at zero.

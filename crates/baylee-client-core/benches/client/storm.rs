@@ -34,6 +34,7 @@ pub fn bench(c: &mut Criterion) {
             token_face: &|_| None,
             card_face: None,
             utility_land: &|_| false,
+            printed_body: &|_| None,
         };
         c.bench_function(&format!("storm/board/{count}"), |b| {
             b.iter(|| {

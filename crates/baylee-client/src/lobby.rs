@@ -149,33 +149,48 @@ impl Plugin for LobbyPlugin {
             .init_resource::<menus::MenuMemory>()
             .configure_sets(Update, crate::tour::TourSystems::Draw.after(ui))
             .add_systems(Startup, (ask_about_registration, ask_about_saved_gateways))
+            // One chain, each link on its own condition: most of it is the
+            // lobby's alone, and the links the settings screen needs run
+            // while it stands over a table too (`table_settings`).
             .add_systems(
                 Update,
                 (
-                    (feed::feed, chat_joins),
-                    (poll, entrance::advance).chain(),
-                    localization::update,
+                    (feed::feed, chat_joins).run_if(in_state(DuelPhase::Closed)),
+                    (poll, entrance::advance)
+                        .chain()
+                        .run_if(in_state(DuelPhase::Closed)),
+                    localization::update.run_if(in_state(DuelPhase::Closed)),
                     (
                         watch,
                         play::discovery::animate_loading,
                         play::discovery::hover_cards.after(crate::ambience::feel),
-                    ),
-                    softkeys,
-                    scrollbars::remember,
+                    )
+                        .run_if(in_state(DuelPhase::Closed)),
+                    softkeys.run_if(table_settings::lobby_or_over_table),
+                    scrollbars::remember.run_if(table_settings::lobby_or_over_table),
                     (
-                        crate::seatpanel::poll,
+                        crate::seatpanel::poll.run_if(in_state(DuelPhase::Closed)),
                         // Before the kit's walker reads the same keys: an
                         // Enter that activates a focused control (which may
                         // put the caret in a field) is not also the field's.
-                        keyboard.before(crate::shellkit::focus::FocusSystems),
-                        crate::tableseats::reconcile,
+                        keyboard
+                            .before(crate::shellkit::focus::FocusSystems)
+                            .run_if(table_settings::lobby_or_over_table),
+                        crate::tableseats::reconcile.run_if(in_state(DuelPhase::Closed)),
                     )
                         .chain(),
                     // A press asks the clipboard or the disk; the ask is
                     // answered in the same frame.
-                    (clicks, crate::buildui::transfer::act).chain(),
-                    (scrolls, scroll_the_preview),
-                    (hovers, hint::hint_hovers),
+                    (
+                        clicks.run_if(table_settings::lobby_or_over_table),
+                        crate::buildui::transfer::act.run_if(in_state(DuelPhase::Closed)),
+                    )
+                        .chain(),
+                    (
+                        scrolls.run_if(table_settings::lobby_or_over_table),
+                        scroll_the_preview.run_if(in_state(DuelPhase::Closed)),
+                    ),
+                    (hovers, hint::hint_hovers).run_if(in_state(DuelPhase::Closed)),
                     // The motion decides which panels are drawn, and the
                     // pose lands on the panels the rebuild just stood up.
                     (
@@ -189,34 +204,41 @@ impl Plugin for LobbyPlugin {
                         // as the round says on its first frame.
                         front::door::beckon,
                     )
-                        .chain(),
+                        .chain()
+                        .run_if(in_state(DuelPhase::Closed)),
+                    // The settings over a table, where the lobby's tree
+                    // stands no more: drawn where `ui` draws the lobby's.
+                    table_settings::draw,
                     // After the rebuild, so a music switch it just stood up
                     // says the right thing on its first frame.
-                    blink,
-                    dock::materialize,
-                    button_style::materialize,
-                    crate::shellkit::sheen::dress,
+                    blink.run_if(table_settings::lobby_or_over_table),
+                    dock::materialize.run_if(in_state(DuelPhase::Closed)),
+                    (button_style::materialize, crate::shellkit::sheen::dress)
+                        .run_if(table_settings::lobby_or_over_table),
                     // The duel's own runs only while there is a duel, and a
                     // text face in the deckbuilder shows its scrollbar too.
-                    (preview, hint::hint_panel, crate::face::show_scrollbars),
                     (
-                        crate::buildui::virtual_rows::update,
-                        crate::buildui::virtual_rows::in_deck,
-                        crate::buildui::focus::light_the_cursor,
-                        crate::buildui::focus::scroll_to_the_cursor,
-                        crate::buildui::focus::place_menus,
-                    ),
-                    (
-                        thumbnails::load,
-                        thumbnails::prefetch_art,
-                        thumbnails::load_art,
-                        thumbnails::fade_art,
-                    ),
-                    thumbnails::quantities,
-                    waiting,
+                        (preview, hint::hint_panel, crate::face::show_scrollbars),
+                        (
+                            crate::buildui::virtual_rows::update,
+                            crate::buildui::virtual_rows::in_deck,
+                            crate::buildui::focus::light_the_cursor,
+                            crate::buildui::focus::scroll_to_the_cursor,
+                            crate::buildui::focus::place_menus,
+                        ),
+                        (
+                            thumbnails::load,
+                            thumbnails::prefetch_art,
+                            thumbnails::load_art,
+                            thumbnails::fade_art,
+                        ),
+                        thumbnails::quantities,
+                        waiting,
+                    )
+                        .chain()
+                        .run_if(in_state(DuelPhase::Closed)),
                 )
-                    .chain()
-                    .run_if(in_state(DuelPhase::Closed)),
+                    .chain(),
             )
             .add_systems(
                 Update,
@@ -242,7 +264,7 @@ impl Plugin for LobbyPlugin {
                 PostUpdate,
                 scrollbars::show_when_needed
                     .after(bevy::ui::UiSystems::Layout)
-                    .run_if(in_state(DuelPhase::Closed)),
+                    .run_if(table_settings::lobby_or_over_table),
             )
             .add_systems(
                 Update,
@@ -254,24 +276,53 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 Update,
                 (
-                    crate::settingsui::keys::settings_over,
-                    front::keys::activate_by_key,
-                    front::keys::kit_to_lobby,
-                    front::keys::unpark_on_placement,
-                    front::keys::lobby_to_kit,
-                    front::terms::follow_the_session,
-                    front::terms::follow_the_language,
-                    front::terms::terms_keys,
-                    front::terms::read_the_terms,
-                    front::terms::place_sheet_focus,
+                    // After `Esc` or a click put the settings over a table
+                    // away, so the search lets the caret go the same frame;
+                    // and in every phase, so a close this group's own Enter
+                    // made is followed the next frame even at a table, where
+                    // the lobby's systems stop with the screen. It writes
+                    // only when the two flags differ.
+                    crate::settingsui::keys::settings_over
+                        .after(table_settings::close_on_escape)
+                        .after(clicks),
+                    // Enter on a settings control, and the kit's focus and
+                    // the lobby's caret as one (the search): over a table too.
+                    (
+                        front::keys::activate_by_key,
+                        front::keys::kit_to_lobby,
+                        front::keys::unpark_on_placement,
+                        front::keys::lobby_to_kit,
+                    )
+                        .chain()
+                        .run_if(table_settings::lobby_or_over_table),
+                    (
+                        front::terms::follow_the_session,
+                        front::terms::follow_the_language,
+                        front::terms::terms_keys,
+                        front::terms::read_the_terms,
+                        front::terms::place_sheet_focus,
+                    )
+                        .chain()
+                        .run_if(in_state(DuelPhase::Closed)),
                 )
                     .chain()
                     .after(crate::shellkit::focus::FocusSystems)
                     .after(poll)
                     .after(scrollbars::remember)
-                    .before(ui)
-                    .run_if(in_state(DuelPhase::Closed)),
+                    .before(ui),
             )
+            // The settings over a table (`table_settings`): asked for by the
+            // game menu; `Esc` puts them away before the lobby's keyboard
+            // reads it, and the table being put down puts them away too.
+            .add_systems(
+                Update,
+                (
+                    table_settings::open_asked.before(table_settings::draw),
+                    table_settings::close_on_escape.before(keyboard),
+                )
+                    .run_if(in_state(DuelPhase::Playing)),
+            )
+            .add_systems(OnExit(DuelPhase::Playing), table_settings::put_away)
             // The settings screen's controls read back (WP5).
             .add_systems(
                 Update,
@@ -285,28 +336,31 @@ impl Plugin for LobbyPlugin {
                 )
                     .chain()
                     .after(crate::shellkit::focus::FocusSystems)
-                    .run_if(in_state(DuelPhase::Closed)),
+                    .run_if(table_settings::lobby_or_over_table),
             )
             // The shell keymap: the lobby says what is open, and answers
             // the screen moves a shell key asks for (`shortcuts`).
             .add_systems(
                 Update,
                 (
-                    shortcuts::write_stack.in_set(crate::shellkit::keys::StackSystems),
-                    // After the lobby's own typing, so the key that moves
-                    // the caret into a field is not typed into it (`/`).
-                    // And before the tree is drawn, so what a key opened (the
-                    // builder's Export) is on screen that frame; unordered,
-                    // it was sometimes a frame late.
-                    shortcuts::run_fired
-                        .after(crate::shellkit::keys::KeySystems)
-                        .after(keyboard)
-                        .before(ui),
+                    (
+                        shortcuts::write_stack.in_set(crate::shellkit::keys::StackSystems),
+                        // After the lobby's own typing, so the key that moves
+                        // the caret into a field is not typed into it (`/`).
+                        // And before the tree is drawn, so what a key opened
+                        // (the builder's Export) is on screen that frame;
+                        // unordered, it was sometimes a frame late.
+                        shortcuts::run_fired
+                            .after(crate::shellkit::keys::KeySystems)
+                            .after(keyboard)
+                            .before(ui),
+                    )
+                        .run_if(in_state(DuelPhase::Closed)),
                     shortcuts::focus_the_settings_search
                         .after(crate::shellkit::keys::KeySystems)
-                        .after(crate::shellkit::focus::FocusSystems),
-                )
-                    .run_if(in_state(DuelPhase::Closed)),
+                        .after(crate::shellkit::focus::FocusSystems)
+                        .run_if(table_settings::lobby_or_over_table),
+                ),
             )
             // The Decks screen's Undo, Play's first-run house list (WP2,
             // WP3), and the menus placed once laid out.
@@ -338,37 +392,41 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    menus::place
-                        .after(bevy::ui::UiSystems::Layout)
-                        .before(bevy::ui::UiSystems::PostLayout),
-                    crate::buildui::focus::place_menus
-                        .after(bevy::ui::UiSystems::Layout)
-                        .before(bevy::ui::UiSystems::PostLayout),
-                    crate::buildui::sample_hand::reveal.after(bevy::ui::UiSystems::Layout),
-                    focusing::follow_focus,
-                    memorial::return_focus
-                        .after(focusing::follow_focus)
-                        .before(crate::shellkit::focus::FocusVisuals),
-                )
-                    .run_if(in_state(DuelPhase::Closed)),
+                    (
+                        menus::place
+                            .after(bevy::ui::UiSystems::Layout)
+                            .before(bevy::ui::UiSystems::PostLayout),
+                        crate::buildui::focus::place_menus
+                            .after(bevy::ui::UiSystems::Layout)
+                            .before(bevy::ui::UiSystems::PostLayout),
+                        crate::buildui::sample_hand::reveal.after(bevy::ui::UiSystems::Layout),
+                        memorial::return_focus
+                            .after(focusing::follow_focus)
+                            .before(crate::shellkit::focus::FocusVisuals),
+                    )
+                        .run_if(in_state(DuelPhase::Closed)),
+                    focusing::follow_focus.run_if(table_settings::lobby_or_over_table),
+                ),
             )
             // The keyboard on the stops the screens draw (WP2, WP3): Enter
             // and Space, a tile's own keys, a screen's first focus.
             .add_systems(
                 Update,
                 (
-                    focusing::keys_press,
-                    focusing::tile_keys,
-                    focusing::initial_focus,
-                    focusing::down_from_search,
+                    (
+                        focusing::keys_press,
+                        focusing::initial_focus,
+                        focusing::down_from_search,
+                    )
+                        .run_if(table_settings::lobby_or_over_table),
+                    focusing::tile_keys.run_if(in_state(DuelPhase::Closed)),
                 )
                     .after(crate::shellkit::focus::FocusSystems)
                     // Before the tree is drawn: a press a key made lands in
                     // this frame's tree, and the focused entity a key reads
                     // is not one a rebuild has just despawned (unordered,
                     // Enter on the Create-table sheet found no focus).
-                    .before(ui)
-                    .run_if(in_state(DuelPhase::Closed)),
+                    .before(ui),
             )
             // In every phase: a table is where most pictures and text are
             // asked for.
@@ -606,6 +664,10 @@ pub(crate) struct SettingsView {
     pub(crate) profile_sheet: bool,
     /// Its Advanced fields are shown.
     pub(crate) profile_advanced: bool,
+    /// The screen stands over a table, opened from its game menu
+    /// (`table_settings`): only the sections `Section::at_table` admits are
+    /// offered. Set while the table plays, and put down with it.
+    pub(crate) over_table: bool,
 }
 /// The settings overlay's state.
 ///
@@ -673,6 +735,22 @@ impl LobbyState {
         self.settings.is_open()
     }
 
+    /// Whether the settings screen is up over a table (`table_settings`).
+    #[must_use]
+    pub(crate) fn settings_over_table(&self) -> bool {
+        self.settings_view.over_table && self.settings.is_open()
+    }
+
+    /// Whether a section may be shown where the screen stands: over a
+    /// table, only the ones that leave the table where it is.
+    #[must_use]
+    pub(crate) fn settings_offered(
+        &self,
+        section: baylee_client_core::settings_map::Section,
+    ) -> bool {
+        !self.settings_view.over_table || section.at_table()
+    }
+
     /// The table action waiting for a key on the settings screen.
     #[must_use]
     pub(crate) fn settings_capturing(&self) -> Option<baylee_client_core::prefs::Action> {
@@ -705,12 +783,16 @@ impl LobbyState {
         self.settings_view.section
     }
 
-    /// Shows a settings section.
+    /// Shows a settings section, if it is offered where the screen stands
+    /// ([`Self::settings_offered`]): every road to a section comes here, the
+    /// type-ahead and a search result as much as the nav.
     pub(crate) fn set_settings_section(
         &mut self,
         section: baylee_client_core::settings_map::Section,
     ) {
-        self.settings_view.section = section;
+        if self.settings_offered(section) {
+            self.settings_view.section = section;
+        }
     }
 
     /// What the settings search holds.
@@ -1106,6 +1188,7 @@ mod shell;
 pub(crate) mod shortcuts;
 mod source;
 mod systems;
+pub(crate) mod table_settings;
 pub(crate) mod thumbnails;
 mod touring;
 mod widgets;

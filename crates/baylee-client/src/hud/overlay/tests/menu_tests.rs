@@ -219,10 +219,10 @@ fn the_panel_survives_the_rebuild_the_arming_press_causes() {
     let (panel, shown, rows) = menu_panel(&mut app).expect("a panel");
     assert!(shown, "the menu is open");
     assert_eq!(
-        rows, 11,
+        rows, 12,
         "three ways out and what leaving costs, the report row, the tour's \
-         row, music controls, the priority sound's switch, a rule, the version \
-         and Scryfall's attribution"
+         row, the settings' row, music controls, the priority sound's switch, \
+         a rule, the version and Scryfall's attribution"
     );
     // The shelf's own children, less the two casts: those are spawned
     // with the shelf and exempt from its rebuild, so counting them would
@@ -551,5 +551,51 @@ fn a_players_menu_offers_leaving_and_armed_says_what_it_costs() {
             .iter()
             .any(|l| l == Phrase::StopWatching.text(Lang::En)),
         "but still its own: {lines:?}"
+    );
+}
+
+/// The actions of the game menu's buttons, as drawn.
+fn menu_actions(app: &mut App) -> Vec<MenuAction> {
+    let mut buttons = app.world_mut().query::<&crate::hud::MenuButton>();
+    buttons.iter(app.world()).map(|b| b.action).collect()
+}
+
+/// The game menu's Settings (report of 30.10.2026): live where a lobby
+/// stands behind the table to draw them, and a press asks for them (the
+/// lobby then shuts the menu: `lobby::tests::table_settings`); dead,
+/// saying why, in a client seated straight into its game, which has no
+/// lobby.
+#[test]
+fn the_menu_s_settings_row_asks_the_lobby_and_is_dead_without_one() {
+    let live = Phrase::SettingsMenuRow.text(Lang::En).to_string();
+    let away = Phrase::SettingsMenuRowAway.text(Lang::En).to_string();
+    let has = |lines: &[String], row: &str| lines.iter().any(|l| l == row);
+
+    let mut app = bar_of(duel_with(false));
+    open_the_menu(&mut app);
+    let lines = said(&mut app);
+    assert!(
+        has(&lines, &away) && !has(&lines, &live),
+        "seated straight in: {lines:?}"
+    );
+    assert!(!menu_actions(&mut app).contains(&MenuAction::Settings));
+
+    let mut app = bar_of(duel_with(false));
+    app.insert_resource(crate::LobbyState::new());
+    open_the_menu(&mut app);
+    let lines = said(&mut app);
+    assert!(
+        has(&lines, &live) && !has(&lines, &away),
+        "with a lobby: {lines:?}"
+    );
+    assert!(menu_actions(&mut app).contains(&MenuAction::Settings));
+    crate::input::menu_click(
+        &mut app.world_mut().resource_mut::<Duel>(),
+        MenuAction::Settings,
+        false,
+    );
+    assert!(
+        app.world().resource::<Duel>().settings_asked,
+        "the press asked nothing"
     );
 }
