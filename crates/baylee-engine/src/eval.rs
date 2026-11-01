@@ -510,7 +510,7 @@ pub fn matches_projected_with_context(
             .is_some_and(|s| chars.subtypes.contains(s)),
         Filter::OfSourceChosenCardType => state
             .object(this)
-            .and_then(|source| source.chosen_card_type)
+            .and_then(crate::object::GameObject::chosen_card_type)
             .is_some_and(|chosen| chars.types.intersects(chosen)),
         Filter::OfSourceChosenColor => {
             use baylee_core::color::Color;

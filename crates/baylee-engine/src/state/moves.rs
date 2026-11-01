@@ -719,7 +719,6 @@ impl GameState {
                 obj.regeneration_shields = 0;
                 obj.attached_to = None;
                 obj.chosen_color = None;
-                obj.chosen_card_type = None;
                 for rider in &obj.riders {
                     if let crate::object::Rider::MergedComponent(comp) = *rider {
                         merged_components.push(comp);
@@ -736,6 +735,7 @@ impl GameState {
                             | crate::object::Rider::ExhaustedAbility(_)
                             | crate::object::Rider::EntrySacrifices(_)
                             | crate::object::Rider::SecondChosenSubtype(_)
+                            | crate::object::Rider::ChosenCardType(_)
                             | crate::object::Rider::ChosenNumber { .. }
                             | crate::object::Rider::ChosenName { .. }
                             | crate::object::Rider::EntryTappingApplied
