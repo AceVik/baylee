@@ -255,6 +255,11 @@ fn collect_offered_actions_by_permanent(
                     .or_default()
                     .push(PermanentActionOfferKey { kind: 4, slot: 0 });
             }
+            for &id in &legal.foretellable {
+                map.entry(id)
+                    .or_default()
+                    .push(PermanentActionOfferKey { kind: 9, slot: 0 });
+            }
             for &id in &legal.mana_abilities {
                 map.entry(id)
                     .or_default()

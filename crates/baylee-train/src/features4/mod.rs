@@ -36,7 +36,8 @@ use baylee_core::mana::{ManaCost, ManaPayment, ManaSpending};
 use baylee_core::preset::GamePreset;
 use baylee_core::types::{SupertypeSet, TypeSet};
 use baylee_engine::choice::{
-    ArrangePile, CastModeKind, DamageEffectKind, Pending, PlayerAction, default_arrangement,
+    ArrangePile, CastModeKind, DamageEffectKind, LegalActions, Pending, PlayerAction,
+    default_arrangement,
 };
 use baylee_view::{
     CounterKind, DayNight, HandObject, ObjectStatus, Phase, PlayerView, PublicObject, StackItem,
