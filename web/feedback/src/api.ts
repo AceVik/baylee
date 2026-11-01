@@ -782,8 +782,11 @@ export interface LlmDefinition {
   max_games?: number;
   caps?: LlmCaps;
   canary?: boolean;
-  /** Another API profile of the same seat agent (docs/protocol.md §"A fallback profile"). */
-  fallback?: string;
+  /**
+   * Other API profiles of the same seat agent, one id or a list in the order they take over
+   * (docs/protocol.md §"A fallback profile").
+   */
+  fallback?: string | string[];
   profile: Record<string, unknown>;
 }
 

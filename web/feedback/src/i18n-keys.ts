@@ -779,6 +779,7 @@ export const KEYS = [
   "llm.hint.canary",
   "llm.hint.maxGames",
   "llm.fallback",
+  "llm.fallbackNext",
   "llm.fallbackNone",
   "llm.fallbackMissing",
   "llm.fallbackUnfit",
