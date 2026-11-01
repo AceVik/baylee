@@ -45,6 +45,20 @@ impl GameRng {
         Self { rng, calls: 0 }
     }
 
+    /// `ChaCha8` stream `stream` of the key `seed` stretches to, from its
+    /// start: one independent stream per purpose of one seed.
+    ///
+    /// For a forked simulation (`Engine::fork_for`), whose seed is a policy
+    /// seed the caller chose and never a game's: its hidden cards are dealt
+    /// from one stream and its future randomness drawn from another, so
+    /// dealing more or fewer cards cannot move what the fork rolls next.
+    #[must_use]
+    pub(crate) fn stream(seed: u64, stream: u64) -> Self {
+        let mut rng = ChaCha8Rng::seed_from_u64(seed);
+        rng.set_stream(stream);
+        Self { rng, calls: 0 }
+    }
+
     /// Raw 64-bit draw.
     pub fn next_u64(&mut self) -> u64 {
         self.calls += 1;

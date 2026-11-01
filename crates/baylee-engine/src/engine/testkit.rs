@@ -19,6 +19,7 @@ mod main_phase;
 pub use main_phase::walk_to_own_main;
 
 /// Registry lookup backed by the compiled card pool.
+#[derive(Clone, Copy)]
 pub struct RegistryLookup;
 impl CardLookup for RegistryLookup {
     fn card(&self, index: CardIndex) -> Option<&'static baylee_cards_dsl::CardDef> {

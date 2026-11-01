@@ -1955,6 +1955,8 @@ mod player_control;
 #[cfg(test)]
 mod player_control_tests;
 mod progress;
+mod simulation;
+pub use simulation::{DeckKnowledge, ForkRefusal};
 mod spend_riders;
 // Fuzzer invariants (`fuzz` feature; `docs/verification-hooks.md`).
 #[cfg(any(test, feature = "fuzz"))]
@@ -2155,6 +2157,8 @@ mod search_tests;
 mod self_subject_tests;
 #[cfg(test)]
 mod sickness_tests;
+#[cfg(test)]
+mod simulation_tests;
 #[cfg(test)]
 mod speed_tests;
 #[cfg(test)]

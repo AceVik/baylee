@@ -144,6 +144,15 @@ impl LoopWatch {
     pub const fn steps(&self) -> u64 {
         self.steps
     }
+
+    /// Whether the watch has saved a signature to compare against, which is
+    /// a hash of the whole situation, hidden cards included
+    /// (`GameState::loop_signature`): a forked simulation cannot carry one
+    /// over a board whose hidden cards it has dealt again (`Engine::fork_for`).
+    #[must_use]
+    pub(crate) const fn holds_signature(&self) -> bool {
+        self.started
+    }
 }
 
 #[cfg(test)]
