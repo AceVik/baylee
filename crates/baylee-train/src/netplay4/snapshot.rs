@@ -26,36 +26,73 @@ pub struct PlayerSnapshot4 {
 
 impl NetPlayer4 {
     /// This player's per-game state as it stands.
+    ///
+    /// Every field is named, none elided: a field added to the player does
+    /// not compile until it is taken here or named configuration.
     #[must_use]
     pub fn snapshot(&self) -> PlayerSnapshot4 {
+        let Self {
+            // Configuration and the backend, not per game.
+            backend: _,
+            model_dir: _,
+            rule_roots: _,
+            encoder_version: _,
+            model_identity: _,
+            d_model: _,
+            thinking_steps: _,
+            temperature: _,
+            policy_mode: _,
+            rng,
+            teams,
+            h_states,
+            knowledge,
+            seen_hashes,
+            last_announced_source,
+            observed_values,
+            coverage,
+            last_fallback,
+            rule_refs_left_out,
+        } = self;
         PlayerSnapshot4 {
-            teams: self.teams.clone(),
-            h_states: self.h_states.clone(),
-            knowledge: self.knowledge.clone(),
-            seen_hashes: self.seen_hashes.clone(),
-            last_announced_source: self.last_announced_source.clone(),
-            observed_values: self.observed_values.clone(),
-            rng: self.rng.clone(),
-            last_fallback: self.last_fallback.clone(),
-            coverage: self.coverage.clone(),
-            rule_refs_left_out: self.rule_refs_left_out,
+            teams: teams.clone(),
+            h_states: h_states.clone(),
+            knowledge: knowledge.clone(),
+            seen_hashes: seen_hashes.clone(),
+            last_announced_source: last_announced_source.clone(),
+            observed_values: observed_values.clone(),
+            rng: rng.clone(),
+            last_fallback: last_fallback.clone(),
+            coverage: coverage.clone(),
+            rule_refs_left_out: *rule_refs_left_out,
         }
     }
 
     /// Puts back the per-game state `snapshot` took: whatever was observed,
-    /// answered and sampled since is undone.
+    /// answered and sampled since is undone. Every field of the snapshot is
+    /// named, so one added to it does not compile until it is put back.
     pub fn restore(&mut self, snapshot: &PlayerSnapshot4) {
-        self.teams.clone_from(&snapshot.teams);
-        self.h_states.clone_from(&snapshot.h_states);
-        self.knowledge.clone_from(&snapshot.knowledge);
-        self.seen_hashes.clone_from(&snapshot.seen_hashes);
-        self.last_announced_source
-            .clone_from(&snapshot.last_announced_source);
-        self.observed_values.clone_from(&snapshot.observed_values);
-        self.rng.clone_from(&snapshot.rng);
-        self.last_fallback.clone_from(&snapshot.last_fallback);
-        self.coverage.clone_from(&snapshot.coverage);
-        self.rule_refs_left_out = snapshot.rule_refs_left_out;
+        let PlayerSnapshot4 {
+            teams,
+            h_states,
+            knowledge,
+            seen_hashes,
+            last_announced_source,
+            observed_values,
+            rng,
+            last_fallback,
+            coverage,
+            rule_refs_left_out,
+        } = snapshot;
+        self.teams.clone_from(teams);
+        self.h_states.clone_from(h_states);
+        self.knowledge.clone_from(knowledge);
+        self.seen_hashes.clone_from(seen_hashes);
+        self.last_announced_source.clone_from(last_announced_source);
+        self.observed_values.clone_from(observed_values);
+        self.rng.clone_from(rng);
+        self.last_fallback.clone_from(last_fallback);
+        self.coverage.clone_from(coverage);
+        self.rule_refs_left_out = *rule_refs_left_out;
     }
 
     /// The value head's estimate from `seat`'s latest observation that
