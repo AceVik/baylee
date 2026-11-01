@@ -16,7 +16,11 @@ fn characteristics(
     e: &Engine<RegistryLookup>,
     id: ObjectId,
 ) -> (TypeSet, Option<i16>, Option<i16>) {
-    let c = e.state().object(id).expect("on the battlefield").characteristics();
+    let c = e
+        .state()
+        .object(id)
+        .expect("on the battlefield")
+        .characteristics();
     (c.types, c.power, c.toughness)
 }
 
@@ -63,7 +67,10 @@ fn opalescence_makes_each_other_non_aura_enchantment_a_mana_value_creature() {
         (TypeSet::ENCHANTMENT, None, None),
         "an Aura is left alone"
     );
-    assert_eq!(e.state().object(aura).and_then(|o| o.attached_to), Some(bears));
+    assert_eq!(
+        e.state().object(aura).and_then(|o| o.attached_to),
+        Some(bears)
+    );
     assert_eq!(pt(&e, bears), (3, 4), "the Bears still wear Holy Strength");
     assert_eq!(
         characteristics(&e, opalescence),
@@ -72,6 +79,9 @@ fn opalescence_makes_each_other_non_aura_enchantment_a_mana_value_creature() {
     );
 
     let attackers = lk::attackers_offered(&mut e);
-    assert!(attackers.contains(&study), "the Study attacks as a creature");
+    assert!(
+        attackers.contains(&study),
+        "the Study attacks as a creature"
+    );
     assert!(!attackers.contains(&opalescence));
 }
