@@ -461,7 +461,10 @@ fn the_table_reads_most_of_what_the_pool_activates() {
     // ability (`Effect::ChooseOne`), not an `AddCounter` row (read) and a
     // `RemoveCounterSelf` row (unread): the choice is unread as a whole.
     // The requested-card batch on 2026-11-01 adds 40 more (27 of 40 read).
-    assert_eq!((read, of), (2978, 3781), "activated/loyalty reader census");
+    // Its review returned Wall of Vipers and Mercenary Informer, which the
+    // batch's full codegen run had finished wrong, to stubs: 2 fewer, both
+    // read (docs/generated-held-back.md).
+    assert_eq!((read, of), (2976, 3779), "activated/loyalty reader census");
 
     // And one sentence it has no row for stays unread: Aminatou's −6
     // exchanges every nontoken permanent's controller around the table,
