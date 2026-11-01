@@ -16,18 +16,7 @@ impl Session {
     /// this session already keeps.
     #[must_use]
     pub fn winning_seats(&self, result: baylee_engine::win::GameResult) -> Vec<PlayerId> {
-        let Some(victor) = result.winner else {
-            return Vec::new();
-        };
-        (0..self.seats.len())
-            .map(|i| PlayerId::new(i as u8))
-            .filter(|seat| {
-                victor.includes(
-                    *seat,
-                    self.teams.get(seat.get() as usize).copied().flatten(),
-                )
-            })
-            .collect()
+        self.table().winning_seats(result)
     }
 
     /// Names the table for the payload clients are sent.

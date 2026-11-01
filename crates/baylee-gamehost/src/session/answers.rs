@@ -6,49 +6,16 @@ use baylee_protocol::v1::Envelope;
 use baylee_view::{HouseAnswer, LogTail, PlayerView};
 
 impl Session {
-    /// The view the house answers `player`'s question from, whether it plays
-    /// the chair or has only been handed one decision by a clock.
-    ///
-    /// One builder for both, because what an agent may know is one rule.
-    /// Two things a socket's view carries never reach it:
-    ///
-    /// - **No clock.** `decision_remaining_ms` is made of elapsed wall time,
-    ///   and machine speed is not an authorized input to a decision: an
-    ///   agent that read it would play the same position differently on a
-    ///   slow machine, legally and invisibly (#87). A clock's answer is
-    ///   where it would bite first, since that view exists because the
-    ///   number ran out.
-    /// - **No teammate's hand** (#265). Only [`Session::show_hands`] puts
-    ///   one into a view, on the way to a socket, and this never calls it,
-    ///   so a chair the house holds for an absent player is played from
-    ///   what it was played from before hands could be shown.
+    /// The view the house answers `player`'s question from
+    /// (`table::Table::agent_view`, which says what it leaves out).
+    #[cfg(test)]
     pub(crate) fn agent_view(&self, player: PlayerId, pending: &Pending) -> PlayerView {
-        crate::view::player_view(
-            self.engine.state(),
-            player,
-            self.seq,
-            Some(pending),
-            &crate::view::SeatContext {
-                awaiting: crate::view::awaiting_for(&self.engine, player),
-                decision_player: pending.asked(),
-                controlled_players: self.engine.controlled_players(player),
-                deciding: self.deciding(),
-                held: self.engine.automation(player).hold.suppresses(),
-                owed: crate::view::owed_payment(&self.engine),
-                library_reveal_blocked: self.engine.library_reveal_blocked(),
-                inspected_cards: self.engine.inspected_cards(),
-                decision_remaining_ms: None,
-                // What a policy answered is told to the seat's player; it is
-                // not an input to a decision.
-                policy_acts: &[],
-            },
-            &self.house_answered,
-        )
+        self.table().agent_view(player, pending)
     }
 
     /// What an agent that is not the house answers `seat`'s current question
-    /// from — the question and [`Session::agent_view`]'s view of it — or
-    /// `None` when `seat` is asked nothing.
+    /// from — the question and the house's own view of it — or `None` when
+    /// `seat` is asked nothing.
     ///
     /// For an offline player of a chair taken over with
     /// [`Session::take_over`] (the trained AI's self-play in `baylee-train`),
@@ -57,9 +24,7 @@ impl Session {
     /// teammate's shared hand, because an AI chair is shown nothing (#265).
     #[must_use]
     pub fn view_for(&self, seat: PlayerId) -> Option<(Pending, PlayerView)> {
-        let pending = self.engine.pending_for(seat)?.clone();
-        let view = self.agent_view(seat, &pending);
-        Some((pending, view))
+        self.table().view_for(seat)
     }
 
     /// What an agent seated at `seat` is entitled to observe of the table at
@@ -71,25 +36,7 @@ impl Session {
     /// policy acts, or shared teammate hand.
     #[must_use]
     pub fn observe_view(&self, seat: PlayerId) -> PlayerView {
-        crate::view::player_view(
-            self.engine.state(),
-            seat,
-            self.seq,
-            self.engine.information_pending_for(seat),
-            &crate::view::SeatContext {
-                awaiting: crate::view::awaiting_for(&self.engine, seat),
-                decision_player: crate::view::decision_player_for(&self.engine, seat),
-                controlled_players: self.engine.controlled_players(seat),
-                deciding: self.deciding(),
-                held: self.engine.automation(seat).hold.suppresses(),
-                owed: crate::view::owed_payment(&self.engine),
-                library_reveal_blocked: self.engine.library_reveal_blocked(),
-                inspected_cards: self.engine.inspected_cards(),
-                decision_remaining_ms: None,
-                policy_acts: &[],
-            },
-            &self.house_answered,
-        )
+        self.table().observe_view(seat)
     }
 
     /// The sequence number a client should report back when it resumes.

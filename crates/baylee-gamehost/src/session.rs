@@ -3,7 +3,9 @@
 //! directly; transport lives with the callers.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
+use baylee_ai::intelligence::DeckIntel;
 use baylee_ai::{HeuristicAgent, policy_seed};
 use baylee_cards::dsl::CardDef;
 use baylee_core::ids::{CardIndex, PlayerId, SeatSet};
@@ -26,6 +28,7 @@ pub mod project;
 mod pump;
 mod resume;
 mod spectators;
+mod table;
 
 /// How many of its policies' answers a seat's view carries (#234): the
 /// latest, so a seat yielding to a long loop is not sent the loop. Their
@@ -33,6 +36,10 @@ mod spectators;
 const POLICY_WINDOW: usize = 16;
 
 /// Registry lookup backed by the compiled card pool.
+///
+/// A unit, so copying it copies nothing: a forked simulation
+/// (`Engine::fork_for`) carries its own.
+#[derive(Clone, Copy, Debug, Default)]
 pub struct RegistryLookup;
 impl CardLookup for RegistryLookup {
     fn card(&self, index: CardIndex) -> Option<&'static CardDef> {
@@ -114,7 +121,9 @@ impl SeatKind {
 pub struct Session {
     engine: Engine<RegistryLookup>,
     seats: Vec<SeatKind>,
-    scouting_decks: Vec<baylee_ai::intelligence::DeckIntel>,
+    /// Every seat's submitted deck as the house may scout it, shared with
+    /// the simulations forked from this session.
+    scouting_decks: Arc<[DeckIntel]>,
     seq: u64,
     /// How many times the *question* has changed — see
     /// [`Session::decision_seq`].
@@ -298,7 +307,7 @@ impl Session {
         Some(Self {
             engine,
             seats,
-            scouting_decks: crate::scouting::decks(preset),
+            scouting_decks: crate::scouting::decks(preset).into(),
             seq: 0,
             decisions: 0,
             house_rules: preset.house_rules.clone(),
@@ -353,6 +362,19 @@ impl Session {
     #[must_use]
     pub const fn fair_scouting(&self) -> bool {
         self.fair_scouting
+    }
+
+    /// The table as the house and its agents read it ([`table::Table`]).
+    fn table(&self) -> table::Table<'_> {
+        table::Table {
+            engine: &self.engine,
+            seats: &self.seats,
+            teams: &self.teams,
+            scouting_decks: &self.scouting_decks,
+            fair_scouting: self.fair_scouting,
+            seq: self.seq,
+            house_answered: &self.house_answered,
+        }
     }
 
     /// The `(seat, source, action)` that was in flight if [`Engine::apply`]
