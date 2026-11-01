@@ -806,20 +806,7 @@ pub fn options(
                 .collect(),
         ),
         Prompt::ChooseSubtype { options } => Some(subtype_rows(options, filter, lang)),
-        Prompt::ChooseCardType { options } => Some(
-            options
-                .iter()
-                .enumerate()
-                .map(|(index, card_type)| {
-                    let label = card_type
-                        .words()
-                        .map(|word| baylee_client_core::type_names::name(word, lang))
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    ChoiceOption::text(index, label)
-                })
-                .collect(),
-        ),
+        Prompt::ChooseCardType { options } => Some(card_type_rows(options, lang)),
         // A pile is its cards: the row names them, in the order the
         // separation gave them, and an empty pile says so rather than
         // drawing a blank row, because it is a pile that may be taken.
@@ -933,6 +920,23 @@ fn card_name_row(card: CardIndex, face: u8) -> Option<usize> {
     card_names()
         .iter()
         .position(|row| row.card == card && row.face == face)
+}
+
+/// "Choose a card type" (Serra's Emissary): one row per offered type, in the
+/// engine's order, named in the interface's language.
+fn card_type_rows(options: &[baylee_core::types::TypeSet], lang: Lang) -> Vec<ChoiceOption> {
+    options
+        .iter()
+        .enumerate()
+        .map(|(index, card_type)| {
+            let label = card_type
+                .words()
+                .map(|word| baylee_client_core::type_names::name(word, lang))
+                .collect::<Vec<_>>()
+                .join(" ");
+            ChoiceOption::text(index, label)
+        })
+        .collect()
 }
 
 /// The card names matching `filter`, cut to what the bar holds.
