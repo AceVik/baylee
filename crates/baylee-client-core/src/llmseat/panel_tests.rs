@@ -711,7 +711,7 @@ fn a_profile_made_a_cli_keeps_what_it_held_in_view_refused() {
 fn a_suggestion_puts_a_priced_model_in_the_box() {
     let mut panel = panel();
     let offered = panel.suggestions(1);
-    assert_eq!(offered.len(), 3, "{offered:?}");
+    assert_eq!(offered.len(), 4, "{offered:?}");
     assert!(panel.suggestions(2).is_empty(), "none priced for openai");
     let (index, model, price) = offered[2];
     panel.act(Act::Suggest(1, index));
@@ -1035,4 +1035,18 @@ fn cli_tools_models_and_efforts_can_be_picked_and_clear_incompatible_efforts() {
         panel.profile_summary(0),
         "GPT-6 Astra (openai) \u{b7} opencode:openai/gpt-6-astra \u{b7} high"
     );
+}
+
+/// The panel shows no box for `lookup`, and an edit elsewhere writes the
+/// profile back with it as the file had it.
+#[test]
+fn a_profile_s_lookup_survives_an_edit_of_another_field() {
+    let mut settings = three();
+    settings.profiles.get_mut("c").unwrap().lookup = Some(LookupSource::Scryfall);
+    let mut panel = SeatPanel::new(Disk::Read(settings));
+    type_into(&mut panel, Spot::Profile(2, Slot::ThinkSecs), "90");
+    let written = panel.to_save().expect("valid profiles");
+    assert_eq!(written.profiles["c"].lookup, Some(LookupSource::Scryfall));
+    assert_eq!(written.profiles["c"].think_secs, Some(90));
+    assert_eq!(written.profiles["a"].lookup, None);
 }

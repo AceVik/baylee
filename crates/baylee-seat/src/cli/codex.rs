@@ -101,10 +101,10 @@ impl Dialect for Codex {
         CliTool::Codex
     }
 
-    fn files(&self, _settings: &Settings, system: &str) -> Vec<(&'static str, String)> {
+    fn files(&self, settings: &Settings, system: &str) -> Vec<(&'static str, String)> {
         vec![
             (INSTRUCTIONS, system.to_string()),
-            (SCHEMA, schema::answer().to_string()),
+            (SCHEMA, schema::answer(settings.extras()).to_string()),
         ]
     }
 

@@ -7,7 +7,13 @@
 //! but its log tail is: several frames may repeat a view and a `seq`, and
 //! the log is appended by `from`, never by frame (`docs/protocol.md`
 //! §"The game log").
+//!
+//! The log is kept in the client's own book ([`LogBook`]), each tail read
+//! beside the view that came with it, as the client reads it: the book a
+//! report's game log is written from ([`crate::reports::game_log`]), line
+//! for line what a person's client at this seat would attach.
 
+use baylee_client_core::gamelog::LogBook;
 use baylee_engine::choice::Pending;
 use baylee_protocol::v1::{self, Envelope};
 use baylee_view::{GameStatic, LogEntry, LogTail, PlayerView};
@@ -55,7 +61,7 @@ pub enum Heard {
 pub struct TableMemory {
     statics: Option<GameStatic>,
     view: Option<PlayerView>,
-    log: Vec<LogEntry>,
+    log: LogBook,
     handed: usize,
     gaps: u32,
     last_seq: u64,
@@ -91,28 +97,52 @@ impl TableMemory {
             }
             v1::envelope::Msg::StateDelta(delta) => {
                 self.last_seq = self.last_seq.max(delta.seq);
-                if !delta.log_json.is_empty() {
-                    match serde_json::from_slice::<LogTail>(&delta.log_json) {
-                        Ok(tail) => self.append(tail),
-                        // The view is the game and the lines are its
-                        // commentary; a frame's view is not wrong because its
-                        // lines are, and the whole log comes again on resume.
-                        Err(_) => self.gaps += 1,
+                let lines = !delta.log_json.is_empty();
+                // The view is the game and the lines are its commentary; a
+                // frame's view is not wrong because its lines are, and the
+                // whole log comes again on resume.
+                let tail = if lines {
+                    let tail = serde_json::from_slice::<LogTail>(&delta.log_json).ok();
+                    if tail.is_none() {
+                        self.gaps += 1;
                     }
-                    if delta.seq != 0
-                        && self.view.as_ref().is_some_and(|held| delta.seq <= held.seq)
-                    {
-                        return Heard::View;
+                    tail
+                } else {
+                    None
+                };
+                // More lines of the view held: read beside it, and the view
+                // is not read again.
+                if lines
+                    && delta.seq != 0
+                    && let Some(held) = self.view.as_ref().filter(|held| delta.seq <= held.seq)
+                {
+                    if let Some(tail) = &tail {
+                        self.log.append(tail, held);
                     }
+                    return Heard::View;
                 }
                 match serde_json::from_slice::<PlayerView>(&delta.view_json) {
                     Ok(view) => {
+                        if let Some(tail) = &tail {
+                            self.log.append(tail, &view);
+                        }
                         if self.view.as_ref().is_none_or(|held| view.seq >= held.seq) {
                             self.view = Some(view);
                         }
                         Heard::View
                     }
-                    Err(e) => Heard::Unreadable(format!("unreadable game state: {e}")),
+                    Err(e) => {
+                        // Its lines are read beside the view held; with
+                        // none, they come again on resume.
+                        match (&tail, self.view.as_ref()) {
+                            (Some(tail), Some(held)) => {
+                                self.log.append(tail, held);
+                            }
+                            (Some(_), None) => self.gaps += 1,
+                            (None, _) => {}
+                        }
+                        Heard::Unreadable(format!("unreadable game state: {e}"))
+                    }
                 }
             }
             v1::envelope::Msg::ChoiceRequest(request) => {
@@ -139,27 +169,22 @@ impl TableMemory {
         }
     }
 
-    /// Appends a tail by its `from`: lines already held are skipped, and a
-    /// tail that starts past the end is a gap, counted and not appended
-    /// (its lines would be filed under the wrong numbers). The table tells
-    /// the whole log again after a reconnect, which closes any gap.
-    fn append(&mut self, tail: LogTail) {
-        let from = tail.from as usize;
-        if from > self.log.len() {
-            self.gaps += 1;
-            return;
-        }
-        let skip = self.log.len() - from;
-        self.log.extend(tail.entries.into_iter().skip(skip));
-    }
-
     /// Every log line not yet handed to the mind, marked handed.
+    ///
+    /// The book appends a tail by its `from` ([`LogBook::append`]): lines
+    /// already held are skipped, and a tail that starts past the end is a
+    /// gap, counted and not appended (its lines would be filed under the
+    /// wrong numbers). The table tells the whole log again after a
+    /// reconnect, which closes any gap.
     pub fn hand_over_log(&mut self) -> LogTail {
-        let from = self.handed;
-        self.handed = self.log.len();
+        let entries = self.log.entries();
+        // A book that replaced lines it held hands them over again from
+        // where it parted (a table never tells one seat two histories).
+        let from = self.handed.min(entries.len());
+        self.handed = entries.len();
         LogTail {
             from: u32::try_from(from).unwrap_or(u32::MAX),
-            entries: self.log[from..].to_vec(),
+            entries: entries[from..].to_vec(),
         }
     }
 
@@ -178,13 +203,21 @@ impl TableMemory {
     /// The seat's whole log so far.
     #[must_use]
     pub fn log(&self) -> &[LogEntry] {
+        self.log.entries()
+    }
+
+    /// The seat's whole log so far, in the client's book: what a report's
+    /// log is written from.
+    #[must_use]
+    pub const fn book(&self) -> &LogBook {
         &self.log
     }
 
-    /// How many log tails could not be placed (unreadable, or past the end).
+    /// How many log tails could not be placed (unreadable, past the end,
+    /// or with no view to read them beside).
     #[must_use]
     pub const fn gaps(&self) -> u32 {
-        self.gaps
+        self.gaps.saturating_add(self.log.gaps())
     }
 
     /// The highest sequence number seen: what `ResumeGame` reports.
@@ -345,5 +378,41 @@ mod tests {
         assert_eq!(memory.view().map(|v| v.seq), Some(7));
         assert_eq!(memory.log().len(), 2);
         assert_eq!(memory.gaps(), 0);
+    }
+
+    /// A frame whose view cannot be read still gives its lines to the book,
+    /// read beside the view held; before any view, they wait for the whole
+    /// log a resume tells again.
+    #[test]
+    fn lines_beside_an_unreadable_view_are_kept_where_a_view_is_held() {
+        let unreadable = |seq: u64, from: u32| {
+            Envelope {
+                msg: Some(v1::envelope::Msg::StateDelta(v1::StateDelta {
+                    game_id: "g".into(),
+                    seq,
+                    view_json: b"not a view".to_vec(),
+                    log_json: serde_json::to_vec(&LogTail {
+                        from,
+                        entries: vec![line(1)],
+                    })
+                    .unwrap(),
+                })),
+            }
+            .encode_to_vec()
+        };
+        let mut memory = TableMemory::default();
+        assert!(matches!(
+            memory.hear(&unreadable(1, 0)),
+            Heard::Unreadable(_)
+        ));
+        assert!(memory.log().is_empty());
+        assert_eq!(memory.gaps(), 1);
+        memory.hear(&delta(2, 2, None));
+        assert!(matches!(
+            memory.hear(&unreadable(3, 0)),
+            Heard::Unreadable(_)
+        ));
+        assert_eq!(memory.book().entries().len(), 1);
+        assert_eq!(memory.gaps(), 1);
     }
 }

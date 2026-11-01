@@ -11,10 +11,12 @@
 //! | `baylee-client-core` | `test-support` |
 //! | `baylee-engine` | `fuzz` |
 //! | `baylee-cards` | `mutate` |
+//! | `baylee-train` | `llm-collector` |
 //!
 //! plus one default switched off, `baylee-train` without `play`, which is how
 //! `xtask` links it (`onnx` is trainer-only and in no gate: it downloads ONNX
-//! Runtime when it builds).
+//! Runtime when it builds; so do `llm` and `live-seat`, which pull it in, and
+//! they stay out for the same reason).
 //!
 //! It fails in both directions. A feature adds code the default build never
 //! sees (`devctl.rs` broke on `Option<Refusal>` with the whole gate green,
@@ -55,6 +57,9 @@ const CLIENT_FEATURES: &str = "dev-control,dev-reload";
 ///   the shape every consumer builds: the feature on, `cfg(test)` off.
 /// - `baylee-train` without `play` is how every `cargo run -p xtask` links it,
 ///   which the workspace build never does.
+/// - `llm-collector` builds the language-model replay collector, a binary
+///   no default feature reaches; it needs no ONNX Runtime, so it is checked
+///   whole, tests included, in [`LINUX_CHECKS`].
 const CHECKS: &[(&str, &[&str])] = &[
     (
         "dev-dylink-resolves",
@@ -125,6 +130,23 @@ const CHECKS: &[(&str, &[&str])] = &[
     ),
 ];
 
+/// The LLM collector runs its seats as process groups it reads through
+/// `/proc` (`baylee_train_ops::process`), so it builds on Linux only.
+const LINUX_CHECKS: &[(&str, &[&str])] = &[(
+    "train-llm-collector",
+    &[
+        "clippy",
+        "-p",
+        "baylee-train",
+        "--features",
+        "llm-collector",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings",
+    ],
+)];
+
 /// The gateway's seated dev table: `main.rs` carries both
 /// `cfg(feature = "dev-table")` and its negation, so the default gate compiles
 /// the refusal and never the thing refused. Needs PostgreSQL.
@@ -186,6 +208,15 @@ pub fn run() -> i32 {
     }
     for (label, args) in CHECKS {
         quiet_step(&mut steps, label, &mut cargo_with(*args));
+    }
+    if cfg!(target_os = "linux") {
+        for (label, args) in LINUX_CHECKS {
+            quiet_step(&mut steps, label, &mut cargo_with(*args));
+        }
+    } else {
+        for (label, _) in LINUX_CHECKS {
+            println!("STEP {label} SKIPPED - Linux only (it reads process groups through /proc)");
+        }
     }
     crate::shipping::check(&mut steps);
     steps.finish()

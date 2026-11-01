@@ -10,7 +10,7 @@ import { Admin } from "../Admin";
 import type { LlmDefinition, LlmProfile, SeatHost } from "../api";
 import { t, type Key } from "../i18n";
 import { serve, type Call } from "../test-utils";
-import { BUDGET_KEYS, fallbackChoices, otherSettings, readDefinition, type DefinitionForm } from "./Models";
+import { BUDGET_KEYS, chainOf, fallbackChoices, otherSettings, readDefinition, type DefinitionForm } from "./Models";
 
 // Typing through user-event in jsdom is slow, and a loaded machine slower.
 vi.setConfig({ testTimeout: 20_000 });
@@ -202,12 +202,22 @@ describe("what the form reads", () => {
     expect(read({ ...FORM, dayTokens: "", monthTokens: "" })).not.toHaveProperty("caps");
   });
 
-  test("a fallback: empty or blank is absent, a name is written trimmed", () => {
-    expect(read({ ...FORM, fallback: "" })).not.toHaveProperty("fallback");
-    expect(read({ ...FORM, fallback: "  " })).not.toHaveProperty("fallback");
+  test("a fallback: empty or blank is absent, one is written as its id, a chain as the list", () => {
+    expect(read({ ...FORM, fallback: [] })).not.toHaveProperty("fallback");
+    expect(read({ ...FORM, fallback: [""] })).not.toHaveProperty("fallback");
+    expect(read({ ...FORM, fallback: ["  ", ""] })).not.toHaveProperty("fallback");
     expect(read(FORM)).not.toHaveProperty("fallback");
-    expect(read({ ...FORM, fallback: "x" })).toStrictEqual({ label: "X", vendor: "Y", enabled: true, profile: {}, fallback: "x" });
-    expect(read({ ...FORM, fallback: " x " }).fallback).toBe("x");
+    expect(read({ ...FORM, fallback: ["x"] })).toStrictEqual({ label: "X", vendor: "Y", enabled: true, profile: {}, fallback: "x" });
+    expect(read({ ...FORM, fallback: [" x "] }).fallback).toBe("x");
+    expect(read({ ...FORM, fallback: ["x", " y", ""] }).fallback).toStrictEqual(["x", "y"]);
+    // Named twice is once, in the first place it was named.
+    expect(read({ ...FORM, fallback: ["x", "y", "x"] }).fallback).toStrictEqual(["x", "y"]);
+  });
+
+  test("a definition's fallbacks read as a chain", () => {
+    expect(chainOf(undefined)).toStrictEqual([]);
+    expect(chainOf("x")).toStrictEqual(["x"]);
+    expect(chainOf(["x", "y"])).toStrictEqual(["x", "y"]);
   });
 
   test("games at once is floored, a canary is written only when set", () => {
@@ -473,16 +483,16 @@ describe("the profile editor", () => {
     expect(puts[1]).toEqual(puts[0]);
   });
 
-  test("an agent CLI's editor has the fallback select disabled, and a stale fallback is saved as none", async () => {
+  test("an agent CLI's editor offers API fallbacks of its vendor and keeps its chain", async () => {
     const { calls } = site(fleet(undefined, withDefinition(cliProfile(), { fallback: "backup" })));
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
     const editor = await openEdit(user, "Edit cc @ alpha", "Edit cc on alpha");
     const fallback = select(editor, "Fallback profile");
-    expect(fallback.disabled).toBe(true);
-    expect(fallback.value).toBe("");
-    expect(describedBy(fallback)).toBe("An agent CLI takes no fallback.");
-    expect(optionsOf(fallback).join("|")).not.toContain("not on this seat agent");
+    expect(fallback.disabled).toBe(false);
+    expect(fallback.value).toBe("backup");
+    expect(describedBy(fallback)).toBe(t("en", "llm.hint.fallbackCli"));
+    expect(describedBy(fallback)).toContain("same model behind an API first");
 
     await ask(user, editor);
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Save" }));
@@ -490,38 +500,48 @@ describe("the profile editor", () => {
     const [put, ...rest] = changes(calls);
     expect(rest).toEqual([]);
     expect(put?.url).toBe("/ui/api/admin/llm/seathosts/alpha/profiles/cc");
-    expect(put?.body).toEqual({ label: "Agent CLI", vendor: "Example", enabled: true, profile: { provider: "cli", model: "claude:opus" } });
-    expect(put?.body).not.toHaveProperty("fallback");
+    expect(put?.body).toEqual({
+      label: "Agent CLI",
+      vendor: "Example",
+      enabled: true,
+      profile: { provider: "cli", model: "claude:opus" },
+      fallback: "backup",
+    });
   });
 
-  test("turning a profile's JSON into a CLI disables the fallback, and it is saved as none", async () => {
-    const { calls } = site(fleet(withDefinition(profile("primary", "Model A"), { fallback: "backup" })));
+  test("a chain: each fallback adds the next select, none ends the chain there, the list is written", async () => {
+    const { calls } = site(fleet(withDefinition(profile("primary", "Model A"), { fallback: ["backup", "spare"] })));
     const user = userEvent.setup();
     render(<Admin lang="en" section="models" />);
     const editor = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
-    expect(select(editor, "Fallback profile").disabled).toBe(false);
     expect(select(editor, "Fallback profile").value).toBe("backup");
-
-    fireEvent.change(within(editor).getByLabelText("Profile"), { target: { value: '{"provider":"cli","model":"claude:opus"}' } });
-    const fallback = select(editor, "Fallback profile");
-    expect(fallback.disabled).toBe(true);
-    expect(fallback.value).toBe("");
-    expect(describedBy(fallback)).toBe("An agent CLI takes no fallback.");
+    expect(select(editor, "Fallback 2").value).toBe("spare");
+    // One more to add the next; nothing earlier in the chain is offered again.
+    expect(select(editor, "Fallback 3").value).toBe("");
+    expect(optionsOf(select(editor, "Fallback 2"))).toEqual(["none", "Model C · spare"]);
+    expect(optionsOf(select(editor, "Fallback 3"))).toEqual(["none"]);
 
     await ask(user, editor);
     await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Save" }));
     await screen.findByText("Profile saved.");
     const [put] = changes(calls);
-    expect(put?.url).toBe(PUT_SONNET);
-    expect(put?.body).toEqual({
-      label: "Model A",
-      vendor: "Example",
-      enabled: true,
-      max_games: 4,
-      caps: { day_usd: 10, month_usd: 100 },
-      profile: { provider: "cli", model: "claude:opus" },
-    });
-    expect(put?.body).not.toHaveProperty("fallback");
+    expect(put?.body).toEqual(expect.objectContaining({ fallback: ["backup", "spare"] }));
+
+    // None in the first place ends the chain there: nothing is written.
+    const again = await openEdit(user, "Edit primary @ alpha", "Edit primary on alpha");
+    await user.selectOptions(select(again, "Fallback profile"), "");
+    expect(within(again).queryByRole("combobox", { name: "Fallback 2" })).toBeNull();
+    await ask(user, again);
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Save" }));
+    await screen.findAllByText("Profile saved.");
+    const puts = changes(calls);
+    expect(puts.at(-1)?.body).not.toHaveProperty("fallback");
+  });
+
+  test("the profile list says a chain in its order", async () => {
+    site(fleet(withDefinition(profile("primary", "Model A"), { fallback: ["backup", "spare"] })));
+    render(<Admin lang="en" section="models" />);
+    expect(await screen.findByText("Fallback: backup → spare")).toBeTruthy();
   });
 
   test("a price needs both boxes: said in the editor, nothing asked, nothing sent", async () => {

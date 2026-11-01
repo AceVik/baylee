@@ -60,7 +60,7 @@ impl Launcher for Recording {
             profile: job.profile.clone(),
             plays: job.plays.clone(),
             name: job.name.clone(),
-            fallback: job.fallback.as_ref().map(|f| f.profile.clone()),
+            fallback: job.fallbacks.first().map(|f| f.profile.clone()),
             listened: job.heard.is_some(),
         });
         Box::pin(async move {
@@ -85,7 +85,7 @@ fn definition(label: &str, vendor: &str, max_games: u32, fallback: Option<&str>)
         max_games: Some(max_games),
         caps: None,
         canary: false,
-        fallback: fallback.map(str::to_string),
+        fallback: fallback.map(Into::into),
         profile: json!({"provider": "openai", "model": "model-a",
             "base_url": "https://api.example.invalid/v1"}),
     }
@@ -264,11 +264,12 @@ fn seat_of(port: u16, viewer: &str, game: &str) -> Value {
 }
 
 /// The console refuses a fallback that cannot stand by (the profile itself, a
-/// name that is no profile's, an agent CLI on either side of the pair, a
-/// vendor other than the profile's), each with the seat agent's own sentence
-/// as the body of a `400` and nothing kept; and a valid pair is written and
-/// shown with its fallback. (Before, the body was `unknown field fallback`,
-/// whatever it said, and a valid pair was refused too.)
+/// name that is no profile's, an agent CLI as the fallback, a vendor other
+/// than the profile's), each with the seat agent's own sentence as the body
+/// of a `400` and nothing kept; and a valid pair is written and shown with
+/// its fallback, as is an agent CLI that names one. (Before, the body was
+/// `unknown field fallback`, whatever it said, and a valid pair was refused
+/// too.)
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_console_refuses_a_fallback_that_cannot_stand_by_and_shows_one_that_can() {
     let (gw, admin_port) = spawn("fallbackconsole");
@@ -306,15 +307,12 @@ async fn the_console_refuses_a_fallback_that_cannot_stand_by_and_shows_one_that_
         error_of(&body).contains("a fallback is a profile's id"),
         "{body}"
     );
-    // A CLI that names a fallback.
+    // A CLI that names a fallback is kept: a subscription that runs out
+    // hands over as an API's quota does.
     let mut cli = cli_definition();
     cli.fallback = Some("backup".into());
     let (status, body) = put(admin_port, "agent-cli", &cli);
-    assert_eq!(status, 400, "{body}");
-    assert!(
-        error_of(&body).contains("an agent CLI takes none"),
-        "{body}"
-    );
+    assert_eq!(status, 200, "{body}");
     // A fallback that is a CLI the seat agent holds.
     let (status, body) = put(admin_port, "agent-cli", &cli_definition());
     assert_eq!(status, 200, "{body}");

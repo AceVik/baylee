@@ -378,24 +378,84 @@ pub struct Definition {
     /// A paid canary call with each probe.
     #[serde(default)]
     pub canary: bool,
-    /// @description Another profile of the same seat agent and vendor that
-    /// takes a game over when this one's model is rate limited or busy,
-    /// and that new games start on while this one is not available; none
-    /// when absent.
+    /// @description Other profiles of the same seat agent and vendor that
+    /// take a game over, one after the other, when the model playing is
+    /// rate limited, out of its quota or failing, and that new games start
+    /// on while this one is not available: one profile's id, or a list of
+    /// them in the order they take over; none when absent.
     /// @internal
-    /// Another profile of the same seat agent that takes a game over when
-    /// this one's model is rate limited or busy, and that a new game
-    /// starts on while this one is not available (at `max_games`, limited,
-    /// failing, …): both models
-    /// behind an API. `None` = none. The fallback's own fallback is not
-    /// followed (`docs/protocol.md` §"A fallback profile").
+    /// Other profiles of the same seat agent that take a game over in turn
+    /// when the model playing is rate limited or fails, and the first
+    /// available of which a new game starts on while this one is not
+    /// available (at `max_games`, limited, failing, …): each a model behind
+    /// an API, this one behind an API or an agent CLI. `None` = none. A
+    /// fallback's own fallbacks are not followed (`docs/protocol.md` §"A
+    /// fallback profile").
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fallback: Option<String>,
+    pub fallback: Option<Fallbacks>,
     /// @description One profile of the seat settings file, in its own
     /// format (`docs/llm-seat.md`).
     /// @internal
     /// One profile of the settings file, in its own format.
     pub profile: serde_json::Value,
+}
+
+impl Definition {
+    /// The fallbacks it names, in the order they take over; none where it
+    /// names none.
+    #[must_use]
+    pub fn fallbacks(&self) -> &[String] {
+        self.fallback.as_ref().map_or(&[], Fallbacks::ids)
+    }
+}
+
+/// The fallbacks a definition names: one profile's id, as a definition with
+/// one fallback has always said it, or several in the order they take
+/// over.
+///
+/// @description One profile's id, or a list of them in the order they take
+/// over.
+/// @openapi
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Fallbacks {
+    /// @description One profile's id.
+    /// @internal
+    /// One profile, written as its id alone.
+    One(String),
+    /// @description Profiles' ids, in the order they take over.
+    /// @internal
+    /// Several, in the order they take over.
+    Chain(Vec<String>),
+}
+
+impl Fallbacks {
+    /// The ids, in the order they take over.
+    #[must_use]
+    pub fn ids(&self) -> &[String] {
+        match self {
+            Self::One(id) => std::slice::from_ref(id),
+            Self::Chain(ids) => ids,
+        }
+    }
+}
+
+/// One id as [`Fallbacks::One`], so that one fallback is written as it
+/// always was; any other number as a list.
+impl From<Vec<String>> for Fallbacks {
+    fn from(mut ids: Vec<String>) -> Self {
+        if ids.len() == 1 {
+            Self::One(ids.remove(0))
+        } else {
+            Self::Chain(ids)
+        }
+    }
+}
+
+impl From<&str> for Fallbacks {
+    fn from(id: &str) -> Self {
+        Self::One(id.to_owned())
+    }
 }
 
 const fn yes() -> bool {
@@ -561,12 +621,14 @@ pub struct Reported {
     #[serde(default)]
     pub last_ok_unix: Option<i64>,
     /// @description The fallback profile a new game of this one starts on
-    /// now, because this one is not available and its fallback is; the
-    /// profile is then reported `available`. Absent otherwise.
+    /// now, because this one is not available and that fallback is (the
+    /// first of its fallbacks that is); the profile is then reported
+    /// `available`. Absent otherwise.
     /// @internal
     /// The fallback a new game of this profile starts on now, because the
     /// profile is not available (at `max_games`, limited, failing, signed
-    /// out, being checked, switched off) and its fallback is:
+    /// out, being checked, switched off) and that fallback, the first
+    /// available of its chain, is:
     /// the profile is then reported `available`, with its own games and
     /// bound (`docs/protocol.md` §"A fallback profile"). `None` = a new
     /// game plays the profile itself, or not at all.
@@ -626,6 +688,42 @@ mod tests {
         assert_eq!(chair_name("Claude Sonnet 5.5", "x"), "Claude-Sonne");
         assert_eq!(chair_name("—", "opus_1"), "opus_1");
         assert_eq!(chair_name("…", "."), "model");
+    }
+
+    /// A definition's `fallback` is one id, as it always was, or a list of
+    /// them in order; one is written back as one, and nothing else is read.
+    #[test]
+    fn a_definition_names_one_fallback_or_a_chain() {
+        let read = |fallback: &str| {
+            serde_json::from_str::<Definition>(&format!(
+                r#"{{"label": "L", "vendor": "V", "profile": {{}}, "fallback": {fallback}}}"#
+            ))
+        };
+        let one = read(r#""backup""#).unwrap();
+        assert_eq!(one.fallback, Some(Fallbacks::One("backup".into())));
+        assert_eq!(one.fallbacks(), ["backup"]);
+        assert_eq!(serde_json::to_value(&one).unwrap()["fallback"], "backup");
+        let chain = read(r#"["a", "b"]"#).unwrap();
+        assert_eq!(chain.fallbacks(), ["a", "b"]);
+        assert_eq!(
+            serde_json::to_value(&chain).unwrap()["fallback"],
+            serde_json::json!(["a", "b"])
+        );
+        assert!(read("3").is_err() && read(r#"{"id": "a"}"#).is_err());
+        let none = Definition {
+            fallback: None,
+            ..one.clone()
+        };
+        assert!(none.fallbacks().is_empty());
+        assert!(!serde_json::to_string(&none).unwrap().contains("fallback"));
+        assert_eq!(
+            Fallbacks::from(vec!["only".to_owned()]),
+            Fallbacks::One("only".into())
+        );
+        assert_eq!(
+            Fallbacks::from(vec!["a".to_owned(), "b".to_owned()]).ids(),
+            ["a", "b"]
+        );
     }
 
     #[test]

@@ -1,6 +1,7 @@
 //! Multi-table LLM self-play replay collector and single-gateway/single-agent host supervisor.
 mod admin_cleanup;
 mod audit;
+mod compare;
 mod processes;
 mod quota_hold;
 mod schedule;
@@ -24,6 +25,7 @@ use tokio::sync::{Mutex, Semaphore};
 use crate::audit::write_atomic_json;
 use crate::schedule::{Scheduler, now_unix};
 use crate::table::{GatewayClient, LaunchPacer, SlotAccount, run_attempt};
+use crate::teacher::Sits;
 
 #[derive(Parser)]
 #[command(
@@ -80,6 +82,10 @@ enum Commands {
         #[arg(long)]
         profiles_config: PathBuf,
         /// JSON array of `[seat0_profile, seat1_profile]` pairs, frozen at startup.
+        /// An entry `house:<level>` (novice, casual, steady, sharp, expert)
+        /// seats the house at that level instead of a profile, to measure a
+        /// teacher against it; it reserves nothing and is never a teacher's
+        /// answer. The house against the house is refused.
         #[arg(long)]
         pairings_file: Option<PathBuf>,
         #[arg(long)]
@@ -95,6 +101,19 @@ enum Commands {
         game_timeout_seconds: u64,
         #[arg(long, default_value_t = 2200)]
         launch_interval_ms: u64,
+        /// Only the first this many games of the root file their seats'
+        /// reports with the feedback service; later games keep them in
+        /// `reports.jsonl`, so a large run cannot flood the triage.
+        #[arg(long, default_value_t = 200)]
+        report_games: usize,
+    },
+    /// Profile against profile over the admitted games of collector roots:
+    /// wins with a Wilson 95 % interval, against the house apart, how often a
+    /// fallback took over, and the minds' answers, think time and tokens.
+    Compare {
+        /// Collector roots, each holding `attempts/`.
+        #[arg(required = true)]
+        roots: Vec<PathBuf>,
     },
 }
 
@@ -139,6 +158,7 @@ async fn main() -> anyhow::Result<()> {
             call_timeout_seconds,
             game_timeout_seconds,
             launch_interval_ms,
+            report_games,
         } => {
             run_collect(
                 root,
@@ -155,8 +175,13 @@ async fn main() -> anyhow::Result<()> {
                 call_timeout_seconds,
                 game_timeout_seconds,
                 launch_interval_ms,
+                report_games,
             )
             .await
+        }
+        Commands::Compare { roots } => {
+            print!("{}", compare::report(&roots)?);
+            Ok(())
         }
     }
 }
@@ -180,6 +205,23 @@ fn controller_lock(directory: &Path) -> anyhow::Result<std::fs::File> {
     lock.try_lock()
         .context("Another controller already owns this root")?;
     Ok(lock)
+}
+
+/// The feedback service a gateway files its players' reports with
+/// (`docs/feedback.md`): the LLM seats' per-game reports reach it only when
+/// the collector was started with these. Only their names are written here.
+const FEEDBACK_ENV: [&str; 3] = [
+    "BAYLEE_FEEDBACK_URL",
+    "BAYLEE_FEEDBACK_TOKEN",
+    "BAYLEE_FEEDBACK_KEY",
+];
+
+fn forward_feedback(command: &mut Command) {
+    for name in FEEDBACK_ENV {
+        if let Some(value) = std::env::var_os(name) {
+            command.env(name, value);
+        }
+    }
 }
 
 fn isolated_command(binary: &Path) -> Command {
@@ -235,6 +277,49 @@ fn assignment_halted(
         || drain.load(Ordering::SeqCst)
         || stop_file.exists()
         || drain_file.exists()
+}
+
+/// Slot `slot_id`'s account that seats `sits` ([`SlotAccount::init`]),
+/// tried up to three times where a failure left nothing behind, a longer
+/// pause before each try; `None` where assignment halts first. A failure
+/// whose cleanup is unproved drains the run.
+async fn slot_account(
+    own: &teacher::OwnDatabase,
+    gateway: &str,
+    slot_id: usize,
+    sits: Sits,
+    halted: &(dyn Fn() -> bool + Sync),
+    drain: &AtomicBool,
+) -> anyhow::Result<Option<SlotAccount>> {
+    for attempt in 1..=3 {
+        if halted() {
+            return Ok(None);
+        }
+        let error = match SlotAccount::init(own, gateway, slot_id, sits).await {
+            Ok(account) => return Ok(Some(account)),
+            Err(error) => error,
+        };
+        eprintln!(
+            "[slot {slot_id:02}] {sits:?} account init attempt {attempt}/3 failed: {error:#}"
+        );
+        let retry_safe = table::account_init_retry_safe(&error);
+        if !retry_safe {
+            drain.store(true, Ordering::SeqCst);
+        }
+        if attempt == 3 || !retry_safe {
+            return Err(error).context(format!(
+                "slot {slot_id:02} account initialization failed at attempt {attempt}; retries \
+                 exhausted or cleanup unproved"
+            ));
+        }
+        for _ in 0..attempt * 10 {
+            if halted() {
+                return Ok(None);
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
+    bail!("Account initialization exhausted without a result")
 }
 
 fn private_bind(bind: &str) -> anyhow::Result<SocketAddr> {
@@ -382,6 +467,7 @@ async fn run_serve(
         gw_cmd.env("BAYLEE_ADMIN_BIND", admin.to_string());
         credential.configure_gateway(&mut gw_cmd);
     }
+    forward_feedback(&mut gw_cmd);
     let ag_out = std::fs::File::create(gw_dir.join("agent.stdout.log"))?;
     let ag_err = std::fs::File::create(gw_dir.join("agent.stderr.log"))?;
     let mut gw_child = gw_cmd.spawn().context("spawning baylee-gateway")?;
@@ -491,6 +577,7 @@ async fn run_collect(
     call_timeout_seconds: u64,
     game_timeout_seconds: u64,
     launch_interval_ms: u64,
+    report_games: usize,
 ) -> anyhow::Result<()> {
     table::gateway_endpoint(&gateway)?;
     let admin_cleanup = Arc::new(admin_cleanup::AdminCleanup::from_env(&admin_url)?);
@@ -519,8 +606,10 @@ async fn run_collect(
         &deck_manifest,
         call_timeout_seconds,
         game_timeout_seconds,
-    )?;
+    )?
+    .with_report_games(report_games);
     let initial_summary = sched.summarize()?;
+    let seats_the_house = sched.seats_the_house();
     let sched = Arc::new(Mutex::new(sched));
     let pacer = Arc::new(LaunchPacer::new(Duration::from_millis(launch_interval_ms)));
     let replay_sem = Arc::new(Semaphore::new(8));
@@ -586,38 +675,27 @@ async fn run_collect(
             // No serialised setup since the cutover: a teacher is two rows
             // in the database and its presence socket, with no password to
             // hash at the gateway.
-            if assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c) {
+            let halted = || assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c);
+            let Some(mut account) =
+                slot_account(&own_c, &gw_c, slot_id, Sits::Model, &halted, &drain_c).await?
+            else {
                 return Ok(());
-            }
-            let mut account = None;
-            for attempt in 1..=3 {
-                if assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c) {
-                    return Ok(());
-                }
-                match SlotAccount::init(&own_c, &gw_c, slot_id).await {
-                    Ok(initialized) => {
-                        account = Some(initialized);
-                        break;
-                    }
+            };
+            // The house sits in an account of its own, named for it, where
+            // a pairing seats it (`table::run_attempt`).
+            let mut house = None;
+            if seats_the_house {
+                match slot_account(&own_c, &gw_c, slot_id, Sits::House, &halted, &drain_c).await {
+                    Ok(Some(made)) => house = Some(made),
+                    Ok(None) => return account.shutdown().await,
                     Err(error) => {
-                        eprintln!("[slot {slot_id:02}] account init attempt {attempt}/3 failed: {error:#}");
-                        let retry_safe = table::account_init_retry_safe(&error);
-                        if !retry_safe {
-                            drain_c.store(true, Ordering::SeqCst);
+                        if let Err(cleanup) = account.shutdown().await {
+                            eprintln!("[slot {slot_id:02}] account cleanup failed: {cleanup:#}");
                         }
-                        if attempt == 3 || !retry_safe {
-                            return Err(error).context(format!("slot {slot_id:02} account initialization failed at attempt {attempt}; retries exhausted or cleanup unproved"));
-                        }
-                        for _ in 0..attempt * 10 {
-                            if assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c) {
-                                return Ok(());
-                            }
-                            tokio::time::sleep(Duration::from_millis(100)).await;
-                        }
+                        return Err(error);
                     }
                 }
             }
-            let mut account = account.context("Account initialization exhausted without a result")?;
             let mut worker_error = None;
             let mut consecutive_failures = 0_usize;
             while !assignment_halted(&stop_c, &drain_c, &stop_file_c, &drain_file_c) {
@@ -655,9 +733,17 @@ async fn run_collect(
                     assignment.models[1],
                 );
                 let t0 = Instant::now();
+                // The house's account hosts where the house plays chair 0,
+                // and joins chair 1 where it plays that.
+                let (host, chair1_house) = match (assignment.house_seat(), house.as_mut()) {
+                    (Some(0), Some(house)) => (house, None),
+                    (Some(_), house) => (&mut account, house),
+                    (None, _) => (&mut account, None),
+                };
                 let attempt_res = run_attempt(
                     &assignment,
-                    &mut account,
+                    host,
+                    chair1_house,
                     &seat_c,
                     &gw_bin_c,
                     &db_c,
@@ -800,10 +886,12 @@ async fn run_collect(
                     tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             }
-            if let Err(error) = account.shutdown().await {
-                eprintln!("[slot {slot_id:02}] account cleanup failed: {error:#}");
-                drain_c.store(true, Ordering::SeqCst);
-                worker_error = Some(error);
+            for account in std::iter::once(&mut account).chain(house.as_mut()) {
+                if let Err(error) = account.shutdown().await {
+                    eprintln!("[slot {slot_id:02}] account cleanup failed: {error:#}");
+                    drain_c.store(true, Ordering::SeqCst);
+                    worker_error = Some(error);
+                }
             }
             match worker_error {
                 Some(error) => Err(error),
@@ -932,6 +1020,23 @@ mod startup_tests {
             ["PATH", "HOME", "USER", "LANG", "LD_LIBRARY_PATH"]
                 .iter()
                 .any(|name| *key == std::ffi::OsStr::new(name))
+        }));
+    }
+
+    #[test]
+    fn only_the_feedback_variables_reach_the_gateway_beside_its_own() {
+        let mut command = isolated_command(Path::new("baylee-gateway"));
+        forward_feedback(&mut command);
+        let names: Vec<_> = command
+            .as_std()
+            .get_envs()
+            .map(|(key, _)| key.to_string_lossy().into_owned())
+            .collect();
+        assert!(names.iter().all(|name| {
+            ["PATH", "HOME", "USER", "LANG", "LD_LIBRARY_PATH"]
+                .iter()
+                .chain(&FEEDBACK_ENV)
+                .any(|allowed| name == allowed)
         }));
     }
 

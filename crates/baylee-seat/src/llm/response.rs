@@ -2,8 +2,16 @@
 
 use super::{AnswerMode, Decision, Menu, Read, Reply, Stop};
 
-/// Reads a reply's first `decide` or `concede` call against `menu`.
-pub(super) fn read(reply: &Reply, menu: &Menu, mode: AnswerMode) -> Result<Read, String> {
+/// A reply's answer before it is read against its question: the decision,
+/// the call it came from, and the other calls, which are ignored.
+pub(super) struct Taken {
+    pub(super) decision: Decision,
+    call: Option<String>,
+    others: Vec<String>,
+}
+
+/// Takes a reply's first `decide` or `concede` call as a decision.
+pub(super) fn take(reply: &Reply, mode: AnswerMode) -> Result<Taken, String> {
     let mut chosen = None;
     let mut others = Vec::new();
     for call in &reply.calls {
@@ -30,11 +38,20 @@ pub(super) fn read(reply: &Reply, menu: &Menu, mode: AnswerMode) -> Result<Read,
     } else {
         Decision::from_decide(&call.input)?
     };
-    let resolved = menu.resolve(&decision)?;
-    Ok(Read {
-        resolved,
-        say: decision.say.filter(|s| !s.is_empty()),
+    Ok(Taken {
+        decision,
         call: (!call.id.is_empty()).then(|| call.id.clone()),
         others,
+    })
+}
+
+/// Reads a taken answer against `menu`.
+pub(super) fn read(taken: Taken, menu: &Menu) -> Result<Read, String> {
+    let resolved = menu.resolve(&taken.decision)?;
+    Ok(Read {
+        resolved,
+        say: taken.decision.say.filter(|s| !s.is_empty()),
+        call: taken.call,
+        others: taken.others,
     })
 }

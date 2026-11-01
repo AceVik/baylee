@@ -14,7 +14,8 @@
 //! their own admin tokens.
 //!
 //! The account is what registration made before the cutover: an `llmt…`
-//! username by the protocol's rule, `LLM-teacher-<slot>`, no address, no
+//! username by the protocol's rule, a display name that says what plays its
+//! chair ([`Sits`]), no address, no
 //! closed-beta key, English, and the tag the database hands out, so the
 //! official export sees and anonymises it as it did. Its password hash is
 //! random bytes in the hash's shape: there is no password, and no route
@@ -41,6 +42,28 @@ const SESSION_TTL: time::Duration = time::Duration::hours(12);
 /// [`OwnDatabase::prove`], so nothing writes a teacher anywhere else.
 pub struct OwnDatabase {
     db: DatabaseConnection,
+}
+
+/// What a slot's account seats, and so what it is called: a chair an
+/// account holds is called by the account, and a seat bridge plays only a
+/// chair called what plays it (`baylee_seat::Disclosure`). A language model
+/// sits as `LLM-teacher-<slot>`; the house of a pairing's `house:<level>`
+/// as `HOUSE-bench-<slot>`, since a chair ticket seats only a language
+/// model, so the house always sits in an account's own chair.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Sits {
+    Model,
+    House,
+}
+
+impl Sits {
+    /// The account's display name in slot `slot_id`.
+    pub fn display_name(self, slot_id: usize) -> String {
+        match self {
+            Self::Model => format!("{}teacher-{slot_id}", baylee_seat::Disclosure::Llm.prefix()),
+            Self::House => format!("{}bench-{slot_id}", baylee_seat::Disclosure::House.prefix()),
+        }
+    }
 }
 
 /// A teacher account written into an [`OwnDatabase`], and its session's
@@ -72,11 +95,11 @@ impl OwnDatabase {
         Ok(Self { db })
     }
 
-    /// Writes slot `slot_id`'s teacher account and a session for it.
+    /// Writes slot `slot_id`'s account that seats `sits` and a session for it.
     ///
     /// # Errors
     /// Randomness or the database failing; nothing is left half-written.
-    pub async fn teacher(&self, slot_id: usize) -> anyhow::Result<Teacher> {
+    pub async fn teacher(&self, slot_id: usize, sits: Sits) -> anyhow::Result<Teacher> {
         let name = baylee_protocol::names::username(&account_username(uuid::Uuid::now_v7()))
             .map_err(|fault| anyhow!("Teacher username refused by the rule: {fault:?}"))?;
         let mut secret = [0_u8; 32];
@@ -91,7 +114,7 @@ impl OwnDatabase {
             email: Set(None),
             username: Set(Some(name.shown)),
             username_key: Set(Some(name.key)),
-            display_name: Set(format!("LLM-teacher-{slot_id}")),
+            display_name: Set(sits.display_name(slot_id)),
             tag: NotSet,
             password_hash: Set(Some(inert_hash()?)),
             created_at: Set(now),

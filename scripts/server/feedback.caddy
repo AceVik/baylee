@@ -1,0 +1,14 @@
+# The feedback service's site (docs/feedback.md §"Running it"). Every route
+# needs a token except the public ones the snippet passes on first
+# (scripts/server/feedback-direct.caddy). No access log.
+#
+# Install (as root): `install -m644 scripts/server/feedback.caddy
+# /etc/caddy/sites/feedback.caddy`, the snippet as its header says, then
+# `caddy validate --config /etc/caddy/Caddyfile` and `systemctl reload caddy`.
+feedback.baylee.acevik.de, feedback.baylee.app {
+	encode zstd gzip
+	import /etc/caddy/baylee-feedback-direct.caddy
+	handle {
+		reverse_proxy 127.0.0.1:28780
+	}
+}

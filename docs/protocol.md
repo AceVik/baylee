@@ -1899,7 +1899,9 @@ bound.
   them. Two readers a route reaches: `POST /reports`, for a player who sat
   at the game, which passes it to the feedback service, or files it with
   Baylee Central where `BAYLEE_REPORTS_TO=central` (`docs/feedback.md`),
-  through `records::for_seated`; and a replay job (§"Replays"), which hands
+  through `records::for_seated` (and `POST …/chair/report`, for a host's
+  seat bridge, the one game its seat token opens, through
+  `records::for_delegate`); and a replay job (§"Replays"), which hands
   it only to an engine on the engine link through `records::for_projection`
   after the route found the account's seat. A replay is a projection, never
   the record.
@@ -3030,10 +3032,10 @@ the bridge as its first stdin line, never an argument, and logs it nowhere.
   none), or `unavailable` (the seat agent has no key store). Never the key.
 - `caps`, `max_games`: absent = none. `spent` is the profile's own spend
   book for the current (UTC) day and month.
-- `diverts`: the fallback a new game of this profile starts on now
-  (§"A fallback profile"), absent otherwise. While it is set the profile is
-  reported `available` with no `until_unix`, its `games` and `max_games`
-  still its own.
+- `diverts`: the fallback a new game of this profile starts on now, the
+  first available of its chain (§"A fallback profile"), absent otherwise.
+  While it is set the profile is reported `available` with no
+  `until_unix`, its `games` and `max_games` still its own.
 
 **A profile's definition** (`profile_write.definition`, and as reported):
 
@@ -3050,7 +3052,8 @@ key-shaped value in any field); `max_games`, `caps`, `canary` and
 `fallback` are each optional and off when absent; `label` and `vendor` are
 1–40 characters with no control character (`vendor` is what the room shows
 as "game data goes to …"); `fallback` is another profile id of the same
-seat agent (§"A fallback profile").
+seat agent, or a list of them in the order they take over (§"A fallback
+profile").
 
 ### Which profiles a player sees: `GET /lobby/llm-profiles`
 
@@ -3197,49 +3200,62 @@ environment; the seat agent writes it into its key store
 
 ### A fallback profile
 
-Owner, 13.10.2026: the house plays a hosted chair only in an emergency. A
-profile's definition may name a **fallback**, another profile of the same
-seat agent; both play a model behind an API, and both name the same
-`vendor` (case aside), because the room shows the ordered profile's vendor
-as where the game data goes, and the fallback plays on in that chair.
+Owner, 13.10.2026: the house plays a hosted chair only in an emergency;
+owner, 31.10.2026: a game stays playable when a quota or a subscription
+runs out, on the same model elsewhere first and then on the next most
+suitable one. A profile's definition may name **fallbacks**, other
+profiles of the same seat agent: one id (`"fallback": "sonnet-backup"`,
+as it always could) or a list in the order they take over (`"fallback":
+["opus-api", "sonnet-api"]`). The profile plays a model behind an API or
+an agent CLI; each fallback plays a model behind an API, and names the
+same `vendor` (case aside), because the room shows the ordered profile's
+vendor as where the game data goes, and a fallback plays on in that chair.
 
 - **Checked by the seat agent** at every write and at start
   (`definition_fault`, `definitions_fault`), answered `400` with its
-  sentence: not the profile itself, a valid id, not beside an agent CLI
-  profile, not a profile that plays an agent CLI, not one of another
-  vendor. A fallback no profile of the seat agent has yet is accepted (it
-  may be written next) and is no fallback until it is; at a game a missing,
-  switched-off or unfit fallback is none, and the seat agent's log says so.
-  The fallback's own `fallback` is never followed.
-- **During a game.** The chair's bridge holds the fallback in reserve
-  (`--fallback-profile`, its own settings file and spend book): when the
-  model cannot answer, because its provider says it is rate limited or
-  busy (HTTP 429, or the error code `rate_limited` or `busy`) or because it
-  failed otherwise (a 5xx such as `502 server_error`, the network), the
-  question is asked of the fallback at once and the fallback plays the
-  rest of the game, reserved under its own caps and declared to the table
-  (§"Who answers a seat, as it says"). It never hands back. A question the
-  model declines stays the house's, and the fallback stands by. Where it
-  cannot take over (its book refuses, no key), the house answers, as
-  without one. Only a limit is reported to the seat agent as one (the
-  bridge's `the primary is rate limited` line), so only a limit holds the
-  profile back from new games. `docs/llm-seat.md` §"A fallback profile".
+  sentence: valid ids, not the profile itself, none named twice, none
+  that plays an agent CLI, none of another vendor, and none written into
+  the profile's own settings (`profile.fallback`; the definition names
+  them). A fallback no profile of the seat agent has yet is accepted (it
+  may be written next) and is no fallback until it is; at a game a
+  missing, switched-off or unfit fallback is left out of the chain, and
+  the seat agent's log says so. A fallback's own `fallback` is never
+  followed.
+- **During a game.** The chair's bridge holds the chain in reserve (a
+  `--fallback-profile` each, in order, each with its own settings file and
+  spend book): when the model playing cannot answer, because its provider
+  says it is rate limited, busy or out of its quota (HTTP 429, the error
+  code `rate_limited` or `busy`, an agent CLI's spent subscription) or
+  because it failed otherwise (a 5xx such as `502 server_error`, the
+  network, a CLI process that died), the question is asked of the next
+  fallback at once and that fallback plays on, reserved under its own caps
+  and declared to the table (§"Who answers a seat, as it says"), until it
+  cannot answer either and the next one takes over. It never hands back. A
+  question a model declines stays the house's, and the chain stands by. A
+  fallback that cannot take over (its book refuses, no key) is passed over
+  for the next; past the end of the chain the house answers, as without
+  one. Only a limit is reported to the seat agent as one (the bridge's
+  `the primary is rate limited` line for the profile, `the fallback <id>
+  is rate limited` for a fallback that took over), so only a limit holds
+  that profile back from new games. `docs/llm-seat.md` §"A fallback
+  profile".
 - **At the start of a game.** While the profile is not `available`, for
   any reason (owner, 13.10.2026: it is to run steadily): at its
   `max_games`, limited (a cap of its book, or a provider's limit its check
   or a bridge reported), failing its check, signed out, being checked or
-  switched off, and the fallback is `available`, the seat agent starts a new
-  game on the fallback outright, for the whole game, and reports the
-  profile `available` with `diverts: "<fallback>"`; the gateway's pick takes
-  such a profile at its bound (the seat agent holds the fallback's), and a
-  start the fallback cannot take after all is `failed` as any busy one. The
-  game counts in the fallback's `games`, its chair keeps the ordered
-  profile's name (`LLM-<label>`), and the order, its status and the room's
-  `hosted` entry are the ordered profile's: the player ordered it and sees
-  it.
+  switched off, and one of its fallbacks is `available`, the seat agent
+  starts a new game outright on the first of the chain that is, for the
+  whole game, with the fallbacks after it standing by, and reports the
+  profile `available` with `diverts: "<fallback>"`; the gateway's pick
+  takes such a profile at its bound (the seat agent holds the fallback's),
+  and a start the fallback cannot take after all is `failed` as any busy
+  one. The game counts in that fallback's `games`, its chair keeps the
+  ordered profile's name (`LLM-<label>`), and the order, its status and
+  the room's `hosted` entry are the ordered profile's: the player ordered
+  it and sees it.
 - **Who may.** §"Who may seat which model" is asked of the ordered profile
-  only. Its fallback is the operator's choice and plays for anyone who may
-  seat the profile; the fallback's own policy governs ordering the
+  only. Its fallbacks are the operator's choice and play for anyone who
+  may seat the profile; a fallback's own policy governs ordering that
   fallback itself.
 
 ## Friends and chat (beta.8)
@@ -4318,6 +4334,7 @@ needs no account at all (`crates/baylee-gateway/src/chair.rs`):
 | its mind answered its check | `POST /lobby/games/{id}/chair/ready` `{ready?}`, `Authorization: Bearer <seat token>` | `204`; `403` for a person's chair (they say ready with their session) |
 | is the game on | `GET /lobby/games/{id}/chair`, `Authorization: Bearer <seat token>` | `{game_id, seat, state, decide_secs, ready}`; `401` once the token opens nothing (the host took the chair back, or left) |
 | give the chair back before the game | `POST /lobby/games/{id}/chair/leave`, `Authorization: Bearer <seat token>` | `204`; `403` for a person's chair |
+| send its game's bug report | `POST /lobby/games/{id}/chair/report`, the body `POST /reports` takes, `Authorization: Bearer <seat token>` | `201 {report_id}`; `403` for a person's chair (they report with their session), `400` for a `game_id` of another game or a `local_record`, `409` once the chair has sent one; as `POST /reports` otherwise (`docs/feedback.md`) |
 
 A chair ticket is the same kind of secret as a socket's (§"Opening a
 socket: tickets"), in a store of its own:
@@ -4379,6 +4396,18 @@ arranging it (`POST …/seats/{seat}` with a `kind`), which ends its seat
 token; a host who leaves the room or deletes its account takes every chair
 it handed out with it. A rematch room copies no delegate: the chair waits
 open, on its side, for the host to seat another.
+
+**Its report.** The bridge has no session, so its language model's bug
+report about the game goes on its seat token (`…/chair/report`, owner,
+31.10.2026, `report::post_chair_report`): about this game only (a
+`game_id` empty or this one; the gateway files it under this one), with
+no `local_record`, once a chair a game (`Delegate::reported`, given back
+when the feedback service did not take it), for as long as the room is
+in the lobby (an hour after the game ends). The gateway passes it on as
+it does a player's, under the pseudonym of the host who answers for the
+chair and against the host's 64 an hour, with this game's record, read
+for the chair that played it (`records::for_delegate`: the token's game,
+its chair and its host), never another table's.
 
 **What the record says.** `game_record_seat` carries `delegated_by` beside
 `account_id` (migration `m20261006_000013_delegated_seats`): a delegate's

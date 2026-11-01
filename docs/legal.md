@@ -375,6 +375,25 @@ below remain the basis for runtime card images and finishes.
    above allows that one term and no other, so a lasting stamp, a keyword
    for instance, is still refused there. A keyword lasts as long as the
    keyword, so its border stays off the print (the shell's mask, above).
+
+   **A language-model seat asks Scryfall's API only for a profile that
+   says so** (31.10.2026, `docs/llm-seat.md` §"Reports and lookups"). A
+   seat's card lookups read this build's compiled Oracle first and its
+   gateway's catalog under its own session second; only a profile with
+   `"lookup": "scryfall"` asks `api.scryfall.com`, for a card's rulings and
+   for a card neither knows. It keeps the requirements recorded above: at
+   most ten requests a second (one at a time, 100 ms apart, for every
+   seat of this machine that keeps the same cache directory: its processes
+   take turns under a lock file there), what it fetched kept (a week, in
+   the user's cache directory,
+   for this machine's seats alone: no mirror, no proxy), and it names
+   itself (`User-Agent: baylee-seat/<version>`, `Accept:
+   application/json;q=0.9,*/*;q=0.8`). A request carries the card's name
+   and nothing about the game or the player; the rulings' address is
+   followed only on `api.scryfall.com`. The text a model is told names
+   Scryfall as its source. Scryfall's API documentation answered HTTP 403
+   to this check as well, so no newly verified wording is claimed here;
+   the headers are the project's brief.
 4. **Privacy:** self-hosted; minimal account data; account deletion
    endpoint (`DELETE /account`, `docs/protocol.md` §"Deleting an account
    (#292)"); no tracking.

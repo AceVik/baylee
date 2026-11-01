@@ -20,6 +20,7 @@ import {
   api,
   DONE_STATUSES,
   filterQuery,
+  isSourceName,
   OPEN_STATUSES,
   PAGE_SIZE,
   PAGE_SIZES,
@@ -1002,16 +1003,22 @@ export function ReportList({ search, lang = "en", me = "" }: { search: string; l
                           {report.source !== null && (
                             <>
                               {" "}
-                              <button
-                                type="button"
-                                className="tag link"
-                                title={t(lang, "rep.sourceTitle")}
-                                onClick={() => {
-                                  set({ source: report.source ?? undefined });
-                                }}
-                              >
-                                {report.source}
-                              </button>
+                              {isSourceName(report.source) ? (
+                                <button
+                                  type="button"
+                                  className="tag link"
+                                  title={t(lang, "rep.sourceTitle")}
+                                  onClick={() => {
+                                    set({ source: report.source ?? undefined });
+                                  }}
+                                >
+                                  {report.source}
+                                </button>
+                              ) : (
+                                <span className="tag" title={t(lang, "rep.sourceTitle")}>
+                                  {report.source}
+                                </span>
+                              )}
                             </>
                           )}
                         </td>

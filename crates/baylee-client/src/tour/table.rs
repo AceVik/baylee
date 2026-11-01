@@ -164,6 +164,12 @@ pub(super) fn tours(
         desk.stash = None;
         desk.run = None;
         desk.start(run);
+        // Started under the settings (a practice game's tour turned on by
+        // Restart tours in Display): parked from its first frame, not the
+        // next, or its bubble draws and holds the keys for one.
+        if covered {
+            desk.parked = true;
+        }
         *watch = Watch::default();
         return;
     }
@@ -215,9 +221,11 @@ pub(super) fn tours(
     }
     // A tip: a just-in-time step whose anchor stands for the first time. It
     // queues behind a narrated step and steps in front of a try-it or a
-    // folded one (which comes back after it).
+    // folded one (which comes back after it). Not under the settings: its
+    // anchor is hidden there, and it waits until the table shows again.
     let tours = &settings.tours;
-    if !tours.tips
+    if covered
+        || !tours.tips
         || desk
             .run
             .as_ref()

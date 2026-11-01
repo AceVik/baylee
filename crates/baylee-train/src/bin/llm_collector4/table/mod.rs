@@ -18,13 +18,14 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
 
 use crate::audit::{
     audit_record, audit_record_setup, audit_tape, audit_transcript, completed_record_end,
-    export_game_record, ordered_attribution, read_jsonl, sha256_file, validate_technical_result,
-    write_atomic_json,
+    export_game_record, ordered_attribution, read_jsonl, sha256_file, transcript_fallbacks,
+    validate_technical_result, write_atomic_json,
 };
 use crate::schedule::{
-    Assignment, DeckInventory, collector_room_setup, derive_cli_decks, parse_deck_inventory,
+    Assignment, Chain, DeckInventory, collector_room_setup, derive_cli_decks, house_level,
+    parse_deck_inventory, requested_chain,
 };
-use crate::teacher::OwnDatabase;
+use crate::teacher::{OwnDatabase, Sits};
 use baylee_db::sea_orm::DatabaseConnection;
 
 pub fn gateway_endpoint(base: &str) -> anyhow::Result<()> {
@@ -329,12 +330,14 @@ impl Drop for Presence {
     }
 }
 
-/// Dedicated per-slot host account and cached uploaded deck IDs.
+/// A slot's account (its teacher, or its house: [`Sits`]) and cached uploaded deck IDs.
 pub struct SlotAccount {
     pub client: GatewayClient,
     pub token: String,
     pub presence: Presence,
     pub uploaded_decks: BTreeMap<String, String>,
+    /// What its chair seats, which its name says.
+    pub sits: Sits,
     room_closed: bool,
 }
 
@@ -389,14 +392,20 @@ async fn delete_owned_account(client: &GatewayClient, token: &str) -> anyhow::Re
 }
 
 impl SlotAccount {
-    /// The slot's teacher, written into the collector's own gateway's
-    /// database ([`crate::teacher`]) and present in the lobby at `gateway`.
-    /// The presence socket's ticket is the first call with its session, and
-    /// what binds `gateway` to that database: a gateway on another database
-    /// does not know the session, and the teacher is deleted again.
-    pub async fn init(own: &OwnDatabase, gateway: &str, slot_id: usize) -> anyhow::Result<Self> {
+    /// The slot's account that seats `sits`, written into the collector's
+    /// own gateway's database ([`crate::teacher`]) and present in the lobby
+    /// at `gateway`. The presence socket's ticket is the first call with its
+    /// session, and what binds `gateway` to that database: a gateway on
+    /// another database does not know the session, and the teacher is
+    /// deleted again.
+    pub async fn init(
+        own: &OwnDatabase,
+        gateway: &str,
+        slot_id: usize,
+        sits: Sits,
+    ) -> anyhow::Result<Self> {
         let client = GatewayClient::new(gateway, slot_id);
-        let teacher = own.teacher(slot_id).await?;
+        let teacher = own.teacher(slot_id, sits).await?;
         let presence = match Presence::connect(&client, &teacher.token).await {
             Ok(presence) => presence,
             Err(error) => {
@@ -415,6 +424,7 @@ impl SlotAccount {
             token: teacher.token,
             presence,
             uploaded_decks: BTreeMap::new(),
+            sits,
             room_closed: true,
         })
     }
@@ -468,51 +478,144 @@ pub struct SeatProcessGroup {
     diag_task: Option<JoinHandle<()>>,
 }
 
-impl SeatProcessGroup {
-    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
-    pub fn spawn(
-        seat_bin: &Path,
-        game_id: &str,
-        seat: usize,
-        gateway: &str,
-        profile: &str,
-        profiles_config: &Path,
-        ledger: &Path,
-        deck_path: &Path,
-        think_secs: u64,
-        transcripts_dir: &Path,
-        work_dir: &Path,
-    ) -> anyhow::Result<Self> {
-        let mut cmd = Command::new(seat_bin);
+/// The variable an API profile reads its key from; `None` for an agent CLI,
+/// which signs in by itself.
+fn profile_key_env(profiles_config: &Path, profile: &str) -> anyhow::Result<Option<String>> {
+    let config: Value = serde_json::from_slice(&std::fs::read(profiles_config)?)?;
+    let entry = &config["profiles"][profile];
+    let default = match entry["provider"].as_str() {
+        Some("cli") => return Ok(None),
+        Some("openai") => "BAYLEE_LLM_API_KEY",
+        Some("anthropic") => "ANTHROPIC_API_KEY",
+        other => bail!("profile {profile} has no known provider: {other:?}"),
+    };
+    Ok(Some(
+        entry["key_env"].as_str().unwrap_or(default).to_owned(),
+    ))
+}
+
+/// The variables a seat's bridge reads its keys from: each API profile's
+/// of the chain it plays (`profile`, then its `fallbacks`), each once.
+fn chain_key_envs(
+    profiles_config: &Path,
+    profile: &str,
+    fallbacks: &[String],
+) -> anyhow::Result<Vec<String>> {
+    let mut names: Vec<String> = Vec::new();
+    for named in std::iter::once(profile).chain(fallbacks.iter().map(String::as_str)) {
+        if let Some(name) = profile_key_env(profiles_config, named)?
+            && !names.contains(&name)
+        {
+            names.push(name);
+        }
+    }
+    Ok(names)
+}
+
+/// The last lines a bridge wrote to stderr, for its `seatN-diagnostics.json`:
+/// its last line is why it stopped (`Error: …`), the one thing that says
+/// why a seat's transport exited. Each is cut short, and one shaped like a
+/// key is never kept (`baylee_protocol::mind::shaped_like_a_key`).
+#[derive(Default)]
+struct StderrTail {
+    lines: std::collections::VecDeque<String>,
+}
+
+impl StderrTail {
+    /// The most lines kept.
+    const LINES: usize = 20;
+    /// The most characters kept of one line.
+    const CHARS: usize = 500;
+
+    fn push(&mut self, line: &str) {
+        let kept = if baylee_protocol::mind::shaped_like_a_key(line) {
+            "[a line shaped like a key, not kept]".to_owned()
+        } else {
+            line.chars().take(Self::CHARS).collect()
+        };
+        if self.lines.len() == Self::LINES {
+            self.lines.pop_front();
+        }
+        self.lines.push_back(kept);
+    }
+}
+
+/// One seat's bridge, as `baylee-seat join` is told it.
+pub struct SeatLaunch<'a> {
+    pub seat_bin: &'a Path,
+    pub game_id: &'a str,
+    pub seat: usize,
+    pub gateway: &'a str,
+    /// The pairing entry the seat plays: a profile of `profiles_config`, or
+    /// `house:<level>` for the house, which reads no profile, key or spend
+    /// book ([`house_level`]).
+    pub profile: &'a str,
+    /// The fallbacks the profile names, in the order they take over: each
+    /// a `--fallback-profile` of the same profiles file and spend book.
+    pub fallbacks: &'a [String],
+    pub profiles_config: &'a Path,
+    pub ledger: &'a Path,
+    pub deck_path: &'a Path,
+    pub think_secs: u64,
+    pub transcripts_dir: &'a Path,
+    pub work_dir: &'a Path,
+    pub send_reports: bool,
+}
+
+impl SeatLaunch<'_> {
+    /// The command that starts the bridge, its environment cleared to the
+    /// variables it needs and the key variable of every API profile of its
+    /// chain, read through `env`, never any other key. The house plays at
+    /// its level with no profile, so it reserves nothing and reads no key.
+    fn command(&self, env: &dyn Fn(&str) -> Option<String>) -> anyhow::Result<Command> {
+        let seat = self.seat;
+        let house = house_level(self.profile);
+        let mut cmd = Command::new(self.seat_bin);
         cmd.arg("join")
-            .arg(game_id)
+            .arg(self.game_id)
             .arg("--gateway")
-            .arg(gateway)
+            .arg(self.gateway)
             .arg("--chair")
             .arg(seat.to_string())
-            .arg("--tethered")
-            .arg("--profile")
-            .arg(profile)
-            .arg("--config")
-            .arg(profiles_config)
-            .arg("--ledger")
-            .arg(ledger)
-            .arg("--deck")
-            .arg(deck_path)
+            .arg("--tethered");
+        if let Some(level) = house {
+            cmd.arg("--mind").arg("house").arg("--level").arg(level);
+        } else {
+            // The house a model falls back to plays sharp.
+            cmd.arg("--profile")
+                .arg(self.profile)
+                .arg("--config")
+                .arg(self.profiles_config)
+                .arg("--ledger")
+                .arg(self.ledger)
+                .arg("--level")
+                .arg("sharp");
+            // Named explicitly, as the request froze them: each in the
+            // profiles file and the slot's spend book, as the profile is.
+            for fallback in self.fallbacks {
+                cmd.arg("--fallback-profile").arg(fallback);
+            }
+        }
+        cmd.arg("--deck")
+            .arg(self.deck_path)
             .arg("--think-secs")
-            .arg(think_secs.to_string())
-            .arg("--level")
-            .arg("sharp")
+            .arg(self.think_secs.to_string())
             .arg("--transcripts")
-            .arg(transcripts_dir)
+            .arg(self.transcripts_dir)
             .arg("--name")
             .arg(format!("teacher-{seat}"))
-            .arg(if seat == 0 {
+            // Chair 0 is its host's own; so is the house's chair 1, which
+            // its account joined, since a chair ticket seats only a
+            // language model (`run_attempt`).
+            .arg(if seat == 0 || house.is_some() {
                 "--host-chair"
             } else {
                 "--chair-ticket"
             });
-        cmd.current_dir(work_dir)
+        if !self.send_reports {
+            cmd.arg("--no-send-reports");
+        }
+        cmd.current_dir(self.work_dir)
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -532,8 +635,18 @@ impl SeatProcessGroup {
             "DBUS_SESSION_BUS_ADDRESS",
             "CODEX_HOME",
         ] {
-            if let Ok(val) = std::env::var(key) {
+            if let Some(val) = env(key) {
                 cmd.env(key, val);
+            }
+        }
+        // An API profile's key, on a machine without a credential store, is
+        // read from its own variable (`docs/llm-seat.md` §"Where a key is
+        // kept"): forward exactly those of the chain, never any other key.
+        if house.is_none() {
+            for name in chain_key_envs(self.profiles_config, self.profile, self.fallbacks)? {
+                if let Some(val) = env(&name) {
+                    cmd.env(name, val);
+                }
             }
         }
         cmd.env("OMP_NUM_THREADS", "1")
@@ -542,6 +655,14 @@ impl SeatProcessGroup {
             .env("CUDA_VISIBLE_DEVICES", "")
             .env("BAYLEE_EP", "cpu")
             .env("RUST_BACKTRACE", "0");
+        Ok(cmd)
+    }
+}
+
+impl SeatProcessGroup {
+    pub fn spawn(launch: &SeatLaunch<'_>) -> anyhow::Result<Self> {
+        let seat = launch.seat;
+        let mut cmd = launch.command(&|key| std::env::var(key).ok())?;
 
         let child = cmd
             .spawn()
@@ -556,13 +677,14 @@ impl SeatProcessGroup {
             diag_task: None,
         };
         guard.stdin = guard.child.stdin.take();
-        let diag_path = work_dir.join(format!("seat{seat}-diagnostics.json"));
+        let diag_path = launch.work_dir.join(format!("seat{seat}-diagnostics.json"));
         let diag_task = guard.child.stderr.take().map(|stderr| {
             tokio::spawn(async move {
                 let mut reader = BufReader::new(stderr).lines();
                 let mut line_count = 0_u64;
                 let mut rate_limit_mentions = 0_u64;
                 let mut timeout_mentions = 0_u64;
+                let mut tail = StderrTail::default();
                 while let Ok(Some(line)) = reader.next_line().await {
                     line_count += 1;
                     let lower = line.to_ascii_lowercase();
@@ -572,6 +694,7 @@ impl SeatProcessGroup {
                     if lower.contains("timed out") || lower.contains("timeout") {
                         timeout_mentions += 1;
                     }
+                    tail.push(&line);
                 }
                 let _ = write_atomic_json(
                     &diag_path,
@@ -579,6 +702,7 @@ impl SeatProcessGroup {
                         "stderr_lines": line_count,
                         "rate_limit_mentions": rate_limit_mentions,
                         "timeout_mentions": timeout_mentions,
+                        "stderr_tail": tail.lines,
                     }),
                 );
             })
@@ -644,6 +768,29 @@ impl Drop for SeatProcessGroup {
     }
 }
 
+/// The rules or engine errors the seats' models reported in `game_id`
+/// (the transcripts' `reports.jsonl`, `docs/llm-protocol.md` §"Reports and
+/// lookups"), and per seat what became of its bug report to the gateway:
+/// its transcript's `llm_reports` line, `null` where it filed none.
+fn llm_reports(transcripts_dir: &Path, game_id: &str) -> (usize, Vec<Value>) {
+    let filed = read_jsonl(&transcripts_dir.join(baylee_seat::reports::FILE))
+        .unwrap_or_default()
+        .iter()
+        .filter(|row| row.get("game_id").and_then(Value::as_str) == Some(game_id))
+        .count();
+    let sent = [0_usize, 1_usize]
+        .iter()
+        .map(|seat| {
+            read_jsonl(&transcripts_dir.join(format!("{game_id}-seat{seat}.jsonl")))
+                .unwrap_or_default()
+                .into_iter()
+                .find_map(|row| row.get("llm_reports").cloned())
+                .unwrap_or(Value::Null)
+        })
+        .collect();
+    (filed, sent)
+}
+
 fn both_transcripts_over(out_dir: &Path, game_id: &str) -> bool {
     for seat in [0_usize, 1_usize] {
         let p = out_dir
@@ -662,14 +809,47 @@ fn both_transcripts_over(out_dir: &Path, game_id: &str) -> bool {
     true
 }
 
-/// Revalidate scheduler identities before any room can be opened.
+/// What a game's two seats were asked to play, as the pinned profiles file
+/// says it again at room creation ([`validate_profile_pins`]).
+struct Requested {
+    /// The pinned pairings file, where the request names one.
+    pairings: Option<PathBuf>,
+    /// Each seat's chain: the mind its profile declares, then its
+    /// fallbacks' in the order they take over.
+    chains: [Chain; 2],
+}
+
+impl Requested {
+    /// The minds each seat's profile declares.
+    fn minds(&self) -> [baylee_gamehost::record::Mind; 2] {
+        self.chains.clone().map(|chain| chain.mind)
+    }
+
+    /// The fallback profiles of each seat, in order.
+    fn fallback_profiles(&self) -> [Vec<String>; 2] {
+        self.chains.clone().map(|chain| chain.fallback_profiles())
+    }
+
+    /// The minds each seat's fallbacks declare, in order.
+    fn fallback_minds(&self) -> [Vec<baylee_gamehost::record::Mind>; 2] {
+        self.chains.clone().map(|chain| chain.fallback_minds())
+    }
+
+    /// Every mind each seat may declare, in the order it may.
+    fn declarable(&self) -> [Vec<baylee_gamehost::record::Mind>; 2] {
+        self.chains.clone().map(|chain| chain.minds())
+    }
+}
+
+/// Revalidate scheduler identities before any room can be opened: each
+/// seat's profile and the fallbacks it names, as the request froze them
+/// (`fallback_profiles`; none where an older request has no such field).
 fn validate_profile_pins(
     config: &Path,
     request: &Value,
     profiles: &[String; 2],
     models: &[String; 2],
-) -> anyhow::Result<(Option<PathBuf>, [baylee_gamehost::record::Mind; 2])> {
-    let mut expected_minds = Vec::with_capacity(2);
+) -> anyhow::Result<Requested> {
     let expected = request
         .get("profiles_config_sha256")
         .and_then(Value::as_str)
@@ -684,37 +864,33 @@ fn validate_profile_pins(
         ledger: None,
     };
     let settings = paths.load().map_err(anyhow::Error::msg)?;
+    let mut chains = Vec::with_capacity(2);
     for (seat, profile) in profiles.iter().enumerate() {
-        let plan = baylee_seat::config::plan(
-            None,
-            settings.as_ref(),
-            &paths,
-            Some(profile),
-            &baylee_seat::config::Overrides::default(),
-        )
-        .map_err(anyhow::Error::msg)?
-        .context("Requested profile has no model")?;
-        let declared = baylee_seat::declare::llm(&plan.settings);
+        let chain = requested_chain(settings.as_ref(), &paths, profile)?;
         ensure!(
-            declared.model == models[seat],
+            chain.model() == models[seat],
             "Requested profile/model mismatch for seat {seat}"
         );
+        let frozen = request
+            .get("fallback_profiles")
+            .and_then(|seats| seats.get(seat))
+            .cloned()
+            .unwrap_or_else(|| json!([]));
         ensure!(
-            baylee_protocol::mind::fault(&declared).is_none(),
-            "Invalid requested declared mind"
+            frozen == json!(chain.fallback_profiles()),
+            "Requested fallback chain mismatch for seat {seat}"
         );
-        expected_minds
-            .push(baylee_gamehost::record::Mind::from_wire(&declared).map_err(anyhow::Error::msg)?);
+        chains.push(chain);
     }
     ensure!(
         sha256_file(config)? == expected,
         "Profiles config changed while validating"
     );
-    let expected_minds: [baylee_gamehost::record::Mind; 2] = expected_minds
+    let chains: [Chain; 2] = chains
         .try_into()
         .map_err(|_| anyhow!("Expected two declared identities"))?;
     let source = request.get("pairings_file").filter(|v| !v.is_null());
-    if let Some(source) = source {
+    let pairings = if let Some(source) = source {
         let path = PathBuf::from(source.as_str().context("Invalid pairings path")?);
         let expected = request
             .get("pairings_sha256")
@@ -733,14 +909,15 @@ fn validate_profile_pins(
             sha256_file(&path)? == expected,
             "Pairings changed while validating"
         );
-        Ok((Some(path), expected_minds))
+        Some(path)
     } else {
         ensure!(
             request.get("pairings_sha256").is_none_or(Value::is_null),
             "Pairings pin has no file"
         );
-        Ok((None, expected_minds))
-    }
+        None
+    };
+    Ok(Requested { pairings, chains })
 }
 
 fn room_update(
@@ -812,11 +989,19 @@ fn confirm_terminal_closure(
     )
 }
 
-/// Run a single table attempt on `account`, writing all evidence into `assignment.attempt_dir`.
+/// Run a single table attempt, writing all evidence into `assignment.attempt_dir`.
+///
+/// `account` opens the room and holds chair 0: the slot's house account
+/// where seat 0 is the house (`house:<level>`), else its teacher. Chair 1 is
+/// a model's on `account`'s chair ticket, or, where seat 1 is the house,
+/// the chair `house` (the slot's house account) joins: a chair ticket seats
+/// only a language model (`LLM-…`), and a chair must be called what plays
+/// it, so the house always sits in a `HOUSE-…` account's own chair.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub async fn run_attempt(
     assignment: &Assignment,
     account: &mut SlotAccount,
+    mut house: Option<&mut SlotAccount>,
     seat_bin: &Path,
     gateway_bin: &Path,
     db: &DatabaseConnection,
@@ -891,12 +1076,27 @@ pub async fn run_attempt(
             .and_then(Value::as_str)
             .context("missing ledger")?,
     );
-    let (pairings_path, expected_minds) = validate_profile_pins(
+    let requested = validate_profile_pins(
         &profiles_config,
         &assignment.request,
         &assignment.profiles,
         &assignment.models,
     )?;
+    let sits = requested.chains.clone().map(|chain| {
+        if chain.is_house() {
+            Sits::House
+        } else {
+            Sits::Model
+        }
+    });
+    ensure!(
+        account.sits == sits[0],
+        "Chair 0's account is not named for what plays it"
+    );
+    ensure!(
+        house.as_ref().map(|house| house.sits) == (sits[1] == Sits::House).then_some(Sits::House),
+        "Chair 1 takes the slot's house account where the house plays it, and only there"
+    );
     let mut frozen_paths = vec![
         seat_bin.to_path_buf(),
         profiles_config.clone(),
@@ -905,8 +1105,8 @@ pub async fn run_attempt(
         derived_decks[0].clone(),
         derived_decks[1].clone(),
     ];
-    if let Some(path) = pairings_path {
-        frozen_paths.push(path);
+    if let Some(path) = &requested.pairings {
+        frozen_paths.push(path.clone());
     }
     if gateway_bin.is_file() {
         frozen_paths.push(gateway_bin.to_path_buf());
@@ -920,7 +1120,9 @@ pub async fn run_attempt(
         &json!({
             "sha256": input_pins,
             "requested_models": assignment.models,
-            "requested_minds": expected_minds,
+            "requested_minds": requested.minds(),
+            "requested_fallback_profiles": requested.fallback_profiles(),
+            "requested_fallbacks": requested.fallback_minds(),
             "requested_room_setup": room_setup,
             "policy_targets": "none_until_review",
             "ppo_eligible": false,
@@ -939,6 +1141,18 @@ pub async fn run_attempt(
     let host_deck_id = account
         .ensure_deck_uploaded(&assignment.decks[0].key, &inv0)
         .await?;
+    // The house brings its own deck to the chair its account joins.
+    let house_deck_id = match house.as_deref_mut() {
+        Some(house) => {
+            house.ensure_presence().await?;
+            Some(
+                house
+                    .ensure_deck_uploaded(&assignment.decks[1].key, &inv1)
+                    .await?,
+            )
+        }
+        None => None,
+    };
 
     // Pace room creation + chair 1 ticket redemption across all 50 slots.
     pacer.wait_turn().await;
@@ -1009,20 +1223,49 @@ pub async fn run_attempt(
         )?;
         set_phase("seating-models")?;
 
-        let ticket_resp = account
-            .client
-            .post_json(
-                &format!("/lobby/games/{game_id}/chairs/1/ticket"),
-                &json!({}),
-                Some(&account.token),
-                20,
-            )
-            .await?;
-        let chair1_ticket = ticket_resp
-            .get("ticket")
-            .and_then(Value::as_str)
-            .context("missing ticket from POST /chairs/1/ticket")?
-            .to_owned();
+        // Chair 1's first stdin line: the house account's own chair, which
+        // it joins, or a model's chair ticket from the host.
+        let secret1 = if let (Some(house), Some(deck_id)) = (house.as_deref_mut(), &house_deck_id) {
+            house.room_closed = false;
+            let joined = house
+                .client
+                .post_json(
+                    &format!("/lobby/games/{game_id}/join"),
+                    &json!({ "deck_id": deck_id, "seat": 1 }),
+                    Some(&house.token),
+                    20,
+                )
+                .await?;
+            ensure!(
+                joined.get("seat").and_then(Value::as_u64) == Some(1),
+                "The house account was not seated in chair 1"
+            );
+            let seat_token = joined
+                .get("seat_token")
+                .and_then(Value::as_str)
+                .context("missing seat_token from POST /join")?;
+            serde_json::to_string(&json!({
+                "game_id": game_id,
+                "seat": 1,
+                "seat_token": seat_token,
+                "session_token": house.token,
+            }))?
+        } else {
+            let ticket_resp = account
+                .client
+                .post_json(
+                    &format!("/lobby/games/{game_id}/chairs/1/ticket"),
+                    &json!({}),
+                    Some(&account.token),
+                    20,
+                )
+                .await?;
+            ticket_resp
+                .get("ticket")
+                .and_then(Value::as_str)
+                .context("missing ticket from POST /chairs/1/ticket")?
+                .to_owned()
+        };
 
         let transcripts_dir = out.join("transcripts");
         std::fs::create_dir_all(&transcripts_dir)?;
@@ -1044,37 +1287,29 @@ pub async fn run_attempt(
             "session_token": account.token,
         }))?;
 
-        let child0 = SeatProcessGroup::spawn(
+        let fallbacks = requested.fallback_profiles();
+        let launch = |seat: usize| SeatLaunch {
             seat_bin,
-            &game_id,
-            0,
-            account.client.base(),
-            &assignment.profiles[0],
-            &profiles_config,
-            &ledger,
-            &derived_decks[0],
+            game_id: &game_id,
+            seat,
+            gateway: account.client.base(),
+            profile: &assignment.profiles[seat],
+            fallbacks: &fallbacks[seat],
+            profiles_config: &profiles_config,
+            ledger: &ledger,
+            deck_path: &derived_decks[seat],
             think_secs,
-            &transcripts_dir,
-            out,
-        )?;
+            transcripts_dir: &transcripts_dir,
+            work_dir: out,
+            send_reports: assignment.send_reports,
+        };
+        let child0 = SeatProcessGroup::spawn(&launch(0))?;
         children.push(child0);
         children[0].deliver_secret(&secret0).await?;
 
-        let child1 = SeatProcessGroup::spawn(
-            seat_bin,
-            &game_id,
-            1,
-            account.client.base(),
-            &assignment.profiles[1],
-            &profiles_config,
-            &ledger,
-            &derived_decks[1],
-            think_secs,
-            &transcripts_dir,
-            out,
-        )?;
+        let child1 = SeatProcessGroup::spawn(&launch(1))?;
         children.push(child1);
-        children[1].deliver_secret(&chair1_ticket).await?;
+        children[1].deliver_secret(&secret1).await?;
 
         let mut started = false;
         let deadline = Instant::now() + Duration::from_secs(game_timeout_secs);
@@ -1182,7 +1417,7 @@ pub async fn run_attempt(
         // lifecycle independently before checking declared identity/provenance.
         confirm_terminal_closure(out, &record_path, &game_id, start_requested)?;
         account.room_closed = true;
-        let proof = audit_record(&record_path, &expected_minds)?;
+        let proof = audit_record(&record_path, &requested.declarable())?;
         let actual_setup = audit_record_setup(&record_path, &room_setup)?;
 
         let mut seats = Vec::with_capacity(2);
@@ -1206,7 +1441,9 @@ pub async fn run_attempt(
         }
         for seat in [0_usize, 1_usize] {
             let tr_path = transcripts_dir.join(format!("{game_id}-seat{seat}.jsonl"));
-            let (counts, limited) = audit_transcript(&tr_path, &proof.inputs[seat])?;
+            // A house seat's mind is the house: none of its answers is a model's.
+            let house_seat = requested.chains[seat].is_house();
+            let (counts, limited) = audit_transcript(&tr_path, &proof.inputs[seat], house_seat)?;
             quota |= limited;
             let mut src_counts = serde_json::Map::new();
             for v in &proof.inputs[seat] {
@@ -1218,12 +1455,14 @@ pub async fn run_attempt(
                 "seat": seat,
                 "model": assignment.models[seat],
                 "declared_mind_verified": true,
+                "declared_minds": proof.declared[seat],
+                "profile_fallbacks": transcript_fallbacks(&read_jsonl(&tr_path)?),
                 "transcript_answer_counts": counts,
                 "executed_input_sources": src_counts,
             }));
             artifacts.push(pin(&tr_path, &format!("transcript_seat{seat}"))?);
             let prov_path = out.join(format!("input-provenance-seat{seat}.json"));
-            let attr = ordered_attribution(&tr_path, &proof.inputs[seat])?;
+            let attr = ordered_attribution(&tr_path, &proof.inputs[seat], house_seat)?;
             write_atomic_json(&prov_path, &attr)?;
             artifacts.push(pin(&prov_path, &format!("executed_provenance_seat{seat}"))?);
         }
@@ -1283,6 +1522,7 @@ pub async fn run_attempt(
             );
         }
 
+        let (reported, report_submissions) = llm_reports(&transcripts_dir, &game_id);
         let result = json!({
             "schema_version": 1,
             "status": "complete",
@@ -1307,6 +1547,8 @@ pub async fn run_attempt(
             "policy_targets": "none_until_ordered_provenance_review",
             "provenance_scope": "Transcript counts are sends, not accepted-input labels; ordered companion preserves all compatible origins and ambiguity, fallback is never implicitly LLM. No targets or semantic strength filter.",
             "transport_binary_sha256": sha256_file(seat_bin)?,
+            "llm_reports": reported,
+            "llm_report_submissions": report_submissions,
         });
         Ok(result)
     };
@@ -1361,8 +1603,25 @@ pub async fn run_attempt(
     if run_res.is_ok() {
         account.room_closed = true;
     } else if !account.room_closed && !start_requested && cleanup_errors.is_empty() {
+        // The house's account stands up first: a room its host leaves
+        // passes to whoever still sits there rather than closing.
+        if let Some(house) = house.as_deref() {
+            let _ = house
+                .client
+                .post_json(
+                    &format!("/lobby/games/{game_id}/leave"),
+                    &json!({}),
+                    Some(&house.token),
+                    5,
+                )
+                .await;
+        }
         account.room_closed = close_unstarted_room(&account.client, &account.token, &game_id).await;
         waiting_cancelled = account.room_closed;
+    }
+    // The house's chair goes with the room it sits in.
+    if let Some(house) = house {
+        house.room_closed = account.room_closed;
     }
     if !cleanup_errors.is_empty() || !account.room_closed {
         if !account.room_closed {
@@ -1405,483 +1664,4 @@ pub async fn run_attempt(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::teacher::account_username;
-    use std::sync::Arc;
-    use tokio::net::TcpListener;
-
-    #[test]
-    fn credential_destination_requires_literal_loopback_without_url_secrets() {
-        for base in ["http://127.0.0.1:28768", "http://[::1]:28768"] {
-            gateway_endpoint(base).unwrap();
-        }
-        for base in [
-            "http://example.com:80",
-            "https://127.0.0.1:80",
-            "http://127.0.0.1:0",
-            "http://127.0.0.1:80/path",
-            "http://user:password@127.0.0.1:80",
-        ] {
-            assert!(gateway_endpoint(base).is_err());
-        }
-    }
-
-    #[tokio::test]
-    async fn authenticated_gateway_requests_never_follow_redirects() {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let destination = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let base = format!("http://{}", listener.local_addr().unwrap());
-        let target = format!("http://{}/unexpected", destination.local_addr().unwrap());
-        let server = tokio::spawn(async move {
-            let (socket, _) = listener.accept().await.unwrap();
-            let mut reader = BufReader::new(socket);
-            loop {
-                let mut line = String::new();
-                reader.read_line(&mut line).await.unwrap();
-                if line == "\r\n" {
-                    break;
-                }
-            }
-            reader.get_mut().write_all(format!("HTTP/1.1 307 Temporary Redirect\r\nLocation: {target}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").as_bytes()).await.unwrap();
-        });
-        assert!(
-            GatewayClient::new(&base, 0)
-                .get_json("/test", Some("fixture-token"), 1)
-                .await
-                .is_err()
-        );
-        server.await.unwrap();
-        assert!(
-            tokio::time::timeout(Duration::from_millis(50), destination.accept())
-                .await
-                .is_err()
-        );
-    }
-
-    #[test]
-    fn waiting_room_absence_requires_complete_empty_first_page() {
-        let valid = json!({"offset":0,"limit":100,"total":0,"games":[]});
-        assert!(complete_empty_lobby_page(&valid));
-        for key in ["offset", "limit", "total", "games"] {
-            let mut incomplete = valid.clone();
-            incomplete.as_object_mut().unwrap().remove(key);
-            assert!(!complete_empty_lobby_page(&incomplete));
-        }
-        for (key, value) in [
-            ("offset", json!(100)),
-            ("limit", json!(25)),
-            ("total", json!(1)),
-            ("total", json!("0")),
-            ("games", json!([{"id":"owned-game"}])),
-        ] {
-            let mut page = valid.clone();
-            page[key] = value;
-            assert!(!complete_empty_lobby_page(&page));
-        }
-    }
-
-    #[tokio::test]
-    async fn already_left_room_checks_listing_after_leave_refusal() {
-        use tokio::io::AsyncReadExt as _;
-        for (leave_status, listing_status, expected) in
-            [(404, 200, true), (409, 200, true), (404, 403, false)]
-        {
-            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-            let addr = listener.local_addr().unwrap();
-            let server = tokio::spawn(async move {
-                for (status, expected_request) in [
-                    (leave_status, "POST /lobby/games/owned-game/leave HTTP/1.1"),
-                    (
-                        listing_status,
-                        "GET /lobby/games?q=owned-game&offset=0&limit=100&waiting_only=false HTTP/1.1",
-                    ),
-                ] {
-                    let (tcp, _) = listener.accept().await.unwrap();
-                    let mut reader = BufReader::new(tcp);
-                    let mut first = String::new();
-                    reader.read_line(&mut first).await.unwrap();
-                    assert_eq!(first.trim_end(), expected_request);
-                    let mut content_length = 0;
-                    loop {
-                        let mut line = String::new();
-                        reader.read_line(&mut line).await.unwrap();
-                        if line == "\r\n" {
-                            break;
-                        }
-                        if let Some(value) =
-                            line.to_ascii_lowercase().strip_prefix("content-length:")
-                        {
-                            content_length = value.trim().parse::<usize>().unwrap();
-                        }
-                    }
-                    reader
-                        .read_exact(&mut vec![0; content_length])
-                        .await
-                        .unwrap();
-                    let body = r#"{"offset":0,"limit":100,"total":0,"games":[]}"#;
-                    let response = format!(
-                        "HTTP/1.1 {status} Test\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
-                        body.len()
-                    );
-                    reader
-                        .get_mut()
-                        .write_all(response.as_bytes())
-                        .await
-                        .unwrap();
-                }
-            });
-            let client = GatewayClient::new(&format!("http://{addr}"), 0);
-            assert_eq!(
-                close_unstarted_room(&client, "test-session", "owned-game").await,
-                expected
-            );
-            server.await.unwrap();
-        }
-    }
-
-    #[tokio::test]
-    #[ignore = "requires explicit private gateway; creates one waiting room, no model or engine"]
-    async fn live_setup_only_configures_twenty_life_and_deletes_owned_room_and_account()
-    -> anyhow::Result<()> {
-        let gateway = std::env::var("BAYLEE_COLLECTOR_SETUP_TEST_GATEWAY")
-            .context("Set BAYLEE_COLLECTOR_SETUP_TEST_GATEWAY to an authorized private gateway")?;
-        let authority = gateway
-            .strip_prefix("http://")
-            .context("Setup test requires loopback HTTP")?;
-        crate::private_bind(authority)?;
-        // The gateway's admin listener and database, which the teacher is
-        // written into once the gateway proved them its own.
-        let admin = crate::admin_cleanup::AdminCleanup::from_env(
-            &std::env::var("BAYLEE_COLLECTOR_SETUP_TEST_ADMIN").context(
-                "Set BAYLEE_COLLECTOR_SETUP_TEST_ADMIN to that gateway's admin listener",
-            )?,
-        )?;
-        let database = std::env::var("BAYLEE_COLLECTOR_SETUP_TEST_DATABASE")
-            .context("Set BAYLEE_COLLECTOR_SETUP_TEST_DATABASE to that gateway's database")?;
-        let own = crate::teacher::OwnDatabase::prove(&admin, baylee_db::open(&database, 2).await?)
-            .await?;
-        let mut account = SlotAccount::init(&own, &gateway, 0).await?;
-        let mut owned_room = None;
-        let result: anyhow::Result<()> = async {
-            let grant = account
-                .client
-                .post_json(
-                    "/lobby/games",
-                    &json!({
-                        "deck_id":"", "mode":"open", "seats":2,
-                        "name":"Collector setup-only verification", "allow_spectators":false,
-                    }),
-                    Some(&account.token),
-                    10,
-                )
-                .await?;
-            let game = grant
-                .get("game_id")
-                .and_then(Value::as_str)
-                .context("Missing owned setup-test room id")?
-                .to_owned();
-            owned_room = Some(game.clone());
-            account.room_closed = false;
-            let setup = collector_room_setup(["Constructed", "Constructed"])?;
-            let listing = account
-                .client
-                .post_json(
-                    &format!("/lobby/games/{game}/configure"),
-                    &serde_json::to_value(room_update(0, &setup))?,
-                    Some(&account.token),
-                    10,
-                )
-                .await?;
-            verify_configured_setup(&listing, &game, &setup)?;
-            Ok(())
-        }
-        .await;
-        let cleanup: anyhow::Result<()> = async {
-            if let Some(game) = owned_room {
-                account
-                    .client
-                    .post_json(
-                        &format!("/lobby/games/{game}/leave"),
-                        &json!({}),
-                        Some(&account.token),
-                        10,
-                    )
-                    .await?;
-                let listing = account
-                    .client
-                    .get_json(
-                        &format!("/lobby/games?q={game}&limit=100&waiting_only=false"),
-                        Some(&account.token),
-                        10,
-                    )
-                    .await?;
-                ensure!(
-                    listing
-                        .get("games")
-                        .and_then(Value::as_array)
-                        .is_some_and(Vec::is_empty),
-                    "Owned setup-test room closure unconfirmed"
-                );
-                account.room_closed = true;
-            }
-            account.shutdown().await
-        }
-        .await;
-        if cleanup.is_err() {
-            account.presence.close().await;
-        }
-        cleanup.context("Setup-only test cleanup failed")?;
-        result
-    }
-
-    #[test]
-    fn configure_request_roundtrips_and_refuses_gateway_default_setup() {
-        let setup = collector_room_setup(["Constructed", "Constructed"]).unwrap();
-        let request = serde_json::to_value(room_update(4, &setup)).unwrap();
-        let body: baylee_core::preset::RoomUpdate =
-            serde_json::from_value(request.clone()).unwrap();
-        assert_eq!(body.chairs, 2);
-        assert_eq!(
-            (body.setup.starting_life, body.setup.free_mulligans),
-            (20, 0)
-        );
-        let confirmed = json!({"games":[{"id":"game", "setup":request["setup"]}]});
-        assert!(verify_configured_setup(&confirmed, "game", &setup).is_ok());
-        let ignored =
-            json!({"games":[{"id":"game", "setup":baylee_core::preset::RoomSetup::default()}]});
-        assert!(verify_configured_setup(&ignored, "game", &setup).is_err());
-        assert!(verify_configured_setup(&json!({"games":[]}), "game", &setup).is_err());
-    }
-
-    #[test]
-    fn exited_seats_without_gameover_fail_before_absent_room_can_continue() {
-        assert!(!owned_seats_finished(true, false, false).unwrap());
-        assert!(owned_seats_finished(true, true, true).unwrap());
-        assert!(owned_seats_finished(true, true, false).is_err());
-        assert!(owned_seats_finished(false, true, true).is_err());
-    }
-
-    #[test]
-    fn official_end_proves_closure_without_gameover_but_not_admission() {
-        let dir = crate::audit::tests::TestDir::new("end-without-over");
-        let out = dir.path();
-        let record = out.join("official.jsonl");
-        let expected = crate::audit::tests::codex_identity();
-        crate::audit::tests::write_identity_record(&record, &expected);
-        assert!(!both_transcripts_over(out, "game"));
-        confirm_terminal_closure(out, &record, "game", true).unwrap();
-        let room: Value =
-            serde_json::from_slice(&std::fs::read(out.join("room-state.json")).unwrap()).unwrap();
-        assert_eq!(room["closure_verified"], true);
-        let proof = audit_record(&record, &[expected.clone(), expected]).unwrap();
-        assert!(audit_transcript(&out.join("missing-seat.jsonl"), &proof.inputs[0]).is_err());
-        assert!(!out.join("technical-result.json").exists());
-        assert!(!out.join("receipt.json").exists());
-    }
-
-    #[test]
-    fn absent_terminal_end_cannot_mark_unknown_room_closed() {
-        let dir = crate::audit::tests::TestDir::new("missing-end");
-        let out = dir.path();
-        let record = out.join("incomplete.jsonl");
-        write_atomic_json(
-            &out.join("room-state.json"),
-            &json!({"status":"unknown", "closure_verified":false}),
-        )
-        .unwrap();
-        std::fs::write(&record, "{\"kind\":\"header\"}\n").unwrap();
-        assert!(confirm_terminal_closure(out, &record, "game", true).is_err());
-        let room: Value =
-            serde_json::from_slice(&std::fs::read(out.join("room-state.json")).unwrap()).unwrap();
-        assert_eq!(room["status"], "unknown");
-        assert_eq!(room["closure_verified"], false);
-    }
-
-    #[test]
-    fn completed_invalid_identity_proves_closure_but_never_creates_admission() {
-        let dir = crate::audit::tests::TestDir::new("closed-not-admitted");
-        let out = dir.path();
-        let record = out.join("record.jsonl");
-        let expected = crate::audit::tests::codex_identity();
-        let mut spoof = expected.clone();
-        spoof.provider = "agy".into();
-        crate::audit::tests::write_identity_record(&record, &spoof);
-        std::fs::create_dir(out.join("transcripts")).unwrap();
-        for seat in 0..2 {
-            std::fs::write(
-                out.join(format!("transcripts/game-seat{seat}.jsonl")),
-                "{\"event\":\"over\"}\n",
-            )
-            .unwrap();
-        }
-        confirm_terminal_closure(out, &record, "game", true).unwrap();
-        let room: Value =
-            serde_json::from_slice(&std::fs::read(out.join("room-state.json")).unwrap()).unwrap();
-        assert_eq!(room["status"], "closed");
-        assert_eq!(room["closure_verified"], true);
-        assert!(audit_record(&record, &[expected.clone(), expected]).is_err());
-        assert!(!out.join("technical-result.json").exists());
-        assert!(!out.join("receipt.json").exists());
-        // A correctly declared completed game still fails admission if its
-        // accepted input has no matching ordered transcript send.
-        let expected = crate::audit::tests::codex_identity();
-        crate::audit::tests::write_identity_record(&record, &expected);
-        let proof = audit_record(&record, &[expected.clone(), expected]).unwrap();
-        assert!(
-            ordered_attribution(&out.join("transcripts/game-seat0.jsonl"), &proof.inputs[0])
-                .is_err()
-        );
-        assert!(!out.join("technical-result.json").exists());
-        std::fs::write(&record, "{\"kind\":\"header\"}\n").unwrap();
-        assert!(confirm_terminal_closure(out, &record, "game", true).is_err());
-    }
-
-    #[test]
-    fn preopen_pins_reject_changes_and_model_mismatch() {
-        let dir = crate::audit::tests::TestDir::new("preopen-pins");
-        let config = dir.path().join("profiles.json");
-        let pairings = dir.path().join("pairings.json");
-        write_atomic_json(
-            &config,
-            &json!({"profiles": {
-                "terra": {"provider":"cli", "model":"codex:gpt-6.1-terra", "effort":"low", "game_tokens":100_000}
-            }}),
-        )
-        .unwrap();
-        write_atomic_json(&pairings, &json!([["terra", "terra"]])).unwrap();
-        let profiles = ["terra".to_owned(), "terra".to_owned()];
-        let models = ["gpt-6.1-terra".to_owned(), "gpt-6.1-terra".to_owned()];
-        let request = json!({
-            "profiles_config_sha256":sha256_file(&config).unwrap(),
-            "pairings_file":pairings, "pairings_sha256":sha256_file(&pairings).unwrap(),
-        });
-        let (_, expected_minds) =
-            validate_profile_pins(&config, &request, &profiles, &models).unwrap();
-        assert_eq!(expected_minds[0], crate::audit::tests::codex_identity());
-        assert_eq!(expected_minds[1], crate::audit::tests::codex_identity());
-        let wrong = ["wrong-model".to_owned(), models[1].clone()];
-        assert!(validate_profile_pins(&config, &request, &profiles, &wrong).is_err());
-        std::fs::write(&pairings, "[]").unwrap();
-        assert!(validate_profile_pins(&config, &request, &profiles, &models).is_err());
-        write_atomic_json(&pairings, &json!([["terra", "terra"]])).unwrap();
-        std::fs::write(&config, "{}").unwrap();
-        assert!(validate_profile_pins(&config, &request, &profiles, &models).is_err());
-    }
-
-    #[test]
-    fn account_retry_requires_proven_cleanup() {
-        assert!(!account_init_retry_safe(&anyhow!(
-            "ambiguous login failure"
-        )));
-        assert!(!account_init_retry_safe(&anyhow!(
-            "account deletion failed"
-        )));
-        let cleaned = anyhow::Error::new(CleanAccountInitFailure(anyhow!("presence failed")))
-            .context("slot initialization");
-        assert!(account_init_retry_safe(&cleaned));
-    }
-
-    #[test]
-    fn ephemeral_username_satisfies_gateway_contract() {
-        // Slot IDs never enter the credential name, including large slot IDs.
-        for _ in 0..128 {
-            let name = account_username(uuid::Uuid::now_v7());
-            assert_eq!(name.len(), baylee_protocol::names::USERNAME_MAX);
-            assert!(baylee_protocol::names::username(&name).is_ok());
-        }
-    }
-
-    #[tokio::test]
-    async fn tether_stays_open_until_explicit_cleanup() {
-        let child = Command::new("/bin/sh")
-            .args(["-c", "read first; read second"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .process_group(0)
-            .spawn()
-            .unwrap();
-        let pgid = i32::try_from(child.id().unwrap()).unwrap();
-        let mut guard = SeatProcessGroup {
-            child,
-            stdin: None,
-            pgid,
-            diag_task: None,
-        };
-        guard.stdin = guard.child.stdin.take();
-        guard.deliver_secret("placeholder").await.unwrap();
-        tokio::time::sleep(Duration::from_millis(30)).await;
-        assert!(
-            guard.try_wait().unwrap().is_none(),
-            "tether EOF must not end a seated bridge"
-        );
-        guard.terminate().await.unwrap();
-        assert!(!guard.group_alive());
-    }
-
-    #[tokio::test]
-    async fn owned_child_is_killed_and_reaped_before_cleanup_succeeds() {
-        let child = Command::new("/bin/sleep")
-            .arg("60")
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .process_group(0)
-            .spawn()
-            .unwrap();
-        let pgid = i32::try_from(child.id().unwrap()).unwrap();
-        let mut guard = SeatProcessGroup {
-            child,
-            stdin: None,
-            pgid,
-            diag_task: None,
-        };
-        guard.terminate().await.unwrap();
-        assert!(!guard.group_alive());
-        assert!(guard.try_wait().unwrap().is_some());
-    }
-
-    #[tokio::test]
-    async fn launch_pacer_spaces_concurrent_callers() {
-        let pacer = Arc::new(LaunchPacer::new(Duration::from_millis(40)));
-        let t0 = Instant::now();
-        let mut handles = Vec::new();
-        for _ in 0..3 {
-            let p = Arc::clone(&pacer);
-            handles.push(tokio::spawn(async move {
-                p.wait_turn().await;
-                Instant::now()
-            }));
-        }
-        let mut stamps = Vec::new();
-        for h in handles {
-            stamps.push(h.await.unwrap());
-        }
-        stamps.sort();
-        assert!(stamps[2].duration_since(t0) >= Duration::from_millis(75));
-    }
-
-    #[tokio::test]
-    async fn presence_answers_websocket_pings_and_closes_cleanly() {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        let server = tokio::spawn(async move {
-            let (tcp, _) = listener.accept().await.unwrap();
-            let mut ws = tokio_tungstenite::accept_async(tcp).await.unwrap();
-            ws.send(Message::Ping(vec![9, 8, 7].into())).await.unwrap();
-            let reply = tokio::time::timeout(Duration::from_secs(2), ws.next())
-                .await
-                .unwrap()
-                .unwrap()
-                .unwrap();
-            assert_eq!(reply, Message::Pong(vec![9, 8, 7].into()));
-        });
-        let mut presence = Presence::connect_with_ticket(&format!("http://{addr}"), "test-ticket")
-            .await
-            .unwrap();
-        assert!(presence.check().is_ok());
-        server.await.unwrap();
-        presence.close().await;
-    }
-}
+mod tests;

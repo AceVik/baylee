@@ -14,14 +14,10 @@
 #   install -m644 scripts/server/feedback-direct.caddy /etc/caddy/baylee-feedback-direct.caddy
 #
 # and in the service's site block (a file under /etc/caddy/sites/), import
-# it before any catch-all, so the two never both answer one request:
-#
-#   feedback.baylee.app {
-#       import /etc/caddy/baylee-feedback-direct.caddy
-#       handle {
-#           respond 404
-#       }
-#   }
+# it before any catch-all, so the two never both answer one request. The
+# official site (scripts/server/feedback.caddy) passes everything else to
+# the service, whose other routes each need a token; a site that shows
+# nothing more answers `respond 404` in that catch-all instead.
 #
 # then `caddy validate --config /etc/caddy/Caddyfile` and
 # `systemctl reload caddy`. The service needs FEEDBACK_DIRECT_KEY set (else
@@ -58,10 +54,11 @@ handle @baylee_contact {
 
 # A gateway's intake, public since 31.10.2026 so a gateway on another
 # machine reaches it (the trainer's collector, token name `collector`). The
-# service refuses anything but a gateway's intake token, and stops a body
-# past `MAX_INTAKE_BYTES` (a 64 MiB record in base64, 2 MiB of client
-# details and room: about 88 MiB); the proxy allows 512 MiB (owner,
-# 31.10.2026). The owner wants this route closed again later (#408).
+# service checks the gateway's intake token before it reads the body, and
+# stops a body past `MAX_INTAKE_BYTES` (a 64 MiB record in base64, 2 MiB of
+# client details and room: about 88 MiB); the proxy's 512 MiB (owner,
+# 31.10.2026) is a ceiling above that. The owner wants this route closed
+# again later (#408).
 @baylee_intake path /intake/reports
 handle @baylee_intake {
 	request_body {

@@ -38,9 +38,10 @@ fn complete_supported_decks_keep_counts_provenance_and_held_out_sideboards() -> 
     let main = json!([{"CardName":"forest","Count":24},{"CardName":"Example Spell","Count":36}]);
     archive(
         &source,
-        &json!({"Tournament":{"Date":"2026-10-28"},"Decks":[{"Player":"private gamer","Mainboard":main,"Sideboard":[{"CardName":"Held Card","Count":1}]},{"Mainboard":main,"Sideboard":[]},{"Mainboard":[{"CardName":"Forest","Count":60}]},{"Mainboard":[{"CardName":"not supported","Count":60}]},{"Mainboard":[{"CardName":"Forest","Count":-1}]}]}),
+        &json!({"Tournament":{"Date":"2026-10-28"},"Decks":[{"Player":"private gamer","Mainboard":main,"Sideboard":[{"CardName":"Held Card","Count":1}]},{"Mainboard":main,"Sideboard":[]},{"Mainboard":[{"CardName":"Forest","Count":60}]},{"Mainboard":[{"CardName":"not supported","Count":60}]},{"Mainboard":[{"CardName":"Forest","Count":-1}]},{"Mainboard":[{"CardName":"Forest","Count":56},{"CardName":"Gap One","Count":4}],"Sideboard":[{"CardName":"Gap Two","Count":2},{"CardName":"not supported","Count":1}]}]}),
     )?;
     let out = root.path().join("out");
+    let near = root.path().join("near-complete.json");
     let manifest = import(&Options {
         source,
         cards,
@@ -48,6 +49,7 @@ fn complete_supported_decks_keep_counts_provenance_and_held_out_sideboards() -> 
         max_per_format: 1000,
         similarity: 0.85,
         mainboard_only: false,
+        near_complete_out: Some(near.clone()),
     })?;
     let decks = manifest["decks"].as_array().unwrap();
     assert_eq!(decks.len(), 1);
@@ -65,14 +67,41 @@ fn complete_supported_decks_keep_counts_provenance_and_held_out_sideboards() -> 
     assert!(!content.contains("private gamer"));
     assert!(!serde_json::to_string(&manifest)?.contains("private gamer"));
     let report = files::read_json(&out.join("import-report.json"))?;
-    for key in [
-        "duplicate",
-        "all_basic_placeholder",
-        "unsupported_card",
-        "invalid_count",
-    ] {
+    for key in ["duplicate", "all_basic_placeholder", "invalid_count"] {
         assert_eq!(report["counts"][key], 1, "{key}");
     }
+    // Two lists the pool cannot play: one misses one card, the other three
+    // across mainboard and sideboard; both are near complete.
+    assert_eq!(report["counts"]["unsupported_card"], 2);
+    assert_eq!(report["missing_card_histogram"], json!({"1": 1, "3": 1}));
+    assert_eq!(
+        report["near_complete_unlocks"],
+        json!([["not supported", 2], ["Gap One", 1], ["Gap Two", 1]])
+    );
+    assert_eq!(
+        report["unsupported_card_lists"],
+        report["near_complete_unlocks"]
+    );
+    // Only the list of valid size is kept for substitution, unchanged, with
+    // every missing card named; the all-unsupported 60-card list is one card
+    // (60 copies) and passes too.
+    let near = files::read_json(&near)?;
+    assert_eq!(near["contract"], "mtgo_near_complete_v1");
+    let kept = near["decks"].as_array().unwrap();
+    assert_eq!(kept.len(), 2);
+    let gaps = kept
+        .iter()
+        .find(|deck| deck["missing"].as_array().unwrap().len() == 3)
+        .unwrap();
+    assert_eq!(gaps["main"], json!([["Forest", 56], ["Gap One", 4]]));
+    assert_eq!(
+        gaps["sideboard"],
+        json!([["Gap Two", 2], ["not supported", 1]])
+    );
+    assert_eq!(
+        gaps["missing"],
+        json!(["Gap One", "Gap Two", "not supported"])
+    );
     Ok(())
 }
 #[test]
@@ -95,6 +124,7 @@ fn unsupported_sideboard_rejects_whole_deck_unless_projection_is_explicit() -> R
             max_per_format: 1000,
             similarity: 0.85,
             mainboard_only: projection,
+            near_complete_out: None,
         })?;
         assert_eq!(
             manifest["decks"].as_array().unwrap().len(),
@@ -117,18 +147,21 @@ fn unknown_card_or_invalid_count_rejects_the_entire_multiset() {
             held: false,
         },
     )]);
-    assert!(matches!(
-        read_cards(
-            &json!([{"CardName":"Forest","Count":20},{"CardName":"unsupported","Count":4}]),
-            &lookup
-        ),
-        Err(CardError::Unsupported(_))
-    ));
+    let Ok(deck) = read_cards(
+        &json!([{"CardName":"Missing B","Count":4},{"CardName":"Forest","Count":20},
+            {"CardName":"Missing A","Count":4},{"CardName":"Missing B","Count":1}]),
+        &lookup,
+    ) else {
+        panic!("valid counts read");
+    };
+    assert_eq!(
+        deck.missing.into_iter().collect::<Vec<_>>(),
+        [("Missing A".to_owned(), 4), ("Missing B".to_owned(), 5)],
+        "every distinct missing card is named with its count, not only the first"
+    );
+    assert_eq!(deck.cards, BTreeMap::from([(7, 20)]));
     for count in [json!(-1), json!(true), json!(101)] {
-        assert!(matches!(
-            read_cards(&json!([{"CardName":"Forest","Count":count}]), &lookup),
-            Err(CardError::Invalid)
-        ));
+        assert!(read_cards(&json!([{"CardName":"Forest","Count":count}]), &lookup).is_err());
     }
 }
 

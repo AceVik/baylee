@@ -15,9 +15,10 @@ struct Args {
     /// Destination JSON, written only if it does not already exist.
     #[arg(long)]
     out: PathBuf,
-    /// Existing corpus, parsed by the real deck reader for duplicate checks.
+    /// Existing corpora, parsed by the real deck reader for duplicate checks;
+    /// repeat it to check new decks against several (training and test decks).
     #[arg(long)]
-    manifest: Option<PathBuf>,
+    manifest: Vec<PathBuf>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -37,8 +38,8 @@ fn main() -> anyhow::Result<()> {
         .collect();
     let mut existing_decks = Vec::new();
     let mut manifest_rejected = Vec::new();
-    if let Some(path) = args.manifest {
-        let manifest: serde_json::Value = serde_json::from_slice(&fs::read(path)?)?;
+    for manifest_path in &args.manifest {
+        let manifest: serde_json::Value = serde_json::from_slice(&fs::read(manifest_path)?)?;
         for entry in manifest["decks"]
             .as_array()
             .ok_or_else(|| anyhow::anyhow!("missing decks"))?
@@ -66,7 +67,7 @@ fn main() -> anyhow::Result<()> {
                 *main.entry(card.index.get()).or_default() += 1;
             }
             existing_decks.push(json!({
-                "id": key, "main": main, "split": entry["split"],
+                "id": key, "main": main, "split": entry["split"], "manifest": manifest_path,
                 "contains_held_out_cards": deck.cards().any(|card| held.contains(&card)),
                 "main_count": deck.deck.main.len(),
                 "sideboard_count": deck.deck.sideboard.len(),
