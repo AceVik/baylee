@@ -111,6 +111,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::RemoveSupertype(_)
         | Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture
         | Modifier::AnimateNoncreatureArtifact
+        | Modifier::CreatureWithManaValuePT
         | Modifier::RemoveType(_)
         | Modifier::AddSubtype(_)
         | Modifier::AllCreatureTypes
@@ -1573,6 +1574,7 @@ mod tests {
             Modifier::RemoveSupertype(SupertypeSet::SNOW),
             Modifier::AddType(TypeSet::ARTIFACT),
             Modifier::AnimateNoncreatureArtifact,
+            Modifier::CreatureWithManaValuePT,
             Modifier::AnimateNoncreatureArtifactWithoutAbilitiesUntilEndOfTurnAfterDeparture,
             Modifier::RemoveType(TypeSet::CREATURE),
             Modifier::AddSubtype(SubtypeId::new(1)),
@@ -1887,7 +1889,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            186,
+            187,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1977,7 +1979,9 @@ mod tests {
         // costs are six more rules-only modifiers. The requested-card batch
         // adds five more: counted entry counters, per-counter cost reduction,
         // filtered player protection and mana taxes on attacks and blocks.
-        assert_eq!((locking, all.len() - locking), (54, 132));
+        // Its review adds one characteristic modifier, Opalescence's
+        // creature with mana-value power and toughness.
+        assert_eq!((locking, all.len() - locking), (55, 132));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

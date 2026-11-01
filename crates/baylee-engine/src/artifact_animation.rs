@@ -17,9 +17,18 @@ pub(crate) const fn animates(modifier: Modifier) -> bool {
     matches!(modifier, Modifier::AnimateNoncreatureArtifact | SONG)
 }
 
+/// Whether an effect carries the objects it took in layer 4 into its later
+/// layers rather than asking its filter again there (CR 613.6). The two
+/// artifact animations do, and so does [`Modifier::CreatureWithManaValuePT`],
+/// which has no noncreature question but is still one effect across layers
+/// 4 and 7b.
+pub(crate) const fn carries_its_set(modifier: Modifier) -> bool {
+    animates(modifier) || matches!(modifier, Modifier::CreatureWithManaValuePT)
+}
+
 pub(crate) fn continues_in(modifier: Modifier, layer: Layer) -> bool {
     (layer == Layer::PtSet
-        && (animates(modifier) || modifier == Modifier::CopyLastExiledCreaturePTAndSubtypes))
+        && (carries_its_set(modifier) || modifier == Modifier::CopyLastExiledCreaturePTAndSubtypes))
         || (layer == Layer::Ability && modifier == SONG)
 }
 
