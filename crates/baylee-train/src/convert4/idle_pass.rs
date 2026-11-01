@@ -12,6 +12,7 @@ pub(super) fn is_idle_pass(pending: &Pending, view: &PlayerView, action: &Player
             if legal.lands.is_empty()
                 && legal.castable.is_empty()
                 && legal.suspendable.is_empty()
+                && legal.foretellable.is_empty()
                 && legal.payable.is_empty())
 }
 

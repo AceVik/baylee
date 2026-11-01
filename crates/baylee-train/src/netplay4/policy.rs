@@ -410,6 +410,8 @@ pub(super) fn sample_categorical(logits: &[f32], tau: f32, rng: &mut Rng) -> (us
 #[cfg(test)]
 mod payment_tests;
 #[cfg(test)]
+mod questions_tests;
+#[cfg(test)]
 mod tests;
 
 #[cfg(test)]

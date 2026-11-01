@@ -703,7 +703,10 @@ fn has_reachable_mana_sink(view: &PlayerView, legal: &LegalActions) -> bool {
     if is_waiting_for_main_phase_trigger_with_floating_mana(view, legal, pool_total) {
         return false;
     }
-    if !legal.suspendable.is_empty() || !legal.granted_actions.is_empty() {
+    if !legal.suspendable.is_empty()
+        || !legal.foretellable.is_empty()
+        || !legal.granted_actions.is_empty()
+    {
         return true;
     }
     let untapped_mana = untapped_mana_production(view, actor);
@@ -2581,6 +2584,7 @@ fn is_mana_ability_usable_now(
     if legal.castable.is_empty()
         && legal.payable.is_empty()
         && legal.suspendable.is_empty()
+        && legal.foretellable.is_empty()
         && view.owed.is_none()
     {
         if obj.types.contains(TypeSet::CREATURE) {

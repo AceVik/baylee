@@ -331,6 +331,14 @@ pub fn encode_state4(
     state
 }
 
+/// Entity feature 27: `legal` offers to cast `id`, or to exile it from hand
+/// by a special action for a later cast (suspend, foretell).
+pub(crate) fn offered_to_cast(legal: &LegalActions, id: ObjectId) -> bool {
+    legal.castable.contains(&id)
+        || legal.suspendable.contains(&id)
+        || legal.foretellable.contains(&id)
+}
+
 #[allow(
     clippy::too_many_lines,
     reason = "Contiguous versioned public-object feature layout"
@@ -380,7 +388,7 @@ fn push_public_object(
     if let Some(p) = pending {
         match p {
             Pending::Priority { legal, .. } => {
-                if legal.castable.contains(&obj.id) || legal.suspendable.contains(&obj.id) {
+                if offered_to_cast(legal, obj.id) {
                     f[27] = 1.0;
                 }
                 if legal.lands.contains(&obj.id) {
@@ -592,7 +600,7 @@ fn push_hand_object(
 
     // Check if castable or playable land in current Priority pending
     if let Some(Pending::Priority { legal, .. }) = pending {
-        if legal.castable.contains(&h_obj.id) || legal.suspendable.contains(&h_obj.id) {
+        if offered_to_cast(legal, h_obj.id) {
             f[27] = 1.0;
         }
         if legal.lands.contains(&h_obj.id) {

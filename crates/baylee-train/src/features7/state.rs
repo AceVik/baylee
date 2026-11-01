@@ -28,7 +28,7 @@ use crate::carddsl::UNKNOWN_CARD;
 use crate::features4::{
     ENTITY_TOKEN_OFFSET, EdgeRel4, EncodedState4, EntityZone4, KnownCardMemory4, MAX_EDGES,
     MAX_ENTITIES, MAX_SEATS, PendingKind4, SEAT_FEAT_WIDTH, SEAT_TOKEN_OFFSET, SeatKnowledge4,
-    abs_seat, pack_object_id, rel_seat,
+    abs_seat, offered_to_cast, pack_object_id, rel_seat,
 };
 use crate::features7::grouping::group_battlefield_permanents;
 
@@ -411,7 +411,7 @@ fn push_public_object7(
     if let Some(p) = pending {
         match p {
             Pending::Priority { legal, .. } => {
-                if legal.castable.contains(&obj.id) || legal.suspendable.contains(&obj.id) {
+                if offered_to_cast(legal, obj.id) {
                     f[27] = 1.0;
                 }
                 if legal.payable.contains(&obj.id) {
@@ -717,7 +717,7 @@ fn push_hand_object7(
     f[15] = raw_unit(rel_own as f32, 8.0);
 
     if let Some(Pending::Priority { legal, .. }) = pending {
-        if legal.castable.contains(&h_obj.id) || legal.suspendable.contains(&h_obj.id) {
+        if offered_to_cast(legal, h_obj.id) {
             f[27] = 1.0;
         }
         if legal.payable.contains(&h_obj.id) {

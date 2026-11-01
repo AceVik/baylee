@@ -1,4 +1,5 @@
-//! Encoders 4, 7, 8 and 9 held to one contract on real tables: the outputs
+//! Encoders 4, 7, 8 and 9 held to one contract on real tables: each answers
+//! the questions PR #410 added the same way ([`mechanics`]), and the outputs
 //! older datasets were built from stay byte for byte as they were
 //! ([`pins`]).
 //!
@@ -7,18 +8,20 @@
 //! in the view their runtime reads, so every test here runs each of them
 //! through [`Encoder`], with the view and the seat memory its runtime uses.
 
-use baylee_core::ids::{PlayerId, PrintRef};
+use baylee_core::ids::{ObjectId, PlayerId, PrintRef};
 use baylee_core::preset::{AIProfile, DeckEntry, FormatId, GamePreset};
-use baylee_engine::choice::Pending;
+use baylee_engine::choice::{Pending, PlayerAction, timeout_answer};
 use baylee_gamehost::Session;
-use baylee_view::PlayerView;
+use baylee_view::{Phase, PlayerView};
 
 use crate::features4::{
     EncodedCandidates4, EncodedState4, SeatKnowledge4, encode_candidates4, encode_state4,
 };
 use crate::features7::{encode_candidates7_grouped, encode_state7};
 
+mod mechanics;
 mod pins;
+pub(super) mod scenes;
 
 pub(super) const P0: PlayerId = PlayerId::new(0);
 pub(super) const P1: PlayerId = PlayerId::new(1);
@@ -41,6 +44,8 @@ pub(super) enum Encoder {
 }
 
 impl Encoder {
+    pub(super) const ALL: [Self; 4] = [Self::V4, Self::V7, Self::V8, Self::V9];
+
     /// The deciding view this encoder's runtime and converter read.
     pub(super) fn view_for(self, session: &Session, seat: PlayerId) -> (Pending, PlayerView) {
         match self {
@@ -147,4 +152,60 @@ impl Table {
         assert!(session.take_over(P1));
         Self { preset, session }
     }
+
+    /// Answers every question by its default (keep, pass, no attack, no
+    /// block) until `done` holds.
+    pub fn answer_until(&mut self, done: impl Fn(&Session) -> bool) {
+        for _ in 0..512 {
+            if done(&self.session) {
+                return;
+            }
+            let pending = self.session.pending().clone();
+            let seat = pending.asked().expect("a question is open");
+            let action =
+                timeout_answer(&pending).unwrap_or_else(|| panic!("no default for {pending:?}"));
+            self.session
+                .act(seat, action)
+                .expect("a default answer is legal");
+        }
+        panic!("the table never got there");
+    }
+
+    /// Answers by default until `seat` holds priority in its own main phase
+    /// with an empty stack.
+    pub fn reach_main(&mut self, seat: PlayerId) {
+        self.answer_until(|session| at_rest_in_main(session, seat));
+    }
+
+    /// Taps every land of `seat`'s that makes mana by its basic land type.
+    pub fn tap_lands(&mut self, seat: PlayerId) {
+        while let Pending::Priority { player, legal } = self.session.pending()
+            && *player == seat
+            && let Some(&source) = legal.mana_abilities.first()
+        {
+            self.session
+                .act(seat, PlayerAction::ActivateManaAbility { source })
+                .expect("an offered mana ability");
+        }
+    }
+
+    /// The object in `seat`'s hand printed with `name`.
+    pub fn in_hand(&self, seat: PlayerId, name: &str) -> ObjectId {
+        self.session
+            .observe_view(seat)
+            .hand
+            .iter()
+            .find(|card| card.name == name)
+            .unwrap_or_else(|| panic!("{name} is in seat {seat:?}'s hand"))
+            .id
+    }
+}
+
+/// `seat` holds priority on its own turn, in a main phase, over an empty stack.
+pub(super) fn at_rest_in_main(session: &Session, seat: PlayerId) -> bool {
+    let view = session.observe_view(seat);
+    view.active == seat
+        && matches!(view.phase, Phase::FirstMain | Phase::SecondMain)
+        && view.stack.is_empty()
+        && matches!(session.pending(), Pending::Priority { player, .. } if *player == seat)
 }

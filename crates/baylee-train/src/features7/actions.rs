@@ -64,6 +64,7 @@ pub fn encode_candidates7(
         + legal.lands.len()
         + legal.castable.len()
         + legal.suspendable.len()
+        + legal.foretellable.len()
         + legal.mana_abilities.len()
         + legal.abilities.len()
         + legal.granted_actions.len()
