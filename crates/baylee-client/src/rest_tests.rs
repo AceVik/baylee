@@ -173,3 +173,46 @@ fn a_resting_board_does_not_write_sheen_or_zone_watch() {
 fn track_proposals_does_not_write_the_duel_at_rest() {
     assert!(!writes_at_rest(table::track_proposals));
 }
+
+/// The settings over a table (`lobby::table_settings`), put away or
+/// standing: asking whether the menu asked for them, or whether `Esc` puts
+/// them away, writes neither the duel nor the lobby, whose change is a
+/// rebuilt settings screen.
+#[test]
+fn the_settings_over_a_table_write_nothing_at_rest() {
+    for standing in [false, true] {
+        let mut lobby = LobbyState::new();
+        if standing {
+            lobby::table_settings::stand_over_table(&mut lobby);
+        }
+        let mut app = App::new();
+        app.insert_resource(resting())
+            .insert_resource(lobby)
+            .init_resource::<ButtonInput<KeyCode>>()
+            .add_systems(
+                Update,
+                (
+                    lobby::table_settings::open_asked,
+                    lobby::table_settings::close_on_escape,
+                ),
+            );
+        app.update();
+        let tick = app.world().read_change_tick();
+        app.update();
+        let now = app.world().read_change_tick();
+        assert!(
+            !app.world()
+                .resource_ref::<Duel>()
+                .last_changed()
+                .is_newer_than(tick, now),
+            "standing {standing}: the duel was written at rest"
+        );
+        assert!(
+            !app.world()
+                .resource_ref::<LobbyState>()
+                .last_changed()
+                .is_newer_than(tick, now),
+            "standing {standing}: the lobby was written at rest"
+        );
+    }
+}

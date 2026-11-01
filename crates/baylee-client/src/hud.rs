@@ -456,6 +456,10 @@ pub enum MenuAction {
     CancelCast,
     /// Open the report form (#309), from the game menu.
     Report,
+    /// Stand the settings over the table (report of 30.10.2026), from the
+    /// game menu: the lobby draws them (`lobby::table_settings`); a client
+    /// seated straight into its game has no lobby, and its row is dead.
+    Settings,
     /// The guided tour from its first chapter (TOURS.md §1.7), from the
     /// game menu: a house game's; a networked table's row is dead.
     Tour,

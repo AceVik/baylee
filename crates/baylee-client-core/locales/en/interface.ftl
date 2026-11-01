@@ -6039,6 +6039,13 @@ TourMenuRow = Tour
 # The game menu's row at a networked table, where it is off.
 TourMenuRowAway = Tour (practice game only)
 
+# The game menu's row that stands the settings over the table.
+SettingsMenuRow = Settings
+
+# The same row in a client seated straight into its game, which has no
+# lobby to draw the settings.
+SettingsMenuRowAway = Settings (in the lobby only)
+
 # Settings › Display: the lobby & room tour.
 RowTourLobby = Lobby & room
 
@@ -6485,7 +6492,7 @@ TourT28Body = ? shows you every key that works at the table right now. F8 report
 TourT29Title = The menu
 
 # Tour step T29's words (TOURS.md §2).
-TourT29Body = The menu at the bottom right holds everything you need during a game: Offer a draw, Concede, Arrangement, Report a problem, Tour, Music, Priority sound, Card view and Table follows the turn. The other settings wait in the lobby.
+TourT29Body = The menu at the bottom right holds everything you need during a game: Offer a draw, Concede, Arrangement, Report a problem, Tour, Settings, Music, Priority sound, Card view and Table follows the turn. Settings opens the rest over the table.
 
 # Tour step T30's title (TOURS.md §2).
 TourT30Title = Conceding and the end

@@ -192,6 +192,9 @@ pub struct MenuRevision {
     arrangement: Option<baylee_client_core::tableview::Arrangement>,
     /// Whether this client hosts the game (a house game): the tour's row.
     house: bool,
+    /// Whether a lobby stands behind the table to draw the settings over
+    /// it: a client seated straight into its game has none.
+    settings: bool,
     /// Whether this client only watches: its way out is *Stop watching*.
     watching: bool,
     /// Whether the table is a replay: its way out is Leave replay.
@@ -315,6 +318,7 @@ pub fn sync_menu(
     update: Option<Res<crate::update::UpdateNotice>>,
     mut panel: Query<(Entity, Option<&Children>, &Visibility, &mut MenuZoom), With<MenuPanel>>,
     host: Option<Res<crate::InstalledHost>>,
+    lobby: Option<Res<crate::LobbyState>>,
 ) {
     let Ok((panel, standing, seen, mut fold)) = panel.single_mut() else {
         // No panel yet: the overlay has not built its root. The gate is left
@@ -340,6 +344,7 @@ pub fn sync_menu(
         house: host
             .as_deref()
             .is_some_and(|h| h.0.link() == crate::host::LinkState::Local),
+        settings: lobby.is_some(),
         watching: duel.watching,
         replay: duel.replay.is_some(),
         leaving: duel.leave_armed,
@@ -502,6 +507,20 @@ pub fn sync_menu(
         });
     }
     commands.entity(panel).add_child(tour);
+    // Every setting, over the table (`lobby::table_settings`): dead where
+    // no lobby stands behind it, and saying so.
+    let (words, weight) = if next.settings {
+        (Phrase::SettingsMenuRow, Weight::Secondary)
+    } else {
+        (Phrase::SettingsMenuRowAway, Weight::Dead)
+    };
+    let settings_row = answer(&mut commands, &fonts, words.text(lang), weight, None);
+    if next.settings {
+        commands.entity(settings_row).insert(MenuButton {
+            action: MenuAction::Settings,
+        });
+    }
+    commands.entity(panel).add_child(settings_row);
 
     let music = crate::music::controls(
         &mut commands,
@@ -676,6 +695,8 @@ mod tests {
                 Phrase::ReportButton,
                 Phrase::TourMenuRow,
                 Phrase::TourMenuRowAway,
+                Phrase::SettingsMenuRow,
+                Phrase::SettingsMenuRowAway,
             ]
             .iter()
             .map(|phrase| phrase.text(lang).to_string())

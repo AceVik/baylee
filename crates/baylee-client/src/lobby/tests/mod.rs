@@ -34,6 +34,7 @@ mod shortcuts;
 #[cfg(not(target_arch = "wasm32"))]
 mod shutdown;
 mod sign_in;
+mod table_settings;
 mod tables;
 mod transfer;
 

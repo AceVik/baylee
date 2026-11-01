@@ -8604,6 +8604,28 @@ screen, so `Enter` and `Space` press them. `baylee-tools shell settings`
 walks every section at the seven sizes in English and German with the
 kit's checks.
 
+**Over a table** (report of 30.10.2026): the game menu's *Settings* row
+(`MenuAction::Settings` → `Duel::settings_asked`) asks the lobby, which
+stands the same screen over the playing table in a root of its own
+(`lobby::table_settings`, `OverTable`; the lobby's own tree stays down).
+Its root lies over the HUD and under the screen's own popovers
+(`tokens::z::POPOVER - 2`), on a scrim the table shows dimly through, so
+a graphics knob turned there shows on the table; it is measured as the
+report form is (`ShellMetrics::under`), never scaled twice. Only what
+leaves the table where it is is offered (`Section::at_table`: Graphics,
+Audio, Display, Controls, Gameplay, Privacy): the account, the gateway,
+the language models and the updater stay in the lobby, and
+`LobbyState::set_settings_section` refuses them there, from the nav, the
+type-ahead or a search result alike. The lobby's clicks, typing, wheel,
+focus and the screen's key systems run for it
+(`table_settings::lobby_or_over_table`); the rest of the lobby does not.
+While it stands every key is its own (the table's `KeyClaims`); `Esc`
+empties the search, closes a sheet, then puts it away, taken off the
+keys before the table could hear it; Back does the same. The table being
+put down (finished, or left) puts it down with it, and the lobby comes
+back on its own screen. A client seated straight into its game has no
+lobby: the row is dead there and says so.
+
 ## The interface's own words
 
 Card text has been translated for as long as `/pool?lang=` existed — the
