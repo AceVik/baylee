@@ -269,9 +269,17 @@ active Central session per account. A successful replacement login atomically
 revokes previous Central sessions, tickets and gateway leases; failed login
 does not sign out the current device. Every authenticated gateway HTTP request
 checks its server-only lease with Central, without an authorization cache. Local
-activity cannot extend that lease's Central expiration. Idle lobby, chat, watch
-and game sockets recheck every five seconds and close when authorization fails;
-every received binary game frame is checked before forwarding to the engine.
+activity cannot extend that lease's Central expiration. Lobby, chat, watch
+and game sockets recheck every five seconds, whether or not they are used, and
+close when authorization fails. Every received binary game frame is forwarded
+only while its seat token is the chair's, and after a full check (the lease
+with Central) whenever the gateway itself has since withdrawn something of the
+seat's account: migrated, password changed or reset, banned, deleted. A
+withdrawal only Central knows of (a revoked lease, a newer login elsewhere), a
+lease or session that ran out, and a Central-bound session signed out reach a
+game socket at its next five-second check, so its frames can reach the engine
+for up to five seconds after; until 21.10.2026 every frame asked Central
+(protocol §"Once a socket is open").
 Already-authorized operations can finish concurrently with revocation. A seat
 capability is bound to the session that minted it and cannot inherit the new
 device's authorization when that device reclaims the seat.

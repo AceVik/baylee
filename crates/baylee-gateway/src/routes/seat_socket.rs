@@ -52,11 +52,17 @@ use ownership::{Connection, Ownership};
 /// and past that it is closed with 1008 and `too many frames`. Text frames
 /// are passed over. A socket that falls behind the engine is not dropped:
 /// the engine is asked to send it a fresh snapshot. A newer socket for the
-/// same chair replaces this one, which closes. The chair's authorization is
-/// checked again every 5 seconds and before each frame is forwarded, and
-/// the socket closes, with a close frame without a code, once it no longer
-/// holds (the seat token was replaced or ended, or the Central session
-/// behind it lapsed or was banned), once the engine's link ends, and at the
+/// same chair replaces this one, which closes. Before each frame is
+/// forwarded the seat token is checked, and the chair's whole
+/// authorization too when the gateway itself has withdrawn something of
+/// its account since the last check (moved to Baylee Central, password
+/// changed or reset, banned, deleted). The whole authorization is also
+/// checked every 5 seconds, so a Central session that lapsed, was signed
+/// out or was revoked at Central stops the chair's frames within 5 seconds
+/// (`docs/protocol.md`, Once a socket is open). The socket closes, with a
+/// close frame without a code, once it no longer holds (the seat token was
+/// replaced or ended, or the Central session behind it lapsed or was
+/// banned), once the engine's link ends, and at the
 /// first frame the client sends after the engine said the seat is out of
 /// the game. While a chair has no socket, its frames are dropped and the
 /// engine holds its place for the reconnect window (`docs/protocol.md`,
@@ -217,6 +223,58 @@ impl SeatAuthorization {
             None => false,
         }
     }
+
+    /// Whether `account` is the one this capability answers for: the
+    /// player's own, or the host's for a chair it handed to a seat bridge.
+    fn answers_for(&self, account: &str) -> bool {
+        self.account.as_deref() == Some(account)
+    }
+
+    /// Whether a frame read now may go on to the engine: at once, unless
+    /// the gateway withdrew something of this capability's account since
+    /// `departed` was last read, or lost count of what it withdrew; then as
+    /// [`Self::valid`] answers. Its seat token is `Ownership::send`'s to check.
+    async fn admits_frame(
+        &self,
+        departed: &mut tokio::sync::broadcast::Receiver<String>,
+        state: &Shared,
+        game: &str,
+        seat: usize,
+    ) -> bool {
+        !self.heard_withdrawal(departed) || self.valid(state, game, seat).await
+    }
+
+    /// Whether this capability outlives what `departed` just said: unchanged
+    /// when it named another account, else as [`Self::valid`] answers. A
+    /// closed channel can no longer say anything, and is taken for no.
+    async fn outlives(
+        &self,
+        gone: Result<String, RecvError>,
+        state: &Shared,
+        game: &str,
+        seat: usize,
+    ) -> bool {
+        match gone {
+            Ok(account) if !self.answers_for(&account) => true,
+            Ok(_) | Err(RecvError::Lagged(_)) => self.valid(state, game, seat).await,
+            Err(RecvError::Closed) => false,
+        }
+    }
+
+    /// Whether `departed` named this capability's account since it was last
+    /// read, or lost count. Reads only what is already there; never waits.
+    fn heard_withdrawal(&self, departed: &mut tokio::sync::broadcast::Receiver<String>) -> bool {
+        use tokio::sync::broadcast::error::TryRecvError;
+        let mut heard = false;
+        loop {
+            match departed.try_recv() {
+                Ok(account) => heard |= self.answers_for(&account),
+                Err(TryRecvError::Lagged(_)) => heard = true,
+                Err(TryRecvError::Empty) => return heard,
+                Err(TryRecvError::Closed) => return true,
+            }
+        }
+    }
 }
 
 /// A capability minted before migration cannot silently gain Central authorization.
@@ -328,6 +386,12 @@ pub(crate) const MAX_SEAT_FRAME: usize = 64 * 1024;
 /// the buffer's pages resident for every socket. A frame bigger than this
 /// is read in several calls.
 pub(crate) const SEAT_READ_BUFFER: usize = 8 << 10;
+
+/// How often an open seat socket checks its capability in full, whether or
+/// not it sends: the longest a withdrawal this gateway does not make itself
+/// (Central revoking a lease, a session running out) goes unheard by the
+/// socket. The lobby, watch and social sockets recheck on the same beat.
+const RECHECK: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// Waits until the game's engine is attached.
 pub(crate) async fn engine_ready(ready: &mut tokio::sync::watch::Receiver<bool>) -> bool {
@@ -510,6 +574,26 @@ pub(crate) async fn send_broadcast_batch(
 /// Ownership checks and synchronous engine enqueues share the lobby lock, so
 /// an old socket cannot act or detach after a replacement attaches. Network I/O
 /// and Central authorization always happen outside that critical section.
+///
+/// What a frame is authorized against (`docs/protocol.md` §"Once a socket
+/// is open"): the seat token on every frame, and the capability behind it
+/// in full when the socket opens, every [`RECHECK`], and before the next
+/// frame whenever `departed` names its account or lost count.
+///
+/// So no frame reaches the engine after its seat token went, or after a
+/// withdrawal this gateway made and named on `departed` (moved to Baylee
+/// Central, password changed or reset, banned, deleted). A withdrawal it
+/// does not make itself is heard only at the next full check, so frames
+/// still reach the engine for up to one [`RECHECK`] and the length of that
+/// check after it: a lease Central revoked (a newer login elsewhere, a ban
+/// at Central), a lease or session that ran out, a Central-bound session
+/// signed out (`POST /auth/logout` names nobody on `departed`), a change
+/// another process made in the database. And a frame already past its
+/// check when a withdrawal lands still goes on, as it always did. Until
+/// 21.10.2026 every frame was checked in full: one database query a frame,
+/// and for a Central-bound seat a call to Central besides, which held a
+/// flooded socket's reading below its allowance (#284) on a loaded machine.
+#[allow(clippy::too_many_lines)] // one select over all a seat socket waits on, read top to bottom
 async fn run_game_socket(
     state: Shared,
     game_id: String,
@@ -518,6 +602,8 @@ async fn run_game_socket(
     ownership: Ownership,
     mut socket: WebSocket,
 ) {
+    // Before the first full check, so nothing withdrawn after it is missed.
+    let mut departed = state.departed.subscribe();
     if !authorization.valid(&state, &game_id, seat).await {
         return;
     }
@@ -538,11 +624,16 @@ async fn run_game_socket(
     let opened = std::time::Instant::now();
     let mut meter = seatrate::Meter::new(opened);
     let mut allowance = seatrate::Allowance::new(opened, seatrate::RATE, seatrate::BURST);
-    let mut recheck = tokio::time::interval(std::time::Duration::from_secs(5));
+    let mut recheck = tokio::time::interval(RECHECK);
     loop {
         tokio::select! {
             _ = recheck.tick() => {
                 if !connection.active() || !authorization.valid(&state, &game_id, seat).await { break; }
+            }
+            // An idle socket hears a withdrawal at once too, rather than at
+            // the next recheck.
+            gone = departed.recv() => {
+                if !authorization.outlives(gone, &state, &game_id, seat).await { break; }
             }
             frame = socket.recv() => {
                 if let Some(Ok(_)) = &frame {
@@ -557,9 +648,16 @@ async fn run_game_socket(
                     // At most `MAX_SEAT_FRAME`: the socket refuses a bigger
                     // message before it is read (`game_ws`).
                     Some(Ok(Message::Binary(data))) => {
-                        // Every action is authorized after reception. Periodic checks
-                        // also close idle sockets, while no stale action reaches an engine.
-                        if !authorization.valid(&state, &game_id, seat).await { break; }
+                        // Every action is authorized after reception: its
+                        // seat token by `connection.send`, under the lobby
+                        // lock, and its capability in full first if the
+                        // gateway withdrew anything of its account since
+                        // the last check. Read here and not only in the
+                        // arm above, which `select!` may not have polled.
+                        // No stale action reaches an engine after a
+                        // withdrawal this gateway made; one it learns only
+                        // by asking leaves up to a `RECHECK` (see above).
+                        if !authorization.admits_frame(&mut departed, &state, &game_id, seat).await { break; }
                         let tagged = v1::envelope::Msg::SeatFrame(v1::SeatFrame {
                             seat: seat as u32,
                             envelope: data,
@@ -644,4 +742,44 @@ fn player_account(state: &Shared, game: &str, seat: usize) -> Option<String> {
         .get(seat)?
         .account_id
         .clone()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SeatAuthorization;
+    use tokio::sync::broadcast;
+
+    fn answering_for(account: &str) -> SeatAuthorization {
+        SeatAuthorization {
+            hash: "seat token hash".into(),
+            account: Some(account.into()),
+            session: None,
+        }
+    }
+
+    /// A frame waits for the full check only after the gateway withdrew
+    /// something of its own account, or lost count of what it withdrew;
+    /// every other frame goes on without asking the database.
+    #[test]
+    fn a_frame_waits_for_the_full_check_only_after_a_withdrawal_of_its_account() {
+        let (departed, mut heard) = broadcast::channel(4);
+        let seat = answering_for("me");
+        assert!(!seat.heard_withdrawal(&mut heard), "nothing said");
+        departed.send("someone else".to_owned()).unwrap();
+        assert!(!seat.heard_withdrawal(&mut heard), "another account");
+        departed.send("me".to_owned()).unwrap();
+        departed.send("someone else".to_owned()).unwrap();
+        assert!(seat.heard_withdrawal(&mut heard), "its own, among others");
+        assert!(!seat.heard_withdrawal(&mut heard), "and only once");
+        for _ in 0..5 {
+            departed.send("someone else".to_owned()).unwrap();
+        }
+        assert!(seat.heard_withdrawal(&mut heard), "lagged: it cannot tell");
+        assert!(!seat.heard_withdrawal(&mut heard), "caught up again");
+        drop(departed);
+        assert!(
+            seat.heard_withdrawal(&mut heard),
+            "a channel that can say nothing more"
+        );
+    }
 }

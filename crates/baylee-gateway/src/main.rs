@@ -132,9 +132,14 @@ struct AppState {
     /// for — so the socket re-renders the listing for its own reader rather
     /// than trying to broadcast one answer to everybody.
     lobby_changed: tokio::sync::broadcast::Sender<()>,
-    /// The ids of accounts just deleted (#292), for the lobby sockets
-    /// signed in as them to close. A lobby socket resolves its session once,
-    /// when it opens, so nothing else would tell it.
+    /// The ids of accounts something was just withdrawn from: deleted
+    /// (#292) or banned (`account::forget_accounts`), their sessions ended
+    /// by a password changed or reset (`moderation.rs`), moved to Baylee
+    /// Central (`central/routes.rs`). The lobby and social sockets signed in
+    /// as one close; a seat socket answering for one checks its capability
+    /// in full before its next frame reaches the engine
+    /// (`routes/seat_socket.rs`). A socket resolves its session when it
+    /// opens, so nothing else would tell it at once.
     departed: tokio::sync::broadcast::Sender<String>,
     /// The shared secret an agent proves itself with (`BAYLEE_AGENT_TOKEN`).
     ///

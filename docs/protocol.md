@@ -2432,6 +2432,43 @@ browser's history see. The client's own lobby never builds that URL; it
 hands the seat over in memory. Moving that handover off the address is not
 part of #294.
 
+### Once a socket is open
+
+A ticket says who may open a socket; what the socket may still do is
+asked again while it is open. The lobby, watch and social sockets check
+their session in full every five seconds and close when it fails. A seat
+socket (`crates/baylee-gateway/src/routes/seat_socket.rs`) is checked on
+three beats, because its frames are actions:
+
+- **Every frame**, before it goes to the engine: the seat token is still
+  the chair's (a chair handed out again, or forgotten with a deleted or
+  banned account, has none). Read from memory, under the lobby lock that
+  also hands the frame on, so it costs nothing.
+- **In full** when the socket opens, every five seconds whether it sends
+  or not, and **before the next frame** whenever the gateway itself
+  withdrew something of the seat's account (`departed`: moved to Baylee
+  Central, a password changed or reset, banned, deleted). In full is the
+  capability behind the token: an account that has not moved to Central
+  (one database query), or the Central-bound session the seat was taken
+  with, with its lease asked of Central.
+- A withdrawal the gateway **does not make itself** it learns only by
+  asking: a lease Central revoked (a newer login elsewhere, a ban at
+  Central), a session or lease that ran out, a Central-bound session signed
+  out (`POST /auth/logout` names no account on `departed`, which would
+  close that account's lobby sockets on every device), a change another
+  process made in the database. Such a seat's frames still reach the
+  engine until the next five-second check: **up to five seconds**, and the
+  length of one check.
+
+Either way one frame already past its check when a withdrawal lands still
+goes on, as it did when every frame was checked in full (the check and
+the hand-on were never one step). What a seat token opens over HTTP (a
+seat's `POST /ws-ticket`, `/games/{id}/cosmetics`, a seat bridge's
+`/lobby/games/{id}/chair…`) is checked in full on every request. Until 21.10.2026 every seat frame was checked in
+full: one database query a frame, and for a Central-bound seat two and a
+call to Central, which kept a flooding socket on a loaded machine from
+being read fast enough to reach its frame allowance (#284).
+
 ## Accounts are Baylee Central's (the cutover)
 
 Since the cutover (owner's decision of 30.10.2026, `docs/central-login.md`
