@@ -763,6 +763,19 @@ pub(super) fn resume_yes_no_inner(
         }
         return finish_choice(state, res, since);
     }
+    if let Some(AwaitingOp::GuessNamedCardInHand { actual }) = res.awaiting {
+        res.awaiting = None;
+        res.subject.guess = Some(super::subjects::GuessOutcome {
+            actual,
+            claimed: answer,
+            revealed: false,
+        });
+        res.pc += 1;
+        return run(state, res);
+    }
+    if matches!(res.awaiting, Some(AwaitingOp::CoinFlipIgnore { .. })) {
+        return super::coin::resume(state, res, answer);
+    }
     if let Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative { wins }) = res.awaiting {
         const WIN_1: &[Effect] = &[Effect::DealDamage {
             target: TargetSpec::Object(&baylee_cards_dsl::Filter::CREATURE),
@@ -797,22 +810,30 @@ pub(super) fn resume_yes_no_inner(
         res.awaiting = None;
         let you = res.controller;
         if answer {
-            let won = state.rng.below(2) == 0;
-            state
-                .journal
-                .record(GameEvent::CoinFlipped { player: you, won });
-            if !won {
-                res.pc += 1;
-                return run(state, res);
+            match super::coin::flip(
+                state,
+                res,
+                you,
+                super::CoinContinuation::UntilLossOrStop {
+                    wins: wins.saturating_add(1),
+                },
+            ) {
+                super::coin::Flip::Outcome(won) => {
+                    if !won {
+                        res.pc += 1;
+                        return run(state, res);
+                    }
+                    res.awaiting = Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative {
+                        wins: wins.saturating_add(1),
+                    });
+                    return Flow::Wait(Pending::YesNo {
+                        player: you,
+                        prompt: YesNoPrompt::MayDo,
+                        source: resolving_ability(state, res),
+                    });
+                }
+                super::coin::Flip::Wait(pending) => return Flow::Wait(*pending),
             }
-            res.awaiting = Some(AwaitingOp::FlipCoinsUntilLossOrStopCumulative {
-                wins: wins.saturating_add(1),
-            });
-            return Flow::Wait(Pending::YesNo {
-                player: you,
-                prompt: YesNoPrompt::MayDo,
-                source: resolving_ability(state, res),
-            });
         }
         let effects = match wins {
             0 => &[][..],

@@ -834,6 +834,7 @@ version = "0.1.1-beta.9b"
 dependencies = [
  "central-api",
  "central-client",
+ "flate2",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -1153,6 +1154,7 @@ dependencies = [
  "argon2 0.6.0",
  "axum",
  "base64 0.23.1",
+ "baylee-account",
  "baylee-build",
  "flate2",
  "getrandom 0.4.3",
@@ -1175,6 +1177,7 @@ name = "baylee-gamehost"
 version = "0.1.1-beta.9b"
 dependencies = [
  "baylee-ai",
+ "baylee-build",
  "baylee-cards",
  "baylee-cards-dsl",
  "baylee-client-core",

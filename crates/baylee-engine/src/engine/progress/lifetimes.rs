@@ -64,9 +64,9 @@ pub(super) fn forget_effects_on_moved_objects(state: &mut crate::state::GameStat
                 .object(id)
                 .is_none_or(|o| o.version != version)
                 .then_some((id, version)),
-            crate::effects::EffectFilter::Dsl(_) | crate::effects::EffectFilter::DslAbout(..) => {
-                None
-            }
+            crate::effects::EffectFilter::Dsl(_)
+            | crate::effects::EffectFilter::DslAbout(..)
+            | crate::effects::EffectFilter::DslControlledBy(..) => None,
         })
         .collect();
     if !stale.is_empty() {

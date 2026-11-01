@@ -8,7 +8,7 @@
 //! characteristic-projection cache: one integer compare per cache hit.
 
 use baylee_cards_dsl::{Duration, Filter, Layer, Modifier};
-use baylee_core::ids::{EffectId, ObjectId, PlayerId};
+use baylee_core::ids::{EffectId, ObjectId, PlayerId, SeatSet};
 
 mod grants;
 pub use grants::{GrantedAbility, granted_definition, sync_granted_activated};
@@ -40,6 +40,10 @@ pub enum EffectFilter {
     /// (the id and the version it had); after that every reference-reading
     /// part of the filter matches nothing.
     DslAbout(&'static Filter, ObjectId, u32),
+    /// A live DSL filter narrowed to the controllers chosen as the effect
+    /// resolved. The seats are fixed; the objects matching among them are not
+    /// (CR 611.2c when the modifier does not lock its set).
+    DslControlledBy(&'static Filter, SeatSet),
 }
 
 impl EffectFilter {
@@ -127,6 +131,7 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantHaveKeywords(_)
         | Modifier::LoseAllAbilities
         | Modifier::ProtectionFrom(_)
+        | Modifier::ProtectionFromExiledWithSourceTypes
         | Modifier::BecomeCopyOf(_)
         | Modifier::GrantsFlashback
         | Modifier::GrantsEscape(_)
@@ -163,10 +168,12 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::BandsWithOther(_)
         | Modifier::DamageLifeLossFloor { .. }
         | Modifier::AdditionalCounterPlacement { .. }
+        | Modifier::FlipTwoCoinsIgnoreOne
         | Modifier::DoubleCountersPlacedByYou
         | Modifier::NextDestructionClearsDamage
         | Modifier::SpellsCostLess(_)
         | Modifier::SpellsCostMore(_)
+                    | Modifier::SpellsCostMorePerControlled(_)
         | Modifier::ManaAbilitiesCostLife(_)
         | Modifier::ReplaceTappedMana { .. }
         | Modifier::AbilitiesCostMore(_)
@@ -206,6 +213,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::CantBeTargetedByAbilitiesFrom(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
+        | Modifier::NamedPlayersCantLose(_)
+        | Modifier::PlayersCantWin(_)
         | Modifier::CantLoseLife { .. }
         | Modifier::NoLossForZeroLife { .. }
         | Modifier::LifeGainDrawsInstead { .. }
@@ -290,6 +299,8 @@ pub fn locks_its_set(modifier: &Modifier) -> bool {
         | Modifier::NextDrawFromTop { .. }
         | Modifier::MayRedirectDamageToYou
         | Modifier::CantAttackUnlessPayMana(_)
+        | Modifier::CantAttackUnlessPayManaPerCounter(_)
+        | Modifier::CantBlockUnlessPayManaPerCounter(_)
         | Modifier::CantAttackUnlessYouSacrifice { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
         | Modifier::CantEnterBattlefield(_)
@@ -626,6 +637,7 @@ impl EffectTable {
             matches!(
                 fx.modifier,
                 Modifier::SpellsCostMore(_)
+                    | Modifier::SpellsCostMorePerControlled(_)
                     | Modifier::SpellsCostMoreMana(_)
                     | Modifier::SpellsCostLess(_)
             ),
@@ -688,7 +700,9 @@ impl EffectTable {
             RuleHints::BOARD_STATE_FILTER,
             matches!(
                 fx.filter,
-                EffectFilter::Dsl(f) | EffectFilter::DslAbout(f, ..)
+                EffectFilter::Dsl(f)
+                    | EffectFilter::DslAbout(f, ..)
+                    | EffectFilter::DslControlledBy(f, ..)
                     if crate::state::filter_reads_board_state(f)
             ) || crate::state::modifier_reads_combat(fx.modifier),
         );
@@ -701,6 +715,8 @@ impl EffectTable {
                     | Modifier::NoLossForZeroLife { .. }
                     | Modifier::LifeGainDrawsInstead { .. }
                     | Modifier::PlayersCantLose
+                    | Modifier::NamedPlayersCantLose(_)
+                    | Modifier::PlayersCantWin(_)
                     | Modifier::DrawLimitPerTurn { .. }
                     | Modifier::SkipUntapStep { .. }
                     | Modifier::SkipDrawStep { .. }
@@ -1095,7 +1111,9 @@ pub(crate) fn applies_to_snapshot(
     {
         return false;
     }
-    if let EffectFilter::Dsl(filter) | EffectFilter::DslAbout(filter, ..) = fx.filter
+    if let EffectFilter::Dsl(filter)
+    | EffectFilter::DslAbout(filter, ..)
+    | EffectFilter::DslControlledBy(filter, ..) = fx.filter
         && !matches!(
             obj.zone,
             crate::zone::Zone::Battlefield | crate::zone::Zone::Stack
@@ -1129,6 +1147,21 @@ pub(crate) fn matches_filter(
                 reference: None,
             },
         ),
+        EffectFilter::DslControlledBy(filter, seats) => {
+            seats.contains(obj.controller)
+                && crate::eval::matches_with_context(
+                    filter,
+                    state,
+                    obj,
+                    fx.controller,
+                    crate::text_changes::RuleContext {
+                        source: fx.source.unwrap_or(obj.id),
+                        text: state.effect_text(fx),
+                        resolved_name: None,
+                        reference: None,
+                    },
+                )
+        }
         EffectFilter::DslAbout(filter, id, version) => crate::eval::matches_with_context(
             filter,
             state,
@@ -1631,6 +1664,7 @@ mod tests {
             Modifier::SwitchPT,
             Modifier::SpellsCostLess(3),
             Modifier::SpellsCostMore(3),
+            Modifier::SpellsCostMorePerControlled(&Filter::ARTIFACT),
             Modifier::AbilitiesCostMore(3),
             Modifier::ManaAbilitiesCostLife(1),
             Modifier::ReplaceTappedMana {
@@ -1700,6 +1734,7 @@ mod tests {
                 minimum: 1,
             },
             Modifier::AdditionalCounterPlacement { n: 1 },
+            Modifier::FlipTwoCoinsIgnoreOne,
             Modifier::DoubleCountersPlacedByYou,
             Modifier::NextDestructionClearsDamage,
             Modifier::CombatDamageCantBePrevented,
@@ -1774,6 +1809,8 @@ mod tests {
             Modifier::CastSpellsFromGraveyard,
             Modifier::MayRedirectDamageToYou,
             Modifier::CantAttackUnlessPayMana(1),
+            Modifier::CantAttackUnlessPayManaPerCounter(baylee_cards_dsl::CounterKind::P1P1),
+            Modifier::CantBlockUnlessPayManaPerCounter(baylee_cards_dsl::CounterKind::P1P1),
             Modifier::CantAttackUnlessYouSacrifice {
                 count: 2,
                 filter: &Filter::LAND,
@@ -1783,6 +1820,9 @@ mod tests {
             Modifier::SpellsCostMoreMana(baylee_core::mana::ManaCost::ZERO),
             Modifier::CantAttackIfDefenderControls(&Filter::CREATURE),
             Modifier::CopyLastExiledCreaturePTAndSubtypes,
+            Modifier::ProtectionFromExiledWithSourceTypes,
+            Modifier::NamedPlayersCantLose(PlayerRel::You),
+            Modifier::PlayersCantWin(PlayerRel::You),
             Modifier::EquipCostsLess(1),
             Modifier::CantActivateNonMana,
         ]
@@ -1823,7 +1863,7 @@ mod tests {
 
         assert_eq!(
             declared.len(),
-            174,
+            181,
             "read {} variants out of the declaration, which is not the enum",
             declared.len()
         );
@@ -1908,7 +1948,10 @@ mod tests {
         // characteristics. Draw skipping, untap replacement and cast limits
         // change rules only. Mirrodin Batch 1 adds `CopyLastExiledCreaturePTAndSubtypes`
         // (characteristics, +1) and `EquipCostsLess`/`CantActivateNonMana` (rules, +2).
-        assert_eq!((locking, all.len() - locking), (53, 121));
+        // `ProtectionFromExiledWithSourceTypes` also locks its set. Coin flipping,
+        // per-artifact spell tax, win/loss prohibitions and per-counter attack/block
+        // costs are six more rules-only modifiers.
+        assert_eq!((locking, all.len() - locking), (54, 127));
     }
 
     /// An `ObjectId` alone is not an identity: an id is stable for a whole

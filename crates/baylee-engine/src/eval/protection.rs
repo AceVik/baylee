@@ -24,23 +24,61 @@ pub(super) fn protected_from_object(
         return false;
     };
     let source = src.id;
-    state.effects.iter().any(|fx| {
-        let baylee_cards_dsl::Modifier::ProtectionFrom(f) = fx.modifier else {
-            return false;
-        };
-        crate::effects::applies_to(state, fx, obj)
-            && matches_with_context(
-                f,
-                state,
-                src,
-                fx.controller,
-                RuleContext {
-                    source: fx.source.unwrap_or(source),
-                    text: state.effect_text(fx),
-                    resolved_name: None,
-                    reference: None,
-                },
-            )
+    state.effects.iter().any(|fx| match fx.modifier {
+        baylee_cards_dsl::Modifier::ProtectionFrom(f) => {
+            crate::effects::applies_to(state, fx, obj)
+                && matches_with_context(
+                    f,
+                    state,
+                    src,
+                    fx.controller,
+                    RuleContext {
+                        source: fx.source.unwrap_or(source),
+                        text: state.effect_text(fx),
+                        resolved_name: None,
+                        reference: None,
+                    },
+                )
+        }
+        baylee_cards_dsl::Modifier::ProtectionFromExiledWithSourceTypes => {
+            protection_from_exiled_types(state, fx, obj, src)
+        }
+        _ => false,
+    })
+}
+
+/// Mirror Golem's dynamic protection: any card type found among the cards
+/// exiled with the effect's source, with exact host incarnations preserved.
+pub(crate) fn protection_from_exiled_types(
+    state: &GameState,
+    fx: &crate::effects::ContinuousEffect,
+    protected: &crate::object::GameObject,
+    source: &crate::object::GameObject,
+) -> bool {
+    if !crate::effects::applies_to(state, fx, protected) {
+        return false;
+    }
+    let host = fx.source.unwrap_or(source.id);
+    let context = RuleContext {
+        source: host,
+        text: state.effect_text(fx),
+        resolved_name: None,
+        reference: None,
+    };
+    super::linked_exile_cards(
+        state,
+        fx.controller,
+        context,
+        None,
+        &baylee_cards_dsl::Filter::Any,
+    )
+    .into_iter()
+    .filter_map(|id| state.object(id))
+    .any(|exiled| {
+        exiled
+            .characteristics()
+            .types
+            .intersects(source.characteristics().types)
     })
 }
 

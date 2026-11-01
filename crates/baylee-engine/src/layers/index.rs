@@ -24,7 +24,9 @@ impl EffectIndex {
         for (rank, &at) in ordered.iter().enumerate() {
             let ranks = match effects.as_slice()[at as usize].filter {
                 EffectFilter::ObjectIs(id, _) => index.objects.entry(id).or_default(),
-                EffectFilter::Dsl(_) | EffectFilter::DslAbout(..) => &mut index.global,
+                EffectFilter::Dsl(_)
+                | EffectFilter::DslAbout(..)
+                | EffectFilter::DslControlledBy(..) => &mut index.global,
             };
             ranks.push(u32::try_from(rank).expect("effect plan fits u32"));
         }

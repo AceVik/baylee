@@ -610,8 +610,9 @@ decks and settings as JSON.
     to the step it happened in. They
     never leave the machine on their own (below);
   - in `client-settings.json`, `report_device`: a random id (32 hex digits)
-    made for the first report sent straight to the feedback service, and
-    `feedback_url`, that service's address when the player set one;
+    made for the first report sent straight (signed in nowhere), and
+    `report_url` and `feedback_url`, the addresses the player set for such
+    reports and for the feedback service;
   - in `client-settings.json`, `terms`: per gateway address, the version of
     its terms of use this device last accepted there (WG-1). A copy with one
     job: a guest coming back with its kept session signs in to nothing, so
@@ -702,8 +703,12 @@ Kept apart from the table above so the two strands' rows merge cleanly.
 | Report count per account | gateway memory | an hour | the limiter itself; a report the service did not take is not counted |
 | Direct reports per address and in all | the feedback service's memory | an hour, a restart forgets them | the allowance itself; never written down |
 | Direct report (kind, text, build, the `client` object, a client's record), `channel = 'direct'`, gateway `(direct)` | the feedback service's `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
+| Direct reports per address (an IPv6 address per /64) and in all, at the official gateway | the gateway's memory | an hour, a restart forgets them | the allowance itself; never written down or logged |
+| Direct report through the official gateway (where its reports go to Central and `BAYLEE_DIRECT_REPORT_KEY` is set): the same, `channel = 'direct'`, the device's pseudonym under that key | Baylee Central's `reports` and `report_parts`, as a gateway's report | as a report in Central (row above for Central) | Central's sweep, or an administrator's purge |
 | A client's record of a game it hosted (`record_origin = 'client'`, unverified) | `feedback_report.record` | with the report | with the report |
 | Report (kind, text, game id, the client's `client` object, the record of a game its reporter sat at) | the feedback service's own Postgres, `feedback_report` | until an admin deletes it; deleted in the UI it goes into the trash and is purged 30 days later | `DELETE /reports/{id}` on the service (final), or the UI's trash and its purge |
+| Report filed with Baylee Central where the gateway is switched there (`BAYLEE_REPORTS_TO=central`): kind, text, game id, the client's build and a crash's message and place, the pseudonym, the gateway's name, address and build; the `client` object and the record as the gzip the gateway sent | Baylee Central's Postgres, `reports` and `report_parts` (baylee-central `docs/reports.md`, its `docs/privacy.md`) | 90 days after it is done, 30 days in the trash, three years at most; its history (who changed what, never its words) stays | Central's sweep, or an administrator's purge from the trash |
+| The one-time copy of the feedback service's open reports to Central (`baylee-feedback export-reports` into `central-service --import-reports-stdin`): each report as in the row above, its notes with their authors' names and its history with the actors' names (the service's admins), its ids and times kept | Baylee Central's `reports`, `report_parts`, `report_notes` (under the administrator who ran the copy, the author's name before the text) and `report_audit` (the actor's name in the line) | as a report in Central; its history as Central keeps any | as a report in Central. The copy passes through a pipe and is written to no file |
 | Reporter pseudonym | `feedback_report.reporter` | with the report | with the report |
 | Feedback admin (name, Argon2id password hash, since when) | the feedback service's `feedback_admin` | until removed | `baylee-feedback admin remove`, on the server only |
 | Feedback admin session (SHA-256 of the cookie token, sign-in and last-use times) | `feedback_session` | 12 hours unused, at most 7 days | sign-out, lapse (deleted when next shown and at every sign-in), or the admin's removal |
@@ -767,6 +772,13 @@ Kept apart from the table above so the two strands' rows merge cleanly.
   its reporter is HMAC-SHA256 of the client's random device id under the
   service's `FEEDBACK_DIRECT_KEY`, and the address it came from is counted
   in memory for an hour and kept nowhere.
+- **What reaches Central**, where the gateway is switched there
+  (`docs/feedback.md` §"To Baylee Central instead"), is the same list, with
+  the client's build and a crash's message and place read out of its
+  `client` object for Central's list, and that object and the record sent
+  as gzip Central stores without unpacking. The pseudonym's key stays the
+  gateway's; Central never holds it, so it cannot tell whose account a
+  report came from. A reported chat message never goes there.
 - **The feedback web UI (#311)** is for the service's admins, who are
   developers, not players. Its one cookie (`__Host-baylee-feedback`,
   `HttpOnly; Secure; SameSite=Strict`) holds the session token and is sent
@@ -826,9 +838,12 @@ report once it has it is theirs to describe.
   on the next start once the player has said yes to crash reports.
 - **Where to:** `POST {gateway}/reports` on the gateway the lobby is signed
   in to, with that session's bearer. Signed in nowhere, `POST
-  {service}/client/reports` on the feedback service the settings
-  (`feedback_url`) or the build (`BAYLEE_FEEDBACK_PUBLIC_URL`) name, with
-  no credential and the device's random id; knowing none, the form says so
+  {address}/client/reports` at the report address the settings
+  (`report_url`) or the build (`BAYLEE_REPORT_PUBLIC_URL`, the official
+  gateway in a release, which files it with Baylee Central) name, else at
+  the feedback service the settings (`feedback_url`) or the build
+  (`BAYLEE_FEEDBACK_PUBLIC_URL`) name, with no credential and the device's
+  random id; knowing none, the form says so
   and nothing is sent, to the gateway, Scryfall or anyone else. Before a
   direct report goes, and before any report carrying a game's record, the
   form shows a page listing where it goes and every part it carries, and

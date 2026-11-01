@@ -129,12 +129,61 @@ impl Tx<'_> {
         let body = self.svars.get(&statics)?.clone();
         let (mode, _) = Params::parse(&body)?;
         match mode.as_str() {
+            "Continuous" => self.extra_land_drops_effect(p),
+            "MustAttack" => self.must_attack_effect(p, target),
             "CantChangeLife" => self.life_total_lock(p),
             "CantBlockBy" => self.unblockable_effect(p, target),
             "CantRegenerate" => self.cant_regenerate_effect(p, target),
             "AssignNoCombatDamage" => self.assign_no_combat_damage_effect(p),
             _ => None,
         }
+    }
+
+    /// "Creatures target player controls attack this turn if able": bind the
+    /// chosen player's current creatures, not every creature or the controller's.
+    fn must_attack_effect(&mut self, p: &mut Params, target: Option<&str>) -> Option<Vec<String>> {
+        if target != Some("TargetSpec::Player(PlayerRel::Chosen)")
+            || p.take("RememberObjects").as_deref() != Some("Targeted")
+        {
+            return None;
+        }
+        let statics = p.take("StaticAbilities")?;
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "MustAttack"
+            || st.take("ValidCreature").as_deref() != Some("Creature.RememberedPlayerCtrl")
+            || !st.exhausted()
+            || p.take("Duration").is_some()
+        {
+            return None;
+        }
+        Some(vec![
+            "Effect::ModifyFilter { filter: &Filter::CREATURE, controlled_by: Some(PlayerRel::Chosen), modifier: Modifier::AttacksEachCombat, duration: Duration::UntilEndOfTurn }"
+                .to_string(),
+        ])
+    }
+
+    /// "You may play up to N additional lands this turn": a player-scoped
+    /// continuous effect, with the set of lands deliberately left open.
+    fn extra_land_drops_effect(&mut self, p: &mut Params) -> Option<Vec<String>> {
+        let statics = p.take("StaticAbilities")?;
+        let body = self.svars.get(statics.trim())?.clone();
+        let (mode, mut st) = Params::parse(&body)?;
+        st.drop_prose();
+        if mode != "Continuous" || st.take("Affected").as_deref() != Some("You") {
+            return None;
+        }
+        let amount = st.take("AdjustLandPlays")?.parse::<u8>().ok()?;
+        if !st.exhausted()
+            || !matches!(p.take("AILogic").as_deref(), None | Some("Always"))
+            || p.take("Duration").is_some()
+        {
+            return None;
+        }
+        Some(vec![format!(
+            "Effect::continuous(&Filter::Any, Modifier::ExtraLandDrops({amount}), Duration::UntilEndOfTurn)"
+        )])
     }
 
     /// "Assigns no combat damage this turn" (Laccolith Whelp, Laccolith Grunt,
@@ -328,6 +377,12 @@ impl Tx<'_> {
         what: &str,
         target: Option<&str>,
     ) -> Option<String> {
+        if api == "Token" && what == "Exile" && target.is_none() {
+            return Some(
+                "Effect::AtNextEndStepForCreatedTokens { effects: &[Effect::exile(TargetSpec::EventObject)] }"
+                    .to_string(),
+            );
+        }
         let aimed = target.is_some_and(|t| {
             !matches!(
                 t,

@@ -301,6 +301,9 @@ pub enum Condition {
     /// threshold below, so the count is a parameter rather than a fixed
     /// nought and nothing here may read the word.
     HandSizeAtMost(u8),
+    /// The active player had at most N cards in hand at the beginning of
+    /// this turn, before any turn-based action or trigger.
+    HandSizeAtTurnStartAtMost(u8),
     /// At least one player still in the game has at most N cards in hand.
     APlayerHandSizeAtMost(u8),
     /// The controller has played at least N lands this turn (CR 305.2).
@@ -629,6 +632,9 @@ pub enum Trigger {
     /// the event's object, so `PlayerRel::ControllerOfEvent` is "that
     /// land's controller".
     BecomesTapped(&'static Filter),
+    /// A matching permanent becomes untapped. The permanent is the event's
+    /// object, so `PlayerRel::ControllerOfEvent` is "that permanent's controller".
+    BecomesUntapped(&'static Filter),
     /// Positive combat damage from a matching source to a creature.
     /// The damaged creature is the event object.
     DealsCombatDamageToCreature(&'static Filter),

@@ -72,8 +72,10 @@ fn natural_proof(
         offset += raw.len();
     }
     let offset = end_offset.context("natural research episode lacks an engine End")?;
-    // The established replay checks End/winners as well as every engine hash.
-    let terminal = baylee_gamehost::record::replay(record)
+    // The established replay checks End/winners as well as every engine hash,
+    // whichever build the header names: the sidecar's behaviour labels are
+    // only this record's if the whole state is.
+    let terminal = baylee_gamehost::record::replay_exact(record)
         .map_err(|error| anyhow::anyhow!("research natural terminal replay: {error:?}"))?;
     ensure!(
         terminal.ended,

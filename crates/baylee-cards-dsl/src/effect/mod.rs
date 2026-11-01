@@ -497,6 +497,12 @@ pub enum Effect {
         /// Player whose hand and resources are used.
         player: PlayerRel,
     },
+    /// Control a player during the next turn that player actually takes
+    /// (CR 722.1): the whole turn, until the next one begins.
+    ControlPlayerNextTurn {
+        /// The player to control.
+        player: PlayerRel,
+    },
     /// Instruct a player to activate one mana ability of each land they control,
     /// then move all their unspent mana to this effect's controller.
     ActivateLandsAndTakeMana {
@@ -1066,6 +1072,9 @@ pub enum Effect {
     AttackWithoutTappingWhileSourceUntappedThisCombat,
     /// Choose a damage source and prevent all its damage to every recipient this turn.
     ChooseDamageSourcePreventAllThisTurn,
+    /// Choose a damage source matching a filter and prevent all its damage
+    /// to every recipient this turn.
+    ChooseDamageSourcePreventAllThisTurnMatching(&'static Filter),
     /// "The next time a red source of your choice would deal damage to you
     /// this turn, prevent that damage" (Circle of Protection: Red; CR 609.7,
     /// 615.8): the controller chooses a source as this resolves, and a
@@ -1190,6 +1199,8 @@ pub enum Effect {
     ReanimateEnchanted,
     /// As `ReanimateEnchanted`, with the creature entering tapped.
     ReanimateEnchantedTapped,
+    /// Put each target on top of its owner's library.
+    PutTargetOnTopOfLibrary,
     /// Put each target on the bottom of its owner's library (Banishing
     /// Stroke).
     PutTargetOnBottomOfLibrary,
@@ -1327,6 +1338,19 @@ pub enum Effect {
         /// Retain the choice on the source permanent for its linked abilities.
         remember: bool,
     },
+    /// A chosen player guesses whether the previously named card is in the
+    /// named player's hand.
+    GuessChosenNameInHand {
+        /// Whose hand the guess is about.
+        who: PlayerRel,
+        /// Who makes the guess without seeing that hand.
+        guesser: PlayerRel,
+    },
+    /// Reveal the controller's hand and record it as proof for a later
+    /// wrong-guess reward. Usually nested in `Effect::MayDo`.
+    RevealHandForGuess,
+    /// Draw a card only if the hand was revealed and the guess was wrong.
+    DrawIfGuessWrong,
     /// Reveal the named player's top card and move it according to its name.
     RevealTopByName {
         /// Library inspected and recipient of a matching card.
@@ -1404,6 +1428,12 @@ pub enum Effect {
     /// first creature".
     AtNextEndStepAboutSubject {
         /// What the delayed trigger does.
+        effects: &'static [Effect],
+    },
+    /// For each token created earlier in this resolution, register the same
+    /// one-shot delayed trigger at the next end step about that exact token.
+    AtNextEndStepForCreatedTokens {
+        /// What each delayed trigger does to its token as `EventObject`.
         effects: &'static [Effect],
     },
     /// "When that creature dies this turn, [effects]" (Sandals of Abdallah:
@@ -2196,6 +2226,22 @@ pub enum Effect {
         finds: &'static [Find],
         /// Whether you may find fewer than `finds.len()` ("up to", "you may").
         optional: bool,
+    },
+    /// Search your library for one matching card and reveal it without
+    /// moving it or shuffling. Later instructions can use its name.
+    RevealLibrarySearch {
+        /// What to find.
+        filter: &'static Filter,
+        /// Whether finding no card is allowed.
+        optional: bool,
+    },
+    /// Each player in the relation who cast a spell this turn with the same
+    /// name as a card revealed earlier in this resolution loses life once.
+    PlayersWhoCastRevealedNameThisTurnLoseLife {
+        /// Which players are checked.
+        who: PlayerRel,
+        /// Life lost by each qualifying player.
+        amount: Amount,
     },
     /// Find up to two basic lands sharing a land subtype, enter them tapped,
     /// then shuffle. A single basic land may be found by itself.
@@ -3088,6 +3134,9 @@ pub enum Effect {
     /// keeps it apart from [`Effect::ExileLinked`]'s "until …" exile and its
     /// rider, which a leaving host and a new monarch both read.
     ExileTargetsWithSource,
+    /// Choose a matching card from your hand and exile it with a link to
+    /// this source (CR 406.6, 607.2a).
+    ExileChosenFromHandWithSource(&'static Filter),
     /// Return everything exiled with a link to the source to the
     /// battlefield under its owner's control.
     ReturnLinkedToBattlefield,
@@ -3116,6 +3165,9 @@ pub enum Effect {
     ExileTopFaceDownLinked,
     /// Play each card exiled by the linked ability now, without its mana cost (CR 607.3).
     MayPlayLinkedExile,
+    /// Copy a card exiled with this source and cast the copy without paying
+    /// its mana cost; the original stays in exile (CR 607.2a, 707.12).
+    MayCopyCastLinkedExile,
     /// Return linked exiled cards to their owners' named zone.
     ReturnLinkedExile {
         /// Hand or graveyard; the owner of each card receives it.
@@ -3239,6 +3291,19 @@ pub enum Effect {
         up_to: u8,
         /// How many of those the opponent sends to the graveyard.
         chosen: u8,
+    },
+    /// Apply one continuous modifier to the current set of objects matching
+    /// a filter, optionally narrowed to permanents of a player chosen by the
+    /// spell or ability. The set is bound now (CR 611.2c).
+    ModifyFilter {
+        /// Which objects are affected.
+        filter: &'static Filter,
+        /// Whose permanents, when the sentence names a player.
+        controlled_by: Option<PlayerRel>,
+        /// Characteristic or rule change applied to each member.
+        modifier: super::Modifier,
+        /// How long the change lasts.
+        duration: super::Duration,
     },
     /// All objects matching a filter get computed P/T modifiers, and
     /// optionally keywords, until a duration ends (Toxic Deluge: `-X/-X`
@@ -3571,6 +3636,13 @@ pub enum Effect {
     /// this resolution, and for nothing it only aimed at. A target whose
     /// damage was prevented was not dealt damage (CR 615.1).
     ExileDamagedThisWayIfDies,
+    /// Remove all counters of one kind from every permanent matching a filter.
+    RemoveAllCountersFilter {
+        /// Which permanents lose counters.
+        filter: &'static Filter,
+        /// Which counter kind is removed completely.
+        kind: CounterKind,
+    },
     /// "Remove all counters from target permanent" (Vampire Hexmage): removes
     /// every counter of every kind from each target.
     RemoveAllCountersTarget,

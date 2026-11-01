@@ -57,10 +57,10 @@ pub struct LostSeat {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct PlayerView {
     /// The player whose choices and resources the actor in `awaiting` controls.
-    /// This may differ from the viewing seat under CR 720.
+    /// This may differ from the viewing seat under CR 722.
     #[serde(default)]
     pub decision_player: Option<PlayerId>,
-    /// Hands inspected through current control of another player (CR 720.4).
+    /// Hands inspected through current control of another player (CR 722.4).
     /// Separate from voluntary team sharing; rebuilt for every decision.
     #[serde(default)]
     pub controlled_hands: Vec<SharedHand>,

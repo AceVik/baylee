@@ -17,7 +17,7 @@ use baylee_view::HouseAnswer;
 
 impl Session {
     /// The game `record` holds, rebuilt input by input and checked against
-    /// every hash the record wrote, as a recorded session that goes on
+    /// every digest the record wrote, as a recorded session that goes on
     /// writing after the record's last line.
     ///
     /// The house's answers are replayed from the record, not asked again:
@@ -28,14 +28,19 @@ impl Session {
     /// The game's description ([`Session::describe`]) is not in the record,
     /// which names no one: the caller gives it again.
     ///
+    /// Checked as [`record::replay`] checks: every engine hash on the build
+    /// that played the game, and on another build the public table where
+    /// the engine hash moved.
+    ///
     /// # Errors
     /// As [`record::replay`]: a line that does not parse, an input the
-    /// engine refuses, a hash that differs.
+    /// engine refuses, or state the record's digests do not hold.
     pub fn resume_recorded(record: &[u8]) -> Result<Self, ReplayError> {
         let mut lines = record::lines_of(record);
-        let (preset, hash) = record::header_of(&mut lines)?;
-        let mut session = Self::new(&preset).ok_or(ReplayError::Unbuildable)?;
-        record::check_hash(&session.engine, None, hash)?;
+        let head = record::header_of(&mut lines)?;
+        let mut checker = record::Checker::for_build(&head.build);
+        let mut session = Self::new(&head.preset).ok_or(ReplayError::Unbuildable)?;
+        checker.check(&session.engine, None, head.hash, head.seen.as_deref())?;
         let mut next = 0;
         let mut ended = false;
         for line in lines {
@@ -48,13 +53,14 @@ impl Session {
                     by,
                     action,
                     hash,
+                    seen,
                     ..
                 } => {
                     session.tell_time(at);
                     if !session.replayed(PlayerId::new(seat), by, action) {
                         return Err(ReplayError::Refused { n });
                     }
-                    record::check_hash(&session.engine, Some(n), hash)?;
+                    checker.check(&session.engine, Some(n), hash, seen.as_deref())?;
                     next = n + 1;
                 }
                 Line::Chair { n, .. } | Line::DeclaredMind { n, .. } => next = n + 1,
@@ -135,7 +141,8 @@ mod tests {
     /// returns the session and everything it recorded.
     fn played(seed: u64, answers: u32) -> (Session, Vec<u8>) {
         let me = PlayerId::new(0);
-        let mut session = Session::new_recorded(&table(seed), "test").expect("the table builds");
+        let mut session =
+            Session::new_recorded(&table(seed), record::this_build()).expect("the table builds");
         session.describe("local".into(), vec!["You".into(), "House".into()]);
         session.tell_time(5_000);
         session.pump();
@@ -216,5 +223,32 @@ mod tests {
             Session::resume_recorded(b"not a record\n"),
             Err(ReplayError::Unreadable { .. })
         ));
+    }
+
+    /// On the build that played the game a resume is held to every engine
+    /// hash: one changed hash is a divergence even where the public table
+    /// beside it still agrees. The same record from another build resumes by
+    /// that table.
+    #[test]
+    fn a_changed_hash_resumes_only_where_another_build_wrote_it() {
+        let (live, record) = played(13, 8);
+        let mut written = record::tests::lines(&record);
+        let at = written
+            .iter()
+            .rposition(|l| matches!(l, Line::Input { .. }))
+            .expect("an input");
+        if let Line::Input { hash, .. } = &mut written[at] {
+            *hash = record::hex(0);
+        }
+        assert!(matches!(
+            Session::resume_recorded(&record::tests::encode(&written)),
+            Err(ReplayError::Diverged { .. })
+        ));
+        if let Line::Header { build, .. } = &mut written[0] {
+            *build = "0.0.0+build.0 (another)".into();
+        }
+        let resumed = Session::resume_recorded(&record::tests::encode(&written))
+            .expect("another build's record resumes by its public table");
+        assert_eq!(resumed.snapshot_hash(), live.snapshot_hash());
     }
 }

@@ -79,6 +79,18 @@ To dry-run, start `release` by hand (`gh workflow run release.yml`). It does
 the same builds and uploads them as workflow artifacts, versioned
 `<version>-dev.<commit>`, and publishes nothing.
 
+The client builds read two addresses from repository variables, at build
+time: `BAYLEE_FEEDBACK_PUBLIC_URL` (the feedback service: the offline count,
+and reports from a client signed in nowhere while nothing else is named) and
+`BAYLEE_REPORT_PUBLIC_URL` (where such a report goes instead: the operator's
+official gateway, `POST /client/reports`, `docs/feedback.md` §"To Baylee
+Central instead"). Set `BAYLEE_REPORT_PUBLIC_URL` only once that gateway
+answers the route: Central running with its reports migration, then the
+gateway deployed with `BAYLEE_REPORTS_TO=central` and
+`BAYLEE_DIRECT_REPORT_KEY`. A client built before that sends to an address
+that answers `503`, and a shipped client keeps its address until the next
+release.
+
 ## Build reuse and caches
 
 `.github/workflows/client-packages.yml` is the one packaging recipe. Main CI

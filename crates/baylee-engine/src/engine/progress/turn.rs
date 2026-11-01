@@ -44,6 +44,9 @@ impl<L: CardLookup> Engine<L> {
             self.state
                 .delayed
                 .retain(|d| !d.when.lapses_with_the_turn());
+            // Control of a player's turn ends as the next one begins, and
+            // one waiting for this player's turn begins it (CR 722.1).
+            self.begin_turn_controls();
         }
         // Only the seat whose turn this is: summoning sickness is measured
         // against *their* most recent turn (CR 302.6), so an opponent's
@@ -85,6 +88,13 @@ impl<L: CardLookup> Engine<L> {
         // previous turn if an expiry refreshed layers before the reset.
         self.state.invalidate_projections();
         self.state.per_turn.untapped_lands_at_start = untapped_lands;
+        self.state.per_turn.hand_size_at_start = u32::try_from(
+            self.state
+                .zones
+                .list(ZoneLocation::Hand(self.state.turn.active))
+                .len(),
+        )
+        .unwrap_or(u32::MAX);
         self.state.ability_fires.clear();
         self.loyalty_used_this_turn.clear();
         let active = self.state.turn.active;

@@ -162,7 +162,9 @@ impl LayerPlan {
                             plan.named.push(id);
                         }
                     }
-                    EffectFilter::Dsl(_) | EffectFilter::DslAbout(..) => {
+                    EffectFilter::Dsl(_)
+                    | EffectFilter::DslAbout(..)
+                    | EffectFilter::DslControlledBy(..) => {
                         plan.has_global = true;
                         plan.named.clear();
                         break;
@@ -510,6 +512,22 @@ fn applies(
                 reference: None,
             },
         ),
+        EffectFilter::DslControlledBy(filter, seats) => {
+            seats.contains(obj.controller)
+                && eval::matches_projected_with_context(
+                    filter,
+                    state,
+                    obj,
+                    projected,
+                    fx.controller,
+                    crate::text_changes::RuleContext {
+                        source: fx.source.unwrap_or(obj.id),
+                        text: state.effect_text(fx),
+                        resolved_name: None,
+                        reference: None,
+                    },
+                )
+        }
         EffectFilter::DslAbout(filter, id, version) => eval::matches_projected_with_context(
             filter,
             state,
@@ -761,7 +779,10 @@ fn could_change_match(modifier: &Modifier, filter: &Filter, layer: Layer) -> boo
         // where the subtype they are compared against comes from.
         // Another object's characteristics decide these, so any modifier
         // may move them.
-        Filter::AttachedTo(_) | Filter::BlockedThisTurnBy(_) | Filter::SharesAColorWith(_) => true,
+        Filter::AttachedTo(_)
+        | Filter::BlockedThisTurnBy(_)
+        | Filter::SharesAColorWith(_)
+        | Filter::SharesColorWithExiledWithSource => true,
         Filter::OfSourceChosenColor => matches!(
             modifier,
             Modifier::AddColor(_) | Modifier::SetColor(_) | Modifier::BecomeCopyOf(_)
@@ -1194,6 +1215,7 @@ fn apply(
         | Modifier::LoseAllBandsWithOther
         | Modifier::BandsWithOther(_)
         | Modifier::SpellsCostMore(_)
+        | Modifier::SpellsCostMorePerControlled(_)
         | Modifier::AbilitiesCostMore(_)
         | Modifier::ManaAbilitiesCostLife(_)
         | Modifier::ReplaceTappedMana { .. }
@@ -1228,6 +1250,8 @@ fn apply(
         | Modifier::CantBeTargetedByAbilitiesFrom(_)
         | Modifier::DrawLimitPerTurn { .. }
         | Modifier::PlayersCantLose
+        | Modifier::NamedPlayersCantLose(_)
+        | Modifier::PlayersCantWin(_)
         | Modifier::CantLoseLife { .. }
         | Modifier::NoLossForZeroLife { .. }
         | Modifier::LifeGainDrawsInstead { .. }
@@ -1237,6 +1261,7 @@ fn apply(
         | Modifier::ReplacePlayerDamage { .. }
         | Modifier::DamageLifeLossFloor { .. }
         | Modifier::AdditionalCounterPlacement { .. }
+        | Modifier::FlipTwoCoinsIgnoreOne
         | Modifier::NextDestructionClearsDamage
         | Modifier::PreventDamageToIt
         | Modifier::PreventDamageFromIt
@@ -1271,6 +1296,7 @@ fn apply(
         | Modifier::NoMaxHandSize
             | Modifier::ChosenPlayerMaxHandSize(_)
         | Modifier::ProtectionFrom(_)
+        | Modifier::ProtectionFromExiledWithSourceTypes
         | Modifier::GrantsFlashback
         | Modifier::GrantsEscape(_)
         | Modifier::GraveyardInstantSorceryOnce
@@ -1318,6 +1344,8 @@ fn apply(
         | Modifier::MayChooseNotToUntap
         | Modifier::MayRedirectDamageToYou
         | Modifier::CantAttackUnlessPayMana(_)
+        | Modifier::CantAttackUnlessPayManaPerCounter(_)
+        | Modifier::CantBlockUnlessPayManaPerCounter(_)
         | Modifier::CantAttackUnlessYouSacrifice { .. }
         | Modifier::DamageToItCantBePreventedOrRedirected
         | Modifier::CantEnterBattlefield(_)

@@ -58,6 +58,65 @@ pub(super) fn resume_inner(
             return run(state, res);
         }
         AwaitingOp::Hideaway { looked } => hidden_exile::choose(state, res, looked, chosen),
+        AwaitingOp::RevealLibrarySearch => {
+            if !chosen.is_empty() {
+                state.journal.record(GameEvent::Revealed {
+                    player: res.controller,
+                    cards: chosen.to_vec(),
+                });
+            }
+        }
+        AwaitingOp::ExileFromHandWithSource => {
+            if let Some(&card) = chosen.first().filter(|&&card| {
+                state
+                    .object(card)
+                    .is_some_and(|object| object.zone == crate::zone::Zone::Hand)
+            }) {
+                let source = state
+                    .recorded_ability_source(res.on_stack)
+                    .or_else(|| subjects::source(state, res))
+                    .or_else(|| {
+                        source_version(state, res).map(|version| {
+                            baylee_core::ids::DamageSourceRef {
+                                object: res.source,
+                                version,
+                            }
+                        })
+                    })
+                    .unwrap_or(baylee_core::ids::DamageSourceRef {
+                        object: res.source,
+                        version: 0,
+                    });
+                let version = source.version;
+                let acquisition = subjects::acquisition(state, res);
+                let owner = state
+                    .object(card)
+                    .map_or(res.controller, |object| object.owner);
+                if let Some(object) = state.object_mut(card) {
+                    object.kind = ObjectKind::Card;
+                    let with = crate::object::Rider::ExiledWith {
+                        host: source.object,
+                        version: u16::try_from(version).unwrap_or(u16::MAX),
+                    };
+                    if !object.riders.contains(&with) {
+                        object.riders.push(with);
+                    }
+                    let linked = crate::object::Rider::LinkedExile {
+                        source,
+                        acquisition,
+                    };
+                    if !object.riders.contains(&linked) {
+                        object.riders.push(linked);
+                    }
+                }
+                let _ = state.move_object(
+                    card,
+                    ZoneLocation::Exile(owner),
+                    ZonePosition::Top,
+                    Cause::Effect,
+                );
+            }
+        }
         AwaitingOp::ReturnLinkedExile { to } => {
             if let Some(question) = hidden_exile::return_cards(state, res, to) {
                 return next_choice(state, res, since, question);
@@ -1479,6 +1538,7 @@ pub(super) fn resume_inner(
             unreachable!("arrangements resume via resume_arranged")
         }
         AwaitingOp::ChooseCardName { .. }
+        | AwaitingOp::GuessNamedCardInHand { .. }
         | AwaitingOp::ChooseNumber
         | AwaitingOp::RemoveCountersSelfCreateTokens { .. }
         | AwaitingOp::DungeonPlay(_)
@@ -1527,6 +1587,7 @@ pub(super) fn resume_inner(
         | AwaitingOp::Cleansing { .. }
         | AwaitingOp::ChoosePhaseToSkipThisTurn
         | AwaitingOp::FlipCoinsUntilLossOrStopCumulative { .. }
+        | AwaitingOp::CoinFlipIgnore { .. }
         | AwaitingOp::RevealTopPlayerMayPut { .. }
         | AwaitingOp::CommanderReplace { .. } => {
             unreachable!("color/yes-no choices resume via their own functions")

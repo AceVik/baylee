@@ -475,3 +475,94 @@ fn a_blocker_that_may_block_one_obeys_where_nobody_else_is_needed() {
     );
     obeying_is_accepted(engine, &question);
 }
+
+// ------------------------------------------------------------ block taxes
+
+/// Myr Prototype: "can't attack or block unless you pay {1} for each +1/+1
+/// counter on it".
+fn myr_prototype() -> u32 {
+    baylee_cards::by_oracle_id("496e0fbb-cb01-41d6-9c56-23e3ae2bb4f7")
+        .expect("Myr Prototype exists")
+        .index
+        .get()
+}
+
+/// Seat 1's Myr Prototype, holding one +1/+1 counter, is a blocker it may
+/// pay for: one Forest of seat 1's reaches the {1}.
+fn with_one_counter(prototype: ObjectId) -> impl FnOnce(&mut Engine<SyntheticLookup>) {
+    move |engine| {
+        engine
+            .dev_state_mut(ME)
+            .expect("the harness may set boards up")
+            .object_mut(prototype)
+            .expect("the Prototype")
+            .counters
+            .set(baylee_cards_dsl::CounterKind::P1P1, 1);
+        engine.refresh_offer();
+    }
+}
+
+/// "If a creature can't block unless a player pays a cost, that player is
+/// not required to pay that cost, even if blocking with that creature would
+/// increase the number of requirements being obeyed" (CR 509.1c). A lure
+/// whose only possible blocker is a Prototype seat 1 could pay for asks
+/// nothing: the Prototype is offered, the question's declaration is empty,
+/// and so is the declaration accepted. Paying, the Prototype still blocks.
+#[test]
+fn a_lure_does_not_make_its_defender_pay_to_block() {
+    let mine = [LURING];
+    let theirs = [myr_prototype(), super::synthetic::forest()];
+    let (me, them) = ids(&mine, &theirs);
+    let (luring, prototype) = (me[0], them[0]);
+
+    let (mut engine, question) = blocks(&mine, &theirs, &me, with_one_counter(prototype));
+    assert!(
+        question
+            .options
+            .iter()
+            .any(|o| o.blocker == prototype && o.attackers.contains(&luring)),
+        "the Prototype may block, paying: {:?}",
+        question.options
+    );
+    assert!(question.obeying.is_empty(), "{:?}", question.obeying);
+    declare(&mut engine, &[]).expect("nobody has to pay to obey a lure");
+    assert!(!engine.state().combat.is_blocking(prototype, luring));
+
+    let (mut engine, _) = blocks(&mine, &theirs, &me, with_one_counter(prototype));
+    engine.state.players[usize::from(THEM.get())]
+        .mana_pool
+        .add(baylee_core::mana::ManaColor::Green, 1);
+    declare(&mut engine, &[(prototype, luring)]).expect("the block is paid for");
+    assert!(engine.state().combat.is_blocking(prototype, luring));
+    assert_eq!(
+        engine.state().players[usize::from(THEM.get())]
+            .mana_pool
+            .total(),
+        0,
+        "and paid"
+    );
+}
+
+/// The other half of that sentence: blocking with the creature that costs
+/// mana obeys nothing in another's place. A Bear able to block the lure must
+/// block it, whether or not the Prototype is paid for, as a creature that
+/// must attack still must when another attacks paying its tax (CR 508.1d).
+#[test]
+fn a_blocker_paid_for_obeys_no_requirement_in_anothers_place() {
+    let mine = [LURING];
+    let theirs = [myr_prototype(), BEAR, super::synthetic::forest()];
+    let (me, them) = ids(&mine, &theirs);
+    let (luring, prototype, bear) = (me[0], them[0], them[1]);
+
+    let (mut engine, question) = blocks(&mine, &theirs, &me, with_one_counter(prototype));
+    assert_eq!(question.obeying, vec![(bear, luring)]);
+    engine.state.players[usize::from(THEM.get())]
+        .mana_pool
+        .add(baylee_core::mana::ManaColor::Green, 1);
+    refused(declare(&mut engine, &[(prototype, luring)]), MUST_BLOCK);
+    refused(declare(&mut engine, &[]), MUST_BLOCK);
+    declare(&mut engine, &[(prototype, luring), (bear, luring)])
+        .expect("the Bear obeys, and the Prototype is paid for");
+    assert!(engine.state().combat.is_blocking(prototype, luring));
+    assert!(engine.state().combat.is_blocking(bear, luring));
+}

@@ -38,6 +38,7 @@ mod copying;
 mod damage_returns;
 mod weakest;
 use copying::{copy_spell, copy_target_ability};
+mod coin;
 pub mod coin_stakes;
 #[cfg(test)]
 mod coin_stakes_tests;
@@ -115,6 +116,8 @@ pub mod proliferate;
 mod repeated_graveyard_choice;
 #[cfg(test)]
 mod repeated_graveyard_tests;
+#[cfg(test)]
+mod reveal_search_tests;
 pub mod tap_energy;
 pub(crate) mod tap_group;
 use permissions::grant_play;
@@ -960,11 +963,15 @@ pub(super) fn bound_now_with_context(
             .collect();
     }
     if !crate::effects::locks_its_set(modifier) {
-        debug_assert!(
-            only.is_none(),
-            "a dynamic effect cannot carry the seat its card named",
+        return only.map_or_else(
+            || smallvec::smallvec![crate::effects::EffectFilter::Dsl(filter)],
+            |seats| {
+                smallvec::smallvec![crate::effects::EffectFilter::DslControlledBy(
+                    filter,
+                    seats.iter().copied().collect(),
+                )]
+            },
         );
-        return smallvec::smallvec![crate::effects::EffectFilter::Dsl(filter)];
     }
     let matches = |o: &crate::object::GameObject| {
         !o.status.contains(crate::object::Status::PHASED_OUT)
@@ -1456,6 +1463,9 @@ fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> Option<Pendi
         | Effect::ChooseOne { .. }
         | Effect::MayBehold { .. }
         | Effect::ChooseCardName { .. }
+        | Effect::GuessChosenNameInHand { .. }
+        | Effect::RevealHandForGuess
+        | Effect::DrawIfGuessWrong
         | Effect::ChooseNumber { .. }
         | Effect::DestroyWeakest { .. }
         | Effect::ExchangeGreatestManaValue { .. }

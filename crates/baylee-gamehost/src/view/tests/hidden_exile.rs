@@ -73,7 +73,7 @@ fn hidden_exile_views_and_logs_require_explicit_permission_even_for_the_owner() 
             assert!(!lines.is_empty());
         }
         // Controlling a player grants that player's inspection rights, even if
-        // neither they nor their controller owns the exiled card (CR 723.4).
+        // neither they nor their controller owns the exiled card (CR 722.4).
         let ctx = SeatContext {
             controlled_players: [other].into_iter().collect(),
             ..SeatContext::default()

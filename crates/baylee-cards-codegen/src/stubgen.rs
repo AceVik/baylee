@@ -184,6 +184,23 @@ pub fn slug(name: &str) -> String {
     out
 }
 
+/// Rust source identifier for a module slug. File names keep the plain slug;
+/// only declarations and references need Rust's keyword escaping.
+#[must_use]
+pub fn module_ident(slug: &str) -> String {
+    match slug {
+        // These four names are not legal even after `r#`.
+        "crate" | "self" | "Self" | "super" => format!("c_{slug}"),
+        "as" | "async" | "await" | "break" | "const" | "continue" | "dyn" | "else" | "enum"
+        | "extern" | "false" | "fn" | "for" | "gen" | "if" | "impl" | "in" | "let" | "loop"
+        | "match" | "mod" | "move" | "mut" | "pub" | "ref" | "return" | "static" | "struct"
+        | "trait" | "true" | "type" | "unsafe" | "use" | "where" | "while" | "abstract"
+        | "become" | "box" | "do" | "final" | "macro" | "override" | "priv" | "typeof"
+        | "unsized" | "virtual" | "yield" => format!("r#{slug}"),
+        _ => slug.to_owned(),
+    }
+}
+
 struct FaceData {
     name: String,
     mana_cost: String,
@@ -572,6 +589,7 @@ fn render_face(
     enter_modifiers: &[String],
     flashback: Option<&str>,
     cost_reduction: Option<&str>,
+    entwine: Option<&str>,
     is_back: bool,
     layout: Option<&str>,
 ) -> Result<String, CodegenError> {
@@ -623,6 +641,9 @@ fn render_face(
     }
     if let Some(cr) = cost_reduction {
         fields.push(format!("cost_reduction = {cr}"));
+    }
+    if let Some(e) = entwine {
+        fields.push(format!("entwine = {e}"));
     }
     // CR 712.2 vs. 712.4a: an MDFC's back is castable or playable from hand,
     // a nonmodal (transforming) one's back is not — in hand the card has
@@ -854,10 +875,11 @@ pub fn render_cards_mod(stubs: &[StubInfo]) -> String {
         // A file directly in `cards/` needs no attribute; anything nested
         // does, and stating it only where it is load-bearing keeps the diff
         // of a re-filed card to the one line that moved.
+        let ident = module_ident(slug);
         if path == format!("{slug}.rs") {
-            out.push_str(&format!("pub mod {slug};\n"));
+            out.push_str(&format!("pub mod {ident};\n"));
         } else {
-            out.push_str(&format!("#[path = \"{path}\"]\npub mod {slug};\n"));
+            out.push_str(&format!("#[path = \"{path}\"]\npub mod {ident};\n"));
         }
     }
     out
@@ -904,7 +926,8 @@ pub fn render_registry(stubs: &[StubInfo], slots: usize) -> String {
     for s in &by_oracle {
         out.push_str(&format!(
             "    ({:?}, &crate::cards::{}::CARD),\n",
-            s.oracle_id, s.slug
+            s.oracle_id,
+            module_ident(&s.slug)
         ));
     }
     out.push_str(
@@ -912,7 +935,10 @@ pub fn render_registry(stubs: &[StubInfo], slots: usize) -> String {
     );
     for s in &slot {
         match s {
-            Some(s) => out.push_str(&format!("    Some(&crate::cards::{}::CARD),\n", s.slug)),
+            Some(s) => out.push_str(&format!(
+                "    Some(&crate::cards::{}::CARD),\n",
+                module_ident(&s.slug)
+            )),
             None => out.push_str("    None,\n"),
         }
     }
@@ -1028,6 +1054,26 @@ mod tests {
             slug("Jin-Gitaxias, Progress Tyrant"),
             "jin_gitaxias_progress_tyrant"
         );
+    }
+
+    #[test]
+    fn rust_keywords_are_escaped_in_module_declarations_and_references() {
+        assert_eq!(module_ident("override"), "r#override");
+        assert_eq!(module_ident("gen"), "r#gen");
+        assert_eq!(module_ident("self"), "c_self");
+        assert_eq!(module_ident("lightning_bolt"), "lightning_bolt");
+
+        let stubs = vec![StubInfo {
+            slug: "override".into(),
+            oracle_id: "oracle-o".into(),
+            index: 0,
+            path: "instants/mv_3/override.rs".into(),
+        }];
+        assert!(
+            render_cards_mod(&stubs)
+                .contains("#[path = \"instants/mv_3/override.rs\"]\npub mod r#override;")
+        );
+        assert!(render_registry(&stubs, 1).contains("crate::cards::r#override::CARD"));
     }
 
     /// Ninety cards in the corpus print an accented letter, and dropping it

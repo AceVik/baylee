@@ -21,6 +21,44 @@ pub(super) fn exec_choice(
             res.awaiting = Some(AwaitingOp::ChooseCardName { remember });
             Some(Pending::ChooseCardName { player, types })
         }
+        Effect::GuessChosenNameInHand { who, guesser } => {
+            let hand_owner = players_of(who, state, you, res).first().copied()?;
+            let guesser = players_of(guesser, state, you, res).first().copied()?;
+            let (_, name) = res.subject.named?;
+            let actual = state
+                .zones
+                .list(ZoneLocation::Hand(hand_owner))
+                .iter()
+                .filter_map(|&card| state.object(card))
+                .any(|card| card.characteristics().name == name);
+            res.awaiting = Some(AwaitingOp::GuessNamedCardInHand { actual });
+            Some(Pending::YesNo {
+                player: guesser,
+                prompt: YesNoPrompt::Generic,
+                source: resolving_ability(state, res),
+            })
+        }
+        Effect::RevealHandForGuess => {
+            res.subject.guess.as_mut()?.revealed = true;
+            zones::exec(
+                state,
+                res,
+                Effect::RevealHand {
+                    who: PlayerRel::You,
+                },
+            )
+        }
+        Effect::DrawIfGuessWrong => {
+            static DRAW: &[Effect] = &[Effect::draw(1)];
+            if res
+                .subject
+                .guess
+                .is_some_and(|guess| guess.revealed && guess.actual != guess.claimed)
+            {
+                return super::run_nested(state, res, DRAW);
+            }
+            None
+        }
         Effect::ChooseNumber { min, max } => {
             res.awaiting = Some(AwaitingOp::ChooseNumber);
             Some(Pending::ChooseNumber {

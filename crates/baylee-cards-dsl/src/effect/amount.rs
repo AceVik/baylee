@@ -346,6 +346,14 @@ pub enum ThisWay {
     /// Cards discarded (CR 701.9): Recall's "for each card discarded this
     /// way".
     Discarded,
+    /// Cards discarded this way that match the filter, read in the graveyard.
+    DiscardedMatching(&'static crate::Filter),
+    /// Cards moved from a library to exile earlier in this resolution that
+    /// match the filter as they exist in exile.
+    ExiledFromLibrary(&'static crate::Filter),
+    /// Counters of this kind removed from the resolving source earlier in
+    /// this resolution, including only actual reductions.
+    CountersRemoved(crate::CounterKind),
     /// Cards milled (CR 701.17a: put from a library into a graveyard) that
     /// match the filter as they are in the graveyard: Grist, the Hunger
     /// Tide's "if an Insect card was milled this way".
