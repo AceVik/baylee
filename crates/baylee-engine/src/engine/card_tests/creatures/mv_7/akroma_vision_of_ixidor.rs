@@ -7,6 +7,10 @@ use baylee_core::generated::index;
 const P0: PlayerId = PlayerId::new(0);
 const P1: PlayerId = PlayerId::new(1);
 
+fn akroma() -> CardIndex {
+    card_index("b9be5ce9-08bb-4361-940c-9031e429ba86")
+}
+
 static RED: baylee_cards_dsl::Filter =
     baylee_cards_dsl::Filter::HasColor(baylee_cards_dsl::ColorSet::from_slice(&[
         baylee_cards_dsl::Color::Red,
@@ -56,7 +60,7 @@ fn akroma_counts_each_listed_ability_at_each_combat_and_binds_the_set() {
         .battlefield(
             0,
             &[
-                index::AKROMA_VISION_OF_IXIDOR,
+                akroma(),
                 index::WHITE_KNIGHT,
                 index::SAKASHIMA_OF_A_THOUSAND_FACES,
             ],
@@ -76,7 +80,7 @@ fn akroma_counts_each_listed_ability_at_each_combat_and_binds_the_set() {
         )
         .unwrap();
     reach_main_phase(&mut engine, P0);
-    let akroma = on_battlefield(&engine, P0, index::AKROMA_VISION_OF_IXIDOR).unwrap();
+    let akroma = on_battlefield(&engine, P0, akroma()).unwrap();
     let knight = on_battlefield(&engine, P0, index::WHITE_KNIGHT).unwrap();
     let partner = on_battlefield(&engine, P0, index::SAKASHIMA_OF_A_THOUSAND_FACES).unwrap();
     let theirs = on_battlefield(&engine, P1, index::WHITE_KNIGHT).unwrap();

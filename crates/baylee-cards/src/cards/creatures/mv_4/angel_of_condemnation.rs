@@ -33,12 +33,11 @@ card!(
         ),
         activated!(
             cost!("{2}{W}", TapSelf, ExertSelf),
-            &[Effect::exile_linked(TargetSpec::Object(&ANOTHER_CREATURE))],
+            &[Effect::exile_until(
+                TargetSpec::Object(&ANOTHER_CREATURE),
+                ExileUntil::SourceLeavesBattlefield,
+            )],
             targets = Some(TargetReq::one(TargetSpec::Object(&ANOTHER_CREATURE))),
-        ),
-        triggered!(
-            Trigger::LeavesBattlefield(&Filter::This),
-            &[Effect::ReturnLinkedToBattlefield],
         ),
     ],
 );

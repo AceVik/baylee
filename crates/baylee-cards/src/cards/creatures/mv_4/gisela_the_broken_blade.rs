@@ -8,6 +8,12 @@ use crate::tokens;
 use baylee_cards_dsl::prelude::*;
 use baylee_core::generated::subtypes;
 
+static BRUNA_YOU_OWN: Filter = Filter::And(&[
+    Filter::Named("Bruna, the Fading Light"),
+    Filter::CREATURE,
+    Filter::OwnedByYou,
+]);
+
 card!(
     index = index::GISELA_THE_BROKEN_BLADE,
     oracle_id = "f3e23d5e-bd88-4e7c-a3fb-db2a8cb05b22",
@@ -36,6 +42,11 @@ card!(
             source_name: "Gisela, the Broken Blade",
             partner_name: "Bruna, the Fading Light",
             melded: &tokens::BRISELA_VOICE_OF_NIGHTMARES,
-        }]
+        }],
+        // An intervening "if" (CR 603.4): no trigger without the pair.
+        condition = Some(Condition::All(&[
+            Condition::SourceMatches(&Filter::OwnedByYou),
+            Condition::ControlCount(&BRUNA_YOU_OWN, 1),
+        ]))
     )],
 );

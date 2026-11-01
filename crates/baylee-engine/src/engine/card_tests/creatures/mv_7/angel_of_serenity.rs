@@ -68,3 +68,40 @@ fn angel_of_serenity_exiles_mixed_creature_targets_and_returns_owners_hands() {
         );
     }
 }
+
+/// "You may exile": the controller can decline as the trigger resolves, with
+/// its targets already chosen. Without the "may" the targets were exiled.
+#[test]
+fn angel_of_serenity_may_decline_its_exile_on_resolution() {
+    let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
+    let mut e = Duel::new(SEED, forest())
+        .battlefield(0, &[plains(); 7])
+        .hand(0, &[angel_of_serenity()])
+        .battlefield(1, &[gray_ogre()])
+        .start();
+    keep_mulligans(&mut e);
+    reach_main_phase(&mut e, p0);
+    let ogre = on_battlefield(&e, p1, gray_ogre()).expect("their creature");
+    cast_from_hand(&mut e, p0, angel_of_serenity());
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::ChooseTargets { .. })
+    });
+    e.apply(
+        p0,
+        PlayerAction::ChooseObjects {
+            objects: vec![ogre],
+        },
+    )
+    .expect("one target of up to three");
+    pass_until(&mut e, |e| {
+        matches!(e.pending(), Pending::YesNo { .. }) || stack_is_empty(e)
+    });
+    assert!(
+        matches!(e.pending(), Pending::YesNo { player, .. } if *player == p0),
+        "the exile is optional: {:?}",
+        e.pending()
+    );
+    e.apply(p0, PlayerAction::YesNo(false)).unwrap();
+    pass_until(&mut e, stack_is_empty);
+    assert_eq!(on_battlefield(&e, p1, gray_ogre()), Some(ogre));
+}
