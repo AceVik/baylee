@@ -347,25 +347,55 @@ Shaman) took four calls; with a plan it takes one, which
 
 Two more optional fields, in every seat's schema (`prompt::decide_schema`,
 `answer_schema`, the tools) and explained by the system prompt's last two
-paragraphs (`prompt::system`), since 31.10.2026:
+paragraphs (`prompt::system`), since 31.10.2026; the report's structured
+shape since 01.11.2026:
 
 ```json
 {"ask": "q21", "pick": ["p"],
- "report": {"what": "Shock dealt 3 damage to P2.",
-            "expected": "Shock deals 2 damage to any target.",
-            "evidence": "[Shock]'s Oracle text, looked up at q21",
-            "references": ["[Shock]", "120.3"]}}
+ "report": {"kind": "wrong_outcome", "severity": "game_changing",
+            "confidence": "high",
+            "cards": [{"name": "Shock",
+                       "oracle_quote": "<the words of its text, as shown>"}],
+            "rules": ["120.3"],
+            "observed": "Shock dealt 3 damage to P2.",
+            "expected": "2 damage, as its text says."}}
 {"ask": "q21", "lookup": "Shock"}
 ```
 
 - `report` goes beside an answer, never instead of one: the model keeps
   playing and says what the table did against the rules or a card's text.
-  `what` is required; a plain string is read as `what`. The schema tells
-  the model to report when unsure: a false report costs little, a missed
-  bug stays in the game. What the bridge does with it (one bug report a
-  game, with the seat's own game log, each report placed after a line of
-  it) is `docs/llm-seat.md` §"Reports and lookups". The model's prompt
-  and schemas do not change for it.
+  Its fields (`reports::Report`), flat and bounded:
+
+  | field | what | read as |
+  | --- | --- | --- |
+  | `kind` | `rules_error`, `card_text_mismatch`, `missing_option`, `illegal_option`, `wrong_outcome`, `display_text`, `other` | case, spaces and hyphens aside; anything else (a model's `unverified` too) is `other` |
+  | `severity` | `game_changing`, `minor`, `cosmetic` | anything else is not said (`null`) |
+  | `confidence` | `low`, `medium`, `high` | anything else is not said (`null`) |
+  | `cards` | at most 8 of `{name, oracle_quote}`: the name at most 100 characters, brackets taken off; the quote at most 300, quotation marks taken off | a lone card, or a plain string as a name; past 8 dropped, over-long cut without a mark |
+  | `rules` | at most 8 Comprehensive Rules numbers as strings (`702.19b`, `117.3a`, `601.2`), each at most 16 characters | a lone one, or a JSON number, as written; a leading `CR` and a trailing full stop taken off, lower case, each once; past 8 dropped |
+  | `observed` | what happened, at most 2,000 characters | required: a report without it is none; a plain string is `observed` |
+  | `expected` | what the rules or the card's text say should happen, at most 2,000 | |
+
+  The schema requires `kind`, `severity`, `confidence`, `observed` and
+  `expected`, and in a card only `name`; bounds are said in the
+  descriptions, not as schema keywords, which not every provider takes.
+  Nothing is refused for its shape: an over-long field is cut, control
+  characters but a line break and a tab are left out. The prompt asks for
+  an exact quote of a card's text as the model was shown it, or a rule
+  number, or both, with every report, explains the kinds in one line each,
+  and says a report with neither is filed as `unverified`; it no longer
+  tells the model to report when unsure. A profile with `lookup:
+  "scryfall"` also has `references` (the rulings it was shown, at most 20
+  of 300 characters).
+- The shape before 01.11.2026 is still read: `what` as `observed` (where
+  there is no `observed`), `evidence` kept as it was (at most 2,000) and
+  `references` as they are (at most 20 of 300). Such a report quotes and
+  cites nothing the seat can read, so it is filed `unverified`.
+- What the seat adds of its own (the question as it showed it, the
+  checks, the dedupe key) and what the bridge does with a report (one bug
+  report each, with the seat's own game log) is `docs/llm-seat.md`
+  §"Reports and lookups". The model's prompt and schemas do not change
+  for it.
 - `lookup` names a card. An answer of only `ask` and `lookup` is answered
   by the next message: the card's text as data, in a fence it cannot
   close, introduced by where it came from, then the same question
@@ -389,11 +419,11 @@ paragraphs (`prompt::system`), since 31.10.2026:
   this question (3 made); answer q21 now").
 
 A profile's `lookup: "scryfall"` adds Scryfall's rulings: the lookup
-field's description and the prompt's paragraph say so for that seat only
-(`prompt::Extras`), so a seat's bytes stay the same for its whole game,
-cache included. Every other byte of the prompt and the schemas is as it
-was before the two fields; `llm::tests::extras` holds that against the
-frozen copy in `src/llm/tests/prompt_before.json`.
+field's description, the report's `references` and the prompt's paragraph
+say so for that seat only (`prompt::Extras`), so a seat's bytes stay the
+same for its whole game, cache included. Every other byte of the prompt
+and the schemas is as it was before the two fields; `llm::tests::extras`
+holds that against the frozen copy in `src/llm/tests/prompt_before.json`.
 
 ## What it saves
 

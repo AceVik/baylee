@@ -26,7 +26,7 @@ use super::prompt::{LOOKUPS_PER_GAME, LOOKUPS_PER_QUESTION};
 use super::{RETRY_FLOOR, SAYS, Settings, lock};
 use crate::lookup::{self, Library};
 use crate::mind::{Answer, GameContext, Request};
-use crate::narrator::{self, Act, Decision, Hint, Narrator, Step, Stop, Table};
+use crate::narrator::{self, Act, Decision, Hint, Menu, Narrator, Step, Stop, Table};
 use crate::reports::{self, Report};
 use crate::transcript::Transcript;
 use crate::wake::{Held, Orders, Why};
@@ -36,7 +36,7 @@ use baylee_core::mana::ManaColor;
 use baylee_engine::choice::{LegalActions, Pending, PlayerAction, TargetPrompt};
 use baylee_view::{LogEvent, LogObject, PlayerView};
 use serde_json::json;
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -140,27 +140,45 @@ pub(crate) struct Seat {
     pub(crate) stops: Option<narrator::Stops>,
     /// The lookups this seat made in its game.
     lookups: u32,
+    /// The cards this seat's model was told the build's own text of by a
+    /// lookup, by name folded ([`lookup::fold`]): a report's quote of one
+    /// is checked against that text too.
+    looked_up: BTreeSet<String>,
     /// The reports this seat filed in its game, until the bridge takes
     /// them.
     pub(crate) reports: reports::Book,
 }
 
-/// A report or a lookup, as the seat that made it sees it: the question,
-/// the model, where reports are written.
+/// A report or a lookup, as the seat that made it sees it: the question
+/// and how it was told, the model, where reports are written.
 pub(crate) struct Making<'a> {
     request: &'a Request,
     settings: &'a Settings,
+    /// The question's options, as the model was shown them.
+    menu: &'a Menu,
+    /// The narrator that told the question: the card texts the model was
+    /// told, this question's new cards included.
+    narrator: &'a Narrator,
     /// The lookups made for this question so far.
     looked: u32,
 }
 
 impl<'a> Making<'a> {
-    /// What the seat answering `request` with `settings` makes, after
-    /// `looked` lookups for the question.
-    pub(crate) const fn new(request: &'a Request, settings: &'a Settings, looked: u32) -> Self {
+    /// What the seat answering `request` with `settings` makes, the
+    /// question told by `narrator` with `menu`, after `looked` lookups for
+    /// the question.
+    pub(crate) const fn new(
+        request: &'a Request,
+        settings: &'a Settings,
+        menu: &'a Menu,
+        narrator: &'a Narrator,
+        looked: u32,
+    ) -> Self {
         Self {
             request,
             settings,
+            menu,
+            narrator,
             looked,
         }
     }
@@ -204,7 +222,7 @@ pub(crate) async fn report_and_look_up<T: Holds>(
         let mut held = lock(holder);
         let seat = held.seat();
         if let Some(report) = &decision.report {
-            seat.file_report(report, making);
+            seat.file_report(report, decision, making);
         }
         let Some(name) = decision.lookup.clone() else {
             return Looked::Nothing;
@@ -230,19 +248,32 @@ pub(crate) async fn report_and_look_up<T: Holds>(
 }
 
 impl Seat {
-    /// Files the report an answer carried ([`crate::reports`]): written to
-    /// the reports file where there are transcripts, and kept for the
-    /// bridge.
-    fn file_report(&mut self, report: &Report, at: &Making) {
+    /// Files the report `decision` carried ([`crate::reports`]), with what
+    /// only the seat may say of it: the question as the model was shown it
+    /// and the answer read against it, and its quotes checked against the
+    /// card text the seat told the model (the narrator's, and the build's
+    /// own text of a card it looked up). Written to the reports file where
+    /// there are transcripts, and kept for the bridge.
+    fn file_report(&mut self, report: &Report, decision: &Decision, at: &Making) {
         let request = at.request;
+        let pending = crate::scripted::kind(&request.pending);
+        let checked = reports::Checked::new(report, pending, |name| {
+            let mut told = at.narrator.told_texts(name);
+            if self.looked_up.contains(&lookup::fold(name)) {
+                told.extend(lookup::compiled(name));
+            }
+            told
+        });
         let filed = reports::Filed {
+            source: reports::Source::LlmSeat,
             game_id: request.context.game_id.clone(),
             seat: request.context.seat.get(),
             question: request.question,
-            turn: request.view.turn,
             model: at.settings.model.clone(),
             profile: at.settings.profile.clone(),
             report: report.clone(),
+            checked,
+            moment: reports::Moment::of(request, at.menu, decision),
             lookups: at.looked,
             unix: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -253,12 +284,15 @@ impl Seat {
                 .from
                 .saturating_add(u32::try_from(request.log.entries.len()).unwrap_or(u32::MAX)),
         };
+        let noted = json!({
+            "question": request.question,
+            "turn": request.view.turn,
+            "report": report.observed,
+            "kind": filed.checked.kind.as_str(),
+            "dedupe_key": filed.checked.dedupe_key,
+        });
         if self.reports.file(filed, at.settings.transcripts.as_deref()) {
-            self.transcript.write_value(&json!({
-                "question": request.question,
-                "turn": request.view.turn,
-                "report": report.what,
-            }));
+            self.transcript.write_value(&noted);
             self.transcript.flush();
         }
     }
@@ -290,6 +324,9 @@ impl Seat {
     /// mind's transcript, the text the model is told included.
     fn looked_up(&mut self, at: &Making, name: &str, found: &lookup::Found) {
         self.lookups += 1;
+        if found.sources.contains(&lookup::source::BAYLEE) {
+            self.looked_up.insert(lookup::fold(name));
+        }
         self.transcript.write_value(&json!({
             "question": at.request.question,
             "turn": at.request.view.turn,
@@ -339,6 +376,7 @@ impl Seat {
             transcript,
             stops: None,
             lookups: 0,
+            looked_up: BTreeSet::new(),
             reports: reports::Book::default(),
         }
     }

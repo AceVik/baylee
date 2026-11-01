@@ -68,14 +68,80 @@ fn reports_and_lookups_are_added_and_nothing_else_changed() {
 fn the_schema_says_what_a_report_and_a_lookup_are_for() {
     let schema = prompt::answer_schema(Extras::default());
     let report = &schema["properties"]["report"];
-    assert_eq!(report["required"], json!(["what"]));
-    for field in ["what", "expected", "evidence", "references"] {
-        assert!(report["properties"].get(field).is_some(), "{field}");
-    }
+    assert_eq!(
+        report["required"],
+        json!(["kind", "severity", "confidence", "observed", "expected"])
+    );
+    let fields: Vec<&str> = report["properties"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        fields,
+        [
+            "cards",
+            "confidence",
+            "expected",
+            "kind",
+            "observed",
+            "rules",
+            "severity"
+        ],
+        "the old what, evidence and references are not offered"
+    );
+    let properties = &report["properties"];
+    assert_eq!(
+        properties["kind"]["enum"],
+        json!([
+            "rules_error",
+            "card_text_mismatch",
+            "missing_option",
+            "illegal_option",
+            "wrong_outcome",
+            "display_text",
+            "other"
+        ])
+    );
+    assert_eq!(
+        properties["severity"]["enum"],
+        json!(["game_changing", "minor", "cosmetic"])
+    );
+    assert_eq!(
+        properties["confidence"]["enum"],
+        json!(["low", "medium", "high"])
+    );
+    assert_eq!(properties["cards"]["items"]["required"], json!(["name"]));
+    assert!(
+        properties["cards"]["items"]["properties"]
+            .get("oracle_quote")
+            .is_some()
+    );
     let said = report["description"].as_str().unwrap();
     assert!(said.contains("in addition to answering"), "{said}");
-    assert!(said.contains("When unsure, report anyway"), "{said}");
-    assert!(said.contains("a missed bug stays in the game"), "{said}");
+    assert!(said.contains("oracle_quote"), "{said}");
+    assert!(!said.contains("When unsure"), "{said}");
+    let system = prompt::system(Extras::default());
+    assert!(!system.contains("When unsure, report anyway"), "{system}");
+    for word in [
+        "oracle_quote",
+        "unverified",
+        "game_changing",
+        "702.19b",
+        "At most 8 cards",
+    ] {
+        assert!(system.contains(word), "{word}: {system}");
+    }
+    assert!(!system.contains("references"), "{system}");
+    // A Scryfall profile may cite the rulings it was shown.
+    let scryfall = prompt::answer_schema(Extras { scryfall: true });
+    assert!(
+        scryfall["properties"]["report"]["properties"]
+            .get("references")
+            .is_some()
+    );
+    assert!(prompt::system(Extras { scryfall: true }).contains("in references"));
     let lookup = schema["properties"]["lookup"]["description"]
         .as_str()
         .unwrap();
@@ -183,7 +249,15 @@ async fn a_lookup_asks_again_without_spending_a_try() {
     // The report, once, in the reports file and for the bridge.
     let filed = mind.reports("golden", 0);
     assert_eq!(filed.len(), 1);
-    assert_eq!(filed[0].report.what, "Bolt dealt 2.");
+    assert_eq!(filed[0].report.observed, "Bolt dealt 2.");
+    assert_eq!(
+        filed[0].checked.kind,
+        reports::Kind::Unverified,
+        "an answer of the old shape quotes nothing and cites no rule"
+    );
+    assert_eq!(filed[0].moment.pending, "Priority");
+    assert_eq!(filed[0].moment.answer, None, "it only asked for a lookup");
+    assert!(!filed[0].moment.options.is_empty());
     assert_eq!(filed[0].lookups, 0);
     assert_eq!(filed[0].profile.as_deref(), Some("collector"));
     assert_eq!(filed[0].model, "claude-sonnet-5");
@@ -315,4 +389,84 @@ async fn a_json_answer_looks_up_too() {
         "{content}"
     );
     assert_eq!(mind.reports("golden", 0).len(), 1);
+}
+
+/// The first line of a card's own text in this build, as a model is told
+/// it: a quote the seat can find, never written out here.
+fn first_line(name: &str) -> String {
+    let card = baylee_cards::decks::by_name(name).expect("a pool card");
+    let oracle = baylee_cards::oracle::face(card, 0).expect("its text");
+    let line = oracle.lines().find(|l| !l.trim().is_empty()).unwrap();
+    narrator::strip_reminder(line)
+}
+
+/// A report's quotes are checked against what the seat told the model:
+/// a card on the board, told under "New cards", and a card it looked up,
+/// told only in the lookup's answer. Its question is the one the model was
+/// shown, and its answer the one it gave.
+#[tokio::test]
+async fn a_report_s_quotes_are_checked_against_what_the_seat_told_the_model() {
+    // A card of the pool that is neither in the deck nor at the table.
+    let (view, _) = board();
+    let context = narrator::tests::context();
+    let at_table = |name: &str| {
+        view.battlefield
+            .iter()
+            .chain(view.graveyards.iter().flatten())
+            .any(|o| o.name == name)
+            || view.hand.iter().any(|c| c.name == name)
+            || context
+                .deck
+                .main
+                .iter()
+                .any(|e| baylee_cards::by_index(e.card).is_some_and(|def| def.name() == name))
+    };
+    let elsewhere = baylee_cards::all()
+        .filter(|def| def.faces.len() == 1)
+        .map(baylee_cards_dsl::CardDef::name)
+        .find(|name| {
+            !at_table(name)
+                && baylee_cards::decks::by_name(name).is_some()
+                && baylee_cards::oracle::face(baylee_cards::decks::by_name(name).unwrap(), 0)
+                    .is_some_and(|text| !text.trim().is_empty())
+        })
+        .expect("a card away from the table");
+    let (base, provider) = stand_in().await;
+    provider.script(decide(
+        "toolu_1",
+        json!({"ask": "q12", "lookup": elsewhere}),
+    ));
+    provider.script(decide(
+        "toolu_2",
+        json!({"ask": "q12", "pick": ["a1"], "report": {
+            "kind": "illegal_option", "severity": "minor", "confidence": "medium",
+            "cards": [
+                {"name": "Serra Angel", "oracle_quote": first_line("Serra Angel")},
+                {"name": elsewhere, "oracle_quote": first_line(elsewhere)},
+            ],
+            "rules": ["CR 601.2"],
+            "observed": "x", "expected": "y",
+        }}),
+    ));
+    let mind = mind(&base, Provider::Anthropic, |_| {});
+    mind.decide(a_priority()).await.expect("an answer");
+    let filed = mind.reports("golden", 0);
+    assert_eq!(filed.len(), 1);
+    let filed = &filed[0];
+    assert_eq!(filed.checked.kind, reports::Kind::IllegalOption);
+    assert_eq!(filed.checked.oracle_quote_matches, Some(true));
+    assert_eq!(filed.checked.rules_format_ok, Some(true));
+    assert_eq!(filed.report.rules, ["601.2"]);
+    assert_eq!(filed.lookups, 1);
+    let answer = filed.moment.answer.as_deref().unwrap();
+    assert!(answer.starts_with("a1 "), "{answer}");
+    assert_eq!(filed.moment.options[0].id, "a1");
+    assert_eq!(filed.moment.turn, 7);
+    // A card the model was never told: the same words do not match.
+    let mut never = filed.report.clone();
+    never.cards[1].name = "Some Other Card".into();
+    let checked = reports::Checked::new(&never, "Priority", |name| {
+        narrator::Narrator::new(&narrator::tests::context()).told_texts(name)
+    });
+    assert_eq!(checked.oracle_quote_matches, Some(false));
 }

@@ -2297,7 +2297,7 @@ async fn a_cli_s_lookup_asks_again_without_spending_a_try() {
     let seat = base.context.seat.get();
     let filed = mind.reports(game, seat);
     assert_eq!(filed.len(), 1);
-    assert_eq!(filed[0].report.what, "The pass came too early.");
+    assert_eq!(filed[0].report.observed, "The pass came too early.");
     assert_eq!(filed[0].model, "claude:opus");
     assert_eq!(filed[0].profile.as_deref(), Some("cc"));
     let argv = rig.starts()[0]["argv"].to_string();

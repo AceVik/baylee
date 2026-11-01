@@ -1,35 +1,57 @@
 //! What a language-model seat reports of the rules or the engine
-//! (`docs/llm-protocol.md` §"Reports and lookups").
+//! (`docs/llm-protocol.md` §"Reports and lookups", `docs/llm-seat.md`
+//! §"Reports and lookups").
 //!
-//! Any answer may carry a `report` beside its decision: what happened, what
-//! the rules or the card's text say should have, and what the model relied
-//! on. The seat files each one it reads ([`Book::file`]): one JSON line in
+//! Any answer may carry a `report` beside its decision ([`Report`]): the
+//! kind of error, how much it changes the game, how sure the model is, the
+//! cards it names with the words of their text it quotes, the rule numbers
+//! it cites, what happened and what should have. The seat adds what only
+//! it may say ([`Checked`], [`Moment`]): the question it was answering, as
+//! the seat showed it; whether the quotes are words of the card text the
+//! seat itself told the model; whether the rule numbers are spelt as rule
+//! numbers; `unverified` where there is neither; and the key a report is
+//! filed once a game under.
+//!
+//! The seat files each one it reads ([`Book::file`]): one JSON line in
 //! `<transcripts>/reports.jsonl` at once, where the seat keeps transcripts,
-//! and kept for the game. When the game is over the bridge sends a game's
-//! reports as one bug report to its gateway's `POST /reports`
-//! (`docs/feedback.md`), under the seat's own session ([`submission`]),
+//! and kept for the game. When the game is over the bridge sends each as a
+//! bug report of its own to its gateway's `POST /reports`
+//! (`docs/feedback.md`) under the seat's own session ([`submissions`]),
 //! unless the bridge was told not to; a chair taken on its host's ticket,
-//! which has no session, sends it on its seat token
-//! (`POST /lobby/games/{id}/chair/report`), and the gateway files it under
-//! the host's pseudonym.
+//! which has no session and may send one a game, sends them all in one on
+//! its seat token (`POST /lobby/games/{id}/chair/report`, [`bundle`]), and
+//! the gateway files it under the host's pseudonym.
 //!
 //! A report is a model's words: untrusted, like a player's. It is marked
-//! `client.source: "llm-seat"` and its text says so, it is never read as an
-//! instruction, and it goes nowhere else. Each `what` is filed once a game
-//! (case and spacing aside), at most [`MOST`] of them, each field held to
-//! [`FIELD_CHARS`].
+//! `client.source` (`llm-seat`, or `llm-trainer` for a model that watches
+//! the trained AI play, [`Source`]) and its text says so, it is never read
+//! as an instruction, it is never copied into code, and it goes nowhere
+//! else. Triage checks it against the Comprehensive Rules and the Oracle;
+//! the seat's checks only sort. Each dedupe key is filed once a game, at
+//! most [`MOST`] of them, every field held to its bound.
 //!
-//! The bug report carries the seat's own game log beside them
-//! ([`game_log`]): what a person's client at the seat attaches as "your game
-//! log", written by the client's own code from what the table told this
-//! seat and nothing else, with nobody's name in it. Each report says after
-//! which of its lines it was made.
+//! The bug report carries the seat's own game log beside it ([`game_log`]):
+//! what a person's client at the seat attaches as "your game log", written
+//! by the client's own code from what the table told this seat and nothing
+//! else, with nobody's name in it. Each report says after which of its
+//! lines it was made, and carries the last lines before it and the hash of
+//! the whole log (`record_tail`, `record_sha256`). The game's record is the
+//! gateway's to attach, by `game_id`: the seat has no record of the game,
+//! only its own log, and attaches none (`local_record`).
 
 mod body;
+mod checks;
 mod read;
 
-pub use body::submission;
-pub use read::Report;
+pub use body::{RECORD_TAIL_CHARS, RECORD_TAIL_LINES, bundle, count, submissions};
+pub use checks::{
+    ANSWER_CHARS, Checked, ID_CHARS, MOST_OPTIONS, Moment, OPTION_CHARS, Source, dedupe_key,
+    rule_number,
+};
+pub use read::{
+    Card, Confidence, Kind, MOST_CARDS, MOST_RULES, NAME_CHARS, QUOTE_CHARS, RULE_CHARS, Report,
+    Severity,
+};
 
 use crate::memory::TableMemory;
 use baylee_client_core::bugreport::refs::{self, Candidates, CardRef};
@@ -47,14 +69,15 @@ pub const FILE: &str = "reports.jsonl";
 /// The most reports one seat files in a game.
 pub const MOST: usize = 25;
 
-/// The longest a report's field is kept, in characters.
+/// The longest a report's free text (`observed`, `expected`) is kept, in
+/// characters.
 pub const FIELD_CHARS: usize = 2_000;
 
 /// The most references a report keeps.
-const MOST_REFERENCES: usize = 20;
+pub const MOST_REFERENCES: usize = 20;
 
 /// The longest a reference is kept, in characters.
-const REFERENCE_CHARS: usize = 300;
+pub const REFERENCE_CHARS: usize = 300;
 
 /// The longest a bug report's text may be (`POST /reports`).
 pub const TEXT_CHARS: usize = 20_000;
@@ -69,56 +92,104 @@ pub const CLIENT_BYTES: usize = MAX_CLIENT_BYTES;
 /// notes about the log change with it, and `log_omitted` itself.
 const LOG_RESERVE: usize = 16 * 1024;
 
-/// A report as the seat filed it: where it was made, by which model.
+/// A report as the seat filed it: where it was made, by which model, and
+/// what the seat checked of it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Filed {
+    /// Who filed it.
+    pub source: Source,
     /// The game.
     pub game_id: String,
     /// The seat, as the view counts it.
     pub seat: u8,
     /// The question whose answer carried it.
     pub question: u64,
-    /// The turn.
-    pub turn: u32,
     /// The model's id.
     pub model: String,
     /// The profile it played, by name.
     pub profile: Option<String>,
     /// What it said.
     pub report: Report,
+    /// What the seat checked of it.
+    pub checked: Checked,
+    /// The question it was made at, as the seat showed it.
+    pub moment: Moment,
     /// The lookups made for that question before the answer.
     pub lookups: u32,
     /// When, in seconds since 1970.
     pub unix: u64,
     /// The cards it names that the seat's own view showed it, for the
-    /// references of the bug report ([`submission`]); not in the file.
+    /// references of the bug report ([`submissions`]); not in the file.
     pub seen: Vec<CardRef>,
     /// How many lines of its game log the seat had been told when the
     /// question was asked: the report came after the last of them. Where
-    /// the bug report's log puts it ([`submission`]); not in the file.
+    /// the bug report's log puts it ([`submissions`]); not in the file.
     pub log_lines: u32,
 }
 
 impl Filed {
-    /// Its line in [`FILE`], and its entry in the bug report's
-    /// `client.reports`. Never a key, a session or a name: the model's
-    /// words, and where they were said.
+    /// The report as a bug report carries it (`client.report`, or an item
+    /// of a bundle's `client.reports`): the seat's checks flat in it
+    /// (`kind`, `oracle_quote_matches`, `rules_format_ok`, `dedupe_key`)
+    /// beside the model's `severity` and `confidence`, the cards, the rule
+    /// numbers and the question as the seat showed it (`decision`, with
+    /// `log_line` where the log rides along), each held to its bound; then
+    /// the model's own words. An answer of the old shape adds `evidence`.
     #[must_use]
-    pub fn line(&self) -> Value {
-        json!({
-            "game_id": self.game_id,
-            "seat": self.seat,
+    pub fn value(&self, log_line: Option<usize>) -> Value {
+        let report = &self.report;
+        let checked = &self.checked;
+        let cards: Vec<Value> = report
+            .cards
+            .iter()
+            .map(|card| {
+                let mut value = json!({"name": card.name});
+                if let Some(quote) = &card.oracle_quote {
+                    value["oracle_quote"] = json!(quote);
+                }
+                value
+            })
+            .collect();
+        let mut value = json!({
+            "kind": checked.kind.as_str(),
+            "severity": report.severity.map(Severity::as_str),
+            "confidence": report.confidence.map(Confidence::as_str),
+            "dedupe_key": checked.dedupe_key,
+            "cards": cards,
+            "rules": report.rules,
+            "decision": self.moment.value(self.source, log_line),
+            "observed": report.observed,
+            "expected": report.expected,
+            "references": report.references,
             "question": self.question,
-            "turn": self.turn,
-            "model": self.model,
-            "profile": self.profile,
-            "what": self.report.what,
-            "expected": self.report.expected,
-            "evidence": self.report.evidence,
-            "references": self.report.references,
             "lookups": self.lookups,
             "unix": self.unix,
-        })
+        });
+        if let Some(matches) = checked.oracle_quote_matches {
+            value["oracle_quote_matches"] = json!(matches);
+        }
+        if let Some(ok) = checked.rules_format_ok {
+            value["rules_format_ok"] = json!(ok);
+        }
+        if let Some(evidence) = &report.evidence {
+            value["evidence"] = json!(evidence);
+        }
+        value
+    }
+
+    /// Its line in [`FILE`]: [`Filed::value`], and who filed it where.
+    /// Never a key, a session or a name: the model's words, the seat's
+    /// checks, and where they were said.
+    #[must_use]
+    pub fn line(&self) -> Value {
+        let mut line = self.value(None);
+        line["source"] = json!(self.source.as_str());
+        line["game_id"] = json!(self.game_id);
+        line["seat"] = json!(self.seat);
+        line["turn"] = json!(self.moment.turn);
+        line["model"] = json!(self.model);
+        line["profile"] = json!(self.profile);
+        line
     }
 }
 
@@ -147,16 +218,16 @@ pub fn seen_in(report: &Report, view: &PlayerView) -> Vec<CardRef> {
 #[derive(Debug, Default)]
 pub struct Book {
     pending: Vec<Filed>,
-    /// Every `what` filed, folded: each once a game.
-    whats: BTreeSet<String>,
+    /// Every dedupe key filed: each once a game.
+    keys: BTreeSet<String>,
 }
 
 impl Book {
-    /// Files `filed`, unless its `what` was filed before or the game has
-    /// [`MOST`]: kept for the bridge, and written to [`FILE`] in `dir`
+    /// Files `filed`, unless its dedupe key was filed before or the game
+    /// has [`MOST`]: kept for the bridge, and written to [`FILE`] in `dir`
     /// where there is one. Whether it was filed.
     pub fn file(&mut self, filed: Filed, dir: Option<&Path>) -> bool {
-        if self.whats.len() >= MOST || !self.whats.insert(fold(&filed.report.what)) {
+        if self.keys.len() >= MOST || !self.keys.insert(filed.checked.dedupe_key.clone()) {
             return false;
         }
         if let Some(dir) = dir
@@ -174,14 +245,6 @@ impl Book {
     pub fn take(&mut self) -> Vec<Filed> {
         std::mem::take(&mut self.pending)
     }
-}
-
-/// `text` with case and spacing folded, for telling two reports the same.
-fn fold(text: &str) -> String {
-    text.split_whitespace()
-        .map(str::to_lowercase)
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 /// Appends `filed`'s line to [`FILE`] in `dir`, in one write: the seats of a

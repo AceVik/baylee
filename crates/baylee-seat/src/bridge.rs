@@ -58,13 +58,13 @@
 //! ([`crate::reports`]) is gathered from every mind that played the game,
 //! as each answer comes and before a mind leaves it, and sent when the
 //! game is over for the seat (an end, a room that closed, a seat that
-//! left) as one bug report to the gateway under the seat's own session, or
-//! on the seat token of a chair taken on its host's ticket
-//! ([`PlayOptions::send_reports`], [`SeatLink::reporter`]), with the seat's
-//! own game log as the core's memory holds it
-//! ([`crate::reports::game_log`]). Whatever becomes of it is a line of the
-//! transcript (`llm_reports`, its `route` saying which) and never touches
-//! the game.
+//! left): one bug report a report to the gateway under the seat's own
+//! session, or all in one on the seat token of a chair taken on its host's
+//! ticket, whose route takes one a game ([`PlayOptions::send_reports`],
+//! [`SeatLink::reporter`]), each with the seat's own game log as the
+//! core's memory holds it ([`crate::reports::game_log`]). Whatever becomes
+//! of them is a line of the transcript (`llm_reports`, its `route` saying
+//! which) and never touches the game.
 
 use crate::link::{SeatLink, Socket};
 use crate::mind::{Answer, Mind, MindError, Request};
@@ -111,7 +111,7 @@ impl Default for PlayOptions {
     }
 }
 
-/// How long the game's bug report may take to be sent.
+/// How long each of the game's bug reports may take to be sent.
 const REPORT_WAIT: Duration = Duration::from_secs(15);
 
 /// How a seat's game went.
@@ -131,21 +131,29 @@ pub struct Played {
     pub reports: Option<Filing>,
 }
 
-/// What became of a game's reports ([`crate::reports`]): how many, and
-/// whether they reached the gateway as its bug report.
+/// What became of a game's reports ([`crate::reports`]): how many, how
+/// many bug reports they made, and which of those the gateway took.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Filing {
-    /// The reports the mind filed.
+    /// The reports filed: each dedupe key once, at most
+    /// [`crate::reports::MOST`].
     pub count: usize,
-    /// Whether the gateway took the bug report.
+    /// The bug reports they made: one a report under a session, one in
+    /// all on a chair's route ([`Self::route`]).
+    pub bug_reports: usize,
+    /// Whether the gateway took every one of them.
     pub sent: bool,
-    /// The service's id for it, when it took it.
+    /// The service's id for the first it took.
     pub report_id: Option<String>,
-    /// Why it was not sent, when it was not.
+    /// The service's ids for every one it took, in the order sent.
+    pub report_ids: Vec<String>,
+    /// Why one was not sent, when one was not: the first reason. A refusal
+    /// or no answer stops the rest, which the reports file keeps.
     pub why: Option<String>,
-    /// The gateway route it went to, or would have: `"reports"` under the
-    /// seat's own session (`POST /reports`), `"chair"` on the seat token
-    /// of a chair taken on its host's ticket (`POST …/chair/report`).
+    /// The gateway route they went to, or would have: `"reports"` under
+    /// the seat's own session (`POST /reports`, one a report), `"chair"` on
+    /// the seat token of a chair taken on its host's ticket
+    /// (`POST …/chair/report`, which takes one a chair a game: all in one).
     pub route: &'static str,
 }
 
@@ -538,17 +546,22 @@ impl Bridge {
         }
     }
 
-    /// Sends the game's reports as one bug report to the gateway, where
-    /// the bridge may ([`PlayOptions::send_reports`]), with the seat's own
-    /// game log out of `memory` ([`crate::reports::game_log`]): under the
-    /// seat's own session, or, for a chair taken on its host's ticket, on
-    /// its seat token, which the gateway files under the host's pseudonym
+    /// Sends the game's reports to the gateway, where the bridge may
+    /// ([`PlayOptions::send_reports`]), with the seat's own game log out of
+    /// `memory` ([`crate::reports::game_log`]): one bug report a report
+    /// under the seat's own session ([`crate::reports::submissions`]), or,
+    /// for a chair taken on its host's ticket, all of them in one on its
+    /// seat token ([`crate::reports::bundle`]), since that route takes one
+    /// a chair a game and the gateway files it under the host's pseudonym
     /// ([`SeatLink::reporter`]). Says in the transcript what became of them
     /// and by which route. Never fails the game: a report not sent stays in
     /// the reports file.
     ///
-    /// Like a person's report, it is sealed first (`bugreport::seal`): one
-    /// that holds the session or the seat token anywhere is not sent.
+    /// Like a person's report, each is sealed first (`bugreport::seal`):
+    /// one that holds the session or the seat token anywhere is not sent,
+    /// and the others still go. A refusal or no answer within
+    /// [`REPORT_WAIT`] stops the rest, which would meet the same (the
+    /// gateway's 64 an hour, a gateway without a feedback service).
     async fn file_reports(
         &mut self,
         link: &SeatLink,
@@ -562,13 +575,26 @@ impl Bridge {
             return None;
         }
         let log = crate::reports::game_log(memory);
-        let body = crate::reports::submission(&self.reports, log)?;
-        let count = body["client"]["reports"].as_array().map_or(0, Vec::len);
         let reporter = link.reporter();
-        let (route, session) = match reporter {
-            Reporter::Session(_, session) => ("reports", Some(session.bearer())),
-            Reporter::Chair(..) => ("chair", None),
+        let (route, session, bodies) = match reporter {
+            Reporter::Session(_, session) => (
+                "reports",
+                Some(session.bearer()),
+                crate::reports::submissions(&self.reports, log.as_ref()),
+            ),
+            Reporter::Chair(..) => (
+                "chair",
+                None,
+                crate::reports::bundle(&self.reports, log.as_ref())
+                    .into_iter()
+                    .collect(),
+            ),
         };
+        if bodies.is_empty() {
+            return None;
+        }
+        let count = crate::reports::count(&self.reports);
+        let bug_reports = bodies.len();
         let mut secrets = vec![Secret {
             label: Keyring::SEAT,
             value: &link.chair().seat_token,
@@ -577,42 +603,51 @@ impl Bridge {
             label: Keyring::SESSION,
             value,
         }));
-        let sent = if !self.options.send_reports {
-            Err("not sent: the bridge was told not to".to_string())
-        } else if let Err(leaked) = seal(&body, &secrets) {
-            Err(format!("not sent: {leaked}"))
+        let mut report_ids = Vec::new();
+        let mut why = None;
+        if self.options.send_reports {
+            for body in bodies {
+                if let Err(leaked) = seal(&body, &secrets) {
+                    why.get_or_insert_with(|| format!("not sent: {leaked}"));
+                    continue;
+                }
+                let sending = async {
+                    match reporter {
+                        Reporter::Session(lobby, session) => lobby.report(session, body).await,
+                        Reporter::Chair(lobby, chair) => lobby.chair_report(chair, body).await,
+                    }
+                };
+                let failed = match tokio::time::timeout(REPORT_WAIT, sending).await {
+                    Ok(Ok(id)) => {
+                        report_ids.push(id);
+                        continue;
+                    }
+                    Ok(Err(e)) => format!("not sent: {e:#}"),
+                    Err(_) => "not sent: the gateway did not answer in time".to_string(),
+                };
+                why.get_or_insert(failed);
+                break;
+            }
         } else {
-            let sending = async {
-                match reporter {
-                    Reporter::Session(lobby, session) => lobby.report(session, body).await,
-                    Reporter::Chair(lobby, chair) => lobby.chair_report(chair, body).await,
-                }
-            };
-            match tokio::time::timeout(REPORT_WAIT, sending).await {
-                Ok(Ok(id)) => Ok(id),
-                Ok(Err(e)) => Err(format!("not sent: {e:#}")),
-                Err(_) => Err("not sent: the gateway did not answer in time".to_string()),
-            }
+            why = Some("not sent: the bridge was told not to".to_string());
+        }
+        let filing = Filing {
+            count,
+            bug_reports,
+            sent: report_ids.len() == bug_reports,
+            report_id: report_ids.first().cloned(),
+            report_ids,
+            why,
+            route,
         };
-        let filing = match sent {
-            Ok(id) => Filing {
-                count,
-                sent: true,
-                report_id: Some(id),
-                why: None,
+        if let Some(why) = &filing.why {
+            tracing::warn!(
+                reports = count,
+                taken = filing.report_ids.len(),
                 route,
-            },
-            Err(why) => {
-                tracing::warn!(reports = count, route, "the game's reports were {why}");
-                Filing {
-                    count,
-                    sent: false,
-                    report_id: None,
-                    why: Some(why),
-                    route,
-                }
-            }
-        };
+                "the game's reports were {why}"
+            );
+        }
         transcript.write_value(&serde_json::json!({ "llm_reports": filing }));
         Some(filing)
     }

@@ -1149,7 +1149,8 @@ impl ApiMind {
             };
             let taken = response::take(&reply, self.settings.answer);
             lock(&seat).record(&request, &prepared.wake.text, Some(&reply), None);
-            let making = Making::new(&request, &self.settings, looked);
+            let (menu, narrator) = (&prepared.wake.menu, &prepared.narrator);
+            let making = Making::new(&request, &self.settings, menu, narrator, looked);
             let decision = taken.as_ref().ok().map(|taken| &taken.decision);
             let left = time_left(&request, started);
             let extras = report_and_look_up(&seat, &self.library, &making, decision, left);

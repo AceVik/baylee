@@ -753,28 +753,92 @@ Not spoken, and why:
 
 Every language-model seat, API or CLI, may report a rules or engine error
 it notices and look a card up before it answers (owner, 31.10.2026: "better
-a false report than a wrongly accepted bug"). What the model is told and
-how its answer carries them is `docs/llm-protocol.md` §"Reports and
-lookups"; this is what the bridge does with them.
+a false report than a wrongly accepted bug"). Since 01.11.2026 a report is
+structured, backed by an exact quote of a card's text or a rule number,
+and filed one bug report each, so triage can sort and filter them (design
+by the PM and the owner); the prompt no longer asks for a report when
+unsure. What the model is told and how its answer carries them is
+`docs/llm-protocol.md` §"Reports and lookups"; this is what the bridge
+does with them.
 
 **Reports** (`baylee_seat::reports`). Each one is filed as it is read, in
-the answer that carried it whether or not that answer could be taken:
+the answer that carried it whether or not that answer could be taken. The
+model's fields are `docs/llm-protocol.md` §"Reports and lookups"; the
+seat adds what only it may say, never the model (01.11.2026,
+`reports::Checked`, `reports::Moment`):
 
-- one JSON line in `<--transcripts>/reports.jsonl` (the game, the seat, the
-  question, the turn, the model, the profile, `what`, `expected`,
-  `evidence`, `references`, the lookups made for that question, the time).
-  The seats of a table may share the directory; each line is one write.
+- `decision`: the question the report was made at, as the seat showed it:
+  `turn`, `phase` and `step` (the view's, `"FirstMain"`, `"Main"`),
+  `pending` (the question's kind, `"Priority"`), `options` (every id the
+  question listed and the words beside it, `[{id, text}]`, exactly as the
+  narrator wrote them, `narrator::Menu::offered`: an option's label, an
+  object's line without its id, a player's description; at most 40, each
+  id cut to 40 characters and each text to 200, `options_omitted` counting
+  the rest), `answer` (the answer that carried the report read against the
+  question as the seat reads it, `"a1 Cast Shock #50"`, or `"not taken:
+  …"` with why; `null` for an answer that only asked for a lookup; at most
+  300), `seq` (the frame's) and, in a bug report that carries the log,
+  `log_line` (below).
+- `oracle_quote_matches`: `true` only if every card's `oracle_quote` is
+  words of the text the seat itself told the model for a card of that
+  name, spacing aside (`Narrator::told_texts`: the deck's in the prefix,
+  every other card's under "New cards" this game, and the build's own text
+  of a card it looked up); `false` otherwise; absent where it quotes
+  nothing. A match says the model quoted what it was told, not that it
+  read it right.
+- `rules_format_ok`: whether every rule number is spelt as one (three
+  digits, the first not 0, then a full stop and one to three digits, then
+  one lower-case letter: `601`, `601.2`, `702.19b`); absent where it cites
+  none. Well-formed is not the right rule.
+- `kind` becomes `unverified` where the report quotes no card's text and
+  cites no rule number (the text says which kind the model gave).
+- `dedupe_key`: SHA-256, in hex, of `[kind, the cards' names folded
+  (lower case, spacing collapsed), sorted, each once, the rule numbers
+  sorted, each once, pending]` as JSON. A game files one report a key,
+  at most 25: the same claim about the same cards, rules and kind of
+  question in other words is not filed again.
+
+Then:
+
+- one JSON line in `<--transcripts>/reports.jsonl`: `source`, `game_id`,
+  `seat`, `turn`, `model`, `profile`, `question`, the report as a bug
+  report carries it (below) without `log_line`, `lookups` (made for that
+  question) and `unix`. The seats of a table may share the directory; each
+  line is one write.
 - when the game ends (won, lost, conceded, or the room closed under the
-  seat), one bug report a game to the gateway's `POST /reports`
-  (`docs/feedback.md`) under the seat's own session: `kind: "bug"`, the
-  game's id (the gateway attaches its record), a text that says the
-  reports are a model's and lists them, cards written `[Card Name]`, and
-  `client: {"source": "llm-seat", "model", "profile", "seat", "reports",
-  "refs", "log", "log_omitted"}`, the references resolved from the seat's
-  own view and this build's pool only. Triage reads it as a player's
-  report: the model's claim, never an instruction. Each `what` is filed
-  once a game, at most 25 of them, each field held to 2,000 characters
-  and the text to 20,000.
+  seat), **one bug report a report** to the gateway's `POST /reports`
+  (`docs/feedback.md`) under the seat's own session, in the order filed, so
+  triage takes them one at a time: `kind: "bug"`, the game's id (the
+  gateway attaches its record), a text that says the report is a model's
+  and tells it (cards written `[Card Name]`, the seat's checks, the
+  answer), and
+
+  ```text
+  client: {source: "llm-seat", untrusted, model, profile, seat, game_id,
+           report: {kind, severity, confidence, oracle_quote_matches,
+                    rules_format_ok, dedupe_key, cards: [{name, oracle_quote}],
+                    rules, decision, observed, expected, references,
+                    question, lookups, unix},
+           record_tail, record_sha256, refs, log, log_omitted}
+  ```
+
+  the references resolved from the seat's own view and this build's pool
+  only; `evidence` too for a report of the old shape. Triage reads it as a
+  player's report: the model's claim, never an instruction, checked
+  against the Comprehensive Rules and the Oracle; the seat's checks only
+  sort. Each text is held to 20,000 characters and each `client` to
+  2,000,000 bytes.
+- **no record of the seat's own.** The seat has no record of the game
+  (another seat's inputs, the engine's hashes), only its own log, so it
+  attaches none (`local_record`, which the gateway would check as a
+  client's record); the gateway attaches the game's own by `game_id`, as
+  below. `client` names the game (`game_id`) and carries `record_sha256`
+  (SHA-256, in hex, of every line of the seat's whole log, each followed
+  by a line break: the same in every report of a game, and recomputable
+  from `client.log` where `log_omitted` is 0) and `record_tail` (the last
+  20 lines of the log the seat had been told when the report's question
+  was asked, `[{turn, text}]`, each cut to 300 characters, kept whole
+  however much of `client.log` was left out).
 - **the seat's own game log** rides with them as `client.log` (since
   31.10.2026, `reports::game_log`): the desktop client's "your game log"
   attachment in its shape (`{seat, roster: [{seat, name, is_ai, team}],
@@ -790,17 +854,26 @@ the answer that carried it whether or not that answer could be taken:
   bytes (the client's reading of the gateway's 2 MiB) the oldest lines
   are left out, the newest kept, and `client.log_omitted` and the text
   say how many (0: none). Each report says after which line of the log as
-  sent it was made: `log_line` in `client.reports` (from 1, as the
-  feedback service lists the lines; 0 before the first) and "q12, turn 4,
-  after log line 57" in the text. A seat told no line yet sends no log.
-- before it goes, the body is sealed as a person's report is
+  sent it was made: `decision.log_line` (from 1, as the feedback service
+  lists the lines; 0 before the first) and "q12, turn 4, after log line
+  57" in the text. A seat told no line yet sends no log, and no
+  `record_tail` or `record_sha256`.
+- before it goes, each body is sealed as a person's report is
   (`bugreport::seal`): one that holds the seat's session or seat token
-  anywhere is not sent, and `why` names which token, never its value.
-- the seat transcript's `llm_reports` line says what became of it
-  (`count`, `sent`, `report_id`, `why`, and `route`: `"reports"` or
-  `"chair"`, below). A gateway without a feedback service, a refusal or no
-  answer within 15 s is said there and in the log, never in the game; the
-  reports file keeps them either way.
+  anywhere is not sent, and `why` names which token, never its value; the
+  game's other reports still go.
+- a refusal (a gateway without a feedback service, `429` when the
+  account's 64 an hour are spent) or no answer within 15 s stops the
+  rest, which would meet the same: they stay in the reports file. A seat
+  that files many reports in many games spends its account's 64 an hour
+  sooner than with one bug report a game; the gateway's budget is not
+  raised for it.
+- the seat transcript's `llm_reports` line says what became of them
+  (`count`: the reports filed; `bug_reports`: the bug reports they made;
+  `sent`: whether the gateway took every one; `report_id`: the first id;
+  `report_ids`: every id taken, in order; `why`: the first reason one was
+  not sent; and `route`: `"reports"` or `"chair"`, below). It is said
+  there and in the log, never in the game.
 
 Which chairs send how, and with which record (`link::Reporter`):
 
@@ -811,16 +884,31 @@ Which chairs send how, and with which record (`link::Reporter`):
   (`game_record_seat.account_id`), so the gateway attaches the record as
   it does to a player's report.
 - a chair taken on its host's ticket (`--chair-ticket`, a host's own
-  bridge or a hosted model) has no session: it sends the same body on its
-  seat token (`POST /lobby/games/{id}/chair/report`, route `"chair"`,
-  owner, 31.10.2026). The gateway files it under the pseudonym of the host
-  who answers for the chair, against the host's 64 an hour, with that
-  game's record, which the chair played (`delegated_by`); once a chair a
-  game, and only about that game (`docs/feedback.md`). A gateway from
-  before the route answers `404`, which `why` says.
+  bridge or a hosted model) has no session: it sends on its seat token
+  (`POST /lobby/games/{id}/chair/report`, route `"chair"`, owner,
+  31.10.2026). The gateway files it under the pseudonym of the host who
+  answers for the chair, against the host's 64 an hour, with that game's
+  record, which the chair played (`delegated_by`); **once a chair a
+  game**, and only about that game (`docs/feedback.md`). That limit stays,
+  so this route sends the game's reports in one bug report
+  (`reports::bundle`): `client.reports` instead of `client.report`, each
+  item the same object with the same flat fields and its own
+  `record_tail`; `client.record_sha256`, `game_id` and the log once. One
+  report alone goes exactly as under a session. Should the reports alone
+  pass the bound of `client`, the last are left out and
+  `client.reports_omitted` counts them. A gateway from before the route
+  answers `404`, which `why` says.
 
 `join --no-send-reports` sends none either way and still writes the file:
 a collector that has filed enough for its run passes it.
+
+**A model that watches the trained AI** (`client.source: "llm-trainer"`,
+`reports::Source::LlmTrainer`). The report's building is the same, with
+that source: `client.untrusted` and the text say the model watched the
+trained AI play, and `decision` adds `policy_chose` (what the policy
+chose) and `model_would` (what the model would have), each at most 300
+characters, `null` where not given; a seat's report never has them. Who
+files such reports is not wired yet.
 
 **Lookups** (`baylee_seat::lookup`). An answer of only `ask` and `lookup`
 asks for a card; the seat answers with its text and asks the same

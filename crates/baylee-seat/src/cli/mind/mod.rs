@@ -169,7 +169,8 @@ impl CliMind {
                 Reply::Gone(gone) => return Err(self.gone(&seat, gone).await),
             };
             let taken = decision(value.as_ref());
-            let making = Making::new(request, &self.settings, looked);
+            let (menu, narrator) = (&prepared.menu, &prepared.narrator);
+            let making = Making::new(request, &self.settings, menu, narrator, looked);
             let left = time_left(request, started);
             let extras =
                 report_and_look_up(&seat, &self.library, &making, taken.as_ref().ok(), left);

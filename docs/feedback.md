@@ -104,19 +104,46 @@ Never a name, username, address, session or IP. The client decides what goes
 into `client` and says so to the player (`docs/privacy.md`).
 
 A language-model seat's bridge sends its model's reports of rules or engine
-errors here too, one `bug` a game under the seat's own session, with
-`client.source: "llm-seat"`, the model, the profile, each report in
-`client.reports` (its `log_line` saying after which line of the log it
-was made), and the seat's own game log as `client.log`, in the shape the
-desktop client sends its log in: the reporter "You", every other seat
-`P1…Pn` as the model knew them, the oldest lines left out where `client`
-would pass 2,000,000 bytes and `client.log_omitted` saying how many
-(`docs/llm-seat.md` §"Reports and lookups"). They are a model's claims:
-triage reads them as it reads a player's. The seat's account sat at the
-game (a host's own chair handed to its bridge, `--host-chair`, too: the
-account's own chair in `game_record_seat`), so the record is attached as
-to a player's report. A chair taken on its host's ticket has no session
-and sends its report on its seat token instead (below).
+errors here too, **one `bug` a report** (since 01.11.2026; one a game
+before) under the seat's own session, with the seat's own game log as
+`client.log`, in the shape the desktop client sends its log in: the
+reporter "You", every other seat `P1…Pn` as the model knew them, the
+oldest lines left out where `client` would pass 2,000,000 bytes and
+`client.log_omitted` saying how many (`docs/llm-seat.md` §"Reports and
+lookups"). They are a model's claims: triage reads them as it reads a
+player's, against the Comprehensive Rules and the Oracle. The seat's
+account sat at the game (a host's own chair handed to its bridge,
+`--host-chair`, too: the account's own chair in `game_record_seat`), so
+the record is attached as to a player's report; the seat attaches no
+record of its own. A chair taken on its host's ticket has no session and
+sends its game's reports on its seat token instead, all in one (below).
+
+The fields triage sorts such a report by are flat in `client` (what the
+seat checked, never the model's say-so; `docs/llm-seat.md` §"Reports and
+lookups" has each one's exact meaning):
+
+| field | values |
+| --- | --- |
+| `client.source` | `llm-seat` (a model playing a seat), `llm-trainer` (a model watching the trained AI play one) |
+| `client.report.kind` | `rules_error`, `card_text_mismatch`, `missing_option`, `illegal_option`, `wrong_outcome`, `display_text`, `other`, or the seat's `unverified`: no quote of a card's text and no rule number |
+| `client.report.severity` | `game_changing`, `minor`, `cosmetic`, or `null` (not said) |
+| `client.report.confidence` | `low`, `medium`, `high`, or `null` |
+| `client.report.oracle_quote_matches` | `true` when every quote is words of the card text the seat told the model, `false` when one is not; absent without a quote |
+| `client.report.rules_format_ok` | whether every rule number is spelt as one; absent without one |
+| `client.report.dedupe_key` | 64 hex digits: the same claim (kind, cards, rule numbers, question kind) gives the same key, in any game, so duplicates across games and seats group under it |
+
+Beside them, bounded: `client.report.cards` (at most 8 `{name,
+oracle_quote}`), `client.report.rules` (at most 8), `client.report.decision`
+(the question as the seat showed it: `turn`, `phase`, `step`, `pending`,
+`options` at most 40 of `{id, text}`, `answer`, `seq`, `log_line`; and for
+`llm-trainer` `policy_chose` and `model_would`), the model's `observed` and
+`expected`, and `client.game_id`, `client.record_sha256` (the hash of the
+seat's whole log) and `client.record_tail` (its last 20 lines before the
+report). A chair's bug report carries the same objects as
+`client.reports[]`, each with its own `record_tail`. The service's list
+does not filter on `client` yet (§"Triage"): the fields are flat and
+bounded so a filter, or a query of the stored `client`, can take them one
+by one.
 
 ### A host's seat bridge: `POST /lobby/games/{id}/chair/report`
 
@@ -140,7 +167,9 @@ with these differences:
   `delegated_by` with no account), never another table's.
 - **Once a chair a game** (`409` after), the chance given back when the
   service did not take it (`502`), and for as long as the room is in the
-  lobby: an hour after the game ends.
+  lobby: an hour after the game ends. So the bridge sends its game's
+  reports here in one bug report, `client.reports[]` (one report alone as
+  `client.report`), each item with the flat fields above.
 - **A person's chair is refused** (`403`): a person reports with their
   session. A token that opens nothing, or not this game, is `401`; a body
   over 2.25 MiB is refused before it is read.

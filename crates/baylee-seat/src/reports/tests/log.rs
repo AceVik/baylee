@@ -97,16 +97,26 @@ pub(crate) fn game() -> Vec<LogEntry> {
     ]
 }
 
-/// The keys of a JSON object, sorted.
-fn keys(value: &Value) -> Vec<&str> {
-    let mut keys: Vec<&str> = value
-        .as_object()
-        .expect("an object")
-        .keys()
-        .map(String::as_str)
-        .collect();
-    keys.sort_unstable();
-    keys
+/// Two reports of the game, each its own dedupe key: the first made after
+/// `early` lines of the log, the second after `late`.
+fn early_and_late(early: u32, late: u32) -> [Filed; 2] {
+    let mut first = filed("Bolt dealt 2.", 12);
+    first.log_lines = early;
+    let mut second = filed_with(report("No trigger.", "603.2"), 14);
+    second.log_lines = late;
+    [first, second]
+}
+
+/// SHA-256, in hex, of every line's text followed by a line break: what
+/// `record_sha256` is, recomputed from the log as sent.
+fn sha_of(lines: &[Value]) -> String {
+    use sha2::{Digest as _, Sha256};
+    let mut hash = Sha256::new();
+    for line in lines {
+        hash.update(line["text"].as_str().unwrap().as_bytes());
+        hash.update(b"\n");
+    }
+    crate::reports::checks::hex(&hash.finalize())
 }
 
 /// The log rides in the shape the desktop client sends it in, whole, and
@@ -115,19 +125,17 @@ fn keys(value: &Value) -> Vec<&str> {
 fn the_report_carries_the_seat_s_log_in_the_client_s_shape() {
     let memory = told(game());
     let log = game_log(&memory).expect("the seat was told a log");
-    let mut early = filed("Bolt dealt 2.", 12);
-    early.log_lines = 2;
-    let mut late = filed("No trigger.", 14);
-    late.log_lines = 4;
-    let body = submission(&[early, late], Some(log)).unwrap();
+    let body = bundle(&early_and_late(2, 4), Some(&log)).unwrap();
     let client = &body["client"];
     assert_eq!(
         keys(client),
         [
+            "game_id",
             "log",
             "log_omitted",
             "model",
             "profile",
+            "record_sha256",
             "refs",
             "reports",
             "seat",
@@ -147,8 +155,8 @@ fn the_report_carries_the_seat_s_log_in_the_client_s_shape() {
     assert_eq!(keys(&lines[0]), ["at", "text", "turn"]);
     assert_eq!(lines[3]["turn"], 2);
     assert_eq!(client["log_omitted"], 0);
-    assert_eq!(client["reports"][0]["log_line"], 2);
-    assert_eq!(client["reports"][1]["log_line"], 4);
+    assert_eq!(client["reports"][0]["decision"]["log_line"], 2);
+    assert_eq!(client["reports"][1]["decision"]["log_line"], 4);
     let text = body["text"].as_str().unwrap();
     assert!(text.contains("is in client.log (4 lines)"), "{text}");
     assert!(
@@ -156,12 +164,63 @@ fn the_report_carries_the_seat_s_log_in_the_client_s_shape() {
         "{text}"
     );
     assert!(
-        text.contains("1. q12, turn 4, after log line 2: Bolt dealt 2."),
+        text.contains("1. q12, turn 4, after log line 2: wrong_outcome"),
         "{text}"
     );
     assert!(
-        text.contains("2. q14, turn 4, after log line 4: No trigger."),
+        text.contains("2. q14, turn 4, after log line 4: wrong_outcome"),
         "{text}"
+    );
+}
+
+/// The seat has no record of the game, only its own log: it attaches no
+/// record (the gateway attaches the game's own by `game_id`), and names
+/// the game, the hash of its whole log and, for each report, the lines it
+/// had been told last before it.
+#[test]
+fn a_report_names_the_game_and_its_log_and_attaches_no_record() {
+    let log = game_log(&told(game())).expect("a log");
+    let bodies = submissions(&early_and_late(2, 4), Some(&log));
+    assert_eq!(bodies.len(), 2);
+    let sent = bodies[0]["client"]["log"]["lines"].as_array().unwrap();
+    for body in &bodies {
+        assert!(
+            body.get("local_record").is_none(),
+            "no record of the seat's"
+        );
+        assert_eq!(body["game_id"], "TEST-game");
+        let client = &body["client"];
+        assert_eq!(client["game_id"], "TEST-game");
+        assert_eq!(client["record_sha256"], json!(sha_of(sent)));
+    }
+    let early = bodies[0]["client"]["record_tail"].as_array().unwrap();
+    assert_eq!(early.len(), 2, "the lines before the report, no later one");
+    assert_eq!(keys(&early[0]), ["text", "turn"]);
+    assert_eq!(early[1]["text"], sent[1]["text"]);
+    let late = bodies[1]["client"]["record_tail"].as_array().unwrap();
+    assert_eq!(late.len(), 4);
+    assert_eq!(late[3]["text"], sent[3]["text"]);
+    // Many lines: the last ones before the report, each held to its bound.
+    let long = SeatLog {
+        lines: (0..100)
+            .map(|n| LogRow {
+                turn: n,
+                at: 0,
+                text: format!("{n} {}", "y".repeat(1_000)),
+            })
+            .collect(),
+        ..game_log(&told(game())).unwrap()
+    };
+    let [mut at, _] = early_and_late(60, 0);
+    at.log_lines = 60;
+    let body = &submissions(&[at], Some(&long))[0];
+    let tail = body["client"]["record_tail"].as_array().unwrap();
+    assert_eq!(tail.len(), RECORD_TAIL_LINES);
+    assert_eq!(tail[0]["turn"], 60 - RECORD_TAIL_LINES);
+    assert_eq!(tail[RECORD_TAIL_LINES - 1]["turn"], 59);
+    assert_eq!(
+        tail[0]["text"].as_str().unwrap().chars().count(),
+        RECORD_TAIL_CHARS
     );
 }
 
@@ -170,7 +229,9 @@ fn the_report_carries_the_seat_s_log_in_the_client_s_shape() {
 /// the table: no view, so no hand or library either.
 #[test]
 fn the_log_names_nobody_and_tells_only_what_the_seat_was_told() {
-    let body = submission(&[filed("x", 1)], game_log(&told(game()))).unwrap();
+    let body = submissions(&[filed("x", 1)], game_log(&told(game())).as_ref())
+        .pop()
+        .unwrap();
     let json = body.to_string();
     for name in NAMES {
         let bare = name.split('#').next().unwrap();
@@ -197,29 +258,21 @@ fn a_seat_told_nothing_sends_no_log() {
     assert!(game_log(&told(Vec::new())).is_none());
 }
 
-/// A log that would take `client` past its bound loses its oldest lines,
-/// keeps its newest, says how many went, in `client` and in the text, and
-/// each report's place is counted in the lines sent.
-#[test]
-fn a_log_too_large_is_cut_from_its_start_and_says_so() {
-    let rows: u32 = 12_000;
+/// The lines of a log too large for a report.
+const ROWS: u32 = 12_000;
+
+/// A log of [`ROWS`] lines, too large for a report's `client`.
+fn too_large() -> SeatLog {
+    let seat = |seat: u8, name: &str| RosterSeat {
+        seat,
+        name: name.into(),
+        is_ai: false,
+        team: None,
+    };
     let log = SeatLog {
         seat: 1,
-        roster: vec![
-            RosterSeat {
-                seat: 0,
-                name: "P1".into(),
-                is_ai: false,
-                team: None,
-            },
-            RosterSeat {
-                seat: 1,
-                name: "You".into(),
-                is_ai: false,
-                team: None,
-            },
-        ],
-        lines: (0..rows)
+        roster: vec![seat(0, "P1"), seat(1, "You")],
+        lines: (0..ROWS)
             .map(|n| LogRow {
                 turn: n / 10,
                 at: 1_700_000_000_000,
@@ -228,46 +281,110 @@ fn a_log_too_large_is_cut_from_its_start_and_says_so() {
             .collect(),
     };
     assert!(serde_json::to_vec(&log).unwrap().len() > CLIENT_BYTES);
-    let mut early = filed("Early.", 3);
-    early.log_lines = 5;
-    let mut late = filed("Late.", 9);
-    late.log_lines = rows - 3;
-    let body = submission(&[early, late], Some(log)).unwrap();
-    let client = &body["client"];
-    let weight = serde_json::to_vec(client).unwrap().len();
-    assert!(weight <= CLIENT_BYTES, "{weight}");
+    log
+}
+
+/// The game's two reports, made after the log's fifth line and three
+/// before its last, with [`too_large`]: in one bug report, and one each.
+fn with_too_large() -> (Value, Vec<Value>) {
+    let log = too_large();
+    let reports = early_and_late(5, ROWS - 3);
+    (
+        bundle(&reports, Some(&log)).unwrap(),
+        submissions(&reports, Some(&log)),
+    )
+}
+
+/// A log that would take `client` past its bound loses its oldest lines,
+/// keeps its newest, says how many went, in `client` and in the text, and
+/// each report's place is counted in the lines sent; the hash is of the
+/// whole log.
+#[test]
+fn a_log_too_large_is_cut_from_its_start_and_says_so() {
+    let rows = ROWS;
+    let whole: Vec<Value> = too_large()
+        .lines
+        .iter()
+        .map(|line| json!({"text": line.text}))
+        .collect();
+    let (bundled, each) = with_too_large();
+    let in_bundle = &bundled["client"]["reports"];
+    // Each bug report, and the early report's and the late one's in it.
+    let cases = [
+        (&bundled, Some(&in_bundle[0]), Some(&in_bundle[1])),
+        (&each[0], Some(&each[0]["client"]["report"]), None),
+        (&each[1], None, Some(&each[1]["client"]["report"])),
+    ];
+    for (body, early, late) in cases {
+        let client = &body["client"];
+        let weight = serde_json::to_vec(client).unwrap().len();
+        assert!(weight <= CLIENT_BYTES, "{weight}");
+        assert!(
+            weight > CLIENT_BYTES - LOG_RESERVE - 1_000,
+            "as much of the log as fits is kept: {weight}"
+        );
+        assert_eq!(client["record_sha256"], json!(sha_of(&whole)));
+        let omitted = usize::try_from(client["log_omitted"].as_u64().unwrap()).unwrap();
+        let lines = client["log"]["lines"].as_array().unwrap();
+        assert!(omitted > 0 && !lines.is_empty());
+        assert_eq!(lines.len() + omitted, rows as usize);
+        assert!(
+            lines.last().unwrap()["text"]
+                .as_str()
+                .unwrap()
+                .starts_with("line 11999"),
+            "the newest line is kept"
+        );
+        let late_line = rows as usize - 3 - omitted;
+        let text = body["text"].as_str().unwrap();
+        assert!(
+            text.contains(&format!(
+                "its last {} of {rows} lines (the first {omitted} left out",
+                lines.len()
+            )),
+            "{text}"
+        );
+        if let Some(early) = early {
+            assert_eq!(early["decision"]["log_line"], 0);
+            assert!(
+                text.contains("q12, turn 4, before the log's first line: "),
+                "{text}"
+            );
+        }
+        if let Some(late) = late {
+            assert_eq!(late["decision"]["log_line"], late_line);
+            assert!(
+                text.contains(&format!("q14, turn 4, after log line {late_line}: ")),
+                "{text}"
+            );
+        }
+    }
+}
+
+/// Each report's tail is of the whole log, whatever was left out of the
+/// log sent with it, in one bug report or one each.
+#[test]
+fn a_report_s_tail_is_of_the_whole_log() {
+    let (bundled, each) = with_too_large();
+    let in_bundle = &bundled["client"]["reports"];
+    let early_tail = in_bundle[0]["record_tail"].as_array().unwrap();
+    assert_eq!(early_tail.len(), 5, "the whole log's first five lines");
     assert!(
-        weight > CLIENT_BYTES - LOG_RESERVE - 1_000,
-        "as much of the log as fits is kept: {weight}"
-    );
-    let omitted = usize::try_from(client["log_omitted"].as_u64().unwrap()).unwrap();
-    let lines = client["log"]["lines"].as_array().unwrap();
-    assert!(omitted > 0 && !lines.is_empty());
-    assert_eq!(lines.len() + omitted, rows as usize);
-    assert!(
-        lines.last().unwrap()["text"]
+        early_tail[0]["text"]
             .as_str()
             .unwrap()
-            .starts_with("line 11999"),
-        "the newest line is kept"
+            .starts_with("line 00000")
     );
-    assert_eq!(client["reports"][0]["log_line"], 0);
-    let late_line = rows as usize - 3 - omitted;
-    assert_eq!(client["reports"][1]["log_line"], late_line);
-    let text = body["text"].as_str().unwrap();
-    assert!(
-        text.contains(&format!(
-            "its last {} of {rows} lines (the first {omitted} left out",
-            lines.len()
-        )),
-        "{text}"
+    assert_eq!(
+        each[0]["client"]["record_tail"],
+        in_bundle[0]["record_tail"]
     );
-    assert!(
-        text.contains("1. q3, turn 4, before the log's first line: Early."),
-        "{text}"
+    assert_eq!(
+        in_bundle[1]["record_tail"].as_array().unwrap().len(),
+        RECORD_TAIL_LINES
     );
-    assert!(
-        text.contains(&format!("2. q9, turn 4, after log line {late_line}: Late.")),
-        "{text}"
+    assert_eq!(
+        each[1]["client"]["record_tail"],
+        in_bundle[1]["record_tail"]
     );
 }

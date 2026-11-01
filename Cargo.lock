@@ -1345,6 +1345,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "time",
  "tokio",
  "tokio-tungstenite 0.30.0",
