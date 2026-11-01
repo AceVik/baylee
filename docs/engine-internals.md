@@ -2119,10 +2119,13 @@ stream, so the copy (`simulation::driver::duplicate`) is private and
   hand — a draw keeps a copy of the card drawn; `per_turn.drawn`,
   `instruction_drawn`, `wand_of_ith_targets` and `ability_fires` entries
   naming a removed id; the dealt cards' entries in `printed_pt_cda` and
-  `offboard_static_candidates`, which the new objects take afresh; and,
-  after the statics are synced, the `effect_text_overrides` of effects that
-  no longer exist, as the end of the turn would drop them
-  (`prune_damage_sources`) — each one names its source's id.
+  `offboard_static_candidates`, which the new objects take afresh; and the
+  `effect_text_overrides` of effects whose source the deal removed (parked
+  ones included, collected before the statics are re-synced) or that quote
+  a removed card, as the end of the turn would drop them
+  (`prune_damage_sources`) — each names a removed card. No other override
+  goes: a phased-out permanent's statics are parked, not gone (CR
+  702.26b), and keep theirs.
 - **Settings**: no seat has capabilities; every other seat's standing
   answers and priority holds are the defaults (they are that seat's private
   setting); the forking seat keeps its own.
@@ -2178,7 +2181,9 @@ or upkeep work, a library-top announcement, a draw or discard being asked,
 a reflexive trigger, triggers not yet scanned, and a miracle check queued —
 which the opening draws and each turn's first draw leave in
 `pending_miracle` until the engine has offered it (`offer_miracle`), so the
-upkeep of turn 1 is refused and a main phase is not); a loop watch
+upkeep of turn 1 is refused and a main phase is not, and a player's first
+draw in another's turn (their Brainstorm in my main phase) leaves it until
+everyone has passed on the empty stack (CR 702.94a)); a loop watch
 holding a signature (it hashes the real hidden cards) or breaking a loop;
 any face-down object (CR 708.2) and face-down exile (CR 406.3); a commander
 in a hidden zone; a hidden card with rules state of its own (counters, a
