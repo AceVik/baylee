@@ -45,6 +45,7 @@ fn play_one_table(
     record_steps: bool,
     mut shadow: Option<&mut shadow::ShadowGame>,
     research_encoder: Option<u32>,
+    mut search: Option<&mut lookahead::GameSearch>,
 ) -> anyhow::Result<TableOutcome> {
     let preset = table_for(seed, decks, profiles, teams_u8);
     let n_seats = decks.len();
@@ -55,6 +56,9 @@ fn play_one_table(
             policy_seed ^ deal_idx.wrapping_mul(0x9e37_79b9_7f4a_7c15) ^ ((n_seats as u64) << 48);
         n.reseed(indep_policy_seed);
         n.init_game(&preset);
+        if let Some(search) = search.as_deref_mut() {
+            search.begin(indep_policy_seed);
+        }
     }
 
     let mut session = if record_steps {
@@ -125,12 +129,8 @@ fn play_one_table(
                 .into_iter()
                 .map(PlayerId::get)
                 .collect();
-            let surviving: Vec<u8> = if winners.is_empty() {
-                (0..n_seats as u8).collect()
-            } else {
-                winners.clone()
-            };
-            let util = side_utility(focal_seat as u8, teams, &surviving, &winners);
+            // One scale with the search's terminal leaves.
+            let util = terminal_utility(focal_seat as u8, teams, &winners, n_seats);
             let mut outcome_json = match winners.as_slice() {
                 [] => json!({"kind": "draw"}),
                 [w] => json!({"kind": "won", "seat": w}),
@@ -274,7 +274,14 @@ fn play_one_table(
 
             if let Some(n) = net.as_deref_mut() {
                 let t0 = Instant::now();
-                let answer = n.answer(&view, &pending, teams);
+                let searched = match search.as_deref_mut() {
+                    Some(search) => search.answer(n, &session, &view, &pending, teams)?,
+                    None => None,
+                };
+                let answer = match searched {
+                    Some(answer) => Ok(Some(answer)),
+                    None => n.answer(&view, &pending, teams),
+                };
                 if research_encoder.is_some() && (answer.is_err() || matches!(answer, Ok(None))) {
                     research_stop!(pid, false, "unsupported_or_inference_error", vh, None);
                 }

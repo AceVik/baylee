@@ -27,5 +27,11 @@ mod producer_tests {
         }
         let invalid = collector_policy_metadata(PolicyMode4::Raw, 0.2, 2, "v5");
         assert!(!converter_policy_contract::certified_run(&invalid));
+        let mut searched = collector_policy_metadata(PolicyMode4::Raw, 0.8, 2, "v5");
+        searched["search"] = SearchConfig4::new(4, 2, 0).unwrap().metadata();
+        assert!(
+            !converter_policy_contract::certified_run(&searched),
+            "a run that names its search certifies no policy-gradient dataset"
+        );
     }
 }

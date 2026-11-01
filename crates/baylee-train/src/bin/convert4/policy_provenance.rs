@@ -10,6 +10,12 @@ pub(super) fn certified_run(run: &Value) -> bool {
     {
         return false;
     }
+    // A searched run's behavior is the search, which has no probability:
+    // its unsearched decisions were taken on trajectories the policy alone
+    // would not have reached.
+    if !run["search"].is_null() {
+        return false;
+    }
     match (run["policy_mode"].as_str(), run["policy_contract"].as_str()) {
         (Some("raw"), Some("raw_neural_sampler2_v1")) => run["temperature"]
             .as_f64()
@@ -68,5 +74,21 @@ mod tests {
         assert!(certified_run(&source));
         source["model_family"] = json!("v3");
         assert!(!certified_run(&source));
+    }
+
+    #[test]
+    fn a_searched_run_certifies_no_policy_gradient_dataset() {
+        for mode in ["raw", "tactical"] {
+            let mut source = raw();
+            if mode == "tactical" {
+                source["policy_mode"] = json!("tactical");
+                source["policy_contract"] = json!("tactical_house_demonstrations_v1");
+            }
+            assert!(certified_run(&source));
+            source["search"] = json!({"contract": "belief_lookahead_v1"});
+            assert!(!certified_run(&source), "{mode}");
+            source["search"] = Value::Null;
+            assert!(certified_run(&source), "an explicit null names no search");
+        }
     }
 }

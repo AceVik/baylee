@@ -144,6 +144,7 @@ fn shadow_preserves_executed_record_and_binds_only_bc_labels() {
             true,
             labels,
             None,
+            None,
         )
         .unwrap()
     };

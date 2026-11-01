@@ -29,6 +29,19 @@ trait EvaluationPlayer {
     fn fallback_diagnostic(&self) -> Option<&baylee_train::netplay4::FallbackDiagnostic4> {
         None
     }
+    /// Answers with a lookahead over `table` (`--search`); `None` when this
+    /// player cannot search.
+    fn search(
+        &mut self,
+        _table: &Session,
+        _view: &baylee_view::PlayerView,
+        _pending: &Pending,
+        _teams: &[Option<u8>],
+        _config: SearchConfig4,
+        _seed: u64,
+    ) -> Option<anyhow::Result<SearchedAnswer4>> {
+        None
+    }
     fn policy_encoding(
         &self,
         _view: &baylee_view::PlayerView,
@@ -85,6 +98,27 @@ impl EvaluationPlayer for NetPlayer4 {
     }
     fn coverage(&self) -> &CoverageMatrix4 {
         &self.coverage
+    }
+    fn search(
+        &mut self,
+        table: &Session,
+        view: &baylee_view::PlayerView,
+        pending: &Pending,
+        teams: &[Option<u8>],
+        config: SearchConfig4,
+        seed: u64,
+    ) -> Option<anyhow::Result<SearchedAnswer4>> {
+        // The evaluator chose every deck at the table, so they are the
+        // harness's to assert known (`docs/trained-ai.md` §"Lookahead search").
+        Some(search_decision(
+            self,
+            &KnownDecks(table),
+            view,
+            pending,
+            teams,
+            config,
+            seed,
+        ))
     }
 }
 

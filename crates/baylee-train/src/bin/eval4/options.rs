@@ -100,6 +100,17 @@ struct Args {
     /// Max decisions per two seats.
     #[arg(long, default_value_t = 5000)]
     max_decisions: u64,
+    /// Belief-consistent lookahead at the net's priority decisions in main
+    /// phases and combat, as `K,P,H`: the policy's answer and its next K-1,
+    /// each tried in P worlds dealt again from the policy seed, rolled out
+    /// at most H actions (`0`: score the answer's own position). Off by
+    /// default; evaluation against the house only. Budgets are counts.
+    #[arg(long)]
+    search: Option<SearchConfig4>,
+    /// Searched decisions per game at most (`0` = no limit); later ones are
+    /// answered without searching.
+    #[arg(long, default_value_t = 0)]
+    search_max_decisions_per_game: u64,
 }
 
 #[derive(Default)]
@@ -120,6 +131,41 @@ struct EvalStats {
     latencies_ms: Vec<f64>,
     coverage: CoverageMatrix4,
     deal_details: Vec<Value>,
+    search: lookahead::SearchTally,
+}
+
+/// Why `--search` cannot run with `args`, if it cannot.
+fn search_refusal(
+    args: &Args,
+    collection: &collector::Contract,
+    identity: Option<&ModelIdentity>,
+) -> Option<&'static str> {
+    args.search?;
+    if args.legacy_v3 {
+        return Some("--search needs a v4/v5 model");
+    }
+    if collection.uses_seat_pool() {
+        return Some("--search is evaluation against the house only");
+    }
+    if args.shadow_teacher.is_some() {
+        return Some("--search writes no shadow labels");
+    }
+    if matches!(
+        identity.and_then(|identity| identity.critic_semantics.as_ref()),
+        Some(CriticSemantics4::FailureTerminalResearchUtilityV1 { .. })
+    ) {
+        return Some("--search scores leaves with an MTG outcome critic, not a research utility");
+    }
+    None
+}
+
+/// What `run.json` and the summary say about the search, when there is one.
+fn search_metadata(args: &Args, identity: Option<&ModelIdentity>) -> Option<Value> {
+    let config = args.search?;
+    let mut metadata = config.metadata();
+    metadata["max_decisions_per_game"] = json!(args.search_max_decisions_per_game);
+    metadata["critic_semantics"] = json!(identity.and_then(|i| i.critic_semantics.as_ref()));
+    Some(metadata)
 }
 
 fn parse_profile(name: &str) -> anyhow::Result<AIProfile> {

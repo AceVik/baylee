@@ -28,12 +28,15 @@ use baylee_gamehost::Session;
 use baylee_train::convert4::RolloutStepSidecar4;
 use baylee_train::deckgen::{self, Archetype};
 use baylee_train::features4::{
-    CoverageMatrix4, SourceKind4, StepProvenance4, side_utility, view_only_state_hash,
+    CoverageMatrix4, SourceKind4, StepProvenance4, view_only_state_hash,
 };
 use baylee_train::housedeck::HouseDeck;
+use baylee_train::netplay4::search::{
+    KnownDecks, SearchConfig4, SearchedAnswer4, search_decision, terminal_utility,
+};
 use baylee_train::netplay4::{
-    BatchLimits4, BatchedNet4, ModelIdentity, NetPlayer4, PolicyMode4, inspect_model_identity,
-    valid_raw_temperature,
+    BatchLimits4, BatchedNet4, CriticSemantics4, ModelIdentity, NetPlayer4, PolicyMode4,
+    inspect_model_identity, valid_raw_temperature,
 };
 use baylee_train::selfplay::table_for;
 use baylee_train::working::{Working, repo_root};
@@ -47,6 +50,7 @@ mod attempts;
 mod collector;
 mod diagnostics;
 mod failure_terminal;
+mod lookahead;
 mod seat_players;
 mod shadow;
 
@@ -89,6 +93,10 @@ fn main() -> anyhow::Result<()> {
         Some(inspect_model_identity(&args.model)?)
     };
     let collection = collector::Contract::new(&args, model_identity.as_ref())?;
+    if let Some(refusal) = search_refusal(&args, &collection, model_identity.as_ref()) {
+        bail!(refusal);
+    }
+    let search = search_metadata(&args, model_identity.as_ref());
     if args.shadow_teacher.is_some()
         && model_identity
             .as_ref()
@@ -245,6 +253,11 @@ fn main() -> anyhow::Result<()> {
             // Only batched runs name it, so unbatched records stay as they were.
             run["inference_batch_rows"] = json!(args.inference_batch);
         }
+        if let Some(search) = &search {
+            // Only searched runs name it; convert4 certifies no policy-gradient
+            // dataset from a run that does.
+            run["search"] = search.clone();
+        }
         if let Some(profile) = &args.shadow_teacher {
             let metadata_path = if args.model.is_dir() {
                 args.model.join("model.onnx.json")
@@ -336,6 +349,8 @@ fn main() -> anyhow::Result<()> {
         let collection = collection.clone();
         let run_metadata_sha = run_metadata_sha.clone();
         let attempts = attempts.clone();
+        let search_config = args.search;
+        let search_max = args.search_max_decisions_per_game;
 
         handles.push(std::thread::spawn(move || -> anyhow::Result<()> {
             let mut net:Box<dyn EvaluationPlayer> = if collection.uses_seat_pool() {
@@ -397,6 +412,8 @@ fn main() -> anyhow::Result<()> {
                     )?),
                     _ => None,
                 };
+                let mut game_search =
+                    search_config.map(|config| lookahead::GameSearch::new(config, search_max));
                 let (
                     net_u,
                     net_capped,
@@ -427,6 +444,7 @@ fn main() -> anyhow::Result<()> {
                     if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
                         Some(collection.learner_identity.as_ref().context("research learner")?.encoder_version)
                     } else {None},
+                    game_search.as_mut(),
                 )?;
 
                 if let Some((f, offset)) = &mut shard_file {
@@ -494,6 +512,7 @@ fn main() -> anyhow::Result<()> {
                         false,
                         None,
                         None,
+                        None,
                     )?;
                     (bu, bc)
                 };
@@ -508,7 +527,11 @@ fn main() -> anyhow::Result<()> {
                     "net_capped": net_capped, "base_capped": base_capped,
                     "refused": ref_cnt, "stalls": st_cnt, "house_fallbacks": fb,
                     "fallback_events": fallback_events,
+                    "search": game_search.as_ref().map(|search| search.tally.report()),
                     "decks": table_decks.iter().map(|deck| &deck.key).collect::<Vec<_>>()}));
+                if let Some(search) = &game_search {
+                    st.search.add(&search.tally);
+                }
                 st.net_utility_sum += f64::from(net_u);
                 st.base_utility_sum += f64::from(base_u);
                 if net_capped {
@@ -678,6 +701,11 @@ fn main() -> anyhow::Result<()> {
     summary["evaluator_dirty"] = json!(baylee_build::DIRTY);
     summary["latency_scope"] = json!("decision inference only; observation updates are excluded");
     summary["inference_batch"] = shared_nets.report();
+    if let Some(search) = &search {
+        summary["search"] = json!({"config": search, "counts": st.search.report(),
+            "latency_scope": "searched_ms is the wall time of each searched decision, \
+                forks and rollouts included; latency_ms leaves searched decisions out"});
+    }
     if collection.purpose == collector::Purpose::FailureTerminalResearchV1 {
         // The evaluation aggregate has an MTG denominator and cannot summarize
         // censored research episodes. Preserve every attempt in the named ledger.
@@ -728,6 +756,20 @@ fn main() -> anyhow::Result<()> {
         st.refused,
         started.elapsed().as_secs_f64(),
     );
+    if let Some(config) = args.search {
+        let counts = &st.search;
+        eprintln!(
+            "[eval4] search K,P,H={},{},{} | decisions={} searched={} changed={} skipped={:?} refused={:?}",
+            config.candidates(),
+            config.particles(),
+            config.horizon(),
+            counts.decisions,
+            counts.searched,
+            counts.changed,
+            counts.skipped,
+            counts.refused,
+        );
+    }
     Ok(())
 }
 
