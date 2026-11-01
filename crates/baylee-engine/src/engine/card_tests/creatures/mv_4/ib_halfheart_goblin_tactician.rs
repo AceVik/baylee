@@ -112,3 +112,39 @@ fn ibs_ability_needs_two_mountains() {
     let e = lk::game(SEED, &[ib(), mountain()], &[], &[], &[]);
     assert!(!lk::offered(&e, ib(), lk::P0, 1));
 }
+
+/// "Sacrifice it. If you do": Ib's controller sacrifices, and only a
+/// permanent they control (CR 701.21a). A Goblin an opponent took while the
+/// trigger waited is not sacrificed and deals no damage; the old code made
+/// its new controller sacrifice it and burned the blockers anyway.
+#[test]
+fn ib_does_not_sacrifice_a_goblin_that_changed_control_before_resolution() {
+    let mut e = lk::game(
+        SEED,
+        &[ib(), index::RAGING_GOBLIN],
+        &[grizzly_bears()],
+        &[],
+        &[],
+    );
+    let attacker = lk::obj(&e, lk::P0, index::RAGING_GOBLIN);
+    let blocker = lk::obj(&e, lk::P1, grizzly_bears());
+    lk::attack(&mut e, &[attacker]);
+    let from = e.journal().entries().len();
+    lk::block(&mut e, &[(blocker, attacker)]);
+    assert_eq!(e.state().zones.list(ZoneLocation::Stack).len(), 1);
+    e.state.object_mut(attacker).unwrap().set_controller(lk::P1);
+    e.state.invalidate_projections();
+    lk::settle(&mut e);
+    assert!(
+        e.state()
+            .object(attacker)
+            .is_some_and(|o| o.zone == Zone::Battlefield),
+        "the Goblin was not Ib's controller's to sacrifice"
+    );
+    assert!(
+        damage_events(&e, from)
+            .iter()
+            .all(|(source, target, _, combat)| *combat
+                || !(*source == attacker && *target == DamageTarget::Object(blocker)))
+    );
+}

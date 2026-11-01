@@ -402,6 +402,15 @@ fn sacrifice_blocked_event(
     amount: &Amount,
 ) -> Option<Pending> {
     let source = res.event_object?;
+    // "Sacrifice it": the ability's controller sacrifices, and a player can
+    // sacrifice only a permanent they control (CR 701.21a). A Goblin taken
+    // from them before this resolves is not sacrificed, so "if you do" fails.
+    if state
+        .object(source)
+        .is_none_or(|object| object.controller != res.controller)
+    {
+        return None;
+    }
     let before = state.object(source).map(|object| object.version);
     let identity = event_object_identity(state, res);
     let damage = amount2(amount, state, res.controller, res);
