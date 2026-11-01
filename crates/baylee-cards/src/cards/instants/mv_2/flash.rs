@@ -3,6 +3,8 @@
 //! Set: A25 #57 — Masters 25 | Scryfall ID: d31459c2-9656-4e9a-bb72-71a910e8570b | Oracle ID: 3e057471-e415-4105-9064-8236a0a5047d
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

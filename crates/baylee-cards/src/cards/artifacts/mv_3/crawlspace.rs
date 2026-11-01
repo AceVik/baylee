@@ -3,6 +3,8 @@
 //! Set: DMR #217 — Dominaria Remastered | Scryfall ID: 5b8e092a-610d-4cea-bb92-65e01954b5c4 | Oracle ID: 2296370c-fe34-4df6-92a5-260f1634bede
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

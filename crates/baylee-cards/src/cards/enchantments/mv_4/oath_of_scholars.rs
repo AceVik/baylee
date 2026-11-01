@@ -3,6 +3,8 @@
 //! Set: EXO #42 — Exodus | Scryfall ID: d61376ad-21c8-4d34-b37d-ed60877f5d4a | Oracle ID: da4a5129-b005-4fc6-b175-0416627881db
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

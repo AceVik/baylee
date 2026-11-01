@@ -3,6 +3,8 @@
 //! Set: EMA #60 — Eternal Masters | Scryfall ID: 30202613-d05f-4f47-af97-d0b75ccac293 | Oracle ID: bbfb3e4a-b389-4391-8141-13b68c0ef2e0
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

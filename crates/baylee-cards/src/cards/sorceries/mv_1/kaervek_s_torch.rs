@@ -4,6 +4,8 @@
 //! Set: VMA #175 — Vintage Masters | Scryfall ID: 83ff4446-4afd-42db-9879-0295e95764f7 | Oracle ID: c629feae-084c-452f-9c09-4b9716331498
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

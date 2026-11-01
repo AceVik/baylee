@@ -3,6 +3,8 @@
 //! Set: 6ED #266 — Classic Sixth Edition | Scryfall ID: 7e2d5a77-6ee8-463d-9e6a-fdb1cc6d70e6 | Oracle ID: 5a61d51e-1a3f-49f6-9a94-a708dd6f69df
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(
