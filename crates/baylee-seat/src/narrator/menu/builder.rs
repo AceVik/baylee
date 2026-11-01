@@ -19,16 +19,54 @@ impl Builder<'_, '_> {
         });
     }
 
+    /// Keeps what the text lists for the model to answer with, `id` and the
+    /// words beside it, as written ([`Menu::offered`]); an id once.
+    pub(super) fn listed(&mut self, id: impl Into<String>, text: impl Into<String>) {
+        let id = id.into();
+        if self.offered.iter().all(|o| o.id != id) {
+            self.offered.push(Offered {
+                id,
+                text: text.into(),
+            });
+        }
+    }
+
+    /// Writes an object's line, `  {line}`, and keeps it as listed: its id,
+    /// and the line without the id it starts with.
+    pub(super) fn object_line(&mut self, id: ObjectId, line: &str) {
+        let handle = tag(id);
+        let text = line
+            .strip_prefix(handle.as_str())
+            .map_or(line, str::trim_start)
+            .to_string();
+        self.listed(handle, text);
+        self.line(format!("  {line}"));
+    }
+
+    /// Writes a player's line, `  P2 = label`, and keeps it as listed.
+    pub(super) fn player_line(&mut self, p: PlayerId) {
+        let (id, label) = (Table::player_id(p), self.player_label(p));
+        self.line(format!("  {id} = {label}"));
+        self.listed(id, label);
+    }
+
     /// Lists the options as `  a1  label`.
     pub(super) fn list_options(&mut self) {
         let width = self.options.iter().map(|c| c.id.len()).max().unwrap_or(1);
-        let lines: Vec<String> = self
+        let lines: Vec<(String, String, String)> = self
             .options
             .iter()
-            .map(|c| format!("  {:width$}  {}", c.id, c.label))
+            .map(|c| {
+                (
+                    format!("  {:width$}  {}", c.id, c.label),
+                    c.id.clone(),
+                    c.label.clone(),
+                )
+            })
             .collect();
-        for line in lines {
+        for (line, id, label) in lines {
             self.line(line);
+            self.listed(id, label);
         }
     }
 
@@ -170,6 +208,7 @@ impl Builder<'_, '_> {
                         &|target| self.damage_target(target),
                     );
                     self.line(format!("  d{}: {label}", part.id));
+                    self.listed(format!("d{}", part.id), label);
                 }
                 self.ask = Ask::Prevention {
                     pending: Box::new(pending.clone()),
@@ -709,15 +748,15 @@ impl Builder<'_, '_> {
     pub(super) fn hand_objects(&mut self, count: usize) {
         let hand: Vec<ObjectId> = self.table.view.hand.iter().map(|c| c.id).collect();
         self.line("Choose from your hand:");
-        let lines: Vec<String> = self
+        let lines: Vec<(ObjectId, String)> = self
             .table
             .view
             .hand
             .iter()
-            .map(|card| format!("  {}", board::hand_line(self.table, card)))
+            .map(|card| (card.id, board::hand_line(self.table, card)))
             .collect();
-        for line in lines {
-            self.line(line);
+        for (id, line) in lines {
+            self.object_line(id, &line);
         }
         self.ask = Ask::Objects {
             from: hand,
@@ -741,7 +780,7 @@ impl Builder<'_, '_> {
     ) {
         self.line("Choose from:");
         for (i, &id) in options.iter().enumerate() {
-            let mut line = format!("  {}", self.describe(id));
+            let mut line = self.describe(id);
             if let Some(weight) = total.and_then(|t| t.weights.get(i)) {
                 let _ = write!(
                     line,
@@ -749,7 +788,7 @@ impl Builder<'_, '_> {
                     words::measure(total.map_or(baylee_engine::choice::Measure::Power, |t| t.of,))
                 );
             }
-            self.line(line);
+            self.object_line(id, &line);
         }
         self.ask = Ask::Objects {
             from: options.to_vec(),
@@ -886,12 +925,11 @@ impl Builder<'_, '_> {
             how_many(min, max)
         ));
         for &id in options {
-            let line = format!("  {}", self.describe(id));
-            self.line(line);
+            let line = self.describe(id);
+            self.object_line(id, &line);
         }
         for &p in players {
-            let line = format!("  {} = {}", Table::player_id(p), self.player_label(p));
-            self.line(line);
+            self.player_line(p);
         }
         self.ask = Ask::Targets {
             objects: options.to_vec(),
@@ -1115,6 +1153,9 @@ impl Builder<'_, '_> {
         self.line(intro);
         let named: Vec<String> = cards.iter().map(|&c| table.named(c)).collect();
         self.line(format!("Cards: {}", named.join(", ")));
+        for &card in cards {
+            self.listed(tag(card), table.name(card).unwrap_or_default());
+        }
         self.line("Piles:");
         for (i, pile) in piles.iter().enumerate() {
             let place = match pile.place {
@@ -1194,20 +1235,18 @@ impl Builder<'_, '_> {
         }
         self.line("Creatures that can attack:");
         for &id in attackers {
-            let line = format!("  {}", self.describe(id));
-            self.line(line);
+            let line = self.describe(id);
+            self.object_line(id, &line);
         }
         self.line("Defenders:");
         for &defender in defenders {
-            let line = match defender {
-                Defender::Player(p) => {
-                    format!("  {} = {}", Table::player_id(p), self.player_label(p))
-                }
+            match defender {
+                Defender::Player(p) => self.player_line(p),
                 Defender::Planeswalker(id) | Defender::Battle(id) => {
-                    format!("  {}", self.describe(id))
+                    let line = self.describe(id);
+                    self.object_line(id, &line);
                 }
-            };
-            self.line(line);
+            }
         }
         let _ = table;
         self.ask = Ask::Attack {
@@ -1257,7 +1296,10 @@ impl Builder<'_, '_> {
                 },
             );
             let may: Vec<String> = option.attackers.iter().map(|&a| tag(a)).collect();
-            self.line(format!("  {head} can block {}", may.join(", ")));
+            self.object_line(
+                option.blocker,
+                &format!("{head} can block {}", may.join(", ")),
+            );
         }
         for bound in bounds {
             let name = table.named(bound.attacker);

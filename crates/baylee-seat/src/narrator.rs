@@ -50,7 +50,8 @@ mod menu;
 mod words;
 
 pub use menu::{
-    Act, Decision, GRAMMAR, Hint, Menu, React, Resolved, Step, Stop, Stops, Until, asked, tap,
+    Act, Decision, GRAMMAR, Hint, Menu, Offered, React, Resolved, Step, Stop, Stops, Until, asked,
+    tap,
 };
 pub use words::{KEYWORDS, color_name, step_id};
 
@@ -125,6 +126,10 @@ pub struct Narrator {
     style: Style,
     /// Card faces whose full text this conversation carries.
     shown: BTreeSet<(CardIndex, u8)>,
+    /// Card faces whose full text any conversation of the game was told
+    /// on sight, kept when a fresh conversation forgets them
+    /// ([`Narrator::told_texts`]).
+    told_faces: BTreeSet<(CardIndex, u8)>,
     /// Cards whose text the stable prefix carries: the seat's own deck.
     deck: BTreeSet<CardIndex>,
     /// Log entries the seat was told and no wake has narrated yet.
@@ -168,6 +173,7 @@ impl Narrator {
         Self {
             style,
             shown: BTreeSet::new(),
+            told_faces: BTreeSet::new(),
             deck,
             unread: Vec::new(),
             next: 0,
@@ -381,10 +387,45 @@ impl Narrator {
                 continue;
             }
             if let Some(text) = card_text(face.card, usize::from(face.face)) {
+                self.told_faces.insert((face.card, face.face));
                 out.push(text);
             }
         }
         out
+    }
+
+    /// The full text, as [`card_text`] writes it, of every card face named
+    /// `name` (a face's name or the card's whole one, case and spacing
+    /// aside) that this seat's model was told in this game: its deck's in
+    /// the prefix, every other card's under "New cards" (a fresh
+    /// conversation that told it again included). What a report's quote of
+    /// a card is checked against (`crate::reports`); empty for a card it
+    /// was never told.
+    #[must_use]
+    pub fn told_texts(&self, name: &str) -> Vec<String> {
+        let wanted = crate::lookup::fold(name.trim());
+        if wanted.is_empty() {
+            return Vec::new();
+        }
+        let mut faces = self.told_faces.clone();
+        for &card in &self.deck {
+            let count = baylee_cards::by_index(card).map_or(0, |def| def.faces.len());
+            faces.extend((0..count).filter_map(|face| Some((card, u8::try_from(face).ok()?))));
+        }
+        faces
+            .into_iter()
+            .filter(|&(card, face)| {
+                baylee_cards::by_index(card).is_some_and(|def| {
+                    let named = |text: &str| crate::lookup::fold(text) == wanted;
+                    def.faces
+                        .get(usize::from(face))
+                        .is_some_and(|printed| named(printed.name))
+                        || named(def.name())
+                        || baylee_cards::decks::whole_name(card).is_some_and(named)
+                })
+            })
+            .filter_map(|(card, face)| card_text(card, usize::from(face)))
+            .collect()
     }
 }
 

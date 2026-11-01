@@ -40,6 +40,22 @@ pub struct Menu {
     /// Every seat at the table.
     players: Vec<PlayerId>,
     me: PlayerId,
+    /// What the question listed for the model to answer with, in order.
+    offered: Vec<Offered>,
+}
+
+/// One thing a question listed for the model to answer with, as the model
+/// read it: the id it answers with and the words the question wrote beside
+/// it, for a report's `decision.options` (`docs/llm-seat.md` §"Reports and
+/// lookups").
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Offered {
+    /// The id: an option's (`a1`, `p`, `y`), an object's (`#45`), a
+    /// player's (`P2`), a damage part's (`d3`).
+    pub id: String,
+    /// The words beside it: an option's label, an object's line without its
+    /// id, a player's description.
+    pub text: String,
 }
 
 /// What kind of answer a question takes.
@@ -345,6 +361,14 @@ fn list(value: &Value) -> Vec<String> {
 }
 
 impl Menu {
+    /// What the question listed for the model to answer with, in the order
+    /// it listed them: its options, the objects and the players it offered.
+    /// Empty for a question answered by a number or a name.
+    #[must_use]
+    pub fn offered(&self) -> &[Offered] {
+        &self.offered
+    }
+
     /// The option ids, in order, for a refusal that names them.
     fn ids(&self) -> String {
         self.options
@@ -888,6 +912,8 @@ struct Builder<'t, 'a> {
     text: String,
     options: Vec<Choice>,
     ask: Ask,
+    /// What the text lists for the model to answer with ([`Menu::offered`]).
+    offered: Vec<Offered>,
 }
 
 /// Writes `request`'s question and the menu that reads its answer.
@@ -899,6 +925,7 @@ pub(super) fn question(table: &Table<'_>, request: &Request, style: Style) -> (S
         text: String::new(),
         options: Vec::new(),
         ask: Ask::Pick,
+        offered: Vec::new(),
     };
     q.write();
     let view = table.view;
@@ -921,6 +948,7 @@ pub(super) fn question(table: &Table<'_>, request: &Request, style: Style) -> (S
         visible,
         players: view.seats.iter().map(|s| s.player).collect(),
         me: view.seat,
+        offered: q.offered,
     };
     (q.text, menu)
 }

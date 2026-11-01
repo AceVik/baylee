@@ -786,6 +786,21 @@ fn a_target_question_reads_as_its_golden_text() {
     );
     let wake = Narrator::new(&request.context).wake(&request, &[], None);
     golden("targets.txt", &wake.text);
+    // What it listed is kept as the model read it: each object's line
+    // without its id, each player's description.
+    let offered = wake.menu.offered();
+    let ids: Vec<&str> = offered.iter().map(|o| o.id.as_str()).collect();
+    assert_eq!(ids, ["#30", "#31", "#45", "#46", "P1", "P2"]);
+    for o in offered {
+        assert!(
+            wake.text
+                .lines()
+                .any(|l| l.trim_start().starts_with(&o.id) && l.ends_with(&o.text)),
+            "{o:?}"
+        );
+    }
+    assert!(offered[2].text.starts_with("Serra Angel"), "{offered:?}");
+    assert_eq!(offered[5].text, "opponent, 14 life");
     let pick = |ids: &[&str]| Decision {
         ask: Some("q12".into()),
         pick: ids.iter().map(ToString::to_string).collect(),
@@ -1563,4 +1578,63 @@ fn untap_replacement_refusal_does_not_offer_a_free_untap() {
         "{}",
         wake.text
     );
+}
+
+/// What a question listed is kept as the model read it, for a report's
+/// `decision.options`: each option's id and label, as its line shows them,
+/// each id once.
+#[test]
+fn a_menu_keeps_what_it_listed_as_the_model_read_it() {
+    let (view, log) = board();
+    let request = request(view.clone(), priority(&view), log);
+    let wake = Narrator::new(&request.context).wake(&request, &[], None);
+    let offered = wake.menu.offered();
+    assert!(offered.len() > 2, "{offered:?}");
+    for (n, o) in offered.iter().enumerate() {
+        assert!(
+            offered[..n].iter().all(|before| before.id != o.id),
+            "{} twice",
+            o.id
+        );
+        let line = wake
+            .text
+            .lines()
+            .find(|l| l.trim_start().starts_with(&format!("{} ", o.id)))
+            .unwrap_or_else(|| panic!("no line for {o:?}"));
+        assert!(line.ends_with(&o.text), "{line} / {o:?}");
+    }
+    assert!(offered.iter().any(|o| o.id == "p"), "{offered:?}");
+}
+
+/// What a report's quote of a card is checked against is the text the
+/// model was told: the deck's in the prefix, another card's once seen,
+/// and still so after a fresh conversation forgot it; never a card it was
+/// not told, by any spelling of its name.
+#[test]
+fn the_card_texts_a_model_was_told_are_kept_for_the_game() {
+    let (view, log) = board();
+    let request = request(view.clone(), priority(&view), log);
+    let mut narrator = Narrator::new(&request.context);
+    let bolt = narrator.told_texts(" lightning  BOLT ");
+    assert_eq!(
+        bolt,
+        [card_text(identity("Lightning Bolt").index, 0).unwrap()],
+        "the deck's own card, in the prefix"
+    );
+    assert!(
+        narrator.told_texts("Serra Angel").is_empty(),
+        "not yet seen"
+    );
+    let _ = narrator.wake(&request, &[], None);
+    let angel = narrator.told_texts("Serra Angel");
+    assert_eq!(angel.len(), 1, "told on sight");
+    narrator.forget_cards();
+    assert_eq!(
+        narrator.told_texts("serra angel"),
+        angel,
+        "a fresh conversation forgets it, the game does not"
+    );
+    for never in ["Black Lotus", "", "  "] {
+        assert!(narrator.told_texts(never).is_empty(), "{never:?}");
+    }
 }
