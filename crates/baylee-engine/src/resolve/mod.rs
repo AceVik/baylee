@@ -116,6 +116,8 @@ pub mod proliferate;
 mod repeated_graveyard_choice;
 #[cfg(test)]
 mod repeated_graveyard_tests;
+#[cfg(test)]
+mod reveal_search_tests;
 pub mod tap_energy;
 pub(crate) mod tap_group;
 use permissions::grant_play;

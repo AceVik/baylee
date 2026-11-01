@@ -786,10 +786,15 @@ pub(super) fn exec(state: &mut GameState, res: &mut Resolution, op: Effect) -> O
                 return None;
             }
             res.awaiting = Some(AwaitingOp::RevealLibrarySearch);
+            // "A player searching a hidden zone for cards with a stated
+            // quality … isn't required to find some or all of those cards"
+            // (CR 701.23b), as `SearchLibrary` reads it: only a search for
+            // any card at all, not said to be optional, must find one.
+            let must_find = !optional && matches!(filter, baylee_cards_dsl::Filter::Any);
             Some(Pending::ChooseCards {
                 player: you,
                 options,
-                min: u8::from(!optional),
+                min: u8::from(must_find),
                 max: 1,
                 prompt: ChoicePrompt::Generic,
                 total: None,
