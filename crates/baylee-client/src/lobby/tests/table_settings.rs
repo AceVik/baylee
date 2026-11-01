@@ -145,6 +145,10 @@ fn back_puts_the_settings_over_a_table_away() {
     );
     app.update();
     assert_eq!(over_table(&mut app), 0, "the root stayed");
+    assert!(
+        !app.world().resource::<LobbyState>().lobby.settings_open(),
+        "the lobby still believes the settings stand (its search would type)"
+    );
 }
 
 /// The table put down puts them down too, and the lobby comes back on its
@@ -207,6 +211,12 @@ fn tab_arrows_and_enter_work_the_settings_over_a_table() {
     assert!(
         !app.world().resource::<LobbyState>().settings_open(),
         "Enter on Back left the settings up"
+    );
+    // The close was made after `settings_over` ran that frame; the lobby's
+    // own flag follows the next, at the table too.
+    assert!(
+        !app.world().resource::<LobbyState>().lobby.settings_open(),
+        "the lobby still believes the settings stand"
     );
 }
 
@@ -289,4 +299,98 @@ fn esc_under_the_report_form_is_the_form_s() {
         app.world().resource::<LobbyState>().settings_over_table(),
         "the Esc meant for the report form closed the settings under it"
     );
+}
+
+/// A narrated tour bubble holding the keys over the settings has its `Esc`
+/// first. (The table's own tour stands aside while the settings stand,
+/// `tour::table`; a bubble of another tour still could hold the keys.)
+#[test]
+fn esc_under_a_narrated_bubble_is_the_bubble_s() {
+    use super::front_keys::press_key;
+    use baylee_client_core::tour::{Run, Tour};
+    let mut app = asked_at_a_table();
+    app.world_mut().resource_mut::<crate::tour::TourDesk>().run =
+        Run::chapter(Tour::Lobby, 0, false, 2);
+    assert!(
+        app.world()
+            .resource::<crate::tour::TourDesk>()
+            .holds_keyboard(),
+        "the control: the bubble holds the keys"
+    );
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert!(
+        app.world().resource::<LobbyState>().settings_over_table(),
+        "the bubble's Esc closed the settings under it"
+    );
+}
+
+/// The chat's composer holding the keys over the settings has its `Esc`
+/// first.
+#[test]
+fn esc_under_the_chat_s_composer_is_the_composer_s() {
+    use super::front_keys::press_key;
+    let mut app = asked_at_a_table();
+    app.world_mut()
+        .resource_mut::<crate::social::ChatUi>()
+        .typing = true;
+    assert!(
+        app.world()
+            .resource::<crate::social::ChatUi>()
+            .holds_keyboard(),
+        "the control: the composer holds the keys"
+    );
+    press_key(&mut app, KeyCode::Escape, Key::Escape, &[]);
+    assert!(
+        app.world().resource::<LobbyState>().settings_over_table(),
+        "the composer's Esc closed the settings under it"
+    );
+}
+
+/// The preview's resize chord (`Cmd`/`Alt`+`Shift`+`↑`) is the settings'
+/// while they stand over the table; put away, it resizes the preview again.
+#[test]
+fn the_settings_over_the_table_keep_the_preview_resize_chord() {
+    use bevy::input::mouse::MouseMotion;
+    use bevy::picking::events::{PointerPress, PointerRelease};
+    for over in [false, true] {
+        let mut lobby = LobbyState::new();
+        super::super::table_settings::stand_over_table(&mut lobby);
+        if !over {
+            super::super::table_settings::close(&mut lobby);
+        }
+        let mut app = App::new();
+        app.init_resource::<ButtonInput<KeyCode>>()
+            .add_message::<PointerPress>()
+            .add_message::<PointerRelease>()
+            .add_message::<MouseMotion>()
+            .insert_resource(crate::Duel::default())
+            .insert_resource(crate::settings::ClientSettings::default())
+            .insert_resource(lobby)
+            .add_systems(Update, crate::input::preview_resize);
+        let scale = |app: &App| {
+            app.world()
+                .resource::<crate::settings::ClientSettings>()
+                .preview_scale
+        };
+        let before = scale(&app);
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.press(KeyCode::SuperLeft);
+            keys.press(KeyCode::ShiftLeft);
+            keys.press(KeyCode::ArrowUp);
+        }
+        app.update();
+        let grew = scale(&app) - before;
+        if over {
+            assert!(
+                grew.abs() < f32::EPSILON,
+                "the chord resized under the settings"
+            );
+        } else {
+            assert!(
+                grew > 0.0,
+                "the chord resizes the preview once they are away"
+            );
+        }
+    }
 }

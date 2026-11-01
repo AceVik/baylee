@@ -176,3 +176,31 @@ fn enter_over_the_report_form_moves_the_tour_on() {
     let run = desk(&app).run.as_ref().expect("the run goes on");
     assert_eq!(run.current().id, "T33");
 }
+
+/// The settings standing over the table (`lobby::table_settings`) set the
+/// running tour aside: its bubble is drawn nowhere and holds no key, so
+/// `Enter`, `Space` and the arrows are the screen's alone. Put away, the
+/// tour comes back on the step it stood on.
+#[test]
+fn the_settings_over_the_table_set_the_tour_aside_and_give_it_back() {
+    let mut app = table();
+    app.world_mut().resource_mut::<super::TourDesk>().practice = true;
+    keep(&mut app);
+    app.update();
+    assert_eq!(
+        desk(&app).shown().map(|r| r.current().id),
+        Some("T1"),
+        "the control: the tour runs, drawn"
+    );
+    let mut lobby = crate::LobbyState::new();
+    crate::lobby::table_settings::stand_over_table(&mut lobby);
+    app.insert_resource(lobby);
+    app.update();
+    assert!(desk(&app).parked, "the tour stood over the settings");
+    assert!(desk(&app).shown().is_none());
+    assert!(!desk(&app).holds_keyboard());
+    crate::lobby::table_settings::close(&mut app.world_mut().resource_mut::<crate::LobbyState>());
+    app.update();
+    assert!(!desk(&app).parked, "the tour did not come back");
+    assert_eq!(desk(&app).shown().map(|r| r.current().id), Some("T1"));
+}

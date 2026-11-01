@@ -276,11 +276,15 @@ impl Plugin for LobbyPlugin {
             .add_systems(
                 Update,
                 (
-                    // After `Esc` put the settings over a table away, so the
-                    // search lets the caret go the same frame.
+                    // After `Esc` or a click put the settings over a table
+                    // away, so the search lets the caret go the same frame;
+                    // and in every phase, so a close this group's own Enter
+                    // made is followed the next frame even at a table, where
+                    // the lobby's systems stop with the screen. It writes
+                    // only when the two flags differ.
                     crate::settingsui::keys::settings_over
                         .after(table_settings::close_on_escape)
-                        .run_if(table_settings::lobby_or_over_table),
+                        .after(clicks),
                     // Enter on a settings control, and the kit's focus and
                     // the lobby's caret as one (the search): over a table too.
                     (

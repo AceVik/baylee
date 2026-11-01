@@ -8627,8 +8627,11 @@ problem, Chat privacy) run for it (`table_settings::lobby_or_over_table`);
 the rest of the lobby does not. The kit's walker and activation count it
 as the shell's screen (`shellkit::focus::table_open`), so Tab, the arrows
 and Enter work it as in the lobby. While it stands the table's keys are
-held: the table's `KeyClaims`, the chat's key doors (`/`, `R`) and the
-replay bar's keys all stand aside. `Esc` empties the search, closes a
+held: the table's `KeyClaims`, the chat's key doors (`/`, `R`,
+`Ctrl`/`Cmd`+`Enter`), the replay bar's keys and the preview's resize
+chord all stand aside, and the table tour is set aside (`tour::table`
+parks it: no bubble, no key) and comes back on its step after. `Esc`
+empties the search, closes a
 sheet, then puts it away, taken off the keys before the table could hear
 it; a report form, a narrated tour bubble or the chat's composer over it
 has its `Esc` first. Back does the same. The table being put down

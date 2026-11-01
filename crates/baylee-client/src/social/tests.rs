@@ -2784,45 +2784,74 @@ mod lane {
 }
 
 /// The settings standing over the table have every key
-/// (`lobby::table_settings`): a `/` typed into their search opens no
-/// composer. Put away, the same `/` opens it.
+/// (`lobby::table_settings`): none of the chat's three doors — a `/` typed
+/// into their search, `R`, the platform's `Ctrl`/`Cmd`+`Enter` — opens the
+/// composer under them. Put away, each opens it.
 #[test]
 fn the_settings_over_the_table_keep_the_chat_s_doors_shut() {
     use bevy::ecs::message::Messages;
     use bevy::input::ButtonState;
     use bevy::input::keyboard::{Key, KeyboardInput};
 
-    for over in [false, true] {
-        let mut lobby = crate::LobbyState::new();
-        crate::lobby::table_settings::stand_over_table(&mut lobby);
-        if !over {
-            crate::lobby::table_settings::close(&mut lobby);
+    #[derive(Clone, Copy, Debug)]
+    enum Door {
+        Slash,
+        Reply,
+        Open,
+    }
+    // The platform's own "send" modifier (`prefs`' default for `ChatOpen`).
+    let send = if cfg!(target_os = "macos") {
+        KeyCode::SuperLeft
+    } else {
+        KeyCode::ControlLeft
+    };
+    for door in [Door::Slash, Door::Reply, Door::Open] {
+        for over in [false, true] {
+            let mut lobby = crate::LobbyState::new();
+            crate::lobby::table_settings::stand_over_table(&mut lobby);
+            if !over {
+                crate::lobby::table_settings::close(&mut lobby);
+            }
+            let mut app = App::new();
+            app.add_plugins(bevy::state::app::StatesPlugin)
+                .insert_state(crate::DuelPhase::Playing)
+                .init_resource::<ButtonInput<KeyCode>>()
+                .init_resource::<Time>()
+                .init_resource::<crate::prefs::Prefs>()
+                .insert_resource(host_with_machine())
+                .insert_resource(ChatUi::default())
+                .insert_resource(crate::Duel::default())
+                .insert_resource(lobby);
+            crate::social::keys::install(&mut app);
+            match door {
+                Door::Slash => {
+                    app.world_mut()
+                        .resource_mut::<Messages<KeyboardInput>>()
+                        .write(KeyboardInput {
+                            key_code: KeyCode::Slash,
+                            logical_key: Key::Character("/".into()),
+                            state: ButtonState::Pressed,
+                            text: Some("/".into()),
+                            repeat: false,
+                            window: Entity::PLACEHOLDER,
+                        });
+                }
+                Door::Reply => app
+                    .world_mut()
+                    .resource_mut::<ButtonInput<KeyCode>>()
+                    .press(KeyCode::KeyR),
+                Door::Open => {
+                    let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+                    keys.press(send);
+                    keys.press(KeyCode::Enter);
+                }
+            }
+            app.world_mut().run_schedule(Update);
+            assert_eq!(
+                app.world().resource::<ChatUi>().typing,
+                !over,
+                "{door:?}, settings over the table: {over}"
+            );
         }
-        let mut app = App::new();
-        app.add_plugins(bevy::state::app::StatesPlugin)
-            .insert_state(crate::DuelPhase::Playing)
-            .init_resource::<ButtonInput<KeyCode>>()
-            .init_resource::<Time>()
-            .insert_resource(host_with_machine())
-            .insert_resource(ChatUi::default())
-            .insert_resource(crate::Duel::default())
-            .insert_resource(lobby);
-        crate::social::keys::install(&mut app);
-        app.world_mut()
-            .resource_mut::<Messages<KeyboardInput>>()
-            .write(KeyboardInput {
-                key_code: KeyCode::Slash,
-                logical_key: Key::Character("/".into()),
-                state: ButtonState::Pressed,
-                text: Some("/".into()),
-                repeat: false,
-                window: Entity::PLACEHOLDER,
-            });
-        app.world_mut().run_schedule(Update);
-        assert_eq!(
-            app.world().resource::<ChatUi>().typing,
-            !over,
-            "settings over the table: {over}"
-        );
     }
 }
