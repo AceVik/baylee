@@ -108,11 +108,19 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
     // on the stack before the spell is cast leaves a sorcery-speed spell
     // uncastable with its mana floating.
     for source in &mut sources {
-        if view.object(source.id).is_some_and(taps_set_off_a_trigger) {
+        if view
+            .object(source.id)
+            .is_some_and(|o| taps_set_off_a_trigger(view, o))
+        {
             source.priced = true;
         }
     }
     baylee_client_core::manaplan::keep_one_per_permanent(&mut sources);
+    for source in &mut sources {
+        if let Some(object) = view.object(source.id) {
+            baylee_ai::apply_triggered_mana_bonus(view, object, source);
+        }
+    }
     let costs: Vec<_> = view
         .hand
         .iter()
@@ -121,7 +129,15 @@ pub fn sources(view: &PlayerView, legal: &LegalActions) -> Vec<Source> {
             baylee_cards::by_index(card.index)?
                 .faces
                 .get(usize::from(card.face))
-                .map(|face| face.mana_cost)
+                .map(|face| {
+                    if let Some(color) = face.x_mana_color {
+                        face.mana_cost.combine(&ManaCost::from_symbol(
+                            baylee_core::mana::ManaSymbol::of_color(color),
+                        ))
+                    } else {
+                        face.mana_cost
+                    }
+                })
         })
         .collect();
     baylee_client_core::manaplan::prioritize(
@@ -186,7 +202,10 @@ fn restricted_sources(
         ) else {
             continue;
         };
-        if view.object(id).is_some_and(taps_set_off_a_trigger) {
+        if view
+            .object(id)
+            .is_some_and(|o| taps_set_off_a_trigger(view, o))
+        {
             source.priced = true;
         }
         out.push((source, only_for));
@@ -287,17 +306,10 @@ pub fn plan_for_activation(
     })
 }
 
-/// Whether `object` prints "whenever this becomes tapped": City of Brass.
-fn taps_set_off_a_trigger(object: &baylee_view::PublicObject) -> bool {
-    printed_abilities(object).iter().any(|ability| {
-        matches!(
-            ability,
-            AbilityDef::Triggered {
-                trigger: baylee_cards_dsl::Trigger::BecomesTapped(filter),
-                ..
-            } if matches!(filter, baylee_cards_dsl::Filter::This)
-        )
-    })
+/// Whether tapping `object` sets off a non-mana trigger (City of Brass,
+/// Psychic Venom, Blight, Manabarbs, Lifetap).
+fn taps_set_off_a_trigger(view: &PlayerView, object: &baylee_view::PublicObject) -> bool {
+    baylee_ai::taps_set_off_a_trigger(view, object)
 }
 
 /// Whether tapping this source costs anything **beyond** the tap.
@@ -346,15 +358,20 @@ pub fn ability_at(
     object: baylee_core::ids::ObjectId,
     index: u32,
 ) -> Option<&'static AbilityDef> {
-    let object = view.object(object)?;
-    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
-        let grant = object.grant(slot)?;
-        let rules = grant.rules?;
-        return baylee_cards::by_index(rules.card)?
-            .abilities_for_face(usize::from(rules.face))
-            .get(usize::try_from(grant.ability?).ok()?);
+    if let Some(object) = view.object(object) {
+        if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+            let grant = object.grant(slot)?;
+            let rules = grant.rules?;
+            return baylee_cards::by_index(rules.card)?
+                .abilities_for_face(usize::from(rules.face))
+                .get(usize::try_from(grant.ability?).ok()?);
+        }
+        return printed_abilities(object).get(usize::try_from(index).ok()?);
     }
-    printed_abilities(object).get(usize::try_from(index).ok()?)
+    let held = baylee_client_core::decision::known_cards(view).find(|c| c.id == object)?;
+    baylee_cards::by_index(held.card.index)?
+        .abilities_for_face(usize::from(held.card.face))
+        .get(usize::try_from(index).ok()?)
 }
 
 /// Every ability `object` prints, from the list the engine's ability index

@@ -200,15 +200,20 @@ pub(crate) fn printed(
     object: ObjectId,
     index: u32,
 ) -> Option<&'static AbilityDef> {
-    let object = view.object(object)?;
-    if let Some(slot) = baylee_engine::choice::granted_slot(index) {
-        let grant = object.grant(slot)?;
-        let rules = grant.rules?;
-        return baylee_cards::by_index(rules.card)?
-            .abilities_for_face(usize::from(rules.face))
-            .get(usize::try_from(grant.ability?).ok()?);
+    if let Some(object) = view.object(object) {
+        if let Some(slot) = baylee_engine::choice::granted_slot(index) {
+            let grant = object.grant(slot)?;
+            let rules = grant.rules?;
+            return baylee_cards::by_index(rules.card)?
+                .abilities_for_face(usize::from(rules.face))
+                .get(usize::try_from(grant.ability?).ok()?);
+        }
+        return printed_list(object).get(usize::try_from(index).ok()?);
     }
-    printed_list(object).get(usize::try_from(index).ok()?)
+    let held = baylee_client_core::decision::known_cards(view).find(|c| c.id == object)?;
+    baylee_cards::by_index(held.card.index)?
+        .abilities_for_face(usize::from(held.card.face))
+        .get(usize::try_from(index).ok()?)
 }
 
 /// The list an object's abilities are printed on, which is what an offered
@@ -226,6 +231,10 @@ pub(crate) fn printed_list(object: &PublicObject) -> &'static [AbilityDef] {
     if let Some(rules) = object.rules {
         return baylee_cards::by_index(rules.card)
             .map_or(&[], |def| def.abilities_for_face(usize::from(rules.face)));
+    }
+    if let Some(card) = object.card.filter(|_| !object.status.is_face_down()) {
+        return baylee_cards::by_index(card.index)
+            .map_or(&[], |def| def.abilities_for_face(usize::from(card.face)));
     }
     object
         .token

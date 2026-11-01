@@ -12,7 +12,7 @@ impl<L: CardLookup> Engine<L> {
     /// What unlocking `half` of `id` costs: that half's mana cost (the
     /// "unlock cost", CR 709.5e), while `id` is a Room on the battlefield
     /// and that half is locked.
-    fn unlock_cost(&self, id: ObjectId, half: u8) -> Option<ManaCost> {
+    pub(super) fn unlock_cost(&self, id: ObjectId, half: u8) -> Option<ManaCost> {
         let o = self.state.object(id)?;
         if o.zone != Zone::Battlefield || !o.doors.is_room() || o.doors.is_unlocked(half) {
             return None;
@@ -22,36 +22,6 @@ impl<L: CardLookup> Engine<L> {
             .faces
             .get(usize::from(half))
             .map(|f| f.mana_cost)
-    }
-
-    /// The locked halves of `id` its controller could unlock with the mana
-    /// floating now. What the offer lists, one slot per half, beside the
-    /// sorcery timing it asks itself; the mana is floated first, as for
-    /// turning a permanent face up.
-    pub(super) fn unlockable_halves(&self, id: ObjectId) -> impl Iterator<Item = u8> + '_ {
-        let pool = self
-            .state
-            .object(id)
-            .filter(|o| o.doors.is_room())
-            .map(|o| {
-                (
-                    o.controller,
-                    &self.state.players[o.controller.get() as usize].mana_pool,
-                )
-            });
-        (0..2_u8).filter(move |&half| {
-            pool.is_some_and(|(player, _pool)| {
-                self.unlock_cost(id, half).is_some_and(|cost| {
-                    self.state.source_identity(id).is_some_and(|origin| {
-                        self.can_pay_mana(
-                            player,
-                            super::casting::SpendFor::OtherFrom(origin),
-                            &cost,
-                        )
-                    })
-                })
-            })
-        })
     }
 
     /// CR 709.5e: the controller pays a locked half's mana cost, and the

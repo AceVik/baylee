@@ -68,10 +68,10 @@ use baylee_client_core::automation::{
 };
 use baylee_client_core::manaplan::Plan;
 use baylee_client_core::prefs::AutoRules;
-use baylee_core::ids::{ObjectId, PlayerId, TargetRef};
+use baylee_core::ids::{CardIndex, ObjectId, PlayerId, TargetRef};
 use baylee_core::mana::ManaCost;
 use baylee_core::types::TypeSet;
-use baylee_engine::choice::{LegalActions, Pending, PlayerAction};
+use baylee_engine::choice::{CastModeKind, LegalActions, Pending, PlayerAction};
 use baylee_view::{Phase, PlayerView, Step};
 
 use crate::narrator::{React, Until};
@@ -275,14 +275,8 @@ impl WakeFilter {
                         continue;
                     }
                     let keep = match side {
-                        RailSide::Mine => stops
-                            .mine
-                            .iter()
-                            .any(|s| s.eq_ignore_ascii_case(row_id(row))),
-                        RailSide::Theirs => stops
-                            .theirs
-                            .iter()
-                            .any(|s| s.eq_ignore_ascii_case(row_id(row))),
+                        RailSide::Mine => stops.mine.iter().any(|s| row_matches(s, row)),
+                        RailSide::Theirs => stops.theirs.iter().any(|s| row_matches(s, row)),
                     };
                     if !keep {
                         orders.toggle(side, row);
@@ -489,6 +483,7 @@ fn nothing_but_mana(view: &PlayerView, legal: &LegalActions) -> bool {
     legal.lands.is_empty()
         && legal.castable.is_empty()
         && legal.suspendable.is_empty()
+        && reachable_abilities(view, legal).is_empty()
         && legal
             .abilities
             .iter()
@@ -579,6 +574,24 @@ pub enum ReachFrom {
     Hand,
     /// The command zone: a commander, with its tax.
     CommandZone,
+    /// A graveyard: flashback or a graveyard casting permission.
+    Graveyard,
+    /// Exile: an exile casting permission.
+    Exile,
+}
+
+/// One activated ability the seat could activate by tapping what it has
+/// untapped, and the taps that pay for it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AbilityReach {
+    /// The object whose ability is activated.
+    pub source: ObjectId,
+    /// The ability's index in `legal.unpaid_abilities`.
+    pub ability_index: u32,
+    /// The card identity, if known.
+    pub card: Option<CardIndex>,
+    /// The taps, in order, and the cost they pay.
+    pub plan: Plan,
 }
 
 /// Every card the seat could cast by tapping what it has untapped: a card
@@ -594,8 +607,7 @@ pub enum ReachFrom {
 /// it.
 #[must_use]
 pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
-    let sources = baylee_ai::mana_sources(view, legal);
-    if sources.is_empty() {
+    if baylee_ai::mana_sources(view, legal).is_empty() {
         return Vec::new();
     }
     let Some(pool) = view
@@ -604,41 +616,154 @@ pub fn reachable(view: &PlayerView, legal: &LegalActions) -> Vec<Reach> {
     else {
         return Vec::new();
     };
+    let convoke_creatures = view
+        .battlefield
+        .iter()
+        .filter(|o| {
+            o.controller == view.seat
+                && o.types.contains(TypeSet::CREATURE)
+                && !o.status.is_tapped()
+        })
+        .count();
     // `{X}` at its least: the caster chooses it (CR 107.3a), the matcher
     // will not guess at it, and a spell castable with X = 0 is castable.
     // A plan with nothing to tap is no reach: the mana is in the pool
     // already, so what keeps the engine from listing the card is not mana
     // (a target, an additional cost, a raised cost), and no tap gives it.
-    let payable = |cost: ManaCost| {
-        cost.symbols().next()?;
-        baylee_client_core::manaplan::plan(&cost.with_x(0), &pool, &sources)
-            .filter(|plan| !plan.steps.is_empty())
-    };
+    let payable =
+        |id: ObjectId, card: baylee_view::CardIdentity, cost: ManaCost, mode: CastModeKind| {
+            cost.symbols().next()?;
+            let increase = baylee_ai::spell_mana_increase(view, id, card, legal, mode);
+            let mut total = cost.with_x(0).combine(&increase);
+            if has_convoke(card) && convoke_creatures > 0 {
+                let reduce = u32::try_from(convoke_creatures).unwrap_or(u32::MAX);
+                total = total.with_less_generic(reduce);
+            }
+            baylee_ai::plan_for_spell(&total, &pool, view, legal, id)
+                .filter(|plan| !plan.steps.is_empty())
+        };
     let mut reach: Vec<Reach> = view
         .hand
         .iter()
-        .filter(|card| !legal.castable.contains(&card.id) && !legal.lands.contains(&card.id))
+        .filter(|card| {
+            !legal.castable.contains(&card.id)
+                || printed_cost(card.card).is_some_and(|c| {
+                    let inc = baylee_ai::spell_mana_increase(
+                        view,
+                        card.id,
+                        card.card,
+                        legal,
+                        CastModeKind::Normal,
+                    );
+                    baylee_client_core::manaplan::plan(&c.with_x(0).combine(&inc), &pool, &[])
+                        .is_none()
+                })
+        })
         .filter(|card| !card.types.contains(TypeSet::LAND))
         .filter(|card| baylee_client_core::timing::allows(view, card.types, flash(card.card)))
         .filter(|card| !view.stack.is_empty() || !targets_the_stack(card.card))
+        .filter(|card| baylee_ai::spell_can_be_cast_now(view, card.id, card.card))
         .filter_map(|card| {
             Some(Reach {
                 object: card.id,
                 card: card.card,
                 from: ReachFrom::Hand,
-                plan: payable(printed_cost(card.card)?)?,
+                plan: payable(
+                    card.id,
+                    card.card,
+                    printed_cost(card.card)?,
+                    CastModeKind::Normal,
+                )?,
             })
         })
         .collect();
     reach.extend(commanders(view, legal, &payable));
+    reach.extend(graveyard_and_exile(view, legal, &payable));
     reach
 }
 
-/// Whether the seat could cast something by tapping what it has untapped
-/// ([`reachable`]).
+/// Every activated ability in `legal.unpaid_abilities` whose mana cost the
+/// seat's untapped sources can pay now.
+#[must_use]
+pub fn reachable_abilities(view: &PlayerView, legal: &LegalActions) -> Vec<AbilityReach> {
+    if legal.unpaid_abilities.is_empty() || baylee_ai::mana_sources(view, legal).is_empty() {
+        return Vec::new();
+    }
+    let Some(pool) = view
+        .seat(baylee_client_core::decision::resource_player(view))
+        .map(|seat| seat.mana_pool)
+    else {
+        return Vec::new();
+    };
+    legal
+        .unpaid_abilities
+        .iter()
+        .filter_map(|&(source, ability_index, cost)| {
+            cost.symbols().next()?;
+            let taps_self = ability_taps_self(view, source, ability_index);
+            let plan = baylee_ai::plan_for_activation(
+                &cost.with_x(0),
+                &pool,
+                view,
+                legal,
+                source,
+                taps_self,
+            )
+            .filter(|plan| !plan.steps.is_empty())?;
+            let card = view
+                .object(source)
+                .and_then(|o| o.card)
+                .or_else(|| view.hand.iter().find(|c| c.id == source).map(|c| c.card))
+                .map(|c| c.index);
+            Some(AbilityReach {
+                source,
+                ability_index,
+                card,
+                plan,
+            })
+        })
+        .collect()
+}
+
+fn ability_taps_self(view: &PlayerView, source: ObjectId, index: u32) -> bool {
+    use baylee_cards_dsl::AbilityDef;
+    if baylee_engine::choice::is_special_action(index) {
+        return false;
+    }
+    let Some(rules) = view
+        .object(source)
+        .and_then(|o| o.rules.or_else(|| o.card.map(Into::into)))
+        .or_else(|| {
+            view.hand
+                .iter()
+                .find(|c| c.id == source)
+                .map(|c| baylee_view::RulesFace::from(c.card))
+        })
+    else {
+        return false;
+    };
+    let Some(def) = baylee_cards::by_index(rules.card) else {
+        return false;
+    };
+    let Some(ability) = def
+        .abilities_for_face(usize::from(rules.face))
+        .get(usize::try_from(index).unwrap_or(usize::MAX))
+    else {
+        return false;
+    };
+    match ability {
+        AbilityDef::Activated { cost, .. } | AbilityDef::ActivatedConditional { cost, .. } => {
+            cost.parts.contains(&baylee_cards_dsl::CostPart::TapSelf)
+        }
+        _ => false,
+    }
+}
+
+/// Whether the seat could cast or activate something by tapping what it has
+/// untapped ([`reachable`], [`reachable_abilities`]).
 #[must_use]
 pub fn offering(view: &PlayerView, legal: &LegalActions) -> bool {
-    !reachable(view, legal).is_empty()
+    !reachable(view, legal).is_empty() || !reachable_abilities(view, legal).is_empty()
 }
 
 /// Commanders standing in their owner's command zone, not yet castable,
@@ -646,7 +771,7 @@ pub fn offering(view: &PlayerView, legal: &LegalActions) -> bool {
 fn commanders(
     view: &PlayerView,
     legal: &LegalActions,
-    payable: &dyn Fn(ManaCost) -> Option<Plan>,
+    payable: &dyn Fn(ObjectId, baylee_view::CardIdentity, ManaCost, CastModeKind) -> Option<Plan>,
 ) -> Vec<Reach> {
     let Some(seat) = view.seat(baylee_client_core::decision::resource_player(view)) else {
         return Vec::new();
@@ -661,6 +786,7 @@ fn commanders(
             let types = view.object(c.object).map_or(TypeSet::CREATURE, |o| o.types);
             if !baylee_client_core::timing::allows(view, types, flash(card))
                 || view.stack.is_empty() && targets_the_stack(card)
+                || !baylee_ai::spell_can_be_cast_now(view, c.object, card)
             {
                 return None;
             }
@@ -669,10 +795,84 @@ fn commanders(
                 object: c.object,
                 card,
                 from: ReachFrom::CommandZone,
-                plan: payable(cost)?,
+                plan: payable(c.object, card, cost, CastModeKind::Normal)?,
             })
         })
         .collect()
+}
+
+fn graveyard_and_exile(
+    view: &PlayerView,
+    legal: &LegalActions,
+    payable: &dyn Fn(ObjectId, baylee_view::CardIdentity, ManaCost, CastModeKind) -> Option<Plan>,
+) -> Vec<Reach> {
+    let mut out = Vec::new();
+    for object in view
+        .graveyards
+        .iter()
+        .flatten()
+        .filter(|o| !legal.castable.contains(&o.id) && !o.types.contains(TypeSet::LAND))
+    {
+        let Some(card) = object.card else {
+            continue;
+        };
+        if !baylee_client_core::timing::allows(view, object.types, flash(card))
+            || view.stack.is_empty() && targets_the_stack(card)
+            || !baylee_ai::spell_can_be_cast_now(view, object.id, card)
+        {
+            continue;
+        }
+        let (Some(cost), mode) = (if let Some(fb) = object.flashback {
+            (Some(fb), CastModeKind::Flashback)
+        } else if object.owner == view.seat && legal.payable.contains(&object.id) {
+            (printed_cost(card), CastModeKind::Normal)
+        } else {
+            (None, CastModeKind::Normal)
+        }) else {
+            continue;
+        };
+        if let Some(plan) = payable(object.id, card, cost, mode) {
+            out.push(Reach {
+                object: object.id,
+                card,
+                from: ReachFrom::Graveyard,
+                plan,
+            });
+        }
+    }
+    for object in view.exile.iter().flatten().filter(|o| {
+        !legal.castable.contains(&o.id)
+            && !o.types.contains(TypeSet::LAND)
+            && legal.payable.contains(&o.id)
+    }) {
+        let Some(card) = object.card else {
+            continue;
+        };
+        if !baylee_client_core::timing::allows(view, object.types, flash(card))
+            || view.stack.is_empty() && targets_the_stack(card)
+            || !baylee_ai::spell_can_be_cast_now(view, object.id, card)
+        {
+            continue;
+        }
+        let Some(cost) = printed_cost(card) else {
+            continue;
+        };
+        if let Some(plan) = payable(object.id, card, cost, CastModeKind::Normal) {
+            out.push(Reach {
+                object: object.id,
+                card,
+                from: ReachFrom::Exile,
+                plan,
+            });
+        }
+    }
+    out
+}
+
+fn has_convoke(card: baylee_view::CardIdentity) -> bool {
+    baylee_cards::by_index(card.index)
+        .and_then(|def| def.faces.get(usize::from(card.face)).or(def.faces.first()))
+        .is_some_and(|face| face.convoke)
 }
 
 /// A card face's printed mana cost.
@@ -722,6 +922,13 @@ pub fn flash(card: baylee_view::CardIdentity) -> bool {
 
 #[cfg(test)]
 mod tests;
+
+fn row_matches(s: &str, row: RailRow) -> bool {
+    s.eq_ignore_ascii_case(row_id(row))
+        || matches!(row, RailRow::CombatBegin)
+            && (s.eq_ignore_ascii_case("beginning_combat")
+                || s.eq_ignore_ascii_case("begin_combat"))
+}
 
 fn row_id(row: RailRow) -> &'static str {
     match row {

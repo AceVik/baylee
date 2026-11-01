@@ -841,14 +841,18 @@ pub(crate) fn targeting_context<L: baylee_engine::state::CardLookup>(
         source.token = Some(token.get() - 1);
     }
     let text = source.rules.and_then(|rules| {
+        let face = usize::from(rules.face);
         let line = if let Some(mode) = context.mode {
-            baylee_cards::lines::mode_line(rules.card, usize::from(rules.face), mode)
+            baylee_cards::lines::mode_line(rules.card, face, mode)
+        } else if let Some(index) = context.ability_index {
+            baylee_cards::lines::ability_line(rules.card, face, index).or_else(|| {
+                let text = baylee_cards::oracle::face(rules.card, face)?;
+                (index == baylee_core::ids::AbilityRef::SYNTHETIC
+                    && baylee_core::oracle::sentence_count(text) == 1)
+                    .then_some(baylee_cards::lines::AbilityLine { line: 0, of: 1 })
+            })
         } else {
-            baylee_cards::lines::ability_line(
-                rules.card,
-                usize::from(rules.face),
-                context.ability_index?,
-            )
+            None
         }?;
         Some(baylee_view::StackText {
             face: rules.face,

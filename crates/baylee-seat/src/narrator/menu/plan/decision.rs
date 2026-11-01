@@ -133,7 +133,15 @@ impl Menu {
                 Act::Now(PlayerAction::ActivateAbility {
                     source,
                     ability_index,
-                }) => Some((*source, *ability_index, c.id.as_str())),
+                })
+                | Act::Taps {
+                    then:
+                        PlayerAction::ActivateAbility {
+                            source,
+                            ability_index,
+                        },
+                    ..
+                } => Some((*source, *ability_index, c.id.as_str())),
                 _ => None,
             })
             .collect();
