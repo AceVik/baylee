@@ -87,7 +87,7 @@ impl Deal {
     ///
     /// What the seat can see stays out of the deal: a hand `sees_hand`
     /// names — one revealed by a static (Stromgald Spy, Telepathy), or the
-    /// hand of a player the seat controls (CR 722) — and the top card of a
+    /// hand of a player the seat controls (CR 722.4) — and the top card of a
     /// library a static reveals (Courser of Kruphix). Dealing those would
     /// put a card there the seat knows is not.
     ///

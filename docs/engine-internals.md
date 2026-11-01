@@ -2096,7 +2096,7 @@ stream, so the copy (`simulation::driver::duplicate`) is private and
   nothing. What the seat can see now stays out of the deal, the same
   objects in the same places: a hand revealed by a static (`hand_revealed`:
   Revelation, Stromgald Spy), the hand of a player the seat controls
-  (`may_inspect_private`, CR 722), and a library top a static reveals
+  (`may_inspect_private`, CR 722.4), and a library top a static reveals
   (`library_top_revealed`: Courser of Kruphix, Field of Dreams) — dealing
   those would put a card there the seat knows is not, and with Courser
   change which lands can be played from the top. What the seat knew earlier

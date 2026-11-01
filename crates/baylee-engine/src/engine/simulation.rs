@@ -137,7 +137,7 @@ impl<L: CardLookup + Clone> Engine<L> {
     ///   old [`ObjectId`]s no longer exist in the fork, and the new ones are
     ///   allocated in zone order, so neither an id nor a position says which
     ///   real card was there. What `seat` can see now is not dealt: a hand a
-    ///   static reveals or a player it controls holds (CR 722), and a
+    ///   static reveals or a player it controls holds (CR 722.4), and a
     ///   library top a static reveals. What it knew earlier about a hidden
     ///   card (a top it saw, a card revealed from a hand and kept there) is
     ///   lost with it; nothing it did not know is gained.
