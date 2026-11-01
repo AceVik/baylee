@@ -602,6 +602,14 @@ impl ManaCost {
         out
     }
 
+    /// The cost with `n` more of `symbol`.
+    #[must_use]
+    pub const fn with_symbol(&self, symbol: ManaSymbol, n: u32) -> Self {
+        let mut out = *self;
+        out.add(symbol, n);
+        out
+    }
+
     /// Two costs combined (additional costs like kicker stack onto the
     /// base cost, CR 601.2f). The generic mana of both is one symbol.
     #[must_use]

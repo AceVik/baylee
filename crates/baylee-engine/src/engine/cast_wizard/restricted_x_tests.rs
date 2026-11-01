@@ -356,7 +356,16 @@ fn deferred_x_payment_can_generate_and_spend_more_than_fifty_after_announcement(
     engine
         .apply(player, PlayerAction::ChooseNumber(61))
         .unwrap();
-    assert!(engine.payment_window().is_some());
+    assert_eq!(
+        engine.payment_window(),
+        Some((
+            player,
+            baylee_core::mana::ManaPayment::Fixed(
+                ManaCost::parse("{1}").with_symbol(baylee_core::mana::ManaSymbol::Black, 62),
+            ),
+        )),
+        "payment_window materializes restricted X into colored symbols so view.owed and manaplan do not plan non-black mana for X"
+    );
     let source = synthetic::permanents(&engine, 98_003)[0];
     engine
         .apply(

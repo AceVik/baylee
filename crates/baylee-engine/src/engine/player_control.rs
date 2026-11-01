@@ -210,13 +210,14 @@ impl<L: CardLookup> Engine<L> {
     pub(super) fn commanded_pool_completes(&self) -> bool {
         let Some(super::PaymentWindow {
             player,
-            suspended: super::PaymentContinuation::Miracle { wizard, cost, .. },
+            suspended: super::PaymentContinuation::Miracle { wizard, .. },
         }) = self.mana_window.as_ref()
         else {
             return false;
         };
         let face = self.wizard_face(wizard);
-        let (cost, restriction) = self.restricted_x_payment(wizard, *cost);
+        let total = super::cast_wizard::wizard_paid_total(face, wizard);
+        let (cost, restriction) = self.restricted_x_payment(wizard, total);
         let cost = self.north_star_payment(wizard, cost);
         crate::casting::plan_mana_scoped(
             &self.state,
