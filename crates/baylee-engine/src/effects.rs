@@ -826,6 +826,13 @@ impl EffectTable {
         self.effects.iter()
     }
 
+    /// Every registered effect: the active ones, then those parked while
+    /// their source is phased out (CR 702.26b).
+    #[cfg(any(test, feature = "simulation"))]
+    pub(crate) fn iter_with_parked(&self) -> impl Iterator<Item = &ContinuousEffect> {
+        self.effects.iter().chain(&self.parked)
+    }
+
     /// Whether an identity is still registered, including a phased-out effect.
     pub(crate) fn contains(&self, id: EffectId) -> bool {
         // Active effects stay in registration/id order through every mutation.

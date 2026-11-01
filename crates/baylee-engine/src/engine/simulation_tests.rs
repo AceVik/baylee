@@ -9,6 +9,7 @@
 use super::testkit::*;
 use super::*;
 use crate::engine::{DeckKnowledge, ForkRefusal};
+use crate::text_changes::TextOrigin;
 use baylee_core::ids::{CardIndex, ObjectId, PrintRef};
 use baylee_core::preset::{
     AIProfile, DeckEntry, Finish, FormatId, GamePreset, HouseRules, PrintInfo, SeatController,
@@ -970,6 +971,82 @@ fn every_refusal_has_its_case() {
         engine.fork_for(ME, DeckKnowledge::Known, 1).err(),
         Some(ForkRefusal::PrivatePolicy)
     );
+}
+
+/// The settle drops only the text overrides of what the deal removed. My
+/// Glorious Anthem's static carries one and the Anthem phases out: the
+/// static is parked, not gone (CR 702.26b), and the fork keeps the override
+/// for when it phases in. An override quoting a card in their hand goes with
+/// the card. Both are written by hand: no card in the registry gives a
+/// printed static an override and phases, and the audit lets an override
+/// quoting a hidden card through only because the settle drops it.
+#[test]
+fn a_parked_static_keeps_its_override_and_a_dealt_card_takes_its_own() {
+    let anthem_card = named("Glorious Anthem");
+    let mut table = Table::new(43, their_deck());
+    table.my_field = vec![entry(anthem_card)];
+    let mut source = table.settled_main();
+    let anthem = *source
+        .state()
+        .zones
+        .list(ZoneLocation::Battlefield)
+        .iter()
+        .find(|&&id| {
+            source
+                .state()
+                .object(id)
+                .and_then(|o| o.card)
+                .is_some_and(|c| c.index == anthem_card)
+        })
+        .expect("the Anthem is on my battlefield");
+    let hidden = source.state().zones.list(ZoneLocation::Hand(THEM))[0];
+    let state = source
+        .dev_state_mut(ME)
+        .expect("the fixture trusts its seats");
+    let effect = state
+        .effects
+        .iter()
+        .find(|fx| fx.source == Some(anthem))
+        .expect("the Anthem's static is registered")
+        .id;
+    let anthem_text = TextOrigin::Live(state.source_identity(anthem).unwrap());
+    let quoted = TextOrigin::Live(state.source_identity(hidden).unwrap());
+    let unregistered = baylee_core::ids::EffectId::new(u32::MAX);
+    // Read by nothing in either game, and quoting nothing hidden: the fork
+    // carries it as the game does, until the end of the turn prunes both.
+    let stale = (baylee_core::ids::EffectId::new(u32::MAX - 1), anthem_text);
+    state.effect_text_overrides.push((effect, anthem_text));
+    state.effect_text_overrides.push((unregistered, quoted));
+    state.effect_text_overrides.push(stale);
+    state.phase_out(&[anthem]);
+    source.sync_static_effects();
+    // The phasing is journaled and the machine has not run since; read it,
+    // as the next pass would, so the board is what is forked.
+    source.trigger_scan_seq = source.state.journal.last_seq();
+    assert!(
+        source
+            .state()
+            .effects
+            .iter()
+            .all(|fx| fx.source != Some(anthem)),
+        "the phased-out Anthem's static is parked"
+    );
+
+    let forked = fork(&source, 5);
+    let overrides = &forked.state().effect_text_overrides;
+    assert!(
+        overrides.contains(&(effect, anthem_text)),
+        "the parked static keeps its override: {overrides:?}"
+    );
+    assert!(
+        !overrides.iter().any(|&(_, origin)| origin == quoted),
+        "the override quoting a dealt card goes with it"
+    );
+    assert!(
+        overrides.contains(&stale),
+        "nothing else goes, whether its effect is registered or not"
+    );
+    assert_names_none(&forked, &[hidden]);
 }
 
 /// A fork is a simulation, not a seat at a table: nobody in it may rewrite

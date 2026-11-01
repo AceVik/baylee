@@ -26,7 +26,8 @@ use super::Engine;
 use crate::choice::Pending;
 use crate::rng::GameRng;
 use crate::state::CardLookup;
-use baylee_core::ids::PlayerId;
+use crate::text_changes::TextOrigin;
+use baylee_core::ids::{EffectId, ObjectId, PlayerId};
 
 /// The `ChaCha8` stream of the policy seed a fork's hidden cards are dealt
 /// from.
@@ -206,7 +207,7 @@ impl<L: CardLookup + Clone> Engine<L> {
         deal.apply(&mut fork.state, &mut GameRng::stream(policy_seed, BELIEF));
         transcript::withhold(&mut fork.state.journal, &self.state, seat, deal.retired());
         fork.state.rng = GameRng::stream(policy_seed, FUTURE);
-        fork.settle_fork();
+        fork.settle_fork(deal.retired());
         Ok(fork)
     }
 
@@ -214,17 +215,33 @@ impl<L: CardLookup + Clone> Engine<L> {
     /// hidden cards that work where they are, the layer projection, and the
     /// priority offer that was computed from the real hand.
     ///
-    /// The re-sync removes the effects of the cards the deal removed, and
-    /// their text overrides go with them, as the end of the turn would drop
-    /// them (`GameState::prune_damage_sources`): an override of an effect
-    /// that no longer exists is read by nothing, and it names the card.
-    fn settle_fork(&mut self) {
+    /// The re-sync removes the effects of the cards the deal removed
+    /// (`removed`, sorted). Their text overrides go with them, as the end of
+    /// the turn would drop them (`GameState::prune_damage_sources`), and so
+    /// does an override that quotes a removed card: either is read by nothing
+    /// and names the card. No other override goes: a phased-out permanent's
+    /// statics are parked, not gone (CR 702.26b), and their overrides come
+    /// back with them.
+    fn settle_fork(&mut self, removed: &[ObjectId]) {
+        let is_removed = |id: ObjectId| removed.binary_search(&id).is_ok();
+        let orphaned: Vec<EffectId> = self
+            .state
+            .effects
+            .iter_with_parked()
+            .filter(|effect| effect.source.is_some_and(is_removed))
+            .map(|effect| effect.id)
+            .collect();
         self.state.invalidate_projections();
         self.sync_static_effects();
-        let effects = &self.state.effects;
-        self.state
-            .effect_text_overrides
-            .retain(|(id, _)| effects.contains(*id));
+        self.state.effect_text_overrides.retain(|(id, origin)| {
+            let quotes = match *origin {
+                TextOrigin::Live(source) | TextOrigin::Ability { source, .. } => {
+                    is_removed(source.object)
+                }
+                TextOrigin::Frozen(_) => false,
+            };
+            !orphaned.contains(id) && !quotes
+        });
         self.state.refresh_characteristics();
         if let Pending::Priority { player, .. } = self.pending {
             self.pending = Pending::Priority {
