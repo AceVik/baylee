@@ -180,11 +180,20 @@ fn line(
         intake::MAX_RECORD_GZIP
     };
     let record = match get::<Option<Vec<u8>>>(row, "record")? {
-        Some(r) if r.starts_with(&[0x1f, 0x8b]) && r.len() <= max as usize => Some(Record {
-            complete: get::<Option<bool>>(row, "record_complete")?.unwrap_or(false),
-            origin,
-            gzip: hex(&r),
-        }),
+        // A client's record kept before every gzip member was read is read
+        // again so: Central never unpacks one.
+        Some(r)
+            if r.starts_with(&[0x1f, 0x8b])
+                && r.len() <= max as usize
+                && (origin == "gateway"
+                    || baylee_account::client_record::check_record(&r).is_ok()) =>
+        {
+            Some(Record {
+                complete: get::<Option<bool>>(row, "record_complete")?.unwrap_or(false),
+                origin,
+                gzip: hex(&r),
+            })
+        }
         Some(r) => {
             tracing::warn!(report = %id, bytes = r.len(), "copied without its record: not one Central takes");
             None

@@ -50,6 +50,11 @@ pub const PER_ADDRESS: usize = 10;
 /// for the players.
 pub const PER_GATEWAY: usize = 40;
 
+/// Direct reports on their way to Central at once, their parts included:
+/// places of their own beside the signed-in players' four
+/// ([`super::central::IN_FLIGHT`]), which they never hold.
+pub const IN_FLIGHT: usize = 2;
+
 /// The least a key for the devices' pseudonyms may hold.
 const MIN_KEY_CHARS: usize = 16;
 
@@ -238,8 +243,9 @@ pub async fn post_direct(
         ));
     };
     // Its parts are held in memory on their way: no waiting for a place
-    // here, where nobody vouches for the sender.
-    let Ok(slot) = feedback.in_flight.clone().try_acquire_owned() else {
+    // here, where nobody vouches for the sender, and none of the places
+    // signed-in players wait for.
+    let Ok(slot) = feedback.direct_in_flight.clone().try_acquire_owned() else {
         return Err(err(
             StatusCode::SERVICE_UNAVAILABLE,
             "too many reports on their way; try again",

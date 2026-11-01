@@ -98,6 +98,10 @@ pub struct Feedback {
     in_flight: std::sync::Arc<tokio::sync::Semaphore>,
     /// Parts uploading to Central at once ([`central::UPLOADS`]).
     uploads: std::sync::Arc<tokio::sync::Semaphore>,
+    /// Direct reports on their way to Central at once
+    /// ([`direct::IN_FLIGHT`]): places of their own, so reports nobody
+    /// vouches for never hold the signed-in players' [`Feedback::in_flight`].
+    direct_in_flight: std::sync::Arc<tokio::sync::Semaphore>,
     /// `BAYLEE_DIRECT_REPORT_KEY`, hashed: what a device's pseudonym is made
     /// with; none = no direct reports (`direct.rs`).
     direct_key: Option<[u8; 32]>,
@@ -167,6 +171,7 @@ impl Feedback {
             to_central: false,
             in_flight: std::sync::Arc::new(tokio::sync::Semaphore::new(central::IN_FLIGHT)),
             uploads: std::sync::Arc::new(tokio::sync::Semaphore::new(central::UPLOADS)),
+            direct_in_flight: std::sync::Arc::new(tokio::sync::Semaphore::new(direct::IN_FLIGHT)),
             direct_key: None,
             direct_per_address: crate::auth::RateLimiter::new(REPORT_WINDOW, direct::PER_ADDRESS),
             direct_in_all: crate::auth::RateLimiter::new(REPORT_WINDOW, direct::PER_GATEWAY),
@@ -950,6 +955,7 @@ mod tests {
             to_central: false,
             in_flight: std::sync::Arc::new(tokio::sync::Semaphore::new(1)),
             uploads: std::sync::Arc::new(tokio::sync::Semaphore::new(1)),
+            direct_in_flight: std::sync::Arc::new(tokio::sync::Semaphore::new(1)),
             direct_key: None,
             direct_per_address: crate::auth::RateLimiter::new(REPORT_WINDOW, 1),
             direct_in_all: crate::auth::RateLimiter::new(REPORT_WINDOW, 1),

@@ -148,9 +148,9 @@ changes is where the report goes and in what shape:
   keeps it (at most 64 MiB) or the client's `local_record` (at most 4 MiB,
   `origin: "client"`). One larger than that goes without, with a line in
   the log. A client's record is read first as the service reads one (a
-  game record's header first, then only its own lines, at most 32 MiB
-  unpacked; `baylee_account::client_record`), because Central never unpacks
-  it: one that is not a game record is `400`, one that unpacks past the
+  game record's header first, then only its own lines, every gzip member
+  of it and at most 32 MiB unpacked in all; `baylee_account::client_record`),
+  because Central never unpacks it: one that is not a game record is `400`, one that unpacks past the
   bound `413`. The parts follow the answer: the player is told once the
   metadata is filed, so a slow upload never makes a filed report look lost
   (and sent again). The gateway uploads two at a time, as many as Central
@@ -195,8 +195,9 @@ changes is where the report goes and in what shape:
   so the same value as the service's `FEEDBACK_DIRECT_KEY` keeps a device's
   reports linkable across the move. Its record is the client's
   (`origin: "client"`), checked as a `local_record` is, its shape included.
-  A report waits for no place among the four on their way: none free is
-  `503` at once. Without `BAYLEE_REPORTS_TO=central`, the bridge or the
+  Direct reports have two places of their own on the way to Central, apart
+  from the signed-in players' four, and wait for none: none free is `503`
+  at once. Without `BAYLEE_REPORTS_TO=central`, the bridge or the
   key, `503`. A client sends there when its build or settings name
   that address (`docs/client.md`, `BAYLEE_REPORT_PUBLIC_URL`, `report_url`);
   the offline count stays with the service.

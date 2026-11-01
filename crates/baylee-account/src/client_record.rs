@@ -40,6 +40,12 @@ pub enum NotARecord {
 /// replays is for the build its header names (`baylee_gamehost::record`),
 /// and nothing here claims it does.
 ///
+/// Every gzip member is read, under one bound for all of them together:
+/// whoever keeps the bytes keeps them all, and `gunzip` or a multi-member
+/// reader (the gateway's own records are one member per piece) unpacks
+/// them all, so a small first member must not vouch for a bomb behind it.
+/// Bytes after the last member that are not one are unreadable.
+///
 /// # Errors
 ///
 /// [`NotARecord`] says which way it is not one.
@@ -48,7 +54,7 @@ pub fn check_record(gzip: &[u8]) -> Result<(), NotARecord> {
         return Err(NotARecord::TooLarge);
     }
     let mut text = String::new();
-    flate2::read::GzDecoder::new(gzip)
+    flate2::read::MultiGzDecoder::new(gzip)
         .take(MAX_CLIENT_RECORD_UNPACKED + 1)
         .read_to_string(&mut text)
         .map_err(|_| NotARecord::Unreadable)?;
@@ -153,5 +159,32 @@ mod tests {
         let packed = gz(&body);
         assert!(packed.len() < MAX_CLIENT_RECORD_BYTES);
         assert_eq!(check_record(&packed), Err(NotARecord::UnpacksTooLarge));
+    }
+
+    /// Every member counts: a record whose first member is a small, whole
+    /// record and whose second unpacks past the bound is refused, a record
+    /// in two members reads as one, and bytes after the last member that
+    /// are not a member are unreadable.
+    #[test]
+    fn every_member_is_read_under_one_bound() {
+        let small = gz(&format!("{HEADER}\n"));
+        assert_eq!(check_record(&small), Ok(()));
+        let mut bombed = small.clone();
+        bombed.extend(gz(
+            &" ".repeat(usize::try_from(MAX_CLIENT_RECORD_UNPACKED).unwrap() + 1)
+        ));
+        assert!(bombed.len() < MAX_CLIENT_RECORD_BYTES);
+        assert_eq!(check_record(&bombed), Err(NotARecord::UnpacksTooLarge));
+        let input =
+            r#"{"kind":"input","n":0,"at":0,"seat":0,"by":"seat","action":"Pass","hash":"01"}"#;
+        let mut two = small.clone();
+        two.extend(gz(&format!("{input}\n")));
+        assert_eq!(check_record(&two), Ok(()));
+        let mut header_twice = small.clone();
+        header_twice.extend(small.clone());
+        assert_eq!(check_record(&header_twice), Err(NotARecord::NotARecord));
+        let mut trailing = small;
+        trailing.extend_from_slice(b"not gzip");
+        assert_eq!(check_record(&trailing), Err(NotARecord::Unreadable));
     }
 }

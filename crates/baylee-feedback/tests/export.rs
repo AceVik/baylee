@@ -76,8 +76,10 @@ async fn the_open_reports_go_out_as_lines_central_takes() {
 }
 
 /// Six reports: an open bug with a note, a history line and a record; an
-/// open crash without words; one resolved, one in the trash, one whose
-/// reporter is not hex, and an open reported chat message, which stays. The open bug's id, and its record.
+/// open crash without words, whose client record hides a bomb behind a
+/// small first gzip member; one resolved, one in the trash, one whose
+/// reporter is not hex, and an open reported chat message, which stays.
+/// The open bug's id, and its record.
 async fn seed(db: &sea_orm::DatabaseConnection) -> (Uuid, Vec<u8>) {
     let record = gzip(b"{\"kind\":\"header\"}\n");
     let (open, crash, done, trashed, odd, chat) = (
@@ -159,6 +161,10 @@ async fn seed(db: &sea_orm::DatabaseConnection) -> (Uuid, Vec<u8>) {
             hex(&record)
         ),
         format!(
+            "UPDATE feedback_report SET record = decode('{}', 'hex'), record_origin = 'client' WHERE id = '{crash}'",
+            hex(&bombed())
+        ),
+        format!(
             "INSERT INTO feedback_note (id, report_id, author, text) VALUES ('{}', '{open}', 'viktor', 'Looks like the stack')",
             Uuid::now_v7()
         ),
@@ -173,6 +179,14 @@ async fn seed(db: &sea_orm::DatabaseConnection) -> (Uuid, Vec<u8>) {
     }
 
     (open, record)
+}
+
+/// A client's record whose first gzip member is a whole small record and
+/// whose second unpacks past 32 MiB.
+fn bombed() -> Vec<u8> {
+    let mut bombed = gzip(b"{\"kind\":\"header\",\"record\":1,\"build\":\"0.1.1\"}\n");
+    bombed.extend(gzip(" ".repeat(33 * 1024 * 1024).as_bytes()));
+    bombed
 }
 
 /// The two lines say what the reports held, within Central's bounds.
@@ -222,5 +236,8 @@ fn the_lines_say(lines: &[&str], open: Uuid, record: &[u8]) {
         second["crash"],
         serde_json::json!({"message": "boom", "location": "a.rs:1"})
     );
-    assert!(second["record"].is_null());
+    assert!(
+        second["record"].is_null(),
+        "a client's record with a bomb behind its first member is left out"
+    );
 }
