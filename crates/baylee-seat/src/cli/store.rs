@@ -17,6 +17,9 @@ impl SessionDir {
     pub(super) fn new(seat: u8) -> std::io::Result<Self> {
         let root = std::env::temp_dir().join(format!("baylee-cli-{seat}-{}", unique()));
         private_dir(&root)?;
+        // The path the CLI is told is the one it finds itself in: macOS's
+        // temp dir is under the `/var` -> `/private/var` link.
+        let root = root.canonicalize()?;
         let dir = Self { root };
         private_dir(&dir.work())?;
         private_dir(&dir.tmp())?;
@@ -134,6 +137,7 @@ impl Store {
     pub(super) fn new(seat: u8) -> std::io::Result<Self> {
         let root = std::env::temp_dir().join(format!("{STORE_PREFIX}{seat}-{}", unique()));
         private_dir(&root)?;
+        let root = root.canonicalize()?;
         let store = Self { root };
         private_dir(&store.work())?;
         private_dir(&store.data())?;
