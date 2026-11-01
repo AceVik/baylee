@@ -4,6 +4,8 @@
 //! Set: STH #37 — Stronghold | Scryfall ID: 09891c87-eb74-4174-ad46-11a7f79de859 | Oracle ID: f1a16f6d-ea11-485e-8c5b-7f919a731fe0
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

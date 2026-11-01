@@ -3,6 +3,8 @@
 //! Set: CMM #884 — Commander Masters | Scryfall ID: 9bc359b0-8886-415b-a497-e98a2241084e | Oracle ID: eccc9a54-2b56-4a02-9926-258d5b2e25fb
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

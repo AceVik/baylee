@@ -4,6 +4,8 @@
 //! Set: MKC #131 — Murders at Karlov Manor Commander | Scryfall ID: 3dd34a1a-e76b-46ee-be8d-5f7f4a092648 | Oracle ID: 699b192c-f3f2-4ac5-9ca9-e35bcf08ad8a
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(

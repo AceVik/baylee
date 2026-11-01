@@ -5,6 +5,8 @@
 //! Set: ME2 #209 — Masters Edition II | Scryfall ID: 7d4f3248-2b3f-42b3-9a9f-77309bb46c34 | Oracle ID: 120e9013-b07b-49d9-8b86-f6c26315581d
 // GENERATED STUB — implement abilities + tests, see docs/card-dsl.md.
 
+// Held back: Unsafe rule approximation found in Argon PR 394: missing printed cost, restriction, drawback, choice or target/zone semantics; the concrete finding for this card is recorded in docs/history/2026-10-23-argon-review.md.
+
 use baylee_cards_dsl::prelude::*;
 
 card!(
