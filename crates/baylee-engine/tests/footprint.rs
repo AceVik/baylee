@@ -91,7 +91,11 @@ const CACHE_BUDGET: usize = 8;
 /// entered (`GameObject::chosen_card_type`, Serra's Emissary). Its
 /// `Option<TypeSet>` is four bytes; the object's alignment rounds that to
 /// the same eight-byte step a boxed record would cost.
-const OBJECT_BUDGET: usize = 304;
+///
+/// Lowered 304 → 296 the same day: the chosen card type is a rider
+/// (`Rider::ChosenCardType`), as the second chosen basic land type is, since
+/// one card in the pool chooses one.
+const OBJECT_BUDGET: usize = 296;
 
 #[test]
 fn game_object_stays_within_its_budget() {

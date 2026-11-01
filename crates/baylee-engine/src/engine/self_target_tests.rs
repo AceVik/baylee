@@ -180,7 +180,7 @@ fn filtered_player_protection_reads_the_granting_sources_chosen_card_type() {
             .state
             .object_mut(source)
             .expect("the synthetic source is on the battlefield")
-            .chosen_card_type = Some(chosen);
+            .set_chosen_card_type(chosen);
         protect(
             &mut engine,
             Modifier::PlayerProtectionFrom {

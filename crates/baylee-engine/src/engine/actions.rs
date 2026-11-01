@@ -1470,7 +1470,7 @@ impl<L: CardLookup> Engine<L> {
                     return Err(EngineError::IllegalAction("no card-type choice pending"));
                 };
                 if let Some(obj) = self.state.object_mut(object) {
-                    obj.chosen_card_type = Some(card_type);
+                    obj.set_chosen_card_type(card_type);
                 }
                 self.state.invalidate_projections();
                 Ok(())
