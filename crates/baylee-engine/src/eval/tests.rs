@@ -1214,9 +1214,15 @@ fn life_below_starting_reads_each_players_own_starting_total() {
     assert!(!condition_holds(&state, P0, source, condition), "20 of 20");
     state.players[0].life = 19;
     assert!(condition_holds(&state, P0, source, condition));
-    assert!(!condition_holds(&state, P1, source, condition), "the other seat");
+    assert!(
+        !condition_holds(&state, P1, source, condition),
+        "the other seat"
+    );
     state.players[0].life = 25;
     assert!(!condition_holds(&state, P0, source, condition), "above it");
     state.players[0].starting_life = 40;
-    assert!(condition_holds(&state, P0, source, condition), "a 40-life start");
+    assert!(
+        condition_holds(&state, P0, source, condition),
+        "a 40-life start"
+    );
 }

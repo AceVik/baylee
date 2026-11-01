@@ -12,12 +12,26 @@ fn the_birth_of_meletis() -> CardIndex {
 #[test]
 fn birth_of_meletis_plays_all_chapters_then_sacrifices_itself() {
     let (p0, p1) = (PlayerId::new(0), PlayerId::new(1));
-    let mut e = Duel::new(SEED, plains())
+    // A library of Forests holding one basic Plains and one nonbasic Plains
+    // (Savannah): "basic Plains" offers the first alone.
+    let mut e = Duel::new(SEED, forest())
         .battlefield(0, &[plains(), plains()])
-        .hand(0, &[the_birth_of_meletis()])
+        .hand(0, &[the_birth_of_meletis(), plains(), savannah()])
         .start();
     keep_mulligans(&mut e);
     reach_main_phase(&mut e, p0);
+    let basic = in_hand(&e, p0, plains()).expect("the basic Plains");
+    let nonbasic = in_hand(&e, p0, savannah()).expect("Savannah");
+    for card in [basic, nonbasic] {
+        e.state
+            .move_object(
+                card,
+                ZoneLocation::Library(p0),
+                crate::zone::ZonePosition::Top,
+                crate::event::Cause::Effect,
+            )
+            .unwrap();
+    }
     cast_from_hand(&mut e, p0, the_birth_of_meletis());
     pass_until(&mut e, |e| {
         matches!(e.pending(), Pending::ChooseCards { .. })
@@ -38,14 +52,12 @@ fn birth_of_meletis_plays_all_chapters_then_sacrifices_itself() {
         (0, 1),
         "a hidden-library search for a named quality may fail to find"
     );
-    assert!(!options.is_empty());
-    assert!(options.iter().all(|id| {
-        e.state()
-            .object(*id)
-            .and_then(|o| o.card)
-            .is_some_and(|card| card.index == plains())
-    }));
-    let found = options[0];
+    assert_eq!(
+        options,
+        vec![basic],
+        "neither a Forest nor a nonbasic Plains is offered"
+    );
+    let found = basic;
     e.apply(
         p0,
         PlayerAction::ChooseObjects {
@@ -100,4 +112,8 @@ fn birth_of_meletis_plays_all_chapters_then_sacrifices_itself() {
         e.state().object(wall).expect("Wall remains").zone,
         Zone::Battlefield
     );
+}
+
+fn savannah() -> CardIndex {
+    card_index("703243f0-8cb3-420f-958f-5fd4bde30293")
 }
