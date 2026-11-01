@@ -1707,7 +1707,7 @@ async fn opencode_goes_on_with_its_conversation_by_its_id() {
     let db = database(&starts[0]);
     let store = db.parent().and_then(Path::parent).unwrap().to_path_buf();
     assert!(
-        store.starts_with(std::env::temp_dir()),
+        store.starts_with(std::env::temp_dir().canonicalize().unwrap()),
         "{}",
         store.display()
     );
