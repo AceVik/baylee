@@ -16,6 +16,12 @@ pub(super) fn certified_run(run: &Value) -> bool {
     if !run["search"].is_null() {
         return false;
     }
+    // A run that bound another card catalog observed with it; this
+    // converter re-encodes with its own, so the recorded probabilities
+    // would belong to other observations.
+    if !run["catalog"].is_null() {
+        return false;
+    }
     match (run["policy_mode"].as_str(), run["policy_contract"].as_str()) {
         (Some("raw"), Some("raw_neural_sampler2_v1")) => run["temperature"]
             .as_f64()
@@ -89,6 +95,21 @@ mod tests {
             assert!(!certified_run(&source), "{mode}");
             source["search"] = Value::Null;
             assert!(certified_run(&source), "an explicit null names no search");
+        }
+    }
+
+    #[test]
+    fn a_run_on_another_catalog_certifies_no_policy_gradient_dataset() {
+        for mode in ["raw", "tactical"] {
+            let mut source = raw();
+            if mode == "tactical" {
+                source["policy_mode"] = json!("tactical");
+                source["policy_contract"] = json!("tactical_house_demonstrations_v1");
+            }
+            source["catalog"] = json!({"policy": "drift", "learner": {}, "opponent": null});
+            assert!(!certified_run(&source), "{mode}");
+            source["catalog"] = Value::Null;
+            assert!(certified_run(&source), "an explicit null names no catalog");
         }
     }
 }

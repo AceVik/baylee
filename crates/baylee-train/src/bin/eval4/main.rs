@@ -92,6 +92,9 @@ fn main() -> anyhow::Result<()> {
     } else {
         Some(inspect_model_identity(&args.model)?)
     };
+    if let Some(refusal) = catalog_refusal(&args) {
+        bail!(refusal);
+    }
     let collection = collector::Contract::new(&args, model_identity.as_ref())?;
     if let Some(refusal) = search_refusal(&args, &collection, model_identity.as_ref()) {
         bail!(refusal);

@@ -265,6 +265,19 @@ const fn catalog_policy(args: &Args) -> CatalogPolicy4 {
     }
 }
 
+/// Why `--catalog-superset`/`--catalog-drift` cannot run with `args`, if
+/// they cannot: only an evaluation may bind another catalog. `convert4`
+/// re-encodes every record with this build's whole catalog, so a recorded
+/// probability would belong to another observation than the one converted.
+fn catalog_refusal(args: &Args) -> Option<&'static str> {
+    (catalog_policy(args) != CatalogPolicy4::Exact
+        && args.collection_purpose != collector::Purpose::Evaluation)
+        .then_some(
+            "--catalog-superset and --catalog-drift are for evaluation only: \
+             convert4 re-encodes with this build's catalog",
+        )
+}
+
 /// What `run.json` and the summary say about the card catalog when a run
 /// accepts another than this build's: each model's binding.
 fn catalog_metadata(

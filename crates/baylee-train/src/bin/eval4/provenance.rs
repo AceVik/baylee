@@ -66,4 +66,34 @@ mod producer_tests {
             "a run on this build's own catalog records nothing new"
         );
     }
+
+    /// Only an evaluation binds another catalog: convert4 re-encodes with
+    /// this build's, so a collection's probabilities would not match.
+    #[test]
+    fn a_catalog_other_than_this_builds_is_refused_outside_evaluation() {
+        let parse = |extra: &[&str]| {
+            let mut argv = vec!["eval4", "--model", "m", "--out", "o"];
+            argv.extend_from_slice(extra);
+            Args::try_parse_from(argv).unwrap()
+        };
+        for catalog in ["--catalog-superset", "--catalog-drift"] {
+            assert_eq!(catalog_refusal(&parse(&[catalog])), None, "{catalog}");
+            assert_eq!(
+                catalog_refusal(&parse(&["--collection-purpose", "evaluation", catalog])),
+                None
+            );
+            for purpose in ["on-policy-training", "failure_terminal_research_v1"] {
+                assert!(
+                    catalog_refusal(&parse(&["--collection-purpose", purpose, catalog]))
+                        .is_some(),
+                    "{purpose} {catalog}"
+                );
+                assert_eq!(
+                    catalog_refusal(&parse(&["--collection-purpose", purpose])),
+                    None,
+                    "{purpose} on this build's catalog"
+                );
+            }
+        }
+    }
 }

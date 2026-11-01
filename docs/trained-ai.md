@@ -621,6 +621,13 @@ trees. Read such an evaluation with that caveat: it measures the export on
 this build's rules, knowing the drifted and appended cards only by their
 summaries.
 
+Both flags are for evaluation only: `eval4` refuses them with any other
+`--collection-purpose`. `convert4` re-encodes every record with this build's
+whole catalog, so a probability recorded under another binding would belong
+to another observation. A run that names `catalog` therefore never
+certifies a policy-gradient dataset (`certified_run`), and an on-policy
+source that names one is refused (`RunBinding::load`).
+
 `v6s-selfimit/s1` against this branch (1 November 2026): of its 39,496 roots,
 39,492 are unchanged, none are gone, 176 are new (51 cards and tokens
 appended), and 4 changed: Mana Drain (card 623, `5c5bda190`) and Everybody
