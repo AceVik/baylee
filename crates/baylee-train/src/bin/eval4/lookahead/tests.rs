@@ -379,7 +379,11 @@ fn a_critic_that_likes_lands_changes_answers_and_the_game_still_plays() {
     });
     assert_eq!(strict.changed, 0, "a land is worth 0.05 here");
     assert_eq!(
-        passive_land_game(Selection4::default()).changed,
+        passive_land_game(Selection4::Paired {
+            margin: 0.05,
+            z: 1.0
+        })
+        .changed,
         0,
         "one world clears no standard error"
     );
@@ -426,11 +430,19 @@ fn search_is_refused_where_it_cannot_run() {
             .unwrap()
             .unwrap()
             .selection(),
+        Selection4::Prior { c: 1.0 },
+        "the policy's prior at weight 1 unless told otherwise"
+    );
+    assert_eq!(
+        selected(&["--search", "4,2,3", "--search-select", "paired"])
+            .unwrap()
+            .unwrap()
+            .selection(),
         Selection4::Paired {
             margin: 0.05,
             z: 1.0
         },
-        "paired with a margin and one standard error unless told otherwise"
+        "paired keeps its margin and one standard error"
     );
     let prior = selected(&[
         "--search",
@@ -444,5 +456,9 @@ fn search_is_refused_where_it_cannot_run() {
     .unwrap();
     assert_eq!(prior.selection(), Selection4::Prior { c: 2.0 });
     assert_eq!(prior.metadata()["selection"]["c"], 2.0);
-    assert!(selected(&["--search", "4,2,3", "--search-margin=-0.1"]).is_err());
+    assert!(
+        selected(&["--search", "4,2,3", "--search-margin=-0.1"]).is_err(),
+        "a wrong value is refused whichever rule is chosen"
+    );
+    assert!(selected(&["--search", "4,2,3", "--search-prior-c=-1"]).is_err());
 }

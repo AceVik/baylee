@@ -123,12 +123,15 @@ struct Args {
     /// default; evaluation against the house only. Budgets are counts.
     #[arg(long)]
     search: Option<SearchConfig4>,
-    /// How a search chooses: `paired` keeps the policy's answer unless
-    /// another's mean improvement over it, world by world, exceeds
-    /// `max(--search-margin, --search-z · se)`; `prior` adds
-    /// `--search-prior-c · prior / (1 + worlds)` to each mean; `mean` takes
-    /// the best mean (v1).
-    #[arg(long, value_enum, default_value_t = SearchSelect::Paired)]
+    /// How a search chooses: `prior` (the default) adds
+    /// `--search-prior-c · prior / (1 + worlds)` to each mean, so the
+    /// policy's answer stays unless the worlds outweigh the policy's
+    /// confidence; `paired` keeps the policy's answer unless another's mean
+    /// improvement over it, world by world, exceeds
+    /// `max(--search-margin, --search-z · se)`; `mean` takes the best mean
+    /// (v1). Why `prior` is the default: `docs/trained-ai.md` §"Lookahead
+    /// search".
+    #[arg(long, value_enum, default_value_t = SearchSelect::Prior)]
     search_select: SearchSelect,
     /// `paired`: the smallest mean improvement that overrides the policy.
     #[arg(long, default_value_t = 0.05)]
@@ -156,19 +159,26 @@ enum SearchSelect {
 /// The run's search, its budgets and selection together; `None` without
 /// `--search`.
 fn search_config(args: &Args) -> anyhow::Result<Option<SearchConfig4>> {
+    let Some(config) = args.search else {
+        return Ok(None);
+    };
+    // Every selection parameter is checked, the chosen rule's or not: a
+    // value given wrong is refused, not ignored.
+    let paired = Selection4::Paired {
+        margin: args.search_margin,
+        z: args.search_z,
+    }
+    .validate()?;
+    let prior = Selection4::Prior {
+        c: args.search_prior_c,
+    }
+    .validate()?;
     let selection = match args.search_select {
         SearchSelect::Mean => Selection4::Mean,
-        SearchSelect::Paired => Selection4::Paired {
-            margin: args.search_margin,
-            z: args.search_z,
-        },
-        SearchSelect::Prior => Selection4::Prior {
-            c: args.search_prior_c,
-        },
+        SearchSelect::Paired => paired,
+        SearchSelect::Prior => prior,
     };
-    args.search
-        .map(|config| config.with_selection(selection))
-        .transpose()
+    config.with_selection(selection).map(Some)
 }
 
 #[derive(Default)]

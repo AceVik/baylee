@@ -731,17 +731,26 @@ seeds and the net's sampling stream), so its scores pair with the policy's
 answer's world by world. The policy's answer is played unless the selection
 (`Selection4`, `--search-select`) finds another better:
 
-- `paired` (the default; `--search-margin 0.05 --search-z 1.0`): candidate i
-  overrides only if its mean paired improvement d̄ᵢ = mean over worlds of
+- `prior` (the default, `--search-prior-c 1.0`): the PUCT exploitation
+  score with equal visits, meanᵢ + c · priorᵢ / (1 + n), where priorᵢ is the
+  policy's probability of the answer (softmax of the raw logits over every
+  legal answer) and n the complete rounds. The policy's preference fades as
+  worlds accumulate; the best score wins, ties to the policy's answer.
+- `paired` (`--search-margin 0.05 --search-z 1.0`): candidate i overrides
+  only if its mean paired improvement d̄ᵢ = mean over worlds of
   (scoreᵢ − score₀) exceeds max(margin, z · se), se being the standard error
   of those differences. With one world there is no standard error and only
   z = 0 can override. Of the candidates that pass, the largest d̄ wins.
-- `prior` (`--search-prior-c 1.0`): the PUCT exploitation score with equal
-  visits, meanᵢ + c · priorᵢ / (1 + n), where priorᵢ is the policy's
-  probability of the answer (softmax of the raw logits over every legal
-  answer) and n the complete rounds. The policy's preference fades as worlds
-  accumulate; the best score wins, ties to the policy's answer.
 - `mean`: v1's best mean, ties to the policy's answer, then candidate order.
+
+`paired` is not the default. It guards against noise between worlds, and on
+s1 there was little: with greedy rollouts and leaves inside the turn, the
+re-dealt hidden cards often change nothing, so the paired differences agree
+in every world and their standard error is 0, and only the margin is left
+to guard. Against what remained, the value head's consistent preference for
+a pass in some positions, it replaced one land drop in seven with a pass
+(14 of 93), at gains of 0.07 to 0.27; `prior` asks for more evidence the
+surer the policy is and replaced 3 of 79 (measured below).
 
 Research-utility critics are refused at start-up.
 
@@ -768,8 +777,9 @@ log-probability, so PPO actor masks (`source_kind == 0`) never take it; and
 certifies a policy-gradient dataset.
 
 **Options.** `--search K,P,H` (off by default; K 1..=32, P 1..=256,
-H 0..=10000), `--search-select paired|prior|mean` with `--search-margin`,
-`--search-z` and `--search-prior-c` (finite, non-negative), and
+H 0..=10000), `--search-select prior|paired|mean` (default `prior`) with
+`--search-prior-c` (default 1), `--search-margin` and `--search-z` (finite,
+non-negative; run metadata names the selection used and the default), and
 `--search-max-decisions-per-game N` (0 = no cap; later decisions answer
 without searching, counted as `budget`). Refused with
 `--legacy-v3`, a frozen or self-play opponent or any collection purpose but
@@ -861,7 +871,8 @@ from the leaves.
 
 So the paired test guards against world-to-world noise, not against the
 critic's systematic misjudgement; the prior rule does, by asking more
-evidence the surer the policy is. A margin calibrated on the value head's
+evidence the surer the policy is, and is the default since (1 November
+2026). A margin calibrated on the value head's
 validation error, more worlds, or sampled rollouts would give the paired
 test something to measure; none of the three rules is evidence of a stronger
 player yet. An earlier v2 that scored a settled pass in the root's own phase

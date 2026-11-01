@@ -64,12 +64,15 @@ pub enum Selection4 {
     },
 }
 
+/// The default: [`Selection4::Prior`] with `c = 1`. On s1 it left land drops
+/// and casts alone where [`Selection4::Paired`] replaced one land drop in
+/// seven with a pass: the value head prefers the pass there consistently,
+/// and with greedy rollouts and leaves inside the turn the worlds often
+/// vary not at all (a standard error of 0), so only the margin was left to
+/// guard (`docs/trained-ai.md` §"Lookahead search").
 impl Default for Selection4 {
     fn default() -> Self {
-        Self::Paired {
-            margin: 0.05,
-            z: 1.0,
-        }
+        Self::Prior { c: 1.0 }
     }
 }
 
@@ -197,6 +200,7 @@ impl SearchConfig4 {
             "leaf": "terminal_side_utility_else_k0_observation_value_of_the_seat",
             "prior": "softmax_of_raw_logits_over_every_legal_answer",
             "selection": self.selection,
+            "default_selection": Selection4::default(),
             "provenance": "search_without_behavior_logprob",
         })
     }

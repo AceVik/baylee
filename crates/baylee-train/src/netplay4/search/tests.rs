@@ -414,7 +414,10 @@ fn a_gain_inside_the_margin_leaves_the_policys_answer() {
     assert!(changed(Selection4::Mean), "v1 takes a gain of 0.01");
     assert!(!changed(paired), "0.01 is inside a margin of 0.05");
     assert!(
-        !changed(Selection4::default()),
+        !changed(Selection4::Paired {
+            margin: 0.05,
+            z: 1.0
+        }),
         "one world cannot clear a standard error"
     );
 }
@@ -657,7 +660,10 @@ fn budgets_parse_as_counts_within_bounds() {
         assert!(bad.parse::<SearchConfig4>().is_err(), "{bad}");
     }
     assert_eq!(parsed.metadata()["contract"], SEARCH_CONTRACT);
-    assert_eq!(parsed.selection(), Selection4::default());
+    assert_eq!(parsed.selection(), Selection4::Prior { c: 1.0 });
+    assert_eq!(Selection4::default(), Selection4::Prior { c: 1.0 });
+    assert_eq!(parsed.metadata()["selection"]["rule"], "prior");
+    assert_eq!(parsed.metadata()["default_selection"]["rule"], "prior");
     for bad in [
         Selection4::Paired {
             margin: -0.01,
